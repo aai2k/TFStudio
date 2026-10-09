@@ -8,12 +8,11 @@ If something here matters to your work, or something you need is missing, open a
 
 ## Next
 
-- **Pulse Analysis.** Propagate Gaussian, sech-squared or measured pulses through a coating and show temporal broadening, spectral phase and residual chirp.
-
+a non-polarizing edge filter tool (give the edge wavelength, the angle and two materials, get a stack whose s and p edges coincide), evaluating a system built from several coated parts, rugate and graded-index synthesis, laser damage threshold estimation, and glazing U and g values
 
 ## After that
 
-rugate and graded-index synthesis, laser damage threshold estimation, optimizing across multiple environments at once, glazing U and g values, and CODE V sequence export
+optimizing across multiple environments at once
 
 ## Under consideration
 
