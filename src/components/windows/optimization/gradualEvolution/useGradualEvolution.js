@@ -191,6 +191,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
 
     // ── Stop ──────────────────────────────────────────────────────────────────
     const stopOpt = useCallback((msg = '') => {
+        const wasRunning = run.runningRef.current;
         run.runningRef.current = false;
         clearTimeout(run.timerRef.current);
         if (run.workerRef.current) {
@@ -198,7 +199,9 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
             run.workerRef.current = null;
         }
         run.setPhase('idle');
-        if (msg) run.setStatusMsg(msg);
+        // Stopping a run clears the phase text it was showing; a finished run's
+        // reason stays when Best or Restore is pressed after it.
+        if (msg || wasRunning) run.setStatusMsg(msg);
     }, []);
 
     // M12: drop a stale cached base if the user manually edited the design (a

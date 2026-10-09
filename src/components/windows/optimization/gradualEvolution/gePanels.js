@@ -93,7 +93,7 @@ export function ControlBar({ running, generation, layerCount, mf, mfBest, geStep
         design, c, t,
         labels: { run: tg.run, stop: tg.stop, reset: tg.reset, best: tg.best, clearHistory: tg.clearHistory },
         metrics, statusMsg, noOperandsLabel: tg.noOperands,
-        statusColor: c.accent || '#ffa726',
+        statusColor: running ? (c.accent || '#ffa726') : c.textDim,
     });
 }
 
