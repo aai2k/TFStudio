@@ -163,7 +163,7 @@ function InterfaceRow({ side, iface, c, ih, state }) {
         }),
         h(SelectField, {
             value: interlayer?.profile ?? 'linear', c, width: 106,
-            options: PROFILE_IDS.map(profile => ({ id: profile, label: profile })),
+            options: PROFILE_IDS.map(profile => ({ id: profile, label: ih.profiles[profile] })),
             onChange: profile => set({ profile, enabled: true }),
         }),
         h(NumInput, {

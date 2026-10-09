@@ -5,6 +5,7 @@ import {
 import { buildWizardBlock } from '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
 import { FILTER_TYPES } from '../src/utils/physics/optimizer/filterCatalog.js';
 import { FILTER_CATEGORIES, defaultFilterParams } from '../src/utils/physics/optimizer.js';
+import { getLocale } from '../src/constants/locales/index.js';
 
 // The Preset box has five rows: the two dropdowns and at most three field rows,
 // so switching type never changes the box's height. A curve type's Angle and
@@ -37,7 +38,7 @@ assert.equal(polIsFixed('NEUTRAL_BS'), false);
 assert.equal(hasTargetMode('BBAR'), true);
 assert.equal(hasTargetMode('V_COAT'), false);
 
-const tw = { types: {} };
+const tw = { header: getLocale('en').meritFunctionEditor.wizard.header, types: {} };
 const pbs = buildWizardBlock({
     tw, typeId: 'CUSTOM_BS', params: { lamStart: 1565, lamEnd: 1630, rsPct: 100, rpPct: 0 },
     aoi: 44.5, aoiEnd: 45.5, aoiSteps: 3, pol: 'avg', targetMode: 'continuous', stepNm: 1,

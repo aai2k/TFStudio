@@ -1848,6 +1848,8 @@ export default {
     omfLabel:      'OMF:',
     omfTip:        'Optical merit, excluding thickness constraints (MNT/MXT/TT)',
     noOperands:    'No operands. Use the wizard above, or "+ Add" below.',
+    // What a DMFS header row with no text of its own reads.
+    defaultDmfs:   'Default merit function',
     evaluationError: 'Error',
     residualSlack: 'Slack',
     residualRms: 'RMS deviation',
@@ -2067,6 +2069,17 @@ export default {
       targetContinuous:   'Continuous',
       targetDiscrete:     'Discrete points',
       stepNm:             'Step (nm)',
+      // The words of the DMFS header row a generated block starts with. λ, nm,
+      // the channel symbols and the polarization code stay as written.
+      header: {
+        pass:       'pass',
+        stop:       'stop',
+        aoi:        'AOI',
+        steps:      (n) => `${n} steps`,
+        pol:        (pol) => `${pol} pol`,
+        continuous: 'continuous target',
+        discrete:   (step) => `discrete @${step} nm`,
+      },
       fieldOptions: {
         input: { gain: 'Amplifier gain (dB)', target: 'Target loss curve' },
       },
@@ -2252,6 +2265,7 @@ export default {
     warn:    (n) => `${n} materials selected, so scans may be slow.`,
     tooMany: (n, max) => `Too many materials (${n}) for the manual profile. Narrow the pool to ${max} or fewer.`,
     designCatalog: 'This design',
+    builtinCatalog: 'Built-in',
   },
   // The frame the Needle, Gradual Evolution and Structural windows share.
   synthesisShell: {
@@ -3081,6 +3095,18 @@ export default {
     interface:          'Interface',
     thickness:          'Thickness',
     profile:            'Profile',
+    // How the index runs across an interlayer, by profile id.
+    profiles: {
+      linear:       'Linear',
+      parabolic:    'Parabolic',
+      invParabolic: 'Inverse parabolic',
+      exponential:  'Exponential',
+      sigmoid:      'Sigmoid',
+    },
+    // An interface's name for a medium the design leaves unset.
+    mediumIncident:     'Inc',
+    mediumSubstrate:    'Sub',
+    mediumExit:         'Exit',
     slices:             'Slices',
     removeRow:          'Remove',
     helpText:           'Each interlayer is sliced into N sub-layers with linearly mixed n,k. Thickness ADDS at the interface; host layers are not shortened.',
@@ -3126,6 +3152,10 @@ export default {
     optThkOffset:    'Global d-offset',
     optDeltaN:       'Global Δn',
     optDeltaK:       'Global Δk',
+    optMatScale:     (name) => `${name}: d-scale`,
+    optMatOffset:    (name) => `${name}: d-offset`,
+    // The parts a material plays in the design, beside its name.
+    roles: { front: 'front', back: 'back', substrate: 'substrate', incident: 'incident', exit: 'exit' },
     aoi:             'AOI (°)',
     polarization:    'Polarization',
     channel:         'Channel',
@@ -3521,6 +3551,8 @@ export default {
       uvRef:    'Flat (uniform) over 300–380 nm',
       nirRef:   'Flat (uniform) over 780–2500 nm',
     },
+    // Legend entry of the weighting curve, which is drawn scaled to a 100 % peak.
+    weightingCurve: (name) => `${name} (norm.)`,
     noLayers:    'No layers in design.',
     lambdaRange: 'λ',
     step:        'step',
@@ -3563,6 +3595,7 @@ export default {
     axisLinear: 'Linear', axisLog: 'Log',
     title: 'Filter Design Wizard',
     back: 'Back', next: 'Next', finish: 'Finish', help: 'Help',
+    stepOf: (cur, total) => `Step ${cur} of ${total}`,
     noFolder: 'Select a project folder first',
     generateError: (msg) => `Failed to generate design: ${msg}`,
     step1: {

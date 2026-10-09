@@ -76,16 +76,35 @@ export function getLocale(code) {
   return (mergedLocales[code] ||= mergeWithEnglish(en, locales[code]));
 }
 
-export function getCurrentLocale() {
+// The language the UI runs in. The shell renders from it and code outside React
+// reads it with `getCurrentLocale`, so both always agree, whether the language
+// came from settings.json or from the Settings dialog. localStorage keeps a copy
+// for the first frame of the next launch, which is drawn before settings.json
+// has been read.
+let currentLocale = (() => {
   try {
     return localStorage.getItem('locale') || 'en';
   } catch (_) {
     return 'en';
   }
+})();
+const localeListeners = new Set();
+
+export function getCurrentLocale() {
+  return currentLocale;
 }
 
-export function saveLocale(code) {
+export function setCurrentLocale(code) {
+  if (code === currentLocale) return;
+  currentLocale = code;
   try {
     localStorage.setItem('locale', code);
   } catch (_) {}
+  localeListeners.forEach(listener => listener());
+}
+
+// For React's useSyncExternalStore: `listener` runs after every change.
+export function subscribeLocale(listener) {
+  localeListeners.add(listener);
+  return () => localeListeners.delete(listener);
 }

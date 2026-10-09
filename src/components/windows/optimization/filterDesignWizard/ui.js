@@ -53,8 +53,8 @@ export function AxisToggle({ value, onChange, c, t }) {
         btn(value, T.axisLog, true, '0 3px 3px 0'));
 }
 
-export function StepHeader({ step, title, c }) {
+export function StepHeader({ step, title, c, T }) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 12, padding: '4px 0 12px', borderBottom: `1px solid ${c.border}`, marginBottom: 12 } },
-        h('div', { style: { fontSize: 11, color: c.textDim, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 } }, `Step ${step} of 6`),
+        h('div', { style: { fontSize: 11, color: c.textDim, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 600 } }, T.stepOf(step, 6)),
         h('div', { style: { fontSize: 16, fontWeight: 600, color: c.text } }, title));
 }

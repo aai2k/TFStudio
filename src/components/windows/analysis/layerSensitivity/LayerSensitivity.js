@@ -22,7 +22,7 @@ export function LayerSensitivity({ c, theme, t }) {
     const ls = t.layerSensitivity;
     const dt = t.dataTable;
     const columns = sensitivityColumns({ t, c, matColorMap: state.matColorMap });
-    const rows = sensitivityRows(orderedRows, state.frontCount);
+    const rows = sensitivityRows(orderedRows, state.frontCount, design);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_sensitivity.csv`,

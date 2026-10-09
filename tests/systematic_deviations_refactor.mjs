@@ -32,13 +32,13 @@ assert.deepEqual(materialBase.perMaterial.SiO2, {
 const sweepOption = sweepFigure.buildSweepOption({
     lambda: [400, 450],
     paramValues: [0.95, 1, 1.05],
-    paramName: 'Global thickness scale',
     T2D: [[0.8, 0.9], [0.85, 0.95], [0.9, 1]],
     R2D: [[0.2, 0.1], [0.15, 0.05], [0.1, 0]],
     A2D: [[0, 0], [0, 0], [0, 0]],
-}, 'T', makeTheme());
+}, 'T', makeTheme(), 'Global d-scale');
 assert.equal(sweepOption.xAxis[0].type, 'category');
 assert.equal(sweepOption.yAxis[0].type, 'category');
+assert.equal(sweepOption.yAxis[0].name, 'Global d-scale', 'the parameter axis carries the name it is given');
 assert.deepEqual(sweepOption.series[0].data[4], [0, 2, 90]);
 assert.equal(sweepOption.tooltip.transitionDuration, 0);
 

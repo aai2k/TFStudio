@@ -37,9 +37,9 @@ function buildNotices({ state, ih, rangeNotice }) {
 }
 
 export function Inhomogeneities({ c, theme, t }) {
-    const state = useInhomogeneities();
-    const { design, evalMode, inh } = state;
     const ih = t.inhomogeneities;
+    const state = useInhomogeneities(ih);
+    const { design, evalMode, inh } = state;
     const dt = t.dataTable;
     const columns = overlayColumns(t, state.showCurves);
     const rows = overlayRows(state.baseline, state.perturbed, state.showCurves);

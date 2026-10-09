@@ -4,8 +4,15 @@ import { WARN_BADGE_STYLE, matColor } from './materialColors.js';
 import { POOL_WARN_COUNT, poolMatEntries as matEntries } from './catalogPool.js';
 import { synthesisSidebarSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { getCurrentLocale, getLocale } from '../../../../constants/locales/index.js';
 
 const EMPTY_EXPANDED = new Set();
+
+// The built-in catalog is named in the UI language; every other catalog by its
+// own name.
+export function catalogLabel(cat) {
+    return cat.id === 'builtin' ? getLocale(getCurrentLocale()).pool.builtinCatalog : cat.name;
+}
 
 const { createElement: h, useContext } = React;   // React is a window global (never imported)
 
@@ -77,9 +84,9 @@ function CatalogRow({ cat, selectedCats, excluded, isOpen, canPickMat, running, 
                 }),
                 h('span', {
                     style: { color: checked ? c.text : c.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' },
-                    title: cat.name,
+                    title: catalogLabel(cat),
                 },
-                    cat.name, ' ',
+                    catalogLabel(cat), ' ',
                     h('span', { style: { color: c.textDim, fontSize: 10 } }, count)
                 )
             )

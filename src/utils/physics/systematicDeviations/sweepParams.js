@@ -11,15 +11,8 @@
  * varies the magnitude, the unit is fixed by the setup.
  */
 
-// The per-material fields a sweep can vary, with their display labels.
-const MATERIAL_FIELDS = { dn: 'Δn', dk: 'Δk', dScale: 'd-scale', dOffset: 'd-offset' };
-
-const GLOBAL_LABELS = {
-    globalDeltaN:          'Global Δn',
-    globalDeltaK:          'Global Δk',
-    globalThicknessScale:  'Global thickness scale',
-    globalThicknessOffset: 'Global thickness offset',
-};
+// The per-material fields a sweep can vary.
+const MATERIAL_FIELDS = new Set(['dn', 'dk', 'dScale', 'dOffset']);
 
 /**
  * Split `mat:<materialId>:<field>` into its parts, or null if `param` is not a
@@ -33,7 +26,7 @@ export function parseMaterialParam(param) {
     const cut = rest.lastIndexOf(':');
     if (cut <= 0) return null;
     const field = rest.slice(cut + 1);
-    if (!Object.hasOwn(MATERIAL_FIELDS, field)) return null;
+    if (!MATERIAL_FIELDS.has(field)) return null;
     return { id: rest.slice(0, cut), field };
 }
 
@@ -56,13 +49,4 @@ export function applyParamValue(dev, param, v) {
         }
     }
     return dev;
-}
-
-/**
- * Human label for a sweep parameter (for UI / hover text).
- */
-export function paramLabel(param) {
-    if (GLOBAL_LABELS[param]) return GLOBAL_LABELS[param];
-    const mat = parseMaterialParam(param);
-    return mat ? `${mat.id} ${MATERIAL_FIELDS[mat.field]}` : (param || '');
 }

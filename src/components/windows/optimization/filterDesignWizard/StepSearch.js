@@ -248,7 +248,7 @@ export function StepSearch({ p, set, c, t }) {
         [p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.passLevel]); // eslint-disable-line
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-        h(StepHeader, { step: 5, title: T.step5.title, c }),
+        h(StepHeader, { step: 5, title: T.step5.title, c, T }),
         h('div', { style: { display: 'flex', gap: 16 } },
             renderSearchControls({ running, stop, start, status, clearHistory, p, set, c, T }),
             renderCandidateTable({

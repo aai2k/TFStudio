@@ -4,6 +4,7 @@ import {
 } from '../chrome/controls.js';
 import { ControlRow, EditorBody, EditorGroupTitle, FieldGrid } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
+import { matFriendlyName } from '../../optimization/synthesisShared/materialNames.js';
 import { defaultSweepRange, sweepOptions, sweepParamKind } from './model.js';
 
 const { createElement: h } = React;
@@ -212,10 +213,11 @@ function DeviationSettings({ c, sd, state }) {
         h(EditorGroupTitle, { c }, sd.perMaterialSection),
         state.uniqueMats.length === 0
             ? h('div', { style: { color: c.textDim, fontSize: 11 } }, sd.noMaterials)
-            : state.uniqueMats.map(({ id, source }) => h('div', { key: id },
+            : state.uniqueMats.map(({ id, roles }) => h('div', { key: id },
                 h('div', { style: { fontSize: 11, fontWeight: 600, color: c.text, padding: '4px 0 0' } },
-                    id,
-                    h('span', { style: { fontWeight: 400, color: c.textDim, marginLeft: 4 } }, `(${source})`)),
+                    matFriendlyName(id, state.design),
+                    h('span', { style: { fontWeight: 400, color: c.textDim, marginLeft: 4 } },
+                        `(${roles.map(role => sd.roles[role]).join(', ')})`)),
                 h(DeviationFields, {
                     c, sd,
                     values: {
@@ -243,7 +245,7 @@ function SweepSettings({ c, sd, state }) {
             h(SettingRow, { c, label: sd.parameter },
                 h(SelectField, {
                     value: sweep.param, c, width: 200,
-                    options: sweepOptions(state.uniqueMats, sd)
+                    options: sweepOptions(state.uniqueMats, sd, state.design)
                         .map(option => ({ id: option.value, label: option.label })),
                     onChange: param => setSweep(current => ({
                         ...current, param, ...defaultSweepRange(param, current.offsetUnit),

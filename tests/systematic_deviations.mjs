@@ -15,7 +15,7 @@ import {
     enumerateUniqueMaterials,
     perturbLayers, perturbMedium, deviatedDesignForSpec,
     computeDeviatedSpectrum, runDeviationSweep,
-    applyParamValue, paramLabel,
+    applyParamValue,
 } from '../src/utils/physics/systematicDeviations.js';
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../src/utils/physics/thinFilmMath.js';
 import { wrapMaterial } from '../src/utils/misc/variator.js';
@@ -245,8 +245,6 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
         ok(dev.globalThicknessOffset === 6, 'applyParamValue: globalThicknessOffset');
         applyParamValue(dev, 'mat:SiO2:dOffset', 1.5);
         ok(dev.perMaterial.SiO2.dOffset === 1.5, 'applyParamValue: mat:SiO2:dOffset');
-        ok(paramLabel('globalThicknessOffset') === 'Global thickness offset', 'paramLabel: globalThicknessOffset');
-        ok(paramLabel('mat:SiO2:dOffset') === 'SiO2 d-offset', 'paramLabel: mat:SiO2:dOffset');
     }
 }
 
@@ -297,7 +295,7 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
     // deduped to just 'incident', making the exit medium look missing).
     const air = list.find(x => x.id === 'Air');
     ok(air && air.roles.includes('incident') && air.roles.includes('exit'),
-        `enumerate: Air reports both incident+exit roles (got "${air?.source}")`);
+        `enumerate: Air reports both incident+exit roles (got "${air?.roles}")`);
 }
 
 // ── 9) applyParamValue handles every param shape ───────────────────────────
@@ -327,17 +325,6 @@ const PARAMS = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 25, theta: 0, pol
     ok(dev.perMaterial['builtin:SiO2'].dOffset === 2 && dev.perMaterial['builtin:SiO2'].dn === 0.03,
         'applyParamValue: qualified id accumulates fields in one entry');
     ok(dev.perMaterial.builtin === undefined, 'applyParamValue: the source prefix is not treated as a material');
-}
-
-// ── 10) paramLabel produces something human-readable for every shape ──────
-{
-    ok(paramLabel('globalDeltaN')         === 'Global Δn',                'paramLabel: globalDeltaN');
-    ok(paramLabel('globalDeltaK')         === 'Global Δk',                'paramLabel: globalDeltaK');
-    ok(paramLabel('globalThicknessScale') === 'Global thickness scale',   'paramLabel: globalThicknessScale');
-    ok(paramLabel('mat:TiO2:dn')          === 'TiO2 Δn',                  'paramLabel: mat:TiO2:dn');
-    ok(paramLabel('mat:TiO2:dk')          === 'TiO2 Δk',                  'paramLabel: mat:TiO2:dk');
-    ok(paramLabel('mat:TiO2:dScale')      === 'TiO2 d-scale',             'paramLabel: mat:TiO2:dScale');
-    ok(paramLabel('mat:builtin:TiO2:dn')  === 'builtin:TiO2 Δn',          'paramLabel: qualified id');
 }
 
 // ── 11) perturbLayers + perturbMedium do not mutate inputs ────────────────

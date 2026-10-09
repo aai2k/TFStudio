@@ -1,17 +1,25 @@
 import { LockIcon } from '../../../ui/LockIcon.js';
+import { matFriendlyName } from '../../optimization/synthesisShared/materialNames.js';
 import { displayLayerLabel, rankSensitivityRows } from './viewModel.js';
 
 const { createElement: h } = React;
 
 /**
  * One row per perturbed layer, in stack order, each carrying the rank it holds
- * when the layers are sorted by how far the merit function moved.
+ * when the layers are sorted by how far the merit function moved. The material
+ * is named as `design` shows it.
  */
-export function sensitivityRows(orderedRows, frontCount) {
+export function sensitivityRows(orderedRows, frontCount, design) {
+    // A stack repeats a few materials many times, so each is looked up once.
+    const names = new Map();
+    const nameOf = id => {
+        if (!names.has(id)) names.set(id, matFriendlyName(id, design));
+        return names.get(id);
+    };
     return rankSensitivityRows(orderedRows).map((row, index) => ({
         index: index + 1,
         layer: displayLayerLabel(row, frontCount),
-        material: row.materialId || '—',
+        material: row.materialId ? nameOf(row.materialId) : '—',
         thickness: row.thickness,
         deltaNm: row.deltaNm,
         deltaMFAbs: row.deltaMFAbs,

@@ -7,7 +7,6 @@ import {
     deviatedDesignForSpec,
     emptyDeviation,
     enumerateUniqueMaterials,
-    paramLabel,
     runDeviationSweep,
 } from '../../../../utils/physics/systematicDeviations.js';
 import { systematicDeviationsSession } from './sessionState.js';
@@ -126,8 +125,10 @@ export function useSystematicDeviations() {
                     design, params, baseDev: sweepBaseDeviation(sweep), sweep, evalMode,
                     resolveMat: designMaterialLookup(design),
                 });
-                const unit = sweepParamKind(sweep.param) === 'offset' ? ` (${sweep.offsetUnit || 'nm'})` : '';
-                result.paramName = paramLabel(sweep.param) + unit;
+                // The window names the parameter when it draws, in the UI
+                // language of that moment.
+                result.param = sweep.param;
+                result.offsetUnit = sweep.offsetUnit || 'nm';
                 setSweepResult(result);
             } catch (caught) {
                 setError(caught);

@@ -1,4 +1,5 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { matFriendlyName } from '../../optimization/synthesisShared/materialNames.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
@@ -19,21 +20,24 @@ export function activeDesignSides(design, evalMode) {
     return ['front'];
 }
 
-export function designInterfaces(design) {
+// A medium is stored as a material id or as { material: id }.
+const mediumId = medium => (typeof medium === 'string' ? medium : medium?.material);
+
+// The interfaces of each stack, with the media named as the design shows them
+// and the layers numbered as the Design Editor numbers them. Front layers are
+// stored air side first and L1 is the one on the substrate; back layers are
+// stored substrate first, which is already their order. `ih` is
+// t.inhomogeneities, which names a medium the design leaves unset.
+export function designInterfaces(design, ih) {
+    const name = medium => matFriendlyName(mediumId(medium), design);
+    const incident = name(design?.incidentMedium) || ih.mediumIncident;
+    const substrate = name(design?.substrate?.material) || ih.mediumSubstrate;
+    const exit = name(design?.exitMedium) || ih.mediumExit;
+    const frontCount = design?.frontLayers?.length || 0;
     const front = design?.frontLayers
-        ? enumerateInterfaces(
-            design.frontLayers,
-            design.incidentMedium || 'Inc',
-            design.substrate?.material || 'Sub',
-        )
+        ? enumerateInterfaces(design.frontLayers, incident, substrate, i => frontCount - i)
         : [];
-    const back = design?.backLayers?.length
-        ? enumerateInterfaces(
-            design.backLayers,
-            design.substrate?.material || 'Sub',
-            design.exitMedium || 'Exit',
-        )
-        : [];
+    const back = design?.backLayers?.length ? enumerateInterfaces(design.backLayers, substrate, exit) : [];
     return { front, back };
 }
 

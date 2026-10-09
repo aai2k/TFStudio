@@ -55,7 +55,7 @@ function parameterLabelInterval(data) {
     };
 }
 
-function sweepTooltip(sweepData, colors) {
+function sweepTooltip(sweepData, colors, paramName) {
     return {
         trigger: 'item', appendTo: tooltipContainer, confine: true,
         transitionDuration: 0, enterable: false, padding: [5, 7],
@@ -67,13 +67,14 @@ function sweepTooltip(sweepData, colors) {
             const wavelength = sweepData.lambda[value[0]];
             const parameter = sweepData.paramValues[value[1]];
             return `${seriesName}<br/>λ: ${formatChartReadout(wavelength)} nm`
-                + `<br/>${sweepData.paramName || 'Parameter'}: ${formatChartReadout(parameter)}`
+                + `<br/>${paramName}: ${formatChartReadout(parameter)}`
                 + `<br/>${formatChartReadout(value[2])}%`;
         },
     };
 }
 
-export function buildSweepOption(sweepData, channel, colors) {
+/** `paramName` is the swept parameter's name in the UI language. */
+export function buildSweepOption(sweepData, channel, colors, paramName) {
     if (!sweepData?.lambda?.length) return { series: [] };
     const channels = channel === 'all' ? ['T', 'R', 'A'] : [channel];
     const count = channels.length;
@@ -91,7 +92,7 @@ export function buildSweepOption(sweepData, channel, colors) {
     const yLabelInterval = parameterLabelInterval(sweepData.paramValues);
     const yAxis = channels.map((quantity, index) => categoryAxis({
         data: sweepData.paramValues,
-        name: count > 1 ? quantity : (sweepData.paramName || 'Parameter'),
+        name: count > 1 ? quantity : paramName,
         colors, gridIndex: index, labelInterval: yLabelInterval,
     }));
     const series = channels.map((quantity, index) => ({
@@ -115,7 +116,7 @@ export function buildSweepOption(sweepData, channel, colors) {
         colors,
         grid: grids,
         fileName: 'deviation_sweep',
-        tooltip: sweepTooltip(sweepData, colors),
+        tooltip: sweepTooltip(sweepData, colors, paramName),
         xAxis,
         yAxis,
         series,

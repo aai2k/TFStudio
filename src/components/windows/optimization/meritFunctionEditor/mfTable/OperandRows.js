@@ -25,7 +25,7 @@ function rowPress(op, selectRow, beginDrag) {
     };
 }
 
-function DmfsRowView({ op, rowIdx, rowSel, c, onEdit, selectRow, beginDrag, dragOver }) {
+function DmfsRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver }) {
     return h('tr', {
         'data-row': rowIdx,
         onMouseDown: rowPress(op, selectRow, beginDrag),
@@ -60,7 +60,7 @@ function DmfsRowView({ op, rowIdx, rowSel, c, onEdit, selectRow, beginDrag, drag
                 fontSize: 11, borderLeft: `2px solid ${c.accent}50`,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             },
-        }, '▶ DMFS — ' + (op.comment || 'Default merit function')),
+        }, '▶ DMFS — ' + (op.comment || t.meritFunctionEditor.defaultDmfs)),
     );
 }
 
@@ -208,7 +208,7 @@ export function renderOperandRow(ctx, op, rowIdx) {
     const rowSel = selIds.has(op.id);
     const { beginDrag, dragOver } = ctx;
     if (isDmfs(op.type)) {
-        return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, onEdit, selectRow, beginDrag, dragOver });
+        return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver });
     }
     if (isBlank(op.type)) {
         return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver });

@@ -7,9 +7,9 @@
 import { offsetToPhysicalNm } from './deviationSpec.js';
 
 /**
- * Enumerate unique materials referenced in the design — front + back + media.
- * Returns [{ id, source }] in stable insertion order (front first, then back,
- * then substrate/incident/exit). `source` is purely informational for the UI.
+ * Enumerate unique materials referenced in the design: front, back and media.
+ * Returns [{ id, roles }] in stable insertion order (front first, then back,
+ * then substrate/incident/exit). `roles` lists every part the material plays.
  */
 export function enumerateUniqueMaterials(design) {
     if (!design) return [];
@@ -31,7 +31,7 @@ export function enumerateUniqueMaterials(design) {
     add(design.substrate?.material, 'substrate');
     add(design.incidentMedium, 'incident');
     add(design.exitMedium, 'exit');
-    return order.map(id => ({ id, roles: roles.get(id), source: roles.get(id).join(', ') }));
+    return order.map(id => ({ id, roles: roles.get(id) }));
 }
 
 // ── Effective (combined) per-material perturbation ───────────────────────────

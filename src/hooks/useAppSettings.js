@@ -9,7 +9,7 @@
  */
 
 import { getPalette, registerCustomThemes } from '../constants/colorPalettes.js';
-import { getLocale, getCurrentLocale, saveLocale } from '../constants/locales/index.js';
+import { getLocale, getCurrentLocale, setCurrentLocale, subscribeLocale } from '../constants/locales/index.js';
 import { parseVscodeTheme } from '../utils/theme/vscodeTheme.js';
 import {
     cachedAppearance, initialTheme, applyPaletteVariables, uniqueThemeName,
@@ -19,7 +19,7 @@ import { setToolState, toolState, patchToolState } from '../utils/misc/toolState
 import { bootstrapTmmWasm } from '../utils/physics/tmmWasmBootstrap.js';
 import { initTmmWasmMainThread } from '../tmmcore.js';
 
-const { useState, useEffect, useCallback } = React;
+const { useState, useEffect, useCallback, useSyncExternalStore } = React;
 
 // Apply what the settings file named, leaving anything it did not name on the
 // value the app started with.
@@ -45,7 +45,8 @@ export function useAppSettings(setMessageNotification) {
     // palette module so getPalette()/getPaletteNames() see them like built-ins,
     // and persisted in settings.json alongside the selected theme name.
     const [customThemes,   setCustomThemes]   = useState(() => cachedAppearance().customThemes || {});
-    const [locale,         setLocaleState]    = useState(getCurrentLocale());
+    // The third argument is the snapshot a server render of the shell reads.
+    const locale = useSyncExternalStore(subscribeLocale, getCurrentLocale, getCurrentLocale);
     // Ribbon appearance: 'minimalist' (default) keeps ribbon + docking-tab icons
     // monochrome; 'colorful' tints them by group hue.
     const [ribbonStyle,    setRibbonStyle]    = useState(
@@ -85,7 +86,7 @@ export function useAppSettings(setMessageNotification) {
         // settings write both wait on it.
         readAppSettings().catch(() => null).then(loaded => {
             applyLoadedSettings(loaded, {
-                customThemes: setCustomThemes, theme: setTheme, locale: setLocaleState,
+                customThemes: setCustomThemes, theme: setTheme, locale: setCurrentLocale,
                 ribbonStyle: setRibbonStyle, wasmTmm: setWasmTmmState,
                 updateCheckEnabled: setUpdateCheckEnabled, skippedVersion: setSkippedVersion,
             });
@@ -117,8 +118,6 @@ export function useAppSettings(setMessageNotification) {
     }, [settingsLoaded, theme, locale, wasmTmm, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion]);
 
     useEffect(() => { applyPaletteVariables(c); }, [c]);
-
-    const setLocale = (newLocale) => { setLocaleState(newLocale); saveLocale(newLocale); };
 
     // Toggle WASM acceleration: update UI state + apply at runtime (instantiate
     // on first enable, reuse the loaded bytes thereafter). Persists via effect.
@@ -171,7 +170,7 @@ export function useAppSettings(setMessageNotification) {
 
     return {
         c, t,
-        theme, setTheme, locale, setLocale, ribbonStyle, setRibbonStyle,
+        theme, setTheme, locale, setLocale: setCurrentLocale, ribbonStyle, setRibbonStyle,
         customThemes, importThemeFromVscode, deleteCustomTheme,
         wasmTmm, setWasmTmm,
         updateCheckEnabled, setUpdateCheckEnabled, skippedVersion, setSkippedVersion,

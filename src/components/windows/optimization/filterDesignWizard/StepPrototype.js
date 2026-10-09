@@ -99,7 +99,7 @@ export function StepPrototype({ p, set, c, t }) {
         [p.lambda0_nm, p.passHalf_nm, p.stopHalf_nm, p.passLevel]); // eslint-disable-line
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-        h(StepHeader, { step: 4, title: T.step4.title, c }),
+        h(StepHeader, { step: 4, title: T.step4.title, c, T }),
         h('div', { style: { display: 'flex', gap: 16 } },
             // left: table + m/k fields + spacer material
             h('div', { style: { width: 250 } },

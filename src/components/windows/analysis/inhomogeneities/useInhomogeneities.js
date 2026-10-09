@@ -51,7 +51,8 @@ function removeInhomogeneity(previous, side, afterIndex) {
     };
 }
 
-export function useInhomogeneities() {
+// `ih` is t.inhomogeneities, for the names of the interfaces.
+export function useInhomogeneities(ih) {
     const { design, evalMode } = useDesign();
     const [designSession, setDesignField] = useWindowSession(inhomogeneityDesignSession, design);
     // Memoised so the fallback is one stable object: a fresh one per render
@@ -69,7 +70,7 @@ export function useInhomogeneities() {
     const [error, setError] = useState(null);
     const activeSides = activeDesignSides(design, evalMode);
     const hasBack = (design?.backLayers?.length || 0) > 0;
-    const interfaces = useMemo(() => designInterfaces(design), [design]);
+    const interfaces = useMemo(() => designInterfaces(design, ih), [design, ih]);
     // Always averaged: the spectrum carries Ts/Tp, Rs/Rp and As/Ap alongside,
     // so the curve switches pick a polarization without recomputing anything.
     const params = useMemo(() => ({

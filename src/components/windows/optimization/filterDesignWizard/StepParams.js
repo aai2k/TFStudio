@@ -21,7 +21,7 @@ export function StepParams({ p, set, c, t }) {
         { y: p.stopLevel, color: '#e53935', x0: p.lambda0_nm - p.stopHalf_nm, x1: p.lambda0_nm + p.stopHalf_nm },
     ];
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-        h(StepHeader, { step: 2, title: T.step2.title, c }),
+        h(StepHeader, { step: 2, title: T.step2.title, c, T }),
         h('div', { style: { display: 'flex', gap: 18 } },
             h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 200 } },
                 h(NumField, { label: T.step2.lambda0, value: p.lambda0_nm, positive: true, step: 0.1, suffix: 'nm', c, onChange: (v) => set('lambda0_nm', v) }),

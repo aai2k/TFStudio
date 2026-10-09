@@ -23,11 +23,11 @@ function formatRangeFields(ctx) {
 }
 
 function formatPassStopFields(ctx) {
-    const { def, params: p } = ctx;
+    const { def, params: p, words: w } = ctx;
     const stopFirst = hasField(ctx, 'stopStart') && def.fields[0].key === 'stopStart';
     return stopFirst
-        ? `stop ${p.stopStart}–${p.stopEnd} nm, pass ${p.passStart}–${p.passEnd} nm`
-        : `pass ${p.passStart}–${p.passEnd} nm, stop ${p.stopStart}–${p.stopEnd} nm`;
+        ? `${w.stop} ${p.stopStart}–${p.stopEnd} nm, ${w.pass} ${p.passStart}–${p.passEnd} nm`
+        : `${w.pass} ${p.passStart}–${p.passEnd} nm, ${w.stop} ${p.stopStart}–${p.stopEnd} nm`;
 }
 
 // A density is written as itself, OD ≥ 3, not as a statement about T.
@@ -48,33 +48,36 @@ const FIELD_FORMATTERS = [
     ['lam0', ({ params: p }) => `λ₀=${p.lam0} nm`],
     ['lam3', ({ params: p }) => `λ=${p.lam1}/${p.lam2}/${p.lam3} nm`],
     ['lam2', ({ params: p }) => `λ=${p.lam1}/${p.lam2} nm`],
-    ['lowStopStart', ({ params: p }) => `stop ${p.lowStopStart}–${p.lowStopEnd} | pass ${p.passStart}–${p.passEnd} | stop ${p.highStopStart}–${p.highStopEnd} nm`],
-    ['lowPassStart', ({ params: p }) => `pass ${p.lowPassStart}–${p.lowPassEnd} | stop ${p.stopStart}–${p.stopEnd} | pass ${p.highPassStart}–${p.highPassEnd} nm`],
+    ['lowStopStart', ({ params: p, words: w }) => `${w.stop} ${p.lowStopStart}–${p.lowStopEnd} | ${w.pass} ${p.passStart}–${p.passEnd} | ${w.stop} ${p.highStopStart}–${p.highStopEnd} nm`],
+    ['lowPassStart', ({ params: p, words: w }) => `${w.pass} ${p.lowPassStart}–${p.lowPassEnd} | ${w.stop} ${p.stopStart}–${p.stopEnd} | ${w.pass} ${p.highPassStart}–${p.highPassEnd} nm`],
     ['passStart', formatPassStopFields],
 ];
 
-function formatDmfsFields(def, params) {
-    const ctx = { def, params, fieldKeys: new Set(def.fields.map(field => field.key)) };
+function formatDmfsFields(def, params, words) {
+    const ctx = { def, params, words, fieldKeys: new Set(def.fields.map(field => field.key)) };
     const entry = FIELD_FORMATTERS.find(([key]) => hasField(ctx, key));
     return entry ? entry[1](ctx) : '';
 }
 
+// The header is written in the UI language: `tw.header` holds its words, and
+// the symbols around them (λ, nm, T, R, °) are the same in every language.
 export function buildDmfsComment(options) {
     const { tw, typeId, params, common } = options;
+    const words = tw.header;
     const def = options.filterTypes?.[typeId] || FILTER_TYPES[typeId];
     const typeLabel = tw.types[typeId]?.label || typeId;
-    const fieldText = formatDmfsFields(def, params);
+    const fieldText = formatDmfsFields(def, params, words);
     const aoiText = common.aoi === common.aoiEnd || common.aoiEnd == null
-        ? `AOI ${common.aoi}°`
-        : `AOI ${common.aoi}–${common.aoiEnd}° (${common.aoiSteps} steps)`;
+        ? `${words.aoi} ${common.aoi}°`
+        : `${words.aoi} ${common.aoi}–${common.aoiEnd}° (${words.steps(common.aoiSteps)})`;
     // A type that sets polarization itself does not carry the wizard's choice.
     let text = def.fixedPol
         ? `${typeLabel}, ${fieldText}, ${aoiText}`
-        : `${typeLabel}, ${fieldText}, ${aoiText}, ${common.pol} pol`;
+        : `${typeLabel}, ${fieldText}, ${aoiText}, ${words.pol(common.pol)}`;
     if (def.supportsTargetMode) {
         text += common.targetMode === 'discrete'
-            ? `, discrete @${common.stepNm} nm`
-            : `, continuous target`;
+            ? `, ${words.discrete(common.stepNm)}`
+            : `, ${words.continuous}`;
     }
     return text + limitsText(options);
 }

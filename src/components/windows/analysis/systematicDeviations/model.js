@@ -1,4 +1,5 @@
 import { emptyDeviation } from '../../../../utils/physics/systematicDeviations.js';
+import { matFriendlyName } from '../../optimization/synthesisShared/materialNames.js';
 
 const PARAM_KINDS = {
     globalThicknessScale: 'scale',
@@ -70,17 +71,41 @@ export function systematicDeviationDefaults() {
     };
 }
 
-export function sweepOptions(uniqueMats, sd) {
+// A material parameter names its material as the design shows it, not by id.
+export function sweepOptions(uniqueMats, sd, design) {
     return [
         { value: 'globalThicknessScale', label: sd.optThkScale || 'Global d-scale' },
         { value: 'globalThicknessOffset', label: sd.optThkOffset || 'Global d-offset' },
         { value: 'globalDeltaN', label: sd.optDeltaN || 'Global Δn' },
         { value: 'globalDeltaK', label: sd.optDeltaK || 'Global Δk' },
-        ...uniqueMats.flatMap(({ id }) => [
-            { value: `mat:${id}:dScale`, label: `${id}: d-scale` },
-            { value: `mat:${id}:dOffset`, label: `${id}: d-offset` },
-            { value: `mat:${id}:dn`, label: `${id}: Δn` },
-            { value: `mat:${id}:dk`, label: `${id}: Δk` },
-        ]),
+        ...uniqueMats.flatMap(({ id }) => {
+            const name = matFriendlyName(id, design);
+            return [
+                { value: `mat:${id}:dScale`, label: sd.optMatScale(name) },
+                { value: `mat:${id}:dOffset`, label: sd.optMatOffset(name) },
+                { value: `mat:${id}:dn`, label: `${name}: Δn` },
+                { value: `mat:${id}:dk`, label: `${name}: Δk` },
+            ];
+        }),
     ];
+}
+
+/**
+ * What the heat map calls the parameter a sweep result was run on: the label
+ * the selector gives it, so the two read the same in every language. The
+ * result records its own parameter, which the selector may have moved off
+ * since the run, and its material may have left the design since; that
+ * material is still named. A result saved before results recorded their
+ * parameter carries only the name it was given then.
+ */
+export function sweepParamName(sweepResult, uniqueMats, sd, design) {
+    const { param, paramName } = sweepResult;
+    if (!param) return paramName || sd.colParam;
+    const material = /^mat:(.+):[^:]+$/.exec(param)?.[1];
+    const mats = material && !uniqueMats.some(({ id }) => id === material)
+        ? [...uniqueMats, { id: material }]
+        : uniqueMats;
+    const option = sweepOptions(mats, sd, design).find(item => item.value === param);
+    const unit = sweepParamKind(param) === 'offset' ? ` (${sweepResult.offsetUnit || 'nm'})` : '';
+    return (option?.label || sd.colParam) + unit;
 }

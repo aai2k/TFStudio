@@ -63,6 +63,9 @@ export function makeHookRuntime() {
         useCallback(fn, deps) {
             return React.useMemo(() => fn, deps);
         },
+        // A render reads the store as it is now; nothing re-renders on its own
+        // here, so the subscription is not needed.
+        useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot(),
         useEffect(fn, deps) {
             const slot = slotAt(() => ({ deps: null, first: true }));
             if (slot.first || !sameDeps(slot.deps, deps)) effects.push(fn);

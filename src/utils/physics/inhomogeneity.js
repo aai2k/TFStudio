@@ -211,21 +211,22 @@ export function expandLayersWithInterlayers(layers, mediumIn, mediumOut, interla
 /**
  * Enumerate the (label, afterIndex) pairs that the UI should show as available
  * interface rows. The result is a stable list of N+1 entries (between every
- * adjacent pair, including media boundaries).
+ * adjacent pair, including media boundaries). `numberOf(i)` is the number the
+ * labels give layer i, by default its position in `layers` counted from 1.
  *
- *   afterIndex = -1            → label "Inc → L1"
- *   afterIndex in [0..N-2]     → label "L<i+1> → L<i+2>"
- *   afterIndex = N-1           → label "L<N> → Sub"
+ *   afterIndex = -1            → label "Inc → L<numberOf(0)>"
+ *   afterIndex in [0..N-2]     → label "L<numberOf(i)> → L<numberOf(i+1)>"
+ *   afterIndex = N-1           → label "L<numberOf(N-1)> → Sub"
  */
-export function enumerateInterfaces(layers, mediumInName = 'Inc', mediumOutName = 'Sub') {
+export function enumerateInterfaces(layers, mediumInName = 'Inc', mediumOutName = 'Sub', numberOf = i => i + 1) {
     const out = [];
     const N = layers?.length || 0;
     if (N === 0) return out;
-    out.push({ afterIndex: -1, label: `${mediumInName} → L1` });
+    out.push({ afterIndex: -1, label: `${mediumInName} → L${numberOf(0)}` });
     for (let i = 0; i < N - 1; i++) {
-        out.push({ afterIndex: i, label: `L${i + 1} → L${i + 2}` });
+        out.push({ afterIndex: i, label: `L${numberOf(i)} → L${numberOf(i + 1)}` });
     }
-    out.push({ afterIndex: N - 1, label: `L${N} → ${mediumOutName}` });
+    out.push({ afterIndex: N - 1, label: `L${numberOf(N - 1)} → ${mediumOutName}` });
     return out;
 }
 

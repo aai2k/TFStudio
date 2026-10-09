@@ -183,6 +183,7 @@ export function buildChartOption(options) {
         // becomes a suitable 5/10/20 nm interval instead of anchoring labels to
         // the exact pixel where the drag began.
         splitNumber: spectralUnit === 'nm' ? 8 : undefined,
+        wavelength: spectralUnit === 'nm',
     });
     xAxis.axisLabel = { ...xAxis.axisLabel, ...spectral.axisLabel };
     // A measured overlay is on the instrument's wavelength grid, not the

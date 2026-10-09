@@ -18,7 +18,7 @@ export {
 export { enumerateUniqueMaterials } from './systematicDeviations/materials.js';
 export { perturbLayers, perturbMedium, deviatedDesignForSpec } from './systematicDeviations/perturb.js';
 export { computeDeviatedSpectrum } from './systematicDeviations/spectrum.js';
-export { applyParamValue, paramLabel } from './systematicDeviations/sweepParams.js';
+export { applyParamValue } from './systematicDeviations/sweepParams.js';
 
 import { cloneDeviation } from './systematicDeviations/deviationSpec.js';
 import { computeDeviatedSpectrum } from './systematicDeviations/spectrum.js';

@@ -5,6 +5,7 @@ import {
     wizardAppendRow, wizardGenerationRows,
 } from '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
 import { reIdOperands } from '../src/components/windows/optimization/meritFunctionEditor/presetOperands.js';
+import { getLocale } from '../src/constants/locales/index.js';
 import {
     DEFAULT_CONSTRAINT_LAST_LAYER, defaultFilterParams, makeOperand,
     rowRangeDomain, targetDomain,
@@ -18,7 +19,7 @@ function test(name, fn) {
 }
 
 const labels = new Proxy({}, { get: (_, key) => ({ label: `Label ${String(key)}` }) });
-const tw = { types: labels };
+const tw = { header: getLocale('en').meritFunctionEditor.wizard.header, types: labels };
 const common = { aoi: 0, aoiEnd: 0, aoiSteps: 3, pol: 'avg', targetMode: 'continuous', stepNm: 1 };
 
 function comment(typeId, overrides = {}) {

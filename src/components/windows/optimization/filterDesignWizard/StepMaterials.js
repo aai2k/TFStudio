@@ -14,7 +14,7 @@ export function StepMaterials({ p, set, c, t }) {
     const subMat = getMaterialById(p.substrateMaterial);
     const nSub = subMat?.getNK ? subMat.getNK(p.lambda0_nm)[0] : null;
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
-        h(StepHeader, { step: 1, title: T.step1.title, c }),
+        h(StepHeader, { step: 1, title: T.step1.title, c, T }),
         h('div', { style: { fontSize: 12, color: c.textDim, display: 'flex', gap: 20 } },
             h('span', {}, `${T.step1.substrate}: ${nSub ? `n=${nSub.toFixed(3)}` : '—'}`),
             h('span', {}, `${T.step1.incident}: ${p.incidentMedium.split(':').pop()}`)),

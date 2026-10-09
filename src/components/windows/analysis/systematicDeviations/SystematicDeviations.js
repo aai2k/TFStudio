@@ -17,6 +17,7 @@ import {
 import {
     deviationColumns, deviationRows, sweepColumns, sweepRows,
 } from './tableModel.js';
+import { sweepParamName } from './model.js';
 import { useSystematicDeviations } from './useSystematicDeviations.js';
 
 const { createElement: h } = React;
@@ -52,6 +53,7 @@ function plotBody({ state, sd, c, lambdaAxis }) {
     if (state.sweepResult) {
         return h(SweepHeatmap, {
             sweepData: state.sweepResult, channel: state.sweepChannel, c,
+            paramName: sweepParamName(state.sweepResult, state.uniqueMats, sd, state.design),
         });
     }
     return h(CenteredMessage, {

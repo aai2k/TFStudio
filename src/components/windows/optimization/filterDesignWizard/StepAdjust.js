@@ -33,7 +33,7 @@ export function StepAdjust({ p, set, c, t }) {
     const aoi = workingAoi(p);
 
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
-        h(StepHeader, { step: 6, title: T.step6.title, c }),
+        h(StepHeader, { step: 6, title: T.step6.title, c, T }),
         !p.selected && h('div', { style: { fontSize: 12, color: c.warning || '#ef9800' } }, T.step6.noSelection),
         h('div', { style: { display: 'flex', gap: 16 } },
             h('div', { style: { width: 200, display: 'flex', flexDirection: 'column', gap: 8 } },
