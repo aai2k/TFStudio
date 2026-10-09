@@ -53,13 +53,17 @@ export function _evalStressForce(op, ctx) {
 // 1-based layer-index range. The range clamps to the actual layer count, so a
 // generator can emit an end far above it to mean "every current and future
 // layer" (see DEFAULT_CONSTRAINT_LAST_LAYER).
+// A range that holds no layer (a bare substrate, or a start past the last
+// layer) has nothing to bound, so the row has no value and the merit skips it,
+// as it skips a comment row. A value of 0 nm would score an MNT row as a layer
+// its whole target too thin.
 // In both_independent mode ctx.fullThicks spans front+back so constraints can
 // reach either stack; otherwise it equals frontThicks.
 export function _evalConstraint(op, ctx) {
     const all = ctx.fullThicks || ctx.frontThicks || [];
     const lo = Math.max(0, Math.round(op.lambdaStart) - 1);
     const hi = Math.min(all.length - 1, Math.round(op.lambdaEnd) - 1);
-    if (lo > hi) return 0;
+    if (lo > hi) return null;
     if (op.type === 'MNT') {
         let v = Infinity;
         for (let i = lo; i <= hi; i++) v = Math.min(v, all[i] || 0);
