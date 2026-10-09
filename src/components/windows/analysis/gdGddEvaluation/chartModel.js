@@ -37,7 +37,7 @@ export function buildGDChartOption(options) {
             ? { show: false }
             : axisTooltip({ colors, valueSuffix: meta.unit ? ` ${meta.unit}` : '' }),
         toolbox: chartToolbox('dispersion', { dataZoom: !drawing }),
-        xAxis: valueAxis({ name: xLabel, color: colors.text, gridColor: colors.grid }),
+        xAxis: valueAxis({ name: xLabel, color: colors.text, gridColor: colors.grid, wavelength: true }),
         yAxis: valueAxis({
             name: meta.label, color: colors.text, gridColor: colors.grid,
             min: fixedRange ? yRange[0] : automatic?.min,

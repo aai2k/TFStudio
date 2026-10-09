@@ -81,7 +81,7 @@ function spectrumOption({ view, labels, colors, curveColors, materialBands }) {
         legend: legendAbove({ color: colors.text }),
         tooltip: axisTooltip({ colors }),
         toolbox: chartTools('pulse-spectrum'),
-        xAxis: valueAxis({ name: labels.wavelengthAxis, color: colors.text, gridColor: colors.grid, scale: true }),
+        xAxis: valueAxis({ name: labels.wavelengthAxis, color: colors.text, gridColor: colors.grid, scale: true, wavelength: true }),
         yAxis: [
             valueAxis({ name: labels.spectralAxis, color: colors.text, gridColor: colors.grid, min: 0 }),
             valueAxis({

@@ -27,12 +27,14 @@ function resultRows({ layers, run, ctx, p }) {
     }).reverse();
 }
 
+// The design curve is drawn in the theme's text colour, which every palette,
+// light or dark, keeps readable against the plot background.
 function spectralBody({ spectra, p, c, B }) {
     const series = spectra ? [
-        lineSeries({ x: spectra.theory.lambda, y: spectra.theory.values.map(v => v * 100), color: c.text === '#cccccc' ? '#dddddd' : '#222', width: 2, name: 'theory' }),
+        lineSeries({ x: spectra.theory.lambda, y: spectra.theory.values.map(v => v * 100), color: c.text, width: 2, name: 'theory' }),
         lineSeries({ x: spectra.manuf.lambda, y: spectra.manuf.values.map(v => v * 100), color: '#e5484d', width: 1.6, name: 'manufactured' }),
     ] : [];
-    return h(Chart, { series, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null });
+    return h(Chart, { series, xTitle: B.wavelengthAxis, wavelengthX: true, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null });
 }
 
 function errorBody({ rows, isRel, p, c, B }) {

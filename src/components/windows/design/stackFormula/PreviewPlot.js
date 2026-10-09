@@ -22,7 +22,7 @@ export function buildPreviewOption(data, c, referenceWavelength, lambdaAxis) {
         xAxis: valueAxis({
             name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 24,
             min: data.lambda[0], max: data.lambda.at(-1), interval: data.xInterval,
-            axisLabel: { hideOverlap: true },
+            axisLabel: { hideOverlap: true }, wavelength: true,
         }),
         yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
         series,

@@ -9,6 +9,7 @@
 import {
     axisTooltip, cartesianOption, lineSeries, scatterSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
+import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
 import { legendAbove, plotMargin } from '../../analysis/chrome/plot.js';
 import { columnSeries, tidy, valueKey } from './curveTable.js';
 import { valueColumnName } from './editorLabels.js';
@@ -113,7 +114,10 @@ export function curveChartOption(table, view) {
         fileName: 'curve',
         legend: legendAbove({ color: view.colors.text }),
         tooltip: axisTooltip({ colors: view.colors, series }),
-        xAxis: valueAxis({ name: view.labels.xAxis, color: view.colors.text, gridColor: view.colors.grid }),
+        xAxis: valueAxis({
+            name: view.labels.xAxis, color: view.colors.text, gridColor: view.colors.grid,
+            wavelength: table.xUnit === X_UNITS.NM,
+        }),
         yAxis,
         series,
     });

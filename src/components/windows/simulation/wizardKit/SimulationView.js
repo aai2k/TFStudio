@@ -47,7 +47,7 @@ export function SimulationView({ p, set, c, B, run, N, layerIdx, frac, series, l
             ],
             right: h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
                 h('div', { style: { flex: 1, minHeight: 0 } },
-                    run ? h(Chart, { series, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null })
+                    run ? h(Chart, { series, xTitle: B.wavelengthAxis, wavelengthX: true, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null })
                         : h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: c.textDim, fontStyle: 'italic' } }, B.pressStart)),
                 run && h(LayerTabs, { n: N, current: layerIdx || 1, onSelect: playback.jumpLayer, c, label: B.layerWord }),
                 run && h(DepositionTimeline, { progress: playback.progress, totalTime: playback.totalTime, playing: playback.playing,

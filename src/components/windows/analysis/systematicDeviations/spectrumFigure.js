@@ -1,6 +1,6 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { axisTooltip, cartesianOption, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
-import { legendAbove, plotMargin } from '../chrome/plot.js';
+import { lineSeries } from '../../../ui/chartOptions.js';
+import { percentSpectrumOption } from '../chrome/plot.js';
 
 const percent = values => values.map(value => value * 100);
 
@@ -27,16 +27,8 @@ export function buildSpectrumSeries(baseline, deviated, channel, showBaseline,
 }
 
 export function buildSpectrumOption(baseline, deviated, { channel, showBaseline, colors, c, lambdaAxis }) {
-    const text = c.text || '#cccccc';
-    const gridColor = c.border || '#3a3a3a';
-    return cartesianOption({
-        colors: c,
-        grid: plotMargin(),
-        fileName: 'deviations',
-        legend: legendAbove({ color: text }),
-        tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor }),
-        yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, max: 100, interval: 10 }),
+    return percentSpectrumOption({
+        c, fileName: 'deviations', lambdaAxis,
         series: buildSpectrumSeries(baseline, deviated, channel, showBaseline, colors),
     });
 }

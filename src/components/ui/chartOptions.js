@@ -129,10 +129,17 @@ export function dimmedBandSeries(bands, colors) {
     return [host];
 }
 
+/**
+ * `wavelength` says the axis is wavelength in nm. Used as the x axis of
+ * `cartesianOption`, it is then kept to the computed range on round ticks,
+ * 50 nm apart unless the span needs another step. The window drawing the
+ * plot has to say so: the title is display text in the user's language.
+ */
 export function valueAxis({
     name, color = '#cccccc', gridColor = '#3a3a3a', min, max,
     position = 'bottom', inverse = false, axisLabel, nameGap = 30,
     splitLine = true, scale = false, formatter, interval, splitNumber,
+    wavelength = false,
 } = {}) {
     return {
         type: 'value',
@@ -158,6 +165,7 @@ export function valueAxis({
             ...(formatter ? { formatter } : {}),
         },
         splitLine: { show: splitLine, lineStyle: { color: gridColor, width: 1 } },
+        ...(wavelength ? { wavelength: true } : {}),
     };
 }
 
@@ -636,19 +644,24 @@ function wavelengthInterval(span) {
 // ECharts rounds the ends out to its automatic tick step before the fixed 50 nm
 // interval is applied, so a range from 399 nm would draw from 300. An axis that
 // declares its own bounds keeps them.
+//
+// The step goes to ECharts as both minInterval and maxInterval, not as
+// interval. ECharts starts a fixed interval at the axis minimum, so data from
+// 191.6 nm would be ticked 191.6, 241.6, 291.6; a bounded interval is ticked on
+// its multiples inside the range, 200, 250, 300.
 function dataBoundXAxis(axis, extent) {
     if (Array.isArray(axis)) return axis.map(item => dataBoundXAxis(item, extent));
     if (axis?.type !== 'value') return axis;
-    const isNanometreWavelength = typeof axis.name === 'string'
-        && /(?:wavelength|λ).*nm/i.test(axis.name);
+    const { wavelength, ...plain } = axis;
     const span = extent ? extent[1] - extent[0] : null;
     const unbounded = axis.min == null && axis.max == null;
-    const pinTicks = axis.interval == null && axis.splitNumber == null && isNanometreWavelength;
-    const pinRange = isNanometreWavelength && unbounded && extent;
+    const pinTicks = axis.interval == null && axis.splitNumber == null && wavelength;
+    const pinRange = wavelength && unbounded && extent;
+    const step = pinTicks ? wavelengthInterval(span) : null;
     return {
-        ...axis,
+        ...plain,
         scale: true,
-        ...(pinTicks ? { interval: wavelengthInterval(span) } : {}),
+        ...(pinTicks ? { minInterval: step, maxInterval: step } : {}),
         ...(pinRange ? { min: extent[0], max: extent[1] } : {}),
     };
 }

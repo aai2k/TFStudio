@@ -39,19 +39,25 @@ assert.equal(itemTooltip().valueFormatter(1.005), '1.005');
         const data = Array.from({ length: points }, (_, index) => (
             [low + ((high - low) * index) / (points - 1), 1]));
         return cartesianOption({
-            xAxis: valueAxis({ name: 'Wavelength (nm)' }),
+            xAxis: valueAxis({ name: 'Wavelength (nm)', wavelength: true }),
             yAxis: valueAxis({ name: 'y' }),
             series: [{ type: 'line', data }],
         }).xAxis;
     };
-    const ticks = (low, high) => (high - low) / axisFor(low, high).interval;
+    // The step is pinned as the least and the greatest interval at once.
+    const step = (low, high) => {
+        const axis = axisFor(low, high);
+        assert.equal(axis.minInterval, axis.maxInterval, 'the wavelength step is pinned from both sides');
+        return axis.minInterval;
+    };
+    const ticks = (low, high) => (high - low) / step(low, high);
 
-    assert.equal(axisFor(400, 700).interval, 50, 'a visible spectrum keeps its 50 nm ticks');
-    assert.equal(axisFor(319.84, 850.03).interval, 50, 'so does a full ellipsometer sweep');
+    assert.equal(step(400, 700), 50, 'a visible spectrum keeps its 50 nm ticks');
+    assert.equal(step(319.84, 850.03), 50, 'so does a full ellipsometer sweep');
     assert.deepEqual([axisFor(399, 800).min, axisFor(399, 800).max], [399, 800],
         'the axis spans the range computed, not the tick below its start');
     const declared = cartesianOption({
-        xAxis: valueAxis({ name: 'Wavelength (nm)', min: 380, max: 780 }),
+        xAxis: valueAxis({ name: 'Wavelength (nm)', min: 380, max: 780, wavelength: true }),
         yAxis: valueAxis({ name: 'y' }),
         series: [{ type: 'line', data: [[400, 1], [700, 1]] }],
     }).xAxis;

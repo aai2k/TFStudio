@@ -49,7 +49,7 @@ export function buildScatterOption({ calc, showCurves, units, names, c, lambdaAx
         colors: c,
         grid: plotMargin({ rightAxis: true }),
         fileName: 'scattering',
-        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor }),
+        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor, wavelength: true }),
         yAxis: [
             valueAxis({
                 name: specularTitle, color: text, gridColor,

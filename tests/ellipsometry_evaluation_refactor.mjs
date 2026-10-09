@@ -165,10 +165,10 @@ const chartColors = { background: c.bg, paper: c.panel, grid: c.border, text: c.
 const LAM_AXIS = getLocale('en').spectralAxis.nm;
 assert.equal(buildEllipsometryOption(
     computeSpectral(design, { ...spectralOptions, lambdaStart: 400, lambdaEnd: 700, lambdaStep: 10 }),
-    chartColors, LAM_AXIS).xAxis.interval, 50, 'spectral Ellipsometry uses the shared 50 nm grid');
+    chartColors, LAM_AXIS, { spectral: true }).xAxis.minInterval, 50, 'spectral Ellipsometry uses the shared 50 nm grid');
 {
-    const narrow = buildEllipsometryOption(spectral, chartColors, LAM_AXIS).xAxis;
-    const ticks = (spectral.x[spectral.x.length - 1] - spectral.x[0]) / narrow.interval;
+    const narrow = buildEllipsometryOption(spectral, chartColors, LAM_AXIS, { spectral: true }).xAxis;
+    const ticks = (spectral.x[spectral.x.length - 1] - spectral.x[0]) / narrow.minInterval;
     assert.ok(ticks >= 2 && ticks <= 40,
         `an eight-nanometre sweep must still carry ticks, got ${ticks.toFixed(1)}`);
 }

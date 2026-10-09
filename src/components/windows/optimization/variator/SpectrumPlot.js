@@ -32,7 +32,7 @@ export function SpectrumPlot({ data, c, targets, showTargets, xLabel }) {
         grid: { left: 52, right: 16, top: 16, bottom: 44 },
         fileName: 'variator_spectrum',
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: xLabel, color: text, gridColor: grid }),
+        xAxis: valueAxis({ name: xLabel, color: text, gridColor: grid, wavelength: true }),
         yAxis: valueAxis({ name: '%', color: text, gridColor: grid, min: 0, max: 100, interval: 10 }),
         series: spectrumSeries(data, targets, showTargets),
     })); });

@@ -1,6 +1,6 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { axisTooltip, cartesianOption, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
-import { legendAbove, plotMargin } from '../chrome/plot.js';
+import { lineSeries } from '../../../ui/chartOptions.js';
+import { percentSpectrumOption } from '../chrome/plot.js';
 
 const DEFAULT_NAMES = { homogeneous: 'base', graded: 'graded' };
 
@@ -43,16 +43,8 @@ export function buildOverlaySeries(baseline, perturbed, showCurves,
 }
 
 export function buildOverlayOption({ baseline, perturbed, showCurves, colors, names, c, lambdaAxis }) {
-    const text = c.text || '#cccccc';
-    const gridColor = c.border || '#3a3a3a';
-    return cartesianOption({
-        colors: c,
-        grid: plotMargin(),
-        fileName: 'interlayers',
-        legend: legendAbove({ color: text }),
-        tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor }),
-        yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, max: 100, interval: 10 }),
+    return percentSpectrumOption({
+        c, fileName: 'interlayers', lambdaAxis,
         series: buildOverlaySeries(baseline, perturbed, showCurves, colors, names),
     });
 }

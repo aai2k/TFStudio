@@ -12,7 +12,7 @@ function wavelengthAxis(wavelengths, c, name) {
         max = Math.max(...values);
         if (min === max) { min -= 1; max += 1; }
     }
-    return valueAxis({ name, color: c.textDim, gridColor: c.border, nameGap: 25, min, max });
+    return valueAxis({ name, color: c.textDim, gridColor: c.border, nameGap: 25, min, max, wavelength: true });
 }
 
 export function clearMaterialChart(element) {

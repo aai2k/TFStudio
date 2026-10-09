@@ -148,7 +148,7 @@ export function ImportTab({ controller, c, mx, ce }) {
         h(PlotArea, null,
             preview
                 ? h(EllipsometryChart, {
-                    data: preview, c, xLabel: preview.xLabel,
+                    data: preview, c, xLabel: preview.xLabel, spectral: true,
                     show: { psi: preview.psi.length > 0, delta: preview.delta.length > 0 },
                 })
                 : h(CenteredMessage, { c, message: mx.previewEmpty }),

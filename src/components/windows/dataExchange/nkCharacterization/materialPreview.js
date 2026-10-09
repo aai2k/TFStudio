@@ -55,7 +55,7 @@ export function buildPreviewOption(material, palette, lambdaAxis) {
         grid: { ...plotMargin({ rightAxis: absorbing }), top: 26, bottom: 34 },
         legend: legendAbove({ color: palette.text }),
         tooltip: axisTooltip({ colors: palette }),
-        xAxis: valueAxis({ name: lambdaAxis, color: palette.text, gridColor: palette.grid }),
+        xAxis: valueAxis({ name: lambdaAxis, color: palette.text, gridColor: palette.grid, wavelength: true }),
         yAxis: [
             valueAxis({
                 name: 'n', color: INDEX_COLOR, gridColor: palette.grid,

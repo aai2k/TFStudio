@@ -86,7 +86,7 @@ export function IntegralValues({ c, theme, t }) {
                 ? h(OverlayChart, {
                     spectrum: model.spectrum, char: model.selected.char,
                     weighting: model.selected.weighting, title: chartTitle(model.selected, iv.weightings),
-                    minMaxMarks: model.selectedResult, lambdaAxis: t.spectralAxis.lambdaShort, c, theme,
+                    minMaxMarks: model.selectedResult, lambdaAxis: t.spectralAxis.lambdaShort, labels: iv, c, theme,
                 })
                 : h(CenteredMessage, { c, message: iv.computing }),
         ),

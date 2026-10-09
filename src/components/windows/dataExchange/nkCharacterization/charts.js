@@ -98,7 +98,7 @@ export function buildConstantsOption(result, palette, labels, showPointwise) {
         fileName: 'film-constants',
         legend: legendAbove({ color: palette.text }),
         tooltip: axisTooltip({ colors: palette }),
-        xAxis: valueAxis({ name: labels.lambdaAxis, color: palette.text, gridColor: palette.grid }),
+        xAxis: valueAxis({ name: labels.lambdaAxis, color: palette.text, gridColor: palette.grid, wavelength: true }),
         yAxis: [
             valueAxis({
                 name: 'n', color: INDEX_COLOR, gridColor: palette.grid,
@@ -211,7 +211,7 @@ export function buildFitOption(result, palette, labels, residual) {
         fileName: residual ? 'characterization-residual' : 'characterization-fit',
         legend: legendAbove({ color: palette.text }),
         tooltip: axisTooltip({ colors: palette, valueSuffix: ellipsometry ? '°' : '%' }),
-        xAxis: valueAxis({ name: labels.lambdaAxis, color: palette.text, gridColor: palette.grid }),
+        xAxis: valueAxis({ name: labels.lambdaAxis, color: palette.text, gridColor: palette.grid, wavelength: true }),
         yAxis: (residual ? axes.residual : axes.fit)({ palette, labels }),
         series: fitSeries({ result, labels, residual }),
     });

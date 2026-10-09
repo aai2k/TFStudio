@@ -150,9 +150,11 @@ export function DepositionTimeline({ progress, totalTime, playing, onScrub, onPl
 }
 
 // ── Generic ECharts line/bar chart ─────────────────────────────────────────────
+// `wavelengthX` says the x axis is wavelength in nm.
 export function Chart({
     series = [], xTitle, yTitle, c, yRange = null, minHeight = 200,
     grid, xCategories = null, referenceLines = [], legend = { show: false },
+    wavelengthX = false,
 }) {
     const ref = useRef(null);
     const chartRef = useRef(null);
@@ -188,7 +190,7 @@ export function Chart({
                     axisLabel: { color: c.text, fontSize: 10 },
                     splitLine: { show: false },
                 }
-                : valueAxis({ name: xTitle, color: c.text, gridColor: c.border, nameGap: 26 }),
+                : valueAxis({ name: xTitle, color: c.text, gridColor: c.border, nameGap: 26, wavelength: wavelengthX }),
             yAxis: valueAxis({
                 name: yTitle, color: c.text, gridColor: c.border, nameGap: 38,
                 min: effectiveYRange?.[0], max: effectiveYRange?.[1], scale: !effectiveYRange,

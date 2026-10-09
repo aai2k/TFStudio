@@ -29,13 +29,14 @@ function dominantXAxis(curves) {
 function buildCurveOption(curves, results, c) {
     const text = c.text || '#cccccc';
     const grid = c.border || '#3a3a3a';
+    const xKind = dominantXAxis(curves);
     return cartesianOption({
         colors: c,
         grid: plotMargin(),
         fileName: 'curves',
         legend: legendAbove({ color: text }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: xAxisLabel(dominantXAxis(curves)), color: text, gridColor: grid }),
+        xAxis: valueAxis({ name: xAxisLabel(xKind), color: text, gridColor: grid, wavelength: xKind === 'wavelength' }),
         yAxis: valueAxis({ name: '%', color: text, gridColor: grid, min: 0, max: 100, interval: 10 }),
         series: buildCurveSeries(curves, results),
     });

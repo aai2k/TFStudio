@@ -25,7 +25,7 @@ export function EllipsometryResults({ c, t, text, state, table, hasData, overlay
         h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' } },
             hasData
                 ? h(EllipsometryChart, {
-                    data: state.data, c, overlays, xLabel,
+                    data: state.data, c, overlays, xLabel, spectral: state.mode === 'spectral',
                     show: { psi: state.showPsi, delta: state.showDelta },
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),

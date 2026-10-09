@@ -59,7 +59,7 @@ export function PageSignalErrors({ p, set, layers, c, B, ctx }) {
         ],
         right: h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
             h('div', { style: { flex: 1, minHeight: 0 } },
-                h(Chart, { series, xTitle: B.wavelengthAxis, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null })),
+                h(Chart, { series, xTitle: B.wavelengthAxis, wavelengthX: true, yTitle: `${p.quantity}${p.pol === 'avg' ? '' : p.pol}, %`, c, yRange: p.yFixed ? [0, 100] : null })),
             h(LayerTabs, { n: layers.length, current: k, onSelect: (kk) => set('previewLayer', kk), c, label: B.layerWord })),
     });
 }

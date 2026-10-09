@@ -60,8 +60,10 @@ export function buildErrorOption({
         legend: { ...legendAbove({ color: text }), data: legendNames },
         fileName: 'montecarlo',
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor }),
-        yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, interval: 10 }),
+        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor, wavelength: true }),
+        // The tick step follows the range drawn: an antireflection coating
+        // that stays under 1 % gets a scale to read, not just its two ends.
+        yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, splitNumber: 10 }),
         series,
     });
 }

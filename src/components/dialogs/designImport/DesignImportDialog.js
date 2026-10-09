@@ -245,7 +245,7 @@ function spectrumOption(spectrum, title, c, lambdaAxis) {
         title: { text: title, left: 44, top: 0, textStyle: { fontSize: 11, fontWeight: 'normal', color: c.textDim } },
         legend: horizontalLegend({ color: c.text, top: 14 }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 22, min: spectrum.lambda[0], max: spectrum.lambda.at(-1) }),
+        xAxis: valueAxis({ name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 22, min: spectrum.lambda[0], max: spectrum.lambda.at(-1), wavelength: true }),
         yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 20, nameGap: 28 }),
         series: CURVES.map(([key, color]) => lineSeries({ x: spectrum.lambda, y: s[key].map(v => v * 100), name: key, color, width: 1.6 })),
     });

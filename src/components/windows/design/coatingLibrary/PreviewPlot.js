@@ -42,7 +42,7 @@ export function buildPreviewOption(spectrum, entry, c, ts, lambdaAxis) {
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
         xAxis: valueAxis({
             name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 24,
-            min: spectrum.lambda[0], max: spectrum.lambda.at(-1),
+            min: spectrum.lambda[0], max: spectrum.lambda.at(-1), wavelength: true,
         }),
         yAxis: valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
         series,

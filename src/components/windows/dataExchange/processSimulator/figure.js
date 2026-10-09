@@ -240,7 +240,7 @@ export function buildSpectraOption(data, colors, labels, xLabel) {
         // the shared wavelength rule supplies the 50 nm ticks.
         xAxis: valueAxis({
             name: xLabel, color: colors.text, gridColor: colors.grid, nameGap: 28,
-            min: data.range?.[0], max: data.range?.[1],
+            min: data.range?.[0], max: data.range?.[1], wavelength: true,
         }),
         yAxis: valueAxis({ name: '%', color: colors.text, gridColor: colors.grid, min: 0, max: 100, interval: 10 }),
         series: buildSpectraSeries(data, colors, labels),

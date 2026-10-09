@@ -1,6 +1,8 @@
 /** Shared Apache ECharts furniture for analysis windows. */
 
-import { chartToolbox, horizontalLegend, verticalLegend } from '../../../ui/chartOptions.js';
+import {
+    axisTooltip, cartesianOption, chartToolbox, horizontalLegend, valueAxis, verticalLegend,
+} from '../../../ui/chartOptions.js';
 
 const MARGIN = { left: 58, right: 18, top: 38, bottom: 52 };
 
@@ -28,6 +30,25 @@ export function legendInsideLeft(colors, style = {}) {
 /** Standard zoom/restore/export controls. */
 export function chartTools(fileName, options) {
     return chartToolbox(fileName, options);
+}
+
+/**
+ * A spectrum in percent against wavelength in nm: 0 to 100 % on 10 % ticks,
+ * the legend above. `c` is the theme and `lambdaAxis` the axis title.
+ */
+export function percentSpectrumOption({ c, fileName, lambdaAxis, series }) {
+    const text = c.text || '#cccccc';
+    const gridColor = c.border || '#3a3a3a';
+    return cartesianOption({
+        colors: c,
+        grid: plotMargin(),
+        fileName,
+        legend: legendAbove({ color: text }),
+        tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
+        xAxis: valueAxis({ name: lambdaAxis, color: text, gridColor, wavelength: true }),
+        yAxis: valueAxis({ name: '%', color: text, gridColor, min: 0, max: 100, interval: 10 }),
+        series,
+    });
 }
 
 /**

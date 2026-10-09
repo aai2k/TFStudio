@@ -1,4 +1,5 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
 import {
     axisTooltip, cartesianOption, lineSeries, niceTickInterval,
     scatterSeries, valueAxis,
@@ -16,7 +17,8 @@ function overlayWeightValues(lambda, weighting) {
     return raw.map(value => 100 * value / maximum);
 }
 
-export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, colors, title, lambdaAxis, curve = FACTORY }) {
+/** `labels` is t.integralValues, which names the weighting curve. */
+export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, colors, title, lambdaAxis, labels, curve = FACTORY }) {
     if (!spectrum?.lambda) return { series: [] };
     const lambdaLow = spectrum.lambda[0];
     const lambdaHigh = spectrum.lambda.at(-1);
@@ -29,7 +31,8 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
     })];
     const weightValues = overlayWeightValues(spectrum.lambda, weighting);
     if (weightValues) series.push(lineSeries({
-        x: spectrum.lambda, y: weightValues, name: `${weighting?.label || ''} (norm.)`,
+        x: spectrum.lambda, y: weightValues,
+        name: labels.weightingCurve(weightingText(weighting, labels.weightings).label || ''),
         color: curve.limits, width: 1, dash: 'dot',
     }));
     if (minMaxMarks && Number.isFinite(minMaxMarks.lamAtMin)) {
@@ -55,7 +58,7 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
         legend: legendInsideLeft({ panel: colors.panel, border: colors.grid }, { color: colors.text }),
         xAxis: valueAxis({
             name: lambdaAxis, color: colors.text, gridColor: colors.grid,
-            min: lambdaLow, max: lambdaHigh, interval: tickStep,
+            min: lambdaLow, max: lambdaHigh, interval: tickStep, wavelength: true,
         }),
         yAxis: valueAxis({
             name: '%', color: colors.text, gridColor: colors.grid,

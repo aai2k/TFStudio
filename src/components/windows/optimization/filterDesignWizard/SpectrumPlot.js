@@ -91,7 +91,7 @@ export function SpectrumPlot({
             // Pinned to the sampled range so the curve fills the frame whatever
             // else is plotted over it.
             xAxis: valueAxis({ name: lambdaAxis, color: c.text, gridColor: c.border, nameGap: 26,
-                min: data.x[0], max: data.x[data.x.length - 1] }),
+                min: data.x[0], max: data.x[data.x.length - 1], wavelength: true }),
             yAxis: logAxis
                 ? { ...valueAxis({ name: '%', color: c.text, gridColor: c.border, nameGap: 38 }), type: 'log', min: floor, max: 100 }
                 : valueAxis({ name: '%', color: c.text, gridColor: c.border, min: 0, max: 100, interval: 10, nameGap: 30 }),
