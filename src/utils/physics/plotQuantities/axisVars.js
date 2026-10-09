@@ -55,11 +55,21 @@ export function buildAxisVarOptions(design, opticalAllowed) {
     return opts;
 }
 
+/**
+ * The number front layer i carries. Front layers are stored air side first,
+ * but numbered from the substrate as the Design Editor numbers them, so L1 is
+ * the layer on the substrate.
+ */
+export function layerNumber(design, i) {
+    return (design?.frontLayers?.length || 0) - i;
+}
+
 /** Display tag for front layer i, e.g. "L3 (SiO2)". */
 export function layerTag(design, i) {
     const l = (design?.frontLayers || [])[i];
     const mat = l && (typeof l.material === 'string' ? l.material : l.material?.name);
-    return mat ? `L${i + 1} (${mat})` : `L${i + 1}`;
+    const number = layerNumber(design, i);
+    return mat ? `L${number} (${mat})` : `L${number}`;
 }
 
 // Per-axis layer property choices (shown after a layer is picked).
@@ -72,6 +82,7 @@ export const AXIS_PROPS = [
 /**
  * Layer-first axis "target" options: Wavelength / AOI (optical) then one entry
  * PER LAYER (not per property) — so hundreds of layers stay a single dropdown.
+ * Layers are listed from the substrate out, L1 first, in Design Editor order.
  * Property (thickness/n/k) is chosen separately via AXIS_PROPS.
  */
 export function buildAxisTargetOptions(design, opticalAllowed) {
@@ -80,9 +91,10 @@ export function buildAxisTargetOptions(design, opticalAllowed) {
         opts.push({ value: 'wavelength', label: 'Wavelength (nm)' });
         opts.push({ value: 'aoi',        label: 'AOI (°)' });
     }
-    (design?.frontLayers || []).forEach((l, i) => {
+    const count = (design?.frontLayers || []).length;
+    for (let i = count - 1; i >= 0; i--) {
         opts.push({ value: `layer:${i}`, label: layerTag(design, i) });
-    });
+    }
     return opts;
 }
 

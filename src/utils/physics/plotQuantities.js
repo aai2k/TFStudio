@@ -46,7 +46,7 @@ export {
 
 export {
     parseAxisVar, isLayerVar, axisVarUnit,
-    buildAxisVarOptions, layerTag, AXIS_PROPS, buildAxisTargetOptions,
+    buildAxisVarOptions, layerNumber, layerTag, AXIS_PROPS, buildAxisTargetOptions,
     axisTarget, axisProp, composeAxisVar, defaultAxisRange,
 } from './plotQuantities/axisVars.js';
 

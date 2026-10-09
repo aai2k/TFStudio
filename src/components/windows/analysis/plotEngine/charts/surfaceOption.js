@@ -7,7 +7,7 @@
  * fallback where there is no canvas to rasterise onto.
  */
 
-import { parseAxisVar, surfaceAxisLabel } from '../../../../../utils/physics/plotQuantities.js';
+import { layerNumber, parseAxisVar, surfaceAxisLabel } from '../../../../../utils/physics/plotQuantities.js';
 import {
     cartesianOption, chartToolbox, formatChartNumber, formatChartReadout, itemTooltip,
     niceAxisBounds,
@@ -23,8 +23,8 @@ const SURFACE_INTERACTION = Object.freeze({
 
 export function surfacePlotAxisLabel(token, design, labels) {
     const parsed = parseAxisVar(token);
-    if (parsed.kind === 'thk') return `L${parsed.layer + 1} d (nm)`;
-    if (parsed.kind === 'n' || parsed.kind === 'k') return `L${parsed.layer + 1} ${parsed.kind}`;
+    if (parsed.kind === 'thk') return `L${layerNumber(design, parsed.layer)} d (nm)`;
+    if (parsed.kind === 'n' || parsed.kind === 'k') return `L${layerNumber(design, parsed.layer)} ${parsed.kind}`;
     return surfaceAxisLabel(token, design, labels);
 }
 
