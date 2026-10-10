@@ -2,6 +2,7 @@ import {
     GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
     isFractionalUnit, isMath, isRangeTarget, isValidMeritWeight, polFromType,
 } from '../../../../../utils/physics/optimizer.js';
+import { parseNumberStrict } from '../../../../../utils/misc/numberParsing.js';
 import { RANGE_TARGET_TYPES, editableColsForRow } from './operandViewModel.js';
 
 export function targetInitialValue(op, mathPercent) {
@@ -21,8 +22,8 @@ export function parseRampTarget(op, draft) {
     const arrow = raw.includes('→') ? '→' : raw.includes('->') ? '->' : null;
     if (arrow === null || !RANGE_TARGET_TYPES.has(op.type)) return null;
     const pivot = raw.indexOf(arrow);
-    const start = parseFloat(raw.slice(0, pivot));
-    const end = parseFloat(raw.slice(pivot + arrow.length));
+    const start = parseNumberStrict(raw.slice(0, pivot));
+    const end = parseNumberStrict(raw.slice(pivot + arrow.length));
     if (isNaN(start) || isNaN(end)) return null;
     const patch = { target: start / 100, targetEnd: end / 100 };
     if (Number.isFinite(op.rampPoints)) patch.rampPoints = op.rampPoints;
@@ -41,7 +42,9 @@ export function polFromKey(char) {
  * A type code is matched regardless of case; a generated-only type is refused,
  * since its rows carry data no text can supply. A polarization takes the full
  * word or its first letter. A target keeps the ramp syntax of a spectral
- * target; everything else is a number.
+ * target; everything else is a number, with a comma or a dot as the decimal
+ * mark. Text that is not a number from start to end, such as '94abc', is
+ * refused rather than read up to the first letter.
  */
 export function cellEdit(op, colKey, draft) {
     const raw = (draft ?? '').toString().trim();
@@ -59,10 +62,10 @@ export function cellEdit(op, colKey, draft) {
             const patch = parseRampTarget(op, raw);
             return patch ? ['_patch', patch] : null;
         }
-        const value = parseFloat(raw);
+        const value = parseNumberStrict(raw);
         return isNaN(value) ? null : ['target', value];
     }
-    const value = parseFloat(raw);
+    const value = parseNumberStrict(raw);
     if (isNaN(value) || (colKey === 'weight' && !isValidMeritWeight(value))) return null;
     return [colKey, value];
 }

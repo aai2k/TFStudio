@@ -4,6 +4,7 @@ import {
     isConstraint, isFractionalUnit, isMath, isRangeTarget, mathTargetInPercent,
     removeOperandsAndDependents, rowRangeDomain, targetDomain,
 } from '../../../../utils/physics/optimizer.js';
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { limitRows, limitsText } from './wizardLimits.js';
 
 function hasField(ctx, key) {
@@ -179,7 +180,7 @@ export function editOperand(operands, id, key, value) {
         if (key === 'type') return retypeOperand(op, value);
         if (key !== 'target') return { ...op, [key]: value };
 
-        const target = typeof value === 'number' ? value : parseFloat(value);
+        const target = parseNumberStrict(value);
         const operandsById = new Map(operands.map(item => [item.id, item]));
         const mathPercent = isMath(op.type) && mathTargetInPercent(op, operandsById);
         const percentTarget = isFractionalUnit(op.type) || (isMath(op.type) && mathPercent);

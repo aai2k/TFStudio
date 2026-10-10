@@ -7,6 +7,7 @@ import {
     GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
     isFractionalUnit, isValidMeritWeight,
 } from '../../../../../utils/physics/optimizer.js';
+import { parseNumberStrict } from '../../../../../utils/misc/numberParsing.js';
 
 /**
  * Whether the clipboard holds operand rows, as Ctrl+C on rows writes them:
@@ -34,13 +35,13 @@ function operandFromLine(line) {
     // built from the block's range and its target of zero, so skip it.
     if (GENERATED_ONLY_OPERAND_TYPES.includes(type)) return null;
     const safeType = OPERAND_TYPES.includes(type) ? type : 'RAV';
-    const target = parseFloat(targetText);
-    const weight = parseFloat(weightText);
+    const target = parseNumberStrict(targetText);
+    const weight = parseNumberStrict(weightText);
     return {
         type: safeType,
-        lambdaStart: orDefault(parseFloat(startText), 400),
-        lambdaEnd: orDefault(parseFloat(endText), 700),
-        aoi: orDefault(parseFloat(aoiText), 0),
+        lambdaStart: orDefault(parseNumberStrict(startText), 400),
+        lambdaEnd: orDefault(parseNumberStrict(endText), 700),
+        aoi: orDefault(parseNumberStrict(aoiText), 0),
         pol: OPERAND_POLS.includes(pol) ? pol : 'avg',
         target: isFinite(target) ? (isFractionalUnit(safeType) ? target / 100 : target) : 0,
         weight: isValidMeritWeight(weight) ? weight : 1,

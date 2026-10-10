@@ -35,7 +35,9 @@ const calls = [];
 commitTarget(op('RGT', { id: 'ramp', rampPoints: 9 }), '25→75', (...args) => calls.push(args));
 commitTarget(op('RGT', { id: 'bad-ramp' }), '25→bad', (...args) => calls.push(args));
 commitTarget(op('R', { id: 'optical' }), '82.5', (...args) => calls.push(args));
-commitTarget(op('TT', { id: 'raw' }), '1200 nm', (...args) => calls.push(args));
+commitTarget(op('TT', { id: 'raw' }), '1200', (...args) => calls.push(args));
+// Text after the number is refused, not dropped: '1200 nm' is not taken as 1200.
+commitTarget(op('TT', { id: 'unit' }), '1200 nm', (...args) => calls.push(args));
 commitTarget(op('R', { id: 'invalid' }), 'not-a-number', (...args) => calls.push(args));
 assert.deepEqual(calls, [
     ['ramp', '_patch', { target: 0.25, targetEnd: 0.75, rampPoints: 9 }],
@@ -72,6 +74,7 @@ const commitCtx = {
     setEditCell: value => commitCalls.push(['state', value]),
     onEdit: (...args) => commitCalls.push(['edit', ...args]),
 };
+commitEdit(commitCtx, 0, 'weight', '3.5');
 commitEdit(commitCtx, 0, 'weight', '3.5 kg');
 commitEdit(commitCtx, 1, 'target', '30->60');
 commitEdit(commitCtx, 9, 'target', '4');
@@ -80,6 +83,7 @@ commitEdit(commitCtx, 0, 'weight', '-1');
 commitEdit(commitCtx, 0, 'weight', 'Infinity');
 assert.deepEqual(commitCalls, [
     ['state', null], ['edit', 'a', 'weight', 3.5],
+    ['state', null],
     ['state', null], ['edit', 'r', '_patch', { target: 0.3, targetEnd: 0.6 }],
     ['state', null],
     ['state', null],
