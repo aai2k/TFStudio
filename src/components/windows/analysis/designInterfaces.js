@@ -1,5 +1,6 @@
 import { matFriendlyName } from '../optimization/synthesisShared/materialNames.js';
 import { enumerateInterfaces } from '../../../utils/physics/inhomogeneity.js';
+import { editorLayerNumber } from '../../../utils/misc/layerNumbers.js';
 
 // A medium is stored as a material id or as { material: id }.
 const mediumId = medium => (typeof medium === 'string' ? medium : medium?.material);
@@ -18,7 +19,7 @@ export function designInterfaces(design, names) {
     const exit = name(design?.exitMedium) || names.mediumExit;
     const frontCount = design?.frontLayers?.length || 0;
     const front = design?.frontLayers
-        ? enumerateInterfaces(design.frontLayers, incident, substrate, i => frontCount - i)
+        ? enumerateInterfaces(design.frontLayers, incident, substrate, i => editorLayerNumber('front', frontCount, i))
         : [];
     const back = design?.backLayers?.length ? enumerateInterfaces(design.backLayers, substrate, exit) : [];
     return { front, back };

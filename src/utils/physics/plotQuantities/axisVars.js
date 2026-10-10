@@ -8,6 +8,7 @@
  */
 
 import { designMaterialShortName } from '../../materials/designMaterials.js';
+import { editorLayerNumber } from '../../misc/layerNumbers.js';
 
 /** Parse an axis-variable token → { kind, layer? }. */
 export function parseAxisVar(v) {
@@ -64,7 +65,7 @@ export function buildAxisVarOptions(design, opticalAllowed) {
  * the layer on the substrate.
  */
 export function layerNumber(design, i) {
-    return (design?.frontLayers?.length || 0) - i;
+    return editorLayerNumber('front', design?.frontLayers?.length || 0, i);
 }
 
 /** Display tag for front layer i, e.g. "L3 (SiO2)", with the material's short name. */

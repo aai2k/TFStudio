@@ -8,6 +8,7 @@
 
 import { ANALYSIS_DEFAULTS, paletteColors } from '../../../../constants/analysisDefaults.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { editorLayerNumber } from '../../../../utils/misc/layerNumbers.js';
 import { tmmWithAdmittances } from '../../../../utils/physics/thinFilmMath.js';
 import { incidence } from '../../../../utils/physics/thinFilmMath/totalSystem.js';
 import { incidentCosTheta, snellCosTheta } from '../../../../tmmcore.js';
@@ -215,7 +216,7 @@ function buildOnePol(design, conditions, pol) {
     const allLayers = stack.map((layer, index) => {
         const mat = resolveMaterial(layer.material);
         const [nr, nk] = mat.getNK(lambda_nm);
-        return { n: [nr, nk], d: layer.thickness, material: layer.material, id: layer.id, number: stack.length - index };
+        return { n: [nr, nk], d: layer.thickness, material: layer.material, id: layer.id, number: editorLayerNumber('front', stack.length, index) };
     });
 
     const { Y, N } = tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, allLayers);

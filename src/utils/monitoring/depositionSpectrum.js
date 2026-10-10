@@ -20,6 +20,7 @@
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../physics/thinFilmMath.js';
+import { editorLayerNumber } from '../misc/layerNumbers.js';
 
 /**
  * Mode-aware system spectrum — the single dispatch the monitoring wizards use so
@@ -85,11 +86,11 @@ export function splitActiveStacks(activeSide, activeStored, otherStored = []) {
 /**
  * Convert between a front stack's storage index and its deposition-layer number:
  * storage index 0 is the outermost layer and is deposited last, so for N layers
- * storage index i is deposition layer N-i. The mapping is its own inverse, so the
- * same call converts either way.
+ * storage index i is deposition layer N-i, the Design Editor's number. The mapping
+ * is its own inverse, so the same call converts either way.
  */
 export function flipLayerIndex(N, x) {
-    return N - x;
+    return editorLayerNumber('front', N, x);
 }
 
 /**
