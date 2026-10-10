@@ -13,7 +13,10 @@ export function parseNumber(field, decimal = '.') {
     if (s.endsWith('%')) s = s.slice(0, -1).trim();
     if (decimal === ',') {
         // decimal-comma locale: comma is the radix point, dot (if any) is a
-        // thousands separator → drop dots, swap comma → dot.
+        // thousands separator → drop dots, swap comma → dot. A dot counts as
+        // grouping only between groups of three digits ("1.234,5"); "94..2" is a
+        // typo, not 942, and is not a number.
+        if (s.includes('.') && !/^[+-]?\d{1,3}(\.\d{3})+(,\d*)?([eE][+-]?\d+)?$/.test(s)) return NaN;
         s = s.replace(/\./g, '').replace(',', '.');
     }
     // Accept leading +, scientific notation, etc. Reject anything with letters

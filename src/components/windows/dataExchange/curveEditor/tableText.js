@@ -91,15 +91,26 @@ function tabbedGrid(text, decimal) {
         .filter(line => line.some(Number.isFinite));
 }
 
+// A line of a comma-decimal column that is one mistyped number, such as
+// "94..2": digits and number marks only, and no comma beyond the decimal one,
+// so not a row of columns. Only a comma-decimal column needs this: the table
+// parser would split its every value at the decimal comma.
+function mistypedCell(line, decimal) {
+    const commas = (line.match(/,/g) || []).length;
+    return decimal === ',' && commas <= 1 && /^[-+]?[\d.,]*\d[\d.,]*([eE][-+]?\d+)?\s*%?$/.test(line);
+}
+
 // One number per line, read with the decimal mark found in the text, or null.
 // A single cell or column copied from a spreadsheet in a comma-decimal locale
 // arrives as "0,5" alone on its line, which a table parser would split into
-// two columns, 0 and 5.
+// two columns, 0 and 5. A mistyped line stays a blank cell in its place rather
+// than sending the whole column to the table parser.
 function singleColumn(text) {
     const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     const decimal = detectDecimal(text);
     const values = lines.map(line => parseNumber(line, decimal));
-    return values.length && values.every(Number.isFinite) ? values.map(value => [value]) : null;
+    const oneColumn = values.every((value, i) => Number.isFinite(value) || mistypedCell(lines[i], decimal));
+    return values.some(Number.isFinite) && oneColumn ? values.map(value => [value]) : null;
 }
 
 /**
