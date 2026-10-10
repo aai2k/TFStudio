@@ -18,7 +18,7 @@ const EMPTY_OPERANDS = [];
 
 // Band operands are sampled for the displayed design's fringes, the grid a run
 // launched from that design would use, so the table shows the band's true value.
-function evaluateForDisplay(design, operands) {
+export function evaluateForDisplay(design, operands) {
     const ctx = buildEvalContext(design, designMaterialLookup(design));
     const sampled = withFringeSampleCounts(operands, ctx);
     const computed = evaluateOperands(sampled, ctx);
