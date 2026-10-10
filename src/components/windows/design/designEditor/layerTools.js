@@ -1,4 +1,4 @@
-import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { designMaterialLookup, designMaterialName } from '../../../../utils/materials/designMaterials.js';
 import { herpinMaterialRecord } from '../../../../utils/materials/herpinMaterial.js';
 import {
     buildEvalContext, calcMF, evaluateOperands, mirrorLayers,
@@ -149,7 +149,9 @@ export function herpinCollapsePreview(design, side, selectedIds, referenceWavele
     let totalPhase = 0;
     for (const layer of group) {
         const [n, k = 0] = resolveMaterial(layer.material).getNK(lambda);
-        if (!(Number.isFinite(n) && n > 0)) throw herpinError('HERPIN_INDEX', layer.material);
+        if (!(Number.isFinite(n) && n > 0)) {
+            throw herpinError('HERPIN_INDEX', designMaterialName(design, layer.material));
+        }
         if (Math.abs(k) > 1e-7) {
             throw herpinError('HERPIN_LOSSY');
         }

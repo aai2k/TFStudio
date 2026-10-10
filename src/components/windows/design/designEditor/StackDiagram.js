@@ -1,4 +1,5 @@
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { designMaterialName } from '../../../../utils/materials/designMaterials.js';
 import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { resolveEvalMode } from '../../../../utils/physics/optimizer.js';
 import { resolveMaterial } from './units.js';
@@ -15,12 +16,6 @@ function addAlpha(color, alpha01) {
     if (color.startsWith('hsl(') && color.endsWith(')'))
         return 'hsla(' + color.slice(4, -1) + ', ' + alpha01.toFixed(2) + ')';
     return color;
-}
-
-function matDisplayName(id) {
-    if (!id) return '';
-    const i = id.indexOf(':');
-    return i >= 0 ? id.slice(i + 1) : id;
 }
 
 // Per-cell style for the stack-diagram row. Role selects the fill (ambient =
@@ -42,12 +37,17 @@ function stackBlockStyle(b, i, count, subMat, c) {
         fontSize: 9, color: c.textDim, overflow: 'hidden', cursor: 'default',
     };
 }
+// A material name without the qualifier in brackets, 'BK7' for 'BK7 (Schott)',
+// for a block with room for a word. The full name is the block's title.
+const shortName = name => name.split(' (')[0];
+
 // Truncated cell label. Layer blocks are too narrow for text; an elided block
 // carries its hidden count, which is the only thing it has to say.
 function stackBlockLabel(b) {
     if (b.role === 'layer') return '';
     if (b.role === 'elided') return b.label;
-    return b.label.length > 6 ? b.label.slice(0, 5) + '…' : b.label;
+    const label = shortName(b.label);
+    return label.length > 6 ? label.slice(0, 5) + '…' : label;
 }
 
 // Past this many layers a coating is drawn as its first and last ELIDED_ENDS
@@ -62,18 +62,21 @@ const ELIDED_ENDS = 8;
 // blocks shrink until neither their width nor their material colour reads, so
 // the diagram stops carrying information exactly when the stack is complex
 // enough to need it. Eliding leaves the survivors wide enough to see.
-function coatingBlocks(layers, de, designMaterials) {
-    const block = layer => ({ label: layer.material, role: 'layer', mat: resolveMaterial(layer.material, designMaterials) });
+function coatingBlocks(layers, de, design) {
+    const block = layer => ({
+        label: designMaterialName(design, layer.material), role: 'layer',
+        mat: resolveMaterial(layer.material, design.materials),
+    });
     if (layers.length <= ELIDE_ABOVE) return layers.map(block);
 
     const hidden = layers.slice(ELIDED_ENDS, layers.length - ELIDED_ENDS);
-    const names = [...new Set(hidden.map(layer => matDisplayName(layer.material)).filter(Boolean))];
+    const names = [...new Set(hidden.map(layer => designMaterialName(design, layer.material)).filter(Boolean))];
     return [
         ...layers.slice(0, ELIDED_ENDS).map(block),
         {
             role: 'elided',
             label: de.elidedLayers(hidden.length),
-            fullId: de.elidedTooltip(hidden.length, names.join(', ')),
+            tooltip: de.elidedTooltip(hidden.length, names.join(', ')),
         },
         ...layers.slice(layers.length - ELIDED_ENDS).map(block),
     ];
@@ -104,11 +107,11 @@ export const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
     // 99 + 99 stack draws as ambient, 8 front, +83, 8 front, substrate, 8 back,
     // +83, 8 back, ambient. That caps the row at a width every block survives.
     const blocks = [
-        { label: matDisplayName(design.incidentMedium), fullId: design.incidentMedium, role: 'ambient' },
-        ...coatingBlocks(front, de, design.materials),
-        { label: matDisplayName(design.substrate.material), fullId: design.substrate.material, role: 'substrate' },
-        ...coatingBlocks(back, de, design.materials),
-        { label: matDisplayName(design.exitMedium), fullId: design.exitMedium, role: 'ambient' }
+        { label: designMaterialName(design, design.incidentMedium), role: 'ambient' },
+        ...coatingBlocks(front, de, design),
+        { label: designMaterialName(design, design.substrate.material), role: 'substrate' },
+        ...coatingBlocks(back, de, design),
+        { label: designMaterialName(design, design.exitMedium), role: 'ambient' }
     ];
 
     const totalFront = front.reduce((s, l) => s + (l.thickness || 0), 0);
@@ -127,7 +130,7 @@ export const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
         h('div', { style: { display: 'flex', alignItems: 'stretch', gap: 1, height: 26, width: '100%', overflow: 'hidden' } },
             !light.fromExit && arrow,
             blocks.map((b, i) =>
-                h('div', { key: i, title: b.fullId || b.label,
+                h('div', { key: i, title: b.tooltip || b.label,
                     style: stackBlockStyle(b, i, blocks.length, subMat, c) },
                     stackBlockLabel(b))
             ),

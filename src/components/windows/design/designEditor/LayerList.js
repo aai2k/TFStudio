@@ -17,7 +17,7 @@ import { useLayerDrag } from './useLayerDrag.js';
 import { useLayerStep } from './useLayerStep.js';
 import { useLayerRowEdits } from './useLayerRowEdits.js';
 import { useThicknessStep } from './useThicknessStep.js';
-import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
+import { designMaterialName } from '../../../../utils/materials/designMaterials.js';
 import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { expandHerpinLayer, isHerpinLayer } from './layerTools.js';
 import {
@@ -159,10 +159,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         if (copied.length) clipboardRef.current = writeLayerClipboard(copied);
     }, [selectedLayers]);
 
-    const materialName = useCallback(id => {
-        const resolved = resolveDesignMaterial(design, id);
-        return resolved.status === 'missing' ? id : (resolved.material.name || id);
-    }, [design]);
+    const materialName = useCallback(id => designMaterialName(design, id), [design]);
 
     const copyStackAsTable = useCallback(async () => {
         const copied = await writeStackTableClipboard(displayedLayers, materialName, {
@@ -189,9 +186,9 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         try {
             applyToolDesign(expandHerpinLayer(design, side, selected[0].id));
         } catch (error) {
-            setToolNotice(localizedHerpinError(error, layerToolText));
+            setToolNotice(localizedHerpinError(error, t));
         }
-    }, [applyToolDesign, design, displayedLayers, layerToolText, selectedIds, side]);
+    }, [applyToolDesign, design, displayedLayers, layerToolText, selectedIds, side, t]);
 
     const pasteAt = useCallback((displayIndex, sources) => {
         if (!sources?.length) return;
@@ -533,7 +530,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                 title: substrateWarning.title,
                 style: { padding: '2px 4px', fontSize: 10,
                     color: substrateWarning.color, fontStyle: 'italic' },
-            }, de.substrateTopLabel(design.substrate.material)),
+            }, de.substrateTopLabel(materialName(design.substrate.material))),
 
             // Full list mounted once; scrolling is pure native scroll.
             displayedLayers.length === 0
@@ -554,8 +551,8 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                 fontStyle: 'italic', flexShrink: 0, borderTop: `1px solid ${c.border}` },
         },
             side === 'front'
-                ? de.incidentBottomLabel(design.incidentMedium)
-                : de.exitLabel(design.exitMedium)
+                ? de.incidentBottomLabel(materialName(design.incidentMedium))
+                : de.exitLabel(materialName(design.exitMedium))
         ),
 
         contextMenu && h(ContextMenu, {

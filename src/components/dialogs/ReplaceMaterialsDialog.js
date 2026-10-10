@@ -7,8 +7,8 @@
  * thickness at the design reference wavelength.
  */
 
-import { resolveColor, materialLabel } from '../../utils/materials/catalogManager.js';
-import { resolveDesignMaterial } from '../../utils/materials/designMaterials.js';
+import { resolveColor } from '../../utils/materials/catalogManager.js';
+import { designMaterialName, resolveDesignMaterial } from '../../utils/materials/designMaterials.js';
 import { MaterialPicker } from '../ui/MaterialPicker.js';
 import { Checkbox } from '../ui/Checkbox.js';
 
@@ -105,11 +105,7 @@ export function ReplaceMaterialsDialog({ design, updateDesign, c, t, onClose }) 
         opacity: (primary && changed.length === 0) ? 0.5 : 1,
     });
 
-    const nameOf = (id) => {
-        const resolved = resolveDesignMaterial(design, id);
-        const mat = resolved.status === 'missing' ? null : resolved.material;
-        return mat ? (mat.name || materialLabel(id)) : materialLabel(id);
-    };
+    const nameOf = (id) => designMaterialName(design, id);
     const colorOf = (id) => {
         const resolved = resolveDesignMaterial(design, id);
         return resolved.status === 'missing' ? c.error : resolveColor(resolved.material);

@@ -32,7 +32,7 @@
  * mean resampling it into a table, an approximation of a material every
  * installation already holds exactly.
  */
-import { getMaterialById } from './catalogManager.js';
+import { getMaterialById, materialLabel } from './catalogManager.js';
 import { fromAnotherCatalog, localCatalogUid } from './catalogStamps.js';
 import { makeGetNK } from './catalogManager/dispersion.js';
 import { stripGetNK } from './catalogManager/persistence.js';
@@ -150,6 +150,16 @@ function fromRecord(record, conflict) {
     const material = embeddedMaterial(record);
     if (!material) return { material: getMaterial('Air'), status: 'missing' };
     return conflict ? { material, status: 'embedded', conflict } : { material, status: 'embedded' };
+}
+
+/**
+ * The name a material id is shown by in a design: the material's own name, or
+ * the id without its catalog prefix when the id resolves nowhere. An empty id
+ * is Air, which is what the design computes with.
+ */
+export function designMaterialName(design, id) {
+    const { material, status } = resolveDesignMaterial(design, id);
+    return (status !== 'missing' && material.name) || materialLabel(id);
 }
 
 /**

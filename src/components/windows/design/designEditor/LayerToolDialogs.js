@@ -179,8 +179,11 @@ export function PerturbDialog({ design, side, c, t, onApply, onClose }) {
     );
 }
 
-export function localizedHerpinError(error, strings) {
-    const entry = strings.errors?.[error?.code];
+// A layer whose material resolves nowhere is reported the way the rest of the
+// app reports it, with its stored id so it can be found and replaced.
+export function localizedHerpinError(error, t) {
+    if (error?.code === 'UNRESOLVED_DESIGN_MATERIAL') return t.materialResolution.rowMissing(error.materialId);
+    const entry = t.designEditor.layerTools.errors?.[error?.code];
     if (typeof entry === 'function') return entry(error.detail);
     return entry || error?.message || String(error);
 }
@@ -191,9 +194,9 @@ export function HerpinDialog({ design, side, selectedIds, c, t, onApply, onClose
         try {
             return { preview: herpinCollapsePreview(design, side, selectedIds, design.referenceWavelength || 550), error: null };
         } catch (error) {
-            return { preview: null, error: localizedHerpinError(error, strings) };
+            return { preview: null, error: localizedHerpinError(error, t) };
         }
-    }, [design, side, selectedIds, strings]);
+    }, [design, side, selectedIds, t]);
     const equivalent = result.preview?.equivalentLayer;
     return h(DialogFrame, { title: strings.herpinTitle, c, onClose },
         h('p', { style: { color: c.textDim, lineHeight: 1.45 } },

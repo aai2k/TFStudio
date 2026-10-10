@@ -14,13 +14,15 @@
  *   6. Inhomogeneities: the interface names, a medium the design does not
  *      name, and the Profile choices.
  *   7. Synthesis material pools: the built-in catalog.
+ *   8. Design Editor: the substrate, incident and exit rows around the layer
+ *      table, the stack diagram above it, and the Herpin tool's errors.
  *
  * Every block runs, and the failures are listed together.
  *
  * Run: node tests/untranslated_window_labels.mjs
  */
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
+import { loadApp, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 const { getLocale } = await loadApp();
@@ -270,6 +272,70 @@ await check('Integral Values weightings', () => {
                 `${code} does not keep a user catalog's own name`);
         }
         setCurrentLocale('en');
+    });
+}
+
+// ── 8. Design Editor ─────────────────────────────────────────────────────────
+{
+    const { LayerList } = await import('../src/components/windows/design/designEditor/LayerList.js');
+    const { StackDiagram } = await import('../src/components/windows/design/designEditor/StackDiagram.js');
+    const noop = () => {};
+    const table = (t, side, shown = design, missingMaterialIds = new Set()) => html(withDesign(h(LayerList, {
+        layers: side === 'front' ? shown.frontLayers : shown.backLayers, side, design: shown, updateDesign: noop,
+        missingMaterialIds, c, t, removeLayer: noop, updateLayer: noop,
+        addLayerAtDisplayIndex: noop, removeLayerAt: noop, duplicateLayerAt: noop,
+        pasteLayersAtDisplayIndex: noop, removeLayers: noop, reorderLayers: noop, moveLayersByStep: noop,
+        invertActiveSide: noop, setAllLocked: noop, copyToOther: noop,
+        onOpenReplaceMaterials: noop, refLambda: 550,
+    }), shown));
+    await check('Design Editor substrate and medium rows', () => {
+        for (const [code, t] of [['en', en], ['ru', ru], ['zh', zh], ['it', it]]) {
+            const de = t.designEditor;
+            const front = table(t, 'front');
+            const back = table(t, 'back');
+            expect(front.includes(de.substrateTopLabel(SIO2)) && front.includes(de.incidentBottomLabel('Air')),
+                `${code} front side does not name the substrate and incident medium`);
+            expect(back.includes(de.exitLabel('Air')), `${code} back side does not name the exit medium`);
+        }
+        // A substrate no catalog holds is named as the material picker names it.
+        const missing = { ...design, substrate: { material: 'user_lab:Glass_2', thickness: 1 } };
+        const row = table(en, 'front', missing, new Set(['user_lab:Glass_2']));
+        expect(row.includes(en.designEditor.substrateTopLabel('Glass_2')), 'a missing substrate keeps its catalog prefix');
+    });
+    await check('Design Editor stack diagram', () => {
+        const out = html(h(StackDiagram, { design, c, t: en }));
+        expect(!out.includes('builtin:'), 'the stack diagram shows a catalog id');
+        for (const name of ['Air', SIO2, TIO2]) {
+            expect(out.includes(`title="${name}"`), `no block is titled ${name}`);
+        }
+        // The substrate block is too small for 'SiO2 (Fused Silica)' and shows
+        // the name without its qualifier.
+        expect(out.includes(`title="${SIO2}"`) && out.includes('>SiO2<'), 'the substrate block is not labelled SiO2');
+    });
+    const { herpinCollapsePreview } = await import('../src/components/windows/design/designEditor/layerTools.js');
+    const { localizedHerpinError } = await import('../src/components/windows/design/designEditor/LayerToolDialogs.js');
+    // The error a symmetric period of `outer` around SiO2 gives, in the words of `t`.
+    const herpinError = (outer, materials, t) => {
+        const period = {
+            ...design, materials,
+            frontLayers: [
+                { id: 'p', material: outer, thickness: 50 },
+                { id: 'q', material: 'builtin:SiO2', thickness: 80 },
+                { id: 'r', material: outer, thickness: 50 },
+            ],
+        };
+        try { herpinCollapsePreview(period, 'front', ['p', 'q', 'r'], 550); } catch (error) { return localizedHerpinError(error, t); }
+        return null;
+    };
+    await check('Design Editor Herpin errors', () => {
+        // A film whose index table is zero, which the Herpin reduction refuses.
+        const broken = { id: 'Bad', name: 'Broken film', formulaNum: -1, tabData: [[400, 0, 0], [700, 0, 0]] };
+        for (const [code, t] of [['en', en], ['ru', ru]]) {
+            const zero = herpinError('user_x:Bad', { 'user_x:Bad': broken }, t);
+            expect(zero === t.designEditor.layerTools.errors.HERPIN_INDEX('Broken film'), `${code} reads "${zero}"`);
+            const missing = herpinError('user_lab:Glass_2', {}, t);
+            expect(missing === t.materialResolution.rowMissing('user_lab:Glass_2'), `${code} reads "${missing}"`);
+        }
     });
 }
 
