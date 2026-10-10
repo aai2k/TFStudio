@@ -25,7 +25,7 @@ export function _perturbCtxGap(ctx, cfg, pos, mat, deltaNm) {
     const backMats   = [...ctx.backMats.slice(0, pos),   mat,     ...ctx.backMats.slice(pos)];
     return { ...ctx, backThicks, backMats,
         fullThicks: surfaceMode === 'both_independent'
-            ? [...ctx.frontThicks, ...backThicks] : ctx.frontThicks };
+            ? [...ctx.frontThicks, ...backThicks] : backThicks };
 }
 
 // Split host layer `loc.k` at fraction `loc.frac` and insert a needle of
@@ -57,5 +57,5 @@ export function _perturbCtxIntra(ctx, cfg, loc, mat, deltaNm) {
     }
     return { ...ctx, backThicks: thicksNew, backMats: matsNew,
         fullThicks: surfaceMode === 'both_independent'
-            ? [...ctx.frontThicks, ...thicksNew] : ctx.frontThicks };
+            ? [...ctx.frontThicks, ...thicksNew] : thicksNew };
 }
