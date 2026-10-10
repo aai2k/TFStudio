@@ -12,15 +12,23 @@ const { createElement: h, useEffect, useRef } = React;
 // comes back at the bottom, measured and calculated alike.
 const onDeltaAxis = values => (values || []).map(value => ((value % 360) + 360) % 360);
 
+// A drawn curve's legend name. A fit target drawn from its snapshot is named as
+// a target, not as a measurement. `names` is t.legendNames; without it a curve
+// goes by its own name.
+function overlayName(overlay, names) {
+    if (!names) return overlay.name;
+    const nameAt = overlay.fitTarget ? names.fitTargetAt : names.measuredAt;
+    return nameAt(overlay.name, overlay.psi ? 'Ψ' : 'Δ', overlay.aoi);
+}
+
 // A measured Ψ or Δ, drawn the way Optical Evaluation draws a measured
 // spectrum: the same colour as its calculated counterpart would use unless the
 // curve carries one of its own, dotted, with the readings marked as hollow
-// points so a measurement is never mistaken for a computed line. `names` is
-// t.legendNames; without it a curve goes by its own name.
+// points so a measurement is never mistaken for a computed line.
 function measuredSeries(overlays, curve, names) {
     return (overlays || []).map(overlay => lineSeries({
         x: overlay.x, y: overlay.psi ? overlay.y : onDeltaAxis(overlay.y),
-        name: names ? names.measuredAt(overlay.name, overlay.psi ? 'Ψ' : 'Δ', overlay.aoi) : overlay.name,
+        name: overlayName(overlay, names),
         color: overlay.color || (overlay.psi ? curve.psi : curve.delta),
         width: 1.4, dash: 'dotted', symbol: 'emptyCircle', symbolSize: 4,
         yAxisIndex: overlay.psi ? 0 : 1,

@@ -139,7 +139,7 @@ await check('Ellipsometry legend', async () => {
             { overlays, spectral: true, names: t.legendNames });
         const names = option.series.map(series => series.name).join(' | ');
         expect(!/meas|fit target|Measured curve/.test(names), `${code} reads ${names}`);
-        expect(names.includes(t.legendNames.fitTarget(t.legendNames.unnamedCurve)), `${code} does not name the fit target: ${names}`);
+        expect(names.includes(t.legendNames.fitTargetAt(t.legendNames.unnamedCurve, 'Δ', 65)), `${code} does not name the fit target: ${names}`);
     }
 });
 

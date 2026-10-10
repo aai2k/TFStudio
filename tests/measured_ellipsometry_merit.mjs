@@ -212,7 +212,7 @@ assert.equal(operandResidualScale(makeMeasuredCurveOperand({ quantity: 'R' })), 
     const names = getLocale('en').legendNames;
     const targets = measuredEllipsometryOverlays(orphaned, view, names);
     assert.equal(targets.length, 2, 'a target whose curve is gone is drawn from its own snapshot');
-    assert.ok(targets.every(overlay => overlay.name.includes('fit target') && overlay.aoi === AOI));
+    assert.ok(targets.every(overlay => overlay.fitTarget && overlay.aoi === AOI), 'each is drawn as a fit target at its angle');
     assert.deepEqual(targets.find(overlay => !overlay.psi).y, fileDelta,
         'in the file’s own convention the snapshot is drawn as written');
     const reversed = measuredEllipsometryOverlays(orphaned, { ...view, deltaConvention: 'reversed' });
@@ -224,7 +224,7 @@ assert.equal(operandResidualScale(makeMeasuredCurveOperand({ quantity: 'R' })), 
     const hiddenDelta = { measuredEllipsometry: [psiCurve, { ...deltaCurve, visible: false }], meritOperands: fit.operands };
     const mixed = measuredEllipsometryOverlays(hiddenDelta, view, names);
     assert.equal(mixed.length, 2);
-    assert.ok(mixed.some(overlay => !overlay.psi && overlay.name.includes('fit target')),
+    assert.ok(mixed.some(overlay => !overlay.psi && overlay.fitTarget),
         'hiding the curve puts its target back on the plot');
 
     assert.equal(buildTargetGeometry(fit.operands).lines.length, 0,

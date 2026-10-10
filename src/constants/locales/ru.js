@@ -4527,6 +4527,7 @@ export default {
     measured: (name, quantity) => `${name} (измеренный ${quantity})`,
     measuredAt: (name, quantity, aoi) => `${name} (измеренный ${quantity}, ${aoi}°)`,
     fitTarget: (name) => `${name} (цель подгонки)`,
+    fitTargetAt: (name, quantity, aoi) => `${name} (цель подгонки ${quantity}, ${aoi}°)`,
     fitTargetUnnamed: 'Измеренная цель подгонки',
     unnamedCurve: 'Измеренная кривая',
     target: (type) => `Цель ${type}`,

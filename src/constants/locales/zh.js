@@ -4958,6 +4958,7 @@ export default {
     measured: (name, quantity) => `${name}（实测 ${quantity}）`,
     measuredAt: (name, quantity, aoi) => `${name}（实测 ${quantity} @ ${aoi}°）`,
     fitTarget: (name) => `${name}（拟合目标）`,
+    fitTargetAt: (name, quantity, aoi) => `${name}（拟合目标 ${quantity} @ ${aoi}°）`,
     fitTargetUnnamed: '实测拟合目标',
     unnamedCurve: '测量曲线',
     target: (type) => `${type} 目标`,

@@ -4591,6 +4591,7 @@ export default {
     measured: (name, quantity) => `${name} (${quantity} meas)`,
     measuredAt: (name, quantity, aoi) => `${name} (${quantity} meas @ ${aoi}°)`,
     fitTarget: (name) => `${name} (fit target)`,
+    fitTargetAt: (name, quantity, aoi) => `${name} (${quantity} fit target @ ${aoi}°)`,
     fitTargetUnnamed: 'Measured fit target',
     unnamedCurve: 'Measured curve',
     target: (type) => `${type} target`,

@@ -4,10 +4,10 @@ import { convertDeltaConvention } from '../../../../utils/physics/thinFilmMath.j
 
 // One drawn measurement. Δ is moved from the convention it was written in into
 // the one the plot is showing; Ψ is a magnitude ratio and is the same in either.
-function overlay({ id, name, color, aoi, quantity, x, y, from, to }) {
+function overlay({ id, name, color, aoi, quantity, x, y, from, to, fitTarget = false }) {
     const psi = quantity === 'PSI';
     return {
-        id, name, color, aoi: aoi ?? 0, psi, x,
+        id, name, color, aoi: aoi ?? 0, psi, x, fitTarget,
         y: psi ? y : convertDeltaConvention(y, from || 'azzam', to),
     };
 }
@@ -49,9 +49,9 @@ export function measuredEllipsometryOverlays(design, view, names) {
     const targets = (design?.meritOperands || [])
         .filter(op => snapshot(op) && orphaned(op))
         .map(op => overlay({
-            id: op.id, name: names ? names.fitTarget(op.curveName || names.unnamedCurve) : (op.curveName || ''), color: null,
+            id: op.id, name: op.curveName || names?.unnamedCurve || '', color: null,
             aoi: op.aoi, quantity: op.quantity, x: op.sampleLambdas, y: op.sampleTargets,
-            from: op.deltaConvention, to: deltaConvention,
+            from: op.deltaConvention, to: deltaConvention, fitTarget: true,
         }));
     return [...curves, ...targets];
 }
