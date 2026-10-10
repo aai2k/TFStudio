@@ -2707,6 +2707,7 @@ export default {
     cdcAxis:      'CDC (fs/nm)',
     cdcTip:       'Chromatic dispersion coefficient: the same pulse spreading as GDD, per nm of wavelength instead of per rad/fs',
     todAxis:      'TOD (fs³)',
+    quantityShort: { gd: 'GD', gdd: 'GDD', cdc: 'CDC', tod: 'TOD' },
     totalThk:     'Total thickness',
     layersLabel:  'Layers',
     models:       'Models',
@@ -4589,6 +4590,7 @@ export default {
     pageOf: (n, m) => `Page ${n} of ${m}`, design: 'Design', designsCount: (n) => `${n} designs`,
     // Group delay
     phase: 'Phase', sides: { front: 'front', back: 'back' },
+    dispersionAxes: { gd: 'GD, fs', gdd: 'GDD, fs²', cdc: 'CDC, fs/nm', tod: 'TOD, fs³' },
     invalidPoints: (n) => `${n} points could not be evaluated`,
     // Monte Carlo
     mcNoRun: 'No Monte Carlo run for this design yet. Run it in the Monte Carlo window; the block prints the last run.',
@@ -4649,6 +4651,7 @@ export default {
       },
       lastRun: 'last run in the window', monteCarloHint: 'The block prints the last run made in the Monte Carlo window for this design, with the error settings it ran with. Run it there again to refresh.',
       envelope: 'Min and max', quantities: 'Quantities', target: 'Of', sides: { front: 'Front', back: 'Back' }, phase: 'Phase',
+      dispersionNames: { gd: 'GD', gdd: 'GDD', cdc: 'CDC', tod: 'TOD' },
       asInWindow: 'as set in the window',
       worksheetHint: 'The chip plan, the monitoring wavelengths, the chip glass and the monitor settings are those of the Monitor Worksheet window for this design. Change them there and the report follows.',
       templates: { 'design-record': 'Design record', 'customer': 'Customer report', 'comparison': 'Comparison' },

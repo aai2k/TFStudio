@@ -154,7 +154,7 @@ const FORMS = {
             h(ChoiceGroup, { c, items: POL_ITEMS, activeId: s.pol, onSelect: id => set('pol', id) })),
         h(SettingRow, { c, key: 'quantities', label: W.quantities, wrap: true },
             DISPERSION_QUANTITY_KEYS.map(key => h(CheckField, {
-                label: key === 'phase' ? W.phase : key.toUpperCase(),
+                label: key === 'phase' ? W.phase : W.dispersionNames[key],
                 key, c, checked: !!s.quantities?.[key],
                 onChange: e => set('quantities', { ...s.quantities, [key]: e.target.checked }),
             }))),

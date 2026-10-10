@@ -3131,6 +3131,7 @@ export default {
     cdcAxis: 'CDC (fs/nm)',
     cdcTip: "Coefficiente di dispersione cromatica: lo stesso allargamento dell'impulso del GDD, per nm di lunghezza d'onda invece che per rad/fs",
     todAxis: 'TOD (fs³)',
+    quantityShort: { gd: 'GD', gdd: 'GDD', cdc: 'CDC', tod: 'TOD' },
     totalThk: 'Spessore totale',
     layersLabel: 'Strati',
     models: 'Modelli',
@@ -5039,6 +5040,7 @@ export default {
       back: 'posteriore',
     },
     invalidPoints: (n) => `${n} punti non sono stati valutati`,
+    dispersionAxes: { gd: 'GD, fs', gdd: 'GDD, fs²', cdc: 'CDC, fs/nm', tod: 'TOD, fs³' },
     mcNoRun: "Nessuna esecuzione Monte Carlo per questo design. Eseguila nella finestra Monte Carlo; il blocco stampa l'ultima esecuzione.",
     mcTrials: (n) => `${n} prove`,
     mcNominal: 'design',
@@ -5176,6 +5178,7 @@ export default {
       monteCarloHint: "Il blocco stampa l'ultima esecuzione fatta nella finestra Monte Carlo per questo design, con le impostazioni di errore usate. Rieseguila lì per aggiornarla.",
       envelope: 'Minimo e massimo',
       quantities: 'Grandezze',
+      dispersionNames: { gd: 'GD', gdd: 'GDD', cdc: 'CDC', tod: 'TOD' },
       target: 'Di',
       sides: {
         front: 'Anteriore',

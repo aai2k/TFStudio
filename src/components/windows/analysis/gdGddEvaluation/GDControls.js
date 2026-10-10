@@ -72,10 +72,10 @@ export function GDControls({ c, t, text, state, raw, autoRange, notices, editor 
             label: text.quantity, activeId: state.quantity, onSelect: state.setQuantity, c,
             items: [
                 { id: 'phase', label: text.phase, title: text.phaseTip },
-                { id: 'gd', label: 'GD', title: text.gdTip },
-                { id: 'gdd', label: 'GDD', title: text.gddTip },
-                { id: 'cdc', label: 'CDC', title: text.cdcTip },
-                { id: 'tod', label: 'TOD', title: text.todTip },
+                { id: 'gd', label: text.quantityShort.gd, title: text.gdTip },
+                { id: 'gdd', label: text.quantityShort.gdd, title: text.gddTip },
+                { id: 'cdc', label: text.quantityShort.cdc, title: text.cdcTip },
+                { id: 'tod', label: text.quantityShort.tod, title: text.todTip },
             ],
         }),
         h(ChoiceGroup, {

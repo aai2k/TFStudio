@@ -11,6 +11,8 @@ import { toSignificantFigures } from '../../math/significantFigures.js';
 import { stepIndices } from './spectrum.js';
 import { blockData } from './otherSections.js';
 
+const axis = (key, fallback) => tr => tt(tr?.dispersionAxes, key, fallback);
+
 // Quantity key → data field, axis label and color. Units are fixed by the
 // evaluator: femtoseconds and their powers, and fs/nm where the same dispersion
 // is taken against wavelength. CDC is written to a fixed number of significant
@@ -19,10 +21,10 @@ import { blockData } from './otherSections.js';
 // and as a long integer at the other.
 export const QUANTITIES = [
   { key: 'phase', field: 'phaseDeg', label: (tr) => `${tt(tr, 'phase', 'Phase')}, °`, color: '#6a1b9a', decimals: 1 },
-  { key: 'gd',    field: 'gd',       label: () => 'GD, fs',   color: '#1565c0', decimals: 2 },
-  { key: 'gdd',   field: 'gdd',      label: () => 'GDD, fs²', color: '#c62828', decimals: 2 },
-  { key: 'cdc',   field: 'cdc',      label: () => 'CDC, fs/nm', color: '#ef6c00', significantFigures: 5 },
-  { key: 'tod',   field: 'tod',      label: () => 'TOD, fs³', color: '#2e7d32', decimals: 1 },
+  { key: 'gd',    field: 'gd',       label: axis('gd', 'GD, fs'),   color: '#1565c0', decimals: 2 },
+  { key: 'gdd',   field: 'gdd',      label: axis('gdd', 'GDD, fs²'), color: '#c62828', decimals: 2 },
+  { key: 'cdc',   field: 'cdc',      label: axis('cdc', 'CDC, fs/nm'), color: '#ef6c00', significantFigures: 5 },
+  { key: 'tod',   field: 'tod',      label: axis('tod', 'TOD, fs³'), color: '#2e7d32', decimals: 1 },
 ];
 
 /** The quantity keys a gdGdd block can switch on, in the order it shows them. */

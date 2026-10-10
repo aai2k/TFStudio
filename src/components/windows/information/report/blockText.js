@@ -43,7 +43,7 @@ const SUMMARIES = {
     integrals: (W, s) => [W.sourceWindows.integrals, `${s.theta}°`, s.polarization],
     gdGdd: (W, s) => [
         W.sourceWindows.gdGdd, range(s), `${s.target} ${W.sides?.[s.side] || s.side}`, `${s.theta}°`, s.pol,
-        DISPERSION_QUANTITY_KEYS.filter(k => s.quantities?.[k]).map(k => (k === 'phase' ? W.phase : k.toUpperCase())).join(' '),
+        DISPERSION_QUANTITY_KEYS.filter(k => s.quantities?.[k]).map(k => (k === 'phase' ? W.phase : W.dispersionNames[k])).join(' '),
         ...plotAndTable(W, s),
     ],
     ellipsometry: (W, s) => [
