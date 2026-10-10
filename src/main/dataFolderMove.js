@@ -1,7 +1,11 @@
 /**
  * Moving the data folder from one place to another.
  *
- *   createDataFolderMove({ fs, path }) => { checkTarget, moveTree }
+ *   createDataFolderMove({ fs, path, installDir }) => { checkTarget, moveTree }
+ *
+ * `installDir` is the install folder of an installed build (see
+ * resolveInstallDir in userDataDir.js), null or absent for the portable build
+ * and a run from source.
  *
  * checkTarget decides whether a folder may be moved to, and writes nothing.
  * moveTree does the work: a rename where the file system allows one, otherwise
@@ -15,10 +19,10 @@
 'use strict';
 
 /**
- * @param {{ fs: object, path: object }} deps — fs and path, injected for testing
+ * @param {{ fs: object, path: object, installDir?: string|null }} deps: fs and path, injected for testing
  * @returns {{ checkTarget: Function, moveTree: Function }}
  */
-function createDataFolderMove({ fs: _fs, path: _path }) {
+function createDataFolderMove({ fs: _fs, path: _path, installDir = null }) {
 
   // ── Path normalization ────────────────────────────────────────────────────
   // Absolute form with any trailing separator removed. Case is left alone and
@@ -29,6 +33,15 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
       r = r.slice(0, -1);
     }
     return r;
+  }
+
+  // Whether `target` is the install folder or inside it. path.relative follows
+  // the platform's case rules, so a path typed in another case still matches
+  // on Windows.
+  function inInstallDir(target) {
+    if (!installDir) return false;
+    const rel = _path.relative(normalize(installDir), target);
+    return rel === '' || !(rel === '..' || rel.startsWith(`..${_path.sep}`) || _path.isAbsolute(rel));
   }
 
   // ── checkTarget(current, target) ──────────────────────────────────────
@@ -42,7 +55,10 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
    *   3. current must not be inside target;
    *   4. Pure check, no mkdir, no writing files;
    *   5. target == current (after normalize) → no-op success;
-   *   6. current root does not exist → 'current root unavailable'.
+   *   6. current root does not exist → 'current root unavailable';
+   *   7. for an installed build, target must not be the install folder or
+   *      inside it: every update runs the old uninstaller, which deletes that
+   *      folder with everything in it.
    *
    * @param {string} current — Current data root directory
    * @param {string} target — Target migration directory
@@ -55,6 +71,11 @@ function createDataFolderMove({ fs: _fs, path: _path }) {
     // 5. target == current → no-op success
     if (cur === tgt) {
       return { ok: true };
+    }
+
+    // 7. the install folder of an installed build
+    if (inInstallDir(tgt)) {
+      return { ok: false, reason: 'target is the install folder or inside it, and every update deletes that folder' };
     }
 
     // 6. current root does not exist

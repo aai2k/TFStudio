@@ -584,6 +584,38 @@ const { checkTarget, moveTree } = createDataFolderMove({ fs, path });
   ok(origBin.equals(copyBin), 'the binary file is byte for byte identical');
 }
 
+// ── 22. checkTarget: the install folder of an installed build ───────────────
+// Every update runs the old uninstaller, which deletes the install folder with
+// everything in it, so an installed build refuses a data folder there. The
+// portable build's folder beside the exe is never uninstalled, and neither is
+// a source tree.
+{
+  const current = buildTree(tmpDir('ct22-current'));
+  const installDir = tmpDir('ct22-install');
+  fs.writeFileSync(path.join(installDir, 'TFStudio.exe'), 'exe');
+  const inside = path.join(installDir, 'Data');
+
+  const installed = createDataFolderMove({ fs, path, installDir });
+  for (const [label, target] of [['inside it', inside], ['the folder itself', installDir]]) {
+    const r = installed.checkTarget(current, target);
+    ok(r.ok === false, `installed build: a data folder ${label} is refused`);
+    ok(/update/.test(r.reason || ''), `with a reason that says updates delete it, got: ${r.reason}`);
+  }
+  ok(!fs.existsSync(inside), 'and checking it created nothing');
+  ok(installed.checkTarget(current, path.join(TMP_ROOT, 'ct22-elsewhere')).ok === true,
+    'installed build: a data folder outside the install folder is allowed');
+  ok(installed.checkTarget(current, path.join(TMP_ROOT, 'ct22-install-data')).ok === true,
+    'including one whose name only starts like the install folder');
+
+  for (const [label, move] of [
+    ['portable build', createDataFolderMove({ fs, path, installDir: null })],
+    ['run from source', createDataFolderMove({ fs, path })],
+  ]) {
+    const r = move.checkTarget(current, inside);
+    ok(r.ok === true, `${label}: a data folder beside the exe is allowed, got reason: ${r.reason}`);
+  }
+}
+
 // ── Cleanup ───────────────────────────────────────────────────────────
 cleanup(TMP_ROOT);
 

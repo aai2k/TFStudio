@@ -11,9 +11,16 @@
 // CommonJS, Electron-free.
 const path = require('path');
 
+// The folder an installer put the app in, which the next update's uninstaller
+// deletes with everything in it. Null for the portable build and a run from
+// source, whose folders no uninstaller touches.
+function resolveInstallDir({ portableDir, isPackaged, exeDir }) {
+  return portableDir || !isPackaged ? null : exeDir;
+}
+
 function resolveUserDataDir({ portableDir, isPackaged, exeDir, appDataDir }) {
-  if (portableDir || !isPackaged) return path.join(exeDir, 'AppData');
+  if (!resolveInstallDir({ portableDir, isPackaged, exeDir })) return path.join(exeDir, 'AppData');
   return path.join(appDataDir, 'TFStudio');
 }
 
-module.exports = { resolveUserDataDir };
+module.exports = { resolveUserDataDir, resolveInstallDir };

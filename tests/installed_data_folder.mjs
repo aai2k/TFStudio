@@ -22,7 +22,7 @@ import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const { resolveUserDataDir } = require('../src/main/userDataDir.js');
+const { resolveUserDataDir, resolveInstallDir } = require('../src/main/userDataDir.js');
 const root = process.cwd();
 
 // ── Where the app keeps its data ─────────────────────────────────────────────
@@ -44,6 +44,14 @@ assert.equal(
     resolveUserDataDir({ portableDir: '', isPackaged: false, exeDir: path.join('X:', 'repo'), appDataDir }),
     path.join('X:', 'repo', 'AppData'),
     'a run from source keeps its data in the project directory');
+
+// Only an installed build has an install folder an update deletes.
+assert.equal(resolveInstallDir({ portableDir: undefined, isPackaged: true, exeDir: installDir }), installDir,
+    'an installed build names its install folder');
+assert.equal(resolveInstallDir({ portableDir, isPackaged: true, exeDir: portableDir }), null,
+    'the portable build has none: no uninstaller runs on its folder');
+assert.equal(resolveInstallDir({ portableDir: '', isPackaged: false, exeDir: path.join('X:', 'repo') }), null,
+    'and neither has a run from source');
 
 // The installer copies into the folder the app reads.
 const nsh = fs.readFileSync(path.join(root, 'build', 'installer.nsh'), 'utf8');
