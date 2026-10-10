@@ -23,6 +23,23 @@ const _normalizeSeparators = (str) => {
     return str;
 };
 
+// Whether a string uses a separator as thousands grouping, by the same reading
+// _normalizeSeparators applies: one mark repeated, or both marks present.
+const _usesGrouping = (str) => {
+    const dotCount = (str.match(/\./g) || []).length;
+    const commaCount = (str.match(/,/g) || []).length;
+    return dotCount > 1 || commaCount > 1 || (dotCount > 0 && commaCount > 0);
+};
+
+// A number written with grouping: one to three digits, then groups of exactly
+// three behind the grouping mark, then an optional decimal part behind the
+// other mark ("1,000,000", "1.000,5", "1,000.5").
+const _GROUPED = /^[-+]?\d{1,3}([.,])\d{3}(?:\1\d{3})*(?:(?!\1)[.,]\d*)?(?:[eE][-+]?\d+)?$/;
+
+// Repeated separators that are not grouping in threes: a typo such as "550..5"
+// or a list such as "0,5,1". Read as grouping they would become 5505 or 51.
+const _malformedGrouping = (str) => _usesGrouping(str) && !_GROUPED.test(str);
+
 /**
  * Parse a number string that may contain:
  * - Comma or dot as decimal separator
@@ -74,7 +91,9 @@ export const parseNumber = (value) => {
  *
  * Use this wherever an empty or half-typed cell has to be skipped rather than
  * taken as a real zero: a blank n in a data grid is a row still being entered,
- * not a material with an index of nothing.
+ * not a material with an index of nothing. Repeated separators count as
+ * thousands grouping only in groups of three, so a typo such as "550..5" or a
+ * list such as "0,5,1" is refused rather than read as 5505 or 51.
  *
  * @param {string|number} value
  * @returns {number} the value, or NaN
@@ -82,7 +101,9 @@ export const parseNumber = (value) => {
 export const parseNumberStrict = (value) => {
     if (typeof value === 'number') return value;
     if (typeof value !== 'string') return Number(value);
-    const text = _normalizeSeparators(value.trim()).replace(/E/g, 'e');
+    const trimmed = value.trim();
+    if (_malformedGrouping(trimmed)) return NaN;
+    const text = _normalizeSeparators(trimmed).replace(/E/g, 'e');
     return /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/.test(text) ? Number(text) : NaN;
 };
 
