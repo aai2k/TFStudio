@@ -8,6 +8,7 @@ import {
 } from '../utils/physics/statusMonitorEvaluation.js';
 import { useIntegralPresets } from '../utils/physics/integralValues.js';
 import { DebouncedInput } from './ui/DebouncedInput.js';
+import { parseNumberStrict } from '../utils/misc/numberParsing.js';
 import { tablerIcon } from './ui/tablerIcons.js';
 import { useAnalysisEvaluation } from './windows/analysis/useAnalysisEvaluation.js';
 
@@ -127,7 +128,7 @@ export function monitorTypePatch(form, value) {
 
 // ── Add / Edit monitor form ──────────────────────────────────────────────────
 
-function AddForm({ c, t, onAdd, onCancel, initial, mode }) {
+export function AddForm({ c, t, onAdd, onCancel, initial, mode }) {
     // `initial` (optional) seeds the form when editing an existing monitor.
     // `mode` ∈ 'add' | 'edit' — controls the submit-button label and which
     // ID the resulting object carries (preserved when editing).
@@ -175,7 +176,7 @@ function AddForm({ c, t, onAdd, onCancel, initial, mode }) {
 
     const miniInput = (val, onChange, width = 52) => h(DebouncedInput, {
         value: val, inputMode: 'decimal',
-        onChange: raw => { const value = Number.parseFloat(raw); if (Number.isFinite(value)) onChange(value); },
+        onChange: raw => { const value = parseNumberStrict(raw); if (Number.isFinite(value)) onChange(value); },
         style: {
             width, height: 20, backgroundColor: c.panel, color: c.text,
             border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11,

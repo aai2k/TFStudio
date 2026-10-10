@@ -1,3 +1,4 @@
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { isPct } from './model.js';
 
 const { createElement: h, useEffect, useRef, useState } = React;
@@ -34,7 +35,7 @@ export function NumberField({ value, onCommit, c, width = 64, inPct = false }) {
         setText(raw);
         // Transient states the user passes through while typing — don't commit.
         if (raw === '' || raw === '-' || raw === '.' || raw === '-.') return;
-        const n = parseFloat(raw);
+        const n = parseNumberStrict(raw);
         if (Number.isFinite(n)) onCommit(inPct ? n / 100 : n);
     };
 

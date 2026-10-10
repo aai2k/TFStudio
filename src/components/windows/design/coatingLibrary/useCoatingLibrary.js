@@ -5,12 +5,13 @@ import { applyCoatingPatch } from '../../../../utils/coatingLibrary/applyCoating
 import {
     USER_COATINGS_CHANGED, deleteUserCoating, listUserCoatings,
 } from '../../../../utils/coatingLibrary/userCoatings.js';
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { useWindowSession } from '../../windowSession.js';
 import { coatingLibrarySession } from './sessionState.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
 
-const numberOrNull = text => (text === '' || text == null ? null : Number(text));
+const numberOrNull = text => (text === '' || text == null ? null : parseNumberStrict(text));
 
 // Put the selected coating on one side of the design as one undo step, and say
 // what was done. With no design selected the window has a placeholder that

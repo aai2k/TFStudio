@@ -4,6 +4,7 @@ import {
 } from '../../../../utils/coatingLibrary/entryModel.js';
 import { validateEntry } from '../../../../utils/coatingLibrary/validateEntry.js';
 import { saveUserCoating } from '../../../../utils/coatingLibrary/userCoatings.js';
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { FONT, Segmented, buttonStyle, failReason, inputStyle } from './ui.js';
 
 const { createElement: h, useMemo, useState } = React;
@@ -28,6 +29,10 @@ function initialFields(design, side, coating) {
 }
 
 const sideLayers = (design, side) => (side === 'back' ? design.backLayers : design.frontLayers) || [];
+
+// A cleared field reads as 0: a cleared angle is normal incidence, and a
+// cleared band end fails validation with the band shown as it was read.
+const typedNumber = text => (text.trim() === '' ? 0 : parseNumberStrict(text));
 
 // How many layers are saved: the coating's, or those of the chosen side of the
 // design, with the picker for the side.
@@ -69,7 +74,8 @@ export function SaveCoatingDialog({ design, side: initialSide = 'front', coating
         if (!coating && sideLayers(design, side).length === 0) { setProblems([sd.emptyStack]); return; }
         const meta = {
             name: name.trim(), type, use: use.trim(),
-            band: [Number(bandStart), Number(bandEnd)], aoi: Number(aoi), polarization,
+            band: [typedNumber(bandStart), typedNumber(bandEnd)],
+            aoi: typedNumber(aoi), polarization,
         };
         const entry = coating ? entryFromCoating(coating, meta) : entryFromDesign(design, side, meta);
         const found = validateEntry(entry);
