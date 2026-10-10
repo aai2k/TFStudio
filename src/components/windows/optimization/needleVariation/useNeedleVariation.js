@@ -172,9 +172,12 @@ export function useNeedleVariation(t) {
 
     // ── Stop ──────────────────────────────────────────────────────────────────
     const stopOpt = useCallback((msg = '') => {
+        const wasRunning = runningRef.current;
         teardownRun({ runningRef, timerRef, workerRef });
         setPhase('idle');
-        if (msg) setStatusMsg(msg);
+        // Stopping a run clears the phase text it was showing; a finished run's
+        // reason stays when Best or Restore is pressed after it.
+        if (msg || wasRunning) setStatusMsg(msg);
     }, []);
 
     // M12: if the user manually edited the design (a non-transient write bumps

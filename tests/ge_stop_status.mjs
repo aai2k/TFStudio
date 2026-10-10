@@ -7,74 +7,20 @@
  *   2. The control bar draws the status in the accent colour while a run is
  *      going and dimmed when it is not, as Needle does.
  *
- * The hook runs under a small stand-in for React's hooks that keeps hook state
- * between renders and runs an effect when its dependencies change. The Run
- * goes to a worker pool whose workers never answer, so it stays in its first
- * phase until Stop.
+ * The hook runs under the effect-running stand-in for React in
+ * _effectRuntime.mjs. The Run goes to a worker pool whose workers never answer,
+ * so it stays in its first phase until Stop.
  *
  * Run: node tests/ge_stop_status.mjs
  */
 import assert from 'node:assert/strict';
 import { shimBrowserGlobals } from './_uiShim.mjs';
+import { makeEffectRuntime } from './_effectRuntime.mjs';
 
 shimBrowserGlobals();
 Object.defineProperty(globalThis, 'navigator', { value: { hardwareConcurrency: 1 }, configurable: true, writable: true });
 
-function fakeHooks(realReact) {
-    let slots = [];
-    let cursor = 0;
-    let pending = [];
-    let dirty = false;
-    const same = (a, b) => a && b && a.length === b.length && a.every((v, i) => Object.is(v, b[i]));
-    const slot = make => {
-        const i = cursor++;
-        if (slots.length <= i) slots[i] = make();
-        return slots[i];
-    };
-    return {
-        ...realReact,
-        useState(initial) {
-            const s = slot(() => ({ value: typeof initial === 'function' ? initial() : initial }));
-            return [s.value, next => {
-                s.value = typeof next === 'function' ? next(s.value) : next;
-                dirty = true;
-            }];
-        },
-        useRef: initial => slot(() => ({ current: initial })),
-        useMemo(fn, deps) {
-            const s = slot(() => ({}));
-            if (!same(s.deps, deps)) { s.value = fn(); s.deps = deps; }
-            return s.value;
-        },
-        useCallback(fn, deps) {
-            const s = slot(() => ({}));
-            if (!same(s.deps, deps)) { s.value = fn; s.deps = deps; }
-            return s.value;
-        },
-        useEffect(fn, deps) {
-            const s = slot(() => ({}));
-            if (deps && same(s.deps, deps)) return;
-            s.deps = deps;
-            pending.push(fn);
-        },
-        // Render until the state settles, as React re-renders after a set.
-        render(fn) {
-            let result;
-            let renders = 0;
-            do {
-                dirty = false;
-                cursor = 0;
-                pending = [];
-                result = fn();
-                pending.splice(0).forEach(effect => effect());
-                assert.ok(++renders < 10, 'the window settles');
-            } while (dirty);
-            return result;
-        },
-    };
-}
-
-const R = fakeHooks(globalThis.React);
+const R = makeEffectRuntime(globalThis.React);
 globalThis.React = R;
 
 const { useGradualEvolution } = await import(
@@ -97,7 +43,7 @@ const props = {
     design, updateDesign: noop, checkpoint: noop, beginOptimization: noop, endOptimization: noop,
     getDesignRevision: () => 0, t: EN,
 };
-const mount = () => R.render(() => useGradualEvolution(props));
+const mount = () => R.run(() => useGradualEvolution(props));
 
 // ── 1. Stop clears the phase text of the run it stops ────────────────────────
 {

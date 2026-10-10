@@ -4,14 +4,18 @@
  *
  * After each render the effects whose dependencies changed run in the order
  * declared, each after its previous cleanup; `run` renders again until no state
- * changes, and `unmount` runs every cleanup and forgets the slots, as for a
- * component taken out of the tree. A context is an object whose `value` the
- * test sets. Install it as the global React before importing the module under
- * test, since a window module reads `React` at its top level.
+ * changes and returns what the last render returned, and `unmount` runs every
+ * cleanup and forgets the slots, as for a component taken out of the tree. A
+ * context is an object whose `value` the test sets. Install it as the global
+ * React before importing the module under test, since a window module reads
+ * `React` at its top level.
+ *
+ * `base`, when given, supplies the rest of React: pass the real one for a test
+ * that reads the props of an element a component returns.
  *
  * _hookHarness.mjs is the other kind: it records effects without running them.
  */
-export function makeEffectRuntime() {
+export function makeEffectRuntime(base = {}) {
     let slots = [];
     let cursor = 0;
     let pending = [];
@@ -23,9 +27,10 @@ export function makeEffectRuntime() {
         return slots[i];
     };
     return {
+        ...base,
         createContext: value => ({ value, Provider: 'Provider' }),
         useContext: context => context.value,
-        createElement: () => null,
+        createElement: base.createElement ?? (() => null),
         useState(initial) {
             const s = slot(() => ({ value: typeof initial === 'function' ? initial() : initial }));
             return [s.value, next => {
@@ -52,14 +57,16 @@ export function makeEffectRuntime() {
         },
         run(render) {
             let renders = 0;
+            let result;
             do {
                 dirty = false;
                 cursor = 0;
                 pending = [];
-                render();
+                result = render();
                 pending.splice(0).forEach(effect => effect());
                 if (++renders >= 30) throw new Error('the hook never settles');
             } while (dirty);
+            return result;
         },
         unmount() {
             slots.forEach(s => s?.cleanup?.());
