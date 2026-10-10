@@ -1,12 +1,14 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { emptyRoughness, cloneRoughness } from '../../../../utils/physics/scattering.js';
-import { buildInterfaceLabels, calculateRoughness, getRoughnessContext } from './model.js';
+import { designInterfaces } from '../designInterfaces.js';
+import { calculateRoughness, getRoughnessContext } from './model.js';
 import { roughnessDesignSession, roughnessViewSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { useMemo, useCallback } = React;
 
-export function useRoughnessScattering() {
+// `rs` is t.roughnessScattering, which names a medium the design leaves unset.
+export function useRoughnessScattering(rs) {
     const { design, evalMode } = useDesign();
     const [designSession, setDesignField] = useWindowSession(roughnessDesignSession, design);
     // Memoised so the fallback is one stable object: a fresh one per render would
@@ -27,7 +29,7 @@ export function useRoughnessScattering() {
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: 'avg',
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi]);
     const context = getRoughnessContext(design, evalMode);
-    const labels = useMemo(() => buildInterfaceLabels(design), [design]);
+    const labels = useMemo(() => designInterfaces(design, rs), [design, rs]);
     const result = useMemo(
         () => calculateRoughness({ design, params, rough, evalMode, context }),
         [design, params, rough, evalMode, context.frontN, context.backN, context.hasBack]

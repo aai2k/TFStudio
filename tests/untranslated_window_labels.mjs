@@ -16,13 +16,15 @@
  *   7. Synthesis material pools: the built-in catalog.
  *   8. Design Editor: the substrate, incident and exit rows around the layer
  *      table, the stack diagram above it, and the Herpin tool's errors.
+ *   9. Roughness & Scattering: the interface names, and a medium the design
+ *      does not name.
  *
  * Every block runs, and the failures are listed together.
  *
  * Run: node tests/untranslated_window_labels.mjs
  */
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { loadApp, makeDesignCtx, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 const { getLocale } = await loadApp();
@@ -213,7 +215,7 @@ await check('Integral Values weightings', () => {
 // ── 6. Inhomogeneities ───────────────────────────────────────────────────────
 {
     const { designInterfaces } = await import(
-        '../src/components/windows/analysis/inhomogeneities/model.js');
+        '../src/components/windows/analysis/designInterfaces.js');
     const { InhomogeneityEditor } = await import(
         '../src/components/windows/analysis/inhomogeneities/InhomogeneityControls.js');
     await check('Inhomogeneities interface names', () => {
@@ -335,6 +337,49 @@ await check('Integral Values weightings', () => {
             expect(zero === t.designEditor.layerTools.errors.HERPIN_INDEX('Broken film'), `${code} reads "${zero}"`);
             const missing = herpinError('user_lab:Glass_2', {}, t);
             expect(missing === t.materialResolution.rowMissing('user_lab:Glass_2'), `${code} reads "${missing}"`);
+        }
+    });
+}
+
+// ── 9. Roughness & Scattering ────────────────────────────────────────────────
+{
+    const { RoughnessScattering } = await import(
+        '../src/components/windows/analysis/roughnessScattering/RoughnessScattering.js');
+    const { roughnessDesignSession } = await import(
+        '../src/components/windows/analysis/roughnessScattering/sessionState.js');
+    const { DesignContext } = await import('../src/state/DesignContext.js');
+    // The interface names in the per-interface editor, as the window draws them.
+    const interfaceNames = (shown, t, evalMode = 'front') => {
+        roughnessDesignSession.write(shown, { rough: { mode: 'perInterface', sigma: 1, range: 'short' } }, null);
+        const out = html(h(DesignContext.Provider, { value: { ...makeDesignCtx(shown), evalMode } },
+            h(RoughnessScattering, { c, t, theme: c })));
+        return [...out.matchAll(/<span[^>]*title="([^"]*→[^"]*)"/g)].map(match => match[1]);
+    };
+    await check('Roughness interface names', () => {
+        // Front layers are stored air side first; the Design Editor calls the
+        // one on the substrate L1.
+        for (const [code, t] of [['en', en], ['ru', ru], ['zh', zh], ['it', it]]) {
+            const names = interfaceNames(design, t);
+            expect(names.join() === `Air → L2,L2 → L1,L1 → ${SIO2}`, `${code} reads ${names.join(', ')}`);
+        }
+        const unnamed = { ...design, id: 'labels-unnamed', incidentMedium: '', substrate: { thickness: 1 } };
+        for (const [code, t] of [['ru', ru], ['zh', zh], ['it', it]]) {
+            const rs = t.roughnessScattering;
+            const names = interfaceNames(unnamed, t);
+            expect(names[0] === `${rs.mediumIncident} → L2` && names[2] === `L1 → ${rs.mediumSubstrate}`,
+                `${code} reads ${names.join(', ')}`);
+            expect(rs.mediumIncident !== 'Inc' && rs.mediumSubstrate !== 'Sub' && rs.mediumExit !== 'Exit',
+                `${code} keeps the English stand-ins`);
+        }
+        // Back layers are stored substrate first, already in Design Editor order.
+        const back = {
+            ...design, id: 'labels-back', exitMedium: '',
+            backLayers: [{ id: 'x', material: 'builtin:TiO2', thickness: 60 }, { id: 'y', material: 'builtin:SiO2', thickness: 94 }],
+        };
+        for (const [code, t] of [['en', en], ['ru', ru]]) {
+            const names = interfaceNames(back, t, 'back');
+            expect(names.join() === `${SIO2} → L1,L1 → L2,L2 → ${t.roughnessScattering.mediumExit}`,
+                `${code} back side reads ${names.join(', ')}`);
         }
     });
 }

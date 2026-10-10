@@ -3059,6 +3059,10 @@ export default {
     frontInterfaces:'Front-stack interfaces',
     backInterfaces: 'Back-stack interfaces',
     interface:      'Interface',
+    // Stand-ins for a medium the design leaves unset, in the interface names.
+    mediumIncident: 'Inc',
+    mediumSubstrate:'Sub',
+    mediumExit:     'Exit',
     editorTitle:    'Roughness',
     modeSection:    'Roughness model',
     uniform:        'Uniform σ',

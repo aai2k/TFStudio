@@ -34,9 +34,9 @@ function buildNotices({ state, rs, rangeNotice }) {
 }
 
 export function RoughnessScattering({ c, theme, t }) {
-    const state = useRoughnessScattering();
-    const { design, calc, units } = state;
     const rs = t.roughnessScattering;
+    const state = useRoughnessScattering(rs);
+    const { design, calc, units } = state;
     const dt = t.dataTable;
     const columns = scatterColumns(t, units, state.showCurves, calc);
     const rows = scatterRows(calc, state.showCurves);

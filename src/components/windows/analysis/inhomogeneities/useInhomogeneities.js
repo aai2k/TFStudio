@@ -2,8 +2,9 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import {
     cloneInhomogeneity, emptyInhomogeneity,
 } from '../../../../utils/physics/inhomogeneity.js';
+import { designInterfaces } from '../designInterfaces.js';
 import {
-    activeDesignSides, buildSpecificationInputs, computeInhomogeneitySpectra, designInterfaces,
+    activeDesignSides, buildSpecificationInputs, computeInhomogeneitySpectra,
 } from './model.js';
 import { inhomogeneityDesignSession, inhomogeneityViewSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';

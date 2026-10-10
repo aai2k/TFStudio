@@ -2,7 +2,6 @@ import { designMaterialLookup } from '../../../../utils/materials/designMaterial
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../../../../utils/physics/thinFilmMath.js';
-import { enumerateInterfaces } from '../../../../utils/physics/inhomogeneity.js';
 import {
     countInterfaces, extrapolateSlicing, GRADED_SLICES, resolveRanges, resolveSigmas,
     roughenBackStack, roughenFrontStack,
@@ -19,29 +18,6 @@ export function getRoughnessContext(design, evalMode) {
     const backN = hasBack ? countInterfaces(design.backLayers.length) : 0;
     const nIfaces = activeSides.reduce((sum, side) => sum + (side === 'back' ? backN : frontN), 0);
     return { hasBack, activeSides, frontN, backN, nIfaces };
-}
-
-export function buildInterfaceLabels(design) {
-    const resolveMaterial = designMaterialLookup(design);
-    const front = design?.frontLayers
-        ? enumerateInterfaces(
-            design.frontLayers.map(layer => ({
-                material: resolveMaterial(layer.material), thickness: layer.thickness,
-            })),
-            design.incidentMedium || 'Inc',
-            design.substrate?.material || 'Sub'
-        )
-        : [];
-    const back = design?.backLayers?.length
-        ? enumerateInterfaces(
-            design.backLayers.map(layer => ({
-                material: resolveMaterial(layer.material), thickness: layer.thickness,
-            })),
-            design.substrate?.material || 'Sub',
-            design.exitMedium || 'Exit'
-        )
-        : [];
-    return { front, back };
 }
 
 /** σ and roughness kind for every interface of one side, in the editor's order. */
