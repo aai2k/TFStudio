@@ -240,6 +240,8 @@ export default {
       folders: 'Папка данных',
     },
     analysis: {
+      polarizations: { avg: 'ср.' },
+      sides: { front: 'Передняя', back: 'Задняя' },
       hint: 'Применяется при следующем запуске TFStudio. Окно, в котором вы уже что-то меняли за этот сеанс, сохраняет заданные в нём значения.',
       curveColors: 'Цвета кривых',
       palette: 'Палитра',
@@ -670,6 +672,7 @@ export default {
     },
   },
   explorer: {
+    duplicateName: (name) => `${name} (копия)`,
     title: 'Проводник',
     newDesignFile: 'Новый проект',
     newProjectFolder: 'Новая папка',
@@ -1352,6 +1355,7 @@ export default {
     },
   },
   statusMonitors: {
+    polAvg: 'ср.',
     groups: {
       spectral: 'Спектральные', phase: 'Фаза и дисперсия', field: 'Поле и эллипсометрия',
       featureWavelength: 'Длина волны экстремума', designFacts: 'Параметры покрытия',
@@ -2050,6 +2054,7 @@ export default {
         continuous: 'непрерывная цель',
         discrete:   (step) => `дискретные точки @${step} nm`,
       },
+      polAvg: 'ср.',
       fieldOptions: {
         input: { gain: 'Усиление усилителя (dB)', target: 'Кривая потерь фильтра' },
       },
@@ -2639,6 +2644,7 @@ export default {
   },
 
   gdgdd: {
+    samplingNote: (added) => (added ? `аналитическое разложение Тейлора, адаптивных точек: ${added}` : 'аналитическое разложение Тейлора'),
     noLayers:     'Нет слоёв. Добавьте слои для отображения ГЗ / ДГЗ.',
     side:         'Сторона',
     front:        'Передняя',
@@ -3142,6 +3148,7 @@ export default {
   },
 
   errorAnalysis: {
+    polAvg: 'ср.',
     noLayers:      'Нет слоёв в проекте.',
     colNominalSpectrum: 'номинал (%)',
     colMean:       'среднее (%)',
@@ -3507,6 +3514,8 @@ export default {
   },
 
   integralValues: {
+    customParts: { sourceTable: 'табл. ист.', detectorTable: 'табл. дет.', flat: 'равн.', blackbody: (kelvin) => `АЧТ ${kelvin} K` },
+    customReference: { blackbody: (kelvin) => `Абсолютно чёрное тело ${kelvin} K`, sourceTable: 'Свой источник', detectorTable: 'Свой детектор', photopic: 'Фотопическая V(λ)', flat: 'Равномерная (вес 1)', band: (from, to) => `на ${from}–${to} nm` },
     weightings: {
       photopic: 'Фотопическая (V(λ) × D65)',
       solar:    'Солнечная (AM1.5G)',
@@ -3554,6 +3563,7 @@ export default {
   },
 
   filterDesign: {
+    targetSeries: 'цель',
     axisLinear: 'Лин.', axisLog: 'Лог.',
     title: 'Мастер проектирования фильтров',
     back: 'Назад', next: 'Далее', finish: 'Готово', help: 'Справка',
@@ -3561,6 +3571,7 @@ export default {
     noFolder: 'Сначала выберите папку проекта',
     generateError: (msg) => `Не удалось создать покрытие: ${msg}`,
     step1: {
+      polAvg: 'ср.',
       title: 'Выбор материалов',
       intro: 'Выберите два материала покрытия (H — высокий показатель, L — низкий). Использовать следует только непоглощающие материалы.',
       matH: 'Материал с высоким показателем', matL: 'Материал с низким показателем',
@@ -3604,6 +3615,7 @@ export default {
       seedTag: 'прот.',
     },
     step6: {
+      summary: (layers, medium, aoi) => `N = ${layers}  (итог, в среде ${medium}${aoi > 0 ? `, ${aoi}°` : ''})`,
       title: 'Адаптация к среде падения',
       noSelection: 'Вернитесь к шагу 5 и выберите проект.',
       arHeader: 'Просветление',
@@ -3933,6 +3945,7 @@ export default {
   },
 
   specification: {
+    polAvg: 'ср.',
     presets: {
       bbarVis:        'BBAR видимый (400–700 нм)',
       bbarVisDesc:    'Широкополосное AR: Tavg ≥ 99 %, Rmax ≤ 1 % во всём видимом диапазоне.',
@@ -4053,6 +4066,7 @@ export default {
   },
 
   variator: {
+    baselineCurve: (quantity) => `${quantity} (исходный)`,
     title:       'Вариатор',
     varied:      'изменено',
     atBaseline:  'исходное',
@@ -4508,8 +4522,19 @@ export default {
     notes:            'Заметки',
   },
 
+  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots.
+  legendNames: {
+    measured: (name, quantity) => `${name} (измеренный ${quantity})`,
+    measuredAt: (name, quantity, aoi) => `${name} (измеренный ${quantity}, ${aoi}°)`,
+    fitTarget: (name) => `${name} (цель подгонки)`,
+    fitTargetUnnamed: 'Измеренная цель подгонки',
+    unnamedCurve: 'Измеренная кривая',
+    target: (type) => `Цель ${type}`,
+  },
+
   // ── Генератор отчётов ──────────────────────────────────────────────────────
   report: {
+    polAvg: 'ср.',
     windowTitle: 'Отчёт',
     defaultTitle: 'Отчёт об оптическом покрытии',
     generatedBy: 'Создано в',
@@ -4557,6 +4582,7 @@ export default {
     depthNm: 'Глубина z, нм', noNotes: 'Нет примечаний.',
     prepared: 'Составил', checked: 'Проверил', approved: 'Утвердил', nameDate: 'фамилия, дата',
     window: {
+      polAvg: 'ср.',
       template: 'Шаблон', designs: 'Проекты', paper: 'Бумага', language: 'Язык',
       document: 'Документ', branding: 'Оформление',
       blocks: 'Блоки', blocksOn: (on, total) => `${on} из ${total} включено`, dragToReorder: 'Перетащите, чтобы изменить порядок',

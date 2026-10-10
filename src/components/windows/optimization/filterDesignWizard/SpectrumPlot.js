@@ -41,9 +41,9 @@ function computeSpectrumData({ layersFn, analyticT, p, mode, windowNm, targetRea
 }
 
 /** The target points, as a scatter series of crosses over the curve. */
-function targetSeries(targetPoints, floor) {
+function targetSeries(targetPoints, floor, name) {
     return {
-        type: 'scatter', name: 'target', symbol: 'diamond', symbolSize: 7,
+        type: 'scatter', name, symbol: 'diamond', symbolSize: 7,
         itemStyle: { color: '#ffb300' }, z: 5, silent: true,
         data: targetPoints.map(pt => [pt.lambda, Math.max(pt.target, floor)]),
     };
@@ -57,7 +57,7 @@ function targetSeries(targetPoints, floor) {
  */
 export function SpectrumPlot({
     layersFn, analyticT = null, p, mode = 'embedded', c, height = 280,
-    levelLines = [], windowNm = null, lambdaAxis, logAxis = false, targetPoints = null,
+    levelLines = [], windowNm = null, lambdaAxis, logAxis = false, targetPoints = null, targetName = '',
     aoi = 0, pol = 's',
 }) {
     const divRef = useRef(null);
@@ -83,7 +83,7 @@ export function SpectrumPlot({
                 ]),
             ],
         };
-        const all = targetPoints?.length ? [series, targetSeries(targetPoints, floor)] : [series];
+        const all = targetPoints?.length ? [series, targetSeries(targetPoints, floor, targetName)] : [series];
         drawChart(divRef.current, chartRef, cartesianOption({
             colors: c,
             grid: { left: 52, right: 12, top: 8, bottom: 36 },

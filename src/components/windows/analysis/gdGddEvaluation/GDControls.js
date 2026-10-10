@@ -186,9 +186,7 @@ function YAxisSetting({ c, text, state, autoRange }) {
 /** How the curve was sampled, and which dispersion models produced it. */
 function SamplingNote({ c, text, raw }) {
     const models = raw?.models || [];
-    const sampling = raw
-        ? `${raw.method}${raw.adaptivePointCount ? `, +${raw.adaptivePointCount} adaptive points` : ''}`
-        : null;
+    const sampling = raw ? text.samplingNote(raw.adaptivePointCount) : null;
     if (!sampling && !models.length) return null;
     return h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.5 } },
         sampling && h('div', { style: { color: c.accent } }, sampling),

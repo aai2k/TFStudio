@@ -58,7 +58,7 @@ export function EllipsometryEvaluation({ c, theme, t }) {
                 mode: state.mode, side: state.side,
                 showPsi: state.showPsi, showDelta: state.showDelta,
                 deltaConvention: state.deltaConvention,
-            }),
+            }, t.legendNames),
             exportMenu: h(ExportMenu, {
                 c, enabled: table.rows.length > 0, ...csv,
                 labels: {

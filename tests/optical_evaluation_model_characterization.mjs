@@ -36,7 +36,9 @@ const overlays = [{
 }];
 const targets = [{ id: 'target-1', enabled: true, type: 'R', lambdaStart: 550, target: 0.25 }];
 
-const series = buildChartSeries({ curveLabels: CL, data, showCurves, targets, targetsVisible: true, overlays });
+const series = buildChartSeries({
+    curveLabels: CL, legendNames: getLocale('en').legendNames, data, showCurves, targets, targetsVisible: true, overlays,
+});
 check(
     series.slice(0, 5).map(item => item.name).join('|') ===
         'T avg @ 0°|R avg @ 0°|T avg @ 45°|R avg @ 45°|Measured (R meas)',

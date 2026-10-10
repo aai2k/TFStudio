@@ -285,7 +285,8 @@ function AddForm({ c, t, layerCount, onAdd, onCancel, initial, mode }) {
         usesGeometry && !directMeta?.noPol && h(Fragment, null,
             h('span', { style: dim }, monitorStrings.polarization),
             h('div', { style: { display: 'flex', gap: 2 } },
-                ['avg', 's', 'p'].map(p => h('button', { key: p, onClick: () => setF({ pol: p }), style: btnStyle(form.pol === p) }, p))
+                Object.entries({ avg: monitorStrings.polAvg, s: 's', p: 'p' }).map(([p, label]) =>
+                    h('button', { key: p, onClick: () => setF({ pol: p }), style: btnStyle(form.pol === p) }, label))
             ),
         ),
         // Confirm / cancel

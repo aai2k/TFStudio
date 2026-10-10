@@ -5,7 +5,7 @@
 
 import { lineChartSVG, escapeHtml } from '../svgChart.js';
 import {
-  num, deg, tt, blockTitle, wrap, table, splitRows, flow, plotHeight, subtitleOf, note, DASH,
+  num, deg, tt, polText, blockTitle, wrap, table, splitRows, flow, plotHeight, subtitleOf, note, DASH,
 } from './format.js';
 import { toSignificantFigures } from '../../math/significantFigures.js';
 import { stepIndices } from './spectrum.js';
@@ -69,7 +69,7 @@ export function buildGdGdd(ctx) {
   if (fail) return fail;
   const quantities = chosen(settings);
   const sides = tr?.sides || {};
-  const sub = `${escapeHtml(d.target)} · ${escapeHtml(sides[d.side] || d.side)} · ${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(d.theta)}° · ${escapeHtml(d.pol)}`;
+  const sub = `${escapeHtml(d.target)} · ${escapeHtml(sides[d.side] || d.side)} · ${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(d.theta)}° · ${escapeHtml(polText(tr, d.pol))}`;
   let inner = plots(d, quantities, settings, tr) + steppedTable(d, quantities, settings, tr);
   if (d.invalid > 0) inner += note(escapeHtml(typeof tr?.invalidPoints === 'function' ? tr.invalidPoints(d.invalid) : `${d.invalid} points could not be evaluated`));
   return wrap('gdGdd', title, inner, { subtitle: subtitleOf(ctx, sub), breakable: settings.tableStep > 0 });

@@ -179,7 +179,7 @@ function duplicateDesign(a, item, folder) {
     const src = a.designsRef.current[item.id];
     if (!src) return;
     const newName = uniqueDesignName(
-        `${item.name} (copy)`, a.existingDesignNames(folder.id), (b, k) => `${b} ${k}`);
+        a.t.explorer.duplicateName(item.name), a.existingDesignNames(folder.id), (b, k) => `${b} ${k}`);
     const clone = embedDesignMaterials(copyDesignWithFreshIds(deepCopy(src), newName));
     return a.persistChange(
         writeIfPossible(folder.id, clone),
@@ -212,7 +212,7 @@ function askSaveAs(a) {
 
     a.setInputDialog({
         title: sa.title,
-        defaultValue: uniqueDesignName(`${src.name} (copy)`, inFolder, (b, k) => `${b} ${k}`),
+        defaultValue: uniqueDesignName(a.t.explorer.duplicateName(src.name), inFolder, (b, k) => `${b} ${k}`),
         validate: saveAsValidator(sa, new Set(inFolder.map(designFileKey))),
         onConfirm: async (nm) => {
             const clone = embedDesignMaterials(copyDesignWithFreshIds(deepCopy(src), nm.trim()));

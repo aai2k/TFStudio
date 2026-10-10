@@ -1,4 +1,4 @@
-import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
+import { getMaterialById, materialLabel } from '../../../../utils/materials/catalogManager.js';
 import {
     materialIndexFn, couplingOrder, coupledMirrors, qwThickness,
     structureLayerCount, structureThickness, buildFilterTarget, embeddedAngleDeg,
@@ -211,6 +211,11 @@ export const DEFAULTS = {
 };
 
 export function shapeFactor(p) { return p.passHalf_nm > 0 ? p.stopHalf_nm / p.passHalf_nm : 0; }
+
+/** A medium by its material name, or by its id without the catalog prefix when no catalog has it. */
+export function mediumName(id) {
+    return getMaterialById(id)?.name || materialLabel(id);
+}
 
 // Runs fn(), falling back to `fallback` on any thrown error — used by preview
 // computations that must never crash the wizard on transient invalid input.

@@ -190,7 +190,7 @@ const op = (type, lambdaStart, lambdaEnd, extra = {}) => makeOperand({ type, lam
     ]);
     assert.equal(geometry.lines.length, 1, 'a band row draws as a line');
     assert.ok(geometry.lines[0].points.every(point => Math.abs(point[1] - 1) < 1e-9), 'at 1 %');
-    const marker = geometry.markers.find(item => item.x === 550 && item.label.startsWith('TDB '));
+    const marker = geometry.markers.find(item => item.x === 550 && item.label === 'TDB');
     near(marker.y, 100 * 10 ** -0.3, 1e-9, 'a TDB point draws at its percentage');
 }
 

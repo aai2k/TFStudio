@@ -239,6 +239,8 @@ export default {
       folders: 'Cartella dei dati',
     },
     analysis: {
+      polarizations: { avg: 'media' },
+      sides: { front: 'Anteriore', back: 'Posteriore' },
       hint: 'Vengono usate al prossimo avvio di TFStudio. Una finestra in cui hai già cambiato qualcosa in questa sessione mantiene quello che vi hai impostato.',
       curveColors: 'Colori delle curve',
       palette: 'Tavolozza',
@@ -772,6 +774,7 @@ export default {
     },
   },
   explorer: {
+    duplicateName: (name) => `${name} (copia)`,
     title: 'Progetti',
     newDesignFile: 'Nuovo file di design',
     newProjectFolder: 'Nuova cartella di progetto',
@@ -1475,6 +1478,7 @@ export default {
     },
   },
   statusMonitors: {
+    polAvg: 'media',
     groups: {
       spectral: 'Spettrali',
       phase: 'Fase e dispersione',
@@ -2448,6 +2452,7 @@ export default {
         continuous: 'target continuo',
         discrete: (step) => `punti discreti @${step} nm`,
       },
+      polAvg: 'media',
       fieldOptions: {
         input: { gain: 'Guadagno amplificatore (dB)', target: 'Curva di perdita target' },
       },
@@ -3108,6 +3113,7 @@ export default {
     deltaReversedTip: "Δ con il segno opposto, per dati o articoli scritti nell'altra convenzione temporale. Ψ non cambia in nessuno dei due casi.",
   },
   gdgdd: {
+    samplingNote: (added) => (added ? `sviluppo di Taylor analitico, +${added} punti adattivi` : 'sviluppo di Taylor analitico'),
     noLayers: 'Nessuno strato nel design. Aggiungi strati per vedere GD / GDD.',
     side: 'Lato',
     front: 'Anteriore',
@@ -3611,6 +3617,7 @@ export default {
     colParam: 'Parametro',
   },
   errorAnalysis: {
+    polAvg: 'media',
     noLayers: 'Nessuno strato nel design.',
     colNominalSpectrum: 'nominale (%)',
     colMean: 'media (%)',
@@ -3992,6 +3999,8 @@ export default {
     tabYield: 'Resa',
   },
   integralValues: {
+    customParts: { sourceTable: 'tab. sorg.', detectorTable: 'tab. riv.', flat: 'unif.', blackbody: (kelvin) => `CN${kelvin}K` },
+    customReference: { blackbody: (kelvin) => `Corpo nero ${kelvin} K`, sourceTable: 'Sorgente personalizzata', detectorTable: 'Rivelatore personalizzato', photopic: 'Fotopica V(λ)', flat: 'Uniforme (peso 1)', band: (from, to) => `su ${from}–${to} nm` },
     weightings: {
       photopic: 'Fotopica (V(λ) × D65)',
       solar: 'Solare (AM1.5G)',
@@ -4038,6 +4047,7 @@ export default {
     customHeader: 'Integrali personalizzati',
   },
   filterDesign: {
+    targetSeries: 'target',
     axisLinear: 'Lineare', axisLog: 'Log',
     title: 'Procedura guidata per la progettazione di filtri',
     back: 'Indietro',
@@ -4048,6 +4058,7 @@ export default {
     noFolder: 'Seleziona prima una cartella di progetto',
     generateError: (msg) => `Generazione del design non riuscita: ${msg}`,
     step1: {
+      polAvg: 'media',
       title: 'Scelta dei materiali',
       intro: 'Scegli i due materiali del rivestimento (H = indice alto, L = indice basso). Vanno usati solo materiali non assorbenti.',
       matH: 'Materiale ad alto indice',
@@ -4100,6 +4111,7 @@ export default {
       seedTag: 'iniziale',
     },
     step6: {
+      summary: (layers, medium, aoi) => `N = ${layers}  (finale, in ${medium}${aoi > 0 ? `, ${aoi}°` : ''})`,
       title: 'Adatta al mezzo incidente',
       noSelection: 'Torna al passo 5 e seleziona prima un design.',
       arHeader: 'Trattamento antiriflesso',
@@ -4433,6 +4445,7 @@ export default {
     refNote: 'Dati standard CIE 15:2004. Y = fattore di luminanza (%). Il campione è adattato con Bradford a un display D65.',
   },
   specification: {
+    polAvg: 'media',
     presets: {
       bbarVis: 'BBAR visibile (400–700 nm)',
       bbarVisDesc: 'AR a banda larga: Tavg ≥ 99 %, Rmax ≤ 1 % su tutto il visibile.',
@@ -4551,6 +4564,7 @@ export default {
     jumpTip: 'Clicca per portare il design a questo stato',
   },
   variator: {
+    baselineCurve: (quantity) => `${quantity} (riferimento)`,
     title: 'Variatore',
     varied: 'modificato',
     atBaseline: 'riferimento',
@@ -5005,7 +5019,18 @@ export default {
     noFolder: 'Crea prima una cartella di progetto.',
     notes: 'Note',
   },
+  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots.
+  legendNames: {
+    measured: (name, quantity) => `${name} (misura ${quantity})`,
+    measuredAt: (name, quantity, aoi) => `${name} (misura ${quantity} @ ${aoi}°)`,
+    fitTarget: (name) => `${name} (target di fit)`,
+    fitTargetUnnamed: 'Target di fit misurato',
+    unnamedCurve: 'Curva misurata',
+    target: (type) => `Target ${type}`,
+  },
+
   report: {
+    polAvg: 'media',
     windowTitle: 'Report',
     defaultTitle: 'Report del rivestimento ottico',
     generatedBy: 'Generato da',
@@ -5126,6 +5151,7 @@ export default {
     approved: 'Approvato',
     nameDate: 'nome, data',
     window: {
+      polAvg: 'media',
       template: 'Modello',
       designs: 'Design',
       paper: 'Carta',

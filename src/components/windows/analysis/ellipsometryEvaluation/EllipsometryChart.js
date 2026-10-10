@@ -15,11 +15,12 @@ const onDeltaAxis = values => (values || []).map(value => ((value % 360) + 360) 
 // A measured Ψ or Δ, drawn the way Optical Evaluation draws a measured
 // spectrum: the same colour as its calculated counterpart would use unless the
 // curve carries one of its own, dotted, with the readings marked as hollow
-// points so a measurement is never mistaken for a computed line.
-function measuredSeries(overlays, curve) {
+// points so a measurement is never mistaken for a computed line. `names` is
+// t.legendNames; without it a curve goes by its own name.
+function measuredSeries(overlays, curve, names) {
     return (overlays || []).map(overlay => lineSeries({
         x: overlay.x, y: overlay.psi ? overlay.y : onDeltaAxis(overlay.y),
-        name: `${overlay.name} (${overlay.psi ? 'Ψ' : 'Δ'} meas @ ${overlay.aoi}°)`,
+        name: names ? names.measuredAt(overlay.name, overlay.psi ? 'Ψ' : 'Δ', overlay.aoi) : overlay.name,
         color: overlay.color || (overlay.psi ? curve.psi : curve.delta),
         width: 1.4, dash: 'dotted', symbol: 'emptyCircle', symbolSize: 4,
         yAxisIndex: overlay.psi ? 0 : 1,
@@ -32,11 +33,12 @@ export function buildEllipsometryOption(data, colors, xLabel, {
     show = { psi: true, delta: true },
     overlays = [],
     spectral = false,
+    names,
 } = {}) {
     const series = [
         show.psi && lineSeries({ x: data.x, y: data.psi, name: 'Ψ', color: curve.psi, width: 2, yAxisIndex: 0 }),
         show.delta && lineSeries({ x: data.x, y: onDeltaAxis(data.delta), name: 'Δ', color: curve.delta, width: 2, yAxisIndex: 1 }),
-        ...measuredSeries(overlays, curve),
+        ...measuredSeries(overlays, curve, names),
     ].filter(Boolean);
     // Ψ and Δ have different ranges and need an axis each, but two sets of grid
     // lines across one plot read as neither. The grid belongs to Ψ while both are
@@ -62,7 +64,7 @@ export function buildEllipsometryOption(data, colors, xLabel, {
     });
 }
 
-export function EllipsometryChart({ data, c, xLabel, spectral, show = { psi: true, delta: true }, overlays = [] }) {
+export function EllipsometryChart({ data, c, xLabel, spectral, show = { psi: true, delta: true }, overlays = [], names }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const curve = useAnalysisColors('ellipsometryEvaluation');
@@ -71,7 +73,7 @@ export function EllipsometryChart({ data, c, xLabel, spectral, show = { psi: tru
         grid: c.border || '#3a3a3a', text: c.text || '#cccccc',
     };
     useEffect(() => {
-        if (data) drawChart(divRef.current, chartRef, buildEllipsometryOption(data, colors, xLabel, { curve, show, overlays, spectral }));
+        if (data) drawChart(divRef.current, chartRef, buildEllipsometryOption(data, colors, xLabel, { curve, show, overlays, spectral, names }));
     });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });

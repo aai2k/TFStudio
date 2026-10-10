@@ -123,7 +123,7 @@ export function TargetToolbar(props) {
         drawing && h(ToolbarSelect, {
             c, value: editPol, onChange: setEditPol, title: oe.editPolTooltip,
             options: [
-                { value: 'avg', label: 'avg' },
+                { value: 'avg', label: oe.polAvg },
                 { value: 's', label: 's' },
                 { value: 'p', label: 'p' },
             ],

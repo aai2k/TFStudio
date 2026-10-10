@@ -7,6 +7,7 @@ import { withDefaults } from '../../../../utils/report/blocks.js';
 import { SPECTRAL_UNITS } from '../../../../utils/physics/spectralAxis.js';
 import { yScaleOf } from '../../analysis/opticalEvaluation/yScale.js';
 import { DISPERSION_QUANTITY_KEYS } from '../../../../utils/report/sections/dispersion.js';
+import { polText } from '../../../../utils/report/sections/format.js';
 
 export function blockName(W, type) {
     return W.blockNames?.[type] || type;
@@ -39,10 +40,10 @@ const SUMMARIES = {
         s.spectralUnit && s.spectralUnit !== 'nm' ? SPECTRAL_UNITS[s.spectralUnit]?.short : null,
         ...plotAndTable(W, s),
     ],
-    color: (W, s) => [W.sourceWindows.color, s.characteristic, s.illuminant, `${s.observer}°`, `${s.theta}°`, s.pol],
-    integrals: (W, s) => [W.sourceWindows.integrals, `${s.theta}°`, s.polarization],
+    color: (W, s) => [W.sourceWindows.color, s.characteristic, s.illuminant, `${s.observer}°`, `${s.theta}°`, polText(W, s.pol)],
+    integrals: (W, s) => [W.sourceWindows.integrals, `${s.theta}°`, polText(W, s.polarization)],
     gdGdd: (W, s) => [
-        W.sourceWindows.gdGdd, range(s), `${s.target} ${W.sides?.[s.side] || s.side}`, `${s.theta}°`, s.pol,
+        W.sourceWindows.gdGdd, range(s), `${s.target} ${W.sides?.[s.side] || s.side}`, `${s.theta}°`, polText(W, s.pol),
         DISPERSION_QUANTITY_KEYS.filter(k => s.quantities?.[k]).map(k => (k === 'phase' ? W.phase : W.dispersionNames[k])).join(' '),
         ...plotAndTable(W, s),
     ],
@@ -50,7 +51,7 @@ const SUMMARIES = {
         W.sourceWindows.ellipsometry, range(s), angles(s.thetas),
         [s.showPsi ? 'Ψ' : null, s.showDelta ? 'Δ' : null].filter(Boolean).join(' '), ...plotAndTable(W, s),
     ],
-    efield: (W, s) => [W.sourceWindows.efield, lambdaText(W, s.lambda), `${s.theta}°`, s.pol],
+    efield: (W, s) => [W.sourceWindows.efield, lambdaText(W, s.lambda), `${s.theta}°`, polText(W, s.pol)],
     riProfile: (W, s) => [W.sourceWindows.riProfile, lambdaText(W, s.lambda)],
     monteCarlo: (W, s) => [W.sourceWindows.monteCarlo, W.lastRun, s.envelope ? W.envelope : null, ...plotAndTable(W, s)],
     worksheet: W => [W.sourceWindows.worksheet, W.asInWindow],

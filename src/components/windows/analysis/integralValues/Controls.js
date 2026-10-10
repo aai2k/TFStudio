@@ -155,7 +155,7 @@ function CustomBuilder({ c, t, model }) {
         h(SettingDivider, { c }),
         h(SettingRow, { c, label: '' },
             h(ActionButton, {
-                c, label: iv.addCustom, title: iv.addCustomTitle, onClick: model.onAddCustom,
+                c, label: iv.addCustom, title: iv.addCustomTitle, onClick: () => model.onAddCustom(iv.customParts),
             }, tablerIcon('plus', 13)),
         ),
     );

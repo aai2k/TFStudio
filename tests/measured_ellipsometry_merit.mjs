@@ -209,7 +209,8 @@ assert.equal(operandResidualScale(makeMeasuredCurveOperand({ quantity: 'R' })), 
         'while the curves are drawn the targets are not, or the measurement would appear twice');
 
     const orphaned = { measuredEllipsometry: [], meritOperands: fit.operands };
-    const targets = measuredEllipsometryOverlays(orphaned, view);
+    const names = getLocale('en').legendNames;
+    const targets = measuredEllipsometryOverlays(orphaned, view, names);
     assert.equal(targets.length, 2, 'a target whose curve is gone is drawn from its own snapshot');
     assert.ok(targets.every(overlay => overlay.name.includes('fit target') && overlay.aoi === AOI));
     assert.deepEqual(targets.find(overlay => !overlay.psi).y, fileDelta,
@@ -221,7 +222,7 @@ assert.equal(operandResidualScale(makeMeasuredCurveOperand({ quantity: 'R' })), 
     assert.equal(measuredEllipsometryOverlays(orphaned, { ...view, side: 'back' }).length, 0);
 
     const hiddenDelta = { measuredEllipsometry: [psiCurve, { ...deltaCurve, visible: false }], meritOperands: fit.operands };
-    const mixed = measuredEllipsometryOverlays(hiddenDelta, view);
+    const mixed = measuredEllipsometryOverlays(hiddenDelta, view, names);
     assert.equal(mixed.length, 2);
     assert.ok(mixed.some(overlay => !overlay.psi && overlay.name.includes('fit target')),
         'hiding the curve puts its target back on the plot');

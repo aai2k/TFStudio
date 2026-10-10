@@ -7,7 +7,15 @@ import { buildTargetBands } from './bands.js';
 import { PERCENT_LEVEL } from './levels.js';
 import { isEllipsometricMeasuredCurve } from '../optimizer/measuredCurveType.js';
 
-function bandGeometry(operand) {
+// Display names come from `names`, t.legendNames. Without it a target goes by
+// its operand code and a fit target by its curve's name.
+const targetName = (type, names) => (names ? names.target(type) : type);
+function fitTargetName(curveName, names) {
+    if (!names) return curveName || '';
+    return curveName ? names.fitTarget(curveName) : names.fitTargetUnnamed;
+}
+
+function bandGeometry(operand, names) {
     const rangeTarget = RANGE_TARGET_TYPES.has(operand.type);
     const start = PERCENT_LEVEL.toAxis(operand.target, operand.type);
     const end = rangeTarget && operand.targetEnd != null ? PERCENT_LEVEL.toAxis(operand.targetEnd, operand.type) : start;
@@ -25,12 +33,12 @@ function bandGeometry(operand) {
     });
     return {
         line: {
-            opId: operand.id, label: `${operand.type} target`, points,
+            opId: operand.id, label: targetName(operand.type, names), points,
             color: targetColor(operand), dash: targetDash(operand), width: 2.5,
         },
         markers: [operand.lambdaStart, (operand.lambdaStart + operand.lambdaEnd) / 2, operand.lambdaEnd]
             .map((x, index) => ({
-                opId: operand.id, label: `${operand.type} target`, x,
+                opId: operand.id, label: targetName(operand.type, names), x,
                 y: index === 0 ? start : index === 1 ? (start + end) / 2 : end,
                 color: targetColor(operand), size: 8,
             })),
@@ -44,7 +52,7 @@ function bandGeometry(operand) {
 // nobody took.
 const MEASURED_LINE_POINTS = 400;
 
-function measuredGeometry(operand) {
+function measuredGeometry(operand, names) {
     const lambdas = operand.sampleLambdas;
     const targets = operand.sampleTargets;
     if (!Array.isArray(lambdas) || !Array.isArray(targets) || !lambdas.length) return null;
@@ -61,7 +69,7 @@ function measuredGeometry(operand) {
     }
     return {
         opId: null,
-        label: operand.curveName ? `${operand.curveName} (fit target)` : 'Measured fit target',
+        label: fitTargetName(operand.curveName, names),
         points,
         color: targetColor(operand),
         dash: targetDash(operand),
@@ -98,19 +106,19 @@ function classifyTargets(operands, drawnCurveIds) {
     return shapes;
 }
 
-export function buildTargetGeometry(operands, { drawnCurveIds } = {}) {
+export function buildTargetGeometry(operands, { drawnCurveIds, names } = {}) {
     const { measured, bands, points: pointOperands } = classifyTargets(operands, drawnCurveIds);
-    const lines = measured.map(measuredGeometry).filter(Boolean);
+    const lines = measured.map(operand => measuredGeometry(operand, names)).filter(Boolean);
     const markers = [];
     for (const operand of bands) {
-        const band = bandGeometry(operand);
+        const band = bandGeometry(operand, names);
         lines.push(band.line);
         markers.push(...band.markers);
     }
     const pointTooltips = pointOperands.length <= POINT_TARGET_HOVER_LIMIT;
     markers.push(...pointOperands.map(operand => ({
         opId: operand.id,
-        label: `${operand.type} target`,
+        label: targetName(operand.type, names),
         x: operand.lambdaStart,
         y: PERCENT_LEVEL.toAxis(operand.target, operand.type),
         color: targetColor(operand),

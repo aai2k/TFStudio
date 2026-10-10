@@ -120,7 +120,7 @@ const option = buildEllipsometryOption(
     { x: lambdas, psi: [1, 2, 3, 4], delta: [5, 6, 7, 8] },
     { background: '#000', paper: '#111', grid: '#222', text: '#eee' },
     'λ (nm)',
-    { curve: { psi: '#0f0', delta: '#f0f' }, show: { psi: true, delta: true }, overlays },
+    { curve: { psi: '#0f0', delta: '#f0f' }, show: { psi: true, delta: true }, overlays, names: getLocale('en').legendNames },
 );
 const measuredOnChart = option.series.filter(s => s.name && s.name.includes('meas'));
 assert.equal(measuredOnChart.length, 2, 'both measured curves reach the chart');

@@ -104,7 +104,7 @@ function AngleRow({ c, W, s, set }) {
         h(NumInput, { c, value: s.theta, min: 0, max: 89, step: 1, width: 56, onChange: v => set('theta', v) }));
 }
 
-const POL_ITEMS = [{ id: 'avg', label: 'avg' }, { id: 's', label: 's' }, { id: 'p', label: 'p' }];
+const polItems = W => [{ id: 'avg', label: W.polAvg }, { id: 's', label: 's' }, { id: 'p', label: 'p' }];
 
 const FORMS = {
     facts: ({ c, W, s, set }) => h(CheckField, { c, label: W.stackDiagram, checked: !!s.stackDiagram, onChange: e => set('stackDiagram', e.target.checked) }),
@@ -129,7 +129,7 @@ const FORMS = {
         h(SettingRow, { c, key: 'char', label: W.characteristic },
             h(ChoiceGroup, { c, items: [{ id: 'R', label: 'R' }, { id: 'T', label: 'T' }], activeId: s.characteristic, onSelect: id => set('characteristic', id) })),
         h(SettingRow, { c, key: 'pol', label: W.polarization },
-            h(ChoiceGroup, { c, items: POL_ITEMS, activeId: s.pol, onSelect: id => set('pol', id) })),
+            h(ChoiceGroup, { c, items: polItems(W), activeId: s.pol, onSelect: id => set('pol', id) })),
         h(AngleRow, { key: 'angle', c, W, s, set }),
         h(SettingRow, { c, key: 'observer', label: W.observer },
             h(ChoiceGroup, { c, items: [{ id: '2', label: '2°' }, { id: '10', label: '10°' }], activeId: String(s.observer), onSelect: id => set('observer', id) })),
@@ -142,7 +142,7 @@ const FORMS = {
     integrals: ({ c, W, s, set }) => [
         h(AngleRow, { key: 'angle', c, W, s, set }),
         h(SettingRow, { c, key: 'pol', label: W.polarization },
-            h(ChoiceGroup, { c, items: POL_ITEMS, activeId: s.polarization, onSelect: id => set('polarization', id) })),
+            h(ChoiceGroup, { c, items: polItems(W), activeId: s.polarization, onSelect: id => set('polarization', id) })),
     ],
     gdGdd: ({ c, W, s, set }) => [
         ...RangeRows({ c, W, s, set }).slice(0, 2),
@@ -151,7 +151,7 @@ const FORMS = {
             h(ChoiceGroup, { c, items: [{ id: 'R', label: 'R' }, { id: 'T', label: 'T' }], activeId: s.target, onSelect: id => set('target', id) }),
             h(ChoiceGroup, { c, items: [{ id: 'front', label: W.sides.front }, { id: 'back', label: W.sides.back }], activeId: s.side, onSelect: id => set('side', id) })),
         h(SettingRow, { c, key: 'pol', label: W.polarization },
-            h(ChoiceGroup, { c, items: POL_ITEMS, activeId: s.pol, onSelect: id => set('pol', id) })),
+            h(ChoiceGroup, { c, items: polItems(W), activeId: s.pol, onSelect: id => set('pol', id) })),
         h(SettingRow, { c, key: 'quantities', label: W.quantities, wrap: true },
             DISPERSION_QUANTITY_KEYS.map(key => h(CheckField, {
                 label: key === 'phase' ? W.phase : W.dispersionNames[key],
@@ -175,7 +175,7 @@ const FORMS = {
         h(LambdaRow, { key: 'lambda', c, W, s, set, design }),
         h(AngleRow, { key: 'angle', c, W, s, set }),
         h(SettingRow, { c, key: 'pol', label: W.polarization },
-            h(ChoiceGroup, { c, items: POL_ITEMS.slice(1), activeId: s.pol, onSelect: id => set('pol', id) })),
+            h(ChoiceGroup, { c, items: polItems(W).slice(1), activeId: s.pol, onSelect: id => set('pol', id) })),
         h(PlotRow, { key: 'plot', c, W, s, set }),
     ],
     riProfile: ({ c, W, s, set, design }) => [

@@ -51,8 +51,8 @@ export function paletteColors(colors, prefix, size = PALETTE_SIZE) {
 // physics limits either, so neither has an upper bound.
 const LAMBDA = { positive: true, step: 10 };
 const AOI = { def: 0, min: 0, max: 89, step: 1 };
-const POL = { def: 'avg', options: ['avg', 's', 'p'] };
-const SIDE = { def: 'front', options: ['front', 'back'] };
+const POL = { def: 'avg', options: ['avg', 's', 'p'], labelsAt: 'settings.analysis.polarizations' };
+const SIDE = { def: 'front', options: ['front', 'back'], labelsAt: 'settings.analysis.sides' };
 
 function lambdaRange(from, to) {
   return {

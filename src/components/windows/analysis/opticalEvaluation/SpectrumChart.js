@@ -14,7 +14,7 @@ export function SpectrumChart(props) {
     const {
         data, designId, showCurves, targets, showTargets, c,
         editMode = false, editTool = 'draw', editCurve = 'R', lamRange, yRange, yScale,
-        spectralUnit = 'nm', overlays = [], materialBands, spectralTitles, curveLabels,
+        spectralUnit = 'nm', overlays = [], materialBands, spectralTitles, curveLabels, legendNames,
     } = props;
     const divRef = useRef(null);
     const chartRef = useRef(null);
@@ -75,7 +75,7 @@ export function SpectrumChart(props) {
         const option = buildChartOption({
             data, showCurves, targets, targetsVisible: showTargets || editMode,
             overlays, curveColors, ...colors, editMode, editTool, yRange, yScale,
-            spectralUnit, lamRange, materialBands, spectralTitles, curveLabels,
+            spectralUnit, lamRange, materialBands, spectralTitles, curveLabels, legendNames,
         });
         optionRef.current = option;
         const drawn = drawChart(divRef.current, chartRef, option);

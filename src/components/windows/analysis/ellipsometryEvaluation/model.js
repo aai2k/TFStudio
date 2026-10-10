@@ -26,7 +26,7 @@ function overlay({ id, name, color, aoi, quantity, x, y, from, to }) {
  * from a preset carries the target but not the curve. While the curve is drawn
  * the target is not, or the same measurement would appear twice.
  */
-export function measuredEllipsometryOverlays(design, view) {
+export function measuredEllipsometryOverlays(design, view, names) {
     const { mode, side, showPsi, showDelta, deltaConvention } = view;
     if (mode !== 'spectral') return [];
     const onSide = item => (item.side || 'front') === (side || 'front');
@@ -49,7 +49,7 @@ export function measuredEllipsometryOverlays(design, view) {
     const targets = (design?.meritOperands || [])
         .filter(op => snapshot(op) && orphaned(op))
         .map(op => overlay({
-            id: op.id, name: `${op.curveName || 'Measured curve'} (fit target)`, color: null,
+            id: op.id, name: names ? names.fitTarget(op.curveName || names.unnamedCurve) : (op.curveName || ''), color: null,
             aoi: op.aoi, quantity: op.quantity, x: op.sampleLambdas, y: op.sampleTargets,
             from: op.deltaConvention, to: deltaConvention,
         }));

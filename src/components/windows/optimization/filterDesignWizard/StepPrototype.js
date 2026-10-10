@@ -119,7 +119,7 @@ export function StepPrototype({ p, set, c, t }) {
             h('div', { style: { flex: 1, display: 'flex', flexDirection: 'column' } },
                 h(AxisToggle, { value: p.logAxis, onChange: (v) => set('logAxis', v), c, t }),
                 h(SpectrumPlot, { layersFn, p, mode: 'embedded', c, height: 240, logAxis: p.logAxis,
-                    targetPoints, lambdaAxis: t.spectralAxis.lambdaShort }),
+                    targetPoints, targetName: T.targetSeries, lambdaAxis: t.spectralAxis.lambdaShort }),
                 h(StackBar, { layers: stackLayers, c, height: 24 }),
                 h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } }, `N = ${nLayers}    Th = ${thNm.toFixed(1)} nm    (embedded preview)`))));
 }

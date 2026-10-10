@@ -167,7 +167,7 @@ const allOn = { T: true, R: true, A: true, Ts: false, Rs: false, Tp: false, Rp: 
 const named = yScale => buildChartSeries({
     data: mixed, showCurves: allOn, overlays: [
         { id: 'm1', name: 'meas', quantity: 'R', color: '#fff', visible: true, x: [500], y: [0.09] },
-    ], yScale, curveLabels: CL,
+    ], yScale, curveLabels: CL, legendNames: getLocale('en').legendNames,
 }).map(item => item.name).filter(Boolean);
 check(named('dB').join('|') === [CL.T, CL.R, CL.A, 'meas (R meas)'].join('|'),
     'decibels draw every switched-on curve and every overlay');

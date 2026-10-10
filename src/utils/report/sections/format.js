@@ -22,6 +22,8 @@ export function cull(name, max = 18) {
 }
 
 export function tt(tr, key, fallback) { return (tr && tr[key] != null) ? tr[key] : fallback; }
+/** A polarization as the document's language writes it; s and p are symbols. */
+export function polText(tr, pol) { return pol === 'avg' ? tt(tr, 'polAvg', pol) : pol; }
 
 export function blockTitle(tr, type, fallback) {
   return (tr && tr.sectionTitles && tr.sectionTitles[type]) || fallback;

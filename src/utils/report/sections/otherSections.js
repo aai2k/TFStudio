@@ -17,7 +17,7 @@ import {
   isMath, isMathPairRef, isMathSingleRef, readsWavelengthBand,
 } from '../../physics/optimizer/operandModel.js';
 import {
-  DASH, pct, num, deg, tt, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
+  DASH, pct, num, deg, tt, polText, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
 } from './format.js';
 import { qualifierSummary } from '../../synthesis/qualifiers.js';
 
@@ -73,7 +73,7 @@ export function buildIntegrals(ctx) {
     const v = iv.values[def.key];
     return [escapeHtml(def.label || def.key), v ? pct(v.value, 2) + ' %' : num(null)];
   });
-  const sub = `${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(iv.theta)}° · ${escapeHtml(iv.pol)}`;
+  const sub = `${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(iv.theta)}° · ${escapeHtml(polText(tr, iv.pol))}`;
   return wrap('integrals', title,
     table([tt(tr, 'quantity', 'Quantity'), tt(tr, 'value', 'Value')].map(escapeHtml), rows, { align: ['l', 'r'] }),
     { subtitle: subtitleOf(ctx, sub) });
@@ -212,7 +212,7 @@ export function buildEField(ctx) {
   const values = ef[componentOf(component).key] || ef.e2;
   const plot = profilePlot([{ x: ef.z, y: values.map(toAxis), color: '#00838f', label }],
     tt(tr, 'depthNm', 'Depth z, nm'), label, settings);
-  const sub = `λ ${num(ef.lambda, 1)} nm · ${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(ef.theta)}° · ${escapeHtml(ef.pol)}`;
+  const sub = `λ ${num(ef.lambda, 1)} nm · ${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(ef.theta)}° · ${escapeHtml(polText(tr, ef.pol))}`;
   return wrap('efield', title, plot, { subtitle: subtitleOf(ctx, sub) });
 }
 

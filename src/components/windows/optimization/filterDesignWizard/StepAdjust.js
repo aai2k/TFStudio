@@ -1,7 +1,7 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { materialIndexFn } from '../../../../utils/filter/filterDesign.js';
 import { buildFilterDesignObject } from '../../../../utils/filter/filterDesignBuild.js';
-import { safeCall, workingAoi } from './model.js';
+import { mediumName, safeCall, workingAoi } from './model.js';
 import { AxisToggle, StepHeader, fieldLabel, inputStyle } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 
@@ -48,6 +48,5 @@ export function StepAdjust({ p, set, c, t }) {
                 h(SpectrumPlot, { layersFn, p, mode: 'air', c, height: 280, logAxis: p.logAxis,
                     lambdaAxis: t.spectralAxis.lambdaShort, aoi, pol: p.pol }),
                 h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } },
-                    `N = ${layers.length}  (final, in ${p.incidentMedium.split(':').pop()}`
-                    + (aoi > 0 ? `, ${aoi}°` : '') + ')'))));
+                    T.step6.summary(layers.length, mediumName(p.incidentMedium), aoi)))));
 }

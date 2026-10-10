@@ -238,6 +238,8 @@ export default {
       folders: '数据文件夹',
     },
     analysis: {
+      polarizations: { avg: '平均' },
+      sides: { front: '正面', back: '背面' },
       hint: '将在 TFStudio 下次启动时生效。本会话中您已修改过的窗口会保留您在窗口内的设置。',
       curveColors: '曲线颜色',
       palette: '调色板',
@@ -769,6 +771,7 @@ export default {
     },
   },
   explorer: {
+    duplicateName: (name) => `${name} (副本)`,
     title: '资源管理器',
     newDesignFile: '新建设计文件',
     newProjectFolder: '新建项目文件夹',
@@ -1460,6 +1463,7 @@ export default {
     },
   },
   statusMonitors: {
+    polAvg: '平均',
     groups: {
       spectral: '光谱',
       phase: '相位与色散',
@@ -2426,6 +2430,7 @@ export default {
         continuous: '连续目标',
         discrete: (step) => `离散点 @${step} nm`,
       },
+      polAvg: '平均',
       fieldOptions: {
         input: { gain: '放大器增益 (dB)', target: '目标损耗曲线' },
       },
@@ -3085,6 +3090,7 @@ export default {
     deltaReversedTip: '符号相反的 Δ，用于采用另一种时间约定的数据或论文。两者的 Ψ 相同。',
   },
   gdgdd: {
+    samplingNote: (added) => (added ? `解析泰勒展开，+${added} 个自适应点` : '解析泰勒展开'),
     noLayers: '设计中无膜层。添加膜层以查看 GD / GDD。',
     side: '面',
     front: '正面',
@@ -3587,6 +3593,7 @@ export default {
     colParam: '参数',
   },
   errorAnalysis: {
+    polAvg: '平均',
     noLayers: '设计中无膜层。',
     colNominalSpectrum: '标称 (%)',
     colMean: '平均 (%)',
@@ -3968,6 +3975,8 @@ export default {
     tabYield: '良率',
   },
   integralValues: {
+    customParts: { sourceTable: '光源表', detectorTable: '探测器表', flat: '均匀', blackbody: (kelvin) => `黑体${kelvin}K` },
+    customReference: { blackbody: (kelvin) => `黑体 ${kelvin} K`, sourceTable: '自定义光源', detectorTable: '自定义探测器', photopic: '明视觉 V(λ)', flat: '均匀（权重 1）', band: (from, to) => `${from}–${to} nm` },
     weightings: {
       photopic: '明视觉（V(λ) × D65）',
       solar: '太阳光谱（AM1.5G）',
@@ -4014,6 +4023,7 @@ export default {
     customHeader: '自定义积分',
   },
   filterDesign: {
+    targetSeries: '目标',
     axisLinear: '线性', axisLog: '对数',
     title: '滤光片设计向导',
     back: '返回',
@@ -4024,6 +4034,7 @@ export default {
     noFolder: '请先选择项目文件夹',
     generateError: (msg) => `生成设计失败：${msg}`,
     step1: {
+      polAvg: '平均',
       title: '材料选择',
       intro: '选择两种镀膜材料（H = 高折射率，L = 低折射率）。应只使用无损材料。',
       matH: '高折射率材料',
@@ -4076,6 +4087,7 @@ export default {
       seedTag: '种子',
     },
     step6: {
+      summary: (layers, medium, aoi) => `N = ${layers}（最终，入射介质 ${medium}${aoi > 0 ? `，${aoi}°` : ''}）`,
       title: '调整到入射介质',
       noSelection: '请返回第 5 步并先选择设计。',
       arHeader: '减反镀膜',
@@ -4374,6 +4386,7 @@ export default {
     refNote: 'CIE 15:2004 标准数据。Y = 亮度因子 (%)。色块经 Bradford 适应转换为 D65 显示器。',
   },
   specification: {
+    polAvg: '平均',
     presets: {
       bbarVis: 'BBAR 可见光 (400–700 nm)',
       bbarVisDesc: '宽带 AR：Tavg ≥ 99 %，Rmax ≤ 1 %，覆盖整个可见波段。',
@@ -4492,6 +4505,7 @@ export default {
     jumpTip: '点击将设计跳转到此状态',
   },
   variator: {
+    baselineCurve: (quantity) => `${quantity}（基线）`,
     title: '参数变化器',
     varied: '已修改',
     atBaseline: '基线',
@@ -4939,7 +4953,18 @@ export default {
     noFolder: '请先创建项目文件夹。',
     notes: '备注',
   },
+  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots.
+  legendNames: {
+    measured: (name, quantity) => `${name}（实测 ${quantity}）`,
+    measuredAt: (name, quantity, aoi) => `${name}（实测 ${quantity} @ ${aoi}°）`,
+    fitTarget: (name) => `${name}（拟合目标）`,
+    fitTargetUnnamed: '实测拟合目标',
+    unnamedCurve: '测量曲线',
+    target: (type) => `${type} 目标`,
+  },
+
   report: {
+    polAvg: '平均',
     windowTitle: '报告',
     defaultTitle: '光学镀膜报告',
     generatedBy: '生成工具',
@@ -4987,6 +5012,7 @@ export default {
     depthNm: '深度 z, nm', noNotes: '无备注。',
     prepared: '编制', checked: '校核', approved: '批准', nameDate: '姓名，日期',
     window: {
+      polAvg: '平均',
       template: '模板', designs: '设计', paper: '纸张', language: '语言',
       document: '文件信息', branding: '品牌',
       blocks: '区块', blocksOn: (on, total) => `已启用 ${on} / ${total}`, dragToReorder: '拖动以排序',

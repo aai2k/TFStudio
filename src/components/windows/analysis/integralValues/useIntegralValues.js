@@ -39,9 +39,11 @@ function dropPreset(key) {
     window.electronAPI.deleteIntegralPreset(key).catch(() => {});
 }
 
-function addCustomDefinition(context) {
+// `parts` is t.integralValues.customParts: the new integral is named in the
+// UI language.
+function addCustomDefinition(context, parts) {
     const { builder, counterRef, setDefinitions, setSelectedKey } = context;
-    const definition = makeCustomDefinition(builder, ++counterRef.current);
+    const definition = makeCustomDefinition(builder, ++counterRef.current, parts);
     setDefinitions(definitions => [...definitions, definition]);
     setSelectedKey(definition.key);
     persistPreset(definition);
@@ -154,7 +156,7 @@ export function useIntegralValues(design, evalMode) {
         results,
         selected,
         selectedResult,
-        onAddCustom: () => addCustomDefinition(actionContext),
+        onAddCustom: parts => addCustomDefinition(actionContext, parts),
         onRemoveCustom: key => removeCustomDefinition(actionContext, key),
         onPatchCustom: (key, patch) => patchCustomDefinition(setCustomDefs, key, patch),
         openEditor: target => setEditor({ open: true, target }),

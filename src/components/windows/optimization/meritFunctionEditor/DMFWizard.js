@@ -138,6 +138,10 @@ function gainControl(ctx, key, view) {
 
 const FIELD_CONTROLS = { curve: curveControl, gainCurve: gainControl };
 
+// The averaged polarization is offered in the UI language wherever the wizard
+// lists polarizations; s and p are symbols. Undefined for any other value.
+const polWord = (tw, value) => (value === 'avg' ? tw.polAvg : undefined);
+
 // One field of a preset row: a select, a curve, a gain, or a number with its unit.
 function fieldControl(ctx, key, width) {
     const { s, tw, session, typeId, updateParam } = ctx;
@@ -146,7 +150,9 @@ function fieldControl(ctx, key, width) {
     const { def } = view;
     if (FIELD_CONTROLS[def.kind]) return FIELD_CONTROLS[def.kind](ctx, key, view);
     if (def.kind === 'select') {
-        const options = view.options.map(option => ({ ...option, label: tw.fieldOptions?.[key]?.[option.value] ?? option.label }));
+        const options = view.options.map(option => ({
+            ...option, label: tw.fieldOptions?.[key]?.[option.value] ?? polWord(tw, option.value) ?? option.label,
+        }));
         return select(s, view.value, v => updateParam(key, v), options, width || 'auto');
     }
     return numberInput(s, view.value, v => updateParam(key, v), width || 62,
@@ -272,7 +278,7 @@ function angleBox(ctx) {
         })),
         h('span', { key: 'pol-l', style: s.label }, showPol ? tw.pol + ':' : ''),
         h('span', { key: 'pol-c' }, showPol
-            ? select(s, session.pol, v => setField('pol', v), OPERAND_POLS.map(p => ({ value: p, label: p })), 64)
+            ? select(s, session.pol, v => setField('pol', v), OPERAND_POLS.map(p => ({ value: p, label: polWord(tw, p) ?? p })), 64)
             : null),
         ...modeCells(ctx),
     ];

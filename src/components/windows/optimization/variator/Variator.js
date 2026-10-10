@@ -68,7 +68,7 @@ export function Variator({ c, theme, t }) {
                     }, `Error: ${state.error}`)
                     : h(SpectrumPlot, {
                         data: state.showBaseline ? state.data : (state.data ? { lambda: state.data.lambda, T: state.data.T, R: state.data.R } : null),
-                        c, theme,
+                        c, theme, t,
                         targets: state.design.meritOperands,
                         showTargets: state.showTargets,
                         xLabel: t.spectralAxis.nm,

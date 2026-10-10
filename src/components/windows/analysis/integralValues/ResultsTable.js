@@ -1,4 +1,5 @@
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
+import { customIntegralReference } from './integralModel.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 
 const { createElement: h } = React;
@@ -130,7 +131,9 @@ function ResultRow(props) {
             background: selected ? c.accent + '22'
                 : (index % 2 === 0 ? 'transparent' : c.panel + '55'),
         },
-        title: weightingText(definition.weighting, iv.weightings).reference,
+        title: custom
+            ? customIntegralReference(custom, iv.customReference)
+            : weightingText(definition.weighting, iv.weightings).reference,
     },
         h('td', {
             style: {

@@ -84,7 +84,7 @@ function ErrorSetup({ c, t, ea, state }) {
                 ariaLabel: ea.pol, activeId: params.polarization, c,
                 onSelect: value => patch({ polarization: value }),
                 items: [
-                    { id: 'avg', label: 'avg' },
+                    { id: 'avg', label: ea.polAvg },
                     { id: 's', label: 's' },
                     { id: 'p', label: 'p' },
                 ],

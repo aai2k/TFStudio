@@ -172,7 +172,7 @@ function renderSearchPreview(ctx) {
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between' } },
             h('div', { style: { fontSize: 11, color: c.textDim } }, `${T.step5.iteration}: ${iteration}`),
             h(AxisToggle, { value: p.logAxis, onChange: (v) => set('logAxis', v), c, t })),
-        h(SpectrumPlot, { layersFn: selLayersFn, p, mode: 'embedded', c, height: 260, logAxis: p.logAxis, targetPoints,
+        h(SpectrumPlot, { layersFn: selLayersFn, p, mode: 'embedded', c, height: 260, logAxis: p.logAxis, targetPoints, targetName: T.targetSeries,
             aoi: embeddedAoi(p, workingAoi(p)), pol: p.pol }),
         p.selected && h('div', { style: { fontSize: 11.5, color: c.textDim, marginTop: 4 } },
             `[${p.selected.mirrors.join(' ')}] / [${p.selected.spacers.join(' ')}]` +

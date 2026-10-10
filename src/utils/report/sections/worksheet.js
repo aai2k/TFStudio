@@ -6,7 +6,7 @@
  */
 
 import { escapeHtml } from '../svgChart.js';
-import { num, deg, tt, blockTitle, wrap, table, note, subtitleOf, chip, cull } from './format.js';
+import { num, deg, tt, polText, blockTitle, wrap, table, note, subtitleOf, chip, cull } from './format.js';
 import { blockData } from './otherSections.js';
 
 const pctOf = v => (v == null || !Number.isFinite(v) ? num(null) : num(v * 100, 2));
@@ -40,7 +40,7 @@ function captionOf(s, tr) {
   const mw = tr?.mw || {};
   return [
     `${tt(mw, 'measured', 'Measured')} ${s.char}`,
-    `${tt(tr, 'aoi', 'AOI')} ${deg(s.theta ?? 0)}°`, s.pol,
+    `${tt(tr, 'aoi', 'AOI')} ${deg(s.theta ?? 0)}°`, polText(tr, s.pol),
     `${tt(mw, 'chipGlass', 'Chip glass')} ${s.chipGlass}`,
     `${tt(mw, 'witnessRatio', 'Witness ratio')} ${num(s.witnessRatio, 2)}`,
     `${tt(mw, 'signalError', 'Signal error')} ${num(s.signalErrorPct, 2)} %`,

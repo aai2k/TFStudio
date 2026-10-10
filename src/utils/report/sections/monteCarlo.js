@@ -11,7 +11,7 @@
 
 import { lineChartSVG, escapeHtml } from '../svgChart.js';
 import {
-  pct, num, deg, tt, blockTitle, wrap, table, note, plotHeight, subtitleOf, splitRows, flow,
+  pct, num, deg, tt, polText, blockTitle, wrap, table, note, plotHeight, subtitleOf, splitRows, flow,
 } from './format.js';
 import { stepIndices } from './spectrum.js';
 import { blockData } from './otherSections.js';
@@ -33,7 +33,7 @@ function runFacts(result, tr) {
       : `index σ ${num(run.rmsReN, 4)} (n), ${num(run.rmsImN, 4)} (k)`);
   }
   if (dist) parts.push(dist);
-  parts.push(`${tt(tr, 'aoi', 'AOI')} ${deg(run.theta ?? 0)}°`, run.polarization || 'avg');
+  parts.push(`${tt(tr, 'aoi', 'AOI')} ${deg(run.theta ?? 0)}°`, polText(tr, run.polarization || 'avg'));
   if (result.seed != null) {
     parts.push(typeof tr?.mcSeed === 'function' ? tr.mcSeed(result.seed) : `seed ${result.seed}`);
   }

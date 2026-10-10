@@ -88,14 +88,15 @@ export function visibleOverlays(overlays) {
     return (overlays || []).filter(curve => curve && curve.visible !== false && curve.x?.length);
 }
 
-export function buildMeasuredSeries(overlays, yScale) {
+// `names` is t.legendNames; without it a curve goes by its own name.
+export function buildMeasuredSeries(overlays, yScale, names) {
     return visibleOverlays(overlays)
         .filter(curve => yScaleReadsQuantity(yScale, curve.quantity))
         .map((curve) => {
         const data = measuredCurveData(curve);
         return lineSeries({
         x: data.x, y: data.y.map(plotPercent(yScale, curve.quantity)),
-        name: `${curve.name} (${curve.quantity} meas)`, color: curve.color,
+        name: names ? names.measured(curve.name, curve.quantity) : curve.name, color: curve.color,
         // `emptyCircle` draws the reading hollow, so measured points stay
         // distinct from a computed curve, while the tooltip swatch keeps the
         // curve's real colour. Filling the symbol with transparent instead
@@ -151,15 +152,17 @@ function drawableTargetGeometry(geometry) {
     };
 }
 
-export function buildChartSeries({ data, showCurves, targets, targetsVisible, overlays, curveColors, yScale, curveLabels }) {
+export function buildChartSeries({
+    data, showCurves, targets, targetsVisible, overlays, curveColors, yScale, curveLabels, legendNames,
+}) {
     const output = data?.lambda && data?.series?.length
         ? computedSeries(data, showCurves, curveColors, yScale, curveLabels) : [];
-    output.push(...buildMeasuredSeries(overlays, yScale));
+    output.push(...buildMeasuredSeries(overlays, yScale, legendNames));
     if (targetsVisible) {
         // A fit target whose curve is already drawn above must not be drawn a
         // second time from its own snapshot.
         const drawnCurveIds = new Set(visibleOverlays(overlays).map(curve => curve.id));
-        const geometry = buildTargetGeometry(readableTargets(targets, yScale), { drawnCurveIds });
+        const geometry = buildTargetGeometry(readableTargets(targets, yScale), { drawnCurveIds, names: legendNames });
         output.push(...targetSeries(isLogYScale(yScale) ? drawableTargetGeometry(geometry) : geometry));
     }
     return output;
@@ -170,7 +173,7 @@ export function buildChartOption(options) {
         data, showCurves, targets, targetsVisible, overlays, curveColors,
         paperColor, bgColor, gridColor, textColor,
         editMode, editTool, yRange, yScale, spectralUnit, lamRange, materialBands,
-        spectralTitles, curveLabels,
+        spectralTitles, curveLabels, legendNames,
     } = options;
     const palette = { background: bgColor, paper: paperColor, grid: gridColor, text: textColor };
     const drawing = editMode && editTool === 'draw';
@@ -189,7 +192,7 @@ export function buildChartOption(options) {
     // A measured overlay is on the instrument's wavelength grid, not the
     // design's, so the tooltip is given the series to read them all itself.
     const series = buildChartSeries({
-        data, showCurves, targets, targetsVisible, overlays, curveColors, yScale, curveLabels,
+        data, showCurves, targets, targetsVisible, overlays, curveColors, yScale, curveLabels, legendNames,
     });
     // A logarithmic axis picks its ticks from the span it actually has to
     // cover, so it is measured before the decoration is added: bands carry

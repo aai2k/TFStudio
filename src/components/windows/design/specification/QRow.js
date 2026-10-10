@@ -157,7 +157,7 @@ function renderPol(meta, q, onF, c, ts) {
             value: q.pol || 'avg', onChange: e => onF('pol', e.target.value),
             style: { ...selStyle(c), width: 54 },
         }, OPERAND_POLS.map(p =>
-            h('option', { key: p, value: p, style: { background: c.panel } }, p)
+            h('option', { key: p, value: p, style: { background: c.panel } }, p === 'avg' ? ts.polAvg : p)
         ))
     );
 }

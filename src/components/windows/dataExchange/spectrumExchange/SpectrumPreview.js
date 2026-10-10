@@ -26,7 +26,7 @@ export function SpectrumPreview({ controller, c, sx, t }) {
             spectralUnit: 'nm',
             overlays: [overlay],
             spectralTitles: t.spectralAxis,
-            curveLabels: t.opticalEval.curveLabels,
+            curveLabels: t.opticalEval.curveLabels, legendNames: t.legendNames,
         }),
     );
 }

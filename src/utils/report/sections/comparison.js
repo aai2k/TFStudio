@@ -12,7 +12,7 @@
  */
 
 import { escapeHtml } from '../svgChart.js';
-import { pct, num, tt, blockTitle, errNote, wrap, table, note } from './format.js';
+import { pct, num, tt, polText, blockTitle, errNote, wrap, table, note } from './format.js';
 import { recipeTable } from './layers.js';
 import { materialLegendItem, materialsTable } from './materials.js';
 import { factPairs, stackDiagramSVG } from './facts.js';
@@ -140,7 +140,7 @@ export function buildIntegralsComparison({ designs, block, tr }) {
     label: escapeHtml(def.label || def.key),
     cells: results.map(iv => { const v = iv?.values?.[def.key]; return v ? pct(v.value, 2) + ' %' : num(null); }),
   }));
-  const sub = `${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${first.theta}° · ${escapeHtml(first.pol)}`;
+  const sub = `${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${first.theta}° · ${escapeHtml(polText(tr, first.pol))}`;
   return wrap('integrals', title, comparisonTables(designs, rows), { subtitle: sub });
 }
 
