@@ -66,11 +66,11 @@ shimBrowserGlobals();
 await loadApp();
 const { ProjectExplorer } = await import('../src/components/panels/ProjectExplorer.js');
 const noop = () => {};
-const markup = renderToStaticMarkup(React.createElement(ProjectExplorer, {
+const renderExplorer = (selectedItem) => renderToStaticMarkup(React.createElement(ProjectExplorer, {
   folders,
   selectedFolder: folders[0],
-  selectedItem: null,
-  selectedItems: [],
+  selectedItem,
+  selectedItems: selectedItem ? [selectedItem] : [],
   handleItemClick: noop,
   setSelectedFolder: noop,
   toggleFolderExpanded: noop,
@@ -88,8 +88,19 @@ const markup = renderToStaticMarkup(React.createElement(ProjectExplorer, {
   t: makeLocale(),
   onOpenDesign: noop,
 }));
+const markup = renderExplorer(null);
 ok(markup.includes('placeholder="Search"'), 'explorer renders the localized search field');
 ok(markup.includes('aria-label="Hide Explorer"'), 'explorer renders an accessible hide control');
+
+// A design row shows its duplicate, rename and delete buttons only under the
+// mouse; being selected or open in the editor does not keep them on screen.
+const openDesign = folders[0].items[0];
+const selectedMarkup = renderExplorer(openDesign);
+ok(selectedMarkup.includes(openDesign.name), 'the selected design row renders');
+for (const label of ['Duplicate', 'Rename (F2)', 'Delete']) {
+  ok(!selectedMarkup.includes(`aria-label="${label}"`),
+    `a selected design row hides its ${label} button until hovered`);
+}
 
 // A type="search" field draws a clear button of the browser's own, which sat
 // next to the panel's themed one as a second cross. The class below is what

@@ -263,7 +263,7 @@ function FileRow({ item, folder, depth, isSelected, isActive, isContextTarget, c
           }, '●')
         ),
 
-    !isRenaming && (hov || isActive || isSelected) && h('div', {
+    !isRenaming && hov && h('div', {
       onClick: (e) => e.stopPropagation(),
       style: { display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0 }
     },
