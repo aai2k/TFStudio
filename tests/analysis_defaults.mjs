@@ -21,6 +21,7 @@ const {
 const {
   resolveAnalysisSettings, resolveAnalysisColors, setAnalysisOverride,
   resetAnalysisWindow, isAnalysisWindowOverridden, sanitizeAnalysisOverrides,
+  resetAllAnalysisWindows, hasAnalysisOverrides,
 } = await import(new URL('../src/utils/analysisSettings.js', import.meta.url));
 
 let passed = 0;
@@ -188,6 +189,34 @@ function ok(condition, message) {
   ok(afterReset.opticalEvaluation === undefined, 'reset clears the window');
   ok(afterReset.gdGddEvaluation.colors.curve === '#222222', 'reset leaves other windows alone');
   ok(multi.opticalEvaluation.colors.T === '#111111', 'reset does not mutate the input');
+}
+
+// ── A window this release does not have keeps what a newer one stored ───────
+//
+// The whole block is written back on every save, so overrides for a window
+// added in a later release would otherwise be lost on the first edit after
+// going back a release.
+{
+  const future = { colors: { curve: '#123456' }, numbers: { anything: 'as stored' } };
+  const stored = { futureWindow: future, opticalEvaluation: { colors: { T: '#111111' } } };
+
+  ok(JSON.stringify(sanitizeAnalysisOverrides(stored).futureWindow) === JSON.stringify(future),
+    'sanitizing leaves a window this release does not declare as it was stored');
+  ok(JSON.stringify(setAnalysisOverride(stored, 'opticalEvaluation', 'colors', 'R', '#222222').futureWindow)
+    === JSON.stringify(future), 'an edit to another window carries it through');
+  ok(JSON.stringify(resetAnalysisWindow(stored, 'opticalEvaluation').futureWindow) === JSON.stringify(future),
+    'so does resetting another window');
+
+  const afterResetAll = resetAllAnalysisWindows(stored);
+  ok(afterResetAll.opticalEvaluation === undefined, 'resetting every window clears the ones this release has');
+  ok(JSON.stringify(afterResetAll.futureWindow) === JSON.stringify(future),
+    'and keeps the one it cannot show');
+
+  ok(hasAnalysisOverrides(stored), 'a stored override for a window this release has counts');
+  ok(!hasAnalysisOverrides({ futureWindow: future }),
+    'one only for a window it cannot show does not offer a reset that would change nothing');
+  ok(!isAnalysisWindowOverridden({ futureWindow: future }, 'opticalEvaluation'),
+    'and marks no window of this release as modified');
 }
 
 // ── Characterization: factory colours equal the literals they replaced ──────

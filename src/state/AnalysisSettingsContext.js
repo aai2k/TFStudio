@@ -8,8 +8,8 @@
  * factory registry, so a window never has to know whether an override exists.
  */
 import {
-  resolveAnalysisSettings, setAnalysisOverride, resetAnalysisWindow,
-  isAnalysisWindowOverridden, sanitizeAnalysisOverrides,
+  resolveAnalysisSettings, setAnalysisOverride, resetAnalysisWindow, resetAllAnalysisWindows,
+  isAnalysisWindowOverridden, hasAnalysisOverrides, sanitizeAnalysisOverrides,
 } from '../utils/analysisSettings.js';
 import { applyAnalysisDefaults } from '../utils/windowDefaults.js';
 
@@ -70,7 +70,7 @@ export const AnalysisSettingsProvider = ({ initial, children }) => {
     apply(current => resetAnalysisWindow(current, windowId));
   }, [apply]);
 
-  const resetAll = useCallback(() => apply(() => ({})), [apply]);
+  const resetAll = useCallback(() => apply(resetAllAnalysisWindows), [apply]);
 
   const value = useMemo(() => ({
     stored,
@@ -80,7 +80,7 @@ export const AnalysisSettingsProvider = ({ initial, children }) => {
     resetWindow,
     resetAll,
     isOverridden: (windowId) => isAnalysisWindowOverridden(stored, windowId),
-    hasAnyOverride: Object.keys(stored).length > 0,
+    hasAnyOverride: hasAnalysisOverrides(stored),
   }), [stored, ready, saveError, setField, resetWindow, resetAll]);
 
   return h(AnalysisSettingsContext.Provider, { value }, children);

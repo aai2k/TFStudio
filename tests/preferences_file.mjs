@@ -252,4 +252,65 @@ const read = disk => JSON.parse(disk.get(PREFS_FILE));
   assert.throws(() => preferencesFile.saveBlock(ctx, 'nonsense', {}), /unknown preferences block/);
 }
 
+// ── What a later release added survives a save in this one ──────────────────
+//
+// Going back a release, or copying the file to a machine that runs an older
+// one, must not lose on the first saved setting what the newer release wrote.
+{
+  const { ctx, disk } = makeCtx({
+    [PREFS_FILE]: JSON.stringify({
+      version: 1,
+      analysis: { futureWindow: { colors: { curve: '#123456' } } },
+      quickAccess: ['save'],
+      toolState: { games: { unlocked: true } },
+      shortcuts: { undo: 'Ctrl+Z' },
+    }),
+  });
+
+  preferencesFile.saveBlock(ctx, 'quickAccess', ['save', 'undo']);
+  assert.deepEqual(read(disk).shortcuts, { undo: 'Ctrl+Z' },
+    'a block this release does not know is written back as it was');
+  assert.deepEqual(read(disk).analysis, { futureWindow: { colors: { curve: '#123456' } } },
+    'and so is the analysis block, with a window this release does not have');
+  assert.deepEqual(read(disk).quickAccess, ['save', 'undo'], 'the saved block is replaced');
+
+  preferencesFile.saveBlock(ctx, 'toolState', { games: { unlocked: true, best: { snake: 4 } } });
+  assert.deepEqual(read(disk).shortcuts, { undo: 'Ctrl+Z' }, 'and still is after another save');
+}
+
+// ── A file from a newer release is not rewritten ────────────────────────────
+//
+// Its version says it holds something this release cannot represent, so a
+// save is refused rather than writing back the part this release understood.
+{
+  const original = JSON.stringify({
+    version: preferencesFile.PREFERENCES_VERSION + 1,
+    analysis: { opticalEvaluation: { colors: { T: '#123456' } } },
+    quickAccess: ['save'],
+    toolState: {},
+  }, null, 2);
+  const { ctx, disk } = makeCtx({ [PREFS_FILE]: original });
+
+  assert.deepEqual(preferencesFile.load(ctx).quickAccess, ['save'], 'it is still read');
+  assert.throws(() => preferencesFile.saveBlock(ctx, 'quickAccess', ['undo']), /newer release/,
+    'a save is refused');
+  assert.equal(disk.get(PREFS_FILE), original, 'and the file is left byte for byte as it was');
+}
+{
+  // Through the IPC handler the renderer calls: the refusal comes back as a
+  // failed save with its reason, and the reason is logged.
+  const preferencesIpc = require('../src/main/ipc/preferences.js');
+  const original = JSON.stringify({ version: preferencesFile.PREFERENCES_VERSION + 1, toolState: {} });
+  const { ctx, disk, logs } = makeCtx({ [PREFS_FILE]: original });
+  const handlers = {};
+  preferencesIpc.register({ handle: (channel, fn) => { handlers[channel] = fn; } }, ctx);
+
+  const result = await handlers['prefs:save-analysis'](null, { opticalEvaluation: {} });
+  assert.equal(result.success, false, 'the renderer is told the save did not happen');
+  assert.match(result.error, /newer release/, 'and why');
+  assert.equal(logs.some(line => line.includes('prefs:save-analysis') && /newer release/.test(line)), true,
+    'the refusal is logged');
+  assert.equal(disk.get(PREFS_FILE), original, 'nothing was written');
+}
+
 console.log('preferences_file: passed');

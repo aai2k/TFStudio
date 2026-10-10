@@ -15,7 +15,8 @@
 // chosen, which is not the same as an empty list they cleared on purpose.
 // `toolState` is what a single window remembers between sessions, keyed by tool
 // id, for the few things that are neither a display default nor part of a
-// design.
+// design. A block written by a later release is carried through a save as it
+// was, since the file may be copied to a machine that runs an older one.
 //
 // CommonJS, Electron-free (deps injected) so the logic is testable.
 
@@ -42,17 +43,21 @@ function stringList(value) {
   return value.filter(entry => typeof entry === 'string' && entry);
 }
 
-// How each block is read back off disk and written to it. A block missing from
-// here is dropped rather than passed through.
+// How each block is read back off disk and written to it.
 const BLOCKS = { analysis: plainObject, quickAccess: stringList, toolState: plainObject };
 
-// Anything unrecognised is dropped rather than passed through. The renderer
-// validates each field against its registry entry on top of this, so a
-// hand-edited value of the wrong kind never reaches a plot.
+// A known block of the wrong shape falls back to its shipped value. A block this
+// release does not know is kept as it is: it is never read here, only written
+// back, so a later release finds it where it left it. The renderer validates
+// each field against its registry entry on top of this, so a hand-edited value
+// of the wrong kind never reaches a plot.
 function normalize(raw) {
   if (!raw || typeof raw !== 'object') return { ...EMPTY };
   const out = { version: Number.isInteger(raw.version) ? raw.version : PREFERENCES_VERSION };
   for (const [name, read] of Object.entries(BLOCKS)) out[name] = read(raw[name]);
+  for (const [name, value] of Object.entries(raw)) {
+    if (!(name in out)) out[name] = value;
+  }
   return out;
 }
 
@@ -121,11 +126,17 @@ function load(ctx) {
   return readFile(ctx) || migrateFromSettings(ctx);
 }
 
-/** Replace one top-level block, leaving the other as it is on disk. */
+/**
+ * Replace one top-level block, leaving the others as they are on disk.
+ * Throws, writing nothing, when the file is from a newer release.
+ */
 function saveBlock(ctx, name, block) {
   const read = BLOCKS[name];
   if (!read) throw new Error(`unknown preferences block: ${name}`);
   const current = load(ctx);
+  if (current.version > PREFERENCES_VERSION) {
+    throw new Error(`${FILE_NAME} was written by a newer release of TFStudio and is left as it is`);
+  }
   const next = { ...current, version: PREFERENCES_VERSION, [name]: read(block) };
   writeFile(ctx, next);
   return next;

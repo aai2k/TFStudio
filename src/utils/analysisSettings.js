@@ -2,9 +2,12 @@
  * Resolve the analysis-window display settings a window should start with.
  *
  * Stored overrides are merged over the factory registry in
- * constants/analysisDefaults.js. Anything the registry does not declare is
- * dropped: a settings file written by a newer version, or hand-edited, must not
- * be able to push an unknown key or a malformed value into a plot.
+ * constants/analysisDefaults.js. Anything the registry does not declare for a
+ * window is dropped: a settings file written by a newer version, or hand-edited,
+ * must not be able to push an unknown key or a malformed value into a plot.
+ * Overrides for a window the registry does not have at all are never resolved,
+ * only carried through as they were stored, so a newer release that has the
+ * window finds them again.
  */
 import { ANALYSIS_DEFAULTS, numberAllowed } from '../constants/analysisDefaults.js';
 
@@ -118,13 +121,20 @@ function sameAsFactory(section, spec, value) {
     && value.every((entry, index) => entry === factory[index]);
 }
 
+// The stored entries for windows the registry does not declare, as they were.
+function undeclaredWindows(stored) {
+  return Object.fromEntries(Object.entries(stored || {})
+    .filter(([windowId]) => !Object.hasOwn(ANALYSIS_DEFAULTS, windowId)));
+}
+
 /**
- * Keep only valid, non-default overrides declared by the current registry.
+ * Keep only valid, non-default overrides for the windows the registry declares,
+ * and the entries for windows it does not declare as they were stored.
  * This also migrates settings written by older releases when a curve or field
  * is removed, so obsolete entries do not leave a false "modified" marker.
  */
 export function sanitizeAnalysisOverrides(stored) {
-  const clean = {};
+  const clean = undeclaredWindows(stored);
   for (const [windowId, registry] of Object.entries(ANALYSIS_DEFAULTS)) {
     if (!stored?.[windowId]) continue;
     const resolved = resolveAnalysisSettings(windowId, stored);
@@ -180,7 +190,22 @@ export function resetAnalysisWindow(stored, windowId) {
   return next;
 }
 
+/**
+ * Drop every override for the windows the registry declares. Entries for
+ * windows it does not declare stay: this release cannot show them, so it has
+ * no reset of its own to apply to them.
+ */
+export function resetAllAnalysisWindows(stored) {
+  return undeclaredWindows(stored);
+}
+
 /** True when the window has at least one stored override. */
 export function isAnalysisWindowOverridden(stored, windowId) {
   return Object.keys(sanitizeAnalysisOverrides(stored)[windowId] || {}).length > 0;
+}
+
+/** True when any window the registry declares has a stored override. */
+export function hasAnalysisOverrides(stored) {
+  return Object.keys(sanitizeAnalysisOverrides(stored))
+    .some(windowId => Object.hasOwn(ANALYSIS_DEFAULTS, windowId));
 }
