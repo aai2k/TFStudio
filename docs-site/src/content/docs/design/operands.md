@@ -358,7 +358,10 @@ Act on **layer thicknesses**, not the spectrum.
 `MNT`/`MXT` layer ranges are **1-based layer indices**, clamped to the current
 stack. A new constraint therefore covers layers 1 to 1000 by default: the end is
 deliberately past any stack you start from, so the constraint keeps covering the
-layers synthesis adds. An `MXT` row is the only upper limit on a layer's
+layers synthesis adds. Layers are numbered as in the Design Editor, layer 1 on
+the substrate. With both sides optimized independently, the front layers come
+first and the back layers follow, each side counted out from its substrate.
+An `MXT` row is the only upper limit on a layer's
 thickness: without one, the optimizers let a layer grow as thick as the merit
 asks. Needle synthesis, automatic and manual, leaves the thickness penalties
 out (the dMin floor + post-refine + Cleaner enforce bounds instead). Gradual

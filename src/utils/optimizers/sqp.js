@@ -27,6 +27,7 @@
  */
 import { LSQEngine } from '../physics/optimizer.js';
 import { solveBoxQP, boxCauchyPoint, boxQPValue } from '../physics/optimizer/linalg.js';
+import { constraintRangeIndices } from '../physics/optimizer/constraintRange.js';
 
 // The box QP step, or null when the damped Hessian is not PD. A solve stopped
 // by its pass cap leaves a feasible point that lowers the model but carries no
@@ -62,17 +63,15 @@ export class SQPOptimizer extends LSQEngine {
 
     // ── Per-free-variable hard thickness box [lo,hi] ────────────
     // D_MIN/D_MAX intersected with any MNT (lower) / MXT (upper) constraint operand
-    // covering each layer. Constraint operands carry a 1-based layer-index range in
-    // lambdaStart/lambdaEnd and the bound in target — the same convention the
-    // analytic-Jacobian constraint subgradient uses.
+    // covering each layer. Constraint operands carry a 1-based layer range in
+    // lambdaStart/lambdaEnd and the bound in target, the same convention the
+    // analytic-Jacobian constraint subgradient uses (constraintRange.js).
     // Tighten [lo,hi] for one MNT (min-thickness) / MXT (max-thickness) operand
-    // over the layer range it targets (1-based layer indices in [lambdaStart,
-    // lambdaEnd]).
+    // over the layer range it targets.
     _applyThicknessConstraint(op, freeIdx, lo, hi) {
-        const a0 = Math.round(op.lambdaStart), a1 = Math.round(op.lambdaEnd);
+        const inRange = new Set(constraintRangeIndices(op, this.surfaceMode, this.nFront, this.thicknesses.length));
         for (let a = 0; a < freeIdx.length; a++) {
-            const layer1 = freeIdx[a] + 1;            // 1-based layer index
-            if (layer1 < a0 || layer1 > a1) continue;
+            if (!inRange.has(freeIdx[a])) continue;
             if (op.type === 'MNT') lo[a] = Math.max(lo[a], op.target);
             else                   hi[a] = Math.min(hi[a], op.target);
         }

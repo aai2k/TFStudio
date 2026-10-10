@@ -9,6 +9,7 @@ import { resolveSourceSpec, resolveDetectorSpec } from '../../../spectralWeighti
 import { stressForceNm } from '../../../stress/stackForce.js';
 import { isMinType, isArgwaveMin, argwaveOpticalChar, argwavePolCode, polFromType, rowReading } from '../../operandModel.js';
 import { isRangeAvg, charOf, operandSampleLambdas, bandQuadratureWeights } from '../../sampling.js';
+import { contextConstraintIndices } from '../../constraintRange.js';
 import { tmmProp } from '../tmmEval.js';
 import { _assertMeasurementSide } from './errors.js';
 
@@ -50,7 +51,8 @@ export function _evalStressForce(op, ctx) {
 }
 
 // MNT/MXT layer-thickness constraint: min (MNT) or max (MXT) thickness over a
-// 1-based layer-index range. The range clamps to the actual layer count, so a
+// 1-based layer range, layer 1 on the substrate as in the Design Editor
+// (constraintRange.js). The range clamps to the actual layer count, so a
 // generator can emit an end far above it to mean "every current and future
 // layer" (see DEFAULT_CONSTRAINT_LAST_LAYER).
 // A range that holds no layer (a bare substrate, or a start past the last
@@ -58,19 +60,18 @@ export function _evalStressForce(op, ctx) {
 // as it skips a comment row. A value of 0 nm would score an MNT row as a layer
 // its whole target too thin.
 // In both_independent mode ctx.fullThicks spans front+back so constraints can
-// reach either stack; otherwise it equals frontThicks.
+// reach either stack; otherwise it holds the optimized side.
 export function _evalConstraint(op, ctx) {
     const all = ctx.fullThicks || ctx.frontThicks || [];
-    const lo = Math.max(0, Math.round(op.lambdaStart) - 1);
-    const hi = Math.min(all.length - 1, Math.round(op.lambdaEnd) - 1);
-    if (lo > hi) return null;
+    const indices = contextConstraintIndices(op, ctx);
+    if (!indices.length) return null;
     if (op.type === 'MNT') {
         let v = Infinity;
-        for (let i = lo; i <= hi; i++) v = Math.min(v, all[i] || 0);
+        for (const i of indices) v = Math.min(v, all[i] || 0);
         return isFinite(v) ? v : 0;
     }
     let v = 0;
-    for (let i = lo; i <= hi; i++) v = Math.max(v, all[i] || 0);
+    for (const i of indices) v = Math.max(v, all[i] || 0);
     return v;
 }
 

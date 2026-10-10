@@ -15,11 +15,13 @@ import {
 } from '../operandModel.js';
 import { charOf } from '../sampling.js';
 import { operandExtremumLambdas } from '../evalCore/evalContext.js';
+import { contextConstraintIndices } from '../constraintRange.js';
 
-// Index of the min (isMin) or max thickness over all[lo..hi].
-function _constraintArgExtremum(all, lo, hi, isMin) {
-    let argj = lo, best = all[lo] || 0;
-    for (let jj = lo; jj <= hi; jj++) {
+// Index of the min (isMin) or max thickness over the given positions of all;
+// a tie goes to the first position.
+function _constraintArgExtremum(all, indices, isMin) {
+    let argj = indices[0], best = all[argj] || 0;
+    for (const jj of indices) {
         const v = all[jj] || 0;
         if (isMin ? v < best : v > best) { best = v; argj = jj; }
     }
@@ -27,18 +29,17 @@ function _constraintArgExtremum(all, lo, hi, isMin) {
 }
 
 // Constraint (MNT/MXT): subgradient of sw·max(0, ±(target−comp)); comp = min
-// (MNT) or max (MXT) over the 1-based layer-index range.
+// (MNT) or max (MXT) over the 1-based layer range (constraintRange.js).
 export function _jacRowConstraint(op, i, jc) {
     const { comp, freeIdx, nFree, ctx } = jc;
     const row = new Array(nFree).fill(0);
     const all = ctx.fullThicks || ctx.frontThicks || [];
-    const lo = Math.max(0, Math.round(op.lambdaStart) - 1);
-    const hi = Math.min(all.length - 1, Math.round(op.lambdaEnd) - 1);
-    if (lo > hi) return row;
+    const indices = contextConstraintIndices(op, ctx);
+    if (!indices.length) return row;
     const isMin = op.type === 'MNT';
     const violated = isMin ? (op.target - comp[i] > 0) : (comp[i] - op.target > 0);
     if (!violated) return row;
-    const ci = freeIdx.indexOf(_constraintArgExtremum(all, lo, hi, isMin));
+    const ci = freeIdx.indexOf(_constraintArgExtremum(all, indices, isMin));
     if (ci >= 0) row[ci] = Math.sqrt(op.weight) * (isMin ? -1 : 1);
     return row;
 }
