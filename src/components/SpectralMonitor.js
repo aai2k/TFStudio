@@ -1,10 +1,10 @@
 import { useDesign } from '../state/DesignContext.js';
 import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { useUnresolvedMaterials } from '../utils/materials/useUnresolvedMaterials.js';
-import { makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
+import { DEFAULT_CONSTRAINT_LAST_LAYER, makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import {
     DIRECT_MONITOR_META, FACT_MONITOR_META, DERIVED_MONITOR_META,
-    scopedFactLayers, computeMonitor,
+    computeMonitor,
 } from '../utils/physics/statusMonitorEvaluation.js';
 import { useIntegralPresets } from '../utils/physics/integralValues.js';
 import { DebouncedInput } from './ui/DebouncedInput.js';
@@ -113,9 +113,21 @@ export function monitorValues({ monitors, design, hasActiveDesign, missingMateri
 
 function genId() { return Math.random().toString(36).slice(2, 9); }
 
+// The fields picking a type in the form sets. An MNT or MXT monitor covers
+// layers 1 to DEFAULT_CONSTRAINT_LAST_LAYER, as a merit row does, so it keeps
+// covering the layers synthesis adds.
+export function monitorTypePatch(form, value) {
+    if (value.startsWith('fact:')) return { type: 'fact', fact: value.slice(5) };
+    if (value === 'MNT' || value === 'MXT') return {
+        type: value, layerStart: form.layerStart ?? 1,
+        layerEnd: form.layerEnd ?? DEFAULT_CONSTRAINT_LAST_LAYER,
+    };
+    return { type: value };
+}
+
 // ── Add / Edit monitor form ──────────────────────────────────────────────────
 
-function AddForm({ c, t, layerCount, onAdd, onCancel, initial, mode }) {
+function AddForm({ c, t, onAdd, onCancel, initial, mode }) {
     // `initial` (optional) seeds the form when editing an existing monitor.
     // `mode` ∈ 'add' | 'edit' — controls the submit-button label and which
     // ID the resulting object carries (preserved when editing).
@@ -135,14 +147,7 @@ function AddForm({ c, t, layerCount, onAdd, onCancel, initial, mode }) {
     const monitorStrings = t?.statusMonitors || {};
 
     const setF = (patch) => setForm(prev => ({ ...prev, ...patch }));
-    const chooseType = value => {
-        if (value.startsWith('fact:')) setF({ type: 'fact', fact: value.slice(5) });
-        else if (value === 'MNT' || value === 'MXT') setF({
-            type: value, layerStart: form.layerStart ?? 1,
-            layerEnd: form.layerEnd ?? Math.max(1, layerCount),
-        });
-        else setF({ type: value });
-    };
+    const chooseType = value => setF(monitorTypePatch(form, value));
 
     // Picking an integral preset atomically fixes qty (= preset.char), band,
     // source/detector — same patch shape the MFE *IW picker writes.
@@ -252,7 +257,7 @@ function AddForm({ c, t, layerCount, onAdd, onCancel, initial, mode }) {
                 h('span', { style: dim }, monitorStrings.layerRange),
                 miniInput(form.layerStart ?? 1, v => setF({ layerStart: Math.max(1, Math.round(v)) }), 42),
                 h('span', { style: dim }, '–'),
-                miniInput(form.layerEnd ?? Math.max(1, layerCount), v => setF({ layerEnd: Math.max(1, Math.round(v)) }), 58)
+                miniInput(form.layerEnd ?? DEFAULT_CONSTRAINT_LAST_LAYER, v => setF({ layerEnd: Math.max(1, Math.round(v)) }), 58)
               ) : null,
         directMeta?.level && h(Fragment, null,
             h('span', { style: dim }, monitorStrings.level),
@@ -507,13 +512,13 @@ export function SpectralMonitor({ c, t }) {
 
         // Inline form — Add OR Edit (mutually exclusive)
         adding && h(AddForm, {
-            c, t, layerCount: scopedFactLayers(design).length,
+            c, t,
             mode: 'add', onAdd: addMonitor, onCancel: () => setAdding(false),
         }),
         editingId && (() => {
             const m = monitors.find(x => x.id === editingId);
             return m ? h(AddForm, {
-                c, t, layerCount: scopedFactLayers(design).length,
+                c, t,
                 mode: 'edit', initial: m,
                 onAdd: updateMonitor,
                 onCancel: () => setEditingId(null),
