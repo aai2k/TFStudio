@@ -34,6 +34,17 @@ function handleSearchMessage(m, ctx) {
     }
 }
 
+// Stop a running search. The running text goes with it, as Needle's and Gradual
+// Evolution's do; a finished search's count stays, since it leaves no worker.
+export function stopFilterSearch({ workerRef, setRunning, setStatus }) {
+    if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
+        setStatus('');
+    }
+    setRunning(false);
+}
+
 // Wavelength range the worker needs the materials sampled on. The target reaches
 // no further than 2·halfStop from λ₀; a design scored at an angle is asked for at
 // shorter wavelengths too, as far down as its band moves at the largest angle
@@ -195,10 +206,7 @@ export function StepSearch({ p, set, c, t }) {
     const historyRef = useRef(candidates);
     const runRef = useRef(p.searchRun || 0);
 
-    const stop = useCallback(() => {
-        if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
-        setRunning(false);
-    }, []);
+    const stop = useCallback(() => stopFilterSearch({ workerRef, setRunning, setStatus }), []);
     useEffect(() => () => stop(), [stop]); // cleanup on unmount
 
     const clearHistory = useCallback(() => {
