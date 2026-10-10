@@ -1,0 +1,84 @@
+{
+  "tfs_version": "1.0",
+  "id": "design-sample-1767225600011-t2bbd",
+  "name": "QW high reflector",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "sl-1767225600000-0",
+      "material": "TiO2",
+      "thickness": 57.3,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600001-1",
+      "material": "SiO2",
+      "thickness": 94.2,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600002-2",
+      "material": "TiO2",
+      "thickness": 57.3,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600003-3",
+      "material": "SiO2",
+      "thickness": 94.2,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600004-4",
+      "material": "TiO2",
+      "thickness": 57.3,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600005-5",
+      "material": "SiO2",
+      "thickness": 94.2,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600006-6",
+      "material": "TiO2",
+      "thickness": 57.3,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600007-7",
+      "material": "SiO2",
+      "thickness": 94.2,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600008-8",
+      "material": "TiO2",
+      "thickness": 57.3,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600009-9",
+      "material": "SiO2",
+      "thickness": 94.2,
+      "locked": false
+    },
+    {
+      "id": "sl-1767225600010-10",
+      "material": "TiO2",
+      "thickness": 57.3,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": ""
+}

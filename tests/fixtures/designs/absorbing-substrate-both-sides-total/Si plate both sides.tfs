@@ -1,0 +1,56 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600001-mdx5g",
+  "name": "Si plate both sides",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "builtin:Si",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "both_independent",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600001-mdx5g-3",
+      "material": "builtin:SiO2",
+      "thickness": 172.36417487724,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-mdx5g-4",
+      "material": "builtin:Ta2O5",
+      "thickness": 120.21308215241966,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-mdx5g-5",
+      "material": "builtin:SiO2",
+      "thickness": 172.36417487724,
+      "locked": false
+    }
+  ],
+  "backLayers": [
+    {
+      "id": "b-design-1767225600001-mdx5g-l-design-1767225600001-mdx5g-5",
+      "material": "builtin:SiO2",
+      "thickness": 172.36417487724,
+      "locked": false
+    },
+    {
+      "id": "b-design-1767225600001-mdx5g-l-design-1767225600001-mdx5g-4",
+      "material": "builtin:Ta2O5",
+      "thickness": 120.21308215241966,
+      "locked": false
+    },
+    {
+      "id": "b-design-1767225600001-mdx5g-l-design-1767225600001-mdx5g-3",
+      "material": "builtin:SiO2",
+      "thickness": 172.36417487724,
+      "locked": false
+    }
+  ],
+  "referenceWavelength": 1000,
+  "notes": "Generated from stack formula (both):\nL H L\nλ₀ = 1000 nm",
+  "stackFormula": "L H L"
+}

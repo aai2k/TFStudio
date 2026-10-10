@@ -1,0 +1,414 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600001-1ta3w",
+  "name": "Operand families",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600001-1ta3w-4",
+      "material": "builtin:MgF2",
+      "thickness": 99.74568731323802,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-1ta3w-5",
+      "material": "builtin:Ta2O5",
+      "thickness": 128.44246483220073,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-1ta3w-6",
+      "material": "builtin:Al2O3",
+      "thickness": 38.832015559035625,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-1ta3w-7",
+      "material": "builtin:Ta2O5",
+      "thickness": 64.22123241610036,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (front):\nL 2H 0.5M H\nλ₀ = 550 nm",
+  "stackFormula": "L 2H 0.5M H",
+  "qualifiers": [
+    {
+      "id": "zypmlumz",
+      "enabled": true,
+      "kind": "T_AVG",
+      "cmp": "ge",
+      "channel": "T",
+      "direction": "max",
+      "level": 0.5,
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "lambda": 550,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.99,
+      "tol": 0.01,
+      "lo": 0.95,
+      "hi": 1,
+      "presetKey": "",
+      "presetLabel": "",
+      "source": {
+        "id": "D65"
+      },
+      "detector": {
+        "id": "photopic"
+      },
+      "curveId": null,
+      "label": "T avg ≥ 99 %"
+    },
+    {
+      "id": "ubh8y8n5",
+      "enabled": true,
+      "kind": "R_AVG",
+      "cmp": "le",
+      "channel": "R",
+      "direction": "max",
+      "level": 0.5,
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "lambda": 550,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.01,
+      "tol": 0.01,
+      "lo": 0.95,
+      "hi": 1,
+      "presetKey": "",
+      "presetLabel": "",
+      "source": {
+        "id": "D65"
+      },
+      "detector": {
+        "id": "photopic"
+      },
+      "curveId": null,
+      "label": "R avg ≤ 1 %"
+    }
+  ],
+  "meritOperands": [
+    {
+      "id": "or1vs2bp",
+      "enabled": true,
+      "type": "TAV",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.99,
+      "targetEnd": null,
+      "weight": 0
+    },
+    {
+      "id": "ce0vn6zy",
+      "enabled": true,
+      "type": "OPGT",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.99,
+      "targetEnd": null,
+      "weight": 1,
+      "refId": "or1vs2bp"
+    },
+    {
+      "id": "8qguewz4",
+      "enabled": true,
+      "type": "RAV",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.01,
+      "targetEnd": null,
+      "weight": 0
+    },
+    {
+      "id": "w7nl5o8s",
+      "enabled": true,
+      "type": "OPLT",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.01,
+      "targetEnd": null,
+      "weight": 1,
+      "refId": "8qguewz4"
+    },
+    {
+      "id": "15cmilye",
+      "enabled": true,
+      "type": "RAV",
+      "lambdaStart": 450,
+      "lambdaEnd": 650,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.005,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "94dehdts",
+      "enabled": true,
+      "type": "R",
+      "lambdaStart": 550,
+      "lambdaEnd": 550,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "21lmwy1s",
+      "enabled": true,
+      "type": "T",
+      "lambdaStart": 600,
+      "lambdaEnd": 600,
+      "aoi": 45,
+      "pol": "s",
+      "target": 0.99,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "4b2vin59",
+      "enabled": true,
+      "type": "AAV",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "yip520ug",
+      "enabled": true,
+      "type": "TGT",
+      "lambdaStart": 450,
+      "lambdaEnd": 650,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.99,
+      "targetEnd": 0.98,
+      "weight": 1
+    },
+    {
+      "id": "ya1x6jio",
+      "enabled": true,
+      "type": "TIW",
+      "lambdaStart": 380,
+      "lambdaEnd": 780,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.99,
+      "targetEnd": null,
+      "weight": 1,
+      "source": {
+        "id": "D65"
+      },
+      "detector": {
+        "id": "photopic"
+      }
+    },
+    {
+      "id": "qpw29eff",
+      "enabled": true,
+      "type": "RMX",
+      "lambdaStart": 450,
+      "lambdaEnd": 650,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.01,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "yotkh084",
+      "enabled": true,
+      "type": "TMN",
+      "lambdaStart": 450,
+      "lambdaEnd": 650,
+      "aoi": 30,
+      "pol": "avg",
+      "target": 0.98,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "2j577tvw",
+      "enabled": true,
+      "type": "MNWR",
+      "lambdaStart": 450,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 575,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "52tcmd41",
+      "enabled": true,
+      "type": "OPLT",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.01,
+      "targetEnd": null,
+      "weight": 1,
+      "refId": "15cmilye"
+    },
+    {
+      "id": "3pg9qp4r",
+      "enabled": true,
+      "type": "DIFF",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1,
+      "refId1": "15cmilye",
+      "refId2": "94dehdts"
+    },
+    {
+      "id": "0vj4r28y",
+      "enabled": true,
+      "type": "TT",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 400,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "tr623ajg",
+      "enabled": true,
+      "type": "MNT",
+      "lambdaStart": 1,
+      "lambdaEnd": 4,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 10,
+      "weight": 1
+    },
+    {
+      "id": "bzypp55v",
+      "enabled": true,
+      "type": "PSI",
+      "lambdaStart": 633,
+      "lambdaEnd": 633,
+      "aoi": 70,
+      "pol": "avg",
+      "target": 40,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "0m98d0vv",
+      "enabled": true,
+      "type": "PR",
+      "lambdaStart": 550,
+      "lambdaEnd": 550,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "fqpmw44g",
+      "enabled": true,
+      "type": "GD",
+      "lambdaStart": 550,
+      "lambdaEnd": 550,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "61n7qq3p",
+      "enabled": true,
+      "type": "GDD",
+      "lambdaStart": 550,
+      "lambdaEnd": 550,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "npf5gtzs",
+      "enabled": true,
+      "type": "EFMX",
+      "lambdaStart": 550,
+      "lambdaEnd": 550,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 1,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "81cso5d2",
+      "enabled": true,
+      "type": "TDB",
+      "lambdaStart": 550,
+      "lambdaEnd": 550,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "kg4f015a",
+      "enabled": true,
+      "type": "ODMN",
+      "lambdaStart": 450,
+      "lambdaEnd": 650,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1
+    },
+    {
+      "id": "lzn05sy3",
+      "enabled": true,
+      "type": "BLNK",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.99,
+      "targetEnd": null,
+      "weight": 1,
+      "comment": "Operand families"
+    }
+  ]
+}

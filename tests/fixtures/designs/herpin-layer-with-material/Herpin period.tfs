@@ -1,0 +1,81 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600001-k776l",
+  "name": "Herpin period",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-1767225600003-h1ifsj",
+      "material": "herpin-1767225600002-3zmink",
+      "thickness": 117.11046194432042,
+      "locked": false,
+      "herpin": {
+        "version": 1,
+        "referenceWavelength": 550,
+        "equivalentIndex": 1.7850679826076918,
+        "phase": 2.3881831695692957,
+        "originalLayers": [
+          {
+            "id": "l-design-1767225600001-k776l-4",
+            "material": "builtin:MgF2",
+            "thickness": 49.87284365661901,
+            "locked": false
+          },
+          {
+            "id": "l-design-1767225600001-k776l-5",
+            "material": "builtin:Al2O3",
+            "thickness": 38.832015559035625,
+            "locked": false
+          },
+          {
+            "id": "l-design-1767225600001-k776l-6",
+            "material": "builtin:MgF2",
+            "thickness": 49.87284365661901,
+            "locked": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "l-design-1767225600001-k776l-7",
+      "material": "builtin:MgF2",
+      "thickness": 199.49137462647604,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (front):\n0.5L 0.5H 0.5L 2L\nλ₀ = 550 nm",
+  "stackFormula": "0.5L 0.5H 0.5L 2L",
+  "materials": {
+    "herpin-1767225600002-3zmink": {
+      "id": "herpin-1767225600002-3zmink",
+      "name": "Herpin E=1.785068 @ 550 nm",
+      "color": "#8b5cf6",
+      "group": "Herpin",
+      "formulaNum": -1,
+      "coefficients": [],
+      "kTable": [],
+      "tabData": [
+        [
+          1,
+          1.7850679826076918,
+          0
+        ],
+        [
+          10000000,
+          1.7850679826076918,
+          0
+        ]
+      ],
+      "interp": "pchip"
+    }
+  }
+}

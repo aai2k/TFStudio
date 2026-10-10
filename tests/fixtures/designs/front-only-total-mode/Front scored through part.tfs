@@ -1,0 +1,44 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600001-t3m4r",
+  "name": "Front scored through part",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "total",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600001-t3m4r-2",
+      "material": "builtin:MgF2",
+      "thickness": 99.74568731323802,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-t3m4r-3",
+      "material": "builtin:Al2O3",
+      "thickness": 155.3280622361425,
+      "locked": false
+    }
+  ],
+  "backLayers": [
+    {
+      "id": "b-design-1767225600001-t3m4r-l-design-1767225600001-t3m4r-3",
+      "material": "builtin:Al2O3",
+      "thickness": 155.3280622361425,
+      "locked": false
+    },
+    {
+      "id": "b-design-1767225600001-t3m4r-l-design-1767225600001-t3m4r-2",
+      "material": "builtin:MgF2",
+      "thickness": 99.74568731323802,
+      "locked": false
+    }
+  ],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (both):\nL 2H\nλ₀ = 550 nm",
+  "stackFormula": "L 2H"
+}

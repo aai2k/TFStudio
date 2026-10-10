@@ -4,3 +4,7 @@
 # Shell scripts must keep LF endings: WSL and Linux hosts fail to run a script
 # checked out with CRLF ("bad interpreter: /usr/bin/env bash^M").
 *.sh text eol=lf
+
+# Design fixtures keep the bytes the program that wrote them gave them: line
+# ends, byte order marks and UTF-16 are part of what they check.
+tests/fixtures/designs/** -text

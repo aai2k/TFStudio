@@ -1,0 +1,170 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600002-alsq4",
+  "name": "AR on Стекло N-BK7",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "______:N-BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600002-alsq4-2",
+      "material": "builtin:MgF2",
+      "thickness": 99.74568731323802,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600002-alsq4-3",
+      "material": "builtin:Al2O3",
+      "thickness": 155.3280622361425,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (front):\nL 2M\nλ₀ = 550 nm",
+  "stackFormula": "L 2M",
+  "materials": {
+    "______:N-BK7": {
+      "id": "N-BK7",
+      "name": "N-BK7",
+      "formulaNum": 2,
+      "nd": 1.5168,
+      "vd": 64.17,
+      "excludeSub": false,
+      "status": 1,
+      "coefficients": [
+        1.03961212,
+        0.00600069867,
+        0.231792344,
+        0.0200179144,
+        1.01046945,
+        103.560653,
+        0,
+        0,
+        0,
+        0
+      ],
+      "lambdaMin": 0.3,
+      "lambdaMax": 2.5,
+      "rangeDeclared": true,
+      "kTable": [
+        {
+          "lam_um": 0.3,
+          "k": 0.000002860713597096238
+        },
+        {
+          "lam_um": 0.31,
+          "k": 0.0000013679407209464399
+        },
+        {
+          "lam_um": 0.32,
+          "k": 6.660840301209072e-7
+        },
+        {
+          "lam_um": 0.334,
+          "k": 2.641529413779136e-7
+        },
+        {
+          "lam_um": 0.35,
+          "k": 9.289416657923734e-8
+        },
+        {
+          "lam_um": 0.365,
+          "k": 3.419130704253611e-8
+        },
+        {
+          "lam_um": 0.37,
+          "k": 2.740454577306016e-8
+        },
+        {
+          "lam_um": 0.38,
+          "k": 2.0739609095544916e-8
+        },
+        {
+          "lam_um": 0.39,
+          "k": 1.3731154690747477e-8
+        },
+        {
+          "lam_um": 0.4,
+          "k": 1.0226878635059414e-8
+        },
+        {
+          "lam_um": 0.405,
+          "k": 9.055817743333967e-9
+        },
+        {
+          "lam_um": 0.42,
+          "k": 9.391218400494483e-9
+        },
+        {
+          "lam_um": 0.436,
+          "k": 1.114729771221476e-8
+        },
+        {
+          "lam_um": 0.46,
+          "k": 1.0285620152922529e-8
+        },
+        {
+          "lam_um": 0.5,
+          "k": 9.578059584978928e-9
+        },
+        {
+          "lam_um": 0.546,
+          "k": 6.96582887840538e-9
+        },
+        {
+          "lam_um": 0.58,
+          "k": 9.254141380594459e-9
+        },
+        {
+          "lam_um": 0.62,
+          "k": 1.1876793885373872e-8
+        },
+        {
+          "lam_um": 0.66,
+          "k": 1.2643038652172184e-8
+        },
+        {
+          "lam_um": 0.7,
+          "k": 8.93054984410946e-9
+        },
+        {
+          "lam_um": 1.06,
+          "k": 1.0137468197468272e-8
+        },
+        {
+          "lam_um": 1.53,
+          "k": 9.839003844271407e-8
+        },
+        {
+          "lam_um": 1.97,
+          "k": 0.0000010933186143109085
+        },
+        {
+          "lam_um": 2.325,
+          "k": 0.000004291065552125883
+        },
+        {
+          "lam_um": 2.5,
+          "k": 0.00000813004230803582
+        }
+      ],
+      "density": 2.51,
+      "comment": "step 0.5 available",
+      "tce1": 0.000007099999999999999,
+      "tce2": 0.0000083,
+      "dPgF": -0.0009,
+      "mechanical": {
+        "youngsModulusGPa": 82,
+        "poissonsRatio": 0.21,
+        "linearExpansionPerK": 0.000007099999999999999
+      },
+      "interp": "pchip"
+    }
+  }
+}

@@ -1,0 +1,340 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600001-aqd23",
+  "name": "Chirped mirror start",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600001-aqd23-16",
+      "material": "builtin:Ta2O5",
+      "thickness": 95.43407442048787,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-17",
+      "material": "builtin:SiO2",
+      "thickness": 137.61620137059435,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-18",
+      "material": "builtin:Ta2O5",
+      "thickness": 95.43407442048787,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-19",
+      "material": "builtin:SiO2",
+      "thickness": 137.61620137059435,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-20",
+      "material": "builtin:Ta2O5",
+      "thickness": 95.43407442048787,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-21",
+      "material": "builtin:SiO2",
+      "thickness": 137.61620137059435,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-22",
+      "material": "builtin:Ta2O5",
+      "thickness": 95.43407442048787,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-23",
+      "material": "builtin:SiO2",
+      "thickness": 137.61620137059435,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-24",
+      "material": "builtin:Ta2O5",
+      "thickness": 95.43407442048787,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-25",
+      "material": "builtin:SiO2",
+      "thickness": 137.61620137059435,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-26",
+      "material": "builtin:Ta2O5",
+      "thickness": 95.43407442048787,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-27",
+      "material": "builtin:SiO2",
+      "thickness": 137.61620137059435,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-28",
+      "material": "builtin:Ta2O5",
+      "thickness": 95.43407442048787,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-29",
+      "material": "builtin:SiO2",
+      "thickness": 137.61620137059435,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-30",
+      "material": "builtin:Ta2O5",
+      "thickness": 95.43407442048787,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-aqd23-31",
+      "material": "builtin:SiO2",
+      "thickness": 137.61620137059435,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 800,
+  "notes": "Generated from stack formula (front):\n(H L)^8\nλ₀ = 800 nm",
+  "stackFormula": "(H L)^8",
+  "pulseSpectrum": {
+    "xUnit": "nm",
+    "rows": [
+      [
+        720,
+        0.000015,
+        null
+      ],
+      [
+        724,
+        0.000045,
+        null
+      ],
+      [
+        728,
+        0.000126,
+        null
+      ],
+      [
+        732,
+        0.000331,
+        null
+      ],
+      [
+        736,
+        0.000827,
+        null
+      ],
+      [
+        740,
+        0.001953,
+        null
+      ],
+      [
+        744,
+        0.004364,
+        null
+      ],
+      [
+        748,
+        0.009227,
+        null
+      ],
+      [
+        752,
+        0.018453,
+        null
+      ],
+      [
+        756,
+        0.034915,
+        null
+      ],
+      [
+        760,
+        0.0625,
+        null
+      ],
+      [
+        764,
+        0.105843,
+        null
+      ],
+      [
+        768,
+        0.169576,
+        null
+      ],
+      [
+        772,
+        0.257028,
+        null
+      ],
+      [
+        776,
+        0.368567,
+        null
+      ],
+      [
+        780,
+        0.5,
+        null
+      ],
+      [
+        784,
+        0.641713,
+        null
+      ],
+      [
+        788,
+        0.779165,
+        null
+      ],
+      [
+        792,
+        0.895025,
+        null
+      ],
+      [
+        796,
+        0.972655,
+        null
+      ],
+      [
+        800,
+        1,
+        null
+      ],
+      [
+        804,
+        0.972655,
+        null
+      ],
+      [
+        808,
+        0.895025,
+        null
+      ],
+      [
+        812,
+        0.779165,
+        null
+      ],
+      [
+        816,
+        0.641713,
+        null
+      ],
+      [
+        820,
+        0.5,
+        null
+      ],
+      [
+        824,
+        0.368567,
+        null
+      ],
+      [
+        828,
+        0.257028,
+        null
+      ],
+      [
+        832,
+        0.169576,
+        null
+      ],
+      [
+        836,
+        0.105843,
+        null
+      ],
+      [
+        840,
+        0.0625,
+        null
+      ],
+      [
+        844,
+        0.034915,
+        null
+      ],
+      [
+        848,
+        0.018453,
+        null
+      ],
+      [
+        852,
+        0.009227,
+        null
+      ],
+      [
+        856,
+        0.004364,
+        null
+      ],
+      [
+        860,
+        0.001953,
+        null
+      ],
+      [
+        864,
+        0.000827,
+        null
+      ],
+      [
+        868,
+        0.000331,
+        null
+      ],
+      [
+        872,
+        0.000126,
+        null
+      ],
+      [
+        876,
+        0.000045,
+        null
+      ],
+      [
+        880,
+        0.000015,
+        null
+      ]
+    ],
+    "source": "ti-sapphire spectrum.txt"
+  },
+  "meritOperands": [
+    {
+      "id": "ekxrcybi",
+      "enabled": true,
+      "type": "GDD",
+      "lambdaStart": 760,
+      "lambdaEnd": 840,
+      "aoi": 0,
+      "pol": "avg",
+      "target": -50,
+      "targetEnd": null,
+      "weight": 1
+    }
+  ]
+}

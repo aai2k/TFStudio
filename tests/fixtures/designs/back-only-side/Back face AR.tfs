@@ -1,0 +1,31 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600001-c8sax",
+  "name": "Back face AR",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "back_only",
+  "mfEvalMode": "side",
+  "frontLayers": [],
+  "backLayers": [
+    {
+      "id": "b-design-1767225600001-c8sax-l-design-1767225600001-c8sax-3",
+      "material": "builtin:Al2O3",
+      "thickness": 155.3280622361425,
+      "locked": false
+    },
+    {
+      "id": "b-design-1767225600001-c8sax-l-design-1767225600001-c8sax-2",
+      "material": "builtin:MgF2",
+      "thickness": 99.74568731323802,
+      "locked": false
+    }
+  ],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (back):\nL 2H\nλ₀ = 550 nm",
+  "stackFormula": "L 2H"
+}

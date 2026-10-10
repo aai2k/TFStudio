@@ -1,0 +1,73 @@
+{
+  "tfs_version": "1.0",
+  "id": "design-1767225600003-gl3d1",
+  "name": "Lab Ta2O5 mirror",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600003-gl3d1-0",
+      "material": "user_lab:Ta2O5",
+      "thickness": 64.22035286095903,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600003-gl3d1-1",
+      "material": "builtin:SiO2",
+      "thickness": 94.18383085873734,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600003-gl3d1-2",
+      "material": "user_lab:Ta2O5",
+      "thickness": 64.22035286095903,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600003-gl3d1-3",
+      "material": "builtin:SiO2",
+      "thickness": 94.18383085873734,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600003-gl3d1-4",
+      "material": "user_lab:Ta2O5",
+      "thickness": 64.22035286095903,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600003-gl3d1-5",
+      "material": "builtin:SiO2",
+      "thickness": 94.18383085873734,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600003-gl3d1-6",
+      "material": "user_lab:Ta2O5",
+      "thickness": 64.22035286095903,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600003-gl3d1-7",
+      "material": "builtin:SiO2",
+      "thickness": 94.18383085873734,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600003-gl3d1-8",
+      "material": "user_lab:Ta2O5",
+      "thickness": 64.22035286095903,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (front):\n(H L)^4 H\nλ₀ = 550 nm",
+  "stackFormula": "(H L)^4 H"
+}

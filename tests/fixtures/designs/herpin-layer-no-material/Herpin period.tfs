@@ -1,0 +1,57 @@
+{
+  "tfs_version": "1.1",
+  "id": "design-1767225600001-gycya",
+  "name": "Herpin period",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-1767225600003-msv936",
+      "material": "herpin-1767225600002-bj6euo",
+      "thickness": 117.11046194432042,
+      "locked": false,
+      "herpin": {
+        "version": 1,
+        "referenceWavelength": 550,
+        "equivalentIndex": 1.7850679826076918,
+        "phase": 2.3881831695692957,
+        "originalLayers": [
+          {
+            "id": "l-design-1767225600001-gycya-4",
+            "material": "builtin:MgF2",
+            "thickness": 49.87284365661901,
+            "locked": false
+          },
+          {
+            "id": "l-design-1767225600001-gycya-5",
+            "material": "builtin:Al2O3",
+            "thickness": 38.832015559035625,
+            "locked": false
+          },
+          {
+            "id": "l-design-1767225600001-gycya-6",
+            "material": "builtin:MgF2",
+            "thickness": 49.87284365661901,
+            "locked": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "l-design-1767225600001-gycya-7",
+      "material": "builtin:MgF2",
+      "thickness": 199.49137462647604,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (front):\n0.5L 0.5H 0.5L 2L\nλ₀ = 550 nm",
+  "stackFormula": "0.5L 0.5H 0.5L 2L"
+}

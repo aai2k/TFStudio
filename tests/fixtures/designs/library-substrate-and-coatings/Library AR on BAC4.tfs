@@ -1,0 +1,414 @@
+{
+  "tfs_version": "1.1",
+  "id": "design-1767225600005-4auum",
+  "name": "Library AR on BAC4",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "library_substrates:BAC4",
+    "thickness": 1
+  },
+  "exitMedium": "library_substrates:B_270",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "total",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600005-4auum-3",
+      "material": "library_coatings:MgF2_Cauchy_300-700nm",
+      "thickness": 99.71309257305788,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600005-4auum-4",
+      "material": "library_coatings:TiO2_Cauchy_300-700nm",
+      "thickness": 59.340264569231515,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600005-4auum-5",
+      "material": "library_coatings:Al2O3_Sellmeier_o-ray",
+      "thickness": 77.66120807103206,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (front):\nL H M\nλ₀ = 550 nm",
+  "stackFormula": "L H M",
+  "materials": {
+    "library_substrates:B_270": {
+      "id": "B_270",
+      "name": "B 270",
+      "coefficients": [
+        1,
+        1.0362,
+        0.00636948,
+        0.2492,
+        0.0225584,
+        0.8607,
+        108.49
+      ],
+      "lambdaMin": 0.175,
+      "lambdaMax": 2.5,
+      "kTable": [
+        {
+          "lam_um": 0.175,
+          "k": 0.003664678
+        },
+        {
+          "lam_um": 0.28,
+          "k": 0.0051305492
+        },
+        {
+          "lam_um": 0.29,
+          "k": 0.0053137831
+        },
+        {
+          "lam_um": 0.3,
+          "k": 0.0000164911
+        },
+        {
+          "lam_um": 0.31,
+          "k": 0.0000103603
+        },
+        {
+          "lam_um": 0.32,
+          "k": 0.0000046826
+        },
+        {
+          "lam_um": 0.334,
+          "k": 0.0000020524
+        },
+        {
+          "lam_um": 0.35,
+          "k": 4.956e-7
+        },
+        {
+          "lam_um": 0.365,
+          "k": 2.233e-7
+        },
+        {
+          "lam_um": 0.37,
+          "k": 1.947e-7
+        },
+        {
+          "lam_um": 0.38,
+          "k": 2e-7
+        },
+        {
+          "lam_um": 0.39,
+          "k": 1.69e-7
+        },
+        {
+          "lam_um": 0.4,
+          "k": 1.399e-7
+        },
+        {
+          "lam_um": 0.405,
+          "k": 1.417e-7
+        },
+        {
+          "lam_um": 0.42,
+          "k": 1.469e-7
+        },
+        {
+          "lam_um": 0.436,
+          "k": 1.525e-7
+        },
+        {
+          "lam_um": 0.46,
+          "k": 1.191e-7
+        },
+        {
+          "lam_um": 0.5,
+          "k": 8.85e-8
+        },
+        {
+          "lam_um": 0.546,
+          "k": 7.01e-8
+        },
+        {
+          "lam_um": 0.58,
+          "k": 7.44e-8
+        },
+        {
+          "lam_um": 0.62,
+          "k": 7.96e-8
+        },
+        {
+          "lam_um": 0.66,
+          "k": 8.47e-8
+        },
+        {
+          "lam_um": 0.7,
+          "k": 8.98e-8
+        },
+        {
+          "lam_um": 1.06,
+          "k": 1.876e-7
+        },
+        {
+          "lam_um": 1.53,
+          "k": 7.793e-7
+        },
+        {
+          "lam_um": 1.97,
+          "k": 0.0000010201
+        },
+        {
+          "lam_um": 2.325,
+          "k": 0.0000031599
+        },
+        {
+          "lam_um": 2.5,
+          "k": 0.0000029543
+        }
+      ],
+      "nd": 1.5230074303468617,
+      "vd": null,
+      "density": null,
+      "comment": "Date: 2007-07-17 Author: Bte Bedampfungstechnik GmbH, Joerg Terhuerne Source: Schott AG, BU Advanced Materials, Werk Grnenplan, Fr. Maida Claassen valid range: 300 nm to 2500 nm",
+      "color": null,
+      "group": "Substrate",
+      "formulaNum": 101,
+      "interp": "pchip"
+    },
+    "library_substrates:BAC4": {
+      "id": "BAC4",
+      "name": "BAC4",
+      "coefficients": [
+        2.4196645,
+        -0.0083329314,
+        0.01539739,
+        -0.00017391654,
+        0.00006218322,
+        -0.000003062131,
+        0
+      ],
+      "lambdaMin": 0.28,
+      "lambdaMax": 1.55,
+      "kTable": [
+        {
+          "lam_um": 0.28,
+          "k": 0.00513054919215599
+        },
+        {
+          "lam_um": 0.29,
+          "k": 0.0000106275661837517
+        },
+        {
+          "lam_um": 0.3,
+          "k": 0.00000671652333780108
+        },
+        {
+          "lam_um": 0.31,
+          "k": 0.00000423023901667415
+        },
+        {
+          "lam_um": 0.32,
+          "k": 0.00000239778645721622
+        },
+        {
+          "lam_um": 0.33,
+          "k": 0.00000138559342415242
+        },
+        {
+          "lam_um": 0.34,
+          "k": 7.78362405783569e-7
+        },
+        {
+          "lam_um": 0.35,
+          "k": 4.23314149977991e-7
+        },
+        {
+          "lam_um": 0.36,
+          "k": 2.38870714060896e-7
+        },
+        {
+          "lam_um": 0.37,
+          "k": 1.38654949167383e-7
+        },
+        {
+          "lam_um": 0.38,
+          "k": 9.83483077762391e-8
+        },
+        {
+          "lam_um": 0.39,
+          "k": 6.26995343017295e-8
+        },
+        {
+          "lam_um": 0.4,
+          "k": 4.81082033113947e-8
+        },
+        {
+          "lam_um": 0.42,
+          "k": 3.35907732471876e-8
+        },
+        {
+          "lam_um": 0.44,
+          "k": 3.16553424136651e-8
+        },
+        {
+          "lam_um": 0.46,
+          "k": 2.57140503823063e-8
+        },
+        {
+          "lam_um": 0.48,
+          "k": 1.91464994081265e-8
+        },
+        {
+          "lam_um": 0.5,
+          "k": 1.59474104359098e-8
+        },
+        {
+          "lam_um": 0.55,
+          "k": 1.31500177089801e-8
+        },
+        {
+          "lam_um": 0.6,
+          "k": 1.91368925230917e-8
+        },
+        {
+          "lam_um": 0.65,
+          "k": 2.07316335666827e-8
+        },
+        {
+          "lam_um": 0.7,
+          "k": 1.67363861750655e-8
+        },
+        {
+          "lam_um": 0.75,
+          "k": 1.79318423304274e-8
+        },
+        {
+          "lam_um": 0.78,
+          "k": 1.24265162237111e-8
+        },
+        {
+          "lam_um": 0.8,
+          "k": 1.27451448448319e-8
+        },
+        {
+          "lam_um": 0.83,
+          "k": 1.3223087776513e-8
+        },
+        {
+          "lam_um": 0.85,
+          "k": 1.35417163976338e-8
+        },
+        {
+          "lam_um": 0.9,
+          "k": 1.43382879504358e-8
+        },
+        {
+          "lam_um": 0.95,
+          "k": 1.51348595032378e-8
+        },
+        {
+          "lam_um": 1,
+          "k": 1.59314310560398e-8
+        },
+        {
+          "lam_um": 1.05,
+          "k": 1.67280026088418e-8
+        },
+        {
+          "lam_um": 1.06,
+          "k": 1.68873169194022e-8
+        },
+        {
+          "lam_um": 1.1,
+          "k": 1.75245741616438e-8
+        },
+        {
+          "lam_um": 1.2,
+          "k": 1.91177172672478e-8
+        },
+        {
+          "lam_um": 1.3,
+          "k": 2.07108603728518e-8
+        },
+        {
+          "lam_um": 1.4,
+          "k": 1.45780638899706e-7
+        },
+        {
+          "lam_um": 1.5,
+          "k": 5.98328106503952e-8
+        },
+        {
+          "lam_um": 1.55,
+          "k": 6.1827237672075e-8
+        }
+      ],
+      "nd": 1.568829101877728,
+      "vd": null,
+      "density": null,
+      "comment": "Hoya Optical Glass - code 569-560",
+      "color": null,
+      "group": "Substrate",
+      "formulaNum": 103,
+      "interp": "pchip"
+    },
+    "library_coatings:MgF2_Cauchy_300-700nm": {
+      "id": "MgF2_Cauchy_300-700nm",
+      "name": "MgF2 Cauchy (300-700nm)",
+      "coefficients": [
+        1.384,
+        -0.003651,
+        0.0006429
+      ],
+      "lambdaMin": 0.3,
+      "lambdaMax": 0.699999999999993,
+      "kTable": [],
+      "nd": 1.3788186339844566,
+      "vd": null,
+      "density": null,
+      "comment": "J. P. Borgogno, B. Lazarides, and E. Pelletier, \"Automatic determination of the optical constants of inhomogeneous thin films,\" Appl. Opt. 21, 4020-4029 (1982)",
+      "color": null,
+      "group": "Coating",
+      "formulaNum": 102
+    },
+    "library_coatings:TiO2_Cauchy_300-700nm": {
+      "id": "TiO2_Cauchy_300-700nm",
+      "name": "TiO2 Cauchy (300-700nm)",
+      "coefficients": [
+        2.2254,
+        0.002338,
+        0.007688
+      ],
+      "lambdaMin": 0.3,
+      "lambdaMax": 0.699999999999993,
+      "kTable": [],
+      "nd": 2.29667817810111,
+      "vd": null,
+      "density": null,
+      "comment": "J. P. Borgogno, B. Lazarides, and E. Pelletier, \"Automatic determination of the optical constants of inhomogeneous thin films,\" Appl. Opt. 21, 4020-4029 (1982)",
+      "color": null,
+      "group": "Coating",
+      "formulaNum": 102
+    },
+    "library_coatings:Al2O3_Sellmeier_o-ray": {
+      "id": "Al2O3_Sellmeier_o-ray",
+      "name": "Al2O3 Sellmeier o-ray",
+      "coefficients": [
+        1,
+        1.023798,
+        0.0037758825122041,
+        1.058264,
+        0.01225442358009,
+        5.280792,
+        321.3615534336
+      ],
+      "lambdaMin": 0.3,
+      "lambdaMax": 2.5,
+      "kTable": [],
+      "nd": 1.768234014316431,
+      "vd": null,
+      "density": null,
+      "comment": "Palik E, HOCIII 1998, 0.26-5.5 m, data from I.H. Malitson, J. Opt. Soc. Am. 52, 1377- 1379 (1962)",
+      "color": null,
+      "group": "Coating",
+      "formulaNum": 101
+    }
+  }
+}

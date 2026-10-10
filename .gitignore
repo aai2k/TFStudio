@@ -12,6 +12,9 @@ tools/license-signer/keys/
 # import their own .lm/.sub or AGF catalogs at runtime, not here.
 private-catalogs/
 *.agf
+# A design fixture's catalog variant may hold an AGF file: glasses cut from the
+# bundled Schott catalog, as an older release found them in Materials\agf.
+!tests/fixtures/designs/**/*.agf
 
 node_modules/
 dist/

@@ -1,0 +1,249 @@
+{
+  "about": "Design files older releases wrote, and what each one checks. Read by tests/design_file_corpus.mjs and tools/design-corpus/generate.mjs. writer: the release whose own code wrote the fixture, or script for a file another program would write, built with the modules of release tag. spectrum: [from, to, step] nm. nk: the wavelengths (nm) each material's n,k is taken at. angles: degrees. variants: the Materials folders the fixture is loaded under; catalogs names a folder under the fixture's catalogs/, seed adds the catalogs every installation is seeded with (the bundled Schott AGF and the library catalogs). keeps: paths into the file that a save must carry over unchanged. Material data taken from refractiveindex.info comes from the refractiveindex-db submodule at c5c2f188.",
+  "fixtures": {
+    "builtin-bare-ids-qw-mirror": {
+      "writer": "1.0.0",
+      "checks": "Bare built-in ids (Air, BK7, TiO2, SiO2) resolve as built-in. The built-in TiO2 data was replaced in 1.8.3, so this design computes differently from the release that wrote it.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "user-catalog-no-copy": {
+      "writer": "1.0.0",
+      "checks": "A 1.0 file names a user catalog material and carries no copy of it. With the catalog it computes from the catalog, whose table has no interpolation field and is read with PCHIP since 1.6.0; without it the material is missing and nothing is computed. The table starts at 500 nm, so n,k at 450 nm shows the rule outside it.",
+      "spectrum": [500, 900, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": { "catalog-present": { "catalogs": "catalog-present" }, "catalog-absent": {} }
+    },
+    "cone-user-distribution": {
+      "writer": "1.0.0",
+      "checks": "An illumination cone with a user intensity table, rows left unsorted as the editor leaves them. Spectrum and merit go through the analysis worker, as the windows send a design under a cone.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "keeps": ["cone"],
+      "variants": { "default": {} }
+    },
+    "unstamped-catalog-copy": {
+      "writer": "1.4.1",
+      "checks": "A copy of a user material with no catalog stamp, as 1.4.1 to 1.8.4 write them. It follows the catalog while one holds the id, the catalog as saved or as edited later, and the copy is used when none does. The table has no interpolation field (PCHIP since 1.6.0); 1.4.1 computed with the copy whatever the catalog held.",
+      "spectrum": [500, 900, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": {
+        "catalog-same": { "catalogs": "catalog-same" },
+        "catalog-edited": { "catalogs": "catalog-edited" },
+        "catalog-absent": {}
+      }
+    },
+    "agf-glass-copy-with-k-table": {
+      "writer": "1.4.1",
+      "checks": "A substrate from the bundled Schott AGF (formula 2 with a k table), saved with its copy. With the catalog every installation seeds, the catalog serves it; without, the copy does.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": { "seeded": { "seed": true }, "catalog-absent": {} }
+    },
+    "dispersion-fit-active": {
+      "writer": "1.6.3",
+      "checks": "A tabulated user material with an active dispersion fit, which replaces the table inside the fit's range, from the catalog and from the copy.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": { "catalog-present": { "catalogs": "catalog-present" }, "catalog-absent": {} }
+    },
+    "herpin-layer-no-material": {
+      "writer": "1.6.3",
+      "checks": "A Herpin equivalent layer whose material 1.6.3 to 1.8.4 did not save. Its material is rebuilt from the layer's equivalent index on load, and a save writes it into the file.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "library-substrate-and-coatings": {
+      "writer": "1.6.3",
+      "checks": "Library catalog materials: a substrate glass in the OptiLayer Schott series (formula 103) and an exit medium in the general Sellmeier (101), both with k tables, under Cauchy (102), Sellmeier (101) and Cauchy films, evaluated through the whole part. Library catalogs carry no stamp, so the seeded catalogs serve them whatever the copies say; without them the copies do.",
+      "spectrum": [400, 700, 50],
+      "nk": [450, 550.5, 633, 700],
+      "angles": [0, 45],
+      "variants": { "seeded": { "seed": true }, "catalog-absent": {} }
+    },
+    "linear-interp-table": {
+      "writer": "1.7.2",
+      "checks": "A tabulated user material set to linear interpolation, from the catalog and from the copy; n,k at 550.5 nm lies between two table rows.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": { "catalog-present": { "catalogs": "catalog-present" }, "catalog-absent": {} }
+    },
+    "measured-ellipsometry-psi-delta": {
+      "writer": "1.7.2",
+      "checks": "Measured Psi and Delta curves on the design and PSI and DEL rows on an absorbing substrate.",
+      "spectrum": [400, 1000, 100],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45, 70],
+      "keeps": ["measuredEllipsometry"],
+      "variants": { "default": {} }
+    },
+    "stress-mechanical-diameter": {
+      "writer": "1.8.1",
+      "checks": "Format 1.2: the stress block, substrate diameter, and mechanical constants on a user material copy and on the AGF glass copy. The STR row's value comes from them.",
+      "spectrum": [500, 900, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "keeps": ["stress", "substrate.diameterMm"],
+      "variants": { "catalogs-present": { "catalogs": "catalog-present", "seed": true }, "catalogs-absent": {} }
+    },
+    "wizard-worst-case-rows": {
+      "writer": "1.8.2",
+      "checks": "The wizard's worst-case TMN and RMX rows with bandPoints 21 and pNorm 50. Both are dropped on load, so the rows are scored at 301 points.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "builtin-custom-layer": {
+      "writer": "1.8.2",
+      "checks": "A layer of the built-in Custom material, which 1.8.3 removed. It is reported missing and the design is not evaluated.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "rii-formula-materials": {
+      "writer": "1.8.3",
+      "checks": "refractiveindex.info formula pages kept as formulas (catalog 201, 202 with a k table, 204, 205 with and without a k table, 206 for a gas incident medium), from the catalog and from the copies.",
+      "spectrum": [500, 1000, 50],
+      "nk": [500, 550.5, 633, 950],
+      "angles": [0, 45],
+      "variants": { "catalog-present": { "catalogs": "catalog-present" }, "catalog-absent": {} }
+    },
+    "measured-curve-ppef": {
+      "writer": "1.8.3",
+      "checks": "A measured curve on the design, the dB block made from it, a PPEF row naming the block by id, and a TDBMN row.",
+      "spectrum": [1500, 1600, 10],
+      "nk": [1500, 1550.5, 1600],
+      "angles": [0, 45],
+      "keeps": ["measuredCurves"],
+      "variants": { "default": {} }
+    },
+    "agf-non-ascii-file-name": {
+      "writer": "1.8.4",
+      "checks": "An AGF catalog from a file with a Cyrillic name, whose 1.8.4 id is all underscores. An installation that still holds the catalog 1.8.4 made keeps the id; one with only the file gives the file a new id since 1.8.5, so the design falls back to its copy, as it does with neither.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": {
+        "upgraded-install": { "catalogs": "upgraded-install" },
+        "agf-file-only": { "catalogs": "agf-file-only" },
+        "catalog-absent": {}
+      }
+    },
+    "herpin-layer-with-material": {
+      "writer": "1.8.5",
+      "checks": "A Herpin equivalent layer saved with its material.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "copy-from-another-catalog": {
+      "writer": "1.8.5",
+      "checks": "A copy stamped by its catalog. The catalogs were made in 1.8.4, which gave a catalog named Lab the id user_lab on every computer, and stamped by 1.8.5's first start. Its own catalog serves the copy; another computer's catalog of the same id serves it when its n,k are the same, and the copy wins, reported as a conflict, when they differ; with no catalog the copy serves.",
+      "spectrum": [500, 900, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": {
+        "own-catalog": { "catalogs": "own-catalog" },
+        "other-catalog-same-nk": { "catalogs": "other-catalog-same-nk" },
+        "other-catalog-other-nk": { "catalogs": "other-catalog-other-nk" },
+        "catalog-absent": {}
+      }
+    },
+    "coating-library-applied": {
+      "writer": "1.8.5",
+      "checks": "A Coating Library entry applied to a design: rii: material copies that no catalog holds anywhere.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "absorbing-substrate-both-sides-total": {
+      "writer": "1.8.5",
+      "checks": "Both faces coated on a substrate that absorbs, silicon near its band edge, evaluated through the whole part.",
+      "spectrum": [900, 1100, 25],
+      "nk": [900, 1000.5, 1064],
+      "angles": [0, 45, 70],
+      "variants": { "default": {} }
+    },
+    "back-only-side": {
+      "writer": "1.8.5",
+      "checks": "A coating on the back face only, evaluated from the exit side.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "front-only-total-mode": {
+      "writer": "1.8.5",
+      "checks": "Front-only mode scored through the whole part, with the back coating fixed.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "operand-families": {
+      "writer": "1.8.5",
+      "checks": "Specification qualifiers and the merit function made from them, then one row of each other operand family: single wavelength, band average, range target, weighted integral, worst case, argwave, math rows naming other rows, total thickness, a thickness constraint, ellipsometric, phase, group delay and dispersion, E-field, dB and optical density, and a blank row.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "keeps": ["qualifiers"],
+      "variants": { "default": {} }
+    },
+    "pulse-spectrum": {
+      "writer": "1.8.5",
+      "checks": "A pulse spectrum kept on the design, and a GDD row.",
+      "spectrum": [700, 900, 20],
+      "nk": [720, 800.5, 880],
+      "angles": [0, 45],
+      "keeps": ["pulseSpectrum"],
+      "variants": { "default": {} }
+    },
+    "foreign-utf8-bom-renamed": {
+      "writer": "script",
+      "tag": "1.8.5",
+      "checks": "A file another program saved: UTF-8 with a byte order mark and CRLF line ends, under a file name that differs from the name inside it. The design takes the file's name.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "foreign-utf16-no-id": {
+      "writer": "script",
+      "tag": "1.8.5",
+      "checks": "A file another program saved: UTF-16 LE with a byte order mark, and no design id. The loader gives it one.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633],
+      "angles": [0, 45],
+      "variants": { "default": {} }
+    },
+    "newer-release-unknown-fields": {
+      "writer": "script",
+      "tag": "1.8.5",
+      "checks": "A file as a newer release might write it, format 1.3. Fields this release does not know, at the top level, on the substrate, on a layer of each side, on an operand and on the embedded material copy, survive a load and a save.",
+      "spectrum": [500, 900, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 45],
+      "keeps": [
+        "futureTopLevel", "futureNull", "substrate.wedgeArcmin", "substrate.futureSubstrate",
+        "frontLayers.0.gradedProfile", "backLayers.0.futureLayerNote",
+        "meritOperands.0.futureOperandField", "meritOperands.0.futureOperandObject",
+        "materials.user_lab_8fb000ce:Ta2O5.futureMaterialField"
+      ],
+      "variants": { "default": {} }
+    }
+  }
+}

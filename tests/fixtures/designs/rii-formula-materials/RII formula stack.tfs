@@ -1,0 +1,1451 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600014-8m8b2",
+  "name": "RII formula stack",
+  "incidentMedium": "user_refractiveindex_info:Ar_Argon_Peck_and_Fisher_1964_n_047206_m_15_C",
+  "substrate": {
+    "material": "user_refractiveindex_info:Al2O3_Aluminium_sesquioxide_Sapphire_Alumina_Malitson_1962_-Al2O3_Sapphire_no_026525577_m",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600014-8m8b2-4",
+      "material": "user_refractiveindex_info:YbF3_Ytterbium_trifluoride_Amotchkina_et_al_2020_Thin_film_n_0414_m_k_9014_m",
+      "thickness": 90.85653797204274,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600014-8m8b2-5",
+      "material": "user_refractiveindex_info:HfO2_Hafnium_dioxide_Hafnia_Al-Kuhaili_2004_n_0220_m",
+      "thickness": 72.28857279032104,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600014-8m8b2-6",
+      "material": "user_refractiveindex_info:TiO2_Titanium_dioxide_Devore_1951_no_043153_m",
+      "thickness": 51.927256182748316,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600014-8m8b2-7",
+      "material": "user_refractiveindex_info:ZnS_Zinc_sulfide_Amotchkina_et_al_2020_n_0414_m_k_0410_m",
+      "thickness": 57.633370436753175,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (front):\nY H T Z\nλ₀ = 550 nm",
+  "stackFormula": "Y H T Z",
+  "materials": {
+    "user_refractiveindex_info:Ar_Argon_Peck_and_Fisher_1964_n_047206_m_15_C": {
+      "id": "Ar_Argon_Peck_and_Fisher_1964_n_047206_m_15_C",
+      "name": "Ar (Argon) (Peck and Fisher 1964: n 0.47–2.06 µm; 15 °C)",
+      "formulaNum": 206,
+      "coefficients": [
+        0.00006432135,
+        0.028606021,
+        144
+      ],
+      "lambdaMin": 0.4679,
+      "lambdaMax": 2.0587,
+      "kTable": [],
+      "tabData": [],
+      "rangeDeclared": true,
+      "nd": null,
+      "vd": null,
+      "density": null,
+      "comment": "15 °C, 760 torr (101.325 kPa)\nE. R. Peck and D. J. Fisher. Dispersion of argon. J. Opt. Soc. Am. 54, 1362-1364 (1964)",
+      "color": null,
+      "group": null,
+      "sourceUrl": "https://raw.githubusercontent.com/polyanskiy/refractiveindex.info-database/main/database/data/main/Ar/nk/Peck-15C.yml",
+      "dataPath": "main/Ar/nk/Peck-15C.yml",
+      "fetchedDate": "2026-01-01"
+    },
+    "user_refractiveindex_info:Al2O3_Aluminium_sesquioxide_Sapphire_Alumina_Malitson_1962_-Al2O3_Sapphire_no_026525577_m": {
+      "id": "Al2O3_Aluminium_sesquioxide_Sapphire_Alumina_Malitson_1962_-Al2O3_Sapphire_no_026525577_m",
+      "name": "Al2O3 (Aluminium sesquioxide, Sapphire, Alumina) (Malitson 1962: α-Al2O3 (Sapphire); n(o) 0.2652–5.577 µm)",
+      "formulaNum": 201,
+      "coefficients": [
+        0,
+        1.023798,
+        0.06144821,
+        1.058264,
+        0.1106997,
+        5.280792,
+        17.92656
+      ],
+      "lambdaMin": 0.2652,
+      "lambdaMax": 5.577,
+      "kTable": [],
+      "tabData": [],
+      "rangeDeclared": true,
+      "nd": null,
+      "vd": null,
+      "density": null,
+      "comment": "Synthetic sapphire, Ordinary ray (o), 24 °C\nI. H. Malitson. Refraction and dispersion of synthetic sapphire. J. Opt. Soc. Am. 52, 1377-1379 (1962)",
+      "color": null,
+      "group": null,
+      "sourceUrl": "https://raw.githubusercontent.com/polyanskiy/refractiveindex.info-database/main/database/data/main/Al2O3/nk/Malitson.yml",
+      "dataPath": "main/Al2O3/nk/Malitson.yml",
+      "fetchedDate": "2026-01-01"
+    },
+    "user_refractiveindex_info:YbF3_Ytterbium_trifluoride_Amotchkina_et_al_2020_Thin_film_n_0414_m_k_9014_m": {
+      "id": "YbF3_Ytterbium_trifluoride_Amotchkina_et_al_2020_Thin_film_n_0414_m_k_9014_m",
+      "name": "YbF3 (Ytterbium trifluoride) (Amotchkina et al, 2020: Thin film; n 0.4–14 µm, k 9.0–14 µm)",
+      "formulaNum": 205,
+      "interp": "pchip",
+      "coefficients": [
+        1.484489,
+        0.000054996,
+        -2,
+        0.0026266,
+        -4
+      ],
+      "lambdaMin": 0.4,
+      "lambdaMax": 14,
+      "kTable": [
+        {
+          "lam_um": 9.0168,
+          "k": 0
+        },
+        {
+          "lam_um": 9.03679,
+          "k": 0.00000386
+        },
+        {
+          "lam_um": 9.05678,
+          "k": 0.00000995
+        },
+        {
+          "lam_um": 9.07677,
+          "k": 0.000016
+        },
+        {
+          "lam_um": 9.09677,
+          "k": 0.0000398
+        },
+        {
+          "lam_um": 9.116759999999998,
+          "k": 0.000064
+        },
+        {
+          "lam_um": 9.13675,
+          "k": 0.0000949
+        },
+        {
+          "lam_um": 9.15674,
+          "k": 0.000141
+        },
+        {
+          "lam_um": 9.17674,
+          "k": 0.000186
+        },
+        {
+          "lam_um": 9.19673,
+          "k": 0.000243
+        },
+        {
+          "lam_um": 9.21672,
+          "k": 0.000306
+        },
+        {
+          "lam_um": 9.23671,
+          "k": 0.000369
+        },
+        {
+          "lam_um": 9.25671,
+          "k": 0.00044
+        },
+        {
+          "lam_um": 9.2767,
+          "k": 0.000511
+        },
+        {
+          "lam_um": 9.29669,
+          "k": 0.000584
+        },
+        {
+          "lam_um": 9.31668,
+          "k": 0.00066
+        },
+        {
+          "lam_um": 9.33668,
+          "k": 0.000735
+        },
+        {
+          "lam_um": 9.35667,
+          "k": 0.000814
+        },
+        {
+          "lam_um": 9.37666,
+          "k": 0.000894
+        },
+        {
+          "lam_um": 9.39665,
+          "k": 0.000974
+        },
+        {
+          "lam_um": 9.41665,
+          "k": 0.00106
+        },
+        {
+          "lam_um": 9.43664,
+          "k": 0.00114
+        },
+        {
+          "lam_um": 9.45663,
+          "k": 0.00123
+        },
+        {
+          "lam_um": 9.47662,
+          "k": 0.00132
+        },
+        {
+          "lam_um": 9.49662,
+          "k": 0.00141
+        },
+        {
+          "lam_um": 9.51661,
+          "k": 0.0015
+        },
+        {
+          "lam_um": 9.5366,
+          "k": 0.0016
+        },
+        {
+          "lam_um": 9.5566,
+          "k": 0.0017
+        },
+        {
+          "lam_um": 9.57659,
+          "k": 0.00181
+        },
+        {
+          "lam_um": 9.59658,
+          "k": 0.00192
+        },
+        {
+          "lam_um": 9.61657,
+          "k": 0.00204
+        },
+        {
+          "lam_um": 9.63657,
+          "k": 0.00216
+        },
+        {
+          "lam_um": 9.65656,
+          "k": 0.00227
+        },
+        {
+          "lam_um": 9.67655,
+          "k": 0.0024
+        },
+        {
+          "lam_um": 9.69654,
+          "k": 0.00253
+        },
+        {
+          "lam_um": 9.71654,
+          "k": 0.00266
+        },
+        {
+          "lam_um": 9.73653,
+          "k": 0.0028
+        },
+        {
+          "lam_um": 9.75652,
+          "k": 0.00293
+        },
+        {
+          "lam_um": 9.77651,
+          "k": 0.00307
+        },
+        {
+          "lam_um": 9.79651,
+          "k": 0.00322
+        },
+        {
+          "lam_um": 9.8165,
+          "k": 0.00336
+        },
+        {
+          "lam_um": 9.83649,
+          "k": 0.00351
+        },
+        {
+          "lam_um": 9.85648,
+          "k": 0.00366
+        },
+        {
+          "lam_um": 9.87648,
+          "k": 0.00381
+        },
+        {
+          "lam_um": 9.89647,
+          "k": 0.00396
+        },
+        {
+          "lam_um": 9.91646,
+          "k": 0.00412
+        },
+        {
+          "lam_um": 9.93645,
+          "k": 0.00428
+        },
+        {
+          "lam_um": 9.95645,
+          "k": 0.00444
+        },
+        {
+          "lam_um": 9.97644,
+          "k": 0.00461
+        },
+        {
+          "lam_um": 9.99643,
+          "k": 0.00477
+        },
+        {
+          "lam_um": 10.0164,
+          "k": 0.00494
+        },
+        {
+          "lam_um": 10.0364,
+          "k": 0.00511
+        },
+        {
+          "lam_um": 10.0564,
+          "k": 0.00528
+        },
+        {
+          "lam_um": 10.0764,
+          "k": 0.00545
+        },
+        {
+          "lam_um": 10.0964,
+          "k": 0.00563
+        },
+        {
+          "lam_um": 10.1164,
+          "k": 0.00581
+        },
+        {
+          "lam_um": 10.1364,
+          "k": 0.00599
+        },
+        {
+          "lam_um": 10.1564,
+          "k": 0.00617
+        },
+        {
+          "lam_um": 10.1764,
+          "k": 0.00635
+        },
+        {
+          "lam_um": 10.1964,
+          "k": 0.00654
+        },
+        {
+          "lam_um": 10.2163,
+          "k": 0.00673
+        },
+        {
+          "lam_um": 10.2363,
+          "k": 0.00692
+        },
+        {
+          "lam_um": 10.2563,
+          "k": 0.00711
+        },
+        {
+          "lam_um": 10.2763,
+          "k": 0.0073
+        },
+        {
+          "lam_um": 10.2963,
+          "k": 0.0075
+        },
+        {
+          "lam_um": 10.3163,
+          "k": 0.0077
+        },
+        {
+          "lam_um": 10.3363,
+          "k": 0.00791
+        },
+        {
+          "lam_um": 10.3563,
+          "k": 0.00811
+        },
+        {
+          "lam_um": 10.3763,
+          "k": 0.00833
+        },
+        {
+          "lam_um": 10.3963,
+          "k": 0.00855
+        },
+        {
+          "lam_um": 10.4163,
+          "k": 0.00877
+        },
+        {
+          "lam_um": 10.4363,
+          "k": 0.00899
+        },
+        {
+          "lam_um": 10.4563,
+          "k": 0.00922
+        },
+        {
+          "lam_um": 10.476299999999998,
+          "k": 0.00946
+        },
+        {
+          "lam_um": 10.4962,
+          "k": 0.0097
+        },
+        {
+          "lam_um": 10.5162,
+          "k": 0.00993
+        },
+        {
+          "lam_um": 10.5362,
+          "k": 0.0102
+        },
+        {
+          "lam_um": 10.5562,
+          "k": 0.0104
+        },
+        {
+          "lam_um": 10.5762,
+          "k": 0.0107
+        },
+        {
+          "lam_um": 10.5962,
+          "k": 0.0109
+        },
+        {
+          "lam_um": 10.6162,
+          "k": 0.0112
+        },
+        {
+          "lam_um": 10.6362,
+          "k": 0.0114
+        },
+        {
+          "lam_um": 10.6562,
+          "k": 0.0117
+        },
+        {
+          "lam_um": 10.6762,
+          "k": 0.012
+        },
+        {
+          "lam_um": 10.6962,
+          "k": 0.0122
+        },
+        {
+          "lam_um": 10.7162,
+          "k": 0.0125
+        },
+        {
+          "lam_um": 10.7362,
+          "k": 0.0127
+        },
+        {
+          "lam_um": 10.7561,
+          "k": 0.013
+        },
+        {
+          "lam_um": 10.7761,
+          "k": 0.0133
+        },
+        {
+          "lam_um": 10.7961,
+          "k": 0.0135
+        },
+        {
+          "lam_um": 10.8161,
+          "k": 0.0138
+        },
+        {
+          "lam_um": 10.8361,
+          "k": 0.0141
+        },
+        {
+          "lam_um": 10.8561,
+          "k": 0.0144
+        },
+        {
+          "lam_um": 10.8761,
+          "k": 0.0146
+        },
+        {
+          "lam_um": 10.8961,
+          "k": 0.0149
+        },
+        {
+          "lam_um": 10.9161,
+          "k": 0.0152
+        },
+        {
+          "lam_um": 10.9361,
+          "k": 0.0155
+        },
+        {
+          "lam_um": 10.9561,
+          "k": 0.0158
+        },
+        {
+          "lam_um": 10.9761,
+          "k": 0.0161
+        },
+        {
+          "lam_um": 10.9961,
+          "k": 0.0163
+        },
+        {
+          "lam_um": 11.0161,
+          "k": 0.0166
+        },
+        {
+          "lam_um": 11.036,
+          "k": 0.0169
+        },
+        {
+          "lam_um": 11.056,
+          "k": 0.0172
+        },
+        {
+          "lam_um": 11.076,
+          "k": 0.0175
+        },
+        {
+          "lam_um": 11.096,
+          "k": 0.0179
+        },
+        {
+          "lam_um": 11.116,
+          "k": 0.0182
+        },
+        {
+          "lam_um": 11.136,
+          "k": 0.0185
+        },
+        {
+          "lam_um": 11.156,
+          "k": 0.0188
+        },
+        {
+          "lam_um": 11.176,
+          "k": 0.0191
+        },
+        {
+          "lam_um": 11.196,
+          "k": 0.0194
+        },
+        {
+          "lam_um": 11.216,
+          "k": 0.0197
+        },
+        {
+          "lam_um": 11.236,
+          "k": 0.02
+        },
+        {
+          "lam_um": 11.256,
+          "k": 0.0203
+        },
+        {
+          "lam_um": 11.276,
+          "k": 0.0206
+        },
+        {
+          "lam_um": 11.2959,
+          "k": 0.0209
+        },
+        {
+          "lam_um": 11.3159,
+          "k": 0.0212
+        },
+        {
+          "lam_um": 11.335899999999999,
+          "k": 0.0215
+        },
+        {
+          "lam_um": 11.3559,
+          "k": 0.0218
+        },
+        {
+          "lam_um": 11.3759,
+          "k": 0.0221
+        },
+        {
+          "lam_um": 11.3959,
+          "k": 0.0224
+        },
+        {
+          "lam_um": 11.4159,
+          "k": 0.0228
+        },
+        {
+          "lam_um": 11.4359,
+          "k": 0.0231
+        },
+        {
+          "lam_um": 11.4559,
+          "k": 0.0234
+        },
+        {
+          "lam_um": 11.4759,
+          "k": 0.0237
+        },
+        {
+          "lam_um": 11.4959,
+          "k": 0.0241
+        },
+        {
+          "lam_um": 11.5159,
+          "k": 0.0244
+        },
+        {
+          "lam_um": 11.5359,
+          "k": 0.0247
+        },
+        {
+          "lam_um": 11.5559,
+          "k": 0.025
+        },
+        {
+          "lam_um": 11.5758,
+          "k": 0.0254
+        },
+        {
+          "lam_um": 11.5958,
+          "k": 0.0257
+        },
+        {
+          "lam_um": 11.6158,
+          "k": 0.0261
+        },
+        {
+          "lam_um": 11.6358,
+          "k": 0.0264
+        },
+        {
+          "lam_um": 11.6558,
+          "k": 0.0268
+        },
+        {
+          "lam_um": 11.6758,
+          "k": 0.0271
+        },
+        {
+          "lam_um": 11.695800000000002,
+          "k": 0.0275
+        },
+        {
+          "lam_um": 11.7158,
+          "k": 0.0279
+        },
+        {
+          "lam_um": 11.7358,
+          "k": 0.0282
+        },
+        {
+          "lam_um": 11.7558,
+          "k": 0.0286
+        },
+        {
+          "lam_um": 11.7758,
+          "k": 0.029
+        },
+        {
+          "lam_um": 11.7958,
+          "k": 0.0293
+        },
+        {
+          "lam_um": 11.8158,
+          "k": 0.0297
+        },
+        {
+          "lam_um": 11.8357,
+          "k": 0.03
+        },
+        {
+          "lam_um": 11.8557,
+          "k": 0.0304
+        },
+        {
+          "lam_um": 11.8757,
+          "k": 0.0307
+        },
+        {
+          "lam_um": 11.8957,
+          "k": 0.0311
+        },
+        {
+          "lam_um": 11.9157,
+          "k": 0.0314
+        },
+        {
+          "lam_um": 11.9357,
+          "k": 0.0318
+        },
+        {
+          "lam_um": 11.9557,
+          "k": 0.0321
+        },
+        {
+          "lam_um": 11.9757,
+          "k": 0.0325
+        },
+        {
+          "lam_um": 11.9957,
+          "k": 0.0328
+        },
+        {
+          "lam_um": 12.0157,
+          "k": 0.0331
+        },
+        {
+          "lam_um": 12.0357,
+          "k": 0.0334
+        },
+        {
+          "lam_um": 12.0557,
+          "k": 0.0338
+        },
+        {
+          "lam_um": 12.0757,
+          "k": 0.0341
+        },
+        {
+          "lam_um": 12.0957,
+          "k": 0.0344
+        },
+        {
+          "lam_um": 12.1156,
+          "k": 0.0347
+        },
+        {
+          "lam_um": 12.1356,
+          "k": 0.0351
+        },
+        {
+          "lam_um": 12.1556,
+          "k": 0.0354
+        },
+        {
+          "lam_um": 12.1756,
+          "k": 0.0357
+        },
+        {
+          "lam_um": 12.1956,
+          "k": 0.0361
+        },
+        {
+          "lam_um": 12.2156,
+          "k": 0.0364
+        },
+        {
+          "lam_um": 12.2356,
+          "k": 0.0368
+        },
+        {
+          "lam_um": 12.2556,
+          "k": 0.0371
+        },
+        {
+          "lam_um": 12.2756,
+          "k": 0.0375
+        },
+        {
+          "lam_um": 12.2956,
+          "k": 0.0379
+        },
+        {
+          "lam_um": 12.3156,
+          "k": 0.0382
+        },
+        {
+          "lam_um": 12.335599999999998,
+          "k": 0.0386
+        },
+        {
+          "lam_um": 12.3556,
+          "k": 0.039
+        },
+        {
+          "lam_um": 12.3755,
+          "k": 0.0394
+        },
+        {
+          "lam_um": 12.3955,
+          "k": 0.0398
+        },
+        {
+          "lam_um": 12.4155,
+          "k": 0.0402
+        },
+        {
+          "lam_um": 12.4355,
+          "k": 0.0406
+        },
+        {
+          "lam_um": 12.4555,
+          "k": 0.041
+        },
+        {
+          "lam_um": 12.4755,
+          "k": 0.0414
+        },
+        {
+          "lam_um": 12.4955,
+          "k": 0.0418
+        },
+        {
+          "lam_um": 12.5155,
+          "k": 0.0422
+        },
+        {
+          "lam_um": 12.5355,
+          "k": 0.0426
+        },
+        {
+          "lam_um": 12.5555,
+          "k": 0.043
+        },
+        {
+          "lam_um": 12.5755,
+          "k": 0.0434
+        },
+        {
+          "lam_um": 12.5955,
+          "k": 0.0438
+        },
+        {
+          "lam_um": 12.6155,
+          "k": 0.0442
+        },
+        {
+          "lam_um": 12.6354,
+          "k": 0.0446
+        },
+        {
+          "lam_um": 12.6554,
+          "k": 0.045
+        },
+        {
+          "lam_um": 12.6754,
+          "k": 0.0454
+        },
+        {
+          "lam_um": 12.6954,
+          "k": 0.0458
+        },
+        {
+          "lam_um": 12.7154,
+          "k": 0.0462
+        },
+        {
+          "lam_um": 12.7354,
+          "k": 0.0466
+        },
+        {
+          "lam_um": 12.7554,
+          "k": 0.047
+        },
+        {
+          "lam_um": 12.7754,
+          "k": 0.0474
+        },
+        {
+          "lam_um": 12.7954,
+          "k": 0.0478
+        },
+        {
+          "lam_um": 12.8154,
+          "k": 0.0482
+        },
+        {
+          "lam_um": 12.8354,
+          "k": 0.0486
+        },
+        {
+          "lam_um": 12.8554,
+          "k": 0.049
+        },
+        {
+          "lam_um": 12.8754,
+          "k": 0.0493
+        },
+        {
+          "lam_um": 12.8954,
+          "k": 0.0497
+        },
+        {
+          "lam_um": 12.9153,
+          "k": 0.0501
+        },
+        {
+          "lam_um": 12.9353,
+          "k": 0.0505
+        },
+        {
+          "lam_um": 12.9553,
+          "k": 0.0509
+        },
+        {
+          "lam_um": 12.9753,
+          "k": 0.0513
+        },
+        {
+          "lam_um": 12.9953,
+          "k": 0.0517
+        },
+        {
+          "lam_um": 13.0153,
+          "k": 0.052
+        },
+        {
+          "lam_um": 13.0353,
+          "k": 0.0524
+        },
+        {
+          "lam_um": 13.0553,
+          "k": 0.0528
+        },
+        {
+          "lam_um": 13.0753,
+          "k": 0.0532
+        },
+        {
+          "lam_um": 13.0953,
+          "k": 0.0536
+        },
+        {
+          "lam_um": 13.1153,
+          "k": 0.0539
+        },
+        {
+          "lam_um": 13.1353,
+          "k": 0.0543
+        },
+        {
+          "lam_um": 13.1553,
+          "k": 0.0547
+        },
+        {
+          "lam_um": 13.1752,
+          "k": 0.0551
+        },
+        {
+          "lam_um": 13.195200000000002,
+          "k": 0.0554
+        },
+        {
+          "lam_um": 13.2152,
+          "k": 0.0558
+        },
+        {
+          "lam_um": 13.2352,
+          "k": 0.0562
+        },
+        {
+          "lam_um": 13.2552,
+          "k": 0.0565
+        },
+        {
+          "lam_um": 13.2752,
+          "k": 0.0569
+        },
+        {
+          "lam_um": 13.2952,
+          "k": 0.0573
+        },
+        {
+          "lam_um": 13.3152,
+          "k": 0.0576
+        },
+        {
+          "lam_um": 13.3352,
+          "k": 0.058
+        },
+        {
+          "lam_um": 13.3552,
+          "k": 0.0583
+        },
+        {
+          "lam_um": 13.3752,
+          "k": 0.0587
+        },
+        {
+          "lam_um": 13.3952,
+          "k": 0.0591
+        },
+        {
+          "lam_um": 13.4152,
+          "k": 0.0594
+        },
+        {
+          "lam_um": 13.4352,
+          "k": 0.0598
+        },
+        {
+          "lam_um": 13.4551,
+          "k": 0.0602
+        },
+        {
+          "lam_um": 13.4751,
+          "k": 0.0606
+        },
+        {
+          "lam_um": 13.4951,
+          "k": 0.0609
+        },
+        {
+          "lam_um": 13.5151,
+          "k": 0.0613
+        },
+        {
+          "lam_um": 13.5351,
+          "k": 0.0617
+        },
+        {
+          "lam_um": 13.5551,
+          "k": 0.0621
+        },
+        {
+          "lam_um": 13.5751,
+          "k": 0.0624
+        },
+        {
+          "lam_um": 13.5951,
+          "k": 0.0628
+        },
+        {
+          "lam_um": 13.6151,
+          "k": 0.0632
+        },
+        {
+          "lam_um": 13.6351,
+          "k": 0.0636
+        },
+        {
+          "lam_um": 13.6551,
+          "k": 0.064
+        },
+        {
+          "lam_um": 13.6751,
+          "k": 0.0644
+        },
+        {
+          "lam_um": 13.6951,
+          "k": 0.0648
+        },
+        {
+          "lam_um": 13.715,
+          "k": 0.0652
+        },
+        {
+          "lam_um": 13.735,
+          "k": 0.0656
+        },
+        {
+          "lam_um": 13.755,
+          "k": 0.066
+        },
+        {
+          "lam_um": 13.775,
+          "k": 0.0664
+        },
+        {
+          "lam_um": 13.795,
+          "k": 0.0668
+        },
+        {
+          "lam_um": 13.815,
+          "k": 0.0672
+        },
+        {
+          "lam_um": 13.835,
+          "k": 0.0676
+        },
+        {
+          "lam_um": 13.855,
+          "k": 0.068
+        },
+        {
+          "lam_um": 13.875,
+          "k": 0.0684
+        },
+        {
+          "lam_um": 13.895,
+          "k": 0.0688
+        },
+        {
+          "lam_um": 13.915,
+          "k": 0.0692
+        },
+        {
+          "lam_um": 13.935,
+          "k": 0.0696
+        },
+        {
+          "lam_um": 13.955,
+          "k": 0.07
+        },
+        {
+          "lam_um": 13.975,
+          "k": 0.0704
+        }
+      ],
+      "tabData": [],
+      "rangeDeclared": true,
+      "nd": null,
+      "vd": null,
+      "density": null,
+      "comment": "1.95 µm YbF3 film deposited on 1 mm thick ZnSe substratee by e-beam evaporation at 120 °C substrate temperature.\nT. Amotchkina, M. Trubetskov, D. Hahner, V. Pervak. Characterization of e-beam evaporated Ge, YbF3, ZnS, and LaF3 thin films for laser-oriented coatings. Appl. Opt. 59, A40-A47 (2020) (Data kindly provided by Tatiana Amotchkina [data] [description])",
+      "color": null,
+      "group": null,
+      "sourceUrl": "https://raw.githubusercontent.com/polyanskiy/refractiveindex.info-database/main/database/data/main/YbF3/nk/Amotchkina.yml",
+      "dataPath": "main/YbF3/nk/Amotchkina.yml",
+      "fetchedDate": "2026-01-01"
+    },
+    "user_refractiveindex_info:HfO2_Hafnium_dioxide_Hafnia_Al-Kuhaili_2004_n_0220_m": {
+      "id": "HfO2_Hafnium_dioxide_Hafnia_Al-Kuhaili_2004_n_0220_m",
+      "name": "HfO2 (Hafnium dioxide, Hafnia) (Al-Kuhaili 2004: n 0.2–2.0 µm)",
+      "formulaNum": 205,
+      "coefficients": [
+        1.875,
+        0.00628,
+        -2,
+        0.00058,
+        -4
+      ],
+      "lambdaMin": 0.2,
+      "lambdaMax": 2,
+      "kTable": [],
+      "tabData": [],
+      "rangeDeclared": true,
+      "nd": null,
+      "vd": null,
+      "density": null,
+      "comment": "Thin films of hafnium oxide deposited by electron beam evaporation.\nM. F. Al-Kuhaili. Optical properties of hafnium oxide thin films and their application in energy-efficient windows. Opt. Mat. 27, 383-387 (2004)",
+      "color": null,
+      "group": null,
+      "sourceUrl": "https://raw.githubusercontent.com/polyanskiy/refractiveindex.info-database/main/database/data/main/HfO2/nk/Al-Kuhaili.yml",
+      "dataPath": "main/HfO2/nk/Al-Kuhaili.yml",
+      "fetchedDate": "2026-01-01"
+    },
+    "user_refractiveindex_info:TiO2_Titanium_dioxide_Devore_1951_no_043153_m": {
+      "id": "TiO2_Titanium_dioxide_Devore_1951_no_043153_m",
+      "name": "TiO2 (Titanium dioxide) (Devore 1951: n(o) 0.43–1.53 µm)",
+      "formulaNum": 204,
+      "coefficients": [
+        5.913,
+        0.2441,
+        0,
+        0.0803,
+        1,
+        0,
+        0,
+        0,
+        1
+      ],
+      "lambdaMin": 0.43,
+      "lambdaMax": 1.53,
+      "kTable": [],
+      "tabData": [],
+      "rangeDeclared": true,
+      "nd": null,
+      "vd": null,
+      "density": null,
+      "comment": "Ordinary ray (o); Room temperature.\nJ. R. Devore. Refractive indices of rutile and sphalerite. J. Opt. Soc. Am. 41, 416-419 (1951)",
+      "color": null,
+      "group": null,
+      "sourceUrl": "https://raw.githubusercontent.com/polyanskiy/refractiveindex.info-database/main/database/data/main/TiO2/nk/Devore-o.yml",
+      "dataPath": "main/TiO2/nk/Devore-o.yml",
+      "fetchedDate": "2026-01-01"
+    },
+    "user_refractiveindex_info:ZnS_Zinc_sulfide_Amotchkina_et_al_2020_n_0414_m_k_0410_m": {
+      "id": "ZnS_Zinc_sulfide_Amotchkina_et_al_2020_n_0414_m_k_0410_m",
+      "name": "ZnS (Zinc sulfide) (Amotchkina et al, 2020: n 0.4–14 µm, k 0.4–1.0 µm)",
+      "formulaNum": 202,
+      "interp": "pchip",
+      "coefficients": [
+        0.010356,
+        3.619092,
+        0.02345364,
+        0.50813,
+        0.099946,
+        2.219955,
+        1148.729
+      ],
+      "lambdaMin": 0.4,
+      "lambdaMax": 14,
+      "kTable": [
+        {
+          "lam_um": 0.4,
+          "k": 0.00192
+        },
+        {
+          "lam_um": 0.41,
+          "k": 0.0018
+        },
+        {
+          "lam_um": 0.42,
+          "k": 0.00168
+        },
+        {
+          "lam_um": 0.43,
+          "k": 0.00157
+        },
+        {
+          "lam_um": 0.44,
+          "k": 0.00147
+        },
+        {
+          "lam_um": 0.45,
+          "k": 0.00137
+        },
+        {
+          "lam_um": 0.46,
+          "k": 0.00128
+        },
+        {
+          "lam_um": 0.47,
+          "k": 0.0012
+        },
+        {
+          "lam_um": 0.48,
+          "k": 0.00112
+        },
+        {
+          "lam_um": 0.49,
+          "k": 0.00105
+        },
+        {
+          "lam_um": 0.5,
+          "k": 0.00098
+        },
+        {
+          "lam_um": 0.51,
+          "k": 0.000916
+        },
+        {
+          "lam_um": 0.52,
+          "k": 0.000856
+        },
+        {
+          "lam_um": 0.53,
+          "k": 0.0008
+        },
+        {
+          "lam_um": 0.54,
+          "k": 0.000748
+        },
+        {
+          "lam_um": 0.55,
+          "k": 0.000699
+        },
+        {
+          "lam_um": 0.56,
+          "k": 0.000654
+        },
+        {
+          "lam_um": 0.57,
+          "k": 0.000611
+        },
+        {
+          "lam_um": 0.58,
+          "k": 0.000571
+        },
+        {
+          "lam_um": 0.59,
+          "k": 0.000534
+        },
+        {
+          "lam_um": 0.6,
+          "k": 0.000499
+        },
+        {
+          "lam_um": 0.61,
+          "k": 0.000466
+        },
+        {
+          "lam_um": 0.62,
+          "k": 0.000436
+        },
+        {
+          "lam_um": 0.63,
+          "k": 0.000408
+        },
+        {
+          "lam_um": 0.64,
+          "k": 0.000381
+        },
+        {
+          "lam_um": 0.65,
+          "k": 0.000356
+        },
+        {
+          "lam_um": 0.66,
+          "k": 0.000333
+        },
+        {
+          "lam_um": 0.67,
+          "k": 0.000311
+        },
+        {
+          "lam_um": 0.68,
+          "k": 0.000291
+        },
+        {
+          "lam_um": 0.69,
+          "k": 0.000272
+        },
+        {
+          "lam_um": 0.7,
+          "k": 0.000254
+        },
+        {
+          "lam_um": 0.71,
+          "k": 0.000238
+        },
+        {
+          "lam_um": 0.72,
+          "k": 0.000222
+        },
+        {
+          "lam_um": 0.73,
+          "k": 0.000208
+        },
+        {
+          "lam_um": 0.74,
+          "k": 0.000194
+        },
+        {
+          "lam_um": 0.75,
+          "k": 0.000181
+        },
+        {
+          "lam_um": 0.76,
+          "k": 0.00017
+        },
+        {
+          "lam_um": 0.77,
+          "k": 0.000159
+        },
+        {
+          "lam_um": 0.78,
+          "k": 0.000148
+        },
+        {
+          "lam_um": 0.79,
+          "k": 0.000139
+        },
+        {
+          "lam_um": 0.8,
+          "k": 0.00013
+        },
+        {
+          "lam_um": 0.81,
+          "k": 0.000121
+        },
+        {
+          "lam_um": 0.82,
+          "k": 0.000113
+        },
+        {
+          "lam_um": 0.83,
+          "k": 0.000106
+        },
+        {
+          "lam_um": 0.84,
+          "k": 0.0000989
+        },
+        {
+          "lam_um": 0.85,
+          "k": 0.0000924
+        },
+        {
+          "lam_um": 0.86,
+          "k": 0.0000864
+        },
+        {
+          "lam_um": 0.87,
+          "k": 0.0000808
+        },
+        {
+          "lam_um": 0.88,
+          "k": 0.0000755
+        },
+        {
+          "lam_um": 0.89,
+          "k": 0.0000706
+        },
+        {
+          "lam_um": 0.9,
+          "k": 0.000066
+        },
+        {
+          "lam_um": 0.91,
+          "k": 0.0000617
+        },
+        {
+          "lam_um": 0.92,
+          "k": 0.0000577
+        },
+        {
+          "lam_um": 0.93,
+          "k": 0.0000539
+        },
+        {
+          "lam_um": 0.94,
+          "k": 0.0000504
+        },
+        {
+          "lam_um": 0.95,
+          "k": 0.0000471
+        },
+        {
+          "lam_um": 0.96,
+          "k": 0.000044
+        },
+        {
+          "lam_um": 0.97,
+          "k": 0.0000412
+        },
+        {
+          "lam_um": 0.98,
+          "k": 0.0000385
+        },
+        {
+          "lam_um": 0.99,
+          "k": 0.000036
+        },
+        {
+          "lam_um": 1,
+          "k": 0
+        }
+      ],
+      "tabData": [],
+      "rangeDeclared": true,
+      "nd": null,
+      "vd": null,
+      "density": null,
+      "comment": "1.008 µm ZnS film deposited on 3 mm thick Ge substrate by e-beam evaporation at 120 °C substrate temperature.\nT. Amotchkina, M. Trubetskov, D. Hahner, V. Pervak. Characterization of e-beam evaporated Ge, YbF3, ZnS, and LaF3 thin films for laser-oriented coatings. Appl. Opt. 59, A40-A47 (2020) (Data kindly provided by Tatiana Amotchkina [data] [description])",
+      "color": null,
+      "group": null,
+      "sourceUrl": "https://raw.githubusercontent.com/polyanskiy/refractiveindex.info-database/main/database/data/main/ZnS/nk/Amotchkina.yml",
+      "dataPath": "main/ZnS/nk/Amotchkina.yml",
+      "fetchedDate": "2026-01-01"
+    }
+  }
+}

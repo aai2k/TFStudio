@@ -1,0 +1,61 @@
+{
+  "tfs_version": "1.0",
+  "id": "design-sample-1767225600001-hj5lj",
+  "name": "Single-layer AR (MgF2)",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "sl-1767225600000-0",
+      "material": "MgF2",
+      "thickness": 99.3,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "",
+  "cone": {
+    "enabled": true,
+    "halfAngleDeg": 12,
+    "distribution": "user",
+    "gridPoints": 15,
+    "userTable": [
+      {
+        "_id": "cr-1767225600002-0",
+        "theta": 0,
+        "intensity": 100
+      },
+      {
+        "_id": "cr-1767225600003-1",
+        "theta": 12,
+        "intensity": 40
+      },
+      {
+        "_id": "cr-1767225600004-2",
+        "theta": 6,
+        "intensity": 80
+      }
+    ]
+  },
+  "meritOperands": [
+    {
+      "id": "flmrlh7i",
+      "enabled": true,
+      "type": "RAV",
+      "lambdaStart": 450,
+      "lambdaEnd": 650,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0,
+      "targetEnd": null,
+      "weight": 1
+    }
+  ]
+}

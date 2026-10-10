@@ -1,0 +1,67 @@
+{
+  "tfs_version": "1.2",
+  "id": "design-1767225600001-uwfuw",
+  "name": "AR with worst-case rows",
+  "incidentMedium": "Air",
+  "substrate": {
+    "material": "BK7",
+    "thickness": 1
+  },
+  "exitMedium": "Air",
+  "surfaceMode": "front_only",
+  "mfEvalMode": "side",
+  "frontLayers": [
+    {
+      "id": "l-design-1767225600001-uwfuw-3",
+      "material": "builtin:MgF2",
+      "thickness": 99.74568731323802,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-uwfuw-4",
+      "material": "builtin:Ta2O5",
+      "thickness": 128.44246483220073,
+      "locked": false
+    },
+    {
+      "id": "l-design-1767225600001-uwfuw-5",
+      "material": "builtin:Al2O3",
+      "thickness": 38.832015559035625,
+      "locked": false
+    }
+  ],
+  "backLayers": [],
+  "referenceWavelength": 550,
+  "notes": "Generated from stack formula (front):\nL 2H 0.5M\nλ₀ = 550 nm",
+  "stackFormula": "L 2H 0.5M",
+  "meritOperands": [
+    {
+      "id": "kl4z2jsw",
+      "enabled": true,
+      "type": "TMN",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.99,
+      "targetEnd": null,
+      "weight": 1,
+      "pNorm": 50,
+      "bandPoints": 21
+    },
+    {
+      "id": "a1le5lau",
+      "enabled": true,
+      "type": "RMX",
+      "lambdaStart": 400,
+      "lambdaEnd": 700,
+      "aoi": 0,
+      "pol": "avg",
+      "target": 0.01,
+      "targetEnd": null,
+      "weight": 1,
+      "pNorm": 50,
+      "bandPoints": 21
+    }
+  ]
+}
