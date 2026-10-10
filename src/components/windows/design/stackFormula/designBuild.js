@@ -42,19 +42,22 @@ function patchSymmetric({ design, mode, compiled, refLambda, substrateMat, incid
         patch.stackFormula = text;
         patch.incidentMedium = incidentMat;
     }
-    const f = mode === 'replace'
-        ? compiled.layers
-        : [...(design.frontLayers || []), ...reId(compiled.layers, `sf-${stamp}-f`)];
+    const f = mode === 'replace' ? compiled.layers : appendFront(design, compiled, stamp);
     patch.frontLayers = f;
     patch.backLayers  = mirrorLayers(f);
     return patch;
 }
 
+// Append puts the new layers on the outside of the existing coating, at the end
+// of the Design Editor's substrate-first list, on either side, as the Coating
+// Library does. The front is stored air side first, so they go before it.
+function appendFront(design, compiled, stamp) {
+    return [...reId(compiled.layers, `sf-${stamp}-f`), ...(design.frontLayers || [])];
+}
+
 function applyFrontSide(patch, { design, mode, compiled, incidentMat, stamp }) {
     if (mode === 'replace') patch.incidentMedium = incidentMat;
-    patch.frontLayers = mode === 'replace'
-        ? compiled.layers
-        : [...(design.frontLayers || []), ...reId(compiled.layers, `sf-${stamp}-f`)];
+    patch.frontLayers = mode === 'replace' ? compiled.layers : appendFront(design, compiled, stamp);
 }
 
 function applyBackSide(patch, { design, mode, compiled, exitMat, stamp }) {

@@ -149,8 +149,9 @@ console.log('— buildReplaceAppendPatch —');
         text: 'H L', stamp: 42,
     });
     ok(app.frontLayers.length === 3, 'append grows the existing front stack');
-    ok(app.frontLayers[0].id === 'x0', 'append preserves the existing layer order/ids');
-    ok(app.frontLayers[1].id === 'sf-42-f0' && app.frontLayers[2].id === 'sf-42-f1', 'appended layers get stamped ids');
+    ok(app.frontLayers[2].id === 'x0', 'append keeps the existing layer on the substrate');
+    ok(app.frontLayers[0].id === 'sf-42-f0' && app.frontLayers[1].id === 'sf-42-f1',
+        'appended layers get stamped ids and go on the outside, front storage being air side first');
     ok(app.referenceWavelength === undefined, 'append does not touch referenceWavelength (replace-only field)');
 
     // Append to the back side of a front_only design promotes to both_independent.
