@@ -73,8 +73,11 @@ function sweepTooltip(sweepData, colors, paramName) {
     };
 }
 
-/** `paramName` is the swept parameter's name in the UI language. */
-export function buildSweepOption(sweepData, channel, colors, paramName) {
+/**
+ * `paramName` is the swept parameter's name in the UI language, `lambdaAxis` the
+ * wavelength axis title, t.spectralAxis.lambdaShort.
+ */
+export function buildSweepOption(sweepData, channel, colors, paramName, lambdaAxis) {
     if (!sweepData?.lambda?.length) return { series: [] };
     const channels = channel === 'all' ? ['T', 'R', 'A'] : [channel];
     const count = channels.length;
@@ -85,7 +88,7 @@ export function buildSweepOption(sweepData, channel, colors, paramName) {
     }));
     const xAxis = channels.map((_, index) => categoryAxis({
         data: sweepData.lambda,
-        name: index === count - 1 ? 'λ (nm)' : undefined,
+        name: index === count - 1 ? lambdaAxis : undefined,
         colors, gridIndex: index, labels: index === count - 1,
         labelInterval: wavelengthLabelInterval,
     }));

@@ -163,6 +163,14 @@ export function designMaterialName(design, id) {
 }
 
 /**
+ * The same name without the qualifier in brackets, 'BK7' for 'BK7 (Schott)', for
+ * a place with room for a word.
+ */
+export function designMaterialShortName(design, id) {
+    return designMaterialName(design, id).split(' (')[0];
+}
+
+/**
  * A memoized `(id) => material` bound to one design. This is what evaluation code
  * should use: it falls back to the definitions the design carries, which a bare
  * id lookup cannot, and refuses to turn an unresolved id into an optical result.

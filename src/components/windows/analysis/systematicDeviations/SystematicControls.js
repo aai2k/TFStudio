@@ -97,7 +97,7 @@ function SystematicSetup({ c, t, sd, state }) {
             h(ChoiceGroup, {
                 ariaLabel: sd.polarization, activeId: state.pol, onSelect: state.setPol, c,
                 items: [
-                    { id: 'avg', label: 'avg' },
+                    { id: 'avg', label: sd.polAvg },
                     { id: 's', label: 's' },
                     { id: 'p', label: 'p' },
                 ],

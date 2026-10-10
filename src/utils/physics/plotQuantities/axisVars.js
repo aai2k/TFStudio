@@ -7,6 +7,8 @@
  *   'k:<i>'           extinction k of front layer i (constant-index what-if)
  */
 
+import { designMaterialShortName } from '../../materials/designMaterials.js';
+
 /** Parse an axis-variable token → { kind, layer? }. */
 export function parseAxisVar(v) {
     if (v === 'wavelength') return { kind: 'lambda' };
@@ -42,15 +44,16 @@ export function axisVarUnit(v) {
 export function buildAxisVarOptions(design, opticalAllowed) {
     const opts = [];
     if (opticalAllowed) {
-        opts.push({ value: 'wavelength', label: 'Wavelength (nm)' });
+        opts.push({ value: 'wavelength', label: 'λ (nm)' });
         opts.push({ value: 'aoi',        label: 'AOI (°)' });
     }
+    // Symbols rather than words, so the titles read the same in every language.
     const front = (design?.frontLayers || []);
     front.forEach((l, i) => {
         const tag = layerTag(design, i);
-        opts.push({ value: `thk:${i}`, label: `${tag} thickness (nm)` });
-        opts.push({ value: `n:${i}`,   label: `${tag} index n` });
-        opts.push({ value: `k:${i}`,   label: `${tag} index k` });
+        opts.push({ value: `thk:${i}`, label: `${tag} d (nm)` });
+        opts.push({ value: `n:${i}`,   label: `${tag} n` });
+        opts.push({ value: `k:${i}`,   label: `${tag} k` });
     });
     return opts;
 }
@@ -64,12 +67,12 @@ export function layerNumber(design, i) {
     return (design?.frontLayers?.length || 0) - i;
 }
 
-/** Display tag for front layer i, e.g. "L3 (SiO2)". */
+/** Display tag for front layer i, e.g. "L3 (SiO2)", with the material's short name. */
 export function layerTag(design, i) {
-    const l = (design?.frontLayers || [])[i];
-    const mat = l && (typeof l.material === 'string' ? l.material : l.material?.name);
+    const material = (design?.frontLayers || [])[i]?.material;
     const number = layerNumber(design, i);
-    return mat ? `L${number} (${mat})` : `L${number}`;
+    const name = typeof material === 'string' ? designMaterialShortName(design, material) : material?.name;
+    return name ? `L${number} (${name})` : `L${number}`;
 }
 
 // Per-axis layer property choices (shown after a layer is picked).

@@ -3,12 +3,12 @@ import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 
 const { createElement: h, useEffect, useRef } = React;
 
-export function SweepHeatmap({ sweepData, channel, c, paramName }) {
+export function SweepHeatmap({ sweepData, channel, c, paramName, lambdaAxis }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     useEffect(() => { drawChart(divRef.current, chartRef, buildSweepOption(sweepData, channel, {
         text: c.text, border: c.border, panel: c.panel, bg: c.bg,
-    }, paramName)); });
+    }, paramName, lambdaAxis)); });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

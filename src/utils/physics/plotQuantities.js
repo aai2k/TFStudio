@@ -41,7 +41,7 @@
 export {
     X_AXES, Y_CHANNELS, POLARIZATIONS, SURFACE_MODES, DASHES,
     makeDefaultCurve, xSamples, computeCurve,
-    xAxisLabel, yAxisLabel, yFormatter,
+    yAxisLabel, yFormatter,
 } from './plotQuantities/curves.js';
 
 export {

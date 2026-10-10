@@ -28,14 +28,16 @@ let _curveSeq = 1;
  *                                       evalMode)
  * @param {string[]} [defaults.palette]  colours to rotate through; consumed
  *                                       here rather than merged into the curve
+ * @param {function} [defaults.nameCurve] (channel, n) → the new curve's name,
+ *                                       in the UI language; also consumed here
  */
 export function makeDefaultCurve(defaults = {}) {
-    const { palette = CURVE_COLORS, ...fields } = defaults;
+    const { palette = CURVE_COLORS, nameCurve = (channel, n) => `${channel} ${n}`, ...fields } = defaults;
     const idx = _curveSeq++;
     const color = palette[(idx - 1) % palette.length];
     return {
         id: `curve_${idx}`,
-        label: `${fields.yChannel || 'T'} curve ${idx}`,
+        label: nameCurve(fields.yChannel || 'T', idx),
         xAxis: 'wavelength',
         yChannel: 'T',
         polarization: 'avg',
@@ -130,11 +132,6 @@ export function computeCurve(curve, ctx) {
 }
 
 // ── Axis units / labels ──────────────────────────────────────────────────────
-
-export function xAxisLabel(xAxis) {
-    if (xAxis === 'aoi') return 'AOI (°)';
-    return 'λ (nm)';
-}
 
 export function yAxisLabel(yChannels) {
     // Single channel → unit; mixed → generic "Intensity"

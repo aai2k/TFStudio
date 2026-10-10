@@ -27,7 +27,7 @@ import {
     editableColsForRow,
     rowDisplayMeta,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
-import { loadApp, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
+import { loadApp, makeLocale, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
 
 const resolveMat = id => getMaterial(id);
 
@@ -274,7 +274,7 @@ const { rowRenderers } = await import(
     '../src/components/windows/optimization/meritFunctionEditor/mfTable/OperandCells.js'
 );
 const typeCellStyle = rowRenderers(snapshot, rowMeta).type(
-    { op: snapshot, c: makeTheme(), tdBase: () => ({}) }, 'type', 60,
+    { op: snapshot, c: makeTheme(), t: makeLocale(), tdBase: () => ({}) }, 'type', 60,
 ).props.style;
 assert.equal(typeCellStyle.height, 22,
     'the measured row must request the same height as a type-picker row');

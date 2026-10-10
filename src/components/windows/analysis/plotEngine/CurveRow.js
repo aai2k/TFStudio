@@ -72,7 +72,7 @@ export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: curve.xAxis,
                 onChange: value => onUpdate({ xAxis: value }),
-                options: valueOptions(X_AXES, v => (v === 'aoi' ? 'AOI' : (pe.xWavelength || 'wavelength'))),
+                options: valueOptions(X_AXES, v => (v === 'aoi' ? (pe.xAOI || 'AOI') : (pe.xWavelength || 'wavelength'))),
             }),
         ),
         h(SettingRow, { c, label: pe.range || 'Range' },
@@ -116,21 +116,21 @@ export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
             h(SelectField, {
                 c, width: 66, value: curve.polarization,
                 onChange: value => onUpdate({ polarization: value }),
-                options: valueOptions(POLARIZATIONS),
+                options: valueOptions(POLARIZATIONS, v => (v === 'avg' && pe.polAvg) || v),
             }),
         ),
         h(SettingRow, { c, label: pe.surface || 'Surface' },
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: curve.surfaceMode,
                 onChange: value => onUpdate({ surfaceMode: value }),
-                options: valueOptions(SURFACE_MODES),
+                options: valueOptions(SURFACE_MODES, v => pe.surfaceModes?.[v] || v),
             }),
         ),
         h(SettingRow, { c, label: pe.dash || 'Dash' },
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: curve.dash,
                 onChange: value => onUpdate({ dash: value }),
-                options: valueOptions(DASHES),
+                options: valueOptions(DASHES, v => pe.dashes?.[v] || v),
             }),
             h(FieldLabel, { c }, pe.width || 'Width'),
             h(NumInput, {

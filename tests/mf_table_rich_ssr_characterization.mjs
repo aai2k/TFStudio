@@ -49,7 +49,7 @@ const props = {
 
 const html = renderToStaticMarkup(React.createElement(MFTable, props));
 assert.equal((html.match(/<tr/g) || []).length, operands.length + 1);
-assert.ok(html.includes('▶ DMFS — Characterization block'));
+assert.ok(html.includes('▶ DMFS: Characterization block'));
 assert.ok(html.includes('value="Free text note"'));
 assert.ok(html.includes('>λ Start</th><th'));
 assert.ok(html.includes('>λ End</th><th'));

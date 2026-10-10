@@ -1,5 +1,5 @@
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
-import { designMaterialName } from '../../../../utils/materials/designMaterials.js';
+import { designMaterialName, designMaterialShortName } from '../../../../utils/materials/designMaterials.js';
 import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { resolveEvalMode } from '../../../../utils/physics/optimizer.js';
 import { resolveMaterial } from './units.js';
@@ -37,17 +37,18 @@ function stackBlockStyle(b, i, count, subMat, c) {
         fontSize: 9, color: c.textDim, overflow: 'hidden', cursor: 'default',
     };
 }
-// A material name without the qualifier in brackets, 'BK7' for 'BK7 (Schott)',
-// for a block with room for a word. The full name is the block's title.
-const shortName = name => name.split(' (')[0];
-
 // Truncated cell label. Layer blocks are too narrow for text; an elided block
-// carries its hidden count, which is the only thing it has to say.
+// carries its hidden count, which is the only thing it has to say. A medium
+// block shows the material's short name; the full name is its title.
 function stackBlockLabel(b) {
     if (b.role === 'layer') return '';
     if (b.role === 'elided') return b.label;
-    const label = shortName(b.label);
-    return label.length > 6 ? label.slice(0, 5) + '…' : label;
+    return b.short.length > 6 ? b.short.slice(0, 5) + '…' : b.short;
+}
+
+// A block for the incident medium, the substrate or the exit medium.
+function mediumBlock(design, id, role) {
+    return { label: designMaterialName(design, id), short: designMaterialShortName(design, id), role };
 }
 
 // Past this many layers a coating is drawn as its first and last ELIDED_ENDS
@@ -107,11 +108,11 @@ export const StackDiagram = React.memo(function StackDiagram({ design, c, t }) {
     // 99 + 99 stack draws as ambient, 8 front, +83, 8 front, substrate, 8 back,
     // +83, 8 back, ambient. That caps the row at a width every block survives.
     const blocks = [
-        { label: designMaterialName(design, design.incidentMedium), role: 'ambient' },
+        mediumBlock(design, design.incidentMedium, 'ambient'),
         ...coatingBlocks(front, de, design),
-        { label: designMaterialName(design, design.substrate.material), role: 'substrate' },
+        mediumBlock(design, design.substrate.material, 'substrate'),
         ...coatingBlocks(back, de, design),
-        { label: designMaterialName(design, design.exitMedium), role: 'ambient' }
+        mediumBlock(design, design.exitMedium, 'ambient'),
     ];
 
     const totalFront = front.reduce((s, l) => s + (l.thickness || 0), 0);

@@ -47,12 +47,12 @@ function plotBody({ state, sd, c, lambdaAxis }) {
     if (state.mode === 'single') {
         return h(SpectrumPlot, {
             baseline: state.baseline, deviated: state.deviated,
-            channel: state.channel, showBaseline: state.showBaseline, c, lambdaAxis,
+            channel: state.channel, showBaseline: state.showBaseline, c, lambdaAxis, sd,
         });
     }
     if (state.sweepResult) {
         return h(SweepHeatmap, {
-            sweepData: state.sweepResult, channel: state.sweepChannel, c,
+            sweepData: state.sweepResult, channel: state.sweepChannel, c, lambdaAxis,
             paramName: sweepParamName(state.sweepResult, state.uniqueMats, sd, state.design),
         });
     }

@@ -43,7 +43,7 @@ const grid = (from, to) => Array.from({ length: to - from + 1 }, (_, index) => f
     for (const code of LOCALES) {
         const axis = buildSpectrumOption(spectrum, spectrum, {
             channel: 'T', showBaseline: true, colors: { T: '#4fc3f7', R: '#ef5350' }, c,
-            lambdaAxis: getLocale(code).spectralAxis.lambdaShort,
+            lambdaAxis: getLocale(code).spectralAxis.lambdaShort, sd: getLocale(code).systematicDeviations,
         }).xAxis;
         assert.deepEqual([axis.min, axis.max], [470, 660],
             `${code}: the spectrum axis spans the computed 470-660 nm, got ${axis.min}-${axis.max}`);

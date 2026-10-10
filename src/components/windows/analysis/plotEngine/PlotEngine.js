@@ -55,7 +55,7 @@ function evaluatedLambdaSpan(plotMode, curves, spec) {
 export function PlotEngine({ c, theme, t }) {
     const { design, evalMode } = useDesign();
     const pe = t.plotEngine;
-    const curvePlot = useCurvePlot(design, evalMode);
+    const curvePlot = useCurvePlot(design, evalMode, pe);
     const surfacePlot = useSurfacePlot(design, evalMode);
 
     const span = useMemo(

@@ -74,11 +74,14 @@ export function makeUserWeighting(table, label) {
 
 /**
  * Name and reference note for a weighting. `tr` is t.integralValues.weightings.
- * A user weighting carries its own name, so it has neither key.
+ * A user weighting carries its own name, so it has neither key. A key may name
+ * a function of `labelArg`, as a custom integral's weighting does with the
+ * integral's name.
  */
 export function weightingText(weighting, tr) {
+    const label = weighting.labelTr ? tr[weighting.labelTr] : weighting.label;
     return {
-        label:     weighting.labelTr ? tr[weighting.labelTr] : weighting.label,
+        label:     typeof label === 'function' ? label(weighting.labelArg) : label,
         reference: weighting.refTr ? tr[weighting.refTr] : weighting.reference,
     };
 }

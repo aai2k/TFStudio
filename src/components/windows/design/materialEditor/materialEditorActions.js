@@ -14,6 +14,7 @@ import {
 import { registerAgfFile } from '../../../../utils/materials/catalogStartup.js';
 import { countDesignsUsing } from '../../../../utils/materials/designsUsing.js';
 import { DEFAULT_IMPORT_UNITS } from '../../../../utils/materials/materialFileImport.js';
+import { catalogLabel } from '../../../materials/catalogLabel.js';
 
 /** The glasses an AGF import left out, as "NAME (formula number)" items. */
 export function rejectedGlassList(rejected) {
@@ -28,13 +29,13 @@ export async function importAgfCatalog(ctx) {
     try {
         const result = await window.electronAPI.importCatalogAgf();
         if (result.canceled) return;
-        if (!result.success) { notify('error', me.importError(result.error || 'Unknown error')); return; }
+        if (!result.success) { notify('error', me.importError(result.error || me.unknownError)); return; }
         const { catalog, rejected } = registerAgfFile({
             fileName: result.sourceFile, text: result.text, size: result.size, mtimeMs: result.mtimeMs,
         }, { force: true });
         loadCatalogs();
         setCatFilter(catalog.id);
-        const imported = me.importSuccess(catalog.name) + ` (${Object.keys(catalog.materials).length} materials)`;
+        const imported = me.importSuccess(catalog.name, Object.keys(catalog.materials).length);
         // Glasses whose formula number is not a Zemax formula are left out of
         // the catalog; the message names them with the number the file gives.
         if (rejected.length === 0) notify('ok', imported);
@@ -53,7 +54,7 @@ export async function importMaterialFiles(ctx) {
     try {
         const result = await window.electronAPI.importMaterialFiles();
         if (result.canceled) return;
-        if (!result.success) { notify('error', me.importError(result.error || 'Unknown error')); return; }
+        if (!result.success) { notify('error', me.importError(result.error || me.unknownError)); return; }
         setFileImport({ files: result.files, units: { ...DEFAULT_IMPORT_UNITS } });
     } catch (err) {
         notify('error', me.importError(err.message));
@@ -182,10 +183,10 @@ export function duplicateCatalogWithPrompt(srcId, ctx) {
         setEditDraft(null);
         notify('ok', me.duplicateSuccess(cat.name, Object.keys(cat.materials).length));
     };
-    const defName = freeCatalogName(src.name + ' copy');
+    const defName = freeCatalogName(me.duplicateCatalogName(catalogLabel(src)));
     if (setInputDialog) {
         setInputDialog({
-            title: me.duplicateCatalogPrompt(src.name),
+            title: me.duplicateCatalogPrompt(catalogLabel(src)),
             defaultValue: defName,
             validate: uniqueName(me),
             confirmLabel: me.duplicateCatalog,

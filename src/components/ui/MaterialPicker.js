@@ -12,6 +12,7 @@ import { DESIGN_CATALOG_ID } from '../../utils/materials/designCatalog.js';
 import { conflictingIds, designMaterialIds, resolveDesignMaterial } from '../../utils/materials/designMaterials.js';
 import { useCatalogRevision } from '../../utils/materials/useCatalogRevision.js';
 import { DesignContext } from '../../state/DesignContext.js';
+import { catalogLabel } from '../materials/catalogLabel.js';
 import { PickerDropdown } from './PickerDropdown.js';
 
 const { createElement: h, useContext } = React;
@@ -144,7 +145,7 @@ export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly })
     // Catalog filter tabs, resolved fresh so newly-scanned catalogs appear.
     const groups = [
         ...(designIds.size > 0 ? [{ id: DESIGN_CATALOG_ID, label: mp.designCatalog }] : []),
-        ...getCatalogs().map(cat => ({ id: cat.id, label: cat.name })),
+        ...getCatalogs().map(cat => ({ id: cat.id, label: catalogLabel(cat) })),
     ];
 
     const search = (query, groupId) => [

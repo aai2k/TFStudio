@@ -262,8 +262,7 @@ await check('Integral Values weightings', () => {
 
 // ── 7. Synthesis material pools ──────────────────────────────────────────────
 {
-    const { catalogLabel } = await import(
-        '../src/components/windows/optimization/synthesisShared/MaterialPoolPanel.js');
+    const { catalogLabel } = await import('../src/components/materials/catalogLabel.js');
     const { setCurrentLocale } = await import('../src/constants/locales/index.js');
     await check('Material pool built-in catalog', () => {
         for (const [code, t] of [['ru', ru], ['zh', zh], ['it', it]]) {

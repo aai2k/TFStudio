@@ -15,6 +15,7 @@ import {
 } from '../../../../utils/materials/designCatalog.js';
 import { resolveDesignMaterial } from '../../../../utils/materials/designMaterials.js';
 import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
+import { catalogLabel } from '../../../materials/catalogLabel.js';
 import { useDesign } from '../../../../state/DesignContext.js';
 import {
     importAgfCatalog, importMaterialFiles, commitFileImport,
@@ -45,7 +46,9 @@ async function runImportGuarded(fn, ctx, importing, setImporting) {
 // The name of the catalog a compound material id points into.
 function catalogNameOf(id) {
     const cut = id.indexOf(':');
-    return cut > 0 ? (getCatalog(id.slice(0, cut))?.name ?? id.slice(0, cut)) : id;
+    if (cut <= 0) return id;
+    const catalog = getCatalog(id.slice(0, cut));
+    return catalog ? catalogLabel(catalog) : id.slice(0, cut);
 }
 
 // Redraw the read-only chart when the selection changes. No-op while a user

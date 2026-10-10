@@ -31,14 +31,14 @@ function QuantitySection({ spec, onUpdate, optical, isMF, c, pe }) {
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: spec.polarization,
                 onChange: value => onUpdate({ polarization: value }),
-                options: valueOptions(POLARIZATIONS),
+                options: valueOptions(POLARIZATIONS, v => (v === 'avg' && pe.polAvg) || v),
             }),
         ),
         optical && h(SettingRow, { c, label: pe.surface || 'Surface' },
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: spec.surfaceMode,
                 onChange: value => onUpdate({ surfaceMode: value }),
-                options: valueOptions(SURFACE_MODES),
+                options: valueOptions(SURFACE_MODES, v => pe.surfaceModes?.[v] || v),
             }),
         ),
         isMF && h('div', { style: panelNote(c) }, pe.mfHint),

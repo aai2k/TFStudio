@@ -14,6 +14,7 @@ import { DESIGN_CATALOG_ID } from '../../../../utils/materials/designCatalog.js'
 import { dotStyle, smallBtn, formatNm } from './materialEditorUI.js';
 import { ActionMenu } from './actionMenu.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { catalogLabel } from '../../../materials/catalogLabel.js';
 
 const { createElement: h } = React;
 
@@ -41,7 +42,7 @@ function catalogMenuItems(s) {
     const isDesignCatalog = currentCatalog?.id === DESIGN_CATALOG_ID;
     const canDelete = !!currentCatalog && currentCatalog.id !== 'builtin' && !isDesignCatalog;
     return [
-        { id: 'head',   header: true, label: currentCatalog?.name || me.allCatalogs },
+        { id: 'head',   header: true, label: currentCatalog ? catalogLabel(currentCatalog) : me.allCatalogs },
         { id: 'rename', icon: 'pencil',      label: me.menuRenameCatalog,    onClick: () => handleRenameCatalog(currentCatalog.id),
           disabled: !isUserCatalog },
         { id: 'dup',    icon: 'copy-plus',   label: me.menuDuplicateCatalog, onClick: () => handleDuplicateCatalog(currentCatalog.id),
@@ -75,13 +76,13 @@ function renderCatalogRow(s) {
         h('select', {
             value: catFilter,
             onChange: e => handleCatalogChange(e.target.value),
-            title: catFilter === 'all' ? me.allCatalogs : (currentCatalog?.name || ''),
+            title: catFilter === 'all' ? me.allCatalogs : (currentCatalog ? catalogLabel(currentCatalog) : ''),
             style: { ...fieldStyle(c), flex: 1, minWidth: 0, cursor: 'pointer' }
         },
             h('option', { value: 'all' }, `${me.allCatalogs} (${total})`),
             browseCatalogs.map(cat =>
                 h('option', { key: cat.id, value: cat.id },
-                    `${cat.name} (${Object.keys(cat.materials || {}).length})`))
+                    `${catalogLabel(cat)} (${Object.keys(cat.materials || {}).length})`))
         ),
         h('button', {
             ref: menuTriggerRef,
@@ -159,7 +160,7 @@ function renderMaterialList(s) {
         const isActive = editDraft
             ? (editDraft.catalogId === catalogId && (editDraft.id === material.id || editDraft.originalId === material.id))
             : selectedId === compId;
-        const subtitle = materialSubtitle(material, catalogName, catFilter);
+        const subtitle = materialSubtitle(material, catalogLabel({ id: catalogId, name: catalogName }), catFilter);
         return h('div', {
             key: compId,
             onClick: () => handleSelectMaterial(compId, catalogId, material),

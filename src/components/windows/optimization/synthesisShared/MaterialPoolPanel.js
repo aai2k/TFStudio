@@ -4,15 +4,9 @@ import { WARN_BADGE_STYLE, matColor } from './materialColors.js';
 import { POOL_WARN_COUNT, poolMatEntries as matEntries } from './catalogPool.js';
 import { synthesisSidebarSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
-import { getCurrentLocale, getLocale } from '../../../../constants/locales/index.js';
+import { catalogLabel } from '../../../materials/catalogLabel.js';
 
 const EMPTY_EXPANDED = new Set();
-
-// The built-in catalog is named in the UI language; every other catalog by its
-// own name.
-export function catalogLabel(cat) {
-    return cat.id === 'builtin' ? getLocale(getCurrentLocale()).pool.builtinCatalog : cat.name;
-}
 
 const { createElement: h, useContext } = React;   // React is a window global (never imported)
 

@@ -4,31 +4,33 @@ import { percentSpectrumOption } from '../chrome/plot.js';
 
 const percent = values => values.map(value => value * 100);
 
-export function buildSpectrumSeries(baseline, deviated, channel, showBaseline,
-                                    colors = ANALYSIS_DEFAULTS.systematicDeviations.colors) {
+// `sd` is t.systematicDeviations, which names the two curves in the legend.
+export function buildSpectrumSeries(baseline, deviated, {
+    channel, showBaseline, colors = ANALYSIS_DEFAULTS.systematicDeviations.colors, sd,
+}) {
     if (!deviated) return [];
     const series = [];
     const channels = channel === 'all' ? ['T', 'R', 'A'] : [channel];
     for (const key of channels) {
         if (showBaseline && baseline) {
             const reference = lineSeries({
-                x: baseline.lambda, y: percent(baseline[key]), name: `${key} baseline`,
+                x: baseline.lambda, y: percent(baseline[key]), name: `${key} ${sd.baseline}`,
                 color: colors[key], dash: 'dot', width: 1.4, silent: true,
             });
             reference.lineStyle.opacity = 0.6;
             series.push(reference);
         }
         series.push(lineSeries({
-            x: deviated.lambda, y: percent(deviated[key]), name: `${key} deviated`,
+            x: deviated.lambda, y: percent(deviated[key]), name: `${key} ${sd.deviated}`,
             color: colors[key], width: 2,
         }));
     }
     return series;
 }
 
-export function buildSpectrumOption(baseline, deviated, { channel, showBaseline, colors, c, lambdaAxis }) {
+export function buildSpectrumOption(baseline, deviated, { channel, showBaseline, colors, c, lambdaAxis, sd }) {
     return percentSpectrumOption({
         c, fileName: 'deviations', lambdaAxis,
-        series: buildSpectrumSeries(baseline, deviated, channel, showBaseline, colors),
+        series: buildSpectrumSeries(baseline, deviated, { channel, showBaseline, colors, sd }),
     });
 }

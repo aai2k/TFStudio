@@ -104,7 +104,7 @@ function comparisonCell(ctx, colKey, width) {
 }
 
 function integralStartCell(ctx, colKey, width) {
-    const { op, c, tdBase, cellClick, onEdit, integralPresets } = ctx;
+    const { op, c, t, tdBase, cellClick, onEdit, integralPresets } = ctx;
     const matchKey = op.presetKey && integralPresets.some(preset => preset.key === op.presetKey) ? op.presetKey : '';
     const customDesc = describeCustomIntegral(op);
     return h('td', {
@@ -127,7 +127,7 @@ function integralStartCell(ctx, colKey, width) {
         },
         title: matchKey
             ? (integralPresets.find(preset => preset.key === matchKey)?.label || matchKey)
-            : `Custom integral (${customDesc}) — pick a saved preset to replace`,
+            : t.meritFunctionEditor.customIntegralTip(customDesc),
         color: c.text,
     },
         !matchKey && h('option', {
@@ -140,16 +140,17 @@ function integralStartCell(ctx, colKey, width) {
 }
 
 function mathReferenceCell(ctx, colKey, width) {
-    const { op, c, tdBase, cellClick, onEdit, operands } = ctx;
+    const { op, c, t, tdBase, cellClick, onEdit, operands } = ctx;
+    const mfe = t.meritFunctionEditor;
     const secondReference = colKey === 'lambdaEnd';
     if (secondReference && !isMathPairRef(op.type)) return dashCell(ctx, colKey, width);
     const refKey = isMathPairRef(op.type) ? (secondReference ? 'refId2' : 'refId1') : 'refId';
     const currentRefId = op[refKey];
     const referencedIndex = currentRefId ? operands.findIndex(item => item.id === currentRefId) : -1;
     const stale = currentRefId && referencedIndex < 0;
-    const title = stale ? 'Referenced operand was deleted'
+    const title = stale ? mfe.refDeletedTip
         : referencedIndex >= 0 ? `#${referencedIndex + 1} (${operands[referencedIndex].type})`
-        : 'Pick an operand to reference';
+        : mfe.refPickTip;
     return h('td', {
         key: colKey,
         onClick: event => cellClick(colKey, event),
@@ -162,7 +163,7 @@ function mathReferenceCell(ctx, colKey, width) {
     },
         h('option', {
             key: '_none', value: '', style: { background: c.panel, color: c.textDim },
-        }, stale ? '(deleted)' : '(pick…)'),
+        }, stale ? mfe.refDeleted : mfe.refPick),
         operands.map((candidate, index) => candidate.id === op.id ? null : h('option', {
             key: candidate.id, value: candidate.id, style: { background: c.panel },
         }, `#${index + 1} ${candidate.type}`)).filter(Boolean),

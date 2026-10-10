@@ -60,7 +60,7 @@ function DmfsRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, d
                 fontSize: 11, borderLeft: `2px solid ${c.accent}50`,
                 whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             },
-        }, '▶ DMFS — ' + (op.comment || t.meritFunctionEditor.defaultDmfs)),
+        }, '▶ DMFS: ' + (op.comment || t.meritFunctionEditor.defaultDmfs)),
     );
 }
 
@@ -111,7 +111,7 @@ function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, d
             style: { padding: '1px 6px', borderLeft: '2px solid rgba(140,140,140,0.4)' },
         }, h('input', {
             value: op.comment || '',
-            placeholder: '# comment…',
+            placeholder: t.meritFunctionEditor.commentPlaceholder,
             'data-row-menu': 'comment',
             onChange: event => onEdit(op.id, 'comment', event.target.value),
             onClick: event => { event.stopPropagation(); selectForTyping(); },

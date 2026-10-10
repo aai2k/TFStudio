@@ -71,7 +71,7 @@ function EvaluationSettings({ c, t, model }) {
                 ariaLabel: iv.pol, activeId: params.polarization, c,
                 onSelect: value => patch({ polarization: value }),
                 items: [
-                    { id: 'avg', label: 'avg' },
+                    { id: 'avg', label: iv.polAvg },
                     { id: 's', label: 's' },
                     { id: 'p', label: 'p' },
                 ],

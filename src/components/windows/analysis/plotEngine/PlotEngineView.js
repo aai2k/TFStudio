@@ -86,7 +86,7 @@ export function PlotEngineView({ curvePlot, surfacePlot, design, c, t, pe, notic
         ),
         h(PlotArea, null,
             is2D
-                ? h(MultiCurveChart, { curves: curvePlot.curves, results: curvePlot.results, c })
+                ? h(MultiCurveChart, { curves: curvePlot.curves, results: curvePlot.results, c, t })
                 : h(SurfaceChart, {
                     result: surfacePlot.surfaceResult, spec: surfacePlot.surfaceSpec,
                     design, c, t,

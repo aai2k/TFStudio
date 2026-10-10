@@ -12,12 +12,17 @@ export const INITIAL_BUILDER = {
 export function buildIntegralDefinitions(customDefinitions) {
     const definitions = DEFAULT_INTEGRALS.map(definition => ({ ...definition, builtin: true }));
     for (const custom of customDefinitions) {
-        const weighting = composeWeighting({
-            source: custom.sourceSpec,
-            detector: custom.detectorSpec,
-            band: custom.band,
-            label: custom.label + ' weight',
-        });
+        // Named in the UI language from the integral's own name; see weightingText.
+        const weighting = {
+            ...composeWeighting({
+                source: custom.sourceSpec,
+                detector: custom.detectorSpec,
+                band: custom.band,
+                label: custom.label,
+            }),
+            labelTr: 'custom',
+            labelArg: custom.label,
+        };
         definitions.push({
             key: custom.key,
             label: custom.label,

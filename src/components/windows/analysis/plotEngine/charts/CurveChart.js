@@ -2,7 +2,6 @@
  * The Plot Engine in 2D: one line per curve, each over its own x axis.
  */
 
-import { xAxisLabel } from '../../../../../utils/physics/plotQuantities.js';
 import { drawChart, useChartTeardown } from '../../../../ui/plotSurface.js';
 import { axisTooltip, cartesianOption, lineSeries, valueAxis } from '../../../../ui/chartOptions.js';
 import { legendAbove, plotMargin } from '../../chrome/plot.js';
@@ -26,7 +25,13 @@ function dominantXAxis(curves) {
     return curves.find(curve => curve.visible)?.xAxis || 'wavelength';
 }
 
-function buildCurveOption(curves, results, c) {
+// The x axis title in the UI language: t.spectralAxis.lambdaShort for
+// wavelength, the Plot Engine's own name for the angle axis.
+function xAxisTitle(xKind, t) {
+    return xKind === 'aoi' ? t.plotEngine.varAOI : t.spectralAxis.lambdaShort;
+}
+
+export function buildCurveOption(curves, results, c, t) {
     const text = c.text || '#cccccc';
     const grid = c.border || '#3a3a3a';
     const xKind = dominantXAxis(curves);
@@ -36,16 +41,16 @@ function buildCurveOption(curves, results, c) {
         fileName: 'curves',
         legend: legendAbove({ color: text }),
         tooltip: axisTooltip({ colors: c, valueSuffix: '%' }),
-        xAxis: valueAxis({ name: xAxisLabel(xKind), color: text, gridColor: grid, wavelength: xKind === 'wavelength' }),
+        xAxis: valueAxis({ name: xAxisTitle(xKind, t), color: text, gridColor: grid, wavelength: xKind === 'wavelength' }),
         yAxis: valueAxis({ name: '%', color: text, gridColor: grid, min: 0, max: 100, interval: 10 }),
         series: buildCurveSeries(curves, results),
     });
 }
 
-export function MultiCurveChart({ curves, results, c }) {
+export function MultiCurveChart({ curves, results, c, t }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
-    useEffect(() => { drawChart(divRef.current, chartRef, buildCurveOption(curves, results, c)); });
+    useEffect(() => { drawChart(divRef.current, chartRef, buildCurveOption(curves, results, c, t)); });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }
