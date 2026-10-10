@@ -174,7 +174,8 @@ const ux = buildImportedDesign(unindexed, name => ({ MgF2: 'lab:MgF2', Air: 'bui
     const cos = Math.sqrt(1 - Math.pow(Math.sin(Math.PI / 4) / 1.38, 2));
     near(ux.design.frontLayers[0].thickness, 550 / (4 * 1.38 * cos), 1e-9, 'quarter wave at 45° converted with the cosine in the assigned material');
     near(ux.design.frontLayers[1].thickness, 0.02 * 550 / (4 * 0.04), 1e-9, 'a metal the angle cannot be applied to converts at normal incidence');
-    ok(ux.warnings.length === 1 && ux.warnings[0].code === 'obliqueNotApplied' && ux.warnings[0].index === 2, 'and is warned about');
+    // Ag is the front layer on the substrate, layer 1 in the Design Editor.
+    ok(ux.warnings.length === 1 && ux.warnings[0].code === 'obliqueNotApplied' && ux.warnings[0].index === 1, 'and is warned about');
 }
 
 // An OptiLayer design with nothing in the catalogs carries its folder's definitions.

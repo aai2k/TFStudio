@@ -2538,8 +2538,10 @@ export default {
     geomGap:   (mat, z, label) => `Вставить ${mat} на z = ${z} нм — ${label}.`,
     geomIntra: (mat, k, host, d1, dn, d2) =>
         `Вставить ${mat} внутрь слоя №${k} (${host}): разбить ${host} → ${d1} нм + ${mat} ${dn} нм + ${host} ${d2} нм.`,
-    gapIncident:  (first) => `на границе со средой падения, перед слоем №1 (${first})`,
-    gapSubstrate: (last)  => `на границе с подложкой, после последнего слоя (${last})`,
+    gapIncident:  (k, name) => `на границе со средой падения, у слоя №${k} (${name})`,
+    gapExit:      (k, name) => `на границе с выходной средой, у слоя №${k} (${name})`,
+    gapSubstrate: (k, name) => `на границе с подложкой, у слоя №${k} (${name})`,
+    gapBare:      'на подложке без слоёв',
     gapBetween:   (a, ma, b, mb) => `между слоем №${a} (${ma}) и слоем №${b} (${mb})`,
   },
 

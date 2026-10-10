@@ -86,22 +86,28 @@ assert.deepEqual(front.map(series => series.arcs.map(arc => ({
     last: [arc.re.at(-1), arc.im.at(-1)],
 }))), [
     [
-        { layerNum: 3, material: 'builtin:SiO2', samples: 193, middle: [1.3436483108526929, -0.06143081732801333], last: [1.2736233208629595, -0.02370321611419016] },
+        { layerNum: 1, material: 'builtin:SiO2', samples: 193, middle: [1.3436483108526929, -0.06143081732801333], last: [1.2736233208629595, -0.02370321611419016] },
         { layerNum: 2, material: 'builtin:Au', samples: 25, middle: [1.3629801268064314, -0.5762737570356863], last: [1.3507943108043567, -1.0791557797735458] },
-        { layerNum: 1, material: 'builtin:TiO2', samples: 385, middle: [4.9754682509949495, 1.5091292838265513], last: [2.056933864050581, -1.8553376539476072] },
+        { layerNum: 3, material: 'builtin:TiO2', samples: 385, middle: [4.9754682509949495, 1.5091292838265513], last: [2.056933864050581, -1.8553376539476072] },
     ],
     [
-        { layerNum: 3, material: 'builtin:SiO2', samples: 193, middle: [1.6131368550751244, -0.04977788035523191], last: [1.556329580850104, -0.019493252699032626] },
+        { layerNum: 1, material: 'builtin:SiO2', samples: 193, middle: [1.6131368550751244, -0.04977788035523191], last: [1.556329580850104, -0.019493252699032626] },
         { layerNum: 2, material: 'builtin:Au', samples: 25, middle: [1.6238117381018393, -0.612061561913371], last: [1.5626815644224012, -1.13335879784385] },
-        { layerNum: 1, material: 'builtin:TiO2', samples: 385, middle: [4.775297743223612, 1.5471738152195422], last: [2.346832887300514, -1.8599828065896404] },
+        { layerNum: 3, material: 'builtin:TiO2', samples: 385, middle: [4.775297743223612, 1.5471738152195422], last: [2.346832887300514, -1.8599828065896404] },
     ],
 ]);
 
+// Layers carry the numbers the Design Editor gives them, L1 on the substrate,
+// on the back as on the front.
 const back = buildDiagramData(design, { lambda_nm: 632.8, theta_deg: 48, pol: 'p', side: 'back' });
 assert.deepEqual(back[0].arcs.map(arc => [arc.layerNum, arc.material, arc.re.length]), [
-    [2, 'builtin:MgF2', 49],
-    [1, 'builtin:Au', 25],
+    [1, 'builtin:MgF2', 49],
+    [2, 'builtin:Au', 25],
 ]);
+// An empty layer keeps its number, so the ones after it still match the editor.
+const withEmpty = { ...design, frontLayers: [design.frontLayers[0], { id: 'f0', material: 'builtin:SiO2', thickness: 0 }, ...design.frontLayers.slice(1)] };
+assert.deepEqual(buildDiagramData(withEmpty, { lambda_nm: 550, theta_deg: 0, pol: 's', side: 'front' })[0]
+    .arcs.map(arc => [arc.layerNum, arc.material]), [[1, 'builtin:SiO2'], [2, 'builtin:Au'], [4, 'builtin:TiO2']]);
 assert.deepEqual(back[0].Y, [
     [2.0735231785575983, -1.2447375584995244],
     [2.2090687271873977, 0.06026700647241612],
@@ -151,14 +157,14 @@ const matNames = {
 const tableRows = buildAdmittanceTableRows(front, matNames, design);
 assert.deepEqual(tableRows, [
     { layer: 'η_s (s)', material: 'BK7 (Schott)', re: 1.3941767876889197, im: -9.543788997295389e-9, gRe: -0.2715878957156726, gIm: 3.170271998904041e-9 },
-    { layer: 'L3 (s)', material: 'Silica', re: 1.2736233208629597, im: -0.023703216114190167, gRe: -0.22931342195363494, gIm: 0.008815380705949007 },
+    { layer: 'L1 (s)', material: 'Silica', re: 1.2736233208629597, im: -0.023703216114190167, gRe: -0.22931342195363494, gIm: 0.008815380705949007 },
     { layer: 'L2 (s)', material: 'Gold', re: 1.3507943108043567, im: -1.0791557797735463, gRe: -0.40649194781286907, gIm: 0.2979802544128225 },
-    { layer: 'L1 (s)', material: 'Titania', re: 2.056933864050581, im: -1.855337653947607, gRe: -0.606683321210752, gIm: 0.2555480706238645 },
+    { layer: 'L3 (s)', material: 'Titania', re: 2.056933864050581, im: -1.855337653947607, gRe: -0.606683321210752, gIm: 0.2555480706238645 },
     { layer: 'η₀ (s)', material: 'Air', re: 0.7986355100472928, im: -0, gRe: 0, gIm: 0 },
     { layer: 'η_s (p)', material: 'BK7 (Schott)', re: 1.6539582768728534, im: -7.765463794876486e-9, gRe: -0.1382689712377129, gIm: 2.3026582259145895e-9 },
-    { layer: 'L3 (p)', material: 'Silica', re: 1.5563295808501034, im: -0.01949325269903272, gRe: -0.10835617915778907, gIm: 0.00618880307856611 },
+    { layer: 'L1 (p)', material: 'Silica', re: 1.5563295808501034, im: -0.01949325269903272, gRe: -0.10835617915778907, gIm: 0.00618880307856611 },
     { layer: 'L2 (p)', material: 'Gold', re: 1.5626815644224017, im: -1.1333587978438502, gRe: -0.23443775982051082, gIm: 0.30824619561252325 },
-    { layer: 'L1 (p)', material: 'Titania', re: 2.346832887300515, im: -1.8599828065896407, gRe: -0.45084493403747544, gIm: 0.2838088102023878 },
+    { layer: 'L3 (p)', material: 'Titania', re: 2.346832887300515, im: -1.8599828065896407, gRe: -0.45084493403747544, gIm: 0.2838088102023878 },
     { layer: 'η₀ (p)', material: 'Air', re: 1.2521356581562257, im: -0, gRe: 0, gIm: 0 },
 ]);
 // The table's Gamma columns must agree with what the reflection view plots.
@@ -178,14 +184,14 @@ const option = buildAdmittanceOption(
     front, matColorMap, matNames, { paper: '#222', background: '#111', text: '#eee', border: '#333' });
 assert.equal(option.series.length, 18);
 assert.deepEqual(option.series.map(series => series.name || null), [
-    'L3 Silica (s)', null, 'L2 Gold (s)', null, 'L1 Titania (s)', null,
+    'L1 Silica (s)', null, 'L2 Gold (s)', null, 'L3 Titania (s)', null,
     null, null, null,
-    'L3 Silica (p)', null, 'L2 Gold (p)', null, 'L1 Titania (p)', null,
+    'L1 Silica (p)', null, 'L2 Gold (p)', null, 'L3 Titania (p)', null,
     null, null, null,
 ]);
 assert.deepEqual(buildAdmittanceOption(
     front, matColorMap, {}, { paper: '#222', background: '#111', text: '#eee', border: '#333' },
-).series[0].name, 'L3 (s)',
+).series[0].name, 'L1 (s)',
     'a material with no resolvable name still labels its layer');
 assert.equal(option.legend.show, false);
 assert.deepEqual([[option.xAxis.min, option.xAxis.max], [option.yAxis.min, option.yAxis.max]], [

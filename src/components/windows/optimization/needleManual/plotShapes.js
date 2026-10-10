@@ -35,7 +35,7 @@ export function buildLayerLabels({ bands, totalZ, selected, textColor, dimColor 
         .filter(band => (band.z1 - band.z0) / span >= MIN_LABEL_FRACTION)
         .map(band => ({
             x: (band.z0 + band.z1) / 2,
-            text: String(band.k + 1),
+            text: String(band.number),
             color: band.k === host ? textColor : dimColor,
         }));
 }

@@ -39,11 +39,11 @@ export function TrialsModal({ result, design, c, t, corridorSigma, updateDesign,
         setLoaded(tagN);
     }, [front, back, updateDesign, checkpoint]);
 
-    const stats = useMemo(() => buildLayerStatistics({ trials, front, back, hasFront, hasBack }),
+    const stats = useMemo(() => buildLayerStatistics({ trials, design, front, back, hasFront, hasBack }),
         [result, design]); // eslint-disable-line react-hooks/exhaustive-deps
     const spread = useMemo(() => buildSpectralSpread(result, corridorSigma), [result, corridorSigma]);
     const trial = trials[selected] || null;
-    const rows = buildTrialDetailRows({ front, back, trial, hasFront, hasBack });
+    const rows = buildTrialDetailRows({ design, front, back, trial, hasFront, hasBack });
     const panel = tab === 'stats'
         ? h(TrialStatisticsPanel, { result, stats, spread, corridorSigma, c, ea })
         : h(TrialDetailsPanel, {

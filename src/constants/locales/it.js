@@ -3011,8 +3011,10 @@ export default {
     geomGap: (mat, z, label) => `Inserisci ${mat} a z = ${z} nm, ${label}.`,
     geomIntra: (mat, k, host, d1, dn, d2) =>
         `Inserisci ${mat} dentro lo strato #${k} (${host}): dividi ${host} → ${d1} nm + ${mat} ${dn} nm + ${host} ${d2} nm.`,
-    gapIncident: (first) => `all'interfaccia con il mezzo incidente, prima dello strato #1 (${first})`,
-    gapSubstrate: (last)  => `all'interfaccia con il substrato, dopo l'ultimo strato (${last})`,
+    gapIncident: (k, name) => `all'interfaccia con il mezzo incidente, accanto allo strato #${k} (${name})`,
+    gapExit: (k, name) => `all'interfaccia con il mezzo di uscita, accanto allo strato #${k} (${name})`,
+    gapSubstrate: (k, name) => `all'interfaccia con il substrato, accanto allo strato #${k} (${name})`,
+    gapBare: 'sul substrato nudo',
     gapBetween: (a, ma, b, mb) => `tra lo strato #${a} (${ma}) e lo strato #${b} (${mb})`,
   },
   admittance: {

@@ -22,6 +22,7 @@ import { sanitizeId } from '../../materials/optilayerParser/idUtils.js';
 import { constantIndexRecord, EMBEDDED_PREFIX, getNKOf } from './materialResolution.js';
 import { constantIndexOf, embeddedDefinition } from './designFileImport.js';
 import { qwotToNm } from './optilayerDesign.js';
+import { editorLayerNumber } from '../../misc/layerNumbers.js';
 
 export const MISSING_PREFIX = 'missing:';
 
@@ -122,7 +123,9 @@ export function buildImportedDesign(item, resolve, di) {
     };
     const materialOf = (id) => materials[id] || getMaterialById(id);
 
+    // A warning names a layer by the number the Design Editor will give it.
     const convert = (layers, side, s) => layers.map((layer, i) => {
+        const number = editorLayerNumber(side, layers.length, i);
         const material = idFor(layer.material);
         let thickness = layer.thicknessNm;
         if (thickness == null) {
@@ -134,14 +137,14 @@ export function buildImportedDesign(item, resolve, di) {
                     thickness = qwotToNm(optical.value, lam0, n, optical.angleDeg, optical.matchMedium);
                     if (thickness == null) {
                         thickness = qwotToNm(optical.value, lam0, n);
-                        warnings.push({ code: 'obliqueNotApplied', side, index: i + 1, material: layer.material });
+                        warnings.push({ code: 'obliqueNotApplied', side, index: number, material: layer.material });
                     }
                 } else {
                     thickness = optical.value * lam0 / n;
                 }
             } else {
                 thickness = 0;
-                warnings.push({ code: 'noIndex', side, index: i + 1, material: layer.material, lambdaNm: lam0 });
+                warnings.push({ code: 'noIndex', side, index: number, material: layer.material, lambdaNm: lam0 });
             }
         }
         return { id: `imp-${s}-${side[0]}${i}`, material, thickness, locked: !!layer.locked };

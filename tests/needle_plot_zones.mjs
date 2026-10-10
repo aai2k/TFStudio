@@ -26,14 +26,14 @@ const { buildBoundaryGuides, buildLayerLabels, buildZoneBands, hostLayerIndex } 
 
 const COLORS = { gridColor: '#3a3a3a', selectionColor: '#ff0000', textColor: '#cccccc', dimColor: '#888888' };
 
-function makeScan(thicknesses) {
+function makeScan(thicknesses, side = 'front') {
     const layers = thicknesses.map((thickness, i) => ({
         material: i % 2 === 0 ? 'builtin:TiO2' : 'builtin:SiO2',
         thickness,
     }));
     const zb = [0];
     for (const t of thicknesses) zb.push(zb[zb.length - 1] + t);
-    return { layers, zb, candidates: [], side: 'front' };
+    return { layers, zb, candidates: [], side };
 }
 
 // ── 1. Bands tile the stack and carry their layer identity ───────────────────
@@ -118,11 +118,17 @@ function makeScan(thicknesses) {
     const labels = buildLayerLabels({ bands, totalZ, selected: null, ...COLORS });
 
     assert.equal(labels.length, bands.length, 'every zone of a short stack is labelled');
-    assert.deepEqual(labels.map(l => l.text), ['1', '2', '3', '4'], 'labels are 1-based layer numbers');
+    // Front layers are stored air side first; the Design Editor calls the one
+    // on the substrate layer 1, and so does the plot.
+    assert.deepEqual(labels.map(l => l.text), ['4', '3', '2', '1'], 'labels are the Design Editor layer numbers');
     assert.equal(labels[0].x, 50, 'a label is centred on its zone');
     for (const label of labels) {
         assert.equal(label.color, COLORS.dimColor);
     }
+    // Back layers are stored substrate first, which is already their order.
+    const back = buildPlotData(makeScan([100, 60, 140, 80], 'back'));
+    assert.deepEqual(buildLayerLabels({ bands: back.bands, totalZ: back.totalZ, selected: null, ...COLORS })
+        .map(l => l.text), ['1', '2', '3', '4'], 'back labels count from the substrate too');
 }
 
 {
@@ -138,7 +144,7 @@ function makeScan(thicknesses) {
     const { bands, totalZ } = buildPlotData(makeScan(thicknesses));
     const labels = buildLayerLabels({ bands, totalZ, selected: null, ...COLORS });
     assert.equal(labels.length, 1, 'only the wide zone is labelled');
-    assert.equal(labels[0].text, '41');
+    assert.equal(labels[0].text, '1', 'the wide zone is the layer on the substrate');
 }
 
 // The host layer's label is drawn in the brighter text colour.

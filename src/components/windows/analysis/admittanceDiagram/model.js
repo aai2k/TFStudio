@@ -208,10 +208,14 @@ function buildOnePol(design, conditions, pol) {
     const [nsr, nsk] = nsmat.getNK(lambda_nm);
     const ns = [nsr, nsk];
 
-    const allLayers = sideStackLayers(design, side).map(layer => {
+    // The stack runs from the outer medium to the substrate, so counting from
+    // its far end numbers the layers as the Design Editor does, L1 on the
+    // substrate, on either side. Taken before the empty layers are dropped.
+    const stack = sideStackLayers(design, side);
+    const allLayers = stack.map((layer, index) => {
         const mat = resolveMaterial(layer.material);
         const [nr, nk] = mat.getNK(lambda_nm);
-        return { n: [nr, nk], d: layer.thickness, material: layer.material, id: layer.id };
+        return { n: [nr, nk], d: layer.thickness, material: layer.material, id: layer.id, number: stack.length - index };
     });
 
     const { Y, N } = tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, allLayers);
@@ -228,7 +232,7 @@ function buildOnePol(design, conditions, pol) {
         const delta = layerDelta(lyr.n, lyr.d, lambda_nm, cosThJ);
         const Y_R = Y[k + 1];
         const { re, im } = sampleArcAdaptive(Y_R, eta, delta, view);
-        arcs.push({ k, layerNum: k + 1, material: lyr.material, re, im });
+        arcs.push({ k, layerNum: lyr.number, material: lyr.material, re, im });
     }
 
     const flipY = (p) => [p[0], -p[1]];

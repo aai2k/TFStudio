@@ -49,11 +49,13 @@ const trials = [
     { dThkF: [3, 4], dThkB: null, spec: { allPass: true } },
 ];
 const stats = trialModel.buildLayerStatistics({
-    trials, front: design.frontLayers, back: [], hasFront: true, hasBack: false,
+    trials, design, front: design.frontLayers, back: [], hasFront: true, hasBack: false,
 });
 assert.equal(stats.nFailTrials, 1);
 assert.equal(stats.nPassTrials, 1);
-assert.deepEqual(stats.byRms.map((layer) => layer.label), ['F2', 'F1']);
+// The second stored layer is the one on the substrate, F1 as the Design Editor
+// numbers it.
+assert.deepEqual(stats.byRms.map((layer) => layer.label), ['F1', 'F2']);
 
 const events = [];
 trialModel.loadTrialThicknesses({

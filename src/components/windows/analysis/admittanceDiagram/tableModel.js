@@ -63,7 +63,7 @@ export function buildAdmittanceTableRows(series, matName, design) {
         rows.push(boundaryRow(`η_s${polLabel}`, substrateName, s.etaS, s.eta0));
         for (const arc of s.arcs) {
             const material = matName[arc.material] || arc.material || '—';
-            rows.push(boundaryRow(`L${arc.layerNum}${polLabel}`, material, s.Y[arc.layerNum - 1], s.eta0));
+            rows.push(boundaryRow(`L${arc.layerNum}${polLabel}`, material, s.Y[arc.k], s.eta0));
         }
         rows.push(boundaryRow(`η₀${polLabel}`, mediumName(resolveMaterial, design, s.side), s.eta0, s.eta0));
     }

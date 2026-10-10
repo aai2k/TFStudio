@@ -2578,8 +2578,10 @@ export default {
     geomGap:   (mat, z, label) => `Insert ${mat} at z = ${z} nm, ${label}.`,
     geomIntra: (mat, k, host, d1, dn, d2) =>
         `Insert ${mat} inside layer #${k} (${host}): split ${host} → ${d1} nm + ${mat} ${dn} nm + ${host} ${d2} nm.`,
-    gapIncident:  (first) => `at the incident interface, before layer #1 (${first})`,
-    gapSubstrate: (last)  => `at the substrate interface, after the last layer (${last})`,
+    gapIncident:  (k, name) => `at the incident interface, next to layer #${k} (${name})`,
+    gapExit:      (k, name) => `at the exit interface, next to layer #${k} (${name})`,
+    gapSubstrate: (k, name) => `at the substrate interface, next to layer #${k} (${name})`,
+    gapBare:      'on the bare substrate',
     gapBetween:   (a, ma, b, mb) => `between layer #${a} (${ma}) and layer #${b} (${mb})`,
   },
 

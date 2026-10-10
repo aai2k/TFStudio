@@ -14,7 +14,7 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
 
     const name  = matFriendlyName(selected.materialId, design);
     const geom = selected.intra
-        ? tn.geomIntra(name, selected.layerK + 1, matFriendlyName(hostInfo.hostMat, design),
+        ? tn.geomIntra(name, hostInfo.hostNumber, matFriendlyName(hostInfo.hostMat, design),
             hostInfo.d1.toFixed(1), dNew.toFixed(1), hostInfo.d2.toFixed(1))
         : tn.geomGap(name, selected.z.toFixed(1), hostInfo.gapLabel);
 

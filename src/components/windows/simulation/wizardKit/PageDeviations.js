@@ -8,6 +8,7 @@
 
 import { Checkbox }                      from '../../../ui/Checkbox.js';
 import { matName, cullName, cellNum, NumField } from '../wizardShared.js';
+import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.js';
 
 const { createElement: h } = React;
 
@@ -44,7 +45,7 @@ export function PageDeviations({ p, set, materialIds, layers, resolveMat, c, B }
                     h('thead', null, h('tr', { style: { background: c.panel, position: 'sticky', top: 0 } },
                         [B.colNum, B.colMaterial, B.colPhysThk, B.colExclude, B.colRelThkErr].map((x, i) => h('th', { key: i, style: th }, x)))),
                     h('tbody', null, layers.map((l, i) => h('tr', { key: i },
-                        h('td', { style: td }, i + 1),
+                        h('td', { style: td }, flipLayerIndex(layers.length, i)),
                         h('td', { style: { ...td, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }, title: matName(resolveMat, l.material) }, cullName(matName(resolveMat, l.material), 22)),
                         h('td', { style: td }, (l.thickness || 0).toFixed(2)),
                         h('td', { style: { ...td, textAlign: 'center' } },

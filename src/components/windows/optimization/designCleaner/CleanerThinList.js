@@ -1,6 +1,10 @@
+import { designMaterialName } from '../../../../utils/materials/designMaterials.js';
+import { displayLayerLabel } from '../../analysis/layerSensitivity/viewModel.js';
+
 const { createElement: h } = React;
 
-export function CleanerThinList({ c, dc, thinList }) {
+export function CleanerThinList({ c, dc, design, thinList }) {
+    const frontCount = design.frontLayers?.length || 0;
     return h('div', {
         style: { flex: '0 0 280px', minHeight: 0, overflowY: 'auto' }
     },
@@ -21,8 +25,9 @@ export function CleanerThinList({ c, dc, thinList }) {
                     style: { background: i % 2 === 0 ? 'transparent' : c.panel + '33' }
                 },
                     h('td', { style: { padding: '2px 8px', color: c.text, fontSize: 11 } },
-                        `${l.side === 'front' ? 'F' : 'B'}${l.layerIndex + 1}`),
-                    h('td', { style: { padding: '2px 8px', color: c.text, fontSize: 11 } }, l.materialId),
+                        displayLayerLabel(l, frontCount)),
+                    h('td', { style: { padding: '2px 8px', color: c.text, fontSize: 11 } },
+                        designMaterialName(design, l.materialId)),
                     h('td', {
                         style: { padding: '2px 8px', color: c.textDim, fontSize: 11,
                             textAlign: 'right', fontVariantNumeric: 'tabular-nums' }

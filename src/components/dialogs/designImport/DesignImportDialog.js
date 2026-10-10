@@ -24,6 +24,7 @@ import {
 } from '../../../utils/io/designImport/designFileImport.js';
 import { constantIndexRecord, getNKOf, suggestMaterialId } from '../../../utils/io/designImport/materialResolution.js';
 import { buildImportedDesign, importNoteText, importWarningText, MISSING_PREFIX } from '../../../utils/io/designImport/buildDesign.js';
+import { editorLayerNumber } from '../../../utils/misc/layerNumbers.js';
 import { computeDesignSpectrum } from '../../../utils/io/designSpectrum.js';
 import { materialLabel } from '../../../utils/materials/catalogManager.js';
 import { resolveEvalMode } from '../../../utils/physics/optimizer.js';
@@ -93,15 +94,17 @@ function renderList({ items, errors, current, excluded, toggle, setCurrent, mapp
     );
 }
 
-function stackTable(title, sourceLayers, builtLayers, di, c) {
+// The # column is the number the Design Editor will give each layer.
+function stackTable({ title, side, sourceLayers, builtLayers }, di, c) {
     if (!sourceLayers.length) return null;
     const rows = sourceLayers.map((layer, i) => {
+        const number = editorLayerNumber(side, sourceLayers.length, i);
         const built = builtLayers[i];
         const inFile = [];
         if (layer.optical) inFile.push(layer.optical.kind === 'qwot' ? di.sourceQwot(formatValue(layer.optical.value)) : di.sourceFwot(formatValue(layer.optical.value)));
         if (layer.locked) inFile.push(di.locked);
         return h('tr', { key: i },
-            cell(i + 1, { color: c.textDim, textAlign: 'right' }),
+            cell(number, { color: c.textDim, textAlign: 'right' }),
             cell(layer.material, { title: built ? materialLabel(built.material) : '' }),
             cell(built ? formatNm(built.thickness) : '', { textAlign: 'right', fontVariantNumeric: 'tabular-nums' }),
             cell(inFile.join(', '), { color: c.textDim })
@@ -295,8 +298,8 @@ function renderPreview({ built, names, mapping, setMapping, di, t, c }) {
             remarks.length > 0 && h('div', { style: { fontSize: 11, color: WARNING_COLOR, marginTop: 4 } },
                 remarks.map((text, i) => h('div', { key: i }, text)))
         ),
-        stackTable(di.stackFront, item.front, design.frontLayers, di, c),
-        stackTable(di.stackBack, item.back, design.backLayers, di, c),
+        stackTable({ title: di.stackFront, side: 'front', sourceLayers: item.front, builtLayers: design.frontLayers }, di, c),
+        stackTable({ title: di.stackBack, side: 'back', sourceLayers: item.back, builtLayers: design.backLayers }, di, c),
         materialsTable({ entry, names, mapping, setMapping, di, t, c }),
         item.comments.length > 0 && h(Fragment, null,
             sectionTitle(di.notes, c),

@@ -1,3 +1,16 @@
+import { designMaterialName } from '../../../../utils/materials/designMaterials.js';
+import { displayLayerLabel } from '../layerSensitivity/viewModel.js';
+
+// A layer as the Design Editor shows it: front layers are stored air side
+// first but F1 is the one on the substrate, and the material goes by its name,
+// not its catalog id.
+function layerIdentity(design, side, index, layer, frontCount) {
+    return {
+        label: displayLayerLabel({ side: side === 'F' ? 'front' : 'back', layerIndex: index }, frontCount),
+        material: designMaterialName(design, layer.material),
+    };
+}
+
 export function hasPerturbableLayers(design, evalMode) {
     const hasFront = !!design?.frontLayers?.length;
     const hasBack = !!design?.backLayers?.length;
@@ -5,12 +18,11 @@ export function hasPerturbableLayers(design, evalMode) {
     return evalMode in byMode ? byMode[evalMode] : (hasFront || hasBack);
 }
 
-function layerAccumulator(side, idx, layer) {
+function layerAccumulator(side, idx, layer, identity) {
     return {
         side,
         idx,
-        label: side + (idx + 1),
-        material: layer.material,
+        ...identity,
         nominal: layer.thickness || 0,
         sumSq: 0,
         sumAbsFail: 0,
@@ -49,10 +61,12 @@ function finalizeLayerStatistics(acc, trialCount) {
     }
 }
 
-export function buildLayerStatistics({ trials, front, back, hasFront, hasBack }) {
+export function buildLayerStatistics({ trials, design, front, back, hasFront, hasBack }) {
     const acc = [];
-    if (hasFront) front.forEach((layer, i) => acc.push(layerAccumulator('F', i, layer)));
-    if (hasBack) back.forEach((layer, i) => acc.push(layerAccumulator('B', i, layer)));
+    const add = side => (layer, i) =>
+        acc.push(layerAccumulator(side, i, layer, layerIdentity(design, side, i, layer, front.length)));
+    if (hasFront) front.forEach(add('F'));
+    if (hasBack) back.forEach(add('B'));
 
     let nFailTrials = 0;
     let nPassTrials = 0;
@@ -98,14 +112,14 @@ export function buildSpectralSpread(result, corridorSigma) {
     };
 }
 
-export function buildTrialDetailRows({ front, back, trial, hasFront, hasBack }) {
+export function buildTrialDetailRows({ design, front, back, trial, hasFront, hasBack }) {
     const rows = [];
     if (hasFront) front.forEach((layer, i) => rows.push({
-        label: 'F' + (i + 1), material: layer.material, nominal: layer.thickness || 0,
+        ...layerIdentity(design, 'F', i, layer, front.length), nominal: layer.thickness || 0,
         dThk: trial?.dThkF?.[i] ?? 0, dn: trial?.dnF?.[i], dk: trial?.dkF?.[i],
     }));
     if (hasBack) back.forEach((layer, i) => rows.push({
-        label: 'B' + (i + 1), material: layer.material, nominal: layer.thickness || 0,
+        ...layerIdentity(design, 'B', i, layer, front.length), nominal: layer.thickness || 0,
         dThk: trial?.dThkB?.[i] ?? 0, dn: trial?.dnB?.[i], dk: trial?.dkB?.[i],
     }));
     return rows;

@@ -11,6 +11,7 @@ import {
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { matFriendlyName, matColor, withoutPPEF } from '../synthesisShared/synthesisHelpers.js';
 import { refineOffThread } from '../synthesisShared/workerRefine.js';
+import { displayLayerNumber } from '../../analysis/layerSensitivity/viewModel.js';
 
 // Which layer array a side maps to.
 export const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
@@ -139,6 +140,7 @@ export function buildPlotData(scan, design = null) {
 
     const bands = (scan.layers || []).map((l, k) => ({
         z0: zb[k], z1: zb[k + 1], color: matColor(l.material, design), k, materialId: l.material,
+        number: scanLayerNumber(scan, k),
     }));
     return { materials, boundaries: zb, bands, totalZ };
 }
@@ -153,19 +155,33 @@ export function resolveHostInfo(selected, scan, dMin, tn, design = null) {
         const dk = host?.thickness || 0;
         return {
             hostMat: host?.material,
+            hostNumber: scanLayerNumber(scan, selected.layerK),
             d1: Math.max(selected.frac * dk, dMin),
             d2: Math.max((1 - selected.frac) * dk, dMin),
             hostThickness: dk,
         };
     }
-    // gap → describe neighbours
+    // gap → describe neighbours. Gap p sits before stored layer p, so gap 0 is
+    // at the outer medium on the front and at the substrate on the back.
     const layers = scan.layers, p = selected.pos, N = layers.length;
-    const name = index => matFriendlyName(layers[index]?.material, design);
+    const name = index => matFriendlyName(layers[index]?.material, design) || '—';
+    const number = index => scanLayerNumber(scan, index);
+    const back = scan.side === 'back';
     let gapLabel;
-    if (p === 0)      gapLabel = tn.gapIncident(name(0) || '—');
-    else if (p === N) gapLabel = tn.gapSubstrate(name(N - 1) || '—');
-    else              gapLabel = tn.gapBetween(p, name(p - 1), p + 1, name(p));
+    if (N === 0)      gapLabel = tn.gapBare;
+    else if (p === 0) gapLabel = (back ? tn.gapSubstrate : tn.gapIncident)(number(0), name(0));
+    else if (p === N) gapLabel = (back ? tn.gapExit : tn.gapSubstrate)(number(N - 1), name(N - 1));
+    else              gapLabel = tn.gapBetween(number(p - 1), name(p - 1), number(p), name(p));
     return { gapLabel, hostThickness: 0 };
+}
+
+/**
+ * The number the Design Editor gives scanned layer k: front layers are stored
+ * air side first and back layers substrate first, and on both sides layer 1 is
+ * the one on the substrate.
+ */
+export function scanLayerNumber(scan, k) {
+    return displayLayerNumber({ side: scan.side, layerIndex: k }, scan.layers.length);
 }
 
 export function resolveDRange(selected, hostInfo, dMin) {

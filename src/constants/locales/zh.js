@@ -2988,8 +2988,10 @@ export default {
     insertedRefined: (m, mf) => `已插入 ${m} 并精炼 → MF ${mf}。`,
     geomGap: (mat, z, label) => `在 z = ${z} nm 处插入 ${mat} — ${label}。`,
     geomIntra: (mat, k, host, d1, dn, d2) => `在第 #${k} 层内部插入 ${mat}（${host}）：将 ${host} 拆分为 ${d1} nm + ${mat} ${dn} nm + ${host} ${d2} nm。`,
-    gapIncident: (first) => `在入射界面处，位于第 #1 层之前（${first}）`,
-    gapSubstrate: (last)  => `在基底界面处，位于最后一层之后（${last}）`,
+    gapIncident: (k, name) => `在入射界面处，紧邻第 #${k} 层（${name}）`,
+    gapExit: (k, name) => `在出射界面处，紧邻第 #${k} 层（${name}）`,
+    gapSubstrate: (k, name) => `在基底界面处，紧邻第 #${k} 层（${name}）`,
+    gapBare: '在裸基底上',
     gapBetween: (a, ma, b, mb) => `在第 #${a} 层 (${ma}) 与第 #${b} 层 (${mb}) 之间`,
   },
   admittance: {

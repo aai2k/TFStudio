@@ -47,8 +47,8 @@ export function DesignCleaner({ c, theme, t }) {
         h(CleanerControls, { ...state, c, dc }),
         h(CleanerSummary, { ...state, c, dc }),
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' } },
-            h(CleanerOpsTable, { c, dc, ops, dMin }),
-            h(CleanerThinList, { c, dc, thinList }),
+            h(CleanerOpsTable, { c, dc, design, ops, dMin }),
+            h(CleanerThinList, { c, dc, design, thinList }),
         )
     );
 }

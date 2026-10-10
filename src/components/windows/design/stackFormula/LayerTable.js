@@ -1,12 +1,16 @@
 import { materialLabel } from '../../../../utils/materials/catalogManager.js';
+import { editorLayerNumber } from '../../../../utils/misc/layerNumbers.js';
 
 const { createElement: h } = React;
 
-function layerRow(l, i, refLambda, resolveMaterial, c) {
+// The compiled layers are in front storage order, air side first, and are
+// numbered from the substrate within this coating, as the Design Editor
+// counts.
+function layerRow(l, number, refLambda, resolveMaterial, c) {
     const n = resolveMaterial(l.material).getNK(refLambda)[0];
     const qwot = n > 0 ? (4 * n * l.thickness) / refLambda : 0;
-    return h('tr', { key: i },
-        h('td', { style: { padding: '2px 8px', color: c.textDim } }, i + 1),
+    return h('tr', { key: number },
+        h('td', { style: { padding: '2px 8px', color: c.textDim } }, number),
         h('td', { style: { padding: '2px 8px' } }, materialLabel(l.material)),
         h('td', { style: { padding: '2px 8px', textAlign: 'right', color: c.textDim } }, qwot.toFixed(3)),
         h('td', { style: { padding: '2px 8px', textAlign: 'right' } }, l.thickness.toFixed(2)),
@@ -23,7 +27,7 @@ export function LayerTable({ compiled, refLambda, resolveMaterial, c, sf }) {
                             padding: '4px 8px', borderBottom: `1px solid ${c.border}`, fontWeight: 600 } }, col)))
             ),
             h('tbody', {},
-                compiled.ok ? compiled.layers.map((l, i) => layerRow(l, i, refLambda, resolveMaterial, c))
+                compiled.ok ? compiled.layers.map((l, i) => layerRow(l, editorLayerNumber('front', compiled.layers.length, i), refLambda, resolveMaterial, c))
                     : h('tr', {}, h('td', { colSpan: 4, style: { padding: '10px', color: c.textDim,
                             textAlign: 'center', fontStyle: 'italic' } }, sf.invalidFormula))
             )

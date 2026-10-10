@@ -1,5 +1,7 @@
+import { editorLayerNumber } from '../../../../utils/misc/layerNumbers.js';
+
 export function displayLayerNumber(row, frontCount) {
-    return row.side === 'back' ? row.layerIndex + 1 : frontCount - row.layerIndex;
+    return editorLayerNumber(row.side, frontCount, row.layerIndex);
 }
 
 export function displayLayerLabel(row, frontCount) {
