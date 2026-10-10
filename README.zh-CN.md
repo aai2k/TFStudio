@@ -18,7 +18,7 @@
 
 **[官网](https://tfstudio.xyz)** · **[教程](https://tfstudio.xyz/blog)** · **[在线演示](https://tfstudio.xyz/demo/)** · **[文档](https://docs.tfstudio.xyz)** · **[下载](../../releases)**
 
-[English](./README.md) · **简体中文**
+[English](./README.md) · **简体中文** · [Italiano](./README.it.md)
 
 **软件界面现已支持简体中文。**
 
