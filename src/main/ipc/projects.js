@@ -11,6 +11,7 @@
 const { writeRendererSettings } = require('../settingsFile');
 const { settleDesignIds, settleOpenedDesign } = require('../copiedDesignIds');
 const { decodeText, safeName: safeFileName, isWindowsDeviceName, windowsRefusesFolderName } = require('../paths');
+const { movedToTrash, deleteFile } = require('../recycleBin');
 
 const DESIGN_EXT = '.tfs';
 
@@ -607,15 +608,16 @@ async function handlePickMacleodDatabase(ctx) {
 }
 
 // ── Delete a .tfs file ─────────────────────────────────────────────────────
-// `designId`, when given, is the design the row shows; a file that now holds
-// another one is left alone.
-function handleDeleteItem(ctx, folderId, itemName, designId) {
+// The file goes to the Recycle Bin, as a deleted folder does, and is deleted
+// for good only where there is no bin. `designId`, when given, is the design
+// the row shows; a file that now holds another one is left alone.
+async function handleDeleteItem(ctx, folderId, itemName, designId) {
   const { fs, projectsDir, safeName, safeSegments, safeFilePath } = ctx;
   try {
     const filePath = safeFilePath(projectsDir, ...safeSegments(folderId), safeName(itemName) + DESIGN_EXT);
     if (!fs.existsSync(filePath)) return { success: true };
     if (holdsOtherDesign(ctx, filePath, designId)) return { success: false, error: NOT_THIS_DESIGN };
-    fs.unlinkSync(filePath);
+    await deleteFile(ctx, filePath, 'delete-item');
     return { success: true };
   } catch (error) {
     return { success: false, error: error.message };
@@ -826,17 +828,6 @@ function deleteDesignsBelow(ctx, dirPath) {
   return left;
 }
 
-async function movedToTrash(ctx, folderPath) {
-  if (!ctx.shell?.trashItem) return false;
-  try {
-    await ctx.shell.trashItem(folderPath);
-    return true;
-  } catch (err) {
-    ctx.log(`delete-folder: ${folderPath} could not go to the Recycle Bin: ${err.message}`);
-    return false;
-  }
-}
-
 // Deletes the folder and everything below it, subfolders included, by moving
 // it to the Recycle Bin, where it can be restored. Where there is no bin to
 // move it to, a Linux desktop without a trash among them, only the designs are
@@ -847,7 +838,7 @@ async function handleDeleteFolder(ctx, folderId) {
   try {
     const folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
     if (!fs.existsSync(folderPath)) return { success: false, error: 'Folder does not exist' };
-    if (await movedToTrash(ctx, folderPath)) return { success: true };
+    if (await movedToTrash(ctx, folderPath, 'delete-folder')) return { success: true };
     return { success: true, filesLeft: deleteDesignsBelow(ctx, folderPath) };
   } catch (error) {
     return { success: false, error: error.message };

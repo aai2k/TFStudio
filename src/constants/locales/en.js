@@ -518,12 +518,12 @@ export default {
     },
     deleteDesign: {
       title: 'Delete Design',
-      message: (name) => `Delete "${name}"? This cannot be undone.`,
+      message: (name) => `Delete "${name}"?`,
       confirm: 'Delete',
     },
     deleteDesigns: {
       title: 'Delete Designs',
-      message: (n) => `Delete ${n} selected designs? This cannot be undone.`,
+      message: (n) => `Delete ${n} selected designs?`,
       confirm: 'Delete',
     },
   },

@@ -6,6 +6,7 @@
 // CommonJS, Electron-free (deps via ctx).
 
 const { removedAgfFiles, setAgfFilesRemoved } = require('../seed');
+const { deleteFile } = require('../recycleBin');
 
 // Read a text file, honoring the byte-order mark. Some Zemax .agf catalogs
 // (e.g. 4M200, colorglass, opal) are written as UTF-16 LE with a BOM; reading
@@ -171,9 +172,10 @@ function agfFilesOf(ctx, catalog, catalogId) {
   return files.filter(f => legacyAgfId(path.basename(f, path.extname(f))) === catalogId);
 }
 
-// Delete one catalog file. Every subfolder is tried so a stale source tag does
-// not strand the file. A catalog made from a file in the agf folder has that
-// file listed as removed, or the next start's scan would bring it back.
+// Delete one catalog file, to the Recycle Bin where there is one. Every
+// subfolder is tried so a stale source tag does not strand the file. A catalog
+// made from a file in the agf folder has that file listed as removed, or the
+// next start's scan would bring it back.
 async function handleDeleteCatalog(ctx, catalogId) {
   const { fs, path, log, materialsDir, safeName, readJsonSafe } = ctx;
   const errors = [];
@@ -182,7 +184,7 @@ async function handleDeleteCatalog(ctx, catalogId) {
     if (!fs.existsSync(p)) continue;
     const agfFiles = sub === 'agf' ? agfFilesOf(ctx, readJsonSafe(p), catalogId) : [];
     try {
-      fs.unlinkSync(p);
+      await deleteFile(ctx, p, 'catalog:delete');
       if (agfFiles.length) setAgfFilesRemoved(materialsDir, agfFiles, true);
     } catch (err) { errors.push(err.message); }
   }

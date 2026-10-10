@@ -1,4 +1,6 @@
 // Shared IPC registration for named JSON presets stored as one file per preset.
+const { deleteFile } = require('../recycleBin');
+
 const STORE_SPECS = {
   meritFunctions: {
     channels: {
@@ -128,10 +130,12 @@ function savePreset(ctx, spec, preset) {
   }
 }
 
-function deletePreset(ctx, spec, fileOrName) {
+// The file goes to the Recycle Bin, and is deleted for good only where there
+// is no bin.
+async function deletePreset(ctx, spec, fileOrName) {
   try {
     const file = presetPath(ctx, spec, fileOrName);
-    if (ctx.fs.existsSync(file)) ctx.fs.unlinkSync(file);
+    if (ctx.fs.existsSync(file)) await deleteFile(ctx, file, spec.channels.delete);
     return { success: true };
   } catch (err) {
     ctx.log(`${spec.channels.delete} error: ${err.message}`);

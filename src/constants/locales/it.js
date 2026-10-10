@@ -512,12 +512,12 @@ export default {
     },
     deleteDesign: {
       title: 'Elimina design',
-      message: (name) => `Eliminare "${name}"? L'operazione non può essere annullata.`,
+      message: (name) => `Eliminare "${name}"?`,
       confirm: 'Elimina',
     },
     deleteDesigns: {
       title: 'Elimina design',
-      message: (n) => `Eliminare i ${n} design selezionati? L'operazione non può essere annullata.`,
+      message: (n) => `Eliminare i ${n} design selezionati?`,
       confirm: 'Elimina',
     },
   },

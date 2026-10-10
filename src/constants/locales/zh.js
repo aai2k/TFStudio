@@ -509,12 +509,12 @@ export default {
     },
     deleteDesign: {
       title: '删除设计',
-      message: (name) => `删除“${name}”？此操作无法撤销。`,
+      message: (name) => `删除“${name}”？`,
       confirm: '删除',
     },
     deleteDesigns: {
       title: '删除设计',
-      message: (n) => `删除选中的 ${n} 个设计？此操作无法撤销。`,
+      message: (n) => `删除选中的 ${n} 个设计？`,
       confirm: '删除',
     },
   },
