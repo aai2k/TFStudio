@@ -1885,6 +1885,7 @@ export default {
     loadError:     'Ошибка загрузки',
     deleted:       'Удалено',
     confirmDelete: 'Удалить пресет',
+    confirmReplace: (name) => `Функция качества «${name}» уже существует. Заменить её?`,
     noOpsToSave:   'Сначала добавьте хотя бы один операнд.',
     operandTypes: {
       T:    { label: 'T: Пропускание (ср. пол.)',                 group: 'optical' },
@@ -3785,6 +3786,7 @@ export default {
     clashes: (ids) => `Сохранено собственное определение материалов проекта: ${ids}. Покрытие может рассчитываться иначе, чем показано здесь.`,
     delete: 'Удалить',
     confirmDelete: (name) => `Удалить «${name}» из «Моих покрытий»?`,
+    confirmReplace: (name) => `Покрытие «${name}» уже существует. Заменить его?`,
     deleted: (name) => `Удалено: «${name}».`,
     types: {
       ar: 'Просветляющее', mirror: 'Зеркало', edge: 'Отрезающий фильтр', bandpass: 'Полосовой фильтр',
@@ -4022,6 +4024,7 @@ export default {
     saveError:      'Ошибка сохранения',
     noQualifiersToSave: 'Сначала добавьте хотя бы одно требование.',
     confirmDelete:  'Удалить шаблон',
+    confirmReplace: (name) => `Шаблон «${name}» уже существует. Заменить его?`,
     deleteTip:      'Удалить выбранный сохранённый шаблон',
     deleted:        'Удалено',
     summaries: {

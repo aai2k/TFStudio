@@ -10,13 +10,33 @@ async function refreshPresets(setDiskPresets) {
     } catch (_) { /* no-op */ }
 }
 
-async function savePreset(ctx, name) {
+// Ask in the app's confirm dialog where the window has one, else the browser's.
+function confirmThen(ctx, { title, message = '' }, action) {
+    if (ctx.setInputDialog) {
+        ctx.setInputDialog({
+            confirm: true, title, message,
+            confirmLabel: ctx.t.dialogs?.input?.ok || 'OK',
+            onConfirm: () => { ctx.setInputDialog(null); action(); },
+            onCancel: () => ctx.setInputDialog(null),
+        });
+    } else if (window.confirm(`${title} ${message}`.trim())) {
+        action();
+    }
+}
+
+// A preset already saved under the file the name leads to is replaced only
+// once the user says so, asked as a delete is.
+async function savePreset(ctx, name, overwrite = false) {
     const trimmed = (name || '').trim();
     if (!window.electronAPI?.saveMFPreset || !trimmed) return;
     ctx.setDiskBusy(true);
     try {
-        const result = await window.electronAPI.saveMFPreset({ name: trimmed, description: '', operands: ctx.operands });
-        if (result?.success) {
+        const result = await window.electronAPI.saveMFPreset(
+            { name: trimmed, description: '', operands: ctx.operands }, { overwrite });
+        if (result?.error === 'exists') {
+            confirmThen(ctx, { title: ctx.te.confirmReplace(result.name || trimmed) },
+                () => savePreset(ctx, trimmed, true));
+        } else if (result?.success) {
             ctx.setDiskMsg((ctx.te.savedAs || 'Saved as') + ' ' + trimmed + '.tfsm');
             ctx.refreshDiskPresets();
         } else {
@@ -85,16 +105,7 @@ async function deletePreset(ctx, name) {
 function requestDeletePreset(ctx, name) {
     if (!name) return;
     const title = ctx.te.confirmDelete || 'Delete preset';
-    if (ctx.setInputDialog) {
-        ctx.setInputDialog({
-            confirm: true, title, message: '"' + name + '"?',
-            confirmLabel: ctx.t.dialogs?.input?.ok || 'OK',
-            onConfirm: () => { ctx.setInputDialog(null); ctx.doDeletePreset(name); },
-            onCancel: () => ctx.setInputDialog(null),
-        });
-    } else if (window.confirm(title + ' "' + name + '"?')) {
-        ctx.doDeletePreset(name);
-    }
+    confirmThen(ctx, { title, message: '"' + name + '"?' }, () => ctx.doDeletePreset(name));
 }
 
 export function useMeritPresets(options) {

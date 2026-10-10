@@ -2050,6 +2050,7 @@ export default {
     loadError: '载入失败',
     deleted: '已删除',
     confirmDelete: '删除预设',
+    confirmReplace: (name) => `已有评价函数“${name}”。替换它吗？`,
     noOpsToSave: '请先添加至少一个操作数。',
     operandTypes: {
       T: {
@@ -4237,6 +4238,7 @@ export default {
     clashes: (ids) => `保留了设计自身对 ${ids} 的定义；该镀膜的计算结果可能与此处显示的不同。`,
     delete: '删除',
     confirmDelete: (name) => `从“我的镀膜”中删除“${name}”？`,
+    confirmReplace: (name) => `已有镀膜“${name}”。替换它吗？`,
     deleted: (name) => `已删除“${name}”。`,
     types: {
       ar: '减反射', mirror: '反射镜', edge: '边缘滤光片', bandpass: '带通滤光片',
@@ -4463,6 +4465,7 @@ export default {
     saveError: '保存失败',
     noQualifiersToSave: '请先添加至少一个限定符。',
     confirmDelete: '删除预设',
+    confirmReplace: (name) => `已有规格预设“${name}”。替换它吗？`,
     deleteTip: '删除所选已保存的预设',
     deleted: '已删除',
     summaries: {

@@ -47,6 +47,15 @@ function StackRow({ coating, design, side, setSide, c, ts }) {
         h('span', { style: { color: c.textDim } }, ts.layersShort(count)));
 }
 
+// Save, asking first when a coating is already saved under the file the name
+// leads to, as the library's delete asks. Null when the user keeps that one.
+async function saveAsking(entry, ts) {
+    const result = await saveUserCoating(entry);
+    if (result?.error !== 'exists') return result;
+    if (!window.confirm(ts.confirmReplace(result.name || entry.name))) return null;
+    return saveUserCoating(entry, { overwrite: true });
+}
+
 /**
  * Save a coating into My coatings. Opened from the Design Editor's Tools menu
  * and the Coating Library window on one side of the active design (`design`,
@@ -81,11 +90,16 @@ export function SaveCoatingDialog({ design, side: initialSide = 'front', coating
         const found = validateEntry(entry);
         if (found.length > 0) { setProblems(found); return; }
         setBusy(true);
-        const result = await saveUserCoating(entry);
+        const result = await saveAsking(entry, ts);
         setBusy(false);
-        if (!result?.success) { setProblems([sd.saveFailed(failReason(result, ts))]); return; }
-        onSaved?.(entry.name);
-        onClose();
+        // Null when the user kept the coating already saved: the dialog stays
+        // open for another name.
+        if (result?.success) {
+            onSaved?.(entry.name);
+            onClose();
+        } else if (result) {
+            setProblems([sd.saveFailed(failReason(result, ts))]);
+        }
     }
 
     const select = (value, onChange, options) => h('select', {

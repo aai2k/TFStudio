@@ -25,14 +25,15 @@ export async function listUserCoatings() {
 }
 
 /**
- * Write one coating. The file is named after the entry, so saving under an
- * existing name replaces that coating.
+ * Write one coating. The file is named after the entry. A coating already
+ * saved under that file is replaced only when `options.overwrite` is set;
+ * otherwise the answer is the error 'exists' with the `name` saved there.
  */
-export async function saveUserCoating(entry) {
+export async function saveUserCoating(entry, options) {
     const api = window.electronAPI;
     if (!api?.saveCoating) return { success: false, errorKey: 'desktopOnly' };
     const record = Object.fromEntries(Object.entries(entry).filter(([, value]) => value != null));
-    const result = await api.saveCoating(record);
+    const result = await api.saveCoating(record, options);
     if (result?.success) announce();
     return result;
 }

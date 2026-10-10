@@ -1,6 +1,9 @@
 // Shared IPC registration for named JSON presets stored as one file per preset.
 const { deleteFile } = require('../recycleBin');
 
+// The answer when a save would write over a preset already saved.
+const PRESET_EXISTS = 'exists';
+
 const STORE_SPECS = {
   meritFunctions: {
     channels: {
@@ -104,11 +107,31 @@ function loadPreset(ctx, spec, fileOrName) {
   }
 }
 
-function savePreset(ctx, spec, preset) {
+// The name of the preset a file holds, or its file name when it holds none
+// that can be read.
+function storedName(ctx, spec, file) {
+  try {
+    const name = JSON.parse(ctx.fs.readFileSync(file, 'utf-8'))?.name;
+    if (typeof name === 'string' && name) return name;
+  } catch (_) { /* named after the file */ }
+  return stripExtension(ctx.path.basename(file), spec.extension);
+}
+
+// A save never writes over a preset unless `options.overwrite` says so. It
+// answers with the code 'exists', for the renderer to word, and the name of the
+// preset already there. Existence is that of the file the save would write, so
+// a name that differs only in case on a file system that ignores it, or that
+// leads to the same file name once safeName has replaced what a file name
+// cannot hold, counts as taken.
+function savePreset(ctx, spec, preset, options) {
   try {
     if (!preset?.name) return { success: false, error: 'preset.name required' };
     if (!Array.isArray(preset[spec.itemsKey])) {
       return { success: false, error: `preset.${spec.itemsKey} required` };
+    }
+    const file = presetPath(ctx, spec, preset.name);
+    if (options?.overwrite !== true && ctx.fs.existsSync(file)) {
+      return { success: false, error: PRESET_EXISTS, name: storedName(ctx, spec, file) };
     }
     const output = spec.wholeRecord
       ? { ver: 1, ...preset }
@@ -118,11 +141,7 @@ function savePreset(ctx, spec, preset) {
         description: preset.description || '',
         [spec.itemsKey]: preset[spec.itemsKey],
       };
-    ctx.writeFileAtomic(
-      presetPath(ctx, spec, preset.name),
-      JSON.stringify(output, null, 2),
-      'utf-8',
-    );
+    ctx.writeFileAtomic(file, JSON.stringify(output, null, 2), 'utf-8');
     return { success: true };
   } catch (err) {
     ctx.log(`${spec.channels.save} error: ${err.message}`);
@@ -147,7 +166,7 @@ function registerJsonPresetStore(ipcMain, ctx, storeName) {
   const spec = STORE_SPECS[storeName];
   ipcMain.handle(spec.channels.list, async () => listPresets(ctx, spec));
   ipcMain.handle(spec.channels.load, async (event, value) => loadPreset(ctx, spec, value));
-  ipcMain.handle(spec.channels.save, async (event, preset) => savePreset(ctx, spec, preset));
+  ipcMain.handle(spec.channels.save, async (event, preset, options) => savePreset(ctx, spec, preset, options));
   ipcMain.handle(spec.channels.delete, async (event, value) => deletePreset(ctx, spec, value));
 }
 

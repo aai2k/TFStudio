@@ -1915,6 +1915,7 @@ export default {
     loadError:     'Load failed',
     deleted:       'Deleted',
     confirmDelete: 'Delete preset',
+    confirmReplace: (name) => `A merit function named "${name}" already exists. Replace it?`,
     noOpsToSave:   'Add at least one operand first.',
     operandTypes: {
       // ── Optical, single λ ────────────────────────────────────────────────
@@ -3846,6 +3847,7 @@ export default {
     clashes: (ids) => `Kept the design's own definition of ${ids}; the coating may compute differently than shown here.`,
     delete: 'Delete',
     confirmDelete: (name) => `Delete "${name}" from My coatings?`,
+    confirmReplace: (name) => `A coating named "${name}" already exists. Replace it?`,
     deleted: (name) => `Deleted "${name}".`,
     types: {
       ar: 'Antireflection', mirror: 'Mirror', edge: 'Edge filter', bandpass: 'Band-pass',
@@ -4086,6 +4088,7 @@ export default {
     saveError:      'Save failed',
     noQualifiersToSave: 'Add at least one qualifier first.',
     confirmDelete:  'Delete preset',
+    confirmReplace: (name) => `A spec preset named "${name}" already exists. Replace it?`,
     deleteTip:      'Delete the selected saved preset',
     deleted:        'Deleted',
     summaries: {

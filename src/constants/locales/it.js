@@ -2071,6 +2071,7 @@ export default {
     loadError: 'Caricamento non riuscito',
     deleted: 'Eliminata',
     confirmDelete: 'Elimina preimpostazione',
+    confirmReplace: (name) => `Esiste già una funzione di merito "${name}". Sostituirla?`,
     noOpsToSave: 'Aggiungi prima almeno un operando.',
     operandTypes: {
       T: {
@@ -4283,6 +4284,7 @@ export default {
     clashes: (ids) => `È stata mantenuta la definizione propria del design per ${ids}; il rivestimento può risultare diverso da quanto mostrato qui.`,
     delete: 'Elimina',
     confirmDelete: (name) => `Eliminare "${name}" da I miei rivestimenti?`,
+    confirmReplace: (name) => `Esiste già un rivestimento "${name}". Sostituirlo?`,
     deleted: (name) => `"${name}" eliminato.`,
     types: {
       ar: 'Antiriflesso',
@@ -4522,6 +4524,7 @@ export default {
     saveError: 'Salvataggio non riuscito',
     noQualifiersToSave: 'Aggiungi prima almeno un requisito.',
     confirmDelete: 'Elimina preimpostazione',
+    confirmReplace: (name) => `Esiste già una preimpostazione di specifica "${name}". Sostituirla?`,
     deleteTip: 'Elimina la preimpostazione salvata selezionata',
     deleted: 'Eliminata',
     summaries: {

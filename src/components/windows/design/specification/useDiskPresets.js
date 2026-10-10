@@ -10,15 +10,22 @@ async function refreshPresetsList(setDiskPresets) {
     } catch (_) { /* no-op */ }
 }
 
+// A preset already saved under the file the name leads to is replaced only
+// once the user says so, asked as a delete is.
+async function writePreset(name, qualifiers, ts) {
+    const preset = { name, description: '', qualifiers };
+    const res = await window.electronAPI.saveQualifierPreset(preset);
+    if (res?.error !== 'exists') return res;
+    if (!window.confirm(ts.confirmReplace(res.name || name))) return null;
+    return window.electronAPI.saveQualifierPreset(preset, { overwrite: true });
+}
+
 async function savePresetToDisk(name, { qualifiers, ts, setDiskMsg, setDiskBusy, refreshDiskPresets }) {
     if (!name) return;
     setDiskBusy(true);
     try {
-        const res = await window.electronAPI.saveQualifierPreset({
-            name,
-            description: '',
-            qualifiers,
-        });
+        const res = await writePreset(name, qualifiers, ts);
+        if (res === null) return;
         if (res?.success) {
             setDiskMsg((ts.savedAs || 'Saved as') + ' ' + name + '.tfsq');
             refreshDiskPresets();

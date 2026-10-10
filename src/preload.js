@@ -106,21 +106,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
   loadIntegralPresets:   () => ipcRenderer.invoke('integrals:load-all'),
   saveIntegralPreset:    (preset) => ipcRenderer.invoke('integrals:save', preset),
   deleteIntegralPreset:  (presetKey) => ipcRenderer.invoke('integrals:delete', presetKey),
+  // A save to any of the three preset stores below answers 'exists', writing
+  // nothing, when a preset is already saved under that file name;
+  // `options.overwrite` replaces it.
   // Qualifier presets — .tfsq files in Documents\TFStudio\Qualifiers\
   listQualifierPresets:   () => ipcRenderer.invoke('qualifiers:list'),
   loadQualifierPreset:    (name) => ipcRenderer.invoke('qualifiers:load', name),
-  saveQualifierPreset:    (preset) => ipcRenderer.invoke('qualifiers:save', preset),
+  saveQualifierPreset:    (preset, options) => ipcRenderer.invoke('qualifiers:save', preset, options),
   deleteQualifierPreset:  (name) => ipcRenderer.invoke('qualifiers:delete', name),
   // Coating library entries — .tfsc files in Documents\TFStudio\Coatings\
   listCoatings:           () => ipcRenderer.invoke('coatings:list'),
   loadCoating:            (name) => ipcRenderer.invoke('coatings:load', name),
-  saveCoating:            (entry) => ipcRenderer.invoke('coatings:save', entry),
+  saveCoating:            (entry, options) => ipcRenderer.invoke('coatings:save', entry, options),
   deleteCoating:          (name) => ipcRenderer.invoke('coatings:delete', name),
   packCoating:            (text, suggestedName) => ipcRenderer.invoke('coatings:pack', text, suggestedName),
   // Merit-function presets — .tfsm files in Documents\TFStudio\MeritFunctions\
   listMFPresets:          () => ipcRenderer.invoke('mf:list-presets'),
   loadMFPreset:           (name) => ipcRenderer.invoke('mf:load', name),
-  saveMFPreset:           (preset) => ipcRenderer.invoke('mf:save', preset),
+  saveMFPreset:           (preset, options) => ipcRenderer.invoke('mf:save', preset, options),
   deleteMFPreset:         (name) => ipcRenderer.invoke('mf:delete', name),
   // Report window: HTML/PDF export, templates, branding profile and logo
   saveReportHtml:         (html, name) => ipcRenderer.invoke('report:save-html', html, name),
