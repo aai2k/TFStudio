@@ -2,6 +2,7 @@
 // plain dispersion record. Anything written to disk goes through here.
 import { hasTabulatedComponent, interpolationRuleOf } from '../pchip.js';
 import { randomHex } from './randomHex.js';
+import { getRegistry } from './state.js';
 
 export function stripGetNK(material) {
     // eslint-disable-next-line no-unused-vars
@@ -82,18 +83,108 @@ function watchWrite(call, id, name, action) {
         });
 }
 
+/**
+ * Fired on `window` when a catalog save finds that another copy of TFStudio
+ * changed a material this edit changes too, with `{ name, answer }`: the
+ * material's name, and the function to call with true to replace the other
+ * copy's version with this one, or false to keep it.
+ */
+export const CATALOG_EDIT_CLASH = 'catalog-edit-clash';
+
+// The modification time each catalog's file had when this copy last read or
+// wrote it, by catalog id. Two copies of TFStudio can run on one data folder,
+// and each saves a catalog whole from its own registry; the time tells a file
+// the other copy wrote since (see persistCatalog).
+const fileTimes = new Map();
+
+/** Start over from the file times a load of every catalog answered with. */
+export function setCatalogFileTimes(times = {}) {
+    fileTimes.clear();
+    for (const [id, mtime] of Object.entries(times)) fileTimes.set(id, mtime);
+}
+
 // Persist one catalog to Documents\TFStudio\Materials\ via IPC. Every catalog
 // edit ends here, which is why the change notice goes here too; `removed` is
 // passed on to it (see notifyCatalogsChanged). Callers need not wait for the
 // returned promise: a failure is reported through CATALOG_SAVE_FAILED.
-export function persistCatalog(cat, removed = null) {
+//
+// `edit` names the one edit this save carries: `materials` maps each material
+// it added, changed or deleted to the record it had before (undefined for a new
+// one), and `name` is true for a rename. Such a save is refused when another
+// copy wrote the file since this one read it, and the edit is applied to the
+// catalog on disk instead (see saveMerged). A save without `edit`, such as of
+// a new catalog, writes the whole catalog unchecked.
+export function persistCatalog(cat, removed = null, edit = null) {
     if (!cat || cat.source === 'builtin') return Promise.resolve(null);
     const api = window.electronAPI;
     const pending = api?.saveCatalog
-        ? watchWrite(api.saveCatalog(serializeCatalog(cat)), cat.id, cat.name, 'save')
+        ? watchWrite(saveCatalogFile(api, cat, edit), cat.id, cat.name, 'save')
         : Promise.resolve(null);
     notifyCatalogsChanged(removed);
     return pending;
+}
+
+async function saveCatalogFile(api, cat, edit) {
+    const result = await api.saveCatalog(serializeCatalog(cat), edit ? fileTimes.get(cat.id) : undefined);
+    if (result?.error === 'changed-on-disk') return saveMerged(api, cat, edit, result);
+    if (result?.success) fileTimes.set(cat.id, result.mtime);
+    return result;
+}
+
+const recordText = (material) => JSON.stringify(material ? stripGetNK(material) : null);
+const idList = (ids) => (Array.isArray(ids) ? ids : []);
+
+// This copy's edit of `cat`, made in `onDisk`: each material it touched as
+// this copy has it, or gone when this copy deleted it, the name after a
+// rename, and the ids either copy retired.
+function applyEdit(onDisk, cat, edit) {
+    for (const id of Object.keys(edit.materials || {})) {
+        if (cat.materials[id]) onDisk.materials[id] = cat.materials[id];
+        else delete onDisk.materials[id];
+    }
+    if (edit.name) onDisk.name = cat.name;
+    const retired = [...new Set([...idList(onDisk.retiredIds), ...idList(cat.retiredIds)])];
+    if (retired.length) onDisk.retiredIds = retired;
+}
+
+// Apply this copy's edit of `cat` to `catalog`, the one another copy wrote,
+// and save that. When the other copy changed a material this edit changes
+// too, the user is asked first, and Cancel leaves the file as the other copy
+// wrote it. Either way the registry then holds what is on disk.
+async function saveMerged(api, cat, edit, { catalog, mtime }) {
+    const onDisk = normalizeCatalogMaterials(catalog);
+    const clash = Object.keys(edit.materials || {})
+        .find(id => recordText(onDisk.materials[id]) !== recordText(edit.materials[id]));
+    if (clash && !(await askReplace(cat.materials[clash]?.name || onDisk.materials[clash]?.name || clash))) {
+        adoptFromDisk(cat.id, onDisk, mtime);
+        return { canceled: true };
+    }
+    applyEdit(onDisk, cat, edit);
+    const result = await api.saveCatalog(serializeCatalog(onDisk), mtime);
+    if (result?.error === 'changed-on-disk') return saveMerged(api, cat, edit, result);
+    if (result?.success) adoptFromDisk(cat.id, onDisk, result.mtime);
+    return result;
+}
+
+function askReplace(name) {
+    return new Promise(answer => window.dispatchEvent(new CustomEvent(CATALOG_EDIT_CLASH, { detail: { name, answer } })));
+}
+
+// The registry takes `onDisk` in place of its catalog `id`, unless that was
+// removed here meanwhile. A material it no longer holds was deleted in the
+// other copy, and goes out with the change notice so an open design that uses
+// it keeps its own copy.
+function adoptFromDisk(id, onDisk, mtime) {
+    fileTimes.set(id, mtime);
+    const registry = getRegistry();
+    const held = registry[id];
+    if (!held) return;
+    const removed = {};
+    for (const [key, material] of Object.entries(held.materials)) {
+        if (material && !onDisk.materials[key]) removed[`${id}:${key}`] = removedRecord(held, material);
+    }
+    registry[id] = onDisk;
+    notifyCatalogsChanged(Object.keys(removed).length ? removed : null);
 }
 
 // Delete a catalog file via IPC; a failure is reported like a failed save.

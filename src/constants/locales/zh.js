@@ -1831,6 +1831,8 @@ export default {
     catalogSaveFailed: (name, error) => `目录“${name}”未能保存：${error}。下次编辑该目录时会再次保存；在保存成功之前，关闭 TFStudio 会丢失其更改。`,
     catalogDeleteFailed: (name, error) => `无法删除目录“${name}”：${error}。下次启动时它会重新出现。`,
     catalogFilesUnreadable: (files) => `以下目录文件无法读取，已跳过：${files}`,
+    materialChangedElsewhere: (name) => `${name} 在此副本加载目录之后，已在另一个 TFStudio 副本中被更改。要用此处的版本替换它吗？`,
+    replaceChangedMaterial: '替换',
     discardDraftConfirm: (name) => `放弃对“${name}”的未保存更改？`,
     discardDraft: '放弃',
     usedByDesigns: (count) => `${count} 个设计使用它，每个设计都会保留自己的副本。`,

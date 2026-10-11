@@ -1665,6 +1665,8 @@ export default {
     catalogSaveFailed: (name, error) => `Каталог "${name}" не сохранён: ${error}. Следующее изменение этого каталога сохранит его снова; пока сохранение не пройдёт, изменения пропадут при закрытии TFStudio.`,
     catalogDeleteFailed: (name, error) => `Не удалось удалить каталог "${name}": ${error}. Он появится снова при следующем запуске.`,
     catalogFilesUnreadable: (files) => `Эти файлы каталогов не удалось прочитать, они пропущены: ${files}`,
+    materialChangedElsewhere: (name) => `${name} изменён в другой копии TFStudio после того, как эта копия загрузила каталог. Заменить его версией из этой копии?`,
+    replaceChangedMaterial: 'Заменить',
     discardDraftConfirm: (name) => `Отбросить несохранённые изменения в «${name}»?`,
     discardDraft: 'Отбросить',
     usedByDesigns: (count) => `Используется в проектах: ${count}. Каждый сохранит свою копию.`,

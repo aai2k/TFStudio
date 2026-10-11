@@ -2,6 +2,7 @@ import { buildBuiltinCatalog } from './builtinCatalog.js';
 import { getRegistry, replaceRegistry } from './state.js';
 import {
     normalizeCatalogMaterials, persistCatalog, deleteCatalogFile, newCatalogUid, notifyCatalogsChanged, removedRecord,
+    setCatalogFileTimes,
 } from './persistence.js';
 import { freeCatalogName } from './userCatalogs.js';
 
@@ -10,8 +11,9 @@ import { freeCatalogName } from './userCatalogs.js';
  * Must be called once at app start, after window.electronAPI.loadCatalogs() resolves.
  *
  * @param {Object} persistedCatalogs  id → raw catalog object from disk (may be empty)
+ * @param {Object} fileTimes  id → modification time of its file when loaded (see persistCatalog)
  */
-export function initCatalogs(persistedCatalogs = {}) {
+export function initCatalogs(persistedCatalogs = {}, fileTimes = {}) {
     const catalogs = { builtin: buildBuiltinCatalog() };
     for (const cat of Object.values(persistedCatalogs)) {
         if (cat.id && cat.id !== 'builtin') {
@@ -27,6 +29,7 @@ export function initCatalogs(persistedCatalogs = {}) {
         }
     }
     replaceRegistry(catalogs);
+    setCatalogFileTimes(fileTimes);
 }
 
 /** All catalogs as an ordered array (builtin first, then alphabetically). */
@@ -66,12 +69,25 @@ export function stampCatalogs() {
     }
 }
 
+// Each material of `cat` that is not the record `existing` holds under its id,
+// mapped to the record `existing` holds there: the edit a refresh of `existing`
+// carries (see persistCatalog).
+function refreshedMaterials(existing, cat) {
+    const changed = {};
+    for (const [id, material] of Object.entries(cat.materials)) {
+        if (material !== existing.materials[id]) changed[id] = existing.materials[id];
+    }
+    return changed;
+}
+
 /**
  * Register an imported catalog (AGF, Zemax COATING.DAT, a tutorial's).
  * Overwrites any existing catalog with the same id, keeping its stamp: it is
  * the same catalog, refreshed. A new catalog whose name another catalog has
  * gets a number, as a new user catalog does: the selector lists catalogs by
- * name, and two that read the same cannot be told apart there.
+ * name, and two that read the same cannot be told apart there. A refresh is
+ * saved as the edit of the materials it adds or replaces, so one made over a
+ * file another copy of TFStudio wrote since keeps that copy's materials.
  */
 export function addCatalog(catalogData) {
     const catalogs = getRegistry();
@@ -85,7 +101,7 @@ export function addCatalog(catalogData) {
     const uid = cat.uid || existing?.uid || (STAMPED_SOURCES.has(cat.source) ? newCatalogUid() : null);
     if (uid) cat.uid = uid;
     catalogs[cat.id] = cat;
-    persistCatalog(cat);
+    persistCatalog(cat, null, existing ? { materials: refreshedMaterials(existing, cat) } : null);
     return cat;
 }
 

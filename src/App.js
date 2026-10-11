@@ -66,7 +66,7 @@ export const App = () => {
     });
 
     useEffect(() => { loadCatalogsFromDisk(); }, []);
-    useCatalogSaveFailures(t, setMessageNotification);
+    useCatalogSaveFailures(t, setMessageNotification, setInputDialog);
 
     // Main-process directory getters switch immediately after a successful
     // Settings change. The whole data folder moves at once, so both registries

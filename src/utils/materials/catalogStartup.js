@@ -165,11 +165,15 @@ async function scanAndRegisterAgfCatalogs() {
  */
 export async function loadCatalogsFromDisk() {
     let persistedCatalogs = {};
+    let fileTimes = {};
     let unreadable = [];
 
     if (window.electronAPI?.loadCatalogs) {
         const result = await window.electronAPI.loadCatalogs();
-        if (result.success) persistedCatalogs = result.catalogs;
+        if (result.success) {
+            persistedCatalogs = result.catalogs;
+            fileTimes = result.mtimes || {};
+        }
         unreadable = result.unreadable || [];
     }
 
@@ -177,7 +181,7 @@ export async function loadCatalogsFromDisk() {
         await migrateLegacyCatalogsFromLocalStorage(persistedCatalogs);
     }
 
-    initCatalogs(persistedCatalogs);
+    initCatalogs(persistedCatalogs, fileTimes);
 
     await scanAndRegisterAgfCatalogs();
     stampCatalogs();

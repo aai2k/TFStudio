@@ -52,7 +52,7 @@ export function renameUserCatalog(catalogId, newName) {
     const cat = catalogs[catalogId];
     if (!cat || cat.source !== 'user') return;
     cat.name = newName;
-    persistCatalog(cat);
+    persistCatalog(cat, null, { name: true });
 }
 
 /**
@@ -92,8 +92,9 @@ export function saveUserMaterial(catalogId, mat) {
     // Strip cached getNK so it gets rebuilt from stored data
     const { getNK, ...rest } = mat;
     if (hasTabulatedComponent(rest)) rest.interp = interpolationRuleOf(rest);
+    const before = cat.materials[rest.id];
     cat.materials[rest.id] = rest;
-    persistCatalog(cat);
+    persistCatalog(cat, null, { materials: { [rest.id]: before } });
     return rest;
 }
 
@@ -153,7 +154,7 @@ export function copyMaterialToCatalog(srcMaterial, targetCatalogId) {
     copy.id = generateMaterialId(targetCatalogId, copy.name || copy.id || 'material');
     if (copy.name) copy.name = freeMaterialName(cat, copy.name);
     cat.materials[copy.id] = copy;
-    persistCatalog(cat);
+    persistCatalog(cat, null, { materials: { [copy.id]: undefined } });
     return copy;
 }
 
@@ -195,6 +196,7 @@ export function importMaterialsIntoCatalog(catalogId, materials) {
     const cat = catalogs[catalogId];
     if (!cat || cat.source !== 'user') return 0;
     let added = 0;
+    const newIds = {};
     for (const m of Object.values(materials || {})) {
         // eslint-disable-next-line no-unused-vars
         const { getNK, ...rest } = m;
@@ -204,9 +206,10 @@ export function importMaterialsIntoCatalog(catalogId, materials) {
         rest.id = id;
         if (rest.name) rest.name = freeMaterialName(cat, rest.name);
         cat.materials[id] = rest;
+        newIds[id] = undefined;
         added++;
     }
-    if (added) persistCatalog(cat);
+    if (added) persistCatalog(cat, null, { materials: newIds });
     return added;
 }
 
@@ -224,5 +227,6 @@ export function removeUserMaterial(catalogId, materialId) {
     if (material && !materialIdTaken(cat, materialId)) {
         cat.retiredIds = [...(Array.isArray(cat.retiredIds) ? cat.retiredIds : []), materialId];
     }
-    persistCatalog(cat, material ? { [`${catalogId}:${materialId}`]: removedRecord(cat, material) } : null);
+    persistCatalog(cat, material ? { [`${catalogId}:${materialId}`]: removedRecord(cat, material) } : null,
+        { materials: { [materialId]: material } });
 }

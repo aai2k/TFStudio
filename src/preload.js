@@ -76,7 +76,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importCatalogAgf: () => ipcRenderer.invoke('catalog:import-agf'),
   importMaterialFiles: () => ipcRenderer.invoke('catalog:import-material-files'),
   loadCatalogs:    () => ipcRenderer.invoke('catalog:load-all'),
-  saveCatalog:     (catalog) => ipcRenderer.invoke('catalog:save', catalog),
+  saveCatalog:     (catalog, expectedMtime) => ipcRenderer.invoke('catalog:save', catalog, expectedMtime),
   deleteCatalog:   (catalogId, source) => ipcRenderer.invoke('catalog:delete', catalogId, source),
   getCatalogsDir:  () => ipcRenderer.invoke('catalog:get-dir'),
   scanAgfDir:      () => ipcRenderer.invoke('catalog:scan-agf-dir'),

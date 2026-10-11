@@ -17,7 +17,7 @@ function register(ipcMain, ctx) {
   ipcMain.handle('catalog:import-agf', async () => handleImportAgf(ctx));
   ipcMain.handle('catalog:import-material-files', async () => handleImportMaterialFiles(ctx));
   ipcMain.handle('catalog:load-all', async () => handleLoadAllCatalogs(ctx));
-  ipcMain.handle('catalog:save', async (event, catalog) => handleSaveCatalog(ctx, catalog));
+  ipcMain.handle('catalog:save', async (event, catalog, expectedMtime) => handleSaveCatalog(ctx, catalog, expectedMtime));
   ipcMain.handle('catalog:delete', async (event, catalogId) => handleDeleteCatalog(ctx, catalogId));
   ipcMain.handle('catalog:get-dir', async () => ctx.materialsDir);
   ipcMain.handle('catalog:scan-agf-dir', async () => handleScanAgfDir(ctx));
@@ -117,10 +117,14 @@ const CATALOG_SUBDIRS = ['agf', 'user', 'refractiveindex', 'library', 'optilayer
 // Load all catalogs from all source subfolders. A file that does not parse, or
 // holds no catalog id, is left out and named in `unreadable` ('user/x.catalog.json')
 // so the user learns that a catalog is missing. A byte-order mark, which a text
-// editor may add on a hand edit, is read through.
+// editor may add on a hand edit, is read through. `mtimes` holds each loaded
+// catalog's file modification time by catalog id, for a later save to be
+// checked against (see handleSaveCatalog). It is taken before the read, so a
+// write in between shows as a change rather than hiding one.
 async function handleLoadAllCatalogs(ctx) {
   const { fs, path, log, materialsDir, readTextAuto } = ctx;
   const catalogs = {};
+  const mtimes = {};
   const unreadable = [];
   for (const sub of CATALOG_SUBDIRS) {
     const subDir = path.join(materialsDir, sub);
@@ -128,25 +132,46 @@ async function handleLoadAllCatalogs(ctx) {
     try { files = fs.readdirSync(subDir).filter(f => f.endsWith('.catalog.json')); } catch (_) {}
     for (const file of files) {
       try {
-        const cat = JSON.parse(readTextAuto(path.join(subDir, file)));
-        if (cat?.id) catalogs[cat.id] = cat;
-        else unreadable.push(`${sub}/${file}`);
+        const filePath = path.join(subDir, file);
+        const { mtimeMs } = fs.statSync(filePath);
+        const cat = JSON.parse(readTextAuto(filePath));
+        if (cat?.id) {
+          catalogs[cat.id] = cat;
+          mtimes[cat.id] = mtimeMs;
+        } else unreadable.push(`${sub}/${file}`);
       } catch (err) {
         log(`Error loading catalog ${file}: ${err.message}`);
         unreadable.push(`${sub}/${file}`);
       }
     }
   }
-  return { success: true, catalogs, unreadable };
+  return { success: true, catalogs, mtimes, unreadable };
 }
 
-// Save one catalog (creates / overwrites its file).
-async function handleSaveCatalog(ctx, catalog) {
-  const { log, writeFileAtomic } = ctx;
+// The catalog in `filePath` with the file's time, when another copy of
+// TFStudio wrote the file after `expectedMtime`; null when no time is given or
+// the file is gone. One that no longer parses throws, so it is not written over.
+function changedOnDisk(ctx, filePath, expectedMtime) {
+  const { fs, readTextAuto } = ctx;
+  if (!Number.isFinite(expectedMtime) || !fs.existsSync(filePath)) return null;
+  const mtime = fs.statSync(filePath).mtimeMs;
+  return mtime === expectedMtime ? null : { catalog: JSON.parse(readTextAuto(filePath)), mtime };
+}
+
+// Save one catalog (creates / overwrites its file) and answer with the file's
+// new modification time. `expectedMtime`, the time the file had when the
+// renderer last read or wrote it, is optional. Given one, a save over a file
+// another copy of TFStudio wrote since is refused with 'changed-on-disk', the
+// catalog that file holds and its time, for the renderer to apply its edit to
+// (see persistCatalog).
+async function handleSaveCatalog(ctx, catalog, expectedMtime) {
+  const { fs, log, writeFileAtomic } = ctx;
   try {
     const filePath = catalogFilePath(ctx, catalog.id, catalog.source);
+    const changed = changedOnDisk(ctx, filePath, expectedMtime);
+    if (changed) return { success: false, error: 'changed-on-disk', ...changed };
     writeFileAtomic(filePath, JSON.stringify(catalog, null, 2), 'utf-8');
-    return { success: true };
+    return { success: true, mtime: fs.statSync(filePath).mtimeMs };
   } catch (err) {
     log(`catalog:save error: ${err.message}`);
     return { success: false, error: err.message };

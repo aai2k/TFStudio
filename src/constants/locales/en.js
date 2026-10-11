@@ -1695,6 +1695,8 @@ export default {
     catalogSaveFailed: (name, error) => `Catalog "${name}" was not saved: ${error}. The next edit of this catalog tries again; until a save works, its changes are lost when TFStudio closes.`,
     catalogDeleteFailed: (name, error) => `Catalog "${name}" could not be deleted: ${error}. It comes back at the next start.`,
     catalogFilesUnreadable: (files) => `These catalog files could not be read and were left out: ${files}`,
+    materialChangedElsewhere: (name) => `${name} was changed in another copy of TFStudio after this one loaded the catalog. Replace it with the version here?`,
+    replaceChangedMaterial: 'Replace',
     discardDraftConfirm: (name) => `Discard the unsaved changes to "${name}"?`,
     discardDraft: 'Discard',
     usedByDesigns: (count) => (count === 1 ? '1 design uses it and keeps its own copy.' : `${count} designs use it, and each keeps its own copy.`),

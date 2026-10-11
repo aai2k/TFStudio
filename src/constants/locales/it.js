@@ -1852,6 +1852,8 @@ export default {
     catalogSaveFailed: (name, error) => `Il catalogo "${name}" non è stato salvato: ${error}. La prossima modifica del catalogo riprova; finché un salvataggio non riesce, le modifiche vanno perse alla chiusura di TFStudio.`,
     catalogDeleteFailed: (name, error) => `Impossibile eliminare il catalogo "${name}": ${error}. Ricomparirà al prossimo avvio.`,
     catalogFilesUnreadable: (files) => `Questi file di catalogo non sono leggibili e sono stati esclusi: ${files}`,
+    materialChangedElsewhere: (name) => `${name} è stato modificato in un'altra copia di TFStudio dopo che questa copia ha caricato il catalogo. Sostituirlo con la versione di questa copia?`,
+    replaceChangedMaterial: 'Sostituisci',
     discardDraftConfirm: (name) => `Scartare le modifiche non salvate a "${name}"?`,
     discardDraft: 'Scarta',
     usedByDesigns: (count) => (count === 1 ? 'Lo usa 1 design, che ne conserva una copia propria.' : `Lo usano ${count} design, e ciascuno ne conserva una copia propria.`),
