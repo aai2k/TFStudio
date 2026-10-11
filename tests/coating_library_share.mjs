@@ -21,7 +21,8 @@ const entry = makeCoatingEntry({
 });
 
 // The form exists and has every field the URL fills.
-const form = readFileSync(new URL(`../.github/DISCUSSION_TEMPLATE/${CONTRIBUTE_CATEGORY}.yml`, import.meta.url), 'utf8');
+// Line endings are normalised: a Windows checkout with core.autocrlf has the form with CRLF.
+const form = readFileSync(new URL(`../.github/DISCUSSION_TEMPLATE/${CONTRIBUTE_CATEGORY}.yml`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 for (const id of Object.keys(shareFields(entry))) {
     assert.ok(form.includes(`id: ${id}\n`), `the discussion form has a field with id ${id}`);
 }
