@@ -82,6 +82,7 @@
       "build/app/**"
     ],
     "forceCodeSigning": false,
+    "afterPack": "./tools/install-folder-entries.mjs",
     "fileAssociations": [
       {
         "ext": "tfs",

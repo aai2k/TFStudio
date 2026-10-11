@@ -53,6 +53,9 @@ src/wasm/tmm_kernel.wasm
 build/app/
 build/icons/
 build/splash.bmp
+# The installer's list of the app's own files, written by
+# tools/install-folder-entries.mjs when electron-builder packs a Windows build.
+build/install-folder-entries.nsh
 # Generated material seed. The Schott AGF catalog is committed so tests can parse
 # it in CI (agf_parser_characterization.mjs); the rest of the seed is regenerated
 # by `npm run seed`.
