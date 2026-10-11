@@ -11,7 +11,7 @@
 const { writeRendererSettings } = require('../settingsFile');
 const { settleDesignIds, settleOpenedDesign } = require('../copiedDesignIds');
 const { decodeText, safeName: safeFileName, isWindowsDeviceName, windowsRefusesFolderName } = require('../paths');
-const { movedToTrash, deleteFile } = require('../recycleBin');
+const { goesToBin, moveToTrash, deleteFile } = require('../recycleBin');
 
 const DESIGN_EXT = '.tfs';
 
@@ -30,12 +30,12 @@ function register(ipcMain, ctx) {
   ipcMain.handle('open-tfs-path', async (event, filePath, rows) => handleOpenTfsPath(ctx, filePath, rows));
   ipcMain.handle('import-design-files', async () => handleImportDesignFiles(ctx));
   ipcMain.handle('pick-macleod-database', async () => handlePickMacleodDatabase(ctx));
-  ipcMain.handle('delete-item', async (event, folderId, itemName, designId) => handleDeleteItem(ctx, folderId, itemName, designId));
+  ipcMain.handle('delete-item', async (event, folderId, itemName, designId, options) => handleDeleteItem(ctx, folderId, itemName, designId, options));
   ipcMain.handle('rename-item', async (event, folderId, oldName, newName, ...row) => handleRenameItem(ctx, folderId, { oldName, newName }, ...row));
   ipcMain.handle('move-item', async (event, fromFolderId, toFolderId, itemName, designId) => handleMoveItem(ctx, fromFolderId, toFolderId, itemName, designId));
   ipcMain.handle('create-folder', async (event, folderId) => handleCreateFolder(ctx, folderId));
   ipcMain.handle('rename-folder', async (event, oldId, newId) => handleRenameFolder(ctx, oldId, newId));
-  ipcMain.handle('delete-folder', async (event, folderId) => handleDeleteFolder(ctx, folderId));
+  ipcMain.handle('delete-folder', async (event, folderId, options) => handleDeleteFolder(ctx, folderId, options));
 }
 
 function handleLoadSettings(ctx) {
@@ -608,17 +608,18 @@ async function handlePickMacleodDatabase(ctx) {
 }
 
 // ── Delete a .tfs file ─────────────────────────────────────────────────────
-// The file goes to the Recycle Bin, as a deleted folder does, and is deleted
-// for good only where there is no bin. `designId`, when given, is the design
-// the row shows; a file that now holds another one is left alone.
-async function handleDeleteItem(ctx, folderId, itemName, designId) {
+// The file goes to the Recycle Bin, as a deleted folder does. Where the bin
+// refuses it the file stays and the answer is the bin's code, for the renderer
+// to ask about; `options.permanent` deletes for good. `designId`, when given,
+// is the design the row shows; a file that now holds another one is left alone.
+async function handleDeleteItem(ctx, folderId, itemName, designId, options) {
   const { fs, projectsDir, safeName, safeSegments, safeFilePath } = ctx;
   try {
     const filePath = safeFilePath(projectsDir, ...safeSegments(folderId), safeName(itemName) + DESIGN_EXT);
     if (!fs.existsSync(filePath)) return { success: true };
     if (holdsOtherDesign(ctx, filePath, designId)) return { success: false, error: NOT_THIS_DESIGN };
-    await deleteFile(ctx, filePath, 'delete-item');
-    return { success: true };
+    const refusal = await deleteFile(ctx, filePath, 'delete-item', options);
+    return refusal ? { success: false, error: refusal } : { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }
@@ -829,17 +830,19 @@ function deleteDesignsBelow(ctx, dirPath) {
 }
 
 // Deletes the folder and everything below it, subfolders included, by moving
-// it to the Recycle Bin, where it can be restored. Where there is no bin to
-// move it to, a Linux desktop without a trash among them, only the designs are
-// deleted and `filesLeft` counts the other files kept in place, for the
-// renderer to mention.
-async function handleDeleteFolder(ctx, folderId) {
+// it to the Recycle Bin, where it can be restored. Where the bin refuses it,
+// a Linux desktop without a trash among them, nothing is deleted and the answer
+// is the bin's code, for the renderer to ask about. Deleted for good, with no
+// shell or with `options.permanent`, only the designs go and `filesLeft` counts
+// the other files kept in place, for the renderer to mention.
+async function handleDeleteFolder(ctx, folderId, options) {
   const { fs, projectsDir, safeSegments, safeFilePath } = ctx;
   try {
     const folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
     if (!fs.existsSync(folderPath)) return { success: false, error: 'Folder does not exist' };
-    if (await movedToTrash(ctx, folderPath, 'delete-folder')) return { success: true };
-    return { success: true, filesLeft: deleteDesignsBelow(ctx, folderPath) };
+    if (!goesToBin(ctx, options)) return { success: true, filesLeft: deleteDesignsBelow(ctx, folderPath) };
+    const refusal = await moveToTrash(ctx, folderPath, 'delete-folder');
+    return refusal ? { success: false, error: refusal } : { success: true };
   } catch (error) {
     return { success: false, error: error.message };
   }

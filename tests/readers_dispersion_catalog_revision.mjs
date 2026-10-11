@@ -49,7 +49,7 @@ shown = plotted();
 assert.ok(Math.abs(shown.material.getNK(550)[0] - 1.6) < 1e-9,
     `an edit in the Material Editor reaches the plot: n(550) = ${shown.material.getNK(550)[0]}`);
 
-catalogManager.removeCatalog(catalog.id);
+await catalogManager.removeCatalog(catalog.id);
 shown = plotted();
 assert.equal(shown.missing, true, 'deleting the catalog is seen without any change to the design');
 assert.equal(shown.material, null);

@@ -98,7 +98,7 @@ function glassInDeletedCatalog(name) {
     assert.ok(Math.abs(before.request.sample.substrate.n[0] - 1.53) < 0.01,
         'the request carries the glass n, sampled on this thread');
 
-    catalogManager.removeCatalog(glass.catalogId);
+    await catalogManager.removeCatalog(glass.catalogId);
     const after = nkModel.characterizationRequest(design, settings);
     assert.equal(after.error, 'materialMissing',
         'a witness glass whose catalog is gone must stop the fit, not become Air');
@@ -155,7 +155,7 @@ function probe(hook, design) {
     assert.equal(live.plan.chipMaterial, glass.id, 'a glass that resolves is used as picked');
     assert.equal(live.chipGlassMissing, null);
 
-    catalogManager.removeCatalog(glass.catalogId);
+    await catalogManager.removeCatalog(glass.catalogId);
 
     // Process Exporter: the plan falls back to the substrate, so the model the
     // window builds in a memo does not throw into the error boundary.
@@ -222,7 +222,7 @@ function probe(hook, design) {
     const shown = render(React.createElement(MaterialDispersionEvaluation, { c, t }), chipDesign);
     assert.ok(!shown.includes(escaped(t.materialResolution.pickedMissing(glass.id))));
 
-    catalogManager.removeCatalog(glass.catalogId);
+    await catalogManager.removeCatalog(glass.catalogId);
     for (const code of LANGUAGES) {
         const locale = getLocale(code);
         const html = render(React.createElement(MaterialDispersionEvaluation, { c, t: locale }), chipDesign);

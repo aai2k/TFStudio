@@ -75,12 +75,21 @@ async function loadPresetFromDisk(name, mode, { qualifiers, writeQualifiers, che
     } finally { setDiskBusy(false); }
 }
 
-async function deletePresetFromDisk(name, { ts, setDiskMsg, setDiskBusy, refreshDiskPresets }) {
+// A preset the Recycle Bin refused is still there; it is deleted for good only
+// once the user says so, asked as the delete was.
+async function removePreset(name, t) {
+    const res = await window.electronAPI.deleteQualifierPreset(name);
+    if (res?.error !== 'no-bin') return res;
+    if (!window.confirm(t.dialogs.noBin.one(name))) return null;
+    return window.electronAPI.deleteQualifierPreset(name, { permanent: true });
+}
+
+async function deletePresetFromDisk(name, { ts, t, setDiskMsg, setDiskBusy, refreshDiskPresets }) {
     if (!window.electronAPI?.deleteQualifierPreset) return;
     if (!window.confirm((ts.confirmDelete || 'Delete preset') + ' "' + name + '"?')) return;
     setDiskBusy(true);
     try {
-        const res = await window.electronAPI.deleteQualifierPreset(name);
+        const res = await removePreset(name, t);
         if (res?.success) {
             setDiskMsg((ts.deleted || 'Deleted') + ' ' + name);
             refreshDiskPresets();
@@ -90,7 +99,7 @@ async function deletePresetFromDisk(name, { ts, setDiskMsg, setDiskBusy, refresh
 }
 
 // User-saved .tfsq presets (Documents\TFStudio\Qualifiers\).
-export function useDiskPresets({ qualifiers, writeQualifiers, checkpoint, design, ts, setInputDialog }) {
+export function useDiskPresets({ qualifiers, writeQualifiers, checkpoint, design, ts, t, setInputDialog }) {
     const [diskPresets, setDiskPresets] = useState([]);
     const [diskBusy, setDiskBusy]       = useState(false);
     const [diskMsg,  setDiskMsg]        = useState(null);
@@ -112,8 +121,8 @@ export function useDiskPresets({ qualifiers, writeQualifiers, checkpoint, design
     }), [qualifiers, writeQualifiers, checkpoint, ts]);
 
     const onDeleteDiskPreset = useCallback((name) => deletePresetFromDisk(name, {
-        ts, setDiskMsg, setDiskBusy, refreshDiskPresets,
-    }), [refreshDiskPresets, ts]);
+        ts, t, setDiskMsg, setDiskBusy, refreshDiskPresets,
+    }), [refreshDiskPresets, ts, t]);
 
     return { diskPresets, diskBusy, diskMsg, onSavePreset, onLoadDiskPreset, onDeleteDiskPreset };
 }

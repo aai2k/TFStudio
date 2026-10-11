@@ -70,11 +70,13 @@ function reportWriteFailure(id, name, action, error) {
 }
 
 // Watch one IPC write: a result of success:false, or a call that fails, is
-// reported as CATALOG_SAVE_FAILED. Resolves to the IPC result either way.
+// reported as CATALOG_SAVE_FAILED. Resolves to the IPC result either way. A
+// delete the Recycle Bin refused ('no-bin') is not reported: the file is still
+// there, and the caller asks whether to delete it for good.
 function watchWrite(call, id, name, action) {
     return Promise.resolve(call).then(
         (result) => {
-            if (result && result.success === false) reportWriteFailure(id, name, action, result.error);
+            if (result && result.success === false && result.error !== 'no-bin') reportWriteFailure(id, name, action, result.error);
             return result;
         },
         (err) => {
@@ -188,10 +190,11 @@ function adoptFromDisk(id, onDisk, mtime) {
 }
 
 // Delete a catalog file via IPC; a failure is reported like a failed save.
-export function deleteCatalogFile(catalogId, source, name = catalogId) {
+// `options.permanent` deletes it for good rather than to the Recycle Bin.
+export function deleteCatalogFile(catalogId, source, name = catalogId, options) {
     const api = window.electronAPI;
     return api?.deleteCatalog
-        ? watchWrite(api.deleteCatalog(catalogId, source), catalogId, name, 'delete')
+        ? watchWrite(api.deleteCatalog(catalogId, source, options), catalogId, name, 'delete')
         : Promise.resolve(null);
 }
 

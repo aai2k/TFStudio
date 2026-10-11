@@ -149,13 +149,14 @@ function savePreset(ctx, spec, preset, options) {
   }
 }
 
-// The file goes to the Recycle Bin, and is deleted for good only where there
-// is no bin.
-async function deletePreset(ctx, spec, fileOrName) {
+// The file goes to the Recycle Bin. Where the bin refuses it the file stays and
+// the answer is the bin's code, for the renderer to ask about;
+// `options.permanent` deletes for good.
+async function deletePreset(ctx, spec, fileOrName, options) {
   try {
     const file = presetPath(ctx, spec, fileOrName);
-    if (ctx.fs.existsSync(file)) await deleteFile(ctx, file, spec.channels.delete);
-    return { success: true };
+    const refusal = ctx.fs.existsSync(file) ? await deleteFile(ctx, file, spec.channels.delete, options) : null;
+    return refusal ? { success: false, error: refusal } : { success: true };
   } catch (err) {
     ctx.log(`${spec.channels.delete} error: ${err.message}`);
     return { success: false, error: err.message };
@@ -167,7 +168,7 @@ function registerJsonPresetStore(ipcMain, ctx, storeName) {
   ipcMain.handle(spec.channels.list, async () => listPresets(ctx, spec));
   ipcMain.handle(spec.channels.load, async (event, value) => loadPreset(ctx, spec, value));
   ipcMain.handle(spec.channels.save, async (event, preset, options) => savePreset(ctx, spec, preset, options));
-  ipcMain.handle(spec.channels.delete, async (event, value) => deletePreset(ctx, spec, value));
+  ipcMain.handle(spec.channels.delete, async (event, value, options) => deletePreset(ctx, spec, value, options));
 }
 
 module.exports = { registerJsonPresetStore };

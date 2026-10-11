@@ -31,8 +31,18 @@ function applyEntry({ selected, side, mode, design, hasActiveDesign, checkpoint,
     setMessage(lines.join(' '));
 }
 
+// Delete a coating. One the Recycle Bin refused is still there; it is deleted
+// for good only once the user says so, asked as the delete was. Null when the
+// user keeps it.
+async function deleteAsking(name, t) {
+    const result = await deleteUserCoating(name);
+    if (result?.error !== 'no-bin') return result;
+    if (!window.confirm(t.dialogs.noBin.one(name))) return null;
+    return deleteUserCoating(name, { permanent: true });
+}
+
 /** State and actions of the Coating Library window. */
-export function useCoatingLibrary(ts) {
+export function useCoatingLibrary(ts, t) {
     const { design, updateDesign, checkpoint, hasActiveDesign } = useDesign();
     const [session, setField] = useWindowSession(coatingLibrarySession, null);
     const [userEntries, setUserEntries] = useState([]);
@@ -72,12 +82,12 @@ export function useCoatingLibrary(ts) {
     const remove = useCallback(async () => {
         if (!selected || session.source !== 'user') return;
         if (!window.confirm(ts.confirmDelete(selected.name))) return;
-        const result = await deleteUserCoating(selected.name);
+        const result = await deleteAsking(selected.name, t);
         if (result?.success) {
             setField('selectedId', null);
             setMessage(ts.deleted(selected.name));
         }
-    }, [selected, session.source, setField, ts]);
+    }, [selected, session.source, setField, ts, t]);
 
     return {
         design, hasActiveDesign, session, setField, entries, visible, tags, substrates, toggleTag, toggleType,

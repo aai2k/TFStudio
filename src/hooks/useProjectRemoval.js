@@ -10,11 +10,28 @@
  * A design is deleted by its folder and name, which is how its file is named,
  * and its id goes with them: the main process leaves alone a file that holds
  * another design by now.
+ *
+ * Deleted files go to the Recycle Bin. Where the bin refuses them, nothing is
+ * deleted and the user is asked once per delete whether to delete for good.
  */
 
 import { folderSubtree, isFolderWithin, rowFileFailure } from '../components/panels/projectExplorerModel.js';
 
 const { useRef, useCallback } = React;
+
+// The main process's answer when the Recycle Bin refused a delete.
+const NO_BIN = 'no-bin';
+
+// Ask whether to delete for good what the Recycle Bin refused.
+function askDeleteForGood(a, question, confirmLabel, deleteForGood) {
+    a.setInputDialog({
+        confirm: true, danger: true,
+        title: question,
+        confirmLabel,
+        onConfirm: () => { a.setInputDialog(null); deleteForGood(); },
+        onCancel: () => a.setInputDialog(null),
+    });
+}
 
 // Delete one SPECIFIC design by id — used by the explorer's per-row delete
 // button/key. Must NOT route through "select, then delete the selection":
@@ -24,18 +41,43 @@ function removeOne(a, folderId, itemId) {
     const folder = a.foldersRef.current.find(f => f.id === folderId);
     const item   = folder?.items.find(i => i.id === itemId);
     if (!item) return;
-    return a.persistChange(
-        window.electronAPI?.deleteItem
-            ? () => window.electronAPI.deleteItem(folder.id, item.name, item.id)
-            : null,
-        () => {
-            a.setFolders(prev => prev.map(f => f.id === folderId
-                ? { ...f, items: f.items.filter(i => i.id !== itemId) }
-                : f));
-            a.evictDesigns(new Set([itemId]), (f, i) => f.id === folderId && i.id === itemId);
-        },
-        (error) => rowFileFailure(a.t, error, item.name),
-    );
+    return removeDesigns(a, [{ id: item.id, folderId: folder.id, itemName: item.name }]);
+}
+
+// Delete each design's file, one call at a time; `options`, when given, go with
+// every call. The files the Recycle Bin refused stay, and the user is asked
+// about all of them in one question. A row is its folder and its id: two
+// folders can show one design through linked files, and deleting the file of
+// one row leaves the other row and the design it shows.
+async function removeDesigns(a, deletions, ...options) {
+    const removedIds = new Set();
+    const removedRows = new Set();
+    const refused = [];
+    for (const d of deletions) {
+        await a.persistChange(
+            window.electronAPI?.deleteItem
+                ? () => window.electronAPI.deleteItem(d.folderId, d.itemName, d.id, ...options)
+                : null,
+            () => { removedIds.add(d.id); removedRows.add(`${d.folderId}\n${d.id}`); },
+            (error) => {
+                if (error !== NO_BIN) return rowFileFailure(a.t, error, d.itemName);
+                refused.push(d);
+                return false;
+            },
+        );
+    }
+    if (removedRows.size > 0) {
+        const isRemoved = (f, item) => removedRows.has(`${f.id}\n${item.id}`);
+        a.setFolders(prev => prev.map(f => ({ ...f, items: f.items.filter(item => !isRemoved(f, item)) })));
+        a.evictDesigns(removedIds, isRemoved);
+    }
+    if (refused.length === 0) return;
+    const { noBin, deleteDesign, deleteDesigns } = a.t.dialogs;
+    const one = refused.length === 1;
+    askDeleteForGood(a,
+        one ? noBin.one(refused[0].itemName) : noBin.several(refused.length),
+        (one ? deleteDesign : deleteDesigns).confirm,
+        () => removeDesigns(a, refused, { permanent: true }));
 }
 
 async function removeSelection(a, explicitList) {
@@ -53,36 +95,21 @@ async function removeSelection(a, explicitList) {
         const row = folder?.items.find(s => s.id === item.id);
         return row ? { id: item.id, folderId: folder.id, itemName: row.name } : null;
     }).filter(Boolean);
-
-    const removedIds = new Set();
-    for (const d of deletions) {
-        await a.persistChange(
-            window.electronAPI?.deleteItem
-                ? () => window.electronAPI.deleteItem(d.folderId, d.itemName, d.id)
-                : null,
-            () => removedIds.add(d.id),
-            (error) => rowFileFailure(a.t, error, d.itemName),
-        );
-    }
-    if (removedIds.size === 0) return;
-
-    a.setFolders(prev => prev.map(f => ({
-        ...f, items: f.items.filter(item => !removedIds.has(item.id)),
-    })));
-    a.evictDesigns(removedIds, (f, item) => removedIds.has(item.id));
+    return removeDesigns(a, deletions);
 }
 
 // Deleting a folder deletes everything below it, subfolders included. Where the
-// main process could not move it to the Recycle Bin, it deletes only the
-// designs, and the user hears about the other files it kept.
-function removeFolderTree(a, folderId) {
+// Recycle Bin refuses it, the user is asked whether to delete it for good. A
+// folder deleted for good loses only its designs, and the user hears about the
+// other files kept.
+function removeFolderTree(a, folderId, ...options) {
     const folder = a.foldersRef.current.find(f => f.id === folderId);
     if (!folder) return;
     const subtree = folderSubtree(a.foldersRef.current, folderId);
     const removedIds = new Set(subtree.flatMap(f => f.items.map(item => item.id)));
     return a.persistChange(
         window.electronAPI?.deleteFolder
-            ? () => window.electronAPI.deleteFolder(folderId)
+            ? () => window.electronAPI.deleteFolder(folderId, ...options)
             : null,
         (result) => {
             a.setFolders(prev => prev.filter(f => !isFolderWithin(f.id, folderId)));
@@ -101,12 +128,18 @@ function removeFolderTree(a, folderId) {
                 a.forgetUnreadNames(folderId);
             }
         },
+        (error) => {
+            if (error !== NO_BIN) return null;
+            askDeleteForGood(a, a.t.dialogs.noBin.one(folder.name), a.t.dialogs.deleteProject.confirm,
+                () => removeFolderTree(a, folderId, { permanent: true }));
+            return false;
+        },
     );
 }
 
-export function useProjectRemoval({ tree, persistChange, setMessageNotification, t }) {
+export function useProjectRemoval({ tree, persistChange, setInputDialog, setMessageNotification, t }) {
     const a = useRef({});
-    a.current = { ...tree, persistChange, setMessageNotification, t };
+    a.current = { ...tree, persistChange, setInputDialog, setMessageNotification, t };
 
     return {
         removeItem:          useCallback((folderId, itemId) => removeOne(a.current, folderId, itemId), []),

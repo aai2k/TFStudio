@@ -126,7 +126,7 @@ const foreign = { ...design('g', 'G', 'user_lab:H'),                  // a copy 
     materials: { 'user_lab:H': { ...H, tabData: [[300, 1.9, 0], [2000, 1.9, 0]], catalogUid: 'stamp-elsewhere' } } };
 store.setDesigns(prev => ({ ...prev, f: unsaved, g: foreign }));
 render();
-removeCatalog('user_lab');
+await removeCatalog('user_lab');
 render();
 assert.equal(resolveDesignMaterial(current('f'), 'user_lab:H').status, 'embedded',
     'a design that used the deleted catalog keeps its material');

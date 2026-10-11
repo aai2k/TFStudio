@@ -108,16 +108,25 @@ export function addCatalog(catalogData) {
 /**
  * Remove a catalog. Builtin cannot be removed. The change notice carries every
  * material it held, so an open design using one keeps it as its own copy.
+ *
+ * The file is deleted first, and the promise resolves to the main process's
+ * answer. A file the Recycle Bin refused ('no-bin') stays, and so does the
+ * catalog, for the caller to ask about; `options.permanent` deletes the file
+ * for good. The notice is built from the catalog the registry holds once the
+ * file is gone: a save merged with another copy's file meanwhile replaces it.
  */
-export function removeCatalog(catalogId) {
-    if (catalogId === 'builtin') return;
-    const catalogs = getRegistry();
-    const cat = catalogs[catalogId];
-    delete catalogs[catalogId];
-    deleteCatalogFile(catalogId, cat?.source, cat?.name);
+export async function removeCatalog(catalogId, options) {
+    if (catalogId === 'builtin') return null;
+    const before = getRegistry()[catalogId];
+    const answer = await deleteCatalogFile(catalogId, before?.source, before?.name, options);
+    if (answer?.error === 'no-bin') return answer;
+    const registry = getRegistry();
+    const cat = registry[catalogId] || before;
+    delete registry[catalogId];
     const removed = {};
     for (const [key, material] of Object.entries(cat?.materials || {})) {
         if (material) removed[`${catalogId}:${key}`] = removedRecord(cat, material);
     }
     notifyCatalogsChanged(removed);
+    return answer;
 }

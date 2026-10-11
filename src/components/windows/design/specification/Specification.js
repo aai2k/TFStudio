@@ -34,7 +34,7 @@ export function Specification({ c, theme, t, setInputDialog }) {
     const {
         diskPresets, diskBusy, diskMsg,
         onSavePreset, onLoadDiskPreset, onDeleteDiskPreset,
-    } = useDiskPresets({ qualifiers, writeQualifiers, checkpoint, design, ts, setInputDialog });
+    } = useDiskPresets({ qualifiers, writeQualifiers, checkpoint, design, ts, t, setInputDialog });
 
     return h('div', {
         ref: containerRef,

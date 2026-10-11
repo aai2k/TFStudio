@@ -33,14 +33,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openTfsPath:      (filePath, rows) => ipcRenderer.invoke('open-tfs-path', filePath, rows),
   importDesignFiles: () => ipcRenderer.invoke('import-design-files'),
   pickMacleodDatabase: () => ipcRenderer.invoke('pick-macleod-database'),
-  deleteItem:       (folderId, itemName, designId) => ipcRenderer.invoke('delete-item', folderId, itemName, designId),
+  // A delete of a design or a project folder, as of a catalog or a preset
+  // below, moves it to the Recycle Bin. Where the bin refuses, the answer is
+  // 'no-bin' and nothing is deleted; `options.permanent` deletes for good.
+  deleteItem:       (folderId, itemName, designId, options) => ipcRenderer.invoke('delete-item', folderId, itemName, designId, options),
   renameItem:       (folderId, oldName, newName, designId, expectedMtime) => ipcRenderer.invoke('rename-item', folderId, oldName, newName, designId, expectedMtime),
   moveItem:         (fromFolderId, toFolderId, itemName, designId) => ipcRenderer.invoke('move-item', fromFolderId, toFolderId, itemName, designId),
   createFolder:     (folderId) => ipcRenderer.invoke('create-folder', folderId),
   // Also moves a folder: a move is a rename whose target sits under a
   // different parent.
   renameFolder:     (oldId, newId) => ipcRenderer.invoke('rename-folder', oldId, newId),
-  deleteFolder:     (folderId) => ipcRenderer.invoke('delete-folder', folderId),
+  deleteFolder:     (folderId, options) => ipcRenderer.invoke('delete-folder', folderId, options),
   loadSettings:     () => ipcRenderer.invoke('load-settings'),
   saveSettings:     (settings) => ipcRenderer.invoke('save-settings', settings),
   importVscodeTheme: () => ipcRenderer.invoke('theme:import-vscode'),
@@ -77,7 +80,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   importMaterialFiles: () => ipcRenderer.invoke('catalog:import-material-files'),
   loadCatalogs:    () => ipcRenderer.invoke('catalog:load-all'),
   saveCatalog:     (catalog, expectedMtime) => ipcRenderer.invoke('catalog:save', catalog, expectedMtime),
-  deleteCatalog:   (catalogId, source) => ipcRenderer.invoke('catalog:delete', catalogId, source),
+  deleteCatalog:   (catalogId, source, options) => ipcRenderer.invoke('catalog:delete', catalogId, source, options),
   getCatalogsDir:  () => ipcRenderer.invoke('catalog:get-dir'),
   scanAgfDir:      () => ipcRenderer.invoke('catalog:scan-agf-dir'),
   riiFetchYaml:    (url) => ipcRenderer.invoke('rii:fetch-yaml', url),
@@ -113,18 +116,18 @@ contextBridge.exposeInMainWorld('electronAPI', {
   listQualifierPresets:   () => ipcRenderer.invoke('qualifiers:list'),
   loadQualifierPreset:    (name) => ipcRenderer.invoke('qualifiers:load', name),
   saveQualifierPreset:    (preset, options) => ipcRenderer.invoke('qualifiers:save', preset, options),
-  deleteQualifierPreset:  (name) => ipcRenderer.invoke('qualifiers:delete', name),
+  deleteQualifierPreset:  (name, options) => ipcRenderer.invoke('qualifiers:delete', name, options),
   // Coating library entries — .tfsc files in Documents\TFStudio\Coatings\
   listCoatings:           () => ipcRenderer.invoke('coatings:list'),
   loadCoating:            (name) => ipcRenderer.invoke('coatings:load', name),
   saveCoating:            (entry, options) => ipcRenderer.invoke('coatings:save', entry, options),
-  deleteCoating:          (name) => ipcRenderer.invoke('coatings:delete', name),
+  deleteCoating:          (name, options) => ipcRenderer.invoke('coatings:delete', name, options),
   packCoating:            (text, suggestedName) => ipcRenderer.invoke('coatings:pack', text, suggestedName),
   // Merit-function presets — .tfsm files in Documents\TFStudio\MeritFunctions\
   listMFPresets:          () => ipcRenderer.invoke('mf:list-presets'),
   loadMFPreset:           (name) => ipcRenderer.invoke('mf:load', name),
   saveMFPreset:           (preset, options) => ipcRenderer.invoke('mf:save', preset, options),
-  deleteMFPreset:         (name) => ipcRenderer.invoke('mf:delete', name),
+  deleteMFPreset:         (name, options) => ipcRenderer.invoke('mf:delete', name, options),
   // Report window: HTML/PDF export, templates, branding profile and logo
   saveReportHtml:         (html, name) => ipcRenderer.invoke('report:save-html', html, name),
   exportReportPdf:        (html, name, options) => ipcRenderer.invoke('report:export-pdf', html, name, options),

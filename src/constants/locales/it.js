@@ -531,6 +531,10 @@ export default {
       message: (n) => `Eliminare i ${n} design selezionati?`,
       confirm: 'Elimina',
     },
+    noBin: {
+      one: (name) => `"${name}" non può essere spostato nel Cestino. Eliminarlo definitivamente?`,
+      several: (n) => `${n} file non possono essere spostati nel Cestino. Eliminarli definitivamente?`,
+    },
   },
   welcome: {
     title: 'Benvenuto in TFStudio',

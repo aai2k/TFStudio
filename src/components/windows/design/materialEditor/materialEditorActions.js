@@ -85,8 +85,21 @@ export function commitFileImport(targetCatId, entries, ctx, newCatalogName) {
     }
 }
 
+// Ask in the app's confirm dialog where the window has one, else the browser's.
+function confirmThen(setInputDialog, { title, message = '', confirmLabel }, action) {
+    if (setInputDialog) {
+        setInputDialog({
+            confirm: true, danger: true, title, message, confirmLabel,
+            onConfirm: () => { action(); setInputDialog(null); },
+            onCancel:  () => setInputDialog(null),
+        });
+    } else if (window.confirm(message || title)) {
+        action();
+    }
+}
+
 export function removeCatalogWithConfirm(catId, ctx) {
-    const { catalogs, setInputDialog, me, loadCatalogs, catFilter, setCatFilter,
+    const { catalogs, setInputDialog, me, t, loadCatalogs, catFilter, setCatFilter,
             selectedId, setSelectedId, editDraft, setEditDraft, designs } = ctx;
     const cat = catalogs.find(cc => cc.id === catId);
     if (!cat) return;
@@ -94,25 +107,21 @@ export function removeCatalogWithConfirm(catId, ctx) {
     // keepRemovedMaterials); the confirm says how many.
     const used = countDesignsUsing(designs, Object.keys(cat.materials || {}).map(key => `${catId}:${key}`));
     const message = [me.deleteCatalogConfirm(cat.name), used ? me.usedByDesigns(used) : ''].join(' ').trim();
-    const doDelete = () => {
-        removeCatalog(catId);
+    // A catalog whose file the Recycle Bin refused is still there, file and
+    // all, until the user says to delete it for good.
+    const doDelete = async (options) => {
+        const answer = await removeCatalog(catId, options);
+        if (answer?.error === 'no-bin') {
+            confirmThen(setInputDialog, { title: t.dialogs.noBin.one(cat.name), confirmLabel: me.deleteMaterial },
+                () => doDelete({ permanent: true }));
+            return;
+        }
         loadCatalogs();
         if (catFilter === catId) setCatFilter('all');
         if (selectedId?.startsWith(catId + ':')) setSelectedId(null);
         if (editDraft?.catalogId === catId) setEditDraft(null);
     };
-    if (setInputDialog) {
-        setInputDialog({
-            confirm: true, danger: true,
-            title: me.removeCatalog,
-            message,
-            confirmLabel: me.deleteMaterial,
-            onConfirm: () => { doDelete(); setInputDialog(null); },
-            onCancel:  () => setInputDialog(null),
-        });
-    } else if (window.confirm(message)) {
-        doDelete();
-    }
+    confirmThen(setInputDialog, { title: me.removeCatalog, message, confirmLabel: me.deleteMaterial }, () => doDelete());
 }
 
 // The name prompts refuse a name another catalog has: the selector lists

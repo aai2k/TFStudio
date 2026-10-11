@@ -5,9 +5,10 @@
  *      time, and a save given the time the file had when it was read refuses
  *      with 'changed-on-disk' when another program has written it since. A
  *      rename in between does not lift that.
- *   8. Deleting a project folder moves it to the Recycle Bin. Where there is
- *      no bin, only the designs are deleted and a folder still holding other
- *      files is left with them.
+ *   8. Deleting a project folder moves it to the Recycle Bin. Where the bin
+ *      refuses it nothing is deleted and the answer is 'no-bin'. Deleted for
+ *      good, with no shell or when asked, only the designs go and a folder
+ *      still holding other files is left with them.
  *   9. A save or a rename through a linked .tfs writes the file the link
  *      points at and leaves the link a link.
  *  10. A case-only rename of a design or a folder renames it on a
@@ -125,11 +126,21 @@ try {
         assert.equal(result.success, true);
         assert.deepEqual(trashed, [tree.dir('Customer')], 'the folder goes to the Recycle Bin whole');
     }
-    for (const shell of [undefined, { trashItem: async () => { throw new Error('no trash here'); } }]) {
-        const tree = makeTree(shell ? { shell } : {});
+    const refusingBin = { trashItem: async () => { throw new Error('no trash here'); } };
+    {
+        const tree = makeTree({ shell: refusingBin });
         fillFolder(tree);
         const result = await tree.call('delete-folder', 'Customer');
-        assert.equal(result.success, true, 'without a bin the designs are still deleted');
+        assert.deepEqual(result, { success: false, error: 'no-bin' }, 'a folder the bin refuses comes back with no-bin');
+        assert.deepEqual(tree.ls('Customer'), ['AR.tfs', 'Broken.tfs', 'empty', 'measured 2026-09-30.csv', 'old'],
+            'and nothing in it is deleted');
+        assert.deepEqual(tree.ls('Customer/empty'), ['Only.tfs']);
+    }
+    for (const [shell, options] of [[undefined, undefined], [refusingBin, { permanent: true }]]) {
+        const tree = makeTree(shell ? { shell } : {});
+        fillFolder(tree);
+        const result = await tree.call('delete-folder', 'Customer', options);
+        assert.equal(result.success, true, 'deleted for good, the designs are deleted');
         assert.equal(result.filesLeft, 3, 'and the files that are not designs are counted');
         assert.deepEqual(tree.ls('Customer'), ['Broken.tfs', 'measured 2026-09-30.csv', 'old']);
         assert.deepEqual(tree.ls('Customer/old'), ['notes.txt'], 'a design below is deleted, a note beside it is kept');

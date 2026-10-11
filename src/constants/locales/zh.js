@@ -528,6 +528,10 @@ export default {
       message: (n) => `删除选中的 ${n} 个设计？`,
       confirm: '删除',
     },
+    noBin: {
+      one: (name) => `“${name}”无法移到回收站。永久删除它吗？`,
+      several: (n) => `${n} 个文件无法移到回收站。永久删除它们吗？`,
+    },
   },
   welcome: {
     title: '欢迎使用 TFStudio',

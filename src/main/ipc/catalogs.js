@@ -18,7 +18,7 @@ function register(ipcMain, ctx) {
   ipcMain.handle('catalog:import-material-files', async () => handleImportMaterialFiles(ctx));
   ipcMain.handle('catalog:load-all', async () => handleLoadAllCatalogs(ctx));
   ipcMain.handle('catalog:save', async (event, catalog, expectedMtime) => handleSaveCatalog(ctx, catalog, expectedMtime));
-  ipcMain.handle('catalog:delete', async (event, catalogId) => handleDeleteCatalog(ctx, catalogId));
+  ipcMain.handle('catalog:delete', async (event, catalogId, source, options) => handleDeleteCatalog(ctx, catalogId, options));
   ipcMain.handle('catalog:get-dir', async () => ctx.materialsDir);
   ipcMain.handle('catalog:scan-agf-dir', async () => handleScanAgfDir(ctx));
 }
@@ -197,25 +197,36 @@ function agfFilesOf(ctx, catalog, catalogId) {
   return files.filter(f => legacyAgfId(path.basename(f, path.extname(f))) === catalogId);
 }
 
+// Delete the catalog's file in one source subfolder, when it is there. A
+// catalog made from a file in the agf folder has that file listed as removed,
+// or the next start's scan would bring it back. Answers why the file is still
+// there: the Recycle Bin's code or the error, or null.
+async function deleteCatalogFileIn(ctx, sub, catalogId, options) {
+  const { fs, path, materialsDir, safeName, readJsonSafe } = ctx;
+  const p = path.join(materialsDir, sub, safeName(catalogId) + '.catalog.json');
+  if (!fs.existsSync(p)) return null;
+  const agfFiles = sub === 'agf' ? agfFilesOf(ctx, readJsonSafe(p), catalogId) : [];
+  try {
+    const refusal = await deleteFile(ctx, p, 'catalog:delete', options);
+    if (!refusal && agfFiles.length) setAgfFilesRemoved(materialsDir, agfFiles, true);
+    return refusal;
+  } catch (err) { return err.message; }
+}
+
 // Delete one catalog file, to the Recycle Bin where there is one. Every
-// subfolder is tried so a stale source tag does not strand the file. A catalog
-// made from a file in the agf folder has that file listed as removed, or the
-// next start's scan would bring it back.
-async function handleDeleteCatalog(ctx, catalogId) {
-  const { fs, path, log, materialsDir, safeName, readJsonSafe } = ctx;
+// subfolder is tried so a stale source tag does not strand the file. A file
+// the bin refuses stays, and the answer is the bin's code, for the renderer to
+// ask about; `options.permanent` deletes for good.
+async function handleDeleteCatalog(ctx, catalogId, options) {
   const errors = [];
   for (const sub of CATALOG_SUBDIRS) {
-    const p = path.join(materialsDir, sub, safeName(catalogId) + '.catalog.json');
-    if (!fs.existsSync(p)) continue;
-    const agfFiles = sub === 'agf' ? agfFilesOf(ctx, readJsonSafe(p), catalogId) : [];
-    try {
-      await deleteFile(ctx, p, 'catalog:delete');
-      if (agfFiles.length) setAgfFilesRemoved(materialsDir, agfFiles, true);
-    } catch (err) { errors.push(err.message); }
+    const error = await deleteCatalogFileIn(ctx, sub, catalogId, options);
+    if (error) errors.push(error);
   }
   if (errors.length === 0) return { success: true };
-  log(`catalog:delete error: ${errors.join('; ')}`);
-  return { success: false, error: errors.join('; ') };
+  const error = [...new Set(errors)].join('; ');
+  ctx.log(`catalog:delete error: ${error}`);
+  return { success: false, error };
 }
 
 // ── AGF auto-scan: load .agf files placed in Documents\TFStudio\Materials\agf\ ──

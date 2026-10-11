@@ -38,10 +38,15 @@ export async function saveUserCoating(entry, options) {
     return result;
 }
 
-export async function deleteUserCoating(name) {
+/**
+ * Delete one coating, to the Recycle Bin. Where the bin refuses the file, it
+ * stays and the answer is the error 'no-bin'; `options.permanent` deletes it
+ * for good.
+ */
+export async function deleteUserCoating(name, options) {
     const api = window.electronAPI;
     if (!api?.deleteCoating) return { success: false, errorKey: 'desktopOnly' };
-    const result = await api.deleteCoating(name);
+    const result = await api.deleteCoating(name, options);
     if (result?.success) announce();
     return result;
 }

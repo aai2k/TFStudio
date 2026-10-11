@@ -11,11 +11,11 @@ async function refreshPresets(setDiskPresets) {
 }
 
 // Ask in the app's confirm dialog where the window has one, else the browser's.
-function confirmThen(ctx, { title, message = '' }, action) {
+function confirmThen(ctx, { title, message = '', confirmLabel }, action) {
     if (ctx.setInputDialog) {
         ctx.setInputDialog({
             confirm: true, title, message,
-            confirmLabel: ctx.t.dialogs?.input?.ok || 'OK',
+            confirmLabel: confirmLabel || ctx.t.dialogs?.input?.ok || 'OK',
             onConfirm: () => { ctx.setInputDialog(null); action(); },
             onCancel: () => ctx.setInputDialog(null),
         });
@@ -89,12 +89,17 @@ async function loadPreset(ctx, name, mode) {
     }
 }
 
-async function deletePreset(ctx, name) {
+// A preset the Recycle Bin refused is still there; it is deleted for good only
+// once the user says so.
+async function deletePreset(ctx, name, options) {
     if (!window.electronAPI?.deleteMFPreset || !name) return;
     ctx.setDiskBusy(true);
     try {
-        const result = await window.electronAPI.deleteMFPreset(name);
-        if (result?.success) {
+        const result = await window.electronAPI.deleteMFPreset(name, options);
+        if (result?.error === 'no-bin') {
+            confirmThen(ctx, { title: ctx.t.dialogs.noBin.one(name), confirmLabel: ctx.t.explorer.delete },
+                () => deletePreset(ctx, name, { permanent: true }));
+        } else if (result?.success) {
             ctx.setDiskMsg((ctx.te.deleted || 'Deleted') + ' ' + name);
             ctx.refreshDiskPresets();
         }

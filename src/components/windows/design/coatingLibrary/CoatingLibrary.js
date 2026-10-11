@@ -141,7 +141,7 @@ export function CoatingLibrary({ c, t }) {
     const {
         design, hasActiveDesign, session, setField, entries, visible, tags, substrates, toggleTag, toggleType,
         selected, message, setMessage, apply, remove,
-    } = useCoatingLibrary(ts);
+    } = useCoatingLibrary(ts, t);
     const [saving, setSaving] = useState(false);
     const [sharing, setSharing] = useState(false);
 

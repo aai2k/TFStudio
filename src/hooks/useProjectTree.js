@@ -234,7 +234,7 @@ export function useProjectTree({
     };
 
     const designs = useDesignActions({ store, tree, persistChange, setInputDialog, setMessageNotification, t });
-    const removal = useProjectRemoval({ tree, persistChange, setMessageNotification, t });
+    const removal = useProjectRemoval({ tree, persistChange, setInputDialog, setMessageNotification, t });
     const imports = useDesignImport({
         tree, addItemFromDesign: designs.addItemFromDesign, openTool, setMessageNotification, t,
     });

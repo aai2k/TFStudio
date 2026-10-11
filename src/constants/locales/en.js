@@ -538,6 +538,12 @@ export default {
       message: (n) => `Delete ${n} selected designs?`,
       confirm: 'Delete',
     },
+    // Asked when the Recycle Bin refuses a delete (a network drive, a USB stick,
+    // a drive with the bin turned off); nothing has been deleted yet.
+    noBin: {
+      one: (name) => `"${name}" cannot go to the Recycle Bin. Delete it for good?`,
+      several: (n) => `${n} items cannot go to the Recycle Bin. Delete them for good?`,
+    },
   },
   // First-run welcome screen
   welcome: {
