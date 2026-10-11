@@ -47,4 +47,29 @@ ok(html.includes(t.docking.empty.createProject),
 // The explorer is beside it, drawn from the same locale.
 ok(html.includes(t.explorer.searchPlaceholder), 'the project explorer is drawn');
 
+// The notices on screen are drawn together, in the order they were raised, the
+// latest on top. Each is keyed by its own id, so it keeps its own timers while
+// the others come and go, keeps its duration, so one the user has to close does
+// not close itself after a few seconds, and closes only itself.
+{
+    const { AppModals } = await import('../src/components/AppModals.js');
+    const { MessageNotification } = await import('../src/components/ui/MessageNotification.js');
+    const closed = [];
+    const modals = AppModals({
+        c: {}, t, settings: {}, dialogs: {}, welcome: {}, project: {},
+        messageNotifications: [
+            { id: 7, type: 'warning', message: 'Data folder', duration: 0 },
+            { id: 9, type: 'error', message: 'Save failed' },
+        ],
+        onDismissMessage: id => closed.push(id),
+    });
+    const stack = [].concat(modals.props.children).find(el => el?.props?.style?.flexDirection === 'column-reverse');
+    const shown = [].concat(stack?.props.children || []).filter(el => el?.type === MessageNotification);
+    ok(shown.map(el => el.key).join() === '7,9', `both notices are drawn, keyed by id, got: ${shown.map(el => el.key)}`);
+    ok(shown[0].props.duration === 0 && shown[1].props.duration === undefined,
+        `each keeps its own duration, got: ${shown.map(el => el.props.duration)}`);
+    shown[1].props.onClose();
+    ok(closed.join() === '9', `closing one closes only that one, got: ${closed}`);
+}
+
 console.log(`app_shell_render: ${passed} passed`);

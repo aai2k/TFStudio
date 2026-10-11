@@ -190,6 +190,32 @@ async function test() {
     const r = await inv('paths:choose');
     ok(r.success, 'choose succeeds');
     ok(r.path === '/x', 'and returns the picked path without moving anything'); }
+  // settings out of reach when a move records the folder in use: the record
+  // writes nothing over them (the move's own folders write has gone through)
+  { const c = mkCtx(); const inv = wire(c, mkMove());
+    fs.writeFileSync(c.settingsPath, JSON.stringify({ theme: 'Dark' }));
+    let writes = 0;
+    c.readJsonSafe = file => (writes > 0 ? null : JSON.parse(fs.readFileSync(file, 'utf-8')));
+    c.writeFileAtomic = (file, data) => { writes++; fs.writeFileSync(file, data); };
+    const nr = path.join(c._dir, 'nr'); fs.mkdirSync(nr, { recursive: true });
+    const r = await inv('paths:set', null, nr);
+    ok(r.success, 'setup: the move succeeds');
+    const after = JSON.parse(fs.readFileSync(c.settingsPath, 'utf-8'));
+    ok(writes === 1, `only the folders write reaches the file, got ${writes} writes`);
+    ok(after.theme === 'Dark' && JSON.stringify(after.folders) === JSON.stringify(c.userPaths.toSettings()),
+      `which keeps what was there, got: ${JSON.stringify(after)}`); }
+  // the startup notice reaches the renderer once
+  { const c = mkCtx(); const gone = path.join(c._dir, 'renamed-away');
+    c.userPaths.load({ folders: { root: gone } });
+    const handlers = {};
+    register({ handle(channel, fn) { handlers[channel] = fn; } }, c);
+    const take = handlers['paths:take-notices'];
+    ok(typeof take === 'function', 'the renderer has a channel to ask for the startup notices');
+    const first = await take?.();
+    ok(first?.length === 1 && first[0].code === 'notFound' && first[0].folder === gone,
+      `the startup notices are handed over, got: ${JSON.stringify(first)}`);
+    ok((await take?.())?.length === 0, 'and a later load of the tree is given none');
+    ok(!fs.existsSync(gone), 'the missing folder was not made'); }
 
   // ── running from the default because the configured root was unusable ──
   { const c = mkCtx(); c.userPaths.load({ folders: { root: path.join(c._dir, 'nonexistent-subdir') } });

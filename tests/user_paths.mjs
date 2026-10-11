@@ -2,9 +2,10 @@
  * The data folder registry (src/main/userPaths.js).
  *
  * Covers startup validation, what is persisted, the portable relative form,
- * the fallback when the configured folder cannot be used, the live ctx getters
- * the IPC handlers read through, and that the traversal guard in safeFilePath
- * still holds when it is rooted at a configured (non-default) base.
+ * the fallback when the configured folder cannot be used or is not there, what
+ * the user is told about the data folder at startup, the live ctx getters the
+ * IPC handlers read through, and that the traversal guard in safeFilePath still
+ * holds when it is rooted at a configured (non-default) base.
  */
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -25,8 +26,8 @@ function ok(condition, message) {
 // ── Helper: temp dir + real fs ──────────────────────────────────────────────
 const TMP_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'user-paths-test-'));
 
-// A root whose parent is a file. mkdir there fails at once on every platform,
-// which is what an unplugged drive looks like to the write probe.
+// A root whose parent is a file: it is not there and nothing can be made there,
+// on every platform, which is what a folder on an unplugged drive looks like.
 const BLOCKING_FILE = path.join(TMP_ROOT, 'not-a-directory');
 const BAD_ROOT = path.join(BLOCKING_FILE, 'TFStudio');
 function makeBlockingFile() { fs.writeFileSync(BLOCKING_FILE, 'x'); }
@@ -49,7 +50,7 @@ const POSIX = path.posix;
 const DOCS = '/home/test/Documents';
 const BASE = DOCS + '/TFStudio';
 const makePosix = (opts = {}) => {
-  const inMemoryFs = makeInMemoryFs(opts.unwritable);
+  const inMemoryFs = makeInMemoryFs(opts);
   const logs = [];
   const paths = createUserPaths({
     documentsDir: DOCS,
@@ -75,30 +76,47 @@ function makeReal(exeDir) {
   return { paths, logs, docs };
 }
 
-// `unwritable` marks paths whose mkdir/write must fail, standing in for a
-// read-only share or a disconnected drive.
-function makeInMemoryFs(unwritable = []) {
-  const dirs = new Set();
+// `existing` are folders already there. `statErrors` maps a path to the error
+// code looking it up answers with: EPERM for a locked drive, UNKNOWN for a
+// network share that does not answer. `writeErrors` maps a folder to the code
+// making or writing anything in it answers with: EACCES for a share the user
+// may only read, EROFS, EBUSY. Every message names the path, as the system's
+// do. `path` is the path module the paths are written for.
+function makeInMemoryFs({ existing = [], statErrors = {}, writeErrors = {}, path: p = POSIX } = {}) {
+  const dirs = new Set(existing);
   const files = new Map();
-  const blocked = (p) => unwritable.some(bad =>
-    p === bad || p.startsWith(bad + POSIX.sep) || p.startsWith(bad + '/')
-  );
+  const fail = (code, what, at) => Object.assign(new Error(`${code}: ${what} '${at}'`), { code });
+  const writeError = (at) => Object.entries(writeErrors).find(([dir]) => at === dir || at.startsWith(dir + p.sep))?.[1];
   return {
-    existsSync(p) { return dirs.has(p) || files.has(p); },
-    mkdirSync(p) {
-      if (blocked(p)) throw new Error('EACCES: permission denied');
-      dirs.add(p);
+    existsSync(at) { return dirs.has(at) || files.has(at); },
+    mkdirSync(at, opts) {
+      if (writeError(at)) throw fail(writeError(at), 'mkdir', at);
+      for (let dir = at; opts?.recursive && p.dirname(dir) !== dir; dir = p.dirname(dir)) dirs.add(dir);
+      dirs.add(at);
     },
-    writeFileSync(p, data) {
-      if (blocked(p)) throw new Error('EACCES: permission denied');
-      files.set(p, data);
+    writeFileSync(at, data) {
+      if (writeError(at)) throw fail(writeError(at), 'open', at);
+      files.set(at, data);
     },
-    unlinkSync(p) { files.delete(p); },
-    statSync(p) {
-      if (!dirs.has(p) && !files.has(p)) throw new Error('ENOENT: no such file or directory ' + p);
-      return { isDirectory: () => dirs.has(p) };
+    unlinkSync(at) { files.delete(at); },
+    statSync(at) {
+      if (statErrors[at]) throw fail(statErrors[at], 'stat', at);
+      if (!dirs.has(at) && !files.has(at)) throw fail('ENOENT', 'no such file or directory, stat', at);
+      return { isDirectory: () => dirs.has(at) };
     },
   };
+}
+
+// Whether a reason or a notice says nothing of where the folder is or of the
+// temp file the write check uses: a user only ever sees the worded reason.
+const pathFree = (value, folder) => !JSON.stringify(value).includes('.write-test')
+  && !(value?.reason || '').includes(folder);
+
+// The one startup notice, or null when there is none; more than one fails.
+function onlyNotice(paths) {
+  const notices = paths.takeNotices();
+  ok(notices.length <= 1, `one notice at most, got: ${JSON.stringify(notices)}`);
+  return notices[0] || null;
 }
 
 function posixJoin(...parts) { return POSIX.join(...parts); }
@@ -132,16 +150,420 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── A root that does not exist yet is created ───────────────────────────────
+// ── A configured root that is not there is not made again ───────────────────
+// Made again, a renamed or moved data folder would come back empty: every
+// design would look gone, and new work would go into the empty one.
 {
   const { paths } = makeReal();
   const parent = tmpDir('device-ok');
-  const newRoot = path.join(parent, 'nonexistent');
-  ok(!fs.existsSync(newRoot), 'setup: the target does not exist');
-  paths.load({ folders: { root: newRoot } });
-  ok(fs.existsSync(newRoot), 'load creates it');
-  ok(paths.rootDir === newRoot, 'and uses it');
+  const missing = path.join(parent, 'renamed-away');
+  ok(!fs.existsSync(missing), 'setup: the configured root is not there');
+  paths.load({ folders: { root: missing } });
+  ok(!fs.existsSync(missing), 'load does not create a missing configured root');
+  ok(paths.rootDir === paths.baseDir, 'the session runs from the default');
+  ok(paths.configuredRoot === missing, 'the choice is kept for the next start');
+  ok(paths.rejected?.configured === missing, 'it is rejected, naming the configured path');
+  ok(paths.rejected.code === 'notFound', `as not found, got: ${JSON.stringify(paths.rejected)}`);
+  ok(paths.toSettings().root === missing, 'and it is still what settings hold');
+  paths.ensureAll();
+  ok(!fs.existsSync(missing), 'ensureAll does not create it either');
+  cleanTmp();
+}
+{
+  const { paths } = makeReal();
+  const chainTop = path.join(TMP_ROOT, 'Projects2025');
+  const missing = path.join(chainTop, 'Optics', 'TFStudioData');
+  paths.load({ folders: { root: missing } });
+  paths.ensureAll();
+  ok(!fs.existsSync(chainTop), 'nothing of a missing parent chain is created');
+  ok(paths.rootDir === paths.baseDir, 'the session runs from the default');
+  ok(paths.configuredRoot === missing, 'the choice is kept');
+  ok(paths.rejected?.code === 'notFound', `as not found, got: ${JSON.stringify(paths.rejected)}`);
+  cleanTmp();
+}
+{
+  const exeDir = tmpDir('exe-portable-missing');
+  const { paths } = makeReal(exeDir);
+  paths.load({ folders: { root: 'Data' } });
+  paths.ensureAll();
+  ok(!fs.existsSync(path.join(exeDir, 'Data')), 'a relative root missing beside the exe is not created');
+  ok(paths.rootDir === paths.baseDir, 'the portable session runs from the default');
+  ok(paths.configuredRoot === 'Data', 'the relative form is kept for the next start');
+  ok(paths.rejected?.code === 'notFound', `as not found, got: ${JSON.stringify(paths.rejected)}`);
+  cleanTmp();
+}
+
+// ── A missing root is used again once it is back ────────────────────────────
+{
+  const { paths } = makeReal();
+  const root = path.join(tmpDir('usb-stick'), 'TFStudio');
+  paths.load({ folders: { root } });
+  ok(paths.rejected?.code === 'notFound', `setup: not found at the first start, got: ${JSON.stringify(paths.rejected)}`);
+  fs.mkdirSync(root);
+  paths.load({ folders: { root } });
+  ok(paths.rootDir === root, 'the next start with the folder back uses it');
   ok(paths.rejected === null, 'with nothing rejected');
+  cleanTmp();
+}
+
+// ── A folder on a drive that is gone is passed over as not found ────────────
+{
+  const { paths } = makeReal();
+  paths.load({ folders: { root: BAD_ROOT } });
+  ok(paths.rootDir === paths.baseDir, 'the session runs from the default');
+  ok(paths.configuredRoot === BAD_ROOT, 'the choice is kept');
+  ok(paths.rejected?.configured === BAD_ROOT, 'it is rejected');
+  ok(!fs.existsSync(BAD_ROOT), 'and nothing is made in its place');
+  ok(paths.rejected.code === 'notFound', `it is not found either, got: ${JSON.stringify(paths.rejected)}`);
+  cleanTmp();
+}
+
+// ── A network share that does not answer is passed over as not found ────────
+// Windows answers a lookup there with UNKNOWN, after a few seconds.
+{
+  const share = '/net/fileserver/TFStudio';
+  const { paths, fs: memFs } = makePosix({ statErrors: { [share]: 'UNKNOWN' } });
+  paths.load({ folders: { root: share } });
+  ok(paths.rootDir === BASE, 'a share that does not answer is not used');
+  ok(paths.configuredRoot === share, 'the choice is kept');
+  ok(paths.rejected?.code === 'notFound', `it is reported as not found, got: ${JSON.stringify(paths.rejected)}`);
+  ok(!memFs.existsSync(share), 'and nothing is made there');
+}
+
+// ── A folder that is there but cannot be used is passed over, worded ────────
+// The reason is one of a few words the renderer translates, or the system's
+// error code; never the system's message, which names paths.
+{
+  const share = '/mnt/share/TFStudio';
+  const { paths } = makePosix({ existing: [share], writeErrors: { [share]: 'EACCES' } });
+  paths.load({ folders: { root: share } });
+  ok(paths.rootDir === BASE, 'a folder the user may only read is not used');
+  ok(paths.configuredRoot === share, 'the choice is kept');
+  ok(paths.rejected?.configured === share, 'it is rejected');
+  ok(paths.rejected.code === 'accessDenied', `as access denied, got: ${JSON.stringify(paths.rejected)}`);
+  ok(paths.rejected.reason === 'access denied', `in plain words, got: ${paths.rejected.reason}`);
+  ok(pathFree(paths.rejected, share), `naming no path, got: ${JSON.stringify(paths.rejected)}`);
+}
+{
+  const locked = '/media/locked/TFStudio';
+  const { paths, fs: memFs } = makePosix({ statErrors: { [locked]: 'EPERM' } });
+  paths.load({ folders: { root: locked } });
+  ok(paths.rootDir === BASE, 'a locked drive is not used');
+  ok(paths.rejected?.code === 'accessDenied', `it is not called missing but access denied, got: ${JSON.stringify(paths.rejected)}`);
+  ok(pathFree(paths.rejected, locked), `naming no path, got: ${JSON.stringify(paths.rejected)}`);
+  ok(!memFs.existsSync(locked), 'and nothing is made there');
+}
+{
+  const disc = '/media/cdrom/TFStudio';
+  const { paths } = makePosix({ existing: [disc], writeErrors: { [disc]: 'EROFS' } });
+  paths.load({ folders: { root: disc } });
+  ok(paths.rejected?.code === 'readOnly' && paths.rejected.reason === 'read-only',
+    `a read-only file system is called read-only, got: ${JSON.stringify(paths.rejected)}`);
+}
+{
+  const busy = '/mnt/busy/TFStudio';
+  const { paths } = makePosix({ existing: [busy], writeErrors: { [busy]: 'EBUSY' } });
+  paths.load({ folders: { root: busy } });
+  ok(paths.rejected?.code === 'other' && paths.rejected.reason === 'EBUSY',
+    `any other failure gives the system's error code alone, got: ${JSON.stringify(paths.rejected)}`);
+  ok(pathFree(paths.rejected, busy), `naming no path, got: ${JSON.stringify(paths.rejected)}`);
+}
+{
+  const { paths } = makeReal();
+  const file = path.join(tmpDir('holder'), 'TFStudio');
+  fs.writeFileSync(file, 'not a folder');
+  paths.load({ folders: { root: file } });
+  ok(paths.rootDir === paths.baseDir, 'a file is not used as the data folder');
+  ok(paths.rejected?.code === 'notFolder' && paths.rejected.reason === 'not a folder',
+    `a file in the folder's place is called not a folder, got: ${JSON.stringify(paths.rejected)}`);
+  ok(pathFree(paths.rejected, file), `naming no path and not the write check's temp file, got: ${JSON.stringify(paths.rejected)}`);
+  ok(fs.readFileSync(file, 'utf-8') === 'not a folder', 'and the file is left alone');
+  cleanTmp();
+}
+
+// ── The default folder named in another spelling is the default ─────────────
+// Treated as a chosen folder it would be passed over as missing, and then made
+// by ensureAll all the same.
+{
+  const { paths } = makeReal();
+  paths.load({ folders: { root: paths.baseDir + path.sep } });
+  ok(paths.configuredRoot === null, `a trailing separator still names the default, got: ${paths.configuredRoot}`);
+  ok(paths.rejected === null, `nothing is rejected, got: ${JSON.stringify(paths.rejected)}`);
+  ok(paths.rootDir === paths.baseDir, 'the default is the root');
+  ok(Object.keys(paths.toSettings()).length === 0, 'and settings go back to holding no folders block');
+  cleanTmp();
+}
+{
+  const WIN = path.win32;
+  const winPaths = createUserPaths({
+    documentsDir: 'C:\\Users\\u\\Documents', fs: makeInMemoryFs({ path: WIN }), path: WIN, exeDir: 'C:\\TFStudio',
+  });
+  winPaths.load({ folders: { root: 'c:\\users\\u\\documents\\tfstudio' } });
+  ok(winPaths.configuredRoot === null, `on Windows a different case still names the default, got: ${winPaths.configuredRoot}`);
+  ok(winPaths.rejected === null, 'with nothing rejected');
+  ok(winPaths.rootDir === 'C:\\Users\\u\\Documents\\TFStudio', 'and the default spelt as the system gives it');
+}
+{
+  const { paths } = makePosix();
+  paths.load({ folders: { root: BASE.toLowerCase() } });
+  ok(paths.configuredRoot === BASE.toLowerCase(), 'on a case-sensitive system a different case is another folder');
+}
+
+// ── The default folder is made when it is not there ─────────────────────────
+{
+  const { paths } = makeReal();
+  paths.load({ theme: 'Dark' });
+  ok(!fs.existsSync(paths.baseDir), 'setup: the default folder is not there');
+  ok(paths.rootDir === paths.baseDir, 'the default folder is the root');
+  ok(paths.rejected === null, 'with nothing rejected');
+  paths.ensureAll();
+  ok(fs.existsSync(path.join(paths.baseDir, 'Projects')), 'ensureAll makes it, subfolders and all');
+  cleanTmp();
+}
+
+// ── A data folder left behind when Windows moved Documents is kept ──────────
+// With no folder chosen, Documents\TFStudio is a new place once Windows moves
+// Documents (OneDrive backup stopped, the Documents folder moved without its
+// content); the last run's data folder is still where it was. The last run
+// recorded where Documents pointed, `lastDocuments`, and the folder it used.
+function movedDocuments() {
+  const oldDocs = path.join(tmpDir('OneDrive'), 'Documents');
+  const oldRoot = path.join(oldDocs, 'TFStudio');
+  for (const sub of ['Projects', 'Materials']) fs.mkdirSync(path.join(oldRoot, sub), { recursive: true });
+  return { oldDocs, oldRoot, ...makeReal() };
+}
+{
+  const { oldDocs, oldRoot, paths, docs } = movedDocuments();
+  paths.load({ theme: 'Dark', lastDataFolder: oldRoot, lastDocuments: oldDocs });
+  paths.ensureAll();
+  ok(paths.rootDir === oldRoot, `the last run's data folder is used, got: ${paths.rootDir}`);
+  ok(paths.configuredRoot === oldRoot, 'as the chosen folder');
+  ok(paths.startupRecord().kept === oldRoot, 'which the start records, so Preferences shows it');
+  ok(!fs.existsSync(paths.baseDir), 'and no empty folder is made at the new default');
+  const notice = onlyNotice(paths);
+  ok(notice?.code === 'documentsMoved', `the user is told, got: ${JSON.stringify(notice)}`);
+  ok(notice.documents === docs && notice.folder === oldRoot, 'naming Documents now and the folder kept');
+  ok(onlyNotice(paths) === null, 'once');
+  paths.load({ theme: 'Dark', folders: { root: oldRoot }, lastDataFolder: oldRoot, lastDocuments: docs });
+  ok(paths.rootDir === oldRoot && onlyNotice(paths) === null, 'the next start uses it as chosen and says nothing');
+  cleanTmp();
+}
+// Documents has not moved: a chosen folder taken out of settings by hand, to
+// go back to the default, stays out, whatever the last run used.
+{
+  const { oldRoot, paths, docs } = movedDocuments();
+  paths.load({ theme: 'Dark', lastDataFolder: oldRoot, lastDocuments: docs });
+  paths.ensureAll();
+  ok(paths.rootDir === paths.baseDir, `with Documents where it was, the last folder is not brought back, got: ${paths.rootDir}`);
+  ok(paths.startupRecord().kept === null, 'nothing is recorded as chosen');
+  ok(onlyNotice(paths) === null, 'and "Documents now points to" is not said');
+  cleanTmp();
+}
+{
+  const { oldRoot, paths, docs } = movedDocuments();
+  paths.load({ theme: 'Dark', lastDataFolder: oldRoot, lastDocuments: docs + path.sep });
+  ok(paths.rootDir === paths.baseDir, 'Documents recorded in another spelling has not moved');
+  cleanTmp();
+}
+// Settings from a run that recorded no Documents folder: the first start of
+// this version cannot tell Documents moved, and keeps nothing.
+{
+  const { oldRoot, paths } = movedDocuments();
+  paths.load({ theme: 'Dark', lastDataFolder: oldRoot });
+  ok(paths.rootDir === paths.baseDir, 'with no Documents folder recorded, the last folder is not kept');
+  cleanTmp();
+}
+{
+  const { oldDocs, paths } = movedDocuments();
+  paths.load({ lastDataFolder: path.join(TMP_ROOT, 'nowhere', 'TFStudio'), lastDocuments: oldDocs });
+  paths.ensureAll();
+  ok(paths.rootDir === paths.baseDir, 'a last folder that is not on this computer is not kept');
+  ok(paths.configuredRoot === null, 'nothing is chosen');
+  cleanTmp();
+}
+{
+  const { oldDocs, paths } = movedDocuments();
+  const notData = tmpDir('just-a-folder');
+  fs.mkdirSync(path.join(notData, 'Projects'));
+  paths.load({ lastDataFolder: notData, lastDocuments: oldDocs });
+  ok(paths.rootDir === paths.baseDir, 'a last folder without the data subfolders is not kept');
+  cleanTmp();
+}
+{
+  const { oldDocs, oldRoot, paths } = movedDocuments();
+  const chosen = tmpDir('chosen');
+  paths.load({ folders: { root: chosen }, lastDataFolder: oldRoot, lastDocuments: oldDocs });
+  ok(paths.rootDir === chosen, 'a chosen folder wins over a folder the last run used');
+  cleanTmp();
+}
+
+// ── Every notice that applies is told ───────────────────────────────────────
+// A chosen folder that is not there, while the default folder cannot be used
+// either: the user needs both, one to know where the data is, the other to
+// know nothing can be saved.
+{
+  const missing = path.join(TMP_ROOT, 'Gone', 'TFStudio');
+  const paths = createUserPaths({ documentsDir: BLOCKING_FILE, fs, path, exeDir: tmpDir('exe'), log: () => {} });
+  paths.load({ folders: { root: missing } });
+  paths.ensureAll();
+  const notices = paths.takeNotices();
+  ok(notices.map(n => n.code).join() === 'notFound,defaultUnusable',
+    `the chosen folder not found and the default unusable are both told, got: ${JSON.stringify(notices)}`);
+  ok(notices[0].folder === missing && notices[1].folder === paths.baseDir, 'each naming its folder');
+  cleanTmp();
+}
+// A folder kept after Documents moved that then cannot be used is told with its
+// reason, and so is a default folder that cannot be used either.
+{
+  const oldDocs = '/home/test/OneDrive/Documents';
+  const oldRoot = oldDocs + '/TFStudio';
+  const { paths } = makePosix({
+    existing: [oldRoot, oldRoot + '/Projects', oldRoot + '/Materials'],
+    writeErrors: { [oldRoot]: 'EACCES', [DOCS]: 'EACCES' },
+  });
+  paths.load({ lastDataFolder: oldRoot, lastDocuments: oldDocs });
+  paths.ensureAll();
+  const notices = paths.takeNotices();
+  ok(notices.map(n => `${n.code}:${n.folder}`).join() === `unusable:${oldRoot},defaultUnusable:${BASE}`,
+    `the kept folder and the default are both told, got: ${JSON.stringify(notices)}`);
+}
+// ── What the user is told at startup ────────────────────────────────────────
+// The default folder the last run used, gone now, was most likely renamed or
+// moved: it is made again empty, and the user is told once it is there.
+{
+  const { paths } = makeReal();
+  paths.load({ lastDataFolder: paths.baseDir });
+  ok(onlyNotice(paths) === null, 'nothing is said before ensureAll has made the folder');
+  paths.ensureAll();
+  const notice = onlyNotice(paths);
+  ok(notice?.code === 'createdEmpty', `the default folder made again is reported, got: ${JSON.stringify(notice)}`);
+  ok(notice.folder === paths.baseDir, 'naming it');
+  ok(onlyNotice(paths) === null, 'once');
+  paths.ensureAll();
+  ok(onlyNotice(paths) === null, 'and a later ensureAll, after a data folder move, says nothing');
+  cleanTmp();
+}
+{
+  const { paths } = makeReal();
+  paths.load({ lastDataFolder: paths.baseDir + path.sep });
+  paths.ensureAll();
+  ok(onlyNotice(paths)?.code === 'createdEmpty', 'the last folder recorded in another spelling counts the same');
+  cleanTmp();
+}
+// A first run has no settings; settings from a build that kept no record of
+// the last folder say nothing about it either.
+{
+  const { paths } = makeReal();
+  paths.load(null);
+  paths.ensureAll();
+  ok(onlyNotice(paths) === null, 'a first run says nothing about the new default folder');
+  cleanTmp();
+}
+{
+  const { paths } = makeReal();
+  paths.load({ theme: 'Dark' });
+  paths.ensureAll();
+  ok(onlyNotice(paths) === null, 'settings with no last folder say nothing');
+  cleanTmp();
+}
+// A portable copy carried to another computer last ran from that computer's
+// default folder: this one's is not there because it was never made.
+{
+  const { paths } = makeReal();
+  paths.load({ lastDataFolder: 'Z:\\Users\\someone\\Documents\\TFStudio' });
+  paths.ensureAll();
+  ok(onlyNotice(paths) === null, 'a last folder elsewhere says nothing');
+  cleanTmp();
+}
+{
+  const { paths, docs } = makeReal();
+  fs.mkdirSync(path.join(docs, 'TFStudio'));
+  paths.load({ lastDataFolder: paths.baseDir });
+  paths.ensureAll();
+  ok(onlyNotice(paths) === null, 'a default folder that is there says nothing');
+  cleanTmp();
+}
+// A default folder that cannot be made or used, Documents being out of reach,
+// is said so: nothing could be saved there.
+{
+  const paths = createUserPaths({ documentsDir: BLOCKING_FILE, fs, path, exeDir: tmpDir('exe'), log: () => {} });
+  paths.load({ lastDataFolder: paths.baseDir });
+  paths.ensureAll();
+  ok(!fs.existsSync(paths.baseDir), 'setup: the default folder could not be made');
+  const notice = onlyNotice(paths);
+  ok(notice?.code === 'defaultUnusable', `a default folder that could not be made is reported, got: ${JSON.stringify(notice)}`);
+  ok(notice.folder === paths.baseDir && notice.cause === 'notFound', 'naming it and why');
+  ok(pathFree(notice, paths.baseDir), `with a reason that names no path, got: ${JSON.stringify(notice)}`);
+  cleanTmp();
+}
+{
+  const { paths } = makePosix({ writeErrors: { [DOCS]: 'EACCES' } });
+  paths.load(null);
+  paths.ensureAll();
+  const notice = onlyNotice(paths);
+  ok(notice?.code === 'defaultUnusable' && notice.cause === 'accessDenied',
+    `a Documents folder the app may not write in is reported on a first run too, got: ${JSON.stringify(notice)}`);
+}
+// The chosen folder not found names both folders, whether or not the default
+// one is there: a data folder move takes the default one away.
+{
+  const { paths } = makeReal();
+  const missing = path.join(tmpDir('work'), 'TFStudio');
+  paths.load({ folders: { root: missing }, lastDataFolder: missing });
+  paths.ensureAll();
+  const notice = onlyNotice(paths);
+  ok(notice?.code === 'notFound', `the chosen folder not found is reported, got: ${JSON.stringify(notice)}`);
+  ok(notice.folder === missing, 'naming it');
+  ok(notice.active === paths.baseDir, 'and the folder used instead');
+  ok(onlyNotice(paths) === null, 'once');
+  cleanTmp();
+}
+{
+  const exeDir = tmpDir('exe-portable-notice');
+  const { paths } = makeReal(exeDir);
+  paths.load({ folders: { root: 'Data' } });
+  const notice = onlyNotice(paths);
+  ok(notice?.folder === path.join(exeDir, 'Data'), `a relative root is named where it was looked for, got: ${JSON.stringify(notice)}`);
+  cleanTmp();
+}
+{
+  const { paths } = makeReal();
+  paths.load({ folders: { root: BAD_ROOT } });
+  ok(onlyNotice(paths)?.code === 'notFound', 'a folder on a drive that is gone is reported the same way');
+  cleanTmp();
+}
+{
+  const share = '/net/fileserver/TFStudio';
+  const { paths } = makePosix({ statErrors: { [share]: 'UNKNOWN' } });
+  paths.load({ folders: { root: share } });
+  ok(onlyNotice(paths)?.code === 'notFound', 'so is a network share that does not answer');
+}
+// A chosen folder that is there but cannot be used is reported with the
+// reason, worded.
+{
+  const share = '/mnt/share/TFStudio';
+  const { paths } = makePosix({ existing: [share], writeErrors: { [share]: 'EACCES' } });
+  paths.load({ folders: { root: share } });
+  const notice = onlyNotice(paths);
+  ok(notice?.code === 'unusable', `a folder the user may only read is reported at startup, got: ${JSON.stringify(notice)}`);
+  ok(notice.folder === share && notice.active === BASE, 'naming it and the folder used instead');
+  ok(notice.cause === 'accessDenied' && notice.reason === 'access denied', `with the reason, got: ${JSON.stringify(notice)}`);
+  ok(pathFree(notice, share), `which names no path, got: ${JSON.stringify(notice)}`);
+}
+{
+  const locked = '/media/locked/TFStudio';
+  const { paths } = makePosix({ statErrors: { [locked]: 'EPERM' } });
+  paths.load({ folders: { root: locked } });
+  const notice = onlyNotice(paths);
+  ok(notice?.code === 'unusable' && notice.cause === 'accessDenied',
+    `a locked drive is reported as access denied, got: ${JSON.stringify(notice)}`);
+}
+{
+  const { paths } = makeReal();
+  const root = tmpDir('present');
+  paths.load({ folders: { root } });
+  paths.ensureAll();
+  ok(onlyNotice(paths) === null, 'a chosen folder that is there says nothing');
   cleanTmp();
 }
 
@@ -171,6 +593,7 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   const exeDir = tmpDir('exe-rel');
   const relName = 'mydata';
   const expectedRoot = path.join(exeDir, relName);
+  fs.mkdirSync(expectedRoot);
   const { paths } = makeReal(exeDir);
   paths.load({ folders: { root: relName } });
   ok(paths.configuredRoot === relName, 'the relative form is kept as written');
@@ -304,9 +727,11 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   cleanTmp();
 }
 
-// ── The next settings write drops the old per-folder keys ───────────────────
-// toSettings writes { root } alone and writeMainOwnedKey replaces the whole
-// folders block, so keys from 1.5 to 1.7 leave the file on the next write.
+// ── A data folder move or Reset rewrites the folders block ──────────────────
+// The write a move or a Reset makes is toSettings, { root } alone, through
+// writeMainOwnedKey, which replaces the whole folders block, so the per-folder
+// keys of 1.5.0 to 1.7.2 leave the file then. A start keeps them (see
+// data_folder_end_to_end.mjs).
 {
   let stored = null;
   const ctx = {
@@ -356,6 +781,21 @@ function posixDefault(subdir) { return posixJoin(BASE, subdir); }
   writeMainOwnedKey(ctx, 'folders', {});
   ok(JSON.parse(stored).folders === undefined, 'returning to the default removes the folders block');
   ok(JSON.parse(stored).theme === 'Dark', 'and leaves renderer settings intact');
+}
+
+// ── A main-owned string is stored whole, and an empty one removes the key ───
+{
+  let stored = JSON.stringify({ theme: 'Dark' });
+  const ctx = {
+    settingsPath: '/settings.json',
+    readJsonSafe: () => JSON.parse(stored),
+    writeFileAtomic: (_file, data) => { stored = data; },
+  };
+  writeMainOwnedKey(ctx, 'lastDataFolder', 'C:\\Users\\u\\Documents\\TFStudio');
+  ok(JSON.parse(stored).lastDataFolder === 'C:\\Users\\u\\Documents\\TFStudio', 'a string value is stored as it is');
+  writeMainOwnedKey(ctx, 'lastDataFolder', '');
+  ok(JSON.parse(stored).lastDataFolder === undefined, 'an empty string removes the key');
+  ok(JSON.parse(stored).theme === 'Dark', 'and the renderer keys stay');
 }
 
 // ── The traversal guard still holds against a configured base ───────────────

@@ -13,6 +13,7 @@ import {
     mergeSessionOverDisk, sameMaterialCopies, sessionEntryFor, storeMergedSession,
 } from '../utils/io/sessionMerge.js';
 import { followedDesigns } from '../utils/materials/catalogStamps.js';
+import { dataFolderReason } from '../utils/io/dataFolderReason.js';
 
 // Where each design's file was when the tree was last seen. When two files
 // hold one id (a design copied outside the app), the loader gives the id to
@@ -76,6 +77,16 @@ function dropsMissing(read) {
     return read.readWhole && !read.fallback && Object.keys(read.diskDesigns).length > 0;
 }
 
+// What the main process found about the data folder at startup (see
+// src/main/dataFolderCheck.js), worded.
+const DATA_FOLDER_MESSAGES = {
+    notFound: (t, n) => t.dialogs.dataFolderNotFound(n.folder, n.active),
+    unusable: (t, n) => t.dialogs.dataFolderUnusable(n.folder, dataFolderReason(t, n.cause, n.reason), n.active),
+    defaultUnusable: (t, n) => t.dialogs.defaultFolderUnusable(n.folder, dataFolderReason(t, n.cause, n.reason)),
+    createdEmpty: (t, n) => t.dialogs.dataFolderCreatedEmpty(n.folder),
+    documentsMoved: (t, n) => t.dialogs.documentsMoved(n.documents, n.folder),
+};
+
 // What a merge of working copies over the files has to tell the user.
 function reportMerge(p, merged, unreadFiles, refused) {
     if (merged.replaced.length) {
@@ -85,12 +96,14 @@ function reportMerge(p, merged, unreadFiles, refused) {
     if (unreadFiles.length) {
         p.setMessageNotification({ type: 'error', message: p.t.dialogs.unreadDesignFiles(unreadFiles.join(', ')) });
     }
-    // Shown last, over the notices above: unsaved work is at risk.
     if (refused.length) p.setMessageNotification({ type: 'error', message: p.t.dialogs.sessionFull });
 }
 
 export async function loadFolders(p, { restoreLayout = true } = {}) {
     const read = await readProjectsFolder();
+    // Handed over once by the main process, so the load after a data folder
+    // move gets none.
+    const folderNotices = await window.electronAPI?.takeDataFolderNotices?.().catch(() => null);
     const { diskDesigns } = read;
     p.fallbackRef.current = read.fallback;
     p.unreadNamesRef.current = unreadNamesByFolder(read.unreadFiles);
@@ -117,6 +130,11 @@ export async function loadFolders(p, { restoreLayout = true } = {}) {
     p.setDirtyDesigns(merged.initialDirty);
     p.setFolders(loadedFolders);
     const refused = session ? storeMergedSession(session, merged, diskDesigns) : [];
+    // Each kept until the user closes it: the designs the tree shows depend on
+    // which folder it was read from. The merge's notices show above them.
+    for (const notice of folderNotices || []) {
+        p.setMessageNotification({ type: 'warning', message: DATA_FOLDER_MESSAGES[notice.code](p.t, notice), duration: 0 });
+    }
     reportMerge(p, merged, read.unreadFiles, refused);
 
     // Startup: select a project FOLDER as the default target for new designs,

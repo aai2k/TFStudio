@@ -11,6 +11,7 @@ import { Toolbar } from './components/Toolbar.js';
 import { ProjectExplorer } from './components/panels/ProjectExplorer.js';
 import { DockingLayout } from './components/docking/DockingLayout.js';
 import { AppModals } from './components/AppModals.js';
+import { useNoticeStack } from './components/ui/MessageNotification.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { DesignProvider } from './state/DesignContext.js';
 import { announceRefreshAll } from './state/refreshAll.js';
@@ -30,7 +31,9 @@ const { createElement: h, useState, useEffect, useRef } = React;
 
 export const App = () => {
     const [inputDialog, setInputDialog] = useState(null);
-    const [messageNotification, setMessageNotification] = useState(null);
+    const {
+        notices: messageNotifications, notify: setMessageNotification, dismiss: dismissMessage,
+    } = useNoticeStack();
 
     const settings = useAppSettings(setMessageNotification);
     const {
@@ -193,8 +196,8 @@ export const App = () => {
                 activeDesignId: store.activeDesignId,
                 designSig, designLayers,
                 onUserPathChanged: handleUserPathChanged,
-                inputDialog, messageNotification,
-                onDismissMessage: () => setMessageNotification(null),
+                inputDialog, messageNotifications,
+                onDismissMessage: dismissMessage,
             })
         )
         )

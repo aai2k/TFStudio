@@ -141,6 +141,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setUserPath:            (dir) => ipcRenderer.invoke('paths:set', null, dir),
   resetUserPath:          () => ipcRenderer.invoke('paths:reset'),
   revealUserPath:         (key) => ipcRenderer.invoke('paths:reveal', key),
+  // What was found about the data folder at startup, a list handed over once:
+  // the chosen folder not found or not usable, the default one not usable or
+  // made again empty, a data folder kept after Windows moved Documents.
+  takeDataFolderNotices:  () => ipcRenderer.invoke('paths:take-notices'),
   // Portable preferences: everything an analysis window opens with, edited in
   // Settings → Analysis or saved from the window's own settings panel.
   loadPreferences:        () => ipcRenderer.invoke('prefs:load'),

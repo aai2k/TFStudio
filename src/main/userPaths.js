@@ -5,10 +5,16 @@
  * from. They differ when the chosen folder is unusable at startup, say a drive
  * that is not plugged in: the app falls back to Documents\TFStudio for the
  * session but keeps the choice, so the next start with the drive back uses it
- * again.
+ * again. A chosen folder that is not there at startup is passed over the same
+ * way, and is not made again. With none chosen, a data folder left behind when
+ * Windows moved Documents is kept as the chosen one (see dataFolderCheck.js).
  *
  * CommonJS, Electron-free (deps injected) for testability.
  */
+
+const {
+  settingsRoot, probeUsable, rejectedNotice, keptNotices, defaultGone, settle, folderToRecord,
+} = require('./dataFolderCheck');
 
 // The nine subfolders, with the names they carry under the data folder.
 const FOLDER_SPECS = [
@@ -22,19 +28,6 @@ const FOLDER_SPECS = [
   { key: 'branding',       ctxKey: 'brandingDir',       subdir: 'Branding' },
   { key: 'preferences',    ctxKey: 'preferencesDir',    subdir: 'Preferences' },
 ];
-
-// probe: mkdir + write temp file + delete, verifies the directory is writable
-function probeUsable(fs, path, dir) {
-  try {
-    fs.mkdirSync(dir, { recursive: true });
-    const probe = path.join(dir, `.write-test-${process.pid}`);
-    fs.writeFileSync(probe, 'test', 'utf-8');
-    fs.unlinkSync(probe);
-    return { ok: true, dir };
-  } catch (err) {
-    return { ok: false, reason: err.message };
-  }
-}
 
 /**
  * Build the path registry.
@@ -55,7 +48,14 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     baseDir,              // Documents\TFStudio (default root)
     configuredRoot: null, // root actually configured by the user in settings (null = default)
     rootDir: baseDir,     // root actually used for this run
-    rejected: null,       // reason configuredRoot is temporarily unusable { configured, reason }
+    rejected: null,       // reason configuredRoot is temporarily unusable { configured, reason, code? }
+    notices: [],          // what to tell the user at startup, until taken (see takeNotices)
+    settling: false,      // load() ran and the next ensureAll settles the notices
+    defaultWasGone: false, // the default folder, last used, was gone at load
+    settingsRead: false,  // load() was given settings
+    kept: null,           // a data folder kept after Windows moved Documents
+    lastRecorded: undefined, // the folder the last run recorded as used
+    defaultUnusable: false,  // the session runs from a default folder that cannot be used
   };
 
   // ── Derived paths ──────────────────────────────────────────────────
@@ -75,13 +75,24 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
   function load(cfg) {
     // clear rejected before each load
     state.rejected = null;
+    state.notices = [];
+    state.settling = true;
+    state.defaultWasGone = false;
+    state.defaultUnusable = false;
+    state.settingsRead = Boolean(cfg);
 
     const folders = cfg && cfg.folders;
-    const configured = folders && folders.root;
+    // null for the default, also when the choice names it in another spelling
+    const settled = settingsRoot(fs, path, cfg, { exeDir: resolvedExeDir, defaultDir: baseDir, documentsDir });
+    const configured = settled.root;
+    state.kept = settled.kept;
+    state.lastRecorded = settled.last;
     if (!configured) {
       // no configured root, use default
       state.configuredRoot = null;
       state.rootDir = baseDir;
+      // read before ensureAll makes the default folder again
+      state.defaultWasGone = defaultGone(fs, path, cfg, baseDir);
       // detect legacy keys
       detectLegacyKeys(folders, log);
       return;
@@ -103,16 +114,20 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
       return;
     }
 
-    // mkdir + write probe (configuredRoot keeps original value, relative path persisted as-is)
+    // existence and write probe (configuredRoot keeps original value, relative path persisted as-is)
     const probe = probeUsable(fs, path, resolved);
     if (probe.ok) {
       state.configuredRoot = configured;
       state.rootDir = resolved;
+      state.notices = keptNotices(settled.kept, documentsDir);
     } else {
       state.configuredRoot = configured;
-      state.rejected = { configured, reason: probe.reason };
+      state.rejected = { configured, reason: probe.reason, code: probe.code };
       state.rootDir = baseDir;
-      log(`Folder root "${configured}" is unusable (${probe.reason}); using default ${baseDir}`);
+      log(`Folder root "${configured}" is unusable (${probe.detail}); using default ${baseDir}`);
+      // The notice names the folder as resolved, which for the portable build's
+      // relative form is the place that was looked in.
+      state.notices = [rejectedNotice(probe, resolved, baseDir)];
     }
 
     // detect legacy keys (do not early-return just because root is valid)
@@ -124,7 +139,7 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     if (!folders || typeof folders !== 'object') return;
     for (const key of Object.keys(folders)) {
       if (key === 'root') continue;
-      logFn(`Legacy folder key "${key}" in settings is ignored and will be dropped on next write`);
+      logFn(`Legacy folder key "${key}" in settings is ignored and kept; a data folder move or Reset writes the folders block without it`);
     }
   }
 
@@ -165,6 +180,30 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     state.rejected = null;
   }
 
+  // ── takeNotices(): what startup found that the user is told ───────────
+  // The notices listed in dataFolderCheck.js, each shown; empty when there is
+  // nothing to say. Handed over once, so a later load of the project tree,
+  // after a data folder move, does not repeat them.
+  function takeNotices() {
+    const notices = state.notices;
+    state.notices = [];
+    return notices;
+  }
+
+  // ── startupRecord(): what this start records in settings ──────────────
+  // `settingsRead` is whether load() was given settings; the folder used (see
+  // folderToRecord, undefined to leave none) and where Documents points are
+  // kept for the next start, and `kept` is a data folder kept after Windows
+  // moved Documents, to be recorded as the chosen one.
+  function startupRecord() {
+    return {
+      settingsRead: state.settingsRead,
+      lastDataFolder: folderToRecord(state),
+      lastDocuments: documentsDir,
+      kept: state.kept,
+    };
+  }
+
   // ── get(key): rootDir + subdir ────────────────────────────────────────
   function get(key) {
     return subdirPath(key);
@@ -201,6 +240,11 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
       try { fs.mkdirSync(dir, { recursive: true }); log(`Created directory: ${dir}`); }
       catch (err) { log(`Failed to create ${dir}: ${err.message}`); }
     }
+    // Once the folders are made, the startup notices are settled: whether the
+    // default folder, if the session runs from it, can be used, and whether
+    // one that was gone has been made again.
+    if (state.settling) Object.assign(state, settle(fs, path, state));
+    state.settling = false;
   }
 
   // ── defineCtxGetters(ctx) ─────────────────────────────────────────────
@@ -232,6 +276,8 @@ function createUserPaths({ documentsDir, fs, path, exeDir, log = () => {} }) {
     defineCtxGetters,
     setRejected,
     clearOverride,
+    takeNotices,
+    startupRecord,
     // read-only properties for external modules such as ipc/paths.js
     get baseDir() { return baseDir; },
     get rootDir() { return state.rootDir; },

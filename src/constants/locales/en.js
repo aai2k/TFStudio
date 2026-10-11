@@ -424,6 +424,13 @@ export default {
         : `${confirm} The ${count} designs with unsaved changes are saved first.`),
       notSaved: (names) => `The data folder was not moved: ${names} could not be saved.`,
       rejected: (configured, reason) => `The configured folder ${configured} could not be used${reason ? ` (${reason})` : ''}, so the default is in effect.`,
+      // Why a data folder cannot be used; any other reason shows the system's error code.
+      reasons: {
+        notFound: 'not found',
+        accessDenied: 'access denied',
+        readOnly: 'read-only',
+        notFolder: 'not a folder',
+      },
       subfolders: 'Subfolders',
       notCreated: 'not yet created',
       moving: 'Moving data to the new location…',
@@ -466,6 +473,11 @@ export default {
     openDesignFailed: (msg) => `The design could not be opened: ${msg}`,
     savedElsewhere: (names) => `${names}: the file was saved after your unsaved edits here, so the file is loaded. Ctrl+Z brings back the unsaved version.`,
     unreadDesignFiles: (files) => `These design files could not be read and are not shown: ${files}. Nothing will be written over them.`,
+    dataFolderNotFound: (folder, active) => `Data folder ${folder} was not found. Using ${active} for now. Put the folder back and restart TFStudio to use it again.`,
+    dataFolderUnusable: (folder, reason, active) => `Data folder ${folder} cannot be used: ${reason}. Using ${active} for now.`,
+    dataFolderCreatedEmpty: (folder) => `${folder} was not found and was created empty. If you renamed or moved it, put it back and restart TFStudio.`,
+    defaultFolderUnusable: (folder, reason) => `Data folder ${folder} cannot be used: ${reason}.`,
+    documentsMoved: (documents, folder) => `Documents now points to ${documents}. TFStudio keeps using its data folder ${folder}.`,
     changedOnDisk: {
       title: 'File changed on disk',
       message: (name) => `"${name}" was saved by another program, or another copy of TFStudio, since it was opened here. Overwrite that file with this version? To keep both, cancel and use Save As.`,

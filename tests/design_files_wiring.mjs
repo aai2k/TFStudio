@@ -18,13 +18,20 @@
  *   7. The names of unreadable files follow their folder when it is renamed.
  *   8. A write answered without the file's time leaves the next save
  *      unchecked, as the main process documents.
+ *   9. What the main process found about the data folder at startup is shown
+ *      once, as a warning that stays until the user closes it; the notices
+ *      from reading the files, and errors raised later, show at once above it.
  *
  * Run: node tests/design_files_wiring.mjs
  */
 import assert from 'node:assert/strict';
+import { setMaxListeners } from 'node:events';
 import { makeHookRuntime } from './_hookHarness.mjs';
 
 const events = new EventTarget();
+// Each mount below leaves its store's pagehide listener here, since the hook
+// runtime does not run effect cleanups.
+setMaxListeners(20, events);
 const storage = new Map();
 globalThis.window = globalThis;
 globalThis.addEventListener = events.addEventListener.bind(events);
@@ -46,10 +53,17 @@ const { useDesignStore } = await import('../src/hooks/useDesignStore.js');
 const { useProjectTree } = await import('../src/hooks/useProjectTree.js');
 const { writeSessionEntry } = await import('../src/utils/io/appSession.js');
 const { designFingerprint } = await import('../src/utils/io/projectPersistence.js');
+const notification = await import('../src/components/ui/MessageNotification.js');
 
-const t = new Proxy({}, { get: (_, ns) => new Proxy({}, { get: (__, key) => (key === 'changedOnDisk'
-    ? { title: 'changed', message: name => `changed ${name}`, overwrite: 'Overwrite' }
-    : (...args) => `${ns}.${String(key)}(${args.join('|')})`) }) });
+// Every string names itself, as `dialogs.name(args)`; the few objects the code
+// reads into are given as such.
+const OBJECTS = {
+    changedOnDisk: { title: 'changed', message: name => `changed ${name}`, overwrite: 'Overwrite' },
+    saveAs: { saveFailed: 'dialogs.saveAs.saveFailed' },
+    folders: { reasons: { notFound: 'notFound', accessDenied: 'accessDenied', readOnly: 'readOnly', notFolder: 'notFolder' } },
+};
+const t = new Proxy({}, { get: (_, ns) => new Proxy({}, { get: (__, key) => OBJECTS[key]
+    ?? ((...args) => `${ns}.${String(key)}(${args.join('|')})`) }) });
 
 const design = (id, name) => ({
     id, name, incidentMedium: 'builtin:Air', exitMedium: 'builtin:Air',
@@ -59,29 +73,39 @@ const design = (id, name) => ({
 
 const ENTRY = id => `tfstudio-session-v4:${id}`;
 
-// A fresh mount of the store and the tree over `disk`.
+// A fresh mount of the store and the tree over `disk`. `notes` lists every
+// notice raised; `shown` lists the ones on screen, as the app's stack of
+// notices shows them, bottom first, and `close(message)` closes one.
 async function start(disk) {
     rt.reset();
     let dialog = null;
     const notes = [];
-    let store, project;
+    let store, project, stack;
     const render = () => {
         const out = rt.render(() => {
             const st = useDesignStore({});
+            const s = notification.useNoticeStack?.();
             const pr = useProjectTree({
                 store: st, openTool() {}, onRestoreLayout() {},
-                setInputDialog: d => { dialog = d; }, setMessageNotification: n => notes.push(n), t,
+                setInputDialog: d => { dialog = d; },
+                setMessageNotification: n => { notes.push(n); s?.notify(n); },
+                t,
             });
-            return { st, pr };
+            return { st, pr, s };
         });
         for (const effect of rt.pendingEffects()) effect();
-        ({ st: store, pr: project } = out);
+        ({ st: store, pr: project, s: stack } = out);
     };
     globalThis.electronAPI = disk;
     render();
     await new Promise(resolve => setTimeout(resolve, 0));
     render();
-    return { render, get store() { return store; }, get project() { return project; }, notes, get dialog() { return dialog; } };
+    return {
+        render, notes,
+        get store() { return store; }, get project() { return project; }, get dialog() { return dialog; },
+        get shown() { return stack?.notices ?? []; },
+        close: (message) => { stack.dismiss(stack.notices.find(n => n.message === message).id); render(); },
+    };
 }
 
 // ── 1 to 3. Loading ──────────────────────────────────────────────────────────
@@ -269,6 +293,113 @@ writeSessionEntry('gone', { design: design('gone', 'On the drive'), history: { p
     await app.project.saveDesignToDisk('d1');
     await app.project.saveDesignToDisk('d1');
     assert.deepEqual(calls, [1000, undefined], 'the second save is sent without a time');
+}
+
+// ── 9. The data folder notice ───────────────────────────────────────────────
+// It stays until the user closes it and holds nothing back: the notice from
+// reading the files, and an error raised while it is open, show at once above
+// it. The main process hands it over once, so a later whole load, after a data
+// folder move, and Refresh all do not bring it back.
+{
+    assert.equal(typeof notification.useNoticeStack, 'function', 'notices are shown together, stacked');
+    const FOLDER = 'dialogs.dataFolderNotFound(D:\\Work\\TFStudio|C:\\Users\\u\\Documents\\TFStudio)';
+    const UNREAD = 'dialogs.unreadDesignFiles(P/Broken.tfs)';
+    const SAVE_FAILED = 'dialogs.saveAs.saveFailed';
+    let notices = [{ code: 'notFound', folder: 'D:\\Work\\TFStudio', active: 'C:\\Users\\u\\Documents\\TFStudio' }];
+    let asked = 0;
+    const app = await start({
+        loadFolders: async () => loaded({ fallback: true, unreadable: 1, unreadFiles: ['P/Broken.tfs'] }),
+        takeDataFolderNotices: async () => { asked++; const once = notices; notices = []; return once; },
+        saveDesign: async () => ({ success: false, error: 'disk full' }),
+    });
+    const onScreen = () => app.shown.map(n => [n.type, n.message, n.duration]);
+    assert.deepEqual(onScreen(), [['warning', FOLDER, 0], ['error', UNREAD, undefined]],
+        'the folder notice stays until closed, and the notice from reading the files shows above it at once');
+
+    await app.project.saveDesignToDisk('d1');
+    app.render();
+    assert.deepEqual(app.shown.map(n => n.message), [FOLDER, UNREAD, SAVE_FAILED],
+        'a failed save while the folder notice is open shows at once, on top');
+
+    await app.project.loadFoldersFromDisk();
+    app.render();
+    await app.project.refreshFoldersFromDisk(async () => {});
+    app.render();
+    assert.equal(asked, 2, 'Refresh all does not ask for the data folder notice');
+    assert.deepEqual(app.shown.map(n => n.message), [FOLDER, UNREAD, SAVE_FAILED],
+        'a notice already on screen is not shown twice, and the folder notice does not come back');
+
+    app.close(FOLDER);
+    assert.deepEqual(app.shown.map(n => n.message), [UNREAD, SAVE_FAILED], 'closing it leaves the others as they are');
+}
+
+// A notice with no message would draw nothing and never close itself.
+{
+    assert.equal(typeof notification.useNoticeStack, 'function', 'notices are shown together, stacked');
+    const runtime = makeHookRuntime();
+    globalThis.React = runtime.React;
+    const mount = () => runtime.render(() => notification.useNoticeStack());
+    const stack = mount();
+    stack.notify({ type: 'error' });
+    stack.notify({ type: 'error', message: '' });
+    stack.notify({ type: 'info', message: 'Saved' });
+    assert.deepEqual(mount().notices.map(n => n.message), ['Saved'], 'a notice with no message is not shown');
+    globalThis.React = rt.React;
+}
+
+// Every data folder notice handed over is shown: a chosen folder not found and
+// a default folder that cannot be used are both on screen.
+{
+    const app = await start({
+        loadFolders: async () => loaded(),
+        takeDataFolderNotices: async () => [
+            { code: 'notFound', folder: 'D:\\Work\\TFStudio', active: 'C:\\Users\\u\\Documents\\TFStudio' },
+            { code: 'defaultUnusable', folder: 'C:\\Users\\u\\Documents\\TFStudio', cause: 'accessDenied', reason: 'access denied' },
+        ],
+    });
+    assert.deepEqual(app.notes.map(n => [n.type, n.message, n.duration]), [
+        ['warning', 'dialogs.dataFolderNotFound(D:\\Work\\TFStudio|C:\\Users\\u\\Documents\\TFStudio)', 0],
+        ['warning', 'dialogs.defaultFolderUnusable(C:\\Users\\u\\Documents\\TFStudio|accessDenied)', 0],
+    ], 'both notices are raised, each kept until the user closes it');
+}
+
+// The other data folder notices, worded, each kept until the user closes it.
+async function folderNoticeShown(notice) {
+    const app = await start({ loadFolders: async () => loaded(), takeDataFolderNotices: async () => [notice] });
+    return app.notes.map(n => [n.type, n.message, n.duration]);
+}
+{
+    const shown = await folderNoticeShown({
+        code: 'unusable', folder: 'E:\\TFStudio', cause: 'accessDenied', reason: 'access denied', active: 'C:\\Users\\u\\Documents\\TFStudio',
+    });
+    assert.deepEqual(shown, [['warning', 'dialogs.dataFolderUnusable(E:\\TFStudio|accessDenied|C:\\Users\\u\\Documents\\TFStudio)', 0]],
+        'a chosen folder that cannot be used is named with the reason in the user\'s words');
+}
+{
+    const shown = await folderNoticeShown({
+        code: 'unusable', folder: 'E:\\TFStudio', cause: 'other', reason: 'EBUSY', active: 'C:\\Users\\u\\Documents\\TFStudio',
+    });
+    assert.deepEqual(shown, [['warning', 'dialogs.dataFolderUnusable(E:\\TFStudio|EBUSY|C:\\Users\\u\\Documents\\TFStudio)', 0]],
+        'a reason the app has no words for shows the system\'s error code');
+}
+{
+    const shown = await folderNoticeShown({
+        code: 'defaultUnusable', folder: 'C:\\Users\\u\\Documents\\TFStudio', cause: 'notFound', reason: 'not found',
+    });
+    assert.deepEqual(shown, [['warning', 'dialogs.defaultFolderUnusable(C:\\Users\\u\\Documents\\TFStudio|notFound)', 0]],
+        'a default folder that cannot be used is named with the reason');
+}
+{
+    const shown = await folderNoticeShown({ code: 'createdEmpty', folder: 'C:\\Users\\u\\Documents\\TFStudio' });
+    assert.deepEqual(shown, [['warning', 'dialogs.dataFolderCreatedEmpty(C:\\Users\\u\\Documents\\TFStudio)', 0]],
+        'the default folder made again empty is named');
+}
+{
+    const shown = await folderNoticeShown({
+        code: 'documentsMoved', documents: 'C:\\Users\\u\\Documents', folder: 'C:\\Users\\u\\OneDrive\\Documents\\TFStudio',
+    });
+    assert.deepEqual(shown, [['warning', 'dialogs.documentsMoved(C:\\Users\\u\\Documents|C:\\Users\\u\\OneDrive\\Documents\\TFStudio)', 0]],
+        'a data folder kept after Documents moved is named with where Documents points now');
 }
 
 console.log('PASS: design_files_wiring');

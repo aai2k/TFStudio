@@ -12,6 +12,15 @@
  *   - every file arrives byte for byte, including Cyrillic names, deep nesting
  *     and binary content
  *   - settings.json follows the move and the renderer's own keys survive it
+ *   - a folder that does not exist yet is made by the move, and the next start
+ *     runs from it
+ *   - the folder in use is kept in settings at startup and after a move, and a
+ *     default folder renamed away after that is reported at the next start
+ *   - when Windows moves Documents and leaves the data folder behind, the next
+ *     start keeps that folder as the chosen one and says so once
+ *   - a start writes only what it records and leaves the rest of settings as
+ *     it was, the per-folder paths of 1.5.0 to 1.7.2 and a chosen folder that
+ *     is not there included, and writes nothing when it could not read them
  *   - the four targets that are refused leave the data and settings untouched
  *   - a folder on another volume goes by copy, and the old one is dropped after
  *     the settings are safely written
@@ -28,6 +37,7 @@ const require = createRequire(import.meta.url);
 const { createUserPaths } = require('../src/main/userPaths.js');
 const { createDataFolderMove } = require('../src/main/dataFolderMove.js');
 const { readJsonSafe, writeFileAtomic } = require('../src/main/paths.js');
+const { writeRendererSettings } = require('../src/main/settingsFile.js');
 const { register } = require('../src/main/ipc/paths.js');
 
 // ── Assertion framework ──────────────────────────────────────────────────
@@ -146,6 +156,28 @@ function makeApp(opts = {}) {
   };
 }
 
+// The next start of `app`, the way main.js starts: its settings as written are
+// read by a fresh registry, which makes its folders, and registering the
+// handlers records what was settled. `documentsDir` is where Documents points
+// at that start; `readFails` stands for a read of settings.json that failed at
+// load, the file being locked for a moment, which main.js hands on as null.
+function restart(app, { documentsDir = path.join(app.dir, 'Documents'), readFails = false } = {}) {
+  const userPaths = createUserPaths({ documentsDir, fs, path, exeDir: path.join(app.dir, 'Program') });
+  userPaths.load(readFails ? null : app.settings());
+  userPaths.ensureAll();
+  register({ handle() {} }, {
+    fs, userPaths, settingsPath: app.settingsPath, readJsonSafe, writeFileAtomic, log: () => {},
+  });
+  return userPaths;
+}
+
+// `app` with its settings.json replaced by `settings`, as an older release or
+// a hand edit leaves it.
+function withSettings(app, settings) {
+  writeFileAtomic(app.settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+  return app;
+}
+
 // rename always reports the two paths as being on different volumes.
 function exdevFs() {
   return { ...fs, promises: new Proxy(fs.promises, {
@@ -189,6 +221,169 @@ async function test() {
     const r = await app.invoke('paths:set', null, target);
     ok(r.success, `a target that does not exist yet is created, got error: ${r.error}`);
     ok(snapshot(target) === before, 'and receives the data unchanged');
+
+    // The startup check refuses to make a chosen folder that is missing; the
+    // move made this one, so the next start finds it and uses it.
+    const restarted = restart(app);
+    ok(restarted.rootDir === target, `the next start runs from the new folder, got: ${restarted.rootDir}`);
+    ok(restarted.rejected === null, `with nothing rejected, got: ${JSON.stringify(restarted.rejected)}`);
+  }
+
+  // ── The folder in use is kept for the next start ───────────────────────
+  // It is what tells a default folder renamed away from one never made.
+  {
+    const app = makeApp();
+    const defaultRoot = app.userPaths.baseDir;
+    ok(app.settings().lastDataFolder === defaultRoot, `startup records the folder in use, got: ${app.settings().lastDataFolder}`);
+    writeRendererSettings({ settingsPath: app.settingsPath, readJsonSafe, writeFileAtomic }, { theme: 'Light' });
+    ok(app.settings().lastDataFolder === defaultRoot, 'a renderer settings write keeps it');
+
+    const target = app.emptyTarget('Moved Here');
+    ok((await app.invoke('paths:set', null, target)).success, 'setup: the data is moved');
+    ok(app.settings().lastDataFolder === target, `a move records the new folder, got: ${app.settings().lastDataFolder}`);
+  }
+  {
+    const app = makeApp();
+    const defaultRoot = app.userPaths.baseDir;
+    const restarted = restart(app);
+    ok(restarted.takeNotices().length === 0, 'the next start with the default folder in place says nothing');
+
+    const renamed = path.join(app.dir, 'Documents', 'TFStudio old');
+    const before = snapshot(defaultRoot);
+    fs.renameSync(defaultRoot, renamed);
+    const afterRename = restart(app);
+    const notices = afterRename.takeNotices();
+    ok(notices.length === 1 && notices[0].code === 'createdEmpty' && notices[0].folder === defaultRoot,
+      `a default folder renamed away is reported as made again empty, got: ${JSON.stringify(notices)}`);
+    ok(snapshot(renamed) === before, 'and the renamed folder is left as it was');
+  }
+
+  // ── Documents moved, with the data folder left where it was ────────────
+  // OneDrive backup stopped, or the Documents folder moved without its
+  // content: Documents\TFStudio is a new place, and the last run's data is at
+  // the old one.
+  {
+    const app = makeApp();
+    const oldRoot = app.userPaths.baseDir;
+    const before = snapshot(oldRoot);
+    const movedDocuments = path.join(app.dir, 'Profile', 'Documents');
+    fs.mkdirSync(movedDocuments, { recursive: true });
+
+    const moved = restart(app, { documentsDir: movedDocuments });
+    ok(moved.rootDir === oldRoot, `the data folder is kept, got: ${moved.rootDir}`);
+    ok(app.settings().folders?.root === oldRoot, `settings record it as the chosen folder, got: ${JSON.stringify(app.settings().folders)}`);
+    ok(moved.list().overridden && moved.list().root === oldRoot, 'so Preferences shows it');
+    ok(!fs.existsSync(path.join(movedDocuments, 'TFStudio')), 'no empty folder is made where Documents points now');
+    ok(snapshot(oldRoot) === before, 'and the data is untouched');
+    const notices = moved.takeNotices();
+    ok(notices.length === 1 && notices[0].code === 'documentsMoved'
+      && notices[0].documents === movedDocuments && notices[0].folder === oldRoot,
+    `the user is told where Documents points and which folder is kept, got: ${JSON.stringify(notices)}`);
+
+    const next = restart(app, { documentsDir: movedDocuments });
+    ok(next.rootDir === oldRoot && next.takeNotices().length === 0, 'the start after that runs from it and says nothing');
+  }
+
+  // ── A start writes only what it records ────────────────────────────────
+  // The folders block of 1.5.0 to 1.7.2 held one path per folder; it is the
+  // only record of where that data is, so a start and a renderer settings save
+  // leave it as it is.
+  {
+    const perFolder = { projects: 'D:\\Work\\Projects', materials: 'D:\\Work\\Materials', coatings: 'D:\\Work\\Coatings' };
+    const app = withSettings(makeApp(), { theme: 'Dark', folders: { ...perFolder } });
+    restart(app);
+    ok(JSON.stringify(app.settings().folders) === JSON.stringify(perFolder),
+      `a start keeps the per-folder paths, got: ${JSON.stringify(app.settings().folders)}`);
+    writeRendererSettings({ settingsPath: app.settingsPath, readJsonSafe, writeFileAtomic }, { theme: 'Light' });
+    ok(JSON.stringify(app.settings().folders) === JSON.stringify(perFolder),
+      `and so does a renderer settings save, got: ${JSON.stringify(app.settings().folders)}`);
+  }
+  // A data folder kept after Documents moved is added to the folders block,
+  // beside the per-folder paths already there.
+  {
+    const perFolder = { projects: 'D:\\Work\\Projects' };
+    const app = makeApp();
+    const oldRoot = app.userPaths.baseDir;
+    withSettings(app, { ...app.settings(), folders: { ...perFolder } });
+    const movedDocuments = path.join(app.dir, 'Profile', 'Documents');
+    fs.mkdirSync(movedDocuments, { recursive: true });
+    restart(app, { documentsDir: movedDocuments });
+    ok(JSON.stringify(app.settings().folders) === JSON.stringify({ ...perFolder, root: oldRoot }),
+      `the kept folder is recorded and the per-folder paths stay, got: ${JSON.stringify(app.settings().folders)}`);
+  }
+  // A chosen folder that is not there stays in settings as it was, with
+  // whatever else the folders block holds, so the next start tries it again.
+  {
+    const missing = path.join(TMP_ROOT, 'Unplugged', 'TFStudio');
+    const folders = { root: missing, projects: 'D:\\Work\\Projects' };
+    const app = withSettings(makeApp(), { theme: 'Dark', folders: { ...folders }, lastDataFolder: missing });
+    const started = restart(app);
+    ok(started.rootDir === started.baseDir, 'setup: the session runs from the default');
+    ok(JSON.stringify(app.settings().folders) === JSON.stringify(folders),
+      `the folders block is left as it was, got: ${JSON.stringify(app.settings().folders)}`);
+    const portable = withSettings(makeApp(), { theme: 'Dark', folders: { root: 'Data' } });
+    restart(portable);
+    ok(portable.settings().folders?.root === 'Data', `a missing relative folder stays as written, got: ${JSON.stringify(portable.settings().folders)}`);
+  }
+  // A run whose default folder could not be made, Documents being out of
+  // reach, records no folder as used: recorded, it would make the next start,
+  // with Documents back, say the folder was renamed away. The last run's
+  // record stands instead.
+  {
+    const dir = path.join(TMP_ROOT, `app-${++seq}`);
+    const settingsPath = path.join(dir, 'AppData', 'settings.json');
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    const documents = path.join(dir, 'Documents');
+    const start = () => {
+      const userPaths = createUserPaths({ documentsDir: documents, fs, path, exeDir: path.join(dir, 'Program') });
+      userPaths.load(readJsonSafe(settingsPath));
+      userPaths.ensureAll();
+      register({ handle() {} }, { fs, userPaths, settingsPath, readJsonSafe, writeFileAtomic, log: () => {} });
+      return userPaths;
+    };
+    fs.writeFileSync(documents, 'a file where Documents should be');
+    const first = start();
+    ok(first.takeNotices().some(n => n.code === 'defaultUnusable'), 'setup: the first run cannot use the default folder');
+    ok(readJsonSafe(settingsPath)?.lastDataFolder === undefined,
+      `no folder is recorded as used, got: ${readJsonSafe(settingsPath)?.lastDataFolder}`);
+    fs.rmSync(documents);
+    fs.mkdirSync(documents);
+    const second = start();
+    ok(second.takeNotices().length === 0, 'the next start, with Documents back, says nothing');
+
+    const earlier = path.join(dir, 'Earlier', 'TFStudio');
+    writeFileAtomic(settingsPath, JSON.stringify({ theme: 'Dark', lastDataFolder: earlier }), 'utf-8');
+    fs.rmSync(documents, { recursive: true });
+    fs.writeFileSync(documents, 'out of reach again');
+    start();
+    ok(readJsonSafe(settingsPath).lastDataFolder === earlier,
+      `a run that cannot use the default folder keeps the last run's record, got: ${readJsonSafe(settingsPath).lastDataFolder}`);
+  }
+  // Settings read at load but out of reach when the startup write comes, the
+  // file locked by then, are not written over either: written from nothing,
+  // every other key would be lost.
+  {
+    const app = makeApp();
+    const before = fs.readFileSync(app.settingsPath, 'utf-8');
+    const userPaths = createUserPaths({ documentsDir: path.join(app.dir, 'Documents'), fs, path, exeDir: path.join(app.dir, 'Program') });
+    userPaths.load(app.settings());
+    userPaths.ensureAll();
+    register({ handle() {} }, {
+      fs, userPaths, settingsPath: app.settingsPath, readJsonSafe: () => null, writeFileAtomic, log: () => {},
+    });
+    ok(fs.readFileSync(app.settingsPath, 'utf-8') === before, 'a startup write that cannot read settings writes nothing over them');
+  }
+  // Settings that could not be read at load, the file locked for a moment, are
+  // not written at startup: this run never saw what they hold.
+  {
+    const chosen = app => path.join(app.dir, 'Work', 'TFStudio');
+    const app = makeApp();
+    fs.mkdirSync(path.join(chosen(app), 'Projects'), { recursive: true });
+    const before = { theme: 'Dark', folders: { root: chosen(app) }, lastDataFolder: chosen(app) };
+    withSettings(app, before);
+    restart(app, { readFails: true });
+    ok(JSON.stringify(app.settings()) === JSON.stringify(before),
+      `settings are left as they were on disk, got: ${JSON.stringify(app.settings())}`);
   }
 
   // ── Moved twice, then reset ────────────────────────────────────────────

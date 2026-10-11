@@ -18,6 +18,7 @@
 import { FolderRow } from './FolderRow.js';
 import { SubfolderList } from './SubfolderList.js';
 import { hintStyle, buttonStyle } from './ui.js';
+import { dataFolderReason } from '../../../utils/io/dataFolderReason.js';
 
 const { createElement: h, useState, useEffect, useCallback, useRef } = React;
 
@@ -164,7 +165,7 @@ export const FoldersPane = ({ c, t, onUserPathChanged, countUnsavedDesigns, save
         fontSize: '12px', color: c.warning, border: `1px solid ${c.warning}`,
         borderRadius: '6px', padding: '8px', marginBottom: '8px',
       },
-    }, t.settings.folders.rejected(rejected.configured, rejected.reason)),
+    }, t.settings.folders.rejected(rejected.configured, dataFolderReason(t, rejected.code, rejected.reason))),
 
     // error (move error / critical) — red
     error && h('div', {

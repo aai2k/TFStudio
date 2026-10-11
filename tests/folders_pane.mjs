@@ -4,6 +4,8 @@
  *   - the shape of userPaths.list(), which the pane renders directly
  *   - the IPC round trip: paths:list, paths:set, paths:reset, paths:reveal, paths:choose
  *   - that the critical case does not ask the renderer to reload
+ *   - a chosen folder that was not found at startup: the pane names it and
+ *     says so in the user's language
  *
  * Run: node tests/folders_pane.mjs
  */
@@ -190,6 +192,69 @@ function eq(a, b, m) { ok(a === b, `${m}: expected ${JSON.stringify(b)}, got ${J
   eq(changeCount, 0, 'critical does not trigger onUserPathChanged');
 
   fs.rmSync(TMP, { recursive: true, force: true });
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 4. A chosen folder that was not found at startup
+// ═══════════════════════════════════════════════════════════════════════
+{
+  const { createUserPaths } = require('../src/main/userPaths.js');
+  const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'fp-missing-test-'));
+  const docs = path.join(TMP, 'docs');
+  fs.mkdirSync(docs, { recursive: true });
+  const missing = path.join(TMP, 'Work', 'TFStudio');
+  const up = createUserPaths({ documentsDir: docs, fs, path, exeDir: TMP });
+  up.load({ folders: { root: missing } });
+  up.ensureAll();
+  const list = up.list();
+  eq(list.root, up.baseDir, 'the pane is given the default as the folder in use');
+  eq(list.rejected?.configured, missing, 'and the chosen folder');
+  eq(list.rejected?.code, 'notFound', 'with why it is not used');
+  fs.rmSync(TMP, { recursive: true, force: true });
+
+  const { loadApp, makeLocale, makeTheme, shimBrowserGlobals } = await import('./_uiShim.mjs');
+  const { makeHookRuntime, importWithHookRuntime } = await import('./_hookHarness.mjs');
+  shimBrowserGlobals();
+  await loadApp();
+  const runtime = makeHookRuntime();
+  Object.assign(runtime.React, { createElement: React.createElement, Fragment: React.Fragment });
+  const { FoldersPane } = await importWithHookRuntime('../src/components/dialogs/settings/FoldersPane.js', runtime);
+  const textOf = node => (typeof node === 'string' ? node
+    : Array.isArray(node) ? node.map(textOf).join('')
+      : node?.props ? textOf(node.props.children) : '');
+
+  // What the pane shows for `folders`, in `code`'s language.
+  async function paneText(code, folders) {
+    globalThis.window.electronAPI = { listUserPaths: async () => ({ success: true, folders }) };
+    const props = {
+      c: makeTheme(), t: makeLocale(code), countUnsavedDesigns: () => 0, saveUnsavedDesigns: async () => [],
+      showConfirm: async () => false, onUserPathChanged: async () => {},
+    };
+    runtime.reset();
+    runtime.render(() => FoldersPane(props));
+    for (const effect of runtime.pendingEffects()) effect();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    return textOf(runtime.render(() => FoldersPane(props)));
+  }
+  for (const code of ['en', 'ru']) {
+    const t = makeLocale(code);
+    const shown = await paneText(code, list);
+    const expected = t.settings.folders.rejected(missing, t.settings.folders.reasons?.notFound);
+    ok(shown.includes(expected), `${code}: the pane names the chosen folder and says it was not found, got: ${shown}`);
+  }
+
+  // A folder that is there but cannot be used is given the same worded reason
+  // as the startup notice, or the system's error code; never its message.
+  const share = 'E:\\TFStudio';
+  for (const code of ['en', 'ru']) {
+    const t = makeLocale(code);
+    const denied = await paneText(code, { ...list, rejected: { configured: share, code: 'accessDenied', reason: 'access denied' } });
+    ok(denied.includes(t.settings.folders.rejected(share, t.settings.folders.reasons?.accessDenied)),
+      `${code}: access denied is worded, got: ${denied}`);
+  }
+  const busy = await paneText('en', { ...list, rejected: { configured: share, code: 'other', reason: 'EBUSY' } });
+  ok(busy.includes(makeLocale('en').settings.folders.rejected(share, 'EBUSY')),
+    `a reason with no words shows the error code, got: ${busy}`);
 }
 
 // ── Summary of results ───────────────────────────────────────────────────

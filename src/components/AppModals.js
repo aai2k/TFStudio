@@ -27,7 +27,7 @@ const { createElement: h, Fragment } = React;
 export function AppModals({
     c, t, settings, dialogs, welcome, project, activeDesignId,
     designSig, designLayers, onUserPathChanged,
-    inputDialog, messageNotification, onDismissMessage,
+    inputDialog, messageNotifications, onDismissMessage,
 }) {
     return h(Fragment, null,
         dialogs.showSettings && h(SettingsModal, {
@@ -122,11 +122,21 @@ export function AppModals({
             onClose: () => welcome.setActiveTutorial(null),
         }),
         h(InputDialog, { inputDialog, c, t }),
-        messageNotification && h(MessageNotification, {
+        // The notices stack upward from the corner in the order they were
+        // raised, the latest on top. Each is keyed by its own id, so it keeps
+        // its own show and close timers while the ones around it come and go.
+        messageNotifications.length > 0 && h('div', {
+            style: {
+                position: 'fixed', bottom: '16px', right: '16px', zIndex: 9999,
+                display: 'flex', flexDirection: 'column-reverse', gap: '8px',
+            },
+        }, messageNotifications.map(notice => h(MessageNotification, {
+            key: notice.id,
             c,
-            message: messageNotification.message,
-            type: messageNotification.type,
-            onClose: onDismissMessage,
-        })
+            message: notice.message,
+            type: notice.type,
+            duration: notice.duration,
+            onClose: () => onDismissMessage(notice.id),
+        })))
     );
 }

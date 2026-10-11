@@ -6,7 +6,7 @@
 // failure after the files have moved is compensated, and the user is always
 // left with one complete copy of the data and settings that point at it.
 
-const { writeMainOwnedKey } = require('../settingsFile');
+const { writeMainOwnedKey, writeMainOwnedValues } = require('../settingsFile');
 
 // ── move mutex ────────────────────────────────────────────────────────────
 let moveInProgress = false;
@@ -19,19 +19,69 @@ let moveInProgress = false;
 // paths:set(dir) → transaction result, with warning and critical variants
 // paths:reset → set(defaultPath), a no-op when already default
 // paths:reveal(key?) → opens the root, or one subfolder
+// paths:take-notices → what to tell the user about the data folder at startup,
+//                      a list, given once (see userPaths.takeNotices)
+//
+// Settings written here: at startup only lastDataFolder, lastDocuments and, for
+// a data folder kept after Windows moved Documents, folders.root, each set in
+// place (recordStartup). A move or a Reset writes the whole folders block from
+// the registry, { root } or nothing, so the per-folder paths of 1.5.0 to 1.7.2
+// leave the file then, and records the folder in use (persist).
 
 function register(ipcMain, ctx) {
   ipcMain.handle('paths:list', async () => handleList(ctx));
+  ipcMain.handle('paths:take-notices', async () => ctx.userPaths.takeNotices());
   ipcMain.handle('paths:choose', async () => handleChoose(ctx));
   ipcMain.handle('paths:set', async (event, key, dir) => handleSet(ctx, key, dir));
   ipcMain.handle('paths:reset', async (event, key) => handleReset(ctx, key));
   ipcMain.handle('paths:reveal', async (event, key) => handleReveal(ctx, key));
+  // Registered once at startup, after the data folder is settled.
+  recordStartup(ctx);
+}
+
+// Main-owned values written into settings as they are on disk, touching
+// nothing else (`folders` sets keys in the folders block). Settings that are
+// there but cannot be read now, or were not read at load (`seen` false), are
+// left alone: written over, what they hold would be lost. A failure is logged
+// and nothing else, since it costs only what the next start can tell, and
+// never fails the start, move or Reset that called it.
+function recordInSettings(ctx, values, { folders = null, seen = true } = {}) {
+  try {
+    const exists = ctx.fs.existsSync(ctx.settingsPath);
+    const settings = ctx.readJsonSafe(ctx.settingsPath);
+    if (exists && !(seen && settings)) return;
+    writeMainOwnedValues(ctx, settings || {}, values, folders);
+  } catch (err) {
+    ctx.log(`settings write error: ${err.message}`);
+  }
+}
+
+// What this start found, recorded for the next one: the folder in use and
+// where Documents points, which tell a default folder renamed away from one
+// never made and a Documents folder moved by Windows (see dataFolderCheck.js),
+// and a data folder kept after such a move, as the chosen folder so Preferences
+// shows it. Every other key stays: the per-folder paths of 1.5.0 to 1.7.2 are
+// the only record of where that data is.
+function recordStartup(ctx) {
+  const found = ctx.userPaths.startupRecord();
+  recordInSettings(ctx, { lastDataFolder: found.lastDataFolder, lastDocuments: found.lastDocuments }, {
+    folders: found.kept ? { root: found.kept } : null,
+    seen: found.settingsRead,
+  });
+}
+
+// The data folder in use after a move or a Reset.
+function recordFolderInUse(ctx) {
+  recordInSettings(ctx, { lastDataFolder: ctx.userPaths.rootDir });
 }
 
 // ── persist: writeMainOwnedKey whole-block replacement semantics ─────────
+// Records the chosen folder and the folder in use; every change of folder is
+// written here.
 function persist(ctx) {
   try {
     writeMainOwnedKey(ctx, 'folders', ctx.userPaths.toSettings());
+    recordFolderInUse(ctx);
     return { success: true };
   } catch (err) {
     ctx.log(`paths persist error: ${err.message}`);

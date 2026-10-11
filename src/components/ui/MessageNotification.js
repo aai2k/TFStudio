@@ -1,10 +1,34 @@
 /**
- * Message notification component (VS Code style)
- * Non-modal notification for info/success/error messages
- * Shows in the bottom-right corner with auto-dismiss
+ * The notices in the bottom-right corner of the window (info, success, warning,
+ * error), and the component that draws one. They stack, the latest on top.
+ * Each closes itself after its `duration` in ms, 4 seconds unless given, or
+ * stays until the user closes it when the duration is 0.
  */
 
 import { tablerIcon } from './tablerIcons.js';
+
+/**
+ * The notices on screen, in the order they were raised. A notice raised while
+ * others are open is shown at once, above them, with its own timer, so one that
+ * stays until closed never holds back a later one such as a failed save. A
+ * notice the same as one already on screen is not shown twice: a refresh raises
+ * the notices of a load anew. A notice with no message is ignored, since it
+ * would draw nothing and never close. `notify` shows one, `dismiss(id)` closes
+ * it.
+ */
+export function useNoticeStack() {
+  const { useState, useRef, useCallback } = React;
+  const [notices, setNotices] = useState([]);
+  const nextId = useRef(0);
+  const notify = useCallback((notice) => {
+    if (!notice?.message) return;
+    setNotices(open => (open.some(n => n.type === notice.type && n.message === notice.message)
+      ? open
+      : [...open, { ...notice, id: ++nextId.current }]));
+  }, []);
+  const dismiss = useCallback(id => setNotices(open => open.filter(n => n.id !== id)), []);
+  return { notices, notify, dismiss };
+}
 
 export function MessageNotification({ c, message, type = 'info', onClose, duration = 4000 }) {
   const { createElement: h, useState, useEffect, useRef } = React;
@@ -84,17 +108,14 @@ export function MessageNotification({ c, message, type = 'info', onClose, durati
 
   const typeColors = getTypeColors();
 
+  // Placed by the stack it is drawn in (see AppModals).
   return h('div', {
     style: {
-      position: 'fixed',
-      bottom: '16px',
-      right: '16px',
       width: '360px',
       backgroundColor: c.panel,
       border: `1px solid ${typeColors.borderColor}`,
       borderRadius: '8px',
       boxShadow: '0 4px 16px rgba(0, 0, 0, 0.4)',
-      zIndex: 9999,
       transform: isClosing
         ? 'translateX(400px)'
         : isVisible

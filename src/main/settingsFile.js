@@ -12,7 +12,10 @@
 // preferences file (src/main/preferencesFile.js). It stays on the list so a
 // renderer save that happens before the one-time migration has run does not
 // drop the block the migration is about to move.
-const MAIN_OWNED_KEYS = ['folders', 'analysis'];
+//
+// `lastDataFolder` is the data folder the last run used, and `lastDocuments`
+// where Documents pointed then (see ipc/paths.js).
+const MAIN_OWNED_KEYS = ['folders', 'analysis', 'lastDataFolder', 'lastDocuments'];
 
 // Carry main-process keys absent from an incoming renderer payload over from
 // what is already on disk.
@@ -24,14 +27,32 @@ function mergeMainOwned(settings, existing) {
   return merged;
 }
 
+// Whether a main-owned value holds nothing: an empty string, or an object with
+// no keys.
+function isEmptyValue(value) {
+  return typeof value === 'string' ? value === '' : !value || Object.keys(value).length === 0;
+}
+
 // Replace a single main-owned key, preserving everything the renderer owns.
-// An empty value removes the key so an untouched install leaves no dead block.
+// The value is a string or an object. An empty value removes the key so an
+// untouched install leaves no dead block.
 function writeMainOwnedKey(ctx, key, value) {
   const { settingsPath, readJsonSafe, writeFileAtomic } = ctx;
   const merged = { ...(readJsonSafe(settingsPath) || {}) };
-  if (value && Object.keys(value).length > 0) merged[key] = value;
-  else delete merged[key];
+  if (isEmptyValue(value)) delete merged[key];
+  else merged[key] = value;
   writeFileAtomic(settingsPath, JSON.stringify(merged, null, 2), 'utf-8');
+}
+
+// Write main-owned values into `settings`, as read from the file, touching
+// nothing else: `values` set top-level keys, an undefined one leaving its key
+// as it is, and `folders` sets keys in the folders block, whose other keys stay
+// as they are.
+function writeMainOwnedValues(ctx, settings, values, folders) {
+  const given = Object.entries(values).filter(([, value]) => value !== undefined);
+  const merged = { ...settings, ...Object.fromEntries(given) };
+  if (folders) merged.folders = { ...settings.folders, ...folders };
+  ctx.writeFileAtomic(ctx.settingsPath, JSON.stringify(merged, null, 2), 'utf-8');
 }
 
 // Write a renderer payload, preserving the main-owned keys.
@@ -41,4 +62,4 @@ function writeRendererSettings(ctx, settings) {
   writeFileAtomic(settingsPath, JSON.stringify(merged, null, 2), 'utf-8');
 }
 
-module.exports = { MAIN_OWNED_KEYS, mergeMainOwned, writeMainOwnedKey, writeRendererSettings };
+module.exports = { MAIN_OWNED_KEYS, mergeMainOwned, writeMainOwnedKey, writeMainOwnedValues, writeRendererSettings };
