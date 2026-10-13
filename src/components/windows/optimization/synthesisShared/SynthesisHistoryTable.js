@@ -16,10 +16,10 @@ const { createElement: h, useContext } = React;   // React is a window global (n
 const td = (content, style = {}) =>
     h('td', { style: { padding: '2px 5px', fontSize: 11, whiteSpace: 'nowrap', ...style } }, content);
 
+// A header is shown as written, so a unit keeps its case: TOT, nm.
 const th = (label, w, c) => h('th', {
     style: {
         padding: '2px 5px', fontSize: 10, fontWeight: 700, color: c.textDim,
-        textTransform: 'uppercase', letterSpacing: '0.04em',
         position: 'sticky', top: 0, background: c.panel,
         borderBottom: `1px solid ${c.border}`,
         width: w, textAlign: 'left', whiteSpace: 'nowrap',
