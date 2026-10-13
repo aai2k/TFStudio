@@ -284,6 +284,7 @@ export function MaterialDispersionEvaluation({ c, t }) {
             ? h(CenteredMessage, { c, message: t.materialResolution.pickedMissing(materialId) })
             : plotData && h(GDChart, {
                 data: plotData,
+                xLabel: t.spectralAxis.nm,
                 materialBands,
                 meta: {
                     label: t.gdgdd[quantityMeta.tr],

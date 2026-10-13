@@ -368,4 +368,13 @@ const badge = renderToStaticMarkup(React.createElement(NoticeBadge, {
 assert.match(badge, />1</, 'the badge counts the conditions');
 assert.match(badge, /title="Notices"/);
 
+// Material Dispersion draws its curve with the same chart, and titles the
+// wavelength axis as this window does.
+{
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL(
+        '../src/components/windows/analysis/materialDispersion/MaterialDispersionEvaluation.js', import.meta.url), 'utf-8');
+    assert.ok(source.includes('xLabel: t.spectralAxis.nm'), 'Material Dispersion titles its wavelength axis');
+}
+
 console.log('PASS: gd_gdd_evaluation_refactor');
