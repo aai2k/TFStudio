@@ -73,22 +73,31 @@ assert.equal(itemTooltip().valueFormatter(1.005), '1.005');
     }
 }
 
-// The Integral Values overlay sets its own interval and follows the same rule:
-// 50 nm over a visible band, a wider step over a span where 50 nm would draw a
-// hatch of gridlines.
+// The Integral Values overlay follows the same rule: 50 nm over a visible band,
+// a wider step over a span where 50 nm would draw a hatch of gridlines, and
+// ticks on round wavelengths when the band starts on an odd one. A fixed
+// interval would be counted from the band's start, 382, 432, 482.
 {
     const { buildOverlayOption } = await import(
         '../src/components/windows/analysis/integralValues/overlayFigure.js');
     const colors = { text: '#cccccc', grid: '#3a3a3a', panel: '#252526' };
-    const overlayInterval = (low, high) => {
+    const overlayAxis = (low, high) => {
         const points = 101;
         const lambda = Array.from({ length: points }, (_, index) => (
             low + ((high - low) * index) / (points - 1)));
         const spectrum = { lambda, T: lambda.map(() => 0.5) };
-        return buildOverlayOption({ spectrum, char: 'T', colors }).xAxis.interval;
+        return buildOverlayOption({ spectrum, char: 'T', colors }).xAxis;
+    };
+    const overlayInterval = (low, high) => {
+        const axis = overlayAxis(low, high);
+        assert.equal(axis.interval, undefined, 'no interval counted from the band start');
+        assert.equal(axis.minInterval, axis.maxInterval, 'the step is pinned from both sides');
+        return axis.minInterval;
     };
 
     assert.equal(overlayInterval(400, 700), 50, 'a visible integration span keeps 50 nm ticks');
+    assert.equal(overlayInterval(382, 782), 50, 'so does one that starts on an odd wavelength');
+    assert.deepEqual([overlayAxis(382, 782).min, overlayAxis(382, 782).max], [382, 782], 'and the axis spans the band');
     const wide = overlayInterval(300, 5000);
     const count = (5000 - 300) / wide;
     assert.ok(count >= 2 && count <= 40,

@@ -1,8 +1,7 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
 import {
-    axisTooltip, cartesianOption, lineSeries, niceTickInterval,
-    scatterSeries, valueAxis,
+    axisTooltip, cartesianOption, lineSeries, scatterSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { legendInsideLeft, plotMargin } from '../chrome/plot.js';
 
@@ -22,9 +21,6 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
     if (!spectrum?.lambda) return { series: [] };
     const lambdaLow = spectrum.lambda[0];
     const lambdaHigh = spectrum.lambda.at(-1);
-    // Ticks follow the integration span: 50 nm over a visible band, wider steps
-    // over a broadband or infrared span that would otherwise grid every 50 nm.
-    const tickStep = niceTickInterval(lambdaHigh - lambdaLow, { targetTicks: 10, min: 50 });
     const series = [lineSeries({
         x: spectrum.lambda, y: (spectrum[char] || []).map(value => value * 100),
         name: `${char}(λ)`, color: overlayCharColor(char, curve), width: 2,
@@ -56,9 +52,11 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
         fileName: 'integral',
         tooltip: axisTooltip({ colors, valueSuffix: '%' }),
         legend: legendInsideLeft({ panel: colors.panel, border: colors.grid }, { color: colors.text }),
+        // A wavelength axis with no interval of its own is ticked on round
+        // wavelengths by the shared rule, however odd the band's start.
         xAxis: valueAxis({
             name: lambdaAxis, color: colors.text, gridColor: colors.grid,
-            min: lambdaLow, max: lambdaHigh, interval: tickStep, wavelength: true,
+            min: lambdaLow, max: lambdaHigh, wavelength: true,
         }),
         yAxis: valueAxis({
             name: '%', color: colors.text, gridColor: colors.grid,
