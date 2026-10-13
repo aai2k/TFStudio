@@ -150,56 +150,62 @@ export function DepositionTimeline({ progress, totalTime, playing, onScrub, onPl
 }
 
 // ── Generic ECharts line/bar chart ─────────────────────────────────────────────
-// `wavelengthX` says the x axis is wavelength in nm.
-export function Chart({
-    series = [], xTitle, yTitle, c, yRange = null, minHeight = 200,
+// `wavelengthX` says the x axis is wavelength in nm. A bar is drawn up from
+// zero, so a chart with bars keeps zero on its y axis; fitted to the data
+// alone, the E/A/T bars of a 60 nm layer would rise from 54.6 nm as slivers.
+export function wizardChartOption({
+    series = [], xTitle, yTitle, c, yRange = null,
     grid, xCategories = null, referenceLines = [], legend = { show: false },
     wavelengthX = false,
 }) {
-    const ref = useRef(null);
-    const chartRef = useRef(null);
     const percentAxis = /%/.test(yTitle || '');
     const effectiveYRange = percentAxis ? percentChartRange(series, yRange) : yRange;
     const ySpan = effectiveYRange ? effectiveYRange[1] - effectiveYRange[0] : null;
+    const hasBars = series.some(item => item?.type === 'bar');
+    const plottedSeries = series.map((item, index) => index !== 0 || !referenceLines.length ? item : {
+        ...item,
+        markLine: {
+            silent: true,
+            symbol: 'none',
+            label: { show: false },
+            data: referenceLines.map(line => ({
+                xAxis: line.x,
+                lineStyle: {
+                    color: line.color || c.accent,
+                    width: line.width || 1,
+                    type: line.dash || 'dashed',
+                },
+            })),
+        },
+    });
+    return cartesianOption({
+        colors: c,
+        grid: grid || { left: 54, right: 14, top: 12, bottom: 42 },
+        xAxis: xCategories
+            ? {
+                type: 'category', data: xCategories, name: xTitle,
+                nameLocation: 'middle', nameGap: 25,
+                axisLine: { lineStyle: { color: c.text } },
+                axisLabel: { color: c.text, fontSize: 10 },
+                splitLine: { show: false },
+            }
+            : valueAxis({ name: xTitle, color: c.text, gridColor: c.border, nameGap: 26, wavelength: wavelengthX }),
+        yAxis: valueAxis({
+            name: yTitle, color: c.text, gridColor: c.border, nameGap: 38,
+            min: effectiveYRange?.[0], max: effectiveYRange?.[1], scale: !effectiveYRange && !hasBars,
+            interval: percentAxis && (ySpan == null || ySpan >= 20) ? 10 : undefined,
+        }),
+        series: plottedSeries,
+        legend,
+        tooltip: axisTooltip({ colors: c, valueSuffix: percentAxis ? '%' : '' }),
+    });
+}
+
+export function Chart({ minHeight = 200, ...options }) {
+    const ref = useRef(null);
+    const chartRef = useRef(null);
     useEffect(() => {
-        if (!ref.current) return;
-        const plottedSeries = series.map((item, index) => index !== 0 || !referenceLines.length ? item : {
-            ...item,
-            markLine: {
-                silent: true,
-                symbol: 'none',
-                label: { show: false },
-                data: referenceLines.map(line => ({
-                    xAxis: line.x,
-                    lineStyle: {
-                        color: line.color || c.accent,
-                        width: line.width || 1,
-                        type: line.dash || 'dashed',
-                    },
-                })),
-            },
-        });
-        drawChart(ref.current, chartRef, cartesianOption({
-            colors: c,
-            grid: grid || { left: 54, right: 14, top: 12, bottom: 42 },
-            xAxis: xCategories
-                ? {
-                    type: 'category', data: xCategories, name: xTitle,
-                    nameLocation: 'middle', nameGap: 25,
-                    axisLine: { lineStyle: { color: c.text } },
-                    axisLabel: { color: c.text, fontSize: 10 },
-                    splitLine: { show: false },
-                }
-                : valueAxis({ name: xTitle, color: c.text, gridColor: c.border, nameGap: 26, wavelength: wavelengthX }),
-            yAxis: valueAxis({
-                name: yTitle, color: c.text, gridColor: c.border, nameGap: 38,
-                min: effectiveYRange?.[0], max: effectiveYRange?.[1], scale: !effectiveYRange,
-                interval: percentAxis && (ySpan == null || ySpan >= 20) ? 10 : undefined,
-            }),
-            series: plottedSeries,
-            legend,
-            tooltip: axisTooltip({ colors: c, valueSuffix: percentAxis ? '%' : '' }),
-        }));
+        if (ref.current) drawChart(ref.current, chartRef, wizardChartOption(options));
     });
     useChartTeardown(ref, chartRef);
     return h('div', { ref, style: { width: '100%', height: '100%', minHeight } });
