@@ -4392,8 +4392,16 @@ export default {
     append: 'Aggiungi in coda',
     replace: 'Sostituisci',
     newDesign: 'Nuovo design',
-    appendTip: 'Aggiunge gli strati generati in coda allo stack anteriore del design attivo',
-    replaceTip: 'Sostituisce lo stack anteriore del design attivo (e i mezzi, se indicati)',
+    appendTip: {
+      front: 'Aggiunge gli strati generati in coda allo stack anteriore del design attivo',
+      back: 'Aggiunge gli strati generati in coda allo stack posteriore del design attivo',
+      both: 'Aggiunge gli strati generati in coda a entrambi gli stack del design attivo',
+    },
+    replaceTip: {
+      front: 'Sostituisce lo stack anteriore del design attivo (e i mezzi, se indicati)',
+      back: 'Sostituisce lo stack posteriore del design attivo (e i mezzi, se indicati)',
+      both: 'Sostituisce entrambi gli stack del design attivo (e i mezzi, se indicati)',
+    },
     newTip: 'Crea un nuovo design da questa formula nel progetto selezionato',
     noActiveDesign: 'Nessun design attivo. Aprine o creane prima uno',
     noFolder: 'Nessuna cartella di progetto selezionata. Scegline o creane prima una',

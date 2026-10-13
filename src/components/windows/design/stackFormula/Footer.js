@@ -3,7 +3,9 @@ import { SideSeg, FooterBtn } from './ui.js';
 const { createElement: h } = React;
 
 export function Footer({ state, c, sf, folderName, hasActiveDesign, onClose }) {
-    const { compiled, isSym, applySide, setApplySide, newName, setNewName, applyToDesign } = state;
+    const { compiled, isSym, applySide, effSide, setApplySide, newName, setNewName, applyToDesign } = state;
+    // A symmetric design takes the formula on the front and mirrors it to the back.
+    const side = isSym ? 'both' : effSide;
     return h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                paddingTop: 12, borderTop: `1px solid ${c.border}`, marginTop: 12, gap: 12, flexWrap: 'wrap' } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
@@ -23,10 +25,10 @@ export function Footer({ state, c, sf, folderName, hasActiveDesign, onClose }) {
             h(FooterBtn, { onClick: onClose, c }, sf.cancel),
             h(FooterBtn, { onClick: () => applyToDesign('append'), c,
                 disabled: !compiled.ok || !hasActiveDesign,
-                title: !hasActiveDesign ? sf.noActiveDesign : sf.appendTip }, sf.append),
+                title: !hasActiveDesign ? sf.noActiveDesign : sf.appendTip[side] }, sf.append),
             h(FooterBtn, { onClick: () => applyToDesign('replace'), c,
                 disabled: !compiled.ok || !hasActiveDesign,
-                title: !hasActiveDesign ? sf.noActiveDesign : sf.replaceTip }, sf.replace),
+                title: !hasActiveDesign ? sf.noActiveDesign : sf.replaceTip[side] }, sf.replace),
             h(FooterBtn, { onClick: () => applyToDesign('new'), c, primary: true,
                 disabled: !compiled.ok || !folderName,
                 title: !folderName ? sf.noFolder : sf.newTip }, sf.newDesign),

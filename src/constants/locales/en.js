@@ -3951,8 +3951,16 @@ export default {
     append:              'Append',
     replace:             'Replace',
     newDesign:           'New design',
-    appendTip:           'Append the generated layers to the active design front stack',
-    replaceTip:          'Replace the active design front stack (and media if specified)',
+    appendTip: {
+      front: 'Append the generated layers to the active design front stack',
+      back:  'Append the generated layers to the active design back stack',
+      both:  'Append the generated layers to both stacks of the active design',
+    },
+    replaceTip: {
+      front: 'Replace the active design front stack (and media if specified)',
+      back:  'Replace the active design back stack (and media if specified)',
+      both:  'Replace both stacks of the active design (and media if specified)',
+    },
     newTip:              'Create a new design from this formula in the selected project',
     noActiveDesign:      'No active design. Open or create one first',
     noFolder:            'No project folder selected. Pick or create one first',
