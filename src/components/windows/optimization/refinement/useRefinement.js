@@ -244,6 +244,16 @@ function applyEdit(env, updateDesign, edit) {
     updateDesign({ meritOperands: editOperand(env.refs.operandsRef.current, edit.id, edit.key, edit.value) });
 }
 
+// A paste over many cells is one change to the design. Applied one at a time,
+// each edit would start from the operand list of the last render and undo the
+// edit before it.
+function applyEditMany(env, updateDesign, edits) {
+    haltAndInvalidate(env);
+    updateDesign({
+        meritOperands: edits.reduce((list, edit) => editOperand(list, edit.id, edit.key, edit.value), env.refs.operandsRef.current),
+    });
+}
+
 function applyAdd(env, updateDesign, data, atIndex) {
     haltAndInvalidate(env);
     const res = addOperands(env.refs.operandsRef.current, data, atIndex);
@@ -379,13 +389,14 @@ function useRunActions({ env, running, buildCtx, savedDesign, updateDesign, stop
 // Merit-operand table edit handlers (shared design.meritOperands).
 function useOperandHandlers({ env, updateDesign, selectedId }) {
     const handleEdit = useCallback((id, key, value) => applyEdit(env, updateDesign, { id, key, value }), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
+    const handleEditMany = useCallback((edits) => applyEditMany(env, updateDesign, edits), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleAdd = useCallback((data, atIndex) => applyAdd(env, updateDesign, data, atIndex), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleInsertAt = useCallback((insertIdx, source) => applyInsertAt(env, updateDesign, insertIdx, source), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleDuplicate = useCallback((ids) => applyDuplicate(env, updateDesign, ids), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleDelete = useCallback((ids) => applyDelete(env, updateDesign, ids), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleMoveUp = useCallback(() => applyMove(env, updateDesign, selectedId, -1), [selectedId, updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleMoveDown = useCallback(() => applyMove(env, updateDesign, selectedId, +1), [selectedId, updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
-    return { handleEdit, handleAdd, handleInsertAt, handleDuplicate, handleDelete, handleMoveUp, handleMoveDown };
+    return { handleEdit, handleEditMany, handleAdd, handleInsertAt, handleDuplicate, handleDelete, handleMoveUp, handleMoveDown };
 }
 
 // ── Hook ───────────────────────────────────────────────────────────────────
@@ -508,7 +519,7 @@ export function useRefinement({ t }) {
     }, [handleRestore]);
 
     const {
-        handleEdit, handleAdd, handleInsertAt, handleDuplicate, handleDelete, handleMoveUp, handleMoveDown,
+        handleEdit, handleEditMany, handleAdd, handleInsertAt, handleDuplicate, handleDelete, handleMoveUp, handleMoveDown,
     } = useOperandHandlers({ env, updateDesign, selectedId });
 
     const selectedHistory = histEntries.find(entry => entry.id === selectedHistoryId);
@@ -522,7 +533,7 @@ export function useRefinement({ t }) {
         onRun: runOpt, onStop: stopOpt, onReset: resetOpt, onBest: bestOpt,
         onMethod: setMethod, onNRestarts: setNRestarts, onPerturbPct: setPerturbPct, onMaxIter: setMaxIter,
         onSeed: setSeed,
-        onEdit: handleEdit, onAdd: handleAdd, onInsertAt: handleInsertAt, onDuplicate: handleDuplicate,
+        onEdit: handleEdit, onEditMany: handleEditMany, onAdd: handleAdd, onInsertAt: handleInsertAt, onDuplicate: handleDuplicate,
         onDelete: handleDelete, onMoveUp: handleMoveUp, onMoveDown: handleMoveDown,
         onSelectHistory: handleHistorySelect, onRestore: handleHistoryRestore,
     };

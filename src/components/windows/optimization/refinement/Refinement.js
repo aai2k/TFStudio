@@ -53,6 +53,7 @@ export function Refinement({ c, theme, t }) {
                 noOperandsMsg: t.refinement.noOperands,
                 onSelect: r.setSelectedId,
                 onEdit:   r.onEdit,
+                onEditMany: r.onEditMany,
                 onAdd:    r.onAdd,
                 onInsertAt: r.onInsertAt,
                 onDuplicate: r.onDuplicate,
