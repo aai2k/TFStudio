@@ -13,6 +13,8 @@ import { _operandResidual } from '../src/utils/physics/optimizer/evalCore.js';
 const op = (type, extra = {}) => ({ id: type, type, target: 0.5, ...extra });
 const { getLocale } = await import('../src/constants/locales/index.js');
 const COLS_TR = getLocale('en').meritFunctionEditor.cols;
+// Unit symbols come from the locale too.
+const UNITS = getLocale('en').units;
 
 const theme = { success: 'success', error: 'error', textDim: 'dim' };
 
@@ -88,7 +90,7 @@ assert.equal(fmtCurrent(percentMeta.cur, percentMeta), '42.500 %');
 assert.equal(fmtResidual(percentMeta.rawResidual, percentMeta), '+2.500 %');
 assert.equal(fmtTargetDisplay(op('R', { target: 0.1234 }), percentMeta), '12.34');
 
-const rawMeta = rowDisplayMeta(op('TT', { target: 100 }), 98.25, false);
+const rawMeta = rowDisplayMeta(op('TT', { target: 100 }), 98.25, false, null, UNITS);
 assert.equal(fmtCurrent(rawMeta.cur, rawMeta), '98.25 nm');
 assert.equal(fmtResidual(rawMeta.rawResidual, rawMeta), '-1.75 nm');
 assert.equal(fmtTargetDisplay(op('TT', { target: 100 }), rawMeta), '100.00');
@@ -129,12 +131,12 @@ assert.equal(contributionBarWidth(1e-6, 1), 0.02);
 // The residual is still reachable in the cell tooltip, where its per-type
 // meaning can be spelled out instead of left to the reader.
 assert.equal(residualTooltip(percentMeta), 'Current − target: +2.500 %');
-assert.equal(residualTooltip(rowDisplayMeta(op('MNT'), 0.5, false)), 'Slack +0.00 nm');
+assert.equal(residualTooltip(rowDisplayMeta(op('MNT'), 0.5, false, null, UNITS)), 'Slack +0.00 nm');
 assert.equal(residualTooltip(
-    rowDisplayMeta(op('GDDFLAT', { target: -40 }), 28.6, false, -37.5)),
+    rowDisplayMeta(op('GDDFLAT', { target: -40 }), 28.6, false, -37.5, UNITS)),
     'RMS deviation +28.600 fs²');
 assert.equal(residualTooltip(
-    rowDisplayMeta(op('GDDFLAT', { target: -40 }), 28.6, false, -37.5),
+    rowDisplayMeta(op('GDDFLAT', { target: -40 }), 28.6, false, -37.5, UNITS),
     { residualRms: 'СКО' }), 'СКО +28.600 fs²');
 assert.equal(residualTooltip(rowDisplayMeta(normal, null, false)), null);
 
@@ -179,7 +181,7 @@ for (const type of OPERAND_TYPES) {
 // the target level and falls to zero exactly as the row is met. Current shows
 // the achieved band level instead, and the RMS moves to the tooltip.
 const flatOp = op('GDDFLAT', { target: -40 });
-const flatMeta = rowDisplayMeta(flatOp, 28.636, false, -37.53);
+const flatMeta = rowDisplayMeta(flatOp, 28.636, false, -37.53, UNITS);
 assert.equal(flatMeta.cur, -37.53, 'Current is the achieved band level');
 assert.equal(flatMeta.rawResidual, 28.636, 'the tooltip carries the RMS deviation');
 assert.equal(fmtCurrent(flatMeta.cur, flatMeta), '-37.530 fs²');
@@ -188,7 +190,7 @@ assert.equal(fmtTargetDisplay(flatOp, flatMeta), '-40.00 fs²');
 // At the optimum the RMS is zero and the level equals the target, so the row
 // reads as satisfied rather than as a total miss.
 const metOp = op('GDDFLAT', { target: -40 });
-const metMeta = rowDisplayMeta(metOp, 0, false, -40);
+const metMeta = rowDisplayMeta(metOp, 0, false, -40, UNITS);
 assert.equal(fmtCurrent(metMeta.cur, metMeta), '-40.000 fs²');
 assert.equal(metMeta.rawResidual, 0);
 

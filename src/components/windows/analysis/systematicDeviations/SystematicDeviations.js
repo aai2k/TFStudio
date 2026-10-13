@@ -97,7 +97,7 @@ export function SystematicDeviations({ c, theme, t }) {
             c, ...systematicEditorHeader(state, sd),
             open: state.showEditor, setOpen: state.setShowEditor,
             actions: h(SystematicEditorActions, { c, sd, state }),
-        }, h(SystematicEditor, { c, sd, state })),
+        }, h(SystematicEditor, { c, sd, state, units: t.units })),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

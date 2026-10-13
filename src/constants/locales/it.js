@@ -840,6 +840,9 @@ export default {
       createProject: 'Crea progetto',
     },
   },
+  // Unit symbols written beside a number, in the language's own script.
+  units: { nm: 'nm', fs: 'fs', fs2: 'fs²', fs3: 'fs³', fsPerNm: 'fs/nm', newtonPerM: 'N/m' },
+
   spectralAxis: {
     lambdaShort: 'λ (nm)',
     nm: "Lunghezza d'onda (nm)",
@@ -1581,12 +1584,7 @@ export default {
     units: {
       none: '',
       percent: '%',
-      nm: 'nm',
-      fs: 'fs',
-      fs2: 'fs²',
-      fs3: 'fs³',
       deg: '°',
-      newtonPerM: 'N/m',
     },
   },
   analysisEvaluation: {
@@ -5150,7 +5148,7 @@ export default {
     noLayers: 'Nessuno strato',
     materials: 'Materiali',
     materialsAt: (lam) => `n e k a ${lam} nm`,
-    wavelengthNm: "Lunghezza d'onda, nm",
+    wavelengthNm: "Lunghezza d'onda, nm", lambdaColumn: 'λ, nm',
     aoi: 'AOI',
     spectralAxis: {
       nm: "Lunghezza d'onda, nm",

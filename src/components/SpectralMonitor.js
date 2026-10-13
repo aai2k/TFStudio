@@ -42,6 +42,13 @@ function monitorMeta(m) {
         || { unit: 'percent', decimals: 3 };
 }
 
+// The monitor's strings with every unit it writes: the shared symbols (nm, fs,
+// N/m) and its own (%, °).
+function monitorStringsOf(t) {
+    const own = t?.statusMonitors || {};
+    return { ...own, units: { ...t?.units, ...own.units } };
+}
+
 function unitSuffix(unitCode, strings) {
     const unit = strings.units[unitCode];
     if (!unit) return '';
@@ -145,7 +152,7 @@ export function AddForm({ c, t, onAdd, onCancel, initial, mode }) {
     const bandWavelength = ['avg', 'min', 'max'].includes(form.type) || isDerived || directMeta?.mode === 'band';
     const usesGeometry = !isFact && !directMeta?.noGeometry;
     const selectedType = isFact ? `fact:${form.fact || 'layerCount'}` : form.type;
-    const monitorStrings = t?.statusMonitors || {};
+    const monitorStrings = monitorStringsOf(t);
 
     const setF = (patch) => setForm(prev => ({ ...prev, ...patch }));
     const chooseType = value => setF(monitorTypePatch(form, value));
@@ -329,7 +336,7 @@ export function AddForm({ c, t, onAdd, onCancel, initial, mode }) {
 
 export function SpectralMonitor({ c, t }) {
     const { design, evalMode, hasActiveDesign } = useDesign();
-    const monitorStrings = t.statusMonitors;
+    const monitorStrings = monitorStringsOf(t);
     const missingMaterialIds = useUnresolvedMaterials(design);
     const missingMaterialKey = missingMaterialIds.join('\u0000');
     const [monitors, setMonitors] = useState(loadMonitors);

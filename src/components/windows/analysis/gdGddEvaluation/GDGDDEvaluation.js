@@ -66,6 +66,7 @@ export function GDGDDEvaluation({ c, theme, t }) {
         referenceLambda: state.refLam,
         showReference: state.showRef,
         outsideLabel: t.materialRange.outsideColumn,
+        units: t.units,
     }, text, curve, t.spectralAxis.lambdaShort),
     [state.raw, state.quantity, state.refLam, state.showRef, text, curve, t]);
     // A fresh bounds array on every render counts as a changed chart input and

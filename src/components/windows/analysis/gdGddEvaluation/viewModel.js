@@ -15,14 +15,16 @@ import { knotSteps, stepAtKnots } from '../knots.js';
  * the conversion divides GDD by about a thousand across the visible and near
  * infrared, and multiplies it on a narrowband filter, so no fixed decimal count
  * reads well for both. `tableIndex` is where the column sits in that table,
- * which is not the order the selector uses.
+ * which is not the order the selector uses. `unitKey` names the unit in
+ * t.units, which a language writes in its own script; the degree sign is the
+ * same in every language.
  */
 const QUANTITIES = {
     phase: { key: 'phaseDeg', source: 'phaseDeg', labelKey: 'phaseAxis', unit: '°', decimals: 2, order: 0, tableIndex: 3 },
-    gd: { key: 'gd', labelKey: 'gdAxis', unit: 'fs', decimals: 3, order: 1, tableIndex: 0 },
-    gdd: { key: 'gdd', labelKey: 'gddAxis', unit: 'fs²', decimals: 3, order: 2, tableIndex: 1 },
-    cdc: { key: 'cdc', labelKey: 'cdcAxis', unit: 'fs/nm', significantFigures: 5, order: 2, tableIndex: 2 },
-    tod: { key: 'tod', labelKey: 'todAxis', unit: 'fs³', decimals: 3, order: 3, tableIndex: 4 },
+    gd: { key: 'gd', labelKey: 'gdAxis', unitKey: 'fs', decimals: 3, order: 1, tableIndex: 0 },
+    gdd: { key: 'gdd', labelKey: 'gddAxis', unitKey: 'fs2', decimals: 3, order: 2, tableIndex: 1 },
+    cdc: { key: 'cdc', labelKey: 'cdcAxis', unitKey: 'fsPerNm', significantFigures: 5, order: 2, tableIndex: 2 },
+    tod: { key: 'tod', labelKey: 'todAxis', unitKey: 'fs3', decimals: 3, order: 3, tableIndex: 4 },
 };
 
 /** The quantity ids, in selector order, so a caller need not restate them. */
@@ -43,10 +45,14 @@ export function formatQuantity(entry, value) {
         : value.toFixed(entry.decimals);
 }
 
-/** `colors` are the configured curve colours; factory defaults when absent. */
-export function quantityMeta(quantity, text, colors = ANALYSIS_DEFAULTS.gdGddEvaluation.colors) {
+/**
+ * `colors` are the configured curve colours; factory defaults when absent.
+ * `units` is t.units.
+ */
+export function quantityMeta(quantity, text, colors = ANALYSIS_DEFAULTS.gdGddEvaluation.colors, units = {}) {
     const entry = quantityEntry(quantity);
-    return { ...entry, label: text[entry.labelKey], color: colors.curve };
+    const unit = entry.unitKey ? units[entry.unitKey] : entry.unit;
+    return { ...entry, unit, label: text[entry.labelKey], color: colors.curve };
 }
 
 function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
@@ -189,7 +195,7 @@ export function autoYRange(plotData) {
 }
 
 export function buildGdGddView(raw, options, text, colors, lambdaAxis) {
-    const meta = quantityMeta(options.quantity, text, colors);
+    const meta = quantityMeta(options.quantity, text, colors, options.units);
     const table = buildTable(raw, lambdaAxis, text, options.outsideLabel);
     const plotData = buildPlotData(
         raw, meta, options.quantity, options.referenceLambda, options.showReference);

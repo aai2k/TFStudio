@@ -125,7 +125,7 @@ export function PulseAnalysis({ c, t }) {
     const blank = blankReason({ analysis, evaluation, shown, text });
     // The table, the readout and the export describe what the plot shows, so
     // they empty with it.
-    const table = !blank && shown?.valid ? resultsTable(shown, text) : EMPTY_TABLE;
+    const table = !blank && shown?.valid ? resultsTable(shown, text, t.units) : EMPTY_TABLE;
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_pulse.csv`,

@@ -837,6 +837,9 @@ export default {
       createProject: '创建项目',
     },
   },
+  // Unit symbols written beside a number, in the language's own script.
+  units: { nm: 'nm', fs: 'fs', fs2: 'fs²', fs3: 'fs³', fsPerNm: 'fs/nm', newtonPerM: 'N/m' },
+
   spectralAxis: {
     lambdaShort: 'λ (nm)',
     nm: '波长 (nm)',
@@ -1566,12 +1569,7 @@ export default {
     units: {
       none: '',
       percent: '%',
-      nm: 'nm',
-      fs: 'fs',
-      fs2: 'fs²',
-      fs3: 'fs³',
       deg: '°',
-      newtonPerM: 'N/m',
     },
   },
   analysisEvaluation: {
@@ -5033,7 +5031,7 @@ export default {
     groupedNote: '相同周期已合并；仅在打印精度下完全相同的行才会合并。',
     frontCoating: '正面镀膜', backCoating: '背面镀膜', noLayers: '无膜层',
     materials: '材料', materialsAt: (lam) => `${lam} nm 处的 n 与 k`,
-    wavelengthNm: '波长, nm', aoi: '入射角',
+    wavelengthNm: '波长, nm', lambdaColumn: 'λ, nm', aoi: '入射角',
     spectralAxis: { nm: '波长, nm', um: '波长, µm', cm1: '波数, cm⁻¹', THz: '频率, THz', eV: '光子能量, eV' },
     reflectance: '反射率', transmittance: '透射率',
     quantity: '物理量', value: '值', dominantWl: '主波长 λ', purity: '纯度', compl: '补色',

@@ -6,16 +6,19 @@ import {
     _operandResidual,
 } from '../../../../../utils/physics/optimizer.js';
 
-// Display unit for a phase/field operand type (empty = dimensionless).
-const PHASE_UNITS = {
-    PSI: '°', DEL: '°', TANPSI: '', COSDEL: '',
-    PR: '°', PT: '°', DPR: '°', DPT: '°',
+// Display unit for a phase/field operand type: a degree sign, a key into
+// t.units for the time units a language writes in its own script, or nothing
+// for a dimensionless one.
+const DEGREE_TYPES = new Set(['PSI', 'DEL', 'PR', 'PT', 'DPR', 'DPT']);
+const PHASE_UNIT_KEYS = {
     GD: 'fs', GDT: 'fs', GDFLAT: 'fs', GDTFLAT: 'fs',
-    GDD: 'fs²', GDDT: 'fs²', GDDFLAT: 'fs²', GDDTFLAT: 'fs²',
-    TOD: 'fs³', TODT: 'fs³', TODFLAT: 'fs³', TODTFLAT: 'fs³',
-    EFMX: '',
+    GDD: 'fs2', GDDT: 'fs2', GDDFLAT: 'fs2', GDDTFLAT: 'fs2',
+    TOD: 'fs3', TODT: 'fs3', TODFLAT: 'fs3', TODTFLAT: 'fs3',
 };
-function phaseUnit(type) { return PHASE_UNITS[type] || ''; }
+function phaseUnit(type, units) {
+    if (DEGREE_TYPES.has(type)) return '°';
+    return PHASE_UNIT_KEYS[type] ? units[PHASE_UNIT_KEYS[type]] || '' : '';
+}
 
 const TYPE_COLORS = {
     T: [80, 150, 255], TS: [80, 150, 255], TP: [80, 150, 255], TAV: [80, 150, 255],
@@ -163,13 +166,13 @@ export function isRangeType(type) {
 // The unit a row's numbers are in. A measured block scores in its channel's
 // unit, degrees for Ψ/Δ, dB for T in dB and a fraction otherwise, which its
 // type code does not name; a PPEF row is in dB.
-function rowUnits(op, isMeasured) {
+function rowUnits(op, isMeasured, units) {
     const unitType = isMeasured ? (op.quantity || 'R') : op.type;
     const isPhs = isPhase(unitType);
     return {
         unitType, isPhs,
         logUnit: isPPEF(op.type) ? 'dB' : logUnit(unitType),
-        phaseUnit: isPhs ? phaseUnit(unitType) : '',
+        phaseUnit: isPhs ? phaseUnit(unitType, units) : '',
     };
 }
 
@@ -185,11 +188,12 @@ function displayResidual(op, value, rawCur, tgt, isRampRow) {
     return isWrappedAngle(op.type) ? _operandResidual(op, rawCur) : value - tgt;
 }
 
-export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
+/** `unitNames` is t.units, the unit symbols in the UI language. */
+export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null, unitNames = {}) {
     const isMth = isMath(op.type);
     const isFlat = isGroupDelayFlat(op.type);
     const isMeasured = isMeasuredCurve(op.type);
-    const units = rowUnits(op, isMeasured);
+    const units = rowUnits(op, isMeasured, unitNames);
     // Fraction-unit rows display value ×100 as a percent. Optical T/R/A carry a
     // fractional unit; a math row inherits percent only when its refs are optical.
     const useFraction = isFractionalUnit(units.unitType) || (isMth && mathPercent);
@@ -204,7 +208,7 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null) {
     return {
         isCon: isConstraint(op.type), isTT: isTotalThickness(op.type), isStr: isStress(op.type),
         isArg: isArgwave(op.type), isMth, isPhs: units.isPhs, isMeasured, isPpef: isPPEF(op.type),
-        logUnit: units.logUnit, phaseUnit: units.phaseUnit,
+        logUnit: units.logUnit, phaseUnit: units.phaseUnit, unitNames,
         mthPct: mathPercent, useFraction, cur, tgt,
         rawResidual: displayResidual(op, value, rawCur, tgt, isRampRow),
         isRampRow, isRange: isRangeType(op.type),
@@ -248,8 +252,8 @@ export function residualTooltip(meta, text = {}) {
 const VALUE_FORMATS = [
     [meta => meta.logUnit, meta => ({ decimals: 3, unit: meta.logUnit })],
     [meta => meta.isPhs, meta => ({ decimals: 3, unit: meta.phaseUnit })],
-    [meta => meta.isStr, () => ({ decimals: 2, unit: 'N/m' })],
-    [meta => meta.isCon || meta.isTT || meta.isArg, () => ({ decimals: 2, unit: 'nm' })],
+    [meta => meta.isStr, meta => ({ decimals: 2, unit: meta.unitNames?.newtonPerM })],
+    [meta => meta.isCon || meta.isTT || meta.isArg, meta => ({ decimals: 2, unit: meta.unitNames?.nm })],
 ];
 function valueFormat(meta) {
     const hit = VALUE_FORMATS.find(([test]) => test(meta));

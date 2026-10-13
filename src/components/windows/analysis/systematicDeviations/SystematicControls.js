@@ -16,8 +16,10 @@ const CHANNELS = [
     { id: 'A', label: 'A' },
 ];
 
-const OFFSET_UNITS = [
-    { id: 'nm', label: 'nm' },
+// The thickness offset's units. nm is written as the UI language writes it
+// (`units` is t.units); OT, QW and FW are the same in every language.
+const offsetUnitOptions = units => [
+    { id: 'nm', label: units.nm },
     { id: 'ot', label: 'OT' },
     { id: 'qw', label: 'QW' },
     { id: 'fw', label: 'FW' },
@@ -139,15 +141,16 @@ export function SystematicEditorActions({ c, sd, state }) {
     });
 }
 
-export function SystematicEditor({ c, sd, state }) {
+export function SystematicEditor({ c, sd, state, units = {} }) {
+    const offsetUnits = offsetUnitOptions(units);
     return h(EditorBody, { c },
         state.mode === 'single'
-            ? h(DeviationSettings, { c, sd, state })
-            : h(SweepSettings, { c, sd, state }),
+            ? h(DeviationSettings, { c, sd, state, offsetUnits })
+            : h(SweepSettings, { c, sd, state, offsetUnits }),
     );
 }
 
-function DeviationFields({ c, sd, values, onField }) {
+function DeviationFields({ c, sd, values, onField, offsetUnits }) {
     return h(FieldGrid, { minWidth: 230 },
         h(SettingRow, { c, label: sd.thkScale },
             h(NumInput, {
@@ -163,7 +166,7 @@ function DeviationFields({ c, sd, values, onField }) {
                 onChange: value => onField('offset', value),
             }),
             h(SelectField, {
-                value: values.offsetUnit, options: OFFSET_UNITS, c, width: 62,
+                value: values.offsetUnit, options: offsetUnits, c, width: 62,
                 title: sd.thkOffsetTip,
                 onChange: unit => onField('offsetUnit', unit),
             }),
@@ -195,12 +198,12 @@ const MATERIAL_FIELD = {
     scale: 'dScale', offset: 'dOffset', offsetUnit: 'dOffsetUnit', dn: 'dn', dk: 'dk',
 };
 
-function DeviationSettings({ c, sd, state }) {
+function DeviationSettings({ c, sd, state, offsetUnits }) {
     const { dev } = state;
     return h(React.Fragment, null,
         h(EditorGroupTitle, { c }, sd.globalSection),
         h(DeviationFields, {
-            c, sd,
+            c, sd, offsetUnits,
             values: {
                 scale: dev.globalThicknessScale,
                 offset: dev.globalThicknessOffset || 0,
@@ -219,7 +222,7 @@ function DeviationSettings({ c, sd, state }) {
                     h('span', { style: { fontWeight: 400, color: c.textDim, marginLeft: 4 } },
                         `(${roles.map(role => sd.roles[role]).join(', ')})`)),
                 h(DeviationFields, {
-                    c, sd,
+                    c, sd, offsetUnits,
                     values: {
                         scale: dev.perMaterial?.[id]?.dScale ?? 1,
                         offset: dev.perMaterial?.[id]?.dOffset || 0,
@@ -237,7 +240,7 @@ function DeviationSettings({ c, sd, state }) {
  * The sweep runs from the unperturbed design, so it takes a parameter and a
  * range rather than reading the deviations set in Single mode.
  */
-function SweepSettings({ c, sd, state }) {
+function SweepSettings({ c, sd, state, offsetUnits }) {
     const { sweep, setSweep } = state;
     const isOffset = sweepParamKind(sweep.param) === 'offset';
     return h(React.Fragment, null,
@@ -254,7 +257,7 @@ function SweepSettings({ c, sd, state }) {
             ),
             h(SettingRow, { c, label: sd.sweepUnit },
                 h(SelectField, {
-                    value: sweep.offsetUnit || 'nm', options: OFFSET_UNITS, c, width: 62,
+                    value: sweep.offsetUnit || 'nm', options: offsetUnits, c, width: 62,
                     disabled: !isOffset, title: sd.sweepUnitTip,
                     onChange: unit => setSweep(current => ({
                         ...current, offsetUnit: unit, ...defaultSweepRange(current.param, unit),

@@ -55,7 +55,7 @@ function plots(d, quantities, settings, tr) {
 
 function steppedTable(d, quantities, settings, tr) {
   if (!(settings.tableStep > 0) || !quantities.length) return '';
-  const headers = ['λ, nm', ...quantities.map(q => escapeHtml(q.label(tr)))];
+  const headers = [escapeHtml(tt(tr, 'lambdaColumn', 'λ, nm')), ...quantities.map(q => escapeHtml(q.label(tr)))];
   const rows = stepIndices(d.lambda, settings.tableStep).map(i =>
     [String(Math.round(d.lambda[i] * 10) / 10), ...quantities.map(q => cell(q, d[q.field][i]))]);
   const ncol = headers.length <= 4 ? Math.min(3, Math.max(1, Math.ceil(rows.length / 30))) : 1;

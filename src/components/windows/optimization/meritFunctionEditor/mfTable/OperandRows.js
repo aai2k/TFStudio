@@ -133,7 +133,7 @@ function MFDataRowView(props) {
         isMathPct, c, t, onEdit, selectRow, focusAt, pressCell, beginDrag, dragOver,
         startEdit, commitEdit, navigate, setEditCell,
     } = props;
-    const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op), bandLevel);
+    const meta = rowDisplayMeta(op, rawCur, isMath(op.type) && isMathPct(op), bandLevel, t?.units);
     const rowBg = typeRgba(op.type, rowTintAlpha(c.light)) || 'transparent';
     const rowStripe = typeRgba(op.type, 0.75);
 

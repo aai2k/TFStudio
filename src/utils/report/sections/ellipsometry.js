@@ -33,9 +33,9 @@ function plots(e, settings, tr) {
        + (settings.showDelta ? one(quantitySeries(e, 'delta', 'Δ', '#c62828'), 'Δ, °', 360) : '');
 }
 
-function steppedTable(e, settings) {
+function steppedTable(e, settings, tr) {
   if (!(settings.tableStep > 0)) return '';
-  const headers = ['λ, nm'];
+  const headers = [escapeHtml(tt(tr, 'lambdaColumn', 'λ, nm'))];
   const cols = [];
   for (const s of e.series) {
     const suffix = angleSuffix(e, s);
@@ -54,6 +54,6 @@ export function buildEllipsometry(ctx) {
   const { d: e, fail } = blockData(ctx, 'ellipsometry', title);
   if (fail) return fail;
   const sub = `${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${e.series.map(s => `${deg(s.theta)}°`).join(', ')}`;
-  return wrap('ellipsometry', title, plots(e, settings, tr) + steppedTable(e, settings),
+  return wrap('ellipsometry', title, plots(e, settings, tr) + steppedTable(e, settings, tr),
     { subtitle: subtitleOf(ctx, sub), breakable: settings.tableStep > 0 });
 }

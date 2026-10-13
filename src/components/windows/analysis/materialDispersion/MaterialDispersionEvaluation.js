@@ -29,13 +29,13 @@ const { createElement: h, useCallback, useMemo } = React;
 // values a knot sample holds for it; phase is continuous and has none. CDC is
 // GDD taken against wavelength, so it shares GDD's order and is written to
 // significant figures rather than decimals, its magnitude being set by the
-// conversion rather than by the material.
+// conversion rather than by the material. `unitKey` names the unit in t.units.
 const QUANTITIES = {
     phase: { key: 'phaseDeg', tr: 'phaseAxis', unit: '°', digits: 2, order: 0 },
-    gd: { key: 'gdFs', knot: 'gd', tr: 'gdAxis', unit: 'fs', digits: 3, order: 1 },
-    gdd: { key: 'gddFs2', knot: 'gdd', tr: 'gddAxis', unit: 'fs²', digits: 3, order: 2 },
-    cdc: { key: 'cdc', knot: 'cdc', tr: 'cdcAxis', unit: 'fs/nm', significantFigures: 5, order: 2 },
-    tod: { key: 'todFs3', knot: 'tod', tr: 'todAxis', unit: 'fs³', digits: 3, order: 3 },
+    gd: { key: 'gdFs', knot: 'gd', tr: 'gdAxis', unitKey: 'fs', digits: 3, order: 1 },
+    gdd: { key: 'gddFs2', knot: 'gdd', tr: 'gddAxis', unitKey: 'fs2', digits: 3, order: 2 },
+    cdc: { key: 'cdc', knot: 'cdc', tr: 'cdcAxis', unitKey: 'fsPerNm', significantFigures: 5, order: 2 },
+    tod: { key: 'todFs3', knot: 'tod', tr: 'todAxis', unitKey: 'fs3', digits: 3, order: 3 },
 };
 
 const figures = (entry, value) => (Number.isFinite(value)
@@ -288,7 +288,7 @@ export function MaterialDispersionEvaluation({ c, t }) {
                 materialBands,
                 meta: {
                     label: t.gdgdd[quantityMeta.tr],
-                    unit: quantityMeta.unit,
+                    unit: quantityMeta.unitKey ? t.units[quantityMeta.unitKey] : quantityMeta.unit,
                     color: curve.curve,
                     dp: quantityMeta.digits,
                 },

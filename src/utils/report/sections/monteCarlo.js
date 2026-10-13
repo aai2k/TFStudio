@@ -63,7 +63,7 @@ function plot(result, settings, k, tr) {
 function statsTable(result, settings, k, tr) {
   if (!(settings.tableStep > 0)) return '';
   const c = result.char;
-  const headers = ['λ, nm', `${c} ${tt(tr, 'mcNominal', 'design')}, %`, `${c} ${tt(tr, 'mcMean', 'mean')}, %`, `σ, %`, `−${k}σ, %`, `+${k}σ, %`];
+  const headers = [escapeHtml(tt(tr, 'lambdaColumn', 'λ, nm')), `${c} ${tt(tr, 'mcNominal', 'design')}, %`, `${c} ${tt(tr, 'mcMean', 'mean')}, %`, `σ, %`, `−${k}σ, %`, `+${k}σ, %`];
   if (settings.envelope) headers.push(`${tt(tr, 'mcMin', 'min')}, %`, `${tt(tr, 'mcMax', 'max')}, %`);
   const rows = stepIndices(result.lambda, settings.tableStep).map(i => {
     const cells = [String(Math.round(result.lambda[i] * 10) / 10), pct(result.theory[i]), pct(result.mean[i]),

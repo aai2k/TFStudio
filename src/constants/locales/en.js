@@ -747,6 +747,9 @@ export default {
   // TabGroup so persisted layouts re-localize on language switch.
   // Spectral x-axis titles. Chart axes use the parenthetical form; the report
   // uses its own comma form in report.spectralAxis.
+  // Unit symbols written beside a number, in the language's own script.
+  units: { nm: 'nm', fs: 'fs', fs2: 'fs²', fs3: 'fs³', fsPerNm: 'fs/nm', newtonPerM: 'N/m' },
+
   spectralAxis: {
     lambdaShort: 'λ (nm)',
     nm:  'Wavelength (nm)',
@@ -1435,7 +1438,7 @@ export default {
     scopeSideTip: (side) => `Computed on the ${side} coating`,
     rangeEnd: 'end', about: 'about',
     minSuffix: 'min', maxSuffix: 'max',
-    units: { none: '', percent: '%', nm: 'nm', fs: 'fs', fs2: 'fs²', fs3: 'fs³', deg: '°', newtonPerM: 'N/m' },
+    units: { none: '', percent: '%', deg: '°' },
   },
   analysisEvaluation: {
     computing: 'Computing cone response…',
@@ -4680,7 +4683,7 @@ export default {
     frontCoating: 'Front coating', backCoating: 'Back coating', noLayers: 'No layers',
     materials: 'Materials', materialsAt: (lam) => `n and k at ${lam} nm`,
     // Spectra, color, integrals
-    wavelengthNm: 'Wavelength, nm', aoi: 'AOI',
+    wavelengthNm: 'Wavelength, nm', lambdaColumn: 'λ, nm', aoi: 'AOI',
     spectralAxis: { nm: 'Wavelength, nm', um: 'Wavelength, µm', cm1: 'Wavenumber, cm⁻¹', THz: 'Frequency, THz', eV: 'Photon energy, eV' },
     reflectance: 'Reflectance', transmittance: 'Transmittance',
     quantity: 'Quantity', value: 'Value', dominantWl: 'Dominant λ', purity: 'purity', compl: 'compl.',
