@@ -1882,7 +1882,6 @@ export default {
     measuredPairOff:  missing => `${missing} of this measurement is switched off. Ψ or Δ alone leaves the thicknesses under-determined.`,
     measuredPairGone: missing => `${missing} of this measurement is no longer in the table. Ψ or Δ alone leaves the thicknesses under-determined.`,
     measuredLevelFree: 'level free: scores the shape, not the level',
-    measuredCurve: 'Measured curve',
     measuredPoints: (n) => `${n} points`,
     refDeleted:    '(deleted)',
     refDeletedTip: 'Referenced operand was deleted',
@@ -4609,7 +4608,8 @@ export default {
     notes:            'Notes',
   },
 
-  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots.
+  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots
+  // and in the merit table.
   legendNames: {
     measured: (name, quantity) => `${name} (${quantity} meas)`,
     measuredAt: (name, quantity, aoi) => `${name} (${quantity} meas @ ${aoi}°)`,

@@ -299,6 +299,12 @@ assert.equal(operandResidualScale(makeMeasuredCurveOperand({ quantity: 'R' })), 
     const alone = typeCell(psiBlock, [psiBlock, deltaBlock]);
     assert.equal(alone.props.children, 'MCURVE Ψ', 'the row names its channel');
     assert.equal(alone.props.style.color, c.text, 'a block fitted on its own has no partner to miss');
+    // A block whose curve had no name goes by the name the plots give it, so a
+    // translation changes both at once.
+    const renamed = { ...t, legendNames: { ...t.legendNames, unnamedCurve: 'nameless' } };
+    const unnamed = rowRenderers(psiBlock, meta).type(
+        { op: { ...psiBlock, curveName: '' }, c, t: renamed, operands: [], tdBase: () => ({}) }, 'type', 60);
+    assert.ok(unnamed.props.title.startsWith('nameless · '), unnamed.props.title);
 
     const complete = typeCell(paired[0], paired);
     assert.equal(complete.props.style.color, c.text);

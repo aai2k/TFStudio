@@ -41,7 +41,7 @@ function measuredTypeCell(ctx, colKey, width) {
     const symbol = QUANTITY_SYMBOL[op.quantity];
     const mfe = t.meritFunctionEditor;
     const levelFree = hasFreeLevel(op) ? ` · ${mfe.measuredLevelFree}` : '';
-    const summary = `${op.curveName || mfe.measuredCurve} · ${op.quantity || 'R'} · ${mfe.measuredPoints(points)}${levelFree}`;
+    const summary = `${op.curveName || t.legendNames.unnamedCurve} · ${op.quantity || 'R'} · ${mfe.measuredPoints(points)}${levelFree}`;
     const fault = pairFault(op, operands);
     const missing = QUANTITY_SYMBOL[op.quantity === 'PSI' ? 'DEL' : 'PSI'];
     const faultText = fault && (t?.meritFunctionEditor?.[fault]?.(missing) || fault);

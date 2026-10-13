@@ -1846,7 +1846,6 @@ export default {
     measuredPairOff:  missing => `Кривая ${missing} этого измерения выключена. Одна Ψ или одна Δ не определяет толщины однозначно.`,
     measuredPairGone: missing => `Кривой ${missing} этого измерения больше нет в таблице. Одна Ψ или одна Δ не определяет толщины однозначно.`,
     measuredLevelFree: 'уровень свободен: оценивается форма, а не уровень',
-    measuredCurve: 'Измеренная кривая',
     measuredPoints: (n) => `точек: ${n}`,
     refDeleted:    '(удалён)',
     refDeletedTip: 'Операнд, на который ссылается строка, удалён',
@@ -4538,7 +4537,8 @@ export default {
     notes:            'Заметки',
   },
 
-  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots.
+  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots
+  // and in the merit table.
   legendNames: {
     measured: (name, quantity) => `${name} (измеренный ${quantity})`,
     measuredAt: (name, quantity, aoi) => `${name} (измеренный ${quantity}, ${aoi}°)`,

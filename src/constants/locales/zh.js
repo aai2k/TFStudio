@@ -2015,7 +2015,6 @@ export default {
     measuredPairOff: missing => `此测量的 ${missing} 已关闭。仅有 Ψ 或仅有 Δ 无法唯一确定层厚。`,
     measuredPairGone: missing => `此测量的 ${missing} 已不在表中。仅有 Ψ 或仅有 Δ 无法唯一确定层厚。`,
     measuredLevelFree: '水平自由：评价形状而非水平',
-    measuredCurve: '测量曲线',
     measuredPoints: (n) => `${n} 个点`,
     refDeleted: '（已删除）',
     refDeletedTip: '引用的操作数已被删除',
@@ -4973,7 +4972,8 @@ export default {
     noFolder: '请先创建项目文件夹。',
     notes: '备注',
   },
-  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots.
+  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots
+  // and in the merit table.
   legendNames: {
     measured: (name, quantity) => `${name}（实测 ${quantity}）`,
     measuredAt: (name, quantity, aoi) => `${name}（实测 ${quantity} @ ${aoi}°）`,

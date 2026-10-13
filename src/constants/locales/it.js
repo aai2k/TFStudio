@@ -2036,7 +2036,6 @@ export default {
     measuredPairOff: missing => `${missing} di questa misura è disattivato. Ψ o Δ da soli lasciano gli spessori indeterminati.`,
     measuredPairGone: missing => `${missing} di questa misura non è più in tabella. Ψ o Δ da soli lasciano gli spessori indeterminati.`,
     measuredLevelFree: 'livello libero: conta la forma, non il livello',
-    measuredCurve: 'Curva misurata',
     measuredPoints: (n) => `${n} punti`,
     refDeleted: '(eliminato)',
     refDeletedTip: "L'operando di riferimento è stato eliminato",
@@ -5039,7 +5038,8 @@ export default {
     noFolder: 'Crea prima una cartella di progetto.',
     notes: 'Note',
   },
-  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots.
+  // Names of measured curves and merit targets on the spectrum and Ψ/Δ plots
+  // and in the merit table.
   legendNames: {
     measured: (name, quantity) => `${name} (misura ${quantity})`,
     measuredAt: (name, quantity, aoi) => `${name} (misura ${quantity} @ ${aoi}°)`,
