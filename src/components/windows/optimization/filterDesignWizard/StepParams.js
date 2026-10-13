@@ -1,5 +1,6 @@
 import { idealFilterCurve } from '../../../../utils/filter/filterDesign.js';
-import { shapeFactor } from './model.js';
+import { materialLabel } from '../../../../utils/materials/catalogManager.js';
+import { materialWithoutIndex, shapeFactor } from './model.js';
 import { AxisToggle, NumField, StepHeader } from './ui.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 
@@ -20,8 +21,11 @@ export function StepParams({ p, set, c, t }) {
         { y: p.passLevel, color: '#43a047', x0: p.lambda0_nm - p.passHalf_nm, x1: p.lambda0_nm + p.passHalf_nm },
         { y: p.stopLevel, color: '#e53935', x0: p.lambda0_nm - p.stopHalf_nm, x1: p.lambda0_nm + p.stopHalf_nm },
     ];
+    const unindexed = materialWithoutIndex(p);
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12 } },
         h(StepHeader, { step: 2, title: T.step2.title, c, T }),
+        unindexed && h('div', { style: { padding: '8px 12px', borderRadius: 4, backgroundColor: 'rgba(239,152,0,0.15)', border: `1px solid ${c.warning || '#ef9800'}`, fontSize: 12, color: c.text } },
+            T.step2.noIndex(materialLabel(unindexed) || unindexed, p.lambda0_nm)),
         h('div', { style: { display: 'flex', gap: 18 } },
             h('div', { style: { display: 'flex', flexDirection: 'column', gap: 12, minWidth: 200 } },
                 h(NumField, { label: T.step2.lambda0, value: p.lambda0_nm, positive: true, step: 0.1, suffix: 'nm', c, onChange: (v) => set('lambda0_nm', v) }),

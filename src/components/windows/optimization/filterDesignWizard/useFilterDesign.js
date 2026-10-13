@@ -1,6 +1,6 @@
 import { getMaterialById } from '../../../../utils/materials/catalogManager.js';
 import { buildFilterDesignObject } from '../../../../utils/filter/filterDesignBuild.js';
-import { DEFAULTS, rememberSetting, rememberedSettings, workingAoi } from './model.js';
+import { DEFAULTS, materialWithoutIndex, rememberSetting, rememberedSettings, workingAoi } from './model.js';
 
 const { useState, useCallback, useEffect } = React;
 
@@ -34,7 +34,7 @@ export function useFilterDesign({ onClose, onGenerate, folderName, t }) {
 
     const lossless = isLossless(p);
     const canFinish = !!folderName && p.selected != null;
-    const nextDisabled = (step === 1 && !lossless);
+    const nextDisabled = (step === 1 && !lossless) || (step === 2 && materialWithoutIndex(p) !== null);
 
     const finish = useCallback(() => {
         if (!canFinish) return;

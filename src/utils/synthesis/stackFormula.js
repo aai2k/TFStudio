@@ -35,6 +35,7 @@
 import { getMaterialById, materialLabel, normalizeId } from '../materials/catalogManager.js';
 import { getMaterial } from '../materials/materialDatabase.js';
 import { designMaterialLookup } from '../materials/designMaterials.js';
+import { MaterialHasNoIndexError } from '../materials/materialIndexAt.js';
 
 
 // A failure travels as a code plus its arguments; the Stack Formula window turns
@@ -461,19 +462,27 @@ export function buildStackFromFormula(opts) {
     const specs = [];
     for (const a of parsed.atoms) {
         const r = resolveAtom(a, symbolMap, resolvers);
-        for (const sp of r.specs) specs.push(sp);
+        for (const sp of r.specs) specs.push({ ...sp, pos: a.pos, n: resolvers.getN(sp.matId, refLambda) });
     }
 
-    const layers = specs.map(sp => {
-        const n = resolvers.getN(sp.matId, refLambda);
-        const qw = n > 0 ? refLambda / (4 * n) : 0;     // quarter-wave physical thickness
+    // A material with no index at λ₀, past a pole of its formula, has no
+    // quarter wave there. It is reported rather than built 0 nm thick.
+    const unindexed = specs.find(sp => !(sp.n > 0));
+    if (unindexed) {
         return {
-            id: newLayerId(idSeed),
-            material: sp.matId,
-            thickness: sp.coef * qw,
-            locked: false,
+            ok: false,
+            errorKey: 'noIndex',
+            errorArgs: [materialLabel(unindexed.matId) || unindexed.matId, refLambda],
+            errorPos: unindexed.pos,
         };
-    });
+    }
+
+    const layers = specs.map(sp => ({
+        id: newLayerId(idSeed),
+        material: sp.matId,
+        thickness: sp.coef * refLambda / (4 * sp.n),     // quarter-wave physical thickness
+        locked: false,
+    }));
 
     // TFStudio stores frontLayers ambient→substrate (frontLayers[0] = outermost).
     // If the user wrote the formula starting at the substrate, reverse it.
@@ -598,6 +607,9 @@ function blockGroupSingle(tok) { return `(${tok})`; }
  *   startFromSubstrate — if true, list substrate→ambient
  *   resolvers     — { getN } (injectable)
  *   compress      — group repeats into (…)^n (default true)
+ *
+ * Throws MaterialHasNoIndexError for a layer whose material has no index at
+ * λ₀: its thickness has no count of quarter waves there.
  */
 export function formulaOf(opts) {
     const {
@@ -621,8 +633,8 @@ export function formulaOf(opts) {
     const seq = startFromSubstrate ? [...layers].reverse() : layers;
     const tokenStrs = seq.map(l => {
         const n = resolvers.getN(l.material, refLambda);
-        const qw = n > 0 ? refLambda / (4 * n) : 0;
-        const coef = qw > 0 ? (l.thickness || 0) / qw : 0;
+        if (!(n > 0)) throw new MaterialHasNoIndexError(l.material, refLambda);
+        const coef = (4 * n * (l.thickness || 0)) / refLambda;
         return `${fmtCoef(coef)}${symbolFor(l.material)}`;
     });
 

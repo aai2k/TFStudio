@@ -4094,6 +4094,7 @@ export default {
       passLevel: 'Livello in banda passante',
       stopLevel: 'Livello in banda di reiezione',
       previewHint: 'Schema del target: verde = livello in banda passante, rosso = livello di reiezione',
+      noIndex: (material, lambda) => `${material} non ha indice di rifrazione a λ₀ = ${lambda} nm, quindi gli strati del filtro lì non hanno spessore. Scegli qui un'altra λ₀, oppure un altro materiale al passo 1.`,
     },
     step3: {
       title: 'Numero di cavità',
@@ -4360,6 +4361,7 @@ export default {
       invalidNumber: (raw) => `Numero non valido "${raw}"`,
       unexpectedChar: (ch) => `Carattere inatteso "${ch}"`,
       unknownSymbols: (list, n) => `Simbol${n > 1 ? 'i' : 'o'} sconosciut${n > 1 ? 'i' : 'o'}: ${list}. Assegna un materiale`,
+      noIndex: (material, lambda) => `${material} non ha indice di rifrazione a λ₀ = ${lambda} nm, quindi il suo strato a quarto d'onda lì non ha spessore. Scegli un'altra λ₀ o un altro materiale`,
     },
     noPreview: 'nessuna anteprima',
     title: 'Formula dello stack',

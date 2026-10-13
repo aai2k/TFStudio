@@ -4070,6 +4070,7 @@ export default {
       passLevel: '通带水平',
       stopLevel: '截止水平',
       previewHint: '目标示意图 — 绿色 = 通带水平，红色 = 抑制水平',
+      noIndex: (material, lambda) => `${material} 在 λ₀ = ${lambda} nm 处没有折射率，因此滤光片的膜层在该处没有厚度。请在此处选择其他 λ₀，或在第 1 步选择其他材料。`,
     },
     step3: {
       title: '腔数量',
@@ -4301,6 +4302,7 @@ export default {
       invalidNumber: (raw) => `无效数字 "${raw}"`,
       unexpectedChar: (ch) => `意外字符 "${ch}"`,
       unknownSymbols: (list, n) => `未知符号${n > 1 ? '' : ''}：${list}。请指定材料`,
+      noIndex: (material, lambda) => `${material} 在 λ₀ = ${lambda} nm 处没有折射率，因此其四分之一波长层在该处没有厚度。请选择其他 λ₀ 或材料`,
     },
     noPreview: '无预览',
     title: '膜系公式',

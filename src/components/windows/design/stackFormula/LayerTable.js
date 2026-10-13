@@ -6,13 +6,15 @@ const { createElement: h } = React;
 // The compiled layers are in front storage order, air side first, and are
 // numbered from the substrate within this coating, as the Design Editor
 // counts.
+// A material with no index at λ₀ has no QWOT there, so the cell shows none
+// rather than 0.
 function layerRow(l, number, refLambda, resolveMaterial, c) {
     const n = resolveMaterial(l.material).getNK(refLambda)[0];
-    const qwot = n > 0 ? (4 * n * l.thickness) / refLambda : 0;
+    const qwot = n > 0 ? ((4 * n * l.thickness) / refLambda).toFixed(3) : '—';
     return h('tr', { key: number },
         h('td', { style: { padding: '2px 8px', color: c.textDim } }, number),
         h('td', { style: { padding: '2px 8px' } }, materialLabel(l.material)),
-        h('td', { style: { padding: '2px 8px', textAlign: 'right', color: c.textDim } }, qwot.toFixed(3)),
+        h('td', { style: { padding: '2px 8px', textAlign: 'right', color: c.textDim } }, qwot),
         h('td', { style: { padding: '2px 8px', textAlign: 'right' } }, l.thickness.toFixed(2)),
     );
 }

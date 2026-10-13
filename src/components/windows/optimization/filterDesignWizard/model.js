@@ -1,4 +1,5 @@
 import { getMaterialById, materialLabel } from '../../../../utils/materials/catalogManager.js';
+import { hasIndexAt } from '../../../../utils/materials/materialIndexAt.js';
 import {
     materialIndexFn, couplingOrder, coupledMirrors, qwThickness,
     structureLayerCount, structureThickness, buildFilterTarget, embeddedAngleDeg,
@@ -50,6 +51,20 @@ export function searchTargetParams(p) {
         aoi: embeddedAoi(p, working), pol: p.pol,
         holdAoi: held > working ? embeddedAoi(p, held) : 0,
     };
+}
+
+/**
+ * The first material the wizard computes with at λ₀ that has no index there,
+ * past a pole of its formula, or null. Steps 3 to 6 build quarter waves of H
+ * and L and design embedded in the substrate, with the incident medium last;
+ * without an index none of that has a thickness, so step 2 stops here.
+ */
+export function materialWithoutIndex(p) {
+    for (const id of [p.matH, p.matL, p.substrateMaterial, p.incidentMedium]) {
+        const material = getMaterialById(id);
+        if (material?.getNK && !hasIndexAt(material, p.lambda0_nm)) return id;
+    }
+    return null;
 }
 
 // Thelen coupling order δ (Eq. 10) from the chosen materials.

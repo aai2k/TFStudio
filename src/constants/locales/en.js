@@ -3671,6 +3671,7 @@ export default {
       lambda0: 'Filter wavelength', shapeFactor: 'Shape factor',
       passLevel: 'Pass level', stopLevel: 'Stop level',
       previewHint: 'Target schematic: green = passband level, red = rejection level',
+      noIndex: (material, lambda) => `${material} has no refractive index at λ₀ = ${lambda} nm, so the filter's layers have no thickness there. Choose another λ₀ here, or another material in step 1.`,
     },
     step3: {
       title: 'Number of Cavities',
@@ -3915,6 +3916,7 @@ export default {
       invalidNumber:          (raw) => `Invalid number "${raw}"`,
       unexpectedChar:         (ch) => `Unexpected character "${ch}"`,
       unknownSymbols:         (list, n) => `Unknown symbol${n > 1 ? 's' : ''}: ${list}. Assign a material`,
+      noIndex:                (material, lambda) => `${material} has no refractive index at λ₀ = ${lambda} nm, so its quarter wave has no thickness there. Choose another λ₀ or material`,
     },
     noPreview: 'no preview',
     title:      'Stack Formula',
