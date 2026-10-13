@@ -2945,6 +2945,7 @@ export default {
     noOperands:    'No merit function operands. Define targets first (Merit Function Editor).',
     modeRelative:  'Relative',
     modeAbsolute:  'Absolute',
+    modeLabel:     'Perturbation',
     relLabel:      'Δd / d',
     absLabel:      'Δd',
     includeLocked: 'include locked',

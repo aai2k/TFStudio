@@ -33,9 +33,9 @@ function SensitivitySetup({ c, t, state }) {
     return h(SettingsMenu, {
         c, t, windowId: 'layerSensitivity', label: t.analysisChrome.settings, width: 260,
     },
-        h(SettingRow, { c, label: ls.absLabel },
+        h(SettingRow, { c, label: ls.modeLabel },
             h(ChoiceGroup, {
-                ariaLabel: ls.absLabel, activeId: state.mode, onSelect: state.setMode, c,
+                ariaLabel: ls.modeLabel, activeId: state.mode, onSelect: state.setMode, c,
                 items: [
                     { id: 'relative', label: ls.modeRelative },
                     { id: 'absolute', label: ls.modeAbsolute },

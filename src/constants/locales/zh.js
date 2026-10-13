@@ -3349,6 +3349,7 @@ export default {
     noOperands: '无评价函数操作数。请先定义目标（评价函数编辑器）。',
     modeRelative: '相对',
     modeAbsolute: '绝对',
+    modeLabel: '扰动',
     relLabel: 'Δd / d',
     absLabel: 'Δd',
     includeLocked: '包含锁定',

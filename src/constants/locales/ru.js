@@ -2895,6 +2895,7 @@ export default {
     noOperands:    'Нет операндов MF. Сначала задайте цели (Редактор MF).',
     modeRelative:  'Относит.',
     modeAbsolute:  'Абсолют.',
+    modeLabel:     'Возмущение',
     relLabel:      'Δd / d',
     absLabel:      'Δd',
     includeLocked: 'учитывать заблокир.',

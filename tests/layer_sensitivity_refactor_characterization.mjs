@@ -102,4 +102,23 @@ assert.match(rankedHtml, /Chart<\/span>/, 'and the bar chart is a strip below it
 assert.equal(rankedHtml.indexOf('Rank') < rankedHtml.indexOf('Chart<'), true,
     'the table comes first');
 
+// The settings panel names each row for what it sets: the kind of
+// perturbation, then its size as a fraction of the layer or as a thickness.
+{
+    const { SensitivityControls } = await import(
+        '../src/components/windows/analysis/layerSensitivity/SensitivityControls.js');
+    const t = makeLocale();
+    const noop = () => {};
+    const state = {
+        scale: 'normalized', setScale: noop, mode: 'relative', setMode: noop, relPct: 1, setRelPct: noop,
+        absDeltaNm: 1, setAbsDeltaNm: noop, includeLocked: false, setIncludeLocked: noop,
+    };
+    const setup = SensitivityControls({ c, t, state }).props.trailing.at(-1);
+    const labels = [].concat(setup.type(setup.props).props.children)
+        .map(row => row?.props?.label).filter(Boolean);
+    const ls = t.layerSensitivity;
+    assert.deepEqual(labels, [ls.modeLabel, ls.relLabel, ls.absLabel], 'the rows are named apart');
+    assert.equal(new Set(labels).size, labels.length);
+}
+
 console.log('PASS: layer_sensitivity_refactor_characterization');

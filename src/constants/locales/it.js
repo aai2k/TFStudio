@@ -3372,6 +3372,7 @@ export default {
     noOperands: 'Nessun operando nella funzione di merito. Definisci prima i target (Editor della funzione di merito).',
     modeRelative: 'Relativo',
     modeAbsolute: 'Assoluto',
+    modeLabel: 'Perturbazione',
     relLabel: 'Δd / d',
     absLabel: 'Δd',
     includeLocked: 'includi bloccati',
