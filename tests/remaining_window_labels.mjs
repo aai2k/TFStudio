@@ -4,7 +4,7 @@
  *
  *   1. The averaged polarization reads 'avg' in Error Analysis, the Optical
  *      Evaluation target toolbar, the Spectral Monitor, the Filter Design and
- *      DMF wizards, and the Report window and document.
+ *      DMF wizards, Settings, and the Report window and document.
  *   2. Measured curves and merit targets on the Optical Evaluation and
  *      Ellipsometry plots: 'meas', 'fit target', 'Measured curve', 'R target'.
  *   3. A custom integral's name and tooltip ('srcTbl', 'detTbl', 'flat',
@@ -64,17 +64,42 @@ await check('avg written into the windows', () => {
         expect(raw.length === 0, `${file}.js prints a polarization as stored: ${raw.join(' | ').trim()}`);
     }
 });
-await check('avg in the DMF wizard fields, Settings and the Filter Design plot', async () => {
-    // A select field of the DMF wizard that offers 'avg' names it in the UI language.
-    expect(source('components/windows/optimization/meritFunctionEditor/DMFWizard.js').includes('polWord(tw, option.value)'),
-        'the DMF wizard select fields write avg as stored');
+// Every label an option stored as 'avg' is rendered with.
+const avgOptions = html => [...html.matchAll(/<option value="avg"[^>]*>([^<]*)<\/option>/g)].map(match => match[1]);
+await check('avg in the DMF wizard', async () => {
+    const { DMFWizard } = await import('../src/components/windows/optimization/meritFunctionEditor/DMFWizard.js');
+    const { meritWizardSession } = await import('../src/components/windows/optimization/meritFunctionEditor/sessionState.js');
+    const design = { id: 'labels', name: 'Labels', frontLayers: [], backLayers: [] };
+    // Broadband AR has the angle box's polarization; Gain flattening, the
+    // polarization of a target made from a gain.
+    const types = [['AR', 'BBAR'], ['CURVE', 'GAIN_FLATTENING']];
+    for (const [code, t] of translated) {
+        for (const [catId, typeId] of types) {
+            meritWizardSession.write(null, { open: true, catId, typeId, params: {} });
+            const labels = avgOptions(renderToStaticMarkup(h(DMFWizard, {
+                design, onGenerate() {}, operandCount: 0, mf: 0.5, omf: 0.5, busy: false, c, t,
+            })));
+            expect(labels.length > 0 && labels.every(label => label === t.meritFunctionEditor.wizard.polAvg),
+                `${code} ${typeId} offers ${labels.join(', ') || 'no averaged polarization'}`);
+        }
+    }
+});
+await check('avg in Settings and the Filter Design plot', async () => {
     expect(source('components/windows/optimization/filterDesignWizard/SpectrumPlot.js').includes("name: 'target'") === false,
         'the Filter Design plot names its target series in English');
+    const { WindowFields } = await import('../src/components/dialogs/settings/analysis/WindowFields.js');
     const { ANALYSIS_DEFAULTS } = await import('../src/constants/analysisDefaults.js');
-    const spec = ANALYSIS_DEFAULTS.errorAnalysis?.enums?.polarization || ANALYSIS_DEFAULTS.integralValues.enums.polarization;
+    const { resolveAnalysisSettings } = await import('../src/utils/analysisSettings.js');
+    const offersAvg = registry => Object.values(registry.enums || {}).some(spec => spec.options.includes('avg'));
+    const windows = Object.keys(ANALYSIS_DEFAULTS).filter(id => offersAvg(ANALYSIS_DEFAULTS[id]));
+    expect(windows.length > 0, 'no analysis window offers the averaged polarization');
     for (const [code, t] of translated) {
-        const labels = spec.labelsAt.split('.').reduce((node, step) => node?.[step], t);
-        expect(labels?.avg && labels.avg !== 'avg', `${code} Settings offers ${labels?.avg ?? 'avg'}`);
+        for (const windowId of windows) {
+            const labels = avgOptions(renderToStaticMarkup(h(WindowFields, {
+                windowId, resolved: resolveAnalysisSettings(windowId, {}), onChange() {}, c, t,
+            })));
+            expect(labels.length > 0 && labels.every(label => label !== 'avg'), `${code} Settings, ${windowId}, offers ${labels.join(', ')}`);
+        }
         expect(t.filterDesign.targetSeries, `${code} has no Filter Design target series name`);
     }
 });
