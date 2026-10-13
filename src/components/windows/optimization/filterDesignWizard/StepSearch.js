@@ -30,7 +30,7 @@ function handleSearchMessage(m, ctx) {
         if (workerRef.current) { workerRef.current.terminate(); workerRef.current = null; }
         if (merged[0]) set('selected', merged[0]);
     } else if (m.type === 'error') {
-        setStatus('Error: ' + m.message); setRunning(false);
+        setStatus(T.step5.failed(m.message)); setRunning(false);
     }
 }
 
@@ -77,7 +77,7 @@ function startFilterSearch(ctx) {
     set('selected', prototypeCandidate(p, N, p.seedMirror || 8, seedSpacerVal));
     let worker;
     try { worker = new Worker(WORKER_URL, { type: 'module' }); }
-    catch (e) { setStatus('Worker failed: ' + e.message); setRunning(false); return; }
+    catch (e) { setStatus(T.step5.failed(e.message)); setRunning(false); return; }
     workerRef.current = worker;
     // The search runs the TMM tens of millions of times, so hand the worker the
     // kernel the GUI is using rather than leaving it on the JS fallback.
@@ -85,7 +85,7 @@ function startFilterSearch(ctx) {
     if (wasmBytes) worker.postMessage({ type: 'wasmInit', wasmBytes });
     const tables = presampleForSearch({ matH: p.matH, matL: p.matL, substrateMaterial: p.substrateMaterial, ...sampleWindow(p), step: 0.05 });
     worker.onmessage = (e) => handleSearchMessage(e.data, ctx);
-    worker.onerror = (ev) => { setStatus('Error: ' + (ev.message || 'worker')); setRunning(false); };
+    worker.onerror = (ev) => { setStatus(T.step5.failed(ev.message)); setRunning(false); };
     worker.postMessage({
         lambda0: p.lambda0_nm,
         // The step-1 angle is an angle at the finished filter, while steps 1 to 5

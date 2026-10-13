@@ -3694,6 +3694,7 @@ export default {
       running: 'Searching…',
       found: (n) => `${n} candidates…`,
       done: (n) => `Done: ${n} candidates.`,
+      failed: (message) => (message ? `The search failed: ${message}` : 'The search failed.'),
       empty: 'Press Start to run the integer optimization.',
       symMirrors: 'Symmetrical mirrors', symCavities: 'Symmetrical cavities',
       restarts: 'Restarts',
@@ -3992,6 +3993,7 @@ export default {
     refining:      (step, iters, mf) => `Re-optimizing: step ${step} / ${iters}, MF ${mf.toFixed(6)}`,
     stop:          'Stop',
     discarded:     'Design switched during re-optimization; nothing applied.',
+    failed:        (message) => `Cleanup failed: ${message}`,
   },
 
   colorEval: {
@@ -4170,6 +4172,7 @@ export default {
     targetsOn:   'Show merit function targets',
     targetsNone: 'No merit function targets defined',
     modifiedTip: 'Live preview. Ctrl+Z reverts to baseline',
+    calcError:   (message) => `Calculation error: ${message}`,
   },
 
   gradualEvolution: {

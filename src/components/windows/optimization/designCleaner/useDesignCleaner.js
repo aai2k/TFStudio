@@ -59,7 +59,7 @@ export function useCleanupRun({ dc, design, preview, settings, resolveMaterial, 
                 setResultMsg(dc.discarded);
             }
         } catch (e) {
-            setResultMsg(`Error: ${e.message || e}`);
+            setResultMsg(dc.failed(e.message || String(e)));
         }
         runRef.current = null;
         setProgress(null);

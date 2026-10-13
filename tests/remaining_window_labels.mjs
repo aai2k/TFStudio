@@ -11,6 +11,8 @@
  *      'Blackbody', 'on'), in Integral Values and the Merit Function Editor.
  *   4. A duplicated design's name, the Filter Design summary line and the
  *      GD/GDD sampling note.
+ *   5. The error prefixes of Variator, the Filter Design search and Design
+ *      Cleaner.
  *
  * Every block runs, and the failures are listed together.
  *
@@ -247,6 +249,27 @@ await check('GD/GDD sampling note', () => {
         'GDControls writes "adaptive points"');
     for (const [code, t] of translated) {
         expect(!/adaptive|Taylor jets/.test(t.gdgdd.samplingNote(12)), `${code} note is English`);
+    }
+});
+
+// ── 5. Error prefixes ────────────────────────────────────────────────────────
+// The message after the prefix comes from the engine; the prefix is ours.
+await check('Variator, Filter Design search and Design Cleaner errors', () => {
+    const files = [
+        'components/windows/optimization/variator/Variator.js',
+        'components/windows/optimization/variator/useVariator.js',
+        'components/windows/optimization/filterDesignWizard/StepSearch.js',
+        'components/windows/optimization/designCleaner/useDesignCleaner.js',
+    ];
+    for (const file of files) {
+        expect(!/['`](Error: |Worker failed|Computation error)/.test(source(file)), `${file} writes an English error prefix`);
+    }
+    const texts = t => [t.variator.calcError('x'), t.filterDesign.step5.failed('x'), t.filterDesign.step5.failed(''),
+        t.designCleaner.failed('x')];
+    const english = texts(getLocale('en'));
+    for (const [code, t] of translated) {
+        const own = texts(t);
+        expect(own.every((text, i) => text !== english[i]), `${code} reads ${own.join(' | ')}`);
     }
 });
 

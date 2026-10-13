@@ -4095,6 +4095,7 @@ export default {
       running: '搜索中…',
       found: (n) => `${n} 个候选…`,
       done: (n) => `完成 — ${n} 个候选。`,
+      failed: (message) => (message ? `搜索失败：${message}` : '搜索失败。'),
       empty: '点击开始以运行整数优化。',
       symMirrors: '对称反射镜',
       symCavities: '对称腔',
@@ -4373,6 +4374,7 @@ export default {
     refining: (step, iters, mf) => `重新优化：第 ${step} / ${iters} 步，MF ${mf.toFixed(6)}`,
     stop: '停止',
     discarded: '重新优化期间切换了设计，未应用任何更改。',
+    failed: (message) => `清理失败：${message}`,
   },
   colorEval: {
     noData: '无设计/正面膜层。添加膜层以评价颜色。',
@@ -4542,6 +4544,7 @@ export default {
     targetsOn: '显示评价函数目标',
     targetsNone: '未定义评价函数目标',
     modifiedTip: '实时预览 — Ctrl+Z 还原到基线',
+    calcError: (message) => `计算错误：${message}`,
   },
   gradualEvolution: {
     run: '运行',

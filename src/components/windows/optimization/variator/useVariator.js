@@ -121,7 +121,7 @@ function useSpectrumCompute({ design, params, evalMode, dN, dK, baseline }) {
             setError(null);
         } catch (e) {
             console.error('[Variator] compute error:', e);
-            setError(e.message || 'Computation error');
+            setError(e.message || String(e));
         }
     }, [design, params, evalMode, dN, dK, baseline]);
 

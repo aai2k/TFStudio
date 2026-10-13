@@ -4119,6 +4119,7 @@ export default {
       running: 'Ricerca in corso…',
       found: (n) => `${n} candidati…`,
       done: (n) => `Fatto: ${n} candidati.`,
+      failed: (message) => (message ? `La ricerca non è riuscita: ${message}` : 'La ricerca non è riuscita.'),
       empty: "Premi Avvia per eseguire l'ottimizzazione intera.",
       symMirrors: 'Specchi simmetrici',
       symCavities: 'Cavità simmetriche',
@@ -4432,6 +4433,7 @@ export default {
     refining: (step, iters, mf) => `Riottimizzazione: passo ${step} / ${iters}, MF ${mf.toFixed(6)}`,
     stop: 'Ferma',
     discarded: 'Design cambiato durante la riottimizzazione; nessuna modifica applicata.',
+    failed: (message) => `Pulizia non riuscita: ${message}`,
   },
   colorEval: {
     noData: 'Nessun design o nessuno strato anteriore. Aggiungi strati per valutare il colore.',
@@ -4601,6 +4603,7 @@ export default {
     targetsOn: 'Mostra i target della funzione di merito',
     targetsNone: 'Nessun target della funzione di merito definito',
     modifiedTip: 'Anteprima in tempo reale. Ctrl+Z riporta al riferimento',
+    calcError: (message) => `Errore di calcolo: ${message}`,
   },
   gradualEvolution: {
     run: 'Avvia',

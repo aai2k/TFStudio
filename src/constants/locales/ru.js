@@ -3620,6 +3620,7 @@ export default {
       running: 'Поиск…',
       found: (n) => `${n} кандидатов…`,
       done: (n) => `Готово — ${n} кандидатов.`,
+      failed: (message) => (message ? `Сбой поиска: ${message}` : 'Сбой поиска.'),
       empty: 'Нажмите «Старт» для запуска целочисленной оптимизации.',
       symMirrors: 'Симметричные зеркала', symCavities: 'Симметричные резонаторы',
       restarts: 'Перезапуски',
@@ -3924,6 +3925,7 @@ export default {
     refining:      (step, iters, mf) => `Оптимизация: шаг ${step} / ${iters}, MF ${mf.toFixed(6)}`,
     stop:          'Стоп',
     discarded:     'Проект переключён во время оптимизации; ничего не применено.',
+    failed:        (message) => `Сбой очистки: ${message}`,
   },
 
   colorEval: {
@@ -4099,6 +4101,7 @@ export default {
     targetsOn:   'Показать цели функции качества',
     targetsNone: 'Цели функции качества не заданы',
     modifiedTip: 'Живое превью — Ctrl+Z возвращает к исходному',
+    calcError:   (message) => `Ошибка расчёта: ${message}`,
   },
 
   gradualEvolution: {
