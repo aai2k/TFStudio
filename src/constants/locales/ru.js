@@ -188,7 +188,6 @@ export default {
     themeImportHint: 'Импорт цветовой темы Visual Studio Code (.json). Её палитра отображается в приложении — это приближение темы, а не точное соответствие.',
     themeImportError: 'Не удалось импортировать тему',
     themeImportOk: (name) => `Тема «${name}» импортирована.`,
-    // TODO(ru-review): user drives RU terminology — confirm these.
     ribbonStyle: 'Стиль ленты',
     ribbonColorful: 'Цветной (цветные значки)',
     ribbonMinimalist: 'Минималистичный (монохром)',
@@ -230,7 +229,6 @@ export default {
     synthSeedRefine: 'Уточнять затравку (по умолчанию)',
     synthSeedPreserveBulk: 'Сохранять объём + мягкое уточнение',
     close: 'Закрыть',
-    // TODO(ru-review): user drives RU terminology — confirm these.
     categories: {
       appearance: 'Оформление',
       quickAccess: 'Быстрый доступ',
@@ -439,7 +437,6 @@ export default {
   titleBar: {
     refreshAll: 'Обновить всё: заново прочитать папки проектов и материалов и пересчитать все открытые окна',
   },
-  // TODO(ru-review): user drives RU terminology — confirm these.
   update: {
     availableTitle: 'Доступна новая версия',
     versions: (current, latest) => `У вас ${current}. Последний выпуск — ${latest}.`,
@@ -3262,7 +3259,6 @@ export default {
     statCorridorWidth: 'Средняя ширина коридора',
   },
 
-  // NOTE: RU terminology is a first pass — user drives final RU wording.
   bbmSim: {
     title:        'Мастер широкополосного мониторинга',
     pageLabel:    (n) => `Страница ${n} из 6`,

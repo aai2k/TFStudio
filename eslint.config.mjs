@@ -1,5 +1,6 @@
 // Catches names used without being defined or imported, which otherwise only
-// fail at run time as a ReferenceError on the path that reaches them.
+// fail at run time as a ReferenceError on the path that reaches them, and
+// TODO or FIXME notes, which do not belong in the published source.
 // Run by tests/lint_no_undef.mjs as part of `npm test`.
 
 import globals from 'globals';
@@ -14,9 +15,14 @@ const SHARED_WITH_NODE = [
     'src/utils/workers/inThreadOptimizerWorker.js',
 ];
 
-// The source carries disable comments for this rule; only no-undef runs here,
+// The source carries disable comments for this rule, which does not run here,
 // so the rule is declared empty to let those comments resolve.
 const reactHooksStub = { rules: { 'exhaustive-deps': { create: () => ({}) } } };
+
+const RULES = {
+    'no-undef': 'error',
+    'no-warning-comments': ['error', { terms: ['todo', 'fixme'], location: 'start' }],
+};
 
 export default [
     {
@@ -40,7 +46,7 @@ export default [
                 __TFS_BUILD_DATE__: 'readonly',
             },
         },
-        rules: { 'no-undef': 'error' },
+        rules: RULES,
     },
     {
         files: SHARED_WITH_NODE,
@@ -53,6 +59,6 @@ export default [
             sourceType: 'commonjs',
             globals: { ...globals.node },
         },
-        rules: { 'no-undef': 'error' },
+        rules: RULES,
     },
 ];

@@ -1,9 +1,10 @@
 /**
- * Every name used in src/ and web/ is defined, imported, or a known global.
+ * Every name used in src/ and web/ is defined, imported, or a known global,
+ * and no comment there is a TODO or FIXME note.
  *
  * A name that is none of these passes the bundle and every test that does not
  * reach it, then throws a ReferenceError when a user does. The rule set is
- * eslint.config.mjs at the repo root: no-undef only.
+ * eslint.config.mjs at the repo root: no-undef and no-warning-comments.
  */
 
 import { ESLint } from 'eslint';
