@@ -8,6 +8,21 @@ assert.equal(formatChartNumber(0), '0');
 assert.equal(formatChartNumber(1e-6), '1e-6');
 assert.equal(formatChartNumber(2.5e-5), '2.5e-5');
 
+// Neighbouring ticks of a narrow axis read apart: a glass's n over the visible,
+// 0.005 apart, and air's, 5e-6 apart, which read 1.51, 1.51 and 1, 1. A tick
+// carrying floating-point noise prints as the round number it is, and a long
+// value, such as an axis end a zoom left between ticks, is still rounded.
+{
+    const ticks = (from, step, count) => Array.from({ length: count }, (_, i) => from + i * step);
+    const glass = ticks(1.505, 0.005, 8).map(formatChartNumber);
+    assert.deepEqual(glass, ['1.505', '1.51', '1.515', '1.52', '1.525', '1.53', '1.535', '1.54']);
+    const air = ticks(1.000255, 0.000005, 8).map(formatChartNumber);
+    assert.equal(new Set(air).size, air.length, `air's ticks read apart: ${air.join(' ')}`);
+    assert.equal(formatChartNumber(0.1 + 0.2), '0.3');
+    assert.equal(formatChartNumber(412.3456789012), '412.3');
+    assert.equal(formatChartNumber(0.0123456789), '0.0123');
+}
+
 // Scientific readouts preserve meaningful values without long floating tails.
 assert.equal(formatChartReadout(99.998), '99.998');
 assert.equal(formatChartReadout(1.005), '1.005');

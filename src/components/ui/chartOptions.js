@@ -473,7 +473,19 @@ export function itemTooltip(colors) {
 }
 
 
-/** Compact axis-tick formatting, including distinct labels for small decades. */
+// A tick on an axis spanning a few parts in 10⁵ of its value, as the index of
+// air does, needs seven significant figures to tell its neighbours apart; a
+// value that needs more than eight is not a tick.
+const TICK_FIGURES = 8;
+
+/**
+ * Compact axis-tick formatting, including distinct labels for small decades.
+ *
+ * A tick is a multiple of a round step, so its value is short and is printed
+ * whole. Rounding every tick to a fixed number of decimals made the ticks of a
+ * narrow axis read alike, 1.505 and 1.51 both as 1.51. A longer value, such as
+ * an axis end a zoom left between ticks, is rounded by its size.
+ */
 export function formatChartNumber(value) {
     const number = Number(value);
     if (!Number.isFinite(number)) return String(value ?? '');
@@ -481,6 +493,8 @@ export function formatChartNumber(value) {
     if (magnitude > 0 && (magnitude < 1e-3 || magnitude >= 1e6)) {
         return toCompactExponential(number, 3);
     }
+    const short = Number(number.toPrecision(TICK_FIGURES));
+    if (short === Number(number.toPrecision(15))) return String(short);
     const decimals = magnitude >= 100 ? 1 : magnitude >= 1 ? 2 : 4;
     return number.toFixed(decimals).replace(/\.0+$|(\.\d*?[1-9])0+$/, '$1');
 }
