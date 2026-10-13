@@ -48,16 +48,18 @@ function CoatingList({ c, z, doc, selCoating, setSelCoating }) {
 }
 
 // A relative thickness for which the file's MATE tables give no index at λ₀
-// shows as "?".
+// shows as "?". The Mode column gives the file's own value to six figures; a
+// file written by a program can carry fifteen.
 function coatingLayerRow(layer, index, { c, z, materialsByName, refNm }) {
     const thickness = coatLayerThkNm(layer, materialsByName, refNm);
+    const fileValue = Number(layer.thickness.toPrecision(6));
     return h('tr', { key: index },
         h('td', { style: { ...td(c), color: c.textDim } }, index + 1),
         h('td', { style: td(c) }, layer.material),
         h('td', { style: { ...td(c), textAlign: 'right', fontVariantNumeric: 'tabular-nums' } },
             Number.isFinite(thickness) ? `${thickness.toFixed(2)} nm` : '?'),
         h('td', { style: { ...td(c), color: c.textDim } },
-            layer.isAbsolute ? `${layer.thickness} ${z.modeAbs}` : `${layer.thickness} ${z.modeRel}`),
+            `${fileValue} ${layer.isAbsolute ? z.modeAbs : z.modeRel}`),
     );
 }
 

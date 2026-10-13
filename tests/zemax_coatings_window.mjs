@@ -98,6 +98,16 @@ const load = (patch) => {
         'a relative thickness uses the last record of a repeated name, as the import does');
 }
 
+// The Mode column gives the file's value to six figures, not the fifteen a file
+// written by a program can carry.
+{
+    const long = parseZemaxCoating(['MATE SIO2', '0.40 1.47 0', '0.80 1.45 0', 'COAT LONG', 'SIO2 0.123456789012345 1'].join('\n'));
+    zemaxCoatingsSession.reset();
+    zemaxCoatingsSession.write(null, { doc: long, fileName: 'LONG.DAT', selCoating: 0, tab: 'coatings' });
+    const shown = text(render(t));
+    assert.ok(shown.includes(`0.123457 ${z.modeAbs}`) && !shown.includes('0.123456789012345'), 'the Mode column rounds the file value');
+}
+
 // Materials: the selection actions in the panel, the records beside them, and
 // the repeated name raised in the control row.
 {
