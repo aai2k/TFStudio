@@ -1,33 +1,25 @@
 import {
-    requiredLambdas, collectDesignMaterialIds, mirrorLayers,
+    requiredLambdas, collectDesignMaterialIds, mirrorLayers, buildPresampledTable, isPhaseDispersion,
     buildEvalContext, evaluateOperands, calcMF, calcOMF,
 } from '../../../../../utils/physics/optimizer.js';
 import { tidyLayers } from '../../../../../utils/synthesis/structuralOptimizer.js';
 import { materialLookup } from '../../synthesisShared/materialNames.js';
-import { workerMaterialFields } from '../../../../../utils/materials/designMaterials.js';
 import { regridForDesign } from '../../synthesisShared/runGrid.js';
 import { deep, mkLayers } from './runUtils.js';
 import { refineGuarded } from './workerLifecycle.js';
 
+// Worker material tables for every material the design and the pool use, built
+// as every other run builds them, so a worker refine scores the merit the main
+// thread scores, stress and phase rows included.
 export function presampleAll(design, operands, pool) {
     const resolveMat = materialLookup(design);
-    const lambdas = requiredLambdas(operands);
     const ids = new Set(collectDesignMaterialIds(design));
     for (const material of pool) ids.add(material.id);
     ids.add('Air');
-    const materials = {};
-    for (const id of ids) {
-        const mat = resolveMat(id);
-        const n = new Array(lambdas.length);
-        const k = new Array(lambdas.length);
-        for (let i = 0; i < lambdas.length; i++) {
-            const nk = mat.getNK(lambdas[i]);
-            n[i] = nk[0];
-            k[i] = nk[1];
-        }
-        materials[id] = { lambdas, n, k, ...workerMaterialFields(id, mat) };
-    }
-    return materials;
+    const pairs = [...ids].map(id => ({ id, mat: resolveMat(id) }));
+    return buildPresampledTable(requiredLambdas(operands), pairs, {
+        includeOmegaResponses: operands.some(op => op.enabled && isPhaseDispersion(op.type)),
+    });
 }
 
 export function designFor(S, activeLayers, otherLayers) {
