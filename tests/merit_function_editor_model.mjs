@@ -21,11 +21,12 @@ function test(name, fn) {
 const labels = new Proxy({}, { get: (_, key) => ({ label: `Label ${String(key)}` }) });
 const tw = { header: getLocale('en').meritFunctionEditor.wizard.header, types: labels };
 const common = { aoi: 0, aoiEnd: 0, aoiSteps: 3, pol: 'avg', targetMode: 'continuous', stepNm: 1 };
+const units = getLocale('en').units;
 
 function comment(typeId, overrides = {}) {
     const params = { ...defaultFilterParams(typeId), ...(overrides.params || {}) };
     return buildDmfsComment({
-        tw, typeId, params, common: { ...common, ...(overrides.common || {}) },
+        tw, units, typeId, params, common: { ...common, ...(overrides.common || {}) },
         minEnabled: false, maxEnabled: false, minThick: 40, maxThick: 1000,
         totalEnabled: false, maxTotal: 3000,
         ...overrides,
@@ -56,7 +57,7 @@ test('DMFS comments cover every field shape', () => {
         assert.ok(comment(typeId).startsWith(prefix), typeId);
     }
     assert.equal(buildDmfsComment({
-        tw, typeId: 'LOW_STOP_SHAPE',
+        tw, units, typeId: 'LOW_STOP_SHAPE',
         filterTypes: { LOW_STOP_SHAPE: { fields: [{ key: 'lowStopStart' }] } },
         params: {
             lowStopStart: 300, lowStopEnd: 450, passStart: 500, passEnd: 600,
@@ -82,7 +83,7 @@ test('DMFS comments preserve AOI, target-mode, and constraint suffixes', () => {
 
 test('wizard builds DMFS, optical operands, all-layer constraints, and TT cap', () => {
     const block = buildWizardBlock({
-        tw, typeId: 'V_COAT', params: defaultFilterParams('V_COAT'),
+        tw, units, typeId: 'V_COAT', params: defaultFilterParams('V_COAT'),
         aoi: '15', aoiEnd: '15', aoiSteps: 3, pol: 's', targetMode: 'continuous', stepNm: 1,
         minEnabled: true, maxEnabled: true, minThick: 0, maxThick: -2,
         totalEnabled: true, maxTotal: 0,
@@ -99,7 +100,7 @@ test('wizard builds DMFS, optical operands, all-layer constraints, and TT cap', 
 
 test('wizard can omit constraints while retaining optical generation', () => {
     const block = buildWizardBlock({
-        tw, typeId: 'BBAR', params: defaultFilterParams('BBAR'),
+        tw, units, typeId: 'BBAR', params: defaultFilterParams('BBAR'),
         aoi: 0, aoiEnd: 0, aoiSteps: 3, pol: 'avg', targetMode: 'continuous', stepNm: 1,
         minEnabled: false, maxEnabled: false, minThick: 40, maxThick: 1000,
         totalEnabled: false, maxTotal: 3000,

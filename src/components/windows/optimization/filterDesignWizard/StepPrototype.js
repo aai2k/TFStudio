@@ -120,6 +120,6 @@ export function StepPrototype({ p, set, c, t }) {
                 h(AxisToggle, { value: p.logAxis, onChange: (v) => set('logAxis', v), c, t }),
                 h(SpectrumPlot, { layersFn, p, mode: 'embedded', c, height: 240, logAxis: p.logAxis,
                     targetPoints, targetName: T.targetSeries, lambdaAxis: t.spectralAxis.lambdaShort }),
-                h(StackBar, { layers: stackLayers, c, height: 24 }),
-                h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } }, `N = ${nLayers}    Th = ${thNm.toFixed(1)} nm    (embedded preview)`))));
+                h(StackBar, { layers: stackLayers, c, units: t.units, height: 24 }),
+                h('div', { style: { fontSize: 12, color: c.textDim, marginTop: 4 } }, `N = ${nLayers}    Th = ${thNm.toFixed(1)} ${t.units.nm}    (embedded preview)`))));
 }

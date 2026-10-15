@@ -39,8 +39,9 @@ assert.equal(hasTargetMode('BBAR'), true);
 assert.equal(hasTargetMode('V_COAT'), false);
 
 const tw = { header: getLocale('en').meritFunctionEditor.wizard.header, types: {} };
+const units = getLocale('en').units;
 const pbs = buildWizardBlock({
-    tw, typeId: 'CUSTOM_BS', params: { lamStart: 1565, lamEnd: 1630, rsPct: 100, rpPct: 0 },
+    tw, units, typeId: 'CUSTOM_BS', params: { lamStart: 1565, lamEnd: 1630, rsPct: 100, rpPct: 0 },
     aoi: 44.5, aoiEnd: 45.5, aoiSteps: 3, pol: 'avg', targetMode: 'continuous', stepNm: 1,
     minEnabled: true, maxEnabled: true, minThick: 40, maxThick: 1000, totalEnabled: false, maxTotal: 3000,
 });
@@ -48,7 +49,7 @@ assert.ok(!pbs[0].comment.includes('pol'), pbs[0].comment);
 assert.deepEqual(blockSummary(pbs), { count: 14, types: ['RGT', 'TGT', 'MNT', 'MXT'] });
 
 const ar = buildWizardBlock({
-    tw, typeId: 'BBAR', params: { lamStart: 400, lamEnd: 700 },
+    tw, units, typeId: 'BBAR', params: { lamStart: 400, lamEnd: 700 },
     aoi: 0, aoiEnd: 0, aoiSteps: 1, pol: 's', targetMode: 'continuous', stepNm: 1,
     minEnabled: false, maxEnabled: false, totalEnabled: false,
 });
@@ -56,10 +57,10 @@ assert.ok(ar[0].comment.includes('s pol'), ar[0].comment);
 assert.deepEqual(blockSummary(ar), { count: 2, types: ['RGT', 'TGT'] });
 
 assert.equal(
-    wizardSummary({ typeLabel: 'Polarizing (Rs/Rp)', params: { lamStart: 1565, lamEnd: 1630 }, aoi: 44.5, aoiEnd: 45.5 }),
+    wizardSummary({ typeLabel: 'Polarizing (Rs/Rp)', params: { lamStart: 1565, lamEnd: 1630 }, aoi: 44.5, aoiEnd: 45.5, units }),
     'Polarizing (Rs/Rp) · 1565–1630 nm · 44.5–45.5°',
 );
-assert.equal(wizardSummary({ typeLabel: 'V-coat', params: { lam0: 550 }, aoi: 0, aoiEnd: 0 }), 'V-coat · 0°');
+assert.equal(wizardSummary({ typeLabel: 'V-coat', params: { lam0: 550 }, aoi: 0, aoiEnd: 0, units }), 'V-coat · 0°');
 
 // The DMFS header names the bands the preset was built from. Every type must
 // name its own: a three-band filter carries a passStart like the two-band ones,
@@ -67,7 +68,7 @@ assert.equal(wizardSummary({ typeLabel: 'V-coat', params: { lam0: 550 }, aoi: 0,
 for (const cat of FILTER_CATEGORIES) {
     for (const id of cat.types) {
         const header = buildWizardBlock({
-            tw, typeId: id, params: defaultFilterParams(id), aoi: 0, aoiEnd: 0, aoiSteps: 1,
+            tw, units, typeId: id, params: defaultFilterParams(id), aoi: 0, aoiEnd: 0, aoiSteps: 1,
             pol: 'avg', targetMode: 'continuous', stepNm: 1,
             minEnabled: false, maxEnabled: false, totalEnabled: false,
         })[0].comment;
@@ -75,7 +76,7 @@ for (const cat of FILTER_CATEGORIES) {
     }
 }
 assert.match(buildWizardBlock({
-    tw, typeId: 'BANDPASS', params: defaultFilterParams('BANDPASS'), aoi: 0, aoiEnd: 0, aoiSteps: 1,
+    tw, units, typeId: 'BANDPASS', params: defaultFilterParams('BANDPASS'), aoi: 0, aoiEnd: 0, aoiSteps: 1,
     pol: 'avg', targetMode: 'continuous', stepNm: 1, minEnabled: false, maxEnabled: false, totalEnabled: false,
 })[0].comment, /stop 300–450 \| pass 500–600 \| stop 650–1000 nm/,
 'a bandpass names its low stop, its pass and its high stop');

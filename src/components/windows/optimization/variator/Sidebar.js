@@ -9,7 +9,7 @@ const { createElement: h } = React;
 
 export function Sidebar(props) {
     const {
-        c, v, design, anyVaried, revert,
+        c, t, v, design, anyVaried, revert,
         baseFrontById, baseBackById, baseSubMm,
         dThkFront, dThkBack, setLayerFront, setLayerBack,
         dSubMm, setSub,
@@ -61,7 +61,7 @@ export function Sidebar(props) {
             (design.frontLayers || []).length > 0 && h('div', null,
                 h(SectionHeader, { label: v.frontLayers || 'Front layers', count: design.frontLayers.length, c }),
                 h(LayerSliderList, {
-                    design, layers: design.frontLayers, side: 'front', c, v,
+                    design, layers: design.frontLayers, side: 'front', c, v, units: t.units,
                     baseById: baseFrontById, dThk: dThkFront, onChange: setLayerFront,
                 })
             ),
@@ -70,7 +70,7 @@ export function Sidebar(props) {
             backIsVaried(design) && (design.backLayers || []).length > 0 && h('div', null,
                 h(SectionHeader, { label: v.backLayers || 'Back layers', count: design.backLayers.length, c }),
                 h(LayerSliderList, {
-                    design, layers: design.backLayers, side: 'back', c, v,
+                    design, layers: design.backLayers, side: 'back', c, v, units: t.units,
                     baseById: baseBackById, dThk: dThkBack, onChange: setLayerBack,
                 })
             ),
@@ -79,12 +79,12 @@ export function Sidebar(props) {
             h('div', null,
                 h(SectionHeader, { label: v.substrate || 'Substrate', c }),
                 h(SliderRow, {
-                    label: `${matLabel(subMat)} (${baseSubMm.toFixed(3)} mm)`,
+                    label: `${matLabel(subMat)} (${baseSubMm.toFixed(3)} ${t.units.mm})`,
                     value: dSubMm,
                     min: -Math.max(0.5, baseSubMm * 0.5),
                     max:  Math.max(0.5, baseSubMm * 0.5),
                     step: 0.01,
-                    unit: 'mm',
+                    unit: t.units.mm,
                     color: resolveColor(subMat), c,
                     onChange: setSub,
                     displayPrecision: 3,

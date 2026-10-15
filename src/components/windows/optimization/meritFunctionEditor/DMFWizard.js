@@ -24,7 +24,8 @@ const FIELD_UNITS = {
     curveId: '', scale: '', input: '', gain: '', curvePol: '', curveAoi: '°',
     insertionLossDb: 'dB', ppefDb: 'dB',
 };
-const fieldUnit = key => (Object.prototype.hasOwnProperty.call(FIELD_UNITS, key) ? FIELD_UNITS[key] : 'nm');
+// A field with no unit of its own above is a wavelength.
+const fieldUnit = (key, units) => (Object.prototype.hasOwnProperty.call(FIELD_UNITS, key) ? FIELD_UNITS[key] : units.nm);
 
 // The Preset box holds a different set of fields for every filter type, up to
 // five rows for a triple-band AR, and is padded to that height so switching type
@@ -186,7 +187,7 @@ function presetRow(ctx, row) {
         ];
     }
     const key = row.keys[0];
-    const unit = fieldUnit(key);
+    const unit = fieldUnit(key, ctx.units);
     const width = WIDE_FIELDS.includes(key) ? '100%' : 62;
     return [
         h('span', { key: keyL, style: s.label, title: tw.fieldTips?.[key] }, (tw.fields[key] || key) + ':'),
@@ -334,7 +335,7 @@ function wizardResult(ctx) {
     const curveRows = takesCurve(typeId)
         ? curveWizardRows({ typeId, params: session.params, design, flatteningName: tw.flatteningName })
         : null;
-    return buildWizardResult({ tw, ...session, typeId, curveRows });
+    return buildWizardResult({ tw, ...session, typeId, curveRows, units: ctx.units });
 }
 
 // The line wraps in a narrow pane: the message breaks over lines and Start at
@@ -414,7 +415,7 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
     const typeId = FILTER_TYPES[session.typeId] ? session.typeId : FILTER_CATEGORIES[0].types[0];
     const updateParam = (key, value) => setField('params', prev => paramsWithChange(typeId, prev, key, value));
     const gainSource = useGainSource(updateParam, tw);
-    const ctx = { s: styles(c), tw, c, session, setField, patch, typeId, updateParam, design, gainSource };
+    const ctx = { s: styles(c), tw, units: t.units, c, session, setField, patch, typeId, updateParam, design, gainSource };
 
     const generate = (block, curves) => {
         const rows = wizardGenerationRows(startRow, block.length);
@@ -422,7 +423,7 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
         setStartRow(rows.nextStartRow);
     };
     const summary = wizardSummary({
-        typeLabel: tw.types[typeId]?.label || typeId, params: session.params, aoi: session.aoi, aoiEnd: session.aoiEnd,
+        typeLabel: tw.types[typeId]?.label || typeId, params: session.params, aoi: session.aoi, aoiEnd: session.aoiEnd, units: t.units,
     });
 
     return h(React.Fragment, null,

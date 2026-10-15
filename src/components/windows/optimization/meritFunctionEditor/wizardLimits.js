@@ -7,11 +7,11 @@ import {
     DEFAULT_CONSTRAINT_LAST_LAYER, makeConstraintOperand, makeOperand,
 } from '../../../../utils/physics/optimizer.js';
 
-/** The limits as the block header states them, after the type's own text. */
-export function limitsText({ minEnabled, minThick, maxEnabled, maxThick, totalEnabled, maxTotal }) {
-    const layer = [minEnabled && `≥${minThick} nm`, maxEnabled && `≤${maxThick} nm`].filter(Boolean);
+/** The limits as the block header states them, after the type's own text. `units` is t.units. */
+export function limitsText({ minEnabled, minThick, maxEnabled, maxThick, totalEnabled, maxTotal, units }) {
+    const layer = [minEnabled && `≥${minThick} ${units.nm}`, maxEnabled && `≤${maxThick} ${units.nm}`].filter(Boolean);
     let text = layer.length ? `; ${layer.join(', ')}` : '';
-    if (totalEnabled) text += `; Σd ≤ ${maxTotal} nm`;
+    if (totalEnabled) text += `; Σd ≤ ${maxTotal} ${units.nm}`;
     return text;
 }
 

@@ -36,12 +36,6 @@ const EXEMPT = {
     OptimizerBenchmark: 'dev-only, behind the dev menu and absent from a release build',
 };
 
-// Windows still writing a Latin unit, fixed area by area.
-const NOT_YET = new Set([
-    'DesignCleaner', 'Variator',
-    'BBMWizard', 'MonoWizard', 'FilterDesignWizard', 'StackFormulaDialog',
-]);
-
 const registry = new URL('../src/components/docking/windowRegistry.js', import.meta.url);
 const windows = [...readFileSync(registry, 'utf-8')
     .matchAll(/import\s*\{\s*(\w+)\s*\}\s*from\s*'(\.\.\/windows\/[\w/]+\.js)'/g)]
@@ -77,7 +71,7 @@ const failures = [];
 for (const open of [false, true]) {
     openAll = open;
     for (const { name, url } of windows) {
-        if (EXEMPT[name] || NOT_YET.has(name)) continue;
+        if (EXEMPT[name]) continue;
         const Window = (await import(url))[name];
         const html = renderToStaticMarkup(withDesign(React.createElement(Window, {
             c, t: ru, theme: c, setInputDialog() {}, onClose() {},

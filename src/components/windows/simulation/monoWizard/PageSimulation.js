@@ -22,7 +22,7 @@ function noIndexMessage(error, { B, ctx, N }) {
         flipLayerIndex(N, error.layerIndex));
 }
 
-export function PageSimulation({ p, set, layers, c, B, ctx, run, setRun, buildCfg }) {
+export function PageSimulation({ p, set, layers, c, B, units, ctx, run, setRun, buildCfg }) {
     const N = layers.length;
     const [busy, setBusy] = useState(false);
     const [refused, setRefused] = useState(null);
@@ -59,5 +59,5 @@ export function PageSimulation({ p, set, layers, c, B, ctx, run, setRun, buildCf
             control, h('div', { style: { fontSize: 11.5, color: c.error } }, refused))
         : control;
 
-    return h(SimulationView, { p, set, c, B, run, N, layerIdx, frac, series, leftTop, playback });
+    return h(SimulationView, { p, set, c, B, units, run, N, layerIdx, frac, series, leftTop, playback });
 }

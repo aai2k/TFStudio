@@ -33,7 +33,7 @@ function ApplyGroup({ c, dc, applying, progress, ops, apply, stop }) {
 }
 
 export function CleanerControls({
-    c, dc, design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
+    c, dc, units, design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
     cleanBack, setCleanBack, reoptimize, setReoptimize,
     reoptIters, setReoptIters, applying, progress, ops, apply, stop,
 }) {
@@ -65,7 +65,7 @@ export function CleanerControls({
                 onChange: e => setDMin(parseFloat(e.target.value) || 0),
                 style: { ...inputStyle, marginLeft: 6, width: 60 }
             }),
-            h('span', { style: { color: c.textDim, marginLeft: 2 } }, 'nm')
+            h('span', { style: { color: c.textDim, marginLeft: 2 } }, units.nm)
         ),
         h('label', { style: checkboxLabel },
             h(Checkbox, {

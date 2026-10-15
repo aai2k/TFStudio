@@ -165,8 +165,9 @@ function renderCandidateRow(cd, i, { selKey, set, c, T, held }) {
 // The merit columns are labelled with the angles in the incident medium, the
 // angles the user typed, not the substrate angles the engine scores at.
 function renderCandidateTable(ctx) {
-    const { candidates, c, T, held, working } = ctx;
-    const cols = held ? [`MF ${working}°`, `MF ${held}°`, 'N', 'TT, nm'] : ['MF', 'N', 'TT, nm'];
+    const { candidates, c, t, T, held, working } = ctx;
+    const tt = `TT, ${t.units.nm}`;
+    const cols = held ? [`MF ${working}°`, `MF ${held}°`, 'N', tt] : ['MF', 'N', tt];
     return h('div', { style: { width: held ? 310 : 250 } },
         h('div', { style: { maxHeight: 300, overflowY: 'auto', border: `1px solid ${c.border}`, borderRadius: 4 } },
             h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11.5, color: c.text } },
@@ -260,7 +261,7 @@ export function StepSearch({ p, set, c, t }) {
         h('div', { style: { display: 'flex', gap: 16 } },
             renderSearchControls({ running, stop, start, status, clearHistory, p, set, c, T }),
             renderCandidateTable({
-                candidates, selKey, set, c, T,
+                candidates, selKey, set, c, t, T,
                 working: workingAoi(p), held: heldAoi(p) > workingAoi(p) ? heldAoi(p) : 0,
             }),
             renderSearchPreview({ selLayersFn, targetPoints, iteration, p, set, c, t, T })));

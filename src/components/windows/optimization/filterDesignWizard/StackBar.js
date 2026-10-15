@@ -13,14 +13,14 @@ function layerColor(l) {
 }
 
 // layers: engine layers [{tag, role, order, d}]. Width is proportional to thickness.
-export function StackBar({ layers, c, height = 26 }) {
+export function StackBar({ layers, c, units, height = 26 }) {
     if (!layers || !layers.length) return null;
     const total = layers.reduce((s, l) => s + (l.d || 0), 0) || 1;
     return h('div', {
         style: { display: 'flex', width: '100%', height, border: `1px solid ${c.border}`, borderRadius: 3, overflow: 'hidden' },
     }, layers.map((l, i) => h('div', {
         key: i,
-        title: `${l.tag}${l.order ? ` order ${l.order}` : ''}  ${(l.d || 0).toFixed(1)} nm`,
+        title: `${l.tag}${l.order ? ` order ${l.order}` : ''}  ${(l.d || 0).toFixed(1)} ${units.nm}`,
         style: { width: `${100 * (l.d || 0) / total}%`, backgroundColor: layerColor(l), borderRight: i < layers.length - 1 ? '0.5px solid rgba(255,255,255,0.15)' : 'none' },
     })));
 }

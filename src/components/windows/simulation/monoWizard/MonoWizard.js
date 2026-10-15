@@ -151,7 +151,7 @@ function buildWizardBody({ step, p, set, materialIds, layers, c, B, t, ctx, desi
         3: () => h(PageMonoSystem,   { p, set, layers, c, B, t, ctx: monCtx, design }),
         4: () => h(PageMonoLambdas,  { p, set, layers, c, B, ctx: monCtx, design }),
         5: () => h(PageSignalErrors, { p, set, layers, c, B, ctx: monCtx, design }),
-        6: () => h(PageSimulation,   { p, set, layers, c, B, ctx, run, setRun, buildCfg }),
+        6: () => h(PageSimulation,   { p, set, layers, c, B, units: t.units, ctx, run, setRun, buildCfg }),
         7: () => h(PageResults,      { p, set, layers, c, B, ctx, run }),
     };
     const titles = [B.p1Title, B.p2Title, B.p3Title, B.p4Title, B.p5Title, B.p6Title, B.p7Title];

@@ -3,7 +3,7 @@ import { displayLayerLabel } from '../../analysis/layerSensitivity/viewModel.js'
 
 const { createElement: h } = React;
 
-export function CleanerThinList({ c, dc, design, thinList }) {
+export function CleanerThinList({ c, dc, units, design, thinList }) {
     const frontCount = design.frontLayers?.length || 0;
     return h('div', {
         style: { flex: '0 0 280px', minHeight: 0, overflowY: 'auto' }
@@ -31,7 +31,7 @@ export function CleanerThinList({ c, dc, design, thinList }) {
                     h('td', {
                         style: { padding: '2px 8px', color: c.textDim, fontSize: 11,
                             textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
-                    }, l.thickness.toFixed(3) + ' nm'),
+                    }, `${l.thickness.toFixed(3)} ${units.nm}`),
                 )))
             )
     );

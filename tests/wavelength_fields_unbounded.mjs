@@ -326,7 +326,7 @@ assert.match(dmf, /numberInput\(s, session\.stepNm, [^\n]*\{ positive: true, ste
 const { buildWizardBlock } = await import('../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js');
 const tw = getLocale('en').meritFunctionEditor.wizard;
 const discrete = buildWizardBlock({
-    tw, typeId: 'BBAR', params: { lamStart: 13, lamEnd: 14 }, pol: 'avg', targetMode: 'discrete',
+    tw, units: getLocale('en').units, typeId: 'BBAR', params: { lamStart: 13, lamEnd: 14 }, pol: 'avg', targetMode: 'discrete',
     stepNm: 0.05, aoi: 0, aoiEnd: 0, aoiSteps: 1,
     minEnabled: false, maxEnabled: false, totalEnabled: false,
 });

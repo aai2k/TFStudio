@@ -12,8 +12,8 @@ function hasField(ctx, key) {
 }
 
 function formatRangeFields(ctx) {
-    const { params: p } = ctx;
-    let text = `λ ${p.lamStart}–${p.lamEnd} nm`;
+    const { params: p, units } = ctx;
+    let text = `λ ${p.lamStart}–${p.lamEnd} ${units.nm}`;
     if (hasField(ctx, 'tStart')) {
         text += `, T ${p.tStart.toFixed(2)}`;
         if (p.tEnd != null) text += `→${p.tEnd.toFixed(2)}`;
@@ -24,20 +24,20 @@ function formatRangeFields(ctx) {
 }
 
 function formatPassStopFields(ctx) {
-    const { def, params: p, words: w } = ctx;
+    const { def, params: p, words: w, units } = ctx;
     const stopFirst = hasField(ctx, 'stopStart') && def.fields[0].key === 'stopStart';
     return stopFirst
-        ? `${w.stop} ${p.stopStart}–${p.stopEnd} nm, ${w.pass} ${p.passStart}–${p.passEnd} nm`
-        : `${w.pass} ${p.passStart}–${p.passEnd} nm, ${w.stop} ${p.stopStart}–${p.stopEnd} nm`;
+        ? `${w.stop} ${p.stopStart}–${p.stopEnd} ${units.nm}, ${w.pass} ${p.passStart}–${p.passEnd} ${units.nm}`
+        : `${w.pass} ${p.passStart}–${p.passEnd} ${units.nm}, ${w.stop} ${p.stopStart}–${p.stopEnd} ${units.nm}`;
 }
 
 // A density is written as itself, OD ≥ 3, not as a statement about T.
 const STATEMENT_UNITS = { pct: '%', dB: ' dB', OD: '' };
 const COMPARISON_SYMBOLS = { le: '≤', ge: '≥', eq: '=' };
-function formatCustomTarget({ params: p }) {
+function formatCustomTarget({ params: p, units }) {
     const { channel, unit, cmp } = customTargetStatement(p);
     const quantity = unit === 'OD' ? 'OD' : channel;
-    return `${quantity} ${COMPARISON_SYMBOLS[cmp]} ${p.valuePct}${STATEMENT_UNITS[unit]}, λ ${p.lamStart}–${p.lamEnd} nm`;
+    return `${quantity} ${COMPARISON_SYMBOLS[cmp]} ${p.valuePct}${STATEMENT_UNITS[unit]}, λ ${p.lamStart}–${p.lamEnd} ${units.nm}`;
 }
 
 // The first entry whose key the type carries wins, so a three-band type has to
@@ -46,28 +46,29 @@ function formatCustomTarget({ params: p }) {
 const FIELD_FORMATTERS = [
     ['channel', formatCustomTarget],
     ['lamStart', formatRangeFields],
-    ['lam0', ({ params: p }) => `λ₀=${p.lam0} nm`],
-    ['lam3', ({ params: p }) => `λ=${p.lam1}/${p.lam2}/${p.lam3} nm`],
-    ['lam2', ({ params: p }) => `λ=${p.lam1}/${p.lam2} nm`],
-    ['lowStopStart', ({ params: p, words: w }) => `${w.stop} ${p.lowStopStart}–${p.lowStopEnd} | ${w.pass} ${p.passStart}–${p.passEnd} | ${w.stop} ${p.highStopStart}–${p.highStopEnd} nm`],
-    ['lowPassStart', ({ params: p, words: w }) => `${w.pass} ${p.lowPassStart}–${p.lowPassEnd} | ${w.stop} ${p.stopStart}–${p.stopEnd} | ${w.pass} ${p.highPassStart}–${p.highPassEnd} nm`],
+    ['lam0', ({ params: p, units }) => `λ₀=${p.lam0} ${units.nm}`],
+    ['lam3', ({ params: p, units }) => `λ=${p.lam1}/${p.lam2}/${p.lam3} ${units.nm}`],
+    ['lam2', ({ params: p, units }) => `λ=${p.lam1}/${p.lam2} ${units.nm}`],
+    ['lowStopStart', ({ params: p, words: w, units }) => `${w.stop} ${p.lowStopStart}–${p.lowStopEnd} | ${w.pass} ${p.passStart}–${p.passEnd} | ${w.stop} ${p.highStopStart}–${p.highStopEnd} ${units.nm}`],
+    ['lowPassStart', ({ params: p, words: w, units }) => `${w.pass} ${p.lowPassStart}–${p.lowPassEnd} | ${w.stop} ${p.stopStart}–${p.stopEnd} | ${w.pass} ${p.highPassStart}–${p.highPassEnd} ${units.nm}`],
     ['passStart', formatPassStopFields],
 ];
 
-function formatDmfsFields(def, params, words) {
-    const ctx = { def, params, words, fieldKeys: new Set(def.fields.map(field => field.key)) };
+function formatDmfsFields(def, params, words, units) {
+    const ctx = { def, params, words, units, fieldKeys: new Set(def.fields.map(field => field.key)) };
     const entry = FIELD_FORMATTERS.find(([key]) => hasField(ctx, key));
     return entry ? entry[1](ctx) : '';
 }
 
-// The header is written in the UI language: `tw.header` holds its words, and
-// the symbols around them (λ, nm, T, R, °) are the same in every language.
+// The header is written in the UI language: `tw.header` holds its words and
+// `units`, t.units, the wavelength unit; the symbols around them (λ, T, R, °)
+// are the same in every language.
 export function buildDmfsComment(options) {
-    const { tw, typeId, params, common } = options;
+    const { tw, typeId, params, common, units } = options;
     const words = tw.header;
     const def = options.filterTypes?.[typeId] || FILTER_TYPES[typeId];
     const typeLabel = tw.types[typeId]?.label || typeId;
-    const fieldText = formatDmfsFields(def, params, words);
+    const fieldText = formatDmfsFields(def, params, words, units);
     const aoiText = common.aoi === common.aoiEnd || common.aoiEnd == null
         ? `${words.aoi} ${common.aoi}°`
         : `${words.aoi} ${common.aoi}–${common.aoiEnd}° (${words.steps(common.aoiSteps)})`;
@@ -110,7 +111,7 @@ export function buildWizardBlock(options) {
 
 function filterTypeBlock(options) {
     const {
-        tw, typeId, params, pol, targetMode,
+        tw, typeId, params, pol, targetMode, units,
         minEnabled, minThick, maxEnabled, maxThick, totalEnabled, maxTotal,
     } = options;
     const common = {
@@ -122,7 +123,7 @@ function filterTypeBlock(options) {
         stepNm: Number(options.stepNm) || 1,
     };
     const comment = buildDmfsComment({
-        tw, typeId, params, common,
+        tw, typeId, params, common, units,
         minEnabled, minThick, maxEnabled, maxThick, totalEnabled, maxTotal,
     });
     return [makeDmfsOperand(comment), ...generateFilterOperands(typeId, params, common)];

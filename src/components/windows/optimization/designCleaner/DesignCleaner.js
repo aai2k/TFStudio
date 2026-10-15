@@ -44,11 +44,11 @@ export function DesignCleaner({ c, theme, t }) {
             fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
         }
     },
-        h(CleanerControls, { ...state, c, dc }),
+        h(CleanerControls, { ...state, c, dc, units: t.units }),
         h(CleanerSummary, { ...state, c, dc }),
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' } },
-            h(CleanerOpsTable, { c, dc, design, ops, dMin }),
-            h(CleanerThinList, { c, dc, design, thinList }),
+            h(CleanerOpsTable, { c, dc, units: t.units, design, ops, dMin }),
+            h(CleanerThinList, { c, dc, units: t.units, design, thinList }),
         )
     );
 }

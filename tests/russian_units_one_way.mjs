@@ -24,6 +24,8 @@
  *      coating library entry's bands, metrics, stack strip and claims write
  *      units in Russian.
  *   8. A requirement's value and summary, wherever they are shown, write нм.
+ *   9. Optimization and the rest: the merit wizard's block header, limits and
+ *      summary, the Filter Design stack bar, and the games' readouts write нм.
  *
  * Run: node tests/russian_units_one_way.mjs
  */
@@ -269,6 +271,35 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     assert.ok(!shown.some(s => LATIN_UNIT.test(s)), `a Russian requirement writes a Latin unit: ${shown.join(' | ')}`);
     assert.ok(shown[0].endsWith(' нм') && shown[1].includes('≤ 100.00 нм'), `ru requirement reads ${shown[0]}, ${shown[1]}`);
     assert.equal(qualifierValueText(results[0], en.units), shown[0].replace('нм', 'nm'), 'en keeps nm');
+}
+
+// ── 9. Optimization and the rest ─────────────────────────────────────────────
+{
+    const shown = [];
+    const { buildWizardBlock } = await import('../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js');
+    const { wizardSummary } = await import('../src/components/windows/optimization/meritFunctionEditor/wizardModel.js');
+    const { FILTER_CATEGORIES, defaultFilterParams } = await import('../src/utils/physics/optimizer.js');
+    const tw = ru.meritFunctionEditor.wizard;
+    for (const typeId of FILTER_CATEGORIES.flatMap(category => category.types)) {
+        shown.push(buildWizardBlock({
+            tw, units: ru.units, typeId, params: defaultFilterParams(typeId),
+            aoi: 0, aoiEnd: 0, aoiSteps: 1, pol: 'avg', targetMode: 'continuous', stepNm: 1,
+            minEnabled: true, minThick: 10, maxEnabled: true, maxThick: 500, totalEnabled: true, maxTotal: 3000,
+        })[0].comment);
+        shown.push(wizardSummary({ typeLabel: typeId, params: defaultFilterParams(typeId), aoi: 0, aoiEnd: 0, units: ru.units }));
+    }
+    const { StackBar } = await import('../src/components/windows/optimization/filterDesignWizard/StackBar.js');
+    const bar = renderToStaticMarkup(h(StackBar, { layers: [{ tag: 'H', role: 'mirror', d: 60 }], c, units: ru.units }));
+    shown.push(...[...bar.matchAll(/title="([^"]*)"/g)].map(([, title]) => title));
+    const { createPhotonRunner } = await import('../src/components/windows/information/games/photonRunner.js');
+    const { createTurningPoint } = await import('../src/components/windows/information/games/turningPoint.js');
+    for (const create of [createPhotonRunner, createTurningPoint]) {
+        const game = create({ W: 720, H: 420, skin: {}, t: ru.games, units: ru.units, best: () => 0, seed: 1 });
+        shown.push(...game.hud().map(([, value]) => String(value)));
+    }
+    const latin = shown.filter(s => LATIN_UNIT.test(s));
+    assert.deepEqual(latin, [], 'a Russian optimization readout writes a Latin unit');
+    assert.ok(shown.filter(s => s.includes('нм')).length > 10, 'ru optimization readouts write нм');
 }
 
 console.log('russian_units_one_way passed.');

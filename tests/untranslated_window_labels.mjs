@@ -67,7 +67,7 @@ const SIO2 = 'SiO2 (Fused Silica)';
         '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js');
     const { defaultFilterParams } = await import('../src/utils/physics/optimizer.js');
     const header = (t, typeId, extra = {}) => buildWizardBlock({
-        tw: t.meritFunctionEditor.wizard, typeId, params: defaultFilterParams(typeId),
+        tw: t.meritFunctionEditor.wizard, units: t.units, typeId, params: defaultFilterParams(typeId),
         aoi: 0, aoiEnd: 0, aoiSteps: 3, pol: 'avg', targetMode: 'continuous', stepNm: 1,
         minEnabled: false, maxEnabled: false, totalEnabled: false, ...extra,
     })[0].comment;
@@ -94,7 +94,7 @@ const SIO2 = 'SiO2 (Fused Silica)';
                 `the polarization and target mode are not in ${code}: "${plain}"`);
             expect(swept.includes(`${words.aoi} 0–20° (${words.steps(3)})`) && swept.includes(words.discrete(2)),
                 `the angle range and discrete step are not in ${code}: "${swept}"`);
-            expect(edge.includes(`${words.stop} 400–600 nm, ${words.pass} 700–1000 nm`),
+            expect(edge.includes(`${words.stop} 400–600 ${t.units.nm}, ${words.pass} 700–1000 ${t.units.nm}`),
                 `the bands are not in ${code}: "${edge}"`);
         });
     }

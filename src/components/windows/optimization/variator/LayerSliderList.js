@@ -9,7 +9,7 @@ const { createElement: h } = React;
 // One slider row per layer, labelled with side prefix (F/B) and the number the
 // Design Editor gives the layer, material name, and baseline thickness. Values
 // are baseline-relative deltas keyed by layer id.
-export function LayerSliderList({ design, layers, side, baseById, dThk, onChange, c, v }) {
+export function LayerSliderList({ design, layers, side, baseById, dThk, onChange, c, v, units }) {
     const frontCount = design.frontLayers?.length || 0;
     return layers.map((l, idx) => {
         const base = baseById.get(l.id) ?? l.thickness;
@@ -18,9 +18,9 @@ export function LayerSliderList({ design, layers, side, baseById, dThk, onChange
         const value = dThk[l.id] || 0;
         return h(SliderRow, {
             key: l.id,
-            label: `${displayLayerLabel({ side, layerIndex: idx }, frontCount)} ${matLabel(mat)} (${base.toFixed(1)} nm)`,
+            label: `${displayLayerLabel({ side, layerIndex: idx }, frontCount)} ${matLabel(mat)} (${base.toFixed(1)} ${units.nm})`,
             value, min: range.min, max: range.max, step: 0.1,
-            unit: 'nm', color: mat ? resolveColor(mat) : undefined, c,
+            unit: units.nm, color: mat ? resolveColor(mat) : undefined, c,
             onChange: (val) => onChange(l.id, val),
             displayPrecision: 2,
             resetTip: v.resetRow,

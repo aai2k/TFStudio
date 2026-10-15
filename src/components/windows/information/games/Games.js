@@ -107,7 +107,7 @@ export function Games({ c, t }) {
         if (!canvas) return undefined;
         loadScores();
         const game = entry.create({
-            W, H, skin, t: g, seed: Date.now(), level: startLevel,
+            W, H, skin, t: g, units: t.units, seed: Date.now(), level: startLevel,
             best: bestScore, fewest: fewestScore,
         });
         const stop = startStage({ canvas, game, skin });

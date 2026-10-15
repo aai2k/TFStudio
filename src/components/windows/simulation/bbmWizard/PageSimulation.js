@@ -56,7 +56,7 @@ function runExperiment({ cfg, ctx, layers, presampleMaterials, seed, workerRef, 
     worker.postMessage({ cmd: 'bbm-run', design: buildWorkerDesign(ctx, layers), cfg: wcfg, materials: presampleMaterials(), seed });
 }
 
-export function PageSimulation({ p, set, layers, c, B, ctx, run, setRun, buildCfg, presampleMaterials }) {
+export function PageSimulation({ p, set, layers, c, B, units, ctx, run, setRun, buildCfg, presampleMaterials }) {
     const N = layers.length;
     const [busy, setBusy] = useState(false);
     const [compProg, setCompProg] = useState(0);   // compute progress 0..1 (Start)
@@ -86,5 +86,5 @@ export function PageSimulation({ p, set, layers, c, B, ctx, run, setRun, buildCf
                 h('div', { style: { height: '100%', width: `${Math.max(3, compProg * 100)}%`, background: c.accent, transition: 'width 80ms linear' } })))
         : h('button', { key: 'start', onClick: start, style: { padding: '7px', fontSize: 13, fontWeight: 600, cursor: 'pointer', borderRadius: 4, border: `1px solid ${c.accent}`, background: c.accent + '22', color: c.accent } }, run ? B.restart : B.start);
 
-    return h(SimulationView, { p, set, c, B, run, N, layerIdx, frac, series, leftTop, playback });
+    return h(SimulationView, { p, set, c, B, units, run, N, layerIdx, frac, series, leftTop, playback });
 }

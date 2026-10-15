@@ -2,7 +2,7 @@ import { CleanerOpRow } from './CleanerOpRow.js';
 
 const { createElement: h } = React;
 
-export function CleanerOpsTable({ c, dc, design, ops, dMin }) {
+export function CleanerOpsTable({ c, dc, units, design, ops, dMin }) {
     return h('div', {
         style: {
             flex: 1, minHeight: 0, overflowY: 'auto',
@@ -37,7 +37,7 @@ export function CleanerOpsTable({ c, dc, design, ops, dMin }) {
                             }, label))
                     )
                 ),
-                h('tbody', null, ops.map((op, i) => h(CleanerOpRow, { key: i, op, i, c, dc, dMin, design })))
+                h('tbody', null, ops.map((op, i) => h(CleanerOpRow, { key: i, op, i, c, dc, units, dMin, design })))
             )
     );
 }

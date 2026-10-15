@@ -36,7 +36,7 @@ export function PreviewToolbar(props) {
                 style: { width: 60, height: 22, backgroundColor: c.bg, color: c.text,
                          border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11, padding: '0 4px' }
             }),
-            'nm'
+            t.units.nm
         ),
         h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim } },
             t.opticalEval.aoi,

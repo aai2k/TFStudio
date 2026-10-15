@@ -73,7 +73,7 @@ function recordingSkin() {
 export function makeGame(id, seed = SEED, extra = {}) {
     const skin = recordingSkin();
     const keep = (key, value) => value || 0;
-    const api = { W, H, skin, t: en.games, best: keep, fewest: keep, seed, ...extra };
+    const api = { W, H, skin, t: en.games, units: en.units, best: keep, fewest: keep, seed, ...extra };
     const game = GAMES[id](api);
     const ctx = stubCtx();
     return { game, frame: skin.frame, step: (dt = 1 / 60) => { game.update(dt); game.draw(ctx); } };

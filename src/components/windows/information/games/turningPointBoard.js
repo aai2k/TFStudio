@@ -87,7 +87,7 @@ function drawHeader(s, ctx) {
     s.S.text(ctx, s.layer.mat.name, x, LAYER_Y, { ...big, color: c[s.layer.mat.key] });
     x += s.S.width(ctx, s.layer.mat.name, big) + 14;
     s.S.text(ctx, s.g.cutAt(s.layer.target), x, LAYER_Y, { color: c.dim, size: 12 });
-    s.S.text(ctx, (s.layer.x * s.layer.qwot).toFixed(1) + ' nm', TRACE_R, LAYER_Y,
+    s.S.text(ctx, `${(s.layer.x * s.layer.qwot).toFixed(1)} ${s.units.nm}`, TRACE_R, LAYER_Y,
         { color: c.dim, size: 12, align: 'right' });
     s.S.text(ctx, s.g.runOf(s.level, s.g.patterns[s.plan.pattern]), TRACE_L, RUN_Y,
         { color: c.dim, size: 11 });

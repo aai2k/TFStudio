@@ -3,7 +3,7 @@ import { displayLayerLabel } from '../../analysis/layerSensitivity/viewModel.js'
 
 const { createElement: h } = React;
 
-export function CleanerOpRow({ op, i, c, dc, dMin, design }) {
+export function CleanerOpRow({ op, i, c, dc, units, dMin, design }) {
     // An operation's indices are the layers' places in the design it was
     // planned on, so they take that design's numbering.
     const label = layerIndex => displayLayerLabel({ side: op.side, layerIndex }, design.frontLayers?.length || 0);
@@ -22,10 +22,10 @@ export function CleanerOpRow({ op, i, c, dc, dMin, design }) {
         h('td', {
             style: { padding: '2px 8px', color: c.text, fontSize: 11,
                 textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
-        }, op.thickness.toFixed(3) + ' nm'),
+        }, `${op.thickness.toFixed(3)} ${units.nm}`),
         h('td', { style: { padding: '2px 8px', color: c.textDim, fontSize: 11, textAlign: 'right' } },
             op.kind === 'merge'
                 ? `→ ${label(op.mergedInto)}`
-                : `< ${dMin.toFixed(1)} nm`)
+                : `< ${dMin.toFixed(1)} ${units.nm}`)
     );
 }

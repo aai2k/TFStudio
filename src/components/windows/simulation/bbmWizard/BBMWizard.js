@@ -164,7 +164,7 @@ export function BBMWizard({ c, t, onClose }) {
         2: () => h(PageDeviations,   { p, set, materialIds, layers, resolveMat: ctx.resolveMat, c, B }),
         3: () => h(PageMonSystem,    { p, set, layers, c, B, t, ctx: monCtx }),
         4: () => h(PageSignalErrors, { p, set, layers, c, B, ctx: monCtx }),
-        5: () => h(PageSimulation,   { p, set, layers, c, B, ctx, run, setRun, buildCfg, presampleMaterials }),
+        5: () => h(PageSimulation,   { p, set, layers, c, B, units: t.units, ctx, run, setRun, buildCfg, presampleMaterials }),
         6: () => h(PageResults,      { p, set, layers, c, B, ctx, run, showDeferredActions: true }),
     };
 

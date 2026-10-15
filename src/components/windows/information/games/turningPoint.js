@@ -106,7 +106,7 @@ function update(s, dt) {
 
 export function createTurningPoint(api) {
     const s = {
-        W: api.W, H: api.H, S: api.skin, t: api.t, g: api.t.turningPoint, best: api.best,
+        W: api.W, H: api.H, S: api.skin, t: api.t, g: api.t.turningPoint, units: api.units, best: api.best,
         rng: makeRng(api.seed),
         // The run picked in the window. Losing sends the game back here.
         startLevel: Math.max(1, api.level || 1),
@@ -120,8 +120,8 @@ export function createTurningPoint(api) {
         hud: () => [
             [s.g.hudRun, s.level],
             [s.g.hudLayers, s.layerIndex],
-            [s.g.hudBudget, Math.max(0, s.budget).toFixed(1) + ' nm'],
-            [s.g.hudError, s.totalErr.toFixed(1) + ' nm'],
+            [s.g.hudBudget, `${Math.max(0, s.budget).toFixed(1)} ${s.units.nm}`],
+            [s.g.hudError, `${s.totalErr.toFixed(1)} ${s.units.nm}`],
             [s.t.hudBest, s.best('turningPoint', 0)],
         ],
         onKey: (code, down) => { if (down && (code === 'Space' || code === 'Enter')) press(s); },

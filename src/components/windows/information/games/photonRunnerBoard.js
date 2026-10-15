@@ -107,7 +107,7 @@ export function draw(s, ctx) {
     s.S.dot(ctx, me.x + me.w / 2, me.y + me.h / 2, me.h / 2, tint);
 
     const ink = s.night ? '#ffffff' : c.ink;
-    s.S.text(ctx, Math.floor(s.dist) + ' nm', s.W - 18, 34, { color: ink, size: 13, align: 'right' });
+    s.S.text(ctx, `${Math.floor(s.dist)} ${s.units.nm}`, s.W - 18, 34, { color: ink, size: 13, align: 'right' });
     s.S.text(ctx, s.night ? s.g.nightShift : s.g.dayShift, 18, 34, { color: ink, size: 10 });
     ctx.restore();
 

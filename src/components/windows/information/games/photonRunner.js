@@ -127,7 +127,7 @@ function update(s, dt) {
 
 export function createPhotonRunner(api) {
     const s = {
-        W: api.W, H: api.H, S: api.skin, t: api.t, g: api.t.photonRunner, best: api.best,
+        W: api.W, H: api.H, S: api.skin, t: api.t, g: api.t.photonRunner, units: api.units, best: api.best,
         rng: makeRng(api.seed),
     };
     reset(s);
@@ -136,9 +136,9 @@ export function createPhotonRunner(api) {
         update: (dt) => update(s, dt),
         draw: (ctx) => draw(s, ctx),
         hud: () => [
-            [s.g.hudPath, Math.floor(s.dist) + ' nm'],
+            [s.g.hudPath, `${Math.floor(s.dist)} ${s.units.nm}`],
             [s.g.hudSpeed, Math.round(s.speed)],
-            [s.t.hudBest, s.best('photonRunner', 0) + ' nm'],
+            [s.t.hudBest, `${s.best('photonRunner', 0)} ${s.units.nm}`],
         ],
         // While a message box is up, the only input that gets through is the
         // press that dismisses it, and key releases.

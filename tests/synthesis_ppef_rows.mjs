@@ -130,7 +130,7 @@ const wizard = curveWizardRows({
 });
 const written = buildWizardResult({
     tw: { types: { GAIN_FLATTENING: { label: 'Gain flattening' } } },
-    typeId: 'GAIN_FLATTENING', curveRows: wizard, minEnabled: true, maxEnabled: false, minThick: 10, maxThick: 500,
+    typeId: 'GAIN_FLATTENING', curveRows: wizard, units: { nm: 'nm' }, minEnabled: true, maxEnabled: false, minThick: 10, maxThick: 500,
 }).block;
 const byType = type => written.find(op => op.type === type);
 const BLOCK = byType('MCURVE'), PPEF = byType('PPEF'), LOSS = byType('TDBMN'), MNT = byType('MNT');

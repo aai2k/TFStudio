@@ -146,10 +146,10 @@ export function blockSummary(block) {
     return { count: rows.length, types };
 }
 
-/** Short text for the collapsed header: type name, λ range, angle. */
-export function wizardSummary({ typeLabel, params, aoi, aoiEnd }) {
+/** Short text for the collapsed header: type name, λ range, angle. `units` is t.units. */
+export function wizardSummary({ typeLabel, params, aoi, aoiEnd, units }) {
     const parts = [typeLabel];
-    if (params.lamStart != null && params.lamEnd != null) parts.push(`${params.lamStart}–${params.lamEnd} nm`);
+    if (params.lamStart != null && params.lamEnd != null) parts.push(`${params.lamStart}–${params.lamEnd} ${units.nm}`);
     parts.push(aoi === aoiEnd ? `${aoi}°` : `${aoi}–${aoiEnd}°`);
     return parts.join(' · ');
 }

@@ -18,11 +18,11 @@ const INTEGRAL_CHAR = { RIW: 'R', AIW: 'A', TIW: 'T' };
 // "T·D65·V(λ) · 380–780 nm") in the cell text and tooltip. Named as the
 // Integral Values window names a custom integral; an operand with no source
 // is under equal energy, one with no detector under a flat one.
-function describeCustomIntegral(op, parts) {
+function describeCustomIntegral(op, parts, units) {
     const source = { ...op.source, id: op.source?.id || 'E' };
     const detector = { ...op.detector, id: op.detector?.id || 'flat' };
     const name = customIntegralName(INTEGRAL_CHAR[op.type] || 'T', source, detector, parts);
-    return `${name} · ${op.lambdaStart}–${op.lambdaEnd} nm`;
+    return `${name} · ${op.lambdaStart}–${op.lambdaEnd} ${units.nm}`;
 }
 
 // A cell the row does not carry. It is still a cell: it can be reached and
@@ -101,7 +101,7 @@ function comparisonCell(ctx, colKey, width) {
 function integralStartCell(ctx, colKey, width) {
     const { op, c, t, tdBase, cellClick, onEdit, integralPresets } = ctx;
     const matchKey = op.presetKey && integralPresets.some(preset => preset.key === op.presetKey) ? op.presetKey : '';
-    const customDesc = describeCustomIntegral(op, t.integralValues.customParts);
+    const customDesc = describeCustomIntegral(op, t.integralValues.customParts, t.units);
     return h('td', {
         key: colKey, onClick: event => cellClick(colKey, event),
         style: tdBase(colKey, width, { padding: '0 2px' }),

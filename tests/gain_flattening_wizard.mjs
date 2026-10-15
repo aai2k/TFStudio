@@ -92,14 +92,14 @@ const flatteningName = name => `${name} flattening target`;
 
     const block2 = buildWizardResult({
         tw: { types: { GAIN_FLATTENING: { label: 'Gain flattening' } } },
-        typeId: 'GAIN_FLATTENING', curveRows: result,
+        typeId: 'GAIN_FLATTENING', curveRows: result, units: { nm: 'nm' },
         minEnabled: true, maxEnabled: true, minThick: 10, maxThick: 500,
     }).block;
     assert.deepEqual(block2.map(op => op.type), ['DMFS', 'MCURVE', 'PPEF', 'TDBMN', 'MNT', 'MXT']);
     assert.match(block2[0].comment, /^Gain flattening, edfa flattening target; ≥10 nm, ≤500 nm$/);
     const noMax = buildWizardResult({
         tw: { types: { GAIN_FLATTENING: { label: 'Gain flattening' } } },
-        typeId: 'GAIN_FLATTENING', curveRows: result,
+        typeId: 'GAIN_FLATTENING', curveRows: result, units: { nm: 'nm' },
         minEnabled: true, maxEnabled: false, minThick: 10, maxThick: 500,
     }).block;
     assert.deepEqual(noMax.map(op => op.type), ['DMFS', 'MCURVE', 'PPEF', 'TDBMN', 'MNT'], 'a minimum with no maximum');

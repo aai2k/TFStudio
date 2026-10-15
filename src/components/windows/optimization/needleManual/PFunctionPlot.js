@@ -8,7 +8,7 @@ import { buildBoundaryGuides, buildLayerLabels, buildZoneBands } from './plotSha
 
 const { createElement: h, useEffect, useRef } = React;
 
-export function PFunctionPlot({ materials, boundaries, bands, totalZ, selected, onPick, design, c, tn }) {
+export function PFunctionPlot({ materials, boundaries, bands, totalZ, selected, onPick, design, c, tn, units }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const pickRef = useRef(onPick);
@@ -65,7 +65,7 @@ export function PFunctionPlot({ materials, boundaries, bands, totalZ, selected, 
             tooltip: {
                 ...itemTooltip(c),
                 formatter: ({ seriesName, value }) => `${seriesName || 'Candidate'}`
-                    + `<br/>z: ${formatChartReadout(value[0])} nm`
+                    + `<br/>z: ${formatChartReadout(value[0])} ${units.nm}`
                     + `<br/>∂MF/∂d: ${formatChartReadout(value[1])}`,
             },
             legend: {
@@ -73,7 +73,7 @@ export function PFunctionPlot({ materials, boundaries, bands, totalZ, selected, 
                 pageIconSize: 9, pageTextStyle: { color: c.text, fontSize: 9 },
                 textStyle: { color: c.text, fontSize: 10 }, itemGap: 12,
             },
-            xAxis: valueAxis({ name: `${tn.depthAxis} z (nm)`, color: c.text, gridColor: c.border, min: 0, max: totalZ || 1, nameGap: 24 }),
+            xAxis: valueAxis({ name: `${tn.depthAxis} z (${units.nm})`, color: c.text, gridColor: c.border, min: 0, max: totalZ || 1, nameGap: 24 }),
             yAxis: valueAxis({ name: `∂MF/∂d  (${tn.pAxisNote})`, color: c.text, gridColor: c.border, scale: true, nameGap: 42 }),
             series,
         }));

@@ -22,7 +22,7 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
             h('span', { style: { width: 12, height: 12, borderRadius: 2, background: matColor(selected.materialId, design), display: 'inline-block' } }),
             h('span', { style: { fontSize: 13, fontWeight: 700, color: c.text } }, name),
-            h('span', { style: { fontSize: 11, color: c.textDim } }, `z = ${selected.z.toFixed(1)} nm`),
+            h('span', { style: { fontSize: 11, color: c.textDim } }, `z = ${selected.z.toFixed(1)} ${t.units.nm}`),
         ),
         h('div', { style: { fontSize: 11, color: c.textDim, lineHeight: 1.4 } }, geom),
         // Thickness slider
@@ -38,7 +38,7 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
                 onChange: e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onDNew(v); },
                 style: { width: 64, padding: '1px 4px', fontSize: 11, textAlign: 'right', background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 2 }
             }),
-            h('span', { style: { fontSize: 11, color: c.textDim } }, 'nm'),
+            h('span', { style: { fontSize: 11, color: c.textDim } }, t.units.nm),
         ),
         h(MeritLine, { predictedOMF, omf0, evaluationBusy, c, t }),
         h(ApplyRow, { onApply, onStop, busy, refining, c, tn })

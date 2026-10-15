@@ -13,7 +13,7 @@ import { flipLayerIndex } from '../../../../utils/monitoring/depositionSpectrum.
 
 const { createElement: h } = React;
 
-export function SimulationView({ p, set, c, B, run, N, layerIdx, frac, series, leftTop, playback }) {
+export function SimulationView({ p, set, c, B, units, run, N, layerIdx, frac, series, leftTop, playback }) {
     // `layerIdx` counts deposition layers (1 = substrate-adjacent, grown first)
     // while the run arrays are in storage order.
     const cur = flipLayerIndex(N, layerIdx >= 1 ? layerIdx : 1);
@@ -38,7 +38,7 @@ export function SimulationView({ p, set, c, B, run, N, layerIdx, frac, series, l
                 h('div', { key: 'bars', style: { height: 150, flexShrink: 0 } },
                     h(Chart, {
                         series: barSeries, xCategories: [B.barE, B.barA, B.barT],
-                        xTitle: '', yTitle: 'nm', c, minHeight: 0,
+                        xTitle: '', yTitle: units.nm, c, minHeight: 0,
                         grid: { left: 38, right: 8, top: 6, bottom: 24 },
                     })),
                 h('div', { key: 'ysl', style: { fontSize: 12, fontWeight: 600, color: c.text, marginTop: 2 } }, B.yAxisScale),

@@ -42,13 +42,14 @@ const playback = {
     jumpLayer() {}, progress: 0, totalTime: 10, playing: false, scrub() {}, playPause() {}, reset() {}, cumTimes: [0, 10],
 };
 const view = SimulationView({
-    p: { quantity: 'T', pol: 'avg', yFixed: false, timeMult: 1 }, set() {}, c, B: {},
+    p: { quantity: 'T', pol: 'avg', yFixed: false, timeMult: 1 }, set() {}, c, B: {}, units: { nm: 'нм' },
     run: { targetFront: [60], asBuiltFront: [58.2], estimatedFront: [59.1] },
     N: 1, layerIdx: 1, frac: 1, series: [], leftTop: null, playback,
 });
 const bars = findElement(view, Chart);
 assert.ok(bars, 'page 5 draws the E/A/T bars');
 assert.deepEqual(bars.props.series[0].data.map(item => item.value), [59.1, 58.2, 60]);
+assert.equal(bars.props.yTitle, 'нм', 'the bars name their unit as the UI language writes it');
 assert.equal(wizardChartOption(bars.props).yAxis.scale, false, 'the bars rise from zero');
 
 const errors = wizardChartOption({
