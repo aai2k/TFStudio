@@ -28,7 +28,7 @@ step back to a design already found from winning every generation. The live desi
 tracks the best result found, so stopping, resetting, or switching tabs always
 leaves you on the best design. The wavelength grid the band targets are sampled
 on is sized from the design and grows with it during the run (see
-[Operand Reference](/design/operands/#optical-band-average-single-target)).
+[Operand Reference](/design/operands/#sampling-a-band)).
 
 | Mutation | Effect |
 | -------- | ------ |

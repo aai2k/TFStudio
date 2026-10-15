@@ -6,7 +6,7 @@ ribbonIcon: gradual
 
 **Gradual Evolution** is the most capable synthesis tool. It runs needle optimization to local optimality, then deliberately **forces** a needle insertion even when that briefly raises the merit function, and refines the new state. Forcing an uphill step is what lets the design climb out of a local minimum that plain needle insertion cannot escape. It keeps a running record of the best design seen, so at the end the lowest-merit result is restored and you can review the whole series of designs it passed through.
 
-Each outer cycle runs an inner needle pass to needle-optimality, forces in the best available needle regardless of whether the merit goes up, refines, then prunes sub-threshold layers and merges adjacent same-material layers. This repeats for the number of cycles you set. The wavelength grid the band targets are sampled on is sized from the design and grows with it during the run (see [Operand Reference](/design/operands/#optical-band-average-single-target)).
+Each outer cycle runs an inner needle pass to needle-optimality, forces in the best available needle regardless of whether the merit goes up, refines, then prunes sub-threshold layers and merges adjacent same-material layers. This repeats for the number of cycles you set. The wavelength grid the band targets are sampled on is sized from the design and grows with it during the run (see [Operand Reference](/design/operands/#sampling-a-band)).
 
 A forced layer of the same material as the outer layer it lands on only thickens that layer, and the refining that follows can take it straight back. When that happens, Gradual Evolution does not take the same step again on the same structure: the next forced step uses another material or the other end of the stack.
 

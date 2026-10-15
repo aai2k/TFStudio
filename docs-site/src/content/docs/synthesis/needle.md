@@ -23,7 +23,7 @@ needle-optimality. Inside each layer the scan tests 16 positions, and every
 point where the needle function has a minimum along the layer becomes a
 candidate. The wavelength grid the band targets are sampled on is sized from the
 design and grows with it during the run (see
-[Operand Reference](/design/operands/#optical-band-average-single-target)).
+[Operand Reference](/design/operands/#sampling-a-band)).
 
 ## Needle Manual
 

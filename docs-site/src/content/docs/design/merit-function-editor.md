@@ -11,15 +11,10 @@ number the optimizer tries to drive toward a target value, and the merit
 function (MF) is the weighted root-mean-square of how far each operand misses:
 
 ```
-MF = √( Σ_i  w_i · residual_i²  /  Σ_i w_i )
+MF = √( Σ_i  w_i · (r_i / σ_i)²  /  W )
 ```
 
-The weight `w_i` enters linearly. The residual is `value − target` for an
-equality target, or a one-sided `max(0, …)` term for an inequality or
-constraint (so a satisfied constraint drops out of the sum entirely).
-Wavelength-valued residuals are rescaled to optical scale first so they don't
-dominate. A smaller MF is better; the optimizers (Refinement, Needle and
-Gradual Evolution) move layer thicknesses to reduce it.
+The weight `w_i` enters linearly. The residual `r_i` is `value − target` for an equality target, a one-sided term for an inequality or constraint that is zero while it holds, or the value itself for a row that is already a deviation (`TGT`, the `*FLAT` rows, curve blocks). `σ_i` puts rows of different units on one footing, so a wavelength miss in nanometres does not swamp a reflectance miss, and `W` is the sum of the weights of the rows that have a value, other than `MNT`, `MXT`, `TT` and `STR`. The [Operand Reference](/design/operands/#how-rows-add-up) has the details. A smaller MF is better; the optimizers (Refinement, Needle and Gradual Evolution) move layer thicknesses to reduce it.
 
 ## Operand types
 
@@ -63,7 +58,7 @@ brings it back. Under the bar are three boxes:
 - **Thickness limits**: minimum and maximum layer thickness (`MNT`/`MXT`) and a
   total thickness cap, each behind a checkbox.
 
-A custom target in dB or OD writes one of the [dB and OD rows](/design/operands/#in-db-or-optical-density): T ≥ in dB a `TDBMN` row, T ≤ in dB a `TDBMX` row, R ≤ in dB an `RDBMX` row, T ≥ in OD an `ODMN` row, and T = in dB one `TDB` row per wavelength step, with a step field in place of the line-or-points choice. Combinations with no row behind them are not offered: A has only %, R in dB only ≤, OD only ≥. Switching the unit converts the typed value to the same level, so 80 % becomes −0.97 dB. A value in dB is held at or below 0 dB, a density at or above 0.
+A custom target in dB or OD writes one of the [dB and OD rows](/design/operands/#worst-case-over-a-band): T ≥ in dB a `TDBMN` row, T ≤ in dB a `TDBMX` row, R ≤ in dB an `RDBMX` row, T ≥ in OD an `ODMN` row, and T = in dB one `TDB` row per wavelength step, with a step field in place of the line-or-points choice. Combinations with no row behind them are not offered: A has only %, R in dB only ≤, OD only ≥. Switching the unit converts the typed value to the same level, so 80 % becomes −0.97 dB. A value in dB is held at or below 0 dB, a density at or above 0.
 
 ### Curve targets
 
@@ -72,7 +67,7 @@ The **Curve target** category takes a curve instead of numbers. Its rows read th
 - **Curve** picks one of the design's curves from [Measured Spectra](/data-exchange/measured-spectra/) and writes the block **Fit…** writes for it, in % or in dB. When the design has only one curve the type can take, it is taken without a pick.
 - **Gain flattening** builds the merit function a gain-flattening filter is specified by. Its input is either a target loss curve already on the design, or an amplifier gain in dB, imported from a text file or typed into the curve editor with **Type…**. A gain is turned into the loss that brings every wavelength down to the lowest gain, `T(λ)[dB] = G_min − G(λ)`: 0 dB at the gain minimum and negative everywhere else, the least loss a passive filter can flatten with. That target goes on the design as a T curve named after the gain, at the angle and polarization you give, so it draws on the plot; the gain itself is not kept.
 
-Gain flattening writes three rows. The target as a curve block in dB with its **level free**: the constant the design sits away from it by is taken out, so the block scores the shape and not the level. A [`PPEF`](/design/operands/#peak-to-peak-error-against-a-curve) row against that block, at the peak-to-peak value you set: least squares brings the shape in, and this row works on the worst point, the number the filter is sold against. And a `TDBMN` row at the wavelength where the target is highest, held at minus the insertion loss you set: if T is that high there, the peak insertion loss meets it. Both values start at 0 dB, which asks for the flattest shape and the least loss the stack can reach. Choosing Gain flattening unticks the layer maximum in the Thickness limits box, since these filters often need layers several micrometres thick; tick it again if the coating process limits layer thickness.
+Gain flattening writes three rows. The target as a curve block in dB with its **level free**: the constant the design sits away from it by is taken out, so the block scores the shape and not the level. A [`PPEF`](/design/operands/#curves) row against that block, at the peak-to-peak value you set: least squares brings the shape in, and this row works on the worst point, the number the filter is sold against. And a `TDBMN` row at the wavelength where the target is highest, held at minus the insertion loss you set: if T is that high there, the peak insertion loss meets it. Both values start at 0 dB, which asks for the flattest shape and the least loss the stack can reach. Choosing Gain flattening unticks the layer maximum in the Thickness limits box, since these filters often need layers several micrometres thick; tick it again if the coating process limits layer thickness.
 
 The synthesis tools leave the `PPEF` row out: its gradient comes from only the two worst wavelengths, and the needle search stalls on it. They bring the shape in with the block, and a [Refinement](/synthesis/refinement/) run afterwards works the peak-to-peak error down.
 
@@ -92,6 +87,7 @@ One row per operand. The table works like a spreadsheet:
   type. The **Pol** cell shows a chevron while it is focused; the chevron,
   Enter or a double-click opens its three values as a list, and `a`, `s` or
   `p` typed straight in sets it without the list.
+- The **Flag** cell is used by rows that look for a peak, such as `TMX` or `MXWT`, where it is headed **Step** and sets how finely the band is searched, from 1 for 1 nm to 4 for 0.001 nm; see [Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip). Other rows show a dash there.
 - Drag across cells, or hold Shift, to select a rectangle; hold Ctrl to add
   single cells. Ctrl+C copies the selection as tab-separated text, Ctrl+V
   pastes text over it: one value fills every selected cell, a block of values

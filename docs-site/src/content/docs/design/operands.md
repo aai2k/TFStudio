@@ -1,429 +1,304 @@
 ---
 title: Operand Reference
-description: "Every merit-function operand: what it computes, the arguments it takes, the value it outputs, and how it drives the optimizer."
+description: "Every merit-function operand: what it computes, the columns it reads, and how it scores."
 ribbonIcon: merit-function
 ---
 
-This page is the complete catalog of **merit-function operands**. Each row in
-the [Merit Function Editor](/design/merit-function-editor/) table is one
-operand: a single number the optimizer reads, compared against a target.
+Each row of the [Merit Function Editor](/design/merit-function-editor/) table is one operand. Find the operand in the quick reference, then read its section. Names in **bold** are the column headers the table shows when that row has focus. How rows add up to the merit function, how the worst-case and peak-wavelength rows search their band and how bands are sampled are explained after the operands.
 
-## How an operand contributes to the merit function
+## Quick reference
 
-The merit function (MF) is the **weighted root-mean-square of the residuals**:
+| Subject | Operands |
+| ------- | -------- |
+| [Single wavelength](#single-wavelength) | `T` `R` `A` `TDB` |
+| [Band average](#band-average) | `TAV` `RAV` `AAV` |
+| [Spectral target](#spectral-target) | `TGT` `RGT` `AGT` |
+| [Weighted integral](#weighted-integral) | `TIW` `RIW` `AIW` |
+| [Worst case over a band](#worst-case-over-a-band) | `TMN` `TMX` `RMN` `RMX` `AMN` `AMX` `TDBMN` `TDBMX` `RDBMX` `ODMN` |
+| [Wavelength of a peak or dip](#wavelength-of-a-peak-or-dip) | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA` |
+| [Curves](#curves) | `MCURVE` `PPEF` |
+| [Ellipsometry](#ellipsometry) | `PSI` `DEL` `TANPSI` `COSDEL` |
+| [Phase and dispersion](#phase-and-dispersion) | `PR` `PT` `DPR` `DPT` `GD` `GDT` `GDD` `GDDT` `TOD` `TODT` and the `*FLAT` rows |
+| [Field](#field) | `EFMX` |
+| [Math on other rows](#math-on-other-rows) | `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` |
+| [Thickness and stress](#thickness-and-stress) | `TT` `STR` `MNT` `MXT` |
+| [Table control](#table-control) | `BLNK` `DMFS` |
 
-```
-MF = √( Σ_i  wᵢ · residualᵢ²  /  Σ_i wᵢ )
-```
+## Columns
 
-Note the weight `wᵢ` is applied **linearly** (not squared). In the
-least-squares solver each residual enters as `√wᵢ · residualᵢ`, whose square is
-`wᵢ · residualᵢ²`: consistent with the formula above.
+| Column | What it holds |
+| ------ | ------------- |
+| **Type** | The operand code. |
+| **λ / Layer**, **End \*** | The two values that define the operand. Their headers change with the row: **λ** for one wavelength, **λ Start** and **λ End** for a band, **Integral** for a weighted integral, **Layer 1** and **Layer 2** for a layer range, **Cmp** for a comparison, **Ref Op#**, **Ref Op#1** and **Ref Op#2** for other rows, **Curve** on a `PPEF` row, **Comment** for a comment. A dash means the row does not use the cell. |
+| **AOI (°)** | Angle of incidence in the incident medium. |
+| **Pol** | `s`, `p`, or `avg`, the mean (Cs + Cp)/2. |
+| **Flag** | Used by rows that look for a peak, where it is headed **Step** and sets how finely the band is searched ([Searching for a peak or dip](#searching-for-a-peak-or-dip)). Other rows show a dash. |
+| **Target** | The value the row is driven toward, or the bound it must stay inside. T, R and A are entered in percent. |
+| **Weight** | How much the row counts. |
+| **Current** | The row's value for the design as it is. |
+| **% of MF²** | The row's share of the sum of squares under the merit function's root. The shares add up to 100 % when the merit is not zero. |
 
-The **residual** depends on the operand class:
+The headers follow the row of the focused cell, or the one selected row, or else the first row. With an empty table or a `DMFS` row in focus they read **λ / Layer**, **End \*** and **Flag**.
 
-| Class                                             | Residual                         | Inert when satisfied? |
-| ------------------------------------------------- | -------------------------------- | --------------------- |
-| Equality (most optical operands)                  | `value − target`                 | no (two-sided)        |
-| One-sided ≥ (OPGT, ABGT, MNT, TMN, TDBMN, ODMN…)  | `max(0, target − value)`         | yes                   |
-| One-sided ≤ (OPLT, ABLT, MXT, TMX, TDBMX, RDBMX, PPEF…) | `max(0, value − target)`   | yes                   |
-| Spectral target (TGT/RGT/AGT)                     | the RMS deviation itself         | no                    |
-
-"Inert when satisfied" means the operand drops out of the MF entirely once its
-inequality holds, so it never fights the equality targets.
-
-### Mixed-unit normalization
-
-Most operands are fractions (T/R/A ∈ [0,1]), but **argmax/argmin-λ operands
-produce a residual in nanometres**. In a single weighted RMS a 10 nm wavelength
-miss (residual 10) would swamp a 1 % optical miss (residual 0.01) no matter how
-the weights were set. To keep `weight` meaning *importance* rather than
-*units*, each residual is divided by a per-type characteristic scale **σ**
-before the RMS (a dimensionless, χ²-style sum):
-
-```
-MF = √( Σ wᵢ · (residualᵢ / σᵢ)²  /  Σ wᵢ )
-```
-
-| Operand class                       | σ          | Effect                                   |
-| ----------------------------------- | ---------- | ---------------------------------------- |
-| All fraction-unit (T/R/A, averages, integrals, worst-case, spectral-target RMS, math) | **1**      | unchanged, pure-optical MFs are identical to before |
-| Argwave (`MXW*` / `MNW*`, nm)       | **500 nm** | 5 nm wavelength miss ≈ 1 % optical miss  |
-| In dB (`TDB`, `TDBMN`, `TDBMX`, `RDBMX`) / in OD (`ODMN`) | **10/ln 10 ≈ 4.343 dB / 1/ln 10 ≈ 0.4343** | a miss by a factor of two scores 0.69 at −40 dB as at 0 dB; near T = 1 a 1 % miss scores 0.010, as on a `T` row |
-| Manufacturability (`TT`, `MNT`, `MXT` in nm; `STR` in N/m) | **1** (raw) | kept "hard": a violated manufacturing bound still dominates and is fixed first |
-| Ellipsometry `PSI` / `DEL` (deg)    | **10 / 20** | 0.1° in Ψ or 0.2° in Δ ≈ 1 % optical miss: ten times what a spectroscopic ellipsometer repeats to, as 1 % is for a spectrophotometer |
-| Group delay `GD*` / `GDD*` (fs, fs²)| **50**     | a ~0.5 fs / fs² miss ≈ 1 % optical miss   |
-| Third-order dispersion `TOD*` (fs³) | **500**    | a ~5 fs³ miss ≈ 1 % optical miss          |
-| `TANPSI`, `COSDEL`, `EFMX` (O(1))   | **1**      | already comparable to an optical fraction |
-
-A purely optical merit function is therefore numerically unchanged; only merit
-functions that **mix wavelength-valued and optical operands** rebalance.
-
-## Common columns
-
-Every operand row exposes the same columns; their **meaning changes with the
-operand type** (the column header updates to match the focused row):
-
-| Column        | Optical / band / integral / worst-case | Argwave (MXW*/MNW*) | Constraints (MNT/MXT) | Total thickness (TT) | Film stress (STR) | Math (OPGT…PROD) |
-| ------------- | -------------------------------------- | ------------------- | --------------------- | -------------------- | ----------------- | ---------------- |
-| **λ / Start** | start wavelength (nm)                  | band start (nm)     | first layer index     | comparison (≤ ≥ =)   | comparison (≤ ≥ =) | referenced Op #  |
-| **End**       | end wavelength (nm), band types only   | band end (nm)       | last layer index      | n/a                  | n/a               | second Op # (pair ops) |
-| **AOI (°)**   | angle of incidence                     | AOI                 | n/a                   | n/a                  | n/a               | inherited from ref |
-| **Pol**       | `avg` / `s` / `p`                      | pol                 | n/a                   | n/a                  | n/a               | inherited from ref |
-| **Target**    | desired value (see units below)        | desired λ (nm)      | bound (nm)            | total (nm)           | force (N/m)       | desired value (ref units) |
-| **Weight**    | relative importance (linear)           | weight              | weight                | weight               | weight            | weight           |
-| **Current**   | live computed value                    | computed λ (nm)     | min/max layer (nm)    | Σ thickness (nm)     | Σ σ·d (N/m)       | computed value   |
-| **% of MF²**  | row's share of the weighted squared residual | same | same | same | same | same |
-
-**Units:** T/R/A-valued operands store the target as a fraction in `[0,1]` and display it as a percentage. The [dB and OD rows](#in-db-or-optical-density) store and display it in dB or OD. Wavelength, layer-index, and thickness operands use raw numbers (nm or count). Math operands inherit the unit of the row they reference.
-
-The final column uses the same definition for every row. If the merit function is nonzero, its percentages sum to 100%. If every row is exactly met, every contribution is zero. Disabled and unevaluable rows show a dash. Hover the cell to see the row's residual in its own unit, labelled as a difference, constraint slack, or RMS deviation as appropriate.
-
-**Polarization** (`avg`/`s`/`p`) is chosen by the *Pol* column, not baked into
-the type code. `avg` is the unweighted mean of s and p, `(Cs + Cp) / 2`.
-
-**AOI / Snell:** the angle is the angle of incidence in the incident medium;
-the internal substrate angle is derived from the real part of the refractive
-index.
+Hover a **% of MF²** cell to see how far the row is from its target in its own unit: **Current − target**, **Slack** for a layer constraint, or **RMS deviation** for a row whose value is a deviation. The figure is shown even when a one-sided row is satisfied and scores nothing. The cell shows a dash for a disabled row, a row with no value and a row with no valid weight; while any enabled row shows **Error**, every % of MF² cell shows a dash.
 
 ---
 
-## Optical: single wavelength
-
-Evaluated at exactly one wavelength (`λ / Start`).
-
-| Type | Computes              | Target unit | Output    |
-| ---- | --------------------- | ----------- | --------- |
-| `T`  | Transmittance at λ    | %           | T ∈ [0,1] |
-| `R`  | Reflectance at λ      | %           | R ∈ [0,1] |
-| `A`  | Absorptance at λ      | %           | A ∈ [0,1] |
-
-Residual: `value − target` (two-sided). Legacy files may contain the
-polarization-suffixed forms `TS/TP/RS/RP/AS/AP`; they still evaluate (the
-suffix sets the polarization) but are no longer offered in the dropdown; use
-the *Pol* column instead.
-
-## Optical: band average (single target)
-
-Sampled on a uniform grid across `[λStart, λEnd]`, then **averaged to one
-number** by the trapezoid rule, so the two end samples count half, as in an
-integral over the band.
-
-The grid follows the coating. Its step is an eighth of the fringe spacing
-λ²/(2G) at the short end of the band, where G is the coating's optical
-thickness taken with the group index n − λ·dn/dλ (or n, where n is the larger);
-with both faces coated the two coatings' thicknesses add. A thin coating gets a small grid, a thick one a large
-grid, with no upper limit, so the optimizer cannot lower the merit by moving
-fringes into the gaps between samples. The floor is 13 points. The grid is sized
-from the design in the merit tables of the Merit Function Editor and Refinement
-window, in the Design Cleaner and Needle Manual, and at the start of every
-optimizer run. A refinement keeps that grid for the whole run; a synthesis run
-enlarges it as the design grows. Other views that report a band average, such
-as the Specification window, keep a 2 nm step, so on a thick coating their
-figure can differ slightly from the merit table's.
-
-| Type  | Computes                    | Target unit | Output         |
-| ----- | --------------------------- | ----------- | -------------- |
-| `TAV` | Mean T over the band        | %           | mean T ∈ [0,1] |
-| `RAV` | Mean R over the band        | %           | mean R ∈ [0,1] |
-| `AAV` | Mean A over the band        | %           | mean A ∈ [0,1] |
+## Single wavelength
 
-Residual: `mean − target` (two-sided). **`TAV/RAV/AAV` are pure averages**:
-one target = the average level over the whole band. For a per-wavelength target
-line use the spectral-target operands below.
+| Name | Description |
+| ---- | ----------- |
+| `T` | Transmittance at **λ**. **Target** in percent. |
+| `R` | Reflectance at **λ**. **Target** in percent. |
+| `A` | Absorptance at **λ**. **Target** in percent. |
+| `TDB` | Transmittance at **λ** in dB, 10·log₁₀ T, so a loss reads negative. **Target** in dB; a new row starts at 0 dB. |
 
-## Spectral target: flat or linear ramp
+All four read **AOI (°)** and **Pol**. Older designs can hold `TS`, `TP`, `RS`, `RP`, `AS` and `AP`, with the polarization in the code; they still evaluate, with **Pol** dimmed, but the type picker no longer offers them.
 
-A per-wavelength **target line** across the band. `Target` holds two values
-entered as `start→end` (e.g. `50→50` for a flat 50 % line, `0→100` for a
-ramp). Sampled on the same grid as band averages, with the same trapezoid
-weights.
-
-| Type  | Computes                        | Target unit | Output                        |
-| ----- | ------------------------------- | ----------- | ----------------------------- |
-| `TGT` | RMS deviation of T from line    | % (start→end) | RMS deviation (≥ 0)         |
-| `RGT` | RMS deviation of R from line    | % (start→end) | RMS deviation (≥ 0)         |
-| `AGT` | RMS deviation of A from line    | % (start→end) | RMS deviation (≥ 0)         |
+## Band average
 
-The **Current** column shows the RMS deviation directly; the residual *is* that
-value (target is already folded in), so the optimizer drives it to zero. Use
-these for beamsplitters (flat 50 %) and gradient / ramp filters.
+| Name | Description |
+| ---- | ----------- |
+| `TAV` | Mean transmittance from **λ Start** to **λ End**. **Target** in percent. |
+| `RAV` | Mean reflectance over the band. |
+| `AAV` | Mean absorptance over the band. |
 
-:::note
-When a run starts it also looks for features narrower than the grid, such as a
-steep edge or a sharp resonance, in the band of every spectral-target and
-worst-case row, and samples a row more finely where it finds one.
-:::
-
-## Weighted integral (source × detector)
-
-A band average weighted by `w(λ) = Source(λ) · Detector(λ)`:
-`C̄ = Σ wᵢ·Cᵢ / Σ wᵢ`, summed on the band-average grid with its trapezoid
-weights. The *λ / Start* cell is a **preset picker** (e.g.
-photopic-weighted Tvis, solar-weighted Tsol); the band end is read-only and
-driven by the preset.
-
-| Type  | Computes                                  | Target unit | Output       |
-| ----- | ----------------------------------------- | ----------- | ------------ |
-| `TIW` | Source×detector weighted mean T           | %           | C̄ ∈ [0,1]   |
-| `RIW` | Source×detector weighted mean R           | %           | C̄ ∈ [0,1]   |
-| `AIW` | Source×detector weighted mean A           | %           | C̄ ∈ [0,1]   |
-
-Residual: `C̄ − target` (two-sided). Source/detector specs are stored on the
-operand (default D65 × photopic).
-
-## Worst-case (band extremum)
-
-Returns the **true extremum** of the spectrum over the band, sampled on a dense
-~1 nm grid. The residual is one-sided, inert until the worst case violates the
-spec.
-
-| Type  | Computes                    | Spec it enforces       | Residual                |
-| ----- | --------------------------- | ---------------------- | ----------------------- |
-| `TMN` | Minimum T over band         | `min T ≥ target`       | `max(0, target − minT)` |
-| `RMN` | Minimum R over band         | `min R ≥ target`       | `max(0, target − minR)` |
-| `AMN` | Minimum A over band         | `min A ≥ target`       | `max(0, target − minA)` |
-| `TMX` | Maximum T over band         | `max T ≤ target`       | `max(0, maxT − target)` |
-| `RMX` | Maximum R over band         | `max R ≤ target`       | `max(0, maxR − target)` |
-| `AMX` | Maximum A over band         | `max A ≤ target`       | `max(0, maxA − target)` |
-
-Output is a real T/R/A value (0…100 %), never exceeding physical bounds. The
-optimizer uses the single argmin/argmax wavelength as the subgradient.
+The mean is taken by the trapezoid rule on the [band grid](#sampling-a-band), so the two end points count half, as in an integral. One target sets the average level; for a target at every wavelength use a spectral target.
 
-## In dB or optical density
+## Spectral target
 
-A blocking or loss specification is often written in decibels or optical density. These rows take the target in that unit and score the miss in it. `T(dB) = 10·log₁₀ T`, so a loss reads negative, and `D = −log₁₀ T`, so the lowest density over a band is where T is highest.
+| Name | Description |
+| ---- | ----------- |
+| `TGT` | RMS deviation of T from a straight target line from **λ Start** to **λ End**. **Target** holds the line's two ends in percent as `start→end`, typed as `start->end`: `50→50` is a flat 50 % line, `0→100` a ramp. A single number makes the line flat. |
+| `RGT` | The same for R. |
+| `AGT` | The same for A. |
 
-| Type    | Computes                          | Spec it enforces                                    | Residual                 |
-| ------- | --------------------------------- | --------------------------------------------------- | ------------------------ |
-| `TDB`   | T at λ in dB                      | `T(dB) = target`                                    | `value − target`         |
-| `TDBMN` | Minimum T over band in dB         | `min T(dB) ≥ target` (insertion loss)               | `max(0, target − value)` |
-| `TDBMX` | Maximum T over band in dB         | `max T(dB) ≤ target` (isolation, blocking)          | `max(0, value − target)` |
-| `RDBMX` | Maximum R over band in dB         | `max R(dB) ≤ target` (return loss of an AR coating) | `max(0, value − target)` |
-| `ODMN`  | Minimum optical density over band | `min D ≥ target` (blocking)                         | `max(0, target − value)` |
+**Current** shows the RMS deviation, and the residual is that value, so the optimizer drives it to zero. In a run each sample on the band grid is a residual of its own. These rows suit beamsplitters and gradient filters.
 
-`TDB` takes the columns of a single-wavelength `T` row. The four band rows are worst-case rows like `TMN` and `TMX`: the true extremum on the same dense grid, sampled more finely at the start of a run where narrow features hide. They look for those features in dB, so a spike inside a blocking band is found.
+## Weighted integral
 
-Target and Current are in dB or OD, not percent. A new row starts at 0 dB for `TDB`, −0.5 dB for `TDBMN`, −30 dB for `TDBMX` and `RDBMX`, and OD 3 for `ODMN`.
+| Name | Description |
+| ---- | ----------- |
+| `TIW` | T averaged with the weight Source(λ)·Detector(λ) over the band, Σ wᵢ·Tᵢ / Σ wᵢ. **Integral** picks a saved preset, such as Tvis (D65 and the photopic eye) or Tsol (AM1.5G), which sets the source, the detector, the band and the channel: Rvis on a `TIW` row makes it an `RIW` row. **Target** in percent. |
+| `RIW` | The same for R. |
+| `AIW` | The same for A. |
 
-**Why score in dB.** In linear T a stopband held at 0.1 % adds almost nothing to a least-squares merit, so missing −30 dB by a factor of ten is invisible beside the passband ripple. With the σ in the [normalization table](#mixed-unit-normalization), each row scores the natural log of the ratio its miss stands for in T or R. A miss by the same factor then costs the same at any level, near T = 1 a small miss costs what it would on a `T` row, and 20 dB and 30 dB are as far apart in the merit as in the specification.
+The band belongs to the preset, so **End** shows a dash. A new row starts at 400-700 nm under D65 and the photopic eye with no preset picked, and the cell describes that setup instead of a preset name. The presets come from the [Integral Values](/analysis/integral-values/) tool.
 
-**Floor.** T or R below 10⁻¹⁵ reads as 10⁻¹⁵, which is −150 dB or OD 15. Below that a computed value can be rounding residue: past the critical angle, where T is zero, the arithmetic leaves about 10⁻¹⁷. No specification comes near the floor, and below it the row stops steering.
+## Worst case over a band
 
-These rows take exact analytic derivatives, with no finite differences. Like the other rows whose σ is not 1, they do not take the full Newton curvature: for a merit function that contains them, Newton and SQP solve the Gauss-Newton system.
+| Name | Description |
+| ---- | ----------- |
+| `TMN` | Lowest T from **λ Start** to **λ End**. Holds T ≥ **Target**, in percent. |
+| `TMX` | Highest T over the band. Holds T ≤ **Target**. Takes **Step**. |
+| `RMN` | Lowest R over the band. Holds R ≥ **Target**. Takes **Step**. |
+| `RMX` | Highest R over the band. Holds R ≤ **Target**. |
+| `AMN` | Lowest A over the band. Holds A ≥ **Target**. |
+| `AMX` | Highest A over the band. Holds A ≤ **Target**. Takes **Step**. |
+| `TDBMN` | Lowest T over the band in dB. Holds T ≥ **Target** in dB, an insertion loss; a new row starts at −0.5 dB. |
+| `TDBMX` | Highest T over the band in dB. Holds T ≤ **Target** in dB, an isolation or blocking level; a new row starts at −30 dB. Takes **Step**. |
+| `RDBMX` | Highest R over the band in dB. Holds R ≤ **Target** in dB, the return loss of an AR coating; a new row starts at −30 dB. |
+| `ODMN` | Lowest optical density D = −log₁₀ T over the band, which is where T is highest. Holds D ≥ **Target**; a new row starts at 3. Takes **Step**. |
 
-On [Optical Evaluation](/analysis/optical-evaluation/) the targets are drawn at the level they stand for, −30 dB at 0.1 %, on any y unit: `TDB` as a point marker, a band row as a level line over its band. They drag like other targets, and a dragged level is written back in dB or OD. An `ODMN` target is a T target, so it shows on the OD axis.
+The value is the band's true highest or lowest point, however narrow, found as described in [Searching for a peak or dip](#searching-for-a-peak-or-dip). A row scores nothing until the worst case breaks the specification. An `AMN` or `AMX` row on a design where nothing absorbs reads 0.
 
-## Peak-to-peak error against a curve
+**Why score in dB.** In linear T a stopband held at 0.1 % adds almost nothing to a least-squares merit, so missing −30 dB by a factor of ten is invisible beside the passband ripple. With the [unit scale](#unit-scale) of the dB and density rows, each row scores the natural log of the ratio its miss stands for in T or R. A miss by the same factor then costs the same at any level. Near T = 1 a small miss costs what it would on a `T` row. And 20 dB and 30 dB are as far apart in the merit as in the specification.
 
-A gain-flattening filter is specified by its error against a target loss curve, not by its own transmittance. At each point of a measured-curve block, `EF(λ) = T_target(λ)[dB] − T_design(λ)[dB]`, and the row's value is the spread `max EF − min EF`. A design that differs from the target by the same number of dB everywhere scores zero: that constant is insertion loss, which a datasheet states on a line of its own, and only the shape error counts here.
+**Floor.** T or R below 10⁻¹⁵ (−150 dB, OD 15) reads as 10⁻¹⁵, and below it the row stops steering. No specification comes near it.
 
-| Type   | λ / Start          | Computes                                  | Target unit | Residual                 |
-| ------ | ------------------ | ----------------------------------------- | ----------- | ------------------------ |
-| `PPEF` | the curve block    | `max EF − min EF` over the block's points | dB          | `max(0, value − target)` |
+On [Optical Evaluation](/analysis/optical-evaluation/) the dB and density targets are drawn at the level they stand for, −30 dB at 0.1 %, on any y unit: `TDB` as a point marker, a band row as a level line over its band. They drag like other targets, and a dragged level is written back in dB or OD. An `ODMN` target is a T target, so it shows on the OD axis.
 
-Pick the block in the λ / Start cell; the row reads the block's own wavelengths, angle and polarization, so AOI and Pol show a dash. The block can be a T curve in percent or one fitted in dB, and can sit at weight 0 when it is there only to be measured against. Deleting the block deletes the row; a row whose block is missing or switched off shows **Error**. A new row starts at a target of 0 dB, so it keeps flattening until you type a specification in. σ is the dB rows' 4.343 dB. Refinement moves the two points where EF is highest and lowest, with exact derivatives. The synthesis windows leave the row out, since a slope from two wavelengths stalls their search, and fit the block instead; a block at weight 0 takes the weight the row and any row reading it had. The [Specification](/design/specification/) window has the same number as a qualifier, read through this row.
+## Wavelength of a peak or dip
 
-## Argmax / argmin wavelength
+| Name | Description |
+| ---- | ----------- |
+| `MXWT` | Wavelength of the highest T from **λ Start** to **λ End**. **Target** in nm; a new row starts at the middle of the band. Takes **Step**. |
+| `MXWR` | Wavelength of the highest R over the band. |
+| `MXWA` | Wavelength of the highest A over the band. Takes **Step**. |
+| `MNWT` | Wavelength of the lowest T over the band. |
+| `MNWR` | Wavelength of the lowest R over the band. Takes **Step**. |
+| `MNWA` | Wavelength of the lowest A over the band. |
 
-Sample C(λ) over the band, find the extremum, and refine it with a 3-point
-parabolic fit. **Output is the wavelength (nm)** at that extremum, not the
-T/R/A value.
-
-| Type   | Computes                        | Target unit | Output  |
-| ------ | ------------------------------- | ----------- | ------- |
-| `MXWT` | λ of maximum T over band        | nm          | λ (nm)  |
-| `MXWR` | λ of maximum R over band        | nm          | λ (nm)  |
-| `MXWA` | λ of maximum A over band        | nm          | λ (nm)  |
-| `MNWT` | λ of minimum T over band        | nm          | λ (nm)  |
-| `MNWR` | λ of minimum R over band        | nm          | λ (nm)  |
-| `MNWA` | λ of minimum A over band        | nm          | λ (nm)  |
-
-Residual: `λ_extremum − target` (two-sided, in nm). Use to pin a peak / notch
-to a desired wavelength. The default seed target is the band midpoint.
-
-:::caution
-The residual is in **nanometres**, so a 10 nm miss is a much larger residual
-than a 0.01 optical miss. When mixing argwave operands with optical operands in
-one merit function, tune weights so the units are commensurate.
-:::
-
-## Phase / field operands
-
-Quantities derived from the **complex amplitude coefficients** or the **internal
-electric field** of the front coating, rather than an intensity T/R/A. They
-carry physical units (degrees, femtoseconds, or normalized field), so they use
-the per-type σ scales above. Ellipsometry, phase and dispersion rows carry
-exact thickness derivatives and drive the optimizer the way an R or T row does;
-only the field peak goes through the finite-difference Jacobian. These match
-the [Ellipsometry](/analysis/ellipsometry/), [GD & GDD](/analysis/gd-gdd/) and
-[E-field](/analysis/efield/) analysis windows on the front surface.
-
-### Ellipsometry
-
-Evaluated at one wavelength (`λ / Start`). Ψ and Δ come from the complex ratio
-ρ = r_p / r_s = tan Ψ · e^{iΔ}, so they use **both** polarizations and the *Pol*
-column does not apply.
-
-| Type     | Computes                     | Target unit | Output          |
-| -------- | ---------------------------- | ----------- | --------------- |
-| `PSI`    | Ellipsometric Ψ at λ         | deg         | Ψ ∈ [0°, 90°]   |
-| `DEL`    | Ellipsometric Δ at λ         | deg         | Δ ∈ [0°, 360°)  |
-| `TANPSI` | tan Ψ (ellipsometer-native)  | none        | ≥ 0             |
-| `COSDEL` | cos Δ (ellipsometer-native)  | none        | [−1, 1]         |
-
-Residual: `value − target` (two-sided). Δ is taken the short way round the
-circle, so 359° against a target of 1° is a 2° miss, not 358°. Use `PSI`/`DEL`
-to force a specific reflection-phase relationship at one wavelength. To fit a
-whole measured Ψ/Δ pair, generate the targets from
-[Measured Ellipsometry](/data-exchange/measured-ellipsometry/#fitting-the-design-to-a-measurement),
-which stores each channel as one row carrying its own Δ convention.
-
-### Group delay & dispersion
-
-Phase, group delay, GDD, and TOD come from the complex reflection or
-transmission amplitude at exactly the requested wavelength. `DPR` and `DPT`
-are the cyclic p-minus-s phase difference. The *Pol* column selects s or p;
-`avg` is their mean for non-differential operands.
-
-| Type | Computes | Target unit | Output |
-| ---- | -------- | ----------- | ------ |
-| `PR`, `PT` | Reflection or transmission phase at λ | deg | phase (deg) |
-| `DPR`, `DPT` | p-minus-s differential phase at λ | deg | phase (deg) |
-| `GD`, `GDT` | Reflection or transmission group delay at λ | fs | GD (fs) |
-| `GDD`, `GDDT` | Reflection or transmission GDD at λ | fs² | GDD (fs²) |
-| `TOD`, `TODT` | Reflection or transmission TOD at λ | fs³ | TOD (fs³) |
-| `GDFLAT`, `GDTFLAT` | RMS deviation of GD from a flat level | fs | RMS deviation (≥ 0) |
-| `GDDFLAT`, `GDDTFLAT` | RMS deviation of GDD from a flat level | fs² | RMS deviation (≥ 0) |
-| `TODFLAT`, `TODTFLAT` | RMS deviation of TOD from a flat level | fs³ | RMS deviation (≥ 0) |
-
-Point residuals are two-sided (`value - target`). Phase residuals wrap to the shortest difference in the range -180° to 180°. The `*FLAT` operands carry their RMS deviation directly, so the optimizer drives it to zero. In the merit table, **Current** for a flatness row is the arithmetic mean GD, GDD, or TOD across the band, which can be read directly against the target level. The RMS deviation used by the merit function remains in the contribution-cell tooltip. Every point operand uses the same analytic evaluator as the GD / GDD window; there is no nearby sample or finite-difference wavelength grid. These operands score the front coating normally and the back coating when the design surface mode is back-only. Total-system phase-dispersion operands are not defined. In Total merit mode, ordinary R and T operands score the complete element while phase, GD, GDD, and TOD operands in the same table keep scoring that one coating. The Merit Function Editor and Refinement window show this scope beside the table.
-
-Analytic phase derivatives are evaluated only inside every participating
-material model's stated wavelength range. An operand outside that range shows
-**Error** in its Current cell; hover the row to see the material and reason.
-Other rows continue to display, but MF and OMF remain unavailable and
-Refinement will not start until every enabled target is valid.
-
-### Electric-field peak
-
-| Type   | Computes                                   | Target unit | Output |
-| ------ | ------------------------------------------ | ----------- | ------ |
-| `EFMX` | Peak normalized \|E\|² anywhere in coating | none        | ≥ 0    |
-
-Evaluated at `λ / Start`; the *Pol* column selects s or p (`avg` takes the
-larger of the two peaks, the damage-relevant one). Residual: `value − target`;
-with the default target 0 it monotonically **minimizes** the peak field, the
-usual laser-damage-threshold objective.
-
-## Math operands (reference another row)
-
-Math operands do **not** evaluate a TMM characteristic directly. They reference
-one or two other rows by their stable Op # (via the *λ / Start* and *End*
-picker cells) and compute a derived value. Target units are inherited from the
-referenced row.
-
-| Type   | Refs | Value           | Residual                  | Spec it enforces      |
-| ------ | ---- | --------------- | ------------------------- | --------------------- |
-| `OPGT` | 1    | `ref`           | `max(0, target − ref)`    | `ref ≥ target`        |
-| `OPLT` | 1    | `ref`           | `max(0, ref − target)`    | `ref ≤ target`        |
-| `OPVA` | 1    | `ref`           | `ref − target`            | `ref = target`        |
-| `ABSO` | 1    | `|ref|`         | `|ref| − target`          | `|ref| = target`      |
-| `ABGT` | 1    | `|ref|`         | `max(0, target − |ref|)`  | `|ref| ≥ target`      |
-| `ABLT` | 1    | `|ref|`         | `max(0, |ref| − target)`  | `|ref| ≤ target`      |
-| `DIFF` | 2    | `ref1 − ref2`   | `value − target`          | `ref1 − ref2 = target`|
-| `SUMM` | 2    | `ref1 + ref2`   | `value − target`          | `ref1 + ref2 = target`|
-| `PROD` | 2    | `ref1 · ref2`   | `value − target`          | `ref1 · ref2 = target`|
-
-The reference is by **stable id**, so inserting, deleting or reordering rows
-keeps the link. A reference to a deleted row renders red ("stale"). Cyclic
-references evaluate to a neutral (zero-residual) value. This is the familiar
-pattern where a target row references a measurement row by its operand number.
-
-The Specification window's "Generate MF" emits, for each `≥`/`≤` spec, a
-zero-weight measurement row (`TAV`, `TMN`, …) plus an `OPGT`/`OPLT` row that
-references it, so the table reads "spec = 99 %, value = 99.5 %".
-
-## Thickness and stress operands
-
-Act on **layer thicknesses**, not the spectrum.
-
-| Type  | λ / Start  | End        | Computes                        | Target unit | Residual                                    |
-| ----- | ---------- | ---------- | ------------------------------- | ----------- | ------------------------------------------- |
-| `TT`  | comparison | n/a        | Σ of all active layer thicknesses | nm        | `≤`/`≥` one-sided, or `=` two-sided         |
-| `STR` | comparison | n/a        | film force Σ σ·d on the substrate | N/m       | `≤`/`≥` one-sided, or `=` two-sided         |
-| `MNT` | layer 1    | layer 2    | **min** thickness in layer range  | nm        | `max(0, target − minThk)` (≥ bound)         |
-| `MXT` | layer 1    | layer 2    | **max** thickness in layer range  | nm        | `max(0, maxThk − target)` (≤ bound)         |
-
-`MNT`/`MXT` layer ranges are **1-based layer indices**, clamped to the current
-stack. A new constraint therefore covers layers 1 to 1000 by default: the end is
-deliberately past any stack you start from, so the constraint keeps covering the
-layers synthesis adds. Layers are numbered as in the Design Editor, layer 1 on
-the substrate. With both sides optimized independently, the front layers come
-first and the back layers follow, each side counted out from its substrate.
-An `MXT` row is the only upper limit on a layer's
-thickness: without one, the optimizers let a layer grow as thick as the merit
-asks. Needle synthesis, automatic and manual, leaves the thickness penalties
-out (the dMin floor + post-refine + Cleaner enforce bounds instead). Gradual
-Evolution and Refinement keep them in the merit function, and the Structural
-Optimizer holds the strictest `MNT` and `MXT` targets as limits on every layer.
-
-### Film stress (`STR`)
-
-A coating pulls on the substrate it sits on, and a substrate that is not thick
-enough to ignore it bends. The force per unit width behind that bend is
+The value is a wavelength, not a T, R or A. Use these rows to pin a peak or a notch to a wavelength. A 5 nm miss weighs like a 1 % miss on a `T` row.
+
+## Curves
+
+| Name | Description |
+| ---- | ----------- |
+| `MCURVE` | A curve block: the RMS deviation of the design from a set of measured or target points, in the block's channel, T, R or A in percent, T in dB, Ψ or Δ. **Fit…** in [Measured Spectra](/data-exchange/measured-spectra/) or [Measured Ellipsometry](/data-exchange/measured-ellipsometry/), and the wizard's curve targets, write it; the type picker does not offer it. Only **Weight** and the enable tick can be changed. |
+| `PPEF` | Peak-to-peak error against the block picked in **Curve**: at each of the block's points EF(λ) = C_target(λ) − C_design(λ), both in dB, with C the block's channel, and the value is max EF − min EF. Holds the spread ≤ **Target**, in dB; a new row starts at 0 dB. |
+
+A block shows its band, angle and polarization in **λ Start**, **λ End**, **AOI (°)** and **Pol**, and a dash for **Target**. A block with its level free first takes out the constant offset that fits best, and scores only the shape. In a run a block becomes one residual per point, each with an equal share of the block's weight.
+
+A gain-flattening filter is specified by its error against a target loss curve, not by its own transmittance, and that error is what `PPEF` measures. A design that differs from the target by the same number of dB everywhere scores zero: that constant is insertion loss, which a datasheet states on a line of its own. The [Specification](/design/specification/) window has the same number as a check, read through this row.
+
+The row reads the block's wavelengths, angle and polarization, so its **AOI (°)** and **Pol** show a dash. The block can be a T, R or A curve in percent or a T curve in dB, at weight 0 if it is there only to be measured against; a Ψ or Δ block is refused. Deleting the block deletes the row; a row whose block is missing or switched off shows **Error**. The synthesis tools leave the row out, since its slope comes from only the two worst wavelengths and stalls their search, and fit the block instead. If the block weighs less than the rows that read it, they fit it at their combined weight.
+
+## Ellipsometry
+
+| Name | Description |
+| ---- | ----------- |
+| `PSI` | Ellipsometric Ψ at **λ** and **AOI (°)**, from ρ = r_p / r_s = tan Ψ · e^{iΔ}, 0° to 90°. A new row starts at 45°. |
+| `DEL` | Ellipsometric Δ at **λ** and **AOI (°)**, 0° to 360°. A new row starts at 180°. |
+| `TANPSI` | tan Ψ. A new row starts at 1. |
+| `COSDEL` | cos Δ, −1 to 1. A new row starts at 0. |
+
+Ψ and Δ use both polarizations, so **Pol** has no effect. These rows always score the front coating; in back-only mode they read the front as it is and steer nothing. A `DEL` row is not in the Azzam–Bashara convention an ellipsometer writes and the [Ellipsometry](/analysis/ellipsometry/) window shows by default. Set the window's **Δ convention** to 360° − Δ to read the same number as the row. To fit a measured Ψ/Δ pair, generate the targets from [Measured Ellipsometry](/data-exchange/measured-ellipsometry/#fitting-the-design-to-a-measurement), which stores each channel as one block with its own convention.
+
+## Phase and dispersion
+
+| Name | Description |
+| ---- | ----------- |
+| `PR`, `PT` | Phase of the reflection or transmission amplitude at **λ**, in degrees. |
+| `DPR`, `DPT` | Phase difference p minus s on reflection or transmission at **λ**, in degrees. |
+| `GD`, `GDT` | Group delay on reflection or transmission at **λ**, in fs. |
+| `GDD`, `GDDT` | Group delay dispersion on reflection or transmission at **λ**, in fs². |
+| `TOD`, `TODT` | Third-order dispersion on reflection or transmission at **λ**, in fs³. |
+| `GDFLAT`, `GDTFLAT` | RMS deviation of the group delay from **Target** between **λ Start** and **λ End**, in fs. |
+| `GDDFLAT`, `GDDTFLAT` | RMS deviation of the GDD from **Target** over the band, in fs². |
+| `TODFLAT`, `TODTFLAT` | RMS deviation of the TOD from **Target** over the band, in fs³. |
+
+**Pol** selects s or p; `avg` is their mean, except on the p-minus-s rows. Each value comes from the complex amplitude at exactly the wavelength asked for, by the same calculation as the [GD & GDD](/analysis/gd-gdd/) window. A new row starts at a target of 0. A phase miss is taken the short way round the circle. On a `*FLAT` row, **Current** shows the level the band reaches, the trapezoid-weighted mean over the band grid, so it reads against the target directly; the RMS deviation the merit scores is in the tooltip of the % of MF² cell.
+
+These rows score the front coating, and the back coating when the design's surface mode is back-only. There is no phase row for the whole element: in Total merit mode the R and T rows score the complete element while the phase rows in the same table keep scoring the one coating, and the Merit Function Editor and Refinement window say so above the table. A phase row whose wavelength lies outside the stated range of a material's model has no value: **Current** shows **Error**, the row's tooltip names the material, and the merit and Refinement stay unavailable until every enabled row has a value.
+
+## Field
+
+| Name | Description |
+| ---- | ----------- |
+| `EFMX` | Peak of the normalized \|E\|² anywhere in the front coating at **λ** and **AOI (°)**. **Pol** selects s or p; `avg` takes the larger of the two peaks. A new row starts at a target of 0, so it lowers the peak field, the usual aim for laser damage resistance. |
+
+The [Electric Field](/analysis/efield/) window draws `avg` as the mean of the s and p profiles, so its peak there can be lower than this row's. An `EFMX` row makes every optimizer step slower: its slopes are taken by finite differences, and so are every other row's while it is in the merit function.
+
+## Math on other rows
+
+| Name | Reads | Value | Holds |
+| ---- | ----- | ----- | ----- |
+| `OPGT` | **Ref Op#** | ref | ref ≥ **Target** |
+| `OPLT` | **Ref Op#** | ref | ref ≤ **Target** |
+| `OPVA` | **Ref Op#** | ref | ref = **Target** |
+| `ABSO` | **Ref Op#** | \|ref\| | \|ref\| = **Target** |
+| `ABGT` | **Ref Op#** | \|ref\| | \|ref\| ≥ **Target** |
+| `ABLT` | **Ref Op#** | \|ref\| | \|ref\| ≤ **Target** |
+| `DIFF` | **Ref Op#1**, **Ref Op#2** | ref1 − ref2 | value = **Target** |
+| `SUMM` | **Ref Op#1**, **Ref Op#2** | ref1 + ref2 | value = **Target** |
+| `PROD` | **Ref Op#1**, **Ref Op#2** | ref1 · ref2 | value = **Target** |
+
+A math row reads the value of another row instead of computing one from the coating. Its target is in that row's unit, shown in percent when every row it reads is a T, R or A row. **AOI (°)** and **Pol** show a dash: the value read was computed at the other row's angle and polarization. A math row makes every optimizer step slower: its slopes are taken by finite differences, and so are every other row's while it is in the merit function.
+
+The reference cell lists the rows by their current number and type, such as `#4 TMN`. The link is kept to the row itself, not to its number, so inserting, deleting or moving rows does not break it. Deleting a row also deletes the math rows that read it. A reference to a row that is no longer there, as in a merit function loaded from elsewhere, shows **(deleted)** in red. A row that reads a disabled, missing or valueless row, or that sits on a loop of references, has no value: **Current** shows **Error** and the merit cannot be computed until it is fixed.
+
+**Generate MF** in the [Specification](/design/specification/) window writes, for each ≥ or ≤ specification, a measurement row at weight 0 (`TAV`, `TMN` and so on) and an `OPGT` or `OPLT` row reading it, so the table reads "target 99 %, value 99.5 %".
+
+## Thickness and stress
+
+| Name | Description |
+| ---- | ----------- |
+| `TT` | Sum of the layer thicknesses of the coating being optimized, locked layers included, in nm. **Cmp** sets ≤, ≥ or =; a new row compares with = and starts at 1000 nm. In symmetric mode it sums the front stack only. |
+| `STR` | Force per unit width the coatings put on the substrate, Σ σ_l·d_l, in N/m. **Cmp** sets ≤, ≥ or =; a new row starts at = 0 N/m, a flat substrate. |
+| `MNT` | Thinnest layer from **Layer 1** to **Layer 2**. Holds it ≥ **Target**, in nm. |
+| `MXT` | Thickest layer from **Layer 1** to **Layer 2**. Holds it ≤ **Target**, in nm. |
+
+Layers are numbered as in the Design Editor, layer 1 on the substrate. With both faces optimized independently, the front layers come first and the back layers follow, each side counted out from its substrate. The range is clamped to the stack, and a new `MNT` or `MXT` row covers layers 1 to 1000, so it keeps covering the layers synthesis adds. A range that holds no layer has no value and the merit skips it. An `MXT` row is the only upper limit on a layer's thickness: without one, the optimizers let a layer grow as thick as the merit asks.
+
+These four rows are kept out of the OMF and out of the synthesis searches. Needle, automatic and manual, leaves `MNT` and `MXT` out and keeps its layers above its own minimum thickness; a `TT` or `STR` row stays in Needle's refinement steps but not in its search for where to insert a layer. Deep Synthesis and the Structural Optimizer leave `MNT` and `MXT` out and hold the strictest of each as the floor and ceiling on every layer; the Structural Optimizer keeps `TT` and `STR` in the merit function it accepts a change by. Gradual Evolution and Refinement keep all four in the merit function.
+
+### Film stress
+
+A coating pulls on the substrate it sits on, and a substrate too thin to ignore it bends. The force per unit width behind that bend is
 
 ```
 F = Σ σ_l · d_l      (N/m, which is MPa·µm)
 ```
 
-summed over the films, with the back coating entering negative because it pulls
-the other way. `STR` puts that force in the merit function, so the bow becomes
-something the optimizer steers rather than something the first part off the
-machine reveals. **A target of 0 is the zero-deflection condition:** a coating
-whose compressive and tensile films balance leaves the substrate flat.
+summed over the films, with the back coating entering negative because it pulls the other way. `STR` puts that force in the merit function, so the bow becomes something the optimizer steers rather than something the first part off the machine reveals. **A target of 0 is the zero-deflection condition:** a coating whose compressive and tensile films balance leaves the substrate flat.
 
-Each film's stress comes off its material record, on the **Mechanical** tab of
-the [Material Editor](/design/material-editor/), never off the operand row. The
-one number `STR` needs is the **intrinsic stress in MPa**, tensile positive,
-which is what a wafer-bow measurement gives you; nothing else has to be
-measured. A material that states no intrinsic stress contributes nothing and
-the merit table names it, so a blank record can never quietly read as an
-unstressed film.
+Each film's stress comes from its material record, on the **Mechanical** tab of the [Material Editor](/design/material-editor/), never from the row. The one number `STR` needs is the **intrinsic stress in MPa**, tensile positive, which is what a wafer-bow measurement gives. A material that states no intrinsic stress contributes nothing, and the merit table names it, so a blank record never reads as an unstressed film.
 
-If the material also states Young's modulus, Poisson's ratio, an expansion
-coefficient and the reference temperature its stress was measured at, and the
-design carries a deposition and an evaluation temperature, the thermal terms
-are added as well. That deposition temperature is the substrate's temperature
-while the film grows, not the evaporant's.
+If the material also states Young's modulus, Poisson's ratio and an expansion coefficient, and the design carries stress temperatures, set in the [Stress Analysis](/analysis/stress/) window (a missing one reads 20 °C), two thermal terms are added. One corrects for the stress having been measured at the material's reference temperature rather than at deposition; a material with no reference temperature is taken as measured at deposition. The other is the expansion mismatch with the substrate between the deposition and evaluation temperatures, when the substrate states its expansion coefficient. The deposition temperature is the substrate's temperature while the film grows.
 
-Which coatings count follows the design's evaluation mode, as in every analysis
-window: the active side alone with "ignore the other side" on, both otherwise.
-In symmetric mode the mirrored back coating cancels the front exactly, so the
-row sits at zero whatever the layers do and the merit table says so.
+Which coatings count follows the design's evaluation mode, as in every analysis window: the active side alone with "ignore the other side" on, both otherwise. In symmetric mode the mirrored back coating cancels the front exactly, so the row sits at zero whatever the layers do, and the merit table says so.
 
-Like the other rows in this group the stress force stays out of the optical
-merit and out of the synthesis scans, and its weight is kept out of the merit's
-normalization denominator, so a satisfied row leaves MF equal to OMF. Its
-residual is raw N/m, so set the weight to balance it against your optical
-targets: with a weight around 3·10⁻³ a 1 N/m miss weighs about as much as a
-0.3 % reflectance miss.
+The residual is raw N/m and the merit adds weight times its square, so a 1 N/m miss at weight 10⁻⁵ weighs about as much as a 0.3 % reflectance miss at weight 1.
 
-## Comment / sentinel
+## Table control
 
-| Type   | Effect                                                              |
-| ------ | ------------------------------------------------------------------ |
-| `BLNK` | Inert annotation row carrying free text; contributes nothing.      |
-| `DMFS` | "Default merit function" sentinel marking a generated block start. |
+| Name | Description |
+| ---- | ----------- |
+| `BLNK` | A comment row: free text in **Comment**, no value. |
+| `DMFS` | The header of a block the wizard generated, with a line describing it. No value. |
 
-A freshly added row is a `BLNK` placeholder so it can't silently inject a stray
-target; pick the real type from the dropdown. Build and edit the operand table
-in the [Merit Function Editor](/design/merit-function-editor/); the
-source/detector presets used by `TIW`/`RIW`/`AIW` come from the
-[Integral Values](/analysis/integral-values/) tool.
+A row added in the Merit Function Editor starts as a `BLNK`, so it cannot score anything until you pick a type. A row added in the Refinement window starts as a `RAV` over 400-700 nm with a target of 0 and a weight of 1.
+
+---
+
+## How rows add up
+
+The merit function is
+
+```
+MF = √( Σ wᵢ · (rᵢ / σᵢ)²  /  W )
+```
+
+with wᵢ the row's weight, rᵢ its residual and σᵢ the [scale of its unit](#unit-scale). W is the sum of the weights of the rows that have a value, leaving out `MNT`, `MXT`, `TT` and `STR`, whose weights count only when the other rows with a value weigh nothing in total. Disabled rows, comment rows and rows with no value add nothing. The OMF beside it is the same sum without the `MNT`, `MXT`, `TT` and `STR` rows.
+
+| Residual | Rows | rᵢ |
+| -------- | ---- | -- |
+| Equality | `T` `R` `A` `TDB`, band averages, integrals, `MXW*` `MNW*`, `PSI` `TANPSI` `COSDEL`, `GD` `GDD` `TOD` and their transmission forms, `EFMX`, `OPVA` `ABSO` `DIFF` `SUMM` `PROD` | value − target |
+| Equality on a circle | `DEL` `PR` `PT` `DPR` `DPT` | value − target, taken the short way round, −180° to 180° |
+| At least | `TMN` `RMN` `AMN` `TDBMN` `ODMN` `OPGT` `ABGT` `MNT` | target − value when the value is below the target, else 0 |
+| At most | `TMX` `RMX` `AMX` `TDBMX` `RDBMX` `OPLT` `ABLT` `MXT` `PPEF` | value − target when the value is above the target, else 0 |
+| By the **Cmp** cell | `TT` `STR` | ≤ at most, ≥ at least, = equality |
+| Deviation | `TGT` `RGT` `AGT`, the `*FLAT` rows, `MCURVE` | the RMS deviation, which **Current** shows except on a `*FLAT` row, where it is in the tooltip |
+
+A satisfied one-sided row has a residual of zero and pulls on nothing, but its weight still counts in W, except for `MNT`, `MXT`, `TT` and `STR`. It therefore lowers the MF reading: a `T` row missing by 0.1 scores 0.1 alone and 0.0707 beside a satisfied `TMN` row of the same weight.
+
+### Unit scale
+
+Dividing each residual by σ puts rows of different units on one footing, so the weight stays a matter of importance rather than of units.
+
+| Rows | σ | A miss that scores 0.01 |
+| ---- | - | ----------------------- |
+| T, R and A rows of every kind, `TANPSI`, `COSDEL`, `EFMX`, math rows | 1 | 1 % in T, R or A |
+| `MXW*` `MNW*` | 500 nm | 5 nm |
+| `TDB` `TDBMN` `TDBMX` `RDBMX` `PPEF` | 10/ln 10 ≈ 4.343 dB | about 0.04 dB, a 1 % change in T or R |
+| `ODMN` | 1/ln 10 ≈ 0.4343 | about 0.004 |
+| `PSI` | 10° | 0.1° |
+| `DEL` | 20° | 0.2° |
+| `PR` `PT` `DPR` `DPT` | 180° | 1.8° |
+| `GD*` `GDD*` | 50 fs, 50 fs² | 0.5 fs, 0.5 fs² |
+| `TOD*` | 500 fs³ | 5 fs³ |
+| `MCURVE` | the σ of its channel | |
+| `TT` `STR` `MNT` `MXT` | 1, in nm or N/m | 0.01 nm or 0.01 N/m |
+
+A math row keeps σ = 1 whatever row it reads, so an `OPLT` on an `MXWT` row scores its miss in raw nanometres and one on a dB row in raw dB. The thickness and stress rows are scored raw too, so a violated manufacturing bound is fixed before anything else.
+
+## Searching for a peak or dip
+
+The worst-case rows and the `MXW*` / `MNW*` rows report the true highest or lowest value of the band, not the best of a set of samples. A row looks either for a peak of T, 1 − R or A, where a narrow resonance or a leak can sit, or for a dip:
+
+| Looks for a peak | Looks for a dip |
+| ---------------- | --------------- |
+| `TMX` `RMN` `AMX` `TDBMX` `ODMN` `MXWT` `MNWR` `MXWA` | `TMN` `RMX` `AMN` `TDBMN` `RDBMX` `MNWT` `MXWR` `MNWA` |
+
+A row that looks for a peak starts from a uniform grid at the step its **Step** flag sets; a row that looks for a dip starts from 13 points. On a thick coating either grid is made finer, to three points per interference fringe, and like the [band grid](#sampling-a-band) it is set from the design when a run starts. Every peak or dip the grid shows is tried, the one that decides the row is then refined, and the band ends are checked, so the value does not depend on where the samples fall.
+
+| Step | 1 or empty | 2 | 3 | 4 |
+| ---- | ---------- | - | - | - |
+| Grid step | 1 nm | 0.1 nm | 0.01 nm | 0.001 nm |
+
+The step decides only whether two peaks close together are told apart. Two peaks closer than about two steps, such as the split top of a two-cavity filter, can read as one, and not always the higher. If the band holds such a pair, raise the step. Each level samples the band ten times as densely as the one before, and the row costs that much more time.
+
+## Sampling a band
+
+Band averages, spectral targets, weighted integrals and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. The grid has at least 13 points and no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
+
+The merit tables of the Merit Function Editor and Refinement, the Design Cleaner, Needle Manual and every optimizer run size the grid from the design. A refinement keeps that grid for the whole run; a synthesis run enlarges it as the design grows. Other views that report a band average, such as the Specification window, keep a 2 nm step, so on a thick coating their figure can differ slightly from the merit table's.
+
+When a run starts, each spectral-target row (`TGT`, `RGT`, `AGT`) is checked for a peak or dip at least 2 % high that is narrower than its grid step. If it has one, the row is sampled finely enough to put four points across the narrowest such feature, up to 2001 points over the band. The merit table does not do this, so during a run such a row can score a little differently from the table.
 
 ## References
 
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed.: §2.6.4 for the two-sided system; Ch. 3, automatic design, for the merit function.
 - B. T. Sullivan, J. A. Dobrowolski, "Implementation of a numerical needle method for thin-film design," *Appl. Opt.* **35**, 5484 (1996).
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §2.6.4 (two-sided system), Ch. 13 (merit functions and tolerancing).
-- C. A. Klein, "Normal and interfacial stresses in thin-film coated optics: the case of diamond-coated zinc sulfide windows," *Opt. Eng.* **40**, 1115 (2001): Eq. (14) for the film force, Eq. (34) for the zero-deflection condition a `STR` target of 0 asks for.
+- C. A. Klein, "Normal and interfacial stresses in thin-film coated optics: the case of diamond-coated zinc sulfide windows," *Opt. Eng.* **40**, 1115 (2001): eq. 14 for the film force, eq. 34 for the zero-deflection condition a `STR` target of 0 asks for.

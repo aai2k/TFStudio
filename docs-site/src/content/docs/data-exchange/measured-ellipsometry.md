@@ -155,7 +155,7 @@ What is different from a photometric fit:
 - **Ψ and Δ carry their own scale** against reflectance targets sharing the
   table, set from what a spectroscopic ellipsometer resolves rather than from
   the 90° and 360° ranges. See
-  [Operand reference](/design/operands/#mixed-unit-normalization).
+  [Operand reference](/design/operands/#unit-scale).
 - **A uniform resample of Δ** interpolates the unwrapped angle, so a resampled
   grid never invents targets passing through 180° where the measurement
   crosses 360°.
