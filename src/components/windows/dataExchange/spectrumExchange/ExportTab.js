@@ -1,7 +1,7 @@
 import {
     ActionButton, CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField,
 } from '../../analysis/chrome/controls.js';
-import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
+import { X_UNITS, X_UNIT_KEYS } from '../../../../utils/io/spectrumTable.js';
 import { InlineRow, PanelSection } from '../chrome/panel.js';
 
 const { createElement: h } = React;
@@ -25,7 +25,7 @@ function ExportOptions({ controller, c, sx }) {
     );
 }
 
-function DesignExportPanel({ controller, c, sx }) {
+function DesignExportPanel({ controller, c, sx, units }) {
     const {
         dStart, setDStart, dEnd, setDEnd, dStep, setDStep, dAoi, setDAoi,
         dQ, setDQ, dSP, setDSP, onExportDesign, evalMode, missingMaterialIds,
@@ -45,7 +45,7 @@ function DesignExportPanel({ controller, c, sx }) {
         h('div', { style: { fontSize: 11, color: c.textDim, lineHeight: 1.45 } }, sx.exportDesignDesc),
         h(InlineRow, { c, label: sx.rangeLabel },
             h(RangeField, {
-                c, unit: 'nm',
+                c, unit: units.nm,
                 from: { value: dStart, onChange: setDStart, positive: true, step: 10 },
                 to: { value: dEnd, onChange: setDEnd, positive: true, step: 10 },
             }),
@@ -72,7 +72,7 @@ function DesignExportPanel({ controller, c, sx }) {
     );
 }
 
-function MeasuredExportPanel({ controller, c, sx }) {
+function MeasuredExportPanel({ controller, c, sx, units }) {
     const {
         curves, selectedExportCurves, setExportCurveSelected, selectAllExportCurves,
         expXUnit, setExpXUnit, expYScale, setExpYScale, onExport,
@@ -108,11 +108,7 @@ function MeasuredExportPanel({ controller, c, sx }) {
                 h(InlineRow, { c, label: sx.exportUnitLabel },
                     h(ChoiceGroup, {
                         c, activeId: expXUnit, onSelect: setExpXUnit,
-                        items: [
-                            { id: X_UNITS.NM, label: 'nm' },
-                            { id: X_UNITS.UM, label: 'µm' },
-                            { id: X_UNITS.CM1, label: 'cm⁻¹' },
-                        ],
+                        items: [X_UNITS.NM, X_UNITS.UM, X_UNITS.CM1].map(id => ({ id, label: units[X_UNIT_KEYS[id]] })),
                     }),
                 ),
                 h(InlineRow, { c, label: sx.exportScaleLabel },
@@ -131,11 +127,11 @@ function MeasuredExportPanel({ controller, c, sx }) {
     );
 }
 
-export function ExportTab({ controller, c, sx }) {
+export function ExportTab({ controller, c, sx, t }) {
     return h('div', { style: { flex: 1, minHeight: 0, overflow: 'auto' } },
         h(ExportOptions, { controller, c, sx }),
         controller.expSource === 'design'
-            ? h(DesignExportPanel, { controller, c, sx })
-            : h(MeasuredExportPanel, { controller, c, sx }),
+            ? h(DesignExportPanel, { controller, c, sx, units: t.units })
+            : h(MeasuredExportPanel, { controller, c, sx, units: t.units }),
     );
 }

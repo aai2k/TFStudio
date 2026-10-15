@@ -3,7 +3,7 @@ import {
 } from '../../analysis/chrome/controls.js';
 import { SidePanel } from '../../analysis/chrome/layout.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { measuredCurveData, X_UNITS } from '../../../../utils/io/spectrumTable.js';
+import { measuredCurveData, X_UNITS, X_UNIT_KEYS } from '../../../../utils/io/spectrumTable.js';
 import { curveTypedUnit } from '../curveEditor/units.js';
 import { unitName } from '../curveEditor/editorLabels.js';
 import { SpectrumPreview } from './SpectrumPreview.js';
@@ -12,11 +12,7 @@ import { FieldRow, ImportFilePanel, PanelSection, textInputStyle } from '../chro
 
 const { createElement: h, Fragment, useEffect, useState } = React;
 
-const UNIT_ITEMS = [
-    { id: X_UNITS.NM, label: 'nm' },
-    { id: X_UNITS.UM, label: 'µm' },
-    { id: X_UNITS.CM1, label: 'cm⁻¹' },
-];
+const UNIT_IDS = [X_UNITS.NM, X_UNITS.UM, X_UNITS.CM1];
 
 /**
  * What the file leaves unsaid, stored on the curve when it is added and
@@ -45,7 +41,7 @@ function ColumnConditions({ controller, quantity, c, sx }) {
     );
 }
 
-function ConfigurePanel({ controller, c, sx }) {
+function ConfigurePanel({ controller, c, sx, units }) {
     const {
         parsed, colIdx, setColIdx, name, setName, xUnit, setXUnit,
         quantity, yscale, setColOv, previewCurve, onAdd, onAddSelected,
@@ -56,7 +52,10 @@ function ConfigurePanel({ controller, c, sx }) {
         h('div', { style: { color: c.textDim, fontSize: 10.5 } },
             sx.detected(delimiterName(parsed.delimiter, sx), parsed.nRows)),
         h(FieldRow, { c, label: sx.unitLabel },
-            h(ChoiceGroup, { c, activeId: xUnit, onSelect: setXUnit, items: UNIT_ITEMS }),
+            h(ChoiceGroup, {
+                c, activeId: xUnit, onSelect: setXUnit,
+                items: UNIT_IDS.map(id => ({ id, label: units[X_UNIT_KEYS[id]] })),
+            }),
         ),
         parsed.columns.length > 1 && h(FieldRow, { c, label: sx.columnLabel },
             h(SelectField, {
@@ -112,7 +111,7 @@ function SourceScale({ curve, setCurveScale, c, sx, ce }) {
     });
 }
 
-function CurveEditorCard({ curve, selected, onSelect, controller, c, sx, ce }) {
+function CurveEditorCard({ curve, selected, onSelect, controller, c, sx, ce, units }) {
     const [draftName, setDraftName] = useState(curve.name);
     useEffect(() => setDraftName(curve.name), [curve.name]);
     const data = measuredCurveData(curve);
@@ -187,7 +186,7 @@ function CurveEditorCard({ curve, selected, onSelect, controller, c, sx, ce }) {
         ),
         h(FieldRow, { c, label: sx.trimLabel },
             h(RangeField, {
-                c, width: 58, unit: 'nm',
+                c, width: 58, unit: units.nm,
                 from: { value: trimMin, min: fullMin, max: trimMax, step: 1, onChange: value => setCurveTrim(curve.id, 'min', value) },
                 to: { value: trimMax, min: trimMin, max: fullMax, step: 1, onChange: value => setCurveTrim(curve.id, 'max', value) },
             }),
@@ -197,7 +196,7 @@ function CurveEditorCard({ curve, selected, onSelect, controller, c, sx, ce }) {
     );
 }
 
-function ImportedCurves({ controller, c, sx, ce }) {
+function ImportedCurves({ controller, c, sx, ce, units }) {
     const { curves, selectedCurve, setSelectedCurveId, orphanFits, onRestoreFitCurves } = controller;
     return h('div', { style: { paddingTop: 2 } },
         h('div', {
@@ -221,7 +220,7 @@ function ImportedCurves({ controller, c, sx, ce }) {
             ? h('div', { style: { padding: '4px 10px 12px', color: c.textDim, fontSize: 11, fontStyle: 'italic' } }, sx.noOverlays)
             : curves.map(curve => h(CurveEditorCard, {
                 key: curve.id, curve, selected: selectedCurve?.id === curve.id,
-                onSelect: () => setSelectedCurveId(curve.id), controller, c, sx, ce,
+                onSelect: () => setSelectedCurveId(curve.id), controller, c, sx, ce, units,
             })),
     );
 }
@@ -244,8 +243,8 @@ export function ImportTab({ controller, c, sx, t }) {
                             onClick: controller.curveEditor.openNew,
                         }),
                     }),
-                    h(ConfigurePanel, { controller, c, sx }),
-                    h(ImportedCurves, { controller, c, sx, ce }),
+                    h(ConfigurePanel, { controller, c, sx, units: t.units }),
+                    h(ImportedCurves, { controller, c, sx, ce, units: t.units }),
                 ),
             ),
             h('div', { className: 'tfs-spectrum-import-preview' },

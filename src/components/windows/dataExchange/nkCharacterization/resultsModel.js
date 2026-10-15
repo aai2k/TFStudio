@@ -22,10 +22,10 @@ function exponential(value, digits = 2) {
     return Number.isFinite(value) ? value.toExponential(digits) : '-';
 }
 
-/** The thickness with its spread, or on its own when it was held. */
-export function thicknessText(result, nk) {
+/** The thickness with its spread, or on its own when it was held. `units` is t.units. */
+export function thicknessText(result, nk, units) {
     if (!Number.isFinite(result.thicknessNm)) return '-';
-    const value = `${fixed(result.thicknessNm, 2)} nm`;
+    const value = `${fixed(result.thicknessNm, 2)} ${units.nm}`;
     if (result.thicknessStatus === 'unresolved') return `${value} (${nk.thicknessAssumed})`;
     if (result.thicknessStatus === 'fitted' && result.thicknessSpreadNm == null) {
         return `${value} (${nk.thicknessUncertaintyUnavailable})`;
@@ -50,9 +50,9 @@ export function resultColumns(nk) {
  * largely as their product, and when a measurement holds too few fringes to
  * separate them the residual stays small while the correlation goes to one.
  */
-export function resultRows(result, nk) {
+export function resultRows(result, nk, units) {
     const rows = [
-        { quantity: nk.rowThickness, value: thicknessText(result, nk) },
+        { quantity: nk.rowThickness, value: thicknessText(result, nk, units) },
         { quantity: nk.rowModel, value: result.modelName.replace(/^Fit: /, '') },
     ];
     for (const [quantity, label] of [['T', 'T'], ['R', 'R'], ['PSI', 'Ψ'], ['DEL', 'Δ']]) {
@@ -88,7 +88,7 @@ export function resultRows(result, nk) {
     if (result.envelope && !result.envelope.error) {
         rows.push({
             quantity: nk.rowEnvelopeThickness,
-            value: `${fixed(result.envelope.thicknessNm, 1)} nm, `
+            value: `${fixed(result.envelope.thicknessNm, 1)} ${units.nm}, `
                 + `${result.envelope.extremaCount} ${nk.fringes}`,
         });
     }

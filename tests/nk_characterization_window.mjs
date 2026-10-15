@@ -176,9 +176,9 @@ const design = {
     assert.equal(model.selectedIndexModel({}), 'drude-lorentz');
 }
 
-assert.match(resultsModel.thicknessText({ thicknessNm: 500, thicknessStatus: 'unresolved' }, nk),
+assert.match(resultsModel.thicknessText({ thicknessNm: 500, thicknessStatus: 'unresolved' }, nk, t.units),
     /assumed; thickness not determined/, 'opaque Solve does not label thickness as measured');
-assert.match(resultsModel.thicknessText({ thicknessNm: 500, thicknessStatus: 'fitted', thicknessSpreadNm: null }, nk),
+assert.match(resultsModel.thicknessText({ thicknessNm: 500, thicknessStatus: 'fitted', thicknessSpreadNm: null }, nk, t.units),
     /uncertainty unavailable/, 'a singular fitted covariance is not called held');
 
 // ── The Results header carries no second copy of the thickness ───────────────
@@ -257,7 +257,7 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
 
 // ── The results table ─────────────────────────────────────────────────────────
 {
-    const rows = resultsModel.resultRows(result, nk);
+    const rows = resultsModel.resultRows(result, nk, t.units);
     const labels = rows.map(row => row.quantity);
     assert.ok(labels.includes(nk.rowThickness));
     assert.ok(labels.includes(nk.rowResidual('T')) && labels.includes(nk.rowResidual('R')));
@@ -283,7 +283,7 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
             DEL: { rms: 35.55, max: 179.653, points: 201 },
         },
     };
-    const angularRows = resultsModel.resultRows(angular, nk);
+    const angularRows = resultsModel.resultRows(angular, nk, t.units);
     const residualRow = label => angularRows.find(row => row.quantity === nk.rowResidual(label));
     assert.ok(residualRow('Ψ') && residualRow('Δ'), 'Ψ and Δ each get a residual row');
     assert.match(residualRow('Δ').value, /35\.550°/,

@@ -89,7 +89,7 @@ const DIALOGS = [
         close => ({ c, t, result: trialsResult, design, corridorSigma: 2, updateDesign: noop, checkpoint: noop, onClose: close }),
         t.errorAnalysis.close || 'Close'],
     ['Fit to measured curve', MeasuredFitDialog,
-        close => ({ c, sx: t.spectrumExchange, controller: {
+        close => ({ c, sx: t.spectrumExchange, units: t.units, controller: {
             fitDialogCurve: curve, fitConfig,
             fitSnapshot: measuredModel.measuredFitSnapshot({ ...design, measuredCurves: [curve] }, curve, fitConfig),
             setFitOption: noop, onCreateFitOperand: noop, closeFitDialog: close, missingMaterialIds: [],

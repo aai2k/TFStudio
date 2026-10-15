@@ -2,19 +2,15 @@ import {
     ActionButton, CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField,
 } from '../../analysis/chrome/controls.js';
 import { SidePanel } from '../../analysis/chrome/layout.js';
-import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
+import { X_UNITS, X_UNIT_KEYS } from '../../../../utils/io/spectrumTable.js';
 import { InlineRow, PanelSection } from '../chrome/panel.js';
 import { deltaConventionItems } from './model.js';
 
 const { createElement: h } = React;
 
-const UNIT_ITEMS = [
-    { id: X_UNITS.NM, label: 'nm' },
-    { id: X_UNITS.UM, label: 'µm' },
-    { id: X_UNITS.EV, label: 'eV' },
-];
+const unitItems = units => [X_UNITS.NM, X_UNITS.UM, X_UNITS.EV].map(id => ({ id, label: units[X_UNIT_KEYS[id]] }));
 
-function MeasuredPanel({ controller, c, mx }) {
+function MeasuredPanel({ controller, c, mx, units }) {
     const { curves, expSelected, setExpSelected, expXUnit, setExpXUnit, onExportMeasured } = controller;
     return h(PanelSection, { c, title: mx.sourceMeasured },
         curves.length === 0
@@ -28,7 +24,7 @@ function MeasuredPanel({ controller, c, mx }) {
                 })),
             ),
         h(InlineRow, { c, label: mx.unitLabel },
-            h(ChoiceGroup, { c, activeId: expXUnit, onSelect: setExpXUnit, items: UNIT_ITEMS }),
+            h(ChoiceGroup, { c, activeId: expXUnit, onSelect: setExpXUnit, items: unitItems(units) }),
         ),
         h(InlineRow, { c },
             h(ActionButton, { c, label: mx.exportMeasured, onClick: onExportMeasured, disabled: !curves.length }),
@@ -36,7 +32,7 @@ function MeasuredPanel({ controller, c, mx }) {
     );
 }
 
-function CalculatedPanel({ controller, c, mx }) {
+function CalculatedPanel({ controller, c, mx, units }) {
     const {
         expStart, setExpStart, expEnd, setExpEnd, expStep, setExpStep,
         expAoi, setExpAoi, expXUnit, setExpXUnit, onExportCalculated,
@@ -52,7 +48,7 @@ function CalculatedPanel({ controller, c, mx }) {
         h('div', { style: { fontSize: 11, color: c.textDim, lineHeight: 1.45 } }, mx.exportCalculatedDesc),
         h(InlineRow, { c, label: mx.rangeLabel },
             h(RangeField, {
-                c, unit: 'nm',
+                c, unit: units.nm,
                 from: { value: expStart, onChange: setExpStart, positive: true, step: 10 },
                 to: { value: expEnd, onChange: setExpEnd, positive: true, step: 10 },
             }),
@@ -64,7 +60,7 @@ function CalculatedPanel({ controller, c, mx }) {
             h('span', { style: { color: c.textDim, fontSize: 11 } }, '°'),
         ),
         h(InlineRow, { c, label: mx.unitLabel },
-            h(ChoiceGroup, { c, activeId: expXUnit, onSelect: setExpXUnit, items: UNIT_ITEMS }),
+            h(ChoiceGroup, { c, activeId: expXUnit, onSelect: setExpXUnit, items: unitItems(units) }),
         ),
         // The sign Δ is written in: the one the instrument's software reads.
         // Its own setting, not the one an opened file was read under.
@@ -80,7 +76,7 @@ function CalculatedPanel({ controller, c, mx }) {
     );
 }
 
-export function ExportTab({ controller, c, mx }) {
+export function ExportTab({ controller, c, mx, units }) {
     const { expSource, setExpSource } = controller;
     return h('div', {
         className: 'tfs-spectrum-import-container',
@@ -97,8 +93,8 @@ export function ExportTab({ controller, c, mx }) {
                 }),
             ),
             expSource === 'measured'
-                ? h(MeasuredPanel, { controller, c, mx })
-                : h(CalculatedPanel, { controller, c, mx }),
+                ? h(MeasuredPanel, { controller, c, mx, units })
+                : h(CalculatedPanel, { controller, c, mx, units }),
         ),
     );
 }

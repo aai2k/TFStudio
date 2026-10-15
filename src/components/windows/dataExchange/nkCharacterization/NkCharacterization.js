@@ -129,7 +129,7 @@ export function NkCharacterization({ c, t, onCreateDesign }) {
     const dt = t.dataTable;
     const solved = state.result && !state.result.error ? state.result : null;
     const columns = resultColumns(nk);
-    const rows = solved ? resultRows(solved, nk) : [];
+    const rows = solved ? resultRows(solved, nk, t.units) : [];
     const csv = useCsvExport(
         () => (solved ? constantsCsv(solved) : ''),
         () => `${(state.design?.name || 'film').replace(/[^\w.-]+/g, '_')}_nk.csv`,

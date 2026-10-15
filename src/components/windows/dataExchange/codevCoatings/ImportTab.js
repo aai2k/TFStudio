@@ -27,13 +27,13 @@ function SummaryRow({ c, label, value }) {
 }
 
 // What the file sets around its layers.
-function StackSummary({ c, z, stack }) {
+function StackSummary({ c, z, stack, units }) {
     const rows = [
         [z.summaryIncident, indexText(stack.incident)],
         [z.summarySubstrate, indexText(stack.substrate)],
         [z.summaryWavelengths, rangeText(z, stack.wavelengthsNm)],
         [z.summaryAngles, stack.anglesDeg.map(angle => `${angle}°`).join(', ')],
-        [z.summaryRef, `${fileNumber(stack.refNm)} nm`],
+        [z.summaryRef, `${fileNumber(stack.refNm)} ${units.nm}`],
     ];
     return h(PanelSection, { c },
         h('table', { style: { borderCollapse: 'collapse' } },
@@ -98,13 +98,13 @@ function StackView({ c, z, stack, fileName, design, hasActiveDesign, importCoati
  * layers it holds and their actions, on the right.
  */
 export function ImportTab(props) {
-    const { c, z, stack, loading, onLoad, fileName, panelWidth, setPanelWidth } = props;
+    const { c, t, z, stack, loading, onLoad, fileName, panelWidth, setPanelWidth } = props;
     return h(ImportPage, {
         c, panelWidth, onPanelWidthChange: setPanelWidth,
         file: {
             title: z.fileTitle, label: loading ? z.loading : z.openBtn,
             onImport: onLoad, loading, fileName, hint: z.fileHint,
         },
-        section: stack && h(StackSummary, { c, z, stack }),
+        section: stack && h(StackSummary, { c, z, stack, units: t.units }),
     }, stack ? h(StackView, props) : h(CenteredMessage, { c, message: z.noFile }));
 }

@@ -27,7 +27,7 @@ function Notice({ tone, children, c }) {
     }, children);
 }
 
-export function MeasuredFitDialog({ controller, c, sx }) {
+export function MeasuredFitDialog({ controller, c, sx, units }) {
     const {
         fitDialogCurve: curve, fitConfig, setFitOption, fitSnapshot,
         onCreateFitOperand, closeFitDialog, missingMaterialIds,
@@ -102,7 +102,7 @@ export function MeasuredFitDialog({ controller, c, sx }) {
         ),
         h(DialogRow, { c, label: sx.fitRangeLabel },
             h(RangeField, {
-                c, width: 72, unit: 'nm',
+                c, width: 72, unit: units.nm,
                 from: {
                     value: fitConfig.rangeMin, min: curve.x[0], max: fitConfig.rangeMax,
                     step: 1, onChange: value => setFitOption('rangeMin', value),
@@ -132,7 +132,7 @@ export function MeasuredFitDialog({ controller, c, sx }) {
                 c, value: fitConfig.stepNm, positive: true, step: 0.1, width: 72,
                 onChange: value => setFitOption('stepNm', value),
             }),
-            h('span', { style: { color: c.textDim } }, 'nm'),
+            h('span', { style: { color: c.textDim } }, units.nm),
         ),
         h(DialogRow, { c, label: sx.fitWeightLabel },
             h(NumInput, {
@@ -168,14 +168,14 @@ export function MeasuredFitDialog({ controller, c, sx }) {
                     c, value: fitConfig.minThicknessNm, min: 0.01, max: 1e6,
                     step: 1, width: 72, onChange: value => setFitOption('minThicknessNm', value),
                 }),
-                h('span', { style: { color: c.textDim } }, 'nm'),
+                h('span', { style: { color: c.textDim } }, units.nm),
             ),
             h(DialogRow, { c, label: sx.fitMaxThickness },
                 h(NumInput, {
                     c, value: fitConfig.maxThicknessNm, min: 0.01, max: 1e6,
                     step: 10, width: 72, onChange: value => setFitOption('maxThicknessNm', value),
                 }),
-                h('span', { style: { color: c.textDim } }, 'nm'),
+                h('span', { style: { color: c.textDim } }, units.nm),
             ),
             h(DialogRow, { c, label: sx.fitConstraintWeight },
                 h(NumInput, {

@@ -110,7 +110,7 @@ const exchange = renderToStaticMarkup(withDesign(
 assert.match(exchange, /Import measured spectrum/,
     'measured-spectrum import remains available for a broken design');
 const spectrumExport = renderToStaticMarkup(React.createElement(SpectrumExportTab, {
-    c, sx: t.spectrumExchange, section: {}, rowFlex: {},
+    c, t, sx: t.spectrumExchange, section: {}, rowFlex: {},
     controller: {
         expSource: 'design', setExpSource: () => {},
         expFormat: 'csv', setExpFormat: () => {},
@@ -120,7 +120,7 @@ const spectrumExport = renderToStaticMarkup(React.createElement(SpectrumExportTa
 assert.match(spectrumExport, /Design-spectrum export is blocked/);
 
 const zemaxExport = renderToStaticMarkup(React.createElement(ZemaxExportTab, {
-    c, z: t.zemaxCoatings, design: broken, missingMaterialIds: [missingId],
+    c, t, z: t.zemaxCoatings, design: broken, missingMaterialIds: [missingId],
 }));
 assert.match(zemaxExport, /COATING\.DAT export is blocked/,
     'Zemax import remains available while its current-design export panel is blocked');

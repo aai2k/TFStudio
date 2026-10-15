@@ -49,7 +49,7 @@ export function SpectrumExchange({ c, t }) {
         controller.tab === 'import'
             ? h(ImportTab, tabProps)
             : h(ExportTab, tabProps),
-        controller.fitDialogCurve && h(MeasuredFitDialog, { controller, c, sx }),
+        controller.fitDialogCurve && h(MeasuredFitDialog, { controller, c, sx, units: t.units }),
         controller.curveEditor.editorProps && h(CurveEditor, { ...controller.curveEditor.editorProps, c, t }),
     );
 }

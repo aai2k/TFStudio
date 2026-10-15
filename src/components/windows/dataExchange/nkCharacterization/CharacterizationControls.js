@@ -89,7 +89,7 @@ export function SampleSettingsContent({ c, t, nk, state }) {
                     || (design?.substrate?.thickness ?? 1.0),
                 onChange: value => setField('substrateThicknessMm', String(value)),
             }),
-            h('span', { style: { color: c.textDim, marginLeft: 5 } }, 'mm')),
+            h('span', { style: { color: c.textDim, marginLeft: 5 } }, t.units.mm)),
         ellipsometry && h(SettingRow, { c, label: nk.deltaConvention },
             h(SelectField, {
                 c, width: 150, value: settings.deltaConvention || 'azzam',
@@ -125,7 +125,7 @@ export function SampleSettingsContent({ c, t, nk, state }) {
                 value: thicknessSettingNm(design, settings),
                 onChange: value => setField('thicknessNm', String(value)),
             }),
-            h('span', { style: { color: c.textDim, marginLeft: 5 } }, 'nm')),
+            h('span', { style: { color: c.textDim, marginLeft: 5 } }, t.units.nm)),
         // The field is read under Solve as well as under Hold, and the two
         // meanings are far apart: held exactly, or the centre of the thickness
         // search. Left unsaid, a value from the wrong film silently puts the

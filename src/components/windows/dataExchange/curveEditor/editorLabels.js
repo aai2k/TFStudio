@@ -3,6 +3,7 @@
  * units (T, R, A, Ψ, Δ, I, φ, %, dB, OD, °, rad) are written as they are in
  * every language; only the words come from the locale.
  */
+import { X_UNIT_KEYS } from '../../../../utils/io/spectrumTable.js';
 import { X_KEY, columnIndex } from './curveTable.js';
 
 const QUANTITY_SYMBOL = { T: 'T', R: 'R', A: 'A', PSI: 'Ψ', DEL: 'Δ', I: 'I', PHI: 'φ' };
@@ -14,10 +15,6 @@ export function unitName(ce, id) {
     return UNIT_SYMBOL[id] ?? (id === 'rel' ? ce.relative : '');
 }
 const X_SYMBOL = { nm: 'λ', um: 'λ', 'cm-1': 'ν', eV: 'E' };
-const X_UNIT_SYMBOL = { nm: 'nm', um: 'µm', 'cm-1': 'cm⁻¹', eV: 'eV' };
-const X_AXIS_KEY = { nm: 'nm', um: 'um', 'cm-1': 'cm1', eV: 'eV' };
-
-const xHeader = id => `${X_SYMBOL[id]} (${X_UNIT_SYMBOL[id]})`;
 
 /**
  * A value column's name on the plot's legend and in the tool panels: the name
@@ -33,11 +30,12 @@ export function editorLabels(t, table) {
     const unit = id => unitName(ce, id);
     const quantity = column => quantityName(column.quantity);
     const valueTitle = index => valueColumnName(table.columns[index], index, quantity(table.columns[index]));
+    const xUnit = id => t.units[X_UNIT_KEYS[id]] || id;
+    const xHeader = id => `${X_SYMBOL[id]} (${xUnit(id)})`;
     return {
-        quantity, quantityName, unit,
-        xUnit: id => X_UNIT_SYMBOL[id] || id,
+        quantity, quantityName, unit, xUnit,
         xSymbol: X_SYMBOL[table.xUnit],
-        xAxis: t.spectralAxis[X_AXIS_KEY[table.xUnit]] || xHeader(table.xUnit),
+        xAxis: t.spectralAxis[X_UNIT_KEYS[table.xUnit]] || xHeader(table.xUnit),
         design: ce.designCurve,
         // A column as the tool panels name it: λ (nm), or T 1 as on the legend.
         columnTitle: colKey => (colKey === X_KEY ? xHeader(table.xUnit) : valueTitle(columnIndex(colKey) - 1)),

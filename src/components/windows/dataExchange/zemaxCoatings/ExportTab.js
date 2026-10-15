@@ -9,7 +9,7 @@ const { createElement: h } = React;
 
 function ExportOptions(props) {
     const {
-        c, z, design, thMode, setThMode, scope, setScope, coatName, setCoatName, refNm,
+        c, t, z, design, thMode, setThMode, scope, setScope, coatName, setCoatName, refNm,
         gStart, setGStart, gEnd, setGEnd, gStep, setGStep, preview, onGenerate, onSave,
     } = props;
     return h(PanelSection, { c, title: z.exportTitle },
@@ -21,7 +21,7 @@ function ExportOptions(props) {
             }),
         ),
         h('div', { style: { fontSize: 10.5, color: c.textDim, lineHeight: 1.45 } },
-            thMode === 'absolute' ? z.thicknessAbsHint : `${z.thicknessRelHint}  (λ₀ = ${refNm} nm)`),
+            thMode === 'absolute' ? z.thicknessAbsHint : `${z.thicknessRelHint}  (λ₀ = ${refNm} ${t.units.nm})`),
         h(InlineRow, { c, label: z.materialScope },
             h(ChoiceGroup, {
                 c, activeId: scope, onSelect: setScope,

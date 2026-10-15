@@ -55,7 +55,7 @@ const dialogConfig = {
     minThicknessNm: 12, maxThicknessNm: 900, constraintWeight: 2,
 };
 const dialogMarkup = renderToStaticMarkup(React.createElement(MeasuredFitDialog, {
-    c, sx: t.spectrumExchange,
+    c, sx: t.spectrumExchange, units: t.units,
     controller: {
         fitDialogCurve: dialogCurve,
         fitConfig: dialogConfig,

@@ -53,7 +53,7 @@ function ProcessSettings({ c, t, sp, setup }) {
         ),
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
-                c, unit: 'nm', width: 60,
+                c, unit: t.units.nm, width: 60,
                 from: { value: setup.lambdaStart, positive: true, step: 10, onChange: setup.setLambdaStart },
                 to: { value: setup.lambdaEnd, positive: true, step: 10, onChange: setup.setLambdaEnd },
             }),

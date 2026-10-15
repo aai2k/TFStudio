@@ -92,7 +92,7 @@ const stack = {
     warnings: [{ kind: 'unknownCommand', command: 'MAN', line: 26 }],
 };
 const renderImport = (design, shown = stack) => renderToStaticMarkup(React.createElement(ImportTab, {
-    c, z, stack: shown, design, hasActiveDesign: true, fileName: 'silver.seq', loading: false, onLoad: noop,
+    c, t, z, stack: shown, design, hasActiveDesign: true, fileName: 'silver.seq', loading: false, onLoad: noop,
     importCoating: noop, saveToLibrary: noop, panelWidth: null, setPanelWidth: noop,
 }));
 // The buttons with these labels, each as [label, off].

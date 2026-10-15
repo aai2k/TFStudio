@@ -1,18 +1,14 @@
 import { ActionButton, ChoiceGroup, NumInput, SelectField } from '../../analysis/chrome/controls.js';
 import { CenteredMessage, PlotArea, SidePanel } from '../../analysis/chrome/layout.js';
 import { EllipsometryChart } from '../../analysis/ellipsometryEvaluation/EllipsometryChart.js';
-import { X_UNITS } from '../../../../utils/io/spectrumTable.js';
+import { X_UNITS, X_UNIT_KEYS } from '../../../../utils/io/spectrumTable.js';
 import { FieldRow, ImportFilePanel, ImportLayout, PanelSection, textInputStyle } from '../chrome/panel.js';
 import { deltaConventionItems } from './model.js';
 import { CurveCard, QUANTITY_ITEMS } from './curveCards.js';
 
 const { createElement: h, Fragment } = React;
 
-const UNIT_ITEMS = [
-    { id: X_UNITS.NM, label: 'nm' },
-    { id: X_UNITS.UM, label: 'µm' },
-    { id: X_UNITS.EV, label: 'eV' },
-];
+const UNIT_IDS = [X_UNITS.NM, X_UNITS.UM, X_UNITS.EV];
 
 /**
  * What the file leaves unsaid, stored on the curve when it is added and
@@ -55,7 +51,7 @@ function ColumnConditions({ controller, c, mx }) {
     );
 }
 
-function ConfigurePanel({ controller, c, mx }) {
+function ConfigurePanel({ controller, c, mx, units }) {
     const {
         parsed, colIdx, setColIdx, name, setName, xUnit, setXUnit,
         quantity, setColQuantity, previewColumn, onAddSelected, onAddAll,
@@ -65,7 +61,10 @@ function ConfigurePanel({ controller, c, mx }) {
     return h(PanelSection, { c, title: mx.configure },
         h('div', { style: { color: c.textDim, fontSize: 10.5 } }, mx.detected(parsed.nRows, parsed.columns.length)),
         h(FieldRow, { c, label: mx.unitLabel },
-            h(ChoiceGroup, { c, activeId: xUnit, onSelect: setXUnit, items: UNIT_ITEMS }),
+            h(ChoiceGroup, {
+                c, activeId: xUnit, onSelect: setXUnit,
+                items: UNIT_IDS.map(id => ({ id, label: units[X_UNIT_KEYS[id]] })),
+            }),
         ),
         parsed.columns.length > 1 && h(FieldRow, { c, label: mx.columnLabel },
             h(SelectField, {
@@ -130,7 +129,7 @@ function ImportedCurves({ controller, c, mx, ce }) {
     );
 }
 
-export function ImportTab({ controller, c, mx, ce }) {
+export function ImportTab({ controller, c, mx, ce, units }) {
     const { loading, onImport, fileName, preview, panelWidth, setPanelWidth } = controller;
     return h(ImportLayout, { c, panelWidth, onPanelWidthChange: setPanelWidth },
         h(SidePanel, { c, width: '100%' },
@@ -142,7 +141,7 @@ export function ImportTab({ controller, c, mx, ce }) {
                     onClick: controller.curveEditor.openNew,
                 }),
             }),
-            h(ConfigurePanel, { controller, c, mx }),
+            h(ConfigurePanel, { controller, c, mx, units }),
             h(ImportedCurves, { controller, c, mx, ce }),
         ),
         h(PlotArea, null,

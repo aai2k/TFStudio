@@ -50,14 +50,14 @@ function CoatingList({ c, z, doc, selCoating, setSelCoating }) {
 // A relative thickness for which the file's MATE tables give no index at λ₀
 // shows as "?". The Mode column gives the file's own value to six figures; a
 // file written by a program can carry fifteen.
-function coatingLayerRow(layer, index, { c, z, materialsByName, refNm }) {
+function coatingLayerRow(layer, index, { c, z, materialsByName, refNm, units }) {
     const thickness = coatLayerThkNm(layer, materialsByName, refNm);
     const fileValue = Number(layer.thickness.toPrecision(6));
     return h('tr', { key: index },
         h('td', { style: { ...td(c), color: c.textDim } }, index + 1),
         h('td', { style: td(c) }, layer.material),
         h('td', { style: { ...td(c), textAlign: 'right', fontVariantNumeric: 'tabular-nums' } },
-            Number.isFinite(thickness) ? `${thickness.toFixed(2)} nm` : '?'),
+            Number.isFinite(thickness) ? `${thickness.toFixed(2)} ${units.nm}` : '?'),
         h('td', { style: { ...td(c), color: c.textDim } },
             `${fileValue} ${layer.isAbsolute ? z.modeAbs : z.modeRel}`),
     );
@@ -73,7 +73,7 @@ function ImportButton({ c, z, hasActiveDesign, importCoating }) {
 // The selected COAT, its layers as the file lists them, and what can be done
 // with it. A layer naming a material the file defines more than once is
 // converted with the last record of that name, as the import does.
-function CoatingDetail({ c, z, doc, selected, refNm, hasActiveDesign, importCoating, saveToLibrary }) {
+function CoatingDetail({ c, t, z, doc, selected, refNm, hasActiveDesign, importCoating, saveToLibrary }) {
     if (!selected) return h(CenteredMessage, { c, message: z.selectCoating });
     if (selected.type !== 'layers') return h(CenteredMessage, { c, message: z.importNotStack });
     const materialsByName = {};
@@ -92,7 +92,7 @@ function CoatingDetail({ c, z, doc, selected, refNm, hasActiveDesign, importCoat
                 h('th', { style: { ...th(c), textAlign: 'right' } }, z.colThickness),
                 h('th', { style: th(c) }, z.colMode),
             )),
-            h('tbody', null, selected.layers.map((layer, index) => coatingLayerRow(layer, index, { c, z, materialsByName, refNm }))),
+            h('tbody', null, selected.layers.map((layer, index) => coatingLayerRow(layer, index, { c, z, materialsByName, refNm, units: t.units }))),
         ),
         h('div', { style: { fontSize: 10.5, color: c.textDim } }, z.importNotStack),
     );

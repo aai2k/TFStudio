@@ -28,7 +28,7 @@ export function MeasuredEllipsometry({ c, t }) {
     const notices = controller.cosDeltaCurve
         ? [{ label: mx.cosDeltaWarning(controller.cosDeltaCurve.name), tone: 'warning' }]
         : [];
-    const tabProps = { controller, c, mx, ce: t.curveEditor };
+    const tabProps = { controller, c, mx, ce: t.curveEditor, units: t.units };
 
     return h(AnalysisWindow, { c },
         h(ControlRow, { c },
@@ -43,7 +43,7 @@ export function MeasuredEllipsometry({ c, t }) {
             h(ReportAndNotices, { c, t, status: controller.status, notices }),
         ),
         controller.tab === 'import' ? h(ImportTab, tabProps) : h(ExportTab, tabProps),
-        controller.fitDialogCurve && h(MeasuredFitDialog, { controller, c, sx: fitText }),
+        controller.fitDialogCurve && h(MeasuredFitDialog, { controller, c, sx: fitText, units: t.units }),
         controller.curveEditor.editorProps && h(CurveEditor, { ...controller.curveEditor.editorProps, c, t }),
     );
 }

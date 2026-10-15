@@ -18,6 +18,8 @@
  *      table and tooltip, the index profile's region labels, the sweep and
  *      integral marks, and the spectral unit choices. Everything a window shows
  *      on first render or with its panels open is russian_units_in_windows.mjs.
+ *   6. Data exchange: the curve editor's unit names and column titles, the n,k
+ *      result rows and the measured-curve fit dialog write units in Russian.
  *
  * Run: node tests/russian_units_one_way.mjs
  */
@@ -181,6 +183,34 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     for (const unit of ['мкм', 'нм', 'Н/м', 'МПа', 'мм', 'см⁻¹', 'ТГц', 'эВ']) {
         assert.ok(shown.some(s => s.includes(unit)), `ru analysis readouts write ${unit}`);
     }
+}
+
+// ── 6. Data exchange ─────────────────────────────────────────────────────────
+{
+    const D = '../src/components/windows/dataExchange/';
+    const { X_UNITS } = await import('../src/utils/io/spectrumTable.js');
+    const { editorLabels } = await import(`${D}curveEditor/editorLabels.js`);
+    const { X_KEY } = await import(`${D}curveEditor/curveTable.js`);
+    const shown = [];
+    for (const xUnit of [X_UNITS.NM, X_UNITS.UM, X_UNITS.CM1, X_UNITS.EV]) {
+        const labels = editorLabels(ru, { xUnit, columns: [] });
+        shown.push(labels.xUnit(xUnit), labels.columnTitle(X_KEY));
+    }
+    const { thicknessText } = await import(`${D}nkCharacterization/resultsModel.js`);
+    shown.push(thicknessText({ thicknessNm: 500, thicknessStatus: 'fitted', thicknessSpreadNm: 2 }, ru.nkCharacterization, ru.units));
+    const { MeasuredFitDialog } = await import(`${D}spectrumExchange/MeasuredFitDialog.js`);
+    const dialog = renderToStaticMarkup(h(MeasuredFitDialog, {
+        c, sx: ru.spectrumExchange, units: ru.units,
+        controller: {
+            fitDialogCurve: { name: 'm', x: [400, 800], y: [0.5, 0.5], quantity: 'T' },
+            fitConfig: { mode: 'uniform', rangeMin: 400, rangeMax: 800, stepNm: 5, constraintsEnabled: true },
+            fitSnapshot: {}, setFitOption() {}, onCreateFitOperand() {}, closeFitDialog() {}, missingMaterialIds: [],
+        },
+    }));
+    shown.push(...text(dialog).split(/\s{2,}/));
+    const latin = shown.filter(s => LATIN_UNIT.test(s));
+    assert.deepEqual(latin, [], 'a Russian data-exchange label writes a Latin unit');
+    assert.ok(['нм', 'мкм', 'см⁻¹', 'эВ'].every(unit => shown.some(s => s.includes(unit))), 'ru data exchange writes its units');
 }
 
 console.log('russian_units_one_way passed.');

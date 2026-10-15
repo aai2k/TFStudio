@@ -21,7 +21,7 @@
  * this file re-exports the public API from a single stable path.
  */
 
-export { X_UNITS, QUANTITIES } from './spectrumTable/constants.js';
+export { X_UNITS, X_UNIT_KEYS, QUANTITIES } from './spectrumTable/constants.js';
 export { parseNumber, sniffDelimiter, detectDecimal } from './spectrumTable/numberParsing.js';
 export {
     detectXUnit,
