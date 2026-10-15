@@ -13,6 +13,11 @@
  *   4. A Russian report writes нм, мм and мкм in its subtitles, facts, layer
  *      headings, color rows, merit cells and spectrum table, and the Report
  *      window's block summaries write нм.
+ *   5. The analysis readouts a window's first render does not show write units
+ *      in Russian: the masked-sample notice, the dominant wavelength, the stress
+ *      table and tooltip, the index profile's region labels, the sweep and
+ *      integral marks, and the spectral unit choices. Everything a window shows
+ *      on first render or with its panels open is russian_units_in_windows.mjs.
  *
  * Run: node tests/russian_units_one_way.mjs
  */
@@ -39,7 +44,7 @@ const text = html => html.replace(/<[^>]*>/g, ' ');
     const latin = literals.filter(literal => /[А-Яа-яЁё]/.test(literal) && /(^|[^A-Za-z_])(nm|fs)(?![A-Za-z_])/.test(literal));
     assert.deepEqual(latin, [], 'a Russian string writes nm or fs in Latin');
     assert.deepEqual(ru.units, {
-        nm: 'нм', um: 'мкм', mm: 'мм', fs: 'фс', fs2: 'фс²', fs3: 'фс³', fsPerNm: 'фс/нм', newtonPerM: 'Н/м',
+        nm: 'нм', um: 'мкм', mm: 'мм', m: 'м', fs: 'фс', fs2: 'фс²', fs3: 'фс³', fsPerNm: 'фс/нм', newtonPerM: 'Н/м',
         cm1: 'см⁻¹', THz: 'ТГц', eV: 'эВ', MPa: 'МПа', GPa: 'ГПа', ppmPerK: 'ppm/K', celsius: '°C', jPerM2: 'Дж/м²',
     });
 }
@@ -136,6 +141,45 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     for (const block of blocks) {
         const summary = blockSummary(ru.report.window, block, ru.units);
         assert.ok(!LATIN_UNIT.test(summary), `ru block summary: ${summary}`);
+    }
+}
+
+// ── 5. Analysis readouts ─────────────────────────────────────────────────────
+{
+    const shown = [];
+    const A = '../src/components/windows/analysis/';
+    const { invalidSummary } = await import(`${A}materialDispersion/MaterialDispersionEvaluation.js`);
+    shown.push(invalidSummary({ invalid: [{ reason: 'r', maximumThicknessMm: 0.002 }] }, 'um', ru.gdgdd, ru.units));
+    const { readoutTableRows } = await import(`${A}colorEvaluation/colorModel.js`);
+    const report = new Proxy({ dom: { dom: 575, purity: 0.5 }, cct: {} }, { get: (o, k) => o[k] ?? new Proxy({}, { get: () => 0 }) });
+    shown.push(...readoutTableRows(report, ru.colorEval, ru.units).map(row => row.value));
+    const { wholeRows } = await import(`${A}stressAnalysis/tableModel.js`);
+    shown.push(...wholeRows({}, ru.stressAnalysis, ru.units).map(row => row.unit));
+    const { buildStressOption } = await import(`${A}stressAnalysis/StressChart.js`);
+    const stress = buildStressOption({
+        rows: [{ layerNumber: 1, side: 'front', stressMPa: 100, materialId: 'm' }], matColorMap: {}, bothSides: false,
+        sa: ru.stressAnalysis, units: ru.units, c,
+    });
+    shown.push(stress.tooltip.formatter({ dataIndex: 0, value: 100, marker: '', seriesName: 'm' }));
+    const { buildRITotalOption } = await import(`${A}refractiveIndexProfiler/RITotalChart.js`);
+    const region = (key, totalThk) => ({ key, label: key, totalThk, z: [0, totalThk], n: [1.5, 1.5], k: [0, 0], layerBounds: [0, totalThk] });
+    const profile = buildRITotalOption([region('front', 200), region('substrate', 1)], 'n', { matColorMap: {}, colors: {}, units: ru.units });
+    shown.push(...profile.series[0].markPoint.data.map(point => point.label.formatter));
+    const { buildSweepOption } = await import(`${A}systematicDeviations/sweepFigure.js`);
+    const sweep = buildSweepOption({ lambda: [500], paramValues: [1], T2D: [[0.5]] }, 'T', c, { units: ru.units });
+    shown.push(sweep.tooltip.formatter({ seriesName: 'T', value: [0, 0, 50] }));
+    const { buildOverlayOption } = await import(`${A}integralValues/overlayFigure.js`);
+    const marks = buildOverlayOption({
+        spectrum: { lambda: [500, 600], T: [0.9, 0.8] }, char: 'T', colors: {}, labels: ru.integralValues, units: ru.units,
+        minMaxMarks: { min: 0.8, lamAtMin: 600, max: 0.9, lamAtMax: 500 },
+    });
+    shown.push(...marks.series.slice(1).map(series => series.name));
+    const { SPECTRAL_UNIT_IDS } = await import('../src/utils/physics/spectralAxis.js');
+    shown.push(...SPECTRAL_UNIT_IDS.map(id => ru.units[id]));
+    const latin = shown.filter(s => LATIN_UNIT.test(s));
+    assert.deepEqual(latin, [], 'a Russian analysis readout writes a Latin unit');
+    for (const unit of ['мкм', 'нм', 'Н/м', 'МПа', 'мм', 'см⁻¹', 'ТГц', 'эВ']) {
+        assert.ok(shown.some(s => s.includes(unit)), `ru analysis readouts write ${unit}`);
     }
 }
 

@@ -44,10 +44,11 @@ const figures = (entry, value) => (Number.isFinite(value)
         : value.toFixed(entry.digits))
     : '');
 
+// Slab thickness units, keyed as t.units names them.
 const THICKNESS_UNITS = {
-    nm: { label: 'nm', perMm: 1e6 },
-    um: { label: 'µm', perMm: 1e3 },
-    mm: { label: 'mm', perMm: 1 },
+    nm: { perMm: 1e6 },
+    um: { perMm: 1e3 },
+    mm: { perMm: 1 },
 };
 
 function thicknessFromMm(valueMm, unit) {
@@ -63,9 +64,9 @@ function thicknessStep(value) {
     return 10 ** (Math.floor(Math.log10(value)) - 1);
 }
 
-function formatThickness(valueMm, unit) {
+function formatThickness(valueMm, unit, units) {
     const value = thicknessFromMm(valueMm, unit);
-    return `${Number(value.toPrecision(6))} ${THICKNESS_UNITS[unit].label}`;
+    return `${Number(value.toPrecision(6))} ${units[unit]}`;
 }
 
 function sampleWavelengths(start, end) {
@@ -120,8 +121,8 @@ function plotModel(spectrum, quantity, meta) {
 }
 
 // The notice text for samples that could not be computed. The reasons come
-// from the dispersion engine as they are; `text` is t.gdgdd.
-export function invalidSummary(spectrum, thicknessUnit, text) {
+// from the dispersion engine as they are; `text` is t.gdgdd and `units` t.units.
+export function invalidSummary(spectrum, thicknessUnit, text, units) {
     if (!spectrum?.invalid.length) return null;
     const count = spectrum.invalid.length;
     const reasons = [...new Set(spectrum.invalid.map(value => value.reason))];
@@ -132,7 +133,7 @@ export function invalidSummary(spectrum, thicknessUnit, text) {
         ? text.maskedOneReason(count, reasons[0])
         : text.maskedReasons(count, reasons.length);
     return limits.length
-        ? `${summary} ${text.maskedThicknessLimit(formatThickness(Math.min(...limits), thicknessUnit))}`
+        ? `${summary} ${text.maskedThicknessLimit(formatThickness(Math.min(...limits), thicknessUnit, units))}`
         : summary;
 }
 
@@ -180,12 +181,12 @@ function Setup({ state, c, t }) {
             h(ChoiceGroup, {
                 activeId: state.thicknessUnit, onSelect: state.setThicknessUnit, c,
                 ariaLabel: t.gdgdd.thicknessUnit,
-                items: Object.entries(THICKNESS_UNITS).map(([id, unit]) => ({ id, label: unit.label })),
+                items: Object.keys(THICKNESS_UNITS).map(id => ({ id, label: t.units[id] })),
             }),
         ),
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
-                c, unit: 'nm',
+                c, unit: t.units.nm,
                 from: { value: state.start, onChange: state.setStart, positive: true, step: 10 },
                 to: { value: state.end, onChange: state.setEnd, positive: true, step: 10 },
             }),
@@ -247,7 +248,7 @@ export function MaterialDispersionEvaluation({ c, t }) {
         () => csvFromRows(table.columns, table.rows),
         () => `${(material?.name || materialId).replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
     );
-    const masked = invalidSummary(spectrum, thicknessUnit, footerText);
+    const masked = invalidSummary(spectrum, thicknessUnit, footerText, t.units);
     // This window plots one material rather than a design stack, and the edge of
     // its data is the whole reason to look at it here: the curve is drawn out
     // there and the band shaded, with the same helpers Optical Evaluation uses.

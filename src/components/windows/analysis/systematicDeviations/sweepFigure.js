@@ -55,7 +55,7 @@ function parameterLabelInterval(data) {
     };
 }
 
-function sweepTooltip(sweepData, colors, paramName) {
+function sweepTooltip(sweepData, colors, paramName, units) {
     return {
         trigger: 'item', appendTo: tooltipContainer, confine: true,
         transitionDuration: 0, enterable: false, padding: [5, 7],
@@ -66,7 +66,7 @@ function sweepTooltip(sweepData, colors, paramName) {
         formatter: ({ seriesName, value }) => {
             const wavelength = sweepData.lambda[value[0]];
             const parameter = sweepData.paramValues[value[1]];
-            return `${seriesName}<br/>λ: ${formatChartReadout(wavelength)} nm`
+            return `${seriesName}<br/>λ: ${formatChartReadout(wavelength)} ${units.nm}`
                 + `<br/>${paramName}: ${formatChartReadout(parameter)}`
                 + `<br/>${formatChartReadout(value[2])}%`;
         },
@@ -75,9 +75,9 @@ function sweepTooltip(sweepData, colors, paramName) {
 
 /**
  * `paramName` is the swept parameter's name in the UI language, `lambdaAxis` the
- * wavelength axis title, t.spectralAxis.lambdaShort.
+ * wavelength axis title, t.spectralAxis.lambdaShort, and `units` t.units.
  */
-export function buildSweepOption(sweepData, channel, colors, paramName, lambdaAxis) {
+export function buildSweepOption(sweepData, channel, colors, { paramName, lambdaAxis, units }) {
     if (!sweepData?.lambda?.length) return { series: [] };
     const channels = channel === 'all' ? ['T', 'R', 'A'] : [channel];
     const count = channels.length;
@@ -119,7 +119,7 @@ export function buildSweepOption(sweepData, channel, colors, paramName, lambdaAx
         colors,
         grid: grids,
         fileName: 'deviation_sweep',
-        tooltip: sweepTooltip(sweepData, colors, paramName),
+        tooltip: sweepTooltip(sweepData, colors, paramName, units),
         xAxis,
         yAxis,
         series,

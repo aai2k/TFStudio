@@ -220,7 +220,7 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
         totalStrainEnergy: 'Total strain energy', crackingParameter: 'Cracking parameter',
     };
     const design = validationDesign({ substrate: { material: 'user_m:Sub', thickness: 15 } });
-    const rows = wholeRows(analyse(design).whole, sa);
+    const rows = wholeRows(analyse(design).whole, sa, { newtonPerM: 'N/m', m: 'm', um: 'µm', jPerM2: 'J/m²' });
     assert.equal(rows.length, 5, 'five whole-part rows');
     assert.equal(rows.find(row => row.quantity === 'Deflection').display, '—',
         'a quantity the design cannot support prints a dash, never a zero');

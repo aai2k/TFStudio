@@ -1,14 +1,18 @@
-/** Display-unit conversion for wavelength-backed chart axes and controls. */
+/**
+ * Display-unit conversion for wavelength-backed chart axes and controls. A
+ * unit's id is also its key in t.units, which holds the symbol it is written
+ * with.
+ */
 
 const C_NM_THZ = 299792.458;
 const HC_EV_NM = 1239.841984;
 
 export const SPECTRAL_UNITS = {
-    nm:  { id: 'nm',  short: 'nm',   decimals: 0, toNm: value => value,            fromNm: nm => nm },
-    um:  { id: 'um',  short: 'µm',   decimals: 3, toNm: value => value * 1000,     fromNm: nm => nm / 1000 },
-    cm1: { id: 'cm1', short: 'cm⁻¹', decimals: 0, toNm: value => 1e7 / value,      fromNm: nm => 1e7 / nm },
-    THz: { id: 'THz', short: 'THz',  decimals: 1, toNm: value => C_NM_THZ / value, fromNm: nm => C_NM_THZ / nm },
-    eV:  { id: 'eV',  short: 'eV',   decimals: 3, toNm: value => HC_EV_NM / value,  fromNm: nm => HC_EV_NM / nm },
+    nm:  { id: 'nm',  decimals: 0, toNm: value => value,            fromNm: nm => nm },
+    um:  { id: 'um',  decimals: 3, toNm: value => value * 1000,     fromNm: nm => nm / 1000 },
+    cm1: { id: 'cm1', decimals: 0, toNm: value => 1e7 / value,      fromNm: nm => 1e7 / nm },
+    THz: { id: 'THz', decimals: 1, toNm: value => C_NM_THZ / value, fromNm: nm => C_NM_THZ / nm },
+    eV:  { id: 'eV',  decimals: 3, toNm: value => HC_EV_NM / value,  fromNm: nm => HC_EV_NM / nm },
 };
 
 export const SPECTRAL_UNIT_IDS = ['nm', 'um', 'cm1', 'THz', 'eV'];

@@ -120,7 +120,7 @@ function GDSetup({ c, t, text, state, raw, autoRange }) {
         h(SettingDivider, { c }),
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
-                c, unit: 'nm',
+                c, unit: t.units.nm,
                 from: {
                     value: state.lamStart, positive: true, step: 10,
                     onChange: state.setLamStart,

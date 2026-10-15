@@ -45,7 +45,7 @@ export function StressAnalysis({ c, theme, t }) {
         h(PlotArea, null,
             drawable
                 ? h(StressChart, {
-                    rows, matColorMap: result.matColorMap, bothSides, sa, c,
+                    rows, matColorMap: result.matColorMap, bothSides, sa, units: t.units, c,
                 })
                 : h(CenteredMessage, { c, message: sa.noStress }),
         ),
@@ -53,7 +53,7 @@ export function StressAnalysis({ c, theme, t }) {
             c, label: sa.wholePart, summary: sa.wholePartSummary,
             open: state.showWhole, setOpen: state.setShowWhole,
             actions: h(EvalModeBadge, { design, c, t }),
-        }, h(ResultsGrid, { columns: wholeColumns(sa), rows: wholeRows(result.whole, sa), c, height: 130 })),
+        }, h(ResultsGrid, { columns: wholeColumns(sa), rows: wholeRows(result.whole, sa, t.units), c, height: 130 })),
         h(ResultsSection, {
             c, label: sa.perFilm, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

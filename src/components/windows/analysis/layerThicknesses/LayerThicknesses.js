@@ -15,10 +15,10 @@ import { useThicknessState } from './useThicknessState.js';
 const { createElement: h } = React;
 
 const AXIS_BY_UNIT = {
-    nm:   { title: lt => lt.yPhysical, suffix: ' nm' },
-    OT:   { title: lt => lt.yOptical,  suffix: ' nm' },
-    QWOT: { title: lt => lt.yQwot,     suffix: '' },
-    FWOT: { title: lt => lt.yFwot,     suffix: '' },
+    nm:   { title: lt => lt.yPhysical, suffix: units => ` ${units.nm}` },
+    OT:   { title: lt => lt.yOptical,  suffix: units => ` ${units.nm}` },
+    QWOT: { title: lt => lt.yQwot,     suffix: () => '' },
+    FWOT: { title: lt => lt.yFwot,     suffix: () => '' },
 };
 
 function tableColumns(lt) {
@@ -52,7 +52,7 @@ export function LayerThicknesses({ c, theme, t }) {
             state.rows.length
                 ? h(ThicknessChart, {
                     rows: state.rows, unit: state.units, matColorMap: state.matColorMap,
-                    c, xTitle: lt.axisLayer, yTitle: axis.title(lt), valueSuffix: axis.suffix,
+                    c, xTitle: lt.axisLayer, yTitle: axis.title(lt), valueSuffix: axis.suffix(t.units),
                 })
                 : h(CenteredMessage, { c, message: lt.noLayers }),
         ),

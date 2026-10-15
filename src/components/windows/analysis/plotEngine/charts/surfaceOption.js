@@ -21,9 +21,10 @@ const SURFACE_INTERACTION = Object.freeze({
     panSensitivity: 1.5,
 });
 
-export function surfacePlotAxisLabel(token, design, labels) {
+/** `labels` is t.plotEngine and `units` t.units, which writes a thickness axis's unit. */
+export function surfacePlotAxisLabel(token, design, labels, units) {
     const parsed = parseAxisVar(token);
-    if (parsed.kind === 'thk') return `L${layerNumber(design, parsed.layer)} d (nm)`;
+    if (parsed.kind === 'thk') return `L${layerNumber(design, parsed.layer)} d (${units.nm})`;
     if (parsed.kind === 'n' || parsed.kind === 'k') return `L${layerNumber(design, parsed.layer)} ${parsed.kind}`;
     return surfaceAxisLabel(token, design, labels);
 }
@@ -286,14 +287,15 @@ function heatmapCellSeries(zLabel, heatmap, c) {
  *
  * `view` is how the grid is being shown rather than what is in it:
  * `barHeight` the colour bar's measured height, `image` the grid already
- * rasterised, and `range` the band selected on the bar.
+ * rasterised, and `range` the band selected on the bar. `labels` and `units`
+ * are t.plotEngine and t.units.
  */
 export function buildSurfaceOption(result, spec, design, c, view = {}) {
-    const labels = view.labels;
+    const { labels, units } = view;
     const { barHeight = DEFAULT_BAR_HEIGHT, image = null, range = null } = view;
     if (!result?.ok) return null;
-    const xName = surfacePlotAxisLabel(spec.xVar, design, labels);
-    const yName = surfacePlotAxisLabel(spec.yVar, design, labels);
+    const xName = surfacePlotAxisLabel(spec.xVar, design, labels, units);
+    const yName = surfacePlotAxisLabel(spec.yVar, design, labels, units);
     const colors = colorScale(spec.colorscale);
     const percent = isPercentQuantity(spec);
     const scale = heatmapScale(spec);

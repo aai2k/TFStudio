@@ -75,7 +75,7 @@ function EllipsometrySetup({ c, t, text, state }) {
             ? h(React.Fragment, null,
                 h(SettingRow, { c, label: 'λ' },
                     h(RangeField, {
-                        c, unit: 'nm',
+                        c, unit: t.units.nm,
                         from: {
                             value: state.lambdaStart, positive: true, step: 10,
                             onChange: state.setLambdaStart,

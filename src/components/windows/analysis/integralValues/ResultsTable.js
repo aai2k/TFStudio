@@ -64,7 +64,7 @@ function EditableName(props) {
 }
 
 function EditableBand(props) {
-    const { custom, styles, c, onPatch } = props;
+    const { custom, styles, c, onPatch, units } = props;
     const stopRow = event => event.stopPropagation();
     const focus = event => { event.target.style.border = `1px solid ${c.border}`; };
     const blur = event => { event.target.style.border = '1px solid transparent'; };
@@ -98,7 +98,7 @@ function EditableBand(props) {
             onFocus: focus, onBlur: blur,
             style: { ...styles.edit, width: 56 },
         }),
-        h('span', { style: { color: c.textDim, fontSize: 10 } }, 'nm'),
+        h('span', { style: { color: c.textDim, fontSize: 10 } }, units.nm),
     );
 }
 
@@ -118,12 +118,12 @@ function RemoveButton(props) {
 }
 
 function ResultRow(props) {
-    const { definition, result, index, selected, setSelected, onPatch, onRemove, styles, c, iv } = props;
+    const { definition, result, index, selected, setSelected, onPatch, onRemove, styles, c, iv, units } = props;
     const custom = definition.builtin ? null : definition._custom;
     const available = Number.isFinite(result?.value);
     const band = definition.weighting.lamMin === definition.weighting.lamMax
         ? '—'
-        : `${definition.weighting.lamMin.toFixed(0)}–${definition.weighting.lamMax.toFixed(0)} nm`;
+        : `${definition.weighting.lamMin.toFixed(0)}–${definition.weighting.lamMax.toFixed(0)} ${units.nm}`;
     return h('tr', {
         onClick: () => setSelected(definition.key),
         style: {
@@ -155,7 +155,7 @@ function ResultRow(props) {
         h('td', {
             style: { ...styles.td, textAlign: 'left', color: c.textDim, padding: '2px 4px' },
         }, custom
-            ? h(EditableBand, { custom, styles, c, onPatch })
+            ? h(EditableBand, { custom, styles, c, onPatch, units })
             : band,
             h(SpanNote, { result, c, iv })),
         h('td', { style: { ...styles.td, textAlign: 'center', padding: '0 4px' } },
@@ -196,6 +196,7 @@ export function ResultsTable(props) {
                         styles,
                         c,
                         iv,
+                        units: t.units,
                     }))
                     : h('tr', null,
                         h('td', {

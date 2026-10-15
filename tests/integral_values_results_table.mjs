@@ -39,7 +39,7 @@ const rowOf = (html, label) => html.split('<tr').find(row => row.includes(`>${la
     assert.ok(row.includes(t.integralValues.spectrumSpan('450', '650')), 'and names the span 450-650 nm');
     assert.ok(!/0\.9\d{4}/.test(row), 'and shows no average over part of the band');
 
-    const exported = exportRows(integrals, results).find(r => r.label === 'Tsol');
+    const exported = exportRows(integrals, results, t.units).find(r => r.label === 'Tsol');
     assert.equal(exported.value, null, 'the exported value cell is empty');
     assert.equal(exported.percent, null);
     assert.equal(exported.min, null);

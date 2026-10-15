@@ -20,7 +20,7 @@ export function RefractiveIndexProfiler({ c, theme, t }) {
     const dt = t.dataTable;
     const { design } = useDesign();
     const state = useProfilerState(design, rp);
-    const view = buildProfileViewModel(state.side, state.profile, state.regions);
+    const view = buildProfileViewModel(state.side, state.profile, state.regions, t.units);
     const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
     const csv = useCsvExport(
         () => csvFromRows(view.tableColumns, view.tableRows),
@@ -34,7 +34,7 @@ export function RefractiveIndexProfiler({ c, theme, t }) {
                 ? (view.isTotal
                     ? h(RITotalChart, {
                         regions: state.regions, quantity: state.quantity,
-                        matColorMap: state.matColorMap, c,
+                        matColorMap: state.matColorMap, c, units: t.units,
                     })
                     : h(RIChart, {
                         profile: state.profile, quantity: state.quantity,

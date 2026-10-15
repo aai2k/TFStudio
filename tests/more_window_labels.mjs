@@ -120,7 +120,7 @@ const design = {
         const minMaxMarks = { min: 0.8, lamAtMin: 600, max: 0.9, lamAtMax: 500 };
         for (const [code, t] of translated) {
             const iv = t.integralValues;
-            const [min, max] = buildOverlayOption({ spectrum, char: 'T', minMaxMarks, colors: {}, labels: iv })
+            const [min, max] = buildOverlayOption({ spectrum, char: 'T', minMaxMarks, colors: {}, labels: iv, units: t.units })
                 .series.slice(1).map(series => series.name);
             expect(min.startsWith(`${iv.col_min} `) && max.startsWith(`${iv.col_max} `), `${code} reads ${min}, ${max}`);
         }

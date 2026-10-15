@@ -48,7 +48,7 @@ assert.equal(placed[2].width, 100);
 assert.deepEqual(placed[1].plotX, [210, 290]);
 assert.equal(totalWidth, 410);
 
-const view = buildProfileViewModel('total', null, regions);
+const view = buildProfileViewModel('total', null, regions, makeLocale().units);
 assert.equal(view.layerCount, 4);
 assert.equal(view.totalThkStr, '290.0');
 assert.equal(view.tableRows.length, 8);

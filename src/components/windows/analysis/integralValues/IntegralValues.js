@@ -62,7 +62,7 @@ export function IntegralValues({ c, theme, t }) {
     const { design, evalMode } = useDesign();
     const model = useIntegralValues(design, evalMode);
     const columns = exportColumns(t);
-    const rows = exportRows(model.integrals, model.results);
+    const rows = exportRows(model.integrals, model.results, t.units);
     const { setParams } = model;
     const fixRange = ([from, to]) => setParams({ lambdaStart: from, lambdaEnd: to });
     const rangeNotice = useMaterialRangeNotice(
@@ -86,7 +86,7 @@ export function IntegralValues({ c, theme, t }) {
                 ? h(OverlayChart, {
                     spectrum: model.spectrum, char: model.selected.char,
                     weighting: model.selected.weighting, title: chartTitle(model.selected, iv.weightings),
-                    minMaxMarks: model.selectedResult, lambdaAxis: t.spectralAxis.lambdaShort, labels: iv, c, theme,
+                    minMaxMarks: model.selectedResult, lambdaAxis: t.spectralAxis.lambdaShort, labels: iv, units: t.units, c, theme,
                 })
                 : h(CenteredMessage, { c, message: iv.computing }),
         ),

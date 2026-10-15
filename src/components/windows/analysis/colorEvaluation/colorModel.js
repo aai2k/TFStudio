@@ -74,18 +74,18 @@ export function computeColorReport(options) {
     }
 }
 
-function dominantWavelength(report, ce) {
+function dominantWavelength(report, ce, units) {
     if (report.dom.dom != null) {
-        return `${formatValue(report.dom.dom, 1)} nm   ${ce.purity} ${formatValue(report.dom.purity * 100, 2)}%`;
+        return `${formatValue(report.dom.dom, 1)} ${units.nm}   ${ce.purity} ${formatValue(report.dom.purity * 100, 2)}%`;
     }
     if (report.dom.comp != null) {
-        return `${ce.compl} ${formatValue(report.dom.comp, 1)} nm   ${ce.purity} ${formatValue(report.dom.purity * 100, 2)}%`;
+        return `${ce.compl} ${formatValue(report.dom.comp, 1)} ${units.nm}   ${ce.purity} ${formatValue(report.dom.purity * 100, 2)}%`;
     }
     return '—';
 }
 
 /** One row per colour space, as the quantity's name and its coordinates. */
-export function colorReadoutRows(report, ce) {
+export function colorReadoutRows(report, ce, units) {
     if (!report) return [];
     const f = formatValue;
     return [
@@ -98,7 +98,7 @@ export function colorReadoutRows(report, ce) {
         ["u' v' (1976)", `u' ${f(report.uvP.up)}   v' ${f(report.uvP.vp)}`],
         ['u v (1960)', `u ${f(report.uv60.u)}   v ${f(report.uv60.v)}`],
         ['Hunter Lab', `L ${f(report.Hunter.L, 3)}   a ${f(report.Hunter.a, 3)}   b ${f(report.Hunter.b, 3)}`],
-        [ce.dominant, dominantWavelength(report, ce)],
+        [ce.dominant, dominantWavelength(report, ce, units)],
         ['CCT / Duv', `${f(report.cct.cct, 0)} K   Duv ${f(report.cct.duv, 4)}`],
     ];
 }
@@ -110,6 +110,6 @@ export function readoutColumns(ce) {
     ];
 }
 
-export function readoutTableRows(report, ce) {
-    return colorReadoutRows(report, ce).map(([quantity, value]) => ({ quantity, value }));
+export function readoutTableRows(report, ce, units) {
+    return colorReadoutRows(report, ce, units).map(([quantity, value]) => ({ quantity, value }));
 }

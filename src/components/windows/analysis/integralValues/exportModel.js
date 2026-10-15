@@ -4,10 +4,10 @@
  * shape `csvFromRows` writes.
  */
 
-function band(weighting) {
+function band(weighting, units) {
     return weighting.lamMin === weighting.lamMax
         ? ''
-        : `${weighting.lamMin.toFixed(0)}-${weighting.lamMax.toFixed(0)} nm`;
+        : `${weighting.lamMin.toFixed(0)}-${weighting.lamMax.toFixed(0)} ${units.nm}`;
 }
 
 export function exportColumns(t) {
@@ -17,9 +17,9 @@ export function exportColumns(t) {
         { key: 'value', label: iv.col_value },
         { key: 'percent', label: '%' },
         { key: 'min', label: iv.col_min },
-        { key: 'lamAtMin', label: `${iv.col_min} λ (nm)` },
+        { key: 'lamAtMin', label: `${iv.col_min} λ (${t.units.nm})` },
         { key: 'max', label: iv.col_max },
-        { key: 'lamAtMax', label: `${iv.col_max} λ (nm)` },
+        { key: 'lamAtMax', label: `${iv.col_max} λ (${t.units.nm})` },
         { key: 'band', label: iv.col_band },
     ];
 }
@@ -28,7 +28,7 @@ export function exportColumns(t) {
 // spectrum does not cover, is an empty cell rather than NaN.
 const finiteOrNull = value => (Number.isFinite(value) ? value : null);
 
-export function exportRows(integrals, results) {
+export function exportRows(integrals, results, units) {
     if (!results) return [];
     return (integrals || []).map(definition => {
         const result = results[definition.key] || {};
@@ -41,7 +41,7 @@ export function exportRows(integrals, results) {
             lamAtMin: finiteOrNull(result.lamAtMin),
             max: finiteOrNull(result.max),
             lamAtMax: finiteOrNull(result.lamAtMax),
-            band: band(definition.weighting),
+            band: band(definition.weighting, units),
         };
     });
 }

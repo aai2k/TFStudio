@@ -56,7 +56,7 @@ function RoughnessSetup({ c, t, rs, state }) {
     },
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
-                c, unit: 'nm',
+                c, unit: t.units.nm,
                 from: {
                     value: state.lambdaStart, positive: true, step: 10,
                     onChange: state.setLambdaStart,
@@ -108,7 +108,7 @@ const rangeItems = rs => [
  * the limits of the long-range model are stated under the fields, because the
  * choice between them decides whether any light is lost at all.
  */
-export function RoughnessEditor({ c, rs, state }) {
+export function RoughnessEditor({ c, rs, state, units }) {
     const { rough } = state;
     return h(EditorBody, { c },
         rough.mode === 'uniform'
@@ -118,7 +118,7 @@ export function RoughnessEditor({ c, rs, state }) {
                         value: rough.sigma, min: 0, max: 100, step: 0.1, c, width: 68,
                         onChange: state.setUniformSigma,
                     }),
-                    h(FieldLabel, { c }, 'nm'),
+                    h(FieldLabel, { c }, units.nm),
                 ),
                 h(SettingRow, { c, label: rs.rangeLabel },
                     h(ChoiceGroup, {
@@ -127,7 +127,7 @@ export function RoughnessEditor({ c, rs, state }) {
                     }),
                 ),
             )
-            : h(InterfaceRows, { c, rs, state }),
+            : h(InterfaceRows, { c, rs, state, units }),
         h(EditorNote, { c }, rs.rangeHelp),
         h(EditorNote, { c }, rs.scopeHelp),
     );
@@ -138,7 +138,7 @@ function EditorNote({ c, children }) {
         children);
 }
 
-function InterfaceRows({ c, rs, state }) {
+function InterfaceRows({ c, rs, state, units }) {
     const { rough } = state;
     const sides = state.activeSides.filter(side => side === 'front' || state.hasBack);
     return sides.map(side => {
@@ -153,7 +153,7 @@ function InterfaceRows({ c, rs, state }) {
             heading && h(EditorGroupTitle, { c }, heading),
             h(FieldGrid, { minWidth: 320 },
                 sideLabels.map((label, index) => h(InterfaceRow, {
-                    key: index, c, rs, label: label.label,
+                    key: index, c, rs, units, label: label.label,
                     sigma: sigmas?.[index] ?? rough.sigma ?? 0,
                     range: ranges?.[index] ?? rough.range,
                     onSigma: value => state.setInterfaceSigma(side, index, value),
@@ -167,7 +167,7 @@ function InterfaceRows({ c, rs, state }) {
 // Interface names are the two materials meeting there, so they are far longer
 // than a settings label and take the width the row can spare instead of a
 // fixed column.
-function InterfaceRow({ c, rs, label, sigma, range, onSigma, onRange }) {
+function InterfaceRow({ c, rs, units, label, sigma, range, onSigma, onRange }) {
     return h('div', {
         style: { display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0', minHeight: 26 },
     },
@@ -179,7 +179,7 @@ function InterfaceRow({ c, rs, label, sigma, range, onSigma, onRange }) {
             title: label,
         }, label),
         h(NumInput, { value: sigma, min: 0, max: 100, step: 0.1, c, width: 68, onChange: onSigma }),
-        h(FieldLabel, { c }, 'nm'),
+        h(FieldLabel, { c }, units.nm),
         h(SelectField, {
             c, value: range, onChange: onRange, width: 96, title: rs.rangeLabel,
             options: rangeItems(rs),

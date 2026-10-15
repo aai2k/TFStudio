@@ -56,7 +56,7 @@ function ErrorSetup({ c, t, ea, state }) {
     },
         h(SettingRow, { c, label: ea.lambdaRange },
             h(RangeField, {
-                c, unit: 'nm', width: 60,
+                c, unit: t.units.nm, width: 60,
                 from: {
                     value: params.lambdaStart, positive: true, step: 10,
                     onChange: value => patch({ lambdaStart: value }),
@@ -109,9 +109,9 @@ function ErrorSetup({ c, t, ea, state }) {
 }
 
 /** One line naming what a run would be drawn with, for the strip's header. */
-export function errorEditorSummary(state, ea) {
+export function errorEditorSummary(state, ea, units) {
     const parts = [];
-    if (state.rmsAbsNm > 0) parts.push(`${ea.rmsAbs} ${state.rmsAbsNm} nm`);
+    if (state.rmsAbsNm > 0) parts.push(`${ea.rmsAbs} ${state.rmsAbsNm} ${units.nm}`);
     if (state.rmsRelPct > 0) parts.push(`${ea.rmsRel} ${state.rmsRelPct} %`);
     if (state.rmsReN > 0) parts.push(`${ea.rmsReN} ${state.rmsReN}`);
     if (state.rmsImN > 0) parts.push(`${ea.rmsImN} ${state.rmsImN}`);
@@ -124,7 +124,7 @@ export function errorEditorSummary(state, ea) {
  * they are. These sit below the plot rather than in the settings panel because
  * they are the experiment, not the view of it.
  */
-export function ErrorEditor({ c, ea, state }) {
+export function ErrorEditor({ c, ea, state, units }) {
     // Uniform and truncated draws have a hard bound, so the entered figure is a
     // ± limit rather than a standard deviation and the labels say so.
     const magnitudeLabel = text => (state.distribution === 'gaussian'
@@ -171,7 +171,7 @@ export function ErrorEditor({ c, ea, state }) {
                     value: state.rmsAbsNm, min: 0, max: 1000, step: 0.1, c, width: 72,
                     title: ea.rmsAbsTip, onChange: state.setRmsAbsNm,
                 }),
-                h(FieldLabel, { c }, 'nm'),
+                h(FieldLabel, { c }, units.nm),
             ),
             h(SettingRow, { c, label: magnitudeLabel(ea.rmsRel) },
                 h(NumInput, {

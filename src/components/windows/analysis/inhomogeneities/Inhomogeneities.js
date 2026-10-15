@@ -69,7 +69,7 @@ export function Inhomogeneities({ c, theme, t }) {
         ),
         h(ResultsSection, {
             c, label: ih.editorTitle,
-            summary: `${activeInterlayerCount(inh)} ${ih.activeInterlayers} · Σ ${totalInterlayerThickness(inh).toFixed(2)} nm`,
+            summary: `${activeInterlayerCount(inh)} ${ih.activeInterlayers} · Σ ${totalInterlayerThickness(inh).toFixed(2)} ${t.units.nm}`,
             open: state.showEditor, setOpen: state.setShowEditor,
             actions: h(InhomogeneityEditorActions, { c, ih, state }),
         }, h(InhomogeneityEditor, { c, ih, state })),

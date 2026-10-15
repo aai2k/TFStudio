@@ -32,7 +32,7 @@ function WorstRequirements({ c, ea, sp, offenders, th, td }) {
     );
 }
 
-function WorstLayers({ c, ea, layers, haveFails, th, td }) {
+function WorstLayers({ c, ea, units, layers, haveFails, th, td }) {
     if (layers.length === 0) return null;
     return h('table', { style: { width: '100%', borderCollapse: 'collapse', marginTop: 2 } },
         h('thead', null, h('tr', null,
@@ -51,7 +51,7 @@ function WorstLayers({ c, ea, layers, haveFails, th, td }) {
                     title: layer.material || '',
                     style: { display: 'inline-block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }
                 }, layer.material || '—')),
-            h('td', { style: { ...td, color: c.text } }, `${layer.rms.toFixed(2)} nm`),
+            h('td', { style: { ...td, color: c.text } }, `${layer.rms.toFixed(2)} ${units.nm}`),
             haveFails && h('td', {
                 style: { ...td, color: layer.offender > 1e-6 ? '#ffb74d' : c.textDim, fontWeight: layer.offender > 1e-6 ? 600 : 400 }
             }, `${layer.meanFail.toFixed(2)}`),
@@ -85,13 +85,13 @@ function OverviewStatistics({ result, corridorSigma, blockLbl, c, ea }) {
     );
 }
 
-function SpreadStatistics({ spread, corridorSigma, blockLbl, c, ea }) {
+function SpreadStatistics({ spread, corridorSigma, blockLbl, c, ea, units }) {
     return h(React.Fragment, null,
         h('div', { style: blockLbl }, ea.statsSpread || 'Spectral spread (Monte Carlo σ)'),
         h(StatRow, { c, label: ea.statMeanSigma || 'Mean σ', value: formatPercent(spread.meanSig) }),
         h(StatRow, {
             c, label: ea.statPeakSigma || 'Peak σ',
-            value: `${formatPercent(spread.maxSig)}${spread.maxLam != null ? `  @ ${spread.maxLam} nm` : ''}`,
+            value: `${formatPercent(spread.maxSig)}${spread.maxLam != null ? `  @ ${spread.maxLam} ${units.nm}` : ''}`,
         }),
         h(StatRow, {
             c, label: ea.statCorridorWidth || `Mean corridor width (±${corridorSigma ?? 1}σ)`,
@@ -100,7 +100,7 @@ function SpreadStatistics({ spread, corridorSigma, blockLbl, c, ea }) {
     );
 }
 
-function WorstLayersSection({ layers, haveFails, blockLbl, th, td, c, ea }) {
+function WorstLayersSection({ layers, haveFails, blockLbl, th, td, c, ea, units }) {
     return h(React.Fragment, null,
         layers.length > 0 && h('div', {
             style: blockLbl,
@@ -110,11 +110,11 @@ function WorstLayersSection({ layers, haveFails, blockLbl, th, td, c, ea }) {
         }, haveFails
             ? (ea.worstLayers || 'Worst layers (failure-correlated)')
             : (ea.worstLayersRms || 'Most-perturbed layers (RMS Δd)')),
-        h(WorstLayers, { c, ea, layers, haveFails, th, td }),
+        h(WorstLayers, { c, ea, units, layers, haveFails, th, td }),
     );
 }
 
-export function TrialStatisticsPanel({ result, stats, spread, corridorSigma, c, ea }) {
+export function TrialStatisticsPanel({ result, stats, spread, corridorSigma, c, ea, units }) {
     const { th, td } = tableStyles(c);
     const blockLbl = { fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: c.textDim, margin: '4px 0 2px' };
     const sp = result.spec;
@@ -126,9 +126,9 @@ export function TrialStatisticsPanel({ result, stats, spread, corridorSigma, c, 
 
     return h('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 14px' } },
         h(OverviewStatistics, { result, corridorSigma, blockLbl, c, ea }),
-        h(SpreadStatistics, { spread, corridorSigma, blockLbl, c, ea }),
+        h(SpreadStatistics, { spread, corridorSigma, blockLbl, c, ea, units }),
         sp && h('div', { style: blockLbl }, ea.worstReqs || 'Worst requirements'),
         h(WorstRequirements, { c, ea, sp, offenders, th, td }),
-        h(WorstLayersSection, { layers, haveFails, blockLbl, th, td, c, ea }),
+        h(WorstLayersSection, { layers, haveFails, blockLbl, th, td, c, ea, units }),
     );
 }

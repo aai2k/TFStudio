@@ -18,7 +18,7 @@ export function ThicknessControls({ c, t, lt, state, notices }) {
         h(ChoiceGroup, {
             label: lt.units, activeId: state.units, onSelect: state.setUnits, c,
             items: [
-                { id: 'nm',   label: 'nm', title: lt.unitNmTip },
+                { id: 'nm',   label: t.units.nm, title: lt.unitNmTip },
                 { id: 'OT',   label: 'OT', title: lt.unitOtTip },
                 { id: 'QWOT', label: 'QW', title: lt.unitQwotTip },
                 { id: 'FWOT', label: 'FW', title: lt.unitFwotTip },

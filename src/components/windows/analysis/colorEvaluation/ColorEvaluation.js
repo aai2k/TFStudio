@@ -110,7 +110,7 @@ export function ColorEvaluation({ c, theme, t }) {
     const report = coneActive ? workerResult.data : directReport;
 
     const columns = readoutColumns(ce);
-    const rows = readoutTableRows(report, ce);
+    const rows = readoutTableRows(report, ce, t.units);
     const rangeNotice = useMaterialRangeNotice(design, COLOR_RANGE_NM[0], COLOR_RANGE_NM[1], t);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),

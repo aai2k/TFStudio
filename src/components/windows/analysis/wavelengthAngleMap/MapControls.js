@@ -76,7 +76,7 @@ function MapSetup({ c, t, wam, state }) {
     },
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
-                c, unit: 'nm',
+                c, unit: t.units.nm,
                 from: {
                     value: state.lambdaStart, positive: true, step: 10,
                     onChange: value => state.set('lambdaStart', value),

@@ -14,7 +14,7 @@ import { barLabel } from './tableModel.js';
 const { createElement: h, useEffect, useRef } = React;
 
 export function buildStressOption({
-    rows, matColorMap, bothSides, sa, c,
+    rows, matColorMap, bothSides, sa, units, c,
     colors = ANALYSIS_DEFAULTS.stressAnalysis.colors,
 }) {
     // A film whose material states no stress has no bar; a stack where none of
@@ -36,7 +36,7 @@ export function buildStressOption({
             formatter: params => [
                 `${sa.axisLayer} ${labels[params.dataIndex]}`,
                 `${params.marker}${params.seriesName}&nbsp;&nbsp;<b>${
-                    formatChartReadout(params.value)} MPa</b>`,
+                    formatChartReadout(params.value)} ${units.MPa}</b>`,
             ].join('<br/>'),
         },
         xAxis: {

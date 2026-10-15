@@ -738,7 +738,7 @@ export default {
   // Названия вкладок окон по toolId — те же термины, что и на ленте (ribbon).
   // Unit symbols written beside a number, in the language's own script.
   units: {
-    nm: 'нм', um: 'мкм', mm: 'мм', fs: 'фс', fs2: 'фс²', fs3: 'фс³', fsPerNm: 'фс/нм', newtonPerM: 'Н/м',
+    nm: 'нм', um: 'мкм', mm: 'мм', m: 'м', fs: 'фс', fs2: 'фс²', fs3: 'фс³', fsPerNm: 'фс/нм', newtonPerM: 'Н/м',
     cm1: 'см⁻¹', THz: 'ТГц', eV: 'эВ', MPa: 'МПа', GPa: 'ГПа', ppmPerK: 'ppm/K', celsius: '°C', jPerM2: 'Дж/м²',
   },
 

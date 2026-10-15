@@ -68,7 +68,7 @@ function spectrumRows({ c, t, W, s, set, patch }) {
             h(AoiChips, { values: s.thetas, onChange: v => set('thetas', v), c, oe })),
         h(SettingDivider, { c, key: 'd1' }),
         h(SpectralRange, {
-            key: 'range', c, oe, params, setParams,
+            key: 'range', c, oe, units: t.units, params, setParams,
             spectralUnit: s.spectralUnit, setSpectralUnit: v => set('spectralUnit', v),
         }),
         h(VerticalRange, {

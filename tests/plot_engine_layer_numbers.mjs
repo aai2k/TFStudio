@@ -54,7 +54,7 @@ assert.ok(surfaceAxisLabel(spec.yVar, design, labels).startsWith('L4 (MgF2)'),
 for (const [token, quantity] of [['thk:2', 'd (nm)'], ['thk:0', 'd (nm)'], ['k:3', 'k']]) {
     const index = Number(token.split(':')[1]);
     const number = displayLayerNumber({ side: 'front', layerIndex: index }, count);
-    assert.equal(surfacePlotAxisLabel(token, design, labels), `L${number} ${quantity}`,
+    assert.equal(surfacePlotAxisLabel(token, design, labels, getLocale('en').units), `L${number} ${quantity}`,
         `the chart titles ${token} with Design Editor layer ${number}`);
 }
 

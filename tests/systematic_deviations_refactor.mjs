@@ -35,7 +35,7 @@ const sweepOption = sweepFigure.buildSweepOption({
     T2D: [[0.8, 0.9], [0.85, 0.95], [0.9, 1]],
     R2D: [[0.2, 0.1], [0.15, 0.05], [0.1, 0]],
     A2D: [[0, 0], [0, 0], [0, 0]],
-}, 'T', makeTheme(), 'Global d-scale');
+}, 'T', makeTheme(), { paramName: 'Global d-scale' });
 assert.equal(sweepOption.xAxis[0].type, 'category');
 assert.equal(sweepOption.yAxis[0].type, 'category');
 assert.equal(sweepOption.yAxis[0].name, 'Global d-scale', 'the parameter axis carries the name it is given');

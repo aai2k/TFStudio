@@ -1,12 +1,13 @@
-const singleColumns = [
-    { key: 'z', label: 'z (nm)', align: 'left', fmt: v => v.toFixed(1) },
+// `units` is t.units; a region's row names its unit by key.
+const singleColumns = units => [
+    { key: 'z', label: `z (${units.nm})`, align: 'left', fmt: v => v.toFixed(1) },
     { key: 'n', label: 'n',                      fmt: v => v.toFixed(4) },
     { key: 'k', label: 'k',                      fmt: v => v.toFixed(5) },
 ];
 
-const totalColumns = [
+const totalColumns = units => [
     { key: 'region', label: 'region', align: 'left', fmt: v => v },
-    { key: 'z',      label: 'z',       align: 'left', fmt: (v, row) => `${(+v).toFixed(3)} ${row?.unit || ''}`.trim() },
+    { key: 'z',      label: 'z',       align: 'left', fmt: (v, row) => `${(+v).toFixed(3)} ${units[row?.unit] || ''}`.trim() },
     { key: 'n',      label: 'n',                       fmt: v => v.toFixed(4) },
     { key: 'k',      label: 'k',                       fmt: v => v.toFixed(5) },
 ];
@@ -53,10 +54,10 @@ function buildSingleSummary(profile) {
     };
 }
 
-export function buildProfileTable(isTotal, profile, regions) {
+export function buildProfileTable(isTotal, profile, regions, units) {
     if (!isTotal) {
         return {
-            columns: singleColumns,
+            columns: singleColumns(units),
             rows: profile?.z
                 ? profile.z.map((z, i) => ({ z, n: profile.n[i], k: profile.k[i] }))
                 : [],
@@ -70,15 +71,15 @@ export function buildProfileTable(isTotal, profile, regions) {
             rows.push({ region: r.label, unit: r.unit, z: r.z[i], n: r.n[i], k: r.k[i] });
         }
     }
-    return { columns: totalColumns, rows };
+    return { columns: totalColumns(units), rows };
 }
 
-export function buildProfileViewModel(side, profile, regions) {
+export function buildProfileViewModel(side, profile, regions, units) {
     const isTotal = side === 'total';
     const hasProfile = isTotal ? regions.length > 0 : !!profile;
     const summary = isTotal
         ? buildTotalSummary(regions, hasProfile)
         : buildSingleSummary(profile);
-    const table = buildProfileTable(isTotal, profile, regions);
+    const table = buildProfileTable(isTotal, profile, regions, units);
     return { isTotal, hasProfile, ...summary, tableColumns: table.columns, tableRows: table.rows };
 }

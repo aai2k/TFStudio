@@ -68,8 +68,10 @@ function regionDecorations(placed, matColorMap, colors) {
     return { areas, lines };
 }
 
-export function buildRITotalOption(regions, quantity, matColorMap, colors,
-                                   curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors) {
+/** `units` is t.units, which writes each region's total thickness. */
+export function buildRITotalOption(regions, quantity, {
+    matColorMap, colors, units, curve = ANALYSIS_DEFAULTS.refractiveIndexProfiler.colors,
+}) {
     const { placed, totalWidth } = placeTotalRegions(regions);
     if (!placed.length) return { series: [] };
     const both = quantity === 'both';
@@ -88,8 +90,8 @@ export function buildRITotalOption(regions, quantity, matColorMap, colors,
                 label: {
                     show: true, position: 'top', color: colors.textColor, fontSize: 11,
                     formatter: region.key === 'substrate'
-                        ? `${region.label} · ${region.totalThk.toFixed(2)} mm`
-                        : `${region.label} · ${Math.round(region.totalThk)} nm`,
+                        ? `${region.label} · ${region.totalThk.toFixed(2)} ${units.mm}`
+                        : `${region.label} · ${Math.round(region.totalThk)} ${units.nm}`,
                 },
             })),
         };
@@ -111,7 +113,7 @@ export function buildRITotalOption(regions, quantity, matColorMap, colors,
     });
 }
 
-export function RITotalChart({ regions, quantity, matColorMap, c }) {
+export function RITotalChart({ regions, quantity, matColorMap, c, units }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const curve = useAnalysisColors('refractiveIndexProfiler');
@@ -120,7 +122,7 @@ export function RITotalChart({ regions, quantity, matColorMap, c }) {
         gridColor: c.border || '#3a3a3a', textColor: c.text || '#cccccc',
     };
     useEffect(() => { drawChart(divRef.current, chartRef,
-        buildRITotalOption(regions, quantity, matColorMap, colors, curve)); });
+        buildRITotalOption(regions, quantity, { matColorMap, colors, units, curve })); });
     useChartTeardown(divRef, chartRef);
     return h('div', { ref: divRef, style: { width: '100%', height: '100%' } });
 }

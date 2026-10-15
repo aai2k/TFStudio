@@ -101,9 +101,9 @@ export function ErrorAnalysis({ c, t }) {
                 }),
         ),
         h(ResultsSection, {
-            c, label: ea.editorTitle, summary: errorEditorSummary(state, ea),
+            c, label: ea.editorTitle, summary: errorEditorSummary(state, ea, t.units),
             open: state.showEditor, setOpen: state.setShowEditor,
-        }, h(ErrorEditor, { c, ea, state })),
+        }, h(ErrorEditor, { c, ea, state, units: t.units })),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

@@ -45,7 +45,7 @@ export function TrialsModal({ result, design, c, t, corridorSigma, updateDesign,
     const trial = trials[selected] || null;
     const rows = buildTrialDetailRows({ design, front, back, trial, hasFront, hasBack });
     const panel = tab === 'stats'
-        ? h(TrialStatisticsPanel, { result, stats, spread, corridorSigma, c, ea })
+        ? h(TrialStatisticsPanel, { result, stats, spread, corridorSigma, c, ea, units: t.units })
         : h(TrialDetailsPanel, {
             trials, selected, setSelected, trial, loaded, loadThicknesses, rows, c, t, ea,
         });

@@ -43,7 +43,7 @@ function errorLabel(error, sd) {
     return error.message || String(error);
 }
 
-function plotBody({ state, sd, c, lambdaAxis }) {
+function plotBody({ state, sd, c, lambdaAxis, units }) {
     if (state.mode === 'single') {
         return h(SpectrumPlot, {
             baseline: state.baseline, deviated: state.deviated,
@@ -52,7 +52,7 @@ function plotBody({ state, sd, c, lambdaAxis }) {
     }
     if (state.sweepResult) {
         return h(SweepHeatmap, {
-            sweepData: state.sweepResult, channel: state.sweepChannel, c, lambdaAxis,
+            sweepData: state.sweepResult, channel: state.sweepChannel, c, lambdaAxis, units,
             paramName: sweepParamName(state.sweepResult, state.uniqueMats, sd, state.design),
         });
     }
@@ -92,7 +92,7 @@ export function SystematicDeviations({ c, theme, t }) {
                 rangeNotice,
             ].filter(Boolean),
         }),
-        h(PlotArea, null, plotBody({ state, sd, c, lambdaAxis: t.spectralAxis.lambdaShort })),
+        h(PlotArea, null, plotBody({ state, sd, c, lambdaAxis: t.spectralAxis.lambdaShort, units: t.units })),
         h(ResultsSection, {
             c, ...systematicEditorHeader(state, sd),
             open: state.showEditor, setOpen: state.setShowEditor,

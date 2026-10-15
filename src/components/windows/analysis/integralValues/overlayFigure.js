@@ -16,8 +16,11 @@ function overlayWeightValues(lambda, weighting) {
     return raw.map(value => 100 * value / maximum);
 }
 
-/** `labels` is t.integralValues, which names the weighting curve and the min and max marks. */
-export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, colors, title, lambdaAxis, labels, curve = FACTORY }) {
+/**
+ * `labels` is t.integralValues, which names the weighting curve and the min and
+ * max marks; `units` is t.units, which writes the marks' wavelength unit.
+ */
+export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, colors, title, lambdaAxis, labels, units, curve = FACTORY }) {
     if (!spectrum?.lambda) return { series: [] };
     const lambdaLow = spectrum.lambda[0];
     const lambdaHigh = spectrum.lambda.at(-1);
@@ -34,7 +37,7 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
     if (minMaxMarks && Number.isFinite(minMaxMarks.lamAtMin)) {
         const marker = scatterSeries({
             data: [[minMaxMarks.lamAtMin, minMaxMarks.min * 100]],
-            name: `${labels.col_min} ${(minMaxMarks.min * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMin.toFixed(0)} nm`,
+            name: `${labels.col_min} ${(minMaxMarks.min * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMin.toFixed(0)} ${units.nm}`,
             color: curve.min, symbol: 'triangle', symbolSize: 10,
         });
         marker.symbolRotate = 180;
@@ -42,7 +45,7 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
     }
     if (minMaxMarks && Number.isFinite(minMaxMarks.lamAtMax)) series.push(scatterSeries({
         data: [[minMaxMarks.lamAtMax, minMaxMarks.max * 100]],
-        name: `${labels.col_max} ${(minMaxMarks.max * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMax.toFixed(0)} nm`,
+        name: `${labels.col_max} ${(minMaxMarks.max * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMax.toFixed(0)} ${units.nm}`,
         color: curve.max, symbol: 'triangle', symbolSize: 10,
     }));
     return cartesianOption({

@@ -54,7 +54,7 @@ function SensitivitySetup({ c, t, state }) {
                 value: state.absDeltaNm, min: 0.001, max: 1000, step: 0.1, c, width: 68,
                 disabled: relative, onChange: state.setAbsDeltaNm,
             }),
-            h(FieldLabel, { c }, 'nm'),
+            h(FieldLabel, { c }, t.units.nm),
         ),
         h(SettingDivider, { c }),
         h(SettingRow, { c, label: '' },

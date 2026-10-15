@@ -67,7 +67,7 @@ export function RoughnessScattering({ c, theme, t }) {
             c, label: rs.editorTitle, summary: `${state.nIfaces} ${rs.interfaces}`,
             open: state.showEditor, setOpen: state.setShowEditor,
             actions: h(RoughnessEditorActions, { c, rs, state }),
-        }, h(RoughnessEditor, { c, rs, state })),
+        }, h(RoughnessEditor, { c, rs, state, units: t.units })),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

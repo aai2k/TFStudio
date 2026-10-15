@@ -57,7 +57,7 @@ function ValueRow({ c, label, value, step, onCommit }) {
 // that window declares rather than a set shared by every window.
 export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
     const unit = resolved.enums.spectralUnit;
-    const meta = SPECTRAL_UNITS[unit] || SPECTRAL_UNITS.nm;
+    const unitSymbol = t.units[SPECTRAL_UNITS[unit] ? unit : 'nm'];
     const { lambdaStart, lambdaEnd, lambdaStep } = resolved.numbers;
     const spec = registry.numbers;
 
@@ -84,18 +84,19 @@ export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
             label: t.settings.analysis.fields.spectralUnit,
             value: unit,
             spec: registry.enums.spectralUnit,
+            optionLabels: t.units,
             onChange: (value) => onChange('enums', 'spectralUnit', value),
         }),
         h(ValueRow, {
             c,
-            label: t.settings.analysis.rangeFrom(meta.short),
+            label: t.settings.analysis.rangeFrom(unitSymbol),
             value: displayValue(lambdaStart, unit),
             step: edgeStep,
             onCommit: commitEdge('start'),
         }),
         h(ValueRow, {
             c,
-            label: t.settings.analysis.rangeTo(meta.short),
+            label: t.settings.analysis.rangeTo(unitSymbol),
             value: displayValue(lambdaEnd, unit),
             step: edgeStep,
             onCommit: commitEdge('end'),

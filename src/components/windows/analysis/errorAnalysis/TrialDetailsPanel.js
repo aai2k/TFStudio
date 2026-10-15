@@ -54,7 +54,7 @@ function TrialSpecBand({ trial, c, t, ea }) {
     );
 }
 
-function TrialLayerTable({ rows, hasIndexErrors, c, ea }) {
+function TrialLayerTable({ rows, hasIndexErrors, c, ea, units }) {
     const { th, td } = tableStyles(c);
     return h('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto' } },
         h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
@@ -62,7 +62,7 @@ function TrialLayerTable({ rows, hasIndexErrors, c, ea }) {
                 h('th', { style: { ...th, textAlign: 'left' } }, ea.colLayer || 'Layer'),
                 h('th', { style: { ...th, textAlign: 'left' } }, ea.colMaterial || 'Material'),
                 h('th', { style: th }, ea.colNominalThickness || 'd₀ (nm)'),
-                h('th', { style: th }, 'Δd (nm)'),
+                h('th', { style: th }, `Δd (${units.nm})`),
                 h('th', { style: th }, ea.colNew || 'd (nm)'),
                 hasIndexErrors && h('th', { style: th }, 'Δn'),
                 hasIndexErrors && h('th', { style: th }, 'Δk'),
@@ -96,7 +96,7 @@ export function TrialDetailsPanel(props) {
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
             h(TrialToolbar, { trial, loaded, loadThicknesses, c, ea }),
             h(TrialSpecBand, { trial, c, t, ea }),
-            h(TrialLayerTable, { rows, hasIndexErrors, c, ea }),
+            h(TrialLayerTable, { rows, hasIndexErrors, c, ea, units: t.units }),
         ),
     );
 }

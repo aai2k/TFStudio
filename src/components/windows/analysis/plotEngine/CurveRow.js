@@ -77,7 +77,7 @@ export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
         ),
         h(SettingRow, { c, label: pe.range || 'Range' },
             h(RangeField, {
-                c, width: 58, unit: overAngle ? '°' : 'nm',
+                c, width: 58, unit: overAngle ? '°' : t.units.nm,
                 from: {
                     value: curve.rangeFrom, step: rangeStep,
                     onChange: value => onUpdate({ rangeFrom: value }),

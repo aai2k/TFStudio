@@ -48,7 +48,7 @@ function InhomogeneitySetup({ c, t, ih, state }) {
     },
         h(SettingRow, { c, label: 'λ' },
             h(RangeField, {
-                c, unit: 'nm', width: 56,
+                c, unit: t.units.nm, width: 56,
                 from: {
                     value: state.lambdaStart, positive: true, step: 10,
                     onChange: state.setLambdaStart,

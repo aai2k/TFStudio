@@ -1,6 +1,4 @@
-import {
-    SPECTRAL_UNITS, SPECTRAL_UNIT_IDS, spectralRangeControl, toNm,
-} from '../../../../utils/physics/spectralAxis.js';
+import { SPECTRAL_UNIT_IDS, spectralRangeControl, toNm } from '../../../../utils/physics/spectralAxis.js';
 import { CheckField, NumInput, SelectField } from '../chrome/controls.js';
 import { SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { AoiChips } from './AoiChips.js';
@@ -9,7 +7,7 @@ import { Y_SCALE_IDS, yRangeControl, yScaleOf } from './yScale.js';
 const { createElement: h } = React;
 
 /** The spectral range in the chosen unit, its step, and the unit itself. Shared with the report's spectrum block. */
-export function SpectralRange({ c, oe, params, setParams, spectralUnit, setSpectralUnit }) {
+export function SpectralRange({ c, oe, units, params, setParams, spectralUnit, setSpectralUnit }) {
     const range = spectralRangeControl(spectralUnit, params.lambdaStart, params.lambdaEnd);
     return h(React.Fragment, null,
         h(SettingRow, { c, label: range.symbol },
@@ -28,7 +26,7 @@ export function SpectralRange({ c, oe, params, setParams, spectralUnit, setSpect
             }),
             h(SelectField, {
                 c, value: spectralUnit, onChange: setSpectralUnit,
-                options: SPECTRAL_UNIT_IDS.map(id => ({ id, label: SPECTRAL_UNITS[id].short })),
+                options: SPECTRAL_UNIT_IDS.map(id => ({ id, label: units[id] })),
             }),
         ),
         h(SettingRow, { c, label: oe.stepNm },
@@ -85,7 +83,7 @@ export function SetupPanel(props) {
             h(AoiChips, { values: params.thetas, onChange: setThetas, c, oe }),
         ),
         h(SettingDivider, { c }),
-        h(SpectralRange, props),
+        h(SpectralRange, { ...props, units: t.units }),
         h(VerticalRange, props),
     );
 }

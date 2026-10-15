@@ -18,13 +18,16 @@ function significant(digits) {
     return value => (value == null ? DASH : Number(value.toPrecision(digits)).toString());
 }
 
-/** The whole-part table: one quantity per row, so it needs no unit column. */
-export function wholeRows(whole, sa) {
+/**
+ * The whole-part table: one quantity per row, so it needs no unit column. Units
+ * are written from `units`, t.units.
+ */
+export function wholeRows(whole, sa, units) {
     return [
-        { quantity: sa.filmForce, unit: 'N/m', value: whole.forceNm, fmt: fixed(3) },
-        { quantity: sa.radius, unit: 'm', value: whole.radiusM, fmt: significant(4) },
-        { quantity: sa.deflection, unit: 'µm', value: whole.deflectionUm, fmt: significant(4) },
-        { quantity: sa.totalStrainEnergy, unit: 'J/m²', value: whole.strainEnergy, fmt: fixed(3) },
+        { quantity: sa.filmForce, unit: units.newtonPerM, value: whole.forceNm, fmt: fixed(3) },
+        { quantity: sa.radius, unit: units.m, value: whole.radiusM, fmt: significant(4) },
+        { quantity: sa.deflection, unit: units.um, value: whole.deflectionUm, fmt: significant(4) },
+        { quantity: sa.totalStrainEnergy, unit: units.jPerM2, value: whole.strainEnergy, fmt: fixed(3) },
         { quantity: sa.crackingParameter, unit: '', value: whole.cracking, fmt: fixed(3) },
     ].map(row => ({ ...row, display: row.fmt(row.value) }));
 }

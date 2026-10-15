@@ -43,7 +43,7 @@ function EvaluationSettings({ c, t, model }) {
     },
         h(SettingRow, { c, label: iv.lambdaRange },
             h(RangeField, {
-                c, unit: 'nm', width: 60,
+                c, unit: t.units.nm, width: 60,
                 from: {
                     value: params.lambdaStart, positive: true, step: 10,
                     onChange: value => patch({ lambdaStart: value }),

@@ -84,7 +84,7 @@ assert.deepEqual(events[1].frontLayers.map((layer) => layer.thickness), [0, 95])
     const panel = renderToStaticMarkup(React.createElement(TrialStatisticsPanel, {
         result: run, stats: { byOffender: [], byRms: [], nFailTrials: 0 },
         spread: { meanSig: 0, maxSig: 0, maxLam: null, meanWidth: 0 },
-        corridorSigma: 1, c, ea: EA,
+        corridorSigma: 1, c, ea: EA, units: t.units,
     }));
     assert.ok(panel.includes(EA.yieldInterval) && panel.includes('91.0–97.3%'), 'the yield interval is shown');
     assert.ok(panel.includes('123456789'), 'the seed of the run is shown');
@@ -93,9 +93,9 @@ assert.deepEqual(events[1].frontLayers.map((layer) => layer.thickness), [0, 95])
         nTrials: 200, distribution: 'gaussian', rmsAbsNm: 0, rmsRelPct: 1, rmsReN: 0, rmsImN: 0,
         perMaterial: false, keepOPT: false, seed: null,
     };
-    const empty = renderToStaticMarkup(React.createElement(ErrorEditor, { c, ea: EA, state: editorState }));
+    const empty = renderToStaticMarkup(React.createElement(ErrorEditor, { c, ea: EA, state: editorState, units: t.units }));
     assert.ok(empty.includes(`placeholder="${EA.seedRandom}"`), 'an empty seed reads as random');
-    const seeded = renderToStaticMarkup(React.createElement(ErrorEditor, { c, ea: EA, state: { ...editorState, seed: 4242 } }));
+    const seeded = renderToStaticMarkup(React.createElement(ErrorEditor, { c, ea: EA, state: { ...editorState, seed: 4242 }, units: t.units }));
     assert.ok(seeded.includes('value="4242"'), 'a set seed is shown in its field');
 }
 
