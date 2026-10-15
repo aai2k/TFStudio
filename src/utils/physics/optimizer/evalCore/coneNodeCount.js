@@ -120,6 +120,24 @@ export function settleConeWavelength(ctx, aoi, lam, channels) {
 }
 
 /**
+ * Give the wavelengths `lams` (nm) the node set the context holds at `fromLam`
+ * on the cone axis `aoi`, so a difference taken across them averages over one
+ * set of rays. A wavelength that holds a set already keeps it. No effect
+ * without an active cone or a set at `fromLam`.
+ */
+export function shareConeNodes(ctx, aoi, fromLam, lams) {
+    if (!(ctx && ctx.cone && coneIsActive(ctx.cone))) return;
+    const rays = coneAxisRays(ctx, coneAxisKey(aoi));
+    const count = rays.countByLambda.get(fromLam);
+    if (count === undefined) return;
+    for (const lam of lams) {
+        if (rays.countByLambda.has(lam)) continue;
+        rays.countByLambda.set(lam, count);
+        rays.byLambda.set(lam, rays.nodesFor(count));
+    }
+}
+
+/**
  * Settle the node set of every (cone axis, wavelength) `operands` read on
  * `ctx` that the context does not hold yet. No effect without an active cone.
  */

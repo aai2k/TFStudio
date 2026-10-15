@@ -24,7 +24,7 @@ import {
     operandEvaluationErrors, OperandEvaluationError, operandSampleDeviations,
 } from './evalCore.js';
 import { operandResidualRows } from './residualRows.js';
-import { isArgwave, isMath, isEField } from './operandModel.js';
+import { isMath, isEField } from './operandModel.js';
 import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
 import { mirrorLayers } from './layerOps.js';
@@ -40,7 +40,7 @@ import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvOperand, _oper
 // block is either expanded into point rows or, with its level free, has rows
 // of its own (jacobianAssembly/jacRows.js).
 const DECLINES_ANALYTIC_JACOBIAN = [
-    isArgwave, isMath, isEField,
+    isMath, isEField,
 ];
 
 const sameValues = (a, b) => a.length === b.length && a.every((value, index) => value === b[index]);

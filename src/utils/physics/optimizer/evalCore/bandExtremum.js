@@ -178,6 +178,12 @@ function searchMinimum(search, spec, op, ctx) {
     return best;
 }
 
+/** The step, nm, of the grid the row's search starts from on this design. */
+export function extremumSearchStep(op, ctx) {
+    const lams = searchGrid(op, ctx);
+    return lams.length > 1 ? (lams[lams.length - 1] - lams[0]) / (lams.length - 1) : 0;
+}
+
 /**
  * The row's extremum over its band: { lambda, C } with C the row's linear
  * quantity (T, R or A) there, or { lambda: NaN, C: NaN } when a sample has no

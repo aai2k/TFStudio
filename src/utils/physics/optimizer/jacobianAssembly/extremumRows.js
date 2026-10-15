@@ -1,13 +1,14 @@
 /**
  * Analytic Jacobian rows for single-extremum operands: thickness constraints
- * (MNT/MXT) and worst-case min/max R/T/A, linear or in dB or density, the
- * two-extremum PPEF row, and the one-wavelength TDB row, which shares the dB
- * slope.
+ * (MNT/MXT), worst-case min/max R/T/A, linear or in dB or density, the
+ * wavelength of a band's peak or dip (MXW* / MNW*), the two-extremum PPEF row,
+ * and the one-wavelength TDB row, which shares the dB slope.
  *
- * These are active-only subgradients: when the constraint/target is violated the
- * extremum is attained at one index (layer or wavelength), so the row is the
- * signed derivative at that single point; otherwise the row is zero. `jc` bundles
- * the shared context: { comp, freeIdx, nFree, ctx, propDeriv }.
+ * The constraint, worst-case and PPEF rows are active-only subgradients: when
+ * the constraint/target is violated the extremum is attained at one index
+ * (layer or wavelength), so the row is the signed derivative at that single
+ * point; otherwise the row is zero. `jc` bundles the shared context:
+ * { comp, freeIdx, nFree, ctx, propDeriv, propValue, residualScale }.
  */
 
 import {
@@ -16,6 +17,7 @@ import {
 import { charOf } from '../sampling.js';
 import { operandExtremumLambdas } from '../evalCore/evalContext.js';
 import { contextConstraintIndices } from '../constraintRange.js';
+import { extremumSlope } from './extremumSlope.js';
 
 // Index of the min (isMin) or max thickness over the given positions of all;
 // a tie goes to the first position.
@@ -47,24 +49,32 @@ export function _jacRowConstraint(op, i, jc) {
 // Worst-case min/max: residual = sw·max(0, ±(target−comp))/σ; when active the
 // extremum is attained at one wavelength λ*, the one the evaluation found
 // (operandExtremumLambdas), so the subgradient is
-// sw·(±1)·(∂comp/∂C ÷ σ)·∂C(λ*)/∂d_j and the derivative kernel runs at λ*
-// alone. ∂comp/∂C ÷ σ is 1 for a linear row and ±1/C(λ*) for a dB or density
-// row (logReadings.js).
+// sw·(±1)·(∂comp/∂C ÷ σ)·dC*/∂d_j with dC*/dd the derivative of the extremum
+// value (extremumSlope.js). ∂comp/∂C ÷ σ is 1 for a linear row and ±1/C(λ*)
+// for a dB or density row (logReadings.js).
 export function _jacRowMinmax(op, i, jc) {
-    const { comp, freeIdx, nFree, propDeriv, propValue } = jc;
+    const { comp, freeIdx, nFree } = jc;
     const row = new Array(nFree).fill(0);
     const isMin = isMinType(op.type);
     const violated = isMin ? (op.target - comp[i] > 0) : (comp[i] - op.target > 0);
     if (!violated) return row;
-    const pol = polFromType(op.type) ?? op.pol;
-    const char = charOf(op.type);
-    const lambda = operandExtremumLambdas(comp)[i];
-    const d = propDeriv(lambda, pol, char, op.aoi);
-    const slope = isLogOperand(op.type)
-        ? rowReadingSlopeOverSigma(op.type, propValue(lambda, pol, char, op.aoi)) : 1;
+    const { C, dC } = extremumSlope(op, operandExtremumLambdas(comp)[i], jc);
+    const slope = isLogOperand(op.type) ? rowReadingSlopeOverSigma(op.type, C) : 1;
     // ∂residual/∂comp under the violated branch: +1 for max, −1 for min.
     const scale = (isMin ? -1 : 1) * Math.sqrt(op.weight) * slope;
-    for (let ci = 0; ci < nFree; ci++) row[ci] = scale * d[freeIdx[ci]];
+    for (let ci = 0; ci < nFree; ci++) row[ci] = scale * dC[freeIdx[ci]];
+    return row;
+}
+
+// MXW* / MNW*: residual = sw·(λ* − target)/σ, so the row is sw·dλ*/dd_j ÷ σ,
+// zero where λ* sits on a band end (extremumSlope.js).
+export function _jacRowArgwave(op, i, jc) {
+    const { comp, freeIdx, nFree, residualScale } = jc;
+    const row = new Array(nFree).fill(0);
+    const { dLambda } = extremumSlope(op, comp[i], jc);
+    if (!dLambda) return row;
+    const scale = Math.sqrt(op.weight) / residualScale(op);
+    for (let ci = 0; ci < nFree; ci++) row[ci] = scale * dLambda[freeIdx[ci]];
     return row;
 }
 

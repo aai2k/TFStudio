@@ -8,6 +8,7 @@
 
 import {
     hasFreeLevel,
+    isArgwave,
     isConstraint,
     isEllipsometry,
     isGroupDelay,
@@ -21,7 +22,7 @@ import {
     isRangeTarget,
 } from '../operandModel.js';
 import { _jacRowsLevelFree, _jacRowsRangeTarget, _jacRowIntegral, _jacRowMeanOrSingle } from './bandRows.js';
-import { _jacRowConstraint, _jacRowLogPoint, _jacRowMinmax, _jacRowPPEF } from './extremumRows.js';
+import { _jacRowArgwave, _jacRowConstraint, _jacRowLogPoint, _jacRowMinmax, _jacRowPPEF } from './extremumRows.js';
 import { _jacRowLinearThickness } from './linearRows.js';
 import { _jacRowEllipsometry, _jacRowPhase } from './phaseRows.js';
 
@@ -32,6 +33,7 @@ const ROW_BUILDERS = [
     [isLinearThickness, _jacRowLinearThickness],
     [isIntegral,      _jacRowIntegral],
     [isMinmax,        _jacRowMinmax],
+    [isArgwave,       _jacRowArgwave],
     [isPPEF,          _jacRowPPEF],
     [isLogPoint,      (op, i, jc) => _jacRowLogPoint(op, jc)],
     [isEllipsometry,  (op, i, jc) => _jacRowEllipsometry(op, jc)],
