@@ -2718,6 +2718,10 @@ export default {
     offScaleHint: 'Отсчёты вне автоматического диапазона. Они находятся в минимумах отражения, где порядки дисперсии растут, но не описывают реальный импульс. Снимите «Авто», чтобы задать диапазон вручную.',
     modelLabel: 'Модель',
     modelUnavailable: 'Недоступна',
+    maskedOneReason: (count, reason) => `Скрыто отсчётов: ${count}. Причина: ${reason}`,
+    maskedReasons: (count, reasons) => `Скрыто отсчётов: ${count}, причин: ${reasons}`,
+    maskedThicknessLimit: thickness => `Задайте толщину не больше ${thickness}, чтобы получить весь диапазон.`,
+    thicknessUnit: 'Единица толщины',
   },
 
   pulseAnalysis: {

@@ -119,18 +119,21 @@ function plotModel(spectrum, quantity, meta) {
     return stepAtKnots(spectrum.lambda, values, sides);
 }
 
-function invalidSummary(spectrum, thicknessUnit) {
+// The notice text for samples that could not be computed. The reasons come
+// from the dispersion engine as they are; `text` is t.gdgdd.
+export function invalidSummary(spectrum, thicknessUnit, text) {
     if (!spectrum?.invalid.length) return null;
+    const count = spectrum.invalid.length;
     const reasons = [...new Set(spectrum.invalid.map(value => value.reason))];
     const limits = spectrum.invalid
         .map(value => value.maximumThicknessMm)
         .filter(Number.isFinite);
-    const limit = limits.length
-        ? ` Set thickness to ${formatThickness(Math.min(...limits), thicknessUnit)} or less for the full range.`
-        : '';
-    return (reasons.length === 1
-        ? `${spectrum.invalid.length} samples masked: ${reasons[0]}`
-        : `${spectrum.invalid.length} samples masked for ${reasons.length} reasons`) + limit;
+    const summary = reasons.length === 1
+        ? text.maskedOneReason(count, reasons[0])
+        : text.maskedReasons(count, reasons.length);
+    return limits.length
+        ? `${summary} ${text.maskedThicknessLimit(formatThickness(Math.min(...limits), thicknessUnit))}`
+        : summary;
 }
 
 function Controls({ state, c, t, notices }) {
@@ -176,7 +179,7 @@ function Setup({ state, c, t }) {
             }),
             h(ChoiceGroup, {
                 activeId: state.thicknessUnit, onSelect: state.setThicknessUnit, c,
-                ariaLabel: 'Thickness unit',
+                ariaLabel: t.gdgdd.thicknessUnit,
                 items: Object.entries(THICKNESS_UNITS).map(([id, unit]) => ({ id, label: unit.label })),
             }),
         ),
@@ -244,7 +247,7 @@ export function MaterialDispersionEvaluation({ c, t }) {
         () => csvFromRows(table.columns, table.rows),
         () => `${(material?.name || materialId).replace(/[^\w.-]+/g, '_')}_dispersion.csv`,
     );
-    const masked = invalidSummary(spectrum, thicknessUnit);
+    const masked = invalidSummary(spectrum, thicknessUnit, footerText);
     // This window plots one material rather than a design stack, and the edge of
     // its data is the whole reason to look at it here: the curve is drawn out
     // there and the band shaded, with the same helpers Optical Evaluation uses.

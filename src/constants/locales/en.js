@@ -2769,6 +2769,10 @@ export default {
     offScaleHint: 'Samples outside the automatic range. They sit at reflection minima, where the dispersion orders grow without describing any real pulse. Clear Auto to set the range yourself.',
     modelLabel: 'Model',
     modelUnavailable: 'Unavailable',
+    maskedOneReason: (count, reason) => `${count} samples masked: ${reason}`,
+    maskedReasons: (count, reasons) => `${count} samples masked for ${reasons} reasons`,
+    maskedThicknessLimit: thickness => `Set thickness to ${thickness} or less for the full range.`,
+    thicknessUnit: 'Thickness unit',
   },
 
   pulseAnalysis: {

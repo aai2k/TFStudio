@@ -3185,6 +3185,10 @@ export default {
     offScaleHint: "Campioni fuori dall'intervallo automatico. Si trovano nei minimi di riflessione, dove gli ordini di dispersione crescono senza descrivere alcun impulso reale. Disattiva Auto per impostare l'intervallo a mano.",
     modelLabel: 'Modello',
     modelUnavailable: 'Non disponibile',
+    maskedOneReason: (count, reason) => `${count} campioni mascherati: ${reason}`,
+    maskedReasons: (count, reasons) => `${count} campioni mascherati per ${reasons} motivi`,
+    maskedThicknessLimit: thickness => `Imposta lo spessore a ${thickness} o meno per l'intervallo completo.`,
+    thicknessUnit: 'Unità di spessore',
   },
   pulseAnalysis: {
     noLayers: 'Nessuno strato su questo lato. Aggiungi strati, oppure scegli Pezzo intero in trasmissione.',

@@ -3162,6 +3162,10 @@ export default {
     offScaleHint: '样本超出自动范围。它们位于反射极小值处，那里的色散阶次增长而不描述任何真实脉冲。清除"自动"以自行设置范围。',
     modelLabel: '模型',
     modelUnavailable: '不可用',
+    maskedOneReason: (count, reason) => `${count} 个样本已掩蔽：${reason}`,
+    maskedReasons: (count, reasons) => `${count} 个样本因 ${reasons} 种原因被掩蔽`,
+    maskedThicknessLimit: thickness => `将厚度设为 ${thickness} 或更小，即可得到完整范围。`,
+    thicknessUnit: '厚度单位',
   },
   pulseAnalysis: {
     noLayers: '这一面没有膜层。请添加膜层，或在透射中选择“整体”。',
