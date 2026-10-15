@@ -20,6 +20,9 @@
  *      on first render or with its panels open is russian_units_in_windows.mjs.
  *   6. Data exchange: the curve editor's unit names and column titles, the n,k
  *      result rows and the measured-curve fit dialog write units in Russian.
+ *   7. Design windows: a material's range, density and mechanical constants, a
+ *      coating library entry's bands, metrics and stack strip, and the design
+ *      import preview write units in Russian.
  *
  * Run: node tests/russian_units_one_way.mjs
  */
@@ -47,7 +50,7 @@ const text = html => html.replace(/<[^>]*>/g, ' ');
     assert.deepEqual(latin, [], 'a Russian string writes nm or fs in Latin');
     assert.deepEqual(ru.units, {
         nm: 'нм', um: 'мкм', mm: 'мм', m: 'м', fs: 'фс', fs2: 'фс²', fs3: 'фс³', fsPerNm: 'фс/нм', newtonPerM: 'Н/м',
-        cm1: 'см⁻¹', THz: 'ТГц', eV: 'эВ', MPa: 'МПа', GPa: 'ГПа', ppmPerK: 'ppm/K', celsius: '°C', jPerM2: 'Дж/м²',
+        cm1: 'см⁻¹', THz: 'ТГц', eV: 'эВ', MPa: 'МПа', GPa: 'ГПа', ppmPerK: 'ppm/K', celsius: '°C', jPerM2: 'Дж/м²', gPerCm3: 'г/см³',
     });
 }
 
@@ -211,6 +214,40 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     const latin = shown.filter(s => LATIN_UNIT.test(s));
     assert.deepEqual(latin, [], 'a Russian data-exchange label writes a Latin unit');
     assert.ok(['нм', 'мкм', 'см⁻¹', 'эВ'].every(unit => shown.some(s => s.includes(unit))), 'ru data exchange writes its units');
+}
+
+// ── 7. Design windows ────────────────────────────────────────────────────────
+{
+    const shown = [];
+    const strings = html => [...text(html).split(/\s{2,}/), ...[...html.matchAll(/title="([^"]*)"/g)].map(([, title]) => title)];
+    const { renderReadOnlyMaterial } = await import('../src/components/windows/design/materialEditor/materialEditorReadOnly.js');
+    const glass = {
+        id: 'g', name: 'Glass', formulaNum: -1, tabData: [[400, 1.5, 0], [800, 1.48, 0]], lambdaMin: 0.4, lambdaMax: 0.8,
+        density: 2.51, mechanical: { youngsModulusGPa: 82, linearExpansionPerK: 7.1e-6, intrinsicStressMPa: -200, surfaceEnergyJm2: 1 },
+    };
+    for (const detailTab of ['nk', 'mechanical']) {
+        shown.push(...strings(renderToStaticMarkup(renderReadOnlyMaterial({
+            selectedMat: glass, sampledTable: [], chartRef: { current: null }, openCopyPicker() {}, designOnly: false,
+            detailTab, setDetailTab() {}, me: ru.materialEditor, t: ru, c,
+        }))));
+    }
+    const { BUILTIN_COATINGS } = await import('../src/utils/coatingLibrary/builtin/index.js');
+    const { COATING_TAGS } = await import('../src/utils/coatingLibrary/entryModel.js');
+    const { EntryDetail } = await import('../src/components/windows/design/coatingLibrary/EntryDetail.js');
+    // A library entry's prose and its tags' descriptions are English data the
+    // entry carries, not text the window writes.
+    const builtin = BUILTIN_COATINGS.find(item => item.type === 'bandpass') || BUILTIN_COATINGS[0];
+    const entry = { ...builtin, spec: [] };
+    const entryProse = new Set([entry.name, entry.use, entry.limitations, entry.source, ...Object.values(COATING_TAGS)]);
+    shown.push(...strings(renderToStaticMarkup(h(EntryDetail, {
+        entry, c, ts: ru.coatingLibrary, summaries: ru.specification.summaries,
+        lambdaAxis: ru.spectralAxis.lambdaShort, units: ru.units,
+    }))).filter(s => !entryProse.has(s)));
+    const latin = shown.filter(s => LATIN_UNIT.test(s) || /g\/cm³|GPa|J\/m²/.test(s));
+    assert.deepEqual(latin, [], 'a Russian design window writes a Latin unit');
+    for (const unit of ['нм', 'г/см³', 'ГПа', 'МПа', 'Дж/м²']) {
+        assert.ok(shown.some(s => s.includes(unit)), `ru design windows write ${unit}`);
+    }
 }
 
 console.log('russian_units_one_way passed.');

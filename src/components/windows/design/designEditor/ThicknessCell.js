@@ -13,18 +13,6 @@ const { createElement: h, useEffect, useState, useRef } = React;
 // `primary` = true → emphasized styling for the editable "main" representation;
 // the others render slightly dimmed but are equally editable.
 
-// Tooltip text for each thickness unit. Any unit other than nm/OT/QWOT (i.e.
-// FWOT and any unknown) falls through to the full-wave description.
-const THICKNESS_CELL_TITLES = {
-    nm:   'Physical thickness (nm)',
-    OT:   'Optical thickness n·d (nm)',
-    QWOT: 'Quarter-wave optical thickness 4·n·d/λ₀',
-    FWOT: 'Full-wave optical thickness n·d/λ₀',
-};
-function thicknessCellTitle(unit) {
-    return THICKNESS_CELL_TITLES[unit] || THICKNESS_CELL_TITLES.FWOT;
-}
-
 // Editing state of a thickness cell: a centered text input. Enter commits,
 // Escape cancels (via the injected commit/cancel callbacks), and blur commits.
 function thicknessCellInput({ inputRef, raw, setRaw, commitAndNavigate, cancel, onActivate, c }) {
@@ -170,9 +158,9 @@ function useThicknessEdit({ locked, valueText, toNm, setHover,
 // dash; typing into it commits nothing, and it has no arrows to step with.
 // `onStep(ticks, modifiers)` steps the value from the arrows, and from the wheel
 // while the cell is `active`; `stepTitles` holds the arrows' `up` and `down`
-// tooltips.
+// tooltips. `title` names the unit, as the column heading's tooltip does.
 export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLambda,
-    unit, primary, active = false, editRequest = 0, editSeed = null,
+    unit, title, primary, active = false, editRequest = 0, editSeed = null,
     onActivate, onNavigate, onExit, designMaterials, onStep, stepTitles }) {
     const [hover, setHover] = useState(false);
     const displayRef = useRef(null);
@@ -197,7 +185,7 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
 
     return thicknessCellDisplay({
         text: hasValue ? displayed.toFixed(decimals) : '–',
-        titleText: thicknessCellTitle(unit),
+        titleText: title,
         locked, primary, active, hover, startEdit: edit.startEdit, setHover, onActivate, displayRef,
         spin: hover && steppable ? h(SpinArrows, { titles: stepTitles, onStep, c }) : null,
         c,

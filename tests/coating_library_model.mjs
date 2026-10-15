@@ -89,8 +89,8 @@ const triBand = makeCoatingEntry({
 });
 assert.deepEqual(triBand.bands, [[400, 700], [900, 1700], [3500, 4950]]);
 assert.deepEqual(triBand.band, [400, 4950]);
-assert.equal(bandsText(triBand), '400-700, 900-1700, 3500-4950 nm');
-assert.equal(bandsText(bbar), '450-650 nm');
+assert.equal(bandsText(triBand, 'nm'), '400-700, 900-1700, 3500-4950 nm');
+assert.equal(bandsText(bbar, 'нм'), '450-650 нм');
 
 // ── Entry ↔ design ────────────────────────────────────────────────────────────
 

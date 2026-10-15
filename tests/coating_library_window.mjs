@@ -112,7 +112,7 @@ if (BUILTIN_COATINGS.length > 0) {
         coatingLibrarySession.write(null, { selectedId: oblique.id, openTypes: [oblique.type] });
         const tilted = renderToStaticMarkup(withDesign(React.createElement(CoatingLibrary, { c, t })));
         const angle = `${oblique.aoi}°`;
-        assert.ok(tilted.includes(`${esc(bandsText(oblique))} · ${angle}`), 'the list row states the angle');
+        assert.ok(tilted.includes(`${esc(bandsText(oblique, t.units.nm))} · ${angle}`), 'the list row states the angle');
         assert.ok(tilted.includes(`>${angle}<`), 'the header states the angle in bold');
         const claimAngles = (tilted.match(new RegExp(`>${angle}( [sp])?<`, 'g')) || []).length;
         assert.ok(claimAngles >= 1 + oblique.spec.length, `every claim states its angle (${claimAngles} found)`);

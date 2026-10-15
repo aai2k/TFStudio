@@ -26,7 +26,7 @@ export function entryMaterialColors(entry) {
  * left, each block's width following the square root of its thickness so a
  * thin layer next to a thick one stays visible.
  */
-export function StackStrip({ entry, c, height = 6 }) {
+export function StackStrip({ entry, c, units, height = 6 }) {
     // Recoloured when a catalog holding one of the materials changes.
     const catalogRevision = useCatalogRevision();
     const colors = useMemo(() => entryMaterialColors(entry), [entry, catalogRevision]);
@@ -37,7 +37,7 @@ export function StackStrip({ entry, c, height = 6 }) {
         },
     }, entry.layers.map((layer, i) => h('div', {
         key: i,
-        title: `${i + 1}: ${materialLabel(layer.material)} ${layer.thickness.toFixed(1)} nm`,
+        title: `${i + 1}: ${materialLabel(layer.material)} ${layer.thickness.toFixed(1)} ${units.nm}`,
         style: {
             flex: `${Math.sqrt(Math.max(layer.thickness, 1))} 0 2px`,
             background: colors.get(layer.material) || c.textDim,

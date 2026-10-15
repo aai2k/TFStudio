@@ -212,7 +212,7 @@ export function useMaterialEditor({ c, t, setInputDialog }) {
     }, [loadCatalogs]);
 
     return {
-        c, me, catalogs, catFilter, setCatFilter, handleCatalogChange, query, setQuery,
+        c, me, units: t.units, catalogs, catFilter, setCatFilter, handleCatalogChange, query, setQuery,
         selectedId, importing, showRii, setShowRii, notification,
         menuOpen, setMenuOpen, menuTriggerRef, addMenuOpen, setAddMenuOpen, addMenuTriggerRef,
         editDraft, setEditDraft, updateDraft, isDirty, handleRevertMaterial,

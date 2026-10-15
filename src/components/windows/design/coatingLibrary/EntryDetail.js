@@ -63,17 +63,17 @@ function metricLabel(row, ts) {
     return `${channel} ${ts.stats[row.stat]}`;
 }
 
-function metricValue(row, value) {
+function metricValue(row, value, units) {
     if (value == null || !Number.isFinite(value)) return '?';
     if (row.unit === '%') return percent(value);
-    if (row.unit === 'nm') return `${value.toFixed(value < 100 ? 2 : 1)} nm`;
+    if (row.unit === 'nm') return `${value.toFixed(value < 100 ? 2 : 1)} ${units.nm}`;
     return `${value >= 100 ? value.toFixed(0) : value.toFixed(1)} : 1`;
 }
 
 // The numbers that matter for this family (PROPERTY_SETS): one column per
 // design band for the band statistics, then the whole-coating figures such as
 // an edge wavelength or a passband width.
-function Properties({ entry, metrics, c, ts }) {
+function Properties({ entry, metrics, c, ts, units }) {
     if (metrics.error) return null;
     const head = (key, text, align) => h('th', {
         key, style: { ...cellStyle(c, align), color: c.textDim, fontWeight: 500 },
@@ -82,14 +82,14 @@ function Properties({ entry, metrics, c, ts }) {
         h('table', { style: { borderCollapse: 'collapse', maxWidth: 520 } },
             h('thead', null, h('tr', null,
                 head('metric', '', 'left'),
-                metrics.bands.map((band, i) => head(i, `${band[0]}-${band[1]} nm`, 'right')))),
+                metrics.bands.map((band, i) => head(i, `${band[0]}-${band[1]} ${units.nm}`, 'right')))),
             h('tbody', null, metrics.rows.map((row, r) => h('tr', { key: r },
                 h('td', { style: { ...cellStyle(c), color: c.textDim } }, metricLabel(row, ts)),
-                row.values.map((value, i) => h('td', { key: i, style: cellStyle(c, 'right') }, metricValue(row, value))))))),
+                row.values.map((value, i) => h('td', { key: i, style: cellStyle(c, 'right') }, metricValue(row, value, units))))))),
         h('div', { style: { maxWidth: 420, marginTop: 6 } },
-            metrics.shape.map((row, i) => h(KeyValue, { key: i, label: metricLabel(row, ts), value: metricValue(row, row.value), c })),
+            metrics.shape.map((row, i) => h(KeyValue, { key: i, label: metricLabel(row, ts), value: metricValue(row, row.value, units), c })),
             h(KeyValue, { label: ts.layerCount, value: String(entry.layers.length), c }),
-            h(KeyValue, { label: ts.totalThickness, value: `${totalThickness(entry).toFixed(1)} nm`, c })));
+            h(KeyValue, { label: ts.totalThickness, value: `${totalThickness(entry).toFixed(1)} ${units.nm}`, c })));
 }
 
 function Tags({ entry, c }) {
@@ -125,7 +125,7 @@ function SpecList({ spec, c, ts, summaries }) {
     }));
 }
 
-export function EntryDetail({ entry, c, ts, summaries, lambdaAxis }) {
+export function EntryDetail({ entry, c, ts, summaries, lambdaAxis, units }) {
     // A material the entry uses computes from its catalog when one holds it, so
     // a catalog edit changes the checks, the numbers and the colours while the
     // entry stays the same.
@@ -145,9 +145,9 @@ export function EntryDetail({ entry, c, ts, summaries, lambdaAxis }) {
             h('span', { style: { color: c.textDim } }, ` · ${ts.polarization} `),
             h('span', { style: { fontWeight: 600 } }, pol),
             h('span', { style: { color: c.textDim } },
-                ` · ${ts.band} ${bandsText(entry)} · ${ts.layersShort(entry.layers.length)}`
-                + ` · ${ts.referenceWavelength} ${entry.referenceWavelength} nm`)),
-        h('div', { style: { margin: '8px 0 2px', maxWidth: 520 } }, h(StackStrip, { entry, c, height: 10 })),
+                ` · ${ts.band} ${bandsText(entry, units.nm)} · ${ts.layersShort(entry.layers.length)}`
+                + ` · ${ts.referenceWavelength} ${entry.referenceWavelength} ${units.nm}`)),
+        h('div', { style: { margin: '8px 0 2px', maxWidth: 520 } }, h(StackStrip, { entry, c, units, height: 10 })),
         h(Tags, { entry, c }),
 
         problems.length > 0 && h('div', null,
@@ -166,7 +166,7 @@ export function EntryDetail({ entry, c, ts, summaries, lambdaAxis }) {
                 h(StackTable, { entry, catalogRevision, c, ts })),
             h('div', { style: { minWidth: 260, flex: 1 } },
                 h(SectionTitle, { c }, `${ts.propertiesHeading} · ${angleText(entry, ts)}`),
-                h(Properties, { entry, metrics, c, ts }),
+                h(Properties, { entry, metrics, c, ts, units }),
                 h(SectionTitle, { c }, ts.specHeading),
                 h(SpecList, { spec, c, ts, summaries }))),
 

@@ -168,11 +168,11 @@ export function CoatingLibrary({ c, t }) {
                 entries: visible, selectedId: session.selectedId,
                 onSelect: id => { setField('selectedId', id); setMessage(''); },
                 openTypes: session.openTypes, onToggleType: toggleType,
-                emptyText, c, ts,
+                emptyText, c, ts, units: t.units,
             }),
             h('div', { style: { flex: 1, minWidth: 0, overflow: 'auto' } },
                 selected
-                    ? h(EntryDetail, { entry: selected, c, ts, summaries: t.specification.summaries, lambdaAxis: t.spectralAxis.lambdaShort })
+                    ? h(EntryDetail, { entry: selected, c, ts, summaries: t.specification.summaries, lambdaAxis: t.spectralAxis.lambdaShort, units: t.units })
                     : h('div', { style: { padding: 24, fontSize: 12, color: c.textDim, fontStyle: 'italic' } }, ts.selectHint))),
         h(ApplyBar, { session, setField, selected, hasActiveDesign, onApply: apply, onDelete: remove, message, c, ts }),
         saving && h(SaveCoatingDialog, {

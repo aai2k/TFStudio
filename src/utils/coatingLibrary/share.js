@@ -31,7 +31,7 @@ export function conditionsText(entry) {
     return [
         `Substrate: ${materialLabel(entry.substrate)}`,
         `Incident medium: ${materialLabel(entry.incidentMedium)}`,
-        `Design band: ${bandsText(entry)}`,
+        `Design band: ${bandsText(entry, 'nm')}`,
         `Angle of incidence: ${entry.aoi}°`,
         `Polarization: ${entry.polarization}`,
         `Reference wavelength: ${entry.referenceWavelength} nm`,

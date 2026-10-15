@@ -840,7 +840,7 @@ export default {
   // Unit symbols written beside a number, in the language's own script.
   units: {
     nm: 'nm', um: 'µm', mm: 'mm', m: 'm', fs: 'fs', fs2: 'fs²', fs3: 'fs³', fsPerNm: 'fs/nm', newtonPerM: 'N/m',
-    cm1: 'cm⁻¹', THz: 'THz', eV: 'eV', MPa: 'MPa', GPa: 'GPa', ppmPerK: 'ppm/K', celsius: '°C', jPerM2: 'J/m²',
+    cm1: 'cm⁻¹', THz: 'THz', eV: 'eV', MPa: 'MPa', GPa: 'GPa', ppmPerK: 'ppm/K', celsius: '°C', jPerM2: 'J/m²', gPerCm3: 'g/cm³',
   },
 
   spectralAxis: {

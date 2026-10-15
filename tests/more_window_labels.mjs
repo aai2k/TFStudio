@@ -154,7 +154,7 @@ const design = {
     // The list under All catalogs names each material's catalog.
     const results = searchMaterials('', 'builtin').slice(0, 3);
     const panel = (t, catFilter, currentCatalog) => html(renderLeftPanel({
-        c, me: t.materialEditor, catFilter, setCatFilter: noop, setEditDraft: noop,
+        c, me: t.materialEditor, units: t.units, catFilter, setCatFilter: noop, setEditDraft: noop,
         browseCatalogs: [builtin], currentCatalog, isUserCatalog: false, importing: false,
         menuOpen: false, setMenuOpen: noop, menuTriggerRef: { current: null },
         addMenuOpen: false, setAddMenuOpen: noop, addMenuTriggerRef: { current: null },

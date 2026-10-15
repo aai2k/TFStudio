@@ -12,14 +12,14 @@ import { unitLabel } from './materialEditorUI.js';
 
 const { createElement: h } = React;
 
-export function renderMechanicalTab({ draft, set, me, c, inputStyle, labelStyle }) {
+export function renderMechanicalTab({ draft, set, me, units, c, inputStyle, labelStyle }) {
     const block = draft.mechanical || {};
     return h('div', { style: { paddingTop: 8 } },
         h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 8px' } },
             MECHANICAL_FIELDS.map(field =>
                 h('div', { key: field, style: { display: 'flex', flexDirection: 'column', gap: 2 } },
                     h('span', { style: { ...labelStyle, whiteSpace: 'normal' } },
-                        unitLabel(me.mechanicalFields[field], MECHANICAL_UNITS[field])),
+                        unitLabel(me.mechanicalFields[field], units[MECHANICAL_UNITS[field]])),
                     h('input', {
                         type: 'text',
                         value: block[field] || '',

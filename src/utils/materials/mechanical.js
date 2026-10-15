@@ -36,15 +36,15 @@ export const MECHANICAL_FIELDS = [
     'surfaceEnergyJm2',
 ];
 
-/** Unit shown beside each field. Symbols, not localized. */
+/** The unit shown beside each field, as its key in t.units; '' for a pure number. */
 export const MECHANICAL_UNITS = {
     youngsModulusGPa: 'GPa',
     poissonsRatio: '',
-    linearExpansionPerK: 'ppm/K',
-    dnDtPerK: 'ppm/K',
+    linearExpansionPerK: 'ppmPerK',
+    dnDtPerK: 'ppmPerK',
     intrinsicStressMPa: 'MPa',
-    referenceTemperatureC: '°C',
-    surfaceEnergyJm2: 'J/m²',
+    referenceTemperatureC: 'celsius',
+    surfaceEnergyJm2: 'jPerM2',
 };
 
 // Stored value times this is the number shown in MECHANICAL_UNITS. Only the

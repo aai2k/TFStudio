@@ -89,7 +89,7 @@ function renderList({ items, errors, currentItem, excluded, toggle, setCurrent, 
     );
 }
 
-function renderPreview({ currentItem, sampled, chartRef, me, c }) {
+function renderPreview({ currentItem, sampled, chartRef, me, units, c }) {
     const entry = currentItem?.entry;
     const negative = entry ? negativeKPoints(entry).length : 0;
     const details = !entry
@@ -100,15 +100,15 @@ function renderPreview({ currentItem, sampled, chartRef, me, c }) {
                 h('div', { style: { fontSize: 11, color: c.textDim, marginTop: 2 } },
                     `${me.importProgramName[currentItem.program]} · ${typeLabel(currentItem, me)} · ${me.importSourceFile}: ${currentItem.file}`),
                 entry.lambdaMin && h('div', { style: { fontSize: 11, color: c.textDim, marginTop: 2 } },
-                    `${me.lambdaRange}: ${formatNm(entry.lambdaMin * 1000)} – ${formatNm(entry.lambdaMax * 1000)} nm`),
+                    `${me.lambdaRange}: ${formatNm(entry.lambdaMin * 1000)} – ${formatNm(entry.lambdaMax * 1000)} ${units.nm}`),
                 entry.macleod?.internalTransmittance && h('div', { style: { fontSize: 11, color: '#e6a23c', marginTop: 4 } }, me.importInternalTransmittance),
                 negative > 0 && h('div', { style: { fontSize: 11, color: '#e6a23c', marginTop: 4 } }, me.importNegativeK(negative)),
                 entry.comment && h('div', { style: { fontSize: 11, color: c.textDim, marginTop: 4 } }, entry.comment)
             ),
             readOnlyFormulaBlock(entry, me, c),
             entry.formulaNum === -1
-                ? readOnlyNkTable(`${me.nkTable} (${entry.tabData.length})`, entry.tabData, c)
-                : sampled.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${sampled.length})`, sampled, c)
+                ? readOnlyNkTable(`${me.nkTable} (${entry.tabData.length})`, entry.tabData, { c, units })
+                : sampled.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${sampled.length})`, sampled, { c, units })
         );
     return h('div', { style: { flex: '1 1 45%', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' } },
         details,
@@ -118,7 +118,7 @@ function renderPreview({ currentItem, sampled, chartRef, me, c }) {
     );
 }
 
-export function MaterialImportDialog({ fileImport, setFileImport, catalogs, onCommit, me, c }) {
+export function MaterialImportDialog({ fileImport, setFileImport, catalogs, onCommit, me, unitSymbols, c }) {
     const { files, units } = fileImport;
     const parsed = useMemo(() => parseMaterialFiles(files, units), [files, units]);
     const [excluded, setExcluded] = useState(() => new Set());
@@ -187,8 +187,8 @@ export function MaterialImportDialog({ fileImport, setFileImport, catalogs, onCo
     );
 
     const footer = h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, padding: '8px 12px', borderTop: `1px solid ${c.border}`, flexWrap: 'wrap', flexShrink: 0 } },
-        programs.has('tfcalc') && unitSwitch('tfcalc', me.importUnitTfcalc, [['nm', 'nm'], ['um', 'µm']]),
-        programs.has('macleod') && unitSwitch('macleod', me.importUnitMacleod, [['auto', me.importUnitAuto], ['nm', 'nm'], ['um', 'µm']]),
+        programs.has('tfcalc') && unitSwitch('tfcalc', me.importUnitTfcalc, [['nm', unitSymbols.nm], ['um', unitSymbols.um]]),
+        programs.has('macleod') && unitSwitch('macleod', me.importUnitMacleod, [['auto', me.importUnitAuto], ['nm', unitSymbols.nm], ['um', unitSymbols.um]]),
         h('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 } },
             h('span', { style: { fontSize: 11, color: c.textDim } }, me.importInto),
             h('select', { value: target, onChange: e => setTarget(e.target.value), style: fieldStyle(c) },
@@ -222,7 +222,7 @@ export function MaterialImportDialog({ fileImport, setFileImport, catalogs, onCo
             header,
             h('div', { style: { flex: 1, display: 'flex', minHeight: 0 } },
                 renderList({ items, errors, currentItem, excluded, toggle, setCurrent, me, c }),
-                renderPreview({ currentItem, sampled, chartRef, me, c })
+                renderPreview({ currentItem, sampled, chartRef, me, units: unitSymbols, c })
             ),
             footer
         )

@@ -75,13 +75,13 @@ function designOriginBlock(designOnly, me, c) {
     }, designOnly.conflict ? me.designMaterialConflict(designOnly.conflict) : me.designMaterialAbsent);
 }
 
-function readOnlyPropsBlock(selectedMat, me, c) {
+function readOnlyPropsBlock(selectedMat, me, c, units) {
     return h('div', { style: { padding: '8px 12px', flexShrink: 0 } },
         h('div', { style: { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 12px', fontSize: 12 } },
             selectedMat.nd && propRow(me.nd, selectedMat.nd.toFixed(5), c),
             selectedMat.vd && propRow(me.vd, selectedMat.vd.toFixed(2), c),
-            selectedMat.density && propRow(me.density, `${selectedMat.density.toFixed(3)} g/cm³`, c),
-            selectedMat.lambdaMin && propRow(me.lambdaRange, `${formatNm(selectedMat.lambdaMin * 1000)} – ${formatNm(selectedMat.lambdaMax * 1000)} nm`, c),
+            selectedMat.density && propRow(me.density, `${selectedMat.density.toFixed(3)} ${units.gPerCm3}`, c),
+            selectedMat.lambdaMin && propRow(me.lambdaRange, `${formatNm(selectedMat.lambdaMin * 1000)} – ${formatNm(selectedMat.lambdaMax * 1000)} ${units.nm}`, c),
             selectedMat.comment && propRow(me.comment, selectedMat.comment, c)
         )
     );
@@ -90,7 +90,7 @@ function readOnlyPropsBlock(selectedMat, me, c) {
 // The thermo-mechanical constants a catalog brought with it. Only the fields
 // the material actually states are listed, the way every row above behaves;
 // a material that states none says so rather than showing seven blanks.
-function readOnlyMechanicalBlock(selectedMat, me, c) {
+function readOnlyMechanicalBlock(selectedMat, me, c, units) {
     const block = selectedMat.mechanical;
     const stated = MECHANICAL_FIELDS.filter(field => Number.isFinite(block?.[field]));
     if (!stated.length) {
@@ -100,7 +100,7 @@ function readOnlyMechanicalBlock(selectedMat, me, c) {
     return h('div', { style: { padding: '8px 12px', flexShrink: 0 } },
         h('div', { style: { display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 12px', fontSize: 12 } },
             stated.map(field => propRow(
-                unitLabel(me.mechanicalFields[field], MECHANICAL_UNITS[field]),
+                unitLabel(me.mechanicalFields[field], units[MECHANICAL_UNITS[field]]),
                 String(mechanicalToDisplay(field, block[field])),
                 c,
             )))
@@ -127,7 +127,7 @@ const NK_ROW_HEIGHT = 18;
 
 // Only the rows in view are drawn (ui/virtualRows.js): a refractiveindex.info
 // page can run to 60,000 rows.
-function NkTable({ title, rows, c, wrapStyle, fill }) {
+function NkTable({ title, rows, c, units, wrapStyle, fill }) {
     const { paneRef, onScroll, first, end } = useVirtualRows(rows.length, NK_ROW_HEIGHT);
     const cell = { padding: '0 8px', height: NK_ROW_HEIGHT, whiteSpace: 'nowrap' };
     return h('div', {
@@ -143,7 +143,7 @@ function NkTable({ title, rows, c, wrapStyle, fill }) {
         },
             h('table', { style: { width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 11, fontFamily: 'monospace' } },
                 h('thead', null, h('tr', { style: { position: 'sticky', top: 0, backgroundColor: c.panel } },
-                    ['λ (nm)', 'n', 'k'].map((hd, i) =>
+                    [`λ (${units.nm})`, 'n', 'k'].map((hd, i) =>
                         h('th', { key: i, style: { textAlign: i === 0 ? 'left' : 'right', padding: '3px 8px', color: c.textDim, borderBottom: `1px solid ${c.border}`, fontWeight: 600 } }, hd))
                 )),
                 h('tbody', null, virtualBody(rows, { first, end }, NK_ROW_HEIGHT, 3, (row, i) =>
@@ -162,9 +162,9 @@ function NkTable({ title, rows, c, wrapStyle, fill }) {
 // sampled views (title and row source differ, structure is identical).
 // `wrapStyle` lets a host with its own gutter override the outer padding.
 // With `fill` the table takes the height its host gives it instead of a
-// 150 px box.
-export function readOnlyNkTable(title, rows, c, wrapStyle, fill) {
-    return h(NkTable, { title, rows, c, wrapStyle, fill });
+// 150 px box. `units` is t.units, which writes the λ column's unit.
+export function readOnlyNkTable(title, rows, { c, units, wrapStyle, fill }) {
+    return h(NkTable, { title, rows, c, units, wrapStyle, fill });
 }
 
 export function renderReadOnlyMaterial({
@@ -192,11 +192,11 @@ export function renderReadOnlyMaterial({
         // out of the pane.
         h('div', { style: { flexShrink: 0, maxHeight: 180, overflowY: 'auto' } },
             designOriginBlock(designOnly, me, c),
-            readOnlyPropsBlock(selectedMat, me, c)
+            readOnlyPropsBlock(selectedMat, me, c, t.units)
         ),
         detailTabStrip({ tab, setTab: setDetailTab, me, c, wrapStyle: { padding: '0 8px' } }),
         tab === 'mechanical' && h('div', { style: { flex: 1, overflowY: 'auto' } },
-            readOnlyMechanicalBlock(selectedMat, me, c)),
+            readOnlyMechanicalBlock(selectedMat, me, c, t.units)),
         tab === 'nk' && h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' } },
             readOnlyFormulaBlock(selectedMat, me, c),
             // n/k chart, then the numbers under it: a probe at one wavelength and
@@ -214,8 +214,8 @@ export function renderReadOnlyMaterial({
                     c, me,
                 })
             ),
-            hasStoredTab && readOnlyNkTable(`${me.nkTable} (${selectedMat.tabData.length})`, selectedMat.tabData, c),
-            !hasStoredTab && sampledTable.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${sampledTable.length})`, sampledTable, c)
+            hasStoredTab && readOnlyNkTable(`${me.nkTable} (${selectedMat.tabData.length})`, selectedMat.tabData, { c, units: t.units }),
+            !hasStoredTab && sampledTable.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${sampledTable.length})`, sampledTable, { c, units: t.units })
         )
     );
 }

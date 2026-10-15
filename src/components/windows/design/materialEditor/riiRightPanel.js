@@ -25,10 +25,10 @@ const { createElement: h } = React;
 // so a page starting at 27.5 nm does not read as 28.
 const nmText = value => (value >= 100 ? Math.round(value) : Number(value.toPrecision(3)));
 
-export function wlRange(mat) {
+export function wlRange(mat, units) {
     const range = sampledRangeNm(mat);
     if (!range) return '—';
-    return `${nmText(range[0])}–${nmText(range[1])} nm`;
+    return `${nmText(range[0])}–${nmText(range[1])} ${units.nm}`;
 }
 
 // What the page's n,k come from: its table where it has one, otherwise its
@@ -45,7 +45,7 @@ export function typeLabel(mat, rii) {
     return mat.type;
 }
 
-const rangeText = ([from, to]) => (from === to ? `${nmText(from)} nm` : `${nmText(from)}–${nmText(to)} nm`);
+const rangeText = ([from, to], units) => (from === to ? `${nmText(from)} ${units.nm}` : `${nmText(from)}–${nmText(to)} ${units.nm}`);
 
 /**
  * Why a page cannot be sampled, in the user's language where the sampler
@@ -84,7 +84,7 @@ function storedMaterial(mat) {
 }
 
 function renderInfoGrid(s, leftOut) {
-    const { c, rii, selected, mat } = s;
+    const { c, rii, units, selected, mat } = s;
     return h('div', {
         style: {
             padding: '10px 14px 6px', flexShrink: 0,
@@ -99,9 +99,9 @@ function renderInfoGrid(s, leftOut) {
         h('span', { style: { color: c.textDim } }, rii.type),
         h('span', { style: { color: c.text } }, typeLabel(mat, rii)),
         h('span', { style: { color: c.textDim } }, rii.wavelengthRange),
-        h('span', { style: { color: c.text } }, wlRange(mat)),
+        h('span', { style: { color: c.text } }, wlRange(mat, units)),
         leftOut.length > 0 && h('span', { style: { gridColumn: '1 / -1', color: '#e6a23c', fontSize: 11 } },
-            rii.leftOut(leftOut.map(rangeText).join(', '))),
+            rii.leftOut(leftOut.map(range => rangeText(range, units)).join(', '))),
     );
 }
 
@@ -130,7 +130,7 @@ function renderFormulaBlock(s) {
 }
 
 function renderSampleTabs(s, rows) {
-    const { c, rii, me, mat, sampleTab, setSampleTab, wavelengthLabel } = s;
+    const { c, rii, me, units, mat, sampleTab, setSampleTab, wavelengthLabel } = s;
     const tab = sampleTab === 'table' ? 'table' : 'plot';
     return [
         h('div', {
@@ -145,8 +145,8 @@ function renderSampleTabs(s, rows) {
         tab === 'plot'
             ? h(RiiChart, { key: 'plot', material: mat, c, xLabel: wavelengthLabel })
             : h('div', { key: 'table', style: { flex: 1, minHeight: 160, display: 'flex', flexDirection: 'column' } },
-                readOnlyNkTable(`${mat.tableNK ? me.nkTable : me.nkTableSampled} (${rows.length})`, rows, c,
-                    { borderTop: 'none', padding: '6px 14px 4px' }, true)),
+                readOnlyNkTable(`${mat.tableNK ? me.nkTable : me.nkTableSampled} (${rows.length})`, rows,
+                    { c, units, wrapStyle: { borderTop: 'none', padding: '6px 14px 4px' }, fill: true })),
         h('div', { key: 'probe', style: { padding: '6px 14px', flexShrink: 0, borderTop: `1px solid ${c.border}` } },
             h(NkProbe, { key: mat.dataPath, ...storedMaterial(mat), c, me })),
     ];

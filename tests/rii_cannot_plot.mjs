@@ -41,7 +41,7 @@ function flatten(node, out = []) {
 function renderPanel(mat) {
     const tree = renderRiiRightPanel({
         c: { bg: '#111', border: '#333', text: '#eee', textDim: '#999' },
-        rii, me, mat, matLoading: false, matErr: null, sampleTab: 'plot', setSampleTab: () => {},
+        rii, me, units: getLocale('en').units, mat, matLoading: false, matErr: null, sampleTab: 'plot', setSampleTab: () => {},
         selected: { bookName: 'book', pageName: 'page' },
         wavelengthLabel: 'Wavelength (nm)', phase: 'idle', addMsg: '',
         handleAddClick: () => {}, userCatalogs: [],

@@ -80,6 +80,6 @@ export function MaterialEditor({ c, t, setInputDialog }) {
         // them is selected and there are several.
         newMaterialPicker && renderNewMaterialPickerModal({ catalogs, handleNewMaterialIn, setNewMaterialPicker, me, c }),
         // Material file import: review the parsed batch, then pick the destination catalog.
-        fileImport && h(MaterialImportDialog, { fileImport, setFileImport, catalogs, onCommit: doImportFiles, me, c })
+        fileImport && h(MaterialImportDialog, { fileImport, setFileImport, catalogs, onCommit: doImportFiles, me, unitSymbols: t.units, c })
     );
 }

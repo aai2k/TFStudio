@@ -74,7 +74,7 @@ export function useRIIBrowser({ c, t, onAdded }) {
     const showNoResults = !catalogLoading && !loadErr && !browsing && results.length === 0;
 
     return {
-        c, rii, me: t.materialEditor, sampleTab, setSampleTab,
+        c, rii, me: t.materialEditor, units: t.units, sampleTab, setSampleTab,
         catalogTree, loadErr, catalogLoading, query, setQuery, results,
         expandedShelves, expandedBooks, toggleShelf, toggleBook,
         selected, mat, matLoading, matErr, phase, addMsg, conflict, targetCatId, setTargetCatId,

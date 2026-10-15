@@ -5,11 +5,11 @@ import { TYPE_COLORS, alpha, angleText } from './ui.js';
 
 const { createElement: h } = React;
 
-function EntryRow({ entry, selected, onSelect, c, ts }) {
+function EntryRow({ entry, selected, onSelect, c, ts, units }) {
     const summary = [
         ts.layersShort(entry.layers.length),
         materialLabel(entry.substrate),
-        bandsText(entry),
+        bandsText(entry, units.nm),
         angleText(entry, ts),
     ].join(' · ');
     const color = TYPE_COLORS[entry.type] || TYPE_COLORS.other;
@@ -25,7 +25,7 @@ function EntryRow({ entry, selected, onSelect, c, ts }) {
     },
         h('div', { style: { fontSize: 12, fontWeight: selected ? 600 : 400, color: c.text } }, entry.name),
         h('div', { style: { fontSize: 11, color: c.textDim, margin: '2px 0 4px' } }, summary),
-        h(StackStrip, { entry, c }));
+        h(StackStrip, { entry, c, units }));
 }
 
 // A family folder: its color, its name and how many entries it holds; click
@@ -49,7 +49,7 @@ function GroupHeader({ type, count, collapsed, onToggle, c, ts }) {
 }
 
 /** The entries, sorted into one folder per family. Folders start folded; `openTypes` names the ones unfolded. */
-export function EntryList({ entries, selectedId, onSelect, emptyText, openTypes, onToggleType, c, ts }) {
+export function EntryList({ entries, selectedId, onSelect, emptyText, openTypes, onToggleType, c, ts, units }) {
     const groups = COATING_TYPES
         .map(type => ({ type, items: entries.filter(entry => entry.type === type) }))
         .filter(group => group.items.length > 0);
@@ -64,7 +64,7 @@ export function EntryList({ entries, selectedId, onSelect, emptyText, openTypes,
                 return h('div', { key: type },
                     h(GroupHeader, { type, count: items.length, collapsed, onToggle: () => onToggleType(type), c, ts }),
                     !collapsed && items.map(entry => h(EntryRow, {
-                        key: entry.id, entry, selected: entry.id === selectedId, onSelect, c, ts,
+                        key: entry.id, entry, selected: entry.id === selectedId, onSelect, c, ts, units,
                     })));
             }));
 }

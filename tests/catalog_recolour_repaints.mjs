@@ -72,7 +72,7 @@ const draw = () => {
         const [diagram, picker, strip] = runtime.render(() => [
             StackDiagram.type({ design, c, t }),
             MaterialPicker({ value: 'user_lab:H', onChange: () => {}, c, t }),
-            StackStrip({ entry, c }),
+            StackStrip({ entry, c, units: t.units }),
         ]);
         return { diagram: JSON.stringify(diagram), picker: picker.props.triggerColor, strip: JSON.stringify(strip) };
     } finally {

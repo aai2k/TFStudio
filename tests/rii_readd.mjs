@@ -71,7 +71,7 @@ assert.deepEqual(asked.conflict, { catId: films.id });
 // The bar offers both answers.
 {
     const html = renderToStaticMarkup(React.createElement('div', null, renderRiiRightPanel({
-        c: makeTheme(), rii, me: t.materialEditor, selected: ALPHA, mat: alpha, matLoading: false, matErr: null,
+        c: makeTheme(), rii, me: t.materialEditor, units: t.units, selected: ALPHA, mat: alpha, matLoading: false, matErr: null,
         sampleTab: 'table', setSampleTab() {}, wavelengthLabel: 'nm',
         phase: 'conflict', addMsg: asked.msg, conflict: asked.conflict, doAdd() {}, setPhase() {}, handleAddClick() {},
     })));

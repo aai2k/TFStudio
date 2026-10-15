@@ -289,9 +289,9 @@ function renderPreview({ built, names, mapping, setMapping, di, t, c }) {
         h('div', { style: { padding: '8px 12px', flexShrink: 0 } },
             h('div', { style: { fontSize: 14, fontWeight: 600 } }, item.name),
             h('div', { style: { fontSize: 11, color: c.textDim, marginTop: 2, marginBottom: 6 } }, `${di.programName[entry.program]} · ${di.sourceFile}: ${entry.file}`),
-            propRow(di.refWavelength, `${formatNm(item.referenceWavelengthNm)} nm`, c),
+            propRow(di.refWavelength, `${formatNm(item.referenceWavelengthNm)} ${t.units.nm}`, c),
             propRow(di.incident, item.incidentMedium, c),
-            propRow(di.substrate, item.substrateThicknessMm != null ? `${item.substrate}, ${item.substrateThicknessMm} mm` : item.substrate, c),
+            propRow(di.substrate, item.substrateThicknessMm != null ? `${item.substrate}, ${item.substrateThicknessMm} ${t.units.mm}` : item.substrate, c),
             propRow(di.exit, exitMediumText(item, di), c),
             item.angleDeg ? propRow(di.angle, `${item.angleDeg}°`, c) : null,
             item.matchAngleDeg ? propRow(di.matchAngle, di.matchAngleValue(formatValue(item.matchAngleDeg), formatValue(item.matchMedium)), c) : null,
@@ -407,7 +407,7 @@ export function DesignImportDialog({ fileImport, setFileImport, folders, default
 
     const canImport = selected.length > 0 && !!folderId;
     const footer = h('div', { style: { display: 'flex', alignItems: 'center', gap: 14, padding: '8px 12px', borderTop: `1px solid ${c.border}`, flexWrap: 'wrap', flexShrink: 0 } },
-        programs.has('tfcalc') && unitSwitch('tfcalc', di.unitTfcalc, [['auto', di.unitAuto], ['nm', 'nm'], ['um', 'µm']]),
+        programs.has('tfcalc') && unitSwitch('tfcalc', di.unitTfcalc, [['auto', di.unitAuto], ['nm', t.units.nm], ['um', t.units.um]]),
         h('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 } },
             h('span', { style: { fontSize: 11, color: c.textDim } }, di.into),
             folders.length

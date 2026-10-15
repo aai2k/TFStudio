@@ -27,7 +27,7 @@ let failures = 0;
 for (const entry of entries) {
     const problems = validateEntry(entry);
     console.log(`\n${entry.id}  [${entry.type}]  ${entry.name}`);
-    console.log(`  ${entry.layers.length} layers, ${entry.substrate}, ${bandsText(entry)}, `
+    console.log(`  ${entry.layers.length} layers, ${entry.substrate}, ${bandsText(entry, 'nm')}, `
         + `AOI ${entry.aoi}°, ${entry.polarization}`);
     console.log(`  tags: ${entry.tags.join(', ') || '(none)'}`);
     for (const tag of entry.tags) if (!COATING_TAGS[tag]) problems.push(`tag "${tag}" is not in COATING_TAGS`);

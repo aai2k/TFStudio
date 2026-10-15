@@ -166,7 +166,7 @@ const tfx = points => `<?xml version="1.0"?>\r\n<EssentialMacleodMaterial Name="
             ],
             units: DEFAULT_IMPORT_UNITS,
         },
-        setFileImport() {}, catalogs: [{ id: 'user_1', name: 'User', source: 'user' }], onCommit() {}, me, c,
+        setFileImport() {}, catalogs: [{ id: 'user_1', name: 'User', source: 'user' }], onCommit() {}, me, unitSymbols: t.units, c,
     }));
     assert.ok(has(html, me.importNegativeK(2)), 'the import dialog names the count of points with k below zero');
     assert.equal(count(html, 'k < 0'), 1, 'and marks that file in the list, not the clean one');

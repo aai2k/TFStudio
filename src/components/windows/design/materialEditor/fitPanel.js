@@ -142,13 +142,13 @@ function renderFitCoefficients(fit, c) {
  * residual chart shows the same difference at the rows; this names the two
  * wavelengths where a calculation actually crosses it.
  */
-function renderFitEdges(draft, me, c) {
+function renderFitEdges(draft, me, c, units) {
     if (draft.type !== 'tabular') return null;
     const getNK = makeGetNK(draftToMaterial(draft));
     const edges = getNK ? dispersionFitEdges({ getNK }) : [];
     if (edges.length === 0) return null;
     const step = value => value.toExponential(2);
-    const text = edges.map(edge => `${rangeText(edge.wavelengthNm)} nm: Δn ${step(edge.dn)}`
+    const text = edges.map(edge => `${rangeText(edge.wavelengthNm)} ${units.nm}: Δn ${step(edge.dn)}`
         + (edge.dk === 0 ? '' : `, Δk ${step(edge.dk)}`)).join('; ');
     return h('div', { style: { fontSize: 11, color: c.text, lineHeight: 1.4 } }, me.fitEdgeSteps(text));
 }
@@ -263,7 +263,7 @@ function renderFitRange({ draft, set, me, inputStyle, labelStyle }, fitBand) {
 }
 
 export function renderFitPanel(ctx) {
-    const { draft, set, runFit, fitError, workingNm, me, c, sectionLabel, inputStyle } = ctx;
+    const { draft, set, runFit, fitError, workingNm, me, units, c, sectionLabel, inputStyle } = ctx;
     const fit = draft.dispersionFit;
     const models = fitModelsForRows(draft.rows);
     // The band both the boxes and the note are about, read once: it walks the
@@ -302,7 +302,7 @@ export function renderFitPanel(ctx) {
                 ...fitResidualText(fit, me),
             ),
             fit && renderFitDiagnostics(fit, me),
-            fit && renderFitEdges(draft, me, c),
+            fit && renderFitEdges(draft, me, c, units),
             fit && renderFitCoefficients(fit, c),
             fitError && h('div', { style: { color: '#ef5350', fontSize: 11 } }, fitError),
         ),

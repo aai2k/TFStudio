@@ -5,7 +5,7 @@ import { ThicknessCell } from './ThicknessCell.js';
 import { IconBtn } from './ui.js';
 import {
     fixedLayerTrack, LAYER_TABLE, LAYER_TABLE_MIN_WIDTH, LAYER_THICKNESS_COLUMNS,
-    materialLayerTrack,
+    materialLayerTrack, thicknessColumnText,
 } from './layerTableLayout.js';
 
 const { createElement: h, useState } = React;
@@ -112,7 +112,7 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
                 value_nm: layer.thickness,
                 onChange: thickness => onThicknessChange(layer.id, thickness),
                 locked: layer.locked, c, materialId: layer.material, refLambda, designMaterials,
-                unit: column.unit, primary: column.primary,
+                unit: column.unit, title: thicknessColumnText(column, t.layerThicknesses).title, primary: column.primary,
                 active: activeUnit === column.unit,
                 editRequest: editRequestUnit === column.unit ? editRequestToken : 0,
                 editSeed: editRequestUnit === column.unit ? editRequestSeed : null,

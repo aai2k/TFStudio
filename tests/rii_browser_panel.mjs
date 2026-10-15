@@ -49,7 +49,7 @@ function flatten(node, out = []) {
 function renderPanel(mat, sampleTab = 'plot') {
     const tabs = [];
     const nodes = flatten(renderRiiRightPanel({
-        c, rii, me, mat, matLoading: false, matErr: null,
+        c, rii, me, units: getLocale('en').units, mat, matLoading: false, matErr: null,
         selected: { bookName: 'book', pageName: 'page' },
         wavelengthLabel: 'Wavelength (nm)', phase: 'idle', addMsg: '',
         handleAddClick: () => {}, userCatalogs: [],

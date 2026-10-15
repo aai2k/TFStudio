@@ -139,17 +139,17 @@ function renderCountRow(s) {
 // Second line of a list row: the material's own data range, plus — only while
 // browsing all catalogs — the catalog it lives in, since the selector no longer
 // names one in that mode.
-function materialSubtitle(material, catalogName, catFilter) {
+function materialSubtitle(material, catalogName, catFilter, units) {
     const parts = [];
     if (material.lambdaMin && material.lambdaMax) {
-        parts.push(`${formatNm(material.lambdaMin * 1000)}–${formatNm(material.lambdaMax * 1000)} nm`);
+        parts.push(`${formatNm(material.lambdaMin * 1000)}–${formatNm(material.lambdaMax * 1000)} ${units.nm}`);
     }
     if (catFilter === 'all' && catalogName) parts.push(catalogName);
     return parts.join(' · ');
 }
 
 function renderMaterialList(s) {
-    const { c, me, results, editDraft, selectedId, handleSelectMaterial, catFilter } = s;
+    const { c, me, units, results, editDraft, selectedId, handleSelectMaterial, catFilter } = s;
     if (results.length === 0) {
         return h('div', { style: { padding: 12, color: c.textDim, fontSize: 12, textAlign: 'center' } }, me.noMaterials);
     }
@@ -160,7 +160,7 @@ function renderMaterialList(s) {
         const isActive = editDraft
             ? (editDraft.catalogId === catalogId && (editDraft.id === material.id || editDraft.originalId === material.id))
             : selectedId === compId;
-        const subtitle = materialSubtitle(material, catalogLabel({ id: catalogId, name: catalogName }), catFilter);
+        const subtitle = materialSubtitle(material, catalogLabel({ id: catalogId, name: catalogName }), catFilter, units);
         return h('div', {
             key: compId,
             onClick: () => handleSelectMaterial(compId, catalogId, material),

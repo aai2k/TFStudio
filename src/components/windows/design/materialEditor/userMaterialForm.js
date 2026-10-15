@@ -384,12 +384,12 @@ function renderNkTab(ctx) {
         draft.type === 'tabular' && renderFitPanel(ctx),
         draft.type === 'formula' && renderFormulaEditor(ctx),
         renderPreviewChart({
-            draft, showResidual: !!draft.dispersionFit, preview: ctx.preview, me, c, sectionLabel,
+            draft, showResidual: !!draft.dispersionFit, preview: ctx.preview, me, units: ctx.units, c, sectionLabel,
         })
     );
 }
 
-function renderPreviewChart({ draft, showResidual, preview, me, c, sectionLabel }) {
+function renderPreviewChart({ draft, showResidual, preview, me, units, c, sectionLabel }) {
     return h('div', { style: { flexShrink: 0, marginTop: 8, borderTop: `1px solid ${c.border}` } },
         sectionLabel(me.chartTitle),
         h(DraftChart, { height: 160, draw: el => drawDraftChart(el, draft, c, me) }),
@@ -397,8 +397,8 @@ function renderPreviewChart({ draft, showResidual, preview, me, c, sectionLabel 
         showResidual && h(DraftChart, { height: 130, draw: el => drawFitResidualChart(el, draft, c, me) }),
         preview.getNK && h('div', { style: { padding: '6px 0 2px' } },
             h(NkProbe, { getNK: preview.getNK, rangeNm: preview.rangeNm, c, me })),
-        preview.rows.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${preview.rows.length})`, preview.rows, c,
-            { padding: '8px 0 4px', borderTop: 'none' }),
+        preview.rows.length > 0 && readOnlyNkTable(`${me.nkTableSampled} (${preview.rows.length})`, preview.rows,
+            { c, units, wrapStyle: { padding: '8px 0 4px', borderTop: 'none' } }),
     );
 }
 
@@ -503,7 +503,7 @@ export function UserMaterialForm({
     }, text);
 
     const ctx = {
-        draft, set, me, c, inputStyle, labelStyle, sectionLabel, preview,
+        draft, set, me, units: t.units, c, inputStyle, labelStyle, sectionLabel, preview,
         lambdaAxis: t.spectralAxis.lambdaShort,
         formulaInfo, coeffCount, colorIsAuto, autoColor,
         addRow, delRow, editRow, sortRows, pasteRows,

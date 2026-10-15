@@ -211,7 +211,7 @@ assert.ok(!has(nkPage, mel.mechanicalHint), 'the constants are not on the n and 
 const mechanicalPage = renderForm(draftWith(TYPED), 'mechanical');
 for (const field of MECHANICAL_FIELDS) {
     assert.ok(has(mechanicalPage, mel.mechanicalFields[field]), `${field} is labelled on the mechanical page`);
-    const unit = MECHANICAL_UNITS[field];
+    const unit = t.units[MECHANICAL_UNITS[field]];
     if (unit) assert.ok(has(mechanicalPage, `(${unit})`), `${field} states its unit beside the label`);
 }
 assert.ok(mechanicalPage.includes('value="0.55"'),

@@ -248,9 +248,9 @@ export function makeCoatingEntry(raw = {}) {
     };
 }
 
-/** The bands as one string: "400-700, 900-1700 nm". */
-export function bandsText(entry) {
-    return `${entry.bands.map(([from, to]) => `${from}-${to}`).join(', ')} nm`;
+/** The bands as one string, "400-700, 900-1700 nm", in the unit symbol `nm` names. */
+export function bandsText(entry, nm) {
+    return `${entry.bands.map(([from, to]) => `${from}-${to}`).join(', ')} ${nm}`;
 }
 
 /**
