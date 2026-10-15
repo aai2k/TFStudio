@@ -238,6 +238,24 @@ export function savedMaterialRecord(design, id) {
     return design?.materials?.[id] ?? null;
 }
 
+/**
+ * The fields a compute worker's table entry for `id` carries besides its
+ * samples: `record`, the definition the worker builds `material` from for a
+ * wavelength the table does not hold, except for a built-in id, which the
+ * worker's own built-in library serves. The worker passes the record to
+ * makeGetNK, the function every catalog and embedded material gets its n,k
+ * from, so it computes the same values the material does here. The catalog
+ * stamp is left out: it says where a saved copy came from, which decides how
+ * an id resolves but not its n,k, so the record is the same whether the
+ * material came from a catalog or from the design's copy.
+ */
+export function workerMaterialFields(id, material) {
+    if (isBuiltinId(id)) return {};
+    // eslint-disable-next-line no-unused-vars
+    const { catalogUid, ...record } = stripGetNK(material);
+    return { record };
+}
+
 /** Ids the design references that resolve neither to an embedded definition nor a catalog. */
 export function unresolvedMaterials(design) {
     return designMaterialIds(design)

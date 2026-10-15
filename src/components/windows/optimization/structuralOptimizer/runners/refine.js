@@ -4,6 +4,7 @@ import {
 } from '../../../../../utils/physics/optimizer.js';
 import { tidyLayers } from '../../../../../utils/synthesis/structuralOptimizer.js';
 import { materialLookup } from '../../synthesisShared/materialNames.js';
+import { workerMaterialFields } from '../../../../../utils/materials/designMaterials.js';
 import { regridForDesign } from '../../synthesisShared/runGrid.js';
 import { deep, mkLayers } from './runUtils.js';
 import { refineGuarded } from './workerLifecycle.js';
@@ -24,7 +25,7 @@ export function presampleAll(design, operands, pool) {
             n[i] = nk[0];
             k[i] = nk[1];
         }
-        materials[id] = { lambdas, n, k };
+        materials[id] = { lambdas, n, k, ...workerMaterialFields(id, mat) };
     }
     return materials;
 }

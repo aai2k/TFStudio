@@ -14,6 +14,7 @@ import {
     bandSampleCount, logOperand, ARGWAVE_DEFAULT_POINTS,
 } from './operandModel.js';
 import { materialOmegaResponse } from '../../materials/materialDispersion.js';
+import { workerMaterialFields } from '../../materials/designMaterials.js';
 
 export function isRangeAvg(type) { return type === 'TAV' || type === 'RAV' || type === 'AAV'; }
 // All range-sampled operands — uniform N-point grid over [λStart, λEnd].
@@ -185,6 +186,10 @@ export function operandWavelengthSpan(operands) {
 // dispersion, and the STR operand reads it in the worker exactly as the main
 // thread reads it off the material record. Without it a worker run would score
 // a merit function containing STR as though every film were unstressed.
+//
+// A non-built-in material also carries its definition (`record`), so a worker
+// asked for a wavelength off the grid computes it from the same dispersion
+// model instead of the nearest sample (src/utils/workers/resolveMat.js).
 export function buildPresampledTable(lambdas, pairs, { includeOmegaResponses = true } = {}) {
     const materials = {};
     for (const { id, mat } of pairs) {
@@ -201,6 +206,7 @@ export function buildPresampledTable(lambdas, pairs, { includeOmegaResponses = t
             lambdas, n, k,
             ...(omegaResponses ? { omegaResponses } : {}),
             ...(mat.mechanical ? { mechanical: mat.mechanical } : {}),
+            ...workerMaterialFields(id, mat),
         };
     }
     return materials;
