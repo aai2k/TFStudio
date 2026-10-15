@@ -4292,7 +4292,6 @@ export default {
       twoPipes: '请使用恰好两个 "|" 分隔符（入射介质 | 膜层 | 基底），或一个也不用',
       noLayers: '公式中没有膜层',
       sideSymbol: '两侧必须是材料符号',
-      wavelengthAfterAt: '"@" 后应为波长',
       tokenAfterSide: '侧材料后有多余的符号',
       unmatchedParen: '")" 不匹配',
       missingParen: '缺少 ")"',

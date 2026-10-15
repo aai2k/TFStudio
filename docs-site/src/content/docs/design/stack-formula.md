@@ -32,8 +32,6 @@ written between the two bars.
   `L H L H L 6H L H L H`. Multi-letter symbols and material names such as `Hi`
   or `SiO2` stay separated by spaces.
 - **Repeat groups** `(...)^n` expand the enclosed layers n times.
-- **`@λ`** on a medium overrides the reference wavelength used for the
-  conversion.
 
 ## Settings
 

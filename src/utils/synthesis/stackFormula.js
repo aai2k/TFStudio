@@ -88,15 +88,15 @@ export function stackFormulaResolvers(design) {
 
 // ── Tokenizer ───────────────────────────────────────────────────────────────
 //
-// Tokens: '|', '(', ')', '^', '@', number, identifier.
+// Tokens: '|', '(', ')', '^', number, identifier.
 // Identifiers are a maximal run [A-Za-z][A-Za-z0-9_]* (so SiO2, Nb2O5, BK7,
 // N-BK7 → split on '-' though; we keep '-' out, see note). Numbers start with a
 // digit or a dot.
 
-const TOK = { PIPE: '|', LP: '(', RP: ')', CARET: '^', AT: '@', NUM: 'num', ID: 'id' };
+const TOK = { PIPE: '|', LP: '(', RP: ')', CARET: '^', NUM: 'num', ID: 'id' };
 
 // Single-character punctuation tokens, mapped to their token type.
-const PUNCT = { '|': TOK.PIPE, '(': TOK.LP, ')': TOK.RP, '^': TOK.CARET, '@': TOK.AT };
+const PUNCT = { '|': TOK.PIPE, '(': TOK.LP, ')': TOK.RP, '^': TOK.CARET };
 
 const isDigit = (ch) => ch >= '0' && ch <= '9';
 const isAlpha = (ch) => (ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z');
@@ -150,7 +150,7 @@ export function tokenizeStackFormula(text) {
 //
 // Grammar (recursive descent):
 //   Stack    := (Side '|')? Layers ('|' Side)?     -- 0 or 2 pipes
-//   Side     := Identifier ('@' Number)?
+//   Side     := Identifier
 //   Layers   := Group+
 //   Group    := '(' Layers ')' '^' Integer  |  Atom
 //   Atom     := Number? Identifier            -- coef is a QWOT multiplier
@@ -180,13 +180,13 @@ function preflightFormula(text) {
     const hasSides = pipeIdx.length === 2;
     const sides = hasSides ? splitSides(tokens, pipeIdx) : {};
     if (sides.errorKey) return passError(sides);
-    return { incident: null, exit: null, layerToks: tokens, refLambdaOverride: null, hasSides, ...sides };
+    return { incident: null, exit: null, layerToks: tokens, hasSides, ...sides };
 }
 
 export function parseStackFormula(text) {
     const pre = preflightFormula(text);
     if (pre.errorKey) return { ok: false, ...passError(pre) };
-    const { incident, exit, layerToks, refLambdaOverride, hasSides } = pre;
+    const { incident, exit, layerToks, hasSides } = pre;
 
     const ctx = { toks: layerToks, i: 0 };
     const atoms = [];
@@ -199,44 +199,30 @@ export function parseStackFormula(text) {
         atoms,                       // [{coef, sym, pos}]
         incident, exit,
         hasSides,
-        refLambdaOverride,
     };
 }
 
 // Split an "incident | layers | substrate" token stream into its three parts
 // and parse the two side materials. Called only when exactly two pipes exist.
-// Returns { incident, exit, layerToks, refLambdaOverride } or { error, errorPos }.
+// Returns { incident, exit, layerToks } or { error, errorPos }.
 function splitSides(tokens, pipeIdx) {
     const layerToks = tokens.slice(pipeIdx[0] + 1, pipeIdx[1]);
     const lside = parseSide(tokens.slice(0, pipeIdx[0]));
     if (lside.errorKey) return passError(lside);
     const rside = parseSide(tokens.slice(pipeIdx[1] + 1));
     if (rside.errorKey) return passError(rside);
-    let refLambdaOverride = null;
-    if (lside.refLambda != null) refLambdaOverride = lside.refLambda;
-    if (rside.refLambda != null) refLambdaOverride = rside.refLambda;
     return {
         layerToks,
         incident: lside.sym ? { sym: lside.sym, pos: lside.pos } : null,
         exit:     rside.sym ? { sym: rside.sym, pos: rside.pos } : null,
-        refLambdaOverride,
     };
 }
 
 function parseSide(toks) {
     if (toks.length === 0) return { sym: null };   // empty side = keep current
     if (toks[0].type !== TOK.ID) return { errorKey: 'sideSymbol', errorPos: toks[0].pos };
-    const sym = toks[0].value, pos = toks[0].pos;
-    let refLambda = null;
-    let k = 1;
-    if (k < toks.length && toks[k].type === TOK.AT) {
-        if (k + 1 >= toks.length || toks[k + 1].type !== TOK.NUM)
-            return { errorKey: 'wavelengthAfterAt', errorPos: toks[k].pos };
-        refLambda = toks[k + 1].value;
-        k += 2;
-    }
-    if (k < toks.length) return { errorKey: 'tokenAfterSide', errorPos: toks[k].pos };
-    return { sym, pos, refLambda };
+    if (toks.length > 1) return { errorKey: 'tokenAfterSide', errorPos: toks[1].pos };
+    return { sym: toks[0].value, pos: toks[0].pos };
 }
 
 function parseLayers(ctx, out, topLevel) {
@@ -427,7 +413,7 @@ export function buildStackFromFormula(opts) {
     const {
         text,
         symbolMap = DEFAULT_SYMBOL_MAP,
-        refLambda: refLambdaIn = 550,
+        refLambda = 550,
         startFromSubstrate = false,
         idSeed = 'sf',
         resolvers = DEFAULT_RESOLVERS,
@@ -436,7 +422,6 @@ export function buildStackFromFormula(opts) {
     const parsed = parseStackFormula(text);
     if (!parsed.ok) return { ok: false, ...passError(parsed) };
 
-    const refLambda = parsed.refLambdaOverride != null ? parsed.refLambdaOverride : refLambdaIn;
     if (!(refLambda > 0)) return { ok: false, errorKey: 'refLambdaPositive', errorPos: 0 };
 
     // Resolve layer and boundary symbols before constructing any layers.

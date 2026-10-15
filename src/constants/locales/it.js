@@ -4351,7 +4351,6 @@ export default {
       twoPipes: 'Usa esattamente due separatori "|" (mezzo incidente | strati | substrato) oppure nessuno',
       noLayers: 'Nessuno strato nella formula',
       sideSymbol: 'Il lato deve essere un simbolo di materiale',
-      wavelengthAfterAt: "Dopo \"@\" è attesa una lunghezza d'onda",
       tokenAfterSide: 'Token inatteso dopo il materiale del lato',
       unmatchedParen: '")" non accoppiata',
       missingParen: '")" mancante',

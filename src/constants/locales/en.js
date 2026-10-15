@@ -3911,7 +3911,6 @@ export default {
       twoPipes:               'Use exactly two "|" separators (incident | layers | substrate) or none',
       noLayers:               'No layers in formula',
       sideSymbol:             'Side must be a material symbol',
-      wavelengthAfterAt:      'Expected wavelength after "@"',
       tokenAfterSide:         'Unexpected token after side material',
       unmatchedParen:         'Unmatched ")"',
       missingParen:           'Missing ")"',

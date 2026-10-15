@@ -176,14 +176,18 @@ console.log('— repeat compression —');
     ok(f0.replace(/\s+/g, '') === 'HLHLHLHLH', 'compress:false leaves it flat');
 }
 
-// ── 9. @λ override ───────────────────────────────────────────────────────────
-console.log('— @lambda override —');
+// ── 9. λ₀ comes from its box only ────────────────────────────────────────────
+// The formula has no wavelength syntax of its own, so the λ₀ the layers are
+// built at is the one the table, the preview and the design written all use.
+console.log('— λ₀ from the box —');
 {
-    const r = buildStackFromFormula({ text: 'Air@1064 | H L | BK7', symbolMap: SM, refLambda: 550 });
-    ok(r.ok, '@λ formula parses');
-    ok(r.refLambda === 1064, 'refLambda overridden to 1064');
+    const r = buildStackFromFormula({ text: 'Air | H L | BK7', symbolMap: SM, refLambda: 1064 });
+    ok(r.ok && r.refLambda === 1064, 'the λ₀ passed in is the one built at');
     ok(near(r.layers[0].thickness, 1064 / (4 * getMaterialById('builtin:TiO2').getNK(1064)[0]), 1e-6),
-        'thickness uses overridden λ');
+        'thickness uses that λ₀');
+    const at = buildStackFromFormula({ text: 'Air@1064 | H L | BK7', symbolMap: SM, refLambda: 550 });
+    ok(!at.ok && at.errorKey === 'unexpectedChar' && at.errorArgs[0] === '@',
+        'a wavelength written with @ is refused, not used for the layers alone');
 }
 
 // ── 10. Errors with positions ────────────────────────────────────────────────
