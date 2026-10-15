@@ -59,7 +59,7 @@ expect(axes.join() === 'ГЗ, фс,ДГЗ, фс²,КХД, фс/нм,ДТП, фс
 const { blockSummary } = await import('../src/components/windows/information/report/blockText.js');
 const { newBlock } = await import('../src/utils/report/blocks.js');
 const block = newBlock('gdGdd', { quantities: { gd: true, gdd: true, cdc: true, tod: true } });
-const summary = blockSummary(ru.report.window, block);
+const summary = blockSummary(ru.report.window, block, ru.units);
 expect(summary.includes(cyrillic.join(' ')) && !latin.test(summary), `the report block reads ${summary}`);
 const { BlockSettingsPanel } = await import('../src/components/windows/information/report/BlockSettings.js');
 const settings = renderToStaticMarkup(h('div', null, BlockSettingsPanel({

@@ -67,7 +67,7 @@ export function ReportWindow({ c, t }) {
         ),
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex', position: 'relative' } },
             h(BlockRail, {
-                c, W, blocks: r.blocks, selectedId, addOpen,
+                c, W, units: t.units, blocks: r.blocks, selectedId, addOpen,
                 onSelect: id => { setSelectedId(id); setAddOpen(false); },
                 onToggle: r.toggleBlock, onReorder: r.reorderBlock,
                 onToggleAdd: () => { setAddOpen(open => !open); setSelectedId(null); },
@@ -80,7 +80,7 @@ export function ReportWindow({ c, t }) {
                 onChange: r.setBlockSettings, onMove: r.moveBlock, onRemove: r.removeBlock,
                 onClose: () => setSelectedId(null),
             }),
-            addOpen && h(AddBlockMenu, { c, W, design: r.design, onAdd: r.addBlock, onClose: () => setAddOpen(false) }),
+            addOpen && h(AddBlockMenu, { c, W, units: t.units, design: r.design, onAdd: r.addBlock, onClose: () => setAddOpen(false) }),
         ),
         h(ExportBar, {
             c, W, summary: W.status(onCount, r.chosen.length), status: r.status, enabled: hasDesigns && !!r.html && !r.error,

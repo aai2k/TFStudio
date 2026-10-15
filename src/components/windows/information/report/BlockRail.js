@@ -25,8 +25,8 @@ const GEAR = h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none
 const PLUS = h('svg', { width: 11, height: 11, viewBox: '0 0 12 12', fill: 'none' },
     h('path', { d: 'M6 1.5v9M1.5 6h9', stroke: 'currentColor', strokeWidth: 1.4, strokeLinecap: 'round' }));
 
-function BlockRow({ c, W, block, index, selected, onToggle, onSelect, drag }) {
-    const summary = blockSummary(W, block);
+function BlockRow({ c, W, units, block, index, selected, onToggle, onSelect, drag }) {
+    const summary = blockSummary(W, block, units);
     return h('div', {
         draggable: true,
         onDragStart: event => drag.start(event, index),
@@ -58,7 +58,7 @@ function BlockRow({ c, W, block, index, selected, onToggle, onSelect, drag }) {
     );
 }
 
-export function BlockRail({ c, W, blocks, selectedId, onSelect, onToggle, onReorder, addOpen, onToggleAdd }) {
+export function BlockRail({ c, W, units, blocks, selectedId, onSelect, onToggle, onReorder, addOpen, onToggleAdd }) {
     const dragIndex = useRef(null);
     const [, setTick] = useState(0);
     const drag = {
@@ -89,7 +89,7 @@ export function BlockRail({ c, W, blocks, selectedId, onSelect, onToggle, onReor
         ),
         h('div', { style: { flex: 1, minHeight: 0, overflowY: 'auto' } },
             blocks.map((block, index) => h(BlockRow, {
-                key: block.id, c, W, block, index, selected: block.id === selectedId, onToggle, onSelect, drag,
+                key: block.id, c, W, units, block, index, selected: block.id === selectedId, onToggle, onSelect, drag,
             }))),
         h('div', { style: { padding: '8px 10px', borderTop: `1px solid ${c.border}` } },
             h('button', {

@@ -22,6 +22,8 @@ export function cull(name, max = 18) {
 }
 
 export function tt(tr, key, fallback) { return (tr && tr[key] != null) ? tr[key] : fallback; }
+/** A unit symbol as the document's language writes it, from t.units by key. */
+export function unitOf(tr, key) { return tt(tr?.units, key, key); }
 /** A polarization as the document's language writes it; s and p are symbols. */
 export function polText(tr, pol) { return pol === 'avg' ? tt(tr, 'polAvg', pol) : pol; }
 

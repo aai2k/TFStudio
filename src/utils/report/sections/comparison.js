@@ -12,7 +12,7 @@
  */
 
 import { escapeHtml } from '../svgChart.js';
-import { pct, num, tt, polText, blockTitle, errNote, wrap, table, note } from './format.js';
+import { pct, num, tt, unitOf, polText, blockTitle, errNote, wrap, table, note } from './format.js';
 import { recipeTable } from './layers.js';
 import { materialLegendItem, materialsTable } from './materials.js';
 import { factPairs, stackDiagramSVG } from './facts.js';
@@ -68,7 +68,7 @@ function recipeCell(d, settings, tr) {
   const body = s.front.length && s.back.length
     ? side(s.front, tt(tr, 'frontCoating', 'Front coating')) + side(s.back, tt(tr, 'backCoating', 'Back coating'))
     : side(s.front.length ? s.front : s.back, '');
-  const head = letterHead(d, ` · ${s.frontCount}${s.backCount ? ' + ' + s.backCount : ''} ${escapeHtml(word)} · ${num(s.totalThickness, 0)} nm`);
+  const head = letterHead(d, ` · ${s.frontCount}${s.backCount ? ' + ' + s.backCount : ''} ${escapeHtml(word)} · ${num(s.totalThickness, 0)} ${escapeHtml(unitOf(tr, 'nm'))}`);
   return `<div>${head}${body || note(escapeHtml(tt(tr, 'noLayers', 'No layers')))}</div>`;
 }
 
@@ -85,7 +85,7 @@ export function buildMaterialsComparison({ designs, settings, tr }) {
   const title = blockTitle(tr, 'materials', 'Materials');
   const parts = designs.map(d => {
     const s = d.data.summary;
-    const head = `<b style="color:${escapeHtml(d.color)}">${escapeHtml(d.label)}</b> <span class="tf-nk">(${num(s.referenceWavelength, 0)} nm)</span>`;
+    const head = `<b style="color:${escapeHtml(d.color)}">${escapeHtml(d.label)}</b> <span class="tf-nk">(${num(s.referenceWavelength, 0)} ${escapeHtml(unitOf(tr, 'nm'))})</span>`;
     return settings.table
       ? `<p class="tf-legend">${head}</p>${materialsTable(s.materials, tr)}`
       : `<p class="tf-legend">${head} ${s.materials.map(materialLegendItem).join('')}</p>`;

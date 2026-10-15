@@ -12,7 +12,7 @@
 
 import { escapeHtml } from '../svgChart.js';
 import {
-  num, tt, blockTitle, errNote, wrap, h3, table, splitRows, flow, matCell, note,
+  num, tt, unitOf, blockTitle, errNote, wrap, h3, table, splitRows, flow, matCell, note,
 } from './format.js';
 import { groupPeriods } from './layerGroups.js';
 
@@ -89,7 +89,7 @@ function coatingsHtml(s, settings, tr) {
   if (s.front.length && !s.back.length) return coatingTable(s.front, settings, tr);
   const word = escapeHtml(tt(tr, 'layersWord', 'layers'));
   const side = (layers, name, total) => layers.length
-    ? h3(name, `${layers.length} ${word} · ${num(total, 1)} nm`) + coatingTable(layers, settings, tr)
+    ? h3(name, `${layers.length} ${word} · ${num(total, 1)} ${escapeHtml(unitOf(tr, 'nm'))}`) + coatingTable(layers, settings, tr)
     : '';
   return side(s.front, tt(tr, 'frontCoating', 'Front coating'), s.frontThickness)
        + side(s.back, tt(tr, 'backCoating', 'Back coating'), s.backThickness);
@@ -108,7 +108,8 @@ export function buildLayers({ data, settings, tr }) {
   if (!s) return wrap('layers', title, errNote('no design data'));
   const word = escapeHtml(tt(tr, 'layersWord', 'layers'));
   const count = `${s.frontCount}${s.backCount ? ' + ' + s.backCount : ''} ${word}`;
-  const subtitle = `${count} · ${escapeHtml(tt(tr, 'qwotAt', 'QWOT at'))} ${num(s.referenceWavelength, 0)} nm · ${num(s.totalThickness, 1)} nm`;
+  const nm = escapeHtml(unitOf(tr, 'nm'));
+  const subtitle = `${count} · ${escapeHtml(tt(tr, 'qwotAt', 'QWOT at'))} ${num(s.referenceWavelength, 0)} ${nm} · ${num(s.totalThickness, 1)} ${nm}`;
   return wrap('layers', title, coatingsHtml(s, settings, tr) + tableNotes(s, settings, tr), { subtitle, breakable: true });
 }
 

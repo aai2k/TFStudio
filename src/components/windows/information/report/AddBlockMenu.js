@@ -18,9 +18,9 @@ const PLUS = h('svg', { width: 11, height: 11, viewBox: '0 0 12 12', fill: 'none
 const TICK = h('svg', { width: 10, height: 10, viewBox: '0 0 10 10', fill: 'none' },
     h('path', { d: 'M2 5.2l2.2 2.2L8 3', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round' }));
 
-function Entry({ c, W, spec, design, onAdd }) {
+function Entry({ c, W, units, spec, design, onAdd }) {
     const preview = spec.builtin ? null : newBlock(spec.type, settingsFromWindow(spec.type, design));
-    const summary = preview ? blockSummary(W, preview) : '';
+    const summary = preview ? blockSummary(W, preview, units) : '';
     return h('button', {
         type: 'button', disabled: spec.builtin,
         onClick: () => onAdd(spec.type),
@@ -39,7 +39,7 @@ function Entry({ c, W, spec, design, onAdd }) {
     );
 }
 
-export function AddBlockMenu({ c, W, design, onAdd, onClose }) {
+export function AddBlockMenu({ c, W, units, design, onAdd, onClose }) {
     return [
         h(OverlayCatcher, { key: 'catcher', onClose }),
         h('div', { key: 'panel', style: overlayPanelStyle(c, 380) },
@@ -50,7 +50,7 @@ export function AddBlockMenu({ c, W, design, onAdd, onClose }) {
                     style: { fontSize: 10, fontWeight: 700, color: c.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '8px 4px 3px' },
                 }, W.groups[group]),
                 ...BLOCK_TYPES.filter(spec => spec.group === group).map(spec =>
-                    h(Entry, { key: spec.type, c, W, spec, design, onAdd: type => { onAdd(type); onClose(); } })),
+                    h(Entry, { key: spec.type, c, W, units, spec, design, onAdd: type => { onAdd(type); onClose(); } })),
             ]),
             h('div', { style: { marginTop: 8, paddingTop: 8, borderTop: `1px solid ${c.border}`, fontSize: 10, color: c.textDim, lineHeight: 1.5 } }, W.sourceHint),
         ),

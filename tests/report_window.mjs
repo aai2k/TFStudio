@@ -79,12 +79,12 @@ const design = makeSampleDesign();
 for (const spec of BLOCK_TYPES) {
   const block = newBlock(spec.type, settingsFromWindow(spec.type, design));
   assert.ok(blockName(W, spec.type) && blockName(W, spec.type) !== spec.type, `${spec.type} has a name`);
-  const summary = blockSummary(W, block);
+  const summary = blockSummary(W, block, t.units);
   assert.ok(!summary.includes('undefined') && !summary.includes('null'), `${spec.type} summary reads: ${summary}`);
 }
-assert.ok(blockSummary(W, newBlock('spectrum')).includes('400-800 nm'));
-assert.ok(blockSummary(W, newBlock('spectrum', { tableStep: 0 })).includes(W.summaryNoTable));
-assert.ok(blockSummary(W, newBlock('layers', { columns: 2, groupPeriods: true })).includes(W.summaryGrouped));
+assert.ok(blockSummary(W, newBlock('spectrum'), t.units).includes('400-800 nm'));
+assert.ok(blockSummary(W, newBlock('spectrum', { tableStep: 0 }), t.units).includes(W.summaryNoTable));
+assert.ok(blockSummary(W, newBlock('layers', { columns: 2, groupPeriods: true }), t.units).includes(W.summaryGrouped));
 
 // ── Tables as text ───────────────────────────────────────────────────────────
 {

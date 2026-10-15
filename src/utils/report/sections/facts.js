@@ -8,7 +8,7 @@
  */
 
 import { escapeHtml } from '../svgChart.js';
-import { num, tt, blockTitle, errNote, wrap } from './format.js';
+import { num, tt, unitOf, blockTitle, errNote, wrap } from './format.js';
 
 // Past this many layers a coating draws its first and last ELIDED_ENDS layers
 // with one marker between, the same rule as the Design Editor's diagram.
@@ -73,17 +73,18 @@ export function factsStrip(pairs) {
 export function factPairs(summary, evalMode, tr) {
   const L = tr || {};
   const modes = L.evalModes || {};
+  const nm = escapeHtml(unitOf(L, 'nm'));
   const substrate = escapeHtml(summary.substrate)
-    + (summary.substrateThickness != null ? `, ${num(summary.substrateThickness, 2)} mm` : '');
+    + (summary.substrateThickness != null ? `, ${num(summary.substrateThickness, 2)} ${escapeHtml(unitOf(L, 'mm'))}` : '');
   const layers = `${summary.frontCount}${summary.backCount ? ' + ' + summary.backCount : ''}`;
   const total = summary.backCount
-    ? `${num(summary.frontThickness, 1)} + ${num(summary.backThickness, 1)} nm`
-    : `${num(summary.frontThickness, 1)} nm`;
+    ? `${num(summary.frontThickness, 1)} + ${num(summary.backThickness, 1)} ${nm}`
+    : `${num(summary.frontThickness, 1)} ${nm}`;
   return [
     [tt(L, 'substrate', 'Substrate'), substrate],
     [tt(L, 'incidentMedium', 'Incident'), escapeHtml(summary.incidentMedium)],
     [tt(L, 'exitMedium', 'Exit'), escapeHtml(summary.exitMedium)],
-    ['λref', `${num(summary.referenceWavelength, 0)} nm`],
+    ['λref', `${num(summary.referenceWavelength, 0)} ${nm}`],
     [tt(L, 'layerCount', 'Layers'), layers],
     [tt(L, 'totalThickness', 'Total'), total],
     [tt(L, 'evaluation', 'Evaluation'), escapeHtml(modes[evalMode] || evalMode)],

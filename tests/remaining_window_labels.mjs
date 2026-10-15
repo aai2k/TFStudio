@@ -121,7 +121,7 @@ await check('avg in the Report window and document', async () => {
     for (const [code, t] of translated) {
         const W = t.report.window;
         const block = newBlock('integrals', { polarization: 'avg' });
-        expect(blockSummary(W, block).includes(W.polAvg), `${code} block summary reads ${blockSummary(W, block)}`);
+        expect(blockSummary(W, block, t.units).includes(W.polAvg), `${code} block summary reads ${blockSummary(W, block, t.units)}`);
         const settings = words(h('div', null, BlockSettingsPanel({
             c, W, t, block, index: 0, count: 1, design: null, onChange: noop, onMove: noop, onRemove: noop, onClose: noop,
         })));

@@ -12,7 +12,7 @@ import { lineChartSVG, escapeHtml } from '../svgChart.js';
 import { SPECTRAL_UNITS, fromNm, spectralSymbol } from '../../physics/spectralAxis.js';
 import { yScaleOf, yScaleReadsQuantity } from '../../../components/windows/analysis/opticalEvaluation/yScale.js';
 import {
-  DASH, deg, tt, blockTitle, errNote, wrap, table, splitRows, flow, note, plotHeight,
+  DASH, deg, tt, unitOf, blockTitle, errNote, wrap, table, splitRows, flow, note, plotHeight,
 } from './format.js';
 
 // Print colours: one hue per quantity, lighter for the s and darker for the p
@@ -61,9 +61,9 @@ export function spectrumAxes(settings, tr) {
   const decimals = Math.max(1, SPECTRAL_UNITS[unit].decimals);
   const formatValue = value => value.toFixed(decimals).replace(/\.?0+$/, '');
   return {
-    unitShort: SPECTRAL_UNITS[unit].short,
+    unitShort: unitOf(tr, unit),
     xLabel: (tr?.spectralAxis || {})[unit] || SPECTRAL_UNITS[unit].title,
-    xHeader: `${spectralSymbol(unit)}, ${SPECTRAL_UNITS[unit].short}`,
+    xHeader: `${spectralSymbol(unit)}, ${unitOf(tr, unit)}`,
     x: nm => fromNm(nm, unit),
     formatValue,
     formatX: nm => formatValue(fromNm(nm, unit)),

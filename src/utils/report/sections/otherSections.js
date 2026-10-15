@@ -17,7 +17,7 @@ import {
   isMath, isMathPairRef, isMathSingleRef, readsWavelengthBand,
 } from '../../physics/optimizer/operandModel.js';
 import {
-  DASH, pct, num, deg, tt, polText, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
+  DASH, pct, num, deg, tt, unitOf, polText, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
 } from './format.js';
 import { qualifierSummary } from '../../synthesis/qualifiers.js';
 
@@ -32,9 +32,10 @@ export function blockData(ctx, type, title) {
 /** The color block's rows, shared with the comparison table. */
 export function colorRows(r, tr) {
   const L = tr || {};
+  const nm = unitOf(L, 'nm');
   let dominant = num(null);
-  if (r.dom?.dom != null) dominant = `${num(r.dom.dom, 1)} nm (${tt(L, 'purity', 'purity')} ${num(r.dom.purity * 100, 1)}%)`;
-  else if (r.dom?.comp != null) dominant = `${tt(L, 'compl', 'compl.')} ${num(r.dom.comp, 1)} nm`;
+  if (r.dom?.dom != null) dominant = `${num(r.dom.dom, 1)} ${nm} (${tt(L, 'purity', 'purity')} ${num(r.dom.purity * 100, 1)}%)`;
+  else if (r.dom?.comp != null) dominant = `${tt(L, 'compl', 'compl.')} ${num(r.dom.comp, 1)} ${nm}`;
   return [
     ['x, y, Y', `${num(r.xy.x, 4)}, ${num(r.xy.y, 4)}, ${num(r.XYZ.Y, 3)}`],
     ['L*, a*, b*', `${num(r.Lab.L, 2)}, ${num(r.Lab.a, 2)}, ${num(r.Lab.b, 2)}`],
@@ -146,8 +147,9 @@ function operandRange(op, tr) {
   if (op.lambdaStart == null) return DASH;
   const end = op.lambdaEnd ?? op.lambdaStart;
   if (isConstraint(op.type)) return escapeHtml(layerRange(tr, op.lambdaStart, end));
-  if (!readsWavelengthBand(op.type) || op.lambdaStart === end) return `${num(op.lambdaStart, 0)} nm`;
-  return `${num(op.lambdaStart, 0)}-${num(end, 0)} nm`;
+  const nm = escapeHtml(unitOf(tr, 'nm'));
+  if (!readsWavelengthBand(op.type) || op.lambdaStart === end) return `${num(op.lambdaStart, 0)} ${nm}`;
+  return `${num(op.lambdaStart, 0)}-${num(end, 0)} ${nm}`;
 }
 
 const NO_INCIDENCE = [isManufacturability, isMath, isBlank, isDmfs];
@@ -195,7 +197,7 @@ export function buildRiProfile(ctx) {
   if (!rp.z || !rp.z.length) return wrap('riProfile', title, note(escapeHtml(tt(tr, 'noLayers', 'No layers'))), { subtitle: subtitleOf(ctx) });
   const plot = profilePlot([{ x: rp.z, y: rp.n, color: '#6a1b9a', label: 'n', step: true }],
     tt(tr, 'depthNm', 'Depth z, nm'), 'n', settings);
-  return wrap('riProfile', title, plot, { subtitle: subtitleOf(ctx, `λ ${num(rp.lambda, 1)} nm`) });
+  return wrap('riProfile', title, plot, { subtitle: subtitleOf(ctx, `λ ${num(rp.lambda, 1)} ${escapeHtml(unitOf(tr, 'nm'))}`) });
 }
 
 export function buildEField(ctx) {
@@ -212,7 +214,7 @@ export function buildEField(ctx) {
   const values = ef[componentOf(component).key] || ef.e2;
   const plot = profilePlot([{ x: ef.z, y: values.map(toAxis), color: '#00838f', label }],
     tt(tr, 'depthNm', 'Depth z, nm'), label, settings);
-  const sub = `λ ${num(ef.lambda, 1)} nm · ${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(ef.theta)}° · ${escapeHtml(polText(tr, ef.pol))}`;
+  const sub = `λ ${num(ef.lambda, 1)} ${escapeHtml(unitOf(tr, 'nm'))} · ${escapeHtml(tt(tr, 'aoi', 'AOI'))} ${deg(ef.theta)}° · ${escapeHtml(polText(tr, ef.pol))}`;
   return wrap('efield', title, plot, { subtitle: subtitleOf(ctx, sub) });
 }
 

@@ -10,13 +10,16 @@
  *      status-bar monitor form and Systematic Deviations' offset unit write нм
  *      and фс in Russian, and nm and fs in English.
  *   3. The report's λ column reads λ, нм.
+ *   4. A Russian report writes нм, мм and мкм in its subtitles, facts, layer
+ *      headings, color rows, merit cells and spectrum table, and the Report
+ *      window's block summaries write нм.
  *
  * Run: node tests/russian_units_one_way.mjs
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { loadApp, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 const { getLocale } = await loadApp();
@@ -35,7 +38,10 @@ const text = html => html.replace(/<[^>]*>/g, ' ');
     const literals = (source.match(/'[^'\n]*'|`[^`\n]*`/g) || []).map(literal => literal.replace(/\$\{[^}]*\}/g, ''));
     const latin = literals.filter(literal => /[А-Яа-яЁё]/.test(literal) && /(^|[^A-Za-z_])(nm|fs)(?![A-Za-z_])/.test(literal));
     assert.deepEqual(latin, [], 'a Russian string writes nm or fs in Latin');
-    assert.deepEqual(ru.units, { nm: 'нм', fs: 'фс', fs2: 'фс²', fs3: 'фс³', fsPerNm: 'фс/нм', newtonPerM: 'Н/м' });
+    assert.deepEqual(ru.units, {
+        nm: 'нм', um: 'мкм', mm: 'мм', fs: 'фс', fs2: 'фс²', fs3: 'фс³', fsPerNm: 'фс/нм', newtonPerM: 'Н/м',
+        cm1: 'см⁻¹', THz: 'ТГц', eV: 'эВ', MPa: 'МПа', GPa: 'ГПа', ppmPerK: 'ppm/K', celsius: '°C', jPerM2: 'Дж/м²',
+    });
 }
 
 // ── 2. Readouts built in code ────────────────────────────────────────────────
@@ -100,6 +106,37 @@ const text = html => html.replace(/<[^>]*>/g, ' ');
     const html = buildGdGdd(ctx);
     assert.ok(html.includes('λ, нм') && !html.includes('λ, nm'), 'ru report λ column');
     assert.equal(en.report.lambdaColumn, 'λ, nm');
+}
+
+// A unit symbol written in Latin letters, standing alone.
+const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?![A-Za-z])/;
+
+// ── 4. The report's subtitles, facts and readouts ────────────────────────────
+{
+    const { reportLocale } = await import('../src/components/windows/information/report/useReportWindow.js');
+    const { newBlock } = await import('../src/utils/report/blocks.js');
+    const { gatherDesignData } = await import('../src/utils/report/reportData.js');
+    const { composeReport } = await import('../src/utils/report/template.js');
+    const design = {
+        ...makeSampleDesign(),
+        meritOperands: [{ id: 'm', type: 'TAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0.99, weight: 1 }],
+    };
+    const blocks = ['facts', 'layers', 'materials', 'color', 'efield', 'riProfile', 'merit'].map(type => newBlock(type))
+        .concat(newBlock('spectrum', { spectralUnit: 'um', tableStep: 100 }));
+    const report = (lang, designs) => text(composeReport({
+        lang, tr: reportLocale(lang), blocks, designs: designs.map(d => ({ design: d, data: gatherDesignData(d, blocks) })),
+    }).replace(/<style>[\s\S]*?<\/style>/, ''));
+    for (const shown of [report('ru', [design]), report('ru', [design, { ...design, id: 'second', name: 'Second' }])]) {
+        assert.ok(!LATIN_UNIT.test(shown), `ru report writes a Latin unit: ${shown.match(LATIN_UNIT)?.[0]}`);
+        assert.ok(['нм', 'мм', 'мкм'].every(unit => shown.includes(unit)), 'ru report writes нм, мм and мкм');
+    }
+    assert.ok(report('en', [design]).includes('550 nm'), 'en report keeps nm');
+
+    const { blockSummary } = await import('../src/components/windows/information/report/blockText.js');
+    for (const block of blocks) {
+        const summary = blockSummary(ru.report.window, block, ru.units);
+        assert.ok(!LATIN_UNIT.test(summary), `ru block summary: ${summary}`);
+    }
 }
 
 console.log('russian_units_one_way passed.');
