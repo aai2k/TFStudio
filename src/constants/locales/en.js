@@ -2045,7 +2045,10 @@ export default {
       refOp1:       'Ref Op#1',
       refOp2:       'Ref Op#2',
       curveRef:     'Curve',
+      flag:         'Flag',
+      step:         'Step',
     },
+    stepFlagTip: 'Search step of a row that looks for a peak: 1 = 1 nm, 2 = 0.1 nm, 3 = 0.01 nm, 4 = 0.001 nm. Peaks closer than about two steps can read as one.',
     operandGroups: {
       optical:     'Optical, single λ',
       range:       'Band average (single target)',

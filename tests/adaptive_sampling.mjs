@@ -14,8 +14,8 @@
  *      (verified by a fine reference scan in the test itself).
  *   3. A flat RGT over the resonance band is BLIND to it on the 2 nm grid, and
  *      densification raises its count so the resonance contributes to the RMS.
- *   4. A worst-case RMX over the band likewise gets densified and now reports the
- *      true peak.
+ *   4. A worst-case TMX over the band is not densified: it finds the true peak
+ *      itself.
  *   5. Sampling contract: requiredLambdas(densified) ⊇ requiredLambdas(original),
  *      and every densified operand's grid stays UNIFORM (so evalOperand/Jacobian
  *      semantics are unchanged).
@@ -143,18 +143,17 @@ let trueFWHM = Infinity, truePeak = 0;
     ok(stepD < stepC, `densified step ${stepD.toFixed(3)} nm < nominal ${stepC.toFixed(3)} nm`);
 }
 
-// ── 4. Worst-case TMX finer than its dense default → densified + reports peak ──
+// ── 4. A worst-case TMX finds the peak itself and is left as it is ────────────
 {
-    // TMX defaults to a ~1 nm (301-pt) grid; this resonance is far narrower, so
-    // even the worst-case operand needs densifying to report the true extremum.
+    // The resonance is narrower than the row's 1 nm search step; the row finds
+    // the band's true maximum on its own (bandExtremum.js), so densifying it
+    // would only cost time.
     const tmx = makeOperand({ type: 'TMX', lambdaStart: 500, lambdaEnd: 600, pol: 'avg', target: 0, weight: 1 });
     const ctx = buildEvalContext(cavity, resolveMat);
-    const baseN = operandSampleLambdas(tmx).length;
     const [tmxD] = densifyOperandsForFeatures([tmx], cavity, resolveMat);
-    ok(tmxD !== tmx && operandSampleLambdas(tmxD).length > baseN,
-       `TMX densified beyond its ${baseN}-pt default → ${operandSampleLambdas(tmxD).length}`);
-    const v = evaluateOperands([tmxD], ctx)[0];
-    ok(v > 0.5 * truePeak, `densified TMX reports a near-true peak (got ${(v * 100).toFixed(1)} %, true ${(truePeak * 100).toFixed(1)} %)`);
+    ok(tmxD === tmx, 'TMX over the resonance band is left untouched');
+    const v = evaluateOperands([tmx], ctx)[0];
+    ok(v >= truePeak, `TMX reports the true peak (got ${(v * 100).toFixed(3)} %, 0.05 nm scan ${(truePeak * 100).toFixed(3)} %)`);
 }
 
 // ── 5. Sampling contract: superset λ grid, uniform spacing preserved ──────────

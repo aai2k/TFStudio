@@ -22,13 +22,13 @@ const theme = { success: 'success', error: 'error', textDim: 'dim' };
 // enabled tick are symbols the model still owns.
 assert.deepEqual(COLS.map(col => [col.key, colLabel(col, COLS_TR)]), [
     ['num', '#'], ['enabled', '✓'], ['type', 'Type'], ['lambdaStart', 'λ / Layer'],
-    ['lambdaEnd', 'End *'], ['aoi', 'AOI (°)'], ['pol', 'Pol'], ['target', 'Target'],
+    ['lambdaEnd', 'End *'], ['aoi', 'AOI (°)'], ['pol', 'Pol'], ['flag', 'Flag'], ['target', 'Target'],
     ['weight', 'Weight'], ['current', 'Current'], ['contribution', '% of MF²'],
 ]);
 // The whole table has to fit a half-width window without horizontal scrolling.
 // A 1920-wide screen at 125% display scaling gives about 575 CSS px there, and a
 // vertical scrollbar takes ~15 of them.
-assert.equal(TABLE_W, 548);
+assert.equal(TABLE_W, 555);
 assert.ok(TABLE_W <= 555, 'operand table must fit a half-width window at 125% scaling');
 // The longest operand names (GDDTFLAT, TODTFLAT) have to read in full inside the
 // type picker, which spends ~25 px of the column on its padding and caret.
@@ -64,6 +64,14 @@ for (const [operand, expected] of headerCases) {
     const labels = dynamicHeaderLabels(operand, COLS_TR);
     assert.deepEqual([labels.lambdaStart, labels.lambdaEnd], expected, operand?.type || 'none');
 }
+// The flag column is headed Step on a row that looks for a peak, where the flag
+// sets the search step, and carries a dash on every other row.
+for (const [operand, expected] of [
+    [null, 'Flag'], [op('DMFS'), 'Flag'], [op('TMX'), 'Step'], [op('RMN'), 'Step'], [op('MXWT'), 'Step'],
+    [op('ODMN'), 'Step'], [op('TMN'), '—'], [op('RMX'), '—'], [op('MNWT'), '—'], [op('TAV'), '—'],
+]) {
+    assert.equal(dynamicHeaderLabels(operand, COLS_TR).flag, expected, `flag header, ${operand?.type || 'none'}`);
+}
 
 const editableCases = [
     ['DMFS', ['enabled']],
@@ -71,7 +79,8 @@ const editableCases = [
     ['TT', ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     ['MXT', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
     ['RIW', ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
-    ['MNWR', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
+    ['MNWR', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight', 'flag']],
+    ['TMX', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight', 'flag']],
     ['ABSO', ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     ['SUMM', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
     ['R', ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],

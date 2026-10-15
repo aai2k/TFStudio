@@ -3,11 +3,10 @@
  * every other worst-case row.
  *
  * Worst-case T min and Worst-case R max used to write their TMN and RMX rows
- * with bandPoints 21 and pNorm 50, so the row looked at 21 wavelengths over
- * 400-700 nm, a 15 nm step a narrow dip falls between. The generators no longer
- * write either field, and a saved design carrying them has both dropped when it
- * is read, by the tree loader and by the file picker alike. A TMN row given its
- * own sample count, with no pNorm, keeps it.
+ * with bandPoints 21 and pNorm 50. The generators no longer write either field,
+ * and a saved design carrying them has both dropped when it is read, by the
+ * tree loader and by the file picker alike. A TMN row given its own sample
+ * count, with no pNorm, keeps it and searches on it.
  *
  * Run: node tests/worst_case_wizard_rows.mjs
  */
@@ -17,11 +16,16 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 
 import {
-    ARGWAVE_DEFAULT_POINTS, defaultFilterParams, generateFilterOperands, operandSampleLambdas,
+    defaultFilterParams, generateFilterOperands, makeOperand, operandSampleLambdas,
 } from '../src/utils/physics/optimizer.js';
 
 const require = createRequire(import.meta.url);
 const projects = require('../src/main/ipc/projects.js');
+
+// The grid a fresh worst-case row of this type over this band starts from.
+const freshGrid = op => operandSampleLambdas(makeOperand({
+    type: op.type, lambdaStart: op.lambdaStart, lambdaEnd: op.lambdaEnd,
+})).length;
 
 // -- The generators -----------------------------------------------------------
 for (const [typeId, type] of [['WORST_T_MIN', 'TMN'], ['WORST_R_MAX', 'RMX']]) {
@@ -31,8 +35,8 @@ for (const [typeId, type] of [['WORST_T_MIN', 'TMN'], ['WORST_R_MAX', 'RMX']]) {
     assert.equal(row.type, type);
     assert.ok(!('bandPoints' in row), `${typeId} stamps no sample count`);
     assert.ok(!('pNorm' in row), `${typeId} stamps no pNorm`);
-    assert.equal(operandSampleLambdas(row).length, ARGWAVE_DEFAULT_POINTS,
-        `${typeId} checks ${ARGWAVE_DEFAULT_POINTS} wavelengths`);
+    assert.equal(operandSampleLambdas(row).length, freshGrid(row),
+        `${typeId} searches the grid every ${type} row does`);
 }
 
 // -- Reading a saved design ---------------------------------------------------
@@ -81,11 +85,11 @@ projects.register({ handle(channel, handler) { handlers.set(channel, handler); }
 function checkRows(operands, reader) {
     for (const op of operands.slice(0, 2)) {
         assert.ok(!('pNorm' in op) && !('bandPoints' in op), `${reader}: ${op.type} loses both stamped fields`);
-        assert.equal(operandSampleLambdas(op).length, ARGWAVE_DEFAULT_POINTS,
-            `${reader}: ${op.type} checks ${ARGWAVE_DEFAULT_POINTS} wavelengths`);
+        assert.equal(operandSampleLambdas(op).length, freshGrid(op),
+            `${reader}: ${op.type} searches the grid every ${op.type} row does`);
     }
     assert.equal(operands[2].bandPoints, 51, `${reader}: a row with its own sample count keeps it`);
-    assert.equal(operandSampleLambdas(operands[2]).length, 51);
+    assert.equal(operandSampleLambdas(operands[2]).length, 51, `${reader}: and searches on it`);
 }
 
 const opened = await handlers.get('open-tfs-path')(null, '/out/worst.tfs');

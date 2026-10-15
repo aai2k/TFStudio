@@ -372,8 +372,7 @@ function validateDesign(design) {
 }
 
 // The worst-case TMN and RMX rows the merit function wizard wrote up to 1.8.2
-// carry bandPoints 21 and pNorm 50. Left in, the 21 has the row check its band
-// at 21 wavelengths instead of the 301 every other worst-case row gets, and
+// carry bandPoints 21 and pNorm 50. A worst-case row searches its own grid and
 // pNorm is read by nothing, so both go. pNorm is what tells these rows apart
 // from a TMN or RMX row given its own sample count: nothing else wrote it.
 function dropWizardWorstCaseSampling(design) {

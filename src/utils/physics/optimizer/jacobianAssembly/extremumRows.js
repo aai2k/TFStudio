@@ -45,8 +45,8 @@ export function _jacRowConstraint(op, i, jc) {
 }
 
 // Worst-case min/max: residual = sw·max(0, ±(target−comp))/σ; when active the
-// extremum is attained at one wavelength λ*, the grid sample the evaluation
-// picked (operandExtremumLambdas), so the subgradient is
+// extremum is attained at one wavelength λ*, the one the evaluation found
+// (operandExtremumLambdas), so the subgradient is
 // sw·(±1)·(∂comp/∂C ÷ σ)·∂C(λ*)/∂d_j and the derivative kernel runs at λ*
 // alone. ∂comp/∂C ÷ σ is 1 for a linear row and ±1/C(λ*) for a dB or density
 // row (logReadings.js).

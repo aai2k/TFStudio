@@ -26,7 +26,7 @@ export function selectionAfterRowClick(options) {
 // can carry through the clipboard, in table order.
 export const RANGE_COLUMNS = COLS
     .map(col => col.key)
-    .filter(key => ['type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight'].includes(key));
+    .filter(key => ['type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'flag', 'target', 'weight'].includes(key));
 
 /**
  * The operand table's grid. A cell the operand type does not carry shows a

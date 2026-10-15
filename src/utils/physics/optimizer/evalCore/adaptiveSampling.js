@@ -1,4 +1,4 @@
-import { isLogOperand, isRangeTarget, isMinmax, logValue, polFromType } from '../operandModel.js';
+import { isRangeTarget, polFromType } from '../operandModel.js';
 import { expandMeasuredCurveOperands } from '../measuredCurveOperand.js';
 import { charOf, operandSampleLambdas } from '../sampling.js';
 import { tmmProp } from './tmmEval.js';
@@ -6,29 +6,30 @@ import { buildEvalContext } from './evalContext.js';
 
 // ── Adaptive merit sampling ───────────────────────────────────────────────────
 //
-// Uniform operand grids (default ~2 nm for range-targets, ~1 nm for worst-case
-// min/max) are BLIND to spectral features narrower than their step: a ~1 nm
-// resonance can fall between samples, so the merit function carries no value and
-// no gradient on it and the optimizer cannot suppress it (e.g. a 411 nm stopband
-// spike). This raises a band-sampled operand's UNIFORM sample
-// count so its step resolves the narrowest significant feature found in its band,
-// and ONLY when such a feature exists — smooth designs are returned untouched, so
-// they stay bit-identical.
+// A range target's uniform grid is BLIND to spectral features narrower than its
+// step: a ~1 nm resonance can fall between samples, so the merit function
+// carries no value and no gradient on it and the optimizer cannot suppress it
+// (e.g. a 411 nm stopband spike). This raises the row's UNIFORM sample count so
+// its step resolves the narrowest peak or dip, at least 2 % high, found in its
+// band, and ONLY when such a feature exists: smooth designs are returned
+// untouched, so they stay bit-identical. A monotonic edge has no peak and is
+// not looked for.
 //
 // Why uniform densification (not local point insertion): a TGT/RGT/AGT merit is
-// the UNWEIGHTED RMS over its samples and TAV/RAV the unweighted mean — both
-// assume a uniform grid. Keeping the grid uniform preserves those semantics
-// exactly and needs NO change to evalOperand / the analytic Jacobian; we only
-// bump the count through the operand's existing runtime override (rampPoints for
-// range-targets, bandPoints for worst-case), which operandSampleLambdas already
-// honors. The densified operands are what BOTH the main thread AND the worker
-// pre-sampler consume, so the byte-identical λ-grid contract holds by
-// construction (requiredLambdas iterates the same densified operands).
+// the RMS over its samples with the trapezoid weights of a uniform grid
+// (sampling.js bandQuadratureWeights). Keeping the grid uniform keeps that
+// exactly and needs NO change to evalOperand / the analytic Jacobian; only the
+// count rises, through the row's own runtime override (rampPoints), which
+// operandSampleLambdas already honors. The densified operands are what BOTH the
+// main thread AND the worker pre-sampler consume, so the byte-identical λ-grid
+// contract holds by construction (requiredLambdas iterates the same densified
+// operands).
 //
-// Applied to RANGE-TARGET (TGT/RGT/AGT) and WORST-CASE (TMN…AMX) operands — the
-// ones whose merit can actually catch a narrow feature. Band AVERAGES / integrals
-// are intentionally skipped: a 1 nm spike barely moves a 300 nm average (the right
-// tool there is a worst-case operand), and a non-uniform grid would bias the mean.
+// Applied to RANGE-TARGET (TGT/RGT/AGT) operands, whose merit can catch a narrow
+// feature only where a sample lands on it. The worst-case rows find their band's
+// true extremum themselves (bandExtremum.js). Band AVERAGES / integrals are
+// skipped: a 1 nm spike barely moves a 300 nm average (the right tool there is a
+// worst-case operand), and a non-uniform grid would bias the mean.
 export const ADAPTIVE_SAMPLING_DEFAULTS = {
     enabled:           true,
     probeStepNm:       0.25,   // probe resolution used to DISCOVER features
@@ -85,16 +86,6 @@ function _featureWidthAt(v, i, probeStep, minProm) {
     return Math.max(probeStep, span * probeStep);
 }
 
-// The scale a band is probed on. A dB or density row is probed in dB: every
-// feature of a blocking band is a departure far below 2 % in linear T, so the
-// linear threshold would see none of them. The threshold there is what the
-// linear one amounts to at full transmittance, a 2 % departure, which is
-// 0.086 dB and is taken at any level.
-function _probeScale(type, cfg) {
-    if (!isLogOperand(type)) return { read: value => value, minProminence: cfg.minProminence };
-    return { read: value => logValue('dB', value), minProminence: logValue('dB', 1 + cfg.minProminence) };
-}
-
 // Probe ONE operand's band for the narrowest significant feature its current
 // uniform grid would alias. Returns the sample count needed to resolve it
 // (clamped to [curN, maxPoints]) plus diagnostics, or null when no aliasing
@@ -115,7 +106,6 @@ function adaptiveCountForOperand(op, ctx, cfg) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol ?? 'avg';
     const lo   = Math.min(a, b);
-    const { read, minProminence } = _probeScale(op.type, cfg);
 
     // Fine probe grid over the band. It must be enough finer than the nominal
     // grid both to reveal what the grid steps over AND to MEASURE a feature's
@@ -130,14 +120,14 @@ function adaptiveCountForOperand(op, ctx, cfg) {
     const probeStep = width / (nProbe - 1);
     const v = new Array(nProbe);
     for (let i = 0; i < nProbe; i++) {
-        v[i] = read(tmmProp(lo + probeStep * i, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats));
+        v[i] = tmmProp(lo + probeStep * i, op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
     }
 
     // Narrowest significant feature anywhere in the band (prominence-based, so
     // it is independent of where the nominal grid points happen to fall).
     let minFeatureWidth = Infinity;
     for (let i = 1; i < nProbe - 1; i++) {
-        const w = _featureWidthAt(v, i, probeStep, minProminence);
+        const w = _featureWidthAt(v, i, probeStep, cfg.minProminence);
         if (w != null && w < minFeatureWidth) minFeatureWidth = w;
     }
 
@@ -154,24 +144,23 @@ function adaptiveCountForOperand(op, ctx, cfg) {
 
 // Densify the band-sampled operands whose bands hide a sub-grid feature, returning
 // a NEW operands array (unchanged operands keep their identity; densified ones are
-// shallow clones with a raised rampPoints/bandPoints override). Call at run launch
+// shallow clones with a raised rampPoints override). Call at run launch
 // and feed the result to BOTH requiredLambdas/pre-sampling AND the worker job, so
 // the byte-identical λ-grid contract is preserved. `notify(summary)` (optional)
 // receives a one-line report so callers can surface what was densified / capped
 // (no silent caps).
 // Densify one band-sampled operand if its band hides a sub-grid feature; returns
-// a shallow clone with a raised rampPoints/bandPoints override, or the operand
+// a shallow clone with a raised rampPoints override, or the operand
 // unchanged. Bumps `state.capped` when the needed count was clamped to maxPoints.
 function _densifyOne(op, ctx, cfg, state) {
     if (!op || op.enabled === false) return op;
-    if (!(isRangeTarget(op.type) || isMinmax(op.type))) return op;
+    if (!isRangeTarget(op.type)) return op;
     let res = null;
     try { res = adaptiveCountForOperand(op, ctx, cfg); }
     catch { res = null; }
     if (!res) return op;
     if (res.capped) state.capped++;
-    const field = isRangeTarget(op.type) ? 'rampPoints' : 'bandPoints';
-    return { ...op, [field]: res.count };
+    return { ...op, rampPoints: res.count };
 }
 
 export function densifyOperandsForFeatures(operands, design, resolveMat, cfg = ADAPTIVE_SAMPLING_DEFAULTS, notify = null) {

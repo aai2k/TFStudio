@@ -14,7 +14,7 @@ function cellEvent(cellIndex, rowIdx, tagName = 'TD', dataset = {}) {
     const cell = { cellIndex, parentElement: { dataset: { row: String(rowIdx) } } };
     return { target: { tagName, dataset, closest: sel => (sel === 'td' ? cell : null) } };
 }
-assert.deepEqual(menuTargetFromEvent(cellEvent(7, 3), COLS), { rowIdx: 3, colKey: 'target', rowInput: false });
+assert.deepEqual(menuTargetFromEvent(cellEvent(8, 3), COLS), { rowIdx: 3, colKey: 'target', rowInput: false });
 assert.deepEqual(menuTargetFromEvent(cellEvent(0, 0), COLS), { rowIdx: 0, colKey: 'num', rowInput: false });
 assert.deepEqual(menuTargetFromEvent(cellEvent(2, 1), COLS), { rowIdx: 1, colKey: 'type', rowInput: false },
     'a DMFS or comment row spans its columns from the Type cell');
@@ -34,7 +34,7 @@ assert.equal(menuTargetFromEvent({ target: { tagName: 'TH', closest: () => null 
 
 // A row far down a windowed table is the operand it names, not the position it
 // happens to hold among the handful of rows built around it.
-assert.deepEqual(menuTargetFromEvent(cellEvent(7, 3617), COLS),
+assert.deepEqual(menuTargetFromEvent(cellEvent(8, 3617), COLS),
     { rowIdx: 3617, colKey: 'target', rowInput: false });
 
 // The spacer standing in for the rows off screen names no operand, so a click

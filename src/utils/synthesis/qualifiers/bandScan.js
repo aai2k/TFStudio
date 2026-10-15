@@ -1,22 +1,26 @@
 /**
  * FWHM / EDGE_LAMBDA evaluation — derived from a dense band scan.
  *
- * Samples the band and finds the peak first, then the two (or one) crossings
- * of level·peak. Uses the same default grid density as the argwave operand so
- * the peak λ here matches CENTRAL_LAMBDA.
+ * Finds the band's peak (or notch) with the MXW / MNW row CENTRAL_LAMBDA
+ * reads, so the two agree, then the two (or one) crossings of the level on a
+ * uniform scan of the band.
  */
 
-import { makeOperand, evaluateOperands, ARGWAVE_DEFAULT_POINTS } from '../../physics/optimizer.js';
-import { singleType, channelFromKind } from './channelTypes.js';
+import { makeOperand, evaluateOperands } from '../../physics/optimizer.js';
+import { singleType, channelFromKind, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
 
-// Walk outward from the peak sample to find where the scan crosses `cross`.
-// For a max peak we look for the first descent below cross; for a min notch
-// we look for the first ascent above cross. `scan` = { lams, vals, peakI,
-// peakV, cross, direction } from the caller's band sampling.
+// Samples of the scan the crossings are found on, unless the qualifier sets
+// its own bandPoints: a 1 nm step over a 300 nm band.
+const SCAN_POINTS = 301;
+
+// Walk outward from the peak to find where the scan crosses `cross`, starting
+// at scan sample `startI`. For a max peak we look for the first descent below
+// cross; for a min notch we look for the first ascent above cross. `scan` =
+// { lams, vals, peakLam, peakV, cross, direction }.
 function findCross(scan, startI, step) {
-    const { lams, vals, peakI, peakV, cross, direction } = scan;
-    let prev = peakV, prevLam = lams[peakI];
+    const { lams, vals, peakLam, peakV, cross, direction } = scan;
+    let prev = peakV, prevLam = peakLam;
     const N = vals.length;
     for (let i = startI; i >= 0 && i < N; i += step) {
         const curV = vals[i], curLam = lams[i];
@@ -37,28 +41,26 @@ export function evalBandDerived(qual, design, ctx) {
     const k   = qual.kind;
     const ch  = channelFromKind(k) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
+    const at = lam => evaluateOperands([makeOperand({
+        type: singleType(ch, pol),
+        lambdaStart: lam, lambdaEnd: lam,
+        aoi: qual.aoi, pol, target: 0, weight: 1,
+    })], ctx)[0];
 
-    const N = Math.max(11, qual.bandPoints || ARGWAVE_DEFAULT_POINTS);
+    const N = Math.max(11, qual.bandPoints || SCAN_POINTS);
     const lams = new Array(N);
     const vals = new Array(N);
     for (let i = 0; i < N; i++) {
-        const lam = qual.lambdaStart + (qual.lambdaEnd - qual.lambdaStart) * i / (N - 1);
-        lams[i] = lam;
-        const probe = makeOperand({
-            type: singleType(ch, pol),
-            lambdaStart: lam, lambdaEnd: lam,
-            aoi: qual.aoi, pol, target: 0, weight: 1,
-        });
-        vals[i] = evaluateOperands([probe], ctx)[0];
+        lams[i] = qual.lambdaStart + (qual.lambdaEnd - qual.lambdaStart) * i / (N - 1);
+        vals[i] = at(lams[i]);
     }
     const direction = qual.direction || 'max';
-    // Peak / notch value
-    let peakI = 0, peakV = vals[0];
-    for (let i = 1; i < N; i++) {
-        if (direction === 'min' ? vals[i] < peakV : vals[i] > peakV) {
-            peakV = vals[i]; peakI = i;
-        }
-    }
+    const peakLam = evaluateOperands([makeOperand({
+        type: argwaveType(direction, ch, pol),
+        lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
+        aoi: qual.aoi, pol, target: 0, weight: 1,
+    })], ctx)[0];
+    const peakV = at(peakLam);
     const level = Math.max(0.001, Math.min(0.999, qual.level ?? 0.5));
     // For a max peak the crossing level is peakV · level; for a notch
     // (min) we use peakV + level · (1 − peakV) — i.e. recover toward 1.
@@ -66,9 +68,12 @@ export function evalBandDerived(qual, design, ctx) {
         ? peakV + (1 - peakV) * level
         : peakV * level;
 
-    const scan = { lams, vals, peakI, peakV, cross, direction };
-    const leftLam  = findCross(scan, peakI - 1, -1);
-    const rightLam = findCross(scan, peakI + 1, +1);
+    // The first scan sample past the peak on its long-wave side.
+    let rightI = lams.findIndex(lam => lam > peakLam);
+    if (rightI < 0) rightI = N;
+    const scan = { lams, vals, peakLam, peakV, cross, direction };
+    const leftLam  = findCross(scan, rightI - 1, -1);
+    const rightLam = findCross(scan, rightI, +1);
 
     if (k === 'FWHM') {
         if (leftLam == null || rightLam == null) {

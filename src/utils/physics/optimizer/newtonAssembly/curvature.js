@@ -22,11 +22,11 @@ import { charOf, operandSampleLambdas, isRangeAvg, bandQuadratureWeights } from 
 // thicknesses, and the total thickness and the film force are linear outright.
 //
 // A worst-case min/max row (TMN..AMX) is given zero curvature as well, which
-// leaves it the Gauss-Newton term JᵀJ. It is not piecewise linear: while the
-// extremum stays on one grid sample λ* its residual is ±√w·(C(λ*) − target),
-// and ∂²C(λ*) is exact there. But λ* moves with the thicknesses, so the band
-// extremum is the upper (or lower) envelope of the samples, whose curvature
-// the fixed-λ* term understates, and it has a kink wherever two peaks tie.
+// leaves it the Gauss-Newton term JᵀJ. It is not piecewise linear: at the
+// extremum λ* its residual is ±√w·(C(λ*) − target), and ∂²C(λ*) at fixed λ* is
+// exact there. But λ* moves with the thicknesses, so the band extremum is the
+// upper (or lower) envelope of C over the band, whose curvature the fixed-λ*
+// term misstates, and it has a kink wherever two peaks tie.
 // Measured on five min/max merit functions, adding ±√w·r·∂²C(λ*) to S left
 // Newton and SQP at a worse merit in three and a better one in two; the
 // envelope correction −C_dλ·C_λd/C_λλ did no better.

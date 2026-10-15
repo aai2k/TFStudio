@@ -2,7 +2,7 @@ import {
     DEFAULT_CONSTRAINT_LAST_LAYER, FILTER_TYPES, customTargetStatement, generateFilterOperands,
     makeOperand, makeConstraintOperand, makeDmfsOperand,
     isConstraint, isFractionalUnit, isMath, isRangeTarget, mathTargetInPercent,
-    removeOperandsAndDependents, rowRangeDomain, targetDomain,
+    removeOperandsAndDependents, rowRangeDomain, takesStepFlag, targetDomain,
 } from '../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { limitRows, limitsText } from './wizardLimits.js';
@@ -162,6 +162,8 @@ export function makeRowOperand(spec) {
  * Carried across a type change they are not merely unhelpful but wrong: a row
  * retyped from RAV to MNT would constrain layers 400 to 700 to be at least 0.99
  * nm thick, none of which the user asked for and all of which looks deliberate.
+ * The flag goes when the new type takes none, so a row retyped back starts
+ * from the default step.
  */
 export function retypeOperand(op, type) {
     const next = { ...op, id: op.id, type };
@@ -170,6 +172,7 @@ export function retypeOperand(op, type) {
         delete next.lambdaEnd;
     }
     if (targetDomain(type) !== targetDomain(op.type)) delete next.target;
+    if (!takesStepFlag(next)) delete next.flag;
     return makeRowOperand(next);
 }
 

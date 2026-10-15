@@ -76,7 +76,6 @@ function buildCentralLambdaBaseOp(q, ch, pol, weight) {
         type: opType,
         lambdaStart: q.lambdaStart, lambdaEnd: q.lambdaEnd,
         aoi: q.aoi, pol, weight, target: q.target,
-        ...(Number.isFinite(q.bandPoints) ? { bandPoints: q.bandPoints } : {}),
     });
 }
 

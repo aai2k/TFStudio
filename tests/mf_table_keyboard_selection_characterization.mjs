@@ -18,8 +18,9 @@ const operands = [
     { id: 'math', type: 'OPGT', lambdaStart: 0, lambdaEnd: 0, aoi: 0, pol: 'p', target: 0.99, weight: 4 },
 ];
 
+// Rows are written in the table's column order; neither row carries a flag.
 assert.equal(serializeOperandsTsv(operands, new Set(['math', 'r'])),
-    'R\t400\t700\t5\ts\t12.30\t2\nOPGT\t0\t0\t0\tp\t0.99\t4');
+    'R\t400\t700\t5\ts\t\t12.30\t2\nOPGT\t0\t0\t0\tp\t\t0.99\t4');
 assert.deepEqual(parseOperandsTsv('R\t450\t650\t30\tp\t75\t2\r\nTT\tbad\t\tbad\tx\t1500\tbad\n'), [
     { type: 'R', lambdaStart: 450, lambdaEnd: 650, aoi: 30, pol: 'p', target: 0.75, weight: 2 },
     { type: 'TT', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 1500, weight: 1 },
@@ -37,7 +38,7 @@ let written = null;
 await copySelectedOperands(operands, new Set(['tt']), {
     writeText(text) { written = text; return Promise.resolve(); },
 });
-assert.equal(written, 'TT\t0\t0\t0\tavg\t1200.00\t3');
+assert.equal(written, 'TT\t0\t0\t0\tavg\t\t1200.00\t3');
 const pasteCalls = [];
 pasteOperands((...args) => pasteCalls.push(args), 7, {
     readText: () => Promise.resolve('A\t300\t800\t0\tavg\t5\t1'),

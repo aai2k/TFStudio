@@ -87,8 +87,9 @@ function featureBand(entry, rows, channel, dip) {
     return entry.bands[best];
 }
 
-// Scan density for the centre, width and edge searches: fine enough to place
-// a crossing to a fraction of a nanometre on a sub-nanometre DWDM passband.
+// Scan density for the width and edge searches: fine enough to place a
+// crossing to a fraction of a nanometre on a sub-nanometre DWDM passband. The
+// centre comes from the peak search of the MXW rows, which does not scan.
 const SCAN_POINTS = 801;
 
 function qualifierValue(entry, design, resolve, overrides) {

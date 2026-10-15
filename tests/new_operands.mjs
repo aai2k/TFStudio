@@ -26,7 +26,7 @@
 import {
     makeOperand, evaluateOperands, buildEvalContext, calcMF,
     operandSampleLambdas, bandSampleCount, OPERAND_TYPES,
-    isIntegral, isMinmax, isMinType, ARGWAVE_DEFAULT_POINTS,
+    isIntegral, isMinmax, isMinType,
     DLSOptimizer, bandQuadratureWeights,
 } from '../src/utils/physics/optimizer.js';
 import { resolveSourceSpec, resolveDetectorSpec, composeWeighting } from '../src/utils/physics/spectralWeightings.js';
@@ -131,10 +131,11 @@ console.log('— TIW analytic Jacobian matches FD —');
 }
 
 // ── 3. minmax operands return the TRUE (exact) band extremum ─────────────────
-// (No more log-sum-exp soft surrogate — the operand value is the real
-// worst-case T/R/A on its grid, so the MFE "Current" cell never reads a
-// physically-impossible value like 108 % T, and the Specification window — which
-// evaluates the same operand — agrees exactly.)
+// The operand value is the real worst-case T/R/A over the band, not a soft
+// surrogate, so the MFE "Current" cell never reads a physically impossible
+// value like 108 % T, and the Specification window, which evaluates the same
+// operand, agrees exactly. The search refines past its own grid, so the value
+// is at least as extreme as the grid's and equals that of a 0.01 nm scan.
 console.log('— minmax operands return the exact band extremum —');
 {
     const design = makeDesign(200);
@@ -154,6 +155,13 @@ console.log('— minmax operands return the exact band extremum —');
     });
     const trueMin = Math.min(...Rvals);
     const trueMax = Math.max(...Rvals);
+    const fineCount = 30001;
+    const Rfine = evaluateOperands(Array.from({ length: fineCount }, (_, i) => {
+        const lam = 400 + (300 * i) / (fineCount - 1);
+        return makeOperand({ type: 'RAV', lambdaStart: lam, lambdaEnd: lam, aoi: 0, pol: 'avg', target: 0, weight: 1 });
+    }), ctx);
+    const fineMin = Math.min(...Rfine);
+    const fineMax = Math.max(...Rfine);
 
     // pNorm is now irrelevant to the value — the operand reports the exact
     // extremum regardless. Verify that across several pNorm settings.
@@ -166,22 +174,21 @@ console.log('— minmax operands return the exact band extremum —');
             type: 'RMX', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg',
             target: 0, weight: 1, pNorm: p,
         });
-        // Exact min/max over the operand's OWN (dense) grid — must equal the
-        // operand's reported value to machine precision.
-        const lamsGrid = operandSampleLambdas(opMin);
-        const RvalsGrid = lamsGrid.map(lam => evaluateOperands([makeOperand({
+        // Min/max over the operand's own starting grid: the reported value
+        // can only be more extreme than these.
+        const gridValues = op => operandSampleLambdas(op).map(lam => evaluateOperands([makeOperand({
             type: 'RAV', lambdaStart: lam, lambdaEnd: lam, aoi: 0, pol: 'avg', target: 0, weight: 1,
         })], ctx)[0]);
-        const exactMin = Math.min(...RvalsGrid);
-        const exactMax = Math.max(...RvalsGrid);
+        const gridMin = Math.min(...gridValues(opMin));
+        const gridMax = Math.max(...gridValues(opMax));
 
         const vMin = evaluateOperands([opMin], ctx)[0];
         const vMax = evaluateOperands([opMax], ctx)[0];
 
-        ok(Math.abs(vMin - exactMin) < 1e-12,
-           `RMN = exact band min (p=${p}): op=${vMin.toExponential(3)} exact=${exactMin.toExponential(3)}`);
-        ok(Math.abs(vMax - exactMax) < 1e-12,
-           `RMX = exact band max (p=${p}): op=${vMax.toExponential(3)} exact=${exactMax.toExponential(3)}`);
+        ok(vMin <= gridMin + 1e-12 && Math.abs(vMin - fineMin) < 1e-7,
+           `RMN = exact band min (p=${p}): op=${vMin.toExponential(6)} scan=${fineMin.toExponential(6)} grid=${gridMin.toExponential(6)}`);
+        ok(vMax >= gridMax - 1e-12 && Math.abs(vMax - fineMax) < 1e-7,
+           `RMX = exact band max (p=${p}): op=${vMax.toExponential(6)} scan=${fineMax.toExponential(6)} grid=${gridMax.toExponential(6)}`);
         ok(vMax <= 1.0 + 1e-9 && vMin >= -1e-9,
            `extrema physical: 0 ≤ RMN..RMX ≤ 1 (min=${vMin.toFixed(4)} max=${vMax.toFixed(4)})`);
     }
@@ -266,14 +273,15 @@ console.log('— operandSampleLambdas for new band types —');
         ok(lams[0] === 400 && lams[lams.length - 1] === 700,
            `${type}: endpoints exact (got ${lams[0]} / ${lams[lams.length - 1]})`);
     }
-    // Worst-case min/max are EXTREMUM operators → dense argwave grid (1 nm) so a
-    // narrow peak/dip can't slip between samples and the reported extremum is
-    // precise.
-    for (const type of ['TMN', 'RMX', 'AMN']) {
+    // Worst-case min/max are EXTREMUM operators with a grid of their own: a row
+    // that looks for a peak of T, 1 − R or A starts from 1 nm, so a narrow peak
+    // can't slip between samples; one that looks for a dip starts from 13
+    // samples, made finer on a design to its fringes.
+    const extremumGrid = { TMN: 13, RMX: 13, AMN: 13, TMX: 301, RMN: 301, AMX: 301 };
+    for (const [type, n] of Object.entries(extremumGrid)) {
         const op = makeOperand({ type, lambdaStart: 400, lambdaEnd: 700 });
         const lams = operandSampleLambdas(op);
-        ok(lams.length === ARGWAVE_DEFAULT_POINTS,
-           `${type}: dense extremum grid = ${ARGWAVE_DEFAULT_POINTS} samples (got ${lams.length})`);
+        ok(lams.length === n, `${type}: extremum grid = ${n} samples (got ${lams.length})`);
         ok(lams[0] === 400 && lams[lams.length - 1] === 700,
            `${type}: endpoints exact (got ${lams[0]} / ${lams[lams.length - 1]})`);
     }

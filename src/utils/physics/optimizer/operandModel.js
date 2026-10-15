@@ -308,8 +308,8 @@ export const AVG_POINTS = 13;
 export const AVG_STEP_NM = 2;
 // Design-free default sample count: round(width / AVG_STEP_NM) + 1, never below
 // AVG_POINTS. `op.bandPoints` / `op.rampPoints` (if ≥2) override it. Argwave
-// and worst-case min/max operands have their own dense default
-// (ARGWAVE_DEFAULT_POINTS) and do not use this.
+// and worst-case min/max operands search a grid of their own (extremumGrid.js)
+// and do not use this.
 export function bandSampleCount(op) {
     const w = Math.abs((op.lambdaEnd ?? op.lambdaStart) - op.lambdaStart);
     const n = Math.round(w / AVG_STEP_NM) + 1;
@@ -340,15 +340,22 @@ export function fringeSampleCount(op, groupThicknessNm) {
     const step = (shortEnd * shortEnd) / (2 * groupThicknessNm * SAMPLES_PER_FRINGE);
     return Math.max(AVG_POINTS, Math.ceil(width / step) + 1);
 }
-// Default band-sample count for argwave (argmax/argmin-λ) operands.  Used by
-// makeOperand AND by qualifiers.js so the two paths agree by construction.
-// 301 = 1 nm grid on a 300 nm band — parabolic peak refinement then lands
-// the reported λ within ~0.05–0.1 nm of the true extremum, well below a
-// coating designer's spec tolerance.  Coarser defaults (e.g. 21 pts =
-// 15 nm spacing) were observed to land on different local peaks for
-// designs with narrow features, producing a misleading mismatch between
-// the Specification window and the equivalent MXWT operand in the MF.
-export const ARGWAVE_DEFAULT_POINTS = 301;
+// The step, nm, a band-extremum row that looks for a peak of T, 1 − R or A
+// searches its band at: 10^(1 − flag) nm, so flag 1 is 1 nm, 2 is 0.1 nm, 3 is
+// 0.01 nm and 4 is 0.001 nm. A row without a flag searches at 1 nm. The finest
+// level is the grid the design contests check entries on for leaks (Tilsch and
+// Hendrix, Appl. Opt. 47, C55 (2008)); one level finer would be ten thousand
+// samples per nanometre of band. The flag decides only whether peaks closer
+// than a few steps are told apart: the peak found is located far finer than
+// the step (evalCore/bandExtremum.js).
+export const EXTREMUM_FLAG_MAX = 4;
+export function extremumFlag(op) {
+    const flag = op?.flag;
+    return Number.isInteger(flag) && flag >= 1 && flag <= EXTREMUM_FLAG_MAX ? flag : 1;
+}
+export function extremumStepNm(op) {
+    return 10 ** (1 - extremumFlag(op));
+}
 
 // ── Operand factories ─────────────────────────────────────────────────────────
 //

@@ -22,12 +22,12 @@ const noPercent = () => false;
 
 // ── The rectangle ─────────────────────────────────────────────────────────────
 
-assert.deepEqual(RANGE_COLUMNS, ['type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']);
+assert.deepEqual(RANGE_COLUMNS, ['type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'flag', 'target', 'weight']);
 assert.equal(cellRange(null, { rowIdx: 0, colKey: 'aoi' }), null);
 assert.equal(cellRange({ rowIdx: 1, colKey: 'aoi' }, { rowIdx: 1, colKey: 'aoi' }), null, 'one cell is no range');
 assert.equal(cellRange({ rowIdx: 1, colKey: 'current' }, { rowIdx: 2, colKey: 'aoi' }), null, 'a computed column cannot anchor a range');
 assert.deepEqual(cellRange({ rowIdx: 3, colKey: 'target' }, { rowIdx: 1, colKey: 'lambdaEnd' }),
-    { rowStart: 1, rowEnd: 3, colKeys: ['lambdaEnd', 'aoi', 'pol', 'target'] },
+    { rowStart: 1, rowEnd: 3, colKeys: ['lambdaEnd', 'aoi', 'pol', 'flag', 'target'] },
     'the rectangle is the same whichever corner is the anchor');
 const range = cellRange({ rowIdx: 0, colKey: 'lambdaStart' }, { rowIdx: 1, colKey: 'aoi' });
 assert.deepEqual(rangeColumnsForRow(range, 1), ['lambdaStart', 'lambdaEnd', 'aoi']);
@@ -38,7 +38,7 @@ assert.equal(rangeColumnsForRow(null, 0), null);
 
 assert.equal(rangeText(operands, range, noPercent), '1565\t1630\t45\n1565\t1630\t45');
 const acrossDash = cellRange({ rowIdx: 1, colKey: 'aoi' }, { rowIdx: 2, colKey: 'target' });
-assert.equal(rangeText(operands, acrossDash, noPercent), '45\ts\t0.0→0.0\n\t\t40',
+assert.equal(rangeText(operands, acrossDash, noPercent), '45\ts\t\t0.0→0.0\n\t\t\t40',
     'a cell the row does not carry copies as nothing, keeping the columns aligned');
 
 // ── Paste geometry ───────────────────────────────────────────────────────────
@@ -52,10 +52,11 @@ assert.equal(looksLikeOperandRows([]), false);
 assert.deepEqual(pasteTargets({ grid: [['2']], range: cellRange({ rowIdx: 0, colKey: 'weight' }, { rowIdx: 3, colKey: 'weight' }), operands }),
     [{ rowIdx: 0, colKey: 'weight', text: '2' }, { rowIdx: 1, colKey: 'weight', text: '2' },
         { rowIdx: 2, colKey: 'weight', text: '2' }, { rowIdx: 3, colKey: 'weight', text: '2' }]);
-// A row of values repeats down the range; a dash cell is skipped.
+// A row of values repeats across and down the range; a dash cell is skipped but
+// keeps its place, so the flag dash takes the 44 and the target the p.
 assert.deepEqual(pasteTargets({ grid: [['44', 'p']], range: acrossDash, operands }),
-    [{ rowIdx: 1, colKey: 'aoi', text: '44' }, { rowIdx: 1, colKey: 'pol', text: 'p' }, { rowIdx: 1, colKey: 'target', text: '44' },
-        { rowIdx: 2, colKey: 'target', text: '44' }]);
+    [{ rowIdx: 1, colKey: 'aoi', text: '44' }, { rowIdx: 1, colKey: 'pol', text: 'p' }, { rowIdx: 1, colKey: 'target', text: 'p' },
+        { rowIdx: 2, colKey: 'target', text: 'p' }]);
 // From one cell the grid is laid out down and right and clipped at the table edge.
 assert.deepEqual(pasteTargets({ grid: [['1', '2', '3'], ['4', '5', '6']], range: null, focus: { rowIdx: 3, colKey: 'target' }, operands }),
     [{ rowIdx: 3, colKey: 'target', text: '1' }, { rowIdx: 3, colKey: 'weight', text: '2' }]);

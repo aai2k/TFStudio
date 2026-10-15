@@ -2398,7 +2398,10 @@ export default {
       refOp1: 'Op. n.1',
       refOp2: 'Op. n.2',
       curveRef: 'Curva',
+      flag: 'Flag',
+      step: 'Passo',
     },
+    stepFlagTip: 'Passo di ricerca di una riga che cerca un picco: 1 = 1 nm, 2 = 0,1 nm, 3 = 0,01 nm, 4 = 0,001 nm. Picchi più vicini di circa due passi possono essere letti come uno solo.',
     operandGroups: {
       optical: 'Ottici, singola λ',
       range: 'Media sulla banda (target unico)',

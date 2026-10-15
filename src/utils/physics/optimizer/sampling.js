@@ -11,10 +11,11 @@
 import {
     isDmfs, isBlank, isManufacturability, isMath, isRangeTarget,
     isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve, isPPEF,
-    bandSampleCount, logOperand, ARGWAVE_DEFAULT_POINTS,
+    bandSampleCount, logOperand,
 } from './operandModel.js';
 import { materialOmegaResponse } from '../../materials/materialDispersion.js';
 import { workerMaterialFields } from '../../materials/designMaterials.js';
+import { extremumBaseLambdas } from './extremumGrid.js';
 
 export function isRangeAvg(type) { return type === 'TAV' || type === 'RAV' || type === 'AAV'; }
 // All range-sampled operands — uniform N-point grid over [λStart, λEnd].
@@ -31,7 +32,7 @@ export function charOf(type) { return logOperand(type)?.channel ?? type[0]; }
 
 // Band operands whose default grid is bandSampleCount: averages, integrals,
 // range targets and group-delay flatness. The extremum operands (argwave,
-// worst-case min/max) default to the fixed ARGWAVE_DEFAULT_POINTS grid instead.
+// worst-case min/max) search on their own grid (extremumGrid.js).
 export function hasBandDensityGrid(type) {
     return isBandSampled(type) && !isArgwave(type) && !isMinmax(type);
 }
@@ -69,32 +70,13 @@ function _rangeTargetLambdas(op, range) {
     return out;
 }
 
-// Range-sampled band operands (averages / integrals / minmax / argwave) on a
-// uniform N-point grid. Runtime defaults for sampling density: bandPoints is NOT
-// stamped on operands by makeOperand — it lives only at evaluation time, so a
-// default change here automatically upgrades every existing operand on disk (no
-// migration / "remake" needed).
-//   • Argwave (MXW*/MNW*) AND worst-case min/max (TMN/RMN/AMN/TMX/RMX/AMX):
-//     ARGWAVE_DEFAULT_POINTS (301 = 1 nm grid). Both report a band EXTREMUM, so
-//     coarse sampling can latch onto the wrong peak / miss a narrow dip —
-//     precision matters most here, and minmax now returns the TRUE extremum (not
-//     a smooth surrogate), so a dense grid is a pure accuracy win (the Jacobian
-//     only differentiates the single argmax sample, so cost stays ~O(nFree), not
-//     O(n·nFree)).
-//   • TAV/RAV/AAV + TIW/RIW/AIW: AVG_STEP_NM when no design is at hand; a run
-//     and the merit table set bandPoints from the design's fringe spacing
-//     (evalCore/fringeSampling.js).
-// User can override via op.bandPoints for a single operand (e.g. to sample a
-// structured weighting more finely).
+// Band averages, integrals and flatness rows on a uniform N-point grid:
+// AVG_STEP_NM when no design is at hand; a run and the merit table set
+// bandPoints from the design's fringe spacing (evalCore/fringeSampling.js).
+// bandPoints is NOT stamped on operands by makeOperand, so a default change here
+// reaches every operand on disk. A user can override it per operand.
 function _bandLambdas(op, range) {
-    const userN = sampleCountOverride(op);
-    // Extremum operators (argwave + minmax) get the dense fixed grid;
-    // band-average/integral operands use the ~AVG_STEP_NM density. User
-    // op.bandPoints wins for either.
-    const defaultN = (isArgwave(op.type) || isMinmax(op.type))
-        ? ARGWAVE_DEFAULT_POINTS
-        : bandSampleCount(op);
-    const n = userN ?? defaultN;
+    const n = sampleCountOverride(op) ?? bandSampleCount(op);
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
         out[i] = op.lambdaStart + (range * i) / (n - 1);
@@ -141,11 +123,17 @@ export function operandSampleLambdas(op) {
     if (isMeasuredCurve(op.type)) {
         return Array.isArray(op.sampleLambdas) ? op.sampleLambdas.slice() : [];
     }
-    if (isBandSampled(op.type)) {
-        const range = op.lambdaEnd - op.lambdaStart;
-        return isRangeTarget(op.type) ? _rangeTargetLambdas(op, range) : _bandLambdas(op, range);
-    }
+    if (isBandSampled(op.type)) return bandSampledLambdas(op);
     return [op.lambdaStart];
+}
+
+// A band-extremum row starts its search from its own grid, or from the count
+// a run fixed on it; the search adds the wavelengths it refines at
+// (evalCore/bandExtremum.js).
+function bandSampledLambdas(op) {
+    if (isArgwave(op.type) || isMinmax(op.type)) return extremumBaseLambdas(op, sampleCountOverride(op));
+    const range = op.lambdaEnd - op.lambdaStart;
+    return isRangeTarget(op.type) ? _rangeTargetLambdas(op, range) : _bandLambdas(op, range);
 }
 
 // Sorted unique union of every λ the enabled operands will sample. This is the

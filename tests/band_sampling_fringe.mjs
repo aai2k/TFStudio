@@ -15,7 +15,8 @@
  *   3. The count grows with the coating and has no ceiling; the group index,
  *      not the phase index, sets it; a full-system merit adds both faces.
  *   4. An operand's own count is raised when the fringes need more and kept
- *      otherwise; a second application changes nothing.
+ *      otherwise; a worst-case row's search count follows the fringes too; a
+ *      second application changes nothing.
  *   5. s and p kernel results are bit-identical at normal incidence (the
  *      premise of the shared s/p cache entry there), and a polarization
  *      average there equals the single-polarization value exactly.
@@ -28,7 +29,7 @@
 import {
     makeOperand, buildEvalContext, operandSampleLambdas, bandSampleCount,
     fringeSampleCount, groupThicknessAt, withFringeSampleCounts, DLSOptimizer,
-    evaluateOperands, tmmJacEval,
+    evaluateOperands, tmmJacEval, extremumSearchCount,
 } from '../src/utils/physics/optimizer.js';
 import { tmmOne } from '../src/utils/physics/optimizer/evalCore/kernels.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
@@ -133,7 +134,9 @@ console.log('WASM:', await initWasmForTest());
     ok(out[0].bandPoints > 201, `a 201-point count on a 9.4 µm stack is raised to ${out[0].bandPoints}`);
     ok(out[1] === fine, 'a count finer than the fringes need is kept as it is');
     ok(Number.isFinite(out[2].rampPoints) && out[2].bandPoints === undefined, `a range target carries its count in rampPoints (${out[2].rampPoints})`);
-    ok(out[3] === argw, 'a worst-case operand keeps its own dense default');
+    const searchNeed = extremumSearchCount(argw, groupThicknessAt(ctx, 400));
+    ok(out[3].bandPoints === searchNeed && searchNeed > 1201,
+        `a worst-case row searches three points per fringe, ${out[3].bandPoints} over 1200 nm, finer than its 1 nm step`);
     ok(withFringeSampleCounts(out, ctx) === out, 'applying it again to the same design changes nothing');
 
     const thinCtx = buildEvalContext(thinAR, resolveMat);

@@ -26,6 +26,7 @@
  */
 
 import { fringeSampleCount } from '../operandModel.js';
+import { extremumSearchCount, isExtremumRow } from '../extremumGrid.js';
 import { hasBandDensityGrid, sampleCountField, sampleCountOverride } from '../sampling.js';
 import { buildEvalContext } from './evalContext.js';
 
@@ -68,26 +69,35 @@ export function groupThicknessAt(ctx, lambdaNm) {
     return sm === 'back_only' ? back() : front();
 }
 
+const hasFringeGrid = type => hasBandDensityGrid(type) || isExtremumRow(type);
+
+// The count the fringes need: eight per fringe for a band row, three for the
+// search of a band-extremum row (extremumGrid.js).
+function fringeNeed(op, g) {
+    return hasBandDensityGrid(op.type) ? fringeSampleCount(op, g) : extremumSearchCount(op, g);
+}
+
 /**
- * Operands with the sample count of every band average, integral, range target
- * and flatness row set from the fringe spacing of the design in `ctx` (an
- * evaluation context from buildEvalContext). An operand without its own count
- * gets the fringe count, which is below the design-free default on a thin
- * coating. One that carries a count keeps it unless the fringes need more, so
- * the count only grows when this is applied again to a design that has grown.
- * Returns the input array itself when nothing changes.
+ * Operands with the sample count of every band average, integral, range target,
+ * flatness row and band-extremum search set from the fringe spacing of the
+ * design in `ctx` (an evaluation context from buildEvalContext). An operand
+ * without its own count gets the fringe count, which for a band row is below
+ * the design-free default on a thin coating. One that carries a count keeps it
+ * unless the fringes need more, so the count only grows when this is applied
+ * again to a design that has grown. Returns the input array itself when nothing
+ * changes.
  */
 export function withFringeSampleCounts(operands, ctx) {
     if (!Array.isArray(operands) || operands.length === 0) return operands;
     const gAt = new Map();
     let changed = false;
     const out = operands.map(op => {
-        if (!op || op.enabled === false || !hasBandDensityGrid(op.type)) return op;
+        if (!op || op.enabled === false || !hasFringeGrid(op.type)) return op;
         const shortEnd = Math.min(op.lambdaStart, op.lambdaEnd ?? op.lambdaStart);
         let g = gAt.get(shortEnd);
         if (g === undefined) { g = groupThicknessAt(ctx, shortEnd); gAt.set(shortEnd, g); }
         const own = sampleCountOverride(op);
-        const need = fringeSampleCount(op, g);
+        const need = fringeNeed(op, g);
         const count = own == null ? need : Math.max(own, need);
         if (count === own) return op;
         changed = true;

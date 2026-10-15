@@ -24,7 +24,7 @@ import {
 } from '../src/utils/synthesis/qualifiers.js';
 import {
     makeOperand, evaluateOperands, buildEvalContext,
-    operandSampleLambdas, ARGWAVE_DEFAULT_POINTS,
+    operandSampleLambdas,
 } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
@@ -325,31 +325,25 @@ console.log('— CENTRAL_LAMBDA qualifier == MXWT operand (bit-identical) —');
         `CENTRAL_LAMBDA == MXWT bit-identical (Δ = ${Math.abs(rQual.value - opVal).toExponential(2)} ` +
         `nm; qual=${rQual.value.toFixed(6)}, op=${opVal.toFixed(6)})`);
 
-    // Sub-nm precision sanity: with 301 default samples + parabolic refinement
-    // the reported λ should land within 0.2 nm of a dense (601-pt) reference
-    // scan on the same data.
-    const opDense = makeOperand({
+    // The search refines past its 1 nm grid, so a search at 0.1 nm (flag 2)
+    // finds the same wavelength.
+    const opFine = makeOperand({
         type: 'MXWT', lambdaStart: 400, lambdaEnd: 700,
-        aoi: 0, pol: 'avg', target: 550, weight: 1, bandPoints: 1201,
+        aoi: 0, pol: 'avg', target: 550, weight: 1, flag: 2,
     });
-    const denseVal = evaluateOperands([opDense], ctx)[0];
-    ok(Math.abs(opVal - denseVal) < 0.5,
-        `MXWT @ 301 pts within 0.5 nm of 1201-pt reference ` +
-        `(default=${opVal.toFixed(4)}, dense=${denseVal.toFixed(4)}, ` +
-        `Δ=${Math.abs(opVal - denseVal).toExponential(2)})`);
-
-    // FWHM qualifier should also use the same dense grid by default
-    ok(ARGWAVE_DEFAULT_POINTS === 301,
-        `ARGWAVE_DEFAULT_POINTS = 301 (got ${ARGWAVE_DEFAULT_POINTS})`);
+    const fineVal = evaluateOperands([opFine], ctx)[0];
+    ok(Math.abs(opVal - fineVal) < 1e-4,
+        `MXWT at the default step matches a 0.1 nm search ` +
+        `(default=${opVal.toFixed(4)}, fine=${fineVal.toFixed(4)}, ` +
+        `Δ=${Math.abs(opVal - fineVal).toExponential(2)})`);
 }
 
-// ── 12. qualifiersToMFOperands propagates bandPoints precisely ───────────────
-console.log('— qualifiersToMFOperands propagates bandPoints —');
+// ── 12. qualifiersToMFOperands stamps no sampling on the MXW row ─────────────
+console.log('qualifiersToMFOperands stamps no sampling on the MXW row');
 {
-    // When the user customizes bandPoints on a qualifier, the generated MF
-    // operand must inherit it (otherwise the optimizer's residual would
-    // disagree with the Specification verdict).  CENTRAL_LAMBDA ge produces
-    // [base MXWT, OPGT(refId=base.id)] — bandPoints lives on the base row.
+    // CENTRAL_LAMBDA ge produces [base MXWT, OPGT(refId=base.id)]. The MXW row
+    // and the qualifier read the same search whatever bandPoints the qualifier
+    // carries, so the row is given none.
     const q1 = makeQualifier({
         kind: 'CENTRAL_LAMBDA', channel: 'T', direction: 'max',
         cmp: 'ge', target: 550, lambdaStart: 400, lambdaEnd: 700,
@@ -357,8 +351,8 @@ console.log('— qualifiersToMFOperands propagates bandPoints —');
     });
     const ops1 = qualifiersToMFOperands([q1]);
     const baseOp1 = ops1.find(o => o.type === 'MXWT');
-    ok(baseOp1?.bandPoints === 401,
-        `explicit qualifier bandPoints=401 → base MXWT bandPoints=401 (got ${baseOp1?.bandPoints})`);
+    ok(baseOp1 && baseOp1.bandPoints === undefined,
+        `qualifier bandPoints=401 → base MXWT carries none (got ${baseOp1?.bandPoints})`);
 
     // Default qualifier (no bandPoints set explicitly): NEITHER the qualifier
     // NOR the generated operand carries a baked-in bandPoints — the field is
@@ -376,10 +370,9 @@ console.log('— qualifiersToMFOperands propagates bandPoints —');
     ok(baseOp2?.bandPoints === undefined,
         `default qualifier → operand bandPoints unset (got ${baseOp2?.bandPoints})`);
 
-    // Evaluating either path still gives the dense 301-pt grid via runtime default.
+    // The row searches from the runtime default: 1 nm over 400-700 nm.
     const lams = operandSampleLambdas(baseOp2);
-    ok(lams.length === ARGWAVE_DEFAULT_POINTS,
-        `runtime default fills in N=${ARGWAVE_DEFAULT_POINTS} samples (got ${lams.length})`);
+    ok(lams.length === 301, `runtime default searches from a 1 nm grid (got ${lams.length} samples)`);
 }
 
 if (fails === 0) console.log('\nAll qualifier tests passed.');

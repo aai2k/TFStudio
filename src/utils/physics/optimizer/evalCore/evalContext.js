@@ -224,8 +224,9 @@ export function operandSampleDeviations(computed) {
 }
 
 /**
- * Grid wavelength, nm, at which each worst-case min/max row (TMN..AMX) found
- * its extremum, aligned with `computed`; null or absent for every other row.
+ * Wavelength, nm, at which each worst-case row (TMN..AMX and their dB and
+ * density forms) found its extremum, aligned with `computed`; null or absent
+ * for every other row.
  */
 export function operandExtremumLambdas(computed) {
     return computed?.operandExtremumLambdas || [];

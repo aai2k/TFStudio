@@ -21,6 +21,7 @@ export * from './optimizer/operandDomains.js';
 export * from './optimizer/filterCatalog.js';
 export * from './optimizer/coneAngle.js';
 export * from './optimizer/sampling.js';
+export * from './optimizer/extremumGrid.js';
 export * from './optimizer/layerOps.js';
 export * from './optimizer/consolidate.js';
 export * from './optimizer/evalCore.js';

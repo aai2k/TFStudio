@@ -15,9 +15,10 @@
  *   8. Cycle detection: a → b → a gives both rows an evaluation error, doesn't loop.
  *   9. operandSampleLambdas returns [] for math operands (refs carry λs).
  *  10. requiredLambdas picks up the referenced operand's λs naturally.
- *  11. MXWT returns the λ of band-max T (parabolic-refined, 301-pt default).
+ *  11. MXWT returns the λ of band-max T.
  *  12. MNWR returns λ of band-min R.
- *  13. Argwave operandSampleLambdas defaults to 301 samples.
+ *  13. An argwave row's search grid: 1 nm for a peak row, set finer by its
+ *      flag; 13 samples for a dip row.
  *  14. Legacy OPGT/OPLT with op.baseType (no refId) still evaluates correctly.
  *  15. polFromType returns null for OPGT/OPLT/OPVA/etc.; embedded for MXWTS/etc.
  *
@@ -249,18 +250,21 @@ console.log('— MNWR recovers band-min R —');
         `MNWR in band (got ${lamMin?.toFixed(2)})`);
 }
 
-// ── 13. Argwave default = 301 samples ────────────────────────────────────────
-console.log('— Argwave default = 301 samples; user override honored —');
+// ── 13. Argwave search grid: the flag's step for a peak, 13 for a dip ────────
+console.log('Argwave search grid; the flag sets a peak row\'s step');
 {
-    for (const type of ['MXWT', 'MXWR', 'MXWA', 'MNWT', 'MNWR', 'MNWA']) {
+    // A peak of T, 1 − R or A starts from a 1 nm grid; a dip from 13 samples,
+    // made finer on a design to its fringes (bandExtremum.js).
+    const expected = { MXWT: 301, MNWR: 301, MXWA: 301, MXWR: 13, MNWT: 13, MNWA: 13 };
+    for (const [type, n] of Object.entries(expected)) {
         const op = makeOperand({ type, lambdaStart: 400, lambdaEnd: 700 });
         const lams = operandSampleLambdas(op);
-        ok(lams.length === 301, `${type}: default 301 (got ${lams.length})`);
+        ok(lams.length === n, `${type}: default ${n} (got ${lams.length})`);
     }
-    const dense = { type: 'MXWT', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 550, weight: 1, bandPoints: 601 };
-    ok(operandSampleLambdas(dense).length === 601, 'explicit bandPoints=601 honored');
+    const fine = { type: 'MXWT', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 550, weight: 1, flag: 2 };
+    ok(operandSampleLambdas(fine).length === 3001, 'flag 2 searches at 0.1 nm');
     const fresh = makeOperand({ type: 'MXWT', lambdaStart: 400, lambdaEnd: 700 });
-    ok(fresh.bandPoints === undefined, 'makeOperand does NOT stamp bandPoints');
+    ok(fresh.flag === undefined && fresh.bandPoints === undefined, 'makeOperand stamps neither flag nor bandPoints');
 }
 
 // ── 14. Legacy OPGT/OPLT with baseType still works (file back-compat) ───────

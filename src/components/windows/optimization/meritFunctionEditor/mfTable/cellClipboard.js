@@ -4,7 +4,7 @@
  * (ui/grid/gridModel.js); what a cell accepts is the operand's own.
  */
 import { parseCellGrid } from '../../../../ui/grid/gridModel.js';
-import { cellEdit, targetInitialValue } from './editModel.js';
+import { cellEdit, cellInitialText } from './editModel.js';
 import { looksLikeOperandRows, parseOperandsTsv } from './operandClipboard.js';
 import { editableColsForRow } from './operandViewModel.js';
 import { MF_GRID, RANGE_COLUMNS, pasteTargets, selectedCells } from './selectionModel.js';
@@ -28,9 +28,7 @@ export function clipboardScope({ op, focusCell, selectedIds }) {
 }
 
 /** The text a cell shows in its editor, which is also what it copies. */
-export function cellText(op, colKey, mathPercent) {
-    return colKey === 'target' ? targetInitialValue(op, mathPercent) : String(op[colKey] ?? '');
-}
+export const cellText = cellInitialText;
 
 /** A rectangle of operand cells as tab-separated lines; see gridModel.js. */
 export function rangeText(operands, range, isMathPct) {

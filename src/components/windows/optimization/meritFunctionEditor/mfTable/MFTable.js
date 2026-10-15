@@ -65,15 +65,16 @@ function useScrollViewport(scrollRef) {
     return [viewport, useCallback(event => read(event.currentTarget), [read])];
 }
 
-// The λ Start / λ End headers change with the selected row's operand type, so
-// they carry a title and clip: a label wider than its column would otherwise
-// overflow into the next one. Widths come from the colgroup, not from here.
-function headerCell(col, dynamicLabels, style, cols) {
-    const label = col.key === 'lambdaStart' ? dynamicLabels.lambdaStart
-        : col.key === 'lambdaEnd' ? dynamicLabels.lambdaEnd
-        : colLabel(col, cols);
+// The λ Start, λ End and flag headers change with the selected row's operand
+// type, so they carry a title and clip: a label wider than its column would
+// otherwise overflow into the next one. Over a search step the title spells out
+// the levels. Widths come from the colgroup, not from here.
+const DYNAMIC_HEADERS = new Set(['lambdaStart', 'lambdaEnd', 'flag']);
+function headerCell(col, dynamicLabels, style, te) {
+    const label = DYNAMIC_HEADERS.has(col.key) ? dynamicLabels[col.key] : colLabel(col, te.cols);
+    const title = col.key === 'flag' && label === te.cols.step ? te.stepFlagTip : label;
     return h('th', {
-        key: col.key, title: label,
+        key: col.key, title,
         style: { ...style, overflow: 'hidden', textOverflow: 'ellipsis' },
     }, label);
 }
@@ -275,7 +276,7 @@ export function MFTable(props) {
                     key: col.key, style: { width: columnPercent(col) },
                 }))),
                 h('thead', { ref: headRef },
-                    h('tr', null, COLS.map(col => headerCell(col, dynamicLabels, thStyle, cols))),
+                    h('tr', null, COLS.map(col => headerCell(col, dynamicLabels, thStyle, t.meritFunctionEditor))),
                 ),
                 h('tbody', null, tableBody(rowContext, view, noOperandsMsg)),
             ),

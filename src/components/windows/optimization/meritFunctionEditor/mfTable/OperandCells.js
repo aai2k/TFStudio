@@ -1,4 +1,4 @@
-import { isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
+import { extremumFlag, isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
 import { CellInput } from '../../../../ui/grid/CellInput.js';
 import { CellSelect, PolList, selectable } from './CellControls.js';
 import { curveReferenceCell } from './curveReferenceCell.js';
@@ -280,6 +280,8 @@ export function textCell(ctx, colKey, width) {
     let display = op[colKey];
     if (colKey === 'target') {
         display = fmtTargetDisplay(op, meta);
+    } else if (colKey === 'flag') {
+        display = extremumFlag(op);
     } else if (colKey === 'lambdaEnd') {
         if (meta.isCon) display = String(Math.round(op.lambdaEnd));
         else if (!meta.isRange) return dashCell(ctx, colKey, width);
@@ -303,6 +305,7 @@ export function rowRenderers(op, meta) {
         lambdaEnd: textCell,
         aoi: textCell,
         pol: polarizationCell,
+        flag: meta.takesFlag ? textCell : dashCell,
         target: textCell,
         weight: textCell,
         current: currentCell,

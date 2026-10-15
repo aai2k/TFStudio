@@ -2377,7 +2377,10 @@ export default {
       refOp1: '操作数#1',
       refOp2: '操作数#2',
       curveRef: '曲线',
+      flag: '标志',
+      step: '步长',
     },
+    stepFlagTip: '寻峰行的搜索步长：1 = 1 nm，2 = 0.1 nm，3 = 0.01 nm，4 = 0.001 nm。相距不到约两个步长的峰可能被读作一个峰。',
     operandGroups: {
       optical: '光学，单一 λ',
       range: '波段平均（单一目标）',

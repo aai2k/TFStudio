@@ -43,14 +43,14 @@ export function makeQualifier(overrides = {}) {
         // PPEF specs: the id of the measured curve in design.measuredCurves the
         // error is taken against.
         curveId:     null,
-        // bandPoints (sampling density for argmax / FWHM scans) is NOT stamped
-        // on the qualifier — it's an implementation hyperparameter that
-        // defaults at evaluation time (ARGWAVE_DEFAULT_POINTS in optimizer.js).
-        // This way a default change later upgrades existing qualifiers on disk
-        // automatically, and Specification stays consistent with the equivalent
-        // MF operand by construction (both use the same runtime default).
-        // User can still override per-qualifier by setting `bandPoints`
-        // explicitly (e.g. via a future "Advanced" panel).
+        // bandPoints (sample count of an integral's band and of the FWHM /
+        // edge scans) is NOT stamped on the qualifier: it's an implementation
+        // hyperparameter that defaults at evaluation time (sampling.js,
+        // bandScan.js). This way a default change later upgrades existing
+        // qualifiers on disk automatically, and Specification stays consistent
+        // with the equivalent MF operand by construction (both use the same
+        // runtime default). User can still override per-qualifier by setting
+        // `bandPoints` explicitly (e.g. via a future "Advanced" panel).
         // User-visible label (auto-derived from kind if blank)
         label:       '',
         ...overrides

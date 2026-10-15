@@ -14,7 +14,7 @@
  * { value, pass, deviation, displayValue, unit, summary } result.
  */
 
-import { makeOperand, evaluateOperands, buildEvalContext, ARGWAVE_DEFAULT_POINTS } from '../../physics/optimizer.js';
+import { makeOperand, evaluateOperands, buildEvalContext } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
 import { evalBandDerived } from './bandScan.js';
@@ -63,9 +63,9 @@ function evalAvg(qual, design, ctx) {
 // MIN_MAX — true min/max of T/R/A over a band. The "T(λ) ≥ X across the band"
 // / "R(λ) ≤ Y across the band" spec that appears on optical drawings.
 // Evaluated through the SAME TMN/TMX/RMN/RMX/AMN/AMX operand the generated MF
-// uses — which returns the true band extremum on the dense (≈1 nm) grid — so
-// the Specification verdict and the MF operand's reported value are identical
-// by construction (same code, same grid). No separate scan to drift out of sync.
+// uses, which returns the true band extremum (bandExtremum.js), so the
+// Specification verdict and the MF operand's reported value are identical by
+// construction (same code, same search). No separate scan to drift out of sync.
 function evalMinMax(qual, design, ctx) {
     const ch  = channelFromKind(qual.kind) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
@@ -95,8 +95,7 @@ function evalIntegral(qual, design, ctx) {
 
 // CENTRAL_LAMBDA — argwave on the requested channel. Delegates to the
 // optimizer's argwave operand so this and the equivalent MXWT/MNW* operand
-// placed in design.meritOperands evaluate through exactly the same code path
-// with exactly the same λ grid.
+// placed in design.meritOperands evaluate through exactly the same search.
 function evalCentralLambda(qual, design, ctx) {
     const ch  = channelFromKind(qual.kind) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
@@ -104,7 +103,6 @@ function evalCentralLambda(qual, design, ctx) {
         type: argwaveType(qual.direction, ch, pol),
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
         aoi: qual.aoi, pol, target: qual.target, weight: 1,
-        bandPoints: qual.bandPoints || ARGWAVE_DEFAULT_POINTS,
     });
     const lam = evaluateOperands([op], ctx)[0];
     return finishCompare(qual, lam, 'nm');

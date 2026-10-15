@@ -3,7 +3,7 @@ import {
     isLinearThickness, isMath, isMathPairRef, isMathSingleRef, isMinmax,
     isRangeTarget, isStress, isTotalThickness, isPhase, isWrappedAngle,
     isGroupDelayFlat, isFractionalUnit, isMeasuredCurve, isPPEF, logUnit,
-    _operandResidual,
+    takesStepFlag, _operandResidual,
 } from '../../../../../utils/physics/optimizer.js';
 
 // Display unit for a phase/field operand type: a degree sign, a key into
@@ -56,21 +56,25 @@ const TYPE_COLORS = {
 // Type is the widest of the fixed-vocabulary columns because the longest operand
 // names (GDDTFLAT, TODTFLAT) must read in full inside the picker, which spends
 // about 25 px of the column on its padding and caret. The wavelength, layer,
-// angle and weight columns hold at most a four-digit number.
+// angle and weight columns hold at most a four-digit number, the flag one digit
+// under a header of four letters. The rest are as wide as what they hold with
+// 4 px either side: Pol "avg" and its list mark, Target a ramp "10.0→90.0",
+// Current a wavelength "1234.56 nm", the share "100.0%".
 // Column widths, and the t.meritFunctionEditor.cols key each header reads. The
 // row number and the enabled tick are symbols and carry no key.
 export const COLS = [
     { key: 'num', w: 24, symbol: '#' },
     { key: 'enabled', w: 20, symbol: '✓' },
-    { key: 'type', w: 82, tr: 'type' },
+    { key: 'type', w: 80, tr: 'type' },
     { key: 'lambdaStart', w: 54, tr: 'lambdaLayer' },
-    { key: 'lambdaEnd', w: 50, tr: 'endDefault' },
+    { key: 'lambdaEnd', w: 48, tr: 'endDefault' },
     { key: 'aoi', w: 44, tr: 'aoi' },
-    { key: 'pol', w: 42, tr: 'pol' },
-    { key: 'target', w: 64, tr: 'target' },
+    { key: 'pol', w: 36, tr: 'pol' },
+    { key: 'flag', w: 31, tr: 'flag' },
+    { key: 'target', w: 58, tr: 'target' },
     { key: 'weight', w: 44, tr: 'weight' },
-    { key: 'current', w: 70, tr: 'current' },
-    { key: 'contribution', w: 50, tr: 'contribution' },
+    { key: 'current', w: 66, tr: 'current' },
+    { key: 'contribution', w: 46, tr: 'contribution' },
 ];
 
 /** Header text for a column. `cols` is t.meritFunctionEditor.cols. */
@@ -136,21 +140,31 @@ export function rowTintAlpha(light) {
 }
 
 /**
- * What the two λ columns are headed for the operand in focus. `cols` is
- * t.meritFunctionEditor.cols; a symbol in HEADER_LABELS is not a key there and
- * passes straight through.
+ * What the two λ columns and the flag column are headed for the operand in
+ * focus. `cols` is t.meritFunctionEditor.cols; a symbol in HEADER_LABELS is not
+ * a key there and passes straight through. The flag column reads Step on a row
+ * whose flag sets its search step and a dash on a row that takes no flag.
  */
 export function dynamicHeaderLabels(op, cols) {
-    if (!op || isDmfs(op.type)) return { lambdaStart: cols.lambdaLayer, lambdaEnd: cols.endDefault };
+    if (!op || isDmfs(op.type)) return { lambdaStart: cols.lambdaLayer, lambdaEnd: cols.endDefault, flag: cols.flag };
     const hit = HEADER_LABELS.find(([test]) => test(op))?.[1] ?? { lambdaStart: LAMBDA, lambdaEnd: DASH };
-    return { lambdaStart: cols[hit.lambdaStart] ?? hit.lambdaStart, lambdaEnd: cols[hit.lambdaEnd] ?? hit.lambdaEnd };
+    return {
+        lambdaStart: cols[hit.lambdaStart] ?? hit.lambdaStart,
+        lambdaEnd: cols[hit.lambdaEnd] ?? hit.lambdaEnd,
+        flag: takesStepFlag(op) ? cols.step : DASH,
+    };
 }
 
-export function editableColsForRow(op) {
+function baseEditableCols(op) {
     const hit = EDITABLE_COLS.find(([test]) => test(op));
     if (hit) return hit[1];
     return EDITABLE_KEYS.filter(key => key !== 'lambdaEnd' || RANGE_AVG_TYPES.has(op.type)
         || RANGE_TARGET_TYPES.has(op.type) || isMinmax(op.type));
+}
+
+export function editableColsForRow(op) {
+    const cols = baseEditableCols(op);
+    return takesStepFlag(op) ? [...cols, 'flag'] : cols;
 }
 
 // Operands whose λ End column carries a wavelength, so the cell shows a value
@@ -211,7 +225,7 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null, unitNa
         logUnit: units.logUnit, phaseUnit: units.phaseUnit, unitNames,
         mthPct: mathPercent, useFraction, cur, tgt,
         rawResidual: displayResidual(op, value, rawCur, tgt, isRampRow),
-        isRampRow, isRange: isRangeType(op.type),
+        isRampRow, isRange: isRangeType(op.type), takesFlag: takesStepFlag(op),
     };
 }
 

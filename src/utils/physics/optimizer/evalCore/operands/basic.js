@@ -7,29 +7,12 @@
 
 import { resolveSourceSpec, resolveDetectorSpec } from '../../../spectralWeightings.js';
 import { stressForceNm } from '../../../stress/stackForce.js';
-import { isMinType, isArgwaveMin, argwaveOpticalChar, argwavePolCode, polFromType, rowReading } from '../../operandModel.js';
+import { polFromType, rowReading } from '../../operandModel.js';
 import { isRangeAvg, charOf, operandSampleLambdas, bandQuadratureWeights } from '../../sampling.js';
 import { contextConstraintIndices } from '../../constraintRange.js';
 import { tmmProp } from '../tmmEval.js';
+import { findBandExtremum } from '../bandExtremum.js';
 import { _assertMeasurementSide } from './errors.js';
-
-// 3-point parabolic interpolation around a discrete extremum at index i in a
-// uniformly-spaced sample (lams[i] linear in i). Returns the sub-sample λ and
-// the interpolated value. Falls back to the discrete extremum when the parabola
-// is degenerate or the peak sits on a boundary.
-function parabolicPeakLambda(lams, vals, i) {
-    const n = lams.length;
-    if (n < 3 || i <= 0 || i >= n - 1) return { lam: lams[i], val: vals[i] };
-    const y0 = vals[i - 1], y1 = vals[i], y2 = vals[i + 1];
-    const denom = (y0 - 2 * y1 + y2);
-    if (Math.abs(denom) < 1e-15) return { lam: lams[i], val: vals[i] };
-    // Δ ∈ (−0.5, 0.5) is the sub-sample offset; standard parabolic-peak formula.
-    const delta = 0.5 * (y0 - y2) / denom;
-    const dLam  = lams[i + 1] - lams[i];   // uniform step assumed
-    const lamP  = lams[i] + delta * dLam;
-    const valP  = y1 - 0.25 * (y0 - y2) * delta;
-    return { lam: lamP, val: valP };
-}
 
 // Total thickness (TT): sum of all active layer thicknesses (nm). Uses the full
 // optimization vector (front, or front+back in both_independent) so it tracks
@@ -75,27 +58,12 @@ export function _evalConstraint(op, ctx) {
     return v;
 }
 
-// Argmax/argmin-wavelength (MXW*/MNW*): sample C(λ) over [λStart,λEnd] on a
-// uniform grid, find the discrete extremum, refine with a 3-pt parabolic fit.
-// Returns λ in nm, or NaN when a sample has no value (a material with no index
-// there): the extremum of a band with a hole in it is not known.
+// Argmax/argmin-wavelength (MXW*/MNW*): the wavelength, nm, of the band's true
+// maximum or minimum (bandExtremum.js), or NaN when a sample has no value (a
+// material with no index there): the extremum of a band with a hole in it is
+// not known.
 export function _evalArgwave(op, ctx) {
-    const char = argwaveOpticalChar(op.type);                     // 'T' | 'R' | 'A'
-    const pol  = argwavePolCode(op.type) ?? op.pol ?? 'avg';
-    const lams = operandSampleLambdas(op);
-    const n    = lams.length;
-    if (n === 0) return op.lambdaStart;
-    const vals = new Array(n);
-    for (let i = 0; i < n; i++) {
-        vals[i] = tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-    }
-    if (!vals.every(Number.isFinite)) return NaN;
-    const minMode = isArgwaveMin(op.type);
-    let bestI = 0, bestV = vals[0];
-    for (let i = 1; i < n; i++) {
-        if (minMode ? vals[i] < bestV : vals[i] > bestV) { bestV = vals[i]; bestI = i; }
-    }
-    return parabolicPeakLambda(lams, vals, bestI).lam;
+    return findBandExtremum(op, ctx).lambda;
 }
 
 // Weighted-integral operand (TIW/RIW/AIW):
@@ -122,37 +90,20 @@ export function _evalIntegral(op, ctx) {
     return den > 1e-30 ? num / den : 0;
 }
 
-// Worst-case minmax operand (TMN/RMN/AMN/TMX/RMX/AMX): the TRUE extremum of C(λ)
-// over the band (the real physical worst-case T/R/A — never >100%, never <0%).
-// The earlier log-sum-exp "soft" surrogate was abandoned: its un-normalized form
-// inflated a flat 99% T to >100% ("TMX = 108.9%"), and any smoothing biases the
-// value away from the real extremum. We report the honest extremum here (so the
-// MFE "Current" cell and the Specification window agree exactly) and give the
-// optimizer a single-argmax SUBGRADIENT in _analyticJacobian — the same
-// hard-extremum approach used for MNT/MXT. Sampled on the dense argwave grid
-// (≈1 nm) so a narrow peak / dip can't slip between samples. The grid
-// wavelength of the extremum, nm, is kept on the context: the Jacobian and the
-// Newton curvature differentiate C there and nowhere else. A sample with no
-// value (a material with no index there) leaves the extremum unknown: NaN, which
-// the merit function refuses, as it refuses a band average with such a sample.
-// A dB or density row (TDBMN, TDBMX, RDBMX, ODMN) takes the extremum of its own
-// reading; the conversion is monotone, so it sits at the same wavelength as the
-// extremum of T or R, at the opposite end for a density.
+// Worst-case minmax operand (TMN/RMN/AMN/TMX/RMX/AMX): the true extremum of C(λ)
+// over the band (bandExtremum.js), so the merit table's Current cell and the
+// Specification window read the same number. The wavelength of the extremum,
+// nm, is kept on the context: the Jacobian and the Newton curvature
+// differentiate C there and nowhere else. A sample with no value (a material
+// with no index there) leaves the extremum unknown: NaN, which the merit
+// function refuses, as it refuses a band average with such a sample. A dB or
+// density row (TDBMN, TDBMX, RDBMX, ODMN) reports its own reading of the
+// extremum of T or R; the conversion is monotone, so a lowest density is a
+// highest T.
 export function _evalMinmax(op, ctx) {
-    const char = charOf(op.type);
-    const pol  = polFromType(op.type) ?? op.pol;
-    const lams    = operandSampleLambdas(op);
-    const n       = lams.length;
-    const minMode = isMinType(op.type);
-    let ext = minMode ? Infinity : -Infinity;
-    let at = null;
-    for (let i = 0; i < n && !Number.isNaN(ext); i++) {
-        const v = rowReading(op.type, tmmProp(lams[i], op.aoi, pol, char, ctx, ctx.frontThicks, ctx.frontMats));
-        if (!Number.isFinite(v)) { ext = NaN; at = null; }
-        else if (minMode ? v < ext : v > ext) { ext = v; at = lams[i]; }
-    }
-    ctx._extremumLambdas?.set(op, at);
-    return Math.abs(ext) === Infinity ? 0 : ext;
+    const { lambda, C } = findBandExtremum(op, ctx);
+    ctx._extremumLambdas?.set(op, Number.isFinite(lambda) ? lambda : null);
+    return Number.isFinite(C) ? rowReading(op.type, C) : NaN;
 }
 
 // TDB: T in dB at op.lambdaStart.

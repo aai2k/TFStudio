@@ -93,6 +93,33 @@ function raiseToNeighbours(rays, fresh) {
 }
 
 /**
+ * Settle the node set at one wavelength `lam` (nm) on the cone axis `aoi` for
+ * the { pol, char } pairs in `channels`, unless the context holds one. The
+ * count is raised to the largest of the nearest settled wavelengths on either
+ * side, as settleConeNodes raises its own. For a search that evaluates between
+ * the wavelengths its row reads (bandExtremum.js). No effect without an active
+ * cone.
+ */
+export function settleConeWavelength(ctx, aoi, lam, channels) {
+    if (!(ctx && ctx.cone && coneIsActive(ctx.cone))) return;
+    const axis = coneAxisKey(aoi);
+    const rays = coneAxisRays(ctx, axis);
+    if (rays.countByLambda.has(lam)) return;
+    let count;
+    try { count = settleWavelength(ctx, axis, rays, lam, channels); } catch { return; }
+    let below = -Infinity, above = Infinity;
+    for (const other of rays.countByLambda.keys()) {
+        if (other < lam && other > below) below = other;
+        if (other > lam && other < above) above = other;
+    }
+    for (const side of [below, above]) {
+        if (rays.countByLambda.has(side)) count = Math.max(count, rays.countByLambda.get(side));
+    }
+    rays.countByLambda.set(lam, count);
+    rays.byLambda.set(lam, rays.nodesFor(count));
+}
+
+/**
  * Settle the node set of every (cone axis, wavelength) `operands` read on
  * `ctx` that the context does not hold yet. No effect without an active cone.
  */
