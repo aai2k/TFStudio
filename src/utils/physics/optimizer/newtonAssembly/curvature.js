@@ -105,8 +105,8 @@ function _curvRangeAvg(op, rp, hc) {
 }
 
 // Whether one operand is compatible with the FULL analytic Newton Hessian.
-// Math/argwave curvature isn't worked out, and σ-normalization ≠ 1 means the
-// Jacobian is FD (so the analytic curvature would not match). Ellipsometry and
+// Math/argwave curvature isn't worked out, and the curvature terms are not
+// divided by σ, so a row with σ ≠ 1 would not match its Jacobian row. Ellipsometry and
 // field operands have no second derivative worked out either, and tan Ψ, cos Δ
 // and the field peak sit at σ = 1, so they are named here. TT and STR are not:
 // both are linear in the thicknesses, so their curvature is exactly zero and

@@ -67,7 +67,8 @@ export function _jacRowMinmax(op, i, jc) {
 }
 
 // MXW* / MNW*: residual = sw·(λ* − target)/σ, so the row is sw·dλ*/dd_j ÷ σ,
-// zero where λ* sits on a band end (extremumSlope.js).
+// zero where λ* sits on a band end or the peak is flat to rounding there
+// (extremumSlope.js).
 export function _jacRowArgwave(op, i, jc) {
     const { comp, freeIdx, nFree, residualScale } = jc;
     const row = new Array(nFree).fill(0);

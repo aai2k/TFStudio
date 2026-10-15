@@ -334,8 +334,8 @@ export class LSQEngine {
     //
     // Scope: front_only single-surface (the mode whose analytic Jacobian is a
     // direct read). Returns null — caller falls back to LM step() — for any
-    // other surface/eval mode, or if the analytic Jacobian declines (math/
-    // argwave operands), or if σ-normalization ≠ 1 (then Jacobian is FD).
+    // other surface/eval mode, or if the analytic Jacobian declines (math rows,
+    // EFMX), or if a row has σ ≠ 1 (its curvature is not divided by σ).
     // Supported residual curvature: single-λ optical, range-avg (TAV/RAV/AAV),
     // weighted-integral (linear in comp ⇒ ∂²r = sw·Σα·∂²comp); range-target
     // (TGT/RGT/AGT, one single-λ residual per sample). The manufacturability rows
@@ -433,7 +433,7 @@ export class LSQEngine {
     // Stable, never-overridden handle to the Levenberg–Marquardt step. The
     // second-order engines (NewtonOptimizer / SQPOptimizer) override step() to
     // dispatch to newtonStep()/sqpStep(); those fall back to the LM step for any
-    // unsupported case (non-front_only surface mode, FD-only/argwave operands).
+    // unsupported case (non-front_only surface mode, operands without analytic rows).
     // The fallback MUST call lmStep(), NOT this.step() — the latter re-dispatches
     // through the subclass override and recurses until the stack overflows
     // (real bug: Newton/SQP crashed on back_only/symmetric/both_independent and
@@ -595,7 +595,7 @@ export class LSQEngine {
     // _analyticJacobian is J = ∂(_residuals)/∂d, so ∂SSR/∂dⱼ = 2(Jᵀr)ⱼ and
     //   ∇MF = ∇SSR / (2·ΣW·MF) = (Jᵀr)·MF / SSR
     // (ΣW cancels via SSR = ΣW·MF²). Falls back to central differences on mfAt
-    // when the analytic Jacobian declines a merit term (ramp/argwave/TT/total
+    // when the analytic Jacobian declines a merit term (ramp/TT/total
     // single-side) — same fallback policy as step(). Both branches return the
     // TRUE ∇MF, so CG sees a consistent gradient regardless of branch.
     gradMF(thk, freeIdxIn) {
@@ -638,7 +638,7 @@ export class LSQEngine {
     }
 
     // Central-difference ∇MF, used when the analytic Jacobian declines a merit
-    // term (ramp/argwave/TT/total single-side). Differentiates the true MF
+    // term (ramp/TT/total single-side). Differentiates the true MF
     // directly; writes into g and returns it.
     _gradMFFallbackFD(thk, free, g) {
         this.mfAt(thk);   // warm the eval cache at the base point

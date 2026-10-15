@@ -32,18 +32,25 @@ function gFunctions(spec) {
     return { g: C => s / P(C), dgdC: C => -s * dP / (P(C) * P(C)) };
 }
 
-// The λ step of the differences: a hundredth of the search step, and at most a
-// thousandth of the peak's width w ≈ √(8g/g''), from g = g*(1 + 4Δ²/w²) near a
-// resonance, so the cubic part of g, which sets in on the scale of w, stays
-// out of them.
-function differenceStep(op, ctx, spec, g, lambda) {
-    const e0 = 1e-2 * extremumSearchStep(op, ctx);
+// Smallest step, nm, of the width probe below. A hundredth of a 0.001 nm
+// search step would be 1e-5 nm, at which the second difference of a feature
+// hundreds of nanometres wide is lost to rounding.
+const MIN_PROBE_NM = 1e-3;
+
+// The λ step of the differences: a thousandth of the peak's width
+// w ≈ √(8g/g''), from g = g*(1 + 4Δ²/w²) near a resonance, so the cubic part
+// of g, which sets in on the scale of w, stays out of them, and a broad
+// feature is not differenced finer than rounding allows. The width comes from
+// a probe a hundredth of the search step wide, never under MIN_PROBE_NM; where
+// the probe finds no curvature its own step is used.
+function differenceStep(op, ctx, spec, lambda, g0) {
+    const { g } = gFunctions(spec);
+    const e0 = Math.max(1e-2 * extremumSearchStep(op, ctx), MIN_PROBE_NM);
     shareConeNodes(ctx, op.aoi, lambda, [lambda - e0, lambda + e0]);
     const C = lam => tmmProp(lam, op.aoi, spec.pol, spec.char, ctx, ctx.frontThicks, ctx.frontMats);
-    const g0 = g(C(lambda));
     const gpp = (g(C(lambda + e0)) - 2 * g0 + g(C(lambda - e0))) / (e0 * e0);
     const width = gpp > 0 ? Math.sqrt(8 * Math.abs(g0) / gpp) : Infinity;
-    return Math.min(e0, 1e-3 * width);
+    return Number.isFinite(width) ? 1e-3 * width : e0;
 }
 
 // dC/dd for every thickness variable and C, at one wavelength.
@@ -69,8 +76,10 @@ function gDifferences(spec, Z, P, M, e) {
  * The slope of a band-extremum row at the extremum λ* (nm) its evaluation
  * found: { C, dC } for a worst-case row, C(λ*) and the derivative of the
  * extremum value in every thickness variable; { dLambda } for MXW* / MNW*,
- * the derivative of λ* in each, or null where λ* does not move. `jc` is the
- * Jacobian context (propDeriv, propValue, ctx).
+ * the derivative of λ* in each, or null where λ* does not move (a band end)
+ * or the peak is flat to rounding at λ*, so its wavelength has no slope to
+ * take. Away from those the worst case is taken at the Newton-corrected
+ * point. `jc` is the Jacobian context (propDeriv, propValue, ctx).
  */
 export function extremumSlope(op, lambda, jc) {
     const spec = extremumRowSpec(op);
@@ -78,7 +87,7 @@ export function extremumSlope(op, lambda, jc) {
     const Z = pointAt(op, spec, jc, lambda);
     const plain = spec.argwave ? { dLambda: null } : { C: Z.C, dC: Z.d };
     if (atEnd) return plain;
-    const e = differenceStep(op, jc.ctx, spec, gFunctions(spec).g, lambda);
+    const e = differenceStep(op, jc.ctx, spec, lambda, gFunctions(spec).g(Z.C));
     shareConeNodes(jc.ctx, op.aoi, lambda, [lambda - e, lambda + e]);
     const s = gDifferences(spec, Z, pointAt(op, spec, jc, lambda + e), pointAt(op, spec, jc, lambda - e), e);
     if (!(s.gll > 0)) return plain;

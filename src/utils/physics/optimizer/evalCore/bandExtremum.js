@@ -31,7 +31,7 @@
 
 import { brentMinimum, localMinima, parabola } from '../../../math/lineMinimum.js';
 import { coneIsActive } from '../coneAngle.js';
-import { extremumRowSpec, extremumBaseLambdas, extremumSearchCount } from '../extremumGrid.js';
+import { extremumRowSpec, extremumBaseLambdas, extremumGridCount, extremumSearchCount } from '../extremumGrid.js';
 import { sampleCountOverride } from '../sampling.js';
 import { tmmProp } from './tmmEval.js';
 import { groupThicknessAt } from './fringeSampling.js';
@@ -48,14 +48,15 @@ const MISFIT_REACH = 2;
 // The quantity whose narrow peaks are resonances: T, 1 − R or A.
 const peakOf = (char, C) => (char === 'R' ? 1 - C : C);
 
-// The search grid: the count a run fixed on the row, or the one the design
-// being evaluated needs.
-function searchGrid(op, ctx) {
+// The sample count of the search grid: the count a run fixed on the row, or
+// the one the design being evaluated needs.
+function searchCount(op, ctx) {
     const fixed = sampleCountOverride(op);
-    if (fixed != null) return extremumBaseLambdas(op, fixed);
-    const shortEnd = Math.min(op.lambdaStart, op.lambdaEnd);
-    return extremumBaseLambdas(op, extremumSearchCount(op, groupThicknessAt(ctx, shortEnd)));
+    if (fixed != null) return fixed;
+    return extremumSearchCount(op, groupThicknessAt(ctx, Math.min(op.lambdaStart, op.lambdaEnd)));
 }
+
+const searchGrid = (op, ctx) => extremumBaseLambdas(op, searchCount(op, ctx));
 
 // The row's quantity C at λ. Under a cone the rays at a wavelength the
 // evaluation did not settle are settled first, so the value and its derivative
@@ -180,8 +181,8 @@ function searchMinimum(search, spec, op, ctx) {
 
 /** The step, nm, of the grid the row's search starts from on this design. */
 export function extremumSearchStep(op, ctx) {
-    const lams = searchGrid(op, ctx);
-    return lams.length > 1 ? (lams[lams.length - 1] - lams[0]) / (lams.length - 1) : 0;
+    const n = extremumGridCount(op, searchCount(op, ctx));
+    return n > 1 ? Math.abs(op.lambdaEnd - op.lambdaStart) / (n - 1) : 0;
 }
 
 /**

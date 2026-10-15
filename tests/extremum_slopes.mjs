@@ -5,14 +5,15 @@
  *
  * A worst-case row is differentiated at the Newton-corrected extremum, so a
  * wavelength a hair off a narrow leak does not carry the leak's shift into the
- * row; plain dT/dd there was 0.5 % off on the leak below. An MXW / MNW row
- * takes the implicit-function shift of its peak; it had no analytic row before
- * and put the whole Jacobian on finite differences.
+ * row. An MXW / MNW row takes the implicit-function shift of its peak. An
+ * extremum on a band end does not move, whatever the floating-point grid
+ * does there, and a fine search step does not shrink the difference step below
+ * what rounding allows on a broad minimum.
  *
  * Run: node tests/extremum_slopes.mjs
  */
 import assert from 'node:assert/strict';
-import { makeOperand, DLSOptimizer } from '../src/utils/physics/optimizer.js';
+import { makeOperand, DLSOptimizer, operandSampleLambdas } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { initWasmForTest } from './_wasmInit.mjs';
 
@@ -42,7 +43,20 @@ const CASES = [
     ['ODMN over the same leak', leak, row('ODMN', 500, 600, 3)],
     ['RMX of an AR', ar, row('RMX', 420, 680, 0.001)],
     ['MXWT under a 7.5° cone', coned, row('MXWT', 540, 580, 560)],
+    // The band's last grid sample is 782.6 exactly only if the grid puts it
+    // there; computed as a + (b − a)·i/(n − 1) it lands an ulp above.
+    ['MNWT on a band end', ar, row('MNWT', 431.5, 782.6, 600)],
+    ['TMN on a band end', ar, row('TMN', 431.5, 782.6, 0.99)],
+    ['MNWR at step 4', ar, row('MNWR', 420, 680, 500, { flag: 4 })],
 ];
+
+// A band end is recognised by comparing the extremum's wavelength with it, so
+// the search grid has to end on it exactly.
+for (const [type, a, b] of [['MNWT', 431.5, 782.6], ['TMN', 854.5, 1582.8], ['TMX', 782.6, 431.5]]) {
+    const lams = operandSampleLambdas(row(type, a, b, 0));
+    assert.equal(lams[0], Math.min(a, b), `${type} ${a}-${b}: the grid starts on the band`);
+    assert.equal(lams[lams.length - 1], Math.max(a, b), `${type} ${a}-${b}: the grid ends on the band`);
+}
 
 // Central differences of the residual, at a step large enough to keep the
 // extremum's location noise out of them.
@@ -62,7 +76,10 @@ for (const [name, d, op] of CASES) {
         scale = Math.max(scale, Math.abs(fd));
         worst = Math.max(worst, Math.abs(J[0][k] - fd));
     });
-    assert.ok(scale > 0, `${name}: the row moves with the layers`);
+    if (scale === 0) {
+        assert.equal(worst, 0, `${name}: a row pinned to its band end does not move, and its analytic row is zero`);
+        continue;
+    }
     assert.ok(worst <= 3e-4 * scale, `${name}: analytic against central differences ${(worst / scale).toExponential(2)}`);
 }
 

@@ -58,11 +58,16 @@ function bandOf(op) {
     return [Math.min(op.lambdaStart, op.lambdaEnd), Math.max(op.lambdaStart, op.lambdaEnd)];
 }
 
-/** `n` uniform samples over [a, b]; a band of zero width is its one wavelength. */
+/**
+ * `n` uniform samples over [a, b], the last one exactly b, so a wavelength found
+ * on a band end compares equal to it; a band of zero width is its one
+ * wavelength.
+ */
 export function bandGridOfCount(a, b, n) {
     if (!(b !== a) || n < 2) return [a];
     const out = new Array(n);
-    for (let i = 0; i < n; i++) out[i] = a + ((b - a) * i) / (n - 1);
+    for (let i = 0; i < n - 1; i++) out[i] = a + ((b - a) * i) / (n - 1);
+    out[n - 1] = b;
     return out;
 }
 
@@ -88,11 +93,16 @@ export function extremumSearchCount(op, groupThicknessNm) {
 }
 
 /**
- * The uniform grid a row's search starts from, low end first: its own grid, or
- * `count` samples when a count is given and larger (a run fixes one from the
- * design's fringes, evalCore/fringeSampling.js).
+ * Samples of the uniform grid a row's search starts from: its own grid, or
+ * `count` when a count is given and larger (a run fixes one from the design's
+ * fringes, evalCore/fringeSampling.js).
  */
+export function extremumGridCount(op, count = null) {
+    return Math.max(ownCount(op), count ?? 0);
+}
+
+/** The grid of extremumGridCount samples over the row's band, low end first. */
 export function extremumBaseLambdas(op, count = null) {
     const [lo, hi] = bandOf(op);
-    return bandGridOfCount(lo, hi, Math.max(ownCount(op), count ?? 0));
+    return bandGridOfCount(lo, hi, extremumGridCount(op, count));
 }
