@@ -262,4 +262,13 @@ for (const code of ['en', 'ru', 'zh']) {
 assert.ok(render('design').includes(`placeholder="${esc(t.toolbar.searchPlaceholder)}"`),
     'the search box is missing from the tab strip');
 
+// Systematic Deviations: the upper of its two waves is drawn faint.
+{
+    const icon = renderToStaticMarkup(ICONS['systematic-dev']);
+    const waves = icon.match(/<path [^>]*>/g) || [];
+    assert.equal(waves.length, 2, 'the icon has two waves');
+    assert.ok(!/opacity=/.test(waves[0]) && /opacity="0.5"/.test(waves[1]),
+        'the second wave is faint and the first is not');
+}
+
 console.log('PASS ribbon_tabs');

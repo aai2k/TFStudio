@@ -13,7 +13,7 @@ const I = (paths, size = 20) =>
 const IW = (paths, w) =>
     h('svg', { width: w, height: 20, viewBox: `0 0 ${w} 20`, fill: 'none', style: { display: 'block', flexShrink: 0 } }, ...paths);
 
-const P   = (d, s) => h('path', { d, stroke: 'currentColor', strokeWidth: s || 1.4, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none' });
+const P   = (d, s, op) => h('path', { d, stroke: 'currentColor', strokeWidth: s || 1.4, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none', opacity: op });
 const Pd  = (d, s) => h('path', { d, stroke: 'currentColor', strokeWidth: s || 1, strokeLinecap: 'round', strokeLinejoin: 'round', fill: 'none', strokeDasharray: '2 1.6' });
 const F   = (d, c) => h('path', { d, fill: c || 'currentColor' });
 const Fop = (d, op) => h('path', { d, fill: 'currentColor', opacity: op != null ? op : 0.28 });
