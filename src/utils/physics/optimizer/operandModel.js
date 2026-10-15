@@ -525,16 +525,23 @@ export function isRamp(op) {
 // silently stop covering the ones it grows.
 export const DEFAULT_CONSTRAINT_LAST_LAYER = 1000;
 
+// Target, nm, of a new constraint row: a 10 nm floor for MNT, and for MXT the
+// 1000 nm ceiling the merit wizard's thickness limits start at, so a row added
+// by hand and one the wizard writes agree. A 10 nm ceiling would penalize
+// nearly every layer of a real design.
+const DEFAULT_CONSTRAINT_TARGET_NM = { MNT: 10, MXT: 1000 };
+
 export function makeConstraintOperand(overrides = {}) {
+    const type = overrides.type ?? 'MNT';
     const operand = {
         id:          Math.random().toString(36).slice(2, 10),
         enabled:     true,
-        type:        'MNT',
+        type,
         lambdaStart: 1,
         lambdaEnd:   1,
         aoi:         0,
         pol:         'avg',
-        target:      10,
+        target:      DEFAULT_CONSTRAINT_TARGET_NM[type] ?? DEFAULT_CONSTRAINT_TARGET_NM.MNT,
         weight:      1.0,
         ...overrides
     };
