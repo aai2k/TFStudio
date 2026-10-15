@@ -171,7 +171,7 @@ const actual = {
 const expected = {
     front: 'cd2851a7e92e5cc09ff9e5d87acf1b6086bc5ef0a83f94ee2fbd0b14d98a31d6',
     back: '13e9f9586a5eea2234f7093b5e9a21623beb077e029f99f91ae5857a0ae7b963',
-    total: '542f0a62fe81d8943e4111d76a71e7420a9fa7b3ca4bc8ad01f6f0f15a4caf27',
+    total: '18edecd31381d3b7b7512f2d2d8b39573d6c4249ded7c07d1300a109dce63aeb',
     sensitivity: '0595f33f1bb4270d0ecaa0608f7ccfa8df95fe8c4c1232612c7cb4347f1d08b1',
 };
 

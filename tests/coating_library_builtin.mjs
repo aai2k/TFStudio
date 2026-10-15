@@ -16,6 +16,7 @@ import {
     COATING_TAGS, COATING_TYPES, entryMaterialIds, entrySpecResults, entrySpectrum,
 } from '../src/utils/coatingLibrary/entryModel.js';
 import { entryMetrics } from '../src/utils/coatingLibrary/entryProperties.js';
+import { qualifierSummary } from '../src/utils/synthesis/qualifiers.js';
 import { validateEntry } from '../src/utils/coatingLibrary/validateEntry.js';
 import { isBuiltinId } from '../src/utils/materials/designMaterials.js';
 import { initWasmForTest } from './_wasmInit.mjs';
@@ -78,7 +79,7 @@ for (const entry of BUILTIN_COATINGS) {
 
     const { qualifiers, results, verdict } = entrySpecResults(entry);
     results.forEach((result, i) => {
-        assert.ok(result.pass, `${where}: claim ${i + 1} (${qualifiers[i].kind}) fails: ${result.summary}`);
+        assert.ok(result.pass, `${where}: claim ${i + 1} (${qualifiers[i].kind}) fails: ${qualifierSummary(result, {}, { nm: 'nm' })}`);
     });
     assert.ok(verdict.allPass, `${where}: specification does not pass`);
 }

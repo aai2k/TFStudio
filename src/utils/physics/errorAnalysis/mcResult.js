@@ -40,7 +40,8 @@ function formatTrialSpecification(qualifiers, results, verdict) {
         results: results.map((result, index) => ({
             label: qualifiers[index].label || qualifiers[index].kind || ('#' + (index + 1)),
             pass: result ? result.pass : null,
-            value: result ? result.displayValue : null,
+            value: result ? result.value : null,
+            unit: result ? result.unit : null,
         })),
     };
 }

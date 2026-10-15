@@ -38,8 +38,7 @@ const EXEMPT = {
 
 // Windows still writing a Latin unit, fixed area by area.
 const NOT_YET = new Set([
-    'LayerSensitivity', 'SystematicDeviations', 'Inhomogeneities',
-    'Specification', 'DesignCleaner', 'Variator',
+    'DesignCleaner', 'Variator',
     'BBMWizard', 'MonoWizard', 'FilterDesignWizard', 'StackFormulaDialog',
 ]);
 

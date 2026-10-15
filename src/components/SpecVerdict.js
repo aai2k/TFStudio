@@ -20,7 +20,7 @@
  * not a single design), so it does not use this component.
  */
 
-import { evaluateQualifiers, aggregateVerdict, qualifierSummary } from '../utils/synthesis/qualifiers.js';
+import { evaluateQualifiers, aggregateVerdict, qualifierSummary, qualifierValueText } from '../utils/synthesis/qualifiers.js';
 
 const { createElement: h, useMemo } = React;
 
@@ -47,13 +47,12 @@ export function SpecVerdict({ design, designs, resolveMat, c, t, label, style })
                 if (r?.pass === false) { pass = false; if (!failRef) failRef = r; }
                 else if (r?.pass == null) anyNull = true;
             }
-            const said = failRef || base;
+            // The value is the first design's; the summary speaks for the
+            // design that failed, when one did.
             return {
                 ...base,
                 pass: !pass ? false : (anyNull ? null : true),
-                summary: said.summary,
-                summaryKey: said.summaryKey,
-                summaryArgs: said.summaryArgs,
+                said: failRef || base,
             };
         });
         return { qualifiers: quals, results: merged };
@@ -82,12 +81,12 @@ export function SpecVerdict({ design, designs, resolveMat, c, t, label, style })
         .map((q, i) => ({ q, i, r: results[i] }))
         .filter(x => x.r?.pass === false)
         .map(x => chip('✗ ' + qLabel(x.q, x.i), '#ef5350',
-            (qualifierSummary(x.r, ts.summaries) || x.r?.displayValue || ''), x.q.id || x.i));
+            (qualifierSummary(x.r.said, ts.summaries, t.units) || qualifierValueText(x.r, t.units)), x.q.id || x.i));
 
     const fullTip = qualifiers.map((q, i) => {
         const r = results[i];
         const mark = r?.pass === true ? '✓' : r?.pass === false ? '✗' : '—';
-        return `${mark} ${qLabel(q, i)}: ${r?.displayValue ?? '—'}`;
+        return `${mark} ${qLabel(q, i)}: ${qualifierValueText(r, t.units)}`;
     }).join('\n');
 
     return h('div', {

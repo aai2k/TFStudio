@@ -1,3 +1,4 @@
+import { qualifierValueText } from '../../../../utils/synthesis/qualifiers.js';
 import { chip, tableStyles } from './ui.js';
 
 const { createElement: h } = React;
@@ -50,7 +51,7 @@ function TrialSpecBand({ trial, c, t, ea }) {
             trial.spec.allPass ? c.success : c.error, null, 'v',
         ),
         ...(trial.spec.results || []).filter((result) => result.pass === false).map((result, i) =>
-            chip(`✗ ${result.label} = ${result.value ?? '—'}`, '#ef5350', null, i)),
+            chip(`✗ ${result.label} = ${qualifierValueText(result, t.units)}`, '#ef5350', null, i)),
     );
 }
 

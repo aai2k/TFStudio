@@ -79,8 +79,7 @@ export function evalBandDerived(qual, design, ctx) {
         if (leftLam == null || rightLam == null) {
             // Couldn't bracket both crossings inside the scan band.
             return {
-                value: NaN, pass: false, deviation: NaN,
-                displayValue: '—', unit: 'nm',
+                value: NaN, pass: false, deviation: NaN, unit: 'nm',
                 summaryKey: 'fwhmNotBracketed',
                 summaryArgs: [(level * 100).toFixed(0), qual.lambdaStart, qual.lambdaEnd],
             };
@@ -96,8 +95,7 @@ export function evalBandDerived(qual, design, ctx) {
     const which = qual.edgeSide === 'right' ? rightLam : (leftLam ?? rightLam);
     if (which == null) {
         return {
-            value: NaN, pass: false, deviation: NaN,
-            displayValue: '—', unit: 'nm',
+            value: NaN, pass: false, deviation: NaN, unit: 'nm',
             summaryKey: 'edgeNotCrossed', summaryArgs: [(level * 100).toFixed(0)],
         };
     }

@@ -70,7 +70,7 @@ ok(!near(trialT, nominalT, 0.01), 'the deviation moves T enough for the test to 
 ok(nominalT < TARGET && trialT > TARGET, 'the target separates the nominal and perturbed spectra');
 
 const verdict = run.trials[0].spec.results[0];
-ok(near(parseFloat(verdict.value) / 100, trialT, 1e-4),
+ok(near(verdict.value, trialT, 1e-4),
    `verdict reports the trial spectrum (got ${verdict.value}, trial ${(trialT * 100).toFixed(3)} %)`);
 ok(verdict.pass === true, 'the trial passes on its own spectrum');
 ok(run.spec.passCount === 1 && run.spec.yield === 1,
@@ -85,7 +85,7 @@ const noIndexError = await runErrorAnalysisMC(design, params, resolveMat, {
     evaluateSpec: true, qualifiers, recordTrials: true,
     rng: () => 0.99,
 });
-ok(near(parseFloat(noIndexError.trials[0].spec.results[0].value) / 100, nominalT, 1e-4),
+ok(near(noIndexError.trials[0].spec.results[0].value, nominalT, 1e-4),
    'with no index error the verdict still matches the nominal spectrum');
 
 console.log(`mc_spec_index_errors: ${passed} passed`);

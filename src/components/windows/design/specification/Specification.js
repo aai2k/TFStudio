@@ -57,7 +57,7 @@ export function Specification({ c, theme, t, setInputDialog }) {
         h('div', { style: { flex: 1, overflow: 'auto', minHeight: 0 } },
             qualifiers.length === 0
                 ? h(EmptyState, { c, ts, addQualifier })
-                : h(QTable, { qualifiers, results, c, ts, updateQualifier, removeQualifier,
+                : h(QTable, { qualifiers, results, c, ts, units: t.units, updateQualifier, removeQualifier,
                               integralPresets, measuredCurves: design.measuredCurves || [],
                               selectedId, onSelect: selectAndFocus })
         )

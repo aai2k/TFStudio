@@ -11,7 +11,7 @@
  *
  * Dispatch is a kind → evaluator lookup table (KIND_EVALUATORS); each
  * evaluator handles one qualifier kind and returns the finished
- * { value, pass, deviation, displayValue, unit, summary } result.
+ * { value, pass, deviation, unit, threshold } result (format.js writes its text).
  */
 
 import { makeOperand, evaluateOperands, buildEvalContext } from '../../physics/optimizer.js';
@@ -114,7 +114,7 @@ function evalCentralLambda(qual, design, ctx) {
 function evalPPEF(qual, design, ctx) {
     const rows = ppefRows(qual, design);
     if (!rows) {
-        return { value: null, pass: false, deviation: null, displayValue: '—', unit: 'dB', summaryKey: 'noCurve' };
+        return { value: null, pass: false, deviation: null, unit: 'dB', summaryKey: 'noCurve' };
     }
     const values = evaluateOperands([rows.block, rows.row], ctx);
     return finishCompare(qual, values[1], 'dB');
@@ -134,17 +134,16 @@ const KIND_EVALUATORS = {
 };
 
 // Evaluate one qualifier against a design. Returns:
-//   { value, value2, pass, deviation, displayValue, unit, summary }
-// where value/value2 are the raw computed numbers, displayValue is a
-// formatted string for the table, and unit is 'nm' or '%' or '' depending
-// on kind.
+//   { value, pass, deviation, unit, threshold }
+// where value is the raw computed number, unit is 'nm', '%', 'dB' or ''
+// depending on kind, and threshold is what the value was held to. One that
+// could not be computed carries a summaryKey instead of a threshold.
 export function evaluateQualifier(qual, design, resolveMat) {
     const ctx = buildEvalContext(design, resolveMat);
     const evaluator = KIND_EVALUATORS[qual.kind];
     if (!evaluator) {
         return {
-            value: null, pass: false, deviation: null,
-            displayValue: '—', unit: '',
+            value: null, pass: false, deviation: null, unit: '',
             summaryKey: 'unknownKind', summaryArgs: [qual.kind],
         };
     }
@@ -156,7 +155,7 @@ export function evaluateQualifiers(qualifiers, design, resolveMat) {
     return (qualifiers || []).map(q =>
         q.enabled
             ? evaluateQualifier(q, design, resolveMat)
-            : { value: null, pass: null, deviation: null, displayValue: '—', unit: '', summaryKey: 'disabled' }
+            : { value: null, pass: null, deviation: null, unit: '', summaryKey: 'disabled' }
     );
 }
 

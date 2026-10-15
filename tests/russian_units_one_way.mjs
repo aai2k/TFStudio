@@ -11,8 +11,8 @@
  *      and фс in Russian, and nm and fs in English.
  *   3. The report's λ column reads λ, нм.
  *   4. A Russian report writes нм, мм and мкм in its subtitles, facts, layer
- *      headings, color rows, merit cells and spectrum table, and the Report
- *      window's block summaries write нм.
+ *      headings, color rows, merit cells, requirements and spectrum table, and
+ *      the Report window's block summaries write нм.
  *   5. The analysis readouts a window's first render does not show write units
  *      in Russian: the masked-sample notice, the dominant wavelength, the stress
  *      table and tooltip, the index profile's region labels, the sweep and
@@ -21,8 +21,9 @@
  *   6. Data exchange: the curve editor's unit names and column titles, the n,k
  *      result rows and the measured-curve fit dialog write units in Russian.
  *   7. Design windows: a material's range, density and mechanical constants, a
- *      coating library entry's bands, metrics and stack strip, and the design
- *      import preview write units in Russian.
+ *      coating library entry's bands, metrics, stack strip and claims write
+ *      units in Russian.
+ *   8. A requirement's value and summary, wherever they are shown, write нм.
  *
  * Run: node tests/russian_units_one_way.mjs
  */
@@ -130,8 +131,9 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     const design = {
         ...makeSampleDesign(),
         meritOperands: [{ id: 'm', type: 'TAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0.99, weight: 1 }],
+        qualifiers: [{ id: 'q', kind: 'THICKNESS_BUDGET', cmp: 'le', target: 500, enabled: true }],
     };
-    const blocks = ['facts', 'layers', 'materials', 'color', 'efield', 'riProfile', 'merit'].map(type => newBlock(type))
+    const blocks = ['facts', 'layers', 'materials', 'color', 'efield', 'riProfile', 'merit', 'qualifiers'].map(type => newBlock(type))
         .concat(newBlock('spectrum', { spectralUnit: 'um', tableStep: 100 }));
     const report = (lang, designs) => text(composeReport({
         lang, tr: reportLocale(lang), blocks, designs: designs.map(d => ({ design: d, data: gatherDesignData(d, blocks) })),
@@ -234,11 +236,13 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     const { BUILTIN_COATINGS } = await import('../src/utils/coatingLibrary/builtin/index.js');
     const { COATING_TAGS } = await import('../src/utils/coatingLibrary/entryModel.js');
     const { EntryDetail } = await import('../src/components/windows/design/coatingLibrary/EntryDetail.js');
-    // A library entry's prose and its tags' descriptions are English data the
-    // entry carries, not text the window writes.
-    const builtin = BUILTIN_COATINGS.find(item => item.type === 'bandpass') || BUILTIN_COATINGS[0];
-    const entry = { ...builtin, spec: [] };
-    const entryProse = new Set([entry.name, entry.use, entry.limitations, entry.source, ...Object.values(COATING_TAGS)]);
+    // A library entry's prose, its claims' labels and its tags' descriptions
+    // are English data the entry carries, not text the window writes.
+    const entry = BUILTIN_COATINGS.find(item => item.type === 'bandpass') || BUILTIN_COATINGS[0];
+    const entryProse = new Set([
+        entry.name, entry.use, entry.limitations, entry.source,
+        ...entry.spec.map(claim => claim.label), ...Object.values(COATING_TAGS),
+    ]);
     shown.push(...strings(renderToStaticMarkup(h(EntryDetail, {
         entry, c, ts: ru.coatingLibrary, summaries: ru.specification.summaries,
         lambdaAxis: ru.spectralAxis.lambdaShort, units: ru.units,
@@ -248,6 +252,23 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     for (const unit of ['нм', 'г/см³', 'ГПа', 'МПа', 'Дж/м²']) {
         assert.ok(shown.some(s => s.includes(unit)), `ru design windows write ${unit}`);
     }
+}
+
+// ── 8. Requirements ──────────────────────────────────────────────────────────
+{
+    const { evaluateQualifiers, qualifierSummary, qualifierValueText } = await import('../src/utils/synthesis/qualifiers.js');
+    const design = makeSampleDesign();
+    const qualifiers = [
+        { kind: 'THICKNESS_BUDGET', cmp: 'le', target: 100, enabled: true },
+        { kind: 'CENTRAL_LAMBDA', channel: 'T', direction: 'max', lambdaStart: 400, lambdaEnd: 700, cmp: 'eq', target: 550, tol: 5, enabled: true },
+        { kind: 'FWHM', channel: 'T', direction: 'max', level: 0.5, lambdaStart: 400, lambdaEnd: 700, cmp: 'between', lo: 10, hi: 20, enabled: true },
+    ];
+    const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
+    const results = evaluateQualifiers(qualifiers, design, designMaterialLookup(design));
+    const shown = results.flatMap(r => [qualifierValueText(r, ru.units), qualifierSummary(r, ru.specification.summaries, ru.units)]);
+    assert.ok(!shown.some(s => LATIN_UNIT.test(s)), `a Russian requirement writes a Latin unit: ${shown.join(' | ')}`);
+    assert.ok(shown[0].endsWith(' нм') && shown[1].includes('≤ 100.00 нм'), `ru requirement reads ${shown[0]}, ${shown[1]}`);
+    assert.equal(qualifierValueText(results[0], en.units), shown[0].replace('нм', 'nm'), 'en keeps nm');
 }
 
 console.log('russian_units_one_way passed.');

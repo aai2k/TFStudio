@@ -101,7 +101,7 @@ function Tags({ entry, c }) {
         })));
 }
 
-function SpecList({ spec, c, ts, summaries }) {
+function SpecList({ spec, c, ts, summaries, units }) {
     if (spec.qualifiers.length === 0) {
         return h('div', { style: { fontSize: 12, color: c.textDim, fontStyle: 'italic' } }, ts.noSpec);
     }
@@ -121,7 +121,7 @@ function SpecList({ spec, c, ts, summaries }) {
             h('span', { style: { color: c.textDim, flex: 1 } }, label),
             h('span', { style: { color: c.textDim, fontVariantNumeric: 'tabular-nums', minWidth: 44, textAlign: 'right' } },
                 angleText(qualifier, ts)),
-            h('span', { style: { fontVariantNumeric: 'tabular-nums' } }, qualifierSummary(result, summaries)));
+            h('span', { style: { fontVariantNumeric: 'tabular-nums' } }, qualifierSummary(result, summaries, units)));
     }));
 }
 
@@ -168,7 +168,7 @@ export function EntryDetail({ entry, c, ts, summaries, lambdaAxis, units }) {
                 h(SectionTitle, { c }, `${ts.propertiesHeading} · ${angleText(entry, ts)}`),
                 h(Properties, { entry, metrics, c, ts, units }),
                 h(SectionTitle, { c }, ts.specHeading),
-                h(SpecList, { spec, c, ts, summaries }))),
+                h(SpecList, { spec, c, ts, summaries, units }))),
 
         entry.source && h('div', null, h(SectionTitle, { c }, ts.sourceHeading),
             h('div', { style: { fontSize: 11, color: c.textDim, lineHeight: 1.45, whiteSpace: 'pre-wrap' } }, entry.source)));

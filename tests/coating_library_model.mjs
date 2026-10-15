@@ -16,6 +16,7 @@ import {
     entrySpectrum, makeCoatingEntry, previewRange, slugify, tagGroupOf,
 } from '../src/utils/coatingLibrary/entryModel.js';
 import { entryMetrics } from '../src/utils/coatingLibrary/entryProperties.js';
+import { qualifierSummary } from '../src/utils/synthesis/qualifiers.js';
 import { validateEntry } from '../src/utils/coatingLibrary/validateEntry.js';
 import { applyCoatingPatch, mergeEntryMaterials } from '../src/utils/coatingLibrary/applyCoating.js';
 import { filterEntries, substratesOf, tagCounts } from '../src/utils/coatingLibrary/filter.js';
@@ -364,7 +365,7 @@ assert.deepEqual(validateEntry(bbar), []);
     assert.equal(spec.qualifiers.length, 2);
     assert.equal(spec.qualifiers[0].lambdaStart, 450, 'a claim inherits the entry band');
     assert.equal(spec.qualifiers[0].aoi, 0);
-    assert.ok(spec.verdict.allPass, spec.results.map(r => r.summary).join('; '));
+    assert.ok(spec.verdict.allPass, spec.results.map(r => qualifierSummary(r, {}, { nm: 'nm' })).join('; '));
     assert.ok(near(spec.results[0].value, metrics.rAvg, 1e-12), 'the R avg claim and the R avg metric are one number');
 
     // The three-band entry's MgF2 covers 200-7000 nm, so it validates; the same

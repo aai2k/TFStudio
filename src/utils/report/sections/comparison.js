@@ -16,7 +16,8 @@ import { pct, num, tt, unitOf, polText, blockTitle, errNote, wrap, table, note }
 import { recipeTable } from './layers.js';
 import { materialLegendItem, materialsTable } from './materials.js';
 import { factPairs, stackDiagramSVG } from './facts.js';
-import { colorRows, colorCaption, verdictMark, qualifierLabel } from './otherSections.js';
+import { colorRows, colorCaption, verdictMark, qualifierLabel, qualifierUnits } from './otherSections.js';
+import { qualifierValueText } from '../../synthesis/qualifiers.js';
 
 const MAX_COLUMNS = 6;
 
@@ -108,7 +109,7 @@ function qualifierCell(q, label, tr) {
   const i = (q?.qualifiers || []).findIndex(ql => qualifierLabel(ql, tr) === label);
   if (i < 0) return num(null);
   const r = q.results[i] || {};
-  return `${escapeHtml(r.displayValue || '')} ${verdictMark(r.pass)}`;
+  return `${escapeHtml(qualifierValueText(r, qualifierUnits(tr)))} ${verdictMark(r.pass)}`;
 }
 
 function verdictCell(q) {

@@ -1,4 +1,4 @@
-import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary } from '../../../../utils/synthesis/qualifiers.js';
+import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary, qualifierValueText } from '../../../../utils/synthesis/qualifiers.js';
 import { OPERAND_POLS } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
@@ -7,7 +7,7 @@ import { Field, numInp, numInpTarget, inpStyle, selStyle, btnStyle } from './fie
 
 const { createElement: h } = React;
 
-export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPresets, measuredCurves, isSelected, onSelect }) {
+export function QRow({ q, r, c, ts, units, updateQualifier, removeQualifier, integralPresets, measuredCurves, isSelected, onSelect }) {
     const meta = KIND_META[q.kind] || {};
     const onF     = (k, v) => updateQualifier(q.id, { [k]: v });
     const onPatch = (patch) => updateQualifier(q.id, patch);
@@ -35,7 +35,7 @@ export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPr
             outline: isSelected ? `1px solid ${c.accent}55` : 'none',
         }
     },
-        renderRowHeader({ q, r, c, ts, onF, updateQualifier, removeQualifier, passColor, passBadge }),
+        renderRowHeader({ q, r, c, ts, units, onF, updateQualifier, removeQualifier, passColor, passBadge }),
 
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: c.textDim } },
             renderChannelPick(meta, q, onF, c, ts),
@@ -46,22 +46,22 @@ export function QRow({ q, r, c, ts, updateQualifier, removeQualifier, integralPr
             renderDirection(meta, q, onF, c, ts),
             renderLevel(meta, q, onF, c, ts),
             renderEdgeSide(meta, q, onF, c, ts),
-            meta.integral && renderIntegral(q, onPatch, c, ts, integralPresets),
+            meta.integral && renderIntegral(q, onPatch, c, ts, { integralPresets, units }),
             meta.curve && renderCurvePick(q, onF, c, ts, measuredCurves),
             renderCmp(q, onF, c, ts),
             renderTargets(q, meta, onF, c, ts),
         ),
 
         // Tooltip / summary line for non-pass cases
-        r?.pass === false && qualifierSummary(r, ts.summaries) && h('div', {
+        r?.pass === false && qualifierSummary(r, ts.summaries, units) && h('div', {
             style: { fontSize: 10, color: c.textDim, fontStyle: 'italic', paddingLeft: 4 },
-        }, qualifierSummary(r, ts.summaries))
+        }, qualifierSummary(r, ts.summaries, units))
     );
 }
 
 // ── Row header: enabled toggle / kind / label / verdict ──────────────────────
 
-function renderRowHeader({ q, r, c, ts, onF, updateQualifier, removeQualifier, passColor, passBadge }) {
+function renderRowHeader({ q, r, c, ts, units, onF, updateQualifier, removeQualifier, passColor, passBadge }) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
         h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim, cursor: 'pointer' } },
             h(Checkbox, {
@@ -95,7 +95,7 @@ function renderRowHeader({ q, r, c, ts, onF, updateQualifier, removeQualifier, p
                 background: `${passColor}1a`, border: `1px solid ${passColor}55`,
                 minWidth: 60, textAlign: 'center',
             }
-        }, passBadge + '  ' + (r?.displayValue || '—')),
+        }, passBadge + '  ' + qualifierValueText(r, units)),
         h('button', {
             onClick: () => removeQualifier(q.id),
             title: ts.remove || 'Remove',
@@ -200,7 +200,7 @@ function renderEdgeSide(meta, q, onF, c, ts) {
 // operand carries `presetKey` and stays named/inspectable in the Merit
 // Function Editor. A qualifier whose fields match no known preset shows
 // "(custom)" but still evaluates from its stored source/detector/band.
-function renderIntegral(q, onPatch, c, ts, integralPresets) {
+function renderIntegral(q, onPatch, c, ts, { integralPresets, units }) {
     const presets  = integralPresets || [];
     const matchKey = q.presetKey && presets.some(p => p.key === q.presetKey) ? q.presetKey : '';
     const applyPreset = (key) => {
@@ -231,7 +231,7 @@ function renderIntegral(q, onPatch, c, ts, integralPresets) {
                 presets.map(p => h('option', { key: p.key, value: p.key, title: p.label, style: { background: c.panel } }, p.label))
             )),
         h('div', { key: 'band', style: { fontSize: 10, color: c.textDim, fontVariantNumeric: 'tabular-nums' } },
-            `${q.lambdaStart}–${q.lambdaEnd} nm`),
+            `${q.lambdaStart}–${q.lambdaEnd} ${units.nm}`),
     ];
 }
 

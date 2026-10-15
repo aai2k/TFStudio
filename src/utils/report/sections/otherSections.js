@@ -19,7 +19,7 @@ import {
 import {
   DASH, pct, num, deg, tt, unitOf, polText, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
 } from './format.js';
-import { qualifierSummary } from '../../synthesis/qualifiers.js';
+import { qualifierSummary, qualifierValueText } from '../../synthesis/qualifiers.js';
 
 /** The block's computed data, or the section to render when there is none. */
 export function blockData(ctx, type, title) {
@@ -86,6 +86,11 @@ export function verdictMark(pass) {
   return '<span class="tf-skip">–</span>';
 }
 
+/** The unit symbols a qualifier's value is written with, in the document's language. */
+export function qualifierUnits(tr) {
+  return { nm: unitOf(tr, 'nm') };
+}
+
 export function qualifierLabel(ql, tr) {
   const L = tr || {};
   return ql.label || (L.kinds && L.kinds[ql.kind]) || ql.kind;
@@ -106,9 +111,10 @@ export function buildQualifiers(ctx) {
   if (!q.qualifiers.length) {
     return wrap('qualifiers', title, note(escapeHtml(tt(tr, 'noQualifiers', 'No design requirements defined.'))), { subtitle: subtitleOf(ctx) });
   }
+  const units = qualifierUnits(tr);
   const rows = q.qualifiers.map((ql, i) => {
     const r = q.results[i] || {};
-    return [escapeHtml(qualifierLabel(ql, tr)), escapeHtml(r.displayValue || num(null)), escapeHtml(qualifierSummary(r, tr.summaries)), verdictMark(r.pass)];
+    return [escapeHtml(qualifierLabel(ql, tr)), escapeHtml(qualifierValueText(r, units)), escapeHtml(qualifierSummary(r, tr.summaries, units)), verdictMark(r.pass)];
   });
   const headers = [tt(tr, 'requirement', 'Requirement'), tt(tr, 'value', 'Value'), tt(tr, 'detail', 'Detail'), tt(tr, 'verdict', 'Verdict')].map(escapeHtml);
   return wrap('qualifiers', title, verdictBanner(q.verdict, tr) + table(headers, rows, { align: ['l', 'r', 'l', 'l'] }),
