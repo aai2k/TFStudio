@@ -64,8 +64,13 @@ for (const [op, value] of [[tt, 1000], [tdb, -20], [rav, 1], [tgt, 95], [math, 3
 {
     const added = refinement.addOperands(rows, { type: 'MNT', target: 30 }).next.at(-1);
     assert.deepEqual([added.lambdaStart, added.lambdaEnd], [1, DEFAULT_CONSTRAINT_LAST_LAYER], 'an added MNT row covers every layer');
+    // A new row is a comment, as in the Merit Function Editor, so adding one
+    // does not change the merit before a type is picked.
     const plain = refinement.addOperands(rows).next.at(-1);
-    assert.deepEqual([plain.type, plain.lambdaStart, plain.lambdaEnd], ['RAV', 400, 700], 'Add with no row still adds a band row');
+    assert.equal(plain.type, 'BLNK', 'Add with no row adds a comment row');
+    const blank = refinement.insertOperandAt(rows, 1);
+    assert.equal(blank.next[1].type, 'BLNK', 'Insert with no source adds a comment row');
+    assert.equal(blank.selectId, blank.next[1].id, 'and selects it');
 }
 
 // ── 4. Copies ────────────────────────────────────────────────────────────────

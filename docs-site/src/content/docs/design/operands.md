@@ -228,7 +228,7 @@ The residual is raw N/m and the merit adds weight times its square, so a 1 N/m m
 | `BLNK` | A comment row: free text in **Comment**, no value. |
 | `DMFS` | The header of a block the wizard generated, with a line describing it. No value. |
 
-A row added in the Merit Function Editor starts as a `BLNK`, so it cannot score anything until you pick a type. A row added in the Refinement window starts as a `RAV` over 400-700 nm with a target of 0 and a weight of 1.
+A row added in the Merit Function Editor or the Refinement window starts as a `BLNK`, so it cannot score anything until you pick a type.
 
 ---
 

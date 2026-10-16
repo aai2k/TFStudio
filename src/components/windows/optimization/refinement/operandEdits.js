@@ -11,19 +11,21 @@ import {
 
 export { editOperand } from '../meritFunctionEditor/meritOperandModel.js';
 
-const DEFAULT_OPERAND = { type: 'RAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 };
+// A new row is a comment, as in the Merit Function Editor: it scores nothing
+// until a type is picked, so adding one does not change the merit.
+const NEW_ROW = { type: 'BLNK', comment: '' };
 
 // Returns { next, selectId } or null when nothing was added.
 export function addOperands(ops, data, atIndex) {
-    const added = addRows(ops, data ?? DEFAULT_OPERAND, atIndex);
+    const added = addRows(ops, data ?? NEW_ROW, atIndex);
     return added && { next: added.operands, selectId: added.selectedId };
 }
 
-// A copy of `source`, or a default row, at `insertIdx`. Returns { next, selectId }.
+// A copy of `source`, or a new comment row, at `insertIdx`. Returns { next, selectId }.
 export function insertOperandAt(ops, insertIdx, source) {
     const op = source
         ? { ...source, id: makeOperand().id, enabled: source.enabled !== false }
-        : makeRowOperand(DEFAULT_OPERAND);
+        : makeRowOperand(NEW_ROW);
     const pos = Math.max(0, Math.min(insertIdx, ops.length));
     return { next: [...ops.slice(0, pos), op, ...ops.slice(pos)], selectId: op.id };
 }
