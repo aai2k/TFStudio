@@ -1,5 +1,5 @@
 /**
- * The modal dialogs and wizards the shell owns: Settings, About, and the four
+ * The modal dialogs and wizards the shell owns: Settings, About, and the
  * wizards that build a design rather than edit one.
  */
 
@@ -14,6 +14,7 @@ export function useAppDialogs() {
     // true opens Stack Formula on the active design's own formula; an object
     // opens it on a formula another window hands over (see useStackFormula).
     const [showStackFormula, setShowStackFormula] = useState(false);
+    const [showEdgeFilter,   setShowEdgeFilter]   = useState(false);
 
     // The Design Editor's toolbar button opens the Stack Formula dialog through
     // this decoupled event: a tool window has no direct path to shell state.
@@ -27,5 +28,6 @@ export function useAppDialogs() {
         showSettings, setShowSettings, showAbout, setShowAbout,
         showFilterDesign, setShowFilterDesign, showBBM, setShowBBM,
         showMono, setShowMono, showStackFormula, setShowStackFormula,
+        showEdgeFilter, setShowEdgeFilter,
     };
 }

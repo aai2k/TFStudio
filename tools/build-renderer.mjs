@@ -44,7 +44,7 @@ const WORKERS = [
   'bbmRunWorker.js', 'filterDesignWorker.js',
   'plotSurfaceWorker.js', 'benchmarkWorker.js',
   'analysisEvaluationWorker.js', 'characterizationWorker.js',
-  'deepSynthesisWorker.js',
+  'deepSynthesisWorker.js', 'edgeFilterWorker.js',
 ];
 
 function clean(dir) {

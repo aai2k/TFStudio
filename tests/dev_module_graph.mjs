@@ -30,6 +30,7 @@ const ENTRIES = [
     'src/utils/workers/benchmarkWorker.js',
     'src/utils/workers/analysisEvaluationWorker.js',
     'src/utils/workers/deepSynthesisWorker.js',
+    'src/utils/workers/edgeFilterWorker.js',
 ];
 
 const STATIC = /(?:^|\n)\s*(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g;

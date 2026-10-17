@@ -45,6 +45,7 @@ const entries = [
     'src/utils/workers/plotSurfaceWorker.js',
     'src/utils/workers/benchmarkWorker.js',
     'src/utils/workers/analysisEvaluationWorker.js',
+    'src/utils/workers/edgeFilterWorker.js',
 ];
 const resolutions = entries.map((entry) => {
     const fromEntry = createRequire(pathToFileURL(path.join(root, entry)));

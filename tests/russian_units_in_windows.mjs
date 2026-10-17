@@ -46,6 +46,7 @@ for (const [name, path] of [
     ['MonoWizard', 'simulation/monoWizard/MonoWizard.js'],
     ['FilterDesignWizard', 'optimization/filterDesignWizard/FilterDesignWizard.js'],
     ['StackFormulaDialog', 'design/stackFormula/StackFormulaDialog.js'],
+    ['EdgeFilterDialog', 'design/edgeFilter/EdgeFilterDialog.js'],
 ]) windows.push({ name, url: new URL(`../src/components/windows/${path}`, import.meta.url) });
 
 const design = {

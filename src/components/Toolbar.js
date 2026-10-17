@@ -84,7 +84,14 @@ export const ICONS = {
                           L(21.2,8,21.2,3.5,1.6),
                           P('M21.2 4.5 Q22.7 3 24.2 4.5 L24.2 8',1.6),
                       ], 28),
-    'help-docs':      I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
+    // Edge filter: a shortwave-pass transmittance edge on axes, the edge
+    // wavelength marked by a dashed line through it.
+    'edge-filter':    I([
+                          L(2,17,18,17,1), L(2,2,2,17,1),
+                          P('M3 4H8L11 15H17.5',1.8),
+                          Pd('M9.5 2.5V16.5'),
+                      ]),
+    'help-docs':     I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
 
     // Welcome: a flag planted at the start of the route the tour walks.
     'welcome':        I([
@@ -400,7 +407,7 @@ const TOOL_GROUP = {
     'new-design': 'file', 'open-project': 'file', 'import-designs': 'file', 'save': 'file', 'save-as': 'file',
     'undo': 'edit', 'redo': 'edit', 'history': 'edit',
     'design-editor': 'design', 'material-editor': 'design', 'coating-library': 'design',
-    'specification': 'design', 'stack-formula': 'design',
+    'specification': 'design', 'stack-formula': 'design', 'edge-filter': 'design',
     'preferences': 'information',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
     'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'pulse-analysis': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'layer-thicknesses': 'analysis', 'integral-values': 'analysis',
@@ -450,7 +457,7 @@ export function makeTabs(t) {
             key: 'setup', label: tb.tabs.setup, groups: [
                 grp('project',     ['new-design', 'open-project', 'import-designs', 'save', 'save-as']),
                 grp('edit',        ['undo', 'redo', 'history']),
-                grp('design',      ['design-editor', 'material-editor', 'coating-library', 'specification', 'stack-formula']),
+                grp('design',      ['design-editor', 'material-editor', 'coating-library', 'specification', 'stack-formula', 'edge-filter']),
                 grp('preferences', ['preferences']),
             ]
         },

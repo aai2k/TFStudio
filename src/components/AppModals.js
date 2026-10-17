@@ -16,6 +16,7 @@ import { FilterDesignWizard } from './windows/optimization/filterDesignWizard/Fi
 import { BBMWizard } from './windows/simulation/bbmWizard/BBMWizard.js';
 import { MonoWizard } from './windows/simulation/monoWizard/MonoWizard.js';
 import { StackFormulaDialog } from './windows/design/stackFormula/StackFormulaDialog.js';
+import { EdgeFilterDialog } from './windows/design/edgeFilter/EdgeFilterDialog.js';
 import { WelcomeScreen } from './dialogs/WelcomeScreen.js';
 import { GuidedTour } from './GuidedTour.js';
 import { TutorialsBrowser } from './dialogs/TutorialsBrowser.js';
@@ -88,6 +89,20 @@ export function AppModals({
             hasActiveDesign: activeDesignId != null,
             onClose: () => dialogs.setShowStackFormula(false),
             onCreateNew: (design) => { project.addItemFromDesign(design); }
+        })),
+        dialogs.showEdgeFilter && h(MaterialResolutionModalGuard, {
+            c, t, onClose: () => dialogs.setShowEdgeFilter(false),
+        }, h(EdgeFilterDialog, {
+            c, t,
+            folderName: project.selectedFolder?.name,
+            hasActiveDesign: activeDesignId != null,
+            onClose: () => dialogs.setShowEdgeFilter(false),
+            onCreateNew: (design) => { project.addItemFromDesign(design); },
+            // The formula goes on in Stack Formula, which opens in its place.
+            onOpenStackFormula: (seed) => {
+                dialogs.setShowEdgeFilter(false);
+                dialogs.setShowStackFormula(seed);
+            },
         })),
         // ── First-run welcome screen + guided tour ──
         welcome.showWelcome && h(WelcomeScreen, {

@@ -49,6 +49,8 @@ const EXTRA_MODALS = [
     { name: 'FilterDesignWizard', rel: '../windows/optimization/filterDesignWizard/FilterDesignWizard.js' },
     { name: 'StackFormulaDialog', rel: '../windows/design/stackFormula/StackFormulaDialog.js',
       props: { folderName: 'Demo', hasActiveDesign: false, onCreateNew: () => {} } },
+    { name: 'EdgeFilterDialog', rel: '../windows/design/edgeFilter/EdgeFilterDialog.js',
+      props: { folderName: 'Demo', hasActiveDesign: false, onCreateNew: () => {}, onOpenStackFormula: () => {} } },
 ];
 
 const noop = () => {};

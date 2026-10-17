@@ -35,3 +35,4 @@ export const BENCHMARK_WORKER_URL = u('./utils/workers/benchmarkWorker.js');
 export const ANALYSIS_EVALUATION_WORKER_URL = u('./utils/workers/analysisEvaluationWorker.js');
 export const CHARACTERIZATION_WORKER_URL = u('./utils/workers/characterizationWorker.js');
 export const DEEP_SYNTHESIS_WORKER_URL = u('./utils/workers/deepSynthesisWorker.js');
+export const EDGE_FILTER_WORKER_URL = u('./utils/workers/edgeFilterWorker.js');

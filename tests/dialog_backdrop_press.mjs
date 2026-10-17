@@ -11,7 +11,7 @@
  */
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
+import { loadApp, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 await loadApp();
@@ -19,6 +19,7 @@ await loadApp();
 const [
     { InputDialog }, { AboutDialog }, { WelcomeScreen }, { TutorialsBrowser },
     { ReplaceMaterialsDialog }, { TrialsModal }, { MeasuredFitDialog }, measuredModel,
+    { EdgeFilterDialog },
 ] = await Promise.all([
     import('../src/components/dialogs/InputDialog.js'),
     import('../src/components/dialogs/AboutDialog.js'),
@@ -28,6 +29,7 @@ const [
     import('../src/components/windows/analysis/errorAnalysis/TrialsModal.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/MeasuredFitDialog.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/model.js'),
+    import('../src/components/windows/design/edgeFilter/EdgeFilterDialog.js'),
 ]);
 
 const h = React.createElement;
@@ -38,11 +40,12 @@ const noop = () => {};
 
 const PRESS_HANDLERS = ['onClick', 'onMouseDown', 'onMouseUp', 'onPointerDown', 'onPointerUp'];
 
-// The element tree a dialog returns, taken inside a render so its hooks run.
+// The element tree a dialog returns, taken inside a render so its hooks run,
+// with a design open for the dialogs that work on one.
 function treeOf(Component, props) {
     let tree = null;
     function Probe() { tree = Component(props); return null; }
-    renderToStaticMarkup(h(Probe));
+    renderToStaticMarkup(withDesign(h(Probe), design));
     return tree;
 }
 
@@ -95,6 +98,9 @@ const DIALOGS = [
             setFitOption: noop, onCreateFitOperand: noop, closeFitDialog: close, missingMaterialIds: [],
         } }),
         t.spectrumExchange.fitCancel],
+    ['Edge filter', EdgeFilterDialog,
+        close => ({ c, t, onClose: close, onCreateNew: noop, onOpenStackFormula: noop, folderName: 'Demo', hasActiveDesign: true }),
+        t.windowChrome.close],
 ];
 
 for (const [name, Component, propsFor, closeLabel] of DIALOGS) {

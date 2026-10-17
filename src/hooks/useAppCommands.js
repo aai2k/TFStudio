@@ -51,6 +51,7 @@ export function useAppCommands({ store, project, workspace, dialogs, welcome, lo
             'bbm-simulator':  () => dialogs.setShowBBM(true),
             'mono-simulator': () => dialogs.setShowMono(true),
             'stack-formula':  () => dialogs.setShowStackFormula(true),
+            'edge-filter':    () => dialogs.setShowEdgeFilter(true),
             'help-docs':      () => openDocs(locale),
         };
         if (actions[toolId]) { actions[toolId](); return; }

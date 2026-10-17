@@ -32,7 +32,7 @@ const allIds = tabs.flatMap(idsOf);
 // they are absent from WINDOW_REGISTRY on purpose. Mirrors handleToolAction.
 const RENDERER_HANDLED = new Set([
     'new-design', 'open-project', 'import-designs', 'save', 'save-as', 'undo', 'redo',
-    'stack-formula', 'filter-design', 'bbm-simulator', 'mono-simulator',
+    'stack-formula', 'edge-filter', 'filter-design', 'bbm-simulator', 'mono-simulator',
     'report-gen', 'help-docs', 'preferences',
 ]);
 
