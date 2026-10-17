@@ -6,8 +6,9 @@
  * A range target and a level-free block return one row per sample. The
  * single-row kinds are slope builders, scale·∂value/∂d over the free
  * variables (σ = 1 for all of them), called with the row's own √w for its
- * Jacobian row and with 1 for the slope of its value (jacRows.js). `jc`
- * bundles the shared context: { comp, freeIdx, nFree, propDeriv }.
+ * Jacobian row and with 1 for the slope of its value (jacRows.js). The
+ * builders here read { comp, freeIdx, nFree, propDeriv, propValue,
+ * residualScale } from `jc`, the context LSQEngine._analyticJacobian builds.
  */
 
 import { resolveSourceSpec, resolveDetectorSpec } from '../../spectralWeightings.js';
