@@ -2,7 +2,7 @@ import { MaterialPicker } from '../../../ui/MaterialPicker.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { designMaterialName } from '../../../../utils/materials/designMaterials.js';
 import { EDGE_SEARCH_LIMITS } from '../../../../utils/synthesis/edgeFilter.js';
-import { FooterBtn } from '../stackFormula/ui.js';
+import { FooterBtn, SideSeg } from '../stackFormula/ui.js';
 
 const { createElement: h } = React;
 
@@ -26,19 +26,13 @@ function pickerInput({ state, c, t, key, label }) {
         h(MaterialPicker, { value: state.inputs[key], onChange: v => state.setInput(key, v), c, t }));
 }
 
-// Shortwave or longwave pass, drawn as Stack Formula draws its side switch.
+// Shortwave or longwave pass, on Stack Formula's side switch.
 function PassSeg({ state, c, ef }) {
-    const opts = [['short', ef.shortPass], ['long', ef.longPass]];
-    return h('div', { style: { display: 'flex', border: `1px solid ${c.border}`, borderRadius: 4, overflow: 'hidden', alignSelf: 'flex-start' } },
-        opts.map(([value, label], i) => h('button', {
-            key: value, onClick: () => state.setInput('pass', value),
-            style: {
-                padding: '5px 11px', fontSize: 12, cursor: 'pointer', border: 'none',
-                borderLeft: i ? `1px solid ${c.border}` : 'none', outline: 'none',
-                backgroundColor: state.inputs.pass === value ? c.accent : c.bg,
-                color: state.inputs.pass === value ? '#fff' : c.text,
-            },
-        }, label)));
+    return h('div', { style: { alignSelf: 'flex-start' } },
+        h(SideSeg, {
+            value: state.inputs.pass, onChange: value => state.setInput('pass', value), c,
+            opts: [['short', ef.shortPass], ['long', ef.longPass]],
+        }));
 }
 
 const row = (...children) => h('div', { style: { display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' } }, ...children);

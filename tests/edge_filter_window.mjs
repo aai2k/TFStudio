@@ -296,6 +296,18 @@ assert.ok(workersMade[0].terminated, 'and ends it');
         state: { ...state, solutions: [], current: { result: { errorKey: 'sameIndex' }, selected: 0 } }, design, c, ef,
     }), design));
     assert.ok(failed.includes(ef.errors.sameIndex), 'a refused search says why');
+
+    // The pass switch is Stack Formula's side switch with the two passes on it.
+    const { SideSeg } = await import('../src/components/windows/design/stackFormula/ui.js');
+    const passSwitch = renderToStaticMarkup(h(SideSeg, {
+        value: 'long', onChange() {}, c, opts: [['short', ef.shortPass], ['long', ef.longPass]],
+    }));
+    const buttons = [...passSwitch.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)]
+        .map(([, attrs, label]) => ({ label, lit: attrs.includes(`background-color:${c.accent}`) }));
+    assert.deepEqual(buttons, [{ label: ef.shortPass, lit: false }, { label: ef.longPass, lit: true }]);
+    const { readFileSync } = await import('node:fs');
+    const inputsSource = readFileSync(new URL('../src/components/windows/design/edgeFilter/InputsPanel.js', import.meta.url), 'utf8');
+    assert.match(inputsSource, /h\(SideSeg, \{/, 'the Edge Filter draws its pass switch with it');
 }
 
 // ── 8. The help page ─────────────────────────────────────────────────────────

@@ -1,12 +1,14 @@
 const { createElement: h } = React;
 
-export function SideSeg({ value, onChange, disabled, c, sf }) {
-    const opts = [['front', sf.sideFront], ['back', sf.sideBack], ['both', sf.sideBoth]];
+// A row of buttons with one of them on. `opts` holds [value, label] pairs, by
+// default the sides a formula can be put on.
+export function SideSeg({ value, onChange, disabled, c, sf, opts }) {
+    const choices = opts || [['front', sf.sideFront], ['back', sf.sideBack], ['both', sf.sideBoth]];
     return h('div', {
         style: { display: 'flex', border: `1px solid ${c.border}`, borderRadius: 4,
                  overflow: 'hidden', opacity: disabled ? 0.5 : 1 }
     },
-        opts.map(([v, l], i) => h('button', {
+        choices.map(([v, l], i) => h('button', {
             key: v, disabled, onClick: () => onChange(v),
             style: {
                 padding: '5px 11px', fontSize: 12, cursor: disabled ? 'default' : 'pointer',
