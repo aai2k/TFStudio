@@ -8,6 +8,7 @@
  *
  *   1. Refinement run controls: max iterations, restarts, perturbation % and
  *      the seed, which empties to "draw a random one".
+ *   2. Variator preview: wavelength start and end, and the angle, 0 to 89.
  *
  * Run: node tests/comma_decimal_optimization_and_analysis.mjs
  */
@@ -62,6 +63,25 @@ function received(Component, props, name, pick, act) {
         const emptied = received(ControlBar, { ...props, seed: 77 }, 'onSeed', seed, f => f.type('').leave());
         assert.deepEqual(emptied.values, [null], 'Refinement: an emptied seed draws a random one');
     }
+}
+
+// ── 2. Variator preview ──────────────────────────────────────────────────────
+{
+    const { PreviewToolbar } = await import('../src/components/windows/optimization/variator/PreviewToolbar.js');
+    const noop = () => {};
+    const params = { lambdaStart: 400, lambdaEnd: 700, theta: 0 };
+    const props = {
+        c, t, v: t.variator, design: { meritOperands: [], surfaceMode: 'front_only', mfEvalMode: 'side' },
+        params, showTargets: false, setShowTargets: noop, showBaseline: false, setShowBaseline: noop,
+    };
+    // setParams takes an updater; what the window keeps is the updater applied.
+    const kept = (pick, text) => received(PreviewToolbar, props, 'setParams', pick, f => f.type(text).leave())
+        .values.map(update => update(params));
+    const [start, end, angle] = [0, 1, 2].map(at => inputs => inputs[at]);
+    assert.equal(kept(start, '94,2')[0]?.lambdaStart, 94.2, 'Variator: wavelength start 94,2 is 94.2');
+    assert.equal(kept(end, '94,2')[0]?.lambdaEnd, 94.2, 'Variator: wavelength end 94,2 is 94.2');
+    assert.equal(kept(angle, '44,5')[0]?.theta, 44.5, 'Variator: angle 44,5 is 44.5');
+    assert.equal(kept(angle, '95')[0]?.theta, 89, 'Variator: an angle past 89 is held at 89');
 }
 
 console.log('comma_decimal_optimization_and_analysis: passed');

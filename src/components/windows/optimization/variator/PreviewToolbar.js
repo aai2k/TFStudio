@@ -1,5 +1,6 @@
 import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { NumberField } from '../../../ui/numberField.js';
 import { ToggleButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
@@ -23,16 +24,16 @@ export function PreviewToolbar(props) {
         h('div', { style: { width: 1, height: 18, background: c.border } }),
         h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim } },
             'λ',
-            h('input', {
-                type: 'number', value: params.lambdaStart,
-                onChange: (e) => setParams(p => ({ ...p, lambdaStart: parseFloat(e.target.value) || 0 })),
+            h(NumberField, {
+                value: params.lambdaStart,
+                onChange: (lambdaStart) => setParams(p => ({ ...p, lambdaStart })),
                 style: { width: 60, height: 22, marginLeft: 4, backgroundColor: c.bg, color: c.text,
                          border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11, padding: '0 4px' }
             }),
             '–',
-            h('input', {
-                type: 'number', value: params.lambdaEnd,
-                onChange: (e) => setParams(p => ({ ...p, lambdaEnd: parseFloat(e.target.value) || 0 })),
+            h(NumberField, {
+                value: params.lambdaEnd,
+                onChange: (lambdaEnd) => setParams(p => ({ ...p, lambdaEnd })),
                 style: { width: 60, height: 22, backgroundColor: c.bg, color: c.text,
                          border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11, padding: '0 4px' }
             }),
@@ -40,9 +41,9 @@ export function PreviewToolbar(props) {
         ),
         h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim } },
             t.opticalEval.aoi,
-            h('input', {
-                type: 'number', value: params.theta, min: 0, max: 89,
-                onChange: (e) => setParams(p => ({ ...p, theta: parseFloat(e.target.value) || 0 })),
+            h(NumberField, {
+                value: params.theta, min: 0, max: 89,
+                onChange: (theta) => setParams(p => ({ ...p, theta })),
                 style: { width: 45, height: 22, marginLeft: 4, backgroundColor: c.bg, color: c.text,
                          border: `1px solid ${c.border}`, borderRadius: 3, fontSize: 11, padding: '0 4px' }
             }),
