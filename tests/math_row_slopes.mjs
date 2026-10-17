@@ -15,14 +15,17 @@
  *   2. The merit functions Generate MF writes for the BBAR_VIS and COLD_MIRROR
  *      presets take the analytic Jacobian, and gradMF matches central
  *      differences of the merit.
- *   3. A math row reading an EFMX row or a whole curve block still declines.
+ *   3. A math row reading an EFMX row or a whole curve block still declines,
+ *      differentiated on its own so the row it reads cannot decline first, and
+ *      so does the Jacobian of its merit.
  *
  * Run: node tests/math_row_slopes.mjs
  */
 import assert from 'node:assert/strict';
 import {
-    makeOperand, makeMeasuredCurveOperand, DLSOptimizer, evaluateOperands, buildEvalContext,
+    makeOperand, makeMeasuredCurveOperand, DLSOptimizer, evaluateOperands, buildEvalContext, residualScaleIn,
 } from '../src/utils/physics/optimizer.js';
+import { _jacRows } from '../src/utils/physics/optimizer/jacobianAssembly.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { applyPreset } from '../src/utils/synthesis/qualifierPresets.js';
 import { qualifiersToMFOperands } from '../src/utils/synthesis/qualifiers.js';
@@ -206,12 +209,37 @@ for (const [preset, d] of SPEC_MERITS) {
 }
 
 // ── 3. Rows with no slope still decline ──────────────────────────────────────
+// The row a math row reads comes before it in the merit, and a block a math row
+// reads keeps a copy of itself ahead of its points, so in a whole Jacobian that
+// row declines before the math row is reached. The math row is differentiated
+// here on its own, from the engine's rows and values. A chain that declines
+// stops before reading a derivative, so the derivative stubs only have to let
+// the math row on TAV, which has a slope, get through.
+function mathRowAlone(engine) {
+    const thk = engine.thicknesses.slice();
+    const freeIdx = freeAll(engine);
+    const ones = new Array(thk.length).fill(1);
+    const jc = {
+        comp: evaluateOperands(engine.operands, engine._ctxFor(thk)),
+        freeIdx,
+        nFree: freeIdx.length,
+        propDeriv: () => ones,
+        propValue: () => 0.5,
+        residualScale: residualScaleIn(engine.operands),
+        operands: engine.operands,
+    };
+    const last = engine.operands.length - 1;
+    return _jacRows(engine.operands[last], last, jc);
+}
 {
     const d = design(fabryPerot);
+    const band = row('TAV', 480, 620);
     const field = row('EFMX', 550, 550, { pol: 's' });
     const block = makeMeasuredCurveOperand({ quantity: 'R', sampleLambdas: [450, 550, 650], sampleTargets: [0.04, 0.05, 0.04], weight: 1 });
     const legacy = makeOperand({ type: 'OPGT', baseType: 'TAV', lambdaStart: 480, lambdaEnd: 620, target: 0, weight: 1 });
     delete legacy.refId;
+    const control = new DLSOptimizer([band, one('OPLT', band)], structuredClone(d), resolveMat, {});
+    assert.ok(mathRowAlone(control), 'OPLT on TAV: the math row alone has a slope');
     for (const [name, rows] of [
         ['OPLT on EFMX', [field, one('OPLT', field, { target: 0 })]],
         ['OPGT on EFMX, satisfied', [field, one('OPGT', field, { target: 0 })]],
@@ -219,6 +247,7 @@ for (const [preset, d] of SPEC_MERITS) {
         ['an OPGT saved by type', [legacy]],
     ]) {
         const engine = new DLSOptimizer(rows, structuredClone(d), resolveMat, {});
+        assert.equal(mathRowAlone(engine), null, `${name}: the math row declines`);
         assert.equal(engine._analyticJacobian(engine.thicknesses.slice(), freeAll(engine)), null, `${name}: the Jacobian declines`);
     }
 }
