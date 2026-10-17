@@ -54,7 +54,7 @@ Below the table the plot shows the finished filter's transmittance for s, p and 
 
 ## Putting it into the design
 
-The **Formula** box holds the picked period in [Stack Formula](/design/stack-formula/) notation, with H the material of higher index at the edge wavelength and L the other. For the built-in SiO2 and TiO2 with the edge at 510 nm and 45° in air it is `(0.4H 0.593622L 0.294978H 0.593622L 0.4H)^19`. Select it to copy it, or press **Open in Stack Formula** to continue there with the formula, the materials and the edge wavelength filled in, for instance to add matching layers around it.
+The **Formula** box holds the picked period in [Stack Formula](/design/stack-formula/) notation, with H the material of higher index at the edge wavelength and L the other. For the built-in SiO2 and TiO2 with the edge at 510 nm and 45° in air it is `(0.4H 0.593622L 0.294978H 0.593622L 0.4H)^19`. Select it to copy it, or press **Open in Stack Formula** to continue there with the formula, the materials, the media and the edge wavelength filled in, for instance to add matching layers around it.
 
 The buttons at the bottom work as in Stack Formula. **Replace** puts the filter in place of the chosen side's coating, **Append** adds it outside the coating already there, and **New design** makes a new design with it. Replace also sets the design's reference wavelength to the edge wavelength and its substrate to the one chosen here, and the incident medium becomes the incident medium of a front coating or the exit medium of a back one. Where two periods meet, their outer layers are one material and go into the design as one layer of the summed thickness.
 
