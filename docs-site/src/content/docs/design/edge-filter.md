@@ -12,7 +12,7 @@ A quarter-wave stack used at 45° splits: its s edge and its p edge sit apart, a
 aA bB cA bB aA
 ```
 
-with A and B the two materials and a, b and c quarter-wave multipliers at the edge wavelength. For each a there are values of b and c that put the s and p edges together at the chosen angle, and the window searches for them.
+with A and B the two materials and a, b and c quarter-wave multipliers at the edge wavelength. For some values of a there are values of b and c that put the s and p edges together at the chosen angle. The window searches a range of a and lists the periods it finds.
 
 ## What the edge is
 
@@ -38,13 +38,13 @@ The edge of a finished filter, where its transmittance crosses 50 %, sits close 
 
 ## The search
 
-For each value of a the window finds the values of b for which the s and p zone edges meet at the edge wavelength, and for each of them the c that puts them there. It tries the period both ways round, with A outside and with B outside. Each period it finds has its edge on an odd-order zone (N11 = −1) or an even-order zone (N11 = +1), and a period whose s and p zones start at the edge but lie on opposite sides of it is dropped, since it is no edge filter.
+For each value of a the window finds the values of b for which the s and p zone edges meet at the edge wavelength, and for each of them the c that puts them there. It tries the period both ways round, with A outside and with B outside, and keeps only the periods whose s and p zones both lie on the side of the edge the filter blocks.
 
 The search takes each material's refractive index at the edge wavelength and treats the layers as lossless. When a material absorbs there, the window says so; the search uses its n alone, and the preview uses the full n and k. Away from the edge wavelength the indices of real materials change, which the preview shows and the zone widths in the table do not.
 
-The search runs in the background. **Stop** ends it.
+The window searches when it opens. After changing a setting the search uses, press **Search** again. The search runs in the background, and **Stop** ends it.
 
-## Reading the results
+## How to read it
 
 Each period found is a row: the material outside, a, b and c, the width of the s zone and of the p zone from the edge, and the width of the pass region from the edge to the next zone of either polarization. All widths are in nanometres and use the indices at the edge wavelength; ∞ means no further zone.
 
