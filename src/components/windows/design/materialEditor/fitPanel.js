@@ -243,13 +243,14 @@ function renderBandNote({ draft, workingNm, suggestion, onSuggest, onApplySugges
 
 // The two boxes the fit is taken between. A box left empty is the band the panel
 // would use anyway, so it stands in the box as a placeholder rather than being
-// typed in for the user, and a fit writes the band it used into both.
+// typed in for the user, and a fit writes the band it used into both. What is
+// typed is kept as text; fitRangeNm reads it with either decimal separator.
 function renderFitRange({ draft, set, me, inputStyle, labelStyle }, fitBand) {
     const band = fitBand || tableRangeNm(draft.rows) || [0, 0];
     const box = (field, value, label) => h('div', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
         h('span', { style: labelStyle }, label),
         h('input', {
-            type: 'number', min: 1, max: 99999999,
+            type: 'text', inputMode: 'decimal',
             value: draft[field] ?? '',
             placeholder: rangeText(value),
             onChange: event => set(field, event.target.value),

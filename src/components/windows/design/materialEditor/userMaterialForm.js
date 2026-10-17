@@ -199,11 +199,12 @@ function renderPropertiesGrid(ctx) {
             }, shownId)
         ),
         renderColorField(ctx),
-        // λ min
+        // λ min. The stated range is kept as typed; draftRangeNm reads it with
+        // either decimal separator.
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
             h('span', { style: labelStyle }, me.lambdaMinLabel),
             h('input', {
-                type: 'number', value: draft.lambdaMinNm,
+                type: 'text', inputMode: 'decimal', value: draft.lambdaMinNm,
                 onChange: e => set('lambdaMinNm', e.target.value),
                 style: { ...inputStyle, width: '100%', boxSizing: 'border-box' }
             })
@@ -212,7 +213,7 @@ function renderPropertiesGrid(ctx) {
         h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
             h('span', { style: labelStyle }, me.lambdaMaxLabel),
             h('input', {
-                type: 'number', value: draft.lambdaMaxNm,
+                type: 'text', inputMode: 'decimal', value: draft.lambdaMaxNm,
                 onChange: e => set('lambdaMaxNm', e.target.value),
                 style: { ...inputStyle, width: '100%', boxSizing: 'border-box' }
             })

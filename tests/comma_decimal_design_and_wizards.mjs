@@ -14,6 +14,7 @@
  *      and in µm.
  *   4. Stack Formula: the reference wavelength, which still refuses zero.
  *   5. Design Editor: the round and perturb dialogs, through their Apply button.
+ *   6. Material Editor: the stated range and the fit range, through the draft.
  *
  * Run: node tests/comma_decimal_design_and_wizards.mjs
  */
@@ -188,6 +189,40 @@ function buttonsOf(node, found = []) {
         Math.random = random;
     }
     assert.ok(isText(PerturbDialog, { design, side: 'front', c, t }), 'Perturb: the kick is a text field');
+}
+
+// ── 6. Material Editor ───────────────────────────────────────────────────────
+//
+// The form keeps what is typed in its draft and reads the range from there, so
+// the check is the range the draft gives after the text is typed.
+{
+    const { UserMaterialForm } = await import('../src/components/windows/design/materialEditor/userMaterialForm.js');
+    const { emptyDraft, draftRangeNm, fitRangeNm } =
+        await import('../src/components/windows/design/materialEditor/materialDraft.js');
+    const { getLocale } = await import('../src/constants/locales/index.js');
+    const t = getLocale('en');
+    const rows = [50, 100, 200, 400, 800].map((lam, index) => ({ _key: index, lam: String(lam), n: String(1.6 - lam / 4000), k: '0' }));
+    const draft = { ...emptyDraft('user_lab'), name: 'X', lambdaMinNm: '50', rows };
+    // The draft the form hands on after `text` is typed into the box `pick` finds.
+    const edited = (pick, text) => {
+        const drafts = [];
+        const form = mount(UserMaterialForm, {
+            draft, onChange: next => drafts.push(next), c, t, catalogs: [], workingNm: null,
+            detailTab: 'nk', setDetailTab() {}, tableHeight: 200, setTableHeight() {},
+        }, pick);
+        assert.equal(form.input().props.type, 'text', 'Material Editor: the box is a text field');
+        form.type(text);
+        return drafts.at(-1);
+    };
+    // The name comes first, then the stated range; the fit range boxes show the
+    // band they stand for as a placeholder.
+    const [lambdaMin, lambdaMax] = [inputs => inputs[1], inputs => inputs[2]];
+    const fitFrom = inputs => inputs.find(input => input.props.placeholder === '50');
+    const fitTo = inputs => inputs.find(input => input.props.placeholder === '800');
+    assert.deepEqual(draftRangeNm(edited(lambdaMin, '94,2')), [94.2, 2500], 'Material Editor: a stated start of 94,2 nm is 94.2');
+    assert.deepEqual(draftRangeNm(edited(lambdaMax, '94,2')), [50, 94.2], 'Material Editor: and a stated end');
+    assert.deepEqual(fitRangeNm(edited(fitFrom, '94,2'), null), [94.2, 800], 'Material Editor: a fit from 94,2 nm');
+    assert.deepEqual(fitRangeNm(edited(fitTo, '94,2'), null), [50, 94.2], 'Material Editor: and a fit to 94,2 nm');
 }
 
 console.log('comma_decimal_design_and_wizards: passed');
