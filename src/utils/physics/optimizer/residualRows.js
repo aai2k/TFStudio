@@ -17,7 +17,7 @@
 
 import { hasFreeLevel, isRangeTarget } from './operandModel.js';
 import { bandQuadratureWeights } from './sampling.js';
-import { operandResidualScale, _operandResidual } from './evalCore.js';
+import { _operandResidual } from './evalCore.js';
 
 // A NaN or Inf residual would poison the QR/LM solve. The residual vector must
 // keep a fixed length aligned row for row with the analytic Jacobian and with
@@ -29,9 +29,10 @@ const finiteOrZero = value => (Number.isFinite(value) ? value : 0);
 /**
  * Residual rows of one enabled, evaluated operand. `value` is its evaluated
  * merit value; `deviations` are its per-sample deviations from the target line
- * (evalCore operandSampleDeviations), read only for a range target.
+ * (evalCore operandSampleDeviations), read only for a range target; `sigma` is
+ * its unit scale (evalCore residualScaleIn).
  */
-export function operandResidualRows(op, value, deviations) {
+export function operandResidualRows(op, value, deviations, sigma) {
     if (isRangeTarget(op.type)) {
         const q = bandQuadratureWeights(deviations.length);
         return deviations.map((dev, s) => finiteOrZero(Math.sqrt(op.weight * q[s]) * dev));
@@ -39,8 +40,8 @@ export function operandResidualRows(op, value, deviations) {
     // A curve block with its level free: one residual per point, √(w/n)·devₛ/σ,
     // whose squares sum to w·RMS²/σ², the row's share of the merit.
     if (hasFreeLevel(op)) {
-        const scale = Math.sqrt(op.weight / deviations.length) / operandResidualScale(op);
+        const scale = Math.sqrt(op.weight / deviations.length) / sigma;
         return deviations.map(dev => finiteOrZero(scale * dev));
     }
-    return [finiteOrZero(Math.sqrt(op.weight) * _operandResidual(op, value) / operandResidualScale(op))];
+    return [finiteOrZero(Math.sqrt(op.weight) * _operandResidual(op, value) / sigma)];
 }

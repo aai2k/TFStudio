@@ -35,7 +35,7 @@ export {
     operandBandLevels, operandSampleDeviations, operandExtremumLambdas,
 } from './evalCore/evalContext.js';
 
-export { ARGWAVE_RESIDUAL_SCALE_NM, operandResidualScale, _operandResidual } from './evalCore/residualScale.js';
+export { ARGWAVE_RESIDUAL_SCALE_NM, operandResidualScale, residualScaleIn, _operandResidual } from './evalCore/residualScale.js';
 
 export { calcMF, calcOMF, mfWeightDenominator } from './evalCore/meritFunction.js';
 

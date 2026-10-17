@@ -1,5 +1,5 @@
 import { isValidMeritWeight } from '../operandModel.js';
-import { _meritDiff } from './residualScale.js';
+import { _meritDiff, residualScaleIn } from './residualScale.js';
 import { operandEvaluationErrors } from './evalContext.js';
 
 // Weighted squared residual per row, aligned with `operands`, plus their sum.
@@ -8,11 +8,12 @@ import { operandEvaluationErrors } from './evalContext.js';
 function _contributionTerms(operands, computed, skipConstraints) {
     const terms = new Array(operands.length).fill(null);
     let total = 0;
+    const scaleOf = residualScaleIn(operands);
     for (let i = 0; i < operands.length; i++) {
         const op = operands[i];
         if (!op.enabled || computed[i] == null) continue;
         if (!isValidMeritWeight(op.weight)) continue;
-        const diff = _meritDiff(op, computed[i], skipConstraints);
+        const diff = _meritDiff(op, computed[i], skipConstraints, scaleOf(op));
         if (diff === null) continue;
         if (!Number.isFinite(diff)) return null;
         const term = op.weight * diff * diff;

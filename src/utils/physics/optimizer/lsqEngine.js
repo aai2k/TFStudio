@@ -20,7 +20,7 @@
 import {
     isFullSystemEval, effectiveBackLayers,
     evaluateOperands, phaseDispersionThicknessPoint, ellipsometryThicknessPoint,
-    operandResidualScale, calcMF, mfWeightDenominator,
+    operandResidualScale, residualScaleIn, calcMF, mfWeightDenominator,
     operandEvaluationErrors, OperandEvaluationError, operandSampleDeviations,
 } from './evalCore.js';
 import { operandResidualRows } from './residualRows.js';
@@ -227,18 +227,20 @@ export class LSQEngine {
             );
         }
         // Same per-type unit normalization as calcMF (σ = 1 for optical, so
-        // pure-optical residuals are unchanged; argwave nm ÷ σ_λ). The FD
-        // Jacobian differences this vector, so it inherits σ automatically;
-        // every analytic row builder divides by the same
-        // operandResidualScale(op), which is what keeps the two consistent
-        // for the σ ≠ 1 operands that have an analytic chain rule (Ψ, Δ,
-        // phase and dispersion). A range target gives one row per sample.
+        // pure-optical residuals are unchanged; argwave nm ÷ σ_λ; a math row
+        // takes the σ of the rows it reads). The FD Jacobian differences this
+        // vector, so it inherits σ automatically; every analytic row builder
+        // divides by the same operandResidualScale(op), which is what keeps
+        // the two consistent for the σ ≠ 1 operands that have an analytic
+        // chain rule (Ψ, Δ, phase and dispersion). A range target gives one
+        // row per sample.
         const deviations = operandSampleDeviations(comp);
+        const scaleOf = residualScaleIn(this.operands);
         const out = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            out.push(...operandResidualRows(op, comp[i], deviations[i]));
+            out.push(...operandResidualRows(op, comp[i], deviations[i], scaleOf(op)));
         }
         return out;
     }

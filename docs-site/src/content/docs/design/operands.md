@@ -259,7 +259,7 @@ Dividing each residual by σ puts rows of different units on one footing, so the
 
 | Rows | σ | A miss that scores 0.01 |
 | ---- | - | ----------------------- |
-| T, R and A rows of every kind, `TANPSI`, `COSDEL`, `EFMX`, math rows | 1 | 1 % in T, R or A |
+| T, R and A rows of every kind, `TANPSI`, `COSDEL`, `EFMX` | 1 | 1 % in T, R or A |
 | `MXW*` `MNW*` | 500 nm | 5 nm |
 | `TDB` `TDBMN` `TDBMX` `RDBMX` `PPEF` | 10/ln 10 ≈ 4.343 dB | about 0.04 dB, a 1 % change in T or R |
 | `ODMN` | 1/ln 10 ≈ 0.4343 | about 0.004 |
@@ -270,8 +270,9 @@ Dividing each residual by σ puts rows of different units on one footing, so the
 | `TOD*` | 500 fs³ | 5 fs³ |
 | `MCURVE` | the σ of its channel | |
 | `TT` `STR` `MNT` `MXT` | 1, in nm or N/m | 0.01 nm or 0.01 N/m |
+| Math rows | the σ of the rows they read | |
 
-A math row keeps σ = 1 whatever row it reads, so an `OPLT` on an `MXWT` row scores its miss in raw nanometres and one on a dB row in raw dB. The thickness and stress rows are scored raw too, so a violated manufacturing bound is fixed before anything else.
+A math row takes the σ of the row it reads, so an `OPLT` on an `MXWT` row scores a miss exactly as the `MXWT` row would with that target. `DIFF` and `SUMM` of two rows with the same σ take that σ; of two rows with different σ they keep 1. `PROD` takes the product of the two σ. The thickness and stress rows are scored raw, so a violated manufacturing bound is fixed before anything else.
 
 ## Searching for a peak or dip
 

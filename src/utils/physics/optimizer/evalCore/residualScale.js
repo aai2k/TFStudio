@@ -1,4 +1,4 @@
-import { isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isArgwave, isPPEF, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
+import { isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isMathPairRef, isMathSingleRef, isInequality, isArgwave, isPPEF, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
 import { mathResidual } from './mathOperands.js';
 import { _normalizeDegrees } from './angles.js';
 
@@ -18,8 +18,9 @@ import { _normalizeDegrees } from './angles.js';
 //     MF² = Σ wᵢ·(residualᵢ / σᵢ)² / Σ wᵢ
 //
 //   • σ = 1 for every fraction-unit operand (T/R/A, TAV/RAV/AAV, TGT/RGT/AGT
-//     RMS, TIW/RIW/AIW, TMN…AMX, math) → every PURE-OPTICAL merit function is
+//     RMS, TIW/RIW/AIW, TMN…AMX) → every PURE-OPTICAL merit function is
 //     numerically UNCHANGED (no regression on existing designs).
+//   • Math rows: the σ of the rows they read (residualScaleIn).
 //   • Argwave (λ in nm): σ = ARGWAVE_RESIDUAL_SCALE_NM. With 500, a 5 nm peak/
 //     edge miss weighs the same as a 1 % optical miss.
 //   • dB and optical-density rows (TDB…ODMN): σ = 10/ln 10 dB and 1/ln 10, so
@@ -84,6 +85,60 @@ export function operandResidualScale(op) {
     return _channelScale(op.type);
 }
 
+// A math row's σ is the scale of the unit its value is in, read through the
+// rows it refers to, so a row reading one other row scores a miss exactly as
+// that row would with the same target. OpticStudio's math operands behave the
+// same way, there because every value keeps its own unit. DIFF and SUMM of two
+// rows scored on the same σ take it; two different σ share no scale, and σ
+// stays 1. PROD takes σ₁·σ₂, the scale of the product. A reference that cannot
+// be followed, to a deleted row or round a loop, gives 1: such a row has no
+// value anyway. `walk` holds the rows by id, the math rows being followed and
+// the σ already found, so a chain that reads a row twice reads it once.
+function _mathResidualScale(op, walk) {
+    if (walk.found.has(op.id)) return walk.found.get(op.id);
+    if (walk.path.has(op.id)) return 1;
+    walk.path.add(op.id);
+    const sigma = _ownMathScale(op, walk);
+    walk.path.delete(op.id);
+    walk.found.set(op.id, sigma);
+    return sigma;
+}
+
+function _ownMathScale(op, walk) {
+    if (isMathSingleRef(op.type)) return _singleRefScale(op, walk);
+    if (!isMathPairRef(op.type)) return 1;
+    const first = _scaleOfRow(op.refId1, walk);
+    const second = _scaleOfRow(op.refId2, walk);
+    if (op.type === 'PROD') return first * second;
+    return first === second ? first : 1;
+}
+
+function _scaleOfRow(id, walk) {
+    const row = walk.rowsById.get(id);
+    if (!row) return 1;
+    return isMath(row.type) ? _mathResidualScale(row, walk) : operandResidualScale(row);
+}
+
+function _singleRefScale(op, walk) {
+    // An OPGT or OPLT saved before references existed names the row it reads
+    // by type, and is evaluated as that row.
+    if (isInequality(op.type) && !op.refId && op.baseType) return operandResidualScale({ ...op, type: op.baseType });
+    return _scaleOfRow(op.refId, walk);
+}
+
+/**
+ * The unit scale σ of each row of `operands`, as `op => σ`. A math row's σ is
+ * read through the rows it refers to, which is why it needs the whole list.
+ */
+export function residualScaleIn(operands) {
+    let walk = null;
+    return (op) => {
+        if (!isMath(op.type)) return operandResidualScale(op);
+        walk ??= { rowsById: new Map(operands.map(row => [row.id, row])), path: new Set(), found: new Map() };
+        return _mathResidualScale(op, walk);
+    };
+}
+
 // Comparison residual for the linear-thickness rows (TT in nm, STR in N/m):
 // ≤/≥ give a penalty (0 when satisfied); default (eq) is a two-sided equality
 // residual (value − target).
@@ -140,13 +195,12 @@ export function _operandResidual(op, val) {
 // by skipConstraints). MNT/MXT, TT and STR are manufacturability rows —
 // excluded from the synthesis-scan / OMF merit so they never distort needle
 // placement; active during DLS refinement only. Otherwise the raw residual is
-// normalized to dimensionless units (σ = 1 for optical → no change; argwave nm
-// residual ÷ σ_λ; see operandResidualScale). May return a non-finite value —
-// the caller guards it.
-export function _meritDiff(op, computedI, skipConstraints) {
+// divided by the row's unit scale `sc` (residualScaleIn), which makes it
+// dimensionless (σ = 1 for optical → no change; argwave nm residual ÷ σ_λ).
+// It may return a non-finite value, which the caller guards.
+export function _meritDiff(op, computedI, skipConstraints, sc) {
     if (skipConstraints && isManufacturability(op.type)) return null;
     let diff = _operandResidual(op, computedI);
-    const sc = operandResidualScale(op);
     if (sc !== 1) diff /= sc;
     return diff;
 }
