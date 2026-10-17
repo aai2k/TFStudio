@@ -4438,7 +4438,7 @@ export default {
     stop: 'Ferma',
     searchStarted: 'Ricerca…',
     searching: (done, total) => `Ricerca: ${done} di ${total} valori di a`,
-    absorbs: (names, lambda) => `Assorbono a ${lambda} nm: ${names}. Lì la ricerca usa solo n; l'anteprima include k.`,
+    absorbs: (names, lambda) => `Assorbimento a ${lambda} nm: ${names}. Lì la ricerca usa solo n; l'anteprima include k.`,
     errors: {
       edgeLambda: "La lunghezza d'onda del fronte deve essere maggiore di zero.",
       angle: "L'angolo di incidenza deve stare tra 0° e 90°. In incidenza normale s e p coincidono e non c'è nulla da far coincidere.",
