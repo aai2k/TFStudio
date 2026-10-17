@@ -12,6 +12,7 @@
  *   3. Needle Manual: the scan settings in the sidebar and the thickness of
  *      the needle being inserted.
  *   4. Design Cleaner: minimum thickness and re-optimize iterations.
+ *   5. Optimizer Benchmark: the synthesis time budget, 1 to 60 s.
  *
  * Run: node tests/comma_decimal_optimization_and_analysis.mjs
  */
@@ -140,6 +141,21 @@ function received(Component, props, name, pick, act) {
     const { values, field } = received(CleanerControls, props, 'setReoptIters', box(1), f => f.type('120').leave());
     assert.deepEqual(values, [120], 'Design Cleaner: re-optimize iterations take a typed count');
     assert.equal(field.input().props.type, 'text', 'Design Cleaner: the iteration box is a text field');
+}
+
+// ── 5. Optimizer Benchmark ───────────────────────────────────────────────────
+{
+    const { RunBar } = await import('../src/components/windows/optimization/optimizerBenchmark/RunBar.js');
+    const noop = () => {};
+    const props = {
+        c, budgetSec: 12, showSeeds: false, setShowSeeds: noop, showSummary: false, setShowSummary: noop,
+        previewJobs: [], estimate: 0, copied: false, exportResults: noop, hasRun: false, clear: noop, run: noop, stop: noop,
+    };
+    const budget = inputs => inputs.find(input => input.props.type !== 'checkbox');
+    assert.deepEqual(received(RunBar, props, 'setBudgetSec', budget, f => f.type('2,5').leave()).values, [2.5],
+        'Optimizer Benchmark: a synthesis budget of 2,5 s is 2.5 s');
+    assert.deepEqual(received(RunBar, props, 'setBudgetSec', budget, f => f.type('90').leave()).values, [60],
+        'Optimizer Benchmark: the budget is held at 60 s');
 }
 
 console.log('comma_decimal_optimization_and_analysis: passed');

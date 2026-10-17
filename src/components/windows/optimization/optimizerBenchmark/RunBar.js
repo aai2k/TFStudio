@@ -1,6 +1,7 @@
 import { chk } from './CheckField.js';
 import { OK, ERR } from './model.js';
 import { STORE } from './store.js';
+import { NumberField } from '../../../ui/numberField.js';
 
 const { createElement: h } = React;
 
@@ -10,9 +11,9 @@ export function RunBar({
 }) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
         h('label', { style: { fontSize: 12, color: c.text, display: 'inline-flex', alignItems: 'center', gap: 6 } }, 'Synth budget',
-            h('input', {
-                type: 'number', min: 1, max: 60, step: 1, value: budgetSec, disabled: STORE.running,
-                onChange: (e) => setBudgetSec(Math.max(1, Math.min(60, Number(e.target.value) || 12))),
+            h(NumberField, {
+                min: 1, max: 60, step: 1, value: budgetSec, disabled: STORE.running,
+                onChange: setBudgetSec,
                 style: { width: 56, background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, padding: '2px 6px' },
             }), 's/run'),
         chk(c, 'seeds', showSeeds, setShowSeeds), chk(c, 'summary', showSummary, setShowSummary),
