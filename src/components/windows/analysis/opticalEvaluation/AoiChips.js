@@ -1,5 +1,6 @@
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
+import { stepKeys } from '../../../ui/numberField.js';
 import { AOI_MAX, formatTheta } from './model.js';
 
 const { createElement: h, useState } = React;
@@ -10,6 +11,10 @@ function parsedAoi(raw) {
     const value = parseNumberStrict(raw);
     return isNaN(value) || value < 0 || value >= 90 ? null : Math.round(value * 10) / 10;
 }
+
+// The arrow keys step the angle being typed by 1° within 0 to 89°; it still
+// applies on Enter or when the box is left.
+const stepAoi = (event, text, setText) => stepKeys(text, setText, { step: 1, min: 0, max: 89 })(event);
 
 function addDraftAoi({ draft, values, onChange, setDraft }) {
     if (!draft.trim()) return;
@@ -43,6 +48,7 @@ function AoiChip({ value, onRemove, onEdit, canRemove, c, oe }) {
             onChange: event => setRaw(event.target.value),
             onBlur: commit,
             onKeyDown: event => {
+                stepAoi(event, raw, setRaw);
                 if (event.key === 'Enter') commit();
                 if (event.key === 'Escape') setEditing(false);
             },
@@ -106,6 +112,7 @@ export function AoiChips({ values, onChange, c, oe }) {
             onChange: event => setDraft(event.target.value),
             onBlur: addValue,
             onKeyDown: event => {
+                stepAoi(event, draft, setDraft);
                 if (event.key === 'Enter') addValue();
                 if (event.key === 'Escape') { setDraft(''); setAdding(false); }
             },

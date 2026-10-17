@@ -32,7 +32,7 @@
  * `NumberField` is the input itself, and passes any other prop, such as
  * `style`, `title`, `disabled` or `autoFocus`, to it as given. A box that keeps
  * its own text, such as one that previews every keystroke, steps with
- * `steppedText`.
+ * `stepKeys`.
  */
 
 import { parseNumberStrict } from '../../utils/misc/numberParsing.js';
@@ -52,15 +52,19 @@ function stepNumber(from, direction, { step = 1, min, max, positive = false }) {
 }
 
 /**
- * `text` moved one `step` up (`direction` 1) or down (-1) within `min`, `max`
- * and `positive`, as text, or null when the text is not a number or the step
- * is refused.
+ * The arrow keys for a box that keeps its own text: an onKeyDown that moves
+ * `text` one `step` up or down within `min`, `max` and `positive`, and hands
+ * the result to `setText` as text. Text that is not a number is left alone.
  */
-export function steppedText(text, direction, bounds = {}) {
-    const from = parseNumberStrict(text);
-    if (!Number.isFinite(from)) return null;
-    const next = stepNumber(from, direction, bounds);
-    return next == null ? null : String(next);
+export function stepKeys(text, setText, bounds = {}) {
+    return (event) => {
+        const direction = { ArrowUp: 1, ArrowDown: -1 }[event.key];
+        if (!direction) return;
+        event.preventDefault();
+        const from = parseNumberStrict(text);
+        const next = Number.isFinite(from) ? stepNumber(from, direction, bounds) : null;
+        if (next != null) setText(String(next));
+    };
 }
 
 export function useNumberField({

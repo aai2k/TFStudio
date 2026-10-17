@@ -17,7 +17,7 @@
  *   6. Integral Values: the band of a custom integral, typed in its table row
  *      without selecting the row.
  *   7. Optical Evaluation: the angle chips, edited in place and added, where
- *      Escape cancels.
+ *      Escape cancels and the arrow keys step by 1°.
  *
  * Run: node tests/comma_decimal_optimization_and_analysis.mjs
  */
@@ -263,6 +263,14 @@ function received(Component, props, name, pick, act) {
         click(chipLabel);
         field.type('12abc').press('Enter');
         assert.deepEqual(changes, [], 'Optical Evaluation: an angle that is not a number is refused');
+    }
+    {
+        const { changes, field, click } = chips([10, 45]);
+        click(chipLabel);
+        field.type('88,5').press('ArrowUp');
+        assert.equal(field.shown, '89', 'Optical Evaluation: the up arrow steps an angle by 1, up to 89');
+        field.press('ArrowDown').press('Enter');
+        assert.deepEqual(changes, [[88, 45]], 'Optical Evaluation: and the down arrow back down');
     }
 }
 

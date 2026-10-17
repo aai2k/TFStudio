@@ -27,6 +27,7 @@ import { useChartTeardown } from '../../../ui/plotSurface.js';
 import { draftSaveId } from './materialEditorMaterialActions.js';
 import { evaluateDispersionFit } from '../../../../utils/materials/dispersionFits.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { stepKeys } from '../../../ui/numberField.js';
 
 const { createElement: h, useRef, useEffect, useState, useMemo } = React;
 
@@ -206,6 +207,7 @@ function renderPropertiesGrid(ctx) {
             h('input', {
                 type: 'text', inputMode: 'decimal', value: draft.lambdaMinNm,
                 onChange: e => set('lambdaMinNm', e.target.value),
+                onKeyDown: stepKeys(draft.lambdaMinNm, text => set('lambdaMinNm', text)),
                 style: { ...inputStyle, width: '100%', boxSizing: 'border-box' }
             })
         ),
@@ -215,6 +217,7 @@ function renderPropertiesGrid(ctx) {
             h('input', {
                 type: 'text', inputMode: 'decimal', value: draft.lambdaMaxNm,
                 onChange: e => set('lambdaMaxNm', e.target.value),
+                onKeyDown: stepKeys(draft.lambdaMaxNm, text => set('lambdaMaxNm', text)),
                 style: { ...inputStyle, width: '100%', boxSizing: 'border-box' }
             })
         )

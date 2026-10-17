@@ -13,8 +13,10 @@
  *   3. Settings, Analysis page: a number row, and the spectral range in nm
  *      and in µm.
  *   4. Stack Formula: the reference wavelength, which still refuses zero.
- *   5. Design Editor: the round and perturb dialogs, through their Apply button.
- *   6. Material Editor: the stated range and the fit range, through the draft.
+ *   5. Design Editor: the round and perturb dialogs, through their Apply
+ *      button, and their arrow keys.
+ *   6. Material Editor: the stated range and the fit range, through the draft;
+ *      a typo in the stated range gives the default; the arrow keys step.
  *
  * Run: node tests/comma_decimal_design_and_wizards.mjs
  */
@@ -178,6 +180,9 @@ function buttonsOf(node, found = []) {
     const rounded = applied(QuantizeDialog, '94,2');
     assert.equal(rounded?.frontLayers[0].thickness, 94.2, 'Round: a controller step of 94,2 nm rounds 100.13 nm to 94.2');
     assert.ok(isText(QuantizeDialog, { design, side: 'front', c, t }), 'Round: the step is a text field');
+    const stepped = mount(QuantizeDialog, { design, side: 'front', c, t, onApply() {}, onClose() {} });
+    assert.equal(stepped.type('0,1').press('ArrowUp').shown, '0.11', 'Round: the up arrow steps the step by 0.01 nm');
+    assert.equal(stepped.type('0').press('ArrowDown').shown, '0', 'Round: and the down arrow stops at 0');
 
     const random = Math.random;
     Math.random = () => 0.9;
@@ -227,6 +232,15 @@ function buttonsOf(node, found = []) {
     // default, as for an empty box, not a misread wavelength.
     assert.deepEqual(draftRangeNm(edited(lambdaMax, '550..5')), [50, 2500], 'Material Editor: a stated end of 550..5 is refused');
     assert.deepEqual(draftRangeNm(edited(lambdaMax, '1200x')), [50, 2500], 'Material Editor: and so is 1200x');
+    {
+        const drafts = [];
+        const form = mount(UserMaterialForm, {
+            draft: { ...draft, lambdaMaxNm: '800' }, onChange: next => drafts.push(next), c, t, catalogs: [], workingNm: null,
+            detailTab: 'nk', setDetailTab() {}, tableHeight: 200, setTableHeight() {},
+        }, lambdaMax);
+        form.press('ArrowUp');
+        assert.equal(drafts.at(-1)?.lambdaMaxNm, '801', 'Material Editor: the up arrow steps a stated end by 1 nm');
+    }
 }
 
 console.log('comma_decimal_design_and_wizards: passed');

@@ -13,7 +13,8 @@
  *      keeps, even when the window rounds the entry or limits it itself;
  *      `positive` refuses zero; `integer` cuts to a whole number; `nullable`
  *      gives null for an emptied field.
- *   4. The arrow keys step and apply at once, without binary leftovers.
+ *   4. The arrow keys step and apply at once, without binary leftovers, in the
+ *      field and in a box that keeps its own text.
  *   5. The analysis toolbar field is the same field.
  *
  * Run: node tests/number_field_comma_decimal.mjs
@@ -79,6 +80,22 @@ assert.deepEqual(taken({ value: 5, step: 10, positive: true }, f => f.press('Arr
     'a positive field does not step below zero');
 assert.deepEqual(taken({ value: 3, step: 1, min: 0, max: 4 }, f => f.press('ArrowUp').press('ArrowUp')).values, [4, 4],
     'stepping stops at max');
+
+// ── 4b. Arrow keys of a box that keeps its own text ─────────────────────────
+{
+    const { stepKeys } = await import('../src/components/ui/numberField.js');
+    const press = (text, key, bounds) => {
+        let set = null;
+        let prevented = false;
+        stepKeys(text, next => { set = next; }, bounds)({ key, preventDefault() { prevented = true; } });
+        return { set, prevented };
+    };
+    assert.equal(press('0,1', 'ArrowUp', { step: 0.2 }).set, '0.3', 'a text box steps 0,1 up by 0.2 to 0.3');
+    assert.equal(press('5', 'ArrowDown', { step: 10, positive: true }).set, null, 'and does not step a positive one below zero');
+    assert.equal(press('94abc', 'ArrowUp', {}).set, null, 'and leaves text that is not a number alone');
+    assert.equal(press('3', 'ArrowUp', { max: 3 }).set, '3', 'and holds it at max');
+    assert.deepEqual(press('3', 'Enter', {}), { set: null, prevented: false }, 'other keys pass through');
+}
 
 // ── 5. The analysis toolbar field ────────────────────────────────────────────
 assert.deepEqual(taken({ c, value: 400, positive: true, step: 10 }, f => f.type('94,2').leave(), NumInput).values, [94.2],

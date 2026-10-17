@@ -18,6 +18,7 @@ import {
     draftToMaterial, effectiveFitModel, fitModelsForRows, fitRangeNm, fitRows, fitWavelengths, tableRangeNm,
 } from './materialDraft.js';
 import { smallBtn } from './materialEditorUI.js';
+import { stepKeys } from '../../../ui/numberField.js';
 
 const { createElement: h } = React;
 
@@ -254,6 +255,7 @@ function renderFitRange({ draft, set, me, inputStyle, labelStyle }, fitBand) {
             value: draft[field] ?? '',
             placeholder: rangeText(value),
             onChange: event => set(field, event.target.value),
+            onKeyDown: stepKeys(draft[field] ?? '', text => set(field, text), { min: 1 }),
             style: { ...inputStyle, width: '100%', boxSizing: 'border-box' },
         }),
     );

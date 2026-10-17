@@ -4,6 +4,7 @@ import {
 } from './layerTools.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
+import { stepKeys } from '../../../ui/numberField.js';
 import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 
 const { createElement: h, useMemo, useState } = React;
@@ -34,11 +35,13 @@ function FormRow({ label, c, children }) {
 }
 
 // Hands up the text as typed, so a dialog previews every keystroke; the dialog
-// reads it with parseNumberStrict, which takes a comma or a dot decimal.
-function NumberInput({ value, onChange, c, width = 90 }) {
+// reads it with parseNumberStrict, which takes a comma or a dot decimal. The
+// arrow keys step it by `step` within `min` and `max`.
+function NumberInput({ value, onChange, min, max, step, c, width = 90 }) {
     return h('input', {
         type: 'text', inputMode: 'decimal', value,
         onChange: event => onChange(event.target.value),
+        onKeyDown: stepKeys(value, onChange, { step, min, max }),
         style: {
             width, height: 25, padding: '0 6px', boxSizing: 'border-box',
             color: c.text, background: c.bg, border: `1px solid ${c.border}`,
@@ -137,7 +140,11 @@ export function QuantizeDialog({ design, side, c, t, onApply, onClose }) {
             h('option', { value: 'qwot' }, labels.qwot),
         )),
         h(FormRow, { label: labels[mode], c },
-            h(NumberInput, { value: rawValue, onChange: setRawValue, c }),
+            h(NumberInput, {
+                value: rawValue, onChange: setRawValue, c,
+                min: 0, max: mode === 'decimals' ? 8 : undefined,
+                step: mode === 'decimals' ? 1 : mode === 'qwot' ? 0.25 : 0.01,
+            }),
             mode === 'qwot' && h('span', { style: { color: c.textDim } },
                 strings.atReference(design.referenceWavelength || 550)),
         ),
@@ -163,7 +170,7 @@ export function PerturbDialog({ design, side, c, t, onApply, onClose }) {
         h('p', { style: { color: c.textDim, lineHeight: 1.45 } },
             strings.perturbDescription(sideLabel)),
         h(FormRow, { label: strings.maximumKick, c },
-            h(NumberInput, { value: rawPercent, onChange: setRawPercent, c }),
+            h(NumberInput, { value: rawPercent, onChange: setRawPercent, c, min: 0.001, max: 100, step: 0.25 }),
             h('button', {
                 onClick: () => setSample(makePerturbationMap(design[key] || [])),
                 style: {
