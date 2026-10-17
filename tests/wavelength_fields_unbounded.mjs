@@ -164,7 +164,7 @@ const { getLocale } = await import('../src/constants/locales/index.js');
     const [fromRow, toRow, stepRow] = rows;
     const commitInto = (row, text) => {
         stored.length = 0;
-        const render = mount(row.type, row.props);
+        const render = mountField(row.type, row.props);
         inputOf(render()).props.onChange({ target: { value: text } });
         inputOf(render()).props.onBlur();
         return Object.fromEntries(stored);

@@ -6,6 +6,7 @@
 // below re-order the pair so the stored nm range always runs low to high.
 import { SPECTRAL_UNITS, fromNm, toNm } from '../../../../utils/physics/spectralAxis.js';
 import { EnumRow } from './FieldRows.js';
+import { NumberField } from '../../../ui/numberField.js';
 import { selectStyle } from '../ui.js';
 
 const { createElement: h } = React;
@@ -27,28 +28,13 @@ function displayValue(nm, unit) {
 // way to 900 would be taken as 9 and swapped with the other end before the
 // next digit arrived. Zero or less reverts, like unparseable text.
 function ValueRow({ c, label, value, step, onCommit }) {
-    const { useState, useEffect } = React;
-    const [raw, setRaw] = useState(String(value));
-    useEffect(() => { setRaw(String(value)); }, [value]);
-
-    const commit = () => {
-        const parsed = parseFloat(raw);
-        // The prop is recomputed from what the commit stored, so reverting to it
-        // here shows the accepted value.
-        setRaw(String(value));
-        if (Number.isFinite(parsed) && parsed > 0) onCommit(parsed);
-    };
-
     return h('div', { style: rowStyle },
         h('span', { style: { flex: 1, fontSize: '13px', color: c.text } }, label),
-        h('input', {
-            type: 'number',
-            className: 'tfs-number',
-            value: raw,
+        h(NumberField, {
+            value,
             step,
-            onChange: (e) => setRaw(e.target.value),
-            onBlur: commit,
-            onKeyDown: (e) => { if (e.key === 'Enter') commit(); },
+            positive: true,
+            onChange: onCommit,
             style: { ...selectStyle(c), width: '120px', padding: '6px 8px', textAlign: 'right' },
         }));
 }

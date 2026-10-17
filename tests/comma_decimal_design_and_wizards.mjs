@@ -10,6 +10,8 @@
  *   1. Monitoring wizards (BBM and Mono): the field, the row field and the
  *      table cell, and a cell on the Parameters Deviation page.
  *   2. Filter Design wizard: the field and the count, and every box on step 2.
+ *   3. Settings, Analysis page: a number row, and the spectral range in nm
+ *      and in µm.
  *
  * Run: node tests/comma_decimal_design_and_wizards.mjs
  */
@@ -87,6 +89,37 @@ const isText = (Component, props) => mount(Component, { ...props, onChange() {} 
         'Filter Design step 2: a shape factor of 2,5 sets the stop half-width');
     assert.deepEqual(step2(4, '94,2'), [['passLevel', 94.2]], 'Filter Design step 2: the pass level');
     assert.deepEqual(step2(5, '0,2'), [['stopLevel', 0.2]], 'Filter Design step 2: the stop level');
+}
+
+// ── 3. Settings, Analysis page ───────────────────────────────────────────────
+{
+    const { NumberRow } = await import('../src/components/dialogs/settings/analysis/FieldRows.js');
+    const { SpectralRangeRows } = await import('../src/components/dialogs/settings/analysis/SpectralRangeRows.js');
+    const { ANALYSIS_DEFAULTS } = await import('../src/constants/analysisDefaults.js');
+    const { resolveAnalysisSettings } = await import('../src/utils/analysisSettings.js');
+    const { getLocale } = await import('../src/constants/locales/index.js');
+
+    const row = { value: 5, spec: { def: 5, step: 0.1 }, c, label: 'x' };
+    assert.deepEqual(typed(NumberRow, row), [94.2], 'Settings row: 94,2 is 94.2');
+    assert.ok(isText(NumberRow, row), 'Settings row: is a text field');
+
+    // The range rows in the unit `spectralUnit`, each with the text typed into it.
+    const range = (spectralUnit, texts) => texts.map((text, index) => {
+        const stored = [];
+        const rows = SpectralRangeRows({
+            registry: ANALYSIS_DEFAULTS.opticalEvaluation,
+            resolved: resolveAnalysisSettings('opticalEvaluation', { opticalEvaluation: { enums: { spectralUnit } } }),
+            onChange: (section, key, value) => stored.push([key, value]),
+            c, t: getLocale('en'),
+        }).props.children.filter(child => child && typeof child.type === 'function' && child.props.onCommit);
+        if (text != null) mount(rows[index].type, rows[index].props).type(text).leave();
+        return Object.fromEntries(stored);
+    });
+    assert.deepEqual(range('nm', ['94,2', '940,5', '0,25']), [
+        { lambdaStart: 94.2, lambdaEnd: 800 }, { lambdaStart: 400, lambdaEnd: 940.5 }, { lambdaStep: 0.25 },
+    ], 'Settings range in nm: from 94,2, to 940,5 and a step of 0,25');
+    assert.deepEqual(range('um', [null, '0,9']), [{}, { lambdaStart: 400, lambdaEnd: 900 }],
+        'Settings range in µm: an end of 0,9 µm is stored as 900 nm');
 }
 
 console.log('comma_decimal_design_and_wizards: passed');

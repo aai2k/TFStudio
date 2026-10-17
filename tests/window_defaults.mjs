@@ -363,16 +363,17 @@ for (const windowId of WINDOWS) {
 
     // A controlled field that writes on every keystroke rewrites itself while it
     // is being typed into, so it cannot be cleared and retyped and a value on its
-    // way to 900 is read as 9 and clamped. The handlers are not in a static
-    // render, so this is asserted against the source.
+    // way to 900 is read as 9 and clamped. The shared number field commits on
+    // blur or Enter. The handlers are not in a static render, so this is asserted
+    // against the source.
     const { readFile } = await import('node:fs/promises');
     const dir = new URL('../src/components/dialogs/settings/analysis/', import.meta.url);
     for (const file of ['FieldRows.js', 'SpectralRangeRows.js']) {
         const source = await readFile(new URL(file, dir), 'utf8');
-        assert.match(source, /onBlur: commit/,
-            `${file}: number fields commit on blur, not on the keystroke`);
-        assert.match(source, /className: 'tfs-number'/,
-            `${file}: number fields hide the native spinner, as they do in the windows`);
+        assert.match(source, /h\(NumberField, \{/,
+            `${file}: number fields are the shared number field, which commits on blur`);
+        assert.doesNotMatch(source, /type: 'number'/,
+            `${file}: and no field is a native number box`);
     }
 }
 

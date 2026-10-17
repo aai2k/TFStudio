@@ -1,6 +1,7 @@
 // Generic rows for one analysis-window setting, rendered from the registry so a
 // new field is a registry entry rather than new UI.
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { NumberField } from '../../../ui/numberField.js';
 import { selectStyle } from '../ui.js';
 
 const { createElement: h } = React;
@@ -33,37 +34,17 @@ export const ColorRow = ({ c, label, value, onChange }) =>
 // that rewrites itself on every keystroke cannot be cleared and retyped, and a
 // half-typed number is not the number meant. Out-of-range entries are clamped;
 // unparseable ones revert, as does zero or less for a `positive` spec.
-// `tfs-number` hides the native spinner.
-export const NumberRow = ({ c, label, value, spec, onChange }) => {
-  const { useState, useEffect } = React;
-  const [raw, setRaw] = useState(String(value));
-  useEffect(() => { setRaw(String(value)); }, [value]);
-
-  const commit = () => {
-    const parsed = parseFloat(raw);
-    if (!Number.isFinite(parsed) || (spec.positive && parsed <= 0)) {
-      setRaw(String(value));
-      return;
-    }
-    const next = Math.min(Math.max(parsed, spec.min ?? -Infinity), spec.max ?? Infinity);
-    setRaw(String(next));
-    if (next !== value) onChange(next);
-  };
-
-  return h(Row, { c, label },
-    h('input', {
-      type: 'number',
-      className: 'tfs-number',
-      value: raw,
+export const NumberRow = ({ c, label, value, spec, onChange }) =>
+  h(Row, { c, label },
+    h(NumberField, {
+      value,
       min: spec.min,
       max: spec.max,
       step: spec.step,
-      onChange: (e) => setRaw(e.target.value),
-      onBlur: commit,
-      onKeyDown: (e) => { if (e.key === 'Enter') commit(); },
+      positive: spec.positive,
+      onChange,
       style: { ...selectStyle(c), width: '120px', padding: '6px 8px', textAlign: 'right' },
     }));
-};
 
 // Most enums store the word they show, so the option is its own label.
 // `optionLabels` covers the ones whose stored values are internal ids.
