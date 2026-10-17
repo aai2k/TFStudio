@@ -9,7 +9,8 @@
  *   1. 94,2 and 94.2 both give 94.2, on Enter or on leaving the field; nothing
  *      is applied while it is typed.
  *   2. Text that is not a number, such as 94abc or 550..5, puts the value back.
- *   3. Bounds: min and max clamp, and the field shows the clamped value;
+ *   3. Bounds: min and max clamp, and the field then shows what its window
+ *      keeps, even when the window rounds the entry or limits it itself;
  *      `positive` refuses zero; `integer` cuts to a whole number; `nullable`
  *      gives null for an emptied field.
  *   4. The arrow keys step and apply at once, without binary leftovers.
@@ -25,10 +26,13 @@ const { NumInput } = await import('../src/components/windows/analysis/chrome/con
 
 const c = { field: '#111', text: '#eee', textDim: '#999', border: '#333', bg: '#000', accent: '#39f' };
 
-// The values the field hands on after `act` has been done to it.
-function taken(props, act, Component = NumberField) {
+// The values the field hands on after `act` has been done to it, and what it
+// shows then. Its window keeps what it is handed, or what `keep` makes of it.
+function taken(props, act, Component = NumberField, keep = value => value) {
     const values = [];
-    const field = mount(Component, { value: 1, ...props, onChange: value => values.push(value) });
+    const held = { value: 1, ...props };
+    held.onChange = (value) => { values.push(value); held.value = keep(value); };
+    const field = mount(Component, held);
     act(field);
     return { values, shown: field.shown };
 }
@@ -57,6 +61,11 @@ for (const text of ['94abc', '550..5', '0,5,1', '']) {
     const atMax = taken({ value: 89, min: 0, max: 89 }, f => f.type('95').leave());
     assert.deepEqual(atMax.values, [], 'clamped onto the value it holds, nothing changes');
     assert.equal(atMax.shown, '89', 'and the field does not keep showing 95');
+    const rounded = taken({ value: 16 }, f => f.type('16,3').leave(), NumberField, Math.round);
+    assert.deepEqual(rounded.values, [16.3], 'a window that rounds is handed 16.3');
+    assert.equal(rounded.shown, '16', 'and the field shows the 16 it keeps, not 16.3');
+    const limited = taken({ value: 60 }, f => f.type('100').press('Enter'), NumberField, value => Math.min(value, 60));
+    assert.equal(limited.shown, '60', 'a window that holds 100 to 60 shows 60');
 }
 assert.deepEqual(taken({ positive: true }, f => f.type('0').leave()).values, [], 'a positive field refuses 0');
 assert.deepEqual(taken({ positive: true }, f => f.type('-5').leave()).values, [], 'and -5');
