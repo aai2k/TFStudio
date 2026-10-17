@@ -9,6 +9,8 @@
  *   1. Refinement run controls: max iterations, restarts, perturbation % and
  *      the seed, which empties to "draw a random one".
  *   2. Variator preview: wavelength start and end, and the angle, 0 to 89.
+ *   3. Needle Manual: the scan settings in the sidebar and the thickness of
+ *      the needle being inserted.
  *
  * Run: node tests/comma_decimal_optimization_and_analysis.mjs
  */
@@ -82,6 +84,41 @@ function received(Component, props, name, pick, act) {
     assert.equal(kept(end, '94,2')[0]?.lambdaEnd, 94.2, 'Variator: wavelength end 94,2 is 94.2');
     assert.equal(kept(angle, '44,5')[0]?.theta, 44.5, 'Variator: angle 44,5 is 44.5');
     assert.equal(kept(angle, '95')[0]?.theta, 89, 'Variator: an angle past 89 is held at 89');
+}
+
+// ── 3. Needle Manual ─────────────────────────────────────────────────────────
+{
+    const { LeftSidebar } = await import('../src/components/windows/optimization/needleManual/LeftSidebar.js');
+    const { PreviewPanel } = await import('../src/components/windows/optimization/needleManual/PreviewPanel.js');
+    const noop = () => {};
+    const sidebar = {
+        catalogs: [], selectedCats: new Set(), excludedMats: new Set(),
+        onToggleCat: noop, onSelectAllCats: noop, onClearCats: noop, onToggleMat: noop, operands: [],
+        deltaNm: 0.5, dMin: 1, nIntra: 16, refineAfter: true, dlsIter: 60,
+        onDeltaNm: noop, onDMin: noop, onNIntra: noop, onRefineAfter: noop, onDlsIter: noop,
+        showSideRadio: false, requestedSide: 'front', onRequestedSide: noop, busy: false, c, t,
+    };
+    // The settings boxes in the order drawn, past the Refine after checkbox.
+    const setting = at => inputs => inputs.filter(input => input.props.type !== 'checkbox')[at];
+    const typed = (name, at, text) => received(LeftSidebar, sidebar, name, setting(at), f => f.type(text).leave());
+    assert.deepEqual(typed('onDeltaNm', 0, '0,25').values, [0.25], 'Needle Manual: scan step 0,25 is 0.25');
+    assert.deepEqual(typed('onDMin', 1, '2,5').values, [2.5], 'Needle Manual: minimum thickness 2,5 is 2.5');
+    assert.deepEqual(typed('onDeltaNm', 0, '0,01').values, [0.05], 'Needle Manual: the scan step keeps its 0.05 floor');
+    for (const [name, at, label] of [['onNIntra', 2, 'profile resolution'], ['onDlsIter', 3, 'refine iterations']]) {
+        const { values, field } = typed(name, at, '42');
+        assert.deepEqual(values, [42], `Needle Manual: ${label} takes a typed count`);
+        assert.equal(field.input().props.type, 'text', `Needle Manual: ${label} is a text field`);
+    }
+
+    const design = { frontLayers: [], backLayers: [] };
+    const preview = {
+        selected: { materialId: 'builtin:SiO2', z: 120, intra: false }, hostInfo: { gapLabel: 'air' },
+        dNew: 10, dRange: [1, 200], predictedOMF: null, omf0: null, evaluationBusy: false,
+        onApply: noop, onStop: noop, busy: false, refining: false, design, c, t,
+    };
+    const thickness = inputs => inputs.find(input => input.props.type !== 'range');
+    assert.deepEqual(received(PreviewPanel, preview, 'onDNew', thickness, f => f.type('94,2').leave()).values, [94.2],
+        'Needle Manual: the inserted thickness 94,2 is 94.2');
 }
 
 console.log('comma_decimal_optimization_and_analysis: passed');

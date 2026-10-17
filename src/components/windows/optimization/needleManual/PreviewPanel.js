@@ -2,6 +2,7 @@
 // Apply button, with Stop beside it while the refine after Apply runs.
 
 import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.js';
+import { NumberField } from '../../../ui/numberField.js';
 
 const { createElement: h } = React;
 
@@ -33,9 +34,9 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
                 onChange: e => onDNew(parseFloat(e.target.value)),
                 style: { flex: 1 }
             }),
-            h('input', {
-                type: 'number', min: dRange[0], max: dRange[1], step: 0.5, value: +dNew.toFixed(2), disabled: busy,
-                onChange: e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onDNew(v); },
+            h(NumberField, {
+                min: dRange[0], max: dRange[1], step: 0.5, value: +dNew.toFixed(2), disabled: busy,
+                onChange: onDNew,
                 style: { width: 64, padding: '1px 4px', fontSize: 11, textAlign: 'right', background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 2 }
             }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, t.units.nm),

@@ -1,6 +1,7 @@
 // Left sidebar: material pool selection + scan/refine settings.
 
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { NumberField } from '../../../ui/numberField.js';
 import { MaterialPoolPanel, PpefNote } from '../synthesisShared/synthesisHelpers.js';
 
 const { createElement: h } = React;
@@ -18,9 +19,8 @@ export function LeftSidebar({
     const numRow = (label, value, onChange, min, step = 1) =>
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 } },
             h('span', { style: { fontSize: 11, color: c.textDim } }, label),
-            h('input', {
-                type: 'number', value, min, step, disabled: busy,
-                onChange: e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onChange(v); },
+            h(NumberField, {
+                value, onChange, min, step, disabled: busy,
                 style: {
                     width: 58, padding: '1px 4px', fontSize: 11, textAlign: 'right',
                     background: c.bg, color: c.text, border: `1px solid ${c.border}`,
