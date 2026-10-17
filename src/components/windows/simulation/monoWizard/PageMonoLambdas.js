@@ -51,8 +51,8 @@ export function PageMonoLambdas({ p, set, layers, c, B, ctx, design }) {
         }));
         set('monTable', arr); set('monNonce', (p.monNonce | 0) + 1);
     };
-    // A cleared field reports 0, which is not a wavelength: fall back to the
-    // design reference rather than writing 0 onto every layer.
+    // Until a bulk wavelength is set, the design reference stands in for it,
+    // so nothing that is not a wavelength is written onto every layer.
     const bulk = p.bulkLambda > 0 ? p.bulkLambda : (design.referenceWavelength || 550);
     const setAllLambda = () => {
         const arr = layers.map((l, i) => ({ ...(p.monTable[i] || {}), lambda: bulk }));
