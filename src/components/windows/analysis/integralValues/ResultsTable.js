@@ -1,6 +1,7 @@
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
 import { customIntegralReference } from './integralModel.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { useNumberField } from '../../../ui/numberField.js';
 
 const { createElement: h } = React;
 
@@ -68,6 +69,18 @@ function EditableBand(props) {
     const stopRow = event => event.stopPropagation();
     const focus = event => { event.target.style.border = `1px solid ${c.border}`; };
     const blur = event => { event.target.style.border = '1px solid transparent'; };
+    const from = useNumberField({
+        value: custom.band[0], onChange: value => onPatch(custom.key, { band: [value, custom.band[1]] }),
+    });
+    const to = useNumberField({
+        value: custom.band[1], onChange: value => onPatch(custom.key, { band: [custom.band[0], value] }),
+    });
+    // Leaving the box both takes the value and drops the focus border.
+    const bandBox = field => h('input', {
+        ...field, onClick: stopRow, onFocus: focus,
+        onBlur: event => { blur(event); field.onBlur(); },
+        style: { ...styles.edit, width: 56 },
+    });
     return h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 2 } },
         h('select', {
             value: custom.char, onClick: stopRow,
@@ -79,25 +92,9 @@ function EditableBand(props) {
             h('option', { value: 'R' }, 'R'),
             h('option', { value: 'A' }, 'A'),
         ),
-        h('input', {
-            type: 'number', value: custom.band[0], onClick: stopRow,
-            onChange: event => {
-                const value = parseFloat(event.target.value);
-                if (Number.isFinite(value)) onPatch(custom.key, { band: [value, custom.band[1]] });
-            },
-            onFocus: focus, onBlur: blur,
-            style: { ...styles.edit, width: 56 },
-        }),
+        bandBox(from),
         h('span', { style: { color: c.textDim } }, '–'),
-        h('input', {
-            type: 'number', value: custom.band[1], onClick: stopRow,
-            onChange: event => {
-                const value = parseFloat(event.target.value);
-                if (Number.isFinite(value)) onPatch(custom.key, { band: [custom.band[0], value] });
-            },
-            onFocus: focus, onBlur: blur,
-            style: { ...styles.edit, width: 56 },
-        }),
+        bandBox(to),
         h('span', { style: { color: c.textDim, fontSize: 10 } }, units.nm),
     );
 }

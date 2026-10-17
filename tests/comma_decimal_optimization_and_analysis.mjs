@@ -13,6 +13,8 @@
  *      the needle being inserted.
  *   4. Design Cleaner: minimum thickness and re-optimize iterations.
  *   5. Optimizer Benchmark: the synthesis time budget, 1 to 60 s.
+ *   6. Integral Values: the band of a custom integral, typed in its table row
+ *      without selecting the row.
  *
  * Run: node tests/comma_decimal_optimization_and_analysis.mjs
  */
@@ -156,6 +158,35 @@ function received(Component, props, name, pick, act) {
         'Optimizer Benchmark: a synthesis budget of 2,5 s is 2.5 s');
     assert.deepEqual(received(RunBar, props, 'setBudgetSec', budget, f => f.type('90').leave()).values, [60],
         'Optimizer Benchmark: the budget is held at 60 s');
+}
+
+// ── 6. Integral Values ───────────────────────────────────────────────────────
+{
+    const { ResultsTable } = await import('../src/components/windows/analysis/integralValues/ResultsTable.js');
+    const custom = {
+        key: 'custom_1', label: 'Band', char: 'T', band: [400, 700],
+        sourceSpec: { id: 'flat' }, detectorSpec: { id: 'flat' },
+    };
+    const definition = { key: custom.key, builtin: false, label: custom.label, weighting: { lamMin: 400, lamMax: 700 }, _custom: custom };
+    const props = {
+        integrals: [definition], results: {}, selectedKey: null, setSelectedKey: () => {}, onRemove: () => {}, c, t,
+    };
+    // The row's inputs are its name, then the band start and end.
+    const [start, end] = [1, 2].map(at => inputs => inputs[at]);
+    const patches = [];
+    const withPatch = { ...props, onPatch: (key, patch) => patches.push([key, patch]) };
+    const field = mount(ResultsTable, withPatch, start).type('94,2');
+    // Leaving a band box also clears the border it draws while focused, so the
+    // blur event carries a target with a style.
+    const left = { style: { border: `1px solid ${c.border}` } };
+    field.input().props.onBlur({ target: left });
+    mount(ResultsTable, withPatch, end).type('1100,5').press('Enter');
+    assert.deepEqual(patches, [[custom.key, { band: [94.2, 700] }], [custom.key, { band: [400, 1100.5] }]],
+        'Integral Values: band 94,2 to 1100,5 is 94.2 to 1100.5');
+    assert.equal(left.style.border, '1px solid transparent', 'Integral Values: a band box drops its border when left');
+    let stopped = false;
+    field.input().props.onClick({ stopPropagation() { stopped = true; } });
+    assert.ok(stopped, 'Integral Values: a click in a band box does not select the row');
 }
 
 console.log('comma_decimal_optimization_and_analysis: passed');
