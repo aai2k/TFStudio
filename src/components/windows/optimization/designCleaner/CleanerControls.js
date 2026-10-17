@@ -1,4 +1,5 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
+import { NumberField } from '../../../ui/numberField.js';
 
 const { createElement: h } = React;
 
@@ -60,9 +61,9 @@ export function CleanerControls({
         }
     },
         h('label', { style: labelStyle }, dc.minThickness,
-            h('input', {
-                type: 'number', min: 0, max: 200, step: 0.5, value: dMin, disabled: applying,
-                onChange: e => setDMin(parseFloat(e.target.value) || 0),
+            h(NumberField, {
+                min: 0, max: 200, step: 0.5, value: dMin, disabled: applying,
+                onChange: setDMin,
                 style: { ...inputStyle, marginLeft: 6, width: 60 }
             }),
             h('span', { style: { color: c.textDim, marginLeft: 2 } }, units.nm)
@@ -92,9 +93,9 @@ export function CleanerControls({
             dc.reoptimize
         ),
         reoptimize && design.meritOperands?.length > 0 && h('label', { style: labelStyle }, dc.reoptIters,
-            h('input', {
-                type: 'number', min: 1, max: 500, step: 10, value: reoptIters, disabled: applying,
-                onChange: e => setReoptIters(parseInt(e.target.value) || 80),
+            h(NumberField, {
+                min: 1, max: 500, step: 10, integer: true, value: reoptIters, disabled: applying,
+                onChange: setReoptIters,
                 style: { ...inputStyle, marginLeft: 6, width: 55 }
             })
         ),

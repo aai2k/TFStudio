@@ -11,6 +11,7 @@
  *   2. Variator preview: wavelength start and end, and the angle, 0 to 89.
  *   3. Needle Manual: the scan settings in the sidebar and the thickness of
  *      the needle being inserted.
+ *   4. Design Cleaner: minimum thickness and re-optimize iterations.
  *
  * Run: node tests/comma_decimal_optimization_and_analysis.mjs
  */
@@ -119,6 +120,26 @@ function received(Component, props, name, pick, act) {
     const thickness = inputs => inputs.find(input => input.props.type !== 'range');
     assert.deepEqual(received(PreviewPanel, preview, 'onDNew', thickness, f => f.type('94,2').leave()).values, [94.2],
         'Needle Manual: the inserted thickness 94,2 is 94.2');
+}
+
+// ── 4. Design Cleaner ────────────────────────────────────────────────────────
+{
+    const { CleanerControls } = await import('../src/components/windows/optimization/designCleaner/CleanerControls.js');
+    const noop = () => {};
+    // With operands and Re-optimize on, the iteration box is drawn after the
+    // minimum thickness.
+    const props = {
+        c, dc: t.designCleaner, units: t.units, design: { meritOperands: [{}] },
+        dMin: 5, setDMin: noop, mergeAdjacent: true, setMergeAdjacent: noop, cleanBack: false, setCleanBack: noop,
+        reoptimize: true, setReoptimize: noop, reoptIters: 80, setReoptIters: noop,
+        applying: false, progress: null, ops: [], apply: noop, stop: noop,
+    };
+    const box = at => inputs => inputs.filter(input => input.props.type !== 'checkbox')[at];
+    assert.deepEqual(received(CleanerControls, props, 'setDMin', box(0), f => f.type('2,5').leave()).values, [2.5],
+        'Design Cleaner: minimum thickness 2,5 is 2.5');
+    const { values, field } = received(CleanerControls, props, 'setReoptIters', box(1), f => f.type('120').leave());
+    assert.deepEqual(values, [120], 'Design Cleaner: re-optimize iterations take a typed count');
+    assert.equal(field.input().props.type, 'text', 'Design Cleaner: the iteration box is a text field');
 }
 
 console.log('comma_decimal_optimization_and_analysis: passed');
