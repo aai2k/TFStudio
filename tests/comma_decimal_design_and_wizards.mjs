@@ -12,6 +12,7 @@
  *   2. Filter Design wizard: the field and the count, and every box on step 2.
  *   3. Settings, Analysis page: a number row, and the spectral range in nm
  *      and in µm.
+ *   4. Stack Formula: the reference wavelength, which still refuses zero.
  *
  * Run: node tests/comma_decimal_design_and_wizards.mjs
  */
@@ -120,6 +121,27 @@ const isText = (Component, props) => mount(Component, { ...props, onChange() {} 
     ], 'Settings range in nm: from 94,2, to 940,5 and a step of 0,25');
     assert.deepEqual(range('um', [null, '0,9']), [{}, { lambdaStart: 400, lambdaEnd: 900 }],
         'Settings range in µm: an end of 0,9 µm is stored as 900 nm');
+}
+
+// ── 4. Stack Formula ─────────────────────────────────────────────────────────
+{
+    const { FormulaPanel } = await import('../src/components/windows/design/stackFormula/FormulaPanel.js');
+    const { getLocale } = await import('../src/constants/locales/index.js');
+    const t = getLocale('en');
+    // The reference wavelength each text sets, typed into the panel's first box.
+    const refLambda = text => {
+        const stored = [];
+        const state = {
+            text: 'HL', parsed: { ok: true }, compiled: { ok: true }, symRows: [],
+            refLambda: 550, setRefLambda: value => stored.push(value),
+            startFromSubstrate: false, setStartFromSubstrate() {},
+            showIncident: false, showExit: false, substrateMat: 'builtin:BK7', setSubstrateMat() {},
+        };
+        mount(FormulaPanel, { state, c, t, sf: t.stackFormula }).type(text).leave();
+        return stored;
+    };
+    assert.deepEqual(refLambda('94,2'), [94.2], 'Stack Formula: a reference wavelength of 94,2 nm is 94.2');
+    assert.deepEqual(['0', '-5'].map(refLambda), [[], []], 'Stack Formula: and zero and below are refused');
 }
 
 console.log('comma_decimal_design_and_wizards: passed');

@@ -298,7 +298,7 @@ for (const [path, expr] of [
 ]) {
     assert.doesNotMatch(fieldProps(path, expr), /\b(min|max):/, `${path}: the field showing ${expr} has no bound`);
 }
-assert.match(read('design/stackFormula/FormulaPanel.js'), /if \(v > 0\) state\.setRefLambda\(v\)/,
+assert.match(fieldProps('design/stackFormula/FormulaPanel.js', 'state.refLambda'), /positive: true/,
     'the Stack Formula reference wavelength still refuses zero and below');
 
 // ── Merit Function Editor wizard templates ───────────────────────────────────
