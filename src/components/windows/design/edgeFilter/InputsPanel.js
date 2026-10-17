@@ -79,9 +79,9 @@ export function InputsPanel({ state, c, t, ef, design }) {
             picker({ key: 'matB', label: ef.materialB }),
         ),
         row(
-            field({ key: 'lower', label: ef.lower, width: 64, step: 0.05, min: L.lowerMin, max: L.lowerMax }),
+            field({ key: 'lower', label: ef.lower, width: 64, step: 0.05, min: L.lowerMin, max: L.upperMax }),
             field({ key: 'upper', label: ef.upper, width: 64, step: 0.05, min: L.lowerMin, max: L.upperMax }),
-            field({ key: 'step', label: ef.step, width: 64, step: 0.01, min: L.stepMin, max: L.stepMax }),
+            field({ key: 'step', label: ef.step, width: 64, step: 0.01, min: L.stepMin }),
             state.running
                 ? h(FooterBtn, { onClick: state.stop, c }, ef.stop)
                 : h(FooterBtn, { onClick: state.search, c, primary: true }, ef.search),

@@ -34,7 +34,7 @@ The edge of a finished filter, where its transmittance crosses 50 %, sits close 
 
 **Material A** and **Material B**: the two materials. The window opens with the lowest- and highest-index materials of the design's front coating, or SiO2 and TiO2 when it has fewer than two.
 
-**a from**, **a to**, **Step of a**: the range searched for the outer layers. The start lies between 0 and 1, the end above the start and at 2 or below, and the step between 0.0001 and 1. The default 0.1 to 1 in steps of 0.05 is usually enough; a finer step takes longer.
+**a from**, **a to**, **Step of a**: the range searched for the outer layers. The start is 0 or more, the end above the start and at 2 or below, and the step 0.0001 or more. Adding a little over 2 to a puts a half wave at the angle into each outer layer and gives the same b and c again, so the range stops at 2. The default, 0.1 to 1 in steps of 0.05, takes a fraction of a second; 0 to 2 in steps of 0.0001 takes a few minutes.
 
 ## The search
 

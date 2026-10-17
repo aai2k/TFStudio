@@ -94,8 +94,14 @@ const SIDE_PROBE = 1e-5;
 const G_MAX = 4;
 const G_MIN = 0.05;
 
+// The range of a. It starts at 0 or above, a being a thickness. It ends at 2
+// or below: adding 2/cosθ to a, at least 2 at any angle, adds a tilted half
+// wave to each outer layer, which changes the sign of both their matrices and
+// so leaves the period at λe as it was, with the same b and c, and a range of 2
+// is shorter than that repeat. The step is 0.0001 or more: the widest range
+// then has 20001 values of a, a few minutes of search at about 11 ms each.
 export const EDGE_SEARCH_LIMITS = {
-    lowerMin: 0, lowerMax: 1, upperMax: 2, stepMin: 0.0001, stepMax: 1,
+    lowerMin: 0, upperMax: 2, stepMin: 0.0001,
 };
 
 function cosThetaIn(n, geometry) {
@@ -262,15 +268,12 @@ const REQUEST_CHECKS = [
     ['sameIndex', r => r.nA !== r.nB],
     // A layer past its critical angle carries no travelling wave.
     ['evanescent', r => Math.min(r.nA, r.nB) > r.nIncident * Math.sin(r.angleDeg * Math.PI / 180)],
-    ['lower', r => r.lower >= L.lowerMin && r.lower <= L.lowerMax],
+    ['lower', r => r.lower >= L.lowerMin],
     ['upper', r => r.upper > r.lower && r.upper <= L.upperMax],
-    ['step', r => r.step >= L.stepMin && r.step <= L.stepMax],
+    ['step', r => r.step >= L.stepMin],
 ];
 
-/**
- * Why a request cannot be searched, as an error key, or null when it can.
- * The limits on the search range are those of Essential Macleod's tool.
- */
+/** Why a request cannot be searched, as an error key, or null when it can. */
 export function edgeSearchError(request) {
     return REQUEST_CHECKS.find(([, passes]) => !passes(request))?.[0] ?? null;
 }

@@ -195,17 +195,21 @@ for (const pass of ['short', 'long']) {
         [{ nB: N_LOW }, 'sameIndex'],
         [{ nIncident: 1.52, angleDeg: 80, nA: 1.38 }, 'evanescent'],
         [{ lower: -0.1 }, 'lower'],
-        [{ lower: 1.1, upper: 1.5 }, 'lower'],
         [{ upper: 0.1 }, 'upper'],
+        [{ lower: 1.5, upper: 1.5 }, 'upper'],
         [{ upper: 2.01 }, 'upper'],
         [{ step: 0.00009 }, 'step'],
-        [{ step: 1.01 }, 'step'],
     ];
     for (const [over, key] of cases) {
         assert.equal(edgeSearchError(request(over)), key, JSON.stringify(over));
         assert.deepEqual(searchEdgeFilters(request(over)), { errorKey: key });
     }
     assert.equal(edgeSearchError(request({ lower: 0, upper: 2, step: 0.0001 })), null, 'the widest range the limits allow');
+    // Each limit has a reason (edgeFilter.js, EDGE_SEARCH_LIMITS); a start
+    // above 1 and a step wider than the range have none against them.
+    assert.equal(edgeSearchError(request({ lower: 1.5, upper: 1.8 })), null, 'a start between 1 and 2 is searched');
+    assert.equal(edgeSearchError(request({ step: 1.5 })), null, 'a step wider than the range is accepted');
+    assert.deepEqual(searchGrid(0.1, 1, 1.5), [0.1], 'and searches the start alone');
 }
 
 console.log('edge_filter_search: passed');
