@@ -15,6 +15,7 @@
  *   6. The ribbon opens the window, and its formula opens in Stack Formula.
  *   7. The table lists the periods with the best one picked, and the formula
  *      row shows the picked period.
+ *   8. Its help button opens a page that exists in both languages.
  *
  * Run: node tests/edge_filter_window.mjs
  */
@@ -216,6 +217,19 @@ assert.equal(fromWorker.workerRef.current, null, 'a finished search lets its wor
         state: { ...state, solutions: [], current: { result: { errorKey: 'sameIndex' }, selected: 0 } }, design, c, ef,
     }), design));
     assert.ok(failed.includes(ef.errors.sameIndex), 'a refused search says why');
+}
+
+// ── 8. The help page ─────────────────────────────────────────────────────────
+{
+    const { readFileSync, existsSync } = await import('node:fs');
+    const { EDGE_FILTER_HELP } = await import('../src/components/windows/design/edgeFilter/EdgeFilterDialog.js');
+    for (const slug of [`${EDGE_FILTER_HELP}.md`, `zh/${EDGE_FILTER_HELP}.md`]) {
+        const page = new URL(`../docs-site/src/content/docs/${slug}`, import.meta.url);
+        assert.ok(existsSync(page), `the help button opens ${slug}`);
+        assert.match(readFileSync(page, 'utf8'), /^ribbonIcon: edge-filter$/m, `${slug} shows the ribbon icon`);
+    }
+    const { ICONS: docsIcons } = await import('../docs-site/src/components/ribbon-icons.js');
+    assert.ok(docsIcons['edge-filter'], 'the docs site has the icon to show');
 }
 
 console.log(`edge_filter_window: passed (${solutions.length} periods for SiO2/TiO2 at 510 nm, best a=${best.a.toFixed(2)} b=${best.b.toFixed(4)} c=${best.c.toFixed(4)}, outer ${best.outer})`);

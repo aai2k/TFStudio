@@ -80,6 +80,7 @@ export default defineConfig({
             { label: 'Coating Library', translations: { 'zh-CN': '镀膜库' },     slug: 'design/coating-library' },
             { label: 'Specification',   translations: { 'zh-CN': '技术规格' },   slug: 'design/specification' },
             { label: 'Stack Formula',   translations: { 'zh-CN': '膜系公式' },   slug: 'design/stack-formula' },
+            { label: 'Edge Filter',     translations: { 'zh-CN': '边缘滤光片' }, slug: 'design/edge-filter' },
           ],
         },
         {

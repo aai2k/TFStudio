@@ -23,6 +23,7 @@ Design Editor from the substrate outwards.
 - [Design Editor](https://docs.tfstudio.xyz/design/design-editor/): the layer table — adding, editing and reordering layers.
 - [Surface and Evaluation Modes](https://docs.tfstudio.xyz/design/evaluation-modes/): front, back and total evaluation, and what each includes.
 - [Stack Formula](https://docs.tfstudio.xyz/design/stack-formula/): building periodic stacks with symbolic notation such as (HL)^10 H.
+- [Edge Filter](https://docs.tfstudio.xyz/design/edge-filter/): an edge filter from two materials with its s and p edges at the same wavelength at an oblique angle of incidence.
 - [Material Editor](https://docs.tfstudio.xyz/design/material-editor/): refractive index data, dispersion formulas and catalogs.
 - [Specification](https://docs.tfstudio.xyz/design/specification/): wavelength range, angles, polarization and substrate settings.
 - [Merit Function Editor](https://docs.tfstudio.xyz/design/merit-function-editor/): defining optimization targets and their weights.

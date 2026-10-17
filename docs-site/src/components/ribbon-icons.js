@@ -45,6 +45,12 @@ export const ICONS = {
                        L(21.2,8,21.2,3.5,1.6),
                        P('M21.2 4.5 Q22.7 3 24.2 4.5 L24.2 8',1.6),
                      ], 28),
+  // Edge filter: a shortwave-pass edge on axes, the edge wavelength dashed.
+  'edge-filter':     I([
+                       L(2,17,18,17,1), L(2,2,2,17,1),
+                       P('M3 4H8L11 15H17.5',1.8),
+                       Pd('M9.5 2.5V16.5'),
+                     ]),
   // Report Generator — document page with heading bar, text lines and a chart.
   'report-gen':      I([
                        P('M4 2.5 L12 2.5 L16 6.5 L16 17.5 L4 17.5 Z', 1.4),
