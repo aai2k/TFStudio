@@ -40,7 +40,7 @@ export function useStackFormula({ design, updateDesign, checkpoint, onClose, onC
     const resolveMaterial = useMemo(() => designMaterialLookup(design), [design]);
 
     // Seed once: from a formula another window hands over ({ text, rows,
-    // refLambda, incidentMat, substrateMat }), or else from the active design:
+    // refLambda, incidentMat, exitMat, substrateMat }), or else from the active design:
     // auto-detect its materials → H/L/M symbols and a compact formula (or H/L/M
     // defaults + sample for an empty design).
     const seedRef = useRef(null);
@@ -68,7 +68,7 @@ export function useStackFormula({ design, updateDesign, checkpoint, onClose, onC
     // substrate; the back coating by the substrate + exit medium.
     const [incidentMat, setIncidentMat] = useState(() => seedRef.current.incidentMat || design.incidentMedium || 'builtin:Air');
     const [substrateMat, setSubstrateMat] = useState(() => seedRef.current.substrateMat || design.substrate?.material || 'builtin:BK7');
-    const [exitMat, setExitMat] = useState(() => design.exitMedium || 'builtin:Air');
+    const [exitMat, setExitMat] = useState(() => seedRef.current.exitMat || design.exitMedium || 'builtin:Air');
 
     // Which coating side(s) to write the formula into.
     const isSym = design.surfaceMode === 'symmetric';

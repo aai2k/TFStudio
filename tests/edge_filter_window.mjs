@@ -12,7 +12,8 @@
  *   4. Replace, Append and New design put the filter in the design as Stack
  *      Formula does, the searched medium on the side the light arrives from.
  *   5. The search runs in its worker and can be stopped there.
- *   6. The ribbon opens the window, and its formula opens in Stack Formula.
+ *   6. The ribbon opens the window, and its formula opens in Stack Formula,
+ *      which puts it in the design with the same media.
  *   7. The table lists the periods with the best one picked, drawing only the
  *      rows in view, and the formula row shows the picked period.
  *   8. Its help button opens a page that exists in both languages.
@@ -196,6 +197,34 @@ assert.equal(fromWorker.workerRef.current, null, 'a finished search lets its wor
         { sym: 'H', matId: 'builtin:TiO2', fixed: true }, { sym: 'L', matId: 'builtin:SiO2', fixed: true },
     ]);
     assert.equal(seed.refLambda, 510);
+}
+// Put in from Stack Formula after Open in Stack Formula, the filter gets the
+// media the Edge Filter's own Replace and Append give it, on every side. The
+// searched medium is glass here, as for a filter inside a cube, so it differs
+// from the design's exit medium.
+{
+    const { useStackFormula } = await import('../src/components/windows/design/stackFormula/useStackFormula.js');
+    const { buildReplaceAppendPatch } = await import('../src/components/windows/design/stackFormula/designBuild.js');
+    const inGlass = { ...inputs, incidentMat: 'builtin:BK7' };
+    const seed = model.stackFormulaSeed(formula, symbols.symbolMap, inGlass);
+    let sf = null;
+    function Probe() {
+        sf = useStackFormula({ design, updateDesign() {}, checkpoint() {}, onClose() {}, seed, t });
+        return null;
+    }
+    renderToStaticMarkup(h(Probe));
+    for (const effSide of ['front', 'back', 'both']) {
+        for (const mode of ['replace', 'append']) {
+            const viaFormula = buildReplaceAppendPatch({
+                design, mode, isSym: false, effSide, compiled: sf.compiled, refLambda: sf.refLambda,
+                substrateMat: sf.substrateMat, incidentMat: sf.incidentMat, exitMat: sf.exitMat, text: sf.text, stamp: 1,
+            });
+            const direct = edgeFilterPatch({ design, mode, isSym: false, effSide, compiled, inputs: inGlass, formula, stamp: 1 });
+            for (const key of ['incidentMedium', 'exitMedium', 'substrate', 'referenceWavelength', 'surfaceMode']) {
+                assert.deepEqual(viaFormula[key], direct[key], `${mode} on ${effSide}: ${key}`);
+            }
+        }
+    }
 }
 
 // ── 7. The table and the formula row ─────────────────────────────────────────

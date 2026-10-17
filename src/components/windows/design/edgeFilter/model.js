@@ -149,12 +149,15 @@ export function edgePreviewSpectrum(design, compiled, inputs) {
 
 /**
  * What Stack Formula opens on when the formula is handed to it: the formula,
- * its two symbols, and the wavelength and media it is written for.
+ * its two symbols, and the wavelength and media it is written for. The light
+ * arrives from the searched medium on either side, so it is both the incident
+ * and the exit medium, as the Edge Filter's own Replace sets them.
  */
 export function stackFormulaSeed(formula, symbolMap, inputs) {
     return {
         text: formula,
         rows: Object.entries(symbolMap).map(([sym, matId]) => ({ sym, matId, fixed: true })),
-        refLambda: inputs.edgeLambda, incidentMat: inputs.incidentMat, substrateMat: inputs.substrateMat,
+        refLambda: inputs.edgeLambda, incidentMat: inputs.incidentMat, exitMat: inputs.incidentMat,
+        substrateMat: inputs.substrateMat,
     };
 }
