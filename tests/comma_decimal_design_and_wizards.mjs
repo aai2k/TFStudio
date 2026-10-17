@@ -13,6 +13,7 @@
  *   3. Settings, Analysis page: a number row, and the spectral range in nm
  *      and in µm.
  *   4. Stack Formula: the reference wavelength, which still refuses zero.
+ *   5. Design Editor: the round and perturb dialogs, through their Apply button.
  *
  * Run: node tests/comma_decimal_design_and_wizards.mjs
  */
@@ -29,6 +30,14 @@ function typed(Component, props, text = '94,2', pick) {
 }
 
 const isText = (Component, props) => mount(Component, { ...props, onChange() {} }).input().props.type === 'text';
+
+// Every button in a rendered tree, in the order they are drawn.
+function buttonsOf(node, found = []) {
+    if (!node || typeof node !== 'object') return found;
+    if (node.type === 'button') found.push(node);
+    [node.props?.children].flat(Infinity).forEach(child => buttonsOf(child, found));
+    return found;
+}
 
 // ── 1. Monitoring wizards ────────────────────────────────────────────────────
 {
@@ -142,6 +151,43 @@ const isText = (Component, props) => mount(Component, { ...props, onChange() {} 
     };
     assert.deepEqual(refLambda('94,2'), [94.2], 'Stack Formula: a reference wavelength of 94,2 nm is 94.2');
     assert.deepEqual(['0', '-5'].map(refLambda), [[], []], 'Stack Formula: and zero and below are refused');
+}
+
+// ── 5. Design Editor ─────────────────────────────────────────────────────────
+//
+// The round and perturb dialogs keep what is typed and preview it as it is
+// typed, so the check is the design the Apply button hands on.
+{
+    const { QuantizeDialog, PerturbDialog } = await import('../src/components/windows/design/designEditor/LayerToolDialogs.js');
+    const { makePerturbationMap, perturbDesignSide } = await import('../src/components/windows/design/designEditor/layerTools.js');
+    const { getLocale } = await import('../src/constants/locales/index.js');
+    const t = getLocale('en');
+    const design = { referenceWavelength: 550, frontLayers: [{ id: 'a', material: 'builtin:SiO2', thickness: 100.13 }] };
+    // What Apply hands on after `text` is typed, or null while Apply is greyed out.
+    const applied = (Dialog, text, pick) => {
+        const designs = [];
+        const dialog = mount(Dialog, { design, side: 'front', c, t, onApply: next => designs.push(next), onClose() {} }, pick);
+        dialog.type(text);
+        const apply = buttonsOf(dialog.render()).at(-1);
+        if (apply.props.disabled) return null;
+        apply.props.onClick();
+        return designs[0];
+    };
+
+    const rounded = applied(QuantizeDialog, '94,2');
+    assert.equal(rounded?.frontLayers[0].thickness, 94.2, 'Round: a controller step of 94,2 nm rounds 100.13 nm to 94.2');
+    assert.ok(isText(QuantizeDialog, { design, side: 'front', c, t }), 'Round: the step is a text field');
+
+    const random = Math.random;
+    Math.random = () => 0.9;
+    try {
+        const kicked = applied(PerturbDialog, '94,2');
+        assert.deepEqual(kicked, perturbDesignSide(design, 'front', 94.2, makePerturbationMap(design.frontLayers)),
+            'Perturb: a kick of 94,2 % is a kick of 94.2 %');
+    } finally {
+        Math.random = random;
+    }
+    assert.ok(isText(PerturbDialog, { design, side: 'front', c, t }), 'Perturb: the kick is a text field');
 }
 
 console.log('comma_decimal_design_and_wizards: passed');
