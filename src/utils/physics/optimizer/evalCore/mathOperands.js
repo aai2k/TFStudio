@@ -6,18 +6,24 @@
  */
 
 // Each math operand kind declares how to compute its *value* given the
-// resolved value(s) of its referenced operand(s).  Residual semantics are
-// declared by `MATH_RESIDUAL_KIND` below and consumed by calcMF / _residuals.
+// resolved value(s) of its referenced operand(s), and `partials`, the
+// derivative of that value in each referenced value at those values, which
+// the analytic Jacobian chains through (jacobianAssembly/mathRows.js). |x|
+// takes slope 0 at x = 0, the smallest of its subgradients there. Residual
+// semantics are declared by `MATH_RESIDUAL_KIND` below and consumed by
+// calcMF / _residuals.
+const SAME = () => [1];
+const SIGN = (refs) => [Math.sign(refs[0])];
 export const MATH_REGISTRY = {
-    OPGT: { refs: 'single', value: (refs) => refs[0] },
-    OPLT: { refs: 'single', value: (refs) => refs[0] },
-    OPVA: { refs: 'single', value: (refs) => refs[0] },
-    ABSO: { refs: 'single', value: (refs) => Math.abs(refs[0]) },
-    ABGT: { refs: 'single', value: (refs) => Math.abs(refs[0]) },
-    ABLT: { refs: 'single', value: (refs) => Math.abs(refs[0]) },
-    DIFF: { refs: 'pair',   value: (refs) => refs[0] - refs[1] },
-    SUMM: { refs: 'pair',   value: (refs) => refs[0] + refs[1] },
-    PROD: { refs: 'pair',   value: (refs) => refs[0] * refs[1] },
+    OPGT: { refs: 'single', value: (refs) => refs[0],           partials: SAME },
+    OPLT: { refs: 'single', value: (refs) => refs[0],           partials: SAME },
+    OPVA: { refs: 'single', value: (refs) => refs[0],           partials: SAME },
+    ABSO: { refs: 'single', value: (refs) => Math.abs(refs[0]), partials: SIGN },
+    ABGT: { refs: 'single', value: (refs) => Math.abs(refs[0]), partials: SIGN },
+    ABLT: { refs: 'single', value: (refs) => Math.abs(refs[0]), partials: SIGN },
+    DIFF: { refs: 'pair',   value: (refs) => refs[0] - refs[1], partials: () => [1, -1] },
+    SUMM: { refs: 'pair',   value: (refs) => refs[0] + refs[1], partials: () => [1, 1] },
+    PROD: { refs: 'pair',   value: (refs) => refs[0] * refs[1], partials: (refs) => [refs[1], refs[0]] },
 };
 
 // Residual = how the operand contributes to the merit function.
@@ -36,20 +42,22 @@ const MATH_RESIDUAL_KIND = {
     PROD: 'equality',
 };
 
+// The ids of the rows a math operand reads, in the order its value takes them.
+export function mathReferenceIds(op) {
+    const reg = MATH_REGISTRY[op.type];
+    if (!reg) return [];
+    return reg.refs === 'single' ? [op.refId] : [op.refId1, op.refId2];
+}
+
 // Compute the *value* (not the residual) of a math operand.
 export function computeMathValue(op, resolve) {
-    const reg = MATH_REGISTRY[op.type];
-    if (!reg) return NaN;
-    if (reg.refs === 'single') {
-        const v = resolve(op.refId);
-        return reg.value([v]);
-    }
-    if (reg.refs === 'pair') {
-        const v1 = resolve(op.refId1);
-        const v2 = resolve(op.refId2);
-        return reg.value([v1, v2]);
-    }
-    return NaN;
+    if (!MATH_REGISTRY[op.type]) return NaN;
+    return MATH_REGISTRY[op.type].value(mathReferenceIds(op).map(id => resolve(id)));
+}
+
+// ∂value/∂(referenced value) of a math operand, one per id of mathReferenceIds.
+export function mathValuePartials(op, refValues) {
+    return MATH_REGISTRY[op.type].partials(refValues);
 }
 
 // Translate a math operand's computed value + target into the residual the
@@ -67,3 +75,14 @@ export function mathResidual(op, value) {
 }
 
 export function mathResidualKind(type) { return MATH_RESIDUAL_KIND[type] || 'equality'; }
+
+// ∂residual/∂value of a math operand at its value, the slope of mathResidual:
+// −1 while an at-least row is under its target, +1 while an at-most row is
+// over it, 0 while either holds, 1 for an equality.
+export function mathResidualSlope(op, value) {
+    switch (mathResidualKind(op.type)) {
+        case 'one-sided-min': return op.target - value > 0 ? -1 : 0;
+        case 'one-sided-max': return value - op.target > 0 ? 1 : 0;
+        default:              return 1;
+    }
+}

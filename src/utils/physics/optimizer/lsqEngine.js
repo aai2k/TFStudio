@@ -20,11 +20,10 @@
 import {
     isFullSystemEval, effectiveBackLayers,
     evaluateOperands, phaseDispersionThicknessPoint, ellipsometryThicknessPoint,
-    operandResidualScale, residualScaleIn, calcMF, mfWeightDenominator,
+    residualScaleIn, calcMF, mfWeightDenominator,
     operandEvaluationErrors, OperandEvaluationError, operandSampleDeviations,
 } from './evalCore.js';
 import { operandResidualRows } from './residualRows.js';
-import { isMath, isEField } from './operandModel.js';
 import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
 import { mirrorLayers } from './layerOps.js';
@@ -34,14 +33,6 @@ import { LM_MAX_DAMPING, scaledStepRatio, predictedReduction, lmStopReason } fro
 import { boxedStart, movablePositions, residualGradient, restrictColumns, projectedTrial } from './boundedStep.js';
 import { _surfaceLayout, makePointEvaluators, _jacRows } from './jacobianAssembly.js';
 import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvOperand, _operandSupportsFullNewton } from './newtonAssembly.js';
-
-// Operand kinds whose analytic chain rule is not worked out. One of them in
-// the merit function puts the whole Jacobian onto finite differences. A curve
-// block is either expanded into point rows or, with its level free, has rows
-// of its own (jacobianAssembly/jacRows.js).
-const DECLINES_ANALYTIC_JACOBIAN = [
-    isMath, isEField,
-];
 
 const sameValues = (a, b) => a.length === b.length && a.every((value, index) => value === b[index]);
 
@@ -230,10 +221,10 @@ export class LSQEngine {
         // pure-optical residuals are unchanged; argwave nm ÷ σ_λ; a math row
         // takes the σ of the rows it reads). The FD Jacobian differences this
         // vector, so it inherits σ automatically; every analytic row builder
-        // divides by the same operandResidualScale(op), which is what keeps
-        // the two consistent for the σ ≠ 1 operands that have an analytic
-        // chain rule (Ψ, Δ, phase and dispersion). A range target gives one
-        // row per sample.
+        // divides by the same σ from residualScaleIn, which is what keeps the
+        // two consistent for the σ ≠ 1 operands (Ψ, Δ, phase and dispersion,
+        // MXW*/MNW*, dB rows and the math rows reading them). A range target
+        // gives one row per sample.
         const deviations = operandSampleDeviations(comp);
         const scaleOf = residualScaleIn(this.operands);
         const out = [];
@@ -298,8 +289,11 @@ export class LSQEngine {
         const sideMap = { N, varSide, nFront: this.nFront, nBack: this.nBack };
         const { propDeriv, propValue } = makePointEvaluators(jacCfg, sideMap);
 
-        // Operand kinds whose analytic chain rule is not worked out yet decline
-        // the whole Jacobian so step() falls back to finite differences.
+        // A row whose analytic chain rule is not worked out (EFMX, a curve
+        // block a math row reads whole, and the math rows reading either;
+        // jacobianAssembly/jacRows.js) declines the whole Jacobian so step()
+        // falls back to finite differences. `operands` lets a math row find
+        // the rows it reads.
         const jc = {
             comp,
             freeIdx,
@@ -309,13 +303,13 @@ export class LSQEngine {
             propValue,
             phasePoint: (op, wavelength) => phaseDispersionThicknessPoint(op, ctx, wavelength),
             ellipsometryPoint: op => ellipsometryThicknessPoint(op, ctx, this.operands),
-            residualScale: operandResidualScale,
+            residualScale: residualScaleIn(this.operands),
+            operands: this.operands,
         };
         const J = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            if (DECLINES_ANALYTIC_JACOBIAN.some(test => test(op.type))) return null;
             const rows = _jacRows(op, i, jc);
             if (!rows) return null;
             J.push(...rows);
@@ -336,8 +330,9 @@ export class LSQEngine {
     //
     // Scope: front_only single-surface (the mode whose analytic Jacobian is a
     // direct read). Returns null — caller falls back to LM step() — for any
-    // other surface/eval mode, or if the analytic Jacobian declines (math rows,
-    // EFMX), or if a row has σ ≠ 1 (its curvature is not divided by σ).
+    // other surface/eval mode, or if the analytic Jacobian declines (EFMX and
+    // the math rows reading it), or if a row has σ ≠ 1 (its curvature is not
+    // divided by σ).
     // Supported residual curvature: single-λ optical, range-avg (TAV/RAV/AAV),
     // weighted-integral (linear in comp ⇒ ∂²r = sw·Σα·∂²comp); range-target
     // (TGT/RGT/AGT, one single-λ residual per sample). The manufacturability rows

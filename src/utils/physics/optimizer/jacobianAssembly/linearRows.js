@@ -31,17 +31,20 @@ function coefficients(op, ctx) {
     return new Array((ctx.fullThicks || ctx.frontThicks || []).length).fill(1);
 }
 
+/** √w · ∂residual/∂value of a linear-thickness operand at its value. */
+export function linearThicknessFactor(op, value) {
+    return Math.sqrt(op.weight) * activeSign(op, value);
+}
+
 /**
- * Jacobian row for one linear-thickness operand: √w · (∂residual/∂value) ·
- * (∂value/∂d_j) / σ, over the free variables.
+ * scale · (∂value/∂d_j) / σ for one linear-thickness operand, over the free
+ * variables. At linearThicknessFactor it is the operand's Jacobian row.
  */
-export function _jacRowLinearThickness(op, i, jc) {
-    const { comp, freeIdx, nFree, ctx, residualScale } = jc;
+export function linearThicknessSlope(op, i, jc, scale) {
+    const { freeIdx, nFree, ctx, residualScale } = jc;
     const row = new Array(nFree).fill(0);
-    const sign = activeSign(op, comp[i]);
-    if (sign === 0) return row;
-    const scale = Math.sqrt(op.weight) * sign / residualScale(op);
+    const k = scale / residualScale(op);
     const coefficient = coefficients(op, ctx);
-    for (let ci = 0; ci < nFree; ci++) row[ci] = scale * (coefficient[freeIdx[ci]] || 0);
+    for (let ci = 0; ci < nFree; ci++) row[ci] = k * (coefficient[freeIdx[ci]] || 0);
     return row;
 }

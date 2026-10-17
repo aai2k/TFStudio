@@ -1,4 +1,8 @@
-/** Analytic DLS rows for phase, GD, GDD, and TOD operands. */
+/**
+ * Analytic DLS rows for phase, GD, GDD, and TOD operands. Each is a slope
+ * builder, scale·∂value/∂d ÷ σ over the free variables, taken at √w for the
+ * row's own Jacobian row (jacRows.js).
+ */
 
 import { isGroupDelayFlat } from '../operandModel.js';
 import { operandSampleLambdas, bandQuadratureWeights } from '../sampling.js';
@@ -11,14 +15,14 @@ function copyFreeDerivatives(derivative, freeIdx, scale) {
     return freeIdx.map(index => scale * derivative[index]);
 }
 
-/** Ψ, Δ, tan Ψ or cos Δ at one wavelength: the operand's own derivative row. */
-export function _jacRowEllipsometry(op, jc) {
+/** Ψ, Δ, tan Ψ or cos Δ at one wavelength: the operand's own derivative. */
+export function ellipsometrySlope(op, i, jc, scale) {
     const point = jc.ellipsometryPoint(op);
     if (!point) return null;
-    return copyFreeDerivatives(point.derivative, jc.freeIdx, Math.sqrt(op.weight) / jc.residualScale(op));
+    return copyFreeDerivatives(point.derivative, jc.freeIdx, scale / jc.residualScale(op));
 }
 
-export function _jacRowPhase(op, operandIndex, jc) {
+export function phaseSlope(op, operandIndex, jc, scale) {
     const {
         comp,
         freeIdx,
@@ -26,10 +30,10 @@ export function _jacRowPhase(op, operandIndex, jc) {
         phasePoint,
         residualScale,
     } = jc;
-    const scale = Math.sqrt(op.weight) / residualScale(op);
+    const k = scale / residualScale(op);
     if (!isGroupDelayFlat(op.type)) {
         const point = phasePoint(op, op.lambdaStart);
-        return point ? copyFreeDerivatives(point.derivative, freeIdx, scale) : null;
+        return point ? copyFreeDerivatives(point.derivative, freeIdx, k) : null;
     }
 
     // RMS = √(Σ qₛ devₛ²) over the band grid's trapezoid weights qₛ, so
@@ -47,7 +51,7 @@ export function _jacRowPhase(op, operandIndex, jc) {
             row[column] += weighted * point.derivative[freeIdx[column]];
         }
     }
-    const rmsScale = scale / computed;
+    const rmsScale = k / computed;
     for (let column = 0; column < nFree; column++) row[column] *= rmsScale;
     return row;
 }

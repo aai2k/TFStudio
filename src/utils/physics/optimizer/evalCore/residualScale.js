@@ -32,10 +32,10 @@ import { _normalizeDegrees } from './angles.js';
 //
 // Applied in exactly two chokepoints — calcMF (the reported MF) and
 // DLSOptimizer._residuals (the LM step). The analytic Jacobian stays consistent
-// with it because every row builder divides its derivative by the same
-// operandResidualScale(op): that is what lets the σ ≠ 1 operands with a worked-
-// out chain rule (Ψ, Δ, phase, GD, GDD, TOD, MXW*/MNW*) take analytic rows. The
-// operands with no chain rule, math rows and EFMX, force the FD fallback, which
+// with it because every row builder divides its derivative by the same σ
+// (residualScaleIn): that is what lets the σ ≠ 1 operands with a worked-out
+// chain rule (Ψ, Δ, phase, GD, GDD, TOD, MXW*/MNW*, dB rows, math rows) take
+// analytic rows. EFMX has no chain rule and forces the FD fallback, which
 // differences _residuals and therefore inherits σ automatically. Either way the
 // gradient matches the residual. A new σ ≠ 1 operand needs its row builder to
 // carry the same division.

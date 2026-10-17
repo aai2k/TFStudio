@@ -3,14 +3,18 @@
  * curve blocks with their level free, weighted integrals, band means and
  * single-λ targets).
  *
- * Each builder returns the length-nFree Jacobian row for one operand; a range
- * target returns one row per sample. `jc` bundles the shared context:
- * { comp, freeIdx, nFree, propDeriv }.
+ * A range target and a level-free block return one row per sample. The
+ * single-row kinds are slope builders, scale·∂value/∂d over the free
+ * variables (σ = 1 for all of them), called with the row's own √w for its
+ * Jacobian row and with 1 for the slope of its value (jacRows.js). `jc`
+ * bundles the shared context: { comp, freeIdx, nFree, propDeriv }.
  */
 
 import { resolveSourceSpec, resolveDetectorSpec } from '../../spectralWeightings.js';
-import { measuredCurveChannel, polFromType, rowReadingSlopeOverSigma } from '../operandModel.js';
+import { isRangeTarget, measuredCurveChannel, polFromType, rowReadingSlopeOverSigma } from '../operandModel.js';
 import { charOf, operandSampleLambdas, isRangeAvg, bandQuadratureWeights } from '../sampling.js';
+import { operandSampleDeviations } from '../evalCore/evalContext.js';
+import { operandResidualRows } from '../residualRows.js';
 
 // Continuous per-λ target (TGT/RGT/AGT), one residual per sample:
 // rₛ = √(w·qₛ)·(valₛ − tₛ), qₛ the band grid's trapezoid weights, so
@@ -55,12 +59,33 @@ export function _jacRowsLevelFree(op, jc) {
     return u.map(row => row.map((value, ci) => scale * (value - mean[ci])));
 }
 
+// The value of a range target or of a level-free curve block, row i, is the
+// RMS V of its per-sample deviations. At weight 1 its residual rows rₛ have
+// Σ rₛ² = (V/σ)², so ∂V/∂d = σ²·Σₛ rₛ·∂rₛ/∂d / V, from the row's own residual
+// and Jacobian rows. At V = 0 the RMS has a corner, and its smallest
+// subgradient there is 0.
+export function rmsValueSlope(op, i, jc) {
+    const { comp, nFree, residualScale } = jc;
+    const row = new Array(nFree).fill(0);
+    const value = comp[i];
+    if (!(value > 0)) return row;
+    const unit = { ...op, weight: 1 };
+    const sigma = residualScale(op);
+    const residuals = operandResidualRows(unit, value, operandSampleDeviations(comp)[i], sigma);
+    const slopes = isRangeTarget(op.type) ? _jacRowsRangeTarget(unit, jc) : _jacRowsLevelFree(unit, jc);
+    const k = sigma * sigma / value;
+    for (let s = 0; s < slopes.length; s++) {
+        const weighted = k * residuals[s];
+        for (let ci = 0; ci < nFree; ci++) row[ci] += weighted * slopes[s][ci];
+    }
+    return row;
+}
+
 // Weighted-integral: residual = sw·(C̄_w − target),
 //   ∂C̄_w/∂d_j = Σ_i (w_i / Σ w_k) · ∂C_i/∂d_j   (linear, exact),
 // with w_i = qᵢ·S(λᵢ)·D(λᵢ) as in the evaluator.
-export function _jacRowIntegral(op, i, jc) {
+export function integralSlope(op, i, jc, scale) {
     const { freeIdx, nFree, propDeriv } = jc;
-    const sw = Math.sqrt(op.weight);
     const row = new Array(nFree).fill(0);
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
@@ -83,15 +108,14 @@ export function _jacRowIntegral(op, i, jc) {
         const d = propDeriv(lams[s], pol, char, op.aoi);
         for (let ci = 0; ci < nFree; ci++) row[ci] += wi * d[freeIdx[ci]];
     }
-    for (let ci = 0; ci < nFree; ci++) row[ci] *= sw;
+    for (let ci = 0; ci < nFree; ci++) row[ci] *= scale;
     return row;
 }
 
 // Band mean (TAV/RAV/AAV, residual = sw·(Σ qₛ valₛ − target), qₛ the band
 // grid's trapezoid weights) or single-λ (residual = sw·(val − target)).
-export function _jacRowMeanOrSingle(op, jc) {
+export function meanOrSingleSlope(op, i, jc, scale) {
     const { freeIdx, nFree, propDeriv } = jc;
-    const sw = Math.sqrt(op.weight);
     const row = new Array(nFree).fill(0);
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
@@ -102,10 +126,10 @@ export function _jacRowMeanOrSingle(op, jc) {
             const d = propDeriv(lams[s], pol, char, op.aoi);
             for (let ci = 0; ci < nFree; ci++) row[ci] += q[s] * d[freeIdx[ci]];
         }
-        for (let ci = 0; ci < nFree; ci++) row[ci] *= sw;
+        for (let ci = 0; ci < nFree; ci++) row[ci] *= scale;
     } else {
         const d = propDeriv(op.lambdaStart, pol, char, op.aoi);
-        for (let ci = 0; ci < nFree; ci++) row[ci] = sw * d[freeIdx[ci]];
+        for (let ci = 0; ci < nFree; ci++) row[ci] = scale * d[freeIdx[ci]];
     }
     return row;
 }
