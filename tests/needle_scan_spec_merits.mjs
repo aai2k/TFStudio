@@ -8,7 +8,11 @@
  * no exact needle slope (EFMX here) on its own per candidate. Each case checks
  * that the analytic scan runs, that its merit and candidates are the FD
  * scan's, that its P-values lie within TOLERANCE of the FD scan's at a
- * δ = 0.001 nm needle, and that both pick the same insertion. Cases: the
+ * δ = 0.001 nm needle, and that both pick the same insertion. Where no row is
+ * differenced the analytic scan runs at a 0.5 nm needle, at which a
+ * difference would depart from the FD scan's P-values by far more than
+ * TOLERANCE, and its P-values must not change at 0.001 nm: so the slopes are
+ * checked exact, not differenced at the FD scan's needle. Cases: the
  * BBAR_VIS spec merit, also with an MNT row (which the scan skips, with its
  * weight kept out of the normalization), under a cone and in symmetric mode;
  * worst-case and central-wavelength (MXWT) spec rows; an MXWT row scored
@@ -36,9 +40,14 @@ const resolveMat = id => getMaterial(id);
 const POOL = ['TiO2', 'SiO2'].map(id => ({ id, name: id, mat: getMaterial(id) }));
 
 // Needle of the FD scan, nm, and the one the analytic scan differences EFMX
-// with. The analytic P-value of every other row is the d → 0 limit, from which
-// the forward difference departs by about ½·(∂P/∂d)·δ.
+// with in the cases holding it. The analytic P-value of every other row is the
+// d → 0 limit, from which the forward difference departs by about ½·(∂P/∂d)·δ.
 const DELTA_NM = 0.001;
+// Needle of the analytic scan in the cases with no differenced row, nm. An
+// exact slope does not depend on it; a scan differencing every row at this
+// needle departs from the FD scan by 2 % to 60 % of the largest |P| over those
+// cases, about ten times the tolerance below or more.
+const EXACT_DELTA_NM = 0.5;
 // Largest gap allowed between the two scans, as a fraction of the largest
 // |P|. Over these cases the gap is at most 0.02 % at δ = 0.001 nm and 0.2 % at
 // 0.01 nm, falling with δ as that truncation does, so 0.2 % leaves it a
@@ -68,8 +77,9 @@ const band = (type, a, b, target, extra = {}) => makeOperand({ type, lambdaStart
 
 const bbarSpec = () => qualifiersToMFOperands(applyPreset('BBAR_VIS'));
 
-// Each case: name, design, merit rows, and the row types that must miss their
-// target on that design, so the case checks their slope and not a zero.
+// Each case: name, design, merit rows, the row types that must miss their
+// target on that design, so the case checks their slope and not a zero, and
+// whether the analytic scan differences one of its rows.
 const CASES = [
     ['BBAR_VIS spec', design(bbar), bbarSpec, ['OPGT', 'OPLT']],
     ['BBAR_VIS spec with an MNT row', design(bbar), () => [...bbarSpec(), mnt()], ['OPGT', 'OPLT', 'MNT']],
@@ -89,11 +99,11 @@ const CASES = [
         const s = band('T', 600, 600, 0, { aoi: 45, pol: 's', weight: 0 });
         return [band('RAV', 520, 580, 1), p, s, makeOperand({ type: 'DIFF', refId1: p.id, refId2: s.id, target: 0, weight: 1 })];
     }, ['DIFF']],
-    ['EFMX, differenced on its own', design(mirror), () => [band('RAV', 520, 580, 1), band('EFMX', 550, 550, 0.2, { pol: 's' })], ['EFMX']],
+    ['EFMX, differenced on its own', design(mirror), () => [band('RAV', 520, 580, 1), band('EFMX', 550, 550, 0.2, { pol: 's' })], ['EFMX'], true],
     ['OPLT on EFMX, differenced on its own', design(mirror), () => {
         const field = band('EFMX', 550, 550, 0, { pol: 's', weight: 0 });
         return [band('RAV', 520, 580, 1), field, makeOperand({ type: 'OPLT', refId: field.id, target: 0.2, weight: 1 })];
-    }, ['OPLT']],
+    }, ['OPLT'], true],
 ];
 
 // The types of the weighted rows that miss their target on design `d`.
@@ -115,13 +125,18 @@ function sameInsertion(a, b, layers) {
 const best = cands => cands.reduce((b, c) => (c.grad < b.grad ? c : b));
 const label = c => `${c.materialId} ${c.intra ? `in layer ${c.layerK} at ${c.frac.toFixed(2)}` : `at gap ${c.pos}`}`;
 
-for (const [name, d, opsOf, pulls] of CASES) {
+for (const [name, d, opsOf, pulls, differenced = false] of CASES) {
     const operands = opsOf();
     const missed = missing(operands, d);
     for (const type of pulls) assert.ok(missed.has(type), `${name}: the ${type} row misses its target`);
     const args = { operands, design: d, resolveMat, candidateMats: POOL, deltaNm: DELTA_NM, side: 'front' };
-    const analytic = scanNeedlesAnalytic(args);
+    const analytic = scanNeedlesAnalytic(differenced ? args : { ...args, deltaNm: EXACT_DELTA_NM });
     assert.ok(analytic, `${name}: the analytic scan runs`);
+    if (!differenced) {
+        const fine = scanNeedlesAnalytic(args).candidates;
+        assert.ok(analytic.candidates.every((c, i) => c.grad === fine[i].grad),
+            `${name}: P is the same at a ${EXACT_DELTA_NM} nm and a ${DELTA_NM} nm needle`);
+    }
     const fd = scanNeedlesFD(args);
     assert.equal(analytic.mf0, fd.mf0, `${name}: the same merit`);
     assert.equal(analytic.candidates.length, fd.candidates.length, `${name}: the same candidates`);

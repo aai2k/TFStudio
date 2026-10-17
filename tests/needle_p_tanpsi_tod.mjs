@@ -9,7 +9,8 @@
  * the dispatcher's, are checked against the FD scan on the same insertions:
  * relative error, sign agreement and the best insertion. Read as T, the row
  * would give other P-values. Controls keep plain TAV rows and the s/p-suffixed
- * point types saved designs still carry on the analytic path.
+ * point types saved designs still carry on the analytic path, with exact
+ * slopes: the same P-values at a 0.5 nm needle as at 0.001 nm.
  *
  * P-function: Sullivan & Dobrowolski, Appl. Opt. 35, 5484 (1996);
  * Tikhonravov et al., Appl. Opt. 35, 5493 (1996).
@@ -44,6 +45,10 @@ const design = {
 // cancel, that offset at 0.01 nm is about 1 % of the sum; at 0.001 nm it stays
 // far below the tolerance.
 const FD_DELTA_NM = 0.001;
+// Needle of the analytic scan on a photometric merit, nm, where no row is
+// differenced: an exact slope does not depend on it, and a difference at it
+// would depart from the FD scan's.
+const EXACT_DELTA_NM = 0.5;
 // A candidate enters the relative-error and sign checks when its FD slope is at
 // least this fraction of the largest one, so a near-zero slope cannot dominate.
 const SIGNIFICANT = 1e-2;
@@ -99,11 +104,17 @@ function nonPhotometricCase(name, operands) {
   return report(`${name}, analytic`, againstFD(analytic, fd)) && dispatched;
 }
 
-// A photometric merit: the analytic scan must run and match the FD scan.
+// A photometric merit: the analytic scan must run, give the same P-values at
+// both needles, and match the FD scan.
 function photometricCase(name, operands) {
-  const analytic = scanNeedlesAnalytic(scanArgs(operands));
+  const analytic = scanNeedlesAnalytic({ ...scanArgs(operands), deltaNm: EXACT_DELTA_NM });
   if (!analytic) {
     console.log(`[${name}] analytic scan declined a photometric merit  FAIL`);
+    return false;
+  }
+  const fine = scanNeedlesAnalytic(scanArgs(operands)).candidates;
+  if (analytic.candidates.some((c, i) => c.grad !== fine[i].grad)) {
+    console.log(`[${name}] P differs between a ${EXACT_DELTA_NM} nm and a ${FD_DELTA_NM} nm needle  FAIL`);
     return false;
   }
   return report(`${name}, analytic`, againstFD(analytic, scanNeedlesFD(scanArgs(operands))));
