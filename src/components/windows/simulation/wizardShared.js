@@ -10,7 +10,7 @@
 
 import { axisTooltip, cartesianOption, seriesExtent, valueAxis } from '../../ui/chartOptions.js';
 import { drawChart, useChartTeardown } from '../../ui/plotSurface.js';
-import { PositiveNumberInput } from '../../ui/positiveNumberInput.js';
+import { NumberField } from '../../ui/numberField.js';
 import { makeShiftedMaterial } from '../../../utils/monitoring/monitoringSim.js';
 import { systemSpectrum, splitActiveStacks } from '../../../utils/monitoring/depositionSpectrum.js';
 
@@ -41,26 +41,20 @@ export function inputStyle(c, w) {
     return { width: w, padding: '5px 7px', fontSize: 13, backgroundColor: c.bg, color: c.text,
              border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none', boxSizing: 'border-box' };
 }
-// The fields below take every keystroke. Unparseable text is taken as 0, except
-// in a `positive` field, for a quantity with no bound but zero such as a
-// wavelength: there only a positive number is taken.
-const anyNumber = onChange => (e) => { const v = parseFloat(e.target.value); onChange(Number.isNaN(v) ? 0 : v); };
-function numberInput(props, positive, onChange) {
-    return positive
-        ? h(PositiveNumberInput, { ...props, onChange })
-        : h('input', { ...props, type: 'number', onChange: anyNumber(onChange) });
-}
+// The fields below take a comma or a dot decimal and apply on Enter or when
+// left; `NumberField` has the rules. `positive` is for a quantity with no bound
+// but zero, such as a wavelength.
 export function NumField({ label, value, min, max, positive, step, onChange, c, suffix, width = 110 }) {
     return h('label', { style: { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12, color: c.textDim } },
         label && h('span', null, label),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-            numberInput({ value, min, max, step: step ?? 'any', style: inputStyle(c, width) }, positive, onChange),
+            h(NumberField, { value, min, max, positive, step, onChange, style: inputStyle(c, width) }),
             suffix && h('span', { style: { fontSize: 12, color: c.textDim } }, suffix)));
 }
 // compact numeric cell for tables
 export function cellNum({ value, min, max, positive, step, onChange, c, width = 90 }) {
-    return numberInput({ value, min, max, step: step ?? 'any',
-        style: { ...inputStyle(c, width), padding: '3px 5px', fontSize: 12 } }, positive, onChange);
+    return h(NumberField, { value, min, max, positive, step, onChange,
+        style: { ...inputStyle(c, width), padding: '3px 5px', fontSize: 12 } });
 }
 export function Radio({ checked, onChange, label, c }) {
     return h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: c.text, cursor: 'pointer' } },
@@ -97,8 +91,8 @@ export function RowField({ label, value, min, max, positive, step, onChange, c, 
     return h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 24 } },
         h('span', { style: { fontSize: 11.5, color: c.textDim, lineHeight: 1.1 } }, label),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 } },
-            numberInput({ value, min, max, step: step ?? 'any',
-                style: { ...inputStyle(c, width), padding: '3px 6px', fontSize: 12 } }, positive, onChange),
+            h(NumberField, { value, min, max, positive, step, onChange,
+                style: { ...inputStyle(c, width), padding: '3px 6px', fontSize: 12 } }),
             suffix && h('span', { style: { fontSize: 11, color: c.textDim, width: 14 } }, suffix)));
 }
 

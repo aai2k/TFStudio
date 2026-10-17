@@ -62,7 +62,7 @@ function inputOf(node) {
 // Types `text` into a field that commits on blur, then leaves it.
 function enter(Component, props, text) {
     const taken = [];
-    const render = mount(Component, { ...props, onChange: value => taken.push(value) });
+    const render = mountField(Component, { ...props, onChange: value => taken.push(value) });
     inputOf(render()).props.onChange({ target: { value: text } });
     inputOf(render()).props.onBlur();
     return { taken, shown: String(inputOf(render()).props.value) };
@@ -75,7 +75,7 @@ function expand(node) {
     return { ...node, props: { ...node.props, children: [node.props?.children].flat(Infinity).map(expand) } };
 }
 
-// A field that takes every keystroke, kept from one render to the next.
+// A field and the components inside it, kept from one render to the next.
 function mountField(field, props) {
     return mount(fieldProps => expand(field(fieldProps)), props);
 }
@@ -121,7 +121,7 @@ for (const [name, Component, props] of [
 // A field with real bounds, an angle, still has them.
 assert.deepEqual(enter(NumInput, { value: 0, min: 0, max: 89, c }, '95').taken, [89], 'an angle above 89° is still clamped');
 
-// ── Fields that take every keystroke ─────────────────────────────────────────
+// ── The wizard fields ────────────────────────────────────────────────────────
 
 const wizard = await import('../src/components/windows/simulation/wizardShared.js');
 const filterWizard = await import('../src/components/windows/optimization/filterDesignWizard/ui.js');
@@ -130,25 +130,44 @@ for (const [name, field] of [
     ['monitoring wizard cell', wizard.cellNum],
     ['monitoring wizard row', wizard.RowField],
     ['monitoring wizard field', wizard.NumField],
-    ['Filter Design field', filterWizard.NumField],
 ]) {
+    const props = { value: 550, positive: true, step: 1, c, label: 'λ' };
+    assert.deepEqual(enter(field, props, '20').taken, [20], `${name}: 20 nm is taken on leaving the field`);
+    assert.deepEqual(enter(field, props, '125000').taken, [125000], `${name}: 125000 nm is taken`);
+    assert.deepEqual(['0', '-5', ''].map(text => enter(field, props, text)), Array(3).fill({ taken: [], shown: '550' }),
+        `${name}: 0, -5 and an emptied entry are refused, and the field goes back to 550`);
+    // Nothing is taken while it is typed, so an entry can pass through "" and
+    // "0." on its way to 0.5.
+    const taken = [];
+    const render = mountField(field, { ...props, onChange: value => taken.push(value) });
+    ['', '0', '0.', '0.5'].forEach(text => inputOf(render()).props.onChange({ target: { value: text } }));
+    assert.equal(String(inputOf(render()).props.value), '0.5', `${name}: shows 0.5 as it is typed`);
+    assert.deepEqual(taken, [], `${name}: and takes nothing yet`);
+    inputOf(render()).props.onBlur();
+    assert.deepEqual(taken, [0.5], `${name}: leaving it takes 0.5`);
+}
+{
+    const { taken, shown } = enter(wizard.RowField, { value: 5, step: 1, c, label: 'drift' }, '');
+    assert.deepEqual(taken, [], 'a wizard field that is not a wavelength puts an emptied entry back');
+    assert.equal(shown, '5', 'and shows the value it holds');
+}
+
+{
+    const [name, field] = ['Filter Design field', filterWizard.NumField];
     const props = { value: 550, positive: true, step: 1, c, label: 'λ' };
     assert.deepEqual(keystroke(field, props, '20'), [20], `${name}: 20 nm is taken`);
     assert.deepEqual(keystroke(field, props, '125000'), [125000], `${name}: 125000 nm is taken`);
-    for (const refused of ['0', '-5', '']) {
-        assert.deepEqual(keystroke(field, props, refused), [], `${name}: "${refused}" is not taken`);
-    }
+    assert.deepEqual(['0', '-5', ''].map(text => keystroke(field, props, text)), [[], [], []],
+        `${name}: 0, -5 and an emptied entry are not taken`);
     // What is typed stays in the field, so 0.5 can be typed into an emptied one.
     const taken = [];
     const render = mountField(field, { ...props, onChange: value => taken.push(value) });
-    for (const text of ['', '0', '0.', '0.5']) inputOf(render()).props.onChange({ target: { value: text } });
+    ['', '0', '0.', '0.5'].forEach(text => inputOf(render()).props.onChange({ target: { value: text } }));
     assert.equal(String(inputOf(render()).props.value), '0.5', `${name}: shows 0.5 as it is typed`);
     assert.deepEqual(taken, [0.5], `${name}: and takes only 0.5`);
     inputOf(render()).props.onBlur();
     assert.equal(String(inputOf(render()).props.value), '550', `${name}: leaving it shows the value it holds`);
 }
-assert.deepEqual(keystroke(wizard.RowField, { value: 5, step: 1, c, label: 'drift' }, ''), [0],
-    'a wizard field that is not a wavelength still reads an emptied entry as 0');
 
 // ── The spectral range in Settings ───────────────────────────────────────────
 
