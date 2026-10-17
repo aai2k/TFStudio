@@ -35,7 +35,7 @@ import {
 } from '../evalCore.js';
 import { isEllipsometry, isManufacturability, isPhaseDispersion } from '../operandModel.js';
 import { operandResidualRows } from '../residualRows.js';
-import { _jacRows } from '../jacobianAssembly/jacRows.js';
+import { _jacRows, _jacRowsDecline } from '../jacobianAssembly/jacRows.js';
 import { coneNodesAt } from '../evalCore/tmmEval.js';
 import { coneIsActive } from '../coneAngle.js';
 import { resolveScanSide } from './sides.js';
@@ -51,6 +51,21 @@ const MF_OPT = { skipConstraints: true };
 // math row since the synthesis merit skips them, and the rows read from the
 // complex amplitudes (phase, group delay and its orders, Ψ, Δ, tanΨ, cosΔ).
 const outOfReach = op => isManufacturability(op.type) || isPhaseDispersion(op.type) || isEllipsometry(op.type);
+
+// Rows the synthesis merit scores: enabled, weighted, and not a thickness row,
+// which skipConstraints leaves out.
+const isScored = op => op.enabled && !isManufacturability(op.type) && op.weight > 0;
+
+/**
+ * Whether the analytic scan of `operands` differences some scored row on its
+ * own, at one evaluation of that row per insertion. Read from the rows alone,
+ * so a row counts even where it adds nothing on the stack at hand (a one-sided
+ * row that holds).
+ */
+export function scanDifferencesRows(operands) {
+    const jc = { operands, outOfReach };
+    return operands.some((op, i) => isScored(op) && _jacRowsDecline(op, i, jc));
+}
 
 // Whether the analytic path must decline: a 'total' MF on a single-side
 // optimize mode, which this path doesn't compose a single-side full-system
@@ -144,7 +159,7 @@ function _accumMerit(operands, prep, deltaNm) {
     const deviations = operandSampleDeviations(comp);
     for (let i = 0; i < operands.length; i++) {
         const op = operands[i];
-        if (!op.enabled || comp[i] == null || isManufacturability(op.type) || !(op.weight > 0)) continue;
+        if (!isScored(op) || comp[i] == null) continue;
         const sigma = jc.residualScale(op);
         const residuals = operandResidualRows(op, comp[i], deviations[i], sigma);
         if (residuals.every(r => r === 0)) continue;

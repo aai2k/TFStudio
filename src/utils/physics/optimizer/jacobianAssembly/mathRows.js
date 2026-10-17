@@ -27,14 +27,23 @@ function rowIndexOf(jc, id) {
     return jc.rowIndexById.get(id);
 }
 
-/** ∂V/∂d of math row i over the free variables, or null. */
-export function mathValueSlope(op, i, jc, slopeOf) {
-    // An OPGT or OPLT saved before references existed is evaluated as a
-    // virtual row of its baseType, whose extremum wavelength and sample
-    // deviations the evaluation does not keep.
+/**
+ * Indices in jc.operands of the rows math row `op` reads, or null where its
+ * value has nothing to chain through: a reference to no row, or an OPGT or
+ * OPLT saved before references existed, which is evaluated as a virtual row
+ * of its baseType whose extremum wavelength and sample deviations the
+ * evaluation does not keep.
+ */
+export function mathReadIndices(op, jc) {
     if (isInequality(op.type) && !op.refId && op.baseType) return null;
     const indices = mathReferenceIds(op).map(id => rowIndexOf(jc, id));
-    if (indices.some(index => index === undefined)) return null;
+    return indices.some(index => index === undefined) ? null : indices;
+}
+
+/** ∂V/∂d of math row i over the free variables, or null. */
+export function mathValueSlope(op, i, jc, slopeOf) {
+    const indices = mathReadIndices(op, jc);
+    if (!indices) return null;
     const slopes = indices.map(index => slopeOf(jc.operands[index], index, jc));
     if (slopes.some(slope => !slope)) return null;
     const partials = mathValuePartials(op, indices.map(index => jc.comp[index]));

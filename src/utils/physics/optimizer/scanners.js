@@ -11,7 +11,7 @@ import { scanNeedlesAnalytic } from './scanners/analyticScan.js';
 import { scanNeedlesFD } from './scanners/fdScan.js';
 
 export { resolveScanSide } from './scanners/sides.js';
-export { scanNeedlesAnalytic } from './scanners/analyticScan.js';
+export { scanNeedlesAnalytic, scanDifferencesRows } from './scanners/analyticScan.js';
 export { scanNeedlesFD } from './scanners/fdScan.js';
 export { findOptimalNeedleThickness } from './scanners/thickness.js';
 export { intraMinima } from './scanners/intraMinima.js';

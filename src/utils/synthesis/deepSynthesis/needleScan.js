@@ -10,15 +10,19 @@
 //
 // P is TFStudio's analytic needle function, dMF/dd per nm of new layer; where
 // the analytic scan does not run (physics/optimizer/scanners.js), the
-// finite-difference scan with at most FD_INTRA_MAX points per layer.
+// finite-difference scan. A scan that differences takes at most FD_INTRA_MAX
+// points per layer: the finite-difference one, and the analytic one when it
+// differences a row it has no exact slope for.
 
-import { scanNeedlesAnalytic, scanNeedlesFD } from '../../physics/optimizer/scanners.js';
+import { scanDifferencesRows, scanNeedlesAnalytic, scanNeedlesFD } from '../../physics/optimizer/scanners.js';
 
 export const MAX_CANDIDATES = 64;      // needle.c 459 MAXC, giga4.c 284
 export const INTRA_PER_WAVE = 32;      // needle.c 206: points lambda_min / 32 apart in optical thickness
 export const INTRA_MIN = 3;            // needle.c 207
 export const INTRA_MAX = 8192;         // needle.c 208
-export const FD_INTRA_MAX = 16;        // cap on the finite-difference scan, which costs one merit per point
+// Cap on a scan that differences, which costs per point one merit (finite
+// differences) or one evaluation of each differenced row (analytic).
+export const FD_INTRA_MAX = 16;
 export const NEEDLE_TINY = 1e-12;      // needle.c 218: P above -tiny * mf0 is rounding
 
 // needle.c grid_scale 135-141: real index of the densest pool material at the
@@ -48,14 +52,15 @@ export function intraCount(ev, layers, { k0 = 0, k1 = layers.length, fit = false
 // One scan of the whole design with nIntra points per layer. Returns the
 // scanner's { candidates, mf0 } and the points per layer it used.
 function runScan(ev, layers, nIntra) {
+    const capped = Math.min(nIntra, FD_INTRA_MAX);
     const args = {
         operands: ev.operands, design: ev.designOf(layers), resolveMat: ev.resolveMat,
-        candidateMats: ev.candidateMats, deltaNm: 0.5, side: ev.side, dMin: ev.floor, nIntra,
+        candidateMats: ev.candidateMats, deltaNm: 0.5, side: ev.side, dMin: ev.floor,
+        nIntra: scanDifferencesRows(ev.operands) ? capped : nIntra,
     };
     const analytic = scanNeedlesAnalytic(args);
-    if (analytic) return { ...analytic, nIntra };
-    const fdIntra = Math.min(nIntra, FD_INTRA_MAX);
-    return { ...scanNeedlesFD({ ...args, nIntra: fdIntra }), nIntra: fdIntra };
+    if (analytic) return { ...analytic, nIntra: args.nIntra };
+    return { ...scanNeedlesFD({ ...args, nIntra: capped }), nIntra: capped };
 }
 
 // Depth index of a scanner candidate: gap k at k * (nIntra + 1), the r-th point

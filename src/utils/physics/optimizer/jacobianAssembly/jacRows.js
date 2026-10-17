@@ -36,7 +36,7 @@ import {
 } from './extremumRows.js';
 import { linearThicknessFactor, linearThicknessSlope } from './linearRows.js';
 import { ellipsometrySlope, phaseSlope } from './phaseRows.js';
-import { mathRow, mathValueSlope } from './mathRows.js';
+import { mathReadIndices, mathRow, mathValueSlope } from './mathRows.js';
 
 const weighted = op => Math.sqrt(op.weight);
 
@@ -86,6 +86,28 @@ function ownValueSlope(op, i, jc) {
     if (hasNoSlope(op, jc)) return null;
     if (isMath(op.type)) return mathValueSlope(op, i, jc, valueSlope);
     return rowKind(op.type)[1](op, i, jc, jc.residualScale(op));
+}
+
+// Whether valueSlope can give row i a slope, by its rules read from the rows
+// alone. `seen` holds each row met: false while its chain is followed, so a
+// row met again on its own chain reads as having none.
+function reachesSlope(op, i, jc, seen) {
+    if (seen.has(i)) return seen.get(i);
+    seen.set(i, false);
+    const chainReaches = () => mathReadIndices(op, jc)
+        ?.every(index => reachesSlope(jc.operands[index], index, jc, seen)) ?? false;
+    const reaches = isPerSample(op) || (!hasNoSlope(op, jc) && (!isMath(op.type) || chainReaches()));
+    seen.set(i, reaches);
+    return reaches;
+}
+
+// Whether _jacRows declines row i of jc.operands, decided from the rows alone
+// without a derivative taken: a kind with no slope, or a math row whose chain
+// meets one, a reference to no row, or itself. jc needs only operands and
+// outOfReach. A phase or ellipsometric row is also declined where the
+// evaluation kept no derivative at its wavelength, which this cannot see.
+export function _jacRowsDecline(op, i, jc) {
+    return !reachesSlope(op, i, jc, new Map());
 }
 
 // The Jacobian rows of one operand, in the order and number of the residual

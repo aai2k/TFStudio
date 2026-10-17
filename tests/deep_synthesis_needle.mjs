@@ -28,6 +28,12 @@
  *   8. probeNeedleRun from one SiO2 layer on BBAR: without a floor it lowers
  *      the merit at every insertion and stops at the layer cap, the same
  *      twice; at a 20 nm floor it stalls with no gain; Stop and the target.
+ *   9. A scan that differences a row: scanDifferencesRows names the merits
+ *      whose analytic scan differences some row (EFMX, GD, Ψ, math rows on
+ *      EFMX or TT, an OPGT saved with baseType), as the scan's P-values show
+ *      by changing with the needle it differences with; scanWindow on such a
+ *      merit takes at most FD_INTRA_MAX points per layer, and on R and T rows
+ *      alone every point intraCount asks for.
  *
  * Run: node tests/deep_synthesis_needle.mjs
  */
@@ -44,14 +50,16 @@ const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js'
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { presampleSynthesisMaterials } = await import('../src/components/windows/optimization/synthesisShared/runGrid.js');
 const { makeEngine } = await import('../src/utils/optimizers/index.js');
-const { DLSOptimizer } = await import('../src/utils/physics/optimizer.js');
+const { DLSOptimizer, makeOperand, scanNeedlesAnalytic, scanDifferencesRows } = await import('../src/utils/physics/optimizer.js');
 const { makeEvaluator } = await import('../src/utils/synthesis/deepSynthesis/evaluator.js');
 
 const base = { surfaceMode: 'front_only', mfEvalMode: 'side', incidentMedium: 'Air', exitMedium: 'Air',
                substrate: { material: 'BK7', thickness: 1 } };
 const pool = ['TiO2', 'SiO2'];
 function fixture(caseId, over = {}) {
-    const operands = caseById(caseId).ops.map(op => ({ ...op, enabled: true }));
+    return evaluatorOf(caseById(caseId).ops.map(op => ({ ...op, enabled: true })), over);
+}
+function evaluatorOf(operands, over = {}) {
     const design = { ...base, frontLayers: [], backLayers: [] };
     const materials = presampleSynthesisMaterials(design, operands, pool.map(id => ({ id, mat: getMaterial(id) })));
     const spec = { operands, base, side: 'front', otherLayers: [], pool, dMin: 20, dMax: Infinity, maxLayers: 8,
@@ -344,6 +352,53 @@ function refinedFrom(e, T, what) {
         tries: 1, maxLayers: cap, log: { trace: makeTrace(), keep: null }, targetMf: 0.02 });
     assert.equal(target.reason, 'enough', 'the stop rule ends the cycle once the target is met');
     assert.ok(target.mf <= 0.02, 'at a design within the target');
+}
+
+// ── 9. A scan that differences a row ─────────────────────────────────────────
+{
+    const band = (type, a, b, target, extra = {}) =>
+        makeOperand({ type, lambdaStart: a, lambdaEnd: b, aoi: 0, pol: 'avg', target, weight: 1, ...extra });
+    const one = (type, ref, target) => makeOperand({ type, refId: ref.id, target, weight: 1 });
+    const field = (extra = {}) => band('EFMX', 550, 550, 0.2, { pol: 's', ...extra });
+    // Each set joins a RAV row to the rows named; every weighted row misses its
+    // target on S, so a differenced row moves P.
+    const SETS = [
+        ['RAV alone', () => [], false],
+        ['OPGT on an unweighted RAV', () => { const r = band('RAV', 600, 650, 0, { weight: 0 }); return [r, one('OPGT', r, 0.5)]; }, false],
+        ['EFMX', () => [field()], true],
+        ['an unweighted EFMX no row reads', () => [field({ weight: 0 })], false],
+        ['a disabled EFMX', () => [{ ...field(), enabled: false }], false],
+        ['OPLT on an unweighted EFMX', () => { const f = field({ weight: 0 }); return [f, one('OPLT', f, 0.2)]; }, true],
+        ['GD', () => [band('GD', 550, 550, 0, { pol: 's' })], true],
+        ['PSI at 60°', () => [band('PSI', 550, 550, 30, { aoi: 60 })], true],
+        ['OPLT on TT', () => { const r = makeOperand({ type: 'TT', target: 0, weight: 0, cmp: 'eq' }); return [r, one('OPLT', r, 100)]; }, true],
+        ['an OPGT saved with baseType', () => [makeOperand({ type: 'OPGT', baseType: 'TAV', lambdaStart: 600, lambdaEnd: 650, target: 0.99, weight: 1 })], true],
+    ];
+    const mirror = Array.from({ length: 11 }, (_, i) => L(i % 2 ? 'SiO2' : 'TiO2', i % 2 ? 94 : 57));
+    for (const [name, rowsOf, differences] of SETS) {
+        const e = evaluatorOf([band('RAV', 520, 580, 1), ...rowsOf()], { dMin: 0 });
+        assert.equal(scanDifferencesRows(e.operands), differences, `${name}: scanDifferencesRows`);
+        const args = { operands: e.operands, design: e.designOf(mirror), resolveMat: e.resolveMat,
+                       candidateMats: e.candidateMats, side: 'front', nIntra: 3 };
+        const [coarse, fine] = [0.5, 0.1].map(deltaNm => scanNeedlesAnalytic({ ...args, deltaNm }).candidates.map(c => c.grad));
+        assert.equal(coarse.some((p, i) => p !== fine[i]), differences,
+            `${name}: P ${differences ? 'changes' : 'does not change'} with the needle a row is differenced with`);
+    }
+
+    // A 2 µm SiO2 layer asks for about 300 points per layer at lambda_min 520 nm.
+    const S = [...mirror, L('SiO2', 2000)];
+    const exact = evaluatorOf([band('RAV', 520, 580, 1)], { dMin: 0 });
+    const differenced = evaluatorOf([band('RAV', 520, 580, 1), field()], { dMin: 0 });
+    const n = N.intraCount(exact, S);
+    assert.ok(n > N.FD_INTRA_MAX && N.intraCount(differenced, S) === n, `intraCount asks for ${n} points per layer`);
+    // Whether every split sits at a multiple of 1 / (m + 1) of its layer.
+    const onGrid = (cands, m) => cands.every(c => Math.abs(c.frac * (m + 1) - Math.round(c.frac * (m + 1))) < 1e-9);
+    const splits = cands => cands.filter(c => c.layer >= 0);
+    const capped = splits(N.scanWindow(differenced, S, { max: Infinity }));
+    assert.ok(capped.length > 0 && onGrid(capped, N.FD_INTRA_MAX),
+        `differencing EFMX, the scan takes at most ${N.FD_INTRA_MAX} points per layer`);
+    const full = splits(N.scanWindow(exact, S, { max: Infinity }));
+    assert.ok(onGrid(full, n) && !onGrid(full, N.FD_INTRA_MAX), 'on R and T rows alone, every point intraCount asks for');
 }
 
 console.log(`All Deep Synthesis needle helper tests passed (engine ${ENGINE}).`);
