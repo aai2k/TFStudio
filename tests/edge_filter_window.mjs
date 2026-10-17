@@ -16,7 +16,8 @@
  *      which puts it in the design with the same media.
  *   7. The table lists the periods with the best one picked, drawing only the
  *      rows in view, and the formula row shows the picked period.
- *   8. Its help button opens a page that exists in both languages.
+ *   8. Its help button opens a page that exists in both languages, whose
+ *      example formula is the one the window gives for the case it names.
  *
  * Run: node tests/edge_filter_window.mjs
  */
@@ -304,7 +305,11 @@ assert.ok(workersMade[0].terminated, 'and ends it');
     for (const slug of [`${EDGE_FILTER_HELP}.md`, `zh/${EDGE_FILTER_HELP}.md`]) {
         const page = new URL(`../docs-site/src/content/docs/${slug}`, import.meta.url);
         assert.ok(existsSync(page), `the help button opens ${slug}`);
-        assert.match(readFileSync(page, 'utf8'), /^ribbonIcon: edge-filter$/m, `${slug} shows the ribbon icon`);
+        const text = readFileSync(page, 'utf8');
+        assert.match(text, /^ribbonIcon: edge-filter$/m, `${slug} shows the ribbon icon`);
+        // Its example formula is the one section 2 gets for the case it names:
+        // the built-in SiO2 and TiO2, edge at 510 nm, 45° in air.
+        assert.ok(text.includes(`\`${formula}\``), `${slug} quotes ${formula}, the formula the window gives`);
     }
     const { ICONS: docsIcons } = await import('../docs-site/src/components/ribbon-icons.js');
     assert.ok(docsIcons['edge-filter'], 'the docs site has the icon to show');
