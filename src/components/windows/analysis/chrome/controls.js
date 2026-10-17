@@ -12,9 +12,9 @@
  */
 
 import { Checkbox } from '../../../ui/Checkbox.js';
-import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
+import { useNumberField } from '../../../ui/numberField.js';
 
-const { createElement: h, useState, useEffect } = React;
+const { createElement: h } = React;
 
 const FONT = 'system-ui, -apple-system, sans-serif';
 
@@ -36,67 +36,16 @@ export function Divider({ c }) {
 }
 
 /**
- * Number field that commits on blur or Enter, so a partially typed value never
- * reaches the calculation. Out-of-range entries are clamped rather than
- * rejected; unparseable ones revert.
- *
- * A text field rather than `type="number"`. A native number field displays and
- * accepts the decimal separator of the browser's locale, so on a machine set to
- * Russian a step of 0.4375 reads back as `0,4375` and a typed dot is refused.
- * TFStudio writes a dot everywhere and takes either separator on the way in.
- * Arrow keys still step by `step`, which is the part of the native control
- * worth keeping.
- *
- * `nullable` is for a quantity that can genuinely be unknown, such as a
- * substrate diameter nobody has measured: the field shows `placeholder`, an
- * emptied field commits null rather than reverting, and stepping from nothing
- * starts at `emptyStep`.
- *
- * `positive` is for a quantity with no bound but zero, such as a wavelength or
- * a step: zero or a negative entry reverts like unparseable text, and the
- * arrow keys stop short of zero.
+ * Number field sized for a toolbar row. It takes either decimal separator and
+ * applies on blur or Enter; `useNumberField` has the rules and the options.
  */
-const textOf = value => (value == null ? '' : String(value));
-
 export function NumInput({
-    value, onChange, min, max, step = 1, c, width = 60, title, disabled,
-    nullable = false, placeholder, emptyStep = 0, positive = false,
+    value, onChange, min, max, step, c, width = 60, title, disabled,
+    nullable, placeholder, emptyStep, positive,
 }) {
-    const [raw, setRaw] = useState(textOf(value));
-    useEffect(() => { setRaw(textOf(value)); }, [value]);
-    const clamp = number => Math.min(Math.max(number, min ?? -Infinity), max ?? Infinity);
-    const accepts = number => Number.isFinite(number) && (!positive || number > 0);
-    const commit = () => {
-        if (raw === textOf(value)) return;
-        const parsed = parseNumberStrict(raw);
-        if (accepts(parsed)) onChange(clamp(parsed));
-        else if (nullable && raw.trim() === '') onChange(null);
-        else setRaw(textOf(value));
-    };
-    const nudge = (direction) => {
-        const parsed = parseNumberStrict(raw);
-        const from = Number.isFinite(parsed) ? parsed : value;
-        // Nothing to step from: the first press lands ON emptyStep, which is
-        // where the caller wants an empty field to start, not a step past it.
-        // Stepping in binary leaves 0.30000000000000004 in the field.
-        const next = from == null
-            ? clamp(emptyStep)
-            : clamp(Number((from + direction * step).toPrecision(12)));
-        if (!accepts(next)) return;
-        setRaw(String(next));
-        onChange(next);
-    };
     return h('input', {
-        type: 'text', inputMode: 'decimal', value: raw, title, disabled, placeholder,
-        // See `.tfs-number` in styles.css.
-        className: 'tfs-number',
-        onChange: event => setRaw(event.target.value),
-        onBlur: commit,
-        onKeyDown: (event) => {
-            if (event.key === 'Enter') commit();
-            else if (event.key === 'ArrowUp') { event.preventDefault(); nudge(1); }
-            else if (event.key === 'ArrowDown') { event.preventDefault(); nudge(-1); }
-        },
+        title, disabled, placeholder,
+        ...useNumberField({ value, onChange, min, max, step, nullable, emptyStep, positive }),
         style: {
             width, height: 24, backgroundColor: c.field, color: c.text,
             border: `1px solid ${c.border}`, borderRadius: 3,
