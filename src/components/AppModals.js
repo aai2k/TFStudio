@@ -83,6 +83,7 @@ export function AppModals({
             c, t, onClose: () => dialogs.setShowStackFormula(false),
         }, h(StackFormulaDialog, {
             c, t,
+            seed: dialogs.showStackFormula === true ? null : dialogs.showStackFormula,
             folderName: project.selectedFolder?.name,
             hasActiveDesign: activeDesignId != null,
             onClose: () => dialogs.setShowStackFormula(false),

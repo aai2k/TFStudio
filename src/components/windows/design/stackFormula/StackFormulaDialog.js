@@ -6,6 +6,9 @@
  * the grammar and semantics (QWOT-multiplier coefficients, (…)^n groups,
  * single-char adjacency, media sides).
  *
+ * It opens on a formula read from the active design, or on `seed`, a formula
+ * another window hands over (see useStackFormula).
+ *
  * Apply modes:
  *   • Replace — overwrite the active design's front stack (+ media if the
  *     formula specifies them); one undo checkpoint.
@@ -22,9 +25,9 @@ import { Footer } from './Footer.js';
 
 const { createElement: h } = React;
 
-export function StackFormulaDialog({ onClose, onCreateNew, folderName, hasActiveDesign, c, t }) {
+export function StackFormulaDialog({ onClose, onCreateNew, folderName, hasActiveDesign, seed, c, t }) {
     const { design, updateDesign, checkpoint } = useDesign();
-    const state = useStackFormula({ design, updateDesign, checkpoint, onClose, onCreateNew, t });
+    const state = useStackFormula({ design, updateDesign, checkpoint, onClose, onCreateNew, seed, t });
     const sf = state.sf;
 
     return h('div', {

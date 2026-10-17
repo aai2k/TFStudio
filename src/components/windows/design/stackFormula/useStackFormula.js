@@ -34,15 +34,17 @@ function applyReplaceOrAppend({ mode, state, deps }) {
     deps.onClose();
 }
 
-export function useStackFormula({ design, updateDesign, checkpoint, onClose, onCreateNew, t }) {
+export function useStackFormula({ design, updateDesign, checkpoint, onClose, onCreateNew, seed, t }) {
     const sf = t.stackFormula;
     const resolvers = useMemo(() => stackFormulaResolvers(design), [design]);
     const resolveMaterial = useMemo(() => designMaterialLookup(design), [design]);
 
-    // Seed once from the active design: auto-detect its materials → H/L/M symbols
-    // and a compact formula (or H/L/M defaults + sample for an empty design).
+    // Seed once: from a formula another window hands over ({ text, rows,
+    // refLambda, incidentMat, substrateMat }), or else from the active design:
+    // auto-detect its materials → H/L/M symbols and a compact formula (or H/L/M
+    // defaults + sample for an empty design).
     const seedRef = useRef(null);
-    if (!seedRef.current) seedRef.current = computeSeed(design, resolvers);
+    if (!seedRef.current) seedRef.current = seed || computeSeed(design, resolvers);
 
     // Symbol → material assignments as an ordered, editable list. The user can
     // reassign, rename, add, or remove; any unknown symbol used in the formula
@@ -59,13 +61,13 @@ export function useStackFormula({ design, updateDesign, checkpoint, onClose, onC
     const removeRow = useCallback((idx) =>
         setSymRows(prev => prev.filter((_, i) => i !== idx)), []);
 
-    const [refLambda, setRefLambda] = useState(() => design.referenceWavelength || 550);
+    const [refLambda, setRefLambda] = useState(() => seedRef.current.refLambda || design.referenceWavelength || 550);
     const [startFromSubstrate, setStartFromSubstrate] = useState(DEFAULT_START_FROM_SUBSTRATE);
     // Media as dropdowns (initialised from the design) — the formula carries
     // layers only. The front coating is bounded by the incident medium +
     // substrate; the back coating by the substrate + exit medium.
-    const [incidentMat, setIncidentMat] = useState(() => design.incidentMedium || 'builtin:Air');
-    const [substrateMat, setSubstrateMat] = useState(() => design.substrate?.material || 'builtin:BK7');
+    const [incidentMat, setIncidentMat] = useState(() => seedRef.current.incidentMat || design.incidentMedium || 'builtin:Air');
+    const [substrateMat, setSubstrateMat] = useState(() => seedRef.current.substrateMat || design.substrate?.material || 'builtin:BK7');
     const [exitMat, setExitMat] = useState(() => design.exitMedium || 'builtin:Air');
 
     // Which coating side(s) to write the formula into.

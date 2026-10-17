@@ -11,6 +11,8 @@ export function useAppDialogs() {
     const [showFilterDesign, setShowFilterDesign] = useState(false);
     const [showBBM,          setShowBBM]          = useState(false);
     const [showMono,         setShowMono]         = useState(false);
+    // true opens Stack Formula on the active design's own formula; an object
+    // opens it on a formula another window hands over (see useStackFormula).
     const [showStackFormula, setShowStackFormula] = useState(false);
 
     // The Design Editor's toolbar button opens the Stack Formula dialog through
