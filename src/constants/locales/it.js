@@ -61,7 +61,7 @@ export default {
       specification: 'Spec.',
       'coating-library': 'Rivestim.',
       'stack-formula': 'Formula',
-      'edge-filter': 'Fronte',
+      'edge-filter': 'Filtro a fronte',
       'optical-eval': 'T/R/A',
       'wavelength-angle-map': 'λ / angolo',
       'color-eval': 'Colore',
