@@ -37,8 +37,10 @@ export function readOnce(rows, key, read) {
  * one gives the default, and an end not above the start is put 100 nm past it.
  */
 export function draftRangeNm(draft) {
+    // A typo such as 550..5 is no wavelength and gives the default, as an
+    // empty box does, rather than being read as 5505.
     const nm = (text, fallback) => {
-        const value = parseNumber(text);
+        const value = parseNumberStrict(text);
         return value > 0 ? value : fallback;
     };
     const lambdaMin = nm(draft.lambdaMinNm, 300);

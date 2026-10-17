@@ -223,6 +223,10 @@ function buttonsOf(node, found = []) {
     assert.deepEqual(draftRangeNm(edited(lambdaMax, '94,2')), [50, 94.2], 'Material Editor: and a stated end');
     assert.deepEqual(fitRangeNm(edited(fitFrom, '94,2'), null), [94.2, 800], 'Material Editor: a fit from 94,2 nm');
     assert.deepEqual(fitRangeNm(edited(fitTo, '94,2'), null), [50, 94.2], 'Material Editor: and a fit to 94,2 nm');
+    // A text box hands a typo to the draft: the range read from it is the
+    // default, as for an empty box, not a misread wavelength.
+    assert.deepEqual(draftRangeNm(edited(lambdaMax, '550..5')), [50, 2500], 'Material Editor: a stated end of 550..5 is refused');
+    assert.deepEqual(draftRangeNm(edited(lambdaMax, '1200x')), [50, 2500], 'Material Editor: and so is 1200x');
 }
 
 console.log('comma_decimal_design_and_wizards: passed');
