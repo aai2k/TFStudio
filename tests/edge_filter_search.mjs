@@ -12,8 +12,9 @@
  *      coinciding edges: the search with a = 0 finds nothing.
  *   4. The edge is where it was asked for: the same indices at another edge
  *      wavelength give the same multipliers, and the zone starts there.
- *   5. The reference program's worked example (shortwave pass, 45° in air,
- *      SiO2 and TiO2) picks the period it reports.
+ *   5. The worked example in Essential Macleod's manual (Design Tools, Edge
+ *      Filter, pp. 238-241: shortwave pass, 45° in air, SiO2 and TiO2) picks
+ *      the period it reports.
  *   6. The ranking and the input limits.
  *
  * Run: node tests/edge_filter_search.mjs
@@ -28,7 +29,7 @@ import {
 
 const ANGLE = 45;
 const N_LOW = 1.45042;   // fused silica at 1000 nm (Malitson)
-const N_HIGH = 2.25;     // the TiO2 index of the reference program's example
+const N_HIGH = 2.25;     // the TiO2 index of Essential Macleod's example
 const SUBSTRATE = 1.52;
 
 const constant = n => ({ getNK: () => [n, 0] });
@@ -157,7 +158,7 @@ for (const pass of ['short', 'long']) {
     }
 }
 
-// ── 5. The reference program's worked example ───────────────────────────────
+// ── 5. Essential Macleod's worked example ───────────────────────────────────
 // Its formula is (0.4X 0.548835441844365Y 0.362700817540749X 0.548835441844365Y
 // 0.4X)^19 with X = SiO2 and Y = TiO2, edge 1000 nm. Its SiO2 at 1000 nm is not
 // stated; its thicknesses put it between 1.4504 and 1.4506, which moves b and c

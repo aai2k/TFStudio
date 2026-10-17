@@ -11,8 +11,9 @@ import { designMaterialLookup } from '../../../../utils/materials/designMaterial
 import { autoSymbolMap, buildStackFromFormula, stackFormulaResolvers } from '../../../../utils/synthesis/stackFormula.js';
 import { previewWavelengthRange } from '../stackFormula/model.js';
 
-// The reference program's worked example: a shortwave pass at 45° between
-// SiO2 and TiO2, 19 periods, a searched from 0.1 to 1 in steps of 0.05.
+// The worked example in Essential Macleod's manual (Design Tools, Edge Filter,
+// pp. 238-241): a shortwave pass at 45° between SiO2 and TiO2, 19 periods, a
+// searched from 0.1 to 1 in steps of 0.05.
 const EXAMPLE = {
     pass: 'short', angle: 45, periods: 19, lower: 0.1, upper: 1.0, step: 0.05,
     low: 'builtin:SiO2', high: 'builtin:TiO2',

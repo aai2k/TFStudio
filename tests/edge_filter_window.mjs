@@ -64,7 +64,7 @@ assert.equal(inputs.substrateMat, 'builtin:BK7');
 assert.equal(inputs.matA, 'builtin:SiO2', 'A is the lowest index of the design');
 assert.equal(inputs.matB, 'builtin:TiO2', 'B is the highest');
 assert.deepEqual([inputs.pass, inputs.angle, inputs.periods, inputs.lower, inputs.upper, inputs.step],
-    ['short', 45, 19, 0.1, 1, 0.05], "the reference program's worked example");
+    ['short', 45, 19, 0.1, 1, 0.05], "the worked example in Essential Macleod's manual");
 const empty = model.initialInputs({ ...design, frontLayers: [] });
 assert.deepEqual([empty.matA, empty.matB], ['builtin:SiO2', 'builtin:TiO2'], 'an empty design gets the example pair');
 

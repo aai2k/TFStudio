@@ -31,9 +31,10 @@
  * P = N11 with the centre layer absent and Q = N11 with it a tilted quarter
  * wave. γ is the same number for s and p (it depends on n cosθ, not on the
  * admittance), so asking N11 = σ for both polarizations at λe, σ = ±1, is two
- * linear equations in cos γ and sin γ, which is how Macleod solves Eqs. 9.24
- * and 9.25 (p. 352) for the detuned outer layers. Their solution is a point on
- * the unit circle only for particular b, and that is the one condition left:
+ * linear equations in cos γ and sin γ, as Macleod's Eq. 9.23 is for his
+ * detuned outer layers (solved in Eqs. 9.24 and 9.25, p. 352). Their solution
+ * is a point on the unit circle only for particular b, and that is the one
+ * condition left:
  *     F(b) = x² + y² − 1 = 0,  x = σ(Qp − Qs)/D,  y = σ(Ps − Pp)/D,
  *     D = Ps Qp − Qs Pp.
  * F does not depend on σ, so each root b gives two periods, γ and γ + π, one
@@ -41,11 +42,12 @@
  * (N11 = +1).
  *
  * For each a on the search grid and for either material outside, F is sampled
- * over one period of b and its roots bracketed and bisected. The reference
- * program describes its search as finding b and then scaling a, b and c to put
- * the edge at λe; solving at λe from the start gives the same periods without
- * the scaling and keeps a on the grid asked for, as its own worked example
- * does (a = 0.4 with the edge exactly at the reference wavelength).
+ * over one period of b and its roots bracketed and bisected. The manual of
+ * Essential Macleod's Edge Filter tool (Design Tools, Edge Filter, pp. 238-241)
+ * describes finding b and then scaling a, b and c together to put the edge at
+ * λe; solving at λe from the start gives the same periods without the scaling
+ * and keeps a on the grid asked for, as the manual's worked example has
+ * (a = 0.4 with the edge exactly at the reference wavelength).
  *
  * Which periods are kept. At a root the two zones touch λe; a shortwave-pass
  * filter needs both on the long-wavelength side, a longwave-pass filter both
@@ -57,8 +59,8 @@
  * the narrower of the s and p zones is the rejection band of the filter. The
  * periods are ranked by that width, widest first, and a tie goes to the wider
  * pass region, the distance from the edge to the next zone of either
- * polarization on the pass side. For the reference program's worked example
- * this picks the period it reports.
+ * polarization on the pass side. For the worked example in Essential Macleod's
+ * manual this picks the period it reports.
  */
 
 import { layerMatrix, matmul, snellCosTheta } from '../../tmmcore.js';
@@ -66,8 +68,8 @@ import { layerMatrix, matmul, snellCosTheta } from '../../tmmcore.js';
 const HALF_PI = Math.PI / 2;
 
 // Samples of b across one period of the inner layer's phase. Neighbouring
-// roots lie 0.017 apart in b in the reference program's worked example; 400
-// samples put about three between them.
+// roots lie 0.017 apart in b in the worked example of Essential Macleod's
+// manual; 400 samples put about three between them.
 const B_SAMPLES = 400;
 
 // Bisection steps: 60 halvings take a bracket of 0.005 below double
@@ -267,7 +269,7 @@ const REQUEST_CHECKS = [
 
 /**
  * Why a request cannot be searched, as an error key, or null when it can.
- * The limits on the search range are the reference program's.
+ * The limits on the search range are those of Essential Macleod's tool.
  */
 export function edgeSearchError(request) {
     return REQUEST_CHECKS.find(([, passes]) => !passes(request))?.[0] ?? null;
