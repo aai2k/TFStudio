@@ -13,8 +13,8 @@
  *      Formula does, the searched medium on the side the light arrives from.
  *   5. The search runs in its worker and can be stopped there.
  *   6. The ribbon opens the window, and its formula opens in Stack Formula.
- *   7. The table lists the periods with the best one picked, and the formula
- *      row shows the picked period.
+ *   7. The table lists the periods with the best one picked, drawing only the
+ *      rows in view, and the formula row shows the picked period.
  *   8. Its help button opens a page that exists in both languages.
  *
  * Run: node tests/edge_filter_window.mjs
@@ -35,6 +35,7 @@ const model = await import('../src/components/windows/design/edgeFilter/model.js
 const { edgeFilterPatch, buildNewEdgeFilterDesign } = await import('../src/components/windows/design/edgeFilter/designBuild.js');
 const { startEdgeSearch, stopEdgeSearch } = await import('../src/components/windows/design/edgeFilter/searchRun.js');
 const { SolutionsTable } = await import('../src/components/windows/design/edgeFilter/SolutionsTable.js');
+const { RESULT_ROW_HEIGHT } = await import('../src/components/ui/ResultsSection.js');
 const { ResultsPanel } = await import('../src/components/windows/design/edgeFilter/ResultsPanel.js');
 const { AppModals } = await import('../src/components/AppModals.js');
 const { EdgeFilterDialog } = await import('../src/components/windows/design/edgeFilter/EdgeFilterDialog.js');
@@ -204,8 +205,17 @@ assert.equal(fromWorker.workerRef.current, null, 'a finished search lets its wor
         select() {}, formula, compiled, openInStackFormula() {},
     };
     const table = renderToStaticMarkup(withDesign(h(SolutionsTable, { state, design, c, ef }), design));
-    assert.equal((table.match(/<tr/g) || []).length, solutions.length + 1, 'a row per period under the header');
     assert.ok(table.includes(best.a.toFixed(4)) && table.includes(best.b.toFixed(4)), 'the best period is listed');
+    // A fine step over a wide range of a finds tens of thousands of periods, and
+    // a click on a row draws the table again: only the rows in view are drawn.
+    const many = Array.from({ length: 80000 }, (_, i) => solutions[i % solutions.length]);
+    const long = renderToStaticMarkup(withDesign(h(SolutionsTable, {
+        state: { ...state, solutions: many, current: { result: { solutions: many }, selected: 0 } }, design, c, ef,
+    }), design));
+    const drawn = (long.match(/<tr/g) || []).length;
+    assert.ok(drawn < 60, `80,000 periods draw ${drawn} rows`);
+    const below = Math.max(...[...long.matchAll(/height:(\d+)px/g)].map(match => Number(match[1])));
+    assert.ok(below / RESULT_ROW_HEIGHT > 79900, 'the rows not drawn still give the scrollbar its full length');
     const panel = renderToStaticMarkup(withDesign(h(ResultsPanel, { state, c, ef, design, lambdaAxis: 'λ' }), design));
     assert.ok(panel.includes(`value="${formula}"`), 'the formula row shows the picked period');
     assert.ok(panel.includes(ef.found(solutions.length)));
