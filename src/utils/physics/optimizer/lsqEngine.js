@@ -328,11 +328,13 @@ export class LSQEngine {
     // analytic comp-Hessian tmmThicknessHessian
     // (FD-validated, tests/hessian_fd_validation.mjs).
     //
-    // Scope: front_only single-surface (the mode whose analytic Jacobian is a
-    // direct read). Returns null — caller falls back to LM step() — for any
-    // other surface/eval mode, or if the analytic Jacobian declines (EFMX and
-    // the math rows reading it), or if a row has σ ≠ 1 (its curvature is not
-    // divided by σ).
+    // Scope: a merit scored on one surface, front_only or back_only with
+    // mfEvalMode='side' (_fullNewtonSupported). Every other merit takes the
+    // Gauss-Newton system below: another surface/eval mode, an active cone, a
+    // math, argwave, ellipsometry, EFMX or curve-block row (no curvature worked
+    // out, newtonAssembly/curvature.js), a row with σ ≠ 1 (its curvature is not
+    // divided by σ), or an analytic Jacobian that declines (EFMX, a curve block
+    // a math row reads whole, and the math rows reading either).
     // Supported residual curvature: single-λ optical, range-avg (TAV/RAV/AAV),
     // weighted-integral (linear in comp ⇒ ∂²r = sw·Σα·∂²comp); range-target
     // (TGT/RGT/AGT, one single-λ residual per sample). The manufacturability rows
