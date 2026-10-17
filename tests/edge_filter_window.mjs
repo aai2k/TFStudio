@@ -143,7 +143,13 @@ for (const [side, mode] of [['front', 'front_only'], ['back', 'back_only'], ['bo
 }
 
 // ── 5. The worker ────────────────────────────────────────────────────────────
-globalThis.Worker = NodeModuleWorker;
+// Each worker made is kept, and remembers whether it was terminated.
+const workersMade = [];
+globalThis.Worker = class extends NodeModuleWorker {
+    constructor(...args) { super(...args); workersMade.push(this); }
+    terminate() { this.terminated = true; super.terminate(); }
+};
+const started = performance.now();
 const fromWorker = await new Promise((resolveRun) => {
     const workerRef = { current: null };
     startEdgeSearch({
@@ -151,20 +157,53 @@ const fromWorker = await new Promise((resolveRun) => {
         finish: (result, signature) => resolveRun({ result, signature, workerRef }),
     });
 });
+const runMs = performance.now() - started;
 assert.equal(fromWorker.signature, 'a');
 assert.deepEqual(fromWorker.result.solutions, solutions, 'the worker answers as the search does');
 assert.equal(fromWorker.workerRef.current, null, 'a finished search lets its worker go');
+assert.ok(workersMade[0].terminated, 'and ends it');
+// Stop the same search at once and wait well past the time it took to run.
 {
-    let finished = false;
+    let reported = false;
     const workerRef = { current: null };
     startEdgeSearch({
-        workerRef, request: { ...prepared.request, lower: 0, upper: 2, step: 0.0001 }, signature: 'b',
-        setProgress() {}, finish: () => { finished = true; },
+        workerRef, request: prepared.request, signature: 'b',
+        setProgress() { reported = true; }, finish: () => { reported = true; },
     });
+    const stopped = workerRef.current;
     stopEdgeSearch(workerRef);
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, Math.max(1000, 3 * runMs)));
     assert.equal(workerRef.current, null);
-    assert.equal(finished, false, 'a stopped search reports nothing');
+    assert.ok(stopped.terminated, 'Stop ends the worker');
+    assert.equal(reported, false, 'a stopped search reports nothing');
+}
+// A worker that was stopped can still have a message on its way. Only the
+// worker the ref holds may report, so a search replaced by a new one is silent.
+{
+    const fakes = [];
+    globalThis.Worker = class { constructor() { fakes.push(this); } postMessage() {} terminate() { this.terminated = true; } };
+    const reports = [];
+    const workerRef = { current: null };
+    const start = signature => startEdgeSearch({
+        workerRef, request: prepared.request, signature,
+        setProgress: () => reports.push(['progress', signature]),
+        finish: (result, ranWith) => reports.push(['finish', ranWith]),
+    });
+    start('old');
+    start('new');
+    const [old, current] = fakes;
+    assert.ok(old.terminated, 'a new search stops the one before it');
+    old.onmessage({ data: { type: 'progress', done: 1, total: 19 } });
+    old.onmessage({ data: { type: 'result', result: { solutions: [] } } });
+    const logError = console.error;
+    console.error = () => {};
+    old.onerror({ message: 'late' });
+    console.error = logError;
+    assert.deepEqual(reports, [], 'the replaced search reports nothing');
+    current.onmessage({ data: { type: 'progress', done: 1, total: 19 } });
+    current.onmessage({ data: { type: 'result', result: { solutions: [] } } });
+    assert.deepEqual(reports, [['progress', 'new'], ['finish', 'new']], 'the new one does');
+    globalThis.Worker = NodeModuleWorker;
 }
 
 // ── 6. Ribbon and hand-off ───────────────────────────────────────────────────
