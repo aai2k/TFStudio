@@ -370,6 +370,24 @@ function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }
     return { killWorker, stopOpt };
 }
 
+/**
+ * F5 runs, or stops a run. A number box applies its value only when it is
+ * left, so a run first takes the focus off whatever has it. The box applies
+ * its value as it loses focus, and its setter writes the run's ref at once
+ * (writeThrough), so the run starts with what was typed, as after a click on
+ * Run.
+ */
+export function runShortcut(event, { running, runOpt, stopOpt }, doc = globalThis.document) {
+    if (event.key !== 'F5') return;
+    event.preventDefault();
+    if (running) { stopOpt(); return; }
+    doc?.activeElement?.blur?.();
+    runOpt();
+}
+
+/** A setter that writes `ref` as well as the state, so a run reads the value at once. */
+export const writeThrough = (ref, set) => (value) => { ref.current = value; set(value); };
+
 // Run dispatcher (Run button + F5) plus Stop/Reset/Best/history-restore.
 function useRunActions({ env, running, buildCtx, savedDesign, updateDesign, stopOpt }) {
     const runOpt = useCallback(() => startRun(env, buildCtx), [buildCtx]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -378,7 +396,7 @@ function useRunActions({ env, running, buildCtx, savedDesign, updateDesign, stop
     const handleRestore = useCallback((entry) => restoreHistoryEntry(env, entry, updateDesign), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useEffect(() => {
-        const onKey = e => { if (e.key === 'F5') { e.preventDefault(); running ? stopOpt() : runOpt(); } };
+        const onKey = e => runShortcut(e, { running, runOpt, stopOpt });
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [running, runOpt, stopOpt]);
@@ -531,8 +549,9 @@ export function useRefinement({ t }) {
         method, nRestarts, perturbPct, restartIdx, maxIter, stopReason, seed,
         mfHistory, plotHistory, histEntries, selectedHistoryId,
         onRun: runOpt, onStop: stopOpt, onReset: resetOpt, onBest: bestOpt,
-        onMethod: setMethod, onNRestarts: setNRestarts, onPerturbPct: setPerturbPct, onMaxIter: setMaxIter,
-        onSeed: setSeed,
+        onMethod: setMethod, onNRestarts: writeThrough(nRestartsRef, setNRestarts),
+        onPerturbPct: writeThrough(perturbPctRef, setPerturbPct), onMaxIter: writeThrough(maxIterRef, setMaxIter),
+        onSeed: writeThrough(seedRef, setSeed),
         onEdit: handleEdit, onEditMany: handleEditMany, onAdd: handleAdd, onInsertAt: handleInsertAt, onDuplicate: handleDuplicate,
         onDelete: handleDelete, onMoveUp: handleMoveUp, onMoveDown: handleMoveDown,
         onSelectHistory: handleHistorySelect, onRestore: handleHistoryRestore,

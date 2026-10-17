@@ -11,7 +11,7 @@ import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { REFINE_METHODS, ALL_ORDER } from './refinementConfig.js';
 import { STOCHASTIC_METHODS } from './refinementUtils.js';
-import { MAX_SEED, normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
+import { normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 
 const { createElement: h } = React;   // React is a window global
 
@@ -62,14 +62,16 @@ function runButtons({ running, canReset, onRun, onStop, onReset, onBest, surface
 }
 
 // Seed of the stochastic methods: empty draws a fresh one, and a run leaves the
-// seed it drew in the field, so pressing Run again replays it.
+// seed it drew in the field, so pressing Run again replays it. An entry that is
+// not a seed, such as 0, empties the field like an emptied one, rather than
+// being moved onto a seed nobody chose.
 function seedControl({ running, method, seed, onSeed, t, c }) {
     const tr = t.refinement;
     if (!(STOCHASTIC_METHODS.has(method) || method === 'all')) return null;
     return h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim },
         title: tr.seedTip },
         tr.seed,
-        h(NumberField, { min: 1, max: MAX_SEED, integer: true, nullable: true, value: seed, disabled: running,
+        h(NumberField, { nullable: true, emptyStep: 1, value: seed, disabled: running,
             placeholder: tr.seedRandom,
             onChange: v => onSeed(normalizeSeed(v)),
             style: { ...numInputStyle(c, running), width: 96 } }),

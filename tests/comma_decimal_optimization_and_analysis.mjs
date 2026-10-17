@@ -7,7 +7,8 @@
  * window; a count box is a text field and hands on a typed count.
  *
  *   1. Refinement run controls: max iterations, restarts, perturbation % and
- *      the seed, which empties to "draw a random one".
+ *      the seed, which empties to "draw a random one", as an entry that is not
+ *      a seed does; F5 pressed in a box runs with what was typed there.
  *   2. Variator preview: wavelength start and end, and the angle, 0 to 89.
  *   3. Needle Manual: the scan settings in the sidebar and the thickness of
  *      the needle being inserted.
@@ -70,6 +71,23 @@ function received(Component, props, name, pick, act) {
         assert.equal(field.input().props.placeholder, t.refinement.seedRandom, 'Refinement: an empty seed says it is random');
         const emptied = received(ControlBar, { ...props, seed: 77 }, 'onSeed', seed, f => f.type('').leave());
         assert.deepEqual(emptied.values, [null], 'Refinement: an emptied seed draws a random one');
+        for (const text of ['0', '-5', '5000000000']) {
+            const notSeed = received(ControlBar, props, 'onSeed', seed, f => f.type(text).leave());
+            assert.deepEqual(notSeed.values, [null], `Refinement: ${text} is not a seed and draws a random one`);
+            assert.equal(notSeed.field.shown, '', `Refinement: and the seed box shows empty after ${text}`);
+        }
+    }
+    {
+        // F5 with the cursor still in Restarts: the box is left first, so the
+        // run reads the 5 typed there, not the 20 it held.
+        const { runShortcut, writeThrough } = await import('../src/components/windows/optimization/refinement/useRefinement.js');
+        const restartsRef = { current: 20 };
+        const field = mount(ControlBar, { ...props, onNRestarts: writeThrough(restartsRef, noop) }, restarts);
+        field.type('5');
+        let ranWith = null;
+        const focused = { activeElement: { blur: () => field.leave() } };
+        runShortcut({ key: 'F5', preventDefault() {} }, { running: false, runOpt: () => { ranWith = restartsRef.current; }, stopOpt: noop }, focused);
+        assert.equal(ranWith, 5, 'Refinement: F5 runs with the restarts typed into the focused box');
     }
 }
 
