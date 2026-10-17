@@ -16,7 +16,7 @@
  */
 
 import {
-    hasFreeLevel, isMeasuredCurve, makeOperand, measuredCurveChannel,
+    hasFreeLevel, isMath, isMeasuredCurve, makeOperand, measuredCurveChannel,
 } from './operandModel.js';
 import { CALCULATED_DELTA_CONVENTION, convertDeltaConvention } from '../thinFilmMath.js';
 
@@ -103,14 +103,34 @@ function expandMeasuredCurveOperand(op) {
     }));
 }
 
-/** Expand every measured block while preserving all other operand identities. */
+// The ids of the rows a math row reads.
+function readByMathRows(operands) {
+    const ids = new Set();
+    for (const op of operands) {
+        if (!isMath(op?.type)) continue;
+        for (const id of [op.refId, op.refId1, op.refId2]) if (id) ids.add(id);
+    }
+    return ids;
+}
+
+/**
+ * Expand every measured block while preserving all other operand identities.
+ * A block a math row reads also keeps its own row, at weight 0, for the math
+ * row to read: the points score the block, and the copy adds nothing to the
+ * merit or to its weight sum.
+ */
 function expandMeasuredCurveOperands(operands) {
     if (!Array.isArray(operands)) return operands;
     let changed = false;
+    let read = null;
     const output = [];
     for (const op of operands) {
         const expanded = expandMeasuredCurveOperand(op);
-        if (expanded.length !== 1 || expanded[0] !== op) changed = true;
+        if (expanded.length !== 1 || expanded[0] !== op) {
+            changed = true;
+            read ??= readByMathRows(operands);
+            if (read.has(op.id)) output.push({ ...op, weight: 0 });
+        }
         // Not push(...expanded): spread as arguments, a block of more than about
         // 120,000 points overflows the call stack.
         for (const point of expanded) output.push(point);
