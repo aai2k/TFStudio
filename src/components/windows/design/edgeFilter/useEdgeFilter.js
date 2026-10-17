@@ -22,8 +22,8 @@ function useSelection(design, inputs, prepared, solution) {
     }, [design, inputs, prepared, solution]);
 }
 
-// Search runs: start, stop, progress, and the last answer with the inputs it
-// answered. An answer to other inputs than the ones shown is not offered.
+// Search runs: start, stop, progress, and the last result with the inputs it
+// ran on. A result is shown only while those inputs are the ones displayed.
 function useSearch(prepared, signature) {
     const workerRef = useRef(null);
     const [running, setRunning] = useState(false);

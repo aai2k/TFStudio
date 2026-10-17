@@ -1,9 +1,8 @@
 /**
  * The worker the edge filter search runs in (utils/workers/edgeFilterWorker.js).
  *
- * Only the worker the ref still points at is allowed to report: a search that
- * was stopped or replaced may still post, and its answer belongs to a question
- * nobody is asking any more.
+ * A stopped or replaced worker may still post; only the worker the ref holds
+ * reports.
  */
 
 import { EDGE_FILTER_WORKER_URL } from '../../../../workerUrls.js';

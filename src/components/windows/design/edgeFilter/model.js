@@ -18,8 +18,8 @@ const EXAMPLE = {
     low: 'builtin:SiO2', high: 'builtin:TiO2',
 };
 
-// The inputs the search runs on; a change to any of them leaves the listed
-// periods answering an older question.
+// The inputs the search reads; changing any of them makes the listed periods
+// stale.
 export const SEARCH_INPUTS = ['pass', 'edgeLambda', 'angle', 'incidentMat', 'matA', 'matB', 'lower', 'upper', 'step'];
 
 /**

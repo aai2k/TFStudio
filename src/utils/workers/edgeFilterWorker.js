@@ -2,7 +2,7 @@
  * The edge filter search off the renderer thread.
  *
  * The search walks every value of a on its grid: about a quarter of a second
- * for the default twenty, minutes for the finest step the window allows. Here
+ * for the default nineteen, minutes for the finest step the window allows. Here
  * the window stays alive and stops the search by terminating the worker.
  *
  * Protocol:
