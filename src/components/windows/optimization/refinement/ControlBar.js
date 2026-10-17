@@ -8,6 +8,7 @@
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
+import { NumberField } from '../../../ui/numberField.js';
 import { REFINE_METHODS, ALL_ORDER } from './refinementConfig.js';
 import { STOCHASTIC_METHODS } from './refinementUtils.js';
 import { MAX_SEED, normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
@@ -68,9 +69,9 @@ function seedControl({ running, method, seed, onSeed, t, c }) {
     return h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim },
         title: tr.seedTip },
         tr.seed,
-        h('input', { type: 'number', min: 1, max: MAX_SEED, step: 1, value: seed ?? '', disabled: running,
+        h(NumberField, { min: 1, max: MAX_SEED, integer: true, nullable: true, value: seed, disabled: running,
             placeholder: tr.seedRandom,
-            onChange: e => { const v = e.target.value.trim(); onSeed(v === '' ? null : normalizeSeed(v)); },
+            onChange: v => onSeed(normalizeSeed(v)),
             style: { ...numInputStyle(c, running), width: 96 } }),
     );
 }
@@ -96,23 +97,20 @@ function runControls({ running, method, nRestarts, perturbPct, maxIter, onMethod
         method !== 'all' && h('label', { style: { display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim },
             title: tr.maxIterTip },
             tr.maxIter || 'Max iter:',
-            h('input', { type: 'number', min: 1, step: 10, value: maxIter, disabled: running,
-                onChange: e => { const v = parseInt(e.target.value); if (!isNaN(v)) onMaxIter(Math.max(1, v)); },
-                style: numStyle }),
+            h(NumberField, { min: 1, step: 10, integer: true, value: maxIter, disabled: running,
+                onChange: onMaxIter, style: numStyle }),
         ),
 
         // Multi-start params (shown for dls-multi and all)
         showMulti && h('span', { style: { fontSize: 11, color: c.textDim, display: 'flex', alignItems: 'center', gap: 3 } },
             tr.nRestarts,
-            h('input', { type: 'number', min: 1, step: 1, value: nRestarts, disabled: running,
-                onChange: e => { const v = parseInt(e.target.value); if (!isNaN(v)) onNRestarts(Math.max(1, v)); },
-                style: numStyle }),
+            h(NumberField, { min: 1, step: 1, integer: true, value: nRestarts, disabled: running,
+                onChange: onNRestarts, style: numStyle }),
         ),
         showMulti && h('span', { style: { fontSize: 11, color: c.textDim, display: 'flex', alignItems: 'center', gap: 3 } },
             tr.perturbPct,
-            h('input', { type: 'number', min: 0, step: 5, value: perturbPct, disabled: running,
-                onChange: e => { const v = parseFloat(e.target.value); if (!isNaN(v)) onPerturbPct(Math.max(0, v)); },
-                style: numStyle }),
+            h(NumberField, { min: 0, step: 5, value: perturbPct, disabled: running,
+                onChange: onPerturbPct, style: numStyle }),
         ),
     ];
 }
