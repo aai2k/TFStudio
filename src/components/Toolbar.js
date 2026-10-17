@@ -91,7 +91,7 @@ export const ICONS = {
                           P('M3 4H8L11 15H17.5',1.8),
                           Pd('M9.5 2.5V16.5'),
                       ]),
-    'help-docs':     I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
+    'help-docs':      I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
 
     // Welcome: a flag planted at the start of the route the tour walks.
     'welcome':        I([
