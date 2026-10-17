@@ -15,6 +15,8 @@
  *   5. Optimizer Benchmark: the synthesis time budget, 1 to 60 s.
  *   6. Integral Values: the band of a custom integral, typed in its table row
  *      without selecting the row.
+ *   7. Optical Evaluation: the angle chips, edited in place and added, where
+ *      Escape cancels.
  *
  * Run: node tests/comma_decimal_optimization_and_analysis.mjs
  */
@@ -187,6 +189,63 @@ function received(Component, props, name, pick, act) {
     let stopped = false;
     field.input().props.onClick({ stopPropagation() { stopped = true; } });
     assert.ok(stopped, 'Integral Values: a click in a band box does not select the row');
+}
+
+// ── 7. Optical Evaluation angle chips ────────────────────────────────────────
+{
+    const { AoiChips } = await import('../src/components/windows/analysis/opticalEvaluation/AoiChips.js');
+    const oe = t.opticalEval;
+    // The first node of a rendered tree that `test` accepts.
+    const nodeWhere = (node, test) => {
+        if (!node || typeof node !== 'object') return null;
+        if (Array.isArray(node)) return node.map(child => nodeWhere(child, test)).find(Boolean) ?? null;
+        if (test(node)) return node;
+        return nodeWhere([node.props?.children].flat(Infinity), test);
+    };
+    const chips = values => {
+        const changes = [];
+        const field = mount(AoiChips, { values, onChange: next => changes.push(next), c, oe });
+        const click = test => nodeWhere(field.render(), test).props.onClick();
+        return { changes, field, click };
+    };
+    const addButton = node => node.type === 'button' && node.props.title === oe.addAoiTooltip(6);
+    const chipLabel = node => node.type === 'span' && node.props.title === oe.editAoiTooltip;
+
+    {
+        const { changes, field, click } = chips([10, 45]);
+        click(addButton);
+        assert.equal(field.input().props.type, 'text', 'Optical Evaluation: the add box is a text field');
+        assert.equal(field.input().props.inputMode, 'decimal', 'Optical Evaluation: and brings up a decimal keypad');
+        field.type('22,5').press('Enter');
+        assert.deepEqual(changes, [[10, 45, 22.5]], 'Optical Evaluation: an added angle of 22,5 is 22.5');
+    }
+    {
+        const { changes, field, click } = chips([10, 45]);
+        click(addButton);
+        field.type('22,5').press('Escape');
+        assert.deepEqual(changes, [], 'Optical Evaluation: Escape in the add box adds nothing');
+    }
+    {
+        const { changes, field, click } = chips([10, 45]);
+        click(chipLabel);
+        assert.equal(field.input().props.type, 'text', 'Optical Evaluation: an angle being edited is a text field');
+        field.type('12,5').leave();
+        assert.deepEqual(changes, [[12.5, 45]], 'Optical Evaluation: an angle edited to 12,5 is 12.5');
+    }
+    {
+        const { changes, field, click } = chips([10, 45]);
+        click(chipLabel);
+        field.type('12,5').press('Escape');
+        assert.deepEqual(changes, [], 'Optical Evaluation: Escape leaves the angle as it was');
+        assert.equal(nodeWhere(field.render(), node => node.type === 'input'), null,
+            'Optical Evaluation: and shows the chip again');
+    }
+    {
+        const { changes, field, click } = chips([10, 45]);
+        click(chipLabel);
+        field.type('12abc').press('Enter');
+        assert.deepEqual(changes, [], 'Optical Evaluation: an angle that is not a number is refused');
+    }
 }
 
 console.log('comma_decimal_optimization_and_analysis: passed');

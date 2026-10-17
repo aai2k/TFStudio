@@ -1,10 +1,13 @@
 import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { AOI_MAX, formatTheta } from './model.js';
 
 const { createElement: h, useState } = React;
 
+// The angle boxes are text fields that keep what is typed until Enter or the
+// box is left, and take a comma or a dot as the decimal separator.
 function parsedAoi(raw) {
-    const value = parseFloat(raw);
+    const value = parseNumberStrict(raw);
     return isNaN(value) || value < 0 || value >= 90 ? null : Math.round(value * 10) / 10;
 }
 
@@ -35,7 +38,7 @@ function AoiChip({ value, onRemove, onEdit, canRemove, c, oe }) {
 
     if (editing) {
         return h('input', {
-            type: 'number', value: raw, min: 0, max: 89, step: 1, autoFocus: true,
+            type: 'text', inputMode: 'decimal', value: raw, autoFocus: true,
             onFocus: event => event.target.select(),
             onChange: event => setRaw(event.target.value),
             onBlur: commit,
@@ -98,9 +101,8 @@ export function AoiChips({ values, onChange, c, oe }) {
             canRemove: values.length > 1, c, oe
         })),
         values.length < AOI_MAX && adding && h('input', {
-            type: 'number', value: draft,
+            type: 'text', inputMode: 'decimal', value: draft,
             autoFocus: true, title: addTitle, 'aria-label': addTitle,
-            min: 0, max: 89, step: 1,
             onChange: event => setDraft(event.target.value),
             onBlur: addValue,
             onKeyDown: event => {
