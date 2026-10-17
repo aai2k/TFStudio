@@ -17,11 +17,12 @@ export { findOptimalNeedleThickness } from './scanners/thickness.js';
 export { intraMinima } from './scanners/intraMinima.js';
 export { scanGEInsertions } from './scanners/geScan.js';
 
-// Dispatcher: prefer the exact analytic Tikhonravov/Sullivan P-function; fall
-// back to the validated finite-difference scan when the merit function contains
-// terms whose ∂Q/∂(B,C) is not analytically defined here (ramp / constraint-only
-// / integral / minmax / math / argwave). Sullivan & Dobrowolski (1996)
-// give exactly this rationale for keeping a numerical variant available.
+// Dispatcher: prefer the exact analytic Tikhonravov/Sullivan P-function, which
+// differences on its own any row it has no exact needle slope for; fall back to
+// the validated finite-difference scan where the analytic scan does not run: a
+// merit scored on both sides of a design optimized on one, an empty stack or
+// pool, or a merit already at zero. Sullivan & Dobrowolski (1996) give the
+// rationale for keeping a numerical variant available.
 //
 // Surface-mode awareness: both scanners route through buildEvalContext /
 // tmmFullSystem (Macleod §2.6.4) when design.surfaceMode != 'front_only'.

@@ -1,12 +1,14 @@
 /**
- * The analytic needle P-function scores only rows whose value is R, T or A.
+ * The analytic needle P-function reads R, T and A only where a row's value is
+ * built on them.
  *
  * TANPSI and the TOD family (TOD, TODT, TODFLAT, TODTFLAT) share a leading T
  * with transmittance but are tanΨ and third-order dispersion. The analytic scan
- * has no chain rule for them, so a merit holding one must leave the scan to the
- * finite-difference path. The P-values the dispatcher returns are checked
- * against the FD scan on the same insertions: relative error, sign agreement
- * and the best insertion. Controls keep plain TAV rows and the s/p-suffixed
+ * has no needle slope for them, so it differences such a row on its own per
+ * candidate and keeps the exact slopes of the other rows. Its P-values, and
+ * the dispatcher's, are checked against the FD scan on the same insertions:
+ * relative error, sign agreement and the best insertion. Read as T, the row
+ * would give other P-values. Controls keep plain TAV rows and the s/p-suffixed
  * point types saved designs still carry on the analytic path.
  *
  * P-function: Sullivan & Dobrowolski, Appl. Opt. 35, 5484 (1996);
@@ -36,9 +38,12 @@ const design = {
   backLayers: [], surfaceMode: 'front_only', mfEvalMode: 'side',
 };
 
-// FD step in nm. The FD slope carries an O(δ) truncation offset from the
-// d→0 analytic value; at 0.01 nm that offset stays far below the tolerance.
-const FD_DELTA_NM = 0.01;
+// FD step in nm, also the needle the analytic scan differences a row with no
+// exact slope with. The FD slope of the other rows carries an O(δ) truncation
+// offset from their d→0 analytic value. Where the TANPSI and TAV terms nearly
+// cancel, that offset at 0.01 nm is about 1 % of the sum; at 0.001 nm it stays
+// far below the tolerance.
+const FD_DELTA_NM = 0.001;
 // A candidate enters the relative-error and sign checks when its FD slope is at
 // least this fraction of the largest one, so a near-zero slope cannot dominate.
 const SIGNIFICANT = 1e-2;
@@ -80,19 +85,18 @@ function report(name, cmp) {
   return ok;
 }
 
-// A merit holding a non-photometric row: the analytic scan must decline, and
-// the dispatcher's P-values must agree with the FD scan.
+// A merit holding a non-photometric row: the analytic scan must run, with that
+// row differenced on its own, and its P-values and the dispatcher's must agree
+// with the FD scan.
 function nonPhotometricCase(name, operands) {
   const analytic = scanNeedlesAnalytic(scanArgs(operands));
-  const fd = scanNeedlesFD(scanArgs(operands));
-  const dispatched = report(`${name}, dispatcher`, againstFD(scanNeedlesPFunction(scanArgs(operands)), fd));
-  if (analytic) {
-    console.log(`[${name}] analytic scan did not decline  FAIL`);
-    report(`${name}, analytic`, againstFD(analytic, fd));
+  if (!analytic) {
+    console.log(`[${name}] analytic scan declined  FAIL`);
     return false;
   }
-  console.log(`[${name}] analytic scan declines  PASS`);
-  return dispatched;
+  const fd = scanNeedlesFD(scanArgs(operands));
+  const dispatched = report(`${name}, dispatcher`, againstFD(scanNeedlesPFunction(scanArgs(operands)), fd));
+  return report(`${name}, analytic`, againstFD(analytic, fd)) && dispatched;
 }
 
 // A photometric merit: the analytic scan must run and match the FD scan.
@@ -124,5 +128,5 @@ ok = nonPhotometricCase('TAV + TOD at 650 nm', [tav(500, 560, 1), point('TOD', 6
 ok = nonPhotometricCase('TAV + TODT at 650 nm', [tav(500, 560, 1), point('TODT', 650, 0, 0)]) && ok;
 ok = nonPhotometricCase('TAV(500-560) + TODTFLAT(600-700)', [tav(500, 560, 1), band('TODTFLAT', 600, 700, 0)]) && ok;
 
-console.log(ok ? '\nPASS  the analytic scan reads only R, T and A rows' : '\nFAIL');
+console.log(ok ? '\nPASS  the analytic scan reads R, T and A only for the rows built on them' : '\nFAIL');
 process.exit(ok ? 0 : 1);

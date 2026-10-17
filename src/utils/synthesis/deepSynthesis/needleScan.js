@@ -8,9 +8,9 @@
 // of a neighbour's material at a gap, only changes a thickness and is not a
 // candidate; a split must leave both parts of the host at least the floor.
 //
-// P is TFStudio's analytic needle function, dMF/dd per nm of new layer; for
-// operands the analytic scan declines, the finite-difference scan with at
-// most FD_INTRA_MAX points per layer.
+// P is TFStudio's analytic needle function, dMF/dd per nm of new layer; where
+// the analytic scan does not run (physics/optimizer/scanners.js), the
+// finite-difference scan with at most FD_INTRA_MAX points per layer.
 
 import { scanNeedlesAnalytic, scanNeedlesFD } from '../../physics/optimizer/scanners.js';
 

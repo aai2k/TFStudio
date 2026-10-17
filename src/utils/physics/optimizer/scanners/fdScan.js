@@ -2,8 +2,8 @@
  * Validated finite-difference needle scan (Sullivan & Dobrowolski numerical
  * variant). Surface-mode-aware: evaluation runs through buildEvalContext /
  * tmmFullSystem (Macleod §2.6.4) so back coating + substrate bulk are included
- * for non-front_only modes. Retained as the analytic-path fallback (handles
- * ramp / weighted-integral / minmax operands the analytic scan cannot).
+ * for non-front_only modes. Retained as the analytic-path fallback, for the
+ * merits the analytic scan does not run on (scanners.js), and as its check.
  */
 
 import { calcMF, evaluateOperands, buildEvalContext } from '../evalCore.js';

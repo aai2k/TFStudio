@@ -134,15 +134,16 @@ function _nonFiniteMessage(op) {
         : 'Its value is not a finite number.';
 }
 
-// Evaluate every enabled operand. A disabled row, a row whose evaluation raised
-// OperandEvaluationError and a row whose value is not a finite number all yield
-// a null value; for the last two the reason is kept alongside, so the merit
-// function refuses to score the design and the table can explain why. Any
-// other exception propagates.
-function _evaluateValues(operands, ctx) {
-    const values = new Array(operands.length);
+// Evaluate every enabled operand at the positions `indices`. A disabled row, a
+// row whose evaluation raised OperandEvaluationError and a row whose value is
+// not a finite number all yield a null value; for the last two the reason is
+// kept alongside, so the merit function refuses to score the design and the
+// table can explain why. Positions not in `indices` stay null. Any other
+// exception propagates.
+function _evaluateValues(operands, ctx, indices) {
+    const values = new Array(operands.length).fill(null);
     const errors = new Array(operands.length).fill(null);
-    for (let index = 0; index < operands.length; index++) {
+    for (const index of indices) {
         const op = operands[index];
         if (!op.enabled) {
             values[index] = null;
@@ -193,7 +194,7 @@ export function evaluateOperands(operands, ctxOrN0, nsmatLegacy, thicknessesLega
 
     _resetPerCallCaches(ctx, operands);
     settleConeNodes(operands, ctx);
-    const { values, errors } = _evaluateValues(operands, ctx);
+    const { values, errors } = _evaluateValues(operands, ctx, operands.keys());
     const levels = _bandLevels(operands, values, ctx);
     const deviations = ctx._sampleDeviations.size > 0
         ? operands.map(op => ctx._sampleDeviations.get(op) || null)
@@ -207,6 +208,19 @@ export function evaluateOperands(operands, ctxOrN0, nsmatLegacy, thicknessesLega
     Object.defineProperty(values, 'operandSampleDeviations', { value: deviations });
     Object.defineProperty(values, 'operandExtremumLambdas', { value: extremumLambdas });
     return values;
+}
+
+/**
+ * The values of the rows at `indices` (positions in `operands`) on `ctx`,
+ * aligned with `operands` and null everywhere else. Each is the value
+ * evaluateOperands gives that row: references resolve and the cone's rays
+ * settle against the whole list, so a math row reads the rows it refers to
+ * and an R, T or A read averages over the same rays.
+ */
+export function evaluateOperandRows(operands, ctx, indices) {
+    _resetPerCallCaches(ctx, operands);
+    settleConeNodes(operands, ctx);
+    return _evaluateValues(operands, ctx, indices).values;
 }
 
 export function operandEvaluationErrors(computed) {

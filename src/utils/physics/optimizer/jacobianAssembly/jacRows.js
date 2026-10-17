@@ -62,7 +62,11 @@ const isPerSample = op => isRangeTarget(op.type) || hasFreeLevel(op);
 
 // Kinds with no thickness slope: the peak |E|² of EFMX, and a curve block read
 // whole, which a run keeps only for a math row to read (measuredCurveOperand.js).
-const hasNoSlope = op => isEField(op.type) || (isMeasuredCurve(op.type) && !hasFreeLevel(op));
+// A context whose derivatives do not reach some other kinds names them in
+// jc.outOfReach(op): the needle scan, whose variables are needles rather than
+// layer thicknesses (scanners/analyticScan.js).
+const hasNoSlope = (op, jc) => isEField(op.type) || (isMeasuredCurve(op.type) && !hasFreeLevel(op))
+    || jc.outOfReach?.(op) === true;
 
 // ∂value/∂d of row i over the free variables, without its weight, unit scale
 // or one-sided clipping, or null for a kind with no slope. Kept on jc per row,
@@ -79,7 +83,7 @@ function valueSlope(op, i, jc) {
 
 function ownValueSlope(op, i, jc) {
     if (isPerSample(op)) return rmsValueSlope(op, i, jc);
-    if (hasNoSlope(op)) return null;
+    if (hasNoSlope(op, jc)) return null;
     if (isMath(op.type)) return mathValueSlope(op, i, jc, valueSlope);
     return rowKind(op.type)[1](op, i, jc, jc.residualScale(op));
 }
@@ -92,7 +96,7 @@ function ownValueSlope(op, i, jc) {
 export function _jacRows(op, i, jc) {
     if (isRangeTarget(op.type)) return _jacRowsRangeTarget(op, jc);
     if (hasFreeLevel(op)) return _jacRowsLevelFree(op, jc);
-    if (hasNoSlope(op)) return null;
+    if (hasNoSlope(op, jc)) return null;
     if (isMath(op.type)) {
         const row = mathRow(op, i, jc, valueSlope);
         return row ? [row] : null;

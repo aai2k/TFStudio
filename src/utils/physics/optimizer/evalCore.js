@@ -31,7 +31,7 @@ export {
 } from './evalCore/operands/index.js';
 
 export {
-    buildEvalContext, effectiveBackLayers, evaluateOperands, operandEvaluationErrors,
+    buildEvalContext, effectiveBackLayers, evaluateOperands, evaluateOperandRows, operandEvaluationErrors,
     operandBandLevels, operandSampleDeviations, operandExtremumLambdas,
 } from './evalCore/evalContext.js';
 
