@@ -9,6 +9,7 @@
  *
  *   1. Monitoring wizards (BBM and Mono): the field, the row field and the
  *      table cell, and a cell on the Parameters Deviation page.
+ *   2. Filter Design wizard: the field and the count, and every box on step 2.
  *
  * Run: node tests/comma_decimal_design_and_wizards.mjs
  */
@@ -54,6 +55,38 @@ const isText = (Component, props) => mount(Component, { ...props, onChange() {} 
     page.type('94,2').leave();
     assert.deepEqual(stored, [['layers', [{ relThkErr: 94.2 }]]],
         'Parameters Deviation: a relative thickness error of 94,2 % is stored as 94.2');
+}
+
+// ── 2. Filter Design wizard ──────────────────────────────────────────────────
+{
+    const ui = await import('../src/components/windows/optimization/filterDesignWizard/ui.js');
+    for (const positive of [false, true]) {
+        const props = { value: 5, step: 0.1, positive, c, label: 'x' };
+        const what = `Filter Design field${positive ? ', positive' : ''}`;
+        assert.deepEqual(typed(ui.NumField, props), [94.2], `${what}: 94,2 is 94.2`);
+        assert.ok(isText(ui.NumField, props), `${what}: is a text field`);
+    }
+    const count = { value: 2, min: 1, max: 10, c, label: 'N' };
+    assert.deepEqual(typed(ui.IntField, count, '3'), [3], 'Filter Design count: 3 arrives as 3');
+    assert.ok(isText(ui.IntField, count), 'Filter Design count: is a text field');
+
+    const { DEFAULTS } = await import('../src/components/windows/optimization/filterDesignWizard/model.js');
+    const { StepParams } = await import('../src/components/windows/optimization/filterDesignWizard/StepParams.js');
+    const { getLocale } = await import('../src/constants/locales/index.js');
+    // Step 2 draws λ0, the two half-widths, the shape factor and the two levels.
+    const step2 = (index, text) => {
+        const stored = [];
+        mount(StepParams, { p: DEFAULTS, set: (key, value) => stored.push([key, value]), c, t: getLocale('en') },
+            inputs => inputs[index]).type(text).leave();
+        return stored;
+    };
+    assert.deepEqual(step2(0, '94,2'), [['lambda0_nm', 94.2]], 'Filter Design step 2: λ0 of 94,2 nm is 94.2');
+    assert.deepEqual(step2(1, '94,2'), [['passHalf_nm', 94.2]], 'Filter Design step 2: the pass half-width');
+    assert.deepEqual(step2(2, '94,2'), [['stopHalf_nm', 94.2]], 'Filter Design step 2: the stop half-width');
+    assert.deepEqual(step2(3, '2,5'), [['stopHalf_nm', DEFAULTS.passHalf_nm * 2.5]],
+        'Filter Design step 2: a shape factor of 2,5 sets the stop half-width');
+    assert.deepEqual(step2(4, '94,2'), [['passLevel', 94.2]], 'Filter Design step 2: the pass level');
+    assert.deepEqual(step2(5, '0,2'), [['stopLevel', 0.2]], 'Filter Design step 2: the stop level');
 }
 
 console.log('comma_decimal_design_and_wizards: passed');

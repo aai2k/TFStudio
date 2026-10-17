@@ -33,7 +33,8 @@ The wizard runs in six steps:
 
 2. **Parameters**: set the centre wavelength λ₀, the passband half-width, and
    the stopband half-width. The shape factor (the ratio of the two) is shown
-   live as you type, along with an ideal-target preview.
+   along with an ideal-target preview; both update when you press Enter or leave
+   the box.
 
 3. **Cavities**: the wizard recommends a cavity count from your shape factor;
    you can override it.

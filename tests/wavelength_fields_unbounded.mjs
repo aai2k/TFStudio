@@ -80,13 +80,6 @@ function mountField(field, props) {
     return mount(fieldProps => expand(field(fieldProps)), props);
 }
 
-// Types `text` into a field that takes every keystroke.
-function keystroke(field, props, text) {
-    const taken = [];
-    inputOf(mountField(field, { ...props, onChange: value => taken.push(value) })()).props.onChange({ target: { value: text } });
-    return taken;
-}
-
 const c = { field: '#111', text: '#eee', textDim: '#999', border: '#333', bg: '#000', panel: '#111', accent: '#39f' };
 
 // ── Fields that commit on blur ───────────────────────────────────────────────
@@ -130,6 +123,7 @@ for (const [name, field] of [
     ['monitoring wizard cell', wizard.cellNum],
     ['monitoring wizard row', wizard.RowField],
     ['monitoring wizard field', wizard.NumField],
+    ['Filter Design field', filterWizard.NumField],
 ]) {
     const props = { value: 550, positive: true, step: 1, c, label: 'λ' };
     assert.deepEqual(enter(field, props, '20').taken, [20], `${name}: 20 nm is taken on leaving the field`);
@@ -150,23 +144,6 @@ for (const [name, field] of [
     const { taken, shown } = enter(wizard.RowField, { value: 5, step: 1, c, label: 'drift' }, '');
     assert.deepEqual(taken, [], 'a wizard field that is not a wavelength puts an emptied entry back');
     assert.equal(shown, '5', 'and shows the value it holds');
-}
-
-{
-    const [name, field] = ['Filter Design field', filterWizard.NumField];
-    const props = { value: 550, positive: true, step: 1, c, label: 'λ' };
-    assert.deepEqual(keystroke(field, props, '20'), [20], `${name}: 20 nm is taken`);
-    assert.deepEqual(keystroke(field, props, '125000'), [125000], `${name}: 125000 nm is taken`);
-    assert.deepEqual(['0', '-5', ''].map(text => keystroke(field, props, text)), [[], [], []],
-        `${name}: 0, -5 and an emptied entry are not taken`);
-    // What is typed stays in the field, so 0.5 can be typed into an emptied one.
-    const taken = [];
-    const render = mountField(field, { ...props, onChange: value => taken.push(value) });
-    ['', '0', '0.', '0.5'].forEach(text => inputOf(render()).props.onChange({ target: { value: text } }));
-    assert.equal(String(inputOf(render()).props.value), '0.5', `${name}: shows 0.5 as it is typed`);
-    assert.deepEqual(taken, [0.5], `${name}: and takes only 0.5`);
-    inputOf(render()).props.onBlur();
-    assert.equal(String(inputOf(render()).props.value), '550', `${name}: leaving it shows the value it holds`);
 }
 
 // ── The spectral range in Settings ───────────────────────────────────────────
