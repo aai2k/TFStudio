@@ -7,7 +7,9 @@
  *     OptimizerBenchmark dev/QA window).
  *
  * No DOM and no Web Workers, so it runs identically in Node, in a Web Worker,
- * or on the main thread. The Needle and GE drivers take the
+ * or on the main thread. The refinement cells run the Refinement window's own
+ * run (utils/refinement/runRefinement.js) with its own bounds and budgets, each
+ * optimizer job on the calling thread. The Needle and GE drivers take the
  * `resolveMat(id) → material` resolver as a parameter and are ports of the
  * canonical loops (NeedleVariation / GradualEvolution components) using the
  * SAME validated primitives from optimizer.js. The Structural driver runs the
@@ -24,6 +26,9 @@ import {
     buildEvalContext, evaluateOperands, removeRedundantLayers,
 } from '../physics/optimizer.js';
 import { makeEngine } from '../optimizers/index.js';
+import { runRefinement } from '../refinement/runRefinement.js';
+import { MAXITER_FOR, defaultMaxIter } from '../refinement/methods.js';
+import { InThreadOptimizerWorker } from '../workers/inThreadOptimizerWorker.js';
 import { MUTATION_KINDS } from '../synthesis/structuralOptimizer.js';
 import { generateARSeeds, rankSeeds } from '../synthesis/seedGenerator.js';
 import { cullMarginalNeedles } from '../synthesis/synthesisConfig.js';
@@ -61,13 +66,10 @@ export const GLOBAL_METHODS = ['de', 'sa'];
 export const SYNTH_ENGINES  = ['dls', 'cg', 'newton', 'newton-cg', 'sqp'];
 export const REFINE_MAXITERS = [60, 200, 500];
 export const DMIN_SWEEP = [1, 40];
-// Per-method iteration budgets — BYTE-MATCH Refinement.js MAXITER_FOR so the
-// benchmark runs each engine exactly as the Refinement window does: to
-// convergence OR this cap. CG needs ~600 to use all its auto-relaunch cycles;
-// capping it lower (the old flat 60/200/500 sweep) cut it off mid-relaunch and
-// understated it. This is the fair, apples-to-apples default.
-export const REFINE_MAXITER = { dls: 500, cg: 600, newton: 200, 'newton-cg': 200, sqp: 200 };
-export const GLOBAL_MAXITER = { de: 250, sa: 400, 'dls-multi': 500 };
+// Per-method iteration budgets: the Refinement window's own (MAXITER_FOR), so
+// the benchmark runs each engine as the window does, to convergence or this cap.
+export const REFINE_MAXITER = Object.fromEntries(LOCAL_METHODS.map(m => [m, MAXITER_FOR[m]]));
+export const GLOBAL_MAXITER = { de: MAXITER_FOR.de, sa: MAXITER_FOR.sa, 'dls-multi': defaultMaxIter('dls-multi') };
 
 // ── operands + seeds ──────────────────────────────────────────────────────────────
 const tgt = (type, a, b, t, te) =>
@@ -228,34 +230,30 @@ export const mntOperand = (nm) => makeConstraintOperand({
 });
 
 // ── refinement (fixed-N) ──────────────────────────────────────────────────────────
-export function runRefine(method, design, ops, maxIter, dMin, resolveMat, dMax = 600) {
-    let eng;
-    try { eng = makeEngine(method, ops, design, resolveMat, { dMin, dMax, seed: 12345 }); }
-    catch (e) { return { err: e.message }; }
-    const mf0 = eng.mf;
+// The Refinement window's own run (utils/refinement/runRefinement.js), each job
+// on the calling thread, with a fixed seed so DE, SA and the multi-start replay.
+const BENCH_SEED = 12345;
+
+async function refineRun(design, ops, settings) {
     const t0 = now();
-    let it = 0;
-    try { for (; it < maxIter && !eng.isConverged(); it++) eng.step(); }
-    catch (e) { return { err: e.message, it }; }
+    const r = await runRefinement(design, ops, { ...settings, seed: BENCH_SEED },
+        { makeWorker: () => new InThreadOptimizerWorker() });
     const ms = now() - t0;
-    if (eng.restoreBest) eng.restoreBest();
-    const out = eng.applyToDesign(design);
-    return { mf0, mf: eng.mfBest ?? eng.mf, it, ms, design: out };
+    if (!r.completed) return { err: r.message ? `${r.stopReason}: ${r.message}` : r.stopReason };
+    return {
+        mf0: r.mfInitial, mf: r.mf, it: r.iter, ms,
+        design: { ...design, frontLayers: r.frontLayers, backLayers: r.backLayers },
+    };
 }
 
-/** Main-thread multistart over DLS (mirrors Refinement.js dls-multi). */
-export function runDlsMulti(design, ops, maxIter, dMin, resolveMat, starts = 6) {
-    const t0 = now();
-    let best = Infinity, mf0 = null, bestDesign = design;
-    for (let s = 0; s < starts; s++) {
-        const d = deep(design);
-        d.frontLayers = d.frontLayers.map((L, i) => ({ ...L, thickness: L.thickness * (1 + 0.15 * Math.sin(s * 3.1 + i * 0.9)) }));
-        const r = runRefine('dls', d, ops, maxIter, dMin, resolveMat);
-        if (r.err) continue;
-        if (mf0 == null) mf0 = r.mf0;
-        if (r.mf < best) { best = r.mf; bestDesign = r.design; }
-    }
-    return { mf0, mf: best, it: starts, ms: now() - t0, design: bestDesign };
+/** One Refinement method on `design`, at most `maxIter` iterations. Resolves to { mf0, mf, it, ms, design } or { err }. */
+export function runRefine(method, design, ops, maxIter) {
+    return refineRun(design, ops, { method, maxIter });
+}
+
+/** The Refinement window's DLS multi-start: `starts` restarts perturbed by up to ±15 %. */
+export function runDlsMulti(design, ops, maxIter, starts = 6) {
+    return refineRun(design, ops, { method: 'dls-multi', maxIter, nRestarts: starts, perturbPct: 15 });
 }
 
 // ── synthesis inner refine + needle insertion ─────────────────────────────────────
@@ -466,14 +464,14 @@ function addLocalJobs(state, caseId, mnt) {
         for (const method of LOCAL_METHODS) appendJob(state, {
             caseId, group: 'Refinement (local)', optimizer: method,
             setting: `→conv${mntSuffix(mnt)}`, kind: 'refine', method,
-            maxIter: REFINE_MAXITER[method], dMin: 10, mnt,
+            maxIter: REFINE_MAXITER[method], mnt,
         });
     } else {
         for (const method of LOCAL_METHODS) {
             for (const maxIter of state.maxIters) appendJob(state, {
                 caseId, group: 'Refinement (local)', optimizer: method,
                 setting: `maxIter=${maxIter}${mntSuffix(mnt)}`, kind: 'refine', method,
-                maxIter, dMin: 10, mnt,
+                maxIter, mnt,
             });
         }
     }
@@ -484,12 +482,12 @@ function addGlobalJobs(state, caseId, mnt) {
     for (const method of GLOBAL_METHODS) appendJob(state, {
         caseId, group: 'Refinement (global)', optimizer: method,
         setting: `→conv${mntSuffix(mnt)}`, kind: 'refine-global', method,
-        maxIter: GLOBAL_MAXITER[method], dMin: 10, mnt,
+        maxIter: GLOBAL_MAXITER[method], mnt,
     });
     if (state.config.dlsMulti !== false) appendJob(state, {
         caseId, group: 'Refinement (global)', optimizer: 'dls-multi',
         setting: `6 starts${mntSuffix(mnt)}`, kind: 'dls-multi',
-        maxIter: GLOBAL_MAXITER['dls-multi'], dMin: 10, mnt,
+        maxIter: GLOBAL_MAXITER['dls-multi'], mnt,
     });
 }
 
@@ -638,17 +636,11 @@ export function operandsForJob(job) {
 }
 
 function runRefinementJob(state) {
-    return runRefine(
-        state.job.method, refineStart(state.C.refineN), state.optOps,
-        state.job.maxIter, state.job.dMin, state.resolveMat,
-    );
+    return runRefine(state.job.method, refineStart(state.C.refineN), state.optOps, state.job.maxIter);
 }
 
 function runDlsMultiJob(state) {
-    return runDlsMulti(
-        refineStart(state.C.refineN), state.optOps, state.job.maxIter,
-        state.job.dMin, state.resolveMat, 6,
-    );
+    return runDlsMulti(refineStart(state.C.refineN), state.optOps, state.job.maxIter, 6);
 }
 
 function runNeedleJob(state) {

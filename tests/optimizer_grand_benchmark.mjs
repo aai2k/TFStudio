@@ -69,12 +69,12 @@ for (const C of CASES) {
     console.log(`    GE/str.: ${sd.thin}`);
 
     if (SWEEP) {
-        console.log(`\n  ── Refinement (local, fixed ${C.refineN}-layer stack, dMin=10, maxIter sweep) ──`);
+        console.log(`\n  ── Refinement (local, fixed ${C.refineN}-layer stack, maxIter sweep) ──`);
         console.log(`  ${pad('method', 12)} ${MAXITS.map((m) => padL(`MF@${m}it`, 11)).join(' ')}   ${padL('best ms', 9)}`);
         for (const m of LOCAL_METHODS) {
             const cells = []; let bestMs = 0, bestMF = Infinity;
             for (const mi of MAXITS) {
-                const r = runRefine(m, refineStart(C.refineN), opsOf(C), mi, 10, resolveMat);
+                const r = await runRefine(m, refineStart(C.refineN), opsOf(C), mi);
                 if (r.err) { cells.push(padL('ERR', 11)); continue; }
                 const mf = mfRep(C, r);
                 cells.push(padL(fmtMF(mf), 11));
@@ -84,10 +84,10 @@ for (const C of CASES) {
             console.log(`  ${pad(m, 12)} ${cells.join(' ')}   ${padL(bestMs.toFixed(0) + 'ms', 9)}`);
         }
     } else {
-        console.log(`\n  ── Refinement (local, fixed ${C.refineN}-layer stack, dMin=10, → CONVERGENCE @ window budgets) ──`);
+        console.log(`\n  ── Refinement (local, fixed ${C.refineN}-layer stack, → CONVERGENCE @ window budgets) ──`);
         console.log(`  ${pad('method', 12)} ${padL('MF', 11)} ${padL('iters', 7)} ${padL('minT', 6)} ${padL('time', 8)}`);
         for (const m of LOCAL_METHODS) {
-            const r = runRefine(m, refineStart(C.refineN), opsOf(C), REFINE_MAXITER[m], 10, resolveMat);
+            const r = await runRefine(m, refineStart(C.refineN), opsOf(C), REFINE_MAXITER[m]);
             if (r.err) { console.log(`  ${pad(m, 12)} ERR ${r.err}`); continue; }
             const mf = mfRep(C, r);
             summary.push({ case: C.name, opt: `refine:${m}`, setting: `→conv(${REFINE_MAXITER[m]})`, mf, layers: C.refineN, ms: r.ms, minT: minT(r) });
@@ -98,17 +98,20 @@ for (const C of CASES) {
     console.log(`\n  ── Refinement (global/stochastic, ${C.refineN}-layer, → convergence) ──`);
     console.log(`  ${pad('method', 12)} ${padL('MF', 11)}  ${padL('iters', 7)}  ${padL('time', 8)}`);
     for (const m of GLOBAL_METHODS) {
-        const r = runRefine(m, refineStart(C.refineN), opsOf(C), GLOBAL_MAXITER[m], 10, resolveMat);
+        const r = await runRefine(m, refineStart(C.refineN), opsOf(C), GLOBAL_MAXITER[m]);
         if (r.err) { console.log(`  ${pad(m, 12)} ERR ${r.err}`); continue; }
         const mf = mfRep(C, r);
         summary.push({ case: C.name, opt: `refine:${m}`, setting: 'global', mf, layers: C.refineN, ms: r.ms });
         console.log(`  ${pad(m, 12)} ${padL(fmtMF(mf), 11)}  ${padL(r.it, 7)}  ${padL(fmtMs(r.ms), 8)}`);
     }
     {
-        const r = runDlsMulti(refineStart(C.refineN), opsOf(C), GLOBAL_MAXITER['dls-multi'], 10, resolveMat, 6);
-        const mf = mfRep(C, r);
-        summary.push({ case: C.name, opt: 'refine:dls-multi', setting: '6 starts', mf, layers: C.refineN, ms: r.ms });
-        console.log(`  ${pad('dls-multi', 12)} ${padL(fmtMF(mf), 11)}  ${padL(r.it + 'st', 7)}  ${padL(fmtMs(r.ms), 8)}`);
+        const r = await runDlsMulti(refineStart(C.refineN), opsOf(C), GLOBAL_MAXITER['dls-multi'], 6);
+        if (r.err) console.log(`  ${pad('dls-multi', 12)} ERR ${r.err}`);
+        else {
+            const mf = mfRep(C, r);
+            summary.push({ case: C.name, opt: 'refine:dls-multi', setting: '6 starts', mf, layers: C.refineN, ms: r.ms });
+            console.log(`  ${pad('dls-multi', 12)} ${padL(fmtMF(mf), 11)}  ${padL(r.it, 7)}  ${padL(fmtMs(r.ms), 8)}`);
+        }
     }
 
     console.log(`\n  ── Synthesis (grows layers; fewer layers better)${ENGINES.length > 1 ? ' · inner-engine sweep' : ''} ──`);

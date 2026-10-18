@@ -127,8 +127,8 @@ const actual = {
     structuralDeepBudget: digest(runners.structuralDeepBudget),
 };
 const expected = {
-    fullExpansion: '162bdc6371ab6375ea27c9ef7c6c3d6d6f0a5d1cfd5b6cf701b088777d087615',
-    explicitSweep: 'a3d955d4acb20e214ba36d5aa34a6d8a4f1eda9869e8c8fe4193ee93ad7e304a',
+    fullExpansion: 'faa9d32fe66146511fda77924ec178b4470cab758ef5432092aa4212d2b6a169',
+    explicitSweep: 'e2db2f2d1a1f35d94817f226abc5f8e25b53500af15ad8fabfed851474433758',
     emptyDefaults: '052521ec864608e9fb75ef94a65d424974c735450215e0f0980ae7e4061df392',
     emptySweep: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
     needle: '18f1d2ca96d633ea63557c2a7eb19a67d6f38932eca26386a59fed5d058a0721',

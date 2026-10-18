@@ -3,13 +3,15 @@
 // a couple of refine cells, short Needle and GE cells and two short Structural
 // runs (tiny budgets). This is the EXACT code path benchmarkWorker.js executes,
 // with getMaterial as resolveMat (built-in DB, identical main-thread / worker /
-// CLI math); the Structural cells run the window's runner, which draws the same
-// materials from the built-in catalog.
+// CLI math); the refinement and Structural cells run the windows' own runs,
+// which draw the same materials from the built-in catalog.
 // Run: node tests/optimizer_benchmark_jobs.mjs
 import {
     BENCH_CASES, LOCAL_METHODS, GLOBAL_METHODS, DMIN_SWEEP, buildJobs, runJob, runStructural, caseById,
-    minFrontThk,
+    minFrontThk, refineStart, REFINE_MAXITER, GLOBAL_MAXITER,
 } from '../src/utils/benchmark/optimizerBenchmark.js';
+import { runRefinement } from '../src/utils/refinement/runRefinement.js';
+import { InThreadOptimizerWorker } from '../src/utils/workers/inThreadOptimizerWorker.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { initWasmForTest } from './_wasmInit.mjs';
 
@@ -65,6 +67,25 @@ await initWasmForTest();
     const jn = buildJobs({ cases: ['bbar'], refineLocal: true, refineMaxIters: [60] }).find((j) => j.method === 'newton');
     const rn = await runJob(jn, resolveMat);
     ok('newton runs (no err)', !rn.err && Number.isFinite(rn.mf));
+}
+
+// ── The refinement cells are the Refinement window's run, not a copy of it ───────
+// A cell lands on the layers runRefinement gives with the window's bounds and
+// budget, for CG (whose window run keeps restarting and probes half a wave first)
+// and for the multi-start (6 restarts within ±15 %, seeded).
+{
+    const C = caseById('bbar');
+    const thicknesses = d => d.frontLayers.map((l) => l.thickness);
+    const window = settings => runRefinement(refineStart(C.refineN), C.ops, { ...settings, seed: 12345 },
+        { makeWorker: () => new InThreadOptimizerWorker() });
+    const cells = buildJobs({ cases: ['bbar'], refineLocal: true, refineGlobal: true, needle: false, ge: false, structural: false });
+    const cg = await runJob(cells.find((j) => j.method === 'cg'), resolveMat);
+    const cgWindow = await window({ method: 'cg', maxIter: REFINE_MAXITER.cg });
+    ok('the CG cell is the window\'s CG run', JSON.stringify(thicknesses(cg.design)) === JSON.stringify(cgWindow.frontLayers.map((l) => l.thickness)));
+    const multi = await runJob(cells.find((j) => j.kind === 'dls-multi'), resolveMat);
+    const multiWindow = await window({ method: 'dls-multi', maxIter: GLOBAL_MAXITER['dls-multi'], nRestarts: 6, perturbPct: 15 });
+    ok('the multi-start cell is the window\'s multi-start', JSON.stringify(thicknesses(multi.design)) === JSON.stringify(multiWindow.frontLayers.map((l) => l.thickness)));
+    ok('the multi-start cell counts iterations, not starts', multi.it === multiWindow.iter && multi.it > 6);
 }
 
 // ── runJob: synth cell with a TINY budget (exercises the needle path, stays fast) ─
