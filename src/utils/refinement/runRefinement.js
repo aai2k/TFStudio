@@ -74,12 +74,12 @@ function prepare(design, operands) {
  * Resolves to { completed, stopReason, mf, omf, mfInitial, omfInitial, iter,
  * frontLayers, backLayers, seed }; a run that ends before it starts has nulls
  * there. stopReason: 'target', 'maxiter', 'stalled', 'best:<method>' (a list),
- * 'restartsDone' (DLS multi-start), 'stopped', 'workerFailed' (a DLS pool
- * worker failed before any result; the design is unchanged), 'workerError' (a
- * DLS pool worker failed after progress), 'presampleFailed', 'noOperands', or
- * 'invalidOperand' with `message`. On the method flow a method whose worker
- * fails contributes nothing, and the run ends on what the others found, or on
- * the start design. Only a completed run's layers are its answer.
+ * 'restartsDone' (DLS multi-start), 'stopped', 'workerFailed' (workers failed
+ * before any result; the design is unchanged), 'workerError' (a worker failed
+ * after progress, and no method finished), 'presampleFailed', 'noOperands', or
+ * 'invalidOperand' with `message`. In a list, a method whose worker fails
+ * offers what it found to the best and records no row, and the others go on.
+ * Only a completed run's layers are its answer.
  */
 export async function runRefinement(design, operands, settings, hooks = {}) {
     if (!design || !Array.isArray(operands)) throw new Error('runRefinement: a design and a list of operands are required');

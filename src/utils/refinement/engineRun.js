@@ -5,13 +5,20 @@
 import { getTmmWasmBytesForWorker } from '../../tmmcore.js';
 import { MAXITER_FOR } from './methods.js';
 
+// What a worker that failed hands back: the best it reported before failing, if
+// any, marked as failed.
+const failedResult = st => (st.best ? { ...st.best, failed: true } : { failed: true });
+
 // Message handler for one optimizer worker; mutates st.best and settles the run
 // promise via opts.{cleanup,resolve}. preview=false suppresses the live design
 // update (used by multistart restarts, which would thrash it).
 function engineOnMessage(R, st, m, opts) {
     if (!m) return;
     if (m.type === 'warn' || m.type === 'init') return;
-    if (m.type === 'error') { opts.cleanup(); opts.resolve(st.best); return; }
+    if (m.type === 'error') {
+        console.error('[Refine] Worker error:', m.message);
+        opts.cleanup(); opts.resolve(failedResult(st)); return;
+    }
     if (m.type === 'progress' || m.type === 'done') {
         const fL = m.bestFrontLayers || m.frontLayers, bL = m.bestBackLayers || m.backLayers;
         st.best = { mf: (m.mfBest != null ? m.mfBest : m.mf), omf: (m.omfBest != null ? m.omfBest : m.omf), frontLayers: fL, backLayers: bL, iters: m.iter, reason: m.reason };
@@ -33,19 +40,26 @@ function engineOnMessage(R, st, m, opts) {
 // flow would never resume, never record its best, and would hold its operand set
 // and pre-sampled material tables for the rest of the session. Settling resolves
 // with the best seen so far, which is what the flow needs to finish unwinding.
+//
+// Resolves to the engine's best { mf, omf, frontLayers, backLayers, iters,
+// reason }, null when a Stop came before any progress, or a result marked
+// `failed` when the worker could not be built or failed.
 export function runEngineP(R, engine, run) {
     const { ops, payload, materials, alive, onProg, preview, maxIterOverride, seed } = run;
     return new Promise((resolve) => {
         let w;
         try { w = R.makeWorker(); }
-        catch (_) { resolve(null); return; }
+        catch (err) { console.error(`[Refine] ${engine} worker could not be built:`, err); resolve({ failed: true }); return; }
         const st = { best: null };
         let untrack = () => {};
         const cleanup = () => { try { w.terminate(); } catch (_) {} untrack(); };
         untrack = R.track(() => { cleanup(); resolve(st.best); });
         const opts = { onProg, preview, alive, cleanup, resolve };
         w.onmessage = (e) => engineOnMessage(R, st, e.data, opts);
-        w.onerror = () => { cleanup(); resolve(st.best); };
+        w.onerror = (e) => {
+            console.error('[Refine] Worker onerror:', e?.message || e);
+            cleanup(); resolve(failedResult(st));
+        };
         w.postMessage({
             type: 'start', method: engine, operands: ops, design: payload, materials,
             opts: { maxIter: maxIterOverride || MAXITER_FOR[engine] || 500 },

@@ -154,6 +154,13 @@ for (const method of ['dls', 'cg', 'sqp', 'newton']) {
     assert.equal(failed.stopReason, 'workerFailed', 'no worker: workerFailed');
     assert.equal(failed.frontLayers, null, 'and no design');
     assert.equal(started, false, 'and the run never reports a start');
+    for (const method of ['sqp', ['cg', 'sa'], 'all']) {
+        const rows = [];
+        const flow = await runRefinement(DESIGN, OPS(), { method }, { makeWorker: noWorker, onRecord: row => rows.push(row) });
+        assert.equal(flow.completed, false, `${method}: a run whose workers cannot be built does not complete`);
+        assert.equal(flow.stopReason, 'workerFailed', `${method}: and says the worker failed`);
+        assert.equal(rows.length, 0, `${method}: and records no row`);
+    }
 
     const broken = [...OPS(), makeOperand({ type: 'OPGT', refA: 'missing', lambdaStart: 500, lambdaEnd: 600, target: 1, weight: 1 })];
     const refused = await runRefinement(DESIGN, broken, { method: 'dls' }, { makeWorker });
@@ -187,6 +194,11 @@ for (const method of ['dls', 'cg', 'sqp', 'newton']) {
     assert.equal(pools, 1, 'four free layers take the evaluation pool');
     assert.deepEqual(parallel.frontLayers, serial.frontLayers, 'parallel DE lands on the serial DE design');
     assert.equal(parallel.mf, serial.mf, 'with the same merit');
+
+    const dying = () => ({ map: async () => { throw new Error('an evaluation worker failed'); }, terminate() {} });
+    const fellBack = await runRefinement(DESIGN, OPS(), settings, { makeWorker, makeEvalPool: dying });
+    assert.equal(fellBack.completed, true, 'a DE whose evaluation pool fails still completes');
+    assert.deepEqual(fellBack.frontLayers, serial.frontLayers, 'on the serial DE design');
 }
 
 // ── 6. Settings are checked ─────────────────────────────────────────────────

@@ -66,8 +66,12 @@ export async function runParallelDEP(R, run) {
     catch (_) { try { pool.terminate(); } catch (e) {} untrack(); return serialFallback(); }
 
     const cfg = { ops, payload, materials, sid: Math.random().toString(36).slice(2), K, deMax, alive, onProg };
+    let poolFailed = false;
     try { await runDeLoop(R, de, pool, cfg); }
-    catch (err) { console.error('[Refine] parallel DE error:', err); }
+    catch (err) { console.error('[Refine] parallel DE error:', err); poolFailed = alive(); }
+    // A Stop also ends the loop by terminating the pool; any other failure of the
+    // pool runs the same seeded DE serially, which gives the parallel result.
+    if (poolFailed) { try { pool.terminate(); } catch (_) {} untrack(); return serialFallback(); }
 
     de.restoreBest();
     const upd = de.applyToDesign(payload);
@@ -97,23 +101,31 @@ function makeMultiBatch(R, run, start, count) {
     return batch;
 }
 
+// A restart whose worker failed still offers what it found before failing.
 function collectMultiResult(R, state, result, onProg) {
     if (!result) return;
-    const n = Number(result.iters);
+    const { failed, ...found } = result;
+    if (failed) state.failed += 1; else state.ok += 1;
+    if (found.mf == null) return;
+    const n = Number(found.iters);
     state.totalIters += Number.isFinite(n) ? Math.max(0, n) : 0;
-    if (!state.best || result.mf < state.best.mf) {
-        state.best = { ...result };
+    if (!state.best || found.mf < state.best.mf) {
+        state.best = { ...found };
         R.onProgress({ design: { frontLayers: state.best.frontLayers, backLayers: state.best.backLayers } });
     }
     if (onProg && state.best) onProg(state.best.mf, state.totalIters, state.best.omf);
 }
 
+// Resolves to the best restart, null when a Stop came before any result, or a
+// result marked `failed` when every restart's worker failed.
 export async function runMultiP(R, run) {
     const K = R.plan.threads;
-    const state = { best: null, totalIters: 0 };
+    const state = { best: null, totalIters: 0, ok: 0, failed: 0 };
     for (let start = 0; start < run.N && run.alive(); start += K) {
         const results = await Promise.all(makeMultiBatch(R, run, start, K));
         for (const result of results) collectMultiResult(R, state, result, run.onProg);
     }
-    return state.best && { ...state.best, iters: state.totalIters };
+    const best = state.best && { ...state.best, iters: state.totalIters };
+    if (state.ok > 0 || state.failed === 0) return best;
+    return best ? { ...best, failed: true } : { failed: true };
 }

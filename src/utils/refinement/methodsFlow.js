@@ -57,9 +57,17 @@ function flowStopReason(gb, methods, lastReason) {
     return gb.method ? `best:${gb.method}` : 'stalled';
 }
 
-// The flow's result. A run cut short by Stop leaves the end-of-run readout
-// alone and reports 'stopped'; only a run that got to the end of its method
-// list reports its final readout.
+// A run whose every method had its worker fail produced nothing: it ends as the
+// DLS pool does, 'workerFailed' when no method got as far as a result, and
+// 'workerError' when one failed after reporting progress.
+function failedRunReason(F) {
+    if (F.produced > 0 || F.failed === 0) return null;
+    return F.failedAfterProgress ? 'workerError' : 'workerFailed';
+}
+
+// The flow's result. A run cut short by Stop, or one whose workers all failed,
+// leaves the end-of-run readout alone; only a run that got to the end of its
+// method list reports its final readout.
 function finalizeMethodsFlow(R, F, gb, methods) {
     const completed = F.alive();
     const result = {
@@ -70,6 +78,8 @@ function finalizeMethodsFlow(R, F, gb, methods) {
         seed: F.seed,
     };
     if (!completed) return result;
+    const failure = failedRunReason(F);
+    if (failure) return { ...result, completed: false, stopReason: failure };
     R.onProgress({ iter: F.iterationOffset, mf: gb.mf, mfBest: gb.mf, omf: gb.omf, omfBest: gb.omf });
     if (methods.length > 1) console.log(`[Refine] Try-all done: best = ${gb.method} (MF=${gb.mf.toFixed(6)})`);
     return { ...result, stopReason: flowStopReason(gb, methods, F.lastReason) };
@@ -113,18 +123,29 @@ function beginMethod(F, method, methodIndex) {
     if (methodCount > 1) R.onProgress({ restartIdx: methodIndex + 1 });
 }
 
+// Counts how a method ended: with a result, or with its worker failing (after
+// progress or not). A Stop before any progress hands back no result at all.
+function countOutcome(F, result) {
+    if (!result) return;
+    if (!result.failed) { F.produced += 1; return; }
+    F.failed += 1;
+    if (result.mf != null) F.failedAfterProgress = true;
+}
+
 function completeMethod(F, method, result) {
     const { R, best } = F;
     const reportedIter = Number(result?.iters);
     const resultIters = Number.isFinite(reportedIter) ? Math.max(0, reportedIter) : 0;
     F.completedMethodIters = Math.max(F.lastMethodIter, resultIters);
     F.lastReason = result?.reason;
-    if (result) {
+    countOutcome(F, result);
+    if (result && result.mf != null) {
         F.methodHistory = appendMfSample(F.methodHistory, F.completedMethodIters, result.mf);
         trackGlobalBest(R, method, result, best);
-        // A method interrupted by Stop still contributes whatever it found to the
-        // global best, but leaves no history row (see recordMethodResult).
-        if (F.alive()) recordMethodResult(R, F, method, result);
+        // A method interrupted by Stop, or whose worker failed, still contributes
+        // whatever it found to the global best, but leaves no history row (see
+        // recordMethodResult).
+        if (F.alive() && !result.failed) recordMethodResult(R, F, method, result);
     }
     F.iterationOffset += F.completedMethodIters;
     R.onProgress({ iter: F.iterationOffset });
@@ -169,6 +190,7 @@ export async function runMethodsFlow(R, prep) {
         seed,
         singleMethod: methods.length === 1,
         iterationOffset: 0, lastMethodIter: 0, completedMethodIters: 0,
+        produced: 0, failed: 0, failedAfterProgress: false,
         methodHistory: [], aggregateHistory: [{ iter: 0, mf: baseMF }],
     };
     F.onProg = (mfNow, iters, omfNow) => updateFlowProgress(F, mfNow, iters, omfNow);

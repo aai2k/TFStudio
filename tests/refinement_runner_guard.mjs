@@ -96,6 +96,7 @@ class MockWorker {
         const shown = hangs && MockWorker.hangMf != null ? MockWorker.hangMf : mf * 1.1;
         this._post({ type: 'progress', iter: 5, mf: shown, mfBest: shown, omf: shown, omfBest: shown,
             frontLayers: front, backLayers: back, bestFrontLayers: front, bestBackLayers: back });
+        if (MockWorker.errorAfterProgress) { this._post({ type: 'error', message: 'the job threw part-way' }); return; }
         // Stands in for a method still working when the user presses Stop: it
         // reports progress and then goes quiet, so the flow is genuinely waiting
         // on a worker message that will never arrive.
@@ -115,6 +116,7 @@ MockWorker.onHang = null;    // called once when that method stalls
 MockWorker.startJobs = [];   // every 'start' job posted, in order
 MockWorker.failConstruct = false;   // new Worker() throws
 MockWorker.errorOnStart = null;     // a job fails before any progress: by 'message' or by error 'event'
+MockWorker.errorAfterProgress = false;  // a job reports progress, then an error
 MockWorker.built = [];              // every worker constructed, in order
 globalThis.Worker = MockWorker;
 
@@ -385,17 +387,21 @@ const WORKER_FAILURES = [
     ['fires an error event before progress', () => { MockWorker.errorOnStart = 'event'; }],
 ];
 
-// One DLS run with the failure `arm` installs, then the failure cleared again.
+// One run with the failure `arm` installs, then the failure cleared again.
 async function runFailing(ctx, arm) {
     MockWorker.built = [];
     arm();
     try { await withSeed(() => runOnce(ctx)); }
-    finally { MockWorker.failConstruct = false; MockWorker.errorOnStart = null; }
+    finally { MockWorker.failConstruct = false; MockWorker.errorOnStart = null; MockWorker.errorAfterProgress = false; }
 }
 
-const DLS_RUNS = [
-    { name: 'single', opts: { method: 'dls', seed: 7 }, nextReason: 'stalled' },
-    { name: 'multi-start', opts: { method: 'dls-multi', nRestarts: 4, seed: 7 }, nextReason: null },
+// Runs on the DLS pool and on the method flow, and the badge of the next run
+// that works.
+const FAILING_RUNS = [
+    { name: 'single DLS', opts: { method: 'dls', seed: 7 }, nextReason: 'stalled' },
+    { name: 'multi-start DLS', opts: { method: 'dls-multi', nRestarts: 4, seed: 7 }, nextReason: null },
+    { name: 'CG', opts: { method: ['cg'] }, nextReason: 'stalled' },
+    { name: 'method list', opts: { method: ['cg', 'sa'], seed: 7 }, nextReason: 'best:cg' },
 ];
 
 // A worker that cannot be built, or fails before its first progress message,
@@ -403,10 +409,10 @@ const DLS_RUNS = [
 // that works replaces the badge.
 async function verifyWorkerFailures() {
     for (const [what, arm] of WORKER_FAILURES) {
-        for (const { name, opts, nextReason } of DLS_RUNS) {
+        for (const { name, opts, nextReason } of FAILING_RUNS) {
             const { ctx, snap } = makeCtx(frontDesign(), OPS(), opts);
             await runFailing(ctx, arm);
-            const run = `a ${name} DLS run whose worker ${what}`;
+            const run = `a ${name} run whose worker ${what}`;
             assert.equal(ctx.runningRef.current, false, `${run} ends`);
             assert.equal(snap.stopReason, 'workerFailed', `${run} shows the worker failure`);
             assert.equal(snap.applied, null, `${run} leaves the design as it was`);
@@ -426,6 +432,21 @@ async function verifyWorkerFailures() {
     MockWorker.built[0].onerror({ message: 'late error' });
     await run;
     assert.equal(snap.stopReason, null, 'a late worker error after Stop leaves the badge alone');
+}
+
+// A worker that fails after reporting progress stops the run with no badge and
+// no history row, and leaves what it found with Best, on the DLS pool and on
+// the method flow alike.
+async function verifyFailureAfterProgress() {
+    for (const { name, opts } of [FAILING_RUNS[0], FAILING_RUNS[2]]) {
+        const { ctx, snap } = makeCtx(frontDesign(), OPS(), opts);
+        await runFailing(ctx, () => { MockWorker.errorAfterProgress = true; });
+        const run = `a ${name} run whose worker fails after progress`;
+        assert.equal(ctx.runningRef.current, false, `${run} ends`);
+        assert.equal(snap.stopReason, null, `${run} shows no badge`);
+        assert.equal(snap.history.length, 0, `${run} records no history row`);
+        assert.equal(rnd(ctx.lastBestRef.current?.mfBest), 0.055, `${run} leaves its best with Best`);
+    }
 }
 
 // A design whose material cannot be prepared for the workers ends the run
@@ -457,6 +478,7 @@ await verifyDesignSwitch();
 await verifyRunThatThrows();
 await verifySeededRuns();
 await verifyWorkerFailures();
+await verifyFailureAfterProgress();
 await verifyPresampleFailure();
 
 const results = {};
