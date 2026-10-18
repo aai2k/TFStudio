@@ -133,10 +133,12 @@ function endWindowRun(ctx, result, run) {
 
 /**
  * Starts a run of the window's method on the design and operands on screen.
- * Returns a promise that settles once the run's end is shown. What a stopped run
- * still reports while it unwinds lands while its design is on screen, so a
- * method cut short still offers its best to Best; after a design switch, none
- * of it does.
+ * Returns a promise that settles once the run's end is shown. What a run
+ * stopped by Stop or Best still reports while it unwinds is shown, so a method
+ * cut short still offers its best to Best. A run the window has let go of
+ * (ctx.activeRunRef no longer holds it, after Reset, Restore, an operand edit,
+ * a design switch or closing the window) shows nothing more, and neither does
+ * one whose design is no longer on screen.
  */
 export function startWindowRun(ctx) {
     if (ctx.runningRef.current) return Promise.resolve();

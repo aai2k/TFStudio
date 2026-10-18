@@ -1,0 +1,146 @@
+/**
+ * What Reset and Restore leave on screen when they cut a Refinement run short
+ * (refinement/useRefinement.js, refinement/windowRun.js).
+ *
+ *   1. Reset during an SQP run: once the stopped run has settled, the readout is
+ *      still cleared and no iterations come back.
+ *   2. Reset during a parallel DE run: DE's last readout does not come back.
+ *   3. Restore of a history row during a DLS run: the run's readout does not
+ *      come back over the restored design.
+ * After each, Best has nothing to apply, also once the window has shown another
+ * design and come back.
+ *
+ * The hook runs under a small stand-in for React that honours effect
+ * dependencies and cleanups, and a scripted Worker stands in for the optimizer
+ * worker (_scriptedOptimizerWorker.mjs).
+ *
+ * Run: node tests/refinement_run_actions.mjs
+ */
+import assert from 'node:assert/strict';
+import { makeEffectRuntime } from './_effectRuntime.mjs';
+import { ScriptedWorker } from './_scriptedOptimizerWorker.mjs';
+
+const store = new Map();
+globalThis.localStorage = {
+    getItem: key => (store.has(key) ? store.get(key) : null),
+    setItem: (key, value) => { store.set(key, String(value)); },
+    removeItem: key => { store.delete(key); },
+};
+globalThis.window = globalThis;
+globalThis.addEventListener = () => {};
+globalThis.removeEventListener = () => {};
+Object.defineProperty(globalThis, 'navigator', {
+    value: { hardwareConcurrency: 4 }, configurable: true, writable: true,
+});
+
+globalThis.Worker = ScriptedWorker;
+
+const R = makeEffectRuntime();
+globalThis.React = R;
+
+const { DesignContext } = await import('../src/state/DesignContext.js');
+const { useRefinement } = await import('../src/components/windows/optimization/refinement/useRefinement.js');
+const { makeOperand } = await import('../src/utils/physics/optimizer.js');
+const { default: EN } = await import('../src/constants/locales/en.js');
+
+const OPS = () => [
+    makeOperand({ type: 'RAV', lambdaStart: 480, lambdaEnd: 520, aoi: 0, pol: 'avg', target: 0, weight: 1 }),
+    makeOperand({ type: 'TAV', lambdaStart: 600, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 1, weight: 1 }),
+];
+const layer = (id, material, thickness) => ({ id, material, thickness, locked: false });
+const designOf = (id, frontLayers) => ({
+    id, name: id, incidentMedium: 'Air', exitMedium: 'Air',
+    substrate: { material: 'BK7', thickness: 1 }, referenceWavelength: 550,
+    surfaceMode: 'front_only', mfEvalMode: 'side', frontLayers, backLayers: [], meritOperands: OPS(),
+});
+const designs = {
+    A: designOf('A', [layer('a1', 'TiO2', 110), layer('a2', 'SiO2', 90), layer('a3', 'TiO2', 65)]),
+    D: designOf('D', [layer('d1', 'TiO2', 100), layer('d2', 'SiO2', 120), layer('d3', 'TiO2', 80), layer('d4', 'SiO2', 95)]),
+};
+
+const t = { refinement: { ...EN.refinement, history: { run: n => `Run ${n}` } } };
+const noop = () => {};
+let current = 'A';
+let state;
+const render = () => {
+    DesignContext.value = {
+        design: designs[current],
+        updateDesign: patch => { designs[current] = { ...designs[current], ...patch }; },
+        checkpoint: noop, beginOptimization: noop, endOptimization: noop,
+        isOptimizing: false, liveUpdate: true,
+    };
+    state = useRefinement({ t });
+};
+const settle = () => R.run(render);
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+const pause = async () => { await sleep(20); settle(); };
+
+async function startHeldRun(method) {
+    state.onMethod(method);
+    settle();
+    ScriptedWorker.hold = true;
+    state.onRun();
+    settle();
+    await pause();
+    assert.ok(state.running, `the ${method} run is in flight`);
+}
+
+const thicknesses = id => [...designs[id].frontLayers, ...designs[id].backLayers].map(l => l.thickness);
+
+// The readout a cleared run leaves: no iterations, best, trend or end reason.
+// Best has nothing to apply either, also after the window shows another design
+// and comes back.
+function assertCleared(what) {
+    assert.equal(state.running, false, `${what}: the run is over`);
+    assert.equal(state.iter, 0, `${what}: no iterations come back`);
+    assert.equal(state.mfBest, null, `${what}: no best merit comes back`);
+    assert.deepEqual(state.mfHistory, [], `${what}: no merit trend comes back`);
+    assert.equal(state.stopReason, null, `${what}: no end reason comes back`);
+    const here = current, before = thicknesses(here);
+    current = here === 'A' ? 'D' : 'A';
+    settle();
+    current = here;
+    settle();
+    state.onBest();
+    settle();
+    assert.deepEqual(thicknesses(here), before, `${what}: Best has nothing to apply`);
+}
+
+// ── 1. Reset during an SQP run ───────────────────────────────────────────────
+current = 'A';
+settle();
+await startHeldRun('sqp');
+state.onReset();
+settle();
+await pause();
+assertCleared('Reset during SQP');
+
+// ── 2. Reset during a parallel DE run ────────────────────────────────────────
+current = 'D';
+settle();
+await startHeldRun('de');
+state.onReset();
+settle();
+await pause();
+assertCleared('Reset during DE');
+
+// ── 3. Restore during a run ──────────────────────────────────────────────────
+current = 'A';
+settle();
+state.onMethod('sqp');
+settle();
+ScriptedWorker.hold = false;
+state.onRun();
+settle();
+while (state.running) await pause();
+const entry = state.histEntries[state.histEntries.length - 1];
+assert.ok(entry, 'a finished run leaves a history row to restore');
+await startHeldRun('dls');
+state.onRestore(entry);
+settle();
+await pause();
+assertCleared('Restore during a run');
+assert.deepEqual(designs.A.frontLayers.map(l => l.thickness), entry.layers.map(l => l.thickness),
+    'the restored layers stay on the design');
+
+console.log('Refinement run actions tests passed.');

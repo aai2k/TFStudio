@@ -33,6 +33,15 @@ function stopRun(env) {
     abortRun(env);
 }
 
+// Stop the run and let go of it: what it still reports while it unwinds no
+// longer reaches the window. Reset, Restore, an operand edit, a design switch
+// and closing the window do this; Stop and Best keep the run, so a method cut
+// short by Stop still hands its best to Best.
+function discardRun(env) {
+    env.refs.activeRunRef.current = null;
+    stopRun(env);
+}
+
 // ── Per-design Reset/history state (sessionState.js) ────────────────────────
 function commitBaselineTo(env, sd) {
     env.setters.setSavedDesign(sd);
@@ -152,7 +161,10 @@ function startRun(env, buildCtx) {
 
 function performReset(env, savedDesign, updateDesign) {
     const { refs, setters } = env;
-    stopRun(env);
+    discardRun(env);
+    // Best has nothing to apply after Reset, also once the window shows this
+    // design again.
+    refs.lastBestRef.current = null;
     refs.optimizerRef.current = null;
     if (savedDesign) {
         // Committed (non-transient) so Reset itself is undoable.
@@ -198,7 +210,10 @@ function applyBest(env, updateDesign) {
 
 function restoreHistoryEntry(env, entry, updateDesign) {
     const { refs, setters } = env;
-    stopRun(env);
+    discardRun(env);
+    // Best has nothing to apply over a restored row, also once the window shows
+    // this design again.
+    refs.lastBestRef.current = null;
     refs.optimizerRef.current = null;
     setters.setCanReset(false);
     refs.baselineRef.current = false;
@@ -216,7 +231,7 @@ function restoreHistoryEntry(env, entry, updateDesign) {
 // Any operand edit ends the current run session: stop, drop the finished run's
 // result record, and clear the Reset baseline so the next Run re-checkpoints.
 function haltAndInvalidate(env) {
-    if (env.refs.runningRef.current) stopRun(env);
+    discardRun(env);
     env.refs.optimizerRef.current = null;
     env.setters.setCanReset(false);
     env.refs.baselineRef.current = false;
@@ -283,7 +298,7 @@ function useDesignCacheSync({ design, env }) {
     const lastDesignId = useRef(null);
     useEffect(() => {
         const switched = lastDesignId.current && lastDesignId.current !== design?.id;
-        if (switched) { stopRun(env); env.refs.optimizerRef.current = null; }
+        if (switched) { discardRun(env); env.refs.optimizerRef.current = null; }
         lastDesignId.current = design?.id ?? null;
         hydrateFromCache(env, design?.id);
     }, [design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -334,6 +349,7 @@ function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }
     // Reset/history persist via the cache.
     useEffect(() => () => {
         env.refs.runningRef.current = false;
+        env.refs.activeRunRef.current = null;
         abortRun(env);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

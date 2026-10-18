@@ -13,12 +13,14 @@
  *
  * The hook runs under a small stand-in for React that honours effect
  * dependencies and cleanups. A scripted Worker stands in for the optimizer
- * worker: this checks what the window keeps per design, not the optimizer.
+ * worker (_scriptedOptimizerWorker.mjs): this checks what the window keeps per
+ * design, not the optimizer.
  *
  * Run: node tests/refinement_design_switch.mjs
  */
 import assert from 'node:assert/strict';
 import { makeEffectRuntime } from './_effectRuntime.mjs';
+import { ScriptedWorker } from './_scriptedOptimizerWorker.mjs';
 
 const store = new Map();
 globalThis.localStorage = {
@@ -35,26 +37,6 @@ Object.defineProperty(globalThis, 'navigator', {
 // The DLS method runs on the event-driven worker path.
 store.set('tfstudio-refinement-method', 'dls');
 
-// A worker that reports one progress step and finishes, moving every layer by
-// its index so the best design it returns is recognisable. With `holdRuns` it
-// stops after the progress step, leaving the run in flight.
-let holdRuns = false;
-class ScriptedWorker {
-    constructor() { this.onmessage = null; this.terminated = false; }
-    postMessage(job) {
-        if (job?.type !== 'start') return;
-        setTimeout(() => {
-            const shift = layers => (layers || []).map((l, i) => ({ ...l, thickness: l.thickness + i + 1 }));
-            const front = shift(job.design.frontLayers), back = shift(job.design.backLayers);
-            const layers = { frontLayers: front, backLayers: back, bestFrontLayers: front, bestBackLayers: back };
-            this.post({ type: 'progress', iter: 5, mf: 0.02, mfBest: 0.02, omf: 0.02, omfBest: 0.02, ...layers });
-            if (holdRuns) return;
-            this.post({ type: 'done', iter: 12, mf: 0.01, mfBest: 0.01, omf: 0.01, omfBest: 0.01, reason: 'stalled', ...layers });
-        }, 0);
-    }
-    post(data) { if (!this.terminated && this.onmessage) this.onmessage({ data }); }
-    terminate() { this.terminated = true; }
-}
 globalThis.Worker = ScriptedWorker;
 
 const R = makeEffectRuntime();
@@ -152,7 +134,7 @@ assert.deepEqual(readout(), runA, 'and so does opening the window again');
 // SQP runs on the method flow, which still gets the stopped worker's result
 // after the switch.
 state.onMethod('sqp');
-holdRuns = true;
+ScriptedWorker.hold = true;
 settle();
 state.onRun();
 settle();
