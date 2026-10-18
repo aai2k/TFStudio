@@ -1,32 +1,49 @@
 /**
- * FWHM / EDGE_LAMBDA evaluation — derived from a dense band scan.
+ * FWHM / EDGE_LAMBDA evaluation: where the channel crosses a level either side
+ * of the band's peak.
  *
  * Finds the band's peak (or notch) with the MXW / MNW row CENTRAL_LAMBDA
- * reads, so the two agree, then the two (or one) crossings of the level on a
- * uniform scan of the band.
+ * reads, so the two agree, then walks a uniform scan of the band out from it
+ * to bracket the two (or one) crossings of the level, and finds each crossing
+ * by bisection inside its bracket.
  */
 
 import { makeOperand, evaluateOperands, extremumStepNm } from '../../physics/optimizer.js';
 import { singleType, channelFromKind, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
 
-// Samples of the scan the crossings are found on, unless the qualifier sets
-// its own bandPoints: a 1 nm step over a 300 nm band.
+// Samples of the scan the crossings are bracketed on, unless the qualifier
+// sets its own bandPoints: a 1 nm step over a 300 nm band.
 const SCAN_POINTS = 301;
 
 // The scan's sample count. An evaluation that asks for a step flag
 // (evaluate.js) gets a sample at every step of that flag, and never fewer than
 // SCAN_POINTS; the qualifier's own bandPoints always wins.
-function scanCount(qual, options) {
+export function scanCount(qual, options) {
     if (qual.bandPoints || !options?.flag) return Math.max(11, qual.bandPoints || SCAN_POINTS);
     const span = Math.abs(qual.lambdaEnd - qual.lambdaStart);
     return Math.max(SCAN_POINTS, Math.ceil(span / extremumStepNm({ flag: options.flag })) + 1);
 }
 
-// Walk outward from the peak to find where the scan crosses `cross`, starting
-// at scan sample `startI`. For a max peak we look for the first descent below
-// cross; for a min notch we look for the first ascent above cross. `scan` =
-// { lams, vals, peakLam, peakV, cross, direction }.
+// The crossing of `cross` between `inside`, a wavelength on the peak's side of
+// the level, and `outside`, one past it. The pair is halved until the two are
+// neighbouring doubles, so the crossing is exact whatever the scan's step; the
+// step decides only which crossing gets bracketed.
+function bisectCross({ at, cross, direction }, inside, outside) {
+    const past = direction === 'min' ? v => v >= cross : v => v <= cross;
+    for (;;) {
+        const mid = 0.5 * (inside + outside);
+        if (mid === inside || mid === outside) return mid;
+        if (past(at(mid))) outside = mid;
+        else inside = mid;
+    }
+}
+
+// Walk outward from the peak to the first scan sample past `cross`, starting
+// at scan sample `startI`: for a max peak the first at or below cross, for a
+// min notch the first at or above it. The crossing lies between that sample
+// and the one before it. `scan` = { at, lams, vals, peakLam, peakV, cross,
+// direction }.
 function findCross(scan, startI, step) {
     const { lams, vals, peakLam, peakV, cross, direction } = scan;
     let prev = peakV, prevLam = peakLam;
@@ -36,11 +53,7 @@ function findCross(scan, startI, step) {
         const isCrossed = direction === 'min'
             ? (curV >= cross && prev < cross)
             : (curV <= cross && prev > cross);
-        if (isCrossed) {
-            // linear-interp between prev → cur
-            const t = (cross - prev) / (curV - prev);
-            return prevLam + t * (curLam - prevLam);
-        }
+        if (isCrossed) return bisectCross(scan, prevLam, curLam);
         prev = curV; prevLam = curLam;
     }
     return null;
@@ -84,7 +97,7 @@ export function evalBandDerived(qual, design, ctx, options) {
     // The first scan sample past the peak on its long-wave side.
     let rightI = lams.findIndex(lam => lam > peakLam);
     if (rightI < 0) rightI = N;
-    const scan = { lams, vals, peakLam, peakV, cross, direction };
+    const scan = { at, lams, vals, peakLam, peakV, cross, direction };
     const leftLam  = findCross(scan, rightI - 1, -1);
     const rightLam = findCross(scan, rightI, +1);
 

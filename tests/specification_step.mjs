@@ -5,9 +5,10 @@
  *      and without a flag the row at the default one. On two coupled-cavity
  *      peaks 1.9 nm apart the fine step finds the higher peak, which the
  *      default step reads as the lower.
- *   2. FWHM at the fine step scans the band at that step, so the width of a
- *      0.36 nm resonance matches its crossings found by bisection, where the
- *      default scan of 301 samples does not.
+ *   2. FWHM and Edge λ find each crossing by bisection between the scan's
+ *      samples, so the width of a 0.36 nm resonance is exact at the default
+ *      step, at the monitors' and at the fine one; the step decides only which
+ *      peak's crossings are bracketed.
  *   3. The analysis worker gives each design's results at the flag asked for,
  *      and null for a design whose material resolves nowhere.
  *   4. The report prints the results it is handed and evaluates the checks
@@ -32,7 +33,7 @@ const { evaluateQualifiers, makeQualifier, SPECIFICATION_FLAG } = await import('
 const { dispatchAnalysisEvaluation } = await import('../src/utils/workers/analysisEvaluationWorker.js');
 const { gatherDesignData } = await import('../src/utils/report/reportData.js');
 const { newBlock } = await import('../src/utils/report/blocks.js');
-const { fabryPerot, coupled, COUPLED_BAND, row, check, trueFwhm } = await import('./_peakDesigns.mjs');
+const { fabryPerot, coupled, COUPLED_BAND, row, check, trueFwhm, T } = await import('./_peakDesigns.mjs');
 
 const fine = { flag: SPECIFICATION_FLAG };
 
@@ -51,16 +52,26 @@ const fine = { flag: SPECIFICATION_FLAG };
     assert.ok(Math.abs(centreFine - 556.9) < 0.01, `at the higher peak: ${centreFine} nm`);
 }
 
-// ── 2. FWHM scans at the fine step ───────────────────────────────────────────
+// ── 2. FWHM and edge crossings are exact at any step ─────────────────────────
 {
-    const width = trueFwhm(fabryPerot, row(fabryPerot, 'MXWT', 540, 580, SPECIFICATION_FLAG));
-    const fwhm = { kind: 'FWHM', channel: 'T', direction: 'max', cmp: 'le', target: 1, lambdaStart: 540, lambdaEnd: 580 };
-    // The crossings are read off straight lines between samples: about 1e-4 nm
-    // out at a 0.01 nm step here, about 7e-3 nm with the default scan's 301.
-    const atFine = check(fabryPerot, fwhm, fine).value;
-    const atDefault = check(fabryPerot, fwhm).value;
-    assert.ok(Math.abs(atFine - width) < 1e-3, `FWHM at the fine step ${atFine} nm against ${width} nm`);
-    assert.ok(Math.abs(atDefault - width) > 1e-3, `and at the default ${atDefault} nm is not`);
+    const top = row(fabryPerot, 'MXWT', 540, 580, SPECIFICATION_FLAG);
+    const width = trueFwhm(fabryPerot, top);
+    const band = { channel: 'T', direction: 'max', cmp: 'ge', target: 0, lambdaStart: 540, lambdaEnd: 580 };
+    // Reading each crossing off the straight line between the two scan samples
+    // around it would put this width 7.5e-3 nm out with 301 samples and
+    // 1.0e-2 nm at 0.1 nm.
+    // The bisection reference starts from a peak found at a different step, a
+    // few 1e-7 nm away, which moves the half height by far less than 1e-9.
+    for (const options of [{}, { flag: 2 }, fine]) {
+        const label = options.flag ? `flag ${options.flag}` : 'the default step';
+        const got = check(fabryPerot, { ...band, kind: 'FWHM' }, options).value;
+        assert.ok(Math.abs(got - width) < 1e-9, `FWHM at ${label}: ${got} nm against ${width} nm`);
+        const half = T(fabryPerot, top) / 2;
+        for (const edgeSide of ['left', 'right']) {
+            const edge = check(fabryPerot, { ...band, kind: 'EDGE_LAMBDA', edgeSide }, options).value;
+            assert.ok(Math.abs(T(fabryPerot, edge) - half) < 1e-9, `the ${edgeSide} edge at ${label} sits on the half height`);
+        }
+    }
 }
 
 // ── 3. The worker evaluates each design at the flag asked for ────────────────

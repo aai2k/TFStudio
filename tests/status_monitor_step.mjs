@@ -27,6 +27,7 @@ initCatalogs({});
 
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
 const { computeMonitor, MONITOR_FLAG } = await import('../src/utils/physics/statusMonitorEvaluation.js');
+const { scanCount } = await import('../src/utils/synthesis/qualifiers/bandScan.js');
 const { fabryPerot, coupled, COUPLED_BAND, row, check } = await import('./_peakDesigns.mjs');
 
 // ── 1. Peak monitors search at MONITOR_FLAG ──────────────────────────────────
@@ -57,12 +58,13 @@ const { fabryPerot, coupled, COUPLED_BAND, row, check } = await import('./_peakD
     const edge = { kind: 'EDGE_LAMBDA', channel: 'T', direction: 'max', cmp: 'ge', target: 0, edgeSide: 'right', ...band };
     assert.equal(computeMonitor({ type: 'edgeRight', qty: 'T', ...band }, fabryPerot, resolve),
         check(fabryPerot, edge, { flag: MONITOR_FLAG }).value, 'an edge monitor is the Edge λ check at the monitor step');
-    // Without a flag the scan keeps its 301 samples, however wide the band.
-    const wide = { ...fwhm, lambdaStart: 400, lambdaEnd: 1600 };
-    assert.equal(check(fabryPerot, wide).value, check(fabryPerot, { ...wide, bandPoints: 301 }).value,
-        'a check without a flag scans 301 samples');
-    assert.notEqual(check(fabryPerot, wide, { flag: MONITOR_FLAG }).value, check(fabryPerot, wide).value,
-        'and one with a flag scans more');
+    // Without a flag the scan keeps its 301 samples, however wide the band;
+    // with one it has a sample every step, and a qualifier's own count wins.
+    const wide = { lambdaStart: 400, lambdaEnd: 1600 };
+    assert.equal(scanCount(wide, {}), 301, 'a check without a flag scans 301 samples');
+    assert.equal(scanCount(wide, { flag: MONITOR_FLAG }), 12001, 'at the monitor step, one every 0.1 nm');
+    assert.equal(scanCount({ lambdaStart: 540, lambdaEnd: 560 }, { flag: MONITOR_FLAG }), 301, 'and never fewer than 301');
+    assert.equal(scanCount({ ...wide, bandPoints: 501 }, { flag: MONITOR_FLAG }), 501, 'a qualifier\'s own count wins');
 }
 
 // ── 3. The status bar follows a run and works on the worker ──────────────────
