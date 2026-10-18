@@ -165,7 +165,6 @@ function performReset(env, savedDesign, updateDesign) {
     // Best has nothing to apply after Reset, also once the window shows this
     // design again.
     refs.lastBestRef.current = null;
-    refs.optimizerRef.current = null;
     if (savedDesign) {
         // Committed (non-transient) so Reset itself is undoable.
         updateDesign({ frontLayers: savedDesign.frontLayers, backLayers: savedDesign.backLayers });
@@ -189,23 +188,15 @@ function performReset(env, savedDesign, updateDesign) {
     refs.baselineRef.current = false;
 }
 
-// Apply the best design the current run has produced. `optimizerRef` carries it
-// once a run finishes; while a run is still in flight, or after a Stop cut one
-// short, `lastBestRef` is the record that is kept up to date, so Best works from
-// the moment the first improvement lands rather than only after the last method.
+// Apply the best design the run has produced, on the sides that run optimized
+// (windowRun.js records them). Best has a design once the run reports a best: at
+// each DLS progress step that improves on it, and at the end of each method of
+// the method flow; it then works while the run is in flight and after a Stop.
 function applyBest(env, updateDesign) {
-    const opt = env.refs.optimizerRef.current;
-    if (opt) {
-        stopRun(env);
-        opt.restoreBest();
-        const updatedDesign = opt.applyToDesign(env.refs.designRef.current);
-        updateDesign({ [opt.layerSide]: updatedDesign[opt.layerSide] });
-        return;
-    }
     const best = env.refs.lastBestRef.current;
-    if (!best || !best.frontLayers) return;
+    if (!best || !best.sides) return;
     stopRun(env);
-    updateDesign({ frontLayers: best.frontLayers, backLayers: best.backLayers });
+    updateDesign(Object.fromEntries(best.sides.map(side => [side, best[side]])));
 }
 
 function restoreHistoryEntry(env, entry, updateDesign) {
@@ -214,7 +205,6 @@ function restoreHistoryEntry(env, entry, updateDesign) {
     // Best has nothing to apply over a restored row, also once the window shows
     // this design again.
     refs.lastBestRef.current = null;
-    refs.optimizerRef.current = null;
     setters.setCanReset(false);
     refs.baselineRef.current = false;
     const side = entry.layerSide || 'frontLayers';
@@ -228,11 +218,10 @@ function restoreHistoryEntry(env, entry, updateDesign) {
     setters.setOmfBest(null);
 }
 
-// Any operand edit ends the current run session: stop, drop the finished run's
-// result record, and clear the Reset baseline so the next Run re-checkpoints.
+// Any operand edit ends the current run session: stop and let go of the run,
+// and clear the Reset baseline so the next Run re-checkpoints.
 function haltAndInvalidate(env) {
     discardRun(env);
-    env.refs.optimizerRef.current = null;
     env.setters.setCanReset(false);
     env.refs.baselineRef.current = false;
 }
@@ -298,7 +287,7 @@ function useDesignCacheSync({ design, env }) {
     const lastDesignId = useRef(null);
     useEffect(() => {
         const switched = lastDesignId.current && lastDesignId.current !== design?.id;
-        if (switched) { discardRun(env); env.refs.optimizerRef.current = null; }
+        if (switched) discardRun(env);
         lastDesignId.current = design?.id ?? null;
         hydrateFromCache(env, design?.id);
     }, [design?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -454,11 +443,10 @@ export function useRefinement({ t }) {
     // seed it drew here.
     const [seed,        setSeed]        = useState(null);
 
-    const optimizerRef    = useRef(null);
     const runningRef      = useRef(false);
     const abortRef        = useRef(null);   // AbortController of the run in flight
     const activeRunRef    = useRef(null);   // the latest run started (windowRun.js)
-    const lastBestRef     = useRef(null);   // { mfBest, frontLayers, backLayers } for Best after Stop
+    const lastBestRef     = useRef(null);   // { mfBest, omf, frontLayers, backLayers }: what Best applies
     const baselineRef     = useRef(false);  // run baseline/checkpoint already taken this session
     const operandsRef     = useRef(operands);
     const designRef       = useRef(design);
@@ -492,7 +480,7 @@ export function useRefinement({ t }) {
     // stay correct across renders regardless of which render's `env` they hold.
     const refs = {
         runningRef, designRef, operandsRef, maxIterRef,
-        nRestartsRef, perturbPctRef, checkpointRef, updateDesignRef, optimizerRef,
+        nRestartsRef, perturbPctRef, checkpointRef, updateDesignRef,
         baselineRef, lastBestRef, abortRef, activeRunRef, histRunCount, seedRef,
     };
     const setters = {

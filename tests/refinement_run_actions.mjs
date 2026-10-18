@@ -1,5 +1,5 @@
 /**
- * What Reset and Restore leave on screen when they cut a Refinement run short
+ * What Reset, Restore and Best do with a Refinement run
  * (refinement/useRefinement.js, refinement/windowRun.js).
  *
  *   1. Reset during an SQP run: once the stopped run has settled, the readout is
@@ -7,8 +7,11 @@
  *   2. Reset during a parallel DE run: DE's last readout does not come back.
  *   3. Restore of a history row during a DLS run: the run's readout does not
  *      come back over the restored design.
- * After each, Best has nothing to apply, also once the window has shown another
- * design and come back.
+ *   4. Best after a stopped DLS run on a design with both sides optimized puts
+ *      the run's best layers on the front and on the back; after a front-only
+ *      run it puts on the front only, whatever the design's mode is by then.
+ * After 1, 2 and 3, Best has nothing to apply, also once the window has shown
+ * another design and come back.
  *
  * The hook runs under a small stand-in for React that honours effect
  * dependencies and cleanups, and a scripted Worker stands in for the optimizer
@@ -56,6 +59,11 @@ const designOf = (id, frontLayers) => ({
 const designs = {
     A: designOf('A', [layer('a1', 'TiO2', 110), layer('a2', 'SiO2', 90), layer('a3', 'TiO2', 65)]),
     D: designOf('D', [layer('d1', 'TiO2', 100), layer('d2', 'SiO2', 120), layer('d3', 'TiO2', 80), layer('d4', 'SiO2', 95)]),
+    W: {
+        ...designOf('W', [layer('w1', 'TiO2', 100), layer('w2', 'SiO2', 120)]),
+        backLayers: [layer('k1', 'TiO2', 80), layer('k2', 'SiO2', 95)],
+        surfaceMode: 'both_independent',
+    },
 };
 
 const t = { refinement: { ...EN.refinement, history: { run: n => `Run ${n}` } } };
@@ -142,5 +150,47 @@ await pause();
 assertCleared('Restore during a run');
 assert.deepEqual(designs.A.frontLayers.map(l => l.thickness), entry.layers.map(l => l.thickness),
     'the restored layers stay on the design');
+
+// ── 4. Best on a design with both sides optimized ────────────────────────────
+// The worker's live layers run 10 nm ahead of its best ones, as a DLS run's do
+// between improvements, so the live preview is not the design Best applies.
+class LiveAheadWorker extends ScriptedWorker {
+    post(data) {
+        const ahead = layers => layers?.map(l => ({ ...l, thickness: l.thickness + 10 }));
+        super.post(data.type === 'progress'
+            ? { ...data, frontLayers: ahead(data.frontLayers), backLayers: ahead(data.backLayers) }
+            : data);
+    }
+}
+globalThis.Worker = LiveAheadWorker;
+const startW = { front: designs.W.frontLayers.map(l => l.thickness), back: designs.W.backLayers.map(l => l.thickness) };
+current = 'W';
+settle();
+await startHeldRun('dls');
+state.onStop();
+settle();
+state.onBest();
+settle();
+const bestOf = start => start.map((d, i) => d + i + 1);
+assert.deepEqual(designs.W.frontLayers.map(l => l.thickness), bestOf(startW.front), 'Best puts the best front layers on the design');
+assert.deepEqual(designs.W.backLayers.map(l => l.thickness), bestOf(startW.back), 'and the best back layers');
+globalThis.Worker = ScriptedWorker;
+
+// A front-only run, then the design switched to both sides with a layer added
+// on the back: Best puts the run's front on, and leaves the back the user edited.
+designs.F = { ...designOf('F', [layer('f1', 'TiO2', 100), layer('f2', 'SiO2', 120)]), backLayers: [layer('g1', 'TiO2', 80)] };
+current = 'F';
+settle();
+const startF = designs.F.frontLayers.map(l => l.thickness);
+await startHeldRun('dls');
+state.onStop();
+settle();
+designs.F = { ...designs.F, surfaceMode: 'both_independent', backLayers: [...designs.F.backLayers, layer('g2', 'SiO2', 90)] };
+settle();
+const editedBack = designs.F.backLayers.map(l => l.thickness);
+state.onBest();
+settle();
+assert.deepEqual(designs.F.frontLayers.map(l => l.thickness), bestOf(startF), 'Best puts the front-only run\'s front on');
+assert.deepEqual(designs.F.backLayers.map(l => l.thickness), editedBack, 'and leaves the back as the user edited it');
 
 console.log('Refinement run actions tests passed.');

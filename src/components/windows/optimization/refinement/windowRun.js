@@ -6,7 +6,6 @@
 // refs, state setters, cache helpers and the locale table `t`.
 
 import { runRefinement } from '../../../../utils/refinement/runRefinement.js';
-import { runsOnDlsPool } from '../../../../utils/refinement/settings.js';
 import { getThreadCount } from '../../../../utils/synthesis/synthesisConfig.js';
 import { WorkerPool } from '../../../../utils/workers/workerPool.js';
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
@@ -50,20 +49,15 @@ function settingsOf(ctx) {
     };
 }
 
-const layerSideOf = design => (design.surfaceMode === 'back_only' ? 'backLayers' : 'frontLayers');
+// The layer stacks a surface mode optimizes. A symmetric coating's back follows
+// its front.
+const OPTIMIZED_SIDES = { back_only: ['backLayers'], both_independent: ['frontLayers', 'backLayers'] };
+const optimizedSides = surfaceMode => OPTIMIZED_SIDES[surfaceMode] || ['frontLayers'];
 
-// What Best applies once a run has a result: the layers on the side the
-// surface mode optimizes.
-function resultRecord(best, layerSide) {
-    return {
-        iter: best.iter, mf: best.mf, mfBest: best.mf, layerSide,
-        applyToDesign: (d) => ({ ...d, frontLayers: best.frontLayers, backLayers: best.backLayers }),
-        restoreBest: () => {},
-    };
-}
-
-const bestRecord = best => ({
-    mfBest: best.mf, omf: best.omf, frontLayers: best.frontLayers, backLayers: best.backLayers,
+// What Best applies (useRefinement.js applyBest): the run's best, on the sides
+// the run optimized, whatever the surface mode is when Best is pressed.
+const bestRecord = (best, sides) => ({
+    mfBest: best.mf, omf: best.omf, frontLayers: best.frontLayers, backLayers: best.backLayers, sides,
 });
 
 // The run has started: one undo checkpoint and Reset baseline per session, the
@@ -80,20 +74,16 @@ function beginRun(ctx, design, seed) {
     ctx.setCanReset(true);
     ctx.setStopReason(null);
     ctx.lastBestRef.current = null;
-    ctx.optimizerRef.current = null;
 }
 
+// Best works from the run's best as soon as there is one.
 function showProgress(ctx, patch, run) {
     for (const [key, setter] of PATCH_SETTERS) if (key in patch) ctx[setter](patch[key]);
     if (patch.design) {
         ctx.updateDesignRef.current(
             { frontLayers: patch.design.frontLayers, backLayers: patch.design.backLayers }, { transient: true });
     }
-    if (patch.best) {
-        ctx.lastBestRef.current = bestRecord(patch.best);
-        // On the DLS pool, Best works from the run's best as soon as there is one.
-        if (run.onPool) ctx.optimizerRef.current = resultRecord(patch.best, run.layerSide);
-    }
+    if (patch.best) ctx.lastBestRef.current = bestRecord(patch.best, run.sides);
 }
 
 function recordRow(ctx, row) {
@@ -125,8 +115,7 @@ function endWindowRun(ctx, result, run) {
     if (!run.onDesign()) return;
     if (result.completed && result.frontLayers) {
         ctx.updateDesignRef.current({ frontLayers: result.frontLayers, backLayers: result.backLayers }, { transient: true });
-        ctx.lastBestRef.current = bestRecord(result);
-        ctx.optimizerRef.current = resultRecord(result, run.layerSide);
+        ctx.lastBestRef.current = bestRecord(result, run.sides);
     }
     ctx.setStopReason(badgeOf(result));
 }
@@ -149,8 +138,7 @@ export function startWindowRun(ctx) {
     ctx.activeRunRef.current = token;
     ctx.abortRef.current = controller;
     const run = {
-        onPool: runsOnDlsPool(settings.method),
-        layerSide: layerSideOf(design),
+        sides: optimizedSides(design.surfaceMode),
         isCurrent: () => ctx.activeRunRef.current === token,
         onDesign: () => run.isCurrent() && ctx.designRef.current?.id === design.id,
     };

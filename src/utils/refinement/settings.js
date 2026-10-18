@@ -47,7 +47,7 @@ function seedOf(seed) {
  * alone, as an id or a list of one. Every other method and every longer list
  * takes the method flow.
  */
-export function runsOnDlsPool(method) {
+function runsOnDlsPool(method) {
     const only = Array.isArray(method) && method.length === 1 ? method[0] : method;
     return only === 'dls' || only === 'dls-multi';
 }

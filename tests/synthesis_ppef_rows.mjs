@@ -320,7 +320,7 @@ function refinementCtx(method) {
     const ctx = {
         runningRef: ref(false), designRef: ref(copy(DESIGN)), operandsRef: ref(copy(OPERANDS)),
         methodRef: ref(method), maxIterRef: ref(5), nRestartsRef: ref(1), perturbPctRef: ref(30),
-        checkpointRef: ref(noop), optimizerRef: ref(null), baselineRef: ref(false), lastBestRef: ref(null),
+        checkpointRef: ref(noop), baselineRef: ref(false), lastBestRef: ref(null),
         abortRef: ref(null), activeRunRef: ref(null), histRunCount: ref(0), seedRef: ref(1),
         commitBaseline: noop, bumpRunCount: noop, addHistEntry: noop, setSeed: noop,
         updateDesignRef: ref(patch => { ctx.designRef.current = { ...ctx.designRef.current, ...patch }; }),
