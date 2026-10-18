@@ -31,11 +31,11 @@ from your current design) and **global** (search broadly, gradient-free).
 
 | Method | What it is | Best for |
 | ------ | ---------- | -------- |
-| **Sequential QP (SQP)** ⭐ default | Bounded Newton step with the thickness limits (see below) as **hard constraints** (box-QP, exact bound satisfaction, no penalty tuning). | **The default.** Best / tied-best MF across every benchmark case, decisively so on *constrained* problems (it handles a min-thickness natively). Slower on hard problems, so switch to DLS if you want speed first. |
-| **Damped Least Squares (DLS)** | Levenberg–Marquardt, the classic thin-film least-squares refiner. QR-solved damped step, exact analytic Jacobian. | The fast, robust classic; called after every synthesis step. Pick it when you want speed over the last fraction of MF. |
-| **Conjugate Gradient (CG)** | Polak–Ribière⁺ gradient-only method (Nocedal & Wright §5.2), exact analytic ∇MF, projected backtracking line search. | **Very large stacks** and polishing a decent design. Won the 30-layer detuned-HR benchmark; the preferred inner refiner for Needle. |
+| **Sequential QP (SQP)** ⭐ default | Bounded Newton step with the thickness limits (see below) as **hard constraints** (box-QP, exact bound satisfaction, no penalty tuning). | **The default.** Holds a min-thickness as a hard limit, and was far ahead of the other local refiners on the hardest constrained case of the benchmark. No local refiner wins every case, so when SQP stalls, try CG or Try all, keep best. |
+| **Damped Least Squares (DLS)** | Levenberg–Marquardt, the classic thin-film least-squares refiner. QR-solved damped step, exact analytic Jacobian. | The robust classic; called after every synthesis step. Close to the best without a min-thickness, well behind with one. |
+| **Conjugate Gradient (CG)** | Polak–Ribière⁺ gradient-only method (Nocedal & Wright §5.2), exact analytic ∇MF, projected backtracking line search. | Polishing a decent design. The best local refiner on the beam splitter and the three-line bandpass of the benchmark, with and without a min-thickness; the preferred inner refiner for Needle. |
 | **Newton** | Second-order. Exact analytic Hessian (JᵀJ + curvature) when scoring a single side; Gauss-Newton (JᵀJ) for full-filter (Both / symmetric). | A quadratic endgame in the fewest iterations: small stacks, near the minimum, when you want the last digits. |
-| **Newton-CG** | Truncated Newton, matrix-free; solves the Newton step with inner CG using Hessian-vector products (no dense Hessian). | **Second-order quality without the cost.** Scales to large stacks where dense Newton is too slow (see the 75.9 s → 2.8 s figure below). |
+| **Newton-CG** | Truncated Newton, matrix-free; solves the Newton step with inner CG using Hessian-vector products (no dense Hessian). | **Second-order steps without forming the Hessian.** Best of the local refiners on the unconstrained multi-passband case. |
 
 **Thickness limits.** No method has a built-in maximum layer thickness: a layer can grow as thick as the merit function asks, which is what half-wave layers in the infrared and thick cavity spacers need. For an upper limit, add an `MXT` row in the [Merit Function Editor](/design/merit-function-editor/); for a manufacturing floor, an `MNT` row. SQP holds `MNT` and `MXT` as hard limits, so no step leaves them. The other methods carry them as penalty terms in the merit function, which stay at zero while the limit holds. Every method also keeps each layer at or above a minimum thickness: 1 nm in Refinement, the **Min thickness** setting in the synthesis windows. DLS, Newton and Newton-CG hold a layer on that floor for as long as the merit pushes it thinner and release it as soon as the merit pulls it back, so the step is spent on the layers that can move.
 
@@ -44,7 +44,7 @@ from your current design) and **global** (search broadly, gradient-free).
 | Method | What it is | Best for |
 | ------ | ---------- | -------- |
 | **DLS multi-start** | Runs DLS from **N** randomly-perturbed starts, keeps the best. | Escaping shallow local minima around a known-decent design. |
-| **Differential Evolution (DE)** | Storn & Price (1997) population search, gradient-free; runs in parallel across your CPU cores. | **Poor / unknown starting point**, multimodal targets. The strongest global on smooth problems. |
+| **Differential Evolution (DE)** | Storn & Price (1997) population search, gradient-free; runs in parallel across your CPU cores. | **Poor / unknown starting point**, multimodal targets. |
 | **Simulated Annealing (SA)** | Kirkpatrick (1983), accepting uphill moves with probability `exp(−ΔMF/T)`, then cooling. | Rugged merit surfaces where you need to climb out of deep wells. |
 | **Try all, keep best** | Runs every method from the same start and keeps the lowest MF (DLS multi-start last, as it's the slowest). | When you don't want to choose and would rather let TFStudio pick the winner. |
 
@@ -72,9 +72,9 @@ benchmark-confirmed on real designs.
 ## How to choose
 
 ```
-Just want the best result?         → SQP   (the default; best across the benchmark)
-Want it faster, near-best?         → DLS
-Decent design, large stack?        → CG    (or Newton-CG to polish)
+One method for most designs?       → SQP   (the default)
+No min-thickness, want the classic?→ DLS
+Decent design to polish?           → CG    (or Newton-CG)
 Near the minimum, want last digits?→ Newton-CG  (or Newton on small stacks)
 Hard min-thickness to respect?     → SQP   (handles bounds natively)
 Bad / unknown start, multimodal?   → DE    (or SA on a rugged surface)
@@ -99,20 +99,8 @@ realistic minimum-thickness limit.
 
 ### What it found
 
-- **SQP is the best overall local refiner**: best or tied-best MF in
-  *every* case, constrained and unconstrained, and decisively ahead on
-  constrained problems because it treats a min-thickness as a hard box
-  constraint (no penalty tuning). It's now the **default** Refinement
-  method. It costs more time on hard problems than DLS/Newton-CG, but the
-  quality margin is large.
-- **Newton-CG is the best matrix-free second-order method**: it matches
-  Newton / SQP quality without forming a dense Hessian. On the 12-layer
-  bandpass, dense **Newton took 75.9 s vs Newton-CG 2.8 s** for the same
-  result.
-- **CG wins on very large stacks**: it took the 30-layer detuned-HR case.
-- **DE is the strongest global** optimizer on smooth problems; on a
-  multimodal BBAR it reached MF 0.019 where plain DLS stuck at 0.089
-  (it escaped the local minimum).
+- **No local refiner wins every case.** SQP, the **default**, treats a min-thickness as a hard box constraint and was far ahead on the hardest constrained case, the multi-passband with a 40 nm floor (MF 0.235 where the others reached 0.51 to 0.56). CG was the best local refiner on the beam splitter and the three-line bandpass, with and without the floor; with it, CG reached MF 0.009 on the beam splitter where SQP stopped at 0.067. DLS, Newton and SQP tied on the shortpass edge.
+- **The global refiners escape local minima**: on the broadband AR, DE reached MF 0.012 and DLS multi-start 0.008, where plain DLS stopped at 0.118.
 - **Synthesis wins raw MF**: tools that grow layers (Needle / GE) reach
   lower merit than any fixed-structure refiner, given enough layers.
 - **Structural Optimizer gives the best layer-efficiency**: the lowest MF
