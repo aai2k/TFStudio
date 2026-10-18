@@ -1,0 +1,3837 @@
+{
+  "plain": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          120.86050944366745
+        ],
+        [
+          "TiO2",
+          5.342543415792028
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 5,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          120.86050944366745
+        ],
+        [
+          "TiO2",
+          5.342543415792028
+        ]
+      ]
+    },
+    "designUpdates": 7,
+    "edits": 0,
+    "genCount": 5,
+    "jobs": {
+      "candidate": 23,
+      "dropParked": 5,
+      "scan": 21,
+      "seedDls": 4
+    },
+    "maps": 22,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 4× thicker design (297 nm)",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "No needle improves MF. Converged."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "MgF2",
+        "layerCount": 1,
+        "layers": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "mf": 0.013996579514565361,
+        "omf": 0.013996579514565361,
+        "runNum": 1,
+        "side": "front",
+        "tot": 95.4416828584302
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.00496515556936037,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.85947336377183
+          ],
+          [
+            "TiO2",
+            5.340668811600982
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.85947336377183
+          ],
+          [
+            "TiO2",
+            5.340668811600982
+          ]
+        ],
+        "mf": 0.009031423945204991,
+        "omf": 0.009031423945204991,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.2001421753728
+      },
+      {
+        "backSnap": [],
+        "dMF": -1.0768073134548306e-9,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "genNum": 3,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "mf": 0.009031422868397677,
+        "omf": 0.009031422868397677,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.20305285945948
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.014912804760933806,
+        "frontSnap": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "genNum": 4,
+        "insertMat": "SiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "mf": 0.009245482662295105,
+        "omf": 0.009245482662295105,
+        "rescued": true,
+        "runNum": 1,
+        "side": "front",
+        "tot": 124.26175543089556
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.00021405911795720906,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.8570220209422
+          ],
+          [
+            "TiO2",
+            5.341491678171622
+          ]
+        ],
+        "genNum": 5,
+        "insertMat": "MgF2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.8570220209422
+          ],
+          [
+            "TiO2",
+            5.341491678171622
+          ]
+        ],
+        "mf": 0.009031423544337896,
+        "omf": 0.009031423544337896,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.19851369911382
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 5,
+      "layerCount": 2,
+      "mf": 0.009031422868397667,
+      "mfBest": 0.009031422868397677,
+      "omf": 0.009031422868397677,
+      "omfBest": 0.009031422868397677,
+      "rows": 5,
+      "top": [
+        1,
+        3
+      ]
+    },
+    "terminated": 1
+  },
+  "regridAndRescue": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "SiO2",
+          1.0163629352101093
+        ],
+        [
+          "TiO2",
+          52.50006276989043
+        ],
+        [
+          "SiO2",
+          92.91245119956591
+        ],
+        [
+          "TiO2",
+          52.24417751374633
+        ],
+        [
+          "SiO2",
+          92.97758199851816
+        ],
+        [
+          "TiO2",
+          52.65930636325807
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 7,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "SiO2",
+          1.0163629352101093
+        ],
+        [
+          "TiO2",
+          52.50006276989043
+        ],
+        [
+          "SiO2",
+          92.91245119956591
+        ],
+        [
+          "TiO2",
+          52.24417751374633
+        ],
+        [
+          "SiO2",
+          92.97758199851816
+        ],
+        [
+          "TiO2",
+          52.65930636325807
+        ]
+      ]
+    },
+    "designUpdates": 8,
+    "edits": 0,
+    "genCount": 7,
+    "jobs": {
+      "candidate": 22,
+      "dropParked": 6,
+      "scan": 14,
+      "seedDls": 4
+    },
+    "maps": 22,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 2× thicker design (203 nm)",
+          "Scanning needle positions…",
+          "Refining 1 candidate in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Max layer count (6) reached."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "TiO2",
+            52.69750156594696
+          ],
+          [
+            "SiO2",
+            93.043177245051
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            52.69750156594696
+          ],
+          [
+            "SiO2",
+            93.043177245051
+          ]
+        ],
+        "mf": 0.6019607679050172,
+        "omf": 0.6019607679050172,
+        "runNum": 1,
+        "side": "front",
+        "tot": 145.74067881099796
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.2909242556372158,
+        "frontSnap": [
+          [
+            "TiO2",
+            52.77586258873689
+          ],
+          [
+            "SiO2",
+            92.56070597323573
+          ],
+          [
+            "TiO2",
+            52.708755947896144
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": "TiO2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "TiO2",
+            52.77586258873689
+          ],
+          [
+            "SiO2",
+            92.56070597323573
+          ],
+          [
+            "TiO2",
+            52.708755947896144
+          ]
+        ],
+        "mf": 0.3110365122678014,
+        "omf": 0.3110365122678014,
+        "runNum": 1,
+        "side": "front",
+        "tot": 198.04532450986878
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.000007075875246287389,
+        "frontSnap": [
+          [
+            "SiO2",
+            1
+          ],
+          [
+            "TiO2",
+            52.56996470249383
+          ],
+          [
+            "SiO2",
+            92.55045013944837
+          ],
+          [
+            "TiO2",
+            52.71244167566896
+          ]
+        ],
+        "genNum": 3,
+        "insertMat": "SiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "SiO2",
+            1
+          ],
+          [
+            "TiO2",
+            52.56996470249383
+          ],
+          [
+            "SiO2",
+            92.55045013944837
+          ],
+          [
+            "TiO2",
+            52.71244167566896
+          ]
+        ],
+        "mf": 0.3110294363925551,
+        "omf": 0.3110294363925551,
+        "runNum": 1,
+        "side": "front",
+        "tot": 198.83285651761116
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.016135778110731858,
+        "frontSnap": [
+          [
+            "SiO2",
+            1.0634338163817139
+          ],
+          [
+            "TiO2",
+            52.760282845442816
+          ],
+          [
+            "SiO2",
+            92.169193660685
+          ],
+          [
+            "TiO2",
+            53.183287599076195
+          ],
+          [
+            "SiO2",
+            79.85312550273605
+          ]
+        ],
+        "genNum": 4,
+        "insertMat": "SiO2",
+        "layerCount": 5,
+        "layers": [
+          [
+            "SiO2",
+            1.0634338163817139
+          ],
+          [
+            "TiO2",
+            52.760282845442816
+          ],
+          [
+            "SiO2",
+            92.169193660685
+          ],
+          [
+            "TiO2",
+            53.183287599076195
+          ],
+          [
+            "SiO2",
+            79.85312550273605
+          ]
+        ],
+        "mf": 0.29560217673423805,
+        "omf": 0.29560217673423805,
+        "rescued": true,
+        "runNum": 1,
+        "side": "front",
+        "tot": 279.0293234243218
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.0007004160872789988,
+        "frontSnap": [
+          [
+            "SiO2",
+            1
+          ],
+          [
+            "TiO2",
+            52.556760610258316
+          ],
+          [
+            "SiO2",
+            92.57662054764691
+          ],
+          [
+            "TiO2",
+            52.70467581780025
+          ],
+          [
+            "SiO2",
+            93.00328629525157
+          ]
+        ],
+        "genNum": 5,
+        "insertMat": "SiO2",
+        "layerCount": 5,
+        "layers": [
+          [
+            "SiO2",
+            1
+          ],
+          [
+            "TiO2",
+            52.556760610258316
+          ],
+          [
+            "SiO2",
+            92.57662054764691
+          ],
+          [
+            "TiO2",
+            52.70467581780025
+          ],
+          [
+            "SiO2",
+            93.00328629525157
+          ]
+        ],
+        "mf": 0.29490176064695905,
+        "omf": 0.29490176064695905,
+        "runNum": 1,
+        "side": "front",
+        "tot": 291.84134327095705
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.1460690587801199,
+        "frontSnap": [
+          [
+            "SiO2",
+            1.0163629352101093
+          ],
+          [
+            "TiO2",
+            52.50006276989043
+          ],
+          [
+            "SiO2",
+            92.91245119956591
+          ],
+          [
+            "TiO2",
+            52.24417751374633
+          ],
+          [
+            "SiO2",
+            92.97758199851816
+          ],
+          [
+            "TiO2",
+            52.65930636325807
+          ]
+        ],
+        "genNum": 6,
+        "insertMat": "TiO2",
+        "layerCount": 6,
+        "layers": [
+          [
+            "SiO2",
+            1.0163629352101093
+          ],
+          [
+            "TiO2",
+            52.50006276989043
+          ],
+          [
+            "SiO2",
+            92.91245119956591
+          ],
+          [
+            "TiO2",
+            52.24417751374633
+          ],
+          [
+            "SiO2",
+            92.97758199851816
+          ],
+          [
+            "TiO2",
+            52.65930636325807
+          ]
+        ],
+        "mf": 0.14883270186683917,
+        "omf": 0.14883270186683917,
+        "runNum": 1,
+        "side": "front",
+        "tot": 344.30994278018903
+      },
+      {
+        "backSnap": [],
+        "dMF": 0,
+        "final": true,
+        "frontSnap": [
+          [
+            "SiO2",
+            1.0163629352101093
+          ],
+          [
+            "TiO2",
+            52.50006276989043
+          ],
+          [
+            "SiO2",
+            92.91245119956591
+          ],
+          [
+            "TiO2",
+            52.24417751374633
+          ],
+          [
+            "SiO2",
+            92.97758199851816
+          ],
+          [
+            "TiO2",
+            52.65930636325807
+          ]
+        ],
+        "genNum": 7,
+        "insertMat": null,
+        "layerCount": 6,
+        "layers": [
+          [
+            "SiO2",
+            1.0163629352101093
+          ],
+          [
+            "TiO2",
+            52.50006276989043
+          ],
+          [
+            "SiO2",
+            92.91245119956591
+          ],
+          [
+            "TiO2",
+            52.24417751374633
+          ],
+          [
+            "SiO2",
+            92.97758199851816
+          ],
+          [
+            "TiO2",
+            52.65930636325807
+          ]
+        ],
+        "mf": 0.1484583210746988,
+        "omf": 0.14883270186683917,
+        "runNum": 1,
+        "side": "front",
+        "tot": 344.30994278018903
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 7,
+      "layerCount": 6,
+      "mf": 0.1484583210746988,
+      "mfBest": 0.1484583210746988,
+      "omf": 0.14883270186683917,
+      "omfBest": 0.14883270186683917,
+      "rows": 7,
+      "top": [
+        1,
+        2,
+        3,
+        5,
+        7
+      ]
+    },
+    "terminated": 1
+  },
+  "smartSeed": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          103.12254206486443
+        ],
+        [
+          "SiO2",
+          20.755918775398733
+        ],
+        [
+          "TiO2",
+          6.9675782562345
+        ],
+        [
+          "SiO2",
+          106.95304126211548
+        ],
+        [
+          "MgF2",
+          112.47017868399271
+        ],
+        [
+          "SiO2",
+          1.4020960784427938
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 1,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          103.12254206486443
+        ],
+        [
+          "SiO2",
+          20.755918775398733
+        ],
+        [
+          "TiO2",
+          6.9675782562345
+        ],
+        [
+          "SiO2",
+          106.95304126211548
+        ],
+        [
+          "MgF2",
+          112.47017868399271
+        ],
+        [
+          "SiO2",
+          1.4020960784427938
+        ]
+      ]
+    },
+    "designUpdates": 3,
+    "edits": 0,
+    "genCount": 1,
+    "jobs": {
+      "candidate": 3,
+      "dropParked": 1,
+      "scan": 3,
+      "seedDls": 42
+    },
+    "maps": 4,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Smart seed: refining 42 starting designs…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Max layer count (5) reached."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": -0.008343599833432514,
+        "frontSnap": [
+          [
+            "MgF2",
+            103.12254206486443
+          ],
+          [
+            "SiO2",
+            20.755918775398733
+          ],
+          [
+            "TiO2",
+            6.9675782562345
+          ],
+          [
+            "SiO2",
+            106.95304126211548
+          ],
+          [
+            "MgF2",
+            112.47017868399271
+          ],
+          [
+            "SiO2",
+            1.4020960784427938
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "TiO2",
+        "layerCount": 6,
+        "layers": [
+          [
+            "MgF2",
+            103.12254206486443
+          ],
+          [
+            "SiO2",
+            20.755918775398733
+          ],
+          [
+            "TiO2",
+            6.9675782562345
+          ],
+          [
+            "SiO2",
+            106.95304126211548
+          ],
+          [
+            "MgF2",
+            112.47017868399271
+          ],
+          [
+            "SiO2",
+            1.4020960784427938
+          ]
+        ],
+        "mf": 0.005239691852668358,
+        "omf": 0.005239691852668358,
+        "runNum": 1,
+        "side": "front",
+        "tot": 351.6713551210487
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 1,
+      "layerCount": 6,
+      "mf": 0.005239691852668358,
+      "mfBest": 0.005239691852668358,
+      "omf": 0.005239691852668358,
+      "omfBest": 0.005239691852668358,
+      "rows": 1,
+      "top": [
+        1
+      ]
+    },
+    "terminated": 1
+  },
+  "bothSides": {
+    "base": {
+      "back": [
+        [
+          "MgF2",
+          139.50051205283825
+        ],
+        [
+          "TiO2",
+          5.442712467367879
+        ],
+        [
+          "MgF2",
+          67.64208723721839
+        ],
+        [
+          "TiO2",
+          11.563270926717315
+        ],
+        [
+          "MgF2",
+          123.94573843981956
+        ]
+      ],
+      "front": [
+        [
+          "MgF2",
+          130.45250355027878
+        ],
+        [
+          "TiO2",
+          6.752508243756059
+        ],
+        [
+          "MgF2",
+          212.60228094149187
+        ],
+        [
+          "SiO2",
+          11.420261138594203
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 15,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [
+        [
+          "MgF2",
+          139.50051205283825
+        ],
+        [
+          "TiO2",
+          5.442712467367879
+        ],
+        [
+          "MgF2",
+          67.64208723721839
+        ],
+        [
+          "TiO2",
+          11.563270926717315
+        ],
+        [
+          "MgF2",
+          123.94573843981956
+        ]
+      ],
+      "front": [
+        [
+          "MgF2",
+          130.45250355027878
+        ],
+        [
+          "TiO2",
+          6.752508243756059
+        ],
+        [
+          "MgF2",
+          212.60228094149187
+        ],
+        [
+          "SiO2",
+          11.420261138594203
+        ]
+      ]
+    },
+    "designUpdates": 17,
+    "edits": 0,
+    "genCount": 15,
+    "jobs": {
+      "candidate": 43,
+      "dropParked": 15,
+      "scan": 84,
+      "seedDls": 4
+    },
+    "maps": 47,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 1 candidate in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 2× thicker design (595 nm)",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Max layer count (4) reached."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [
+          [
+            "SiO2",
+            91.19019543982493
+          ]
+        ],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "SiO2",
+            119.06429264015792
+          ],
+          [
+            "TiO2",
+            7.966156668496549
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "SiO2",
+            119.06429264015792
+          ],
+          [
+            "TiO2",
+            7.966156668496549
+          ]
+        ],
+        "mf": 0.04268171081922791,
+        "omf": 0.04268171081922791,
+        "runNum": 1,
+        "side": "front",
+        "tot": 218.2206447484794
+      },
+      {
+        "backSnap": [
+          [
+            "SiO2",
+            1.1458175857644188
+          ],
+          [
+            "MgF2",
+            95.68567292415602
+          ]
+        ],
+        "dMF": -0.013852311328206184,
+        "frontSnap": [
+          [
+            "SiO2",
+            119.19112114818256
+          ],
+          [
+            "TiO2",
+            7.648893770864274
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": "MgF2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "SiO2",
+            1.1458175857644188
+          ],
+          [
+            "MgF2",
+            95.68567292415602
+          ]
+        ],
+        "mf": 0.02882939949102173,
+        "omf": 0.02882939949102173,
+        "runNum": 1,
+        "side": "back",
+        "tot": 223.6715054289673
+      },
+      {
+        "backSnap": [
+          [
+            "MgF2",
+            96.50149366435667
+          ]
+        ],
+        "dMF": -0.006217244705349685,
+        "frontSnap": [
+          [
+            "SiO2",
+            1.8227024868201256
+          ],
+          [
+            "MgF2",
+            96.10662674491269
+          ],
+          [
+            "SiO2",
+            25.44894554819565
+          ],
+          [
+            "TiO2",
+            4.971646025637068
+          ]
+        ],
+        "genNum": 3,
+        "insertMat": "MgF2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "SiO2",
+            1.8227024868201256
+          ],
+          [
+            "MgF2",
+            96.10662674491269
+          ],
+          [
+            "SiO2",
+            25.44894554819565
+          ],
+          [
+            "TiO2",
+            4.971646025637068
+          ]
+        ],
+        "mf": 0.022612154785672044,
+        "omf": 0.022612154785672044,
+        "runNum": 1,
+        "side": "front",
+        "tot": 224.8514144699222
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.375139618593229
+          ],
+          [
+            "MgF2",
+            120.23482906212126
+          ]
+        ],
+        "dMF": -0.004438566379518047,
+        "frontSnap": [
+          [
+            "SiO2",
+            1.3290828823340926
+          ],
+          [
+            "MgF2",
+            102.38186738007735
+          ],
+          [
+            "SiO2",
+            19.53657438269352
+          ],
+          [
+            "TiO2",
+            4.598167357127579
+          ]
+        ],
+        "genNum": 4,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            5.375139618593229
+          ],
+          [
+            "MgF2",
+            120.23482906212126
+          ]
+        ],
+        "mf": 0.018173588406153997,
+        "omf": 0.018173588406153997,
+        "runNum": 1,
+        "side": "back",
+        "tot": 253.45566068294704
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.383143142447499
+          ],
+          [
+            "MgF2",
+            120.81325110533673
+          ]
+        ],
+        "dMF": -0.00011840111027289213,
+        "frontSnap": [
+          [
+            "MgF2",
+            115.10306224346259
+          ],
+          [
+            "SiO2",
+            6.291335992533269
+          ],
+          [
+            "TiO2",
+            5.088097172130426
+          ]
+        ],
+        "genNum": 5,
+        "insertMat": "MgF2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            5.383143142447499
+          ],
+          [
+            "MgF2",
+            120.81325110533673
+          ]
+        ],
+        "mf": 0.018055187295881105,
+        "omf": 0.018055187295881105,
+        "runNum": 1,
+        "side": "back",
+        "tot": 252.6788896559105
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.385549360916113
+          ],
+          [
+            "MgF2",
+            120.83091656975276
+          ]
+        ],
+        "dMF": -0.0000028155894657259928,
+        "frontSnap": [
+          [
+            "MgF2",
+            115.6827368168041
+          ],
+          [
+            "SiO2",
+            5.5754092160515585
+          ],
+          [
+            "TiO2",
+            5.103019642898604
+          ]
+        ],
+        "genNum": 6,
+        "insertMat": "MgF2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "MgF2",
+            115.6827368168041
+          ],
+          [
+            "SiO2",
+            5.5754092160515585
+          ],
+          [
+            "TiO2",
+            5.103019642898604
+          ]
+        ],
+        "mf": 0.01805237170641538,
+        "omf": 0.01805237170641538,
+        "runNum": 1,
+        "side": "front",
+        "tot": 252.57763160642313
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.369859371085989
+          ],
+          [
+            "MgF2",
+            120.89332162921818
+          ]
+        ],
+        "dMF": -9.778598539997296e-7,
+        "frontSnap": [
+          [
+            "MgF2",
+            115.88827734799659
+          ],
+          [
+            "SiO2",
+            5.369400871474308
+          ],
+          [
+            "TiO2",
+            5.125734487554324
+          ]
+        ],
+        "genNum": 7,
+        "insertMat": "TiO2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "MgF2",
+            115.88827734799659
+          ],
+          [
+            "SiO2",
+            5.369400871474308
+          ],
+          [
+            "TiO2",
+            5.125734487554324
+          ]
+        ],
+        "mf": 0.01805139384656138,
+        "omf": 0.01805139384656138,
+        "runNum": 1,
+        "side": "front",
+        "tot": 252.6465937073294
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.374142650127824
+          ],
+          [
+            "MgF2",
+            120.86108104914429
+          ]
+        ],
+        "dMF": -0.0000025297886098001043,
+        "frontSnap": [
+          [
+            "MgF2",
+            116.54051663107995
+          ],
+          [
+            "SiO2",
+            4.676271824959942
+          ],
+          [
+            "TiO2",
+            5.135808465327932
+          ]
+        ],
+        "genNum": 8,
+        "insertMat": "MgF2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "MgF2",
+            116.54051663107995
+          ],
+          [
+            "SiO2",
+            4.676271824959942
+          ],
+          [
+            "TiO2",
+            5.135808465327932
+          ]
+        ],
+        "mf": 0.01804886405795158,
+        "omf": 0.01804886405795158,
+        "runNum": 1,
+        "side": "front",
+        "tot": 252.58782062063995
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.376223913466316
+          ],
+          [
+            "MgF2",
+            120.87432989437944
+          ]
+        ],
+        "dMF": -5.868201205516677e-7,
+        "frontSnap": [
+          [
+            "MgF2",
+            116.647874639996
+          ],
+          [
+            "SiO2",
+            4.529381761393824
+          ],
+          [
+            "TiO2",
+            5.162100307503356
+          ]
+        ],
+        "genNum": 9,
+        "insertMat": "TiO2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "MgF2",
+            116.647874639996
+          ],
+          [
+            "SiO2",
+            4.529381761393824
+          ],
+          [
+            "TiO2",
+            5.162100307503356
+          ]
+        ],
+        "mf": 0.018048277237831027,
+        "omf": 0.018048277237831027,
+        "runNum": 1,
+        "side": "front",
+        "tot": 252.58991051673894
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.377216053760956
+          ],
+          [
+            "MgF2",
+            120.87705837534264
+          ]
+        ],
+        "dMF": -0.0000022566396178334835,
+        "frontSnap": [
+          [
+            "MgF2",
+            117.27479274349793
+          ],
+          [
+            "SiO2",
+            3.862881028828172
+          ],
+          [
+            "TiO2",
+            5.194806824753003
+          ]
+        ],
+        "genNum": 10,
+        "insertMat": "MgF2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "MgF2",
+            117.27479274349793
+          ],
+          [
+            "SiO2",
+            3.862881028828172
+          ],
+          [
+            "TiO2",
+            5.194806824753003
+          ]
+        ],
+        "mf": 0.018046020598213194,
+        "omf": 0.018046020598213194,
+        "runNum": 1,
+        "side": "front",
+        "tot": 252.5867550261827
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.369894850839152
+          ],
+          [
+            "MgF2",
+            120.85020760496333
+          ]
+        ],
+        "dMF": -0.000001956496850703815,
+        "frontSnap": [
+          [
+            "MgF2",
+            117.84155546550437
+          ],
+          [
+            "SiO2",
+            3.2176528563580433
+          ],
+          [
+            "TiO2",
+            5.219299662359159
+          ]
+        ],
+        "genNum": 11,
+        "insertMat": "MgF2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "MgF2",
+            117.84155546550437
+          ],
+          [
+            "SiO2",
+            3.2176528563580433
+          ],
+          [
+            "TiO2",
+            5.219299662359159
+          ]
+        ],
+        "mf": 0.01804406410136249,
+        "omf": 0.01804406410136249,
+        "runNum": 1,
+        "side": "front",
+        "tot": 252.49861044002404
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            5.3733105272707515
+          ],
+          [
+            "MgF2",
+            120.87877112732131
+          ]
+        ],
+        "dMF": -0.0000017130475014476287,
+        "frontSnap": [
+          [
+            "MgF2",
+            118.47322451318661
+          ],
+          [
+            "SiO2",
+            2.6104160059672075
+          ],
+          [
+            "TiO2",
+            5.251163555290619
+          ]
+        ],
+        "genNum": 12,
+        "insertMat": "MgF2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "MgF2",
+            118.47322451318661
+          ],
+          [
+            "SiO2",
+            2.6104160059672075
+          ],
+          [
+            "TiO2",
+            5.251163555290619
+          ]
+        ],
+        "mf": 0.018042351053861042,
+        "omf": 0.018042351053861042,
+        "runNum": 1,
+        "side": "front",
+        "tot": 252.5868857290365
+      },
+      {
+        "backSnap": [
+          [
+            "MgF2",
+            291.59635249269405
+          ]
+        ],
+        "dMF": -0.016108774681929106,
+        "frontSnap": [
+          [
+            "MgF2",
+            129.7224192279368
+          ],
+          [
+            "TiO2",
+            6.681440068213562
+          ],
+          [
+            "MgF2",
+            206.35231359800508
+          ],
+          [
+            "SiO2",
+            17.057980437446144
+          ]
+        ],
+        "genNum": 13,
+        "insertMat": "TiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "MgF2",
+            129.7224192279368
+          ],
+          [
+            "TiO2",
+            6.681440068213562
+          ],
+          [
+            "MgF2",
+            206.35231359800508
+          ],
+          [
+            "SiO2",
+            17.057980437446144
+          ]
+        ],
+        "mf": 0.030948296750829402,
+        "omf": 0.030948296750829402,
+        "rescued": true,
+        "runNum": 1,
+        "side": "front",
+        "tot": 651.4105058242956
+      },
+      {
+        "backSnap": [
+          [
+            "MgF2",
+            219.68197329583487
+          ],
+          [
+            "TiO2",
+            6.463176947912833
+          ],
+          [
+            "MgF2",
+            130.99450383906733
+          ]
+        ],
+        "dMF": -0.01639533549962404,
+        "frontSnap": [
+          [
+            "MgF2",
+            131.9487009368052
+          ],
+          [
+            "TiO2",
+            6.379506650865981
+          ],
+          [
+            "MgF2",
+            212.34395563383913
+          ],
+          [
+            "SiO2",
+            12.325505030261688
+          ]
+        ],
+        "genNum": 14,
+        "insertMat": "TiO2",
+        "layerCount": 3,
+        "layers": [
+          [
+            "MgF2",
+            219.68197329583487
+          ],
+          [
+            "TiO2",
+            6.463176947912833
+          ],
+          [
+            "MgF2",
+            130.99450383906733
+          ]
+        ],
+        "mf": 0.014529173692367767,
+        "omf": 0.014529173692367767,
+        "runNum": 1,
+        "side": "back",
+        "tot": 720.137322334587
+      },
+      {
+        "backSnap": [
+          [
+            "MgF2",
+            139.50051205283825
+          ],
+          [
+            "TiO2",
+            5.442712467367879
+          ],
+          [
+            "MgF2",
+            67.64208723721839
+          ],
+          [
+            "TiO2",
+            11.563270926717315
+          ],
+          [
+            "MgF2",
+            123.94573843981956
+          ]
+        ],
+        "dMF": -0.0026194689178957314,
+        "frontSnap": [
+          [
+            "MgF2",
+            130.45250355027878
+          ],
+          [
+            "TiO2",
+            6.752508243756059
+          ],
+          [
+            "MgF2",
+            212.60228094149187
+          ],
+          [
+            "SiO2",
+            11.420261138594203
+          ]
+        ],
+        "genNum": 15,
+        "insertMat": "TiO2",
+        "layerCount": 5,
+        "layers": [
+          [
+            "MgF2",
+            139.50051205283825
+          ],
+          [
+            "TiO2",
+            5.442712467367879
+          ],
+          [
+            "MgF2",
+            67.64208723721839
+          ],
+          [
+            "TiO2",
+            11.563270926717315
+          ],
+          [
+            "MgF2",
+            123.94573843981956
+          ]
+        ],
+        "mf": 0.011850188994142684,
+        "omf": 0.011850188994142684,
+        "runNum": 1,
+        "side": "back",
+        "tot": 709.3218749980823
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 15,
+      "layerCount": 9,
+      "mf": 0.011850188994142684,
+      "mfBest": 0.011850188994142684,
+      "omf": 0.011850188994142684,
+      "omfBest": 0.011850188994142684,
+      "rows": 15,
+      "top": [
+        5,
+        14,
+        15
+      ]
+    },
+    "terminated": 1
+  },
+  "backOnly": {
+    "base": {
+      "back": [
+        [
+          "TiO2",
+          6.184625981490445
+        ],
+        [
+          "MgF2",
+          121.05658143268128
+        ]
+      ],
+      "front": []
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 3,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [
+        [
+          "TiO2",
+          6.184625981490445
+        ],
+        [
+          "MgF2",
+          121.05658143268128
+        ]
+      ],
+      "front": []
+    },
+    "designUpdates": 5,
+    "edits": 0,
+    "genCount": 3,
+    "jobs": {
+      "candidate": 7,
+      "dropParked": 3,
+      "scan": 12,
+      "seedDls": 4
+    },
+    "maps": 11,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 1 candidate in parallel…",
+          "Scanning needle positions…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 2× thicker design (298 nm)",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Max layer count (4) reached."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [
+          [
+            "MgF2",
+            95.49274874294198
+          ]
+        ],
+        "dMF": null,
+        "frontSnap": [],
+        "genNum": 1,
+        "insertMat": "MgF2",
+        "layerCount": 1,
+        "layers": [
+          [
+            "MgF2",
+            95.49274874294198
+          ]
+        ],
+        "mf": 0.055504239096462,
+        "omf": 0.055504239096462,
+        "runNum": 1,
+        "side": "back",
+        "tot": 95.49274874294198
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            6.184625981490445
+          ],
+          [
+            "MgF2",
+            121.05658143268128
+          ]
+        ],
+        "dMF": -0.0056119637020472304,
+        "frontSnap": [],
+        "genNum": 2,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            6.184625981490445
+          ],
+          [
+            "MgF2",
+            121.05658143268128
+          ]
+        ],
+        "mf": 0.04989227539441477,
+        "omf": 0.04989227539441477,
+        "runNum": 1,
+        "side": "back",
+        "tot": 127.24120741417173
+      },
+      {
+        "backSnap": [
+          [
+            "TiO2",
+            6.240065986917375
+          ],
+          [
+            "MgF2",
+            108.08719060850066
+          ],
+          [
+            "SiO2",
+            8.78248136136868
+          ],
+          [
+            "MgF2",
+            1.2433411467930813
+          ]
+        ],
+        "dMF": -0.013821792956322423,
+        "frontSnap": [],
+        "genNum": 3,
+        "insertMat": "SiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "TiO2",
+            6.240065986917375
+          ],
+          [
+            "MgF2",
+            108.08719060850066
+          ],
+          [
+            "SiO2",
+            8.78248136136868
+          ],
+          [
+            "MgF2",
+            1.2433411467930813
+          ]
+        ],
+        "mf": 0.05010247188278183,
+        "omf": 0.05010247188278183,
+        "rescued": true,
+        "runNum": 1,
+        "side": "back",
+        "tot": 124.3530791035798
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [],
+        "runNum": 1
+      }
+    ],
+    "saved": [],
+    "shown": {
+      "canReset": true,
+      "generation": 3,
+      "layerCount": 2,
+      "mf": 0.04989227539441477,
+      "mfBest": 0.04989227539441477,
+      "omf": 0.04989227539441477,
+      "omfBest": 0.04989227539441477,
+      "rows": 3,
+      "top": [
+        1,
+        2
+      ]
+    },
+    "terminated": 1
+  },
+  "sqpThorough": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          113.84586168772398
+        ],
+        [
+          "TiO2",
+          19.25693645680618
+        ],
+        [
+          "MgF2",
+          51.133578561866756
+        ],
+        [
+          "TiO2",
+          14.643108920637443
+        ],
+        [
+          "MgF2",
+          225.01583338325975
+        ],
+        [
+          "TiO2",
+          2.0057880699114916
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 5,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          113.84586168772398
+        ],
+        [
+          "TiO2",
+          19.25693645680618
+        ],
+        [
+          "MgF2",
+          51.133578561866756
+        ],
+        [
+          "TiO2",
+          14.643108920637443
+        ],
+        [
+          "MgF2",
+          225.01583338325975
+        ],
+        [
+          "TiO2",
+          2.0057880699114916
+        ]
+      ]
+    },
+    "designUpdates": 6,
+    "edits": 0,
+    "genCount": 5,
+    "jobs": {
+      "candidate": 10,
+      "dropParked": 4,
+      "scan": 15,
+      "seedDls": 4
+    },
+    "maps": 14,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 1 candidate in parallel…",
+          "Scanning needle positions…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 2× thicker design (297 nm)",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Max layer count (5) reached."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "MgF2",
+            95.44171329935429
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "MgF2",
+        "layerCount": 1,
+        "layers": [
+          [
+            "MgF2",
+            95.44171329935429
+          ]
+        ],
+        "mf": 0.013996579514557725,
+        "omf": 0.013996579514557725,
+        "runNum": 1,
+        "side": "front",
+        "tot": 95.44171329935429
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.004965156647202399,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.8606883575549
+          ],
+          [
+            "TiO2",
+            5.3425649442963445
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.8606883575549
+          ],
+          [
+            "TiO2",
+            5.3425649442963445
+          ]
+        ],
+        "mf": 0.009031422867355325,
+        "omf": 0.009031422867355325,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.20325330185125
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.017111803072790827,
+        "frontSnap": [
+          [
+            "MgF2",
+            130.8984061178747
+          ],
+          [
+            "TiO2",
+            6.850331558634166
+          ],
+          [
+            "MgF2",
+            235.20255609268588
+          ],
+          [
+            "TiO2",
+            2.2921937201326203
+          ]
+        ],
+        "genNum": 3,
+        "insertMat": "TiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "MgF2",
+            130.8984061178747
+          ],
+          [
+            "TiO2",
+            6.850331558634166
+          ],
+          [
+            "MgF2",
+            235.20255609268588
+          ],
+          [
+            "TiO2",
+            2.2921937201326203
+          ]
+        ],
+        "mf": 0.007046484345497817,
+        "omf": 0.007046484345497817,
+        "rescued": true,
+        "runNum": 1,
+        "side": "front",
+        "tot": 375.2434874893274
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.005629783574720952,
+        "frontSnap": [
+          [
+            "MgF2",
+            113.84586168772398
+          ],
+          [
+            "TiO2",
+            19.25693645680618
+          ],
+          [
+            "MgF2",
+            51.133578561866756
+          ],
+          [
+            "TiO2",
+            14.643108920637443
+          ],
+          [
+            "MgF2",
+            225.01583338325975
+          ],
+          [
+            "TiO2",
+            2.0057880699114916
+          ]
+        ],
+        "genNum": 4,
+        "insertMat": "TiO2",
+        "layerCount": 6,
+        "layers": [
+          [
+            "MgF2",
+            113.84586168772398
+          ],
+          [
+            "TiO2",
+            19.25693645680618
+          ],
+          [
+            "MgF2",
+            51.133578561866756
+          ],
+          [
+            "TiO2",
+            14.643108920637443
+          ],
+          [
+            "MgF2",
+            225.01583338325975
+          ],
+          [
+            "TiO2",
+            2.0057880699114916
+          ]
+        ],
+        "mf": 0.001358608603886038,
+        "omf": 0.001358608603886038,
+        "runNum": 1,
+        "side": "front",
+        "tot": 425.9011070802056
+      },
+      {
+        "backSnap": [],
+        "dMF": 0,
+        "final": true,
+        "frontSnap": [
+          [
+            "MgF2",
+            113.84586168772398
+          ],
+          [
+            "TiO2",
+            19.25693645680618
+          ],
+          [
+            "MgF2",
+            51.133578561866756
+          ],
+          [
+            "TiO2",
+            14.643108920637443
+          ],
+          [
+            "MgF2",
+            225.01583338325975
+          ],
+          [
+            "TiO2",
+            2.0057880699114916
+          ]
+        ],
+        "genNum": 5,
+        "insertMat": null,
+        "layerCount": 6,
+        "layers": [
+          [
+            "MgF2",
+            113.84586168772398
+          ],
+          [
+            "TiO2",
+            19.25693645680618
+          ],
+          [
+            "MgF2",
+            51.133578561866756
+          ],
+          [
+            "TiO2",
+            14.643108920637443
+          ],
+          [
+            "MgF2",
+            225.01583338325975
+          ],
+          [
+            "TiO2",
+            2.0057880699114916
+          ]
+        ],
+        "mf": 0.0013206540714204283,
+        "omf": 0.001358608603886038,
+        "runNum": 1,
+        "side": "front",
+        "tot": 425.9011070802056
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 5,
+      "layerCount": 6,
+      "mf": 0.0013206540714204283,
+      "mfBest": 0.0013206540714204283,
+      "omf": 0.001358608603886038,
+      "omfBest": 0.001358608603886038,
+      "rows": 5,
+      "top": [
+        1,
+        2,
+        3,
+        5
+      ]
+    },
+    "terminated": 1
+  },
+  "targetStop": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          95.4416828584302
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 1,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          95.4416828584302
+        ]
+      ]
+    },
+    "designUpdates": 2,
+    "edits": 0,
+    "genCount": 1,
+    "jobs": {
+      "candidate": 3,
+      "dropParked": 1,
+      "scan": 3
+    },
+    "maps": 3,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Target MF reached: MF 0.013997."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "MgF2",
+        "layerCount": 1,
+        "layers": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "mf": 0.013996579514565361,
+        "omf": 0.013996579514565361,
+        "runNum": 1,
+        "side": "front",
+        "tot": 95.4416828584302
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 1,
+      "layerCount": 1,
+      "mf": 0.013996579514565361,
+      "mfBest": 0.013996579514565361,
+      "omf": 0.013996579514565361,
+      "omfBest": 0.013996579514565361,
+      "rows": 1,
+      "top": [
+        1
+      ]
+    },
+    "terminated": 1
+  },
+  "mntDropped": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          120.86050944366745
+        ],
+        [
+          "TiO2",
+          5.342543415792028
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 5,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          120.86050944366745
+        ],
+        [
+          "TiO2",
+          5.342543415792028
+        ]
+      ]
+    },
+    "designUpdates": 7,
+    "edits": 0,
+    "genCount": 5,
+    "jobs": {
+      "candidate": 23,
+      "dropParked": 5,
+      "scan": 21,
+      "seedDls": 4
+    },
+    "maps": 22,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 4× thicker design (297 nm)",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "No needle improves MF. Converged."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "MgF2",
+        "layerCount": 1,
+        "layers": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "mf": 0.013996579514565361,
+        "omf": 0.013996579514565361,
+        "runNum": 1,
+        "side": "front",
+        "tot": 95.4416828584302
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.00496515556936037,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.85947336377183
+          ],
+          [
+            "TiO2",
+            5.340668811600982
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.85947336377183
+          ],
+          [
+            "TiO2",
+            5.340668811600982
+          ]
+        ],
+        "mf": 0.009031423945204991,
+        "omf": 0.009031423945204991,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.2001421753728
+      },
+      {
+        "backSnap": [],
+        "dMF": -1.0768073134548306e-9,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "genNum": 3,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "mf": 0.009031422868397677,
+        "omf": 0.009031422868397677,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.20305285945948
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.014912804760933806,
+        "frontSnap": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "genNum": 4,
+        "insertMat": "SiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "mf": 0.009245482662295105,
+        "omf": 0.009245482662295105,
+        "rescued": true,
+        "runNum": 1,
+        "side": "front",
+        "tot": 124.26175543089556
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.00021405911795720906,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.8570220209422
+          ],
+          [
+            "TiO2",
+            5.341491678171622
+          ]
+        ],
+        "genNum": 5,
+        "insertMat": "MgF2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.8570220209422
+          ],
+          [
+            "TiO2",
+            5.341491678171622
+          ]
+        ],
+        "mf": 0.009031423544337896,
+        "omf": 0.009031423544337896,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.19851369911382
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 5,
+      "layerCount": 2,
+      "mf": 0.009031422868397667,
+      "mfBest": 0.009031422868397677,
+      "omf": 0.009031422868397677,
+      "omfBest": 0.009031422868397677,
+      "rows": 5,
+      "top": [
+        1,
+        3
+      ]
+    },
+    "terminated": 1
+  },
+  "secondPress": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          120.86050944366745
+        ],
+        [
+          "TiO2",
+          5.342543415792028
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 7,
+      "runs": 2
+    },
+    "checkpoints": 2,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          120.86050944366745
+        ],
+        [
+          "TiO2",
+          5.342543415792028
+        ]
+      ]
+    },
+    "designUpdates": 10,
+    "edits": 0,
+    "genCount": 3,
+    "jobs": {
+      "candidate": 30,
+      "dropParked": 6,
+      "scan": 27,
+      "seedDls": 8
+    },
+    "maps": 29,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 4× thicker design (297 nm)",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Max layer count (3) reached."
+        ]
+      },
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 4× thicker design (297 nm)",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "No needle improves MF. Converged."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "MgF2",
+        "layerCount": 1,
+        "layers": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "mf": 0.013996579514565361,
+        "omf": 0.013996579514565361,
+        "runNum": 1,
+        "side": "front",
+        "tot": 95.4416828584302
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.00496515556936037,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.85947336377183
+          ],
+          [
+            "TiO2",
+            5.340668811600982
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.85947336377183
+          ],
+          [
+            "TiO2",
+            5.340668811600982
+          ]
+        ],
+        "mf": 0.009031423945204991,
+        "omf": 0.009031423945204991,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.2001421753728
+      },
+      {
+        "backSnap": [],
+        "dMF": -1.0768073134548306e-9,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "genNum": 3,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "mf": 0.009031422868397677,
+        "omf": 0.009031422868397677,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.20305285945948
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.014912804760933806,
+        "frontSnap": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "genNum": 4,
+        "insertMat": "SiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "mf": 0.009245482662295105,
+        "omf": 0.009245482662295105,
+        "rescued": true,
+        "runNum": 1,
+        "side": "front",
+        "tot": 124.26175543089556
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.014912804760933806,
+        "frontSnap": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "SiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "mf": 0.009245482662295105,
+        "omf": 0.009245482662295105,
+        "rescued": true,
+        "runNum": 2,
+        "side": "front",
+        "tot": 124.26175543089556
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.00021405911795720906,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.8570220209422
+          ],
+          [
+            "TiO2",
+            5.341491678171622
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": "MgF2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.8570220209422
+          ],
+          [
+            "TiO2",
+            5.341491678171622
+          ]
+        ],
+        "mf": 0.009031423544337896,
+        "omf": 0.009031423544337896,
+        "runNum": 2,
+        "side": "front",
+        "tot": 126.19851369911382
+      },
+      {
+        "backSnap": [],
+        "dMF": -6.75940229136196e-10,
+        "final": true,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "genNum": 3,
+        "insertMat": null,
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "mf": 0.009031422868397667,
+        "omf": null,
+        "rescued": true,
+        "runNum": 2,
+        "side": "front",
+        "tot": 126.20305285945948
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      },
+      {
+        "baseline": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "runNum": 2
+      }
+    ],
+    "saved": [
+      [
+        "MgF2",
+        120.86050944366745
+      ],
+      [
+        "TiO2",
+        5.342543415792028
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 3,
+      "layerCount": 2,
+      "mf": 0.009031422868397667,
+      "mfBest": 0.009031422868397667,
+      "omf": null,
+      "omfBest": 0.009031422868397677,
+      "rows": 7,
+      "top": [
+        1,
+        3
+      ]
+    },
+    "terminated": 2
+  },
+  "stopThenRun": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          120.86050944366745
+        ],
+        [
+          "TiO2",
+          5.342543415792028
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 5,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          120.86050944366745
+        ],
+        [
+          "TiO2",
+          5.342543415792028
+        ]
+      ]
+    },
+    "designUpdates": 7,
+    "edits": 0,
+    "genCount": 5,
+    "jobs": {
+      "candidate": 26,
+      "dropParked": 5,
+      "scan": 24,
+      "seedDls": 4
+    },
+    "maps": 25,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          ""
+        ]
+      },
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "Needle-optimal, but the design is thin: refining 4 thicker starts…",
+          "Restarted from a 4× thicker design (297 nm)",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Refining 1 candidate in parallel…",
+          "No needle improves MF. Converged."
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "MgF2",
+        "layerCount": 1,
+        "layers": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "mf": 0.013996579514565361,
+        "omf": 0.013996579514565361,
+        "runNum": 1,
+        "side": "front",
+        "tot": 95.4416828584302
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.00496515556936037,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.85947336377183
+          ],
+          [
+            "TiO2",
+            5.340668811600982
+          ]
+        ],
+        "genNum": 2,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.85947336377183
+          ],
+          [
+            "TiO2",
+            5.340668811600982
+          ]
+        ],
+        "mf": 0.009031423945204991,
+        "omf": 0.009031423945204991,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.2001421753728
+      },
+      {
+        "backSnap": [],
+        "dMF": -1.0768073134548306e-9,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "genNum": 3,
+        "insertMat": "TiO2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.86050944366745
+          ],
+          [
+            "TiO2",
+            5.342543415792028
+          ]
+        ],
+        "mf": 0.009031422868397677,
+        "omf": 0.009031422868397677,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.20305285945948
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.014912804760933806,
+        "frontSnap": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "genNum": 4,
+        "insertMat": "SiO2",
+        "layerCount": 4,
+        "layers": [
+          [
+            "MgF2",
+            3.8697610666758853
+          ],
+          [
+            "SiO2",
+            6.542020352702908
+          ],
+          [
+            "MgF2",
+            108.37972935754638
+          ],
+          [
+            "TiO2",
+            5.470244653970381
+          ]
+        ],
+        "mf": 0.009245482662295105,
+        "omf": 0.009245482662295105,
+        "rescued": true,
+        "runNum": 1,
+        "side": "front",
+        "tot": 124.26175543089556
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.00021405911795720906,
+        "frontSnap": [
+          [
+            "MgF2",
+            120.8570220209422
+          ],
+          [
+            "TiO2",
+            5.341491678171622
+          ]
+        ],
+        "genNum": 5,
+        "insertMat": "MgF2",
+        "layerCount": 2,
+        "layers": [
+          [
+            "MgF2",
+            120.8570220209422
+          ],
+          [
+            "TiO2",
+            5.341491678171622
+          ]
+        ],
+        "mf": 0.009031423544337896,
+        "omf": 0.009031423544337896,
+        "runNum": 1,
+        "side": "front",
+        "tot": 126.19851369911382
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 5,
+      "layerCount": 2,
+      "mf": 0.009031422868397667,
+      "mfBest": 0.009031422868397677,
+      "omf": 0.009031422868397677,
+      "omfBest": 0.009031422868397677,
+      "rows": 5,
+      "top": [
+        1,
+        3
+      ]
+    },
+    "terminated": 2
+  },
+  "errorAfterProgress": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          95.4416828584302
+        ]
+      ]
+    },
+    "cached": {
+      "id": "guard-design",
+      "rows": 1,
+      "runs": 1
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          95.4416828584302
+        ]
+      ]
+    },
+    "designUpdates": 1,
+    "edits": 0,
+    "genCount": 1,
+    "jobs": {
+      "candidate": 3,
+      "dropParked": 1,
+      "scan": 3
+    },
+    "maps": 4,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "Refining 3 candidates in parallel…",
+          "Scanning needle positions…",
+          "the pool failed"
+        ]
+      }
+    ],
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": "MgF2",
+        "layerCount": 1,
+        "layers": [
+          [
+            "MgF2",
+            95.4416828584302
+          ]
+        ],
+        "mf": 0.013996579514565361,
+        "omf": 0.013996579514565361,
+        "runNum": 1,
+        "side": "front",
+        "tot": 95.4416828584302
+      }
+    ],
+    "runOpen": true,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "generation": 1,
+      "layerCount": 1,
+      "mfBest": 0.013996579514565361,
+      "omf": 0.013996579514565361,
+      "omfBest": 0.013996579514565361,
+      "rows": 1,
+      "top": [
+        1
+      ]
+    },
+    "terminated": 1
+  },
+  "noOperands": {
+    "base": null,
+    "cached": null,
+    "checkpoints": 0,
+    "design": null,
+    "designUpdates": 0,
+    "edits": 0,
+    "genCount": 0,
+    "jobs": {},
+    "maps": 0,
+    "presses": [
+      {
+        "phases": [],
+        "running": false,
+        "statuses": [
+          "No operands. Open Merit Function Editor to set up targets."
+        ]
+      }
+    ],
+    "rows": [],
+    "runOpen": false,
+    "runs": [],
+    "saved": null,
+    "shown": {},
+    "terminated": 0
+  },
+  "noMaterials": {
+    "base": null,
+    "cached": null,
+    "checkpoints": 0,
+    "design": null,
+    "designUpdates": 0,
+    "edits": 0,
+    "genCount": 0,
+    "jobs": {},
+    "maps": 0,
+    "presses": [
+      {
+        "phases": [],
+        "running": false,
+        "statuses": [
+          "No materials selected in pool."
+        ]
+      }
+    ],
+    "rows": [],
+    "runOpen": false,
+    "runs": [],
+    "saved": null,
+    "shown": {},
+    "terminated": 0
+  }
+}
