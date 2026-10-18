@@ -9,8 +9,8 @@
 import {
     SYNTHESIS_INNER_ENGINES, getSynthesisInnerEngine,
     defaultThreadCount, threadSelectOptions,
-    SYNTHESIS_CAND_MODES, DEFAULT_SYNTHESIS_CAND_MODE, getSynthesisCandMode, getSynthesisMaxBatches,
-    NEEDLE_SENS_MODES, DEFAULT_NEEDLE_SENS_MODE, getNeedleSensMode, getNeedleSensFloor,
+    SYNTHESIS_CAND_MODES, DEFAULT_SYNTHESIS_CAND_MODE, getSynthesisCandMode, candModeBatches,
+    NEEDLE_SENS_MODES, DEFAULT_NEEDLE_SENS_MODE, getNeedleSensMode, needleSensFloorFor,
     SYNTHESIS_SEED_MODES, DEFAULT_SYNTHESIS_SEED_MODE, getSynthesisSeedMode, PRESERVE_BULK_GENTLE_ITER,
     DEFAULT_CONSOLIDATE_TOL, getSynthesisConsolidate, getSynthesisConsolidateTol,
     getSynthesisSmartSeed,
@@ -43,12 +43,12 @@ console.log('— threadSelectOptions —');
 console.log('— cand mode default + max batches table —');
 ok(getSynthesisCandMode() === DEFAULT_SYNTHESIS_CAND_MODE, `default cand mode = ${DEFAULT_SYNTHESIS_CAND_MODE}`);
 ok(SYNTHESIS_CAND_MODES.includes(getSynthesisCandMode()), 'default mode is a valid mode');
-ok(getSynthesisMaxBatches() === 2, `balanced (default) → 2 batches (got ${getSynthesisMaxBatches()})`);
+ok(candModeBatches(getSynthesisCandMode()) === 2, `balanced (default) → 2 batches (got ${candModeBatches(getSynthesisCandMode())})`);
 
 console.log('— needle sensitivity default —');
 ok(getNeedleSensMode() === DEFAULT_NEEDLE_SENS_MODE, `default sens mode = ${DEFAULT_NEEDLE_SENS_MODE}`);
 ok(NEEDLE_SENS_MODES.includes(getNeedleSensMode()), 'default mode is a valid mode');
-ok(getNeedleSensFloor() === 0, `off (default) → floor 0 (got ${getNeedleSensFloor()})`);
+ok(needleSensFloorFor(getNeedleSensMode()) === 0, `off (default) → floor 0 (got ${needleSensFloorFor(getNeedleSensMode())})`);
 
 console.log('— seed mode default —');
 ok(getSynthesisSeedMode() === DEFAULT_SYNTHESIS_SEED_MODE, `default seed mode = ${DEFAULT_SYNTHESIS_SEED_MODE}`);

@@ -29,11 +29,13 @@ useImmediateTimers();
 Object.defineProperty(globalThis, 'navigator', { value: { hardwareConcurrency: 1 }, configurable: true, writable: true });
 await initWasmForTest();
 
+const { WorkerPool } = await import('../src/utils/workers/workerPool.js');
+const { SYNTHESIS_WORKER_URL } = await import('../src/workerUrls.js');
 const O = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
-const { fitsLayerLimit } = await import('../src/components/windows/optimization/gradualEvolution/runners/undoneSteps.js');
+const { fitsLayerLimit } = await import('../src/utils/gradualEvolution/undoneSteps.js');
 const { default: EN } = await import('../src/constants/locales/en.js');
 const ST = EN.gradualEvolution.status;
 
@@ -57,7 +59,6 @@ const runJob = (job) => { let out; dispatchSynthesisJob(job, rm, m => { if (m.ty
 const _log = console.log;
 const quiet = () => { console.log = () => {}; };
 const loud = () => { console.log = _log; };
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ref = v => ({ current: v });
 const noop = () => {};
 
@@ -120,13 +121,13 @@ const noop = () => {};
 // ── 4. The runner at the limit, against a scripted worker ────────────────────
 function geCtx(design, operands, settings) {
     const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...design, id: 'ge-limit' }),
+        runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), makeWorkerPool: (K, init) => new WorkerPool(SYNTHESIS_WORKER_URL, K, init),
+        baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(0), designRef: ref({ ...design, id: 'ge-limit' }),
         operandsRef: ref(operands.map(o => ({ ...o, enabled: true }))), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), checkpointRef: ref(noop),
         updateDesignRef: ref(patch => { ctx.designRef.current = { ...ctx.designRef.current, ...patch }; }),
         maxLayersRef: ref(settings.maxLayers), maxGeCyclesRef: ref(settings.maxGeCycles), targetMFRef: ref(settings.targetMF),
-        dlsIterRef: ref(settings.dlsIter), dMinRef: ref(settings.dMin),
+        dlsIterRef: ref(settings.dlsIter), dMinRef: ref(settings.dMin), deepSearchRef: ref(false),
         selectedCatsRef: ref([]), excludedMatsRef: ref([]),
         setPhase: noop, setStatusMsg: v => { ctx.status = v; }, setCanReset: noop, setMf: noop, setOmf: noop, setMfBest: noop, setOmfBest: noop,
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: noop, reconcileBaseWithEdits: noop,
@@ -136,16 +137,18 @@ function geCtx(design, operands, settings) {
     };
     return ctx;
 }
+// Press Run and wait until the window has shown the run's end. A run that ends
+// on its own opens a run block and closes it; one that never started opens
+// none, and one that failed or was stopped leaves its block open.
 async function runToEnd(run, ctx) {
+    const runs = ctx.runsRef.current.length;
     quiet();
-    run(ctx);
-    const t0 = Date.now();
-    while (ctx.runningRef.current && Date.now() - t0 < 300000) await sleep(1);
+    await run(ctx);
     loud();
-    ok('setup: the run finished', !ctx.runningRef.current);
+    ok('setup: the run ended on its own', ctx.runsRef.current.length === runs + 1 && !ctx.runOpenRef.current);
 }
 
-const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
+const { startWindowRun } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
 {
     // Seed of 2 layers, limit 3. The first needle stays (3 layers, at the
     // limit). The next scan offers only a needle inside a layer, which needs
@@ -182,7 +185,7 @@ const { runGeWorker } = await import('../src/components/windows/optimization/gra
         terminate() { this.dead = true; }
     };
     const ctx = geCtx(media([['TiO2', 60], ['SiO2', 90]]), NARROW, { maxLayers: 3, maxGeCycles: 3, targetMF: 1e-9, dlsIter: 10, dMin: 15 });
-    await runToEnd(runGeWorker, ctx);
+    await runToEnd(startWindowRun, ctx);
     const kinds = jobs.map(j => j.type);
     const candidates = jobs.filter(j => j.type === 'candidate');
     ok('runner at the limit: a needle that does not fit is not refined', candidates.length === 1 && !candidates[0].cand.intra, `${candidates.length} candidate jobs`);
@@ -217,7 +220,7 @@ function afterLimit(rows) {
         terminate() { this.dead = true; }
     };
     const ctx = geCtx(media([['TiO2', 30], ['SiO2', 50]]), ARC(), SETTINGS);
-    await runToEnd(runGeWorker, ctx);
+    await runToEnd(startWindowRun, ctx);
     const rows = ctx.cyclesRef.current;
     const { first, atLimit, later } = afterLimit(rows);
     ok('worker path: the run reaches 7 layers', first >= 0);

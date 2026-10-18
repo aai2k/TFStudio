@@ -12,7 +12,7 @@
 // further out instead of falling back into the same minimum, and after 80 % it
 // starts over at 10 %.
 
-import { makeRng } from '../../../../../utils/synthesis/structuralOptimizer.js';
+import { makeRng } from '../synthesis/structuralOptimizer.js';
 
 const PERTURB_SCALES = [0.1, 0.2, 0.4, 0.8];
 

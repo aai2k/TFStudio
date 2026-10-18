@@ -3,7 +3,6 @@ import {
     densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS, withDesignSampleCounts,
 } from '../../../../utils/physics/optimizer.js';
 import { generateARSeeds } from '../../../../utils/synthesis/seedGenerator.js';
-import { getThreadCount } from '../../../../utils/synthesis/synthesisConfig.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 
 // ── Surface-mode-aware active synthesis side ────────────────────────────────────
@@ -96,13 +95,6 @@ export function chunkArray(arr, k) {
     const n = Math.max(1, Math.ceil(arr.length / k));
     for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
     return out.length ? out : [[]];
-}
-
-// Worker-pool size = the user's global Threads setting (detected-core default
-// that leaves the main thread + headroom free; see getThreadCount). Was a fixed
-// clamp(hw-1, 2, 8); now user-controllable and unshy on many-core CPUs.
-export function poolSize() {
-    return getThreadCount();
 }
 
 // ── Smart-seed generation (canonical QW/HW AR starting designs) ──────────────────

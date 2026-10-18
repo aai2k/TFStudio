@@ -1,14 +1,14 @@
 /**
  * State/effects/engine-wiring for the Gradual Evolution window. See
  * GradualEvolution.js for the algorithm description; this hook owns the
- * settings, run refs, and the Run/Stop/Reset/Restore controller actions that
- * drive the worker-pool GE engine.
+ * settings, run refs, and the Run/Stop/Reset/Restore controller actions. The
+ * run itself is utils/gradualEvolution/runGradualEvolution.js, started and
+ * shown by windowRun.js.
  *
  * Split into cohesive sub-hooks (settings vs. run/cache state), with the
  * heavier branching logic pulled into module-scope helpers that take a ctx
- * bag of refs/setters — the same ctx-bag convention the run engines in
- * runners/ use, so the branching lives in a named, independently readable
- * function rather than inline inside a React effect/callback.
+ * bag of refs/setters, so the branching lives in a named, independently
+ * readable function rather than inline inside a React effect/callback.
  */
 
 import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
@@ -21,10 +21,15 @@ import {
     getPoolMaterials as getPoolMaterialsShared,
 } from '../synthesisShared/synthesisHelpers.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
+import { WorkerPool } from '../../../../utils/workers/workerPool.js';
+import { SYNTHESIS_WORKER_URL } from '../../../../workerUrls.js';
+import { GE_DEFAULTS } from '../../../../utils/gradualEvolution/settings.js';
 
-// Run engine (worker pool).
-import { runGeWorker } from './runners/workerPool.js';
-import { restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot } from './geStateHelpers.js';
+import { startWindowRun } from './windowRun.js';
+import {
+    restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot,
+} from './geStateHelpers.js';
+import { teardownRun } from '../synthesisShared/teardownRun.js';
 import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
@@ -37,19 +42,30 @@ const GE_CATS_KEY = 'tfstudio_ge_selectedCats';
 const makeGetPoolMaterials = (designRef) => (selectedCatalogIds, excluded) =>
     getPoolMaterialsShared(selectedCatalogIds, { excluded, design: designRef.current });
 
+// The worker pool a run is built with. Its start, and a failure to build it, go
+// to the app's diagnostics log.
+function makeWorkerPool(K, initMessage) {
+    const wasmBytes = initMessage?.wasmBytes;
+    window.electronAPI?.diagLog?.(`GE start: poolSize=${K} wasmBytesForWorker=${wasmBytes ? (wasmBytes.byteLength ?? wasmBytes.length) : 0} workerURL=${String(SYNTHESIS_WORKER_URL)}`);
+    try { return new WorkerPool(SYNTHESIS_WORKER_URL, K, initMessage); }
+    catch (err) {
+        window.electronAPI?.diagLog?.(`GE WorkerPool construction FAILED: ${err?.message || err}`);
+        throw err;
+    }
+}
+
 // ── Settings sub-hook: persisted run parameters + material-pool selection ──────
-// Defaults mirror Python gradual_evolution.py: max_layers=16, tol=5e-4,
-// dls_iter_per_step=80, D_MIN=15.0 nm (merit.py). Persisted across window
-// switches (localStorage-backed).
+// Persisted across window switches (localStorage-backed), starting from the
+// run's own defaults (utils/gradualEvolution/settings.js).
 function useGeSettings(design) {
-    const [maxLayers,     setMaxLayers]     = usePersistentNumber('tfstudio_ge_maxLayers', 50);
-    const [maxGeCycles,   setMaxGeCycles]   = usePersistentNumber('tfstudio_ge_maxGeCycles', 16);
-    const [targetMF,      setTargetMF]      = usePersistentNumber('tfstudio_ge_targetMF', 5e-4);
-    const [dlsIter,       setDlsIter]       = usePersistentNumber('tfstudio_ge_dlsIter', 30);
-    const [dMin,          setDMin, dMinFromStorage] = usePersistentNumber('tfstudio_ge_dMin', 15.0);
-    // Deep search (runners/deepSearch.js): 1 = perturb the best design when
-    // nothing is left to try, and run until Stop or the target.
-    const [deepSearch,    setDeepSearch]    = usePersistentNumber('tfstudio_ge_deepSearch', 0);
+    const [maxLayers,     setMaxLayers]     = usePersistentNumber('tfstudio_ge_maxLayers', GE_DEFAULTS.maxLayers);
+    const [maxGeCycles,   setMaxGeCycles]   = usePersistentNumber('tfstudio_ge_maxGeCycles', GE_DEFAULTS.maxGeCycles);
+    const [targetMF,      setTargetMF]      = usePersistentNumber('tfstudio_ge_targetMF', GE_DEFAULTS.targetMF);
+    const [dlsIter,       setDlsIter]       = usePersistentNumber('tfstudio_ge_dlsIter', GE_DEFAULTS.refineIter);
+    const [dMin,          setDMin, dMinFromStorage] = usePersistentNumber('tfstudio_ge_dMin', GE_DEFAULTS.dMin);
+    // Deep search (utils/gradualEvolution/deepSearch.js): 1 = perturb the best
+    // design when nothing is left to try, and run until Stop or the target.
+    const [deepSearch,    setDeepSearch]    = usePersistentNumber('tfstudio_ge_deepSearch', GE_DEFAULTS.deepSearch ? 1 : 0);
     // M19: the "preemptive trigger" knobs (preemptiveN / preemptiveRel) were
     // declared, persisted and UI-exposed but never consumed by the tick loop —
     // removed rather than shipping dead controls that mislead the user.
@@ -113,7 +129,8 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
     const [statusMsg,  setStatusMsg]  = useState('');
 
     const runningRef       = useRef(false);
-    const workerRef        = useRef(null);    // synthesis worker pool
+    const activeRunRef     = useRef(null);    // the run the window shows (windowRun.js)
+    const abortRef         = useRef(null);    // stops that run
     const baseDesignRef    = useRef(null);
     const savedDesignRef   = useRef(null);
     const baseRevRef       = useRef(0);      // design revision when baseDesignRef was cached (M12)
@@ -140,7 +157,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
     const lastDesignId = useRef(null);
     useEffect(() => {
         restoreOrClearForDesign(design, {
-            lastDesignId, runningRef, workerRef,
+            lastDesignId, runningRef, activeRunRef, abortRef,
             cyclesRef, genCountRef, geStepsRef, savedDesignRef, baseDesignRef, baseRevRef,
             runsRef, runOpenRef, getDesignRevision,
             setPhase, setStatusMsg, setCycles, setMf, setMfBest, setOmf, setOmfBest,
@@ -149,13 +166,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
     }, [design?.id]);
 
     useEffect(() => {
-        return () => {
-            runningRef.current = false;
-            if (workerRef.current) {
-                try { workerRef.current.terminate(); } catch (_) {}
-                workerRef.current = null;
-            }
-        };
+        return () => teardownRun({ runningRef, activeRunRef, abortRef });
     }, []);
 
     return {
@@ -163,7 +174,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
         cycles, setCycles, cyclesRef, mf, setMf, mfBest, setMfBest,
         omf, setOmf, omfBest, setOmfBest, layerCount, setLayerCount,
         canReset, setCanReset, statusMsg, setStatusMsg,
-        runningRef, workerRef, baseDesignRef, savedDesignRef, baseRevRef,
+        runningRef, activeRunRef, abortRef, baseDesignRef, savedDesignRef, baseRevRef,
         operandsRef, designRef, genCountRef, geStepsRef, runsRef, runOpenRef,
     };
 }
@@ -175,7 +186,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
     // Min thickness follows the strictest MNT row, so GE keeps the floor the
     // MNT penalty enforces; 15 nm without one (synthesisShared/minThickness.js).
     useEffect(() => {
-        deriveDMinDefault(design, settings.maxMNT > 0 ? settings.maxMNT : 15.0, {
+        deriveDMinDefault(design, settings.maxMNT > 0 ? settings.maxMNT : GE_DEFAULTS.dMin, {
             dMinTouchedRef: settings.dMinTouchedRef, lastIdForDMin: settings.lastIdForDMin,
             runningRef: run.runningRef, dMinRef: settings.dMinRef, setDMin: settings.setDMin,
         });
@@ -189,11 +200,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
     // ── Stop ──────────────────────────────────────────────────────────────────
     const stopOpt = useCallback((msg = '') => {
         const wasRunning = run.runningRef.current;
-        run.runningRef.current = false;
-        if (run.workerRef.current) {
-            try { run.workerRef.current.terminate(); } catch (_) {}
-            run.workerRef.current = null;
-        }
+        teardownRun(run);
         run.setPhase('idle');
         // Stopping a run clears the phase text it was showing; a finished run's
         // reason stays when Best or Restore is pressed after it.
@@ -214,13 +221,12 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
         }
     }, [getDesignRevision]);
 
-    // ── Run engines ─────────────────────────────────────────────────────────────
-    // The GE state machine lives in runners/. The window assembles a `ctx` bag
-    // (refs + state setters + the reconcile / stop / pool helpers) that the
-    // worker-pool engine drives.
+    // ── Run ─────────────────────────────────────────────────────────────────────
+    // The window assembles a `ctx` bag (refs + state setters + the reconcile /
+    // stop / pool helpers) a run is shown through (windowRun.js).
     const runOpt = useCallback(() => {
-        runGeWorker({
-            runningRef: run.runningRef, workerRef: run.workerRef,
+        startWindowRun({
+            runningRef: run.runningRef, activeRunRef: run.activeRunRef, abortRef: run.abortRef,
             baseDesignRef: run.baseDesignRef, savedDesignRef: run.savedDesignRef,
             baseRevRef: run.baseRevRef,
             designRef: run.designRef, operandsRef: run.operandsRef, cyclesRef: run.cyclesRef,
@@ -237,6 +243,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
             setLayerCount: run.setLayerCount, setGeSteps: run.setGeSteps,
             reconcileBaseWithEdits, stopOpt, t,
             getPoolMaterials: makeGetPoolMaterials(run.designRef),
+            makeWorkerPool,
         });
     }, [stopOpt, reconcileBaseWithEdits, t]);
 

@@ -8,7 +8,8 @@
 
 import { planRun } from './settings.js';
 import { prepare, regridIfGrown } from './setup.js';
-import { makeRun, alive, closePool } from './runState.js';
+import { makeRun, alive } from './runState.js';
+import { runOnPool, failedRun } from '../synthesis/poolRun.js';
 import { smartSeed, scanCycle } from './scan.js';
 import { refineBatches } from './refine.js';
 import { thinStartRescue } from './rescue.js';
@@ -51,15 +52,6 @@ function finish(run, end) {
     };
 }
 
-// A Stop rejects the in-flight jobs with 'pool terminated'; any other error
-// ends the run. Before the run has shown anything the design is as it was.
-function failed(run, err) {
-    if (!alive(run) || String(err && err.message) === 'pool terminated') return ended('stopped');
-    console.error('[Needle] Pool error:', err);
-    if (!run.gotProgress) return ended('workerFailed');
-    return ended('workerError', { message: String(err && err.message || err) });
-}
-
 // Scan and refine cycles until the run ends on its own (its end) or is
 // stopped (null). The first needle-optimal end gets one thicker start before
 // it is taken at face value (rescue.js).
@@ -81,9 +73,11 @@ async function drive(run) {
         const end = await cycleUntilEnd(run);
         return end && alive(run) ? finish(run, end) : ended('stopped');
     } catch (err) {
-        return failed(run, err);
+        return failedRun(NEEDLE_RUN, run, err);
     }
 }
+
+const NEEDLE_RUN = { tag: 'Needle', firstPhase: 'scanning', makeRun, drive, ended };
 
 /**
  * Grows `design` by needle insertion against `operands` (merit operand rows;
@@ -136,9 +130,10 @@ async function drive(run) {
  * failed before the first scan finished and before the run reported a design;
  * the design is as it was), 'workerError' (the pool failed later, with
  * `message`), 'noOperands', 'noMaterials' or 'presampleFailed', and the layers
- * are null. A hook that throws while the run is going ends it the way a
- * failing pool does; onStart or the first onProgress throwing rejects the
- * promise.
+ * are null. A hook that throws from one of the run's steps ends the run the
+ * way a failing pool does. A live report (onProgress with `live`) is made from
+ * the pool's own message handling, so what a throw there does is up to the
+ * pool. onStart or the first onProgress throwing rejects the promise.
  */
 export async function runNeedle(design, operands, settings, hooks = {}) {
     if (!design || !Array.isArray(operands)) throw new Error('runNeedle: a design and a list of operands are required');
@@ -147,21 +142,5 @@ export async function runNeedle(design, operands, settings, hooks = {}) {
     if (hooks.signal?.aborted) return ended('stopped');
     const prep = prepare(design, operands, plan.pool);
     if (prep.failed) return ended(prep.failed);
-    let workerPool;
-    try { workerPool = hooks.makeWorkerPool(plan.threads); }
-    catch (err) {
-        console.error('[Needle] WorkerPool construction failed:', err);
-        return ended('workerFailed');
-    }
-    const run = makeRun(design, plan, prep, workerPool, hooks);
-    const stop = () => closePool(run);
-    hooks.signal?.addEventListener('abort', stop);
-    try {
-        hooks.onStart?.();
-        run.emit({ phase: 'scanning', activity: null });
-        return await drive(run);
-    } finally {
-        hooks.signal?.removeEventListener('abort', stop);
-        closePool(run);
-    }
+    return runOnPool(NEEDLE_RUN, design, plan, prep, hooks);
 }

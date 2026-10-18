@@ -13,6 +13,7 @@
  */
 const CONSOLIDATE_KEY     = 'tfstudio-synth-consolidate';
 const CONSOLIDATE_TOL_KEY = 'tfstudio-synth-consolidate-tol';
+export const DEFAULT_CONSOLIDATE = true;
 export const DEFAULT_CONSOLIDATE_TOL = 0.05;
 
 export function getSynthesisConsolidate() {
@@ -20,7 +21,7 @@ export function getSynthesisConsolidate() {
         const v = localStorage.getItem(CONSOLIDATE_KEY);
         if (v === '0' || v === 'false') return false;
     } catch (_) { /* no localStorage → default ON */ }
-    return true;
+    return DEFAULT_CONSOLIDATE;
 }
 export function setSynthesisConsolidate(on) {
     try { localStorage.setItem(CONSOLIDATE_KEY, on ? '1' : '0'); } catch (_) {}

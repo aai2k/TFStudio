@@ -15,13 +15,14 @@
  *   threads           → detectCores / defaultThreadCount / getThreadCount /
  *                        setThreadCount / threadSelectOptions
  *   candBatches       → getSynthesisCandMode / setSynthesisCandMode /
- *                        getSynthesisMaxBatches / candModeBatches
+ *                        candModeBatches
  *   needleSensitivity → getNeedleSensMode / setNeedleSensMode /
- *                        getNeedleSensFloor / needleSensFloorFor /
- *                        cullMarginalNeedles
+ *                        needleSensFloorFor / cullMarginalNeedles
  *   seedMode          → getSynthesisSeedMode / setSynthesisSeedMode /
- *                        PRESERVE_BULK_GENTLE_ITER
- *   consolidate       → getSynthesisConsolidate(Tol) / setSynthesisConsolidate(Tol)
+ *                        PRESERVE_BULK_GENTLE_ITER / SYNTHESIS_SEED_MODES /
+ *                        DEFAULT_SYNTHESIS_SEED_MODE
+ *   consolidate       → getSynthesisConsolidate(Tol) / setSynthesisConsolidate(Tol) /
+ *                        DEFAULT_CONSOLIDATE(_TOL)
  *   smartSeed         → getSynthesisSmartSeed / setSynthesisSmartSeed /
  *                        SMART_SEED_DEFAULTS
  *   intraSamples      → SYNTHESIS_INTRA_SAMPLES (needle positions per layer)

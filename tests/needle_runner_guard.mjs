@@ -29,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { shimBrowserGlobals } from './_uiShim.mjs';
 import { initWasmForTest } from './_wasmInit.mjs';
+import { timeRunsOn, sorted, letGoFailures } from './_windowRunChecks.mjs';
 
 shimBrowserGlobals();
 await initWasmForTest();
@@ -105,12 +106,6 @@ const rowOf = g => {
     return { ...rest, layers: layersOf(layers), frontSnap: layersOf(frontSnap), backSnap: layersOf(backSnap) };
 };
 
-// Whether the rows of each press are timed on from the rows before them.
-function timeRunsOn(rowCounts, rows) {
-    return rowCounts.every((count, i) => i === 0 || rows.slice(rowCounts[i - 1], count)
-        .every(row => row.tMs >= Math.max(0, ...rows.slice(0, rowCounts[i - 1]).map(r => r.tMs))));
-}
-
 async function runScenario(name) {
     const spec = { ...BASE, design: design(), ...SCENARIOS[name] };
     const win = makeWindow(spec);
@@ -148,11 +143,6 @@ async function runScenario(name) {
     };
 }
 
-// The snapshot with every object's keys sorted, so it compares what was shown,
-// not the order the fields were filled in.
-const sorted = v => (Array.isArray(v) ? v.map(sorted)
-    : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sorted(v[k])])) : v);
-
 // ── What the window must show, whatever the golden holds ─────────────────────
 
 // Whether each scenario's rows are timed on across its presses (runScenario).
@@ -183,36 +173,12 @@ function windowChecks(results) {
     return failed;
 }
 
-// A second Run press while a run is going is ignored. After Stop, what the
-// stopped run still reports shows nothing, and its end leaves the run started
-// after it running; that run's own reports still show.
-async function verifyLetGo() {
-    const failed = [];
+// Nothing shown from a run the window has let go of (letGoFailures).
+function verifyLetGo() {
     const win = makeWindow({ ...BASE, design: design() });
     const pools = [];
     win.ctx.makeWorkerPool = () => { const pool = makeWaitingPool(); pools.push(pool); return pool; };
-    // Whether `promise` settles within a few seconds.
-    const ends = promise => Promise.race([promise.then(() => true),
-        new Promise(resolve => setTimeout(() => resolve(false), 3000))]);
-    await withWindowSettings({ smartSeed: '1' }, async () => {
-        const runA = startWindowRun(win.ctx);
-        const second = startWindowRun(win.ctx);
-        if (pools.length !== 1) failed.push('a second Run press while a run is going started another run');
-        win.ctx.stopOpt('');
-        const runB = startWindowRun(win.ctx);
-        const before = JSON.stringify([win.shown, win.applied]);
-        pools[0].tick(9.9);
-        if (!await ends(runA)) failed.push('Stop did not end the stopped run');
-        if (JSON.stringify([win.shown, win.applied]) !== before) failed.push('a stopped run still showed a live design');
-        if (!win.ctx.runningRef.current || !win.ctx.abortRef.current) failed.push('the stopped run\'s end stopped the run after it');
-        pools.at(-1).tick(7.7);
-        if (win.shown.mf !== 7.7) failed.push('the running run\'s live design did not show');
-        win.ctx.stopOpt('');
-        for (const pool of pools) pool.terminate();
-        if (!await ends(runB)) failed.push('Stop did not end the running run');
-        await ends(second);
-    });
-    return failed;
+    return withWindowSettings({ smartSeed: '1' }, () => letGoFailures(win, startWindowRun, pools));
 }
 
 const results = {};

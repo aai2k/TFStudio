@@ -29,12 +29,14 @@ useImmediateTimers();
 Object.defineProperty(globalThis, 'navigator', { value: { hardwareConcurrency: 1 }, configurable: true, writable: true });
 await initWasmForTest();
 
+const { WorkerPool } = await import('../src/utils/workers/workerPool.js');
+const { SYNTHESIS_WORKER_URL } = await import('../src/workerUrls.js');
 const O = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
-const { perturbBest } = await import('../src/components/windows/optimization/gradualEvolution/runners/deepSearch.js');
-const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
+const { perturbBest } = await import('../src/utils/gradualEvolution/deepSearch.js');
+const { startWindowRun } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
 const { default: EN } = await import('../src/constants/locales/en.js');
 const ST = EN.gradualEvolution.status;
 
@@ -95,8 +97,8 @@ const noop = () => {};
 // ── 2. The runner with nothing left to try, against a scripted worker ────────
 function geCtx(design, operands, settings) {
     const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...design, id: 'ge-deep' }),
+        runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), makeWorkerPool: (K, init) => new WorkerPool(SYNTHESIS_WORKER_URL, K, init),
+        baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(0), designRef: ref({ ...design, id: 'ge-deep' }),
         operandsRef: ref(operands.map(o => ({ ...o, enabled: true }))), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), checkpointRef: ref(noop),
         updateDesignRef: ref(patch => { ctx.designRef.current = { ...ctx.designRef.current, ...patch }; }),
@@ -111,16 +113,21 @@ function geCtx(design, operands, settings) {
     };
     return ctx;
 }
-// Run until the run ends or `until(ctx)` holds, then press Stop.
+// Run until the run ends or `until(ctx)` holds, then press Stop. Returns
+// whether the run ended on its own: it opened a run block and closed it, where
+// a run that never started opens none and one that failed or was stopped leaves
+// its block open.
 async function runUntil(run, ctx, until = () => false) {
+    const runs = ctx.runsRef.current.length;
     quiet();
-    run(ctx);
+    let settled = false;
+    const shown = run(ctx).then(() => { settled = true; });
     const t0 = Date.now();
-    while (ctx.runningRef.current && !until(ctx) && Date.now() - t0 < 600000) await sleep(1);
-    const endedOnItsOwn = !ctx.runningRef.current;
+    while (!settled && !until(ctx) && Date.now() - t0 < 600000) await sleep(1);
+    const endedOnItsOwn = settled && ctx.runsRef.current.length === runs + 1 && !ctx.runOpenRef.current;
     ctx.runningRef.current = false;
-    try { ctx.workerRef.current?.terminate?.(); } catch (_) { /* already stopped */ }
-    await sleep(5);
+    ctx.abortRef.current?.abort();
+    await shown;
     loud();
     return endedOnItsOwn;
 }
@@ -155,7 +162,7 @@ async function scriptedRun(deepSearch) {
     localStorage.setItem('tfstudio-synth-seed-mode', 'refine');
     const ctx = geCtx(media([['TiO2', 60], ['SiO2', 90]]), ARC(),
         { maxLayers: 50, maxGeCycles: 1, targetMF: 1e-6, dlsIter: 10, dMin: 15, deepSearch });
-    await runUntil(runGeWorker, ctx);
+    ok(`setup: the scripted run ${deepSearch ? 'with' : 'without'} Deep search ended on its own`, await runUntil(startWindowRun, ctx));
     return { ctx, jobs };
 }
 {
@@ -196,11 +203,11 @@ globalThis.Worker = class {
 };
 {
     const plain = geCtx(media([['TiO2', 30], ['SiO2', 50]]), ARC(), SETTINGS);
-    const plainEnded = await runUntil(runGeWorker, plain);
+    const plainEnded = await runUntil(startWindowRun, plain);
     ok('worker path: without Deep search the run ends on its own', plainEnded, plain.status);
 
     const deep = geCtx(media([['TiO2', 30], ['SiO2', 50]]), ARC(), { ...SETTINGS, deepSearch: true });
-    const deepEnded = await runUntil(runGeWorker, deep, ctx => perturbRows(ctx).length >= 2);
+    const deepEnded = await runUntil(startWindowRun, deep, ctx => perturbRows(ctx).length >= 2);
     ok('worker path: with Deep search it goes past that point until Stop', !deepEnded && perturbRows(deep).length >= 2,
         `${perturbRows(deep).length} Perturb rows, status ${deep.status}`);
     ok('worker path: with Deep search no row holds more than 7 layers', deep.cyclesRef.current.every(r => r.layerCount <= 7));

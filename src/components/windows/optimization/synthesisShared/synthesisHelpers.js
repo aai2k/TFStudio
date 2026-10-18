@@ -22,7 +22,7 @@ export {
 export { loadSavedCatSelection, saveCatSelection, useCatSelection } from './catSelection.js';
 export {
     sideKeyFor, activeSide, serializableMedia, withoutPPEF, densifyForRun, minOmfOf, chunkArray,
-    poolSize, buildARSeedCandidates, computePareto,
+    buildARSeedCandidates, computePareto,
 } from './synthesisMath.js';
 export { regridForDesign, meritOf, presampleSynthesisMaterials } from './runGrid.js';
 export { MaterialPoolPanel } from './MaterialPoolPanel.js';

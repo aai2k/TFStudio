@@ -1,12 +1,13 @@
 /**
  * Branching logic for the Gradual Evolution window's React state, factored out
  * of useGradualEvolution.js so each concern reads as a standalone function. Each
- * helper takes a ctx bag of refs/setters (the same convention the run engines
- * in runners/ use) rather than closing over component state directly.
+ * helper takes a ctx bag of refs/setters rather than closing over component
+ * state directly.
  */
 
 import { sideKeyFor, minOmfOf } from '../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
+import { teardownRun } from '../synthesisShared/teardownRun.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
 
 // Restore a switched-to design's cached run (cycles/best) or clear the
@@ -14,7 +15,7 @@ import { getCached, setCached, clearCached } from './sessionState.js';
 // design being switched away from.
 export function restoreOrClearForDesign(design, ctx) {
     const {
-        lastDesignId, runningRef, workerRef,
+        lastDesignId,
         cyclesRef, genCountRef, geStepsRef, savedDesignRef, baseDesignRef, baseRevRef,
         runsRef, runOpenRef, getDesignRevision,
         setPhase, setStatusMsg, setCycles, setMf, setMfBest, setOmf, setOmfBest,
@@ -25,11 +26,7 @@ export function restoreOrClearForDesign(design, ctx) {
     lastDesignId.current = newId;
 
     if (prevId && prevId !== newId) {
-        runningRef.current = false;
-        if (workerRef.current) {
-            try { workerRef.current.terminate(); } catch (_) {}
-            workerRef.current = null;
-        }
+        teardownRun(ctx);
         setPhase('idle');
         setStatusMsg('');
     }
@@ -85,7 +82,7 @@ export function restoreOrClearForDesign(design, ctx) {
 
 // Push the current cycles + run blocks into the per-design cache, with the
 // edit revision the cached base design belongs to.
-function cacheRun(ctx) {
+export function cacheRun(ctx) {
     setCached(ctx.designRef.current?.id, {
         cycles: ctx.cyclesRef.current, geSteps: ctx.geStepsRef.current,
         runs: ctx.runsRef.current,

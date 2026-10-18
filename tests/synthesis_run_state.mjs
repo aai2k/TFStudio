@@ -21,6 +21,8 @@ useImmediateTimers();
 Object.defineProperty(globalThis, 'navigator', { value: { hardwareConcurrency: 1 }, configurable: true, writable: true });
 await initWasmForTest();
 
+const { WorkerPool } = await import('../src/utils/workers/workerPool.js');
+const { SYNTHESIS_WORKER_URL } = await import('../src/workerUrls.js');
 const O = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { performReset: geReset, restoreOrClearForDesign } = await import('../src/components/windows/optimization/gradualEvolution/geStateHelpers.js');
@@ -61,7 +63,7 @@ const reconcile = (ctx, rev) => {
 
 // ── 1. GE-step budget ────────────────────────────────────────────────────────
 
-// Drive runGeWorker against a mock synthesis worker in which no needle ever
+// Drive a Gradual Evolution run against a mock synthesis worker in which no needle ever
 // improves, so every cycle is a forced GE step.
 async function runGeAfterFinishedRun({ geSteps, maxGeCycles, designId }) {
     class MockWorker {
@@ -83,15 +85,16 @@ async function runGeAfterFinishedRun({ geSteps, maxGeCycles, designId }) {
         terminate() { this.dead = true; }
     }
     globalThis.Worker = MockWorker;
-    const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
+    const { startWindowRun } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
     const shown = [];
     const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
+        runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), makeWorkerPool: (K, init) => new WorkerPool(SYNTHESIS_WORKER_URL, K, init),
         baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(3),
         designRef: ref(media(layers([['TiO2', 60], ['SiO2', 90]]), designId)),
         operandsRef: ref(ops), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(geSteps),
         runsRef: ref([]), runOpenRef: ref(false), updateDesignRef: ref(noop), checkpointRef: ref(noop),
         maxLayersRef: ref(30), maxGeCyclesRef: ref(maxGeCycles), targetMFRef: ref(1e-9), dlsIterRef: ref(10), dMinRef: ref(15),
+        deepSearchRef: ref(false),
         selectedCatsRef: ref([]), excludedMatsRef: ref([]),
         setPhase: noop, setStatusMsg: noop, setCanReset: noop, setMf: noop, setOmf: noop, setMfBest: noop, setOmfBest: noop,
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: v => shown.push(v), reconcileBaseWithEdits: noop,
@@ -100,9 +103,7 @@ async function runGeAfterFinishedRun({ geSteps, maxGeCycles, designId }) {
         t: EN,
     };
     quiet();
-    runGeWorker(ctx);
-    const t0 = Date.now();
-    while (ctx.runningRef.current && Date.now() - t0 < 30000) await new Promise(r => setTimeout(r, 1));
+    await startWindowRun(ctx);
     loud();
     return { steps: ctx.cyclesRef.current.filter(c => c.type === 'ge').length, shown, ctx };
 }
@@ -192,7 +193,7 @@ for (const [label, revNow, kept] of [['edited while closed', 7, false], ['not ed
         savedDesign: run1.baseline, baseDesign: media(cachedStack, 'ge-remount'), baseRev: 4,
     });
     const ctx = {
-        lastDesignId: ref(null), runningRef: ref(false), workerRef: ref(null),
+        lastDesignId: ref(null), runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), makeWorkerPool: (K, init) => new WorkerPool(SYNTHESIS_WORKER_URL, K, init),
         cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0), savedDesignRef: ref(null), baseDesignRef: ref(null),
         baseRevRef: ref(0), runsRef: ref([]), runOpenRef: ref(false), getDesignRevision: () => revNow,
         setPhase: noop, setStatusMsg: noop, setCycles: noop, setMf: noop, setMfBest: noop, setOmf: noop, setOmfBest: noop,

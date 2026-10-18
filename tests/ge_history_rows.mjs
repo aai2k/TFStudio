@@ -39,6 +39,8 @@ useImmediateTimers();
 Object.defineProperty(globalThis, 'navigator', { value: { hardwareConcurrency: 1 }, configurable: true, writable: true });
 await initWasmForTest();
 
+const { WorkerPool } = await import('../src/utils/workers/workerPool.js');
+const { SYNTHESIS_WORKER_URL } = await import('../src/workerUrls.js');
 const O = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
@@ -64,7 +66,6 @@ const _log = console.log;
 let logged = [];
 const quiet = () => { logged = []; console.log = (...a) => { logged.push(a.join(' ')); }; };
 const loud = () => { console.log = _log; };
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ref = v => ({ current: v });
 const noop = () => {};
 const runJob = (job) => { let out; dispatchSynthesisJob(job, rm, m => { if (m.type !== 'tick') out = m; }); return out; };
@@ -146,13 +147,13 @@ const NARROW = () => [O.makeOperand({ type: 'RAV', lambdaStart: 480, lambdaEnd: 
 
 function geCtx(design, operands, settings) {
     const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...design, id: 'ge-rows' }),
+        runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), makeWorkerPool: (K, init) => new WorkerPool(SYNTHESIS_WORKER_URL, K, init),
+        baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(0), designRef: ref({ ...design, id: 'ge-rows' }),
         operandsRef: ref(operands.map(o => ({ ...o, enabled: true }))), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), checkpointRef: ref(noop),
         updateDesignRef: ref(patch => { ctx.designRef.current = { ...ctx.designRef.current, ...patch }; }),
         maxLayersRef: ref(settings.maxLayers), maxGeCyclesRef: ref(settings.maxGeCycles), targetMFRef: ref(settings.targetMF),
-        dlsIterRef: ref(settings.dlsIter), dMinRef: ref(settings.dMin),
+        dlsIterRef: ref(settings.dlsIter), dMinRef: ref(settings.dMin), deepSearchRef: ref(false),
         selectedCatsRef: ref([]), excludedMatsRef: ref([]),
         setPhase: noop, setStatusMsg: noop, setCanReset: noop, setMf: noop, setOmf: noop, setMfBest: noop, setOmfBest: noop,
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: noop, reconcileBaseWithEdits: noop,
@@ -163,16 +164,18 @@ function geCtx(design, operands, settings) {
     return ctx;
 }
 
+// Press Run and wait until the window has shown the run's end. A run that ends
+// on its own opens a run block and closes it; one that never started opens
+// none, and one that failed or was stopped leaves its block open.
 async function runToEnd(run, ctx) {
+    const runs = ctx.runsRef.current.length;
     quiet();
-    run(ctx);
-    const t0 = Date.now();
-    while (ctx.runningRef.current && Date.now() - t0 < 300000) await sleep(1);
+    await run(ctx);
     loud();
-    ok('setup: the run finished', !ctx.runningRef.current);
+    ok('setup: the run ended on its own', ctx.runsRef.current.length === runs + 1 && !ctx.runOpenRef.current);
 }
 
-const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
+const { startWindowRun } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
 {
     const jobs = [];
     const script = {
@@ -181,7 +184,7 @@ const { runGeWorker } = await import('../src/components/windows/optimization/gra
     };
     globalThis.Worker = scriptedWorker(script, jobs);
     const ctx = geCtx(media([['TiO2', 60], ['SiO2', 90]]), NARROW(), { maxLayers: 10, maxGeCycles: 2, targetMF: 1e-9, dlsIter: 10, dMin: 15 });
-    await runToEnd(runGeWorker, ctx);
+    await runToEnd(startWindowRun, ctx);
     ok('setup: the scripted run kept one wavelength grid', !logged.some(l => l.includes('Grid re-sampled')));
     const rows = ctx.cyclesRef.current;
     ok('runner: rows are Start, Refine, Needle, GE, GE', rows.map(r => r.type).join(',') === 'baseline,refine,needle,ge,ge', rows.map(r => r.type).join(','));
@@ -203,7 +206,7 @@ const { runGeWorker } = await import('../src/components/windows/optimization/gra
     // A second Run after the first finished: its first merged step, a new best
     // for that Run, is a Refine row of that Run.
     Object.assign(script, { scan: [ONE_NEEDLE], candidate: [MERGED(0.26)] });
-    await runToEnd(runGeWorker, ctx);
+    await runToEnd(startWindowRun, ctx);
     const run2 = ctx.cyclesRef.current.filter(r => r.runNum === 2);
     ok('runner: in a new Run a merged first step is a Refine row of that Run', run2[0]?.type === 'refine' && run2[0]?.mf === 0.26,
         run2.map(r => `${r.type}:${r.mf}`).join(','));
@@ -251,7 +254,7 @@ localStorage.setItem('tfstudio-synth-seed-mode', 'refine');
         terminate() { this.dead = true; }
     };
     const ctx = geCtx(media([['TiO2', 30], ['SiO2', 50]]), ARC(), SETTINGS);
-    await runToEnd(runGeWorker, ctx);
+    await runToEnd(startWindowRun, ctx);
     const rows = ctx.cyclesRef.current;
     ok('worker path: every Needle row adds a layer', needleRowsAddLayers(rows).length === 0, `generations ${needleRowsAddLayers(rows).join(', ')} do not`);
     ok('worker path: no two GE rows show the same layer count and merit', repeatedGeRows(rows).length === 0, repeatedGeRows(rows).join(', '));

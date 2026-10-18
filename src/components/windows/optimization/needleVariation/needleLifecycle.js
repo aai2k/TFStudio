@@ -6,17 +6,7 @@
 
 import { sideKeyFor, minOmfOf, computePareto } from '../synthesisShared/synthesisHelpers.js';
 import { getCachedOptState } from './sessionState.js';
-
-// Let go of the run the window shows and stop it; the run then terminates its
-// worker pool.
-export function teardownRun({ runningRef, activeRunRef, abortRef }) {
-    runningRef.current = false;
-    activeRunRef.current = null;
-    if (abortRef.current) {
-        abortRef.current.abort();
-        abortRef.current = null;
-    }
-}
+import { teardownRun } from '../synthesisShared/teardownRun.js';
 
 // Stop a running optimization only on an actual design switch (prevId set and
 // different from newId) — not on initial mount, where prevId is still null.

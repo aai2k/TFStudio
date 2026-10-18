@@ -29,7 +29,8 @@ import { NEEDLE_DEFAULTS } from '../../../../utils/needle/settings.js';
 
 import { startWindowRun } from './windowRun.js';
 import { setCachedOptState } from './sessionState.js';
-import { teardownRun, syncOnDesignSwitch } from './needleLifecycle.js';
+import { syncOnDesignSwitch } from './needleLifecycle.js';
+import { teardownRun } from '../synthesisShared/teardownRun.js';
 import { performReset, clearRunHistory, findBestGeneration, jumpToGeneration } from './needleActions.js';
 import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
 

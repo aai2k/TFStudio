@@ -13,7 +13,7 @@
  *        • no forced step or layer swap is left
  *      maxLayers limits the design and does not end the run. With Deep search
  *      only the first applies: when no step is left the best design is
- *      perturbed and the run goes on (runners/deepSearch.js).
+ *      perturbed and the run goes on (utils/gradualEvolution/deepSearch.js).
  *
  * References:
  *   - H.A. Macleod, Thin-Film Optical Filters 5th ed., §"Automatic Design" (Ch.13,

@@ -29,6 +29,8 @@ useImmediateTimers();
 Object.defineProperty(globalThis, 'navigator', { value: { hardwareConcurrency: 1 }, configurable: true, writable: true });
 await initWasmForTest();
 
+const { WorkerPool } = await import('../src/utils/workers/workerPool.js');
+const { SYNTHESIS_WORKER_URL } = await import('../src/workerUrls.js');
 const O = await import('../src/utils/physics/optimizer.js');
 const { makeEngine } = await import('../src/utils/optimizers/index.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
@@ -124,7 +126,7 @@ const tt = O.makeOperand({ type: 'TT', target: 1000, weight: 1 });
 const geOps = [O.makeOperand({ type: 'RAV', lambdaStart: 480, lambdaEnd: 520, aoi: 0, pol: 'avg', target: 0, weight: 1 }), tt];
 const geSeed = () => media([['TiO2', 60], ['SiO2', 90]]);
 
-// Drive runGeWorker (seed 0.30) against a mock synthesis worker. `answer(job,
+// Drive a Gradual Evolution run (seed 0.30) against a mock synthesis worker. `answer(job,
 // front, grow)` gives the result fields for a job, or null for the defaults:
 // seedDls keeps the seed, scans find nothing, a forced step adds a layer,
 // dropParked finds nothing parked, consolidation removes nothing.
@@ -151,16 +153,17 @@ async function runGeMock(answer, maxGeCycles = 1) {
         terminate() { this.dead = true; }
     }
     globalThis.Worker = MockWorker;
-    const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
+    const { startWindowRun } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
     const ref = v => ({ current: v });
     const noop = () => {};
     const seed = geSeed();
     const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...seed, id: 'ge-runner' }),
+        runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), makeWorkerPool: (K, init) => new WorkerPool(SYNTHESIS_WORKER_URL, K, init),
+        baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(0), designRef: ref({ ...seed, id: 'ge-runner' }),
         operandsRef: ref(geOps), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), updateDesignRef: ref(noop), checkpointRef: ref(noop),
         maxLayersRef: ref(10), maxGeCyclesRef: ref(maxGeCycles), targetMFRef: ref(1e-9), dlsIterRef: ref(10), dMinRef: ref(15),
+        deepSearchRef: ref(false),
         selectedCatsRef: ref([]), excludedMatsRef: ref([]),
         setPhase: noop, setStatusMsg: noop, setCanReset: noop, setMf: noop, setOmf: noop, setMfBest: noop, setOmfBest: noop,
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: noop, reconcileBaseWithEdits: noop,
@@ -169,10 +172,10 @@ async function runGeMock(answer, maxGeCycles = 1) {
         t: EN,
     };
     quiet();
-    runGeWorker(ctx);
-    const t0 = Date.now();
-    while (ctx.runningRef.current && Date.now() - t0 < 30000) await new Promise(r => setTimeout(r, 1));
+    await startWindowRun(ctx);
     loud();
+    // A run that ends on its own opens a run block and closes it.
+    ok('setup: the GE run ended on its own', ctx.runsRef.current.length === 1 && !ctx.runOpenRef.current);
     return { types: ctx.cyclesRef.current.map(c => c.type), jobs };
 }
 

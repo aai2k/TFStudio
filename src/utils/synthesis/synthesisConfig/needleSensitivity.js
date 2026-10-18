@@ -44,11 +44,6 @@ export function needleSensFloorFor(mode) {
     return NEEDLE_SENS_FLOOR[mode] ?? 0;
 }
 
-/** The floor of the saved sensitivity mode. */
-export function getNeedleSensFloor() {
-    return needleSensFloorFor(getNeedleSensMode());
-}
-
 // Needle-sensitivity cull. `queue` must already be filtered to improving
 // needles (dMF < 0) and sorted best-first (strongest |ΔMF| at [0]). Drops the
 // marginal TAIL — needles whose predicted |ΔMF| is below `relFloor × |ΔMF_best|`

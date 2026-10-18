@@ -9,7 +9,7 @@
  */
 import { dispatchSynthesisJob } from '../src/utils/workers/synthesisWorker.js';
 import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
-import { teardownRun } from '../src/components/windows/optimization/needleVariation/needleLifecycle.js';
+import { teardownRun } from '../src/components/windows/optimization/synthesisShared/teardownRun.js';
 import EN from '../src/constants/locales/en.js';
 
 // Window settings that live in local storage.

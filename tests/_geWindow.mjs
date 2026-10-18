@@ -12,6 +12,9 @@
  */
 import { dispatchSynthesisJob } from '../src/utils/workers/synthesisWorker.js';
 import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
+import { WorkerPool } from '../src/utils/workers/workerPool.js';
+import { SYNTHESIS_WORKER_URL } from '../src/workerUrls.js';
+import { teardownRun } from '../src/components/windows/optimization/synthesisShared/teardownRun.js';
 import EN from '../src/constants/locales/en.js';
 
 // Window settings that live in local storage.
@@ -23,6 +26,7 @@ export const STORAGE = {
     candMode: 'tfstudio-synth-cand-batches',
     sensitivity: 'tfstudio-needle-sensitivity',
     consolidate: 'tfstudio-synth-consolidate',
+    consolidateTol: 'tfstudio-synth-consolidate-tol',
 };
 
 export const layer = (id, material, thickness) => ({ id, material, thickness, locked: false });
@@ -97,6 +101,24 @@ function scriptedJob(win, n, post) {
     return false;
 }
 
+/**
+ * A pool whose jobs wait until the pool is terminated, as they do while its
+ * workers compute. `tick(mf)` sends a live preview through the progress
+ * callback of its last job.
+ */
+export function makeWaitingPool() {
+    const waiting = [];
+    let progress = null;
+    const wait = () => new Promise((_, reject) => waiting.push(reject));
+    const preview = mf => ({ type: 'tick', mf, omf: mf, frontLayers: PREVIEW, backLayers: [], layers: PREVIEW });
+    return {
+        map(jobs, onProgress) { progress = m => onProgress?.(0, m); return wait(); },
+        run(job, onProgress) { progress = m => onProgress?.(m); return wait(); },
+        terminate() { for (const reject of waiting.splice(0)) reject(new Error('pool terminated')); },
+        tick: mf => progress(preview(mf)),
+    };
+}
+
 // The worker a WorkerPool builds. `press.poolThrows` makes building it throw.
 class FakeWorker {
     constructor() {
@@ -111,6 +133,7 @@ class FakeWorker {
         const win = this.win;
         const n = ++win.jobCount;
         win.jobs[job.type] = (win.jobs[job.type] || 0) + 1;
+        win.posted.push(job);
         const post = m => { if (!this.dead && this.onmessage) this.onmessage({ data: m }); };
         Promise.resolve().then(() => {
             if (this.dead || scriptedJob(win, n, post)) return;
@@ -126,19 +149,21 @@ globalThis.Worker = FakeWorker;
  * the field values maxLayers, maxGeCycles, targetMF, dlsIter, dMin and
  * deepSearch. `win.press` sets what the workers do during the next Run press;
  * `win.shown`, `win.statuses`, `win.phases` and `win.applied` record what the
- * window shows.
+ * window shows. `win.posted` keeps every job the workers get, `win.initMessage`
+ * the message the pool was built with, and `win.reconciles` how often the run
+ * checked the design for edits.
  */
 export function makeWindow(spec, id) {
     const ref = current => ({ current });
     const win = {
-        spec, press: {}, jobs: {}, jobCount: 0, workers: 0, terminated: 0,
+        spec, press: {}, jobs: {}, jobCount: 0, workers: 0, terminated: 0, posted: [], initMessage: undefined, reconciles: 0,
         statuses: [], phases: [], shown: {}, applied: null, checkpoints: 0, edits: 0, designUpdates: 0,
     };
     // Consecutive repeats are recorded once.
     const push = list => v => { const l = list(); if (l[l.length - 1] !== v) l.push(v); };
     const show = key => v => { win.shown[key] = v; };
     const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
+        runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(0),
         designRef: ref({ ...spec.design, id }),
         operandsRef: ref(spec.ops.map(op => ({ enabled: true, ...op }))),
@@ -159,18 +184,18 @@ export function makeWindow(spec, id) {
         setMf: show('mf'), setOmf: show('omf'), setMfBest: show('mfBest'), setOmfBest: show('omfBest'),
         setCycles: v => { win.shown.rows = v.length; }, setGeneration: show('generation'),
         setLayerCount: show('layerCount'), setGeSteps: show('geSteps'),
-        reconcileBaseWithEdits: () => {},
-        getPoolMaterials: () => spec.pool,
+        reconcileBaseWithEdits: () => { win.reconciles++; },
+        getPoolMaterials: (cats, excluded) => spec.pool.filter(p => !excluded.has(p.id)),
+        makeWorkerPool: (K, initMessage) => {
+            win.initMessage = initMessage;
+            return new WorkerPool(SYNTHESIS_WORKER_URL, K, initMessage);
+        },
         t: EN,
     };
     // useGradualEvolution.js stopOpt.
     ctx.stopOpt = (msg = '') => {
         const wasRunning = ctx.runningRef.current;
-        ctx.runningRef.current = false;
-        if (ctx.workerRef.current) {
-            try { ctx.workerRef.current.terminate(); } catch (_) {}
-            ctx.workerRef.current = null;
-        }
+        teardownRun(ctx);
         ctx.setPhase('idle');
         if (msg || wasRunning) ctx.setStatusMsg(msg);
     };

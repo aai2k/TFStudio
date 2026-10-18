@@ -60,6 +60,8 @@ class MockWorker {
 }
 globalThis.Worker = MockWorker;
 
+const { WorkerPool } = await import('../src/utils/workers/workerPool.js');
+const { SYNTHESIS_WORKER_URL } = await import('../src/workerUrls.js');
 const O = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
@@ -70,7 +72,7 @@ const { poolCatalogs, poolMatEntries } = await import('../src/components/windows
 const SYN = await import('../src/components/windows/optimization/synthesisShared/synthesisMath.js');
 const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
 const NEEDLE_MANUAL = await import('../src/components/windows/optimization/needleManual/model.js');
-const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
+const { startWindowRun: startGeRun } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
 const { createRunState: structuralRunState } = await import('../src/components/windows/optimization/structuralOptimizer/runners/runState.js');
 const { createRunState: deepRunState } = await import('../src/components/windows/optimization/deepSynthesis/runners/runState.js');
 const { createRunContext } = await import('../src/components/windows/optimization/deepSynthesis/runners/lifecycle.js');
@@ -209,24 +211,25 @@ await check('Needle Manual rows', () => {
 // ── 4. Gradual Evolution ─────────────────────────────────────────────────────
 function geCtx() {
     const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(copy(DESIGN)),
+        runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), makeWorkerPool: (K, init) => new WorkerPool(SYNTHESIS_WORKER_URL, K, init),
+        baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(0), designRef: ref(copy(DESIGN)),
         operandsRef: ref(copy(OPERANDS)), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), updateDesignRef: ref(noop), checkpointRef: ref(noop),
         maxLayersRef: ref(30), maxGeCyclesRef: ref(4), targetMFRef: ref(1e-9), dlsIterRef: ref(5), dMinRef: ref(1),
+        deepSearchRef: ref(false),
         selectedCatsRef: ref([]), excludedMatsRef: ref([]),
         setPhase: noop, setStatusMsg: noop, setCanReset: noop, setMf: noop, setOmf: noop, setMfBest: noop, setOmfBest: noop,
         setCycles: noop, setGeneration: noop, setLayerCount: noop, setGeSteps: noop, reconcileBaseWithEdits: noop,
         getPoolMaterials: () => POOL, setCachedOptState: noop, t: EN,
     };
-    ctx.stopOpt = () => { ctx.runningRef.current = false; ctx.workerRef.current?.terminate(); };
+    ctx.stopOpt = () => { ctx.runningRef.current = false; ctx.abortRef.current?.abort(); };
     return ctx;
 }
 
 await check('Gradual Evolution worker run', async () => {
     posted.length = 0;
     const ctx = geCtx();
-    runGeWorker(ctx);
+    startGeRun(ctx);
     try {
         await until(() => posted.some(job => job.operands));
     } finally {

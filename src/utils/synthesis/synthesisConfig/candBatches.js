@@ -32,8 +32,3 @@ export function setSynthesisCandMode(mode) {
 export function candModeBatches(mode) {
     return CAND_MODE_BATCHES[mode] ?? 2;
 }
-
-/** Max K-batches to refine per outer step, for the saved candidate-search mode. */
-export function getSynthesisMaxBatches() {
-    return candModeBatches(getSynthesisCandMode());
-}

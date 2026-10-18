@@ -1,17 +1,9 @@
-// The state one Needle run carries from cycle to cycle, and its pool's end.
+// The state one Needle run carries from cycle to cycle.
 
 import { chunkArray } from '../../components/windows/optimization/synthesisShared/synthesisMath.js';
 import { designHelpers } from './setup.js';
 
-/** Whether the run goes on: nothing has stopped it. */
-export const alive = (run) => !run.signal?.aborted;
-
-/** Terminate the run's worker pool once, whoever asks first. */
-export function closePool(run) {
-    if (run.poolClosed) return;
-    run.poolClosed = true;
-    try { run.workerPool.terminate(); } catch (_) {}
-}
+export { alive } from '../synthesis/poolRun.js';
 
 // A worker's in-flight design, as the run reports it live.
 const liveOf = m => ({
