@@ -359,8 +359,9 @@ export function entryQualifiers(entry) {
 }
 
 /**
- * Evaluate the entry's specification. Each result is what the Specification
- * window shows for a qualifier; `verdict` aggregates them.
+ * Evaluate the entry's specification at the default 1 nm search step. Each
+ * result is what the Specification window first shows for a qualifier, before
+ * its finer search replaces it; `verdict` aggregates them.
  */
 export function entrySpecResults(entry) {
     const design = entryDesign(entry);

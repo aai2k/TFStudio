@@ -18,6 +18,7 @@ import { gatherDesignData } from '../../../../utils/report/reportData.js';
 import { composeReport } from '../../../../utils/report/template.js';
 import { errorAnalysisSession } from '../../analysis/errorAnalysis/sessionState.js';
 import { monitorWorksheetSession } from '../../simulation/monitorWorksheet/sessionState.js';
+import { useFineSpecification } from '../../design/specification/useSpecificationResults.js';
 import { reportSession, APP_LANGUAGE } from './sessionState.js';
 import { useBranding } from './branding.js';
 import { useBlockActions, useTemplateActions, useExportActions } from './reportActions.js';
@@ -198,6 +199,22 @@ function useDocument({ chosen, blocks, external, lang, tr, branding, doc, paper,
     return { items, html: composed.value || '', error: composed.error };
 }
 
+// The page's inputs with the Specification results the Specification window
+// shows, at its fine step (useFineSpecification), for the designs the page was
+// last built for. They are worked out only while a block prints them and no
+// run is being followed; until they arrive the block uses the default step.
+export function useWithSpecification(inputs, hold) {
+    const { chosen, blocks, external: held } = inputs;
+    const printed = blocks.some(block => block.on && block.type === 'qualifiers');
+    const fine = useFineSpecification(chosen, printed && !hold);
+    // A change of text, branding or paper keeps this object, so the numbers
+    // are not gathered again for it.
+    const external = useMemo(
+        () => ({ ...held, specification: d => fine?.[chosen.indexOf(d)] || null }),
+        [held, chosen, fine]);
+    return useMemo(() => ({ ...inputs, external }), [inputs, external]);
+}
+
 // The document's language: a code, or the language the app runs in.
 function documentLanguage(stored) {
     return stored && stored !== APP_LANGUAGE ? stored : getCurrentLocale();
@@ -232,7 +249,7 @@ export function useReportWindow({ t }) {
     const inputs = useSettled(useMemo(
         () => ({ chosen, blocks, external, lang, tr, branding, doc, paper: state.paper, meta, catalogRevision: designCtx.catalogRevision }),
         [chosen, blocks, external, lang, tr, branding, doc, state.paper, meta, designCtx.catalogRevision]), preview);
-    const { items, html, error } = useDocument(inputs);
+    const { items, html, error } = useDocument(useWithSpecification(inputs, preview));
 
     const setDoc = useCallback((key, value) => patch({ doc: { ...state.doc, [key]: value } }), [patch, state.doc]);
     const setPaper = useCallback(paper => setField('paper', paper), [setField]);

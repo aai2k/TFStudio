@@ -39,9 +39,11 @@ export function computeIntegrals(design, opts = {}) {
 }
 
 // ── Qualifiers verdict ──────────────────────────────────────────────────────
-export function computeQualifiers(design) {
+// `given` is the design's results worked out elsewhere at a finer step; without
+// them the checks are evaluated here at the default one.
+export function computeQualifiers(design, given = null) {
   const quals = design.qualifiers || [];
-  const results = evaluateQualifiers(quals, design, designMaterialLookup(design));
+  const results = given || evaluateQualifiers(quals, design, designMaterialLookup(design));
   const verdict = aggregateVerdict(results);
   return { qualifiers: quals, results, verdict };
 }

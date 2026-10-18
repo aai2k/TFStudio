@@ -14,7 +14,10 @@
  * A Monte-Carlo run is not repeated here: the block prints the last run the
  * Monte-Carlo window made for the design, handed in through `external`. The
  * monitoring worksheet is built on the chip plan and monitor settings the
- * Monitor Worksheet window holds for the design, handed in the same way.
+ * Monitor Worksheet window holds for the design, handed in the same way. So are
+ * the Specification results at the fine step the Specification window shows,
+ * worked out on the analysis worker; until they arrive the block evaluates the
+ * checks at the default step.
  *
  * Nothing here touches React or the DOM, so it runs identically in the
  * renderer (live preview) and in a node test harness.
@@ -50,7 +53,7 @@ const COMPUTE = {
   }),
   color:        (design, s) => computeColor(design, s),
   integrals:    (design, s) => computeIntegrals(design, { theta: s.theta, pol: s.polarization }),
-  qualifiers:   (design) => computeQualifiers(design),
+  qualifiers:   (design, s, external) => computeQualifiers(design, external.specification?.(design)),
   merit:        (design) => meritOperandsSummary(design),
   riProfile:    (design, s) => computeRiProfile(design, { lambda: s.lambda ?? undefined }),
   efield:       (design, s) => computeEField(design, { lambda: s.lambda ?? undefined, theta: s.theta, pol: s.pol }),
@@ -74,7 +77,9 @@ const COMPUTE = {
  * @param {object} [external]  what other windows hold: `monteCarlo(design)` returns
  *                             `{ result }`, the window's last run with the settings it
  *                             ran with, or null;
- *                             `worksheet(design)` returns the Monitor Worksheet window's values
+ *                             `worksheet(design)` returns the Monitor Worksheet window's values;
+ *                             `specification(design)` returns the design's Specification
+ *                             results at the fine step, or null
  * @returns {{ summary: object, evalMode: string, blocks: Object<string, object> }}
  */
 export function gatherDesignData(design, blocks, external = {}) {

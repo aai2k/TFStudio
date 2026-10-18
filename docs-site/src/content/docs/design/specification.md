@@ -16,6 +16,8 @@ specified.
 Each row is evaluated against the active design and recomputes on every change,
 showing a per-row verdict and an overall PASS/FAIL badge at the top.
 
+A row that looks for a peak searches its band at 0.01 nm, and **FWHM** and **Edge λ** find their crossings on a scan at that step, so the window tells apart two close peaks that a merit row at its default step can read as one. The value searched at 1 nm shows at once and the finer one replaces it when it is ready, a fraction of a second per check over a few hundred nanometres and longer over a wide band; while the window follows an optimizer run it stays at 1 nm until the run stops. See [Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip).
+
 ## Qualifier kinds
 
 | Kind                | Asks                                                            | Units |
@@ -65,7 +67,9 @@ requirements are in place, **Generate MF** writes them into the design as
 `OPGT`/`OPLT` merit operands: each spec becomes a measurement row plus a
 one-sided target referencing it, so [Refinement](/synthesis/refinement/) and
 the synthesis tools optimize toward the specification directly and stay in sync
-with it. The specification is saved in the project file alongside the design.
+with it.
+The rows it writes search their band at the default 1 nm step; if a band holds two peaks closer than about 2 nm, raise their **Step** flag so the merit function reads the band as the window does.
+The specification is saved in the project file alongside the design.
 
 ## References
 

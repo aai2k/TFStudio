@@ -5,6 +5,7 @@ import { computeColorReport } from '../../components/windows/analysis/colorEvalu
 import { computePulseAnalysis } from '../../components/windows/analysis/pulseAnalysis/pulseModel.js';
 import { designMaterialLookup, unresolvedMaterials } from '../materials/designMaterials.js';
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
+import { evaluateQualifiers } from '../synthesis/qualifiers.js';
 import {
     buildEvalContext, evaluateOperands, operandEvaluationErrors, operandBandLevels,
     calcMF, calcOMF,
@@ -30,6 +31,16 @@ function meritScore(design, operands) {
     return { mf, omf };
 }
 
+// A design's Specification results at the step `flag` sets, or null when a
+// material it uses resolves nowhere.
+function specificationResults(design, flag) {
+    try {
+        return evaluateQualifiers(design.qualifiers || [], design, designMaterialLookup(design), { flag });
+    } catch {
+        return null;
+    }
+}
+
 function timelineMerit(design) {
     if (!design) return { mf: null, materialMissing: false };
     const materialMissing = unresolvedMaterials(design).length > 0;
@@ -42,39 +53,36 @@ function timelineMerit(design) {
     }
 }
 
+function colorReport(design, options) {
+    let reportedError = null;
+    const report = computeColorReport({
+        ...options,
+        design,
+        setError: value => { reportedError = value; },
+    });
+    if (reportedError) throw new Error(reportedError);
+    return report;
+}
+
+const EVALUATIONS = {
+    opticalSpectrum: ({ design, params, evalMode }) => computeOpticalSpectrum(design, params, evalMode),
+    integralSpectrum: ({ design, params, evalMode }) => computeSpectrumForMode(design, params, evalMode),
+    colorReport: ({ design, options }) => colorReport(design, options),
+    statusMonitors: ({ design, monitors }) => computeMonitors(monitors || [], design, designMaterialLookup(design)),
+    specification: ({ designs, flag }) => (designs || []).map(d => specificationResults(d, flag)),
+    meritDisplay: ({ design, operands }) => meritDisplay(design, operands || []),
+    meritPair: ({ design, candidateDesign, operands }) => ({
+        before: meritScore(design, operands || []),
+        after: meritScore(candidateDesign, operands || []),
+    }),
+    pulseAnalysis: ({ design, request }) => computePulseAnalysis(design, request),
+    meritTimeline: ({ designs }) => (designs || []).map(timelineMerit),
+};
+
 export function dispatchAnalysisEvaluation(operation, payload) {
-    const { design } = payload;
-    switch (operation) {
-        case 'opticalSpectrum':
-            return computeOpticalSpectrum(design, payload.params, payload.evalMode);
-        case 'integralSpectrum':
-            return computeSpectrumForMode(design, payload.params, payload.evalMode);
-        case 'colorReport': {
-            let reportedError = null;
-            const report = computeColorReport({
-                ...payload.options,
-                design,
-                setError: value => { reportedError = value; },
-            });
-            if (reportedError) throw new Error(reportedError);
-            return report;
-        }
-        case 'statusMonitors':
-            return computeMonitors(payload.monitors || [], design, designMaterialLookup(design));
-        case 'meritDisplay':
-            return meritDisplay(design, payload.operands || []);
-        case 'meritPair':
-            return {
-                before: meritScore(design, payload.operands || []),
-                after: meritScore(payload.candidateDesign, payload.operands || []),
-            };
-        case 'pulseAnalysis':
-            return computePulseAnalysis(design, payload.request);
-        case 'meritTimeline':
-            return (payload.designs || []).map(timelineMerit);
-        default:
-            throw new Error(`Unknown analysis evaluation: ${operation}`);
-    }
+    const evaluate = Object.hasOwn(EVALUATIONS, operation) ? EVALUATIONS[operation] : null;
+    if (!evaluate) throw new Error(`Unknown analysis evaluation: ${operation}`);
+    return evaluate(payload);
 }
 
 globalThis.onmessage = async event => {

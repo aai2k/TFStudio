@@ -1,10 +1,10 @@
 import {
-    makeQualifier, evaluateQualifiers, aggregateVerdict, qualifiersToMFOperands,
+    makeQualifier, aggregateVerdict, qualifiersToMFOperands,
 } from '../../../../utils/synthesis/qualifiers.js';
 import { applyPreset } from '../../../../utils/synthesis/qualifierPresets.js';
 import { useTableShortcuts } from '../../../../hooks/useTableShortcuts.js';
-import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { specificationSession } from './sessionState.js';
+import { useSpecificationResults } from './useSpecificationResults.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { useCallback, useMemo, useRef } = React;
@@ -109,11 +109,7 @@ export function useSpecificationState({ design, updateDesign, checkpoint }) {
     // Source of truth: design.qualifiers (persisted in .tfs).
     const qualifiers = design?.qualifiers || [];
 
-    // Live evaluation
-    const results = useMemo(() => {
-        try { return evaluateQualifiers(qualifiers, design, designMaterialLookup(design)); }
-        catch { return qualifiers.map(() => ({ value: null, pass: null })); }
-    }, [qualifiers, design]);
+    const results = useSpecificationResults(qualifiers);
 
     const verdict = useMemo(() => aggregateVerdict(results), [results]);
 
