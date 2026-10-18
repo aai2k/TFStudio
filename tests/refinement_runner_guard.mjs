@@ -269,10 +269,10 @@ async function verifyIterationHistories() {
 // merit `hangMf` reported. The flow must unwind instead of waiting forever on a
 // terminated worker, Best must hold the best result so far, the stopped method
 // leaves no history row, and the design stays where the user stopped it.
-async function stopDuringRun(hangMf) {
-    const { ctx, snap } = makeCtx(frontDesign(), OPS(), { method: ['cg', 'sa'] });
+async function stopDuringRun({ method = ['cg', 'sa'], hangOn = 'sa', hangMf = null, rows = 1 } = {}) {
+    const { ctx, snap } = makeCtx(frontDesign(), OPS(), { method, nRestarts: 3, seed: 5 });
     MockWorker.built = [];
-    MockWorker.hangOn = 'sa';
+    MockWorker.hangOn = hangOn;
     MockWorker.hangMf = hangMf;
     const stalled = new Promise(resolve => { MockWorker.onHang = resolve; });
     const flow = withSeed(() => startWindowRun(ctx));
@@ -292,7 +292,7 @@ async function stopDuringRun(hangMf) {
     assert.ok(ctx.lastBestRef.current, 'Best is armed');
     assert.ok(Array.isArray(ctx.lastBestRef.current.frontLayers) && ctx.lastBestRef.current.frontLayers.length,
         'Best carries a design, not just a merit value');
-    assert.equal(snap.history.length, 1, 'only the method that finished is recorded');
+    assert.equal(snap.history.length, rows, 'only the methods that finished are recorded');
     assert.deepEqual(snap.applied, appliedAtStop,
         'a stopped run does not rewrite the design on the way out');
     return { ctx, snap };
@@ -301,15 +301,22 @@ async function stopDuringRun(hangMf) {
 async function verifyStopDuringRun() {
     // The stopped method is behind the finished one: Best holds what the readout showed.
     {
-        const { ctx, snap } = await stopDuringRun(null);
+        const { ctx, snap } = await stopDuringRun();
         assert.equal(rnd(ctx.lastBestRef.current.mfBest), rnd(snap.mfBest),
             'Best holds the merit the readout was showing when Stop was pressed');
     }
     // The stopped method is ahead of the finished one: what it found still reaches Best.
     {
-        const { ctx } = await stopDuringRun(0.02);
+        const { ctx } = await stopDuringRun({ hangMf: 0.02 });
         assert.equal(rnd(ctx.lastBestRef.current.mfBest), 0.02,
             'a method cut short by Stop still hands its best to Best');
+    }
+    // Stopped in a multi-start step: its restarts settle, and what they found
+    // reaches Best without being written into the design.
+    {
+        const { ctx } = await stopDuringRun({ method: ['dls-multi', 'cg'], hangOn: 'dls', hangMf: 0.02, rows: 0 });
+        assert.equal(rnd(ctx.lastBestRef.current.mfBest), 0.02,
+            'a multi-start step cut short by Stop hands its best to Best');
     }
 }
 

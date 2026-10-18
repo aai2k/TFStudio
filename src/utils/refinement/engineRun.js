@@ -1,6 +1,6 @@
 // One single-engine worker run (methods dls/cg/sa/de-serial/newton/newton-cg/sqp),
-// used by the method flow (methodsFlow.js) and by the parallel/multi-start
-// engine wrappers in deEngine.js.
+// used by the method flow (methodsFlow.js), the serial DE fallback (deEngine.js)
+// and the multi-start step of a method list (listMultiStart.js).
 
 import { getTmmWasmBytesForWorker } from '../../tmmcore.js';
 import { MAXITER_FOR } from './methods.js';

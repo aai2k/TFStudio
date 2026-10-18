@@ -10,7 +10,8 @@ import { randomSeed } from '../physics/errorAnalysis/mcConfig.js';
 import { STOCHASTIC_METHODS, countFreeVars, endReasonFor } from './methods.js';
 import { appendMfSample } from './meritTrend.js';
 import { runEngineP } from './engineRun.js';
-import { runParallelDEP, runMultiP } from './deEngine.js';
+import { runParallelDEP } from './deEngine.js';
+import { runMultiP } from './listMultiStart.js';
 
 // Pick + run the engine for method m (F bundles the shared run config).
 function runMethodOnce(R, m, F) {
