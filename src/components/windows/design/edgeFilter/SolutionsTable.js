@@ -7,6 +7,10 @@ const { createElement: h } = React;
 const cell = { padding: '2px 8px', textAlign: 'right', whiteSpace: 'nowrap' };
 const nm = width => (Number.isFinite(width) ? width.toFixed(1) : '∞');
 
+// The three widths share one header with their unit, so the unit is not
+// repeated in each and the table fits its half of the dialog.
+const WIDTH_COLUMNS = 3;
+
 function columns(ef) {
     return [
         { label: '#' },
@@ -15,6 +19,21 @@ function columns(ef) {
         { label: ef.colZoneS, title: ef.colZoneTip },
         { label: ef.colZoneP, title: ef.colZoneTip },
         { label: ef.colPass, title: ef.colPassTip },
+    ];
+}
+
+function headerRows(cols, ef, c) {
+    const th = (col, i, extra = {}) => h('th', {
+        key: i, title: col.title, ...extra,
+        style: { ...cell, textAlign: col.align ?? (col.left ? 'left' : 'right'), padding: '4px 8px',
+                 borderBottom: `1px solid ${c.border}`, fontWeight: 600 },
+    }, col.label);
+    const own = cols.length - WIDTH_COLUMNS;
+    return [
+        h('tr', { key: 'top' },
+            cols.slice(0, own).map((col, i) => th(col, i, { rowSpan: 2 })),
+            th({ label: ef.colWidths, align: 'center' }, 'widths', { colSpan: WIDTH_COLUMNS })),
+        h('tr', { key: 'widths' }, cols.slice(own).map((col, i) => th(col, own + i))),
     ];
 }
 
@@ -67,12 +86,6 @@ export function SolutionsTable({ state, design, c, ef }) {
     },
         h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11.5, color: c.text } },
             widths.colgroup(),
-            h('thead', {},
-                h('tr', { style: { backgroundColor: c.hover, position: 'sticky', top: 0 } },
-                    cols.map((col, i) => h('th', {
-                        key: i, title: col.title,
-                        style: { ...cell, textAlign: col.left ? 'left' : 'right', padding: '4px 8px',
-                                 borderBottom: `1px solid ${c.border}`, fontWeight: 600 },
-                    }, col.label)))),
+            h('thead', { style: { backgroundColor: c.hover, position: 'sticky', top: 0 } }, headerRows(cols, ef, c)),
             h('tbody', {}, body)));
 }

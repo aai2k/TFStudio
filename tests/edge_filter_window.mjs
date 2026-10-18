@@ -15,7 +15,8 @@
  *   6. The ribbon opens the window, and its formula opens in Stack Formula,
  *      which puts it in the design with the same media.
  *   7. The table lists the periods with the best one picked, drawing only the
- *      rows in view, and the formula row shows the picked period.
+ *      rows in view, and fits its half of the dialog in every language; the
+ *      formula row shows the picked period.
  *   8. Its help button opens a page that exists in both languages, whose
  *      example formula is the one the window gives for the case it names.
  *
@@ -296,6 +297,25 @@ assert.ok(workersMade[0].terminated, 'and ends it');
         state: { ...state, solutions: [], current: { result: { errorKey: 'sameIndex' }, selected: 0 } }, design, c, ef,
     }), design));
     assert.ok(failed.includes(ef.errors.sameIndex), 'a refused search says why');
+
+    // The three widths share one header with their unit, and the eight columns
+    // fit the results half of the dialog in every language. The dialog is
+    // DIALOG_WIDTH wide with 20 px of padding a side; the inputs and the results
+    // grow from 340 and 420 px either side of a 16 px gap; a column is its
+    // widest text in digits plus 16 px (ui/virtualRows.js), and a digit is taken
+    // at 0.64 em of the table's 11.5 px, wider than in the usual UI fonts.
+    assert.equal((table.match(/\(nm\)/g) || []).length, 1, 'the unit is written once, over the three widths');
+    assert.match(table, /colSpan="3"[^>]*>Width \(nm\)</i, 'in a header that spans them');
+    const { DIALOG_WIDTH } = await import('../src/components/windows/design/edgeFilter/EdgeFilterDialog.js');
+    const resultsWidth = 420 + (DIALOG_WIDTH - 2 * 20 - 16 - 340 - 420) / 2;
+    for (const lang of ['en', 'ru', 'zh', 'it']) {
+        const local = makeLocale(lang).edgeFilter;
+        const html = renderToStaticMarkup(withDesign(h(SolutionsTable, { state, design, c, ef: local }), design));
+        const chars = [...html.matchAll(/calc\((\d+)ch \+ 16px\)/g)].map(match => Number(match[1]));
+        assert.equal(chars.length, 8, `${lang}: eight columns`);
+        const needed = chars.reduce((sum, n) => sum + n * 0.64 * 11.5 + 16, 0);
+        assert.ok(needed <= resultsWidth, `${lang}: the table needs ${needed.toFixed(0)} px of the ${resultsWidth} px it has`);
+    }
 
     // The pass switch is Stack Formula's side switch with the two passes on it.
     const { SideSeg } = await import('../src/components/windows/design/stackFormula/ui.js');

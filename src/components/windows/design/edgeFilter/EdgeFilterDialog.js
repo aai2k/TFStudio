@@ -22,6 +22,10 @@ const { createElement: h } = React;
 
 export const EDGE_FILTER_HELP = 'design/edge-filter';
 
+// Wide enough for the periods table's eight columns beside the inputs, in
+// every language (tests/edge_filter_window.mjs).
+export const DIALOG_WIDTH = 920;
+
 export function EdgeFilterDialog({ onClose, onCreateNew, onOpenStackFormula, folderName, hasActiveDesign, c, t }) {
     const { design, updateDesign, checkpoint } = useDesign();
     const state = useEdgeFilter({ design, updateDesign, checkpoint, onClose, onCreateNew, onOpenStackFormula, t });
@@ -33,7 +37,7 @@ export function EdgeFilterDialog({ onClose, onCreateNew, onOpenStackFormula, fol
     },
         h('div', {
             style: { backgroundColor: c.panel, borderRadius: 8, padding: 20,
-                     width: 860, maxWidth: '96vw', maxHeight: '94vh',
+                     width: DIALOG_WIDTH, maxWidth: '96vw', maxHeight: '94vh',
                      display: 'flex', flexDirection: 'column',
                      boxShadow: '0 10px 40px rgba(0,0,0,0.4)', border: `1px solid ${c.border}` }
         },
