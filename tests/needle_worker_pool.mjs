@@ -2,7 +2,7 @@
  * Behavioral gate for the Needle worker-POOL engine (needleVariation/runners/workerPool.js →
  * runNeedleWorkerPool).
  *
- * The default standalone-needle path orchestrates a WorkerPool of stateless
+ * The standalone-needle run orchestrates a WorkerPool of stateless
  * synthesis primitives (scan / candidate / seedDls) from the main thread. That
  * async orchestration — smart-seed → scan fan-out → best-of-batch candidate
  * refine → accept/record → finalize — is the file's real complexity and had NO
@@ -51,8 +51,7 @@ const { default: EN } = await import('../src/constants/locales/en.js');
 // In-process fake pool: exactly mirrors the Web Worker's onmessage — per job it
 // rebuilds resolveMat from job.materials and runs dispatchSynthesisJob, routing
 // ticks to onProgress and resolving with the final {type:'result'} message.
-// jobsRun counts dispatches so the test can prove the worker path actually ran
-// (rather than silently falling back to the main-thread loop).
+// jobsRun counts dispatches so the test can prove the pool ran the jobs.
 function makeFakePool(counter) {
     return {
         map(jobs, onProgress) {
@@ -79,10 +78,10 @@ function makeRun(counter) {
     let resolveDone;
     const done = new Promise((r) => { resolveDone = r; });
     const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false), workerRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(design),
         operandsRef: ref(ops.map(o => ({ ...o, enabled: true }))),
-        gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null),
+        gensRef: ref([]), genCountRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false),
         maxLayersRef: ref(6), deltaNmRef: ref(0.5), dMinRef: ref(1.0),
         dlsIterRef: ref(30), targetMFRef: ref(1e-4),
@@ -125,7 +124,7 @@ console.log(`  jobs dispatched via fake pool: ${A.jobsRun}`);
 console.log(`  generations: ${A.gens.length}`);
 for (const g of A.gens) console.log(`  gen ${g.genNum}: ${g.layerCount} layers, MF=${g.mf.toFixed(6)}`);
 
-ok('worker path actually ran (dispatched pool jobs, no fallback)', A.jobsRun > 0);
+ok('the pool ran the jobs', A.jobsRun > 0);
 ok('grew the stack (≥1 accepted generation)', A.gens.length >= 1);
 // A generation may hold fewer layers than it inserted: a needle the refine
 // parks on the floor is taken out when the stack is better without it, and the

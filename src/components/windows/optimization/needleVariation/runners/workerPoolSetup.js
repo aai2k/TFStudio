@@ -41,12 +41,12 @@ export function wpPrepare(ctx) {
 
 // Approach-A pre-sampling of every material (design + candidate pool) onto the
 // operand λ grid, so the workers rebuild an exact-λ table-lookup getNK. Returns
-// the table or null (caller falls back to the main-thread loop).
+// the table, or null when a material cannot be sampled (the run does not start).
 export function wpPresample(curDes, operands, pool) {
     try {
         return presampleSynthesisMaterials(curDes, operands, pool);
     } catch (err) {
-        console.error('[Needle] Pre-sampling failed, main-thread fallback:', err);
+        console.error('[Needle] Pre-sampling failed:', err);
         return null;
     }
 }

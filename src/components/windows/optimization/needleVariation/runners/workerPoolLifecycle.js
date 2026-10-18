@@ -1,11 +1,9 @@
 /**
  * Needle worker-POOL engine — pool lifecycle: live-preview ticks, the
- * "do we still own the pool" guard, finalize/teardown, and the fallback to
- * the main-thread engine on pre-progress failure (see workerPool.js for the
- * top-level orchestrator).
+ * "do we still own the pool" guard, finalize/teardown, and the end of a run
+ * whose pool fails (see workerPool.js for the top-level orchestrator).
  */
 
-import { runNeedleMainThread } from './mainThread.js';
 import { computePareto, minOmfOf } from '../../synthesisShared/synthesisHelpers.js';
 import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 
@@ -73,6 +71,7 @@ export function wpOnTick(run, _i, m) {
     if (Object.keys(patch).length) {
         ctx.updateDesignRef.current(patch, { transient: true });
         if (m.layers) ctx.setLayerCount(m.layers.length);
+        run.gotProgress = true;
     }
 }
 
@@ -128,21 +127,11 @@ export function wpFinalize(run, reason) {
     if (ctx.workerRef.current === run.workerPool) ctx.workerRef.current = null;
 }
 
-// Tear down the pool and hand off to the identical-math main-thread loop.
-export function wpFallback(run, why, err) {
-    const { ctx } = run;
-    console.error(`[Needle] Pool ${why}, main-thread fallback:`, err);
-    try { run.workerPool.terminate(); } catch (_) {}
-    if (ctx.workerRef.current === run.workerPool) ctx.workerRef.current = null;
-    ctx.runningRef.current = false;
-    runNeedleMainThread(ctx);
-}
-
 // Expected teardown vs a real error: a Stop rejects the in-flight job with
-// 'pool terminated' (clean stop, stopOpt already ran) → bail silently.
+// 'pool terminated' (clean stop, stopOpt already ran) → bail silently. A pool
+// that fails before the run has shown anything leaves the design as it was.
 export function wpHandleLoopError(run, err) {
     if (!wpAlive(run) || String(err && err.message) === 'pool terminated') return;
-    if (!run.gotProgress) { wpFallback(run, 'errored before progress', err); return; }
     console.error('[Needle] Pool error:', err);
-    run.ctx.stopOpt(String(err && err.message || err));
+    run.ctx.stopOpt(run.gotProgress ? String(err && err.message || err) : run.ctx.t.needle.status.workerFailed);
 }

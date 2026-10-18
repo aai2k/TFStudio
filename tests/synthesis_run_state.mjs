@@ -141,8 +141,8 @@ const run1 = { runNum: 1, baseline: { frontLayers: layers([['TiO2', 7000]]), bac
 function needleCtx(designRevision) {
     return {
         ctx: {
-            lastDesignId: ref(null), runningRef: ref(false), timerRef: ref(null), workerRef: ref(null),
-            gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null), savedDesignRef: ref(null),
+            lastDesignId: ref(null), runningRef: ref(false), workerRef: ref(null),
+            gensRef: ref([]), genCountRef: ref(0), savedDesignRef: ref(null),
             baseDesignRef: ref(null), baseRevRef: ref(0), runsRef: ref([]), runOpenRef: ref(false),
             setPhase: noop, setStatusMsg: noop, setGenerations: noop, setTopDesigns: noop, setMf: noop, setMfBest: noop,
             setOmf: noop, setOmfBest: noop, setGeneration: noop, setLayerCount: noop, setCanReset: noop,
@@ -177,7 +177,7 @@ for (const [label, revNow, kept] of [['edited while closed', 7, false], ['not ed
     // Needle's Reset caches with the revision.
     const { ctx } = needleCtx(0);
     Object.assign(ctx, {
-        stopOpt: noop, dlsRef: ref(null), designRef: ref(media(cachedStack, 'needle-cache')), baseRevRef: ref(9),
+        stopOpt: noop, designRef: ref(media(cachedStack, 'needle-cache')), baseRevRef: ref(9),
         runsRef: ref([run1]), gensRef: ref([{ runNum: 1, genNum: 1, mf: 0.1, side: 'front' }]),
         t: EN,
     });

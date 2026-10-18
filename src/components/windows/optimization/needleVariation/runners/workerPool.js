@@ -1,5 +1,5 @@
 /**
- * Needle Variation optimization engine — worker-POOL run (default path).
+ * Needle Variation optimization engine: the run on a worker pool.
  *
  * Main thread orchestrates; a WorkerPool runs the heavy primitives:
  *  • SCAN is fanned across the pool by candidate-material slice — each
@@ -15,8 +15,8 @@
  * (see tests/needle_worker_pool.mjs). The orchestration is split across
  * workerPoolSetup.js (per-run setup), workerPoolScan.js (scan + smart seed),
  * workerPoolRefine.js (batch refine + accept), and workerPoolLifecycle.js
- * (ticks, teardown, fallback); on any pre-progress failure it falls back to
- * the identical-math main-thread loop in mainThread.js.
+ * (ticks, teardown, failure). A pool that cannot be built, or that fails
+ * before the run has shown anything, ends the run with the design unchanged.
  */
 
 import { chunkArray, poolSize } from '../../synthesisShared/synthesisHelpers.js';
@@ -26,7 +26,6 @@ import {
 } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { getTmmWasmBytesForWorker } from '../../../../../tmmcore.js';
 
-import { runNeedleMainThread } from './mainThread.js';
 import { wpPrepare, wpPresample, wpDesignHelpers, wpRegridIfGrown } from './workerPoolSetup.js';
 import { wpSmartSeed, wpScanCycle } from './workerPoolScan.js';
 import { wpRefineBatches } from './workerPoolRefine.js';
@@ -71,29 +70,30 @@ async function wpRun(run) {
     }
 }
 
+// Open a run block for this press, unless one is still open from a Stop:
+// pausing to look at something and carrying on stays one run. The block
+// records the design the press started from, which is what Reset restores,
+// and takes one undo checkpoint for the whole synthesis run.
+function openBlock(ctx, curDes) {
+    if (ctx.runOpenRef.current) return;
+    ctx.checkpointRef.current && ctx.checkpointRef.current();
+    ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
+    ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
+    ctx.baseDesignRef.current  = curDes;
+    // Generations are numbered within their run, so a new block starts at 1.
+    ctx.genCountRef.current = 0;
+    ctx.runOpenRef.current     = true;
+    ctx.setCanReset(true);
+}
+
 export function runNeedleWorkerPool(ctx) {
     if (ctx.runningRef.current) return;
     const prep = wpPrepare(ctx);
     if (!prep) return;
     const { curDes, operands, scanSides, pool } = prep;
 
-    // Open a run block for this press, unless one is still open from a Stop —
-    // pausing to look at something and carrying on stays one run. The block
-    // records the design the press started from, which is what Reset restores,
-    // and takes one undo checkpoint for the whole synthesis run.
-    if (!ctx.runOpenRef.current) {
-        ctx.checkpointRef.current && ctx.checkpointRef.current();
-        ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
-        ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
-        ctx.baseDesignRef.current  = curDes;
-        // Generations are numbered within their run, so a new block starts at 1.
-        ctx.genCountRef.current = 0;
-        ctx.runOpenRef.current     = true;
-        ctx.setCanReset(true);
-    }
-
     const materials = wpPresample(curDes, operands, pool);
-    if (!materials) { runNeedleMainThread(ctx); return; }
+    if (!materials) { ctx.setStatusMsg(ctx.t.needle.status.presampleFailed); return; }
 
     const innerEngine = getSynthesisInnerEngine('needle');   // Needle default 'cg'
     const K = poolSize();
@@ -101,10 +101,11 @@ export function runNeedleWorkerPool(ctx) {
     const wasmBytes = getTmmWasmBytesForWorker();
     try { workerPool = ctx.makeWorkerPool(K, wasmBytes ? { type: 'wasmInit', wasmBytes } : null); }
     catch (err) {
-        console.error('[Needle] WorkerPool construction failed, main-thread fallback:', err);
-        runNeedleMainThread(ctx);
+        console.error('[Needle] WorkerPool construction failed:', err);
+        ctx.setStatusMsg(ctx.t.needle.status.workerFailed);
         return;
     }
+    openBlock(ctx, curDes);
     ctx.workerRef.current = workerPool;
 
     const poolSlices = chunkArray(pool.map(p => ({ id: p.id, name: p.name })), K);

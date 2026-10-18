@@ -99,9 +99,7 @@ export function useNeedleVariation(t) {
 
     // ── Refs (optimization state) ─────────────────────────────────────────────
     const runningRef      = useRef(false);
-    const timerRef        = useRef(null);
-    const workerRef       = useRef(null);    // synthesis Web Worker
-    const dlsRef          = useRef(null);
+    const workerRef       = useRef(null);    // synthesis worker pool
     const baseDesignRef   = useRef(null);    // design being worked on (updated each cycle)
     const savedDesignRef  = useRef(null);    // baseline of the open run block (for Reset)
     const runsRef         = useRef([]);      // run blocks — see synthesisShared/runBlocks.js
@@ -111,7 +109,6 @@ export function useNeedleVariation(t) {
     const designRef       = useRef(design);
     const gensRef         = useRef([]);
     const genCountRef     = useRef(0);
-    const lastBestRef     = useRef(null);    // best needle candidate from last scan
     const maxLayersRef    = useRef(30);
     const deltaNmRef      = useRef(0.5);
     const dMinRef         = useRef(15.0);
@@ -157,23 +154,23 @@ export function useNeedleVariation(t) {
     const lastDesignId = useRef(null);
     useEffect(() => {
         syncOnDesignSwitch({
-            lastDesignId, runningRef, timerRef, workerRef, setPhase, setStatusMsg,
-            gensRef, genCountRef, lastBestRef, savedDesignRef, baseDesignRef,
+            lastDesignId, runningRef, workerRef, setPhase, setStatusMsg,
+            gensRef, genCountRef, savedDesignRef, baseDesignRef,
             runsRef, runOpenRef,
             setGenerations, setTopDesigns, setMf, setMfBest, setOmf, setOmfBest,
             setGeneration, setLayerCount, setCanReset, baseRevRef,
         }, design, getDesignRevision);
     }, [design?.id]);
 
-    // ── Unmount cleanup — stop any running optimization to prevent orphaned timers ──
+    // ── Unmount cleanup: stop any running optimization so no worker is orphaned ──
     useEffect(() => {
-        return () => teardownRun({ runningRef, timerRef, workerRef });
+        return () => teardownRun({ runningRef, workerRef });
     }, []);
 
     // ── Stop ──────────────────────────────────────────────────────────────────
     const stopOpt = useCallback((msg = '') => {
         const wasRunning = runningRef.current;
-        teardownRun({ runningRef, timerRef, workerRef });
+        teardownRun({ runningRef, workerRef });
         setPhase('idle');
         // Stopping a run clears the phase text it was showing; a finished run's
         // reason stays when Best or Restore is pressed after it.
@@ -198,12 +195,11 @@ export function useNeedleVariation(t) {
     }, [getDesignRevision]);
 
     // Build the ctx bundle the engine reaches React state through (refs +
-    // setters + a few window helpers). The same bundle drives both the default
-    // worker-pool path and the identical-math main-thread fallback.
+    // setters + a few window helpers).
     const buildEngineCtx = useCallback(() => ({
-        runningRef, timerRef, workerRef, dlsRef, baseDesignRef, savedDesignRef, designRef,
+        runningRef, workerRef, baseDesignRef, savedDesignRef, designRef,
         runsRef, runOpenRef,
-        operandsRef, gensRef, genCountRef, lastBestRef,
+        operandsRef, gensRef, genCountRef,
         maxLayersRef, deltaNmRef, dMinRef, dlsIterRef, targetMFRef,
         selectedCatsRef, excludedMatsRef, updateDesignRef, checkpointRef,
         setPhase, setStatusMsg, setMf, setMfBest, setOmf, setOmfBest,
@@ -218,10 +214,9 @@ export function useNeedleVariation(t) {
         makeWorkerPool: (K, initMessage) => new WorkerPool(SYNTH_WORKER_URL, K, initMessage),
     }), [reconcileBaseWithEdits, stopOpt, t]);
 
-    // Default path: main thread orchestrates a WorkerPool of stateless synthesis
+    // The main thread orchestrates a WorkerPool of stateless synthesis
     // primitives (scan / candidate). The full loop lives in runners/workerPool.js
-    // (runNeedleWorkerPool); on any pre-progress failure it falls back to the
-    // main-thread loop in runners/mainThread.js.
+    // (runNeedleWorkerPool).
     const runOpt = useCallback(() => {
         runNeedleWorkerPool(buildEngineCtx());
     }, [buildEngineCtx]);
@@ -234,8 +229,8 @@ export function useNeedleVariation(t) {
     // started over. The ControlBar also exposes Front / Back side resets in
     // both_independent mode, which restore one side of the current run only.
     const actionCtx = () => ({
-        stopOpt, dlsRef, savedDesignRef, baseDesignRef, baseRevRef, designRef,
-        gensRef, genCountRef, lastBestRef, runsRef, runOpenRef,
+        stopOpt, savedDesignRef, baseDesignRef, baseRevRef, designRef,
+        gensRef, genCountRef, runsRef, runOpenRef,
         setGenerations, setTopDesigns, setMf, setMfBest, setOmf, setOmfBest,
         setGeneration, setLayerCount, setCanReset, setStatusMsg, t,
     });

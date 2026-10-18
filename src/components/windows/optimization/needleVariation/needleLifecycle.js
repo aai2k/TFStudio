@@ -7,10 +7,9 @@
 import { sideKeyFor, minOmfOf, computePareto } from '../synthesisShared/synthesisHelpers.js';
 import { getCachedOptState } from './sessionState.js';
 
-// Stop the run loop, clear its timer, and terminate any live worker pool.
-export function teardownRun({ runningRef, timerRef, workerRef }) {
+// Stop the run loop and terminate any live worker pool.
+export function teardownRun({ runningRef, workerRef }) {
     runningRef.current = false;
-    clearTimeout(timerRef.current);
     if (workerRef.current) {
         try { workerRef.current.terminate(); } catch (_) {}
         workerRef.current = null;
@@ -36,7 +35,6 @@ function applyCachedState(ctx, cached) {
     ctx.gensRef.current        = gens;
     ctx.runsRef.current        = cached.runs || [];
     ctx.genCountRef.current    = lastGen?.genNum ?? 0;
-    ctx.lastBestRef.current    = null;
     ctx.savedDesignRef.current = cached.savedDesign;
     ctx.baseDesignRef.current  = cached.baseDesign;
     // A remount is not a Stop: the run that filled this cache is over, so its
@@ -59,7 +57,6 @@ function clearOptState(ctx, design) {
     ctx.runsRef.current        = [];
     ctx.runOpenRef.current     = false;
     ctx.genCountRef.current    = 0;
-    ctx.lastBestRef.current    = null;
     ctx.savedDesignRef.current = null;
     ctx.baseDesignRef.current  = null;
     ctx.setGenerations([]);

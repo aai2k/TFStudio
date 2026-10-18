@@ -40,6 +40,7 @@ export async function wpSmartSeed(run) {
             { frontLayers: best.frontLayers, backLayers: best.backLayers }, { transient: true });
         ctx.setMf(r.mf); ctx.setMfBest(r.mf);
         ctx.setLayerCount((best.frontLayers.length || 0) + (best.backLayers.length || 0));
+        run.gotProgress = true;
         console.log('[Needle] Smart seed:', cands.map((cd, i) =>
             `${cd.name}=${seedResults[i]?.mf?.toFixed?.(6) ?? '×'}`).join('  '),
             `→ best "${cands[bi].name}" ${r.mf.toFixed(6)}`);

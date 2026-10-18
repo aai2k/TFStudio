@@ -96,12 +96,26 @@ const SCENARIOS = {
     errorAfterProgress: { presses: [{ failAtMap: 4 }] },
     noOperands: { ops: BBAR.map(op => ({ ...op, enabled: false })), presses: [{}] },
     noMaterials: { pool: [], presses: [{}] },
+    // A pool that cannot be built, or that fails before the run has shown
+    // anything, ends the run with the design as it was.
+    poolNotBuilt: { presses: [{ poolThrows: true }] },
+    failsAtFirstScan: { presses: [{ failAtMap: 1 }] },
+    presampleFails: { pool: [...POOL_TSM, { id: 'Broken', name: 'Broken', mat: { getNK() { throw new Error('no data'); } } }], presses: [{}] },
+    // A smart seed is on screen once it is refined, and so is a seed's live
+    // preview, so a failure after either is a failure after progress.
+    failsAfterSeed: { maxLayers: 5, storage: { smartSeed: '1' }, presses: [{ failAtMap: 2 }] },
+    failsDuringSeed: { maxLayers: 5, storage: { smartSeed: '1' }, presses: [{ previewThenFailAtMap: 1 }] },
 };
 
+// A seed's in-flight design, as a worker's live preview sends it.
+const PREVIEW = [layer('P1', 'TiO2', 60), layer('P2', 'SiO2', 90)];
+
 // The in-process pool. `press.stopAtMap` presses Stop while the nth map call is
-// in flight, as a real pool's terminate() would, and `press.failAtMap` makes
-// the nth map call fail.
+// in flight, as a real pool's terminate() would, `press.failAtMap` makes the
+// nth map call fail, `press.previewThenFailAtMap` sends one live preview first,
+// and `press.poolThrows` makes building the pool throw.
 function makePool(win, press) {
+    if (press.poolThrows) throw new Error('no workers');
     return {
         map(jobs, onProgress) {
             win.maps++;
@@ -110,6 +124,10 @@ function makePool(win, press) {
                 return Promise.reject(new Error('pool terminated'));
             }
             if (win.maps === press.failAtMap) return Promise.reject(new Error('the pool failed'));
+            if (win.maps === press.previewThenFailAtMap) {
+                onProgress(0, { type: 'tick', mf: 0.5, omf: 0.5, frontLayers: PREVIEW, backLayers: [], layers: PREVIEW });
+                return Promise.reject(new Error('the pool failed'));
+            }
             return Promise.all(jobs.map((job, i) => new Promise((resolve, reject) => {
                 win.jobs[job.type] = (win.jobs[job.type] || 0) + 1;
                 const post = (m) => {

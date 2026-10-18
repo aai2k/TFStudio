@@ -11,7 +11,7 @@
  *
  *   1. The rule itself: PPEF and the ceiling go, everything else stays, and a
  *      list without a PPEF row comes back as it was.
- *   2. Needle Automatic, worker and main-thread runs (MNT dropped).
+ *   2. Needle Automatic (MNT dropped).
  *   3. Needle Manual: the rows its scan, predicted merit and refine share
  *      (MNT kept; the scan drops it itself).
  *   4. Gradual Evolution, worker and main-thread runs (MNT kept).
@@ -69,7 +69,6 @@ const { buildWizardResult } = await import('../src/components/windows/optimizati
 const { poolCatalogs, poolMatEntries } = await import('../src/components/windows/optimization/synthesisShared/catalogPool.js');
 const SYN = await import('../src/components/windows/optimization/synthesisShared/synthesisMath.js');
 const { wpPrepare } = await import('../src/components/windows/optimization/needleVariation/runners/workerPoolSetup.js');
-const { runNeedleMainThread } = await import('../src/components/windows/optimization/needleVariation/runners/mainThread.js');
 const NEEDLE_MANUAL = await import('../src/components/windows/optimization/needleManual/model.js');
 const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
 const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
@@ -187,10 +186,10 @@ await check('withoutPPEF gives a block at weight 0 the weight its requirement ha
 // ── 2. Needle Automatic ──────────────────────────────────────────────────────
 function needleCtx(operands) {
     return {
-        runningRef: ref(false), timerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(copy(DESIGN)),
         runsRef: ref([]), runOpenRef: ref(false), operandsRef: ref(copy(operands)),
-        gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null),
+        gensRef: ref([]), genCountRef: ref(0),
         maxLayersRef: ref(12), deltaNmRef: ref(0.5), dMinRef: ref(1), dlsIterRef: ref(5), targetMFRef: ref(1e-9),
         selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),
         updateDesignRef: ref(noop), checkpointRef: ref(noop),
@@ -205,24 +204,6 @@ await check('Needle Automatic worker run', () => {
     const run = wpPrepare(needleCtx(OPERANDS));
     expect(run, 'the run did not start');
     synthesisRows(run.operands, { mnt: false });
-});
-
-await check('Needle Automatic main-thread run', async () => {
-    const ctx = needleCtx(OPERANDS);
-    // The refiner the run builds for its first candidate holds the run's rows.
-    let engine = null;
-    let held = null;
-    ctx.dlsRef = {
-        get current() { return held; },
-        set current(value) {
-            held = value;
-            if (value && !engine) { engine = value; ctx.runningRef.current = false; }
-        },
-    };
-    runNeedleMainThread(ctx);
-    await until(() => engine || !ctx.runningRef.current);
-    expect(engine, 'the run built no refiner');
-    synthesisRows(opsOf(engine), { mnt: false });
 });
 
 // ── 3. Needle Manual ─────────────────────────────────────────────────────────

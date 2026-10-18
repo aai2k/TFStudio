@@ -43,7 +43,6 @@ function undoCurrentRun(ctx, updateDesign, undone) {
     ctx.savedDesignRef.current = prev;
     ctx.baseDesignRef.current  = null;
     ctx.runOpenRef.current     = false;
-    ctx.lastBestRef.current    = null;
     const last = ctx.gensRef.current[ctx.gensRef.current.length - 1] || null;
     ctx.genCountRef.current = last?.genNum ?? 0;
     syncFromGens(ctx);
@@ -62,7 +61,6 @@ function undoCurrentRun(ctx, updateDesign, undone) {
 // started over from it.
 export function clearRunHistory(ctx) {
     ctx.stopOpt('');
-    ctx.dlsRef.current         = null;
     clearCachedOptState(ctx.designRef.current?.id);
     ctx.runsRef.current        = [];
     ctx.gensRef.current        = [];
@@ -70,7 +68,6 @@ export function clearRunHistory(ctx) {
     ctx.savedDesignRef.current = null;
     ctx.baseDesignRef.current  = null;
     ctx.genCountRef.current    = 0;
-    ctx.lastBestRef.current    = null;
     syncFromGens(ctx);
     ctx.setMf(null);
     ctx.setOmf(null);
@@ -102,7 +99,6 @@ function resetSide(ctx, updateDesign, side) {
 // and drops that side's rows (both_independent).
 export function performReset(ctx, updateDesign, side) {
     ctx.stopOpt('');
-    ctx.dlsRef.current = null;
     if (side) { resetSide(ctx, updateDesign, side); return; }
     const undone = undoRunBlock(ctx.runsRef.current, ctx.gensRef.current);
     if (undone) undoCurrentRun(ctx, updateDesign, undone);

@@ -349,9 +349,9 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
         const ref = v => ({ current: v });
         const noop = () => {};
         const ctx = {
-            runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+            runningRef: ref(false), workerRef: ref(null),
             baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...seed, id: 'needle-parked' }),
-            operandsRef: ref(rav), gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null),
+            operandsRef: ref(rav), gensRef: ref([]), genCountRef: ref(0),
             runsRef: ref([]), runOpenRef: ref(false), updateDesignRef: ref(noop), checkpointRef: ref(noop),
             maxLayersRef: ref(10), deltaNmRef: ref(0.5), dMinRef: ref(15), dlsIterRef: ref(10), targetMFRef: ref(1e-9),
             selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),

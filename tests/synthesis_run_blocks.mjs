@@ -103,10 +103,10 @@ function makeCtx(startFront) {
     const ref = (v) => ({ current: v });
     const noop = () => {};
     const ctx = {
-        stopOpt: noop, dlsRef: ref(null),
+        stopOpt: noop,
         savedDesignRef: ref(null), baseDesignRef: ref(null),
         designRef: ref({ id: 'D', ...design(startFront), surfaceMode: 'front_only' }),
-        gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null),
+        gensRef: ref([]), genCountRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false),
         setGenerations: noop, setTopDesigns: noop, setMf: noop, setMfBest: noop,
         setOmf: noop, setOmfBest: noop, setGeneration: noop, setLayerCount: noop,

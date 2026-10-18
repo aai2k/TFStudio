@@ -3833,5 +3833,269 @@
     "saved": null,
     "shown": {},
     "terminated": 0
+  },
+  "poolNotBuilt": {
+    "base": null,
+    "cached": null,
+    "checkpoints": 0,
+    "design": null,
+    "designUpdates": 0,
+    "edits": 0,
+    "genCount": 0,
+    "jobs": {},
+    "maps": 0,
+    "presses": [
+      {
+        "phases": [],
+        "running": false,
+        "statuses": [
+          "A worker failed; the design is unchanged."
+        ]
+      }
+    ],
+    "rows": [],
+    "runOpen": false,
+    "runs": [],
+    "saved": null,
+    "shown": {},
+    "terminated": 0
+  },
+  "failsAtFirstScan": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "SiO2",
+          100
+        ]
+      ]
+    },
+    "cached": null,
+    "checkpoints": 1,
+    "design": null,
+    "designUpdates": 0,
+    "edits": 0,
+    "genCount": 0,
+    "jobs": {},
+    "maps": 1,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Scanning needle positions…",
+          "A worker failed; the design is unchanged."
+        ]
+      }
+    ],
+    "rows": [],
+    "runOpen": true,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true
+    },
+    "terminated": 1
+  },
+  "presampleFails": {
+    "base": null,
+    "cached": null,
+    "checkpoints": 0,
+    "design": null,
+    "designUpdates": 0,
+    "edits": 0,
+    "genCount": 0,
+    "jobs": {},
+    "maps": 0,
+    "presses": [
+      {
+        "phases": [],
+        "running": false,
+        "statuses": [
+          "Could not prepare the materials for the workers."
+        ]
+      }
+    ],
+    "rows": [],
+    "runOpen": false,
+    "runs": [],
+    "saved": null,
+    "shown": {},
+    "terminated": 0
+  },
+  "failsAfterSeed": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "SiO2",
+          100
+        ]
+      ]
+    },
+    "cached": null,
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "MgF2",
+          92.31885126137097
+        ],
+        [
+          "SiO2",
+          85.28687478111144
+        ],
+        [
+          "MgF2",
+          143.03366588835317
+        ],
+        [
+          "SiO2",
+          66.1767083764639
+        ]
+      ]
+    },
+    "designUpdates": 1,
+    "edits": 0,
+    "genCount": 0,
+    "jobs": {
+      "seedDls": 42
+    },
+    "maps": 2,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "scanning",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Smart seed: refining 42 starting designs…",
+          "Scanning needle positions…",
+          "the pool failed"
+        ]
+      }
+    ],
+    "rows": [],
+    "runOpen": true,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "layerCount": 4,
+      "mf": 0.013598252145558699,
+      "mfBest": 0.013598252145558699
+    },
+    "terminated": 1
+  },
+  "failsDuringSeed": {
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "SiO2",
+          100
+        ]
+      ]
+    },
+    "cached": null,
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "TiO2",
+          60
+        ],
+        [
+          "SiO2",
+          90
+        ]
+      ]
+    },
+    "designUpdates": 1,
+    "edits": 0,
+    "genCount": 0,
+    "jobs": {},
+    "maps": 1,
+    "presses": [
+      {
+        "phases": [
+          "scanning",
+          "refining",
+          "idle"
+        ],
+        "running": false,
+        "statuses": [
+          "",
+          "Smart seed: refining 42 starting designs…",
+          "the pool failed"
+        ]
+      }
+    ],
+    "rows": [],
+    "runOpen": true,
+    "runs": [
+      {
+        "baseline": [
+          [
+            "SiO2",
+            100
+          ]
+        ],
+        "runNum": 1
+      }
+    ],
+    "saved": [
+      [
+        "SiO2",
+        100
+      ]
+    ],
+    "shown": {
+      "canReset": true,
+      "layerCount": 2,
+      "mf": 0.5,
+      "omf": 0.5
+    },
+    "terminated": 1
   }
 }

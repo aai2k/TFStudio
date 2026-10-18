@@ -103,10 +103,10 @@ let resolveDone;
 const done = new Promise((r) => { resolveDone = r; });
 let bestShown = null;
 const ctx = {
-    runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+    runningRef: ref(false), workerRef: ref(null),
     baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(seed()),
     operandsRef: ref(ops),
-    gensRef: ref([]), genCountRef: ref(0), lastBestRef: ref(null),
+    gensRef: ref([]), genCountRef: ref(0),
     runsRef: ref([]), runOpenRef: ref(false),
     maxLayersRef: ref(6), deltaNmRef: ref(0.5), dMinRef: ref(1.0),
     dlsIterRef: ref(8), targetMFRef: ref(1e-6),

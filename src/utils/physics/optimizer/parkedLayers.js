@@ -64,7 +64,7 @@ export function mergeSameMaterial(design) {
  * same-material neighbours then merged, and how many layers were taken out.
  * With removed = 0 the design is `refined` merged.
  */
-export function withoutParkedLayers(eng, refined) {
+function withoutParkedLayers(eng, refined) {
     const flags = layerFlags(eng, refined, heldOnFloor(eng));
     let removed = 0;
     const drop = (layers, flag) => {
