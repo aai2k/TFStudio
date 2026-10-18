@@ -1,4 +1,5 @@
 import { useDesign } from '../state/DesignContext.js';
+import { useLiveDesign } from '../state/useLiveDesign.js';
 import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { useUnresolvedMaterials } from '../utils/materials/useUnresolvedMaterials.js';
 import { DEFAULT_CONSTRAINT_LAST_LAYER, makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
@@ -334,31 +335,57 @@ export function AddForm({ c, t, onAdd, onCancel, initial, mode }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function SpectralMonitor({ c, t }) {
-    const { design, evalMode, hasActiveDesign } = useDesign();
-    const monitorStrings = monitorStringsOf(t);
+// What the monitors read on the design on show. They are worked out on the
+// analysis worker, since a band searched at the monitors' step can take longer
+// than the interface can wait, and the values on show stay until the new ones
+// arrive. Each value stays with the monitor it was worked out for, so a monitor
+// removed, moved or edited meanwhile never shows another one's value; a new or
+// edited monitor reads nothing until its own arrives. A run is followed four
+// times a second, as the analysis windows follow it.
+export function useMonitorReadings(monitors) {
+    const { evalMode, hasActiveDesign } = useDesign();
+    const { design } = useLiveDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const missingMaterialKey = missingMaterialIds.join('\u0000');
+    const [readings, setReadings] = useState(() => ({ monitors, values: monitors.map(() => null) }));
+    const coneActive = missingMaterialIds.length === 0
+        && coneIsActive(makeConeSpec(design?.cone || {}));
+    const evaluable = hasActiveDesign && missingMaterialIds.length === 0 && monitors.length > 0;
+    const monitorPayload = useMemo(() => ({ design, monitors }), [design, monitors]);
+    const evaluation = useAnalysisEvaluation(evaluable, 'statusMonitors', monitorPayload);
+
+    useEffect(() => {
+        if (!evaluable) setReadings({ monitors, values: monitors.map(() => null) });
+        else if (Array.isArray(evaluation.data)) setReadings({ monitors, values: evaluation.data });
+        // Without a worker the monitors are worked out here.
+        else if (evaluation.error) {
+            const values = monitorValues({ monitors, design, hasActiveDesign, missingMaterialIds, coneActive });
+            setReadings({ monitors, values });
+        }
+    }, [evaluable, evaluation.data, evaluation.error, monitors, design, evalMode,
+        missingMaterialKey, coneActive, hasActiveDesign]);
+
+    const valueOf = monitor => {
+        const at = readings.monitors.indexOf(monitor);
+        return at < 0 ? null : readings.values[at];
+    };
+    return {
+        design, evalMode, hasActiveDesign, missingMaterialIds, valueOf,
+        // Only a cone design takes long enough to say so while it is worked out.
+        computing: coneActive && evaluation.busy,
+        failed: coneActive && Boolean(evaluation.error),
+    };
+}
+
+export function SpectralMonitor({ c, t }) {
+    const monitorStrings = monitorStringsOf(t);
     const [monitors, setMonitors] = useState(loadMonitors);
-    const [values, setValues]     = useState(() => loadMonitors().map(() => null));
+    const { design, evalMode, hasActiveDesign, missingMaterialIds, valueOf, computing, failed } = useMonitorReadings(monitors);
     const [adding, setAdding]     = useState(false);
     const [editingId, setEditingId] = useState(null);  // id of monitor being edited, or null
     const [dragOverId, setDragOverId] = useState(null); // id under the pointer during drag (for drop-zone highlight)
-    const coneActive = missingMaterialIds.length === 0
-        && coneIsActive(makeConeSpec(design?.cone || {}));
-    const monitorPayload = useMemo(() => ({ design, monitors }), [design, monitors]);
-    const coneEvaluation = useAnalysisEvaluation(coneActive, 'statusMonitors', monitorPayload);
 
-    useEffect(() => {
-        saveMonitors(monitors);
-        setValues(monitorValues({ monitors, design, hasActiveDesign, missingMaterialIds, coneActive }));
-    }, [design, monitors, evalMode, missingMaterialKey, coneActive, hasActiveDesign]);
-
-    useEffect(() => {
-        if (!coneActive) return;
-        if (Array.isArray(coneEvaluation.data)) setValues(coneEvaluation.data);
-        else if (coneEvaluation.error) setValues(monitors.map(() => null));
-    }, [coneActive, coneEvaluation.data, coneEvaluation.error, monitors]);
+    useEffect(() => { saveMonitors(monitors); }, [monitors]);
 
     const addMonitor = (m) => {
         setMonitors(prev => [...prev, m]);
@@ -435,14 +462,14 @@ export function SpectralMonitor({ c, t }) {
                 title: missingMaterialIds.join(', '),
                 style: { color: c.error, fontSize: 11, fontWeight: 600 },
             }, `⚠ ${t.materialResolution.monitorsBlocked}`),
-            coneActive && coneEvaluation.busy && h('span', {
+            computing && h('span', {
                 style: { color: c.textDim, fontSize: 10, fontStyle: 'italic', flexShrink: 0 },
             }, t.analysisEvaluation.computing),
-            coneActive && coneEvaluation.error && h('span', {
+            failed && h('span', {
                 style: { color: c.error, fontSize: 10, flexShrink: 0 },
             }, t.analysisEvaluation.failed),
-            monitors.map((m, i) => {
-                const val = values[i];
+            monitors.map((m) => {
+                const val = valueOf(m);
                 const display = formatMonitorValue(m, val, monitorStrings);
                 const scopeBadge = monitorScopeBadge(m, design, hasActiveDesign);
                 const isDropTarget = dragOverId === m.id;

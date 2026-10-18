@@ -138,7 +138,9 @@ const KIND_EVALUATORS = {
 // where value is the raw computed number, unit is 'nm', '%', 'dB' or ''
 // depending on kind, and threshold is what the value was held to. One that
 // could not be computed carries a summaryKey instead of a threshold.
-export function evaluateQualifier(qual, design, resolveMat) {
+// `options.flag` sets the step a peak is searched for at, as a merit row's
+// flag does; without one the default 1 nm.
+export function evaluateQualifier(qual, design, resolveMat, options = {}) {
     const ctx = buildEvalContext(design, resolveMat);
     const evaluator = KIND_EVALUATORS[qual.kind];
     if (!evaluator) {
@@ -147,7 +149,7 @@ export function evaluateQualifier(qual, design, resolveMat) {
             summaryKey: 'unknownKind', summaryArgs: [qual.kind],
         };
     }
-    return evaluator(qual, design, ctx);
+    return evaluator(qual, design, ctx, options);
 }
 
 // Evaluate every qualifier in a list against a design.

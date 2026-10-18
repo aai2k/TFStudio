@@ -47,6 +47,13 @@ export const DERIVED_MONITOR_META = {
     edgeRight:{ unit: 'nm', decimals: 2 },
 };
 
+// The step flag a monitor searches a band for its peak at, and scans a FWHM or
+// edge monitor's band at: 0.1 nm (operandModel.js extremumStepNm), ten times
+// finer than a merit row's default. The status bar works its monitors out on
+// the analysis worker and follows a run four times a second, so the cost,
+// which grows with the width of the band, never holds up the interface.
+export const MONITOR_FLAG = 2;
+
 const MONITOR_OPERAND_TYPE = {
     point:    quantity => quantity,
     avg:      quantity => quantity + 'AV',
@@ -86,7 +93,7 @@ export function computeMonitor(monitor, design, resolveMaterial) {
                 direction: monitor.direction || 'max', level: monitor.level ?? 0.5,
                 edgeSide: monitor.type === 'edgeRight' ? 'right' : 'left',
                 cmp: 'ge', target: 0,
-            }, design, resolveMaterial);
+            }, design, resolveMaterial, { flag: MONITOR_FLAG });
             return Number.isFinite(result?.value) ? result.value : null;
         }
 
@@ -99,6 +106,7 @@ export function computeMonitor(monitor, design, resolveMaterial) {
                 lambdaEnd: direct.mode === 'point' ? monitor.lambda
                     : direct.mode === 'layers' ? (monitor.layerEnd ?? 1000000) : monitor.lambdaEnd,
                 aoi: monitor.aoi || 0, pol: monitor.pol || 'avg', target: monitor.target ?? 0, weight: 1,
+                flag: MONITOR_FLAG,
             });
             const value = evaluateOperands([operand], buildEvalContext(design, resolveMaterial))[0];
             return Number.isFinite(value) ? value : null;
@@ -115,6 +123,7 @@ export function computeMonitor(monitor, design, resolveMaterial) {
             pol: monitor.pol || 'avg',
             target: 0,
             weight: 1,
+            flag: MONITOR_FLAG,
             ...(monitor.type === 'integral'
                 ? { source: monitor.source || { id: 'E' }, detector: monitor.detector || { id: 'flat' } }
                 : {}),

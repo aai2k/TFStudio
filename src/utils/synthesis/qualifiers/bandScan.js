@@ -6,13 +6,22 @@
  * uniform scan of the band.
  */
 
-import { makeOperand, evaluateOperands } from '../../physics/optimizer.js';
+import { makeOperand, evaluateOperands, extremumStepNm } from '../../physics/optimizer.js';
 import { singleType, channelFromKind, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
 
 // Samples of the scan the crossings are found on, unless the qualifier sets
 // its own bandPoints: a 1 nm step over a 300 nm band.
 const SCAN_POINTS = 301;
+
+// The scan's sample count. An evaluation that asks for a step flag
+// (evaluate.js) gets a sample at every step of that flag, and never fewer than
+// SCAN_POINTS; the qualifier's own bandPoints always wins.
+function scanCount(qual, options) {
+    if (qual.bandPoints || !options?.flag) return Math.max(11, qual.bandPoints || SCAN_POINTS);
+    const span = Math.abs(qual.lambdaEnd - qual.lambdaStart);
+    return Math.max(SCAN_POINTS, Math.ceil(span / extremumStepNm({ flag: options.flag })) + 1);
+}
 
 // Walk outward from the peak to find where the scan crosses `cross`, starting
 // at scan sample `startI`. For a max peak we look for the first descent below
@@ -37,7 +46,7 @@ function findCross(scan, startI, step) {
     return null;
 }
 
-export function evalBandDerived(qual, design, ctx) {
+export function evalBandDerived(qual, design, ctx, options) {
     const k   = qual.kind;
     const ch  = channelFromKind(k) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
@@ -47,7 +56,7 @@ export function evalBandDerived(qual, design, ctx) {
         aoi: qual.aoi, pol, target: 0, weight: 1,
     })], ctx)[0];
 
-    const N = Math.max(11, qual.bandPoints || SCAN_POINTS);
+    const N = scanCount(qual, options);
     const lams = new Array(N);
     const vals = new Array(N);
     for (let i = 0; i < N; i++) {
@@ -58,7 +67,7 @@ export function evalBandDerived(qual, design, ctx) {
     const peakLam = evaluateOperands([makeOperand({
         type: argwaveType(direction, ch, pol),
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
-        aoi: qual.aoi, pol, target: 0, weight: 1,
+        aoi: qual.aoi, pol, target: 0, weight: 1, ...(options?.flag ? { flag: options.flag } : {}),
     })], ctx)[0];
     const peakV = at(peakLam);
     const level = Math.max(0.001, Math.min(0.999, qual.level ?? 0.5));

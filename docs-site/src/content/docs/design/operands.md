@@ -290,6 +290,8 @@ A row that looks for a peak starts from a uniform grid at the step its **Step** 
 
 The step decides only whether two peaks close together are told apart. Two peaks closer than about two steps, such as the split top of a two-cavity filter, can read as one, and not always the higher. If the band holds such a pair, raise the step. Each level samples the band ten times as densely as the one before, and the row costs that much more time.
 
+The status-bar monitors search at 0.1 nm, and scan a FWHM or edge monitor's band at that step.
+
 ## Sampling a band
 
 Band averages, spectral targets, weighted integrals and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. The grid has at least 13 points and no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
