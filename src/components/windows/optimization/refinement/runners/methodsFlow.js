@@ -3,9 +3,9 @@
 // validated engines via optimizerWorker (any method) and mfEvalWorker (parallel
 // DE) — see engineRun.js / deEngine.js for the engine invocations themselves.
 //
-// A plain function of the Refinement component's `ctx` bag (see mainThread.js);
-// this file additionally takes an `alive()` predicate so a Stop / run-id bump
-// cancels an in-flight flow.
+// A plain function of the Refinement component's `ctx` bag (buildRunCtx in
+// useRefinement.js); this file additionally takes an `alive()` predicate so a
+// Stop / run-id bump cancels an in-flight flow.
 
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
@@ -14,7 +14,6 @@ import {
     STOCHASTIC_METHODS, takeRunSeed, endReasonFor,
 } from '../refinementUtils.js';
 import { countFreeVars } from '../refinementConfig.js';
-import { runOptMainThread } from './mainThread.js';
 import { runEngineP } from './engineRun.js';
 import { runParallelDEP, runMultiP } from './deEngine.js';
 
@@ -173,7 +172,7 @@ export async function runMethodsFlow(ctx, methods) {
     if (!curDes || ops.length === 0) return;
     let materials;
     try { materials = presampleMaterials(curDes, ops); }
-    catch (err) { console.error('[Refine] presample failed:', err); runOptMainThread(ctx); return; }
+    catch (err) { console.error('[Refine] presample failed:', err); ctx.setStopReason('presampleFailed'); return; }
 
     const payload   = buildPayload(curDes);
     const layerSide = payload.surfaceMode === 'back_only' ? 'backLayers' : 'frontLayers';

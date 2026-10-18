@@ -4,7 +4,6 @@
 // management code so the two concerns don't compound into one high-complexity
 // file.
 
-import { runOptMainThread } from './mainThread.js';
 import { makeJob } from './dlsPoolJobs.js';
 import { appendMfSample } from '../refinementUtils.js';
 import { finalizeDlsRun } from './dlsPoolFinalize.js';
@@ -36,14 +35,15 @@ function addTrendPoint(ctx, S, iter, mf) {
     ctx.setMfHistory(S.mfHistory);
 }
 
-// Idempotent — only one fallback ever fires (M6 fix).
-export function doFallback(ctx, S, why, err) {
-    if (S.fellBack) return;
-    S.fellBack = true;
-    console.error(`[DLS] Worker ${why}, using main-thread fallback:`, err);
-    ctx.killWorker();
-    ctx.runningRef.current = false;
-    runOptMainThread(ctx);
+// A worker that cannot be built, or fails before its first progress message,
+// ends the run with the design as it was, and the end-of-run badge says why. A
+// failing worker can report by message and by onerror both, so this acts once.
+export function failRun(ctx, S, why, err) {
+    if (S.failed) return;
+    S.failed = true;
+    console.error(`[DLS] Worker ${why}:`, err);
+    ctx.stopOpt();
+    ctx.setStopReason('workerFailed');
 }
 
 function onProgressMsg(ctx, S, m, wid) {
@@ -120,7 +120,7 @@ function onDoneMsg(ctx, S, w, m, wid) {
 }
 
 function onErrorMsg(ctx, S, m) {
-    if (!S.gotProgress) doFallback(ctx, S, 'errored before progress', m.message);
+    if (!S.gotProgress) failRun(ctx, S, 'errored before progress', m.message);
     else { console.error('[DLS] Worker error:', m.message); ctx.stopOpt(); }
 }
 

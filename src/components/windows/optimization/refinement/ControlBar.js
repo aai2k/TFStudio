@@ -28,6 +28,17 @@ const numInputStyle = (c, running) => ({
     opacity: running ? 0.5 : 1,
 });
 
+// stopReason → the locale key of its label. Anything else reads as stalled.
+const REASON_KEYS = {
+    noOperands: 'noOperands', target: 'targetReached', maxiter: 'maxIterReached',
+    workerFailed: 'workerFailed', presampleFailed: 'presampleFailed',
+};
+
+// Reasons that stopped a run before it changed the design: the amber warning
+// badge rather than the pill.
+const WARN_REASONS = new Set(['noOperands', 'workerFailed', 'presampleFailed']);
+const isWarnReason = stopReason => WARN_REASONS.has(stopReason) || !!stopReason?.startsWith('invalidOperand:');
+
 // stopReason → display label + whether it reads as a "good" (green) outcome.
 // 'best: X' (try-all winner) is passed through verbatim.
 function stopReasonView(stopReason, tr) {
@@ -39,11 +50,7 @@ function stopReasonView(stopReason, tr) {
     if (stopReason.startsWith('invalidOperand:')) {
         return { label: stopReason.slice('invalidOperand:'.length), good: false };
     }
-    const label = stopReason === 'noOperands' ? tr.noOperands
-        : stopReason === 'target'  ? (tr.targetReached || 'target reached')
-        : stopReason === 'maxiter' ? (tr.maxIterReached || 'max iter')
-        : (tr.stalled || 'no further improvement');
-    return { label, good: stopReason === 'target' };
+    return { label: tr[REASON_KEYS[stopReason] || 'stalled'], good: stopReason === 'target' };
 }
 
 // Run / Stop / Reset / Best + the surface-mode badges.
@@ -122,7 +129,7 @@ function runControls({ running, method, nRestarts, perturbPct, maxIter, onMethod
 function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, nRestarts, stopReason, t, c }) {
     const tr = t.refinement;
     const reason = stopReasonView(stopReason, tr);
-    const reasonPillStyle = stopReason === 'noOperands' || stopReason?.startsWith('invalidOperand:')
+    const reasonPillStyle = isWarnReason(stopReason)
         ? { ...WARN_BADGE_STYLE, marginLeft: 8, cursor: 'help' }
         : { fontSize: 10, marginLeft: 8, padding: '1px 7px', borderRadius: 9, cursor: 'help',
             background: reason.good ? (c.success + '33') : (c.textDim + '26'), color: reason.good ? c.success : c.text,
@@ -145,8 +152,8 @@ function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, 
             `${tr.iterLabel} `, h('span', { style: { color: c.text } }, iter)),
         (!running && reason.label) && h('span', {
             title: stopReason === 'stalled' ? tr.stalledTip : '',
-            // Empty merit function → the shared amber warning badge (identical in
-            // every optimizer window). Other end-states keep the pill, in the
+            // A run that ended before it changed the design → the shared amber warning
+            // badge (identical in every optimizer window). Other end-states keep the pill, in the
             // theme's own text colour so it reads on a light theme and a dark one.
             style: reasonPillStyle }, reason.label),
     ];

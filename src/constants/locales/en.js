@@ -2246,6 +2246,8 @@ export default {
     stalled:       'no further improvement',
     targetReached: 'target reached',
     maxIterReached:'max iter',
+    workerFailed:  'A worker failed; the design is unchanged.',
+    presampleFailed: 'Could not prepare the materials for the workers.',
     iterAxis: 'Iteration',
     methods: {
       cg:          'Conjugate Gradient',

@@ -2666,6 +2666,8 @@ export default {
     stalled: 'nessun ulteriore miglioramento',
     targetReached: 'target raggiunto',
     maxIterReached: 'iteraz. max',
+    workerFailed: 'Un worker ha avuto un errore; il design è invariato.',
+    presampleFailed: 'Impossibile preparare i materiali per i worker.',
     iterAxis: 'Iterazione',
     methods: {
       cg: 'Gradiente coniugato',

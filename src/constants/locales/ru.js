@@ -2201,6 +2201,8 @@ export default {
     stalled:       'без улучшений',
     targetReached: 'цель достигнута',
     maxIterReached:'макс. итераций',
+    workerFailed:  'Сбой воркера; дизайн не изменён.',
+    presampleFailed: 'Не удалось подготовить материалы для воркеров.',
     iterAxis: 'Итерация',
     methods: {
       cg:          'Сопряжённые градиенты',

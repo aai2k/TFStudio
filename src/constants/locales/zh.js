@@ -2644,6 +2644,8 @@ export default {
     stalled: '无进一步改善',
     targetReached: '已到达目标',
     maxIterReached: '已达最大迭代',
+    workerFailed: '工作线程出错；设计未改变。',
+    presampleFailed: '无法为工作线程准备材料。',
     iterAxis: '迭代',
     methods: {
       cg: '共轭梯度法',

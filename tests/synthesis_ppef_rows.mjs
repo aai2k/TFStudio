@@ -20,7 +20,7 @@
  *   6. Deep Synthesis (MNT dropped).
  *   7. A block with a fixed level, expanded into point rows for the run,
  *      keeps every point.
- *   8. Refinement's main-thread, DLS pool and method runs keep the PPEF row.
+ *   8. Refinement's DLS pool and method runs keep the PPEF row.
  *   9. Each synthesis window says so among its settings while the merit
  *      function has an enabled PPEF row, and says nothing without one.
  *
@@ -77,7 +77,6 @@ const { createRunState: structuralRunState } = await import('../src/components/w
 const { createRunState: deepRunState } = await import('../src/components/windows/optimization/deepSynthesis/runners/runState.js');
 const { createRunContext } = await import('../src/components/windows/optimization/deepSynthesis/runners/lifecycle.js');
 const { freshHistory } = await import('../src/components/windows/optimization/deepSynthesis/historyActions.js');
-const { runOptMainThread } = await import('../src/components/windows/optimization/refinement/runners/mainThread.js');
 const { runDlsEvent } = await import('../src/components/windows/optimization/refinement/runners/dlsPool.js');
 const { runMethodsFlow } = await import('../src/components/windows/optimization/refinement/runners/methodsFlow.js');
 const { LeftSidebar: NeedleSidebar } = await import('../src/components/windows/optimization/needleVariation/needlePanels.js');
@@ -322,7 +321,7 @@ function refinementCtx() {
     const ctx = {
         runningRef: ref(false), designRef: ref(copy(DESIGN)), operandsRef: ref(copy(OPERANDS)),
         maxIterRef: ref(5), multiStartRef: ref(false), nRestartsRef: ref(1), perturbPctRef: ref(30),
-        checkpointRef: ref(noop), optimizerRef: ref(null), timerRef: ref(null), baselineRef: ref(false),
+        checkpointRef: ref(noop), optimizerRef: ref(null), baselineRef: ref(false),
         lastBestRef: ref(null), poolRef: ref([]), dePoolRef: ref(null), flowWorkersRef: ref(new Set()),
         runIdRef: ref(0), histRunCount: ref(0), seedRef: ref(1),
         commitBaseline: noop, bumpRunCount: noop, addHistEntry: noop, setSeed: noop,
@@ -347,14 +346,6 @@ function refinementRows(rows) {
     expect(has.has(CEILING.id), 'the ceiling row is not in the run');
     expect(has.has(BLOCK.id) && has.has(LOSS.id) && has.has(MNT.id), 'a row is missing');
 }
-
-await check('Refinement main-thread run keeps PPEF', () => {
-    const ctx = refinementCtx();
-    runOptMainThread(ctx);
-    ctx.runningRef.current = false;
-    clearTimeout(ctx.timerRef.current);
-    refinementRows(opsOf(ctx.optimizerRef.current));
-});
 
 for (const [name, start] of [
     ['DLS pool', ctx => runDlsEvent(ctx)],

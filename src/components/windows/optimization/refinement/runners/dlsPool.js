@@ -4,19 +4,18 @@
 // queue). `multiStartRef` (derived from the method selector) decides single vs
 // multi. cg/sa/de/all use runMethodsFlow instead.
 //
-// A plain function of the Refinement component's `ctx` bag (see mainThread.js).
-// Per-restart job construction lives in dlsPoolJobs.js and the worker message
-// handlers live in dlsPoolMessages.js, so pool setup/lifecycle here stays its
-// own concern.
+// A plain function of the Refinement component's `ctx` bag (buildRunCtx in
+// useRefinement.js). Per-restart job construction lives in dlsPoolJobs.js and
+// the worker message handlers live in dlsPoolMessages.js, so pool setup/lifecycle
+// here stays its own concern.
 
 import { DLSOptimizer } from '../../../../../utils/physics/optimizer.js';
 import { getThreadCount } from '../../../../../utils/synthesis/synthesisConfig.js';
 import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js';
 import { designMaterialLookup } from '../../../../../utils/materials/designMaterials.js';
 import { densifyForRun, presampleMaterials, takeRunSeed } from '../refinementUtils.js';
-import { runOptMainThread } from './mainThread.js';
 import { designForRestart, makeJob } from './dlsPoolJobs.js';
-import { handleMsg, doFallback } from './dlsPoolMessages.js';
+import { handleMsg, failRun } from './dlsPoolMessages.js';
 
 const serializeLayers = (arr) => (arr || []).map(l => ({
     id: l.id, material: l.material, thickness: l.thickness || 0, locked: !!l.locked,
@@ -33,7 +32,9 @@ function spawnWorker(ctx, S) {
     S.prevIterByW.set(wid, 0);
     w.onmessage = (e) => handleMsg(ctx, S, w, wid, e);
     w.onerror = (e) => {
-        if (!S.gotProgress) doFallback(ctx, S, 'threw before progress', e.message || e);
+        // An error a stopped or finished run's worker still delivers is not this run's to act on.
+        if (!ctx.runningRef.current || S.finished) return;
+        if (!S.gotProgress) failRun(ctx, S, 'threw before progress', e.message || e);
         else { console.error('[DLS] Worker onerror:', e.message || e); ctx.stopOpt(); }
     };
     return w;
@@ -74,16 +75,16 @@ function ensureBaseline(ctx, curDes) {
     ctx.baselineRef.current = true;
 }
 
-// Spawn up to K workers and hand each its first restart job; falls back to the
-// main thread if no worker can be constructed.
+// Spawn up to K workers and hand each its first restart job; the run ends if no
+// worker can be constructed.
 function startPool(ctx, S) {
     const workers = [];
     for (let i = 0; i < S.K && S.nextJob < S.nJobs; i++) {
         const w = spawnWorker(ctx, S);
-        if (!w) { if (i === 0) { doFallback(ctx, S, 'construction failed', 'new Worker threw'); return; } break; }
+        if (!w) break;
         workers.push(w);
     }
-    if (workers.length === 0) { doFallback(ctx, S, 'construction failed', 'no workers'); return; }
+    if (workers.length === 0) { failRun(ctx, S, 'construction failed', 'new Worker threw'); return; }
     ctx.poolRef.current = workers;
     for (const w of workers) {
         if (S.nextJob >= S.nJobs) break;
@@ -116,7 +117,7 @@ export function runDlsEvent(ctx) {
         runningRef, designRef, operandsRef,
         multiStartRef, nRestartsRef, perturbPctRef, maxIterRef,
         optimizerRef, lastBestRef, bumpRunCount, histRunCount, t,
-        setRunning, setCanReset, setMfHistory, setRestartIdx,
+        setRunning, setCanReset, setMfHistory, setRestartIdx, setStopReason,
     } = ctx;
 
     if (runningRef.current) return;
@@ -129,8 +130,8 @@ export function runDlsEvent(ctx) {
     try {
         materials = presampleMaterials(curDes, ops);
     } catch (err) {
-        console.error('[DLS] Pre-sampling failed, using main-thread fallback:', err);
-        runOptMainThread(ctx);
+        console.error('[DLS] Pre-sampling failed:', err);
+        ctx.setStopReason('presampleFailed');
         return;
     }
 
@@ -145,7 +146,7 @@ export function runDlsEvent(ctx) {
     const baseFront = serializeLayers(curDes.frontLayers);
     const baseBack  = serializeLayers(curDes.backLayers);
 
-    // Multi-start eligibility — identical rule to runOptMainThread.
+    // Multi-start needs a stack the surface mode optimizes.
     const wantMulti  = !!multiStartRef.current;
     const msEligible = isMultiEligible(surfMode, baseFront.length > 0, baseBack.length > 0);
     const N       = (wantMulti && msEligible) ? Math.max(1, Math.floor(nRestartsRef.current)) : 1;
@@ -163,7 +164,7 @@ export function runDlsEvent(ctx) {
         K: isMulti ? Math.max(1, Math.min(N, getThreadCount())) : 1,
         nextJob: 0, completed: 0,
         globalBest: Infinity, globalBestOMF: null,
-        finished: false, gotProgress: false, fellBack: false,
+        finished: false, gotProgress: false, failed: false,
         cumIter: 0, prevIterByW: new Map(), widSeq: 0, mfHistory: [],
     };
 
@@ -174,6 +175,7 @@ export function runDlsEvent(ctx) {
     setCanReset(true);
     setMfHistory([]);
     setRestartIdx(0);
+    setStopReason(null);
     lastBestRef.current  = null;
     optimizerRef.current = null;
 

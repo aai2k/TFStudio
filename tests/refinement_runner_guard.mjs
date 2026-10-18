@@ -1,7 +1,7 @@
 /**
  * Refinement runner guard — before/after identity check for the optimizer-driver
  * runners in `components/windows/optimization/refinement/runners/`
- * (runOptMainThread, runDlsEvent, runMethodsFlow + the promise engines).
+ * (runDlsEvent, runMethodsFlow + the promise engines).
  *
  * These runners are the RUN path (worker orchestration + run-state aggregation),
  * which the UI render-hash harness does NOT execute. This guard drives each
@@ -10,9 +10,8 @@
  * rows it records — then compares to a committed golden.
  *
  * Determinism:
- *  - runOptMainThread uses the REAL optimizer (no worker). Single-start is
- *    deterministic; multi-start perturbation is made reproducible by seeding
- *    Math.random.
+ *  - Math.random is seeded, so a run whose seed field is empty draws the same
+ *    seed, and so the same multi-start perturbations, every time.
  *  - runDlsEvent / runMethodsFlow consume WORKER messages. A deterministic mock
  *    `Worker` emits a scripted progress→done stream keyed by the restart index,
  *    so the runner's aggregation (global-best selection, cumulative iter, history,
@@ -54,12 +53,22 @@ async function withSeed(fn) {
     try { return await fn(); } finally { Math.random = orig; }
 }
 
+// How a mock job fails before any progress, by MockWorker.errorOnStart.
+const MOCK_FAILURES = {
+    message: w => w._post({ type: 'error', message: 'the job threw' }),
+    event:   w => w.onerror?.({ message: 'the worker script did not load' }),
+};
+
 // ── Deterministic mock Worker: scripted progress→done keyed by restart index ──
 // mf is a fixed function of the restart index so a specific restart is the clear
 // global best; layer thicknesses are a fixed function of the restart index so the
 // applied design is reproducible. Both `progress` and `done` are emitted.
 class MockWorker {
-    constructor(url) { this.url = url; this.onmessage = null; this.onerror = null; this.terminated = false; }
+    constructor(url) {
+        if (MockWorker.failConstruct) throw new Error('module workers are blocked');
+        this.url = url; this.onmessage = null; this.onerror = null; this.terminated = false;
+        MockWorker.built.push(this);
+    }
     postMessage(job) {
         if (this.terminated) return;
         if (job?.type === 'start') MockWorker.startJobs.push(job);
@@ -75,6 +84,8 @@ class MockWorker {
             return;
         }
         if (job.type !== 'start') return;              // ignore init / unknown
+        const fail = MOCK_FAILURES[MockWorker.errorOnStart];
+        if (fail) { fail(this); return; }
         const r = job.restartIdx || 0;                 // 0 = unperturbed baseline
         const mf = 0.05 * (1 / (1 + ((r * 7) % 5)));    // r===2 → global best (0.01)
         const front = (job.design.frontLayers || []).map((l, i) => ({ ...l, thickness: (l.thickness || 0) + r + i }));
@@ -97,6 +108,9 @@ class MockWorker {
 MockWorker.hangOn = null;    // method name to stall after its progress message
 MockWorker.onHang = null;    // called once when that method stalls
 MockWorker.startJobs = [];   // every 'start' job posted, in order
+MockWorker.failConstruct = false;   // new Worker() throws
+MockWorker.errorOnStart = null;     // a job fails before any progress: by 'message' or by error 'event'
+MockWorker.built = [];              // every worker constructed, in order
 globalThis.Worker = MockWorker;
 
 // Pin the detected core count. Pool sizes (dls multi-start) and the serial-vs-
@@ -109,7 +123,6 @@ Object.defineProperty(globalThis, 'navigator', {
 });
 
 // Import the runners AFTER installing the mock Worker global.
-const { runOptMainThread } = await import('../src/components/windows/optimization/refinement/runners/mainThread.js');
 const { runDlsEvent }      = await import('../src/components/windows/optimization/refinement/runners/dlsPool.js');
 const { runMethodsFlow }   = await import('../src/components/windows/optimization/refinement/runners/methodsFlow.js');
 const { designForRestart } = await import('../src/components/windows/optimization/refinement/runners/dlsPoolJobs.js');
@@ -124,7 +137,7 @@ function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, m
         runningRef: ref(false), designRef: ref(design), operandsRef: ref(ops),
         maxIterRef: ref(maxIter), multiStartRef: ref(multi), nRestartsRef: ref(nRestarts),
         perturbPctRef: ref(perturbPct), checkpointRef: ref(() => {}),
-        optimizerRef: ref(null), timerRef: ref(null), baselineRef: ref(false),
+        optimizerRef: ref(null), baselineRef: ref(false),
         lastBestRef: ref(null), poolRef: ref([]), dePoolRef: ref(null),
         flowWorkersRef: ref(new Set()), runIdRef: ref(0), histRunCount: ref(0), seedRef: ref(seed),
         commitBaseline: () => {},
@@ -170,8 +183,8 @@ async function waitIdle(ctx, ms = 8000) {
     await sleep(5);   // let any trailing scheduled callbacks settle
 }
 
-// Rounded snapshot (kills last-bit FP noise from the real-optimizer scenarios;
-// the mock-worker scenarios are exact anyway).
+// Rounded snapshot (kills last-bit FP noise in the values real optimizer code
+// computes: the baseline merit and the parallel DE run).
 const rnd = x => (x == null ? x : Number(x.toFixed(9)));
 function finalize(snap) {
     return {
@@ -216,30 +229,26 @@ const OPS = () => [
 ];
 
 // ── Scenarios ─────────────────────────────────────────────────────────────────
-async function runScenario(name) {
-    let result;
-    switch (name) {
-        case 'mainThread/single/front': { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'mainThread/single/back':  { const { ctx, snap } = makeCtx(backDesign(),  OPS()); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'mainThread/multi/front':  { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { multi: true, nRestarts: 4 }); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'mainThread/multi/both':   { const { ctx, snap } = makeCtx(bothDesign(),  OPS(), { multi: true, nRestarts: 3 }); await withSeed(async () => { runOptMainThread(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'dlsPool/single/front':    { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'dlsPool/multi/front':     { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { multi: true, nRestarts: 5 }); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'dlsPool/multi/back':      { const { ctx, snap } = makeCtx(backDesign(),  OPS(), { multi: true, nRestarts: 5 }); await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'methodsFlow/cg/front':    { const { ctx, snap } = makeCtx(frontDesign(), OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['cg']); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'methodsFlow/multi/front': { const { ctx, snap } = makeCtx(frontDesign(), OPS(), { nRestarts: 4 }); await withSeed(async () => { await runMethodsFlow(ctx, ['cg', 'sa', 'dls-multi']); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'methodsFlow/cg/both':     { const { ctx, snap } = makeCtx(bothDesign(),  OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['cg', 'sa']); await waitIdle(ctx); }); result = finalize(snap); break; }
-        case 'methodsFlow/de/both':     { const { ctx, snap } = makeCtx(bothDesign(),  OPS()); await withSeed(async () => { await runMethodsFlow(ctx, ['de']); await waitIdle(ctx); }); result = finalize(snap); break; }
-        default: throw new Error('unknown scenario ' + name);
-    }
-    return result;
-}
+// Each: the design, the window settings, and how the run starts.
+const dlsPool = ctx => runDlsEvent(ctx);
+const methods = list => ctx => runMethodsFlow(ctx, list);
+const SCENARIO_RUNS = {
+    'dlsPool/single/front':    { design: frontDesign, start: dlsPool },
+    'dlsPool/multi/front':     { design: frontDesign, opts: { multi: true, nRestarts: 5 }, start: dlsPool },
+    'dlsPool/multi/back':      { design: backDesign,  opts: { multi: true, nRestarts: 5 }, start: dlsPool },
+    'methodsFlow/cg/front':    { design: frontDesign, start: methods(['cg']) },
+    'methodsFlow/multi/front': { design: frontDesign, opts: { nRestarts: 4 }, start: methods(['cg', 'sa', 'dls-multi']) },
+    'methodsFlow/cg/both':     { design: bothDesign,  start: methods(['cg', 'sa']) },
+    'methodsFlow/de/both':     { design: bothDesign,  start: methods(['de']) },
+};
+const SCENARIOS = Object.keys(SCENARIO_RUNS);
 
-const SCENARIOS = [
-    'mainThread/single/front', 'mainThread/single/back', 'mainThread/multi/front', 'mainThread/multi/both',
-    'dlsPool/single/front', 'dlsPool/multi/front', 'dlsPool/multi/back',
-    'methodsFlow/cg/front', 'methodsFlow/multi/front', 'methodsFlow/cg/both', 'methodsFlow/de/both',
-];
+async function runScenario(name) {
+    const { design, opts, start } = SCENARIO_RUNS[name];
+    const { ctx, snap } = makeCtx(design(), OPS(), opts);
+    await withSeed(async () => { await start(ctx); await waitIdle(ctx); });
+    return finalize(snap);
+}
 
 async function verifyIterationHistories() {
     {
@@ -326,9 +335,83 @@ async function verifySeededRuns() {
     assert.equal(cgJob.engineOpts?.halfWaveProbe, true, 'Refinement CG takes the half-wave first probe');
 }
 
+const WORKER_FAILURES = [
+    ['cannot be built',                () => { MockWorker.failConstruct = true; }],
+    ['reports an error before progress', () => { MockWorker.errorOnStart = 'message'; }],
+    ['fires an error event before progress', () => { MockWorker.errorOnStart = 'event'; }],
+];
+
+// One DLS run with the failure `arm` installs, then the failure cleared again.
+async function runFailing(ctx, arm) {
+    MockWorker.built = [];
+    arm();
+    try { await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); }
+    finally { MockWorker.failConstruct = false; MockWorker.errorOnStart = null; }
+}
+
+// A worker that cannot be built, or fails before its first progress message,
+// ends the run with the design as it was and the badge says why. The next run
+// that works replaces the badge.
+const DLS_RUNS = [
+    { name: 'single', opts: { seed: 7 }, nextReason: 'stalled' },
+    { name: 'multi-start', opts: { multi: true, nRestarts: 4, seed: 7 }, nextReason: null },
+];
+
+async function verifyWorkerFailures() {
+    for (const [what, arm] of WORKER_FAILURES) {
+        for (const { name, opts, nextReason } of DLS_RUNS) {
+            const { ctx, snap } = makeCtx(frontDesign(), OPS(), opts);
+            await runFailing(ctx, arm);
+            const run = `a ${name} DLS run whose worker ${what}`;
+            assert.equal(ctx.runningRef.current, false, `${run} ends`);
+            assert.equal(snap.stopReason, 'workerFailed', `${run} shows the worker failure`);
+            assert.equal(snap.applied, null, `${run} leaves the design as it was`);
+            assert.equal(snap.history.length, 0, `${run} records no history row`);
+            assert.ok(MockWorker.built.every(w => w.terminated), `${run} terminates every worker it built`);
+
+            await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); });
+            assert.equal(snap.stopReason, nextReason, `the run after ${run} replaces the badge`);
+        }
+    }
+
+    // An error event that a stopped run's worker still delivers is not acted on.
+    const { ctx, snap } = makeCtx(frontDesign(), OPS());
+    MockWorker.built = [];
+    runDlsEvent(ctx);
+    ctx.stopOpt();
+    MockWorker.built[0].onerror({ message: 'late error' });
+    assert.equal(snap.stopReason, null, 'a late worker error after Stop leaves the badge alone');
+}
+
+// A design whose material cannot be prepared for the workers ends the run
+// before it starts: no worker, no undo checkpoint, no run number.
+async function verifyPresampleFailure() {
+    const design = frontDesign();
+    design.frontLayers[1].material = 'user_x:Nope';
+    const starts = [
+        ['single DLS', ctx => runDlsEvent(ctx)],
+        ['multi-start DLS', ctx => runDlsEvent(ctx)],
+        ['CG', ctx => runMethodsFlow(ctx, ['cg'])],
+        ['a method list', ctx => runMethodsFlow(ctx, ['cg', 'sa'])],
+    ];
+    for (const [name, start] of starts) {
+        const { ctx, snap } = makeCtx(JSON.parse(JSON.stringify(design)), OPS(), { multi: name.startsWith('multi'), nRestarts: 4, seed: 7 });
+        MockWorker.built = [];
+        await start(ctx);
+        await waitIdle(ctx);
+        assert.equal(snap.stopReason, 'presampleFailed', `${name}: the badge says the materials could not be prepared`);
+        assert.equal(MockWorker.built.length, 0, `${name}: no worker is built`);
+        assert.equal(ctx.baselineRef.current, false, `${name}: no undo checkpoint is taken`);
+        assert.equal(ctx.histRunCount.current, 0, `${name}: no run number is used`);
+        assert.equal(snap.applied, null, `${name}: the design is left as it was`);
+    }
+}
+
 await verifyIterationHistories();
 await verifyStopDuringRun();
 await verifySeededRuns();
+await verifyWorkerFailures();
+await verifyPresampleFailure();
 
 const results = {};
 for (const name of SCENARIOS) results[name] = await runScenario(name);

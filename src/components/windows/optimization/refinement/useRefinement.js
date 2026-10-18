@@ -40,7 +40,6 @@ function stopRun(env) {
     refs.runIdRef.current++;          // cancels any in-flight async method flow
     setters.setRunning(false);
     setters.setRestartIdx(0);
-    clearTimeout(refs.timerRef.current);
     killAllWorkers(env);
 }
 
@@ -120,7 +119,7 @@ function evaluateDisplay(env, design, operands) {
     env.setters.setMf(r.mf); env.setters.setOmf(r.omf);
 }
 
-// The `ctx` bag threaded into the optimizer-driver runners (runners/mainThread.js
+// The `ctx` bag threaded into the optimizer-driver runners (runners/dlsPool.js
 // et al.). It bundles the refs, state setters, cache helpers, and the locale
 // table so the runners can stay plain functions in their own modules instead of
 // closures over this hook's scope.
@@ -229,8 +228,8 @@ function restoreHistoryEntry(env, entry, updateDesign) {
     setters.setOmfBest(null);
 }
 
-// Any operand edit ends the current run session: stop, drop the live optimizer,
-// and clear the Reset baseline so the next Run re-checkpoints.
+// Any operand edit ends the current run session: stop, drop the finished run's
+// result record, and clear the Reset baseline so the next Run re-checkpoints.
 function haltAndInvalidate(env) {
     if (env.refs.runningRef.current) stopRun(env);
     env.refs.optimizerRef.current = null;
@@ -342,18 +341,16 @@ function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }
     const killWorker = useCallback(() => killAllWorkers(env), []); // eslint-disable-line react-hooks/exhaustive-deps
     const stopOpt    = useCallback(() => stopRun(env), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Stop the DLS loop when this component unmounts (docking-window/tab
-    // switch). Without this, the chained setTimeout(tick) loop keeps running
-    // against the unmounted closure — runningRef.current is still true there —
-    // so it zombie-steps the optimizer and pushes transient design changes in
+    // Stop the run when this component unmounts (docking-window/tab switch).
+    // Without this, its workers keep reporting to the unmounted closure, where
+    // runningRef.current is still true, and push transient design changes in
     // the background while the remounted instance shows a stale "Run" button.
-    // The live optimizer can't be resumed (see sessionState.js), so the
-    // correct behavior is a clean stop; the design keeps the last applied
-    // thicknesses and Reset/history persist via the cache.
+    // A run can't be resumed (see sessionState.js), so the correct behavior is
+    // a clean stop; the design keeps the last applied thicknesses and
+    // Reset/history persist via the cache.
     useEffect(() => () => {
         env.refs.runningRef.current = false;
         env.refs.runIdRef.current++;
-        clearTimeout(env.refs.timerRef.current);
         killAllWorkers(env);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -459,7 +456,6 @@ export function useRefinement({ t }) {
 
     const optimizerRef    = useRef(null);
     const runningRef      = useRef(false);
-    const timerRef        = useRef(null);
     const poolRef         = useRef([]);     // active optimizer Web Worker pool
     const dePoolRef       = useRef(null);   // WorkerPool for parallel DE
     const flowWorkersRef  = useRef(new Set()); // live single-engine workers (flow paths)
@@ -502,7 +498,7 @@ export function useRefinement({ t }) {
     const refs = {
         runningRef, designRef, operandsRef, maxIterRef, multiStartRef,
         nRestartsRef, perturbPctRef, checkpointRef, updateDesignRef, optimizerRef,
-        timerRef, baselineRef, lastBestRef, poolRef, runIdRef, flowWorkersRef,
+        baselineRef, lastBestRef, poolRef, runIdRef, flowWorkersRef,
         dePoolRef, histRunCount, seedRef,
     };
     const setters = {
