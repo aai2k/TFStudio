@@ -28,10 +28,15 @@ export function useLiveDesign(intervalMs = OPTIMIZATION_PREVIEW_MS) {
     const { design, isOptimizing, liveUpdate } = useDesign();
     const latest = useRef(design);
     latest.current = design;
-    const [sampled, setSampled] = useState(design);
+    // The frame taken during the current run, or null outside a run. Until the
+    // run's first frame lands the design itself is the one the run starts from.
+    const [sampled, setSampled] = useState(null);
 
     useEffect(() => {
-        if (!isOptimizing) return undefined;
+        if (!isOptimizing) {
+            setSampled(null);
+            return undefined;
+        }
         // One frame at the start, then either keep sampling or hold that frame
         // for the rest of the run.
         setSampled(latest.current);
@@ -41,5 +46,5 @@ export function useLiveDesign(intervalMs = OPTIMIZATION_PREVIEW_MS) {
     }, [isOptimizing, liveUpdate, intervalMs]);
 
     const following = isOptimizing && liveUpdate;
-    return { design: isOptimizing ? sampled : design, preview: following };
+    return { design: isOptimizing && sampled ? sampled : design, preview: following };
 }

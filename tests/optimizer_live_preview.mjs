@@ -199,7 +199,7 @@ assert.ok(/const following = isOptimizing && liveUpdate;/.test(hook)
 
 // Ordinary edits are unaffected either way: outside a run the design is
 // returned untouched, whatever the setting says.
-assert.ok(/design: isOptimizing \? sampled : design/.test(hook),
+assert.ok(/design: isOptimizing && sampled \? sampled : design/.test(hook),
     'edits outside a run always show immediately');
 
 // ── The merit table keeps tracking a run ─────────────────────────────────────
