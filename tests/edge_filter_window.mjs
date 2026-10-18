@@ -2,7 +2,9 @@
  * The Edge Filter window (src/components/windows/design/edgeFilter/).
  *
  *   1. It opens on the design: its media, its reference wavelength as the
- *      edge, and its lowest and highest index as materials A and B.
+ *      edge, and its lowest and highest index as materials A and B, at normal
+ *      incidence with 10 periods; after that on the materials and settings of
+ *      the last opening, where the design can use them.
  *   2. With the built-in materials, the period the search picks, written as a
  *      Stack Formula formula and built by Stack Formula's own code, has its s
  *      and p zone edges at the edge wavelength. Where two periods meet, their
@@ -61,16 +63,37 @@ const design = {
 };
 
 // ── 1. Starting inputs ───────────────────────────────────────────────────────
-const inputs = model.initialInputs(design);
-assert.equal(inputs.edgeLambda, 510);
-assert.equal(inputs.incidentMat, 'builtin:Air');
-assert.equal(inputs.substrateMat, 'builtin:BK7');
-assert.equal(inputs.matA, 'builtin:SiO2', 'A is the lowest index of the design');
-assert.equal(inputs.matB, 'builtin:TiO2', 'B is the highest');
-assert.deepEqual([inputs.pass, inputs.angle, inputs.periods, inputs.lower, inputs.upper, inputs.step],
-    ['short', 45, 19, 0.1, 1, 0.05], "the worked example in Essential Macleod's manual");
+const opening = model.initialInputs(design);
+assert.equal(opening.edgeLambda, 510);
+assert.equal(opening.incidentMat, 'builtin:Air');
+assert.equal(opening.substrateMat, 'builtin:BK7');
+assert.equal(opening.matA, 'builtin:SiO2', 'A is the lowest index of the design');
+assert.equal(opening.matB, 'builtin:TiO2', 'B is the highest');
+assert.deepEqual([opening.pass, opening.angle, opening.periods, opening.lower, opening.upper, opening.step],
+    ['short', 0, 10, 0.1, 1, 0.05], 'a first opening: normal incidence, 10 periods, the manual\'s range of a');
 const empty = model.initialInputs({ ...design, frontLayers: [] });
 assert.deepEqual([empty.matA, empty.matB], ['builtin:SiO2', 'builtin:TiO2'], 'an empty design gets the example pair');
+{
+    // The settings of the last opening come back; the edge and the media are
+    // the design's whatever was used last time.
+    const { readRememberedInputs, rememberInputs } = await import('../src/components/windows/design/edgeFilter/rememberedInputs.js');
+    const store = new Map();
+    const storage = { getItem: key => store.get(key) ?? null, setItem: (key, value) => store.set(key, String(value)) };
+    const last = { ...opening, pass: 'long', angle: 30, periods: 25, lower: 0.2, upper: 1.5, step: 0.01,
+                   matA: 'builtin:MgF2', matB: 'builtin:Ta2O5', edgeLambda: 800, incidentMat: 'builtin:BK7' };
+    rememberInputs(last, storage);
+    const reopened = model.initialInputs(design, readRememberedInputs(storage));
+    for (const key of model.REMEMBERED_INPUTS) assert.equal(reopened[key], last[key], `${key} is remembered`);
+    assert.deepEqual([reopened.edgeLambda, reopened.incidentMat], [510, 'builtin:Air'], 'the edge and the media are the design\'s');
+    const gone = model.initialInputs(design, { matA: 'user_lab:gone', matB: 'builtin:Ta2O5', angle: 'x', pass: 'up' });
+    assert.deepEqual([gone.matA, gone.matB, gone.angle, gone.pass], ['builtin:SiO2', 'builtin:TiO2', 0, 'short'],
+        'a material that is gone, or a setting that is not one, gives the design\'s pair and the defaults');
+    assert.deepEqual(readRememberedInputs({ getItem: () => '{broken' }), {}, 'unreadable storage gives nothing');
+    assert.deepEqual(readRememberedInputs(undefined), {}, 'and so does none');
+}
+
+// The rest of this test works the manual's example at 45° with 19 periods.
+const inputs = { ...opening, angle: 45, periods: 19 };
 
 // ── 2. From the search to Stack Formula's layers ─────────────────────────────
 const prepared = model.edgeRequest(design, inputs);

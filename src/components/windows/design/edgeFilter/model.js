@@ -11,33 +11,60 @@ import { designMaterialLookup } from '../../../../utils/materials/designMaterial
 import { autoSymbolMap, buildStackFromFormula, stackFormulaResolvers } from '../../../../utils/synthesis/stackFormula.js';
 import { previewWavelengthRange } from '../stackFormula/model.js';
 
-// The worked example in Essential Macleod's manual (Design Tools, Edge Filter,
-// pp. 238-241): a shortwave pass at 45° between SiO2 and TiO2, 19 periods, a
-// searched from 0.1 to 1 in steps of 0.05.
-const EXAMPLE = {
-    pass: 'short', angle: 45, periods: 19, lower: 0.1, upper: 1.0, step: 0.05,
-    low: 'builtin:SiO2', high: 'builtin:TiO2',
-};
+// The settings a first opening starts from: a shortwave pass at normal
+// incidence, 10 periods, and a searched from 0.1 to 1 in steps of 0.05, the
+// range of the worked example in Essential Macleod's manual (Design Tools,
+// Edge Filter, pp. 238-241), whose SiO2 and TiO2 are the pair for a design
+// with fewer than two materials.
+const DEFAULTS = { pass: 'short', angle: 0, periods: 10, lower: 0.1, upper: 1.0, step: 0.05 };
+const EXAMPLE_PAIR = ['builtin:SiO2', 'builtin:TiO2'];
 
 // The inputs the search reads; changing any of them makes the listed periods
 // stale.
 export const SEARCH_INPUTS = ['pass', 'edgeLambda', 'angle', 'incidentMat', 'matA', 'matB', 'lower', 'upper', 'step'];
 
+// The inputs the window keeps from one opening to the next: all but the edge
+// wavelength and the media, which describe the design it opens on.
+export const REMEMBERED_INPUTS = ['pass', 'angle', 'periods', 'lower', 'upper', 'step', 'matA', 'matB'];
+
+function resolves(design, id) {
+    try {
+        return typeof id === 'string' && !!designMaterialLookup(design)(id);
+    } catch {
+        return false;
+    }
+}
+
+// The remembered settings this design can open on: a known pass and finite
+// numbers, and the two materials only as a pair of different materials it
+// can resolve, since one alone could leave A and B the same.
+function usableRemembered(design, remembered) {
+    const kept = {};
+    if (remembered.pass === 'short' || remembered.pass === 'long') kept.pass = remembered.pass;
+    for (const key of ['angle', 'periods', 'lower', 'upper', 'step']) {
+        if (Number.isFinite(remembered[key])) kept[key] = remembered[key];
+    }
+    const { matA, matB } = remembered;
+    if (matA !== matB && resolves(design, matA) && resolves(design, matB)) Object.assign(kept, { matA, matB });
+    return kept;
+}
+
 /**
  * The window's starting inputs. The media and the edge wavelength are the
- * design's; A and B are the lowest and highest index of its front layers, as
- * in the example, or the example's own pair when it has fewer than two.
+ * design's; A and B are the lowest and highest index of its front layers, or
+ * SiO2 and TiO2 when it has fewer than two. `remembered` holds the settings
+ * of the last opening (REMEMBERED_INPUTS), which replace these where usable.
  */
-export function initialInputs(design) {
+export function initialInputs(design, remembered = {}) {
     const edgeLambda = design.referenceWavelength || 550;
     const { ranked } = autoSymbolMap(design.frontLayers || [], edgeLambda, stackFormulaResolvers(design));
-    const [matA, matB] = ranked.length >= 2 ? [ranked.at(-1), ranked[0]] : [EXAMPLE.low, EXAMPLE.high];
+    const [matA, matB] = ranked.length >= 2 ? [ranked.at(-1), ranked[0]] : EXAMPLE_PAIR;
     return {
-        pass: EXAMPLE.pass, edgeLambda, angle: EXAMPLE.angle,
+        ...DEFAULTS, edgeLambda,
         incidentMat: design.incidentMedium || 'builtin:Air',
         substrateMat: design.substrate?.material || 'builtin:BK7',
-        matA, matB, periods: EXAMPLE.periods,
-        lower: EXAMPLE.lower, upper: EXAMPLE.upper, step: EXAMPLE.step,
+        matA, matB,
+        ...usableRemembered(design, remembered || {}),
     };
 }
 

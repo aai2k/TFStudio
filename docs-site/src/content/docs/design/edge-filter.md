@@ -32,7 +32,9 @@ The edge of a finished filter, where its transmittance crosses 50 %, sits close 
 
 **Incident medium** and **Substrate**: the media around the filter. The search uses the incident medium; the substrate is used by the preview and goes into the design.
 
-**Material A** and **Material B**: the two materials. The window opens with the lowest- and highest-index materials of the design's front coating, or SiO2 and TiO2 when it has fewer than two.
+**Material A** and **Material B**: the two materials. The window first opens with the lowest- and highest-index materials of the design's front coating, or SiO2 and TiO2 when it has fewer than two.
+
+The window keeps the pass, the angle, the periods, the two materials and the range of a from one opening to the next, and first opens at 0° with 10 periods. The edge wavelength and the media always come from the design. A remembered material the design cannot find is replaced by the design's own pair.
 
 **a from**, **a to**, **Step of a**: the range searched for the outer layers. The start is 0 or more, the end above the start and at 2 or below, and the step 0.0001 or more. Adding a little over 2 to a puts a half wave at the angle into each outer layer and gives the same b and c again, so the range stops at 2. The default, 0.1 to 1 in steps of 0.05, takes a fraction of a second; 0 to 2 in steps of 0.0001 takes a few minutes.
 
@@ -54,7 +56,7 @@ Below the table the plot shows the finished filter's transmittance for s, p and 
 
 ## Putting it into the design
 
-The **Formula** box holds the picked period in [Stack Formula](/design/stack-formula/) notation, with H the material of higher index at the edge wavelength and L the other. For the built-in SiO2 and TiO2 with the edge at 510 nm and 45° in air it is `(0.4H 0.593622L 0.294978H 0.593622L 0.4H)^19`. Select it to copy it, or press **Open in Stack Formula** to continue there with the formula, the materials, the media and the edge wavelength filled in, for instance to add matching layers around it.
+The **Formula** box holds the picked period in [Stack Formula](/design/stack-formula/) notation, with H the material of higher index at the edge wavelength and L the other. For the built-in SiO2 and TiO2 with the edge at 510 nm, 45° in air and 19 periods it is `(0.4H 0.593622L 0.294978H 0.593622L 0.4H)^19`. Select it to copy it, or press **Open in Stack Formula** to continue there with the formula, the materials, the media and the edge wavelength filled in, for instance to add matching layers around it.
 
 The buttons at the bottom work as in Stack Formula. **Replace** puts the filter in place of the chosen side's coating, **Append** adds it outside the coating already there, and **New design** makes a new design with it. Replace also sets the design's reference wavelength to the edge wavelength and its substrate to the one chosen here, and the incident medium becomes the incident medium of a front coating or the exit medium of a back one. Where two periods meet, their outer layers are one material and go into the design as one layer of the summed thickness.
 

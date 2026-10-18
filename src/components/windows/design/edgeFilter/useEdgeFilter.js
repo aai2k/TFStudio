@@ -4,6 +4,7 @@ import {
 } from './model.js';
 import { buildNewEdgeFilterDesign, edgeFilterPatch } from './designBuild.js';
 import { startEdgeSearch, stopEdgeSearch } from './searchRun.js';
+import { readRememberedInputs, rememberInputs } from './rememberedInputs.js';
 
 const { useState, useMemo, useEffect, useRef, useCallback } = React;
 
@@ -48,8 +49,9 @@ function useSearch(prepared, signature) {
 
 export function useEdgeFilter({ design, updateDesign, checkpoint, onClose, onCreateNew, onOpenStackFormula, t }) {
     const ef = t.edgeFilter;
-    const [inputs, setInputs] = useState(() => initialInputs(design));
+    const [inputs, setInputs] = useState(() => initialInputs(design, readRememberedInputs()));
     const setInput = useCallback((key, value) => setInputs(prev => ({ ...prev, [key]: value })), []);
+    useEffect(() => { rememberInputs(inputs); }, [inputs]);
     const prepared = useMemo(() => edgeRequest(design, inputs), [design, inputs]);
     const signature = searchSignature(inputs);
     const run = useSearch(prepared, signature);
