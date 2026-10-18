@@ -61,7 +61,8 @@ export function InputsPanel({ state, c, t, ef, design }) {
         h(PassSeg, { state, c, ef }),
         row(
             field({ key: 'edgeLambda', label: ef.edgeLambda, width: 90, step: 1, positive: true }),
-            field({ key: 'angle', label: ef.angle, width: 70, step: 1, positive: true }),
+            // 0° is taken, so the search can say why it finds nothing there.
+            field({ key: 'angle', label: ef.angle, width: 70, step: 1, min: 0 }),
             field({ key: 'periods', label: ef.periods, width: 60, step: 1, positive: true, integer: true }),
         ),
         row(
