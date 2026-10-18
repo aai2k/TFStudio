@@ -114,17 +114,21 @@ export function _jacRowsDecline(op, i, jc) {
 // rows it contributes (residualRows.js): one per sample for a range target and
 // a level-free curve block, one for every other kind. Null when the analytic
 // chain rule declines the operand, which puts the whole Jacobian on finite
-// differences.
+// differences. A row that scores nothing, at weight 0 or a one-sided row that
+// holds, has a zero row whatever its kind, so a kind with no slope declines
+// only where its slope is used: by itself when it scores, or by a math row
+// that reads it and scores. Its value is evaluated and read all the same.
 export function _jacRows(op, i, jc) {
     if (isRangeTarget(op.type)) return _jacRowsRangeTarget(op, jc);
     if (hasFreeLevel(op)) return _jacRowsLevelFree(op, jc);
-    if (hasNoSlope(op, jc)) return null;
-    if (isMath(op.type)) {
-        const row = mathRow(op, i, jc, valueSlope);
-        return row ? [row] : null;
-    }
+    const row = isMath(op.type) ? mathRow(op, i, jc, valueSlope) : singleRow(op, i, jc);
+    return row ? [row] : null;
+}
+
+// The one Jacobian row of a row that is neither a math row nor per sample.
+function singleRow(op, i, jc) {
     const [, slope, factor] = rowKind(op.type);
     const scale = factor(op, jc.comp[i]);
-    const row = scale === 0 ? new Array(jc.nFree).fill(0) : slope(op, i, jc, scale);
-    return row ? [row] : null;
+    if (scale === 0) return new Array(jc.nFree).fill(0);
+    return hasNoSlope(op, jc) ? null : slope(op, i, jc, scale);
 }

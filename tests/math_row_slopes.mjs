@@ -15,9 +15,9 @@
  *   2. The merit functions Generate MF writes for the BBAR_VIS and COLD_MIRROR
  *      presets take the analytic Jacobian, and gradMF matches central
  *      differences of the merit.
- *   3. A math row reading an EFMX row or a whole curve block still declines,
- *      differentiated on its own so the row it reads cannot decline first, and
- *      so does the Jacobian of its merit.
+ *   3. A math row that scores and reads an EFMX row or a whole curve block
+ *      still declines, differentiated on its own so the row it reads cannot
+ *      decline first, and so does the Jacobian of its merit.
  *
  * Run: node tests/math_row_slopes.mjs
  */
@@ -236,13 +236,13 @@ function mathRowAlone(engine) {
     const band = row('TAV', 480, 620);
     const field = row('EFMX', 550, 550, { pol: 's' });
     const block = makeMeasuredCurveOperand({ quantity: 'R', sampleLambdas: [450, 550, 650], sampleTargets: [0.04, 0.05, 0.04], weight: 1 });
-    const legacy = makeOperand({ type: 'OPGT', baseType: 'TAV', lambdaStart: 480, lambdaEnd: 620, target: 0, weight: 1 });
+    // A target no transmittance reaches, so the row is active and scores.
+    const legacy = makeOperand({ type: 'OPGT', baseType: 'TAV', lambdaStart: 480, lambdaEnd: 620, target: 2, weight: 1 });
     delete legacy.refId;
     const control = new DLSOptimizer([band, one('OPLT', band)], structuredClone(d), resolveMat, {});
     assert.ok(mathRowAlone(control), 'OPLT on TAV: the math row alone has a slope');
     for (const [name, rows] of [
         ['OPLT on EFMX', [field, one('OPLT', field, { target: 0 })]],
-        ['OPGT on EFMX, satisfied', [field, one('OPGT', field, { target: 0 })]],
         ['OPLT on a whole curve block', [block, one('OPLT', block, { target: 0.001 })]],
         ['an OPGT saved by type', [legacy]],
     ]) {

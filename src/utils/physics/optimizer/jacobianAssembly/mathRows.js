@@ -54,10 +54,15 @@ export function mathValueSlope(op, i, jc, slopeOf) {
     return row;
 }
 
-/** The Jacobian row of math row i, or null where its chain has no slope. */
+/**
+ * The Jacobian row of math row i, or null where its chain has no slope. A row
+ * that scores nothing, at weight 0 or an inequality that holds, is a zero row
+ * without its chain being followed.
+ */
 export function mathRow(op, i, jc, slopeOf) {
+    const scale = Math.sqrt(op.weight) * mathResidualSlope(op, jc.comp[i]) / jc.residualScale(op);
+    if (scale === 0) return new Array(jc.nFree).fill(0);
     const slope = slopeOf(op, i, jc);
     if (!slope) return null;
-    const scale = Math.sqrt(op.weight) * mathResidualSlope(op, jc.comp[i]) / jc.residualScale(op);
     return slope.map(value => scale * value);
 }

@@ -292,8 +292,9 @@ export class LSQEngine {
         // A row whose analytic chain rule is not worked out (EFMX, a curve
         // block a math row reads whole, and the math rows reading either;
         // jacobianAssembly/jacRows.js) declines the whole Jacobian so step()
-        // falls back to finite differences. `operands` lets a math row find
-        // the rows it reads.
+        // falls back to finite differences, where its slope is used: when it
+        // scores, or a math row that scores reads it. `operands` lets a math
+        // row find the rows it reads.
         const jc = {
             comp,
             freeIdx,
