@@ -359,15 +359,16 @@ export function entryQualifiers(entry) {
 }
 
 /**
- * Evaluate the entry's specification at the default 1 nm search step. Each
- * result is what the Specification window first shows for a qualifier, before
- * its finer search replaces it; `verdict` aggregates them.
+ * Evaluate the entry's specification. `options.flag` sets the step a claim
+ * that looks for a peak searches its band at, as the Specification window's
+ * does (qualifiers/evaluate.js); without one the default 1 nm. `verdict`
+ * aggregates the results.
  */
-export function entrySpecResults(entry) {
+export function entrySpecResults(entry, options = {}) {
     const design = entryDesign(entry);
     const qualifiers = entryQualifiers(entry);
     try {
-        const results = evaluateQualifiers(qualifiers, design, designMaterialLookup(design));
+        const results = evaluateQualifiers(qualifiers, design, designMaterialLookup(design), options);
         return { qualifiers, results, verdict: aggregateVerdict(results) };
     } catch (err) {
         return { qualifiers, results: [], verdict: aggregateVerdict([]), error: err.message };

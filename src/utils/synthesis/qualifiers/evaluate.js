@@ -21,11 +21,12 @@ import { evalBandDerived } from './bandScan.js';
 import { ppefRows } from './ppefRows.js';
 
 /**
- * The step flag the Specification window and the report search a band at, and
- * scan a FWHM or edge check's band at: 0.01 nm (operandModel.js
- * extremumStepNm), so only peaks closer than about 0.02 nm can read as one.
- * The window shows each check at the default 1 nm step at once and at this one
- * when it is ready, and follows a run at 1 nm. Callers that evaluate the
+ * The step flag the Specification window, the report and the Coating Library's
+ * claims search a band at, and scan a FWHM or edge check's band at: 0.01 nm
+ * (operandModel.js extremumStepNm), so only peaks closer than about 0.02 nm
+ * can read as one. The windows show each check at the default 1 nm step at
+ * once and at this one when it is ready; the Specification window follows a
+ * run at 1 nm. Callers that evaluate the
  * Specification many times over, such as the Monte Carlo yield and the
  * tolerance windows' badge, keep the default.
  */

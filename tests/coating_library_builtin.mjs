@@ -4,7 +4,9 @@
  * Every shipped entry is re-evaluated here: its materials resolve without any
  * local catalog, its band lies inside the data of every material it uses, and
  * each claim in its specification passes on the current material data and
- * solver. A change to either that spoils an entry fails this test instead of
+ * solver, at the default step the entry pane shows first and at the
+ * Specification window's fine step it settles on. A change to either that
+ * spoils an entry fails this test instead of
  * shipping a starting design that no longer does what its description says.
  *
  * Run: node tests/coating_library_builtin.mjs
@@ -16,7 +18,7 @@ import {
     COATING_TAGS, COATING_TYPES, entryMaterialIds, entrySpecResults, entrySpectrum,
 } from '../src/utils/coatingLibrary/entryModel.js';
 import { entryMetrics } from '../src/utils/coatingLibrary/entryProperties.js';
-import { qualifierSummary } from '../src/utils/synthesis/qualifiers.js';
+import { qualifierSummary, SPECIFICATION_FLAG } from '../src/utils/synthesis/qualifiers.js';
 import { validateEntry } from '../src/utils/coatingLibrary/validateEntry.js';
 import { isBuiltinId } from '../src/utils/materials/designMaterials.js';
 import { initWasmForTest } from './_wasmInit.mjs';
@@ -77,11 +79,14 @@ for (const entry of BUILTIN_COATINGS) {
     assert.ok(spectrum.R.every(Number.isFinite) && spectrum.T.every(Number.isFinite),
         `${where}: preview spectrum has non-finite values`);
 
-    const { qualifiers, results, verdict } = entrySpecResults(entry);
-    results.forEach((result, i) => {
-        assert.ok(result.pass, `${where}: claim ${i + 1} (${qualifiers[i].kind}) fails: ${qualifierSummary(result, {}, { nm: 'nm' })}`);
-    });
-    assert.ok(verdict.allPass, `${where}: specification does not pass`);
+    for (const [step, options] of [['the default step', {}], ['the fine step', { flag: SPECIFICATION_FLAG }]]) {
+        const { qualifiers, results, verdict } = entrySpecResults(entry, options);
+        results.forEach((result, i) => {
+            assert.ok(result.pass,
+                `${where}: claim ${i + 1} (${qualifiers[i].kind}) fails at ${step}: ${qualifierSummary(result, {}, { nm: 'nm' })}`);
+        });
+        assert.ok(verdict.allPass, `${where}: specification does not pass at ${step}`);
+    }
 }
 
 // The shared records themselves: sound tables, and none that no entry uses,

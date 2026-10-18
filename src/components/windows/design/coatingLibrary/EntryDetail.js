@@ -1,11 +1,12 @@
 import { materialLabel } from '../../../../utils/materials/catalogManager.js';
 import {
-    COATING_TAGS, bandsText, entrySpecResults, tagGroupOf, totalThickness,
+    COATING_TAGS, bandsText, entryDesign, entrySpecResults, tagGroupOf, totalThickness,
 } from '../../../../utils/coatingLibrary/entryModel.js';
 import { entryMetrics } from '../../../../utils/coatingLibrary/entryProperties.js';
 import { validateEntry } from '../../../../utils/coatingLibrary/validateEntry.js';
-import { qualifierSummary } from '../../../../utils/synthesis/qualifiers.js';
+import { aggregateVerdict, qualifierSummary } from '../../../../utils/synthesis/qualifiers.js';
 import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
+import { useFineSpecification } from '../specification/useSpecificationResults.js';
 import { PreviewPlot } from './PreviewPlot.js';
 import { StackStrip, entryMaterialColors } from './StackStrip.js';
 import { Chip, KeyValue, SectionTitle, TAG_GROUP_COLORS, TypeBadge, angleText, percent } from './ui.js';
@@ -125,6 +126,19 @@ function SpecList({ spec, c, ts, summaries, units }) {
     }));
 }
 
+/**
+ * The entry's claims as the Specification window reads them: at the default
+ * step at once, then at the window's fine step from the analysis worker
+ * (useFineSpecification) once it answers for this entry, since a search at the
+ * fine step takes too long for the window's own thread.
+ */
+export function useEntrySpec(entry, catalogRevision) {
+    const quick = useMemo(() => entrySpecResults(entry), [entry, catalogRevision]);
+    const designs = useMemo(() => [{ ...entryDesign(entry), qualifiers: quick.qualifiers }], [entry, quick]);
+    const fine = useFineSpecification(designs, !quick.error)?.[0];
+    return useMemo(() => (fine ? { ...quick, results: fine, verdict: aggregateVerdict(fine) } : quick), [quick, fine]);
+}
+
 export function EntryDetail({ entry, c, ts, summaries, lambdaAxis, units }) {
     // A material the entry uses computes from its catalog when one holds it, so
     // a catalog edit changes the checks, the numbers and the colours while the
@@ -132,7 +146,7 @@ export function EntryDetail({ entry, c, ts, summaries, lambdaAxis, units }) {
     const catalogRevision = useCatalogRevision();
     const problems = useMemo(() => validateEntry(entry), [entry, catalogRevision]);
     const metrics = useMemo(() => (problems.length ? { error: problems[0] } : entryMetrics(entry)), [entry, problems]);
-    const spec = useMemo(() => entrySpecResults(entry), [entry, catalogRevision]);
+    const spec = useEntrySpec(entry, catalogRevision);
     const pol = ts.pols[entry.polarization] || entry.polarization;
 
     return h('div', { style: { padding: '10px 14px 18px' } },
