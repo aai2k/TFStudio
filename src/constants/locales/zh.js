@@ -4316,6 +4316,7 @@ export default {
     },
     noPreview: '无预览',
     title: '膜系公式',
+    help: '此窗口的帮助',
     intro: '输入膜层序列（例如 (H L)^4 H）。系数是四分之一波长光学厚度 (QWOT) 的倍数（1 可省略）；(…)^n 重复一个组；H/L/M 是您在下方指定的符号。使用下方控件选择入射介质、基底和膜层方向。',
     refLambda: '参考 λ₀ (nm)',
     incidentMedium: '入射介质',

@@ -17,6 +17,8 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { getCurrentLocale } from '../../../../constants/locales/index.js';
+import { HelpButton } from '../../../ui/HelpButton.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { useStackFormula } from './useStackFormula.js';
 import { FormulaPanel } from './FormulaPanel.js';
@@ -24,6 +26,8 @@ import { ResultsPanel } from './ResultsPanel.js';
 import { Footer } from './Footer.js';
 
 const { createElement: h } = React;
+
+export const STACK_FORMULA_HELP = 'design/stack-formula';
 
 export function StackFormulaDialog({ onClose, onCreateNew, folderName, hasActiveDesign, seed, c, t }) {
     const { design, updateDesign, checkpoint } = useDesign();
@@ -43,9 +47,12 @@ export function StackFormulaDialog({ onClose, onCreateNew, folderName, hasActive
             h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                        paddingBottom: 12, borderBottom: `1px solid ${c.border}`, marginBottom: 12 } },
                 h('h2', { style: { margin: 0, fontSize: 16, fontWeight: 700, color: c.text } }, sf.title),
-                h('button', { onClick: onClose, style: { background: 'transparent', color: c.textDim,
-                              border: 'none', cursor: 'pointer', padding: '0 6px',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center' } }, tablerIcon('x', 16)),
+                h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+                    h(HelpButton, { c, anchor: STACK_FORMULA_HELP, locale: getCurrentLocale(), size: 18, title: sf.help }),
+                    h('button', { onClick: onClose, style: { background: 'transparent', color: c.textDim,
+                                  border: 'none', cursor: 'pointer', padding: '0 6px',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center' } }, tablerIcon('x', 16)),
+                ),
             ),
 
             h('div', { style: { flex: 1, overflowY: 'auto', display: 'flex', gap: 16, minHeight: 300 } },

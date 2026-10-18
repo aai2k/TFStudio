@@ -4375,6 +4375,7 @@ export default {
     },
     noPreview: 'nessuna anteprima',
     title: 'Formula dello stack',
+    help: 'Guida per questa finestra',
     intro: "Scrivi la sequenza degli strati (per esempio (H L)^4 H). I coefficienti sono moltiplicatori dello spessore ottico in quarti d'onda (QWOT) e l'1 può essere omesso; (…)^n ripete un gruppo; H/L/M sono simboli che assegni qui sotto. Scegli il mezzo incidente, il substrato e il verso degli strati con i controlli sottostanti.",
     refLambda: 'λ₀ di riferimento (nm)',
     incidentMedium: 'Mezzo incidente',

@@ -3935,6 +3935,7 @@ export default {
     },
     noPreview: 'no preview',
     title:      'Stack Formula',
+    help:       'Help for this window',
     intro:      'Type the layer sequence (e.g. (H L)^4 H). Coefficients are ' +
                 'quarter-wave optical thickness (QWOT) multipliers (1 may be ' +
                 'omitted); (…)^n repeats a group; H/L/M are symbols you assign ' +
