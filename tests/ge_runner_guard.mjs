@@ -1,36 +1,24 @@
 /**
- * Gradual-Evolution runner guard — before/after identity check for the GE run
- * engines in `components/windows/optimization/gradualEvolution/runners/`
- * (runGeWorker + runGeMainThread).
+ * Gradual Evolution run guard: a before/after identity check for a Gradual
+ * Evolution run as the window sees it.
  *
- * These engines are the RUN path (GE state machine + worker orchestration +
- * run-state aggregation), which the UI render-hash harness does NOT execute.
- * This guard drives each engine end-to-end against a fake GradualEvolution
- * `ctx` and snapshots its observable output — the cycles it records (type / MF /
- * layer count / side / TOT / per-cycle layer snapshot), the design it applies,
- * and the final MF / best / layer count — then compares to a committed golden.
+ * Each scenario drives a run end to end against a fake Gradual Evolution
+ * window (_geWindow.mjs): the ctx useGradualEvolution.js hands the run, and
+ * the global `Worker` the run's pool is built from, which runs the real
+ * synthesis-worker handlers job by job, or answers each job with a scripted
+ * result so a run takes a fixed path through the forced steps, the layer-limit
+ * swap and the consolidation. The guard snapshots what the window ends up
+ * showing (the history rows, the status lines and phases in order, the readout,
+ * the design and the run blocks, the run cache) and compares that to a
+ * committed golden.
  *
  * Determinism:
- *  - runGeMainThread uses the REAL optimizer (CG inner engine, no worker) on a
- *    tiny design. The GE algorithm is deterministic (needle scan + refine carry
- *    no RNG); only the random cycle ids and wallclock tMs are excluded from the
- *    snapshot.
- *  - runGeWorker consumes WorkerPool messages. A deterministic mock `Worker`
- *    answers each synthesis job (seedDls / scan / candidate / geStep /
- *    dropWeakest / removePass) with a scripted result keyed off the current
- *    layer count, honouring the layer limit and the skip list as the real
- *    worker does, so
- *    the runner's aggregation (global-best, cycle history, forced-TOT step,
- *    consolidation, finalize) is exercised identically for the golden and the
- *    current run. The mock stands in for the worker physics — this guard checks
- *    the RUNNER logic, not the optimizer kernel (optimizer_refactor_guard's job).
- *  - navigator.hardwareConcurrency is pinned so the pool size (poolSize) and the
- *    scan-slice count are the same on every machine / in CI.
- *  - The engines yield between algorithm steps with `setTimeout(fn, 0)`, which
- *    costs a full scheduler quantum per step under Node. useImmediateTimers()
- *    keeps the same yield semantics without that wait, so a run takes tens of
- *    milliseconds instead of seconds and waitIdle's deadline measures a genuine
- *    hang rather than how loaded the machine is.
+ *  - The pool size comes from the thread setting, fixed here at 3.
+ *  - Date.now is frozen, so the live-preview throttle passes the first tick of
+ *    a run and no other, whatever the machine's speed.
+ *  - performance.now advances one millisecond per reading, so a worker's live
+ *    previews and the rows' times fall at the same points on any machine.
+ *  - Row ids, layer ids and times (tMs) are left out of the snapshot.
  *
  *   Update baseline (after a verified intentional change):  node tests/ge_runner_guard.mjs --update
  *   Run the guard:                                          node tests/ge_runner_guard.mjs
@@ -39,216 +27,150 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { shimBrowserGlobals, useImmediateTimers } from './_uiShim.mjs';
+import { initWasmForTest } from './_wasmInit.mjs';
 
 shimBrowserGlobals();
 useImmediateTimers();
-// Pin the detected core count so poolSize() (= scan-slice / batch width) is the
-// same everywhere. 1 → a single scan slice, the simplest deterministic shape.
-Object.defineProperty(globalThis, 'navigator', {
-    value: { hardwareConcurrency: 1 }, configurable: true, writable: true,
-});
+await initWasmForTest();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GOLDEN = join(__dirname, 'ge_runner_guard.golden.json');
 const UPDATE = process.argv.includes('--update');
 
-// ── Deterministic mock synthesis Worker ──────────────────────────────────────
-// Answers each GE job type with a fixed result derived from the current design
-// so the run trajectory (seed → needle accepts → forced-TOT → consolidate) is
-// reproducible. MF strictly decreases with total layer count so needles accept.
-const mk = (n, mat) => ({ id: `${mat}_${n}`, material: mat, thickness: 10 + n, locked: false });
+const FROZEN_NOW = 1e12;
+Date.now = () => FROZEN_NOW;
+let clock = 0;
+performance.now = () => ++clock;
 
-// The job's two stacks, the stack on its side, and `withSide(layers)`, the two
-// stacks with that side replaced.
-function jobStacks(job) {
-    const front = (job.design && job.design.frontLayers) || [];
-    const back  = (job.design && job.design.backLayers)  || [];
-    const onBack = job.side === 'back';
-    return { front, back, arr: onBack ? back : front,
-        withSide: layers => (onBack ? { nf: front, nb: layers } : { nf: layers, nb: back }) };
-}
+const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
+const { makeOperand } = await import('../src/utils/physics/optimizer.js');
+const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
+const { getCached } = await import('../src/components/windows/optimization/gradualEvolution/sessionState.js');
+const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
+const { layer, makeWindow, settle, useWindow, withWindowSettings } = await import('./_geWindow.mjs');
 
-const MOCK_ANSWERS = {
-    seedDls: ({ front, back }) => ({ mf: 0.5, frontLayers: front, backLayers: back, omf: 0.5, iters: 0 }),
-    // Improving needle available on odd layer counts, needle-optimal on even.
-    scan: ({ arr }, job) => ({ candidates: arr.length % 2 === 1 ? [{ dMF: -0.1, pos: 0, materialId: 'TiO2', side: job.side }] : [] }),
-    candidate: ({ arr, withSide }) => {
-        const { nf, nb } = withSide([...arr, mk(arr.length, 'TiO2')]);
-        const total = nf.length + nb.length;
-        return { mfNow: 0.5 - 0.02 * total, frontLayers: nf, backLayers: nb, nLayers: total, omf: 0.5 - 0.02 * total, needleKept: true };
-    },
-    // At the layer limit the forced step adds no layer; this mock then offers none.
-    geStep: ({ arr, withSide }, job) => {
-        if (job.maxLayers > 0 && arr.length >= job.maxLayers) return { empty: true };
-        const { nf, nb } = withSide([...arr, mk(arr.length, 'SiO2')]);
-        const total = nf.length + nb.length;
-        const mf = 0.5 - 0.01 * total;
-        return { empty: false, mf, omf: mf, mfNew: mf, mf0: 0.5, frontLayers: nf, backLayers: nb, materialId: 'SiO2', pos: arr.length, side: job.side, nLayers: total };
-    },
-    // Frees the outermost layer on the job's side, unless the structure that
-    // leaves is one the job says to leave out.
-    dropWeakest: ({ arr, withSide }, job) => {
-        const kept = arr.slice(0, -1);
-        const structure = kept.map(l => l.material).join('|');
-        if ((job.skip || []).includes(structure)) return { removed: 0 };
-        const { nf, nb } = withSide(kept);
-        return { removed: 1, i: arr.length - 1, structure, mf: 0.48, omf: 0.48, baseMf: 0.42, side: job.side, frontLayers: nf, backLayers: nb, nLayers: nf.length + nb.length };
-    },
-    removePass: ({ front, back }) => {
-        const dropFront = front.length >= back.length && front.length > 0;
-        const nf = dropFront ? front.slice(0, -1) : front;
-        const nb = dropFront ? back : back.slice(0, -1);
-        return { removed: 1, mf: 0.2, frontLayers: nf, backLayers: nb, nLayers: nf.length + nb.length, baseLayers: front.length + back.length, baseMf: 0.25, omf: 0.2 };
-    },
-};
-
-class MockWorker {
-    constructor() { this.onmessage = null; this.onerror = null; this.onmessageerror = null; this.dead = false; }
-    postMessage(job) {
-        if (this.dead || !job) return;
-        if (job.type === 'wasmInit') return;              // one-time pool init: no reply
-        setTimeout(() => { if (!this.dead) this._run(job); }, 0);
-    }
-    terminate() { this.dead = true; }
-    _post(data) { if (!this.dead && this.onmessage) this.onmessage({ data }); }
-    _run(job) {
-        const answer = MOCK_ANSWERS[job.type];
-        this._post({ type: 'result', ...(answer ? answer(jobStacks(job), job) : {}) });
-    }
-}
-globalThis.Worker = MockWorker;
-
-// Import engines + primitives AFTER the shim + mock Worker global are installed.
-const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
-const { runGeWorker }     = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
-const { makeOperand }     = await import('../src/utils/physics/optimizer.js');
-const { materialLookup }  = await import('../src/components/windows/optimization/synthesisShared/synthesisHelpers.js');
-const { default: EN }     = await import('../src/constants/locales/en.js');
-
-const ref = v => ({ current: v });
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// Build a fake GradualEvolution ctx + a snapshot recorder.
-function makeCtx(design, ops, settings) {
-    const resolveMaterial = materialLookup(design);
-    const snap = { applied: null, mf: null, mfBest: null, omf: null, omfBest: null, layerCount: null, geSteps: null, status: null };
-    const designRef = ref(JSON.parse(JSON.stringify(design)));
-    const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef,
-        operandsRef: ref(ops), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
-        runsRef: ref([]), runOpenRef: ref(false),
-        updateDesignRef: ref((patch) => {
-            designRef.current = { ...designRef.current, ...patch };
-            snap.applied = {
-                front: (designRef.current.frontLayers || []).map(l => l.thickness),
-                back:  (designRef.current.backLayers  || []).map(l => l.thickness),
-            };
-        }),
-        checkpointRef: ref(() => {}),
-        maxLayersRef: ref(settings.maxLayers), maxGeCyclesRef: ref(settings.maxGeCycles),
-        targetMFRef: ref(settings.targetMF), dlsIterRef: ref(settings.dlsIter), dMinRef: ref(settings.dMin),
-        selectedCatsRef: ref([]), excludedMatsRef: ref([]),
-        setPhase: () => {}, setStatusMsg: v => snap.status = v, setCanReset: () => {},
-        setMf: v => snap.mf = v, setOmf: v => snap.omf = v, setMfBest: v => snap.mfBest = v, setOmfBest: v => snap.omfBest = v,
-        setCycles: () => {}, setGeneration: () => {}, setLayerCount: v => snap.layerCount = v, setGeSteps: v => snap.geSteps = v,
-        reconcileBaseWithEdits: () => {},
-        stopOpt: (msg) => { ctx.runningRef.current = false; if (msg != null) snap.status = msg; },
-        getPoolMaterials: () => [
-            { id: 'TiO2', name: 'TiO2', mat: resolveMaterial('TiO2') },
-            { id: 'SiO2', name: 'SiO2', mat: resolveMaterial('SiO2') },
-        ],
-        t: EN,
-    };
-    return { ctx, snap };
-}
-
-// Backstop against an engine that never finishes, so a hang fails with a
-// readable error instead of being SIGKILLed by the suite runner. It is NOT a
-// performance budget: with immediate timers a scenario costs tens of
-// milliseconds, but the suite runs tests concurrently, so the wall clock
-// reflects machine load as much as engine health. Keep it far above the
-// real cost.
-async function waitIdle(ctx, ms = 60000) {
-    const t0 = Date.now();
-    while (ctx.runningRef.current) {
-        if (Date.now() - t0 > ms) throw new Error('engine did not finish in time');
-        await sleep(3);
-    }
-    await sleep(5);   // let any trailing scheduled callbacks settle
-}
-
-// Rounded snapshot (kills last-bit FP noise from the real-optimizer scenarios;
-// the mock-worker scenarios are exact anyway). id + tMs are excluded.
-const rnd = x => (x == null ? x : Number(x.toFixed(9)));
-const rndLayers = arr => (arr || []).map(l => ({ material: l.material, thickness: rnd(l.thickness) }));
-function sanitizeCycle(cy) {
-    return {
-        genNum: cy.genNum, type: cy.type,
-        mf: rnd(cy.mf), omf: rnd(cy.omf), dMF: rnd(cy.dMF),
-        layerCount: cy.layerCount, insertMat: cy.insertMat ?? null,
-        side: cy.side ?? null, tot: rnd(cy.tot),
-        layers: rndLayers(cy.layers),
-        frontSnap: cy.frontSnap ? rndLayers(cy.frontSnap) : null,
-        backSnap:  cy.backSnap  ? rndLayers(cy.backSnap)  : null,
-    };
-}
-function finalize(ctx, snap) {
-    return {
-        cycles: ctx.cyclesRef.current.map(sanitizeCycle),
-        applied: snap.applied && { front: snap.applied.front.map(rnd), back: snap.applied.back.map(rnd) },
-        mf: rnd(snap.mf), mfBest: rnd(snap.mfBest), omf: rnd(snap.omf), omfBest: rnd(snap.omfBest),
-        layerCount: snap.layerCount, geSteps: snap.geSteps, status: snap.status,
-    };
-}
-
-// ── Designs / operands ────────────────────────────────────────────────────────
-const frontDesign = () => ({
-    incidentMedium: 'Air', exitMedium: 'Air',
-    substrate: { material: 'BK7', thickness: 1.0 },
-    frontLayers: [{ id: 'L1', material: 'TiO2', thickness: 110, locked: false }],
-    backLayers: [], surfaceMode: 'front_only', mfEvalMode: 'side',
-});
-const backDesign = () => ({
-    incidentMedium: 'Air', exitMedium: 'Air',
-    substrate: { material: 'BK7', thickness: 1.0 },
-    frontLayers: [],
-    backLayers: [{ id: 'B1', material: 'TiO2', thickness: 110, locked: false }],
-    surfaceMode: 'back_only', mfEvalMode: 'side',
-});
-const OPS = () => [
+const mat = id => ({ id, name: id, mat: getMaterial(id) });
+const POOL = ['TiO2', 'SiO2'].map(mat);
+const BBAR = caseById('bbar').ops;
+const MNT = makeOperand({ type: 'MNT', target: 20, weight: 1 });
+// A 480-520 nm reflection notch with a 600-650 nm pass band, for the scripted
+// worker, whose answers do not depend on the merit.
+const NOTCH = [
     makeOperand({ type: 'RAV', lambdaStart: 480, lambdaEnd: 520, aoi: 0, pol: 'avg', target: 0, weight: 1 }),
     makeOperand({ type: 'TAV', lambdaStart: 600, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 1, weight: 1 }),
 ];
 
-const MT_SET = { maxLayers: 6, maxGeCycles: 2, targetMF: 1e-9, dlsIter: 5, dMin: 10 };
-const WK_SET = { maxLayers: 4, maxGeCycles: 5, targetMF: 1e-9, dlsIter: 5, dMin: 10 };
+const design = (extra = {}) => ({
+    incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'BK7', thickness: 1.0 },
+    frontLayers: [layer('S', 'SiO2', 100)], backLayers: [],
+    surfaceMode: 'front_only', mfEvalMode: 'side',
+    ...extra,
+});
 
-// ── Scenarios ─────────────────────────────────────────────────────────────────
+const BASE = {
+    worker: 'real', ops: BBAR, pool: POOL,
+    maxLayers: 6, maxGeCycles: 3, targetMF: 1e-4, dlsIter: 10, dMin: 15, deepSearch: false,
+};
+const SCRIPTED = {
+    worker: 'scripted', ops: NOTCH, maxLayers: 4, maxGeCycles: 5, targetMF: 1e-9, dlsIter: 5, dMin: 10,
+};
+
+// Each scenario is one or more Run presses on one window.
+const SCENARIOS = {
+    plain: { presses: [{}] },
+    refineSeedMode: { storage: { seedMode: 'refine' }, presses: [{}] },
+    refineNoSmartSeed: { storage: { seedMode: 'refine', smartSeed: '0' }, presses: [{}] },
+    consolidateOff: { storage: { consolidate: '0' }, presses: [{}] },
+    bothSides: {
+        maxLayers: 4,
+        design: design({ surfaceMode: 'both_independent', mfEvalMode: 'total', backLayers: [layer('B', 'SiO2', 100)] }),
+        presses: [{}],
+    },
+    backOnly: {
+        design: design({ surfaceMode: 'back_only', mfEvalMode: 'total', frontLayers: [], backLayers: [layer('B', 'SiO2', 100)] }),
+        presses: [{}],
+    },
+    layerLimit: { maxLayers: 3, maxGeCycles: 4, presses: [{}] },
+    deepSearch: { deepSearch: true, maxLayers: 3, presses: [{ stopAtJob: 150 }] },
+    targetStop: { targetMF: 0.05, presses: [{}] },
+    sqpThorough: { storage: { engine: 'sqp', candMode: 'thorough', sensitivity: 'medium' }, presses: [{}] },
+    mntKept: { ops: [...BBAR, MNT], presses: [{}] },
+    secondPress: { presses: [{ maxGeCycles: 1 }, { maxGeCycles: 3 }] },
+    stopThenRun: { presses: [{ stopAtJob: 12 }, {}] },
+    errorAfterProgress: { presses: [{ failAtJob: 9 }] },
+    noOperands: { ops: BBAR.map(op => ({ ...op, enabled: false })), presses: [{}] },
+    noMaterials: { pool: [], presses: [{}] },
+    scriptedFront: { ...SCRIPTED, design: design({ frontLayers: [layer('L1', 'TiO2', 110)] }), presses: [{}] },
+    scriptedBack: {
+        ...SCRIPTED,
+        design: design({ surfaceMode: 'back_only', frontLayers: [], backLayers: [layer('B1', 'TiO2', 110)] }),
+        presses: [{}],
+    },
+};
+
+const layersOf = arr => (arr || []).map(l => [l.material, l.thickness]);
+const rowOf = cy => {
+    const { id, tMs, layers, frontSnap, backSnap, ...rest } = cy;
+    return { ...rest, layers: layersOf(layers), frontSnap: layersOf(frontSnap), backSnap: layersOf(backSnap) };
+};
+const sideLayers = d => d && { front: layersOf(d.frontLayers), back: layersOf(d.backLayers) };
+
 async function runScenario(name) {
-    switch (name) {
-        case 'mainThread/front': { const { ctx, snap } = makeCtx(frontDesign(), OPS(), MT_SET); runGeMainThread(ctx); await waitIdle(ctx); return finalize(ctx, snap); }
-        case 'mainThread/back':  { const { ctx, snap } = makeCtx(backDesign(),  OPS(), MT_SET); runGeMainThread(ctx); await waitIdle(ctx); return finalize(ctx, snap); }
-        case 'worker/front':     { const { ctx, snap } = makeCtx(frontDesign(), OPS(), WK_SET); runGeWorker(ctx); await waitIdle(ctx); return finalize(ctx, snap); }
-        case 'worker/back':      { const { ctx, snap } = makeCtx(backDesign(),  OPS(), WK_SET); runGeWorker(ctx); await waitIdle(ctx); return finalize(ctx, snap); }
-        default: throw new Error('unknown scenario ' + name);
-    }
+    const spec = { ...BASE, design: design(), ...SCENARIOS[name] };
+    const id = `ge-guard-${name}`;
+    const win = makeWindow(spec, id);
+    useWindow(win);
+    const presses = [];
+    await withWindowSettings(spec.storage, async () => {
+        for (const press of spec.presses) {
+            win.press = press;
+            if (press.maxGeCycles) win.ctx.maxGeCyclesRef.current = press.maxGeCycles;
+            win.statuses = []; win.phases = [];
+            runGeWorker(win.ctx);
+            await settle(win);
+            presses.push({ statuses: win.statuses, phases: win.phases, running: win.ctx.runningRef.current });
+        }
+    });
+    const ctx = win.ctx;
+    const cached = getCached(id);
+    return {
+        presses,
+        rows: ctx.cyclesRef.current.map(rowOf),
+        shown: win.shown,
+        design: win.applied && sideLayers(win.applied),
+        base: sideLayers(ctx.baseDesignRef.current),
+        saved: ctx.savedDesignRef.current && layersOf(ctx.savedDesignRef.current.frontLayers),
+        runs: ctx.runsRef.current.map(r => ({ runNum: r.runNum, baseline: layersOf(r.baseline?.frontLayers) })),
+        runOpen: ctx.runOpenRef.current,
+        genCount: ctx.genCountRef.current,
+        geSteps: ctx.geStepsRef.current,
+        cached: cached && { rows: cached.cycles.length, runs: cached.runs.length, geSteps: cached.geSteps, base: sideLayers(cached.baseDesign) },
+        checkpoints: win.checkpoints,
+        edits: win.edits,
+        designUpdates: win.designUpdates,
+        jobs: win.jobs,
+        workers: win.workers,
+        terminated: win.terminated,
+    };
 }
 
-const SCENARIOS = ['mainThread/front', 'mainThread/back', 'worker/front', 'worker/back'];
+// The snapshot with every object's keys sorted, so it compares what was shown,
+// not the order the fields were filled in.
+const sorted = v => (Array.isArray(v) ? v.map(sorted)
+    : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sorted(v[k])])) : v);
 
 const results = {};
-for (const name of SCENARIOS) { results[name] = await runScenario(name); }
+for (const name of Object.keys(SCENARIOS)) results[name] = sorted(await runScenario(name));
 
 if (UPDATE || !existsSync(GOLDEN)) {
     writeFileSync(GOLDEN, JSON.stringify(results, null, 2) + '\n');
-    console.log(`${UPDATE ? 'Updated' : 'Created'} golden: ${GOLDEN} (${SCENARIOS.length} scenarios)`);
+    console.log(`${UPDATE ? 'Updated' : 'Created'} golden: ${GOLDEN} (${Object.keys(results).length} scenarios)`);
     process.exit(0);
 }
 
 const golden = JSON.parse(readFileSync(GOLDEN, 'utf8'));
 let fails = 0;
-for (const name of SCENARIOS) {
+for (const name of Object.keys(SCENARIOS)) {
     const a = JSON.stringify(golden[name]), b = JSON.stringify(results[name]);
     if (a !== b) {
         fails++;
@@ -257,6 +179,6 @@ for (const name of SCENARIOS) {
         console.log(`   current: ${b}`);
     }
 }
-if (fails === 0) { console.log(`PASS ✅  GE runners identical to golden (${SCENARIOS.length} scenarios)`); process.exit(0); }
-console.log(`FAIL ❌  ${fails} scenario(s) drifted`);
+if (fails === 0) { console.log(`PASS ✅  Gradual Evolution runs identical to golden (${Object.keys(SCENARIOS).length} scenarios)`); process.exit(0); }
+console.log(`FAIL ❌  ${fails} failure(s)`);
 process.exit(1);
