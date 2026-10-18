@@ -16,6 +16,9 @@
  *      Filter, pp. 238-241: shortwave pass, 45° in air, SiO2 and TiO2) picks
  *      the period it reports.
  *   6. The ranking and the input limits.
+ *   7. At normal incidence the plain quarter-wave period, both ways round, the
+ *      better match from air to glass first, its zone edge at the edge
+ *      wavelength and its width as Eq. 7.15 gives.
  *
  * Run: node tests/edge_filter_search.mjs
  */
@@ -190,7 +193,7 @@ for (const pass of ['short', 'long']) {
 
     const cases = [
         [{ edgeLambda: 0 }, 'edgeLambda'],
-        [{ angleDeg: 0 }, 'angle'],
+        [{ angleDeg: -1 }, 'angle'],
         [{ angleDeg: 90 }, 'angle'],
         [{ nB: N_LOW }, 'sameIndex'],
         [{ nIncident: 1.52, angleDeg: 80, nA: 1.38 }, 'evanescent'],
@@ -210,6 +213,38 @@ for (const pass of ['short', 'long']) {
     assert.equal(edgeSearchError(request({ lower: 1.5, upper: 1.8 })), null, 'a start between 1 and 2 is searched');
     assert.equal(edgeSearchError(request({ step: 1.5 })), null, 'a step wider than the range is accepted');
     assert.deepEqual(searchGrid(0.1, 1, 1.5), [0.1], 'and searches the start alone');
+}
+
+// ── 7. Normal incidence: the plain quarter-wave period ───────────────────────
+{
+    // Half-width of a quarter-wave stack's first-order zone in g (Eq. 7.15).
+    const dg = (2 / Math.PI) * Math.asin((N_HIGH - N_LOW) / (N_HIGH + N_LOW));
+    const edgeLambda = 510;
+    // N11 of (½sO sI ½sO) at λ and normal incidence, from tmmcore's matrices.
+    const n11 = (sol, lambda) => {
+        const [nO, nI] = sol.outer === 'A' ? [N_LOW, N_HIGH] : [N_HIGH, N_LOW];
+        const one = [1, 0];
+        return [[nO, sol.a], [nI, sol.b], [nO, sol.a]].reduce((M, [n, coef]) =>
+            matmul(M, layerMatrix([n, 0], coef * edgeLambda / (4 * n), lambda, one, 's')),
+        [[[1, 0], [0, 0]], [[0, 0], [1, 0]]])[0][0][0];
+    };
+    for (const [pass, sign, firstOuter, stopSide] of [['short', 1, 'A', 1], ['long', -1, 'B', -1]]) {
+        const { solutions } = searchEdgeFilters(request({ angleDeg: 0, pass, edgeLambda }));
+        assert.equal(solutions.length, 2, `${pass} at 0°: the period both ways round`);
+        assert.equal(solutions[0].outer, firstOuter,
+            `${pass} at 0°: ${firstOuter === 'A' ? 'low' : 'high'} index outside first, the better match from air to glass`);
+        for (const sol of solutions) {
+            assert.equal(sol.c, null, `${pass} at 0°: three layers, no centre layer`);
+            assert.ok(Math.abs(sol.b - (1 + sign * dg)) < 1e-12, `${pass} at 0°: s = 1 ${sign > 0 ? '+' : '−'} Δg of Eq. 7.15 (${sol.b})`);
+            assert.equal(sol.a, sol.b / 2, `${pass} at 0°: eighth-wave outer layers of the same scale`);
+            assert.ok(Math.abs(n11(sol, edgeLambda) + 1) < 1e-9, `${pass} at 0°: N11 = −1 at the edge`);
+            assert.ok(n11(sol, edgeLambda * (1 + stopSide * 1e-4)) < -1, `${pass} at 0°: the zone is on the stop side`);
+            assert.ok(n11(sol, edgeLambda * (1 - stopSide * 1e-4)) > -1, `${pass} at 0°: and not on the pass side`);
+            assert.equal(sol.zoneS, sol.zoneP, `${pass} at 0°: s and p have one zone`);
+            const width = edgeLambda * 2 * dg / (1 - sign * dg);
+            assert.ok(Math.abs(sol.zoneS - width) < 1e-6 * width, `${pass} at 0°: the zone is ${width.toFixed(2)} nm wide`);
+        }
+    }
 }
 
 console.log('edge_filter_search: passed');

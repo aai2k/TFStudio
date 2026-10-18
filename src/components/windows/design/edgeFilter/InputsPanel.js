@@ -43,6 +43,7 @@ function StatusLines({ state, c, ef, design }) {
     const { running, progress, prepared, inputs } = state;
     const lines = [];
     if (running) lines.push(progress ? ef.searching(progress.done, progress.total) : ef.searchStarted);
+    if (inputs.angle === 0) lines.push(ef.normalIncidence);
     if (prepared.absorbing?.length) {
         const names = prepared.absorbing.map(id => designMaterialName(design, id)).join(', ');
         lines.push(ef.absorbs(names, inputs.edgeLambda));
@@ -61,7 +62,7 @@ export function InputsPanel({ state, c, t, ef, design }) {
         h(PassSeg, { state, c, ef }),
         row(
             field({ key: 'edgeLambda', label: ef.edgeLambda, width: 90, step: 1, positive: true }),
-            // 0° is taken, so the search can say why it finds nothing there.
+            // At 0° the search gives the plain quarter-wave period.
             field({ key: 'angle', label: ef.angle, width: 70, step: 1, min: 0 }),
             field({ key: 'periods', label: ef.periods, width: 60, step: 1, positive: true, integer: true }),
         ),

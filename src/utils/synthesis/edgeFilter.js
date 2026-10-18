@@ -61,6 +61,15 @@
  * pass region, the distance from the edge to the next zone of either
  * polarization on the pass side. For the worked example in Essential Macleod's
  * manual this picks the period it reports.
+ *
+ * Normal incidence. At 0° s and p are the same wave, so every period has its
+ * edges together and there is nothing to search (D above vanishes). The
+ * search gives the plain quarter-wave period (½sO sI ½sO) instead, with s
+ * putting its first-order zone edge at λe (N11 = −1 there), both ways round.
+ * Between air and glass a shortwave pass is better matched with the low index
+ * outside and a longwave pass with the high index outside (Chapter 7,
+ * "Application to Edge Filters", Eqs. 7.17 and 7.18, Fig. 7.3), so that one is
+ * listed first. Its c is null: the period has no centre layer.
  */
 
 import { layerMatrix, matmul, snellCosTheta } from '../../tmmcore.js';
@@ -250,6 +259,37 @@ function periodsAt(base, edgeLambda, pass) {
     return found;
 }
 
+// The scale s of the quarter-wave period (½sO sI ½sO) at normal incidence
+// whose first-order zone edge is at λe. At s = 1 the period is a quarter wave
+// at λe, the centre of its zone, where N11 is lowest and below −1; at s = 0 it
+// has no thickness and at s = 2 its layers are half waves, and N11 = 1 at both.
+// So N11 = −1 once on each side: above 1 for a shortwave pass, whose zone then
+// lies at longer wavelengths, below 1 for a longwave pass. These are the
+// s = 1 ± Δg of the zone half-width in Eq. 7.15 (§7.2.2), the same for either
+// material outside.
+function quarterWaveScale(nOuter, nInner, pass) {
+    const n11 = s => matmul(matmul(layer(nOuter, 1, s / 2, 1, 's'), layer(nInner, 1, s, 1, 's')),
+        layer(nOuter, 1, s / 2, 1, 's'))[0][0][0];
+    const f = s => n11(s) + 1;
+    return bisectRoot(f, 1, pass === 'short' ? 2 : 0, f(1));
+}
+
+// The quarter-wave periods at normal incidence, the better matched first. As
+// a five-layer period (aO bI cO bI aO) with a = s/2 and b = c = s it is two of
+// the three-layer one, whose zones are the same (N11 of two is 2·N11² − 1), so
+// its widths come from the same walk as every other period's.
+function quarterWavePeriods({ pass, edgeLambda, nA, nB }) {
+    const lowOutside = nA < nB ? 'A' : 'B';
+    const highOutside = lowOutside === 'A' ? 'B' : 'A';
+    const first = pass === 'short' ? lowOutside : highOutside;
+    return [first, first === 'A' ? 'B' : 'A'].map((outer) => {
+        const [nOuter, nInner] = outer === 'A' ? [nA, nB] : [nB, nA];
+        const s = quarterWaveScale(nOuter, nInner, pass);
+        const period = { nOuter, nInner, cosOuter: 1, cosInner: 1, a: s / 2, b: s, c: s };
+        return { outer, a: s / 2, b: s, c: null, sigma: -1, ...zoneWidths(period, pass, edgeLambda) };
+    });
+}
+
 /** The search grid of a: lower, lower + step, … up to upper. */
 export function searchGrid(lower, upper, step) {
     const count = Math.floor((upper - lower) / step + 1e-9) + 1;
@@ -262,8 +302,7 @@ const L = EDGE_SEARCH_LIMITS;
 // Comparisons are written so that a missing or NaN input fails them.
 const REQUEST_CHECKS = [
     ['edgeLambda', r => r.edgeLambda > 0],
-    // At normal incidence s and p are the same wave and D vanishes.
-    ['angle', r => r.angleDeg > 0 && r.angleDeg < 90],
+    ['angle', r => r.angleDeg >= 0 && r.angleDeg < 90],
     ['noIndex', r => r.nA > 0 && r.nB > 0 && r.nIncident > 0],
     ['sameIndex', r => r.nA !== r.nB],
     // A layer past its critical angle carries no travelling wave.
@@ -297,6 +336,10 @@ export function compareSolutions(x, y) {
 export function searchEdgeFilters(request, { onProgress } = {}) {
     const errorKey = edgeSearchError(request);
     if (errorKey) return { errorKey };
+    if (request.angleDeg === 0) {
+        if (onProgress) onProgress(1, 1);
+        return { solutions: quarterWavePeriods(request) };
+    }
     const { pass, edgeLambda, nIncident, angleDeg, nA, nB, lower, upper, step } = request;
     const geometry = incidenceGeometry(nIncident, angleDeg);
     const orders = [

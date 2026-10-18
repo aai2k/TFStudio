@@ -26,7 +26,7 @@ The edge of a finished filter, where its transmittance crosses 50 %, sits close 
 
 **Edge λ**: the wavelength where both zones start. The period is written in quarter waves at this wavelength.
 
-**Angle of incidence**: the angle in the incident medium at which s and p are brought together, between 0° and 90°. At normal incidence there is nothing to bring together.
+**Angle of incidence**: the angle in the incident medium at which s and p are brought together, from 0° up to 90°. At 0° s and p are the same wave, so every period has its edges together; the window then gives the plain quarter-wave period, scaled so that its zone starts at the edge, both ways round. For a shortwave pass (0.5L H 0.5L) is listed first and for a longwave pass (0.5H L 0.5H), the arrangements that match air to glass better. The range of a is not used there.
 
 **Periods**: how many periods the filter has. It does not change the search, only the filter that is previewed and applied.
 

@@ -47,7 +47,7 @@ function solutionRow({ sol, index, selected, outerName, onSelect, fit, c }) {
         h('td', { style: { ...cell, textAlign: 'left', maxWidth: 110, overflow: 'hidden', textOverflow: 'ellipsis' } }, fit(1, outerName)),
         h('td', { style: cell }, fit(2, sol.a.toFixed(4))),
         h('td', { style: cell }, fit(3, sol.b.toFixed(4))),
-        h('td', { style: cell }, fit(4, sol.c.toFixed(4))),
+        h('td', { style: cell }, fit(4, sol.c == null ? '–' : sol.c.toFixed(4))),
         h('td', { style: cell }, fit(5, nm(sol.zoneS))),
         h('td', { style: cell }, fit(6, nm(sol.zoneP))),
         h('td', { style: { ...cell, color: c.textDim } }, fit(7, nm(sol.passWidth))),

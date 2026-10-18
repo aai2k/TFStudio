@@ -4438,11 +4438,12 @@ export default {
     search: 'Cerca',
     stop: 'Ferma',
     searchStarted: 'Ricerca…',
+    normalIncidence: "In incidenza normale s e p coincidono, quindi ogni periodo ha i fronti s e p insieme. La finestra dà il semplice periodo a quarto d'onda, scalato in modo che la sua banda di reiezione cominci al fronte.",
     searching: (done, total) => `Ricerca: ${done} di ${total} valori di a`,
     absorbs: (names, lambda) => `Assorbimento a ${lambda} nm: ${names}. Lì la ricerca usa solo n; l'anteprima include k.`,
     errors: {
       edgeLambda: "La lunghezza d'onda del fronte deve essere maggiore di zero.",
-      angle: "L'angolo di incidenza deve stare tra 0° e 90°. In incidenza normale s e p coincidono e non c'è nulla da far coincidere.",
+      angle: "L'angolo di incidenza deve essere almeno 0° e minore di 90°.",
       noIndex: "Un materiale non ha indice di rifrazione alla lunghezza d'onda del fronte.",
       sameIndex: "I materiali A e B hanno lo stesso indice alla lunghezza d'onda del fronte.",
       evanescent: "A questo angolo di incidenza un materiale è oltre il suo angolo critico.",

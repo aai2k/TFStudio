@@ -92,11 +92,16 @@ export function formulaSymbols(inputs, request) {
 // Six decimals hold the edge to a millionth of the edge wavelength.
 const coef = x => String(Number(x.toFixed(6)));
 
-/** The period, repeated `periods` times, in Stack Formula's syntax. */
+/**
+ * The period, repeated `periods` times, in Stack Formula's syntax. A period
+ * with no centre layer (c null, the quarter-wave period at normal incidence)
+ * has three layers.
+ */
 export function periodFormula(solution, symbols, periods) {
     const [outer, inner] = solution.outer === 'A' ? [symbols.A, symbols.B] : [symbols.B, symbols.A];
     const { a, b, c } = solution;
-    const body = `${coef(a)}${outer} ${coef(b)}${inner} ${coef(c)}${outer} ${coef(b)}${inner} ${coef(a)}${outer}`;
+    const middle = c == null ? '' : ` ${coef(c)}${outer} ${coef(b)}${inner}`;
+    const body = `${coef(a)}${outer} ${coef(b)}${inner}${middle} ${coef(a)}${outer}`;
     return periods > 1 ? `(${body})^${periods}` : body;
 }
 

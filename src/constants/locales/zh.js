@@ -4379,11 +4379,12 @@ export default {
     search: '搜索',
     stop: '停止',
     searchStarted: '搜索中…',
+    normalIncidence: '正入射时 s 与 p 相同，因此任何周期的 s 与 p 边缘都重合。窗口给出普通的四分之一波周期，并缩放到使其截止带从边缘开始。',
     searching: (done, total) => `搜索中：a 的 ${total} 个取值已完成 ${done} 个`,
     absorbs: (names, lambda) => `在 ${lambda} nm 处有吸收：${names}。搜索在此只取 n，预览包含 k。`,
     errors: {
       edgeLambda: '边缘波长必须大于零。',
-      angle: '入射角必须在 0° 与 90° 之间。正入射时 s 与 p 相同，无需使其重合。',
+      angle: '入射角必须不小于 0° 且小于 90°。',
       noIndex: '某个材料在边缘波长处没有折射率。',
       sameIndex: '材料 A 与 B 在边缘波长处的折射率相同。',
       evanescent: '在此入射角下某个材料超过了其临界角。',

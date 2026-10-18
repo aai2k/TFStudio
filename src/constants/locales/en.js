@@ -4002,12 +4002,13 @@ export default {
     search:         'Search',
     stop:           'Stop',
     searchStarted:  'Searching…',
+    normalIncidence: 'At normal incidence s and p are the same wave, so every period has its edges together. The window gives the plain quarter-wave period, scaled so that its zone starts at the edge.',
     searching:      (done, total) => `Searching: ${done} of ${total} values of a`,
     absorbs:        (names, lambda) => `Absorbing at ${lambda} nm: ${names}. The search takes n alone there; the preview includes k.`,
     // Why a search cannot run or found nothing, keyed by the code it returns.
     errors: {
       edgeLambda: 'The edge wavelength must be above zero.',
-      angle:      'The angle of incidence must lie between 0° and 90°. At normal incidence s and p are the same, so there is nothing to bring together.',
+      angle:      'The angle of incidence must be 0° or more and below 90°.',
       noIndex:    'A material has no refractive index at the edge wavelength.',
       sameIndex:  'Materials A and B have the same index at the edge wavelength.',
       evanescent: 'A material is past its critical angle at this angle of incidence.',
