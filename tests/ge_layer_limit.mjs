@@ -15,9 +15,9 @@
  *      row) instead of finishing, and it ends on its GE-step budget.
  *   5. Broadband AR 400-700 nm from TiO2 30 / SiO2 50 nm on BK7, 15 nm floor,
  *      Sequential QP, seed refined first, at most 7 layers, run with the real
- *      synthesis jobs (worker path, in process) and on the main thread: the run
- *      keeps searching after it first reaches 7 layers, ends better than it was
- *      then, and never holds more than 7 layers.
+ *      synthesis jobs (worker path, in process): the run keeps searching after
+ *      it first reaches 7 layers, ends better than it was then, and never holds
+ *      more than 7 layers.
  *
  * Run: node tests/ge_layer_limit.mjs
  */
@@ -55,8 +55,7 @@ const fullMF = (ops, d) => O.calcMF(ops, O.evaluateOperands(ops, O.buildEvalCont
 const relClose = (a, b, tol = 1e-9) => Math.abs(a - b) <= tol * Math.max(Math.abs(a), Math.abs(b), 1e-300);
 const runJob = (job) => { let out; dispatchSynthesisJob(job, rm, m => { if (m.type !== 'tick') out = m; }); return out; };
 const _log = console.log;
-let logged = [];
-const quiet = () => { logged = []; console.log = (...a) => { logged.push(a.join(' ')); }; };
+const quiet = () => { console.log = () => {}; };
 const loud = () => { console.log = _log; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const ref = v => ({ current: v });
@@ -121,7 +120,7 @@ const noop = () => {};
 // ── 4. The runner at the limit, against a scripted worker ────────────────────
 function geCtx(design, operands, settings) {
     const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false), workerRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...design, id: 'ge-limit' }),
         operandsRef: ref(operands.map(o => ({ ...o, enabled: true }))), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), checkpointRef: ref(noop),
@@ -226,19 +225,6 @@ function afterLimit(rows) {
     ok('worker path: it ends better than it was at the limit', Math.min(...rows.map(r => r.mf)) < atLimit - 1e-9,
         `${Math.min(...rows.map(r => r.mf))} vs ${atLimit}`);
     ok('worker path: no row and no final design holds more than 7 layers',
-        rows.every(r => r.layerCount <= 7) && ctx.designRef.current.frontLayers.length <= 7);
-}
-{
-    const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
-    const ctx = geCtx(media([['TiO2', 30], ['SiO2', 50]]), ARC(), SETTINGS);
-    await runToEnd(runGeMainThread, ctx);
-    const rows = ctx.cyclesRef.current;
-    const { first, atLimit, later } = afterLimit(rows);
-    ok('main thread: the run reaches 7 layers', first >= 0);
-    ok('main thread: it keeps searching after that', later.length > 0 && logged.some(l => l.includes('Freed a layer')) && ctx.status !== ST.maxLayers(7), ctx.status);
-    ok('main thread: it ends better than it was at the limit', Math.min(...rows.map(r => r.mf)) < atLimit - 1e-9,
-        `${Math.min(...rows.map(r => r.mf))} vs ${atLimit}`);
-    ok('main thread: no row and no final design holds more than 7 layers',
         rows.every(r => r.layerCount <= 7) && ctx.designRef.current.frontLayers.length <= 7);
 }
 

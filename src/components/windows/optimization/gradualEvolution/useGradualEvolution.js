@@ -2,7 +2,7 @@
  * State/effects/engine-wiring for the Gradual Evolution window. See
  * GradualEvolution.js for the algorithm description; this hook owns the
  * settings, run refs, and the Run/Stop/Reset/Restore controller actions that
- * drive the worker-pool (or main-thread fallback) GE engine.
+ * drive the worker-pool GE engine.
  *
  * Split into cohesive sub-hooks (settings vs. run/cache state), with the
  * heavier branching logic pulled into module-scope helpers that take a ctx
@@ -22,7 +22,7 @@ import {
 } from '../synthesisShared/synthesisHelpers.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 
-// Run engine (worker-pool default; falls back to a main-thread engine).
+// Run engine (worker pool).
 import { runGeWorker } from './runners/workerPool.js';
 import { restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot } from './geStateHelpers.js';
 import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
@@ -113,9 +113,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
     const [statusMsg,  setStatusMsg]  = useState('');
 
     const runningRef       = useRef(false);
-    const timerRef         = useRef(null);
-    const workerRef        = useRef(null);    // synthesis Web Worker
-    const dlsRef           = useRef(null);
+    const workerRef        = useRef(null);    // synthesis worker pool
     const baseDesignRef    = useRef(null);
     const savedDesignRef   = useRef(null);
     const baseRevRef       = useRef(0);      // design revision when baseDesignRef was cached (M12)
@@ -142,7 +140,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
     const lastDesignId = useRef(null);
     useEffect(() => {
         restoreOrClearForDesign(design, {
-            lastDesignId, runningRef, timerRef, workerRef,
+            lastDesignId, runningRef, workerRef,
             cyclesRef, genCountRef, geStepsRef, savedDesignRef, baseDesignRef, baseRevRef,
             runsRef, runOpenRef, getDesignRevision,
             setPhase, setStatusMsg, setCycles, setMf, setMfBest, setOmf, setOmfBest,
@@ -153,7 +151,6 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
     useEffect(() => {
         return () => {
             runningRef.current = false;
-            clearTimeout(timerRef.current);
             if (workerRef.current) {
                 try { workerRef.current.terminate(); } catch (_) {}
                 workerRef.current = null;
@@ -166,7 +163,7 @@ function useGeRunState({ design, beginOptimization, endOptimization, getDesignRe
         cycles, setCycles, cyclesRef, mf, setMf, mfBest, setMfBest,
         omf, setOmf, omfBest, setOmfBest, layerCount, setLayerCount,
         canReset, setCanReset, statusMsg, setStatusMsg,
-        runningRef, timerRef, workerRef, dlsRef, baseDesignRef, savedDesignRef, baseRevRef,
+        runningRef, workerRef, baseDesignRef, savedDesignRef, baseRevRef,
         operandsRef, designRef, genCountRef, geStepsRef, runsRef, runOpenRef,
     };
 }
@@ -193,7 +190,6 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
     const stopOpt = useCallback((msg = '') => {
         const wasRunning = run.runningRef.current;
         run.runningRef.current = false;
-        clearTimeout(run.timerRef.current);
         if (run.workerRef.current) {
             try { run.workerRef.current.terminate(); } catch (_) {}
             run.workerRef.current = null;
@@ -220,12 +216,12 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
 
     // ── Run engines ─────────────────────────────────────────────────────────────
     // The GE state machine lives in runners/. The window assembles a `ctx` bag
-    // (refs + state setters + the reconcile / stop / pool helpers) that both the
-    // default worker-pool engine and its main-thread fallback drive.
+    // (refs + state setters + the reconcile / stop / pool helpers) that the
+    // worker-pool engine drives.
     const runOpt = useCallback(() => {
         runGeWorker({
-            runningRef: run.runningRef, timerRef: run.timerRef, workerRef: run.workerRef,
-            dlsRef: run.dlsRef, baseDesignRef: run.baseDesignRef, savedDesignRef: run.savedDesignRef,
+            runningRef: run.runningRef, workerRef: run.workerRef,
+            baseDesignRef: run.baseDesignRef, savedDesignRef: run.savedDesignRef,
             baseRevRef: run.baseRevRef,
             designRef: run.designRef, operandsRef: run.operandsRef, cyclesRef: run.cyclesRef,
             genCountRef: run.genCountRef, geStepsRef: run.geStepsRef,
@@ -248,7 +244,7 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
     // Reset undoes ONE Run press; Clear history forgets every run and leaves the
     // design where it is (synthesisShared/runBlocks.js).
     const stateCtx = () => ({
-        dlsRef: run.dlsRef, savedDesignRef: run.savedDesignRef, baseDesignRef: run.baseDesignRef,
+        savedDesignRef: run.savedDesignRef, baseDesignRef: run.baseDesignRef,
         baseRevRef: run.baseRevRef,
         updateDesign, designRef: run.designRef, cyclesRef: run.cyclesRef,
         genCountRef: run.genCountRef, geStepsRef: run.geStepsRef,

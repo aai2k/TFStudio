@@ -1,7 +1,7 @@
-// Deep search, shared by the worker-pool and main-thread Gradual-Evolution
-// engines. Without it a run ends when needle optimization has stalled and no
-// forced step or layer swap is left. With it the run starts again from the best
-// design with every unlocked thickness perturbed, refined, and needle
+// Deep search for a Gradual-Evolution run. Without it a run ends when needle
+// optimization has stalled and no forced step or layer swap is left. With it
+// the run starts again from the best design with every unlocked thickness
+// perturbed, refined, and needle
 // optimization goes on from there (basin hopping: D. J. Wales & J. P. K. Doye,
 // J. Phys. Chem. A 101, 5111 (1997)). The run then ends only on Stop or the
 // target merit; the GE-cycle limit does not apply.

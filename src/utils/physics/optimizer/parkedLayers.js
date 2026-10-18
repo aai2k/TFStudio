@@ -94,9 +94,8 @@ export function withoutWins(mfWith, mfWithout) {
  * with an engine at the design itself (refine with 0 iterations).
  *
  * The refining is left to the caller: `refine(design, maxIter)` refines a
- * design with the caller's engine and returns that engine, so this runs the
- * same on the main thread and in a worker. `key` names the layer stack the
- * synthesis works on, which must not end up empty.
+ * design with the caller's engine and returns that engine. `key` names the
+ * layer stack the synthesis works on, which must not end up empty.
  */
 export function refineWithoutParked(refine, design, key, maxIter) {
     const at = refine(design, 0);

@@ -25,9 +25,9 @@
  *      one out; a new Run's first merged step is a Refine row of that Run.
  *   4. Broadband AR 400-700 nm from TiO2 30 / SiO2 50 nm on BK7, 15 nm floor,
  *      Sequential QP, seed refined first, run with the real synthesis jobs
- *      (worker path, in process) and on the main thread: every Needle row adds
- *      a layer, no two GE rows show the same layer count and merit, and the
- *      design the run ends on is a row of the history.
+ *      (worker path, in process): every Needle row adds a layer, no two GE rows
+ *      show the same layer count and merit, and the design the run ends on is a
+ *      row of the history.
  *
  * Run: node tests/ge_history_rows.mjs
  */
@@ -146,7 +146,7 @@ const NARROW = () => [O.makeOperand({ type: 'RAV', lambdaStart: 480, lambdaEnd: 
 
 function geCtx(design, operands, settings) {
     const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false), workerRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...design, id: 'ge-rows' }),
         operandsRef: ref(operands.map(o => ({ ...o, enabled: true }))), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), checkpointRef: ref(noop),
@@ -258,17 +258,6 @@ localStorage.setItem('tfstudio-synth-seed-mode', 'refine');
     ok('worker path: the run took forced steps and needles', rows.some(r => r.type === 'ge') && rows.some(r => r.type === 'needle'));
     ok('worker path: the design the run ends on is a row of the history',
         rows.some(r => sameStack(r.frontSnap, ctx.designRef.current.frontLayers)));
-}
-{
-    const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
-    const ctx = geCtx(media([['TiO2', 30], ['SiO2', 50]]), ARC(), SETTINGS);
-    await runToEnd(runGeMainThread, ctx);
-    const rows = ctx.cyclesRef.current;
-    ok('main thread: every Needle row adds a layer', needleRowsAddLayers(rows).length === 0, `generations ${needleRowsAddLayers(rows).join(', ')} do not`);
-    ok('main thread: no two GE rows show the same layer count and merit', repeatedGeRows(rows).length === 0, repeatedGeRows(rows).join(', '));
-    ok('main thread: the run took forced steps and needles', rows.some(r => r.type === 'ge') && rows.some(r => r.type === 'needle'));
-    ok('main thread: the design the run ends on is a row of the history',
-        rows.some(r => sameStack(r.layers, ctx.designRef.current.frontLayers)));
 }
 
 console.log(`=== GE history rows · WASM ${tmmWasmActive() ? 'ON' : 'off'} ===`);

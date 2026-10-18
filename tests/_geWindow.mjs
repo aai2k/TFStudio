@@ -138,7 +138,7 @@ export function makeWindow(spec, id) {
     const push = list => v => { const l = list(); if (l[l.length - 1] !== v) l.push(v); };
     const show = key => v => { win.shown[key] = v; };
     const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false), workerRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(0),
         designRef: ref({ ...spec.design, id }),
         operandsRef: ref(spec.ops.map(op => ({ enabled: true, ...op }))),
@@ -167,7 +167,6 @@ export function makeWindow(spec, id) {
     ctx.stopOpt = (msg = '') => {
         const wasRunning = ctx.runningRef.current;
         ctx.runningRef.current = false;
-        clearTimeout(ctx.timerRef.current);
         if (ctx.workerRef.current) {
             try { ctx.workerRef.current.terminate(); } catch (_) {}
             ctx.workerRef.current = null;

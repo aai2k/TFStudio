@@ -14,7 +14,7 @@
  *   2. Needle Automatic (MNT dropped).
  *   3. Needle Manual: the rows its scan, predicted merit and refine share
  *      (MNT kept; the scan drops it itself).
- *   4. Gradual Evolution, worker and main-thread runs (MNT kept).
+ *   4. Gradual Evolution (MNT kept).
  *   5. Structural: its refine rows (MNT dropped) and the rows it scores
  *      results on (MNT kept).
  *   6. Deep Synthesis (MNT dropped).
@@ -71,7 +71,6 @@ const SYN = await import('../src/components/windows/optimization/synthesisShared
 const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
 const NEEDLE_MANUAL = await import('../src/components/windows/optimization/needleManual/model.js');
 const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
-const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
 const { createRunState: structuralRunState } = await import('../src/components/windows/optimization/structuralOptimizer/runners/runState.js');
 const { createRunState: deepRunState } = await import('../src/components/windows/optimization/deepSynthesis/runners/runState.js');
 const { createRunContext } = await import('../src/components/windows/optimization/deepSynthesis/runners/lifecycle.js');
@@ -145,7 +144,6 @@ const builtin = poolCatalogs(null).find(cat => cat.id === 'builtin');
 const EXCLUDED = new Set(poolMatEntries(builtin).map(e => e.fullId).filter(id => id !== 'TiO2' && id !== 'SiO2'));
 
 const ids = rows => new Set(rows.map(op => op.id));
-const opsOf = engine => engine?.operands ?? engine?._ev?.operands;
 
 // A synthesis run's rows: no PPEF row and no row reading it; the block, the
 // TDBMN row, and MNT exactly when the window keeps it.
@@ -211,7 +209,7 @@ await check('Needle Manual rows', () => {
 // ── 4. Gradual Evolution ─────────────────────────────────────────────────────
 function geCtx() {
     const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false), workerRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(copy(DESIGN)),
         operandsRef: ref(copy(OPERANDS)), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), updateDesignRef: ref(noop), checkpointRef: ref(noop),
@@ -235,14 +233,6 @@ await check('Gradual Evolution worker run', async () => {
         ctx.stopOpt();
     }
     synthesisRows(posted.find(job => job.operands).operands, { mnt: true });
-});
-
-await check('Gradual Evolution main-thread run', () => {
-    const ctx = geCtx();
-    runGeMainThread(ctx);
-    ctx.runningRef.current = false;
-    clearTimeout(ctx.timerRef.current);
-    synthesisRows(opsOf(ctx.dlsRef.current), { mnt: true });
 });
 
 // ── 5. Structural ────────────────────────────────────────────────────────────

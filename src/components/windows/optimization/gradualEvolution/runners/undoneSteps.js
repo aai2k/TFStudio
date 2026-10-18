@@ -1,5 +1,5 @@
-// Structural steps that led nowhere, shared by the worker-pool and main-thread
-// Gradual-Evolution engines, so that GE does not take them again.
+// Structural steps that led nowhere in a Gradual-Evolution run, so that GE does
+// not take them again.
 //
 // Two kinds of step change the structure between needle optimizations:
 //
@@ -85,10 +85,6 @@ export const undoneForcedSteps = (S, side, layers) => {
     const structure = structureOf(layers);
     return (S.undoneForced || []).filter(u => u.side === side && u.structure === structure);
 };
-
-// Whether scan candidate `c` of the forced step is one of `undone`.
-export const isUndoneForcedStep = (undone, c) =>
-    undone.some(u => u.side === c.side && u.pos === c.pos && u.materialId === c.materialId);
 
 // The structures on `side` a swap may not leave: those this run's swaps have
 // left already.

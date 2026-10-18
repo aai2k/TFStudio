@@ -86,7 +86,7 @@ async function runGeAfterFinishedRun({ geSteps, maxGeCycles, designId }) {
     const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
     const shown = [];
     const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false), workerRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), baseRevRef: ref(3),
         designRef: ref(media(layers([['TiO2', 60], ['SiO2', 90]]), designId)),
         operandsRef: ref(ops), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(geSteps),
@@ -120,7 +120,7 @@ async function runGeAfterFinishedRun({ geSteps, maxGeCycles, designId }) {
     // Reset after a finished run: the count goes back to 0 with the run it undoes.
     const shown = [];
     const ctx = {
-        dlsRef: ref(null), savedDesignRef: ref(null), baseDesignRef: ref(null), baseRevRef: ref(5),
+        savedDesignRef: ref(null), baseDesignRef: ref(null), baseRevRef: ref(5),
         updateDesign: noop, designRef: ref(media(layers([['SiO2', 100]]), 'ge-reset')),
         cyclesRef: ref([{ runNum: 1, genNum: 1, mf: 0.1, type: 'ge' }]), genCountRef: ref(1), geStepsRef: ref(16),
         runsRef: ref([{ runNum: 1, baseline: { frontLayers: layers([['SiO2', 100]]), backLayers: [] } }]), runOpenRef: ref(false),
@@ -192,7 +192,7 @@ for (const [label, revNow, kept] of [['edited while closed', 7, false], ['not ed
         savedDesign: run1.baseline, baseDesign: media(cachedStack, 'ge-remount'), baseRev: 4,
     });
     const ctx = {
-        lastDesignId: ref(null), runningRef: ref(false), timerRef: ref(null), workerRef: ref(null),
+        lastDesignId: ref(null), runningRef: ref(false), workerRef: ref(null),
         cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0), savedDesignRef: ref(null), baseDesignRef: ref(null),
         baseRevRef: ref(0), runsRef: ref([]), runOpenRef: ref(false), getDesignRevision: () => revNow,
         setPhase: noop, setStatusMsg: noop, setCycles: noop, setMf: noop, setMfBest: noop, setOmf: noop, setOmfBest: noop,

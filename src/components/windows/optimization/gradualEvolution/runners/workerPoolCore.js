@@ -1,14 +1,13 @@
 // Shared low-level helpers for the worker-pool Gradual-Evolution engine
 // (workerPool.js + its phase modules): design snapshotting, liveness checks,
-// live-preview throttling, cycle recording, and the main-thread fallback
-// trigger. See workerPool.js for the engine overview.
+// live-preview throttling and cycle recording. See workerPool.js for the
+// engine overview.
 
 import {
     minOmfOf, materialLookup, regridForDesign, meritOf, presampleSynthesisMaterials,
 } from '../../synthesisShared/synthesisHelpers.js';
 import { activeRunNum } from '../../synthesisShared/runBlocks.js';
 import { setCached } from '../sessionState.js';
-import { runGeMainThread } from './mainThread.js';
 
 export const deep = x => JSON.parse(JSON.stringify(x));
 export const mkLayers = arr => (arr || []).map(l => ({
@@ -55,6 +54,7 @@ export function onTick(ctx, S, _i, m) {
     if (Object.keys(patch).length) {
         ctx.updateDesignRef.current(patch, { transient: true });
         if (m.layers) ctx.setLayerCount(m.layers.length);
+        S.gotProgress = true;
     }
 }
 
@@ -140,13 +140,4 @@ export function recordRefine(ctx, S, { mf, layerCount, side, activeLayers, omf, 
         ...workRowFields(S, { mf, omf, activeLayers: last.side === 'back' ? S.work.backLayers : S.work.frontLayers }),
     }];
     publishCycles(ctx, S, { layerCount: last.layerCount, omf });
-}
-
-export function fallback(ctx, S, why, err) {
-    console.error(`[GE] Pool ${why}, main-thread fallback:`, err);
-    window.electronAPI?.diagLog?.(`GE pool ${why} → main-thread fallback: ${err?.message || err}`);
-    try { S.workerPool.terminate(); } catch (_) {}
-    if (ctx.workerRef.current === S.workerPool) ctx.workerRef.current = null;
-    ctx.runningRef.current = false;
-    runGeMainThread(ctx);
 }

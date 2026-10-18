@@ -156,7 +156,7 @@ async function runGeMock(answer, maxGeCycles = 1) {
     const noop = () => {};
     const seed = geSeed();
     const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false), workerRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...seed, id: 'ge-runner' }),
         operandsRef: ref(geOps), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), updateDesignRef: ref(noop), checkpointRef: ref(noop),
@@ -185,41 +185,20 @@ async function runGeMock(answer, maxGeCycles = 1) {
         relClose(r.omf, O.calcMF(geOps, O.evaluateOperands(geOps, O.buildEvalContext(out, rm)), { skipConstraints: true })));
     ok('GE step (worker): the TT row puts the full merit above the optical one', r.mf > r.omf * 1.5);
 }
-// The main-thread forced step stores the full merit of the stepped design as
-// the working merit, whatever the inner engine. With an MNT row above dMin and
-// a pool material unlike either seed layer, the forced layer stays a separate
-// 15 nm layer below MNT, which an SQP engine lifts to MNT when it is built.
-const mnt40 = O.makeConstraintOperand({ type: 'MNT', lambdaStart: 1, lambdaEnd: O.DEFAULT_CONSTRAINT_LAST_LAYER, target: 40, weight: 1 });
-const MGF2_POOL = [{ id: 'MgF2', name: 'MgF2', mat: rm('MgF2') }];
-for (const [innerEngine, stepOps, pool] of [['cg', geOps, POOL], ['sqp', [...geOps, mnt40], MGF2_POOL]]) {
-    const { forcedStep } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThreadGeStep.js');
-    const ref = v => ({ current: v });
-    const noop = () => {};
-    const seed = geSeed();
-    const ctx = {
-        baseDesignRef: ref(seed), savedDesignRef: ref(null), designRef: ref({ ...seed, id: 'ge-merit' }), updateDesignRef: ref(noop),
-        geStepsRef: ref(0), maxGeCyclesRef: ref(5), maxLayersRef: ref(20), dMinRef: ref(15),
-        dlsIterRef: ref(30), targetMFRef: ref(1e-9),
-        selectedCatsRef: ref([]), excludedMatsRef: ref([]), getPoolMaterials: () => pool,
-        cyclesRef: ref([]), genCountRef: ref(0), runsRef: ref([]), timerRef: ref(null), dlsRef: ref(null), runningRef: ref(true),
-        setGeSteps: noop, setCycles: noop, setGeneration: noop, setLayerCount: noop, setMfBest: noop,
-        setOmf: noop, setOmfBest: noop, setPhase: noop, setStatusMsg: noop,
-    };
-    const S = {
-        side: 'front', LK: 'frontLayers', operands: stepOps, innerEngine, runT0: 0,
-        work: { mf: 1, front: seed.frontLayers }, best: { mf: 1, front: seed.frontLayers },
-        curMF: { v: null }, tick: noop, pool,
-    };
-    quiet();
-    forcedStep(ctx, S);
-    loud();
-    const stepped = { ...seed, frontLayers: S.work.front };
-    if (pool === MGF2_POOL) {
-        ok('setup: the forced MgF2 layer stays a separate layer below MNT',
-            stepped.frontLayers.some(l => l.material === 'MgF2' && l.thickness < 40));
-    }
-    ok(`GE step (main thread, ${innerEngine}): work.mf is the full merit of the stepped design`, relClose(S.work.mf, fullMF(stepOps, stepped)),
-        `work.mf ${S.work.mf}, full ${fullMF(stepOps, stepped)}`);
+{
+    // With an MNT row above dMin and a pool material unlike either seed layer,
+    // the forced layer stays a separate 15 nm layer below MNT. The step still
+    // reports the full merit of that design, whatever the run's inner engine:
+    // an SQP engine, which lifts the layer to MNT when it is built, would score
+    // a different design.
+    const mnt40 = O.makeConstraintOperand({ type: 'MNT', lambdaStart: 1, lambdaEnd: O.DEFAULT_CONSTRAINT_LAST_LAYER, target: 40, weight: 1 });
+    const ops = [...geOps, mnt40];
+    const r = run({ type: 'geStep', operands: ops, design: geSeed(), pool: [{ id: 'MgF2', name: 'MgF2' }], dMin: 15, side: 'front', engine: 'sqp' });
+    const out = { ...geSeed(), frontLayers: r.frontLayers, backLayers: r.backLayers };
+    ok('setup: the forced MgF2 layer stays a separate layer below MNT',
+        out.frontLayers.some(l => l.material === 'MgF2' && l.thickness < 40));
+    ok('GE step (worker, MNT row): mf is the full merit of the returned design', relClose(r.mf, fullMF(ops, out)),
+        `mf ${r.mf}, full ${fullMF(ops, out)}`);
 }
 {
     // Runner: after a forced step whose full merit sits above its optical

@@ -271,6 +271,9 @@ function handleGeStep(job, resolveMat, post) {
     // The scan above ranks insertions on the optical merit; the run compares
     // every later needle against the full merit the refiners minimize (with
     // the TT, STR and MNT/MXT rows), so the step reports that merit as `mf`.
+    // It is read off a DLS engine whatever the run's inner engine: an SQP
+    // engine would score the design with its forced layer lifted to an MNT
+    // above dMin, not the design the step returns.
     const ev = makeEngine('dls', operands, geDesign, resolveMat, { dMin });
     post({ type: 'result', kind: 'geStep', side,
         layers: geDesign[key],

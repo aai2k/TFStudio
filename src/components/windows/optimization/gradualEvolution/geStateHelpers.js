@@ -14,7 +14,7 @@ import { getCached, setCached, clearCached } from './sessionState.js';
 // design being switched away from.
 export function restoreOrClearForDesign(design, ctx) {
     const {
-        lastDesignId, runningRef, timerRef, workerRef,
+        lastDesignId, runningRef, workerRef,
         cyclesRef, genCountRef, geStepsRef, savedDesignRef, baseDesignRef, baseRevRef,
         runsRef, runOpenRef, getDesignRevision,
         setPhase, setStatusMsg, setCycles, setMf, setMfBest, setOmf, setOmfBest,
@@ -26,7 +26,6 @@ export function restoreOrClearForDesign(design, ctx) {
 
     if (prevId && prevId !== newId) {
         runningRef.current = false;
-        clearTimeout(timerRef.current);
         if (workerRef.current) {
             try { workerRef.current.terminate(); } catch (_) {}
             workerRef.current = null;
@@ -141,11 +140,10 @@ function undoCurrentRun(ctx, undone) {
 // exactly where it is.
 export function clearRunHistory(ctx) {
     const {
-        dlsRef, savedDesignRef, baseDesignRef, designRef,
+        savedDesignRef, baseDesignRef, designRef,
         cyclesRef, genCountRef, geStepsRef, runsRef, runOpenRef,
         setMf, setOmf, setGeneration, setGeSteps, setLayerCount, setCanReset, setStatusMsg,
     } = ctx;
-    dlsRef.current = null;
     clearCached(designRef.current?.id);
     cyclesRef.current      = [];
     runsRef.current        = [];
@@ -169,8 +167,7 @@ export function clearRunHistory(ctx) {
 // back another run. A `side` restores only that side of the current run's
 // baseline and drops that side's cycles (both_independent).
 export function performReset(side, ctx) {
-    const { dlsRef, updateDesign, cyclesRef, runsRef, setStatusMsg } = ctx;
-    dlsRef.current = null;
+    const { updateDesign, cyclesRef, runsRef, setStatusMsg } = ctx;
     if (side) {
         const baseline = activeBaseline(runsRef.current);
         if (baseline) {

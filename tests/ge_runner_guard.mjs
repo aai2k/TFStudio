@@ -100,6 +100,16 @@ const SCENARIOS = {
     errorAfterProgress: { presses: [{ failAtJob: 9 }] },
     noOperands: { ops: BBAR.map(op => ({ ...op, enabled: false })), presses: [{}] },
     noMaterials: { pool: [], presses: [{}] },
+    // A pool that cannot be built, or that fails before the run has shown
+    // anything, ends the run with the design as it was.
+    poolNotBuilt: { presses: [{ poolThrows: true }] },
+    failsAtFirstJob: { presses: [{ failAtJob: 1 }] },
+    presampleFails: { pool: [...POOL, { id: 'Broken', name: 'Broken', mat: { getNK() { throw new Error('no data'); } } }], presses: [{}] },
+    // The refined seed is on screen, and so is a live preview of it, so a
+    // failure after either is a failure after progress.
+    failsDuringSeed: { presses: [{ previewThenFailAtJob: 1 }] },
+    failsDuringSmartSeed: { storage: { seedMode: 'refine' }, presses: [{ previewThenFailAtJob: 1 }] },
+    failsAfterSeed: { presses: [{ failAtJob: 2 }] },
     scriptedFront: { ...SCRIPTED, design: design({ frontLayers: [layer('L1', 'TiO2', 110)] }), presses: [{}] },
     scriptedBack: {
         ...SCRIPTED,

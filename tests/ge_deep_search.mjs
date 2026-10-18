@@ -14,10 +14,10 @@
  *      target merit.
  *   3. Broadband AR 400-700 nm from TiO2 30 / SiO2 50 nm on BK7, 15 nm floor,
  *      Sequential QP, seed refined first, at most 7 layers, real synthesis jobs
- *      (worker path, in process) and on the main thread: without Deep search
- *      the run ends on its own; with it the run goes past that point, records
- *      Perturb rows, never holds more than 7 layers, and after two
- *      perturbations its best is no worse than the run without it.
+ *      (worker path, in process): without Deep search the run ends on its own;
+ *      with it the run goes past that point, records Perturb rows, never holds
+ *      more than 7 layers, and after two perturbations its best is no worse
+ *      than the run without it.
  *
  * Run: node tests/ge_deep_search.mjs
  */
@@ -35,7 +35,6 @@ const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWor
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
 const { perturbBest } = await import('../src/components/windows/optimization/gradualEvolution/runners/deepSearch.js');
 const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
-const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
 const { default: EN } = await import('../src/constants/locales/en.js');
 const ST = EN.gradualEvolution.status;
 
@@ -96,7 +95,7 @@ const noop = () => {};
 // ── 2. The runner with nothing left to try, against a scripted worker ────────
 function geCtx(design, operands, settings) {
     const ctx = {
-        runningRef: ref(false), timerRef: ref(null), workerRef: ref(null), dlsRef: ref(null),
+        runningRef: ref(false), workerRef: ref(null),
         baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...design, id: 'ge-deep' }),
         operandsRef: ref(operands.map(o => ({ ...o, enabled: true }))), cyclesRef: ref([]), genCountRef: ref(0), geStepsRef: ref(0),
         runsRef: ref([]), runOpenRef: ref(false), checkpointRef: ref(noop),
@@ -195,17 +194,17 @@ globalThis.Worker = class {
     }
     terminate() { this.dead = true; }
 };
-for (const [path, run] of [['worker path', runGeWorker], ['main thread', runGeMainThread]]) {
+{
     const plain = geCtx(media([['TiO2', 30], ['SiO2', 50]]), ARC(), SETTINGS);
-    const plainEnded = await runUntil(run, plain);
-    ok(`${path}: without Deep search the run ends on its own`, plainEnded, plain.status);
+    const plainEnded = await runUntil(runGeWorker, plain);
+    ok('worker path: without Deep search the run ends on its own', plainEnded, plain.status);
 
     const deep = geCtx(media([['TiO2', 30], ['SiO2', 50]]), ARC(), { ...SETTINGS, deepSearch: true });
-    const deepEnded = await runUntil(run, deep, ctx => perturbRows(ctx).length >= 2);
-    ok(`${path}: with Deep search it goes past that point until Stop`, !deepEnded && perturbRows(deep).length >= 2,
+    const deepEnded = await runUntil(runGeWorker, deep, ctx => perturbRows(ctx).length >= 2);
+    ok('worker path: with Deep search it goes past that point until Stop', !deepEnded && perturbRows(deep).length >= 2,
         `${perturbRows(deep).length} Perturb rows, status ${deep.status}`);
-    ok(`${path}: with Deep search no row holds more than 7 layers`, deep.cyclesRef.current.every(r => r.layerCount <= 7));
-    ok(`${path}: with Deep search the best is no worse than without it`, bestMf(deep) <= bestMf(plain) + 1e-12,
+    ok('worker path: with Deep search no row holds more than 7 layers', deep.cyclesRef.current.every(r => r.layerCount <= 7));
+    ok('worker path: with Deep search the best is no worse than without it', bestMf(deep) <= bestMf(plain) + 1e-12,
         `${bestMf(deep)} vs ${bestMf(plain)}`);
 }
 

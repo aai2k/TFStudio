@@ -1,11 +1,12 @@
-// Worker-POOL Gradual-Evolution engine — the default run path. The main thread
+// Gradual-Evolution engine on a worker pool. The main thread
 // orchestrates the GE state machine while a WorkerPool runs the heavy
 // primitives: SCAN is fanned across the pool by candidate-material slice
 // (bit-identical per candidate); the needle-optimization step deliberately
 // refines a BATCH of top candidates in parallel and keeps the best (not
 // first-improving in ΔMF order), so it is not bit-identical. Seed-DLS and the
-// forced-TOT step are also pool jobs. Falls back to the synchronous main-thread
-// engine (mainThread.js) if the pool fails before any progress.
+// forced-TOT step are also pool jobs. A pool that cannot be built, or that
+// fails before the run has shown anything, ends the run with the design
+// unchanged.
 //
 // A plain function of the GradualEvolution window's `ctx` bag; see
 // GradualEvolution.js which builds the ctx and owns the React state. The
@@ -25,8 +26,7 @@ import {
     activeSide, densifyForRun, withoutPPEF, chunkArray, poolSize, serializableMedia, presampleSynthesisMaterials,
 } from '../../synthesisShared/synthesisHelpers.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
-import { runGeMainThread } from './mainThread.js';
-import { alive, fallback, regridIfGrown } from './workerPoolCore.js';
+import { alive, regridIfGrown } from './workerPoolCore.js';
 import { seedPhase } from './workerPoolSeed.js';
 import { tryAcceptOnSide } from './workerPoolNeedle.js';
 import { stallStep } from './workerPoolGeStep.js';
@@ -86,12 +86,31 @@ async function runGeLoop(ctx, S) {
         }
     } catch (err) {
         // Expected: a Stop tears down the pool, which rejects the in-flight job
-        // with 'pool terminated'. That's a clean stop, not an error — stopOpt
-        // already ran, so just bail silently.
+        // with 'pool terminated'. That is a clean stop, not an error: stopOpt
+        // already ran. A pool that fails before the run has shown anything
+        // leaves the design as it was.
         if (!alive(ctx, S) || String(err && err.message) === 'pool terminated') return;
-        if (!S.gotProgress) fallback(ctx, S, 'errored before progress', err);
-        else { console.error('[GE] Pool error:', err); ctx.stopOpt(String(err && err.message || err)); }
+        console.error('[GE] Pool error:', err);
+        ctx.stopOpt(S.gotProgress ? String(err && err.message || err) : S.tg.status.workerFailed);
     }
+}
+
+// Open a run block for this press unless one is still open from a Stop.
+// The block records the design the press started from, which is what Reset
+// restores (synthesisShared/runBlocks.js).
+function openBlock(ctx, curDes) {
+    if (ctx.runOpenRef.current) return;
+    ctx.checkpointRef.current && ctx.checkpointRef.current();
+    ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
+    ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
+    ctx.baseDesignRef.current  = curDes;
+    // Generations are numbered within their run, so a new block starts at 1,
+    // and the GE-step budget is the new run's own.
+    ctx.genCountRef.current = 0;
+    ctx.geStepsRef.current  = 0;
+    ctx.setGeSteps(0);
+    ctx.runOpenRef.current     = true;
+    ctx.setCanReset(true);
 }
 
 export function runGeWorker(ctx) {
@@ -112,29 +131,12 @@ export function runGeWorker(ctx) {
     const pool = ctx.getPoolMaterials(ctx.selectedCatsRef.current, ctx.excludedMatsRef.current);
     if (!pool.length) { ctx.setStatusMsg(ctx.t.gradualEvolution.noMaterials); return; }
 
-    // Open a run block for this press unless one is still open from a Stop.
-    // The block records the design the press started from, which is what Reset
-    // restores (synthesisShared/runBlocks.js).
-    if (!ctx.runOpenRef.current) {
-        ctx.checkpointRef.current && ctx.checkpointRef.current();
-        ctx.runsRef.current = openRunBlock(ctx.runsRef.current, ctx.designRef.current);
-        ctx.savedDesignRef.current = activeBaseline(ctx.runsRef.current);
-        ctx.baseDesignRef.current  = curDes;
-        // Generations are numbered within their run, so a new block starts at 1,
-        // and the GE-step budget is the new run's own.
-        ctx.genCountRef.current = 0;
-        ctx.geStepsRef.current  = 0;
-        ctx.setGeSteps(0);
-        ctx.runOpenRef.current     = true;
-        ctx.setCanReset(true);
-    }
-
     let materials;
     try {
         materials = presampleSynthesisMaterials(curDes, operands, pool);
     } catch (err) {
-        console.error('[GE] Pre-sampling failed, main-thread fallback:', err);
-        runGeMainThread(ctx);
+        console.error('[GE] Pre-sampling failed:', err);
+        ctx.setStatusMsg(ctx.t.gradualEvolution.status.presampleFailed);
         return;
     }
 
@@ -152,11 +154,12 @@ export function runGeWorker(ctx) {
     window.electronAPI?.diagLog?.(`GE start: poolSize=${K} wasmBytesForWorker=${wasmBytes ? (wasmBytes.byteLength ?? wasmBytes.length) : 0} workerURL=${String(SYNTH_WORKER_URL)}`);
     try { workerPool = new WorkerPool(SYNTH_WORKER_URL, K, wasmBytes ? { type: 'wasmInit', wasmBytes } : null); }
     catch (err) {
-        console.error('[GE] WorkerPool construction failed, main-thread fallback:', err);
-        window.electronAPI?.diagLog?.(`GE WorkerPool construction FAILED → main-thread fallback: ${err?.message || err}`);
-        runGeMainThread(ctx);
+        console.error('[GE] WorkerPool construction failed:', err);
+        window.electronAPI?.diagLog?.(`GE WorkerPool construction FAILED: ${err?.message || err}`);
+        ctx.setStatusMsg(ctx.t.gradualEvolution.status.workerFailed);
         return;
     }
+    openBlock(ctx, curDes);
     ctx.workerRef.current = workerPool;
 
     const media = serializableMedia(curDes);
