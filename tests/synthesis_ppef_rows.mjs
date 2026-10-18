@@ -77,8 +77,7 @@ const { createRunState: structuralRunState } = await import('../src/components/w
 const { createRunState: deepRunState } = await import('../src/components/windows/optimization/deepSynthesis/runners/runState.js');
 const { createRunContext } = await import('../src/components/windows/optimization/deepSynthesis/runners/lifecycle.js');
 const { freshHistory } = await import('../src/components/windows/optimization/deepSynthesis/historyActions.js');
-const { runDlsEvent } = await import('../src/components/windows/optimization/refinement/runners/dlsPool.js');
-const { runMethodsFlow } = await import('../src/components/windows/optimization/refinement/runners/methodsFlow.js');
+const { startWindowRun } = await import('../src/components/windows/optimization/refinement/windowRun.js');
 const { LeftSidebar: NeedleSidebar } = await import('../src/components/windows/optimization/needleVariation/needlePanels.js');
 const { LeftSidebar: GeSidebar } = await import('../src/components/windows/optimization/gradualEvolution/gePanels.js');
 const { LeftSidebar: StructuralSidebar } = await import('../src/components/windows/optimization/structuralOptimizer/structuralPanels.js');
@@ -317,26 +316,18 @@ await check('a fixed-level block keeps every point row', () => {
 });
 
 // ── 8. Refinement keeps the PPEF row ─────────────────────────────────────────
-function refinementCtx() {
+function refinementCtx(method) {
     const ctx = {
         runningRef: ref(false), designRef: ref(copy(DESIGN)), operandsRef: ref(copy(OPERANDS)),
-        maxIterRef: ref(5), multiStartRef: ref(false), nRestartsRef: ref(1), perturbPctRef: ref(30),
-        checkpointRef: ref(noop), optimizerRef: ref(null), baselineRef: ref(false),
-        lastBestRef: ref(null), poolRef: ref([]), dePoolRef: ref(null), flowWorkersRef: ref(new Set()),
-        runIdRef: ref(0), histRunCount: ref(0), seedRef: ref(1),
+        methodRef: ref(method), maxIterRef: ref(5), nRestartsRef: ref(1), perturbPctRef: ref(30),
+        checkpointRef: ref(noop), optimizerRef: ref(null), baselineRef: ref(false), lastBestRef: ref(null),
+        abortRef: ref(null), activeRunRef: ref(null), histRunCount: ref(0), seedRef: ref(1),
         commitBaseline: noop, bumpRunCount: noop, addHistEntry: noop, setSeed: noop,
-        killWorker: () => {
-            for (const w of ctx.poolRef.current) w.terminate?.();
-            ctx.poolRef.current = [];
-            for (const handle of ctx.flowWorkersRef.current) handle.settle?.();
-            ctx.flowWorkersRef.current.clear();
-        },
         updateDesignRef: ref(patch => { ctx.designRef.current = { ...ctx.designRef.current, ...patch }; }),
         setMf: noop, setMfBest: noop, setMfInitial: noop, setOmf: noop, setOmfBest: noop, setOmfInitial: noop,
         setIter: noop, setMfHistory: noop, setRunning: noop, setCanReset: noop, setRestartIdx: noop, setStopReason: noop,
         t: { refinement: { ...EN.refinement, history: { run: n => `Run ${n}` } } },
     };
-    ctx.stopOpt = () => { ctx.runningRef.current = false; ctx.runIdRef.current += 1; ctx.killWorker(); };
     return ctx;
 }
 function refinementRows(rows) {
@@ -347,14 +338,14 @@ function refinementRows(rows) {
     expect(has.has(BLOCK.id) && has.has(LOSS.id) && has.has(MNT.id), 'a row is missing');
 }
 
-for (const [name, start] of [
-    ['DLS pool', ctx => runDlsEvent(ctx)],
-    ['method', ctx => runMethodsFlow(ctx, ['cg'])],
+for (const [name, method] of [
+    ['DLS pool', 'dls'],
+    ['method', 'cg'],
 ]) {
     await check(`Refinement ${name} run keeps PPEF`, async () => {
         posted.length = 0;
-        const ctx = refinementCtx();
-        await start(ctx);
+        const ctx = refinementCtx(method);
+        await startWindowRun(ctx);
         await until(() => !ctx.runningRef.current);
         const job = posted.find(m => m.type === 'start');
         expect(job, 'no job was sent');

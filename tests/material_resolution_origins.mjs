@@ -9,7 +9,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initCatalogs } from '../src/utils/materials/catalogManager.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
-import { presampleMaterials } from '../src/components/windows/optimization/refinement/refinementUtils.js';
+import { presampleMaterials } from '../src/utils/refinement/workerInputs.js';
 import { materialLookup } from '../src/components/windows/optimization/synthesisShared/materialNames.js';
 import { buildSpectrum } from '../src/utils/report/reportData/engines.js';
 import { buildDepositionModel } from '../src/components/windows/dataExchange/processSimulator/model.js';
@@ -104,7 +104,7 @@ assert.doesNotMatch(processFiles[0].content, /NaN|undefined/);
 const originFiles = [
     'src/components/windows/simulation/wizardShared.js',
     'src/components/windows/optimization/synthesisShared/materialNames.js',
-    'src/components/windows/optimization/refinement/refinementUtils.js',
+    'src/utils/refinement/workerInputs.js',
     'src/utils/report/reportData/engines.js',
     'src/components/windows/design/stackFormula/model.js',
     'src/components/windows/optimization/variator/model.js',

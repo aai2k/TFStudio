@@ -1,23 +1,24 @@
 /**
- * Refinement runner guard — before/after identity check for the optimizer-driver
- * runners in `components/windows/optimization/refinement/runners/`
- * (runDlsEvent, runMethodsFlow + the promise engines).
+ * Refinement run guard: a before/after identity check for a Refinement run as
+ * the window sees it, utils/refinement/runRefinement.js (the DLS worker pool,
+ * the method flow and the promise engines) started and shown by the window's
+ * windowRun.js.
  *
- * These runners are the RUN path (worker orchestration + run-state aggregation),
- * which the UI render-hash harness does NOT execute. This guard drives each
- * runner end-to-end against a fake Refinement `ctx` and snapshots its observable
- * output — the design it applies, MF / best / iter, end reason, and the history
- * rows it records — then compares to a committed golden.
+ * This is the RUN path (worker orchestration + run-state aggregation), which the
+ * UI render-hash harness does NOT execute. This guard drives each run end-to-end
+ * against a fake Refinement `ctx`, snapshots its observable output (the design
+ * it applies, MF / best / iter, end reason, and the history rows it records),
+ * and compares that to a committed golden.
  *
  * Determinism:
  *  - Math.random is seeded, so a run whose seed field is empty draws the same
  *    seed, and so the same multi-start perturbations, every time.
- *  - runDlsEvent / runMethodsFlow consume WORKER messages. A deterministic mock
- *    `Worker` emits a scripted progress→done stream keyed by the restart index,
- *    so the runner's aggregation (global-best selection, cumulative iter, history,
- *    finalize) is exercised identically for the golden and the current run. The
- *    mock stands in for the worker's physics — this guard checks the RUNNER logic,
- *    not the optimizer kernel (that is optimizer_refactor_guard's job).
+ *  - The run consumes WORKER messages. A deterministic mock `Worker` emits a
+ *    scripted progress→done stream keyed by the restart index, so the run's
+ *    aggregation (global-best selection, cumulative iter, history, finalize) is
+ *    exercised identically for the golden and the current run. The mock stands
+ *    in for the worker's physics: this guard checks the RUN logic, not the
+ *    optimizer kernel (that is optimizer_refactor_guard's job).
  *
  * Random ids (history-entry ids) are excluded from the snapshot.
  *
@@ -29,6 +30,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
+import { perturbPayload, restartRng } from '../src/utils/refinement/restarts.js';
 import EN from '../src/constants/locales/en.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -46,7 +48,7 @@ function mulberry32(seed) {
     };
 }
 // Async-aware: keeps the seeded RNG installed for the ENTIRE run, including the
-// setTimeout-driven perturbation that fires after the runner call returns.
+// setTimeout-driven perturbation that fires after the run starts.
 async function withSeed(fn) {
     const orig = Math.random;
     Math.random = mulberry32(0x1234abcd);
@@ -90,12 +92,14 @@ class MockWorker {
         const mf = 0.05 * (1 / (1 + ((r * 7) % 5)));    // r===2 → global best (0.01)
         const front = (job.design.frontLayers || []).map((l, i) => ({ ...l, thickness: (l.thickness || 0) + r + i }));
         const back  = (job.design.backLayers  || []).map((l, i) => ({ ...l, thickness: (l.thickness || 0) + r + i }));
-        this._post({ type: 'progress', iter: 5, mf: mf * 1.1, mfBest: mf * 1.1, omf: mf * 1.1, omfBest: mf * 1.1,
+        const hangs = job.method && job.method === MockWorker.hangOn;
+        const shown = hangs && MockWorker.hangMf != null ? MockWorker.hangMf : mf * 1.1;
+        this._post({ type: 'progress', iter: 5, mf: shown, mfBest: shown, omf: shown, omfBest: shown,
             frontLayers: front, backLayers: back, bestFrontLayers: front, bestBackLayers: back });
         // Stands in for a method still working when the user presses Stop: it
         // reports progress and then goes quiet, so the flow is genuinely waiting
         // on a worker message that will never arrive.
-        if (job.method && job.method === MockWorker.hangOn) {
+        if (hangs) {
             const notify = MockWorker.onHang; MockWorker.onHang = null;
             notify && notify();
             return;
@@ -106,6 +110,7 @@ class MockWorker {
     _post(data) { if (!this.terminated && this.onmessage) this.onmessage({ data }); }
 }
 MockWorker.hangOn = null;    // method name to stall after its progress message
+MockWorker.hangMf = null;    // the merit that stalled method reports, when set
 MockWorker.onHang = null;    // called once when that method stalls
 MockWorker.startJobs = [];   // every 'start' job posted, in order
 MockWorker.failConstruct = false;   // new Worker() throws
@@ -113,8 +118,8 @@ MockWorker.errorOnStart = null;     // a job fails before any progress: by 'mess
 MockWorker.built = [];              // every worker constructed, in order
 globalThis.Worker = MockWorker;
 
-// Pin the detected core count. Pool sizes (dls multi-start) and the serial-vs-
-// parallel DE branch (runMethodsFlow: F.HW > 2) both key off
+// Pin the detected core count. Pool sizes and the serial-vs-parallel DE branch
+// (windowRun.js: more than two hardware threads) key off
 // navigator.hardwareConcurrency, so without this the golden would only match on
 // a machine with the same core count. Pinned high enough to take the parallel-DE
 // path, exactly as this guard pins Math.random.
@@ -122,39 +127,28 @@ Object.defineProperty(globalThis, 'navigator', {
     value: { hardwareConcurrency: 8 }, configurable: true, writable: true,
 });
 
-// Import the runners AFTER installing the mock Worker global.
-const { runDlsEvent }      = await import('../src/components/windows/optimization/refinement/runners/dlsPool.js');
-const { runMethodsFlow }   = await import('../src/components/windows/optimization/refinement/runners/methodsFlow.js');
-const { designForRestart } = await import('../src/components/windows/optimization/refinement/runners/dlsPoolJobs.js');
+// Import the run AFTER installing the mock Worker global.
+const { startWindowRun } = await import('../src/components/windows/optimization/refinement/windowRun.js');
 
 const ref = v => ({ current: v });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-// Build a fake Refinement ctx + a snapshot recorder.
-function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, maxIter = 40, seed = null } = {}) {
+// Build a fake Refinement ctx + a snapshot recorder. `method` is the window's
+// method, or a list of methods tried one by one.
+function makeCtx(design, ops, { method = 'dls', nRestarts = 1, perturbPct = 30, maxIter = 40, seed = null } = {}) {
     const snap = { applied: null, mf: null, mfBest: null, mfInitial: null, iter: 0, stopReason: null, history: [], mfHistory: [], seed: null };
     const ctx = {
         runningRef: ref(false), designRef: ref(design), operandsRef: ref(ops),
-        maxIterRef: ref(maxIter), multiStartRef: ref(multi), nRestartsRef: ref(nRestarts),
+        methodRef: ref(method), maxIterRef: ref(maxIter), nRestartsRef: ref(nRestarts),
         perturbPctRef: ref(perturbPct), checkpointRef: ref(() => {}),
-        optimizerRef: ref(null), baselineRef: ref(false),
-        lastBestRef: ref(null), poolRef: ref([]), dePoolRef: ref(null),
-        flowWorkersRef: ref(new Set()), runIdRef: ref(0), histRunCount: ref(0), seedRef: ref(seed),
+        optimizerRef: ref(null), baselineRef: ref(false), lastBestRef: ref(null),
+        abortRef: ref(null), activeRunRef: ref(null), histRunCount: ref(0), seedRef: ref(seed),
         commitBaseline: () => {},
         bumpRunCount: () => { ctx.histRunCount.current += 1; },
         addHistEntry: (e) => { snap.history.push({ label: e.label, iter: e.iter, mf: e.mf, layerCount: e.layerCount, layerSide: e.layerSide ?? null, mfHistory: e.mfHistory, seed: e.seed }); },
         setSeed: v => { snap.seed = v; ctx.seedRef.current = v; },
-        killWorker: () => {
-            for (const w of ctx.poolRef.current) { try { w.terminate && w.terminate(); } catch (_) {} }
-            ctx.poolRef.current = [];
-            // Mirrors killAllWorkers in useRefinement.js: settle the pending
-            // engine promise before terminating, since a terminated worker
-            // never posts the message the flow is awaiting.
-            for (const h of ctx.flowWorkersRef.current) { try { h.settle(); } catch (_) {} }
-            ctx.flowWorkersRef.current.clear();
-            if (ctx.dePoolRef.current) { try { ctx.dePoolRef.current.terminate(); } catch (_) {} ctx.dePoolRef.current = null; }
-        },
-        stopOpt: () => { ctx.runningRef.current = false; ctx.runIdRef.current += 1; ctx.killWorker(); },
+        // Mirrors stopRun in useRefinement.js: the run's own abort stops its workers.
+        stopOpt: () => { ctx.runningRef.current = false; ctx.abortRef.current?.abort(); ctx.abortRef.current = null; },
         updateDesignRef: ref((patch) => {
             const d = ctx.designRef.current;
             ctx.designRef.current = { ...d, ...patch };
@@ -177,11 +171,13 @@ function makeCtx(design, ops, { multi = false, nRestarts = 1, perturbPct = 30, m
 async function waitIdle(ctx, ms = 8000) {
     const t0 = Date.now();
     while (ctx.runningRef.current) {
-        if (Date.now() - t0 > ms) throw new Error('runner did not finish in time');
+        if (Date.now() - t0 > ms) throw new Error('the run did not finish in time');
         await sleep(3);
     }
     await sleep(5);   // let any trailing scheduled callbacks settle
 }
+
+const runOnce = async (ctx) => { await startWindowRun(ctx); await waitIdle(ctx); };
 
 // Rounded snapshot (kills last-bit FP noise in the values real optimizer code
 // computes: the baseline merit and the parallel DE run).
@@ -229,38 +225,37 @@ const OPS = () => [
 ];
 
 // ── Scenarios ─────────────────────────────────────────────────────────────────
-// Each: the design, the window settings, and how the run starts.
-const dlsPool = ctx => runDlsEvent(ctx);
-const methods = list => ctx => runMethodsFlow(ctx, list);
+// Each: the design and the window settings. 'dls' and 'dls-multi' run on the
+// DLS worker pool; a list runs on the method flow.
 const SCENARIO_RUNS = {
-    'dlsPool/single/front':    { design: frontDesign, start: dlsPool },
-    'dlsPool/multi/front':     { design: frontDesign, opts: { multi: true, nRestarts: 5 }, start: dlsPool },
-    'dlsPool/multi/back':      { design: backDesign,  opts: { multi: true, nRestarts: 5 }, start: dlsPool },
-    'methodsFlow/cg/front':    { design: frontDesign, start: methods(['cg']) },
-    'methodsFlow/multi/front': { design: frontDesign, opts: { nRestarts: 4 }, start: methods(['cg', 'sa', 'dls-multi']) },
-    'methodsFlow/cg/both':     { design: bothDesign,  start: methods(['cg', 'sa']) },
-    'methodsFlow/de/both':     { design: bothDesign,  start: methods(['de']) },
+    'dlsPool/single/front':    { design: frontDesign, opts: { method: 'dls' } },
+    'dlsPool/multi/front':     { design: frontDesign, opts: { method: 'dls-multi', nRestarts: 5 } },
+    'dlsPool/multi/back':      { design: backDesign,  opts: { method: 'dls-multi', nRestarts: 5 } },
+    'methodsFlow/cg/front':    { design: frontDesign, opts: { method: ['cg'] } },
+    'methodsFlow/multi/front': { design: frontDesign, opts: { method: ['cg', 'sa', 'dls-multi'], nRestarts: 4 } },
+    'methodsFlow/cg/both':     { design: bothDesign,  opts: { method: ['cg', 'sa'] } },
+    'methodsFlow/de/both':     { design: bothDesign,  opts: { method: ['de'] } },
 };
 const SCENARIOS = Object.keys(SCENARIO_RUNS);
 
 async function runScenario(name) {
-    const { design, opts, start } = SCENARIO_RUNS[name];
+    const { design, opts } = SCENARIO_RUNS[name];
     const { ctx, snap } = makeCtx(design(), OPS(), opts);
-    await withSeed(async () => { await start(ctx); await waitIdle(ctx); });
+    await withSeed(() => runOnce(ctx));
     return finalize(snap);
 }
 
 async function verifyIterationHistories() {
     {
         const { ctx, snap } = makeCtx(frontDesign(), OPS());
-        await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); });
+        await withSeed(() => runOnce(ctx));
         assert.equal(snap.iter, 10, 'DLS displays the done message iteration');
         assert.deepEqual(snap.mfHistory.map(p => p.iter), [5, 10], 'DLS retains its final plot sample');
         assert.deepEqual(snap.history[0].mfHistory.map(p => p.iter), [5, 10], 'DLS stores its plot in Design History');
     }
     {
-        const { ctx, snap } = makeCtx(frontDesign(), OPS());
-        await withSeed(async () => { await runMethodsFlow(ctx, ['cg', 'sa']); await waitIdle(ctx); });
+        const { ctx, snap } = makeCtx(frontDesign(), OPS(), { method: ['cg', 'sa'] });
+        await withSeed(() => runOnce(ctx));
         assert.equal(snap.iter, 20, 'Try All displays cumulative optimizer iterations');
         assert.deepEqual(snap.mfHistory.map(p => p.iter), [0, 5, 10, 15, 20], 'Try All plots actual cumulative iterations');
         assert.deepEqual(snap.history.map(e => e.mfHistory.map(p => p.iter)), [[0, 5, 10], [0, 5, 10]],
@@ -268,17 +263,19 @@ async function verifyIterationHistories() {
     }
 }
 
-// Stop part-way through a multi-method run. The flow must unwind instead of
-// waiting forever on a terminated worker, Best must be armed with what the
-// finished methods produced, and the design must stay where the user stopped it.
-async function verifyStopDuringRun() {
-    const { ctx, snap } = makeCtx(frontDesign(), OPS());
+// Stop part-way through a multi-method run, while 'sa' is in flight with the
+// merit `hangMf` reported. The flow must unwind instead of waiting forever on a
+// terminated worker, Best must hold the best result so far, the stopped method
+// leaves no history row, and the design stays where the user stopped it.
+async function stopDuringRun(hangMf) {
+    const { ctx, snap } = makeCtx(frontDesign(), OPS(), { method: ['cg', 'sa'] });
+    MockWorker.built = [];
     MockWorker.hangOn = 'sa';
+    MockWorker.hangMf = hangMf;
     const stalled = new Promise(resolve => { MockWorker.onHang = resolve; });
-    const flow = withSeed(() => runMethodsFlow(ctx, ['cg', 'sa']));
+    const flow = withSeed(() => startWindowRun(ctx));
     await stalled;
 
-    const mfBestAtStop = snap.mfBest;
     const appliedAtStop = snap.applied;
     ctx.stopOpt();
     await Promise.race([
@@ -286,17 +283,69 @@ async function verifyStopDuringRun() {
         sleep(4000).then(() => { throw new Error('the method flow never settled after Stop'); }),
     ]);
     MockWorker.hangOn = null;
+    MockWorker.hangMf = null;
 
     assert.equal(ctx.runningRef.current, false, 'Stop ends the run');
-    assert.equal(ctx.flowWorkersRef.current.size, 0, 'Stop leaves no pending engine promise');
-    assert.ok(ctx.lastBestRef.current, 'Best is armed from the methods that did finish');
-    assert.equal(rnd(ctx.lastBestRef.current.mfBest), rnd(mfBestAtStop),
-        'Best holds the merit the readout was showing when Stop was pressed');
+    assert.ok(MockWorker.built.every(w => w.terminated), 'Stop leaves no worker running');
+    assert.ok(ctx.lastBestRef.current, 'Best is armed');
     assert.ok(Array.isArray(ctx.lastBestRef.current.frontLayers) && ctx.lastBestRef.current.frontLayers.length,
         'Best carries a design, not just a merit value');
     assert.equal(snap.history.length, 1, 'only the method that finished is recorded');
     assert.deepEqual(snap.applied, appliedAtStop,
         'a stopped run does not rewrite the design on the way out');
+    return { ctx, snap };
+}
+
+async function verifyStopDuringRun() {
+    // The stopped method is behind the finished one: Best holds what the readout showed.
+    {
+        const { ctx, snap } = await stopDuringRun(null);
+        assert.equal(rnd(ctx.lastBestRef.current.mfBest), rnd(snap.mfBest),
+            'Best holds the merit the readout was showing when Stop was pressed');
+    }
+    // The stopped method is ahead of the finished one: what it found still reaches Best.
+    {
+        const { ctx } = await stopDuringRun(0.02);
+        assert.equal(rnd(ctx.lastBestRef.current.mfBest), 0.02,
+            'a method cut short by Stop still hands its best to Best');
+    }
+}
+
+// A design switch stops the run (useDesignCacheSync), and nothing the stopped
+// run still reports while it unwinds lands on the design switched to: not its
+// best, not its readout, not a history row.
+async function verifyDesignSwitch() {
+    const { ctx, snap } = makeCtx({ ...frontDesign(), id: 'A' }, OPS(), { method: ['cg', 'sa'] });
+    MockWorker.hangOn = 'sa';
+    MockWorker.hangMf = 0.02;
+    const stalled = new Promise(resolve => { MockWorker.onHang = resolve; });
+    const flow = withSeed(() => startWindowRun(ctx));
+    await stalled;
+
+    ctx.designRef.current = { ...backDesign(), id: 'B' };
+    ctx.stopOpt();
+    const calls = [];
+    for (const name of ['setMf', 'setMfBest', 'setOmfBest', 'setIter', 'setMfHistory', 'setStopReason', 'addHistEntry']) {
+        ctx[name] = () => calls.push(name);
+    }
+    const bestAtSwitch = ctx.lastBestRef.current;
+    await flow;
+    MockWorker.hangOn = null;
+    MockWorker.hangMf = null;
+
+    assert.deepEqual(calls, [], 'the stopped run reports nothing onto the design switched to');
+    assert.equal(ctx.lastBestRef.current, bestAtSwitch, 'and leaves Best alone');
+    assert.equal(snap.applied.front.length, 3, 'and writes no layers onto it');
+}
+
+// A run that throws ends instead of leaving the window running.
+async function verifyRunThatThrows() {
+    const { ctx } = makeCtx(frontDesign(), OPS());
+    ctx.setCanReset = () => { throw new Error('a setter failed'); };
+    MockWorker.built = [];
+    await startWindowRun(ctx);
+    assert.equal(ctx.runningRef.current, false, 'a run that throws ends');
+    assert.ok(MockWorker.built.every(w => w.terminated), 'and stops its workers');
 }
 
 // A stochastic run draws from one seed: the one in the seed field, or a fresh
@@ -304,18 +353,14 @@ async function verifyStopDuringRun() {
 // row keeps it. Math.random is left unseeded here, so anything still drawing
 // from it shows up as a run that does not replay.
 async function verifySeededRuns() {
-    const S = {
-        media: { surfaceMode: 'front_only' }, baseFront: frontDesign().frontLayers, baseBack: [],
-        surfMode: 'front_only', pct: 0.3,
-    };
-    const thicknesses = seed => designForRestart({ ...S, seed }, 3).frontLayers.map(l => l.thickness);
+    const payload = { surfaceMode: 'front_only', frontLayers: frontDesign().frontLayers, backLayers: [] };
+    const thicknesses = seed => perturbPayload(payload, 30, 3, restartRng(seed, 3)).frontLayers.map(l => l.thickness);
     assert.deepEqual(thicknesses(77), thicknesses(77), 'a multi-start restart perturbs the same way from the same seed');
     assert.notDeepEqual(thicknesses(77), thicknesses(78), 'and differently from another seed');
 
     const deRun = async (seed) => {
-        const { ctx, snap } = makeCtx(bothDesign(), OPS(), { seed });
-        await runMethodsFlow(ctx, ['de']);
-        await waitIdle(ctx);
+        const { ctx, snap } = makeCtx(bothDesign(), OPS(), { method: ['de'], seed });
+        await runOnce(ctx);
         return snap;
     };
     const a = await deRun(4242), b = await deRun(4242);
@@ -327,9 +372,8 @@ async function verifySeededRuns() {
     assert.equal(fresh.history[0].seed, fresh.seed, 'and the row keeps the seed the run drew');
 
     MockWorker.startJobs = [];
-    const { ctx } = makeCtx(frontDesign(), OPS(), { seed: 99 });
-    await runMethodsFlow(ctx, ['sa', 'cg']);
-    await waitIdle(ctx);
+    const { ctx } = makeCtx(frontDesign(), OPS(), { method: ['sa', 'cg'], seed: 99 });
+    await runOnce(ctx);
     const [saJob, cgJob] = MockWorker.startJobs;
     assert.equal(saJob.engineOpts?.seed, 99, 'the SA worker job carries the run seed');
     assert.equal(cgJob.engineOpts?.halfWaveProbe, true, 'Refinement CG takes the half-wave first probe');
@@ -345,18 +389,18 @@ const WORKER_FAILURES = [
 async function runFailing(ctx, arm) {
     MockWorker.built = [];
     arm();
-    try { await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); }); }
+    try { await withSeed(() => runOnce(ctx)); }
     finally { MockWorker.failConstruct = false; MockWorker.errorOnStart = null; }
 }
+
+const DLS_RUNS = [
+    { name: 'single', opts: { method: 'dls', seed: 7 }, nextReason: 'stalled' },
+    { name: 'multi-start', opts: { method: 'dls-multi', nRestarts: 4, seed: 7 }, nextReason: null },
+];
 
 // A worker that cannot be built, or fails before its first progress message,
 // ends the run with the design as it was and the badge says why. The next run
 // that works replaces the badge.
-const DLS_RUNS = [
-    { name: 'single', opts: { seed: 7 }, nextReason: 'stalled' },
-    { name: 'multi-start', opts: { multi: true, nRestarts: 4, seed: 7 }, nextReason: null },
-];
-
 async function verifyWorkerFailures() {
     for (const [what, arm] of WORKER_FAILURES) {
         for (const { name, opts, nextReason } of DLS_RUNS) {
@@ -369,7 +413,7 @@ async function verifyWorkerFailures() {
             assert.equal(snap.history.length, 0, `${run} records no history row`);
             assert.ok(MockWorker.built.every(w => w.terminated), `${run} terminates every worker it built`);
 
-            await withSeed(async () => { runDlsEvent(ctx); await waitIdle(ctx); });
+            await withSeed(() => runOnce(ctx));
             assert.equal(snap.stopReason, nextReason, `the run after ${run} replaces the badge`);
         }
     }
@@ -377,9 +421,10 @@ async function verifyWorkerFailures() {
     // An error event that a stopped run's worker still delivers is not acted on.
     const { ctx, snap } = makeCtx(frontDesign(), OPS());
     MockWorker.built = [];
-    runDlsEvent(ctx);
+    const run = startWindowRun(ctx);
     ctx.stopOpt();
     MockWorker.built[0].onerror({ message: 'late error' });
+    await run;
     assert.equal(snap.stopReason, null, 'a late worker error after Stop leaves the badge alone');
 }
 
@@ -388,17 +433,16 @@ async function verifyWorkerFailures() {
 async function verifyPresampleFailure() {
     const design = frontDesign();
     design.frontLayers[1].material = 'user_x:Nope';
-    const starts = [
-        ['single DLS', ctx => runDlsEvent(ctx)],
-        ['multi-start DLS', ctx => runDlsEvent(ctx)],
-        ['CG', ctx => runMethodsFlow(ctx, ['cg'])],
-        ['a method list', ctx => runMethodsFlow(ctx, ['cg', 'sa'])],
+    const runs = [
+        ['single DLS', { method: 'dls' }],
+        ['multi-start DLS', { method: 'dls-multi', nRestarts: 4, seed: 7 }],
+        ['CG', { method: ['cg'] }],
+        ['a method list', { method: ['cg', 'sa'], seed: 7 }],
     ];
-    for (const [name, start] of starts) {
-        const { ctx, snap } = makeCtx(JSON.parse(JSON.stringify(design)), OPS(), { multi: name.startsWith('multi'), nRestarts: 4, seed: 7 });
+    for (const [name, opts] of runs) {
+        const { ctx, snap } = makeCtx(JSON.parse(JSON.stringify(design)), OPS(), opts);
         MockWorker.built = [];
-        await start(ctx);
-        await waitIdle(ctx);
+        await runOnce(ctx);
         assert.equal(snap.stopReason, 'presampleFailed', `${name}: the badge says the materials could not be prepared`);
         assert.equal(MockWorker.built.length, 0, `${name}: no worker is built`);
         assert.equal(ctx.baselineRef.current, false, `${name}: no undo checkpoint is taken`);
@@ -409,6 +453,8 @@ async function verifyPresampleFailure() {
 
 await verifyIterationHistories();
 await verifyStopDuringRun();
+await verifyDesignSwitch();
+await verifyRunThatThrows();
 await verifySeededRuns();
 await verifyWorkerFailures();
 await verifyPresampleFailure();
@@ -433,6 +479,6 @@ for (const name of SCENARIOS) {
         console.log(`   current: ${b}`);
     }
 }
-if (fails === 0) { console.log(`PASS ✅  refinement runners identical to golden (${SCENARIOS.length} scenarios)`); process.exit(0); }
+if (fails === 0) { console.log(`PASS ✅  refinement runs identical to golden (${SCENARIOS.length} scenarios)`); process.exit(0); }
 console.log(`FAIL ❌  ${fails} scenario(s) drifted`);
 process.exit(1);

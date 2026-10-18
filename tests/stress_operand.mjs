@@ -23,7 +23,7 @@ import {
 } from '../src/utils/physics/optimizer.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import { filmStressPa } from '../src/utils/physics/stress/filmStress.js';
-import { buildPayload } from '../src/components/windows/optimization/refinement/refinementUtils.js';
+import { buildPayload } from '../src/utils/refinement/workerInputs.js';
 import { stressOperandNotices } from '../src/components/windows/optimization/stressOperandScope.js';
 import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
 

@@ -9,8 +9,7 @@ import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { NumberField } from '../../../ui/numberField.js';
-import { REFINE_METHODS, ALL_ORDER } from './refinementConfig.js';
-import { STOCHASTIC_METHODS } from './refinementUtils.js';
+import { REFINE_METHODS, ALL_ORDER, STOCHASTIC_METHODS } from '../../../../utils/refinement/methods.js';
 import { normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 
 const { createElement: h } = React;   // React is a window global

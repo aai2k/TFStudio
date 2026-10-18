@@ -31,8 +31,8 @@ import { DEOptimizer } from '../src/utils/optimizers/de.js';
 import { makeOperand, makeConstraintOperand } from '../src/utils/physics/optimizer.js';
 import { halfWaveSpans } from '../src/utils/physics/optimizer/halfWaveSpan.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { jitterLayers, perturbPayload } from '../src/components/windows/optimization/refinement/refinementUtils.js';
-import { designForRestart } from '../src/components/windows/optimization/refinement/runners/dlsPoolJobs.js';
+import { jitterLayers, perturbPayload } from '../src/utils/refinement/restarts.js';
+import { makeJob } from '../src/utils/refinement/dlsPoolJobs.js';
 import { proposeMutation, makeRng } from '../src/utils/synthesis/structuralOptimizer.js';
 
 const resolveMat = (id) => getMaterial(id);
@@ -202,8 +202,8 @@ const mockEngine = (f, box = {}) => ({
     const payload = perturbPayload({ surfaceMode: 'front_only', frontLayers: layers, backLayers: [] }, 10, 1, Math.random);
     ok(payload.frontLayers[0].thickness >= 0.9 * START_NM, `Refinement payload restart keeps a thick layer thick (${payload.frontLayers[0].thickness.toFixed(0)} nm)`);
 
-    const S = { media: {}, baseFront: layers, baseBack: [], surfMode: 'front_only', pct: 0.1, seed: 1 };
-    const restart = designForRestart(S, 1);
+    const S = { payload: { surfaceMode: 'front_only', frontLayers: layers, backLayers: [] }, perturbPct: 10, seed: 1, isMulti: true, N: 1 };
+    const restart = makeJob(S, 1).design;
     ok(restart.frontLayers[0].thickness >= 0.9 * START_NM, `DLS pool restart keeps a thick layer thick (${restart.frontLayers[0].thickness.toFixed(0)} nm)`);
 
     const pair = [

@@ -1,46 +1,36 @@
-// Hook powering the Refinement window: run/stop/reset lifecycle, per-method
-// worker dispatch, the per-design Reset/history state (sessionState.js), and
-// merit-operand table edits. Branching logic lives in the standalone functions
-// below so the hook itself stays a thin composition of useState/useRef/useEffect
-// wiring — see operandEdits.js for the operand-array transforms it calls.
+// Hook powering the Refinement window: run/stop/reset lifecycle, the
+// per-design Reset/history state (sessionState.js), and merit-operand table
+// edits. Branching logic lives in the standalone functions below so the hook
+// itself stays a thin composition of useState/useRef/useEffect wiring. The
+// operand-array transforms it calls are in operandEdits.js, and how a run
+// reaches the window is in windowRun.js.
 
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import {
     editOperand, addOperands, insertOperandAt, duplicateOperands, deleteOperands, moveOperand,
 } from './operandEdits.js';
-import { loadMethod, saveMethod, MAXITER_FOR, ALL_ORDER } from './refinementConfig.js';
+import { loadMethod, saveMethod } from './refinementConfig.js';
+import { DEFAULT_SETTINGS, defaultMaxIter } from '../../../../utils/refinement/methods.js';
+import { computeOperandDisplay, firstOperandErrorMessage } from '../../../../utils/refinement/operandCheck.js';
 import { clearRefinement, readRefinement, writeRefinement } from './sessionState.js';
-import { computeOperandDisplay, firstOperandErrorMessage } from './refinementUtils.js';
-import { runDlsEvent } from './runners/dlsPool.js';
-import { runMethodsFlow } from './runners/methodsFlow.js';
+import { startWindowRun } from './windowRun.js';
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
-// ── Worker-pool teardown ─────────────────────────────────────────────────────
-// Hard-kill the whole optimizer worker pool. terminate() forcibly aborts a
-// worker even mid-compute — this is what structurally removes the zombie-loop
-// bug class.
-function killAllWorkers(env) {
-    const { poolRef, dePoolRef, flowWorkersRef } = env.refs;
-    for (const w of poolRef.current) {
-        try { w.terminate(); } catch (_) {}
-    }
-    poolRef.current = [];
-    if (dePoolRef.current) { try { dePoolRef.current.terminate(); } catch (_) {} dePoolRef.current = null; }
-    // Settle before terminating: the method flow awaits a promise that only a
-    // worker message resolves, and a terminated worker sends none (engineRun.js).
-    for (const h of flowWorkersRef.current) { try { h.settle(); } catch (_) {} }
-    flowWorkersRef.current.clear();
+// Abort the run in flight: it stops every worker it has, terminating them even
+// mid-compute, so no stopped run keeps stepping or writing the design.
+function abortRun(env) {
+    env.refs.abortRef.current?.abort();
+    env.refs.abortRef.current = null;
 }
 
 function stopRun(env) {
     const { refs, setters } = env;
     refs.runningRef.current = false;
-    refs.runIdRef.current++;          // cancels any in-flight async method flow
     setters.setRunning(false);
     setters.setRestartIdx(0);
-    killAllWorkers(env);
+    abortRun(env);
 }
 
 // ── Per-design Reset/history state (sessionState.js) ────────────────────────
@@ -119,18 +109,18 @@ function evaluateDisplay(env, design, operands) {
     env.setters.setMf(r.mf); env.setters.setOmf(r.omf);
 }
 
-// The `ctx` bag threaded into the optimizer-driver runners (runners/dlsPool.js
-// et al.). It bundles the refs, state setters, cache helpers, and the locale
-// table so the runners can stay plain functions in their own modules instead of
-// closures over this hook's scope.
-function buildRunCtx(env, killWorker, stopOpt, t) {
+// The `ctx` bag windowRun.js starts a run with. It bundles the refs, state
+// setters, cache helpers, and the locale table so the run's window side can
+// stay a plain function in its own module instead of a closure over this hook's
+// scope.
+function buildRunCtx(env, t) {
     const { refs, setters } = env;
     return {
         ...refs,
+        methodRef: env.methodRef,
         commitBaseline: (sd) => commitBaselineTo(env, sd),
         bumpRunCount:   () => bumpRunCountOf(env),
         addHistEntry:   (entry) => addHistEntryTo(env, entry),
-        killWorker, stopOpt,
         setMf: setters.setMf, setMfBest: setters.setMfBest, setMfInitial: setters.setMfInitial,
         setOmf: setters.setOmf, setOmfBest: setters.setOmfBest, setOmfInitial: setters.setOmfInitial,
         setIter: setters.setIter, setMfHistory: setters.setMfHistory, setRunning: setters.setRunning,
@@ -140,12 +130,7 @@ function buildRunCtx(env, killWorker, stopOpt, t) {
     };
 }
 
-// ── Run dispatch ──────────────────────────────────────────────────────────────
-function dispatchMethod(runCtx, m) {
-    if (m === 'dls' || m === 'dls-multi') { runDlsEvent(runCtx); return; }
-    runMethodsFlow(runCtx, m === 'all' ? ALL_ORDER : [m]);
-}
-
+// ── Run start ─────────────────────────────────────────────────────────────────
 function startRun(env, buildCtx) {
     const { refs } = env;
     if (refs.runningRef.current) return;
@@ -162,7 +147,7 @@ function startRun(env, buildCtx) {
         env.setters.setStopReason(`invalidOperand:${operandError}`);
         return;
     }
-    dispatchMethod(buildCtx(), env.methodRef.current);
+    startWindowRun(buildCtx());
 }
 
 function performReset(env, savedDesign, updateDesign) {
@@ -338,8 +323,7 @@ function useOperandDisplaySync({ design, operands, running, env }) {
 }
 
 function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }) {
-    const killWorker = useCallback(() => killAllWorkers(env), []); // eslint-disable-line react-hooks/exhaustive-deps
-    const stopOpt    = useCallback(() => stopRun(env), []); // eslint-disable-line react-hooks/exhaustive-deps
+    const stopOpt = useCallback(() => stopRun(env), []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Stop the run when this component unmounts (docking-window/tab switch).
     // Without this, its workers keep reporting to the unmounted closure, where
@@ -350,8 +334,7 @@ function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }
     // Reset/history persist via the cache.
     useEffect(() => () => {
         env.refs.runningRef.current = false;
-        env.refs.runIdRef.current++;
-        killAllWorkers(env);
+        abortRun(env);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // While the DLS is running, flip the global isOptimizing flag so live-
@@ -364,7 +347,7 @@ function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }
         return () => endOptimization();
     }, [running, beginOptimization, endOptimization]);
 
-    return { killWorker, stopOpt };
+    return { stopOpt };
 }
 
 /**
@@ -444,43 +427,39 @@ export function useRefinement({ t }) {
 
     // Method selector (persisted as a global app setting) + multi-start params.
     const [method,      setMethod]      = useState(loadMethod);
-    const [nRestarts,   setNRestarts]   = useState(20);
-    const [perturbPct,  setPerturbPct]  = useState(30);
+    const [nRestarts,   setNRestarts]   = useState(DEFAULT_SETTINGS.nRestarts);
+    const [perturbPct,  setPerturbPct]  = useState(DEFAULT_SETTINGS.perturbPct);
     const [restartIdx,  setRestartIdx]  = useState(0);
-    // Max iterations — defaults to the method's natural budget (MAXITER_FOR); the
-    // run still stops early at convergence, this is just the cap. Resets to the
-    // method default when the method changes; the user can override per run.
-    const [maxIter,     setMaxIter]     = useState(() => MAXITER_FOR[loadMethod()] || 500);
-    // Seed of the stochastic methods, null to draw a fresh one (takeRunSeed).
+    // Max iterations: defaults to the method's natural budget (defaultMaxIter);
+    // the run still stops early at convergence, this is just the cap. Resets to
+    // the method default when the method changes; the user can override per run.
+    const [maxIter,     setMaxIter]     = useState(() => defaultMaxIter(loadMethod()));
+    // Seed of the stochastic methods, null to draw a fresh one; a run shows the
+    // seed it drew here.
     const [seed,        setSeed]        = useState(null);
 
     const optimizerRef    = useRef(null);
     const runningRef      = useRef(false);
-    const poolRef         = useRef([]);     // active optimizer Web Worker pool
-    const dePoolRef       = useRef(null);   // WorkerPool for parallel DE
-    const flowWorkersRef  = useRef(new Set()); // live single-engine workers (flow paths)
-    const runIdRef        = useRef(0);      // bumped to cancel the async flow
+    const abortRef        = useRef(null);   // AbortController of the run in flight
+    const activeRunRef    = useRef(null);   // the latest run started (windowRun.js)
     const lastBestRef     = useRef(null);   // { mfBest, frontLayers, backLayers } for Best after Stop
     const baselineRef     = useRef(false);  // run baseline/checkpoint already taken this session
     const operandsRef     = useRef(operands);
     const designRef       = useRef(design);
     const updateDesignRef = useRef(updateDesign);
 
-    // multiStartRef stays the signal the validated event-path runOpt reads; it is
-    // now derived from the method selector ('dls-multi' ⇒ multistart).
-    const multiStartRef  = useRef(false);
     const methodRef      = useRef(method);
-    const nRestartsRef   = useRef(20);
-    const perturbPctRef  = useRef(30);
+    const nRestartsRef   = useRef(DEFAULT_SETTINGS.nRestarts);
+    const perturbPctRef  = useRef(DEFAULT_SETTINGS.perturbPct);
     const maxIterRef     = useRef(maxIter);
     const seedRef        = useRef(seed);
     useEffect(() => { seedRef.current = seed; }, [seed]);
-    useEffect(() => { methodRef.current = method; multiStartRef.current = (method === 'dls-multi'); saveMethod(method); }, [method]);
+    useEffect(() => { methodRef.current = method; saveMethod(method); }, [method]);
     useEffect(() => { nRestartsRef.current  = nRestarts;  }, [nRestarts]);
     useEffect(() => { perturbPctRef.current = perturbPct; }, [perturbPct]);
     useEffect(() => { maxIterRef.current = maxIter; }, [maxIter]);
     // When the method changes, snap Max iterations back to that method's natural budget.
-    useEffect(() => { setMaxIter(MAXITER_FOR[method] || 500); }, [method]);
+    useEffect(() => { setMaxIter(defaultMaxIter(method)); }, [method]);
 
     const checkpointRef = useRef(checkpoint);
 
@@ -496,10 +475,9 @@ export function useRefinement({ t }) {
     // itself a stable ref or setState function, so callbacks that close over it
     // stay correct across renders regardless of which render's `env` they hold.
     const refs = {
-        runningRef, designRef, operandsRef, maxIterRef, multiStartRef,
+        runningRef, designRef, operandsRef, maxIterRef,
         nRestartsRef, perturbPctRef, checkpointRef, updateDesignRef, optimizerRef,
-        baselineRef, lastBestRef, poolRef, runIdRef, flowWorkersRef,
-        dePoolRef, histRunCount, seedRef,
+        baselineRef, lastBestRef, abortRef, activeRunRef, histRunCount, seedRef,
     };
     const setters = {
         setMf, setMfBest, setMfInitial, setOmf, setOmfBest, setOmfInitial,
@@ -515,9 +493,9 @@ export function useRefinement({ t }) {
     useRunRecord({ runOwner, run, env });
     useOperandDisplaySync({ design, operands, running, env });
 
-    const { killWorker, stopOpt } = useWorkerLifecycle({ env, running, beginOptimization, endOptimization });
+    const { stopOpt } = useWorkerLifecycle({ env, running, beginOptimization, endOptimization });
 
-    const buildCtx = useCallback(() => buildRunCtx(env, killWorker, stopOpt, t), [killWorker, stopOpt, t]); // eslint-disable-line react-hooks/exhaustive-deps
+    const buildCtx = useCallback(() => buildRunCtx(env, t), [t]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const { runOpt, resetOpt, bestOpt, handleRestore } = useRunActions({
         env, running, buildCtx, savedDesign, updateDesign, stopOpt,

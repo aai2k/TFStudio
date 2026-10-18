@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import { phaseOperandScopeNotice } from '../src/components/windows/optimization/phaseOperandScope.js';
-import { presampleMaterials } from '../src/components/windows/optimization/refinement/refinementUtils.js';
+import { presampleMaterials } from '../src/utils/refinement/workerInputs.js';
 import {
     buildEvalContext,
     buildPresampledTable,
