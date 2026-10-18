@@ -1,6 +1,7 @@
 /**
  * Checks shared by the synthesis window run guards (needle_runner_guard.mjs,
- * ge_runner_guard.mjs): what a window must show whatever the golden holds.
+ * ge_runner_guard.mjs, structural_runner_guard.mjs): what a window must show
+ * whatever the golden holds.
  */
 
 /** Whether the rows of each press are timed on from the rows before them. */
