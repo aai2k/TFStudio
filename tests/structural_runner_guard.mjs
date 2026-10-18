@@ -10,8 +10,9 @@
  * the status lines in order, the readout, the design and the run blocks, the
  * run cache) and compares that to a committed golden. Beside the golden it
  * checks that a seed replays its run, that each press is timed on from the
- * presses before it, that every press checks the design for edits first, and
- * that a second Run press while a run is going is ignored.
+ * presses before it, that every press checks the design for edits first, that
+ * a second Run press while a run is going is ignored, and that a press whose
+ * workers cannot be built leaves no run behind.
  *
  * Determinism:
  *  - One thread unless a scenario sets more; the seed is fixed per scenario.
@@ -237,7 +238,10 @@ function reconcileFailures() {
     return failed;
 }
 
+// A press whose workers cannot be built leaves no run block and no undo step.
+const unbuilt = results.workersFail;
 const windowFailures = [
+    ...(unbuilt.runs.length || unbuilt.checkpoints ? ['workersFail: a press whose workers were not built left a run behind'] : []),
     ...Object.entries(WINDOW_TIMES).filter(([, ok]) => !ok).map(([name]) => `${name}: a later press's rows are timed before an earlier one's`),
     ...Object.entries(results).filter(([, r]) => r.reconciles !== r.presses.length).map(([name]) => `${name}: a press did not check the design for edits`),
     ...await seedFailures(),

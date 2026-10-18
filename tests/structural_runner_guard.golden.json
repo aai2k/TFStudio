@@ -5063,23 +5063,9 @@
   },
   "workersFail": {
     "applied": 0,
-    "base": {
-      "back": [],
-      "front": [
-        [
-          "TiO2",
-          90,
-          false
-        ],
-        [
-          "SiO2",
-          110,
-          false
-        ]
-      ]
-    },
+    "base": null,
     "cached": null,
-    "checkpoints": 1,
+    "checkpoints": 0,
     "design": {
       "back": [],
       "front": [
@@ -5108,45 +5094,10 @@
     ],
     "reconciles": 1,
     "rows": [],
-    "runOpen": true,
-    "runs": [
-      {
-        "baseline": {
-          "back": [],
-          "front": [
-            [
-              "TiO2",
-              90,
-              false
-            ],
-            [
-              "SiO2",
-              110,
-              false
-            ]
-          ]
-        },
-        "runNum": 1
-      }
-    ],
-    "saved": {
-      "back": [],
-      "front": [
-        [
-          "TiO2",
-          90,
-          false
-        ],
-        [
-          "SiO2",
-          110,
-          false
-        ]
-      ]
-    },
-    "shown": {
-      "canReset": true
-    },
+    "runOpen": false,
+    "runs": [],
+    "saved": null,
+    "shown": {},
     "trend": [],
     "workers": {
       "built": 0,

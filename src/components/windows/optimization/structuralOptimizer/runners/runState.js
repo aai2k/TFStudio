@@ -77,6 +77,10 @@ function checkMaterials(state) {
 
 function checkWorkers(state) {
     const { ctx, curDes } = state;
+    state.workerCount = state.cfg.threads ?? getThreadCount();
+    state.wasmBytes = getTmmWasmBytesForWorker();
+    // A press whose workers cannot be built leaves no run behind.
+    if (!createWorkers(ctx, state.workerCount)) return false;
     // Open a run block for this press unless one is still open from a Stop. The
     // block records the design the press started from, which is what Reset
     // restores (synthesisShared/runBlocks.js).
@@ -90,9 +94,7 @@ function checkWorkers(state) {
         ctx.runOpenRef.current = true;
         ctx.setCanReset(true);
     }
-    state.workerCount = state.cfg.threads ?? getThreadCount();
-    state.wasmBytes = getTmmWasmBytesForWorker();
-    return createWorkers(ctx, state.workerCount);
+    return true;
 }
 
 // Every enabled operand the run keeps, constraints included, for scoring
