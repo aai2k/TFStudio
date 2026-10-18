@@ -1,4 +1,5 @@
 import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js';
+import { alive } from './runUtils.js';
 
 const REFINE_TIMEOUT_MS = 45000;
 
@@ -63,9 +64,11 @@ export function refineGuarded(ctx, S, workerIndex, job, tick) {
             if (timeout) clearTimeout(timeout);
             resolve(value);
         };
+        // A run that has been stopped no longer owns the workers: the next
+        // run may have built new ones in their place.
         timeout = setTimeout(() => {
             if (settled) return;
-            replaceTimedOutWorker(ctx, S, workerIndex);
+            if (alive(ctx, S)) replaceTimedOutWorker(ctx, S, workerIndex);
             done(null);
         }, REFINE_TIMEOUT_MS);
         refineOnce(ctx.workersRef.current[workerIndex], job, tick)
