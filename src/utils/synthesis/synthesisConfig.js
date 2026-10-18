@@ -10,17 +10,20 @@
  * worker or a headless test).
  *
  * The implementation is split into focused modules under ./synthesisConfig/:
- *   innerEngine       → getSynthesisInnerEngine / setSynthesisInnerEngine
+ *   innerEngine       → getSynthesisInnerEngine / setSynthesisInnerEngine /
+ *                        ENGINE_DEFAULTS
  *   threads           → detectCores / defaultThreadCount / getThreadCount /
  *                        setThreadCount / threadSelectOptions
  *   candBatches       → getSynthesisCandMode / setSynthesisCandMode /
- *                        getSynthesisMaxBatches
+ *                        getSynthesisMaxBatches / candModeBatches
  *   needleSensitivity → getNeedleSensMode / setNeedleSensMode /
- *                        getNeedleSensFloor / cullMarginalNeedles
+ *                        getNeedleSensFloor / needleSensFloorFor /
+ *                        cullMarginalNeedles
  *   seedMode          → getSynthesisSeedMode / setSynthesisSeedMode /
  *                        PRESERVE_BULK_GENTLE_ITER
  *   consolidate       → getSynthesisConsolidate(Tol) / setSynthesisConsolidate(Tol)
- *   smartSeed         → getSynthesisSmartSeed / setSynthesisSmartSeed
+ *   smartSeed         → getSynthesisSmartSeed / setSynthesisSmartSeed /
+ *                        SMART_SEED_DEFAULTS
  *   intraSamples      → SYNTHESIS_INTRA_SAMPLES (needle positions per layer)
  * This file re-exports their full surface so every existing importer
  * (components, workers, tests) is unchanged.

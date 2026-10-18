@@ -1,0 +1,104 @@
+// The settings of one Needle run, checked and filled in. An unknown setting,
+// or a value the run cannot take, is refused with an error rather than dropped
+// or rounded.
+
+import {
+    SYNTHESIS_INNER_ENGINES, ENGINE_DEFAULTS,
+    SYNTHESIS_CAND_MODES, DEFAULT_SYNTHESIS_CAND_MODE, candModeBatches,
+    NEEDLE_SENS_MODES, DEFAULT_NEEDLE_SENS_MODE, needleSensFloorFor,
+    SMART_SEED_DEFAULTS, defaultThreadCount,
+} from '../synthesis/synthesisConfig.js';
+
+/**
+ * The settings a Needle run starts from, and the Needle window's fields too.
+ *
+ * dMin is the synthesis floor: the lower bound of a needle's thickness search
+ * and the thickness below which a refined layer is pruned. It stays at 1 nm
+ * whatever the merit function's MNT row says. Needles go in thin and grow, so
+ * a floor at MNT would force-feed every needle at MNT thickness and the
+ * synthesis collapses. Gradual Evolution can couple its floor to MNT because
+ * its forced thickness step escapes the resulting local minimum; Needle has no
+ * such step, and leaves the MNT and MXT rows to a Refinement run afterwards.
+ *
+ * CG, a full refine per generation and the 1 nm floor come from a comparison
+ * of the window's settings; 60 refine iterations and 60 layers balance merit
+ * per layer against run time.
+ */
+export const NEEDLE_DEFAULTS = Object.freeze({
+    maxLayers: 60,
+    targetMF: 5e-4,
+    deltaNm: 0.5,
+    dMin: 1,
+    refineIter: 60,
+    innerEngine: ENGINE_DEFAULTS.needle,
+    candidateSearch: DEFAULT_SYNTHESIS_CAND_MODE,
+    sensitivity: DEFAULT_NEEDLE_SENS_MODE,
+    smartSeed: SMART_SEED_DEFAULTS.needle,
+});
+
+const KNOWN = new Set([...Object.keys(NEEDLE_DEFAULTS), 'pool', 'threads', 'history']);
+
+const isCount = v => Number.isInteger(v) && v >= 1;
+const isPositive = v => Number.isFinite(v) && v > 0;
+const oneOf = list => v => list.includes(v);
+
+// Each setting with a check and how a refusal names what it takes.
+const CHECKS = [
+    ['maxLayers', isCount, 'a whole number of 1 or more'],
+    ['refineIter', isCount, 'a whole number of 1 or more'],
+    ['threads', isCount, 'a whole number of 1 or more'],
+    // Infinity stops the run at its first accepted generation.
+    ['targetMF', v => typeof v === 'number' && v >= 0, 'a merit of 0 or more, or Infinity'],
+    ['deltaNm', isPositive, 'a thickness in nm above 0'],
+    ['dMin', isPositive, 'a thickness in nm above 0'],
+    ['innerEngine', oneOf(SYNTHESIS_INNER_ENGINES), `one of ${SYNTHESIS_INNER_ENGINES.join(', ')}`],
+    ['candidateSearch', oneOf(SYNTHESIS_CAND_MODES), `one of ${SYNTHESIS_CAND_MODES.join(', ')}`],
+    ['sensitivity', oneOf(NEEDLE_SENS_MODES), `one of ${NEEDLE_SENS_MODES.join(', ')}`],
+    ['smartSeed', v => typeof v === 'boolean', 'true or false'],
+];
+
+function refuse(message) { throw new Error(`Needle settings: ${message}`); }
+
+// The generations a run carries on from, for a window that keeps a history
+// across runs. A run of its own starts at generation 1, measures its first
+// ΔMF from nothing and its time from 0.
+function historyOf(history) {
+    if (history == null) return { genNum: 0, bestMF: Infinity, elapsedMs: 0, rows: [] };
+    if (typeof history !== 'object') refuse('history is an object');
+    const { genNum = 0, bestMF = Infinity, elapsedMs = 0, rows = [] } = history;
+    if (!(Number.isInteger(genNum) && genNum >= 0)) refuse('history.genNum is a whole number of 0 or more');
+    if (typeof bestMF !== 'number' || Number.isNaN(bestMF)) refuse('history.bestMF is a merit, or Infinity');
+    if (!(Number.isFinite(elapsedMs) && elapsedMs >= 0)) refuse('history.elapsedMs is a time in ms of 0 or more');
+    if (!Array.isArray(rows)) refuse('history.rows is a list of generation rows');
+    return { genNum, bestMF, elapsedMs, rows };
+}
+
+/**
+ * The run plan for `settings`: every setting filled in, candidate search and
+ * sensitivity turned into the batch cap and the cull floor the run applies.
+ * Throws on an unknown setting or a value the run cannot take.
+ */
+export function planRun(settings) {
+    if (!settings || typeof settings !== 'object') refuse('settings is an object');
+    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) refuse(`unknown setting '${key}'`);
+    if (!Array.isArray(settings.pool) || !settings.pool.every(p => p && p.id != null && p.mat)) {
+        refuse('pool is the list of candidate materials, each { id, name, mat } with its material');
+    }
+    const s = { ...NEEDLE_DEFAULTS, threads: defaultThreadCount(), ...stripUnset(settings) };
+    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) refuse(`${key} is ${takes}`);
+    return {
+        pool: s.pool,
+        maxLayers: s.maxLayers, targetMF: s.targetMF, deltaNm: s.deltaNm, dMin: s.dMin,
+        refineIter: s.refineIter, innerEngine: s.innerEngine, smartSeed: s.smartSeed, threads: s.threads,
+        maxBatches: candModeBatches(s.candidateSearch),
+        sensFloor: needleSensFloorFor(s.sensitivity),
+        history: historyOf(settings.history),
+    };
+}
+
+// A setting given as undefined or null takes its default.
+function stripUnset(settings) {
+    const out = {};
+    for (const [key, value] of Object.entries(settings)) if (value !== undefined && value !== null) out[key] = value;
+    return out;
+}

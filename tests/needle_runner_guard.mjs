@@ -1,13 +1,17 @@
 /**
  * Needle run guard: a before/after identity check for a Needle Automatic run as
- * the window sees it.
+ * the window sees it, utils/needle/runNeedle.js started and shown by the
+ * window's windowRun.js.
  *
- * Each scenario drives a run end to end against a fake Needle window `ctx` and
- * an in-process pool that runs the real synthesis-worker handlers
+ * Each scenario drives a run end to end against a fake Needle window `ctx`
+ * (_needleWindow.mjs) and an in-process pool that runs the real synthesis-worker handlers
  * (dispatchSynthesisJob) one job after another, so the run is deterministic in
  * Node. It snapshots what the window ends up showing: the generation rows, the
  * status lines and phases in order, the readout, the design and the run blocks,
- * and compares that to a committed golden.
+ * and compares that to a committed golden. Beside the golden it checks what the
+ * window must show whatever the golden holds: a closing row on screen and in
+ * the readout, time running on across presses, and nothing shown from a run
+ * the window has let go of.
  *
  * Determinism:
  *  - The pool size comes from the thread setting, fixed here at 3.
@@ -36,24 +40,13 @@ const UPDATE = process.argv.includes('--update');
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
 const { makeOperand } = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
-const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleVariation/runners/workerPool.js');
-const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
-const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
-const { default: EN } = await import('../src/constants/locales/en.js');
+const { startWindowRun } = await import('../src/components/windows/optimization/needleVariation/windowRun.js');
+const { layer, makeWindow, makeWaitingPool, settle, withWindowSettings } = await import('./_needleWindow.mjs');
 
 const FROZEN_NOW = 1e12;
 Date.now = () => FROZEN_NOW;
 let clock = 0;
 performance.now = () => ++clock;
-
-// Window settings that live in local storage, set per scenario and cleared after.
-const STORAGE = {
-    threads: 'tfstudio-worker-threads',
-    engine: 'tfstudio-synth-inner-engine-needle',
-    smartSeed: 'tfstudio-synth-smart-seed-needle',
-    candMode: 'tfstudio-synth-cand-batches',
-    sensitivity: 'tfstudio-needle-sensitivity',
-};
 
 const mat = id => ({ id, name: id, mat: getMaterial(id) });
 const POOL_TSM = ['TiO2', 'SiO2', 'MgF2'].map(mat);
@@ -62,7 +55,6 @@ const BBAR = caseById('bbar').ops;
 const REFLECTOR = [makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 1, weight: 1 })];
 const MNT = makeOperand({ type: 'MNT', target: 30, weight: 1 });
 
-const layer = (id, material, thickness) => ({ id, material, thickness, locked: false });
 const design = (extra = {}) => ({
     id: 'guard-design',
     incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'BK7', thickness: 1.0 },
@@ -107,127 +99,35 @@ const SCENARIOS = {
     failsDuringSeed: { maxLayers: 5, storage: { smartSeed: '1' }, presses: [{ previewThenFailAtMap: 1 }] },
 };
 
-// A seed's in-flight design, as a worker's live preview sends it.
-const PREVIEW = [layer('P1', 'TiO2', 60), layer('P2', 'SiO2', 90)];
-
-// The in-process pool. `press.stopAtMap` presses Stop while the nth map call is
-// in flight, as a real pool's terminate() would, `press.failAtMap` makes the
-// nth map call fail, `press.previewThenFailAtMap` sends one live preview first,
-// and `press.poolThrows` makes building the pool throw.
-function makePool(win, press) {
-    if (press.poolThrows) throw new Error('no workers');
-    return {
-        map(jobs, onProgress) {
-            win.maps++;
-            if (win.maps === press.stopAtMap) {
-                win.ctx.stopOpt('');
-                return Promise.reject(new Error('pool terminated'));
-            }
-            if (win.maps === press.failAtMap) return Promise.reject(new Error('the pool failed'));
-            if (win.maps === press.previewThenFailAtMap) {
-                onProgress(0, { type: 'tick', mf: 0.5, omf: 0.5, frontLayers: PREVIEW, backLayers: [], layers: PREVIEW });
-                return Promise.reject(new Error('the pool failed'));
-            }
-            return Promise.all(jobs.map((job, i) => new Promise((resolve, reject) => {
-                win.jobs[job.type] = (win.jobs[job.type] || 0) + 1;
-                const post = (m) => {
-                    if (m.type === 'tick') { onProgress && onProgress(i, m); return; }
-                    if (m.type === 'error') { reject(new Error(m.message)); return; }
-                    resolve(m);
-                };
-                try { dispatchSynthesisJob(job, makeResolveMat(job.materials || {}, 'guard'), post); }
-                catch (e) { reject(e); }
-            })));
-        },
-        terminate() { win.terminated++; },
-    };
-}
-
-// A fake Needle window: the refs and setters useNeedleVariation.js builds, its
-// Stop, and a recorder for what the window shows.
-function makeWindow(spec) {
-    const ref = current => ({ current });
-    const win = {
-        maps: 0, jobs: {}, terminated: 0,
-        statuses: [], phases: [], shown: {}, applied: null, press: null,
-    };
-    const push = (list, v) => { if (list[list.length - 1] !== v) list.push(v); };
-    const show = key => v => { win.shown[key] = v; };
-    const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(spec.design || design()),
-        operandsRef: ref(spec.ops.map(op => ({ enabled: true, ...op }))),
-        gensRef: ref([]), genCountRef: ref(0),
-        runsRef: ref([]), runOpenRef: ref(false),
-        maxLayersRef: ref(spec.maxLayers), deltaNmRef: ref(spec.deltaNm), dMinRef: ref(spec.dMin),
-        dlsIterRef: ref(spec.dlsIter), targetMFRef: ref(spec.targetMF),
-        selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),
-        updateDesignRef: ref((patch, opts) => {
-            win.applied = { ...(win.applied || {}), ...patch };
-            win.designUpdates = (win.designUpdates || 0) + 1;
-            ctx.designRef.current = { ...ctx.designRef.current, ...patch };
-            if (!opts?.transient) win.edits = (win.edits || 0) + 1;
-        }),
-        checkpointRef: ref(() => { win.checkpoints = (win.checkpoints || 0) + 1; }),
-        setPhase: p => push(win.phases, p),
-        setStatusMsg: m => push(win.statuses, m),
-        setMf: show('mf'), setMfBest: show('mfBest'), setOmf: show('omf'), setOmfBest: show('omfBest'),
-        setLayerCount: show('layerCount'), setCanReset: show('canReset'), setGeneration: show('generation'),
-        setGenerations: v => { win.shown.rows = v.length; },
-        setTopDesigns: v => { win.shown.top = v.map(g => g.genNum); },
-        reconcileBaseWithEdits: () => {},
-        getPoolMaterials: () => spec.pool,
-        setCachedOptState: (id, cached) => { win.cached = { id, rows: cached.generations.length, runs: cached.runs.length }; },
-        t: EN,
-        makeWorkerPool: () => makePool(win, win.press),
-    };
-    // useNeedleVariation.js stopOpt + needleLifecycle.js teardownRun.
-    ctx.stopOpt = (msg = '') => {
-        const wasRunning = ctx.runningRef.current;
-        ctx.runningRef.current = false;
-        if (ctx.workerRef.current) {
-            try { ctx.workerRef.current.terminate(); } catch (_) {}
-            ctx.workerRef.current = null;
-        }
-        ctx.setPhase('idle');
-        if (msg || wasRunning) ctx.setStatusMsg(msg);
-    };
-    win.ctx = ctx;
-    return win;
-}
-
-async function settle(win) {
-    for (let i = 0; i < 10000 && win.ctx.runningRef.current; i++) await new Promise(r => setTimeout(r, 1));
-    await new Promise(r => setTimeout(r, 5));
-}
-
 const layersOf = arr => (arr || []).map(l => [l.material, l.thickness]);
 const rowOf = g => {
     const { id, tMs, layers, frontSnap, backSnap, ...rest } = g;
     return { ...rest, layers: layersOf(layers), frontSnap: layersOf(frontSnap), backSnap: layersOf(backSnap) };
 };
 
+// Whether the rows of each press are timed on from the rows before them.
+function timeRunsOn(rowCounts, rows) {
+    return rowCounts.every((count, i) => i === 0 || rows.slice(rowCounts[i - 1], count)
+        .every(row => row.tMs >= Math.max(0, ...rows.slice(0, rowCounts[i - 1]).map(r => r.tMs))));
+}
+
 async function runScenario(name) {
-    const spec = { ...BASE, ...SCENARIOS[name] };
-    for (const [key, value] of Object.entries({ threads: '3', ...(spec.storage || {}) })) localStorage.setItem(STORAGE[key], value);
+    const spec = { ...BASE, design: design(), ...SCENARIOS[name] };
     const win = makeWindow(spec);
-    const presses = [];
-    const quiet = console.log, quietErr = console.error;
-    console.log = () => {}; console.error = () => {};
-    try {
+    const presses = [], rowCounts = [];
+    await withWindowSettings(spec.storage, async () => {
         for (const press of spec.presses) {
             win.press = press;
             if (press.maxLayers) win.ctx.maxLayersRef.current = press.maxLayers;
             win.statuses = []; win.phases = [];
-            runNeedleWorkerPool(win.ctx);
+            await startWindowRun(win.ctx);
             await settle(win);
             presses.push({ statuses: win.statuses, phases: win.phases, running: win.ctx.runningRef.current });
+            rowCounts.push(win.ctx.gensRef.current.length);
         }
-    } finally {
-        console.log = quiet; console.error = quietErr;
-        for (const key of Object.values(STORAGE)) localStorage.removeItem(key);
-    }
+    });
     const ctx = win.ctx;
+    WINDOW_TIMES[name] = timeRunsOn(rowCounts, ctx.gensRef.current);
     return {
         presses,
         rows: ctx.gensRef.current.map(rowOf),
@@ -239,9 +139,9 @@ async function runScenario(name) {
         runOpen: ctx.runOpenRef.current,
         genCount: ctx.genCountRef.current,
         cached: win.cached || null,
-        checkpoints: win.checkpoints || 0,
-        edits: win.edits || 0,
-        designUpdates: win.designUpdates || 0,
+        checkpoints: win.checkpoints,
+        edits: win.edits,
+        designUpdates: win.designUpdates,
         jobs: win.jobs,
         maps: win.maps,
         terminated: win.terminated,
@@ -253,6 +153,68 @@ async function runScenario(name) {
 const sorted = v => (Array.isArray(v) ? v.map(sorted)
     : v && typeof v === 'object' ? Object.fromEntries(Object.keys(v).sort().map(k => [k, sorted(v[k])])) : v);
 
+// ── What the window must show, whatever the golden holds ─────────────────────
+
+// Whether each scenario's rows are timed on across its presses (runScenario).
+const WINDOW_TIMES = {};
+
+// The scenarios that end on a closing row: a winner no accepted row shows. In
+// secondPress it is the design a thin-start rescue set aside, which differs
+// from every row before it, so it is on screen only if the window put it there.
+const CLOSING = ['regridAndRescue', 'sqpThorough', 'secondPress'];
+
+// Each closing row is what the readout and the design on screen show. Each
+// press of a scenario is timed on from the presses before it.
+function windowChecks(results) {
+    const failed = [];
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const sameDesign = (row, d) => row && same(d?.front, row.frontSnap) && same(d?.back, row.backSnap);
+    for (const name of CLOSING) {
+        const r = results[name], row = r.rows.at(-1);
+        if (!row?.final) { failed.push(`${name}: the run does not end on a closing row`); continue; }
+        if (r.shown.mf !== row.mf) failed.push(`${name}: the readout shows ${r.shown.mf}, the closing row ${row.mf}`);
+        if (!sameDesign(row, r.design)) failed.push(`${name}: the design on screen is not the closing row's`);
+    }
+    const before = results.secondPress.rows.at(-2);
+    if (sameDesign(before, { front: results.secondPress.rows.at(-1)?.frontSnap, back: results.secondPress.rows.at(-1)?.backSnap })) {
+        failed.push('secondPress: its closing row repeats the row before it, so the design check proves nothing');
+    }
+    for (const [name, ok] of Object.entries(WINDOW_TIMES)) if (!ok) failed.push(`${name}: a later press's rows are timed before an earlier one's`);
+    return failed;
+}
+
+// A second Run press while a run is going is ignored. After Stop, what the
+// stopped run still reports shows nothing, and its end leaves the run started
+// after it running; that run's own reports still show.
+async function verifyLetGo() {
+    const failed = [];
+    const win = makeWindow({ ...BASE, design: design() });
+    const pools = [];
+    win.ctx.makeWorkerPool = () => { const pool = makeWaitingPool(); pools.push(pool); return pool; };
+    // Whether `promise` settles within a few seconds.
+    const ends = promise => Promise.race([promise.then(() => true),
+        new Promise(resolve => setTimeout(() => resolve(false), 3000))]);
+    await withWindowSettings({ smartSeed: '1' }, async () => {
+        const runA = startWindowRun(win.ctx);
+        const second = startWindowRun(win.ctx);
+        if (pools.length !== 1) failed.push('a second Run press while a run is going started another run');
+        win.ctx.stopOpt('');
+        const runB = startWindowRun(win.ctx);
+        const before = JSON.stringify([win.shown, win.applied]);
+        pools[0].tick(9.9);
+        if (!await ends(runA)) failed.push('Stop did not end the stopped run');
+        if (JSON.stringify([win.shown, win.applied]) !== before) failed.push('a stopped run still showed a live design');
+        if (!win.ctx.runningRef.current || !win.ctx.abortRef.current) failed.push('the stopped run\'s end stopped the run after it');
+        pools.at(-1).tick(7.7);
+        if (win.shown.mf !== 7.7) failed.push('the running run\'s live design did not show');
+        win.ctx.stopOpt('');
+        for (const pool of pools) pool.terminate();
+        if (!await ends(runB)) failed.push('Stop did not end the running run');
+        await ends(second);
+    });
+    return failed;
+}
+
 const results = {};
 for (const name of Object.keys(SCENARIOS)) results[name] = sorted(await runScenario(name));
 
@@ -262,8 +224,11 @@ if (UPDATE || !existsSync(GOLDEN)) {
     process.exit(0);
 }
 
+const windowFailures = [...windowChecks(results), ...await verifyLetGo()];
+for (const failure of windowFailures) console.log(`FAIL ❌  ${failure}`);
+
 const golden = JSON.parse(readFileSync(GOLDEN, 'utf8'));
-let fails = 0;
+let fails = windowFailures.length;
 for (const name of Object.keys(SCENARIOS)) {
     const a = JSON.stringify(golden[name]), b = JSON.stringify(results[name]);
     if (a !== b) {
@@ -273,6 +238,6 @@ for (const name of Object.keys(SCENARIOS)) {
         console.log(`   current: ${b}`);
     }
 }
-if (fails === 0) { console.log(`PASS ✅  Needle runs identical to golden (${Object.keys(SCENARIOS).length} scenarios)`); process.exit(0); }
-console.log(`FAIL ❌  ${fails} scenario(s) drifted`);
+if (fails === 0) { console.log(`PASS ✅  Needle runs identical to golden (${Object.keys(SCENARIOS).length} scenarios), window checks pass`); process.exit(0); }
+console.log(`FAIL ❌  ${fails} failure(s)`);
 process.exit(1);

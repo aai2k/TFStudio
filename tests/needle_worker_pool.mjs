@@ -1,17 +1,18 @@
 /**
- * Behavioral gate for the Needle worker-POOL engine (needleVariation/runners/workerPool.js →
- * runNeedleWorkerPool).
+ * A Needle run in Node (utils/needle/runNeedle.js), on an in-process pool whose
+ * `map` runs the real `dispatchSynthesisJob` handlers one job after another
+ * (the code the Web Worker runs), so the run is deterministic.
  *
- * The standalone-needle run orchestrates a WorkerPool of stateless
- * synthesis primitives (scan / candidate / seedDls) from the main thread. That
- * async orchestration — smart-seed → scan fan-out → best-of-batch candidate
- * refine → accept/record → finalize — is the file's real complexity and had NO
- * automated coverage (the synthesis_* tests exercise the primitives, not the
- * loop). This test drives it in-process by injecting a FAKE pool whose `map`
- * runs the real `dispatchSynthesisJob` handlers synchronously (same code the
- * Web Worker runs), so the whole orchestration executes deterministically in
- * Node. It gates both the extraction of runOpt out of the component and its
- * decomposition into small helpers against any behavior change.
+ *   1. A broadband AR from one 100 nm layer: the run grows the stack, each
+ *      generation improves on the one before except across a thin-start rescue,
+ *      the answer is usable, two runs agree, and the result is a design one of
+ *      its rows shows.
+ *   2. Settings: unknown ones and values the run cannot take are refused, and
+ *      the defaults are the window's.
+ *   3. Stop before the run starts and while it runs.
+ *   4. A run that carries on a history numbers its rows on from it.
+ *   5. A rescue whose thicker start never beats the design it stalled on ends
+ *      on that design, recorded as the closing row.
  *
  * Run: node tests/needle_worker_pool.mjs
  */
@@ -23,15 +24,18 @@ await initWasmForTest();
 
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
-const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleVariation/runners/workerPool.js');
-const { wpFinalize } = await import('../src/components/windows/optimization/needleVariation/runners/workerPoolLifecycle.js');
+const { makeOperand } = await import('../src/utils/physics/optimizer.js');
+const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
+const { planRun } = await import('../src/utils/needle/settings.js');
+const { defaultThreadCount } = await import('../src/utils/synthesis/synthesisConfig.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond) => { if (cond) pass++; else { fail++; console.error('FAIL:', name); } };
+const throws = (fn, pattern) => { try { fn(); return false; } catch (err) { return pattern.test(err.message); } };
 
-// Quiet the engine's per-step console.log spam.
+// Quiet the run's per-step console.log spam.
 const _log = console.log; console.log = () => {};
 
 const ops = caseById('bbar').ops;   // BBAR: TGT 420–680 → T=1
@@ -45,16 +49,14 @@ const seedDesign = () => ({
     frontLayers: [{ id: 'S', material: 'SiO2', thickness: 100, locked: false }],
     backLayers: [], surfaceMode: 'front_only', mfEvalMode: 'side',
 });
+const SETTINGS = { pool: POOL, maxLayers: 6, deltaNm: 0.5, dMin: 1.0, refineIter: 30, targetMF: 1e-4, threads: 3 };
 
-const { default: EN } = await import('../src/constants/locales/en.js');
-
-// In-process fake pool: exactly mirrors the Web Worker's onmessage — per job it
-// rebuilds resolveMat from job.materials and runs dispatchSynthesisJob, routing
-// ticks to onProgress and resolving with the final {type:'result'} message.
-// jobsRun counts dispatches so the test can prove the pool ran the jobs.
-function makeFakePool(counter) {
+// The in-process pool. It counts the jobs it runs and the times it is
+// terminated; `onMap(n)` is called before the nth map call runs.
+function makePool(counter, onMap = () => {}) {
     return {
         map(jobs, onProgress) {
+            onMap(++counter.maps);
             return Promise.all(jobs.map((job, i) => new Promise((resolve, reject) => {
                 counter.n++;
                 const resolveMat = makeResolveMat(job.materials || {}, 'fakePool');
@@ -67,132 +69,147 @@ function makeFakePool(counter) {
                 catch (e) { reject(e); }
             })));
         },
-        terminate() {},
+        terminate() { counter.terminated++; },
     };
 }
 
-function makeRun(counter) {
-    const design = seedDesign();
-    const noop = () => {};
-    const ref = (v) => ({ current: v });
-    let resolveDone;
-    const done = new Promise((r) => { resolveDone = r; });
-    const ctx = {
-        runningRef: ref(false), workerRef: ref(null),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(design),
-        operandsRef: ref(ops.map(o => ({ ...o, enabled: true }))),
-        gensRef: ref([]), genCountRef: ref(0),
-        runsRef: ref([]), runOpenRef: ref(false),
-        maxLayersRef: ref(6), deltaNmRef: ref(0.5), dMinRef: ref(1.0),
-        dlsIterRef: ref(30), targetMFRef: ref(1e-4),
-        selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),
-        updateDesignRef: ref(noop), checkpointRef: ref(noop),
-        setPhase: (p) => { if (p === 'idle' && ctx.runningRef.current === false && ctx._started) resolveDone(); },
-        setStatusMsg: noop, setMf: noop, setMfBest: noop, setOmf: noop, setOmfBest: noop,
-        setLayerCount: noop, setCanReset: noop, setGeneration: noop,
-        setGenerations: noop, setTopDesigns: noop,
-        reconcileBaseWithEdits: noop,
-        getPoolMaterials: () => POOL,
-        setCachedOptState: noop,
-        t: EN, stopOpt: noop,
-        makeWorkerPool: () => makeFakePool(counter),
-        _started: false,
-    };
-    return { ctx, done };
+async function runOnce(settings = SETTINGS, hooks = {}) {
+    const counter = { n: 0, maps: 0, terminated: 0 };
+    const rows = [];
+    const result = await runNeedle(seedDesign(), ops.map(o => ({ ...o, enabled: true })), settings, {
+        makeWorkerPool: () => makePool(counter, hooks.onMap),
+        onGeneration: row => rows.push(row),
+        ...hooks,
+    });
+    return { result, rows, counter };
 }
 
-async function runOnce() {
-    const counter = { n: 0 };
-    const { ctx, done } = makeRun(counter);
-    ctx._started = true;
-    runNeedleWorkerPool(ctx);
-    if (ctx.runningRef.current) {
-        await Promise.race([done, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))]);
-    }
-    return {
-        gens: ctx.gensRef.current.map(g => ({ genNum: g.genNum, layerCount: g.layerCount, mf: g.mf, runNum: g.runNum, rescued: !!g.rescued })),
-        jobsRun: counter.n,
-    };
-}
-
+// ── 1. A run ────────────────────────────────────────────────────────────────
 const A = await runOnce();
 const B = await runOnce();
 console.log = _log;
+console.log(`=== Needle run in Node · WASM ${tmmWasmActive() ? 'ON' : 'off'} ===`);
+console.log(`  jobs run: ${A.counter.n}, end: ${A.result.stopReason}`);
+for (const g of A.rows) console.log(`  gen ${g.genNum}: ${g.layerCount} layers, MF=${g.mf.toFixed(6)}`);
+console.log = () => {};
 
-console.log(`=== Needle worker-pool engine · WASM ${tmmWasmActive() ? 'ON' : 'off'} ===`);
-console.log(`  jobs dispatched via fake pool: ${A.jobsRun}`);
-console.log(`  generations: ${A.gens.length}`);
-for (const g of A.gens) console.log(`  gen ${g.genNum}: ${g.layerCount} layers, MF=${g.mf.toFixed(6)}`);
-
-ok('the pool ran the jobs', A.jobsRun > 0);
-ok('grew the stack (≥1 accepted generation)', A.gens.length >= 1);
+ok('the pool ran the jobs, and was terminated once', A.counter.n > 0 && A.counter.terminated === 1);
+ok('grew the stack (≥1 accepted generation)', A.rows.length >= 1);
 // A generation may hold fewer layers than it inserted: a needle the refine
 // parks on the floor is taken out when the stack is better without it, and the
 // first generation can then be the refined seed alone.
-ok('grew past the seed (the last generation has ≥2 layers)', A.gens.at(-1).layerCount >= 2);
-ok('merit finite', A.gens.every(g => Number.isFinite(g.mf)));
+ok('grew past the seed (the last generation has ≥2 layers)', A.rows.at(-1).layerCount >= 2);
+ok('merit finite', A.rows.every(g => Number.isFinite(g.mf)));
 // The accept rule guarantees each recorded generation strictly improves on the
 // one before it, EXCEPT across a thin-start rescue: that restarts the loop from
 // a thicker design chosen for the room it has to grow, not for the merit it
 // starts at, so the first generation after it is allowed to read worse. The
-// rescue tags that generation, and wpFinalize still publishes the better of the
-// two designs, so a rescue can never make the run's answer worse.
+// rescue tags that generation, and the run still ends on the better of the two
+// designs, so a rescue can never make the run's answer worse.
 let mono = true;
-for (let i = 1; i < A.gens.length; i++) {
-    if (A.gens[i].rescued) continue;
-    if (!(A.gens[i].mf < A.gens[i - 1].mf - 1e-9)) mono = false;
+for (let i = 1; i < A.rows.length; i++) {
+    if (A.rows[i].rescued) continue;
+    if (!(A.rows[i].mf < A.rows[i - 1].mf - 1e-9)) mono = false;
 }
 ok('merit improves monotonically within each phase of a run', mono);
-ok('reached a usable BBAR (final MF < 0.05)', A.gens.length && A.gens[A.gens.length - 1].mf < 0.05);
+ok('reached a usable BBAR (final MF < 0.05)', A.result.mf < 0.05);
+ok('a completed run with its stop reason', A.result.completed
+    && ['maxLayers', 'needleOptimal', 'target'].includes(A.result.stopReason));
+const sameLayers = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+// A row's merit and the answer's can differ in the last digits: a design kept
+// aside by a rescue is re-scored when the run moves to a finer grid.
+ok('the answer is a design one of its rows shows', A.rows.some(g => Math.abs(g.mf - A.result.mf) < 1e-12
+    && sameLayers(g.frontSnap, A.result.frontLayers) && sameLayers(g.backSnap, A.result.backLayers)));
+// Determinism: the pool runs jobs in order and the math has no RNG affecting
+// merit, so two runs from the same seed produce an identical generation sequence.
+ok('deterministic run-to-run (identical generation sequence)', A.rows.length === B.rows.length &&
+    A.rows.every((g, i) => g.layerCount === B.rows[i].layerCount && Math.abs(g.mf - B.rows[i].mf) < 1e-12));
 
-// Determinism: the fake pool runs jobs in-order synchronously and the math has
-// no RNG affecting merit, so two runs from the same seed produce an identical
-// generation sequence.
-const same = A.gens.length === B.gens.length &&
-    A.gens.every((g, i) => g.layerCount === B.gens[i].layerCount && Math.abs(g.mf - B.gens[i].mf) < 1e-12);
-ok('deterministic run-to-run (identical generation sequence)', same);
-
-// A rescue may continue from a thicker but temporarily worse stack. If it never
-// beats the pre-rescue stack, finalization must make that preserved winner a
-// real history/Top-Designs snapshot; otherwise the Best button finds the worse
-// post-rescue generation even though the readout advertises the lower MF.
+// ── 2. Settings ─────────────────────────────────────────────────────────────
+ok('an unknown setting is refused', throws(() => planRun({ ...SETTINGS, maxLayer: 5 }), /unknown setting 'maxLayer'/));
+ok('a layer cap of 0 is refused', throws(() => planRun({ ...SETTINGS, maxLayers: 0 }), /maxLayers/));
+ok('a fractional refine count is refused', throws(() => planRun({ ...SETTINGS, refineIter: 2.5 }), /refineIter/));
+ok('an inner refiner synthesis does not offer is refused', throws(() => planRun({ ...SETTINGS, innerEngine: 'de' }), /innerEngine/));
+ok('a run without a material pool is refused', throws(() => planRun({ maxLayers: 5 }), /pool/));
+ok('a pool entry without its material is refused', throws(() => planRun({ pool: [{ id: 'X', name: 'X', mat: null }] }), /pool/));
 {
-    const ref = current => ({ current });
-    const preFront = [{ id: 'pre', material: 'SiO2', thickness: 100 }];
-    const worseFront = [{ id: 'post', material: 'TiO2', thickness: 220 }];
-    const pool = { terminate() {} };
-    const applied = [];
-    let top = [];
-    let shownMf = null;
-    const ctx = {
-        workerRef: ref(pool), runningRef: ref(true), runOpenRef: ref(true),
-        designRef: ref({ id: 'rescue-final', frontLayers: worseFront, backLayers: [], surfaceMode: 'front_only' }),
-        baseDesignRef: ref(null), savedDesignRef: ref({ frontLayers: [], backLayers: [] }),
-        runsRef: ref([{ runNum: 1, baseline: { frontLayers: [], backLayers: [] } }]),
-        gensRef: ref([{
-            id: 'worse', runNum: 1, genNum: 1, mf: 0.02, omf: 0.02,
-            frontSnap: worseFront, backSnap: [], layers: worseFront, side: 'front', layerCount: 1,
-        }]),
-        genCountRef: ref(1),
-        updateDesignRef: ref(patch => applied.push(patch)),
-        setMf: value => { shownMf = value; }, setOmf: () => {}, setMfBest: () => {}, setOmfBest: () => {},
-        setLayerCount: () => {}, setGenerations: () => {}, setTopDesigns: value => { top = value; },
-        setGeneration: () => {}, setCachedOptState: () => {}, setPhase: () => {},
-        setStatusMsg: () => {}, setCanReset: () => {},
-    };
-    const run = {
-        ctx, workerPool: pool, curDes: ctx.designRef.current, scanSides: ['front'],
-        deep: value => JSON.parse(JSON.stringify(value)), genNum: 1, prevBestMF: 0.02,
-        runT0: performance.now(),
-        best: { mf: 0.02, omf: 0.02, frontLayers: worseFront, backLayers: [] },
-        preRescueBest: { mf: 0.01, omf: 0.01, frontLayers: preFront, backLayers: [] },
-    };
-    wpFinalize(run, 'done');
-    const finalRow = ctx.gensRef.current.at(-1);
-    ok('pre-rescue winner is appended as the final generation', finalRow.mf === 0.01 && finalRow.final === true);
-    ok('pre-rescue winner is the restorable Top Design', top[0]?.mf === 0.01 && top[0]?.frontSnap?.[0]?.thickness === 100);
-    ok('final readout and editor use the same pre-rescue winner', shownMf === 0.01 && applied.at(-1)?.frontLayers?.[0]?.thickness === 100);
+    const firstOnly = await runOnce({ ...SETTINGS, targetMF: Infinity });
+    ok('a target of Infinity ends the run at its first accepted generation',
+        firstOnly.result.stopReason === 'target' && firstOnly.rows.length === 1);
+}
+// The window's fields start from these too (useNeedleVariation.js).
+const plan = planRun({ pool: POOL });
+const WINDOW_DEFAULTS = {
+    maxLayers: 60, targetMF: 5e-4, deltaNm: 0.5, dMin: 1, refineIter: 60, innerEngine: 'cg',
+    maxBatches: 2, sensFloor: 0, smartSeed: false, threads: defaultThreadCount(),
+};
+const offDefault = Object.keys(WINDOW_DEFAULTS).filter(key => plan[key] !== WINDOW_DEFAULTS[key]);
+ok(`the defaults are the window's (${offDefault.join(', ') || 'all'})`, offDefault.length === 0);
+let refused = false;
+try { await runNeedle(seedDesign(), ops, SETTINGS, {}); } catch (err) { refused = /makeWorkerPool/.test(err.message); }
+ok('a run without a pool factory is refused', refused);
+
+// ── 3. Stop ─────────────────────────────────────────────────────────────────
+{
+    const stop = new AbortController();
+    stop.abort();
+    let built = false;
+    const before = await runNeedle(seedDesign(), ops, SETTINGS, { signal: stop.signal, makeWorkerPool: () => { built = true; } });
+    ok('a run stopped before it starts builds no pool', before.stopReason === 'stopped' && !built && before.frontLayers === null);
+}
+{
+    const stop = new AbortController();
+    const during = await runOnce(SETTINGS, { signal: stop.signal, onMap: n => { if (n === 3) stop.abort(); } });
+    ok('a run stopped while it runs ends stopped, without an answer', during.result.stopReason === 'stopped'
+        && during.result.frontLayers === null && !during.result.completed);
+    ok('its pool is terminated once', during.counter.terminated === 1);
+}
+for (const hook of ['onStart', 'onProgress']) {
+    // A caller's hook that throws as the run starts ends the run, and its
+    // pool goes with it.
+    const counter = { n: 0, maps: 0, terminated: 0 };
+    let rejected = false;
+    try {
+        await runNeedle(seedDesign(), ops, SETTINGS, {
+            makeWorkerPool: () => makePool(counter),
+            [hook]: () => { throw new Error(`${hook} threw`); },
+        });
+    } catch (err) { rejected = err.message === `${hook} threw`; }
+    ok(`a run whose ${hook} throws at the start rejects and terminates its pool`, rejected && counter.terminated === 1);
 }
 
+// ── 4. A history carried on ─────────────────────────────────────────────────
+{
+    const carried = await runOnce({ ...SETTINGS, history: { genNum: 5, bestMF: 1e-3, elapsedMs: 1000, rows: [] } });
+    const first = carried.rows[0];
+    ok('rows are numbered on from the history', first?.genNum === 6);
+    ok('the first ΔMF is measured from the history\'s best', Math.abs(first.dMF - (first.mf - 1e-3)) < 1e-15);
+    ok('time runs on from the history', first.tMs >= 1000);
+}
+
+// ── 5. A rescue that ends on the design it stalled on ───────────────────────
+{
+    // Scans find no needle, and the thicker starts all score worse (0.5) than
+    // the start (0.3). The run takes the best of them, finds no needle again,
+    // and ends on the start design, which no accepted row shows. One wavelength
+    // keeps the run on its launch grid, so nothing re-scores these merits.
+    const oneLine = [makeOperand({ type: 'T', lambdaStart: 550, lambdaEnd: 550, pol: 'avg', target: 1, weight: 1 })];
+    const counter = { terminated: 0 };
+    const pool = {
+        map: async (jobs) => jobs.map(job => (job.type === 'scan'
+            ? { type: 'result', mf0: 0.3, candidates: [] }
+            : { type: 'result', mf: 0.5, omf: 0.5, frontLayers: job.design.frontLayers, backLayers: [] })),
+        terminate() { counter.terminated++; },
+    };
+    const rows = [];
+    const ended = await runNeedle(seedDesign(), oneLine, SETTINGS, { makeWorkerPool: () => pool, onGeneration: r => rows.push(r) });
+    ok('the run ends on the design it stalled on', ended.completed && ended.mf === 0.3
+        && ended.frontLayers?.[0]?.thickness === 100);
+    const closing = rows.length === 1 ? rows[0] : {};
+    ok('that design is the closing row', [closing.final === true, closing.rescued === true,
+        closing.mf === 0.3, closing.frontSnap?.[0]?.thickness === 100].every(Boolean));
+}
+
+console.log = _log;
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

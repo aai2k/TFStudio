@@ -141,7 +141,7 @@ const run1 = { runNum: 1, baseline: { frontLayers: layers([['TiO2', 7000]]), bac
 function needleCtx(designRevision) {
     return {
         ctx: {
-            lastDesignId: ref(null), runningRef: ref(false), workerRef: ref(null),
+            lastDesignId: ref(null), runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null),
             gensRef: ref([]), genCountRef: ref(0), savedDesignRef: ref(null),
             baseDesignRef: ref(null), baseRevRef: ref(0), runsRef: ref([]), runOpenRef: ref(false),
             setPhase: noop, setStatusMsg: noop, setGenerations: noop, setTopDesigns: noop, setMf: noop, setMfBest: noop,

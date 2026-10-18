@@ -12,7 +12,8 @@
  * Owns all persisted settings, run refs/state, and the design-switch
  * lifecycle. The heavy branching logic (design-switch restore, reset,
  * generation snapshot/jump) lives in sibling modules so this hook stays a
- * thin composition of React state; the run engine itself lives in runners/.
+ * thin composition of React state; the run itself is utils/needle/runNeedle.js,
+ * started and shown by windowRun.js.
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
@@ -24,12 +25,12 @@ import {
 import { WorkerPool } from '../../../../utils/workers/workerPool.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { SYNTHESIS_WORKER_URL as SYNTH_WORKER_URL } from '../../../../workerUrls.js';
+import { NEEDLE_DEFAULTS } from '../../../../utils/needle/settings.js';
 
-import { runNeedleWorkerPool } from './runners/workerPool.js';
+import { startWindowRun } from './windowRun.js';
 import { setCachedOptState } from './sessionState.js';
 import { teardownRun, syncOnDesignSwitch } from './needleLifecycle.js';
 import { performReset, clearRunHistory, findBestGeneration, jumpToGeneration } from './needleActions.js';
-import { NEEDLE_DMIN_DEFAULT } from './needleSettings.js';
 import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
@@ -58,17 +59,14 @@ export function useNeedleVariation(t) {
 
     // ── Settings ──────────────────────────────────────────────────────────────
     // deltaNm = gradient probe thickness (small, like Python _NEEDLE_EPS=0.5)
-    // dMin    = physical min layer thickness, used for INSERTION + DLS floor + prune
-    //           (matches Python D_MIN=15 from merit.py)
-    // Persisted across window switches (localStorage-backed).
-    // Balanced default preset: CG + full refine +
-    // dMin 1 are fixed by the GUI 2×2×2 data; 60 iter / 60 layers balances
-    // MF-per-layer vs speed (~0.065 @ ~35 s) — bump iters for a final polish run.
-    const [maxLayers,    setMaxLayers]    = usePersistentNumber('tfstudio_needle_maxLayers', 60);
-    const [deltaNm,      setDeltaNm]      = usePersistentNumber('tfstudio_needle_deltaNm', 0.5);
-    const [dMin,         setDMin, dMinFromStorage] = usePersistentNumber('tfstudio_needle_dMin', 1.0);
-    const [dlsIter,      setDlsIter]      = usePersistentNumber('tfstudio_needle_dlsIter', 60);
-    const [targetMF,     setTargetMF]     = usePersistentNumber('tfstudio_needle_targetMF', 5e-4);
+    // dMin    = the synthesis floor: needle insertion, refine floor and prune
+    // Persisted across window switches (localStorage-backed), starting from the
+    // run's own defaults (utils/needle/settings.js).
+    const [maxLayers,    setMaxLayers]    = usePersistentNumber('tfstudio_needle_maxLayers', NEEDLE_DEFAULTS.maxLayers);
+    const [deltaNm,      setDeltaNm]      = usePersistentNumber('tfstudio_needle_deltaNm', NEEDLE_DEFAULTS.deltaNm);
+    const [dMin,         setDMin, dMinFromStorage] = usePersistentNumber('tfstudio_needle_dMin', NEEDLE_DEFAULTS.dMin);
+    const [dlsIter,      setDlsIter]      = usePersistentNumber('tfstudio_needle_dlsIter', NEEDLE_DEFAULTS.refineIter);
+    const [targetMF,     setTargetMF]     = usePersistentNumber('tfstudio_needle_targetMF', NEEDLE_DEFAULTS.targetMF);
     const {
         selectedCats, selectedCatsRef,
         handleToggleCat, handleSelectAllCats, handleClearCats,
@@ -99,7 +97,8 @@ export function useNeedleVariation(t) {
 
     // ── Refs (optimization state) ─────────────────────────────────────────────
     const runningRef      = useRef(false);
-    const workerRef       = useRef(null);    // synthesis worker pool
+    const activeRunRef    = useRef(null);    // the run the window shows (windowRun.js)
+    const abortRef        = useRef(null);    // stops that run
     const baseDesignRef   = useRef(null);    // design being worked on (updated each cycle)
     const savedDesignRef  = useRef(null);    // baseline of the open run block (for Reset)
     const runsRef         = useRef([]);      // run blocks — see synthesisShared/runBlocks.js
@@ -131,14 +130,14 @@ export function useNeedleVariation(t) {
     const operands = design?.meritOperands || [];
     useEffect(() => { operandsRef.current = operands; }, [operands]);
 
-    // dMin's smart default (see needleSettings.js) is a fixed synthesis floor
+    // dMin's smart default (NEEDLE_DEFAULTS.dMin) is a fixed synthesis floor
     // for standalone Needle, unlike GE's MNT-coupled default. `maxMNT` is still
     // computed here for the UI hint.
     const maxMNT = strictestMnt(operands);
     const dMinTouchedRef = useRef(dMinFromStorage);
     const lastIdForDMin  = useRef(null);
     useEffect(() => {
-        deriveDMinDefault(design, NEEDLE_DMIN_DEFAULT, { lastIdForDMin, dMinTouchedRef, runningRef, dMinRef, setDMin });
+        deriveDMinDefault(design, NEEDLE_DEFAULTS.dMin, { lastIdForDMin, dMinTouchedRef, runningRef, dMinRef, setDMin });
     }, [design?.id]);
     const handleDMin = useCallback((v) => { dMinTouchedRef.current = true; setDMin(v); }, []);
 
@@ -154,7 +153,7 @@ export function useNeedleVariation(t) {
     const lastDesignId = useRef(null);
     useEffect(() => {
         syncOnDesignSwitch({
-            lastDesignId, runningRef, workerRef, setPhase, setStatusMsg,
+            lastDesignId, runningRef, activeRunRef, abortRef, setPhase, setStatusMsg,
             gensRef, genCountRef, savedDesignRef, baseDesignRef,
             runsRef, runOpenRef,
             setGenerations, setTopDesigns, setMf, setMfBest, setOmf, setOmfBest,
@@ -164,13 +163,13 @@ export function useNeedleVariation(t) {
 
     // ── Unmount cleanup: stop any running optimization so no worker is orphaned ──
     useEffect(() => {
-        return () => teardownRun({ runningRef, workerRef });
+        return () => teardownRun({ runningRef, activeRunRef, abortRef });
     }, []);
 
     // ── Stop ──────────────────────────────────────────────────────────────────
     const stopOpt = useCallback((msg = '') => {
         const wasRunning = runningRef.current;
-        teardownRun({ runningRef, workerRef });
+        teardownRun({ runningRef, activeRunRef, abortRef });
         setPhase('idle');
         // Stopping a run clears the phase text it was showing; a finished run's
         // reason stays when Best or Restore is pressed after it.
@@ -194,10 +193,10 @@ export function useNeedleVariation(t) {
         }
     }, [getDesignRevision]);
 
-    // Build the ctx bundle the engine reaches React state through (refs +
-    // setters + a few window helpers).
+    // Build the ctx bundle a run is shown through (refs + setters + a few
+    // window helpers; windowRun.js).
     const buildEngineCtx = useCallback(() => ({
-        runningRef, workerRef, baseDesignRef, savedDesignRef, designRef,
+        runningRef, activeRunRef, abortRef, baseDesignRef, savedDesignRef, designRef,
         runsRef, runOpenRef,
         operandsRef, gensRef, genCountRef,
         maxLayersRef, deltaNmRef, dMinRef, dlsIterRef, targetMFRef,
@@ -210,15 +209,12 @@ export function useNeedleVariation(t) {
         setCachedOptState: (id, cached) => setCachedOptState(id, { ...cached, baseRev: baseRevRef.current }),
         getPoolMaterials: makeGetPoolMaterials(designRef),
         // Pool factory: the component wires the real WorkerPool + worker URL; a
-        // test can inject an in-process fake pool (tests/needle_worker_pool.mjs).
+        // test can inject an in-process fake pool (tests/needle_runner_guard.mjs).
         makeWorkerPool: (K, initMessage) => new WorkerPool(SYNTH_WORKER_URL, K, initMessage),
     }), [reconcileBaseWithEdits, stopOpt, t]);
 
-    // The main thread orchestrates a WorkerPool of stateless synthesis
-    // primitives (scan / candidate). The full loop lives in runners/workerPool.js
-    // (runNeedleWorkerPool).
     const runOpt = useCallback(() => {
-        runNeedleWorkerPool(buildEngineCtx());
+        startWindowRun(buildEngineCtx());
     }, [buildEngineCtx]);
 
     // ── Reset / Clear history ────────────────────────────────────────────────

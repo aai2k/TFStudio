@@ -68,7 +68,7 @@ const { curveWizardRows } = await import('../src/components/windows/optimization
 const { buildWizardResult } = await import('../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js');
 const { poolCatalogs, poolMatEntries } = await import('../src/components/windows/optimization/synthesisShared/catalogPool.js');
 const SYN = await import('../src/components/windows/optimization/synthesisShared/synthesisMath.js');
-const { wpPrepare } = await import('../src/components/windows/optimization/needleVariation/runners/workerPoolSetup.js');
+const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
 const NEEDLE_MANUAL = await import('../src/components/windows/optimization/needleManual/model.js');
 const { runGeWorker } = await import('../src/components/windows/optimization/gradualEvolution/runners/workerPool.js');
 const { runGeMainThread } = await import('../src/components/windows/optimization/gradualEvolution/runners/mainThread.js');
@@ -184,26 +184,22 @@ await check('withoutPPEF gives a block at weight 0 the weight its requirement ha
 });
 
 // ── 2. Needle Automatic ──────────────────────────────────────────────────────
-function needleCtx(operands) {
-    return {
-        runningRef: ref(false),
-        baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(copy(DESIGN)),
-        runsRef: ref([]), runOpenRef: ref(false), operandsRef: ref(copy(operands)),
-        gensRef: ref([]), genCountRef: ref(0),
-        maxLayersRef: ref(12), deltaNmRef: ref(0.5), dMinRef: ref(1), dlsIterRef: ref(5), targetMFRef: ref(1e-9),
-        selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),
-        updateDesignRef: ref(noop), checkpointRef: ref(noop),
-        setPhase: noop, setStatusMsg: noop, setMf: noop, setMfBest: noop, setOmf: noop, setOmfBest: noop,
-        setLayerCount: noop, setCanReset: noop, setGeneration: noop, setGenerations: noop, setTopDesigns: noop,
-        setCachedOptState: noop, reconcileBaseWithEdits: noop,
-        getPoolMaterials: () => POOL, t: EN,
+// The rows of the first job a Needle run sends its pool, which then stops it.
+async function needleRunRows(operands) {
+    let sent = null;
+    const stop = new AbortController();
+    const pool = {
+        map(jobs) { sent = jobs[0].operands; stop.abort(); return Promise.reject(new Error('pool terminated')); },
+        terminate: noop,
     };
+    await runNeedle(copy(DESIGN), copy(operands), { pool: POOL, threads: 1 },
+        { makeWorkerPool: () => pool, signal: stop.signal });
+    expect(sent, 'the run sent no job');
+    return sent;
 }
 
-await check('Needle Automatic worker run', () => {
-    const run = wpPrepare(needleCtx(OPERANDS));
-    expect(run, 'the run did not start');
-    synthesisRows(run.operands, { mnt: false });
+await check('Needle Automatic worker run', async () => {
+    synthesisRows(await needleRunRows(OPERANDS), { mnt: false });
 });
 
 // ── 3. Needle Manual ─────────────────────────────────────────────────────────
@@ -287,13 +283,12 @@ await check('Deep Synthesis run', () => {
 });
 
 // ── 7. A block expanded into point rows ──────────────────────────────────────
-await check('a fixed-level block keeps every point row', () => {
-    const run = wpPrepare(needleCtx(FIXED_OPERANDS));
-    expect(run, 'the run did not start');
-    const points = run.operands.filter(op => op.measuredCurveBlockId === BLOCK.id);
+await check('a fixed-level block keeps every point row', async () => {
+    const rows = await needleRunRows(FIXED_OPERANDS);
+    const points = rows.filter(op => op.measuredCurveBlockId === BLOCK.id);
     expect(points.length === lambdas.length, `${points.length} of ${lambdas.length} point rows`);
-    expect(!run.operands.some(op => op.type === 'PPEF' || op.id === CEILING.id), 'the PPEF row went into the run');
-    expect(run.operands.some(op => op.id === LOSS.id), 'the TDBMN row is missing');
+    expect(!rows.some(op => op.type === 'PPEF' || op.id === CEILING.id), 'the PPEF row went into the run');
+    expect(rows.some(op => op.id === LOSS.id), 'the TDBMN row is missing');
 });
 
 // ── 8. Refinement keeps the PPEF row ─────────────────────────────────────────

@@ -29,7 +29,7 @@ export const SYNTHESIS_INNER_ENGINES = ['cg', 'dls', 'newton', 'newton-cg', 'sqp
 // GE→stalled). CG wins Needle (4/5 cases) and Structural (4/5); for GE it's the
 // robust choice: it does not stall on multipassbands where DLS gets stuck
 // (3-line bandpass: DLS 0.522/4-layers vs CG 0.116/33-layers).
-const ENGINE_DEFAULTS = { needle: 'cg', ge: 'cg', structural: 'cg' };
+export const ENGINE_DEFAULTS = { needle: 'cg', ge: 'cg', structural: 'cg' };
 
 export function getSynthesisInnerEngine(tool = 'ge') {
     try {

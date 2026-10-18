@@ -7,12 +7,14 @@
 import { sideKeyFor, minOmfOf, computePareto } from '../synthesisShared/synthesisHelpers.js';
 import { getCachedOptState } from './sessionState.js';
 
-// Stop the run loop and terminate any live worker pool.
-export function teardownRun({ runningRef, workerRef }) {
+// Let go of the run the window shows and stop it; the run then terminates its
+// worker pool.
+export function teardownRun({ runningRef, activeRunRef, abortRef }) {
     runningRef.current = false;
-    if (workerRef.current) {
-        try { workerRef.current.terminate(); } catch (_) {}
-        workerRef.current = null;
+    activeRunRef.current = null;
+    if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
     }
 }
 

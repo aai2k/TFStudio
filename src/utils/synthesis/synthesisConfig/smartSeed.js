@@ -16,7 +16,7 @@
 // user toggle (stored '1'/'0') always wins over the default. A bare key (no scope)
 // keeps the legacy global behaviour, default OFF.
 const SMART_SEED_KEY = 'tfstudio-synth-smart-seed';
-const SMART_SEED_DEFAULTS = { needle: false, ge: true, structural: false };
+export const SMART_SEED_DEFAULTS = { needle: false, ge: true, structural: false };
 export function getSynthesisSmartSeed(scope = '') {
     const key = SMART_SEED_KEY + (scope ? `-${scope}` : '');
     try {

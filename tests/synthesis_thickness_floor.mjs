@@ -327,7 +327,7 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
     // candidate's design, none for a batch that does not beat the best.
     const rav = [O.makeOperand({ type: 'RAV', lambdaStart: 500, lambdaEnd: 600, aoi: 0, pol: 'avg', target: 0, weight: 1 })];
     const seed = media([['TiO2', 60], ['SiO2', 90]]);
-    const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleVariation/runners/workerPool.js');
+    const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
     async function runNeedleMock(answer) {
         const jobs = [];
         let scans = 0;
@@ -346,27 +346,13 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
             }, 0)))),
             terminate() {},
         };
-        const ref = v => ({ current: v });
-        const noop = () => {};
-        const ctx = {
-            runningRef: ref(false), workerRef: ref(null),
-            baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref({ ...seed, id: 'needle-parked' }),
-            operandsRef: ref(rav), gensRef: ref([]), genCountRef: ref(0),
-            runsRef: ref([]), runOpenRef: ref(false), updateDesignRef: ref(noop), checkpointRef: ref(noop),
-            maxLayersRef: ref(10), deltaNmRef: ref(0.5), dMinRef: ref(15), dlsIterRef: ref(10), targetMFRef: ref(1e-9),
-            selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),
-            setPhase: noop, setStatusMsg: noop, setMf: noop, setMfBest: noop, setOmf: noop, setOmfBest: noop,
-            setLayerCount: noop, setCanReset: noop, setGeneration: noop, setGenerations: noop, setTopDesigns: noop,
-            reconcileBaseWithEdits: noop, setCachedOptState: noop, stopOpt: () => { ctx.runningRef.current = false; },
-            getPoolMaterials: () => POOL, makeWorkerPool: () => pool,
-            t: EN,
-        };
+        const rows = [];
         quiet();
-        runNeedleWorkerPool(ctx);
-        const t0 = Date.now();
-        while (ctx.runningRef.current && Date.now() - t0 < 30000) await new Promise(r => setTimeout(r, 1));
+        await runNeedle({ ...seed, id: 'needle-parked' }, rav,
+            { pool: POOL, maxLayers: 10, deltaNm: 0.5, dMin: 15, refineIter: 10, targetMF: 1e-9 },
+            { makeWorkerPool: () => pool, onGeneration: row => rows.push(row) });
         loud();
-        return { first: ctx.gensRef.current[0], parkedJobs: jobs.filter(j => j.type === 'dropParked') };
+        return { first: rows[0], parkedJobs: jobs.filter(j => j.type === 'dropParked') };
     }
     const accepted = (mfAfter) => (job, front, grow) => (job.type === 'candidate'
         ? { mfAfter, omf: mfAfter, frontLayers: grow('TiO2'), backLayers: [], layerCount: front.length + 1 } : {});

@@ -3,13 +3,13 @@
  *
  * The launch grid is set for the starting design (densifyForRun). Needles and
  * thicker restarts add optical thickness, so the fringes get finer than that
- * grid; the runners re-sample for the design they are about to work on
+ * grid; the runs re-sample for the design they are about to work on
  * (synthesisShared/runGrid.js).
  *
  * Checks:
  *   1. regridForDesign returns more samples for a grown design, and nothing for
  *      the same or a thinner one.
- *   2. A Needle worker-pool run from a single 100 nm layer towards a reflector,
+ *   2. A Needle run (utils/needle/runNeedle.js) from a single 100 nm layer towards a reflector,
  *      driven in-process through the real worker job handlers: the jobs sent after the design grew
  *      carry more band samples than the launch grid, and every job's material
  *      tables hold every wavelength its operands sample. The run stalls and
@@ -35,10 +35,9 @@ const {
     makeOperand, operandSampleLambdas, requiredLambdas, withDesignSampleCounts,
 } = await import('../src/utils/physics/optimizer.js');
 const { regridForDesign, meritOf } = await import('../src/components/windows/optimization/synthesisShared/runGrid.js');
-const { runNeedleWorkerPool } = await import('../src/components/windows/optimization/needleVariation/runners/workerPool.js');
+const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
-const { default: EN } = await import('../src/constants/locales/en.js');
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } else console.log('ok:', msg); };
@@ -97,36 +96,10 @@ function makeFakePool() {
 }
 
 const _log = console.log; console.log = () => {};
-const ref = (v) => ({ current: v });
 const noop = () => {};
-let resolveDone;
-const done = new Promise((r) => { resolveDone = r; });
-let bestShown = null;
-const ctx = {
-    runningRef: ref(false), workerRef: ref(null),
-    baseDesignRef: ref(null), savedDesignRef: ref(null), designRef: ref(seed()),
-    operandsRef: ref(ops),
-    gensRef: ref([]), genCountRef: ref(0),
-    runsRef: ref([]), runOpenRef: ref(false),
-    maxLayersRef: ref(6), deltaNmRef: ref(0.5), dMinRef: ref(1.0),
-    dlsIterRef: ref(8), targetMFRef: ref(1e-6),
-    selectedCatsRef: ref([]), excludedMatsRef: ref(new Set()),
-    updateDesignRef: ref(noop), checkpointRef: ref(noop),
-    setPhase: (p) => { if (p === 'idle' && ctx.runningRef.current === false) resolveDone(); },
-    setStatusMsg: noop, setMf: (v) => { bestShown = v; }, setMfBest: noop, setOmf: noop, setOmfBest: noop,
-    setLayerCount: noop, setCanReset: noop, setGeneration: noop,
-    setGenerations: noop, setTopDesigns: noop,
-    reconcileBaseWithEdits: noop,
-    getPoolMaterials: () => POOL,
-    setCachedOptState: noop,
-    t: EN,
-    stopOpt: noop,
-    makeWorkerPool: () => makeFakePool(),
-};
-runNeedleWorkerPool(ctx);
-if (ctx.runningRef.current) {
-    await Promise.race([done, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 120000).unref())]);
-}
+const ended = await runNeedle(seed(), ops,
+    { pool: POOL, maxLayers: 6, deltaNm: 0.5, dMin: 1.0, refineIter: 8, targetMF: 1e-6 },
+    { makeWorkerPool: () => makeFakePool() });
 console.log = _log;
 
 const launchSamples = jobLog[0]?.samples ?? 0;
@@ -147,20 +120,20 @@ ok(afterRescue.every(j => j.samples < ladderSamples),
 
 // The last cycle re-samples for the final design before it stops at the layer
 // limit, so the run's grid is the last jobs' grid grown for that design.
-const finalDesign = { ...seed(), ...ctx.baseDesignRef.current };
+const finalDesign = { ...seed(), frontLayers: ended.frontLayers, backLayers: ended.backLayers };
 const lastOps = jobLog.at(-1).operands;
 const finalOps = regridForDesign(lastOps, finalDesign, resolveMat) || lastOps;
 const rescored = meritOf(finalOps, finalDesign, resolveMat);
-ok(Math.abs(bestShown - rescored) <= 1e-9 * Math.max(rescored, 1e-12),
-    `the reported best merit ${bestShown} is the final design's merit on the run's last grid (${rescored})`);
+ok(Math.abs(ended.mf - rescored) <= 1e-9 * Math.max(rescored, 1e-12),
+    `the reported best merit ${ended.mf} is the final design's merit on the run's last grid (${rescored})`);
 
 // ── 4-5. The thin-start rescue's grid ────────────────────────────────────────
 // The rescue refines copies of the stalled design 2, 4, 8 and 16 times thicker,
 // all scored on the grid the ×16 copy needs, then goes on from the best rung.
 // A fake pool refines nothing and hands back the rung it is told to prefer.
 {
-    const { wpThinStartRescue } = await import('../src/components/windows/optimization/needleVariation/runners/workerPoolRescue.js');
-    const { wpDesignHelpers } = await import('../src/components/windows/optimization/needleVariation/runners/workerPoolSetup.js');
+    const { thinStartRescue } = await import('../src/utils/needle/rescue.js');
+    const { designHelpers } = await import('../src/utils/needle/setup.js');
     const { presampleSynthesisMaterials } = await import('../src/components/windows/optimization/synthesisShared/runGrid.js');
 
     // Five alternating layers, 500 nm of film: thick enough that the ×16 copy
@@ -182,19 +155,15 @@ ok(Math.abs(bestShown - rescored) <= 1e-9 * Math.max(rescored, 1e-12),
         };
         const curDes = stalled();
         const run = {
-            ctx: {
-                runningRef: ref(true), workerRef: ref(pool), updateDesignRef: ref(noop),
-                setPhase: noop, setStatusMsg: noop, setMf: noop, setOmf: noop, setLayerCount: noop,
-                t: { needle: { rescueTrying: () => '', rescueApplied: () => '' } },
-            },
+            emit: noop, onTick: noop,
             curDes, operands: launch, pool: POOL, materials: presampleSynthesisMaterials(curDes, launch, POOL),
-            workerPool: pool, ...wpDesignHelpers(curDes, []),
-            dMin: 1, dlsIter: 8, scanSides: ['front'], innerEngine: 'cg', lastTick: 0,
+            workerPool: pool, ...designHelpers(curDes, []),
+            dMin: 1, refineIter: 8, scanSides: ['front'], innerEngine: 'cg',
             best: { mf: meritOf(launch, curDes, resolveMat), omf: null, frontLayers: curDes.frontLayers, backLayers: [] },
             rescued: false, preRescueBest: null, prevBestMF: Infinity,
         };
         console.log = () => {};
-        const continued = await wpThinStartRescue(run);
+        const continued = await thinStartRescue(run);
         console.log = _log;
         return { run, continued, ladderJobs };
     }
@@ -218,7 +187,7 @@ ok(Math.abs(bestShown - rescored) <= 1e-9 * Math.max(rescored, 1e-12),
     ok(two.run.best.mf === onKept(two.run.best) && two.run.prevBestMF === two.run.best.mf,
         'the adopted design and the ΔMF baseline are scored on it');
     ok(two.run.preRescueBest.mf === onKept(two.run.preRescueBest),
-        'so is the design the run stalled on, which finalize compares against');
+        'so is the design the run stalled on, which the run\'s end compares against');
 
     // 5. The ×16 rung wins: the run keeps the ×16 grid.
     const sixteen = await rescueWith(16);

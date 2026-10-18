@@ -1,5 +1,5 @@
 /**
- * Needle worker-POOL engine — thin-start rescue.
+ * Needle thin-start rescue.
  *
  * A needle is inserted inside existing film, so a stack with very little
  * material in it has nowhere to put one. The scan still finds candidates whose
@@ -17,23 +17,18 @@
  * needs is not knowable in advance, which is why this is a ladder scored by the
  * merit function rather than one chosen factor or a user-set budget.
  *
- * The design held when the rescue starts is kept aside, and finalize returns it
+ * The design held when the rescue starts is kept aside, and the run returns it
  * if the continued run never beats it, so a rescue can only match or improve the
  * answer it was called on.
  */
 
-import { wpOnTick, wpAlive } from './workerPoolLifecycle.js';
-import { wpRegridIfGrown, wpRegridFrom } from './workerPoolSetup.js';
+import { alive } from './runState.js';
+import { regridIfGrown, regridFrom } from './setup.js';
 
 // Thickness multipliers tried in one pool round. Geometric so a few candidates
 // span a wide range: on a 130 nm stack this reaches about 2 µm, which covers
 // the visible and near-infrared designs a stall is normally hiding behind.
 const SCALE_LADDER = [2, 4, 8, 16];
-
-// The stop reason that means "no improving needle survived refinement" rather
-// than a budget being spent, the run's needle-optimal status. Only that one is
-// worth another start; max-layers and a reached target are real endings.
-export const isStallReason = (reason, t) => reason === t.needle.status.noImprove;
 
 const scaleLayers = (layers, factor) =>
     (layers || []).map(l => (l.locked ? { ...l } : { ...l, thickness: (l.thickness || 0) * factor }));
@@ -49,17 +44,15 @@ function hasGrowableFilm(front, back) {
 // Refine every rung of the ladder in parallel and return the best result, or
 // null if the run was torn down or nothing came back.
 async function refineLadder(run, front, back) {
-    const { ctx } = run;
     const jobs = SCALE_LADDER.map(factor => ({
         type: 'seedDls', operands: run.operands,
         design: run.designSnap(scaleLayers(front, factor), scaleLayers(back, factor)),
-        materials: run.materials, dMin: run.dMin, dlsIter: run.dlsIter,
+        materials: run.materials, dMin: run.dMin, dlsIter: run.refineIter,
         jobId: 'rescue', side: run.scanSides[0], engine: run.innerEngine,
     }));
-    ctx.setPhase('refining');
-    ctx.setStatusMsg(ctx.t.needle.rescueTrying(jobs.length));
-    const results = await run.workerPool.map(jobs, (i, m) => wpOnTick(run, i, m));
-    if (!wpAlive(run)) return null;
+    run.emit({ phase: 'refining', activity: { id: 'rescueTrying', count: jobs.length } });
+    const results = await run.workerPool.map(jobs, run.onTick);
+    if (!alive(run)) return null;
     let bi = -1;
     for (let i = 0; i < results.length; i++) {
         if (results[i] && (bi < 0 || results[i].mf < results[bi].mf)) bi = i;
@@ -69,14 +62,14 @@ async function refineLadder(run, front, back) {
 
 /**
  * Try one thicker start. Returns true when the loop should carry on from the
- * thickened design, false when the run should finalize with the reason it had.
+ * thickened design, false when the run should end with the reason it had.
  *
  * The winning rung is adopted even when its merit is worse than the design the
  * run stalled on: the point is the room it has to grow, not the merit it starts
  * at. `preRescueBest` is what keeps that safe.
  */
-export async function wpThinStartRescue(run) {
-    const { ctx, best } = run;
+export async function thinStartRescue(run) {
+    const { best } = run;
     if (run.rescued) return false;
     run.rescued = true;
 
@@ -90,10 +83,10 @@ export async function wpThinStartRescue(run) {
     // would score every later generation on up to 16 times the samples.
     const gridBefore = run.operands;
     const thickest = SCALE_LADDER[SCALE_LADDER.length - 1];
-    wpRegridIfGrown(run, scaleLayers(front, thickest), scaleLayers(back, thickest));
+    regridIfGrown(run, scaleLayers(front, thickest), scaleLayers(back, thickest));
     const picked = await refineLadder(run, front, back);
     if (!picked) {
-        if (wpAlive(run)) wpRegridFrom(run, gridBefore, front, back);
+        if (alive(run)) regridFrom(run, gridBefore, front, back);
         return false;
     }
 
@@ -108,7 +101,7 @@ export async function wpThinStartRescue(run) {
     best.omf = result.omf ?? null;
     best.frontLayers = run.deep(result.frontLayers || []);
     best.backLayers  = run.deep(result.backLayers  || []);
-    wpRegridFrom(run, gridBefore, best.frontLayers, best.backLayers);
+    regridFrom(run, gridBefore, best.frontLayers, best.backLayers);
     // The accept rule compares against `best`, so the ΔMF baseline has to follow
     // it down (or up) to the design the run now continues from.
     run.prevBestMF = best.mf;
@@ -116,13 +109,13 @@ export async function wpThinStartRescue(run) {
     // read worse than the one before it. Mark it, so the history says why instead
     // of showing an unexplained step backwards.
     run.markRescue = true;
-    ctx.updateDesignRef.current(
-        { frontLayers: best.frontLayers, backLayers: best.backLayers }, { transient: true });
-    ctx.setMf(best.mf);
-    ctx.setLayerCount(best.frontLayers.length + best.backLayers.length);
-    ctx.setStatusMsg(ctx.t.needle.rescueApplied(factor, Math.round(
-        totalOf(best.frontLayers) + totalOf(best.backLayers))));
-    console.log(`[Needle] Thin-start rescue: ×${factor} → MF=${best.mf.toFixed(6)} TOT=${
-        (totalOf(best.frontLayers) + totalOf(best.backLayers)).toFixed(1)} nm`);
+    const totalNm = totalOf(best.frontLayers) + totalOf(best.backLayers);
+    run.emit({
+        design: { frontLayers: best.frontLayers, backLayers: best.backLayers },
+        mf: best.mf,
+        layerCount: best.frontLayers.length + best.backLayers.length,
+        activity: { id: 'rescueApplied', factor, totalNm },
+    });
+    console.log(`[Needle] Thin-start rescue: ×${factor} → MF=${best.mf.toFixed(6)} TOT=${totalNm.toFixed(1)} nm`);
     return true;
 }

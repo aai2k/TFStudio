@@ -39,9 +39,14 @@ export function setNeedleSensMode(mode) {
     try { localStorage.setItem(NEEDLE_SENS_KEY, mode); } catch (_) {}
 }
 
-/** Relative-to-strongest-needle predicted-|ΔMF| floor (0 = keep all). */
+/** A sensitivity mode's relative-to-strongest-needle predicted-|ΔMF| floor (0 = keep all). */
+export function needleSensFloorFor(mode) {
+    return NEEDLE_SENS_FLOOR[mode] ?? 0;
+}
+
+/** The floor of the saved sensitivity mode. */
 export function getNeedleSensFloor() {
-    return NEEDLE_SENS_FLOOR[getNeedleSensMode()] ?? 0;
+    return needleSensFloorFor(getNeedleSensMode());
 }
 
 // Needle-sensitivity cull. `queue` must already be filtered to improving

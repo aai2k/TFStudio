@@ -28,7 +28,12 @@ export function setSynthesisCandMode(mode) {
     try { localStorage.setItem(BATCHES_KEY, mode); } catch (_) {}
 }
 
-/** Max K-batches to refine per outer step (Infinity = exhaust all candidates). */
+/** Max K-batches a candidate-search mode refines per outer step (Infinity = exhaust all candidates). */
+export function candModeBatches(mode) {
+    return CAND_MODE_BATCHES[mode] ?? 2;
+}
+
+/** Max K-batches to refine per outer step, for the saved candidate-search mode. */
 export function getSynthesisMaxBatches() {
-    return CAND_MODE_BATCHES[getSynthesisCandMode()] ?? 2;
+    return candModeBatches(getSynthesisCandMode());
 }
