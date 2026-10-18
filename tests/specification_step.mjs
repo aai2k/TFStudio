@@ -8,7 +8,8 @@
  *   2. FWHM and Edge λ find each crossing by bisection between the scan's
  *      samples, so the width of a 0.36 nm resonance is exact at the default
  *      step, at the monitors' and at the fine one; the step decides only which
- *      peak's crossings are bracketed.
+ *      peak's crossings are bracketed. The walk out from the peak reads only
+ *      the scan samples it passes.
  *   3. The analysis worker gives each design's results at the flag asked for,
  *      and null for a design whose material resolves nowhere.
  *   4. The report prints the results it is handed and evaluates the checks
@@ -29,7 +30,7 @@ const { initCatalogs } = await import('../src/utils/materials/catalogManager.js'
 initCatalogs({});
 
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
-const { evaluateQualifiers, makeQualifier, SPECIFICATION_FLAG } = await import('../src/utils/synthesis/qualifiers.js');
+const { evaluateQualifier, evaluateQualifiers, makeQualifier, SPECIFICATION_FLAG } = await import('../src/utils/synthesis/qualifiers.js');
 const { dispatchAnalysisEvaluation } = await import('../src/utils/workers/analysisEvaluationWorker.js');
 const { gatherDesignData } = await import('../src/utils/report/reportData.js');
 const { newBlock } = await import('../src/utils/report/blocks.js');
@@ -72,6 +73,33 @@ const fine = { flag: SPECIFICATION_FLAG };
             assert.ok(Math.abs(T(fabryPerot, edge) - half) < 1e-9, `the ${edgeSide} edge at ${label} sits on the half height`);
         }
     }
+}
+
+// ── 2b. The walk reads only the samples it passes ────────────────────────────
+// The wavelengths the materials are read at, counted: a FWHM check reads those
+// of its peak search, which a central-wavelength check on the band reads too,
+// and the few samples and bisection steps around its two crossings, far fewer
+// than its scan's 301 samples.
+{
+    const readsOf = kind => {
+        const resolve = designMaterialLookup(fabryPerot);
+        const seen = new Set();
+        const counting = id => {
+            const material = resolve(id);
+            return new Proxy(material, {
+                get(target, key) {
+                    if (key === 'getNK') return lam => { seen.add(lam); return target.getNK(lam); };
+                    const value = target[key];
+                    return typeof value === 'function' ? value.bind(target) : value;
+                },
+            });
+        };
+        const fields = { kind, channel: 'T', direction: 'max', cmp: 'ge', target: 0, lambdaStart: 540, lambdaEnd: 580 };
+        evaluateQualifier(makeQualifier(fields), fabryPerot, counting);
+        return seen.size;
+    };
+    const extra = readsOf('FWHM') - readsOf('CENTRAL_LAMBDA');
+    assert.ok(extra < 301, `the FWHM check reads ${extra} wavelengths beyond its peak search, not the whole scan`);
 }
 
 // ── 3. The worker evaluates each design at the flag asked for ────────────────

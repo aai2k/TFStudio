@@ -3,9 +3,10 @@
  * of the band's peak.
  *
  * Finds the band's peak (or notch) with the MXW / MNW row CENTRAL_LAMBDA
- * reads, so the two agree, then walks a uniform scan of the band out from it
- * to bracket the two (or one) crossings of the level, and finds each crossing
- * by bisection inside its bracket.
+ * reads, so the two agree, then walks a uniform scan of the band out from it,
+ * working out only the samples it passes, to bracket the two (or one)
+ * crossings of the level, and finds each crossing by bisection inside its
+ * bracket.
  */
 
 import { makeOperand, evaluateOperands, extremumStepNm } from '../../physics/optimizer.js';
@@ -39,17 +40,28 @@ function bisectCross({ at, cross, direction }, inside, outside) {
     }
 }
 
+// The first scan sample past `lam` on its long-wave side, or N when none is.
+// It is found from the scan's own formula and then stepped to the exact
+// sample, so it is the one a search of every sample would find.
+function firstSampleAfter({ lamAt, N }, lam) {
+    const lo = lamAt(0), hi = lamAt(N - 1);
+    const guess = hi > lo ? Math.floor(((lam - lo) / (hi - lo)) * (N - 1)) + 1 : 0;
+    let i = Number.isFinite(guess) ? Math.min(N, Math.max(0, guess)) : 0;
+    while (i > 0 && lamAt(i - 1) > lam) i--;
+    while (i < N && lamAt(i) <= lam) i++;
+    return i;
+}
+
 // Walk outward from the peak to the first scan sample past `cross`, starting
 // at scan sample `startI`: for a max peak the first at or below cross, for a
 // min notch the first at or above it. The crossing lies between that sample
-// and the one before it. `scan` = { at, lams, vals, peakLam, peakV, cross,
-// direction }.
+// and the one before it. A sample is worked out only when the walk reaches
+// it. `scan` = { at, lamAt, N, peakLam, peakV, cross, direction }.
 function findCross(scan, startI, step) {
-    const { lams, vals, peakLam, peakV, cross, direction } = scan;
+    const { at, lamAt, N, peakLam, peakV, cross, direction } = scan;
     let prev = peakV, prevLam = peakLam;
-    const N = vals.length;
     for (let i = startI; i >= 0 && i < N; i += step) {
-        const curV = vals[i], curLam = lams[i];
+        const curLam = lamAt(i), curV = at(curLam);
         const isCrossed = direction === 'min'
             ? (curV >= cross && prev < cross)
             : (curV <= cross && prev > cross);
@@ -74,12 +86,7 @@ export function evalBandDerived(qual, design, ctx, options) {
     const lo = Math.min(qual.lambdaStart, qual.lambdaEnd);
     const hi = Math.max(qual.lambdaStart, qual.lambdaEnd);
     const N = scanCount(qual, options);
-    const lams = new Array(N);
-    const vals = new Array(N);
-    for (let i = 0; i < N; i++) {
-        lams[i] = lo + (hi - lo) * i / (N - 1);
-        vals[i] = at(lams[i]);
-    }
+    const lamAt = i => lo + (hi - lo) * i / (N - 1);
     const direction = qual.direction || 'max';
     const peakLam = evaluateOperands([makeOperand({
         type: argwaveType(direction, ch, pol),
@@ -94,14 +101,15 @@ export function evalBandDerived(qual, design, ctx, options) {
         ? peakV + (1 - peakV) * level
         : peakV * level;
 
-    // The first scan sample past the peak on its long-wave side.
-    let rightI = lams.findIndex(lam => lam > peakLam);
-    if (rightI < 0) rightI = N;
-    const scan = { at, lams, vals, peakLam, peakV, cross, direction };
-    const leftLam  = findCross(scan, rightI - 1, -1);
-    const rightLam = findCross(scan, rightI, +1);
+    const scan = { at, lamAt, N, peakLam, peakV, cross, direction };
+    const rightI = firstSampleAfter(scan, peakLam);
+    // Each side is walked only when its crossing is needed.
+    const leftCross = () => findCross(scan, rightI - 1, -1);
+    const rightCross = () => findCross(scan, rightI, +1);
 
     if (k === 'FWHM') {
+        const leftLam = leftCross();
+        const rightLam = leftLam == null ? null : rightCross();
         if (leftLam == null || rightLam == null) {
             // Couldn't bracket both crossings inside the scan band.
             return {
@@ -118,7 +126,7 @@ export function evalBandDerived(qual, design, ctx, options) {
     // band. Pick whichever side has a real crossing (left for LP↑, right for
     // SP↓ etc.); if both exist, the qualifier carries `edgeSide`
     // ('left' | 'right'); default 'left'.
-    const which = qual.edgeSide === 'right' ? rightLam : (leftLam ?? rightLam);
+    const which = qual.edgeSide === 'right' ? rightCross() : (leftCross() ?? rightCross());
     if (which == null) {
         return {
             value: NaN, pass: false, deviation: NaN, unit: 'nm',
