@@ -56,11 +56,15 @@ export function evalBandDerived(qual, design, ctx, options) {
         aoi: qual.aoi, pol, target: 0, weight: 1,
     })], ctx)[0];
 
+    // The scan rises in wavelength whichever way round the band was typed, as
+    // the walk out from the peak below assumes.
+    const lo = Math.min(qual.lambdaStart, qual.lambdaEnd);
+    const hi = Math.max(qual.lambdaStart, qual.lambdaEnd);
     const N = scanCount(qual, options);
     const lams = new Array(N);
     const vals = new Array(N);
     for (let i = 0; i < N; i++) {
-        lams[i] = qual.lambdaStart + (qual.lambdaEnd - qual.lambdaStart) * i / (N - 1);
+        lams[i] = lo + (hi - lo) * i / (N - 1);
         vals[i] = at(lams[i]);
     }
     const direction = qual.direction || 'max';
