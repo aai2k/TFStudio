@@ -1,4 +1,4 @@
-import { makeDefaultDesign } from '../../../../state/DesignContext.js';
+import { makeDefaultDesign } from '../../../../utils/io/newDesign.js';
 import { mirrorLayers } from '../../../../utils/physics/optimizer.js';
 import { buildStackFromFormula } from '../../../../utils/synthesis/stackFormula.js';
 

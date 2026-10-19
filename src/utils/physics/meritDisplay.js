@@ -4,7 +4,7 @@
 import { designMaterialLookup } from '../materials/designMaterials.js';
 import {
     evaluateOperands, calcMF, calcOMF, buildEvalContext, operandEvaluationErrors,
-    operandBandLevels, withFringeSampleCounts,
+    operandBandLevels, withFringeSampleCounts, withDesignSampleCounts, makeConeSpec, coneIsActive,
 } from './optimizer.js';
 
 function displayOf(operands, computed) {
@@ -32,5 +32,17 @@ export function evaluateForDisplay(design, operands) {
     const sampled = withFringeSampleCounts(operands, ctx);
     const computed = evaluateOperands(sampled, ctx);
     return { ...displayOf(sampled, computed), computed };
+}
+
+/**
+ * What the Merit Function Editor shows for `design`: under a cone of
+ * incidence the analysis worker's evaluation with the band sample counts the
+ * editor sends it (useMeritOperands.js), otherwise evaluateForDisplay.
+ */
+export function meritTable(design, operands) {
+    if (coneIsActive(makeConeSpec(design.cone || {}))) {
+        return meritDisplay(design, withDesignSampleCounts(operands, design, designMaterialLookup(design)));
+    }
+    return evaluateForDisplay(design, operands);
 }
 
