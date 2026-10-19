@@ -1,6 +1,7 @@
 import { useCatSelection, sideKeyFor } from '../synthesisShared/synthesisHelpers.js';
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
-import { DEEP_CATS_KEY, DEEP_MAX_LAYERS_KEY, DEEP_SYNTHESIS_WINDOW_DEFAULTS } from './deepSynthesisSettings.js';
+import { DEEP_RUN_DEFAULTS } from '../../../../utils/synthesis/deepSynthesis/settings.js';
+import { DEEP_CATS_KEY, DEEP_MAX_LAYERS_KEY } from './deepSynthesisSettings.js';
 import { useMinThickness } from './useMinThickness.js';
 import {
     freshHistory, loadHistory, saveHistory, resetLastRun, clearHistory, restoreRow, restoreBest,
@@ -77,7 +78,7 @@ function useActions(ctx) {
 export function useDeepSynthesis(props) {
     const { ctx, view } = useRunContext();
     const { dMin, setDMin, maxMNT } = useMinThickness(props.design, ctx.runningRef);
-    const [maxLayers, setMaxLayers] = usePersistentNumber(DEEP_MAX_LAYERS_KEY, DEEP_SYNTHESIS_WINDOW_DEFAULTS.maxLayers);
+    const [maxLayers, setMaxLayers] = usePersistentNumber(DEEP_MAX_LAYERS_KEY, DEEP_RUN_DEFAULTS.maxLayers);
     const pool = useCatSelection(DEEP_CATS_KEY, props.design);
     const refs = { selectedCatsRef: pool.selectedCatsRef, excludedMatsRef: pool.excludedMatsRef };
     useSyncedContext(ctx, props, { dMin, maxLayers, refs });

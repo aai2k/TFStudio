@@ -1,6 +1,7 @@
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
-import { DEEP_DMIN_KEY, DEEP_SYNTHESIS_WINDOW_DEFAULTS } from './deepSynthesisSettings.js';
+import { DEEP_RUN_DEFAULTS } from '../../../../utils/synthesis/deepSynthesis/settings.js';
+import { DEEP_DMIN_KEY } from './deepSynthesisSettings.js';
 
 const { useCallback, useEffect, useRef } = React;
 
@@ -11,7 +12,7 @@ const { useCallback, useEffect, useRef } = React;
 // floor (nm), its setter for a typed value, and the MNT floor the note under
 // the field compares against.
 export function useMinThickness(design, runningRef) {
-    const fallback = DEEP_SYNTHESIS_WINDOW_DEFAULTS.dMin;
+    const fallback = DEEP_RUN_DEFAULTS.dMin;
     const [dMin, setDMin, typedBefore] = usePersistentNumber(DEEP_DMIN_KEY, fallback);
     const maxMNT = strictestMnt(design?.meritOperands);
     const track = useRef(null);

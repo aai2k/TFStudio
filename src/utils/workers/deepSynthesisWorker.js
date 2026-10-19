@@ -23,11 +23,8 @@ import { runDeepSynthesis } from '../synthesis/deepSynthesis/index.js';
 import { makeEvaluator } from '../synthesis/deepSynthesis/evaluator.js';
 import { makeTrace } from '../synthesis/deepSynthesis/trace.js';
 import { makePoolRunner, makeSerialRunner } from '../synthesis/deepSynthesis/runner.js';
+import { makeRegrid } from '../synthesis/deepSynthesis/regrid.js';
 import { makeRng } from '../synthesis/structuralOptimizer.js';
-import { designMaterialLookup } from '../materials/designMaterials.js';
-import {
-    regridForDesign, presampleSynthesisMaterials,
-} from '../../components/windows/optimization/synthesisShared/runGrid.js';
 
 const post = message => postMessage(message);
 
@@ -59,28 +56,6 @@ function runnerFor(pool) {
     return makeSerialRunner({ shouldStop, gate: () => request({ type: 'turn' }) });
 }
 
-// run.regrid (runGrid.js): when the design about to be worked on needs more
-// band samples than the run's grid holds, the run moves to a grid for it, with
-// material tables sampled here. source: the launch design with its non-built-in
-// materials embedded, and the pool's non-built-in materials as records;
-// built-in materials resolve by id. The window resolves both the same way, a
-// catalog first and then the design's copy, so the design's record and a pool
-// record of one id hold the same data. The window gets the new tables to
-// rescore the best design it recorded.
-function makeRegrid(current, source) {
-    const lookup = designMaterialLookup({ ...source.design, materials: { ...source.pool, ...source.design.materials } });
-    const poolLookup = designMaterialLookup({ materials: source.pool });
-    return (layers) => {
-        const operands = regridForDesign(current.ev.spec.operands, current.ev.designOf(layers), lookup);
-        if (!operands) return null;
-        const pool = current.ev.spec.pool.map(id => ({ id, mat: poolLookup(id) }));
-        const materials = presampleSynthesisMaterials(source.design, operands, pool);
-        current.ev = makeEvaluator({ ...current.ev.spec, operands }, { materials });
-        post({ type: 'regrid', operands, materials, n: layers.length });
-        return current.ev;
-    };
-}
-
 // Each event goes out with the run's best design at that moment, which the
 // window records when a phase ends.
 async function startRun(msg) {
@@ -89,7 +64,8 @@ async function startRun(msg) {
     const run = {
         runner: runnerFor(msg.pool), log: { trace: makeTrace(), keep: null }, shouldStop,
         onEvent: event => post({ type: 'event', event, best: run.best }),
-        rng: makeRng(msg.seed), regrid: makeRegrid(current, msg.source), best: null,
+        // The window gets the new tables to rescore the best design it recorded.
+        rng: makeRng(msg.seed), regrid: makeRegrid(current, msg.source, grid => post({ type: 'regrid', ...grid })), best: null,
     };
     return runDeepSynthesis(current.ev, msg.start, msg.method, run);
 }
