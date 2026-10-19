@@ -4,10 +4,9 @@
  * expanded from a measured block share one kernel pass.
  */
 
-import { computeEllipsometry, evaluateEllipsometrySpectrum, evaluateEllipsometryThicknessJacobian } from '../../../thinFilmMath.js';
+import { evaluateEllipsometrySpectrum, evaluateEllipsometryThicknessJacobian } from '../../../thinFilmMath.js';
 import { nkOf } from '../tmmEval.js';
 import { _assertFrontEllipsometry } from './errors.js';
-import { _frontStackAt } from './stack.js';
 
 // The per-context memo tables the ellipsometry paths share. Created on demand
 // because the Jacobian assembles on a context evaluateOperands was not run on
@@ -159,16 +158,20 @@ export function ellipsometryThicknessPoint(op, ctx, operands = null) {
     return { value, derivative: _frontDerivativeVector(ctx, front) };
 }
 
+// A hand-typed operand is a grid of its own wavelength, so it reads the kernel
+// pass a measured block's points read, and a Ψ row and a Δ row at the same
+// wavelength and angle share one.
+function _ownPoint(op, ctx) {
+    const aoi = op.aoi ?? 0;
+    const lambdas = [op.lambdaStart];
+    return _ellipsometryBatch(ctx, aoi, lambdas, _gridKey(aoi, lambdas)).get(op.lambdaStart);
+}
+
 // Ellipsometric Ψ/Δ (deg) or the ellipsometer-native tanΨ/cosΔ at op.lambdaStart.
 // Ψ, Δ use BOTH polarizations (ρ = r_p/r_s), so op.pol is not consulted.
 export function _evalEllipsometry(op, ctx) {
     if (op.measurementSide) _assertFrontEllipsometry(op, ctx);
-    const lam = op.lambdaStart;
-    let e = _measuredBlockPoint(op, ctx);
-    if (!e) {
-        const { n0, ns, layers } = _frontStackAt(ctx, lam);
-        e = computeEllipsometry(lam, op.aoi, n0, ns, layers);
-    }
+    const e = _measuredBlockPoint(op, ctx) || _ownPoint(op, ctx);
     switch (op.type) {
         case 'PSI':    return e.psi;
         case 'DEL':    return e.delta;
