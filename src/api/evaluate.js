@@ -6,6 +6,7 @@ import { embedDesignMaterials, withHerpinRecords } from '../utils/materials/desi
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { resolveEvalMode, makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import { requireResolved } from './materials.js';
+import { warnWithoutKernel } from './environment.js';
 import { checkOptions, checkRange, isAngle } from './check.js';
 
 const QUANTITIES = ['R', 'T', 'A', 'Rs', 'Rp'];
@@ -29,6 +30,7 @@ export function spectrum(design, options) {
     }
     checkRange('spectrum', { from, to, step }, angles.length);
     requireResolved(design);
+    warnWithoutKernel();
     const shown = withHerpinRecords(design);
     const evalMode = resolveEvalMode(shown);
     const coned = coneIsActive(makeConeSpec(shown.cone || {}));

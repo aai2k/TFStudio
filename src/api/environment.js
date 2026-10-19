@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { initTmmWasmMainThread } from '../tmmcore.js';
+import { initTmmWasmMainThread, tmmWasmActive } from '../tmmcore.js';
 import { loadCatalogsFromDisk } from '../utils/materials/catalogStartup.js';
 import catalogsIpc from '../main/ipc/catalogs.js';
 import mainPaths from '../main/paths.js';
@@ -43,11 +43,30 @@ export async function init(options) {
     return started;
 }
 
+let warned = false;
+let kernelTried = false;
+
+/**
+ * Warns once, as a process warning on stderr, when a call is about to
+ * calculate before init() has loaded the WASM kernel. Every calculation then
+ * runs on the JavaScript path, with the same numbers, many times slower: a
+ * merit with a TMX and a TAV row over 400-1600 nm took 634 ms against 53 ms.
+ * Once init() has tried to load the kernel nothing is said: when it could not,
+ * its result says so ({ wasm: false }).
+ */
+export function warnWithoutKernel() {
+    if (warned || kernelTried || tmmWasmActive()) return;
+    warned = true;
+    process.emitWarning('TFStudio API: the WASM kernel is not loaded, so calculations run on the JavaScript path, '
+        + 'with the same numbers but many times slower. Await init() before the first calculation.', 'TFStudioWarning');
+}
+
 async function start(dataDir, wasmPath) {
     provideEventAndCrypto();
     let wasm = false;
     try { wasm = !!(await initTmmWasmMainThread(fs.readFileSync(wasmPath || require.resolve('tmmcore/tmm_kernel.wasm')), true)); }
     catch (_) { wasm = false; }
+    kernelTried = true;
     const unreadable = dataDir ? await loadUserCatalogs(dataDir) : [];
     return { wasm, dataDir, unreadable };
 }

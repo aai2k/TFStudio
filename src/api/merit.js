@@ -11,6 +11,7 @@ import { editableColsForRow } from '../components/windows/optimization/meritFunc
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { meritTable } from '../utils/physics/meritDisplay.js';
 import { requireResolved } from './materials.js';
+import { warnWithoutKernel } from './environment.js';
 import { isAngle, shown } from './check.js';
 
 let rowSeq = 0;
@@ -134,6 +135,7 @@ function rowScope(op) {
 export function merit(design) {
     requireResolved(design);
     const operands = design.meritOperands || [];
+    if (operands.length) warnWithoutKernel();
     const result = meritTable(withHerpinRecords(design), operands);
     return {
         total: result.mf, optical: result.omf,

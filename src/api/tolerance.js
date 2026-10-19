@@ -7,6 +7,7 @@ import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { hasPerturbableLayers } from '../components/windows/analysis/errorAnalysis/trialModel.js';
 import { requireResolved } from './materials.js';
+import { warnWithoutKernel } from './environment.js';
 import { checkOptions, checkHooks, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean } from './check.js';
 
 const oneOf = list => v => list.includes(v);
@@ -55,6 +56,7 @@ export function monteCarlo(design, options, hooks) {
     requireResolved(design);
     const evalMode = resolveEvalMode(design);
     if (!hasPerturbableLayers(design, evalMode)) throw new Error('monteCarlo: the design has no layers to perturb on the side it is scored on');
+    warnWithoutKernel();
     return runErrorAnalysisMC(design,
         { lambdaStart: o.from, lambdaEnd: o.to, lambdaStep: o.step, theta: o.angle, polarization: o.polarization },
         designMaterialLookup(design), {
@@ -91,6 +93,7 @@ export function layerSensitivity(design, options) {
     requireResolved(design);
     const operands = design.meritOperands || [];
     if (!operands.length) throw new Error('layerSensitivity: the design has no merit function; set one with setMerit');
+    warnWithoutKernel();
     return computeLayerSensitivity(design, operands, designMaterialLookup(design),
         { mode, absDeltaNm: deltaNm, relPct, includeLocked });
 }
