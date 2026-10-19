@@ -18,7 +18,9 @@
  *    aggregation (global-best selection, cumulative iter, history, finalize) is
  *    exercised identically for the golden and the current run. The mock stands
  *    in for the worker's physics: this guard checks the RUN logic, not the
- *    optimizer kernel (that is optimizer_refactor_guard's job).
+ *    optimizer kernel (that is optimizer_refactor_guard's job). The start
+ *    values a job reports in its 'init', and a 'score' job's answer, are the
+ *    real merit of the job's design, scored as optimizerJob.js scores it.
  *
  * Random ids (history-entry ids) are excluded from the snapshot.
  *
@@ -29,7 +31,8 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { makeOperand } from '../src/utils/physics/optimizer.js';
+import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
+import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
 import { perturbPayload, restartRng } from '../src/utils/refinement/restarts.js';
 import EN from '../src/constants/locales/en.js';
 
@@ -61,6 +64,13 @@ const MOCK_FAILURES = {
     event:   w => w.onerror?.({ message: 'the worker script did not load' }),
 };
 
+// The merit and optical merit of a job's design on its pre-sampled materials:
+// what the optimizer worker reports as a job's start.
+function startOf(job) {
+    const opt = new DLSOptimizer(job.operands, job.design, makeResolveMat(job.materials || {}, 'mock', () => {}));
+    return { mf: opt.mf, omf: opt.mfOpticalAt(opt.thicknesses) };
+}
+
 // ── Deterministic mock Worker: scripted progress→done keyed by restart index ──
 // mf is a fixed function of the restart index so a specific restart is the clear
 // global best; layer thicknesses are a fixed function of the restart index so the
@@ -85,9 +95,17 @@ class MockWorker {
             this._post({ type: 'done', mfs });
             return;
         }
-        if (job.type !== 'start') return;              // ignore init / unknown
+        if (job.type !== 'start' && job.type !== 'score') return;   // ignore unknown
         const fail = MOCK_FAILURES[MockWorker.errorOnStart];
         if (fail) { fail(this); return; }
+        const start = startOf(job);
+        if (job.type === 'score') this._post({ type: 'score', mf: start.mf, omf: start.omf });
+        else this._optimize(job, start);
+    }
+    // A start job: its start values, then the scripted progress→done stream.
+    _optimize(job, start) {
+        this._post({ type: 'init', mfInitial: start.mf, mfBest: start.mf, omfInitial: start.omf, omfBest: start.omf,
+            restartIdx: job.restartIdx, nRestarts: job.nRestarts });
         const r = job.restartIdx || 0;                 // 0 = unperturbed baseline
         const mf = 0.05 * (1 / (1 + ((r * 7) % 5)));    // r===2 → global best (0.01)
         const front = (job.design.frontLayers || []).map((l, i) => ({ ...l, thickness: (l.thickness || 0) + r + i }));

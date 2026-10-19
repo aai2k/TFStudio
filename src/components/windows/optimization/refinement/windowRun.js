@@ -62,6 +62,9 @@ const bestRecord = (best, sides) => ({
 
 // The run has started: one undo checkpoint and Reset baseline per session, the
 // seed it drew shown in the seed field, and the previous run's result cleared.
+// The readout starts empty: the run's start values come from its workers a
+// little later (utils/refinement), and until then the last run's would read as
+// this one's.
 function beginRun(ctx, design, seed) {
     if (!ctx.baselineRef.current) {
         ctx.checkpointRef.current && ctx.checkpointRef.current();
@@ -74,6 +77,9 @@ function beginRun(ctx, design, seed) {
     ctx.setCanReset(true);
     ctx.setStopReason(null);
     ctx.lastBestRef.current = null;
+    for (const setter of ['setMfInitial', 'setOmfInitial', 'setMf', 'setMfBest', 'setOmf', 'setOmfBest']) ctx[setter](null);
+    ctx.setMfHistory([]);
+    ctx.setIter(0);
 }
 
 // Best works from the run's best as soon as there is one.

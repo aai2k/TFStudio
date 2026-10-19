@@ -4,12 +4,11 @@
 // Per-restart job construction lives in dlsPoolJobs.js and the worker message
 // handlers in dlsPoolMessages.js.
 
-import { DLSOptimizer } from '../physics/optimizer.js';
-import { designMaterialLookup } from '../materials/designMaterials.js';
 import { randomSeed } from '../physics/errorAnalysis/mcConfig.js';
 import { makeJob } from './dlsPoolJobs.js';
-import { handleMsg, failRun, failAfterProgress, isLive } from './dlsPoolMessages.js';
+import { handleMsg, failRun, failAfterProgress, isLive, showStart } from './dlsPoolMessages.js';
 import { endRun, resultOf } from './dlsPoolFinalize.js';
+import { scoreStartP } from './engineRun.js';
 
 function spawnWorker(R, S) {
     let w;
@@ -58,21 +57,16 @@ function postFirstJobs(S, workers) {
     }
 }
 
-// One cheap evaluation of the unperturbed design on the calling thread seeds
-// the MF/OMF readouts, independent of which worker reports first.
-function evalBaseline(R, S) {
-    try {
-        const baseOpt = new DLSOptimizer(S.ops, S.payload, designMaterialLookup(R.design));
-        S.mfInitial = baseOpt.mf;
-        S.omfInitial = baseOpt.mfOpticalAt(baseOpt.thicknesses);
-        R.onProgress({
-            mfInitial: S.mfInitial, mfBest: S.isMulti ? null : baseOpt.mfBest, mf: baseOpt.mf,
-            omfInitial: S.omfInitial, omfBest: S.isMulti ? null : S.omfInitial, omf: S.omfInitial,
-        });
-    } catch (err) {
-        console.error('[DLS] baseline eval failed:', err);
-        R.onProgress({ mfInitial: null, mfBest: null, omfInitial: null, omfBest: null });
-    }
+// Starts the restarts. A single run's job reports the start values in its
+// 'init' (dlsPoolMessages.js). A multi-start's jobs all start from perturbed
+// designs, so a scoring job in a worker of its own scores the start first, and
+// the restarts follow it. A hook that throws on the way fails the run.
+function startJobs(R, S, prep, workers) {
+    if (!S.isMulti) { postFirstJobs(S, workers); return; }
+    scoreStartP(R, prep).then((start) => {
+        if (isLive(R, S)) showStart(R, S, start);
+        if (isLive(R, S)) postFirstJobs(S, workers);
+    }).catch(S.reject);
 }
 
 // The run state the message handlers share: config plus the aggregation.
@@ -98,7 +92,7 @@ function poolState(R, prep) {
         mfInitial: null, omfInitial: null,
         finished: false, ended: false, gotProgress: false, failed: false,
         cumIter: 0, prevIterByW: new Map(), widSeq: 0, untrack: new Map(), mfHistory: [],
-        resolve: null,
+        resolve: null, reject: null,
     };
 }
 
@@ -110,15 +104,15 @@ function poolState(R, prep) {
  */
 export function runDlsPool(R, prep) {
     const S = poolState(R, prep);
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
         S.resolve = resolve;
+        S.reject = reject;
         const workers = buildWorkers(R, S);
         if (workers.length === 0) { failRun(R, S, 'construction failed', 'new Worker threw'); return; }
         R.onStart({ seed: S.seed });
         R.onMethodStart(S.isMulti ? 'dls-multi' : 'dls', 0);
-        evalBaseline(R, S);
         R.onProgress({ mfHistory: [], restartIdx: 0 });
         R.whenAborted(() => endRun(R, S, resultOf(S, false, 'stopped')));
-        if (!S.ended) postFirstJobs(S, workers);
+        if (!S.ended) startJobs(R, S, prep, workers);
     });
 }

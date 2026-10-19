@@ -4,14 +4,19 @@
 // (engineRun.js) or, for parallel DE, in a pool of MF-evaluation workers
 // (deEngine.js).
 
-import { DLSOptimizer } from '../physics/optimizer.js';
-import { designMaterialLookup } from '../materials/designMaterials.js';
 import { randomSeed } from '../physics/errorAnalysis/mcConfig.js';
 import { STOCHASTIC_METHODS, countFreeVars, endReasonFor } from './methods.js';
 import { appendMfSample } from './meritTrend.js';
-import { runEngineP } from './engineRun.js';
+import { runEngineP, scoreStartP } from './engineRun.js';
 import { runParallelDEP } from './deEngine.js';
 import { runMultiP } from './listMultiStart.js';
+
+// Methods whose worker reports the run's start values in its 'init' message:
+// their engines start from the design as it is. SQP first moves its start into
+// the MNT/MXT box, DE to the best member of its first population, and a
+// multi-start step runs from perturbed designs, so before one of those a run
+// with no start values yet scores them with a scoring job (scoreStartP).
+const INIT_IS_START = new Set(['dls', 'cg', 'sa', 'newton', 'newton-cg']);
 
 // Pick + run the engine for method m (F bundles the shared run config).
 function runMethodOnce(R, m, F) {
@@ -21,7 +26,8 @@ function runMethodOnce(R, m, F) {
         return runParallelDEP(R, { ops: F.ops, payload: F.payload, materials: F.materials, alive: F.alive, onProg: F.onProg, maxIterOverride: mi, seed });
     if (m === 'dls-multi')
         return runMultiP(R, { ops: F.ops, payload: F.payload, materials: F.materials, N: R.plan.nRestarts, pct: R.plan.perturbPct, alive: F.alive, onProg: F.onProg, seed });
-    return runEngineP(R, m, { ops: F.ops, payload: F.payload, materials: F.materials, alive: F.alive, onProg: F.onProg, preview: true, maxIterOverride: mi, seed });
+    const onInit = INIT_IS_START.has(m) ? F.onInit : null;
+    return runEngineP(R, m, { ops: F.ops, payload: F.payload, materials: F.materials, alive: F.alive, onProg: F.onProg, onInit, preview: true, maxIterOverride: mi, seed });
 }
 
 // Track the global best across methods. Reports it as soon as one method beats
@@ -68,12 +74,14 @@ function failedRunReason(F) {
 
 // The flow's result. A run cut short by Stop, or one whose workers all failed,
 // leaves the end-of-run readout alone; only a run that got to the end of its
-// method list reports its final readout.
+// method list reports its final readout. A run that ended before its start
+// was scored and before any method found a design has no merit to report.
 function finalizeMethodsFlow(R, F, gb, methods) {
     const completed = F.alive();
     const result = {
         completed, stopReason: 'stopped',
-        mf: gb.mf, omf: gb.omf, mfInitial: F.baseMF, omfInitial: F.baseOMF,
+        mf: Number.isFinite(gb.mf) ? gb.mf : null, omf: gb.omf,
+        mfInitial: F.start?.mf ?? null, omfInitial: F.start?.omf ?? null,
         iter: F.iterationOffset,
         frontLayers: gb.frontLayers, backLayers: gb.backLayers,
         seed: F.seed,
@@ -86,15 +94,29 @@ function finalizeMethodsFlow(R, F, gb, methods) {
     return { ...result, stopReason: flowStopReason(gb, methods, F.lastReason) };
 }
 
-// The unperturbed start, evaluated on the calling thread, seeds the global best.
-function evalStart(R, ops, payload) {
-    let baseMF = Infinity, baseOMF = null;
-    try {
-        const b = new DLSOptimizer(ops, payload, designMaterialLookup(R.design));
-        baseMF = b.mf; baseOMF = b.mfOpticalAt(b.thicknesses);
-        R.onProgress({ mfInitial: b.mf, omfInitial: baseOMF });
-    } catch (_) {}
-    return { baseMF, baseOMF };
+// The run's start values { mf, omf }, from the first 'init' that carries them
+// or from a scoring job: the readout's start, the first point of both merit
+// trends, and the merit a method must beat to become the run's best. A method
+// whose worker reports them begins before they arrive, and gets them before its
+// first progress.
+function seedStart(F, start) {
+    const { R, best } = F;
+    F.start = start;
+    F.startSettled = true;
+    best.cur = { ...best.cur, mf: start.mf, omf: start.omf };
+    F.methodHistory = [{ iter: 0, mf: start.mf }];
+    F.aggregateHistory = appendMfSample(F.aggregateHistory, F.iterationOffset, start.mf);
+    R.onProgress({ mfInitial: start.mf, omfInitial: start.omf });
+    R.onProgress({ mfHistory: F.aggregateHistory, mf: start.mf, mfBest: start.mf, omf: start.omf, omfBest: start.omf });
+}
+
+// Scores the start in a worker of its own. A start that cannot be scored is
+// left out: the run goes on without start values, and the first method result
+// becomes its best.
+async function scoreStart(F) {
+    const start = await scoreStartP(F.R, { ops: F.ops, payload: F.payload, materials: F.materials });
+    if (start) seedStart(F, start);
+    else F.startSettled = true;
 }
 
 function updateFlowProgress(F, mfNow, iters, omfNow) {
@@ -115,9 +137,9 @@ function updateFlowProgress(F, mfNow, iters, omfNow) {
 }
 
 function beginMethod(F, method, methodIndex) {
-    const { R, best, baseMF, methodCount } = F;
+    const { R, best, start, methodCount } = F;
     F.lastMethodIter = 0;
-    F.methodHistory = [{ iter: 0, mf: baseMF }];
+    F.methodHistory = start ? [{ iter: 0, mf: start.mf }] : [];
     F.aggregateHistory = appendMfSample(F.aggregateHistory, F.iterationOffset, best.cur.mf);
     R.onProgress({ mfHistory: F.aggregateHistory });
     R.onMethodStart(method, methodIndex);
@@ -157,6 +179,8 @@ async function executeMethods(F, methods) {
         for (let i = 0; i < methods.length; i++) {
             if (!F.alive()) break;
             const method = methods[i];
+            if (!F.startSettled && !INIT_IS_START.has(method)) await scoreStart(F);
+            if (!F.alive()) break;
             beginMethod(F, method, i);
             const result = await runMethodOnce(F.R, method, F);
             completeMethod(F, method, result);
@@ -176,15 +200,12 @@ export async function runMethodsFlow(R, prep) {
     const { ops, materials, payload } = prep;
     const seed = methods.some(m => STOCHASTIC_METHODS.has(m)) ? (R.plan.seed ?? randomSeed()) : null;
     R.onStart({ seed });
-    const { baseMF, baseOMF } = evalStart(R, ops, payload);
-    R.onProgress({
-        mfHistory: [{ iter: 0, mf: baseMF }], iter: 0, restartIdx: 0,
-        mf: baseMF, mfBest: baseMF, omf: baseOMF, omfBest: baseOMF,
-    });
+    R.onProgress({ iter: 0, restartIdx: 0 });
 
-    const best = { cur: { mf: baseMF, omf: baseOMF, frontLayers: payload.frontLayers, backLayers: payload.backLayers, method: null } };
+    const best = { cur: { mf: Infinity, omf: null, frontLayers: payload.frontLayers, backLayers: payload.backLayers, method: null } };
     const F = {
-        R, best, baseMF, baseOMF, methodCount: methods.length,
+        R, best, methodCount: methods.length,
+        start: null, startSettled: false,
         ops, payload, materials, curDes: R.design,
         layerSide: payload.surfaceMode === 'back_only' ? 'backLayers' : 'frontLayers',
         alive: () => !R.aborted(),
@@ -192,9 +213,10 @@ export async function runMethodsFlow(R, prep) {
         singleMethod: methods.length === 1,
         iterationOffset: 0, lastMethodIter: 0, completedMethodIters: 0,
         produced: 0, failed: 0, failedAfterProgress: false,
-        methodHistory: [], aggregateHistory: [{ iter: 0, mf: baseMF }],
+        methodHistory: [], aggregateHistory: [],
     };
     F.onProg = (mfNow, iters, omfNow) => updateFlowProgress(F, mfNow, iters, omfNow);
+    F.onInit = (m) => { if (!F.startSettled) seedStart(F, { mf: m.mfInitial, omf: m.omfInitial }); };
 
     await executeMethods(F, methods);
 

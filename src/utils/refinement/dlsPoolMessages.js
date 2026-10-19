@@ -43,6 +43,31 @@ export function failAfterProgress(R, S, how, message) {
     endRun(R, S, resultOf(S, false, 'workerError'));
 }
 
+/**
+ * Shows the run's start values, `start` = { mf, omf } of the design as it is,
+ * or null when it could not be scored. A single run's Best starts at the start;
+ * a multi-start's Best waits for its first restart.
+ */
+export function showStart(R, S, start) {
+    if (!start) {
+        R.onProgress({ mfInitial: null, mfBest: null, omfInitial: null, omfBest: null });
+        return;
+    }
+    S.mfInitial = start.mf;
+    S.omfInitial = start.omf;
+    R.onProgress({
+        mfInitial: start.mf, mfBest: S.isMulti ? null : start.mf, mf: start.mf,
+        omfInitial: start.omf, omfBest: S.isMulti ? null : start.omf, omf: start.omf,
+    });
+}
+
+// A single run's job starts from the design as it is, so its 'init' carries the
+// run's start values. Every job of a multi-start starts from a perturbed design;
+// its start comes from a scoring job (dlsPool.js).
+function onInitMsg(R, S, m) {
+    if (!S.isMulti) showStart(R, S, { mf: m.mfInitial, omf: m.omfInitial });
+}
+
 function onProgressMsg(R, S, m, wid) {
     S.gotProgress = true;
     const ci = bumpCum(S, wid, m.iter);
@@ -134,7 +159,7 @@ export function handleMsg(R, S, w, wid, e) {
     if (!m || !isLive(R, S)) return;   // empty / stale post-stop message
     if (m.type === 'warn')  { console.warn(m.message); return; }
     if (m.type === 'error') { onErrorMsg(R, S, m); return; }
-    // 'init' is a no-op (mfInitial is computed on the calling thread).
-    if (m.type === 'progress') onProgressMsg(R, S, m, wid);
+    if (m.type === 'init') onInitMsg(R, S, m);
+    else if (m.type === 'progress') onProgressMsg(R, S, m, wid);
     else if (m.type === 'done') onDoneMsg(R, S, w, m, wid);
 }

@@ -12,7 +12,6 @@ import {
 } from './operandEdits.js';
 import { loadMethod, saveMethod } from './refinementConfig.js';
 import { DEFAULT_SETTINGS, defaultMaxIter } from '../../../../utils/refinement/methods.js';
-import { computeOperandDisplay, firstOperandErrorMessage } from '../../../../utils/refinement/operandCheck.js';
 import { clearRefinement, readRefinement, writeRefinement } from './sessionState.js';
 import { startWindowRun } from './windowRun.js';
 import { useMeritValues } from '../useMeritValues.js';
@@ -156,23 +155,15 @@ function buildRunCtx(env, t) {
 }
 
 // ── Run start ─────────────────────────────────────────────────────────────────
+// A row that cannot be evaluated refuses the run in its own check
+// (runRefinement.js prepare), whose message the end-of-run badge names; the
+// table keeps showing what it reads itself (useMeritValues.js).
 function startRun(env, buildCtx) {
     const { refs } = env;
     if (refs.runningRef.current) return;
     const curDes = refs.designRef.current;
-    const allOperands = refs.operandsRef.current || [];
-    const enabled = allOperands.filter(op => op.enabled);
+    const enabled = (refs.operandsRef.current || []).filter(op => op.enabled);
     if (!curDes || enabled.length === 0) { env.setters.setStopReason('noOperands'); return; }
-    const preflight = computeOperandDisplay(curDes, allOperands);
-    const operandError = firstOperandErrorMessage(allOperands, preflight?.errors);
-    if (operandError) {
-        env.setters.setComputed(preflight.computed);
-        env.setters.setEvaluationErrors(preflight.errors);
-        env.setters.setProvisional(null);
-        env.setters.setMf(null); env.setters.setOmf(null);
-        env.setters.setStopReason(`invalidOperand:${operandError}`);
-        return;
-    }
     startWindowRun(buildCtx());
 }
 

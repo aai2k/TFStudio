@@ -18,7 +18,8 @@
  * the main-thread path. No math change.
  *
  * Messages go out through `post`: 'init', throttled 'progress', then 'done',
- * or 'error'.
+ * or 'error'. A 'score' job runs no optimizer: it posts one 'score' message
+ * with the merit and optical merit of its design, or 'error'.
  */
 
 import { makeEngine } from '../optimizers/index.js';
@@ -103,19 +104,32 @@ function runSingle(job, resolveMat, postMessage) {
     post(true);
 }
 
+// ── Start score ───────────────────────────────────────────────────────────────
+
+// The merit and optical merit of the design as posted, from the DLS evaluator
+// every engine scores with. A refinement run takes its start values from this
+// job when its jobs' 'init' does not report them (methodsFlow.js
+// INIT_IS_START, dlsPool.js startJobs).
+function scoreDesign(job, resolveMat, postMessage) {
+    const opt = new DLSOptimizer(job.operands, job.design, resolveMat);
+    postMessage({ type: 'score', mf: opt.mf, omf: opt.mfOpticalAt(opt.thicknesses) });
+}
+
 // ── Message entry point ───────────────────────────────────────────────────────
 
 export async function handleOptimizerMessage(job, postMessage) {
     if (!job) return;
     // One-time WASM kernel init (bytes may arrive as a dedicated message or ride
-    // on the 'start' job). Enabling is per-worker; falls back to JS on failure.
+    // on a 'start' or 'score' job). Enabling is per-worker; falls back to JS on
+    // failure.
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
-    if (job.type !== 'start') return;
+    if (job.type !== 'start' && job.type !== 'score') return;
     try {
         noteTmmWasmBytes(job.wasmBytes);
         await awaitTmmWasmReady();
         const resolveMat = makeResolveMat(job.materials || {}, 'optimizerWorker', postMessage);
-        runSingle(job, resolveMat, postMessage);
+        if (job.type === 'score') scoreDesign(job, resolveMat, postMessage);
+        else runSingle(job, resolveMat, postMessage);
     } catch (err) {
         postMessage({
             type: 'error',

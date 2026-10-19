@@ -12,6 +12,8 @@
  *      run it puts on the front only, whatever the design's mode is by then.
  * After 1, 2 and 3, Best has nothing to apply, also once the window has shown
  * another design and come back.
+ *   5. A new run clears the last run's readout until its own start arrives.
+ *   6. A row that cannot be evaluated refuses the run, and the badge names it.
  *
  * The hook runs under a small stand-in for React that honours effect
  * dependencies and cleanups, and a scripted Worker stands in for the optimizer
@@ -192,5 +194,46 @@ state.onBest();
 settle();
 assert.deepEqual(designs.F.frontLayers.map(l => l.thickness), bestOf(startF), 'Best puts the front-only run\'s front on');
 assert.deepEqual(designs.F.backLayers.map(l => l.thickness), editedBack, 'and leaves the back as the user edited it');
+
+// ── 5. A new run starts with an empty readout ────────────────────────────────
+// Its start values come from its workers a little later; until then the last
+// run's would read as this one's.
+current = 'A';
+settle();
+state.onMethod('dls');
+settle();
+ScriptedWorker.hold = false;
+state.onRun();
+settle();
+while (state.running) await pause();
+assert.ok(state.mfInitial != null && state.mfHistory.length > 0, 'a finished run leaves its readout');
+ScriptedWorker.hold = true;
+state.onRun();
+settle();
+assert.equal(state.mfInitial, null, 'a new run clears the last run\'s start until its own arrives');
+assert.equal(state.mfBest, null);
+assert.deepEqual(state.mfHistory, []);
+await pause();
+assert.equal(state.mfInitial, 0.05, 'and shows its own when its worker reports it');
+state.onStop();
+settle();
+await pause();
+ScriptedWorker.hold = false;
+
+// ── 6. A row that cannot be evaluated refuses the run ────────────────────────
+// Ta2O5's data start at 500 nm, and a group-delay row refuses a sample outside
+// a material's data.
+designs.T = {
+    ...designOf('T', [layer('t1', 'Ta2O5', 100), layer('t2', 'SiO2', 90)]),
+    meritOperands: [makeOperand({ type: 'GDDFLAT', lambdaStart: 450, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 })],
+};
+current = 'T';
+settle();
+state.onRun();
+settle();
+await pause();
+assert.equal(state.running, false, 'a run with a row that cannot be evaluated does not start');
+assert.match(state.stopReason, /^invalidOperand:Row 1 GDDFLAT: /, 'its badge names the row');
+assert.equal(state.mf, null, 'and the readout shows no merit, since the table has none for it');
 
 console.log('Refinement run actions tests passed.');

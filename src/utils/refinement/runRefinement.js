@@ -6,6 +6,7 @@ import { planRun } from './settings.js';
 import { openRun } from './runHandle.js';
 import { densifyForRun, presampleMaterials, buildPayload } from './workerInputs.js';
 import { computeOperandDisplay, firstOperandErrorMessage } from './operandCheck.js';
+import { atDefaultSteps } from '../physics/meritDisplay.js';
 import { runDlsPool } from './dlsPool.js';
 import { runMethodsFlow } from './methodsFlow.js';
 
@@ -18,11 +19,13 @@ const ended = (stopReason, extra = {}) => ({
 });
 
 // The operands on the run's grid, the materials sampled on it and the design as
-// plain data, or the reason the run cannot start.
+// plain data, or the reason the run cannot start. The check only asks whether
+// every row evaluates, which its band's ends and materials decide, so it reads
+// the rows at their default steps: at a fine Step one evaluation takes seconds.
 function prepare(design, operands) {
     const enabled = operands.filter(op => op.enabled);
     if (enabled.length === 0) return { failed: ended('noOperands') };
-    const check = computeOperandDisplay(design, operands);
+    const check = computeOperandDisplay(design, atDefaultSteps(operands));
     const message = firstOperandErrorMessage(operands, check?.errors);
     if (message) return { failed: ended('invalidOperand', { message }) };
     const ops = densifyForRun(enabled, design);
