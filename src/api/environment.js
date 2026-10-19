@@ -23,25 +23,29 @@ let startedWith = null;
  * catalogs read the way the app reads them at startup. Without a data folder
  * the built-in catalog and the materials a design carries resolve. Resolves to
  * { wasm, dataDir, unreadable }, `unreadable` naming the catalog files that
- * could not be read and were left out. A process reads one data folder: init
- * again with another is refused, and a start that failed can be tried again.
+ * could not be read and were left out. `wasmPath` names the kernel's file when
+ * it is not the tmmcore package's, as in an installed app. A process reads one
+ * data folder: init again with another is refused, and a start that failed can
+ * be tried again.
  */
 export async function init(options) {
-    const { dataDir = null } = checkOptions('init', options, ['dataDir']);
-    requireValue('init', 'dataDir', dataDir, v => v === null || (typeof v === 'string' && v !== ''), 'the path of a TFStudio data folder, or null');
+    const { dataDir = null, wasmPath = null } = checkOptions('init', options, ['dataDir', 'wasmPath']);
+    const isPathOrNull = v => v === null || (typeof v === 'string' && v !== '');
+    requireValue('init', 'dataDir', dataDir, isPathOrNull, 'the path of a TFStudio data folder, or null');
+    requireValue('init', 'wasmPath', wasmPath, isPathOrNull, 'the path of the WASM kernel file, or null');
     if (started && dataDir !== startedWith) {
         return Promise.reject(new Error(`init already ran with dataDir ${startedWith}; a process reads one data folder`));
     }
     if (!started) {
         startedWith = dataDir;
-        started = start(dataDir).catch(err => { started = null; throw err; });
+        started = start(dataDir, wasmPath).catch(err => { started = null; throw err; });
     }
     return started;
 }
 
-async function start(dataDir) {
+async function start(dataDir, wasmPath) {
     let wasm = false;
-    try { wasm = !!(await initTmmWasmMainThread(fs.readFileSync(require.resolve('tmmcore/tmm_kernel.wasm')), true)); }
+    try { wasm = !!(await initTmmWasmMainThread(fs.readFileSync(wasmPath || require.resolve('tmmcore/tmm_kernel.wasm')), true)); }
     catch (_) { wasm = false; }
     const unreadable = dataDir ? await loadUserCatalogs(dataDir) : [];
     return { wasm, dataDir, unreadable };

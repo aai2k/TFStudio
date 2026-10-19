@@ -1,0 +1,95 @@
+/**
+ * TFStudio's MCP server: the headless API (src/api/) as Model Context Protocol
+ * tools over stdio, for AI agents and other MCP clients.
+ *
+ *   node src/mcp/server.js [--data <folder>]
+ *
+ * --data names a TFStudio data folder (the one holding Materials), whose
+ * catalogs the tools then use as the app does. Without it the built-in catalog
+ * and the materials a design carries resolve.
+ */
+import fs from 'node:fs';
+import process from 'node:process';
+import { createInterface } from 'node:readline';
+import { format } from 'node:util';
+import { pathToFileURL } from 'node:url';
+
+const log = text => process.stderr.write(`[tfstudio-mcp] ${text}\n`);
+
+const INSTRUCTIONS = [
+    'TFStudio designs and analyzes optical thin-film coatings. The tools work on designs held in this session by id ("d1").',
+    'Start from a .tfs file (openDesign) or a new design (newDesign); change its media, substrate and sides (setDesignSetup); build or edit the stack (stackFromFormula, insertLayer, setLayer, deleteLayer); set the merit function (setMerit); compute (spectrum, merit, layerSensitivity).',
+    'refine, synthesize and monteCarlo run as jobs: they answer with the job\'s state, and jobStatus follows a job that is still running. A run that changed the design adds its answer as a new design. saveDesign writes a design to a .tfs file the app opens.',
+    'Units: wavelengths and layer thicknesses in nm, angles in degrees in the incident medium, substrate thickness in mm, R, T and A as fractions of 1. A value a tool cannot use is refused with a message that says what it takes.',
+].join('\n');
+
+/**
+ * Serves the tools on this process's stdin and stdout until stdin closes.
+ * `dataDir` is the TFStudio data folder or null, `version` the version the
+ * server reports, `wasmPath` the WASM kernel's file when it is not the tmmcore
+ * package's.
+ */
+export async function serve({ dataDir = null, version, wasmPath } = {}) {
+    // stdout carries the protocol alone; whatever the computation prints goes
+    // to stderr, which MCP clients keep as the server's log.
+    for (const level of ['log', 'info', 'warn', 'debug']) {
+        console[level] = (...args) => process.stderr.write(`${format(...args)}\n`);
+    }
+    const api = await import('../api/index.js');
+    const { createSession } = await import('./protocol.js');
+    const { createDesignStore, sameLayers } = await import('./designStore.js');
+    const { createJobs } = await import('./jobs.js');
+    const { designTools } = await import('./designTools.js');
+    const { analysisTools } = await import('./analysisTools.js');
+    const { runTools } = await import('./runTools.js');
+
+    const started = await api.init({ dataDir, wasmPath });
+    log(`started: WASM ${started.wasm}, data folder ${dataDir ?? 'none'}`);
+    for (const file of started.unreadable) log(`catalog left out, could not be read: ${JSON.stringify(file)}`);
+
+    const store = createDesignStore();
+    const jobs = createJobs({
+        environment: { dataDir, wasmPath },
+        // A run that kept the layers of a design still as it started answers
+        // with that design; any other answer is a design of its own.
+        keepAnswer: (job, design) => (sameLayers(design, job.startDesign) && store.get(job.sourceId) === job.startDesign
+            ? job.sourceId : store.add(design)),
+    });
+    const tools = [...designTools({ api, store }), ...analysisTools({ api, store }), ...runTools({ store, jobs })];
+    const session = createSession({
+        serverInfo: { name: 'tfstudio', title: 'TFStudio', version },
+        instructions: INSTRUCTIONS, tools, log,
+        send: message => process.stdout.write(`${JSON.stringify(message)}\n`),
+    });
+
+    const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
+    input.on('line', line => session.receive(line));
+    input.on('close', () => {
+        session.stopAll();
+        jobs.stopAll();
+        // The process ends once its event loop drains. Writing the last replies
+        // takes milliseconds; two seconds leaves room on a loaded machine, and a
+        // job thread still computing after that does not keep a client waiting
+        // on a server it has closed.
+        setTimeout(() => process.exit(0), 2000).unref();
+    });
+}
+
+function parseArgs(argv) {
+    const args = { dataDir: null };
+    for (let i = 0; i < argv.length; i++) {
+        if (argv[i] === '--data' && argv[i + 1]) args.dataDir = argv[++i];
+        else throw new Error(`unknown argument '${argv[i]}'. Usage: server.js [--data <folder>]`);
+    }
+    return args;
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+    const { version } = JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8'));
+    Promise.resolve()
+        .then(() => serve({ ...parseArgs(process.argv.slice(2)), version }))
+        .catch(err => {
+            log(err?.message || String(err));
+            process.exit(1);
+        });
+}
