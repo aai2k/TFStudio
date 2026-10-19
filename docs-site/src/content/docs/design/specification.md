@@ -31,8 +31,8 @@ A **Min / Max** or **Central λ** check on a peak (a maximum of T or A, a minimu
 | **Central λ**       | Center wavelength of a passband or edge feature.               | nm    |
 | **FWHM**            | Full width at half-maximum of a feature.                       | nm    |
 | **Edge λ**          | Wavelength where a channel crosses a level (a filter edge).    | nm    |
-| **Thickness budget**| Total physical stack thickness.                                | nm    |
-| **Layer count**     | Number of layers in the stack.                                 | count |
+| **Thickness budget**| Total physical thickness of the front, the back or both.       | nm    |
+| **Layer count**     | Number of layers on the front, the back or both.               | count |
 | **Peak-to-peak error vs curve** | Spread of the design's error against a measured T, R or A curve, in dB. | dB |
 
 ## Settings
@@ -48,6 +48,8 @@ and polarization for optical kinds. **Step** sets how finely a peak check search
 equality `= ± tol`, or a range `∈ [lo, hi]`, against the target value you enter
 (percentages for T/R/A; nanometres or a count for the geometric kinds; dB for
 the peak-to-peak error).
+
+**Side**: a thickness budget or layer count adds up the front stack, the back stack (on a symmetric design, the front mirrored) or both. A new one starts at the side the design coats; one saved without a side adds up both.
 
 **Curve**: the peak-to-peak error kind takes one of the design's curves from [Measured Spectra](/data-exchange/measured-spectra/) in place of a band, an angle and a polarization; it is read at the curve's own points and conditions. It is the number a gain-flattening filter is specified by, the `PPEF` operand of the [Operand Reference](/design/operands/#curves). **Generate MF** writes the curve into the merit function as a block at weight 0, a `PPEF` row measured against it, and the comparison row.
 
@@ -67,7 +69,7 @@ For stopband suppression, prefer the **Min / Max** (worst-case) kinds: a band
 *average* can pass while a narrow resonance spikes through it. Once your
 requirements are in place, **Generate MF** writes them into the design as `OPGT`/`OPLT` merit operands: each spec becomes a measurement row plus the targets that reference it, one for `≥` or `≤` and two for a range or `= ± tol` (at target − tol and target + tol), so the rows are met exactly when the check passes, and [Refinement](/synthesis/refinement/) and the synthesis tools optimize toward the specification directly and stay in sync with it. A run stops at the edge of a tolerance rather than at its centre; an equality with no tolerance is written as the measurement row at its target, except a Min / Max or peak-to-peak one, whose row scores one side only and so gets the pair at the target.
 A peak row it writes carries the check's **Step** as its flag, so the merit function searches the band as the check does.
-**FWHM**, **Edge λ**, **Thickness budget** and **Layer count** have no merit row: while the list holds any of them, a note beside **Generate MF** names them, and names a peak-to-peak check whose curve is not on the design, since the merit function it writes leaves them out.
+A **Thickness budget** on the coating the optimizer works on (the front of a front-only or symmetric design, the back of a back-only one, both when both sides are given) becomes a `TT` row, or a `TT` minimum and maximum for a range or `= ± tol`. **FWHM**, **Edge λ**, **Layer count** and a thickness budget on any other side have no merit row: while the list holds any of them, a note beside **Generate MF** names them, and names a peak-to-peak check whose curve is not on the design, since the merit function it writes leaves them out.
 The specification is saved in the project file alongside the design.
 
 ## References

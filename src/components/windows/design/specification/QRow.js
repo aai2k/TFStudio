@@ -1,4 +1,4 @@
-import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary, qualifierValueText, checkTakesStep } from '../../../../utils/synthesis/qualifiers.js';
+import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary, qualifierValueText, checkTakesStep, budgetSide } from '../../../../utils/synthesis/qualifiers.js';
 import { OPERAND_POLS, extremumStepNm } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
@@ -49,6 +49,7 @@ export function QRow({ q, r, c, ts, units, updateQualifier, removeQualifier, int
             renderEdgeSide(meta, q, onF, c, ts),
             meta.integral && renderIntegral(q, onPatch, c, ts, { integralPresets, units }),
             meta.curve && renderCurvePick(q, onF, c, ts, measuredCurves),
+            renderSide(meta, q, onF, c, ts),
             renderCmp(q, onF, c, ts),
             renderTargets(q, meta, onF, c, ts),
         ),
@@ -210,6 +211,20 @@ function renderEdgeSide(meta, q, onF, c, ts) {
         },
             h('option', { value: 'left',  style: { background: c.panel } }, ts.left  || 'left'),
             h('option', { value: 'right', style: { background: c.panel } }, ts.right || 'right'),
+        )
+    );
+}
+
+// Side a thickness budget or layer count adds up
+function renderSide(meta, q, onF, c, ts) {
+    return meta.side && h(Field, { label: ts.side, c, tip: ts.sideTip },
+        h('select', {
+            value: budgetSide(q), onChange: e => onF('side', e.target.value),
+            style: { ...selStyle(c), width: 92 },
+        },
+            h('option', { value: 'front', style: { background: c.panel } }, ts.sideFront),
+            h('option', { value: 'back',  style: { background: c.panel } }, ts.sideBack),
+            h('option', { value: 'both',  style: { background: c.panel } }, ts.sideBoth),
         )
     );
 }

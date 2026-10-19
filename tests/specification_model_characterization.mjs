@@ -21,8 +21,8 @@ assert.deepEqual(KIND_META.INTEGRAL,         { integral: true, fmt: 'pct' });
 assert.deepEqual(KIND_META.CENTRAL_LAMBDA,   { channelPick: true, direction: true, fmt: 'nm' });
 assert.deepEqual(KIND_META.FWHM,             { channelPick: true, direction: true, level: true, fmt: 'nm' });
 assert.deepEqual(KIND_META.EDGE_LAMBDA,      { channelPick: true, level: true, edgeSide: true, fmt: 'nm' });
-assert.deepEqual(KIND_META.THICKNESS_BUDGET, { geomOnly: true, fmt: 'nm' });
-assert.deepEqual(KIND_META.LAYER_COUNT,      { geomOnly: true, fmt: 'int' });
+assert.deepEqual(KIND_META.THICKNESS_BUDGET, { geomOnly: true, side: true, fmt: 'nm' });
+assert.deepEqual(KIND_META.LAYER_COUNT,      { geomOnly: true, side: true, fmt: 'int' });
 
 // isPct() — drives NumberField's %-vs-native-unit display for target/tol/lo/hi.
 assert.equal(isPct(KIND_META.T_AT), true);

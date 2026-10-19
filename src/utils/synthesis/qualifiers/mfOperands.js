@@ -27,7 +27,7 @@
 import { makeOperand, isMinmax, isPPEF } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
 import { ppefRows } from './ppefRows.js';
-import { eqTolerance, checkStepFlag } from './constants.js';
+import { eqTolerance, checkStepFlag, budgetSide, coatedSide } from './constants.js';
 
 // ── Base physical-measurement operand, one builder per kind ─────────────────
 
@@ -98,9 +98,8 @@ function buildPPEFBaseOp(q, ch, pol, weight, { design, out }) {
 }
 
 // FWHM / EDGE_LAMBDA: no direct MF operand — needs a derived FWHM operand
-// with its own gradient (open follow-up). LAYER_COUNT / THICKNESS_BUDGET are
-// filtered out by the caller before reaching this table (discrete /
-// sum-constraints; MNT/MXT would partially cover them).
+// with its own gradient (open follow-up). THICKNESS_BUDGET and LAYER_COUNT are
+// handled by the caller before reaching this table.
 const BASE_OP_BUILDERS = {
     T_AT: buildSingleBaseOp, R_AT: buildSingleBaseOp, A_AT: buildSingleBaseOp,
     T_AVG: buildAvgBaseOp,   R_AVG: buildAvgBaseOp,   A_AVG: buildAvgBaseOp,
@@ -160,16 +159,32 @@ function emitEq(baseOp, q, weight, k, out) {
 
 const CMP_EMITTERS = { ge: emitGe, le: emitLe, between: emitBetween };
 
+// THICKNESS_BUDGET: TT rows, when the check adds up the coating TT sums
+// (coatedSide). TT compares on its own, so a range is a TT minimum and a TT
+// maximum, met exactly when the check passes. A budget on any other side has
+// no row TT could stand for, and stays without one.
+function emitThicknessBudget(q, weight, design, out) {
+    if (!design || budgetSide(q) !== coatedSide(design)) return;
+    const tt = (cmp, target) => out.push(makeOperand({ type: 'TT', cmp, target, weight }));
+    const tol = eqTolerance(q);
+    if (q.cmp === 'ge' || q.cmp === 'le') tt(q.cmp, q.target);
+    else if (q.cmp === 'between') { tt('ge', q.lo); tt('le', q.hi); }
+    else if (tol > 0) { tt('ge', q.target - tol); tt('le', q.target + tol); }
+    else tt('eq', q.target);
+}
+
 /**
  * The enabled checks Generate MF writes no row for: FWHM, EDGE_LAMBDA,
- * LAYER_COUNT, THICKNESS_BUDGET, and a PPEF check whose curve the design does
- * not hold. Read off qualifiersToMFOperands itself, so the two cannot disagree.
+ * LAYER_COUNT, a THICKNESS_BUDGET on a side other than the coating TT sums, and
+ * a PPEF check whose curve the design does not hold. Read off
+ * qualifiersToMFOperands itself, so the two cannot disagree.
  */
 export function checksWithoutRow(qualifiers, opts = {}) {
     return (qualifiers || []).filter(q => q.enabled && qualifiersToMFOperands([q], opts).length === 0);
 }
 
-// `opts.design` is the design whose measured curves a PPEF qualifier names.
+// `opts.design` is the design whose measured curves a PPEF qualifier names,
+// and whose surface mode decides whether a thickness budget gets a TT row.
 export function qualifiersToMFOperands(qualifiers, opts = {}) {
     const out = [];
     const weight = opts.weight || 1.0;
@@ -177,9 +192,9 @@ export function qualifiersToMFOperands(qualifiers, opts = {}) {
         if (!q.enabled) continue;
         const k = q.kind;
 
-        // Geometry-only qualifiers don't translate to MF operands the
-        // optimizer can act on.
-        if (k === 'LAYER_COUNT' || k === 'THICKNESS_BUDGET') continue;
+        // No operand counts layers.
+        if (k === 'LAYER_COUNT') continue;
+        if (k === 'THICKNESS_BUDGET') { emitThicknessBudget(q, weight, opts.design, out); continue; }
 
         const buildBaseOp = BASE_OP_BUILDERS[k];
         if (!buildBaseOp) continue;   // FWHM/EDGE_LAMBDA or unknown kind

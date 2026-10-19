@@ -14,10 +14,10 @@
  * { value, pass, deviation, unit, threshold } result (format.js writes its text).
  */
 
-import { makeOperand, evaluateOperands, buildEvalContext, withFringeSampleCounts } from '../../physics/optimizer.js';
+import { makeOperand, evaluateOperands, buildEvalContext, withFringeSampleCounts, effectiveBackLayers } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
-import { checkStepFlag } from './constants.js';
+import { checkStepFlag, budgetSide } from './constants.js';
 import { evalBandDerived } from './bandScan.js';
 import { ppefRows } from './ppefRows.js';
 
@@ -49,16 +49,23 @@ export function rowValue(op, ctx) {
 
 // ── Static (geometry-only) qualifiers ───────────────────────────────────────
 
+// The layers a thickness budget or layer count adds up (budgetSide): the front
+// stack, the back stack as the design is evaluated with it (the mirrored front
+// on a symmetric design), or both.
+function sideLayers(qual, design) {
+    const side = budgetSide(qual);
+    const front = side === 'back' ? [] : (design?.frontLayers || []);
+    const back = side === 'front' ? [] : effectiveBackLayers(design);
+    return [...front, ...back];
+}
+
 function evalThicknessBudget(qual, design) {
-    const layers = design?.frontLayers || [];
-    const v = layers.reduce((s, l) => s + (l.thickness || 0), 0)
-            + (design?.backLayers || []).reduce((s, l) => s + (l.thickness || 0), 0);
+    const v = sideLayers(qual, design).reduce((s, l) => s + (l.thickness || 0), 0);
     return finishCompare(qual, v, 'nm');
 }
 
 function evalLayerCount(qual, design) {
-    const v = (design?.frontLayers?.length || 0) + (design?.backLayers?.length || 0);
-    return finishCompare(qual, v, '');
+    return finishCompare(qual, sideLayers(qual, design).length, '');
 }
 
 // ── Optical scalar qualifiers ────────────────────────────────────────────────

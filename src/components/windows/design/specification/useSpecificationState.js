@@ -1,5 +1,5 @@
 import {
-    makeQualifier, aggregateVerdict, qualifiersToMFOperands,
+    makeQualifier, aggregateVerdict, qualifiersToMFOperands, startingSide,
 } from '../../../../utils/synthesis/qualifiers.js';
 import { applyPreset } from '../../../../utils/synthesis/qualifierPresets.js';
 import { useTableShortcuts } from '../../../../hooks/useTableShortcuts.js';
@@ -9,14 +9,15 @@ import { useWindowSession } from '../../windowSession.js';
 
 const { useCallback, useMemo, useRef } = React;
 
-function addQualifierTo(qualifiers, writeQualifiers, setSelectedId, kind) {
-    const q = makeQualifier({ kind: kind || 'T_AVG' });
+export function addQualifierTo(qualifiers, writeQualifiers, setSelectedId, kind, design) {
+    const k = kind || 'T_AVG';
+    const q = makeQualifier({ kind: k, ...startingSide(k, design) });
     writeQualifiers([...qualifiers, q]);
     setSelectedId(q.id);
 }
 
-function updateQualifierIn(qualifiers, writeQualifiers, id, patch) {
-    writeQualifiers(qualifiers.map(q => q.id === id ? { ...q, ...patch } : q));
+export function updateQualifierIn(qualifiers, writeQualifiers, id, patch, design) {
+    writeQualifiers(qualifiers.map(q => q.id === id ? { ...q, ...startingSide(patch.kind, design, q.side), ...patch } : q));
 }
 
 function removeQualifierFrom(qualifiers, writeQualifiers, setSelectedId, id) {
@@ -27,7 +28,7 @@ function removeQualifierFrom(qualifiers, writeQualifiers, setSelectedId, id) {
 // Splice a fresh row at a specific index. `source` (if given) carries
 // kind/cmp/channel/direction/level/lambda*/aoi/pol/target as defaults so
 // the new row is a near-clone — only target / label still need editing.
-function insertQualifierInto({ qualifiers, writeQualifiers, setSelectedId, containerRef }, insertIdx, source) {
+export function insertQualifierInto({ qualifiers, writeQualifiers, setSelectedId, containerRef }, insertIdx, source) {
     const seed = source
         ? {
             kind: source.kind, cmp: source.cmp,
@@ -39,6 +40,7 @@ function insertQualifierInto({ qualifiers, writeQualifiers, setSelectedId, conta
             target: source.target,
             edgeSide: source.edgeSide,
             flag: source.flag,
+            side: source.side,
             integralId: source.integralId,
             tolerance: source.tolerance,
         }
@@ -130,12 +132,12 @@ export function useSpecificationState({ design, updateDesign, checkpoint }) {
     }, []);
 
     const addQualifier = useCallback((kind) =>
-        addQualifierTo(qualifiers, writeQualifiers, setSelectedId, kind),
-    [qualifiers, writeQualifiers]);
+        addQualifierTo(qualifiers, writeQualifiers, setSelectedId, kind, design),
+    [qualifiers, writeQualifiers, design]);
 
     const updateQualifier = useCallback((id, patch) =>
-        updateQualifierIn(qualifiers, writeQualifiers, id, patch),
-    [qualifiers, writeQualifiers]);
+        updateQualifierIn(qualifiers, writeQualifiers, id, patch, design),
+    [qualifiers, writeQualifiers, design]);
 
     const removeQualifier = useCallback((id) =>
         removeQualifierFrom(qualifiers, writeQualifiers, setSelectedId, id),

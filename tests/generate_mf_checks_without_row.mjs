@@ -1,8 +1,9 @@
 /**
  * Generate MF names the checks it writes no merit row for.
  *
- * FWHM, EDGE_LAMBDA, THICKNESS_BUDGET and LAYER_COUNT have no row, nor has a
- * PPEF check whose curve the design does not hold. Generate MF replaces the
+ * FWHM, EDGE_LAMBDA and LAYER_COUNT have no row, nor has a THICKNESS_BUDGET
+ * on a side other than the coating TT sums, nor a PPEF check whose curve the
+ * design does not hold. Generate MF replaces the
  * merit function, so the Specification window names these checks beside the
  * button; a merit of 0 then is not read as every check met.
  *
@@ -26,7 +27,8 @@ const ok = (name, cond, detail = '') => {
 };
 
 const written = ['T_AVG', 'R_AVG', 'T_AT', 'MIN_MAX', 'INTEGRAL', 'CENTRAL_LAMBDA'].map(kind => makeQualifier({ kind }));
-const unwritten = ['FWHM', 'EDGE_LAMBDA', 'THICKNESS_BUDGET', 'LAYER_COUNT'].map(kind => makeQualifier({ kind }));
+// A front-only design: TT sums its front, so a budget on the back gets no row.
+const unwritten = ['FWHM', 'EDGE_LAMBDA', 'THICKNESS_BUDGET', 'LAYER_COUNT'].map(kind => makeQualifier({ kind, side: 'back' }));
 const ppefWithoutCurve = makeQualifier({ kind: 'PPEF', curveId: 'missing' });
 const disabled = makeQualifier({ kind: 'FWHM', enabled: false });
 const all = [...written, ...unwritten, ppefWithoutCurve, disabled];

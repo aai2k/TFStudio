@@ -1,19 +1,29 @@
 /**
- * The Step field of a Specification row.
+ * The Step and side fields of a Specification row.
  *
  * Checks:
  *   1. A Min / Max or Central λ check on a peak shows a Step select: the
  *      default 1 nm, then 0.1, 0.01 and 0.001 nm. A check on a dip, and every
  *      other kind, shows none.
  *   2. Picking a step sets the check's flag, and the default clears it.
+ *   3. A thickness budget or layer count shows a side select of front, back
+ *      and both, both for a check saved without a side; picking one sets it.
+ *      No other kind shows one.
+ *   4. A thickness budget or layer count added, or a row switched to one,
+ *      starts at the side the design coats unless it names one; Ins below a
+ *      check copies its Step and its side.
  *
  * Run: node tests/specification_row_fields.mjs
  */
-globalThis.React = { createElement: (type, props, ...children) => ({ type, props: props || {}, children }) };
+globalThis.React = {
+    createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
+    createContext: value => ({ Provider: 'Provider', Consumer: 'Consumer', _currentValue: value }),
+};
 const { makeQualifier } = await import('../src/utils/synthesis/qualifiers.js');
 const { localeSources } = await import('../src/constants/locales/index.js');
 const { QRow } = await import('../src/components/windows/design/specification/QRow.js');
 const { Field } = await import('../src/components/windows/design/specification/fields.js');
+const { addQualifierTo, updateQualifierIn, insertQualifierInto } = await import('../src/components/windows/design/specification/useSpecificationState.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -35,12 +45,13 @@ function elements(node, out = []) {
 }
 const textOf = node => (Array.isArray(node) ? node.map(textOf).join('') : node && typeof node === 'object' ? textOf(node.children) : String(node ?? ''));
 
-// The row as the window renders it, with the patch an edit sends.
-function rowOf(fields) {
+// The row as the window renders it, with the field labelled `label` and the
+// patch an edit sends.
+function rowOf(fields, label = ts.step) {
     const q = makeQualifier(fields);
     const patches = [];
     const tree = QRow({ q, r: null, c, ts, units: t.units, updateQualifier: (id, patch) => patches.push(patch), removeQualifier: () => {} });
-    const field = elements(tree).find(node => node.type === Field && node.props.label === ts.step);
+    const field = elements(tree).find(node => node.type === Field && node.props.label === label);
     const select = field && elements(field.children).find(node => node.type === 'select');
     return { field, select, patches };
 }
@@ -68,6 +79,43 @@ function rowOf(fields) {
     row.select.props.onChange({ target: { value: '' } });
     ok('a step sets the flag, and the default clears it',
         row.patches[0].flag === 4 && 'flag' in row.patches[1] && row.patches[1].flag === undefined, JSON.stringify(row.patches));
+}
+
+// ── 3. The side of a thickness budget or layer count ─────────────────────────
+{
+    const budget = rowOf({ kind: 'THICKNESS_BUDGET' }, ts.side);
+    const options = elements(budget.select?.children).filter(node => node.type === 'option');
+    ok('a thickness budget shows a side', !!budget.select);
+    ok('of front, back and both', options.map(o => `${o.props.value}:${textOf(o)}`).join()
+        === `front:${ts.sideFront},back:${ts.sideBack},both:${ts.sideBoth}`, options.map(o => o.props.value).join());
+    ok('a check saved without a side shows both', budget.select.props.value === 'both', budget.select.props.value);
+    const count = rowOf({ kind: 'LAYER_COUNT', side: 'back' }, ts.side);
+    ok('a layer count shows its side', count.select?.props.value === 'back');
+    count.select.props.onChange({ target: { value: 'front' } });
+    ok('picking one sets it', count.patches[0]?.side === 'front', JSON.stringify(count.patches));
+    ok('no other kind shows a side', ['T_AVG', 'MIN_MAX', 'FWHM'].every(kind => !rowOf({ kind }, ts.side).field));
+}
+
+// ── 4. New rows and copies ───────────────────────────────────────────────────
+{
+    const backOnly = { surfaceMode: 'back_only' }, twoSided = { surfaceMode: 'both_independent' };
+    let rows = null;
+    const setRows = next => { rows = next; };
+    addQualifierTo([], setRows, () => {}, 'THICKNESS_BUDGET', backOnly);
+    ok('a thickness budget added on a back-only design starts at the back', rows[0].side === 'back', rows[0].side);
+    const avg = makeQualifier({ kind: 'T_AVG' });
+    updateQualifierIn([avg], setRows, avg.id, { kind: 'LAYER_COUNT' }, twoSided);
+    ok('a row switched to a layer count on a two-sided design starts at both', rows[0].side === 'both', rows[0].side);
+    const named = makeQualifier({ kind: 'T_AVG', side: 'front' });
+    updateQualifierIn([named], setRows, named.id, { kind: 'THICKNESS_BUDGET' }, twoSided);
+    ok('a row that names a side keeps it', rows[0].side === 'front', rows[0].side);
+    addQualifierTo([], setRows, () => {}, 'T_AVG', backOnly);
+    ok('other kinds start with no side', rows[0].side === undefined, rows[0].side);
+    const insertBelow = q => insertQualifierInto({ qualifiers: [q], writeQualifiers: setRows, setSelectedId: () => {}, containerRef: { current: null } }, 1, q);
+    insertBelow(makeQualifier({ kind: 'MIN_MAX', channel: 'T', direction: 'max', flag: 3 }));
+    ok('Ins below a check with a Step copies it', rows[1].flag === 3, String(rows[1].flag));
+    insertBelow(makeQualifier({ kind: 'THICKNESS_BUDGET', side: 'back' }));
+    ok('and below a budget, its side', rows[1].side === 'back', rows[1].side);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

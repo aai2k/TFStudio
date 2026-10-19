@@ -13,8 +13,8 @@ export const KIND_META = {
     CENTRAL_LAMBDA:   { channelPick: true, direction: true,                              fmt: 'nm' },
     FWHM:             { channelPick: true, direction: true, level: true,                 fmt: 'nm' },
     EDGE_LAMBDA:      { channelPick: true,                  level: true, edgeSide: true, fmt: 'nm' },
-    THICKNESS_BUDGET: { geomOnly: true,                                                  fmt: 'nm' },
-    LAYER_COUNT:      { geomOnly: true,                                                  fmt: 'int' },
+    THICKNESS_BUDGET: { geomOnly: true, side: true,                                      fmt: 'nm' },
+    LAYER_COUNT:      { geomOnly: true, side: true,                                      fmt: 'int' },
     // Read at the measured curve's own points, angle and polarization.
     PPEF:             { curve: true,                                                     fmt: 'dB' },
 };

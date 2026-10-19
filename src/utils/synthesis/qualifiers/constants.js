@@ -1,6 +1,7 @@
 /**
  * Qualifier kinds, comparator kinds, the default equality tolerance per kind,
- * and the step a peak or centre check searches at.
+ * the step a peak or centre check searches at, and the side a thickness
+ * budget or layer count adds up.
  */
 
 import { EXTREMUM_FLAG_MAX, takesStepFlag } from '../../physics/optimizer.js';
@@ -60,6 +61,32 @@ export function checkStepFlag(qual, type) {
     const flag = qual?.flag;
     const valid = Number.isInteger(flag) && flag >= 1 && flag <= EXTREMUM_FLAG_MAX;
     return valid && takesStepFlag({ type, pol: qual.pol }) ? { flag } : {};
+}
+
+// The kinds that add up the layers of one side of the part, or of both.
+export const SIDE_KINDS = ['THICKNESS_BUDGET', 'LAYER_COUNT'];
+
+// The side such a check adds up: 'front', 'back' or 'both'. A check saved
+// without one reads both: the front and the back the design is evaluated with.
+export function budgetSide(qual) {
+    return qual?.side === 'front' || qual?.side === 'back' ? qual.side : 'both';
+}
+
+// The coating a design's TT row sums, as a side (evalCore/evalContext.js
+// fullThicks): the front on a front-only or symmetric design, the back on a
+// back-only one, both when both sides are given. A new thickness budget or
+// layer count starts at it.
+export function coatedSide(design) {
+    const mode = design?.surfaceMode || 'front_only';
+    if (mode === 'back_only') return 'back';
+    return mode === 'both_independent' ? 'both' : 'front';
+}
+
+// The side field a check of `kind` starts with when it is added, or when a row
+// is switched to that kind: the side `design` coats, for a thickness budget or
+// layer count that names none yet (`current`).
+export function startingSide(kind, design, current) {
+    return SIDE_KINDS.includes(kind) && current == null ? { side: coatedSide(design) } : {};
 }
 
 // Whether a check has a Step to set: a MIN_MAX or CENTRAL_LAMBDA check whose
