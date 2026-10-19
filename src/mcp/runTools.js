@@ -17,7 +17,7 @@ function waitOf(seconds) {
     return seconds;
 }
 
-const JOB_ANSWER = 'Answers with the job: its state (running, stopping, done, stopped or failed), elapsed seconds, the latest progress readouts, and once it has ended its result and the designId of the design it answers with. A run that changed the design adds its answer as a new design and leaves the one it started from as it was.';
+const JOB_ANSWER = 'Answers with the job: its state (running, stopping, done, stopped or failed), elapsed seconds, the latest progress readouts (at most four a second while it runs, the last report of the run once it has ended), for needle, ge and structural the generations or history rows reported so far (rows), and once it has ended its result and the designId of the design it answers with. A run that changed the design adds its answer as a new design and leaves the one it started from as it was.';
 
 export function runTools({ store, jobs }) {
     const startAndWait = (kind, designId, request, seconds, signal) => {
@@ -44,7 +44,7 @@ export function runTools({ store, jobs }) {
         },
         {
             name: 'synthesize', title: 'Synthesize',
-            description: `Synthesizes a design against its merit function, as the synthesis windows do: needle (Needle Optimization inserts thin layers where they lower the merit most), ge (Gradual Evolution), structural (adds, removes, merges, splits and perturbs layers) or deep (Deep Synthesis, a global search from the layers the side holds, or from nothing when it holds none). New layers come from the pool. ${JOB_ANSWER}`,
+            description: `Synthesizes a design against its merit function, as the synthesis windows do: needle (Needle Optimization inserts thin layers where they lower the merit most), ge (Gradual Evolution), structural (adds, removes, merges, splits and perturbs layers) or deep (Deep Synthesis, a global search from the layers the side holds, or from nothing when it holds none). New layers come from the pool. Deep Synthesis reports its phase and, in its search, the round, of 60 by default. The search ends sooner when it reaches the target merit, and when rounds stop finding a better design, except a search that starts from its comb of cavity seeds or grew from it (for a merit made only of pass and stop targets, with a stop target between each two pass bands), which goes on to the last round unless it reaches the target. ${JOB_ANSWER}`,
             inputSchema: object({
                 designId: DESIGN_ID, method: oneOf(['needle', 'ge', 'structural', 'deep'], 'The synthesis method'),
                 pool: list({ type: 'string' }, 'Material ids the run may insert, such as ["TiO2", "SiO2"]'),
@@ -84,7 +84,7 @@ export function runTools({ store, jobs }) {
         },
         {
             name: 'listJobs', title: 'List the jobs',
-            description: 'The jobs of this session and their states.',
+            description: "The jobs of this session: each one's jobId, kind, state, sourceDesignId and elapsed seconds, and once it has ended the designId a refine or synthesis job answers with, or the error of a job that failed or did not answer Stop in time. jobStatus gives a job's progress and result.",
             inputSchema: object({}),
             run: () => ({ jobs: jobs.list() }),
         },

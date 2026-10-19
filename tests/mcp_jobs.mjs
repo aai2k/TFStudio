@@ -78,6 +78,7 @@ const ar = await twoLayerAR();
     await server.call('setMerit', { designId: bounded, rows: [...AR, { type: 'MNT', target: 12, weight: 1 }] });
     const structural = await server.call('synthesize', { designId: bounded, method: 'structural', pool: POOL, settings: { maxIter: 2, refineIter: 5, seed: 3 }, waitSeconds: 50 });
     ok('a structural run ends on its own', structural.state === 'done', JSON.stringify(structural));
+    ok('it counts the history rows it reported', structural.rows > 0, String(structural.rows));
     ok('what a job prints goes to stderr', /\[Structural\] constraint-bound synthesis/.test(server.stderr));
     const trials = await server.call('monteCarlo', { designId: ar.id, from: 450, to: 650, step: 10, runs: 5, seed: 3, waitSeconds: 50 });
     ok('Monte Carlo runs as a job', trials.state === 'done' && trials.result?.nTrials === 5 && trials.result.mean?.length === 21 && !trials.designId,
@@ -92,6 +93,19 @@ const ar = await twoLayerAR();
     const ran = halted.result?.nTrials ?? 0;
     ok('a stopped Monte Carlo job answers with the trials it ran', halted.state === 'stopped' && ran > 0 && ran < 200000, `${halted.state}, ${ran} trials`);
     ok('it stops within seconds, with no error', !halted.error && Date.now() - asked < 3000, halted.error);
+    ok('a job that reports no history rows shows no row count', !('rows' in trials), Object.keys(trials).join());
+    const listed = (await server.call('listJobs', {})).jobs;
+    const entry = listed.find(job => job.jobId === trials.jobId);
+    ok('listJobs leaves out each job\'s progress and result', listed.every(job => !('result' in job) && !('progress' in job)));
+    ok('it names the job, its kind, state and design', entry?.kind === 'monteCarlo' && entry.state === 'done' && entry.sourceDesignId === ar.id, JSON.stringify(entry));
+    const refinedEntry = listed.find(job => job.kind === 'refine' && job.state === 'done');
+    const failedEntry = listed.find(job => job.state === 'failed');
+    ok('a listed refine names the design it answered with, a failed job its error', /^d\d+$/.test(refinedEntry?.designId) && /unknown setting 'maxLayer'/.test(failedEntry?.error),
+        JSON.stringify([refinedEntry, failedEntry]));
+    const deep = await server.call('synthesize', { designId: ar.id, method: 'deep', pool: POOL, settings: { dMin: 20, maxLayers: 4, seed: 7 }, waitSeconds: 50 });
+    const lastRound = deep.result?.search?.rounds;
+    ok('an ended Deep Synthesis job shows the round its search ended on', deep.state === 'done' && deep.progress?.phase === 'search' && deep.progress.round === lastRound,
+        JSON.stringify({ state: deep.state, progress: deep.progress, rounds: lastRound }));
 }
 
 // ── 3. Cancelling ──────────────────────────────────────────────────────────

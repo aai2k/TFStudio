@@ -7,7 +7,10 @@
 import { parentPort, workerData } from 'node:worker_threads';
 
 // A status shows only the latest readouts, so the thread posts at most four a
-// second however often the run reports.
+// second however often the run reports. A report that comes sooner waits,
+// merged with any after it, until the quarter second is up, and what is
+// waiting goes out before the job's answer or failure, so an ended job shows
+// the run's last report.
 const PROGRESS_EVERY_MS = 250;
 const LAYER_KEYS = new Set(['frontLayers', 'backLayers', 'layers']);
 
@@ -27,17 +30,26 @@ const stop = new AbortController();
 parentPort.on('message', message => { if (message?.type === 'cancel') stop.abort(); });
 
 let lastPost = 0;
+let held = null;
+let flush = null;
+const postHeld = () => {
+    clearTimeout(flush);
+    flush = null;
+    if (held) parentPort.postMessage({ type: 'progress', readouts: held });
+    held = null;
+    lastPost = Date.now();
+};
 const progress = patch => {
-    const now = Date.now();
-    if (now - lastPost < PROGRESS_EVERY_MS) return;
-    lastPost = now;
-    parentPort.postMessage({ type: 'progress', readouts: readouts(patch) });
+    held = { ...held, ...readouts(patch) };
+    const wait = PROGRESS_EVERY_MS - (Date.now() - lastPost);
+    if (wait <= 0) postHeld();
+    else flush ??= setTimeout(postHeld, wait);
 };
 const row = () => parentPort.postMessage({ type: 'row' });
 // Every hook a run may call; each run is given the ones it takes (runHooks).
 const ALL_HOOKS = {
     signal: stop.signal, onProgress: progress, onRow: row, onGeneration: row,
-    onEvent: (event, best) => progress({ event: event?.type, mf: best?.mf }),
+    onEvent: (event, best) => progress({ event: event?.type, phase: event?.phase, round: event?.round, mf: best?.mf }),
     onStart: start => progress({ seed: start?.seed }),
 };
 
@@ -54,7 +66,11 @@ async function main() {
     const api = await import('../api/index.js');
     await api.init(workerData.environment);
     const { result, design } = await run(api);
+    postHeld();
     parentPort.postMessage({ type: 'done', result: plain(result), ...(design ? { design } : {}) });
 }
 
-main().catch(err => parentPort.postMessage({ type: 'error', message: err?.message || String(err) }));
+main().catch(err => {
+    postHeld();
+    parentPort.postMessage({ type: 'error', message: err?.message || String(err) });
+});

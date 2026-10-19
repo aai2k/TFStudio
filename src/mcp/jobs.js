@@ -25,11 +25,18 @@ function view(job) {
     return {
         jobId: job.id, kind: job.kind, state: job.state, sourceDesignId: job.sourceId,
         elapsedSec: Math.round(((job.ended ?? Date.now()) - job.started) / 100) / 10,
-        progress: job.progress, rows: job.rows,
+        progress: job.progress,
+        ...(job.rows > 0 ? { rows: job.rows } : {}),
         ...(job.result ? { result: job.result } : {}),
         ...(job.error ? { error: job.error } : {}),
         ...(job.designId ? { designId: job.designId } : {}),
     };
+}
+
+/** A job as a list shows it: its view without its progress, rows and result. */
+function summary(job) {
+    const { jobId, kind, state, sourceDesignId, elapsedSec, error, designId } = view(job);
+    return { jobId, kind, state, sourceDesignId, elapsedSec, error, designId };
 }
 
 function settle(job, state, fields) {
@@ -111,6 +118,6 @@ export function createJobs({ environment, keepAnswer }) {
         wait: waitFor,
         stop: stopJob,
         stopAll() { for (const job of jobs.values()) settle(job, 'stopped', {}); },
-        list: () => [...jobs.values()].map(view),
+        list: () => [...jobs.values()].map(summary),
     };
 }
