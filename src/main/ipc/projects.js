@@ -10,7 +10,10 @@
 // CommonJS, Electron-free (deps via ctx).
 const { writeRendererSettings } = require('../settingsFile');
 const { settleDesignIds, settleOpenedDesign } = require('../copiedDesignIds');
-const { decodeText, safeName: safeFileName, isWindowsDeviceName, windowsRefusesFolderName } = require('../paths');
+const { safeName: safeFileName, isWindowsDeviceName, windowsRefusesFolderName } = require('../paths');
+const {
+  parseDesignBuffer, validateDesign, dropWizardWorstCaseSampling, readDesignFile: readDesign, serializeDesign,
+} = require('../designFile');
 const { goesToBin, moveToTrash, deleteFile } = require('../recycleBin');
 
 const DESIGN_EXT = '.tfs';
@@ -88,11 +91,9 @@ async function handleImportVscodeTheme(ctx) {
   }
 }
 
-// The design a .tfs holds, whatever encoding wrote it: Notepad's UTF-8 with a
-// byte order mark and the UTF-16 that PowerShell 5.1 writes read as the same
-// JSON as the app's own files.
+// The design a .tfs holds (designFile.js).
 function parseDesignFile(ctx, filePath) {
-  return JSON.parse(decodeText(ctx.fs.readFileSync(filePath)));
+  return parseDesignBuffer(ctx.fs.readFileSync(filePath));
 }
 
 // The id a design file holds, or null when it holds none or cannot be read.
@@ -248,29 +249,6 @@ function handleLoadFolders(ctx, lastSeen) {
   }
 }
 
-// Format of the .tfs files this build writes.
-//   1.0 — material ids only; a design is readable only where its catalogs exist
-//   1.1 — adds the `materials` block defining the non-built-in materials used
-//   1.2 — adds `materials[id].mechanical` (the elastic, thermal and surface
-//         constants the stress analysis reads), `stress` (the evaluation and
-//         deposition temperatures) and `substrate.diameterMm`
-//
-// Nothing is migrated in either direction. The reader checks the substrate and
-// the layer lists and passes every other key through, so a 1.0 or 1.1 file
-// reads as before and a 1.2 file opens in an older build too. The one loss:
-// an older build re-saving a 1.2 design rebuilds the embedded materials from
-// its own catalogs and drops the mechanical block where its copy lacks it.
-const TFS_VERSION = '1.2';
-
-// Stamp the current format version and serialize. A design loaded from disk
-// carries the version it was read with, so the stamp has to replace it rather
-// than sit behind it in the spread.
-function serializeDesign(design) {
-  // eslint-disable-next-line no-unused-vars
-  const { tfs_version, ...rest } = design;
-  return JSON.stringify({ tfs_version: TFS_VERSION, ...rest }, null, 2);
-}
-
 // The file's modification time, or undefined when it cannot be read. Asked
 // after a write that has already succeeded, so a failure here does not fail
 // the write; the renderer then has no time to compare the next save against
@@ -335,69 +313,13 @@ function handleSaveDesign(ctx, folderId, design, expectedMtime) {
   }
 }
 
-// Read a .tfs and return the design it holds, alongside the file's own base
-// name for a design that has no usable name of its own. The on-disk version
-// wrapper key is dropped; the renderer owns id and name.
-// Check that a parsed design holds the parts the renderer dereferences without
-// guarding them, and fill in the ones that have an unambiguous empty value.
-// Returns an error string, or null when the design is usable.
-//
-// Only those parts are checked. A design missing `substrate.material` throws
-// during render — the Design Editor's layer list and stack diagram and the
-// Optical Evaluation and Integral Values spectra all read it directly — which
-// unmounts the React tree and leaves a white window with nothing said. Missing
-// layer arrays throw the same way through `.map` and `.length`. Requiring the
-// rest of the shape would refuse older files that open correctly today.
-//
-// A substrate is refused rather than defaulted: standing in a material would
-// silently change what the design computes. Absent layer arrays are filled in
-// as empty, which is what a bare substrate is written as anyway.
-function validateDesign(design) {
-  if (!design || typeof design !== 'object' || Array.isArray(design)) {
-    return 'File is not a valid TFStudio design.';
-  }
-  const substrate = design.substrate;
-  if (!substrate || typeof substrate !== 'object' || Array.isArray(substrate)
-      || typeof substrate.material !== 'string' || !substrate.material.trim()) {
-    return 'This design names no substrate material, so it cannot be evaluated.';
-  }
-  for (const side of ['frontLayers', 'backLayers']) {
-    if (design[side] === undefined || design[side] === null) { design[side] = []; continue; }
-    if (!Array.isArray(design[side])) return `This design's ${side} is not a list of layers.`;
-    if (design[side].some(layer => !layer || typeof layer !== 'object' || Array.isArray(layer))) {
-      return `This design has a layer in ${side} that is not a layer.`;
-    }
-  }
-  return null;
-}
-
-// The worst-case TMN and RMX rows the merit function wizard wrote up to 1.8.2
-// carry bandPoints 21 and pNorm 50. A worst-case row searches its own grid and
-// pNorm is read by nothing, so both go. pNorm is what tells these rows apart
-// from a TMN or RMX row given its own sample count: nothing else wrote it.
-function dropWizardWorstCaseSampling(design) {
-  const operands = Array.isArray(design.meritOperands) ? design.meritOperands : [];
-  for (const op of operands) {
-    if (!op || typeof op !== 'object' || !('pNorm' in op)) continue;
-    if (op.type !== 'TMN' && op.type !== 'RMX') continue;
-    delete op.pNorm;
-    delete op.bandPoints;
-  }
-}
-
+// Read a .tfs (designFile.js) and answer with the design it holds, alongside
+// the file's own base name for a design that has no usable name of its own.
+// The renderer owns id and name.
 function readDesignFile(ctx, filePath) {
-  const { path } = ctx;
-  let design;
-  try {
-    design = parseDesignFile(ctx, filePath);
-  } catch (err) {
-    return { success: false, error: `Could not read design: ${err.message}` };
-  }
-  const invalid = validateDesign(design);
-  if (invalid) return { success: false, error: invalid };
-  dropWizardWorstCaseSampling(design);
-  delete design.tfs_version;
-  return { success: true, design, fileName: path.basename(filePath, path.extname(filePath)) };
+  const read = readDesign(ctx.fs, filePath);
+  if (read.error) return { success: false, error: read.error };
+  return { success: true, design: read.design, fileName: ctx.path.basename(filePath, ctx.path.extname(filePath)) };
 }
 
 // ── Open / import a .tfs design file through File > Open ────────────────────
