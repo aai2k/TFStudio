@@ -133,8 +133,7 @@ export function computeMonitor(monitor, design, resolveMaterial) {
                 ? { source: monitor.source || { id: 'E' }, detector: monitor.detector || { id: 'flat' } }
                 : {}),
         });
-        const evalDesign = monitor.type === 'integral' ? { ...design, mfEvalMode: 'total' } : design;
-        const value = evaluateOperands([operand], buildEvalContext(evalDesign, resolveMaterial))[0];
+        const value = evaluateOperands([operand], buildEvalContext(design, resolveMaterial))[0];
         return (value == null || !Number.isFinite(value)) ? null : value * 100;
     } catch {
         return null;

@@ -63,7 +63,6 @@ function formatMonitorValue(m, value, strings) {
 }
 
 function monitorScopeBadge(m, design, hasActiveDesign) {
-    if (m.type === 'integral') return 'total';
     const meta = DIRECT_MONITOR_META[m.type];
     if (meta?.frontOnly) return 'front';
     // A phase is read on the side the design is evaluated from; with no design
@@ -503,10 +502,8 @@ export function SpectralMonitor({ c, t }) {
                     }
                 },
                     scopeBadge && h('span', {
-                        title: scopeBadge === 'total'
-                            ? monitorStrings.scopeTotalTip
-                            : monitorStrings.scopeSideTip(scopeBadge === 'front'
-                                ? monitorStrings.evalFront : monitorStrings.evalBack),
+                        title: monitorStrings.scopeSideTip(scopeBadge === 'front'
+                            ? monitorStrings.evalFront : monitorStrings.evalBack),
                         style: {
                             fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
                             padding: '0 4px', marginRight: 2,
@@ -515,8 +512,7 @@ export function SpectralMonitor({ c, t }) {
                             backgroundColor: '#7e57c222',
                             borderRadius: 2,
                         }
-                    }, scopeBadge === 'total' ? monitorStrings.scopeTotal
-                        : scopeBadge === 'front' ? monitorStrings.scopeFront : monitorStrings.scopeBack),
+                    }, scopeBadge === 'front' ? monitorStrings.scopeFront : monitorStrings.scopeBack),
                     h('span', { style: { fontSize: 11, color: c.textDim } }, monitorLabel(m, monitorStrings) + ' = '),
                     h('span', { style: { fontSize: 11, color: c.text, fontWeight: 600 } }, display),
                     h('button', {

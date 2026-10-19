@@ -1579,8 +1579,6 @@ export default {
     evalTotal: 'Totale',
     scopeFront: 'ANTERIORE',
     scopeBack: 'POSTERIORE',
-    scopeTotal: 'TOTALE',
-    scopeTotalTip: 'Calcolato sul sistema completo (anteriore + substrato + posteriore)',
     scopeSideTip: (side) => `Calcolato sul rivestimento ${side}`,
     rangeEnd: 'fine',
     about: 'circa',

@@ -1564,8 +1564,6 @@ export default {
     evalTotal: '整体',
     scopeFront: '正面',
     scopeBack: '背面',
-    scopeTotal: '整体',
-    scopeTotalTip: '在完整系统（正面 + 基底 + 背面）上计算',
     scopeSideTip: (side) => `在 ${side} 镀膜上计算`,
     rangeEnd: '终点',
     about: '约',
