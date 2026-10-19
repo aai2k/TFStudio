@@ -1,6 +1,6 @@
 /**
  * The material-range check the optimizer windows make: operandWavelengthSpan
- * (utils/physics/optimizer/sampling.js) applied through designRangeCoverage.
+ * (utils/physics/optimizer/wavelengthSpan.js) applied through designRangeCoverage.
  *
  * The analysis windows check a plot axis. An optimizer has none, so the span it
  * checks is the hull of every wavelength the enabled operands sample, taken

@@ -23,7 +23,7 @@ export function isRangeAvg(type) { return type === 'TAV' || type === 'RAV' || ty
 // pre-sampler (Approach A) can pre-compute materials' n,k on a single union
 // grid. Inequality operands defer to their baseType (see operandSampleLambdas).
 const BAND_SAMPLED = [isRangeAvg, isRangeTarget, isIntegral, isMinmax, isArgwave, isGroupDelayFlat];
-function isBandSampled(type) {
+export function isBandSampled(type) {
     return BAND_SAMPLED.some(test => test(type));
 }
 // The channel ('T' | 'R' | 'A') a spectral row reads: its first letter, except
@@ -55,7 +55,7 @@ export { bandQuadratureWeights } from './bandQuadrature.js';
 
 // A band row's sample count: the count it carries, or the default grid, and
 // never fewer than its flag asks for.
-function bandRowCount(op) {
+export function bandRowCount(op) {
     const own = sampleCountOverride(op);
     return own == null ? bandSampleCount(op) : Math.max(own, bandFlagCount(op));
 }
@@ -124,9 +124,12 @@ function mathSampleLambdas(op) {
 // manufacturability rows act on layer thicknesses, and a PPEF row reads at its
 // curve block's points, which the block brings.
 const NO_OWN_LAMBDAS = [isDmfs, isBlank, isManufacturability, isPPEF];
+export function samplesNoWavelength(type) {
+    return NO_OWN_LAMBDAS.some(test => test(type));
+}
 
 export function operandSampleLambdas(op) {
-    if (NO_OWN_LAMBDAS.some(test => test(op.type))) return [];
+    if (samplesNoWavelength(op.type)) return [];
     // Math operands reference other rows by id; the referenced operands carry
     // their own λ grid, so math operands contribute zero λs themselves and
     // requiredLambdas() picks up the referenced operands' λs naturally.
@@ -162,24 +165,6 @@ export function requiredLambdas(operands) {
         for (const lam of operandSampleLambdas(op)) set.add(lam);
     }
     return Array.from(set).sort((a, b) => a - b);
-}
-
-/**
- * The wavelength span the enabled operands evaluate over, as `[minNm, maxNm]`,
- * or null when none of them samples a wavelength. Taken from the same grid the
- * optimizer scores on, so a check made against it cannot disagree with what a
- * run actually computes. A row whose λ pair is not a wavelength (a layer range,
- * a row reference, a comment) contributes nothing.
- */
-export function operandWavelengthSpan(operands) {
-    let low = Infinity;
-    let high = -Infinity;
-    for (const lambda of requiredLambdas(operands)) {
-        if (!Number.isFinite(lambda)) continue;
-        if (lambda < low) low = lambda;
-        if (lambda > high) high = lambda;
-    }
-    return low <= high ? [low, high] : null;
 }
 
 // Build the worker materials table (Approach A): sample each {id, mat} pair's

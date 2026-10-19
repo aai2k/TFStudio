@@ -19,7 +19,7 @@
  * dielectric period. The span limits one step, not the thickness: a layer can
  * grow without bound over successive accepted steps.
  */
-import { operandWavelengthSpan } from './sampling.js';
+import { operandWavelengthSpan } from './wavelengthSpan.js';
 
 // Span per optimization variable, nm. Infinity where no span can be formed
 // (no sampled wavelength, or a material without valid n,k there).
