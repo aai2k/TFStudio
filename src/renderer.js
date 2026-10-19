@@ -1,10 +1,30 @@
-// Renderer entry point: mounts the app shell into index.html.
+// Renderer entry point: starts loading the WASM kernel, then mounts the app
+// shell into index.html.
 
-import { getPalette } from './constants/colorPalettes.js';
-import { getLocale, getCurrentLocale } from './constants/locales/index.js';
-import { ErrorBoundary, AppFailedPage } from './components/ui/ErrorBoundary.js';
-import { initialTheme } from './utils/theme/appearance.js';
-import { App } from './App.js';
+import { bootstrapTmmWasm } from './utils/physics/tmmWasmBootstrap.js';
+
+// The kernel loads while the app's own modules do, and the app mounts once it
+// is in, so the first calculation of a design shown at startup runs on it.
+// Started here, in the shipped build, it was in 0.15 s after the window's code
+// started, some 30 ms after the app's modules. A kernel still loading after
+// KERNEL_WAIT_MS holds the window no longer: the app mounts on the JavaScript
+// path, which gives the same numbers, and the kernel takes over when it lands.
+// The wait is four times the slowest load measured (0.5 s, started after the
+// app had mounted), so a normal start never reaches it.
+const KERNEL_WAIT_MS = 2000;
+const kernelLoaded = Promise.race([
+    bootstrapTmmWasm(),
+    new Promise(resolve => setTimeout(resolve, KERNEL_WAIT_MS)),
+]);
+
+const [{ getPalette }, { getLocale, getCurrentLocale }, { ErrorBoundary, AppFailedPage }, { initialTheme }, { App }] = await Promise.all([
+    import('./constants/colorPalettes.js'),
+    import('./constants/locales/index.js'),
+    import('./components/ui/ErrorBoundary.js'),
+    import('./utils/theme/appearance.js'),
+    import('./App.js'),
+]);
+await kernelLoaded;
 
 const { createElement: h } = React;
 

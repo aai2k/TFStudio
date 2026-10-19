@@ -16,7 +16,6 @@ import {
 } from '../utils/theme/appearance.js';
 import { readAppSettings, writeAppSettings, readPreferences } from '../utils/io/settingsFile.js';
 import { setToolState, toolState, patchToolState } from '../utils/misc/toolState.js';
-import { bootstrapTmmWasm } from '../utils/physics/tmmWasmBootstrap.js';
 import { initTmmWasmMainThread } from '../tmmcore.js';
 
 const { useState, useEffect, useCallback, useSyncExternalStore } = React;
@@ -98,7 +97,6 @@ export function useAppSettings(setMessageNotification) {
             setToolState(prefs.toolState);
             setGamesUnlocked(!!toolState('games').unlocked);
         });
-        bootstrapTmmWasm();
         window.electronAPI?.getDevAllowed?.().then(v => setDevAllowed(v !== false)).catch(() => {});
         window.electronAPI?.getAppVersion?.().then(v => setAppVersion(v || '')).catch(() => {});
     }, []);
