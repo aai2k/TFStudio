@@ -76,23 +76,49 @@ function _scanFull(cfg, lam, pol, aoi) {
     return { mode: 'full', R, T, A, P, P2, D, Rf, Tf, Rfp, Tfp, Rb, Tb, fwd, rev, bck };
 }
 
+// Memory the scan keeps kernel results in: about 400 results on 30 layers with
+// two candidate materials and 16 positions in a layer, 200 on 60. Rows scored
+// on the same grid, such as an average of T and one of R over one band, share
+// the results it holds, and a dozen synthesis workers scanning at once keep
+// under 1 GB of them, whatever the Step.
+const SCAN_CACHE_BYTES = 64 * 2 ** 20;
+
+// Bytes one result takes: about 104 per derivative (one per insertion position
+// and candidate material) and 113 per position, measured on the shapes
+// tmmNeedleScan returns. A full-system result holds two passes over the front
+// and one over the back.
+function resultBytes(cfg) {
+    const positions = n => (n + 1) + n * cfg.nIntra;
+    const scanned = cfg.isFull
+        ? 2 * positions(cfg.front.length) + positions(cfg.back.length)
+        : positions(cfg.surfaceMode === 'back_only' ? cfg.back.length : cfg.front.length);
+    return scanned * (113 + 104 * cfg.candidateMats.length);
+}
+
 // Memoized (λ,pol,aoi) → scan-result factory; for full-system a result bundles
-// three tmmNeedleScan passes plus the composed R/T/A and P. A result holds a
-// derivative for every insertion position, and under a cone each wavelength
-// has up to a few hundred rays, so with cfg.coneActive only the current
-// wavelength's results are kept: the accumulators finish one wavelength before
-// the next, and a band of a 200-layer design would otherwise hold gigabytes.
+// three tmmNeedleScan passes plus the composed R/T/A and P. A band row asks for
+// a result at every sample of its grid, which a fine Step makes tens of
+// thousands long; holding them all took 4.9 GB for one band row at 0.01 nm over
+// 400-700 nm on 30 layers. The rows read their samples one row after another,
+// in the same order, so the cache keeps the first results that fit in
+// SCAN_CACHE_BYTES, which every later row on the grid finds, and the latest
+// result, which the reads of one sample share. Under a cone each wavelength has
+// up to a few hundred rays, so only the current wavelength's results are kept.
 export function _makeScanAt(cfg) {
     const cache = new Map();
+    const capacity = Math.max(1, Math.floor(SCAN_CACHE_BYTES / resultBytes(cfg)));
     let cachedLam;
+    let latest = { key: null, value: null };
     return (lam, polIn, aoi) => {
-        if (cfg.coneActive && lam !== cachedLam) { cache.clear(); cachedLam = lam; }
         const pol = kernelPol(aoi, polIn);
         const key = lam + '|' + pol + '|' + aoi;
-        let v = cache.get(key);
-        if (v) return v;
-        v = cfg.isFull ? _scanFull(cfg, lam, pol, aoi) : _scanSingleSurface(cfg, lam, pol, aoi);
-        cache.set(key, v);
-        return v;
+        const kept = latest.key === key ? latest.value : cache.get(key);
+        if (kept) return kept;
+        if (cfg.coneActive && lam !== cachedLam) cache.clear();
+        cachedLam = lam;
+        const value = cfg.isFull ? _scanFull(cfg, lam, pol, aoi) : _scanSingleSurface(cfg, lam, pol, aoi);
+        if (cfg.coneActive || cache.size < capacity) cache.set(key, value);
+        latest = { key, value };
+        return value;
     };
 }
