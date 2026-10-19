@@ -1,7 +1,17 @@
 import { EvalModeBadge } from '../../../SurfaceModeBar.js';
+import { checksWithoutRow } from '../../../../utils/synthesis/qualifiers.js';
 import { btnStyle } from './fields.js';
 
 const { createElement: h } = React;
+
+// The checks Generate MF leaves out of the merit function it writes, named
+// beside the button so a passing merit is not read as every check met.
+function NoRowNote({ qualifiers, design, c, ts }) {
+    const left = checksWithoutRow(qualifiers, { design });
+    if (left.length === 0) return null;
+    const names = left.map(q => q.label || (ts.kinds && ts.kinds[q.kind]) || q.kind);
+    return h('div', { style: { fontSize: 11, color: c.warning || c.textDim } }, ts.noMFRow(names));
+}
 
 export function VerdictBar({ verdict, c, ts, qualifiers, generateMF, design, t }) {
     const { passing, total, allPass } = verdict;
@@ -32,6 +42,7 @@ export function VerdictBar({ verdict, c, ts, qualifiers, generateMF, design, t }
         // (set in the Design Editor).
         design && h(EvalModeBadge, { design, c, t, style: { marginLeft: 12 } }),
         h('div', { style: { flex: 1 } }),
+        h(NoRowNote, { qualifiers, design, c, ts }),
         qualifiers.length > 0 && h('button', {
             onClick: generateMF,
             title: ts.generateMFTip || 'Convert qualifiers into MF operands (OPGT/OPLT) and write to the design',

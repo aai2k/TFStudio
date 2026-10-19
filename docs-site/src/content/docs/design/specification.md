@@ -67,6 +67,7 @@ For stopband suppression, prefer the **Min / Max** (worst-case) kinds: a band
 *average* can pass while a narrow resonance spikes through it. Once your
 requirements are in place, **Generate MF** writes them into the design as `OPGT`/`OPLT` merit operands: each spec becomes a measurement row plus the targets that reference it, one for `≥` or `≤` and two for a range or `= ± tol` (at target − tol and target + tol), so the rows are met exactly when the check passes, and [Refinement](/synthesis/refinement/) and the synthesis tools optimize toward the specification directly and stay in sync with it. A run stops at the edge of a tolerance rather than at its centre; an equality with no tolerance is written as the measurement row at its target, except a Min / Max or peak-to-peak one, whose row scores one side only and so gets the pair at the target.
 The rows it writes search their band at the default 1 nm step; if a band holds two peaks closer than about 2 nm, raise their **Step** flag so the merit function reads the band as the window does.
+**FWHM**, **Edge λ**, **Thickness budget** and **Layer count** have no merit row: while the list holds any of them, a note beside **Generate MF** names them, and names a peak-to-peak check whose curve is not on the design, since the merit function it writes leaves them out.
 The specification is saved in the project file alongside the design.
 
 ## References

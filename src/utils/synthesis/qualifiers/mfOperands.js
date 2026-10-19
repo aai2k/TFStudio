@@ -160,6 +160,15 @@ function emitEq(baseOp, q, weight, k, out) {
 
 const CMP_EMITTERS = { ge: emitGe, le: emitLe, between: emitBetween };
 
+/**
+ * The enabled checks Generate MF writes no row for: FWHM, EDGE_LAMBDA,
+ * LAYER_COUNT, THICKNESS_BUDGET, and a PPEF check whose curve the design does
+ * not hold. Read off qualifiersToMFOperands itself, so the two cannot disagree.
+ */
+export function checksWithoutRow(qualifiers, opts = {}) {
+    return (qualifiers || []).filter(q => q.enabled && qualifiersToMFOperands([q], opts).length === 0);
+}
+
 // `opts.design` is the design whose measured curves a PPEF qualifier names.
 export function qualifiersToMFOperands(qualifiers, opts = {}) {
     const out = [];

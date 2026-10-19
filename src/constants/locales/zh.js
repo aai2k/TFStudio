@@ -4510,6 +4510,7 @@ export default {
     someFail: '部分要求未通过',
     noActive: '无有效限定符',
     passingSuffix: '通过',
+    noMFRow: names => `生成评价函数不会为以下规格写入评价函数行：${names.join('、')}。`,
     emptyTitle: '尚无设计要求。',
     emptyHint: '添加您的设计必须满足的规格（T/R/A 水平、中心波长、FWHM、积分目标等）。',
     channel: '通道',

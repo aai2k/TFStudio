@@ -4142,6 +4142,7 @@ export default {
     someFail:       'Some requirements failing',
     noActive:       'No active qualifiers',
     passingSuffix:  'passing',
+    noMFRow:        names => `Generate MF writes no merit row for ${names.join(', ')}.`,
     emptyTitle:     'No design requirements yet.',
     emptyHint:      'Add specifications your design must satisfy (T/R/A levels, central wavelength, FWHM, integral targets, etc.).',
     channel:        'Ch',

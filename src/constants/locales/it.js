@@ -4569,6 +4569,7 @@ export default {
     someFail: 'Alcuni requisiti non sono soddisfatti',
     noActive: 'Nessun requisito attivo',
     passingSuffix: 'soddisfatti',
+    noMFRow: names => `Genera MF non scrive alcuna riga di merito per ${names.join(', ')}.`,
     emptyTitle: 'Ancora nessun requisito di progetto.',
     emptyHint: "Aggiungi le specifiche che il design deve soddisfare (livelli T/R/A, lunghezza d'onda centrale, FWHM, target integrali e così via).",
     channel: 'Can.',
