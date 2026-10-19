@@ -73,6 +73,16 @@ function _rangeTargetLambdas(op, range) {
         const f = i / (n - 1);
         out[i] = op.lambdaStart + range * f;
     }
+    return endsOnBandEnd(op, out);
+}
+
+// The last sample of a band grid set to the band's end itself. The grid's
+// arithmetic can land one unit in the last place off it: for a band average,
+// integral or flatness row depending on the sample count, for a range target
+// on a band that spans an octave or more. A band ending on the last wavelength
+// a material covers would then read outside its data, at some Steps only.
+function endsOnBandEnd(op, out) {
+    if (Number.isFinite(op.lambdaStart) && Number.isFinite(op.lambdaEnd)) out[out.length - 1] = op.lambdaEnd;
     return out;
 }
 
@@ -88,7 +98,7 @@ function _bandLambdas(op, range) {
     for (let i = 0; i < n; i++) {
         out[i] = op.lambdaStart + (range * i) / (n - 1);
     }
-    return out;
+    return endsOnBandEnd(op, out);
 }
 
 // ── Centralized operand → sample-wavelength derivation ────────────────────────
