@@ -15,6 +15,7 @@ import { DEFAULT_SETTINGS, defaultMaxIter } from '../../../../utils/refinement/m
 import { computeOperandDisplay, firstOperandErrorMessage } from '../../../../utils/refinement/operandCheck.js';
 import { clearRefinement, readRefinement, writeRefinement } from './sessionState.js';
 import { startWindowRun } from './windowRun.js';
+import { useMeritValues } from '../useMeritValues.js';
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -110,12 +111,25 @@ function hydrateFromCache(env, designId) {
     showRun(env, designId ?? null, stored?.lastRun);
 }
 
-// Merit-table display evaluation (only when not optimizing).
-function evaluateDisplay(env, design, operands) {
-    const r = computeOperandDisplay(design, operands);
-    if (!r) return;
-    env.setters.setComputed(r.computed); env.setters.setEvaluationErrors(r.errors || []);
-    env.setters.setMf(r.mf); env.setters.setOmf(r.omf);
+const NO_VALUES = Object.freeze({ computed: [], errors: [], provisional: null, mf: null, omf: null, mfProvisional: false });
+
+/**
+ * Puts the merit table's values (useMeritValues.js) on screen. During the
+ * window's own run (`running`) the loop owns MF and OMF, which it reports as
+ * the optimizer's own values, so only the per-operand values are shown. While
+ * a run is followed (`following`) the values lag it under a cone, as they come.
+ * Otherwise, while the cone evaluation is under way, nothing is shown: the last
+ * values were for another design, and the readout would set their MF beside
+ * the run's best. `failedText` replaces the errors when that evaluation fails.
+ */
+export function showMeritValues(setters, values, { running, following }, failedText) {
+    const v = values.busy && !running && !following ? NO_VALUES : values;
+    setters.setComputed(v.computed);
+    setters.setEvaluationErrors(values.failed ? [failedText] : v.errors);
+    setters.setProvisional(v.provisional);
+    if (running) return;
+    setters.setMf(v.mf); setters.setOmf(v.omf);
+    setters.setMfProvisional(v.mfProvisional);
 }
 
 // The `ctx` bag windowRun.js starts a run with. It bundles the refs, state
@@ -130,7 +144,9 @@ function buildRunCtx(env, t) {
         commitBaseline: (sd) => commitBaselineTo(env, sd),
         bumpRunCount:   () => bumpRunCountOf(env),
         addHistEntry:   (entry) => addHistEntryTo(env, entry),
-        setMf: setters.setMf, setMfBest: setters.setMfBest, setMfInitial: setters.setMfInitial,
+        // A run's MF is the optimizer's own, read at every row's Step.
+        setMf: (value) => { setters.setMfProvisional(false); setters.setMf(value); },
+        setMfBest: setters.setMfBest, setMfInitial: setters.setMfInitial,
         setOmf: setters.setOmf, setOmfBest: setters.setOmfBest, setOmfInitial: setters.setOmfInitial,
         setIter: setters.setIter, setMfHistory: setters.setMfHistory, setRunning: setters.setRunning,
         setCanReset: setters.setCanReset, setRestartIdx: setters.setRestartIdx, setStopReason: setters.setStopReason,
@@ -152,6 +168,7 @@ function startRun(env, buildCtx) {
     if (operandError) {
         env.setters.setComputed(preflight.computed);
         env.setters.setEvaluationErrors(preflight.errors);
+        env.setters.setProvisional(null);
         env.setters.setMf(null); env.setters.setOmf(null);
         env.setters.setStopReason(`invalidOperand:${operandError}`);
         return;
@@ -302,28 +319,19 @@ function useRunRecord({ runOwner, run, env }) {
     }, [runOwner, run]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
-// Evaluate operands for the merit table display.
-//
-// Between runs the whole display is derived here. During a run the loop owns
-// MF and OMF (it reports the optimizer's own values), so only the per-operand
-// values are refreshed, from the sampled design at the live-preview cadence.
-// That evaluation is a fraction of a millisecond for a normal operand set, so
-// the table tracks the run without competing with it for the main thread.
-function useOperandDisplaySync({ design, operands, running, env }) {
+// The merit table's values, from the sampled design, so the table follows an
+// optimizer run at the live-preview cadence (useMeritValues.js). Between runs
+// they are the whole display; during a run, the per-operand values
+// (showMeritValues). Returns whether the cone evaluation is under way while no
+// run is followed; during one it restarts with every frame.
+function useOperandDisplaySync({ operands, running, env, t }) {
     const { design: liveDesign, preview } = useLiveDesign();
+    const values = useMeritValues(liveDesign, operands, preview);
 
     useEffect(() => {
-        if (running) return;
-        evaluateDisplay(env, design, operands);
-    }, [operands, design, running]); // eslint-disable-line react-hooks/exhaustive-deps
-
-    useEffect(() => {
-        if (!running || !preview) return;
-        const result = computeOperandDisplay(liveDesign, operands);
-        if (!result) return;
-        env.setters.setComputed(result.computed);
-        env.setters.setEvaluationErrors(result.errors || []);
-    }, [running, preview, liveDesign, operands]); // eslint-disable-line react-hooks/exhaustive-deps
+        showMeritValues(env.setters, values, { running, following: preview }, t.meritFunctionEditor.evaluationFailed);
+    }, [values, running, preview]); // eslint-disable-line react-hooks/exhaustive-deps
+    return values.busy && !preview;
 }
 
 function useWorkerLifecycle({ env, running, beginOptimization, endOptimization }) {
@@ -410,6 +418,10 @@ export function useRefinement({ t }) {
     const [selectedId,  setSelectedId]  = useState(null);
     const [computed,    setComputed]    = useState([]);
     const [evaluationErrors, setEvaluationErrors] = useState([]);
+    // Rows and MF read at a default step where a row has a Step of its own
+    // (useMeritValues.js).
+    const [provisional, setProvisional] = useState(null);
+    const [mfProvisional, setMfProvisional] = useState(false);
     const [mf,          setMf]          = useState(null);
     const [mfBest,      setMfBest]      = useState(null);
     const [mfInitial,   setMfInitial]   = useState(null);
@@ -487,7 +499,7 @@ export function useRefinement({ t }) {
         setMf, setMfBest, setMfInitial, setOmf, setOmfBest, setOmfInitial,
         setIter, setMfHistory, setRunning, setCanReset, setRestartIdx, setStopReason,
         setSelectedId, setSavedDesign, setHistEntries, setComputed, setEvaluationErrors, setSeed,
-        setRunOwner,
+        setRunOwner, setProvisional, setMfProvisional,
     };
     const env = { refs, setters, methodRef };
 
@@ -495,7 +507,7 @@ export function useRefinement({ t }) {
     const run = useMemo(() => ({ iter, stopReason, mfHistory, mfBest, mfInitial, omfBest, omfInitial }),
         [iter, stopReason, mfHistory, mfBest, mfInitial, omfBest, omfInitial]);
     useRunRecord({ runOwner, run, env });
-    useOperandDisplaySync({ design, operands, running, env });
+    const evaluating = useOperandDisplaySync({ operands, running, env, t });
 
     const { stopOpt } = useWorkerLifecycle({ env, running, beginOptimization, endOptimization });
 
@@ -522,7 +534,8 @@ export function useRefinement({ t }) {
     const plotHistory = selectedHistory?.mfHistory?.length ? selectedHistory.mfHistory : mfHistory;
 
     return {
-        design, operands, selectedId, setSelectedId, computed, evaluationErrors,
+        design, operands, selectedId, setSelectedId, computed, evaluationErrors, provisional, mfProvisional,
+        evaluating: evaluating && !running,
         running, iter, mf, mfBest, mfInitial, omf, omfBest, canReset,
         method, nRestarts, perturbPct, restartIdx, maxIter, stopReason, seed,
         mfHistory, plotHistory, histEntries, selectedHistoryId,

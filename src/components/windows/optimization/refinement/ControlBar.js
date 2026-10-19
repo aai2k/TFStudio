@@ -11,6 +11,7 @@ import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { REFINE_METHODS, ALL_ORDER, STOCHASTIC_METHODS } from '../../../../utils/refinement/methods.js';
 import { normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
+import { provisionalMark } from '../provisionalMark.js';
 
 const { createElement: h } = React;   // React is a window global
 
@@ -125,8 +126,12 @@ function runControls({ running, method, nRestarts, perturbPct, maxIter, onMethod
 
 // Live readout: restart/method progress, MF/best/init, iter count, and the
 // end-of-run reason pill. Rendered inside one unit with the Live update switch.
-function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, nRestarts, stopReason, t, c }) {
+// An MF read with some rows at their default steps is marked until the value
+// at the rows' own Steps comes (provisionalMark.js).
+function runReadout({ running, iter, mf, mfBest, mfInitial, mfProvisional, evaluating, restartIdx, method, nRestarts, stopReason, t, c }) {
     const tr = t.refinement;
+    const te = t.meritFunctionEditor;
+    const mark = provisionalMark(mfProvisional, te.provisionalTip);
     const reason = stopReasonView(stopReason, tr);
     const reasonPillStyle = isWarnReason(stopReason)
         ? { ...WARN_BADGE_STYLE, marginLeft: 8, cursor: 'help' }
@@ -138,8 +143,11 @@ function runReadout({ running, iter, mf, mfBest, mfInitial, restartIdx, method, 
             method === 'all'
                 ? `${tr.tryingMethod || 'method'} ${restartIdx}/${ALL_ORDER.length}`
                 : `${tr.restartLabel(restartIdx)} / ${nRestarts}`),
+        evaluating && h('span', { style: { fontSize: 11, color: c.textDim, fontStyle: 'italic', marginRight: 8 } }, te.evaluating),
         mf != null && h('span', { style: { fontSize: 11, color: c.textDim } },
-            `${tr.mfLabel} `, h('span', { style: { color: c.text, fontWeight: 600 } }, mf.toFixed(6)),
+            `${tr.mfLabel} `,
+            h('span', { title: mark.title, style: { color: c.text, fontWeight: 600, opacity: mark.opacity } },
+                mark.prefix + mf.toFixed(6)),
             mfBest != null && mfBest < mf - 1e-9
                 ? h('span', { style: { color: c.success, marginLeft: 8 } }, ` ${tr.bestLabel} ${mfBest.toFixed(6)}`)
                 : null,

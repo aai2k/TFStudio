@@ -63,7 +63,7 @@ const designs = {
     C: designOf('C', [layer('c1', 'TiO2', 95)], []),
 };
 
-const t = { refinement: { ...EN.refinement, history: { run: n => `Run ${n}` } } };
+const t = { refinement: { ...EN.refinement, history: { run: n => `Run ${n}` } }, meritFunctionEditor: EN.meritFunctionEditor };
 const noop = () => {};
 let current = 'A';
 let state;

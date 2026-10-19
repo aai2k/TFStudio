@@ -1,4 +1,5 @@
 import { operandContributions } from '../../../../../utils/physics/optimizer.js';
+import { provisionalMerit } from '../../../../../utils/physics/meritDisplay.js';
 import { useIntegralPresets } from '../../../../../utils/physics/integralValues.js';
 import { ContextMenu } from '../../../../ui/ContextMenu.js';
 import { tablerIcon } from '../../../../ui/tablerIcons.js';
@@ -153,7 +154,7 @@ function tableToolbar(options) {
 
 export function MFTable(props) {
     const {
-        operands, computed, evaluationErrors = [], bandLevels = [],
+        operands, computed, evaluationErrors = [], bandLevels = [], provisional = null,
         selectedId, noOperandsMsg, notices = [],
         onSelect, onEdit, onEditMany, onAdd, onInsertAt,
         onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, toolbarStart = null, c, t,
@@ -194,8 +195,10 @@ export function MFTable(props) {
         () => contributions.reduce((largest, value) => Math.max(largest, value || 0), 0),
         [contributions],
     );
+    // Every share moves with the MF, so the shares are marked when it is.
+    const shareProvisional = useMemo(() => provisionalMerit(operands, provisional), [operands, provisional]);
     const rowContext = {
-        computed, evaluationErrors, bandLevels, contributions, largestContribution,
+        computed, evaluationErrors, bandLevels, provisional, shareProvisional, contributions, largestContribution,
         selIds, focusCell, editCell, range, extraCells,
         operands, integralPresets, isMathPct, c, t,
         onEdit: handleEdit, selectRow: handleSelectRow, focusAt: handleFocusAt,

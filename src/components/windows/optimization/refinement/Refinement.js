@@ -25,6 +25,7 @@ export function Refinement({ c, theme, t }) {
     },
         h(ControlBar, {
             running: r.running, iter: r.iter, mf: r.mf, mfBest: r.mfBest, mfInitial: r.mfInitial,
+            mfProvisional: r.mfProvisional, evaluating: r.evaluating,
             omf: r.omf, omfBest: r.omfBest, canReset: r.canReset,
             method: r.method, nRestarts: r.nRestarts, perturbPct: r.perturbPct, restartIdx: r.restartIdx,
             maxIter: r.maxIter, stopReason: r.stopReason, seed: r.seed,
@@ -48,6 +49,7 @@ export function Refinement({ c, theme, t }) {
                 operands: r.operands, computed: r.computed,
                 evaluationErrors: r.evaluationErrors,
                 bandLevels: operandBandLevels(r.computed),
+                provisional: r.provisional,
                 selectedId: r.selectedId,
                 notices: [scopeNotice && { label: scopeNotice }, rangeNotice].filter(Boolean),
                 noOperandsMsg: t.refinement.noOperands,

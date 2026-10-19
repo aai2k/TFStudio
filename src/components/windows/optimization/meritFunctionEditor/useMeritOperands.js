@@ -1,6 +1,3 @@
-import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import { withDesignSampleCounts, makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
-import { evaluateForDisplay } from '../../../../utils/physics/meritDisplay.js';
 import {
     editOperand, replaceOperandTail, addOperands, insertOperand,
     duplicateOperands, deleteOperands, moveOperand,
@@ -8,9 +5,9 @@ import {
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { meritOperandSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
-import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
+import { useMeritValues } from '../useMeritValues.js';
 
-const { useState, useEffect, useCallback, useMemo } = React;
+const { useCallback, useMemo } = React;
 const EMPTY_OPERANDS = [];
 
 function applyAdd(ctx, data, atIndex) {
@@ -55,11 +52,6 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
     // on every render of a window that can be showing thousands of rows.
     const setSelectedId = useCallback(
         value => setSessionField('selectedId', value), [setSessionField]);
-    const [computed, setComputed] = useState([]);
-    const [errors, setErrors] = useState([]);
-    const [bandLevels, setBandLevels] = useState([]);
-    const [mf, setMf] = useState(null);
-    const [omf, setOmf] = useState(null);
     const operands = design?.meritOperands || EMPTY_OPERANDS;
 
     const setOperands = useCallback((updater) => {
@@ -69,43 +61,10 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
 
     // Evaluated from the sampled design so the table follows an optimizer run
     // at the live-preview cadence rather than once per progress message.
-    const { design: liveDesign } = useLiveDesign();
-    const coneActive = operands.length > 0
-        && coneIsActive(makeConeSpec(liveDesign?.cone || {}));
-    const workerPayload = useMemo(
-        () => ({
-            design: liveDesign,
-            operands: coneActive
-                ? withDesignSampleCounts(operands, liveDesign, designMaterialLookup(liveDesign))
-                : operands,
-        }),
-        [liveDesign, operands, coneActive],
-    );
-    const workerResult = useAnalysisEvaluation(coneActive, 'meritDisplay', workerPayload);
-
-    useEffect(() => {
-        if (!liveDesign || operands.length === 0) {
-            setComputed([]); setErrors([]); setBandLevels([]); setMf(null); setOmf(null);
-            return;
-        }
-        if (coneActive) {
-            const result = workerResult.data;
-            if (result) {
-                setComputed(result.computed); setErrors(result.errors); setBandLevels(result.bandLevels);
-                setMf(result.mf); setOmf(result.omf);
-            } else if (workerResult.error) {
-                setComputed([]); setErrors([te.evaluationFailed]); setBandLevels([]); setMf(null); setOmf(null);
-            }
-            return;
-        }
-        try {
-            const result = evaluateForDisplay(liveDesign, operands);
-            setComputed(result.computed); setErrors(result.errors); setBandLevels(result.bandLevels);
-            setMf(result.mf); setOmf(result.omf);
-        } catch (_) {
-            setComputed([]); setErrors([]); setBandLevels([]); setMf(null); setOmf(null);
-        }
-    }, [operands, liveDesign, coneActive, workerResult.data, workerResult.error]);
+    const { design: liveDesign, preview } = useLiveDesign();
+    const values = useMeritValues(liveDesign, operands, preview);
+    const errors = useMemo(
+        () => (values.failed ? [te.evaluationFailed] : values.errors), [values, te]);
 
     const handleEdit = useCallback((id, key, value) => {
         setOperands(prev => editOperand(prev, id, key, value));
@@ -171,8 +130,9 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
     }, [operands.length, te, setInputDialog, doClear]);
 
     return {
-        operands, selectedId, setSelectedId, computed, errors, bandLevels, mf, omf,
-        evaluationBusy: coneActive && workerResult.busy, setOperands,
+        operands, selectedId, setSelectedId, computed: values.computed, errors, bandLevels: values.bandLevels,
+        mf: values.mf, omf: values.omf, provisional: values.provisional, mfProvisional: values.mfProvisional,
+        evaluationBusy: values.busy, setOperands,
         handleEdit, handleEditMany, handleGenerate, handleAdd, handleInsertAt, handleDuplicate,
         handleDelete, handleClear, handleMoveUp, handleMoveDown,
     };

@@ -128,7 +128,7 @@ function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, d
 function MFDataRowView(props) {
     const {
         op, rowIdx, rawCur, bandLevel, contribution, largestContribution,
-        evaluationError, rowSel, focusColKey, selectedCols, rowEdit,
+        evaluationError, provisional, shareProvisional, rowSel, focusColKey, selectedCols, rowEdit,
         operands, integralPresets,
         isMathPct, c, t, onEdit, selectRow, focusAt, pressCell, beginDrag, dragOver,
         startEdit, commitEdit, navigate, setEditCell,
@@ -165,7 +165,7 @@ function MFDataRowView(props) {
     const ctx = {
         op, rowIdx, meta, c, t, operands, integralPresets, rowStripe,
         contribution, largestContribution,
-        editCell: rowEdit, evaluationError, focusColKey,
+        editCell: rowEdit, evaluationError, provisional, shareProvisional, focusColKey,
         tdBase, rowDown, rowEnter, cellClick, cellDown, cellEnter, onEdit, focusAt, selectRow,
         startEdit, commitEdit, navigate, setEditCell,
     };
@@ -202,7 +202,7 @@ const MFDataRow = memo(MFDataRowView);
 
 export function renderOperandRow(ctx, op, rowIdx) {
     const {
-        computed, evaluationErrors, bandLevels, contributions, largestContribution,
+        computed, evaluationErrors, bandLevels, provisional, contributions, largestContribution,
         selIds, c, t, onEdit, selectRow,
     } = ctx;
     const rowSel = selIds.has(op.id);
@@ -222,6 +222,8 @@ export function renderOperandRow(ctx, op, rowIdx) {
         contribution: contributions?.[rowIdx] ?? null,
         largestContribution,
         evaluationError: evaluationErrors?.[rowIdx] || null,
+        provisional: !!provisional?.[rowIdx] && !evaluationErrors?.[rowIdx],
+        shareProvisional: ctx.shareProvisional && contributions?.[rowIdx] != null,
         rowSel,
         // The focused column, the selected columns and the cell being edited
         // are narrowed to this row before they are handed over. Passing the

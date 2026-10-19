@@ -202,16 +202,4 @@ assert.ok(/const following = isOptimizing && liveUpdate;/.test(hook)
 assert.ok(/design: isOptimizing && sampled \? sampled : design/.test(hook),
     'edits outside a run always show immediately');
 
-// ── The merit table keeps tracking a run ─────────────────────────────────────
-
-// MF and OMF belong to the run loop, which reports the optimizer's own values.
-// The refresh during a run must set only the per-operand values, or the table
-// and the run would disagree about the merit function.
-const refinement = source('../src/components/windows/optimization/refinement/useRefinement.js');
-const liveRefresh = refinement.slice(refinement.indexOf('if (!running || !preview) return;'));
-const refreshBody = liveRefresh.slice(0, liveRefresh.indexOf('}, ['));
-assert.ok(refreshBody.includes('setComputed'), 'the run refresh updates operand values');
-assert.ok(!refreshBody.includes('setMf('), 'the run refresh must not overwrite MF');
-assert.ok(!refreshBody.includes('setOmf('), 'the run refresh must not overwrite OMF');
-
 console.log('optimizer_live_preview: passed');

@@ -87,7 +87,7 @@ One row per operand. The table works like a spreadsheet:
   type. The **Pol** cell shows a chevron while it is focused; the chevron,
   Enter or a double-click opens its three values as a list, and `a`, `s` or
   `p` typed straight in sets it without the list.
-- The **Flag** cell is used by rows that look for a peak, such as `TMX` or `MXWT`, where it is headed **Step** and sets how finely the band is searched, from 1 for 1 nm to 4 for 0.001 nm; see [Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip). Other rows show a dash there.
+- The **Flag** cell is headed **Step** on the rows that take it. On a row that looks for a peak, such as `TMX` or `MXWT`, it sets how finely the band is searched, from 1 for 1 nm to 4 for 0.001 nm ([Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral or `*FLAT` row, the coarsest step of its grid ([Sampling a band](/design/operands/#sampling-a-band)). Other rows show a dash there.
 - Drag across cells, or hold Shift, to select a rectangle; hold Ctrl to add
   single cells. Ctrl+C copies the selection as tab-separated text, Ctrl+V
   pastes text over it: one value fills every selected cell, a block of values
@@ -130,6 +130,8 @@ Each operand row shows its current value and its residual, so you can see at a
 glance which targets are met and which are dragging the merit up. Bigger
 weights make an operand count for more; bumping the stopband weight on an HR
 design is the most common tweak.
+
+A fine Step over a wide band takes seconds to evaluate, so a row with a Step of its own is shown at once at its default step, faded with ≈ before it, and its value at its Step replaces that once it has been worked out. The window stays free in the meantime. A math row that reads such a row is marked the same way, and when such a row has a weight, so are the MF, the OMF and every row's **% of MF²**. While the table follows an optimizer run it stays at the default steps until the run stops. Under a cone of incidence every row is worked out off the window's thread, and the table shows its values when they come; while it follows a run, every row is marked, since under a cone the rows share their grid of angles. The Refinement window's table and its MF between runs work the same way.
 
 The operand list is saved with the design and is read by every optimizer: [Refinement](/synthesis/refinement/), [Needle](/synthesis/needle/), [Gradual Evolution](/synthesis/gradual-evolution/) and the [Structural Optimizer](/synthesis/structural-optimizer/). The synthesis tools optimize against the optical operands only while they build the stack, less any `PPEF` row and the math rows that refer to it; the thickness constraints and the peak-to-peak error are then enforced during Refinement. A good final sequence is Refinement, then Cleaner, then Refinement again.
 

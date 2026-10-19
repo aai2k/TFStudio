@@ -9,6 +9,7 @@ import {
     contributionBarWidth, fmtContribution, fmtCurrent, fmtTargetDisplay, residualTooltip,
 } from './operandViewModel.js';
 import { flagCellText } from './editModel.js';
+import { provisionalMark } from '../../provisionalMark.js';
 
 const { createElement: h } = React;
 
@@ -203,36 +204,44 @@ export function polPickerCell(ctx, colKey, width) {
     );
 }
 
+// A value read at the row's default step where the row has a Step of its own,
+// or read from such a row, is marked until the value at the Step comes
+// (provisionalMark.js).
 function currentCell(ctx, colKey, width) {
     const { meta, c, tdBase, cellClick, evaluationError, t } = ctx;
+    const mark = provisionalMark(ctx.provisional && meta.cur != null, t?.meritFunctionEditor?.provisionalTip);
     return h('td', {
         key: colKey, onClick: event => cellClick(colKey, event),
-        title: evaluationError || undefined,
+        title: evaluationError || mark.title,
         style: {
             ...tdBase(colKey, width), overflow: 'hidden', textOverflow: 'ellipsis',
             color: evaluationError ? c.error : c.text,
             fontWeight: evaluationError ? 600 : undefined,
+            opacity: mark.opacity,
         },
     }, evaluationError
         ? (t?.meritFunctionEditor?.evaluationError || 'Error')
-        : fmtCurrent(meta.cur, meta));
+        : mark.prefix + fmtCurrent(meta.cur, meta));
 }
 
 // Share of the merit function. One question on every row, so unlike the Δ it
 // replaced it needs no per-type units and no per-type colour thresholds. The bar
 // behind the number is the same share, scaled to the largest in the table, so
-// the rows holding the merit up are visible without reading any digits.
+// the rows holding the merit up are visible without reading any digits. A
+// share of an MF read at default steps is marked as the MF is.
 function contributionCell(ctx, colKey, width) {
     const { meta, contribution, largestContribution, c, t, tdBase, cellClick } = ctx;
     const bar = contributionBarWidth(contribution, largestContribution);
+    const mark = provisionalMark(ctx.shareProvisional, t?.meritFunctionEditor?.provisionalTip, residualTooltip(meta, t?.meritFunctionEditor));
     return h('td', {
         key: colKey,
         onClick: event => cellClick(colKey, event),
-        title: residualTooltip(meta, t?.meritFunctionEditor) || undefined,
+        title: mark.title,
         style: {
             ...tdBase(colKey, width), position: 'relative',
             color: contribution ? c.text : c.textDim,
             fontWeight: contribution ? 500 : undefined,
+            opacity: mark.opacity,
         },
     },
         bar > 0 ? h('div', {
@@ -243,7 +252,7 @@ function contributionCell(ctx, colKey, width) {
                 background: c.accent + '33', pointerEvents: 'none',
             },
         }) : null,
-        h('span', { style: { position: 'relative' } }, fmtContribution(contribution)),
+        h('span', { style: { position: 'relative' } }, mark.prefix + fmtContribution(contribution)),
     );
 }
 

@@ -1,4 +1,5 @@
 import { EvalModeBadge, OptimizeBadge } from '../../../SurfaceModeBar.js';
+import { provisionalMark } from '../provisionalMark.js';
 
 const { createElement: h } = React;
 
@@ -10,10 +11,12 @@ function chevron(open, c) {
     }, h('path', { d: open ? 'M6 15l6-6 6 6' : 'M6 9l6 6 6-6' }));
 }
 
-function meritValue(label, value, title, c) {
-    return h('span', { title, style: { whiteSpace: 'nowrap' } },
+// A value read with some rows at their default steps is marked until the value
+// at the rows' own Steps comes (provisionalMark.js).
+function meritValue(label, value, mark, c) {
+    return h('span', { title: mark.title, style: { whiteSpace: 'nowrap', opacity: mark.opacity } },
         label + ' ',
-        h('span', { style: { color: c.text, fontWeight: 600 } }, value.toFixed(6)));
+        h('span', { style: { color: c.text, fontWeight: 600 } }, mark.prefix + value.toFixed(6)));
 }
 
 /**
@@ -21,7 +24,7 @@ function meritValue(label, value, title, c) {
  * stays, carrying the evaluation badges and the merit values, and a one-line
  * summary of the form while it is folded.
  */
-export function WizardHeader({ open, onToggle, summary, design, mf, omf, busy, c, t, te }) {
+export function WizardHeader({ open, onToggle, summary, design, mf, omf, mfProvisional, busy, c, t, te }) {
     const tw = te.wizard;
     return h('div', {
         style: {
@@ -52,7 +55,7 @@ export function WizardHeader({ open, onToggle, summary, design, mf, omf, busy, c
         h(OptimizeBadge, { design, c, t }),
         h(EvalModeBadge, { design, c, t }),
         busy && h('span', { style: { fontStyle: 'italic' } }, te.evaluating),
-        mf != null && meritValue(te.mfLabel, mf, null, c),
-        mf != null && omf != null && meritValue(te.omfLabel, omf, te.omfTip, c),
+        mf != null && meritValue(te.mfLabel, mf, provisionalMark(mfProvisional, te.provisionalTip), c),
+        mf != null && omf != null && meritValue(te.omfLabel, omf, provisionalMark(mfProvisional, te.provisionalTip, te.omfTip), c),
     );
 }

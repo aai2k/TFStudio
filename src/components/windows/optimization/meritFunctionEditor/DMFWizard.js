@@ -407,7 +407,7 @@ function gainEditor(gainSource, tw, c, t) {
     });
 }
 
-export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, t }) {
+export function DMFWizard({ design, onGenerate, operandCount, mf, omf, mfProvisional, busy, c, t }) {
     const te = t.meritFunctionEditor;
     const tw = te.wizard;
     const [session, setField, patch] = useWindowSession(meritWizardSession, null);
@@ -429,7 +429,7 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, busy, c, 
     return h(React.Fragment, null,
         h(WizardHeader, {
             open: session.open, onToggle: () => setField('open', !session.open),
-            summary, design, mf, omf, busy, c, t, te,
+            summary, design, mf, omf, mfProvisional, busy, c, t, te,
         }),
         session.open && h('div', {
             style: {

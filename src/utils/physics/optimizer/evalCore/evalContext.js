@@ -250,3 +250,14 @@ export function operandExtremumLambdas(computed) {
 export function operandBandLevels(computed) {
     return computed?.operandBandLevels || [];
 }
+
+/**
+ * `values`, an array of row values such as one copied back from a worker, with
+ * the rows' errors and band levels kept on it as an evaluation keeps them, so
+ * operandEvaluationErrors and operandBandLevels read them from it.
+ */
+export function withRowNotes(values, errors, bandLevels) {
+    Object.defineProperty(values, 'operandErrors', { value: errors });
+    Object.defineProperty(values, 'operandBandLevels', { value: bandLevels });
+    return values;
+}

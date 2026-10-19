@@ -32,7 +32,7 @@ export {
 
 export {
     buildEvalContext, effectiveBackLayers, evaluateOperands, evaluateOperandRows, operandEvaluationErrors,
-    operandBandLevels, operandSampleDeviations, operandExtremumLambdas,
+    operandBandLevels, operandSampleDeviations, operandExtremumLambdas, withRowNotes,
 } from './evalCore/evalContext.js';
 
 export { ARGWAVE_RESIDUAL_SCALE_NM, operandResidualScale, residualScaleIn, _operandResidual } from './evalCore/residualScale.js';

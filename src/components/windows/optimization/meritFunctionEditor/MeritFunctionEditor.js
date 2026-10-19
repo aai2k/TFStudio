@@ -31,12 +31,12 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
     },
         h(DMFWizard, {
             design, onGenerate: merit.handleGenerate, operandCount: merit.operands.length,
-            mf: merit.mf, omf: merit.omf, busy: merit.evaluationBusy, c, t,
+            mf: merit.mf, omf: merit.omf, mfProvisional: merit.mfProvisional, busy: merit.evaluationBusy, c, t,
         }),
         h('div', { style: { flex: 1, overflow: 'hidden' } },
             h(MFTable, {
                 operands: merit.operands, computed: merit.computed,
-                evaluationErrors: merit.errors, bandLevels: merit.bandLevels,
+                evaluationErrors: merit.errors, bandLevels: merit.bandLevels, provisional: merit.provisional,
                 selectedId: merit.selectedId,
                 notices: [scopeNotice && { label: scopeNotice }, rangeNotice, ...stressNotices].filter(Boolean),
                 noOperandsMsg: te.noOperands,
