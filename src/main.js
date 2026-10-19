@@ -14,6 +14,18 @@ const { designFileFromArgv } = require('./main/openFileArg');
 const { registerAllIpc } = require('./main/ipc');
 const appWindowIpc = require('./main/ipc/appWindow');
 const { canPlaceOwnWindows } = require('./main/windowPlacement');
+const { startMcpServer } = require('./main/mcpEntry');
+
+// TFStudio.exe --mcp serves the MCP server on stdin and stdout and opens no
+// window (main/mcpEntry.js). stdout then carries the protocol alone, so what
+// the main process logs goes to stderr.
+const mcpMode = process.argv.includes('--mcp');
+if (mcpMode) {
+  const { format } = require('util');
+  for (const level of ['log', 'info', 'warn', 'debug']) {
+    console[level] = (...args) => process.stderr.write(`${format(...args)}\n`);
+  }
+}
 
 const isPackaged = app.isPackaged;
 // Wayland gives a client no way to place its own window, so a torn-off tool
@@ -28,7 +40,7 @@ const exeDir = resolveExeDir({
   execPath: process.execPath,
   appPath: app.getAppPath(),
 });
-logger.init(exeDir);
+logger.init(exeDir, mcpMode ? 'mcp-server.log' : undefined);
 
 let userDataDir = resolveUserDataDir({
   portableDir: process.env.PORTABLE_EXECUTABLE_DIR,
@@ -73,7 +85,9 @@ try {
   }
 }
 
-app.setPath('userData', userDataDir);
+// A server started with --mcp keeps its Chromium profile apart from the
+// app's, so it can run while the app is open.
+app.setPath('userData', mcpMode ? path.join(userDataDir, 'McpServer') : userDataDir);
 flushLog();
 
 let mainWindow;
@@ -83,7 +97,8 @@ let userPaths;
 // the same Chromium profile, settings.json (last-writer-wins), the log file, and
 // load-folders writing fresh ids into copies the other instance has open. Hand
 // off to the already-running instance and exit before any further init runs.
-if (!app.requestSingleInstanceLock()) {
+// A server started with --mcp has no window and runs beside the app.
+if (!mcpMode && !app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
@@ -313,6 +328,10 @@ function setupIpcHandlers() {
 }
 
 app.whenReady().then(() => {
+  if (mcpMode) {
+    startMcpServer({ app, isPackaged, exeDir, settingsPath: path.join(userDataDir, 'settings.json'), log });
+    return;
+  }
   log('App ready');
   helpServer.startHelpServer({ isPackaged, srcDir: __dirname });
   setupIpcHandlers();   // register once, not per-window (MP5 fix)

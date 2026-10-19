@@ -14,6 +14,7 @@
 //   build/app/styles.css               <- copied
 //   build/app/index.html               <- generated (rebased asset paths)
 //   build/app/vendor/                  <- React(prod)/ReactDOM(prod)/ECharts/KaTeX
+//   build/app/mcp/server.js, jobWorker.js <- the MCP server for TFStudio.exe --mcp (tools/mcpBundle.mjs)
 //   build/icons/                       <- copied; renderer uses ../icons/ from the doc
 //   build/splash.bmp                   <- portable-launch splash (tools/gen-splash.mjs)
 //
@@ -25,6 +26,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { generateSplash } from './gen-splash.mjs';
+import { buildMcpServer } from './mcpBundle.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -215,6 +217,9 @@ async function main() {
 </html>
 `;
   fs.writeFileSync(path.join(outApp, 'index.html'), html, 'utf8');
+
+  console.log('[build-renderer] esbuild bundling the MCP server …');
+  await buildMcpServer(path.join(outApp, 'mcp'));
 
   console.log('[build-renderer] done → build/app/');
 }

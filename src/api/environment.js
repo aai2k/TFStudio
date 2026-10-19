@@ -44,6 +44,7 @@ export async function init(options) {
 }
 
 async function start(dataDir, wasmPath) {
+    provideEventAndCrypto();
     let wasm = false;
     try { wasm = !!(await initTmmWasmMainThread(fs.readFileSync(wasmPath || require.resolve('tmmcore/tmm_kernel.wasm')), true)); }
     catch (_) { wasm = false; }
@@ -56,6 +57,16 @@ async function start(dataDir, wasmPath) {
 // those reads from the same handlers in this process and offers no save, so it
 // writes no catalog. The events the catalog startup sends go to an EventTarget
 // nothing listens on.
+// Node before 19 (the Windows 7 build's Electron 22 runs Node 16) has neither
+// CustomEvent, which the catalog code dispatches, nor a global crypto, which
+// gives catalogs their stamps.
+function provideEventAndCrypto() {
+    globalThis.CustomEvent ??= class CustomEvent extends Event {
+        constructor(type, init = {}) { super(type, init); this.detail = init.detail ?? null; }
+    };
+    globalThis.crypto ??= require('node:crypto').webcrypto;
+}
+
 async function loadUserCatalogs(dataDir) {
     const materialsDir = path.join(dataDir, 'Materials');
     if (!fs.existsSync(materialsDir)) throw new Error(`${dataDir} holds no Materials folder`);

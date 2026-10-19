@@ -9,8 +9,11 @@ let logFile = null;
 let logFileReady = false;
 const logMessages = [];
 
-function init(exeDir) {
-  logFile = path.join(exeDir, 'app-debug.log');
+// `fileName` is the log's name in exeDir: the app's own by default; the MCP
+// server (TFStudio.exe --mcp) keeps one of its own, so starting it does not
+// replace the log of an app that is open.
+function init(exeDir, fileName = 'app-debug.log') {
+  logFile = path.join(exeDir, fileName);
 }
 
 function log(message) {

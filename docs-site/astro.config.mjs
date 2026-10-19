@@ -163,6 +163,13 @@ export default defineConfig({
           ],
         },
         {
+          label: 'Automation',
+          translations: { 'zh-CN': '自动化' },
+          items: [
+            { label: 'AI Agents (MCP)', translations: { 'zh-CN': 'AI 助手（MCP）' }, slug: 'automation/ai-agents' },
+          ],
+        },
+        {
           label: 'Information',
           translations: { 'zh-CN': '信息' },
           items: [

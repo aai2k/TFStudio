@@ -46,6 +46,8 @@ function main() {
 
   console.log('[build-web-demo] copying build/app → web/dist …');
   copyTree(buildApp, outDir);
+  // The MCP server's bundle (build/app/mcp) belongs to the desktop app alone.
+  fs.rmSync(path.join(outDir, 'mcp'), { recursive: true, force: true });
 
   // Icons. The desktop build keeps icons in build/icons (sibling of build/app)
   // and the renderer references them as '../icons/…' relative to index.html. In

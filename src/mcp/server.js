@@ -3,6 +3,7 @@
  * tools over stdio, for AI agents and other MCP clients.
  *
  *   node src/mcp/server.js [--data <folder>]
+ *   TFStudio.exe --mcp          (src/main/mcpEntry.js; the app's own data folder)
  *
  * --data names a TFStudio data folder (the one holding Materials), whose
  * catalogs the tools then use as the app does. Without it the built-in catalog
