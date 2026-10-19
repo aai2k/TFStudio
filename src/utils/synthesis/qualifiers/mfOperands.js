@@ -25,7 +25,7 @@
  */
 
 import { makeOperand, isMinmax, isPPEF } from '../../physics/optimizer.js';
-import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
+import { channelFromKind, singleType, avgType, minmaxType, argwaveType, integralType } from './channelTypes.js';
 import { ppefRows } from './ppefRows.js';
 import { eqTolerance, checkStepFlag, budgetSide, coatedSide } from './constants.js';
 
@@ -40,10 +40,11 @@ function buildSingleBaseOp(q, ch, pol, weight) {
 }
 
 function buildAvgBaseOp(q, ch, pol, weight) {
+    const type = avgType(ch, pol);
     return makeOperand({
-        type: avgType(ch, pol),
+        type,
         lambdaStart: q.lambdaStart, lambdaEnd: q.lambdaEnd,
-        aoi: q.aoi, pol, weight, target: 0,
+        aoi: q.aoi, pol, weight, target: 0, ...checkStepFlag(q, type),
     });
 }
 
@@ -60,11 +61,11 @@ function buildMinMaxBaseOp(q, ch, pol, weight) {
 }
 
 function buildIntegralBaseOp(q, ch, pol, weight) {
-    const opType = ch === 'R' ? 'RIW' : ch === 'A' ? 'AIW' : 'TIW';
+    const opType = integralType(ch);
     return makeOperand({
         type: opType,
         lambdaStart: q.lambdaStart, lambdaEnd: q.lambdaEnd,
-        aoi: q.aoi, pol, weight, target: 0,
+        aoi: q.aoi, pol, weight, target: 0, ...checkStepFlag(q, opType),
         // A check without a source or detector is weighted by makeOperand's
         // defaults, as evaluate.js weights it; an empty object would read as an
         // equal-energy source and a flat detector.

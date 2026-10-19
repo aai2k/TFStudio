@@ -4,9 +4,9 @@
  *   1. A band-maximum or MXWT monitor reads the merit row at MONITOR_FLAG: on
  *      two coupled-cavity peaks 1.9 nm apart it finds the higher one, which the
  *      row reads as the lower at the default 1 nm step.
- *   2. A FWHM or edge monitor is the FWHM or Edge λ check at MONITOR_FLAG, whose
- *      scan has a sample every 0.1 nm; a check evaluated without a flag keeps
- *      the scan of 301 samples it had.
+ *   2. A FWHM or edge monitor is the FWHM or Edge λ check with a Step of
+ *      MONITOR_FLAG, whose scan has a sample every 0.1 nm; a check without a
+ *      Step scans every 1 nm, and never fewer than 301 samples.
  *   3. The status bar follows a run through useLiveDesign and works its
  *      monitors out on the analysis worker, saying so only for a cone design.
  *
@@ -52,19 +52,26 @@ const { fabryPerot, coupled, COUPLED_BAND, row, check } = await import('./_peakD
     const resolve = designMaterialLookup(fabryPerot);
     const band = { lambdaStart: 540, lambdaEnd: 580 };
     const fwhm = { kind: 'FWHM', channel: 'T', direction: 'max', cmp: 'ge', target: 0, ...band };
-    const atMonitorStep = check(fabryPerot, fwhm, { flag: MONITOR_FLAG }).value;
+    const atMonitorStep = check(fabryPerot, { ...fwhm, flag: MONITOR_FLAG }).value;
     assert.equal(computeMonitor({ type: 'fwhm', qty: 'T', ...band }, fabryPerot, resolve), atMonitorStep,
         'a FWHM monitor is the FWHM check at the monitor step');
     const edge = { kind: 'EDGE_LAMBDA', channel: 'T', direction: 'max', cmp: 'ge', target: 0, edgeSide: 'right', ...band };
     assert.equal(computeMonitor({ type: 'edgeRight', qty: 'T', ...band }, fabryPerot, resolve),
-        check(fabryPerot, edge, { flag: MONITOR_FLAG }).value, 'an edge monitor is the Edge λ check at the monitor step');
-    // Without a flag the scan keeps its 301 samples, however wide the band;
-    // with one it has a sample every step, and a qualifier's own count wins.
+        check(fabryPerot, { ...edge, flag: MONITOR_FLAG }).value, 'an edge monitor is the Edge λ check at the monitor step');
+    // The scan has a sample every step of the check's Step, 1 nm without one,
+    // never fewer than 301, and a qualifier's own count wins.
+    // On the coupled cavities the step decides which peak an edge is taken
+    // from, so the monitor's own step shows there.
+    const coupledEdge = { kind: 'EDGE_LAMBDA', channel: 'T', direction: 'max', cmp: 'ge', target: 0, edgeSide: 'right', ...COUPLED_BAND };
+    const monitorEdge = computeMonitor({ type: 'edgeRight', qty: 'T', ...COUPLED_BAND }, coupled, designMaterialLookup(coupled));
+    assert.equal(monitorEdge, check(coupled, { ...coupledEdge, flag: MONITOR_FLAG }).value, 'a coupled-cavity edge monitor is the check at the monitor step');
+    assert.notEqual(monitorEdge, check(coupled, coupledEdge).value, 'which the default step reads at the other peak');
     const wide = { lambdaStart: 400, lambdaEnd: 1600 };
-    assert.equal(scanCount(wide, {}), 301, 'a check without a flag scans 301 samples');
-    assert.equal(scanCount(wide, { flag: MONITOR_FLAG }), 12001, 'at the monitor step, one every 0.1 nm');
-    assert.equal(scanCount({ lambdaStart: 540, lambdaEnd: 560 }, { flag: MONITOR_FLAG }), 301, 'and never fewer than 301');
-    assert.equal(scanCount({ ...wide, bandPoints: 501 }, { flag: MONITOR_FLAG }), 501, 'a qualifier\'s own count wins');
+    assert.equal(scanCount(wide), 1201, 'a check without a Step scans every 1 nm');
+    assert.equal(scanCount({ ...wide, flag: MONITOR_FLAG }), 12001, 'at the monitor step, one every 0.1 nm');
+    assert.equal(scanCount({ ...wide, flag: MONITOR_FLAG }, { coarse: true }), 1201, 'a first pass scans at the default');
+    assert.equal(scanCount({ lambdaStart: 540, lambdaEnd: 560, flag: MONITOR_FLAG }), 301, 'and never fewer than 301');
+    assert.equal(scanCount({ ...wide, bandPoints: 501, flag: MONITOR_FLAG }), 501, 'a qualifier\'s own count wins');
 }
 
 // ── 3. The status bar follows a run and works on the worker ──────────────────

@@ -15,29 +15,15 @@
  */
 
 import { makeOperand, evaluateOperands, buildEvalContext, withFringeSampleCounts, effectiveBackLayers } from '../../physics/optimizer.js';
-import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
+import { channelFromKind, singleType, avgType, minmaxType, argwaveType, integralType } from './channelTypes.js';
 import { finishCompare } from './format.js';
 import { checkStepFlag, budgetSide } from './constants.js';
 import { evalBandDerived } from './bandScan.js';
 import { ppefRows } from './ppefRows.js';
 
-/**
- * The step flag the Specification window, the report and the Coating Library
- * scan a FWHM or edge check's band at, peak included: 0.01 nm
- * (operandModel.js extremumStepNm), so only peaks closer than about 0.02 nm
- * can read as one. These checks have no merit row. A peak or centre check
- * searches at its own Step instead (checkStepFlag), as the row Generate MF
- * writes for it does. The windows show each check at once from a first pass at
- * the default 1 nm and replace it when the analysis worker answers; the
- * Specification window follows a run at 1 nm. Callers that evaluate the
- * Specification many times over, such as the Monte Carlo yield and the
- * tolerance windows' badge, scan at the default.
- */
-export const SPECIFICATION_FLAG = 3;
-
-// The step a peak or centre check searches at: its own Step, which Generate MF
-// writes on its row, or the default 1 nm when `options.coarse` asks for a
-// first answer quickly.
+// The Step a check reads its row at (checkStepFlag), which Generate MF writes
+// on that row, or the default when `options.coarse` asks for a first answer
+// quickly.
 const stepOf = (qual, type, options) => (options?.coarse ? {} : checkStepFlag(qual, type));
 
 // A check's row evaluated as the Merit Function Editor and a run evaluate it:
@@ -81,13 +67,14 @@ function evalSingleAt(qual, design, ctx) {
     return finishCompare(qual, rowValue(op, ctx), '%');
 }
 
-function evalAvg(qual, design, ctx) {
+function evalAvg(qual, design, ctx, options) {
     const ch  = channelFromKind(qual.kind) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
+    const type = avgType(ch, pol);
     const op = makeOperand({
-        type: avgType(ch, pol),
+        type,
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
-        aoi: qual.aoi, pol, target: 0, weight: 1,
+        aoi: qual.aoi, pol, target: 0, weight: 1, ...stepOf(qual, type, options),
     });
     return finishCompare(qual, rowValue(op, ctx), '%');
 }
@@ -109,14 +96,14 @@ function evalMinMax(qual, design, ctx, options) {
     return finishCompare(qual, rowValue(op, ctx), '%');
 }
 
-function evalIntegral(qual, design, ctx) {
+function evalIntegral(qual, design, ctx, options) {
     const ch  = channelFromKind(qual.kind) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
-    const opType = ch === 'R' ? 'RIW' : ch === 'A' ? 'AIW' : 'TIW';
+    const type = integralType(ch);
     const op = makeOperand({
-        type: opType,
+        type,
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
-        aoi: qual.aoi, pol, target: 0, weight: 1,
+        aoi: qual.aoi, pol, target: 0, weight: 1, ...stepOf(qual, type, options),
         source: qual.source, detector: qual.detector,
         bandPoints: qual.bandPoints,
     });
@@ -168,10 +155,8 @@ const KIND_EVALUATORS = {
 // where value is the raw computed number, unit is 'nm', '%', 'dB' or ''
 // depending on kind, and threshold is what the value was held to. One that
 // could not be computed carries a summaryKey instead of a threshold.
-// `options.flag` sets the step a FWHM or edge check scans its band at, as a
-// merit row's flag sets its search step; without one the default scan.
-// `options.coarse` searches a peak or centre check at the default 1 nm instead
-// of its own Step, for a first answer on the window's own thread.
+// Every check reads its band at its own Step. `options.coarse` reads it at the
+// default instead, for a first answer on the window's own thread.
 export function evaluateQualifier(qual, design, resolveMat, options = {}) {
     const ctx = buildEvalContext(design, resolveMat);
     const evaluator = KIND_EVALUATORS[qual.kind];

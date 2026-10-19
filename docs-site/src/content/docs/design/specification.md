@@ -16,9 +16,13 @@ specified.
 Each row is evaluated against the active design and recomputes on every change,
 showing a per-row verdict and an overall PASS/FAIL badge at the top.
 
-An average or integral row reads its band on the grid the merit table gives the same row, so the row **Generate MF** writes for it reads the same number ([Sampling a band](/design/operands/#sampling-a-band)).
+Every check that searches for a peak or samples a band has a **Step**, the flag of the merit row it stands for, and **Generate MF** writes the same step on that row, so the check and the row read the same number:
 
-A **Min / Max** or **Central λ** check on a peak (a maximum of T or A, a minimum of R) has a **Step**: 1 nm by default, or 0.1, 0.01 or 0.001 nm. The check searches its band at that step, and **Generate MF** writes the same step on its merit row, so the two read the same peak. Two peaks closer than about two steps can read as one; a finer step tells them apart, and over a wide band it slows every optimizer run on that merit function. **FWHM** and **Edge λ** have no merit row: they search their band at 0.01 nm and find each crossing of their level exactly, by bisection between the samples of a scan at that step. A check searched at 1 nm shows at once and the finer value replaces it when it is ready, a fraction of a second per check over a few hundred nanometres and longer over a wide band; while the window follows an optimizer run it stays at 1 nm until the run stops. See [Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip).
+- **Min / Max** or **Central λ** on a peak (a maximum of T or A, a minimum of R): the step the band is searched at, 1 nm by default, or 0.1, 0.01 or 0.001 nm. Two peaks closer than about two steps can read as one. A check on a dip searches the design's fringes and has no Step. See [Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip).
+- **T / R / A avg** and **Integral**: the coarsest step of the band's grid. **auto** takes the grid from the design's fringes, at least 101 points ([Sampling a band](/design/operands/#sampling-a-band)); a set step is for a band across a narrow pass band, which the fringe grid can step over.
+- **FWHM** and **Edge λ**: the step the band is scanned at, 1 nm by default, with never fewer than 301 samples across the band; on a peak it is also the step the peak is searched at, while a dip is found on the design's fringes. Each crossing of the level is found exactly by bisection between samples, so the step decides only which peak is found and whether a narrow feature between it and its crossing is seen. These have no merit row.
+
+The same Step holds in the report, the Coating Library, the Monte Carlo yield and the specification badge in the tolerance windows. A fine Step over a wide band costs time in each of them and in every optimizer run on the merit function: at 0.01 nm a check over a few hundred nanometres takes a fraction of a second, at 0.001 nm several seconds. The Monte Carlo yield and the tolerance badge work on the window's own thread, so for that long, per trial or per badge, the window does not respond. The Specification window shows each check at once at its default step and replaces the value when the analysis worker has it at the check's own Step; while it follows an optimizer run it stays at the defaults until the run stops. A value read at a default step where the check has a Step of its own is shown faded, with ≈ before it.
 
 ## Qualifier kinds
 
@@ -42,7 +46,7 @@ Each row exposes only the fields that apply to its kind:
 **Kind**: one of the qualifier kinds above. **Channel** picks T, R or A
 (fixed for the at-a-wavelength and average kinds). **λ / band** is a single
 wavelength or a start/end range. **AOI** and **pol** set the angle of incidence
-and polarization for optical kinds. **Step** sets how finely a peak check searches its band (above).
+and polarization for optical kinds. **Step** sets how finely a check searches or samples its band (above).
 
 **Comparison and target**: the actual test. You can require `≥`, `≤`, an
 equality `= ± tol`, or a range `∈ [lo, hi]`, against the target value you enter
@@ -68,7 +72,7 @@ explaining the miss.
 For stopband suppression, prefer the **Min / Max** (worst-case) kinds: a band
 *average* can pass while a narrow resonance spikes through it. Once your
 requirements are in place, **Generate MF** writes them into the design as `OPGT`/`OPLT` merit operands: each spec becomes a measurement row plus the targets that reference it, one for `≥` or `≤` and two for a range or `= ± tol` (at target − tol and target + tol), so the rows are met exactly when the check passes, and [Refinement](/synthesis/refinement/) and the synthesis tools optimize toward the specification directly and stay in sync with it. A run stops at the edge of a tolerance rather than at its centre; an equality with no tolerance is written as the measurement row at its target, except a Min / Max or peak-to-peak one, whose row scores one side only and so gets the pair at the target.
-A peak row it writes carries the check's **Step** as its flag, so the merit function searches the band as the check does.
+Every row it writes carries its check's **Step** as its flag, so the merit function reads the band as the check does.
 A **Thickness budget** on the coating the optimizer works on (the front of a front-only or symmetric design, the back of a back-only one, both when both sides are given) becomes a `TT` row, or a `TT` minimum and maximum for a range or `= ± tol`. **FWHM**, **Edge λ**, **Layer count** and a thickness budget on any other side have no merit row: while the list holds any of them, a note beside **Generate MF** names them, and names a peak-to-peak check whose curve is not on the design, since the merit function it writes leaves them out.
 The specification is saved in the project file alongside the design.
 

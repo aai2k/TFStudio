@@ -51,9 +51,7 @@ Select a coating in the list to see:
 - **Specification**: each claim the entry makes, with the angle and
   polarization it is stated at, its computed value and a pass or fail mark.
   The claims are evaluated with the same qualifiers the
-  [Specification](/design/specification/) window uses, at the same steps: the
-  value searched at 1 nm shows at once and the finer one replaces it when
-  it is ready.
+  [Specification](/design/specification/) window uses, each at its own Step.
 - **Source**: where the design came from.
 
 ## Finding a coating

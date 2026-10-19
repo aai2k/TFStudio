@@ -97,8 +97,8 @@ export function computeMonitor(monitor, design, resolveMaterial) {
                 lambdaStart: monitor.lambdaStart, lambdaEnd: monitor.lambdaEnd,
                 direction: monitor.direction || 'max', level: monitor.level ?? 0.5,
                 edgeSide: monitor.type === 'edgeRight' ? 'right' : 'left',
-                cmp: 'ge', target: 0,
-            }, design, resolveMaterial, { flag: MONITOR_FLAG });
+                cmp: 'ge', target: 0, flag: MONITOR_FLAG,
+            }, design, resolveMaterial);
             return Number.isFinite(result?.value) ? result.value : null;
         }
 

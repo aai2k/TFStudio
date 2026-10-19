@@ -127,10 +127,10 @@ function SpecList({ spec, c, ts, summaries, units }) {
 }
 
 /**
- * The entry's claims as the Specification window reads them: every peak at the
- * default 1 nm at once, then from the analysis worker (useFineSpecification)
- * once it answers for this entry, since a search at a fine step takes too long
- * for the window's own thread.
+ * The entry's claims as the Specification window reads them: each at its
+ * default step at once, then at its own Step from the analysis worker
+ * (useFineSpecification) once it answers for this entry, since a fine Step can
+ * take too long for the window's own thread.
  */
 export function useEntrySpec(entry, catalogRevision) {
     const quick = useMemo(() => entrySpecResults(entry, { coarse: true }), [entry, catalogRevision]);

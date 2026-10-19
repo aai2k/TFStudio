@@ -39,13 +39,12 @@ export function computeIntegrals(design, opts = {}) {
 }
 
 // ── Qualifiers verdict ──────────────────────────────────────────────────────
-// `given` is the design's results worked out on the analysis worker, FWHM and
-// edge checks at a finer scan; without them the checks are evaluated here, a
-// peak or centre check at its own Step and a FWHM or edge check at the default
-// scan.
+// `given` is the design's results worked out on the analysis worker, each check
+// at its own Step; without them the checks are evaluated here at their default
+// steps, which a fine Step cannot slow down.
 export function computeQualifiers(design, given = null) {
   const quals = design.qualifiers || [];
-  const results = given || evaluateQualifiers(quals, design, designMaterialLookup(design));
+  const results = given || evaluateQualifiers(quals, design, designMaterialLookup(design), { coarse: true });
   const verdict = aggregateVerdict(results);
   return { qualifiers: quals, results, verdict };
 }

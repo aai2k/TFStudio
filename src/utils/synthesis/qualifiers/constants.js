@@ -1,7 +1,7 @@
 /**
  * Qualifier kinds, comparator kinds, the default equality tolerance per kind,
- * the step a peak or centre check searches at, and the side a thickness
- * budget or layer count adds up.
+ * the Step a check reads its band at, and the side a thickness budget or layer
+ * count adds up.
  */
 
 import { EXTREMUM_FLAG_MAX, takesStepFlag } from '../../physics/optimizer.js';
@@ -51,16 +51,28 @@ export function eqTolerance(qual) {
     return Number.isFinite(qual?.tol) && qual.tol > 0 ? qual.tol : 0;
 }
 
-// The Step a MIN_MAX or CENTRAL_LAMBDA check searches its band at, as the flag
-// of a merit row of `type`: 1 to EXTREMUM_FLAG_MAX, a step of 10^(1 − flag) nm,
-// and none the default 1 nm. Only a row that looks for a peak takes a flag
-// (takesStepFlag); a dip is searched on the design's fringe grid. The check
-// (evaluate.js) and the row Generate MF writes for it (mfOperands.js) both read
-// it here, so the two search the same grid.
-export function checkStepFlag(qual, type) {
+// A check's Step as operand fields: its `flag`, 1 to EXTREMUM_FLAG_MAX, or
+// none for the default.
+function ownFlag(qual) {
     const flag = qual?.flag;
-    const valid = Number.isInteger(flag) && flag >= 1 && flag <= EXTREMUM_FLAG_MAX;
-    return valid && takesStepFlag({ type, pol: qual.pol }) ? { flag } : {};
+    return Number.isInteger(flag) && flag >= 1 && flag <= EXTREMUM_FLAG_MAX ? { flag } : {};
+}
+
+// A check's Step as the flag of the merit row of `type` it reads, the row
+// Generate MF writes for it. On a row that looks for a peak it is the search
+// step, 10^(1 − flag) nm, none being 1 nm; on a band row (an average or an
+// integral) the coarsest step of its grid, none being the design's fringe
+// grid. A row that looks for a dip takes none (takesStepFlag). The check
+// (evaluate.js) and the row (mfOperands.js) both read it here, so the two read
+// the same grid.
+export function checkStepFlag(qual, type) {
+    return takesStepFlag({ type, pol: qual?.pol }) ? ownFlag(qual) : {};
+}
+
+// The Step a FWHM or edge check scans its band at and searches its peak at, as
+// operand fields; none is 1 nm. These checks have no merit row.
+export function scanStepFlag(qual) {
+    return ownFlag(qual);
 }
 
 // The kinds that add up the layers of one side of the part, or of both.
@@ -89,12 +101,26 @@ export function startingSide(kind, design, current) {
     return SIDE_KINDS.includes(kind) && current == null ? { side: coatedSide(design) } : {};
 }
 
-// Whether a check has a Step to set: a MIN_MAX or CENTRAL_LAMBDA check whose
-// row looks for a peak.
-export function checkTakesStep(qual) {
+// What a check's Step sets, or null for a check that has none: 'peak', the
+// step a Min / Max or Central λ check on a peak searches at; 'scan', the step a
+// FWHM or edge check scans at; 'band', the coarsest grid step of an average or
+// integral check. A point, dip, thickness, layer count or PPEF check has none.
+export function checkStepKind(qual) {
+    const kind = qual?.kind;
+    if (kind === 'FWHM' || kind === 'EDGE_LAMBDA') return 'scan';
+    if (kind === 'INTEGRAL' || kind === 'T_AVG' || kind === 'R_AVG' || kind === 'A_AVG') return 'band';
     const ch = qual?.channel || 'T';
-    const type = qual?.kind === 'MIN_MAX' ? minmaxType(ch, qual.direction)
-        : qual?.kind === 'CENTRAL_LAMBDA' ? argwaveType(qual.direction, ch, qual.pol)
+    const type = kind === 'MIN_MAX' ? minmaxType(ch, qual.direction)
+        : kind === 'CENTRAL_LAMBDA' ? argwaveType(qual.direction, ch, qual.pol)
         : null;
-    return !!type && takesStepFlag({ type, pol: qual.pol });
+    return type && takesStepFlag({ type, pol: qual.pol }) ? 'peak' : null;
+}
+
+// Whether a check's own Step reads its band otherwise than its default step
+// does: a peak, centre, FWHM or edge check finer than 1 nm, or an average or
+// integral check with any Step, its default being the design's fringe grid.
+export function hasOwnStep(qual) {
+    const kind = checkStepKind(qual);
+    const flag = ownFlag(qual).flag;
+    return !!kind && flag != null && (kind === 'band' || flag > 1);
 }

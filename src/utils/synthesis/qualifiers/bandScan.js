@@ -3,7 +3,8 @@
  * of the band's peak.
  *
  * Finds the band's peak (or notch) with the MXW / MNW row CENTRAL_LAMBDA
- * reads, so the two agree, then walks a uniform scan of the band out from it,
+ * reads, so the two agree at the same Step, then walks a uniform scan of the
+ * band out from it,
  * working out only the samples it passes, to bracket the two (or one)
  * crossings of the level, and finds each crossing by bisection inside its
  * bracket.
@@ -12,18 +13,22 @@
 import { makeOperand, evaluateOperands, extremumStepNm } from '../../physics/optimizer.js';
 import { singleType, channelFromKind, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
+import { scanStepFlag } from './constants.js';
 
 // Samples of the scan the crossings are bracketed on, unless the qualifier
 // sets its own bandPoints: a 1 nm step over a 300 nm band.
 const SCAN_POINTS = 301;
 
-// The scan's sample count. An evaluation that asks for a step flag
-// (evaluate.js) gets a sample at every step of that flag, and never fewer than
-// SCAN_POINTS; the qualifier's own bandPoints always wins.
+// The check's Step (scanStepFlag), or the default 1 nm when `options.coarse`
+// asks for a first answer quickly (evaluate.js).
+const scanFlag = (qual, options) => (options?.coarse ? {} : scanStepFlag(qual));
+
+// The scan's sample count: a sample at every step of the check's Step, and
+// never fewer than SCAN_POINTS; the qualifier's own bandPoints always wins.
 export function scanCount(qual, options) {
-    if (qual.bandPoints || !options?.flag) return Math.max(11, qual.bandPoints || SCAN_POINTS);
+    if (qual.bandPoints) return Math.max(11, qual.bandPoints);
     const span = Math.abs(qual.lambdaEnd - qual.lambdaStart);
-    return Math.max(SCAN_POINTS, Math.ceil(span / extremumStepNm({ flag: options.flag })) + 1);
+    return Math.max(SCAN_POINTS, Math.ceil(span / extremumStepNm(scanFlag(qual, options))) + 1);
 }
 
 // The crossing of `cross` between `inside`, a wavelength on the peak's side of
@@ -91,7 +96,7 @@ export function evalBandDerived(qual, design, ctx, options) {
     const peakLam = evaluateOperands([makeOperand({
         type: argwaveType(direction, ch, pol),
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
-        aoi: qual.aoi, pol, target: 0, weight: 1, ...(options?.flag ? { flag: options.flag } : {}),
+        aoi: qual.aoi, pol, target: 0, weight: 1, ...scanFlag(qual, options),
     })], ctx)[0];
     const peakV = at(peakLam);
     const level = Math.max(0.001, Math.min(0.999, qual.level ?? 0.5));

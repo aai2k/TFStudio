@@ -1,9 +1,10 @@
-import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary, qualifierValueText, checkTakesStep, budgetSide } from '../../../../utils/synthesis/qualifiers.js';
-import { OPERAND_POLS, extremumStepNm } from '../../../../utils/physics/optimizer.js';
+import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary, qualifierValueText } from '../../../../utils/synthesis/qualifiers.js';
+import { OPERAND_POLS } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { KIND_META, hasOpticalConditions } from './model.js';
 import { Field, numInp, numInpTarget, inpStyle, selStyle, btnStyle } from './fields.js';
+import { renderStep, renderSide } from './stepSideFields.js';
 
 const { createElement: h } = React;
 
@@ -89,15 +90,18 @@ function renderRowHeader({ q, r, c, ts, units, onF, updateQualifier, removeQuali
             onChange: e => onF('label', e.target.value),
             style: { ...inpStyle(c), flex: 1, width: 'auto' },
         }),
-        // Verdict badge — value + cmp + pass mark
+        // Verdict badge: value, comparison and pass mark. A provisional result, read
+        // at a default step until the check's own Step is worked out, is shown
+        // faded with ≈ before its value.
         h('div', {
+            title: r?.provisional ? ts.provisionalTip : undefined,
             style: {
                 fontSize: 11, color: passColor, fontWeight: 700,
                 padding: '3px 8px', borderRadius: 11,
                 background: `${passColor}1a`, border: `1px solid ${passColor}55`,
-                minWidth: 60, textAlign: 'center',
+                minWidth: 60, textAlign: 'center', opacity: r?.provisional ? 0.6 : 1,
             }
-        }, passBadge + '  ' + qualifierValueText(r, units)),
+        }, passBadge + '  ' + (r?.provisional ? '≈ ' : '') + qualifierValueText(r, units)),
         h('button', {
             onClick: () => removeQualifier(q.id),
             title: ts.remove || 'Remove',
@@ -177,25 +181,6 @@ function renderDirection(meta, q, onF, c, ts) {
     );
 }
 
-// Search step of a peak or centre check, the flags a merit row takes past the
-// default: Generate MF writes it on the check's row.
-const STEP_FLAGS = [2, 3, 4];
-
-function renderStep(q, onF, c, ts, units) {
-    if (!checkTakesStep(q)) return null;
-    const value = STEP_FLAGS.includes(q.flag) ? String(q.flag) : '';
-    const nm = flag => `${extremumStepNm({ flag })} ${units.nm}`;
-    return h(Field, { label: ts.step, c, tip: ts.stepTip },
-        h('select', {
-            value, onChange: e => onF('flag', e.target.value ? Number(e.target.value) : undefined),
-            style: { ...selStyle(c), width: 82 },
-        },
-            h('option', { value: '', style: { background: c.panel } }, nm(1)),
-            STEP_FLAGS.map(f => h('option', { key: f, value: String(f), style: { background: c.panel } }, nm(f))),
-        )
-    );
-}
-
 // FWHM / edge crossing level
 function renderLevel(meta, q, onF, c, ts) {
     return meta.level && h(Field, { label: ts.level || 'level', c, tip: ts.levelTip || 'Crossing level as a fraction of peak (e.g. 0.5 = half-max).' },
@@ -211,20 +196,6 @@ function renderEdgeSide(meta, q, onF, c, ts) {
         },
             h('option', { value: 'left',  style: { background: c.panel } }, ts.left  || 'left'),
             h('option', { value: 'right', style: { background: c.panel } }, ts.right || 'right'),
-        )
-    );
-}
-
-// Side a thickness budget or layer count adds up
-function renderSide(meta, q, onF, c, ts) {
-    return meta.side && h(Field, { label: ts.side, c, tip: ts.sideTip },
-        h('select', {
-            value: budgetSide(q), onChange: e => onF('side', e.target.value),
-            style: { ...selStyle(c), width: 92 },
-        },
-            h('option', { value: 'front', style: { background: c.panel } }, ts.sideFront),
-            h('option', { value: 'back',  style: { background: c.panel } }, ts.sideBack),
-            h('option', { value: 'both',  style: { background: c.panel } }, ts.sideBoth),
         )
     );
 }

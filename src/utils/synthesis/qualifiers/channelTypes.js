@@ -17,6 +17,11 @@ export function minmaxType(ch, direction) {
     return ch + (direction === 'min' ? 'MN' : 'MX');
 }
 
+// Weighted-integral operand type for a channel.
+export function integralType(ch) {
+    return ch === 'R' ? 'RIW' : ch === 'A' ? 'AIW' : 'TIW';
+}
+
 export function argwaveType(direction, ch, pol) {
     // Polarization is carried by the operand's `pol` field (not the type code),
     // so argwave types are just MXW{T|R|A} / MNW{T|R|A}. (The S/P-suffixed

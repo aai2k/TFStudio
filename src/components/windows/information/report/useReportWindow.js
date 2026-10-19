@@ -200,9 +200,10 @@ function useDocument({ chosen, blocks, external, lang, tr, branding, doc, paper,
 }
 
 // The page's inputs with the Specification results the Specification window
-// shows, at its fine step (useFineSpecification), for the designs the page was
-// last built for. They are worked out only while a block prints them and no
-// run is being followed; until they arrive the block uses the default step.
+// shows, each check at its own Step (useFineSpecification), for the designs the
+// page was last built for. They are worked out only while a block prints them
+// and no run is being followed; until they arrive the block uses the checks'
+// default steps.
 export function useWithSpecification(inputs, hold) {
     const { chosen, blocks, external: held } = inputs;
     const printed = blocks.some(block => block.on && block.type === 'qualifiers');

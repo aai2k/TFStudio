@@ -20,15 +20,18 @@
  *   - aoi, pol
  *   - target, tol, lo, hi
  *   - level — FWHM crossing fraction (0..1; default 0.5)
- *   - flag: MIN_MAX / CENTRAL_LAMBDA search step, as a merit row's flag
- *     (checkStepFlag); none is 1 nm
+ *   - flag: the Step, as a merit row's flag: the search step of a peak,
+ *     centre, FWHM or edge check, none being 1 nm, or the coarsest grid step
+ *     of an average or integral check, none being the design's fringe grid
+ *     (checkStepFlag, checkStepKind)
  *   - side: THICKNESS_BUDGET / LAYER_COUNT, 'front' | 'back' | 'both'
  *     (budgetSide); none is both
  *   - source, detector — for INTEGRAL kind only
  *
  * The implementation is split into focused modules under ./qualifiers/:
  *   constants      → QUALIFIER_KINDS, QUALIFIER_CMPS, defaultTolForKind,
- *                    checkStepFlag, budgetSide, coatedSide, startingSide
+ *                    checkStepFlag, scanStepFlag, checkStepKind, hasOwnStep,
+ *                    budgetSide, coatedSide, startingSide
  *   construction   → makeQualifier
  *   channelTypes   → channel / MF-operand-type helpers
  *   format         → value formatting + threshold comparison

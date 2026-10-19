@@ -8,6 +8,11 @@
  *   2. The report hands the fine results to its numbers through `external`,
  *      which keeps its identity when only text, branding or paper change, so
  *      the numbers are not gathered again for those.
+ *   3. The Specification window shows a check with a Step of its own at its
+ *      default step at once, marked provisional, and asks the worker for it at
+ *      its own Step, whose answer replaces it unmarked. Under a cone while a
+ *      run is followed the worker alone answers, at the default steps, and its
+ *      answer is marked provisional.
  *
  * Run: node tests/specification_worker_requests.mjs
  */
@@ -50,7 +55,7 @@ const evaluations = () => made.filter(w => w.sent.some(m => m.type === 'evaluate
     assert.equal(fine, null, 'and has nothing to show until the worker answers');
     const job = evaluations()[0].sent.find(m => m.type === 'evaluate');
     assert.equal(job.operation, 'specification');
-    assert.equal(job.payload.flag, 3, 'at the Specification step');
+    assert.ok(!job.payload.coarse && !('flag' in job.payload), 'at the checks\' own Steps');
 
     answer(evaluations()[0], results);
     fine = runtime.run(() => useFineSpecification([specified], true));
@@ -71,7 +76,7 @@ const evaluations = () => made.filter(w => w.sent.some(m => m.type === 'evaluate
     const first = { chosen: [specified], blocks, external, doc: { title: 'one' } };
     const a = runtime.run(() => useWithSpecification(first, false));
     assert.equal(evaluations().length, 1, 'the report asks for the designs it prints the Specification of');
-    assert.equal(a.external.specification(specified), null, 'and prints the default step until the answer comes');
+    assert.equal(a.external.specification(specified), null, 'and prints the default steps until the answer comes');
 
     const retitled = { ...first, doc: { title: 'two' } };
     const b = runtime.run(() => useWithSpecification(retitled, false));
@@ -91,6 +96,41 @@ const evaluations = () => made.filter(w => w.sent.some(m => m.type === 'evaluate
     runtime.run(() => useWithSpecification(first, true));
     assert.equal(evaluations().length, 0, 'nothing is asked for with the block off or while a run is followed');
     runtime.unmount();
+}
+
+// ── 3. The Specification window's results ────────────────────────────────────
+{
+    const { DesignContext } = await import('../src/state/DesignContext.js');
+    const { useSpecificationResults } = await import('../src/components/windows/design/specification/useSpecificationResults.js');
+    const { evaluateQualifiers } = await import('../src/utils/synthesis/qualifiers.js');
+    const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
+    const stepped = [makeQualifier({ kind: 'MIN_MAX', channel: 'T', direction: 'max', cmp: 'ge', target: 0.9, flag: 3, ...COUPLED_BAND })];
+
+    made.length = 0;
+    DesignContext.value = { design: coupled, isOptimizing: false, liveUpdate: true };
+    let shown = runtime.run(() => useSpecificationResults(stepped));
+    const firstPass = evaluateQualifiers(stepped, coupled, designMaterialLookup(coupled), { coarse: true });
+    assert.equal(shown[0].value, firstPass[0].value, 'the first pass reads the check at its default step');
+    assert.equal(shown[0].provisional, true, 'and marks it provisional');
+    const job = evaluations()[0]?.sent.find(m => m.type === 'evaluate');
+    assert.ok(job && !job.payload.coarse, 'the worker is asked for the check at its own Step');
+    const own = [{ value: 0.98, pass: true }];
+    answer(evaluations()[0], [own]);
+    shown = runtime.run(() => useSpecificationResults(stepped));
+    assert.equal(shown, own, 'whose answer replaces the first one, unmarked');
+    runtime.unmount();
+
+    made.length = 0;
+    const coned = { ...coupled, cone: { enabled: true, halfAngleDeg: 7.5, distribution: 'uniform', gridPoints: 15 } };
+    DesignContext.value = { design: coned, isOptimizing: true, liveUpdate: true };
+    runtime.run(() => useSpecificationResults(stepped));
+    const coneJob = evaluations()[0]?.sent.find(m => m.type === 'evaluate');
+    assert.equal(coneJob?.payload.coarse, true, 'under a cone during a run the worker reads the default steps');
+    answer(evaluations()[0], [[{ value: 0.75, pass: false }]]);
+    shown = runtime.run(() => useSpecificationResults(stepped));
+    assert.equal(shown[0].provisional, true, 'and its answer is marked provisional');
+    runtime.unmount();
+    DesignContext.value = null;
 }
 
 console.log('PASS: specification_worker_requests');

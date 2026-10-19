@@ -53,7 +53,7 @@ const EVALUATIONS = {
     integralSpectrum: ({ design, params, evalMode }) => computeSpectrumForMode(design, params, evalMode),
     colorReport: ({ design, options }) => colorReport(design, options),
     statusMonitors: ({ design, monitors }) => computeMonitors(monitors || [], design, designMaterialLookup(design)),
-    specification: ({ designs, flag, coarse }) => (designs || []).map(d => specificationResults(d, { flag, coarse })),
+    specification: ({ designs, coarse }) => (designs || []).map(d => specificationResults(d, { coarse })),
     meritDisplay: ({ design, operands }) => meritDisplay(design, operands || []),
     meritPair: ({ design, candidateDesign, operands }) => ({
         before: meritScore(design, operands || []),

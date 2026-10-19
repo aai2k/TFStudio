@@ -2,10 +2,14 @@
  * The Step and side fields of a Specification row.
  *
  * Checks:
- *   1. A Min / Max or Central λ check on a peak shows a Step select: the
- *      default 1 nm, then 0.1, 0.01 and 0.001 nm. A check on a dip, and every
- *      other kind, shows none.
- *   2. Picking a step sets the check's flag, and the default clears it.
+ *   1. A Min / Max or Central λ check on a peak, and a FWHM or edge check,
+ *      shows a Step select: the default 1 nm, then 0.1, 0.01 and 0.001 nm. An
+ *      average or integral check shows auto (the design's fringe grid), then
+ *      1, 0.1, 0.01 and 0.001 nm. A check on a dip, at one wavelength, on a
+ *      thickness, a layer count or a curve shows none. Each says what its Step
+ *      does.
+ *   2. Picking a step sets the check's flag, and the default clears it. A
+ *      provisional result shows faded, with ≈ before its value, and says why.
  *   3. A thickness budget or layer count shows a side select of front, back
  *      and both, both for a check saved without a side; picking one sets it.
  *      No other kind shows one.
@@ -67,8 +71,22 @@ function rowOf(fields, label = ts.step) {
     ok('a Central λ check on a peak shows one', !!rowOf({ kind: 'CENTRAL_LAMBDA', channel: 'T', direction: 'max' }).select);
     ok('so does a check on the minimum of R', !!rowOf({ kind: 'MIN_MAX', channel: 'R', direction: 'min' }).select);
     ok('a check on a dip shows none', !rowOf({ kind: 'MIN_MAX', channel: 'T', direction: 'min' }).field);
-    ok('nor does an average, a FWHM or a thickness budget',
-        ['T_AVG', 'FWHM', 'THICKNESS_BUDGET'].every(kind => !rowOf({ kind }).field));
+    for (const kind of ['FWHM', 'EDGE_LAMBDA']) {
+        const scan = rowOf({ kind });
+        ok(`a ${kind} check shows one, from 1 nm`, elements(scan.select?.children).filter(node => node.type === 'option').map(o => o.props.value).join() === ',2,3,4');
+        ok(`and says what its Step does`, scan.field.props.tip === ts.stepTips.scan);
+    }
+    for (const kind of ['T_AVG', 'R_AVG', 'A_AVG', 'INTEGRAL']) {
+        const band = rowOf({ kind });
+        const bandOptions = elements(band.select?.children).filter(node => node.type === 'option');
+        ok(`a ${kind} check shows auto, then 1 nm and finer`,
+            bandOptions.map(o => o.props.value).join() === ',1,2,3,4' && textOf(bandOptions[0]) === ts.stepAuto && textOf(bandOptions[1]) === `1 ${t.units.nm}`,
+            bandOptions.map(o => `${o.props.value}:${textOf(o)}`).join(' '));
+        ok(`${kind}: and says what its Step does`, band.field.props.tip === ts.stepTips.band);
+    }
+    ok('a peak check says what its Step does', peak.field.props.tip === ts.stepTips.peak);
+    ok('none at one wavelength, on a thickness, a layer count or a curve',
+        ['T_AT', 'THICKNESS_BUDGET', 'LAYER_COUNT', 'PPEF'].every(kind => !rowOf({ kind }).field));
 }
 
 // ── 2. Picking a step ────────────────────────────────────────────────────────
@@ -79,6 +97,13 @@ function rowOf(fields, label = ts.step) {
     row.select.props.onChange({ target: { value: '' } });
     ok('a step sets the flag, and the default clears it',
         row.patches[0].flag === 4 && 'flag' in row.patches[1] && row.patches[1].flag === undefined, JSON.stringify(row.patches));
+    const badgeOf = r => elements(QRow({ q: makeQualifier({ kind: 'MIN_MAX', flag: 3 }), r, c, ts, units: t.units, updateQualifier: () => {}, removeQualifier: () => {} }))
+        .find(node => node.type === 'div' && typeof node.children?.[0] === 'string' && node.children[0].includes('75'));
+    const provisional = badgeOf({ value: 0.75, pass: false, unit: '%', provisional: true });
+    ok('a provisional result shows ≈ and says why', provisional?.props.title === ts.provisionalTip && provisional.children[0].includes('≈')
+        && provisional.props.style.opacity < 1, JSON.stringify(provisional?.children));
+    const settled = badgeOf({ value: 0.75, pass: false, unit: '%' });
+    ok('a settled one does not', settled && !settled.props.title && !settled.children[0].includes('≈'));
 }
 
 // ── 3. The side of a thickness budget or layer count ─────────────────────────
@@ -94,6 +119,8 @@ function rowOf(fields, label = ts.step) {
     count.select.props.onChange({ target: { value: 'front' } });
     ok('picking one sets it', count.patches[0]?.side === 'front', JSON.stringify(count.patches));
     ok('no other kind shows a side', ['T_AVG', 'MIN_MAX', 'FWHM'].every(kind => !rowOf({ kind }, ts.side).field));
+    const avg = rowOf({ kind: 'T_AVG', flag: 1 });
+    ok('an average with a 1 nm Step shows it', avg.select.props.value === '1', avg.select.props.value);
 }
 
 // ── 4. New rows and copies ───────────────────────────────────────────────────

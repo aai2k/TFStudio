@@ -8,6 +8,21 @@ import { useRefreshRevision } from '../../../../state/refreshAll.js';
 
 const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
+// Time the run may hold the interface between yields, ms.
+const FRAME_MS = 16;
+
+// A yield the run awaits after every trial, which hands the interface a turn
+// once FRAME_MS have passed, so a slow trial (a Specification check at a fine
+// Step) holds it for at most one trial.
+function frameYield() {
+    let last = performance.now();
+    return async () => {
+        if (performance.now() - last < FRAME_MS) return;
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        last = performance.now();
+    };
+}
+
 /**
  * One Monte-Carlo run with the window's settings. The corridor width goes to
  * the run too, so the run records the k its corridor was drawn with.
@@ -39,8 +54,8 @@ export async function executeRun(options) {
             nTrials,
             corridorSigma,
             seed: runSeed,
-            yieldEvery: 4,
-            onYield: () => new Promise((resolve) => setTimeout(resolve, 0)),
+            yieldEvery: 1,
+            onYield: frameYield(),
             shouldCancel: () => cancelledRef.current,
             rmsAbsNm,
             rmsRelPct,
