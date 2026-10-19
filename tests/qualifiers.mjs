@@ -24,7 +24,7 @@ import {
 } from '../src/utils/synthesis/qualifiers.js';
 import {
     makeOperand, evaluateOperands, buildEvalContext,
-    operandSampleLambdas,
+    operandSampleLambdas, withFringeSampleCounts,
 } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
@@ -58,7 +58,8 @@ console.log('— T_AVG qualifier matches TAV operand —');
         type: 'TAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0,
     });
     const ctx = buildEvalContext(design, resolveMat);
-    const opVal = evaluateOperands([op], ctx)[0];
+    // The TAV row as the merit table samples it, for the design's fringes.
+    const opVal = evaluateOperands(withFringeSampleCounts([op], ctx), ctx)[0];
 
     ok(near(r.value, opVal, 1e-14), `T_AVG matches TAV (|Δ|=${Math.abs(r.value - opVal).toExponential(2)})`);
     ok(r.unit === '%', 'T_AVG unit is %');

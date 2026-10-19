@@ -11,7 +11,7 @@
  */
 import { designMaterialLookup } from '../materials/designMaterials.js';
 import { evaluateSpectrum } from '../physics/thinFilmMath.js';
-import { buildEvalContext, evaluateOperands, makeOperand } from '../physics/optimizer.js';
+import { buildEvalContext, evaluateOperands, makeOperand, withFringeSampleCounts } from '../physics/optimizer.js';
 import { evaluateQualifier, makeQualifier } from '../synthesis/qualifiers.js';
 import { entryDesign, totalThickness } from './entryModel.js';
 
@@ -69,7 +69,7 @@ function bandStatRows(entry, ctx) {
             }
         }
     }
-    const values = evaluateOperands(operands, ctx);
+    const values = evaluateOperands(withFringeSampleCounts(operands, ctx), ctx);
     rows.forEach((row, r) => { row.values = entry.bands.map((_, b) => values[r * entry.bands.length + b]); });
     return rows;
 }

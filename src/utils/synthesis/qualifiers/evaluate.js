@@ -14,7 +14,7 @@
  * { value, pass, deviation, unit, threshold } result (format.js writes its text).
  */
 
-import { makeOperand, evaluateOperands, buildEvalContext } from '../../physics/optimizer.js';
+import { makeOperand, evaluateOperands, buildEvalContext, withFringeSampleCounts } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
 import { evalBandDerived } from './bandScan.js';
@@ -34,6 +34,13 @@ export const SPECIFICATION_FLAG = 3;
 
 // The flag `options` asks for, as operand fields; none keeps the default.
 const flagOf = options => (options?.flag ? { flag: options.flag } : {});
+
+// A check's row evaluated as the Merit Function Editor and a run evaluate it:
+// band rows sampled for the design's fringes (evalCore/fringeSampling.js), so
+// a check and the row Generate MF writes for it read one number.
+export function rowValue(op, ctx) {
+    return evaluateOperands(withFringeSampleCounts([op], ctx), ctx)[0];
+}
 
 // ── Static (geometry-only) qualifiers ───────────────────────────────────────
 
@@ -59,8 +66,7 @@ function evalSingleAt(qual, design, ctx) {
         lambdaStart: qual.lambda, lambdaEnd: qual.lambda,
         aoi: qual.aoi, pol, target: 0, weight: 1,
     });
-    const v = evaluateOperands([op], ctx)[0];
-    return finishCompare(qual, v, '%');
+    return finishCompare(qual, rowValue(op, ctx), '%');
 }
 
 function evalAvg(qual, design, ctx) {
@@ -71,8 +77,7 @@ function evalAvg(qual, design, ctx) {
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
         aoi: qual.aoi, pol, target: 0, weight: 1,
     });
-    const v = evaluateOperands([op], ctx)[0];
-    return finishCompare(qual, v, '%');
+    return finishCompare(qual, rowValue(op, ctx), '%');
 }
 
 // MIN_MAX: the true min or max of T, R or A over a band, the "T(λ) ≥ X across
@@ -89,8 +94,7 @@ function evalMinMax(qual, design, ctx, options) {
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
         aoi: qual.aoi, pol, target: 0, weight: 1, ...flagOf(options),
     });
-    const v = evaluateOperands([op], ctx)[0];
-    return finishCompare(qual, v, '%');
+    return finishCompare(qual, rowValue(op, ctx), '%');
 }
 
 function evalIntegral(qual, design, ctx) {
@@ -104,8 +108,7 @@ function evalIntegral(qual, design, ctx) {
         source: qual.source, detector: qual.detector,
         bandPoints: qual.bandPoints,
     });
-    const v = evaluateOperands([op], ctx)[0];
-    return finishCompare(qual, v, '%');
+    return finishCompare(qual, rowValue(op, ctx), '%');
 }
 
 // CENTRAL_LAMBDA: argwave on the requested channel, through the optimizer's
@@ -119,8 +122,7 @@ function evalCentralLambda(qual, design, ctx, options) {
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
         aoi: qual.aoi, pol, target: qual.target, weight: 1, ...flagOf(options),
     });
-    const lam = evaluateOperands([op], ctx)[0];
-    return finishCompare(qual, lam, 'nm');
+    return finishCompare(qual, rowValue(op, ctx), 'nm');
 }
 
 // PPEF: peak-to-peak error against one of the design's measured T, R or A

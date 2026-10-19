@@ -48,9 +48,10 @@ export function makeQualifier(overrides = {}) {
         // hyperparameter that defaults at evaluation time (sampling.js,
         // bandScan.js). This way a default change later upgrades existing
         // qualifiers on disk automatically, and Specification stays consistent
-        // with the equivalent MF operand by construction (both use the same
-        // runtime default). User can still override per-qualifier by setting
-        // `bandPoints` explicitly (e.g. via a future "Advanced" panel).
+        // with the equivalent MF operand by construction (evaluate.js samples
+        // the check's row as the merit table does). User can still override
+        // per-qualifier by setting `bandPoints` explicitly (e.g. via a future
+        // "Advanced" panel).
         // User-visible label (auto-derived from kind if blank)
         label:       '',
         ...overrides
