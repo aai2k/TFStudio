@@ -4,6 +4,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import process from 'node:process';
 import { createRequire } from 'node:module';
 import { initTmmWasmMainThread, tmmWasmActive } from '../tmmcore.js';
 import { loadCatalogsFromDisk } from '../utils/materials/catalogStartup.js';
