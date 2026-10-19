@@ -17,23 +17,28 @@
 import { makeOperand, evaluateOperands, buildEvalContext, withFringeSampleCounts } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
 import { finishCompare } from './format.js';
+import { checkStepFlag } from './constants.js';
 import { evalBandDerived } from './bandScan.js';
 import { ppefRows } from './ppefRows.js';
 
 /**
- * The step flag the Specification window, the report and the Coating Library's
- * claims search a band at, and scan a FWHM or edge check's band at: 0.01 nm
+ * The step flag the Specification window, the report and the Coating Library
+ * scan a FWHM or edge check's band at, peak included: 0.01 nm
  * (operandModel.js extremumStepNm), so only peaks closer than about 0.02 nm
- * can read as one. The windows show each check at the default 1 nm step at
- * once and at this one when it is ready; the Specification window follows a
- * run at 1 nm. Callers that evaluate the
+ * can read as one. These checks have no merit row. A peak or centre check
+ * searches at its own Step instead (checkStepFlag), as the row Generate MF
+ * writes for it does. The windows show each check at once from a first pass at
+ * the default 1 nm and replace it when the analysis worker answers; the
+ * Specification window follows a run at 1 nm. Callers that evaluate the
  * Specification many times over, such as the Monte Carlo yield and the
- * tolerance windows' badge, keep the default.
+ * tolerance windows' badge, scan at the default.
  */
 export const SPECIFICATION_FLAG = 3;
 
-// The flag `options` asks for, as operand fields; none keeps the default.
-const flagOf = options => (options?.flag ? { flag: options.flag } : {});
+// The step a peak or centre check searches at: its own Step, which Generate MF
+// writes on its row, or the default 1 nm when `options.coarse` asks for a
+// first answer quickly.
+const stepOf = (qual, type, options) => (options?.coarse ? {} : checkStepFlag(qual, type));
 
 // A check's row evaluated as the Merit Function Editor and a run evaluate it:
 // band rows sampled for the design's fringes (evalCore/fringeSampling.js), so
@@ -83,16 +88,16 @@ function evalAvg(qual, design, ctx) {
 // MIN_MAX: the true min or max of T, R or A over a band, the "T(λ) ≥ X across
 // the band" or "R(λ) ≤ Y across the band" spec on optical drawings. Evaluated
 // through the TMN/TMX/RMN/RMX/AMN/AMX operand Generate MF writes, which returns
-// the true band extremum (bandExtremum.js), so the check and that row read the
-// same value whenever they search at the same step: the row at its Flag, the
-// check at `options.flag`.
+// the true band extremum (bandExtremum.js) searched at the check's Step, which
+// Generate MF writes on that row, so the two read the same value.
 function evalMinMax(qual, design, ctx, options) {
     const ch  = channelFromKind(qual.kind) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
+    const type = minmaxType(ch, qual.direction);
     const op = makeOperand({
-        type: minmaxType(ch, qual.direction),
+        type,
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
-        aoi: qual.aoi, pol, target: 0, weight: 1, ...flagOf(options),
+        aoi: qual.aoi, pol, target: 0, weight: 1, ...stepOf(qual, type, options),
     });
     return finishCompare(qual, rowValue(op, ctx), '%');
 }
@@ -112,15 +117,16 @@ function evalIntegral(qual, design, ctx) {
 }
 
 // CENTRAL_LAMBDA: argwave on the requested channel, through the optimizer's
-// argwave operand, so the check reads as the MXWT/MNW* row Generate MF writes
-// whenever the two search at the same step.
+// argwave operand at the check's Step, so the check reads as the MXWT/MNW* row
+// Generate MF writes.
 function evalCentralLambda(qual, design, ctx, options) {
     const ch  = channelFromKind(qual.kind) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
+    const type = argwaveType(qual.direction, ch, pol);
     const op = makeOperand({
-        type: argwaveType(qual.direction, ch, pol),
+        type,
         lambdaStart: qual.lambdaStart, lambdaEnd: qual.lambdaEnd,
-        aoi: qual.aoi, pol, target: qual.target, weight: 1, ...flagOf(options),
+        aoi: qual.aoi, pol, target: qual.target, weight: 1, ...stepOf(qual, type, options),
     });
     return finishCompare(qual, rowValue(op, ctx), 'nm');
 }
@@ -155,8 +161,10 @@ const KIND_EVALUATORS = {
 // where value is the raw computed number, unit is 'nm', '%', 'dB' or ''
 // depending on kind, and threshold is what the value was held to. One that
 // could not be computed carries a summaryKey instead of a threshold.
-// `options.flag` sets the step a peak is searched for at, as a merit row's
-// flag does; without one the default 1 nm.
+// `options.flag` sets the step a FWHM or edge check scans its band at, as a
+// merit row's flag sets its search step; without one the default scan.
+// `options.coarse` searches a peak or centre check at the default 1 nm instead
+// of its own Step, for a first answer on the window's own thread.
 export function evaluateQualifier(qual, design, resolveMat, options = {}) {
     const ctx = buildEvalContext(design, resolveMat);
     const evaluator = KIND_EVALUATORS[qual.kind];

@@ -4521,6 +4521,8 @@ export default {
     edge: '边缘',
     left: '左',
     right: '右',
+    step: '步长',
+    stepTip: '在波段内寻峰的步长。相距不到约两个步长的峰可能被读作一个峰。生成评价函数时会把同一步长写入评价函数行；在宽波段上使用细步长会使优化变慢。',
     integralPreset: '预设',
     pickPreset: '选择已保存的积分预设',
     customPreset: '（自定义）',

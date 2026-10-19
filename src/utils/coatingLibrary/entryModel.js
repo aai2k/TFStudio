@@ -359,10 +359,10 @@ export function entryQualifiers(entry) {
 }
 
 /**
- * Evaluate the entry's specification. `options.flag` sets the step a claim
- * that looks for a peak searches its band at, as the Specification window's
- * does (qualifiers/evaluate.js); without one the default 1 nm. `verdict`
- * aggregates the results.
+ * Evaluate the entry's specification, with `options` as the Specification
+ * window passes them (qualifiers/evaluate.js): `flag` sets the step a FWHM or
+ * edge claim scans its band at, and `coarse` searches a peak claim at the
+ * default 1 nm instead of its own Step. `verdict` aggregates the results.
  */
 export function entrySpecResults(entry, options = {}) {
     const design = entryDesign(entry);

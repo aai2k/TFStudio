@@ -127,13 +127,13 @@ function SpecList({ spec, c, ts, summaries, units }) {
 }
 
 /**
- * The entry's claims as the Specification window reads them: at the default
- * step at once, then at the window's fine step from the analysis worker
- * (useFineSpecification) once it answers for this entry, since a search at the
- * fine step takes too long for the window's own thread.
+ * The entry's claims as the Specification window reads them: every peak at the
+ * default 1 nm at once, then from the analysis worker (useFineSpecification)
+ * once it answers for this entry, since a search at a fine step takes too long
+ * for the window's own thread.
  */
 export function useEntrySpec(entry, catalogRevision) {
-    const quick = useMemo(() => entrySpecResults(entry), [entry, catalogRevision]);
+    const quick = useMemo(() => entrySpecResults(entry, { coarse: true }), [entry, catalogRevision]);
     const designs = useMemo(() => [{ ...entryDesign(entry), qualifiers: quick.qualifiers }], [entry, quick]);
     const fine = useFineSpecification(designs, !quick.error)?.[0];
     return useMemo(() => (fine ? { ...quick, results: fine, verdict: aggregateVerdict(fine) } : quick), [quick, fine]);

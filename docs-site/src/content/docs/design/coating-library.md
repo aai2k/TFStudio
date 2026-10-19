@@ -52,8 +52,8 @@ Select a coating in the list to see:
   polarization it is stated at, its computed value and a pass or fail mark.
   The claims are evaluated with the same qualifiers the
   [Specification](/design/specification/) window uses, at the same steps: the
-  value searched at 1 nm shows at once and the one searched at 0.01 nm
-  replaces it when it is ready.
+  value searched at 1 nm shows at once and the finer one replaces it when
+  it is ready.
 - **Source**: where the design came from.
 
 ## Finding a coating

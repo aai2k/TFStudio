@@ -15,11 +15,11 @@ function meritScore(design, operands) {
     return { mf, omf };
 }
 
-// A design's Specification results at the step `flag` sets, or null when a
-// material it uses resolves nowhere.
-function specificationResults(design, flag) {
+// A design's Specification results as `options` asks (qualifiers/evaluate.js),
+// or null when a material it uses resolves nowhere.
+function specificationResults(design, options) {
     try {
-        return evaluateQualifiers(design.qualifiers || [], design, designMaterialLookup(design), { flag });
+        return evaluateQualifiers(design.qualifiers || [], design, designMaterialLookup(design), options);
     } catch {
         return null;
     }
@@ -53,7 +53,7 @@ const EVALUATIONS = {
     integralSpectrum: ({ design, params, evalMode }) => computeSpectrumForMode(design, params, evalMode),
     colorReport: ({ design, options }) => colorReport(design, options),
     statusMonitors: ({ design, monitors }) => computeMonitors(monitors || [], design, designMaterialLookup(design)),
-    specification: ({ designs, flag }) => (designs || []).map(d => specificationResults(d, flag)),
+    specification: ({ designs, flag, coarse }) => (designs || []).map(d => specificationResults(d, { flag, coarse })),
     meritDisplay: ({ design, operands }) => meritDisplay(design, operands || []),
     meritPair: ({ design, candidateDesign, operands }) => ({
         before: meritScore(design, operands || []),

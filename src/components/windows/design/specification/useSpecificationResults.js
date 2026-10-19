@@ -8,8 +8,14 @@ const { useMemo, useRef } = React;
 
 const pending = qualifiers => qualifiers.map(() => ({ value: null, pass: null }));
 
+// The analysis worker's pass: every check at its own Step, and FWHM and edge
+// checks at SPECIFICATION_FLAG. The first pass, on the window's own thread or
+// while a run is followed, searches every peak at the default 1 nm.
+const FINE = Object.freeze({ flag: SPECIFICATION_FLAG });
+const COARSE = Object.freeze({ coarse: true });
+
 function evaluateHere(qualifiers, design) {
-    try { return evaluateQualifiers(qualifiers, design, designMaterialLookup(design)); }
+    try { return evaluateQualifiers(qualifiers, design, designMaterialLookup(design), COARSE); }
     catch { return pending(qualifiers); }
 }
 
@@ -23,15 +29,17 @@ function useSameDesigns(designs) {
 }
 
 /**
- * Each design's Specification results at SPECIFICATION_FLAG's step, worked out
- * on the analysis worker, since a peak search at that step takes a tenth of a
- * second or more per check. An array in the order of `designs`, with null for a
- * design that could not be evaluated; null itself while the work is under way,
- * or when `active` is off and no results for these designs are held.
+ * Each design's Specification results as `options` asks (evaluate.js), by
+ * default every check at its own Step and FWHM and edge checks at
+ * SPECIFICATION_FLAG, worked out on the analysis worker, since a search at a
+ * fine step takes a tenth of a second or more per check. An array in the order
+ * of `designs`, with null for a design that could not be evaluated; null itself
+ * while the work is under way, or when `active` is off and no results for these
+ * designs are held.
  */
-export function useFineSpecification(list, active, flag = SPECIFICATION_FLAG) {
+export function useFineSpecification(list, active, options = FINE) {
     const designs = useSameDesigns(list);
-    const payload = useMemo(() => ({ designs, flag }), [designs, flag]);
+    const payload = useMemo(() => ({ designs, ...options }), [designs, options]);
     const wanted = active && designs.some(d => d.qualifiers?.length > 0);
     const fine = useAnalysisEvaluation(wanted, 'specification', payload);
     return fine.payload === payload ? fine.data : null;
@@ -40,10 +48,10 @@ export function useFineSpecification(list, active, flag = SPECIFICATION_FLAG) {
 /**
  * The checks' results on the design being shown.
  *
- * Each check is worked out at once at the default 1 nm step, so the window
- * answers an edit straight away, and again at the fine step on the analysis
- * worker (useFineSpecification), whose results replace the first ones when
- * they are for the design and checks still on screen.
+ * Each check is worked out at once with every peak searched at the default
+ * 1 nm, so the window answers an edit straight away, and again on the analysis
+ * worker (useFineSpecification) at the checks' own steps, whose results replace
+ * the first ones when they are for the design and checks still on screen.
  *
  * While a run is being followed (useLiveDesign) the window shows the 1 nm
  * results, four times a second, and asks the worker for nothing: a new design
@@ -61,6 +69,6 @@ export function useSpecificationResults(qualifiers) {
     const cone = coneIsActive(makeConeSpec(design?.cone || {}));
     const quick = useMemo(() => (cone ? pending(qualifiers) : evaluateHere(qualifiers, design)), [qualifiers, design, cone]);
     const designs = useMemo(() => [{ ...design, qualifiers }], [design, qualifiers]);
-    const fine = useFineSpecification(designs, !preview || cone, cone && preview ? undefined : SPECIFICATION_FLAG);
+    const fine = useFineSpecification(designs, !preview || cone, cone && preview ? COARSE : FINE);
     return fine?.[0] || quick;
 }

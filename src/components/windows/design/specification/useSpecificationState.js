@@ -38,6 +38,7 @@ function insertQualifierInto({ qualifiers, writeQualifiers, setSelectedId, conta
             aoi: source.aoi, pol: source.pol,
             target: source.target,
             edgeSide: source.edgeSide,
+            flag: source.flag,
             integralId: source.integralId,
             tolerance: source.tolerance,
         }

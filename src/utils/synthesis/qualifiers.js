@@ -20,10 +20,13 @@
  *   - aoi, pol
  *   - target, tol, lo, hi
  *   - level — FWHM crossing fraction (0..1; default 0.5)
+ *   - flag — MIN_MAX / CENTRAL_LAMBDA search step, as a merit row's flag
+ *     (checkStepFlag); none is 1 nm
  *   - source, detector — for INTEGRAL kind only
  *
  * The implementation is split into focused modules under ./qualifiers/:
- *   constants      → QUALIFIER_KINDS, QUALIFIER_CMPS, defaultTolForKind
+ *   constants      → QUALIFIER_KINDS, QUALIFIER_CMPS, defaultTolForKind,
+ *                    checkStepFlag
  *   construction   → makeQualifier
  *   channelTypes   → channel / MF-operand-type helpers
  *   format         → value formatting + threshold comparison

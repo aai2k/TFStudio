@@ -1,5 +1,5 @@
-import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary, qualifierValueText } from '../../../../utils/synthesis/qualifiers.js';
-import { OPERAND_POLS } from '../../../../utils/physics/optimizer.js';
+import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary, qualifierValueText, checkTakesStep } from '../../../../utils/synthesis/qualifiers.js';
+import { OPERAND_POLS, extremumStepNm } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { KIND_META, hasOpticalConditions } from './model.js';
@@ -44,6 +44,7 @@ export function QRow({ q, r, c, ts, units, updateQualifier, removeQualifier, int
             renderAoi(meta, q, onF, c, ts),
             renderPol(meta, q, onF, c, ts),
             renderDirection(meta, q, onF, c, ts),
+            renderStep(q, onF, c, ts, units),
             renderLevel(meta, q, onF, c, ts),
             renderEdgeSide(meta, q, onF, c, ts),
             meta.integral && renderIntegral(q, onPatch, c, ts, { integralPresets, units }),
@@ -171,6 +172,25 @@ function renderDirection(meta, q, onF, c, ts) {
         },
             h('option', { value: 'max', style: { background: c.panel } }, ts.dirMax || 'max'),
             h('option', { value: 'min', style: { background: c.panel } }, ts.dirMin || 'min'),
+        )
+    );
+}
+
+// Search step of a peak or centre check, the flags a merit row takes past the
+// default: Generate MF writes it on the check's row.
+const STEP_FLAGS = [2, 3, 4];
+
+function renderStep(q, onF, c, ts, units) {
+    if (!checkTakesStep(q)) return null;
+    const value = STEP_FLAGS.includes(q.flag) ? String(q.flag) : '';
+    const nm = flag => `${extremumStepNm({ flag })} ${units.nm}`;
+    return h(Field, { label: ts.step, c, tip: ts.stepTip },
+        h('select', {
+            value, onChange: e => onF('flag', e.target.value ? Number(e.target.value) : undefined),
+            style: { ...selStyle(c), width: 82 },
+        },
+            h('option', { value: '', style: { background: c.panel } }, nm(1)),
+            STEP_FLAGS.map(f => h('option', { key: f, value: String(f), style: { background: c.panel } }, nm(f))),
         )
     );
 }

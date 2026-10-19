@@ -4580,6 +4580,8 @@ export default {
     edge: 'fronte',
     left: 'sinistro',
     right: 'destro',
+    step: 'passo',
+    stepTip: 'Passo con cui si cerca il picco nella banda. Picchi più vicini di circa due passi possono essere letti come uno solo. Genera MF scrive lo stesso passo sulla riga di merito; un passo fine su una banda larga rallenta le ottimizzazioni.',
     integralPreset: 'preimpostazione',
     pickPreset: 'Scegli una preimpostazione di integrale salvata',
     customPreset: '(personalizzata)',

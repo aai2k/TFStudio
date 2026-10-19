@@ -27,7 +27,7 @@
 import { makeOperand, isMinmax, isPPEF } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
 import { ppefRows } from './ppefRows.js';
-import { eqTolerance } from './constants.js';
+import { eqTolerance, checkStepFlag } from './constants.js';
 
 // ── Base physical-measurement operand, one builder per kind ─────────────────
 
@@ -47,15 +47,15 @@ function buildAvgBaseOp(q, ch, pol, weight) {
     });
 }
 
-// Min/max measurement row: the lowest or highest value over the band, taken on
-// the band's sample grid. The ge/le/between/eq logic below
-// references this row, so a "min T ≥ 90 %" spec becomes TMN(weight 0) +
-// OPGT(refId, 0.90).
+// Min/max measurement row: the lowest or highest value over the band, searched
+// at the check's Step. The ge/le/between/eq logic below references this row,
+// so a "min T ≥ 90 %" spec becomes TMN(weight 0) + OPGT(refId, 0.90).
 function buildMinMaxBaseOp(q, ch, pol, weight) {
+    const type = minmaxType(ch, q.direction);
     return makeOperand({
-        type: minmaxType(ch, q.direction),
+        type,
         lambdaStart: q.lambdaStart, lambdaEnd: q.lambdaEnd,
-        aoi: q.aoi, pol, weight, target: 0,
+        aoi: q.aoi, pol, weight, target: 0, ...checkStepFlag(q, type),
     });
 }
 
@@ -83,7 +83,7 @@ function buildCentralLambdaBaseOp(q, ch, pol, weight) {
     return makeOperand({
         type: opType,
         lambdaStart: q.lambdaStart, lambdaEnd: q.lambdaEnd,
-        aoi: q.aoi, pol, weight, target: q.target,
+        aoi: q.aoi, pol, weight, target: q.target, ...checkStepFlag(q, opType),
     });
 }
 

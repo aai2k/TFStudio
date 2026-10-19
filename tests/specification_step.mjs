@@ -1,10 +1,12 @@
 /**
  * The step at which the Specification window and the report search a band.
  *
- *   1. A check asked for SPECIFICATION_FLAG reads the merit row at that flag,
- *      and without a flag the row at the default one. On two coupled-cavity
- *      peaks 1.9 nm apart the fine step finds the higher peak, which the
- *      default step reads as the lower.
+ *   1. A peak or centre check searches at its own Step, which Generate MF
+ *      writes on the row it makes, so the check and that row read one number.
+ *      On two coupled-cavity peaks 1.9 nm apart a Step of 0.01 nm finds the
+ *      higher peak, which the default 1 nm reads as the lower. The worker's
+ *      FWHM and edge step leaves it alone, a first pass (coarse) searches at
+ *      1 nm, and a check whose row looks for a dip takes no Step.
  *   2. FWHM and Edge λ find each crossing by bisection between the scan's
  *      samples, so the width of a 0.36 nm resonance is exact at the default
  *      step, at the monitors' and at the fine one; the step decides only which
@@ -30,7 +32,11 @@ const { initCatalogs } = await import('../src/utils/materials/catalogManager.js'
 initCatalogs({});
 
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
-const { evaluateQualifier, evaluateQualifiers, makeQualifier, SPECIFICATION_FLAG } = await import('../src/utils/synthesis/qualifiers.js');
+const {
+    evaluateQualifier, evaluateQualifiers, makeQualifier, SPECIFICATION_FLAG,
+    qualifiersToMFOperands, rowValue, checkTakesStep,
+} = await import('../src/utils/synthesis/qualifiers.js');
+const { buildEvalContext } = await import('../src/utils/physics/optimizer.js');
 const { dispatchAnalysisEvaluation } = await import('../src/utils/workers/analysisEvaluationWorker.js');
 const { gatherDesignData } = await import('../src/utils/report/reportData.js');
 const { newBlock } = await import('../src/utils/report/blocks.js');
@@ -38,19 +44,38 @@ const { fabryPerot, coupled, COUPLED_BAND, row, check, trueFwhm, T } = await imp
 
 const fine = { flag: SPECIFICATION_FLAG };
 
-// ── 1. A check reads the merit row at its flag ───────────────────────────────
+// ── 1. A peak or centre check searches at its own Step ───────────────────────
 {
     const { lambdaStart: a, lambdaEnd: b } = COUPLED_BAND;
     const peak = { kind: 'MIN_MAX', channel: 'T', direction: 'max', cmp: 'ge', target: 0.9, ...COUPLED_BAND };
     const centre = { kind: 'CENTRAL_LAMBDA', channel: 'T', direction: 'max', cmp: 'eq', target: 557, ...COUPLED_BAND };
-    const atFine = check(coupled, peak, fine).value;
+    const finePeak = { ...peak, flag: SPECIFICATION_FLAG };
+    const atFine = check(coupled, finePeak).value;
     const atDefault = check(coupled, peak).value;
-    assert.equal(atFine, row(coupled, 'TMX', a, b, SPECIFICATION_FLAG), 'the band maximum is the TMX row at the fine flag');
-    assert.equal(atDefault, row(coupled, 'TMX', a, b), 'and without a flag the row at the default one');
-    assert.ok(atFine > 0.97 && atDefault < 0.8, `the fine step reads the higher peak, ${atFine}, the default the lower, ${atDefault}`);
-    const centreFine = check(coupled, centre, fine).value;
-    assert.equal(centreFine, row(coupled, 'MXWT', a, b, SPECIFICATION_FLAG), 'the central wavelength is the MXWT row at the fine flag');
+    assert.equal(atFine, row(coupled, 'TMX', a, b, SPECIFICATION_FLAG), 'a check with a 0.01 nm Step reads the TMX row at that flag');
+    assert.equal(atDefault, row(coupled, 'TMX', a, b), 'and one without a Step the row at the default');
+    assert.ok(atFine > 0.97 && atDefault < 0.8, `0.01 nm reads the higher peak, ${atFine}, 1 nm the lower, ${atDefault}`);
+    assert.equal(check(coupled, peak, fine).value, atDefault, 'the worker\'s FWHM and edge step leaves a peak check at its own Step');
+    assert.equal(check(coupled, finePeak, { coarse: true }).value, atDefault, 'a first pass searches it at the default');
+    const fineCentre = { ...centre, flag: SPECIFICATION_FLAG };
+    const centreFine = check(coupled, fineCentre).value;
+    assert.equal(centreFine, row(coupled, 'MXWT', a, b, SPECIFICATION_FLAG), 'the central wavelength is the MXWT row at the check\'s Step');
     assert.ok(Math.abs(centreFine - 556.9) < 0.01, `at the higher peak: ${centreFine} nm`);
+
+    // Generate MF writes the Step on the row it makes, which reads the check's value.
+    const ctx = buildEvalContext(coupled, designMaterialLookup(coupled));
+    for (const [fields, value] of [[finePeak, atFine], [peak, atDefault], [fineCentre, centreFine]]) {
+        const [base] = qualifiersToMFOperands([makeQualifier(fields)]);
+        assert.equal(base.flag, fields.flag, `${base.type} carries the check's Step`);
+        assert.equal(rowValue(base, ctx), value, `${base.type} at ${fields.flag ?? 'no'} flag reads the check's value`);
+    }
+    // A row that looks for a dip searches the fringe grid whatever its flag,
+    // so a dip check takes no Step and its row gets none.
+    const dip = makeQualifier({ ...peak, direction: 'min', flag: SPECIFICATION_FLAG });
+    const [dipRow] = qualifiersToMFOperands([dip]);
+    assert.ok(dipRow.type === 'TMN' && dipRow.flag === undefined, 'a dip check writes its row without a Step');
+    assert.ok(checkTakesStep(makeQualifier(peak)) && checkTakesStep(makeQualifier(centre)) && !checkTakesStep(dip),
+        'the window offers a Step on peak and centre checks, not on a dip');
 }
 
 // ── 2. FWHM and edge crossings are exact at any step ─────────────────────────

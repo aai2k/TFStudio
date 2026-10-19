@@ -4154,6 +4154,8 @@ export default {
     edge:           'edge',
     left:           'left',
     right:          'right',
+    step:           'step',
+    stepTip:        'Step the band is searched for a peak at. Peaks closer than about two steps can read as one. Generate MF writes the same step on the merit row; a fine step over a wide band slows runs.',
     integralPreset: 'preset',
     pickPreset:     'Pick a saved integral preset',
     customPreset:   '(custom)',
