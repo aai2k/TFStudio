@@ -53,8 +53,11 @@ export function computeInhomogeneitySpectra(design, params, inh, evalMode) {
 
 export function buildSpecificationInputs(design, inh) {
     const { frontExp, backExp } = buildExpandedStacks(design, inh);
+    // Interlayers can go on one face of a symmetric design, so the check
+    // scores the two faces as built, not the back as the mirror of the front.
     const specDesign = {
         ...design,
+        ...(design.surfaceMode === 'symmetric' ? { surfaceMode: 'both_independent' } : {}),
         frontLayers: frontExp.map(layer => ({ material: layer.material, thickness: layer.thickness })),
         backLayers: backExp.map(layer => ({ material: layer.material, thickness: layer.thickness })),
     };

@@ -57,7 +57,11 @@ function formatTrialSpecification(qualifiers, results, verdict) {
  * trial produced rather than on nominal indices.
  */
 function trialDesignForSpec(config, frontLayers, backLayers, getMatForLayer) {
-    const design = { ...config.design, frontLayers, backLayers };
+    // A symmetric design's back is evaluated as the mirror of its front; a
+    // trial draws each face's errors on its own, so its check scores the two
+    // faces it drew, as both sides given.
+    const drawn = config.design.surfaceMode === 'symmetric' ? { surfaceMode: 'both_independent' } : {};
+    const design = { ...config.design, ...drawn, frontLayers, backLayers };
     if (!getMatForLayer) return { design, resolveMat: config.resolveMat };
 
     const shifted = new Map();
