@@ -18,6 +18,7 @@
 import {
     hasFreeLevel, isMath, isMeasuredCurve, makeOperand, measuredCurveChannel,
 } from './operandModel.js';
+import { isEllipsometricMeasuredCurve } from './measuredCurveType.js';
 import { CALCULATED_DELTA_CONVENTION, convertDeltaConvention } from '../thinFilmMath.js';
 
 /** Build the persisted one-row snapshot used to fit a known design to a curve. */
@@ -71,6 +72,15 @@ function hasPairedSnapshot(op) {
         && lambdas.length > 0 && lambdas.length === op.sampleTargets.length;
 }
 
+// The side each point checks the design is evaluated from: the block's own,
+// or for a Ψ or Δ block the front, the only side an ellipsometric target is
+// scored on. A photometric block with no side is measured on whichever side
+// the design evaluates, as the block itself is scored.
+function pointSide(op) {
+    if (op.side) return { measurementSide: op.side };
+    return isEllipsometricMeasuredCurve(op) ? { measurementSide: 'front' } : {};
+}
+
 /**
  * Expand one valid measured snapshot into pointwise single-wavelength operands.
  * A block that is not valid, or is on a channel this build does not know, is
@@ -99,7 +109,7 @@ function expandMeasuredCurveOperand(op) {
         weight: pointWeight,
         measuredCurveBlockId: op.id,
         measuredCurveId: op.curveId || null,
-        measurementSide: op.side || 'front',
+        ...pointSide(op),
     }));
 }
 

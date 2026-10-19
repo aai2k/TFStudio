@@ -31,8 +31,11 @@ export function _assertMeasurementSide(op, ctx) {
 // has nothing to be scored against, and a design evaluated on its back side
 // cannot take a front-side one.
 export function _assertFrontEllipsometry(op, ctx) {
-    if ((op.side || op.measurementSide || 'front') === 'back') {
+    const side = op.side || op.measurementSide || 'front';
+    if (side === 'back') {
         throw new OperandEvaluationError('An ellipsometric fit target is evaluated on the front side only.');
     }
-    _assertMeasurementSide(op, ctx);
+    // A block or point that names no side is still a front-side measurement,
+    // so a design evaluated from its back refuses it in either form.
+    _assertMeasurementSide({ measurementSide: side }, ctx);
 }
