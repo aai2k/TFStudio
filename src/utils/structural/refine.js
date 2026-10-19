@@ -1,12 +1,14 @@
+// Refining a Structural proposal on a worker and scoring what comes back.
+
 import {
     requiredLambdas, collectDesignMaterialIds, mirrorLayers, buildPresampledTable, isPhaseDispersion,
     buildEvalContext, evaluateOperands, calcMF, calcOMF,
-} from '../../../../../utils/physics/optimizer.js';
-import { tidyLayers } from '../../../../../utils/synthesis/structuralOptimizer.js';
-import { materialLookup } from '../../synthesisShared/materialNames.js';
-import { regridForDesign } from '../../synthesisShared/runGrid.js';
-import { deep, mkLayers } from './runUtils.js';
-import { refineGuarded } from './workerLifecycle.js';
+} from '../physics/optimizer.js';
+import { tidyLayers } from '../synthesis/structuralOptimizer.js';
+import { materialLookup } from '../../components/windows/optimization/synthesisShared/materialNames.js';
+import { regridForDesign } from '../../components/windows/optimization/synthesisShared/runGrid.js';
+import { deep, mkLayers } from './core.js';
+import { refineGuarded } from './workers.js';
 
 // Worker material tables for every material the design and the pool use, built
 // as every other run builds them, so a worker refine scores the merit the main
@@ -75,14 +77,6 @@ export function refineJob(S, design) {
     };
 }
 
-export function onTick(ctx, S, message) {
-    const now = Date.now();
-    if (now - S.lastTick < 100) return;
-    S.lastTick = now;
-    if (message.mf != null) ctx.setMf(message.mf);
-    if (message.omf != null) ctx.setOmf(message.omf);
-}
-
 export function normalizeResult(S, result) {
     const rawActive = S.layerKey === 'frontLayers' ? result.frontLayers : result.backLayers;
     const tidied = tidyLayers(rawActive || [], S.cfg.dMin);
@@ -94,8 +88,8 @@ export function normalizeResult(S, result) {
     return { mf: score.mf, omf: score.omf, frontLayers, backLayers };
 }
 
-export async function refineScore(ctx, S, activeLayers, otherLayers, workerIndex = 0) {
+export async function refineScore(S, activeLayers, otherLayers, workerIndex = 0) {
     const result = await refineGuarded(
-        ctx, S, workerIndex, refineJob(S, designFor(S, activeLayers, otherLayers)), null);
+        S, workerIndex, refineJob(S, designFor(S, activeLayers, otherLayers)), null);
     return result ? normalizeResult(S, result) : null;
 }

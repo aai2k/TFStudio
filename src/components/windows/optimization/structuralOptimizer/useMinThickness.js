@@ -1,6 +1,6 @@
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
-import { STRUCTURAL_DEFAULTS } from './structuralSettings.js';
+import { STRUCTURAL_DEFAULTS } from '../../../../utils/structural/settings.js';
 
 const { useCallback, useEffect, useRef } = React;
 

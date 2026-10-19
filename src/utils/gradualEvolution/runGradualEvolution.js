@@ -80,7 +80,7 @@ async function drive(S) {
     }
 }
 
-const GE_RUN = { tag: 'GE', firstPhase: 'refining', makeRun, drive, ended };
+const GE_RUN = { tag: 'GE', firstReport: { phase: 'refining', activity: null }, makeRun, drive, ended };
 
 /**
  * Grows `design` against `operands` (merit operand rows; disabled rows and

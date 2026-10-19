@@ -1,13 +1,27 @@
-import { OPTIMIZER_WORKER_URL as WORKER_URL } from '../../../../../workerUrls.js';
-import { alive } from './runUtils.js';
+// The optimizer workers a Structural run refines its proposals on, one refine
+// at a time each.
+
+import { alive } from '../synthesis/poolRun.js';
 
 const REFINE_TIMEOUT_MS = 45000;
 
-// An optimizer Web Worker, unless the caller brings its own: the benchmark,
-// which already runs off the UI thread, refines on its own thread
-// (utils/workers/inThreadOptimizerWorker.js).
-function newWorker(ctx) {
-    return ctx.makeWorker ? ctx.makeWorker() : new Worker(WORKER_URL, { type: 'module' });
+/**
+ * `count` workers from `makeWorker`, with terminate() for all of them. A
+ * worker that cannot be built ends the ones built before it, and the error
+ * goes on to the caller.
+ */
+export function buildWorkers(makeWorker, count) {
+    const workers = [];
+    const terminate = () => {
+        for (const worker of workers) { try { worker.terminate(); } catch (_) {} }
+    };
+    try {
+        for (let i = 0; i < count; i++) workers.push(makeWorker());
+    } catch (err) {
+        terminate();
+        throw err;
+    }
+    return { workers, makeWorker, terminate };
 }
 
 function refineOnce(worker, job, onTick) {
@@ -44,17 +58,23 @@ function refineOnce(worker, job, onTick) {
     });
 }
 
-function replaceTimedOutWorker(ctx, S, workerIndex) {
-    console.warn(`[Structural] refine worker ${workerIndex} timed out — replacing`);
-    try { ctx.workersRef.current[workerIndex]?.terminate(); } catch (_) {}
+function replaceTimedOutWorker(S, workerIndex) {
+    console.warn(`[Structural] refine worker ${workerIndex} timed out, replacing it`);
+    const { workers, makeWorker } = S.workerPool;
+    try { workers[workerIndex]?.terminate(); } catch (_) {}
     try {
-        const worker = newWorker(ctx);
+        const worker = makeWorker();
         if (S.wasmBytes) worker.postMessage({ type: 'wasmInit', wasmBytes: S.wasmBytes });
-        ctx.workersRef.current[workerIndex] = worker;
+        workers[workerIndex] = worker;
     } catch (_) {}
 }
 
-export function refineGuarded(ctx, S, workerIndex, job, tick) {
+/**
+ * Refine `job` on worker `workerIndex`. Resolves to the refined design, or to
+ * null when the refine failed, took longer than its timeout (the worker is
+ * then replaced) or the run was stopped.
+ */
+export function refineGuarded(S, workerIndex, job, tick) {
     return new Promise(resolve => {
         let settled = false;
         let timeout = null;
@@ -62,32 +82,19 @@ export function refineGuarded(ctx, S, workerIndex, job, tick) {
             if (settled) return;
             settled = true;
             if (timeout) clearTimeout(timeout);
+            S.signal?.removeEventListener('abort', onStop);
             resolve(value);
         };
-        // A run that has been stopped no longer owns the workers: the next
-        // run may have built new ones in their place.
+        const onStop = () => done(null);
+        if (S.signal?.aborted) { done(null); return; }
+        S.signal?.addEventListener('abort', onStop);
         timeout = setTimeout(() => {
             if (settled) return;
-            if (alive(ctx, S)) replaceTimedOutWorker(ctx, S, workerIndex);
+            if (alive(S)) replaceTimedOutWorker(S, workerIndex);
             done(null);
         }, REFINE_TIMEOUT_MS);
-        refineOnce(ctx.workersRef.current[workerIndex], job, tick)
+        refineOnce(S.workerPool.workers[workerIndex], job, tick)
             .then(result => done(result))
             .catch(() => done(null));
     });
-}
-
-export function createWorkers(ctx, count) {
-    try {
-        ctx.killWorkers();
-        for (let i = 0; i < count; i++) {
-            ctx.workersRef.current.push(newWorker(ctx));
-        }
-        return true;
-    } catch (err) {
-        console.error('[Structural] worker construction failed:', err);
-        ctx.setStatusMsg(ctx.ts.statusWorkerFailed);
-        ctx.killWorkers();
-        return false;
-    }
 }

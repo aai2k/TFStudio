@@ -77,7 +77,7 @@ async function drive(run) {
     }
 }
 
-const NEEDLE_RUN = { tag: 'Needle', firstPhase: 'scanning', makeRun, drive, ended };
+const NEEDLE_RUN = { tag: 'Needle', firstReport: { phase: 'scanning', activity: null }, makeRun, drive, ended };
 
 /**
  * Grows `design` by needle insertion against `operands` (merit operand rows;

@@ -11,8 +11,9 @@
  * run cache) and compares that to a committed golden. Beside the golden it
  * checks that a seed replays its run, that each press is timed on from the
  * presses before it, that every press checks the design for edits first, that
- * a second Run press while a run is going is ignored, and that a press whose
- * workers cannot be built leaves no run behind.
+ * a second Run press while a run is going is ignored, that a press whose
+ * workers cannot be built leaves no run behind, and that nothing is shown from
+ * a run the window has let go of.
  *
  * Determinism:
  *  - One thread unless a scenario sets more; the seed is fixed per scenario.
@@ -31,7 +32,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { shimBrowserGlobals } from './_uiShim.mjs';
 import { initWasmForTest, TMMCORE_WASM_PATH } from './_wasmInit.mjs';
-import { timeRunsOn, sorted } from './_windowRunChecks.mjs';
+import { timeRunsOn, sorted, letGoFailures } from './_windowRunChecks.mjs';
 
 shimBrowserGlobals();
 await initWasmForTest();
@@ -51,9 +52,9 @@ await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
 const { makeOperand } = await import('../src/utils/physics/optimizer.js');
 const { MUTATION_KINDS } = await import('../src/utils/synthesis/structuralOptimizer.js');
-const { runStructuralWorker } = await import('../src/components/windows/optimization/structuralOptimizer/runners/workerPool.js');
+const { startWindowRun } = await import('../src/components/windows/optimization/structuralOptimizer/windowRun.js');
 const { reconcileStructuralBaseWithEdits } = await import('../src/components/windows/optimization/structuralOptimizer/useStructuralOptimizer.js');
-const { makeWindow, useWindow, withWindowSettings } = await import('./_structuralWindow.mjs');
+const { makeWindow, makeWaitingWorker, useWindow, withWindowSettings } = await import('./_structuralWindow.mjs');
 
 const layer = (id, material, thickness) => ({ id, material, thickness, locked: false });
 
@@ -94,6 +95,7 @@ const SCENARIOS = {
     deepTimeUp:       { cfg: { deepMode: true, deepMaxMin: 1e-6 }, normalMf: [0.9] },
     deepReheat:       { cfg: { deepMode: true, jitterPct: 0 }, normalMf: [0.9], presses: [{ stopAtJob: 22 }] },
     mntMxtBounds:     { ops: [RAV, op('mnt', { type: 'MNT', target: 30, weight: 1 }), op('mxt', { type: 'MXT', target: 150, weight: 1 })], normalMf: [0.6] },
+    minThickness:     { cfg: { dMin: 12 }, normalMf: [0.6] },
     stopThenRun:      { cfg: { maxIter: 6 }, normalMf: [0.6, 0.7, 0.5, 0.45, 0.4, 0.35], presses: [{ stopAtJob: 3 }, {}] },
     stopEditRun:      { cfg: { maxIter: 4 }, normalMf: [0.6], presses: [{ stopAtJob: 3 }, { edit: true }] },
     secondPress:      { normalMf: [0.6, 0.5], presses: [{}, {}] },
@@ -141,9 +143,7 @@ async function runScenario(name) {
             if (press.edit) win.edit();
             win.press = press;
             win.statuses = [];
-            // A stopped press's refines wait out their timeout; the guard does
-            // not wait for them.
-            runStructuralWorker(win.ctx);
+            startWindowRun(win.ctx);
             await settle(win);
             presses.push({ statuses: win.statuses, running: win.ctx.runningRef.current });
             rowCounts.push(win.ctx.gensRef.current.length);
@@ -187,7 +187,7 @@ if (UPDATE || !existsSync(GOLDEN)) {
 async function seededRun(seed) {
     const win = makeWindow({ design: design(), ops: [RAV], cfg: { ...CFG, seed }, normalMf: [0.6, 0.7, 0.4] }, `structural-guard-seed-${seed}`);
     useWindow(win);
-    await withWindowSettings({}, async () => { runStructuralWorker(win.ctx); await settle(win); });
+    await withWindowSettings({}, async () => { await startWindowRun(win.ctx); await settle(win); });
     return { shown: win.shown.seed, seeds: win.ctx.gensRef.current.map(g => g.seed), layers: win.ctx.gensRef.current.map(g => layersOf(g.layers)) };
 }
 async function seedFailures() {
@@ -210,12 +210,23 @@ async function secondPressFailures() {
     const win = makeWindow({ design: design(), ops: [RAV], cfg: CFG, normalMf: [0.6] }, 'structural-guard-second-press');
     useWindow(win);
     return withWindowSettings({}, async () => {
-        runStructuralWorker(win.ctx);
-        runStructuralWorker(win.ctx);
+        startWindowRun(win.ctx);
+        startWindowRun(win.ctx);
         await settle(win);
         return win.workers === 1 && win.reconciles === 1 ? []
             : [`second press: ${win.workers} workers built, ${win.reconciles} presses taken`];
     });
+}
+
+// Nothing shown from a run the window has let go of (letGoFailures).
+function verifyLetGo() {
+    const win = makeWindow({ design: design(), ops: [RAV], cfg: CFG, normalMf: [0.6] }, 'structural-guard-let-go');
+    useWindow(win);
+    const pools = [];
+    win.ctx.makeWorker = () => { const worker = makeWaitingWorker(); pools.push(worker); return worker; };
+    // The first run refines its starting design a turn after it starts.
+    const untilBusy = async () => { for (let i = 0; i < 200 && !pools[0]?.onmessage; i++) await tick(); };
+    return withWindowSettings({}, () => letGoFailures(win, startWindowRun, pools, { untilBusy }));
 }
 
 // A manual edit bumps the design revision: the next Run drops the cached base
@@ -239,13 +250,16 @@ function reconcileFailures() {
 }
 
 // A press whose workers cannot be built leaves no run block and no undo step.
+// The window's minimum thickness reaches the run's refines.
 const unbuilt = results.workersFail;
 const windowFailures = [
     ...(unbuilt.runs.length || unbuilt.checkpoints ? ['workersFail: a press whose workers were not built left a run behind'] : []),
+    ...(results.minThickness.firstJob?.dMin === 12 ? [] : [`minThickness: the run refines with dMin ${results.minThickness.firstJob?.dMin}, not 12`]),
     ...Object.entries(WINDOW_TIMES).filter(([, ok]) => !ok).map(([name]) => `${name}: a later press's rows are timed before an earlier one's`),
     ...Object.entries(results).filter(([, r]) => r.reconciles !== r.presses.length).map(([name]) => `${name}: a press did not check the design for edits`),
     ...await seedFailures(),
     ...await secondPressFailures(),
+    ...await verifyLetGo(),
     ...reconcileFailures(),
 ];
 for (const failure of windowFailures) console.log(`FAIL ❌  ${failure}`);
@@ -261,7 +275,6 @@ for (const name of Object.keys(SCENARIOS)) {
         console.log(`   current: ${b}`);
     }
 }
-// A stopped press leaves refines waiting out their timeout; they show nothing.
 if (fails === 0) { console.log(`PASS ✅  Structural runs identical to golden (${Object.keys(SCENARIOS).length} scenarios), window checks pass`); process.exit(0); }
 console.log(`FAIL ❌  ${fails} failure(s)`);
 process.exit(1);

@@ -73,7 +73,10 @@ const SYN = await import('../src/components/windows/optimization/synthesisShared
 const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
 const NEEDLE_MANUAL = await import('../src/components/windows/optimization/needleManual/model.js');
 const { startWindowRun: startGeRun } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
-const { createRunState: structuralRunState } = await import('../src/components/windows/optimization/structuralOptimizer/runners/runState.js');
+const { planRun: planStructuralRun } = await import('../src/utils/structural/settings.js');
+const { prepare: prepareStructuralRun } = await import('../src/utils/structural/setup.js');
+const { makeRun: makeStructuralRun } = await import('../src/utils/structural/runState.js');
+const { getPoolMaterials } = await import('../src/components/windows/optimization/synthesisShared/catalogPool.js');
 const { createRunState: deepRunState } = await import('../src/components/windows/optimization/deepSynthesis/runners/runState.js');
 const { createRunContext } = await import('../src/components/windows/optimization/deepSynthesis/runners/lifecycle.js');
 const { freshHistory } = await import('../src/components/windows/optimization/deepSynthesis/historyActions.js');
@@ -240,22 +243,14 @@ await check('Gradual Evolution worker run', async () => {
 
 // ── 5. Structural ────────────────────────────────────────────────────────────
 await check('Structural run', () => {
-    const ctx = {
-        cfgRef: ref({
-            maxIter: 3, targetMF: 0, T0: 0.08, jitterPct: 0.15, refineIter: 5, dMin: 1, addMaxNm: 120,
-            maxLayers: 20, kinds: new Set(['perturb']), deepMode: 0, deepMaxMin: 0, seed: 1, threads: 1,
-        }),
-        runningRef: ref(false), workersRef: ref([]), runIdRef: ref(0), designRef: ref(copy(DESIGN)),
-        operandsRef: ref(copy(OPERANDS)), savedDesignRef: ref(null), baseDesignRef: ref(null),
-        runsRef: ref([]), runOpenRef: ref(false), gensRef: ref([]), genCountRef: ref(0), trendRef: ref([]),
-        checkpointRef: ref(noop), selectedCatsRef: ref(new Set(['builtin'])), excludedMatsRef: ref(EXCLUDED),
-        reconcileBaseWithEdits: noop, killWorkers: noop, makeWorker: () => new MockWorker(),
-        setStatusMsg: noop, setCanReset: noop, setSeed: noop, ts: EN.structural,
-    };
-    const state = structuralRunState(ctx);
-    expect(state, 'the run did not start');
-    synthesisRows(state.operands, { mnt: false });
-    synthesisRows(state.fullOps, { mnt: true });
+    const design = copy(DESIGN);
+    const pool = getPoolMaterials(new Set(['builtin']), { excluded: EXCLUDED, design });
+    const plan = planStructuralRun({ pool, kinds: ['perturb'], seed: 1, threads: 1 });
+    const prep = prepareStructuralRun(design, copy(OPERANDS), plan);
+    expect(!prep.failed, `the run did not start (${prep.failed})`);
+    const run = makeStructuralRun(design, plan, prep, { workers: [] }, {});
+    synthesisRows(run.operands, { mnt: false });
+    synthesisRows(run.fullOps, { mnt: true });
 });
 
 // ── 6. Deep Synthesis ────────────────────────────────────────────────────────

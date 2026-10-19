@@ -1,11 +1,12 @@
 /**
- * A Structural run stopped mid-refine leaves refines that wait out their
- * timeout. When one runs out after Run is pressed again, it must leave the new
- * run's workers alone: replacing one ends the refine it is doing, and the new
- * run then waits out a timeout of its own before it goes on.
+ * Stop ends a Structural run's refines at once: none is left waiting out its
+ * timeout, and the run pressed after it ends on its own. A refine that hangs
+ * while its run goes on times out: its worker is replaced and the run ends on
+ * its own.
  *
- * The refine timeouts are held instead of run, so the test fires the stopped
- * run's own while the next run is mid-refine.
+ * The refine timeouts are held instead of run, so the test counts any the
+ * stopped run left and fires them while the next run is mid-refine, and fires
+ * the hung refine's when the test chooses.
  *
  * Run: node tests/structural_stopped_run_timeout.mjs
  */
@@ -28,7 +29,7 @@ globalThis.clearTimeout = handle => {
     else realClearTimeout(handle);
 };
 
-const { runStructuralWorker } = await import('../src/components/windows/optimization/structuralOptimizer/runners/workerPool.js');
+const { startWindowRun } = await import('../src/components/windows/optimization/structuralOptimizer/windowRun.js');
 const { makeWindow, useWindow, withWindowSettings } = await import('./_structuralWindow.mjs');
 
 let pass = 0, fail = 0;
@@ -60,7 +61,7 @@ useWindow(win);
 const seen = await withWindowSettings({}, async () => {
     // Stop during the second refine of the first run.
     win.press = { stopAtJob: 2 };
-    runStructuralWorker(win.ctx);
+    startWindowRun(win.ctx);
     await settle(win);
     const stoppedRuns = held.filter(timer => !timer.cleared);
 
@@ -68,19 +69,32 @@ const seen = await withWindowSettings({}, async () => {
     // timeouts run out.
     win.press = {};
     const jobs = win.jobCount;
-    runStructuralWorker(win.ctx);
+    startWindowRun(win.ctx);
     for (let i = 0; i < 200 && win.jobCount === jobs; i++) await tick();
-    const before = { built: win.workers, terminated: win.terminated };
     for (const timer of stoppedRuns) if (!timer.cleared) timer.fn();
-    const after = { built: win.workers, terminated: win.terminated };
     await settle(win);
-    return { held: stoppedRuns.length, before, after, running: win.ctx.runningRef.current, statuses: win.statuses.slice() };
+    const after = { held: stoppedRuns.length, running: win.ctx.runningRef.current, statuses: win.statuses.slice() };
+
+    // A run whose second refine hangs until its timeout runs out.
+    win.press = { holdAtJob: win.jobCount + 2 };
+    const workers = win.workers, terminated = win.terminated, timers = held.length;
+    startWindowRun(win.ctx);
+    for (let i = 0; i < 200 && win.jobCount < win.press.holdAtJob; i++) await tick();
+    for (let i = 0; i < 20; i++) await tick();
+    const waiting = win.ctx.runningRef.current && win.jobCount === win.press.holdAtJob;
+    const hung = held.slice(timers).filter(timer => !timer.cleared);
+    for (const timer of hung) timer.fn();
+    await settle(win);
+    return {
+        ...after, waiting, hung: hung.length, built: win.workers - workers, ended: win.terminated - terminated,
+        hungRunning: win.ctx.runningRef.current, hungStatus: win.statuses.at(-1),
+    };
 });
-ok('setup: the stopped run left a refine waiting out its timeout', seen.held === 1, `${seen.held} held`);
-ok('a stopped run\'s timeout builds no worker', seen.after.built === seen.before.built, `${seen.after.built - seen.before.built} built`);
-ok('a stopped run\'s timeout ends none of the next run\'s workers', seen.after.terminated === seen.before.terminated,
-    `${seen.after.terminated - seen.before.terminated} ended`);
+ok('Stop leaves no refine waiting out its timeout', seen.held === 0, `${seen.held} held`);
 ok('the next run ends on its own', !seen.running && seen.statuses.at(-1) === 'max-iterations', seen.statuses.join(', '));
+ok('a hung refine holds its run until its timeout', seen.waiting && seen.hung === 1, `${seen.hung} timers`);
+ok('its worker is replaced and every worker is ended', seen.built === 2 && seen.ended === 2, `${seen.built} built, ${seen.ended} ended`);
+ok('the run goes on and ends on its own', !seen.hungRunning && seen.hungStatus === 'max-iterations', seen.hungStatus);
 
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

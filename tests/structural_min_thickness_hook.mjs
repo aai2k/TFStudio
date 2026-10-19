@@ -47,7 +47,7 @@ globalThis.React = react;
 const { useMinThickness } = await import(
     '../src/components/windows/optimization/structuralOptimizer/useMinThickness.js');
 const { STRUCTURAL_DEFAULTS } = await import(
-    '../src/components/windows/optimization/structuralOptimizer/structuralSettings.js');
+    '../src/utils/structural/settings.js');
 
 const runningRef = { current: false };
 const design = (id, mnt) => ({

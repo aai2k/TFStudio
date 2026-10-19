@@ -28,9 +28,8 @@ await initWasmForTest();
 
 const {
     generateProposals, needleProposals, refineProposals, acceptProposal,
-} = await import('../src/components/windows/optimization/structuralOptimizer/runners/proposals.js');
-const { isCurrentDesign } = await import(
-    '../src/components/windows/optimization/structuralOptimizer/runners/sameDesign.js');
+} = await import('../src/utils/structural/proposals.js');
+const { isCurrentDesign } = await import('../src/utils/structural/sameDesign.js');
 const { makeRng, basinKick, proposeMutation, MUTATION_KINDS } = await import('../src/utils/synthesis/structuralOptimizer.js');
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
 const { getCatalogs } = await import('../src/utils/materials/catalogManager.js');
@@ -70,46 +69,41 @@ class ScriptedWorker {
 }
 
 function scriptedRun(results) {
-    const ctx = {
-        runningRef: { current: true }, runIdRef: { current: 1 },
-        workersRef: { current: results.map(r => new ScriptedWorker(r)) },
-        setStatusMsg: () => {}, setMf: () => {}, setOmf: () => {},
-    };
     const cur = [layer('SiO2', 90)];
     const S = {
-        runId: 1, layerKey: 'frontLayers', otherKey: 'backLayers', surfaceMode: 'front_only', media: {},
+        workerPool: { workers: results.map(r => new ScriptedWorker(r)) }, emit: () => {},
+        layerKey: 'frontLayers', otherKey: 'backLayers', surfaceMode: 'front_only', media: {},
         structEngine: 'cg', operands: [], materials: {}, wasmBytes: null,
-        cfg: { dMin: 1, dMax: Infinity, refineIter: 5 }, lastTick: 0,
+        cfg: { dMin: 1, dMax: Infinity, refineIter: 5 },
         current: { mf: 0.03, frontLayers: cur, backLayers: [] },
         best: { mf: 0.03 }, attempts: 0, accepts: 0, noImprove: 0, rng: makeRng(1),
-        ts: { statusRefining: n => `refining ${n}` },
     };
     const proposals = results.map(() => ({ layers: cur, mutation: { kind: 'perturb' } }));
-    return { ctx, S, proposals };
+    return { S, proposals };
 }
 
 {
     const back = { mf: 0.0299, frontLayers: [layer('SiO2', 90.2)] };
     const moved = { mf: 0.04, frontLayers: [layer('SiO2', 90), layer('TiO2', 40)] };
     const mixed = scriptedRun([back, moved, back]);
-    const { moves, polish } = await refineProposals(mixed.ctx, mixed.S, mixed.proposals);
+    const { moves, polish } = await refineProposals(mixed.S, mixed.proposals);
     assert.deepEqual(moves.map(move => move.result.frontLayers.length), [2],
         'the real change goes to the accept test, even when a proposal that came back scores lower');
     assert.equal(polish.result.mf, 0.0299, 'and the one that came back is kept apart');
 
     const same = { mf: 0.03, frontLayers: [layer('SiO2', 90.1)] };
     const stuck = scriptedRun([same, same, same]);
-    const batch = await refineProposals(stuck.ctx, stuck.S, stuck.proposals);
+    const batch = await refineProposals(stuck.S, stuck.proposals);
     assert.equal(batch.moves.length, 0, 'a batch that only came back to the current design gives no candidate');
-    acceptProposal(stuck.ctx, stuck.S, batch, 0.1, () => { throw new Error('not a new best'); });
+    acceptProposal(stuck.S, batch, 0.1, () => { throw new Error('not a new best'); });
     assert.deepEqual([stuck.S.attempts, stuck.S.accepts, stuck.S.noImprove], [0, 0, 1],
         'and counts as an iteration without improvement, not as an accepted move');
 
     const polished = scriptedRun([back, back]);
     polished.S.noImprove = 5;
     const rows = [];
-    const refined = await refineProposals(polished.ctx, polished.S, polished.proposals);
-    acceptProposal(polished.ctx, polished.S, refined, 0.1, (ctx, S, candidate) => {
+    const refined = await refineProposals(polished.S, polished.proposals);
+    acceptProposal(polished.S, refined, 0.1, (S, candidate) => {
         rows.push(candidate.mf);
         S.noImprove = 0;
         return false;
@@ -136,8 +130,8 @@ function scriptedRun(results) {
             current: { mf: 0.0294, frontLayers: two, backLayers: [] },
             best: { mf: 0.0290, frontLayers: one, backLayers: [] }, rng: makeRng(seed),
         });
-        const refined = await refineProposals(run.ctx, run.S, run.proposals);
-        acceptProposal(run.ctx, run.S, refined, 0.05, recordBest);
+        const refined = await refineProposals(run.S, run.proposals);
+        acceptProposal(run.S, refined, 0.05, recordBest);
         return run.S.current;
     };
     const onToThree = { mf: 0.0297, frontLayers: three };
@@ -157,7 +151,7 @@ function scriptedRun(results) {
 
     const recorded = [];
     const toBestLower = await onward({ mf: 0.0290 - 1e-9, frontLayers: [layer('SiO2', 90.2)] },
-        (ctx, S, candidate) => { recorded.push(candidate.mf); return false; });
+        (S, candidate) => { recorded.push(candidate.mf); return false; });
     assert.ok(toBestLower >= 8 && toBestLower <= 28,
         `the best design come back a little lower is no reason to step back to it (${toBestLower} of ${seeds} on)`);
     assert.ok(recorded.length === seeds && recorded.every(mf => mf === 0.0290 - 1e-9),
@@ -173,7 +167,7 @@ function scriptedRun(results) {
 
     const bests = [];
     const current = await fromTwo(1, [{ mf: NaN, frontLayers: three }, { mf: 0.0280, frontLayers: [layer('TiO2', 30), layer('SiO2', 90)] }],
-        (ctx, S, candidate) => { bests.push(candidate.mf); return false; });
+        (S, candidate) => { bests.push(candidate.mf); return false; });
     assert.deepEqual([current.mf, bests], [0.0280, [0.0280]], 'a move whose merit came back NaN does not hide a new best behind it');
 }
 
@@ -191,7 +185,6 @@ function runState(frontLayers, { dMin, seed = 1, workerCount = 8 }) {
         kinds: MUTATION_KINDS.slice(), workerCount, pool, poolLite: pool.map(m => ({ id: m.id, name: m.name })),
         cfg: { dMin, dMax: Infinity, maxLayers: 80, addMaxNm: 120, jitterPct: 0.15 },
         rng: makeRng(seed), media: serializableMedia(design), operands, curDes: design,
-        ts: { statusCap: 'cap', statusNoMut: 'none' },
     };
 }
 

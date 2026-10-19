@@ -14,7 +14,7 @@ import {
 } from '../src/utils/physics/optimizer.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
-import { presampleAll } from '../src/components/windows/optimization/structuralOptimizer/runners/refine.js';
+import { presampleAll } from '../src/utils/structural/refine.js';
 
 const warnings = [];
 const collect = message => warnings.push(message);

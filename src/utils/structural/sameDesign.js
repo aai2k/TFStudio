@@ -2,7 +2,7 @@
 // many needles refine into the basin they started from; such a result carries
 // no structural change, so the accept test must not spend an iteration on it.
 // When it comes back lower, it is the current design converged further.
-import { tidyLayers } from '../../../../../utils/synthesis/structuralOptimizer.js';
+import { tidyLayers } from '../synthesis/structuralOptimizer.js';
 import { normalizeResult } from './refine.js';
 
 // A refined proposal whose layers all sit within this distance of a held
@@ -41,13 +41,13 @@ export function splitRefined(S, results) {
 // counts no attempt, and when it is a new best the count of iterations without
 // improvement keeps running, so refining one design alone cannot hold a run
 // open. Returns true when the target merit is reached.
-export function adoptPolish(ctx, S, polish, recordBest) {
+export function adoptPolish(S, polish, recordBest) {
     const candidate = normalizeResult(S, polish.result);
     if (!(candidate.mf < S.current.mf - 1e-12)) return false;
     S.current = candidate;
     if (!(candidate.mf < S.best.mf - 1e-12)) return false;
     const stalled = S.noImprove;
-    const reached = recordBest(ctx, S, candidate, { kind: 'perturb', insertMat: null });
+    const reached = recordBest(S, candidate, { kind: 'perturb', insertMat: null });
     S.noImprove = stalled;
     return reached;
 }

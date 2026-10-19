@@ -15,6 +15,7 @@ import { InThreadOptimizerWorker } from '../src/utils/workers/inThreadOptimizerW
 import { getCatalogs } from '../src/utils/materials/catalogManager.js';
 import { getCached, setCached } from '../src/components/windows/optimization/structuralOptimizer/sessionState.js';
 import { reconcileStructuralBaseWithEdits } from '../src/components/windows/optimization/structuralOptimizer/useStructuralOptimizer.js';
+import { teardownRun } from '../src/components/windows/optimization/synthesisShared/teardownRun.js';
 
 const copy = value => JSON.parse(JSON.stringify(value));
 
@@ -47,13 +48,14 @@ const jobSummary = job => ({
 
 // What the scripted worker answers for the nth job of a press: `stopAtJob`
 // presses Stop as it starts, `failAtJob` fails it, `malformedAtJob` answers
-// with no layers. Returns true when the job is taken care of.
+// with no layers, `holdAtJob` never answers, as a refine that hangs. Returns
+// true when the job is taken care of.
 function scriptedJob(win, worker, n) {
     const press = win.press;
     if (n === press.stopAtJob) { win.ctx.stopOpt(); return true; }
     if (n === press.failAtJob) { worker.post({ type: 'error', message: 'scripted refine failure' }); return true; }
     if (n === press.malformedAtJob) { worker.post({ type: 'done', mfBest: 0.2, omfBest: 0.2 }); return true; }
-    return false;
+    return n === press.holdAtJob;
 }
 
 function scriptedMerit(win) {
@@ -121,6 +123,20 @@ class CountedWorker extends InThreadOptimizerWorker {
     }
 }
 
+/**
+ * A worker whose refines wait until it is terminated, as they do while a real
+ * worker computes. `tick(mf)` sends a live merit for the refine it holds, also
+ * after it was terminated, as a message already on its way still arrives.
+ */
+export function makeWaitingWorker() {
+    return {
+        onmessage: null, onerror: null, dead: false,
+        postMessage() {},
+        terminate() { this.dead = true; },
+        tick(mf) { this.onmessage?.({ data: { type: 'progress', mf, omf: mf } }); },
+    };
+}
+
 // The built-in materials other than `poolIds`, which the window's material
 // pool then leaves out.
 export function excludedBesides(poolIds) {
@@ -147,7 +163,7 @@ export function makeWindow(spec, id) {
     const show = key => value => { win.shown[key] = value; };
     const ctx = {
         cfgRef: ref({ ...spec.cfg, kinds: new Set(spec.cfg.kinds) }),
-        runningRef: ref(false), workersRef: ref([]), runIdRef: ref(0), designRef,
+        runningRef: ref(false), activeRunRef: ref(null), abortRef: ref(null), designRef,
         operandsRef: ref(copy(spec.ops)), savedDesignRef: ref(null), baseDesignRef: ref(null), baseRevRef: ref(0),
         gensRef: ref([]), genCountRef: ref(0), trendRef: ref([]), runsRef: ref([]), runOpenRef: ref(false),
         updateDesignRef: ref((patch, opts) => {
@@ -173,15 +189,10 @@ export function makeWindow(spec, id) {
             if (phase) win.phase = phase[1];
         },
     };
-    // useStructuralOptimizer.js reconcileBaseWithEdits, killWorkers, saveCache
-    // and stopOpt.
+    // useStructuralOptimizer.js reconcileBaseWithEdits, saveCache and stopOpt.
     ctx.reconcileBaseWithEdits = () => {
         win.reconciles++;
         reconcileStructuralBaseWithEdits(ctx, () => win.revision);
-    };
-    ctx.killWorkers = () => {
-        for (const worker of ctx.workersRef.current) { try { worker.terminate(); } catch (_) {} }
-        ctx.workersRef.current = [];
     };
     ctx.saveCache = () => setCached(id, {
         generations: ctx.gensRef.current, runs: ctx.runsRef.current,
@@ -190,9 +201,7 @@ export function makeWindow(spec, id) {
     });
     ctx.stopOpt = message => {
         const wasRunning = ctx.runningRef.current;
-        ctx.runningRef.current = false;
-        ctx.runIdRef.current += 1;
-        ctx.killWorkers();
+        teardownRun(ctx);
         ctx.setRunning(false);
         ctx.setTemp(null);
         ctx.setStatusMsg(message != null ? message : (wasRunning ? TS.statusStopped : ''));

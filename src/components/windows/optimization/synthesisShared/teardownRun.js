@@ -1,4 +1,4 @@
-// Ending the run a synthesis window shows (Needle, Gradual Evolution).
+// Ending the run a synthesis window shows (Needle, Gradual Evolution, Structural).
 
 /**
  * Let go of the run the window shows and stop it; the run then terminates its

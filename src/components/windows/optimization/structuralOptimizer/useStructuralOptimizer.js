@@ -4,18 +4,13 @@ import {
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
 import { activeBaseline, undoRunBlock } from '../synthesisShared/runBlocks.js';
 import { getCached, setCached, clearCached } from './sessionState.js';
-import { STRUCT_CATS_KEY, STRUCTURAL_DEFAULTS, loadKinds, saveKinds } from './structuralSettings.js';
-import { runStructuralWorker } from './runners/workerPool.js';
+import { teardownRun } from '../synthesisShared/teardownRun.js';
+import { STRUCTURAL_DEFAULTS } from '../../../../utils/structural/settings.js';
+import { STRUCT_CATS_KEY, loadKinds, saveKinds } from './structuralSettings.js';
+import { startWindowRun } from './windowRun.js';
 import { useMinThickness } from './useMinThickness.js';
 
 const { useCallback, useEffect, useRef, useState } = React;
-
-function terminateWorkers(workersRef) {
-    for (const worker of workersRef.current) {
-        try { worker.terminate(); } catch (_) {}
-    }
-    workersRef.current = [];
-}
 
 // The run cache carries the edit revision its base design belongs to, which
 // loadDesignSwitch restores.
@@ -165,8 +160,8 @@ export function useStructuralOptimizer({
 
     const runningRef   = useRef(false);
     const { dMin, setDMin, maxMNT } = useMinThickness(design, runningRef);
-    const workersRef   = useRef([]);
-    const runIdRef     = useRef(0);
+    const activeRunRef = useRef(null);
+    const abortRef     = useRef(null);
     const designRef    = useRef(design);
     const operandsRef  = useRef([]);
     const savedDesignRef = useRef(null);
@@ -218,14 +213,9 @@ export function useStructuralOptimizer({
     }, [design?.id]);
 
     useEffect(() => () => {
-        runningRef.current = false;
-        killWorkers();
+        teardownRun({ runningRef, activeRunRef, abortRef });
         saveCache();
     }, []);
-
-    function killWorkers() {
-        terminateWorkers(workersRef);
-    }
 
     function saveCache() {
         persistCache({ designRef, gensRef, savedDesignRef, baseDesignRef, baseRevRef, trendRef, runsRef });
@@ -233,9 +223,7 @@ export function useStructuralOptimizer({
 
     const stopOpt = useCallback((message) => {
         const wasRunning = runningRef.current;
-        runningRef.current = false;
-        runIdRef.current += 1;
-        killWorkers();
+        teardownRun({ runningRef, activeRunRef, abortRef });
         setRunning(false);
         setTemp(null);
         setStatusMsg(message != null ? message : (wasRunning ? ts.statusStopped : ''));
@@ -246,11 +234,11 @@ export function useStructuralOptimizer({
     }, [getDesignRevision]);
 
     const runOpt = useCallback(() => {
-        runStructuralWorker({
-            cfgRef, runningRef, workersRef, runIdRef, designRef, operandsRef,
+        startWindowRun({
+            cfgRef, runningRef, activeRunRef, abortRef, designRef, operandsRef,
             savedDesignRef, baseDesignRef, gensRef, genCountRef, trendRef, runsRef, runOpenRef,
             updateDesignRef, checkpointRef, selectedCatsRef, excludedMatsRef,
-            killWorkers, saveCache, stopOpt, reconcileBaseWithEdits, ts,
+            saveCache, stopOpt, reconcileBaseWithEdits, ts,
             setRunning, setIter, setTemp, setAccRate, setMf, setMfBest,
             setOmf, setOmfBest, setLayerCount, setGenerations, setTopDesigns,
             setTrend, setCanReset, setStatusMsg, setReheats, setSeed,

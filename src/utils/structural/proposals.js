@@ -1,11 +1,14 @@
+// The proposals of one Structural iteration, their refines, and which of them
+// the annealing chain takes.
+
 import {
     scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra,
-} from '../../../../../utils/physics/optimizer.js';
-import { proposeMutation, pickAcceptedMove } from '../../../../../utils/synthesis/structuralOptimizer.js';
-import { materialLookup } from '../../synthesisShared/materialNames.js';
-import { alive } from './runUtils.js';
-import { designFor, refineJob, onTick, normalizeResult } from './refine.js';
-import { refineGuarded } from './workerLifecycle.js';
+} from '../physics/optimizer.js';
+import { proposeMutation, pickAcceptedMove } from '../synthesis/structuralOptimizer.js';
+import { materialLookup } from '../../components/windows/optimization/synthesisShared/materialNames.js';
+import { alive } from './runState.js';
+import { designFor, refineJob, normalizeResult } from './refine.js';
+import { refineGuarded } from './workers.js';
 import { splitRefined, adoptPolish, isSameDesign } from './sameDesign.js';
 
 const SCAN_DELTA = 0.5;
@@ -60,13 +63,19 @@ export function needleProposals(S, current, count) {
     return proposals;
 }
 
+/**
+ * The proposals of one iteration: needles first, then random mutations of
+ * every enabled kind in the slots left. At the layer limit only kinds that do
+ * not add a layer are proposed. `reason` is 'layerCap' when no kind is left at
+ * the limit and 'noMutation' when nothing could be proposed, else null.
+ */
 export function generateProposals(S) {
     const currentLayers = S.current[S.layerKey] || [];
     const atCap = currentLayers.filter(layer => !layer.locked).length >= S.cfg.maxLayers;
     const enabledKinds = atCap
         ? S.kinds.filter(kind => kind !== 'add' && kind !== 'split')
         : S.kinds;
-    if (!enabledKinds.length) return { reason: S.ts.statusCap, proposals: [] };
+    if (!enabledKinds.length) return { reason: 'layerCap', proposals: [] };
 
     const proposals = [];
     if (enabledKinds.includes('add') || enabledKinds.includes('split')) {
@@ -82,17 +91,17 @@ export function generateProposals(S) {
         });
         if (proposal) proposals.push(proposal);
     }
-    return { reason: proposals.length ? null : S.ts.statusNoMut, proposals };
+    return { reason: proposals.length ? null : 'noMutation', proposals };
 }
 
-export async function refineProposals(ctx, S, proposals) {
-    ctx.setStatusMsg(S.ts.statusRefining(proposals.length));
+export async function refineProposals(S, proposals) {
+    S.emit({ activity: { id: 'refining', count: proposals.length } });
     const otherLayers = S.current[S.otherKey];
     const results = await Promise.all(proposals.map((proposal, index) => refineGuarded(
-        ctx, S, index, refineJob(S, designFor(S, proposal.layers, otherLayers)),
-        index === 0 ? message => onTick(ctx, S, message) : null)
+        S, index, refineJob(S, designFor(S, proposal.layers, otherLayers)),
+        index === 0 ? S.onTick : null)
         .then(result => (result ? { result, proposal } : null))));
-    if (!alive(ctx, S)) return null;
+    if (!alive(S)) return null;
     return splitRefined(S, results);
 }
 
@@ -110,11 +119,11 @@ function takenMove(S, moves, lowest, temperature) {
 }
 
 /** Takes a refined batch into the annealing chain (takenMove). The lowest move
- * of the batch, when it is a new best, goes to `recordBest` (injected by the
- * caller to avoid a dependency on the iteration loop) whether or not the chain
- * took it. Returns true when the target merit is reached. */
-export function acceptProposal(ctx, S, batch, temperature, recordBest) {
-    if (batch?.polish && adoptPolish(ctx, S, batch.polish, recordBest)) return true;
+ * of the batch, when it is a new best, goes to `recordBest(S, candidate,
+ * mutation)` whether or not the chain took it. Returns true when the target
+ * merit is reached. */
+export function acceptProposal(S, batch, temperature, recordBest) {
+    if (batch?.polish && adoptPolish(S, batch.polish, recordBest)) return true;
     const moves = (batch?.moves || []).map(item => ({ item, candidate: normalizeResult(S, item.result) }))
         .filter(move => Number.isFinite(move.candidate.mf));
     if (!moves.length) {
@@ -129,7 +138,7 @@ export function acceptProposal(ctx, S, batch, temperature, recordBest) {
         S.current = taken.candidate;
     }
     if (lowest.candidate.mf < S.best.mf - 1e-12) {
-        return recordBest(ctx, S, lowest.candidate, lowest.item.proposal.mutation);
+        return recordBest(S, lowest.candidate, lowest.item.proposal.mutation);
     }
     S.noImprove += 1;
     return false;

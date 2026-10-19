@@ -11,7 +11,7 @@ import { presampleSynthesisMaterials } from '../../synthesisShared/runGrid.js';
 import { embedDesignMaterials, isBuiltinId } from '../../../../../utils/materials/designMaterials.js';
 import { stripGetNK } from '../../../../../utils/materials/catalogManager/persistence.js';
 import { activeBaseline, openRunBlock } from '../../synthesisShared/runBlocks.js';
-import { applyConstraintBounds } from '../../structuralOptimizer/runners/runState.js';
+import { applyConstraintBounds } from '../../../../../utils/structural/setup.js';
 import { reconcileWithEdits } from '../historyActions.js';
 
 const toLayers = layers => (layers || []).map(({ material, thickness }) => ({ material, thickness }));

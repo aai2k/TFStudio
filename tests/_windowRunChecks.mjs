@@ -26,12 +26,14 @@ const ends = promise => Promise.race([promise.then(() => true),
  * stopped run still reports shows nothing, and its end leaves the run started
  * after it running; that run's own reports still show. `win` is a fake window
  * whose worker pools wait until they are terminated and are kept in `pools`
- * as the window builds them; `startWindowRun` is the window's. Returns the
- * failures.
+ * as the window builds them; `startWindowRun` is the window's. `untilBusy`,
+ * when given, is awaited once the first run has started, until it has work on
+ * its pool. Returns the failures.
  */
-export async function letGoFailures(win, startWindowRun, pools) {
+export async function letGoFailures(win, startWindowRun, pools, { untilBusy } = {}) {
     const failed = [];
     const runA = startWindowRun(win.ctx);
+    if (untilBusy) await untilBusy();
     const second = startWindowRun(win.ctx);
     if (pools.length !== 1) failed.push('a second Run press while a run is going started another run');
     win.ctx.stopOpt('');

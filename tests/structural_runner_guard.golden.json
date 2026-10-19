@@ -3325,6 +3325,243 @@
       "terminated": 1
     }
   },
+  "minThickness": {
+    "applied": 3,
+    "base": {
+      "back": [],
+      "front": [
+        [
+          "TiO2",
+          78.17287295451388,
+          false
+        ],
+        [
+          "SiO2",
+          125.73795188171789,
+          false
+        ]
+      ]
+    },
+    "cached": {
+      "base": {
+        "back": [],
+        "front": [
+          [
+            "TiO2",
+            78.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            125.73795188171789,
+            false
+          ]
+        ]
+      },
+      "rows": 2,
+      "runs": 1,
+      "trend": 4
+    },
+    "checkpoints": 1,
+    "design": {
+      "back": [],
+      "front": [
+        [
+          "TiO2",
+          78.17287295451388,
+          false
+        ],
+        [
+          "SiO2",
+          125.73795188171789,
+          false
+        ]
+      ]
+    },
+    "edits": 0,
+    "firstJob": {
+      "dMax": null,
+      "dMin": 12,
+      "maxIter": 5,
+      "method": "cg",
+      "ops": 1,
+      "wasm": true
+    },
+    "genCount": 1,
+    "presses": [
+      {
+        "running": false,
+        "statuses": [
+          "baseline",
+          "refining:1",
+          "max-iterations"
+        ]
+      }
+    ],
+    "reconciles": 1,
+    "rows": [
+      {
+        "backSnap": [],
+        "dMF": null,
+        "frontSnap": [
+          [
+            "TiO2",
+            90,
+            false
+          ],
+          [
+            "SiO2",
+            110,
+            false
+          ]
+        ],
+        "genNum": 0,
+        "insertMat": null,
+        "kind": "baseline",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            90,
+            false
+          ],
+          [
+            "SiO2",
+            110,
+            false
+          ]
+        ],
+        "mf": 0.3365474532673396,
+        "omf": 0.3365474532673396,
+        "runNum": 1,
+        "seed": 7,
+        "side": "front",
+        "tot": 200
+      },
+      {
+        "backSnap": [],
+        "dMF": -0.11486459834975754,
+        "frontSnap": [
+          [
+            "TiO2",
+            78.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            125.73795188171789,
+            false
+          ]
+        ],
+        "genNum": 1,
+        "insertMat": null,
+        "kind": "perturb",
+        "layerCount": 2,
+        "layers": [
+          [
+            "TiO2",
+            78.17287295451388,
+            false
+          ],
+          [
+            "SiO2",
+            125.73795188171789,
+            false
+          ]
+        ],
+        "mf": 0.22168285491758205,
+        "omf": 0.22168285491758205,
+        "runNum": 1,
+        "seed": 7,
+        "side": "front",
+        "tot": 203.91082483623177
+      }
+    ],
+    "runOpen": false,
+    "runs": [
+      {
+        "baseline": {
+          "back": [],
+          "front": [
+            [
+              "TiO2",
+              90,
+              false
+            ],
+            [
+              "SiO2",
+              110,
+              false
+            ]
+          ]
+        },
+        "runNum": 1
+      }
+    ],
+    "saved": {
+      "back": [],
+      "front": [
+        [
+          "TiO2",
+          90,
+          false
+        ],
+        [
+          "SiO2",
+          110,
+          false
+        ]
+      ]
+    },
+    "shown": {
+      "accRate": 0.3333333333333333,
+      "canReset": true,
+      "iter": 3,
+      "layerCount": 2,
+      "mf": 0.22168285491758205,
+      "mfBest": 0.22168285491758205,
+      "omf": 0.22168285491758205,
+      "omfBest": 0.22168285491758205,
+      "reheats": 0,
+      "rows": 2,
+      "running": false,
+      "seed": 7,
+      "temp": null,
+      "top": 1,
+      "trend": 3
+    },
+    "trend": [
+      {
+        "best": 0.3365474532673396,
+        "cur": 0.3365474532673396,
+        "iter": 0,
+        "runNum": 1
+      },
+      {
+        "best": 0.22168285491758205,
+        "cur": 0.22168285491758205,
+        "iter": 1,
+        "runNum": 1
+      },
+      {
+        "best": 0.22168285491758205,
+        "cur": 0.22168285491758205,
+        "iter": 2,
+        "runNum": 1
+      },
+      {
+        "best": 0.22168285491758205,
+        "cur": 0.22168285491758205,
+        "iter": 3,
+        "runNum": 1
+      }
+    ],
+    "workers": {
+      "built": 1,
+      "jobs": 4,
+      "terminated": 1
+    }
+  },
   "stopThenRun": {
     "applied": 6,
     "base": {

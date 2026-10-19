@@ -32,7 +32,7 @@ import { InThreadOptimizerWorker } from '../workers/inThreadOptimizerWorker.js';
 import { MUTATION_KINDS } from '../synthesis/structuralOptimizer.js';
 import { generateARSeeds, rankSeeds } from '../synthesis/seedGenerator.js';
 import { cullMarginalNeedles } from '../synthesis/synthesisConfig.js';
-import { STRUCTURAL_DEFAULTS } from '../../components/windows/optimization/structuralOptimizer/structuralSettings.js';
+import { STRUCTURAL_DEFAULTS } from '../structural/settings.js';
 import { runWindowStructural } from './structuralRun.js';
 
 // ── timing (works in Node and the browser/worker) ────────────────────────────────
