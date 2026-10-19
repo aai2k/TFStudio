@@ -304,23 +304,33 @@ export function polFromType(type) {
     return null;
 }
 
-// Minimum band-sample count (floor) for band averages, integrals and range
-// targets, whichever rule below sets their grid.
-export const AVG_POINTS = 13;
+// Fewest samples on a band row's grid (averages, integrals, range targets and
+// flatness rows), whichever rule below sets it. On a thin coating the fringe
+// grid alone gives 6 to 18 points, and a low reflectance averaged over so few
+// reads several percent high: a 4-layer TiO2/MgF2 AR over 420-680 nm reads
+// R avg 0.2477 % on 13 points and 0.2336 % on 101, against 0.2334 % dense. The
+// trapezoid error falls as the square of the step, and 101 points keep a
+// smooth band within about a thousandth of its value.
+export const BAND_MIN_POINTS = 101;
+// Fewest samples a band-extremum row starts its search from: the grid a row
+// that looks for a dip searches, made finer on a thick coating
+// (extremumGrid.js). The search refines the extremum it finds, so its grid
+// only has to show it.
+export const EXTREMUM_MIN_POINTS = 13;
 // Nominal spacing (nm) for band averages, integrals and range targets when no
 // design is at hand to set it: a 300 nm band gets 151 points. A run and the
 // merit table replace it with fringeSampleCount for the design they evaluate
 // (evalCore/fringeSampling.js).
 export const AVG_STEP_NM = 2;
 // Design-free default sample count: round(width / AVG_STEP_NM) + 1, never below
-// AVG_POINTS, and never coarser than the row's flag asks (bandFlagCount).
+// BAND_MIN_POINTS, and never coarser than the row's flag asks (bandFlagCount).
 // `op.bandPoints` / `op.rampPoints` (if ≥2) override it. Argwave and worst-case
 // min/max operands search a grid of their own (extremumGrid.js) and do not use
 // this.
 export function bandSampleCount(op) {
     const w = Math.abs((op.lambdaEnd ?? op.lambdaStart) - op.lambdaStart);
     const n = Math.round(w / AVG_STEP_NM) + 1;
-    return Math.max(AVG_POINTS, n, bandFlagCount(op));
+    return Math.max(BAND_MIN_POINTS, n, bandFlagCount(op));
 }
 // Samples per fringe period on a design-set band grid. Measured on fifteen
 // random 80-layer TiO2/SiO2 stacks (about 9.4 µm) refined for 60 LM steps
@@ -337,15 +347,15 @@ export const SAMPLES_PER_FRINGE = 8;
 // count grows with the coating and has no upper limit: a merit sampled coarser
 // than its fringes can be lowered by moving fringes between samples (Macleod,
 // Thin-Film Optical Filters 5e, §3 automatic design, p. 94). Never below
-// AVG_POINTS, and never coarser than the row's flag asks (bandFlagCount).
+// BAND_MIN_POINTS, and never coarser than the row's flag asks (bandFlagCount).
 export function fringeSampleCount(op, groupThicknessNm) {
     const a = op.lambdaStart;
     const b = op.lambdaEnd ?? op.lambdaStart;
     const shortEnd = Math.min(a, b);
     const width = Math.abs(b - a);
-    if (!(groupThicknessNm > 0) || !(shortEnd > 0) || !(width > 0)) return Math.max(AVG_POINTS, bandFlagCount(op));
+    if (!(groupThicknessNm > 0) || !(shortEnd > 0) || !(width > 0)) return Math.max(BAND_MIN_POINTS, bandFlagCount(op));
     const step = (shortEnd * shortEnd) / (2 * groupThicknessNm * SAMPLES_PER_FRINGE);
-    return Math.max(AVG_POINTS, Math.ceil(width / step) + 1, bandFlagCount(op));
+    return Math.max(BAND_MIN_POINTS, Math.ceil(width / step) + 1, bandFlagCount(op));
 }
 // The step, nm, a band-extremum row that looks for a peak of T, 1 − R or A
 // searches its band at: 10^(1 − flag) nm, so flag 1 is 1 nm, 2 is 0.1 nm, 3 is

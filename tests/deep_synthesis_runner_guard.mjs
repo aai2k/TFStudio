@@ -123,6 +123,11 @@ class MissingRunWorker extends NodeModuleWorker {
 // ── Fixture ───────────────────────────────────────────────────────────────────
 const copy = value => JSON.parse(JSON.stringify(value));
 const OPERANDS = caseById('bbar').ops.map(op => ({ ...op, enabled: true }));
+// The same row over a band wide enough that its grid grows with the coating.
+// From an empty start a band row begins at its 101-point minimum, which the
+// few layers of a bbar run never outgrow; the fringes of a few layers over
+// 400-3000 nm need more points, so a run over it regrids.
+const WIDE_OPERANDS = OPERANDS.map(op => ({ ...op, lambdaStart: 400, lambdaEnd: 3000 }));
 const builtin = poolCatalogs(null).find(cat => cat.id === 'builtin');
 const EXCLUDED = new Set(poolMatEntries(builtin).map(e => e.fullId).filter(id => id !== 'TiO2' && id !== 'SiO2'));
 const CONFIG = {
@@ -141,16 +146,16 @@ const td = {
     blocked: new Proxy({}, { get: (_, key) => `blocked:${String(key)}` }),
 };
 
-function designWith(frontLayers) {
+function designWith(frontLayers, operands = OPERANDS) {
     return {
         id: 'deep-guard', incidentMedium: 'Air', exitMedium: 'Air',
         substrate: { material: 'BK7', thickness: 1 }, surfaceMode: 'front_only', mfEvalMode: 'side',
-        frontLayers, backLayers: [], meritOperands: copy(OPERANDS),
+        frontLayers, backLayers: [], meritOperands: copy(operands),
     };
 }
 
 // A context as the window hook builds one, with the view kept in `view`.
-function makeCtx(frontLayers, onPublish = () => {}) {
+function makeCtx(frontLayers, onPublish = () => {}, operands = OPERANDS) {
     const view = { statuses: [] };
     const ctx = createRunContext((patch) => {
         Object.assign(view, patch);
@@ -160,8 +165,8 @@ function makeCtx(frontLayers, onPublish = () => {}) {
     ctx.hist = freshHistory();
     ctx.td = td;
     ctx.cfgRef.current = copy(CONFIG);
-    ctx.designRef.current = designWith(frontLayers);
-    ctx.operandsRef.current = copy(OPERANDS);
+    ctx.designRef.current = designWith(frontLayers, operands);
+    ctx.operandsRef.current = copy(operands);
     ctx.selectedCatsRef.current = new Set(['builtin']);
     ctx.excludedMatsRef.current = EXCLUDED;
     ctx.applied = 0;
@@ -198,8 +203,8 @@ function resultOf(ctx, view) {
     });
 }
 
-async function run(frontLayers, onPublish) {
-    const { ctx, view } = makeCtx(frontLayers, onPublish);
+async function run(frontLayers, onPublish, operands) {
+    const { ctx, view } = makeCtx(frontLayers, onPublish, operands);
     await runDeepSynthesisWorker(ctx);
     assert.equal(ctx.runningRef.current, false, 'the run finished');
     assert.equal(runWorkers.terminated, runWorkers.constructed, 'the run worker is gone');
@@ -234,7 +239,6 @@ const pooled = await run([]);
 const results = { pool: { ...resultOf(pooled.ctx, pooled.view), workers: copy(counts) } };
 assert.ok(counts.constructed === CONFIG.threads, `a pool of ${CONFIG.threads} workers (${counts.constructed})`);
 assert.equal(runWorkers.constructed, 1, 'one run worker');
-assertRegridTables(designWith([]), poolOf(new Set(['builtin']), EXCLUDED, designWith([])), 'built-in materials');
 assert.ok(pooled.ctx.hist.rows.length > 0, 'the run records its best designs');
 assert.ok(pooled.ctx.hist.rows.every(row => row.layerCount <= CONFIG.maxLayers), 'every row is within the cap');
 
@@ -393,7 +397,17 @@ globalThis.Worker = CountingWorker;
     assert.deepEqual(ctx.designRef.current.frontLayers, [], 'Reset restores the empty stack');
 }
 
-// ── 8. Materials from a user catalog ──────────────────────────────────────────
+// ── 8. A run that regrids ─────────────────────────────────────────────────────
+// Each regrid samples the run worker's tables as the window samples its own
+// for the same grid.
+{
+    runWorkers.regrids.length = 0;
+    await run([], undefined, WIDE_OPERANDS);
+    const launch = designWith([], WIDE_OPERANDS);
+    assertRegridTables(launch, poolOf(new Set(['builtin']), EXCLUDED, launch), 'built-in materials');
+}
+
+// ── 9. Materials from a user catalog ──────────────────────────────────────────
 // A substrate and a pool material from a catalog the run worker has no copy
 // of: it samples them from the records the window sends, to the same tables.
 {
@@ -414,7 +428,7 @@ globalThis.Worker = CountingWorker;
             stopDeepSynthesis(ctx);
         }
     };
-    const { ctx } = makeCtx([], stopAfterRegrid);
+    const { ctx } = makeCtx([], stopAfterRegrid, WIDE_OPERANDS);
     ctx.selectedCatsRef.current = selected;
     ctx.excludedMatsRef.current = excluded;
     ctx.designRef.current = { ...ctx.designRef.current, substrate: { material: 'guard:Glass', thickness: 1 } };

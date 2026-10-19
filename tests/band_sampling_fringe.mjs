@@ -11,7 +11,9 @@
  *   1. The 80-layer, 9.4 µm TiO2/SiO2 stack refined for 60 LM steps on its
  *      fringe grid: sampled and dense (6001-point) band averages agree to 0.1
  *      points. On the old 201-point grid they differ by 1.6 points.
- *   2. A thin 4-layer AR gets a small grid, below the design-free 151 points.
+ *   2. A thin 4-layer AR gets the band grid's 101-point minimum, below the
+ *      design-free 151 points, and on it the low R average of the library's
+ *      thin ARs reads within a thousandth of a point of its dense value.
  *   3. The count grows with the coating and has no ceiling; the group index,
  *      not the phase index, sets it; a full-system merit adds both faces.
  *   4. An operand's own count is raised when the fringes need more and kept
@@ -20,14 +22,14 @@
  *   5. s and p kernel results are bit-identical at normal incidence (the
  *      premise of the shared s/p cache entry there), and a polarization
  *      average there equals the single-polarization value exactly.
- *   6. On a thin coating's small grid the band average is still within 0.1
+ *   6. On a thin coating's 101-point grid the band average is within 0.005
  *      points of a dense one (trapezoid rule, not a plain mean of the samples).
  *
  * Run: node tests/band_sampling_fringe.mjs
  */
 
 import {
-    makeOperand, buildEvalContext, operandSampleLambdas, bandSampleCount,
+    makeOperand, buildEvalContext, operandSampleLambdas, bandSampleCount, BAND_MIN_POINTS,
     fringeSampleCount, groupThicknessAt, withFringeSampleCounts, DLSOptimizer,
     evaluateOperands, tmmJacEval, extremumSearchCount,
 } from '../src/utils/physics/optimizer.js';
@@ -90,8 +92,22 @@ console.log('WASM:', await initWasmForTest());
     const op = makeOperand({ type: 'RAV', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 });
     const [out] = withFringeSampleCounts([op], buildEvalContext(thinAR, resolveMat));
     const n = operandSampleLambdas(out).length;
-    ok(n < bandSampleCount(op) / 4,
-        `4-layer AR RAV(400-700): ${n} samples, under a quarter of the design-free ${bandSampleCount(op)}`);
+    ok(n === BAND_MIN_POINTS && n < bandSampleCount(op),
+        `4-layer AR RAV(400-700): ${n} samples, the band minimum, below the design-free ${bandSampleCount(op)}`);
+}
+{
+    const { BUILTIN_COATINGS } = await import('../src/utils/coatingLibrary/builtin/index.js');
+    const { entryDesign } = await import('../src/utils/coatingLibrary/entryModel.js');
+    const { meritTable } = await import('../src/utils/physics/meritDisplay.js');
+    for (const id of ['ar-bbar-420-680-tio2-mgf2-4l', 'ar-bbar-400-700-ta2o5-mgf2-4l', 'ar-mwir-3-5um-ge-mgf2-silicon-4l']) {
+        const entry = BUILTIN_COATINGS.find(e => e.id === id);
+        const design = entryDesign(entry);
+        const [a, b] = entry.bands[0];
+        const rav = extra => makeOperand({ type: 'RAV', lambdaStart: a, lambdaEnd: b, aoi: entry.aoi, pol: 'avg', target: 0, weight: 1, ...extra });
+        const shown = meritTable(design, [rav()]).computed[0];
+        const dense = meritTable(design, [rav({ bandPoints: 20001 })]).computed[0];
+        ok(Math.abs(shown - dense) < 1e-5, `${id}: R avg ${(shown * 100).toFixed(4)} % against ${(dense * 100).toFixed(4)} % dense`);
+    }
 }
 
 // ── 3. Count grows with the coating, no ceiling, group index, both faces ─────
@@ -168,9 +184,10 @@ console.log('WASM:', await initWasmForTest());
 
 // ── 6. A small grid still gives the band's true average ──────────────────────
 {
-    // Trapezoid reference on a 0.01 nm grid. A plain mean of 13 samples of the
-    // single Ta2O5 layer is 0.67 points off it, because it counts the band edges
-    // twice as heavily as the interior; the band average uses the trapezoid rule.
+    // Trapezoid reference on a 0.01 nm grid. A plain mean of the 101 samples is
+    // 0.081 points off it for the single Ta2O5 layer and 0.013 for the AR,
+    // because it counts the band edges twice as heavily as the interior; the band
+    // average uses the trapezoid rule and is within 0.0015 for both.
     const single = { ...media, frontLayers: [{ id: 'L1', material: 'Ta2O5', thickness: 120, locked: false }] };
     for (const [label, design, type] of [['single 120 nm Ta2O5 layer', single, 'TAV'], ['4-layer AR', thinAR, 'RAV']]) {
         const op = makeOperand({ type, lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, weight: 1 });
@@ -178,7 +195,7 @@ console.log('WASM:', await initWasmForTest());
         const [sampled] = withFringeSampleCounts([op], ctx);
         const [onGrid, dense] = evaluateOperands([sampled, { ...op, bandPoints: 30001 }], ctx);
         const gapPoints = Math.abs(onGrid - dense) * 100;
-        ok(gapPoints < 0.1,
+        ok(gapPoints < 0.005,
             `${label} ${type}(400-700) on ${operandSampleLambdas(sampled).length} samples is ${gapPoints.toFixed(3)} points from the 30001-sample value`);
     }
 }

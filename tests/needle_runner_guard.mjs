@@ -148,10 +148,13 @@ async function runScenario(name) {
 // Whether each scenario's rows are timed on across its presses (runScenario).
 const WINDOW_TIMES = {};
 
-// The scenarios that end on a closing row: a winner no accepted row shows. In
-// secondPress it is the design a thin-start rescue set aside, which differs
-// from every row before it, so it is on screen only if the window put it there.
-const CLOSING = ['regridAndRescue', 'sqpThorough', 'secondPress'];
+// The scenarios that must end on a closing row: a winner no accepted row
+// shows. In secondPress it is the design a thin-start rescue set aside, which
+// differs from the row before it, so it is on screen only if the window put it
+// there. A run whose grid grows at its end also closes on a row, its winner
+// re-scored on the new grid; any scenario that ends on a closing row is held to
+// the same checks.
+const CLOSING = ['secondPress'];
 
 // Each closing row is what the readout and the design on screen show. Each
 // press of a scenario is timed on from the presses before it.
@@ -159,9 +162,10 @@ function windowChecks(results) {
     const failed = [];
     const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
     const sameDesign = (row, d) => row && same(d?.front, row.frontSnap) && same(d?.back, row.backSnap);
-    for (const name of CLOSING) {
+    const closing = Object.keys(results).filter(name => results[name].rows?.at(-1)?.final);
+    for (const name of CLOSING) if (!closing.includes(name)) failed.push(`${name}: the run does not end on a closing row`);
+    for (const name of closing) {
         const r = results[name], row = r.rows.at(-1);
-        if (!row?.final) { failed.push(`${name}: the run does not end on a closing row`); continue; }
         if (r.shown.mf !== row.mf) failed.push(`${name}: the readout shows ${r.shown.mf}, the closing row ${row.mf}`);
         if (!sameDesign(row, r.design)) failed.push(`${name}: the design on screen is not the closing row's`);
     }

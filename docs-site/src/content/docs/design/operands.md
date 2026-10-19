@@ -294,7 +294,7 @@ The [Specification](/design/specification/) window, the report's specification b
 
 ## Sampling a band
 
-Band averages, spectral targets, weighted integrals and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. The grid has at least 13 points and no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
+Band averages, spectral targets, weighted integrals and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. The grid has at least 101 points and no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
 
 The **Step** flag of a band row sets the coarsest step its grid may take; the row takes whichever of that step and the fringe grid is finer.
 

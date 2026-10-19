@@ -53,8 +53,8 @@ const stamped = (design, row) => withDesignSampleCounts(api.setMerit(design, [ro
 
 // ── 1. Cavities ────────────────────────────────────────────────────────────
 const CAVITIES = [
-    { formula: '(HL)^4 2H (LH)^4', flag: 2, unflagged: 0.0123 },
-    { formula: '(HL)^8 2H (LH)^8', flag: 3, unflagged: 4.1e-6 },
+    { formula: '(HL)^4 2H (LH)^4', flag: 2, unflagged: 0.0262 },
+    { formula: '(HL)^8 2H (LH)^8', flag: 3, unflagged: 0.00958 },
 ];
 for (const { formula, flag, unflagged } of CAVITIES) {
     const design = stack(formula);
@@ -62,7 +62,7 @@ for (const { formula, flag, unflagged } of CAVITIES) {
     const flagged = value(design, tav({ flag }));
     ok(`${formula}: TAV at flag ${flag} reads its dense value`, Math.abs(flagged - dense) <= 0.005 * dense, `${flagged} against ${dense}`);
     const plain = value(design, tav());
-    ok(`${formula}: without a flag it reads as on the fringe grid`, Math.abs(plain - unflagged) <= 0.01 * unflagged, String(plain));
+    ok(`${formula}: without a flag it reads as on its default grid`, Math.abs(plain - unflagged) <= 0.01 * unflagged, String(plain));
     const run = await quietly(() => api.refine(api.setMerit(design, [tav({ flag })]), { method: 'dls', maxIter: 1 }));
     ok(`${formula}: a run starts on the flag's grid`, Math.abs(run.result.mfInitial - flagged) <= 1e-12 * Math.max(1, flagged), `${run.result.mfInitial} against ${flagged}`);
 }

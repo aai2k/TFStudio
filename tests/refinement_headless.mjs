@@ -80,7 +80,10 @@ for (const [name, settings] of RUNS) {
     assert.equal(rows.length, Array.isArray(settings.method) ? settings.method.length : 1, `${name}: one row per method`);
 }
 {
-    const result = await runRefinement(DESIGN, OPS(), { method: 'dls', maxIter: 60 }, { makeWorker });
+    // Left to run until it stalls, DLS takes this start well below half its
+    // merit; at a cap of 60 iterations it is still on its way down.
+    const result = await runRefinement(DESIGN, OPS(), { method: 'dls', maxIter: 2000 }, { makeWorker });
+    assert.equal(result.stopReason, 'stalled', `DLS runs until it stalls (${result.stopReason} at iteration ${result.iter})`);
     assert.ok(result.mf < 0.5 * result.mfInitial, `DLS refines the start well below its merit (${result.mfInitial} → ${result.mf})`);
 }
 for (const method of ['dls', 'cg', 'sqp', 'newton']) {

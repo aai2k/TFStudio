@@ -21,6 +21,10 @@
  *      needs, and when a thinner rung wins, the run goes on with the grid that
  *      rung needs, with the adopted and the stalled design re-scored on it.
  *   5. When the thickest rung wins, the run keeps its grid.
+ *   6-7. A Gradual Evolution run and a Structural run from a thin AR start
+ *      over 400-3000 nm, whose launch grid is the band's 101-point minimum:
+ *      later jobs carry more band samples than the launch grid, and every
+ *      job's material tables hold every wavelength its operands sample.
  *
  * Run: node tests/synthesis_regrid.mjs
  */
@@ -32,7 +36,7 @@ await initWasmForTest();
 
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const {
-    makeOperand, operandSampleLambdas, requiredLambdas, withDesignSampleCounts,
+    makeOperand, operandSampleLambdas, requiredLambdas, withDesignSampleCounts, BAND_MIN_POINTS,
 } = await import('../src/utils/physics/optimizer.js');
 const { regridForDesign, meritOf } = await import('../src/components/windows/optimization/synthesisShared/runGrid.js');
 const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
@@ -118,8 +122,8 @@ ok(rescueAt >= 0 && afterRescue.length > 0, `the run took the rescue and went on
 ok(afterRescue.every(j => j.samples < ladderSamples),
     `the jobs after the rescue carry fewer samples than its ladder (${Math.max(...afterRescue.map(j => j.samples))} vs ${ladderSamples})`);
 
-// The last cycle re-samples for the final design before it stops at the layer
-// limit, so the run's grid is the last jobs' grid grown for that design.
+// The run's grid is the last jobs' grid, grown for the final design when that
+// design has outgrown it.
 const finalDesign = { ...seed(), frontLayers: ended.frontLayers, backLayers: ended.backLayers };
 const lastOps = jobLog.at(-1).operands;
 const finalOps = regridForDesign(lastOps, finalDesign, resolveMat) || lastOps;
@@ -192,6 +196,66 @@ ok(Math.abs(ended.mf - rescored) <= 1e-9 * Math.max(rescored, 1e-12),
     // 5. The ×16 rung wins: the run keeps the ×16 grid.
     const sixteen = await rescueWith(16);
     ok(samplesOf(sixteen.run.operands) === samplesOf(ladderGrid), 'with the ×16 rung the run keeps the ×16 grid');
+}
+
+// ── 6-7. Gradual Evolution and Structural runs ──────────────────────────────
+// A thin AR start over a wide band: its launch grid is the 101-point minimum,
+// and both runs grow the design past what that grid resolves.
+const wideOps = [makeOperand({ type: 'RAV', lambdaStart: 400, lambdaEnd: 3000, aoi: 0, pol: 'avg', target: 0, weight: 1 })];
+const thinSeed = () => ({
+    ...seed(),
+    frontLayers: [['TiO2', 30], ['SiO2', 50]].map(([material, thickness], i) => ({ id: 'T' + i, material, thickness, locked: false })),
+});
+const wideLaunch = samplesOf(withDesignSampleCounts(wideOps, thinSeed(), resolveMat));
+ok(wideLaunch === BAND_MIN_POINTS, `the thin start's launch grid is the band minimum (${wideLaunch} samples)`);
+
+const quiet = { log: console.log, warn: console.warn, error: console.error };
+const silence = () => { console.log = noop; console.warn = noop; console.error = noop; };
+const loud = () => Object.assign(console, quiet);
+
+// 6. Gradual Evolution, on the in-process pool.
+{
+    const { runGradualEvolution } = await import('../src/utils/gradualEvolution/runGradualEvolution.js');
+    jobLog.length = 0;
+    silence();
+    try {
+        await runGradualEvolution(thinSeed(), wideOps,
+            { pool: POOL, maxLayers: 6, maxGeCycles: 3, targetMF: 1e-9, refineIter: 10, dMin: 15, threads: 3 },
+            { makeWorkerPool: () => makeFakePool() });
+    } finally { loud(); }
+    const most = Math.max(...jobLog.map(j => j.samples));
+    ok(jobLog[0]?.samples === wideLaunch && most > wideLaunch,
+        `GE: later jobs carry more band samples than the launch grid (${jobLog[0]?.samples} → ${most})`);
+    ok(jobLog.every(j => j.covered), 'GE: every job\'s material tables hold every wavelength its operands sample');
+}
+
+// 7. Structural, refining on the calling thread.
+{
+    const { runStructural } = await import('../src/utils/structural/runStructural.js');
+    const { InThreadOptimizerWorker } = await import('../src/utils/workers/inThreadOptimizerWorker.js');
+    const refines = [];
+    const makeWorker = () => {
+        const worker = new InThreadOptimizerWorker();
+        const post = worker.postMessage.bind(worker);
+        worker.postMessage = (msg, ...rest) => {
+            if (msg?.operands) {
+                const have = new Set(msg.materials?.TiO2?.lambdas || []);
+                refines.push({ samples: samplesOf(msg.operands), covered: requiredLambdas(msg.operands).every(l => have.has(l)) });
+            }
+            post(msg, ...rest);
+        };
+        return worker;
+    };
+    silence();
+    try {
+        await runStructural(thinSeed(), wideOps,
+            { pool: POOL, maxIter: 8, refineIter: 10, threads: 2, seed: 99, targetMF: 0, T0: 0.3, addMaxNm: 200 },
+            { makeWorker });
+    } finally { loud(); }
+    const most = Math.max(...refines.map(j => j.samples));
+    ok(refines[0]?.samples === wideLaunch && most > wideLaunch,
+        `Structural: later refines carry more band samples than the launch grid (${refines[0]?.samples} → ${most})`);
+    ok(refines.every(j => j.covered), 'Structural: every refine\'s material tables hold every wavelength its operands sample');
 }
 
 if (fails === 0) console.log('\nAll synthesis regrid tests passed.');

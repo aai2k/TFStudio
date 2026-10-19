@@ -93,7 +93,7 @@ ok(isRamp(makeOperand({ type: 'TGT' })) && !isRamp(makeOperand({ type: 'TAV' }))
     const vPlain   = evaluateOperands([tavPlain],   ctx)[0];
     const vWithEnd = evaluateOperands([tavWithEnd], ctx)[0];
     ok(close(vPlain, vWithEnd), 'TAV ignores targetEnd → identical band average regardless of targetEnd');
-    // Both equal the simple mean of T over the AVG_POINTS grid.
+    // Both are the trapezoid mean of T over the row's band grid.
     ok(vPlain > 0 && vPlain < 1, `TAV value is a band average in (0,1): ${vPlain.toFixed(4)}`);
 }
 

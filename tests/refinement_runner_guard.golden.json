@@ -10,7 +10,7 @@
     },
     "mf": 0.05,
     "mfBest": 0.05,
-    "mfInitial": 0.397695619,
+    "mfInitial": 0.397771927,
     "iter": 10,
     "stopReason": "stalled",
     "history": [
@@ -34,7 +34,7 @@
     },
     "mf": 0.01,
     "mfBest": 0.01,
-    "mfInitial": 0.397695619,
+    "mfInitial": 0.397771927,
     "iter": 50,
     "stopReason": null,
     "history": [
@@ -57,7 +57,7 @@
     },
     "mf": 0.01,
     "mfBest": 0.01,
-    "mfInitial": 0.02109899,
+    "mfInitial": 0.021093063,
     "iter": 50,
     "stopReason": null,
     "history": [
@@ -81,7 +81,7 @@
     },
     "mf": 0.05,
     "mfBest": 0.05,
-    "mfInitial": 0.397695619,
+    "mfInitial": 0.397771927,
     "iter": 10,
     "stopReason": "stalled",
     "history": [
@@ -105,7 +105,7 @@
     },
     "mf": 0.05,
     "mfBest": 0.05,
-    "mfInitial": 0.397695619,
+    "mfInitial": 0.397771927,
     "iter": 60,
     "stopReason": "best:cg",
     "history": [
@@ -145,7 +145,7 @@
     },
     "mf": 0.05,
     "mfBest": 0.05,
-    "mfInitial": 0.196579637,
+    "mfInitial": 0.196568758,
     "iter": 20,
     "stopReason": "best:cg",
     "history": [
@@ -178,7 +178,7 @@
     },
     "mf": 7.21e-7,
     "mfBest": 7.21e-7,
-    "mfInitial": 0.196579637,
+    "mfInitial": 0.196568758,
     "iter": 40,
     "stopReason": "target",
     "history": [

@@ -16,7 +16,7 @@
  *      violated). Same for TMX with the opposite sign.
  *   5. TMN analytic Jacobian == central-difference Jacobian under violation.
  *   6. operandSampleLambdas returns the documented N-point grid for the new
- *      band-sampled types, including the bit-identical AVG_POINTS fallback.
+ *      band-sampled types, including the bit-identical BAND_MIN_POINTS fallback.
  *   7. Persistence roundtrip: a custom-integral preset survives
  *      JSON.stringify → JSON.parse without mutation.
  *

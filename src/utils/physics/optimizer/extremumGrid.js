@@ -6,7 +6,7 @@
  */
 
 import {
-    AVG_POINTS, extremumStepNm, isArgwave, isArgwaveMin, argwaveOpticalChar, argwavePolCode,
+    EXTREMUM_MIN_POINTS, extremumStepNm, isArgwave, isArgwaveMin, argwaveOpticalChar, argwavePolCode,
     polFromType, isMinType, isMinmax, isBandGridRow,
 } from './operandModel.js';
 import { logOperand } from './logReadings.js';
@@ -75,11 +75,12 @@ export function bandGridOfCount(a, b, n) {
 }
 
 // Samples of the row's own grid: its step for a peak row (extremumStepNm),
-// AVG_POINTS for a row that looks for a dip, and never fewer than AVG_POINTS.
+// EXTREMUM_MIN_POINTS for a row that looks for a dip, and never fewer than
+// EXTREMUM_MIN_POINTS.
 function ownCount(op) {
     const [lo, hi] = bandOf(op);
     const step = extremumRowSpec(op).peak ? extremumStepNm(op) : Infinity;
-    return Math.max(AVG_POINTS, Number.isFinite(step) ? Math.ceil((hi - lo) / step) + 1 : 0);
+    return Math.max(EXTREMUM_MIN_POINTS, Number.isFinite(step) ? Math.ceil((hi - lo) / step) + 1 : 0);
 }
 
 /**
