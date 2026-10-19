@@ -1,9 +1,6 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import {
-    evaluateOperands, calcMF, calcOMF, buildEvalContext, operandEvaluationErrors,
-    operandBandLevels, withFringeSampleCounts, withDesignSampleCounts,
-    makeConeSpec, coneIsActive,
-} from '../../../../utils/physics/optimizer.js';
+import { withDesignSampleCounts, makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
+import { evaluateForDisplay } from '../../../../utils/physics/meritDisplay.js';
 import {
     editOperand, replaceOperandTail, addOperands, insertOperand,
     duplicateOperands, deleteOperands, moveOperand,
@@ -15,21 +12,6 @@ import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 
 const { useState, useEffect, useCallback, useMemo } = React;
 const EMPTY_OPERANDS = [];
-
-// Band operands are sampled for the displayed design's fringes, the grid a run
-// launched from that design would use, so the table shows the band's true value.
-export function evaluateForDisplay(design, operands) {
-    const ctx = buildEvalContext(design, designMaterialLookup(design));
-    const sampled = withFringeSampleCounts(operands, ctx);
-    const computed = evaluateOperands(sampled, ctx);
-    const errors = operandEvaluationErrors(computed);
-    const invalid = errors.some(Boolean);
-    return {
-        computed, errors, bandLevels: operandBandLevels(computed),
-        mf: invalid ? null : calcMF(sampled, computed),
-        omf: invalid ? null : calcOMF(sampled, computed),
-    };
-}
 
 function applyAdd(ctx, data, atIndex) {
     const result = addOperands(ctx.operands, data, atIndex);

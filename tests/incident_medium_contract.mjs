@@ -2,8 +2,8 @@
  * Incident/exit medium contract — D1 regression.
  *
  * `design.incidentMedium` and `design.exitMedium` are STRINGS (material ids,
- * e.g. 'Air', 'builtin:Air') — see DesignContext.js, sampleDesigns.js,
- * wdmDesigner.js. `design.substrate` is an OBJECT ({material, thickness}), so
+ * e.g. 'Air', 'builtin:Air'), as newDesign.js, sampleDesigns.js and
+ * wdmDesigner.js write them. `design.substrate` is an OBJECT ({material, thickness}), so
  * `substrate.material` is correct, but accessing `.material` on the medium
  * strings yields `undefined` → silently resolves to Air.
  *
@@ -66,7 +66,7 @@ const checkStringDefault = (relPath, label) => {
     const m = src.match(/incidentMedium:\s*(['"`{])/);
     ok(m && m[1] !== '{', `${label}: incidentMedium default should be a string literal, not an object`);
 };
-checkStringDefault('src/state/DesignContext.js', 'DesignContext');
+checkStringDefault('src/utils/io/newDesign.js', 'newDesign');
 checkStringDefault('src/utils/samples/sampleDesigns.js', 'sampleDesigns');
 
 if (fails === 0) { console.log('PASS — incident/exit medium contract holds across all windows.'); process.exit(0); }

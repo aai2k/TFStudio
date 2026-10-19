@@ -11,39 +11,10 @@ import { resolveEvalMode, mirrorLayers } from '../utils/physics/optimizer.js';
 import { designMaterialIds, isBuiltinId, withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { useCatalogRevision } from '../utils/materials/useCatalogRevision.js';
 import { REFRESH_ALL, useRefreshRevision } from './refreshAll.js';
+import { makeDefaultDesign, ensureLayerIds, newLayerId } from '../utils/io/newDesign.js';
 import { useAnalysisDefaults, useAnalysisSettings } from './AnalysisSettingsContext.js';
 
-// ── Default design factory ─────────────────────────────────────────────────────
-
-function uid() { return `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`; }
-
-// Monotonic layer-id generator. `l-${Date.now()}` collided when two layers were
-// created in the same millisecond (rapid duplicate, or ids backfilled in a loop),
-// producing duplicate React keys and making updateLayer/removeLayer/moveLayer
-// target the wrong (or both) layers. The counter guarantees uniqueness.
-let _layerSeq = 0;
-function newLayerId() { return `l-${Date.now()}-${(_layerSeq++).toString(36)}`; }
-
-// Guarantee every layer carries a unique `id`. Layers that arrive from a loaded
-// or imported design (e.g. a Zemax COATING.DAT import, where coatToTfLayers
-// emits `{material,thickness,locked}` with no id) — or that share an id — would
-// otherwise produce React "duplicate/undefined key" warnings in the layer list
-// and make updateLayer/removeLayer target the wrong row. Backfills ONLY the
-// missing/duplicate ids and preserves the array reference when nothing changes,
-// so the optimizer's transient-update streaming (layers already have ids) is a
-// no-op and triggers no extra re-render.
-export function ensureLayerIds(layers) {
-    if (!Array.isArray(layers) || layers.length === 0) return layers;
-    const seen = new Set();
-    let changed = false;
-    const out = layers.map((l) => {
-        let id = l && l.id;
-        if (id == null || id === '' || seen.has(id)) { id = newLayerId(); changed = true; }
-        seen.add(id);
-        return (l && l.id === id) ? l : { ...l, id };
-    });
-    return changed ? out : layers;
-}
+export { makeDefaultDesign, ensureLayerIds };
 
 /**
  * In symmetric mode the two coatings are one physical stack: the same coating on
@@ -64,38 +35,6 @@ function withSymmetricBack(previous, next) {
         && next.backLayers === previous.backLayers;
     if (unchanged) return next;
     return { ...next, backLayers: mirrorLayers(next.frontLayers || []) };
-}
-
-export function makeDefaultDesign(name = 'New Design', id = null) {
-    const ts = uid();
-    return {
-        id: id ?? `design-${ts}`,
-        name,
-        incidentMedium: 'Air',
-        substrate: { material: 'BK7', thickness: 1.0 },  // thickness in mm
-        exitMedium: 'Air',
-        // surfaceMode controls how optimizers see the design:
-        //   'front_only'       — back is bare substrate, optimize frontLayers only (default)
-        //   'both_independent' — front + back both have design variables, merit on full system
-        //   'symmetric'        — backLayers is auto-mirrored from frontLayers (identical
-        //                        deposition sequence on both sides); merit on full system
-        surfaceMode: 'front_only',
-        // mfEvalMode controls how the merit function is SCORED, independently of
-        // which side is optimized (only meaningful for front_only / back_only):
-        //   'side'  — single-surface MF (legacy default)
-        //   'total' — full-system MF (this side + substrate + the fixed other coating)
-        // symmetric / both_independent are always full-system regardless.
-        mfEvalMode: 'side',
-        // A new design starts as a BARE SUBSTRATE (no layers). The user adds
-        // layers, imports, or runs synthesis from scratch. (Previously seeded a
-        // fixed 2-layer TiO2/SiO2 BBAR; that seed was also what the no-selection
-        // fallback served, so a fresh install showed a "phantom" 2-layer design
-        // absent from the explorer.)
-        frontLayers: [],
-        backLayers: [],
-        referenceWavelength: 550,
-        notes: ''
-    };
 }
 
 // ── Context ────────────────────────────────────────────────────────────────────

@@ -6,24 +6,8 @@ import { computePulseAnalysis } from '../../components/windows/analysis/pulseAna
 import { designMaterialLookup, unresolvedMaterials } from '../materials/designMaterials.js';
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
 import { evaluateQualifiers } from '../synthesis/qualifiers.js';
-import {
-    buildEvalContext, evaluateOperands, operandEvaluationErrors, operandBandLevels,
-    calcMF, calcOMF,
-} from '../physics/optimizer.js';
+import { meritDisplay } from '../physics/meritDisplay.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
-
-function meritDisplay(design, operands) {
-    const computed = evaluateOperands(operands, buildEvalContext(design, designMaterialLookup(design)));
-    const errors = operandEvaluationErrors(computed);
-    const invalid = errors.some(Boolean);
-    return {
-        computed: Array.from(computed),
-        errors,
-        bandLevels: operandBandLevels(computed),
-        mf: invalid ? null : calcMF(operands, computed),
-        omf: invalid ? null : calcOMF(operands, computed),
-    };
-}
 
 function meritScore(design, operands) {
     if (!design || !operands?.length) return { mf: null, omf: null };

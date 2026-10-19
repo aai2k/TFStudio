@@ -41,7 +41,7 @@ const {
 } = await import('../src/utils/materials/designMaterials.js');
 const { resolveEvalMode, makeConeSpec, coneIsActive, withDesignSampleCounts } = await import('../src/utils/physics/optimizer.js');
 const { dispatchAnalysisEvaluation } = await import('../src/utils/workers/analysisEvaluationWorker.js');
-const { evaluateForDisplay } = await import('../src/components/windows/optimization/meritFunctionEditor/useMeritOperands.js');
+const { evaluateForDisplay } = await import('../src/utils/physics/meritDisplay.js');
 
 export { paths, embedDesignMaterials };
 
