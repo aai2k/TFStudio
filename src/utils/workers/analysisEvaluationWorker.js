@@ -10,6 +10,7 @@ import { designMaterialLookup, unresolvedMaterials } from '../materials/designMa
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
 import { evaluateQualifiers } from '../synthesis/qualifiers.js';
 import { runErrorAnalysisMC } from '../physics/errorAnalysis.js';
+import { toleranceSpecInputs } from '../../components/windows/analysis/toleranceSpecInputs.js';
 import { meritDisplay } from '../physics/meritDisplay.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 
@@ -20,10 +21,12 @@ function meritScore(design, operands) {
 }
 
 // A design's Specification results as `options` asks (qualifiers/evaluate.js),
-// or null when a material it uses resolves nowhere.
-function specificationResults(design, options) {
+// judged on the design `recipe` makes of it (toleranceSpecInputs.js), or null
+// when a material it uses resolves nowhere.
+function specificationResults(design, options, recipe) {
     try {
-        return evaluateQualifiers(design.qualifiers || [], design, designMaterialLookup(design), options);
+        const { design: judged, resolve } = toleranceSpecInputs(design, recipe);
+        return evaluateQualifiers(design.qualifiers || [], judged, resolve, options);
     } catch {
         return null;
     }
@@ -57,7 +60,8 @@ const EVALUATIONS = {
     integralSpectrum: ({ design, params, evalMode }) => computeSpectrumForMode(design, params, evalMode),
     colorReport: ({ design, options }) => colorReport(design, options),
     statusMonitors: ({ design, monitors }) => computeMonitors(monitors || [], design, designMaterialLookup(design)),
-    specification: ({ designs, coarse }) => (designs || []).map(d => specificationResults(d, { coarse })),
+    specification: ({ designs, coarse, deviation, interlayers }) => (designs || [])
+        .map(d => specificationResults(d, { coarse }, { deviation, interlayers })),
     meritDisplay: ({ design, operands }) => meritDisplay(design, operands || []),
     meritPair: ({ design, candidateDesign, operands }) => ({
         before: meritScore(design, operands || []),

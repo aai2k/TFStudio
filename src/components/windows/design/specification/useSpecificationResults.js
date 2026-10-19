@@ -39,7 +39,9 @@ function useSameDesigns(designs) {
 /**
  * Each design's Specification results as `options` asks (evaluate.js), by
  * default every check at its own Step, worked out on the analysis worker, since
- * a fine Step can take a tenth of a second or more per check. An array in the
+ * a fine Step can take a tenth of a second or more per check. `options` may
+ * also carry the recipe a tolerance window judges its designs with, a
+ * deviation or interlayers (analysis/toleranceSpecInputs.js). An array in the
  * order of `designs`, with null for a design that could not be evaluated; null
  * itself while the work is under way, or when `active` is off and no results
  * for these designs are held.

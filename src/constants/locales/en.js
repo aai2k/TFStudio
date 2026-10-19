@@ -4163,9 +4163,9 @@ export default {
     stepAuto:       'auto',
     provisionalTip: 'Read at the default step for now; the value at this requirement\'s own Step follows when it is worked out, or when the optimizer run stops.',
     stepTips: {
-        peak: 'Step the band is searched for a peak at. Peaks closer than about two steps can read as one. Generate MF writes the same step on the merit row; a fine step over a wide band slows runs and Monte Carlo, and can hold the window for seconds.',
-        scan: 'Step the band is scanned at, with never fewer than 301 samples across the band; on a peak it is also the step the peak is searched at, while a dip is found on the design\'s fringe grid. Each crossing of the level is found exactly between samples; the step decides which peak is found and whether a narrow feature between it and its crossing is seen. A fine step over a wide band slows Monte Carlo and can hold the window for seconds.',
-        band: 'Coarsest step of the band\'s grid. Auto takes the grid from the design\'s fringes, at least 101 points, which can step over a narrow pass band. Generate MF writes the same step on the merit row; a fine step over a wide band slows runs and Monte Carlo, and can hold the window for seconds.',
+        peak: 'Step the band is searched for a peak at. Peaks closer than about two steps can read as one. Generate MF writes the same step on the merit row; a fine step over a wide band slows runs and Monte Carlo, and can hold the Merit Function Editor for seconds.',
+        scan: 'Step the band is scanned at, with never fewer than 301 samples across the band; on a peak it is also the step the peak is searched at, while a dip is found on the design\'s fringe grid. Each crossing of the level is found exactly between samples; the step decides which peak is found and whether a narrow feature between it and its crossing is seen. A fine step over a wide band slows Monte Carlo.',
+        band: 'Coarsest step of the band\'s grid. Auto takes the grid from the design\'s fringes, at least 101 points, which can step over a narrow pass band. Generate MF writes the same step on the merit row; a fine step over a wide band slows runs and Monte Carlo, and can hold the Merit Function Editor for seconds.',
     },
     integralPreset: 'preset',
     pickPreset:     'Pick a saved integral preset',

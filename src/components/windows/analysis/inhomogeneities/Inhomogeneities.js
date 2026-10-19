@@ -79,7 +79,7 @@ export function Inhomogeneities({ c, theme, t }) {
             actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
                 h(EvalModeBadge, { design, c, t }),
                 (design?.qualifiers?.length > 0 && state.specInputs) && h(SpecVerdict, {
-                    design: state.specInputs.specDesign, resolveMat: state.specInputs.resolve, c, t,
+                    design, interlayers: state.inh, c, t,
                     label: t.specification.specLabel,
                 }),
                 h(ExportMenu, {

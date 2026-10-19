@@ -65,6 +65,6 @@ export function useLayerSensitivity() {
         matColorMap, specDesigns, ...viewModel,
         mode, setMode, relPct, setRelPct, absDeltaNm, setAbsDeltaNm,
         includeLocked, setIncludeLocked, scale, setScale,
-        showChart, setShowChart, resolveMat,
+        showChart, setShowChart,
     };
 }

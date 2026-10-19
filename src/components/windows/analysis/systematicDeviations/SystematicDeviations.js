@@ -104,7 +104,7 @@ export function SystematicDeviations({ c, theme, t }) {
             actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
                 h(EvalModeBadge, { design, c, t }),
                 (state.mode === 'single' && state.specDev && design?.qualifiers?.length > 0) && h(SpecVerdict, {
-                    design: state.specDev.design, resolveMat: state.specDev.resolve, c, t,
+                    design, deviation: state.dev, c, t,
                     label: t.specification.specLabel,
                 }),
                 h(ExportMenu, {

@@ -22,8 +22,9 @@
  *      design whose material resolves nowhere.
  *   5. The report prints the results it is handed and evaluates the checks
  *      itself at their default steps without them.
- *   6. A Monte Carlo trial and the tolerance windows' badge read a check at
- *      its own Step.
+ *   6. A Monte Carlo trial reads a check at its own Step. The tolerance
+ *      windows' badge shows its first pass, at the default step, marked ≈;
+ *      its own-Step pass on the worker is tests/spec_verdict_worker.mjs.
  *
  * Run: node tests/specification_step.mjs
  */
@@ -217,8 +218,9 @@ const specified = { ...coupled, qualifiers: [makeQualifier({
     const trialValue = run.trials[0].spec.results[0].value;
     assert.ok(trialValue > 0.97, `a Monte Carlo trial reads the stepped check at its own Step: ${trialValue}`);
     const t = makeLocale();
-    const markup = renderToStaticMarkup(React.createElement(SpecVerdict, { design: specified, resolveMat: resolve, c: makeTheme(), t }));
-    assert.ok(markup.includes(t.specification.specPassBadge), `the tolerance badge passes it at its own Step: ${markup.slice(0, 200)}`);
+    const markup = renderToStaticMarkup(React.createElement(SpecVerdict, { design: specified, c: makeTheme(), t }));
+    assert.ok(markup.includes(`≈ 1/1 ${t.specification.failSuffix}`) && markup.includes(t.specification.provisionalTip.slice(0, 20)),
+        `the tolerance badge shows its first pass marked: ${markup.slice(0, 200)}`);
 }
 
 console.log('PASS: specification_step');

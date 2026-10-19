@@ -41,7 +41,7 @@ export function LayerSensitivity({ c, theme, t }) {
                 h(EvalModeBadge, { key: 'mode', design, c, t }),
                 design?.qualifiers?.length > 0 && h(SpecVerdict, {
                     key: 'spec',
-                    designs: state.specDesigns, resolveMat: state.resolveMat, c, t,
+                    designs: state.specDesigns, c, t,
                     label: ls.specLabel,
                 }),
                 h(ExportMenu, {
