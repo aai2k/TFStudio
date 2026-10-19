@@ -13,6 +13,8 @@ evaluates T, R or A for every trial, keeps a running mean and standard deviation
 across them, and tracks the realized extremes. If your design has a
 Specification, every trial is re-checked against it so you get a yield figure.
 
+The trials run off the window's own thread, so the window stays free while they run, however long a Specification check takes. **Stop** ends the run at once and keeps the result of the trials counted so far.
+
 The analysis runs for the surface mode set in the
 [Design Editor](/design/design-editor/) (front, back, or total), shown as a
 badge on the window.

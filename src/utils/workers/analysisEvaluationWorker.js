@@ -1,4 +1,7 @@
-/** Off-renderer evaluation for cone-aware live display consumers and pulse analysis. */
+/**
+ * Off-renderer evaluation for cone-aware live display consumers and pulse
+ * analysis, and Monte Carlo runs with their progress.
+ */
 import { computeOpticalSpectrum } from '../../components/windows/analysis/opticalEvaluation/spectrum.js';
 import { computeSpectrumForMode } from '../../components/windows/analysis/integralValues/spectrum.js';
 import { computeColorReport } from '../../components/windows/analysis/colorEvaluation/colorModel.js';
@@ -6,6 +9,7 @@ import { computePulseAnalysis } from '../../components/windows/analysis/pulseAna
 import { designMaterialLookup, unresolvedMaterials } from '../materials/designMaterials.js';
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
 import { evaluateQualifiers } from '../synthesis/qualifiers.js';
+import { runErrorAnalysisMC } from '../physics/errorAnalysis.js';
 import { meritDisplay } from '../physics/meritDisplay.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 
@@ -63,6 +67,33 @@ const EVALUATIONS = {
     meritTimeline: ({ designs }) => (designs || []).map(timelineMerit),
 };
 
+// Progress of a Monte Carlo run is posted at most this often, ms. Each post
+// carries the result so far and the trial records made since the last post,
+// so a window that ends the worker keeps every trial reported.
+const MC_PROGRESS_MS = 100;
+
+// One Monte Carlo run (components/windows/analysis/errorAnalysis/monteCarloRun.js):
+// progress posts as the trials run, then the result. A result is sent without
+// its trial records, which travel in the posts and are handed over rather than
+// kept: result.trials is the run's own list, emptied by each post.
+async function runMonteCarlo({ design, params, options }) {
+    let posted = -Infinity;
+    const split = result => ({
+        result: { ...result, trials: null },
+        trials: result.trials ? result.trials.splice(0) : null,
+    });
+    const result = await runErrorAnalysisMC(design, params, designMaterialLookup(design), {
+        ...options,
+        onTrial: ({ i, total, result: soFar }) => {
+            const now = performance.now();
+            if (i === total || now - posted < MC_PROGRESS_MS) return;
+            posted = now;
+            postMessage({ type: 'progress', i, total, ...split(soFar()) });
+        },
+    });
+    postMessage({ type: 'monteCarloDone', ...split(result) });
+}
+
 export function dispatchAnalysisEvaluation(operation, payload) {
     const evaluate = Object.hasOwn(EVALUATIONS, operation) ? EVALUATIONS[operation] : null;
     if (!evaluate) throw new Error(`Unknown analysis evaluation: ${operation}`);
@@ -74,6 +105,15 @@ globalThis.onmessage = async event => {
     if (!job?.type) return;
     if (job.type === 'wasmInit') {
         noteTmmWasmBytes(job.wasmBytes);
+        return;
+    }
+    if (job.type === 'monteCarlo') {
+        try {
+            await awaitTmmWasmReady();
+            await runMonteCarlo(job);
+        } catch (error) {
+            postMessage({ type: 'error', message: error?.message || String(error) });
+        }
         return;
     }
     if (job.type !== 'evaluate') return;

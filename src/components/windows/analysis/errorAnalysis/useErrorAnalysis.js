@@ -1,6 +1,5 @@
-import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import { runErrorAnalysisMC } from '../../../../utils/physics/errorAnalysis.js';
 import { normalizeSeed, randomSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
+import { startMonteCarloRun } from './monteCarloRun.js';
 import { hasPerturbableLayers } from './trialModel.js';
 import { errorAnalysisSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -8,29 +7,17 @@ import { useRefreshRevision } from '../../../../state/refreshAll.js';
 
 const { useCallback, useEffect, useMemo, useRef, useState } = React;
 
-// Time the run may hold the interface between yields, ms.
-const FRAME_MS = 16;
-
-// A yield the run awaits after every trial, which hands the interface a turn
-// once FRAME_MS have passed, so a slow trial (a Specification check at a fine
-// Step) holds it for at most one trial.
-function frameYield() {
-    let last = performance.now();
-    return async () => {
-        if (performance.now() - last < FRAME_MS) return;
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        last = performance.now();
-    };
-}
-
 /**
- * One Monte-Carlo run with the window's settings. The corridor width goes to
- * the run too, so the run records the k its corridor was drawn with.
+ * One Monte-Carlo run with the window's settings, off the window's thread
+ * (monteCarloRun.js). The corridor width goes to the run too, so the run
+ * records the k its corridor was drawn with. `runRef` holds the run while it
+ * goes, so Stop can end it; a stopped run's result is the trials reported,
+ * and none when it reported none.
  */
 export async function executeRun(options) {
     const {
         design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
-        rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, cancelledRef,
+        rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, runRef,
         setError, setRunning, setProgress, setResult, setSeed,
     } = options;
     if (!hasPerturbableLayers(design, evalMode)) {
@@ -44,35 +31,43 @@ export async function executeRun(options) {
     setError(null);
     setRunning(true);
     setProgress({ i: 0, total: nTrials });
-    cancelledRef.current = false;
+    // Stop reaches the run from here on: pressed before it starts, it starts none.
+    const pending = { stopped: false, stop() { this.stopped = true; } };
+    runRef.current = pending;
     await new Promise((resolve) => setTimeout(resolve, 0));
+    if (pending.stopped) {
+        setResult(null);
+        if (runRef.current === pending) runRef.current = null;
+        setRunning(false);
+        return;
+    }
 
+    const run = startMonteCarloRun(design, params, {
+        char,
+        evalMode,
+        nTrials,
+        corridorSigma,
+        seed: runSeed,
+        rmsAbsNm,
+        rmsRelPct,
+        rmsReN,
+        rmsImN,
+        distribution,
+        perMaterialErrors: perMaterial,
+        keepOpticalThickness: keepOPT && (rmsReN > 0 || rmsImN > 0),
+        evaluateSpec: (design?.qualifiers?.length || 0) > 0,
+        qualifiers: design?.qualifiers || [],
+        recordTrials: true,
+    }, setProgress);
+    runRef.current = run;
     try {
-        const result = await runErrorAnalysisMC(design, params, designMaterialLookup(design), {
-            char,
-            evalMode,
-            nTrials,
-            corridorSigma,
-            seed: runSeed,
-            yieldEvery: 1,
-            onYield: frameYield(),
-            shouldCancel: () => cancelledRef.current,
-            rmsAbsNm,
-            rmsRelPct,
-            rmsReN,
-            rmsImN,
-            distribution,
-            perMaterialErrors: perMaterial,
-            keepOpticalThickness: keepOPT && (rmsReN > 0 || rmsImN > 0),
-            evaluateSpec: (design?.qualifiers?.length || 0) > 0,
-            qualifiers: design?.qualifiers || [],
-            recordTrials: true,
-            onTrial: ({ i, total }) => setProgress({ i, total }),
-        });
-        setResult(result);
+        // A run stopped before it reported a trial has no result, and the one on
+        // screen was made with other settings, so it goes too.
+        setResult(await run.done);
     } catch (error) {
         setError(error.message || String(error));
     }
+    if (runRef.current === run) runRef.current = null;
     setRunning(false);
 }
 
@@ -111,17 +106,19 @@ export function useErrorAnalysis({ design, evalMode }) {
     const [progress, setProgress] = useState({ i: 0, total: 0 });
     const [error, setError] = useState(null);
     const [showTrials, setShowTrials] = useState(false);
-    const cancelledRef = useRef(false);
+    const runRef = useRef(null);
 
     const run = useCallback(() => executeRun({
         design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
-        rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, cancelledRef,
+        rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, runRef,
         setError, setRunning, setProgress, setResult, setSeed,
     }), [design, params, evalMode, char, nTrials, corridorSigma,
         rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed]);
 
+    // A run goes on when the window is closed, docked elsewhere or its tab
+    // switched, and its result lands in the window's session.
     const stop = useCallback(() => {
-        cancelledRef.current = true;
+        runRef.current?.stop();
         setRunning(false);
     }, []);
 

@@ -13,6 +13,7 @@
 
 import assert from 'node:assert/strict';
 import { loadApp, makeLocale, shimBrowserGlobals } from './_uiShim.mjs';
+import { NodeModuleWorker } from './_moduleWorker.mjs';
 
 shimBrowserGlobals();
 await loadApp();
@@ -82,14 +83,18 @@ await check('the window hands its corridor width to the run', async () => {
     };
     let stored = null;
     let failed = null;
+    // The window's run goes to the analysis worker, on a thread of its own here.
+    const silent = globalThis.Worker;
+    globalThis.Worker = NodeModuleWorker;
     await executeRun({
         design: reportDesign, params: { lambdaStart: 500, lambdaEnd: 600, lambdaStep: 50, theta: 0, polarization: 'avg' },
         evalMode: 'front', char: 'R', nTrials: 3, corridorSigma: 2.5,
         rmsAbsNm: 0, rmsRelPct: 1, rmsReN: 0, rmsImN: 0, distribution: 'gaussian',
-        perMaterial: false, keepOPT: false, seed: 11, cancelledRef: { current: false },
+        perMaterial: false, keepOPT: false, seed: 11, runRef: { current: null },
         setError: (error) => { failed = error; }, setRunning: () => {}, setProgress: () => {},
         setResult: (value) => { stored = value; }, setSeed: () => {},
     });
+    globalThis.Worker = silent;
     assert.equal(failed, null);
     assert.equal(stored.settings.corridorSigma, 2.5);
 });

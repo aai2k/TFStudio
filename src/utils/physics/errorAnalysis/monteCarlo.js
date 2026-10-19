@@ -71,7 +71,9 @@ import {
  *                     Mulberry32 stream; a random one is drawn when absent
  *   - rng:            (optional) Math.random()-style function used in place of
  *                     the seeded stream; the result then reports seed null
- *   - onTrial:        (optional) callback ({i, total}) after each completed trial
+ *   - onTrial:        (optional) callback ({i, total, result}) after each completed
+ *                     trial; result() is the result of the trials so far, the
+ *                     result a run stopped there gives
  *
  * @returns {{
  *   lambda:    number[],
@@ -105,7 +107,7 @@ export async function runErrorAnalysisMC(design, params, resolveMat, opts = {}) 
         );
         recordMCTrial(config, state, trial, data, trialSpec);
 
-        if (config.onTrial) config.onTrial({ i: trial + 1, total: config.nTrials });
+        if (config.onTrial) config.onTrial({ i: trial + 1, total: config.nTrials, result: () => finalizeMCResult(config, state) });
         if (config.onYield && (trial + 1) % config.yieldEvery === 0) {
             await config.onYield(trial + 1);
         }

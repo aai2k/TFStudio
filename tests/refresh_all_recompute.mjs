@@ -153,6 +153,10 @@ provided.set(DesignContext, { design, evalMode: 'front', hasActiveDesign: true }
 
 {
     const { useErrorAnalysis } = await import('../src/components/windows/analysis/errorAnalysis/useErrorAnalysis.js');
+    const { NodeModuleWorker } = await import('./_moduleWorker.mjs');
+    // The window's run goes to the analysis worker, on a thread of its own here.
+    const silent = globalThis.Worker;
+    globalThis.Worker = NodeModuleWorker;
     const analysis = mount(() => useErrorAnalysis({ design, evalMode: 'front' }));
     analysis.out.setNTrials(4);
     analysis.render();
@@ -165,8 +169,13 @@ provided.set(DesignContext, { design, evalMode: 'front', hasActiveDesign: true }
     assert.ok(first, 'a Monte Carlo result is on screen');
     refresh(analysis);
     for (let i = 0; i < 20; i++) await tick();
+    // The run started by the refresh answers from its worker.
+    for (let waited = 0; waited < 10000 && analysis.render().result === first; waited += 10) {
+        await new Promise(resolve => setTimeout(resolve, 10));
+    }
     const second = analysis.render().result;
     assert.ok(second && second !== first, 'after a run, a refresh runs it again');
+    globalThis.Worker = silent;
 }
 
 {
