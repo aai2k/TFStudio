@@ -29,7 +29,7 @@ export function runTools({ store, jobs }) {
     return [
         {
             name: 'refine', title: 'Refine',
-            description: `Refines a design's layer thicknesses against its merit function, as the Refinement window does, keeping the number of layers and locked layers as they are. ${JOB_ANSWER}`,
+            description: `Refines a design's layer thicknesses against its merit function, as the Refinement window does, keeping the number of layers and locked layers as they are. The result's mf is scored on the run's grid, set from the design it started from: band rows sampled for its fringes, and range targets (TGT, RGT, AGT) made denser where it has features narrower than that grid. merit samples band rows for the answer's fringes and never makes range targets denser, so the two differ slightly in general and can differ several times on a band average or range target over a narrow feature. ${JOB_ANSWER}`,
             inputSchema: object({
                 designId: DESIGN_ID,
                 method: { type: ['string', 'array'], items: { type: 'string' }, description: "One of sqp, dls, cg, newton, newton-cg, dls-multi, de, sa, or 'all', or a list of them tried in turn from the same start, keeping the best. dls (damped least squares) is the usual first choice" },
