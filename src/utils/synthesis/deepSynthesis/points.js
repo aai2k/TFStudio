@@ -102,7 +102,9 @@ export function targetPoints(ev) {
         const q = quantityOf(op.type);
         const own = q ? operandPoints(ev, op, q) : [];
         if (!q || own.some(p => p.kind === 'none')) allPassStop = false;
-        points.push(...own);
+        // One at a time: a row at a fine Step has more points than a call can
+        // take as arguments (1.2 million at 0.001 nm over 400-1600 nm).
+        for (const p of own) points.push(p);
     }
     return { points: mergePoints(points), allPassStop };
 }
