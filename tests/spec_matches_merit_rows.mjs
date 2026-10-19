@@ -11,7 +11,8 @@
  *      thin AR, a 60-layer random stack, a cavity filter and the cavity under
  *      a 10 degree cone: the check's value equals its base row in the merit
  *      table.
- *   2. The coating library's band figures (R avg, T avg) equal the merit
+ *   2. An integral check written without a source or detector reads its row.
+ *   3. The coating library's band figures (R avg, T avg) equal the merit
  *      table's band rows on the entry's design.
  *
  * Run: node tests/spec_matches_merit_rows.mjs
@@ -66,7 +67,18 @@ for (const [name, design] of Object.entries(DESIGNS)) {
     }
 }
 
-// ── 2. The library's band figures ──────────────────────────────────────────
+// ── 2. An integral without source or detector ──────────────────────────────
+{
+    const bare = makeQualifier({ kind: 'INTEGRAL', lambdaStart: 380, lambdaEnd: 780, cmp: 'ge', target: 0.05 });
+    delete bare.source;
+    delete bare.detector;
+    const design = DESIGNS['thin AR'];
+    const value = evaluateQualifier(bare, design, designMaterialLookup(design)).value;
+    const row = meritTable(design, qualifiersToMFOperands([bare], { design })).computed[0];
+    ok('an integral without source or detector reads its merit row', same(value, row), `${value} against ${row}`);
+}
+
+// ── 3. The library's band figures ──────────────────────────────────────────
 for (const entry of BUILTIN_COATINGS.filter(e => e.type === 'ar' || e.type === 'mirror').slice(0, 6)) {
     const design = entryDesign(entry);
     const metrics = entryMetrics(entry);

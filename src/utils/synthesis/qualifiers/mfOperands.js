@@ -65,7 +65,11 @@ function buildIntegralBaseOp(q, ch, pol, weight) {
         type: opType,
         lambdaStart: q.lambdaStart, lambdaEnd: q.lambdaEnd,
         aoi: q.aoi, pol, weight, target: 0,
-        source: { ...q.source }, detector: { ...q.detector },
+        // A check without a source or detector is weighted by makeOperand's
+        // defaults, as evaluate.js weights it; an empty object would read as an
+        // equal-energy source and a flat detector.
+        source: q.source ? { ...q.source } : undefined,
+        detector: q.detector ? { ...q.detector } : undefined,
         // Carry the preset identity so the Merit Function Editor shows the
         // integral by name (Tvis/Rsol/…) instead of an opaque "(custom)" row.
         ...(q.presetKey   ? { presetKey:   q.presetKey   } : {}),
