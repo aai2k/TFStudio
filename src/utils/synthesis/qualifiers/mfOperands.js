@@ -9,8 +9,11 @@
  *      by id (op.refId). Its target is the user's spec threshold.
  *
  * For 'between' specs we emit ONE base row + OPGT(refId=base.id) + OPLT(...).
- * For 'eq' specs we just emit the base row with target = user's value
- * (equality two-sided residual is exactly what the user wants).
+ * For 'eq' specs with a tolerance we emit the same as 'between' over
+ * target ± tol, so the rows are met exactly when the check passes; with no
+ * tolerance, the base row at the target, a two-sided residual. A row that is
+ * scored one-sided (worst case, PPEF) always gets the OPGT and OPLT pair, or
+ * it would count the whole side past its target as met.
  * For 'ge'/'le' we emit base + OPGT/OPLT pointing at it.
  *
  * This matches the Zemax merit-function convention: spec rows REFERENCE
@@ -21,9 +24,10 @@
  * builder) and CMP_EMITTERS (cmp → spec-row emitter).
  */
 
-import { makeOperand } from '../../physics/optimizer.js';
+import { makeOperand, isMinmax, isPPEF } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType } from './channelTypes.js';
 import { ppefRows } from './ppefRows.js';
+import { eqTolerance } from './constants.js';
 
 // ── Base physical-measurement operand, one builder per kind ─────────────────
 
@@ -123,19 +127,29 @@ function emitLe(baseOp, q, weight, k, out) {
     out.push(makeOperand({ type: 'OPLT', refId: baseOp.id, target: q.target, weight }));
 }
 
-function emitBetween(baseOp, q, weight, k, out) {
-    baseOp.target = (q.lo + q.hi) / 2;      // midpoint = display only
+// The base row at weight 0 and the pair that holds it between lo and hi.
+function emitRange(baseOp, lo, hi, weight, out) {
+    baseOp.target = (lo + hi) / 2;          // midpoint = display only
     baseOp.weight = 0;
     out.push(baseOp);
-    out.push(makeOperand({ type: 'OPGT', refId: baseOp.id, target: q.lo, weight }));
-    out.push(makeOperand({ type: 'OPLT', refId: baseOp.id, target: q.hi, weight }));
+    out.push(makeOperand({ type: 'OPGT', refId: baseOp.id, target: lo, weight }));
+    out.push(makeOperand({ type: 'OPLT', refId: baseOp.id, target: hi, weight }));
 }
 
-// eq (and any other comparator) → just the base operand at the requested
-// target. For CENTRAL_LAMBDA the target already lives on the argwave row; for
-// T_AT/T_AVG/etc. we set it now. Weight stays at the user-requested value
-// because this row IS the spec.
+function emitBetween(baseOp, q, weight, k, out) {
+    emitRange(baseOp, q.lo, q.hi, weight, out);
+}
+
+// eq (and any other comparator). The check passes within target ± tol, so a
+// tolerance becomes a range; with none, a two-sided row is the spec itself, at
+// the requested target and weight. For CENTRAL_LAMBDA the target already lives
+// on the argwave row; for T_AT/T_AVG/etc. we set it now.
 function emitEq(baseOp, q, weight, k, out) {
+    const tol = eqTolerance(q);
+    if (tol > 0 || isMinmax(baseOp.type) || isPPEF(baseOp.type)) {
+        emitRange(baseOp, q.target - tol, q.target + tol, weight, out);
+        return;
+    }
     if (k !== 'CENTRAL_LAMBDA') baseOp.target = q.target;
     out.push(baseOp);
 }

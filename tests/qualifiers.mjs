@@ -256,10 +256,10 @@ console.log('— qualifiersToMFOperands generates base + OPGT/OPLT(refId=base.id
     // T_AVG ge      → 2 ops: TAV (base) + OPGT(refId=base.id)
     // R_AVG le      → 2 ops: RAV (base) + OPLT(refId=base.id)
     // T_AT between  → 3 ops: T (base) + OPGT + OPLT (both refId=base.id)
-    // CENTRAL_LAMBDA eq → 1 op:  MXWT (its own target=550)
+    // CENTRAL_LAMBDA eq ± 5 → 3 ops: MXWT (base, weight 0) + OPGT(545) + OPLT(555)
     // LAYER_COUNT   → skipped
-    ok(ops.length === 8,
-        `8 operands generated (got ${ops.length}: ${ops.map(o => o.type).join(', ')})`);
+    ok(ops.length === 10,
+        `10 operands generated (got ${ops.length}: ${ops.map(o => o.type).join(', ')})`);
 
     // T_AVG ge: ops[0]=TAV(target=0), ops[1]=OPGT(refId=ops[0].id, target=0.92)
     ok(ops[0].type === 'TAV', `T_AVG ge first row = TAV (got ${ops[0].type})`);
@@ -278,9 +278,12 @@ console.log('— qualifiersToMFOperands generates base + OPGT/OPLT(refId=base.id
     ok(ops[6].type === 'OPLT' && ops[6].refId === ops[4].id && ops[6].target === 0.95,
         `T_AT between OPLT(target=0.95)`);
 
-    // CENTRAL_LAMBDA eq: ops[7]=MXWT with its own target=550 (no wrapper)
-    ok(ops[7].type === 'MXWT' && ops[7].target === 550,
-        `CENTRAL_LAMBDA eq → bare MXWT with target=550 (got type=${ops[7].type}, target=${ops[7].target})`);
+    // CENTRAL_LAMBDA eq ± tol: ops[7]=MXWT at weight 0, held within 550 ± 5 by
+    // ops[8]=OPGT(545) and ops[9]=OPLT(555), so the rows are met when the check passes
+    ok(ops[7].type === 'MXWT' && ops[7].target === 550 && ops[7].weight === 0,
+        `CENTRAL_LAMBDA eq → MXWT at weight 0 (got type=${ops[7].type}, target=${ops[7].target}, weight=${ops[7].weight})`);
+    ok(ops[8].type === 'OPGT' && ops[8].refId === ops[7].id && ops[8].target === 545, 'CENTRAL_LAMBDA eq ± 5 → OPGT(545) on the MXWT row');
+    ok(ops[9].type === 'OPLT' && ops[9].refId === ops[7].id && ops[9].target === 555, 'CENTRAL_LAMBDA eq ± 5 → OPLT(555) on the MXWT row');
 }
 
 // ── 11. CENTRAL_LAMBDA qualifier == MXWT operand — bit-identical ─────────────

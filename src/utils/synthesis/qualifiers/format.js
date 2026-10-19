@@ -6,6 +6,8 @@
  * qualifierValueText and qualifierSummary. `units` is t.units.
  */
 
+import { eqTolerance } from './constants.js';
+
 // Format a scalar in its native unit: fraction → percent (3 dp), nm (2 dp),
 // dB (3 dp), otherwise plain string. Non-finite values render as a dash.
 function formatQualifierValue(v, unit, units) {
@@ -22,8 +24,10 @@ function compareToThreshold(qual, value) {
     if (qual.cmp === 'ge') return { pass: value >= qual.target, deviation: qual.target - value };
     if (qual.cmp === 'le') return { pass: value <= qual.target, deviation: value - qual.target };
     if (qual.cmp === 'eq') {
-        const deviation = Math.abs(value - qual.target);
-        return { pass: deviation <= (qual.tol ?? 0), deviation };
+        // The bounds Generate MF holds the row between, in the same arithmetic,
+        // so a value on a bound passes the check and meets the rows, or neither.
+        const tol = eqTolerance(qual);
+        return { pass: value >= qual.target - tol && value <= qual.target + tol, deviation: Math.abs(value - qual.target) };
     }
     if (qual.cmp === 'between') {
         const deviation = value < qual.lo ? qual.lo - value

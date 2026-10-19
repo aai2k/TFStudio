@@ -39,3 +39,10 @@ const TOL_BY_KIND = {
 export function defaultTolForKind(kind) {
     return TOL_BY_KIND[kind] ?? 0.01;  // fraction = 1 % for T/R/A
 }
+
+// The tolerance an equality check is held to: its tol when above 0, else none.
+// The check (format.js) and the rows Generate MF writes for it (mfOperands.js)
+// both read it here, so a negative entry is an exact target to both.
+export function eqTolerance(qual) {
+    return Number.isFinite(qual?.tol) && qual.tol > 0 ? qual.tol : 0;
+}
