@@ -1,5 +1,5 @@
 import {
-    makeOperand, evaluateOperands, buildEvalContext, resolveEvalMode,
+    makeOperand, evaluateOperands, buildEvalContext, resolveEvalMode, isExtremumRow,
 } from './optimizer.js';
 import { evaluateQualifier } from '../synthesis/qualifiers.js';
 
@@ -54,6 +54,11 @@ export const DERIVED_MONITOR_META = {
 // which grows with the width of the band, never holds up the interface.
 export const MONITOR_FLAG = 2;
 
+// The flag a monitor row carries: MONITOR_FLAG on a row that searches its band
+// for an extremum. A band average, integral or flatness monitor takes none, so
+// it keeps the band grid it has always had.
+const searchFlag = type => (isExtremumRow(type) ? { flag: MONITOR_FLAG } : {});
+
 const MONITOR_OPERAND_TYPE = {
     point:    quantity => quantity,
     avg:      quantity => quantity + 'AV',
@@ -106,7 +111,7 @@ export function computeMonitor(monitor, design, resolveMaterial) {
                 lambdaEnd: direct.mode === 'point' ? monitor.lambda
                     : direct.mode === 'layers' ? (monitor.layerEnd ?? 1000000) : monitor.lambdaEnd,
                 aoi: monitor.aoi || 0, pol: monitor.pol || 'avg', target: monitor.target ?? 0, weight: 1,
-                flag: MONITOR_FLAG,
+                ...searchFlag(monitor.type),
             });
             const value = evaluateOperands([operand], buildEvalContext(design, resolveMaterial))[0];
             return Number.isFinite(value) ? value : null;
@@ -123,7 +128,7 @@ export function computeMonitor(monitor, design, resolveMaterial) {
             pol: monitor.pol || 'avg',
             target: 0,
             weight: 1,
-            flag: MONITOR_FLAG,
+            ...searchFlag(makeType(monitor.qty)),
             ...(monitor.type === 'integral'
                 ? { source: monitor.source || { id: 'E' }, detector: monitor.detector || { id: 'flat' } }
                 : {}),

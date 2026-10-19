@@ -32,7 +32,7 @@ Each row of the [Merit Function Editor](/design/merit-function-editor/) table is
 | **λ / Layer**, **End \*** | The two values that define the operand. Their headers change with the row: **λ** for one wavelength, **λ Start** and **λ End** for a band, **Integral** for a weighted integral, **Layer 1** and **Layer 2** for a layer range, **Cmp** for a comparison, **Ref Op#**, **Ref Op#1** and **Ref Op#2** for other rows, **Curve** on a `PPEF` row, **Comment** for a comment. A dash means the row does not use the cell. |
 | **AOI (°)** | Angle of incidence in the incident medium. |
 | **Pol** | `s`, `p`, or `avg`, the mean (Cs + Cp)/2. |
-| **Flag** | Used by rows that look for a peak, where it is headed **Step** and sets how finely the band is searched ([Searching for a peak or dip](#searching-for-a-peak-or-dip)). Other rows show a dash. |
+| **Flag** | Headed **Step** on the rows that take it. On a row that looks for a peak it sets how finely the band is searched ([Searching for a peak or dip](#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral or `*FLAT` row, the coarsest step of its grid ([Sampling a band](#sampling-a-band)). Other rows show a dash. |
 | **Target** | The value the row is driven toward, or the bound it must stay inside. T, R and A are entered in percent. |
 | **Weight** | How much the row counts. |
 | **Current** | The row's value for the design as it is. |
@@ -59,7 +59,7 @@ All four read **AOI (°)** and **Pol**. Older designs can hold `TS`, `TP`, `RS`,
 
 | Name | Description |
 | ---- | ----------- |
-| `TAV` | Mean transmittance from **λ Start** to **λ End**. **Target** in percent. |
+| `TAV` | Mean transmittance from **λ Start** to **λ End**. **Target** in percent. Uses **Step**. |
 | `RAV` | Mean reflectance over the band. |
 | `AAV` | Mean absorptance over the band. |
 
@@ -69,7 +69,7 @@ The mean is taken by the trapezoid rule on the [band grid](#sampling-a-band), so
 
 | Name | Description |
 | ---- | ----------- |
-| `TGT` | RMS deviation of T from a straight target line from **λ Start** to **λ End**. **Target** holds the line's two ends in percent as `start→end`, typed as `start->end`: `50→50` is a flat 50 % line, `0→100` a ramp. A single number makes the line flat. |
+| `TGT` | RMS deviation of T from a straight target line from **λ Start** to **λ End**. **Target** holds the line's two ends in percent as `start→end`, typed as `start->end`: `50→50` is a flat 50 % line, `0→100` a ramp. A single number makes the line flat. Uses **Step**. |
 | `RGT` | The same for R. |
 | `AGT` | The same for A. |
 
@@ -79,7 +79,7 @@ The mean is taken by the trapezoid rule on the [band grid](#sampling-a-band), so
 
 | Name | Description |
 | ---- | ----------- |
-| `TIW` | T averaged with the weight Source(λ)·Detector(λ) over the band, Σ wᵢ·Tᵢ / Σ wᵢ. **Integral** picks a saved preset, such as Tvis (D65 and the photopic eye) or Tsol (AM1.5G), which sets the source, the detector, the band and the channel: Rvis on a `TIW` row makes it an `RIW` row. **Target** in percent. |
+| `TIW` | T averaged with the weight Source(λ)·Detector(λ) over the band, Σ wᵢ·Tᵢ / Σ wᵢ. **Integral** picks a saved preset, such as Tvis (D65 and the photopic eye) or Tsol (AM1.5G), which sets the source, the detector, the band and the channel: Rvis on a `TIW` row makes it an `RIW` row. **Target** in percent. Uses **Step**. |
 | `RIW` | The same for R. |
 | `AIW` | The same for A. |
 
@@ -154,9 +154,9 @@ The row reads the block's wavelengths, angle and polarization, so its **AOI (°)
 | `GD`, `GDT` | Group delay on reflection or transmission at **λ**, in fs. |
 | `GDD`, `GDDT` | Group delay dispersion on reflection or transmission at **λ**, in fs². |
 | `TOD`, `TODT` | Third-order dispersion on reflection or transmission at **λ**, in fs³. |
-| `GDFLAT`, `GDTFLAT` | RMS deviation of the group delay from **Target** between **λ Start** and **λ End**, in fs. |
-| `GDDFLAT`, `GDDTFLAT` | RMS deviation of the GDD from **Target** over the band, in fs². |
-| `TODFLAT`, `TODTFLAT` | RMS deviation of the TOD from **Target** over the band, in fs³. |
+| `GDFLAT`, `GDTFLAT` | RMS deviation of the group delay from **Target** between **λ Start** and **λ End**, in fs. Uses **Step**. |
+| `GDDFLAT`, `GDDTFLAT` | RMS deviation of the GDD from **Target** over the band, in fs². Uses **Step**. |
+| `TODFLAT`, `TODTFLAT` | RMS deviation of the TOD from **Target** over the band, in fs³. Uses **Step**. |
 
 **Pol** selects s or p; `avg` is their mean, except on the p-minus-s rows. Each value comes from the complex amplitude at exactly the wavelength asked for, by the same calculation as the [GD & GDD](/analysis/gd-gdd/) window. A new row starts at a target of 0. A phase miss is taken the short way round the circle. On a `*FLAT` row, **Current** shows the level the band reaches, the trapezoid-weighted mean over the band grid, so it reads against the target directly; the RMS deviation the merit scores is in the tooltip of the % of MF² cell.
 
@@ -295,6 +295,14 @@ The [Specification](/design/specification/) window, the report's specification b
 ## Sampling a band
 
 Band averages, spectral targets, weighted integrals and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. The grid has at least 13 points and no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
+
+The **Step** flag of a band row sets the coarsest step its grid may take; the row takes whichever of that step and the fringe grid is finer.
+
+| Step | empty | 1 | 2 | 3 | 4 |
+| ---- | ----- | - | - | - | - |
+| Grid step no coarser than | the fringe grid | 1 nm | 0.1 nm | 0.01 nm | 0.001 nm |
+
+The fringe grid follows the coating's fringes, but the pass band of a cavity is about a fringe divided by the cavity's finesse wide, so the grid can step right over it, and a band average or target across it reads far from its value. Over such a band set a step a few times finer than the pass band: a TiO2/SiO2 single-cavity filter of seventeen layers needs step 2, one of thirty-three layers step 3. Each level samples the band ten times as densely as the one before, and the row costs that much more time.
 
 The merit tables of the Merit Function Editor and Refinement, the Design Cleaner, Needle Manual and every optimizer run size the grid from the design. A refinement keeps that grid for the whole run; a synthesis run enlarges it as the design grows. Other views that report a band average, such as the Specification window, keep a 2 nm step, so on a thick coating their figure can differ slightly from the merit table's.
 

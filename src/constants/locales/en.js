@@ -2053,7 +2053,7 @@ export default {
       flag:         'Flag',
       step:         'Step',
     },
-    stepFlagTip: 'Search step of a row that looks for a peak: 1 = 1 nm, 2 = 0.1 nm, 3 = 0.01 nm, 4 = 0.001 nm. Peaks closer than about two steps can read as one.',
+    stepFlagTip: 'Search step of a row that looks for a peak, or the coarsest grid step of a band row: 1 = 1 nm, 2 = 0.1 nm, 3 = 0.01 nm, 4 = 0.001 nm. Peaks closer than about two steps can read as one. A band row left empty takes its grid from the design\'s fringes, which can step over a narrow pass band. Steps 3 and 4 over a wide band slow the table and runs.',
     operandGroups: {
       optical:     'Optical, single λ',
       range:       'Band average (single target)',

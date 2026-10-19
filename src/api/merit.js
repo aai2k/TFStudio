@@ -3,6 +3,7 @@
 
 import {
     isKnownOperandType, isValidMeritWeight, isConstraint, isLinearThickness, isEllipsometry, readsWavelengthBand, polFromType, OPERAND_TYPES,
+    EXTREMUM_FLAG_MAX,
 } from '../utils/physics/optimizer.js';
 import { isMeasuredCurve, isEllipsometricMeasuredCurve } from '../utils/physics/optimizer/measuredCurveType.js';
 import { makeRowOperand } from '../components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
@@ -37,6 +38,7 @@ const CHECKS = [
     ['targetEnd', v => v === null || isNumber(v), 'a number or null'],
     ['weight', isValidMeritWeight, 'a number of 0 or more'],
     ['cmp', v => ['eq', 'le', 'ge'].includes(v), "'eq', 'le' or 'ge'"],
+    ['flag', v => Number.isInteger(v) && v >= 1 && v <= EXTREMUM_FLAG_MAX, `a whole number from 1 to ${EXTREMUM_FLAG_MAX}`],
 ];
 
 // What is wrong with merit row `row`, or null.

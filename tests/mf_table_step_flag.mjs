@@ -24,12 +24,13 @@ const tmx = makeOperand({ type: 'TMX', lambdaStart: 500, lambdaEnd: 600, target:
 // Which rows carry the column.
 assert.ok(editableColsForRow(tmx).includes('flag'), 'a peak row takes a flag');
 assert.ok(!editableColsForRow(makeOperand({ type: 'TMN' })).includes('flag'), 'a dip row does not');
-assert.ok(!editableColsForRow(makeOperand({ type: 'TAV' })).includes('flag'), 'nor does a band average');
+assert.ok(editableColsForRow(makeOperand({ type: 'TAV' })).includes('flag'), 'a band average takes one, for its grid step');
 
 // Typing into the cell.
 assert.equal(cellInitialText(tmx, 'flag', false), '1', 'a row without a flag reads 1');
 assert.deepEqual(cellEdit(tmx, 'flag', '3'), ['flag', 3]);
-for (const text of ['0', '5', '2.5', 'x', '']) assert.equal(cellEdit(tmx, 'flag', text), null, `"${text}" is refused`);
+for (const text of ['0', '5', '2.5', 'x']) assert.equal(cellEdit(tmx, 'flag', text), null, `"${text}" is refused`);
+assert.deepEqual(cellEdit(tmx, 'flag', ''), ['flag', undefined], 'an empty cell clears the flag, the 1 nm step on a peak row');
 
 // The edit takes effect: flag 3 is a 0.01 nm search.
 assert.equal(operandSampleLambdas({ ...tmx, flag: 3 }).length, 10001);
@@ -54,7 +55,7 @@ assert.deepEqual(cells.map(op => [op.type, op.flag, op.target, op.weight]),
 // none is dropped.
 assert.deepEqual(parseOperandsTsv('TMN\t500\t600\t0\tavg\t95.00\t4').map(op => [op.target, op.weight, op.flag]),
     [[0.95, 4, undefined]]);
-assert.equal(parseOperandsTsv('TAV\t500\t600\t0\tavg\t3\t95.00\t1')[0].flag, undefined);
+assert.equal(parseOperandsTsv('TMN\t500\t600\t0\tavg\t3\t95.00\t1')[0].flag, undefined);
 
 // Retyping.
 assert.equal(retypeOperand({ ...tmx, flag: 2 }, 'RMN').flag, 2, 'another peak row keeps it');

@@ -1,4 +1,4 @@
-import { extremumFlag, isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
+import { isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
 import { CellInput } from '../../../../ui/grid/CellInput.js';
 import { CellSelect, PolList, selectable } from './CellControls.js';
 import { curveReferenceCell } from './curveReferenceCell.js';
@@ -8,6 +8,7 @@ import { customIntegralName } from '../../../analysis/integralValues/integralMod
 import {
     contributionBarWidth, fmtContribution, fmtCurrent, fmtTargetDisplay, residualTooltip,
 } from './operandViewModel.js';
+import { flagCellText } from './editModel.js';
 
 const { createElement: h } = React;
 
@@ -281,7 +282,7 @@ export function textCell(ctx, colKey, width) {
     if (colKey === 'target') {
         display = fmtTargetDisplay(op, meta);
     } else if (colKey === 'flag') {
-        display = extremumFlag(op);
+        display = flagCellText(op);
     } else if (colKey === 'lambdaEnd') {
         if (meta.isCon) display = String(Math.round(op.lambdaEnd));
         else if (!meta.isRange) return dashCell(ctx, colKey, width);

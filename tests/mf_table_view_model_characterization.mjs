@@ -68,7 +68,7 @@ for (const [operand, expected] of headerCases) {
 // sets the search step, and carries a dash on every other row.
 for (const [operand, expected] of [
     [null, 'Flag'], [op('DMFS'), 'Flag'], [op('TMX'), 'Step'], [op('RMN'), 'Step'], [op('MXWT'), 'Step'],
-    [op('ODMN'), 'Step'], [op('TMN'), '—'], [op('RMX'), '—'], [op('MNWT'), '—'], [op('TAV'), '—'],
+    [op('ODMN'), 'Step'], [op('TMN'), '—'], [op('RMX'), '—'], [op('MNWT'), '—'], [op('TAV'), 'Step'],
 ]) {
     assert.equal(dynamicHeaderLabels(operand, COLS_TR).flag, expected, `flag header, ${operand?.type || 'none'}`);
 }
@@ -78,14 +78,14 @@ const editableCases = [
     ['BLNK', ['enabled']],
     ['TT', ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     ['MXT', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
-    ['RIW', ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
+    ['RIW', ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight', 'flag']],
     ['MNWR', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight', 'flag']],
     ['TMX', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight', 'flag']],
     ['ABSO', ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     ['SUMM', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
     ['R', ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
-    ['RAV', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
-    ['RGT', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
+    ['RAV', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight', 'flag']],
+    ['RGT', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight', 'flag']],
     ['RMX', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
 ];
 for (const [type, expected] of editableCases) assert.deepEqual(editableColsForRow(op(type)), expected, type);

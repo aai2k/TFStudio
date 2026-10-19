@@ -11,7 +11,7 @@
 import {
     isDmfs, isBlank, isManufacturability, isMath, isRangeTarget,
     isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve, isPPEF,
-    bandSampleCount, logOperand,
+    bandSampleCount, bandFlagCount, isBandGridRow, logOperand,
 } from './operandModel.js';
 import { materialOmegaResponse } from '../../materials/materialDispersion.js';
 import { workerMaterialFields } from '../../materials/designMaterials.js';
@@ -34,7 +34,7 @@ export function charOf(type) { return logOperand(type)?.channel ?? type[0]; }
 // range targets and group-delay flatness. The extremum operands (argwave,
 // worst-case min/max) search on their own grid (extremumGrid.js).
 export function hasBandDensityGrid(type) {
-    return isBandSampled(type) && !isArgwave(type) && !isMinmax(type);
+    return isBandGridRow(type);
 }
 
 // The operand field that carries its own sample count: rampPoints for a range
@@ -53,15 +53,21 @@ export function sampleCountOverride(op) {
 // The weights every band operand sums its samples with.
 export { bandQuadratureWeights } from './bandQuadrature.js';
 
+// A band row's sample count: the count it carries, or the default grid, and
+// never fewer than its flag asks for.
+function bandRowCount(op) {
+    const own = sampleCountOverride(op);
+    return own == null ? bandSampleCount(op) : Math.max(own, bandFlagCount(op));
+}
+
 // Continuous per-λ target line (TGT/RGT/AGT). Density-based default
 // (~AVG_STEP_NM, same grid as band averages) so a steep ramp / structured
 // spectral target is sampled finely enough that the RMS deviation is accurate —
 // the old flat 21-point default was ~15 nm spacing on a 300 nm band and
 // under-resolved steep edges. `op.rampPoints` (if ≥2) still overrides for a
-// hand-tuned density.
+// hand-tuned density, though never coarser than the row's flag asks.
 function _rangeTargetLambdas(op, range) {
-    const userN = sampleCountOverride(op);
-    const n = userN ?? bandSampleCount(op);
+    const n = bandRowCount(op);
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
         const f = i / (n - 1);
@@ -74,9 +80,10 @@ function _rangeTargetLambdas(op, range) {
 // AVG_STEP_NM when no design is at hand; a run and the merit table set
 // bandPoints from the design's fringe spacing (evalCore/fringeSampling.js).
 // bandPoints is NOT stamped on operands by makeOperand, so a default change here
-// reaches every operand on disk. A user can override it per operand.
+// reaches every operand on disk. A user can override it per operand, though
+// never coarser than the row's flag asks.
 function _bandLambdas(op, range) {
-    const n = sampleCountOverride(op) ?? bandSampleCount(op);
+    const n = bandRowCount(op);
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
         out[i] = op.lambdaStart + (range * i) / (n - 1);

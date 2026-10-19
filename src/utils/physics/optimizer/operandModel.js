@@ -214,6 +214,12 @@ export function isPhaseDispersion(type) { return isPhaseShift(type) || isGroupDe
 // GD/GDD flatness operands whose value is already an RMS deviation from the flat
 // target (residual = value, like a range-target ramp).
 export function isGroupDelayFlat(type) { return type.endsWith('FLAT') && isGroupDelay(type); }
+// Rows that sum or compare their samples over a band grid of their own:
+// band averages, integrals, range targets and group-delay flatness rows. Their
+// flag sets the coarsest step that grid may take (bandFlagStepNm).
+export function isBandGridRow(type) {
+    return isBandAverage(type) || isIntegral(type) || isRangeTarget(type) || isGroupDelayFlat(type);
+}
 export function isEField(type)       { return type === 'EFMX'; }
 export function isPhase(type)        { return isEllipsometry(type) || isPhaseShift(type) || isGroupDelay(type) || isEField(type); }
 export function isInequality(type) { return type === 'OPGT' || type === 'OPLT'; }
@@ -307,13 +313,14 @@ export const AVG_POINTS = 13;
 // (evalCore/fringeSampling.js).
 export const AVG_STEP_NM = 2;
 // Design-free default sample count: round(width / AVG_STEP_NM) + 1, never below
-// AVG_POINTS. `op.bandPoints` / `op.rampPoints` (if ≥2) override it. Argwave
-// and worst-case min/max operands search a grid of their own (extremumGrid.js)
-// and do not use this.
+// AVG_POINTS, and never coarser than the row's flag asks (bandFlagCount).
+// `op.bandPoints` / `op.rampPoints` (if ≥2) override it. Argwave and worst-case
+// min/max operands search a grid of their own (extremumGrid.js) and do not use
+// this.
 export function bandSampleCount(op) {
     const w = Math.abs((op.lambdaEnd ?? op.lambdaStart) - op.lambdaStart);
     const n = Math.round(w / AVG_STEP_NM) + 1;
-    return Math.max(AVG_POINTS, n);
+    return Math.max(AVG_POINTS, n, bandFlagCount(op));
 }
 // Samples per fringe period on a design-set band grid. Measured on fifteen
 // random 80-layer TiO2/SiO2 stacks (about 9.4 µm) refined for 60 LM steps
@@ -330,15 +337,15 @@ export const SAMPLES_PER_FRINGE = 8;
 // count grows with the coating and has no upper limit: a merit sampled coarser
 // than its fringes can be lowered by moving fringes between samples (Macleod,
 // Thin-Film Optical Filters 5e, §3 automatic design, p. 94). Never below
-// AVG_POINTS.
+// AVG_POINTS, and never coarser than the row's flag asks (bandFlagCount).
 export function fringeSampleCount(op, groupThicknessNm) {
     const a = op.lambdaStart;
     const b = op.lambdaEnd ?? op.lambdaStart;
     const shortEnd = Math.min(a, b);
     const width = Math.abs(b - a);
-    if (!(groupThicknessNm > 0) || !(shortEnd > 0) || !(width > 0)) return AVG_POINTS;
+    if (!(groupThicknessNm > 0) || !(shortEnd > 0) || !(width > 0)) return Math.max(AVG_POINTS, bandFlagCount(op));
     const step = (shortEnd * shortEnd) / (2 * groupThicknessNm * SAMPLES_PER_FRINGE);
-    return Math.max(AVG_POINTS, Math.ceil(width / step) + 1);
+    return Math.max(AVG_POINTS, Math.ceil(width / step) + 1, bandFlagCount(op));
 }
 // The step, nm, a band-extremum row that looks for a peak of T, 1 − R or A
 // searches its band at: 10^(1 − flag) nm, so flag 1 is 1 nm, 2 is 0.1 nm, 3 is
@@ -355,6 +362,23 @@ export function extremumFlag(op) {
 }
 export function extremumStepNm(op) {
     return 10 ** (1 - extremumFlag(op));
+}
+// The coarsest step, nm, a band row (isBandGridRow) is sampled at: its flag read
+// as a worst-case row's (1 nm to 0.001 nm), or null for a row without a flag,
+// whose grid comes from the design's fringes, or AVG_STEP_NM with no design.
+// A cavity's pass band is about a fringe divided by the cavity's finesse wide,
+// so the fringe grid can step over it; the flag is how a row asks for a grid
+// finer than the pass band.
+export function bandFlagStepNm(op) {
+    const flag = op?.flag;
+    return Number.isInteger(flag) && flag >= 1 && flag <= EXTREMUM_FLAG_MAX ? 10 ** (1 - flag) : null;
+}
+// Samples the band row's flag asks for over its band, 0 without a flag.
+export function bandFlagCount(op) {
+    const step = bandFlagStepNm(op);
+    if (step == null) return 0;
+    const width = Math.abs((op.lambdaEnd ?? op.lambdaStart) - op.lambdaStart);
+    return Math.ceil(width / step) + 1;
 }
 
 // ── Operand factories ─────────────────────────────────────────────────────────

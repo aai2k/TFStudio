@@ -53,10 +53,10 @@ assert.deepEqual(pasteTargets({ grid: [['2']], range: cellRange({ rowIdx: 0, col
     [{ rowIdx: 0, colKey: 'weight', text: '2' }, { rowIdx: 1, colKey: 'weight', text: '2' },
         { rowIdx: 2, colKey: 'weight', text: '2' }, { rowIdx: 3, colKey: 'weight', text: '2' }]);
 // A row of values repeats across and down the range; a dash cell is skipped but
-// keeps its place, so the flag dash takes the 44 and the target the p.
+// keeps its place, so on the MNT row only the target takes a value, the p.
 assert.deepEqual(pasteTargets({ grid: [['44', 'p']], range: acrossDash, operands }),
-    [{ rowIdx: 1, colKey: 'aoi', text: '44' }, { rowIdx: 1, colKey: 'pol', text: 'p' }, { rowIdx: 1, colKey: 'target', text: 'p' },
-        { rowIdx: 2, colKey: 'target', text: 'p' }]);
+    [{ rowIdx: 1, colKey: 'aoi', text: '44' }, { rowIdx: 1, colKey: 'pol', text: 'p' }, { rowIdx: 1, colKey: 'flag', text: '44' },
+        { rowIdx: 1, colKey: 'target', text: 'p' }, { rowIdx: 2, colKey: 'target', text: 'p' }]);
 // From one cell the grid is laid out down and right and clipped at the table edge.
 assert.deepEqual(pasteTargets({ grid: [['1', '2', '3'], ['4', '5', '6']], range: null, focus: { rowIdx: 3, colKey: 'target' }, operands }),
     [{ rowIdx: 3, colKey: 'target', text: '1' }, { rowIdx: 3, colKey: 'weight', text: '2' }]);

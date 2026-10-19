@@ -7,7 +7,7 @@
 
 import {
     AVG_POINTS, extremumStepNm, isArgwave, isArgwaveMin, argwaveOpticalChar, argwavePolCode,
-    polFromType, isMinType, isMinmax,
+    polFromType, isMinType, isMinmax, isBandGridRow,
 } from './operandModel.js';
 import { logOperand } from './logReadings.js';
 
@@ -41,11 +41,14 @@ export function isExtremumRow(type) {
 }
 
 /**
- * Whether the row's flag sets its search step: a band-extremum row that looks
- * for a peak. A row that looks for a dip searches the design's fringe grid.
+ * Whether the row takes a step flag: a band-extremum row that looks for a peak,
+ * whose flag sets its search step, and a band row (isBandGridRow), whose flag
+ * sets the coarsest step of its grid. A row that looks for a dip searches the
+ * design's fringe grid.
  */
 export function takesStepFlag(op) {
-    return !!op && isExtremumRow(op.type) && extremumRowSpec(op).peak;
+    if (!op) return false;
+    return isBandGridRow(op.type) || (isExtremumRow(op.type) && extremumRowSpec(op).peak);
 }
 
 // Grid points per fringe of the search. A fringe needs more than two samples
