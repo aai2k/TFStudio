@@ -35,7 +35,7 @@ export function analysisTools({ api, store }) {
         },
         {
             name: 'merit', title: 'Merit',
-            description: "A design's merit as the Merit Function Editor shows it: the total, the optical merit without the manufacturing rows (MNT, MXT, TT, STR), and each row's value. A row that cannot be evaluated says why, and the totals are then null.",
+            description: "A design's merit as the Merit Function Editor shows it: the total, the optical merit without the manufacturing rows (MNT, MXT, TT, STR), and each row's value with what it scores: lambdaStart, lambdaEnd for a band, aoi and pol for an optical row (no pol for one scored on both polarizations, such as PSI or DPR), the layer range lambdaStart to lambdaEnd for MNT and MXT, cmp for TT and STR. A row that cannot be evaluated says why, and the totals are then null.",
             inputSchema: object({ designId: DESIGN_ID }, ['designId']),
             run: ({ designId }) => ({ designId, ...plain(api.merit(store.get(designId))) }),
         },

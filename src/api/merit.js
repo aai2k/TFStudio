@@ -1,9 +1,12 @@
 // A design's merit function: setting its rows, and the total and each row's
 // value as the Merit Function Editor shows them (utils/physics/meritDisplay.js).
 
-import { isKnownOperandType, isValidMeritWeight, isConstraint, readsWavelengthBand, OPERAND_TYPES } from '../utils/physics/optimizer.js';
-import { isMeasuredCurve } from '../utils/physics/optimizer/measuredCurveType.js';
+import {
+    isKnownOperandType, isValidMeritWeight, isConstraint, isLinearThickness, isEllipsometry, readsWavelengthBand, polFromType, OPERAND_TYPES,
+} from '../utils/physics/optimizer.js';
+import { isMeasuredCurve, isEllipsometricMeasuredCurve } from '../utils/physics/optimizer/measuredCurveType.js';
 import { makeRowOperand } from '../components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
+import { editableColsForRow } from '../components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { meritTable } from '../utils/physics/meritDisplay.js';
 import { requireResolved } from './materials.js';
@@ -33,6 +36,7 @@ const CHECKS = [
     ['target', isNumber, 'a number (T, R and A as fractions of 1)'],
     ['targetEnd', v => v === null || isNumber(v), 'a number or null'],
     ['weight', isValidMeritWeight, 'a number of 0 or more'],
+    ['cmp', v => ['eq', 'le', 'ge'].includes(v), "'eq', 'le' or 'ge'"],
 ];
 
 // What is wrong with merit row `row`, or null.
@@ -88,12 +92,42 @@ export function setMerit(design, rows) {
     return { ...design, meritOperands: operands };
 }
 
+// Ψ and Δ (from ρ = r_p/r_s) and the phase difference of p and s are scored
+// on both polarizations at once and never read pol.
+const takesBothPolarizations = type => isEllipsometry(type) || type === 'DPR' || type === 'DPT';
+
+// A measured curve's band, angle and polarization, as the editor shows them
+// (measuredCells.js): its band is the snapshot's, and a Ψ or Δ block has no
+// polarization.
+function measuredScope(op) {
+    const pol = isEllipsometricMeasuredCurve(op) ? {} : { pol: op.pol || 'avg' };
+    return { lambdaStart: op.lambdaStart, lambdaEnd: op.lambdaEnd, aoi: op.aoi ?? 0, ...pol };
+}
+
+// What a row scores, beside its type: TT and STR their comparison, MNT and
+// MXT their layer range, a measured curve its band, angle and polarization,
+// and a row the editor gives an angle column (operandViewModel.js
+// editableColsForRow) its wavelength, or its band where it reads one, its
+// angle and the polarization it is scored in.
+function rowScope(op) {
+    if (isLinearThickness(op.type)) return { cmp: op.cmp ?? 'eq' };
+    if (isConstraint(op.type)) return { lambdaStart: op.lambdaStart, lambdaEnd: op.lambdaEnd };
+    if (isMeasuredCurve(op.type)) return measuredScope(op);
+    if (!editableColsForRow(op).includes('aoi')) return {};
+    const band = readsWavelengthBand(op.type) ? { lambdaEnd: op.lambdaEnd } : {};
+    const pol = takesBothPolarizations(op.type) ? {} : { pol: polFromType(op.type) ?? op.pol };
+    return { lambdaStart: op.lambdaStart, ...band, aoi: op.aoi, ...pol };
+}
+
 /**
  * The merit of `design` against its merit function, as the Merit Function
  * Editor shows it: { total, optical (the merit without the manufacturing rows
- * MNT, MXT, TT and STR), rows: [{ type, value, target, weight, enabled, error }] }.
- * total and optical are null while a row cannot be evaluated; that row's
- * `error` says why.
+ * MNT, MXT, TT and STR), rows: [{ type, ...scope, value, target, weight,
+ * enabled, error }] }, the scope of a row being what it scores: lambdaStart,
+ * lambdaEnd for a band, aoi and pol for an optical row (no pol for a row
+ * scored on both polarizations); the layer range lambdaStart to lambdaEnd for
+ * MNT and MXT; cmp for TT and STR. total and optical are null while a row
+ * cannot be evaluated; that row's `error` says why.
  */
 export function merit(design) {
     requireResolved(design);
@@ -102,7 +136,7 @@ export function merit(design) {
     return {
         total: result.mf, optical: result.omf,
         rows: operands.map((op, i) => ({
-            type: op.type, value: result.computed[i], target: op.target, weight: op.weight,
+            type: op.type, ...rowScope(op), value: result.computed[i], target: op.target, weight: op.weight,
             enabled: op.enabled !== false, error: result.errors[i] ? String(result.errors[i]) : null,
         })),
     };

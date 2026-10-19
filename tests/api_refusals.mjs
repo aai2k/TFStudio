@@ -64,6 +64,7 @@ const REFUSALS = [
     ['an unknown operand type', () => api.setMerit(start, [{ type: 'RAVG' }]), /unknown operand type 'RAVG'\. Types: .*RAV/],
     ['a misspelt merit field', () => api.setMerit(start, [{ type: 'RAV', lamStart: 450 }]), /'lamStart' is not a field of a merit row/],
     ['a weight that is not a number', () => api.setMerit(start, [{ type: 'RAV', weight: 'abc' }]), /weight is a number of 0 or more/],
+    ['a comparison the thickness rows do not take', () => api.setMerit(start, [{ type: 'TT', cmp: 'lt' }]), /cmp is 'eq', 'le' or 'ge', not "lt"/],
     ['a band that runs backwards', () => api.setMerit(start, [{ type: 'RAV', lambdaStart: 650, lambdaEnd: 450 }]), /lambdaStart 650 is above lambdaEnd 450/],
     ['a band that runs backwards with its end left out', () => api.setMerit(start, [{ type: 'RAV', lambdaStart: 800 }]), /lambdaStart 800 is above lambdaEnd 700/],
     ['a symbol the formula does not use', () => api.stackFromFormula(blank, { formula: 'H L', symbols: { h: 'Ta2O5' } }), /does not use the symbol 'h'; it uses H, L/],

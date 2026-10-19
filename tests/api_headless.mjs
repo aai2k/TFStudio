@@ -115,6 +115,22 @@ ok('a stack formula builds quarter waves at its reference wavelength', qw.frontL
     ok('a target given as 0.99 is kept, not read as the editor\'s placeholder', kept.every(op => op.target === 0.99), JSON.stringify(kept.map(op => op.target)));
     const single = api.setMerit(qw, [{ type: 'R', lambdaStart: 800, lambdaEnd: 650, target: 0.5 }]);
     ok('a single-wavelength row keeps an unread band end the editor left', single.meritOperands.length === 1);
+    const others = api.merit(api.setMerit(qw, [
+        { type: 'TS', lambdaStart: 550, pol: 'p' }, { type: 'PSI', lambdaStart: 600, aoi: 70 },
+        { type: 'MCURVE', quantity: 'R', aoi: 8, pol: 's', sampleLambdas: [500, 550, 600], sampleTargets: [0.1, 0.1, 0.1] },
+        { type: 'MCURVE', quantity: 'PSI', aoi: 70, pol: 's', sampleLambdas: [500, 600], sampleTargets: [30, 30] },
+        { type: 'DPR', lambdaStart: 550, pol: 'p' },
+    ])).rows;
+    const scopes = [m.rows[0], api.merit(single).rows[0], api.merit(bounds).rows[0], ...others]
+        .map(({ lambdaStart, lambdaEnd, aoi, pol, cmp }) => JSON.stringify({ lambdaStart, lambdaEnd, aoi, pol, cmp }));
+    ok('each merit row says the band, wavelength or layer range it scores', scopes.join() === [
+        '{"lambdaStart":540,"lambdaEnd":560,"aoi":0,"pol":"avg"}', '{"lambdaStart":800,"aoi":0,"pol":"avg"}', '{"lambdaStart":1,"lambdaEnd":1000}',
+        '{"lambdaStart":550,"aoi":0,"pol":"s"}', '{"lambdaStart":600,"aoi":70}', '{"lambdaStart":500,"lambdaEnd":600,"aoi":8,"pol":"s"}',
+        '{"lambdaStart":500,"lambdaEnd":600,"aoi":70}', '{"lambdaStart":550,"aoi":0}',
+    ].join(), scopes.join(' '));
+    const capped = row => api.merit(api.setMerit(qw, [{ type: 'TT', target: 100000, ...row }]));
+    ok('a TT row scores its comparison and says it', capped({ cmp: 'le' }).total === 0 && capped({ cmp: 'le' }).rows[0].cmp === 'le'
+        && capped({}).total > 0 && capped({}).rows[0].cmp === 'eq', `${capped({ cmp: 'le' }).total} ${capped({}).total}`);
 }
 {
     const wide = api.spectrum(api.insertLayer(blank, { material: 'TiO2', thickness: 60 }), { from: 350, to: 900, step: 10 });
