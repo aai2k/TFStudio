@@ -3,7 +3,7 @@
 // up to waitSeconds and answers with the job's state, finished or not, and
 // jobStatus follows it. A starting call the client cancels stops its job.
 
-import { MAX_WAIT_SECONDS } from './jobs.js';
+import { MAX_WAIT_SECONDS, STOP_GRACE_MS } from './jobs.js';
 import { object, num, int, str, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
 // Long enough for most short runs to end within the call that starts them,
@@ -55,7 +55,7 @@ export function runTools({ store, jobs }) {
         },
         {
             name: 'monteCarlo', title: 'Monte Carlo error analysis',
-            description: "Monte Carlo trials of a design with random layer errors, as the Error Analysis window runs them, as a job: once it has ended its result holds per wavelength the design's value, the trials' mean, standard deviation and spread, the seed it drew from, and with the design's specification the yield. Answers with the job's state as refine does.",
+            description: "Monte Carlo trials of a design with random layer errors, as the Error Analysis window runs them, as a job whose progress readouts give the trial reached. Once it has ended its result holds, per wavelength of `lambda`: theory (the design's own value), mean and stdev of the trials, lower and upper (mean minus and plus settings.corridorSigma standard deviations, clipped to 0 and 1), envLower and envUpper (the lowest and highest trial); and nTrials, the seed it drew from and its settings. The yield is counted only for a design that holds a specification, which the app's Specification window sets and saves in the design file; no tool sets one, and spec is null otherwise. Answers with the job's state as refine does.",
             inputSchema: object({
                 designId: DESIGN_ID, quantity: oneOf(['R', 'T', 'A'], 'What is scored. Default R'),
                 from: num('First wavelength in nm'), to: num('Last wavelength in nm'), step: num('Wavelength step in nm. Default 1'),
@@ -78,7 +78,7 @@ export function runTools({ store, jobs }) {
         },
         {
             name: 'stopJob', title: 'Stop a job',
-            description: 'Stops a running job. It ends stopped: Deep Synthesis answers with the best design it found so far, a Monte Carlo job without a result, the other runs without an answer, their designId then being the design they started from, which stays as it was.',
+            description: `Stops a running job. It ends stopped: Deep Synthesis answers with the best design it found so far, a Monte Carlo job with the trials it ran once the trial it is in ends, the other runs without an answer, their designId then being the design they started from, which stays as it was. A job that has not answered Stop within ${STOP_GRACE_MS / 1000} s ends without an answer.`,
             inputSchema: object({ jobId: str('The job id') }, ['jobId']),
             run: ({ jobId }) => jobs.stop(jobs.find(jobId)),
         },

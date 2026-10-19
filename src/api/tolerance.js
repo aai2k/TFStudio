@@ -7,7 +7,7 @@ import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { hasPerturbableLayers } from '../components/windows/analysis/errorAnalysis/trialModel.js';
 import { requireResolved } from './materials.js';
-import { checkOptions, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean } from './check.js';
+import { checkOptions, checkHooks, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean } from './check.js';
 
 const oneOf = list => v => list.includes(v);
 const isSeed = v => v == null || (Number.isInteger(v) && v >= 1 && v <= MAX_SEED);
@@ -39,9 +39,12 @@ const MC_CHECKS = [
  * seed, settings and spec (yield, passCount, evaluated, yieldInterval). Without
  * a seed, or with null, the trials draw from a fresh one, which the result
  * reports. A design with no layer the trials can perturb is refused, as the
- * window does.
+ * window does. hooks: `onProgress({ trial, total })` after each trial, and
+ * `signal`, looked for between trials: a stopped run answers with the trials
+ * it ran (nTrials below `runs`).
  */
-export function monteCarlo(design, options) {
+export function monteCarlo(design, options, hooks) {
+    const { signal, onProgress } = checkHooks('monteCarlo', hooks, ['signal', 'onProgress']);
     const o = {
         quantity: 'R', step: 1, angle: 0, polarization: 'avg', runs: 100,
         thicknessRelPct: 1, thicknessAbsNm: 0, indexRe: 0, indexIm: 0, distribution: 'gaussian',
@@ -58,6 +61,16 @@ export function monteCarlo(design, options) {
             char: o.quantity, evalMode, nTrials: o.runs,
             rmsRelPct: o.thicknessRelPct, rmsAbsNm: o.thicknessAbsNm, rmsReN: o.indexRe, rmsImN: o.indexIm,
             distribution: o.distribution, seed: o.seed ?? undefined, evaluateSpec: (design.qualifiers || []).length > 0,
+            ...(onProgress ? { onTrial: ({ i, total }) => onProgress({ trial: i, total }) } : {}),
+            // After each trial the run gives way to the event loop, so a Stop
+            // posted to this thread arrives, and looks for it. setImmediate
+            // rather than a timer: a timer waits for the system clock's tick,
+            // several milliseconds on Windows, longer than a trial on a usual grid.
+            ...(signal ? {
+                yieldEvery: 1,
+                onYield: () => new Promise(resolve => globalThis.setImmediate(resolve)),
+                shouldCancel: () => signal.aborted,
+            } : {}),
         });
 }
 

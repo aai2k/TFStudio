@@ -147,6 +147,16 @@ for (const method of ['needle', 'ge']) {
     const a = await api.monteCarlo(start, opts), b = await api.monteCarlo(start, opts);
     ok('Monte Carlo runs its trials over the range and repeats with its seed', a.nTrials === 5 && a.lambda.length === 21
         && a.mean.length === 21 && JSON.stringify(a.mean) === JSON.stringify(b.mean));
+    const stop = new AbortController();
+    let reports = 0;
+    const cut = await api.monteCarlo(start, { ...opts, runs: 400 }, { signal: stop.signal, onProgress: ({ trial }) => { reports++; if (trial === 40) stop.abort(); } });
+    ok('Monte Carlo reports each trial and stops between trials with the ones it ran', reports >= 40 && cut.nTrials >= 40 && cut.nTrials < 400,
+        `${reports} reports, ${cut.nTrials} trials`);
+    // A Stop from outside the run, as a job's thread gets one, waits for no more than the trial under way.
+    const outside = new AbortController();
+    globalThis.setImmediate(() => outside.abort());
+    const early = await api.monteCarlo(start, { ...opts, runs: 400 }, { signal: outside.signal });
+    ok('a Stop from outside ends the run after the trial it is in', early.nTrials === 1, `${early.nTrials} trials`);
     const one = await api.monteCarlo(start, { ...opts, runs: 1, seed: null });
     ok('a single trial runs, with a fresh seed when none is given', one.nTrials === 1 && Number.isInteger(one.seed) && one.seed >= 1, JSON.stringify({ n: one.nTrials, seed: one.seed }));
     const ranked = api.layerSensitivity(start);

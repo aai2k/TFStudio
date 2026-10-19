@@ -19,6 +19,21 @@ export function requireValue(call, name, value, ok, takes) {
 /** A value as a refusal names it: NaN and Infinity as themselves, which JSON would print as null. */
 export const shown = value => (typeof value === 'number' ? String(value) : JSON.stringify(value));
 
+/**
+ * `hooks` after refusing a name the call does not take (`names`), a signal
+ * that is not an AbortSignal and a hook that is not a function.
+ */
+export function checkHooks(call, hooks, names) {
+    const given = checkOptions(call, hooks, names);
+    for (const [name, hook] of Object.entries(given)) {
+        if (hook === undefined) continue;
+        if (name === 'signal' ? !(hook instanceof AbortSignal) : typeof hook !== 'function') {
+            throw new Error(`${call}: ${name} is ${name === 'signal' ? 'an AbortSignal' : 'a function'}`);
+        }
+    }
+    return given;
+}
+
 export const isPositive = v => Number.isFinite(v) && v > 0;
 export const isNonNegative = v => Number.isFinite(v) && v >= 0;
 /** An angle of incidence in degrees that the evaluators take: 0 or more and below grazing. */

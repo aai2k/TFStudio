@@ -16,7 +16,7 @@ import { strictestMnt } from '../components/windows/optimization/synthesisShared
 import { mirrorLayers } from '../utils/physics/optimizer.js';
 import { ensureLayerIds } from '../utils/io/newDesign.js';
 import { requireMaterial, requireResolved, materialName } from './materials.js';
-import { checkOptions } from './check.js';
+import { checkOptions, checkHooks } from './check.js';
 
 const makeWorker = () => new InThreadOptimizerWorker();
 const makeWorkerPool = size => new InThreadSynthesisPool(size);
@@ -32,19 +32,6 @@ const HOOKS = {
 
 /** The hooks a run takes: `method` is 'refine' or a synthesis method. */
 export const runHooks = method => HOOKS[method] || [];
-
-// `hooks` after refusing a name the run does not call, a signal that is not an
-// AbortSignal and a hook that is not a function.
-function checkHooks(call, hooks, names) {
-    const given = checkOptions(call, hooks, names);
-    for (const [name, hook] of Object.entries(given)) {
-        if (hook === undefined) continue;
-        if (name === 'signal' ? !(hook instanceof AbortSignal) : typeof hook !== 'function') {
-            throw new Error(`${call}: ${name} is ${name === 'signal' ? 'an AbortSignal' : 'a function'}`);
-        }
-    }
-    return given;
-}
 
 // The given settings without those left undefined, so each run fills in its
 // own defaults.

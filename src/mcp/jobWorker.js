@@ -43,7 +43,7 @@ const ALL_HOOKS = {
 
 async function run(api) {
     const { kind, design, request } = workerData;
-    if (kind === 'monteCarlo') return { result: await api.monteCarlo(design, request) };
+    if (kind === 'monteCarlo') return { result: await api.monteCarlo(design, request, { signal: stop.signal, onProgress: progress }) };
     const hooks = Object.fromEntries(api.runHooks(kind === 'refine' ? 'refine' : request.method).map(name => [name, ALL_HOOKS[name]]));
     const out = kind === 'refine' ? await api.refine(design, request, hooks) : await api.synthesize(design, request, hooks);
     // The layers are in the design the job answers with.

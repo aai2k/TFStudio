@@ -16,8 +16,9 @@ export const MAX_WAIT_SECONDS = 50;
 // Deep Synthesis answers it with its best design so far. Ten seconds is several
 // times the longest step between those checks in the test runs, which take a
 // few seconds at most; a run that has not answered by then is ended without an
-// answer. A Monte Carlo job never looks for Stop and is ended at once.
-const STOP_GRACE_MS = 10000;
+// answer. A Monte Carlo job looks for Stop after each trial and answers with
+// the trials it ran.
+export const STOP_GRACE_MS = 10000;
 
 /** What a call answers about `job`. */
 function view(job) {
@@ -79,7 +80,6 @@ async function waitFor(job, seconds, signal) {
 /** Stops a running job; it ends 'stopped' with the answer the run gives on Stop, if any. */
 function stopJob(job) {
     if (job.ended || job.stopping) return view(job);
-    if (job.kind === 'monteCarlo') { settle(job, 'stopped', {}); return view(job); }
     job.stopping = true;
     job.state = 'stopping';
     job.worker.postMessage({ type: 'cancel' });

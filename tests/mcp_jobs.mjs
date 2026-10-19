@@ -83,10 +83,15 @@ const ar = await twoLayerAR();
     ok('Monte Carlo runs as a job', trials.state === 'done' && trials.result?.nTrials === 5 && trials.result.mean?.length === 21 && !trials.designId,
         JSON.stringify({ state: trials.state, n: trials.result?.nTrials, error: trials.error }));
     const many = await server.call('monteCarlo', { designId: ar.id, from: 400, to: 800, step: 1, runs: 200000, waitSeconds: 0 });
-    const started = Date.now();
-    const halted = await server.call('stopJob', { jobId: many.jobId });
-    ok('a Monte Carlo job stops at once, without a result', halted.state === 'stopped' && !halted.result && !halted.error && Date.now() - started < 2000,
-        JSON.stringify({ state: halted.state, error: halted.error }));
+    await sleep(1500);
+    const midway = await server.call('jobStatus', { jobId: many.jobId });
+    ok('a Monte Carlo job reports the trial it has reached', midway.state === 'running' && midway.progress?.trial > 0, JSON.stringify(midway.progress));
+    const asked = Date.now();
+    await server.call('stopJob', { jobId: many.jobId });
+    const halted = await server.call('jobStatus', { jobId: many.jobId, waitSeconds: 10 });
+    const ran = halted.result?.nTrials ?? 0;
+    ok('a stopped Monte Carlo job answers with the trials it ran', halted.state === 'stopped' && ran > 0 && ran < 200000, `${halted.state}, ${ran} trials`);
+    ok('it stops within seconds, with no error', !halted.error && Date.now() - asked < 3000, halted.error);
 }
 
 // ── 3. Cancelling ──────────────────────────────────────────────────────────
