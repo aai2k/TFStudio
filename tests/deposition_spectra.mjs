@@ -46,20 +46,6 @@ const tLoop = performance.now() - t0;
 
 const js = evaluateDepositionSpectra(params, Air, Sub, Air, deposition, back, 1.0);
 
-const active = await initWasmForTest();
-const { getTmmWasm } = await import('tmmcore');
-if (!active || typeof getTmmWasm().hasGrowingKernels !== 'function'
-        || !getTmmWasm().hasGrowingKernels()) {
-    console.log('SKIP  tmmcore build predates the growing-stack kernels (needs tmmcore >= 0.3.0)');
-    process.exit(0);
-}
-ok(active, 'WASM kernel active with growing-stack kernels');
-const t1 = performance.now();
-const wa = evaluateDepositionSpectra(params, Air, Sub, Air, deposition, back, 1.0);
-const tWasm = performance.now() - t1;
-
-ok(js.length === N && wa.length === N, 'one spectrum per deposition step');
-
 function compare(label, got, tol) {
     let worst = 0;
     for (let step = 0; step < N; step++) {
@@ -72,16 +58,36 @@ function compare(label, got, tol) {
     }
     ok(worst <= tol, `${label} matches the per-step evaluation (worst ${worst.toExponential(2)})`);
 }
-compare('JS fallback', js, 0);
-compare('WASM kernel', wa, 1e-9);
 
-// The zero-thickness step repeats the previous spectrum exactly.
-let worstRepeat = 0;
-for (let i = 0; i < wa[7].T.length; i++) {
-    worstRepeat = Math.max(worstRepeat, Math.abs(wa[7].T[i] - wa[6].T[i]));
+function checkKernel() {
+    const t1 = performance.now();
+    const wa = evaluateDepositionSpectra(params, Air, Sub, Air, deposition, back, 1.0);
+    const tWasm = performance.now() - t1;
+
+    ok(js.length === N && wa.length === N, 'one spectrum per deposition step');
+    compare('JS fallback', js, 0);
+    compare('WASM kernel', wa, 1e-9);
+
+    // The zero-thickness step repeats the previous spectrum exactly.
+    let worstRepeat = 0;
+    for (let i = 0; i < wa[7].T.length; i++) {
+        worstRepeat = Math.max(worstRepeat, Math.abs(wa[7].T[i] - wa[6].T[i]));
+    }
+    ok(worstRepeat === 0, 'a zero-thickness step repeats the previous spectrum');
+
+    console.log(`timing, ${N} steps x ${ref[0].lambda.length} wavelengths: per-step loop ${tLoop.toFixed(0)} ms, WASM batch ${tWasm.toFixed(0)} ms`);
+    console.log(fail ? `${fail} FAILURES` : 'ALL PASS');
 }
-ok(worstRepeat === 0, 'a zero-thickness step repeats the previous spectrum');
 
-console.log(`timing, ${N} steps x ${ref[0].lambda.length} wavelengths: per-step loop ${tLoop.toFixed(0)} ms, WASM batch ${tWasm.toFixed(0)} ms`);
-console.log(fail ? `${fail} FAILURES` : 'ALL PASS');
-process.exit(fail ? 1 : 0);
+const active = await initWasmForTest();
+const { getTmmWasm } = await import('tmmcore');
+if (!active || typeof getTmmWasm().hasGrowingKernels !== 'function'
+        || !getTmmWasm().hasGrowingKernels()) {
+    console.log('SKIP  tmmcore build predates the growing-stack kernels (needs tmmcore >= 0.3.0)');
+} else {
+    checkKernel();
+}
+// The process ends on its own rather than through process.exit: on Windows
+// under load, process.exit shortly after the WASM kernel is instantiated can
+// hang Node's shutdown or crash it.
+process.exitCode = fail ? 1 : 0;

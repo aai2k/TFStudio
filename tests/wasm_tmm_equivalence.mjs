@@ -195,8 +195,10 @@ console.log(`tmm_needle   max |Δ|        = ${maxNeedle.toExponential(3)}`);
 
 if (fails === 0) {
     console.log('\nPASS — WASM TMM kernel agrees with the JS reference within tolerance.');
-    process.exit(0);
 } else {
     console.error(`\n${fails} assertion(s) FAILED.`);
-    process.exit(1);
 }
+// The process ends on its own rather than through process.exit: on Windows
+// under load, process.exit shortly after the WASM kernel is instantiated can
+// hang Node's shutdown or crash it.
+process.exitCode = fails === 0 ? 0 : 1;
