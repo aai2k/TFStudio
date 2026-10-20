@@ -7,7 +7,8 @@
  * a variable, or breaks a sub-component render is caught automatically instead
  * of only by clicking through the app. A window whose module fails to load at
  * all (broken import, syntax error, top-level throw, missing export) surfaces
- * here too, as "white screen on open" would.
+ * here too, as "white screen on open" would: the registry imports every window,
+ * and the error it throws names the module.
  *
  * The registry's own derived tables are checked at the end: a window that
  * renders but is missing from TOOL_CONFIGS / TOOL_LABELS still cannot be opened.
@@ -20,7 +21,6 @@
  * Run: node tests/ui_window_render.mjs
  */
 
-import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -31,17 +31,8 @@ shimBrowserGlobals();
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REGISTRY = resolve(HERE, '../src/components/docking/windowRegistry.js');
 
-function parseWindowImports() {
-    const src = readFileSync(REGISTRY, 'utf8');
-    const re = /import\s*\{\s*([A-Za-z0-9_]+)\s*\}\s*from\s*'(\.\.\/windows\/(?:[A-Za-z0-9_]+\/)*[A-Za-z0-9_]+\.js)'/g;
-    const out = [];
-    let m;
-    while ((m = re.exec(src))) out.push({ name: m[1], abs: resolve(dirname(REGISTRY), m[2]) });
-    return out;
-}
-
-// Modal wizards are opened from renderer.js, not the docking registry, so
-// they aren't in the registry import scan — render them explicitly here. They
+// Modal wizards are opened from AppModals.js, not the docking registry, so
+// they aren't in WINDOW_REGISTRY and are rendered explicitly here. They
 // take { c, t, onClose }.
 const EXTRA_MODALS = [
     { name: 'BBMWizard',          rel: '../windows/simulation/bbmWizard/BBMWizard.js' },
@@ -59,10 +50,9 @@ let c, t;
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('  FAIL:', msg); fails++; } };
 
-async function renderOne(name, abs, props) {
+async function renderOne(name, load, props) {
     try {
-        const mod = await import(pathToFileURL(abs).href);
-        const Comp = mod[name];
+        const Comp = await load();
         if (typeof Comp !== 'function') { console.error(`  FAIL ${name}: export is ${typeof Comp}`); fails++; return; }
         const el = withDesign(React.createElement(Comp, props));
         const html = renderToStaticMarkup(el);
@@ -78,31 +68,34 @@ async function main() {
     await loadApp();
     c = makeTheme();
     t = makeLocale();
-    const windows = parseWindowImports();
-    console.log(`UI window render — ${windows.length} registry windows + ${EXTRA_MODALS.length} modals\n`);
 
-    for (const w of windows) {
-        await renderOne(w.name, w.abs, { c, t, theme: c, setInputDialog: noop, onClose: noop });
+    // A window module that fails to load fails the registry import; its stack
+    // names the module.
+    let reg = null;
+    try {
+        reg = await import(pathToFileURL(REGISTRY).href);
+    } catch (e) {
+        console.error(`  FAIL: windowRegistry.js import threw: ${e && e.stack ? e.stack : e}`);
+        fails++;
+    }
+    const windows = Object.entries(reg?.WINDOW_REGISTRY || {}).filter(([, entry]) => entry.component != null);
+    console.log(`UI window render — ${windows.length} registry windows + ${EXTRA_MODALS.length} modals\n`);
+    if (reg) ok(windows.length > 0, 'WINDOW_REGISTRY lists no window with a component');
+
+    for (const [id, entry] of windows) {
+        await renderOne(id, async () => entry.component, { c, t, theme: c, setInputDialog: noop, onClose: noop });
     }
     for (const w of EXTRA_MODALS) {
-        await renderOne(w.name, resolve(dirname(REGISTRY), w.rel), { c, t, onClose: noop, ...(w.props || {}) });
+        const url = pathToFileURL(resolve(dirname(REGISTRY), w.rel)).href;
+        await renderOne(w.name, async () => (await import(url))[w.name], { c, t, onClose: noop, ...(w.props || {}) });
     }
 
-    // The registry itself must import and build the tables the docking layer
-    // reads to open, label and help-link a window.
-    try {
-        const reg = await import(pathToFileURL(REGISTRY).href);
+    // The tables the docking layer reads to open, label and help-link a window.
+    if (reg) {
         ok(reg.WINDOW_REGISTRY && typeof reg.WINDOW_REGISTRY === 'object', 'WINDOW_REGISTRY export missing');
         ok(reg.TOOL_CONFIGS && Object.keys(reg.TOOL_CONFIGS).length > 0, 'TOOL_CONFIGS derived table empty');
         ok(reg.TOOL_LABELS && Object.keys(reg.TOOL_LABELS).length > 0, 'TOOL_LABELS derived table empty');
         ok(typeof reg.helpAnchorFor === 'function', 'helpAnchorFor export missing');
-        for (const [id, entry] of Object.entries(reg.WINDOW_REGISTRY)) {
-            if (entry.component != null)
-                ok(typeof entry.component === 'function', `registry '${id}'.component is not a function`);
-        }
-    } catch (e) {
-        console.error(`  FAIL: windowRegistry.js import threw: ${e && e.message ? e.message : e}`);
-        fails++;
     }
 
     console.log('');

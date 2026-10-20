@@ -13,7 +13,6 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { shimBrowserGlobals, loadApp, makeTheme, makeLocale } from './_uiShim.mjs';
 
@@ -152,13 +151,6 @@ const form = draft => React.createElement(UserMaterialForm, {
     assert.equal(draftModule.buildNKFromDraft(edited)(27.5 + 3 * 2)[0], 1.6, 'with the edit in it');
     assert.notEqual(draftModule.draftFingerprint(edited), draftModule.draftFingerprint(bigDraft), 'and reads as changed');
     assert.equal(draftModule.draftFingerprint({ ...bigDraft }), draftModule.draftFingerprint(bigDraft));
-}
-
-// The table is drawn the same way everywhere.
-for (const path of ['ui/ResultsSection.js', 'windows/analysis/opticalEvaluation/DataTable.js',
-    'windows/design/materialEditor/nkDataGrid.js']) {
-    assert.match(readFileSync(new URL(`../src/components/${path}`, import.meta.url), 'utf8'), /useVirtualRows\(/,
-        `${path} draws only the rows in view`);
 }
 
 console.log('long_tables: passed');

@@ -675,14 +675,12 @@ assert.ok(renderStrip(undefined).includes(t.docking.dragToDock));
 
 // A window the app cannot place is one it cannot walk across the desktop, so the
 // tear-off preview is withheld rather than left standing still through a drag;
-// startDragPreview then falls back to an element that does follow the cursor.
+// startDragPreview then falls back to an element that does follow the cursor
+// (drag_preview_window.mjs).
 const preloadSource = readFileSync(
     new URL('../src/preload.js', import.meta.url), 'utf8');
 assert.match(preloadSource, /dragGhost: nativeWindowDrag \? null :/,
     'the drag preview window is withheld where it could not be moved');
-
-assert.match(dockingSource, /const bridge = [^;]*electronAPI\.dragGhost/,
-    'and startDragPreview takes the absence as its cue to draw an element instead');
 
 // ── A divider in a float is dragged in the float's own document ───────────────
 //

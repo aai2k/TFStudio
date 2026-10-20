@@ -60,14 +60,16 @@ for (const file of files) {
 console.log(`Scanned ${scanned} window component(s) for the medium-.material anti-pattern.`);
 
 // ── 2) Schema invariant: the defaults are strings, not objects ───────────────
-const checkStringDefault = (relPath, label) => {
-    const src = readFileSync(join(ROOT, relPath), 'utf8');
-    // incidentMedium: 'Air'  (a string literal, not `{`)
-    const m = src.match(/incidentMedium:\s*(['"`{])/);
-    ok(m && m[1] !== '{', `${label}: incidentMedium default should be a string literal, not an object`);
+const { makeDefaultDesign } = await import('../src/utils/io/newDesign.js');
+const { buildSampleDesigns } = await import('../src/utils/samples/sampleDesigns.js');
+const checkStringMedia = (design, label) => {
+    ok(typeof design.incidentMedium === 'string', `${label}: incidentMedium should be a material id string, not ${typeof design.incidentMedium}`);
+    ok(typeof design.exitMedium === 'string', `${label}: exitMedium should be a material id string, not ${typeof design.exitMedium}`);
 };
-checkStringDefault('src/utils/io/newDesign.js', 'newDesign');
-checkStringDefault('src/utils/samples/sampleDesigns.js', 'sampleDesigns');
+checkStringMedia(makeDefaultDesign(), 'newDesign');
+const samples = buildSampleDesigns();
+ok(samples.length > 0, 'the sample designs are there to check');
+for (const sample of samples) checkStringMedia(sample.build(), `sample ${sample.key}`);
 
 if (fails === 0) { console.log('PASS — incident/exit medium contract holds across all windows.'); process.exit(0); }
 else { console.error(`\n${fails} contract violation(s).`); process.exit(1); }

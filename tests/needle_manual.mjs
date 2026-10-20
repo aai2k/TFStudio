@@ -7,14 +7,14 @@
  *
  *   1. scanNeedlesPFunction returns improving candidates + mf0 > 0 on a
  *      sub-optimal design.
- *   2. The window's depth-mapping (depthBoundaries / candidateDepth, copied
- *      verbatim below) maps every candidate to a physical depth z within
+ *   2. The window's depth mapping (depthBoundaries / candidateDepth in
+ *      needleManual/model.js) maps every candidate to a physical depth z within
  *      [0, totalZ]; gap positions land exactly on cumulative-thickness
  *      boundaries and intra positions land inside their host layer.
  *   3. The most-improving candidate (min grad) genuinely lowers the MF when a
- *      thin needle is inserted there — predicted ΔMF (calcMF on the inserted
- *      design, exactly the window's preview path) is negative, and its sign
- *      agrees with the analytic gradient sign.
+ *      thin needle is inserted there: the predicted optical merit (calcOMF on
+ *      the design insertForSelection builds, as the window's preview does) is
+ *      below the scan's, and its sign agrees with the analytic gradient sign.
  *   4. insertNeedleIntra splits the host into d1 + needle(d) + d2 with the
  *      d_min floor; insertNeedle inserts one layer at the gap index.
  *   5. findOptimalNeedleThickness returns a finite thickness ≥ d_min.
@@ -24,11 +24,16 @@
  */
 
 import {
-    makeOperand, evaluateOperands, buildEvalContext, calcMF,
+    makeOperand, evaluateOperands, buildEvalContext, calcOMF,
     scanNeedlesPFunction, findOptimalNeedleThickness,
     insertNeedle, insertNeedleIntra, mirrorLayers, isConstraint,
 } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { shimBrowserGlobals } from './_uiShim.mjs';
+
+shimBrowserGlobals();
+const { depthBoundaries, candidateDepth, insertForSelection } =
+    await import('../src/components/windows/optimization/needleManual/model.js');
 
 let fails = 0;
 const ok   = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } else { console.log('  ok:', msg); } };
@@ -36,21 +41,6 @@ const near = (a, b, t = 1e-6) => Math.abs(a - b) <= t;
 
 const resolveMat = id => getMaterial(id);
 const POOL = ['TiO2', 'SiO2', 'MgF2'].map(id => ({ id, name: id, mat: resolveMat(id) }));
-
-// ── Copies of the window's depth helpers (NeedleManual.js) ────────────────────
-function depthBoundaries(layers) {
-    const z = [0];
-    for (const l of layers) z.push(z[z.length - 1] + (l.thickness || 0));
-    return z;
-}
-function candidateDepth(cand, zb) {
-    if (cand.intra) {
-        const z0 = zb[cand.layerK] ?? 0;
-        const z1 = zb[cand.layerK + 1] ?? z0;
-        return z0 + cand.frac * (z1 - z0);
-    }
-    return zb[cand.pos] ?? 0;
-}
 
 function makeDesign() {
     return {
@@ -72,10 +62,11 @@ const makeOps = () => [
     makeOperand({ type: 'TAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 1, weight: 1 }),
 ];
 
-// MF of an arbitrary design — exactly the window's preview computation.
+// The optical merit of a design on these rows, by calcOMF, the function the
+// window's preview scores with (it leaves out the constraint rows).
 const dMin = 1.0;
-function mfOf(design, ops) {
-    return calcMF(ops, evaluateOperands(ops, buildEvalContext(design, resolveMat)), { skipConstraints: true });
+function omfOf(design, ops) {
+    return calcOMF(ops, evaluateOperands(ops, buildEvalContext(design, resolveMat)));
 }
 
 // ── 1. scan returns improving candidates ──────────────────────────────────────
@@ -111,10 +102,8 @@ ok(intraInside, 'intra candidates land inside their host layer span');
 console.log('— predicted ΔMF —');
 const best = improving.slice().sort((a, b) => a.grad - b.grad)[0];
 ok(best.grad < 0, `best candidate grad < 0 (${best.grad.toExponential(3)})`);
-const insertedThin = best.intra
-    ? insertNeedleIntra(design, best, dMin, 'front')
-    : insertNeedle(design, best.pos, best.materialId, dMin, 'front');
-const mfThin = mfOf(insertedThin, makeOps());
+const insertedThin = insertForSelection(best, design, dMin, 'front');
+const mfThin = omfOf(insertedThin, makeOps());
 ok(mfThin < scan.mf0, `thin needle lowers MF (${scan.mf0.toFixed(6)} → ${mfThin.toFixed(6)})`);
 // Linearization check: ΔMF and grad·dMin share a sign for a thin perturbation.
 ok((mfThin - scan.mf0) < 0 && best.grad < 0, 'ΔMF sign agrees with analytic grad sign');

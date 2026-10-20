@@ -28,7 +28,8 @@
  *      their traces appended in that order, the kept design the best on the
  *      trace within the cap, the grown design the best growth; the kept design
  *      lowers the merit from the bare substrate and from one refined layer;
- *      the same result twice, every job through a structured clone.
+ *      the same result twice, every job run by the app's serial runner and
+ *      through a structured clone.
  *   7. On a synthetic runner: refined seeds within the same-design tolerances
  *      are grown once, ties in refined merit go to the earlier seed, ties in
  *      grown merit to the earlier run, and the kept design is the best within
@@ -61,8 +62,9 @@ const {
     pointKind, targetPoints, passIndices, passRuns, nCos, halfWave,
 } = await import('../src/utils/synthesis/deepSynthesis/points.js');
 const {
-    COMB, combApplies, combPeriods, combSeeds, buildSeed, growSeed, runComb,
+    COMB, combApplies, combPeriods, combSeeds, buildSeed, runComb,
 } = await import('../src/utils/synthesis/deepSynthesis/comb.js');
+const { makeSerialRunner } = await import('../src/utils/synthesis/deepSynthesis/runner.js');
 
 // Step 1's engine is required: no fallback to another engine here.
 const probe = makeEngine('trust-region', caseById('bbar').ops, caseById('bbar').thin(), getMaterial, {});
@@ -326,20 +328,21 @@ function sides(seeds) {
 }
 
 // ── 6. runComb on the bandpass ───────────────────────────────────────────────
-// A serial runner: a fresh evaluator per job, as a worker builds one, and every job
-// through a structured clone, as a worker would receive and return it. The seeds
-// carry no preparation, so a rung job is the refinement alone. `jobs` keeps what
-// went in and came back, in order.
+// The app's serial runner, which runs each item as the worker job it would be
+// sent as. The runner passes items by reference, so this wrapper puts them
+// through a structured clone on the way in and out, as a worker would receive
+// and return them. The seeds carry no preparation, so a rung job is the
+// refinement alone. `jobs` keeps what went in and came back, in order.
 function serialRunner(jobs) {
-    const fresh = ev => makeEvaluator(ev.spec, { materials: ev.materials });
-    const send = (items, body) => structuredClone(structuredClone(items).map(body));
+    const runner = makeSerialRunner();
+    const send = async (items, run) => structuredClone(await run(structuredClone(items)));
     const kept = (list, out) => { list.push(...out); return out; };
     return {
         threads: 1,
-        rung: async (ev, items, upto) => kept(jobs.rung, send(items, it => fresh(ev).refinePart(it, upto))),
+        rung: async (ev, items, upto) => kept(jobs.rung, await send(items, sent => runner.rung(ev, sent, upto))),
         child: async (ev, items) => {
             jobs.childIn.push(...items);
-            return kept(jobs.child, send(items, it => growSeed(fresh(ev), it.layers)));
+            return kept(jobs.child, await send(items, sent => runner.child(ev, sent)));
         },
     };
 }

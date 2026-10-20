@@ -257,4 +257,14 @@ fallback.move(300, 200);
 assert.equal(appended[0].style.left, '300px');
 fallback.end();
 
+// ── So does an app that cannot move the preview window ───────────────────────
+//
+// Where a window cannot be walked across the desktop, the preload gives the
+// bridge no dragGhost (tear_off_windows.mjs), and the preview is the element.
+globalThis.window.electronAPI = { dragGhost: null };
+const unplaced = startDragPreview({ c, title: 'Design Editor', sourceRect, clientX: 50, clientY: 20 });
+assert.equal(appended.length, 2, 'with no preview window the preview is drawn in the page');
+assert.equal(appended[1].style.left, '50px');
+unplaced.end();
+
 console.log('drag_preview_window: passed');

@@ -17,8 +17,14 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
+import { shimBrowserGlobals } from './_uiShim.mjs';
+
+// riiRightPanel.js reads the global React the app loads as a vendor script.
+shimBrowserGlobals();
 
 const { sampleMaterial, sampledRangeNm } = await import('../src/utils/materials/riiDatabase/sampling.js');
+const { renderRiiRightPanel } = await import('../src/components/windows/design/materialEditor/riiRightPanel.js');
+const { getLocale } = await import('../src/constants/locales/index.js');
 const { riiToMaterialEntry } = await import('../src/utils/materials/riiDatabase/catalogEntry.js');
 const { parseMaterialDoc } = await import('../src/utils/materials/riiDatabase/materialParser.js');
 const { createTabulatedNKSampler } = await import('../src/utils/materials/pchip.js');
@@ -115,14 +121,26 @@ assert.deepEqual(sampleMaterial({ ...silica, wavelengthRange: [-5, 6700] }), [],
 
 // ── The three readers share the samples ─────────────────────────────────────
 
-const panel = read('components/windows/design/materialEditor/riiRightPanel.js');
-assert.match(panel, /sampledRangeNm\(mat\)/, 'the panel reports the sampled span');
-assert.doesNotMatch(panel, /mat\.wavelengthRange/, 'not the range the record declares');
-for (const path of ['components/windows/design/materialEditor/riiChart.js',
-                    'utils/materials/riiDatabase/catalogEntry.js']) {
-    assert.match(read(path), /sampleMaterial\((mat|material)\)/, `${path} reads the samples`);
-    assert.doesNotMatch(read(path), /sampleMaterial\([^)]*,/, `${path} passes no window of its own`);
-}
+// A page whose declared range is narrower than its rows: the panel states the
+// rows' span, which is the span the import stores.
+const declaredNarrow = { ...wide, wavelengthRange: [200, 20000] };
+const en = getLocale('en');
+const textsOf = node => (Array.isArray(node) ? node.flatMap(textsOf)
+    : typeof node === 'string' ? [node]
+    : node?.props ? textsOf([node.props.children ?? []].flat()) : []);
+const panelTexts = textsOf(renderRiiRightPanel({
+    c: {}, rii: en.riiDatabase, me: en.materialEditor, units: en.units, mat: declaredNarrow,
+    matLoading: false, matErr: null, selected: { bookName: 'SiO2', pageName: 'Franta-25C' },
+    wavelengthLabel: '', phase: 'idle', addMsg: '', handleAddClick() {}, userCatalogs: [],
+    sampleTab: 'plot', setSampleTab() {},
+}));
+assert.ok(panelTexts.includes('27.5–125000 nm'), 'the panel states the sampled span');
+assert.ok(!panelTexts.some(text => text.includes('200–20000')), 'not the range the record declares');
+assert.deepEqual(spanOf(riiToMaterialEntry(declaredNarrow, 'Franta-25C', 'SiO2')), [27.5, 125000],
+    'and the import stores that span');
+const chart = read('components/windows/design/materialEditor/riiChart.js');
+assert.match(chart, /sampleMaterial\(material\)/, 'the chart reads the samples');
+assert.doesNotMatch(chart, /sampleMaterial\([^)]*,/, 'and passes no window of its own');
 
 // ── The page itself, when the database is checked out ───────────────────────
 

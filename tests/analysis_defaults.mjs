@@ -289,18 +289,16 @@ function ok(condition, message) {
 // curve built outside the window gets.
 {
   const { paletteColors } = await import(new URL('../src/constants/analysisDefaults.js', import.meta.url));
+  const { makeDefaultCurve } = await import(new URL('../src/utils/physics/plotQuantities/curves.js', import.meta.url));
   const registered = paletteColors(ANALYSIS_DEFAULTS.plotEngine.colors, 'series');
-  const text = readFileSync(join(src, 'utils', 'physics', 'plotQuantities', 'curves.js'), 'utf8');
-  const fallback = text
-    .slice(text.indexOf('const CURVE_COLORS'), text.indexOf('let _curveSeq'))
-    .match(/#[0-9a-f]{6}/gi) || [];
 
   ok(registered.length === 10, 'the Plot Engine palette has ten slots');
   ok(registered.every(Boolean), 'every Plot Engine palette slot is filled');
-  ok(fallback.length === registered.length,
-    'the curve factory fallback has as many colours as the registry palette');
-  ok(fallback.every((colour, i) => colour.toLowerCase() === registered[i].toLowerCase()),
-    'the curve factory fallback matches the registry palette in order');
+  // The first curves of this process, two turns of the palette, so a fallback
+  // with more or fewer colours shows.
+  const drawn = Array.from({ length: 2 * registered.length }, () => makeDefaultCurve().color.toLowerCase());
+  ok(drawn.every((colour, i) => colour === registered[i % registered.length].toLowerCase()),
+    'curves built without a palette take the registry palette\'s colours, from its first slot');
 }
 
 // ── The Admittance material palette resolves in rotation order ──────────────

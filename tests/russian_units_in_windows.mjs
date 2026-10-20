@@ -14,7 +14,6 @@
  * Run: node tests/russian_units_in_windows.mjs
  */
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadApp, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
@@ -31,15 +30,14 @@ initCatalogs({});
 const ru = getLocale('ru');
 const c = makeTheme();
 
-// Windows that never reach a user, and why.
+// Windows that never reach a user, and why, by registry id.
 const EXEMPT = {
-    OptimizerBenchmark: 'dev-only, behind the dev menu and absent from a release build',
+    'optimizer-benchmark': 'dev-only, behind the dev menu and absent from a release build',
 };
 
-const registry = new URL('../src/components/docking/windowRegistry.js', import.meta.url);
-const windows = [...readFileSync(registry, 'utf-8')
-    .matchAll(/import\s*\{\s*(\w+)\s*\}\s*from\s*'(\.\.\/windows\/[\w/]+\.js)'/g)]
-    .map(([, name, path]) => ({ name, url: new URL(path, registry) }));
+const { WINDOW_REGISTRY } = await import('../src/components/docking/windowRegistry.js');
+const windows = Object.entries(WINDOW_REGISTRY).filter(([, entry]) => entry.component)
+    .map(([id, entry]) => ({ name: id, Window: entry.component }));
 assert.ok(windows.length >= 35, `expected the full registry, found ${windows.length} windows`);
 for (const [name, path] of [
     ['BBMWizard', 'simulation/bbmWizard/BBMWizard.js'],
@@ -47,7 +45,7 @@ for (const [name, path] of [
     ['FilterDesignWizard', 'optimization/filterDesignWizard/FilterDesignWizard.js'],
     ['StackFormulaDialog', 'design/stackFormula/StackFormulaDialog.js'],
     ['EdgeFilterDialog', 'design/edgeFilter/EdgeFilterDialog.js'],
-]) windows.push({ name, url: new URL(`../src/components/windows/${path}`, import.meta.url) });
+]) windows.push({ name, Window: (await import(`../src/components/windows/${path}`))[name] });
 
 const design = {
     ...makeSampleDesign(),
@@ -71,9 +69,8 @@ function shownStrings(html) {
 const failures = [];
 for (const open of [false, true]) {
     openAll = open;
-    for (const { name, url } of windows) {
+    for (const { name, Window } of windows) {
         if (EXEMPT[name]) continue;
-        const Window = (await import(url))[name];
         const html = renderToStaticMarkup(withDesign(React.createElement(Window, {
             c, t: ru, theme: c, setInputDialog() {}, onClose() {},
             folderName: 'Demo', hasActiveDesign: true, onCreateNew() {},

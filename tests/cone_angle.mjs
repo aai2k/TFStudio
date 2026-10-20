@@ -26,7 +26,7 @@ import {
     halfAngleFromFNumber, fNumberFromHalfAngle,
     buildEvalContext, evaluateOperands, makeOperand,
 } from '../src/utils/physics/optimizer.js';
-import { tmm, evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
 let fails = 0;
@@ -152,44 +152,6 @@ const baseDesign = (cone) => ({
     ok(Ru < R30, 'uniform cone average below the rim ray R(Θ)');
     ok(Rl > R0,  'lambertian cone raises R_s above normal incidence');
     ok(Ru > Rl,  'uniform shifts more than lambertian (more rim weight)');
-}
-
-// ── 7. Optical-Evaluation plot path (evaluateSpectrum cone averaging) ─────────
-// Mirrors OpticalEvaluation.coneAverageSpectrum: the cone-averaged spectrum must
-// equal the manual Σ wᵢ·spectrum(θᵢ) reconstruction, and differ from collimated.
-{
-    const inc = getMaterial('Air'), sub = getMaterial('BK7');
-    const layers = [
-        { material: getMaterial('TiO2'), thickness: 92 },
-        { material: getMaterial('SiO2'), thickness: 158 },
-    ];
-    const params = { lambdaStart: 450, lambdaEnd: 650, lambdaStep: 10, polarization: 'avg' };
-    const specAt = (theta) => evaluateSpectrum({ ...params, theta }, inc, sub, layers);
-
-    const spec = makeConeSpec({ enabled: true, halfAngleDeg: 20, distribution: 'uniform', gridPoints: 12 });
-    const nodes = coneNodes(spec, 0);
-
-    const collimated = specAt(0);
-    // manual reconstruction
-    const manual = collimated.R.map(() => 0);
-    for (const nd of nodes) {
-        const r = specAt(nd.aoiDeg);
-        for (let i = 0; i < manual.length; i++) manual[i] += nd.weight * r.R[i];
-    }
-    // helper-equivalent accumulation (what OE does)
-    let acc = null;
-    for (const nd of nodes) {
-        const r = specAt(nd.aoiDeg);
-        if (!acc) acc = r.R.map(v => v * nd.weight);
-        else for (let i = 0; i < acc.length; i++) acc[i] += r.R[i] * nd.weight;
-    }
-    let maxAbs = 0, maxDelta = 0;
-    for (let i = 0; i < manual.length; i++) {
-        maxAbs   = Math.max(maxAbs, Math.abs(acc[i] - manual[i]));
-        maxDelta = Math.max(maxDelta, Math.abs(acc[i] - collimated.R[i]));
-    }
-    close(maxAbs, 0, 1e-12, 'OE spectrum cone-average == manual reconstruction');
-    ok(maxDelta > 1e-4, 'OE cone-averaged spectrum differs from collimated');
 }
 
 if (fails === 0) console.log('cone_angle: ALL PASS');

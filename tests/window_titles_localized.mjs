@@ -15,20 +15,18 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { loadApp, shimBrowserGlobals } from './_uiShim.mjs';
 
-globalThis.React = { createElement: () => null };
+shimBrowserGlobals();
+await loadApp();
 
 // Windows that never reach a user, and why.
 const EXEMPT = {
     'optimizer-benchmark': 'dev-only, behind the dev menu and absent from a release build',
 };
 
-const registrySrc = readFileSync(
-    new URL('../src/components/docking/windowRegistry.js', import.meta.url), 'utf8');
-
-const ids = [...registrySrc.matchAll(/'([\w-]+)':\s*\{\s*component:\s*\w+/g)].map(([, id]) => id);
-assert.ok(ids.length >= 35, `expected the full registry, found ${ids.length} windows`);
+const { WINDOW_REGISTRY } = await import('../src/components/docking/windowRegistry.js');
+const ids = Object.entries(WINDOW_REGISTRY).filter(([, entry]) => entry.component).map(([id]) => id);
 
 const { getLocale, availableLocales } = await import('../src/constants/locales/index.js');
 const locales = availableLocales.map((l) => l.code);

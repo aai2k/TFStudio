@@ -348,9 +348,17 @@ assert.ok(workersMade[0].terminated, 'and ends it');
     const buttons = [...passSwitch.matchAll(/<button([^>]*)>([^<]*)<\/button>/g)]
         .map(([, attrs, label]) => ({ label, lit: attrs.includes(`background-color:${c.accent}`) }));
     assert.deepEqual(buttons, [{ label: ef.shortPass, lit: false }, { label: ef.longPass, lit: true }]);
-    const { readFileSync } = await import('node:fs');
-    const inputsSource = readFileSync(new URL('../src/components/windows/design/edgeFilter/InputsPanel.js', import.meta.url), 'utf8');
-    assert.match(inputsSource, /h\(SideSeg, \{/, 'the Edge Filter draws its pass switch with it');
+    // The parts InputsPanel draws at its top level, the pass switch among them;
+    // the fields and pickers inside its rows are left out.
+    const { InputsPanel } = await import('../src/components/windows/design/edgeFilter/InputsPanel.js');
+    const inputsPanel = InputsPanel({
+        state: { inputs: { ...inputs, pass: 'long' }, setInput() {}, running: false, progress: null,
+                 prepared: { absorbing: [] }, search() {}, stop() {} },
+        c, t, ef, design,
+    });
+    const parts = [].concat(inputsPanel.props.children)
+        .filter(el => typeof el?.type === 'function').map(el => renderToStaticMarkup(el));
+    assert.ok(parts.some(html => html.includes(passSwitch)), 'the Edge Filter draws its pass switch with it, lit on its pass');
 }
 
 // ── 8. The help page ─────────────────────────────────────────────────────────
