@@ -167,6 +167,7 @@ export default defineConfig({
           translations: { 'zh-CN': '自动化' },
           items: [
             { label: 'AI Agents (MCP)', translations: { 'zh-CN': 'AI 助手（MCP）' }, slug: 'automation/ai-agents' },
+            { label: 'Script Console', translations: { 'zh-CN': '脚本控制台' }, slug: 'automation/script-console' },
           ],
         },
         {

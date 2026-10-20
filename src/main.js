@@ -298,6 +298,7 @@ function setupIpcHandlers() {
   const ctx = userPaths.defineCtxGetters({
     app, shell, dialog, BrowserWindow, screen, fs, path, log,
     isPackaged, resourcesDir: process.resourcesPath, srcDir: __dirname,
+    appIndexFile: appIndexFile(),
     getMainWindow: () => mainWindow,
     helpServer,
     safeName, safeSegments, safeFilePath, readJsonSafe, writeFileAtomic, readTextAuto, registryValue,

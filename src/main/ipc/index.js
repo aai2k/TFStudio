@@ -21,6 +21,7 @@ const spectrum = require('./spectrum');
 const paths = require('./paths');
 const preferences = require('./preferences');
 const updates = require('./updates');
+const scripts = require('./scripts');
 
 function registerAllIpc(ipcMain, ctx) {
   appWindow.register(ipcMain, ctx);
@@ -41,6 +42,7 @@ function registerAllIpc(ipcMain, ctx) {
   paths.register(ipcMain, ctx);
   preferences.register(ipcMain, ctx);
   updates.register(ipcMain, ctx);
+  scripts.register(ipcMain, ctx);
 }
 
 module.exports = { registerAllIpc };

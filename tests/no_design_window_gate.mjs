@@ -57,7 +57,7 @@ const withContext = (element, hasActiveDesign) =>
 // rather than left to compute from the placeholder by default.
 const WORKS_WITHOUT_DESIGN = [
     'material-editor', 'coating-library', 'material-dispersion', 'zemax-coatings',
-    'codev-coatings', 'report-gen', 'optimizer-benchmark', 'games',
+    'codev-coatings', 'report-gen', 'optimizer-benchmark', 'games', 'script-console',
 ];
 const windows = Object.entries(WINDOW_REGISTRY).filter(([, entry]) => entry.component);
 assert.deepEqual(

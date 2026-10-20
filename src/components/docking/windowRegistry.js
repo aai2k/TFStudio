@@ -74,6 +74,7 @@ import { Specification } from '../windows/design/specification/Specification.js'
 import { CoatingLibrary } from '../windows/design/coatingLibrary/CoatingLibrary.js';
 import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
 import { DeepSynthesis } from '../windows/optimization/deepSynthesis/DeepSynthesis.js';
+import { ScriptConsole } from '../windows/optimization/scriptConsole/ScriptConsole.js';
 import { MonitorWorksheet } from '../windows/simulation/monitorWorksheet/MonitorWorksheet.js';
 import { ReportWindow } from '../windows/information/report/ReportWindow.js';
 import { Games } from '../windows/information/games/Games.js';
@@ -121,6 +122,9 @@ export const WINDOW_REGISTRY = {
   'structural':      { component: StructuralOptimizer, title: 'Structural Optimizer', label: 'Structural Optimizer: random add/remove/split/merge layer mutations + simulated-annealing accept', help: 'synthesis/structural-optimizer', theme: true, requiresDesign: true, requiresResolvedMaterials: true },
   'design-cleaner':  { component: DesignCleaner,     title: 'Design Cleaner',    label: 'Design Cleaner: merge thin layers',                                                             help: 'synthesis/design-cleaner', theme: true, requiresDesign: true, requiresResolvedMaterials: true },
   'filter-design':   {                                                                                                                                                                    help: 'synthesis/wdm-wizard' },
+  // A script may make its own design or run without one, so with none open
+  // tf.design is null and the window still runs.
+  'script-console':  { component: ScriptConsole,   title: 'Script Console',    label: 'Script Console: run a JavaScript script with the TFStudio API on the open design',                                       help: 'automation/script-console', dialog: true },
 
   // ── Simulation ────────────────────────────────────────────────────────────────
   'monitor-worksheet': { component: MonitorWorksheet, title: 'Monitor Worksheet', label: 'Monitor Worksheet: per-layer signal, swing and termination error on the witness chips the run would be monitored on', help: 'simulation/monitor-worksheet', requiresDesign: true, requiresResolvedMaterials: true },

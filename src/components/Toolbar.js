@@ -384,6 +384,15 @@ export const ICONS = {
                           P('M7 9.3L9.6 12L7 14.7'),
                           P('M10.6 14.7H13.4'),
                       ]),
+
+    // Script Console: a console window with a prompt, where a script is
+    // written and run.
+    'script-console': I([
+                          R(2,3,16,14,1.5),
+                          L(2,6.5,18,6.5,1.2),
+                          P('M5.5 9.5L8 12L5.5 14.5'),
+                          P('M9.5 14.5H14.5'),
+                      ]),
 };
 
 // ── Per-family signature colors (the "colorful" ribbon mode) ──────
@@ -418,6 +427,7 @@ const TOOL_GROUP = {
     'merit-function': 'optimization', 'refinement': 'optimization', 'needle': 'optimization',
     'needle-manual': 'optimization', 'gradual': 'optimization', 'structural': 'optimization',
     'variator': 'optimization', 'design-cleaner': 'optimization', 'filter-design': 'optimization',
+    'script-console': 'optimization',
     'bbm-simulator': 'simulation', 'mono-simulator': 'simulation', 'monitor-worksheet': 'simulation',
     'process-sim': 'simulation',
     'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
@@ -474,6 +484,7 @@ export function makeTabs(t) {
                 grp('refinement', ['merit-function', 'refinement', 'variator']),
                 grp('synthesis',  ['needle', 'needle-manual', 'gradual', 'structural', 'filter-design']),
                 grp('cleanup',    ['design-cleaner']),
+                grp('scripts',    ['script-console']),
             ]
         },
         {

@@ -475,6 +475,14 @@
     spectrumPickFile:     () => pickText('.csv,.txt,.asc,.prn,.dx,.jdx,.dat,.tsv'),
     spectrumSaveFile:     (text, suggestedName) => saveText(text, suggestedName || 'spectrum.csv', 'text/csv;charset=utf-8'),
 
+    // Script Console: a script runs on a Node thread of the desktop app, which
+    // a browser has not, so Run answers that; a script still opens and saves.
+    runScript:      () => Promise.resolve({ state: 'unavailable' }),
+    stopScript:     () => Promise.resolve(),
+    onScriptOutput: onNoop,
+    openScriptFile: () => pickText('.js'),
+    saveScriptFile: (text, suggestedName) => saveText(text, suggestedName || 'script.js', 'text/javascript;charset=utf-8'),
+
     // help
     openHelp,
 

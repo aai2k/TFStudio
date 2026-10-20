@@ -241,5 +241,14 @@ export const ICONS = {
                        P('M10.6 14.7H13.4'),
                      ]),
 
+  // Script Console: a console window with a prompt, where a script is written
+  // and run.
+  'script-console': I([
+                       R(2,3,16,14,1.5),
+                       L(2,6.5,18,6.5,1.2),
+                       P('M5.5 9.5L8 12L5.5 14.5'),
+                       P('M9.5 14.5H14.5'),
+                     ]),
+
   'help-docs':       I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
 };

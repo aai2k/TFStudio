@@ -105,6 +105,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Measured-spectrum text import/export
   spectrumPickFile: () => ipcRenderer.invoke('spectrum:pick-file'),
   spectrumSaveFile: (text, suggestedName) => ipcRenderer.invoke('spectrum:save-file', text, suggestedName),
+  // Script Console. A run is named by an id the window makes, so Stop can name
+  // it before the run answers; what the script prints arrives on
+  // onScriptOutput as (runId, lines, dropped), `dropped` being how many older
+  // lines a batch left out. Opening a script only reads its text.
+  runScript:        (runId, request) => ipcRenderer.invoke('scripts:run', runId, request),
+  stopScript:       (runId) => ipcRenderer.invoke('scripts:stop', runId),
+  onScriptOutput:   (cb) => {
+    const handler = (event, runId, lines, dropped) => cb(runId, lines, dropped);
+    ipcRenderer.on('scripts:output', handler);
+    return () => ipcRenderer.removeListener('scripts:output', handler);
+  },
+  openScriptFile:   () => ipcRenderer.invoke('scripts:open'),
+  saveScriptFile:   (text, suggestedName) => ipcRenderer.invoke('scripts:save', text, suggestedName),
   openHelp:        (opts) => ipcRenderer.invoke('help:open', opts || {}),
   loadIntegralPresets:   () => ipcRenderer.invoke('integrals:load-all'),
   saveIntegralPreset:    (preset) => ipcRenderer.invoke('integrals:save', preset),
