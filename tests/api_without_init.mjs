@@ -40,7 +40,7 @@ await new Promise(resolve => setImmediate(resolve));
 process.stdout.write(JSON.stringify({ heard, value: value ?? null }));
 `;
     const run = spawnSync(process.execPath, ['--no-warnings', '--input-type=module'], { cwd: ROOT, input: script, encoding: 'utf8', timeout: 120000 });
-    assert.equal(run.status, 0, run.stderr);
+    assert.equal(run.status, 0, `the child process failed: ${run.error ?? `exit ${run.status}, signal ${run.signal}`}\n${run.stderr}`);
     return JSON.parse(run.stdout);
 }
 
