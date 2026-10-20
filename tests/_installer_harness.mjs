@@ -65,6 +65,17 @@ export function assertInOrder(text, parts, what) {
     }
 }
 
+// Points this process's %TEMP% and %TMP%, and so os.tmpdir() and those of the
+// makensis and installers it starts, at a folder inside `sandbox`. NSIS keeps
+// its working files in %TEMP%, and installers started by tests running side by
+// side in one %TEMP% exit with errors or crash.
+export function privateTemp(sandbox) {
+    const temp = path.join(sandbox, 'temp');
+    fs.mkdirSync(temp, { recursive: true });
+    process.env.TEMP = temp;
+    process.env.TMP = temp;
+}
+
 export function findCached(prefix, relative) {
     const cache = process.env.ELECTRON_BUILDER_CACHE
         || path.join(process.env.LOCALAPPDATA || '', 'electron-builder', 'Cache');

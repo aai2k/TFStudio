@@ -31,7 +31,7 @@ import { afterPack, ENTRIES_FILE } from '../tools/install-folder-entries.mjs';
 import {
     root, pkg, template, nshText, write, read, check, finish, macroText, functionText, assertInOrder,
     makensis, plugins, compile, assertCompiled, harnessHead, templateFlags, LANGUAGES, WRITE_TEXT,
-    checkLanguages, PACKED, tops, packContext, writeList,
+    checkLanguages, PACKED, tops, packContext, writeList, privateTemp,
 } from './_installer_harness.mjs';
 
 const require = createRequire(import.meta.url);
@@ -346,6 +346,7 @@ async function uninstallerCases(dir, buildDir) {
 
 // ── Running the cases ────────────────────────────────────────────────────────
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'tfs-installer-'));
+privateTemp(sandbox);
 try {
     await listCases(path.join(sandbox, 'lists'));
     await placementCases();

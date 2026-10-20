@@ -25,7 +25,7 @@ import { createRequire } from 'node:module';
 import {
     template, nshText, write, read, check, finish, macroText, functionText, assertInOrder,
     makensis, plugins, compile, assertCompiled, harnessHead, templateFlags, templateFunctions,
-    LANGUAGES, WRITE_TEXT, checkLanguages, PACKED, tops, writeList,
+    LANGUAGES, WRITE_TEXT, checkLanguages, PACKED, tops, writeList, privateTemp,
 } from './_installer_harness.mjs';
 
 const require = createRequire(import.meta.url);
@@ -651,6 +651,7 @@ async function placementCases() {
 
 // ── Running the cases ────────────────────────────────────────────────────────
 const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'tfs-old-app-'));
+privateTemp(sandbox);
 try {
     await placementCases();
     if (makensis && plugins) {
