@@ -207,6 +207,10 @@ export default {
     updateChecking: 'Checking…',
     wasmAccel: 'WASM TMM acceleration',
     wasmAccelHint: 'Use the compiled WebAssembly transfer-matrix kernel for faster optimization and spectra. Requires the kernel to be built. Falls back to JavaScript if unavailable.',
+    liveBridge: 'Let AI agents work on the open design',
+    liveBridgeHint: 'An AI agent that starts TFStudio with --mcp --live can then read the designs in the project explorer and change the open one. Each change is an unsaved edit that Ctrl+Z undoes. Leave it off while no agent is working.',
+    liveBridgeOn: 'On. An agent started with --mcp --live can connect.',
+    liveBridgeFailed: (reason) => `Could not turn it on: ${reason}`,
     synthesisEngine: 'Synthesis refiner',
     synthesisEngineHint: 'Inner optimizer used to refine thicknesses during Needle / Gradual-Evolution synthesis. Damped Least Squares (default) wins under the per-step iteration cap synthesis uses, because its Gauss–Newton steps converge in fewer iterations; Conjugate Gradient needs more iterations and can stall when capped.',
     synthEngineCG: 'Conjugate Gradient',
@@ -242,6 +246,7 @@ export default {
       performance: 'Performance',
       analysis: 'Analysis',
       folders: 'Data folder',
+      automation: 'Automation',
     },
     analysis: {
       polarizations: { avg: 'avg' },
@@ -489,6 +494,7 @@ export default {
       overwrite: 'Overwrite',
     },
     sessionFull: 'The space for unsaved edits is full, so new edits will not be there after a restart. Save your designs (Ctrl+S) to keep them.',
+    agentChanged: (name) => `An AI agent changed “${name}”. Ctrl+Z undoes the change.`,
     contextMenu: {
       renameFolder: 'Rename Folder',
     },

@@ -206,6 +206,10 @@ export default {
     updateChecking: '检查中…',
     wasmAccel: 'WASM TMM 加速',
     wasmAccelHint: '使用编译后的 WebAssembly 传递矩阵内核以加快优化和光谱计算。需要已构建内核。不可用时回退到 JavaScript。',
+    liveBridge: '允许 AI 助手处理打开的设计',
+    liveBridgeHint: '开启后，以 --mcp --live 启动 TFStudio 的 AI 助手可以读取项目资源管理器中的设计，并修改当前打开的设计。每次修改都是未保存的编辑，可按 Ctrl+Z 撤销。没有助手工作时请保持关闭。',
+    liveBridgeOn: '已开启。以 --mcp --live 启动的助手可以连接。',
+    liveBridgeFailed: (reason) => `无法开启：${reason}`,
     synthesisEngine: '综合精炼器',
     synthesisEngineHint: '在针法/渐变演化综合过程中用于精炼厚度的内部优化器。在综合使用的每步迭代上限下，阻尼最小二乘（默认）更优 — 其高斯-牛顿步长收敛更快；共轭梯度需要更多迭代且在上限下可能停滞。',
     synthEngineCG: '共轭梯度',
@@ -241,6 +245,7 @@ export default {
       performance: '性能',
       analysis: '分析',
       folders: '数据文件夹',
+      automation: '自动化',
     },
     analysis: {
       polarizations: { avg: '平均' },
@@ -483,6 +488,7 @@ export default {
       overwrite: '覆盖',
     },
     sessionFull: '存放未保存修改的空间已满，新的修改在重启后将不会保留。请保存您的设计（Ctrl+S）以免丢失。',
+    agentChanged: (name) => `AI 助手修改了“${name}”。按 Ctrl+Z 可撤销此修改。`,
     contextMenu: {
       renameFolder: '重命名文件夹',
     },

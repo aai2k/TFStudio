@@ -9,9 +9,12 @@ import { PerformancePane } from './PerformancePane.js';
 import { QuickAccessPane } from './QuickAccessPane.js';
 import { FoldersPane } from './FoldersPane.js';
 import { AnalysisPane } from './analysis/AnalysisPane.js';
+import { AutomationPane } from './AutomationPane.js';
 
 const { createElement: h, useState } = React;
 
+// Automation holds the live link for AI agents, which only the desktop app
+// has; elsewhere, as in the web demo, the category is left out.
 const CATEGORIES = [
   { id: 'appearance',  Pane: AppearancePane },
   { id: 'quickAccess', Pane: QuickAccessPane },
@@ -19,6 +22,7 @@ const CATEGORIES = [
   { id: 'performance', Pane: PerformancePane },
   { id: 'analysis',    Pane: AnalysisPane },
   { id: 'folders',     Pane: FoldersPane },
+  { id: 'automation',  Pane: AutomationPane, shown: () => !!window.electronAPI?.setLiveBridge },
 ];
 
 const railButtonStyle = (c, active) => ({
@@ -33,7 +37,8 @@ const railButtonStyle = (c, active) => ({
 export const SettingsModal = (props) => {
   const { onClose, c, t } = props;
   const [category, setCategory] = useState('appearance');
-  const active = CATEGORIES.find(entry => entry.id === category) || CATEGORIES[0];
+  const categories = CATEGORIES.filter(entry => !entry.shown || entry.shown());
+  const active = categories.find(entry => entry.id === category) || categories[0];
 
   // No click-outside-to-close: a stray click on the backdrop while reading a
   // hint should not throw away the dialog.
@@ -88,7 +93,7 @@ export const SettingsModal = (props) => {
             padding: '8px', overflowY: 'auto',
           },
         },
-          CATEGORIES.map(entry => h('button', {
+          categories.map(entry => h('button', {
             key: entry.id,
             onClick: () => setCategory(entry.id),
             style: railButtonStyle(c, entry.id === category),

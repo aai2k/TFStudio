@@ -13,6 +13,7 @@ import { DockingLayout } from './components/docking/DockingLayout.js';
 import { AppModals } from './components/AppModals.js';
 import { useNoticeStack } from './components/ui/MessageNotification.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
+import { LiveBridgeHost } from './components/live/LiveBridgeHost.js';
 import { DesignProvider } from './state/DesignContext.js';
 import { announceRefreshAll } from './state/refreshAll.js';
 import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
@@ -191,6 +192,7 @@ export const App = () => {
                 })
             ),
             h(SpectralMonitor, { c, t }),
+            h(LiveBridgeHost, { t, notify: setMessageNotification, dirtyDesigns: store.dirtyDesigns }),
             h(AppModals, {
                 c, t, settings, dialogs, welcome, project,
                 activeDesignId: store.activeDesignId,

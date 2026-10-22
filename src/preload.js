@@ -118,6 +118,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   openScriptFile:   () => ipcRenderer.invoke('scripts:open'),
   saveScriptFile:   (text, suggestedName) => ipcRenderer.invoke('scripts:save', text, suggestedName),
+  // The live link an AI agent works on the open design through (Preferences >
+  // Automation). setLiveBridge opens or closes it and resolves to { open,
+  // error }; each request arrives on onLiveRequest as { id, method, params,
+  // deadline } and is answered with liveReply under its id.
+  setLiveBridge:    (on) => ipcRenderer.invoke('live:set', !!on),
+  onLiveRequest:    (cb) => {
+    const handler = (event, request) => cb(request);
+    ipcRenderer.on('live:request', handler);
+    return () => ipcRenderer.removeListener('live:request', handler);
+  },
+  liveReply:        (id, answer) => ipcRenderer.send('live:reply', id, answer),
   openHelp:        (opts) => ipcRenderer.invoke('help:open', opts || {}),
   loadIntegralPresets:   () => ipcRenderer.invoke('integrals:load-all'),
   saveIntegralPreset:    (preset) => ipcRenderer.invoke('integrals:save', preset),

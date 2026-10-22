@@ -1,13 +1,19 @@
 // The designs a session works on, each under an id ('d1', 'd2', ...) that the
 // tools take, and the view of a design the tools answer with.
+//
+// A design read from the open app (liveTools.js) also keeps where it came
+// from, its link: { appDesignId, revision }. Edits keep the link; a copy is a
+// design of its own and has none.
 
 export function createDesignStore() {
     const designs = new Map();
+    const links = new Map();
     let seq = 0;
     return {
-        add(design) {
+        add(design, link = null) {
             const id = `d${++seq}`;
             designs.set(id, design);
+            if (link) links.set(id, link);
             return id;
         },
         get(id) {
@@ -15,10 +21,14 @@ export function createDesignStore() {
             if (!design) throw new Error(`Unknown design '${id}'. Designs: ${[...designs.keys()].join(', ') || 'none yet; open or create one'}`);
             return design;
         },
-        set(id, design) {
+        /** Replaces the design under `id`, and its link when one is given. */
+        set(id, design, link = null) {
             this.get(id);
             designs.set(id, design);
+            if (link) links.set(id, link);
         },
+        /** Where the design under `id` was read from in the app, or null. */
+        linkOf: id => links.get(id) ?? null,
         entries: () => [...designs.entries()],
     };
 }

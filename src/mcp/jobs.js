@@ -30,6 +30,8 @@ function view(job) {
         ...(job.result ? { result: job.result } : {}),
         ...(job.error ? { error: job.error } : {}),
         ...(job.designId ? { designId: job.designId } : {}),
+        ...(job.applyToApp && job.ended ? { applied: job.applied === true } : {}),
+        ...(job.appRefusal ? { appRefusal: job.appRefusal } : {}),
     };
 }
 
@@ -47,25 +49,35 @@ function settle(job, state, fields) {
     for (const wake of job.waiters.splice(0)) wake();
 }
 
-function onMessage(job, message, keepAnswer) {
+// A job's answer: its design kept, and for a run started with applyToApp that
+// ends done, not stopped, `finish` asked to apply it before the job ends. The
+// job shows 'applying' meanwhile: the run has ended, so there is nothing left
+// for Stop to stop.
+async function onDone(job, message, { keepAnswer, finish }) {
+    const state = job.stopping ? 'stopped' : 'done';
+    const designId = message.design ? keepAnswer(job, message.design) : null;
+    const applies = state === 'done' && designId && job.applyToApp;
+    if (applies) job.state = 'applying';
+    const applied = applies ? await finish(job, designId) : {};
+    settle(job, state, { result: message.result, designId, ...applied });
+}
+
+function onMessage(job, message, answers) {
     if (job.ended) return;   // a message already on its way when the job was ended
     if (message.type === 'progress') Object.assign(job.progress, message.readouts);
     else if (message.type === 'row') job.rows++;
     else if (message.type === 'error') settle(job, 'failed', { error: message.message });
-    else if (message.type === 'done') {
-        const designId = message.design ? keepAnswer(job, message.design) : null;
-        settle(job, job.stopping ? 'stopped' : 'done', { result: message.result, designId });
-    }
+    else if (message.type === 'done') onDone(job, message, answers);
 }
 
-function startJob({ id, kind, sourceId, design, request, environment, keepAnswer }) {
+function startJob({ id, kind, sourceId, design, request, link, applyToApp, environment, answers }) {
     const job = {
-        id, kind, sourceId, startDesign: design, state: 'running', started: Date.now(), ended: null,
+        id, kind, sourceId, startDesign: design, link, applyToApp, state: 'running', started: Date.now(), ended: null,
         progress: {}, rows: 0, result: null, error: null, designId: null, waiters: [], stopping: false,
     };
     job.worker = new Worker(WORKER_URL, { workerData: { environment, kind, design, request }, stdout: true });
     job.worker.stdout.on('data', chunk => process.stderr.write(chunk));
-    job.worker.on('message', message => onMessage(job, message, keepAnswer));
+    job.worker.on('message', message => onMessage(job, message, answers));
     job.worker.on('error', err => settle(job, 'failed', { error: err?.message || String(err) }));
     job.worker.on('exit', () => settle(job, 'failed', { error: 'the job ended without an answer' }));
     return job;
@@ -86,7 +98,7 @@ async function waitFor(job, seconds, signal) {
 
 /** Stops a running job; it ends 'stopped' with the answer the run gives on Stop, if any. */
 function stopJob(job) {
-    if (job.ended || job.stopping) return view(job);
+    if (job.state !== 'running') return view(job);
     job.stopping = true;
     job.state = 'stopping';
     job.worker.postMessage({ type: 'cancel' });
@@ -98,9 +110,12 @@ function stopJob(job) {
  * The server's jobs, each starting the API with `environment` ({ dataDir,
  * wasmPath }, as init takes them). `keepAnswer(job, design)`
  * stores the design a finished job answers with and returns the id the caller
- * finds it under.
+ * finds it under. `finish(job, designId)`, given only when the server is linked
+ * to the open app, applies that answer there for a job started with
+ * applyToApp, and resolves to the fields it adds to the job: { applied: true }
+ * or { appRefusal }, or none when there was nothing to apply.
  */
-export function createJobs({ environment, keepAnswer }) {
+export function createJobs({ environment, keepAnswer, finish }) {
     const jobs = new Map();
     let seq = 0;
     const find = id => {
@@ -108,9 +123,16 @@ export function createJobs({ environment, keepAnswer }) {
         return jobs.get(id);
     };
     return {
-        /** Starts a job of `kind` ('refine', 'synthesize' or 'monteCarlo') on `design`, stored as `sourceId`. */
-        start(kind, sourceId, design, request) {
-            const job = startJob({ id: `j${++seq}`, kind, sourceId, design, request, environment, keepAnswer });
+        /**
+         * Starts a job of `kind` ('refine', 'synthesize' or 'monteCarlo') on
+         * `design`, stored as `sourceId`. `link` is where that design was read
+         * from in the app (designStore.js), which the job's answer keeps, and
+         * `applyToApp` has finish apply the answer there.
+         */
+        start(kind, sourceId, design, request, { link = null, applyToApp = false } = {}) {
+            const job = startJob({
+                id: `j${++seq}`, kind, sourceId, design, request, link, applyToApp, environment, answers: { keepAnswer, finish },
+            });
             jobs.set(job.id, job);
             return job;
         },

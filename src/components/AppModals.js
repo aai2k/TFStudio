@@ -38,6 +38,8 @@ export function AppModals({
             wasmTmm: settings.wasmTmm, setWasmTmm: settings.setWasmTmm,
             updateCheckEnabled: settings.updateCheckEnabled,
             setUpdateCheckEnabled: settings.setUpdateCheckEnabled,
+            liveBridge: settings.liveBridge, setLiveBridge: settings.setLiveBridge,
+            liveBridgeStatus: settings.liveBridgeStatus,
             onUserPathChanged,
             // A move reloads every design from the new folder without its
             // unsaved copy, so the unsaved designs are saved before it.

@@ -1,7 +1,7 @@
 /**
  * The process TFStudio.exe --mcp starts the MCP server in (mcpEntry.js): plain
  * Node on the app's own runtime. Its one argument is the JSON of { dataDir,
- * version, wasmPath, server, bundled }: `server` is the server module, the
+ * version, wasmPath, live, server, bundled }: `server` is the server module, the
  * CommonJS bundle when `bundled`, the ES module in src/mcp/ otherwise.
  *
  * CommonJS, like the rest of the main process.

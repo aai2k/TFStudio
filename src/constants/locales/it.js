@@ -207,6 +207,10 @@ export default {
     updateChecking: 'Controllo in corso…',
     wasmAccel: 'Accelerazione WASM del TMM',
     wasmAccelHint: 'Usa il kernel a matrici di trasferimento compilato in WebAssembly per ottimizzazioni e spettri più veloci. Richiede che il kernel sia stato compilato. Se non è disponibile, si ricade su JavaScript.',
+    liveBridge: 'Consenti agli agenti IA di lavorare sul design aperto',
+    liveBridgeHint: 'Un agente IA che avvia TFStudio con --mcp --live potrà leggere i design di Esplora progetti e modificare quello aperto. Ogni modifica resta non salvata e Ctrl+Z la annulla. Lascialo spento quando nessun agente sta lavorando.',
+    liveBridgeOn: 'Attivo. Un agente avviato con --mcp --live può collegarsi.',
+    liveBridgeFailed: (reason) => `Impossibile attivarlo: ${reason}`,
     synthesisEngine: 'Affinatore per la sintesi',
     synthesisEngineHint: 'Ottimizzatore interno usato per affinare gli spessori durante la sintesi Needle o a Evoluzione graduale. I minimi quadrati smorzati (predefiniti) vincono sotto il tetto di iterazioni per passo che la sintesi impone, perché i loro passi di Gauss–Newton convergono in meno iterazioni; il gradiente coniugato ne richiede di più e può bloccarsi quando il tetto è basso.',
     synthEngineCG: 'Gradiente coniugato',
@@ -242,6 +246,7 @@ export default {
       performance: 'Prestazioni',
       analysis: 'Analisi',
       folders: 'Cartella dei dati',
+      automation: 'Automazione',
     },
     analysis: {
       polarizations: { avg: 'media' },
@@ -486,6 +491,7 @@ export default {
       overwrite: 'Sovrascrivi',
     },
     sessionFull: 'Lo spazio per le modifiche non salvate è pieno, quindi le nuove modifiche non ci saranno dopo un riavvio. Salva i tuoi design (Ctrl+S) per conservarli.',
+    agentChanged: (name) => `Un agente IA ha modificato “${name}”. Ctrl+Z annulla la modifica.`,
     contextMenu: {
       renameFolder: 'Rinomina cartella',
     },

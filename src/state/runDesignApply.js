@@ -1,8 +1,9 @@
 /**
  * Whether a design computed away from the app's window, by a Script Console
- * run, may replace the open design when it arrives.
+ * run or by an AI agent working through the live link, may replace the open
+ * design when it arrives.
  *
- * Only the design the run started on, unchanged since, takes the result. The
+ * Only the design the work started on, unchanged since, takes the result. The
  * open design is the same when the active design id is the one it was at the
  * start and the store holds the very object it held then: any edit, undo or
  * redo, a History jump, or another window's live preview stores a new object,
@@ -23,6 +24,36 @@
 export function designAtRun({ activeDesignId, designs }) {
     const id = activeDesignId ?? null;
     return { id, stored: id == null ? null : designs?.[id] ?? null };
+}
+
+// The tokens below start with an id drawn once per window load, so a token
+// handed out before a reload or a restart never matches a design after it,
+// where the count starts again.
+const LOAD_ID = Math.random().toString(36).slice(2, 10);
+const revisions = new WeakMap();
+let revisionCount = 0;
+
+/**
+ * A token for the design object the store holds, the same for as long as it
+ * holds that object and new for every object it stores in its place, so it
+ * names one state of one design. It is what the live link hands an agent with
+ * a copy of a design, and what that agent's edit is checked against.
+ */
+export function revisionOf(stored) {
+    if (!stored) return null;
+    if (!revisions.has(stored)) revisions.set(stored, `${LOAD_ID}.${++revisionCount}`);
+    return revisions.get(stored);
+}
+
+/**
+ * What an agent's edit started on, as designAtRun gives it for a run: the
+ * design `id` and the object the store holds for it while that object's token
+ * is still `revision`. Once the store holds another object the token names
+ * nothing it holds, and `stored` is null, which the rule refuses as edited.
+ */
+export function designAtRevision(id, revision, designs) {
+    const stored = designs?.[id];
+    return { id: id ?? null, stored: stored && revisionOf(stored) === revision ? stored : null };
 }
 
 // The patch that makes the open design `result`, keys `result` dropped

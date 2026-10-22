@@ -12,7 +12,8 @@ import { pruneBuiltInThemeNames, migrateThemeName, saveAppearance } from '../the
  * The saved settings, normalized, or null when there are none to apply.
  * `theme`, `locale`, `ribbonStyle` and `skippedVersion` are null when the file
  * does not name them, which leaves the value the app started with in place.
- * The two toggles are opt-out: a missing setting reads as on.
+ * The two toggles are opt-out: a missing setting reads as on. The live link
+ * for AI agents is opt-in: only a saved `true` turns it on.
  */
 export async function readAppSettings() {
     let settings = null;
@@ -35,6 +36,7 @@ export async function readAppSettings() {
         ribbonStyle: settings.ribbonStyle || null,
         wasmTmm:            settings.wasmTmm !== false,
         updateCheckEnabled: settings.updateCheckEnabled !== false,
+        liveBridge:         settings.liveBridge === true,
         skippedVersion: typeof settings.skippedVersion === 'string' ? settings.skippedVersion : null,
     };
 }

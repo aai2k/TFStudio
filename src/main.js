@@ -15,10 +15,14 @@ const { registerAllIpc } = require('./main/ipc');
 const appWindowIpc = require('./main/ipc/appWindow');
 const { canPlaceOwnWindows } = require('./main/windowPlacement');
 const { startMcpServer } = require('./main/mcpEntry');
+const { LINK_FILE } = require('./main/liveProtocol');
 
 // TFStudio.exe --mcp serves the MCP server on stdin and stdout and opens no
 // window (main/mcpEntry.js). stdout then carries the protocol alone, so what
-// the main process logs goes to stderr.
+// the main process logs goes to stderr. With --live as well, the server also
+// reaches the designs of the app that is open, through the live link the app
+// opens while its switch in Preferences > Automation is on
+// (main/liveProtocol.js).
 const mcpMode = process.argv.includes('--mcp');
 if (mcpMode) {
   const { format } = require('util');
@@ -330,7 +334,10 @@ function setupIpcHandlers() {
 
 app.whenReady().then(() => {
   if (mcpMode) {
-    startMcpServer({ app, isPackaged, exeDir, settingsPath: path.join(userDataDir, 'settings.json'), log });
+    startMcpServer({
+      app, isPackaged, exeDir, settingsPath: path.join(userDataDir, 'settings.json'), log,
+      liveFile: process.argv.includes('--live') ? path.join(userDataDir, LINK_FILE) : null,
+    });
     return;
   }
   log('App ready');

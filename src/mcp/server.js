@@ -2,12 +2,17 @@
  * TFStudio's MCP server: the headless API (src/api/) as Model Context Protocol
  * tools over stdio, for AI agents and other MCP clients.
  *
- *   node src/mcp/server.js [--data <folder>]
- *   TFStudio.exe --mcp          (src/main/mcpEntry.js; the app's own data folder)
+ *   node src/mcp/server.js [--data <folder>] [--live <file>]
+ *   TFStudio.exe --mcp [--live]  (src/main/mcpEntry.js; the app's own data folder)
  *
  * --data names a TFStudio data folder (the one holding Materials), whose
  * catalogs the tools then use as the app does. Without it the built-in catalog
  * and the materials a design carries resolve.
+ *
+ * --live names the live link file the open app writes (src/main/
+ * liveProtocol.js), and adds the tools that read the app's designs and apply
+ * changes to the open one (liveTools.js). Without it every tool works on files
+ * and on the session's designs only, and nothing reaches the app.
  */
 import fs from 'node:fs';
 import process from 'node:process';
@@ -28,9 +33,10 @@ const INSTRUCTIONS = [
  * Serves the tools on this process's stdin and stdout until stdin closes.
  * `dataDir` is the TFStudio data folder or null, `version` the version the
  * server reports, `wasmPath` the WASM kernel's file when it is not the tmmcore
- * package's.
+ * package's, `live` { file } the live link file when the server is linked to
+ * the open app.
  */
-export async function serve({ dataDir = null, version, wasmPath } = {}) {
+export async function serve({ dataDir = null, version, wasmPath, live = null } = {}) {
     // stdout carries the protocol alone; whatever the computation prints goes
     // to stderr, which MCP clients keep as the server's log.
     for (const level of ['log', 'info', 'warn', 'debug']) {
@@ -43,23 +49,33 @@ export async function serve({ dataDir = null, version, wasmPath } = {}) {
     const { designTools } = await import('./designTools.js');
     const { analysisTools } = await import('./analysisTools.js');
     const { runTools } = await import('./runTools.js');
+    const { liveTools, LIVE_INSTRUCTIONS } = await import('./liveTools.js');
+    const { createLiveLink } = await import('./liveLink.js');
 
     const started = await api.init({ dataDir, wasmPath });
-    log(`started: WASM ${started.wasm}, data folder ${dataDir ?? 'none'}`);
+    log(`started: WASM ${started.wasm}, data folder ${dataDir ?? 'none'}${live ? `, live link file ${live.file}` : ''}`);
     for (const file of started.unreadable) log(`catalog left out, could not be read: ${JSON.stringify(file)}`);
 
     const store = createDesignStore();
+    const link = live ? createLiveLink(live.file) : null;
+    const app = link ? liveTools({ store, link }) : null;
     const jobs = createJobs({
         environment: { dataDir, wasmPath },
         // A run that kept the layers of a design still as it started answers
-        // with that design; any other answer is a design of its own.
+        // with that design; any other answer is a design of its own, linked to
+        // the app design its source was read from, as that link stood when
+        // the run started.
         keepAnswer: (job, design) => (sameLayers(design, job.startDesign) && store.get(job.sourceId) === job.startDesign
-            ? job.sourceId : store.add(design)),
+            ? job.sourceId : store.add(design, job.link)),
+        finish: app?.finishRun,
     });
-    const tools = [...designTools({ api, store }), ...analysisTools({ api, store }), ...runTools({ store, jobs })];
+    const tools = [
+        ...designTools({ api, store }), ...analysisTools({ api, store }), ...runTools({ store, jobs, live: !!app }),
+        ...(app ? app.tools : []),
+    ];
     const session = createSession({
         serverInfo: { name: 'tfstudio', title: 'TFStudio', version },
-        instructions: INSTRUCTIONS, tools, log,
+        instructions: app ? `${INSTRUCTIONS}\n${LIVE_INSTRUCTIONS}` : INSTRUCTIONS, tools, log,
         send: message => process.stdout.write(`${JSON.stringify(message)}\n`),
     });
 
@@ -68,6 +84,7 @@ export async function serve({ dataDir = null, version, wasmPath } = {}) {
     input.on('close', () => {
         session.stopAll();
         jobs.stopAll();
+        link?.close();
         // The process ends once its event loop drains. Writing the last replies
         // takes milliseconds; two seconds leaves room on a loaded machine, and a
         // job thread still computing after that does not keep a client waiting
@@ -77,10 +94,11 @@ export async function serve({ dataDir = null, version, wasmPath } = {}) {
 }
 
 function parseArgs(argv) {
-    const args = { dataDir: null };
+    const args = { dataDir: null, live: null };
     for (let i = 0; i < argv.length; i++) {
         if (argv[i] === '--data' && argv[i + 1]) args.dataDir = argv[++i];
-        else throw new Error(`unknown argument '${argv[i]}'. Usage: server.js [--data <folder>]`);
+        else if (argv[i] === '--live' && argv[i + 1]) args.live = { file: argv[++i] };
+        else throw new Error(`unknown argument '${argv[i]}'. Usage: server.js [--data <folder>] [--live <file>]`);
     }
     return args;
 }

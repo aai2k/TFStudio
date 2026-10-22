@@ -22,6 +22,7 @@ const paths = require('./paths');
 const preferences = require('./preferences');
 const updates = require('./updates');
 const scripts = require('./scripts');
+const liveBridge = require('./liveBridge');
 
 function registerAllIpc(ipcMain, ctx) {
   appWindow.register(ipcMain, ctx);
@@ -43,6 +44,7 @@ function registerAllIpc(ipcMain, ctx) {
   preferences.register(ipcMain, ctx);
   updates.register(ipcMain, ctx);
   scripts.register(ipcMain, ctx);
+  liveBridge.register(ipcMain, ctx);
 }
 
 module.exports = { registerAllIpc };

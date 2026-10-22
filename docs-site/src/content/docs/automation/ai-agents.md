@@ -42,13 +42,31 @@ The server works on the data folder the app uses: `Documents\TFStudio` unless yo
 | Materials | `findMaterials`, `materialNK` |
 | Analysis | `spectrum`, `layerSensitivity` |
 | Runs | `refine`, `synthesize`, `monteCarlo`, `jobStatus`, `stopJob`, `listJobs` |
+| The open design, with `--live` | `listAppDesigns`, `readAppDesign`, `applyToApp` |
 
 `spectrum` computes R, T, A, Rs and Rp as the [Optical Evaluation](/analysis/optical-evaluation/) window does, `merit` gives the total and each row as the [Merit Function Editor](/design/merit-function-editor/) shows them, `refine` runs any method of the [Refinement](/synthesis/refinement/) window, and `synthesize` runs [Needle](/synthesis/needle/), [Gradual Evolution](/synthesis/gradual-evolution/), the [Structural Optimizer](/synthesis/structural-optimizer/) or Deep Synthesis. `monteCarlo` and `layerSensitivity` are the [Monte Carlo](/analysis/error-analysis/) and [Layer Sensitivity](/analysis/layer-sensitivity/) windows' computations. Merit rows take the operands of the [Operand Reference](/design/operands/).
 
 ## How it works
 
-- **Designs by id.** The assistant works on designs held by the server under ids such as `d1`. Nothing it does reaches the designs open in the app; to see a result, open the file it saved.
+- **Designs by id.** The assistant works on designs held by the server under ids such as `d1`. Unless the server runs with `--live`, nothing it does reaches the designs open in the app; to see a result, open the file it saved.
 - **Full paths.** Files are opened and saved by their full path, such as `C:\Users\you\Documents\TFStudio\Projects\AR.tfs`, since the folder the server runs in depends on how the assistant started it.
 - **Runs are jobs.** `refine`, `synthesize` and `monteCarlo` start a job on a thread of its own and answer within half a minute with the job's state. The assistant follows a longer run with `jobStatus` and can stop it with `stopJob`. A run that changes the design adds its answer as a new design, so the one it started from stays for comparison.
 - **Units.** Wavelengths and layer thicknesses are in nm, angles in degrees in the incident medium, the substrate thickness in mm. R, T and A are fractions of 1, also in merit targets, where the Merit Function Editor shows percent.
 - **Refusals.** A misspelt argument, an unknown material or a value a tool cannot use is refused with a message that says what the tool takes, so nothing runs on a value the assistant did not ask for.
+
+## Work on the open design
+
+With `--live` the assistant can also work on the design open in TFStudio while you watch it change. In TFStudio open Preferences, then Automation, and turn on **Let AI agents work on the open design**. Then add `--live` after `--mcp` where you added the server, so that its arguments read:
+
+```json
+"args": ["--mcp", "--live"]
+```
+
+In Claude Code the command ends in `--mcp --live`. The assistant reads a copy of the open design, changes the copy with the tools above, and writes it back:
+
+- **One step to undo.** Each change it writes back is one step in the design's history, so Ctrl+Z takes it back, and a notice names the design it changed. The change stays unsaved until you save the design.
+- **Only the open design.** The assistant can read any design in the project explorer, but it writes only to the one that is open.
+- **Your edits come first.** If the design changed after the assistant read it, by an edit, an undo or a run, its write is refused and it is told to read the design again, so nothing you did is written over. A write is also refused while a run is going in one of the app's windows.
+- **Runs without a window.** A refinement or synthesis the assistant starts runs in the server. When the assistant asks for it, the result is written back as one step when the run ends, if the design is still as it was when the assistant read it. A run that is stopped writes nothing.
+- **New materials.** The server reads the catalogs when it starts, so a material you add in the app later reaches the assistant after you restart the assistant.
+- **Off by default.** While the switch is on, any program you run can read your designs and change the open one, as it could change your design files; other users of the computer cannot reach it. Turn it off when no assistant is working.

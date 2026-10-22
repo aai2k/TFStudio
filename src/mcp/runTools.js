@@ -2,8 +2,11 @@
 // run is a job on a thread of its own (jobs.js): the call that starts it waits
 // up to waitSeconds and answers with the job's state, finished or not, and
 // jobStatus follows it. A starting call the client cancels stops its job.
+// When the server is linked to the open app (--live), refine and synthesize
+// also take applyToApp (liveTools.js).
 
 import { MAX_WAIT_SECONDS, STOP_GRACE_MS } from './jobs.js';
+import { APPLY_TO_APP } from './liveTools.js';
 import { object, num, int, str, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
 // Long enough for most short runs to end within the call that starts them,
@@ -17,15 +20,19 @@ function waitOf(seconds) {
     return seconds;
 }
 
-const JOB_ANSWER = 'Answers with the job: its state (running, stopping, done, stopped or failed), elapsed seconds, the latest progress readouts (at most four a second while it runs, the last report of the run once it has ended), for needle, ge and structural the generations or history rows reported so far (rows), and once it has ended its result and the designId of the design it answers with. A run that changed the design adds its answer as a new design and leaves the one it started from as it was.';
+const JOB_ANSWER = 'Answers with the job: its state (running, stopping, applying, done, stopped or failed, where applying is a run started with applyToApp handing its answer to TFStudio, which stopJob leaves to finish), elapsed seconds, the latest progress readouts (at most four a second while it runs, the last report of the run once it has ended), for needle, ge and structural the generations or history rows reported so far (rows), and once it has ended its result and the designId of the design it answers with. A run that changed the design adds its answer as a new design and leaves the one it started from as it was.';
 
-export function runTools({ store, jobs }) {
-    const startAndWait = (kind, designId, request, seconds, signal) => {
+/** `live` is whether the server is linked to the open app, which adds applyToApp to refine and synthesize. */
+export function runTools({ store, jobs, live = false }) {
+    const startAndWait = (kind, designId, request, { seconds, signal, applyToApp = false }) => {
         const wait = waitOf(seconds);
-        const job = jobs.start(kind, designId, store.get(designId), request);
+        const link = store.linkOf(designId);
+        if (applyToApp && !link) throw new Error(`applyToApp needs a design read from TFStudio, and ${designId} was not; readAppDesign reads one`);
+        const job = jobs.start(kind, designId, store.get(designId), request, { link, applyToApp });
         signal?.addEventListener('abort', () => jobs.stop(job), { once: true });
         return jobs.wait(job, wait, signal);
     };
+    const applyArg = live ? { applyToApp: APPLY_TO_APP } : {};
     return [
         {
             name: 'refine', title: 'Refine',
@@ -39,8 +46,9 @@ export function runTools({ store, jobs }) {
                 seed: int('Seed of a method that draws random numbers (de, sa, dls-multi), 1 to 2^32 - 1'),
                 threads: int('Workers of a run that splits its work'),
                 waitSeconds: WAIT,
+                ...applyArg,
             }, ['designId', 'method']),
-            run: ({ designId, waitSeconds = DEFAULT_WAIT_SECONDS, ...settings }, { signal }) => startAndWait('refine', designId, settings, waitSeconds, signal),
+            run: ({ designId, waitSeconds = DEFAULT_WAIT_SECONDS, applyToApp, ...settings }, { signal }) => startAndWait('refine', designId, settings, { seconds: waitSeconds, signal, applyToApp }),
         },
         {
             name: 'synthesize', title: 'Synthesize',
@@ -50,8 +58,9 @@ export function runTools({ store, jobs }) {
                 pool: list({ type: 'string' }, 'Material ids the run may insert, such as ["TiO2", "SiO2"]'),
                 settings: { type: 'object', description: "The method's settings, as its window's fields: needle maxLayers, targetMF, refineIter, dMin; ge maxLayers, maxGeCycles, targetMF, refineIter, dMin; structural maxIter, targetMF, refineIter, dMin, maxLayers, seed; deep dMin, maxLayers, seed. A setting the method does not take is refused" },
                 waitSeconds: WAIT,
+                ...applyArg,
             }, ['designId', 'method', 'pool']),
-            run: ({ designId, method, pool, settings = {}, waitSeconds = DEFAULT_WAIT_SECONDS }, { signal }) => startAndWait('synthesize', designId, { method, pool, settings }, waitSeconds, signal),
+            run: ({ designId, method, pool, settings = {}, waitSeconds = DEFAULT_WAIT_SECONDS, applyToApp }, { signal }) => startAndWait('synthesize', designId, { method, pool, settings }, { seconds: waitSeconds, signal, applyToApp }),
         },
         {
             name: 'monteCarlo', title: 'Monte Carlo error analysis',
@@ -68,7 +77,7 @@ export function runTools({ store, jobs }) {
                 seed: { type: ['integer', 'null'], description: 'Seed for a repeatable draw; without one the trials draw from a fresh seed' },
                 waitSeconds: WAIT,
             }, ['designId', 'from', 'to']),
-            run: ({ designId, waitSeconds = DEFAULT_WAIT_SECONDS, ...options }, { signal }) => startAndWait('monteCarlo', designId, options, waitSeconds, signal),
+            run: ({ designId, waitSeconds = DEFAULT_WAIT_SECONDS, ...options }, { signal }) => startAndWait('monteCarlo', designId, options, { seconds: waitSeconds, signal }),
         },
         {
             name: 'jobStatus', title: 'Job status',

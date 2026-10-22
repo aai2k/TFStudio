@@ -32,13 +32,16 @@ function dataFolder({ app, exeDir, settingsPath, log }) {
 /**
  * Starts the server on the app's data folder, which `settingsPath` (the app's
  * settings.json) says where it is, and ends the app with the server's exit
- * code once the client has closed stdin.
+ * code once the client has closed stdin. `liveFile`, for TFStudio.exe --mcp
+ * --live, is the live link file the open app writes, which links the server
+ * to it (liveProtocol.js); null otherwise.
  */
-function startMcpServer({ app, isPackaged, exeDir, settingsPath, log }) {
+function startMcpServer({ app, isPackaged, exeDir, settingsPath, liveFile, log }) {
   const options = {
     dataDir: dataFolder({ app, exeDir, settingsPath, log }),
     version: app.getVersion(),
     wasmPath: isPackaged ? path.join(process.resourcesPath, 'tmm_kernel.wasm') : undefined,
+    live: liveFile ? { file: liveFile } : undefined,
     server: isPackaged
       ? path.join(process.resourcesPath, 'app.asar.unpacked', 'build', 'app', 'mcp', 'server.js')
       : path.join(__dirname, '..', 'mcp', 'server.js'),

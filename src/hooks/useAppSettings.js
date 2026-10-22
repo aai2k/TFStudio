@@ -1,7 +1,8 @@
 /**
  * Everything the app keeps in settings.json and the preferences file: the
  * palette and the themes imported into it, the language, the ribbon style, the
- * two opt-out toggles, the quick-access list and the analysis-window defaults.
+ * two opt-out toggles, the opt-in switch of the live link for AI agents, the
+ * quick-access list and the analysis-window defaults.
  *
  * The saved values are read once on mount, and settings.json is written back
  * whenever one of them changes, but only after the read has finished, or the
@@ -36,6 +37,22 @@ function applyLoadedSettings(loaded, set) {
     set.wasmTmm(loaded.wasmTmm);
     set.updateCheckEnabled(loaded.updateCheckEnabled);
     if (loaded.skippedVersion !== null) set.skippedVersion(loaded.skippedVersion);
+    set.liveBridge(loaded.liveBridge);
+}
+
+// Opens or closes the live link as the switch says, once the saved value is
+// known, and reports how that went: { open, error }, or null until the main
+// process answers. Only the desktop app has the link.
+function useLiveBridgeStatus(settingsLoaded, liveBridge) {
+    const [status, setStatus] = useState(null);
+    useEffect(() => {
+        if (!settingsLoaded || !window.electronAPI?.setLiveBridge) return undefined;
+        let current = true;
+        setStatus(null);
+        window.electronAPI.setLiveBridge(liveBridge).then(answer => { if (current) setStatus(answer); });
+        return () => { current = false; };
+    }, [settingsLoaded, liveBridge]);
+    return status;
 }
 
 export function useAppSettings(setMessageNotification) {
@@ -60,6 +77,10 @@ export function useAppSettings(setMessageNotification) {
     // GET to a public API that sends no identifiers and stores nothing, and the
     // toggle exists for restricted networks.
     const [updateCheckEnabled, setUpdateCheckEnabled] = useState(true);
+    // Let AI agents work on the open design (Preferences > Automation). Off
+    // unless the user turns it on: while on, any program the user runs can read
+    // the designs and change the open one.
+    const [liveBridge,     setLiveBridge]     = useState(false);
     const [skippedVersion, setSkippedVersion] = useState(null);
     const [appVersion,     setAppVersion]     = useState('');
     const [devAllowed,     setDevAllowed]     = useState(true);  // dev-only View items (Reload/DevTools)
@@ -88,6 +109,7 @@ export function useAppSettings(setMessageNotification) {
                 customThemes: setCustomThemes, theme: setTheme, locale: setCurrentLocale,
                 ribbonStyle: setRibbonStyle, wasmTmm: setWasmTmmState,
                 updateCheckEnabled: setUpdateCheckEnabled, skippedVersion: setSkippedVersion,
+                liveBridge: setLiveBridge,
             });
             setSettingsLoaded(true);
         });
@@ -103,7 +125,7 @@ export function useAppSettings(setMessageNotification) {
 
     const saveSettingsToDisk = () => writeAppSettings({
         theme, locale, wasmTmm, ribbonStyle, customThemes,
-        updateCheckEnabled, skippedVersion,
+        updateCheckEnabled, skippedVersion, liveBridge,
         // The colour the window frame paints with. Electron fills a newly
         // exposed area during a resize, and the whole window before the first
         // frame, with the window's own background, so it has to be the theme's
@@ -113,7 +135,9 @@ export function useAppSettings(setMessageNotification) {
 
     useEffect(() => {
         if (settingsLoaded) saveSettingsToDisk();
-    }, [settingsLoaded, theme, locale, wasmTmm, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion]);
+    }, [settingsLoaded, theme, locale, wasmTmm, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion, liveBridge]);
+
+    const liveBridgeStatus = useLiveBridgeStatus(settingsLoaded, liveBridge);
 
     useEffect(() => { applyPaletteVariables(c); }, [c]);
 
@@ -172,6 +196,7 @@ export function useAppSettings(setMessageNotification) {
         customThemes, importThemeFromVscode, deleteCustomTheme,
         wasmTmm, setWasmTmm,
         updateCheckEnabled, setUpdateCheckEnabled, skippedVersion, setSkippedVersion,
+        liveBridge, setLiveBridge, liveBridgeStatus,
         appVersion, devAllowed, settingsLoaded,
         analysisSettings, quickAccess, setQuickAccess,
         gamesUnlocked, unlockGames,
