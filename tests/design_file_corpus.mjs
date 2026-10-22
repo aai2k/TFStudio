@@ -12,13 +12,13 @@
  *   - the load result: name, id, evaluation mode, layer and operand counts;
  *   - each material: status, conflict flag, name, and n,k at the fixture's
  *     wavelengths, one of them between table nodes;
- *   - R, T, A, Rs, Rp at the fixture's wavelengths and angles, through the
- *     Optical Evaluation's own computation;
+ *   - R, T and A, unpolarized and for s and p, at the fixture's wavelengths
+ *     and angles, through the Optical Evaluation's own computation;
  *   - each merit operand's value and the merit, through the code the Merit
  *     Function Editor displays them with;
  *   - after a save with today's code and a restart, the same again.
  *
- * Everything is compared with design_file_corpus.golden.json: R, T, A, Rs, Rp
+ * Everything is compared with design_file_corpus.golden.json: the spectrum
  * to 1e-9 absolute, other numbers to 1e-9 relative, statuses and names exactly.
  * Values are stored to 12 significant digits, so a diff of the golden file
  * shows the numbers that moved and nothing else. A fixture may also list

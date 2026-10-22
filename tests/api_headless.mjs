@@ -44,6 +44,19 @@ ok('a stack formula builds quarter waves at its reference wavelength', qw.frontL
     ok('its reflectance at 550 nm is Macleod\'s eq. 6.11', Math.abs(R - ((1 - Y) / (1 + Y)) ** 2) < 1e-9, `${R}`);
 }
 {
+    // R, T and A come for s and p too: the same at normal incidence, and
+    // unpolarized light is the mean of the two at any angle.
+    const s = api.spectrum(qw, { from: 450, to: 650, step: 50, angles: [0, 45] });
+    const near = (a, b) => a.every((v, i) => Math.abs(v - b[i]) < 1e-12);
+    const mean = (a, b) => a.map((v, i) => (v + b[i]) / 2);
+    const [normal, oblique] = [s.angles[0], s.angles[45]];
+    ok('a spectrum gives R, T and A for s and p', ['R', 'T', 'A'].every(q => normal[`${q}s`]?.length === s.lambda.length && normal[`${q}p`]?.length === s.lambda.length));
+    ok('at normal incidence s and p are the same', ['R', 'T', 'A'].every(q => near(normal[`${q}s`], normal[`${q}p`])));
+    ok('at 45 degrees s and p differ, and unpolarized light is their mean', !near(oblique.Rs, oblique.Rp)
+        && ['R', 'T', 'A'].every(q => near(oblique[q], mean(oblique[`${q}s`], oblique[`${q}p`]))));
+    ok('summarize covers them too', ['Ts', 'Tp', 'As', 'Ap'].every(q => api.summarize(s)[45][0][q]?.mean >= 0));
+}
+{
     // The dialog reads a formula from the substrate outward by default: the
     // first letter is the layer on the substrate, which the front stores last
     // and the back first.

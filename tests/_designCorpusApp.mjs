@@ -110,6 +110,9 @@ function materialValues(design, nkAt) {
 
 const coneOn = design => coneIsActive(makeConeSpec(design.cone || {}));
 
+// R, T and A for unpolarized light, then for s and p.
+const SPECTRUM_KEYS = ['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'];
+
 // The Optical Evaluation's spectrum; a design under a cone goes to the
 // analysis worker, which gets the design with its materials embedded.
 function spectrumValues(design, evalMode, fixture) {
@@ -128,8 +131,7 @@ function spectrumValues(design, evalMode, fixture) {
     }
     const angles = {};
     for (const series of data.series) {
-        const pick = key => Array.from(series[key], num);
-        angles[series.theta] = { R: pick('R'), T: pick('T'), A: pick('A'), Rs: pick('Rs'), Rp: pick('Rp') };
+        angles[series.theta] = Object.fromEntries(SPECTRUM_KEYS.map(key => [key, Array.from(series[key], num)]));
     }
     return { lambda: Array.from(data.lambda, num), angles };
 }

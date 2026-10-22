@@ -9,15 +9,17 @@ import { requireResolved } from './materials.js';
 import { warnWithoutKernel } from './environment.js';
 import { checkOptions, checkRange, isAngle } from './check.js';
 
-const QUANTITIES = ['R', 'T', 'A', 'Rs', 'Rp'];
+// R, T and A for unpolarized light, then for s and p.
+const QUANTITIES = ['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'];
 const isBand = b => !!b && Number.isFinite(b.from) && Number.isFinite(b.to) && b.to >= b.from;
 
 /**
- * R, T, A, Rs and Rp of `design` from `from` to `to` nm in steps of `step`,
- * at each angle of incidence in `angles` (degrees in the incident medium),
- * scored the way the design's surface mode says (evalMode: 'front', 'back' or
- * 'total'). Resolves to { evalMode, lambda, angles: { [angle]: { R, T, A, Rs,
- * Rp } }, outOfRange }, fractions of 1. A design under a cone of incidence is
+ * R, T and A of `design`, for unpolarized light and for s and p (Rs, Rp, Ts,
+ * Tp, As, Ap), from `from` to `to` nm in steps of `step`, at each angle of
+ * incidence in `angles` (degrees in the incident medium), scored the way the
+ * design's surface mode says (evalMode: 'front', 'back' or 'total'). Resolves
+ * to { evalMode, lambda, angles: { [angle]: { R, T, A, Rs, Rp, Ts, Tp, As,
+ * Ap } }, outOfRange }, fractions of 1. A design under a cone of incidence is
  * averaged over its cone, as the window does. outOfRange lists the materials
  * whose data stop inside [from, to] ({ id, name, rangeNm, heldFlat }), where
  * the window shows its material range notice: outside rangeNm their n and k

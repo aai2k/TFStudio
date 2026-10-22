@@ -1,7 +1,7 @@
 /**
  * Test helper for design_file_corpus.mjs: comparing a run with the golden file.
  *
- * R, T, A, Rs and Rp, everything under a case's `spectrum`, compare to 1e-9
+ * The spectrum, everything under a case's `spectrum`, compares to 1e-9
  * absolute; every other number to 1e-9 relative; text, flags and structure
  * exactly.
  */
