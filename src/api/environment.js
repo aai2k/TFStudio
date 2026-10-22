@@ -18,18 +18,24 @@ let started = null;
 let startedWith = null;
 
 /**
- * Starts the API's environment, once: the WASM kernel the app computes with
- * (the JavaScript one when the kernel cannot load), and with `dataDir`, a
- * TFStudio data folder (the one holding Materials and Projects), the user's
- * catalogs read the way the app reads them at startup. Without a data folder
- * the built-in catalog and the materials a design carries resolve. Resolves to
- * { wasm, dataDir, unreadable }, `unreadable` naming the catalog files that
- * could not be read and were left out. `wasmPath` names the kernel's file when
- * it is not the tmmcore package's, as in an installed app. A process reads one
- * data folder: init again with another is refused, and a start that failed can
- * be tried again.
+ * Starts the API: loads the WASM kernel the app computes with and, given a
+ * data folder, reads the material catalogs in it as the app does at startup.
+ * The Script Console starts the API on the app's data folder before a script
+ * runs, so a script has no `tf.init`. A start that failed may be tried again.
+ *
+ * @param [options]
+ * @param [options.dataDir=null] A TFStudio data folder, the one that holds the Materials and Projects folders. Without it, the built-in materials and those a design carries resolve.
+ * @param [options.wasmPath=null] The kernel file, when it is not the one the API ships with.
+ * @returns A promise of what it started.
+ * @property wasm `true` when the WASM kernel loaded; `false` means every calculation runs in JavaScript, with the same numbers, many times slower.
+ * @property dataDir The data folder it read, or null.
+ * @property unreadable The catalog files it could not read and left out.
+ * @throws a data folder that holds no Materials folder
+ * @throws a second start with another data folder: a process reads one
  */
 export async function init(options) {
+    // The kernel file is the tmmcore package's unless wasmPath names one, as
+    // an installed app does.
     const { dataDir = null, wasmPath = null } = checkOptions('init', options, ['dataDir', 'wasmPath']);
     const isPathOrNull = v => v === null || (typeof v === 'string' && v !== '');
     requireValue('init', 'dataDir', dataDir, isPathOrNull, 'the path of a TFStudio data folder, or null');

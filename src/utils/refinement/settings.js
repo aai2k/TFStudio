@@ -27,13 +27,20 @@ function methodList(method) {
     return method;
 }
 
+// Each number a run takes, with a check, how a refusal names what it takes,
+// and what it sets, in the words of the manual's API Reference.
+export const CHECKS = [
+    ['maxIter', isCount, 'a whole number of 1 or more',
+        'The most iterations of a one-method run, which still stops when the merit stops falling. Without it, the method\'s own budget; a list of methods takes none, and runs each to its own.'],
+    ['nRestarts', isCount, 'a whole number of 1 or more', 'How many perturbed starts DLS multi-start runs.'],
+    ['perturbPct', v => Number.isFinite(v) && v >= 0, 'a number of 0 or more',
+        'How far each multi-start restart moves each free thickness, in ± %.'],
+    ['threads', isCount, 'a whole number of 1 or more', 'How many workers DLS multi-start and Differential Evolution use at once.'],
+];
+
 function checkNumbers(settings, single) {
-    const { maxIter, nRestarts, perturbPct, threads } = settings;
-    if (given(maxIter) && !single) refuse('maxIter applies to a one-method run; a list runs each method to its own budget');
-    if (given(maxIter) && !isCount(maxIter)) refuse('maxIter is a whole number of 1 or more');
-    if (given(nRestarts) && !isCount(nRestarts)) refuse('nRestarts is a whole number of 1 or more');
-    if (given(perturbPct) && !(Number.isFinite(perturbPct) && perturbPct >= 0)) refuse('perturbPct is a number of 0 or more');
-    if (given(threads) && !isCount(threads)) refuse('threads is a whole number of 1 or more');
+    if (given(settings.maxIter) && !single) refuse('maxIter applies to a one-method run; a list runs each method to its own budget');
+    for (const [key, ok, takes] of CHECKS) if (given(settings[key]) && !ok(settings[key])) refuse(`${key} is ${takes}`);
 }
 
 function seedOf(seed) {
@@ -70,6 +77,6 @@ export function planRun(settings) {
         nRestarts: settings.nRestarts ?? DEFAULT_SETTINGS.nRestarts,
         perturbPct: settings.perturbPct ?? DEFAULT_SETTINGS.perturbPct,
         seed: seedOf(settings.seed),
-        threads: settings.threads ?? 1,
+        threads: settings.threads ?? DEFAULT_SETTINGS.threads,
     };
 }

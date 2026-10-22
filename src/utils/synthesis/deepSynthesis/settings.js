@@ -2,7 +2,7 @@
 // An unknown setting, or a value the run cannot take, is refused with an error
 // rather than dropped or rounded.
 
-import { normalizeSeed, MAX_SEED } from '../../physics/errorAnalysis/mcConfig.js';
+import { normalizeSeed } from '../../physics/errorAnalysis/mcConfig.js';
 import { defaultThreadCount } from '../synthesisConfig.js';
 import { DEEP_SYNTHESIS_DEFAULTS } from './index.js';
 
@@ -22,7 +22,7 @@ const CHECKS = [
     ['dMin', v => Number.isFinite(v) && v >= 0, 'a thickness in nm of 0 or more'],
     ['maxLayers', v => Number.isInteger(v) && v >= 1, 'a whole number of 1 or more'],
     ['threads', v => Number.isInteger(v) && v >= 1, 'a whole number of 1 or more'],
-    ['seed', v => v === null || normalizeSeed(v) === v, `a whole number from 1 to ${MAX_SEED}, or null for a fresh one`],
+    ['seed', v => v === null || normalizeSeed(v) === v, 'a whole number from 1 to 2^32 - 1, or null for a fresh one'],
 ];
 
 function refuse(message) { throw new Error(`Deep Synthesis settings: ${message}`); }

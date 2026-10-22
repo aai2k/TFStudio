@@ -1,0 +1,44 @@
+{
+  "en": {
+    "frontmatter": ["title: API Reference", "description: \"Every call of the TFStudio API in the Script Console: what it takes, what it returns and what it refuses.\""],
+    "intro": [
+      "Every call on `tf` in the [Script Console](/automation/script-console/), with what it takes, what it returns and what it refuses. A call that changes a design returns a new one and leaves the one it was given as it was; set `tf.design` to the new one to keep it. Wavelengths and layer thicknesses are in nm, angles in degrees in the incident medium, the substrate thickness in mm, and R, T and A are fractions of 1, in merit targets too.",
+      "A call refuses an option it does not know and a value it cannot use, with an error that says what it takes, so nothing runs on a value you did not mean. Each example runs on the open design; one that ends by setting `tf.design` changes it, as one undo step."
+    ],
+    "args": ["Argument", "Default", "Meaning"],
+    "fields": ["Field", "Meaning"],
+    "settings": ["Setting", "Default", "Meaning"],
+    "refineMethods": ["Method", "Name", "Default `maxIter`", "Takes `seed`"],
+    "synthesisMethods": ["Method", "Window", "Page", "Hooks"],
+    "returns": "**Returns**: ",
+    "refuses": "**Refuses**:",
+    "required": "required",
+    "yes": "yes",
+    "methods": "Methods",
+    "settingsOf": "`{method}` settings",
+    "orMnt": "or the strictest `MNT` row",
+    "allMethods": "Each of {ids} in turn, from the same start, keeping the best",
+    "listSeparator": ", "
+  },
+  "zh": {
+    "frontmatter": ["title: API 参考", "description: \"脚本控制台中 TFStudio API 的每一个调用：接受什么、返回什么、拒绝什么。\""],
+    "intro": [
+      "[脚本控制台](/automation/script-console/)中 `tf` 上的每一个调用：它接受什么、返回什么、拒绝什么。改变设计的调用返回一个新设计，传入的设计保持不变；把 `tf.design` 设为新设计即可保留它。波长和膜层厚度单位为 nm，角度为入射介质中的度数，基底厚度单位为 mm，R、T 和 A 用 0 到 1 之间的小数表示，评价函数目标值也是如此。",
+      "调用会拒绝它不认识的选项和无法使用的值，并给出说明它接受什么的错误信息，因此不会用你无意给出的值运行。每个示例都在打开的设计上运行；以设置 `tf.design` 结尾的示例会改变它，作为一个撤销步骤。"
+    ],
+    "args": ["参数", "默认值", "含义"],
+    "fields": ["字段", "含义"],
+    "settings": ["设置", "默认值", "含义"],
+    "refineMethods": ["方法", "名称", "默认 `maxIter`", "接受 `seed`"],
+    "synthesisMethods": ["方法", "窗口", "页面", "钩子"],
+    "returns": "**返回**：",
+    "refuses": "**拒绝**：",
+    "required": "必填",
+    "yes": "是",
+    "methods": "方法",
+    "settingsOf": "`{method}` 的设置",
+    "orMnt": "或最严格的 `MNT` 行",
+    "allMethods": "依次运行 {ids}，从同一起点开始，保留最好的结果",
+    "listSeparator": "、"
+  }
+}

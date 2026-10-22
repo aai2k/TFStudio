@@ -17,13 +17,21 @@ const { readDesignFile, serializeDesign } = designFile;
 const { writeFileAtomic } = mainPaths;
 
 /**
- * The design in the .tfs at `filePath`, as File > Open reads it: the file's
- * checks and fixups (src/main/designFile.js), then the material copies the
- * catalogs here follow (catalogStamps.js). A design without a name of its own
- * is named after its file. Throws when the file cannot be read or is not a
- * usable design.
+ * Reads a design from a .tfs file as File > Open reads it, with the same
+ * checks and repairs. A design with no name of its own takes its file's name.
+ *
+ * @param filePath The .tfs file, by its full path.
+ * @returns The design: the fields `newDesign` returns, and what the file holds besides, such as its merit function in `meritOperands`.
+ * @throws a file that cannot be read or does not hold a usable design
+ * @example
+ * const file = require('path').join(require('os').homedir(), `example-${Date.now()}.tfs`);
+ * tf.saveDesign(tf.design, file);
+ * const design = tf.openDesign(file);
+ * console.log(design.name, design.frontLayers.length, 'layers, from', file);
  */
 export function openDesign(filePath) {
+    // The file's checks and fixups (src/main/designFile.js), then the material
+    // copies the catalogs here follow (catalogStamps.js).
     const read = readDesignFile(fs, filePath);
     if (read.error) throw new Error(`${filePath}: ${read.error}`);
     const design = withFollowedCopies(read.design);
@@ -32,11 +40,25 @@ export function openDesign(filePath) {
 }
 
 /**
- * Writes `design` to `filePath` as the app saves it: the non-built-in
- * materials it uses embedded, in this build's format, through the same atomic
- * write. A file already there is written over only with { overwrite: true }.
+ * Writes a design to a .tfs file as the app saves it, with the materials it
+ * uses that are not built in carried inside the file.
+ *
+ * @param design The design.
+ * @param filePath The file to write, by its full path.
+ * @param [options]
+ * @param [options.overwrite=false] Write over a file that is already there.
+ * @throws a file that is already there, without `overwrite`
+ * @example
+ * const file = require('path').join(require('os').homedir(), 'saved.tfs');
+ * try {
+ *     tf.saveDesign(tf.design, file);
+ *     console.log('Saved', file);
+ * } catch (err) {
+ *     console.log(err.message);
+ * }
  */
 export function saveDesign(design, filePath, options) {
+    // The app's own format and atomic write (src/main/designFile.js, paths.js).
     const { overwrite = false } = checkOptions('saveDesign', options, ['overwrite']);
     if (!overwrite && fs.existsSync(filePath)) throw new Error(`${filePath} exists; pass { overwrite: true } to write over it`);
     writeFileAtomic(filePath, serializeDesign(embedDesignMaterials(design)), 'utf-8');
@@ -86,10 +108,34 @@ function withSetup(call, design, setup) {
 }
 
 /**
- * A new design as the app makes one (a bare BK7 substrate, 1 mm, in air),
- * with any of `name`, `incidentMedium`, `exitMedium`, `substrate` (material
- * ids), `substrateThicknessMm`, `surfaceMode`, `mfEvalMode` and
- * `referenceWavelength` (nm) changed. Every material named must resolve.
+ * A new design as the app makes one, a bare substrate with no layers, with
+ * any of these settings changed.
+ *
+ * @param [options]
+ * @param [options.name='New Design'] The design's name.
+ * @param [options.incidentMedium='Air'] The medium the light comes from, by material id.
+ * @param [options.exitMedium='Air'] The medium behind the substrate, by material id.
+ * @param [options.substrate='BK7'] The substrate material, by id.
+ * @param [options.substrateThicknessMm=1] The substrate thickness, mm.
+ * @param [options.surfaceMode='front_only'] Which sides carry layers: `'front_only'`, `'back_only'`, `'both_independent'`, or `'symmetric'`, whose back mirrors its front. The [evaluation modes](/design/evaluation-modes/) page explains them.
+ * @param [options.mfEvalMode='side'] How a one-sided design is scored: `'side'`, its coated side alone, or `'total'`, the whole part.
+ * @param [options.referenceWavelength=550] The reference wavelength, nm, at which stack formulas count quarter waves.
+ * @returns The design.
+ * @property id The design's own id.
+ * @property name Its name.
+ * @property incidentMedium The medium the light comes from, by material id.
+ * @property exitMedium The medium behind the substrate, by material id.
+ * @property substrate `{ material, thickness }`, the thickness in mm.
+ * @property surfaceMode Which sides carry layers.
+ * @property mfEvalMode How a one-sided design is scored.
+ * @property referenceWavelength The reference wavelength, nm.
+ * @property frontLayers The front's layers, the outermost first, each `{ id, material, thickness, locked }` with the thickness in nm.
+ * @property backLayers The back's layers, the one on the substrate first.
+ * @property notes The design's notes, text.
+ * @throws a material id that resolves to nothing, naming the closest ids
+ * @example
+ * const design = tf.newDesign({ name: 'AR', substrate: 'SiO2', referenceWavelength: 600 });
+ * console.log(design.name, 'on', design.substrate.material, design.substrate.thickness, 'mm');
  */
 export function newDesign(options) {
     const setup = checkOptions('newDesign', options, SETUP);
@@ -97,12 +143,18 @@ export function newDesign(options) {
 }
 
 /**
- * `design` with any of the settings newDesign takes changed: its name, media,
- * substrate and its thickness, which sides it has (surfaceMode: 'front_only',
- * 'back_only', 'both_independent' or 'symmetric', whose back then mirrors the
- * front), how a one-sided design is scored (mfEvalMode 'side' or 'total') and
- * its reference wavelength in nm, which rescales every layer to keep its
- * quarter-wave count, as the Design Editor's λ0 field does.
+ * A design with any of the settings `newDesign` takes changed. A new
+ * reference wavelength rescales every layer to keep its count of quarter
+ * waves, as the Design Editor's λ0 field does, and a design made symmetric
+ * takes the mirror of its front as its back.
+ *
+ * @param design The design.
+ * @param options Any of the options of `newDesign`.
+ * @returns The design with the changes.
+ * @throws a material id that resolves to nothing, naming the closest ids
+ * @example
+ * tf.design = tf.setDesignSetup(tf.design, { substrateThicknessMm: 3, mfEvalMode: 'total' });
+ * console.log(tf.design.substrate.thickness, 'mm,', tf.design.mfEvalMode);
  */
 export function setDesignSetup(design, options) {
     return withSetup('setDesignSetup', design, checkOptions('setDesignSetup', options, SETUP));

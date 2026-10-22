@@ -45,7 +45,9 @@ ribbonIcon: script-console
 | 评价函数 | `setMerit`、`merit` |
 | 运行 | `refine`、`synthesize`、`runHooks` |
 
-它们与各窗口使用同一套计算代码，因此给出的数值与应用显示的一致。波长和膜层厚度单位为 nm，角度为入射介质中的度数，基底厚度单位为 mm，R、T 和 A 为 1 的分数。改变设计的调用会返回一个新设计，传入的设计保持不变。可用的材料包括内置材料、数据文件夹中你的材料目录里的材料，以及设计自带的材料副本。
+它们与各窗口使用同一套计算代码，因此给出的数值与应用显示的一致。可用的材料包括内置材料、数据文件夹中你的材料目录里的材料，以及设计自带的材料副本。
+
+每个调用接受什么、返回什么、拒绝什么，见 [API 参考](/zh/automation/api-reference/)。
 
 ## 设计会怎样
 
@@ -55,26 +57,67 @@ ribbonIcon: script-console
 
 ## 示例
 
-打开的设计在 450 到 650 nm 之间的反射率：
+### 用公式构建膜层堆栈
+
+在设计的参考波长处用 `(HL)^4 H` 构建四分之一波长反射镜，并计算它在 400 到 700 nm 之间的反射率：
 
 ```js
-const s = tf.spectrum(tf.design, { from: 450, to: 650, step: 5 });
+const design = tf.stackFromFormula(tf.design, { formula: '(HL)^4 H', symbols: { H: 'TiO2', L: 'SiO2' } });
+const s = tf.spectrum(design, { from: 400, to: 700, step: 5 });
 const [band] = tf.summarize(s)[0];
-console.log(`R from ${band.R.min} to ${band.R.max}, mean ${band.R.mean}`);
+console.log(`R from ${band.R.min.toFixed(4)} to ${band.R.max.toFixed(4)}, highest at ${band.R.maxAt} nm`);
+tf.design = design;
 ```
 
-按评价函数精炼打开的设计，保留结果，并把它的透射率写入你主文件夹中的 CSV 文件：
+### 设置评价函数并精炼
+
+在 450 到 650 nm 之间设置减反射目标，并要求每层不薄于 10 nm，然后用 SQP 精炼：
 
 ```js
-const { result, design } = await tf.refine(tf.design, { method: 'dls', maxIter: 200 });
-console.log('Merit function after refinement:', result.mf);
-tf.design = design;
+const design = tf.setMerit(tf.design, [
+    { type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, weight: 1 },
+    { type: 'MNT', target: 10, weight: 1 },
+]);
+console.log('Merit before:', tf.merit(design).total);
+const { result, design: refined } = await tf.refine(design, { method: 'sqp' });
+console.log('Merit after:', tf.merit(refined).total, `(${result.stopReason})`);
+tf.design = refined;
+```
 
-const s = tf.spectrum(design, { from: 400, to: 800, step: 2 });
-const rows = s.lambda.map((nm, i) => `${nm},${s.angles[0].T[i]}`);
-const file = require('path').join(require('os').homedir(), 'refined-T.csv');
-require('fs').writeFileSync(file, 'nm,T\n' + rows.join('\n'));
+### 用针法合成
+
+针法用 TiO2 和 SiO2 按 420 到 680 nm 的减反射目标生长设计，最多 12 层：
+
+```js
+const design = tf.setMerit(tf.design, [{ type: 'RAV', lambdaStart: 420, lambdaEnd: 680, target: 0, weight: 1 }]);
+const { result, design: grown } = await tf.synthesize(design, {
+    method: 'needle', pool: ['TiO2', 'SiO2'], settings: { maxLayers: 12 },
+});
+console.log(result.stopReason, 'merit', result.mf, grown.frontLayers.length, 'layers');
+tf.design = grown;
+```
+
+### 扫描入射角
+
+在 550 nm 处从 0 到 80 度扫描 Rs 和 Rp。`spectrum` 接受一个波长范围，因此扫描取 550 到 551 nm，并读取第一个波长：
+
+```js
+const angles = [0, 10, 20, 30, 40, 50, 60, 70, 80];
+const s = tf.spectrum(tf.design, { from: 550, to: 551, angles });
+for (const a of angles) console.log(`${a}°: Rs ${s.angles[a].Rs[0].toFixed(4)}, Rp ${s.angles[a].Rp[0].toFixed(4)}`);
+```
+
+### 把 s 和 p 的 R、T、A 写入文件
+
+在你的主文件夹中写入一个新的 CSV 文件，文件名带有时间，因此不会覆盖任何文件；入射角 45 度，每个波长一行：
+
+```js
+const s = tf.spectrum(tf.design, { from: 400, to: 800, step: 2, angles: [45] });
+const q = s.angles[45];
+const rows = s.lambda.map((nm, i) => [nm, q.Rs[i], q.Rp[i], q.Ts[i], q.Tp[i], q.As[i], q.Ap[i]].join(','));
+const file = require('path').join(require('os').homedir(), `spectrum-45deg-${Date.now()}.csv`);
+require('fs').writeFileSync(file, 'nm,Rs,Rp,Ts,Tp,As,Ap\n' + rows.join('\n'));
 console.log('Wrote', file);
 ```
 
-`refine` 需要设计有评价函数：在[评价函数编辑器](/zh/design/merit-function-editor/)中设置，或在脚本中用 `tf.setMerit` 设置。
+`refine` 和 `synthesize` 按设计的评价函数运行：在[评价函数编辑器](/zh/design/merit-function-editor/)中设置，或像上面那样在脚本中用 `tf.setMerit` 设置。

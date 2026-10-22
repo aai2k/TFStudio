@@ -42,19 +42,26 @@ const isCount = v => Number.isInteger(v) && v >= 1;
 const isPositive = v => Number.isFinite(v) && v > 0;
 const oneOf = list => v => list.includes(v);
 
-// Each setting with a check and how a refusal names what it takes.
-const CHECKS = [
-    ['maxLayers', isCount, 'a whole number of 1 or more'],
-    ['refineIter', isCount, 'a whole number of 1 or more'],
-    ['threads', isCount, 'a whole number of 1 or more'],
-    // Infinity stops the run at its first accepted generation.
-    ['targetMF', v => typeof v === 'number' && v >= 0, 'a merit of 0 or more, or Infinity'],
-    ['deltaNm', isPositive, 'a thickness in nm above 0'],
-    ['dMin', isPositive, 'a thickness in nm above 0'],
-    ['innerEngine', oneOf(SYNTHESIS_INNER_ENGINES), `one of ${SYNTHESIS_INNER_ENGINES.join(', ')}`],
-    ['candidateSearch', oneOf(SYNTHESIS_CAND_MODES), `one of ${SYNTHESIS_CAND_MODES.join(', ')}`],
-    ['sensitivity', oneOf(NEEDLE_SENS_MODES), `one of ${NEEDLE_SENS_MODES.join(', ')}`],
-    ['smartSeed', v => typeof v === 'boolean', 'true or false'],
+// Each setting with a check, how a refusal names what it takes, and what it
+// sets, in the words of the manual's API Reference.
+export const CHECKS = [
+    ['maxLayers', isCount, 'a whole number of 1 or more', 'The most layers the design may grow to.'],
+    ['refineIter', isCount, 'a whole number of 1 or more', 'The refinement steps after each insertion.'],
+    ['threads', isCount, 'a whole number of 1 or more',
+        'How many candidates are refined as one batch; the answer depends on it. Without it, the thread count the app recommends for this computer.'],
+    ['targetMF', v => typeof v === 'number' && v >= 0, 'a merit of 0 or more, or Infinity',
+        'The merit at which the run stops; Infinity stops it at its first accepted generation.'],
+    ['deltaNm', isPositive, 'a thickness in nm above 0', 'The thickness step that probes each candidate position.'],
+    ['dMin', isPositive, 'a thickness in nm above 0',
+        'The thinnest a needle goes in, and the thickness below which a refined layer is dropped.'],
+    ['innerEngine', oneOf(SYNTHESIS_INNER_ENGINES), `one of ${SYNTHESIS_INNER_ENGINES.join(', ')}`,
+        'The method that refines the stack after each insertion.'],
+    ['candidateSearch', oneOf(SYNTHESIS_CAND_MODES), `one of ${SYNTHESIS_CAND_MODES.join(', ')}`,
+        'How many of the improving candidates each step tries before it moves on, trading speed for quality.'],
+    ['sensitivity', oneOf(NEEDLE_SENS_MODES), `one of ${NEEDLE_SENS_MODES.join(', ')}`,
+        'How weak a candidate may be, beside the strongest of its scan, and still be tried; off tries every one.'],
+    ['smartSeed', v => typeof v === 'boolean', 'true or false',
+        'Start from the best of the design and the quarter- and half-wave antireflection designs built from the pool, each refined first.'],
 ];
 
 function refuse(message) { throw new Error(`Needle settings: ${message}`); }

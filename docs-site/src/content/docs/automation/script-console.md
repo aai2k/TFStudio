@@ -45,7 +45,9 @@ The calls on `tf`:
 | Merit function | `setMerit`, `merit` |
 | Runs | `refine`, `synthesize`, `runHooks` |
 
-They compute with the code the windows compute with, so their numbers are the app's. Wavelengths and layer thicknesses are in nm, angles in degrees in the incident medium, the substrate thickness in mm, and R, T and A are fractions of 1. A call that changes a design returns a new one and leaves the one it was given as it was. The materials are the built-in ones, those in your catalogs in the data folder, and the copies a design carries.
+They compute with the code the windows compute with, so their numbers are the app's. The materials are the built-in ones, those in your catalogs in the data folder, and the copies a design carries.
+
+What each call takes, what it returns and what it refuses is in the [API Reference](/automation/api-reference/).
 
 ## What happens to the design
 
@@ -55,26 +57,67 @@ The design is applied only to the design the script started on, and only while t
 
 ## Examples
 
-The reflectance of the open design from 450 to 650 nm:
+### Build a stack from a formula
+
+A quarter-wave mirror, `(HL)^4 H` at the design's reference wavelength, and its reflectance from 400 to 700 nm:
 
 ```js
-const s = tf.spectrum(tf.design, { from: 450, to: 650, step: 5 });
+const design = tf.stackFromFormula(tf.design, { formula: '(HL)^4 H', symbols: { H: 'TiO2', L: 'SiO2' } });
+const s = tf.spectrum(design, { from: 400, to: 700, step: 5 });
 const [band] = tf.summarize(s)[0];
-console.log(`R from ${band.R.min} to ${band.R.max}, mean ${band.R.mean}`);
+console.log(`R from ${band.R.min.toFixed(4)} to ${band.R.max.toFixed(4)}, highest at ${band.R.maxAt} nm`);
+tf.design = design;
 ```
 
-Refine the open design against its merit function, keep the result, and write its transmittance to a CSV file in your home folder:
+### Set a merit function and refine
+
+An antireflection target over 450-650 nm with no layer thinner than 10 nm, then a refinement with SQP:
 
 ```js
-const { result, design } = await tf.refine(tf.design, { method: 'dls', maxIter: 200 });
-console.log('Merit function after refinement:', result.mf);
-tf.design = design;
+const design = tf.setMerit(tf.design, [
+    { type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, weight: 1 },
+    { type: 'MNT', target: 10, weight: 1 },
+]);
+console.log('Merit before:', tf.merit(design).total);
+const { result, design: refined } = await tf.refine(design, { method: 'sqp' });
+console.log('Merit after:', tf.merit(refined).total, `(${result.stopReason})`);
+tf.design = refined;
+```
 
-const s = tf.spectrum(design, { from: 400, to: 800, step: 2 });
-const rows = s.lambda.map((nm, i) => `${nm},${s.angles[0].T[i]}`);
-const file = require('path').join(require('os').homedir(), 'refined-T.csv');
-require('fs').writeFileSync(file, 'nm,T\n' + rows.join('\n'));
+### Synthesize with Needle
+
+Needle grows the design from TiO2 and SiO2 against an antireflection target over 420-680 nm, up to 12 layers:
+
+```js
+const design = tf.setMerit(tf.design, [{ type: 'RAV', lambdaStart: 420, lambdaEnd: 680, target: 0, weight: 1 }]);
+const { result, design: grown } = await tf.synthesize(design, {
+    method: 'needle', pool: ['TiO2', 'SiO2'], settings: { maxLayers: 12 },
+});
+console.log(result.stopReason, 'merit', result.mf, grown.frontLayers.length, 'layers');
+tf.design = grown;
+```
+
+### Scan the angle of incidence
+
+Rs and Rp at 550 nm from 0 to 80 degrees. `spectrum` takes a range of wavelengths, so the scan asks for 550 to 551 nm and reads the first:
+
+```js
+const angles = [0, 10, 20, 30, 40, 50, 60, 70, 80];
+const s = tf.spectrum(tf.design, { from: 550, to: 551, angles });
+for (const a of angles) console.log(`${a}°: Rs ${s.angles[a].Rs[0].toFixed(4)}, Rp ${s.angles[a].Rp[0].toFixed(4)}`);
+```
+
+### Write R, T and A for s and p to a file
+
+A new CSV file in your home folder, named by the time so that it writes over nothing, one row per wavelength, at 45 degrees:
+
+```js
+const s = tf.spectrum(tf.design, { from: 400, to: 800, step: 2, angles: [45] });
+const q = s.angles[45];
+const rows = s.lambda.map((nm, i) => [nm, q.Rs[i], q.Rp[i], q.Ts[i], q.Tp[i], q.As[i], q.Ap[i]].join(','));
+const file = require('path').join(require('os').homedir(), `spectrum-45deg-${Date.now()}.csv`);
+require('fs').writeFileSync(file, 'nm,Rs,Rp,Ts,Tp,As,Ap\n' + rows.join('\n'));
 console.log('Wrote', file);
 ```
 
-The design needs a merit function for `refine`: set one in the [Merit Function Editor](/design/merit-function-editor/), or from the script with `tf.setMerit`.
+`refine` and `synthesize` work against the design's merit function: set it in the [Merit Function Editor](/design/merit-function-editor/), or from the script with `tf.setMerit` as above.

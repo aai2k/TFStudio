@@ -38,23 +38,36 @@ const isCount = v => Number.isInteger(v) && v >= 1;
 const isBoolean = v => typeof v === 'boolean';
 const oneOf = list => v => list.includes(v);
 
-// Each setting with a check and how a refusal names what it takes.
-const CHECKS = [
-    ['maxLayers', isCount, 'a whole number of 1 or more'],
-    ['maxGeCycles', isCount, 'a whole number of 1 or more'],
-    ['refineIter', isCount, 'a whole number of 1 or more'],
-    ['threads', isCount, 'a whole number of 1 or more'],
-    // Infinity stops the run at its first accepted step.
-    ['targetMF', v => typeof v === 'number' && v >= 0, 'a merit of 0 or more, or Infinity'],
-    ['dMin', v => Number.isFinite(v) && v > 0, 'a thickness in nm above 0'],
-    ['consolidateTol', v => Number.isFinite(v) && v >= 0, 'a relative merit slack of 0 or more'],
-    ['deepSearch', isBoolean, 'true or false'],
-    ['smartSeed', isBoolean, 'true or false'],
-    ['consolidate', isBoolean, 'true or false'],
-    ['innerEngine', oneOf(SYNTHESIS_INNER_ENGINES), `one of ${SYNTHESIS_INNER_ENGINES.join(', ')}`],
-    ['candidateSearch', oneOf(SYNTHESIS_CAND_MODES), `one of ${SYNTHESIS_CAND_MODES.join(', ')}`],
-    ['sensitivity', oneOf(NEEDLE_SENS_MODES), `one of ${NEEDLE_SENS_MODES.join(', ')}`],
-    ['seedMode', oneOf(SYNTHESIS_SEED_MODES), `one of ${SYNTHESIS_SEED_MODES.join(', ')}`],
+// Each setting with a check, how a refusal names what it takes, and what it
+// sets, in the words of the manual's API Reference.
+export const CHECKS = [
+    ['maxLayers', isCount, 'a whole number of 1 or more',
+        'The most layers the design may hold; at the limit the run frees a layer rather than stopping.'],
+    ['maxGeCycles', isCount, 'a whole number of 1 or more',
+        'How many forced steps and freed layers the run may take in all; deepSearch lifts the limit.'],
+    ['refineIter', isCount, 'a whole number of 1 or more',
+        'The refinement each candidate insertion gets, in two passes, the second with half the steps.'],
+    ['threads', isCount, 'a whole number of 1 or more',
+        'How many candidates are refined as one batch; the answer depends on it. Without it, the thread count the app recommends for this computer.'],
+    ['targetMF', v => typeof v === 'number' && v >= 0, 'a merit of 0 or more, or Infinity',
+        'The merit at which the run stops; Infinity stops it at its first accepted step.'],
+    ['dMin', v => Number.isFinite(v) && v > 0, 'a thickness in nm above 0',
+        'The thinnest a layer goes in, and the thickness below which a layer is dropped.'],
+    ['consolidateTol', v => Number.isFinite(v) && v >= 0, 'a relative merit slack of 0 or more',
+        'How much the merit may rise, as a share of it, when consolidate takes a layer out.'],
+    ['deepSearch', isBoolean, 'true or false',
+        'When no step is left, start again from the best design with its thicknesses perturbed, until the target merit or a stop.'],
+    ['smartSeed', isBoolean, 'true or false',
+        'Start from the best of the design and the quarter- and half-wave antireflection designs built from the pool, each refined first.'],
+    ['consolidate', isBoolean, 'true or false', 'At the end, take out each layer whose removal keeps the merit within consolidateTol.'],
+    ['innerEngine', oneOf(SYNTHESIS_INNER_ENGINES), `one of ${SYNTHESIS_INNER_ENGINES.join(', ')}`,
+        'The method that refines the stack between steps.'],
+    ['candidateSearch', oneOf(SYNTHESIS_CAND_MODES), `one of ${SYNTHESIS_CAND_MODES.join(', ')}`,
+        'How many of the improving candidates each step tries before it moves on, trading speed for quality.'],
+    ['sensitivity', oneOf(NEEDLE_SENS_MODES), `one of ${NEEDLE_SENS_MODES.join(', ')}`,
+        'How weak a candidate may be, beside the strongest of its scan, and still be tried; off tries every one.'],
+    ['seedMode', oneOf(SYNTHESIS_SEED_MODES), `one of ${SYNTHESIS_SEED_MODES.join(', ')}`,
+        "How a thick starting design is treated: `'refine'` refines it first, `'preserve-bulk'` keeps its bulk and refines gently after each insertion."],
 ];
 
 function refuse(message) { throw new Error(`Gradual Evolution settings: ${message}`); }

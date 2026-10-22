@@ -25,9 +25,10 @@ export const MAXITER_FOR = { cg: 600, dls: 500, newton: 200, 'newton-cg': 200, s
 // Design History row keeps.
 export const STOCHASTIC_METHODS = new Set(['de', 'sa', 'dls-multi']);
 
-// Multi-start settings a run uses when none are given: restarts, and the
-// ± percentage each restart scales a free thickness by.
-export const DEFAULT_SETTINGS = Object.freeze({ nRestarts: 20, perturbPct: 30 });
+// Multi-start settings a run uses when none are given: restarts, the ±
+// percentage each restart scales a free thickness by, and the workers the
+// multi-start and DE use at once.
+export const DEFAULT_SETTINGS = Object.freeze({ nRestarts: 20, perturbPct: 30, threads: 1 });
 
 // Iteration cap of a one-method run when none is given: the method's natural
 // budget. The run still stops early at convergence.

@@ -82,7 +82,7 @@ ok('an unknown setting is refused', throws(() => planRun({ ...SETTINGS, rounds: 
 ok('an unknown method section is refused', throws(() => planRun({ ...SETTINGS, method: { serach: {} } }), /method/));
 ok('a cap of 0 layers is refused', throws(() => planRun({ ...SETTINGS, maxLayers: 0 }), /maxLayers/));
 ok('a seed of 0 is refused', throws(() => planRun({ ...SETTINGS, seed: 0 }), /seed/));
-ok('a seed above 2^32 - 1 is refused, naming the limit', throws(() => planRun({ ...SETTINGS, seed: 2 ** 32 }), /from 1 to 4294967295/));
+ok('a seed above 2^32 - 1 is refused, naming the limit', throws(() => planRun({ ...SETTINGS, seed: 2 ** 32 }), /from 1 to 2\^32 - 1/));
 for (const [what, method, pattern] of [
     ['a misspelt constant', { search: { roundz: 2 } }, /method.search has no constant 'roundz'/],
     ['a section that is not an object', { search: 5 }, /method.search is an object of rounds/],

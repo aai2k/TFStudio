@@ -68,9 +68,22 @@ function withLayers(design, key, layers) {
 }
 
 /**
- * `design` with a layer of `material`, `thickness` nm, inserted at `index` on
- * `side`, by default after the last layer: next to the substrate on the front,
- * outermost on the back.
+ * A design with a new layer on one side.
+ *
+ * @param design The design.
+ * @param options
+ * @param [options.side='front'] `'front'` or `'back'`.
+ * @param [options.index] Where the layer goes, counted from 0: on the front, 0 is the outermost layer, next to the incident medium; on the back, 0 is the layer on the substrate. Without it, after the last layer: next to the substrate on the front, outermost on the back.
+ * @param options.material The layer's material, by id.
+ * @param options.thickness The layer's physical thickness, nm.
+ * @param [options.locked=false] Lock the layer, so that refinement and synthesis leave it as it is.
+ * @returns The design with the layer.
+ * @throws a side the Design Editor does not let you edit: the back of a symmetric design, which mirrors the front, or the side a one-sided design scored on its side alone does not evaluate
+ * @throws an index outside the side's layers
+ * @throws a material id that resolves to nothing, naming the closest ids
+ * @example
+ * tf.design = tf.insertLayer(tf.design, { material: 'SiO2', thickness: 95, index: 0 });
+ * console.log(tf.design.frontLayers.map(l => `${l.material} ${l.thickness}`).join(', '));
  */
 export function insertLayer(design, options) {
     const { side = 'front', index, material, thickness, locked = false } =
@@ -86,7 +99,20 @@ export function insertLayer(design, options) {
     return withLayers(design, key, [...layers.slice(0, at), layer, ...layers.slice(at)]);
 }
 
-/** `design` without the layer at `index` on `side`. */
+/**
+ * A design without one of its layers.
+ *
+ * @param design The design.
+ * @param options
+ * @param [options.side='front'] `'front'` or `'back'`.
+ * @param options.index The layer's index on its side, counted as `insertLayer` counts it.
+ * @returns The design without the layer.
+ * @throws a side the Design Editor does not let you edit, as for `insertLayer`
+ * @throws an index outside the side's layers
+ * @example
+ * tf.design = tf.deleteLayer(tf.design, { index: 0 });
+ * console.log(tf.design.frontLayers.length, 'layers on the front');
+ */
 export function deleteLayer(design, options) {
     const { side = 'front', index } = checkOptions('deleteLayer', options, ['side', 'index']);
     const key = openSideKey('deleteLayer', design, side);
@@ -95,7 +121,24 @@ export function deleteLayer(design, options) {
     return withLayers(design, key, layers.filter((_, i) => i !== index));
 }
 
-/** `design` with the layer at `index` on `side` given any of a new `material`, `thickness` and `locked`. */
+/**
+ * A design with one layer's material, thickness or lock changed.
+ *
+ * @param design The design.
+ * @param options
+ * @param [options.side='front'] `'front'` or `'back'`.
+ * @param options.index The layer's index on its side, counted as `insertLayer` counts it.
+ * @param [options.material] The new material, by id.
+ * @param [options.thickness] The new physical thickness, nm.
+ * @param [options.locked] `true` locks the layer, `false` frees it.
+ * @returns The design with the layer changed.
+ * @throws a side the Design Editor does not let you edit, as for `insertLayer`
+ * @throws an index outside the side's layers
+ * @throws a material id that resolves to nothing, naming the closest ids
+ * @example
+ * tf.design = tf.setLayer(tf.design, { index: 0, thickness: 100, locked: true });
+ * console.log(tf.design.frontLayers[0]);
+ */
 export function setLayer(design, options) {
     const { side = 'front', index, material, thickness, locked } =
         checkOptions('setLayer', options, ['side', 'index', 'material', 'thickness', 'locked']);
@@ -115,19 +158,33 @@ export function setLayer(design, options) {
 }
 
 /**
- * `design` with the stack of `side` replaced by the layers a stack formula
- * builds, as the Stack Formula dialog's Replace builds them
- * (stackFormula/designBuild.js): `formula` such as '(HL)^5 H', quarter waves at
- * `referenceWavelength` nm (the design's own by default, recorded on the
- * design), `symbols` naming each letter's material (H TiO2 and L SiO2 when not
- * given), read from the substrate outward unless `startFromSubstrate` is
- * false, as the dialog reads it by default. The media are the design's, as the
- * dialog's media fields start; a formula that names media ('Air | H L | BK7')
- * is refused, and setDesignSetup changes them. Filling a side a one-sided
- * design does not evaluate makes the design two-sided, as the dialog does; a
- * symmetric design takes the front.
+ * A design with the layers of one side replaced by those a
+ * [stack formula](/design/stack-formula/) builds, as the Stack Formula
+ * dialog's Replace builds them. Each letter is a quarter wave at the reference
+ * wavelength, so `'(HL)^5 H'` is eleven quarter-wave layers. Filling a side a
+ * one-sided design does not evaluate makes the design two-sided, as the dialog
+ * does.
+ *
+ * @param design The design.
+ * @param options
+ * @param options.formula The layers alone, such as `'(HL)^5 H'`; the media stay the design's.
+ * @param [options.side='front'] `'front'` or `'back'`; a symmetric design takes the front.
+ * @param [options.symbols] The material of each letter, by id, such as `{ H: 'Ta2O5', L: 'SiO2' }`. A letter left out is H TiO2, L SiO2 or M Al2O3.
+ * @param [options.referenceWavelength] The wavelength, nm, the quarter waves are counted at, which the design then keeps. Without it, the design's own.
+ * @param [options.startFromSubstrate=true] The formula's first letter is the layer on the substrate; false makes it the layer next to the incident medium.
+ * @returns The design with the new layers.
+ * @throws a formula that does not read, saying where the reading stopped
+ * @throws a formula that names media, such as `'Air | H L | BK7'`; `setDesignSetup` sets them
+ * @throws a letter in `symbols` the formula does not use
+ * @throws the back of a symmetric design
+ * @throws a material id that resolves to nothing, naming the closest ids
+ * @example
+ * tf.design = tf.stackFromFormula(tf.design, { formula: '(HL)^3 H', symbols: { H: 'Ta2O5', L: 'SiO2' } });
+ * console.log(tf.design.frontLayers.length, 'layers');
  */
 export function stackFromFormula(design, options) {
+    // As the dialog's Replace (stackFormula/designBuild.js), with the media
+    // the dialog's media fields start from: the design's.
     const {
         side = 'front', formula, symbols = {}, referenceWavelength = design.referenceWavelength ?? 550,
         startFromSubstrate = DEFAULT_START_FROM_SUBSTRATE,

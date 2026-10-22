@@ -73,16 +73,44 @@ function bandProblem(op) {
 }
 
 /**
- * `design` with its merit function made of `rows`: each an operand row with
- * at least `type`, the other fields defaulting as a row added in the editor
- * does (meritOperandModel.js makeRowOperand: an MNT or MXT row covers layers 1
- * to 1000, counted from the substrate), e.g. { type: 'RAV', lambdaStart: 400,
- * lambdaEnd: 700, target: 0, weight: 1 }. Targets for T, R and A are fractions
- * of 1. A type this build does not evaluate, a field no operand of this build
- * has (a misspelling, or a field a newer release wrote), or a value a field
- * cannot take is refused, naming what it takes.
+ * A design with its merit function replaced by the rows given, as the
+ * [Merit Function Editor](/design/merit-function-editor/) holds them. Each row
+ * is an operand of the [Operand Reference](/design/operands/), which says what
+ * each one computes and which fields it reads. A field a row leaves out takes
+ * the value a row added in the editor starts with; an MNT or MXT row covers
+ * layers 1 to 1000, counted from the substrate.
+ *
+ * @param design The design.
+ * @param rows The rows, in order, each an object with at least a `type`.
+ * @param rows[].type The operand, such as `'RAV'` or `'MNT'`.
+ * @param [rows[].lambdaStart] The wavelength, or the first wavelength of the band, nm; for MNT and MXT the first layer.
+ * @param [rows[].lambdaEnd] The last wavelength of the band, nm; for MNT and MXT the last layer.
+ * @param [rows[].aoi] The angle of incidence, degrees in the incident medium.
+ * @param [rows[].pol] `'avg'`, `'s'` or `'p'`.
+ * @param [rows[].target] The value the row drives toward, or its bound, in the row's unit: R, T and A as fractions of 1, where the editor shows percent; a thickness in nm for MNT and MXT.
+ * @param [rows[].targetEnd] The target at `lambdaEnd` of a spectral target that slopes, or null for a flat one.
+ * @param [rows[].weight] How much the row counts, 0 or more.
+ * @param [rows[].cmp] For TT and STR, the comparison: `'eq'`, `'le'` or `'ge'`.
+ * @param [rows[].flag] The editor's Flag column, a whole number; the Operand Reference says what it does on each row.
+ * @param [rows[].enabled=true] `false` leaves the row out of the merit.
+ * @param [rows[].id] A name for the row, which a math row gives in `refId`, `refId1` or `refId2` to read it.
+ * @param [rows[].refId] For a math row that reads one row, that row's `id`; `refId1` and `refId2` for one that reads two.
+ * @param [rows[].comment] The text of a BLNK row.
+ * @returns The design with the merit function, which it holds in `meritOperands`.
+ * @throws a type this version does not evaluate
+ * @throws a field no row has, such as a misspelling, or a value a field cannot take
+ * @throws a `lambdaStart` above `lambdaEnd` on a row that reads a band or a layer range
+ * @example
+ * tf.design = tf.setMerit(tf.design, [
+ *     { type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, weight: 1 },
+ *     { type: 'MNT', target: 10, weight: 1 },
+ * ]);
+ * console.log('Merit:', tf.merit(tf.design).total);
  */
 export function setMerit(design, rows) {
+    // Rows are made as the editor makes them (meritOperandModel.js
+    // makeRowOperand). The fields of the curve and integral rows the app
+    // writes are taken too (ROW_FIELDS).
     if (!Array.isArray(rows)) throw new Error('setMerit: rows is a list of operand rows');
     const operands = rows.map((row, i) => {
         const problem = rowProblem(row);
@@ -123,14 +151,30 @@ function rowScope(op) {
 }
 
 /**
- * The merit of `design` against its merit function, as the Merit Function
- * Editor shows it: { total, optical (the merit without the manufacturing rows
- * MNT, MXT, TT and STR), rows: [{ type, ...scope, value, target, weight,
- * enabled, error }] }, the scope of a row being what it scores: lambdaStart,
- * lambdaEnd for a band, aoi and pol for an optical row (no pol for a row
- * scored on both polarizations); the layer range lambdaStart to lambdaEnd for
- * MNT and MXT; cmp for TT and STR. total and optical are null while a row
- * cannot be evaluated; that row's `error` says why.
+ * The merit of a design against its merit function, the total and each row,
+ * as the Merit Function Editor shows them.
+ *
+ * @param design The design.
+ * @returns The merit.
+ * @property total The merit function, or null while a row cannot be evaluated.
+ * @property optical The merit without the manufacturing rows MNT, MXT, TT and STR, or null as `total`.
+ * @property rows One per row of the merit function, in order.
+ * @property rows[].type The operand.
+ * @property rows[].lambdaStart The row's wavelength, or the first wavelength of its band, nm; the first layer for MNT and MXT. Absent on a row that reads none.
+ * @property rows[].lambdaEnd The last wavelength of the band, nm, on a row that reads a band; the last layer for MNT and MXT.
+ * @property rows[].aoi The angle of incidence, on a row that reads one.
+ * @property rows[].pol The polarization the row is scored in; absent on a row scored on both, such as PSI or DPR.
+ * @property rows[].cmp For TT and STR, the comparison.
+ * @property rows[].value The row's value for the design as it is.
+ * @property rows[].target The row's target.
+ * @property rows[].weight The row's weight.
+ * @property rows[].enabled `false` for a row left out of the merit.
+ * @property rows[].error Why the row cannot be evaluated, or null.
+ * @throws a design that names a material that resolves to nothing
+ * @example
+ * const m = tf.merit(tf.design);
+ * console.log('Merit:', m.total);
+ * for (const row of m.rows) console.log(row.type, row.value, row.target);
  */
 export function merit(design) {
     requireResolved(design);

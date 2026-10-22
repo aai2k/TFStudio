@@ -1,0 +1,1206 @@
+{
+  "openDesign.lead.1": {
+    "hash": "93726539",
+    "text": "从 .tfs 文件读取设计，读取方式与应用中的“打开”相同，带有同样的检查和修复。没有自己名称的设计以文件名为名称。"
+  },
+  "openDesign.param.filePath": {
+    "hash": "2631c860",
+    "text": ".tfs 文件，用完整路径给出。"
+  },
+  "openDesign.returns": {
+    "hash": "f991c80e",
+    "text": "设计：`newDesign` 返回的字段，以及文件中另外保存的内容，例如 `meritOperands` 中的评价函数。"
+  },
+  "openDesign.throws.1": {
+    "hash": "4e976c1b",
+    "text": "无法读取或不含可用设计的文件"
+  },
+  "saveDesign.lead.1": {
+    "hash": "e90d8a51",
+    "text": "按应用保存的方式把设计写入 .tfs 文件，设计所用的非内置材料一并写入文件。"
+  },
+  "saveDesign.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "saveDesign.param.filePath": {
+    "hash": "24d7e7d5",
+    "text": "要写入的文件，用完整路径给出。"
+  },
+  "saveDesign.param.options.overwrite": {
+    "hash": "d8c14312",
+    "text": "覆盖已存在的文件。"
+  },
+  "saveDesign.throws.1": {
+    "hash": "537828ce",
+    "text": "已存在的文件，未给出 `overwrite` 时"
+  },
+  "newDesign.lead.1": {
+    "hash": "89bd35e3",
+    "text": "按应用新建设计的方式创建一个新设计：没有膜层的裸基底，并可修改下列任意设置。"
+  },
+  "newDesign.param.options.name": {
+    "hash": "0b7c1bfc",
+    "text": "设计的名称。"
+  },
+  "newDesign.param.options.incidentMedium": {
+    "hash": "d91e106e",
+    "text": "光入射一侧的介质，用材料 id 给出。"
+  },
+  "newDesign.param.options.exitMedium": {
+    "hash": "e37c66b1",
+    "text": "基底后面的介质，用材料 id 给出。"
+  },
+  "newDesign.param.options.substrate": {
+    "hash": "6eef1e44",
+    "text": "基底材料，用 id 给出。"
+  },
+  "newDesign.param.options.substrateThicknessMm": {
+    "hash": "0e0c2ab4",
+    "text": "基底厚度，单位 mm。"
+  },
+  "newDesign.param.options.surfaceMode": {
+    "hash": "8296119a",
+    "text": "哪些面带有膜层：`'front_only'`、`'back_only'`、`'both_independent'`，或 `'symmetric'`（背面是正面的镜像）。[表面与评估模式](/design/evaluation-modes/)页面对它们有说明。"
+  },
+  "newDesign.param.options.mfEvalMode": {
+    "hash": "d0b92966",
+    "text": "单面设计如何评估：`'side'` 只评估镀膜的一面，`'total'` 评估整个元件。"
+  },
+  "newDesign.param.options.referenceWavelength": {
+    "hash": "df46f411",
+    "text": "参考波长，单位 nm，堆栈公式在此波长计算四分之一波。"
+  },
+  "newDesign.returns": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "newDesign.property.id": {
+    "hash": "e4920b50",
+    "text": "设计自己的 id。"
+  },
+  "newDesign.property.name": {
+    "hash": "d0c2f83e",
+    "text": "设计的名称。"
+  },
+  "newDesign.property.incidentMedium": {
+    "hash": "d91e106e",
+    "text": "光入射一侧的介质，用材料 id 表示。"
+  },
+  "newDesign.property.exitMedium": {
+    "hash": "e37c66b1",
+    "text": "基底后面的介质，用材料 id 表示。"
+  },
+  "newDesign.property.substrate": {
+    "hash": "828b77a5",
+    "text": "`{ material, thickness }`，厚度单位为 mm。"
+  },
+  "newDesign.property.surfaceMode": {
+    "hash": "d56c0a46",
+    "text": "哪些面带有膜层。"
+  },
+  "newDesign.property.mfEvalMode": {
+    "hash": "65606e93",
+    "text": "单面设计如何评估。"
+  },
+  "newDesign.property.referenceWavelength": {
+    "hash": "5acf5370",
+    "text": "参考波长，单位 nm。"
+  },
+  "newDesign.property.frontLayers": {
+    "hash": "03436654",
+    "text": "正面的膜层，最外层在前，每层为 `{ id, material, thickness, locked }`，厚度单位为 nm。"
+  },
+  "newDesign.property.backLayers": {
+    "hash": "2c6cdc29",
+    "text": "背面的膜层，紧贴基底的一层在前。"
+  },
+  "newDesign.property.notes": {
+    "hash": "3b93d568",
+    "text": "设计的备注，文本。"
+  },
+  "newDesign.throws.1": {
+    "hash": "4fb35937",
+    "text": "找不到对应材料的材料 id，并给出最接近的几个 id"
+  },
+  "setDesignSetup.lead.1": {
+    "hash": "a5223834",
+    "text": "修改了 `newDesign` 所接受的任意设置的设计。新的参考波长会重新缩放每一层，保持其四分之一波数不变，与在设计编辑器中修改 λ₀ 时一样；改为对称的设计以正面的镜像作为背面。"
+  },
+  "setDesignSetup.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "setDesignSetup.param.options": {
+    "hash": "cd19afc2",
+    "text": "`newDesign` 的任意选项。"
+  },
+  "setDesignSetup.returns": {
+    "hash": "a21f1329",
+    "text": "修改后的设计。"
+  },
+  "setDesignSetup.throws.1": {
+    "hash": "4fb35937",
+    "text": "找不到对应材料的材料 id，并给出最接近的几个 id"
+  },
+  "insertLayer.lead.1": {
+    "hash": "49d88e6b",
+    "text": "在一面上新增一层后的设计。"
+  },
+  "insertLayer.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "insertLayer.param.options.side": {
+    "hash": "2b6164ed",
+    "text": "`'front'` 或 `'back'`。"
+  },
+  "insertLayer.param.options.index": {
+    "hash": "54f17740",
+    "text": "新层的位置，从 0 计数：在正面，0 是最外层，紧邻入射介质；在背面，0 是紧贴基底的一层。不给出时放在最后一层之后：在正面紧邻基底，在背面为最外层。"
+  },
+  "insertLayer.param.options.material": {
+    "hash": "6469e1ae",
+    "text": "该层的材料，用 id 给出。"
+  },
+  "insertLayer.param.options.thickness": {
+    "hash": "0f64c793",
+    "text": "该层的物理厚度，单位 nm。"
+  },
+  "insertLayer.param.options.locked": {
+    "hash": "1e067dba",
+    "text": "锁定该层，使精炼和合成不改变它。"
+  },
+  "insertLayer.returns": {
+    "hash": "39f8551a",
+    "text": "加入该层后的设计。"
+  },
+  "insertLayer.throws.1": {
+    "hash": "e058b38b",
+    "text": "设计编辑器不允许编辑的一面：对称设计的背面（它是正面的镜像），或只评估镀膜一面的单面设计所不评估的那一面"
+  },
+  "insertLayer.throws.2": {
+    "hash": "627f11b2",
+    "text": "超出该面膜层范围的序号"
+  },
+  "insertLayer.throws.3": {
+    "hash": "4fb35937",
+    "text": "找不到对应材料的材料 id，并给出最接近的几个 id"
+  },
+  "deleteLayer.lead.1": {
+    "hash": "9deaa831",
+    "text": "删除其中一层后的设计。"
+  },
+  "deleteLayer.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "deleteLayer.param.options.side": {
+    "hash": "2b6164ed",
+    "text": "`'front'` 或 `'back'`。"
+  },
+  "deleteLayer.param.options.index": {
+    "hash": "8a5ee5c6",
+    "text": "该层在其所在面上的序号，计数方式与 `insertLayer` 相同。"
+  },
+  "deleteLayer.returns": {
+    "hash": "5e578443",
+    "text": "删除该层后的设计。"
+  },
+  "deleteLayer.throws.1": {
+    "hash": "20a411e8",
+    "text": "设计编辑器不允许编辑的一面，与 `insertLayer` 相同"
+  },
+  "deleteLayer.throws.2": {
+    "hash": "627f11b2",
+    "text": "超出该面膜层范围的序号"
+  },
+  "setLayer.lead.1": {
+    "hash": "8cb65205",
+    "text": "修改了某一层的材料、厚度或锁定状态的设计。"
+  },
+  "setLayer.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "setLayer.param.options.side": {
+    "hash": "2b6164ed",
+    "text": "`'front'` 或 `'back'`。"
+  },
+  "setLayer.param.options.index": {
+    "hash": "8a5ee5c6",
+    "text": "该层在其所在面上的序号，计数方式与 `insertLayer` 相同。"
+  },
+  "setLayer.param.options.material": {
+    "hash": "d6d26e26",
+    "text": "新的材料，用 id 给出。"
+  },
+  "setLayer.param.options.thickness": {
+    "hash": "69084426",
+    "text": "新的物理厚度，单位 nm。"
+  },
+  "setLayer.param.options.locked": {
+    "hash": "41e72ffe",
+    "text": "`true` 锁定该层，`false` 解锁。"
+  },
+  "setLayer.returns": {
+    "hash": "9d38eaf7",
+    "text": "修改该层后的设计。"
+  },
+  "setLayer.throws.1": {
+    "hash": "20a411e8",
+    "text": "设计编辑器不允许编辑的一面，与 `insertLayer` 相同"
+  },
+  "setLayer.throws.2": {
+    "hash": "627f11b2",
+    "text": "超出该面膜层范围的序号"
+  },
+  "setLayer.throws.3": {
+    "hash": "4fb35937",
+    "text": "找不到对应材料的材料 id，并给出最接近的几个 id"
+  },
+  "stackFromFormula.lead.1": {
+    "hash": "c7692cfb",
+    "text": "把一面的膜层替换为[堆栈公式](/design/stack-formula/)所生成膜层的设计，生成方式与堆栈公式对话框中的“替换”相同。每个字母是参考波长处的一个四分之一波，因此 `'(HL)^5 H'` 是 11 个四分之一波层。填充单面设计不评估的那一面会使设计变为双面，与该对话框的做法相同。"
+  },
+  "stackFromFormula.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "stackFromFormula.param.options.formula": {
+    "hash": "52d7e502",
+    "text": "只写膜层，例如 `'(HL)^5 H'`；介质保持设计原有的。"
+  },
+  "stackFromFormula.param.options.side": {
+    "hash": "91cb853f",
+    "text": "`'front'` 或 `'back'`；对称设计取正面。"
+  },
+  "stackFromFormula.param.options.symbols": {
+    "hash": "3805e738",
+    "text": "每个字母对应的材料，用 id 给出，例如 `{ H: 'Ta2O5', L: 'SiO2' }`。未给出的字母为：H 是 TiO2，L 是 SiO2，M 是 Al2O3。"
+  },
+  "stackFromFormula.param.options.referenceWavelength": {
+    "hash": "1ffa5b16",
+    "text": "计算四分之一波所用的波长，单位 nm，设计随后保留这一波长。不给出时用设计自己的参考波长。"
+  },
+  "stackFromFormula.param.options.startFromSubstrate": {
+    "hash": "f1f3168b",
+    "text": "公式的第一个字母是紧贴基底的一层；为 false 时它是紧邻入射介质的一层。"
+  },
+  "stackFromFormula.returns": {
+    "hash": "1c92d583",
+    "text": "带有新膜层的设计。"
+  },
+  "stackFromFormula.throws.1": {
+    "hash": "ad2cb5de",
+    "text": "无法解析的公式，并指出解析停止的位置"
+  },
+  "stackFromFormula.throws.2": {
+    "hash": "bba4b0ee",
+    "text": "写出了介质的公式，例如 `'Air | H L | BK7'`；介质由 `setDesignSetup` 设置"
+  },
+  "stackFromFormula.throws.3": {
+    "hash": "dac7c8ec",
+    "text": "`symbols` 中公式未用到的字母"
+  },
+  "stackFromFormula.throws.4": {
+    "hash": "e6768f7e",
+    "text": "对称设计的背面"
+  },
+  "stackFromFormula.throws.5": {
+    "hash": "4fb35937",
+    "text": "找不到对应材料的材料 id，并给出最接近的几个 id"
+  },
+  "findMaterials.lead.1": {
+    "hash": "188e03d2",
+    "text": "id 或名称中包含所给文本（不区分大小写）的材料：内置材料，以及数据文件夹中各材料目录里的材料。"
+  },
+  "findMaterials.param.query": {
+    "hash": "3c6fdda9",
+    "text": "要查找的文本；为空时找出所有材料。"
+  },
+  "findMaterials.returns": {
+    "hash": "4b5c20a7",
+    "text": "找到的材料，一个列表，每项包含下列字段。"
+  },
+  "findMaterials.property.id": {
+    "hash": "36b678f6",
+    "text": "设计和调用用来指代该材料的 id：内置材料为其自身名称，其他目录的材料为 `catalog:key`，其中 `key` 是目录存放该材料所用的键，不一定是它的名称；请使用本调用返回的 id。"
+  },
+  "findMaterials.property.name": {
+    "hash": "d36a4769",
+    "text": "应用中显示的名称。"
+  },
+  "findMaterials.property.catalog": {
+    "hash": "1ad16ac4",
+    "text": "材料所在的目录，内置材料为 `'builtin'`。"
+  },
+  "materialNK.lead.1": {
+    "hash": "76e77dff",
+    "text": "材料在所给波长处的 n 和 k，与[材料色散](/analysis/material-dispersion/)窗口显示的相同。"
+  },
+  "materialNK.param.id": {
+    "hash": "a05d88a0",
+    "text": "材料，用 id 给出。"
+  },
+  "materialNK.param.wavelengths": {
+    "hash": "109993b7",
+    "text": "波长列表，单位 nm。"
+  },
+  "materialNK.param.design": {
+    "hash": "b496b204",
+    "text": "一个设计，使它自带的材料副本像该设计计算时一样起作用：先用材料目录；只有没有目录包含该材料，或副本来自另一个目录且 n、k 不同时，才用设计中的副本。"
+  },
+  "materialNK.returns": {
+    "hash": "a6399d9f",
+    "text": "该材料的 n 和 k。"
+  },
+  "materialNK.property.id": {
+    "hash": "a4f2121d",
+    "text": "材料的 id。"
+  },
+  "materialNK.property.rangeNm": {
+    "hash": "e4b9cb24",
+    "text": "其数据覆盖的范围，`[first, last]`，单位 nm；材料未给出范围时为 null。"
+  },
+  "materialNK.property.nk": {
+    "hash": "04c8ab71",
+    "text": "每个波长一项，`{ wavelength, n, k }`；波长在 `rangeNm` 之外时带有 `outside: true`，此时 n 和 k 保持边界值或由外推得到。"
+  },
+  "materialNK.throws.1": {
+    "hash": "4fb35937",
+    "text": "找不到对应材料的材料 id，并给出最接近的几个 id"
+  },
+  "spectrum.lead.1": {
+    "hash": "df3ada3f",
+    "text": "设计在一段波长范围内的 R、T 和 A，包括非偏振光以及 s 和 p 偏振，计算方式与[光学评估](/analysis/optical-evaluation/)窗口相同。评估哪些面遵循设计的[表面与评估模式](/design/evaluation-modes/)，处于入射角锥中的设计在其角锥上取平均。"
+  },
+  "spectrum.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "spectrum.param.options.from": {
+    "hash": "115f61f2",
+    "text": "第一个波长，单位 nm。"
+  },
+  "spectrum.param.options.to": {
+    "hash": "95898c43",
+    "text": "最后一个波长，单位 nm，大于 `from`。"
+  },
+  "spectrum.param.options.step": {
+    "hash": "078399d3",
+    "text": "波长步长，单位 nm。"
+  },
+  "spectrum.param.options.angles": {
+    "hash": "37d4294f",
+    "text": "入射角列表，单位为入射介质中的度数，每个都从 0 起、小于 90。"
+  },
+  "spectrum.returns": {
+    "hash": "58b2f209",
+    "text": "光谱。"
+  },
+  "spectrum.property.evalMode": {
+    "hash": "efc65a00",
+    "text": "设计的评估方式：`'front'`、`'back'` 或 `'total'`。"
+  },
+  "spectrum.property.lambda": {
+    "hash": "f86617c1",
+    "text": "波长，单位 nm。"
+  },
+  "spectrum.property.angles": {
+    "hash": "68730dae",
+    "text": "按所要求的每个角度的值给出：非偏振光的列表 `R`、`T` 和 `A`，以及 s 和 p 的 `Rs`、`Rp`、`Ts`、`Tp`、`As` 和 `Ap`，每个波长一个值，用 0 到 1 之间的小数表示。"
+  },
+  "spectrum.property.outOfRange": {
+    "hash": "9dc88b55",
+    "text": "数据在该范围内就结束的材料，每项为 `{ id, name, rangeNm, heldFlat }`：在 `rangeNm` 之外，它们的 n 和 k 保持最后一个值（`heldFlat` 为 `true`）或由外推得到。"
+  },
+  "spectrum.throws.1": {
+    "hash": "cefbf1ab",
+    "text": "设计中含有找不到对应材料的材料"
+  },
+  "spectrum.throws.2": {
+    "hash": "742377d8",
+    "text": "点数（波长数乘以角度数）超过一次调用能计算的数量；拒绝信息会给出上限"
+  },
+  "summarize.lead.1": {
+    "hash": "4afd5c38",
+    "text": "光谱中每个量的均值、最低值和最高值，以及每个极值所在的波长，在整个范围上和所给的每个波段上分别计算。"
+  },
+  "summarize.param.result": {
+    "hash": "35f57e90",
+    "text": "光谱，即 `spectrum` 的返回值。"
+  },
+  "summarize.param.options.bands": {
+    "hash": "a2889515",
+    "text": "波段列表，每个为 `{ from, to }`，单位 nm。"
+  },
+  "summarize.returns": {
+    "hash": "864b2038",
+    "text": "按光谱的每个角度的值给出一个列表：先是整个范围，然后按所给顺序是每个波段，每项包含下列字段。"
+  },
+  "summarize.property.from": {
+    "hash": "8a5c487a",
+    "text": "波段的第一个波长，单位 nm。"
+  },
+  "summarize.property.to": {
+    "hash": "9266d240",
+    "text": "波段的最后一个波长，单位 nm。"
+  },
+  "summarize.property.R": {
+    "hash": "5fe3b27c",
+    "text": "对于 `R`，以及同样对于 `T`、`A`、`Rs`、`Rp`、`Ts`、`Tp`、`As` 和 `Ap`：`{ mean, min, minAt, max, maxAt }`，其中 `minAt` 和 `maxAt` 单位为 nm；光谱中没有波长落在该波段内时为 null。"
+  },
+  "monteCarlo.lead.1": {
+    "hash": "8d396c33",
+    "text": "对设计做带随机膜层误差的蒙特卡洛试验，方式与[蒙特卡洛](/analysis/error-analysis/)窗口相同：得到一个量在一段波长范围内的分散程度。设计带有[规格说明](/design/specification/)时，还会统计满足规格的试验所占的比例。"
+  },
+  "monteCarlo.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "monteCarlo.param.options.from": {
+    "hash": "115f61f2",
+    "text": "第一个波长，单位 nm。"
+  },
+  "monteCarlo.param.options.to": {
+    "hash": "95898c43",
+    "text": "最后一个波长，单位 nm，大于 `from`。"
+  },
+  "monteCarlo.param.options.step": {
+    "hash": "078399d3",
+    "text": "波长步长，单位 nm。"
+  },
+  "monteCarlo.param.options.quantity": {
+    "hash": "68666742",
+    "text": "`'R'`、`'T'` 或 `'A'`。"
+  },
+  "monteCarlo.param.options.angle": {
+    "hash": "686e8b44",
+    "text": "入射角，单位为入射介质中的度数，从 0 起、小于 90。"
+  },
+  "monteCarlo.param.options.polarization": {
+    "hash": "dfbe97e8",
+    "text": "`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "monteCarlo.param.options.runs": {
+    "hash": "e27ea065",
+    "text": "试验次数，不小于 1 的整数。"
+  },
+  "monteCarlo.param.options.thicknessRelPct": {
+    "hash": "79e497b1",
+    "text": "厚度误差，以每层厚度的 % 计。"
+  },
+  "monteCarlo.param.options.thicknessAbsNm": {
+    "hash": "59f6063e",
+    "text": "以 nm 计的厚度误差，加到每一层的厚度误差上。"
+  },
+  "monteCarlo.param.options.indexRe": {
+    "hash": "8aa8a5ea",
+    "text": "n 的误差，一个绝对量：每层的 n 在所有波长上都移动同一个抽样值。用 `'gaussian'` 时它是一个标准差，用 `'uniform'` 和 `'truncated'` 时它是边界。"
+  },
+  "monteCarlo.param.options.indexIm": {
+    "hash": "80ec8e9e",
+    "text": "k 的误差，含义与 `indexRe` 对 n 的相同；k 不会小于 0，因此在 k = 0 的层上，该误差只会增加吸收。"
+  },
+  "monteCarlo.param.options.distribution": {
+    "hash": "5c1d66b4",
+    "text": "误差的抽样方式：`'gaussian'`，每个误差值是一个标准差；`'uniform'`，硬性边界，边界内每个值的可能性相同；`'truncated'`，在三个标准差处的硬性边界。"
+  },
+  "monteCarlo.param.options.seed": {
+    "hash": "5acabb2b",
+    "text": "抽样开始所用的数值，从 1 到 2^32 - 1 的整数；相同的种子和选项会重复同一次运行。不给出或为 null 时取一个新种子，结果中会给出它。"
+  },
+  "monteCarlo.param.hooks.signal": {
+    "hash": "df8c897b",
+    "text": "一个 AbortSignal，在两次试验之间检查；停止的运行返回已完成的试验。"
+  },
+  "monteCarlo.param.hooks.onProgress": {
+    "hash": "661de37c",
+    "text": "每次试验后调用，参数为 `{ trial, total }`。"
+  },
+  "monteCarlo.returns": {
+    "hash": "c2e476ea",
+    "text": "结果的 Promise。"
+  },
+  "monteCarlo.property.lambda": {
+    "hash": "f86617c1",
+    "text": "波长，单位 nm。"
+  },
+  "monteCarlo.property.theory": {
+    "hash": "b49a5ded",
+    "text": "设计无误差时的该量。"
+  },
+  "monteCarlo.property.mean": {
+    "hash": "ad8557e0",
+    "text": "所有试验的均值。"
+  },
+  "monteCarlo.property.stdev": {
+    "hash": "1ec592cc",
+    "text": "所有试验的标准差。"
+  },
+  "monteCarlo.property.lower": {
+    "hash": "dfb80ed9",
+    "text": "均值减一个标准差，最小为 0。"
+  },
+  "monteCarlo.property.upper": {
+    "hash": "fe121b09",
+    "text": "均值加一个标准差，最大为 1。"
+  },
+  "monteCarlo.property.envLower": {
+    "hash": "554242e1",
+    "text": "所有试验中的最低值。"
+  },
+  "monteCarlo.property.envUpper": {
+    "hash": "67afdda3",
+    "text": "所有试验中的最高值。"
+  },
+  "monteCarlo.property.nTrials": {
+    "hash": "306d0333",
+    "text": "已运行的试验次数。"
+  },
+  "monteCarlo.property.char": {
+    "hash": "28d0de2a",
+    "text": "所研究的量，`'R'`、`'T'` 或 `'A'`。"
+  },
+  "monteCarlo.property.seed": {
+    "hash": "76fe77af",
+    "text": "抽样开始所用的种子。"
+  },
+  "monteCarlo.property.settings": {
+    "hash": "d53dc6c1",
+    "text": "运行所用的误差值、分布、角度和偏振。"
+  },
+  "monteCarlo.property.spec": {
+    "hash": "7ede7b1b",
+    "text": "带有规格说明时为 `{ yield, passCount, evaluated, yieldInterval }`：满足规格的试验比例、满足的次数、检查的次数，以及该比例的 95% 区间；没有规格说明时为 null。"
+  },
+  "monteCarlo.property.trials": {
+    "hash": "152965e0",
+    "text": "`null`：不保留各次试验本身。"
+  },
+  "monteCarlo.throws.1": {
+    "hash": "3a02ada7",
+    "text": "在其评估的一面上没有可供试验改变的膜层的设计"
+  },
+  "monteCarlo.throws.2": {
+    "hash": "cefbf1ab",
+    "text": "设计中含有找不到对应材料的材料"
+  },
+  "layerSensitivity.lead.1": {
+    "hash": "4abbadb4",
+    "text": "每层厚度出现偏差时评价函数变化多少，排序方式与[层灵敏度](/analysis/layer-sensitivity/)窗口相同：每层分别加厚和减薄一个步长，评价函数变化的平均值就是它的得分。这里的评价函数不计入 MNT 和 MXT 行。"
+  },
+  "layerSensitivity.param.design": {
+    "hash": "4013841f",
+    "text": "设计；它需要有评价函数。"
+  },
+  "layerSensitivity.param.options.mode": {
+    "hash": "9ac35833",
+    "text": "`'absolute'`，步长为 `deltaNm`；或 `'relative'`，步长为每层厚度的 `relPct` %。"
+  },
+  "layerSensitivity.param.options.deltaNm": {
+    "hash": "c27277d7",
+    "text": "步长，单位 nm，用于 `'absolute'` 模式。"
+  },
+  "layerSensitivity.param.options.relPct": {
+    "hash": "5d29a06d",
+    "text": "步长，以每层厚度的 % 计，用于 `'relative'` 模式。"
+  },
+  "layerSensitivity.param.options.includeLocked": {
+    "hash": "b052f821",
+    "text": "也为锁定的层评分。"
+  },
+  "layerSensitivity.returns": {
+    "hash": "af3ab4a6",
+    "text": "排序结果。"
+  },
+  "layerSensitivity.property.rows": {
+    "hash": "352b8dc6",
+    "text": "每个被评分的层一项，正面在前。"
+  },
+  "layerSensitivity.property.rows[].index": {
+    "hash": "d4181c4a",
+    "text": "该层在评分的层中的位置，从 0 计数。"
+  },
+  "layerSensitivity.property.rows[].side": {
+    "hash": "2b6164ed",
+    "text": "`'front'` 或 `'back'`。"
+  },
+  "layerSensitivity.property.rows[].layerIndex": {
+    "hash": "6aae6614",
+    "text": "该层在其所在面上的序号。"
+  },
+  "layerSensitivity.property.rows[].materialId": {
+    "hash": "f27a1562",
+    "text": "该层的材料。"
+  },
+  "layerSensitivity.property.rows[].thickness": {
+    "hash": "20795215",
+    "text": "该层的厚度，单位 nm。"
+  },
+  "layerSensitivity.property.rows[].deltaNm": {
+    "hash": "985e3ff5",
+    "text": "所用的步长，单位 nm。"
+  },
+  "layerSensitivity.property.rows[].deltaMFAbs": {
+    "hash": "04338512",
+    "text": "两个步长下评价函数变化的平均值。"
+  },
+  "layerSensitivity.property.rows[].deltaMF": {
+    "hash": "d1436e95",
+    "text": "同一个值，加厚的代价更大时为正，减薄的代价更大时为负。"
+  },
+  "layerSensitivity.property.rows[].sensitivity": {
+    "hash": "04295d64",
+    "text": "得分占最高得分的比例，0 到 100。"
+  },
+  "layerSensitivity.property.rows[].locked": {
+    "hash": "df140cf5",
+    "text": "锁定的层为 `true`。"
+  },
+  "layerSensitivity.property.mf0": {
+    "hash": "0ec095d5",
+    "text": "设计当前的评价函数。"
+  },
+  "layerSensitivity.property.surfaceMode": {
+    "hash": "72f9a283",
+    "text": "设计的表面模式。"
+  },
+  "layerSensitivity.throws.1": {
+    "hash": "2f1ba52d",
+    "text": "没有评价函数的设计，或含有找不到对应材料的材料的设计"
+  },
+  "setMerit.lead.1": {
+    "hash": "4699c587",
+    "text": "评价函数被替换为所给各行的设计，各行的保存方式与[评价函数编辑器](/design/merit-function-editor/)中相同。每一行是[操作数参考](/design/operands/)中的一个操作数，该页面说明每个操作数计算什么、读取哪些字段。一行未给出的字段取在编辑器中新加一行时的初始值；MNT 或 MXT 行覆盖第 1 到 1000 层，从基底起计数。"
+  },
+  "setMerit.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "setMerit.param.rows": {
+    "hash": "6666a3ca",
+    "text": "按顺序排列的各行，每行是至少带有 `type` 的对象。"
+  },
+  "setMerit.param.rows[].type": {
+    "hash": "9833ea20",
+    "text": "操作数，例如 `'RAV'` 或 `'MNT'`。"
+  },
+  "setMerit.param.rows[].lambdaStart": {
+    "hash": "eb659a13",
+    "text": "波长，或波段的第一个波长，单位 nm；MNT 和 MXT 为第一层。"
+  },
+  "setMerit.param.rows[].lambdaEnd": {
+    "hash": "f9664918",
+    "text": "波段的最后一个波长，单位 nm；MNT 和 MXT 为最后一层。"
+  },
+  "setMerit.param.rows[].aoi": {
+    "hash": "6fdcefc2",
+    "text": "入射角，单位为入射介质中的度数。"
+  },
+  "setMerit.param.rows[].pol": {
+    "hash": "dfbe97e8",
+    "text": "`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "setMerit.param.rows[].target": {
+    "hash": "831b18ab",
+    "text": "该行趋近的值或其边界，用该行的单位：R、T 和 A 用 0 到 1 之间的小数表示（编辑器中显示为百分比）；MNT 和 MXT 为以 nm 计的厚度。"
+  },
+  "setMerit.param.rows[].targetEnd": {
+    "hash": "683f64aa",
+    "text": "倾斜的光谱目标在 `lambdaEnd` 处的目标值；平坦目标为 null。"
+  },
+  "setMerit.param.rows[].weight": {
+    "hash": "e2f199a3",
+    "text": "该行的权重，0 或更大。"
+  },
+  "setMerit.param.rows[].cmp": {
+    "hash": "697138b7",
+    "text": "用于 TT 和 STR 的比较：`'eq'`、`'le'` 或 `'ge'`。"
+  },
+  "setMerit.param.rows[].flag": {
+    "hash": "596c1601",
+    "text": "编辑器的标志列，一个整数；操作数参考说明它在每种行上的作用。"
+  },
+  "setMerit.param.rows[].enabled": {
+    "hash": "47be5f27",
+    "text": "为 `false` 时该行不计入评价函数。"
+  },
+  "setMerit.param.rows[].id": {
+    "hash": "42d79ac2",
+    "text": "该行的名称，数学行在 `refId`、`refId1` 或 `refId2` 中给出它来读取该行。"
+  },
+  "setMerit.param.rows[].refId": {
+    "hash": "1cea9382",
+    "text": "读取一行的数学行中，所读行的 `id`；读取两行的数学行用 `refId1` 和 `refId2`。"
+  },
+  "setMerit.param.rows[].comment": {
+    "hash": "6afa45d7",
+    "text": "BLNK 行的文本。"
+  },
+  "setMerit.returns": {
+    "hash": "6a1fdec8",
+    "text": "带有该评价函数的设计，评价函数保存在 `meritOperands` 中。"
+  },
+  "setMerit.throws.1": {
+    "hash": "39500e0a",
+    "text": "此版本不能评估的类型"
+  },
+  "setMerit.throws.2": {
+    "hash": "93c1d0fd",
+    "text": "任何行都没有的字段（例如拼写错误），或字段不能取的值"
+  },
+  "setMerit.throws.3": {
+    "hash": "2692b487",
+    "text": "读取波段或层范围的行中 `lambdaStart` 大于 `lambdaEnd`"
+  },
+  "merit.lead.1": {
+    "hash": "6372ecf9",
+    "text": "设计按其评价函数计算的值：总值和每一行，与评价函数编辑器中显示的相同。"
+  },
+  "merit.param.design": {
+    "hash": "546840a9",
+    "text": "设计。"
+  },
+  "merit.returns": {
+    "hash": "110a0bc0",
+    "text": "评价函数。"
+  },
+  "merit.property.total": {
+    "hash": "372d034b",
+    "text": "评价函数；有行无法评估时为 null。"
+  },
+  "merit.property.optical": {
+    "hash": "260ae8f6",
+    "text": "不含 MNT、MXT、TT 和 STR 约束行的评价函数（OMF）；与 `total` 一样可能为 null。"
+  },
+  "merit.property.rows": {
+    "hash": "354da91d",
+    "text": "评价函数的每一行一项，按顺序排列。"
+  },
+  "merit.property.rows[].type": {
+    "hash": "12e6f8f3",
+    "text": "操作数。"
+  },
+  "merit.property.rows[].lambdaStart": {
+    "hash": "513d309b",
+    "text": "该行的波长，或其波段的第一个波长，单位 nm；MNT 和 MXT 为第一层。不读取波长的行没有此字段。"
+  },
+  "merit.property.rows[].lambdaEnd": {
+    "hash": "c0be5125",
+    "text": "读取波段的行中波段的最后一个波长，单位 nm；MNT 和 MXT 为最后一层。"
+  },
+  "merit.property.rows[].aoi": {
+    "hash": "b0a2569d",
+    "text": "入射角，用于读取入射角的行。"
+  },
+  "merit.property.rows[].pol": {
+    "hash": "bae3ceae",
+    "text": "该行评估所用的偏振；同时在两种偏振上评估的行（例如 PSI 或 DPR）没有此字段。"
+  },
+  "merit.property.rows[].cmp": {
+    "hash": "5b13bcbf",
+    "text": "用于 TT 和 STR 的比较。"
+  },
+  "merit.property.rows[].value": {
+    "hash": "c94f9e06",
+    "text": "设计当前状态下该行的值。"
+  },
+  "merit.property.rows[].target": {
+    "hash": "6ce3c45c",
+    "text": "该行的目标值。"
+  },
+  "merit.property.rows[].weight": {
+    "hash": "a1d168d9",
+    "text": "该行的权重。"
+  },
+  "merit.property.rows[].enabled": {
+    "hash": "f0231ccf",
+    "text": "不计入评价函数的行为 `false`。"
+  },
+  "merit.property.rows[].error": {
+    "hash": "4185cc6b",
+    "text": "该行无法评估的原因，或 null。"
+  },
+  "merit.throws.1": {
+    "hash": "cefbf1ab",
+    "text": "设计中含有找不到对应材料的材料"
+  },
+  "refine.lead.1": {
+    "hash": "ae87669f",
+    "text": "按设计的评价函数精炼其膜层厚度，方式与[精炼](/synthesis/refinement/)窗口相同；不增加也不删除任何层。运行在脚本自己的线程上计算，因此脚本会等待它完成。"
+  },
+  "refine.param.design": {
+    "hash": "4013841f",
+    "text": "设计；它需要有评价函数。"
+  },
+  "refine.param.settings.method": {
+    "hash": "c51825d5",
+    "text": "方法：下面方法表中的一个 id，`'all'` 表示依次运行每个方法，或一个 id 列表，从同一起点逐个尝试，保留最好的结果。"
+  },
+  "refine.param.settings.seed": {
+    "hash": "cdcf570f",
+    "text": "会抽取随机数的方法从这个数值开始抽取，从 1 到 2^32 - 1 的整数；相同的种子、设计和设置会重复同一次运行。不给出时取一个新种子，结果中会给出它。"
+  },
+  "refine.param.hooks.signal": {
+    "hash": "376e55a3",
+    "text": "一个 AbortSignal；中止它会停止运行，运行随即以 `'stopped'` 结束，设计保持原样。运行在各项任务之间检查它。"
+  },
+  "refine.param.hooks.onStart": {
+    "hash": "f97664c1",
+    "text": "运行开始后调用，参数为 `{ seed }`；不抽取随机数的运行中 seed 为 null。"
+  },
+  "refine.param.hooks.onMethodStart": {
+    "hash": "c436bfc6",
+    "text": "运行中每个方法开始时调用，参数为 `(method, index)`。"
+  },
+  "refine.param.hooks.onProgress": {
+    "hash": "5a08529a",
+    "text": "运行过程中调用，参数为发生变化的读数：`iter`、`mf`、`mfBest`、`omf`、`omfBest`、`mfInitial`、`omfInitial`、`mfHistory` 和 `restartIdx`，以及 `design`（当前的膜层）和 `best`（迄今最佳的设计）。"
+  },
+  "refine.param.hooks.onRecord": {
+    "hash": "339e83d0",
+    "text": "某个方法运行到自然结束时调用，参数为 `{ method, iter, mf, omf, frontLayers, backLayers, layerSide, mfHistory }`；有 `restarts` 和 `seed` 的方法还会给出它们。"
+  },
+  "refine.returns": {
+    "hash": "0e4d65f9",
+    "text": "`{ result, design }` 的 Promise。"
+  },
+  "refine.property.result.completed": {
+    "hash": "0fb2a2df",
+    "text": "运行自然结束时为 `true`。"
+  },
+  "refine.property.result.stopReason": {
+    "hash": "5c3d03c4",
+    "text": "结束的原因：`'target'`（评价函数低于 10^-6）、`'maxiter'`、`'stalled'`（评价函数不再下降）、`'best:<method>'`（方法列表，指出保留的那个方法）、`'restartsDone'`（DLS 多起点）、`'stopped'`、`'workerFailed'`、`'workerError'`、`'presampleFailed'`（无法对材料采样），或 `'invalidOperand'`（某行无法评估，带有 `message`）。"
+  },
+  "refine.property.result.mf": {
+    "hash": "68df0751",
+    "text": "结束时的评价函数，在运行自己的波长网格上计算，与精炼窗口中显示的相同；对结果调用 `tf.merit` 会按评价函数编辑器的方式计算，两者的最后几位可能不同。"
+  },
+  "refine.property.result.omf": {
+    "hash": "980f2f25",
+    "text": "结束时不含 MNT、MXT、TT 和 STR 约束行的评价函数（OMF）。"
+  },
+  "refine.property.result.mfInitial": {
+    "hash": "76c65b91",
+    "text": "开始时的评价函数。"
+  },
+  "refine.property.result.omfInitial": {
+    "hash": "69bd4548",
+    "text": "开始时不含约束行的评价函数（OMF）。"
+  },
+  "refine.property.result.iter": {
+    "hash": "782d0828",
+    "text": "运行所用的迭代次数。"
+  },
+  "refine.property.result.frontLayers": {
+    "hash": "5b2c8bc7",
+    "text": "精炼后的正面膜层；运行未完成时为 null。"
+  },
+  "refine.property.result.backLayers": {
+    "hash": "66f89317",
+    "text": "精炼后的背面膜层，或 null。"
+  },
+  "refine.property.result.seed": {
+    "hash": "2e3c81df",
+    "text": "随机抽样开始所用的种子，或 null。"
+  },
+  "refine.property.design": {
+    "hash": "4c5c6631",
+    "text": "运行完成时为带有精炼后膜层的设计，否则为原样的设计。"
+  },
+  "refine.throws.1": {
+    "hash": "2f1ba52d",
+    "text": "没有评价函数的设计，或含有找不到对应材料的材料的设计"
+  },
+  "refine.throws.2": {
+    "hash": "482defdf",
+    "text": "运行不认识的方法或设置，或它不能接受的值"
+  },
+  "refine.setting.maxIter": {
+    "hash": "c665d74a",
+    "text": "单方法运行的最大迭代次数；评价函数不再下降时运行仍会提前停止。不给出时用该方法自己的预算；方法列表不接受此设置，每个方法按自己的预算运行。不小于 1 的整数。"
+  },
+  "refine.setting.nRestarts": {
+    "hash": "7ff19391",
+    "text": "DLS 多起点运行的扰动起点数。不小于 1 的整数。"
+  },
+  "refine.setting.perturbPct": {
+    "hash": "9ad6c3ba",
+    "text": "多起点每次重启时，每个未锁定层厚度的扰动幅度，以 ± % 计。0 或更大的数。"
+  },
+  "synthesize.lead.1": {
+    "hash": "f18b7c39",
+    "text": "用一种合成方法，按设计的评价函数生长或重构设计，从材料池中插入材料，方式与该方法的窗口相同。运行在脚本自己的线程上计算，因此脚本会等待它完成。"
+  },
+  "synthesize.param.design": {
+    "hash": "4013841f",
+    "text": "设计；它需要有评价函数。"
+  },
+  "synthesize.param.request.method": {
+    "hash": "006f42db",
+    "text": "方法，取自下面的方法表。"
+  },
+  "synthesize.param.request.pool": {
+    "hash": "9db6b155",
+    "text": "运行可以插入的材料，用 id 给出：一个或多个，不能重复。"
+  },
+  "synthesize.param.request.settings": {
+    "hash": "6970b15c",
+    "text": "该方法的设置，见下文；未给出的设置取其默认值。"
+  },
+  "synthesize.param.hooks.signal": {
+    "hash": "48189a81",
+    "text": "一个 AbortSignal；中止它会停止运行，运行随即返回原样的设计。"
+  },
+  "synthesize.param.hooks.onStart": {
+    "hash": "15ef615d",
+    "text": "运行开始后调用。"
+  },
+  "synthesize.param.hooks.onProgress": {
+    "hash": "bfdaa861",
+    "text": "运行过程中调用，参数为发生变化的内容，例如 `mf`、`layerCount`、`design`（运行接着使用的膜层）和 `activity`（它正在做什么）。"
+  },
+  "synthesize.param.hooks.onGeneration": {
+    "hash": "4212f6d4",
+    "text": "`needle`：每接受一代时调用，参数为代号 `genNum`、`mf`、`omf`、变化量 `dMF`、`layerCount`、插入的材料 `insertMat` 和 `layers`。"
+  },
+  "synthesize.param.hooks.onRow": {
+    "hash": "21c0b138",
+    "text": "`ge` 和 `structural`：运行历史每增加一行时调用，参数为 `genNum`、该行的 `type`（`ge`）或变异种类 `kind`（`structural`）、`mf`、`omf`、`dMF`、`layerCount`、`insertMat` 和 `layers`。"
+  },
+  "synthesize.returns": {
+    "hash": "0e4d65f9",
+    "text": "`{ result, design }` 的 Promise。"
+  },
+  "synthesize.property.result.completed": {
+    "hash": "0fb2a2df",
+    "text": "运行自然结束时为 `true`。"
+  },
+  "synthesize.property.result.stopReason": {
+    "hash": "aa28cddd",
+    "text": "结束的原因。自然结束时：`'target'`（带有 `stopMF`，即达到目标时的评价函数）；`needle` 为 `'maxLayers'` 或 `'needleOptimal'`；`ge` 为 `'maxGeCycles'` 或 `'stuck'`（没有可走的步骤）；`structural` 为 `'maxIter'`、`'iterationCap'`、`'patience'`（带有 `patience`）、`'budget'`、`'layerCap'` 或 `'noMutation'`。否则为 `'stopped'`、`'workerError'`（带有 `message`），或运行无法开始的原因：`'workerFailed'`、`'noOperands'`、`'noMaterials'` 或 `'presampleFailed'`。"
+  },
+  "synthesize.property.result.mf": {
+    "hash": "d5ca2c83",
+    "text": "结果设计的评价函数；没有结果时为 null。"
+  },
+  "synthesize.property.result.omf": {
+    "hash": "7140dff9",
+    "text": "`needle` 和 `structural`：不含 MNT、MXT、TT 和 STR 约束行的同一评价函数（OMF）。"
+  },
+  "synthesize.property.result.frontLayers": {
+    "hash": "0ff9c3ae",
+    "text": "结果的正面膜层，或 null。"
+  },
+  "synthesize.property.result.backLayers": {
+    "hash": "ccf0d5ef",
+    "text": "结果的背面膜层，或 null。"
+  },
+  "synthesize.property.result.seed": {
+    "hash": "6db4daa0",
+    "text": "`structural`：随机抽样开始所用的种子。"
+  },
+  "synthesize.property.result.geSteps": {
+    "hash": "9f2967b5",
+    "text": "`ge`：所走的强制步骤。"
+  },
+  "synthesize.property.result.iters": {
+    "hash": "51808549",
+    "text": "`structural`：运行的代数。"
+  },
+  "synthesize.property.result.reheats": {
+    "hash": "1c13eb02",
+    "text": "`structural`：deepSearch 重新开始的次数。"
+  },
+  "synthesize.property.design": {
+    "hash": "7f3f0654",
+    "text": "有结果时为带有结果的设计，否则为原样的设计；对称设计的背面是正面的镜像。"
+  },
+  "synthesize.throws.1": {
+    "hash": "2f1ba52d",
+    "text": "没有评价函数的设计，或含有找不到对应材料的材料的设计"
+  },
+  "synthesize.throws.2": {
+    "hash": "482defdf",
+    "text": "运行不认识的方法或设置，或它不能接受的值"
+  },
+  "synthesize.throws.3": {
+    "hash": "c4bd664a",
+    "text": "找不到对应材料的材料池 id，以及放在设置中给出的材料池"
+  },
+  "synthesize.throws.4": {
+    "hash": "cca4077c",
+    "text": "该方法不会调用的钩子"
+  },
+  "needle.setting.maxLayers": {
+    "hash": "f1daf635",
+    "text": "设计可增长到的最大层数。不小于 1 的整数。"
+  },
+  "needle.setting.targetMF": {
+    "hash": "c6ae101a",
+    "text": "运行停止时的评价函数；Infinity 使运行在第一个被接受的代后停止。0 或更大的评价函数值，或 Infinity。"
+  },
+  "needle.setting.deltaNm": {
+    "hash": "d3d25d4e",
+    "text": "探测每个候选位置所用的厚度步长。大于 0 的厚度，单位 nm。"
+  },
+  "needle.setting.dMin": {
+    "hash": "96da5cb9",
+    "text": "针式层插入时的最小厚度，也是精炼后的层被去掉的厚度阈值。大于 0 的厚度，单位 nm。"
+  },
+  "needle.setting.refineIter": {
+    "hash": "b691f002",
+    "text": "每次插入后的精炼步数。不小于 1 的整数。"
+  },
+  "needle.setting.innerEngine": {
+    "hash": "c56fbfb2",
+    "text": "每次插入后精炼堆栈所用的方法。cg、dls、newton、newton-cg、sqp、trust-region 之一。"
+  },
+  "needle.setting.candidateSearch": {
+    "hash": "5f036d85",
+    "text": "每一步在继续之前尝试多少个改进候选，在速度与质量之间权衡。fast、balanced、thorough 之一。"
+  },
+  "needle.setting.sensitivity": {
+    "hash": "96dbd474",
+    "text": "与同次扫描中最强的候选相比，候选可以弱到什么程度仍被尝试；off 尝试每一个。off、light、medium、aggressive 之一。"
+  },
+  "needle.setting.smartSeed": {
+    "hash": "31a96bab",
+    "text": "从设计以及用材料池构建的四分之一波长和半波长减反射设计中最好的一个开始，每个都先经过精炼。true 或 false。"
+  },
+  "needle.setting.threads": {
+    "hash": "4c2ab848",
+    "text": "一批一起精炼的候选数；结果取决于它。不给出时用应用为这台计算机推荐的线程数。不小于 1 的整数。"
+  },
+  "ge.setting.maxLayers": {
+    "hash": "b4036fcf",
+    "text": "设计最多可以包含的层数；达到上限时运行会腾出一层，而不是停止。不小于 1 的整数。"
+  },
+  "ge.setting.maxGeCycles": {
+    "hash": "d1ffbd41",
+    "text": "运行总共可以进行多少次强制步骤和腾出操作；deepSearch 取消这一限制。不小于 1 的整数。"
+  },
+  "ge.setting.targetMF": {
+    "hash": "3254f564",
+    "text": "运行停止时的评价函数；Infinity 使运行在第一个被接受的步骤后停止。0 或更大的评价函数值，或 Infinity。"
+  },
+  "ge.setting.refineIter": {
+    "hash": "bf76ea14",
+    "text": "每次候选插入所做的精炼，分两遍进行，第二遍的步数减半。不小于 1 的整数。"
+  },
+  "ge.setting.dMin": {
+    "hash": "a91db6fa",
+    "text": "层插入时的最小厚度，也是层被去掉的厚度阈值。大于 0 的厚度，单位 nm。"
+  },
+  "ge.setting.deepSearch": {
+    "hash": "62a76bfc",
+    "text": "没有可走的步骤时，从最佳设计出发、扰动其厚度后重新开始，直到达到目标评价函数或被停止。true 或 false。"
+  },
+  "ge.setting.innerEngine": {
+    "hash": "82405d57",
+    "text": "在步骤之间精炼堆栈所用的方法。cg、dls、newton、newton-cg、sqp、trust-region 之一。"
+  },
+  "ge.setting.candidateSearch": {
+    "hash": "5f036d85",
+    "text": "每一步在继续之前尝试多少个改进候选，在速度与质量之间权衡。fast、balanced、thorough 之一。"
+  },
+  "ge.setting.sensitivity": {
+    "hash": "96dbd474",
+    "text": "与同次扫描中最强的候选相比，候选可以弱到什么程度仍被尝试；off 尝试每一个。off、light、medium、aggressive 之一。"
+  },
+  "ge.setting.smartSeed": {
+    "hash": "31a96bab",
+    "text": "从设计以及用材料池构建的四分之一波长和半波长减反射设计中最好的一个开始，每个都先经过精炼。true 或 false。"
+  },
+  "ge.setting.seedMode": {
+    "hash": "5d67acc8",
+    "text": "如何对待较厚的起始设计：`'refine'` 先精炼它，`'preserve-bulk'` 保留其主体结构，并在每次插入后温和地精炼。refine、preserve-bulk 之一。"
+  },
+  "ge.setting.consolidate": {
+    "hash": "f1a32d7a",
+    "text": "结束时，去掉每个去掉后评价函数仍在 consolidateTol 范围内的层。true 或 false。"
+  },
+  "ge.setting.consolidateTol": {
+    "hash": "af344dd8",
+    "text": "consolidate 去掉一层时评价函数允许上升的幅度，以评价函数自身的比例计。0 或更大的相对评价函数余量。"
+  },
+  "ge.setting.threads": {
+    "hash": "4c2ab848",
+    "text": "一批一起精炼的候选数；结果取决于它。不给出时用应用为这台计算机推荐的线程数。不小于 1 的整数。"
+  },
+  "structural.setting.maxIter": {
+    "hash": "f6dd7e05",
+    "text": "搜索运行的最多代数。不小于 1 的整数。"
+  },
+  "structural.setting.targetMF": {
+    "hash": "ddc6d304",
+    "text": "搜索停止时的评价函数。0 或更大的评价函数值。"
+  },
+  "structural.setting.T0": {
+    "hash": "f179ac73",
+    "text": "起始温度，以评价函数为单位；较高的值在初期接受更多上坡移动。0 或更大的温度。"
+  },
+  "structural.setting.jitterPct": {
+    "hash": "110c2bd3",
+    "text": "`perturb` 变异移动一个厚度的幅度，以该厚度的比例计。0 或更大的比例。"
+  },
+  "structural.setting.refineIter": {
+    "hash": "ede79fcb",
+    "text": "每个候选得到的精炼步数；0 表示按原样为每个候选评分。0 或更大的整数。"
+  },
+  "structural.setting.dMin": {
+    "hash": "cfeb6d84",
+    "text": "层的最小厚度。大于 0 的厚度，单位 nm。"
+  },
+  "structural.setting.addMaxNm": {
+    "hash": "9120d95f",
+    "text": "随机添加的层的最大起始厚度。大于 0 的厚度，单位 nm。"
+  },
+  "structural.setting.maxLayers": {
+    "hash": "f1daf635",
+    "text": "设计可增长到的最大层数。不小于 1 的整数。"
+  },
+  "structural.setting.kinds": {
+    "hash": "a9fa0b5a",
+    "text": "搜索可以使用的变异。由 add、remove、split、merge、perturb 中一个或多个组成的列表。"
+  },
+  "structural.setting.deepSearch": {
+    "hash": "54a217ae",
+    "text": "一段时间内没有找到更好的设计时，从最佳设计重新开始，直到达到时间上限或被停止。true 或 false。"
+  },
+  "structural.setting.deepMaxMin": {
+    "hash": "3e3f3318",
+    "text": "开启 deepSearch 时，搜索在这段时间后结束。0 或更大的时间，单位分钟（0：不限）。"
+  },
+  "structural.setting.seed": {
+    "hash": "d3c939d7",
+    "text": "随机抽样开始所用的数值；相同的种子、设计、设置和 threads 会重复同一次运行。结果中会给出所用的种子。从 1 到 2^32 - 1 的整数，或 null 表示取一个新种子。"
+  },
+  "structural.setting.innerEngine": {
+    "hash": "d29ff7c8",
+    "text": "精炼每个候选所用的方法。cg、dls、newton、newton-cg、sqp、trust-region 之一。"
+  },
+  "structural.setting.smartSeed": {
+    "hash": "31a96bab",
+    "text": "从设计以及用材料池构建的四分之一波长和半波长减反射设计中最好的一个开始，每个都先经过精炼。true 或 false。"
+  },
+  "structural.setting.threads": {
+    "hash": "3471ad10",
+    "text": "每一代精炼的候选数；结果取决于它。不给出时用应用为这台计算机推荐的线程数。不小于 1 的整数。"
+  },
+  "runHooks.lead.1": {
+    "hash": "c1ffecfe",
+    "text": "一个运行接受的钩子名称。运行不会调用的钩子会被拒绝，因此脚本可以在传入钩子之前先在这里查看。"
+  },
+  "runHooks.param.method": {
+    "hash": "ba25af52",
+    "text": "`'refine'`，或 `synthesize` 接受的一种合成方法。"
+  },
+  "runHooks.returns": {
+    "hash": "ed08413d",
+    "text": "钩子名称列表；名称不是运行时返回空列表。"
+  }
+}

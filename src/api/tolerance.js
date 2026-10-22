@@ -26,25 +26,59 @@ const MC_CHECKS = [
     ['thicknessAbsNm', isNonNegative, 'a number of 0 or more'],
     ['indexRe', isNonNegative, 'a number of 0 or more'],
     ['indexIm', isNonNegative, 'a number of 0 or more'],
-    ['seed', isSeed, `a whole number from 1 to ${MAX_SEED}, or null for a fresh one`],
+    ['seed', isSeed, 'a whole number from 1 to 2^32 - 1, or null for a fresh one'],
 ];
 
 /**
- * `runs` Monte Carlo trials of `design` with random layer errors, as the
- * Error Analysis window runs them (errorAnalysis/monteCarlo.js): thickness
- * errors of `thicknessRelPct` % of each layer plus `thicknessAbsNm` nm, index
- * errors `indexRe` and `indexIm` on n and k, drawn by `distribution`, scored
- * on `quantity` at `angle` degrees and `polarization` over [from, to] nm. With
- * the design's specification (qualifiers) the yield is counted too. Resolves
- * to the window's result: lambda, theory, mean, stdev, lower, upper, nTrials,
- * seed, settings and spec (yield, passCount, evaluated, yieldInterval). Without
- * a seed, or with null, the trials draw from a fresh one, which the result
- * reports. A design with no layer the trials can perturb is refused, as the
- * window does. hooks: `onProgress({ trial, total })` after each trial, and
- * `signal`, looked for between trials: a stopped run answers with the trials
- * it ran (nTrials below `runs`).
+ * Monte Carlo trials of a design with random layer errors, as the
+ * [Monte Carlo](/analysis/error-analysis/) window runs them: the spread of
+ * one quantity over a range of wavelengths. With the design's
+ * [specification](/design/specification/), the share of trials that meet it
+ * is counted too.
+ *
+ * @async
+ * @param design The design.
+ * @param options
+ * @param options.from The first wavelength, nm.
+ * @param options.to The last wavelength, nm, above `from`.
+ * @param [options.step=1] The wavelength step, nm.
+ * @param [options.quantity='R'] `'R'`, `'T'` or `'A'`.
+ * @param [options.angle=0] The angle of incidence, degrees in the incident medium, from 0 up to but not including 90.
+ * @param [options.polarization='avg'] `'avg'`, `'s'` or `'p'`.
+ * @param [options.runs=100] How many trials, a whole number of 1 or more.
+ * @param [options.thicknessRelPct=1] The thickness error, in % of each layer.
+ * @param [options.thicknessAbsNm=0] A thickness error in nm, added to every layer's.
+ * @param [options.indexRe=0] The error on n, an absolute amount that moves each layer's n by the same draw at every wavelength: one standard deviation with `'gaussian'`, a bound with `'uniform'` and `'truncated'`.
+ * @param [options.indexIm=0] The error on k, an amount as `indexRe` is on n; k does not go below 0, so on a layer with k = 0 the error only adds absorption.
+ * @param [options.distribution='gaussian'] How the errors are drawn: `'gaussian'`, each error level one standard deviation; `'uniform'`, a hard bound, every value inside it as likely; `'truncated'`, a hard bound at three standard deviations.
+ * @param [options.seed] The number the draws start from, a whole number from 1 to 2^32 - 1; the same seed and options repeat the run. Without it, or with null, a fresh one, which the result reports.
+ * @param [hooks]
+ * @param [hooks.signal] An AbortSignal, looked at between trials; a stopped run returns the trials it ran.
+ * @param [hooks.onProgress] Called after each trial with `{ trial, total }`.
+ * @returns A promise of the result.
+ * @property lambda The wavelengths, nm.
+ * @property theory The quantity for the design without errors.
+ * @property mean The mean over the trials.
+ * @property stdev The standard deviation over the trials.
+ * @property lower The mean less one standard deviation, 0 at the least.
+ * @property upper The mean plus one standard deviation, 1 at the most.
+ * @property envLower The lowest value over the trials.
+ * @property envUpper The highest value over the trials.
+ * @property nTrials The trials run.
+ * @property char The quantity, `'R'`, `'T'` or `'A'`.
+ * @property seed The seed the draws started from.
+ * @property settings The error levels, distribution, angle and polarization the run used.
+ * @property spec With a specification, `{ yield, passCount, evaluated, yieldInterval }`: the share of trials that meet it, how many did, how many were checked and the 95 % interval of the share; null without one.
+ * @property trials `null`: the trials themselves are not kept.
+ * @throws a design with no layer the trials can change on the side it is scored on
+ * @throws a design that names a material that resolves to nothing
+ * @example
+ * const mc = await tf.monteCarlo(tf.design, { from: 400, to: 700, step: 5, runs: 50, seed: 1 });
+ * console.log(mc.nTrials, 'trials, largest spread of R:', Math.max(...mc.stdev));
  */
 export function monteCarlo(design, options, hooks) {
+    // The window's computation (errorAnalysis/monteCarlo.js); the yield is
+    // counted when the design has qualifiers.
     const { signal, onProgress } = checkHooks('monteCarlo', hooks, ['signal', 'onProgress']);
     const o = {
         quantity: 'R', step: 1, angle: 0, polarization: 'avg', runs: 100,
@@ -77,13 +111,38 @@ export function monteCarlo(design, options, hooks) {
 }
 
 /**
- * How much each layer's thickness moves the merit, as the Layer Sensitivity
- * window ranks them (errorAnalysis/layerSensitivity.js): each layer changed by
- * ± `deltaNm` nm, or by ± `relPct` % with mode 'relative'. Resolves to { rows
- * (index, side, layerIndex, materialId, thickness, deltaMF, sensitivity 0 to
- * 100, locked), mf0 }.
+ * How much the merit moves when each layer's thickness is off, as the
+ * [Layer Sensitivity](/analysis/layer-sensitivity/) window ranks the layers:
+ * each layer is made thicker and thinner by a step, and the mean change of the
+ * merit is its score. The merit here leaves out the MNT and MXT rows.
+ *
+ * @param design The design; it needs a merit function.
+ * @param [options]
+ * @param [options.mode='absolute'] `'absolute'`, a step of `deltaNm`, or `'relative'`, a step of `relPct` % of each layer.
+ * @param [options.deltaNm=1] The step, nm, in mode `'absolute'`.
+ * @param [options.relPct=1] The step, % of each layer, in mode `'relative'`.
+ * @param [options.includeLocked=false] Score the locked layers too.
+ * @returns The ranking.
+ * @property rows One per layer scored, the front's first.
+ * @property rows[].index The layer's place among those scored, from 0.
+ * @property rows[].side `'front'` or `'back'`.
+ * @property rows[].layerIndex The layer's index on its side.
+ * @property rows[].materialId The layer's material.
+ * @property rows[].thickness The layer's thickness, nm.
+ * @property rows[].deltaNm The step used, nm.
+ * @property rows[].deltaMFAbs The mean change of the merit over the two steps.
+ * @property rows[].deltaMF The same, positive when the thicker layer costs more and negative when the thinner one does.
+ * @property rows[].sensitivity The score as a share of the highest, 0 to 100.
+ * @property rows[].locked `true` for a locked layer.
+ * @property mf0 The merit of the design as it is.
+ * @property surfaceMode The design's surface mode.
+ * @throws a design with no merit function, or one that names a material that resolves to nothing
+ * @example
+ * const { rows } = tf.layerSensitivity(tf.design, { deltaNm: 1 });
+ * for (const row of rows) console.log(row.side, row.layerIndex, row.materialId, row.sensitivity.toFixed(1));
  */
 export function layerSensitivity(design, options) {
+    // The window's computation (errorAnalysis/layerSensitivity.js).
     const { mode = 'absolute', deltaNm = 1, relPct = 1, includeLocked = false } =
         checkOptions('layerSensitivity', options, ['mode', 'deltaNm', 'relPct', 'includeLocked']);
     requireValue('layerSensitivity', 'mode', mode, oneOf(['absolute', 'relative']), "'absolute' or 'relative'");
