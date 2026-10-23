@@ -1012,8 +1012,8 @@ class Design:
         as it was: a stopped Deep Synthesis run answers with its best design
         so far."""
         mode = mode_of(self._data)
-        with worded(Words(call, call)):
-            answer = getattr(self._calls, call)(self._data, request, hooks)
+        with worded(Words(call, call, extra=("progress", "stop"))):
+            answer =getattr(self._calls, call)(self._data, request, hooks)
         if answer["result"].get("stopReason") != "stopped":
             self._data = answer["design"]
         return RunResult(answer["result"], mode)

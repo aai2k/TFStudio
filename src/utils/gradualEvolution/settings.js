@@ -9,6 +9,7 @@ import {
     SMART_SEED_DEFAULTS, SYNTHESIS_SEED_MODES, DEFAULT_SYNTHESIS_SEED_MODE,
     DEFAULT_CONSOLIDATE, DEFAULT_CONSOLIDATE_TOL, defaultThreadCount,
 } from '../synthesis/synthesisConfig.js';
+import { unknownSetting, badSetting } from '../misc/settingsRefusals.js';
 
 /**
  * The settings a Gradual Evolution run starts from, and the Gradual Evolution
@@ -105,12 +106,12 @@ function stripUnset(settings) {
  */
 export function planRun(settings) {
     if (!settings || typeof settings !== 'object') refuse('settings is an object');
-    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) refuse(`unknown setting '${key}'`);
+    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) throw unknownSetting('Gradual Evolution settings', key, KNOWN);
     if (!Array.isArray(settings.pool) || !settings.pool.every(p => p && p.id != null && p.mat)) {
         refuse('pool is the list of candidate materials, each { id, name, mat } with its material');
     }
     const s = { ...GE_DEFAULTS, threads: defaultThreadCount(), ...stripUnset(settings) };
-    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) refuse(`${key} is ${takes}`);
+    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) throw badSetting('Gradual Evolution settings', key, takes, s[key]);
     return {
         pool: s.pool,
         maxLayers: s.maxLayers, maxGeCycles: s.maxGeCycles, targetMF: s.targetMF, refineIter: s.refineIter,

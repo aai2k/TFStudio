@@ -477,13 +477,16 @@ def plain(make):
 def refusals(tf, design):
     """The refusals of the API's calls the objects make, in the objects'
     words, on copies of `design`, which is coated on its front, scored on its
-    side and has no merit function; and the same refusals of the calls
-    themselves."""
+    side and has no merit function, the runs' settings on a copy given a merit
+    row; and the same refusals of the calls themselves."""
     front = design.copy()
     back = design.copy()
     back.sides = "back"
     symmetric = design.copy()
     symmetric.sides = "symmetric"
+    scored = design.copy()
+    scored.merit.add("RAV", 450, 650)
+    pool = ["TiO2", "SiO2"]
     worded = [refused(make) for make in (
         front.refine, front.layer_sensitivity, lambda: front.back_layers.append("SiO2", 10),
         lambda: front.back_layers.insert(1, "SiO2", 10), lambda: back.layers.append("SiO2", 10),
@@ -496,7 +499,10 @@ def refusals(tf, design):
         lambda: tf.new_design("X", reference=0), lambda: front.synthesize("needle", pool=["TiO2", "SiO2"]),
         lambda: front.layers.append("SiO2", 10, locked=1), lambda: front.merit.add("RAV", 450, 650, target_end="x"),
         lambda: front.merit.add("RAV", lambda_start=450, lambda_end=650, target=0),
-        lambda: front.merit.add("RAV", lambdaStart=450, lambdaEnd=650))]
+        lambda: front.merit.add("RAV", lambdaStart=450, lambdaEnd=650),
+        lambda: scored.refine(max_iters=5), lambda: scored.synthesize("needle", pool, max_layers=0),
+        lambda: scored.synthesize("ge", pool, refine_iter=0), lambda: scored.synthesize("structural", pool, max_iter=0),
+        lambda: scored.synthesize("deep", pool, max_layers=0))]
     calls, data = tf._calls, front._data
     out({"pythonWords": {"design": data, "worded": worded, "rowType": refused(lambda: front.merit.add("XYZ")),
                       "formula": refused(lambda: front.stack("(HL")),

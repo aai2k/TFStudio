@@ -5,6 +5,7 @@
 import { normalizeSeed } from '../../physics/errorAnalysis/mcConfig.js';
 import { defaultThreadCount } from '../synthesisConfig.js';
 import { DEEP_SYNTHESIS_DEFAULTS } from './index.js';
+import { unknownSetting, badSetting } from '../../misc/settingsRefusals.js';
 
 /**
  * The settings a Deep Synthesis run starts from, and the Deep Synthesis
@@ -75,13 +76,13 @@ function methodOptions(overrides) {
  */
 export function planRun(settings) {
     if (!settings || typeof settings !== 'object') refuse('settings is an object');
-    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) refuse(`unknown setting '${key}'`);
+    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) throw unknownSetting('Deep Synthesis settings', key, KNOWN);
     if (!Array.isArray(settings.pool) || !settings.pool.every(p => p && p.id != null && p.mat)) {
         refuse('pool is the list of candidate materials, each { id, name, mat } with its material');
     }
     const given = Object.fromEntries(Object.entries(settings).filter(([, v]) => v !== undefined));
     const s = { ...DEEP_RUN_DEFAULTS, seed: null, threads: defaultThreadCount(), method: {}, ...given };
-    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) refuse(`${key} is ${takes}`);
+    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) throw badSetting('Deep Synthesis settings', key, takes, s[key]);
     const problem = methodProblem(s.method);
     if (problem) refuse(problem);
     return {

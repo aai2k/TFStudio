@@ -523,7 +523,7 @@ export class Design {
     // stopped or the progress function threw, which leave it as it was.
     async _run(method, run, request, control) {
         const mode = resolveEvalMode(this._data);
-        const answer = await ended(control, () => worded({ method, call: method }, () => run(this._data, request, control.hooks)));
+        const answer = await ended(control, () => worded({ method, call: method, extra: ['progress', 'stop'] }, () => run(this._data, request, control.hooks)));
         if (answer.result.stopReason !== 'stopped') this._data = answer.design;
         return new RunResult(answer.result, mode);
     }

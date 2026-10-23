@@ -5,6 +5,7 @@
 
 import { MAX_SEED } from '../physics/errorAnalysis/mcConfig.js';
 import { REFINE_METHODS, ALL_ORDER, DEFAULT_SETTINGS, defaultMaxIter } from './methods.js';
+import { unknownSetting, badSetting } from '../misc/settingsRefusals.js';
 
 const KNOWN = new Set(['method', 'maxIter', 'nRestarts', 'perturbPct', 'seed', 'threads']);
 
@@ -40,7 +41,7 @@ export const CHECKS = [
 
 function checkNumbers(settings, single) {
     if (given(settings.maxIter) && !single) refuse('maxIter applies to a one-method run; a list runs each method to its own budget');
-    for (const [key, ok, takes] of CHECKS) if (given(settings[key]) && !ok(settings[key])) refuse(`${key} is ${takes}`);
+    for (const [key, ok, takes] of CHECKS) if (given(settings[key]) && !ok(settings[key])) throw badSetting('Refinement settings', key, takes, settings[key]);
 }
 
 function seedOf(seed) {
@@ -66,7 +67,7 @@ function runsOnDlsPool(method) {
  */
 export function planRun(settings) {
     if (!settings || typeof settings !== 'object') refuse('settings is an object');
-    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) refuse(`unknown setting '${key}'`);
+    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) throw unknownSetting('Refinement settings', key, KNOWN);
     const methods = methodList(settings.method);
     const single = methods.length === 1;
     checkNumbers(settings, single);

@@ -513,8 +513,9 @@ function stopping(t, said) {
 
 // The words each refusal of _pythonObjects.py refusals() is to be in, in its
 // order: those tests/api_objects.mjs checks, in Python's names; those of
-// insert(), remove(), a design coated on its back and synthesize(); and what
-// an option takes with the API's true, false and null as True, False and None.
+// insert(), remove(), a design coated on its back and synthesize(); what
+// an option takes with the API's true, false and null as True, False and None;
+// and a setting misspelt, or of a value it cannot take, for each run.
 const WORDED = [
     'refine: the design has no merit function; add a row with merit.add()',
     'layer_sensitivity: the design has no merit function; add a row with merit.add()',
@@ -540,6 +541,11 @@ const WORDED = [
     "add: target_end is a number or None, not 'x'",
     "add: unknown option 'lambda_start'; a row's type, start and end are add()'s arguments",
     "add: unknown option 'lambdaStart'; a row's type, start and end are add()'s arguments",
+    "refine: unknown option 'max_iters'; the options are method, max_iter, n_restarts, perturb_pct, seed, threads, progress, stop",
+    'synthesize: max_layers is a whole number of 1 or more, not 0',
+    'synthesize: refine_iter is a whole number of 1 or more, not 0',
+    'synthesize: max_iter is a whole number of 1 or more, not 0',
+    'synthesize: max_layers is a whole number of 1 or more, not 0',
 ];
 
 // The plain calls' refusals reaching the objects in Python's words, while

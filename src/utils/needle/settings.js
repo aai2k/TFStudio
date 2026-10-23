@@ -8,6 +8,7 @@ import {
     NEEDLE_SENS_MODES, DEFAULT_NEEDLE_SENS_MODE, needleSensFloorFor,
     SMART_SEED_DEFAULTS, defaultThreadCount,
 } from '../synthesis/synthesisConfig.js';
+import { unknownSetting, badSetting } from '../misc/settingsRefusals.js';
 
 /**
  * The settings a Needle run starts from, and the Needle window's fields too.
@@ -87,12 +88,12 @@ function historyOf(history) {
  */
 export function planRun(settings) {
     if (!settings || typeof settings !== 'object') refuse('settings is an object');
-    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) refuse(`unknown setting '${key}'`);
+    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) throw unknownSetting('Needle settings', key, KNOWN);
     if (!Array.isArray(settings.pool) || !settings.pool.every(p => p && p.id != null && p.mat)) {
         refuse('pool is the list of candidate materials, each { id, name, mat } with its material');
     }
     const s = { ...NEEDLE_DEFAULTS, threads: defaultThreadCount(), ...stripUnset(settings) };
-    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) refuse(`${key} is ${takes}`);
+    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) throw badSetting('Needle settings', key, takes, s[key]);
     return {
         pool: s.pool,
         maxLayers: s.maxLayers, targetMF: s.targetMF, deltaNm: s.deltaNm, dMin: s.dMin,

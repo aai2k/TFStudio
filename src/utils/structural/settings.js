@@ -7,6 +7,7 @@ import {
     SYNTHESIS_INNER_ENGINES, ENGINE_DEFAULTS, SMART_SEED_DEFAULTS, defaultThreadCount,
 } from '../synthesis/synthesisConfig.js';
 import { normalizeSeed } from '../physics/errorAnalysis/mcConfig.js';
+import { unknownSetting, badSetting } from '../misc/settingsRefusals.js';
 
 /**
  * The settings a Structural run starts from, and the Structural Optimizer
@@ -97,12 +98,12 @@ function stripUnset(settings) {
  */
 export function planRun(settings) {
     if (!settings || typeof settings !== 'object') refuse('settings is an object');
-    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) refuse(`unknown setting '${key}'`);
+    for (const key of Object.keys(settings)) if (!KNOWN.has(key)) throw unknownSetting('Structural settings', key, KNOWN);
     if (!Array.isArray(settings.pool) || !settings.pool.every(p => p && p.id != null && p.mat)) {
         refuse('pool is the list of candidate materials, each { id, name, mat } with its material');
     }
     const s = { ...RUN_DEFAULTS, threads: defaultThreadCount(), ...stripUnset(settings) };
-    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) refuse(`${key} is ${takes}`);
+    for (const [key, ok, takes] of CHECKS) if (!ok(s[key])) throw badSetting('Structural settings', key, takes, s[key]);
     return {
         pool: s.pool, maxIter: s.maxIter, targetMF: s.targetMF, T0: s.T0, jitterPct: s.jitterPct,
         refineIter: s.refineIter, dMin: s.dMin, addMaxNm: s.addMaxNm, maxLayers: s.maxLayers,
