@@ -317,6 +317,31 @@ for (const windowId of WINDOWS) {
     assert.equal(values.showEditor, true, 'sections are flattened into one set of values');
 }
 
+// ── A value a window's control offers survives being saved ───────────────────
+//
+// Each entry is a choice or a field limit of the window's own controls. One the
+// registry did not accept was dropped on the way back, and the window opened on
+// the shipped value instead of the saved one.
+{
+    const { setAnalysisOverride } = await import('../src/utils/analysisSettings.js');
+    const OFFERED = [
+        ['gdGddEvaluation', 'enums', 'quantity', 'cdc'],
+        ['materialDispersion', 'enums', 'quantity', 'cdc'],
+        ['materialDispersion', 'numbers', 'thicknessMm', 1e-9],
+        ['materialDispersion', 'numbers', 'thicknessMm', 100000],
+        ['refractiveIndexProfiler', 'enums', 'quantity', 'both'],
+        ['refractiveIndexProfiler', 'enums', 'side', 'total'],
+        ['ellipsometryEvaluation', 'numbers', 'angleStart', 89.5],
+        ['ellipsometryEvaluation', 'numbers', 'angleEnd', 89.5],
+        ['ellipsometryEvaluation', 'numbers', 'angleStep', 45],
+    ];
+    for (const [windowId, section, key, value] of OFFERED) {
+        const stored = setAnalysisOverride({}, windowId, section, key, value);
+        assert.equal(resolvedWindowValues(windowId, stored)[key], value,
+            `${windowId}: a saved ${key} of ${value} is what the window opens with`);
+    }
+}
+
 // ── Settings renders a real editor for every declared setting ────────────────
 //
 // This is the whole point of the arrangement: a setting a window's own panel

@@ -212,7 +212,7 @@ export const ANALYSIS_DEFAULTS = {
       theta: AOI,
     },
     enums: {
-      quantity: { def: 'gd', options: ['phase', 'gd', 'gdd', 'tod'] },
+      quantity: { def: 'gd', options: ['phase', 'gd', 'gdd', 'cdc', 'tod'] },
       target: { def: 'R', options: ['R', 'T'] },
       pol: POL,
     },
@@ -254,13 +254,14 @@ export const ANALYSIS_DEFAULTS = {
   materialDispersion: {
     colors: { curve: '#4fc3f7' },
     numbers: {
-      thicknessMm: { def: 1, min: 0.000001, max: 10000, step: 0.1 },
+      // The bounds the window's own thickness field takes, 1 pm to 100 m.
+      thicknessMm: { def: 1, min: 1e-9, max: 100000, step: 0.1 },
       start: { def: 400, ...LAMBDA },
       end: { def: 1100, ...LAMBDA },
     },
     enums: {
       thicknessUnit: { def: 'mm', options: ['nm', 'um', 'mm'] },
-      quantity: { def: 'gdd', options: ['phase', 'gd', 'gdd', 'tod'] },
+      quantity: { def: 'gdd', options: ['phase', 'gd', 'gdd', 'cdc', 'tod'] },
     },
     booleans: { showTable: false },
   },
@@ -271,9 +272,10 @@ export const ANALYSIS_DEFAULTS = {
       ...lambdaRange(400, 800),
       lambdaStep: { def: 0.5, positive: true, step: 0.5 },
       thetaDeg: { def: 65, min: 0, max: 89, step: 1 },
-      angleStart: { def: 45, min: 0, max: 89, step: 1 },
-      angleEnd: { def: 80, min: 0, max: 89, step: 1 },
-      angleStep: { def: 0.5, min: 0.05, max: 30, step: 0.05 },
+      // The angular scan runs to 89.5°, the limit its own fields take.
+      angleStart: { def: 45, min: 0, max: 89.5, step: 1 },
+      angleEnd: { def: 80, min: 0, max: 89.5, step: 1 },
+      angleStep: { def: 0.5, min: 0.05, max: 45, step: 0.05 },
     },
     enums: {
       mode: { def: 'spectral', options: ['spectral', 'angular'] },
@@ -339,9 +341,11 @@ export const ANALYSIS_DEFAULTS = {
 
   refractiveIndexProfiler: {
     colors: { n: '#4fc3f7', k: '#ef5350' },
+    // Both n and k on one plot, and the total profile across both sides, are
+    // choices of this window alone, so it names its own labels for them.
     enums: {
-      quantity: { def: 'n', options: ['n', 'k'] },
-      side: SIDE,
+      quantity: { def: 'n', options: ['n', 'k', 'both'], labelsAt: 'riProfile.quantities' },
+      side: { ...SIDE, options: ['front', 'back', 'total'], labelsAt: 'riProfile' },
     },
     booleans: { showTable: false },
   },

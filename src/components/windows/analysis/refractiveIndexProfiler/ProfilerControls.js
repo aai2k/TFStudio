@@ -17,11 +17,7 @@ export function ProfilerControls({ c, t, rp, state, notices }) {
     },
         h(ChoiceGroup, {
             label: rp.quantity, activeId: state.quantity, onSelect: state.setQuantity, c,
-            items: [
-                { id: 'n', label: rp.qN },
-                { id: 'k', label: rp.qK },
-                { id: 'both', label: rp.qBoth },
-            ],
+            items: ['n', 'k', 'both'].map(id => ({ id, label: rp.quantities[id] })),
         }),
         h(ChoiceGroup, {
             label: rp.side, ariaLabel: rp.side,
