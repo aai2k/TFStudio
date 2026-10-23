@@ -110,9 +110,14 @@ function showTrend(ctx, point, redraw) {
     if (redraw) ctx.setTrend(ctx.trendRef.current.slice());
 }
 
+// A design the run reports is its best so far: it is shown, and a Run press
+// after a Stop goes on from it.
 function showProgress(ctx, patch, clock) {
     if (patch.activity) ctx.setStatusMsg(ACTIVITY_TEXT[patch.activity.id](ctx.ts, patch.activity));
-    if (patch.design) ctx.updateDesignRef.current(patch.design, { transient: true });
+    if (patch.design) {
+        ctx.updateDesignRef.current(patch.design, { transient: true });
+        ctx.baseDesignRef.current = { ...(ctx.baseDesignRef.current || ctx.designRef.current), ...patch.design };
+    }
     for (const [key, setter] of SHOWN) if (key in patch) ctx[setter]?.(patch[key]);
     if (patch.trend) showTrend(ctx, patch.trend, patch.redraw);
     if (patch.live) showLive(ctx, patch.live, clock);
