@@ -4,8 +4,9 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
 import {
-    useMaterialLambdaNotice, useMaterialRangeNotice,
+    useMaterialLambdaNotice, useMaterialsRangeNotice,
 } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows } from '../../../ui/ResultsSection.js';
@@ -16,7 +17,7 @@ import { measuredEllipsometryOverlays, sideSummary } from './model.js';
 import { useEllipsometryEvaluation } from './useEllipsometryEvaluation.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
-const { createElement: h, useCallback } = React;
+const { createElement: h, useCallback, useMemo } = React;
 
 export function EllipsometryEvaluation({ c, theme, t }) {
     const text = t.ellipsometry;
@@ -34,11 +35,13 @@ export function EllipsometryEvaluation({ c, theme, t }) {
         setLambdaEnd(to);
     }, [setLambdaStart, setLambdaEnd]);
     // The spectral sweep has a range to pull in; the angular one holds a single
-    // wavelength, which is moved onto covered data instead.
-    const spanNotice = useMaterialRangeNotice(
-        design, state.lambdaStart, state.lambdaEnd, t, fixRange);
+    // wavelength, which is moved onto covered data instead. Both name only the
+    // materials of the side computed.
+    const materials = useMemo(() => rangeMaterials(design, state.side), [design, state.side]);
+    const spanNotice = useMaterialsRangeNotice(
+        materials, state.lambdaStart, state.lambdaEnd, t, fixRange);
     const lambdaNotice = useMaterialLambdaNotice(
-        design, state.lambdaNm, t, state.setLambdaNm);
+        design, state.lambdaNm, t, state.setLambdaNm, state.side);
     const rangeNotice = spectral ? spanNotice : lambdaNotice;
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),

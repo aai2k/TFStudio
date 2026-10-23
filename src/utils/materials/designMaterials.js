@@ -215,19 +215,27 @@ export function designMaterialIds(design) {
  * The material ids a window computes with. With `side`, `'front'` or
  * `'back'`, those of a window that evaluates that side alone: the medium
  * light arrives from (the incident medium for the front, the exit medium for
- * the back), the substrate, and the side's layers. Without it, every material
- * of the design (designMaterialIds).
+ * the back), the substrate, and the side's layers. Without it, or with
+ * `'total'` (both sides at once), every material of the design
+ * (designMaterialIds).
  */
 export function computedMaterialIds(design, side) {
-    if (!design || !side) return designMaterialIds(design);
-    const back = side === 'back';
+    const keys = SIDE_KEYS[side];
+    if (!design || !keys) return designMaterialIds(design);
     const ids = [
-        back ? design.exitMedium : design.incidentMedium,
+        design[keys.medium],
         design.substrate?.material,
-        ...((back ? design.backLayers : design.frontLayers) || []).map(layer => layer.material),
+        ...(design[keys.layers] || []).map(layer => layer.material),
     ];
     return [...new Set(ids.filter(Boolean))];
 }
+
+// The design fields one side is computed with: the medium light arrives from
+// and the side's layers.
+const SIDE_KEYS = {
+    front: { medium: 'incidentMedium', layers: 'frontLayers' },
+    back: { medium: 'exitMedium', layers: 'backLayers' },
+};
 
 /**
  * The ids a save has to write a definition for: the ones the design computes

@@ -21,7 +21,7 @@ export function RefractiveIndexProfiler({ c, theme, t }) {
     const { design } = useDesign();
     const state = useProfilerState(design, rp);
     const view = buildProfileViewModel(state.side, state.profile, state.regions, t.units);
-    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
+    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda, state.side);
     const csv = useCsvExport(
         () => csvFromRows(view.tableColumns, view.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_index_profile.csv`,

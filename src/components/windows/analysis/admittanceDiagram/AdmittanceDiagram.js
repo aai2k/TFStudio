@@ -36,7 +36,7 @@ export function AdmittanceDiagram({ c, theme, t }) {
     const { design } = useDesign();
     const state = useAdmittanceDiagram(design);
     const columns = tableColumns(t);
-    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
+    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda, state.side);
     const csv = useCsvExport(
         () => csvFromRows(columns, state.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_admittance.csv`,

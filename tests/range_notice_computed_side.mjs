@@ -1,6 +1,7 @@
 /**
  * The material range notices of the windows that compute one side alone, the
- * Electric Field and GD/GDD windows, name the materials of that side only.
+ * Electric Field, GD/GDD, Admittance, Refractive Index Profiler, Layer
+ * Thicknesses and Ellipsometry windows, name the materials of that side only.
  *
  * Checks, on a two-sided corpus design edited as the Design Editor edits one,
  * so that Ta2O5 is on the back alone and every front material covers the
@@ -11,9 +12,10 @@
  *   2. The shading over one side's materials, which GD/GDD draws, has a band
  *      on the back alone.
  *   3. Each window open on the front shows no notice, at the design's
- *      reference wavelength for the Electric Field window and over the GD/GDD
- *      window's starting band, while the same windows on the original design,
- *      whose front holds Ta2O5, show one.
+ *      reference wavelength for the windows that read one wavelength and over
+ *      the starting band for GD/GDD and Ellipsometry, while the same windows on
+ *      the original design, whose front holds Ta2O5, show one. The Refractive
+ *      Index Profiler's Total view reads both sides and keeps the whole design.
  *
  * Run: node tests/range_notice_computed_side.mjs
  */
@@ -29,6 +31,10 @@ const { computedMaterialIds } = await import('../src/utils/materials/designMater
 const { designRangeCoverage, rangeMaterials, uncoveredMaterialRegions } = await import('../src/utils/materials/materialRange.js');
 const { EFieldEvaluation } = await import('../src/components/windows/analysis/eFieldEvaluation/EFieldEvaluation.js');
 const { GDGDDEvaluation } = await import('../src/components/windows/analysis/gdGddEvaluation/GDGDDEvaluation.js');
+const { AdmittanceDiagram } = await import('../src/components/windows/analysis/admittanceDiagram/AdmittanceDiagram.js');
+const { RefractiveIndexProfiler } = await import('../src/components/windows/analysis/refractiveIndexProfiler/RefractiveIndexProfiler.js');
+const { LayerThicknesses } = await import('../src/components/windows/analysis/layerThicknesses/LayerThicknesses.js');
+const { EllipsometryEvaluation } = await import('../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryEvaluation.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -51,6 +57,7 @@ ok('the back with the exit medium, the substrate and the back layers',
     JSON.stringify(computedMaterialIds(design, 'back')) === JSON.stringify(['Air', 'builtin:Si', 'builtin:SiO2', 'builtin:Ta2O5']),
     JSON.stringify(computedMaterialIds(design, 'back')));
 ok('and with no side, every material of the design', computedMaterialIds(design).length === 5, JSON.stringify(computedMaterialIds(design)));
+ok('as with the Profiler\'s Total view', computedMaterialIds(design, 'total').length === 5, JSON.stringify(computedMaterialIds(design, 'total')));
 for (const evaluated of [[450, 450], [400, 800]]) {
     const at = `${evaluated[0]}-${evaluated[1]} nm`;
     ok(`${at}: the front lists no material`, names(designRangeCoverage(design, evaluated, 'front')).length === 0,
@@ -66,7 +73,11 @@ ok('on the back, Ta2O5 below its data', JSON.stringify(shading('back')) === '[{"
 
 // ── 3. The windows ─────────────────────────────────────────────────────────
 const c = makeTheme(), t = makeLocale();
-const WINDOWS = { 'Electric Field': EFieldEvaluation, 'GD/GDD': GDGDDEvaluation };
+const WINDOWS = {
+    'Electric Field': EFieldEvaluation, 'GD/GDD': GDGDDEvaluation, Admittance: AdmittanceDiagram,
+    'Refractive Index Profiler': RefractiveIndexProfiler, 'Layer Thicknesses': LayerThicknesses,
+    Ellipsometry: EllipsometryEvaluation,
+};
 const noticeShown = (Window, shown) => renderToStaticMarkup(withDesign(React.createElement(Window, { c, t, theme: c }), shown)).includes('⚠');
 for (const [name, Window] of Object.entries(WINDOWS)) {
     ok(`${name} on the front shows no notice for the back's Ta2O5`, !noticeShown(Window, design));

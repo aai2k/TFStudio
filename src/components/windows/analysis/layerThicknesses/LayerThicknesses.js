@@ -38,7 +38,7 @@ export function LayerThicknesses({ c, theme, t }) {
     const dt = t.dataTable;
     const { design } = useDesign();
     const state = useThicknessState(design);
-    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
+    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda, state.side);
     const columns = tableColumns(lt);
     const csv = useCsvExport(
         () => csvFromRows(columns, state.rows),
