@@ -164,9 +164,11 @@ async function goneWithin(pid, ms) {
     return !alive(pid);
 }
 // A value as the wire writes it, without what differs from one computation
-// of it to the next: the ids a design draws at random, and the time a
-// synthesis step took (tMs).
-const DRAWN = new Set(['id', 'tMs']);
+// of it to the next: the ids a design draws at random, the time a synthesis
+// step took (tMs), and a refine record's merit trend (mfHistory), whose points
+// are the progress the optimizer posts at most every 80 ms of wall clock, so a
+// slower machine records more of them.
+const DRAWN = new Set(['id', 'tMs', 'mfHistory']);
 const undrawn = v => {
     if (Array.isArray(v)) return v.map(undrawn);
     if (!v || typeof v !== 'object' || ArrayBuffer.isView(v)) return v;
