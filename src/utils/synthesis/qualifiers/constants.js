@@ -94,6 +94,18 @@ export function coatedSide(design) {
     return mode === 'both_independent' ? 'both' : 'front';
 }
 
+// A design's total thickness, nm: the layers of the side it coats (coatedSide),
+// as its TT row sums them. A symmetric design counts its front once, and a
+// stored back stack on a front-only design counts not at all.
+export function coatedThickness(design) {
+    const side = coatedSide(design);
+    const layers = [
+        ...(side === 'back' ? [] : design?.frontLayers || []),
+        ...(side === 'front' ? [] : design?.backLayers || []),
+    ];
+    return layers.reduce((s, l) => s + (l.thickness || 0), 0);
+}
+
 // The side field a check of `kind` starts with when it is added, or when a row
 // is switched to that kind: the side `design` coats, for a thickness budget or
 // layer count that names none yet (`current`).

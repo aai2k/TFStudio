@@ -212,7 +212,7 @@ console.log('— THICKNESS_BUDGET and LAYER_COUNT (geometry-only) —');
             { id: 'L2', material: 'SiO2',  thickness: 200 },
         ],
         backLayers: [{ id: 'L3', material: 'Ta2O5', thickness: 50 }],
-        surfaceMode: 'front_only',
+        surfaceMode: 'both_independent',
     };
     const qThk = makeQualifier({ kind: 'THICKNESS_BUDGET', cmp: 'le', target: 1000 });
     const qN   = makeQualifier({ kind: 'LAYER_COUNT',      cmp: 'le', target: 4 });

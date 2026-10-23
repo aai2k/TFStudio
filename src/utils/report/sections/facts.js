@@ -77,9 +77,7 @@ export function factPairs(summary, evalMode, tr) {
   const substrate = escapeHtml(summary.substrate)
     + (summary.substrateThickness != null ? `, ${num(summary.substrateThickness, 2)} ${escapeHtml(unitOf(L, 'mm'))}` : '');
   const layers = `${summary.frontCount}${summary.backCount ? ' + ' + summary.backCount : ''}`;
-  const total = summary.backCount
-    ? `${num(summary.frontThickness, 1)} + ${num(summary.backThickness, 1)} ${nm}`
-    : `${num(summary.frontThickness, 1)} ${nm}`;
+  const total = `${num(summary.totalThickness, 1)} ${nm}`;
   return [
     [tt(L, 'substrate', 'Substrate'), substrate],
     [tt(L, 'incidentMedium', 'Incident'), escapeHtml(summary.incidentMedium)],

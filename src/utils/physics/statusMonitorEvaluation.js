@@ -1,7 +1,7 @@
 import {
     makeOperand, evaluateOperands, buildEvalContext, resolveEvalMode, isExtremumRow,
 } from './optimizer.js';
-import { evaluateQualifier } from '../synthesis/qualifiers.js';
+import { evaluateQualifier, coatedThickness } from '../synthesis/qualifiers.js';
 
 export const DIRECT_MONITOR_META = {
     GD:       { mode: 'point', unit: 'fs', decimals: 3, phase: true },
@@ -74,70 +74,82 @@ export function scopedFactLayers(design) {
     return design.frontLayers || [];
 }
 
+const thicknessesOf = layers => layers.map(layer => Number(layer.thickness) || 0);
+
+// The fact monitors that read the layers scopedFactLayers gives.
+const LAYER_FACTS = {
+    layerCount:    layers => layers.length,
+    materialCount: layers => new Set(layers.map(layer => layer.material)).size,
+    minThickness:  layers => (layers.length ? Math.min(...thicknessesOf(layers)) : null),
+    maxThickness:  layers => (layers.length ? Math.max(...thicknessesOf(layers)) : null),
+};
+
+// A fact monitor's reading. Total thickness is the coated sides' thickness the
+// TT row reads (coatedThickness), whatever side the design is evaluated on.
+function factValue(monitor, design) {
+    if (monitor.fact === 'totalThickness') return coatedThickness(design);
+    const read = LAYER_FACTS[monitor.fact];
+    return read ? read(scopedFactLayers(design)) : null;
+}
+
+function derivedValue(monitor, design, resolveMaterial) {
+    const result = evaluateQualifier({
+        id: 'monitor', enabled: true,
+        kind: monitor.type === 'fwhm' ? 'FWHM' : 'EDGE_LAMBDA',
+        channel: monitor.qty || 'T', pol: monitor.pol || 'avg', aoi: monitor.aoi || 0,
+        lambdaStart: monitor.lambdaStart, lambdaEnd: monitor.lambdaEnd,
+        direction: monitor.direction || 'max', level: monitor.level ?? 0.5,
+        edgeSide: monitor.type === 'edgeRight' ? 'right' : 'left',
+        cmp: 'ge', target: 0, flag: MONITOR_FLAG,
+    }, design, resolveMaterial);
+    return Number.isFinite(result?.value) ? result.value : null;
+}
+
+function directValue(direct, monitor, design, resolveMaterial) {
+    const operand = makeOperand({
+        type: monitor.type,
+        lambdaStart: direct.mode === 'point' ? monitor.lambda
+            : direct.mode === 'layers' ? (monitor.layerStart ?? 1) : monitor.lambdaStart,
+        lambdaEnd: direct.mode === 'point' ? monitor.lambda
+            : direct.mode === 'layers' ? (monitor.layerEnd ?? 1000000) : monitor.lambdaEnd,
+        aoi: monitor.aoi || 0, pol: monitor.pol || 'avg', target: monitor.target ?? 0, weight: 1,
+        ...searchFlag(monitor.type),
+    });
+    const value = evaluateOperands([operand], buildEvalContext(design, resolveMaterial))[0];
+    return Number.isFinite(value) ? value : null;
+}
+
 export function computeMonitor(monitor, design, resolveMaterial) {
     try {
-        if (monitor.type === 'fact') {
-            const layers = scopedFactLayers(design);
-            if (monitor.fact === 'layerCount') return layers.length;
-            if (monitor.fact === 'materialCount') return new Set(layers.map(layer => layer.material)).size;
-            if (monitor.fact === 'totalThickness') {
-                return layers.reduce((sum, layer) => sum + (Number(layer.thickness) || 0), 0);
-            }
-            if (!layers.length) return null;
-            if (monitor.fact === 'minThickness') return Math.min(...layers.map(layer => Number(layer.thickness) || 0));
-            if (monitor.fact === 'maxThickness') return Math.max(...layers.map(layer => Number(layer.thickness) || 0));
-            return null;
-        }
-
-        if (DERIVED_MONITOR_META[monitor.type]) {
-            const result = evaluateQualifier({
-                id: 'monitor', enabled: true,
-                kind: monitor.type === 'fwhm' ? 'FWHM' : 'EDGE_LAMBDA',
-                channel: monitor.qty || 'T', pol: monitor.pol || 'avg', aoi: monitor.aoi || 0,
-                lambdaStart: monitor.lambdaStart, lambdaEnd: monitor.lambdaEnd,
-                direction: monitor.direction || 'max', level: monitor.level ?? 0.5,
-                edgeSide: monitor.type === 'edgeRight' ? 'right' : 'left',
-                cmp: 'ge', target: 0, flag: MONITOR_FLAG,
-            }, design, resolveMaterial);
-            return Number.isFinite(result?.value) ? result.value : null;
-        }
-
+        if (monitor.type === 'fact') return factValue(monitor, design);
+        if (DERIVED_MONITOR_META[monitor.type]) return derivedValue(monitor, design, resolveMaterial);
         const direct = DIRECT_MONITOR_META[monitor.type];
-        if (direct) {
-            const operand = makeOperand({
-                type: monitor.type,
-                lambdaStart: direct.mode === 'point' ? monitor.lambda
-                    : direct.mode === 'layers' ? (monitor.layerStart ?? 1) : monitor.lambdaStart,
-                lambdaEnd: direct.mode === 'point' ? monitor.lambda
-                    : direct.mode === 'layers' ? (monitor.layerEnd ?? 1000000) : monitor.lambdaEnd,
-                aoi: monitor.aoi || 0, pol: monitor.pol || 'avg', target: monitor.target ?? 0, weight: 1,
-                ...searchFlag(monitor.type),
-            });
-            const value = evaluateOperands([operand], buildEvalContext(design, resolveMaterial))[0];
-            return Number.isFinite(value) ? value : null;
-        }
-
+        if (direct) return directValue(direct, monitor, design, resolveMaterial);
         const makeType = MONITOR_OPERAND_TYPE[monitor.type];
-        if (!makeType) return null;
-        const single = monitor.type === 'point';
-        const operand = makeOperand({
-            type: makeType(monitor.qty),
-            lambdaStart: single ? monitor.lambda : monitor.lambdaStart,
-            lambdaEnd: single ? monitor.lambda : monitor.lambdaEnd,
-            aoi: monitor.aoi || 0,
-            pol: monitor.pol || 'avg',
-            target: 0,
-            weight: 1,
-            ...searchFlag(makeType(monitor.qty)),
-            ...(monitor.type === 'integral'
-                ? { source: monitor.source || { id: 'E' }, detector: monitor.detector || { id: 'flat' } }
-                : {}),
-        });
-        const value = evaluateOperands([operand], buildEvalContext(design, resolveMaterial))[0];
-        return (value == null || !Number.isFinite(value)) ? null : value * 100;
+        return makeType ? percentValue(makeType, monitor, design, resolveMaterial) : null;
     } catch {
         return null;
     }
+}
+
+// A spectral monitor's reading, in percent.
+function percentValue(makeType, monitor, design, resolveMaterial) {
+    const single = monitor.type === 'point';
+    const operand = makeOperand({
+        type: makeType(monitor.qty),
+        lambdaStart: single ? monitor.lambda : monitor.lambdaStart,
+        lambdaEnd: single ? monitor.lambda : monitor.lambdaEnd,
+        aoi: monitor.aoi || 0,
+        pol: monitor.pol || 'avg',
+        target: 0,
+        weight: 1,
+        ...searchFlag(makeType(monitor.qty)),
+        ...(monitor.type === 'integral'
+            ? { source: monitor.source || { id: 'E' }, detector: monitor.detector || { id: 'flat' } }
+            : {}),
+    });
+    const value = evaluateOperands([operand], buildEvalContext(design, resolveMaterial))[0];
+    return (value == null || !Number.isFinite(value)) ? null : value * 100;
 }
 
 export function computeMonitors(monitors, design, resolveMaterial) {

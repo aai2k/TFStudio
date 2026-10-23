@@ -5,7 +5,7 @@
 
 import { colorReport, COLOR_RANGE_NM } from '../../physics/colorimetry.js';
 import { computeIntegralValueBatch, DEFAULT_INTEGRALS } from '../../physics/integralValues.js';
-import { evaluateQualifiers, aggregateVerdict } from '../../synthesis/qualifiers.js';
+import { evaluateQualifiers, aggregateVerdict, evaluatedStacks, coatedThickness } from '../../synthesis/qualifiers.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { resolveColor } from '../../materials/catalogManager.js';
 import { materialName, buildSpectrum } from './engines.js';
@@ -54,10 +54,11 @@ export function computeQualifiers(design, given = null) {
 //   OT   = n·d                 (optical thickness, nm)
 //   QWOT = n·d / (λref/4)      (quarter-wave optical thickness, dimensionless)
 //   FWOT = n·d / λref          (full-wave optical thickness, dimensionless)
+// The stacks listed are the ones the design is evaluated with, and the total is
+// the coated sides' thickness its TT row reads (coatedThickness).
 export function designSummary(design) {
   const resolveMaterial = designMaterialLookup(design);
-  const front = design.frontLayers || [];
-  const back  = design.backLayers  || [];
+  const { front, back } = evaluatedStacks(design);
   const lamRef = design.referenceWavelength ?? 550;
   const frontThk = front.reduce((s, l) => s + (l.thickness || 0), 0);
   const backThk  = back.reduce((s, l) => s + (l.thickness || 0), 0);
@@ -106,7 +107,7 @@ export function designSummary(design) {
     back: back.map(layerRow),
     frontCount: front.length, backCount: back.length,
     frontThickness: frontThk, backThickness: backThk,
-    totalThickness: frontThk + backThk,
+    totalThickness: coatedThickness(design),
     materials,
     notes: design.notes || '',
   };

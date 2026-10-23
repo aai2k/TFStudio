@@ -4,11 +4,10 @@
  * Checks:
  *   1. In every surface mode, front adds up the front stack, back the back
  *      stack the design is evaluated with (the front mirrored on a symmetric
- *      design), and both the two.
- *   2. A check saved without a side reads both: the stored front and back
- *      added up, as such a check read before it had a side, on any design
- *      whose stored back is the one it is evaluated with. A symmetric design
- *      saved with a stale back reads its mirrored front.
+ *      design, none on a front-only design scored on its front), and both the
+ *      two. A back-only design scored on its back has no front.
+ *   2. A check saved without a side reads both. A symmetric design saved with
+ *      a stale back reads its mirrored front.
  *   3. A new check, or a row switched to one of these kinds, starts at the side
  *      the design coats; a row that names a side keeps it.
  *   4. Generate MF writes a thickness budget on the coating TT sums as TT rows,
@@ -54,16 +53,17 @@ const valueOf = (fields, d) => evaluateQualifier(makeQualifier({ cmp: 'le', targ
 
 // ── 1-2. What each side adds up ──────────────────────────────────────────────
 for (const [mode, d] of Object.entries(MODES)) {
-    const back = mode === 'symmetric' ? [...FRONT].reverse() : BACK;
-    const want = { front: FRONT, back, both: [...FRONT, ...back] };
+    const back = { symmetric: [...FRONT].reverse(), front_only: [] }[mode] || BACK;
+    const front = mode === 'back_only' ? [] : FRONT;
+    const want = { front, back, both: [...front, ...back] };
     for (const side of ['front', 'back', 'both']) {
         ok(`${mode}: the ${side} budget adds up the ${side} layers`, valueOf({ kind: 'THICKNESS_BUDGET', side }, d) === sum(want[side]),
             `${valueOf({ kind: 'THICKNESS_BUDGET', side }, d)} vs ${sum(want[side])}`);
         ok(`${mode}: the ${side} layer count counts them`, valueOf({ kind: 'LAYER_COUNT', side }, d) === want[side].length);
     }
-    ok(`${mode}: a budget without a side reads the stored front and back added up`,
-        valueOf({ kind: 'THICKNESS_BUDGET' }, d) === sum(d.frontLayers) + sum(d.backLayers)
-        && valueOf({ kind: 'LAYER_COUNT' }, d) === d.frontLayers.length + d.backLayers.length);
+    ok(`${mode}: a budget without a side reads both added up`,
+        valueOf({ kind: 'THICKNESS_BUDGET' }, d) === sum(want.both)
+        && valueOf({ kind: 'LAYER_COUNT' }, d) === want.both.length);
 }
 
 // A symmetric design built without a stored back, as a script can build one,

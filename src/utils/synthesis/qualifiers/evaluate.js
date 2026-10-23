@@ -14,7 +14,7 @@
  * { value, pass, deviation, unit, threshold } result (format.js writes its text).
  */
 
-import { makeOperand, evaluateOperands, buildEvalContext, withFringeSampleCounts, effectiveBackLayers } from '../../physics/optimizer.js';
+import { makeOperand, evaluateOperands, buildEvalContext, withFringeSampleCounts, effectiveBackLayers, resolveEvalMode } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType, integralType } from './channelTypes.js';
 import { finishCompare } from './format.js';
 import { checkStepFlag, budgetSide, SIDE_KINDS } from './constants.js';
@@ -35,14 +35,25 @@ export function rowValue(op, ctx) {
 
 // ── Static (geometry-only) qualifiers ───────────────────────────────────────
 
+// The front stack and the back stack a design is evaluated with: the back as
+// effectiveBackLayers gives it (the mirrored front on a symmetric design). A
+// design scored on one side alone has no other: a front-only design scored on
+// its front lists no back, a back-only design scored on its back no front, so a
+// stack stored but never evaluated is never counted.
+export function evaluatedStacks(design) {
+    const mode = resolveEvalMode(design);
+    return {
+        front: mode === 'back' ? [] : (design?.frontLayers || []),
+        back: mode === 'front' ? [] : effectiveBackLayers(design),
+    };
+}
+
 // The layers a thickness budget or layer count adds up (budgetSide): the front
-// stack, the back stack as the design is evaluated with it (the mirrored front
-// on a symmetric design), or both.
+// stack, the back stack, or both, as the design is evaluated with them.
 function sideLayers(qual, design) {
     const side = budgetSide(qual);
-    const front = side === 'back' ? [] : (design?.frontLayers || []);
-    const back = side === 'front' ? [] : effectiveBackLayers(design);
-    return [...front, ...back];
+    const { front, back } = evaluatedStacks(design);
+    return [...(side === 'back' ? [] : front), ...(side === 'front' ? [] : back)];
 }
 
 function evalThicknessBudget(qual, design) {
