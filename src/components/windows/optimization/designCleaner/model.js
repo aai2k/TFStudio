@@ -4,9 +4,9 @@ import {
     calcMF,
     buildEvalContext,
     withFringeSampleCounts,
-    withDesignSampleCounts,
 } from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
+import { densifyForRun } from '../../../../utils/refinement/workerInputs.js';
 import { refineOffThread, refineInTicks } from '../synthesisShared/workerRefine.js';
 
 export function computeCleanupPreview(design, opts) {
@@ -29,12 +29,13 @@ export function computeMeritValue(targetDesign, meritOperands, resolveMat) {
 }
 
 // The post-clean refinement: the app's default refiner on the cleaned stack,
-// band operands sampled for its fringes, the step budget clamped to 1..500 and
-// the thickness floor to at least 1 nm.
-function refineJob(cleaned, design, { reoptIters, dMin }, resolveMat) {
+// its merit rows sampled as a Refinement run samples them at launch, so a
+// feature narrower than a row's grid is seen, the step budget clamped to
+// 1..500 and the thickness floor to at least 1 nm.
+function refineJob(cleaned, design, { reoptIters, dMin }) {
     return {
         method: DEFAULT_REFINE_METHOD,
-        operands: withDesignSampleCounts(design.meritOperands, cleaned, resolveMat),
+        operands: densifyForRun(design.meritOperands, cleaned),
         design: cleaned,
         iters: Math.max(1, Math.min(500, reoptIters)),
         dMin: Math.max(dMin, 1.0),
@@ -55,7 +56,7 @@ export async function applyCleanup(preview, design, dc, settings, resolveMat) {
 
     if (reoptimize && design.meritOperands?.length) {
         try {
-            const job = refineJob(nextDesign, design, settings, resolveMat);
+            const job = refineJob(nextDesign, design, settings);
             refined = inWorker
                 ? await refineOffThread(job, resolveMat, { signal, onProgress })
                 : await refineInTicks(job, resolveMat, { signal, onProgress });
