@@ -49,6 +49,18 @@ export function ctrlChordChar(event) {
     return characterForPosition(event.code);
 }
 
+/**
+ * Whether `event` came from a field the user types into: an input, a textarea,
+ * a select or a contentEditable element. Keys there belong to the field.
+ */
+export function isEditingInside(event) {
+    const tgt = event?.target;
+    if (!tgt || !tgt.tagName) return false;
+    const tag = tgt.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+    return !!tgt.isContentEditable;
+}
+
 /** Whether `event` is the Ctrl chord for `character`, with Shift not held. */
 export function isCtrlChord(event, character) {
     return !event?.shiftKey && ctrlChordChar(event) === character;

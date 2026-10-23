@@ -21,18 +21,9 @@
 // out of unrelated focused inputs — the hook auto-ignores events that
 // originated inside <input>/<textarea>/<select> or contentEditable).
 
-import { isCtrlChord } from '../utils/misc/keyChords.js';
+import { isCtrlChord, isEditingInside } from '../utils/misc/keyChords.js';
 
 const { useCallback } = React;
-
-function isEditingInside(e) {
-    const tgt = e.target;
-    if (!tgt || !tgt.tagName) return false;
-    const tag = tgt.tagName;
-    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
-    if (tgt.isContentEditable) return true;
-    return false;
-}
 
 /**
  * Whether `e` is a bare character that should open the focused cell's editor

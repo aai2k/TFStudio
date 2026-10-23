@@ -29,6 +29,7 @@ function ev(opts) {
         ctrlKey:  !!opts.ctrl,
         metaKey:  !!opts.meta,
         altKey:   !!opts.alt,
+        target:   opts.target,
     };
 }
 
@@ -90,6 +91,18 @@ ok(appShortcutFor(null) === null, 'null event');
 // 8. Function keys carry no layout-dependent character
 is({ key: 'F1', code: 'F1' }, 'help', 'F1');
 is({ key: 'F11', code: 'F11' }, 'fullscreen', 'F11');
+
+// 9. Undo and redo in a text field belong to the field; the file chords do not
+const textarea = { tagName: 'TEXTAREA' };
+const numberInput = { tagName: 'INPUT', type: 'number' };
+const editable = { tagName: 'DIV', isContentEditable: true };
+const body = { tagName: 'BODY' };
+is({ ctrl: true, key: 'z', code: 'KeyZ', target: textarea }, null, 'Ctrl+Z in a textarea');
+is({ ctrl: true, key: 'z', code: 'KeyZ', target: numberInput }, null, 'Ctrl+Z in a number field');
+is({ ctrl: true, shift: true, key: 'Z', code: 'KeyZ', target: numberInput }, null, 'Ctrl+Shift+Z in a number field');
+is({ ctrl: true, key: 'y', code: 'KeyY', target: editable }, null, 'Ctrl+Y in an editable element');
+is({ ctrl: true, key: 'z', code: 'KeyZ', target: body }, 'undo', 'Ctrl+Z with nothing focused');
+is({ ctrl: true, key: 's', code: 'KeyS', target: textarea }, 'save', 'Ctrl+S in a textarea');
 
 if (fails) { console.error(`\n${fails} failure(s)`); process.exit(1); }
 console.log('app_shortcuts: all checks passed');

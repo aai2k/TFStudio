@@ -3,9 +3,13 @@
  *
  * The chords are read layout-independently; see keyChords for how, and why
  * neither the character nor the key position alone is enough.
+ *
+ * Undo and redo pressed in a text field are left to the field, so Ctrl+Z
+ * takes back the typing rather than the last design edit. Save, open and new
+ * still work from a field, as in most applications.
  */
 
-import { ctrlChordChar } from './keyChords.js';
+import { ctrlChordChar, isEditingInside } from './keyChords.js';
 
 const ACTIONS = new Map([
     ['s', 'save'],
@@ -25,6 +29,7 @@ export function appShortcutFor(event) {
     if (event.key === 'F11') return 'fullscreen';
 
     const action = ACTIONS.get(ctrlChordChar(event));
-    if (!action) return null;
+    const fieldOwnsIt = (action === 'undo' || action === 'redo') && isEditingInside(event);
+    if (!action || fieldOwnsIt) return null;
     return action === 'undo' && event.shiftKey ? 'redo' : action;
 }
