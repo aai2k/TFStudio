@@ -25,26 +25,11 @@ function removeQualifierFrom(qualifiers, writeQualifiers, setSelectedId, id) {
     setSelectedId(prev => prev === id ? null : prev);
 }
 
-// Splice a fresh row at a specific index. `source` (if given) carries
-// kind/cmp/channel/direction/level/lambda*/aoi/pol/target as defaults so
-// the new row is a near-clone — only target / label still need editing.
+// Splice a fresh row at a specific index. `source` (if given) gives every
+// field but its id and label, so the new row is a near copy: only its target
+// and label still need editing.
 export function insertQualifierInto({ qualifiers, writeQualifiers, setSelectedId, containerRef }, insertIdx, source) {
-    const seed = source
-        ? {
-            kind: source.kind, cmp: source.cmp,
-            channel: source.channel, direction: source.direction,
-            level: source.level,
-            lambdaStart: source.lambdaStart, lambdaEnd: source.lambdaEnd,
-            lambda: source.lambda,
-            aoi: source.aoi, pol: source.pol,
-            target: source.target,
-            edgeSide: source.edgeSide,
-            flag: source.flag,
-            side: source.side,
-            integralId: source.integralId,
-            tolerance: source.tolerance,
-        }
-        : { kind: 'T_AVG' };
+    const { id: _id, label: _label, ...seed } = source || { kind: 'T_AVG' };
     const q = makeQualifier(seed);
     const pos = Math.max(0, Math.min(insertIdx, qualifiers.length));
     const next = [...qualifiers.slice(0, pos), q, ...qualifiers.slice(pos)];

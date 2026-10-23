@@ -15,10 +15,14 @@
  *      No other kind shows one.
  *   4. A thickness budget or layer count added, or a row switched to one,
  *      starts at the side the design coats unless it names one; Ins below a
- *      check copies its Step and its side.
+ *      check copies its Step and its side, and every other field but its id
+ *      and label: an integral check's preset, source and detector, an = check's
+ *      tolerance, a range check's limits and a PPEF check's curve.
  *
  * Run: node tests/specification_row_fields.mjs
  */
+import { isDeepStrictEqual } from 'node:util';
+
 globalThis.React = {
     createElement: (type, props, ...children) => ({ type, props: props || {}, children }),
     createContext: value => ({ Provider: 'Provider', Consumer: 'Consumer', _currentValue: value }),
@@ -143,6 +147,20 @@ function rowOf(fields, label = ts.step) {
     ok('Ins below a check with a Step copies it', rows[1].flag === 3, String(rows[1].flag));
     insertBelow(makeQualifier({ kind: 'THICKNESS_BUDGET', side: 'back' }));
     ok('and below a budget, its side', rows[1].side === 'back', rows[1].side);
+    const sources = [
+        makeQualifier({ kind: 'INTEGRAL', presetKey: 'My lamp', presetLabel: 'My lamp', source: { id: 'A' }, detector: { id: 'flat' },
+            lambdaStart: 420, lambdaEnd: 680, label: 'Lamp' }),
+        makeQualifier({ kind: 'CENTRAL_LAMBDA', cmp: 'eq', target: 1550, tol: 3 }),
+        makeQualifier({ kind: 'R_AVG', cmp: 'between', lo: 0.2, hi: 0.4 }),
+        makeQualifier({ kind: 'PPEF', curveId: 'curve-1', cmp: 'le', target: 0.5 }),
+    ];
+    for (const source of sources) {
+        insertBelow(source);
+        const { id, label, ...copied } = rows[1];
+        const { id: _id, label: _label, ...given } = source;
+        ok(`Ins below ${source.kind} copies every field but its id and label`,
+            isDeepStrictEqual(copied, given) && id !== source.id && label === '', JSON.stringify(rows[1]));
+    }
 }
 
 console.log(`${pass} passed, ${fail} failed`);

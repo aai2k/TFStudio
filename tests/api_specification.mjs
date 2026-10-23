@@ -376,7 +376,7 @@ function windowCheck(design, kind, fields) {
     // check is refused: a Step kept from the kind a row was switched from, an
     // integral preset its user saved, a level above 1, an angle below 0, a
     // band typed high to low, a PPEF check before its curve is picked, and a
-    // row copied with Ins, which carries keys of no value.
+    // row copied with Ins.
     const edited = (check, patch) => {
         let qualifiers = [check];
         updateQualifierIn(qualifiers, next => { qualifiers = next; }, check.id, patch);
