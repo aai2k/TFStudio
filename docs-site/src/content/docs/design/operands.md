@@ -166,9 +166,9 @@ These rows score the front coating, and the back coating when the design's surfa
 
 | Name | Description |
 | ---- | ----------- |
-| `EFMX` | Peak of the normalized \|E\|² anywhere in the front coating at **λ** and **AOI (°)**. **Pol** selects s or p; `avg` takes the larger of the two peaks. A new row starts at a target of 0, so it lowers the peak field, the usual aim for laser damage resistance. |
+| `EFMX` | Peak of the normalized \|E\|² anywhere in the front coating at **λ** and **AOI (°)**. **Pol** selects s or p; `avg` takes the peak of the mean of the s and p fields, the curve the [Electric Field](/analysis/efield/) window draws for `avg`. A new row starts at a target of 0, so it lowers the peak field, the usual aim for laser damage resistance. |
 
-The [Electric Field](/analysis/efield/) window draws `avg` as the mean of the s and p profiles, so its peak there can be lower than this row's. An `EFMX` row makes every optimizer step slower: its slopes are taken by finite differences, and so are every other row's while it is in the merit function.
+For a polarized laser, set **Pol** to the beam's polarization: at an angle the two fields differ, and their mean can sit well below the larger. An `EFMX` row makes every optimizer step slower: its slopes are taken by finite differences, and so are every other row's while it is in the merit function.
 
 ## Math on other rows
 

@@ -175,7 +175,7 @@ const FORMS = {
         h(LambdaRow, { key: 'lambda', c, W, s, set, design }),
         h(AngleRow, { key: 'angle', c, W, s, set }),
         h(SettingRow, { c, key: 'pol', label: W.polarization },
-            h(ChoiceGroup, { c, items: polItems(W).slice(1), activeId: s.pol, onSelect: id => set('pol', id) })),
+            h(ChoiceGroup, { c, items: polItems(W), activeId: s.pol, onSelect: id => set('pol', id) })),
         h(PlotRow, { key: 'plot', c, W, s, set }),
     ],
     riProfile: ({ c, W, s, set, design }) => [

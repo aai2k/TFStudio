@@ -6,6 +6,7 @@
 import {
   buildLambdaGrid, computeRIProfile, computeEFieldProfile, evaluateEllipsometrySpectrum,
 } from '../../physics/thinFilmMath.js';
+import { FIELD_SAMPLES_PER_LAYER, unpolarizedProfile } from '../../physics/unpolarizedField.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { mediumId } from './engines.js';
 
@@ -54,18 +55,21 @@ export function computeRiProfile(design, opts = {}) {
 }
 
 // ── Electric-field profile |E(z)|² ──────────────────────────────────────────
+// `pol` is 's', 'p' or 'avg', the mean of the s and p fields, sampled as the
+// Electric Field window samples them.
 export function computeEField(design, opts = {}) {
   const resolveMaterial = designMaterialLookup(design);
   const lam = opts.lambda ?? design.referenceWavelength ?? 550;
   const theta = opts.theta ?? 0;
-  const pol = opts.pol === 'p' ? 'p' : 's';
+  const pol = opts.pol === 'p' || opts.pol === 'avg' ? opts.pol : 's';
   // computeEFieldProfile takes complex pairs [re, im] directly from getNK().
   const n0 = resolveMaterial(mediumId(design.incidentMedium)).getNK(lam);
   const ns = resolveMaterial(design.substrate?.material).getNK(lam);
   const layers = (design.frontLayers || [])
     .filter(l => l.material && l.thickness > 0)
     .map(l => ({ n: resolveMaterial(l.material).getNK(lam), d: l.thickness }));
-  const prof = computeEFieldProfile(lam, theta, pol, n0, ns, layers, 50);
+  const profileFor = code => computeEFieldProfile(lam, theta, code, n0, ns, layers, FIELD_SAMPLES_PER_LAYER);
+  const prof = pol === 'avg' ? unpolarizedProfile(profileFor('s'), profileFor('p')) : profileFor(pol);
   // The incident index sets the absolute scale of the field, so the report can
   // draw the same quantity the E-field window does.
   return { lambda: lam, theta, pol, incidentIndex: n0[0], ...prof };

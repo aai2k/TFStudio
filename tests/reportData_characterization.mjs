@@ -78,10 +78,10 @@ console.log('— computeEField —');
 {
   const ef = computeEField(design, { lambda: 550, theta: 0, pol: 's' });
   ok('eField lambda/theta/pol', ef.lambda === 550 && ef.theta === 0 && ef.pol === 's');
-  ok('eField z length', ef.z.length === 151);
+  ok('eField z length', ef.z.length === 181);
   ok('eField e2[0..2]', Math.abs(ef.e2[0] - 0.5386020090182037) < 1e-12
-    && Math.abs(ef.e2[1] - 0.5217082645651081) < 1e-12
-    && Math.abs(ef.e2[2] - 0.5026360423126467) < 1e-12);
+    && Math.abs(ef.e2[1] - 0.5246838924906974) < 1e-12
+    && Math.abs(ef.e2[2] - 0.5092150724719582) < 1e-12);
 }
 
 // ── computeEllipsometrySpectrum: Psi/Delta(lambda) per AOI ──────────────────

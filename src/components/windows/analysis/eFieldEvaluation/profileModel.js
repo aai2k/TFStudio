@@ -1,8 +1,7 @@
 import { computeEFieldProfile } from '../../../../utils/physics/thinFilmMath.js';
+import { FIELD_SAMPLES_PER_LAYER as NPTS, unpolarizedProfile } from '../../../../utils/physics/unpolarizedField.js';
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-
-const NPTS = 60;
 
 export function buildMatColorMap(design, layers) {
     const resolveMaterial = designMaterialLookup(design);
@@ -74,20 +73,8 @@ export function computeProfile(design, params) {
     if (pol === 'avg') {
         const s = computeEFieldProfile(lambda_nm, theta_deg, 's', n0, ns, layerInput, NPTS);
         const p = computeEFieldProfile(lambda_nm, theta_deg, 'p', n0, ns, layerInput, NPTS);
-        return { s, p, avg: averagePolarizations(s, p), ...common };
+        return { s, p, avg: unpolarizedProfile(s, p), ...common };
     }
     const result = computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layerInput, NPTS);
     return { [pol]: result, ...common };
-}
-
-// The unpolarized curve is the mean of the two polarizations, taken component
-// by component so a component read on its own is the mean of that component.
-function averagePolarizations(s, p) {
-    const mean = key => s[key].map((value, index) => (value + p[key][index]) / 2);
-    return {
-        ...s,
-        e2: mean('e2'),
-        e2Tangential: mean('e2Tangential'),
-        e2Normal: mean('e2Normal'),
-    };
 }
