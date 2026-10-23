@@ -9,6 +9,7 @@ import { evaluateQualifiers, aggregateVerdict, evaluatedStacks, coatedThickness 
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { resolveColor } from '../../materials/catalogManager.js';
 import { materialName, buildSpectrum } from './engines.js';
+import { sessionDefaults } from '../../../constants/analysisDefaults.js';
 
 // ── Color ───────────────────────────────────────────────────────────────────
 // The spectrum is computed on the colour band every `step` nm and the colour is
@@ -25,16 +26,29 @@ export function computeColor(design, opts = {}) {
 }
 
 // ── Integral values (Tvis / Tsol / TUV / TNIR …) ────────────────────────────
+// The Integral Values window's grid at `theta` and `polarization`, so a narrow
+// band, which a coarse step would miss or land on, prints the value the window
+// shows.
+export function integralGrid(theta, polarization) {
+  const { lambdaStart, lambdaEnd, lambdaStep } = sessionDefaults('integralValues');
+  return { lambdaStart, lambdaEnd, lambdaStep, theta, polarization };
+}
+
+// `opts.given`, when set, is the spectrum worked out on the analysis worker,
+// as { spectrum } (null while the work is under way) or { error }, and no
+// spectrum is computed here.
 export function computeIntegrals(design, opts = {}) {
-  const { pol = 'avg', defs = DEFAULT_INTEGRALS } = opts;
+  const { pol = 'avg', defs = DEFAULT_INTEGRALS, given } = opts;
   const theta = opts.theta ?? opts.aoi ?? 0;
-  // Wide grid so every weighting band is covered (UV 280 → NIR 2500).
-  const spec = buildSpectrum(design, {
-    lambdaStart: 280, lambdaEnd: 2500, lambdaStep: 5, thetas: [theta], pol,
-  });
-  const s0 = spec.series[0] || { lambda: [], T: [], R: [], A: [] };
-  const spectrum = { lambda: spec.lambda, T: s0.T, R: s0.R, A: s0.A };
-  const values = computeIntegralValueBatch(spectrum, defs);
+  if (given?.error) throw new Error(given.error);
+  let spectrum = given?.spectrum ?? null;
+  if (!given) {
+    const { lambdaStart, lambdaEnd, lambdaStep } = integralGrid(theta, pol);
+    const spec = buildSpectrum(design, { lambdaStart, lambdaEnd, lambdaStep, thetas: [theta], pol });
+    const s0 = spec.series[0] || { lambda: [], T: [], R: [], A: [] };
+    spectrum = { lambda: spec.lambda, T: s0.T, R: s0.R, A: s0.A };
+  }
+  const values = spectrum ? computeIntegralValueBatch(spectrum, defs) : {};
   return { defs, values, theta, pol };
 }
 

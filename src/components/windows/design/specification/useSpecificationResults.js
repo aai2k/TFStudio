@@ -29,7 +29,7 @@ export function markProvisional(qualifiers, results) {
 
 // The last list of designs while `designs` holds the same ones in the same
 // order, so a new array of the designs already evaluated asks for nothing new.
-function useSameDesigns(designs) {
+export function useSameDesigns(designs) {
     const kept = useRef(designs);
     const same = kept.current.length === designs.length && kept.current.every((d, i) => d === designs[i]);
     if (!same) kept.current = designs;

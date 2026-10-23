@@ -13,12 +13,15 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useWindowSession } from '../../windowSession.js';
 import { getLocale, getCurrentLocale } from '../../../../constants/locales/index.js';
-import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, blocksFromTemplate } from '../../../../utils/report/blocks.js';
+import { BUILTIN_TEMPLATES, DEFAULT_TEMPLATE_ID, blocksFromTemplate, withDefaults } from '../../../../utils/report/blocks.js';
 import { gatherDesignData } from '../../../../utils/report/reportData.js';
+import { integralGrid } from '../../../../utils/report/reportData/sectionData.js';
 import { composeReport } from '../../../../utils/report/template.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { errorAnalysisSession } from '../../analysis/errorAnalysis/sessionState.js';
+import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 import { monitorWorksheetSession } from '../../simulation/monitorWorksheet/sessionState.js';
-import { useFineSpecification } from '../../design/specification/useSpecificationResults.js';
+import { useFineSpecification, useSameDesigns } from '../../design/specification/useSpecificationResults.js';
 import { reportSession, APP_LANGUAGE } from './sessionState.js';
 import { useBranding } from './branding.js';
 import { useBlockActions, useTemplateActions, useExportActions } from './reportActions.js';
@@ -216,6 +219,44 @@ export function useWithSpecification(inputs, hold) {
     return useMemo(() => ({ ...inputs, external }), [inputs, external]);
 }
 
+// The grids the enabled integrals blocks are sampled on, one per angle and
+// polarization.
+function integralGrids(blocks) {
+    const grids = [];
+    for (const block of blocks) {
+        if (!block.on || block.type !== 'integrals') continue;
+        const { theta, polarization } = withDefaults('integrals', block.settings);
+        if (!grids.some(g => g.theta === theta && g.polarization === polarization)) grids.push(integralGrid(theta, polarization));
+    }
+    return grids;
+}
+
+// The page's inputs with the integral spectra of the designs under a cone of
+// incidence, worked out on the analysis worker as the Integral Values window
+// works out its own: every ray of the cone on the window's grid takes seconds.
+// A design without a cone is integrated where the page is gathered. Nothing is
+// asked for while a run is followed; until the answer arrives the values read
+// as dashes.
+export function useWithIntegrals(inputs, hold) {
+    const { chosen, blocks, external: held } = inputs;
+    const coned = useSameDesigns(chosen.filter(d => coneIsActive(makeConeSpec(d.cone || {}))));
+    const gridsKey = JSON.stringify(integralGrids(blocks));
+    const payload = useMemo(() => ({ designs: coned, grids: JSON.parse(gridsKey) }), [coned, gridsKey]);
+    const answer = useAnalysisEvaluation(!hold && coned.length > 0 && payload.grids.length > 0, 'integralSpectra', payload);
+    const external = useMemo(() => {
+        const data = answer.payload === payload ? answer.data : null;
+        const error = answer.payload === payload ? answer.error : null;
+        const integrals = (design, settings) => {
+            const i = coned.indexOf(design);
+            if (i < 0) return undefined;
+            const g = payload.grids.findIndex(grid => grid.theta === settings.theta && grid.polarization === settings.polarization);
+            return { spectrum: data?.[i]?.[g] ?? null, error };
+        };
+        return { ...held, integrals };
+    }, [held, coned, payload, answer]);
+    return useMemo(() => ({ ...inputs, external }), [inputs, external]);
+}
+
 // The document's language: a code, or the language the app runs in.
 function documentLanguage(stored) {
     return stored && stored !== APP_LANGUAGE ? stored : getCurrentLocale();
@@ -250,7 +291,7 @@ export function useReportWindow({ t }) {
     const inputs = useSettled(useMemo(
         () => ({ chosen, blocks, external, lang, tr, branding, doc, paper: state.paper, meta, catalogRevision: designCtx.catalogRevision }),
         [chosen, blocks, external, lang, tr, branding, doc, state.paper, meta, designCtx.catalogRevision]), preview);
-    const { items, html, error } = useDocument(useWithSpecification(inputs, preview));
+    const { items, html, error } = useDocument(useWithIntegrals(useWithSpecification(inputs, preview), preview));
 
     const setDoc = useCallback((key, value) => patch({ doc: { ...state.doc, [key]: value } }), [patch, state.doc]);
     const setPaper = useCallback(paper => setField('paper', paper), [setField]);

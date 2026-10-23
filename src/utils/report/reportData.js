@@ -52,7 +52,9 @@ const COMPUTE = {
     lambdaStart: s.lambdaStart, lambdaEnd: s.lambdaEnd, lambdaStep: s.lambdaStep, thetas: s.thetas,
   }),
   color:        (design, s) => computeColor(design, s),
-  integrals:    (design, s) => computeIntegrals(design, { theta: s.theta, pol: s.polarization }),
+  integrals:    (design, s, external) => computeIntegrals(design, {
+    theta: s.theta, pol: s.polarization, given: external.integrals?.(design, s),
+  }),
   qualifiers:   (design, s, external) => computeQualifiers(design, external.specification?.(design)),
   merit:        (design) => meritOperandsSummary(design),
   riProfile:    (design, s) => computeRiProfile(design, { lambda: s.lambda ?? undefined }),
@@ -79,7 +81,11 @@ const COMPUTE = {
  *                             ran with, or null;
  *                             `worksheet(design)` returns the Monitor Worksheet window's values;
  *                             `specification(design)` returns the design's Specification
- *                             results at the fine step, or null
+ *                             results at the fine step, or null;
+ *                             `integrals(design, settings)` returns the spectrum an
+ *                             integrals block integrates, worked out on the analysis
+ *                             worker (computeIntegrals `given`), or undefined for a
+ *                             design whose integrals are computed here
  * @returns {{ summary: object, evalMode: string, blocks: Object<string, object> }}
  */
 export function gatherDesignData(design, blocks, external = {}) {

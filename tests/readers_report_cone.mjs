@@ -21,6 +21,7 @@ const [
     { resolveEvalMode },
     { evaluateSpectrum },
     { designMaterialLookup },
+    { sessionDefaults },
 ] = await Promise.all([
     import('../src/utils/report/reportData.js'),
     import('../src/components/windows/analysis/opticalEvaluation/spectrum.js'),
@@ -30,6 +31,7 @@ const [
     import('../src/utils/physics/optimizer.js'),
     import('../src/utils/physics/thinFilmMath.js'),
     import('../src/utils/materials/designMaterials.js'),
+    import('../src/constants/analysisDefaults.js'),
 ]);
 
 const stack = Array.from({ length: 15 }, (_, index) => ({
@@ -62,11 +64,12 @@ const close = (actual, expected, label) => {
     assert.equal(report.evalMode, 'front');
 }
 
-// ── Integral values: the numbers Integral Values prints ──────────────────────
+// ── Integral values: the numbers Integral Values prints, on its own grid ─────
 {
     const report = computeIntegrals(coned, { theta: 0, pol: 'avg' });
+    const { lambdaStart, lambdaEnd, lambdaStep } = sessionDefaults('integralValues');
     const spectrum = computeSpectrumForMode(coned,
-        { lambdaStart: 280, lambdaEnd: 2500, lambdaStep: 5, theta: 0, polarization: 'avg' }, 'front');
+        { lambdaStart, lambdaEnd, lambdaStep, theta: 0, polarization: 'avg' }, 'front');
     const shown = computeIntegralValueBatch(spectrum, DEFAULT_INTEGRALS);
     assert.deepEqual(report.values, shown);
 }

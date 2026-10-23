@@ -16,6 +16,7 @@ import { computeVariatorSpectrum } from '../../components/windows/optimization/v
 import { designPreview } from '../../components/windows/dataExchange/spectrumExchange/designPreview.js';
 import { designBackdrop } from '../../components/windows/dataExchange/curveEditor/designBackdrop.js';
 import { meritDisplay } from '../physics/meritDisplay.js';
+import { resolveEvalMode } from '../physics/optimizer.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 
 function meritScore(design, operands) {
@@ -62,6 +63,10 @@ function colorReport(design, options) {
 const EVALUATIONS = {
     opticalSpectrum: ({ design, params, evalMode }) => computeOpticalSpectrum(design, params, evalMode),
     integralSpectrum: ({ design, params, evalMode }) => computeSpectrumForMode(design, params, evalMode),
+    // The Report's integrals blocks: integralSpectrum of each design on each
+    // grid, the design read in the mode it is evaluated in.
+    integralSpectra: ({ designs, grids }) => (designs || []).map(design =>
+        grids.map(params => computeSpectrumForMode(design, params, resolveEvalMode(design)))),
     colorReport: ({ design, options }) => colorReport(design, options),
     statusMonitors: ({ design, monitors }) => computeMonitors(monitors || [], design, designMaterialLookup(design)),
     specification: ({ designs, coarse, deviation, interlayers }) => (designs || [])
