@@ -2822,5 +2822,229 @@
   "ServerError.lead.1": {
     "hash": "97e0f0eb",
     "text": "找不到或无法启动 TFStudio，或为调用服务的 TFStudio 已结束或被关闭。它自行结束时，信息末尾附有它写入日志的最后几行。"
+  },
+  "Design.ellipsometry.arg.start": {
+    "hash": "115f61f2",
+    "text": "起始波长，单位 nm。"
+  },
+  "Design.ellipsometry.arg.end": {
+    "hash": "b4a9096d",
+    "text": "结束波长，单位 nm，大于 `start`。"
+  },
+  "Design.ellipsometry.arg.step": {
+    "hash": "078399d3",
+    "text": "波长步长，单位 nm。"
+  },
+  "Design.ellipsometry.arg.angles": {
+    "hash": "2575c225",
+    "text": "入射角，单位为度，在光射来的介质中计，每个从 0 起，小于 90。"
+  },
+  "Design.ellipsometry.arg.side": {
+    "hash": "b6711e3a",
+    "text": "`'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。"
+  },
+  "Design.ellipsometry.arg.deltaConvention": {
+    "hash": "c0e7d281",
+    "text": "Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。两者的 Ψ 相同。"
+  },
+  "Design.ellipsometry.returns": {
+    "hash": "a446dc34",
+    "text": "一个 Ellipsometry。"
+  },
+  "Design.ellipsometry.lead.1": {
+    "hash": "04658516",
+    "text": "一个镀膜面的 Ψ 和 Δ 随波长的变化，在一个或多个入射角下，与椭偏仪评估窗口的光谱扫描计算的相同，由 ρ = r_p / r_s = tan Ψ · exp(i Δ) 得出。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。"
+  },
+  "Design.ellipsometry.refuses.1.js": {
+    "hash": "1a114269",
+    "text": "它不接受的选项、不构成范围的波长范围、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定、超过一百万个点（波长数乘以角度数），或用到找不到对应材料的设计"
+  },
+  "Design.ellipsometry.refuses.1.py": {
+    "hash": "58a453a8",
+    "text": "不构成范围的波长范围、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、不是 \"azzam\" 或 \"reversed\" 的符号约定、超过一百万个点（波长数乘以角度数），或用到找不到对应材料的设计"
+  },
+  "Design.ellipsometryVsAngle.arg.wavelength": {
+    "hash": "f6a4593e",
+    "text": "波长，单位 nm。不给出时，使用设计的参考波长。"
+  },
+  "Design.ellipsometryVsAngle.arg.start": {
+    "hash": "08c1914b",
+    "text": "起始入射角，单位为度，在光射来的介质中计，不小于 0。"
+  },
+  "Design.ellipsometryVsAngle.arg.end": {
+    "hash": "dcd98f5a",
+    "text": "结束角度，单位为度，大于 `start`，最大 89.5。"
+  },
+  "Design.ellipsometryVsAngle.arg.step": {
+    "hash": "7b2339c8",
+    "text": "角度步长，单位为度，从 0.05 到跨度，即 `end` 减 `start`。"
+  },
+  "Design.ellipsometryVsAngle.arg.side": {
+    "hash": "b6711e3a",
+    "text": "`'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。"
+  },
+  "Design.ellipsometryVsAngle.arg.deltaConvention": {
+    "hash": "c0e7d281",
+    "text": "Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。两者的 Ψ 相同。"
+  },
+  "Design.ellipsometryVsAngle.returns": {
+    "hash": "a446dc34",
+    "text": "一个 Ellipsometry。"
+  },
+  "Design.ellipsometryVsAngle.lead.1": {
+    "hash": "3f75fc3f",
+    "text": "一个镀膜面的 Ψ 和 Δ 在某一波长处随入射角的变化，与椭偏仪评估窗口的角度扫描计算的相同。角度从 `start` 起，按 `step` 递增，每个取整到 0.001 度，直到 `end`。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。"
+  },
+  "Design.ellipsometryVsAngle.refuses.1.js": {
+    "hash": "a2796a1c",
+    "text": "它不接受的选项、小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定，或用到找不到对应材料的设计"
+  },
+  "Design.ellipsometryVsAngle.refuses.1.py": {
+    "hash": "ef1c9a1d",
+    "text": "小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 \"front\" 或 \"back\" 的面、不是 \"azzam\" 或 \"reversed\" 的符号约定，或用到找不到对应材料的设计"
+  },
+  "Ellipsometry.lead.1": {
+    "hash": "a7421ab7",
+    "text": "一个镀膜面的 Ψ 和 Δ：design.ellipsometry() 在一个或多个入射角下随波长计算它们，`design.ellipsometryVsAngle()` / `design.ellipsometry_vs_angle()` 在一个波长处随角度计算它们。随波长计算时，`e.psi` 和 `e.delta` 是第一个所要求角度下的 Curve，`e.angle(70)` 是另一个角度下的扫描；随角度计算时，它们是 AngleCurve。"
+  },
+  "Ellipsometry.mode.lead.1": {
+    "hash": "ece3f133",
+    "text": "计算所在的面：`'front'` 或 `'back'`。"
+  },
+  "Ellipsometry.wavelength.lead.1": {
+    "hash": "391488c6",
+    "text": "随波长计算时，为各波长，单位 nm；随角度计算时，为那一个波长，单位 nm。"
+  },
+  "Ellipsometry.angles.lead.1": {
+    "hash": "1467cb6b",
+    "text": "入射角，单位为度，在光射来的介质中计：随波长计算时，为所要求的角度，顺序与要求时相同；随角度计算时，为扫描的各角度。"
+  },
+  "Ellipsometry.deltaConvention.lead.1": {
+    "hash": "4cd76c3f",
+    "text": "Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。"
+  },
+  "Ellipsometry.psi.lead.1": {
+    "hash": "05cb1013",
+    "text": "Ψ，单位为度，从 0 到 90，其中 tan Ψ 为 |r_p| / |r_s|：随波长计算时为第一个角度下的 Curve，随角度计算时为 AngleCurve。"
+  },
+  "Ellipsometry.delta.lead.1": {
+    "hash": "47e8a93d",
+    "text": "Δ，单位为度，从 0 起，小于 360，即 r_p / r_s 的相位，采用 `deltaConvention` / `delta_convention` 所指的符号约定：随波长计算时为第一个角度下的 Curve，随角度计算时为 AngleCurve。"
+  },
+  "Ellipsometry.outOfRange.lead.1.js": {
+    "hash": "6fe3a55a",
+    "text": "所计算的面上数据在范围内中断的材料，对随角度的扫描则是数据达不到那一个波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖时为空。"
+  },
+  "Ellipsometry.outOfRange.lead.1.py": {
+    "hash": "5b25e5a7",
+    "text": "所计算的面上数据在范围内中断的材料，对随角度的扫描则是数据达不到那一个波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖时为空。"
+  },
+  "Ellipsometry.angle.arg.angle": {
+    "hash": "b9dde299",
+    "text": "入射角，单位为度。"
+  },
+  "Ellipsometry.angle.returns": {
+    "hash": "83ae8208",
+    "text": "只含该角度的一个 Ellipsometry。"
+  },
+  "Ellipsometry.angle.lead.1": {
+    "hash": "5a73d10e",
+    "text": "随波长的扫描在计算时所用的某一个角度下的结果。"
+  },
+  "Ellipsometry.angle.refuses.1": {
+    "hash": "1508740c",
+    "text": "扫描计算时未包含的角度，或随角度的扫描"
+  },
+  "Ellipsometry.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "Ellipsometry.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "Ellipsometry.saveCsv.lead.1.js": {
+    "hash": "c76447ca",
+    "text": "把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。已存在的文件会被覆盖。"
+  },
+  "Ellipsometry.saveCsv.lead.1.py": {
+    "hash": "4a92a9b2",
+    "text": "把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+  },
+  "AngleCurve.lead.1.js": {
+    "hash": "415f7dd5",
+    "text": "每个入射角一个值：一个数字数组，因此 `Math.max(...curve)`、for 循环和数组方法都能像处理任何数组一样处理它；map()、filter() 等生成新数组的方法生成的是普通数组。"
+  },
+  "AngleCurve.lead.1.py": {
+    "hash": "eab1fada",
+    "text": "每个入射角一个值：一个由 float 组成的 list，因此 `max(curve)`、`sum(curve)` 和绘图库都能像处理任何 list 一样处理它。"
+  },
+  "AngleCurve.lead.2": {
+    "hash": "c7bf6460",
+    "text": "mean()、min() 和 max() 在一段角度范围上对它做统计，`angle` 给出每个值对应的角度，单位为度，在光射来的介质中计。"
+  },
+  "AngleCurve.angle.lead.1": {
+    "hash": "5f4f61a6",
+    "text": "每个值对应的入射角，单位为度。"
+  },
+  "AngleCurve.mean.arg.start": {
+    "hash": "22287496",
+    "text": "范围的起始角度，单位为度。不给出时，为曲线的第一个角度。"
+  },
+  "AngleCurve.mean.arg.end": {
+    "hash": "682b0bff",
+    "text": "范围的结束角度，单位为度。不给出时，为曲线的最后一个角度。"
+  },
+  "AngleCurve.mean.returns": {
+    "hash": "aa68ff09",
+    "text": "平均值；范围内有值为 NaN 时为 NaN。"
+  },
+  "AngleCurve.mean.lead.1": {
+    "hash": "41a21e03",
+    "text": "角度从 `start` 到 `end`（两端都包含）的各值的平均值。"
+  },
+  "AngleCurve.mean.refuses.1": {
+    "hash": "a2dd885b",
+    "text": "不包含曲线任何角度的范围"
+  },
+  "AngleCurve.min.arg.start": {
+    "hash": "22287496",
+    "text": "范围的起始角度，单位为度。不给出时，为曲线的第一个角度。"
+  },
+  "AngleCurve.min.arg.end": {
+    "hash": "682b0bff",
+    "text": "范围的结束角度，单位为度。不给出时，为曲线的最后一个角度。"
+  },
+  "AngleCurve.min.returns": {
+    "hash": "8e22c4a7",
+    "text": "最小值；范围内所有值都为 NaN 时为 `Infinity` / `inf`。"
+  },
+  "AngleCurve.min.lead.1": {
+    "hash": "d6e4aeef",
+    "text": "角度从 `start` 到 `end`（两端都包含）的各值中的最小值，不计 NaN。"
+  },
+  "AngleCurve.min.refuses.1": {
+    "hash": "a2dd885b",
+    "text": "不包含曲线任何角度的范围"
+  },
+  "AngleCurve.max.arg.start": {
+    "hash": "22287496",
+    "text": "范围的起始角度，单位为度。不给出时，为曲线的第一个角度。"
+  },
+  "AngleCurve.max.arg.end": {
+    "hash": "682b0bff",
+    "text": "范围的结束角度，单位为度。不给出时，为曲线的最后一个角度。"
+  },
+  "AngleCurve.max.returns": {
+    "hash": "5ffae612",
+    "text": "最大值；范围内所有值都为 NaN 时为 `-Infinity` / `-inf`。"
+  },
+  "AngleCurve.max.lead.1": {
+    "hash": "63ca1560",
+    "text": "角度从 `start` 到 `end`（两端都包含）的各值中的最大值，不计 NaN。"
+  },
+  "AngleCurve.max.refuses.1": {
+    "hash": "a2dd885b",
+    "text": "不包含曲线任何角度的范围"
   }
 }

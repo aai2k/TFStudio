@@ -1,7 +1,7 @@
-"""What computations answer with: a spectrum and its curves, a run's result
-and its progress, a Monte Carlo run and the yield of trials against a
-specification, the verdict on a specification, a layer sensitivity ranking,
-and what a cleanup did."""
+"""What computations answer with: a spectrum and its curves, a curve over
+angle of incidence, a run's result and its progress, a Monte Carlo run and
+the yield of trials against a specification, the verdict on a specification,
+a layer sensitivity ranking, and what a cleanup did."""
 
 import collections
 import csv
@@ -18,7 +18,53 @@ def _reading(name, doc):
     return property(lambda self: self._values[name], doc=doc)
 
 
-class Curve(list):
+def _mean(values):
+    """The mean of `values`; NaN when one of them is NaN."""
+    total = 0.0
+    for value in values:
+        total += value
+    return total / len(values)
+
+
+def _lowest(values):
+    """The lowest of `values`, NaN left out; inf when every one is NaN."""
+    lowest = float("inf")
+    for value in values:
+        if value < lowest:
+            lowest = value
+    return lowest
+
+
+def _highest(values):
+    """The highest of `values`, NaN left out; -inf when every one is NaN."""
+    highest = float("-inf")
+    for value in values:
+        if value > highest:
+            highest = value
+    return highest
+
+
+class _CurveOverX(list):
+    """One value per x, with what the mean(), min() and max() of a curve
+    share. A curve holds its x in _x, and its class names that x and its unit
+    in _AXIS."""
+
+    def __init__(self, values, xs):
+        super().__init__(values)
+        self._x = xs
+
+    def _over(self, reduce, what, start, end):
+        """`reduce` of the values whose x is from `start` to `end`, both
+        included, for the method `what`; a band no x is in is refused."""
+        values = [value for x, value in zip(self._x, self) if (start is None or x >= start) and (end is None or x <= end)]
+        if not values:
+            raise TFStudioError("{}: no {} of this curve is from {} to {} {}".format(
+                what, self._AXIS[0], self._x[0] if start is None else start, self._x[-1] if end is None else end,
+                self._AXIS[1]))
+        return reduce(values)
+
+
+class Curve(_CurveOverX):
     """One value per wavelength: a list of floats, so ``max(curve)``,
     ``sum(curve)`` and plotting libraries take it as they take any list.
 
@@ -33,9 +79,7 @@ class Curve(list):
         print(max(s.R), s.R.mean(450, 650))
     """
 
-    def __init__(self, values, wavelength):
-        super().__init__(values)
-        self._wavelength = wavelength
+    _AXIS = ("wavelength", "nm")
 
     @property
     def wavelength(self):
@@ -48,7 +92,7 @@ class Curve(list):
             s = design.spectrum(400, 700, step=50)
             print(s.R.wavelength)
         """
-        return self._wavelength
+        return self._x
 
     def mean(self, start=None, end=None):
         """The mean of the values whose wavelength is from `start` to `end`,
@@ -71,11 +115,7 @@ class Curve(list):
             s = design.spectrum(400, 700)
             print("Mean R from 450 to 650 nm:", s.R.mean(450, 650))
         """
-        values = self._band("mean", start, end)
-        total = 0.0
-        for value in values:
-            total += value
-        return total / len(values)
+        return self._over(_mean, "mean", start, end)
 
     def min(self, start=None, end=None):
         """The lowest value whose wavelength is from `start` to `end`, both
@@ -98,11 +138,7 @@ class Curve(list):
             s = design.spectrum(400, 700)
             print("Lowest T from 450 to 650 nm:", s.T.min(450, 650))
         """
-        lowest = float("inf")
-        for value in self._band("min", start, end):
-            if value < lowest:
-                lowest = value
-        return lowest
+        return self._over(_lowest, "min", start, end)
 
     def max(self, start=None, end=None):
         """The highest value whose wavelength is from `start` to `end`, both
@@ -125,20 +161,104 @@ class Curve(list):
             s = design.spectrum(400, 700)
             print("Highest R from 450 to 650 nm:", s.R.max(450, 650))
         """
-        highest = float("-inf")
-        for value in self._band("max", start, end):
-            if value > highest:
-                highest = value
-        return highest
+        return self._over(_highest, "max", start, end)
 
-    def _band(self, what, start, end):
-        values = [value for wavelength, value in zip(self.wavelength, self)
-                  if (start is None or wavelength >= start) and (end is None or wavelength <= end)]
-        if not values:
-            raise TFStudioError("{}: no wavelength of this curve is from {} to {} nm"
-                                .format(what, self.wavelength[0] if start is None else start,
-                                        self.wavelength[-1] if end is None else end))
-        return values
+
+class AngleCurve(_CurveOverX):
+    """One value per angle of incidence: a list of floats, so ``max(curve)``,
+    ``sum(curve)`` and plotting libraries take it as they take any list.
+
+    mean(), min() and max() summarize it over a range of angles, and
+    ``angle`` holds the angle of each value, degrees in the medium light
+    comes from.
+
+    Example::
+
+        design = tf.new_design("Mirror")
+        design.stack("(HL)^3 H")
+        e = design.ellipsometry_vs_angle(633, 45, 80)
+        print(min(e.psi), e.psi.mean(60, 70))
+    """
+
+    _AXIS = ("angle", "degrees")
+    angle = property(lambda self: self._x, doc="""The angle of incidence of each value, degrees.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            e = design.ellipsometry_vs_angle(633, 45, 80, step=5)
+            print(e.psi.angle)
+        """)
+
+    def mean(self, start=None, end=None):
+        """The mean of the values whose angle is from `start` to `end`, both
+        included.
+
+        Args:
+            start: The first angle of the range, degrees. Default: the curve's first.
+            end: The last angle of the range, degrees. Default: the curve's last.
+
+        Returns:
+            The mean; NaN when a value in the range is NaN.
+
+        Raises:
+            TFStudioError: a range no angle of the curve is in.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            e = design.ellipsometry_vs_angle(633, 45, 80)
+            print("Mean Psi from 60 to 70 degrees:", e.psi.mean(60, 70))
+        """
+        return self._over(_mean, "mean", start, end)
+
+    def min(self, start=None, end=None):
+        """The lowest value whose angle is from `start` to `end`, both
+        included, NaN values left out.
+
+        Args:
+            start: The first angle of the range, degrees. Default: the curve's first.
+            end: The last angle of the range, degrees. Default: the curve's last.
+
+        Returns:
+            The lowest value; inf when every value in the range is NaN.
+
+        Raises:
+            TFStudioError: a range no angle of the curve is in.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            e = design.ellipsometry_vs_angle(633, 45, 80)
+            print("Lowest Psi from 60 to 70 degrees:", e.psi.min(60, 70))
+        """
+        return self._over(_lowest, "min", start, end)
+
+    def max(self, start=None, end=None):
+        """The highest value whose angle is from `start` to `end`, both
+        included, NaN values left out.
+
+        Args:
+            start: The first angle of the range, degrees. Default: the curve's first.
+            end: The last angle of the range, degrees. Default: the curve's last.
+
+        Returns:
+            The highest value; -inf when every value in the range is NaN.
+
+        Raises:
+            TFStudioError: a range no angle of the curve is in.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            e = design.ellipsometry_vs_angle(633, 45, 80)
+            print("Highest Delta from 60 to 70 degrees:", e.delta.max(60, 70))
+        """
+        return self._over(_highest, "max", start, end)
 
 
 def _quantity(name, doc):

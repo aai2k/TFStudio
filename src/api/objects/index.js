@@ -15,6 +15,8 @@
  *   design.electricField(wavelength, { angle, side, pointsPerLayer, depthUnit, reference })
  *   design.color({ quantity, angle, pol, observer, illuminant, step, side })
  *   design.integrals({ start, end, step, angle, pol, custom, side }), .get(key)
+ *   design.ellipsometry(start, end, { step, angles, side, deltaConvention }), .angle(a)
+ *   design.ellipsometryVsAngle(wavelength, start, end, { step, side, deltaConvention })
  *   design.specification.add(kind, start, end, { ... }), .check(), await .estimateYield(runs, { ... })
  *   await design.refine({ method, ... }), await design.synthesize(method, pool, { ... })
  *   await design.monteCarlo(start, end, { ... }), design.layerSensitivity({ ... })
@@ -31,12 +33,13 @@ export { Design, Substrate } from './design.js';
 export { Layers, Layer } from './layers.js';
 export { Merit, MeritRow } from './merit.js';
 export { Specification, SpecCheck } from './specification.js';
-export { Spectrum, Curve } from './spectrum.js';
+export { Spectrum, Curve, AngleCurve } from './spectrum.js';
 export { IndexProfile, LayerThicknesses } from './stackViews.js';
 export { Admittance } from './admittance.js';
 export { ElectricField } from './electricField.js';
 export { Color } from './color.js';
 export { Integrals } from './integrals.js';
+export { Ellipsometry } from './ellipsometry.js';
 export { Progress, RunResult, MonteCarlo, Yield, SpecReport, CheckResult, LayerSensitivity, SensitivityRow, CleanReport } from './results.js';
 
 /**

@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -929,6 +929,80 @@ design.stack("HL")
 iv = design.integrals(custom=[{"key": "T3000K", "source": {"id": "blackbody", "T": 3000},
                                "band": [400, 700]}])
 print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
+```
+
+### ellipsometry
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.ellipsometry(start, end, { step, angles, side, deltaConvention })` | `design.ellipsometry(start=400, end=800, step=0.5, angles=[65], side=..., delta_convention="azzam")` |
+
+一个镀膜面的 Ψ 和 Δ 随波长的变化，在一个或多个入射角下，与椭偏仪评估窗口的光谱扫描计算的相同，由 ρ = r_p / r_s = tan Ψ · exp(i Δ) 得出。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` | `400` | 起始波长，单位 nm。 |
+| `end` | `end` | `800` | 结束波长，单位 nm，大于 `start`。 |
+| `step` | `step` | `0.5` | 波长步长，单位 nm。 |
+| `angles` | `angles` | `[65]` | 入射角，单位为度，在光射来的介质中计，每个从 0 起，小于 90。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
+| `deltaConvention` | `delta_convention` | `'azzam'` | Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。两者的 Ψ 相同。 |
+
+**返回**：一个 Ellipsometry。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、不构成范围的波长范围、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定、超过一百万个点（波长数乘以角度数），或用到找不到对应材料的设计<br>**Python**：不构成范围的波长范围、0 到 90 以外的角度、不是 "front" 或 "back" 的面、不是 "azzam" 或 "reversed" 的符号约定、超过一百万个点（波长数乘以角度数），或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometry(400, 800, { step: 1, angles: [55, 70] });
+console.log(e.mode, 'Psi at 55 degrees from', Math.min(...e.psi).toFixed(2), 'to', Math.max(...e.psi).toFixed(2));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry(400, 800, step=1, angles=[55, 70])
+print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.psi), 2))
+```
+
+### ellipsometryVsAngle / ellipsometry_vs_angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.ellipsometryVsAngle(wavelength, start, end, { step, side, deltaConvention })` | `design.ellipsometry_vs_angle(wavelength=..., start=45, end=80, step=0.5, side=..., delta_convention="azzam")` |
+
+一个镀膜面的 Ψ 和 Δ 在某一波长处随入射角的变化，与椭偏仪评估窗口的角度扫描计算的相同。角度从 `start` 起，按 `step` 递增，每个取整到 0.001 度，直到 `end`。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `wavelength` | `wavelength` |  | 波长，单位 nm。不给出时，使用设计的参考波长。 |
+| `start` | `start` | `45` | 起始入射角，单位为度，在光射来的介质中计，不小于 0。 |
+| `end` | `end` | `80` | 结束角度，单位为度，大于 `start`，最大 89.5。 |
+| `step` | `step` | `0.5` | 角度步长，单位为度，从 0.05 到跨度，即 `end` 减 `start`。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
+| `deltaConvention` | `delta_convention` | `'azzam'` | Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。两者的 Ψ 相同。 |
+
+**返回**：一个 Ellipsometry。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 "front" 或 "back" 的面、不是 "azzam" 或 "reversed" 的符号约定，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80, { step: 0.5 });
+console.log('lowest Psi', e.psi.min().toFixed(3), 'at', e.psi.angle[e.psi.indexOf(e.psi.min())], 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80, step=0.5)
+print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.min())], "degrees")
 ```
 
 ### refine
@@ -5747,6 +5821,376 @@ design = tf.new_design("AR")
 design.stack("HL")
 design.integrals().save_csv(name)
 print("Wrote", name)
+```
+
+## Ellipsometry
+
+一个镀膜面的 Ψ 和 Δ：design.ellipsometry() 在一个或多个入射角下随波长计算它们，`design.ellipsometryVsAngle()` / `design.ellipsometry_vs_angle()` 在一个波长处随角度计算它们。随波长计算时，`e.psi` 和 `e.delta` 是第一个所要求角度下的 Curve，`e.angle(70)` 是另一个角度下的扫描；随角度计算时，它们是 AngleCurve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometry(400, 800, { angles: [65, 70] });
+console.log(e.mode, Math.min(...e.psi), Math.max(...e.angle(70).delta));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry(400, 800, angles=[65, 70])
+print(e.mode, min(e.psi), max(e.angle(70).delta))
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.mode` | `e.mode` |
+
+计算所在的面：`'front'` 或 `'back'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.ellipsometry().mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.wavelength` | `e.wavelength` |
+
+随波长计算时，为各波长，单位 nm；随角度计算时，为那一个波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry(400, 800, { step: 100 }).wavelength.join(', '), design.ellipsometryVsAngle(633).wavelength);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.ellipsometry(400, 800, step=100).wavelength, design.ellipsometry_vs_angle(633).wavelength)
+```
+
+### angles
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.angles` | `e.angles` |
+
+入射角，单位为度，在光射来的介质中计：随波长计算时，为所要求的角度，顺序与要求时相同；随角度计算时，为扫描的各角度。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometry(400, 800, { angles: [55, 70] });
+for (const a of e.angles) console.log(a, Math.min(...e.angle(a).psi));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry(400, 800, angles=[55, 70])
+for a in e.angles:
+    print(a, min(e.angle(a).psi))
+```
+
+### deltaConvention / delta_convention
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.deltaConvention` | `e.delta_convention` |
+
+Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry(400, 800, { deltaConvention: 'reversed' }).deltaConvention);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.ellipsometry(400, 800, delta_convention="reversed").delta_convention)
+```
+
+### psi
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi` | `e.psi` |
+
+Ψ，单位为度，从 0 到 90，其中 tan Ψ 为 |r_p| / |r_s|：随波长计算时为第一个角度下的 Curve，随角度计算时为 AngleCurve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry().psi.mean(500, 600));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.ellipsometry().psi.mean(500, 600))
+```
+
+### delta
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.delta` | `e.delta` |
+
+Δ，单位为度，从 0 起，小于 360，即 r_p / r_s 的相位，采用 `deltaConvention` / `delta_convention` 所指的符号约定：随波长计算时为第一个角度下的 Curve，随角度计算时为 AngleCurve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(Math.max(...design.ellipsometryVsAngle(633).delta));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(max(design.ellipsometry_vs_angle(633).delta))
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.outOfRange` | `e.out_of_range` |
+
+**JavaScript**：所计算的面上数据在范围内中断的材料，对随角度的扫描则是数据达不到那一个波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖时为空。
+
+**Python**：所计算的面上数据在范围内中断的材料，对随角度的扫描则是数据达不到那一个波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry(200, 2500, { step: 10 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print([m["id"] for m in design.ellipsometry(200, 2500, step=10).out_of_range])
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.angle(angle)` | `e.angle(angle)` |
+
+随波长的扫描在计算时所用的某一个角度下的结果。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `angle` | `angle` |  | 入射角，单位为度。 |
+
+**返回**：只含该角度的一个 Ellipsometry。
+
+**拒绝**：
+
+- 扫描计算时未包含的角度，或随角度的扫描
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometry(400, 800, { angles: [55, 70] });
+console.log(Math.min(...e.angle(70).psi));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry(400, 800, angles=[55, 70])
+print(min(e.angle(70).psi))
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.saveCsv(path)` | `e.save_csv(path)` |
+
+**JavaScript**：把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。已存在的文件会被覆盖。
+
+**Python**：把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `ellipsometry-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.ellipsometry(400, 800, { step: 5 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "ellipsometry-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.ellipsometry(400, 800, step=5).save_csv(name)
+print("Wrote", name)
+```
+
+## AngleCurve
+
+**JavaScript**：每个入射角一个值：一个数字数组，因此 `Math.max(...curve)`、for 循环和数组方法都能像处理任何数组一样处理它；map()、filter() 等生成新数组的方法生成的是普通数组。
+
+**Python**：每个入射角一个值：一个由 float 组成的 list，因此 `max(curve)`、`sum(curve)` 和绘图库都能像处理任何 list 一样处理它。
+
+mean()、min() 和 max() 在一段角度范围上对它做统计，`angle` 给出每个值对应的角度，单位为度，在光射来的介质中计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80);
+console.log(Math.min(...e.psi), e.psi.mean(60, 70));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80)
+print(min(e.psi), e.psi.mean(60, 70))
+```
+
+### mean
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi.mean(start, end)` | `e.psi.mean(start=..., end=...)` |
+
+角度从 `start` 到 `end`（两端都包含）的各值的平均值。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` |  | 范围的起始角度，单位为度。不给出时，为曲线的第一个角度。 |
+| `end` | `end` |  | 范围的结束角度，单位为度。不给出时，为曲线的最后一个角度。 |
+
+**返回**：平均值；范围内有值为 NaN 时为 NaN。
+
+**拒绝**：
+
+- 不包含曲线任何角度的范围
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80);
+console.log('Mean Psi from 60 to 70 degrees:', e.psi.mean(60, 70));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80)
+print("Mean Psi from 60 to 70 degrees:", e.psi.mean(60, 70))
+```
+
+### min
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi.min(start, end)` | `e.psi.min(start=..., end=...)` |
+
+角度从 `start` 到 `end`（两端都包含）的各值中的最小值，不计 NaN。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` |  | 范围的起始角度，单位为度。不给出时，为曲线的第一个角度。 |
+| `end` | `end` |  | 范围的结束角度，单位为度。不给出时，为曲线的最后一个角度。 |
+
+**返回**：最小值；范围内所有值都为 NaN 时为 `Infinity` / `inf`。
+
+**拒绝**：
+
+- 不包含曲线任何角度的范围
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80);
+console.log('Lowest Psi from 60 to 70 degrees:', e.psi.min(60, 70));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80)
+print("Lowest Psi from 60 to 70 degrees:", e.psi.min(60, 70))
+```
+
+### max
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi.max(start, end)` | `e.psi.max(start=..., end=...)` |
+
+角度从 `start` 到 `end`（两端都包含）的各值中的最大值，不计 NaN。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` |  | 范围的起始角度，单位为度。不给出时，为曲线的第一个角度。 |
+| `end` | `end` |  | 范围的结束角度，单位为度。不给出时，为曲线的最后一个角度。 |
+
+**返回**：最大值；范围内所有值都为 NaN 时为 `-Infinity` / `-inf`。
+
+**拒绝**：
+
+- 不包含曲线任何角度的范围
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80);
+console.log('Highest Delta from 60 to 70 degrees:', e.delta.max(60, 70));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80)
+print("Highest Delta from 60 to 70 degrees:", e.delta.max(60, 70))
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi.angle` | `e.psi.angle` |
+
+每个值对应的入射角，单位为度。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80, { step: 5 });
+console.log(e.psi.angle.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80, step=5)
+print(e.psi.angle)
 ```
 
 ## RunResult

@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 33
+ *   1. The session: initialize and version negotiation, the tool list (the 35
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -25,7 +25,10 @@
  *      field, and in full with their values, and side total is refused; its
  *      colour and integral values give the API's, in short and with their
  *      values, a row with no value as null, and an observer or a custom
- *      source it does not have is refused; misspelt
+ *      source it does not have is refused; its Psi and Delta against
+ *      wavelength and against angle give the API's, in short with their
+ *      extremes and in full with their values, and side total and a sweep
+ *      past 89.5 degrees are refused; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
  *   3. stdout carries only messages, also when the server's own code prints;
@@ -69,7 +72,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 33 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 35 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -279,6 +282,28 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const source = await server.call('integrals', { designId: two, custom: [{ key: 'x', source: { id: 'F11' } }] });
     ok('an observer or a custom source it does not have is refused', /observer/.test(observer.error ?? '') && /integrals: custom\[0\]\.source is/.test(source.error ?? ''),
         `${observer.error} / ${source.error}`);
+
+    // Its Psi and Delta on the front, the side the PSI and DEL rows score.
+    const sweep = api.ellipsometry(edited, { step: 2, angles: [55, 70], deltaConvention: 'reversed' });
+    const shortSweep = await server.call('ellipsometry', { designId: two, step: 2, angles: [55, 70], deltaConvention: 'reversed' });
+    const fullSweep = await server.call('ellipsometry', { designId: two, step: 2, angles: [55, 70], deltaConvention: 'reversed', values: true });
+    const second = sweep.angles[1];
+    const lowest = Math.min(...second.psi);
+    const saidSweep = [shortSweep.mode, shortSweep.pointCount, shortSweep.angles?.[1].psi.min, shortSweep.angles?.[1].psi.minAt, shortSweep.angles?.[1].delta.max, fullSweep.wavelength, fullSweep.angles];
+    ok('ellipsometry answers with the extremes of Psi and Delta at each angle, and every value for values true',
+        JSON.stringify(saidSweep) === JSON.stringify(['front', 201, lowest, sweep.wavelength[second.psi.indexOf(lowest)], Math.max(...second.delta), sweep.wavelength, sweep.angles]),
+        JSON.stringify(shortSweep).slice(0, 300));
+    const turned = api.ellipsometryVsAngle(edited, { wavelength: 633, angleStep: 1 });
+    const shortTurn = await server.call('ellipsometryVsAngle', { designId: two, wavelength: 633, angleStep: 1 });
+    const fullTurn = await server.call('ellipsometryVsAngle', { designId: two, wavelength: 633, angleStep: 1, values: true });
+    const least = Math.min(...turned.psi);
+    const saidTurn = [shortTurn.wavelength, shortTurn.pointCount, shortTurn.psi?.min, shortTurn.psi?.minAt, fullTurn.angle, fullTurn.psi, fullTurn.delta];
+    ok('ellipsometryVsAngle answers with the extremes of Psi and Delta over angle, and every value for values true',
+        JSON.stringify(saidTurn) === JSON.stringify([633, 36, least, turned.angle[turned.psi.indexOf(least)], turned.angle, turned.psi, turned.delta]), JSON.stringify(shortTurn).slice(0, 300));
+    const whole = await server.call('ellipsometry', { designId: two, side: 'total' });
+    const past = await server.call('ellipsometryVsAngle', { designId: two, angleEnd: 90 });
+    ok('side total and an angular sweep past 89.5 degrees are refused', /side/.test(whole.error ?? '') && /<= 89\.5/.test(past.error ?? ''),
+        `${whole.error} / ${past.error}`);
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────

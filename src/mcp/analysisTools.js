@@ -1,8 +1,8 @@
 // Tools that compute on a design: its spectrum, its index profile and layer
 // thicknesses, what its stack adds up to, a side's admittance locus and
-// electric field, its colour and integral values, its merit, its verdict
-// against its specification, and how much each layer moves the merit. Monte
-// Carlo runs as a job (runTools.js).
+// electric field, its colour and integral values, a side's Psi and Delta, its
+// merit, its verdict against its specification, and how much each layer moves
+// the merit. Monte Carlo runs as a job (runTools.js).
 
 import { object, num, int, str, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
@@ -38,6 +38,21 @@ function fieldPeak(field, pol) {
     const z = field.z[at];
     const layer = field.layers.find(l => z <= l.end) ?? field.layers[field.layers.length - 1];
     return { e2: e2[at], amplitude: amplitude[at], z, depth: field.depth[at], layer: layer.number, material: layer.material };
+}
+
+// What both ellipsometry tools say of the side, the cone and the convention.
+const ONE_SURFACE = "Computed on the front, or the back of a back_only design, the side the PSI and DEL merit rows score; side total is refused, since Psi and Delta are measured on one surface; a side with no layers gives its bare surface. The design's cone of incidence is not used. deltaConvention 'azzam' is the Azzam-Bashara sign an ellipsometer writes, 'reversed' is 360 degrees minus it; Psi is the same in both.";
+const DELTA_CONVENTION = oneOf(['azzam', 'reversed'], "The sign of Delta: 'azzam', the Azzam-Bashara sign an ellipsometer writes, or 'reversed', 360 degrees minus it. Default 'azzam'");
+
+// The lowest and highest of `values` with the x, `xs`, of each, the first
+// where two are equal.
+function extremes(xs, values) {
+    let lo = 0, hi = 0;
+    for (let i = 1; i < values.length; i++) {
+        if (values[i] < values[lo]) lo = i;
+        if (values[i] > values[hi]) hi = i;
+    }
+    return { min: values[lo], minAt: xs[lo], max: values[hi], maxAt: xs[hi] };
 }
 
 export function analysisTools({ api, store }) {
@@ -176,6 +191,45 @@ export function analysisTools({ api, store }) {
             run: ({ designId, values = false, ...options }) => {
                 const { rows, ...table } = api.integrals(store.get(designId), options);
                 return { designId, ...table, rows: values ? rows : rows.map(({ key, quantity, value, covered }) => ({ key, quantity, value, covered })) };
+            },
+        },
+        {
+            name: 'ellipsometry', title: 'Ellipsometry',
+            description: `Psi and Delta of one coated side against wavelength, at one angle of incidence or several, as the Ellipsometry window's spectral sweep computes them from rho = r_p / r_s = tan(Psi) exp(i Delta). ${ONE_SURFACE} Answers with mode (the side computed), deltaConvention, from, to, pointCount, outOfRange (the side's materials whose data stop inside the range) and angles, one per angle asked, each { angle, psi, delta }, psi and delta each { min, minAt, max, maxAt } in degrees with the wavelengths in nm; with values true, also wavelength (nm) and in each angle psi and delta at every wavelength, degrees.`,
+            inputSchema: object({
+                designId: DESIGN_ID,
+                from: num('First wavelength in nm. Default 400'), to: num('Last wavelength in nm. Default 800'), step: num('Wavelength step in nm. Default 0.5'),
+                angles: list({ type: 'number' }, 'Angles of incidence in degrees in the medium light comes from, each 0 <= angle < 90. Default [65]'),
+                side: ONE_SIDE, deltaConvention: DELTA_CONVENTION,
+                values: bool('Also answer with Psi and Delta at every wavelength. Default false'),
+            }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const { wavelength, angles, ...sweep } = api.ellipsometry(store.get(designId), options);
+                const summary = angles.map(({ angle, psi, delta }) => ({ angle, psi: extremes(wavelength, psi), delta: extremes(wavelength, delta) }));
+                return {
+                    designId, ...sweep, from: wavelength[0], to: wavelength[wavelength.length - 1], pointCount: wavelength.length,
+                    ...(values ? { wavelength, angles } : { angles: summary }),
+                };
+            },
+        },
+        {
+            name: 'ellipsometryVsAngle', title: 'Ellipsometry against angle',
+            description: `Psi and Delta of one coated side against angle of incidence at one wavelength, as the Ellipsometry window's angular sweep computes them, the angles from angleStart by angleStep, each rounded to 0.001 degree, to angleEnd. An end above 89.5 degrees, a start not below the end, or a step below 0.05 degrees or above the span is refused, where the window would sweep other angles in its place. ${ONE_SURFACE} Answers with mode (the side computed), wavelength (nm), deltaConvention, pointCount, outOfRange (the side's materials whose data do not reach the wavelength), and psi and delta, each { min, minAt, max, maxAt } in degrees with the angles of incidence in degrees; with values true, also angle, psi and delta at every angle, degrees.`,
+            inputSchema: object({
+                designId: DESIGN_ID,
+                wavelength: num("Wavelength in nm. Default: the design's reference wavelength"),
+                angleStart: num('First angle of incidence in degrees, 0 or more. Default 45'),
+                angleEnd: num('Last angle of incidence in degrees, above angleStart and at most 89.5. Default 80'),
+                angleStep: num('Angle step in degrees, from 0.05 up to angleEnd - angleStart. Default 0.5'),
+                side: ONE_SIDE, deltaConvention: DELTA_CONVENTION,
+                values: bool('Also answer with Psi and Delta at every angle. Default false'),
+            }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const { angle, psi, delta, ...sweep } = api.ellipsometryVsAngle(store.get(designId), options);
+                return {
+                    designId, ...sweep, pointCount: angle.length,
+                    ...(values ? { angle, psi, delta } : { psi: extremes(angle, psi), delta: extremes(angle, delta) }),
+                };
             },
         },
         {

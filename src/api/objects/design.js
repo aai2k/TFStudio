@@ -13,6 +13,7 @@ import { Admittance } from './admittance.js';
 import { ElectricField } from './electricField.js';
 import { Color } from './color.js';
 import { Integrals } from './integrals.js';
+import { Ellipsometry } from './ellipsometry.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
@@ -582,6 +583,67 @@ export class Design {
      */
     integrals(options) {
         return new Integrals(worded({ method: 'integrals', call: 'integrals' }, () => api.integrals(this._data, options)));
+    }
+
+    /**
+     * Ψ and Δ of one coated side against wavelength, at one angle of
+     * incidence or several, as the Ellipsometry window's spectral sweep
+     * computes them, from ρ = r_p / r_s = tan Ψ · exp(i Δ). It is computed on
+     * the front, or on the back of a design coated on the back alone, unless
+     * `side` is given; a side with no layers gives its bare surface. The
+     * design's cone of incidence is not used, as the window does not use it.
+     *
+     * @param [start=400] The first wavelength, nm.
+     * @param [end=800] The last wavelength, nm, above `start`.
+     * @param [options]
+     * @param [options.step=0.5] The wavelength step, nm.
+     * @param [options.angles=[65]] The angles of incidence, degrees in the medium light comes from, each 0 up to but not including 90.
+     * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
+     * @param [options.deltaConvention='azzam'] The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that. Ψ is the same in both.
+     * @returns An Ellipsometry.
+     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, more than a million points (wavelengths times angles), or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const e = design.ellipsometry(400, 800, { step: 1, angles: [55, 70] });
+     * console.log(e.mode, 'Psi at 55 degrees from', Math.min(...e.psi).toFixed(2), 'to', Math.max(...e.psi).toFixed(2));
+     */
+    ellipsometry(...args) {
+        const [[start, end], options] = trailingOptions('ellipsometry', args, ['start', 'end']);
+        const words = { method: 'ellipsometry', call: 'ellipsometry', hidden: ['from', 'to'] };
+        const given = checkOptions('ellipsometry', options, ['step', 'angles', 'side', 'deltaConvention']);
+        return new Ellipsometry(worded(words, () => api.ellipsometry(this._data, defined({ ...given, from: start, to: end }))));
+    }
+
+    /**
+     * Ψ and Δ of one coated side against angle of incidence at one
+     * wavelength, as the Ellipsometry window's angular sweep computes them.
+     * The angles run from `start` by `step`, each rounded to 0.001 degree, to
+     * `end`. It is computed on the front, or on the back of a design coated on
+     * the back alone, unless `side` is given; a side with no layers gives its
+     * bare surface. The design's cone of incidence is not used, as the window
+     * does not use it.
+     *
+     * @param [wavelength] The wavelength, nm. Without it, the design's reference wavelength.
+     * @param [start=45] The first angle of incidence, degrees in the medium light comes from, 0 or more.
+     * @param [end=80] The last angle, degrees, above `start` and at most 89.5.
+     * @param [options]
+     * @param [options.step=0.5] The angle step, degrees, from 0.05 up to the span, `end` minus `start`.
+     * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
+     * @param [options.deltaConvention='azzam'] The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that. Ψ is the same in both.
+     * @returns An Ellipsometry.
+     * @throws an option it does not take, a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const e = design.ellipsometryVsAngle(633, 45, 80, { step: 0.5 });
+     * console.log('lowest Psi', e.psi.min().toFixed(3), 'at', e.psi.angle[e.psi.indexOf(e.psi.min())], 'degrees');
+     */
+    ellipsometryVsAngle(...args) {
+        const [[wavelength, start, end], options] = trailingOptions('ellipsometryVsAngle', args, ['wavelength', 'start', 'end']);
+        const words = { method: 'ellipsometryVsAngle', call: 'ellipsometryVsAngle', hidden: ['wavelength', 'angleStart', 'angleEnd'], names: { angleStep: 'step' } };
+        const { step, ...given } = checkOptions('ellipsometryVsAngle', options, ['step', 'side', 'deltaConvention']);
+        return new Ellipsometry(worded(words, () => api.ellipsometryVsAngle(this._data, defined({ ...given, wavelength, angleStart: start, angleEnd: end, angleStep: step }))));
     }
 
     /**

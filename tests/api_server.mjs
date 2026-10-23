@@ -18,7 +18,9 @@
  *      a side's admittance locus and electric field, and a side with no layer
  *      thicker than 0 nm refused with its code and fields; a colour and an
  *      integral table, an integral with no value crossing as NaN, and an
- *      observer refused with its code and fields;
+ *      observer refused with its code and fields; a side's Psi and Delta
+ *      against wavelength and against angle, and an angular sweep past
+ *      89.5 degrees refused with its code and fields;
  *      materials; merit; a specification set and checked, and
  *      checking a design without one refused with its code and fields; layer
  *      sensitivity; and the runs, a refinement, a Needle and a Structural run
@@ -195,6 +197,11 @@ const specified = api.setSpecification(start, CHECKS);
     const observer = await same('color', [twoSided, { observer: 3 }]);
     ok('an observer it does not have is refused with its code and fields', observer.error?.code === 'badValue'
         && canon(observer.error.fields) === canon({ call: 'color', option: 'observer', takes: '2 or 10', value: 3 }), JSON.stringify(observer.error));
+    await same('ellipsometry', [twoSided, { step: 5, angles: [55, 70], side: 'back', deltaConvention: 'reversed' }]);
+    await same('ellipsometryVsAngle', [twoSided, { wavelength: 633, angleStart: 30, angleEnd: 75, angleStep: 1.5 }]);
+    const clamped = await same('ellipsometryVsAngle', [twoSided, { angleEnd: 90 }]);
+    ok('an angular sweep past 89.5 degrees is refused with its code and fields', clamped.error?.code === 'angleRange'
+        && canon(clamped.error.fields) === canon({ call: 'ellipsometryVsAngle', start: 45, end: 90, max: 89.5 }), JSON.stringify(clamped.error));
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);

@@ -38,7 +38,9 @@
  *   complex, the side they take without one, save_csv() and their refusals;
  *   color() and integrals() with their defaults and each argument, their
  *   groups as named tuples, a row by its key, save_csv() and their refusals;
- *   refine and synthesize with seeds, Monte Carlo with a seed and layer
+ *   ellipsometry() and ellipsometry_vs_angle() with their defaults and each
+ *   argument, Curves and AngleCurves, an AngleCurve's mean, min and max
+ *   against JavaScript's, save_csv() and their refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
  *   Synthesis's included, and before the run; Ctrl+C in progress; every
@@ -590,6 +592,52 @@ async function colourAndIntegrals(t, said) {
         '<Integrals total from 300 to 2500 nm: 12 rows>']), canon(got.shown));
 }
 
+// What _pythonObjects.py ellipsometry() read of a design coated on both
+// sides, against the plain calls and the objects here on the design it read.
+const sweepOf = e => (Array.isArray(e.wavelength)
+    ? [e.mode, e.wavelength, e.angles.map(a => a.angle), e.deltaConvention, e.angles.map(a => [a.psi, a.delta]), e.outOfRange]
+    : [e.mode, e.wavelength, e.angle, e.deltaConvention, [[e.psi, e.delta]], e.outOfRange]);
+
+async function ellipsometry(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.ellipsometry ?? {};
+    const design = got.design ?? {};
+    const SPECTRAL = [{}, { from: 450, to: 900, step: 2, angles: [55, 70], side: 'back', deltaConvention: 'reversed' }];
+    const ANGULAR = [{}, { wavelength: 633, angleStart: 20, angleEnd: 70, angleStep: 2, side: 'back', deltaConvention: 'reversed' }];
+    const spectral = await inTurn(SPECTRAL, options => attempt(() => sweepOf(api.ellipsometry(design, options))));
+    const angular = await inTurn(ANGULAR, options => attempt(() => sweepOf(api.ellipsometryVsAngle(design, options))));
+    ok('ellipsometry() and ellipsometry_vs_angle() are ellipsometry and ellipsometryVsAngle over the wire, with their defaults and each argument, Curves against wavelength and AngleCurves against angle',
+        canon(got.spectral) === canon(spectral) && canon(got.angular) === canon(angular) && angular[0][1] === 600
+        && canon(got.types) === canon(['Curve', 'AngleCurve']), canon(got.angular)?.slice(0, 300));
+    const objects = await import('../src/api/objects/index.js');
+    const two = new objects.Design(design);
+    const e = two.ellipsometry(450, 900, { step: 2, angles: [55, 70], side: 'back', deltaConvention: 'reversed' });
+    const a = two.ellipsometryVsAngle(633, 20, 70, { step: 2, side: 'back', deltaConvention: 'reversed' });
+    ok('an AngleCurve\'s mean, min and max are those of the AngleCurve in JavaScript', canon(got.curves) === canon([a.psi.mean(), a.psi.mean(30, 50), a.psi.min(30, 50),
+        a.psi.max(30), a.delta.min(), a.delta.max(undefined, 40), a.psi.angle]), canon(got.curves)?.slice(0, 300));
+    const files = ['js-spectral.csv', 'js-angular.csv'].map(name => path.join(WORK, name));
+    e.saveCsv(files[0]);
+    a.saveCsv(files[1]);
+    const written = files.map(file => csvRows(fs.readFileSync(file, 'utf8')));
+    ok('save_csv writes what saveCsv writes', canon((got.csv ?? []).map(csvRows)) === canon(written)
+        && written[1][0].join() === 'AOI (°),Ψ (°),Δ (°)' && written[0][0].length === 5, String(got.csv?.[1]).slice(0, 200));
+    ok('their refusals are in Python\'s words', canon(got.worded) === canon([
+        'ellipsometry: start and end are wavelengths in nm, 0 < start < end',
+        "ellipsometry: side is 'front' or 'back', not 'total'",
+        "ellipsometry: delta_convention is 'azzam' or 'reversed', not 'tompkins'",
+        "ellipsometry: unknown option 'start_at'; the options are step, angles, side, delta_convention",
+        'ellipsometry_vs_angle: start and end are angles of incidence in degrees, 0 <= start < end <= 89.5',
+        'ellipsometry_vs_angle: step is an angle step in degrees from 0.05 up to the span, 35, not 0.01',
+        "ellipsometry_vs_angle: unknown option 'angle_step'; the options are step, side, delta_convention",
+        "ellipsometry_vs_angle: unknown option 'angle_start'; the options are step, side, delta_convention",
+        "ellipsometry: unknown option 'to'; the options are step, angles, side, delta_convention",
+        'angle: this sweep runs over angle at 633 nm; psi and delta hold it',
+        'max: no angle of this curve is from 5 to 15 degrees',
+    ]), canon(got.worded));
+    ok('and repr() shows what they hold', canon(got.shown) === canon(['<Ellipsometry back from 450 to 900 nm, 226 points, angles [55, 70], reversed>',
+        '<Ellipsometry back at 633 nm, 20 to 70 degrees, 26 points, reversed>']), canon(got.shown));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -771,6 +819,7 @@ export async function checkObjects(t) {
     await stackViews(u, ran.said);
     await admittanceAndField(u, ran.said);
     await colourAndIntegrals(u, ran.said);
+    await ellipsometry(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

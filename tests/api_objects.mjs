@@ -14,7 +14,8 @@
  *   round-tripping to surfaceMode and mfEvalMode, and the mode of a spectrum, a
  *   Monte Carlo run, a refinement, a layer ranking, an index profile, a
  *   list of layer thicknesses, a colour and an integral table being the API's
- *   evaluation mode, and the
+ *   evaluation mode, that of Psi and Delta the side the PSI and DEL rows
+ *   score, and the
  *   design's facts counting its coated sides, for every pair; materials by id, catalog:key ids
  *   included, by name and by the builtin: id a stacked layer holds, and their
  *   n and k, and a name two materials share refused; spectrum curves at two
@@ -38,7 +39,9 @@
  *   without one, an Admittance's CSV, and their refusals in the objects'
  *   words; color() and integrals() with their defaults and options, a row
  *   read by its key, an Integrals' CSV, and their refusals in the objects'
- *   words; refine and synthesize with seeds, Monte
+ *   words; ellipsometry() and ellipsometryVsAngle() with their defaults and
+ *   each argument, angle(), their Curves and AngleCurves, an Ellipsometry's
+ *   CSV, and their refusals in the objects' words; refine and synthesize with seeds, Monte
  *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
  *   back rows and locked rows; the Progress objects of a refinement, a Needle
  *   run, a Deep Synthesis run and a Monte Carlo run; a stop aborted in
@@ -243,6 +246,8 @@ ok('the back of a symmetric design is refused', symmetricBack === 'layer 1: the 
 // ── sides, scoreOn and the mode of each result ──────────────────────────────
 const SIDES = { front: 'front_only', back: 'back_only', both: 'both_independent', symmetric: 'symmetric' };
 const SCORE_ON = { side: 'side', 'whole part': 'total' };
+// The side the PSI and DEL rows score, by sides.
+const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'front' };
 {
     const twoSided = both.copy();
     twoSided.merit.add('RAV', 450, 650, { target: 0 });
@@ -258,15 +263,18 @@ const SCORE_ON = { side: 'side', 'whole part': 'total' };
             const found = [each.spectrum(500, 600, { step: 50 }).mode, (await each.monteCarlo(500, 600, { step: 50, runs: 1, seed: 1 })).mode,
                 (await quietly(() => each.copy().refine({ maxIter: 1 }))).mode, each.layerSensitivity().mode,
                 each.indexProfile().mode, each.layerThicknesses().mode, each.color({ step: 5 }).mode, each.integrals({ step: 5 }).mode];
+            // Psi and Delta report the one side the PSI and DEL rows score.
+            found.push(each.ellipsometry(400, 800, { step: 50 }).mode, each.ellipsometryVsAngle(633, 45, 80, { step: 5 }).mode);
+            const meant = [...Array(found.length - 2).fill(evalMode), SCORED_SIDE[sides], SCORED_SIDE[sides]];
             kinds.add(evalMode);
-            if (!held || !found.every(mode => mode === evalMode)) wrong.push(`${sides}/${scoreOn}: ${found} / ${evalMode}`);
+            if (!held || canon(found) !== canon(meant)) wrong.push(`${sides}/${scoreOn}: ${found} / ${meant}`);
             // The facts count the coated sides, which the TT row sums, whatever the scoring.
             const facts = api.designFacts(each._data);
             const coated = { front: 'front', back: 'back', both: 'total', symmetric: 'front' }[sides];
             if (canon([facts.mode, each.totalThickness()]) !== canon([coated, facts.thickness])) wrong.push(`${sides}/${scoreOn}: facts ${facts.mode} / ${coated}`);
         }
     }
-    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, a spectrum\'s, a Monte Carlo run\'s, a run\'s, a ranking\'s, an index profile\'s, a thickness list\'s, a colour\'s and an integral table\'s mode are the API\'s evaluation mode, and the facts\' the coated sides, for every pair',
+    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, a spectrum\'s, a Monte Carlo run\'s, a run\'s, a ranking\'s, an index profile\'s, a thickness list\'s, a colour\'s and an integral table\'s mode are the API\'s evaluation mode, Psi and Delta\'s the back of a design coated on the back alone and the front of any other, and the facts\' the coated sides, for every pair',
         wrong.length === 0 && kinds.size === 3, wrong.join('; '));
     const badSides = await refused(() => { twoSided.sides = 'two'; });
     const badScoreOn = await refused(() => { twoSided.scoreOn = 'total'; });
@@ -768,6 +776,47 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
         [() => read.integrals({ start: 900, end: 400 }), 'integrals: start and end are wavelengths in nm, 0 < start < end'],
         [() => read.integrals({ custom: [{ key: 'x', char: 'T' }] }), "integrals: unknown option 'custom[0].char'; the options are key, quantity, source, detector, band"],
         [() => table.get('Tsun'), "integrals: no row has the key 'Tsun'; the keys are Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, T3000K, Rled"],
+    ];
+    const worded = await Promise.all(WORDED.map(([make]) => refused(make)));
+    ok('their refusals are in the objects\' words', canon(worded) === canon(WORDED.map(([, words]) => words)), worded.join('\n'));
+}
+
+// ── A side's Psi and Delta ──────────────────────────────────────────────────
+{
+    const read = both.copy();
+    // Each [the method's arguments, the plain call's options].
+    const SPECTRAL = [[[], {}], [[450, 900], { from: 450, to: 900 }], [[{ step: 2, angles: [55, 70], side: 'back', deltaConvention: 'reversed' }], { step: 2, angles: [55, 70], side: 'back', deltaConvention: 'reversed' }]];
+    const ANGULAR = [[[], {}], [[1064], { wavelength: 1064 }], [[633, 20, 70, { step: 2, side: 'back', deltaConvention: 'reversed' }], { wavelength: 633, angleStart: 20, angleEnd: 70, angleStep: 2, side: 'back', deltaConvention: 'reversed' }]];
+    const spectralFields = e => [e.mode, e.wavelength, e.deltaConvention, e.angles.map(a => ({ angle: a, psi: [...e.angle(a).psi], delta: [...e.angle(a).delta] })), e.outOfRange];
+    const angularFields = e => [e.mode, e.wavelength, e.deltaConvention, e.angles, [...e.psi], [...e.delta], e.outOfRange];
+    const asked = a => [a.mode, a.wavelength, a.deltaConvention, a.angle, a.psi, a.delta, a.outOfRange];
+    ok('ellipsometry() and ellipsometryVsAngle() give what ellipsometry and ellipsometryVsAngle give, with their defaults and each argument',
+        canon([...SPECTRAL.map(([args]) => spectralFields(read.ellipsometry(...args))), ...ANGULAR.map(([args]) => angularFields(read.ellipsometryVsAngle(...args)))])
+        === canon([...SPECTRAL.map(([, options]) => { const e = api.ellipsometry(read._data, options); return [e.mode, e.wavelength, e.deltaConvention, e.angles, e.outOfRange]; }),
+            ...ANGULAR.map(([, options]) => asked(api.ellipsometryVsAngle(read._data, options)))]));
+    const e = read.ellipsometry(400, 800, { step: 10, angles: [55, 70] });
+    const a = read.ellipsometryVsAngle(633, 45, 80, { step: 5 });
+    ok('psi and delta are Curves against wavelength and AngleCurves against angle, with mean, min and max over a range',
+        canon([e.psi instanceof objects.Curve, a.psi instanceof objects.AngleCurve, a.psi.angle, a.psi.min(50, 60), a.delta.max(), a.psi.mean()])
+        === canon([true, true, [45, 50, 55, 60, 65, 70, 75, 80], Math.min(...a.psi.slice(1, 4)), Math.max(...a.delta), a.psi.reduce((s, v) => s + v, 0) / 8]));
+    const file = path.join(WORK, 'ellipsometry.csv');
+    a.saveCsv(file);
+    const lines = fs.readFileSync(file, 'utf8').split('\n');
+    ok('an Ellipsometry writes the window\'s table', canon([lines[0], lines.length, lines[1].split(',')[0]]) === canon(['AOI (°),Ψ (°),Δ (°)', 9, '45']), lines[0]);
+    const shown = [inspect(e), inspect(a)];
+    ok('an Ellipsometry prints what it holds', canon(shown) === canon(['<Ellipsometry front from 400 to 800 nm, 41 points, angles [55, 70], azzam>',
+        '<Ellipsometry front at 633 nm, 45 to 80 degrees, 8 points, azzam>']), shown.join(' / '));
+    const WORDED = [
+        [() => read.ellipsometry(400, 800, { from: 400 }), "ellipsometry: unknown option 'from'; the options are step, angles, side, deltaConvention"],
+        [() => read.ellipsometry(800, 400), 'ellipsometry: start and end are wavelengths in nm, 0 < start < end'],
+        [() => read.ellipsometry({ side: 'total' }), 'ellipsometry: side is \'front\' or \'back\', not "total"'],
+        [() => read.ellipsometry({ deltaConvention: 'tompkins' }), 'ellipsometry: deltaConvention is \'azzam\' or \'reversed\', not "tompkins"'],
+        [() => read.ellipsometryVsAngle(633, 45, 80, { angleStep: 1 }), "ellipsometryVsAngle: unknown option 'angleStep'; the options are step, side, deltaConvention"],
+        [() => read.ellipsometryVsAngle(633, 45, 90), 'ellipsometryVsAngle: start and end are angles of incidence in degrees, 0 <= start < end <= 89.5'],
+        [() => read.ellipsometryVsAngle(633, 45, 80, { step: 0.01 }), 'ellipsometryVsAngle: step is an angle step in degrees from 0.05 up to the span, 35, not 0.01'],
+        [() => read.ellipsometryVsAngle(633, 45, 80, 5), 'ellipsometryVsAngle: takes wavelength and start and end before its options object, not 4 values'],
+        [() => a.angle(50), 'angle: this sweep runs over angle at 633 nm; psi and delta hold it'],
+        [() => a.psi.max(10, 20), 'max: no angle of this curve is from 10 to 20 degrees'],
     ];
     const worded = await Promise.all(WORDED.map(([make]) => refused(make)));
     ok('their refusals are in the objects\' words', canon(worded) === canon(WORDED.map(([, words]) => words)), worded.join('\n'));

@@ -7,11 +7,12 @@ import numbers
 from ._admittance import Admittance
 from ._color import Color
 from ._electric_field import ElectricField
+from ._ellipsometry import Ellipsometry
 from ._errors import TFStudioError
 from ._integrals import Integrals
 from ._merit import Merit
 from ._names import api_names
-from ._refusals import Words, worded
+from ._refusals import Words, refuse_arguments, worded
 from ._results import CleanReport, LayerSensitivity, MonteCarlo, RunResult, Spectrum
 from ._specification import Specification
 from ._stack_views import IndexProfile, LayerThicknesses
@@ -35,6 +36,15 @@ _MONTE_CARLO_WORDS = Words("monteCarlo", "monte_carlo", hidden=("from", "to"), e
 _CLEAN_WORDS = Words("cleanDesign", "clean", {"mergeAdjacent": "merge", "cleanBack": "back"})
 # design.electric_field() takes the wavelength as its argument and the rest as keywords.
 _FIELD_WORDS = Words("electricField", "electric_field", hidden=("wavelength",))
+# design.ellipsometry() takes the range as its arguments, and
+# design.ellipsometry_vs_angle() the wavelength and the angles, the step by
+# the name step.
+_ELLIPSOMETRY_WORDS = Words("ellipsometry", "ellipsometry", hidden=("from", "to"))
+_SWEEP_WORDS = Words("ellipsometryVsAngle", "ellipsometry_vs_angle", {"angleStep": "step"},
+                     hidden=("wavelength", "angleStart", "angleEnd"))
+# The keywords each takes; the API's names for their arguments are not among them.
+_ELLIPSOMETRY_OPTIONS = ("step", "angles", "side", "delta_convention")
+_SWEEP_OPTIONS = ("step", "side", "delta_convention")
 
 
 def mode_of(data):
@@ -1103,6 +1113,95 @@ class Design:
             print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
         """
         return Integrals(self._read("integrals", "integrals", **options))
+
+    def ellipsometry(self, start=None, end=None, **options):
+        """Ψ and Δ of one coated side against wavelength, at one angle of
+        incidence or several, as the Ellipsometry window's spectral sweep
+        computes them, from ρ = r_p / r_s = tan Ψ · exp(i Δ). It is computed
+        on the front, or on the back of a design coated on the back alone,
+        unless side is given; a side with no layers gives its bare surface.
+        The design's cone of incidence is not used, as the window does not
+        use it.
+
+        Args:
+            start: The first wavelength, nm. Default 400.
+            end: The last wavelength, nm, above start. Default 800.
+            step: The wavelength step, nm. Default 0.5.
+            angles: The angles of incidence, degrees in the medium light comes
+                from, each 0 up to but not including 90. Default [65].
+            side: "front" or "back". Default: the back of a design coated on
+                the back alone and the front of any other.
+            delta_convention: The sign of Δ: "azzam", the Azzam-Bashara sign
+                an ellipsometer writes, or "reversed", 360 degrees minus that.
+                Ψ is the same in both. Default "azzam".
+
+        Returns:
+            An Ellipsometry.
+
+        Raises:
+            TFStudioError: a range that is not one, an angle outside 0 to 90,
+                a side other than "front" or "back", a convention other than
+                "azzam" or "reversed", more than a million points (wavelengths
+                times angles), or a design that names a material that
+                resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            e = design.ellipsometry(400, 800, step=1, angles=[55, 70])
+            print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.psi), 2))
+        """
+        refuse_arguments("ellipsometry", options, ("from", "to"), _ELLIPSOMETRY_OPTIONS)
+        with worded(_ELLIPSOMETRY_WORDS):
+            return Ellipsometry(self._calls.ellipsometry(self._data, api_names({**options, "from": start, "to": end})))
+
+    def ellipsometry_vs_angle(self, wavelength=None, start=None, end=None, **options):
+        """Ψ and Δ of one coated side against angle of incidence at one
+        wavelength, as the Ellipsometry window's angular sweep computes them.
+        The angles run from start by step, each rounded to 0.001 degree, to
+        end. It is computed on the front, or on the back of a design coated
+        on the back alone, unless side is given; a side with no layers gives
+        its bare surface. The design's cone of incidence is not used, as the
+        window does not use it.
+
+        Args:
+            wavelength: The wavelength, nm. Default: the design's reference
+                wavelength.
+            start: The first angle of incidence, degrees in the medium light
+                comes from, 0 or more. Default 45.
+            end: The last angle, degrees, above start and at most 89.5.
+                Default 80.
+            step: The angle step, degrees, from 0.05 up to the span, end minus
+                start. Default 0.5.
+            side: "front" or "back". Default: the back of a design coated on
+                the back alone and the front of any other.
+            delta_convention: The sign of Δ: "azzam", the Azzam-Bashara sign
+                an ellipsometer writes, or "reversed", 360 degrees minus that.
+                Ψ is the same in both. Default "azzam".
+
+        Returns:
+            An Ellipsometry.
+
+        Raises:
+            TFStudioError: a wavelength of 0 or less, angles that are not a
+                range from 0 to 89.5, a step below 0.05 degrees or above the
+                span, a side other than "front" or "back", a convention other
+                than "azzam" or "reversed", or a design that names a material
+                that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            e = design.ellipsometry_vs_angle(633, 45, 80, step=0.5)
+            print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.min())], "degrees")
+        """
+        refuse_arguments("ellipsometry_vs_angle", options, ("angleStart", "angleEnd", "angleStep"), _SWEEP_OPTIONS)
+        sweep = api_names({"wavelength": wavelength, "angle_start": start, "angle_end": end, "angle_step": options.pop("step", None)})
+        given = api_names(options)
+        with worded(_SWEEP_WORDS):
+            return Ellipsometry(self._calls.ellipsometryVsAngle(self._data, {**given, **sweep}))
 
     def _read(self, call, method, **options):
         """What the API's call `call` reads of the design with `options`, for

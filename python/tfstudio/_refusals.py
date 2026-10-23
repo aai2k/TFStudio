@@ -10,7 +10,7 @@ import contextlib
 import re
 
 from ._errors import AppError, TFStudioError
-from ._names import python_name
+from ._names import api_name, python_name
 
 
 class Words(collections.namedtuple("Words", "call method names hidden extra", defaults=("", None, (), ()))):
@@ -59,6 +59,17 @@ def _unknown_option(fields, words):
     return "unknown option {!r}; the options are {}".format(words.name(fields["option"]), ", ".join(listed))
 
 
+def refuse_arguments(method, options, arguments, known):
+    """Refuses a keyword in `options` that the API reads as one of
+    `arguments`, its names for what the method takes as its arguments, as an
+    option the method does not take; `known` are the options it does take.
+    Passed on, such a keyword would be dropped for the argument's default or
+    read in the argument's place."""
+    for name in options:
+        if api_name(name) in arguments:
+            raise TFStudioError("{}: unknown option {!r}; the options are {}".format(method, name, ", ".join(known)))
+
+
 # The API writes the values true, false and null in what an option takes as
 # JSON writes them; a program using the package writes them True, False and None.
 _PYTHON_VALUES = {"true": "True", "false": "False", "null": "None"}
@@ -85,6 +96,8 @@ _WORDS = {
     "noQwot": lambda fields, words: _no_qwot(fields),
     "closedSide": lambda fields, words: _closed_side(fields),
     "wavelengthRange": lambda fields, words: "start and end are wavelengths in nm, 0 < start < end",
+    "angleRange": lambda fields, words: "start and end are angles of incidence in degrees, 0 <= start < end <= {}".format(
+        fields["max"]),
     "bandOrder": lambda fields, words: "start {} is above end {}".format(fields["start"], fields["end"]),
     "fileExists": lambda fields, words: "{} exists; pass overwrite=True to write over it".format(fields["path"]),
     "formulaMedia": lambda fields, words: "the formula names media; write the layers alone, such as '(HL)^5 H', "

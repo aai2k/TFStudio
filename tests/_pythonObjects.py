@@ -58,6 +58,7 @@ def objects(given):
         stack_views(tf)
         admittance_and_field(tf)
         colour_and_integrals(tf)
+        ellipsometry(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -532,6 +533,43 @@ def colour_and_integrals(tf):
                     "csv": text_of("integrals.csv"), "worded": worded, "shown": [repr(c), repr(iv)],
                     "tuples": [list(type(c.lab)._fields), list(type(c.luv)._fields), list(type(c.dominant)._fields),
                                list(type(c.srgb)._fields), list(type(c.white)._fields), list(type(iv.rows[0])._fields)]}})
+
+
+def sweep_of(e):
+    curves = [[list(e.angle(a).psi), list(e.angle(a).delta)] for a in e.angles] if isinstance(e.wavelength, list) \
+        else [[list(e.psi), list(e.delta)]]
+    return [e.mode, e.wavelength, e.angles, e.delta_convention, curves, e.out_of_range]
+
+
+def ellipsometry(tf):
+    """ellipsometry() and ellipsometry_vs_angle() of a design coated on both
+    sides, with their defaults and each argument; the curve types; an
+    AngleCurve's mean, min and max; the CSV of each; their refusals and
+    repr()."""
+    two = tf.new_design("Two sides", reference=600)
+    two.stack("(HL)^2 H")
+    two.sides = "both"
+    two.back_layers.append("MgF2", 95)
+    spectral = [two.ellipsometry(),
+                two.ellipsometry(450, 900, step=2, angles=[55, 70], side="back", delta_convention="reversed")]
+    angular = [two.ellipsometry_vs_angle(),
+               two.ellipsometry_vs_angle(633, 20, 70, step=2, side="back", delta_convention="reversed")]
+    e, a = spectral[1], angular[1]
+    curves = [a.psi.mean(), a.psi.mean(30, 50), a.psi.min(30, 50), a.psi.max(30), a.delta.min(), a.delta.max(None, 40),
+              list(a.psi.angle)]
+    e.save_csv("spectral.csv")
+    a.save_csv("angular.csv")
+    worded = [refused(make) for make in (
+        lambda: two.ellipsometry(800, 400), lambda: two.ellipsometry(side="total"),
+        lambda: two.ellipsometry(delta_convention="tompkins"), lambda: two.ellipsometry(start_at=400),
+        lambda: two.ellipsometry_vs_angle(633, 45, 90), lambda: two.ellipsometry_vs_angle(633, 45, 80, step=0.01),
+        lambda: two.ellipsometry_vs_angle(633, angle_step=1), lambda: two.ellipsometry_vs_angle(633, angle_start=50),
+        lambda: two.ellipsometry(to=900), lambda: a.angle(50), lambda: a.psi.max(5, 15))]
+    out({"ellipsometry": {"design": two._data, "spectral": [sweep_of(x) for x in spectral],
+                          "angular": [sweep_of(x) for x in angular], "curves": curves,
+                          "types": [type(e.psi).__name__, type(a.psi).__name__],
+                          "csv": [text_of("spectral.csv"), text_of("angular.csv")], "worded": worded,
+                          "shown": [repr(e), repr(a)]}})
 
 
 def ran(before, design, result):

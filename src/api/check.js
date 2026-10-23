@@ -18,6 +18,7 @@
  *   noQwot           { call, material, wavelength, n }  a layer whose material has no quarter wave: it resolves to nothing (n null), or its n is 0 or less
  *   closedSide      { call, side, surfaceMode }  a side the Design Editor does not let you edit
  *   wavelengthRange  { call, from, to }  wavelengths that are not a range
+ *   angleRange       { call, start, end, max }  angles of incidence that are not a range an angular sweep takes
  *   bandOrder        { call, row, start, end }  a merit row or a check whose band starts above its end
  *   fileExists       { call, path }  a file that is there, without overwrite
  *   formulaMedia     { call }  a stack formula that names media

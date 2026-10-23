@@ -1,4 +1,5 @@
-// A spectrum and its curves, as design.spectrum() answers.
+// A spectrum and its curves, as design.spectrum() answers, and a curve over
+// angle of incidence, as design.ellipsometryVsAngle() answers its Ψ and Δ.
 
 import fs from 'node:fs';
 import { inspect } from 'node:util';
@@ -6,6 +7,45 @@ import { inspect } from 'node:util';
 // The quantities of a spectrum: R, T and A for unpolarized light, then for s
 // and p, as the API's spectrum gives them.
 const QUANTITIES = ['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'];
+
+function meanOf(values) {
+    let total = 0;
+    for (const value of values) total += value;
+    return total / values.length;
+}
+
+// The lowest and highest of `values`, NaN left out: Infinity and -Infinity
+// when every one is NaN.
+function lowestOf(values) {
+    let lowest = Infinity;
+    for (const value of values) if (value < lowest) lowest = value;
+    return lowest;
+}
+
+function highestOf(values) {
+    let highest = -Infinity;
+    for (const value of values) if (value > highest) highest = value;
+    return highest;
+}
+
+// One value per x, an array whose new arrays are plain ones, with what the
+// mean(), min() and max() of a curve share. A curve holds its x in `_x`, and
+// in `_axis` the name of that x and its unit.
+class CurveOverX extends Array {
+    static get [Symbol.species]() { return Array; }
+
+    // `reduce` of the values whose x is from `start` to `end`, both included,
+    // for the method `what`; a band no x is in is refused.
+    _over(reduce, what, start, end) {
+        const xs = this._x;
+        const values = this.filter((_, i) => (start == null || xs[i] >= start) && (end == null || xs[i] <= end));
+        if (!values.length) {
+            const [name, unit] = this._axis;
+            throw new Error(`${what}: no ${name} of this curve is from ${start ?? xs[0]} to ${end ?? xs[xs.length - 1]} ${unit}`);
+        }
+        return reduce(values);
+    }
+}
 
 /**
  * One value per wavelength: an array of numbers, so `Math.max(...curve)`, a
@@ -21,9 +61,7 @@ const QUANTITIES = ['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'];
  * const s = design.spectrum(400, 700);
  * console.log(Math.max(...s.R), s.R.mean(450, 650));
  */
-export class Curve extends Array {
-    static get [Symbol.species]() { return Array; }
-
+export class Curve extends CurveOverX {
     /**
      * The wavelength of each value, nm.
      *
@@ -33,7 +71,7 @@ export class Curve extends Array {
      * const s = design.spectrum(400, 700, { step: 50 });
      * console.log(s.R.wavelength.join(', '));
      */
-    get wavelength() { return this._wavelength; }
+    get wavelength() { return this._x; }
 
     /**
      * The mean of the values whose wavelength is from `start` to `end`, both
@@ -49,12 +87,7 @@ export class Curve extends Array {
      * const s = design.spectrum(400, 700);
      * console.log('Mean R from 450 to 650 nm:', s.R.mean(450, 650));
      */
-    mean(start, end) {
-        const values = this._band('mean', start, end);
-        let total = 0;
-        for (const value of values) total += value;
-        return total / values.length;
-    }
+    mean(start, end) { return this._over(meanOf, 'mean', start, end); }
 
     /**
      * The lowest value whose wavelength is from `start` to `end`, both
@@ -70,11 +103,7 @@ export class Curve extends Array {
      * const s = design.spectrum(400, 700);
      * console.log('Lowest T from 450 to 650 nm:', s.T.min(450, 650));
      */
-    min(start, end) {
-        let lowest = Infinity;
-        for (const value of this._band('min', start, end)) if (value < lowest) lowest = value;
-        return lowest;
-    }
+    min(start, end) { return this._over(lowestOf, 'min', start, end); }
 
     /**
      * The highest value whose wavelength is from `start` to `end`, both
@@ -90,28 +119,98 @@ export class Curve extends Array {
      * const s = design.spectrum(400, 700);
      * console.log('Highest R from 450 to 650 nm:', s.R.max(450, 650));
      */
-    max(start, end) {
-        let highest = -Infinity;
-        for (const value of this._band('max', start, end)) if (value > highest) highest = value;
-        return highest;
-    }
-
-    _band(what, start, end) {
-        const wavelength = this.wavelength;
-        const values = this.filter((_, i) => (start == null || wavelength[i] >= start) && (end == null || wavelength[i] <= end));
-        if (!values.length) {
-            throw new Error(`${what}: no wavelength of this curve is from ${start ?? wavelength[0]} to ${end ?? wavelength[wavelength.length - 1]} nm`);
-        }
-        return values;
-    }
+    max(start, end) { return this._over(highestOf, 'max', start, end); }
 }
 
-/** `values` as a Curve over `wavelength`, which the curve keeps out of its own entries. */
-export function curveOf(values, wavelength) {
-    const curve = Curve.from(values);
-    Object.defineProperty(curve, '_wavelength', { value: wavelength });
+/**
+ * One value per angle of incidence: an array of numbers, so
+ * `Math.max(...curve)`, a for loop and the array methods take it as they take
+ * any array; map(), filter() and the other methods that make a new array make
+ * a plain one.
+ *
+ * mean(), min() and max() summarize it over a range of angles, and `angle`
+ * holds the angle of each value, degrees in the medium light comes from.
+ *
+ * @example
+ * const design = tf.newDesign('Mirror');
+ * design.stack('(HL)^3 H');
+ * const e = design.ellipsometryVsAngle(633, 45, 80);
+ * console.log(Math.min(...e.psi), e.psi.mean(60, 70));
+ */
+export class AngleCurve extends CurveOverX {
+    /**
+     * The mean of the values whose angle is from `start` to `end`, both
+     * included.
+     *
+     * @param [start] The first angle of the range, degrees. Without it, the curve's first.
+     * @param [end] The last angle of the range, degrees. Without it, the curve's last.
+     * @returns The mean; NaN when a value in the range is NaN.
+     * @throws a range no angle of the curve is in
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const e = design.ellipsometryVsAngle(633, 45, 80);
+     * console.log('Mean Psi from 60 to 70 degrees:', e.psi.mean(60, 70));
+     */
+    mean(start, end) { return this._over(meanOf, 'mean', start, end); }
+
+    /**
+     * The lowest value whose angle is from `start` to `end`, both included,
+     * NaN values left out.
+     *
+     * @param [start] The first angle of the range, degrees. Without it, the curve's first.
+     * @param [end] The last angle of the range, degrees. Without it, the curve's last.
+     * @returns The lowest value; `Infinity` when every value in the range is NaN.
+     * @throws a range no angle of the curve is in
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const e = design.ellipsometryVsAngle(633, 45, 80);
+     * console.log('Lowest Psi from 60 to 70 degrees:', e.psi.min(60, 70));
+     */
+    min(start, end) { return this._over(lowestOf, 'min', start, end); }
+
+    /**
+     * The highest value whose angle is from `start` to `end`, both included,
+     * NaN values left out.
+     *
+     * @param [start] The first angle of the range, degrees. Without it, the curve's first.
+     * @param [end] The last angle of the range, degrees. Without it, the curve's last.
+     * @returns The highest value; `-Infinity` when every value in the range is NaN.
+     * @throws a range no angle of the curve is in
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const e = design.ellipsometryVsAngle(633, 45, 80);
+     * console.log('Highest Delta from 60 to 70 degrees:', e.delta.max(60, 70));
+     */
+    max(start, end) { return this._over(highestOf, 'max', start, end); }
+
+    /**
+     * The angle of incidence of each value, degrees.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const e = design.ellipsometryVsAngle(633, 45, 80, { step: 5 });
+     * console.log(e.psi.angle.join(', '));
+     */
+    get angle() { return this._x; }
+}
+
+// `values` as a curve of the class `Kind` over `xs`, its x named and in the
+// unit `axis`, which the curve keeps out of its own entries.
+function curveOver(Kind, values, xs, axis) {
+    const curve = Kind.from(values);
+    Object.defineProperties(curve, { _x: { value: xs }, _axis: { value: axis } });
     return curve;
 }
+
+/** `values` as a Curve over `wavelength`, nm. */
+export const curveOf = (values, wavelength) => curveOver(Curve, values, wavelength, ['wavelength', 'nm']);
+
+/** `values` as an AngleCurve over `angle`, degrees. */
+export const angleCurveOf = (values, angle) => curveOver(AngleCurve, values, angle, ['angle', 'degrees']);
 
 /**
  * R, T and A of a design over a range of wavelengths, at one angle of

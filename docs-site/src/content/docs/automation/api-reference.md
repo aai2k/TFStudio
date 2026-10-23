@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -929,6 +929,80 @@ design.stack("HL")
 iv = design.integrals(custom=[{"key": "T3000K", "source": {"id": "blackbody", "T": 3000},
                                "band": [400, 700]}])
 print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
+```
+
+### ellipsometry
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.ellipsometry(start, end, { step, angles, side, deltaConvention })` | `design.ellipsometry(start=400, end=800, step=0.5, angles=[65], side=..., delta_convention="azzam")` |
+
+Ψ and Δ of one coated side against wavelength, at one angle of incidence or several, as the Ellipsometry window's spectral sweep computes them, from ρ = r_p / r_s = tan Ψ · exp(i Δ). It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. The design's cone of incidence is not used, as the window does not use it.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` | `400` | The first wavelength, nm. |
+| `end` | `end` | `800` | The last wavelength, nm, above `start`. |
+| `step` | `step` | `0.5` | The wavelength step, nm. |
+| `angles` | `angles` | `[65]` | The angles of incidence, degrees in the medium light comes from, each 0 up to but not including 90. |
+| `side` | `side` |  | `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other. |
+| `deltaConvention` | `delta_convention` | `'azzam'` | The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that. Ψ is the same in both. |
+
+**Returns**: An Ellipsometry.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, more than a million points (wavelengths times angles), or a design that names a material that resolves to nothing<br>**Python**: a range that is not one, an angle outside 0 to 90, a side other than "front" or "back", a convention other than "azzam" or "reversed", more than a million points (wavelengths times angles), or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometry(400, 800, { step: 1, angles: [55, 70] });
+console.log(e.mode, 'Psi at 55 degrees from', Math.min(...e.psi).toFixed(2), 'to', Math.max(...e.psi).toFixed(2));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry(400, 800, step=1, angles=[55, 70])
+print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.psi), 2))
+```
+
+### ellipsometryVsAngle / ellipsometry_vs_angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.ellipsometryVsAngle(wavelength, start, end, { step, side, deltaConvention })` | `design.ellipsometry_vs_angle(wavelength=..., start=45, end=80, step=0.5, side=..., delta_convention="azzam")` |
+
+Ψ and Δ of one coated side against angle of incidence at one wavelength, as the Ellipsometry window's angular sweep computes them. The angles run from `start` by `step`, each rounded to 0.001 degree, to `end`. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. The design's cone of incidence is not used, as the window does not use it.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `wavelength` | `wavelength` |  | The wavelength, nm. Without it, the design's reference wavelength. |
+| `start` | `start` | `45` | The first angle of incidence, degrees in the medium light comes from, 0 or more. |
+| `end` | `end` | `80` | The last angle, degrees, above `start` and at most 89.5. |
+| `step` | `step` | `0.5` | The angle step, degrees, from 0.05 up to the span, `end` minus `start`. |
+| `side` | `side` |  | `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other. |
+| `deltaConvention` | `delta_convention` | `'azzam'` | The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that. Ψ is the same in both. |
+
+**Returns**: An Ellipsometry.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, or a design that names a material that resolves to nothing<br>**Python**: a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than "front" or "back", a convention other than "azzam" or "reversed", or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80, { step: 0.5 });
+console.log('lowest Psi', e.psi.min().toFixed(3), 'at', e.psi.angle[e.psi.indexOf(e.psi.min())], 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80, step=0.5)
+print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.min())], "degrees")
 ```
 
 ### refine
@@ -5747,6 +5821,376 @@ design = tf.new_design("AR")
 design.stack("HL")
 design.integrals().save_csv(name)
 print("Wrote", name)
+```
+
+## Ellipsometry
+
+Ψ and Δ of one coated side, as design.ellipsometry() computes them against wavelength, at one angle of incidence or several, or `design.ellipsometryVsAngle()` / `design.ellipsometry_vs_angle()` against angle at one wavelength. Against wavelength, `e.psi` and `e.delta` are Curves at the first angle asked and `e.angle(70)` is the sweep at another; against angle, they are AngleCurves.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometry(400, 800, { angles: [65, 70] });
+console.log(e.mode, Math.min(...e.psi), Math.max(...e.angle(70).delta));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry(400, 800, angles=[65, 70])
+print(e.mode, min(e.psi), max(e.angle(70).delta))
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.mode` | `e.mode` |
+
+The side computed: `'front'` or `'back'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.ellipsometry().mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.wavelength` | `e.wavelength` |
+
+Against wavelength, the wavelengths, nm; against angle, the one wavelength, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry(400, 800, { step: 100 }).wavelength.join(', '), design.ellipsometryVsAngle(633).wavelength);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.ellipsometry(400, 800, step=100).wavelength, design.ellipsometry_vs_angle(633).wavelength)
+```
+
+### angles
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.angles` | `e.angles` |
+
+The angles of incidence, degrees in the medium light comes from: against wavelength, those asked, in the order asked; against angle, the angles swept.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometry(400, 800, { angles: [55, 70] });
+for (const a of e.angles) console.log(a, Math.min(...e.angle(a).psi));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry(400, 800, angles=[55, 70])
+for a in e.angles:
+    print(a, min(e.angle(a).psi))
+```
+
+### deltaConvention / delta_convention
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.deltaConvention` | `e.delta_convention` |
+
+The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry(400, 800, { deltaConvention: 'reversed' }).deltaConvention);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.ellipsometry(400, 800, delta_convention="reversed").delta_convention)
+```
+
+### psi
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi` | `e.psi` |
+
+Ψ, degrees from 0 to 90, where tan Ψ is |r_p| / |r_s|: against wavelength a Curve at the first angle, against angle an AngleCurve.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry().psi.mean(500, 600));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.ellipsometry().psi.mean(500, 600))
+```
+
+### delta
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.delta` | `e.delta` |
+
+Δ, degrees from 0 up to 360, the phase of r_p / r_s in the convention `deltaConvention` / `delta_convention` names: against wavelength a Curve at the first angle, against angle an AngleCurve.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(Math.max(...design.ellipsometryVsAngle(633).delta));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(max(design.ellipsometry_vs_angle(633).delta))
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.outOfRange` | `e.out_of_range` |
+
+**JavaScript**: The materials of the side computed whose data stop inside the range, or do not reach the one wavelength of a sweep against angle, an array of `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers it.
+
+**Python**: The materials of the side computed whose data stop inside the range, or do not reach the one wavelength of a sweep against angle, a list of dicts with id, name, rangeNm and heldFlat: outside rangeNm their n and k are held at the last value (heldFlat True) or extrapolated. Empty when every material covers it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.ellipsometry(200, 2500, { step: 10 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print([m["id"] for m in design.ellipsometry(200, 2500, step=10).out_of_range])
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.angle(angle)` | `e.angle(angle)` |
+
+The sweep against wavelength at one of the angles it was computed at.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `angle` | `angle` |  | The angle of incidence, degrees. |
+
+**Returns**: An Ellipsometry of that angle alone.
+
+**Refuses**:
+
+- an angle the sweep was not computed at, or a sweep against angle
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometry(400, 800, { angles: [55, 70] });
+console.log(Math.min(...e.angle(70).psi));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry(400, 800, angles=[55, 70])
+print(min(e.angle(70).psi))
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.saveCsv(path)` | `e.save_csv(path)` |
+
+**JavaScript**: Writes Ψ and Δ to a CSV file as the window's export writes its table: a column of wavelengths, λ (nm), or of angles, AOI (°), then Ψ (°) and Δ (°). Against wavelength at more than one angle, Ψ and Δ come for each angle in turn, each headed with its angle. A file that is there is written over.
+
+**Python**: Writes Ψ and Δ to a CSV file as the window's export writes its table: a column of wavelengths, λ (nm), or of angles, AOI (°), then Ψ (°) and Δ (°). Against wavelength at more than one angle, Ψ and Δ come for each angle in turn, each headed with its angle. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `ellipsometry-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.ellipsometry(400, 800, { step: 5 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "ellipsometry-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.ellipsometry(400, 800, step=5).save_csv(name)
+print("Wrote", name)
+```
+
+## AngleCurve
+
+**JavaScript**: One value per angle of incidence: an array of numbers, so `Math.max(...curve)`, a for loop and the array methods take it as they take any array; map(), filter() and the other methods that make a new array make a plain one.
+
+**Python**: One value per angle of incidence: a list of floats, so `max(curve)`, `sum(curve)` and plotting libraries take it as they take any list.
+
+mean(), min() and max() summarize it over a range of angles, and `angle` holds the angle of each value, degrees in the medium light comes from.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80);
+console.log(Math.min(...e.psi), e.psi.mean(60, 70));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80)
+print(min(e.psi), e.psi.mean(60, 70))
+```
+
+### mean
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi.mean(start, end)` | `e.psi.mean(start=..., end=...)` |
+
+The mean of the values whose angle is from `start` to `end`, both included.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` |  | The first angle of the range, degrees. Without it, the curve's first. |
+| `end` | `end` |  | The last angle of the range, degrees. Without it, the curve's last. |
+
+**Returns**: The mean; NaN when a value in the range is NaN.
+
+**Refuses**:
+
+- a range no angle of the curve is in
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80);
+console.log('Mean Psi from 60 to 70 degrees:', e.psi.mean(60, 70));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80)
+print("Mean Psi from 60 to 70 degrees:", e.psi.mean(60, 70))
+```
+
+### min
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi.min(start, end)` | `e.psi.min(start=..., end=...)` |
+
+The lowest value whose angle is from `start` to `end`, both included, NaN values left out.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` |  | The first angle of the range, degrees. Without it, the curve's first. |
+| `end` | `end` |  | The last angle of the range, degrees. Without it, the curve's last. |
+
+**Returns**: The lowest value; `Infinity` / `inf` when every value in the range is NaN.
+
+**Refuses**:
+
+- a range no angle of the curve is in
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80);
+console.log('Lowest Psi from 60 to 70 degrees:', e.psi.min(60, 70));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80)
+print("Lowest Psi from 60 to 70 degrees:", e.psi.min(60, 70))
+```
+
+### max
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi.max(start, end)` | `e.psi.max(start=..., end=...)` |
+
+The highest value whose angle is from `start` to `end`, both included, NaN values left out.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` |  | The first angle of the range, degrees. Without it, the curve's first. |
+| `end` | `end` |  | The last angle of the range, degrees. Without it, the curve's last. |
+
+**Returns**: The highest value; `-Infinity` / `-inf` when every value in the range is NaN.
+
+**Refuses**:
+
+- a range no angle of the curve is in
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80);
+console.log('Highest Delta from 60 to 70 degrees:', e.delta.max(60, 70));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80)
+print("Highest Delta from 60 to 70 degrees:", e.delta.max(60, 70))
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.psi.angle` | `e.psi.angle` |
+
+The angle of incidence of each value, degrees.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const e = design.ellipsometryVsAngle(633, 45, 80, { step: 5 });
+console.log(e.psi.angle.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+e = design.ellipsometry_vs_angle(633, 45, 80, step=5)
+print(e.psi.angle)
 ```
 
 ## RunResult

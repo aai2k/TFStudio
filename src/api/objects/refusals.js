@@ -27,6 +27,7 @@ const WORDS = {
         ? 'the back of a symmetric design mirrors its front; edit the front'
         : `a design coated on the ${OTHER_SIDE[f.side]} alone and scored on that side does not evaluate the ${f.side}; to edit it, set sides to 'both', or scoreOn to 'whole part'`),
     wavelengthRange: () => 'start and end are wavelengths in nm, 0 < start < end',
+    angleRange: f => `start and end are angles of incidence in degrees, 0 <= start < end <= ${f.max}`,
     bandOrder: f => `start ${f.start} is above end ${f.end}`,
     fileExists: f => `${f.path} exists; pass { overwrite: true } to write over it`,
     formulaMedia: () => "the formula names media; write the layers alone, such as '(HL)^5 H', and set the media with incidentMedium, exitMedium and substrate.material",

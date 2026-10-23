@@ -10,10 +10,14 @@ function preferredSide(design, current) {
     return current;
 }
 
+// The wavelength, nm, the angular sweep shows a design with no reference
+// wavelength at, which the API's ellipsometryVsAngle falls back to too.
+export const ELLIPSOMETRY_LAMBDA_NM = 550;
+
 export const ellipsometrySession = createWindowSession({
     ...sessionDefaults('ellipsometryEvaluation'),
     side: 'front',
-    lambdaNm: 550,
+    lambdaNm: ELLIPSOMETRY_LAMBDA_NM,
 }, {
     id: 'ellipsometryEvaluation',
     // The single wavelength and the side follow the selected design.

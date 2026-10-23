@@ -108,6 +108,12 @@ class Calls:
     def integrals(self, design, options=None):
         return self._call("integrals", design, options)
 
+    def ellipsometry(self, design, options=None):
+        return self._call("ellipsometry", design, options)
+
+    def ellipsometryVsAngle(self, design, options=None):
+        return self._call("ellipsometryVsAngle", design, options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

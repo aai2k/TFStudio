@@ -20,11 +20,12 @@ from ._admittance import Admittance
 from ._color import Color
 from ._design import Design, Layer, Layers, Substrate
 from ._electric_field import ElectricField
+from ._ellipsometry import Ellipsometry
 from ._errors import AppError, ServerError, TFStudioError
 from ._integrals import Integrals
 from ._merit import Merit, MeritRow
-from ._results import (CheckResult, CleanReport, Curve, LayerSensitivity, MonteCarlo, Progress, RunResult, SensitivityRow,
-                       SpecReport, Spectrum, Yield)
+from ._results import (AngleCurve, CheckResult, CleanReport, Curve, LayerSensitivity, MonteCarlo, Progress, RunResult,
+                       SensitivityRow, SpecReport, Spectrum, Yield)
 from ._specification import SpecCheck, Specification
 from ._stack_views import IndexProfile, LayerThicknesses
 from ._stop import Stop
@@ -34,6 +35,6 @@ __version__ = "0.1.0"
 
 __all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
            "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Admittance",
-           "ElectricField", "Color", "Integrals", "Progress",
+           "ElectricField", "Color", "Integrals", "Ellipsometry", "AngleCurve", "Progress",
            "RunResult", "MonteCarlo", "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material", "App",
            "AppDesign", "Stop", "TFStudioError", "AppError", "ServerError"]

@@ -14,6 +14,8 @@
  *   electricField(design, { wavelength, angle, side, pointsPerLayer, depthUnit, reference })
  *   color(design, { quantity, angle, pol, observer, illuminant, step, side })
  *   integrals(design, { start, end, step, angle, pol, custom, side })
+ *   ellipsometry(design, { from, to, step, angles, side, deltaConvention })
+ *   ellipsometryVsAngle(design, { wavelength, angleStart, angleEnd, angleStep, side, deltaConvention })
  *   setMerit(design, rows), merit(design)
  *   setSpecification(design, checks), checkSpecification(design)
  *   refine(design, settings, hooks), synthesize(design, { method, pool, settings }, hooks), runHooks(method)
@@ -36,6 +38,7 @@ export { admittance } from './admittance.js';
 export { electricField } from './electricField.js';
 export { color } from './color.js';
 export { integrals } from './integrals.js';
+export { ellipsometry, ellipsometryVsAngle } from './ellipsometry.js';
 export { setMerit, merit } from './merit.js';
 export { setSpecification, checkSpecification } from './specification.js';
 export { refine, synthesize, runHooks } from './runs.js';
