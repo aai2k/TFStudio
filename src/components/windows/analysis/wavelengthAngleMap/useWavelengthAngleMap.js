@@ -1,6 +1,7 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { OPTIMIZATION_PREVIEW_MS, useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { computeSurface } from '../../../../utils/physics/plotQuantities.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runSurfaceSweep } from '../plotEngine/surfaceRunner.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -31,9 +32,13 @@ const SETTLE_MS = Math.round(OPTIMIZATION_PREVIEW_MS * 0.6);
 // build and kill that pool several times a second.
 const MAIN_THREAD_BUDGET = 300000;
 
+// Under a cone of incidence each grid point is evaluated once per ray of the
+// cone, and a cone average takes at least the cone's grid points.
 function sweepWork(spec, design) {
     const layers = (design.frontLayers?.length || 0) + (design.backLayers?.length || 0);
-    return spec.xSteps * spec.ySteps * Math.max(1, layers);
+    const cone = makeConeSpec(design.cone || {});
+    const rays = coneIsActive(cone) ? cone.gridPoints : 1;
+    return spec.xSteps * spec.ySteps * Math.max(1, layers) * rays;
 }
 
 /**

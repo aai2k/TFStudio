@@ -1,4 +1,5 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
 
 export function buildEvaluationContext(design) {
     if (!design) return null;
@@ -15,5 +16,6 @@ export function buildEvaluationContext(design) {
     return {
         incMat, subMat, exitMat, frontLayers, backLayers,
         subThickness_mm: design.substrate?.thickness ?? 1.0,
+        cone: makeConeSpec(design.cone || {}),
     };
 }

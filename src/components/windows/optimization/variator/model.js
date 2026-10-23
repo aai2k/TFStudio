@@ -1,7 +1,6 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import {
-    evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
-} from '../../../../utils/physics/thinFilmMath.js';
+import { runSpectrum } from '../../../../utils/physics/plotQuantities/spectrumRunner.js';
+import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
 import { wrapMaterial } from '../../../../utils/misc/variator.js';
 
 export function resolveMat(design, id) {
@@ -162,17 +161,16 @@ export function computeVariatorSpectrum({ design, params, evalMode, dN, dK, base
     }).filter(l => l.thickness > 0);
     const subThickB = baseSubMm;
 
-    let result, unvaried;
-    if (evalMode === 'back') {
-        result   = evaluateSpectrumBack({ ...params }, exitMat,  subMat,  back);
-        unvaried = evaluateSpectrumBack({ ...params }, exitMatB, subMatB, backB);
-    } else if (evalMode === 'total') {
-        result   = evaluateSpectrumTotal({ ...params }, incMat,  subMat,  exitMat,  front,  back,  subThick);
-        unvaried = evaluateSpectrumTotal({ ...params }, incMatB, subMatB, exitMatB, frontB, backB, subThickB);
-    } else {
-        result   = evaluateSpectrum({ ...params }, incMat,  subMat,  front);
-        unvaried = evaluateSpectrum({ ...params }, incMatB, subMatB, frontB);
-    }
+    // Both arms under the design's cone of incidence, as Optical Evaluation
+    // averages them.
+    const cone = makeConeSpec(design.cone || {});
+    const result = runSpectrum(evalMode, params, {
+        incMat, subMat, exitMat, frontLayers: front, backLayers: back, subThickness_mm: subThick, cone,
+    });
+    const unvaried = runSpectrum(evalMode, params, {
+        incMat: incMatB, subMat: subMatB, exitMat: exitMatB,
+        frontLayers: frontB, backLayers: backB, subThickness_mm: subThickB, cone,
+    });
     result.Tbase = unvaried.T;
     result.Rbase = unvaried.R;
     return result;

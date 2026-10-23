@@ -3,6 +3,10 @@
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../thinFilmMath.js';
+import { coneAverageResult } from '../optimizer/coneAngle.js';
+
+// Every series a cone average folds, as Optical Evaluation averages them.
+const CONE_AVERAGED = ['T', 'R', 'A', 'Ts', 'Rs', 'As', 'Tp', 'Rp', 'Ap'];
 
 /**
  * Extract the right y value from an evaluateSpectrum result, given the
@@ -14,7 +18,7 @@ export function pickChannel(out, pol, channel) {
     return out[channel];
 }
 
-export function runSpectrum(surfaceMode, params, ctx) {
+function spectrumAtAngle(surfaceMode, params, ctx) {
     if (surfaceMode === 'back') {
         return evaluateSpectrumBack(params, ctx.exitMat, ctx.subMat, ctx.backLayers || []);
     }
@@ -27,4 +31,14 @@ export function runSpectrum(surfaceMode, params, ctx) {
     }
     // default: front
     return evaluateSpectrum(params, ctx.incMat, ctx.subMat, ctx.frontLayers || []);
+}
+
+/**
+ * The spectrum at `params.theta`. Under a cone of incidence (`ctx.cone`, a
+ * makeConeSpec spec) `params.theta` is the cone axis and every series is the
+ * average over the cone, as Optical Evaluation computes it.
+ */
+export function runSpectrum(surfaceMode, params, ctx) {
+    return coneAverageResult(ctx.cone, params.theta ?? 0,
+        theta => spectrumAtAngle(surfaceMode, { ...params, theta }, ctx), CONE_AVERAGED);
 }

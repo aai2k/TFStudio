@@ -5,6 +5,8 @@ import {
 } from './model.js';
 import { variatorSliderSession, variatorViewSession } from './sessionState.js';
 import { useWindowCopy, useWindowSession } from '../../windowSession.js';
+import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 
 const { useState, useEffect, useRef, useMemo, useCallback } = React;
 
@@ -110,24 +112,34 @@ function useSliderSession(design, updateDesign, checkpoint) {
 // Computes the Variator preview spectrum (perturbed + baseline arms) and
 // recomputes whenever the design, view params, eval mode, baseline, or n/k
 // offsets change.
+//
+// Under a cone of incidence the spectrum is computed in the analysis worker, as
+// Optical Evaluation computes its own. A slider move starts the next one before
+// the last has answered, so the last answer stays drawn until it does.
 function useSpectrumCompute({ design, params, evalMode, dN, dK, baseline }) {
     const [data, setData] = useState(null);
     const [error, setError] = useState(null);
+    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const request = useMemo(
+        () => ({ design, params, evalMode, dN, dK, baseline }),
+        [design, params, evalMode, dN, dK, baseline],
+    );
+    const evaluation = useAnalysisEvaluation(coneActive, 'variatorSpectrum', request);
+    const answered = useRef(null);
+    if (evaluation.data) answered.current = evaluation.data;
 
-    const compute = useCallback(() => {
+    useEffect(() => {
+        if (coneActive) return;
         try {
-            const result = computeVariatorSpectrum({ design, params, evalMode, dN, dK, baseline });
-            setData(result);
+            setData(computeVariatorSpectrum(request));
             setError(null);
         } catch (e) {
             console.error('[Variator] compute error:', e);
             setError(e.message || String(e));
         }
-    }, [design, params, evalMode, dN, dK, baseline]);
+    }, [coneActive, request]);
 
-    useEffect(() => { compute(); }, [compute]);
-
-    return { data, error };
+    return coneActive ? { data: answered.current, error: evaluation.error } : { data, error };
 }
 
 export function useVariator() {

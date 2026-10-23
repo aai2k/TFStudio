@@ -28,6 +28,7 @@ import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
 import { ActionButton, CheckField } from '../../analysis/chrome/controls.js';
+import { useEvaluationUnderCone } from '../../analysis/useEvaluationUnderCone.js';
 import { CurveChart } from './CurveChart.js';
 import { CurveGrid } from './CurveGrid.js';
 import { backdropKey, designBackdrop } from './designBackdrop.js';
@@ -88,9 +89,12 @@ export function CurveEditor(props) {
     const labels = editorLabels(t, table);
     const missing = useUnresolvedMaterials(design);
     const key = backdropKey(table);
-    const backdrops = useMemo(
-        () => designBackdrop(design, table, conditions, missing),
+    const backdropRequest = useMemo(
+        () => ({ design, table, conditions, missing }),
         [design, key, conditions, missing]);
+    // Under a cone of incidence the backdrops are drawn once the worker answers.
+    const { data: backdrops } = useEvaluationUnderCone(design, 'designBackdrop', backdropRequest,
+        request => designBackdrop(request.design, request.table, request.conditions, request.missing));
     const notices = editorNotices({ editor, conditions, missing, t });
 
     return h('div', {

@@ -65,7 +65,7 @@ export function Variator({ c, theme, t }) {
                     ? h('div', {
                         style: { display: 'flex', alignItems: 'center', justifyContent: 'center',
                                  height: '100%', color: '#ef5350', fontSize: 12, padding: 16, textAlign: 'center' }
-                    }, v.calcError(state.error))
+                    }, state.error === 'ANALYSIS_EVALUATION_FAILED' ? t.analysisEvaluation.failed : v.calcError(state.error))
                     : h(SpectrumPlot, {
                         data: state.showBaseline ? state.data : (state.data ? { lambda: state.data.lambda, T: state.data.T, R: state.data.R } : null),
                         c, theme, t,

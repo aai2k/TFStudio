@@ -11,6 +11,10 @@ import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
 import { evaluateQualifiers } from '../synthesis/qualifiers.js';
 import { runErrorAnalysisMC } from '../physics/errorAnalysis.js';
 import { toleranceSpecInputs } from '../../components/windows/analysis/toleranceSpecInputs.js';
+import { computeCurveResults } from '../../components/windows/analysis/plotEngine/curveResults.js';
+import { computeVariatorSpectrum } from '../../components/windows/optimization/variator/model.js';
+import { designPreview } from '../../components/windows/dataExchange/spectrumExchange/designPreview.js';
+import { designBackdrop } from '../../components/windows/dataExchange/curveEditor/designBackdrop.js';
 import { meritDisplay } from '../physics/meritDisplay.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 
@@ -69,6 +73,10 @@ const EVALUATIONS = {
     }),
     pulseAnalysis: ({ design, request }) => computePulseAnalysis(design, request),
     meritTimeline: ({ designs }) => (designs || []).map(timelineMerit),
+    plotCurves: ({ design, curves }) => computeCurveResults(curves, design),
+    variatorSpectrum: request => computeVariatorSpectrum(request),
+    designPreview: ({ design, curve, missing }) => designPreview(design, curve, missing),
+    designBackdrop: ({ design, table, conditions, missing }) => designBackdrop(design, table, conditions, missing),
 };
 
 // Progress of a Monte Carlo run is posted at most this often, ms. Each post

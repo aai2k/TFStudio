@@ -4,6 +4,7 @@ import { withUniqueCurveIds } from '../../../../utils/io/spectrumTable.js';
 import { useDesignExport, useMeasuredExport } from './exportActions.js';
 import { useImportActions } from './importActions.js';
 import { designPreview, designSeriesKey } from './designPreview.js';
+import { useEvaluationUnderCone } from '../../analysis/useEvaluationUnderCone.js';
 import {
     clampedFitRange, defaultMeasuredFitOptions, measuredFitConstraintsInvalid,
     measuredFitMeritOperands, measuredFitSnapshot, orphanFitBlocks, restoredFitCurves,
@@ -15,6 +16,18 @@ import { useCurveEditorHost } from '../curveEditor/useCurveEditorHost.js';
 import { useActionStatus } from '../chrome/actionStatus.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
+
+const NO_PREVIEW = { data: null, range: null, error: null };
+const PREVIEW_FAILED = { data: null, range: null, error: 'evaluation' };
+
+// designPreview for the window. Under a cone of incidence it is computed in the
+// analysis worker, and the measured curve is drawn alone until it answers.
+function useDesignPreview(design, curve, missing) {
+    const request = useMemo(() => ({ design, curve, missing }), [design, curve, missing]);
+    const evaluated = useEvaluationUnderCone(design, 'designPreview', request,
+        ({ design: d, curve: c, missing: m }) => designPreview(d, c, m));
+    return evaluated.data || (evaluated.error ? PREVIEW_FAILED : NO_PREVIEW);
+}
 
 function previewCurveSwitches(curve) {
     const switches = { T: false, R: false, A: false, Ts: false, Rs: false, Tp: false, Rp: false };
@@ -143,10 +156,7 @@ export function useSpectrumExchange(sx, ce) {
         setSelectedCurveId, setAoi, setPol,
     });
     const previewCurve = (selectedCurveId ? selectedCurve : null) || importActions.previewCurve || selectedCurve;
-    const preview = useMemo(
-        () => designPreview(design, previewCurve, missingMaterialIds),
-        [design, previewCurve, missingMaterialIds],
-    );
+    const preview = useDesignPreview(design, previewCurve, missingMaterialIds);
     const previewShowCurves = useMemo(() => previewCurveSwitches(previewCurve), [previewCurve]);
     const onExport = useMeasuredExport({
         design, expFormat, curves: selectedExportCurves,

@@ -1,11 +1,14 @@
 import { paletteColors } from '../../../../constants/analysisDefaults.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
-import { makeDefaultCurve, computeCurve } from '../../../../utils/physics/plotQuantities.js';
-import { buildEvaluationContext } from './materialContext.js';
+import { makeDefaultCurve } from '../../../../utils/physics/plotQuantities.js';
+import { computeCurveResults } from './curveResults.js';
 import { plotEngineSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useEvaluationUnderCone } from '../useEvaluationUnderCone.js';
 
 const { useMemo, useCallback } = React;
+
+const NO_CURVES = {};
 
 // A new curve for the design's evaluation mode, named by `nameCurve` from
 // t.plotEngine.
@@ -32,19 +35,13 @@ function useStoredCurves(design, evalMode, palette, nameCurve) {
     return [curves, setCurves];
 }
 
-function computeCurveResults(curves, ctx) {
-    if (!ctx) return {};
-    const out = {};
-    for (const cv of curves) {
-        if (!cv.visible) continue;
-        try {
-            out[cv.id] = computeCurve(cv, ctx);
-        } catch (e) {
-            console.error('PlotEngine curve error:', cv.id, e);
-            out[cv.id] = { x: [], y: [] };
-        }
-    }
-    return out;
+// The curves of a design under a cone of incidence are computed in the analysis
+// worker and drawn once it answers.
+function useCurveResults(curves, design) {
+    const payload = useMemo(() => ({ design, curves }), [design, curves]);
+    const { data } = useEvaluationUnderCone(design, 'plotCurves', payload,
+        request => computeCurveResults(request.curves, request.design));
+    return data || NO_CURVES;
 }
 
 // `pe` is t.plotEngine, which names a new curve.
@@ -53,8 +50,7 @@ export function useCurvePlot(design, evalMode, pe) {
     const palette = useMemo(() => paletteColors(configured, 'series'), [configured]);
     const nameCurve = pe.curveName;
     const [curves, setCurves] = useStoredCurves(design, evalMode, palette, nameCurve);
-    const ctx = useMemo(() => buildEvaluationContext(design), [design]);
-    const results = useMemo(() => computeCurveResults(curves, ctx), [curves, ctx]);
+    const results = useCurveResults(curves, design);
 
     const addCurve = useCallback(() => {
         setCurves(prev => [...prev, newCurve(evalMode, palette, nameCurve)]);

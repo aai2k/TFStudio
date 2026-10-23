@@ -4,7 +4,7 @@
  * measurement sits where the design can reach. The import preview draws it,
  * and so does the curve editor.
  */
-import { computeDesignSpectrum } from '../../../../utils/io/designSpectrum.js';
+import { computeOpticalSpectrum } from '../../analysis/opticalEvaluation/spectrum.js';
 import { measuredCurveData } from '../../../../utils/io/spectrumTable.js';
 import { resolveEvalMode } from '../../../../utils/physics/optimizer.js';
 
@@ -40,8 +40,9 @@ export function designPreview(design, curve, missingMaterialIds) {
     try {
         // Draw what the merit function scores. In whole-sample mode that is the
         // total spectrum, not the single front surface, and a measurement of a
-        // coated substrate is a whole-sample measurement.
-        const data = computeDesignSpectrum(design, {
+        // coated substrate is a whole-sample measurement. Under a cone of
+        // incidence it is the cone average, the spectrum Optical Evaluation shows.
+        const data = computeOpticalSpectrum(design, {
             ...previewGrid(min, max),
             thetas: [curve.aoi ?? 0],
         }, resolveEvalMode(design));

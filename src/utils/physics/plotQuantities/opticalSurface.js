@@ -7,6 +7,7 @@ import { parseAxisVar } from './axisVars.js';
 import { collectLayerOverrides } from './layerOverrides.js';
 import { overrideMaterial } from './materialOverride.js';
 import { pickChannel, runSpectrum } from './spectrumRunner.js';
+import { makeConeSpec } from '../optimizer/coneAngle.js';
 
 // ── Optical Z (T/R/A) at one (λ, AOI) with overridden front stack ─────────────
 function opticalSurfaceZ(spec, baseCtx, xv, yv) {
@@ -72,6 +73,7 @@ function buildOpticalBaseCtx(design, resolveMat) {
         backLayers: (design.backLayers || []).filter(l => l.thickness > 0)
             .map(l => ({ material: resolveMat(l.material), thickness: l.thickness })),
         subThickness_mm: design.substrate?.thickness ?? 1.0,
+        cone: makeConeSpec(design.cone || {}),
     };
 }
 
