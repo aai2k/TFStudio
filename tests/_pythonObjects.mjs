@@ -750,6 +750,8 @@ const WORDED = [
     'spectrum: start and end are wavelengths in nm, 0 < start < end',
     "monte_carlo: unknown option 'thickness_rel'; the options are quantity, step, angle, polarization, runs, thickness_rel_pct, thickness_abs_nm, index_re, index_im, "
         + 'distribution, seed, progress, stop',
+    "monte_carlo: unknown option 'to'; the options are quantity, step, angle, polarization, runs, thickness_rel_pct, thickness_abs_nm, index_re, index_im, "
+        + 'distribution, seed, progress, stop',
     'reference is a wavelength in nm above 0, not -1',
     'substrate.thickness is a thickness in mm above 0, not 0',
     'stack: at is a wavelength in nm above 0, not -5',

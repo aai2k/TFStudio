@@ -45,6 +45,8 @@ _SWEEP_WORDS = Words("ellipsometryVsAngle", "ellipsometry_vs_angle", {"angleStep
 # The keywords each takes; the API's names for their arguments are not among them.
 _ELLIPSOMETRY_OPTIONS = ("step", "angles", "side", "delta_convention")
 _SWEEP_OPTIONS = ("step", "side", "delta_convention")
+_MONTE_CARLO_OPTIONS = ("quantity", "step", "angle", "polarization", "runs", "thickness_rel_pct", "thickness_abs_nm",
+                        "index_re", "index_im", "distribution", "seed", "progress", "stop")
 
 
 def mode_of(data):
@@ -1351,6 +1353,7 @@ class Design:
             mc = design.monte_carlo(400, 700, runs=50, step=5, thickness_rel_pct=2, seed=1)
             print("Largest spread of R:", max(mc.stdev))
         """
+        refuse_arguments("monte_carlo", settings, ("from", "to"), _MONTE_CARLO_OPTIONS)
         hooks = run_hooks(settings, lambda: ["onProgress"])
         mode = mode_of(self._data)
         with worded(_MONTE_CARLO_WORDS):
