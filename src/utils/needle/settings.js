@@ -21,9 +21,10 @@ import { unknownSetting, badSetting } from '../misc/settingsRefusals.js';
  * its forced thickness step escapes the resulting local minimum; Needle has no
  * such step, and leaves the MNT and MXT rows to a Refinement run afterwards.
  *
- * CG, a full refine per generation and the 1 nm floor come from a comparison
- * of the window's settings; 60 refine iterations and 60 layers balance merit
- * per layer against run time.
+ * A full refine per generation and the 1 nm floor come from a comparison of
+ * the window's settings, the inner refiner from the one in
+ * synthesisConfig/innerEngine.js; 60 refine iterations and 60 layers balance
+ * merit per layer against run time.
  */
 export const NEEDLE_DEFAULTS = Object.freeze({
     maxLayers: 60,

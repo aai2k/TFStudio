@@ -63,8 +63,8 @@ half the iterations, and keeps that version when its merit is no higher.
 **Refine iterations**: how many refinement steps run after each insertion.
 
 **Inner refiner**: which method refines the stack after each insert. The
-default is **Conjugate Gradient**, which keeps the design "loose" so the next
-scan can still find improving needles. See
+default is **Trust-region Newton**, which ended lower than Conjugate Gradient
+on most of the benchmark's cases and grows the stack without collapsing it. See
 [Optimization Methods](/synthesis/optimization-methods/) for the alternatives.
 
 **Candidate search**: how thoroughly each step explores the improving

@@ -19,9 +19,9 @@ import {
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
 
-console.log('— getSynthesisInnerEngine: no localStorage → per-tool default (cg) —');
-for (const tool of ['needle', 'ge', 'structural']) {
-    ok(getSynthesisInnerEngine(tool) === 'cg', `${tool} → cg (got ${getSynthesisInnerEngine(tool)})`);
+console.log('— getSynthesisInnerEngine: no localStorage → per-tool default —');
+for (const [tool, engine] of [['needle', 'trust-region'], ['ge', 'cg'], ['structural', 'cg']]) {
+    ok(getSynthesisInnerEngine(tool) === engine, `${tool} → ${engine} (got ${getSynthesisInnerEngine(tool)})`);
 }
 ok(SYNTHESIS_INNER_ENGINES.includes('cg') && SYNTHESIS_INNER_ENGINES.includes('dls'),
     'engine list includes cg and dls');

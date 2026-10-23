@@ -1,15 +1,8 @@
 /**
  * User-selectable INNER REFINER for needle / Gradual-Evolution synthesis.
  * Needle/GE = insert a layer → refine ALL thicknesses → repeat;
- * this selects the refiner for that inner step.
- *
- * CURRENT DEFAULT: all three tools default to 'cg' (see ENGINE_DEFAULTS below).
- * An earlier PER-TOOL scheme defaulted GE to 'dls' on the strength of a 4-line
- * multipassband GUI run, but the grand cross-optimizer benchmark superseded it:
- * CG is the more robust inner refiner across the case set and does not stall
- * where DLS does. DLS remains a fully supported, user-selectable engine (and is
- * competitive / faster on easy dielectric AR targets), so a user who prefers it
- * can pick it per tool.
+ * this selects the refiner for that inner step. Each tool starts from its entry
+ * in ENGINE_DEFAULTS below, and the user can pick any of the others per tool.
  *
  * localStorage-backed PER TOOL (renderer only). The synthesis worker never reads
  * this; the main thread reads it and passes `engine` in each worker job, so the
@@ -22,14 +15,15 @@ const ENGINE_KEY = 'tfstudio-synth-inner-engine';
 // work in every surface mode (dls.js _gaussNewtonSystem), so they are safe here.
 // 'trust-region' is the synthesis lab's refinement (optimizers/trustRegionNewton.js).
 export const SYNTHESIS_INNER_ENGINES = ['cg', 'dls', 'newton', 'newton-cg', 'sqp', 'trust-region'];
-// All three default to CG: the grand benchmark showed CG is
-// the best inner refiner for synthesis: it preserves the thin layers the scan
-// inserts and lets them mature, while second-order engines (Newton/Newton-CG/
-// SQP) take aggressive steps that COLLAPSE the fresh stack (Needle→1 layer,
-// GE→stalled). CG wins Needle (4/5 cases) and Structural (4/5); for GE it's the
-// robust choice: it does not stall on multipassbands where DLS gets stuck
-// (3-line bandpass: DLS 0.522/4-layers vs CG 0.116/33-layers).
-export const ENGINE_DEFAULTS = { needle: 'cg', ge: 'cg', structural: 'cg' };
+// Needle refines with trust-region. The Needle window's own run was compared
+// with CG, Newton and trust-region at 3 threads (a 4-core machine) and the
+// window's other defaults, from the optimizer benchmark's thick starting
+// designs and material pool. Trust-region ended lower than CG on five of the
+// six cases and reached the target with fewer layers on the sixth; on the
+// 3-line bandpass, which runs to the layer cap, it ended twelve times lower.
+// Newton ended about as low and took longer in total. No refiner collapsed the
+// stack. Gradual Evolution and Structural refine with CG.
+export const ENGINE_DEFAULTS = { needle: 'trust-region', ge: 'cg', structural: 'cg' };
 
 export function getSynthesisInnerEngine(tool = 'ge') {
     try {

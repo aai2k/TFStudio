@@ -740,7 +740,7 @@ Why it ended. On its own: `'target'` (with `stopMF`, the merit that reached it);
 | `deltaNm` | `delta_nm` | `0.5` | The thickness step that probes each candidate position. A thickness in nm above 0. |
 | `dMin` | `d_min` | `1` | The thinnest a needle goes in, and the thickness below which a refined layer is dropped. A thickness in nm above 0. |
 | `refineIter` | `refine_iter` | `60` | The refinement steps after each insertion. A whole number of 1 or more. |
-| `innerEngine` | `inner_engine` | `'cg'` | The method that refines the stack after each insertion. One of cg, dls, newton, newton-cg, sqp, trust-region. |
+| `innerEngine` | `inner_engine` | `'trust-region'` | The method that refines the stack after each insertion. One of cg, dls, newton, newton-cg, sqp, trust-region. |
 | `candidateSearch` | `candidate_search` | `'balanced'` | How many of the improving candidates each step tries before it moves on, trading speed for quality. One of fast, balanced, thorough. |
 | `sensitivity` | `sensitivity` | `'off'` | How weak a candidate may be, beside the strongest of its scan, and still be tried; off tries every one. One of off, light, medium, aggressive. |
 | `smartSeed` | `smart_seed` | `false` / `False` | Start from the best of the design and the quarter- and half-wave antireflection designs built from the pool, each refined first. True or false. |

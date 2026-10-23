@@ -300,8 +300,8 @@ ok(typeof METHOD_LABELS['trust-region'] === 'string', 'METHOD_LABELS has no trus
 ok(SYNTHESIS_INNER_ENGINES.includes('trust-region'), 'SYNTHESIS_INNER_ENGINES lacks trust-region');
 ok(DEFAULT_REFINE_METHOD === 'sqp', `default refine method changed to ${DEFAULT_REFINE_METHOD}`);
 ok(ALL_METHODS.join() === 'dls,newton,newton-cg,cg,de,sa', `benchmark order changed: ${ALL_METHODS.join()}`);
-for (const tool of ['needle', 'ge', 'structural']) {
-    ok(getSynthesisInnerEngine(tool) === 'cg', `${tool} inner engine default changed to ${getSynthesisInnerEngine(tool)}`);
+for (const [tool, engine] of [['needle', 'trust-region'], ['ge', 'cg'], ['structural', 'cg']]) {
+    ok(getSynthesisInnerEngine(tool) === engine, `${tool} inner engine default changed to ${getSynthesisInnerEngine(tool)}`);
 }
 
 if (fails === 0) { console.log('PASS: trust-region Newton engine'); process.exit(0); }

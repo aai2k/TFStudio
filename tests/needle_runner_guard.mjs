@@ -110,7 +110,9 @@ async function runScenario(name) {
     const spec = { ...BASE, design: design(), ...SCENARIOS[name] };
     const win = makeWindow(spec);
     const presses = [], rowCounts = [];
-    await withWindowSettings(spec.storage, async () => {
+    // The scenarios refine with CG unless they pick a refiner: secondPress ends
+    // on a closing row only along CG's path, whatever the window's default.
+    await withWindowSettings({ engine: 'cg', ...spec.storage }, async () => {
         for (const press of spec.presses) {
             win.press = press;
             if (press.maxLayers) win.ctx.maxLayersRef.current = press.maxLayers;

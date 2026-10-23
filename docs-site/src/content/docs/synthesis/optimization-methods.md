@@ -33,7 +33,7 @@ from your current design) and **global** (search broadly, gradient-free).
 | ------ | ---------- | -------- |
 | **Sequential QP (SQP)** ⭐ default | Bounded Newton step with the thickness limits (see below) as **hard constraints** (box-QP, exact bound satisfaction, no penalty tuning). | **The default.** Holds a min-thickness as a hard limit, and was far ahead of the other local refiners on the hardest constrained case of the benchmark. No local refiner wins every case, so when SQP stalls, try CG or Try all, keep best. |
 | **Damped Least Squares (DLS)** | Levenberg–Marquardt, the classic thin-film least-squares refiner. QR-solved damped step, exact analytic Jacobian. | The robust classic; called after every synthesis step. Close to the best without a min-thickness, well behind with one. |
-| **Conjugate Gradient (CG)** | Polak–Ribière⁺ gradient-only method (Nocedal & Wright §5.2), exact analytic ∇MF, projected backtracking line search. | Polishing a decent design. The best local refiner on the beam splitter and the three-line bandpass of the benchmark, with and without a min-thickness; the preferred inner refiner for Needle. |
+| **Conjugate Gradient (CG)** | Polak–Ribière⁺ gradient-only method (Nocedal & Wright §5.2), exact analytic ∇MF, projected backtracking line search. | Polishing a decent design. The best local refiner on the beam splitter and the three-line bandpass of the benchmark, with and without a min-thickness. |
 | **Newton** | Second-order. Exact analytic Hessian (JᵀJ + curvature) when scoring a single side; Gauss-Newton (JᵀJ) for full-filter (Both / symmetric). | A quadratic endgame in the fewest iterations: small stacks, near the minimum, when you want the last digits. |
 | **Newton-CG** | Truncated Newton, matrix-free; solves the Newton step with inner CG using Hessian-vector products (no dense Hessian). | **Second-order steps without forming the Hessian.** Best of the local refiners on the unconstrained multi-passband case. |
 
@@ -60,7 +60,7 @@ These change the *number* of layers. See each tool's page for details.
 
 | Tool | What it does | Default inner refiner |
 | ---- | ------------ | --------------------- |
-| **[Needle](/synthesis/needle/)** | Inserts infinitesimal "needle" layers where the **P-function** says the merit improves, then refines. | **CG**, which keeps the design "loose" so the scan keeps finding improving needles (a heavier refiner over-refines and the loop stops early). |
+| **[Needle](/synthesis/needle/)** | Inserts infinitesimal "needle" layers where the **P-function** says the merit improves, then refines. | **Trust-region Newton**, which ended lower than CG on most of the benchmark's cases and grows the stack without collapsing it. |
 | **[Gradual Evolution](/synthesis/gradual-evolution/)** | Needle optimization wrapped in an outer loop that **forces** a needle in (even uphill) to escape local minima. | **CG**, which does not stall on demanding multi-passband targets the way a least-squares refiner can, and the forced step escapes the minimum it lands in. |
 | **[Structural Optimizer](/synthesis/structural-optimizer/)** | Randomly **add / remove / split / merge / perturb** layers with a simulated-annealing accept. | **CG**. Best **layer-efficiency** in the benchmark. |
 

@@ -140,7 +140,7 @@ ok('a pool entry without its material is refused', throws(() => planRun({ pool: 
 // The window's fields start from these too (useNeedleVariation.js).
 const plan = planRun({ pool: POOL });
 const WINDOW_DEFAULTS = {
-    maxLayers: 60, targetMF: 5e-4, deltaNm: 0.5, dMin: 1, refineIter: 60, innerEngine: 'cg',
+    maxLayers: 60, targetMF: 5e-4, deltaNm: 0.5, dMin: 1, refineIter: 60, innerEngine: 'trust-region',
     maxBatches: 2, sensFloor: 0, smartSeed: false, threads: defaultThreadCount(),
 };
 const offDefault = Object.keys(WINDOW_DEFAULTS).filter(key => plan[key] !== WINDOW_DEFAULTS[key]);
