@@ -20,6 +20,7 @@ import {
 import { computeEllipsometry, computeEFieldProfile } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { evaluateDesignPhaseDispersion } from '../src/utils/physics/phaseDispersion.js';
+import { computeProfile } from '../src/components/windows/analysis/eFieldEvaluation/profileModel.js';
 
 const resolveMat = id => getMaterial(id);
 let fails = 0;
@@ -134,6 +135,27 @@ ok(operandResidualScale({ type: 'EFMX' }) === 1, 'σ(EFMX) = 1');
     const op = evaluateOperands([makeOperand({ type: 'EFMX', lambdaStart: lam, aoi, pol: 's' })], ctx)[0];
     ok(close(op, peak, 1e-9), 'EFMX matches peak |E|²');
     ok(op > 0, 'EFMX peak is positive');
+}
+
+// ── EFMX scores the side a back-only design is evaluated on ───────────────────
+// The Electric Field window's profile of a side, light from that side's medium.
+{
+    const lam = 550, aoi = 30;
+    const windowPeak = (d, side, pol) => {
+        const profile = computeProfile(d, { lambda: lam, theta: aoi, pol, side });
+        return Math.max(...profile[pol].e2);
+    };
+    const efmx = (d, pol) => evaluateOperands([makeOperand({ type: 'EFMX', lambdaStart: lam, aoi, pol })], buildEvalContext(d, resolveMat))[0];
+    const back = [
+        { id: 'B1', material: 'SiO2', thickness: 140, locked: false },
+        { id: 'B2', material: 'Ta2O5', thickness: 70, locked: false },
+        { id: 'B3', material: 'SiO2', thickness: 95, locked: false },
+    ];
+    const backOnly = { ...design, exitMedium: 'BK7', surfaceMode: 'back_only', frontLayers: [], backLayers: back };
+    const both = { ...design, surfaceMode: 'both_independent', backLayers: back };
+    const wrong = [[backOnly, 'back'], [{ ...backOnly, frontLayers: design.frontLayers }, 'back'], [both, 'front'], [design, 'front']]
+        .flatMap(([d, side]) => ['s', 'p', 'avg'].filter(pol => !close(efmx(d, pol), windowPeak(d, side, pol), 1e-12)).map(pol => `${d.surfaceMode} ${pol}`));
+    ok(wrong.length === 0, `EFMX on a back-only design is the peak of the window's back profile, from the exit medium, and the front's otherwise (${wrong.join(', ')})`);
 }
 
 // ── Phase operands participate in the merit function without poisoning it ─────
