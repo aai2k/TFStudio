@@ -85,6 +85,17 @@ function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
 // a number someone acts on should not be a midpoint without saying so.
 const KNOT_SIDE_LABELS = ['λ−', 'λ+'];
 
+// The table writes a wavelength to the digits it carries, at least one decimal
+// and at most four. The automatic grid puts points between its own samples
+// around narrow minima, never closer than 0.005 nm to the next, and one on each
+// table knot, so a fixed 0.1 nm would show neighbouring rows at one wavelength.
+const WAVELENGTH_DECIMALS = 4;
+
+function formatWavelength(value) {
+    const text = value.toFixed(WAVELENGTH_DECIMALS).replace(/0+$/, '');
+    return text.endsWith('.') ? `${text}0` : text;
+}
+
 // Which series this spectrum carries, in the order the table shows them, which
 // is the one QUANTITIES records rather than the selector's.
 function tableSeries(raw, text) {
@@ -104,7 +115,7 @@ function buildTable(raw, lambdaAxis, text, outsideLabel) {
     // from the exported file, has only this column to say so.
     const outside = (raw.outsideRange || []).some(Boolean);
     const columns = [
-        { key: 'lambda', label: lambdaAxis, align: 'left', fmt: value => value.toFixed(1) },
+        { key: 'lambda', label: lambdaAxis, align: 'left', fmt: formatWavelength },
         ...(knots.size
             ? [{ key: 'knot', label: text.knotColumn, align: 'left', fmt: value => value || '' }]
             : []),

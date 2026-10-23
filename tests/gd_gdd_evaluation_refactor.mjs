@@ -231,6 +231,29 @@ const linearBand = (rows, lambdaEnd) => computeGdGddSpectrum(linearTableDesign(r
 
 }
 
+// The table writes each wavelength to the digits it carries. The automatic grid
+// adds points around narrow minima and on table knots, closer than 0.1 nm, and
+// a row there must not read the wavelength of a different row above it.
+{
+    const mirror = {
+        incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'BK7' },
+        frontLayers: Array.from({ length: 17 }, (_, index) => (index % 2
+            ? { material: 'SiO2', thickness: 94.2 }
+            : { material: 'TiO2', thickness: 56.4 })),
+    };
+    const spectrum = computeGdGddSpectrum(mirror, {
+        side: 'front', target: 'R', polarization: 'avg', thetaDeg: 0, lambdaStart: 400, lambdaEnd: 800,
+    });
+    assert.ok(spectrum.adaptivePointCount > 0 && spectrum.knotSamples.length > 0,
+        'the grid is refined at minima and carries table knots');
+    const { tableColumns, tableRows } = buildGdGddView(spectrum, { quantity: 'gd', referenceLambda: 550 }, text);
+    const shown = tableRows.map(row => tableColumns[0].fmt(row.lambda));
+    const repeated = tableRows.filter((row, index) => index > 0
+        && row.lambda !== tableRows[index - 1].lambda && shown[index] === shown[index - 1]);
+    assert.deepEqual(repeated, [], 'no row reads the wavelength of a different row above it');
+    assert.deepEqual([400, 400.2, 409.19, 416.775].map(tableColumns[0].fmt), ['400.0', '400.2', '409.19', '416.775']);
+}
+
 const chart = buildGDChartOption({ xLabel: AX.nm,
     data: view.plotData, meta: view.meta,
     referenceLambda: raw.lambda[2], showReference: true,
