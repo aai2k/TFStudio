@@ -14,6 +14,7 @@ import { AppModals } from './components/AppModals.js';
 import { useNoticeStack } from './components/ui/MessageNotification.js';
 import { SpectralMonitor } from './components/SpectralMonitor.js';
 import { LiveBridgeHost } from './components/live/LiveBridgeHost.js';
+import { LiveDialogs, startInteractive } from './components/live/LiveDialogs.js';
 import { DesignProvider } from './state/DesignContext.js';
 import { announceRefreshAll } from './state/refreshAll.js';
 import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
@@ -64,6 +65,7 @@ export const App = () => {
     const dialogs = useAppDialogs();
     const { handleMenuAction, handleToolAction } = useAppCommands({
         store, project, workspace, dialogs, welcome, locale, gamesUnlocked,
+        onInteractive: () => startInteractive(t, setMessageNotification),
     });
 
     useEffect(() => { loadCatalogsFromDisk(); }, []);
@@ -193,6 +195,7 @@ export const App = () => {
             ),
             h(SpectralMonitor, { c, t }),
             h(LiveBridgeHost, { t, notify: setMessageNotification, dirtyDesigns: store.dirtyDesigns }),
+            h(LiveDialogs, { c, t }),
             h(AppModals, {
                 c, t, settings, dialogs, welcome, project,
                 activeDesignId: store.activeDesignId,

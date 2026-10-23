@@ -1,37 +1,41 @@
 /**
  * gen_api_reference.mjs: write the manual's API Reference,
  * docs-site/src/content/docs/automation/api-reference.md and its zh twin,
- * from the source, so the page says what the API takes.
+ * from the source, so the page says what the object API takes in both
+ * languages.
  *
- * Each call on the Script Console's `tf` gets an entry from its doc comment
- * (api-reference/docComments.mjs says how one is read), in the order
- * src/api/index.js lists them, under the group the Script Console page's table
- * of calls puts it in. A call that table does not list is not on `tf`, and the
- * page leaves it out. An argument with fields and no text of its own is shown
- * by its fields alone.
- *
- * The lists that live in code are read from it: the refinement methods with
- * their names and iteration budgets (refinement/methods.js and the Refinement
- * window's method names), the numbers refine takes (refinement/settings.js),
- * the synthesis methods (api/runs.js) with their window titles, each one's
- * settings with their defaults, what they take and what they set (each run's
- * settings.js), and the hooks each run takes (runHooks).
+ * Each class of the object API gets a section, in the order CLASSES lists
+ * them, and each public method and attribute an entry: its JavaScript form
+ * beside its Python form, then what it does, its arguments with their
+ * defaults, what it gives and what it refuses, and its example in each
+ * language (api-reference/entries.mjs). The JavaScript side is read from the
+ * doc comments of src/api/objects (api-reference/jsObjects.mjs says how), the
+ * Python side from the docstrings of python/tfstudio, read from the source
+ * without running Python (api-reference/pyDocstrings.mjs); the two are paired
+ * by name (api-reference/sides.mjs), and where they say the same, the entry
+ * says it once (api-reference/pairs.mjs says when). The lists that live in
+ * code are read from it (api-reference/codeLists.mjs says which): what each
+ * pair of sides and scoreOn computes on heads the page.
  *
  * The zh page has the same structure. Its fixed sentences are in
  * api-reference/text.json. Every text read from the code is shown in Chinese
  * from api-reference/zh.json, under a key that says where the English comes
  * from, with a hash of the English it translates (api-reference/translations.mjs):
  *
- *   <call>.lead.<n>         the nth paragraph of a call's doc comment
- *   <call>.param.<name>     an argument
- *   <call>.returns          what the call returns
- *   <call>.property.<name>  a field of what it returns
- *   <call>.throws.<n>       the nth refusal
- *   <owner>.setting.<key>   a setting of refine or of a synthesis method
+ *   <Class>.lead.<n>                the nth paragraph of a class's doc
+ *   <Class>.<member>.lead.<n>       the nth paragraph of a member's doc
+ *   <Class>.<member>.arg.<name>     an argument, by its JavaScript name
+ *   <Class>.<member>.returns        what a method returns
+ *   <Class>.<member>.refuses.<n>    the nth refusal
+ *   <Class>.<member>.raises.<n>     the nth error Python raises besides
+ *   <Class>.().arg.<name>, .raises.<n>   what making the class takes, in Python
+ *   <method>.setting.<key>          a setting of a synthesis method
+ *   <call>.property.result.stopReason   why a run ends
  *
- * A text with no zh entry, an entry whose English has changed since it was
- * written, or an entry no text uses stops the generator, naming the key, the
- * English as it is now and its hash.
+ * A key ends in .js or .py for a text one language says and the other says
+ * otherwise. A text with no zh entry, an entry whose English has changed
+ * since it was written, or an entry no text uses stops the generator, naming
+ * the key, the English as it is now and its hash.
  *
  * Usage: node tools/gen_api_reference.mjs
  */
@@ -39,205 +43,74 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import url from 'node:url';
-import { apiCalls } from './api-reference/docComments.mjs';
-import { translatorFor, localized } from './api-reference/translations.mjs';
-import { runHooks, SYNTHESIS_METHODS, FLOOR_FROM_MNT } from '../src/api/runs.js';
-import { REFINE_METHODS, ALL_ORDER, STOCHASTIC_METHODS, DEFAULT_SETTINGS, defaultMaxIter } from '../src/utils/refinement/methods.js';
-import { CHECKS as REFINE_CHECKS } from '../src/utils/refinement/settings.js';
-import { CHECKS as NEEDLE_CHECKS, NEEDLE_DEFAULTS } from '../src/utils/needle/settings.js';
-import { CHECKS as GE_CHECKS, GE_DEFAULTS } from '../src/utils/gradualEvolution/settings.js';
-import { CHECKS as STRUCTURAL_CHECKS, RUN_DEFAULTS as STRUCTURAL_DEFAULTS } from '../src/utils/structural/settings.js';
-import en from '../src/constants/locales/en.js';
-import zh from '../src/constants/locales/zh.js';
+import { jsObjects } from './api-reference/jsObjects.mjs';
+import { pyObjects } from './api-reference/pyDocstrings.mjs';
+import { translatorFor } from './api-reference/translations.mjs';
+import { argsOf, keywordForm, pairsOf } from './api-reference/sides.mjs';
+import { argumentRows, entry, examples, formsTable, noteOf, paragraphs, refusals } from './api-reference/entries.mjs';
+import { extras, modesSection } from './api-reference/codeLists.mjs';
+import { CODE, LANGS, ROOT, TEXT, pageTitle, pagesAt, table } from './api-reference/markdown.mjs';
 
-const HERE = path.dirname(url.fileURLToPath(import.meta.url));
-const ROOT = path.resolve(HERE, '..');
-const DOCS = path.join(ROOT, 'docs-site', 'src', 'content', 'docs');
-const TEXT = JSON.parse(fs.readFileSync(path.join(HERE, 'api-reference', 'text.json'), 'utf8'));
-const LANGS = Object.keys(TEXT);
-const LOCALES = { en, zh };
-const pagesAt = slug => Object.fromEntries(LANGS.map(lang => [lang,
-    path.join(DOCS, ...(lang === 'en' ? [] : [lang]), ...slug.split('/')) + '.md']));
-
+const PACKAGE = path.join(ROOT, 'python', 'tfstudio');
 export const PAGES = pagesAt('automation/api-reference');
-export const CONSOLE_PAGES = pagesAt('automation/script-console');
 
-// Each synthesis method's window (its key in the locales' windowTitles), its
-// page in the manual, and the settings its run takes: the checks that say what
-// each setting takes and sets, and the values a run starts from.
-const SYNTHESIS = {
-    needle: { window: 'needle', slug: 'synthesis/needle', checks: NEEDLE_CHECKS, defaults: NEEDLE_DEFAULTS },
-    ge: { window: 'gradual', slug: 'synthesis/gradual-evolution', checks: GE_CHECKS, defaults: GE_DEFAULTS },
-    structural: {
-        window: 'structural', slug: 'synthesis/structural-optimizer', checks: STRUCTURAL_CHECKS, defaults: STRUCTURAL_DEFAULTS,
-    },
-};
-
-// Deep Synthesis stays off the page while its window is experimental, opened
-// from the application menu with no page in the manual; synthesize still takes it.
-const SHOWN_SYNTHESIS = SYNTHESIS_METHODS.filter(method => method !== 'deep');
-
-// threads stays off refine's settings: through the API a run's workers take
-// turns on the calling thread, each multi-start restart is perturbed from the
-// seed and its own index whichever worker takes it, and DE without an
-// evaluation pool scores its members one after another, so the setting
-// changes neither the answer nor the time a script sees.
-const REFINE_SETTINGS = REFINE_CHECKS.filter(([key]) => key !== 'threads');
-
-const code = text => `\`${text}\``;
-const literal = v => (Array.isArray(v) ? `[${v.map(literal).join(', ')}]` : typeof v === 'string' ? `'${v}'` : String(v));
-const shownValue = v => (v == null ? '' : code(literal(v)));
-const capitalized = text => text[0].toUpperCase() + text.slice(1);
-const fill = (template, values) => template.replace(/\{(\w+)\}/g, (_, key) => values[key]);
+// The classes in the order the page gives them, each with the name its
+// entries call one of it by, and for a list the name of one item.
+const CLASSES = [
+    { name: 'TFStudio', receiver: 'tf' },
+    { name: 'Design', receiver: 'design' },
+    { name: 'Substrate', receiver: 'design.substrate' },
+    { name: 'Layers', receiver: 'design.layers', item: 'layer' },
+    { name: 'Layer', receiver: 'design.layers[n]' },
+    { name: 'Merit', receiver: 'design.merit' },
+    { name: 'MeritRow', receiver: 'row' },
+    { name: 'Spectrum', receiver: 's' },
+    { name: 'Curve', receiver: 's.R' },
+    { name: 'RunResult', receiver: 'run' },
+    { name: 'Progress', receiver: 'p' },
+    { name: 'MonteCarlo', receiver: 'mc' },
+    { name: 'LayerSensitivity', receiver: 'ls' },
+    { name: 'SensitivityRow', receiver: 'row' },
+    { name: 'Materials', receiver: 'tf.materials' },
+    { name: 'Material', receiver: 'material' },
+    { name: 'Stop', receiver: 'stop' },
+    { name: 'App', receiver: 'tf.app' },
+    { name: 'AppDesign', receiver: 'd' },
+];
+// The errors, in a section of their own.
+const ERRORS = ['TFStudioError', 'AppError', 'ServerError'];
 const EM_DASH = String.fromCodePoint(0x2014);
 
-function table(head, rows) {
-    const cell = text => String(text).replace(/\|/g, '\\|');
+// How a program makes the class, which only Python's objects do.
+function constructorPart(L, cls, pyClass) {
+    const doc = pyClass.doc;
+    const side = { form: [`tfstudio.${cls.name}(${keywordForm(argsOf(doc)).join(', ')})`], args: argsOf(doc), refuses: [], raises: doc.raises };
+    const E = { L, key: `${cls.name}.()`, both: false };
+    return [...formsTable(L, null, side, { js: noteOf(L, 'js', E.key) }), ...table(L.t.args.slice(1), argumentRows(E, null, side).map(row => row.slice(1))),
+        ...refusals(E, null, side)];
+}
+
+function classSection(L, cls, js, py) {
+    const jsClass = js[cls.name], pyClass = py[cls.name];
+    const onlyPython = !jsClass;
+    const E = { L, key: cls.name, both: !!jsClass };
+    // What JavaScript has in place of a class only Python has, with its example.
+    const instead = CODE[cls.name] ? ['```js', CODE[cls.name], '```', ''] : [];
+    const intro = onlyPython ? [noteOf(L, 'js', cls.name), '', ...instead] : [];
+    const constructor = pyClass.doc.args.length ? constructorPart(L, cls, pyClass) : [];
     return [
-        `| ${head.join(' | ')} |`,
-        `| ${head.map(h => '-'.repeat(Math.max(3, h.length))).join(' | ')} |`,
-        ...rows.map(row => `| ${row.map(cell).join(' | ')} |`),
-        '',
+        `## ${cls.name}`, '', ...paragraphs(E, jsClass?.doc.lead, pyClass.doc.lead).flatMap(p => [p, '']), ...intro, ...constructor,
+        ...examples(jsClass?.doc, pyClass.doc),
+        ...pairsOf(cls, jsClass, pyClass).flatMap(pair => entry(L, cls, pair, onlyPython)),
     ];
 }
 
-// The title of the manual page at `slug` in `lang`, from its front matter.
-function pageTitle(lang, slug) {
-    const title = fs.readFileSync(pagesAt(slug)[lang], 'utf8').match(/^title:\s*(.+?)\s*$/m);
-    if (!title) throw new Error(`${pagesAt(slug)[lang]} has no title`);
-    return title[1].replace(/^"(.*)"$/, '$1');
-}
-
-// A settings table's rows from the checks of `owner` (refine or a synthesis
-// method): [key, check, what it takes, what it sets].
-function settingRows(owner, checks, defaultOf, L) {
-    return checks.map(([key, , takes, sets]) => {
-        if (!sets) throw new Error(`the setting ${key} has no words for what it sets`);
-        const name = owner === 'refine' ? `settings.${key}` : key;
-        return [code(name), defaultOf(key), L.text(`${owner}.setting.${key}`, `${sets} ${capitalized(takes)}.`)];
+function errorsSection(L, py) {
+    const entries = ERRORS.flatMap(name => {
+        const doc = py[name].doc;
+        return [`### ${name}`, '', ...paragraphs({ L, key: name, both: false }, [], doc.lead).flatMap(p => [p, '']), ...examples(null, doc)];
     });
-}
-
-// The hooks a call's doc comment describes are the ones its runs take.
-function checkHooks(call, fn, names) {
-    const described = fn.params.filter(p => p.name.startsWith('hooks.')).map(p => p.name.slice('hooks.'.length));
-    const missing = names.filter(h => !described.includes(h));
-    const extra = described.filter(h => !names.includes(h));
-    if (missing.length || extra.length) {
-        throw new Error(`${call}: the doc comment's hooks are not runHooks': missing ${missing.join(', ') || 'none'}, extra ${extra.join(', ') || 'none'}`);
-    }
-}
-
-function refineMethodRows(L) {
-    const seeded = ids => (ids.some(id => STOCHASTIC_METHODS.has(id)) ? L.t.yes : '');
-    return REFINE_METHODS.map(id => {
-        if (id === 'all') return [code('all'), fill(L.t.allMethods, { ids: ALL_ORDER.map(code).join(L.t.listSeparator) }), '', seeded(ALL_ORDER)];
-        const name = LOCALES[L.lang].refinement.methods[id];
-        if (!name) throw new Error(`the Refinement window has no ${L.lang} name for the method ${id}`);
-        return [code(id), name, String(defaultMaxIter(id)), seeded([id])];
-    });
-}
-
-function refineExtras(fn, L) {
-    checkHooks('refine', fn, runHooks('refine'));
-    return {
-        after: 'settings.',
-        rows: settingRows('refine', REFINE_SETTINGS, key => shownValue(DEFAULT_SETTINGS[key]), L),
-        sections: [`#### ${L.t.methods}`, '', ...table(L.t.refineMethods, refineMethodRows(L))],
-    };
-}
-
-function synthesisOf(method) {
-    if (!SYNTHESIS[method]) throw new Error(`the synthesis method ${method} has no window or settings in tools/gen_api_reference.mjs`);
-    return SYNTHESIS[method];
-}
-
-// A method's settings: those with a starting value in its defaults' order, then the rest.
-function methodSettings(method, L) {
-    const { checks, defaults } = synthesisOf(method);
-    const byKey = new Map(checks.map(row => [row[0], row]));
-    const rows = [...new Set([...Object.keys(defaults), ...byKey.keys()])].map(key => {
-        if (!byKey.has(key)) throw new Error(`${method}: the default ${key} has no check`);
-        return byKey.get(key);
-    });
-    // The floor a method starts from the MNT row, as synthesize gives it.
-    const floorFromMnt = FLOOR_FROM_MNT.has(method);
-    const defaultOf = key => (key === 'dMin' && floorFromMnt ? `${shownValue(defaults.dMin)} ${L.t.orMnt}` : shownValue(defaults[key]));
-    return [`#### ${fill(L.t.settingsOf, { method })}`, '', ...table(L.t.settings, settingRows(method, rows, defaultOf, L))];
-}
-
-// The window a method runs in, by the title the app gives it, and its page.
-function windowCells(method, lang) {
-    const { window, slug } = synthesisOf(method);
-    const title = LOCALES[lang].windowTitles[window];
-    if (!title) throw new Error(`the ${lang} locale has no window title for ${window}`);
-    return [title, `[${pageTitle(lang, slug)}](/${slug}/)`];
-}
-
-function synthesisExtras(fn, L) {
-    checkHooks('synthesize', fn, [...new Set(SHOWN_SYNTHESIS.flatMap(runHooks))]);
-    const methods = SHOWN_SYNTHESIS.map(m => [code(m), ...windowCells(m, L.lang), runHooks(m).map(code).join(L.t.listSeparator)]);
-    return {
-        rows: [],
-        sections: [`#### ${L.t.methods}`, '', ...table(L.t.synthesisMethods, methods), ...SHOWN_SYNTHESIS.flatMap(m => methodSettings(m, L))],
-    };
-}
-
-// What a call's entry adds from the lists that live in code.
-const EXTRAS = { refine: refineExtras, synthesize: synthesisExtras };
-const NO_EXTRAS = { rows: [], sections: [] };
-
-function argumentRows(fn, extra, t) {
-    const hasFields = p => fn.params.some(q => q.name.startsWith(`${p.name}.`) || q.name.startsWith(`${p.name}[]`));
-    const defaultOf = p => (p.required ? t.required : p.value === null ? '' : code(p.value));
-    const rows = fn.params.filter(p => p.text || !hasFields(p)).map(p => [code(p.name), defaultOf(p), p.text]);
-    if (!extra.rows.length) return rows;
-    const at = rows.findLastIndex(row => row[0].startsWith(`\`${extra.after}`)) + 1;
-    return [...rows.slice(0, at), ...extra.rows, ...rows.slice(at)];
-}
-
-function returnsPart(fn, t) {
-    if (!fn.returns) return [];
-    const fields = fn.properties.map(f => [code(f.name), f.text]);
-    return [`${t.returns}${fn.returns}`, '', ...(fields.length ? table(t.fields, fields) : [])];
-}
-
-function signature(fn) {
-    const args = fn.params.filter(p => !/[.[]/.test(p.name)).map(p => p.name);
-    return code(`${fn.async ? 'await ' : ''}tf.${fn.name}(${args.join(', ')})`);
-}
-
-function entry(fn, L) {
-    const { t } = L;
-    if (!fn.example) throw new Error(`${fn.name} has no @example`);
-    const extra = EXTRAS[fn.name]?.(fn, L) ?? NO_EXTRAS;
-    const rows = argumentRows(fn, extra, t);
-    return [
-        `### ${fn.name}`, '', signature(fn), '',
-        ...fn.lead.flatMap(p => [p, '']),
-        ...(rows.length ? table(t.args, rows) : []),
-        ...returnsPart(fn, t),
-        ...(fn.throws.length ? [t.refuses, '', ...fn.throws.map(x => `- ${x}`), ''] : []),
-        '```js', fn.example, '```', '',
-        ...extra.sections,
-    ];
-}
-
-// The Script Console page's table of calls: each group and the calls in it.
-function consoleGroups(lang) {
-    return fs.readFileSync(CONSOLE_PAGES[lang], 'utf8').split(/\r?\n/)
-        .filter(line => line.startsWith('|') && line.includes('`'))
-        .map(line => {
-            const [group, calls] = line.split('|').slice(1, 3).map(c => c.trim());
-            return { group, calls: [...calls.matchAll(/`(\w+)`/g)].map(m => m[1]) };
-        });
-}
-
-function sectionsOf(lang, calls) {
-    const groups = consoleGroups(lang);
-    const unknown = groups.flatMap(g => g.calls).find(name => !calls.some(fn => fn.name === name));
-    if (unknown) throw new Error(`the Script Console page lists ${unknown}, which src/api/index.js does not export`);
-    return groups.map(g => ({ title: g.group, calls: calls.filter(fn => g.calls.includes(fn.name)) }));
+    return [`## ${L.t.errorsTitle}`, '', ...L.t.errorsIntro.flatMap(p => [p, '']), '```js', CODE.errors, '```', '', ...entries];
 }
 
 // A zh link names the page it opens by that page's title, so the reader finds
@@ -249,10 +122,33 @@ function checkLinkTitles(text, lang) {
     }
 }
 
-function page(lang, calls) {
+// `lines` with each link to `#section:Name` made a link to the section
+// headed `## Name`, by the anchor the docs site gives it: its heading in lower
+// case without punctuation, spaces as hyphens, and -1, -2 after a heading of
+// the page that has the same.
+function sectionLinks(lines) {
+    const seen = new Map(), anchors = {};
+    for (const line of lines.filter(l => /^#{2,6} /.test(l))) {
+        const base = line.replace(/^#+ /, '').toLowerCase().replace(/[^\p{L}\p{M}\p{N}_ -]/gu, '').replace(/ /g, '-');
+        const count = seen.get(base) ?? 0;
+        seen.set(base, count + 1);
+        if (line.startsWith('## ')) anchors[line.slice(3)] = count ? `${base}-${count}` : base;
+    }
+    return lines.map(line => line.replace(/\(#section:(\w+)\)/g, (_, name) => `(#${anchors[name]})`));
+}
+
+// Every class of both languages is on the page, so a new one cannot be missed.
+function checkClasses(js, py) {
+    const listed = new Set([...CLASSES.map(c => c.name), ...ERRORS]);
+    const missing = [...Object.keys(js), ...Object.keys(py)].filter(name => !listed.has(name));
+    if (missing.length) throw new Error(`tools/gen_api_reference.mjs places no section for ${[...new Set(missing)].join(', ')}`);
+}
+
+function page(lang, js, py) {
     const translator = translatorFor(lang);
-    const L = { lang, t: TEXT[lang], text: translator.text };
-    const body = sectionsOf(lang, calls).flatMap(s => [`## ${s.title}`, '', ...s.calls.flatMap(fn => entry(localized(fn, L.text), L))]);
+    const L = { lang, t: TEXT[lang], text: translator.text, extras };
+    const results = CLASSES.filter(c => js[c.name]?.members.mode).map(c => c.name);
+    const body = sectionLinks([...modesSection(L, results), ...CLASSES.flatMap(cls => classSection(L, cls, js, py)), ...errorsSection(L, py)]);
     translator.check();
     const text = ['---', ...L.t.frontmatter, '---', '', ...L.t.intro.flatMap(p => [p, '']), ...body].join('\n').replace(/\n{3,}/g, '\n\n').trimEnd() + '\n';
     if (text.includes(EM_DASH)) throw new Error(`the ${lang} page holds an em dash, which the manual does not use`);
@@ -261,12 +157,17 @@ function page(lang, calls) {
     return text.replaceAll('](/', `](/${lang}/`);
 }
 
+/** The page in `lang` as the generator writes it. */
+export function buildPage(lang) {
+    const js = jsObjects(path.join(ROOT, 'src', 'api', 'objects'));
+    const { classes: py } = pyObjects(PACKAGE);
+    checkClasses(js, py);
+    return page(lang, js, py);
+}
+
 /** Both pages as the generator writes them: { en, zh }. */
 export function buildPages() {
-    const calls = apiCalls(path.join(ROOT, 'src', 'api'));
-    const groupsOf = lang => JSON.stringify(consoleGroups(lang).map(g => g.calls));
-    if (LANGS.some(lang => groupsOf(lang) !== groupsOf('en'))) throw new Error('a Script Console page groups the calls differently from the English one');
-    return Object.fromEntries(LANGS.map(lang => [lang, page(lang, calls)]));
+    return Object.fromEntries(LANGS.map(lang => [lang, buildPage(lang)]));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === url.fileURLToPath(import.meta.url)) {

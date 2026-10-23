@@ -11,8 +11,10 @@
 import { answerLiveRequest } from '../src/utils/live/liveAnswers.js';
 import liveProtocol from '../src/main/liveProtocol.js';
 
-/** The hello an MCP server that holds `secret` sends, with `nonce` as its nonce. */
-export const agentHello = (secret, nonce = 'a test nonce') => ({ hello: liveProtocol.PROTOCOL, nonce, proof: liveProtocol.proof(secret, nonce, 'agent') });
+/** The hello an MCP server that holds `secret` sends, with `nonce` as its nonce, for the program named `program`. */
+export const agentHello = (secret, nonce = 'a test nonce', program = null) => ({
+    hello: liveProtocol.PROTOCOL, nonce, proof: liveProtocol.proof(secret, nonce, 'agent'), program,
+});
 
 export function makeFakeApp(designs, activeDesignId) {
     const app = {

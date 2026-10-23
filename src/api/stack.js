@@ -11,7 +11,7 @@ import { mirrorLayers } from '../utils/physics/optimizer.js';
 import { newLayerId, ensureLayerIds } from '../utils/io/newDesign.js';
 import { requireMaterial } from './materials.js';
 import { sideKey } from './designs.js';
-import { checkOptions, requireValue, isPositive, isBoolean } from './check.js';
+import { checkOptions, requireValue, isPositive, isBoolean, refusal } from './check.js';
 import en from '../constants/locales/en.js';
 
 const thicknessOk = (call, thickness) => requireValue(call, 'thickness', thickness, isPositive, 'a physical thickness in nm above 0');
@@ -39,7 +39,7 @@ function closedSide(design) {
 function openSideKey(call, design, side) {
     const key = sideKey(side);
     const closed = closedSide(design);
-    if (closed && closed.side === side) throw new Error(`${call}: ${closed.why}`);
+    if (closed && closed.side === side) throw refusal('closedSide', { call, side, surfaceMode: design.surfaceMode || 'front_only' }, `${call}: ${closed.why}`);
     return key;
 }
 
@@ -204,7 +204,8 @@ export function stackFromFormula(design, options) {
     const unused = Object.keys(symbols).find(letter => !used.has(letter));
     if (unused) throw new Error(`stackFromFormula: the formula does not use the symbol '${unused}'; it uses ${[...used].join(', ')}`);
     if (compiled.incidentMaterial || compiled.substrateMaterial) {
-        throw new Error('stackFromFormula: the formula names media; write the layers alone, such as \'(HL)^5 H\', and set the media with setDesignSetup');
+        throw refusal('formulaMedia', { call: 'stackFromFormula' },
+            'stackFromFormula: the formula names media; write the layers alone, such as \'(HL)^5 H\', and set the media with setDesignSetup');
     }
     const patch = buildReplaceAppendPatch({
         design, mode: 'replace', isSym, effSide: side, compiled, refLambda: referenceWavelength,

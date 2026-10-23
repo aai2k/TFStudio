@@ -6,26 +6,27 @@
 const { createElement: h } = React;
 
 // A press on the backdrop does nothing: only Cancel closes the dialog, so a
-// text selection dragged past the panel's edge cannot cancel it.
-const BACKDROP = {
+// text selection dragged past the panel's edge cannot cancel it. The live
+// link's dialogs (components/live/) are drawn with these too.
+export const BACKDROP = {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: 'rgba(0,0,0,0.5)',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
     zIndex: 10001
 };
 
-const MODAL_BASE = (c) => ({
+export const MODAL_BASE = (c) => ({
     backgroundColor: c.panel, border: `1px solid ${c.border}`,
     borderRadius: 8, padding: 20, minWidth: 360, maxWidth: 480,
     boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
     fontFamily: 'system-ui, -apple-system, sans-serif'
 });
 
-const TITLE_STYLE = (c) => ({
+export const TITLE_STYLE = (c) => ({
     margin: '0 0 12px 0', color: c.text, fontSize: 16, fontWeight: 500
 });
 
-const BTN_BASE = {
+export const BTN_BASE = {
     padding: '8px 18px', border: 'none', borderRadius: 4,
     cursor: 'pointer', fontSize: 13
 };

@@ -19,7 +19,7 @@ await loadApp();
 const [
     { InputDialog }, { AboutDialog }, { WelcomeScreen }, { TutorialsBrowser },
     { ReplaceMaterialsDialog }, { TrialsModal }, { MeasuredFitDialog }, measuredModel,
-    { EdgeFilterDialog },
+    { EdgeFilterDialog }, { LiveHoldDialog, LiveAskDialog },
 ] = await Promise.all([
     import('../src/components/dialogs/InputDialog.js'),
     import('../src/components/dialogs/AboutDialog.js'),
@@ -30,6 +30,7 @@ const [
     import('../src/components/windows/dataExchange/spectrumExchange/MeasuredFitDialog.js'),
     import('../src/components/windows/dataExchange/spectrumExchange/model.js'),
     import('../src/components/windows/design/edgeFilter/EdgeFilterDialog.js'),
+    import('../src/components/live/LiveDialogs.js'),
 ]);
 
 const h = React.createElement;
@@ -101,6 +102,10 @@ const DIALOGS = [
     ['Edge filter', EdgeFilterDialog,
         close => ({ c, t, onClose: close, onCreateNew: noop, onOpenStackFormula: noop, folderName: 'Demo', hasActiveDesign: true }),
         t.windowChrome.close],
+    ['Interactive', LiveHoldDialog, close => ({ c, t, programs: ['python.exe'], onTerminate: close }), t.live.terminate],
+    ['Program asking to come in', LiveAskDialog,
+        close => ({ c, t, ask: { id: 1, program: 'python.exe' }, onAnswer: (id, allowed) => { if (!allowed) close(); } }),
+        t.live.deny],
 ];
 
 for (const [name, Component, propsFor, closeLabel] of DIALOGS) {

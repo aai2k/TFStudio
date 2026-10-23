@@ -19,7 +19,8 @@ function toggleFullscreen() {
         : document.documentElement.requestFullscreen();
 }
 
-export function useAppCommands({ store, project, workspace, dialogs, welcome, locale, gamesUnlocked }) {
+/** `onInteractive` is the Interactive button (components/live/LiveDialogs.js). */
+export function useAppCommands({ store, project, workspace, dialogs, welcome, locale, gamesUnlocked, onInteractive }) {
     const handleMenuAction = (action) => {
         const actions = {
             'about':         () => dialogs.setShowAbout(true),
@@ -53,6 +54,7 @@ export function useAppCommands({ store, project, workspace, dialogs, welcome, lo
             'stack-formula':  () => dialogs.setShowStackFormula(true),
             'edge-filter':    () => dialogs.setShowEdgeFilter(true),
             'help-docs':      () => openDocs(locale),
+            'interactive':    () => onInteractive(),
         };
         if (actions[toolId]) { actions[toolId](); return; }
         workspace.openTool(toolId);

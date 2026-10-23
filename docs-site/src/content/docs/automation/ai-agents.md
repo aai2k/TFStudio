@@ -30,7 +30,7 @@ claude mcp add tfstudio -- "C:\Users\you\AppData\Local\Programs\TFStudio\TFStudi
 
 Restart the assistant after adding the server.
 
-The server works on the data folder the app uses: `Documents\TFStudio` unless you moved it in Settings. Its materials, including your own catalogs and the library catalogs, are the ones the app sees. It reads designs and catalogs and writes only the `.tfs` files the assistant saves, and a file that already exists is written over only when the assistant asks for that. Beside them it keeps a log of its own, `mcp-server.log` next to the app, and a browser profile of its own in the app's settings folder, so it leaves the open app's alone.
+The server works on the data folder the app uses: `Documents\TFStudio` unless you moved it in Preferences. Its materials, including your own catalogs and the library catalogs, are the ones the app sees. It reads designs and catalogs and writes only the `.tfs` files the assistant saves, and a file that already exists is written over only when the assistant asks for that. Beside them it keeps a log of its own, `mcp-server.log` next to the app.
 
 ## What the assistant can do
 
@@ -44,7 +44,7 @@ The server works on the data folder the app uses: `Documents\TFStudio` unless yo
 | Runs | `refine`, `synthesize`, `monteCarlo`, `jobStatus`, `stopJob`, `listJobs` |
 | The open design, with `--live` | `listAppDesigns`, `readAppDesign`, `applyToApp` |
 
-`spectrum` computes R, T, A, Rs and Rp as the [Optical Evaluation](/analysis/optical-evaluation/) window does, `merit` gives the total and each row as the [Merit Function Editor](/design/merit-function-editor/) shows them, `refine` runs any method of the [Refinement](/synthesis/refinement/) window, and `synthesize` runs [Needle](/synthesis/needle/), [Gradual Evolution](/synthesis/gradual-evolution/), the [Structural Optimizer](/synthesis/structural-optimizer/) or Deep Synthesis. `monteCarlo` and `layerSensitivity` are the [Monte Carlo](/analysis/error-analysis/) and [Layer Sensitivity](/analysis/layer-sensitivity/) windows' computations. Merit rows take the operands of the [Operand Reference](/design/operands/).
+`spectrum` computes R, T, A, Rs and Rp as the [Optical Evaluation](/analysis/optical-evaluation/) window does, `merit` gives the total and each row as the [Merit Function Editor](/design/merit-function-editor/) shows them, `refine` runs any method of the [Refinement](/synthesis/refinement/) window, and `synthesize` runs [Needle](/synthesis/needle/), [Gradual Evolution](/synthesis/gradual-evolution/) or the [Structural Optimizer](/synthesis/structural-optimizer/). `monteCarlo` and `layerSensitivity` are the [Monte Carlo](/analysis/error-analysis/) and [Layer Sensitivity](/analysis/layer-sensitivity/) windows' computations. Merit rows take the operands of the [Operand Reference](/design/operands/).
 
 ## How it works
 
@@ -56,17 +56,24 @@ The server works on the data folder the app uses: `Documents\TFStudio` unless yo
 
 ## Work on the open design
 
-With `--live` the assistant can also work on the design open in TFStudio while you watch it change. In TFStudio open Preferences, then Automation, and turn on **Let AI agents work on the open design**. Then add `--live` after `--mcp` where you added the server, so that its arguments read:
+With `--live` the assistant can also work on the design open in TFStudio while you watch it change. Add `--live` after `--mcp` where you added the server, so that its arguments read:
 
 ```json
 "args": ["--mcp", "--live"]
 ```
 
-In Claude Code the command ends in `--mcp --live`. The assistant reads a copy of the open design, changes the copy with the tools above, and writes it back:
+In Claude Code the command ends in `--mcp --live`.
+
+Then, before you ask the assistant to work on the open design, click **Interactive** in the **Scripts** group of TFStudio's **Optimization** tab. A window holds the rest of the app while the assistant works. It reads "Waiting for a program to connect.", then "Connected:" and the assistant's name. Meanwhile you cannot edit, switch designs or start runs, and the windows behind it keep showing the design as the assistant changes it. **Terminate** lets the assistant go and gives the app back. An assistant that reaches TFStudio while it is not listening is told to have Interactive clicked.
+
+The assistant reads a copy of the open design, changes the copy with the tools above, and writes it back:
 
 - **One step to undo.** Each change it writes back is one step in the design's history, so Ctrl+Z takes it back, and a notice names the design it changed. The change stays unsaved until you save the design.
 - **Only the open design.** The assistant can read any design in the project explorer, but it writes only to the one that is open.
 - **Your edits come first.** If the design changed after the assistant read it, by an edit, an undo or a run, its write is refused and it is told to read the design again, so nothing you did is written over. A write is also refused while a run is going in one of the app's windows.
 - **Runs without a window.** A refinement or synthesis the assistant starts runs in the server. When the assistant asks for it, the result is written back as one step when the run ends, if the design is still as it was when the assistant read it. A run that is stopped writes nothing.
 - **New materials.** The server reads the catalogs when it starts, so a material you add in the app later reaches the assistant after you restart the assistant.
-- **Off by default.** While the switch is on, any program you run can read your designs and change the open one, as it could change your design files; other users of the computer cannot reach it. Turn it off when no assistant is working.
+
+**Start listening when TFStudio starts**, in Preferences, then Automation, has TFStudio listen from the moment it starts, without Interactive, for an assistant you leave working. TFStudio then asks before a program connects for the first time, with **Allow** and **Deny**, and holds the app once you allow it; a program you deny, or let go with Terminate, gets back in only through Interactive. While the setting is on, any program you run can ask to work on your designs; other users of the computer cannot reach it. It is off by default, so leave it off unless you need it.
+
+An assistant that works on files, without `--live`, needs none of this: it opens and saves `.tfs` files beside you, and the app does not wait for it.

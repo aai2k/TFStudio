@@ -1,8 +1,10 @@
 import { SplitPane } from '../../../docking/SplitPane.js';
-import { ActionButton } from '../../analysis/chrome/controls.js';
+import { ActionButton, ChoiceGroup } from '../../analysis/chrome/controls.js';
 import { AnalysisWindow, ControlRow, PlotArea } from '../../analysis/chrome/layout.js';
 import { ReportAndNotices } from '../../dataExchange/chrome/actionStatus.js';
 import { appShortcutFor } from '../../../../utils/misc/appShortcuts.js';
+import { CodeEditor } from './codeEditor.js';
+import { LANGUAGES } from './scriptLanguage.js';
 
 const { createElement: h, useEffect, useMemo, useRef } = React;
 
@@ -13,10 +15,11 @@ const TEXT_FONT = 'ui-monospace, Consolas, monospace';
 const AT_END_SLACK_PX = 4;
 
 // The app's chords the editor keeps for itself while it has focus: Ctrl+Z and
-// Ctrl+Y undo and redo the typing rather than the design, and Ctrl+S, Ctrl+O
-// and Ctrl+N do not save, open or add a design behind the window. The app's
+// Ctrl+Y undo and redo the typing rather than the design, Ctrl+S, Ctrl+O and
+// Ctrl+N do not save, open or add a design behind the window, and Ctrl+G finds
+// the next match of a search rather than opening the games. The app's
 // listener is on the document, which an event stopped here never reaches.
-const EDITOR_KEEPS = new Set(['undo', 'redo', 'save', 'open', 'new']);
+const EDITOR_KEEPS = new Set(['undo', 'redo', 'save', 'open', 'new', 'games']);
 
 /** The editor's keys: Ctrl+Enter runs the script; the app's chords above stay in the editor. */
 export function editorKeyDown(event, onRun) {
@@ -55,10 +58,14 @@ function RunButton({ c, z, running, empty, onRun, onStop }) {
     }, `▶ ${z.run}`);
 }
 
-function Controls({ c, t, z, session, running, runStatus, onRun, onStop, onOpen, onSave, status }) {
+function Controls({ c, t, z, session, running, runStatus, onRun, onStop, onLanguage, onOpen, onSave, status }) {
     const empty = !session.text.trim();
     return h(ControlRow, { c },
         h(RunButton, { c, z, running, empty, onRun, onStop }),
+        h(ChoiceGroup, {
+            c, ariaLabel: z.languageLabel, activeId: session.language, onSelect: onLanguage,
+            items: LANGUAGES.map(id => ({ id, label: z.languages[id] })),
+        }),
         h(ActionButton, { c, label: z.openBtn, title: z.openTip, onClick: onOpen }),
         h(ActionButton, { c, label: z.saveBtn, title: z.saveTip, onClick: onSave, disabled: !session.text }),
         session.fileName && h('span', { title: session.filePath || session.fileName, style: sideTextStyle(c) }, session.fileName),
@@ -67,12 +74,22 @@ function Controls({ c, t, z, session, running, runStatus, onRun, onStop, onOpen,
     );
 }
 
-function EditorBox({ c, z, text, onChange, onRun }) {
-    return h('textarea', {
-        value: text, spellCheck: false, placeholder: z.editorPlaceholder, 'aria-label': z.editorLabel,
-        onChange: event => onChange(event.target.value),
+// The editor's words in a language and a script language, one object for each
+// pair, so the editor takes them again only when either changes.
+const editorWords = new WeakMap();
+function wordsFor(z, language) {
+    if (!editorWords.has(z)) editorWords.set(z, {});
+    const byLanguage = editorWords.get(z);
+    byLanguage[language] ??= { label: z.editorLabel, placeholder: z.editorPlaceholder[language], phrases: z.editorPhrases };
+    return byLanguage[language];
+}
+
+// The editor, in the script's language and the app's words.
+function EditorBox({ c, z, session, onChange, onRun }) {
+    return h(CodeEditor, {
+        c, text: session.text, language: session.language, errorLine: session.errorLine,
+        words: wordsFor(z, session.language), onChange,
         onKeyDown: event => editorKeyDown(event, onRun),
-        style: textBoxStyle(c, 'pre'),
     });
 }
 
@@ -106,9 +123,12 @@ function OutputBox({ c, z, lines, hidden }) {
     });
 }
 
-/** The control row over the editor and the output, which share the window across a divider. */
+/**
+ * The control row over the editor and the output, which share the window
+ * across a divider. `onTextChange(text)` takes each edit made in the editor.
+ */
 export function ScriptConsoleLayout(props) {
-    const { c, z, session, setField, onRun } = props;
+    const { c, z, session, setField, onTextChange, onRun } = props;
     return h(AnalysisWindow, { c },
         h(Controls, props),
         h(PlotArea, null,
@@ -117,7 +137,7 @@ export function ScriptConsoleLayout(props) {
                 node: { direction: 'v', sizes: session.splitSizes, children: SPLIT_CHILDREN },
                 onSizesChange: sizes => setField('splitSizes', sizes),
             },
-                h(EditorBox, { c, z, text: session.text, onChange: text => setField('text', text), onRun }),
+                h(EditorBox, { c, z, session, onChange: onTextChange, onRun }),
                 h(OutputBox, { c, z, lines: session.output, hidden: session.outputHidden }),
             ),
         ),

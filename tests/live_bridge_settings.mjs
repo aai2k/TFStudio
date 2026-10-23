@@ -1,10 +1,10 @@
 /**
- * The switch that lets AI agents work on the open design (Preferences >
- * Automation).
+ * The switch "Start listening when TFStudio starts" (Preferences >
+ * Automation), which has the live link listen for programs from the start.
  *
  *   1. It is off unless settings.json holds true for it.
  *   2. The settings hook (useAppSettings) saves it with the other settings,
- *      and asks the desktop app to open or close the live link once the saved
+ *      and asks the desktop app to start or stop listening once the saved
  *      value is known and on every change after, never before; the answer is
  *      the status the Settings row shows. Without the desktop app's link, as in
  *      the web demo, it asks nothing.
@@ -91,6 +91,7 @@ const step = async () => {
 const c = makeTheme();
 const text = value => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
 const pane = (t, props) => renderToStaticMarkup(React.createElement(AutomationPane, { c, t, setLiveBridge() {}, ...props }));
+assert.equal(makeLocale('en').settings.liveBridge, 'Start listening when TFStudio starts', 'the switch says what it does');
 const modal = t => renderToStaticMarkup(React.createElement(SettingsModal, { c, t, theme: 'Light', ribbonStyle: 'minimalist', onClose() {} }));
 for (const code of ['en', 'ru', 'zh', 'it']) {
     const t = makeLocale(code);

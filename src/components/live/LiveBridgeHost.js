@@ -1,8 +1,8 @@
 /**
- * Answers an AI agent working through the live link (Preferences > Automation)
- * from the designs the app holds, with utils/live/liveAnswers.js. It draws
- * nothing; a write the agent makes shows as a notice that names the design and
- * says Ctrl+Z undoes it.
+ * Answers a program, a Python program or an AI agent, working through the
+ * live link (LiveDialogs.js) from the designs the app holds, with
+ * utils/live/liveAnswers.js. It draws nothing; a write the program makes shows
+ * as a notice that names the design and says Ctrl+Z undoes it.
  *
  * It sits inside DesignProvider and keeps what the design context held at its
  * latest render, so a request that comes right after an edit sees that edit.

@@ -3,11 +3,12 @@
  * tools over stdio, for AI agents and other MCP clients.
  *
  *   node src/mcp/server.js [--data <folder>] [--live <file>]
- *   TFStudio.exe --mcp [--live]  (src/main/mcpEntry.js; the app's own data folder)
+ *   TFStudio.exe --mcp [--data <folder>] [--live]  (src/main/serverEntry.js)
  *
  * --data names a TFStudio data folder (the one holding Materials), whose
- * catalogs the tools then use as the app does. Without it the built-in catalog
- * and the materials a design carries resolve.
+ * catalogs the tools then use as the app does; TFStudio.exe takes the app's
+ * own without it. Without either, the built-in catalog and the materials a
+ * design carries resolve.
  *
  * --live names the live link file the open app writes (src/main/
  * liveProtocol.js), and adds the tools that read the app's designs and apply
@@ -21,6 +22,10 @@ import { format } from 'node:util';
 import { pathToFileURL } from 'node:url';
 
 const log = text => process.stderr.write(`[tfstudio-mcp] ${text}\n`);
+
+// The name an MCP client gives itself in `initialize`, its title before its
+// name, as the open app shows it while the agent works on the open design.
+const clientName = info => [info?.title, info?.name].find(name => typeof name === 'string' && name.trim()) ?? null;
 
 const INSTRUCTIONS = [
     'TFStudio designs and analyzes optical thin-film coatings. The tools work on designs held in this session by id ("d1").',
@@ -57,7 +62,8 @@ export async function serve({ dataDir = null, version, wasmPath, live = null } =
     for (const file of started.unreadable) log(`catalog left out, could not be read: ${JSON.stringify(file)}`);
 
     const store = createDesignStore();
-    const link = live ? createLiveLink(live.file) : null;
+    let client = null;
+    const link = live ? createLiveLink(live.file, () => clientName(client)) : null;
     const app = link ? liveTools({ store, link }) : null;
     const jobs = createJobs({
         environment: { dataDir, wasmPath },
@@ -77,6 +83,7 @@ export async function serve({ dataDir = null, version, wasmPath, live = null } =
         serverInfo: { name: 'tfstudio', title: 'TFStudio', version },
         instructions: app ? `${INSTRUCTIONS}\n${LIVE_INSTRUCTIONS}` : INSTRUCTIONS, tools, log,
         send: message => process.stdout.write(`${JSON.stringify(message)}\n`),
+        onClient: info => { client = info; },
     });
 
     const input = createInterface({ input: process.stdin, crlfDelay: Infinity });

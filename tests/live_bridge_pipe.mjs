@@ -15,6 +15,12 @@
  * Closing ends every connection at once and removes the file, but only a file
  * that still names this pipe, and the next opening is a new pipe with a new
  * secret, written over a file a crash left behind.
+ * A program that proved the secret comes in only as `admit` says, asked by the
+ * name its hello gives: let in at once it gets the hello, asked about it is
+ * first told to wait, with the app's proof, and refused it is answered
+ * 'denied' and hung up on. The programs in are reported as they come and go;
+ * one gone before it was let in never is. drop() lets every program in go and
+ * keeps listening.
  *
  * Run: node tests/live_bridge_pipe.mjs
  */
@@ -165,6 +171,66 @@ assert.deepEqual(await within(client.next(), 5000, 'hello'), { hello: PROTOCOL, 
     fs.writeFileSync(file, JSON.stringify({ pipe: 'someone else', secret: 'theirs' }));
     bridge.close();
     assert.equal(readLink().pipe, 'someone else', 'a file that names another pipe is not removed');
+}
+
+// ── Letting a program in ────────────────────────────────────────────────────
+{
+    const gateFile = path.join(dir, 'gate-bridge.json');
+    const asked = [];
+    const lists = [];
+    let decide = null;
+    const gate = createLiveBridge({
+        file: gateFile, log: () => {}, version: '9.9.9', forward: app.forward,
+        admit: (program, asking) => {
+            asked.push(program);
+            if (program === 'quick') return true;
+            asking();
+            return new Promise(resolve => { decide = resolve; });
+        },
+        onPrograms: names => lists.push(names),
+    });
+    await gate.open();
+    const { pipe, secret } = JSON.parse(fs.readFileSync(gateFile, 'utf8'));
+    const connectAs = async (program, nonce) => {
+        const client = await rawClient(net, pipe);
+        client.send(agentHello(secret, nonce, program));
+        return client;
+    };
+
+    const quick = await connectAs('  quick  ', 'q');
+    assert.equal((await within(quick.next(), 5000, 'quick hello')).version, '9.9.9', 'a program let in at once gets the app\'s hello');
+    assert.deepEqual(asked, ['quick'], 'the app is asked about the program by the name its hello gives');
+    assert.deepEqual(lists.at(-1), ['quick'], 'and told it is in');
+
+    const slow = await connectAs('slow', 's');
+    assert.deepEqual(await within(slow.next(), 5000, 'asking'), { asking: true, proof: proof(secret, 's', 'app') },
+        'a program the user is asked about is told to wait, with the app\'s proof');
+    decide(false);
+    const denied = await within(slow.next(), 5000, 'denied');
+    assert.deepEqual([denied.error?.code, denied.hello], ['denied', undefined], 'one the user does not let in is refused as denied');
+    await within(slow.closed, 5000, 'hang-up after denied');
+    assert.deepEqual(lists.at(-1), ['quick'], 'and is never in');
+
+    const gone = await connectAs(5, 'g');
+    await within(gone.next(), 5000, 'asking');
+    assert.equal(asked.at(-1), null, 'a hello whose program is not a name gives none');
+    gone.socket.destroy();
+    await within(gone.closed, 5000, 'gone');
+    // The app's end hears of the close a moment after this end has closed.
+    await new Promise(resolve => setTimeout(resolve, 100));
+    decide(true);
+    await new Promise(resolve => setTimeout(resolve, 100));
+    assert.deepEqual(lists.at(-1), ['quick'], 'a program gone before the user let it in is not in');
+
+    gate.drop();
+    await within(quick.closed, 5000, 'drop');
+    assert.deepEqual(lists.at(-1), [], 'drop ends the connections of the programs in');
+    const after = await connectAs('quick', 'q2');
+    assert.equal((await within(after.next(), 5000, 'after drop')).version, '9.9.9', 'and the pipe goes on listening');
+    gate.close();
+    await within(after.closed, 5000, 'close');
+    assert.deepEqual(lists.at(-1), [], 'closing lets every program go');
+    assert.ok(!fs.existsSync(gateFile));
 }
 
 fs.rmSync(dir, { recursive: true, force: true });

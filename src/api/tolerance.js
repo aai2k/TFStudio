@@ -8,7 +8,7 @@ import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { hasPerturbableLayers } from '../components/windows/analysis/errorAnalysis/trialModel.js';
 import { requireResolved } from './materials.js';
 import { warnWithoutKernel } from './environment.js';
-import { checkOptions, checkHooks, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean } from './check.js';
+import { checkOptions, checkHooks, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean, refusal } from './check.js';
 
 const oneOf = list => v => list.includes(v);
 const isSeed = v => v == null || (Number.isInteger(v) && v >= 1 && v <= MAX_SEED);
@@ -151,7 +151,7 @@ export function layerSensitivity(design, options) {
     requireValue('layerSensitivity', 'includeLocked', includeLocked, isBoolean, 'true or false');
     requireResolved(design);
     const operands = design.meritOperands || [];
-    if (!operands.length) throw new Error('layerSensitivity: the design has no merit function; set one with setMerit');
+    if (!operands.length) throw refusal('noMerit', { call: 'layerSensitivity' }, 'layerSensitivity: the design has no merit function; set one with setMerit');
     warnWithoutKernel();
     return computeLayerSensitivity(design, operands, designMaterialLookup(design),
         { mode, absDeltaNm: deltaNm, relPct, includeLocked });

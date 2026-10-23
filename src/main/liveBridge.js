@@ -1,6 +1,7 @@
-// The app's end of the live link (liveProtocol.js): the pipe an MCP server
-// started with --mcp --live connects to, open while "Let AI agents work on the
-// open design" is on in Preferences > Automation.
+// The app's end of the live link (liveProtocol.js): the pipe a server started
+// with --live connects to, the MCP server (--mcp --live) or the API server
+// (--api --live), open while the app listens for programs (ipc/liveBridge.js
+// says when).
 //
 // Who can reach it. On Windows it is a named pipe under a random name, made
 // with the default security: full access for the user running the app,
@@ -77,45 +78,67 @@ function answerRequest(message, send, forward) {
   else forward(message.method, message.params || {}).then(answer => send({ id: message.id, ...answer }));
 }
 
-// One connection: the hello that proves the secret first, answered with the
-// app's version and its own proof or hung up on, then requests.
-function serveConnection(socket, { secret, version, forward, log }) {
-  let greeted = false;
+// The name a hello gives its program, or null when it gives none.
+function programOf(message) {
+  return typeof message.program === 'string' && message.program.trim() ? message.program.trim() : null;
+}
+
+// One connection: the hello that proves the secret first, then whether the
+// app lets the program in, answered with the app's version and its own proof
+// or hung up on, then requests. A line that comes while the user is asked ends
+// the connection: a client waits for the answer before it asks anything.
+function serveConnection(socket, { secret, version, forward, log, admit, entered }) {
+  let stage = 'hello';
   const send = message => {
     if (!socket.destroyed && !socket.writableEnded) socket.write(`${JSON.stringify(message)}\n`);
   };
-  const greet = message => {
+  const refuse = error => {
+    send({ error });
+    socket.end();
+  };
+  const greet = async message => {
     const refusal = helloRefusal(message, secret);
-    if (!refusal) {
-      send({ hello: PROTOCOL, version, proof: proof(secret, message.nonce, 'app') });
-      greeted = true;
+    if (refusal) {
+      if (refusal.code === 'secret') log('live link: a connection without the secret was turned away');
+      refuse(refusal);
       return;
     }
-    if (refusal.code === 'secret') log('live link: a connection without the secret was turned away');
-    send({ error: refusal });
-    socket.end();
+    stage = 'admitting';
+    const appProof = proof(secret, message.nonce, 'app');
+    const program = programOf(message);
+    const allowed = await admit(program, () => send({ asking: true, proof: appProof }));
+    if (socket.destroyed) return;
+    if (allowed !== true) {
+      refuse(allowed || { code: 'denied', message: 'the user did not let this program in' });
+      return;
+    }
+    send({ hello: PROTOCOL, version, proof: appProof });
+    stage = 'served';
+    entered(socket, program);
   };
   socket.setEncoding('utf8');
   // A client gone mid-write leaves nothing to answer.
   socket.on('error', () => {});
   socket.on('data', lineReader(line => {
     if (socket.writableEnded) return;
-    if (greeted) answerRequest(parsed(line), send, forward);
-    else greet(parsed(line));
+    if (stage === 'served') answerRequest(parsed(line), send, forward);
+    else if (stage === 'hello') greet(parsed(line));
+    else socket.destroy();
   }, () => socket.destroy()));
 }
 
 // One opening of the pipe. `ready` resolves to { open: true } once it listens
 // and the live link file names it, or to { open: false, error } when it could
-// not open, or to { open: false } when it was closed first.
-function openPipe({ file, log, version, forward }) {
+// not open, or to { open: false } when it was closed first. `connection` is
+// what serveConnection takes besides the secret.
+function openPipe({ file, log, connection }) {
   const { address, folder } = newAddress();
   const secret = crypto.randomBytes(32).toString('hex');
   const sockets = new Set();
   const server = net.createServer(socket => {
     sockets.add(socket);
     socket.on('close', () => sockets.delete(socket));
-    serveConnection(socket, { secret, version, forward, log });
+    serveConnection(socket, { secret, log, ...connection });
   });
   let settle;
   const ready = new Promise(resolve => { settle = resolve; });
@@ -151,22 +174,49 @@ function openPipe({ file, log, version, forward }) {
 /**
  * The live link's pipe, written to the live link file `file` while open.
  * `version` is the app's, sent in the hello; `forward` as above; `log(text)`
- * writes to the app's log. open() resolves to { open, error } as the switch's
- * row shows it, and close() ends every connection at once and removes the
- * file.
+ * writes to the app's log.
+ *
+ * `admit(program, asking)` decides whether a program that proved the secret
+ * comes in, `program` being the name its hello gives or null: true lets it
+ * in, false refuses it as 'denied', and an { code, message } refuses it with
+ * that error; or a promise of one of these. It calls `asking()` before it
+ * asks the user, which tells the program to wait for the answer. Without it
+ * every such program comes in. `onPrograms(names)` is called with the names
+ * of the programs in, one per connection, each time that list changes.
+ *
+ * open() resolves to { open, error }; drop() ends the connections of the
+ * programs in and keeps listening; close() ends every connection at once and
+ * removes the file.
  */
-function createLiveBridge({ file, log, version, forward }) {
+function createLiveBridge({ file, log, version, forward, admit = () => true, onPrograms = () => {} }) {
   let pipe = null;
+  // Each connection let in, with its program's name.
+  const programs = new Map();
+  const changed = () => onPrograms([...programs.values()]);
+  const entered = (socket, program) => {
+    programs.set(socket, program);
+    socket.on('close', () => { if (programs.delete(socket)) changed(); });
+    changed();
+  };
+  const drop = () => {
+    const sockets = [...programs.keys()];
+    programs.clear();
+    for (const socket of sockets) socket.destroy();
+    if (sockets.length) changed();
+  };
+  const connection = { version, forward, admit, entered };
   return {
     open() {
       if (!pipe) {
-        const opening = openPipe({ file, log, version, forward });
+        const opening = openPipe({ file, log, connection });
         pipe = opening;
         opening.ready.then(status => { if (!status.open && pipe === opening) pipe = null; });
       }
       return pipe.ready;
     },
+    drop,
     close() {
+      drop();
       pipe?.close();
       pipe = null;
     },

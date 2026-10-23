@@ -22,6 +22,36 @@
     <!-- KaTeX for LaTeX formula rendering -->
     <script src="../node_modules/katex/dist/katex.min.js"></script>
 
+    <!-- CodeMirror, the Script Console's editor, as ES modules from node_modules.
+         The packaged app and the web demo have it bundled into renderer.js
+         (tools/build-renderer.mjs). tests/script_console_editor.mjs checks that
+         this map names every package the editor's modules import, at the file
+         the bundle takes. -->
+    <script type="importmap">
+    {
+      "imports": {
+        "@codemirror/autocomplete": "../node_modules/@codemirror/autocomplete/dist/index.js",
+        "@codemirror/commands": "../node_modules/@codemirror/commands/dist/index.js",
+        "@codemirror/lang-javascript": "../node_modules/@codemirror/lang-javascript/dist/index.js",
+        "@codemirror/lang-python": "../node_modules/@codemirror/lang-python/dist/index.js",
+        "@codemirror/language": "../node_modules/@codemirror/language/dist/index.js",
+        "@codemirror/search": "../node_modules/@codemirror/search/dist/index.js",
+        "@codemirror/state": "../node_modules/@codemirror/state/dist/index.js",
+        "@codemirror/streamparser": "../node_modules/@codemirror/streamparser/dist/index.js",
+        "@codemirror/view": "../node_modules/@codemirror/view/dist/index.js",
+        "@lezer/common": "../node_modules/@lezer/common/dist/index.js",
+        "@lezer/highlight": "../node_modules/@lezer/highlight/dist/index.js",
+        "@lezer/javascript": "../node_modules/@lezer/javascript/dist/index.js",
+        "@lezer/lr": "../node_modules/@lezer/lr/dist/index.js",
+        "@lezer/python": "../node_modules/@lezer/python/dist/index.js",
+        "@marijn/find-cluster-break": "../node_modules/@marijn/find-cluster-break/src/index.js",
+        "crelt": "../node_modules/crelt/index.js",
+        "style-mod": "../node_modules/style-mod/src/style-mod.js",
+        "w3c-keyname": "../node_modules/w3c-keyname/index.js"
+      }
+    }
+    </script>
+
     <!-- Main app (ES6 module) -->
     <script type="module" src="renderer.js"></script>
 </body>

@@ -18,11 +18,18 @@
  * Ctrl+Z, Ctrl+Y, Ctrl+S, Ctrl+O and Ctrl+N stay in the editor and never reach
  * the document's listener, while a chord the editor does not keep does.
  *
- * The script in the editor, with the file it was last saved to, outlives
- * closing the window and a restart, and comes back without running. A copy of
- * the window shown again does not put its script over one typed since in
- * another copy. Open asks before it replaces a script its file does not hold,
- * and Cancel keeps the script.
+ * The script in the editor, with the file it was last saved to and its
+ * language, outlives closing the window and a restart, and comes back without
+ * running. A copy of the window shown again does not put its script over one
+ * typed since in another copy. Open asks before it replaces a script its file
+ * does not hold, and Cancel keeps the script.
+ *
+ * The script's language follows the file opened, .py Python and .js
+ * JavaScript, and the picker; a run says its language, and Save offers a file
+ * of it. Choosing Python says which Python runs the script, or what is
+ * missing. The line a run's error names is marked until the script is edited
+ * or run again. A Python run that never started, with no Python or no folder
+ * to run in, says why in the output, and the row gives it no time.
  *
  * Run: node tests/script_console_run.mjs
  */
@@ -272,6 +279,13 @@ redraw();
     assert.deepEqual(reached, [], 'Ctrl+Z, Ctrl+Y, Ctrl+S, Ctrl+O and Ctrl+N in the editor never reach the document');
     press({ key: ',', code: 'Comma', ctrlKey: true });
     assert.deepEqual(reached, ['settings'], 'a chord the editor does not keep goes on to the document');
+
+    // An edit in the editor, as it hands its text on (codeEditor.js).
+    const { onChange } = editor.type(editor.props).props;
+    onChange('console.log("typed");');
+    renderWindow();
+    assert.equal(view.session.text, 'console.log("typed");', 'an edit in the editor is the script');
+    assert.equal(loadLastScript().text, 'console.log("typed");', 'and is kept as the last script');
 }
 
 // ── The script outlives the window and the app ──────────────────────────────
@@ -308,7 +322,7 @@ async function saveTo(filePath) {
 
     const restarted = await import('../src/components/windows/optimization/scriptConsole/sessionState.js?restart');
     assert.equal(restarted.scriptConsoleSession.read(null).text, '', 'after a restart the window\'s store starts empty');
-    assert.deepEqual(restarted.loadLastScript(), script, 'and the last script is read back from storage');
+    assert.deepEqual(restarted.loadLastScript(), { ...script, language: 'javascript' }, 'and the last script is read back from storage, with its language');
 
     typeScript('');
     reopen();
@@ -380,6 +394,104 @@ async function saveTo(filePath) {
     view.onOpen();
     assert.equal(dialog, null, 'an empty editor is replaced without asking');
     await settle();
+    win.unmount();
+}
+
+// ── The language follows the file, and Save and Run use it ─────────────────
+{
+    const opened = file => async () => ({ success: true, text: 'x = 1', fileName: file.split('\\').pop(), filePath: file });
+    const openFile = async (file) => {
+        globalThis.electronAPI.openScriptFile = opened(file);
+        typeScript('');
+        await view.onOpen();
+        renderWindow();
+    };
+    reopen();
+    await openFile('C:\\scripts\\ar.py');
+    assert.equal(view.session.language, 'python', 'a .py file opens as Python');
+    const run = startRun();
+    assert.deepEqual([run.request.language, run.request.fileName, run.request.filePath], ['python', 'ar.py', 'C:\\scripts\\ar.py'],
+        'and runs as Python, under its own name');
+    await answer(run, { state: 'done' });
+
+    let saved = null;
+    globalThis.electronAPI.saveScriptFile = async (text, suggested, language) => {
+        saved = { suggested, language };
+        return { success: true, filePath: suggested };
+    };
+    await view.onSave();
+    assert.deepEqual(saved, { suggested: 'C:\\scripts\\ar.py', language: 'python' }, 'Save offers a Python file');
+    view.onLanguage('javascript');
+    renderWindow();
+    await view.onSave();
+    assert.deepEqual(saved, { suggested: 'C:\\scripts\\ar.js', language: 'javascript' }, 'the picker changes the language Save uses, and the extension it offers');
+
+    await openFile('C:\\scripts\\notes.txt');
+    assert.equal(view.session.language, 'javascript', 'a file of neither extension keeps the language');
+    await openFile('C:\\scripts\\b.py');
+    await openFile('C:\\scripts\\a.js');
+    assert.equal(view.session.language, 'javascript', 'a .js file opens as JavaScript');
+    await openFile('C:\\scripts\\b.py');
+    reopen();
+    assert.equal(view.session.language, 'python', 'the language comes back with the last script');
+    win.unmount();
+}
+
+// ── Choosing Python says which Python runs the script, or what is missing ───
+{
+    reopen();
+    typeScript('print(1)');
+    view.onLanguage('javascript');
+    renderWindow();
+    for (const [found, status] of [
+        [{ found: { path: 'C:\\Python312\\python.exe', version: '3.12.1' } }, { type: 'success', msg: z.python.found('3.12.1', 'C:\\Python312\\python.exe') }],
+        [{ missing: { reason: 'none' } }, { type: 'error', msg: z.python.none }],
+        [{ missing: { reason: 'setPath', path: 'D:\\py.exe' } }, { type: 'error', msg: z.python.setPath('D:\\py.exe') }],
+    ]) {
+        let asked = 0;
+        globalThis.electronAPI.findPython = async (setPath) => { asked += 1; assert.equal(setPath, undefined, 'the path set in Preferences'); return found; };
+        await view.onLanguage('python');
+        renderWindow();
+        assert.equal(asked, 1, 'choosing Python looks for it');
+        assert.deepEqual(view.status, status, `the row says ${status.msg}`);
+        assert.equal(view.session.language, 'python');
+    }
+    globalThis.electronAPI.findPython = async () => { throw new Error('asked JavaScript'); };
+    await view.onLanguage('javascript');
+    renderWindow();
+    assert.equal(view.status, null, 'choosing JavaScript looks for no Python');
+    win.unmount();
+}
+
+// ── The line a run's error names is marked until the script is edited ───────
+{
+    reopen();
+    typeScript('const a = 1;\nnull.x;');
+    let run = startRun();
+    await answer(run, { state: 'failed', error: 'TypeError: x\n    at script.js:2:6', line: 2 });
+    assert.equal(view.session.errorLine, 2, 'the error\'s line is marked');
+    view.onTextChange('const a = 2;\nnull.x;');
+    renderWindow();
+    assert.equal(view.session.errorLine, 0, 'and the mark goes with an edit');
+    run = startRun();
+    await answer(run, { state: 'failed', error: 'TypeError: x\n    at script.js:2:6', line: 2 });
+    run = startRun();
+    assert.equal(view.session.errorLine, 0, 'and with the next run');
+    await answer(run, { state: 'done' });
+    win.unmount();
+}
+
+// ── A Python run that never started ─────────────────────────────────────────
+{
+    reopen();
+    typeScript('print(1)');
+    for (const [never, line] of [
+        [{ state: 'noPython', missing: { reason: 'none' } }, z.python.none],
+        [{ state: 'noFolder', folder: 'E:\\scripts' }, z.folderGone('E:\\scripts')],
+    ]) {
+        await answer(startRun(), never);
+        assert.deepEqual([output().at(-1), view.runStatus], [line, ''], `${never.state}: the output says why, and the row gives no time`);
+    }
     win.unmount();
 }
 

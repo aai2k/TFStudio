@@ -7,9 +7,12 @@
  * build (esbuild's resolver) notices, because both resolve bare specifiers.
  *
  * This walks the graph from every dev entry point the way a browser does:
- * relative resolution only, no node_modules fallback. Each worker is its own
- * root, since a worker created with { type: 'module' } does not inherit the
- * document's import map.
+ * relative resolution only, no node_modules fallback, except for a bare
+ * specifier the document's import map (src/index.html) names, which modules of
+ * the document resolve through the map. Each worker is its own root, and the
+ * map does not apply there, since a worker created with { type: 'module' } does
+ * not inherit the document's import map. The packages the map points at are
+ * walked too, so a bare import inside them that the map lacks fails here.
  */
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
@@ -36,12 +39,24 @@ const ENTRIES = [
 const STATIC = /(?:^|\n)\s*(?:import|export)\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g;
 const DYNAMIC = /\bimport\(\s*['"]([^'"]+)['"]\s*\)/g;
 
+// The document's import map: bare specifier to the file it names, resolved
+// from src/index.html's folder as the browser resolves it.
+const INDEX = path.join(ROOT, 'src', 'index.html');
+const MAP_TAG = /<script type="importmap">([\s\S]*?)<\/script>/;
+const importMap = new Map(Object.entries(JSON.parse(readFileSync(INDEX, 'utf8').match(MAP_TAG)?.[1] || '{}').imports || {})
+    .map(([spec, target]) => [spec, path.resolve(path.dirname(INDEX), target)]));
+
 const seen = new Set();
+const walked = new Set();
 const bare = [];
 const missing = [];
 
-function walk(file) {
-    if (seen.has(file)) return;
+// `map` is the import map that applies to `file`: the document's for the
+// document's graph, none for a worker's.
+function walk(file, map) {
+    const key = `${map ? 'document' : 'worker'}|${file}`;
+    if (walked.has(key)) return;
+    walked.add(key);
     seen.add(file);
 
     let src;
@@ -57,18 +72,19 @@ function walk(file) {
     const rel = path.relative(ROOT, file).split(path.sep).join('/');
     for (const spec of specs) {
         if (spec.startsWith('node:') || /^https?:/.test(spec)) continue;
-        if (!spec.startsWith('.') && !spec.startsWith('/')) { bare.push({ rel, spec }); continue; }
+        const mapped = map && map.get(spec);
+        if (!mapped && !spec.startsWith('.') && !spec.startsWith('/')) { bare.push({ rel, spec }); continue; }
 
-        const target = path.resolve(path.dirname(file), spec);
+        const target = mapped || path.resolve(path.dirname(file), spec);
         if (!existsSync(target)) { missing.push({ rel, spec }); continue; }
-        walk(target);
+        walk(target, map);
     }
 }
 
 for (const e of ENTRIES) {
     const abs = path.join(ROOT, e);
     assert.ok(existsSync(abs), `dev entry point missing: ${e}`);
-    walk(abs);
+    walk(abs, e === 'src/renderer.js' ? importMap : null);
 }
 
 for (const b of bare) console.error(`bare specifier: ${b.spec}  <- ${b.rel}`);

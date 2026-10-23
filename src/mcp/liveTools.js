@@ -9,6 +9,7 @@
 // job's answer keeps its source's, as it was when the run started.
 
 import { designView, sameLayers } from './designStore.js';
+import { failureText } from './liveLink.js';
 import { object, str, DESIGN_ID } from './schemaParts.js';
 
 export const LIVE_INSTRUCTIONS = [
@@ -18,17 +19,7 @@ export const LIVE_INSTRUCTIONS = [
 ].join('\n');
 
 // What the agent is told for each reason the app gives, or the link does.
-const SAID = {
-    off: "TFStudio is not running, or 'Let AI agents work on the open design' is off in its Preferences > Automation. Turn it on there, then call this again.",
-    timeout: 'TFStudio did not answer; it may be busy. Call this again.',
-    protocol: 'The TFStudio that is open speaks another version of the live link. Start this server with the TFStudio of that install.',
-    edited: 'The design changed in TFStudio since it was read: an edit, an undo or a run there. Nothing was applied. Read it again with readAppDesign and make the change on that copy.',
-    switched: 'The design it was read from is no longer the one open in TFStudio: another design or none is open, or it was closed. Nothing was applied; only the open design takes changes.',
-    optimizing: 'A run is going in a TFStudio window. Nothing was applied; apply again once it ends.',
-    noDesign: 'No design is open in TFStudio. Open one there, or name one that listAppDesigns lists.',
-    unknown: 'TFStudio holds no design under that appDesignId; listAppDesigns lists them.',
-};
-const said = err => SAID[err.code] ?? `TFStudio refused it: ${err.message}`;
+const said = err => failureText(err, { read: 'readAppDesign', list: 'listAppDesigns' });
 
 export const APPLY_TO_APP = {
     type: 'boolean',

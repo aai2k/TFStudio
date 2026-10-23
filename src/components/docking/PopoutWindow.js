@@ -11,9 +11,24 @@
 //
 // What does NOT come across: native `document` listeners registered in the main
 // document never see clicks in this window, and renderer-level modals still open
-// over the main window.
+// over the main window. The one exception is the live link's hold, which covers
+// this window too (HeldCover).
 
-const { createElement: h, useState, useEffect, useRef } = React;
+import { holdKeys, useAppHeld } from '../live/appHold.js';
+
+const { createElement: h, Fragment, useState, useEffect, useRef } = React;
+
+// Over the window while the live link holds the app: it takes every press,
+// and the keyboard is shut out of the window (live/appHold.js).
+const HELD_COVER = {
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10004,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+};
+
+function HeldCover({ win }) {
+    useEffect(() => holdKeys(win), [win]);
+    return h('div', { style: HELD_COVER });
+}
 
 // The child document starts empty, so it needs the app's stylesheets. Links are
 // cloned by their resolved absolute href because the child's own base URL cannot
@@ -66,6 +81,7 @@ export function toClientPoint(win, screenX, screenY) {
 export function PopoutWindow({ id, title, bounds, background, onClose, onWindowReady, children }) {
     const [container, setContainer] = useState(null);
     const winRef = useRef(null);
+    const held = useAppHeld();
 
     useEffect(() => {
         const b = bounds || {};
@@ -129,5 +145,7 @@ export function PopoutWindow({ id, title, bounds, background, onClose, onWindowR
     // `children` may be a function so the frame can reach the window it is
     // drawing the title bar for: only that window's bridge controls it.
     const content = typeof children === 'function' ? children(winRef.current) : children;
-    return ReactDOM.createPortal(content, container);
+    // The tool keeps its place in the tree whether the cover is on or not, so
+    // the hold does not mount it again.
+    return ReactDOM.createPortal(h(Fragment, null, content, held && h(HeldCover, { win: winRef.current })), container);
 }

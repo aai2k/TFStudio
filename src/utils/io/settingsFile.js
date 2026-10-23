@@ -12,8 +12,10 @@ import { pruneBuiltInThemeNames, migrateThemeName, saveAppearance } from '../the
  * The saved settings, normalized, or null when there are none to apply.
  * `theme`, `locale`, `ribbonStyle` and `skippedVersion` are null when the file
  * does not name them, which leaves the value the app started with in place.
- * The two toggles are opt-out: a missing setting reads as on. The live link
- * for AI agents is opt-in: only a saved `true` turns it on.
+ * The two toggles are opt-out: a missing setting reads as on. `liveBridge`,
+ * whether the live link listens for programs from the start, is opt-in: only
+ * a saved `true` turns it on. `pythonPath`, the
+ * Python the Script Console runs Python scripts in, is '' when none is set.
  */
 export async function readAppSettings() {
     let settings = null;
@@ -37,6 +39,7 @@ export async function readAppSettings() {
         wasmTmm:            settings.wasmTmm !== false,
         updateCheckEnabled: settings.updateCheckEnabled !== false,
         liveBridge:         settings.liveBridge === true,
+        pythonPath:         typeof settings.pythonPath === 'string' ? settings.pythonPath : '',
         skippedVersion: typeof settings.skippedVersion === 'string' ? settings.skippedVersion : null,
     };
 }

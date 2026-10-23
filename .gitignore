@@ -33,6 +33,10 @@ AppData/
 # falls back to hardcoded defaults, so this file is not source.
 settings.json
 
+# Python's compiled modules, which running the tfstudio package from python/
+# writes beside it.
+__pycache__/
+
 # Editor / AI-assistant tooling config
 .vscode/
 .claude/

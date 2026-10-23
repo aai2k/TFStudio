@@ -30,7 +30,7 @@ claude mcp add tfstudio -- "C:\Users\you\AppData\Local\Programs\TFStudio\TFStudi
 
 添加服务器后重启助手。
 
-服务器使用应用所用的数据文件夹：默认是 `Documents\TFStudio`，除非你在设置中移动过它。它看到的材料，包括你自己的材料目录和库目录，与应用看到的相同。它只读取设计和材料目录，只写入助手保存的 `.tfs` 文件，已存在的文件只有在助手明确要求时才会被覆盖。此外它在应用旁保留自己的日志 `mcp-server.log`，并在应用的设置文件夹中保留自己的浏览器配置，因此不会影响正在打开的应用。
+服务器使用应用所用的数据文件夹：默认是 `Documents\TFStudio`，除非你在首选项中移动过它。它看到的材料，包括你自己的材料目录和库目录，与应用看到的相同。它只读取设计和材料目录，只写入助手保存的 `.tfs` 文件，已存在的文件只有在助手明确要求时才会被覆盖。此外它在应用旁保留自己的日志 `mcp-server.log`。
 
 ## 助手能做什么
 
@@ -44,7 +44,7 @@ claude mcp add tfstudio -- "C:\Users\you\AppData\Local\Programs\TFStudio\TFStudi
 | 运行 | `refine`、`synthesize`、`monteCarlo`、`jobStatus`、`stopJob`、`listJobs` |
 | 打开的设计（需 `--live`） | `listAppDesigns`、`readAppDesign`、`applyToApp` |
 
-`spectrum` 按[光学评价](/zh/analysis/optical-evaluation/)窗口的方式计算 R、T、A、Rs 和 Rp；`merit` 按[评价函数编辑器](/zh/design/merit-function-editor/)的显示给出总值和每一行；`refine` 可运行[精炼](/zh/synthesis/refinement/)窗口的任一方法；`synthesize` 运行[针法](/zh/synthesis/needle/)、[渐进演化](/zh/synthesis/gradual-evolution/)、[结构优化器](/zh/synthesis/structural-optimizer/)或深度合成。`monteCarlo` 和 `layerSensitivity` 与[蒙特卡洛](/zh/analysis/error-analysis/)和[层灵敏度](/zh/analysis/layer-sensitivity/)窗口的计算相同。评价函数的行使用[操作数参考](/zh/design/operands/)中的操作数。
+`spectrum` 按[光学评估](/zh/analysis/optical-evaluation/)窗口的方式计算 R、T、A、Rs 和 Rp；`merit` 按[评价函数编辑器](/zh/design/merit-function-editor/)的显示给出总值和每一行；`refine` 可运行[精炼](/zh/synthesis/refinement/)窗口的任一方法；`synthesize` 运行[针式变化](/zh/synthesis/needle/)、[渐进演化（GE）](/zh/synthesis/gradual-evolution/)或[结构优化器](/zh/synthesis/structural-optimizer/)。`monteCarlo` 和 `layerSensitivity` 与[蒙特卡洛](/zh/analysis/error-analysis/)和[层灵敏度](/zh/analysis/layer-sensitivity/)窗口的计算相同。评价函数的行使用[操作数参考](/zh/design/operands/)中的操作数。
 
 ## 工作方式
 
@@ -56,17 +56,24 @@ claude mcp add tfstudio -- "C:\Users\you\AppData\Local\Programs\TFStudio\TFStudi
 
 ## 处理打开的设计
 
-加上 `--live` 后，助手还可以处理 TFStudio 中打开的设计，你可以看着它变化。在 TFStudio 中依次打开首选项、自动化，开启**允许 AI 助手处理打开的设计**。然后在添加服务器的地方，在 `--mcp` 后面加上 `--live`，使其参数为：
+加上 `--live` 后，助手还可以处理 TFStudio 中打开的设计，你可以看着它变化。在添加服务器的地方，在 `--mcp` 后面加上 `--live`，使其参数为：
 
 ```json
 "args": ["--mcp", "--live"]
 ```
 
-在 Claude Code 中，命令以 `--mcp --live` 结尾。助手读取打开的设计的副本，用上面的工具修改副本，再把它写回：
+在 Claude Code 中，命令以 `--mcp --live` 结尾。
+
+然后，在让助手处理打开的设计之前，点击 TFStudio **优化**选项卡**脚本**组中的**交互**。助手工作期间，会有一个窗口挡住应用的其余部分。它显示“正在等待程序连接。”，然后显示“已连接：”和助手的名称。在此期间，你不能编辑、切换设计或启动运行，它后面的各窗口会随着助手的修改继续显示设计。**终止**会放开助手，把应用交还给你。助手在 TFStudio 没有等待连接时访问它，会被告知需要点击“交互”。
+
+助手读取打开的设计的副本，用上面的工具修改副本，再把它写回：
 
 - **一步撤销。** 它写回的每次修改都是设计历史中的一步，按 Ctrl+Z 即可撤销，并会有通知说明它修改了哪个设计。修改在你保存设计之前一直是未保存的。
 - **只写打开的设计。** 助手可以读取项目资源管理器中的任何设计，但只写入当前打开的那一个。
 - **你的编辑优先。** 如果设计在助手读取之后发生了变化，无论是编辑、撤销还是运行，它的写入都会被拒绝，并被告知重新读取设计，因此你所做的不会被覆盖。应用的某个窗口中正在运行时，写入也会被拒绝。
 - **运行不打开窗口。** 助手启动的精炼或合成在服务器中运行。如果助手要求写回，运行结束时若设计仍与助手读取时相同，结果会作为一步写回。被停止的运行不写入任何内容。
 - **新材料。** 服务器在启动时读取材料目录，因此你之后在应用中添加的材料，要在你重启助手后才能被助手使用。
-- **默认关闭。** 开关开启期间，你运行的任何程序都可以读取你的设计并修改打开的设计，就像它也可以修改你的设计文件一样；这台计算机的其他用户无法访问。没有助手工作时请将其关闭。
+
+首选项“自动化”中的 **TFStudio 启动时开始等待程序连接**让 TFStudio 从启动起就等待程序连接，无需点击“交互”，适用于你让其自行工作的助手。此时 TFStudio 会在每个程序首次连接前先询问，提供**允许**和**拒绝**，允许后才挡住应用；你拒绝过或用“终止”放开过的程序，只能通过“交互”再次连接。该设置开启期间，你运行的任何程序都可以请求处理你的设计；这台计算机的其他用户无法访问。它默认关闭，因此如非必要请保持关闭。
+
+不加 `--live`、只处理文件的助手不需要这些：它在你身旁打开和保存 `.tfs` 文件，应用不必为它等待。

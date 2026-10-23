@@ -72,4 +72,28 @@ ok(html.includes(t.explorer.searchPlaceholder), 'the project explorer is drawn')
     ok(closed.join() === '9', `closing one closes only that one, got: ${closed}`);
 }
 
+// The live link's dialogs are part of the shell, and the ribbon's Interactive
+// reaches the desktop app.
+{
+    const { LiveDialogs } = await import('../src/components/live/LiveDialogs.js');
+    const { Toolbar } = await import('../src/components/Toolbar.js');
+    const walk = function* walk(node) {
+        if (Array.isArray(node)) { for (const child of node) yield* walk(child); return; }
+        if (!node || typeof node !== 'object' || !node.props) return;
+        yield node;
+        yield* walk(node.props.children);
+    };
+    let tree = null;
+    function Probe() { tree = App(); return null; }
+    renderToStaticMarkup(React.createElement(Probe));
+    const drawn = [...walk(tree)];
+    ok(drawn.some(el => el.type === LiveDialogs), 'the shell draws the live link\'s dialogs');
+    let asked = 0;
+    const desktop = globalThis.electronAPI;
+    globalThis.electronAPI = { startInteractive: async () => { asked++; return { open: true }; } };
+    drawn.find(el => el.type === Toolbar).props.onToolAction('interactive');
+    globalThis.electronAPI = desktop;
+    ok(asked === 1, 'the ribbon\'s Interactive asks the desktop app to start listening');
+}
+
 console.log(`app_shell_render: ${passed} passed`);

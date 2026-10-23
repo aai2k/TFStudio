@@ -15,7 +15,8 @@
 //   build/app/index.html               <- generated (rebased asset paths)
 //   build/app/vendor/                  <- React(prod)/ReactDOM(prod)/ECharts/KaTeX
 //   build/app/mcp/server.js, jobWorker.js <- the MCP server for TFStudio.exe --mcp (tools/mcpBundle.mjs)
-//   build/app/scripts/scriptWorker.js  <- the Script Console's thread (tools/scriptBundle.mjs)
+//   build/app/apiServer/server.js      <- the API server for TFStudio.exe --api (tools/apiServerBundle.mjs)
+//   build/app/scripts/scriptWorker.js, pythonWorker.js <- the Script Console's threads (tools/scriptBundle.mjs)
 //   build/icons/                       <- copied; renderer uses ../icons/ from the doc
 //   build/splash.bmp                   <- portable-launch splash (tools/gen-splash.mjs)
 //
@@ -28,6 +29,7 @@ import { fileURLToPath } from 'node:url';
 import sharp from 'sharp';
 import { generateSplash } from './gen-splash.mjs';
 import { buildMcpServer } from './mcpBundle.mjs';
+import { buildApiServer } from './apiServerBundle.mjs';
 import { buildScriptWorker } from './scriptBundle.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -223,7 +225,10 @@ async function main() {
   console.log('[build-renderer] esbuild bundling the MCP server …');
   await buildMcpServer(path.join(outApp, 'mcp'));
 
-  console.log('[build-renderer] esbuild bundling the Script Console thread …');
+  console.log('[build-renderer] esbuild bundling the API server …');
+  await buildApiServer(path.join(outApp, 'apiServer'));
+
+  console.log('[build-renderer] esbuild bundling the Script Console threads …');
   await buildScriptWorker(path.join(outApp, 'scripts'));
 
   console.log('[build-renderer] done → build/app/');

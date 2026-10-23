@@ -28,6 +28,7 @@ const reply = (s, id, result) => s.send({ jsonrpc: '2.0', id, result });
 const fail = (s, id, code, message) => s.send({ jsonrpc: '2.0', id, error: { code, message } });
 
 function initialize(s, id, params) {
+    s.onClient(params?.clientInfo ?? null);
     const asked = params?.protocolVersion;
     const version = PROTOCOL_VERSIONS.includes(asked) ? asked : PROTOCOL_VERSIONS[0];
     reply(s, id, { protocolVersion: version, capabilities: { tools: {} }, serverInfo: s.serverInfo, instructions: s.instructions });
@@ -95,12 +96,13 @@ function receive(s, line) {
 /**
  * A session answering `tools`, a list of { name, title, description,
  * inputSchema, run(args, { signal }) }. `send(message)` writes one message;
- * `log(text)` writes a line for whoever reads the server's stderr. Returns
- * receive(line) for each line the client writes, and stopAll() to abort every
- * call still running.
+ * `log(text)` writes a line for whoever reads the server's stderr;
+ * `onClient(clientInfo)` is called with what `initialize` says of the client,
+ * or null when it says nothing. Returns receive(line) for each line the client
+ * writes, and stopAll() to abort every call still running.
  */
-export function createSession({ serverInfo, instructions, tools, send, log }) {
-    const s = { serverInfo, instructions, tools, send, log, calls: new Map() };
+export function createSession({ serverInfo, instructions, tools, send, log, onClient = () => {} }) {
+    const s = { serverInfo, instructions, tools, send, log, onClient, calls: new Map() };
     return {
         receive: line => {
             try { receive(s, line); } catch (err) {

@@ -3,7 +3,7 @@
 
 import {
     isKnownOperandType, isValidMeritWeight, isConstraint, isLinearThickness, isEllipsometry, readsWavelengthBand, polFromType, OPERAND_TYPES,
-    EXTREMUM_FLAG_MAX,
+    EXTREMUM_FLAG_MAX, makeOperand,
 } from '../utils/physics/optimizer.js';
 import { isMeasuredCurve, isEllipsometricMeasuredCurve } from '../utils/physics/optimizer/measuredCurveType.js';
 import { makeRowOperand } from '../components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
@@ -12,9 +12,7 @@ import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { meritTable } from '../utils/physics/meritDisplay.js';
 import { requireResolved } from './materials.js';
 import { warnWithoutKernel } from './environment.js';
-import { isAngle, shown } from './check.js';
-
-let rowSeq = 0;
+import { isAngle, shown, refusal } from './check.js';
 
 // The fields an operand row holds, over every operand type: the editor's
 // columns and what each type keeps beside them (operandModel.js makeOperand,
@@ -42,17 +40,21 @@ const CHECKS = [
     ['flag', v => Number.isInteger(v) && v >= 1 && v <= EXTREMUM_FLAG_MAX, `a whole number from 1 to ${EXTREMUM_FLAG_MAX}`],
 ];
 
-// What is wrong with merit row `row`, or null.
-function rowProblem(row) {
+// Refuses merit row `row`, row `i` of those given, unless this version
+// evaluates its type and each field it has is a field of a row, holding a
+// value that field can take.
+function checkRow(row, i) {
+    const at = `setMerit: row ${i}: `;
     if (!row || typeof row !== 'object' || !isKnownOperandType(row.type)) {
-        return `unknown operand type '${row?.type}'. Types: ${OPERAND_TYPES.join(', ')}`;
+        throw new Error(`${at}unknown operand type '${row?.type}'. Types: ${OPERAND_TYPES.join(', ')}`);
     }
     const unknown = Object.keys(row).find(key => !ROW_FIELDS.includes(key));
-    if (unknown) return `'${unknown}' is not a field of a merit row; a row takes ${ROW_FIELDS.join(', ')}`;
-    for (const [field, ok, takes] of CHECKS) {
-        if (field in row && !ok(row[field])) return `${field} is ${takes}, not ${shown(row[field])}`;
+    if (unknown) {
+        throw refusal('unknownOption', { call: 'setMerit', row: i, option: unknown, options: ROW_FIELDS },
+            `${at}'${unknown}' is not a field of a merit row; a row takes ${ROW_FIELDS.join(', ')}`);
     }
-    return null;
+    const [field, , takes] = CHECKS.find(([name, ok]) => name in row && !ok(row[name])) ?? [];
+    if (field) throw refusal('badValue', { call: 'setMerit', row: i, option: field, takes, value: row[field] }, `${at}${field} is ${takes}, not ${shown(row[field])}`);
 }
 
 // The row `row` makes, as the editor makes one. makeOperand reads a target of
@@ -65,12 +67,10 @@ function madeRow(row) {
     return made;
 }
 
-// Only a row over a band or a layer range reads lambdaEnd; a single
-// wavelength row keeps it from an earlier type unread, as the editor does.
-function bandProblem(op) {
-    const ranged = readsWavelengthBand(op.type) || isConstraint(op.type);
-    return ranged && op.lambdaStart > op.lambdaEnd ? `lambdaStart ${op.lambdaStart} is above lambdaEnd ${op.lambdaEnd}` : null;
-}
+// Whether `op` reads a band or a layer range that starts above its end. Only
+// such a row reads lambdaEnd; a single wavelength row keeps it from an earlier
+// type unread, as the editor does.
+const isReversed = op => (readsWavelengthBand(op.type) || isConstraint(op.type)) && op.lambdaStart > op.lambdaEnd;
 
 /**
  * A design with its merit function replaced by the rows given, as the
@@ -113,12 +113,16 @@ export function setMerit(design, rows) {
     // writes are taken too (ROW_FIELDS).
     if (!Array.isArray(rows)) throw new Error('setMerit: rows is a list of operand rows');
     const operands = rows.map((row, i) => {
-        const problem = rowProblem(row);
-        if (problem) throw new Error(`setMerit: row ${i}: ${problem}`);
+        checkRow(row, i);
         const made = madeRow(row);
-        const band = bandProblem(made);
-        if (band) throw new Error(`setMerit: row ${i}: ${band}`);
-        return { ...made, id: row.id ?? `api-op-${++rowSeq}`, enabled: row.enabled ?? true };
+        if (isReversed(made)) {
+            throw refusal('bandOrder', { call: 'setMerit', row: i, start: made.lambdaStart, end: made.lambdaEnd },
+                `setMerit: row ${i}: lambdaStart ${made.lambdaStart} is above lambdaEnd ${made.lambdaEnd}`);
+        }
+        // A row given no id takes a fresh one, as the editor gives a new row
+        // (operandModel.js makeOperand), so the rows of separate runs, and a
+        // row added to a design whose rows an earlier run made, never share one.
+        return { ...made, id: row.id ?? makeOperand().id, enabled: row.enabled ?? true };
     });
     return { ...design, meritOperands: operands };
 }

@@ -1,9 +1,9 @@
 /**
- * TFStudio.exe --mcp: the MCP server as the app starts it (src/main/mcpEntry.js).
+ * TFStudio.exe --mcp: the MCP server as the app starts it (src/main/serverEntry.js).
  *
  *   1. The bundle an installed app runs (tools/mcpBundle.mjs, built here to a
  *      folder of its own), loaded by the child entry the app starts
- *      (src/main/mcpChild.js) as the installed app starts it: with the WASM
+ *      (src/main/serverChild.js) as the installed app starts it: with the WASM
  *      kernel's file and a data folder named, and without the globals Node 16
  *      lacks (the Windows 7 build's Electron 22). It reports the version it is
  *      given, loads the kernel from that file and the folder's catalogs,
@@ -33,7 +33,7 @@ import { makeFakeApp } from './_fakeLiveApp.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..');
-const CHILD = path.join(ROOT, 'src', 'main', 'mcpChild.js');
+const CHILD = path.join(ROOT, 'src', 'main', 'serverChild.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {

@@ -2,18 +2,42 @@
 // not take, or a value it cannot use, is refused with an error naming what it
 // takes, so a misspelt name never runs on a default instead.
 
+/**
+ * An Error saying `message`, in the words of the plain calls, that also
+ * carries `code`, which refusal it is, and `fields`, the call, names and
+ * values it was worded from. The object API of each language words such a
+ * refusal again in its own names from these (objects/refusals.js, the Python
+ * package); the API server sends both on with the message.
+ *
+ *   unknownOption    { call, option, options, row }  an option the call does not take
+ *   badValue         { call, option, takes, value, row }  a value the option cannot take
+ *   noMerit          { call }  a design with no merit function
+ *   closedSide       { call, side, surfaceMode }  a side the Design Editor does not let you edit
+ *   wavelengthRange  { call, from, to }  wavelengths that are not a range
+ *   bandOrder        { call, row, start, end }  a merit row whose band starts above its end
+ *   fileExists       { call, path }  a file that is there, without overwrite
+ *   formulaMedia     { call }  a stack formula that names media
+ *
+ * `row` is there on a refusal of a merit row only: its place in the rows.
+ */
+export function refusal(code, fields, message) {
+    return Object.assign(new Error(message), { code, fields });
+}
+
 /** `options` (an object or nothing) after refusing any name not in `known`. */
 export function checkOptions(call, options, known) {
     if (options == null) return {};
     if (typeof options !== 'object' || Array.isArray(options)) throw new Error(`${call}: the options are an object of ${known.join(', ')}`);
     const unknown = Object.keys(options).find(key => !known.includes(key));
-    if (unknown) throw new Error(`${call}: unknown option '${unknown}'; the options are ${known.join(', ')}`);
+    if (unknown) {
+        throw refusal('unknownOption', { call, option: unknown, options: known }, `${call}: unknown option '${unknown}'; the options are ${known.join(', ')}`);
+    }
     return options;
 }
 
 /** Refuses `value` unless `ok(value)`, saying the option `name` is `takes`. */
 export function requireValue(call, name, value, ok, takes) {
-    if (!ok(value)) throw new Error(`${call}: ${name} is ${takes}, not ${shown(value)}`);
+    if (!ok(value)) throw refusal('badValue', { call, option: name, takes, value }, `${call}: ${name} is ${takes}, not ${shown(value)}`);
 }
 
 /** A value as a refusal names it: NaN and Infinity as themselves, which JSON would print as null. */
@@ -52,7 +76,7 @@ const MAX_POINTS = 1e6;
  */
 export function checkRange(call, { from, to, step }, angles = 1) {
     if (!(Number.isFinite(from) && Number.isFinite(to) && from > 0 && to > from)) {
-        throw new Error(`${call}: from and to are wavelengths in nm, 0 < from < to`);
+        throw refusal('wavelengthRange', { call, from, to }, `${call}: from and to are wavelengths in nm, 0 < from < to`);
     }
     requireValue(call, 'step', step, isPositive, 'a wavelength step in nm above 0');
     const points = (Math.floor((to - from) / step) + 1) * angles;

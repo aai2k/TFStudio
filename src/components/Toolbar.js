@@ -393,6 +393,18 @@ export const ICONS = {
                           P('M5.5 9.5L8 12L5.5 14.5'),
                           P('M9.5 14.5H14.5'),
                       ]),
+
+    // Interactive: the two halves of a plug joined, as a program joins the
+    // app. Tabler's plug-connected (MIT, see ui/tablerIcons.js) on this 20 px
+    // grid.
+    'interactive':    I([
+                          P('M5.83 10L10 14.17L8.75 15.42A2.95 2.95 0 1 1 4.58 11.25Z'),
+                          P('M14.17 10L10 5.83L11.25 4.58A2.95 2.95 0 1 1 15.42 8.75Z'),
+                          P('M2.5 17.5L4.58 15.42'),
+                          P('M15.42 4.58L17.5 2.5'),
+                          P('M8.33 9.17L6.67 10.83'),
+                          P('M10.83 11.67L9.17 13.33'),
+                      ]),
 };
 
 // ── Per-family signature colors (the "colorful" ribbon mode) ──────
@@ -427,7 +439,7 @@ const TOOL_GROUP = {
     'merit-function': 'optimization', 'refinement': 'optimization', 'needle': 'optimization',
     'needle-manual': 'optimization', 'gradual': 'optimization', 'structural': 'optimization',
     'variator': 'optimization', 'design-cleaner': 'optimization', 'filter-design': 'optimization',
-    'script-console': 'optimization',
+    'script-console': 'optimization', 'interactive': 'optimization',
     'bbm-simulator': 'simulation', 'mono-simulator': 'simulation', 'monitor-worksheet': 'simulation',
     'process-sim': 'simulation',
     'zemax-coatings': 'data-exchange', 'spectrum-exchange': 'data-exchange', 'measured-ellipsometry': 'data-exchange',
@@ -484,7 +496,7 @@ export function makeTabs(t) {
                 grp('refinement', ['merit-function', 'refinement', 'variator']),
                 grp('synthesis',  ['needle', 'needle-manual', 'gradual', 'structural', 'filter-design']),
                 grp('cleanup',    ['design-cleaner']),
-                grp('scripts',    ['script-console']),
+                grp('scripts',    ['script-console', 'interactive']),
             ]
         },
         {

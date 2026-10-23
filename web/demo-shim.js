@@ -404,6 +404,9 @@
     return Promise.resolve(ok());
   }
 
+  // The file type a Script Console script is saved as, by its language.
+  const SCRIPT_TYPES = { javascript: 'text/javascript;charset=utf-8', python: 'text/x-python;charset=utf-8' };
+
   // ── Event-listener registrations (menu/window chrome) — inert in browser ─────
   // These return an unsubscribe fn in Electron; callers tolerate undefined.
   const onNoop = () => () => {};
@@ -475,13 +478,14 @@
     spectrumPickFile:     () => pickText('.csv,.txt,.asc,.prn,.dx,.jdx,.dat,.tsv'),
     spectrumSaveFile:     (text, suggestedName) => saveText(text, suggestedName || 'spectrum.csv', 'text/csv;charset=utf-8'),
 
-    // Script Console: a script runs on a Node thread of the desktop app, which
-    // a browser has not, so Run answers that; a script still opens and saves.
+    // Script Console: a script runs on a Node thread of the desktop app, or in
+    // the Python it starts, which a browser has neither of, so Run answers
+    // that; a script still opens and saves.
     runScript:      () => Promise.resolve({ state: 'unavailable' }),
     stopScript:     () => Promise.resolve(),
     onScriptOutput: onNoop,
-    openScriptFile: () => pickText('.js'),
-    saveScriptFile: (text, suggestedName) => saveText(text, suggestedName || 'script.js', 'text/javascript;charset=utf-8'),
+    openScriptFile: () => pickText('.js,.py'),
+    saveScriptFile: (text, suggestedName = 'script.js', language = 'javascript') => saveText(text, suggestedName, SCRIPT_TYPES[language]),
 
     // help
     openHelp,

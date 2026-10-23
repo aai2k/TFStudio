@@ -17,7 +17,7 @@ import { mirrorLayers } from '../utils/physics/optimizer.js';
 import { ensureLayerIds } from '../utils/io/newDesign.js';
 import { requireMaterial, requireResolved, materialName } from './materials.js';
 import { warnWithoutKernel } from './environment.js';
-import { checkOptions, checkHooks } from './check.js';
+import { checkOptions, checkHooks, refusal } from './check.js';
 
 const makeWorker = () => new InThreadOptimizerWorker();
 const makeWorkerPool = size => new InThreadSynthesisPool(size);
@@ -61,7 +61,7 @@ function withAnswer(design, { frontLayers, backLayers }) {
 function operandsOf(call, design) {
     requireResolved(design);
     const operands = design.meritOperands || [];
-    if (!operands.some(op => op.enabled !== false)) throw new Error(`${call}: the design has no merit function; set one with setMerit`);
+    if (!operands.some(op => op.enabled !== false)) throw refusal('noMerit', { call }, `${call}: the design has no merit function; set one with setMerit`);
     return operands;
 }
 

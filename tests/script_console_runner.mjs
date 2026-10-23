@@ -9,18 +9,28 @@
  * that however fast it prints, and the thread holds no more than twice that
  * between batches; a line too long for the bound is cut, and says
  * by how much. What the script printed still arrives when it calls
- * process.exit() or throws from a timer, and such an error names its line. A
- * design the script replaced or changed in place comes back, checked as a
- * design; one it left alone does not, and a value that is not a design is
- * refused with a reason that speaks of tf.design, not of a file. An error
- * names the script's own line and none of the app's. Stop ends a script that
+ * process.exit() or throws from a timer, and such an error names its line.
+ * tf is the object API (src/api/objects), with the open design in tf.design as
+ * a Design, what starting the API answered in tf.info, and none of the plain
+ * calls. A design the script changed, or another
+ * Design it put in tf.design, comes back, checked as a design, and so does one
+ * made with no design open; one left alone, replaced by an unchanged copy, or
+ * changed in its name alone, does not. The script runs in strict mode, so
+ * assigning tf.design.substrate, which cannot be set, throws, naming it at the
+ * script's line. A value that is not a Design, null included, is refused with a
+ * reason that speaks of tf.design, not of a file, and so is a Design whose data
+ * is not a design. An error
+ * names the script's own line and none of the app's, and so does the refusal
+ * of a run the script awaits, such as refine() on a design with no merit
+ * function; the answer carries that line. Stop ends a script that
  * never ends, and once it has, nothing more of that run arrives, however
  * late the thread's last batch is handled. The engine's own console output,
  * and anything else written to the thread's console, goes to the log and not
  * the output. The thread starts the API on the data folder it is given: a
  * design using a material from a user catalog there computes the spectrum the
  * API computes here. require is Node's, and finds a file beside a saved
- * script; import() is not offered.
+ * script; import() is not offered. A Python run whose Python does not start
+ * ends with the error that says why.
  *
  * Run: node tests/script_console_runner.mjs
  */
@@ -46,6 +56,7 @@ fs.copyFileSync(path.join(ROOT, 'tests', 'fixtures', 'designs', 'user-catalog-no
 const logged = [];
 const runs = createScriptRuns({
     workerFile: scriptWorkerFile({ isPackaged: false, srcDir: path.join(ROOT, 'src') }),
+    pythonWorkerFile: scriptWorkerFile({ isPackaged: false, srcDir: path.join(ROOT, 'src') }, 'pythonWorker.js'),
     log: line => logged.push(line),
 });
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
@@ -74,18 +85,22 @@ await api.init({ dataDir });
 const ar = api.stackFromFormula(api.newDesign({ name: 'AR' }), { formula: '(HL)^2', symbols: { H: 'user_lab:Ta2O5', L: 'SiO2' } });
 
 const [
-    printed, untouched, replaced, inPlace, notNumber, noSubstrate, runtime, syntax, spectrum, required, imported,
-    exited, thrownLater, longLine, manyLines,
+    printed, untouched, replaced, inPlace, sameCopy, created, notNumber, plainObject, emptied, noSubstrate, runtime, syntax, spectrum,
+    required, imported, exited, thrownLater, longLine, manyLines, readOnly, renamed, refusedRefine, refusedSynthesis,
 ] = await Promise.all([
     run("console.log('a', 1);\nconsole.warn({ x: 2 });\nconsole.error('two\\nlines');"),
     run('console.log(tf.design.name);', ar),
-    run("tf.design = tf.insertLayer(tf.design, { material: 'SiO2', thickness: 100 });", ar),
-    run('tf.design.frontLayers[0].thickness = 77;', ar),
+    run("const copy = tf.design.copy();\ncopy.layers.append('SiO2', 100);\ntf.design = copy;", ar),
+    run('tf.design.layers[tf.design.layers.length].thickness = 77;', ar),
+    run('tf.design = tf.design.copy();', ar),
+    run("console.log(tf.design, typeof tf.newDesign, typeof tf.setMerit, tf.info.dataDir);\ntf.design = tf.newDesign('Fresh');"),
     run('tf.design = 42;', ar),
     run("tf.design = { name: 'no substrate' };", ar),
+    run('tf.design = null;', ar),
+    run("tf.design._data = { name: 'no substrate' };", ar),
     run('const a = 1;\nnull.x;', ar),
     run('const a = 1;\n\nlet x = ;', ar),
-    run('console.log(JSON.stringify(tf.spectrum(tf.design, { from: 450, to: 650, step: 50 }).angles));', ar),
+    run('console.log(JSON.stringify(tf.design.spectrum(450, 650, { step: 50 }).R));', ar),
     (() => {
         const folder = path.join(out, 'saved');
         fs.mkdirSync(folder);
@@ -97,6 +112,10 @@ const [
     run("setTimeout(() => { throw new Error('boom'); }, 10);\nconsole.log('x');\nconsole.log('y');\nawait new Promise(resolve => setTimeout(resolve, 2000));"),
     run(`console.log('x'.repeat(${OUTPUT_CHARS + 5}));`),
     run(`console.log(Array.from({ length: ${OUTPUT_LINES + 3} }, (_, i) => i).join('\\n'));`),
+    run("tf.design.substrate = 'SiO2';", ar),
+    run("tf.design.name = 'AR v2';", ar),
+    run('await tf.design.refine();', ar),
+    run("const pool = ['TiO2', 'SiO2'];\nawait tf.design.synthesize('needle', pool);", ar),
 ]);
 
 // ── Output ──────────────────────────────────────────────────────────────────
@@ -153,17 +172,26 @@ assert.deepEqual(keepNewest(['a', 'b']), { lines: ['a', 'b'], left: 0 });
 }
 
 // ── The design that comes back ──────────────────────────────────────────────
+assert.deepEqual(printed.answer, { state: 'done', design: undefined, invalid: undefined }, 'with no design open, tf.design left null brings nothing back');
 assert.deepEqual(untouched.answer, { state: 'done', design: undefined, invalid: undefined }, 'a design left alone does not come back');
-assert.equal(replaced.answer.design?.frontLayers.length, ar.frontLayers.length + 1, 'a replaced design comes back');
+assert.equal(replaced.answer.design?.frontLayers.length, ar.frontLayers.length + 1, 'another Design put in tf.design comes back');
 assert.equal(replaced.answer.design.name, 'AR');
 assert.equal(inPlace.answer.design?.frontLayers[0].thickness, 77, 'a design changed in place comes back');
-for (const [what, { answer }] of [['a number', notNumber], ['a design with no substrate', noSubstrate]]) {
+assert.deepEqual(sameCopy.answer, { state: 'done', design: undefined, invalid: undefined }, 'an unchanged copy put in tf.design does not');
+assert.deepEqual(created.output, [`null function undefined ${dataDir}`],
+    'with no design open tf.design is null, tf has the object API, not the plain calls, and tf.info is what starting the API answered');
+assert.equal(created.answer.design?.name, 'Fresh', 'a design made with none open comes back, for the window to refuse');
+for (const [what, { answer }] of [['a number', notNumber], ['a plain object', plainObject], ['null', emptied], ['a Design with no substrate', noSubstrate]]) {
     assert.equal(answer.state, 'done', `${what}: the script itself ran`);
     assert.equal(answer.design, undefined, `${what}: is not taken as a design`);
     assert.ok(typeof answer.invalid === 'string' && answer.invalid.length > 0, `${what}: the reason is given (${answer.invalid})`);
     assert.doesNotMatch(answer.invalid, /file/i, `${what}: the reason speaks of no file, which a script has not read`);
 }
+assert.deepEqual(renamed.answer, { state: 'done', design: undefined, invalid: undefined },
+    'a design changed in its name alone does not come back, since applying a design keeps the open design\'s name');
 assert.equal(notNumber.answer.invalid, 'tf.design is a number.');
+assert.equal(plainObject.answer.invalid, 'tf.design is an object that is not a Design.');
+assert.equal(emptied.answer.invalid, 'tf.design is null.');
 
 // ── Errors name the script's lines ──────────────────────────────────────────
 assert.equal(runtime.answer.state, 'failed');
@@ -171,13 +199,23 @@ assert.match(runtime.answer.error, /^TypeError: .*\n\s+at my\.js:2:6$/, `a throw
 assert.equal(syntax.answer.state, 'failed');
 assert.match(syntax.answer.error, /^my\.js:3\n/, `a syntax error names the script line: ${syntax.answer.error}`);
 assert.match(syntax.answer.error, /SyntaxError/);
-for (const error of [runtime.answer.error, syntax.answer.error]) {
+assert.equal(readOnly.answer.state, 'failed', 'the script runs in strict mode, so assigning an attribute that cannot be set throws');
+assert.match(readOnly.answer.error, /^TypeError: .*substrate.*\n\s+at my\.js:1:\d+$/, `naming the attribute, at the script line: ${readOnly.answer.error}`);
+// `ar` has no merit function, so refine() and synthesize() refuse it.
+for (const [{ answer }, method, line] of [[refusedRefine, 'refine', 1], [refusedSynthesis, 'synthesize', 2]]) {
+    assert.equal(answer.state, 'failed');
+    assert.equal(answer.error.replace(/:\d+$/, ''), `Error: ${method}: the design has no merit function; add a row with merit.add()\n    at my.js:${line}`,
+        `a run's refusal, which the script awaits, names the script line: ${answer.error}`);
+}
+for (const error of [runtime.answer.error, syntax.answer.error, readOnly.answer.error, refusedRefine.answer.error, refusedSynthesis.answer.error]) {
     assert.ok(!/runScript|scriptWorker|node:/.test(error), `no frame of the app's own: ${error}`);
 }
+assert.deepEqual([runtime, syntax, readOnly, thrownLater, refusedRefine, refusedSynthesis].map(({ answer }) => answer.line), [2, 3, 1, 1, 1, 2],
+    'the answer names the script\'s line the error is at, for the editor to mark');
 
 // ── The data folder's catalogs, Node's require, no import() ─────────────────
 const local = api.spectrum(ar, { from: 450, to: 650, step: 50 });
-assert.deepEqual(spectrum.output, [JSON.stringify(local.angles)], 'the thread computes the API\'s spectrum with a user-catalog material');
+assert.deepEqual(spectrum.output, [JSON.stringify(local.angles[0].R)], 'the thread computes the API\'s spectrum with a user-catalog material');
 assert.deepEqual(required.output, ['42 b.txt'], 'require finds a file beside the saved script, and Node\'s modules');
 assert.equal(imported.answer.state, 'failed', 'import() is not offered');
 
@@ -225,12 +263,23 @@ assert.equal(imported.answer.state, 'failed', 'import() is not offered');
     const merit = api.setMerit(ar, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, weight: 1 }]);
     const { answer, output } = await run([
         "globalThis.console.log('engine report');",
-        "const { result } = await tf.refine(tf.design, { method: 'dls', maxIter: 5 });",
-        "console.log('refined', result.mf >= 0);",
+        "const run = await tf.design.refine({ method: 'dls', maxIter: 5 });",
+        "console.log('refined', run.merit >= 0);",
     ].join('\n'), merit);
     assert.equal(answer.state, 'done', answer.error);
     assert.deepEqual(output, ['refined true'], 'only what the script printed reaches the output');
+    assert.notDeepEqual(answer.design?.frontLayers.map(l => l.thickness), merit.frontLayers.map(l => l.thickness), 'and the refined design comes back');
     assert.ok(logged.some(line => line.includes('engine report')), 'the thread\'s own console reaches the log');
+}
+
+// ── A Python that does not start ────────────────────────────────────────────
+{
+    const missing = path.join(out, 'no-such-python.exe');
+    const answer = await runs.startPython('py-missing', 'test', {
+        environment: { dataDir, wasmPath: null }, version: '0', text: 'print(1)', fileName: 'my.py', filePath: null, design: null,
+    }, async () => ({ command: missing, args: ['-m', 'tfstudio._console'], cwd: out, env: process.env }), () => {});
+    assert.equal(answer.state, 'failed', 'a Python that does not start ends its run');
+    assert.ok(answer.error.startsWith(`${missing}: `) && answer.error.includes('ENOENT'), `with the error that says why: ${answer.error}`);
 }
 
 fs.rmSync(out, { recursive: true, force: true });

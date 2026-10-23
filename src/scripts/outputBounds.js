@@ -1,8 +1,8 @@
 /**
- * How much of what a Script Console script prints is kept: by the script's
- * thread in each batch it posts (scriptWorker.js), and by the window's output
- * pane. Both keep the newest lines, since a long run prints its progress first
- * and its result last.
+ * How much of what a Script Console script prints is kept: by the run's
+ * thread in each batch it posts (scriptWorker.js, pythonWorker.js), and by the
+ * window's output pane. Both keep the newest lines, since a long run prints
+ * its progress first and its result last.
  *
  * A line is a string, or { text, cut } for a line longer than OUTPUT_CHARS:
  * its first OUTPUT_CHARS characters and how many more it had, which the window
@@ -82,4 +82,36 @@ export function createHeldOutput() {
         return batch;
     }
     return { add, take, size: () => lines.length };
+}
+
+// The window redraws its output for each batch, so what a script prints goes
+// out at most four times a second however fast it prints.
+const OUTPUT_EVERY_MS = 250;
+
+/**
+ * What a run's thread prints, sent in batches. `print(text)` holds the lines
+ * of one print (createHeldOutput), and `flush()` sends what is held at once,
+ * as the thread does before the run's answer. `send({ lines, dropped })` gets
+ * each batch that holds anything. A batch goes from inside print() itself once
+ * the quarter second is up, so a script that never yields, a loop with no
+ * await, still shows its output as it goes.
+ */
+export function createOutputBatches(send) {
+    const held = createHeldOutput();
+    let lastSent = 0;
+    let timer = null;
+    function flush() {
+        clearTimeout(timer);
+        timer = null;
+        const batch = held.take();
+        if (batch.lines.length || batch.dropped) send(batch);
+        lastSent = Date.now();
+    }
+    function print(text) {
+        held.add(text);
+        const wait = OUTPUT_EVERY_MS - (Date.now() - lastSent);
+        if (wait <= 0) flush();
+        else timer ??= setTimeout(flush, wait);
+    }
+    return { print, flush };
 }

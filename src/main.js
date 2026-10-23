@@ -14,17 +14,24 @@ const { designFileFromArgv } = require('./main/openFileArg');
 const { registerAllIpc } = require('./main/ipc');
 const appWindowIpc = require('./main/ipc/appWindow');
 const { canPlaceOwnWindows } = require('./main/windowPlacement');
-const { startMcpServer } = require('./main/mcpEntry');
+const { startServer } = require('./main/serverEntry');
+const { serverLaunch, launchProgram } = require('./main/serverLaunch');
 const { LINK_FILE } = require('./main/liveProtocol');
 
-// TFStudio.exe --mcp serves the MCP server on stdin and stdout and opens no
-// window (main/mcpEntry.js). stdout then carries the protocol alone, so what
-// the main process logs goes to stderr. With --live as well, the server also
-// reaches the designs of the app that is open, through the live link the app
-// opens while its switch in Preferences > Automation is on
-// (main/liveProtocol.js).
-const mcpMode = process.argv.includes('--mcp');
-if (mcpMode) {
+// TFStudio.exe --mcp serves the MCP server, and TFStudio.exe --api the API
+// server, on stdin and stdout and opens no window (main/serverEntry.js).
+// stdout then carries the protocol alone, so what the main process logs goes
+// to stderr. With --live as well, the server also reaches the designs of the
+// app that is open, through the live link the app opens while it listens for
+// programs (main/liveProtocol.js), and --program <name> is the name the app
+// shows for the program. --data <folder> runs the server on that data folder
+// in place of the app's.
+const { kind: serverKind, dataDir: serverDataDir, refusal } = serverLaunch(process.argv);
+if (refusal) {
+  process.stderr.write(`TFStudio: ${refusal}\n`);
+  process.exit(1);
+}
+if (serverKind) {
   const { format } = require('util');
   for (const level of ['log', 'info', 'warn', 'debug']) {
     console[level] = (...args) => process.stderr.write(`${format(...args)}\n`);
@@ -44,7 +51,7 @@ const exeDir = resolveExeDir({
   execPath: process.execPath,
   appPath: app.getAppPath(),
 });
-logger.init(exeDir, mcpMode ? 'mcp-server.log' : undefined);
+logger.init(exeDir, serverKind ? `${serverKind}-server.log` : undefined);
 
 let userDataDir = resolveUserDataDir({
   portableDir: process.env.PORTABLE_EXECUTABLE_DIR,
@@ -89,9 +96,10 @@ try {
   }
 }
 
-// A server started with --mcp keeps its Chromium profile apart from the
-// app's, so it can run while the app is open.
-app.setPath('userData', mcpMode ? path.join(userDataDir, 'McpServer') : userDataDir);
+// A server started with --mcp or --api keeps its Chromium profile apart from
+// the app's, so it can run while the app is open.
+const SERVER_PROFILES = { mcp: 'McpServer', api: 'ApiServer' };
+app.setPath('userData', serverKind ? path.join(userDataDir, SERVER_PROFILES[serverKind]) : userDataDir);
 flushLog();
 
 let mainWindow;
@@ -101,8 +109,8 @@ let userPaths;
 // the same Chromium profile, settings.json (last-writer-wins), the log file, and
 // load-folders writing fresh ids into copies the other instance has open. Hand
 // off to the already-running instance and exit before any further init runs.
-// A server started with --mcp has no window and runs beside the app.
-if (!mcpMode && !app.requestSingleInstanceLock()) {
+// A server started with --mcp or --api has no window and runs beside the app.
+if (!serverKind && !app.requestSingleInstanceLock()) {
   app.quit();
   process.exit(0);
 }
@@ -333,10 +341,11 @@ function setupIpcHandlers() {
 }
 
 app.whenReady().then(() => {
-  if (mcpMode) {
-    startMcpServer({
-      app, isPackaged, exeDir, settingsPath: path.join(userDataDir, 'settings.json'), log,
+  if (serverKind) {
+    startServer({
+      kind: serverKind, app, isPackaged, exeDir, settingsPath: path.join(userDataDir, 'settings.json'), dataDir: serverDataDir, log,
       liveFile: process.argv.includes('--live') ? path.join(userDataDir, LINK_FILE) : null,
+      program: launchProgram(process.argv),
     });
     return;
   }

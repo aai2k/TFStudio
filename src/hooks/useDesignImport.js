@@ -13,6 +13,7 @@ import { uniqueDesignName } from '../utils/io/designNaming.js';
 import { copyDesignWithFreshIds } from '../utils/io/designFiles.js';
 import { DEFAULT_DESIGN_IMPORT_UNITS } from '../utils/io/designImport/designFileImport.js';
 import { designFileLocations } from '../components/panels/projectExplorerModel.js';
+import { isAppHeld, useAppHeld } from '../components/live/appHold.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -127,7 +128,21 @@ export function useDesignImport({ tree, addItemFromDesign, openTool, setMessageN
         openedFileDesignsRef, setMessageNotification, t,
     };
 
-    const openDesignFromPath = useCallback((filePath) => openFromPath(a.current, filePath), []);
+    // A design handed over while a program holds the app (components/live)
+    // waits until the app is given back, so nothing switches the open design
+    // under the program; the designs that waited then open in the order they
+    // came.
+    const waitingRef = useRef([]);
+    const openDesignFromPath = useCallback(async (filePath) => {
+        if (isAppHeld()) waitingRef.current.push(filePath);
+        else await openFromPath(a.current, filePath);
+    }, []);
+    const held = useAppHeld();
+    useEffect(() => {
+        if (held) return;
+        let opened = Promise.resolve();
+        for (const filePath of waitingRef.current.splice(0)) opened = opened.then(() => openDesignFromPath(filePath));
+    }, [held, openDesignFromPath]);
 
     // Subscribed once the tree is in memory, because a design named on the
     // command line has to be found in it before it is imported as a copy.

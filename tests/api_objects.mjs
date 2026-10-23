@@ -1,0 +1,642 @@
+/**
+ * The object API (src/api/objects) gives what the plain calls (src/api) give
+ * for the same design, as tests/_pythonObjects.mjs checks the Python
+ * package's objects:
+ *
+ *   newDesign, with its arguments and with them left out, and stack with
+ *   symbols, on the back from the outermost layer in, and an option stack
+ *   does not take; layer edits by number from the
+ *   substrate, on the front and the back, a copy changing apart, numbers a side
+ *   has no layer of refused, and layers[n] not set; the setup attributes
+ *   (substrate material and thickness in mm, media, name, and a reference
+ *   that rescales the layers); save(), refusing a file that is there without
+ *   overwrite, and openDesign(); sides and scoreOn
+ *   round-tripping to surfaceMode and mfEvalMode, and the mode of a spectrum, a
+ *   Monte Carlo run, a refinement and a layer ranking being the API's
+ *   evaluation mode, for every pair; materials by id, catalog:key ids
+ *   included, by name and by the builtin: id a stacked layer holds, and their
+ *   n and k, and a name two materials share refused; spectrum curves at two
+ *   angles as arrays, their mean, min and max over a band and the whole range,
+ *   and the CSV file; merit rows, with start and end left out before the
+ *   options, and options given as undefined or null, value, rows and clear(),
+ *   and rows added in separate processes, as separate Script Console runs add
+ *   them, each with an id of its own; refine and synthesize with seeds, Monte
+ *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
+ *   back rows and locked rows; the Progress objects of a refinement, a Needle
+ *   run, a Deep Synthesis run and a Monte Carlo run; a stop aborted in
+ *   progress and before the run, a run of each method stopped part way leaving
+ *   the design as it was, Deep Synthesis's included, a progress function that
+ *   throws at any report of a run of each method, ending a long run there
+ *   whether the run was given a stop or not, and a stop or progress of the
+ *   wrong kind; the refusals of the plain calls the objects make, in the
+ *   objects' words, the layer edits' included, while the plain calls keep
+ *   theirs.
+ *
+ * Run: node tests/api_objects.mjs
+ */
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { encode } from '../src/apiServer/wire.js';
+import { deleteOperands } from '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
+
+const api = await import('../src/api/index.js');
+const objects = await import('../src/api/objects/index.js');
+
+let pass = 0, fail = 0;
+const ok = (name, cond, detail = '') => {
+    if (cond) pass++;
+    else { fail++; console.error(`FAIL: ${name}${detail ? `  (${detail})` : ''}`); }
+};
+// A value without what differs from one computation of it to the next: the
+// ids a design draws at random, and the time a synthesis step took (tMs).
+const DRAWN = new Set(['id', 'tMs']);
+const undrawn = v => {
+    if (Array.isArray(v)) return v.map(undrawn);
+    if (!v || typeof v !== 'object' || ArrayBuffer.isView(v)) return v;
+    return Object.fromEntries(Object.entries(v).filter(([key]) => !DRAWN.has(key)).map(([key, x]) => [key, undrawn(x)]));
+};
+const canon = v => encode(undrawn(v));
+// The engine prints as it runs; the runs made here keep it off the test's output.
+const quietly = async run => {
+    const { log, warn, info } = console;
+    console.log = console.warn = console.info = () => {};
+    try { return await run(); } finally { Object.assign(console, { log, warn, info }); }
+};
+// The message of what `make` threw, or null.
+const refused = async make => {
+    try { await make(); return null; } catch (err) { return err.message; }
+};
+
+const WORK = fs.mkdtempSync(path.join(os.tmpdir(), 'tfs-objects-'));
+// A data folder with two user catalogs, each holding a material named
+// SHARED, a name no material has as its id.
+const SHARED = 'Lab film';
+const dataDir = path.join(WORK, 'data');
+{
+    const userDir = path.join(dataDir, 'Materials', 'user');
+    fs.mkdirSync(userDir, { recursive: true });
+    const lab = JSON.parse(fs.readFileSync(new URL('./fixtures/designs/user-catalog-no-copy/catalogs/catalog-present/user/user_lab.catalog.json', import.meta.url), 'utf8'));
+    for (const id of ['lab_a', 'lab_b']) {
+        const materials = { Ta2O5: { ...lab.materials.Ta2O5, name: SHARED } };
+        fs.writeFileSync(path.join(userDir, `${id}.catalog.json`), JSON.stringify({ ...lab, id, name: id, materials }));
+    }
+}
+const tf = await objects.start({ dataDir });
+const POOL = ['TiO2', 'SiO2'];
+const QUANTITIES = ['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'];
+const listed = layers => [...layers].map(layer => [layer.number, layer.side, layer.material, layer.thickness, layer.locked]);
+const stored = (layers, side) => layers.map((layer, i) => [i + 1, side, layer.material, layer.thickness, !!layer.locked]);
+// A layer ranking's rows as the API gives them, numbered as the objects number
+// a side's layers, and as a LayerSensitivity gives them.
+const apiRanks = (ranking, frontCount) => ranking.rows.map(r => [r.side, r.side === 'front' ? frontCount - r.layerIndex : r.layerIndex + 1, r.materialId,
+    r.thickness, r.deltaNm, r.deltaMFAbs, r.deltaMF, r.sensitivity, r.locked]);
+const objectRanks = ranking => ranking.rows.map(r => [r.side, r.number, r.material, r.thickness, r.step, r.meritChange, r.signedMeritChange, r.sensitivity, r.locked]);
+const SIDE_LAYERS = { front: 'layers', back: 'backLayers' };
+
+// ── Designs and their layers ────────────────────────────────────────────────
+const design = tf.newDesign('Stack', { substrate: 'BK7', reference: 550 });
+const fresh = design._data;
+ok('newDesign is newDesign with the name, substrate and reference wavelength',
+    canon(fresh) === canon(api.newDesign({ name: 'Stack', substrate: 'BK7', referenceWavelength: 550 })));
+ok('and its name may be left out before the options, and every argument after', canon(tf.newDesign({ substrate: 'SiO2' })._data) === canon(api.newDesign({ substrate: 'SiO2' }))
+    && canon(tf.newDesign()._data) === canon(api.newDesign()));
+ok('and options given as undefined or null are no options', canon(tf.newDesign('Stack', undefined)._data) === canon(fresh)
+    && canon(tf.newDesign('Stack', null)._data) === canon(fresh));
+design.stack('(HL)^3 H', { H: 'TiO2', L: 'SiO2', at: 600 });
+const stacked = design._data;
+ok('stack is stackFromFormula with the symbols, and at as the reference wavelength',
+    canon(stacked) === canon(api.stackFromFormula(fresh, { formula: '(HL)^3 H', symbols: { H: 'TiO2', L: 'SiO2' }, referenceWavelength: 600 })));
+const stackOption = await refused(() => design.copy().stack('HL', { sid: 'back' }));
+ok('and an option stack does not take is refused, naming those it takes',
+    stackOption === "stack: unknown option 'sid'; the options are at, side, fromSubstrate, and a letter for each symbol", stackOption);
+{
+    // H and L are different materials, so a formula read from the wrong end shows.
+    const backed = design.copy();
+    backed.sides = 'both';
+    const before = backed._data;
+    backed.stack('HL', { side: 'back', fromSubstrate: false, H: 'Ta2O5' });
+    ok('side and fromSubstrate are stackFromFormula\'s side and startFromSubstrate',
+        canon(backed._data) === canon(api.stackFromFormula(before, { formula: 'HL', symbols: { H: 'Ta2O5' }, side: 'back', startFromSubstrate: false })));
+}
+
+design.layers[1].thickness = 12.5;
+design.layers[3].locked = true;
+design.layers[2].material = 'Ta2O5';
+design.layers.append('MgF2', 95);
+design.layers.insert(2, 'Al2O3', 20);
+design.layers.remove(4);
+// Layer n on the front is the API's index count - n, the outermost first; a
+// new layer n goes in at count + 1 - n.
+const front = d => d.frontLayers.length;
+const FRONT_EDITS = [
+    d => api.setLayer(d, { index: front(d) - 1, thickness: 12.5 }),
+    d => api.setLayer(d, { index: front(d) - 3, locked: true }),
+    d => api.setLayer(d, { index: front(d) - 2, material: 'Ta2O5' }),
+    d => api.insertLayer(d, { index: 0, material: 'MgF2', thickness: 95 }),
+    d => api.insertLayer(d, { index: front(d) + 1 - 2, material: 'Al2O3', thickness: 20 }),
+    d => api.deleteLayer(d, { index: front(d) - 4 }),
+];
+const edited = FRONT_EDITS.reduce((d, edit) => edit(d), stacked);
+ok('layer edits by number from the substrate are the API\'s edits at the front\'s indices', canon(design._data) === canon(edited));
+ok('and the layers go from layer 1, next to the substrate, outward', canon(listed(design.layers)) === canon(stored([...edited.frontLayers].reverse(), 'front'))
+    && design.layers[1].thickness === 12.5 && design.layers.length === edited.frontLayers.length, JSON.stringify(listed(design.layers)));
+const count = design.layers.length;
+const numbered = `the front has ${count} layers, numbered from 1 next to the substrate`;
+const refusals = [
+    await refused(() => design.layers[0]), await refused(() => design.layers[count + 1]),
+    await refused(() => design.layers.insert(count + 2, 'SiO2', 10)), await refused(() => design.layers.remove('1')), await refused(() => design.layers[1.5]),
+];
+ok('a number the side has no layer of is refused, naming the numbers', JSON.stringify(refusals) === JSON.stringify([
+    `layer 0: ${numbered}`, `layer ${count + 1}: ${numbered}`, `layer ${count + 2}: ${numbered}, and a new one can be layer ${count + 1}`,
+    `layer "1": ${numbered}`, `layer 1.5: ${numbered}`]), JSON.stringify(refusals));
+const setWhole = await refused(() => { design.layers[1] = 5; });
+ok('layers[n] cannot be set, and setting it changes nothing', setWhole === 'layers[1] cannot be set: set its material, thickness or locked, or use insert() and remove()'
+    && canon(design._data) === canon(edited), setWhole);
+
+const both = design.copy();
+both.sides = 'both';
+both.backLayers.append('SiO2', 100);
+both.backLayers.append('TiO2', 30);
+both.backLayers.insert(1, 'MgF2', 40);
+both.backLayers[2].thickness = 21;
+both.backLayers.remove(3);
+// On the back, layer n is the API's index n - 1.
+const BACK_EDITS = [
+    d => api.setDesignSetup(d, { surfaceMode: 'both_independent' }),
+    d => api.insertLayer(d, { side: 'back', index: d.backLayers.length, material: 'SiO2', thickness: 100 }),
+    d => api.insertLayer(d, { side: 'back', index: d.backLayers.length, material: 'TiO2', thickness: 30 }),
+    d => api.insertLayer(d, { side: 'back', index: 0, material: 'MgF2', thickness: 40 }),
+    d => api.setLayer(d, { side: 'back', index: 1, thickness: 21 }),
+    d => api.deleteLayer(d, { side: 'back', index: 2 }),
+];
+const back = BACK_EDITS.reduce((d, edit) => edit(d), edited);
+ok('on the back, layer n is the API\'s index n - 1', canon(both._data) === canon(back) && canon(listed(both.backLayers)) === canon(stored(back.backLayers, 'back')),
+    JSON.stringify(listed(both.backLayers)));
+ok('a copy changes apart from its design', design._data.surfaceMode === 'front_only' && canon(design._data) === canon(edited));
+const symmetric = both.copy();
+symmetric.sides = 'symmetric';
+const symmetricBack = await refused(() => { symmetric.backLayers[1].thickness = 5; });
+ok('the back of a symmetric design is refused', symmetricBack === 'layer 1: the back of a symmetric design mirrors its front; edit the front', symmetricBack);
+
+// ── The design's setup ──────────────────────────────────────────────────────
+{
+    // The design's reference is 600 nm after stack(), so 700 rescales its
+    // layers; the four materials differ, so a setter that sets another shows.
+    const set = design.copy();
+    set.substrate.material = 'Al2O3';
+    set.substrate.thickness = 3;
+    set.incidentMedium = 'MgF2';
+    set.exitMedium = 'SiO2';
+    set.name = 'Renamed';
+    set.reference = 700;
+    const there = api.setDesignSetup(design._data,
+        { substrate: 'Al2O3', substrateThicknessMm: 3, incidentMedium: 'MgF2', exitMedium: 'SiO2', name: 'Renamed', referenceWavelength: 700 });
+    const read = [set.substrate.material, set.substrate.thickness, set.incidentMedium, set.exitMedium, set.name, set.reference];
+    ok('the setup attributes are setDesignSetup\'s options, the substrate thickness in mm, and a new reference rescales the layers',
+        canon(set._data) === canon(there) && canon(read) === canon(['Al2O3', 3, 'MgF2', 'SiO2', 'Renamed', 700])
+        && canon(set._data.frontLayers) !== canon(design._data.frontLayers), JSON.stringify(read));
+}
+
+// ── save() and openDesign() ─────────────────────────────────────────────────
+{
+    const file = path.join(WORK, 'saved.tfs');
+    const plainFile = path.join(WORK, 'plain.tfs');
+    const rated = design.copy();
+    rated.merit.add('RAV', 450, 650, { target: 0 });
+    rated.save(file);
+    api.saveDesign(rated._data, plainFile);
+    const bytes = fs.readFileSync(file);
+    const again = await refused(() => rated.save(file));
+    const kept = fs.readFileSync(file).equals(bytes);
+    rated.name = 'Saved again';
+    rated.save(file, { overwrite: true });
+    const opened = tf.openDesign(file);
+    ok('save() writes what saveDesign writes, and refuses a file that is there without overwrite, which it leaves as it was',
+        bytes.toString('utf8') === fs.readFileSync(plainFile, 'utf8') && again === `save: ${file} exists; pass { overwrite: true } to write over it` && kept, again);
+    ok('and writes over it with overwrite, which openDesign() reads as openDesign does', canon(opened._data) === canon(api.openDesign(file))
+        && opened.name === 'Saved again' && opened.merit.length === 1, opened.name);
+}
+
+// ── sides, scoreOn and the mode of each result ──────────────────────────────
+const SIDES = { front: 'front_only', back: 'back_only', both: 'both_independent', symmetric: 'symmetric' };
+const SCORE_ON = { side: 'side', 'whole part': 'total' };
+{
+    const twoSided = both.copy();
+    twoSided.merit.add('RAV', 450, 650, { target: 0 });
+    const wrong = [];
+    const kinds = new Set();
+    for (const sides of Object.keys(SIDES)) {
+        for (const scoreOn of Object.keys(SCORE_ON)) {
+            const each = twoSided.copy();
+            each.sides = sides;
+            each.scoreOn = scoreOn;
+            const held = [each.sides, each.scoreOn, each._data.surfaceMode, each._data.mfEvalMode].join() === [sides, scoreOn, SIDES[sides], SCORE_ON[scoreOn]].join();
+            const { evalMode } = api.spectrum(api.setDesignSetup(twoSided._data, { surfaceMode: SIDES[sides], mfEvalMode: SCORE_ON[scoreOn] }), { from: 500, to: 600, step: 50 });
+            const found = [each.spectrum(500, 600, { step: 50 }).mode, (await each.monteCarlo(500, 600, { step: 50, runs: 1, seed: 1 })).mode,
+                (await quietly(() => each.copy().refine({ maxIter: 1 }))).mode, each.layerSensitivity().mode];
+            kinds.add(evalMode);
+            if (!held || !found.every(mode => mode === evalMode)) wrong.push(`${sides}/${scoreOn}: ${found} / ${evalMode}`);
+        }
+    }
+    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, and a spectrum\'s, a Monte Carlo run\'s, a run\'s and a ranking\'s mode are the API\'s evaluation mode, for every pair',
+        wrong.length === 0 && kinds.size === 3, wrong.join('; '));
+    const badSides = await refused(() => { twoSided.sides = 'two'; });
+    const badScoreOn = await refused(() => { twoSided.scoreOn = 'total'; });
+    ok('sides and scoreOn the app does not have are refused, naming those it has', badSides === 'sides is \'front\', \'back\', \'both\' or \'symmetric\', not "two"'
+        && badScoreOn === 'scoreOn is \'side\' or \'whole part\', not "total"', `${badSides} / ${badScoreOn}`);
+}
+
+// ── Materials ───────────────────────────────────────────────────────────────
+{
+    const tio2 = tf.materials.get('TiO2');
+    const there = api.findMaterials('TiO2').find(m => m.id === 'TiO2');
+    const nk = api.materialNK('TiO2', [400, 550, 700]).nk;
+    ok('tf.materials.get(id) is the material, and nk() gives [n, k] at one wavelength or an array of each at several',
+        canon([tio2.id, tio2.name, tio2.catalog]) === canon([there.id, there.name, there.catalog]) && canon(tio2.nk(550)) === canon([nk[1].n, nk[1].k])
+        && canon(tio2.nk([400, 550, 700])) === canon([nk.map(p => p.n), nk.map(p => p.k)]));
+    const named = api.findMaterials('').find(m => m.catalog === 'builtin' && m.name !== m.id);
+    const unknown = await refused(() => tf.materials.get('Unobtainium'));
+    ok('find() finds what findMaterials finds, get(name) goes by name too, and an unknown material is refused',
+        canon(tf.materials.find('SiO2').map(m => m.id)) === canon(api.findMaterials('SiO2').map(m => m.id)) && tf.materials.get(named.name).id === named.id
+        && /^materials: no material has the id or name 'Unobtainium'/.test(unknown ?? ''), unknown);
+    const stackedOn = tf.newDesign();
+    stackedOn.stack('(HL)^2 H');
+    const held = stackedOn.layers[1].material;
+    const heldMaterial = tf.materials.get(held);
+    const heldNK = api.materialNK(held, [550]).nk[0];
+    ok('get() takes the builtin: id a layer stack() made holds, as the built-in material of that id',
+        /^builtin:/.test(held) && heldMaterial.id === held.slice('builtin:'.length) && heldMaterial.catalog === 'builtin'
+        && canon(heldMaterial.nk(550)) === canon([heldNK.n, heldNK.k]), held);
+    const sharing = api.findMaterials(SHARED).filter(m => m.name === SHARED).map(m => m.id);
+    const shared = await refused(() => tf.materials.get(SHARED));
+    ok('a name two materials share, and no material has as its id, is refused, naming their ids, by which get() takes each',
+        sharing.length === 2 && shared === `materials: 2 materials are named '${SHARED}': take one by its id, ${sharing.join(', ')}`
+        && sharing.every(id => tf.materials.get(id).id === id), shared);
+}
+
+// ── Spectra ─────────────────────────────────────────────────────────────────
+{
+    const s = design.spectrum(400, 700, { step: 10, angles: [45, 0] });
+    const there = api.spectrum(design._data, { from: 400, to: 700, step: 10, angles: [45, 0] });
+    const [whole, band] = api.summarize(there, { bands: [{ from: 450, to: 650 }] })[45];
+    const axes = s.mode === there.evalMode && canon(s.wavelength) === canon(there.lambda) && canon(s.angles) === '[45,0]';
+    const curves = QUANTITIES.every(q => canon(s[q]) === canon(there.angles[45][q]) && canon(s.angle(0)[q]) === canon(there.angles[0][q]));
+    ok('a spectrum\'s curves are the API\'s, at the first angle asked and at another', axes && curves && canon(s.outOfRange) === canon(there.outOfRange));
+    const isCurve = Array.isArray(s.R) && s.R instanceof objects.Curve && canon(s.R.wavelength) === canon(there.lambda);
+    const plainMade = !(s.R.map(x => x) instanceof objects.Curve);
+    ok('and are arrays, whose array methods make plain arrays', isCurve && plainMade && Math.max(...s.R) === Math.max(...there.angles[45].R));
+    ok('a curve\'s mean, min and max are summarize\'s, over a band and over the whole range',
+        canon([s.R.mean(450, 650), s.R.min(450, 650), s.R.max(450, 650)]) === canon([band.R.mean, band.R.min, band.R.max])
+        && canon([s.T.mean(), s.T.min(), s.T.max()]) === canon([whole.T.mean, whole.T.min, whole.T.max]));
+    const noAngle = await refused(() => s.angle(30));
+    const noBand = await refused(() => s.R.mean(800, 900));
+    ok('an angle the spectrum was not computed at, and a band with no wavelength of it, are refused', noAngle === 'angle: the spectrum was computed at [45, 0], not at 30'
+        && noBand === 'mean: no wavelength of this curve is from 800 to 900 nm', `${noAngle} / ${noBand}`);
+    const file = path.join(WORK, 'spectrum.csv');
+    s.saveCsv(file);
+    const csv = fs.readFileSync(file, 'utf8').trim().split(/\r?\n/).map(line => line.split(','));
+    const header = ['Wavelength (nm)', ...[45, 0].flatMap(angle => QUANTITIES.map(q => `${q} at ${angle} deg`))];
+    const rows = there.lambda.map((lambda, i) => [lambda, ...[45, 0].flatMap(angle => QUANTITIES.map(q => there.angles[angle][q][i]))]);
+    ok('saveCsv writes the wavelengths, then each quantity at each angle, each headed', canon(csv[0]) === canon(header)
+        && canon(csv.slice(1).map(row => row.map(Number))) === canon(rows), JSON.stringify(csv[0]));
+}
+
+// ── The merit function ──────────────────────────────────────────────────────
+{
+    const rated = design.copy();
+    rated.merit.add('RAV', 450, 650, { target: 0 });
+    rated.merit.add('MNT', 1, rated.layers.length, { target: 10 });
+    rated.merit.add('TAV', 800, 900, { target: 0.95, weight: 2, aoi: 45, pol: 'p' });
+    const ROWS = [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }, { type: 'MNT', lambdaStart: 1, lambdaEnd: count, target: 10 },
+        { type: 'TAV', lambdaStart: 800, lambdaEnd: 900, target: 0.95, weight: 2, aoi: 45, pol: 'p' }];
+    const made = api.setMerit(design._data, ROWS);
+    ok('merit.add() makes the rows setMerit makes', canon(rated._data) === canon(made) && rated.merit.length === 3, canon(rated._data.meritOperands).slice(0, 300));
+    const DEFAULTS = { weight: 1, aoi: 0, pol: 'avg', enabled: true };
+    ok('and the defaults it documents, weight 1, aoi 0, pol avg and enabled, are the editor\'s',
+        ROWS.slice(0, 2).every(row => canon(api.setMerit(design._data, [row])) === canon(api.setMerit(design._data, [{ ...row, ...DEFAULTS }]))));
+    const open = design.copy();
+    open.merit.add('MNT', { target: 10 });
+    const tooMany = await refused(() => open.merit.add('RAV', 450, 650, 0));
+    ok('start and end may be left out before the options, and a value past them is refused', canon(open._data) === canon(api.setMerit(design._data, [{ type: 'MNT', target: 10 }]))
+        && tooMany === 'add: takes start and end before its options object, not 3 values', tooMany);
+    const scored = api.merit(made);
+    const rows = scored.rows.map(r => [r.type, r.lambdaStart ?? null, r.lambdaEnd ?? null, r.aoi ?? null, r.pol ?? null, r.target, r.weight, r.enabled, r.value, r.error]);
+    const read = rated.merit.rows.map(r => [r.type, r.start, r.end, r.aoi, r.pol, r.target, r.weight, r.enabled, r.value, r.error]);
+    ok('value, opticalValue and rows are merit\'s', rated.merit.value === scored.total && rated.merit.opticalValue === scored.optical && canon(read) === canon(rows),
+        JSON.stringify(read));
+    const cleared = rated.copy();
+    cleared.merit.clear();
+    ok('clear() leaves no row, in the copy alone', cleared.merit.length === 0 && rated.merit.length === 3);
+    const given = design.copy();
+    given.merit.add('RAV', 450, 650, undefined);
+    given.merit.add('RAV', 450, 650, null);
+    const plainRow = { type: 'RAV', lambdaStart: 450, lambdaEnd: 650 };
+    ok('and an options object given as undefined or null is no options', canon(given._data) === canon(api.setMerit(design._data, [plainRow, plainRow])));
+}
+
+// Each Script Console run is a process of its own. A row merit.add() adds in
+// one, to a design whose rows an earlier run added, gets an id of its own, so
+// the Merit Function Editor, which finds a row by its id, deletes that row alone.
+{
+    const CHILD = [
+        `import { Design } from ${JSON.stringify(new URL('../src/api/objects/index.js', import.meta.url).href)};`,
+        "let text = '';",
+        'for await (const chunk of process.stdin) text += chunk;',
+        'const design = new Design(JSON.parse(text));',
+        "design.merit.add('TAV', 800, 900, { target: 1 });",
+        'process.stdout.write(JSON.stringify(design._data));',
+    ].join('\n');
+    const addedApart = data => JSON.parse(execFileSync(process.execPath, ['--no-warnings', '--input-type=module', '-e', CHILD],
+        { input: JSON.stringify(data), encoding: 'utf8' }));
+    const rows = addedApart(addedApart(design._data)).meritOperands;
+    const ids = rows.map(row => row.id);
+    const { operands: left } = deleteOperands(rows, [ids[1]]);
+    ok('rows merit.add() adds in separate processes each have an id of their own, so deleting one in the editor keeps the other',
+        rows.length === 2 && ids[0] !== ids[1] && left.length === 1 && left[0].id === ids[0], ids.join(', '));
+}
+
+// ── Runs ────────────────────────────────────────────────────────────────────
+const start = design.copy();
+start.merit.add('RAV', 450, 650, { target: 0 });
+const startData = start._data;
+{
+    const RUNS = {
+        dls: [d => d.refine({ method: 'dls', maxIter: 20 }), data => api.refine(data, { method: 'dls', maxIter: 20 })],
+        sa: [d => d.refine({ method: 'sa', maxIter: 20, seed: 5 }), data => api.refine(data, { method: 'sa', maxIter: 20, seed: 5 })],
+        needle: [d => d.synthesize('needle', POOL, { maxLayers: 12, refineIter: 10, threads: 1 }),
+            data => api.synthesize(data, { method: 'needle', pool: POOL, settings: { maxLayers: 12, refineIter: 10, threads: 1 } })],
+        structural: [d => d.synthesize('structural', POOL, { maxIter: 3, refineIter: 5, threads: 1, seed: 7 }),
+            data => api.synthesize(data, { method: 'structural', pool: POOL, settings: { maxIter: 3, refineIter: 5, threads: 1, seed: 7 } })],
+    };
+    const wrong = [];
+    for (const [name, [run, call]] of Object.entries(RUNS)) {
+        const each = start.copy();
+        const got = await quietly(() => run(each));
+        const { result, design: answer } = await quietly(() => call(startData));
+        const said = [got.completed, got.stopReason, got.merit, got.opticalMerit, got.initialMerit, got.iterations, got.seed, got.mode];
+        const expected = [result.completed, result.stopReason, result.mf ?? null, result.omf ?? null, result.mfInitial ?? null,
+            result.iter ?? result.iters ?? null, result.seed ?? null, 'front'];
+        if (canon(each._data) !== canon(answer) || canon(said) !== canon(expected) || canon(got.reported) !== canon(result)) wrong.push(`${name}: ${canon(said)} / ${canon(expected)}`);
+    }
+    ok('refine and synthesize leave in the design what the API answers, and their results are its result, seeds included',
+        wrong.length === 0 && canon(start._data) === canon(startData), wrong.join('\n'));
+    const mc = await start.monteCarlo(450, 650, { step: 10, runs: 5, seed: 3 });
+    const there = await api.monteCarlo(startData, { from: 450, to: 650, step: 10, runs: 5, seed: 3 });
+    ok('monteCarlo answers what the API\'s monteCarlo answers with the same seed', canon([mc.wavelength, mc.theory, mc.mean, mc.stdev, mc.lower, mc.upper, mc.lowest, mc.highest])
+        === canon([there.lambda, there.theory, there.mean, there.stdev, there.lower, there.upper, there.envLower, there.envUpper])
+        && canon([mc.runs, mc.quantity, mc.seed, mc.spec, mc.mode]) === canon([there.nTrials, there.char, there.seed, there.spec, 'front']));
+    const defaulted = await start.monteCarlo(450, 650, { step: 50, runs: undefined, quantity: undefined, seed: undefined });
+    ok('and an option given as undefined takes its default', defaulted.runs === 100 && defaulted.quantity === 'R' && Number.isInteger(defaulted.seed));
+    const ranked = start.layerSensitivity({ deltaNm: 2 });
+    const apiRanked = api.layerSensitivity(startData, { deltaNm: 2 });
+    const ranks = apiRanks(apiRanked, startData.frontLayers.length);
+    const got = objectRanks(ranked);
+    ok('layerSensitivity is the API\'s, its rows numbered from the substrate', canon(got) === canon(ranks) && ranked.merit === apiRanked.mf0 && ranked.mode === 'front');
+    ok('and each row\'s number names its layer', got.length > 0 && ranked.rows.every(r => start.layers[r.number].material === r.material && start.layers[r.number].thickness === r.thickness));
+
+    // A design coated on both sides, with a locked layer, ranked by a step in
+    // percent, which differs from the 1 nm default so a step taken in nm shows.
+    const sided = both.copy();
+    sided.merit.add('RAV', 450, 650, { target: 0 });
+    sided.layers[1].locked = true;
+    const relative = sided.layerSensitivity({ step: 'percent', relPct: 3, includeLocked: true });
+    const apiRelative = api.layerSensitivity(sided._data, { mode: 'relative', relPct: 3, includeLocked: true });
+    const relativeGot = objectRanks(relative);
+    const named = relative.rows.map(r => [r.material, r.thickness]);
+    const layersNamed = relative.rows.map(r => sided[SIDE_LAYERS[r.side]][r.number]).map(layer => [layer.material, layer.thickness]);
+    ok('step \'percent\' is the API\'s relative mode, and back rows and locked rows are numbered on their side as its layers are',
+        canon(relativeGot) === canon(apiRanks(apiRelative, sided._data.frontLayers.length)) && relative.rows.some(r => r.side === 'back')
+        && relative.rows.some(r => r.locked) && canon(named) === canon(layersNamed), JSON.stringify(relativeGot));
+    const badStep = await refused(() => start.layerSensitivity({ step: 'relative' }));
+    const apiName = await refused(() => start.layerSensitivity({ mode: 'relative' }));
+    ok('a step other than \'nm\' and \'percent\' is refused, and so is the API\'s mode', badStep === 'layerSensitivity: step is \'nm\' or \'percent\', not "relative"'
+        && apiName === "layerSensitivity: unknown option 'mode'; the options are step, deltaNm, relPct, includeLocked", `${badStep} / ${apiName}`);
+}
+
+// ── Progress ────────────────────────────────────────────────────────────────
+// What a run reports, folded as a Progress holds it: each report in the order
+// the run made them, its method from onMethodStart. Resolves to the fold at
+// the end, and as it was after each report.
+async function folded(run) {
+    const reported = {};
+    const each = [];
+    const report = hook => (...args) => {
+        if (hook === 'onMethodStart') reported.method = args[0];
+        for (const arg of args) if (arg && typeof arg === 'object' && !Array.isArray(arg)) Object.assign(reported, arg);
+        each.push(canon(reported));
+    };
+    await quietly(() => run(report));
+    return { reported, each };
+}
+{
+    const hooksOf = (method, report) => Object.fromEntries(api.runHooks(method).filter(hook => hook !== 'signal').map(hook => [hook, report(hook)]));
+    const NEEDLE = { maxLayers: 12, refineIter: 10, threads: 1 };
+    const DEEP = { dMin: 20, maxLayers: 6, seed: 7, threads: 1, method: { search: { rounds: 2, children: 3 } } };
+    const expected = {
+        refine: await folded(report => api.refine(startData, { method: ['dls', 'cg'] }, hooksOf('refine', report))),
+        needle: await folded(report => api.synthesize(startData, { method: 'needle', pool: POOL, settings: NEEDLE }, hooksOf('needle', report))),
+        deep: await folded(report => api.synthesize(startData, { method: 'deep', pool: POOL, settings: DEEP }, hooksOf('deep', report))),
+        monteCarlo: await folded(report => api.monteCarlo(startData, { from: 450, to: 650, step: 10, runs: 40, seed: 3 }, { onProgress: report('onProgress') })),
+    };
+    // Each Progress a run gives, and what it held when it was given.
+    const reports = { refine: [], needle: [], deep: [], monteCarlo: [] };
+    const seen = { refine: [], needle: [], deep: [], monteCarlo: [] };
+    const take = name => p => { reports[name].push(p); seen[name].push(canon(p.reported)); };
+    await quietly(() => start.copy().refine({ method: ['dls', 'cg'], progress: take('refine') }));
+    await quietly(() => start.copy().synthesize('needle', POOL, { ...NEEDLE, progress: take('needle') }));
+    await quietly(() => start.copy().synthesize('deep', POOL, { ...DEEP, progress: take('deep') }));
+    await start.copy().monteCarlo(450, 650, { step: 10, runs: 40, seed: 3, progress: take('monteCarlo') });
+    // The Progress attributes, by the names the API's hooks report them under.
+    const KEYS = { merit: 'mf', bestMerit: 'mfBest', opticalMerit: 'omf', iteration: 'iter', generation: 'genNum', layerCount: 'layerCount',
+        method: 'method', seed: 'seed', trial: 'trial', total: 'total', activity: 'activity' };
+    // A refinement scores its start on a worker of its own while its first
+    // method runs (refinement/methodsFlow.js), so the merit history it reports
+    // depends on which answers first and differs from one run to the next;
+    // the rest of what was reported is compared.
+    const differing = (a = {}, b = {}) => [...new Set([...Object.keys(a), ...Object.keys(b)])]
+        .filter(key => key !== 'mfHistory' && !DRAWN.has(key) && canon(a[key] ?? null) !== canon(b[key] ?? null));
+    const wrong = Object.entries(expected).map(([name, { reported }]) => {
+        const last = reports[name].at(-1);
+        const attributes = Object.entries(KEYS).filter(([attribute, key]) => canon(last?.[attribute] ?? null) !== canon(reported[key] ?? null)).map(([attribute]) => attribute);
+        return [name, [...attributes, ...differing(last?.reported, reported)]];
+    }).filter(([, keys]) => keys.length).map(([name, keys]) => `${name}: ${keys.join(', ')}`);
+    const reached = reports.refine.at(-1)?.method === 'cg' && reports.needle.at(-1)?.generation > 0 && reports.monteCarlo.at(-1)?.trial === 40;
+    ok('progress is given a Progress holding what the run reported up to it, for a refinement, a Needle run, a Deep Synthesis run and a Monte Carlo run',
+        wrong.length === 0 && reached && reports.deep.length > 0, wrong.join(', '));
+    // A Needle, Deep Synthesis or Monte Carlo run makes the same reports in the
+    // same order each time, so each Progress it gives is compared, Deep's
+    // being given two objects at once.
+    const unlike = ['needle', 'deep', 'monteCarlo'].filter(name => canon(seen[name]) !== canon(expected[name].each));
+    ok('and every Progress before the last holds what the run had reported by then', unlike.length === 0, unlike.join(', '));
+    const trials = reports.monteCarlo;
+    ok('each Progress a snapshot of its own', trials[0].reported !== trials.at(-1).reported && trials[0].trial !== trials.at(-1).trial);
+    ok('and a refinement\'s method is there from the moment it starts, before its first iteration', reports.refine.every(p => !p.iteration || p.method));
+}
+
+// ── Stop ────────────────────────────────────────────────────────────────────
+{
+    const stop = new AbortController();
+    const grown = start.copy();
+    const run = await quietly(() => grown.synthesize('needle', POOL, { maxLayers: 20, refineIter: 10, threads: 1, targetMF: 0, progress: () => stop.abort(), stop: stop.signal }));
+    ok('a stop aborted in progress ends a run stopped, the design as it was', run.stopReason === 'stopped' && canon(grown._data) === canon(startData), run.stopReason);
+    const early = new AbortController();
+    early.abort();
+    const refined = start.copy();
+    const already = await quietly(() => refined.refine({ method: 'dls', stop: early.signal }));
+    const trials = await start.monteCarlo(450, 650, { runs: 100000, seed: 5, stop: early.signal });
+    ok('a stop aborted before a run ends it at once', already.stopReason === 'stopped' && canon(refined._data) === canon(startData) && trials.runs <= 1,
+        `${already.stopReason} ${trials.runs}`);
+    const notStop = await refused(() => start.refine({ stop: true }));
+    const notProgress = await refused(() => start.monteCarlo(450, 650, { progress: 5 }));
+    ok('a stop that is not an AbortSignal, and a progress that is not a function, are refused',
+        notStop === 'stop is an AbortSignal, the signal of an AbortController whose abort() ends the run'
+        && notProgress === 'progress is a function, called with a Progress as the run reports', `${notStop} / ${notProgress}`);
+}
+
+// A run of each method, given its progress function and its stop. Gradual
+// Evolution runs a single cycle, which makes every kind of report a longer
+// run makes, since the sweep below runs each method once for each of its
+// reports.
+const RUN_OF = {
+    'refine dls': (d, progress, stop) => d.refine({ method: 'dls', maxIter: 20, progress, stop }),
+    'refine cg': (d, progress, stop) => d.refine({ method: 'cg', maxIter: 20, progress, stop }),
+    needle: (d, progress, stop) => d.synthesize('needle', POOL, { maxLayers: 12, refineIter: 10, threads: 1, progress, stop }),
+    ge: (d, progress, stop) => d.synthesize('ge', POOL, { maxLayers: 10, maxGeCycles: 1, refineIter: 1, threads: 1, progress, stop }),
+    structural: (d, progress, stop) => d.synthesize('structural', POOL, { maxIter: 3, refineIter: 5, threads: 1, seed: 7, progress, stop }),
+    deep: (d, progress, stop) => d.synthesize('deep', POOL, { dMin: 20, maxLayers: 6, seed: 7, threads: 1, method: { search: { rounds: 2, children: 3 } }, progress, stop }),
+    monteCarlo: (d, progress, stop) => d.monteCarlo(450, 650, { step: 10, runs: 20, seed: 3, progress, stop }),
+};
+
+// ── A run stopped part way ──────────────────────────────────────────────────
+{
+    // Deep Synthesis is stopped once it has reported a best design, the one
+    // its plain call answers with when stopped; the others at their third
+    // report.
+    const STOPPED = ['refine dls', 'refine cg', 'needle', 'ge', 'structural', 'deep'];
+    const ended = [];
+    for (const name of STOPPED) {
+        const stop = new AbortController();
+        const each = start.copy();
+        let reports = 0;
+        const due = p => (name === 'deep' ? Array.isArray(p.reported.layers) : ++reports === 3);
+        const run = await quietly(() => RUN_OF[name](each, p => { if (due(p)) stop.abort(); }, stop.signal));
+        ended.push([name, run.stopReason, canon(each._data) === canon(startData)]);
+    }
+    ok('a run of each method stopped part way ends stopped, the design as it was, Deep Synthesis\'s, which answers with its best so far, included',
+        canon(ended) === canon(STOPPED.map(name => [name, 'stopped', true])), JSON.stringify(ended));
+}
+
+// ── A progress function that throws ─────────────────────────────────────────
+// How a run ends when its progress function throws at report `at`: how it
+// settled, how many more times it called progress, and whether it left the
+// design as it was.
+async function throwingAt(run, at) {
+    const each = start.copy();
+    const thrown = new Error(`thrown at report ${at}`);
+    let reports = 0;
+    const settled = run(each, () => { if (++reports === at) throw thrown; })
+        .then(result => `resolved ${result.stopReason}`, err => (err === thrown ? 'rejected with it' : `rejected with ${err?.message}`));
+    // A run the error leaves hanging never settles. Each of these runs ends
+    // within a second, so ten seconds tells the two apart.
+    let timer;
+    const hanging = new Promise(resolve => { timer = setTimeout(resolve, 10000, 'never settled'); });
+    const how = await quietly(() => Promise.race([settled, hanging]));
+    clearTimeout(timer);
+    return [how, reports - at, canon(each._data) === canon(startData)];
+}
+const THROWN_AS_DOCUMENTED = ['rejected with it', 0, true];
+{
+    // The engines catch the errors of the code their reports come from, each
+    // in its own places, so the error is thrown at each report in turn.
+    const ends = [];
+    for (const name of Object.keys(RUN_OF)) {
+        let reports = 0;
+        await quietly(() => RUN_OF[name](start.copy(), () => { reports++; }));
+        for (let at = 1; at <= reports; at++) ends.push([`${name} at report ${at} of ${reports}`, await throwingAt(RUN_OF[name], at)]);
+    }
+    const wrong = ends.filter(([, end]) => canon(end) !== canon(THROWN_AS_DOCUMENTED));
+    ok('an error a progress function throws at any report ends the run, which rejects with it, calling progress no more, the design as it was, for each method',
+        ends.length > 0 && wrong.length === 0, JSON.stringify(wrong));
+    // A hundred thousand trials take many seconds; thrown at the first, the
+    // run ends then, not after them, whether it was given a stop or not.
+    const early = [];
+    for (const stop of [undefined, new AbortController().signal]) {
+        const began = Date.now();
+        const end = await throwingAt((d, progress) => d.monteCarlo(450, 650, { step: 10, runs: 100000, seed: 3, progress, stop }), 1);
+        early.push({ end, took: Date.now() - began });
+    }
+    ok('and the run ends there: a Monte Carlo run of a hundred thousand trials thrown at its first ends within two seconds, given a stop or not',
+        early.every(({ end, took }) => canon(end) === canon(THROWN_AS_DOCUMENTED) && took < 2000), JSON.stringify(early));
+}
+
+// ── Refusals in the objects' words ──────────────────────────────────────────
+{
+    // `design` is coated on its front, scored on its side, and has no merit function.
+    const front = design.copy();
+    // What each object call is refused with, and the words it is to be refused in.
+    const WORDED = [
+        [() => front.refine(), 'refine: the design has no merit function; add a row with merit.add()'],
+        [() => front.layerSensitivity(), 'layerSensitivity: the design has no merit function; add a row with merit.add()'],
+        [() => front.backLayers.append('SiO2', 10),
+            "append: a design coated on the front alone and scored on that side does not evaluate the back; to edit it, set sides to 'both', or scoreOn to 'whole part'"],
+        [() => front.backLayers.insert(1, 'SiO2', 10),
+            "insert: a design coated on the front alone and scored on that side does not evaluate the back; to edit it, set sides to 'both', or scoreOn to 'whole part'"],
+        [() => symmetric.backLayers.remove(1), 'remove: the back of a symmetric design mirrors its front; edit the front'],
+        [() => { front.layers[1].thickness = -5; }, 'layer 1: thickness is a physical thickness in nm above 0, not -5'],
+        [() => front.merit.add('RAV', 450, 650, { aoi: 95 }), 'add: aoi is an angle of incidence in degrees, 0 <= aoi < 90, not 95'],
+        [() => front.merit.add('RAV', 'x', 650), 'add: start is a number, not "x"'],
+        [() => front.merit.add('RAV', 700, 400), 'add: start 700 is above end 400'],
+        [() => front.spectrum(700, 400), 'spectrum: start and end are wavelengths in nm, 0 < start < end'],
+        [() => front.monteCarlo(400, 700, { rnus: 5 }), "monteCarlo: unknown option 'rnus'; the options are quantity, step, angle, polarization, runs, "
+            + 'thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop'],
+        [() => { front.reference = -1; }, 'reference is a wavelength in nm above 0, not -1'],
+        [() => { front.substrate.thickness = 0; }, 'substrate.thickness is a thickness in mm above 0, not 0'],
+        [() => front.stack('HL', { at: -5 }), 'stack: at is a wavelength in nm above 0, not -5'],
+        [() => front.stack('Air | HL | BK7'),
+            "stack: the formula names media; write the layers alone, such as '(HL)^5 H', and set the media with incidentMedium, exitMedium and substrate.material"],
+        [() => tf.materials.get('TiO2').nk(-5), 'nk: wavelengths is a list of wavelengths in nm above 0'],
+        [() => tf.newDesign('X', { reference: 0 }), 'newDesign: reference is a wavelength in nm above 0, not 0'],
+        [() => front.save(path.join(WORK, 'never.tfs'), { overwite: true }), "save: unknown option 'overwite'; the options are overwrite"],
+    ];
+    const unlike = [];
+    for (const [make, words] of WORDED) unlike.push([await refused(make), words]);
+    ok('the plain calls\' refusals reach the objects in the objects\' words', unlike.every(([got, words]) => got === words),
+        unlike.filter(([got, words]) => got !== words).map(([got]) => got).join('\n'));
+    const rowType = String(await refused(() => front.merit.add('XYZ')));
+    const formula = String(await refused(() => front.stack('(HL')));
+    ok('a row\'s type and a formula that does not read too, the method named in place of the call',
+        /^add: unknown operand type 'XYZ'\. Types: /.test(rowType) && /^stack: the formula does not read: /.test(formula), `${rowType} / ${formula}`);
+    const rowOption = String(await refused(() => front.merit.add('RAV', 450, 650, { targt: 0 })));
+    ok('and an option a row does not take is refused naming the options add() takes, start and end and the type being its arguments',
+        /^add: unknown option 'targt'; the options are id, enabled, aoi, pol, target, targetEnd, weight, cmp, /.test(rowOption) && !/lambda/.test(rowOption), rowOption);
+
+    // What a plain call throws: its message, code and fields.
+    const thrown = async make => {
+        try { await make(); return null; } catch (err) { return { message: err.message, code: err.code, fields: err.fields }; }
+    };
+    const plain = {
+        noMerit: await thrown(() => api.refine(front._data, { method: 'dls' })),
+        closedSide: await thrown(() => api.insertLayer(front._data, { side: 'back', material: 'SiO2', thickness: 10 })),
+        rowBand: await thrown(() => api.setMerit(front._data, [{ type: 'RAV', lambdaStart: 700, lambdaEnd: 400 }])),
+        range: await thrown(() => api.spectrum(front._data, { from: 700, to: 400 })),
+    };
+    ok('while the plain calls keep their own words, which agents read through MCP, with the code and fields each object layer words them from', canon(plain) === canon({
+        noMerit: { message: 'refine: the design has no merit function; set one with setMerit', code: 'noMerit', fields: { call: 'refine' } },
+        closedSide: {
+            message: "insertLayer: a front_only design scored on its side alone does not evaluate the back; to edit it, make the design both_independent, or score it as the whole part (mfEvalMode 'total'), with setDesignSetup",
+            code: 'closedSide', fields: { call: 'insertLayer', side: 'back', surfaceMode: 'front_only' },
+        },
+        rowBand: { message: 'setMerit: row 0: lambdaStart 700 is above lambdaEnd 400', code: 'bandOrder', fields: { call: 'setMerit', row: 0, start: 700, end: 400 } },
+        range: { message: 'spectrum: from and to are wavelengths in nm, 0 < from < to', code: 'wavelengthRange', fields: { call: 'spectrum', from: 700, to: 400 } },
+    }), canon(plain));
+    const unknownMaterial = await refused(() => front.layers.append('Unobtainium', 10));
+    const apiUnknown = await thrown(() => api.insertLayer(front._data, { material: 'Unobtainium', thickness: 10 }));
+    ok('a refusal that names no call, such as an unknown material, reaches the objects as the API words it', !!apiUnknown?.message && unknownMaterial === apiUnknown.message,
+        unknownMaterial);
+}
+
+fs.rmSync(WORK, { recursive: true, force: true });
+console.log(`${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);

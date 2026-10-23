@@ -45,16 +45,3 @@ export function translatorFor(lang) {
         },
     };
 }
-
-/** `fn`, a call as docComments.mjs reads it, with each of its texts as `text(key, english)` gives it. */
-export function localized(fn, text) {
-    const of = (part, english) => text(`${fn.name}.${part}`, english);
-    return {
-        ...fn,
-        lead: fn.lead.map((p, i) => of(`lead.${i + 1}`, p)),
-        params: fn.params.map(p => (p.text ? { ...p, text: of(`param.${p.name}`, p.text) } : p)),
-        returns: fn.returns && of('returns', fn.returns),
-        properties: fn.properties.map(f => ({ ...f, text: of(`property.${f.name}`, f.text) })),
-        throws: fn.throws.map((x, i) => of(`throws.${i + 1}`, x)),
-    };
-}

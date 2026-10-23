@@ -108,7 +108,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Script Console. A run is named by an id the window makes, so Stop can name
   // it before the run answers; what the script prints arrives on
   // onScriptOutput as (runId, lines, dropped), `dropped` being how many older
-  // lines a batch left out. Opening a script only reads its text.
+  // lines a batch left out. Opening a script only reads its text. findPython
+  // resolves to the Python a Python script runs in, { found: { path, version
+  // } } or { missing }, for the path given or else the one set in Preferences
+  // > Automation; choosePythonFile picks an executable, { path } or { canceled }.
   runScript:        (runId, request) => ipcRenderer.invoke('scripts:run', runId, request),
   stopScript:       (runId) => ipcRenderer.invoke('scripts:stop', runId),
   onScriptOutput:   (cb) => {
@@ -117,12 +120,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
     return () => ipcRenderer.removeListener('scripts:output', handler);
   },
   openScriptFile:   () => ipcRenderer.invoke('scripts:open'),
-  saveScriptFile:   (text, suggestedName) => ipcRenderer.invoke('scripts:save', text, suggestedName),
-  // The live link an AI agent works on the open design through (Preferences >
-  // Automation). setLiveBridge opens or closes it and resolves to { open,
-  // error }; each request arrives on onLiveRequest as { id, method, params,
-  // deadline } and is answered with liveReply under its id.
+  saveScriptFile:   (text, suggestedName, language) => ipcRenderer.invoke('scripts:save', text, suggestedName, language),
+  findPython:       (setPath) => ipcRenderer.invoke('scripts:find-python', setPath),
+  choosePythonFile: () => ipcRenderer.invoke('scripts:choose-python'),
+  // The live link a Python program or an AI agent works on the open design
+  // through (main/ipc/liveBridge.js). setLiveBridge is the switch "Start
+  // listening when TFStudio starts" in Preferences > Automation and
+  // startInteractive the Interactive button, each resolving to { open, error
+  // }; terminateLive is Terminate. onLiveState gets { interactive, programs }
+  // each time either changes; onLiveAsk gets { id, program }, a program that
+  // asks to come in, answered with answerLive(id, allowed). Each request
+  // arrives on onLiveRequest as { id, method, params, deadline } and is
+  // answered with liveReply under its id.
   setLiveBridge:    (on) => ipcRenderer.invoke('live:set', !!on),
+  startInteractive: () => ipcRenderer.invoke('live:interactive'),
+  terminateLive:    () => ipcRenderer.invoke('live:terminate'),
+  onLiveState:      (cb) => {
+    const handler = (event, state) => cb(state);
+    ipcRenderer.on('live:state', handler);
+    return () => ipcRenderer.removeListener('live:state', handler);
+  },
+  onLiveAsk:        (cb) => {
+    const handler = (event, ask) => cb(ask);
+    ipcRenderer.on('live:ask', handler);
+    return () => ipcRenderer.removeListener('live:ask', handler);
+  },
+  answerLive:       (id, allowed) => ipcRenderer.send('live:answer', id, !!allowed),
   onLiveRequest:    (cb) => {
     const handler = (event, request) => cb(request);
     ipcRenderer.on('live:request', handler);

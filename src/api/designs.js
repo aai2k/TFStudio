@@ -11,7 +11,7 @@ import { rescaleLayersPreserveQWOT } from '../components/windows/design/designEd
 import designFile from '../main/designFile.js';
 import mainPaths from '../main/paths.js';
 import { requireMaterial } from './materials.js';
-import { checkOptions, requireValue, isPositive } from './check.js';
+import { checkOptions, requireValue, isPositive, refusal } from './check.js';
 
 const { readDesignFile, serializeDesign } = designFile;
 const { writeFileAtomic } = mainPaths;
@@ -60,7 +60,9 @@ export function openDesign(filePath) {
 export function saveDesign(design, filePath, options) {
     // The app's own format and atomic write (src/main/designFile.js, paths.js).
     const { overwrite = false } = checkOptions('saveDesign', options, ['overwrite']);
-    if (!overwrite && fs.existsSync(filePath)) throw new Error(`${filePath} exists; pass { overwrite: true } to write over it`);
+    if (!overwrite && fs.existsSync(filePath)) {
+        throw refusal('fileExists', { call: 'saveDesign', path: filePath }, `${filePath} exists; pass { overwrite: true } to write over it`);
+    }
     writeFileAtomic(filePath, serializeDesign(embedDesignMaterials(design)), 'utf-8');
 }
 

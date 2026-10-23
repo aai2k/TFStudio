@@ -1,44 +1,122 @@
 {
+  "code": {
+    "Stop": "const design = tf.newDesign('AR');\ndesign.stack('(HL)^2');\ndesign.merit.add('RAV', 450, 650, { target: 0 });\nconst controller = new AbortController();\nconst run = await design.refine({\n    method: 'dls',\n    stop: controller.signal,\n    progress: p => { if (p.iteration >= 10) controller.abort(); },\n});\nconsole.log('Ended:', run.stopReason);",
+    "errors": "const design = tf.newDesign('Bare BK7');\ntry {\n    design.layers.append('SiO2', -5);\n} catch (err) {\n    console.log(err.message);\n}"
+  },
   "en": {
-    "frontmatter": ["title: API Reference", "description: \"Every call of the TFStudio API in the Script Console: what it takes, what it returns and what it refuses.\""],
+    "frontmatter": ["title: API Reference", "description: \"The objects of TFStudio's scripts in JavaScript and Python: what each method and attribute takes, gives and refuses, with an example in each language.\""],
     "intro": [
-      "Every call on `tf` in the [Script Console](/automation/script-console/), with what it takes, what it returns and what it refuses. A call that changes a design returns a new one and leaves the one it was given as it was; set `tf.design` to the new one to keep it. Wavelengths and layer thicknesses are in nm, angles in degrees in the incident medium, the substrate thickness in mm, and R, T and A are fractions of 1, in merit targets too.",
-      "A call refuses an option it does not know and a value it cannot use, with an error that says what it takes, so nothing runs on a value you did not mean. Each example runs on the open design; one that ends by setting `tf.design` changes it, as one undo step."
+      "The objects TFStudio's scripts and programs work with, in JavaScript and in Python. Each section is one object: what it is, then each of its methods and attributes, with its JavaScript form beside its Python form, what it takes, what it gives and what it refuses, and an example in each language. The [Script Console](/automation/script-console/) runs a script in either language on the open design; the [Python](/automation/python/) page says how to use the same objects in a program of your own.",
+      "Wavelengths and layer thicknesses are in nm, angles in degrees in the incident medium, the substrate's thickness in mm, and R, T and A are fractions of 1, in merit targets too. Layers are numbered as the Design Editor numbers them, 1 next to the substrate.",
+      "A JavaScript name is camelCase, with the optional arguments in an options object at the end; a Python name is snake_case, with them as keyword arguments. Where the two languages agree, an entry says it once and gives a name that differs in both forms. Where they differ, it says what each does. A method that changes a design changes it in place, and copy() keeps a copy first.",
+      "A method refuses an option it does not know and a value it cannot use, with a message that says what it takes, so nothing runs on a value you did not mean: JavaScript throws an Error with that message, and Python raises `tfstudio.TFStudioError`.",
+      "Each example builds the design it works on and prints what it found, so it runs whatever design is open and leaves that design alone. The examples are Script Console scripts, except the Python ones that start a TFStudio of their own; to run one in a program, put it inside `with tfstudio.TFStudio() as tf:`."
     ],
-    "args": ["Argument", "Default", "Meaning"],
-    "fields": ["Field", "Meaning"],
-    "settings": ["Setting", "Default", "Meaning"],
-    "refineMethods": ["Method", "Name", "Default `maxIter`", "Takes `seed`"],
-    "synthesisMethods": ["Method", "Window", "Page", "Hooks"],
+    "modesTitle": "Front, back and total",
+    "modesIntro": [
+      "A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on` whether a design coated on one side is scored on that side alone or as the whole part, the substrate's other surface included. They are the Design Editor's Surface and Ignore other side, and every spectrum, merit, run and tolerance check follows them, as the [Surface & Evaluation Modes](/design/evaluation-modes/) page says:"
+    ],
+    "modesHead": ["`sides`", "`scoreOn` / `score_on`", "In the Design Editor", "Computed on, `mode`"],
+    "anyScoreOn": "either",
+    "ticked": "ticked",
+    "notTicked": "not ticked",
+    "labelled": "{label}: {value}",
+    "withLabel": "{value}, {label}",
+    "controlSeparator": ", ",
+    "modeCell": "{mode} ({label}: {badge})",
+    "modesResults": "Each result says what it was computed on in its `mode`: {classes}.",
+    "and": " and ",
+    "languages": ["JavaScript", "Python"],
+    "saidBy": "**{lang}**: {text}",
+    "args": ["JavaScript", "Python", "Default", "Meaning"],
     "returns": "**Returns**: ",
     "refuses": "**Refuses**:",
-    "required": "required",
-    "yes": "yes",
+    "pythonRaises": "Python raises `{error}`: {text}",
     "methods": "Methods",
+    "refineMethods": ["Method", "Name", "Default `maxIter`", "Takes `seed`"],
+    "synthesisMethods": ["Method", "Window", "Page"],
+    "settings": ["JavaScript", "Python", "Default", "Meaning"],
     "settingsOf": "`{method}` settings",
     "orMnt": "or the strictest `MNT` row",
     "allMethods": "Each of {ids} in turn, from the same start, keeping the best",
-    "listSeparator": ", "
+    "listSeparator": ", ",
+    "yes": "yes",
+    "stopReasons": "`run.stopReason` / `run.stop_reason`",
+    "operandIntro": "The types this version evaluates, grouped as the {page} groups them:",
+    "operandHead": ["Kind", "Types"],
+    "errorsTitle": "Errors",
+    "errorsIntro": [
+      "A refusal in JavaScript throws an Error whose message says what was refused, starting with the method's name; catch it with try and catch. Python raises one of the errors below."
+    ],
+    "notIn": {
+      "js": {
+        "TFStudio.()": "In the Script Console, `tf`, which the console gives the script.",
+        "TFStudio.app": "Not in JavaScript: a script works on the open design, `tf.design`.",
+        "TFStudio.close": "Not in JavaScript: the console's TFStudio is the app itself.",
+        "Design.push": "Not in JavaScript: the console applies `tf.design` when the script ends.",
+        "Stop": "JavaScript has no Stop: a run is stopped with an AbortController. Give its `signal` as the run's `stop` option, and its `abort()` ends the run at its next step, as `stop()` does in Python.",
+        "App": "Not in JavaScript: a script in the Script Console works on the open design itself, `tf.design`, which the console applies when the script ends.",
+        "AppDesign": "Not in JavaScript: tf.app lists these, and a script in the Script Console has the open design alone."
+      },
+      "py": {}
+    }
   },
   "zh": {
-    "frontmatter": ["title: API 参考", "description: \"脚本控制台中 TFStudio API 的每一个调用：接受什么、返回什么、拒绝什么。\""],
+    "frontmatter": ["title: API 参考", "description: \"TFStudio 脚本所用的对象，JavaScript 与 Python 两种写法：每个方法和属性接受什么、给出什么、拒绝什么，并附两种语言的示例。\""],
     "intro": [
-      "[脚本控制台](/automation/script-console/)中 `tf` 上的每一个调用：它接受什么、返回什么、拒绝什么。改变设计的调用返回一个新设计，传入的设计保持不变；把 `tf.design` 设为新设计即可保留它。波长和膜层厚度单位为 nm，角度为入射介质中的度数，基底厚度单位为 mm，R、T 和 A 用 0 到 1 之间的小数表示，评价函数目标值也是如此。",
-      "调用会拒绝它不认识的选项和无法使用的值，并给出说明它接受什么的错误信息，因此不会用你无意给出的值运行。每个示例都在打开的设计上运行；以设置 `tf.design` 结尾的示例会改变它，作为一个撤销步骤。"
+      "TFStudio 的脚本和程序所用的对象，分 JavaScript 和 Python 两种写法。每一节是一个对象：先说明它是什么，再列出它的每个方法和属性，JavaScript 写法与 Python 写法并排，说明它接受什么、给出什么、拒绝什么，并附两种语言各一个示例。[脚本控制台](/automation/script-console/)可以在打开的设计上运行这两种语言的脚本；[Python](/automation/python/) 页面说明如何在你自己的程序中使用同样的对象。",
+      "波长和膜层厚度单位为 nm，角度为入射介质中的度数，基底厚度单位为 mm，R、T 和 A 用 0 到 1 之间的小数表示，评价函数目标值也是如此。膜层按设计编辑器的方式编号：1 是紧邻基底的那一层。",
+      "JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象中；Python 的名称采用 snake_case，可选参数以关键字参数给出。两种语言一致时，条目只说一次，名称不同时给出两种写法。两者不同时，分别说明各自的行为。改变设计的方法会直接修改该设计，copy() 可以先保留一份副本。",
+      "方法会拒绝它不认识的选项和无法使用的值，并给出说明它接受什么的信息，因此不会用你无意给出的值运行：JavaScript 抛出带有该信息的 Error，Python 引发 `tfstudio.TFStudioError`。",
+      "每个示例都自己构建要处理的设计，并打印得到的结果，因此无论打开的是哪个设计都能运行，也不会改动它。这些示例都是脚本控制台的脚本，只有自己启动 TFStudio 的 Python 示例除外；要在程序中运行某个示例，把它放进 `with tfstudio.TFStudio() as tf:` 中。"
     ],
-    "args": ["参数", "默认值", "含义"],
-    "fields": ["字段", "含义"],
-    "settings": ["设置", "默认值", "含义"],
-    "refineMethods": ["方法", "名称", "默认 `maxIter`", "接受 `seed`"],
-    "synthesisMethods": ["方法", "窗口", "页面", "钩子"],
+    "modesTitle": "正面、背面与整体",
+    "modesIntro": [
+      "设计的 `sides` 说明哪些面带有膜层，`scoreOn` / `score_on` 说明单面镀膜的设计是只按镀膜面评价，还是按整个元件（包括基底的另一面）评价。它们就是设计编辑器中的“表面”和“忽略另一面”，每个光谱、评价函数、运行和公差检查都遵循它们，详见[表面与评估模式](/design/evaluation-modes/)页面："
+    ],
+    "modesHead": ["`sides`", "`scoreOn` / `score_on`", "设计编辑器中", "计算对象，`mode`"],
+    "anyScoreOn": "任意",
+    "ticked": "勾选",
+    "notTicked": "不勾选",
+    "labelled": "{label}：{value}",
+    "withLabel": "{value}，{label}",
+    "controlSeparator": "；",
+    "modeCell": "{mode}（{label}：{badge}）",
+    "modesResults": "每个结果都在其 `mode` 中说明它的计算对象：{classes}。",
+    "and": "和",
+    "languages": ["JavaScript", "Python"],
+    "saidBy": "**{lang}**：{text}",
+    "args": ["JavaScript", "Python", "默认值", "含义"],
     "returns": "**返回**：",
     "refuses": "**拒绝**：",
-    "required": "必填",
-    "yes": "是",
+    "pythonRaises": "Python 引发 `{error}`：{text}",
     "methods": "方法",
+    "refineMethods": ["方法", "名称", "默认 `maxIter`", "接受 `seed`"],
+    "synthesisMethods": ["方法", "窗口", "页面"],
+    "settings": ["JavaScript", "Python", "默认值", "含义"],
     "settingsOf": "`{method}` 的设置",
     "orMnt": "或最严格的 `MNT` 行",
     "allMethods": "依次运行 {ids}，从同一起点开始，保留最好的结果",
-    "listSeparator": "、"
+    "listSeparator": "、",
+    "yes": "是",
+    "stopReasons": "`run.stopReason` / `run.stop_reason`",
+    "operandIntro": "此版本可计算的类型，按{page}的分组列出：",
+    "operandHead": ["类别", "类型"],
+    "errorsTitle": "错误",
+    "errorsIntro": [
+      "在 JavaScript 中，拒绝会抛出一个 Error，其信息说明被拒绝的内容，并以方法名开头；用 try 和 catch 捕获它。Python 引发下面的错误之一。"
+    ],
+    "notIn": {
+      "js": {
+        "TFStudio.()": "在脚本控制台中为 `tf`，由控制台交给脚本。",
+        "TFStudio.app": "JavaScript 中没有：脚本处理的是打开的设计 `tf.design`。",
+        "TFStudio.close": "JavaScript 中没有：控制台的 TFStudio 就是应用本身。",
+        "Design.push": "JavaScript 中没有：脚本结束时，控制台会应用 `tf.design`。",
+        "Stop": "JavaScript 中没有 Stop：运行用 AbortController 停止。把它的 `signal` 作为运行的 `stop` 选项传入，调用它的 `abort()` 就会在下一步结束运行，与 Python 中的 `stop()` 相同。",
+        "App": "JavaScript 中没有：脚本控制台中的脚本直接处理打开的设计 `tf.design`，脚本结束时由控制台应用它。",
+        "AppDesign": "JavaScript 中没有：它们由 tf.app 列出，而脚本控制台中的脚本只有打开的设计。"
+      },
+      "py": {}
+    }
   }
 }

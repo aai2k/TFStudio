@@ -33,7 +33,7 @@ const allIds = tabs.flatMap(idsOf);
 const RENDERER_HANDLED = new Set([
     'new-design', 'open-project', 'import-designs', 'save', 'save-as', 'undo', 'redo',
     'stack-formula', 'edge-filter', 'filter-design', 'bbm-simulator', 'mono-simulator',
-    'report-gen', 'help-docs', 'preferences',
+    'report-gen', 'help-docs', 'preferences', 'interactive',
 ]);
 
 // The title bar repeats these; they are on the Design tab as well, deliberately.
@@ -89,6 +89,11 @@ for (const id of ['welcome', 'tutorials', 'about', 'check-updates']) {
 const optimizationTab = tabs.find(x => x.key === 'optimization');
 assert.ok(optimizationTab.groups.some(g => g.items.some(i => i.id === 'filter-design')),
     'Filter Design is on the Optimization tab');
+
+// Interactive sits beside Script Console in the Scripts group: the refusals a
+// program gets while TFStudio is not listening send the user there.
+assert.deepEqual(optimizationTab.groups.find(g => g.key === 'scripts')?.items.map(i => i.id), ['script-console', 'interactive'],
+    'the Scripts group holds Script Console, then Interactive');
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 

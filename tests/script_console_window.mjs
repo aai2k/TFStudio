@@ -5,13 +5,16 @@
  * The window is the Scripts group of the Optimization tab, with its icon in
  * the ribbon and on its help page, which exists in both documentation
  * languages. It works with no design open, and is handed the app's confirm
- * dialog. It draws Run, Open and Save in one row over the editor and the
- * output, split by a divider, in every language; Run is off while the editor
- * is empty, and Stop takes its place while a script runs. The output's first
- * line says how many earlier lines it does not show, in every language, and a
- * cut line says how much of it is not shown. Ctrl+Enter in the editor runs the
- * script, and the app's Ctrl+Z, Ctrl+Y, Ctrl+S, Ctrl+O and Ctrl+N stay in the
- * editor on any keyboard layout.
+ * dialog. It draws Run, the JavaScript and Python picker, Open and Save in one
+ * row over the editor and the output, split by a divider, in every language,
+ * and the editor says its words in that language for the script's language;
+ * Run is off while the editor is empty, and Stop takes its place while a
+ * script runs. The output's first line says how many earlier lines it does
+ * not show, in every language, and a cut line says how much of it is not
+ * shown. Ctrl+Enter in the editor runs the script, and the app's Ctrl+Z,
+ * Ctrl+Y, Ctrl+S, Ctrl+O, Ctrl+N and Ctrl+G stay in the editor on any keyboard
+ * layout. A Python run with no Python to run in says what is missing, and one
+ * of a saved script whose folder is gone says that.
  *
  * A run's design is applied without its id and name, with one write and no
  * checkpoint. It goes only to the design the run started on and only while
@@ -50,6 +53,20 @@ const t = makeLocale('en');
 const z = t.scriptConsole;
 const attr = (value) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
 const render = (tl) => renderToStaticMarkup(withDesign(React.createElement(ScriptConsole, { c, t: tl })));
+// What the layout hands the editor for `session`, in the language `tl`.
+function editorProps(tl, session) {
+    const props = {
+        c, t: tl, z: tl.scriptConsole, session, setField() {}, status: null, running: false, runStatus: '',
+        onRun() {}, onStop() {}, onOpen() {}, onSave() {}, onLanguage() {}, onTextChange() {},
+    };
+    const find = (el, test) => {
+        if (!el || typeof el !== 'object') return null;
+        if (Array.isArray(el)) return el.reduce((hit, child) => hit || find(child, test), null);
+        return test(el) ? el : find(el.props?.children, test);
+    };
+    const box = find(ScriptConsoleLayout(props), el => el.type?.name === 'EditorBox');
+    return box.type(box.props).props;
+}
 
 // ── Registered, on the ribbon, with a help page ─────────────────────────────
 {
@@ -60,7 +77,7 @@ const render = (tl) => renderToStaticMarkup(withDesign(React.createElement(Scrip
     assert.equal(entry.dialog, true, 'the window is handed the app\'s confirm dialog, which Open asks in');
     const optimization = makeTabs(t).find(tab => tab.key === 'optimization');
     const scripts = optimization.groups.find(group => group.key === 'scripts');
-    assert.deepEqual(scripts?.items.map(item => item.id), ['script-console'], 'the Scripts group of the Optimization tab');
+    assert.deepEqual(scripts?.items.map(item => item.id), ['script-console', 'interactive'], 'the Scripts group of the Optimization tab, Interactive beside it');
     assert.equal(scripts.label, t.toolbar.groups.scripts);
     assert.ok(ICONS['script-console'] && iconColorForTool('script-console'), 'the ribbon button has an icon and a colour');
     assert.ok(docsIcons.ICONS['script-console'], 'the help page has the icon too');
@@ -79,9 +96,17 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     const html = render(tl);
     for (const shown of [`▶ ${zl.run}`, zl.openBtn, zl.saveBtn]) assert.ok(html.includes(`>${shown}</button>`), `${code}: ${shown}`);
     for (const label of [zl.runTip, zl.openTip, zl.saveTip]) assert.ok(html.includes(`title="${attr(label)}"`), `${code}: ${label}`);
-    assert.ok(html.includes(`placeholder="${attr(zl.editorPlaceholder)}"`), `${code}: the editor says what tf is`);
+    assert.match(html, new RegExp(`aria-pressed="true"[^>]*>${zl.languages.javascript}</button>`), `${code}: a script is in JavaScript until told otherwise`);
+    assert.match(html, new RegExp(`aria-pressed="false"[^>]*>${zl.languages.python}</button>`), `${code}: and Python is the other choice`);
+    assert.ok(html.includes(`aria-label="${attr(zl.languageLabel)}"`), `${code}: the picker says what it picks`);
+    for (const language of ['javascript', 'python']) {
+        const { words } = editorProps(tl, { ...scriptConsoleSession.read(null), language });
+        assert.deepEqual(words, { label: zl.editorLabel, placeholder: zl.editorPlaceholder[language], phrases: zl.editorPhrases },
+            `${code}: the editor says what tf is in ${language}, and its own words in the app's language`);
+        assert.equal(editorProps(tl, { ...scriptConsoleSession.read(null), language }).words, words, `${code}: the same words each time, so the editor takes them once`);
+    }
     assert.ok(html.includes(`placeholder="${attr(zl.outputPlaceholder)}"`), `${code}: the output says what it shows`);
-    assert.equal((html.match(/<textarea/g) || []).length, 2, `${code}: an editor and an output`);
+    assert.equal((html.match(/<textarea/g) || []).length, 1, `${code}: the output, beside the editor, which its effect puts in the page`);
     assert.ok(html.includes('row-resize'), `${code}: a divider between them`);
     scriptConsoleSession.write(null, { output: ['last line'], outputHidden: 7 });
     assert.ok(render(tl).includes(`>${zl.outputHidden(7)}\nlast line</textarea>`), `${code}: the output says how many earlier lines it does not show`);
@@ -99,9 +124,8 @@ assert.equal(outputText(z, [], 0), '', 'an empty output is empty');
     });
     const on = render(t);
     assert.doesNotMatch(on, new RegExp(`<button[^>]*disabled=""[^>]*>▶ ${z.run}</button>`), 'a script can run');
-    for (const shown of ['>console.log(1);</textarea>', '>printed line</textarea>']) {
-        assert.ok(on.includes(shown), `shows ${shown}`);
-    }
+    assert.equal(editorProps(t, scriptConsoleSession.read(null)).text, 'console.log(1);', 'the editor is handed the script');
+    assert.ok(on.includes('>printed line</textarea>'), 'the output shows what was printed');
     assert.match(on, /<span title="C:\\scripts\\ar\.js"[^>]*>ar\.js<\/span>/, 'the file\'s name, its path on hover');
 
     const props = {
@@ -135,7 +159,7 @@ assert.match(makeLocale('ru').scriptConsole.running(4), / с$/, 'Russian writes 
     };
     assert.deepEqual(press({ key: 'Enter', ctrlKey: true }), ['preventDefault', 'run'], 'Ctrl+Enter runs');
     assert.deepEqual(press({ key: 'Enter' }), [], 'Enter is a new line');
-    for (const [key, code] of [['z', 'KeyZ'], ['y', 'KeyY'], ['s', 'KeyS'], ['o', 'KeyO'], ['n', 'KeyN'], ['Z', 'KeyZ']]) {
+    for (const [key, code] of [['z', 'KeyZ'], ['y', 'KeyY'], ['s', 'KeyS'], ['o', 'KeyO'], ['n', 'KeyN'], ['g', 'KeyG'], ['Z', 'KeyZ']]) {
         assert.deepEqual(press({ key, code, ctrlKey: true, shiftKey: key === 'Z' }), ['stopPropagation'], `Ctrl+${key} stays in the editor`);
     }
     assert.deepEqual(press({ key: 'я', code: 'KeyZ', ctrlKey: true }), ['stopPropagation'], 'on a Cyrillic layout too');
@@ -192,6 +216,16 @@ assert.match(makeLocale('ru').scriptConsole.running(4), / с$/, 'Russian writes 
     assert.deepEqual(finishRun(z, { state: 'failed', error: null }, atRun, quiet), [z.noAnswer]);
     assert.deepEqual(finishRun(z, { state: 'stopped' }, atRun, quiet), [z.stoppedNote]);
     assert.deepEqual(finishRun(z, { state: 'unavailable' }, atRun, quiet), [z.desktopOnly], 'the web demo says scripts need the desktop app');
+    for (const [missing, line] of [
+        [{ reason: 'none' }, z.python.none],
+        [{ reason: 'old', path: 'C:\\Python37\\python.exe', version: '3.7.9' }, z.python.old('3.7.9', 'C:\\Python37\\python.exe')],
+        [{ reason: 'setPath', path: 'D:\\gone\\python.exe' }, z.python.setPath('D:\\gone\\python.exe')],
+    ]) {
+        assert.deepEqual(finishRun(z, { state: 'noPython', missing }, atRun, quiet), [line], `a Python run with no Python says what is missing (${missing.reason})`);
+    }
+    assert.match(z.python.none, /Preferences > Automation/, 'and where to set the path');
+    assert.deepEqual(finishRun(z, { state: 'noFolder', folder: 'E:\\scripts' }, atRun, quiet), [z.folderGone('E:\\scripts')],
+        'a Python run of a saved script whose folder is gone says so');
     assert.deepEqual(quiet.calls, [], 'none of these writes anything');
 
     // The rule on its own, as another caller takes it.

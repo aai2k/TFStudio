@@ -50,6 +50,14 @@
     "url": "https://github.com/aai2k/TFStudio.git"
   },
   "devDependencies": {
+    "@codemirror/commands": "6.11.1",
+    "@codemirror/lang-javascript": "6.2.5",
+    "@codemirror/lang-python": "6.2.1",
+    "@codemirror/language": "6.13.1",
+    "@codemirror/search": "6.7.2",
+    "@codemirror/state": "6.7.6",
+    "@codemirror/view": "6.43.14",
+    "@lezer/highlight": "1.2.5",
     "cross-env": "^10.1.0",
     "decimal.js": "^10.6.0",
     "echarts": "^6.1.0",
@@ -172,6 +180,14 @@
       {
         "from": "build/seed",
         "to": "materials-seed"
+      },
+      {
+        "from": "python",
+        "to": "python",
+        "filter": [
+          "**/*",
+          "!**/__pycache__{,/**/*}"
+        ]
       }
     ],
     "nsis": {

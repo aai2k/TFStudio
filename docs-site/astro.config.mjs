@@ -166,9 +166,10 @@ export default defineConfig({
           label: 'Automation',
           translations: { 'zh-CN': '自动化' },
           items: [
-            { label: 'AI Agents (MCP)', translations: { 'zh-CN': 'AI 助手（MCP）' }, slug: 'automation/ai-agents' },
             { label: 'Script Console', translations: { 'zh-CN': '脚本控制台' }, slug: 'automation/script-console' },
+            { label: 'Python', translations: { 'zh-CN': 'Python' }, slug: 'automation/python' },
             { label: 'API Reference', translations: { 'zh-CN': 'API 参考' }, slug: 'automation/api-reference' },
+            { label: 'AI Agents (MCP)', translations: { 'zh-CN': 'AI 助手（MCP）' }, slug: 'automation/ai-agents' },
           ],
         },
         {

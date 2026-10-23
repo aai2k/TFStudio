@@ -1,10 +1,12 @@
 /**
- * The API's calls as their doc comments describe them, for the API Reference
- * generator (tools/gen_api_reference.mjs): each function src/api/index.js
- * exports, in the order index.js lists them, read from the doc comment right
- * above its export:
+ * Doc comments as the API Reference generator (tools/gen_api_reference.mjs)
+ * reads them. readDoc() reads one, as jsObjects.mjs reads those of the object
+ * API's classes and members. apiCalls() gives the plain API's calls, each
+ * function src/api/index.js exports, in the order index.js lists them, from
+ * the doc comment right above its export; the reference takes why a run ends
+ * from those of refine and synthesize. A doc comment holds:
  *
- *   lead paragraphs      what the call does
+ *   lead paragraphs      what it does
  *   @param name text     an argument; [name] is optional and [name=value] has
  *                        a default. A dotted name (options.from, rows[].type)
  *                        is a field of an argument
@@ -73,25 +75,34 @@ function exampleOf(tags) {
     return example ? example.lines.slice(1).join('\n').replace(/\s+$/, '') : null;
 }
 
-// The call `name` as its doc comment in `file` describes it.
-function callOf(name, file) {
-    const source = fs.readFileSync(file, 'utf8');
-    const found = source.match(new RegExp(`/\\*\\*((?:(?!\\*/)[\\s\\S])*)\\*/\\s*export (async )?(?:function|const) ${name}\\b`));
-    if (!found) throw new Error(`${file}: ${name} has no doc comment right above its export`);
-    const { lead, tags } = parseDoc(found[1]);
+/**
+ * A doc comment's body, the text between its opening and closing marks, read
+ * as { lead, params, returns, properties, throws, async, example }. `where`
+ * names it in a refusal.
+ */
+export function readDoc(body, where) {
+    const { lead, tags } = parseDoc(body);
     const unknown = tags.find(t => !TAGS.has(t.tag));
-    if (unknown) throw new Error(`${name}: @${unknown.tag} is not a tag the reference reads`);
+    if (unknown) throw new Error(`${where}: @${unknown.tag} is not a tag the reference reads`);
     const texts = tag => tags.filter(t => t.tag === tag).map(t => joined(t.lines));
     return {
-        name,
         lead: paragraphs(lead),
         params: texts('param').map(paramOf),
         returns: texts('returns')[0] ?? null,
         properties: texts('property').map(fieldOf),
         throws: texts('throws'),
-        async: !!found[2] || tags.some(t => t.tag === 'async'),
+        async: tags.some(t => t.tag === 'async'),
         example: exampleOf(tags),
     };
+}
+
+// The call `name` as its doc comment in `file` describes it.
+function callOf(name, file) {
+    const source = fs.readFileSync(file, 'utf8');
+    const found = source.match(new RegExp(`/\\*\\*((?:(?!\\*/)[\\s\\S])*)\\*/\\s*export (async )?(?:function|const) ${name}\\b`));
+    if (!found) throw new Error(`${file}: ${name} has no doc comment right above its export`);
+    const doc = readDoc(found[1], name);
+    return { name, ...doc, async: !!found[2] || doc.async };
 }
 
 /** Each call the index.js in `apiDir` exports, in its order, as its doc comment describes it. */

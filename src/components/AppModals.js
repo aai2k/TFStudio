@@ -40,6 +40,7 @@ export function AppModals({
             setUpdateCheckEnabled: settings.setUpdateCheckEnabled,
             liveBridge: settings.liveBridge, setLiveBridge: settings.setLiveBridge,
             liveBridgeStatus: settings.liveBridgeStatus,
+            pythonPath: settings.pythonPath, setPythonPath: settings.setPythonPath,
             onUserPathChanged,
             // A move reloads every design from the new folder without its
             // unsaved copy, so the unsaved designs are saved before it.

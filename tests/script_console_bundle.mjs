@@ -10,9 +10,12 @@
  *
  * As a second check, the bundle text names none of structuredClone, findLast
  * and fetch. On the thread, the script prints, a design using a material from
- * a user catalog in the data folder computes the spectrum the API computes in
- * this process, a refinement runs, the design it changes comes back, and its
- * error names its own line.
+ * a user catalog in the data folder computes through the object API
+ * (src/api/objects) the spectrum the API computes in this process, a
+ * refinement runs, the design it changes comes back, and its error names its
+ * own line. With a Python 3.8 or newer here, a Python script does the same on
+ * the bundle's Python thread (src/scripts/pythonWorker.js), which serves it
+ * the API.
  *
  * Run: node tests/script_console_bundle.mjs
  */
@@ -64,16 +67,27 @@ fs.writeFileSync(node16, NEWER_THAN_NODE_16
     .map(([owner, names]) => `for (const name of ${JSON.stringify(names)}) delete (${owner})[name];`).join('\n'));
 // Runs each script of the JSON argument on the bundle, one after another, and
 // prints what each answered and printed.
+// Then the Python script, on the bundle's Python thread, in the Python found
+// here, with the repo's package; null in its place when there is no Python.
 const child = path.join(out, 'runScripts.cjs');
 fs.writeFileSync(child, `
 const { createScriptRuns } = require(${JSON.stringify(path.join(ROOT, 'src', 'main', 'scriptRuns.js'))});
-const { workerFile, environment, design, scripts } = JSON.parse(process.argv[2]);
-const runs = createScriptRuns({ workerFile, log: () => {} });
+const { findPython, pythonLaunch } = require(${JSON.stringify(path.join(ROOT, 'src', 'main', 'pythonLaunch.js'))});
+const { workerFile, pythonWorkerFile, environment, design, scripts, python } = JSON.parse(process.argv[2]);
+const runs = createScriptRuns({ workerFile, pythonWorkerFile, log: () => {} });
 (async () => {
     const results = [];
     for (const [i, text] of scripts.entries()) {
         const output = [];
         const answer = await runs.start('b' + i, 'test', { environment, text, fileName: 'my.js', filePath: null, design }, lines => output.push(...lines));
+        results.push({ answer, output });
+    }
+    const found = await findPython();
+    if (found.missing) results.push(null);
+    else {
+        const output = [];
+        const launch = async () => pythonLaunch({ found: found.found, filePath: null, dataDir: environment.dataDir, packageHome: ${JSON.stringify(path.join(ROOT, 'python'))} });
+        const answer = await runs.startPython('p', 'test', { environment, version: '0', text: python, fileName: 'my.py', filePath: null, design }, launch, lines => output.push(...lines));
         results.push({ answer, output });
     }
     process.stdout.write(JSON.stringify(results));
@@ -87,29 +101,40 @@ const wasmPath = createRequire(import.meta.url).resolve('tmmcore/tmm_kernel.wasm
 // The names above that the script's thread still has, as "owner.name".
 const stillThere = `${JSON.stringify(NEWER_THAN_NODE_16)}.flatMap(([owner, names]) => names.filter(name => name in (0, eval)(owner)).map(name => owner + '.' + name))`;
 const request = {
-    workerFile: bundle, environment: { dataDir, wasmPath }, design,
+    workerFile: bundle, pythonWorkerFile: path.join(out, 'pythonWorker.js'), environment: { dataDir, wasmPath }, design,
+    python: 'import json\nprint(json.dumps(list(tf.design.spectrum(450, 650, step=50).R)))\n'
+        + 'tf.design.layers[len(tf.design.layers)].thickness = 61',
     scripts: [
-        `console.log(JSON.stringify(${stillThere}));\nconsole.log(JSON.stringify(tf.spectrum(tf.design, { from: 450, to: 650, step: 50 }).angles));`,
-        "const merit = tf.setMerit(tf.design, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, weight: 1 }]);\n"
-            + "const { result } = await tf.refine(merit, { method: 'dls', maxIter: 5 });\nconsole.log('refined', result.mf >= 0);",
-        'tf.design.frontLayers[0].thickness = 61;',
+        `console.log(JSON.stringify(${stillThere}));\nconsole.log(JSON.stringify(tf.design.spectrum(450, 650, { step: 50 }).R));`,
+        "const rated = tf.design.copy();\nrated.merit.add('RAV', 450, 650, { target: 0 });\n"
+            + "const run = await rated.refine({ method: 'dls', maxIter: 5 });\nconsole.log('refined', run.merit >= 0);",
+        'tf.design.layers[tf.design.layers.length].thickness = 61;',
         'const a = 1;\nnull.x;',
     ],
 };
-const [printed, refined, changed, failed] = JSON.parse(execFileSync(process.execPath, ['--require', node16, child, JSON.stringify(request)], {
+const [printed, refined, changed, failed, python] = JSON.parse(execFileSync(process.execPath, ['--require', node16, child, JSON.stringify(request)], {
     encoding: 'utf8', timeout: 120000,
 }));
 
 assert.equal(printed.answer.state, 'done', printed.answer.error);
 assert.equal(printed.output[0], '["globalThis.CustomEvent","globalThis.crypto"]',
     'the script\'s thread runs without what Node 16 lacks, apart from the two the API puts back itself (src/api/environment.js)');
-assert.equal(printed.output[1], JSON.stringify(api.spectrum(design, { from: 450, to: 650, step: 50 }).angles),
+assert.equal(printed.output[1], JSON.stringify(api.spectrum(design, { from: 450, to: 650, step: 50 }).angles[0].R),
     'the bundle computes the API\'s spectrum with a user-catalog material');
 assert.equal(refined.answer.state, 'done', refined.answer.error);
 assert.deepEqual(refined.output, ['refined true'], 'a refinement runs');
 assert.equal(changed.answer.design?.frontLayers[0].thickness, 61, 'the changed design comes back');
 assert.equal(failed.answer.state, 'failed');
 assert.match(failed.answer.error, /^TypeError: .*\n\s+at my\.js:2:6$/, `the error names the script line: ${failed.answer.error}`);
+
+// The rest of the bundle is checked either way, so this is a note, not a SKIP.
+if (python === null) console.log('note: no Python 3.8 or newer here, so the bundle\'s Python thread is not checked');
+else {
+    assert.equal(python.answer.state, 'done', python.answer.error);
+    assert.deepEqual(JSON.parse(python.output[0]), api.spectrum(design, { from: 450, to: 650, step: 50 }).angles[0].R,
+        'a Python script computes the API\'s spectrum on the bundle\'s Python thread');
+    assert.equal(python.answer.design?.frontLayers[0].thickness, 61, 'and the design it changed comes back');
+}
 
 fs.rmSync(out, { recursive: true, force: true });
 console.log('PASS: script_console_bundle');

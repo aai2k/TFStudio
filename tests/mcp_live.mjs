@@ -23,10 +23,17 @@
  *   4. The app gone: no file, the switch turned off mid-session, a file a
  *      crash left, a file with the wrong secret, and a program at the pipe a
  *      file left behind names that cannot prove the secret, answering with
- *      the agent's own proof or with none, each give the "not running, or
- *      off" answer, and that program hears no secret and no request; the link
- *      follows the app when it opens again; an app that does not answer gives
- *      the "did not answer" one.
+ *      the agent's own proof or with none, or telling the agent to wait for
+ *      the user without the app's proof, each give the "not running, or
+ *      not listening" answer, which says to click Interactive on the
+ *      Optimization tab, and that program hears no secret and no request; the
+ *      link follows the app when it opens again; an app that does not answer
+ *      gives the "did not answer" one, and an app whose user clicked Deny the
+ *      answer that says so and points to Interactive.
+ *   5. The agent's name: the server names the agent to the app as the MCP
+ *      client called itself in initialize, its title before its name. While
+ *      the app asks its user, the link waits for the answer past its own
+ *      deadline for the hello.
  *
  * Run: node tests/mcp_live.mjs
  */
@@ -57,7 +64,8 @@ async function until(check) {
     for (let i = 0; i < 200 && !(await check()); i++) await sleep(50);
 }
 
-const OFF = /TFStudio is not running, or 'Let AI agents work on the open design' is off/;
+const OFF = /^\w+: TFStudio is not running, or it is not listening for this program\. Click Interactive on TFStudio's Optimization tab, then call this again\.$/;
+const DENIED = /^\w+: Deny was clicked in TFStudio when this program asked to work on the open design\. Click Interactive on TFStudio's Optimization tab/;
 const AR = [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, weight: 1 }];
 const POOL = ['TiO2', 'SiO2'];
 
@@ -85,11 +93,15 @@ const forward = async (method, params) => {
     }
     return app.forward(method, params);
 };
-const bridge = createLiveBridge({ file, log: () => {}, version: '9.9.9', forward });
+// The programs the app was asked to let in, by the name each gave; while
+// `letIn` is false the app's user clicks Deny.
+const programs = [];
+let letIn = true;
+const bridge = createLiveBridge({ file, log: () => {}, version: '9.9.9', forward, admit: program => { programs.push(program); return letIn; } });
 ok('the app opens the link', (await bridge.open()).open === true);
 
 const server = startClient(process.execPath, ['--no-warnings', SERVER, '--live', file]);
-const init = await server.request('initialize', INIT);
+const init = await server.request('initialize', { ...INIT, clientInfo: { name: 'claude-code', title: 'Claude Code', version: '2' } });
 server.write({ jsonrpc: '2.0', method: 'notifications/initialized' });
 
 // ── 1. The tools ───────────────────────────────────────────────────────────
@@ -105,6 +117,7 @@ server.write({ jsonrpc: '2.0', method: 'notifications/initialized' });
     const shown = apps.designs?.[0];
     ok('listAppDesigns lists the designs the app holds, with the app\'s version', [apps.appVersion, apps.activeDesignId, apps.designs?.length].join() === '9.9.9,app-ar,2', JSON.stringify(apps));
     ok('each with its folder and layer counts', [shown?.folder, shown?.frontLayers].join() === 'Coatings/AR,2', JSON.stringify(shown));
+    ok('the server names the agent to the app as its client called itself, by title', programs.join() === 'Claude Code', programs.join());
 }
 
 // ── 2. Read, edit, apply ───────────────────────────────────────────────────
@@ -195,6 +208,11 @@ server.write({ jsonrpc: '2.0', method: 'notifications/initialized' });
 
 // ── 4. The app gone ────────────────────────────────────────────────────────
 {
+    letIn = false;
+    bridge.drop();
+    ok('an app whose user clicked Deny says so, and points to Interactive', DENIED.test((await server.call('listAppDesigns', {})).error ?? ''));
+    letIn = true;
+    ok('and once the user lets the agent in, it works again', (await server.call('listAppDesigns', {})).designs?.length === 2);
     bridge.close();
     ok('the switch turned off mid-session', OFF.test((await server.call('listAppDesigns', {})).error ?? ''));
     ok('no live link file', !fs.existsSync(file) && OFF.test((await server.call('readAppDesign', {})).error ?? ''));
@@ -207,30 +225,39 @@ server.write({ jsonrpc: '2.0', method: 'notifications/initialized' });
     ok('a file with the wrong secret', OFF.test((await server.call('listAppDesigns', {})).error ?? ''));
 
     // A program that took the pipe a file left behind names: it answers the
-    // hello as the app does, with `proofOf(hello)` as its proof, and answers
-    // every request.
+    // hello with what `answerHello(hello)` gives, and every request.
     const heard = [];
-    let proofOf;
+    const sockets = [];
+    let answerHello;
     const impostorPipe = process.platform === 'win32' ? `\\\\.\\pipe\\tfstudio-live-impostor-${process.pid}` : path.join(dir, 'impostor.sock');
     const impostor = net.createServer(socket => {
+        sockets.push(socket);
         socket.setEncoding('utf8');
         socket.on('error', () => {});
         socket.on('data', chunk => {
             for (const message of chunk.split('\n').filter(Boolean).map(line => JSON.parse(line))) {
                 heard.push(message);
-                const answer = message.hello ? { hello: message.hello, version: '6.6.6', proof: proofOf(message) } : { id: message.id, result: { activeDesignId: 'theirs', designs: [] } };
+                const answer = message.hello ? answerHello(message) : { id: message.id, result: { activeDesignId: 'theirs', designs: [] } };
                 socket.write(`${JSON.stringify(answer)}\n`);
             }
         });
     });
     await new Promise(resolve => impostor.listen(impostorPipe, resolve));
     fs.writeFileSync(file, JSON.stringify({ pipe: impostorPipe, secret: 'left behind' }));
-    for (const [how, proofWith] of [['the agent\'s proof handed back as its own', hello => hello.proof], ['no proof', () => undefined]]) {
+    for (const [how, answer] of [
+        ['the agent\'s proof handed back as its own', hello => ({ hello: hello.hello, version: '6.6.6', proof: hello.proof })],
+        ['no proof', hello => ({ hello: hello.hello, version: '6.6.6' })],
+        ['a wait for the user, without the app\'s proof', hello => ({ asking: true, proof: hello.proof })],
+    ]) {
         heard.length = 0;
-        proofOf = proofWith;
-        ok(`a program at the pipe of a file left behind, answering with ${how}`, OFF.test((await server.call('listAppDesigns', {})).error ?? ''));
+        answerHello = answer;
+        // The answer comes at once; one not there after 5 s, a wait on a
+        // loaded machine included, is not coming.
+        const said = await Promise.race([server.call('listAppDesigns', {}), sleep(5000).then(() => ({ error: 'no answer within 5 s' }))]);
+        ok(`a program at the pipe of a file left behind, answering with ${how}`, OFF.test(said.error ?? ''), said.error);
         ok(`learns neither the secret nor a request (${how})`, heard.length === 1 && !JSON.stringify(heard).includes('left behind'), JSON.stringify(heard));
     }
+    for (const socket of sockets) socket.destroy();
     impostor.close();
     fs.writeFileSync(file, JSON.stringify(opened));
     ok('the link follows the app when it opens again', (await server.call('listAppDesigns', {})).designs?.length === 2);
@@ -245,6 +272,45 @@ ok('every line on stdout is a JSON-RPC message', onlyMessages(server), server.li
 server.child.stdin.end();
 ok('closing stdin ends the server', await ended(server) === 0);
 bridge.close();
+
+// ── 5. Waiting for the user ────────────────────────────────────────────────
+// The servers' end of the link in this process, its 20 s deadlines held until
+// the test fires the ones still set, as they would have run out.
+{
+    const { createLiveLink } = await import('../src/mcp/liveLink.js');
+    const realSetTimeout = globalThis.setTimeout;
+    const realClearTimeout = globalThis.clearTimeout;
+    const deadlines = new Set();
+    globalThis.setTimeout = (fn, ms, ...args) => {
+        if (ms !== 20000) return realSetTimeout(fn, ms, ...args);
+        const deadline = { fn };
+        deadlines.add(deadline);
+        return deadline;
+    };
+    globalThis.clearTimeout = handle => (deadlines.has(handle) ? deadlines.delete(handle) : realClearTimeout(handle));
+    const askedFile = path.join(dir, 'asking-bridge.json');
+    let answer = null;
+    const asking = createLiveBridge({
+        file: askedFile, log: () => {}, version: '9.9.9', forward: app.forward,
+        admit: (program, tell) => { tell(); return new Promise(resolve => { answer = resolve; }); },
+    });
+    await asking.open();
+    const link = createLiveLink(askedFile, () => 'python.exe');
+    let settled = null;
+    const listed = link.request('designs').then(result => { settled = { result }; }, err => { settled = { err }; });
+    await until(() => answer);
+    await sleep(50);
+    for (const deadline of [...deadlines]) { deadlines.delete(deadline); deadline.fn(); }
+    await sleep(50);
+    ok('while the app asks its user, the link waits past its deadline for the hello', settled === null, JSON.stringify(settled?.err?.message));
+    answer(true);
+    await listed;
+    ok('and goes on once the user lets it in', settled?.result?.designs?.length === 2, JSON.stringify(settled?.err?.message));
+    link.close();
+    asking.close();
+    globalThis.setTimeout = realSetTimeout;
+    globalThis.clearTimeout = realClearTimeout;
+}
 fs.rmSync(dir, { recursive: true, force: true });
 
 console.log(`${pass} passed, ${fail} failed`);
