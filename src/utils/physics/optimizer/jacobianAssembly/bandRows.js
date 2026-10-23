@@ -20,20 +20,41 @@ import { operandResidualRows } from '../residualRows.js';
 // Continuous per-λ target (TGT/RGT/AGT), one residual per sample:
 // rₛ = √(w·qₛ)·(valₛ − tₛ), qₛ the band grid's trapezoid weights, so
 // ∂rₛ/∂d_k = √(w·qₛ)·∂valₛ/∂d_k. The target line tₛ does not depend on the
-// thicknesses.
-export function _jacRowsRangeTarget(op, jc) {
-    const { freeIdx, nFree, propDeriv } = jc;
+// thicknesses. visit(s, √(w·qₛ), deriv) is called for each sample in turn,
+// deriv() giving ∂valₛ/∂d over every variable, so a sample that is not needed
+// is not differentiated.
+function eachRangeTargetSample(op, jc, visit) {
     const char = charOf(op.type);
     const pol  = polFromType(op.type) ?? op.pol;
     const lams = operandSampleLambdas(op);
     const q = bandQuadratureWeights(lams.length);
-    return lams.map((lambda, s) => {
-        const sw = Math.sqrt(op.weight * q[s]);
-        const d = propDeriv(lambda, pol, char, op.aoi);
+    return lams.map((lambda, s) => visit(s, Math.sqrt(op.weight * q[s]), () => jc.propDeriv(lambda, pol, char, op.aoi)));
+}
+
+export function _jacRowsRangeTarget(op, jc) {
+    const { freeIdx, nFree } = jc;
+    return eachRangeTargetSample(op, jc, (s, sw, deriv) => {
+        const d = deriv();
         const row = new Array(nFree);
         for (let ci = 0; ci < nFree; ci++) row[ci] = sw * d[freeIdx[ci]];
         return row;
     });
+}
+
+// Σₛ cₛ·∂rₛ/∂d of a range target over the free variables, one coefficient cₛ
+// per sample, made one sample at a time. The needle scan has a variable per
+// needle position and material, so its rows held together for a fine grid
+// would take gigabytes. A sample with cₛ = 0 is skipped.
+export function rangeTargetRowSum(op, jc, coefs) {
+    const { freeIdx, nFree } = jc;
+    const sum = new Array(nFree).fill(0);
+    eachRangeTargetSample(op, jc, (s, sw, deriv) => {
+        const c = coefs[s];
+        if (c === 0) return;
+        const d = deriv();
+        for (let ci = 0; ci < nFree; ci++) sum[ci] += c * (sw * d[freeIdx[ci]]);
+    });
+    return sum;
 }
 
 // Curve block with its level free, one residual per point:
@@ -73,8 +94,9 @@ export function rmsValueSlope(op, i, jc) {
     const unit = { ...op, weight: 1 };
     const sigma = residualScale(op);
     const residuals = operandResidualRows(unit, value, operandSampleDeviations(comp)[i], sigma);
-    const slopes = isRangeTarget(op.type) ? _jacRowsRangeTarget(unit, jc) : _jacRowsLevelFree(unit, jc);
     const k = sigma * sigma / value;
+    if (isRangeTarget(op.type)) return rangeTargetRowSum(unit, jc, residuals.map(r => k * r));
+    const slopes = _jacRowsLevelFree(unit, jc);
     for (let s = 0; s < slopes.length; s++) {
         const weighted = k * residuals[s];
         for (let ci = 0; ci < nFree; ci++) row[ci] += weighted * slopes[s][ci];

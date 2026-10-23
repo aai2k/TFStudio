@@ -77,6 +77,30 @@ const growth = (peak - start) / 2 ** 20;
 // here. The bound leaves room for what the scan builds besides.
 assert.ok(growth < 150, `the scan's heap grew by ${growth.toFixed(0)} MB, under 150 MB`);
 
+// A range target gives one slope row per sample, each one value per needle
+// position and material; the scan adds each into the slopes as it is made.
+// Holding them all took about 205 MB here at 0.01 nm.
+const ranged = {
+    ...design,
+    meritOperands: [makeOperand({ type: 'TGT', lambdaStart: 400, lambdaEnd: 700, aoi: 0, pol: 'avg', target: 0, targetEnd: 0, weight: 1, flag: 3 })],
+};
+const rangedOps = model.runOperands(ranged, resolveMat).filter(op => !isConstraint(op.type));
+assert.equal(operandSampleLambdas(rangedOps[0]).length, 30001, 'the range target at 0.01 nm samples its band 30001 times');
+calls = 0; peak = 0;
+kernel.tmmNeedleScan = function sampled(...args) {
+    if (++calls % 1000 === 0) { collect(); peak = Math.max(peak, process.memoryUsage().heapUsed); }
+    return scan.apply(this, args);
+};
+collect();
+const rangedStart = process.memoryUsage().heapUsed;
+model.runNeedleScan({
+    operands: rangedOps, design: ranged, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front', effSide: 'front',
+    tn: { alreadyOptimal: 'optimal', scanDone: (a, b) => `${a}/${b}` },
+});
+kernel.tmmNeedleScan = scan;
+const rangedGrowth = (peak - rangedStart) / 2 ** 20;
+assert.ok(rangedGrowth < 150, `the range target scan's heap grew by ${rangedGrowth.toFixed(0)} MB, under 150 MB`);
+
 // Rows on one grid, such as an average of T and one of R over the same band,
 // share the kernel's results: one call per sample, not one per row and sample.
 const shared = {
@@ -108,4 +132,4 @@ model.runNeedleScan({
 kernel.tmmNeedleScan = scan;
 assert.ok(fineCalls <= 2 * fineSamples - 300, `two rows on ${fineSamples} samples made ${fineCalls} kernel calls, sharing what the cache holds`);
 
-console.log(`PASS: needle_scan_memory (${calls} kernel calls, heap growth ${growth.toFixed(0)} MB)`);
+console.log(`PASS: needle_scan_memory (heap growth ${growth.toFixed(0)} MB band average, ${rangedGrowth.toFixed(0)} MB range target)`);

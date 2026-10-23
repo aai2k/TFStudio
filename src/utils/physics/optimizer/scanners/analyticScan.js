@@ -33,9 +33,10 @@ import {
     isFullSystemEval, buildEvalContext, effectiveBackLayers, evaluateOperands, calcMF,
     mfWeightDenominator, operandSampleDeviations, residualScaleIn,
 } from '../evalCore.js';
-import { isEllipsometry, isManufacturability, isPhaseDispersion } from '../operandModel.js';
+import { isEllipsometry, isManufacturability, isPhaseDispersion, isRangeTarget } from '../operandModel.js';
 import { operandResidualRows } from '../residualRows.js';
 import { _jacRows, _jacRowsDecline } from '../jacobianAssembly/jacRows.js';
+import { rangeTargetRowSum } from '../jacobianAssembly/bandRows.js';
 import { coneNodesAt } from '../evalCore/tmmEval.js';
 import { coneIsActive } from '../coneAngle.js';
 import { resolveScanSide } from './sides.js';
@@ -163,6 +164,10 @@ function _accumMerit(operands, prep, deltaNm) {
         const sigma = jc.residualScale(op);
         const residuals = operandResidualRows(op, comp[i], deviations[i], sigma);
         if (residuals.every(r => r === 0)) continue;
+        if (isRangeTarget(op.type)) {
+            rangeTargetRowSum(op, jc, residuals).forEach((value, di) => { descs[di].num += value; });
+            continue;
+        }
         const rows = _jacRows(op, i, jc);
         if (rows) _accumRows(descs, residuals, rows);
         else _accumRowDifference({ operands, comp, ctx0, cfg, descs, candidateMats: cfg.candidateMats, deltaNm, sigma }, i);
