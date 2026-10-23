@@ -819,12 +819,13 @@ async function throwingAt(run, at) {
 const THROWN_AS_DOCUMENTED = ['rejected with it', 0, true];
 {
     // The engines catch the errors of the code their reports come from, each
-    // in its own places, so the error is thrown at each report in turn.
+    // in its own places, so the error is thrown at each report in turn. Some
+    // reports are paced by the clock, so how many a run gives varies with the
+    // machine's load: a run judged is one that reached its report `at`, and
+    // the first that ends before it ends the sweep of that method.
     const ends = [];
     for (const name of Object.keys(RUN_OF)) {
-        let reports = 0;
-        await quietly(() => RUN_OF[name](start.copy(), () => { reports++; }));
-        for (let at = 1; at <= reports; at++) ends.push([`${name} at report ${at} of ${reports}`, await throwingAt(RUN_OF[name], at)]);
+        for (let at = 1, end; (end = await throwingAt(RUN_OF[name], at))[1] >= 0; at++) ends.push([`${name} at report ${at}`, end]);
     }
     const wrong = ends.filter(([, end]) => canon(end) !== canon(THROWN_AS_DOCUMENTED));
     ok('an error a progress function throws at any report ends the run, which rejects with it, calling progress no more, the design as it was, for each method',

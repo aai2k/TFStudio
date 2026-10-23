@@ -260,11 +260,14 @@ const specified = api.setSpecification(start, CHECKS);
     ok('onProgress merged on the wire holds every value the run reported', patches.length > 1 && canon(fold(refined.progress.map(p => p.args[0]))) === canon(fold(patches)),
         `${refined.progress.length} reports / ${patches.length}`);
     // What onProgress had reported by each generation, with that generation:
-    // a report held back goes out before the generation after it.
+    // a report held back goes out before the generation after it. A worker
+    // reports its live design at most every 80 ms of the clock, so how many
+    // live reports a run makes, and which came last, depends on the machine's
+    // load: the comparison leaves `live` out.
     const byGeneration = reports => {
         let seen = {};
         return reports.flatMap(([hook, args]) => {
-            if (hook === 'onProgress') { seen = { ...seen, ...args[0] }; return []; }
+            if (hook === 'onProgress') { seen = { ...seen, ...args[0] }; delete seen.live; return []; }
             return [canon([seen, args])];
         }).join('\n');
     };

@@ -53,7 +53,7 @@ console.log(`=== Needle sensitivity (H1, safe tail-trim) · WASM ${tmmWasmActive
 }
 
 // ── (2) Headless GE in THOROUGH mode: cull must not worsen quality ────────────
-const BUDGET = 6000;
+const STEPS = 12;
 const CASES = ['bbar', 'bandpass'];
 const FLOORS = [
   { label: 'off',        floor: 0 },
@@ -68,8 +68,11 @@ for (const id of CASES) {
   for (const { label, floor } of FLOORS) {
     // Uncapped ('thorough') so the tail is actually reached — that's where the
     // cull does work. maxBatches default would already skip the tail.
+    // Each setting gets the same number of steps and no time limit: a time
+    // limit gives a run fewer steps on a loaded machine, and the comparison
+    // would then measure the load, not the cull.
     const r = runSynth(true, C.thick(), C.ops, 1, resolveMat,
-      { budgetMs: BUDGET, engine: 'cg', needleSensFloor: floor });
+      { budgetMs: Infinity, maxSteps: STEPS, engine: 'cg', needleSensFloor: floor });
     const mf = opticalMF(r.design, C.ops, resolveMat);
     results[label] = { ...r, mfOpt: mf };
     console.log(`  ${id.padEnd(10)} ${label.padEnd(11)} ${fmt(mf).padStart(10)} ${String(r.layers).padStart(7)} ${String(r.steps).padStart(6)} ${(`${(r.ms/1000).toFixed(1)}s`).padStart(7)}`);
