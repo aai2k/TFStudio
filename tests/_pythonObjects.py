@@ -494,7 +494,9 @@ def refusals(tf, design):
         lambda: setattr(front.substrate, "thickness", 0), lambda: front.stack("HL", at=-5),
         lambda: front.stack("Air | HL | BK7"), lambda: tf.materials["TiO2"].nk(-5),
         lambda: tf.new_design("X", reference=0), lambda: front.synthesize("needle", pool=["TiO2", "SiO2"]),
-        lambda: front.layers.append("SiO2", 10, locked=1), lambda: front.merit.add("RAV", 450, 650, target_end="x"))]
+        lambda: front.layers.append("SiO2", 10, locked=1), lambda: front.merit.add("RAV", 450, 650, target_end="x"),
+        lambda: front.merit.add("RAV", lambda_start=450, lambda_end=650, target=0),
+        lambda: front.merit.add("RAV", lambdaStart=450, lambdaEnd=650))]
     calls, data = tf._calls, front._data
     out({"pythonWords": {"design": data, "worded": worded, "rowType": refused(lambda: front.merit.add("XYZ")),
                       "formula": refused(lambda: front.stack("(HL")),

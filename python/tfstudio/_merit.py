@@ -1,6 +1,7 @@
 """A design's merit function: its rows, and their values."""
 
-from ._names import api_names
+from ._errors import TFStudioError
+from ._names import api_name, api_names
 from ._refusals import Words, worded
 
 # add() makes its row with setMerit, whose refusals begin with the row's place;
@@ -8,6 +9,16 @@ from ._refusals import Words, worded
 # arguments.
 _ADD_WORDS = Words("setMerit: row 0", "add", {"lambdaStart": "start", "lambdaEnd": "end"},
                    ("type", "lambdaStart", "lambdaEnd"))
+
+
+def _refuse_argument_fields(fields):
+    """Refuses a keyword argument that names a field add() takes as an
+    argument, which the argument would otherwise replace without a word. A
+    field is known by its API name, so lambdaStart is refused as lambda_start
+    is."""
+    argument = next((name for name in fields if api_name(name) in ("lambdaStart", "lambdaEnd")), None)
+    if argument:
+        raise TFStudioError("add: unknown option {!r}; a row's type, start and end are add()'s arguments".format(argument))
 
 
 def _reading(name, doc):
@@ -196,6 +207,8 @@ class Merit:
             TFStudioError: a type this version does not evaluate, a field no
                 row has, a value a field cannot take, or start above end on a
                 row that reads a band or a layer range.
+            TFStudioError: the row's `start` or `end` among the keyword
+                arguments.
 
         Example::
 
@@ -206,6 +219,7 @@ class Merit:
             design.merit.add("MNT", target=10)
             print(len(design.merit), "rows, merit", design.merit.value)
         """
+        _refuse_argument_fields(fields)
         row = dict(api_names(dict(fields, lambda_start=start, lambda_end=end)), type=type)
         design = self._design
         with worded(_ADD_WORDS):

@@ -1403,7 +1403,7 @@ print(design.merit.value)
 **拒绝**：
 
 - 此版本无法计算的类型、任何行都没有的字段、字段无法接受的值，或在读取波段或膜层范围的行上 `start` 大于 `end`
-- **JavaScript**：选项对象之前除 `start` 和 `end` 外还有其他值
+- **JavaScript**：选项对象之前除 `start` 和 `end` 外还有其他值，或在选项中给出行的类型、`start` 或 `end`<br>**Python**：在关键字参数中给出行的 `start` 或 `end`
 
 ```js
 const design = tf.newDesign('AR');

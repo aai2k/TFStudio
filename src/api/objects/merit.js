@@ -9,6 +9,13 @@ import { worded } from './refusals.js';
 // start and end are its arguments, as is the type.
 const ADD_WORDS = { method: 'add', call: 'setMerit: row 0', names: { lambdaStart: 'start', lambdaEnd: 'end' }, hidden: ['type', 'lambdaStart', 'lambdaEnd'] };
 
+// Refuses an option that names a field add() takes as an argument, which
+// the argument would otherwise replace without a word.
+function refuseArgumentOptions(options) {
+    const argument = Object.keys(options ?? {}).find(name => ['type', 'lambdaStart', 'lambdaEnd'].includes(name));
+    if (argument) throw new Error(`add: unknown option '${argument}'; a row's type, start and end are add()'s arguments`);
+}
+
 /**
  * One row of a design's merit function, with its value for the design as it
  * was when design.merit.rows was read. A field the row does not read is null.
@@ -195,7 +202,7 @@ export class Merit {
      * @param [options.refId1] For a math row that reads two rows, the first one's id.
      * @param [options.refId2] For a math row that reads two rows, the second one's id.
      * @throws a type this version does not evaluate, a field no row has, a value a field cannot take, or `start` above `end` on a row that reads a band or a layer range
-     * @throws more than `start` and `end` before the options
+     * @throws more than `start` and `end` before the options, or the row's type, `start` or `end` among the options
      * @example
      * const design = tf.newDesign('AR');
      * design.stack('(HL)^2');
@@ -206,6 +213,7 @@ export class Merit {
      */
     add(type, ...args) {
         const [[start, end], options] = trailingOptions('add', args, ['start', 'end']);
+        refuseArgumentOptions(options);
         const row = defined({ ...options, lambdaStart: start, lambdaEnd: end, type });
         const design = this._design;
         const [made] = worded(ADD_WORDS, () => api.setMerit(design._data, [row])).meritOperands;

@@ -538,6 +538,8 @@ const WORDED = [
     'synthesize: the design has no merit function; add a row with merit.add()',
     'append: locked is True or False, not 1',
     "add: target_end is a number or None, not 'x'",
+    "add: unknown option 'lambda_start'; a row's type, start and end are add()'s arguments",
+    "add: unknown option 'lambdaStart'; a row's type, start and end are add()'s arguments",
 ];
 
 // The plain calls' refusals reaching the objects in Python's words, while

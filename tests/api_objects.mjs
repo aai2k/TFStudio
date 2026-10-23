@@ -858,6 +858,9 @@ const THROWN_AS_DOCUMENTED = ['rejected with it', 0, true];
         [() => front.merit.add('RAV', 450, 650, { aoi: 95 }), 'add: aoi is an angle of incidence in degrees, 0 <= aoi < 90, not 95'],
         [() => front.merit.add('RAV', 'x', 650), 'add: start is a number, not "x"'],
         [() => front.merit.add('RAV', 700, 400), 'add: start 700 is above end 400'],
+        [() => front.merit.add('RAV', { lambdaStart: 450, lambdaEnd: 650, target: 0 }),
+            "add: unknown option 'lambdaStart'; a row's type, start and end are add()'s arguments"],
+        [() => front.merit.add('RAV', 450, 650, { type: 'TAV' }), "add: unknown option 'type'; a row's type, start and end are add()'s arguments"],
         [() => front.spectrum(700, 400), 'spectrum: start and end are wavelengths in nm, 0 < start < end'],
         [() => front.monteCarlo(400, 700, { rnus: 5 }), "monteCarlo: unknown option 'rnus'; the options are quantity, step, angle, polarization, runs, "
             + 'thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop'],
