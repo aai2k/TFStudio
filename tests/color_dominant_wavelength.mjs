@@ -6,7 +6,7 @@
  * wavelength; for a purple it meets the purple line instead, and the line
  * produced backward meets the locus at the complementary wavelength. Eq. (12.6)
  * gives the excitation purity as the fraction of the distance from the white
- * point to the locus.
+ * point to the locus, or for a purple to the purple line.
  *
  * The hand solve walks the CIE 15:2004 5 nm locus table, finds the interval
  * whose two ends lie on opposite sides of the line, and interpolates linearly
@@ -73,6 +73,13 @@ function assertMatchesHand(got, xy, white, observer, what) {
     assert.equal(got.dom, null, `${what}: no dominant wavelength`);
     assert.ok(got.comp != null && Math.abs(got.comp - backward.lam) < 1e-6,
         `${what}: complementary ${got.comp} nm, hand ${backward.lam} nm`);
+    // A purple's excitation purity is measured to the purple line, the chord
+    // joining the two ends of the locus (Macleod Eq. 12.6, p. 462).
+    const locus = spectralLocusXy(observer);
+    const a = locus[0], b = locus[locus.length - 1];
+    const dx = xy.x - white.x, dy = xy.y - white.y, ex = b.x - a.x, ey = b.y - a.y;
+    const reach = ((a.x - white.x) * ey - (a.y - white.y) * ex) / (dx * ey - dy * ex);
+    assert.ok(Math.abs(got.purity - 1 / reach) < 1e-9, `${what}: purity ${got.purity}, hand ${1 / reach}`);
     return 'complementary';
 }
 

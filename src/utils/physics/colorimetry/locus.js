@@ -23,7 +23,7 @@ export function spectralLocusXy(observer) { return spectrumLocus(observer); }
  * spectrum-locus polyline gives the dominant λ (purity = |WS|/|W·locus|).
  * If the ray exits through the purple line, report the *complementary*
  * wavelength (opposite ray), with the purity |WS| over the distance from W to
- * that point on the locus, a positive fraction as for a dominant wavelength.
+ * the point where the ray meets the purple line (Eq. 12.6, p. 462).
  */
 // First crossing of the ray W + s·(vx,vy), s>0, with the spectrum-locus
 // polyline `loc`. Returns the nearest hit { lam, s, dist } (dist = |W→hit|) or
@@ -60,11 +60,13 @@ export function dominantWavelength(xy, white, observer) {
     return { dom: fwd.lam, comp: null,
              purity: fwd.dist > 0 ? sampleDist / fwd.dist : 0 };
   }
-  // Ray hit the purple line → use complementary (opposite direction).
+  // Ray hit the purple line, the chord joining the two ends of the locus: the
+  // complementary wavelength lies in the opposite direction.
   const bwd = _locusRayHit(loc, wx, wy, -dx, -dy);
+  const purple = _locusRayHit([loc[0], loc[loc.length - 1]], wx, wy, dx, dy);
   if (bwd) {
     return { dom: null, comp: bwd.lam,
-             purity: bwd.dist > 0 ? sampleDist / bwd.dist : 0 };
+             purity: purple && purple.dist > 0 ? sampleDist / purple.dist : 0 };
   }
   return { dom: null, comp: null, purity: 0 };
 }
