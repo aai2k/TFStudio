@@ -3,15 +3,13 @@
  * design being evaluated.
  *
  * At every wavelength a row reads R, T or A at, the node count starts at the
- * spec's grid points and doubles until the row's average there changes by no
- * more than CONE_AVERAGE_TOLERANCE (coneAngle/average.js, resolveConeNodes).
- * Each row settles its own counts (tmmEval.js, inConeRow), so a row reads the
- * same value whichever other rows are in the merit function. The count is
- * settled per wavelength because the angle integral is hard only where a
- * resonance narrower than the cone's shift sits: on a 200-layer TiO2/SiO2
- * stack under a 7.5° cone about the normal, 2 % of the band samples need 120
- * rays and 96 % settle at 30, and one count for the whole band would spend the
- * largest on every sample.
+ * spec's grid points and doubles until the row's average there settles within
+ * CONE_AVERAGE_TOLERANCE (coneAngle/average.js, resolveConeNodes). Each row
+ * settles its own counts (tmmEval.js, inConeRow), so a row reads the same
+ * value whichever other rows are in the merit function. The count is settled
+ * per wavelength because the angle integral is hard only where a resonance
+ * narrower than the cone's shift sits, and one count for the whole band would
+ * spend the largest on every sample.
  *
  * Too few rays leave a ripple on the averaged spectrum, and where that ripple
  * crosses zero two counts can agree at one sample by chance while the samples

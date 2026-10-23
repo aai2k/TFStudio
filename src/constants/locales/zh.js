@@ -1415,7 +1415,7 @@ export default {
       lambertian: '朗伯',
       user: '用户自定义',
       gridPoints: '网格点数',
-      gridPointsTip: '平均计算起始的角度数。TFStudio 将其加倍（最多到 200），直到平均值的变化小于 0.01%，并采用最后两次中较多的点数。数值越高起点越精细，计算也越慢。',
+      gridPointsTip: '平均计算起始的角度数。TFStudio 将其加倍（最多到 480），直到连续两次加倍各自使平均值的变化小于 0.01%，并采用最后一次加倍之前的点数。数值越高起点越精细，计算也越慢。',
       pastGrazing: (limitDeg) => `评价函数中入射角大于 ${limitDeg}° 的行会使该锥的一部分超过 90°。这些光线到达不了膜层，不计入平均。`,
       na: 'NA',
       fnum: 'f/#',

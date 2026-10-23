@@ -1351,7 +1351,7 @@ export default {
       lambertian: 'Lambertian',
       user: 'User-defined',
       gridPoints: 'Grid points',
-      gridPointsTip: 'Number of angles the average starts from. TFStudio doubles it, never past 200, until the average changes by less than 0.01 %, and uses the finer of the last two counts. A higher value starts finer and costs more.',
+      gridPointsTip: 'Number of angles the average starts from. TFStudio doubles it, never past 480, until two doublings in a row each change the average by less than 0.01 %, and uses the count before the last doubling. A higher value starts finer and costs more.',
       pastGrazing: (limitDeg) => `Merit function rows at more than ${limitDeg}° incidence put part of this cone past 90°. Those rays never reach the coating and are left out of the average.`,
       na: 'NA',
       fnum: 'f/#',

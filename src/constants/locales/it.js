@@ -1430,7 +1430,7 @@ export default {
       lambertian: 'Lambertiana',
       user: "Definita dall'utente",
       gridPoints: 'Punti della griglia',
-      gridPointsTip: 'Numero di angoli da cui parte la media. TFStudio lo raddoppia, mai oltre 200, finché la media cambia meno dello 0,01 %, e usa il maggiore degli ultimi due conteggi. Un valore più alto parte più fine e costa di più.',
+      gridPointsTip: "Numero di angoli da cui parte la media. TFStudio lo raddoppia, mai oltre 480, finché due raddoppi di fila cambiano ciascuno la media meno dello 0,01 %, e usa il conteggio prima dell'ultimo raddoppio. Un valore più alto parte più fine e costa di più.",
       pastGrazing: (limitDeg) => `Nelle righe della funzione di merito con angolo di incidenza oltre ${limitDeg}° una parte del cono supera i 90°. Quei raggi non raggiungono il rivestimento e restano fuori dalla media.`,
       na: 'NA',
       fnum: 'f/#',

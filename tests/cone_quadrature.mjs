@@ -7,16 +7,17 @@
  *     normal, a tilted cone clear of the normal, one that contains it, and one
  *     that reaches past grazing.
  *  2. No node sits at or above 90°, and the weights sum to 1.
- *  3. The node count rule: doubling from the grid points until the average
- *     moves by no more than the tolerance, keeping the finer count, never past
- *     200; the Clenshaw-Curtis rule it doubles is exact to its degree and
- *     nested.
+ *  3. The node count rule: doubling from the grid points until two doublings
+ *     in a row each move the average by no more than the tolerance, keeping
+ *     the count before the last doubling, never past 480; the Clenshaw-Curtis
+ *     rule it doubles is exact to its degree and nested.
  *  4. The single-cavity 1550 nm filter under the default cone (7.5°, normal
  *     axis) and under a 10° cone lands within 1e-4 of an independent 200-node
  *     answer, in the merit function and in the spectrum windows' average.
  *
  * The cone-averaged Jacobian and needle function are checked in
- * cone_derivatives.mjs.
+ * cone_derivatives.mjs, a narrow passband under a wide cone in
+ * cone_passband.mjs.
  *
  * Run: node tests/cone_quadrature.mjs
  */
@@ -141,20 +142,24 @@ for (const [axis, half] of [[75, 25], [80, 15], [60, 30], [0, 89]]) {
 // ── 3. node count rule ──────────────────────────────────────────────────────
 {
     const spec = makeConeSpec({ enabled: true, halfAngleDeg: 10, gridPoints: 15 });
-    // An average that settles only at 60 nodes: the pair (60, 120) is the first
-    // to agree, and the finer count of it is kept.
-    const settled = resolveConeNodes(spec, 0, nodes => nodes.length, (a, b) => (Math.min(a, b) >= 60 ? 0 : 1));
+    // An average that settles only from 60 nodes on: (60, 120) and (120, 240)
+    // agree within the tolerance, and 120, the count before the last doubling,
+    // is kept.
+    const settled = resolveConeNodes(spec, 0, nodes => nodes.length, (a, b) => (Math.min(a, b) >= 60 ? 1e-5 : 1));
     ok(settled.count === 120 && settled.nodes.length === coneNodes(spec, 0, 120).length,
-        `doubling keeps the finer count of the first agreeing pair (got ${settled.count})`);
-    // The grid points are where the comparison starts: an average that never
-    // changes is taken at twice them.
+        `two agreements in a row keep the count before the last doubling (got ${settled.count})`);
+    // One agreement between disagreements does not stop the doubling.
+    const chance = resolveConeNodes(spec, 0, nodes => nodes.length, (a, b) => (Math.min(a, b) === 31 ? 1e-5 : 1));
+    ok(chance.count === 480, `a single agreement is not taken (got ${chance.count})`);
+    // The grid points are where the comparison starts: an average that does not
+    // change beyond rounding is taken at them.
     const floor = resolveConeNodes(makeConeSpec({ enabled: true, halfAngleDeg: 10, gridPoints: 40 }), 0, () => 0, () => 0);
-    ok(floor.count === 80, `grid points start the comparison (got ${floor.count})`);
-    // Doubling stops before it would pass 200.
+    ok(floor.count === 40, `grid points start the comparison (got ${floor.count})`);
+    // Doubling stops before it would pass 480.
     const capped = resolveConeNodes(spec, 0, nodes => nodes.length, () => 1);
-    ok(capped.count === 120, `15 doubles to 120 and no further (got ${capped.count})`);
+    ok(capped.count === 480, `15 doubles to 480 and no further (got ${capped.count})`);
     const high = resolveConeNodes(makeConeSpec({ enabled: true, halfAngleDeg: 10, gridPoints: 150 }), 0, nodes => nodes.length, () => 1);
-    ok(high.count === 150, `150 grid points are not doubled (got ${high.count})`);
+    ok(high.count === 300, `150 grid points double once (got ${high.count})`);
     ok(CONE_AVERAGE_TOLERANCE === 1e-4, 'tolerance is 0.01 % in R/T/A');
 }
 

@@ -2,10 +2,10 @@
  * The node count rule and the averaging of per-angle results over a cone.
  *
  * `resolveConeNodes` doubles the node count from the spec's grid points until
- * the average changes by no more than CONE_AVERAGE_TOLERANCE and keeps the
- * finer count; `coneAverageResult` applies it to whole spectra for the plot
- * windows. The merit function applies it per wavelength
- * (evalCore/coneNodeCount.js).
+ * two doublings in a row each change the average by no more than
+ * CONE_AVERAGE_TOLERANCE, and keeps the count before the last doubling;
+ * `coneAverageResult` applies it to whole spectra for the plot windows. The
+ * merit function applies it per wavelength (evalCore/coneNodeCount.js).
  */
 
 import { coneIsActive } from './spec.js';
@@ -19,19 +19,32 @@ import { coneNodes } from './nodes.js';
 export const CONE_AVERAGE_TOLERANCE = 1e-4;
 
 /**
- * Node counts are doubled only while they stay at or below 200, the most grid
- * points the cone control accepts.
+ * Node counts are doubled only while they stay at or below 480, five doublings
+ * of the default 15 grid points. A narrow passband moves by
+ * Δλ/λ = sin²θ / (2 n*²) at incidence θ (Macleod, Thin-Film Optical Filters
+ * 5e, §8.2.5.4, p. 314, eq. 8.39), so at one wavelength its transmission
+ * across the cone is a peak far narrower than the cone; a 7+7-pair TiO2/SiO2
+ * Fabry-Perot under a 20° cone needs 240 to 480 nodes to average it within the
+ * tolerance.
  */
-export const MAX_CONE_NODES = 200;
+export const MAX_CONE_NODES = 480;
 
 /**
  * The node set a cone average uses at axis `axisDeg`, and the average itself.
- * Starting from the spec's grid points, the count is doubled until the average
- * changes by no more than the tolerance or doubling would pass MAX_CONE_NODES,
- * and the finer count of the last pair compared is kept. The change estimates
- * the error of the coarser count; the finer one, already evaluated, sits well
- * inside it, which a single pair of counts cannot promise for the coarser one
- * (both can straddle a narrow resonance the same way).
+ * Starting from the spec's grid points, the Clenshaw-Curtis count (Clenshaw &
+ * Curtis, Numer. Math. 2, 197, 1960) is doubled until two doublings in a row
+ * each change the average by no more than the tolerance, and the count before
+ * the last doubling is kept. The last change estimates that count's error; the
+ * one before it shows the doubling has reached counts that resolve the
+ * integrand. A single agreement does not show that: where a resonance is
+ * narrower than the spacing of the rays, two coarse counts can miss it alike
+ * and agree by chance (30 and 60 nodes agreeing to 2e-9 while both are 0.3 %
+ * off). A change no larger than the rounding of the sums, nodes × 2^-52 for
+ * averages of at most 1 (Higham, Accuracy and Stability of Numerical
+ * Algorithms, 2nd ed., §4.2), settles the coarser count on its own: the two
+ * counts then agree to the precision the sums carry, as on a smooth spectrum,
+ * and no chance agreement on the measured passbands came that close. Doubling
+ * stops at MAX_CONE_NODES, keeping the last count.
  *
  *   averageAt(nodes)   → the cone average over those nodes, any shape
  *   differenceOf(a, b) → the largest absolute difference between two averages
@@ -49,15 +62,17 @@ export function resolveConeNodes(spec, axisDeg, averageAt, differenceOf, options
     let nodes = nodesFor(count);
     let average = averageAt(nodes);
     if (nodes.length <= 1) return { nodes, average, count };
+    let agreed = false;
     while (2 * count <= MAX_CONE_NODES) {
         const finer = 2 * count;
         const finerNodes = nodesFor(finer);
         const finerAverage = averageAt(finerNodes);
-        const settled = differenceOf(average, finerAverage) <= tolerance;
+        const change = differenceOf(average, finerAverage);
+        if (change <= finerNodes.length * Number.EPSILON || (agreed && change <= tolerance)) break;
+        agreed = change <= tolerance;
         count = finer;
         nodes = finerNodes;
         average = finerAverage;
-        if (settled) break;
     }
     return { nodes, average, count };
 }

@@ -118,13 +118,13 @@ const baseDesign = (cone) => ({
     ok(coneCtx._coneNodeCache?.get(op.id)?.size === 1, 'cone quadrature is cached once per axis AOI across wavelength samples');
 
     // The rays the evaluation settled on: a two-layer AR under a smooth cone
-    // agrees between 12 and 24 at every band sample and keeps the 24.
+    // agrees between 12 and 24 to rounding at every band sample and keeps the 12.
     const rays = coneCtx._coneNodeCache.get(op.id).get(0);
     const settled = new Set(rays.byLambda.values());
     ok(settled.size === 1, 'every band sample settled on one node set');
     const nodes = [...settled][0];
     const counts = new Set(rays.countByLambda.values());
-    ok(counts.size === 1 && counts.has(2 * coneCfg.gridPoints), `settled on twice the grid points (${[...counts]})`);
+    ok(counts.size === 1 && counts.has(coneCfg.gridPoints), `settled on the grid points (${[...counts]})`);
     let manual = 0;
     for (const nd of nodes) {
         const opAtNode = makeOperand({ type: 'RAV', lambdaStart: 500, lambdaEnd: 600, aoi: nd.aoiDeg, pol: 'avg', target: 0, weight: 1 });

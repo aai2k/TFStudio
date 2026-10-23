@@ -48,10 +48,12 @@ polarization are still computed but are formal: a cone is physically rigorous
 only for averaged polarization, since each ray has its own plane of incidence.
 
 **Grid points** is where the averaging starts, not a fixed count. TFStudio
-averages with that many angles and with twice as many, and keeps doubling
-until the two results differ by less than 0.01 % in R, T or A, then uses the
-finer of the two. The doubling stops before it would pass 200. A smooth
-coating such as a broadband AR settles at twice your grid points. A narrowband
+averages with that many angles and keeps doubling until two doublings in a
+row each change the result by less than 0.01 % in R, T or A, then uses the
+count before the last doubling. One agreement is not enough: two coarse counts
+can miss a sharp peak alike and agree by chance. The doubling stops before it
+would pass 480. A smooth coating such as a broadband AR settles at your grid
+points or twice them. A narrowband
 filter needs more near its passband, because the passband moves across the
 cone and a sharp peak has to be caught by enough angles. In the merit function
 the count is settled at each wavelength a row samples, so only the wavelengths
