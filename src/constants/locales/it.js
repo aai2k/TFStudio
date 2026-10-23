@@ -4075,6 +4075,7 @@ export default {
     col_actions: '',
     notAvailable: 'n/d',
     spectrumSpan: (from, to) => `spettro ${from}–${to} nm`,
+    weightingSpan: (from, to) => `pesatura ${from}–${to} nm`,
     spectrumFailed: 'Non è stato possibile calcolare lo spettro.',
     source: 'Sorgente',
     detector: 'Rivelatore',

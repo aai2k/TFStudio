@@ -38,14 +38,18 @@ function valueText(result, available, iv) {
     return available ? result.value.toFixed(5) : iv.notAvailable;
 }
 
-// The wavelengths the spectrum spans, shown beside a band it does not cover so
-// the missing value explains itself. Up to 3 decimals, trailing zeros dropped.
+// Shown beside a band that has no value so the missing value explains itself:
+// the weighting's range for a custom band outside it, otherwise the wavelengths
+// the spectrum spans. Up to 3 decimals, trailing zeros dropped.
 function SpanNote(props) {
-    const { result, c, iv } = props;
-    const [from, to] = (result?.covered === false && result.spectrumSpan) || [];
+    const { result, weighting, c, iv } = props;
+    if (result?.covered !== false) return null;
+    const outside = !(weighting.lamMin < weighting.lamMax) && weighting.range;
+    const [from, to] = outside || result.spectrumSpan || [];
     if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
     const nm = value => String(Number(value.toFixed(3)));
-    return h('span', { style: { color: c.warning, marginLeft: 6 } }, iv.spectrumSpan(nm(from), nm(to)));
+    const note = outside ? iv.weightingSpan : iv.spectrumSpan;
+    return h('span', { style: { color: c.warning, marginLeft: 6 } }, note(nm(from), nm(to)));
 }
 
 function EditableName(props) {
@@ -154,7 +158,7 @@ function ResultRow(props) {
         }, custom
             ? h(EditableBand, { custom, styles, c, onPatch, units })
             : band,
-            h(SpanNote, { result, c, iv })),
+            h(SpanNote, { result, weighting: definition.weighting, c, iv })),
         h('td', { style: { ...styles.td, textAlign: 'center', padding: '0 4px' } },
             custom ? h(RemoveButton, { definition, onRemove, c, iv }) : null),
     );

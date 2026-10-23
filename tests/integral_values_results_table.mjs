@@ -53,4 +53,21 @@ const rowOf = (html, label) => html.split('<tr').find(row => row.includes(`>${la
     assert.ok(rowOf(html, 'Tsol').includes('>0.90000<'), 'Tsol of a flat 0.9 is 0.90000');
 }
 
+// A custom T·D65·V(λ) integral on 1000-1200 nm, outside the 380-780 nm of its
+// weighting: not covered, and the note gives the weighting's range.
+{
+    const { makeCustomDefinition, INITIAL_BUILDER } = await import('../src/components/windows/analysis/integralValues/integralModel.js');
+    const parts = t.integralValues.customParts;
+    const custom = makeCustomDefinition({ ...INITIAL_BUILDER, bandMin: 1000, bandMax: 1200 }, 1, parts);
+    const withCustom = buildIntegralDefinitions([custom]);
+    const results = computeIntegralValueBatch(spectrumOver(300, 2500), withCustom);
+    assert.equal(results.custom_1.covered, false, 'the band outside the weighting is not covered');
+    const html = renderToStaticMarkup(React.createElement(ResultsTable, {
+        integrals: withCustom, results, selectedKey: 'Tvis', setSelectedKey: () => {},
+        onPatch: () => {}, onRemove: () => {}, c, t,
+    }));
+    const row = html.split('<tr').find(r => r.includes(t.integralValues.notAvailable));
+    assert.ok(row?.includes(t.integralValues.weightingSpan('380', '780')), 'and names the weighting 380-780 nm');
+}
+
 console.log('PASS: integral_values_results_table');

@@ -2,9 +2,10 @@
 
 import { trapezoidalWeighted } from './weightedIntegral.js';
 
-// No value: the spectrum does not span the weighting's band (`covered` false,
-// `spectrumSpan` the wavelengths it does span), or the weighting integrates to
-// zero over its band. The average is left undefined rather than taken over
+// No value: the weighting's band is empty, as a custom band outside its
+// weighting's range is, or the spectrum does not span the band (`covered`
+// false either way, `spectrumSpan` the wavelengths the spectrum does span), or
+// the weighting integrates to zero over its band. The average is left undefined rather than taken over
 // part of the band or reported as 0.
 function unavailableResult(weighting, covered, spectrumSpan) {
     return {
@@ -24,8 +25,9 @@ function unavailableResult(weighting, covered, spectrumSpan) {
  * one rule; for the photopic weighting S(λ)·ȳ(λ) the ratio is the luminance
  * factor Y/100 of Macleod Eq. (12.2).
  *
- * A band is integrated only when the spectrum spans all of it. Otherwise the
- * result has no value and says which wavelengths the spectrum spans.
+ * A band is integrated only when it is not empty and the spectrum spans all of
+ * it. Otherwise the result has no value and says which wavelengths the
+ * spectrum spans.
  *
  * @param {{lambda:number[], R?:number[], T?:number[], A?:number[]}} spectrum
  *      Pre-computed spectrum object (from `evaluateSpectrum*` in thinFilmMath).
@@ -43,7 +45,8 @@ export function computeIntegralValue(spectrum, char, weighting) {
     const fArr = spectrum[char];
     if (!fArr) throw new Error(`computeIntegralValue: spectrum has no '${char}' channel`);
     const spectrumSpan = [lambdas[0], lambdas[lambdas.length - 1]];
-    if (spectrumSpan[0] > weighting.lamMin || spectrumSpan[1] < weighting.lamMax) {
+    const emptyBand = !(weighting.lamMin < weighting.lamMax);
+    if (emptyBand || spectrumSpan[0] > weighting.lamMin || spectrumSpan[1] < weighting.lamMax) {
         return unavailableResult(weighting, false, spectrumSpan);
     }
     const { num, den, min, max, lamAtMin, lamAtMax, nSamples } =

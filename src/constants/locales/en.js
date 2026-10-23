@@ -3662,9 +3662,11 @@ export default {
     polAvg:      'avg',
     col_actions: '',
     // A band the evaluated spectrum does not span has no value; the note beside
-    // the band says which wavelengths the spectrum does span.
+    // the band says which wavelengths the spectrum does span. A custom band
+    // outside its weighting's range has none either, and the note gives that range.
     notAvailable: 'n/a',
     spectrumSpan: (from, to) => `spectrum ${from}–${to} nm`,
+    weightingSpan: (from, to) => `weighting ${from}–${to} nm`,
     spectrumFailed: 'The spectrum could not be computed.',
     // Custom integral builder
     source:      'Source',

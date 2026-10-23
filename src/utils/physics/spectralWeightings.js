@@ -225,17 +225,19 @@ export function resolveDetectorSpec(spec) {
 /**
  * Build an integralValues-compatible weighting from a source + detector + optional
  * user-imposed band. The effective band is the intersection of the source range,
- * the detector range, and the user band (if any).
+ * the detector range, and the user band (if any); `range` is the intersection of
+ * the source and detector ranges alone, in nm. A user band outside `range`
+ * leaves the effective band empty (lamMin ≥ lamMax).
  *
  * @param {{source?:object, detector?:object, band?:[number,number], label?:string}} opts
- * @returns {{id,label,reference,kind,lamMin,lamMax,sampler,source,detector}}
+ * @returns {{id,label,reference,kind,lamMin,lamMax,range,sampler,source,detector}}
  */
 export function composeWeighting({ source, detector, band, label } = {}) {
     const S = resolveSourceSpec(source || { id: 'E' });
     const D = resolveDetectorSpec(detector || { id: 'flat' });
 
-    let lamMin = Math.max(S.lamMin, D.lamMin);
-    let lamMax = Math.min(S.lamMax, D.lamMax);
+    const range = [Math.max(S.lamMin, D.lamMin), Math.min(S.lamMax, D.lamMax)];
+    let [lamMin, lamMax] = range;
     if (band && Number.isFinite(band[0])) lamMin = Math.max(lamMin, band[0]);
     if (band && Number.isFinite(band[1])) lamMax = Math.min(lamMax, band[1]);
 
@@ -246,6 +248,7 @@ export function composeWeighting({ source, detector, band, label } = {}) {
         reference: `${S.label} × ${D.label}` + (band ? `  on ${band[0]}–${band[1]} nm` : ''),
         lamMin,
         lamMax,
+        range,
         sampler:   (lam) => S.sampler(lam) * D.sampler(lam),
         source:    S,
         detector:  D,
