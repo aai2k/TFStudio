@@ -11,6 +11,8 @@ import { xyzToSRGB } from './srgb.js';
 /**
  * Full colour report for one spectral response. The reference white is
  * integrated on the response's own grid, so a response of 1 is the white.
+ * CCT and Duv come from the 2° chromaticity whatever the observer, since CIE
+ * 15:2004 defines correlated colour temperature on the 1931 2° observer.
  * @param {{lambda:number[], values:number[]}} spectrum  λ in nm; R|T as a fraction (0–1)
  */
 export function colorReport(spectrum, { observer = '2', illuminant = 'D65' } = {}) {
@@ -18,6 +20,7 @@ export function colorReport(spectrum, { observer = '2', illuminant = 'D65' } = {
   const white = whitePoint(spectrum.lambda, observer, illuminant);
   const xy    = chromaticityXy(XYZ);
   const wxy   = chromaticityXy(white);
+  const xy2   = observer === '2' ? xy : chromaticityXy(tristimulus(spectrum, '2', illuminant));
   return {
     XYZ, xy,
     white, whiteXy: wxy,
@@ -27,7 +30,7 @@ export function colorReport(spectrum, { observer = '2', illuminant = 'D65' } = {
     uvP:   uvPrime(XYZ),
     uv60:  uv1960(XYZ),
     dom:   dominantWavelength(xy, wxy, observer),
-    cct:   correlatedColorTemperature(xy, observer),
+    cct:   correlatedColorTemperature(xy2, '2'),
     rgb:   xyzToSRGB(XYZ, white),
   };
 }

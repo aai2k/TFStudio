@@ -13,6 +13,8 @@
  *     gives the nodes at 380 and 780 nm, and with that weight the two agree
  *     to rounding.
  *   - A response of 1 everywhere is the reference white of the same grid.
+ *   - CCT and Duv are the same under the 10° observer as under the 2°, since
+ *     CIE 15:2004 defines CCT on the 2° observer.
  *   - In the Color window and the report, Δλ is the step of the spectrum the
  *     colour is computed on, and every point of it is counted.
  *   - Both start from the same Δλ, 0.5 nm, taken from the analysis registry.
@@ -86,6 +88,14 @@ check('a response of 1 is the reference white of its own grid', () => {
         assert.ok(Math.abs(report.Lab.L - 100) < 1e-9 && Math.abs(report.Lab.a) < 1e-9 && Math.abs(report.Lab.b) < 1e-9,
             `${step} nm grid: L*a*b* ${report.Lab.L}, ${report.Lab.a}, ${report.Lab.b}`);
     }
+});
+
+check('CCT is taken on the 2° observer whatever the observer shown', () => {
+    const lambda = buildLambdaGrid(380, 780, 5);
+    const spectrum = { lambda, values: lambda.map(() => 1) };
+    const two = colorReport(spectrum, { observer: '2', illuminant: 'D65' });
+    const ten = colorReport(spectrum, { observer: '10', illuminant: 'D65' });
+    assert.deepEqual(ten.cct, two.cct, `D65 CCT ${ten.cct.cct.toFixed(0)} K at 10° vs ${two.cct.cct.toFixed(0)} K at 2°`);
 });
 
 // A Fabry-Perot bandpass whose passband is 1.6 nm wide at half height: every
