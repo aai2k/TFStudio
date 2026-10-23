@@ -1,8 +1,10 @@
 import {
     chromaticDispersionCoefficient, unwrapPhase,
 } from '../../../../utils/physics/thinFilmMath.js';
-import { createDesignPhaseDispersionEvaluator } from '../../../../utils/physics/phaseDispersion.js';
-import { knotGrid, sampleKnots } from '../knots.js';
+import {
+    createDesignPhaseDispersionEvaluator, createTotalTransmissionDispersionEvaluator,
+} from '../../../../utils/physics/phaseDispersion.js';
+import { KNOT_MATCH_TOLERANCE_NM, knotGrid, sampleKnots } from '../knots.js';
 
 export const AUTOMATIC_GD_GDD_FINE_STEP_NM = 0.2;
 const AUTOMATIC_GRID_MAX_INTERVALS = 2000;
@@ -70,10 +72,24 @@ function adaptiveWavelengthGrid(baseWavelengths, evaluate) {
     return [...wavelengths].sort((left, right) => left - right);
 }
 
+// A grid every `stepNm` from lambdaStart, the last point at lambdaEnd, with no
+// point added at a coefficient minimum or a table knot. A table knot that is
+// one of its points, under the knot rule's density limit, is still read on
+// both sides, so a value there is not a silent midpoint.
+function uniformGrid(lambdaStart, lambdaEnd, stepNm, pointEvaluator) {
+    const wavelengths = wavelengthGrid(lambdaStart, lambdaEnd, stepNm);
+    const indexOf = knot => Math.round((knot - lambdaStart) / stepNm);
+    const { knots } = knotGrid(wavelengths, pointEvaluator.knotWavelengths, lambdaStart, lambdaEnd);
+    const onGrid = knots.filter(knot => Math.abs(wavelengths[indexOf(knot)] - knot) <= KNOT_MATCH_TOLERANCE_NM);
+    for (const knot of onGrid) wavelengths[indexOf(knot)] = knot;
+    return { wavelengths, knots: onGrid, basePointCount: wavelengths.length, adaptivePointCount: 0 };
+}
+
 // The wavelengths a spectrum is presented on: an automatic grid, refined around
 // narrow coefficient minima and carrying a sample on every table knot, unless
-// this is a live preview.
-function presentationGrid(lambdaStart, lambdaEnd, preview, evaluate, pointEvaluator) {
+// this is a live preview or a uniform step is asked for.
+function presentationGrid(lambdaStart, lambdaEnd, { preview, stepNm }, evaluate, pointEvaluator) {
+    if (stepNm) return uniformGrid(lambdaStart, lambdaEnd, stepNm, pointEvaluator);
     const base = automaticWavelengthGrid(lambdaStart, lambdaEnd, preview);
     const counts = { basePointCount: base.length, adaptivePointCount: 0 };
     // A preview asks for no knots, so it must not read knotWavelengths either:
@@ -119,22 +135,37 @@ function averagePolarizations(sValue, pValue) {
         ),
         onKnot: !!(sValue.onKnot || pValue.onKnot),
         outsideRange,
+        // The same for s and p, so either one answers for the pair.
+        substratePhaseRad: sValue.substratePhaseRad,
     };
     return result;
 }
 
+// One polarization's evaluator. Side 'whole' is Pulse Analysis's whole part,
+// transmission only: the front coating, one transit of the substrate at the
+// design's thickness and the back coating, the first pulse to come out. It
+// reads no table knot on one side, so none is sampled there. Its values carry
+// the substrate's propagation phase apart, for unwrapWholePartPhase.
+function polarizationEvaluator(design, { side, target, thetaDeg }, polarization) {
+    if (side !== 'whole') return createDesignPhaseDispersionEvaluator(design, { side, target, polarization, thetaDeg });
+    const evaluate = createTotalTransmissionDispersionEvaluator(design, { polarization, thetaDeg });
+    return wavelengthNm => {
+        const value = evaluate(wavelengthNm);
+        return { ...value, substratePhaseRad: value.components.substrate.phaseRad };
+    };
+}
+
+/**
+ * Phase, GD, GDD, TOD and CDC of one side of `design`, as the GD/GDD window
+ * shows them. `stepNm`, which the window never passes, asks for a uniform grid
+ * in place of the window's own.
+ */
 export function computeGdGddSpectrum(design, options) {
-    const { side, lambdaStart, lambdaEnd, thetaDeg, polarization, target, preview } = options;
+    const { lambdaStart, lambdaEnd, polarization, preview } = options;
     const valueCache = new Map();
     const pointEvaluators = Object.fromEntries(
         (polarization === 'avg' ? ['s', 'p'] : [polarization]).map(code => [
-            code,
-            createDesignPhaseDispersionEvaluator(design, {
-                side,
-                target,
-                polarization: code,
-                thetaDeg,
-            }),
+            code, polarizationEvaluator(design, options, code),
         ]));
     const evaluateAt = (wavelengthNm, knotSide) => {
         const evaluatePolarization = polarizationCode =>
@@ -148,12 +179,13 @@ export function computeGdGddSpectrum(design, options) {
         return valueCache.get(wavelengthNm);
     };
     const grid = presentationGrid(
-        lambdaStart, lambdaEnd, preview, evaluate,
+        lambdaStart, lambdaEnd, options, evaluate,
         pointEvaluators[polarization === 'avg' ? 's' : polarization]);
     const { wavelengths, knots } = grid;
     const values = wavelengths.map(evaluate);
-    const phaseRadians = unwrapFiniteRuns(
-        values.map(value => value.valid ? value.phaseRad : NaN));
+    const phaseRadians = options.side === 'whole'
+        ? unwrapWholePartPhase(values)
+        : unwrapFiniteRuns(values.map(value => value.valid ? value.phaseRad : NaN));
     const phaseDeg = phaseRadians.map(value => value * 180 / Math.PI);
     return {
         lambda: wavelengths,
@@ -176,8 +208,10 @@ export function computeGdGddSpectrum(design, options) {
             .filter(value => !value.valid)
             .map(value => ({ wavelengthNm: value.wavelengthNm, reason: value.reason })),
         models: values.find(value => value.models)?.models || [],
-        phaseContinuousOrder: Math.min(...values.map(value =>
-            value.phaseContinuousOrder ?? 3)),
+        // A reduce, as a spread of a few hundred thousand values exceeds the
+        // call stack.
+        phaseContinuousOrder: values.reduce((lowest, value) =>
+            Math.min(lowest, value.phaseContinuousOrder ?? 3), Infinity),
         knotSamples: sampleKnots(wavelengths, knots, evaluateAt),
         method: 'analytic Taylor jets',
         preview: !!preview,
@@ -193,8 +227,20 @@ function unwrapFiniteRuns(phases) {
         while (start < result.length && !Number.isFinite(result[start])) start++;
         let end = start;
         while (end < result.length && Number.isFinite(result[end])) end++;
-        if (end > start) result.splice(start, end - start, ...unwrapPhase(result.slice(start, end)));
+        // Copied back one by one: spread into splice, a run of a few hundred
+        // thousand values exceeds the call stack.
+        unwrapPhase(result.slice(start, end)).forEach((value, i) => { result[start + i] = value; });
         start = end + 1;
     }
     return result;
+}
+
+// The whole part's phase. The substrate's own propagation phase,
+// −2πd·Re(N cosθ)/λ, turns by π over about 0.1 nm of wavelength for 1 mm of
+// glass in the visible, less in a high-index substrate, finer than any
+// practical step, and is continuous by its formula. So only the coatings' phase is unwrapped along
+// the grid, and the substrate's is added back as it is.
+function unwrapWholePartPhase(values) {
+    const coatings = unwrapFiniteRuns(values.map(value => (value.valid ? value.phaseRad - value.substratePhaseRad : NaN)));
+    return coatings.map((phase, i) => phase + values[i].substratePhaseRad);
 }

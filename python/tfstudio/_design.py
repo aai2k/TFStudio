@@ -9,6 +9,7 @@ from ._color import Color
 from ._electric_field import ElectricField
 from ._ellipsometry import Ellipsometry
 from ._errors import TFStudioError
+from ._group_delay import GroupDelay
 from ._integrals import Integrals
 from ._merit import Merit
 from ._names import api_names
@@ -47,6 +48,9 @@ _ELLIPSOMETRY_OPTIONS = ("step", "angles", "side", "delta_convention")
 _SWEEP_OPTIONS = ("step", "side", "delta_convention")
 _MONTE_CARLO_OPTIONS = ("quantity", "step", "angle", "polarization", "runs", "thickness_rel_pct", "thickness_abs_nm",
                         "index_re", "index_im", "distribution", "seed", "progress", "stop")
+# design.group_delay() takes the range as its arguments.
+_GROUP_DELAY_WORDS = Words("groupDelay", "group_delay", hidden=("from", "to"))
+_GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference")
 
 
 def mode_of(data):
@@ -1154,9 +1158,7 @@ class Design:
             e = design.ellipsometry(400, 800, step=1, angles=[55, 70])
             print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.psi), 2))
         """
-        refuse_arguments("ellipsometry", options, ("from", "to"), _ELLIPSOMETRY_OPTIONS)
-        with worded(_ELLIPSOMETRY_WORDS):
-            return Ellipsometry(self._calls.ellipsometry(self._data, api_names({**options, "from": start, "to": end})))
+        return Ellipsometry(self._over_range(_ELLIPSOMETRY_WORDS, _ELLIPSOMETRY_OPTIONS, start, end, options))
 
     def ellipsometry_vs_angle(self, wavelength=None, start=None, end=None, **options):
         """Ψ and Δ of one coated side against angle of incidence at one
@@ -1205,11 +1207,77 @@ class Design:
         with worded(_SWEEP_WORDS):
             return Ellipsometry(self._calls.ellipsometryVsAngle(self._data, {**given, **sweep}))
 
+    def group_delay(self, start=None, end=None, **options):
+        """Phase, group delay, GDD, TOD and CDC of the design's reflected or
+        transmitted light against wavelength, as the Group Delay / GDD window
+        computes them. They are computed on the front, or on the back of a
+        design coated on the back alone, unless side is given; a side with no
+        layers gives its bare surface. side="total", with response="T" alone,
+        is the whole part as Pulse Analysis computes it: the front coating,
+        one pass through the substrate and the back coating. The design's
+        cone of incidence is not used, as the window does not use it.
+
+        GD, GDD and TOD are analytic values at each wavelength, so they do not
+        depend on the grid. The phase is unwrapped along the grid, so on a
+        uniform grid it can land 2π off across a resonance narrower than the
+        step. On the whole part the substrate's own phase, −2π n d cosθ / λ,
+        n, d and θ its index, thickness and the angle in it, is added as it
+        is, so only the coatings' phase is unwrapped. step="auto" gives the
+        window's own grid, which adds points at reflection minima and table
+        knots, so a mean over it leans toward the spikes there.
+
+        Args:
+            start: The first wavelength, nm. Default 400.
+            end: The last wavelength, nm, above start. Default 800.
+            step: The wavelength step, nm, or "auto", the window's own grid.
+                Default 0.5.
+            angle: The angle of incidence, degrees in the medium light comes
+                from, 0 up to but not including 90. Default 0.
+            pol: The polarization: "avg", "s" or "p". Default "avg".
+            response: The light whose phase is taken: "R", reflected, or "T",
+                transmitted. Default "R".
+            side: "front", "back", or with response="T" "total", the whole
+                part. Default: the back of a design coated on the back alone
+                and the front of any other.
+            reference: A wavelength, nm: the phase is then 0 at the sample
+                nearest it, as the window plots it; when that sample has no
+                value, the phase stays absolute and reference is None.
+                Default: the phase is absolute.
+
+        Returns:
+            A GroupDelay.
+
+        Raises:
+            TFStudioError: a range that is not one, a step that is not a
+                positive number or "auto", an angle outside 0 to 90, a
+                polarization, response or side it does not have, "total" with
+                response="R", a reference that is not a wavelength above 0,
+                more than a million wavelengths, or a design that names a
+                material that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^8 H")
+            g = design.group_delay(500, 600, step=1)
+            print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+        """
+        return GroupDelay(self._over_range(_GROUP_DELAY_WORDS, _GROUP_DELAY_OPTIONS, start, end, options))
+
     def _read(self, call, method, **options):
         """What the API's call `call` reads of the design with `options`, for
         the method `method`, whose name its refusals then begin with."""
         with worded(Words(call, method)):
             return getattr(self._calls, call)(self._data, api_names(options))
+
+    def _over_range(self, words, known, start, end, options):
+        """What the API's call `words.call` reads of the design over the
+        wavelengths `start` to `end` with `options`, the keywords of the
+        method `words.method`, which takes `known`; the API's names for the
+        range are refused among them."""
+        refuse_arguments(words.method, options, ("from", "to"), known)
+        with worded(words):
+            return getattr(self._calls, words.call)(self._data, api_names({**options, "from": start, "to": end}))
 
     def refine(self, method="dls", **settings):
         """Refines the layer thicknesses against the merit function, as the

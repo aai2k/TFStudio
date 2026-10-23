@@ -20,7 +20,9 @@
  *      integral table, an integral with no value crossing as NaN, and an
  *      observer refused with its code and fields; a side's Psi and Delta
  *      against wavelength and against angle, and an angular sweep past
- *      89.5 degrees refused with its code and fields;
+ *      89.5 degrees refused with its code and fields; a side's group delay,
+ *      the whole part's in transmission on the window's grid, and the whole
+ *      part in reflection refused with its code and fields;
  *      materials; merit; a specification set and checked, and
  *      checking a design without one refused with its code and fields; layer
  *      sensitivity; and the runs, a refinement, a Needle and a Structural run
@@ -202,6 +204,11 @@ const specified = api.setSpecification(start, CHECKS);
     const clamped = await same('ellipsometryVsAngle', [twoSided, { angleEnd: 90 }]);
     ok('an angular sweep past 89.5 degrees is refused with its code and fields', clamped.error?.code === 'angleRange'
         && canon(clamped.error.fields) === canon({ call: 'ellipsometryVsAngle', start: 45, end: 90, max: 89.5 }), JSON.stringify(clamped.error));
+    await same('groupDelay', [twoSided, { from: 450, to: 650, step: 2, pol: 's', side: 'back', reference: 550 }]);
+    await same('groupDelay', [twoSided, { response: 'T', side: 'total', step: 'auto', angle: 30 }]);
+    const reflected = await same('groupDelay', [twoSided, { side: 'total' }]);
+    ok('the whole part in reflection is refused with its code and fields', reflected.error?.code === 'badValue'
+        && canon(reflected.error.fields) === canon({ call: 'groupDelay', option: 'side', takes: "'front' or 'back' with response 'R'", value: 'total' }), JSON.stringify(reflected.error));
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);

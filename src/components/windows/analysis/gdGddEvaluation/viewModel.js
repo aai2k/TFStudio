@@ -55,24 +55,30 @@ export function quantityMeta(quantity, text, colors = ANALYSIS_DEFAULTS.gdGddEva
     return { ...entry, unit, label: text[entry.labelKey], color: colors.curve };
 }
 
+/**
+ * The phase as the plot draws it with the reference shown: each value minus
+ * the one at the sample nearest `referenceLambda` (nm), the first of two
+ * equally near. Unchanged when that sample has no value.
+ */
+export function phaseFromReference(lambda, phaseDeg, referenceLambda) {
+    let closestIndex = 0;
+    let closestDistance = Infinity;
+    for (let i = 0; i < lambda.length; i++) {
+        const distance = Math.abs(lambda[i] - referenceLambda);
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closestIndex = i;
+        }
+    }
+    const offset = phaseDeg[closestIndex];
+    if (!Number.isFinite(offset)) return phaseDeg;
+    return phaseDeg.map(value => Number.isFinite(value) ? value - offset : value);
+}
+
 function buildPlotData(raw, meta, quantity, referenceLambda, showReference) {
     if (!raw || !raw.lambda.length) return null;
     let y = raw[meta.key];
-    if (quantity === 'phase' && showReference) {
-        let closestIndex = 0;
-        let closestDistance = Infinity;
-        for (let i = 0; i < raw.lambda.length; i++) {
-            const distance = Math.abs(raw.lambda[i] - referenceLambda);
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closestIndex = i;
-            }
-        }
-        const offset = y[closestIndex];
-        if (Number.isFinite(offset)) {
-            y = y.map(value => Number.isFinite(value) ? value - offset : value);
-        }
-    }
+    if (quantity === 'phase' && showReference) y = phaseFromReference(raw.lambda, y, referenceLambda);
     const extent = centralExtent(y);
     const sides = knotSteps(raw.knotSamples, meta.key, {
         order: meta.order, continuousOrder: raw.phaseContinuousOrder ?? 3,

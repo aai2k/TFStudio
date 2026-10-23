@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -1003,6 +1003,51 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 e = design.ellipsometry_vs_angle(633, 45, 80, step=0.5)
 print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.min())], "degrees")
+```
+
+### groupDelay / group_delay
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.groupDelay(start, end, { step, angle, pol, response, side, reference })` | `design.group_delay(start=400, end=800, step=0.5, angle=0, pol="avg", response="R", side=..., reference=...)` |
+
+**JavaScript**：设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。`side: 'total'` 只与 `response: 'T'` 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。
+
+**Python**：设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。side="total" 只与 response="T" 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。
+
+**JavaScript**：GD、GDD 和 TOD 是每个波长处的解析值，因此与网格无关。相位沿网格解缠，因此在均匀网格上，跨过比步长更窄的共振时可能相差 2π。对于整个元件，基底自身的相位 −2π n d cosθ / λ（n、d 和 θ 为其折射率、厚度和光在其中的角度）按原样加入，因此只有膜层的相位被解缠。`step: 'auto'` 给出窗口自己的网格，它在反射极小值和表格节点处加点，因此在其上取的平均值会偏向那里的尖峰。
+
+**Python**：GD、GDD 和 TOD 是每个波长处的解析值，因此与网格无关。相位沿网格解缠，因此在均匀网格上，跨过比步长更窄的共振时可能相差 2π。对于整个元件，基底自身的相位 −2π n d cosθ / λ（n、d 和 θ 为其折射率、厚度和光在其中的角度）按原样加入，因此只有膜层的相位被解缠。step="auto" 给出窗口自己的网格，它在反射极小值和表格节点处加点，因此在其上取的平均值会偏向那里的尖峰。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` | `400` | 起始波长，单位 nm。 |
+| `end` | `end` | `800` | 结束波长，单位 nm，大于 `start`。 |
+| `step` | `step` | `0.5` | 波长步长，单位 nm；或 `'auto'`，即窗口自己的网格。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。 |
+| `pol` | `pol` | `'avg'` | 偏振：`'avg'`、`'s'` 或 `'p'`。 |
+| `response` | `response` | `'R'` | 取其相位的光：`'R'` 为反射光，`'T'` 为透射光。 |
+| `side` | `side` |  | **JavaScript**：`'front'`、`'back'`，或在 `response: 'T'` 时为 `'total'`（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。<br>**Python**："front"、"back"，或在 response="T" 时为 "total"（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
+| `reference` | `reference` |  | 一个波长，单位 nm：相位随之在离它最近的采样点处为 0，与窗口绘图的方式相同；该采样点没有数值时，相位保持为绝对值，`reference` 为 `null` / `None`。不给出时，相位为绝对值。 |
+
+**返回**：一个 GroupDelay。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、不构成范围的波长范围、既不是正数也不是 `'auto'` 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、`response: 'R'` 时的 `'total'`、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计<br>**Python**：不构成范围的波长范围、既不是正数也不是 "auto" 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、response="R" 时的 "total"、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay(500, 600, { step: 1 });
+console.log(g.mode, 'GDD from 520 to 580 nm:', g.gdd.min(520, 580).toFixed(3), 'to', g.gdd.max(520, 580).toFixed(3), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay(500, 600, step=1)
+print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
 ```
 
 ### refine
@@ -6191,6 +6236,409 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 e = design.ellipsometry_vs_angle(633, 45, 80, step=5)
 print(e.psi.angle)
+```
+
+## GroupDelay
+
+设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，由 `design.groupDelay()` / `design.group_delay()` 计算，与群延迟 / GDD 窗口的显示相同。`g.phase`、`g.gd`、`g.gdd`、`g.tod` 和 `g.cdc` 都是 Curve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay(500, 600, { step: 1 });
+console.log(g.mode, 'mean GD from 540 to 560 nm', g.gd.mean(540, 560).toFixed(3), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay(500, 600, step=1)
+print(g.mode, "mean GD from 540 to 560 nm", round(g.gd.mean(540, 560), 3), "fs")
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.mode` | `g.mode` |
+
+所计算的对象：`'front'` 或 `'back'`，一个镀膜面；`'total'`，透射时的整个元件。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay().mode, design.groupDelay(400, 800, { response: 'T', side: 'total' }).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay().mode, design.group_delay(400, 800, response="T", side="total").mode)
+```
+
+### response
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.response` | `g.response` |
+
+取其相位的光：`'R'` 为反射光，`'T'` 为透射光。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { response: 'T' }).response);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, response="T").response)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.angle` | `g.angle` |
+
+入射角，单位为度，在光射来的介质中计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { angle: 45 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, angle=45).angle, "degrees")
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.pol` | `g.pol` |
+
+偏振：`'avg'`、`'s'` 或 `'p'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { angle: 45, pol: 'p' }).pol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, angle=45, pol="p").pol)
+```
+
+### step
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.step` | `g.step` |
+
+波长步长，单位 nm；或 `'auto'`，即窗口自己的网格。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { step: 'auto' }).step);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, step="auto").step)
+```
+
+### reference
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.reference` | `g.reference` |
+
+相位在该处平移为 0 的波长，单位 nm；相位为绝对值时为 `null` / `None`：未给出参考，或离参考最近的采样点没有数值时。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { reference: 550 }).reference, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, reference=550).reference, "nm")
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.wavelength` | `g.wavelength` |
+
+各波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { step: 100 }).wavelength.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, step=100).wavelength)
+```
+
+### phase
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.phase` | `g.phase` |
+
+相位 φ，单位为度，一个 Curve：沿网格解缠，为绝对值；给出参考时，在离参考最近的采样点处为 0。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay(500, 600, { reference: 550 });
+console.log('phase from 500 to 600 nm:', g.phase.min().toFixed(1), 'to', g.phase.max().toFixed(1), 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay(500, 600, reference=550)
+print("phase from 500 to 600 nm:", round(g.phase.min(), 1), "to", round(g.phase.max(), 1), "degrees")
+```
+
+### gd
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.gd` | `g.gd` |
+
+群延迟，单位 fs，一个 Curve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log('mean GD from 520 to 580 nm:', design.groupDelay().gd.mean(520, 580).toFixed(3), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print("mean GD from 520 to 580 nm:", round(design.group_delay().gd.mean(520, 580), 3), "fs")
+```
+
+### gdd
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.gdd` | `g.gdd` |
+
+GDD，单位 fs²，一个 Curve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay();
+console.log('GDD from 520 to 580 nm:', g.gdd.min(520, 580).toFixed(3), 'to', g.gdd.max(520, 580).toFixed(3), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay()
+print("GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+```
+
+### tod
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.tod` | `g.tod` |
+
+TOD，单位 fs³，一个 Curve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log('mean TOD from 520 to 580 nm:', design.groupDelay().tod.mean(520, 580).toFixed(3), 'fs³');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print("mean TOD from 520 to 580 nm:", round(design.group_delay().tod.mean(520, 580), 3), "fs³")
+```
+
+### cdc
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.cdc` | `g.cdc` |
+
+CDC，即 GDD·2πc/λ²，单位 fs/nm，一个 Curve：与 Essential Macleod 给出的色散系数相同，符号与 GDD 相同。群延迟对波长的斜率 dGD/dλ 等于 −CDC。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log('mean CDC from 520 to 580 nm:', design.groupDelay().cdc.mean(520, 580).toFixed(5), 'fs/nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print("mean CDC from 520 to 580 nm:", round(design.group_delay().cdc.mean(520, 580), 5), "fs/nm")
+```
+
+### outside
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.outside` | `g.outside` |
+
+对每个波长，其数值取自哪种材料的数据范围之外，给出该材料的名称；否则为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay(200, 2500, { step: 10 });
+console.log(g.wavelength.filter((_, i) => g.outside[i]).length, 'wavelengths outside a material\'s data');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay(200, 2500, step=10)
+print(sum(1 for name in g.outside if name), "wavelengths outside a material's data")
+```
+
+### knots
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.knots` | `g.knots` |
+
+**JavaScript**：恰好落在网格波长上的表格节点，一个由 `{ wavelength, gd, gdd, tod, cdc }` 组成的数组，每个量是它在节点两侧的数值组成的一对 `[left, right]`；曲线在该波长处的值读取的是节点两侧平均后的材料。在均匀网格上，若范围内的节点相对网格过密，即每 8 个点多于一个节点，则不取任何节点；`side: 'total'` 时也不取任何节点。
+
+**Python**：恰好落在网格波长上的表格节点，一个由 dict（wavelength、gd、gdd、tod 和 cdc）组成的 list，每个量是它在节点两侧的数值组成的一对 [left, right]；曲线在该波长处的值读取的是节点两侧平均后的材料。在均匀网格上，若范围内的节点相对网格过密，即每 8 个点多于一个节点，则不取任何节点；side="total" 时也不取任何节点。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+for (const knot of design.groupDelay().knots.slice(0, 3)) console.log(knot.wavelength, 'nm: GDD', knot.gdd[0].toFixed(3), 'and', knot.gdd[1].toFixed(3), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+for knot in design.group_delay().knots[:3]:
+    print(knot["wavelength"], "nm: GDD", round(knot["gdd"][0], 3), "and", round(knot["gdd"][1], 3), "fs²")
+```
+
+### invalid
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.invalid` | `g.invalid` |
+
+**JavaScript**：没有数值的波长，一个由 `{ wavelength, reason }` 组成的数组；曲线在这些波长处为 NaN。每个波长都有数值时为空。
+
+**Python**：没有数值的波长，一个由 dict（wavelength 和 reason）组成的 list；曲线在这些波长处为 NaN。每个波长都有数值时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay().invalid.length, 'wavelengths with no value');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(len(design.group_delay().invalid), "wavelengths with no value")
+```
+
+### models
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.models` | `g.models` |
+
+数值所依据的材料模型，每个为 `'name: model'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay().models.join('\n'));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print("\n".join(design.group_delay().models))
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.outOfRange` | `g.out_of_range` |
+
+**JavaScript**：所计算对象上数据在该范围内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该范围时为空。
+
+**Python**：所计算对象上数据在该范围内中断的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(200, 2500, { step: 10 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print([m["id"] for m in design.group_delay(200, 2500, step=10).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.saveCsv(path)` | `g.save_csv(path)` |
+
+**JavaScript**：把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有采样的表格节点时接着是 Knot 列，节点两侧各一行，即 λ− 和 λ+；有数值取自材料数据之外时接着是 Outside data 列；然后是 Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、Phase φ (°) 和 TOD (fs³)。相位即 `phase` 所含的相位。已存在的文件会被覆盖。
+
+**Python**：把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有采样的表格节点时接着是 Knot 列，节点两侧各一行，即 λ− 和 λ+；有数值取自材料数据之外时接着是 Outside data 列；然后是 Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、Phase φ (°) 和 TOD (fs³)。相位即 phase 所含的相位。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `group-delay-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+design.groupDelay(400, 800, { step: 1 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "group-delay-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+design.group_delay(400, 800, step=1).save_csv(name)
+print("Wrote", name)
 ```
 
 ## RunResult

@@ -14,7 +14,9 @@
  *      the design's facts, admittance loci and electric fields, one of a
  *      side with no layers refused, colours, one with an observer refused,
  *      integral values with rows of no value, Psi and Delta against
- *      wavelength and against angle, a sweep of start above end refused, materials, merit, a specification
+ *      wavelength and against angle, a sweep of start above end refused,
+ *      phase and group delay on a uniform grid and on the window's, the whole
+ *      part in reflection refused, materials, merit, a specification
  *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
  *      a seeded yield.
  *   2. Values: a spectrum's angles are keyed by text, and the spectrum as
@@ -298,6 +300,9 @@ const STOPPED_WITHIN_S = 5;
         ['ellipsometry', [stack, { step: 5, angles: [55, 70], deltaConvention: 'reversed' }]],
         ['ellipsometryVsAngle', [stack, { wavelength: 633, angleStep: 2.5 }]],
         ['ellipsometryVsAngle', [stack, { angleStart: 80, angleEnd: 45 }]],
+        ['groupDelay', [stack, { from: 450, to: 650, step: 2, pol: 's', reference: 550 }]],
+        ['groupDelay', [stack, { response: 'T', step: 'auto' }]],
+        ['groupDelay', [stack, { side: 'total' }]],
         ['setMerit', [stack, AR_ROWS]],
         ['merit', [start]],
         ['setSpecification', [start, CHECKS]],

@@ -14,8 +14,8 @@
  *   round-tripping to surfaceMode and mfEvalMode, and the mode of a spectrum, a
  *   Monte Carlo run, a refinement, a layer ranking, an index profile, a
  *   list of layer thicknesses, a colour and an integral table being the API's
- *   evaluation mode, that of Psi and Delta the side the PSI and DEL rows
- *   score, and the
+ *   evaluation mode, that of Psi and Delta and of a group delay the side the
+ *   PSI, DEL, PR and GD rows score, and the
  *   design's facts counting its coated sides, for every pair; materials by id, catalog:key ids
  *   included, by name and by the builtin: id a stacked layer holds, and their
  *   n and k, and a name two materials share refused; spectrum curves at two
@@ -41,7 +41,9 @@
  *   read by its key, an Integrals' CSV, and their refusals in the objects'
  *   words; ellipsometry() and ellipsometryVsAngle() with their defaults and
  *   each argument, angle(), their Curves and AngleCurves, an Ellipsometry's
- *   CSV, and their refusals in the objects' words; refine and synthesize with seeds, Monte
+ *   CSV, and their refusals in the objects' words; groupDelay() with its
+ *   defaults and each argument, its Curves, a GroupDelay's CSV, and its
+ *   refusals in the objects' words; refine and synthesize with seeds, Monte
  *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
  *   back rows and locked rows; the Progress objects of a refinement, a Needle
  *   run, a Deep Synthesis run and a Monte Carlo run; a stop aborted in
@@ -263,9 +265,11 @@ const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'f
             const found = [each.spectrum(500, 600, { step: 50 }).mode, (await each.monteCarlo(500, 600, { step: 50, runs: 1, seed: 1 })).mode,
                 (await quietly(() => each.copy().refine({ maxIter: 1 }))).mode, each.layerSensitivity().mode,
                 each.indexProfile().mode, each.layerThicknesses().mode, each.color({ step: 5 }).mode, each.integrals({ step: 5 }).mode];
-            // Psi and Delta report the one side the PSI and DEL rows score.
-            found.push(each.ellipsometry(400, 800, { step: 50 }).mode, each.ellipsometryVsAngle(633, 45, 80, { step: 5 }).mode);
-            const meant = [...Array(found.length - 2).fill(evalMode), SCORED_SIDE[sides], SCORED_SIDE[sides]];
+            // Psi and Delta, and the group delay, report the one side the PSI,
+            // DEL, PR and GD rows score.
+            found.push(each.ellipsometry(400, 800, { step: 50 }).mode, each.ellipsometryVsAngle(633, 45, 80, { step: 5 }).mode,
+                each.groupDelay(400, 800, { step: 50, response: 'T' }).mode);
+            const meant = [...Array(found.length - 3).fill(evalMode), ...Array(3).fill(SCORED_SIDE[sides])];
             kinds.add(evalMode);
             if (!held || canon(found) !== canon(meant)) wrong.push(`${sides}/${scoreOn}: ${found} / ${meant}`);
             // The facts count the coated sides, which the TT row sums, whatever the scoring.
@@ -274,7 +278,7 @@ const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'f
             if (canon([facts.mode, each.totalThickness()]) !== canon([coated, facts.thickness])) wrong.push(`${sides}/${scoreOn}: facts ${facts.mode} / ${coated}`);
         }
     }
-    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, a spectrum\'s, a Monte Carlo run\'s, a run\'s, a ranking\'s, an index profile\'s, a thickness list\'s, a colour\'s and an integral table\'s mode are the API\'s evaluation mode, Psi and Delta\'s the back of a design coated on the back alone and the front of any other, and the facts\' the coated sides, for every pair',
+    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, a spectrum\'s, a Monte Carlo run\'s, a run\'s, a ranking\'s, an index profile\'s, a thickness list\'s, a colour\'s and an integral table\'s mode are the API\'s evaluation mode, Psi and Delta\'s and a group delay\'s the back of a design coated on the back alone and the front of any other, and the facts\' the coated sides, for every pair',
         wrong.length === 0 && kinds.size === 3, wrong.join('; '));
     const badSides = await refused(() => { twoSided.sides = 'two'; });
     const badScoreOn = await refused(() => { twoSided.scoreOn = 'total'; });
@@ -820,6 +824,41 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     ];
     const worded = await Promise.all(WORDED.map(([make]) => refused(make)));
     ok('their refusals are in the objects\' words', canon(worded) === canon(WORDED.map(([, words]) => words)), worded.join('\n'));
+}
+
+// ── Phase and group delay ───────────────────────────────────────────────────
+{
+    const read = both.copy();
+    // Each [the method's arguments, the plain call's options].
+    const ASKED = [[[], {}], [[450, 900], { from: 450, to: 900 }],
+        [[{ step: 'auto', angle: 30, pol: 'p', response: 'T', side: 'total', reference: 600 }], { step: 'auto', angle: 30, pol: 'p', response: 'T', side: 'total', reference: 600 }]];
+    const KEYS = ['mode', 'response', 'angle', 'pol', 'step', 'reference', 'wavelength', 'phase', 'gd', 'gdd', 'tod', 'cdc', 'outside', 'knots', 'invalid', 'models', 'outOfRange'];
+    const fields = g => KEYS.map(key => g[key]);
+    ok('groupDelay() gives what groupDelay gives, with its defaults and each argument',
+        canon(ASKED.map(([args]) => fields(read.groupDelay(...args)))) === canon(ASKED.map(([, options]) => fields(api.groupDelay(read._data, options)))));
+    const g = read.groupDelay(400, 800, { step: 10 });
+    // 500 to 600 nm, both ends included, on the 10 nm grid from 400 nm.
+    const inBand = g.gd.slice(10, 21);
+    ok('its curves are Curves over wavelength, with mean, min and max over a range',
+        canon([g.gd instanceof objects.Curve, g.phase instanceof objects.Curve, g.gdd.wavelength, g.gd.mean(500, 600), g.tod.max()])
+        === canon([true, true, g.wavelength, inBand.reduce((s, v) => s + v, 0) / inBand.length, Math.max(...g.tod)]));
+    const file = path.join(WORK, 'group-delay.csv');
+    g.saveCsv(file);
+    const lines = fs.readFileSync(file, 'utf8').split('\n');
+    // The design's BK7 data stop inside 400-800 nm, so the table has its Outside data column.
+    ok('a GroupDelay writes the window\'s table', canon([lines[0], lines.length, lines[1].split(',')[0], g.outside.some(Boolean)])
+        === canon(['λ (nm),Outside data,Group Delay (fs),GDD (fs²),CDC (fs/nm),Phase φ (°),TOD (fs³)', 42 + g.knots.length, '400', true]), lines[0]);
+    ok('a GroupDelay prints what it holds', inspect(g) === '<GroupDelay front R avg at 0 degrees from 400 to 800 nm, 41 points>', inspect(g));
+    const WORDED = [
+        [() => read.groupDelay(400, 800, { from: 400 }), "groupDelay: unknown option 'from'; the options are step, angle, pol, response, side, reference"],
+        [() => read.groupDelay(800, 400), 'groupDelay: start and end are wavelengths in nm, 0 < start < end'],
+        [() => read.groupDelay({ side: 'total' }), 'groupDelay: side is \'front\' or \'back\' with response \'R\', not "total"'],
+        [() => read.groupDelay({ step: 'fine' }), 'groupDelay: step is a wavelength step in nm above 0, or \'auto\', not "fine"'],
+        [() => read.groupDelay({ response: 'A' }), 'groupDelay: response is \'R\' or \'T\', not "A"'],
+        [() => read.groupDelay(400, 800, 5), 'groupDelay: takes start and end before its options object, not 3 values'],
+    ];
+    const worded = await Promise.all(WORDED.map(([make]) => refused(make)));
+    ok('its refusals are in the objects\' words', canon(worded) === canon(WORDED.map(([, words]) => words)), worded.join('\n'));
 }
 
 // ── Runs ────────────────────────────────────────────────────────────────────

@@ -79,6 +79,7 @@ const CLASSES = [
     { name: 'Integrals', receiver: 'iv' },
     { name: 'Ellipsometry', receiver: 'e' },
     { name: 'AngleCurve', receiver: 'e.psi' },
+    { name: 'GroupDelay', receiver: 'g' },
     { name: 'RunResult', receiver: 'run' },
     { name: 'Progress', receiver: 'p' },
     { name: 'MonteCarlo', receiver: 'mc' },

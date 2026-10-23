@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -1003,6 +1003,51 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 e = design.ellipsometry_vs_angle(633, 45, 80, step=0.5)
 print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.min())], "degrees")
+```
+
+### groupDelay / group_delay
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.groupDelay(start, end, { step, angle, pol, response, side, reference })` | `design.group_delay(start=400, end=800, step=0.5, angle=0, pol="avg", response="R", side=..., reference=...)` |
+
+**JavaScript**: Phase, group delay, GDD, TOD and CDC of the design's reflected or transmitted light against wavelength, as the Group Delay / GDD window computes them. They are computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. `side: 'total'`, with `response: 'T'` alone, is the whole part as Pulse Analysis computes it: the front coating, one pass through the substrate and the back coating. The design's cone of incidence is not used, as the window does not use it.
+
+**Python**: Phase, group delay, GDD, TOD and CDC of the design's reflected or transmitted light against wavelength, as the Group Delay / GDD window computes them. They are computed on the front, or on the back of a design coated on the back alone, unless side is given; a side with no layers gives its bare surface. side="total", with response="T" alone, is the whole part as Pulse Analysis computes it: the front coating, one pass through the substrate and the back coating. The design's cone of incidence is not used, as the window does not use it.
+
+**JavaScript**: GD, GDD and TOD are analytic values at each wavelength, so they do not depend on the grid. The phase is unwrapped along the grid, so on a uniform grid it can land 2π off across a resonance narrower than the step. On the whole part the substrate's own phase, −2π n d cosθ / λ, n, d and θ its index, thickness and the angle in it, is added as it is, so only the coatings' phase is unwrapped. `step: 'auto'` gives the window's own grid, which adds points at reflection minima and table knots, so a mean over it leans toward the spikes there.
+
+**Python**: GD, GDD and TOD are analytic values at each wavelength, so they do not depend on the grid. The phase is unwrapped along the grid, so on a uniform grid it can land 2π off across a resonance narrower than the step. On the whole part the substrate's own phase, −2π n d cosθ / λ, n, d and θ its index, thickness and the angle in it, is added as it is, so only the coatings' phase is unwrapped. step="auto" gives the window's own grid, which adds points at reflection minima and table knots, so a mean over it leans toward the spikes there.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` | `400` | The first wavelength, nm. |
+| `end` | `end` | `800` | The last wavelength, nm, above `start`. |
+| `step` | `step` | `0.5` | The wavelength step, nm, or `'auto'`, the window's own grid. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90. |
+| `pol` | `pol` | `'avg'` | The polarization: `'avg'`, `'s'` or `'p'`. |
+| `response` | `response` | `'R'` | The light whose phase is taken: `'R'`, reflected, or `'T'`, transmitted. |
+| `side` | `side` |  | **JavaScript**: `'front'`, `'back'`, or with `response: 'T'` `'total'`, the whole part. Without it, the back of a design coated on the back alone and the front of any other.<br>**Python**: "front", "back", or with response="T" "total", the whole part. Without it, the back of a design coated on the back alone and the front of any other. |
+| `reference` | `reference` |  | A wavelength, nm: the phase is then 0 at the sample nearest it, as the window plots it; when that sample has no value, the phase stays absolute and `reference` is `null` / `None`. Without it, the phase is absolute. |
+
+**Returns**: A GroupDelay.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a range that is not one, a step that is not a positive number or `'auto'`, an angle outside 0 to 90, a polarization, response or side it does not have, `'total'` with `response: 'R'`, a reference that is not a wavelength above 0, more than a million wavelengths, or a design that names a material that resolves to nothing<br>**Python**: a range that is not one, a step that is not a positive number or "auto", an angle outside 0 to 90, a polarization, response or side it does not have, "total" with response="R", a reference that is not a wavelength above 0, more than a million wavelengths, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay(500, 600, { step: 1 });
+console.log(g.mode, 'GDD from 520 to 580 nm:', g.gdd.min(520, 580).toFixed(3), 'to', g.gdd.max(520, 580).toFixed(3), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay(500, 600, step=1)
+print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
 ```
 
 ### refine
@@ -6191,6 +6236,409 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 e = design.ellipsometry_vs_angle(633, 45, 80, step=5)
 print(e.psi.angle)
+```
+
+## GroupDelay
+
+Phase, group delay, GDD, TOD and CDC of a design's reflected or transmitted light against wavelength, as `design.groupDelay()` / `design.group_delay()` computes them and the Group Delay / GDD window shows them. `g.phase`, `g.gd`, `g.gdd`, `g.tod` and `g.cdc` are Curves.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay(500, 600, { step: 1 });
+console.log(g.mode, 'mean GD from 540 to 560 nm', g.gd.mean(540, 560).toFixed(3), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay(500, 600, step=1)
+print(g.mode, "mean GD from 540 to 560 nm", round(g.gd.mean(540, 560), 3), "fs")
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.mode` | `g.mode` |
+
+The sides computed: `'front'` or `'back'`, one coated side, or `'total'`, the whole part in transmission.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay().mode, design.groupDelay(400, 800, { response: 'T', side: 'total' }).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay().mode, design.group_delay(400, 800, response="T", side="total").mode)
+```
+
+### response
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.response` | `g.response` |
+
+The light whose phase is taken: `'R'`, reflected, or `'T'`, transmitted.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { response: 'T' }).response);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, response="T").response)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.angle` | `g.angle` |
+
+The angle of incidence, degrees in the medium light comes from.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { angle: 45 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, angle=45).angle, "degrees")
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.pol` | `g.pol` |
+
+The polarization: `'avg'`, `'s'` or `'p'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { angle: 45, pol: 'p' }).pol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, angle=45, pol="p").pol)
+```
+
+### step
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.step` | `g.step` |
+
+The wavelength step, nm, or `'auto'`, the window's own grid.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { step: 'auto' }).step);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, step="auto").step)
+```
+
+### reference
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.reference` | `g.reference` |
+
+The wavelength the phase is shifted to 0 at, nm, or `null` / `None` for the absolute phase: without a reference, or when the sample nearest it has no value.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { reference: 550 }).reference, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, reference=550).reference, "nm")
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.wavelength` | `g.wavelength` |
+
+The wavelengths, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(400, 800, { step: 100 }).wavelength.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.group_delay(400, 800, step=100).wavelength)
+```
+
+### phase
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.phase` | `g.phase` |
+
+The phase φ, degrees, a Curve: unwrapped along the grid, absolute, or 0 at the sample nearest the reference when one was given.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay(500, 600, { reference: 550 });
+console.log('phase from 500 to 600 nm:', g.phase.min().toFixed(1), 'to', g.phase.max().toFixed(1), 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay(500, 600, reference=550)
+print("phase from 500 to 600 nm:", round(g.phase.min(), 1), "to", round(g.phase.max(), 1), "degrees")
+```
+
+### gd
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.gd` | `g.gd` |
+
+The group delay, fs, a Curve.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log('mean GD from 520 to 580 nm:', design.groupDelay().gd.mean(520, 580).toFixed(3), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print("mean GD from 520 to 580 nm:", round(design.group_delay().gd.mean(520, 580), 3), "fs")
+```
+
+### gdd
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.gdd` | `g.gdd` |
+
+The GDD, fs², a Curve.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay();
+console.log('GDD from 520 to 580 nm:', g.gdd.min(520, 580).toFixed(3), 'to', g.gdd.max(520, 580).toFixed(3), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay()
+print("GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+```
+
+### tod
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.tod` | `g.tod` |
+
+The TOD, fs³, a Curve.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log('mean TOD from 520 to 580 nm:', design.groupDelay().tod.mean(520, 580).toFixed(3), 'fs³');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print("mean TOD from 520 to 580 nm:", round(design.group_delay().tod.mean(520, 580), 3), "fs³")
+```
+
+### cdc
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.cdc` | `g.cdc` |
+
+The CDC, GDD · 2πc/λ², fs/nm, a Curve: the chromatic dispersion as Essential Macleod reports it, with the sign of GDD. The slope of group delay against wavelength, dGD/dλ, is its negative.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log('mean CDC from 520 to 580 nm:', design.groupDelay().cdc.mean(520, 580).toFixed(5), 'fs/nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print("mean CDC from 520 to 580 nm:", round(design.group_delay().cdc.mean(520, 580), 5), "fs/nm")
+```
+
+### outside
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.outside` | `g.outside` |
+
+For each wavelength, the name of the material whose data its value was taken outside of, or `null` / `None`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const g = design.groupDelay(200, 2500, { step: 10 });
+console.log(g.wavelength.filter((_, i) => g.outside[i]).length, 'wavelengths outside a material\'s data');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+g = design.group_delay(200, 2500, step=10)
+print(sum(1 for name in g.outside if name), "wavelengths outside a material's data")
+```
+
+### knots
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.knots` | `g.knots` |
+
+**JavaScript**: The table knots that are exactly wavelengths of the grid, an array of `{ wavelength, gd, gdd, tod, cdc }`, each quantity a pair `[left, right]` of its values on the two sides of the knot; the value the curves hold at that wavelength reads the material averaged across the knot. On the uniform grid none is read when the knots in range are dense against the grid, more than one per 8 points, and on `side: 'total'` none is read.
+
+**Python**: The table knots that are exactly wavelengths of the grid, a list of dicts with wavelength, gd, gdd, tod and cdc, each quantity a pair [left, right] of its values on the two sides of the knot; the value the curves hold at that wavelength reads the material averaged across the knot. On the uniform grid none is read when the knots in range are dense against the grid, more than one per 8 points, and on side="total" none is read.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+for (const knot of design.groupDelay().knots.slice(0, 3)) console.log(knot.wavelength, 'nm: GDD', knot.gdd[0].toFixed(3), 'and', knot.gdd[1].toFixed(3), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+for knot in design.group_delay().knots[:3]:
+    print(knot["wavelength"], "nm: GDD", round(knot["gdd"][0], 3), "and", round(knot["gdd"][1], 3), "fs²")
+```
+
+### invalid
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.invalid` | `g.invalid` |
+
+**JavaScript**: The wavelengths with no value, an array of `{ wavelength, reason }`; the curves are NaN there. Empty when every wavelength has one.
+
+**Python**: The wavelengths with no value, a list of dicts with wavelength and reason; the curves are NaN there. Empty when every wavelength has one.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay().invalid.length, 'wavelengths with no value');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(len(design.group_delay().invalid), "wavelengths with no value")
+```
+
+### models
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.models` | `g.models` |
+
+The material models the values come from, each `'name: model'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay().models.join('\n'));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print("\n".join(design.group_delay().models))
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.outOfRange` | `g.out_of_range` |
+
+**JavaScript**: The materials of the sides computed whose data stop inside the range, an array of `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers it.
+
+**Python**: The materials of the sides computed whose data stop inside the range, a list of dicts with id, name, rangeNm and heldFlat: outside rangeNm their n and k are held at the last value (heldFlat True) or extrapolated. Empty when every material covers it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.groupDelay(200, 2500, { step: 10 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print([m["id"] for m in design.group_delay(200, 2500, step=10).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.saveCsv(path)` | `g.save_csv(path)` |
+
+**JavaScript**: Writes the curves to a CSV file as the window's Copy CSV writes its table: λ (nm), then Knot where a table knot is sampled, a row for each side of it, λ− and λ+, then Outside data where a value was taken outside a material's data, then Group Delay (fs), GDD (fs²), CDC (fs/nm), Phase φ (°) and TOD (fs³). The phase is the one `phase` holds. A file that is there is written over.
+
+**Python**: Writes the curves to a CSV file as the window's Copy CSV writes its table: λ (nm), then Knot where a table knot is sampled, a row for each side of it, λ− and λ+, then Outside data where a value was taken outside a material's data, then Group Delay (fs), GDD (fs²), CDC (fs/nm), Phase φ (°) and TOD (fs³). The phase is the one phase holds. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `group-delay-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+design.groupDelay(400, 800, { step: 1 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "group-delay-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+design.group_delay(400, 800, step=1).save_csv(name)
+print("Wrote", name)
 ```
 
 ## RunResult

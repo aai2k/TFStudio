@@ -1,8 +1,9 @@
 // Tools that compute on a design: its spectrum, its index profile and layer
 // thicknesses, what its stack adds up to, a side's admittance locus and
 // electric field, its colour and integral values, a side's Psi and Delta, its
-// merit, its verdict against its specification, and how much each layer moves
-// the merit. Monte Carlo runs as a job (runTools.js).
+// phase and group delay, its merit, its verdict against its specification,
+// and how much each layer moves the merit. Monte Carlo runs as a job
+// (runTools.js).
 
 import { object, num, int, str, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
@@ -44,14 +45,17 @@ function fieldPeak(field, pol) {
 const ONE_SURFACE = "Computed on the front, or the back of a back_only design, the side the PSI and DEL merit rows score; side total is refused, since Psi and Delta are measured on one surface; a side with no layers gives its bare surface. The design's cone of incidence is not used. deltaConvention 'azzam' is the Azzam-Bashara sign an ellipsometer writes, 'reversed' is 360 degrees minus it; Psi is the same in both.";
 const DELTA_CONVENTION = oneOf(['azzam', 'reversed'], "The sign of Delta: 'azzam', the Azzam-Bashara sign an ellipsometer writes, or 'reversed', 360 degrees minus it. Default 'azzam'");
 
-// The lowest and highest of `values` with the x, `xs`, of each, the first
-// where two are equal.
+// The lowest and highest finite values of `values` with the x, `xs`, of each,
+// the first where two are equal; NaN, a wavelength with no value, is passed
+// over. All null when no value is finite.
 function extremes(xs, values) {
-    let lo = 0, hi = 0;
-    for (let i = 1; i < values.length; i++) {
-        if (values[i] < values[lo]) lo = i;
-        if (values[i] > values[hi]) hi = i;
+    let lo = -1, hi = -1;
+    for (let i = 0; i < values.length; i++) {
+        if (!Number.isFinite(values[i])) continue;
+        if (lo < 0 || values[i] < values[lo]) lo = i;
+        if (hi < 0 || values[i] > values[hi]) hi = i;
     }
+    if (lo < 0) return { min: null, minAt: null, max: null, maxAt: null };
     return { min: values[lo], minAt: xs[lo], max: values[hi], maxAt: xs[hi] };
 }
 
@@ -229,6 +233,30 @@ export function analysisTools({ api, store }) {
                 return {
                     designId, ...sweep, pointCount: angle.length,
                     ...(values ? { angle, psi, delta } : { psi: extremes(angle, psi), delta: extremes(angle, delta) }),
+                };
+            },
+        },
+        {
+            name: 'groupDelay', title: 'Group delay',
+            description: "Phase, group delay, GDD, TOD and CDC of a design's reflected or transmitted light against wavelength, as the Group Delay / GDD window computes them: GD = -dphi/domega in fs, GDD = -d2phi/domega2 in fs², TOD in fs³ and CDC = GDD * 2 pi c/lambda² in fs/nm, the chromatic dispersion as Essential Macleod reports it, with the sign of GDD (the slope dGD/dlambda is its negative), each an analytic value at its wavelength that does not depend on the grid; the phase in degrees is unwrapped along the grid, so on a uniform grid it can land 360 degrees off across a resonance narrower than the step; on the whole part the substrate's own phase, -2 pi n d cos(theta)/lambda, is added as it is, so only the coatings' phase is unwrapped. Computed on the front, or the back of a back_only design, the side the PR, GD and GDD merit rows score; side total, with response T alone, is the whole part as Pulse Analysis computes it: the front coating, one pass through the substrate at the design's thickness and the back coating. A side with no layers gives its bare surface. The design's cone of incidence is not used. step 'auto' gives the window's own grid, which adds points at reflection minima and table knots, so a mean over it leans toward the spikes. Answers with mode (front, back or total), response, angle, pol, step, reference, from, to, pointCount, knotCount, invalid (each { wavelength, reason } with no value), models, outOfRange (the materials of the sides computed whose data stop inside the range), and phase, gd, gdd, tod and cdc, each { min, minAt, max, maxAt } with the wavelengths in nm; with values true, also wavelength (nm), phase, gd, gdd, tod and cdc at every wavelength, outside (per wavelength the material its value was taken outside the data of, or null) and knots (each { wavelength, gd, gdd, tod, cdc }, each quantity a pair [left, right] of its values on the two sides of a table knot). Values at a million wavelengths run to about a hundred megabytes.",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                from: num('First wavelength in nm. Default 400'), to: num('Last wavelength in nm. Default 800'),
+                step: { type: ['number', 'string'], description: "Wavelength step in nm, or 'auto' for the window's own grid. Default 0.5" },
+                angle: ANGLE,
+                pol: oneOf(['avg', 's', 'p'], "Polarization. Default 'avg'"),
+                response: oneOf(['R', 'T'], "The light whose phase is taken: 'R', reflected, or 'T', transmitted. Default 'R'"),
+                side: oneOf(['front', 'back', 'total'], "'front' or 'back', one coated side, or with response 'T' 'total', the whole part. Default: the back of a back_only design and the front of any other"),
+                reference: num('Wavelength in nm the phase is shifted to 0 at, at the sample nearest it, as the window plots it; when that sample has no value the phase stays absolute and the reference answered is null. Default: none, the phase is absolute'),
+                values: bool('Also answer with every value. Default false'),
+            }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const { wavelength, phase, gd, gdd, tod, cdc, outside, knots, ...curves } = api.groupDelay(store.get(designId), options);
+                const all = { phase, gd, gdd, tod, cdc };
+                const summary = Object.fromEntries(Object.entries(all).map(([key, series]) => [key, extremes(wavelength, series)]));
+                return {
+                    designId, ...curves, from: wavelength[0], to: wavelength[wavelength.length - 1], pointCount: wavelength.length, knotCount: knots.length,
+                    ...(values ? { wavelength, ...all, outside, knots } : summary),
                 };
             },
         },

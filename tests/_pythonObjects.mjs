@@ -40,7 +40,9 @@
  *   groups as named tuples, a row by its key, save_csv() and their refusals;
  *   ellipsometry() and ellipsometry_vs_angle() with their defaults and each
  *   argument, Curves and AngleCurves, an AngleCurve's mean, min and max
- *   against JavaScript's, save_csv() and their refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
+ *   against JavaScript's, save_csv() and their refusals; group_delay() with
+ *   its defaults and each argument, its Curves, save_csv() on a uniform grid
+ *   and on the window's, and its refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
  *   Synthesis's included, and before the run; Ctrl+C in progress; every
@@ -638,6 +640,38 @@ async function ellipsometry(t, said) {
         '<Ellipsometry back at 633 nm, 20 to 70 degrees, 26 points, reversed>']), canon(got.shown));
 }
 
+// What _pythonObjects.py group_delay() read of a design coated on both
+// sides, against the plain call and the object here on the design it read.
+const curvesOf = g => ['mode', 'response', 'angle', 'pol', 'step', 'reference', 'wavelength', 'phase', 'gd', 'gdd', 'tod', 'cdc', 'outside', 'knots', 'invalid', 'models', 'outOfRange']
+    .map(key => (Array.isArray(g[key]) ? [...g[key]] : g[key]));
+
+async function groupDelay(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.groupDelay ?? {};
+    const design = got.design ?? {};
+    const ASKED = [{}, { from: 450, to: 900, step: 2, angle: 30, pol: 'p', response: 'T', side: 'back', reference: 600 }, { step: 'auto', response: 'T', side: 'total' }];
+    const asked = await inTurn(ASKED, options => attempt(() => curvesOf(api.groupDelay(design, options))));
+    ok('group_delay() is groupDelay over the wire, with its defaults and each argument, its curves Curves',
+        canon(got.asked) === canon(asked) && asked[2]?.[0] === 'total' && asked[0]?.[6]?.length === 801 && canon(got.types) === canon(['Curve', 'Curve']), canon(got.asked)?.slice(0, 300));
+    const objects = await import('../src/api/objects/index.js');
+    const two = new objects.Design(design);
+    const files = ['js-uniform.csv', 'js-auto.csv'].map(name => path.join(WORK, name));
+    two.groupDelay(450, 900, { step: 2, angle: 30, pol: 'p', response: 'T', side: 'back', reference: 600 }).saveCsv(files[0]);
+    two.groupDelay({ step: 'auto', response: 'T', side: 'total' }).saveCsv(files[1]);
+    const written = files.map(file => csvRows(fs.readFileSync(file, 'utf8')));
+    ok('save_csv writes what saveCsv writes', canon((got.csv ?? []).map(csvRows)) === canon(written), String(got.csv?.[0]).slice(0, 200));
+    ok('its refusals are in Python\'s words', canon(got.worded) === canon([
+        'group_delay: start and end are wavelengths in nm, 0 < start < end',
+        "group_delay: side is 'front' or 'back' with response 'R', not 'total'",
+        "group_delay: step is a wavelength step in nm above 0, or 'auto', not 'fine'",
+        "group_delay: pol is 'avg', 's' or 'p', not 'x'",
+        "group_delay: unknown option 'start_at'; the options are step, angle, pol, response, side, reference",
+        "group_delay: unknown option 'to'; the options are step, angle, pol, response, side, reference",
+    ]), canon(got.worded));
+    ok('and repr() shows what it holds', canon(got.shown) === canon(['<GroupDelay front R avg at 0 degrees from 400 to 800 nm, 801 points>',
+        '<GroupDelay back T p at 30 degrees from 450 to 900 nm, 226 points>', `<GroupDelay total T avg at 0 degrees from 400 to 800 nm, ${asked[2]?.[6]?.length} points>`]), canon(got.shown));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -822,6 +856,7 @@ export async function checkObjects(t) {
     await admittanceAndField(u, ran.said);
     await colourAndIntegrals(u, ran.said);
     await ellipsometry(u, ran.said);
+    await groupDelay(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

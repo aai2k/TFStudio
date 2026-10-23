@@ -16,6 +16,7 @@
  *   integrals(design, { start, end, step, angle, pol, custom, side })
  *   ellipsometry(design, { from, to, step, angles, side, deltaConvention })
  *   ellipsometryVsAngle(design, { wavelength, angleStart, angleEnd, angleStep, side, deltaConvention })
+ *   groupDelay(design, { from, to, step, angle, pol, response, side, reference })
  *   setMerit(design, rows), merit(design)
  *   setSpecification(design, checks), checkSpecification(design)
  *   refine(design, settings, hooks), synthesize(design, { method, pool, settings }, hooks), runHooks(method)
@@ -39,6 +40,7 @@ export { electricField } from './electricField.js';
 export { color } from './color.js';
 export { integrals } from './integrals.js';
 export { ellipsometry, ellipsometryVsAngle } from './ellipsometry.js';
+export { groupDelay } from './groupDelay.js';
 export { setMerit, merit } from './merit.js';
 export { setSpecification, checkSpecification } from './specification.js';
 export { refine, synthesize, runHooks } from './runs.js';

@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 35
+ *   1. The session: initialize and version negotiation, the tool list (the 36
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -28,7 +28,10 @@
  *      source it does not have is refused; its Psi and Delta against
  *      wavelength and against angle give the API's, in short with their
  *      extremes and in full with their values, and side total and a sweep
- *      past 89.5 degrees are refused; misspelt
+ *      past 89.5 degrees are refused; its group delay gives the API's, in
+ *      short with the extremes of each curve, past wavelengths with no value,
+ *      and in full with its values, through the whole part in transmission on the window's grid, and side
+ *      total in reflection and a step that is not one are refused; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
  *   3. stdout carries only messages, also when the server's own code prints;
@@ -72,7 +75,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 35 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 36 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -304,6 +307,39 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const past = await server.call('ellipsometryVsAngle', { designId: two, angleEnd: 90 });
     ok('side total and an angular sweep past 89.5 degrees are refused', /side/.test(whole.error ?? '') && /<= 89\.5/.test(past.error ?? ''),
         `${whole.error} / ${past.error}`);
+
+    // Its group delay on the front, and through the whole part.
+    const curves = api.groupDelay(edited, { from: 500, to: 700, step: 2, pol: 's', reference: 600 });
+    const shortGd = await server.call('groupDelay', { designId: two, from: 500, to: 700, step: 2, pol: 's', reference: 600 });
+    const fullGd = await server.call('groupDelay', { designId: two, from: 500, to: 700, step: 2, pol: 's', reference: 600, values: true });
+    const lowestGdd = Math.min(...curves.gdd);
+    const saidGd = [shortGd.mode, shortGd.reference, shortGd.pointCount, shortGd.knotCount, shortGd.gdd?.min, shortGd.gdd?.minAt, shortGd.phase?.max, shortGd.wavelength,
+        fullGd.wavelength, fullGd.phase, fullGd.gd, fullGd.cdc, fullGd.outside, fullGd.knots];
+    ok('groupDelay answers with the extremes of each curve, and every value for values true',
+        JSON.stringify(saidGd) === JSON.stringify(['front', 600, 101, curves.knots.length, lowestGdd, curves.wavelength[curves.gdd.indexOf(lowestGdd)], Math.max(...curves.phase), undefined,
+            curves.wavelength, curves.phase, curves.gd, curves.cdc, curves.outside, curves.knots]), JSON.stringify(shortGd).slice(0, 300));
+    const through = await server.call('groupDelay', { designId: two, response: 'T', side: 'total', step: 'auto' });
+    ok('groupDelay takes side total with response T and step auto', through.mode === 'total' && through.step === 'auto'
+        && through.pointCount === api.groupDelay(edited, { response: 'T', side: 'total', step: 'auto' }).wavelength.length, JSON.stringify(through).slice(0, 300));
+    const reflected = await server.call('groupDelay', { designId: two, side: 'total' });
+    const badStep = await server.call('groupDelay', { designId: two, step: 'fine' });
+    ok('side total with response R and a step that is neither a number nor auto are refused', /side/.test(reflected.error ?? '') && /step/.test(badStep.error ?? ''),
+        `${reflected.error} / ${badStep.error}`);
+
+    // One 100 nm SiO2 layer on BK7 has no value from 52 to 77 nm, so a range
+    // from 52 nm starts on wavelengths with none.
+    const silica = (await server.call('newDesign', { name: 'Silica' })).designId;
+    await server.call('insertLayer', { designId: silica, material: 'SiO2', thickness: 100 });
+    const known = api.groupDelay(api.insertLayer(api.newDesign({ name: 'Silica' }), { material: 'SiO2', thickness: 100 }), { from: 52, to: 200, step: 1 });
+    const partial = await server.call('groupDelay', { designId: silica, from: 52, to: 200, step: 1 });
+    const offKeys = ['phase', 'gd', 'gdd', 'tod', 'cdc'].filter(key => {
+        const series = known[key];
+        const finite = series.filter(Number.isFinite);
+        const [lo, hi] = [Math.min(...finite), Math.max(...finite)];
+        return JSON.stringify(partial[key]) !== JSON.stringify({ min: lo, minAt: known.wavelength[series.indexOf(lo)], max: hi, maxAt: known.wavelength[series.indexOf(hi)] });
+    });
+    ok('groupDelay\'s extremes pass over the wavelengths with no value, the first among them',
+        Number.isNaN(known.gd[0]) && offKeys.length === 0, `${offKeys.join(', ')}: ${JSON.stringify(partial).slice(0, 300)}`);
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────

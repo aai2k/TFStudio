@@ -59,6 +59,7 @@ def objects(given):
         admittance_and_field(tf)
         colour_and_integrals(tf)
         ellipsometry(tf)
+        group_delay(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -570,6 +571,33 @@ def ellipsometry(tf):
                           "types": [type(e.psi).__name__, type(a.psi).__name__],
                           "csv": [text_of("spectral.csv"), text_of("angular.csv")], "worded": worded,
                           "shown": [repr(e), repr(a)]}})
+
+
+def curves_of(g):
+    return [g.mode, g.response, g.angle, g.pol, g.step, g.reference, g.wavelength, list(g.phase), list(g.gd),
+            list(g.gdd), list(g.tod), list(g.cdc), g.outside, g.knots, g.invalid, g.models, g.out_of_range]
+
+
+def group_delay(tf):
+    """group_delay() of a design coated on both sides, with its defaults and
+    each argument; the curve type; the CSV of each; its refusals and
+    repr()."""
+    two = tf.new_design("Two sides", reference=600)
+    two.stack("(HL)^2 H")
+    two.sides = "both"
+    two.back_layers.append("MgF2", 95)
+    asked = [two.group_delay(),
+             two.group_delay(450, 900, step=2, angle=30, pol="p", response="T", side="back", reference=600),
+             two.group_delay(step="auto", response="T", side="total")]
+    asked[1].save_csv("uniform.csv")
+    asked[2].save_csv("auto.csv")
+    worded = [refused(make) for make in (
+        lambda: two.group_delay(800, 400), lambda: two.group_delay(side="total"), lambda: two.group_delay(step="fine"),
+        lambda: two.group_delay(pol="x"), lambda: two.group_delay(start_at=400), lambda: two.group_delay(to=900))]
+    out({"groupDelay": {"design": two._data, "asked": [curves_of(g) for g in asked],
+                        "types": [type(asked[0].gd).__name__, type(asked[0].phase).__name__],
+                        "csv": [text_of("uniform.csv"), text_of("auto.csv")], "worded": worded,
+                        "shown": [repr(g) for g in asked]}})
 
 
 def ran(before, design, result):

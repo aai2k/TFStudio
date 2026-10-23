@@ -114,6 +114,9 @@ class Calls:
     def ellipsometryVsAngle(self, design, options=None):
         return self._call("ellipsometryVsAngle", design, options)
 
+    def groupDelay(self, design, options=None):
+        return self._call("groupDelay", design, options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

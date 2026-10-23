@@ -2903,6 +2903,70 @@
     "hash": "ef1c9a1d",
     "text": "小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 \"front\" 或 \"back\" 的面、不是 \"azzam\" 或 \"reversed\" 的符号约定，或用到找不到对应材料的设计"
   },
+  "Design.groupDelay.arg.start": {
+    "hash": "115f61f2",
+    "text": "起始波长，单位 nm。"
+  },
+  "Design.groupDelay.arg.end": {
+    "hash": "b4a9096d",
+    "text": "结束波长，单位 nm，大于 `start`。"
+  },
+  "Design.groupDelay.arg.step": {
+    "hash": "3315196b",
+    "text": "波长步长，单位 nm；或 `'auto'`，即窗口自己的网格。"
+  },
+  "Design.groupDelay.arg.angle": {
+    "hash": "04ad2001",
+    "text": "入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。"
+  },
+  "Design.groupDelay.arg.pol": {
+    "hash": "80884b87",
+    "text": "偏振：`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "Design.groupDelay.arg.response": {
+    "hash": "9ea76df9",
+    "text": "取其相位的光：`'R'` 为反射光，`'T'` 为透射光。"
+  },
+  "Design.groupDelay.arg.side.js": {
+    "hash": "338f59b4",
+    "text": "`'front'`、`'back'`，或在 `response: 'T'` 时为 `'total'`（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。"
+  },
+  "Design.groupDelay.arg.side.py": {
+    "hash": "18f88555",
+    "text": "\"front\"、\"back\"，或在 response=\"T\" 时为 \"total\"（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。"
+  },
+  "Design.groupDelay.arg.reference": {
+    "hash": "ffb611e9",
+    "text": "一个波长，单位 nm：相位随之在离它最近的采样点处为 0，与窗口绘图的方式相同；该采样点没有数值时，相位保持为绝对值，`reference` 为 `null` / `None`。不给出时，相位为绝对值。"
+  },
+  "Design.groupDelay.returns": {
+    "hash": "58b10d6a",
+    "text": "一个 GroupDelay。"
+  },
+  "Design.groupDelay.lead.1.js": {
+    "hash": "53c01460",
+    "text": "设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。`side: 'total'` 只与 `response: 'T'` 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。"
+  },
+  "Design.groupDelay.lead.1.py": {
+    "hash": "515b039b",
+    "text": "设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。side=\"total\" 只与 response=\"T\" 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。"
+  },
+  "Design.groupDelay.lead.2.js": {
+    "hash": "cee161bc",
+    "text": "GD、GDD 和 TOD 是每个波长处的解析值，因此与网格无关。相位沿网格解缠，因此在均匀网格上，跨过比步长更窄的共振时可能相差 2π。对于整个元件，基底自身的相位 −2π n d cosθ / λ（n、d 和 θ 为其折射率、厚度和光在其中的角度）按原样加入，因此只有膜层的相位被解缠。`step: 'auto'` 给出窗口自己的网格，它在反射极小值和表格节点处加点，因此在其上取的平均值会偏向那里的尖峰。"
+  },
+  "Design.groupDelay.lead.2.py": {
+    "hash": "7f7ce687",
+    "text": "GD、GDD 和 TOD 是每个波长处的解析值，因此与网格无关。相位沿网格解缠，因此在均匀网格上，跨过比步长更窄的共振时可能相差 2π。对于整个元件，基底自身的相位 −2π n d cosθ / λ（n、d 和 θ 为其折射率、厚度和光在其中的角度）按原样加入，因此只有膜层的相位被解缠。step=\"auto\" 给出窗口自己的网格，它在反射极小值和表格节点处加点，因此在其上取的平均值会偏向那里的尖峰。"
+  },
+  "Design.groupDelay.refuses.1.js": {
+    "hash": "755e803d",
+    "text": "它不接受的选项、不构成范围的波长范围、既不是正数也不是 `'auto'` 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、`response: 'R'` 时的 `'total'`、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计"
+  },
+  "Design.groupDelay.refuses.1.py": {
+    "hash": "15de6106",
+    "text": "不构成范围的波长范围、既不是正数也不是 \"auto\" 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、response=\"R\" 时的 \"total\"、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计"
+  },
   "Ellipsometry.lead.1": {
     "hash": "a7421ab7",
     "text": "一个镀膜面的 Ψ 和 Δ：design.ellipsometry() 在一个或多个入射角下随波长计算它们，`design.ellipsometryVsAngle()` / `design.ellipsometry_vs_angle()` 在一个波长处随角度计算它们。随波长计算时，`e.psi` 和 `e.delta` 是第一个所要求角度下的 Curve，`e.angle(70)` 是另一个角度下的扫描；随角度计算时，它们是 AngleCurve。"
@@ -3046,5 +3110,105 @@
   "AngleCurve.max.refuses.1": {
     "hash": "a2dd885b",
     "text": "不包含曲线任何角度的范围"
+  },
+  "GroupDelay.lead.1": {
+    "hash": "a6ef8cc2",
+    "text": "设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，由 `design.groupDelay()` / `design.group_delay()` 计算，与群延迟 / GDD 窗口的显示相同。`g.phase`、`g.gd`、`g.gdd`、`g.tod` 和 `g.cdc` 都是 Curve。"
+  },
+  "GroupDelay.mode.lead.1": {
+    "hash": "f3b565fb",
+    "text": "所计算的对象：`'front'` 或 `'back'`，一个镀膜面；`'total'`，透射时的整个元件。"
+  },
+  "GroupDelay.response.lead.1": {
+    "hash": "9ea76df9",
+    "text": "取其相位的光：`'R'` 为反射光，`'T'` 为透射光。"
+  },
+  "GroupDelay.angle.lead.1": {
+    "hash": "bd01efdb",
+    "text": "入射角，单位为度，在光射来的介质中计。"
+  },
+  "GroupDelay.pol.lead.1": {
+    "hash": "80884b87",
+    "text": "偏振：`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "GroupDelay.step.lead.1": {
+    "hash": "3315196b",
+    "text": "波长步长，单位 nm；或 `'auto'`，即窗口自己的网格。"
+  },
+  "GroupDelay.reference.lead.1": {
+    "hash": "b6889d5e",
+    "text": "相位在该处平移为 0 的波长，单位 nm；相位为绝对值时为 `null` / `None`：未给出参考，或离参考最近的采样点没有数值时。"
+  },
+  "GroupDelay.wavelength.lead.1": {
+    "hash": "f86617c1",
+    "text": "各波长，单位 nm。"
+  },
+  "GroupDelay.phase.lead.1": {
+    "hash": "8a77d9ac",
+    "text": "相位 φ，单位为度，一个 Curve：沿网格解缠，为绝对值；给出参考时，在离参考最近的采样点处为 0。"
+  },
+  "GroupDelay.gd.lead.1": {
+    "hash": "018a4edc",
+    "text": "群延迟，单位 fs，一个 Curve。"
+  },
+  "GroupDelay.gdd.lead.1": {
+    "hash": "b5e55c00",
+    "text": "GDD，单位 fs²，一个 Curve。"
+  },
+  "GroupDelay.tod.lead.1": {
+    "hash": "ca78098c",
+    "text": "TOD，单位 fs³，一个 Curve。"
+  },
+  "GroupDelay.cdc.lead.1": {
+    "hash": "99497131",
+    "text": "CDC，即 GDD·2πc/λ²，单位 fs/nm，一个 Curve：与 Essential Macleod 给出的色散系数相同，符号与 GDD 相同。群延迟对波长的斜率 dGD/dλ 等于 −CDC。"
+  },
+  "GroupDelay.outside.lead.1": {
+    "hash": "438b0b11",
+    "text": "对每个波长，其数值取自哪种材料的数据范围之外，给出该材料的名称；否则为 `null` / `None`。"
+  },
+  "GroupDelay.knots.lead.1.js": {
+    "hash": "0f6648b3",
+    "text": "恰好落在网格波长上的表格节点，一个由 `{ wavelength, gd, gdd, tod, cdc }` 组成的数组，每个量是它在节点两侧的数值组成的一对 `[left, right]`；曲线在该波长处的值读取的是节点两侧平均后的材料。在均匀网格上，若范围内的节点相对网格过密，即每 8 个点多于一个节点，则不取任何节点；`side: 'total'` 时也不取任何节点。"
+  },
+  "GroupDelay.knots.lead.1.py": {
+    "hash": "6e6e6a22",
+    "text": "恰好落在网格波长上的表格节点，一个由 dict（wavelength、gd、gdd、tod 和 cdc）组成的 list，每个量是它在节点两侧的数值组成的一对 [left, right]；曲线在该波长处的值读取的是节点两侧平均后的材料。在均匀网格上，若范围内的节点相对网格过密，即每 8 个点多于一个节点，则不取任何节点；side=\"total\" 时也不取任何节点。"
+  },
+  "GroupDelay.invalid.lead.1.js": {
+    "hash": "2ac50645",
+    "text": "没有数值的波长，一个由 `{ wavelength, reason }` 组成的数组；曲线在这些波长处为 NaN。每个波长都有数值时为空。"
+  },
+  "GroupDelay.invalid.lead.1.py": {
+    "hash": "ba51d875",
+    "text": "没有数值的波长，一个由 dict（wavelength 和 reason）组成的 list；曲线在这些波长处为 NaN。每个波长都有数值时为空。"
+  },
+  "GroupDelay.models.lead.1": {
+    "hash": "1e7d44d4",
+    "text": "数值所依据的材料模型，每个为 `'name: model'`。"
+  },
+  "GroupDelay.outOfRange.lead.1.js": {
+    "hash": "44769615",
+    "text": "所计算对象上数据在该范围内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "GroupDelay.outOfRange.lead.1.py": {
+    "hash": "e75a50b7",
+    "text": "所计算对象上数据在该范围内中断的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "GroupDelay.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "GroupDelay.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "GroupDelay.saveCsv.lead.1.js": {
+    "hash": "2d0e849a",
+    "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有采样的表格节点时接着是 Knot 列，节点两侧各一行，即 λ− 和 λ+；有数值取自材料数据之外时接着是 Outside data 列；然后是 Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、Phase φ (°) 和 TOD (fs³)。相位即 `phase` 所含的相位。已存在的文件会被覆盖。"
+  },
+  "GroupDelay.saveCsv.lead.1.py": {
+    "hash": "4a64917a",
+    "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有采样的表格节点时接着是 Knot 列，节点两侧各一行，即 λ− 和 λ+；有数值取自材料数据之外时接着是 Outside data 列；然后是 Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、Phase φ (°) 和 TOD (fs³)。相位即 phase 所含的相位。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
   }
 }

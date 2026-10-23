@@ -14,6 +14,7 @@ import { ElectricField } from './electricField.js';
 import { Color } from './color.js';
 import { Integrals } from './integrals.js';
 import { Ellipsometry } from './ellipsometry.js';
+import { GroupDelay } from './groupDelay.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
@@ -644,6 +645,49 @@ export class Design {
         const words = { method: 'ellipsometryVsAngle', call: 'ellipsometryVsAngle', hidden: ['wavelength', 'angleStart', 'angleEnd'], names: { angleStep: 'step' } };
         const { step, ...given } = checkOptions('ellipsometryVsAngle', options, ['step', 'side', 'deltaConvention']);
         return new Ellipsometry(worded(words, () => api.ellipsometryVsAngle(this._data, defined({ ...given, wavelength, angleStart: start, angleEnd: end, angleStep: step }))));
+    }
+
+    /**
+     * Phase, group delay, GDD, TOD and CDC of the design's reflected or
+     * transmitted light against wavelength, as the Group Delay / GDD window
+     * computes them. They are computed on the front, or on the back of a
+     * design coated on the back alone, unless `side` is given; a side with no
+     * layers gives its bare surface. `side: 'total'`, with `response: 'T'`
+     * alone, is the whole part as Pulse Analysis computes it: the front
+     * coating, one pass through the substrate and the back coating. The
+     * design's cone of incidence is not used, as the window does not use it.
+     *
+     * GD, GDD and TOD are analytic values at each wavelength, so they do not
+     * depend on the grid. The phase is unwrapped along the grid, so on a
+     * uniform grid it can land 2π off across a resonance narrower than the
+     * step. On the whole part the substrate's own phase, −2π n d cosθ / λ, n,
+     * d and θ its index, thickness and the angle in it, is added as it is, so
+     * only the coatings' phase is unwrapped. `step: 'auto'` gives the window's
+     * own grid, which adds points at reflection minima and table knots, so a
+     * mean over it leans toward the spikes there.
+     *
+     * @param [start=400] The first wavelength, nm.
+     * @param [end=800] The last wavelength, nm, above `start`.
+     * @param [options]
+     * @param [options.step=0.5] The wavelength step, nm, or `'auto'`, the window's own grid.
+     * @param [options.angle=0] The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90.
+     * @param [options.pol='avg'] The polarization: `'avg'`, `'s'` or `'p'`.
+     * @param [options.response='R'] The light whose phase is taken: `'R'`, reflected, or `'T'`, transmitted.
+     * @param [options.side] `'front'`, `'back'`, or with `response: 'T'` `'total'`, the whole part. Without it, the back of a design coated on the back alone and the front of any other.
+     * @param [options.reference] A wavelength, nm: the phase is then 0 at the sample nearest it, as the window plots it; when that sample has no value, the phase stays absolute and `reference` is `null`. Without it, the phase is absolute.
+     * @returns A GroupDelay.
+     * @throws an option it does not take, a range that is not one, a step that is not a positive number or `'auto'`, an angle outside 0 to 90, a polarization, response or side it does not have, `'total'` with `response: 'R'`, a reference that is not a wavelength above 0, more than a million wavelengths, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^8 H');
+     * const g = design.groupDelay(500, 600, { step: 1 });
+     * console.log(g.mode, 'GDD from 520 to 580 nm:', g.gdd.min(520, 580).toFixed(3), 'to', g.gdd.max(520, 580).toFixed(3), 'fs²');
+     */
+    groupDelay(...args) {
+        const [[start, end], options] = trailingOptions('groupDelay', args, ['start', 'end']);
+        const words = { method: 'groupDelay', call: 'groupDelay', hidden: ['from', 'to'] };
+        const given = checkOptions('groupDelay', options, ['step', 'angle', 'pol', 'response', 'side', 'reference']);
+        return new GroupDelay(worded(words, () => api.groupDelay(this._data, defined({ ...given, from: start, to: end }))));
     }
 
     /**

@@ -22,6 +22,7 @@ from ._design import Design, Layer, Layers, Substrate
 from ._electric_field import ElectricField
 from ._ellipsometry import Ellipsometry
 from ._errors import AppError, ServerError, TFStudioError
+from ._group_delay import GroupDelay
 from ._integrals import Integrals
 from ._merit import Merit, MeritRow
 from ._results import (AngleCurve, CheckResult, CleanReport, Curve, LayerSensitivity, MonteCarlo, Progress, RunResult,
@@ -35,6 +36,6 @@ __version__ = "0.1.0"
 
 __all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
            "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Admittance",
-           "ElectricField", "Color", "Integrals", "Ellipsometry", "AngleCurve", "Progress",
+           "ElectricField", "Color", "Integrals", "Ellipsometry", "AngleCurve", "GroupDelay", "Progress",
            "RunResult", "MonteCarlo", "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material", "App",
            "AppDesign", "Stop", "TFStudioError", "AppError", "ServerError"]

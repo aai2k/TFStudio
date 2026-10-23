@@ -20,7 +20,7 @@ import { chromaticDispersionCoefficient } from '../../../utils/physics/thinFilmM
 // A grid wavelength this close to a table knot is that knot, to the accuracy
 // the grid is accumulated with; the knot replaces it so the sample sits exactly
 // on the discontinuity instead of a rounding either side of it.
-const KNOT_MATCH_TOLERANCE_NM = 1e-9;
+export const KNOT_MATCH_TOLERANCE_NM = 1e-9;
 
 function mergeSorted(wavelengths, knots) {
     const merged = [];
