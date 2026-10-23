@@ -130,7 +130,8 @@ for (const [name, spec] of Object.entries(STACKS)) {
         id: `${type}${i}`, type, lambdaStart: lambda, aoi: 70, target: 0,
     }));
     const psi = Array.from(evaluateOperands(pointOps('PSI'), ctx));
-    const delta = toDeltaConvention(Array.from(evaluateOperands(pointOps('DEL'), ctx)), 'azzam');
+    // A new DEL row reads Δ in the Azzam-Bashara sign the block records.
+    const delta = Array.from(evaluateOperands(pointOps('DEL'), ctx));
     const blocks = [
         makeMeasuredCurveOperand({ id: 'psi-block', quantity: 'PSI', aoi: 70, side: 'front', sampleLambdas: lambdas, sampleTargets: psi }),
         makeMeasuredCurveOperand({ id: 'del-block', quantity: 'DEL', aoi: 70, side: 'front', deltaConvention: 'azzam', sampleLambdas: lambdas, sampleTargets: delta }),
@@ -171,8 +172,9 @@ for (const [name, spec] of Object.entries(STACKS)) {
         'in back_only every back layer moves Ψ and Δ');
     const scored = evaluateOperands(ops, buildEvalContext(backDesign, resolveMat));
     const drawn = computeSpectral(backDesign, { side: 'back', lambdaStart: 550, lambdaEnd: 550, lambdaStep: 1, thetaDeg: 65 });
-    assert.ok(Math.abs(scored[0] - drawn.psi[0]) < 1e-9 && Math.abs(scored[1] - drawn.delta[0]) < 1e-9,
-        `back_only Ψ, Δ ${scored[0]}, ${scored[1]} against the window's back side ${drawn.psi[0]}, ${drawn.delta[0]}`);
+    const [drawnDelta] = toDeltaConvention(drawn.delta, 'azzam');
+    assert.ok(Math.abs(scored[0] - drawn.psi[0]) < 1e-9 && Math.abs(scored[1] - drawnDelta) < 1e-9,
+        `back_only Ψ, Δ ${scored[0]}, ${scored[1]} against the window's back side ${drawn.psi[0]}, ${drawnDelta}`);
 }
 
 // ── The kernel and the JavaScript reference agree, and both match the values ─

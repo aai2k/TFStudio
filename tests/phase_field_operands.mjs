@@ -83,7 +83,7 @@ ok(operandResidualScale({ type: 'EFMX' }) === 1, 'σ(EFMX) = 1');
     const e = computeEllipsometry(lam, aoi, n0, ns, layers);
     const val = type => evaluateOperands([makeOperand({ type, lambdaStart: lam, aoi })], ctx)[0];
     ok(close(val('PSI'), e.psi, 1e-9), 'PSI matches computeEllipsometry.psi');
-    ok(close(val('DEL'), e.delta, 1e-9), 'DEL matches computeEllipsometry.delta');
+    ok(close(val('DEL'), 360 - e.delta, 1e-9), 'a new DEL row reads the Azzam-Bashara Δ, 360° − computeEllipsometry.delta');
     ok(close(val('TANPSI'), e.tanPsi, 1e-9), 'TANPSI matches tanΨ');
     ok(close(val('COSDEL'), e.cosDelta, 1e-9), 'COSDEL matches cosΔ');
 }

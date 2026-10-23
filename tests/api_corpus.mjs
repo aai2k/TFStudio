@@ -75,8 +75,13 @@ ok('saved and opened again it shows the same', corpus.reopened.length === 0, cor
         if (name === 'newer-release-unknown-fields' || !Object.values(fixture.variants).some(v => !v.catalogs && !v.seed)) continue;
         const design = api.openDesign(fixtureFile(name));
         if (!(design.meritOperands || []).length || golden[`${name}/${Object.keys(fixture.variants)[0]}`]?.spectrum?.blocked) continue;
+        // A DEL row saved before rows recorded their Δ convention reads the
+        // reversed sign, and setMerit makes a row given none in the
+        // Azzam-Bashara sign, so such a row goes back with the sign it reads.
+        const rows = design.meritOperands.map(op => (
+            op.type === 'DEL' && !op.deltaConvention ? { ...op, deltaConvention: 'reversed' } : op));
         try {
-            const again = api.merit(api.setMerit(design, design.meritOperands));
+            const again = api.merit(api.setMerit(design, rows));
             if (again.total !== api.merit(design).total) mismatched.push(`${name}: ${again.total} vs ${api.merit(design).total}`);
         } catch (err) { mismatched.push(`${name}: ${err.message}`); }
     }

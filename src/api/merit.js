@@ -38,6 +38,7 @@ const CHECKS = [
     ['weight', isValidMeritWeight, 'a number of 0 or more'],
     ['cmp', v => ['eq', 'le', 'ge'].includes(v), "'eq', 'le' or 'ge'"],
     ['flag', v => Number.isInteger(v) && v >= 1 && v <= EXTREMUM_FLAG_MAX, `a whole number from 1 to ${EXTREMUM_FLAG_MAX}`],
+    ['deltaConvention', v => v === 'azzam' || v === 'reversed', "'azzam' or 'reversed'"],
 ];
 
 // Refuses merit row `row`, row `i` of those given, unless this version
@@ -92,6 +93,7 @@ const isReversed = op => (readsWavelengthBand(op.type) || isConstraint(op.type))
  * @param [rows[].weight] How much the row counts, 0 or more.
  * @param [rows[].cmp] For TT and STR, the comparison: `'eq'`, `'le'` or `'ge'`.
  * @param [rows[].flag] The editor's Flag column, a whole number; the Operand Reference says what it does on each row.
+ * @param [rows[].deltaConvention='azzam'] For DEL, the sign of Δ the row reads and its target is in: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes and the Ellipsometry window shows, or `'reversed'`, 360° minus it, which DEL rows in older designs read.
  * @param [rows[].enabled=true] `false` leaves the row out of the merit.
  * @param [rows[].id] A name for the row, which a math row gives in `refId`, `refId1` or `refId2` to read it.
  * @param [rows[].refId] For a math row that reads one row, that row's `id`; `refId1` and `refId2` for one that reads two.

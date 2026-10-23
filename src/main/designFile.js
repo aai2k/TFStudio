@@ -1,5 +1,5 @@
 // The .tfs design file: reading one whatever encoding wrote it, checking that
-// it holds what the app reads without guarding, the fixup a load applies, and
+// it holds what the app reads without guarding, the fixups a load applies, and
 // writing one in this build's format. The main process's project handlers and
 // the headless API read and write designs through these.
 //
@@ -71,7 +71,24 @@ function dropWizardWorstCaseSampling(design) {
   }
 }
 
-// The design in the .tfs at `filePath`, checked and with the load's fixup
+// A DEL row records the sign of Δ it reads in `deltaConvention`, and a new row
+// reads the Azzam-Bashara one. A stored DEL row without the field was written
+// when every DEL row read 360° minus that, so it is given 'reversed' here: it
+// scores as it did, and keeps that sign through the API, a copy and a save.
+function stampStoredDelRows(design) {
+  const operands = Array.isArray(design.meritOperands) ? design.meritOperands : [];
+  for (const op of operands) {
+    if (op && op.type === 'DEL' && op.deltaConvention === undefined) op.deltaConvention = 'reversed';
+  }
+}
+
+// The fixups every load applies to a checked design.
+function applyLoadFixups(design) {
+  dropWizardWorstCaseSampling(design);
+  stampStoredDelRows(design);
+}
+
+// The design in the .tfs at `filePath`, checked and with the load's fixups
 // applied, as { design }, or { error } when it cannot be read or is not a
 // usable design. The on-disk version key is dropped.
 function readDesignFile(fs, filePath) {
@@ -83,7 +100,7 @@ function readDesignFile(fs, filePath) {
   }
   const invalid = validateDesign(design);
   if (invalid) return { error: invalid };
-  dropWizardWorstCaseSampling(design);
+  applyLoadFixups(design);
   delete design.tfs_version;
   return { design };
 }
@@ -98,5 +115,5 @@ function serializeDesign(design) {
 }
 
 module.exports = {
-  TFS_VERSION, parseDesignBuffer, validateDesign, dropWizardWorstCaseSampling, readDesignFile, serializeDesign,
+  TFS_VERSION, parseDesignBuffer, validateDesign, applyLoadFixups, readDesignFile, serializeDesign,
 };

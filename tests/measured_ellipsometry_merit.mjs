@@ -67,11 +67,13 @@ const AOI = 70;
 const trueDesign = designWith(120, 200);
 const lambdas = Array.from({ length: 61 }, (_, index) => 400 + index * 5);
 const trueContext = buildEvalContext(trueDesign, resolveMat);
-const pointOps = type => lambdas.map((lambda, index) => makeOperand({
-    id: `${type}-${index}`, type, lambdaStart: lambda, lambdaEnd: lambda, aoi: AOI, target: 0,
+const pointOps = (type, extra = {}) => lambdas.map((lambda, index) => makeOperand({
+    id: `${type}-${index}`, type, lambdaStart: lambda, lambdaEnd: lambda, aoi: AOI, target: 0, ...extra,
 }));
 const truePsi = Array.from(evaluateOperands(pointOps('PSI'), trueContext));
-const trueDelta = Array.from(evaluateOperands(pointOps('DEL'), trueContext));
+// Δ in the sign the evaluator returns, the one an expanded point targets.
+const trueDelta = Array.from(evaluateOperands(
+    pointOps('DEL', { deltaConvention: CALCULATED_DELTA_CONVENTION }), trueContext));
 const fileDelta = toDeltaConvention(trueDelta, 'azzam');
 assert.ok(fileDelta.some((value, index) => Math.abs(value - trueDelta[index]) > 1),
     'the instrument sign differs from the calculated one, so the conversion is not a no-op');

@@ -54,7 +54,8 @@ function reference(lambda) {
     const at = material => getMaterial(material).getNK(lambda);
     const layers = design.frontLayers.map(layer => ({ n: at(layer.material), d: layer.thickness }));
     const e = computeEllipsometry(lambda, AOI, at('Air'), at('BK7'), layers);
-    return [e.psi, e.delta, e.tanPsi, e.cosDelta];
+    // A new DEL row reads the Azzam-Bashara Δ, 360° minus the point evaluator's.
+    return [e.psi, 360 - e.delta, e.tanPsi, e.cosDelta];
 }
 
 function check(values, lambda, label) {

@@ -4,7 +4,7 @@
  */
 
 import {
-  buildLambdaGrid, computeRIProfile, computeEFieldProfile, evaluateEllipsometrySpectrum,
+  buildLambdaGrid, computeRIProfile, computeEFieldProfile, evaluateEllipsometrySpectrum, toDeltaConvention,
 } from '../../physics/thinFilmMath.js';
 import { FIELD_SAMPLES_PER_LAYER, unpolarizedProfile } from '../../physics/unpolarizedField.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
@@ -31,10 +31,11 @@ export function computeEllipsometrySpectrum(design, opts = {}) {
   });
   const thick = layerMats.map(l => l.thickness);
 
-  const series = thetas.map(theta => ({
-    theta,
-    ...evaluateEllipsometrySpectrum(lambda, theta, n0List, nsList, layerNK, thick),
-  }));
+  // Δ in the Azzam-Bashara sign the Ellipsometry window opens in.
+  const series = thetas.map((theta) => {
+    const spectrum = evaluateEllipsometrySpectrum(lambda, theta, n0List, nsList, layerNK, thick);
+    return { theta, ...spectrum, delta: toDeltaConvention(spectrum.delta, 'azzam') };
+  });
   return { lambda, series };
 }
 

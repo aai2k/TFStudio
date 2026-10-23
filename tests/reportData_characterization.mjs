@@ -88,7 +88,7 @@ console.log('— computeEField —');
 console.log('— computeEllipsometrySpectrum —');
 {
   const es = computeEllipsometrySpectrum(design, { lambdaStart: 400, lambdaEnd: 600, lambdaStep: 100, thetas: [65] });
-  const expect = {"lambda":[400,500,600],"series":[{"theta":65,"psi":[10.837680537057048,2.3249796157215066,30.834582324941223],"delta":[219.71230565871156,177.70390963211264,79.13764851996564]}]};
+  const expect = {"lambda":[400,500,600],"series":[{"theta":65,"psi":[10.837680537057048,2.3249796157215066,30.834582324941223],"delta":[140.28769434128844,182.29609036788736,280.86235148003436]}]};
   ok('ellipsometrySpectrum matches golden snapshot', JSON.stringify(es) === JSON.stringify(expect));
 }
 

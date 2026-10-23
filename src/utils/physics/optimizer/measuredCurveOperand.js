@@ -96,6 +96,9 @@ function expandMeasuredCurveOperand(op) {
     const lambdas = op.sampleLambdas;
     const targets = measuredCurveEngineTargets(op);
     const pointWeight = op.weight / lambdas.length;
+    // A DEL row reads Δ in the sign it records, and these targets are in the
+    // sign the point evaluator returns, so each Δ point records that one.
+    const convention = type === 'DEL' ? { deltaConvention: CALCULATED_DELTA_CONVENTION } : {};
     return lambdas.map((lambda, index) => ({
         id: `${op.id}:${index}`,
         enabled: op.enabled !== false,
@@ -109,6 +112,7 @@ function expandMeasuredCurveOperand(op) {
         weight: pointWeight,
         measuredCurveBlockId: op.id,
         measuredCurveId: op.curveId || null,
+        ...convention,
         ...pointSide(op),
     }));
 }

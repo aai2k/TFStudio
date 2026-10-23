@@ -5,7 +5,10 @@
  * expanded from a measured block share one kernel pass.
  */
 
-import { evaluateEllipsometrySpectrum, evaluateEllipsometryThicknessJacobian } from '../../../thinFilmMath.js';
+import {
+    CALCULATED_DELTA_CONVENTION, convertDeltaConvention,
+    evaluateEllipsometrySpectrum, evaluateEllipsometryThicknessJacobian,
+} from '../../../thinFilmMath.js';
 import { nkOf } from '../tmmEval.js';
 import { _assertFrontEllipsometry } from './errors.js';
 
@@ -139,11 +142,27 @@ function _ellipsometryJacobianBatch(ctx, aoi, lambdas, key) {
     return batch;
 }
 
+// The kernel's Δ in the convention a DEL row records (operandModel.js
+// seedDeltaConvention). A row stored without one reads the kernel's own.
+function _readsKernelDelta(op) {
+    return (op.deltaConvention || CALCULATED_DELTA_CONVENTION) === CALCULATED_DELTA_CONVENTION;
+}
+
+function _rowDelta(op, delta) {
+    const convention = op.deltaConvention || CALCULATED_DELTA_CONVENTION;
+    return convertDeltaConvention([delta], CALCULATED_DELTA_CONVENTION, convention)[0];
+}
+
 // Chain rule from Ψ and Δ in degrees to the operand's own quantity, per nm.
-function _ellipsometryQuantity(type, point) {
+// Azzam-Bashara Δ is 360° minus the kernel's, so its slope has the other sign.
+function _ellipsometryQuantity(op, point) {
     const toRad = Math.PI / 180;
+    const type = op.type;
     if (type === 'PSI') return { value: point.psi, side: point.dPsi };
-    if (type === 'DEL') return { value: point.delta, side: point.dDelta };
+    if (type === 'DEL') {
+        const side = _readsKernelDelta(op) ? point.dDelta : point.dDelta.map(slope => -slope);
+        return { value: _rowDelta(op, point.delta), side };
+    }
     if (type === 'TANPSI') {
         const tan = Math.tan(point.psi * toRad);
         return { value: tan, side: point.dPsi.map(slope => (1 + tan * tan) * slope * toRad) };
@@ -179,7 +198,7 @@ export function ellipsometryThicknessPoint(op, ctx, operands = null) {
     const grid = _blockGrid(op, ctx, operands) || { lambdas: own, key: _gridKey(aoi, own) };
     const point = _ellipsometryJacobianBatch(ctx, aoi, grid.lambdas, grid.key).get(op.lambdaStart);
     if (!point) return null;
-    const { value, side } = _ellipsometryQuantity(op.type, point);
+    const { value, side } = _ellipsometryQuantity(op, point);
     return { value, derivative: _sideDerivativeVector(ctx, side) };
 }
 
@@ -199,7 +218,7 @@ export function _evalEllipsometry(op, ctx) {
     const e = _measuredBlockPoint(op, ctx) || _ownPoint(op, ctx);
     switch (op.type) {
         case 'PSI':    return e.psi;
-        case 'DEL':    return e.delta;
+        case 'DEL':    return _rowDelta(op, e.delta);
         case 'TANPSI': return e.tanPsi;
         default:       return e.cosDelta;   // COSDEL
     }

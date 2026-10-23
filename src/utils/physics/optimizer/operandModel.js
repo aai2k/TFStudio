@@ -499,6 +499,16 @@ function seedLogTarget(base) {
     if (targetUnset(base)) base.target = LOG_DEFAULT_TARGETS[base.type];
 }
 
+// A DEL row records the sign of Δ it reads (`deltaConvention`): 'azzam', the
+// Azzam-Bashara sign an ellipsometer writes and the Ellipsometry window shows,
+// or 'reversed', 360° − that. A new row reads 'azzam'. A stored row without
+// the field was written when every DEL row read 'reversed', and is evaluated
+// that way so the design scores as it did.
+function seedDeltaConvention(base) {
+    const { deltaConvention = 'azzam' } = base;
+    base.deltaConvention = deltaConvention;
+}
+
 /** Blank/comment operand: keep a comment field, no numeric meaning. */
 function seedComment(base) {
     if (base.comment == null) base.comment = '';
@@ -516,6 +526,7 @@ const TYPE_SEEDS = [
     [isStress,         seedStressTarget],
     [type => isLogOperand(type) || isPPEF(type), seedLogTarget],
     [isBlank,          seedComment],
+    [type => type === 'DEL', seedDeltaConvention],
 ];
 
 export function makeOperand(overrides = {}) {

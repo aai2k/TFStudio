@@ -143,7 +143,7 @@ The row reads the block's wavelengths, angle and polarization, so its **AOI (°)
 | `TANPSI` | tan Ψ. A new row starts at 1. |
 | `COSDEL` | cos Δ, −1 to 1. A new row starts at 0. |
 
-Ψ and Δ use both polarizations, so **Pol** has no effect. These rows always score the front coating; in back-only mode they read the front as it is and steer nothing. A `DEL` row is not in the Azzam–Bashara convention an ellipsometer writes and the [Ellipsometry](/analysis/ellipsometry/) window shows by default. Set the window's **Δ convention** to 360° − Δ to read the same number as the row. To fit a measured Ψ/Δ pair, generate the targets from [Measured Ellipsometry](/data-exchange/measured-ellipsometry/#fitting-the-design-to-a-measurement), which stores each channel as one block with its own convention.
+Ψ and Δ use both polarizations, so **Pol** has no effect. These rows always score the front coating; in back-only mode they read the front as it is and steer nothing. A new `DEL` row reads Δ in the Azzam–Bashara convention an ellipsometer writes and the [Ellipsometry](/analysis/ellipsometry/) window shows by default. A `DEL` row in a design saved by an earlier release reads 360° − Δ and keeps reading it, so the design scores as it did; set the window's **Δ convention** to 360° − Δ to read the same number as such a row. Each row records its convention, which the API's `setMerit` takes as `deltaConvention`: `'azzam'` or `'reversed'`. `COSDEL` is the same in both. To fit a measured Ψ/Δ pair, generate the targets from [Measured Ellipsometry](/data-exchange/measured-ellipsometry/#fitting-the-design-to-a-measurement), which stores each channel as one block with its own convention.
 
 ## Phase and dispersion
 

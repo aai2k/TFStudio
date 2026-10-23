@@ -12,7 +12,7 @@ const { writeRendererSettings } = require('../settingsFile');
 const { settleDesignIds, settleOpenedDesign } = require('../copiedDesignIds');
 const { safeName: safeFileName, isWindowsDeviceName, windowsRefusesFolderName } = require('../paths');
 const {
-  parseDesignBuffer, validateDesign, dropWizardWorstCaseSampling, readDesignFile: readDesign, serializeDesign,
+  parseDesignBuffer, validateDesign, applyLoadFixups, readDesignFile: readDesign, serializeDesign,
 } = require('../designFile');
 const { goesToBin, moveToTrash, deleteFile } = require('../recycleBin');
 
@@ -146,7 +146,7 @@ function loadDesignFile(ctx, folderId, folderPath, tfsFile) {
       ctx.unread.push(location);
       return null;
     }
-    dropWizardWorstCaseSampling(design);
+    applyLoadFixups(design);
     const baseName = tfsFile.slice(0, -DESIGN_EXT.length);
     const named = namedAfterFile(design.name, baseName);
     if (!named) design.name = baseName;

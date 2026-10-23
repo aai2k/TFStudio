@@ -174,6 +174,8 @@ export function retypeOperand(op, type) {
     }
     if (targetDomain(type) !== targetDomain(op.type)) delete next.target;
     if (!takesStepFlag(next)) delete next.flag;
+    // A row that becomes DEL is a new DEL row and reads Δ as a new one does.
+    if (type !== op.type) delete next.deltaConvention;
     return makeRowOperand(next);
 }
 
