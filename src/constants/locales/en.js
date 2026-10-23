@@ -3665,6 +3665,7 @@ export default {
     // the band says which wavelengths the spectrum does span.
     notAvailable: 'n/a',
     spectrumSpan: (from, to) => `spectrum ${from}–${to} nm`,
+    spectrumFailed: 'The spectrum could not be computed.',
     // Custom integral builder
     source:      'Source',
     detector:    'Detector',

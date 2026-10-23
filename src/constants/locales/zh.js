@@ -4051,6 +4051,7 @@ export default {
     col_actions: '',
     notAvailable: '不可用',
     spectrumSpan: (from, to) => `光谱 ${from}–${to} nm`,
+    spectrumFailed: '无法计算光谱。',
     source: '光源',
     detector: '探测器',
     channel: '通道',

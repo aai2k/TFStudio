@@ -3592,6 +3592,7 @@ export default {
     col_actions: '',
     notAvailable: 'н/д',
     spectrumSpan: (from, to) => `спектр ${from}–${to} нм`,
+    spectrumFailed: 'Не удалось рассчитать спектр.',
     source:      'Источник',
     detector:    'Детектор',
     channel:     'Кан.',

@@ -78,7 +78,9 @@ export function IntegralValues({ c, theme, t }) {
 
     return h(AnalysisWindow, { c },
         h(IntegralControls, { c, t, model, notices: [
-            model.evaluationError && { label: t.analysisEvaluation.failed, tone: 'error' },
+            model.evaluationError && {
+                label: model.coneActive ? t.analysisEvaluation.failed : iv.spectrumFailed, tone: 'error',
+            },
             rangeNotice,
         ].filter(Boolean) }),
         h(PlotArea, null,

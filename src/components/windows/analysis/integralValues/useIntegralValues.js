@@ -75,11 +75,14 @@ function applyEditorTable(context, table) {
     setEditor({ open: false, target: null });
 }
 
+// The spectrum in collimated light, in the { data, error } shape the analysis
+// worker reports, so a design that cannot be evaluated, such as one with a
+// material that resolves nowhere, shows an error instead of computing for ever.
 function computeSpectrum(design, params, evalMode) {
     try {
-        return computeSpectrumForMode(design, params, evalMode);
-    } catch (_) {
-        return null;
+        return { data: computeSpectrumForMode(design, params, evalMode), error: null };
+    } catch (error) {
+        return { data: null, error };
     }
 }
 
@@ -114,11 +117,12 @@ export function useIntegralValues(design, evalMode) {
         [design, params, evalMode],
     );
     const workerResult = useAnalysisEvaluation(coneActive, 'integralSpectrum', workerPayload);
-    const directSpectrum = useMemo(
+    const directResult = useMemo(
         () => coneActive ? null : computeSpectrum(design, params, evalMode),
         [coneActive, design, params, evalMode],
     );
-    const spectrum = coneActive ? workerResult.data : directSpectrum;
+    const evaluation = coneActive ? workerResult : directResult;
+    const spectrum = evaluation.data;
     const integrals = useMemo(
         () => buildIntegralDefinitions(customDefs),
         [customDefs],
@@ -151,7 +155,8 @@ export function useIntegralValues(design, evalMode) {
         showTable,
         setShowTable,
         spectrum,
-        evaluationError: coneActive ? workerResult.error : null,
+        coneActive,
+        evaluationError: evaluation.error,
         integrals,
         results,
         selected,
