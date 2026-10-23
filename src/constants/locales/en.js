@@ -4171,6 +4171,7 @@ export default {
     dirMin:         'min',
     level:          'level',
     levelTip:       'Crossing level as a fraction of peak (e.g. 0.5 = half-max).',
+    levelUsedAs:    (level) => `read as ${level}: the level is a fraction between 0 and 1`,
     edge:           'edge',
     left:           'left',
     right:          'right',

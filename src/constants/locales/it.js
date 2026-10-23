@@ -4596,6 +4596,7 @@ export default {
     dirMin: 'min',
     level: 'livello',
     levelTip: 'Livello di attraversamento come frazione del picco (per esempio 0,5 = metà del massimo).',
+    levelUsedAs: (level) => `letto come ${level}: il livello è una frazione tra 0 e 1`,
     edge: 'fronte',
     left: 'sinistro',
     right: 'destro',

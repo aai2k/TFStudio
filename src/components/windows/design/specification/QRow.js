@@ -1,4 +1,5 @@
 import { QUALIFIER_KINDS, defaultTolForKind, qualifierSummary, qualifierValueText } from '../../../../utils/synthesis/qualifiers.js';
+import { crossingLevel } from '../../../../utils/synthesis/qualifiers/bandScan.js';
 import { OPERAND_POLS } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
@@ -181,10 +182,16 @@ function renderDirection(meta, q, onF, c, ts) {
     );
 }
 
-// FWHM / edge crossing level
+// FWHM / edge crossing level, with a note when the scan reads a level other
+// than the one typed (crossingLevel).
 function renderLevel(meta, q, onF, c, ts) {
-    return meta.level && h(Field, { label: ts.level || 'level', c, tip: ts.levelTip || 'Crossing level as a fraction of peak (e.g. 0.5 = half-max).' },
-        numInp(q.level ?? 0.5, v => onF('level', v), c, 0, 1, 0.01));
+    if (!meta.level) return null;
+    const typed = q.level ?? 0.5, used = crossingLevel(q);
+    return [
+        h(Field, { label: ts.level || 'level', c, key: 'level', tip: ts.levelTip || 'Crossing level as a fraction of peak (e.g. 0.5 = half-max).' },
+            numInp(typed, v => onF('level', v), c, 0, 1, 0.01)),
+        used !== typed && h('span', { key: 'levelUsed', style: { color: c.warning } }, ts.levelUsedAs(used)),
+    ];
 }
 
 // Edge side

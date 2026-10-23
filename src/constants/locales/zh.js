@@ -4537,6 +4537,7 @@ export default {
     dirMin: '最小',
     level: '水平',
     levelTip: '交叉水平为峰值的分数（例如 0.5 = 半最大值）。',
+    levelUsedAs: (level) => `按 ${level} 计算：交叉水平为 0 到 1 之间的分数`,
     edge: '边缘',
     left: '左',
     right: '右',

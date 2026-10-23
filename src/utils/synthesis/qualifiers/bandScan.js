@@ -76,6 +76,14 @@ function findCross(scan, startI, step) {
     return null;
 }
 
+// The crossing level the scan uses: the check's level (0.5 when unset), held
+// inside 0.001 to 0.999, since a level of 0 or 1 or beyond has no crossing on
+// either side of the peak. The Specification window shows when it differs
+// from the level typed.
+export function crossingLevel(qual) {
+    return Math.max(0.001, Math.min(0.999, qual.level ?? 0.5));
+}
+
 export function evalBandDerived(qual, design, ctx, options) {
     const k   = qual.kind;
     const ch  = channelFromKind(k) || qual.channel || 'T';
@@ -99,7 +107,7 @@ export function evalBandDerived(qual, design, ctx, options) {
         aoi: qual.aoi, pol, target: 0, weight: 1, ...scanFlag(qual, options),
     })], ctx)[0];
     const peakV = at(peakLam);
-    const level = Math.max(0.001, Math.min(0.999, qual.level ?? 0.5));
+    const level = crossingLevel(qual);
     // For a max peak the crossing level is peakV · level; for a notch
     // (min) we use peakV + level · (1 − peakV) — i.e. recover toward 1.
     const cross = direction === 'min'
