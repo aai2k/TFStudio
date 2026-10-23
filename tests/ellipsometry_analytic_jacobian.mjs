@@ -28,6 +28,7 @@ import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import {
     computeEllipsometry, evaluateEllipsometryThicknessJacobian, toDeltaConvention,
 } from '../src/utils/physics/thinFilmMath.js';
+import { computeSpectral } from '../src/components/windows/analysis/ellipsometryEvaluation/spectrum.js';
 
 const kernel = await initWasmForTest();
 const resolveMat = id => getMaterial(id);
@@ -147,10 +148,11 @@ for (const [name, spec] of Object.entries(STACKS)) {
 
 // ── Surface modes ────────────────────────────────────────────────────────────
 //
-// Ψ and Δ read the front stack alone. In symmetric mode the mirrored back copy
-// does not enter them; in both_independent mode the back variables get zero;
-// in back_only mode the front stack is fixed and the whole row is zero, which
-// finite differences confirm.
+// Ψ and Δ read one coated side. In symmetric mode the mirrored back copy does
+// not enter them; in both_independent mode the back variables get zero; in
+// back_only mode they read the back stack, lit from the exit medium, so the
+// value is the one the Ellipsometry window draws for the back side and every
+// back layer can move it.
 {
     const spec = STACKS['AR 4L dielectric'];
     const ops = [
@@ -163,10 +165,14 @@ for (const [name, spec] of Object.entries(STACKS)) {
         designOf(spec, { surfaceMode: 'both_independent', backLayers: back }));
     assert.ok(both.analytic.every(row => row.slice(spec.length).every(value => value === 0)),
         'back-side variables carry no Ψ/Δ derivative');
-    const backOnly = assertAnalyticMatchesFd('back_only', ops,
-        designOf(spec, { surfaceMode: 'back_only', backLayers: back }));
-    assert.ok(backOnly.analytic.every(row => row.every(value => value === 0)),
-        'in back_only the front stack is fixed, so the row is zero');
+    const backDesign = designOf(spec, { surfaceMode: 'back_only', backLayers: back });
+    const backOnly = assertAnalyticMatchesFd('back_only', ops, backDesign);
+    assert.ok(backOnly.analytic.every(row => row.every(value => Math.abs(value) > 1e-4)),
+        'in back_only every back layer moves Ψ and Δ');
+    const scored = evaluateOperands(ops, buildEvalContext(backDesign, resolveMat));
+    const drawn = computeSpectral(backDesign, { side: 'back', lambdaStart: 550, lambdaEnd: 550, lambdaStep: 1, thetaDeg: 65 });
+    assert.ok(Math.abs(scored[0] - drawn.psi[0]) < 1e-9 && Math.abs(scored[1] - drawn.delta[0]) < 1e-9,
+        `back_only Ψ, Δ ${scored[0]}, ${scored[1]} against the window's back side ${drawn.psi[0]}, ${drawn.delta[0]}`);
 }
 
 // ── The kernel and the JavaScript reference agree, and both match the values ─

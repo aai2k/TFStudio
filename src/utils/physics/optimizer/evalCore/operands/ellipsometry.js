@@ -1,5 +1,6 @@
 /**
- * Ellipsometric operands: Ψ, Δ, tan Ψ and cos Δ of the front stack, their exact
+ * Ellipsometric operands: Ψ, Δ, tan Ψ and cos Δ of the coated side the design
+ * is scored on (the back stack in back_only mode, else the front), their exact
  * thickness derivatives, and the per-context batching that lets every point
  * expanded from a measured block share one kernel pass.
  */
@@ -74,7 +75,35 @@ function _ellipsometrySample(psi, delta) {
     return { psi, delta, tanPsi: Math.tan(psi * toRad), cosDelta: Math.cos(delta * toRad) };
 }
 
-// Ψ(λ) and Δ(λ) of the front stack over one wavelength list at one angle,
+function _isBackScored(ctx) {
+    return (ctx.surfaceMode || 'front_only') === 'back_only';
+}
+
+// The coated side Ψ and Δ are read from: the back stack on a design scored on
+// its back side, as the phase operands read it, and the front stack otherwise.
+// The back stack is lit from the exit medium, so its layers run in reverse
+// deposition order, from that medium toward the substrate.
+function _ellipsometryStack(ctx) {
+    if (!_isBackScored(ctx)) return { incident: ctx.n0mat, mats: ctx.frontMats, thicks: ctx.frontThicks };
+    return {
+        incident: ctx.neMat || ctx.n0mat,
+        mats: [...ctx.backMats].reverse(),
+        thicks: [...ctx.backThicks].reverse(),
+    };
+}
+
+// The kernel arguments for one wavelength list: media and layer indices per λ.
+function _ellipsometryGrid(ctx, lambdas) {
+    const stack = _ellipsometryStack(ctx);
+    return {
+        n0List: lambdas.map(lam => nkOf(ctx, stack.incident, lam)),
+        nsList: lambdas.map(lam => nkOf(ctx, ctx.nsmat, lam)),
+        layerNK: stack.mats.map(mat => lambdas.map(lam => nkOf(ctx, mat, lam))),
+        thick: stack.thicks,
+    };
+}
+
+// Ψ(λ) and Δ(λ) of the coated side over one wavelength list at one angle,
 // through the batched kernel, memoized for the duration of an evaluateOperands
 // call. The Ψ block and the Δ block of one measurement, and every point they
 // expand into, share a single pass, so the finite-difference Jacobian costs one
@@ -83,11 +112,8 @@ export function _ellipsometryBatch(ctx, aoi, lambdas, key) {
     const cache = _ellipsometryCache(ctx, '_ellipsometryBatches');
     let batch = cache.get(key);
     if (batch) return batch;
-    const n0List = lambdas.map(lam => nkOf(ctx, ctx.n0mat, lam));
-    const nsList = lambdas.map(lam => nkOf(ctx, ctx.nsmat, lam));
-    const layerNK = ctx.frontMats.map(mat => lambdas.map(lam => nkOf(ctx, mat, lam)));
-    const { psi, delta } = evaluateEllipsometrySpectrum(
-        lambdas, aoi, n0List, nsList, layerNK, ctx.frontThicks);
+    const { n0List, nsList, layerNK, thick } = _ellipsometryGrid(ctx, lambdas);
+    const { psi, delta } = evaluateEllipsometrySpectrum(lambdas, aoi, n0List, nsList, layerNK, thick);
     batch = new Map();
     for (let index = 0; index < lambdas.length; index++) {
         batch.set(lambdas[index], _ellipsometrySample(psi[index], delta[index]));
@@ -96,7 +122,7 @@ export function _ellipsometryBatch(ctx, aoi, lambdas, key) {
     return batch;
 }
 
-// Ψ, Δ and their thickness derivatives over the front stack at one angle and
+// Ψ, Δ and their thickness derivatives over the coated side at one angle and
 // one wavelength list, memoized like _ellipsometryBatch and under the same key:
 // a hand-typed operand asks for its own wavelength, the points expanded from a
 // measured block share the block's whole grid in one kernel crossing.
@@ -104,11 +130,8 @@ function _ellipsometryJacobianBatch(ctx, aoi, lambdas, key) {
     const cache = _ellipsometryCache(ctx, '_ellipsometryJacobians');
     let batch = cache.get(key);
     if (batch) return batch;
-    const n0List = lambdas.map(lam => nkOf(ctx, ctx.n0mat, lam));
-    const nsList = lambdas.map(lam => nkOf(ctx, ctx.nsmat, lam));
-    const layerNK = ctx.frontMats.map(mat => lambdas.map(lam => nkOf(ctx, mat, lam)));
     const points = evaluateEllipsometryThicknessJacobian({
-        lambdas, theta_deg: aoi, n0List, nsList, layerNK, thick: ctx.frontThicks,
+        lambdas, theta_deg: aoi, ..._ellipsometryGrid(ctx, lambdas),
     });
     batch = new Map();
     for (let index = 0; index < lambdas.length; index++) batch.set(lambdas[index], points[index]);
@@ -119,25 +142,27 @@ function _ellipsometryJacobianBatch(ctx, aoi, lambdas, key) {
 // Chain rule from Ψ and Δ in degrees to the operand's own quantity, per nm.
 function _ellipsometryQuantity(type, point) {
     const toRad = Math.PI / 180;
-    if (type === 'PSI') return { value: point.psi, front: point.dPsi };
-    if (type === 'DEL') return { value: point.delta, front: point.dDelta };
+    if (type === 'PSI') return { value: point.psi, side: point.dPsi };
+    if (type === 'DEL') return { value: point.delta, side: point.dDelta };
     if (type === 'TANPSI') {
         const tan = Math.tan(point.psi * toRad);
-        return { value: tan, front: point.dPsi.map(slope => (1 + tan * tan) * slope * toRad) };
+        return { value: tan, side: point.dPsi.map(slope => (1 + tan * tan) * slope * toRad) };
     }
     const rad = point.delta * toRad;   // COSDEL
-    return { value: Math.cos(rad), front: point.dDelta.map(slope => -Math.sin(rad) * slope * toRad) };
+    return { value: Math.cos(rad), side: point.dDelta.map(slope => -Math.sin(rad) * slope * toRad) };
 }
 
-// Front-layer derivatives placed on the optimizer's thickness vector. Ψ and Δ
-// are evaluated on the front stack alone, so a back-side variable gets zero,
-// and in back_only mode, where the front stack is fixed, so does every entry.
-function _frontDerivativeVector(ctx, front) {
-    const size = ctx.fullThicks?.length ?? ctx.frontThicks.length;
+// Coated-side derivatives placed on the optimizer's thickness vector. Ψ and Δ
+// are evaluated on one side alone, so a variable on the other side gets zero.
+// The back stack was handed to the kernel in reverse, so its derivatives are
+// turned back to deposition order, the order of the back_only vector.
+function _sideDerivativeVector(ctx, side) {
+    const back = _isBackScored(ctx);
+    const own = back ? ctx.backThicks : ctx.frontThicks;
+    const size = ctx.fullThicks?.length ?? own.length;
     const out = new Array(size).fill(0);
-    if ((ctx.surfaceMode || 'front_only') === 'back_only') return out;
-    const count = Math.min(front.length, ctx.frontThicks.length, size);
-    for (let index = 0; index < count; index++) out[index] = front[index];
+    const count = Math.min(side.length, own.length, size);
+    for (let index = 0; index < count; index++) out[index] = side[back ? count - 1 - index : index];
     return out;
 }
 
@@ -154,8 +179,8 @@ export function ellipsometryThicknessPoint(op, ctx, operands = null) {
     const grid = _blockGrid(op, ctx, operands) || { lambdas: own, key: _gridKey(aoi, own) };
     const point = _ellipsometryJacobianBatch(ctx, aoi, grid.lambdas, grid.key).get(op.lambdaStart);
     if (!point) return null;
-    const { value, front } = _ellipsometryQuantity(op.type, point);
-    return { value, derivative: _frontDerivativeVector(ctx, front) };
+    const { value, side } = _ellipsometryQuantity(op.type, point);
+    return { value, derivative: _sideDerivativeVector(ctx, side) };
 }
 
 // A hand-typed operand is a grid of its own wavelength, so it reads the kernel
