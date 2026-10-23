@@ -3,14 +3,42 @@ angle of incidence, a run's result and its progress, a Monte Carlo run and
 the yield of trials against a specification, the verdict on a specification,
 a layer sensitivity ranking, and what a cleanup did."""
 
+import bisect
 import collections
 import csv
+import math
 
 from ._errors import TFStudioError
 
 # The quantities of a spectrum: R, T and A for unpolarized light, then for s
 # and p, as the API's spectrum gives them.
 QUANTITIES = ("R", "T", "A", "Rs", "Rp", "Ts", "Tp", "As", "Ap")
+# The quantities an optical density is read from, and the T below which a
+# density reads as 15, the floor of the merit's logarithmic rows
+# (LOG_READING_FLOOR in the app).
+_TRANSMITTANCES = ("T", "Ts", "Tp")
+_DENSITY_FLOOR = 1e-15
+
+
+def _log10(value):
+    """log10 as JavaScript's Math.log10 reads it: -inf at 0 and NaN below
+    it, where math.log10 raises."""
+    if not value >= 0:
+        return float("nan")
+    return math.log10(value) if value > 0 else float("-inf")
+
+
+def _ratio(high, low):
+    """high / low as JavaScript divides, inf or NaN where Python raises."""
+    if low == 0:
+        return float("nan") if high == 0 else math.copysign(float("inf"), high) * math.copysign(1, low)
+    return high / low
+
+
+def _js_number(value):
+    """A number as JavaScript's String() writes it: a whole number without a
+    decimal point."""
+    return str(int(value)) if float(value).is_integer() else repr(float(value))
 
 
 def _reading(name, doc):
@@ -47,11 +75,13 @@ def _highest(values):
 class _CurveOverX(list):
     """One value per x, with what the mean(), min() and max() of a curve
     share. A curve holds its x in _x, and its class names that x and its unit
-    in _AXIS."""
+    in _AXIS, and in _quantity the spectrum's quantity it holds, such as "T",
+    or None."""
 
     def __init__(self, values, xs):
         super().__init__(values)
         self._x = xs
+        self._quantity = None
 
     def _over(self, reduce, what, start, end):
         """`reduce` of the values whose x is from `start` to `end`, both
@@ -163,6 +193,97 @@ class Curve(_CurveOverX):
         """
         return self._over(_highest, "max", start, end)
 
+    def ripple(self, start=None, end=None, unit="fraction"):
+        """The ripple over a band: the highest value whose wavelength is
+        from `start` to `end`, both included, less the lowest, NaN values
+        left out, so max(start, end) - min(start, end); with unit="dB", the
+        ratio of the two in decibels, 10·log10(max/min), for a curve of
+        values above 0.
+
+        Args:
+            start: The first wavelength of the band, nm. Default: the curve's first.
+            end: The last wavelength of the band, nm. Default: the curve's last.
+            unit: "fraction", the difference in the curve's own unit, a
+                fraction of 1 for R, T and A; or "dB". Default "fraction".
+
+        Returns:
+            The ripple; NaN when every value in the band is NaN.
+
+        Raises:
+            TFStudioError: a band no wavelength of the curve is in, or a unit
+                it does not have.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            s = design.spectrum(400, 800)
+            print("T ripple from 650 to 750 nm:", s.T.ripple(650, 750), "or", s.T.ripple(650, 750, unit="dB"), "dB")
+        """
+        if unit not in ("fraction", "dB"):
+            raise TFStudioError("ripple: unit is 'fraction' or 'dB', not {!r}".format(unit))
+        lowest, highest = self._over(lambda values: (_lowest(values), _highest(values)), "ripple", start, end)
+        if lowest > highest:
+            return float("nan")
+        return 10 * _log10(_ratio(highest, lowest)) if unit == "dB" else highest - lowest
+
+    def at(self, wavelength):
+        """The value at a wavelength, read off the straight line between the
+        two samples either side of it, as the plot draws the curve; at a
+        sample, that sample's value.
+
+        Args:
+            wavelength: The wavelength, nm, from the curve's first to its last.
+
+        Returns:
+            The value; NaN when a sample it is read from is NaN.
+
+        Raises:
+            TFStudioError: a wavelength outside the curve, or one that is not a number.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            s = design.spectrum(400, 700, step=5)
+            print("R at 532.1 nm:", s.R.at(532.1))
+        """
+        xs = self._x
+        number = isinstance(wavelength, (int, float)) and not isinstance(wavelength, bool)
+        if not number or not xs[0] <= wavelength <= xs[-1]:
+            raise TFStudioError("at: the curve is from {} to {} nm, not at {}".format(
+                xs[0], xs[-1], wavelength if number else repr(wavelength)))
+        high = min(bisect.bisect_right(xs, wavelength), len(xs) - 1)
+        low = high - 1 if high > 0 else 0
+        if xs[low] == wavelength:
+            return self[low]
+        if xs[high] == wavelength:
+            return self[high]
+        return self[low] + (self[high] - self[low]) * (wavelength - xs[low]) / (xs[high] - xs[low])
+
+    def density(self):
+        """The optical density at each wavelength, −log10 T, a Curve, as the
+        ODMN merit row reads it: a T below 1e-15 reads as a density of 15. A
+        spectrum's T, Ts and Tp have one; other curves do not.
+
+        Returns:
+            A Curve of densities over the same wavelengths.
+
+        Raises:
+            TFStudioError: a curve that is not a spectrum's T, Ts or Tp.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^8 H")
+            s = design.spectrum(400, 700)
+            print("Highest optical density from 500 to 600 nm:", s.T.density().max(500, 600))
+        """
+        if self._quantity not in _TRANSMITTANCES:
+            raise TFStudioError("density: optical density is read from a spectrum's T, Ts or Tp, not from {}".format(
+                self._quantity or "this curve"))
+        return Curve([-_log10(max(value, _DENSITY_FLOOR)) for value in self], self._x)
+
 
 class AngleCurve(_CurveOverX):
     """One value per angle of incidence: a list of floats, so ``max(curve)``,
@@ -266,6 +387,23 @@ def _quantity(name, doc):
     return property(lambda self: self._curves[0][name], doc=doc)
 
 
+def _spectrum_curve(values, wavelength, quantity):
+    """`values` as a Curve over `wavelength` holding the spectrum's quantity `quantity`."""
+    curve = Curve(values, wavelength)
+    curve._quantity = quantity
+    return curve
+
+
+def _condition_lines(name, angles, mode):
+    """The conditions of a spectrum as Measured Spectra's export writes them
+    on # lines (spectrumConditionLines in the app): the design's name, the
+    angle when there is one and the side light comes in on, and the
+    polarization, which the columns name."""
+    side = "back" if mode == "back" else "front"
+    conditions = "AOI {} deg, {} side".format(_js_number(angles[0]), side) if len(angles) == 1 else "{} side".format(side)
+    return ["# {}".format(name or "design"), "# " + conditions, "# Polarization: per column"]
+
+
 class Spectrum:
     """R, T and A of a design over a range of wavelengths, at one angle of
     incidence or several, as design.spectrum() computes them. ``s.R`` and
@@ -282,8 +420,16 @@ class Spectrum:
 
     def __init__(self, mode, wavelength, angles, series, out_of_range):
         self._values = {"mode": mode, "wavelength": wavelength, "angles": angles, "out_of_range": out_of_range}
+        self._name = None
         self._series = series
-        self._curves = [{name: Curve(values[name], wavelength) for name in QUANTITIES} for values in series]
+        self._curves = [{quantity: _spectrum_curve(values[quantity], wavelength, quantity) for quantity in QUANTITIES}
+                        for values in series]
+
+    def _named(self, name):
+        """The spectrum with the name of the design it was computed on,
+        which its CSV file gives."""
+        self._name = name
+        return self
 
     mode = _reading("mode", """What the spectrum was computed on, as the design's sides and score_on
         say: "front" or "back", the coated side alone, or "total", the whole part.
@@ -430,14 +576,18 @@ class Spectrum:
         """
         for i, computed in enumerate(self.angles):
             if computed == angle:
-                return Spectrum(self.mode, self.wavelength, [computed], [self._series[i]], self.out_of_range)
+                return Spectrum(self.mode, self.wavelength, [computed], [self._series[i]], self.out_of_range)._named(self._name)
         raise TFStudioError("angle: the spectrum was computed at {}, not at {}".format(self.angles, angle))
 
     def save_csv(self, path):
-        """Writes the spectrum to a CSV file: a column of wavelengths, then
-        R, T, A, Rs, Rp, Ts, Tp, As and Ap at each angle, as fractions of 1,
-        each headed with its quantity and angle. A file that is there is
-        written over.
+        """Writes the spectrum to a CSV file: the conditions on # lines as
+        Measured Spectra's export writes them, which its import reads back
+        (the design's name; the angle of incidence when the spectrum has one
+        angle, and the side light comes in on, the back for a design scored
+        on its back alone and the front otherwise; and "Polarization: per
+        column"), then a column of wavelengths and R, T, A, Rs, Rp, Ts, Tp, As
+        and Ap at each angle, as fractions of 1, each headed with its quantity
+        and angle. A file that is there is written over.
 
         Args:
             path: The file to write. A relative path is taken from the
@@ -455,6 +605,7 @@ class Spectrum:
             print("Wrote", name)
         """
         with open(path, "w", newline="", encoding="utf-8") as file:
+            file.write("".join(line + "\r\n" for line in _condition_lines(self._name, self.angles, self.mode)))
             writer = csv.writer(file)
             writer.writerow(["Wavelength (nm)"] + ["{} at {:g} deg".format(name, angle)
                                                    for angle in self.angles for name in QUANTITIES])

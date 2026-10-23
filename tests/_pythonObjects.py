@@ -224,6 +224,9 @@ def materials(tf, given):
 def spectra(design):
     s = design.spectrum(400, 700, step=10, angles=[45, 0])
     s.save_csv("spectrum.csv")
+    one = design.spectrum(400, 700, step=10, angles=[7.5])
+    one.save_csv("one.csv")
+    helpers(s)
     # A NaN first in the band, where Python's own min() and max() would stop,
     # and a band holding that NaN alone.
     gappy = tfstudio.Curve([0.2, float("nan"), 0.1, 0.4], [500, 510, 520, 530])
@@ -233,6 +236,18 @@ def spectra(design):
                       "noAngle": refused(lambda: s.angle(30)), "noBand": refused(lambda: s.R.mean(800, 900)),
                       "gappy": [list(gappy), gappy.wavelength, [gappy.min(510, 530), gappy.max(510, 530), gappy.mean()]],
                       "nanBand": [gappy.min(510, 510), gappy.max(510, 510)]}})
+
+
+def helpers(s):
+    """A curve's ripple, its value between samples and its optical density,
+    on a spectrum and on a curve with a NaN, and their refusals."""
+    gappy = tfstudio.Curve([0.2, float("nan"), 0.1, 0.4], [500, 510, 520, 530])
+    out({"helpers": {
+        "ripple": [s.R.ripple(450, 650), s.T.ripple(450, 650, unit="dB"), s.Rp.ripple(), gappy.ripple(), gappy.ripple(510, 510)],
+        "at": [s.R.at(532.1), s.Tp.at(400), s.Tp.at(700), s.T.at(455), gappy.at(505)],
+        "density": [list(s.T.density()), list(s.angle(0).Ts.density()), type(s.T.density()).__name__],
+        "refused": [refused(lambda: s.R.density()), refused(lambda: gappy.density()), refused(lambda: s.T.at(399.9)), refused(lambda: s.T.at("401")),
+                    refused(lambda: s.T.ripple(450, 650, unit="percent")), refused(lambda: s.T.ripple(900, 950))]}})
 
 
 def merit(design):

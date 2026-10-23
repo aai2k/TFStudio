@@ -3,10 +3,16 @@
 
 import fs from 'node:fs';
 import { inspect } from 'node:util';
+import { spectrumConditionLines } from '../../utils/io/spectrumTable.js';
+import { logValue } from '../../utils/physics/optimizer/logReadings.js';
+import { checkOptions, requireValue, shown } from '../check.js';
+import { trailingOptions } from './options.js';
 
 // The quantities of a spectrum: R, T and A for unpolarized light, then for s
 // and p, as the API's spectrum gives them.
 const QUANTITIES = ['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'];
+// The quantities an optical density is read from.
+const TRANSMITTANCES = ['T', 'Ts', 'Tp'];
 
 function meanOf(values) {
     let total = 0;
@@ -120,6 +126,83 @@ export class Curve extends CurveOverX {
      * console.log('Highest R from 450 to 650 nm:', s.R.max(450, 650));
      */
     max(start, end) { return this._over(highestOf, 'max', start, end); }
+
+    /**
+     * The ripple over a band: the highest value whose wavelength is from
+     * `start` to `end`, both included, less the lowest, NaN values left out,
+     * so `max(start, end) - min(start, end)`; with `unit: 'dB'`, the ratio of
+     * the two in decibels, 10·log10(max/min), for a curve of values above 0.
+     *
+     * @param [start] The first wavelength of the band, nm. Without it, the curve's first.
+     * @param [end] The last wavelength of the band, nm. Without it, the curve's last.
+     * @param [options]
+     * @param [options.unit='fraction'] `'fraction'`, the difference in the curve's own unit, a fraction of 1 for R, T and A; or `'dB'`.
+     * @returns The ripple; NaN when every value in the band is NaN.
+     * @throws a band no wavelength of the curve is in, or a unit it does not have
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * const s = design.spectrum(400, 800);
+     * console.log('T ripple from 650 to 750 nm:', s.T.ripple(650, 750), 'or', s.T.ripple(650, 750, { unit: 'dB' }), 'dB');
+     */
+    ripple(...args) {
+        const [[start, end], options] = trailingOptions('ripple', args, ['start', 'end']);
+        const { unit = 'fraction' } = checkOptions('ripple', options, ['unit']);
+        requireValue('ripple', 'unit', unit, v => v === 'fraction' || v === 'dB', "'fraction' or 'dB'");
+        const [lowest, highest] = this._over(values => [lowestOf(values), highestOf(values)], 'ripple', start, end);
+        if (lowest > highest) return NaN;
+        return unit === 'dB' ? 10 * Math.log10(highest / lowest) : highest - lowest;
+    }
+
+    /**
+     * The value at a wavelength, read off the straight line between the two
+     * samples either side of it, as the plot draws the curve; at a sample,
+     * that sample's value.
+     *
+     * @param wavelength The wavelength, nm, from the curve's first to its last.
+     * @returns The value; NaN when a sample it is read from is NaN.
+     * @throws a wavelength outside the curve, or one that is not a number
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * const s = design.spectrum(400, 700, { step: 5 });
+     * console.log('R at 532.1 nm:', s.R.at(532.1));
+     */
+    at(wavelength) {
+        const xs = this._x;
+        const [first, last] = [xs[0], xs[xs.length - 1]];
+        if (typeof wavelength !== 'number' || !(wavelength >= first && wavelength <= last)) {
+            throw new Error(`at: the curve is from ${first} to ${last} nm, not at ${shown(wavelength)}`);
+        }
+        let low = 0, high = xs.length - 1;
+        while (high - low > 1) {
+            const middle = (low + high) >> 1;
+            if (xs[middle] <= wavelength) low = middle; else high = middle;
+        }
+        if (xs[low] === wavelength) return this[low];
+        if (xs[high] === wavelength) return this[high];
+        return this[low] + (this[high] - this[low]) * (wavelength - xs[low]) / (xs[high] - xs[low]);
+    }
+
+    /**
+     * The optical density at each wavelength, −log10 T, a Curve, as the
+     * ODMN merit row reads it: a T below 1e-15 reads as a density of 15. A
+     * spectrum's T, Ts and Tp have one; other curves do not.
+     *
+     * @returns A Curve of densities over the same wavelengths.
+     * @throws a curve that is not a spectrum's T, Ts or Tp
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^8 H');
+     * const s = design.spectrum(400, 700);
+     * console.log('Highest optical density from 500 to 600 nm:', s.T.density().max(500, 600));
+     */
+    density() {
+        if (!TRANSMITTANCES.includes(this._quantity)) {
+            throw new Error(`density: optical density is read from a spectrum's T, Ts or Tp, not from ${this._quantity ?? 'this curve'}`);
+        }
+        return curveOf(Array.from(this, value => logValue('OD', value)), this._x);
+    }
 }
 
 /**
@@ -199,15 +282,16 @@ export class AngleCurve extends CurveOverX {
 }
 
 // `values` as a curve of the class `Kind` over `xs`, its x named and in the
-// unit `axis`, which the curve keeps out of its own entries.
-function curveOver(Kind, values, xs, axis) {
+// unit `axis`, and the quantity it holds, which the curve keeps out of its own
+// entries.
+function curveOver(Kind, values, xs, axis, quantity) {
     const curve = Kind.from(values);
-    Object.defineProperties(curve, { _x: { value: xs }, _axis: { value: axis } });
+    Object.defineProperties(curve, { _x: { value: xs }, _axis: { value: axis }, _quantity: { value: quantity } });
     return curve;
 }
 
-/** `values` as a Curve over `wavelength`, nm. */
-export const curveOf = (values, wavelength) => curveOver(Curve, values, wavelength, ['wavelength', 'nm']);
+/** `values` as a Curve over `wavelength`, nm; `quantity` names a spectrum's quantity, such as 'T'. */
+export const curveOf = (values, wavelength, quantity) => curveOver(Curve, values, wavelength, ['wavelength', 'nm'], quantity);
 
 /** `values` as an AngleCurve over `angle`, degrees. */
 export const angleCurveOf = (values, angle) => curveOver(AngleCurve, values, angle, ['angle', 'degrees']);
@@ -226,9 +310,16 @@ export const angleCurveOf = (values, angle) => curveOver(AngleCurve, values, ang
  */
 export class Spectrum {
     constructor(mode, wavelength, angles, series, outOfRange) {
-        this._values = { mode, wavelength, angles, outOfRange };
+        this._values = { mode, wavelength, angles, outOfRange, name: null };
         this._series = series;
-        this._curves = series.map(values => Object.fromEntries(QUANTITIES.map(name => [name, curveOf(values[name], wavelength)])));
+        this._curves = series.map(values => Object.fromEntries(QUANTITIES.map(quantity => [quantity, curveOf(values[quantity], wavelength, quantity)])));
+    }
+
+    // The spectrum with the name of the design it was computed on, which its
+    // CSV file gives.
+    _named(name) {
+        this._values.name = name;
+        return this;
     }
 
     /**
@@ -395,14 +486,18 @@ export class Spectrum {
     angle(angle) {
         const i = this.angles.indexOf(angle);
         if (i < 0) throw new Error(`angle: the spectrum was computed at [${this.angles.join(', ')}], not at ${angle}`);
-        return new Spectrum(this.mode, this.wavelength, [angle], [this._series[i]], this.outOfRange);
+        return new Spectrum(this.mode, this.wavelength, [angle], [this._series[i]], this.outOfRange)._named(this._values.name);
     }
 
     /**
-     * Writes the spectrum to a CSV file: a column of wavelengths, then R, T,
-     * A, Rs, Rp, Ts, Tp, As and Ap at each angle, as fractions of 1, each
-     * headed with its quantity and angle. A file that is there is written
-     * over.
+     * Writes the spectrum to a CSV file: the conditions on # lines as
+     * Measured Spectra's export writes them, which its import reads back
+     * (the design's name; the angle of incidence when the spectrum has one
+     * angle, and the side light comes in on, the back for a design scored on
+     * its back alone and the front otherwise; and "Polarization: per
+     * column"), then a column of wavelengths and R, T, A, Rs, Rp, Ts, Tp, As
+     * and Ap at each angle, as fractions of 1, each headed with its quantity
+     * and angle. A file that is there is written over.
      *
      * @param path The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.
      * @example
@@ -413,9 +508,12 @@ export class Spectrum {
      * console.log('Wrote', file);
      */
     saveCsv(path) {
+        const conditions = spectrumConditionLines({
+            name: this._values.name, aoi: this.angles.length === 1 ? this.angles[0] : null, side: this.mode === 'back' ? 'back' : 'front',
+        });
         const header = ['Wavelength (nm)', ...this.angles.flatMap(angle => QUANTITIES.map(name => `${name} at ${angle} deg`))];
         const rows = this.wavelength.map((wavelength, i) => [wavelength, ...this._curves.flatMap(curves => QUANTITIES.map(name => curves[name][i]))]);
-        fs.writeFileSync(path, [header, ...rows].map(row => `${row.join(',')}\r\n`).join(''), 'utf8');
+        fs.writeFileSync(path, [...conditions, ...[header, ...rows].map(row => row.join(','))].map(line => `${line}\r\n`).join(''), 'utf8');
     }
 
     // What console.log prints for a spectrum.

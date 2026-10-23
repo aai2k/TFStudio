@@ -4009,7 +4009,7 @@ print(min(s.angle(45).Tp))
 | ---------- | ------ |
 | `s.saveCsv(path)` | `s.save_csv(path)` |
 
-把光谱写入 CSV 文件：一列波长，然后是每个角度下的 R、T、A、Rs、Rp、Ts、Tp、As 和 Ap，用 0 到 1 之间的小数表示，每列的标题注明其物理量和角度。已存在的文件会被覆盖。
+把光谱写入 CSV 文件：先以 # 行写出条件，写法与实测光谱窗口的导出相同，其导入会读回这些条件（设计的名称；光谱只有一个角度时的入射角，以及光射入的面：仅以背面评价的设计为背面，其他为正面；以及“Polarization: per column”），然后是一列波长和每个角度下的 R、T、A、Rs、Rp、Ts、Tp、As 和 Ap，用 0 到 1 之间的小数表示，每列的标题注明其物理量和角度。已存在的文件会被覆盖。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -4174,6 +4174,102 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 s = design.spectrum(400, 700)
 print("Highest R from 450 to 650 nm:", s.R.max(450, 650))
+```
+
+### ripple
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.ripple(start, end, { unit })` | `s.R.ripple(start=..., end=..., unit="fraction")` |
+
+**JavaScript**：一个波段内的波动：波长从 `start` 到 `end`（两端都包含）的各值中的最大值减去最小值，不计 NaN，即 `max(start, end) - min(start, end)`；用 `unit: 'dB'` 时，给出两者之比的分贝值 10·log10(max/min)，适用于各值大于 0 的曲线。
+
+**Python**：一个波段内的波动：波长从 `start` 到 `end`（两端都包含）的各值中的最大值减去最小值，不计 NaN，即 max(start, end) - min(start, end)；用 unit="dB" 时，给出两者之比的分贝值 10·log10(max/min)，适用于各值大于 0 的曲线。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` |  | 波段的起始波长，单位 nm。不给出时，为曲线的第一个波长。 |
+| `end` | `end` |  | 波段的结束波长，单位 nm。不给出时，为曲线的最后一个波长。 |
+| `unit` | `unit` | `'fraction'` | `'fraction'`，即以曲线自身单位表示的差值，对 R、T 和 A 为 0 到 1 之间的小数；或 `'dB'`。 |
+
+**返回**：波动值；波段内各值都为 NaN 时为 NaN。
+
+**拒绝**：
+
+- 曲线没有任何波长落在其中的波段，或它没有的单位
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const s = design.spectrum(400, 800);
+console.log('T ripple from 650 to 750 nm:', s.T.ripple(650, 750), 'or', s.T.ripple(650, 750, { unit: 'dB' }), 'dB');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+s = design.spectrum(400, 800)
+print("T ripple from 650 to 750 nm:", s.T.ripple(650, 750), "or", s.T.ripple(650, 750, unit="dB"), "dB")
+```
+
+### at
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.at(wavelength)` | `s.R.at(wavelength)` |
+
+某一波长处的值，取自其两侧两个采样点之间的直线，与绘图画出曲线的方式相同；在采样点上即为该采样点的值。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `wavelength` | `wavelength` |  | 波长，单位 nm，从曲线的第一个波长到最后一个波长。 |
+
+**返回**：该值；读取所用的采样点为 NaN 时为 NaN。
+
+**拒绝**：
+
+- 曲线范围以外的波长，或不是数字的波长
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const s = design.spectrum(400, 700, { step: 5 });
+console.log('R at 532.1 nm:', s.R.at(532.1));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+s = design.spectrum(400, 700, step=5)
+print("R at 532.1 nm:", s.R.at(532.1))
+```
+
+### density
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.density()` | `s.R.density()` |
+
+每个波长处的光密度 −log10 T，一个 Curve，与 ODMN 评价函数行的读法相同：低于 1e-15 的 T 读作光密度 15。光谱的 T、Ts 和 Tp 有光密度；其他曲线没有。
+
+**返回**：在相同波长上的光密度组成的 Curve。
+
+**拒绝**：
+
+- 不是光谱的 T、Ts 或 Tp 的曲线
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const s = design.spectrum(400, 700);
+console.log('Highest optical density from 500 to 600 nm:', s.T.density().max(500, 600));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+s = design.spectrum(400, 700)
+print("Highest optical density from 500 to 600 nm:", s.T.density().max(500, 600))
 ```
 
 ## IndexProfile

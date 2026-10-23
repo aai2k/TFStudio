@@ -4009,7 +4009,7 @@ print(min(s.angle(45).Tp))
 | ---------- | ------ |
 | `s.saveCsv(path)` | `s.save_csv(path)` |
 
-Writes the spectrum to a CSV file: a column of wavelengths, then R, T, A, Rs, Rp, Ts, Tp, As and Ap at each angle, as fractions of 1, each headed with its quantity and angle. A file that is there is written over.
+Writes the spectrum to a CSV file: the conditions on # lines as Measured Spectra's export writes them, which its import reads back (the design's name; the angle of incidence when the spectrum has one angle, and the side light comes in on, the back for a design scored on its back alone and the front otherwise; and "Polarization: per column"), then a column of wavelengths and R, T, A, Rs, Rp, Ts, Tp, As and Ap at each angle, as fractions of 1, each headed with its quantity and angle. A file that is there is written over.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -4174,6 +4174,102 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 s = design.spectrum(400, 700)
 print("Highest R from 450 to 650 nm:", s.R.max(450, 650))
+```
+
+### ripple
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.ripple(start, end, { unit })` | `s.R.ripple(start=..., end=..., unit="fraction")` |
+
+**JavaScript**: The ripple over a band: the highest value whose wavelength is from `start` to `end`, both included, less the lowest, NaN values left out, so `max(start, end) - min(start, end)`; with `unit: 'dB'`, the ratio of the two in decibels, 10·log10(max/min), for a curve of values above 0.
+
+**Python**: The ripple over a band: the highest value whose wavelength is from `start` to `end`, both included, less the lowest, NaN values left out, so max(start, end) - min(start, end); with unit="dB", the ratio of the two in decibels, 10·log10(max/min), for a curve of values above 0.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` |  | The first wavelength of the band, nm. Without it, the curve's first. |
+| `end` | `end` |  | The last wavelength of the band, nm. Without it, the curve's last. |
+| `unit` | `unit` | `'fraction'` | `'fraction'`, the difference in the curve's own unit, a fraction of 1 for R, T and A; or `'dB'`. |
+
+**Returns**: The ripple; NaN when every value in the band is NaN.
+
+**Refuses**:
+
+- a band no wavelength of the curve is in, or a unit it does not have
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const s = design.spectrum(400, 800);
+console.log('T ripple from 650 to 750 nm:', s.T.ripple(650, 750), 'or', s.T.ripple(650, 750, { unit: 'dB' }), 'dB');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+s = design.spectrum(400, 800)
+print("T ripple from 650 to 750 nm:", s.T.ripple(650, 750), "or", s.T.ripple(650, 750, unit="dB"), "dB")
+```
+
+### at
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.at(wavelength)` | `s.R.at(wavelength)` |
+
+The value at a wavelength, read off the straight line between the two samples either side of it, as the plot draws the curve; at a sample, that sample's value.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `wavelength` | `wavelength` |  | The wavelength, nm, from the curve's first to its last. |
+
+**Returns**: The value; NaN when a sample it is read from is NaN.
+
+**Refuses**:
+
+- a wavelength outside the curve, or one that is not a number
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const s = design.spectrum(400, 700, { step: 5 });
+console.log('R at 532.1 nm:', s.R.at(532.1));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+s = design.spectrum(400, 700, step=5)
+print("R at 532.1 nm:", s.R.at(532.1))
+```
+
+### density
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.density()` | `s.R.density()` |
+
+The optical density at each wavelength, −log10 T, a Curve, as the ODMN merit row reads it: a T below 1e-15 reads as a density of 15. A spectrum's T, Ts and Tp have one; other curves do not.
+
+**Returns**: A Curve of densities over the same wavelengths.
+
+**Refuses**:
+
+- a curve that is not a spectrum's T, Ts or Tp
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const s = design.spectrum(400, 700);
+console.log('Highest optical density from 500 to 600 nm:', s.T.density().max(500, 600));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+s = design.spectrum(400, 700)
+print("Highest optical density from 500 to 600 nm:", s.T.density().max(500, 600))
 ```
 
 ## IndexProfile

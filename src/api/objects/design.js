@@ -351,7 +351,7 @@ export class Design {
         const { step = 1, angles = [0] } = checkOptions('spectrum', options, ['step', 'angles']);
         const answer = worded({ method: 'spectrum', call: 'spectrum' }, () => api.spectrum(this._data, { from: start, to: end, step, angles }));
         const asked = [...angles];
-        return new Spectrum(answer.evalMode, answer.lambda, asked, asked.map(angle => answer.angles[angle]), answer.outOfRange);
+        return new Spectrum(answer.evalMode, answer.lambda, asked, asked.map(angle => answer.angles[angle]), answer.outOfRange)._named(this.name);
     }
 
     /**

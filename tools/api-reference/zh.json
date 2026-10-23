@@ -1856,8 +1856,8 @@
     "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
   },
   "Spectrum.saveCsv.lead.1": {
-    "hash": "e483db9b",
-    "text": "把光谱写入 CSV 文件：一列波长，然后是每个角度下的 R、T、A、Rs、Rp、Ts、Tp、As 和 Ap，用 0 到 1 之间的小数表示，每列的标题注明其物理量和角度。已存在的文件会被覆盖。"
+    "hash": "56cef7d9",
+    "text": "把光谱写入 CSV 文件：先以 # 行写出条件，写法与实测光谱窗口的导出相同，其导入会读回这些条件（设计的名称；光谱只有一个角度时的入射角，以及光射入的面：仅以背面评价的设计为背面，其他为正面；以及“Polarization: per column”），然后是一列波长和每个角度下的 R、T、A、Rs、Rp、Ts、Tp、As 和 Ap，用 0 到 1 之间的小数表示，每列的标题注明其物理量和角度。已存在的文件会被覆盖。"
   },
   "Curve.lead.1.js": {
     "hash": "80dc344d",
@@ -3318,5 +3318,61 @@
   "MaterialDispersion.saveCsv.lead.1.py": {
     "hash": "6a6202af",
     "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有数值取自材料数据之外时接着是 Outside data 列；然后是 Phase φ (°)、Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、TOD (fs³) 和群折射率 nᵧ。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+  },
+  "Curve.ripple.arg.start": {
+    "hash": "05273c66",
+    "text": "波段的起始波长，单位 nm。不给出时，为曲线的第一个波长。"
+  },
+  "Curve.ripple.arg.end": {
+    "hash": "edb6edfb",
+    "text": "波段的结束波长，单位 nm。不给出时，为曲线的最后一个波长。"
+  },
+  "Curve.ripple.arg.unit": {
+    "hash": "1a26cb09",
+    "text": "`'fraction'`，即以曲线自身单位表示的差值，对 R、T 和 A 为 0 到 1 之间的小数；或 `'dB'`。"
+  },
+  "Curve.ripple.returns": {
+    "hash": "d6156f7f",
+    "text": "波动值；波段内各值都为 NaN 时为 NaN。"
+  },
+  "Curve.ripple.lead.1.js": {
+    "hash": "d56b7a19",
+    "text": "一个波段内的波动：波长从 `start` 到 `end`（两端都包含）的各值中的最大值减去最小值，不计 NaN，即 `max(start, end) - min(start, end)`；用 `unit: 'dB'` 时，给出两者之比的分贝值 10·log10(max/min)，适用于各值大于 0 的曲线。"
+  },
+  "Curve.ripple.lead.1.py": {
+    "hash": "95fd80e6",
+    "text": "一个波段内的波动：波长从 `start` 到 `end`（两端都包含）的各值中的最大值减去最小值，不计 NaN，即 max(start, end) - min(start, end)；用 unit=\"dB\" 时，给出两者之比的分贝值 10·log10(max/min)，适用于各值大于 0 的曲线。"
+  },
+  "Curve.ripple.refuses.1": {
+    "hash": "ba7a2dba",
+    "text": "曲线没有任何波长落在其中的波段，或它没有的单位"
+  },
+  "Curve.at.arg.wavelength": {
+    "hash": "2e8ef17f",
+    "text": "波长，单位 nm，从曲线的第一个波长到最后一个波长。"
+  },
+  "Curve.at.returns": {
+    "hash": "75b28281",
+    "text": "该值；读取所用的采样点为 NaN 时为 NaN。"
+  },
+  "Curve.at.lead.1": {
+    "hash": "20b08bcf",
+    "text": "某一波长处的值，取自其两侧两个采样点之间的直线，与绘图画出曲线的方式相同；在采样点上即为该采样点的值。"
+  },
+  "Curve.at.refuses.1": {
+    "hash": "c1c59f54",
+    "text": "曲线范围以外的波长，或不是数字的波长"
+  },
+  "Curve.density.returns": {
+    "hash": "9fe4794b",
+    "text": "在相同波长上的光密度组成的 Curve。"
+  },
+  "Curve.density.lead.1": {
+    "hash": "3228fe72",
+    "text": "每个波长处的光密度 −log10 T，一个 Curve，与 ODMN 评价函数行的读法相同：低于 1e-15 的 T 读作光密度 15。光谱的 T、Ts 和 Tp 有光密度；其他曲线没有。"
+  },
+  "Curve.density.refuses.1": {
+    "hash": "0334c8e3",
+    "text": "不是光谱的 T、Ts 或 Tp 的曲线"
   }
 }

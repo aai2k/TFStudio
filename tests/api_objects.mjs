@@ -20,7 +20,7 @@
  *   included, by name and by the builtin: id a stacked layer holds, and their
  *   n and k, and a name two materials share refused; spectrum curves at two
  *   angles as arrays, their mean, min and max over a band and the whole range,
- *   and the CSV file; merit rows, with start and end left out before the
+ *   and the CSV file with its conditions lines; merit rows, with start and end left out before the
  *   options, and options given as undefined or null, value, rows and clear(),
  *   and rows added in separate processes, as separate Script Console runs add
  *   them, each with an id of its own; specification checks of every kind
@@ -334,11 +334,14 @@ const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'f
         && noBand === 'mean: no wavelength of this curve is from 800 to 900 nm', `${noAngle} / ${noBand}`);
     const file = path.join(WORK, 'spectrum.csv');
     s.saveCsv(file);
-    const csv = fs.readFileSync(file, 'utf8').trim().split(/\r?\n/).map(line => line.split(','));
+    const lines = fs.readFileSync(file, 'utf8').trim().split(/\r?\n/);
+    const csv = lines.slice(3).map(line => line.split(','));
     const header = ['Wavelength (nm)', ...[45, 0].flatMap(angle => QUANTITIES.map(q => `${q} at ${angle} deg`))];
     const rows = there.lambda.map((lambda, i) => [lambda, ...[45, 0].flatMap(angle => QUANTITIES.map(q => there.angles[angle][q][i]))]);
-    ok('saveCsv writes the wavelengths, then each quantity at each angle, each headed', canon(csv[0]) === canon(header)
-        && canon(csv.slice(1).map(row => row.map(Number))) === canon(rows), JSON.stringify(csv[0]));
+    // Two angles, so the conditions name no angle; the design is coated on its front.
+    ok('saveCsv writes the conditions on # lines, then the wavelengths and each quantity at each angle, each headed',
+        canon([s.mode, ...lines.slice(0, 3)]) === canon(['front', `# ${design.name}`, '# front side', '# Polarization: per column'])
+        && canon(csv[0]) === canon(header) && canon(csv.slice(1).map(row => row.map(Number))) === canon(rows), JSON.stringify(lines.slice(0, 4)));
 }
 
 // ── The merit function ──────────────────────────────────────────────────────

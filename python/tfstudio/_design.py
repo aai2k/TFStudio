@@ -795,7 +795,7 @@ class Design:
             answer = self._calls.spectrum(self._data, {"from": start, "to": end, "step": step, "angles": angles})
         computed = answer["angles"]
         series = [next(computed[key] for key in computed if float(key) == angle) for angle in angles]
-        return Spectrum(answer["evalMode"], answer["lambda"], angles, series, answer["outOfRange"])
+        return Spectrum(answer["evalMode"], answer["lambda"], angles, series, answer["outOfRange"])._named(self.name)
 
     def index_profile(self, wavelength=None, side=None):
         """The refractive index of the layers at one wavelength, laid out by

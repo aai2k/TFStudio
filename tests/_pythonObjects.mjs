@@ -23,7 +23,9 @@
  *   share refused, and one of them by its catalog:key id; spectrum curves at
  *   two angles, their mean, min and max over a band and the whole range, NaN
  *   left out of min and max, inf and -inf over a band of NaN alone, and the
- *   CSV file; merit rows, value, rows and clear(); specification checks of
+ *   CSV file with its conditions lines; a curve's ripple, its value between
+ *   samples and its optical density against JavaScript's, and their
+ *   refusals; merit rows, value, rows and clear(); specification checks of
  *   every kind added with the wavelengths each kind takes and keywords in
  *   snake_case, read back as SpecChecks, removed and cleared, the verdict of
  *   check(), estimate_yield() with a seed and with its documented defaults,
@@ -252,11 +254,50 @@ async function spectra(t, said) {
     ok('and over a band holding a NaN alone they are inf and -inf, as summarize\'s are', only510?.R.min === Infinity && only510.R.max === -Infinity
         && canon(s.nanBand ?? null) === canon([only510.R.min, only510.R.max]), canon(s.nanBand ?? null));
     const file = path.join(WORK, 'spectrum.csv');
-    const csv = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split(/\r?\n/).map(line => line.split(',')) : [];
+    const lines = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').trim().split(/\r?\n/) : [];
+    const csv = lines.slice(3).map(line => line.split(','));
     const header = ['Wavelength (nm)', ...[45, 0].flatMap(angle => QUANTITIES.map(q => `${q} at ${angle} deg`))];
     const rows = (there.lambda ?? []).map((lambda, i) => [lambda, ...[45, 0].flatMap(angle => QUANTITIES.map(q => there.angles[angle][q][i]))]);
-    ok('save_csv writes the wavelengths, then each quantity at each angle, each headed', canon(csv[0]) === canon(header) && canon(csv.slice(1).map(row => row.map(Number))) === canon(rows),
-        JSON.stringify(csv[0]));
+    // The same spectra written by the objects here: the conditions lines are the same text.
+    const objects = await import('../src/api/objects/index.js');
+    const design = new objects.Design(said.edited);
+    const files = [[45, 0], [7.5]].map((angles, i) => {
+        const written = path.join(WORK, `js-spectrum-${i}.csv`);
+        design.spectrum(400, 700, { step: 10, angles }).saveCsv(written);
+        return fs.readFileSync(written, 'utf8').split('\r\n');
+    });
+    const one = fs.existsSync(path.join(WORK, 'one.csv')) ? fs.readFileSync(path.join(WORK, 'one.csv'), 'utf8').split('\r\n') : [];
+    const conditions = [lines, one].map(read => read.slice(0, 4));
+    ok('save_csv writes the conditions lines saveCsv writes, then the wavelengths and each quantity at each angle, each headed',
+        canon(conditions) === canon(files.map(read => read.slice(0, 4))) && one[1] === '# AOI 7.5 deg, front side'
+        && canon(csv[0]) === canon(header) && canon(csv.slice(1).map(row => row.map(Number))) === canon(rows), JSON.stringify(conditions));
+    helpers(t, said, design.spectrum(400, 700, { step: 10, angles: [45, 0] }));
+}
+
+// What _pythonObjects.py helpers() read, against the same curves here.
+function helpers(t, said, s) {
+    const { ok, canon } = t;
+    const got = said.helpers ?? {};
+    const gappy = new (s.constructor)('front', [500, 510, 520, 530], [0], [Object.fromEntries(t.QUANTITIES.map(q => [q, [0.2, NaN, 0.1, 0.4]]))], []).R;
+    // Python's log10 and JavaScript's may part in the last bit, so a value in
+    // dB or as a density is taken to 1e-12.
+    const near = (a = [], b) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) <= 1e-12 * Math.max(1, Math.abs(b[i])));
+    const dB = s.T.ripple(450, 650, { unit: 'dB' });
+    const here = [[s.R.ripple(450, 650), s.Rp.ripple(), gappy.ripple(), gappy.ripple(510, 510)],
+        [s.R.at(532.1), s.Tp.at(400), s.Tp.at(700), s.T.at(455), gappy.at(505)]];
+    const [r0, rdB, ...rest] = got.ripple ?? [];
+    ok('ripple() and at() give what the objects here give, a NaN left out of a ripple, and NaN read next to one',
+        canon([[r0, ...rest], got.at]) === canon(here) && near([rdB], [dB]), `${canon([got.ripple, got.at])} / ${canon(here)} ${dB}`);
+    const [d45, ts0, type] = got.density ?? [[], [], null];
+    ok('density() gives what the objects here give, a Curve', near(d45, [...s.T.density()]) && near(ts0, [...s.angle(0).Ts.density()]) && type === 'Curve', canon(d45).slice(0, 200));
+    ok('and their refusals are in Python\'s words', canon(got.refused) === canon([
+        "density: optical density is read from a spectrum's T, Ts or Tp, not from R",
+        "density: optical density is read from a spectrum's T, Ts or Tp, not from this curve",
+        'at: the curve is from 400 to 700 nm, not at 399.9',
+        "at: the curve is from 400 to 700 nm, not at '401'",
+        "ripple: unit is 'fraction' or 'dB', not 'percent'",
+        'ripple: no wavelength of this curve is from 900 to 950 nm',
+    ]), canon(got.refused));
 }
 
 async function merit(t, said, count) {
