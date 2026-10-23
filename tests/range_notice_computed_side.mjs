@@ -16,12 +16,18 @@
  *      the starting band for GD/GDD and Ellipsometry, while the same windows on
  *      the original design, whose front holds Ta2O5, show one. The Refractive
  *      Index Profiler's Total view reads both sides and keeps the whole design.
+ *   4. The Color Evaluation and Integral Values windows, which compute the
+ *      sides the design is scored on, name the materials of those sides: on
+ *      Al2O3 | SiO2 on fused silica coated on the front alone with a ZnSe exit
+ *      medium, and coated on the back alone with a ZnSe incident medium,
+ *      neither shows a notice for ZnSe, which only the other side's medium
+ *      holds; scored on the whole part, both show one.
  *
  * Run: node tests/range_notice_computed_side.mjs
  */
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fixtureFile } from './_apiCorpus.mjs';
-import { loadApp, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { loadApp, makeDesignCtx, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 await loadApp();
@@ -35,6 +41,10 @@ const { AdmittanceDiagram } = await import('../src/components/windows/analysis/a
 const { RefractiveIndexProfiler } = await import('../src/components/windows/analysis/refractiveIndexProfiler/RefractiveIndexProfiler.js');
 const { LayerThicknesses } = await import('../src/components/windows/analysis/layerThicknesses/LayerThicknesses.js');
 const { EllipsometryEvaluation } = await import('../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryEvaluation.js');
+const { ColorEvaluation } = await import('../src/components/windows/analysis/colorEvaluation/ColorEvaluation.js');
+const { IntegralValues } = await import('../src/components/windows/analysis/integralValues/IntegralValues.js');
+const { DesignContext } = await import('../src/state/DesignContext.js');
+const { resolveEvalMode } = await import('../src/utils/physics/optimizer.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -82,6 +92,31 @@ const noticeShown = (Window, shown) => renderToStaticMarkup(withDesign(React.cre
 for (const [name, Window] of Object.entries(WINDOWS)) {
     ok(`${name} on the front shows no notice for the back's Ta2O5`, !noticeShown(Window, design));
     ok(`${name} on the front of the original design, whose front holds Ta2O5, shows one`, noticeShown(Window, original));
+}
+
+// ── 4. The windows that compute the sides the design is scored on ──────────
+// Al2O3 | SiO2 on fused silica in air: every material covers 300-2500 nm, the
+// Integral Values window's starting band, so ZnSe is the only one that does not.
+const hl = api.stackFromFormula(api.newDesign({ name: 'HL' }), { formula: 'HL' });
+const layers = hl.frontLayers.map(layer => (layer.material === 'builtin:SiO2' ? layer : { ...layer, material: 'builtin:Al2O3' }));
+const plate = { ...hl, substrate: { ...hl.substrate, material: 'builtin:SiO2' } };
+const frontOnly = { ...plate, surfaceMode: 'front_only', exitMedium: 'builtin:ZnSe', frontLayers: layers, backLayers: [] };
+const backOnly = { ...plate, surfaceMode: 'back_only', incidentMedium: 'builtin:ZnSe', frontLayers: [], backLayers: layers };
+const MODE_WINDOWS = { 'Color Evaluation': ColorEvaluation, 'Integral Values': IntegralValues };
+// Whether the window shows a notice in the provider as the app gives it,
+// evalMode being what the design is scored on.
+const modeNoticeShown = (Window, shown) => renderToStaticMarkup(React.createElement(DesignContext.Provider,
+    { value: { ...makeDesignCtx(shown), evalMode: resolveEvalMode(shown) } }, React.createElement(Window, { c, t, theme: c }))).includes('⚠');
+for (const [label, shown, side] of [['front alone', frontOnly, 'front'], ['back alone', backOnly, 'back']]) {
+    const whole = { ...shown, mfEvalMode: 'total' };
+    ok(`${label}: scored on the ${side}, and on the whole part when asked`, resolveEvalMode(shown) === side && resolveEvalMode(whole) === 'total');
+    ok(`${label}: over 300-2500 nm only ZnSe, the other side's medium, falls short`,
+        JSON.stringify(names(designRangeCoverage(shown, [300, 2500]))) === '["ZnSe"]' && names(designRangeCoverage(shown, [300, 2500], side)).length === 0,
+        JSON.stringify(names(designRangeCoverage(shown, [300, 2500]))));
+    for (const [name, Window] of Object.entries(MODE_WINDOWS)) {
+        ok(`${name} on a design coated on the ${label} shows no notice for the other side's ZnSe`, !modeNoticeShown(Window, shown));
+        ok(`${name} on the same design scored on the whole part shows one`, modeNoticeShown(Window, whole));
+    }
 }
 
 console.log(`${pass} passed, ${fail} failed`);

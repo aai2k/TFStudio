@@ -5,8 +5,9 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ConeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsSection } from '../../../ui/ResultsSection.js';
@@ -21,7 +22,7 @@ import { hasLayersForMode } from '../layersForMode.js';
 import { exportColumns, exportRows } from './exportModel.js';
 import { useIntegralValues } from './useIntegralValues.js';
 
-const { createElement: h } = React;
+const { createElement: h, useMemo } = React;
 
 function editorTable(model) {
     if (model.editor.target === 'source') return model.builder.source.table;
@@ -65,8 +66,10 @@ export function IntegralValues({ c, theme, t }) {
     const rows = exportRows(model.integrals, model.results, t.units);
     const { setParams } = model;
     const fixRange = ([from, to]) => setParams({ lambdaStart: from, lambdaEnd: to });
-    const rangeNotice = useMaterialRangeNotice(
-        design, model.params.lambdaStart, model.params.lambdaEnd, t, fixRange);
+    // Only the materials of the sides the spectrum is computed on.
+    const materials = useMemo(() => rangeMaterials(design, evalMode), [design, evalMode]);
+    const rangeNotice = useMaterialsRangeNotice(
+        materials, model.params.lambdaStart, model.params.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_integrals.csv`,

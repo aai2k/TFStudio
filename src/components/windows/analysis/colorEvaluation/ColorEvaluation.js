@@ -7,9 +7,10 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
 import { COLOR_RANGE_NM, xyzToSRGB } from '../../../../utils/physics/colorimetry.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ConeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
@@ -111,7 +112,9 @@ export function ColorEvaluation({ c, theme, t }) {
 
     const columns = readoutColumns(ce);
     const rows = readoutTableRows(report, ce, t.units);
-    const rangeNotice = useMaterialRangeNotice(design, COLOR_RANGE_NM[0], COLOR_RANGE_NM[1], t);
+    // Only the materials of the sides the colour is computed on.
+    const materials = useMemo(() => rangeMaterials(design, evalMode), [design, evalMode]);
+    const rangeNotice = useMaterialsRangeNotice(materials, COLOR_RANGE_NM[0], COLOR_RANGE_NM[1], t);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_color.csv`,
