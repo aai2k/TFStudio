@@ -944,8 +944,10 @@ class CheckResult:
             print(design.specification.check().rows[0].passed)
         """)
     margin = _reading("margin", """How far the value is from the nearest bound, in its unit: positive by the
-        room left, negative by how far it is out, 0 on a bound, so passed is True exactly when it is
-        0 or more; None when there is no value.
+        room left, negative by how far it is out, so passed is True exactly when it is 0 or more;
+        None when there is no value. A bound lies half the last digit the window shows past the
+        stated one, so a value the window shows on its bound passes: 0.000005 for a fraction,
+        0.005 nm, 0.0005 dB, nothing for a layer count.
 
         Example::
 

@@ -251,7 +251,7 @@ function rowOf(check, result, index) {
     return {
         index, label: check.label ?? '', kind: check.kind, enabled: !!check.enabled,
         value, unit: UNITS[result.unit], passed: result.pass,
-        margin: value === null ? null : thresholdMargin(check, value),
+        margin: value === null ? null : thresholdMargin(check, value, result.unit),
         threshold: { cmp: check.cmp, target: check.target, tol: check.tol, lo: check.lo, hi: check.hi },
         reason: result.summaryKey ?? null,
     };
@@ -277,7 +277,7 @@ function rowOf(check, result, index) {
  * @property rows[].value The check's value: T, R and A as fractions of 1, wavelengths, widths and thicknesses in nm, PPEF in dB, a layer count as a count; null when there is none.
  * @property rows[].unit `'fraction'`, `'nm'`, `'dB'`, or `''` for a layer count and for a disabled check, which is not evaluated.
  * @property rows[].passed Whether the value meets the threshold, as the window marks it; `false` when there is no value, null for a disabled check.
- * @property rows[].margin How far the value is from the nearest bound, in its unit: positive by the room left, negative by how far it is out, 0 on a bound, so `passed` is `true` exactly when it is 0 or more. Null when there is no value.
+ * @property rows[].margin How far the value is from the nearest bound, in its unit: positive by the room left, negative by how far it is out, so `passed` is `true` exactly when it is 0 or more. A bound lies half the last digit the window shows past the stated one, so a value the window shows on its bound passes: 0.000005 for a fraction, 0.005 nm, 0.0005 dB, nothing for a layer count. Null when there is no value.
  * @property rows[].threshold The comparison as the check holds it: `{ cmp, target, tol, lo, hi }`.
  * @property rows[].reason Why there is no value, or null: `'disabled'`; `'notComputable'`; `'noCurve'`, a PPEF check whose curve the design does not hold; `'fwhmNotBracketed'` and `'edgeNotCrossed'`, a width or edge whose crossing is not inside the band; `'unknownKind'`.
  * @throws a design with no specification

@@ -14,14 +14,16 @@
  *   8. THICKNESS_BUDGET and LAYER_COUNT geom-only qualifiers.
  *   9. aggregateVerdict skips disabled and counts only enabled ones.
  *  10. qualifiersToMFOperands generates OPGT/OPLT pairs with correct baseType.
+ *  11. A value shown on its bound passes; one shown digit past it fails.
  *
  * Run: node tests/qualifiers.mjs
  */
 
 import {
     makeQualifier, evaluateQualifier, evaluateQualifiers,
-    aggregateVerdict, qualifiersToMFOperands,
+    aggregateVerdict, qualifiersToMFOperands, qualifierValueText,
 } from '../src/utils/synthesis/qualifiers.js';
+import { finishCompare } from '../src/utils/synthesis/qualifiers/format.js';
 import {
     makeOperand, evaluateOperands, buildEvalContext,
     operandSampleLambdas, withFringeSampleCounts,
@@ -377,6 +379,24 @@ console.log('qualifiersToMFOperands stamps no sampling on the MXW row');
     // The row searches from the runtime default: 1 nm over 400-700 nm.
     const lams = operandSampleLambdas(baseOp2);
     ok(lams.length === 301, `runtime default searches from a 1 nm grid (got ${lams.length} samples)`);
+}
+
+// ── 11. A value shown on its bound passes ────────────────────────────────────
+// The values a DLS run stopped on its merit target left on one-sided checks
+// Generate MF wrote rows for: each is shown on its bound and passes, while a
+// value one shown digit past the bound fails.
+console.log('— a value shown on its bound passes —');
+{
+    const shownOnBound = [
+        [{ cmp: 'ge', target: 0.90 }, 0.8999999993, 0.89999],
+        [{ cmp: 'ge', target: 0.995 }, 0.99499998, 0.99499],
+        [{ cmp: 'le', target: 0.01 }, 0.010000068, 0.01001],
+    ];
+    const wrong = shownOnBound.filter(([q, onBound, past]) => {
+        const shown = finishCompare(q, onBound, '%'), out = finishCompare(q, past, '%');
+        return !shown.pass || out.pass || qualifierValueText(shown, {}) !== qualifierValueText({ value: q.target, unit: '%' }, {});
+    });
+    ok(wrong.length === 0, `shown on its bound passes, one digit past fails (wrong: ${JSON.stringify(wrong)})`);
 }
 
 if (fails === 0) console.log('\nAll qualifier tests passed.');

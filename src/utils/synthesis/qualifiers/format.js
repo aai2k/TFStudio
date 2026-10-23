@@ -8,57 +8,75 @@
 
 import { eqTolerance } from './constants.js';
 
-// Format a scalar in its native unit: fraction → percent (3 dp), nm (2 dp),
-// dB (3 dp), otherwise plain string. Non-finite values render as a dash.
+// How a value in each unit is shown: the factor from the value to the number
+// written, and its decimal places. A fraction is written as a percent; a value
+// in a unit not listed is written in full.
+const SHOWN = {
+    '%': { scale: 100, digits: 3 },
+    nm:  { scale: 1, digits: 2 },
+    dB:  { scale: 1, digits: 3 },
+};
+
+// Format a scalar in its native unit. Non-finite values render as a dash.
 function formatQualifierValue(v, unit, units) {
     if (v == null || !Number.isFinite(v)) return '—';
-    if (unit === '%')  return (v * 100).toFixed(3) + ' %';
-    if (unit === 'nm') return `${v.toFixed(2)} ${units.nm}`;
-    if (unit === 'dB') return v.toFixed(3) + ' dB';
-    return String(v);
+    const shown = SHOWN[unit];
+    if (!shown) return String(v);
+    return `${(v * shown.scale).toFixed(shown.digits)} ${unit === 'nm' ? units.nm : unit}`;
+}
+
+// Half a unit in the last digit a value is shown to, in the value's own unit,
+// or 0 for a value written in full. A check passes a value this close past a
+// bound, so a value shown on its bound passes: a run that stops on its merit
+// target leaves a one-sided check about that close.
+function shownSlack(unit) {
+    const shown = SHOWN[unit];
+    return shown ? 0.5 / (shown.scale * 10 ** shown.digits) : 0;
 }
 
 // The bounds an equality check holds a value between: the bounds Generate MF
-// holds the row between, in the same arithmetic, so a value on a bound passes
-// the check and meets the rows, or neither.
-function eqBounds(qual) {
-    const tol = eqTolerance(qual);
+// holds the row between, in the same arithmetic, each `slack` further out.
+function eqBounds(qual, slack) {
+    const tol = eqTolerance(qual) + slack;
     return [qual.target - tol, qual.target + tol];
 }
 
 // Apply the qualifier's comparator to a (finite) value, returning the
 // PASS/FAIL verdict and the deviation magnitude (> 0 means the spec is violated).
-function compareToThreshold(qual, value) {
-    if (qual.cmp === 'ge') return { pass: value >= qual.target, deviation: qual.target - value };
-    if (qual.cmp === 'le') return { pass: value <= qual.target, deviation: value - qual.target };
+// The verdict lets the value `slack` past a bound; the deviation does not.
+function compareToThreshold(qual, value, slack) {
+    if (qual.cmp === 'ge') return { pass: value >= qual.target - slack, deviation: qual.target - value };
+    if (qual.cmp === 'le') return { pass: value <= qual.target + slack, deviation: value - qual.target };
     if (qual.cmp === 'eq') {
-        const [low, high] = eqBounds(qual);
+        const [low, high] = eqBounds(qual, slack);
         return { pass: value >= low && value <= high, deviation: Math.abs(value - qual.target) };
     }
     if (qual.cmp === 'between') {
         const deviation = value < qual.lo ? qual.lo - value
                         : value > qual.hi ? value - qual.hi
                         : 0;
-        return { pass: value >= qual.lo && value <= qual.hi, deviation };
+        return { pass: value >= qual.lo - slack && value <= qual.hi + slack, deviation };
     }
     return { pass: false, deviation: 0 };
 }
 
 /**
  * The room a finite value has inside the qualifier's threshold, in the
- * value's unit: how far it is from the nearest bound, positive inside, negative
- * outside and 0 on a bound. It is taken against the bounds compareToThreshold
- * holds the value to, so it is 0 or more exactly when the check passes. Null
- * for a comparison the check does not know.
+ * value's unit (the evaluator's: '%', 'nm', 'dB' or ''): how far it is from the
+ * nearest bound, positive inside and negative outside. It is taken against the
+ * bounds compareToThreshold holds the value to, each half the last shown digit
+ * past the stated bound, so it is 0 or more exactly when the check passes.
+ * Null for a comparison the check does not know.
  */
-export function thresholdMargin(qual, value) {
-    if (qual.cmp === 'ge') return value - qual.target;
-    if (qual.cmp === 'le') return qual.target - value;
+export function thresholdMargin(qual, value, unit) {
+    const slack = shownSlack(unit);
+    if (qual.cmp === 'ge') return value - (qual.target - slack);
+    if (qual.cmp === 'le') return (qual.target + slack) - value;
     if (qual.cmp === 'eq') {
-        const [low, high] = eqBounds(qual);
+        const [low, high] = eqBounds(qual, slack);
         return Math.min(value - low, high - value);
     }
-    if (qual.cmp === 'between') return Math.min(value - qual.lo, qual.hi - value);
+    if (qual.cmp === 'between') return Math.min(value - (qual.lo - slack), (qual.hi + slack) - value);
     return null;
 }
 
@@ -99,7 +117,7 @@ export function finishCompare(qual, value, unit) {
     if (value == null || !Number.isFinite(value)) {
         return { value, pass: false, deviation: null, unit, summaryKey: 'notComputable' };
     }
-    const { pass, deviation } = compareToThreshold(qual, value);
+    const { pass, deviation } = compareToThreshold(qual, value, shownSlack(unit));
     return {
         value,
         pass,

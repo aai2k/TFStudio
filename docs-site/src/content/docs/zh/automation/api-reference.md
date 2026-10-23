@@ -2945,7 +2945,7 @@ print(design.specification.check().rows[0].passed)
 | ---------- | ------ |
 | `row.margin` | `row.margin` |
 
-数值离最近界限的距离，使用数值的单位：为正时表示剩余的余量，为负时表示超出的量，位于界限上时为 0，因此 `passed` 恰好在它大于等于 0 时为 `true` / `True`；没有数值时为 `null` / `None`。
+数值离最近界限的距离，使用数值的单位：为正时表示剩余的余量，为负时表示超出的量，因此 `passed` 恰好在它大于等于 0 时为 `true` / `True`；没有数值时为 `null` / `None`。界限比给定值向外放宽窗口所显示末位数字的一半，因此窗口显示在界限上的数值算作通过：分数放宽 0.000005，0.005 nm，0.0005 dB，层数不放宽。
 
 ```js
 const design = tf.newDesign('Mirror');

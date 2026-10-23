@@ -148,13 +148,16 @@ function expectedRow(check, result, index) {
 
 // The distance from `value` to the nearest bound of `check`, positive inside,
 // by its comparison; eq holds a value to its target alone when tol is 0 or less.
+// Each bound lies `s` past the stated one: half the last digit the window
+// shows a value in the row's unit to.
 const MARGINS = {
-    ge: (check, value) => value - check.target,
-    le: (check, value) => check.target - value,
-    eq: (check, value, tol = Math.max(0, check.tol)) => Math.min(value - (check.target - tol), (check.target + tol) - value),
-    between: (check, value) => Math.min(value - check.lo, check.hi - value),
+    ge: (check, value, s) => value - (check.target - s),
+    le: (check, value, s) => (check.target + s) - value,
+    eq: (check, value, s, tol = Math.max(0, check.tol) + s) => Math.min(value - (check.target - tol), (check.target + tol) - value),
+    between: (check, value, s) => Math.min(value - (check.lo - s), (check.hi + s) - value),
 };
-const expectedMargin = (check, value) => MARGINS[check.cmp](check, value);
+const HALF_SHOWN_DIGIT = { fraction: 0.000005, nm: 0.005, dB: 0.0005, '': 0 };
+const expectedMargin = (check, value, unit = '') => MARGINS[check.cmp](check, value, HALF_SHOWN_DIGIT[unit]);
 
 const seen = { valued: new Set(), passing: new Set(), failing: new Set() };
 for (const [name, { design: bare, band }] of Object.entries(DESIGNS)) {
@@ -166,7 +169,7 @@ for (const [name, { design: bare, band }] of Object.entries(DESIGNS)) {
     const differ = rows.map((row, i) => (isDeepStrictEqual(row, expected[i]) ? null : `${i} ${JSON.stringify(row)} / ${JSON.stringify(expected[i])}`)).filter(Boolean);
     ok(`${name}: each row is the worker's`, rows.length === design.qualifiers.length && differ.length === 0, differ.slice(0, 3).join('\n'));
     const margins = verdict.rows.filter(row => (row.value === null ? row.margin !== null
-        : row.margin !== expectedMargin(design.qualifiers[row.index], row.value) || (row.margin >= 0) !== row.passed));
+        : row.margin !== expectedMargin(design.qualifiers[row.index], row.value, row.unit) || (row.margin >= 0) !== row.passed));
     ok(`${name}: each margin is the distance to the nearest bound, 0 or more exactly when the check passes`, margins.length === 0, JSON.stringify(margins[0]));
     const { passing, total, allPass } = aggregateVerdict(results);
     ok(`${name}: the verdict counts the enabled checks as the window does`, verdict.passed === allPass && verdict.passing === passing && verdict.total === total
