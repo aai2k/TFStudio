@@ -37,7 +37,7 @@ function _locusRayHit(loc, wx, wy, vx, vy) {
     const den = vx * ey - vy * ex;
     if (Math.abs(den) < 1e-12) continue;
     const s = ((ax - wx) * ey - (ay - wy) * ex) / den;
-    const u = ((ax - wx) * vy - (ay - wy) * vx) / -den;
+    const u = ((ax - wx) * vy - (ay - wy) * vx) / den;
     if (s > 1e-9 && u >= -1e-6 && u <= 1 + 1e-6) {
       const lam = loc[i].lam + u * (loc[i + 1].lam - loc[i].lam);
       const px = wx + s * vx, py = wy + s * vy;
