@@ -4,8 +4,8 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { uncoveredRegions } from '../../../../utils/materials/materialRange.js';
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { rangeMaterials, uncoveredMaterialRegions } from '../../../../utils/materials/materialRange.js';
+import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { csvFromRows } from '../../../ui/ResultsSection.js';
 import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
@@ -45,17 +45,20 @@ export function GDGDDEvaluation({ c, theme, t }) {
         setLamStart(from);
         setLamEnd(to);
     };
-    const rangeNotice = useMaterialRangeNotice(
-        design, state.lamStart, state.lamEnd, t, fixRange);
+    // The notice and the shading name the materials of the side computed, as
+    // the table's column does.
+    const materials = useMemo(() => rangeMaterials(design, state.side), [design, state.side]);
+    const rangeNotice = useMaterialsRangeNotice(
+        materials, state.lamStart, state.lamEnd, t, fixRange);
     // The curve is drawn wherever a value exists, so an out-of-range wavelength
     // is shaded rather than left as a gap: a gap on this plot means there is no
     // value at all. Same helpers as Optical Evaluation, so the two windows
     // cannot disagree about where the data stops.
     const materialBands = useMemo(
         () => materialCoverageBands(
-            uncoveredRegions(design, [state.lamStart, state.lamEnd]),
+            uncoveredMaterialRegions(materials, [state.lamStart, state.lamEnd]),
             t.materialRange.bandLabel),
-        [design, state.lamStart, state.lamEnd, t],
+        [materials, state.lamStart, state.lamEnd, t],
     );
 
     // The view holds the chart series and axis range. Rebuilding it on every

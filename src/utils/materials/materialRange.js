@@ -17,7 +17,7 @@
  * Ranges are stored on materials in µm; everything here returns nm, the unit
  * the evaluation code and the UI both work in.
  */
-import { designMaterialIds, resolveDesignMaterial } from './designMaterials.js';
+import { computedMaterialIds, resolveDesignMaterial } from './designMaterials.js';
 import { materialTableExtentsNm } from './materialDispersion.js';
 
 const UM_TO_NM = 1000;
@@ -93,7 +93,9 @@ function normalizedRange(evaluated) {
 }
 
 /**
- * Which of a design's materials do not cover an evaluated wavelength range.
+ * The materials a range check of `design` reads, as `{ id, material }` for
+ * materialsRangeCoverage: those computedMaterialIds names for `side` (one
+ * side's, or with no side every material of the design).
  *
  * Materials are resolved the way evaluation resolves them, a catalog here first
  * and then the design's own copy, so the check reads the data the design
@@ -101,20 +103,34 @@ function normalizedRange(evaluated) {
  * is already reported, and blocks calculation anyway.
  *
  * @param   {object} design
+ * @param   {'front'|'back'} [side]
+ * @returns {{ id: string, material: object }[]}
+ */
+export function rangeMaterials(design, side) {
+    const materials = [];
+    for (const id of computedMaterialIds(design, side)) {
+        const { material, status } = resolveDesignMaterial(design, id);
+        if (status !== 'missing' && status !== 'unset') materials.push({ id, material });
+    }
+    return materials;
+}
+
+/**
+ * Which of a design's materials do not cover an evaluated wavelength range.
+ *
+ * @param   {object} design
  * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order
+ * @param   {'front'|'back'} [side] for a window that evaluates one side alone,
+ *          that side's materials (rangeMaterials); without it, every material
+ *          of the design
  * @returns {{ offenders: {id: string, name: string, rangeNm: [number, number],
  *                         heldFlat: boolean}[],
  *             covered: [number, number]|null }}
  *          `covered` is the span every declared material covers: the range
  *          over which no value is clamped or extrapolated.
  */
-export function designRangeCoverage(design, evaluated) {
-    const materials = [];
-    for (const id of designMaterialIds(design)) {
-        const { material, status } = resolveDesignMaterial(design, id);
-        if (status !== 'missing' && status !== 'unset') materials.push({ id, material });
-    }
-    return materialsRangeCoverage(materials, evaluated);
+export function designRangeCoverage(design, evaluated, side) {
+    return materialsRangeCoverage(rangeMaterials(design, side), evaluated);
 }
 
 /**
@@ -225,8 +241,9 @@ export function uncoveredRegions(design, evaluated) {
 
 /**
  * The same bands over an explicit set of materials, for a window that plots
- * something other than a design stack. Material Dispersion plots one material,
- * where the edge of its data is the whole point of looking at it there.
+ * something other than the whole design stack. Material Dispersion plots one
+ * material, where the edge of its data is the whole point of looking at it
+ * there; GD/GDD plots one side (rangeMaterials).
  *
  * @param   {{ id: string, material: object }[]} materials
  * @param   {[number, number]} evaluated `[fromNm, toNm]`, either order

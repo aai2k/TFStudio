@@ -212,6 +212,24 @@ export function designMaterialIds(design) {
 }
 
 /**
+ * The material ids a window computes with. With `side`, `'front'` or
+ * `'back'`, those of a window that evaluates that side alone: the medium
+ * light arrives from (the incident medium for the front, the exit medium for
+ * the back), the substrate, and the side's layers. Without it, every material
+ * of the design (designMaterialIds).
+ */
+export function computedMaterialIds(design, side) {
+    if (!design || !side) return designMaterialIds(design);
+    const back = side === 'back';
+    const ids = [
+        back ? design.exitMedium : design.incidentMedium,
+        design.substrate?.material,
+        ...((back ? design.backLayers : design.frontLayers) || []).map(layer => layer.material),
+    ];
+    return [...new Set(ids.filter(Boolean))];
+}
+
+/**
  * The ids a save has to write a definition for: the ones the design computes
  * with, and the ones inside its Herpin layers, which Expand brings back.
  */

@@ -27,7 +27,7 @@ export function EFieldEvaluation({ c, theme, t }) {
     const { design } = useDesign();
     const state = useEFieldState(design);
     const table = buildProfileTable(state.profile, state.pol, ef, state.display) || EMPTY_TABLE;
-    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda);
+    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda, state.side);
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_efield.csv`,

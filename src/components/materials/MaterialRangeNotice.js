@@ -110,8 +110,9 @@ export function useMaterialRangeNotice(design, fromNm, toNm, t, onFix) {
 
 /**
  * The same notice for a window that computes with a stack other than the
- * design's own. `materials` is `[{ id, material }]`, every material the window
- * evaluates, memoized by the caller.
+ * design's own, or with one side of it alone (rangeMaterials). `materials` is
+ * `[{ id, material }]`, every material the window evaluates, memoized by the
+ * caller.
  */
 export function useMaterialsRangeNotice(materials, fromNm, toNm, t, onFix) {
     const coverage = useMemo(
@@ -168,15 +169,17 @@ export function useMeritRangeNotice(design, t) {
  *
  * There is no range to pull in, so `onFix` is offered a wavelength every
  * material has data for instead: the nearest covered one to where the window is
- * now. Windows whose wavelength the user can set pass their setter.
+ * now. Windows whose wavelength the user can set pass their setter. A window
+ * that evaluates one side alone passes `side`, `'front'` or `'back'`, so only
+ * the materials that side is computed with are checked.
  *
  * @returns {{ label: string, detail: string,
  *             action?: { label: string, onClick: () => void } } | null}
  */
-export function useMaterialLambdaNotice(design, lambdaNm, t, onFix) {
+export function useMaterialLambdaNotice(design, lambdaNm, t, onFix, side) {
     const { offenders, covered } = useMemo(
-        () => designRangeCoverage(design, [lambdaNm, lambdaNm]),
-        [design, lambdaNm],
+        () => designRangeCoverage(design, [lambdaNm, lambdaNm], side),
+        [design, lambdaNm, side],
     );
     return useMemo(() => {
         if (!offenders.length) return null;
