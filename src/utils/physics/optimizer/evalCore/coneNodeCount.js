@@ -2,10 +2,11 @@
  * The cone node count at each wavelength the operands read, settled on the
  * design being evaluated.
  *
- * At every (cone axis, wavelength) the rows read R, T or A at, the node count
- * starts at the spec's grid points and doubles until the averages of every
- * polarization and channel read there change by no more than
- * CONE_AVERAGE_TOLERANCE (coneAngle/average.js, resolveConeNodes). The count is
+ * At every wavelength a row reads R, T or A at, the node count starts at the
+ * spec's grid points and doubles until the row's average there changes by no
+ * more than CONE_AVERAGE_TOLERANCE (coneAngle/average.js, resolveConeNodes).
+ * Each row settles its own counts (tmmEval.js, inConeRow), so a row reads the
+ * same value whichever other rows are in the merit function. The count is
  * settled per wavelength because the angle integral is hard only where a
  * resonance narrower than the cone's shift sits: on a 200-layer TiO2/SiO2
  * stack under a 7.5° cone about the normal, 2 % of the band samples need 120
@@ -16,7 +17,7 @@
  * crosses zero two counts can agree at one sample by chance while the samples
  * beside it still disagree by far more than the tolerance. Each sample
  * therefore takes the largest count among itself and the samples on either
- * side of it on the same axis.
+ * side of it in the same row.
  *
  * The node sets are stored on the context, so the evaluation that follows, the
  * analytic Jacobian and the needle function built on the same context all
@@ -26,30 +27,11 @@
  * minimized.
  */
 
+import { isPPEF } from '../operandModel.js';
 import { coneIsActive, resolveConeNodes } from '../coneAngle.js';
-import { tmmPropSingle, coneAxisKey, coneAxisRays } from './tmmEval.js';
+import { tmmPropSingle, coneAxisKey, coneAxisRays, inConeRow } from './tmmEval.js';
 import { operandSpectrumReads } from './operands/index.js';
-
-// The Map stored under `key`, created empty on first use.
-function mapAt(map, key) {
-    let inner = map.get(key);
-    if (!inner) { inner = new Map(); map.set(key, inner); }
-    return inner;
-}
-
-// Axis key → wavelength → the (polarization, channel) pairs read there.
-function readsByAxis(operands) {
-    const byAxis = new Map();
-    for (const op of operands) {
-        const reads = op && op.enabled ? operandSpectrumReads(op) : null;
-        if (!reads) continue;
-        const byLambda = mapAt(byAxis, coneAxisKey(reads.aoi));
-        const channel = { pol: reads.pol, char: reads.char };
-        const key = `${reads.pol}|${reads.char}`;
-        for (const lam of reads.lambdas) mapAt(byLambda, lam).set(key, channel);
-    }
-    return byAxis;
-}
+import { ppefSpectrumReads } from './operands/ppef.js';
 
 function maxDifference(a, b) {
     let d = 0;
@@ -94,7 +76,8 @@ function raiseToNeighbours(rays, fresh) {
 
 /**
  * Settle the node set at one wavelength `lam` (nm) on the cone axis `aoi` for
- * the { pol, char } pairs in `channels`, unless the context holds one. The
+ * the { pol, char } pairs in `channels`, unless the row in force (inConeRow)
+ * holds one. The
  * count is raised to the largest of the nearest settled wavelengths on either
  * side, as settleConeNodes raises its own. For a search that evaluates between
  * the wavelengths its row reads (bandExtremum.js). No effect without an active
@@ -120,8 +103,8 @@ export function settleConeWavelength(ctx, aoi, lam, channels) {
 }
 
 /**
- * Give the wavelengths `lams` (nm) the node set the context holds at `fromLam`
- * on the cone axis `aoi`, so a difference taken across them averages over one
+ * Give the wavelengths `lams` (nm) the node set the row in force holds at
+ * `fromLam` on the cone axis `aoi`, so a difference taken across them averages over one
  * set of rays. A wavelength that holds a set already keeps it. No effect
  * without an active cone or a set at `fromLam`.
  */
@@ -137,25 +120,36 @@ export function shareConeNodes(ctx, aoi, fromLam, lams) {
     }
 }
 
+// Settle the wavelengths of one row's `reads` (operandSpectrumReads) that the
+// row in force does not hold yet.
+function settleRow(ctx, { aoi, pol, char, lambdas }) {
+    const axis = coneAxisKey(aoi);
+    const rays = coneAxisRays(ctx, axis);
+    const fresh = new Set();
+    for (const lam of lambdas) {
+        if (rays.countByLambda.has(lam)) continue;
+        try {
+            rays.countByLambda.set(lam, settleWavelength(ctx, axis, rays, lam, [{ pol, char }]));
+            fresh.add(lam);
+        } catch {
+            // A row that cannot be evaluated reports that on its own row; the
+            // wavelength then averages over the spec's grid points.
+        }
+    }
+    if (fresh.size > 0) raiseToNeighbours(rays, fresh);
+}
+
 /**
- * Settle the node set of every (cone axis, wavelength) `operands` read on
- * `ctx` that the context does not hold yet. No effect without an active cone.
+ * Settle, for every enabled row of `operands` that reads R, T or A, the node
+ * set of each wavelength it reads that the context does not hold yet for that
+ * row. A PPEF row reads at its curve block's points. No effect without an
+ * active cone.
  */
 export function settleConeNodes(operands, ctx) {
     if (!(ctx && ctx.cone && coneIsActive(ctx.cone))) return;
-    for (const [axis, byLambda] of readsByAxis(operands)) {
-        const rays = coneAxisRays(ctx, axis);
-        const fresh = new Set();
-        for (const [lam, channelMap] of byLambda) {
-            if (rays.countByLambda.has(lam)) continue;
-            try {
-                rays.countByLambda.set(lam, settleWavelength(ctx, axis, rays, lam, [...channelMap.values()]));
-                fresh.add(lam);
-            } catch {
-                // A row that cannot be evaluated reports that on its own row; the
-                // wavelength then averages over the spec's grid points.
-            }
-        }
-        if (fresh.size > 0) raiseToNeighbours(rays, fresh);
+    for (const op of operands) {
+        if (!(op && op.enabled)) continue;
+        const reads = isPPEF(op.type) ? ppefSpectrumReads(op, ctx) : operandSpectrumReads(op);
+        if (reads) inConeRow(ctx, op, () => settleRow(ctx, reads));
     }
 }

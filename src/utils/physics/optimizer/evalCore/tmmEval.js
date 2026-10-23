@@ -204,39 +204,52 @@ export function resolveEvalMode(design) {
 export const coneAxisKey = aoi => Number(aoi) || 0;
 
 /**
- * The cone rays the context holds for one axis: `byLambda` maps a wavelength
- * (nm) to the node set settled for it and `countByLambda` to that set's node
- * count (evalCore/coneNodeCount.js), and `nodesFor(count)` returns the node set
- * for a node count, built once per count so wavelengths that settle on the
- * same count share it.
+ * Run `fn` with the cone rays of the merit row `op` in force on `ctx`, and
+ * return what it returns. Each row averages over a grid of angles of its own,
+ * so its value does not depend on which other rows are in the merit function.
+ * Rows are told apart by id; a read outside any row has a grid of its own too.
+ */
+export function inConeRow(ctx, op, fn) {
+    const outer = ctx._coneRow;
+    ctx._coneRow = op.id;
+    try { return fn(); } finally { ctx._coneRow = outer; }
+}
+
+/**
+ * The cone rays the context holds for one axis in the row in force
+ * (inConeRow): `byLambda` maps a wavelength (nm) to the node set settled for
+ * it and `countByLambda` to that set's node count (evalCore/coneNodeCount.js),
+ * and `nodesFor(count)` returns the node set for a node count, built once per
+ * count so wavelengths that settle on the same count share it.
  */
 export function coneAxisRays(ctx, aoi) {
     if (!ctx._coneNodeCache) ctx._coneNodeCache = new Map();
+    const byAxis = storedAt(ctx._coneNodeCache, ctx._coneRow, () => new Map());
     const axis = coneAxisKey(aoi);
-    let rays = ctx._coneNodeCache.get(axis);
-    if (!rays) {
+    return storedAt(byAxis, axis, () => {
         const byCount = new Map();
-        rays = {
+        return {
             byLambda: new Map(),
             countByLambda: new Map(),
-            nodesFor(count) {
-                let nodes = byCount.get(count);
-                if (!nodes) { nodes = coneNodes(ctx.cone, axis, count); byCount.set(count, nodes); }
-                return nodes;
-            },
+            nodesFor: count => storedAt(byCount, count, () => coneNodes(ctx.cone, axis, count)),
         };
-        ctx._coneNodeCache.set(axis, rays);
-    }
-    return rays;
+    });
+}
+
+// The value `map` holds under `key`, made by `make` and stored on first use.
+function storedAt(map, key, make) {
+    let value = map.get(key);
+    if (value === undefined) { value = make(); map.set(key, value); }
+    return value;
 }
 
 /**
  * The { aoiDeg, weight } nodes the context averages over at wavelength `lam`
- * (nm) for a cone whose axis is at `aoi`. evaluateOperands settles them per
- * axis and wavelength before it evaluates, and every value, derivative and
- * needle function read on the same context then uses the same set. A
- * wavelength nothing settled gets the spec's own grid points. No active cone:
- * the single node at `aoi`.
+ * (nm) for a cone whose axis is at `aoi`, in the row in force (inConeRow).
+ * evaluateOperands settles them per row, axis and wavelength before it
+ * evaluates, and every value, derivative and needle function read for that
+ * row on the same context then uses the same set. A wavelength nothing settled
+ * gets the spec's own grid points. No active cone: the single node at `aoi`.
  */
 export function coneNodesAt(ctx, aoi, lam) {
     const cone = ctx && ctx.cone;

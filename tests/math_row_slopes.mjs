@@ -219,8 +219,10 @@ function mathRowAlone(engine) {
     const thk = engine.thicknesses.slice();
     const freeIdx = freeAll(engine);
     const ones = new Array(thk.length).fill(1);
+    const ctx = engine._ctxFor(thk);
     const jc = {
-        comp: evaluateOperands(engine.operands, engine._ctxFor(thk)),
+        comp: evaluateOperands(engine.operands, ctx),
+        ctx,
         freeIdx,
         nFree: freeIdx.length,
         propDeriv: () => ones,

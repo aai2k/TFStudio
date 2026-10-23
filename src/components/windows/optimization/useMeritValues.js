@@ -22,14 +22,13 @@ function shown(values, marks = null, mfMarked = false, extra = {}) {
 }
 
 // Under a cone: the worker's values. While a run is followed it reads the
-// default steps, and since the rows share their grid of angles any of them can
-// then read otherwise than at the rows' own Steps, so all are marked. While it
-// works, the last values it gave stay as long as they are for the same design
-// and rows; after a failure, nothing does.
+// default steps, and the rows that then can read otherwise than at their own
+// Steps are marked. While it works, the last values it gave stay as long as
+// they are for the same design and rows; after a failure, nothing does.
 function underCone(s, last) {
     if (s.received) {
         const coarse = s.hold && s.marks != null;
-        last.current = { shown: shown(s.received, coarse ? s.marks.map(() => true) : null, coarse), rows: s.rows };
+        last.current = { shown: shown(s.received, coarse ? s.marks : null, coarse && s.mfMarked), rows: s.rows };
         return last.current.shown;
     }
     if (s.failed) {
@@ -58,7 +57,7 @@ function underCone(s, last) {
  * asked: a new design every quarter second would only cancel each evaluation
  * before it ends. Under a cone of incidence every row averages many rays, so
  * nothing is evaluated here and the worker answers alone (underCone), at the
- * default steps and with every row marked while `hold` is on. `busy` is on
+ * default steps and with the same rows marked while `hold` is on. `busy` is on
  * while it works there, and `failed` when it could not.
  */
 export function useMeritValues(design, operands, hold) {

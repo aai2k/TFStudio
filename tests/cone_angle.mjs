@@ -115,11 +115,11 @@ const baseDesign = (cone) => ({
     const coneCtx = buildEvalContext(baseDesign(coneCfg), resolveMat);
     const valCone = evaluateOperands([op], coneCtx)[0];
     ok(Math.abs(valCone - valNoCone) > 1e-4, 'cone changes an angle-sensitive operand value');
-    ok(coneCtx._coneNodeCache?.size === 1, 'cone quadrature is cached once per axis AOI across wavelength samples');
+    ok(coneCtx._coneNodeCache?.get(op.id)?.size === 1, 'cone quadrature is cached once per axis AOI across wavelength samples');
 
     // The rays the evaluation settled on: a two-layer AR under a smooth cone
     // agrees between 12 and 24 at every band sample and keeps the 24.
-    const rays = coneCtx._coneNodeCache.get(0);
+    const rays = coneCtx._coneNodeCache.get(op.id).get(0);
     const settled = new Set(rays.byLambda.values());
     ok(settled.size === 1, 'every band sample settled on one node set');
     const nodes = [...settled][0];
@@ -152,6 +152,27 @@ const baseDesign = (cone) => ({
     ok(Ru < R30, 'uniform cone average below the rim ray R(Θ)');
     ok(Rl > R0,  'lambertian cone raises R_s above normal incidence');
     ok(Ru > Rl,  'uniform shifts more than lambertian (more rim weight)');
+}
+
+// ── 7. a row's value does not depend on the other rows ───────────────────────
+// A 7+7-pair TiO2/SiO2 Fabry-Perot at 560 nm under a 20° uniform cone: a T row
+// on the passband's slope, alone and beside a peak search over the passband at
+// a 0.01 nm Step, which settles more rays at the wavelengths around it.
+{
+    const H = { material: 'TiO2', thickness: 560 / 4 / 2.35 };
+    const L = { material: 'SiO2', thickness: 560 / 4 / 1.46 };
+    const mirror = Array.from({ length: 7 }, () => [H, L]).flat();
+    const frontLayers = [...mirror, L, L, ...[...mirror].reverse()]
+        .map((layer, i) => ({ ...layer, id: `F${i}`, locked: false }));
+    const design = {
+        ...baseDesign({ enabled: true, halfAngleDeg: 20, distribution: 'uniform', gridPoints: 15 }),
+        frontLayers,
+    };
+    const t = makeOperand({ id: 't', type: 'T', lambdaStart: 556.75, lambdaEnd: 556.75, target: 0, weight: 1 });
+    const peak = makeOperand({ id: 'peak', type: 'TMX', lambdaStart: 550, lambdaEnd: 565, flag: 0.01, target: 1, weight: 1 });
+    const alone = evaluateOperands([t], buildEvalContext(design, resolveMat))[0];
+    const beside = evaluateOperands([t, peak], buildEvalContext(design, resolveMat))[0];
+    ok(alone === beside, `a T row reads the same alone (${alone}) and beside a peak search (${beside})`);
 }
 
 if (fails === 0) console.log('cone_angle: ALL PASS');

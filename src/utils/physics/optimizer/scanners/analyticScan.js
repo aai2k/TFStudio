@@ -37,7 +37,7 @@ import { isEllipsometry, isManufacturability, isPhaseDispersion, isRangeTarget }
 import { operandResidualRows } from '../residualRows.js';
 import { _jacRows, _jacRowsDecline } from '../jacobianAssembly/jacRows.js';
 import { rangeTargetRowSum } from '../jacobianAssembly/bandRows.js';
-import { coneNodesAt } from '../evalCore/tmmEval.js';
+import { coneNodesAt, inConeRow } from '../evalCore/tmmEval.js';
 import { coneIsActive } from '../coneAngle.js';
 import { resolveScanSide } from './sides.js';
 import { _buildDescriptors, _buildCandidates } from './descriptors.js';
@@ -112,8 +112,8 @@ function _prepareScan(args, surfaceMode, side) {
     const backMats  = back.map(l => resolveMat(l.material));
 
     // mf0 via the existing path → guaranteed consistent with calcMF / FD scan.
-    // The evaluation also settles the cone's rays on ctx0; the gradient below
-    // is summed over the same rays and weights (coneNodesAt).
+    // The evaluation also settles each row's cone rays on ctx0; the gradient
+    // below sums each row over the same rays and weights (coneNodesAt).
     const ctx0 = buildEvalContext(design, resolveMat);
     const comp = evaluateOperands(operands, ctx0);
     const mf0  = calcMF(operands, comp, MF_OPT);
@@ -165,7 +165,8 @@ function _accumMerit(operands, prep, deltaNm) {
         const residuals = operandResidualRows(op, comp[i], deviations[i], sigma);
         if (residuals.every(r => r === 0)) continue;
         if (isRangeTarget(op.type)) {
-            rangeTargetRowSum(op, jc, residuals).forEach((value, di) => { descs[di].num += value; });
+            inConeRow(ctx0, op, () => rangeTargetRowSum(op, jc, residuals))
+                .forEach((value, di) => { descs[di].num += value; });
             continue;
         }
         const rows = _jacRows(op, i, jc);

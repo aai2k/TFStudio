@@ -55,6 +55,17 @@ function checkedPoints(op, ctx) {
     return points;
 }
 
+/**
+ * What the row reads through tmmProp, in the shape operandSpectrumReads gives
+ * for other rows: its block's points. Null when the block is missing or not a
+ * T, R or A curve.
+ */
+export function ppefSpectrumReads(op, ctx) {
+    const points = blockPoints(op, ctx);
+    if (!points || !points.channel || isEllipsometricQuantity(points.channel)) return null;
+    return { aoi: points.aoi, pol: points.pol, char: charOf(points.channel), lambdas: points.lambdas };
+}
+
 // A target in dB: a block on the T-in-dB channel holds dB already; a T, R or A
 // block holds a fraction.
 const targetInDb = (channel, target) => (channel === 'TDB' ? target : logValue('dB', target));

@@ -37,6 +37,7 @@ import {
 import { linearThicknessFactor, linearThicknessSlope } from './linearRows.js';
 import { ellipsometrySlope, phaseSlope } from './phaseRows.js';
 import { mathReadIndices, mathRow, mathValueSlope } from './mathRows.js';
+import { inConeRow } from '../evalCore/tmmEval.js';
 
 const weighted = op => Math.sqrt(op.weight);
 
@@ -81,7 +82,12 @@ function valueSlope(op, i, jc) {
     return slope;
 }
 
+// Taken over the row's own cone rays, as its value was (inConeRow).
 function ownValueSlope(op, i, jc) {
+    return inConeRow(jc.ctx, op, () => rowValueSlope(op, i, jc));
+}
+
+function rowValueSlope(op, i, jc) {
     if (isPerSample(op)) return rmsValueSlope(op, i, jc);
     if (hasNoSlope(op, jc)) return null;
     if (isMath(op.type)) return mathValueSlope(op, i, jc, valueSlope);
@@ -118,11 +124,14 @@ export function _jacRowsDecline(op, i, jc) {
 // holds, has a zero row whatever its kind, so a kind with no slope declines
 // only where its slope is used: by itself when it scores, or by a math row
 // that reads it and scores. Its value is evaluated and read all the same.
+// Under a cone the rows are taken over the row's own rays (inConeRow).
 export function _jacRows(op, i, jc) {
-    if (isRangeTarget(op.type)) return _jacRowsRangeTarget(op, jc);
-    if (hasFreeLevel(op)) return _jacRowsLevelFree(op, jc);
-    const row = isMath(op.type) ? mathRow(op, i, jc, valueSlope) : singleRow(op, i, jc);
-    return row ? [row] : null;
+    return inConeRow(jc.ctx, op, () => {
+        if (isRangeTarget(op.type)) return _jacRowsRangeTarget(op, jc);
+        if (hasFreeLevel(op)) return _jacRowsLevelFree(op, jc);
+        const row = isMath(op.type) ? mathRow(op, i, jc, valueSlope) : singleRow(op, i, jc);
+        return row ? [row] : null;
+    });
 }
 
 // The one Jacobian row of a row that is neither a math row nor per sample.

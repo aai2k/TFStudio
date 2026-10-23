@@ -208,7 +208,7 @@ function reference200(values, halfDeg) {
         const op = { ...makeOperand({ type: 'TGT', lambdaStart: 1540, lambdaEnd: 1555, aoi: 0, pol: 'avg', target: 0, weight: 1 }), id: 'band', rampPoints: ref.length };
         const ctx = buildEvalContext(filterDesign(cone), resolveMat);
         const merit = operandSampleDeviations(evaluateOperands([op], ctx))[0];
-        const counts = [...ctx._coneNodeCache.get(0).countByLambda.values()];
+        const counts = [...ctx._coneNodeCache.get(op.id).get(0).countByLambda.values()];
         const most = Math.max(...counts), least = Math.min(...counts);
         const dMerit = maxAbsDiff(merit, ref);
         ok(most > 15, `${half}° cone: the merit function raised the node count above the 15 grid points near the passband (${most})`);

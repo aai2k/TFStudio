@@ -75,11 +75,9 @@ const readsChanged = (op, changed) => op.enabled !== false && isMath(op.type)
     && [op.refId, op.refId1, op.refId2].some(id => id && changed.has(id));
 
 /**
- * For each row, whether atDefaultSteps changes its value in collimated light:
- * an enabled row with a Step of its own, or an enabled math row reading one,
- * directly or through other math rows. Null when no row has a Step of its own.
- * Under a cone of incidence the rows share their grid of angles, so any row can
- * change.
+ * For each row, whether atDefaultSteps changes its value: an enabled row with a
+ * Step of its own, or an enabled math row reading one, directly or through
+ * other math rows. Null when no row has a Step of its own.
  */
 export function provisionalRows(operands) {
     if (!operands.some(readsOwnStep)) return null;

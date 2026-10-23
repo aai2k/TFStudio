@@ -17,7 +17,8 @@
  *      fails leaves the first pass marked.
  *   4. While a run is followed the worker is not asked.
  *   5. Under a cone nothing is evaluated here. While a run is followed the
- *      worker reads the default steps and its answer is marked on every row.
+ *      worker reads the default steps and its answer is marked on the rows a
+ *      default step can change.
  *      While it works the last answer stays only for the same design and rows;
  *      after a failure, an empty table, or once the cone was off, nothing stays.
  *   6. The Refinement window keeps the run's MF during its own run, and
@@ -250,7 +251,7 @@ const thicker = d => ({ ...d, frontLayers: d.frontLayers.map(l => ({ ...l, thick
     assert.equal(jobs()[0].payload.operands[0].flag, null, 'while a run is followed it reads the default steps');
     answer(made[0], reply);
     shown = runtime.run(() => useMeritValues(coned, ops, true));
-    assert.deepEqual(shown.provisional, [true, true], 'and its answer is marked on every row, since under a cone they share their grid of angles');
+    assert.deepEqual(shown.provisional, [true, false], 'and its answer is marked on the row with a Step of its own, as in collimated light');
     assert.equal(shown.mfProvisional, true);
     const moved = thicker(coned);
     shown = runtime.run(() => useMeritValues(moved, ops, true));

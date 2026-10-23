@@ -13,6 +13,7 @@ import { _evalPhaseDispersionPoint, _evalGroupDelayFlat, resetPhaseDispersionCac
 import { _evalEField } from './efield.js';
 import { _evalPPEF } from './ppef.js';
 import { OperandEvaluationError } from './errors.js';
+import { inConeRow } from '../tmmEval.js';
 
 export { OperandEvaluationError };
 export { ellipsometryThicknessPoint } from './ellipsometry.js';
@@ -89,10 +90,15 @@ const _EVAL_DISPATCH = [
     [isEField,         _evalEField],
 ];
 
+// The value of one row, averaged under a cone over the row's own rays.
+export function evalOperand(op, ctx) {
+    return inConeRow(ctx, op, () => _evalRow(op, ctx));
+}
+
 // The fall-through evaluator above is a real one, for T, R, A and their band
 // averages, so a type that matches nothing in the dispatch cannot be told from
 // one of those by the dispatch itself; the list of known types does that.
-export function evalOperand(op, ctx) {
+function _evalRow(op, ctx) {
     if (isDmfs(op.type) || isBlank(op.type)) return null;   // inert / comment
     if (!isKnownOperandType(op.type)) {
         throw new OperandEvaluationError(
@@ -106,7 +112,7 @@ export function evalOperand(op, ctx) {
 }
 
 // Rows whose evaluator reads nothing through tmmProp, and the PPEF row, which
-// reads at its curve block's points, the reads of the block itself.
+// reads at its curve block's points (ppefSpectrumReads).
 const _READS_NO_SPECTRUM = [
     isDmfs, isBlank, isTotalThickness, isStress, isConstraint, isMath,
     isEllipsometry, isGroupDelayFlat, isPhaseShift, isGroupDelay, isEField, isPPEF,

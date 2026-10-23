@@ -58,7 +58,7 @@ function timeCase(layerCount, repeats) {
         start = performance.now();
         settledValue = evaluateOperands([op], context)[0];
         samples.settled.push(performance.now() - start);
-        rays = [...context._coneNodeCache.get(op.aoi).byLambda.values()].map(nodes => nodes.length);
+        rays = [...context._coneNodeCache.get(op.id).get(op.aoi).byLambda.values()].map(nodes => nodes.length);
     }
     assert.equal(settledValue, firstValue, 'reusing the settled rays is bit-identical');
     return {
