@@ -64,7 +64,8 @@ const D_MIN = 1;
 // with a 10 nm MgF2 needle inserted at gap 5: a material the stack did not
 // have, so the worker must be sent it. Merit: R averaged over the band at
 // normal incidence, target 0, sampled for the design before the insertion,
-// as the window samples it.
+// as the window samples it; the job samples it again for the inserted stack,
+// as a Refinement run of that stack does.
 function fixture({ count, lambdaStart, lambdaEnd, iters, surfaceMode = 'front_only' }) {
     const base = [25, 40, 110, 20];
     const frontLayers = Array.from({ length: count }, (_, i) => ({
@@ -85,7 +86,7 @@ function fixture({ count, lambdaStart, lambdaEnd, iters, surfaceMode = 'front_on
     const job = insertionRefineJob(operands, inserted, D_MIN, iters);
     // Direct synchronous run with the pass's stopping rule, capped at `maxSteps`.
     const directRun = (maxSteps) => {
-        const opt = makeEngine(DEFAULT_REFINE_METHOD, operands, inserted, resolveMat, { dMin: D_MIN });
+        const opt = makeEngine(DEFAULT_REFINE_METHOD, job.operands, inserted, resolveMat, { dMin: D_MIN });
         let steps = 0;
         for (; steps < maxSteps && !opt.isConverged(); steps++) opt.step();
         opt.restoreBest();
@@ -266,7 +267,7 @@ ok(directSmall.steps === small.job.iters && small.directRun(200).steps > small.j
 {
     const annealing = { ...small.job, method: 'sa', iters: 15 };
     const scoresBest = reports => reports.every((p) => {
-        const mf = meritOf(small.operands, { ...small.inserted, frontLayers: p.frontLayers, backLayers: p.backLayers }, small.resolveMat);
+        const mf = meritOf(small.job.operands, { ...small.inserted, frontLayers: p.frontLayers, backLayers: p.backLayers }, small.resolveMat);
         return Math.abs(mf - p.mf) <= 1e-9 * Math.max(1, Math.abs(p.mf));
     });
     const ticks = [];

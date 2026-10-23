@@ -9,6 +9,7 @@ import {
     scanNeedlesPFunction, insertNeedle, insertNeedleIntra, mirrorLayers, withDesignSampleCounts,
 } from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
+import { densifyForRun } from '../../../../utils/refinement/workerInputs.js';
 import { matFriendlyName, matColor, withoutPPEF } from '../synthesisShared/synthesisHelpers.js';
 import { refineOffThread } from '../synthesisShared/workerRefine.js';
 import { displayLayerNumber } from '../../analysis/layerSensitivity/viewModel.js';
@@ -16,9 +17,9 @@ import { displayLayerNumber } from '../../analysis/layerSensitivity/viewModel.js
 // Which layer array a side maps to.
 export const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
 
-// The rows the profile scan, the predicted merit and the refine after an
-// insertion all score on: the design's enabled rows less the PPEF ones, with
-// band rows sampled for the design's fringes.
+// The rows the profile scan and the predicted merit score on, and the refine
+// after an insertion starts from: the design's enabled rows less the PPEF
+// ones, with band rows sampled for the design's fringes.
 export function runOperands(design, resolveMat) {
     const enabled = withoutPPEF((design?.meritOperands || []).filter(op => op.enabled));
     return withDesignSampleCounts(enabled, design, resolveMat);
@@ -52,9 +53,11 @@ export function insertForSelection(selected, design, dNew, side) {
 }
 
 // The optional pass after Apply: the app's default refinement method on the
-// inserted stack, at most `iters` steps, no layer below `dMin` (nm).
+// inserted stack, at most `iters` steps, no layer below `dMin` (nm), its rows
+// sampled as a Refinement run samples them at launch, so a feature narrower
+// than a row's grid is seen.
 export function insertionRefineJob(operands, design, dMin, iters) {
-    return { method: DEFAULT_REFINE_METHOD, operands, design, iters, dMin };
+    return { method: DEFAULT_REFINE_METHOD, operands: densifyForRun(operands, design), design, iters, dMin };
 }
 
 // A symmetric design keeps its back stack the mirror of the front.
