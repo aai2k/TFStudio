@@ -108,7 +108,7 @@ for (let i = 0; i < bk7.getNK.kTable.length - 1; i++) {
     }
 }
 auditedColumns++;
-assert.equal(auditedColumns, 27, 'all built-in tabulated n and k columns were audited');
+assert.equal(auditedColumns, 29, 'all built-in tabulated n and k columns were audited');
 assert.ok(auditedSamples > 36000, 'the built-in audit samples every segment densely');
 
 // Catalog and Material Editor previews must evaluate the same user table.

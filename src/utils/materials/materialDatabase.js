@@ -85,6 +85,7 @@ _bk7GetNK.dispersionFormula = _bk7Sellmeier.dispersionFormula;
 const RII_MATERIALS = [
     { id: 'TiO2',  name: 'TiO2 (anatase)',        color: '#e8a600', group: 'Dielectric' },
     { id: 'Ta2O5', name: 'Ta2O5',                 color: '#2fa84f', group: 'Dielectric' },
+    { id: 'Ta2O5_Gao', name: 'Ta2O5 (Gao)',       color: '#1f7a3a', group: 'Dielectric' },
     { id: 'Nb2O5', name: 'Nb2O5',                 color: '#7f9c00', group: 'Dielectric' },
     { id: 'HfO2',  name: 'HfO2',                  color: '#12a150', group: 'Dielectric' },
     { id: 'ZrO2',  name: 'ZrO2 (cubic zirconia)', color: '#d6289b', group: 'Dielectric' },

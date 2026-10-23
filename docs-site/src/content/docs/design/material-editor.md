@@ -13,7 +13,7 @@ Materials are grouped into catalogs by source:
 
 | Catalog          | Source                                                                  | Editable          |
 | ---------------- | ----------------------------------------------------------------------- | ----------------- |
-| **Built-in**     | A curated set of 17 common optical materials.                           | Read-only         |
+| **Built-in**     | A curated set of 18 common optical materials.                           | Read-only         |
 | **AGF**          | Zemax `.agf` files placed in your TFStudio data folder's `Materials` subfolder. | Via the file      |
 | **User**         | Materials and catalogs you create inside TFStudio.                      | Yes               |
 | **RefractiveIndex** | Materials you import from the refractiveindex.info database.          | Yes               |

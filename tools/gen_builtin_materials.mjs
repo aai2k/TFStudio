@@ -39,6 +39,7 @@ const OUT = path.join(ROOT, 'src', 'utils', 'materials', 'builtinRiiData.js');
 const MATERIALS = [
     { id: 'TiO2', page: 'main/TiO2/nk/Jolivet-anatase.yml', lmin: 370, lmax: 830, step: 5 },
     { id: 'Ta2O5', page: 'main/Ta2O5/nk/Bright-amorphous.yml', lmin: 500, lmax: 2500, step: 10 },
+    { id: 'Ta2O5_Gao', page: 'main/Ta2O5/nk/Gao.yml', lmin: 350, lmax: 1800, step: 10 },
     { id: 'Nb2O5', page: 'main/Nb2O5/nk/Lemarchand.yml', lmin: 250, lmax: 1000, step: 5 },
     { id: 'HfO2', page: 'main/HfO2/nk/Bright.yml', lmin: 380, lmax: 2500, step: 10 },
     { id: 'ZrO2', page: 'main/ZrO2/nk/Synowicki.yml' },
