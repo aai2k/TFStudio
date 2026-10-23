@@ -28,6 +28,8 @@
  * report instead of a silent rewrite.
  */
 
+import { mirrorLayers } from '../physics/optimizer/layerOps.js';
+
 // Each operation in the report:
 //   { side: 'front'|'back', kind: 'remove'|'merge', srcIdx, dstIdx?, materialId, thickness, mergedInto? }
 // Indices refer to the *original* layer indices.
@@ -159,9 +161,10 @@ export function cleanupDesign(design, opts = {}) {
     let newBack  = backRes.cleaned;
 
     if (surfaceMode === 'symmetric') {
-        // Back stack outward from substrate = reverse of front (preserves
-        // physical mirror symmetry; locked-flag is propagated).
-        newBack = [...newFront].reverse().map(l => ({ ...l }));
+        // The mirror of the cleaned front, as the design store rebuilds a
+        // symmetric back: the same layers outward from the substrate, locks
+        // included, each under its front twin's id with a b- prefix.
+        newBack = mirrorLayers(newFront);
     }
 
     const cleaned = {

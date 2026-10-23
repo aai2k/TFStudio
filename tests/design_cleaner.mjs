@@ -7,14 +7,18 @@
  *   • Merge same-material adjacent layers combines thicknesses (locked layers
  *     break the chain).
  *   • Remove sub-threshold layers preserves locked layers regardless of size.
- *   • Symmetric surface mode mirrors the cleaned front into the back.
+ *   • Symmetric surface mode mirrors the cleaned front into the back, as
+ *     mirrorLayers does, so no front and back layer share an id, and a
+ *     locked layer stays locked on both sides.
  *   • Idempotency: applying cleanupDesign twice gives the same result as once.
  *   • No-op design (no thin layers, no same-material adjacents) returns
  *     identical layer counts and an empty ops list.
  *   • listThinLayers reports the right rows and excludes locked layers.
  */
 
+import { isDeepStrictEqual } from 'node:util';
 import { cleanupDesign, listThinLayers } from '../src/utils/synthesis/designCleaner.js';
+import { mirrorLayers } from '../src/utils/physics/optimizer/layerOps.js';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -95,7 +99,7 @@ console.log('— symmetric mirror —');
         frontLayers: [
             { id: 'F1', material: 'TiO2', thickness: 80,  locked: false },
             { id: 'F2', material: 'SiO2', thickness: 1.0, locked: false },  // drop
-            { id: 'F3', material: 'TiO2', thickness: 40,  locked: false },
+            { id: 'F3', material: 'TiO2', thickness: 40,  locked: true  },  // keep the lock on both sides
         ],
         backLayers: [
             // Junk: should be replaced by reverse(cleaned front)
@@ -109,6 +113,14 @@ console.log('— symmetric mirror —');
     ok(r.design.backLayers[0].material === r.design.frontLayers[1].material &&
        r.design.backLayers[1].material === r.design.frontLayers[0].material,
        `back is reverse(front)`);
+    // The back the design store would rebuild (DesignContext withSymmetricBack),
+    // so no front and back layer share an id.
+    ok(isDeepStrictEqual(r.design.backLayers, mirrorLayers(r.design.frontLayers)),
+       `back is mirrorLayers(cleaned front) (got ${JSON.stringify(r.design.backLayers)})`);
+    const frontIds = new Set(r.design.frontLayers.map(l => l.id));
+    ok(!r.design.backLayers.some(l => frontIds.has(l.id)), 'no layer id is on both sides');
+    ok(r.design.frontLayers[1].locked === true && r.design.backLayers[0].locked === true,
+       `the locked layer stays locked on both sides (got ${JSON.stringify(r.design.backLayers)})`);
 }
 
 // ── 5. Idempotency ───────────────────────────────────────────────────────────
