@@ -10,6 +10,10 @@ import {
   designSummary, buildSpectrum, computeRiProfile, computeEField, computeEllipsometrySpectrum,
 } from '../src/utils/report/reportData.js';
 import { REPORT_TEST_DESIGN } from './_reportFixture.mjs';
+import { makeOperand, evaluateOperands, buildEvalContext } from '../src/utils/physics/optimizer.js';
+import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { computeProfile } from '../src/components/windows/analysis/eFieldEvaluation/profileModel.js';
+import { computeProfileForSide } from '../src/components/windows/analysis/refractiveIndexProfiler/profileModel.js';
 
 let pass = 0, fail = 0;
 function ok(name, cond) { if (cond) { pass++; } else { fail++; console.error('FAIL:', name); } }
@@ -90,6 +94,32 @@ console.log('— computeEllipsometrySpectrum —');
   const es = computeEllipsometrySpectrum(design, { lambdaStart: 400, lambdaEnd: 600, lambdaStep: 100, thetas: [65] });
   const expect = {"lambda":[400,500,600],"series":[{"theta":65,"psi":[10.837680537057048,2.3249796157215066,30.834582324941223],"delta":[140.28769434128844,182.29609036788736,280.86235148003436]}]};
   ok('ellipsometrySpectrum matches golden snapshot', JSON.stringify(es) === JSON.stringify(expect));
+}
+
+// ── A design coated on the back alone: the one-side blocks read the back ────
+// The field, Ψ and Δ, and the index profile are those of the back, lit from
+// the exit medium, as the Electric Field and Refractive Index Profile windows
+// and the EFMX, PSI and DEL rows read them.
+console.log('— back-only design —');
+{
+  const backOnly = {
+    incidentMedium: 'Air', exitMedium: 'BK7', substrate: { material: 'BK7', thickness: 1 }, referenceWavelength: 550,
+    surfaceMode: 'back_only', frontLayers: [],
+    backLayers: [{ id: 'B1', material: 'TiO2', thickness: 60 }, { id: 'B2', material: 'SiO2', thickness: 95 }],
+  };
+  const row = (type, aoi, pol) => evaluateOperands([makeOperand({ type, lambdaStart: 550, aoi, pol })], buildEvalContext(backOnly, getMaterial))[0];
+  const ef = computeEField(backOnly, { lambda: 550, theta: 0, pol: 'avg' });
+  const es = computeEllipsometrySpectrum(backOnly, { lambdaStart: 550, lambdaEnd: 560, lambdaStep: 10, thetas: [65] }).series[0];
+  const rp = computeRiProfile(backOnly, { lambda: 550 });
+  const profiler = computeProfileForSide(backOnly, 550, 'back');
+  const windowPeak = Math.max(...computeProfile(backOnly, { lambda: 550, theta: 0, pol: 'avg', side: 'back' }).avg.e2);
+  const unlike = [
+    ['field peak', Math.max(...ef.e2), windowPeak, row('EFMX', 0, 'avg')],
+    ['Psi', es.psi[0], row('PSI', 65)],
+    ['Delta', es.delta[0], row('DEL', 65)],
+  ].filter(([, got, ...read]) => read.some(value => Math.abs(got - value) > 1e-12)).map(([name]) => name);
+  if (JSON.stringify([rp.layerBounds, rp.n]) !== JSON.stringify([profiler.layerBounds, profiler.n])) unlike.push('index profile');
+  ok(`the field, ellipsometry and index profile blocks read the back as the windows and merit rows do (${unlike.join(', ')})`, unlike.length === 0);
 }
 
 if (fail === 0) console.log(`PASS: reportData_characterization (${pass} checks)`);

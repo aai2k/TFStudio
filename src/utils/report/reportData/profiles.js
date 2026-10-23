@@ -10,6 +10,15 @@ import { FIELD_SAMPLES_PER_LAYER, unpolarizedProfile } from '../../physics/unpol
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { mediumId } from './engines.js';
 
+// The one coated side these blocks read: the back of a design coated on the
+// back alone, lit from the exit medium, and the front of any other, as the PSI
+// and EFMX merit rows and the Electric Field window read it. The layers run in
+// the order light meets them, from that medium to the substrate.
+function litSide(design) {
+  if (design.surfaceMode !== 'back_only') return { medium: design.incidentMedium, layers: design.frontLayers || [] };
+  return { medium: design.exitMedium, layers: [...(design.backLayers || [])].reverse() };
+}
+
 // ── Ellipsometry spectrum Ψ(λ), Δ(λ) per AOI ────────────────────────────────
 export function computeEllipsometrySpectrum(design, opts = {}) {
   const resolveMaterial = designMaterialLookup(design);
@@ -17,9 +26,10 @@ export function computeEllipsometrySpectrum(design, opts = {}) {
   if (!(lambdaStep > 0)) throw new Error(`Wavelength step must be positive: ${lambdaStep} nm`);
   const thetas = (opts.thetas && opts.thetas.length) ? opts.thetas
                : (opts.aoi != null ? [opts.aoi] : [65]);
-  const n0mat = resolveMaterial(mediumId(design.incidentMedium));
+  const side = litSide(design);
+  const n0mat = resolveMaterial(mediumId(side.medium));
   const nsmat = resolveMaterial(design.substrate?.material);
-  const layerMats = (design.frontLayers || []).filter(l => l.material && l.thickness > 0);
+  const layerMats = side.layers.filter(l => l.material && l.thickness > 0);
 
   const lambda = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
 
@@ -43,10 +53,11 @@ export function computeEllipsometrySpectrum(design, opts = {}) {
 export function computeRiProfile(design, opts = {}) {
   const resolveMaterial = designMaterialLookup(design);
   const lam = opts.lambda ?? design.referenceWavelength ?? 550;
+  const side = litSide(design);
   // getNK() returns a complex pair [re, im]; computeRIProfile wants { n, k }.
-  const [n0n, n0k] = resolveMaterial(mediumId(design.incidentMedium)).getNK(lam);
+  const [n0n, n0k] = resolveMaterial(mediumId(side.medium)).getNK(lam);
   const [nsn, nsk] = resolveMaterial(design.substrate?.material).getNK(lam);
-  const layers = (design.frontLayers || [])
+  const layers = side.layers
     .filter(l => l.material && l.thickness > 0)
     .map(l => { const material = resolveMaterial(l.material);
                 const [nr, nk] = material.getNK(lam);
@@ -63,10 +74,11 @@ export function computeEField(design, opts = {}) {
   const lam = opts.lambda ?? design.referenceWavelength ?? 550;
   const theta = opts.theta ?? 0;
   const pol = opts.pol === 'p' || opts.pol === 'avg' ? opts.pol : 's';
+  const side = litSide(design);
   // computeEFieldProfile takes complex pairs [re, im] directly from getNK().
-  const n0 = resolveMaterial(mediumId(design.incidentMedium)).getNK(lam);
+  const n0 = resolveMaterial(mediumId(side.medium)).getNK(lam);
   const ns = resolveMaterial(design.substrate?.material).getNK(lam);
-  const layers = (design.frontLayers || [])
+  const layers = side.layers
     .filter(l => l.material && l.thickness > 0)
     .map(l => ({ n: resolveMaterial(l.material).getNK(lam), d: l.thickness }));
   const profileFor = code => computeEFieldProfile(lam, theta, code, n0, ns, layers, FIELD_SAMPLES_PER_LAYER);
