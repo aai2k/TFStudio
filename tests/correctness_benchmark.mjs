@@ -253,9 +253,7 @@ function ellipRef(lambda, thetaDeg, n0c, nsc, layers) {
 //     A bare absorbing surface runs from Δ=180° at normal incidence to 0° at
 //     grazing, through 90° at the principal angle. That is what a measurement
 //     file shows; the engine carries the conjugate, so it runs 180°→360° and
-//     passes 270° there. Checked against a real J.A. Woollam WVASE export of a
-//     20 nm PNIPAM / 2 nm SiO2 / Si sample: the conjugate reproduces the file's
-//     Δ to 0.7° RMS, the unconjugated value is out by 63°.
+//     passes 270° there.
 {
     const e = computeEllipsometry(632.8, 65, [1, 0], [0.13, 3.99], []);
     near(e.delta, 230.8, 0.3, 'Ag(0.13,3.99)@65° engine Δ≈230.8° (file reads 129.2°)');

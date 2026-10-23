@@ -328,7 +328,7 @@ export function evaluateSpectrumAt(lambdas, params, incidentMaterial, substrateM
 
     const result = { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
 
-    // Batched WASM fast path (front coating, layers in deposition order).
+    // Batched WASM fast path (front coating, layers from the incident medium inward).
     const validFront = layers.filter(l => l.material && l.thickness > 0);
     if (fillSpectrumWasm(result, lambdas, incidentMaterial, substrateMaterial, validFront, theta, polarization)) {
         return result;
@@ -390,7 +390,7 @@ export function evaluateSpectrumAt(lambdas, params, incidentMaterial, substrateM
  * field against the tangential part of the incident beam; for p-polarization
  * that is |cos θ₀| of the whole of it, which the extra factor below removes.
  *
- * References: Macleod, Thin-Film Optical Filters §3 Eqs. 3.5–3.6.
+ * References: Macleod, Thin-Film Optical Filters, 5th ed., chapter 3, Eq. 3.6.
  *
  * @param {number}   lambda_nm
  * @param {number}   theta_deg
@@ -830,10 +830,7 @@ export function evaluateDepositionSpectra(params, incMaterial, subMaterial, exit
 // 360° − Δ, the complex conjugate, which is what the exp(+iωt) time convention
 // gives for the same sample. toDeltaConvention below is the one place that
 // conversion happens, for display and for comparison against a measurement
-// alike. Checked against a J.A. Woollam WVASE export of a known 20 nm PNIPAM /
-// 2 nm SiO2 / Si sample: the conjugate reproduces it to 0.7° in Δ, while the
-// unconjugated value is out by 63°. Ψ is the same either way, being a
-// magnitude ratio.
+// alike. Ψ is the same either way, being a magnitude ratio.
 //
 // Validation: a bare dielectric gives Δ ≈ 180° below Brewster and Δ ≈ 0° above
 // it, with Ψ → 0 at Brewster. Those two are fixed points of the conjugation and
@@ -1165,7 +1162,7 @@ export function unwrapPhase(phi) {
  * here: n and k are just the dispersive material values sampled at `lambda`
  * and laid out as a step function of physical depth z. Depth runs from the
  * incident medium (z < 0, shown as a short lead-in segment), through each
- * front layer in deposition order, into the substrate (z > total, shown as a
+ * layer in the order light meets it, into the substrate (z > total, shown as a
  * short tail). Step edges sit exactly on the layer boundaries.
  *
  * This is the refractive-index profile (Re(n) and Im(n)); the
@@ -1178,7 +1175,8 @@ export function unwrapPhase(phi) {
  * @param {{n:number,k:number}} n0    incident medium (n,k ≥ 0)
  * @param {{n:number,k:number}} ns    substrate (n,k ≥ 0)
  * @param {{n:number,k:number,d:number,materialId?:string,name?:string}[]} layers
- *        front layers in deposition order (incident-side first), d in nm
+ *        the layers in the order light meets them, incident side first, as
+ *        frontLayers holds them (the reverse of deposition order), d in nm
  * @param {{leadFrac?:number,minLead?:number}} [opts]
  * @returns {{
  *   z:number[], n:number[], k:number[],

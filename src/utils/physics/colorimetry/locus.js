@@ -22,7 +22,8 @@ export function spectralLocusXy(observer) { return spectrumLocus(observer); }
  * Ray from white point W through sample S; first intersection with the
  * spectrum-locus polyline gives the dominant λ (purity = |WS|/|W·locus|).
  * If the ray exits through the purple line, report the *complementary*
- * wavelength (opposite ray) and a negative-purity convention.
+ * wavelength (opposite ray), with the purity |WS| over the distance from W to
+ * that point on the locus, a positive fraction as for a dominant wavelength.
  */
 // First crossing of the ray W + s·(vx,vy), s>0, with the spectrum-locus
 // polyline `loc`. Returns the nearest hit { lam, s, dist } (dist = |W→hit|) or

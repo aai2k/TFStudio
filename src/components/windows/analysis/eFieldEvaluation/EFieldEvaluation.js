@@ -1,6 +1,8 @@
 /**
- * Electric-field profile computed by the left-partial transfer matrix method.
- * Reference: Macleod, Thin-Film Optical Filters, section 3, Eqs. 3.5-3.6.
+ * Electric-field profile computed from right-partial products of the layer
+ * matrices, substrate side first (computeEFieldProfile in thinFilmMath.js).
+ * Reference: Macleod, Thin-Film Optical Filters, 5th ed., chapter 3, Electric
+ * Field and Losses in the Admittance Diagram, Eq. 3.6.
  *
  * The settings menu chooses what the vertical axis reads and which component
  * of the field it reads; see yScale.js for the quantities and the conversion

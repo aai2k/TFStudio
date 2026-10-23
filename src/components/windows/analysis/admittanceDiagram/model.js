@@ -1,7 +1,8 @@
 /**
  * Complex admittance locus model.
  *
- * Theory: Macleod sections 2.4 and 4.1. The transfer convention matches
+ * Theory: Macleod, Thin-Film Optical Filters, 5th ed., chapter 3, Admittance
+ * Loci (Figures 3.1 and 3.2). The transfer convention matches
  * thinFilmMath.js; displayed imaginary admittance is conjugated to preserve
  * Macleod's diagram orientation.
  */
