@@ -3,7 +3,7 @@
  * the full statistical model and references.
  */
 
-import { buildEvalContext, evaluateOperands, calcMF } from '../optimizer.js';
+import { buildEvalContext, evaluateOperands, calcMF, withFringeSampleCounts } from '../optimizer.js';
 
 function buildSensitivityVariables(surfaceMode, front, back) {
     if (surfaceMode === 'both_independent') {
@@ -155,12 +155,16 @@ export function computeLayerSensitivity(design, operands, resolveMat, opts = {})
     // the needle / GE scans use as their optical merit.
     const MF_OPT = { skipConstraints: true };
     const ctx0 = buildEvalContext(design, resolveMat);
-    const comp0 = evaluateOperands(operands, ctx0);
-    const mf0   = calcMF(operands, comp0, MF_OPT);
+    // Band rows on the unperturbed design's fringe grid, the grid the Merit
+    // Function Editor shows them on, kept for every ±Δd evaluation so a merit
+    // change comes from the thickness and not from a change of grid.
+    const sampled = withFringeSampleCounts(operands, ctx0);
+    const comp0 = evaluateOperands(sampled, ctx0);
+    const mf0   = calcMF(sampled, comp0, MF_OPT);
     const rows = [];
     const settings = {
         design,
-        operands,
+        operands: sampled,
         resolveMat,
         surfaceMode,
         mfOptions: MF_OPT,

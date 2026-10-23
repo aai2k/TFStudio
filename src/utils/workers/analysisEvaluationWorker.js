@@ -15,13 +15,13 @@ import { computeCurveResults } from '../../components/windows/analysis/plotEngin
 import { computeVariatorSpectrum } from '../../components/windows/optimization/variator/model.js';
 import { designPreview } from '../../components/windows/dataExchange/spectrumExchange/designPreview.js';
 import { designBackdrop } from '../../components/windows/dataExchange/curveEditor/designBackdrop.js';
-import { meritDisplay } from '../physics/meritDisplay.js';
+import { meritDisplay, meritTable } from '../physics/meritDisplay.js';
 import { resolveEvalMode } from '../physics/optimizer.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 
 function meritScore(design, operands) {
     if (!design || !operands?.length) return { mf: null, omf: null };
-    const { mf, omf } = meritDisplay(design, operands);
+    const { mf, omf } = meritTable(design, operands);
     return { mf, omf };
 }
 

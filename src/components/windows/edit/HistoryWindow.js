@@ -11,12 +11,9 @@
  */
 
 import { useDesign }            from '../../../state/DesignContext.js';
-import {
-    designMaterialLookup, unresolvedMaterials,
-} from '../../../utils/materials/designMaterials.js';
-import {
-    buildEvalContext, evaluateOperands, calcMF, makeConeSpec, coneIsActive,
-} from '../../../utils/physics/optimizer.js';
+import { unresolvedMaterials } from '../../../utils/materials/designMaterials.js';
+import { makeConeSpec, coneIsActive } from '../../../utils/physics/optimizer.js';
+import { meritTable } from '../../../utils/physics/meritDisplay.js';
 import { useAnalysisEvaluation } from '../analysis/useAnalysisEvaluation.js';
 
 const { createElement: h, useMemo } = React;
@@ -25,16 +22,15 @@ const { createElement: h, useMemo } = React;
 // scrolling / re-render doesn't recompute the whole timeline.
 const _mfCache = new WeakMap();
 
-function mfFor(design) {
+/** A timeline row's MF: the one the Merit Function Editor shows for that design (meritTable). */
+export function mfFor(design) {
     if (!design || typeof design !== 'object') return { mf: null, materialMissing: false };
     if (_mfCache.has(design)) return _mfCache.get(design);
     let out = { mf: null, materialMissing: unresolvedMaterials(design).length > 0 };
     try {
         const ops = (design.meritOperands || []).filter(op => op.enabled);
         if (ops.length && !out.materialMissing) {
-            const ctx  = buildEvalContext(design, designMaterialLookup(design));
-            const comp = evaluateOperands(ops, ctx);
-            out = { mf: calcMF(ops, comp), materialMissing: false };
+            out = { mf: meritTable(design, ops).mf, materialMissing: false };
         }
     } catch (_) { out = { mf: null, materialMissing: true }; }
     _mfCache.set(design, out);
