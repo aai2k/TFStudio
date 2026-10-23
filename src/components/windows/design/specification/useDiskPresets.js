@@ -62,7 +62,7 @@ async function loadPresetFromDisk(name, mode, { qualifiers, writeQualifiers, che
         const res = await window.electronAPI.loadQualifierPreset(name);
         if (res?.success && Array.isArray(res.preset?.qualifiers)) {
             // Re-stamp ids so the loaded items don't collide with current ones
-            const fresh = res.preset.qualifiers.map(q => makeQualifier({ ...q }));
+            const fresh = res.preset.qualifiers.map(({ id: _omit, ...saved }) => makeQualifier(saved));
             if (typeof checkpoint === 'function') checkpoint();
             if (mode === 'append') writeQualifiers([...qualifiers, ...fresh]);
             else                   writeQualifiers(fresh);
