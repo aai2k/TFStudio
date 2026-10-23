@@ -28,9 +28,9 @@
  *   deepSynthesisChild: a Deep Synthesis search child (a destroyed design
  *               refined and repaired) or a comb seed grown by the probe needle.
  *
- * Materials cross via Approach A pre-sampling (design + candidate pool); the
- * worker rebuilds an exact-λ table-lookup getNK off the same
- * `operandSampleLambdas` grid.
+ * Materials cross via Approach A pre-sampling (design + candidate pool), sent
+ * to each worker once per run (jobTables.js); the worker rebuilds an exact-λ
+ * table-lookup getNK off the same `operandSampleLambdas` grid.
  */
 
 import {
@@ -42,6 +42,7 @@ import { refineWithoutParked, mergeSameMaterial } from '../physics/optimizer/par
 import { makeEngine } from '../optimizers/index.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
+import { makeTableHolder } from './jobTables.js';
 import { runDeepSynthesisJob } from '../synthesis/deepSynthesis/jobs.js';
 
 const POST_MS = 80;
@@ -340,6 +341,8 @@ export function dispatchSynthesisJob(job, resolveMat, post) {
     }
 }
 
+const tablesOf = makeTableHolder();
+
 // Worker entry point. Assigned via globalThis so importing this module on the
 // main thread (e.g. a test's in-process fake pool) is a harmless property write
 // rather than a strict-mode assignment to an undeclared global; in a Worker
@@ -350,8 +353,9 @@ globalThis.onmessage = async (e) => {
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
     const post = (m) => postMessage(m);
     try {
+        const materials = tablesOf(job);
         await awaitTmmWasmReady();
-        const resolveMat = makeResolveMat(job.materials || {}, 'synthesisWorker');
+        const resolveMat = makeResolveMat(materials, 'synthesisWorker');
         dispatchSynthesisJob(job, resolveMat, post);
     } catch (err) {
         post({ type: 'error', message: (err && err.stack) || String(err) });

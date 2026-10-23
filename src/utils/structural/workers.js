@@ -2,6 +2,7 @@
 // at a time each.
 
 import { alive } from '../synthesis/poolRun.js';
+import { postJob } from '../workers/jobTables.js';
 
 const REFINE_TIMEOUT_MS = 45000;
 
@@ -54,7 +55,7 @@ function refineOnce(worker, job, onTick) {
             worker.onerror = null;
             reject(new Error((event && event.message) || 'worker onerror'));
         };
-        worker.postMessage(job);
+        postJob(worker, job);
     });
 }
 

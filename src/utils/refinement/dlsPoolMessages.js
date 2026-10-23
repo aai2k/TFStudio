@@ -5,6 +5,7 @@
 import { makeJob } from './dlsPoolJobs.js';
 import { appendMfSample } from './meritTrend.js';
 import { endRun, finalizeDlsRun, resultOf } from './dlsPoolFinalize.js';
+import { postJob } from '../workers/jobTables.js';
 
 // Whether messages still belong to a run that is going on.
 export const isLive = (R, S) => !S.ended && !R.aborted();
@@ -141,7 +142,7 @@ function onDoneMsg(R, S, w, m, wid) {
     R.onProgress(patch);
     if (S.nextJob < S.nJobs) {
         const r = S.nextJob++;
-        w.postMessage(makeJob(S, S.isMulti ? r + 1 : 0));
+        postJob(w, makeJob(S, S.isMulti ? r + 1 : 0));
         return;
     }
     try { w.terminate(); } catch (_) {}

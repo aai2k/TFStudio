@@ -15,7 +15,8 @@
  * (`requiredLambdas` ← `operandSampleLambdas`, the same helper `evalOperand`
  * uses) and ships plain arrays. Here we rebuild a table-lookup `getNK` that
  * returns those exact stored values, so optimizer output is bit-identical to
- * the main-thread path. No math change.
+ * the main-thread path. No math change. A run sends its tables to each worker
+ * once (jobTables.js): `tablesOf` is the worker's table holder.
  *
  * Messages go out through `post`: 'init', throttled 'progress', then 'done',
  * or 'error'. A 'score' job runs no optimizer: it posts one 'score' message
@@ -26,6 +27,7 @@ import { makeEngine } from '../optimizers/index.js';
 import { DLSOptimizer } from '../physics/optimizer.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
+import { makeTableHolder } from './jobTables.js';
 
 const POST_MS = 80;     // progress-message rate limit (wall clock)
 
@@ -117,7 +119,7 @@ function scoreDesign(job, resolveMat, postMessage) {
 
 // ── Message entry point ───────────────────────────────────────────────────────
 
-export async function handleOptimizerMessage(job, postMessage) {
+export async function handleOptimizerMessage(job, postMessage, tablesOf = makeTableHolder()) {
     if (!job) return;
     // One-time WASM kernel init (bytes may arrive as a dedicated message or ride
     // on a 'start' or 'score' job). Enabling is per-worker; falls back to JS on
@@ -125,9 +127,10 @@ export async function handleOptimizerMessage(job, postMessage) {
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
     if (job.type !== 'start' && job.type !== 'score') return;
     try {
+        const materials = tablesOf(job);
         noteTmmWasmBytes(job.wasmBytes);
         await awaitTmmWasmReady();
-        const resolveMat = makeResolveMat(job.materials || {}, 'optimizerWorker', postMessage);
+        const resolveMat = makeResolveMat(materials, 'optimizerWorker', postMessage);
         if (job.type === 'score') scoreDesign(job, resolveMat, postMessage);
         else runSingle(job, resolveMat, postMessage);
     } catch (err) {

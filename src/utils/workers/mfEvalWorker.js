@@ -17,16 +17,19 @@
  * The evaluator is a `DLSOptimizer` used only via its pure `mfAt(vec)` helper
  * (identical surface-mode/bounds/material handling as every other engine). It is
  * cached per `sid` (session id) so it is constructed once per worker per DE run,
- * not once per generation. Materials cross via Approach A pre-sampling, with the
- * same exact-λ table-lookup getNK used by optimizerWorker / synthesisWorker.
+ * not once per generation. Materials cross via Approach A pre-sampling, sent to
+ * each worker once per run (jobTables.js), with the same exact-λ table-lookup
+ * getNK used by optimizerWorker / synthesisWorker.
  */
 
 import { DLSOptimizer } from '../physics/optimizer.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
+import { makeTableHolder } from './jobTables.js';
 
 // Cache the evaluator across generations of the same DE run (same sid).
 let CACHE = { sid: null, opt: null };
+const tablesOf = makeTableHolder();
 
 onmessage = async (e) => {
     const job = e.data;
@@ -34,9 +37,10 @@ onmessage = async (e) => {
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
     if (job.type !== 'evalBatch') return;
     try {
+        const materials = tablesOf(job);
         await awaitTmmWasmReady();
         if (CACHE.sid !== job.sid || !CACHE.opt) {
-            const resolveMat = makeResolveMat(job.materials || {}, 'mfEvalWorker');
+            const resolveMat = makeResolveMat(materials, 'mfEvalWorker');
             CACHE = { sid: job.sid, opt: new DLSOptimizer(job.operands, job.design, resolveMat) };
         }
         const opt = CACHE.opt;

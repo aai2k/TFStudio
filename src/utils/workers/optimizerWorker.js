@@ -8,5 +8,8 @@
  */
 
 import { handleOptimizerMessage } from './optimizerJob.js';
+import { makeTableHolder } from './jobTables.js';
 
-onmessage = (e) => handleOptimizerMessage(e.data, (message) => postMessage(message));
+const tablesOf = makeTableHolder();
+
+onmessage = (e) => handleOptimizerMessage(e.data, (message) => postMessage(message), tablesOf);

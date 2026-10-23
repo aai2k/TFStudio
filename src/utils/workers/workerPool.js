@@ -1,3 +1,5 @@
+import { postJob } from './jobTables.js';
+
 /**
  * Minimal promise-RPC pool over N module Web Workers.
  *
@@ -8,6 +10,7 @@
  *
  * The pool is the parallelism layer; the workers are stateless primitive
  * runners. terminate() hard-kills every worker (zombie-loop class stays gone).
+ * A job's material tables go to each worker once (jobTables.js).
  */
 export class WorkerPool {
     // `initMessage` (optional) is posted to every worker once at construction,
@@ -69,7 +72,7 @@ export class WorkerPool {
         if (this.queue.length) {
             const { job, onProgress, resolve, reject } = this.queue.shift();
             this._attach(w, onProgress, resolve, reject);
-            w.postMessage(job);
+            postJob(w, job);
         } else {
             this.idle.push(w);
         }
@@ -82,7 +85,7 @@ export class WorkerPool {
             const w = this.idle.pop();
             if (w) {
                 this._attach(w, onProgress, resolve, reject);
-                w.postMessage(job);
+                postJob(w, job);
             } else {
                 this.queue.push({ job, onProgress, resolve, reject });
             }

@@ -233,13 +233,15 @@ const loud = () => Object.assign(console, quiet);
 {
     const { runStructural } = await import('../src/utils/structural/runStructural.js');
     const { InThreadOptimizerWorker } = await import('../src/utils/workers/inThreadOptimizerWorker.js');
+    const { makeTableHolder } = await import('../src/utils/workers/jobTables.js');
     const refines = [];
     const makeWorker = () => {
         const worker = new InThreadOptimizerWorker();
         const post = worker.postMessage.bind(worker);
+        const tablesOf = makeTableHolder();
         worker.postMessage = (msg, ...rest) => {
             if (msg?.operands) {
-                const have = new Set(msg.materials?.TiO2?.lambdas || []);
+                const have = new Set(tablesOf(msg).TiO2?.lambdas || []);
                 refines.push({ samples: samplesOf(msg.operands), covered: requiredLambdas(msg.operands).every(l => have.has(l)) });
             }
             post(msg, ...rest);

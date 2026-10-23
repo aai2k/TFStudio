@@ -35,6 +35,7 @@ const O = await import('../src/utils/physics/optimizer.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
+const { makeTableHolder } = await import('../src/utils/workers/jobTables.js');
 const { perturbBest } = await import('../src/utils/gradualEvolution/deepSearch.js');
 const { startWindowRun } = await import('../src/components/windows/optimization/gradualEvolution/windowRun.js');
 const { default: EN } = await import('../src/constants/locales/en.js');
@@ -189,12 +190,13 @@ localStorage.setItem('tfstudio-synth-inner-engine-ge', 'sqp');
 localStorage.setItem('tfstudio-synth-seed-mode', 'refine');
 const SETTINGS = { maxLayers: 7, maxGeCycles: 16, targetMF: 5e-4, dlsIter: 30, dMin: 15 };
 globalThis.Worker = class {
-    constructor() { this.onmessage = null; this.dead = false; }
+    constructor() { this.onmessage = null; this.dead = false; this.tablesOf = makeTableHolder(); }
     postMessage(job) {
         if (this.dead || !job || job.type === 'wasmInit') return;
+        const materials = this.tablesOf(job);
         setTimeout(() => {
             if (this.dead) return;
-            dispatchSynthesisJob(job, makeResolveMat(job.materials || {}, 'test'), m => {
+            dispatchSynthesisJob(job, makeResolveMat(materials, 'test'), m => {
                 if (m.type !== 'tick' && !this.dead) this.onmessage?.({ data: m });
             });
         }, 0);

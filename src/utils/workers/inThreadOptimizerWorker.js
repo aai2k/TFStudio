@@ -5,10 +5,12 @@
  * postMessage, onmessage, onerror, terminate. Each job starts on a later task
  * and its messages reach `onmessage` as they would from a real worker, so the
  * runners' code is the same either way. Jobs run one at a time, in the order
- * they were posted.
+ * they were posted. Each one holds the material tables it was last sent, as a
+ * Web Worker does (jobTables.js).
  */
 
 import { handleOptimizerMessage } from './optimizerJob.js';
+import { makeTableHolder } from './jobTables.js';
 
 // Run `fn` on a later task without a timer's minimum delay, which a run of
 // hundreds of refines would otherwise spend idle (a zero-delay setTimeout
@@ -26,6 +28,7 @@ export class InThreadOptimizerWorker {
         this.onmessage = null;
         this.onerror = null;
         this.terminated = false;
+        this.tablesOf = makeTableHolder();
     }
 
     postMessage(job) {
@@ -33,7 +36,7 @@ export class InThreadOptimizerWorker {
             if (this.terminated) return;
             handleOptimizerMessage(job, (message) => {
                 if (!this.terminated && this.onmessage) this.onmessage({ data: message });
-            });
+            }, this.tablesOf);
         });
     }
 

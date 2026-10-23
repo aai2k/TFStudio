@@ -9,6 +9,7 @@ import { makeJob } from './dlsPoolJobs.js';
 import { handleMsg, failRun, failAfterProgress, isLive, showStart } from './dlsPoolMessages.js';
 import { endRun, resultOf } from './dlsPoolFinalize.js';
 import { scoreStartP } from './engineRun.js';
+import { postJob } from '../workers/jobTables.js';
 
 function spawnWorker(R, S) {
     let w;
@@ -53,7 +54,7 @@ function postFirstJobs(S, workers) {
     for (const w of workers) {
         if (S.nextJob >= S.nJobs) break;
         const r = S.nextJob++;
-        w.postMessage(makeJob(S, S.isMulti ? r + 1 : 0));
+        postJob(w, makeJob(S, S.isMulti ? r + 1 : 0));
     }
 }
 

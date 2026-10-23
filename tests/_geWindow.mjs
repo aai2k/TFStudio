@@ -12,6 +12,7 @@
  */
 import { dispatchSynthesisJob } from '../src/utils/workers/synthesisWorker.js';
 import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
+import { makeTableHolder } from '../src/utils/workers/jobTables.js';
 import { WorkerPool } from '../src/utils/workers/workerPool.js';
 import { SYNTHESIS_WORKER_URL } from '../src/workerUrls.js';
 import { teardownRun } from '../src/components/windows/optimization/synthesisShared/teardownRun.js';
@@ -79,14 +80,15 @@ const SCRIPTED_ANSWERS = {
     },
 };
 
-// The real handlers, or the scripted answer, for one job.
-function answerJob(win, job, post) {
+// The real handlers, on the material tables the worker holds, or the scripted
+// answer, for one job.
+function answerJob(win, job, materials, post) {
     if (win.spec.worker === 'scripted') {
         const answer = SCRIPTED_ANSWERS[job.type];
         post({ type: 'result', ...(answer ? answer(jobStacks(job), job) : {}) });
         return;
     }
-    try { dispatchSynthesisJob(job, makeResolveMat(job.materials || {}, 'fakeWindow'), post); }
+    try { dispatchSynthesisJob(job, makeResolveMat(materials, 'fakeWindow'), post); }
     catch (e) { post({ type: 'error', message: String(e && e.message || e) }); }
 }
 
@@ -127,6 +129,7 @@ class FakeWorker {
         this.win.workers++;
         this.onmessage = null; this.onerror = null; this.onmessageerror = null;
         this.dead = false;
+        this.tablesOf = makeTableHolder();
     }
     postMessage(job) {
         if (this.dead || !job || job.type === 'wasmInit') return;
@@ -134,10 +137,11 @@ class FakeWorker {
         const n = ++win.jobCount;
         win.jobs[job.type] = (win.jobs[job.type] || 0) + 1;
         win.posted.push(job);
+        const materials = this.tablesOf(job);
         const post = m => { if (!this.dead && this.onmessage) this.onmessage({ data: m }); };
         Promise.resolve().then(() => {
             if (this.dead || scriptedJob(win, n, post)) return;
-            answerJob(win, job, post);
+            answerJob(win, job, materials, post);
         });
     }
     terminate() { if (!this.dead) { this.dead = true; this.win.terminated++; } }
