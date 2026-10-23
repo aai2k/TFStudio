@@ -13,8 +13,9 @@
  *   writing the file saveDesign writes, refusing that file then and writing
  *   over it with overwrite=True, and tf.open_design() of it; sides and
  *   score_on round-tripping to surfaceMode and mfEvalMode, and the mode of a
- *   spectrum, a Monte Carlo run, a refinement and a layer ranking being the
- *   API's evaluation mode, for every pair; layer rankings of a two-sided
+ *   spectrum, a Monte Carlo run, a refinement, a layer ranking, an index
+ *   profile and a list of layer thicknesses being the API's evaluation mode,
+ *   and total_thickness() counting the coated sides, for every pair; layer rankings of a two-sided
  *   design with a locked layer, with the defaults, with step "percent",
  *   rel_pct and include_locked, and with step "percent" alone, back rows
  *   numbered from the substrate; materials by id, by name and by the
@@ -30,6 +31,9 @@
  *   a Stop, and their refusals; clean() with its defaults, with each option
  *   and on a symmetric design, its CleanReport's named tuples, each
  *   operation's number read back through the layers, and its refusals;
+ *   index_profile() and layer_thicknesses() as named tuples, save_csv(), the
+ *   facts with and without side, layer.qwot read and set, None for a
+ *   material that resolves to nothing, and their refusals;
  *   refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
@@ -156,8 +160,15 @@ async function modes(t, said) {
         if (!held || !found.every(mode => mode === evalMode)) wrong.push(`${sides}/${scoreOn}: ${[sidesRead, scoreOnRead, surfaceMode, mfEvalMode, ...found]} / ${evalMode}`);
     }
     const kinds = new Set((said.modes ?? []).map(row => row[6])).size;
-    ok('sides and score_on round-trip to surfaceMode and mfEvalMode, and a spectrum\'s, a Monte Carlo run\'s, a run\'s and a ranking\'s mode are the API\'s evaluation mode, for every pair',
-        said.modes?.length === 8 && wrong.length === 0 && kinds === 3, wrong.join('; ') || JSON.stringify(said.modes));
+    ok('sides and score_on round-trip to surfaceMode and mfEvalMode, and a spectrum\'s, a Monte Carlo run\'s, a run\'s, a ranking\'s, an index profile\'s and a thickness list\'s mode are the API\'s evaluation mode, for every pair',
+        said.modes?.length === 8 && said.modes.every(row => row.length === 12) && wrong.length === 0 && kinds === 3, wrong.join('; ') || JSON.stringify(said.modes));
+    const factsWrong = [];
+    for (const [design, total] of said.modeFacts ?? []) {
+        const facts = await attempt(() => api.designFacts(design));
+        const coated = { front_only: 'front', back_only: 'back', both_independent: 'total', symmetric: 'front' }[design.surfaceMode];
+        if (facts.thickness !== total || facts.mode !== coated) factsWrong.push(`${design.surfaceMode}/${design.mfEvalMode}: ${total} / ${facts.thickness} ${facts.mode}`);
+    }
+    ok('and total_thickness() is designFacts\' thickness, on the coated sides, for every pair', said.modeFacts?.length === 8 && factsWrong.length === 0, factsWrong.join('; '));
     ok('sides and score_on the app does not have are refused, naming those it has', said.badSides === "sides is 'front', 'back', 'both' or 'symmetric', not 'two'"
         && said.badScoreOn === "score_on is 'side' or 'whole part', not 'total'", `${said.badSides} / ${said.badScoreOn}`);
     await rankings(t, said.ranked ?? {});
@@ -418,6 +429,58 @@ async function cleaning(t, said) {
         'clean: the design has no layers; add them with layers.append() or stack()']) && got.kept === true, canon(got.worded));
 }
 
+// What _pythonObjects.py stack_views() read of a design coated on both
+// sides, against the plain calls here on the design it read.
+const profileOf = p => [p.mode, p.wavelength, p.incident && [p.incident.material, p.incident.n, p.incident.k],
+    p.substrate && [p.substrate.material, p.substrate.n, p.substrate.k, p.substrate.thickness ?? null],
+    p.layers.map(l => [l.side ?? p.mode, l.number, l.material, l.n, l.k, l.thickness, l.start, l.end]), p.thickness, p.opticalThickness, p.outOfRange];
+const thicknessesOf = t => [t.mode, t.wavelength, t.rows.map(r => [r.side ?? t.mode, r.number, r.material, r.thickness, r.opticalThickness, r.qwot, r.fwot]), t.outOfRange];
+// A CSV's text as rows of fields, the numbers read as numbers, since Python
+// and JavaScript print some of them differently (1e-05 and 0.00001).
+const csvRows = text => String(text).split(/\r?\n/).filter(Boolean).map(line => line.split(',').map(field => (field !== '' && Number.isFinite(Number(field)) ? Number(field) : field)));
+
+async function stackViews(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.stackViews ?? {};
+    const design = got.design ?? {};
+    const PROFILES = [undefined, { wavelength: 633 }, { side: 'back', wavelength: 1064 }];
+    const profiles = await Promise.all(PROFILES.map(options => attempt(() => profileOf(api.indexProfile(design, options)))));
+    const thicknesses = await Promise.all([undefined, { wavelength: 550, side: 'front' }].map(options => attempt(() => thicknessesOf(api.layerThicknesses(design, options)))));
+    ok('index_profile() and layer_thicknesses() are indexProfile and layerThicknesses, with their defaults and each argument, as named tuples',
+        canon(got.profiles) === canon(profiles) && canon(got.thicknesses) === canon(thicknesses) && profiles[0][0] === 'total'
+        && canon(got.fields) === canon([['side', 'number', 'material', 'n', 'k', 'thickness', 'start', 'end'], ['side', 'number', 'material', 'thickness', 'optical_thickness', 'qwot', 'fwot']]),
+        canon(got.profiles)?.slice(0, 300));
+    const objects = await import('../src/api/objects/index.js');
+    const csvThere = [{ side: 'front', wavelength: 633 }, undefined].map((options, i) => {
+        const file = path.join(WORK, `js-profile-${i}.csv`);
+        new objects.IndexProfile(api.indexProfile(design, options)).saveCsv(file);
+        return csvRows(fs.readFileSync(file, 'utf8'));
+    });
+    ok('save_csv writes what saveCsv writes, on one side and on the whole part', canon((got.csv ?? []).map(csvRows)) === canon(csvThere) && csvThere[1][0].join() === 'region,z,n,k',
+        String(got.csv?.[1]).slice(0, 200));
+    const facts = ['front', 'back', 'total'].reduce((all, side) => [...all, api.designFacts(design, { side })], [api.designFacts(design)]);
+    ok('total_thickness(), optical_thickness() and layer_counts() are designFacts\', with and without side', canon(got.facts) === canon(facts.map(f => [f.thickness, f.opticalThickness, f.layerCounts])),
+        canon(got.facts));
+    const all = facts[3];
+    ok('layer.qwot reads designFacts\' QWOT of each layer, on the front and the back', canon(got.qwots) === canon([...all.qwot.front, ...all.qwot.back]) && got.qwots.every(q => q > 0), canon(got.qwots));
+    const front = design.frontLayers?.length ?? 0;
+    const set = await attempt(() => api.setLayer(api.setLayer(design, { index: front - 2, qwot: 1.5 }), { side: 'back', index: 0, qwot: 0.75 }));
+    ok('setting layer.qwot is setLayer with qwot, and reads back as set', canon(got.set) === canon(set) && Math.abs(got.read?.[0] - 1.5) < 1e-12 && Math.abs(got.read?.[1] - 0.75) < 1e-12,
+        canon(got.read));
+    ok('a layer whose material resolves to nothing reads its QWOT and the optical thickness as None', canon(got.lost) === canon([null, null]), canon(got.lost));
+    ok('their refusals are in Python\'s words', canon(got.worded) === canon([
+        'layer 1: qwot is a quarter-wave optical thickness above 0, not 0',
+        `layer ${front}: NoSuchFilm resolves to nothing, so the layer has no quarter wave; set its thickness in nm`,
+        'layer 1: the back of a symmetric design mirrors its front; edit the front',
+        "index_profile: side is 'front', 'back' or 'total', not 'both'",
+        'layer_thicknesses: wavelength is a wavelength in nm above 0, not -5',
+        'layer_thicknesses: the back has no layers',
+        'index_profile: the front has no layer thicker than 0 nm',
+    ]), canon(got.worded));
+    ok('and repr() shows what they hold', canon(got.shown) === canon([`<IndexProfile total at 600 nm: ${front + (design.backLayers?.length ?? 0)} layers, ${api.indexProfile(design, { wavelength: 600 }).thickness} nm>`,
+        `<LayerThicknesses front at 600 nm: ${front} layers>`]), canon(got.shown));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -596,6 +659,7 @@ export async function checkObjects(t) {
     await specification(u, ran.said, measured);
     await yields(u, ran.said);
     await cleaning(u, ran.said);
+    await stackViews(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

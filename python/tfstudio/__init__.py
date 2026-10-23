@@ -22,12 +22,13 @@ from ._merit import Merit, MeritRow
 from ._results import (CheckResult, CleanReport, Curve, LayerSensitivity, MonteCarlo, Progress, RunResult, SensitivityRow,
                        SpecReport, Spectrum, Yield)
 from ._specification import SpecCheck, Specification
+from ._stack_views import IndexProfile, LayerThicknesses
 from ._stop import Stop
 from ._studio import App, AppDesign, Material, Materials, TFStudio
 
 __version__ = "0.1.0"
 
 __all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
-           "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "Progress", "RunResult", "MonteCarlo",
-           "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material", "App", "AppDesign", "Stop",
-           "TFStudioError", "AppError", "ServerError"]
+           "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Progress",
+           "RunResult", "MonteCarlo", "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material", "App",
+           "AppDesign", "Stop", "TFStudioError", "AppError", "ServerError"]

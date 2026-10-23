@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -613,6 +613,164 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 s = design.spectrum(400, 800, step=1, angles=[0, 45])
 print(s.mode, max(s.R), min(s.angle(45).Tp))
+```
+
+### indexProfile / index_profile
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.indexProfile({ wavelength, side })` | `design.index_profile(wavelength=..., side=...)` |
+
+The refractive index of the layers at one wavelength, laid out by depth, as the Refractive Index Profile window shows it. The sides follow the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given: on one side, the layers in the order light meets them coming from that side's medium; on the whole part, the front, the substrate and the back, as the window's Total view lays them. A layer with no thickness is left out, as the window leaves it out.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `wavelength` | `wavelength` |  | The wavelength n and k are read at, nm. Without it, the design's reference wavelength. |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+
+**Returns**: An IndexProfile.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing<br>**Python**: a wavelength of 0 or less, a side other than "front", "back" or "total", a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const profile = design.indexProfile({ wavelength: 633 });
+for (const l of profile.layers) console.log(l.number, l.material, l.n.toFixed(4), l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+profile = design.index_profile(wavelength=633)
+for l in profile.layers:
+    print(l.number, l.material, round(l.n, 4), round(l.start, 1), "to", round(l.end, 1), "nm")
+```
+
+### layerThicknesses / layer_thicknesses
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.layerThicknesses({ wavelength, side })` | `design.layer_thicknesses(wavelength=..., side=...)` |
+
+Each layer's physical and optical thickness, as the Layer Thicknesses window lists them, with the optical ones taken at one wavelength. The sides follow the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given; on the whole part, the front's layers and then the back's. Every layer has its row, one with no thickness too.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `wavelength` | `wavelength` |  | The wavelength λ0 the optical thicknesses are taken at, nm. Without it, the design's reference wavelength. |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, both sides. Without it, what the design is scored on. |
+
+**Returns**: A LayerThicknesses.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layers, or a design that names a material that resolves to nothing<br>**Python**: a wavelength of 0 or less, a side other than "front", "back" or "total", a side with no layers, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const row of design.layerThicknesses({ wavelength: 600 }).rows) console.log(row.number, row.material, row.thickness.toFixed(2), 'nm, QWOT', row.qwot.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for row in design.layer_thicknesses(wavelength=600).rows:
+    print(row.number, row.material, round(row.thickness, 2), "nm, QWOT", round(row.qwot, 4))
+```
+
+### totalThickness / total_thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.totalThickness({ side })` | `design.total_thickness(side=...)` |
+
+The physical thickness of the layers, nm. Without `side`, of the sides a TT merit row sums, as the row reads it: the front of a design coated on the front or symmetric, the back of one coated on the back, both of one coated on both. So a symmetric design counts its front once. `'total'` counts the front and the back the design holds, a symmetric design's back as the mirror of its front.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, both sides. Without it, the coated sides. |
+
+**Returns**: The thickness, nm.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, or a side other than `'front'`, `'back'` or `'total'`<br>**Python**: a side other than "front", "back" or "total"
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.sides = 'symmetric';
+console.log(design.totalThickness(), 'nm coated,', design.totalThickness({ side: 'total' }), 'nm on both sides');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.sides = "symmetric"
+print(design.total_thickness(), "nm coated,", design.total_thickness(side="total"), "nm on both sides")
+```
+
+### opticalThickness / optical_thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.opticalThickness({ side })` | `design.optical_thickness(side=...)` |
+
+The optical thickness of the layers, the sum of n times thickness at the design's reference wavelength, nm, over the layers `totalThickness()` / `total_thickness()` counts with the same `side`.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, both sides. Without it, the coated sides. |
+
+**Returns**: The optical thickness, nm; `null` / `None` when a material of a layer counted resolves to nothing.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, or a side other than `'front'`, `'back'` or `'total'`<br>**Python**: a side other than "front", "back" or "total"
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.opticalThickness(), 'nm, seven quarter waves of', design.reference / 4, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.optical_thickness(), "nm, seven quarter waves of", design.reference / 4, "nm")
+```
+
+### layerCounts / layer_counts
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.layerCounts({ side })` | `design.layer_counts(side=...)` |
+
+How many layers of each material, over the layers `totalThickness()` / `total_thickness()` counts with the same `side`.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, both sides. Without it, the coated sides. |
+
+**Returns**: **JavaScript**: An object of counts by material id.<br>**Python**: A dict of counts by material id.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, or a side other than `'front'`, `'back'` or `'total'`<br>**Python**: a side other than "front", "back" or "total"
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H', { H: 'Ta2O5', L: 'SiO2' });
+console.log(design.layerCounts());
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H", H="Ta2O5", L="SiO2")
+print(design.layer_counts())
 ```
 
 ### refine
@@ -1324,6 +1482,33 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.layers[1].thickness = 12.5
 print(design.layers[1].thickness, "nm")
+```
+
+### qwot
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.layers[n].qwot` | `design.layers[n].qwot` |
+| `design.layers[n].qwot = value` | `design.layers[n].qwot = value` |
+
+The layer's quarter-wave optical thickness, 4 n d / λ0, with n its material's index at the design's reference wavelength λ0, as the Design Editor's QW column shows it; `null` / `None` for a layer whose material resolves to nothing or has n of 0 or less there, which has no quarter wave. Set it to change the thickness, converted to nm as the QW column converts a value typed in it. A locked layer changes too: a lock holds a layer in refinement and synthesis.
+
+**Refuses**:
+
+- a value of 0 or less, a layer with no quarter wave, or a side the design does not let you edit
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.layers[1].qwot = 2;
+console.log(design.layers[1].qwot, 'quarter waves,', design.layers[1].thickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.layers[1].qwot = 2
+print(design.layers[1].qwot, "quarter waves,", design.layers[1].thickness, "nm")
 ```
 
 ### locked
@@ -3712,6 +3897,332 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 s = design.spectrum(400, 700)
 print("Highest R from 450 to 650 nm:", s.R.max(450, 650))
+```
+
+## IndexProfile
+
+The refractive index of a design's layers at one wavelength, laid out by depth, as `design.indexProfile()` / `design.index_profile()` reads it and the Refractive Index Profile window shows it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const profile = design.indexProfile({ wavelength: 633 });
+for (const l of profile.layers) console.log(l.number, l.material, l.n, l.start, l.end);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+profile = design.index_profile(wavelength=633)
+for l in profile.layers:
+    print(l.number, l.material, l.n, l.start, l.end)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.mode` | `profile.mode` |
+
+What it was laid out on: `'front'` or `'back'`, that side alone, or `'total'`, the whole part.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.index_profile().mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.wavelength` | `profile.wavelength` |
+
+The wavelength n and k were read at, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile().wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.index_profile().wavelength, "nm")
+```
+
+### incident
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.incident` | `profile.incident` |
+
+**JavaScript**: The medium light comes from, `{ material, n, k }`: the incident medium on the front, the exit medium on the back; null on the whole part, whose profile starts at the front's outer layer.
+
+**Python**: The medium light comes from, a named tuple (material, n, k): the incident medium on the front, the exit medium on the back; None on the whole part, whose profile starts at the front's outer layer.
+
+```js
+const design = tf.newDesign('Prism coating');
+design.stack('(HL)^2');
+design.incidentMedium = 'BK7';
+const { incident } = design.indexProfile();
+console.log(incident.material, incident.n);
+```
+
+```python
+design = tf.new_design("Prism coating")
+design.stack("(HL)^2")
+design.incident_medium = "BK7"
+incident = design.index_profile().incident
+print(incident.material, incident.n)
+```
+
+### substrate
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.substrate` | `profile.substrate` |
+
+**JavaScript**: The substrate, `{ material, n, k }`; on the whole part also `thickness`, mm, and null when the design gives the substrate no thickness.
+
+**Python**: The substrate, a named tuple (material, n, k, thickness), thickness in mm on the whole part and None on one side; None on the whole part when the design gives the substrate no thickness.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { substrate } = design.indexProfile({ side: 'total' });
+console.log(substrate.material, substrate.n, substrate.thickness, 'mm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+substrate = design.index_profile(side="total").substrate
+print(substrate.material, substrate.n, substrate.thickness, "mm")
+```
+
+### layers
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.layers` | `profile.layers` |
+
+**JavaScript**: One object per layer with a thickness, `{ number, material, n, k, thickness, start, end }`: number as design.layers and design.backLayers number it, 1 next to the substrate; material by id; thickness, start and end in nm, start and end the layer's depth from its side's outer surface. On one side the layers run from the outer surface in. On the whole part each also has `side`; the front's come first, from its outer surface in, then the back's from the substrate out, with start and end from the substrate.
+
+**Python**: One named tuple (side, number, material, n, k, thickness, start, end) per layer with a thickness: side the layer's side; number as design.layers and design.back_layers number it, 1 next to the substrate; material by id; thickness, start and end in nm, start and end the layer's depth from its side's outer surface. On one side the layers run from the outer surface in. On the whole part the front's come first, from its outer surface in, then the back's from the substrate out, with start and end from the substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const l of design.indexProfile().layers) console.log(l.number, l.material, l.n, l.k, l.start, l.end);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for l in design.index_profile().layers:
+    print(l.number, l.material, l.n, l.k, l.start, l.end)
+```
+
+### thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.thickness` | `profile.thickness` |
+
+The physical thickness of the layers, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile().thickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.index_profile().thickness, "nm")
+```
+
+### opticalThickness / optical_thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.opticalThickness` | `profile.optical_thickness` |
+
+The optical thickness of the layers, the sum of n times thickness at the wavelength, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile({ wavelength: 550 }).opticalThickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.index_profile(wavelength=550).optical_thickness, "nm")
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.outOfRange` | `profile.out_of_range` |
+
+**JavaScript**: The materials whose data do not reach the wavelength, an array of `{ id, name, rangeNm, heldFlat }`: their n and k there are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers it.
+
+**Python**: The materials whose data do not reach the wavelength, a list of dicts with id, name, rangeNm and heldFlat: their n and k there are held at the last value (heldFlat True) or extrapolated. Empty when every material covers it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile({ wavelength: 5000 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print([m["id"] for m in design.index_profile(wavelength=5000).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.saveCsv(path)` | `profile.save_csv(path)` |
+
+Writes the profile to a CSV file, the table the window exports less the stretch of medium and substrate it draws at each end: a row for each step of n and k with the depth it starts at, `z (nm)`, from the outer surface to the substrate, which the last row gives. On the whole part the columns are `region`, `z`, `n` and `k`, each part's depths counted from its start, the substrate's in mm. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `profile-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.indexProfile({ wavelength: 633 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "profile-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.index_profile(wavelength=633).save_csv(name)
+print("Wrote", name)
+```
+
+## LayerThicknesses
+
+Each layer's physical and optical thickness, as `design.layerThicknesses()` / `design.layer_thicknesses()` lists them and the Layer Thicknesses window shows them.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const row of design.layerThicknesses().rows) console.log(row.number, row.material, row.thickness, row.qwot);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for row in design.layer_thicknesses().rows:
+    print(row.number, row.material, row.thickness, row.qwot)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.mode` | `thicknesses.mode` |
+
+What was listed: `'front'` or `'back'`, that side's layers, or `'total'`, both sides.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.layerThicknesses().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.layer_thicknesses().mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.wavelength` | `thicknesses.wavelength` |
+
+The wavelength λ0 the optical thicknesses were taken at, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.layerThicknesses().wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.layer_thicknesses().wavelength, "nm")
+```
+
+### rows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.rows` | `thicknesses.rows` |
+
+**JavaScript**: One object per layer, from layer 1 next to the substrate outward, `{ number, material, thickness, opticalThickness, qwot, fwot }`: number as design.layers and design.backLayers number it; material by id; thickness, nm; opticalThickness, n times thickness, nm; qwot, 4 n d / λ0, and fwot, n d / λ0, with n the material's index at the wavelength. The three optical values are null for a layer with no material. On both sides each row also has `side`, the front's rows first.
+
+**Python**: One named tuple (side, number, material, thickness, optical_thickness, qwot, fwot) per layer, from layer 1 next to the substrate outward: side the layer's side; number as design.layers and design.back_layers number it; material by id; thickness, nm; optical_thickness, n times thickness, nm; qwot, 4 n d / λ0, and fwot, n d / λ0, with n the material's index at the wavelength. The three optical values are None for a layer with no material. On both sides the front's rows come first.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const row of design.layerThicknesses({ wavelength: 600 }).rows) console.log(row.number, row.opticalThickness, row.qwot, row.fwot);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for row in design.layer_thicknesses(wavelength=600).rows:
+    print(row.number, row.optical_thickness, row.qwot, row.fwot)
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.outOfRange` | `thicknesses.out_of_range` |
+
+**JavaScript**: The materials whose data do not reach the wavelength, an array of `{ id, name, rangeNm, heldFlat }`, as for an IndexProfile.
+
+**Python**: The materials whose data do not reach the wavelength, a list of dicts with id, name, rangeNm and heldFlat, as for an IndexProfile.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.layerThicknesses({ wavelength: 5000 }).outOfRange.length, 'materials stop short of 5000 nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(len(design.layer_thicknesses(wavelength=5000).out_of_range), "materials stop short of 5000 nm")
 ```
 
 ## RunResult

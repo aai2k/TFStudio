@@ -9,7 +9,9 @@
  *      are the API's exports but init, and every call answers what the API
  *      answers here, the ids a design draws and the time a synthesis step
  *      took aside: designs built, edited, cleaned, saved (to the bytes the API
- *      writes) and opened again, spectra, materials, merit, a specification
+ *      writes) and opened again, a layer set by its QWOT, spectra, index
+ *      profiles, one of a side with no layers refused, layer thicknesses,
+ *      the design's facts, materials, merit, a specification
  *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
  *      a seeded yield.
  *   2. Values: a spectrum's angles are keyed by text, and the spectrum as
@@ -277,6 +279,11 @@ const STOPPED_WITHIN_S = 5;
         ['materialNK', ['TiO2', [400, 550, 700]]],
         ['spectrum', [stack, { from: 400, to: 700, step: 10, angles: [0, 45] }]],
         ['summarize', [spectrum, { bands: [{ from: 450, to: 650 }] }]],
+        ['indexProfile', [stack, { wavelength: 633 }]],
+        ['indexProfile', [stack, { side: 'back' }]],
+        ['layerThicknesses', [stack, { side: 'total' }]],
+        ['designFacts', [stack]],
+        ['setLayer', [stack, { index: 1, qwot: 1.5 }]],
         ['setMerit', [stack, AR_ROWS]],
         ['merit', [start]],
         ['setSpecification', [start, CHECKS]],

@@ -12,8 +12,9 @@
  *   that rescales the layers); save(), refusing a file that is there without
  *   overwrite, and openDesign(); sides and scoreOn
  *   round-tripping to surfaceMode and mfEvalMode, and the mode of a spectrum, a
- *   Monte Carlo run, a refinement and a layer ranking being the API's
- *   evaluation mode, for every pair; materials by id, catalog:key ids
+ *   Monte Carlo run, a refinement, a layer ranking, an index profile and a
+ *   list of layer thicknesses being the API's evaluation mode, and the
+ *   design's facts counting its coated sides, for every pair; materials by id, catalog:key ids
  *   included, by name and by the builtin: id a stacked layer holds, and their
  *   n and k, and a name two materials share refused; spectrum curves at two
  *   angles as arrays, their mean, min and max over a band and the whole range,
@@ -28,7 +29,10 @@
  *   clean() changing the design in place to what cleanDesign gives, its
  *   options by the objects' names, its defaults and a symmetric design's
  *   back, its operations naming their layers by number on both sides, and its
- *   refusals in the objects' words; refine and synthesize with seeds, Monte
+ *   refusals in the objects' words; indexProfile() and layerThicknesses()
+ *   with their defaults and options, totalThickness(), opticalThickness()
+ *   and layerCounts() with and without side, layer.qwot read and set on both
+ *   sides, and their refusals in the objects' words; refine and synthesize with seeds, Monte
  *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
  *   back rows and locked rows; the Progress objects of a refinement, a Needle
  *   run, a Deep Synthesis run and a Monte Carlo run; a stop aborted in
@@ -246,12 +250,17 @@ const SCORE_ON = { side: 'side', 'whole part': 'total' };
             const held = [each.sides, each.scoreOn, each._data.surfaceMode, each._data.mfEvalMode].join() === [sides, scoreOn, SIDES[sides], SCORE_ON[scoreOn]].join();
             const { evalMode } = api.spectrum(api.setDesignSetup(twoSided._data, { surfaceMode: SIDES[sides], mfEvalMode: SCORE_ON[scoreOn] }), { from: 500, to: 600, step: 50 });
             const found = [each.spectrum(500, 600, { step: 50 }).mode, (await each.monteCarlo(500, 600, { step: 50, runs: 1, seed: 1 })).mode,
-                (await quietly(() => each.copy().refine({ maxIter: 1 }))).mode, each.layerSensitivity().mode];
+                (await quietly(() => each.copy().refine({ maxIter: 1 }))).mode, each.layerSensitivity().mode,
+                each.indexProfile().mode, each.layerThicknesses().mode];
             kinds.add(evalMode);
             if (!held || !found.every(mode => mode === evalMode)) wrong.push(`${sides}/${scoreOn}: ${found} / ${evalMode}`);
+            // The facts count the coated sides, which the TT row sums, whatever the scoring.
+            const facts = api.designFacts(each._data);
+            const coated = { front: 'front', back: 'back', both: 'total', symmetric: 'front' }[sides];
+            if (canon([facts.mode, each.totalThickness()]) !== canon([coated, facts.thickness])) wrong.push(`${sides}/${scoreOn}: facts ${facts.mode} / ${coated}`);
         }
     }
-    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, and a spectrum\'s, a Monte Carlo run\'s, a run\'s and a ranking\'s mode are the API\'s evaluation mode, for every pair',
+    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, a spectrum\'s, a Monte Carlo run\'s, a run\'s, a ranking\'s, an index profile\'s and a thickness list\'s mode are the API\'s evaluation mode, and the facts\' the coated sides, for every pair',
         wrong.length === 0 && kinds.size === 3, wrong.join('; '));
     const badSides = await refused(() => { twoSided.sides = 'two'; });
     const badScoreOn = await refused(() => { twoSided.scoreOn = 'total'; });
@@ -625,6 +634,57 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     const worded = await Promise.all(CLEAN_WORDED.map(([make]) => refused(make)));
     ok('clean()\'s refusals are in the objects\' words, and leave the design as it was', canon([worded, kept._data])
         === canon([CLEAN_WORDED.map(([, words]) => words), before._data]), worded.join('\n'));
+}
+
+// ── The stack read: index profile, layer thicknesses, facts and QWOT ────────
+{
+    // Coated on both sides, the back with layers unlike the front's.
+    const read = both.copy();
+    const profiles = [{}, { wavelength: 633 }, { side: 'total' }, { side: 'back', wavelength: 1064 }];
+    const profileFields = p => [p.mode, p.wavelength, p.incident, p.substrate, p.layers, p.thickness, p.opticalThickness, p.outOfRange];
+    const thicknessFields = t => [t.mode, t.wavelength, t.rows, t.outOfRange];
+    ok('indexProfile() and layerThicknesses() give what indexProfile and layerThicknesses give, with their defaults and with each option',
+        profiles.every(options => canon(profileFields(read.indexProfile(options))) === canon(profileFields(api.indexProfile(read._data, options)))
+            && canon(thicknessFields(read.layerThicknesses(options))) === canon(thicknessFields(api.layerThicknesses(read._data, options))))
+        && read.indexProfile({ side: 'front' }).layers.length === read.layers.length && read.layerThicknesses().rows.length === read.layers.length + read.backLayers.length);
+    const sides = [undefined, 'front', 'back', 'total'];
+    const facts = sides.map(side => api.designFacts(read._data, { side }));
+    ok('totalThickness(), opticalThickness() and layerCounts() are designFacts\' thickness, opticalThickness and layerCounts, with and without side',
+        canon(sides.map(side => [read.totalThickness({ side }), read.opticalThickness({ side }), read.layerCounts({ side })]))
+        === canon(facts.map(f => [f.thickness, f.opticalThickness, f.layerCounts])) && facts[3].thickness > facts[1].thickness);
+    ok('an IndexProfile and a LayerThicknesses print what they hold', inspect(read.indexProfile({ wavelength: 600 })) === `<IndexProfile total at 600 nm: ${read.layers.length + read.backLayers.length} layers, ${facts[3].thickness} nm>`
+        && inspect(read.layerThicknesses({ side: 'front' })) === `<LayerThicknesses front at ${read.reference} nm: ${read.layers.length} layers>`, inspect(read.indexProfile({ wavelength: 600 })));
+    const qwots = [...[...read.layers].map(layer => layer.qwot), ...[...read.backLayers].map(layer => layer.qwot)];
+    ok('layer.qwot reads designFacts\' QWOT of the layer, on the front and the back', canon(qwots) === canon([...facts[3].qwot.front, ...facts[3].qwot.back]) && qwots.every(q => q > 0),
+        canon(qwots));
+    const set = read.copy();
+    set.layers[2].qwot = 1.5;
+    set.backLayers[1].qwot = 0.75;
+    const there = api.setLayer(api.setLayer(read._data, { index: read.layers.length - 2, qwot: 1.5 }), { side: 'back', index: 0, qwot: 0.75 });
+    ok('setting layer.qwot is setLayer with qwot, and reads back as set', canon(set._data) === canon(there)
+        && Math.abs(set.layers[2].qwot - 1.5) < 1e-12 && Math.abs(set.backLayers[1].qwot - 0.75) < 1e-12, canon(set.layers[2].thickness));
+    const lost = read.copy();
+    const [outer, ...inner] = lost._data.frontLayers;
+    lost._data = { ...lost._data, frontLayers: [{ ...outer, material: 'NoSuchFilm' }, ...inner] };
+    const top = lost.layers.length;
+    const symmetric = read.copy();
+    symmetric.sides = 'symmetric';
+    const QWOT_WORDED = [
+        [() => { set.layers[1].qwot = 0; }, 'layer 1: qwot is a quarter-wave optical thickness above 0, not 0'],
+        [() => { lost.layers[top].qwot = 1; }, `layer ${top}: NoSuchFilm resolves to nothing, so the layer has no quarter wave; set its thickness in nm`],
+        [() => { symmetric.backLayers[1].qwot = 1; }, 'layer 1: the back of a symmetric design mirrors its front; edit the front'],
+        [() => read.indexProfile({ side: 'both' }), 'indexProfile: side is \'front\', \'back\' or \'total\', not "both"'],
+        [() => read.layerThicknesses({ wavelength: -5 }), 'layerThicknesses: wavelength is a wavelength in nm above 0, not -5'],
+        [() => read.totalThickness({ sides: 'front' }), "totalThickness: unknown option 'sides'; the options are side"],
+        [() => design.layerThicknesses({ side: 'back' }), 'layerThicknesses: the back has no layers'],
+        [() => tf.newDesign('Bare').indexProfile(), 'indexProfile: the front has no layer thicker than 0 nm'],
+        [() => new objects.Design({ ...read._data, ...Object.fromEntries(['frontLayers', 'backLayers'].map(key => [key, read._data[key].map(layer => ({ ...layer, thickness: 0 }))])) })
+            .indexProfile({ side: 'total' }), 'indexProfile: the design has no layer thicker than 0 nm'],
+        [() => tf.newDesign('Bare').layerCounts({ side: 'total' }), null],
+    ];
+    const worded = await Promise.all(QWOT_WORDED.map(([make]) => refused(make)));
+    ok('their refusals are in the objects\' words, and a material that resolves to nothing has no QWOT to read', canon(worded) === canon(QWOT_WORDED.map(([, words]) => words))
+        && lost.layers[top].qwot === null && lost.opticalThickness() === null, worded.join('\n'));
 }
 
 // ── Runs ────────────────────────────────────────────────────────────────────

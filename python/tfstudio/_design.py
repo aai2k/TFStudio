@@ -10,6 +10,7 @@ from ._names import api_names
 from ._refusals import Words, worded
 from ._results import CleanReport, LayerSensitivity, MonteCarlo, RunResult, Spectrum
 from ._specification import Specification
+from ._stack_views import IndexProfile, LayerThicknesses
 from ._stop import run_hooks
 
 # design.sides by the API's surfaceMode, and design.score_on by its mfEvalMode.
@@ -135,6 +136,36 @@ class Layer:
     @thickness.setter
     def thickness(self, thickness):
         self._layers._set(self._number, thickness=thickness)
+
+    @property
+    def qwot(self):
+        """The layer's quarter-wave optical thickness, 4 n d / λ0, with n its
+        material's index at the design's reference wavelength λ0, as the
+        Design Editor's QW column shows it; None for a layer whose material
+        resolves to nothing or has n of 0 or less there, which has no
+        quarter wave. Set it to change the thickness, converted to nm as the
+        QW column converts a value typed in it. A locked layer changes too: a
+        lock holds a layer in refinement and synthesis.
+
+        Raises:
+            TFStudioError: a value of 0 or less, a layer with no quarter
+                wave, or a side the design does not let you edit.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            design.layers[1].qwot = 2
+            print(design.layers[1].qwot, "quarter waves,", design.layers[1].thickness, "nm")
+        """
+        side = self._layers._side
+        self._layers._index(self._number)
+        design = self._layers._design
+        return design._calls.designFacts(design._data, {"side": side})["qwot"][side][self._number - 1]
+
+    @qwot.setter
+    def qwot(self, qwot):
+        self._layers._set(self._number, qwot=qwot)
 
     @property
     def locked(self):
@@ -743,6 +774,150 @@ class Design:
         computed = answer["angles"]
         series = [next(computed[key] for key in computed if float(key) == angle) for angle in angles]
         return Spectrum(answer["evalMode"], answer["lambda"], angles, series, answer["outOfRange"])
+
+    def index_profile(self, wavelength=None, side=None):
+        """The refractive index of the layers at one wavelength, laid out by
+        depth, as the Refractive Index Profile window shows it. The sides
+        follow the design's sides and score_on, as a spectrum does, unless
+        side is given: on one side, the layers in the order light meets them
+        coming from that side's medium; on the whole part, the front, the
+        substrate and the back, as the window's Total view lays them. A
+        layer with no thickness is left out, as the window leaves it out.
+
+        Args:
+            wavelength: The wavelength n and k are read at, nm. Default: the
+                design's reference wavelength.
+            side: "front", "back" or "total", the whole part. Default: what
+                the design is scored on.
+
+        Returns:
+            An IndexProfile.
+
+        Raises:
+            TFStudioError: a wavelength of 0 or less, a side other than
+                "front", "back" or "total", a side with no layer thicker than
+                0 nm, or a design that names a material that resolves to
+                nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            profile = design.index_profile(wavelength=633)
+            for l in profile.layers:
+                print(l.number, l.material, round(l.n, 4), round(l.start, 1), "to", round(l.end, 1), "nm")
+        """
+        return IndexProfile(self._read("indexProfile", "index_profile", wavelength=wavelength, side=side))
+
+    def layer_thicknesses(self, wavelength=None, side=None):
+        """Each layer's physical and optical thickness, as the Layer
+        Thicknesses window lists them, with the optical ones taken at one
+        wavelength. The sides follow the design's sides and score_on, as a
+        spectrum does, unless side is given; on the whole part, the front's
+        layers and then the back's. Every layer has its row, one with no
+        thickness too.
+
+        Args:
+            wavelength: The wavelength λ0 the optical thicknesses are taken
+                at, nm. Default: the design's reference wavelength.
+            side: "front", "back" or "total", both sides. Default: what the
+                design is scored on.
+
+        Returns:
+            A LayerThicknesses.
+
+        Raises:
+            TFStudioError: a wavelength of 0 or less, a side other than
+                "front", "back" or "total", a side with no layers, or a design
+                that names a material that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            for row in design.layer_thicknesses(wavelength=600).rows:
+                print(row.number, row.material, round(row.thickness, 2), "nm, QWOT", round(row.qwot, 4))
+        """
+        return LayerThicknesses(self._read("layerThicknesses", "layer_thicknesses", wavelength=wavelength, side=side))
+
+    def total_thickness(self, side=None):
+        """The physical thickness of the layers, nm. Without side, of the
+        sides a TT merit row sums, as the row reads it: the front of a design
+        coated on the front or symmetric, the back of one coated on the back,
+        both of one coated on both. So a symmetric design counts its front
+        once. "total" counts the front and the back the design holds, a
+        symmetric design's back as the mirror of its front.
+
+        Args:
+            side: "front", "back" or "total", both sides. Default: the coated
+                sides.
+
+        Returns:
+            The thickness, nm.
+
+        Raises:
+            TFStudioError: a side other than "front", "back" or "total".
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.sides = "symmetric"
+            print(design.total_thickness(), "nm coated,", design.total_thickness(side="total"), "nm on both sides")
+        """
+        return self._read("designFacts", "total_thickness", side=side)["thickness"]
+
+    def optical_thickness(self, side=None):
+        """The optical thickness of the layers, the sum of n times thickness
+        at the design's reference wavelength, nm, over the layers
+        total_thickness() counts with the same side.
+
+        Args:
+            side: "front", "back" or "total", both sides. Default: the coated
+                sides.
+
+        Returns:
+            The optical thickness, nm; None when a material of a layer counted
+            resolves to nothing.
+
+        Raises:
+            TFStudioError: a side other than "front", "back" or "total".
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            print(design.optical_thickness(), "nm, seven quarter waves of", design.reference / 4, "nm")
+        """
+        return self._read("designFacts", "optical_thickness", side=side)["opticalThickness"]
+
+    def layer_counts(self, side=None):
+        """How many layers of each material, over the layers
+        total_thickness() counts with the same side.
+
+        Args:
+            side: "front", "back" or "total", both sides. Default: the coated
+                sides.
+
+        Returns:
+            A dict of counts by material id.
+
+        Raises:
+            TFStudioError: a side other than "front", "back" or "total".
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H", H="Ta2O5", L="SiO2")
+            print(design.layer_counts())
+        """
+        return self._read("designFacts", "layer_counts", side=side)["layerCounts"]
+
+    def _read(self, call, method, **options):
+        """What the API's call `call` reads of the design with `options`, for
+        the method `method`, whose name its refusals then begin with."""
+        with worded(Words(call, method)):
+            return getattr(self._calls, call)(self._data, api_names(options))
 
     def refine(self, method="dls", **settings):
         """Refines the layer thicknesses against the merit function, as the

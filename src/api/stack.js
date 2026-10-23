@@ -10,6 +10,7 @@ import { buildReplaceAppendPatch } from '../components/windows/design/stackFormu
 import { mirrorLayers } from '../utils/physics/optimizer.js';
 import { newLayerId, ensureLayerIds } from '../utils/io/newDesign.js';
 import { requireMaterial } from './materials.js';
+import { qwotThickness } from './designFacts.js';
 import { sideKey } from './designs.js';
 import { checkOptions, requireValue, isPositive, isBoolean, refusal } from './check.js';
 import en from '../constants/locales/en.js';
@@ -123,7 +124,9 @@ export function deleteLayer(design, options) {
 }
 
 /**
- * A design with one layer's material, thickness or lock changed.
+ * A design with one layer's material, thickness or lock changed. The
+ * thickness can be given as a QWOT instead, converted to nm as the Design
+ * Editor's QW column converts a value typed in it.
  *
  * @param design The design.
  * @param options
@@ -131,23 +134,29 @@ export function deleteLayer(design, options) {
  * @param options.index The layer's index on its side, counted as `insertLayer` counts it.
  * @param [options.material] The new material, by id.
  * @param [options.thickness] The new physical thickness, nm.
+ * @param [options.qwot] The new thickness as a quarter-wave optical thickness, 4 n d / λ0, with n the layer's material's index at the design's reference wavelength λ0 (its new material's, with `material`); in place of `thickness`.
  * @param [options.locked] `true` locks the layer, `false` frees it.
  * @returns The design with the layer changed.
  * @throws a side the Design Editor does not let you edit, as for `insertLayer`
  * @throws an index outside the side's layers
  * @throws a material id that resolves to nothing, naming the closest ids
+ * @throws both thickness and qwot, a qwot of 0 or less, or a qwot for a layer whose material resolves to nothing or has n of 0 or less at the reference wavelength, which has no quarter wave
  * @example
  * const stack = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: 'HL' });
  * const design = tf.setLayer(stack, { index: 0, thickness: 100, locked: true });
  * console.log(design.frontLayers[0]);
+ * const halfWave = tf.setLayer(stack, { index: 1, qwot: 2 });
+ * console.log(halfWave.frontLayers[1].thickness, 'nm is two quarter waves of', halfWave.frontLayers[1].material);
  */
 export function setLayer(design, options) {
-    const { side = 'front', index, material, thickness, locked } =
-        checkOptions('setLayer', options, ['side', 'index', 'material', 'thickness', 'locked']);
+    const { side = 'front', index, material, thickness: given, qwot, locked } =
+        checkOptions('setLayer', options, ['side', 'index', 'material', 'thickness', 'qwot', 'locked']);
     const key = openSideKey('setLayer', design, side);
     const layers = design[key] || [];
     checkIndex('setLayer', layers, index);
     if (material !== undefined) requireMaterial(design, material);
+    if (given !== undefined && qwot !== undefined) throw new Error('setLayer: give thickness or qwot, not both');
+    const thickness = qwot === undefined ? given : qwotThickness('setLayer', design, material ?? layers[index].material, qwot);
     if (thickness !== undefined) thicknessOk('setLayer', thickness);
     if (locked !== undefined) requireValue('setLayer', 'locked', locked, isBoolean, 'true or false');
     const changed = {

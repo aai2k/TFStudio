@@ -20,7 +20,9 @@ const WORDS = {
     noSpecification: f => (f.call === 'checkSpecification'
         ? 'the design has no specification check; add one with specification.add()'
         : 'the design has no enabled specification check; add one with specification.add()'),
-    noLayers: () => 'the design has no layers; add them with layers.append() or stack()',
+    noLayers: f => (f.thin ? 'the design has no layer thicker than 0 nm' : 'the design has no layers; add them with layers.append() or stack()'),
+    emptySide: f => `the ${f.side} has no ${f.call === 'indexProfile' ? 'layer thicker than 0 nm' : 'layers'}`,
+    noQwot: f => `${f.material} ${f.n === null ? 'resolves to nothing' : `has n = ${f.n} at ${f.wavelength} nm`}, so the layer has no quarter wave; set its thickness in nm`,
     closedSide: f => (f.surfaceMode === 'symmetric'
         ? 'the back of a symmetric design mirrors its front; edit the front'
         : `a design coated on the ${OTHER_SIDE[f.side]} alone and scored on that side does not evaluate the ${f.side}; to edit it, set sides to 'both', or scoreOn to 'whole part'`),

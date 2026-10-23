@@ -87,6 +87,15 @@ class Calls:
     def summarize(self, result, options=None):
         return self._call("summarize", result, options)
 
+    def indexProfile(self, design, options=None):
+        return self._call("indexProfile", design, options)
+
+    def layerThicknesses(self, design, options=None):
+        return self._call("layerThicknesses", design, options)
+
+    def designFacts(self, design, options=None):
+        return self._call("designFacts", design, options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

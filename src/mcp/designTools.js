@@ -114,10 +114,12 @@ export function designTools({ api, store }) {
         },
         {
             name: 'setLayer', title: 'Change a layer',
-            description: "Changes a layer's material, thickness or lock.",
+            description: "Changes a layer's material, thickness or lock. The thickness can be given as qwot instead, in quarter waves, as the Design Editor's QW column takes it; a layer whose material resolves to nothing or has n of 0 or less at the reference wavelength has no quarter wave and is refused.",
             inputSchema: object({
                 designId: DESIGN_ID, side: SIDE, index: INDEX,
-                material: str('New material id'), thickness: num('New physical thickness in nm'), locked: bool('Keep the layer out of refinement'),
+                material: str('New material id'), thickness: num('New physical thickness in nm'),
+                qwot: num("New thickness as a quarter-wave optical thickness, 4nd/λ0 with n the layer's material's index at the design's reference wavelength λ0 (the new material's, with material); not with thickness"),
+                locked: bool('Keep the layer out of refinement'),
             }, ['designId', 'index']),
             run: args => edit(args.designId, d => api.setLayer(d, editArgs(args))),
         },

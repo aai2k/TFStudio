@@ -73,6 +73,30 @@ export class Layer {
     set thickness(thickness) { this._layers._set(this._number, { thickness }); }
 
     /**
+     * The layer's quarter-wave optical thickness, 4 n d / λ0, with n its
+     * material's index at the design's reference wavelength λ0, as the
+     * Design Editor's QW column shows it; null for a layer whose material
+     * resolves to nothing or has n of 0 or less there, which has no quarter
+     * wave. Set it to change the thickness, converted to nm as the QW column
+     * converts a value typed in it. A locked layer changes too: a lock holds
+     * a layer in refinement and synthesis.
+     *
+     * @throws a value of 0 or less, a layer with no quarter wave, or a side the design does not let you edit
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.layers[1].qwot = 2;
+     * console.log(design.layers[1].qwot, 'quarter waves,', design.layers[1].thickness, 'nm');
+     */
+    get qwot() {
+        const side = this._layers._side;
+        this._layers._index(this._number);
+        return api.designFacts(this._layers._design._data, { side }).qwot[side][this._number - 1];
+    }
+
+    set qwot(qwot) { this._layers._set(this._number, { qwot }); }
+
+    /**
      * `true` for a locked layer, which refinement and synthesis leave as it
      * is; set it to lock or free the layer.
      *

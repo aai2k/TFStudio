@@ -431,6 +431,118 @@
     "hash": "04aed836",
     "text": "不构成范围的范围、0 到 90 以外的角度、用到找不到对应材料的设计，或超过一百万个点（波长数乘以角度数）：请加大波长步长或减少角度"
   },
+  "Design.indexProfile.arg.wavelength": {
+    "hash": "d1167138",
+    "text": "读取 n 和 k 所用的波长，单位 nm。不给出时，使用设计的参考波长。"
+  },
+  "Design.indexProfile.arg.side": {
+    "hash": "3c5b4dfa",
+    "text": "`'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。"
+  },
+  "Design.indexProfile.returns": {
+    "hash": "6db76ccf",
+    "text": "一个 IndexProfile。"
+  },
+  "Design.indexProfile.lead.1": {
+    "hash": "d9840484",
+    "text": "各膜层在某一波长处的折射率，按深度排列，与折射率分布窗口的显示相同。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`：对于一面，膜层按光从该面介质射来时遇到它们的顺序排列；对于整个元件，依次为正面、基底和背面，与窗口的“整体”视图相同。没有厚度的膜层被略去，与窗口的做法相同。"
+  },
+  "Design.indexProfile.refuses.1.js": {
+    "hash": "b36944be",
+    "text": "它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
+  },
+  "Design.indexProfile.refuses.1.py": {
+    "hash": "2f2e8d67",
+    "text": "小于等于 0 的波长、不是 \"front\"、\"back\" 或 \"total\" 的面、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
+  },
+  "Design.layerThicknesses.arg.wavelength": {
+    "hash": "9a9ba4d5",
+    "text": "计算光学厚度所用的波长 λ0，单位 nm。不给出时，使用设计的参考波长。"
+  },
+  "Design.layerThicknesses.arg.side": {
+    "hash": "7c04facd",
+    "text": "`'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用设计的评价对象。"
+  },
+  "Design.layerThicknesses.returns": {
+    "hash": "8f214ff0",
+    "text": "一个 LayerThicknesses。"
+  },
+  "Design.layerThicknesses.lead.1": {
+    "hash": "b119f275",
+    "text": "每层的物理厚度和光学厚度，与膜层厚度窗口列出的相同，光学厚度取自某一波长。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`；对于整个元件，先列正面的膜层，再列背面的。每层都有一行，没有厚度的膜层也是如此。"
+  },
+  "Design.layerThicknesses.refuses.1.js": {
+    "hash": "037bd5d4",
+    "text": "它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有膜层的面，或用到找不到对应材料的设计"
+  },
+  "Design.layerThicknesses.refuses.1.py": {
+    "hash": "a6369c8b",
+    "text": "小于等于 0 的波长、不是 \"front\"、\"back\" 或 \"total\" 的面、没有膜层的面，或用到找不到对应材料的设计"
+  },
+  "Design.totalThickness.arg.side": {
+    "hash": "ebcef408",
+    "text": "`'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用镀膜面。"
+  },
+  "Design.totalThickness.returns": {
+    "hash": "4c2f3724",
+    "text": "厚度，单位 nm。"
+  },
+  "Design.totalThickness.lead.1": {
+    "hash": "9643aeb4",
+    "text": "各膜层的物理厚度，单位 nm。不给出 `side` 时，计入 TT 评价函数行所求和的面，与该行的读数相同：正面镀膜或对称的设计计入正面，背面镀膜的设计计入背面，两面镀膜的设计计入两面。因此对称设计的正面只计一次。`'total'` 计入设计所含的正面和背面，对称设计的背面按其正面的镜像计入。"
+  },
+  "Design.totalThickness.refuses.1.js": {
+    "hash": "bca9a4a1",
+    "text": "它不接受的选项，或不是 `'front'`、`'back'` 或 `'total'` 的面"
+  },
+  "Design.totalThickness.refuses.1.py": {
+    "hash": "99cc4a5a",
+    "text": "不是 \"front\"、\"back\" 或 \"total\" 的面"
+  },
+  "Design.opticalThickness.arg.side": {
+    "hash": "ebcef408",
+    "text": "`'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用镀膜面。"
+  },
+  "Design.opticalThickness.returns": {
+    "hash": "f0636528",
+    "text": "光学厚度，单位 nm；所计入的膜层中有找不到其材料的膜层时为 `null` / `None`。"
+  },
+  "Design.opticalThickness.lead.1": {
+    "hash": "24463a1a",
+    "text": "各膜层的光学厚度，即设计参考波长处 n 与厚度之积的总和，单位 nm，计入的膜层与相同 `side` 下 `totalThickness()` / `total_thickness()` 计入的相同。"
+  },
+  "Design.opticalThickness.refuses.1.js": {
+    "hash": "bca9a4a1",
+    "text": "它不接受的选项，或不是 `'front'`、`'back'` 或 `'total'` 的面"
+  },
+  "Design.opticalThickness.refuses.1.py": {
+    "hash": "99cc4a5a",
+    "text": "不是 \"front\"、\"back\" 或 \"total\" 的面"
+  },
+  "Design.layerCounts.arg.side": {
+    "hash": "ebcef408",
+    "text": "`'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用镀膜面。"
+  },
+  "Design.layerCounts.returns.js": {
+    "hash": "351fe1e4",
+    "text": "一个按材料 id 给出层数的对象。"
+  },
+  "Design.layerCounts.returns.py": {
+    "hash": "698394c9",
+    "text": "一个按材料 id 给出层数的 dict。"
+  },
+  "Design.layerCounts.lead.1": {
+    "hash": "9561a148",
+    "text": "每种材料各有多少层，计入的膜层与相同 `side` 下 `totalThickness()` / `total_thickness()` 计入的相同。"
+  },
+  "Design.layerCounts.refuses.1.js": {
+    "hash": "bca9a4a1",
+    "text": "它不接受的选项，或不是 `'front'`、`'back'` 或 `'total'` 的面"
+  },
+  "Design.layerCounts.refuses.1.py": {
+    "hash": "99cc4a5a",
+    "text": "不是 \"front\"、\"back\" 或 \"total\" 的面"
+  },
   "Design.refine.arg.method": {
     "hash": "a481a40e",
     "text": "方法：API 参考中 refine 方法表里的一个 id，例如 `'dls'`、`'cg'` 或 `'de'`；`'all'` 表示依次运行每一个；或一个 id 列表，从同一起点逐个尝试，保留最好的结果。精炼窗口打开时使用 `'sqp'`，直到你在其中选择另一种方法。"
@@ -854,6 +966,14 @@
   "Layer.thickness.refuses.1": {
     "hash": "3f8bbd5b",
     "text": "小于等于 0 的厚度，或设计不允许编辑的一面"
+  },
+  "Layer.qwot.lead.1": {
+    "hash": "05107eea",
+    "text": "该层的四分之一波长光学厚度 4 n d / λ0，其中 n 为其材料在设计参考波长 λ0 处的折射率，与设计编辑器 QW 列的显示相同；找不到其材料、或其材料在该处 n 小于等于 0 的膜层没有四分之一波，此时为 `null` / `None`。设置它即可改变厚度，按 QW 列换算输入数值的方式换算为 nm。锁定的膜层也会改变：锁定只在精炼和合成中保持膜层不变。"
+  },
+  "Layer.qwot.refuses.1": {
+    "hash": "db58dfa0",
+    "text": "小于等于 0 的值、没有四分之一波的膜层，或设计不允许编辑的面"
   },
   "Layer.locked.lead.1": {
     "hash": "d2c07b3d",
@@ -1642,6 +1762,98 @@
   "Curve.max.refuses.1": {
     "hash": "ce6be70c",
     "text": "不包含曲线任何波长的波段"
+  },
+  "IndexProfile.lead.1": {
+    "hash": "83b28eb3",
+    "text": "设计各膜层在某一波长处的折射率，按深度排列，由 `design.indexProfile()` / `design.index_profile()` 读出，与折射率分布窗口的显示相同。"
+  },
+  "IndexProfile.mode.lead.1": {
+    "hash": "9f16c637",
+    "text": "排列的对象：`'front'` 或 `'back'`，仅该面；`'total'`，整个元件。"
+  },
+  "IndexProfile.wavelength.lead.1": {
+    "hash": "6e4d8275",
+    "text": "读取 n 和 k 所用的波长，单位 nm。"
+  },
+  "IndexProfile.incident.lead.1.js": {
+    "hash": "0157992d",
+    "text": "光射来的介质 `{ material, n, k }`：正面为入射介质，背面为出射介质；整个元件时为 null，其分布从正面的最外层开始。"
+  },
+  "IndexProfile.incident.lead.1.py": {
+    "hash": "db4e7724",
+    "text": "光射来的介质，一个具名元组 (material, n, k)：正面为入射介质，背面为出射介质；整个元件时为 None，其分布从正面的最外层开始。"
+  },
+  "IndexProfile.substrate.lead.1.js": {
+    "hash": "33973af3",
+    "text": "基底 `{ material, n, k }`；整个元件时还有 `thickness`，单位 mm，设计没有给出基底厚度时为 null。"
+  },
+  "IndexProfile.substrate.lead.1.py": {
+    "hash": "fc25fdf2",
+    "text": "基底，一个具名元组 (material, n, k, thickness)，thickness 在整个元件时以 mm 为单位，在一面时为 None；整个元件时若设计没有给出基底厚度，则为 None。"
+  },
+  "IndexProfile.layers.lead.1.js": {
+    "hash": "86f5110b",
+    "text": "每个有厚度的膜层一个对象 `{ number, material, n, k, thickness, start, end }`：number 与 design.layers 和 design.backLayers 的编号相同，1 紧邻基底；material 为材料 id；thickness、start 和 end 单位为 nm，start 和 end 是该层距其所在面外表面的深度。对于一面，膜层从外表面向内排列。对于整个元件，每层还有 `side`；先列正面的膜层，从其外表面向内，再列背面的膜层，从基底向外，start 和 end 从基底算起。"
+  },
+  "IndexProfile.layers.lead.1.py": {
+    "hash": "2319f776",
+    "text": "每个有厚度的膜层一个具名元组 (side, number, material, n, k, thickness, start, end)：side 为该层所在的面；number 与 design.layers 和 design.back_layers 的编号相同，1 紧邻基底；material 为材料 id；thickness、start 和 end 单位为 nm，start 和 end 是该层距其所在面外表面的深度。对于一面，膜层从外表面向内排列。对于整个元件，先列正面的膜层，从其外表面向内，再列背面的膜层，从基底向外，start 和 end 从基底算起。"
+  },
+  "IndexProfile.thickness.lead.1": {
+    "hash": "2654da3a",
+    "text": "各膜层的物理厚度，单位 nm。"
+  },
+  "IndexProfile.opticalThickness.lead.1": {
+    "hash": "b78ab78f",
+    "text": "各膜层的光学厚度，即该波长处 n 与厚度之积的总和，单位 nm。"
+  },
+  "IndexProfile.outOfRange.lead.1.js": {
+    "hash": "82e33362",
+    "text": "数据达不到该波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：它们在该处的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该波长时为空。"
+  },
+  "IndexProfile.outOfRange.lead.1.py": {
+    "hash": "c51a8c17",
+    "text": "数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：它们在该处的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波长时为空。"
+  },
+  "IndexProfile.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "IndexProfile.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "IndexProfile.saveCsv.lead.1": {
+    "hash": "bbe70735",
+    "text": "把分布写入 CSV 文件，内容为窗口导出的表格，去掉窗口在两端画出的介质和基底段：n 和 k 的每一级台阶一行，带有它开始处的深度 `z (nm)`，从外表面到基底，最后一行给出基底。对于整个元件，各列为 `region`、`z`、`n` 和 `k`，每部分的深度从该部分的起点算起，基底的以 mm 为单位。已存在的文件会被覆盖。"
+  },
+  "LayerThicknesses.lead.1": {
+    "hash": "90785e30",
+    "text": "每层的物理厚度和光学厚度，由 `design.layerThicknesses()` / `design.layer_thicknesses()` 列出，与膜层厚度窗口的显示相同。"
+  },
+  "LayerThicknesses.mode.lead.1": {
+    "hash": "919a7f71",
+    "text": "列出的对象：`'front'` 或 `'back'`，该面的膜层；`'total'`，两面。"
+  },
+  "LayerThicknesses.wavelength.lead.1": {
+    "hash": "d950ff7f",
+    "text": "计算光学厚度所用的波长 λ0，单位 nm。"
+  },
+  "LayerThicknesses.rows.lead.1.js": {
+    "hash": "1585b3ad",
+    "text": "每层一个对象，从紧邻基底的第 1 层向外：`{ number, material, thickness, opticalThickness, qwot, fwot }`：number 与 design.layers 和 design.backLayers 的编号相同；material 为材料 id；thickness 单位 nm；opticalThickness 为 n 与厚度之积，单位 nm；qwot 为 4 n d / λ0，fwot 为 n d / λ0，其中 n 为材料在该波长处的折射率。没有材料的膜层，这三个光学值为 null。两面时每行还有 `side`，正面的行在前。"
+  },
+  "LayerThicknesses.rows.lead.1.py": {
+    "hash": "f710a0f3",
+    "text": "每层一个具名元组 (side, number, material, thickness, optical_thickness, qwot, fwot)，从紧邻基底的第 1 层向外：side 为该层所在的面；number 与 design.layers 和 design.back_layers 的编号相同；material 为材料 id；thickness 单位 nm；optical_thickness 为 n 与厚度之积，单位 nm；qwot 为 4 n d / λ0，fwot 为 n d / λ0，其中 n 为材料在该波长处的折射率。没有材料的膜层，这三个光学值为 None。两面时正面的行在前。"
+  },
+  "LayerThicknesses.outOfRange.lead.1.js": {
+    "hash": "342f4ac2",
+    "text": "数据达不到该波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组，与 IndexProfile 的相同。"
+  },
+  "LayerThicknesses.outOfRange.lead.1.py": {
+    "hash": "5123d42b",
+    "text": "数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list，与 IndexProfile 的相同。"
   },
   "RunResult.lead.1": {
     "hash": "73b2c003",

@@ -12,7 +12,10 @@
  *      a design built, edited, cleaned, saved (the same file) and opened
  *      again, and cleaning one with no layers refused with its code and
  *      fields; the spectrum at two angles, summarized from what came over
- *      the wire; materials; merit; a specification set and checked, and
+ *      the wire; an index profile, layer thicknesses and the design's facts,
+ *      a layer set by its QWOT, a side with no layers refused with its code
+ *      and fields, and a QWOT the Design Editor has none of crossing as null;
+ *      materials; merit; a specification set and checked, and
  *      checking a design without one refused with its code and fields; layer
  *      sensitivity; and the runs, a refinement, a Needle and a Structural run
  *      with a seed, a seeded Monte Carlo and a seeded yield.
@@ -159,6 +162,19 @@ const specified = api.setSpecification(start, CHECKS);
     const spectrum = await same('spectrum', [stack, { from: 400, to: 700, step: 10, angles: [0, 45] }]);
     ok('a spectrum\'s angles are keyed by their values', Object.keys(spectrum.result?.angles ?? {}).join() === '0,45');
     await same('summarize', [spectrum.result, { bands: [{ from: 450, to: 650 }] }]);
+    const twoSided = api.insertLayer(api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { side: 'back', material: 'MgF2', thickness: 90 });
+    await same('indexProfile', [twoSided, { wavelength: 633 }]);
+    await same('indexProfile', [stack, { side: 'front' }]);
+    await same('layerThicknesses', [twoSided]);
+    await same('designFacts', [twoSided, { side: 'front' }]);
+    await same('setLayer', [stack, { index: 2, qwot: 1.5 }]);
+    const noBack = await same('layerThicknesses', [stack, { side: 'back' }]);
+    ok('a side with no layers is refused with its code and fields', noBack.error?.code === 'emptySide'
+        && canon(noBack.error.fields) === canon({ call: 'layerThicknesses', side: 'back' }), JSON.stringify(noBack.error));
+    const lost = { ...stack, frontLayers: stack.frontLayers.map((layer, i) => (i === 0 ? { ...layer, material: 'NoSuchFilm' } : layer)) };
+    const facts = await same('designFacts', [lost]);
+    ok('a layer with no quarter wave crosses with its QWOT null, and so does the optical thickness', facts.result?.qwot.front.at(-1) === null
+        && facts.result.opticalThickness === null && facts.result.qwot.front.slice(0, -1).every(q => q > 0), JSON.stringify(facts.result?.qwot));
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);

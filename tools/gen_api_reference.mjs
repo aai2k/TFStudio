@@ -71,6 +71,8 @@ const CLASSES = [
     { name: 'Yield', receiver: 'y' },
     { name: 'Spectrum', receiver: 's' },
     { name: 'Curve', receiver: 's.R' },
+    { name: 'IndexProfile', receiver: 'profile' },
+    { name: 'LayerThicknesses', receiver: 'thicknesses' },
     { name: 'RunResult', receiver: 'run' },
     { name: 'Progress', receiver: 'p' },
     { name: 'MonteCarlo', receiver: 'mc' },

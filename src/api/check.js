@@ -14,7 +14,9 @@
  *   noMerit          { call }  a design with no merit function
  *   noSpecification  { call }  a design with no specification check, or none enabled where the call needs one
  *   noLayers         { call }  a design with no layers on either side
- *   closedSide       { call, side, surfaceMode }  a side the Design Editor does not let you edit
+ *   emptySide        { call, side }  a side with no layers for a call that shows one side's layers
+ *   noQwot           { call, material, wavelength, n }  a layer whose material has no quarter wave: it resolves to nothing (n null), or its n is 0 or less
+ *   closedSide      { call, side, surfaceMode }  a side the Design Editor does not let you edit
  *   wavelengthRange  { call, from, to }  wavelengths that are not a range
  *   bandOrder        { call, row, start, end }  a merit row or a check whose band starts above its end
  *   fileExists       { call, path }  a file that is there, without overwrite
@@ -66,6 +68,8 @@ export const isNonNegative = v => Number.isFinite(v) && v >= 0;
 /** An angle of incidence in degrees that the evaluators take: 0 or more and below grazing. */
 export const isAngle = v => Number.isFinite(v) && v >= 0 && v < 90;
 export const isBoolean = v => typeof v === 'boolean';
+/** A side a stack is read on: one side's layers, or both sides of the part. */
+export const isViewSide = v => v === 'front' || v === 'back' || v === 'total';
 
 // Points a spectrum or a Monte Carlo grid may hold, so a mistyped step cannot
 // exhaust the process's memory: an answer holds five arrays of this many

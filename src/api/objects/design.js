@@ -12,6 +12,7 @@ import { worded } from './refusals.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
+import { IndexProfile, LayerThicknesses } from './stackViews.js';
 
 // design.sides by the API's surfaceMode, and design.scoreOn by its mfEvalMode;
 // the API Reference's table of what a design computes on is made from them.
@@ -345,6 +346,113 @@ export class Design {
         const answer = worded({ method: 'spectrum', call: 'spectrum' }, () => api.spectrum(this._data, { from: start, to: end, step, angles }));
         const asked = [...angles];
         return new Spectrum(answer.evalMode, answer.lambda, asked, asked.map(angle => answer.angles[angle]), answer.outOfRange);
+    }
+
+    /**
+     * The refractive index of the layers at one wavelength, laid out by
+     * depth, as the Refractive Index Profile window shows it. The sides
+     * follow the design's `sides` and `scoreOn`, as a spectrum does, unless
+     * `side` is given: on one side, the layers in the order light meets them
+     * coming from that side's medium; on the whole part, the front, the
+     * substrate and the back, as the window's Total view lays them. A layer
+     * with no thickness is left out, as the window leaves it out.
+     *
+     * @param [options]
+     * @param [options.wavelength] The wavelength n and k are read at, nm. Without it, the design's reference wavelength.
+     * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
+     * @returns An IndexProfile.
+     * @throws an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const profile = design.indexProfile({ wavelength: 633 });
+     * for (const l of profile.layers) console.log(l.number, l.material, l.n.toFixed(4), l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
+     */
+    indexProfile(options) {
+        return new IndexProfile(worded({ method: 'indexProfile', call: 'indexProfile' }, () => api.indexProfile(this._data, options)));
+    }
+
+    /**
+     * Each layer's physical and optical thickness, as the Layer Thicknesses
+     * window lists them, with the optical ones taken at one wavelength. The
+     * sides follow the design's `sides` and `scoreOn`, as a spectrum does,
+     * unless `side` is given; on the whole part, the front's layers and then
+     * the back's. Every layer has its row, one with no thickness too.
+     *
+     * @param [options]
+     * @param [options.wavelength] The wavelength λ0 the optical thicknesses are taken at, nm. Without it, the design's reference wavelength.
+     * @param [options.side] `'front'`, `'back'` or `'total'`, both sides. Without it, what the design is scored on.
+     * @returns A LayerThicknesses.
+     * @throws an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layers, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * for (const row of design.layerThicknesses({ wavelength: 600 }).rows) console.log(row.number, row.material, row.thickness.toFixed(2), 'nm, QWOT', row.qwot.toFixed(4));
+     */
+    layerThicknesses(options) {
+        return new LayerThicknesses(worded({ method: 'layerThicknesses', call: 'layerThicknesses' }, () => api.layerThicknesses(this._data, options)));
+    }
+
+    /**
+     * The physical thickness of the layers, nm. Without `side`, of the
+     * sides a TT merit row sums, as the row reads it: the front of a design
+     * coated on the front or symmetric, the back of one coated on the back,
+     * both of one coated on both. So a symmetric design counts its front
+     * once. `'total'` counts the front and the back the design holds, a
+     * symmetric design's back as the mirror of its front.
+     *
+     * @param [options]
+     * @param [options.side] `'front'`, `'back'` or `'total'`, both sides. Without it, the coated sides.
+     * @returns The thickness, nm.
+     * @throws an option it does not take, or a side other than `'front'`, `'back'` or `'total'`
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('(HL)^2');
+     * design.sides = 'symmetric';
+     * console.log(design.totalThickness(), 'nm coated,', design.totalThickness({ side: 'total' }), 'nm on both sides');
+     */
+    totalThickness(options) {
+        return this._facts('totalThickness', options).thickness;
+    }
+
+    /**
+     * The optical thickness of the layers, the sum of n times thickness at
+     * the design's reference wavelength, nm, over the layers totalThickness()
+     * counts with the same `side`.
+     *
+     * @param [options]
+     * @param [options.side] `'front'`, `'back'` or `'total'`, both sides. Without it, the coated sides.
+     * @returns The optical thickness, nm; null when a material of a layer counted resolves to nothing.
+     * @throws an option it does not take, or a side other than `'front'`, `'back'` or `'total'`
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * console.log(design.opticalThickness(), 'nm, seven quarter waves of', design.reference / 4, 'nm');
+     */
+    opticalThickness(options) {
+        return this._facts('opticalThickness', options).opticalThickness;
+    }
+
+    /**
+     * How many layers of each material, over the layers totalThickness()
+     * counts with the same `side`.
+     *
+     * @param [options]
+     * @param [options.side] `'front'`, `'back'` or `'total'`, both sides. Without it, the coated sides.
+     * @returns An object of counts by material id.
+     * @throws an option it does not take, or a side other than `'front'`, `'back'` or `'total'`
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H', { H: 'Ta2O5', L: 'SiO2' });
+     * console.log(design.layerCounts());
+     */
+    layerCounts(options) {
+        return this._facts('layerCounts', options).layerCounts;
+    }
+
+    // The design's facts (designFacts) for the method `method`.
+    _facts(method, options) {
+        return worded({ method, call: 'designFacts' }, () => api.designFacts(this._data, options));
     }
 
     /**

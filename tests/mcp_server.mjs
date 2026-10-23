@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 26
+ *   1. The session: initialize and version negotiation, the tool list (the 29
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -17,7 +17,10 @@
  *      opened again has the same layers; the setup changes; a stack cleaned
  *      gives the API's operations and layer counts, keeps the cleaned design
  *      under its id and refuses a value it cannot use, and the tool gives the
- *      MNT row and the refine that do the window's Re-optimize; misspelt
+ *      MNT row and the refine that do the window's Re-optimize; a two-sided
+ *      stack's index profile, layer thicknesses and facts give the API's,
+ *      in short and with their values, a layer is set by its QWOT, and a side
+ *      with no layers is refused; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
  *   3. stdout carries only messages, also when the server's own code prints;
@@ -61,7 +64,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 26 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 29 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -190,6 +193,36 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('its description gives the MNT row and the refine, with the window\'s method and step budget, that do the window\'s Re-optimize, and the floor refine keeps without the row',
         description.includes(`add an MNT row with target minThickness to the design's rows through setMerit and refine with method ${DEFAULT_REFINE_METHOD} and maxIter ${DESIGN_CLEANER_DEFAULTS.reoptIters}`)
         && description.includes('without that row refine keeps layers at 1 nm or more'), description);
+}
+{
+    // A mirror coated on both sides, read through the stack tools.
+    const formula = '(HL)^2 H';
+    const setup = { name: 'Two sides', surfaceMode: 'both_independent' };
+    const two = (await server.call('newDesign', setup)).designId;
+    await server.call('stackFromFormula', { designId: two, formula });
+    await server.call('insertLayer', { designId: two, side: 'back', material: 'MgF2', thickness: 95 });
+    const local = api.insertLayer(api.stackFromFormula(api.newDesign(setup), { formula }), { side: 'back', material: 'MgF2', thickness: 95 });
+    const { layers, ...profile } = api.indexProfile(local, { wavelength: 633 });
+    const shortProfile = await server.call('indexProfile', { designId: two, wavelength: 633 });
+    const fullProfile = await server.call('indexProfile', { designId: two, wavelength: 633, values: true });
+    ok('indexProfile answers with the API\'s profile, its layers counted, and with them for values true', JSON.stringify(shortProfile) === JSON.stringify({ designId: two, ...profile, layerCount: layers.length })
+        && JSON.stringify(fullProfile.layers) === JSON.stringify(layers) && shortProfile.mode === 'total' && layers.length === 6, JSON.stringify(shortProfile));
+    const { rows, ...thicknesses } = api.layerThicknesses(local, { side: 'back' });
+    const shortRows = await server.call('layerThicknesses', { designId: two, side: 'back' });
+    const fullRows = await server.call('layerThicknesses', { designId: two, side: 'back', values: true });
+    ok('layerThicknesses answers with the API\'s, its rows counted, and with them for values true', JSON.stringify(shortRows) === JSON.stringify({ designId: two, ...thicknesses, rowCount: rows.length })
+        && JSON.stringify(fullRows.rows) === JSON.stringify(rows) && rows.length === 1, JSON.stringify(shortRows));
+    const { qwot, ...facts } = api.designFacts(local);
+    const shortFacts = await server.call('designFacts', { designId: two });
+    const fullFacts = await server.call('designFacts', { designId: two, values: true });
+    ok('designFacts answers with the API\'s facts, and each layer\'s QWOT for values true', JSON.stringify(shortFacts) === JSON.stringify({ designId: two, ...facts })
+        && JSON.stringify(fullFacts.qwot) === JSON.stringify(qwot) && facts.mode === 'total', JSON.stringify(shortFacts));
+    await server.call('setLayer', { designId: two, index: 0, qwot: 2 });
+    const set = (await server.call('showDesign', { designId: two })).front?.[0]?.thickness;
+    ok('setLayer takes a thickness as a QWOT', set === api.setLayer(local, { index: 0, qwot: 2 }).frontLayers[0].thickness, String(set));
+    const bare = (await server.call('newDesign', { name: 'Bare' })).designId;
+    const empty = await server.call('layerThicknesses', { designId: bare, side: 'back' });
+    ok('a side with no layers is refused', /layerThicknesses: the back has no layers/.test(empty.error ?? ''), empty.error);
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────

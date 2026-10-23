@@ -49,6 +49,11 @@ def _no_specification(fields):
     return "the design has no enabled specification check; add one with specification.add()"
 
 
+def _no_qwot(fields):
+    why = "resolves to nothing" if fields["n"] is None else "has n = {} at {} nm".format(fields["n"], fields["wavelength"])
+    return "{} {}, so the layer has no quarter wave; set its thickness in nm".format(fields["material"], why)
+
+
 def _unknown_option(fields, words):
     listed = [words.name(option) for option in fields["options"] if option not in words.hidden] + list(words.extra)
     return "unknown option {!r}; the options are {}".format(words.name(fields["option"]), ", ".join(listed))
@@ -73,7 +78,11 @@ _WORDS = {
                                                                   _python_takes(fields["takes"]), fields["value"]),
     "noMerit": lambda fields, words: "the design has no merit function; add a row with merit.add()",
     "noSpecification": lambda fields, words: _no_specification(fields),
-    "noLayers": lambda fields, words: "the design has no layers; add them with layers.append() or stack()",
+    "noLayers": lambda fields, words: ("the design has no layer thicker than 0 nm" if fields.get("thin")
+                                       else "the design has no layers; add them with layers.append() or stack()"),
+    "emptySide": lambda fields, words: "the {} has no {}".format(
+        fields["side"], "layer thicker than 0 nm" if fields["call"] == "indexProfile" else "layers"),
+    "noQwot": lambda fields, words: _no_qwot(fields),
     "closedSide": lambda fields, words: _closed_side(fields),
     "wavelengthRange": lambda fields, words: "start and end are wavelengths in nm, 0 < start < end",
     "bandOrder": lambda fields, words: "start {} is above end {}".format(fields["start"], fields["end"]),

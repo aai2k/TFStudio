@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -613,6 +613,164 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 s = design.spectrum(400, 800, step=1, angles=[0, 45])
 print(s.mode, max(s.R), min(s.angle(45).Tp))
+```
+
+### indexProfile / index_profile
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.indexProfile({ wavelength, side })` | `design.index_profile(wavelength=..., side=...)` |
+
+各膜层在某一波长处的折射率，按深度排列，与折射率分布窗口的显示相同。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`：对于一面，膜层按光从该面介质射来时遇到它们的顺序排列；对于整个元件，依次为正面、基底和背面，与窗口的“整体”视图相同。没有厚度的膜层被略去，与窗口的做法相同。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `wavelength` | `wavelength` |  | 读取 n 和 k 所用的波长，单位 nm。不给出时，使用设计的参考波长。 |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+
+**返回**：一个 IndexProfile。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长、不是 "front"、"back" 或 "total" 的面、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const profile = design.indexProfile({ wavelength: 633 });
+for (const l of profile.layers) console.log(l.number, l.material, l.n.toFixed(4), l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+profile = design.index_profile(wavelength=633)
+for l in profile.layers:
+    print(l.number, l.material, round(l.n, 4), round(l.start, 1), "to", round(l.end, 1), "nm")
+```
+
+### layerThicknesses / layer_thicknesses
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.layerThicknesses({ wavelength, side })` | `design.layer_thicknesses(wavelength=..., side=...)` |
+
+每层的物理厚度和光学厚度，与膜层厚度窗口列出的相同，光学厚度取自某一波长。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`；对于整个元件，先列正面的膜层，再列背面的。每层都有一行，没有厚度的膜层也是如此。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `wavelength` | `wavelength` |  | 计算光学厚度所用的波长 λ0，单位 nm。不给出时，使用设计的参考波长。 |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用设计的评价对象。 |
+
+**返回**：一个 LayerThicknesses。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有膜层的面，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长、不是 "front"、"back" 或 "total" 的面、没有膜层的面，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const row of design.layerThicknesses({ wavelength: 600 }).rows) console.log(row.number, row.material, row.thickness.toFixed(2), 'nm, QWOT', row.qwot.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for row in design.layer_thicknesses(wavelength=600).rows:
+    print(row.number, row.material, round(row.thickness, 2), "nm, QWOT", round(row.qwot, 4))
+```
+
+### totalThickness / total_thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.totalThickness({ side })` | `design.total_thickness(side=...)` |
+
+各膜层的物理厚度，单位 nm。不给出 `side` 时，计入 TT 评价函数行所求和的面，与该行的读数相同：正面镀膜或对称的设计计入正面，背面镀膜的设计计入背面，两面镀膜的设计计入两面。因此对称设计的正面只计一次。`'total'` 计入设计所含的正面和背面，对称设计的背面按其正面的镜像计入。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用镀膜面。 |
+
+**返回**：厚度，单位 nm。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项，或不是 `'front'`、`'back'` 或 `'total'` 的面<br>**Python**：不是 "front"、"back" 或 "total" 的面
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.sides = 'symmetric';
+console.log(design.totalThickness(), 'nm coated,', design.totalThickness({ side: 'total' }), 'nm on both sides');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.sides = "symmetric"
+print(design.total_thickness(), "nm coated,", design.total_thickness(side="total"), "nm on both sides")
+```
+
+### opticalThickness / optical_thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.opticalThickness({ side })` | `design.optical_thickness(side=...)` |
+
+各膜层的光学厚度，即设计参考波长处 n 与厚度之积的总和，单位 nm，计入的膜层与相同 `side` 下 `totalThickness()` / `total_thickness()` 计入的相同。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用镀膜面。 |
+
+**返回**：光学厚度，单位 nm；所计入的膜层中有找不到其材料的膜层时为 `null` / `None`。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项，或不是 `'front'`、`'back'` 或 `'total'` 的面<br>**Python**：不是 "front"、"back" 或 "total" 的面
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.opticalThickness(), 'nm, seven quarter waves of', design.reference / 4, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.optical_thickness(), "nm, seven quarter waves of", design.reference / 4, "nm")
+```
+
+### layerCounts / layer_counts
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.layerCounts({ side })` | `design.layer_counts(side=...)` |
+
+每种材料各有多少层，计入的膜层与相同 `side` 下 `totalThickness()` / `total_thickness()` 计入的相同。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用镀膜面。 |
+
+**返回**：**JavaScript**：一个按材料 id 给出层数的对象。<br>**Python**：一个按材料 id 给出层数的 dict。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项，或不是 `'front'`、`'back'` 或 `'total'` 的面<br>**Python**：不是 "front"、"back" 或 "total" 的面
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H', { H: 'Ta2O5', L: 'SiO2' });
+console.log(design.layerCounts());
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H", H="Ta2O5", L="SiO2")
+print(design.layer_counts())
 ```
 
 ### refine
@@ -1324,6 +1482,33 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.layers[1].thickness = 12.5
 print(design.layers[1].thickness, "nm")
+```
+
+### qwot
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.layers[n].qwot` | `design.layers[n].qwot` |
+| `design.layers[n].qwot = value` | `design.layers[n].qwot = value` |
+
+该层的四分之一波长光学厚度 4 n d / λ0，其中 n 为其材料在设计参考波长 λ0 处的折射率，与设计编辑器 QW 列的显示相同；找不到其材料、或其材料在该处 n 小于等于 0 的膜层没有四分之一波，此时为 `null` / `None`。设置它即可改变厚度，按 QW 列换算输入数值的方式换算为 nm。锁定的膜层也会改变：锁定只在精炼和合成中保持膜层不变。
+
+**拒绝**：
+
+- 小于等于 0 的值、没有四分之一波的膜层，或设计不允许编辑的面
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.layers[1].qwot = 2;
+console.log(design.layers[1].qwot, 'quarter waves,', design.layers[1].thickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.layers[1].qwot = 2
+print(design.layers[1].qwot, "quarter waves,", design.layers[1].thickness, "nm")
 ```
 
 ### locked
@@ -3712,6 +3897,332 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 s = design.spectrum(400, 700)
 print("Highest R from 450 to 650 nm:", s.R.max(450, 650))
+```
+
+## IndexProfile
+
+设计各膜层在某一波长处的折射率，按深度排列，由 `design.indexProfile()` / `design.index_profile()` 读出，与折射率分布窗口的显示相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const profile = design.indexProfile({ wavelength: 633 });
+for (const l of profile.layers) console.log(l.number, l.material, l.n, l.start, l.end);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+profile = design.index_profile(wavelength=633)
+for l in profile.layers:
+    print(l.number, l.material, l.n, l.start, l.end)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.mode` | `profile.mode` |
+
+排列的对象：`'front'` 或 `'back'`，仅该面；`'total'`，整个元件。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.index_profile().mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.wavelength` | `profile.wavelength` |
+
+读取 n 和 k 所用的波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile().wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.index_profile().wavelength, "nm")
+```
+
+### incident
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.incident` | `profile.incident` |
+
+**JavaScript**：光射来的介质 `{ material, n, k }`：正面为入射介质，背面为出射介质；整个元件时为 null，其分布从正面的最外层开始。
+
+**Python**：光射来的介质，一个具名元组 (material, n, k)：正面为入射介质，背面为出射介质；整个元件时为 None，其分布从正面的最外层开始。
+
+```js
+const design = tf.newDesign('Prism coating');
+design.stack('(HL)^2');
+design.incidentMedium = 'BK7';
+const { incident } = design.indexProfile();
+console.log(incident.material, incident.n);
+```
+
+```python
+design = tf.new_design("Prism coating")
+design.stack("(HL)^2")
+design.incident_medium = "BK7"
+incident = design.index_profile().incident
+print(incident.material, incident.n)
+```
+
+### substrate
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.substrate` | `profile.substrate` |
+
+**JavaScript**：基底 `{ material, n, k }`；整个元件时还有 `thickness`，单位 mm，设计没有给出基底厚度时为 null。
+
+**Python**：基底，一个具名元组 (material, n, k, thickness)，thickness 在整个元件时以 mm 为单位，在一面时为 None；整个元件时若设计没有给出基底厚度，则为 None。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { substrate } = design.indexProfile({ side: 'total' });
+console.log(substrate.material, substrate.n, substrate.thickness, 'mm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+substrate = design.index_profile(side="total").substrate
+print(substrate.material, substrate.n, substrate.thickness, "mm")
+```
+
+### layers
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.layers` | `profile.layers` |
+
+**JavaScript**：每个有厚度的膜层一个对象 `{ number, material, n, k, thickness, start, end }`：number 与 design.layers 和 design.backLayers 的编号相同，1 紧邻基底；material 为材料 id；thickness、start 和 end 单位为 nm，start 和 end 是该层距其所在面外表面的深度。对于一面，膜层从外表面向内排列。对于整个元件，每层还有 `side`；先列正面的膜层，从其外表面向内，再列背面的膜层，从基底向外，start 和 end 从基底算起。
+
+**Python**：每个有厚度的膜层一个具名元组 (side, number, material, n, k, thickness, start, end)：side 为该层所在的面；number 与 design.layers 和 design.back_layers 的编号相同，1 紧邻基底；material 为材料 id；thickness、start 和 end 单位为 nm，start 和 end 是该层距其所在面外表面的深度。对于一面，膜层从外表面向内排列。对于整个元件，先列正面的膜层，从其外表面向内，再列背面的膜层，从基底向外，start 和 end 从基底算起。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const l of design.indexProfile().layers) console.log(l.number, l.material, l.n, l.k, l.start, l.end);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for l in design.index_profile().layers:
+    print(l.number, l.material, l.n, l.k, l.start, l.end)
+```
+
+### thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.thickness` | `profile.thickness` |
+
+各膜层的物理厚度，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile().thickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.index_profile().thickness, "nm")
+```
+
+### opticalThickness / optical_thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.opticalThickness` | `profile.optical_thickness` |
+
+各膜层的光学厚度，即该波长处 n 与厚度之积的总和，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile({ wavelength: 550 }).opticalThickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.index_profile(wavelength=550).optical_thickness, "nm")
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.outOfRange` | `profile.out_of_range` |
+
+**JavaScript**：数据达不到该波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：它们在该处的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该波长时为空。
+
+**Python**：数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：它们在该处的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波长时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.indexProfile({ wavelength: 5000 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print([m["id"] for m in design.index_profile(wavelength=5000).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.saveCsv(path)` | `profile.save_csv(path)` |
+
+把分布写入 CSV 文件，内容为窗口导出的表格，去掉窗口在两端画出的介质和基底段：n 和 k 的每一级台阶一行，带有它开始处的深度 `z (nm)`，从外表面到基底，最后一行给出基底。对于整个元件，各列为 `region`、`z`、`n` 和 `k`，每部分的深度从该部分的起点算起，基底的以 mm 为单位。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `profile-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.indexProfile({ wavelength: 633 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "profile-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.index_profile(wavelength=633).save_csv(name)
+print("Wrote", name)
+```
+
+## LayerThicknesses
+
+每层的物理厚度和光学厚度，由 `design.layerThicknesses()` / `design.layer_thicknesses()` 列出，与膜层厚度窗口的显示相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const row of design.layerThicknesses().rows) console.log(row.number, row.material, row.thickness, row.qwot);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for row in design.layer_thicknesses().rows:
+    print(row.number, row.material, row.thickness, row.qwot)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.mode` | `thicknesses.mode` |
+
+列出的对象：`'front'` 或 `'back'`，该面的膜层；`'total'`，两面。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.layerThicknesses().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.layer_thicknesses().mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.wavelength` | `thicknesses.wavelength` |
+
+计算光学厚度所用的波长 λ0，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.layerThicknesses().wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.layer_thicknesses().wavelength, "nm")
+```
+
+### rows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.rows` | `thicknesses.rows` |
+
+**JavaScript**：每层一个对象，从紧邻基底的第 1 层向外：`{ number, material, thickness, opticalThickness, qwot, fwot }`：number 与 design.layers 和 design.backLayers 的编号相同；material 为材料 id；thickness 单位 nm；opticalThickness 为 n 与厚度之积，单位 nm；qwot 为 4 n d / λ0，fwot 为 n d / λ0，其中 n 为材料在该波长处的折射率。没有材料的膜层，这三个光学值为 null。两面时每行还有 `side`，正面的行在前。
+
+**Python**：每层一个具名元组 (side, number, material, thickness, optical_thickness, qwot, fwot)，从紧邻基底的第 1 层向外：side 为该层所在的面；number 与 design.layers 和 design.back_layers 的编号相同；material 为材料 id；thickness 单位 nm；optical_thickness 为 n 与厚度之积，单位 nm；qwot 为 4 n d / λ0，fwot 为 n d / λ0，其中 n 为材料在该波长处的折射率。没有材料的膜层，这三个光学值为 None。两面时正面的行在前。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const row of design.layerThicknesses({ wavelength: 600 }).rows) console.log(row.number, row.opticalThickness, row.qwot, row.fwot);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for row in design.layer_thicknesses(wavelength=600).rows:
+    print(row.number, row.optical_thickness, row.qwot, row.fwot)
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.outOfRange` | `thicknesses.out_of_range` |
+
+**JavaScript**：数据达不到该波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组，与 IndexProfile 的相同。
+
+**Python**：数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list，与 IndexProfile 的相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.layerThicknesses({ wavelength: 5000 }).outOfRange.length, 'materials stop short of 5000 nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(len(design.layer_thicknesses(wavelength=5000).out_of_range), "materials stop short of 5000 nm")
 ```
 
 ## RunResult

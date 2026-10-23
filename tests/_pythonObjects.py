@@ -55,6 +55,7 @@ def objects(given):
         specification(tf, design, given)
         yields(tf)
         cleaning(tf)
+        stack_views(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -157,6 +158,7 @@ def modes(design):
     out({"twoSided": both._data})
     ranked(both)
     found = []
+    facts = []
     for sides in ("front", "back", "both", "symmetric"):
         for score_on in ("side", "whole part"):
             each = both.copy()
@@ -164,7 +166,9 @@ def modes(design):
             each.score_on = score_on
             found.append([sides, score_on, each.sides, each.score_on, each._data["surfaceMode"], each._data["mfEvalMode"],
                           each.spectrum(500, 600, step=50).mode, each.monte_carlo(500, 600, step=50, runs=1, seed=1).mode,
-                          each.refine(max_iter=1).mode, each.layer_sensitivity().mode])
+                          each.refine(max_iter=1).mode, each.layer_sensitivity().mode, each.index_profile().mode,
+                          each.layer_thicknesses().mode])
+            facts.append([each._data, each.total_thickness()])
 
     def sides():
         both.sides = "two"
@@ -172,7 +176,7 @@ def modes(design):
     def score_on():
         both.score_on = "total"
 
-    out({"modes": found, "badSides": refused(sides), "badScoreOn": refused(score_on)})
+    out({"modes": found, "modeFacts": facts, "badSides": refused(sides), "badScoreOn": refused(score_on)})
 
 
 def ranking(sensitivity):
@@ -373,6 +377,61 @@ def cleaning(tf):
                       "fields": list(type(report.operations[0])._fields), "named": named,
                       "optioned": [optioned._data, report_of(back_only)], "frontOnly": front_only._data,
                       "symmetric": [symmetric_before, symmetric._data], "worded": worded, "kept": kept._data == before._data}})
+
+
+def profile_of(profile):
+    return [profile.mode, profile.wavelength, None if profile.incident is None else list(profile.incident),
+            None if profile.substrate is None else list(profile.substrate), [list(layer) for layer in profile.layers],
+            profile.thickness, profile.optical_thickness, profile.out_of_range]
+
+
+def thicknesses_of(listed):
+    return [listed.mode, listed.wavelength, [list(row) for row in listed.rows], listed.out_of_range]
+
+
+def stack_views(tf):
+    """index_profile() and layer_thicknesses() of a design coated on both
+    sides, unlike materials on each, with their defaults and each argument;
+    the CSV of a profile on one side and on the whole part; the facts with
+    and without side; each layer's QWOT read, two set; a layer whose
+    material resolves to nothing; and the refusals."""
+    two = tf.new_design("Two sides", reference=600)
+    two.stack("(HL)^2 H")
+    two.sides = "both"
+    two.back_layers.append("MgF2", 95)
+    two.back_layers.append("Ta2O5", 20)
+    profiles = [profile_of(two.index_profile()), profile_of(two.index_profile(wavelength=633)),
+                profile_of(two.index_profile(side="back", wavelength=1064))]
+    thicknesses = [thicknesses_of(two.layer_thicknesses()), thicknesses_of(two.layer_thicknesses(wavelength=550, side="front"))]
+    two.index_profile(side="front", wavelength=633).save_csv("profile-front.csv")
+    two.index_profile().save_csv("profile-total.csv")
+    facts = [[two.total_thickness(side=side), two.optical_thickness(side=side), two.layer_counts(side=side)]
+             for side in (None, "front", "back", "total")]
+    qwots = [layer.qwot for layer in two.layers] + [layer.qwot for layer in two.back_layers]
+    set_qwot = two.copy()
+    set_qwot.layers[2].qwot = 1.5
+    set_qwot.back_layers[1].qwot = 0.75
+    lost = two.copy()
+    lost._data["frontLayers"][0]["material"] = "NoSuchFilm"
+    top = len(lost.layers)
+    symmetric = two.copy()
+    symmetric.sides = "symmetric"
+
+    def set_to(layer, qwot):
+        layer.qwot = qwot
+
+    worded = [refused(make) for make in (
+        lambda: set_to(set_qwot.layers[1], 0), lambda: set_to(lost.layers[top], 1),
+        lambda: set_to(symmetric.back_layers[1], 1), lambda: two.index_profile(side="both"),
+        lambda: two.layer_thicknesses(wavelength=-5), lambda: tf.new_design("Front").layer_thicknesses(side="back"),
+        lambda: tf.new_design("Bare").index_profile())]
+    out({"stackViews": {"design": two._data, "profiles": profiles, "thicknesses": thicknesses,
+                        "csv": [text_of("profile-front.csv"), text_of("profile-total.csv")], "facts": facts, "qwots": qwots,
+                        "set": set_qwot._data, "read": [set_qwot.layers[2].qwot, set_qwot.back_layers[1].qwot],
+                        "lost": [lost.layers[top].qwot, lost.optical_thickness()], "worded": worded,
+                        "shown": [repr(two.index_profile(wavelength=600)), repr(two.layer_thicknesses(side="front"))],
+                        "fields": [list(type(two.index_profile().layers[0])._fields),
+                                   list(type(two.layer_thicknesses().rows[0])._fields)]}})
 
 
 def ran(before, design, result):
