@@ -17,7 +17,7 @@
 import { makeOperand, evaluateOperands, buildEvalContext, withFringeSampleCounts, effectiveBackLayers } from '../../physics/optimizer.js';
 import { channelFromKind, singleType, avgType, minmaxType, argwaveType, integralType } from './channelTypes.js';
 import { finishCompare } from './format.js';
-import { checkStepFlag, budgetSide } from './constants.js';
+import { checkStepFlag, budgetSide, SIDE_KINDS } from './constants.js';
 import { evalBandDerived } from './bandScan.js';
 import { ppefRows } from './ppefRows.js';
 
@@ -150,6 +150,15 @@ const KIND_EVALUATORS = {
     PPEF:             evalPPEF,
 };
 
+// The wavelengths, nm, a check reads of its own: one for a check at one
+// wavelength, the band's two ends for a check over a band, and none for a
+// thickness budget, a layer count and PPEF, read at its measured curve's.
+function ownWavelengths(qual) {
+    if (['T_AT', 'R_AT', 'A_AT'].includes(qual.kind)) return [qual.lambda];
+    if ([...SIDE_KINDS, 'PPEF'].includes(qual.kind)) return [];
+    return [qual.lambdaStart, qual.lambdaEnd];
+}
+
 // Evaluate one qualifier against a design. Returns:
 //   { value, pass, deviation, unit, threshold }
 // where value is the raw computed number, unit is 'nm', '%', 'dB' or ''
@@ -165,6 +174,11 @@ export function evaluateQualifier(qual, design, resolveMat, options = {}) {
             value: null, pass: false, deviation: null, unit: '',
             summaryKey: 'unknownKind', summaryArgs: [qual.kind],
         };
+    }
+    // There is no spectrum at a wavelength of 0 or below, so a check that
+    // reads one has no value, in the unit its value would have had.
+    if (ownWavelengths(qual).some(lambda => lambda <= 0)) {
+        return finishCompare(qual, null, ['CENTRAL_LAMBDA', 'FWHM', 'EDGE_LAMBDA'].includes(qual.kind) ? 'nm' : '%');
     }
     return evaluator(qual, design, ctx, options);
 }
