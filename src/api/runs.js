@@ -96,9 +96,10 @@ function operandsOf(call, design) {
  * @throws a design with no merit function, or one that names a material that resolves to nothing
  * @throws a method or setting the run does not know, or a value it cannot take
  * @example
- * const { result, design } = await tf.refine(tf.design, { method: 'dls', maxIter: 100 });
- * console.log(result.stopReason, 'merit', result.mf);
- * tf.design = design;
+ * const ar = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: '(HL)^2' });
+ * const start = tf.setMerit(ar, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }]);
+ * const { result, design } = await tf.refine(start, { method: 'dls', maxIter: 100 });
+ * console.log(result.stopReason, 'merit', result.mf, design.frontLayers.map(l => l.thickness.toFixed(1)).join(', '));
  */
 export async function refine(design, settings = {}, hooks) {
     // The settings, defaults and hooks are runRefinement.js's; on the calling
@@ -183,11 +184,12 @@ function answerOf(method, design, result) {
  * @throws a pool material id that resolves to nothing, and a pool given inside the settings
  * @throws a hook the method does not call
  * @example
- * const { result, design } = await tf.synthesize(tf.design, {
+ * const ar = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: '(HL)^2' });
+ * const start = tf.setMerit(ar, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }]);
+ * const { result, design } = await tf.synthesize(start, {
  *     method: 'ge', pool: ['TiO2', 'SiO2'], settings: { maxLayers: 10, maxGeCycles: 2 },
  * });
  * console.log(result.stopReason, 'merit', result.mf, design.frontLayers.length, 'layers');
- * tf.design = design;
  */
 export async function synthesize(design, request, hooks) {
     // Each run's settings and their defaults are its settings.js; the pool

@@ -25,7 +25,7 @@ const { writeFileAtomic } = mainPaths;
  * @throws a file that cannot be read or does not hold a usable design
  * @example
  * const file = require('path').join(require('os').homedir(), `example-${Date.now()}.tfs`);
- * tf.saveDesign(tf.design, file);
+ * tf.saveDesign(tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^5 H' }), file);
  * const design = tf.openDesign(file);
  * console.log(design.name, design.frontLayers.length, 'layers, from', file);
  */
@@ -49,9 +49,10 @@ export function openDesign(filePath) {
  * @param [options.overwrite=false] Write over a file that is already there.
  * @throws a file that is already there, without `overwrite`
  * @example
+ * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^5 H' });
  * const file = require('path').join(require('os').homedir(), 'saved.tfs');
  * try {
- *     tf.saveDesign(tf.design, file);
+ *     tf.saveDesign(design, file);
  *     console.log('Saved', file);
  * } catch (err) {
  *     console.log(err.message);
@@ -155,8 +156,8 @@ export function newDesign(options) {
  * @returns The design with the changes.
  * @throws a material id that resolves to nothing, naming the closest ids
  * @example
- * tf.design = tf.setDesignSetup(tf.design, { substrateThicknessMm: 3, mfEvalMode: 'total' });
- * console.log(tf.design.substrate.thickness, 'mm,', tf.design.mfEvalMode);
+ * const design = tf.setDesignSetup(tf.newDesign({ name: 'Plate' }), { substrateThicknessMm: 3, mfEvalMode: 'total' });
+ * console.log(design.substrate.thickness, 'mm,', design.mfEvalMode);
  */
 export function setDesignSetup(design, options) {
     return withSetup('setDesignSetup', design, checkOptions('setDesignSetup', options, SETUP));

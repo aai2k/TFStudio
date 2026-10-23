@@ -15,7 +15,10 @@
  *   @throws text         a refusal
  *   @async               the call returns a promise, though its declaration
  *                        does not say so
- *   @example             the lines after it: a script that runs in the console
+ *   @example             the lines after it: for the object API, a script that
+ *                        runs in the console; for a plain call, the body of a
+ *                        Node program that has `const tf = require('…/src/api/
+ *                        index.js')` and has awaited tf.init()
  *
  * A tag the reference does not read, or an export without a doc comment, is
  * refused, so a misspelt tag cannot drop a line from the page.

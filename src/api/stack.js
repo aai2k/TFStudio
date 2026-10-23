@@ -82,8 +82,8 @@ function withLayers(design, key, layers) {
  * @throws an index outside the side's layers
  * @throws a material id that resolves to nothing, naming the closest ids
  * @example
- * tf.design = tf.insertLayer(tf.design, { material: 'SiO2', thickness: 95, index: 0 });
- * console.log(tf.design.frontLayers.map(l => `${l.material} ${l.thickness}`).join(', '));
+ * const design = tf.insertLayer(tf.newDesign({ name: 'AR' }), { material: 'SiO2', thickness: 95, index: 0 });
+ * console.log(design.frontLayers.map(l => `${l.material} ${l.thickness}`).join(', '));
  */
 export function insertLayer(design, options) {
     const { side = 'front', index, material, thickness, locked = false } =
@@ -110,8 +110,9 @@ export function insertLayer(design, options) {
  * @throws a side the Design Editor does not let you edit, as for `insertLayer`
  * @throws an index outside the side's layers
  * @example
- * tf.design = tf.deleteLayer(tf.design, { index: 0 });
- * console.log(tf.design.frontLayers.length, 'layers on the front');
+ * const stack = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: 'HL' });
+ * const design = tf.deleteLayer(stack, { index: 0 });
+ * console.log(design.frontLayers.length, 'layer on the front:', design.frontLayers[0].material);
  */
 export function deleteLayer(design, options) {
     const { side = 'front', index } = checkOptions('deleteLayer', options, ['side', 'index']);
@@ -136,8 +137,9 @@ export function deleteLayer(design, options) {
  * @throws an index outside the side's layers
  * @throws a material id that resolves to nothing, naming the closest ids
  * @example
- * tf.design = tf.setLayer(tf.design, { index: 0, thickness: 100, locked: true });
- * console.log(tf.design.frontLayers[0]);
+ * const stack = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: 'HL' });
+ * const design = tf.setLayer(stack, { index: 0, thickness: 100, locked: true });
+ * console.log(design.frontLayers[0]);
  */
 export function setLayer(design, options) {
     const { side = 'front', index, material, thickness, locked } =
@@ -179,8 +181,8 @@ export function setLayer(design, options) {
  * @throws the back of a symmetric design
  * @throws a material id that resolves to nothing, naming the closest ids
  * @example
- * tf.design = tf.stackFromFormula(tf.design, { formula: '(HL)^3 H', symbols: { H: 'Ta2O5', L: 'SiO2' } });
- * console.log(tf.design.frontLayers.length, 'layers');
+ * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^3 H', symbols: { H: 'Ta2O5', L: 'SiO2' } });
+ * console.log(design.frontLayers.length, 'layers');
  */
 export function stackFromFormula(design, options) {
     // As the dialog's Replace (stackFormula/designBuild.js), with the media

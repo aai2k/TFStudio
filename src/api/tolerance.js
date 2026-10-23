@@ -77,7 +77,8 @@ const MC_CHECKS = [
  * @throws a design with no layer the trials can change on the side it is scored on
  * @throws a design that names a material that resolves to nothing
  * @example
- * const mc = await tf.monteCarlo(tf.design, { from: 400, to: 700, step: 5, runs: 50, seed: 1 });
+ * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^5 H' });
+ * const mc = await tf.monteCarlo(design, { from: 400, to: 700, step: 5, runs: 50, seed: 1 });
  * console.log(mc.nTrials, 'trials, largest spread of R:', Math.max(...mc.stdev));
  */
 export function monteCarlo(design, options, hooks) {
@@ -210,7 +211,9 @@ export function estimateYield(design, options, hooks) {
  * @property surfaceMode The design's surface mode.
  * @throws a design with no merit function, or one that names a material that resolves to nothing
  * @example
- * const { rows } = tf.layerSensitivity(tf.design, { deltaNm: 1 });
+ * const ar = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: '(HL)^2' });
+ * const design = tf.setMerit(ar, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }]);
+ * const { rows } = tf.layerSensitivity(design, { deltaNm: 1 });
  * for (const row of rows) console.log(row.side, row.layerIndex, row.materialId, row.sensitivity.toFixed(1));
  */
 export function layerSensitivity(design, options) {

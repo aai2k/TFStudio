@@ -101,11 +101,12 @@ const isReversed = op => (readsWavelengthBand(op.type) || isConstraint(op.type))
  * @throws a field no row has, such as a misspelling, or a value a field cannot take
  * @throws a `lambdaStart` above `lambdaEnd` on a row that reads a band or a layer range
  * @example
- * tf.design = tf.setMerit(tf.design, [
+ * const ar = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: '(HL)^2' });
+ * const design = tf.setMerit(ar, [
  *     { type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, weight: 1 },
  *     { type: 'MNT', target: 10, weight: 1 },
  * ]);
- * console.log('Merit:', tf.merit(tf.design).total);
+ * console.log('Merit:', tf.merit(design).total);
  */
 export function setMerit(design, rows) {
     // Rows are made as the editor makes them (meritOperandModel.js
@@ -176,7 +177,8 @@ function rowScope(op) {
  * @property rows[].error Why the row cannot be evaluated, or null.
  * @throws a design that names a material that resolves to nothing
  * @example
- * const m = tf.merit(tf.design);
+ * const ar = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: '(HL)^2' });
+ * const m = tf.merit(tf.setMerit(ar, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }]));
  * console.log('Merit:', m.total);
  * for (const row of m.rows) console.log(row.type, row.value, row.target);
  */

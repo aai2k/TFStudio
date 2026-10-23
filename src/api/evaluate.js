@@ -34,7 +34,8 @@ const isBand = b => !!b && Number.isFinite(b.from) && Number.isFinite(b.to) && b
  * @throws a design that names a material that resolves to nothing
  * @throws more points, wavelengths times angles, than one call computes; the refusal names the limit
  * @example
- * const s = tf.spectrum(tf.design, { from: 400, to: 700, step: 10, angles: [0, 45] });
+ * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^5 H' });
+ * const s = tf.spectrum(design, { from: 400, to: 700, step: 10, angles: [0, 45] });
  * console.log(s.lambda.length, 'wavelengths');
  * console.log('At 400 nm, 45 degrees: Rs', s.angles[45].Rs[0], 'Rp', s.angles[45].Rp[0]);
  */
@@ -88,7 +89,8 @@ function bandStats(lambda, values, inBand) {
  * @property to The band's last wavelength, nm.
  * @property R For `R`, and likewise for `T`, `A`, `Rs`, `Rp`, `Ts`, `Tp`, `As` and `Ap`: `{ mean, min, minAt, max, maxAt }`, with `minAt` and `maxAt` in nm; null when no wavelength of the spectrum falls in the band.
  * @example
- * const s = tf.spectrum(tf.design, { from: 400, to: 700, step: 5 });
+ * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^5 H' });
+ * const s = tf.spectrum(design, { from: 400, to: 700, step: 5 });
  * const [whole, band] = tf.summarize(s, { bands: [{ from: 450, to: 650 }] })[0];
  * console.log('Mean R from 400 to 700 nm:', whole.R.mean);
  * console.log('Highest R from 450 to 650 nm:', band.R.max, 'at', band.R.maxAt, 'nm');
