@@ -1,9 +1,9 @@
 // Tools that compute on a design: its spectrum, its index profile and layer
-// thicknesses, what its stack adds up to, its merit, its verdict against its
-// specification, and how much each layer moves the merit. Monte Carlo runs as
-// a job (runTools.js).
+// thicknesses, what its stack adds up to, a side's admittance locus and
+// electric field, its merit, its verdict against its specification, and how
+// much each layer moves the merit. Monte Carlo runs as a job (runTools.js).
 
-import { object, num, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
+import { object, num, int, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
 const VIEW_SIDE = oneOf(['front', 'back', 'total'], "'front' or 'back', that side's layers, or 'total', both sides of the part. Default: what the design is scored on");
 
@@ -16,6 +16,28 @@ function plain(value) {
 }
 
 const BAND = object({ from: num('Start of the band in nm'), to: num('End of the band in nm') }, ['from', 'to']);
+
+const ONE_SIDE = oneOf(['front', 'back'], "The coated side. Default: the back of a back_only design and the front of any other, the side the PR, GD, PSI and EFMX merit rows score");
+const ANGLE = num('Angle of incidence in degrees in the medium light comes from, 0 <= angle < 90. Default 0');
+
+// Where a locus ends, at the coating's outer surface: Y, Γ and |Γ|², the
+// reflectance of the side.
+function locusEnd(locus) {
+    const { Y, gamma } = locus.boundaries[locus.boundaries.length - 1];
+    return { eta0: locus.eta0, etaSubstrate: locus.etaSubstrate, Y, gamma, R: gamma.re ** 2 + gamma.im ** 2 };
+}
+
+// The peak of one polarization's |E|², with where it sits: the depth in nm and
+// in the field's depth unit, and the layer, by Design Editor number, that holds
+// it, the first light meets for a peak on a boundary.
+function fieldPeak(field, pol) {
+    const { e2, amplitude } = field[pol];
+    let at = 0;
+    for (let i = 1; i < e2.length; i++) if (e2[i] > e2[at]) at = i;
+    const z = field.z[at];
+    const layer = field.layers.find(l => z <= l.end) ?? field.layers[field.layers.length - 1];
+    return { e2: e2[at], amplitude: amplitude[at], z, depth: field.depth[at], layer: layer.number, material: layer.material };
+}
 
 export function analysisTools({ api, store }) {
     return [
@@ -76,6 +98,40 @@ export function analysisTools({ api, store }) {
             run: ({ designId, values = false, ...options }) => {
                 const { qwot, ...facts } = api.designFacts(store.get(designId), options);
                 return { designId, ...facts, ...(values ? { qwot } : {}) };
+            },
+        },
+        {
+            name: 'admittance', title: 'Admittance diagram',
+            description: "The admittance locus of one coated side at one wavelength, for s and p, as the Admittance Diagram window draws and tables it, from the substrate's admittance through the admittance at the outer surface of each layer to the coating's outer surface. The design's cone of incidence is not used. Complex values are { re, im } in Macleod's sign (absorbing index n - ik, so an absorbing admittance has a negative imaginary part), admittances in free-space units, tilted for each polarization; the reflection coefficient is gamma = (eta0 - Y) / (eta0 + Y). Answers with mode (the side computed), wavelength, angle, plane, incident and substrate { material, name }, layerCount, outOfRange (the side's materials whose data do not reach the wavelength), and for s and p { eta0, etaSubstrate, Y, gamma, R }: Y and gamma at the outer surface and R = |gamma|², the side's reflectance; with values true, also s and p in full, each { eta0, etaSubstrate, boundaries, arcs }: boundaries one { layer, material, name, Y, gamma } per boundary from the substrate out, layer 0 the bare substrate and then each layer by its Design Editor number, 1 next to the substrate; arcs one { layer, material, re, im } per layer, the points the window draws in the chosen plane. A layer with no thickness has neither. side total is not taken; a side with no layers is refused.",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                wavelength: num("Wavelength in nm. Default: the design's reference wavelength"),
+                angle: ANGLE, side: ONE_SIDE,
+                plane: oneOf(['admittance', 'reflection'], "What the arcs are drawn in: 'admittance', the Y plane, or 'reflection', the plane of gamma. Default 'admittance'"),
+                values: bool('Also answer with every boundary and arc. Default false'),
+            }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const { s, p, ...loci } = api.admittance(store.get(designId), options);
+                return { designId, ...loci, layerCount: s.arcs.length, ...(values ? { s, p } : { s: locusEnd(s), p: locusEnd(p) }) };
+            },
+        },
+        {
+            name: 'electricField', title: 'Electric field',
+            description: "The electric field through one coated side at one wavelength, for s, p and avg (unpolarized, the mean of the s and p fields), as the Electric Field window computes it, from the medium light comes from to the substrate. The design's cone of incidence is not used. |E|² is a fraction of the incident |E|² (the whole field, the squared semi-major axis of the field's ellipse, as the EFMX merit row reads it); amplitude is in V/m for 1 W/m² incident. Answers with mode (the side computed), wavelength, angle, reference (the λ0 optical depth is read at), depthUnit, pointsPerLayer, incidentAmplitude (V/m for 1 W/m²), layerCount, sampleCount, outOfRange (the side's materials whose data do not reach the wavelength), and peak { s, p, avg }, each { e2, amplitude, z, depth, layer, material }: the highest |E|², its amplitude, its depth in nm and in depthUnit, and the layer holding it by its Design Editor number; with values true, also z (nm) and depth for every sample, layers, each { number, material, start, end, depthStart, depthEnd } in the order light meets them, and s, p and avg, each { e2, e2Tangential, e2Normal, amplitude } per sample. Values on a coating of many layers run to megabytes. side total is not taken; a side with no layer thicker than 0 nm is refused.",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                wavelength: num("Wavelength in nm. Default: the design's reference wavelength"),
+                angle: ANGLE, side: ONE_SIDE,
+                pointsPerLayer: int('Samples across each layer, 2 or more. Default 60, as the window takes'),
+                depthUnit: oneOf(['nm', 'OT', 'QWOT', 'FWOT'], "What depth is in: 'nm', physical; 'OT', the running sum of n times thickness in nm; 'QWOT' or 'FWOT', quarter or full waves of reference. Default 'nm'"),
+                reference: num("The λ0 in nm the optical depth units read n at. Default: the design's reference wavelength"),
+                values: bool('Also answer with every sample. Default false'),
+            }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const field = api.electricField(store.get(designId), options);
+                const { z, depth, layers, s, p, avg, ...facts } = field;
+                const peak = { s: fieldPeak(field, 's'), p: fieldPeak(field, 'p'), avg: fieldPeak(field, 'avg') };
+                return { designId, ...facts, layerCount: layers.length, sampleCount: z.length, peak, ...(values ? { z, depth, layers, s, p, avg } : {}) };
             },
         },
         {

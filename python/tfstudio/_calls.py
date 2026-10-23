@@ -96,6 +96,12 @@ class Calls:
     def designFacts(self, design, options=None):
         return self._call("designFacts", design, options)
 
+    def admittance(self, design, options=None):
+        return self._call("admittance", design, options)
+
+    def electricField(self, design, options=None):
+        return self._call("electricField", design, options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

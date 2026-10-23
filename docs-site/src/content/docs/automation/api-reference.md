@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -771,6 +771,84 @@ console.log(design.layerCounts());
 design = tf.new_design("Mirror")
 design.stack("(HL)^3 H", H="Ta2O5", L="SiO2")
 print(design.layer_counts())
+```
+
+### admittance
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.admittance(wavelength, { angle, side, plane })` | `design.admittance(wavelength=..., angle=0, side=..., plane="admittance")` |
+
+**JavaScript**: The admittance locus of one coated side at one wavelength, for s and p, as the Admittance Diagram window draws it and lists it in its table: from the substrate's admittance through the admittance at the outer surface of each layer to the coating's outer surface. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given. The design's cone of incidence is not used, as the window does not use it. Complex values are `{ re, im }` in Macleod's sign, the window's: an absorbing material's index is n − ik.
+
+**Python**: The admittance locus of one coated side at one wavelength, for s and p, as the Admittance Diagram window draws it and lists it in its table: from the substrate's admittance through the admittance at the outer surface of each layer to the coating's outer surface. It is computed on the front, or on the back of a design coated on the back alone, unless side is given. The design's cone of incidence is not used, as the window does not use it. Complex values are Python complex numbers in Macleod's sign, the window's: an absorbing material's index is n − ik.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `wavelength` | `wavelength` |  | The wavelength, nm. Without it, the design's reference wavelength. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90. |
+| `side` | `side` |  | `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other. |
+| `plane` | `plane` | `'admittance'` | What the arcs are drawn in: `'admittance'`, the Y plane, or `'reflection'`, the plane of the reflection coefficient Γ. |
+
+**Returns**: An Admittance.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a wavelength of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a plane other than `'admittance'` or `'reflection'`, a side with no layers, or a design that names a material that resolves to nothing<br>**Python**: a wavelength of 0 or less, an angle outside 0 to 90, a side other than "front" or "back", a plane other than "admittance" or "reflection", a side with no layers, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const locus = design.admittance(550, { angle: 45 });
+const { Y, gamma } = locus.s.boundaries.at(-1);
+console.log(locus.mode, 'Y', Y.re.toFixed(4), Y.im.toFixed(4), 'Rs', (gamma.re ** 2 + gamma.im ** 2).toFixed(6));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+locus = design.admittance(550, angle=45)
+front = locus.s.boundaries[-1]
+print(locus.mode, "Y", front.Y, "Rs", abs(front.gamma) ** 2)
+```
+
+### electricField / electric_field
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.electricField(wavelength, { angle, side, pointsPerLayer, depthUnit, reference })` | `design.electric_field(wavelength=..., angle=0, side=..., points_per_layer=60, depth_unit="nm", reference=...)` |
+
+The electric field through one coated side at one wavelength, for s, p and unpolarized light, as the Electric Field window computes it, from the medium light comes from to the substrate. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given. The design's cone of incidence is not used, as the window does not use it. |E|² is a fraction of the incident |E|², and the amplitude is in V/m for 1 W/m² incident.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `wavelength` | `wavelength` |  | The wavelength, nm. Without it, the design's reference wavelength. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90. |
+| `side` | `side` |  | `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other. |
+| `pointsPerLayer` | `points_per_layer` | `60` | The samples taken across each layer, a whole number of 2 or more. |
+| `depthUnit` | `depth_unit` | `'nm'` | What `depth` is in: `'nm'`, `'OT'` (n times thickness summed, nm), `'QWOT'` or `'FWOT'`. |
+| `reference` | `reference` |  | The wavelength λ0, nm, the optical depth units read n at. Without it, the design's reference wavelength. |
+
+**Returns**: An ElectricField.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a depth unit it does not have, a pointsPerLayer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing<br>**Python**: a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than "front" or "back", a depth unit it does not have, a points_per_layer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror', { reference: 1064 });
+design.stack('(HL)^4 H');
+const field = design.electricField(1064, { angle: 45 });
+const peak = field.p.e2.indexOf(Math.max(...field.p.e2));
+console.log('peak |E|², p:', field.p.e2[peak].toFixed(4), 'at', field.z[peak].toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror", reference=1064)
+design.stack("(HL)^4 H")
+field = design.electric_field(1064, angle=45)
+peak = field.p.e2.index(max(field.p.e2))
+print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1), "nm")
 ```
 
 ### refine
@@ -4223,6 +4301,595 @@ console.log(design.layerThicknesses({ wavelength: 5000 }).outOfRange.length, 'ma
 design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 print(len(design.layer_thicknesses(wavelength=5000).out_of_range), "materials stop short of 5000 nm")
+```
+
+## Admittance
+
+**JavaScript**: The admittance locus of one coated side at one wavelength, for s and p, as design.admittance() computes it and the Admittance Diagram window draws it. Complex values are `{ re, im }` in Macleod's sign, the window's: an absorbing material's admittance has a negative imaginary part.
+
+**Python**: The admittance locus of one coated side at one wavelength, for s and p, as design.admittance() computes it and the Admittance Diagram window draws it. Complex values are Python complex numbers in Macleod's sign, the window's: an absorbing material's admittance has a negative imaginary part.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const locus = design.admittance(550).s;
+for (const b of locus.boundaries) console.log(b.layer, b.name, b.Y.re.toFixed(4), b.Y.im.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+locus = design.admittance(550).s
+for b in locus.boundaries:
+    print(b.layer, b.name, b.Y)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.mode` | `locus.mode` |
+
+The side computed: `'front'` or `'back'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550).mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.wavelength` | `locus.wavelength` |
+
+The wavelength, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance().wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance().wavelength, "nm")
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.angle` | `locus.angle` |
+
+The angle of incidence, degrees in the medium light comes from.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550, { angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550, angle=30).angle, "degrees")
+```
+
+### plane
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.plane` | `locus.plane` |
+
+The plane the arcs are in: `'admittance'`, the Y plane, or `'reflection'`, the plane of the reflection coefficient Γ.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550, { plane: 'reflection' }).plane);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550, plane="reflection").plane)
+```
+
+### incident
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.incident` | `locus.incident` |
+
+**JavaScript**: The medium light comes from, `{ material, name }`: the incident medium on the front, the exit medium on the back.
+
+**Python**: The medium light comes from, a named tuple (material, name): the incident medium on the front, the exit medium on the back.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550).incident);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550).incident)
+```
+
+### substrate
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.substrate` | `locus.substrate` |
+
+**JavaScript**: The substrate, `{ material, name }`.
+
+**Python**: The substrate, a named tuple (material, name).
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550).substrate.name);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550).substrate.name)
+```
+
+### s
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.s` | `locus.s` |
+
+**JavaScript**: The s locus, `{ eta0, etaSubstrate, boundaries, arcs }`: eta0 and etaSubstrate the admittances of the medium and the substrate; boundaries the window's table, one `{ layer, material, name, Y, gamma }` per boundary from the substrate out, layer 0 the bare substrate and then each layer with a thickness by its number as design.layers numbers it, Y the admittance at its outer surface and gamma the reflection coefficient there, the last at the outer surface of the coating; arcs one `{ layer, material, re, im }` per layer with a thickness, from the substrate out, re and im the points the window draws it through, in the plane chosen.
+
+**Python**: The s locus, a named tuple (eta0, eta_substrate, boundaries, arcs): eta0 and eta_substrate the admittances of the medium and the substrate; boundaries the window's table, one named tuple (layer, material, name, Y, gamma) per boundary from the substrate out, layer 0 the bare substrate and then each layer with a thickness by its number as design.layers numbers it, Y the admittance at its outer surface and gamma the reflection coefficient there, the last at the outer surface of the coating; arcs one named tuple (layer, material, re, im) per layer with a thickness, from the substrate out, re and im lists of the points the window draws it through, in the plane chosen.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { gamma } = design.admittance(550, { angle: 45 }).s.boundaries.at(-1);
+console.log('Rs', gamma.re ** 2 + gamma.im ** 2);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+gamma = design.admittance(550, angle=45).s.boundaries[-1].gamma
+print("Rs", abs(gamma) ** 2)
+```
+
+### p
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.p` | `locus.p` |
+
+The p locus, as for `s`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { Y } = design.admittance(550, { angle: 45 }).p.boundaries.at(-1);
+console.log('Y at the front surface, p:', Y.re, Y.im);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("Y at the front surface, p:", design.admittance(550, angle=45).p.boundaries[-1].Y)
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.outOfRange` | `locus.out_of_range` |
+
+**JavaScript**: The materials of the side computed whose data do not reach the wavelength, an array of `{ id, name, rangeNm, heldFlat }`: their n and k there are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers it.
+
+**Python**: The materials of the side computed whose data do not reach the wavelength, a list of dicts with id, name, rangeNm and heldFlat: their n and k there are held at the last value (heldFlat True) or extrapolated. Empty when every material covers it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(5000).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print([m["id"] for m in design.admittance(5000).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.saveCsv(path)` | `locus.save_csv(path)` |
+
+**JavaScript**: Writes the loci to a CSV file as the window's Copy CSV writes its table with both polarizations shown: for s and then p, a row for the substrate, one for each layer from the substrate out and one for the medium light comes from, with Re(Y), Im(Y), Re(Γ) and Im(Γ). A file that is there is written over.
+
+**Python**: Writes the loci to a CSV file as the window's Copy CSV writes its table with both polarizations shown: for s and then p, a row for the substrate, one for each layer from the substrate out and one for the medium light comes from, with Re(Y), Im(Y), Re(Γ) and Im(Γ). The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `admittance-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.admittance(550, { angle: 45 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "admittance-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.admittance(550, angle=45).save_csv(name)
+print("Wrote", name)
+```
+
+## ElectricField
+
+The electric field through one coated side at one wavelength, for s, p and unpolarized light, as `design.electricField()` / `design.electric_field()` computes it and the Electric Field window draws it.
+
+```js
+const design = tf.newDesign('Mirror', { reference: 1064 });
+design.stack('(HL)^4 H');
+const field = design.electricField(1064);
+console.log('peak |E|², s:', Math.max(...field.s.e2), 'over', field.z.length, 'samples');
+```
+
+```python
+design = tf.new_design("Mirror", reference=1064)
+design.stack("(HL)^4 H")
+field = design.electric_field(1064)
+print("peak |E|², s:", max(field.s.e2), "over", len(field.z), "samples")
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.mode` | `field.mode` |
+
+The side computed: `'front'` or `'back'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550).mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.wavelength` | `field.wavelength` |
+
+The wavelength the field was computed at, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField().wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field().wavelength, "nm")
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.angle` | `field.angle` |
+
+The angle of incidence, degrees in the medium light comes from.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550, { angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550, angle=30).angle, "degrees")
+```
+
+### reference
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.reference` | `field.reference` |
+
+The wavelength λ0 the depth was read at, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(633, { depthUnit: 'QWOT' }).reference, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(633, depth_unit="QWOT").reference, "nm")
+```
+
+### depthUnit / depth_unit
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.depthUnit` | `field.depth_unit` |
+
+The unit `depth` is in: `'nm'`, `'OT'`, `'QWOT'` or `'FWOT'`; `'nm'` where an optical unit was asked for and a material has no index at the reference wavelength.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550, { depthUnit: 'FWOT' }).depthUnit);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550, depth_unit="FWOT").depth_unit)
+```
+
+### pointsPerLayer / points_per_layer
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.pointsPerLayer` | `field.points_per_layer` |
+
+The samples taken across each layer.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550, { pointsPerLayer: 200 }).pointsPerLayer);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550, points_per_layer=200).points_per_layer)
+```
+
+### z
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.z` | `field.z` |
+
+**JavaScript**: The depth of each sample from the outer surface, nm, an array: the first at the surface, the last at the substrate.
+
+**Python**: The depth of each sample from the outer surface, nm, a list: the first at the surface, the last at the substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { z } = design.electricField(550);
+console.log(z.length, 'samples down to', z.at(-1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+z = design.electric_field(550).z
+print(len(z), "samples down to", z[-1], "nm")
+```
+
+### depth
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.depth` | `field.depth` |
+
+**JavaScript**: The depth of each sample in `depthUnit`, an array.
+
+**Python**: The depth of each sample in depth_unit, a list.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550, { depthUnit: 'QWOT' }).depth.at(-1), 'quarter waves');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550, depth_unit="QWOT").depth[-1], "quarter waves")
+```
+
+### layers
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.layers` | `field.layers` |
+
+**JavaScript**: One object per layer with a thickness, in the order light meets them, `{ number, material, start, end, depthStart, depthEnd }`: number as design.layers and design.backLayers number it; material by id; start and end its depth from the outer surface in nm, depthStart and depthEnd in `depthUnit`.
+
+**Python**: One named tuple (number, material, start, end, depth_start, depth_end) per layer with a thickness, in the order light meets them: number as design.layers and design.back_layers number it; material by id; start and end its depth from the outer surface in nm, depth_start and depth_end in depth_unit.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const l of design.electricField(550).layers) console.log(l.number, l.material, l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for l in design.electric_field(550).layers:
+    print(l.number, l.material, round(l.start, 1), "to", round(l.end, 1), "nm")
+```
+
+### s
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.s` | `field.s` |
+
+**JavaScript**: The s field, `{ e2, e2Tangential, e2Normal, amplitude }`, one value per sample: |E|² of the whole field and of its components along and normal to the layers, as fractions of the incident |E|², and the whole field's amplitude in V/m for 1 W/m² incident.
+
+**Python**: The s field, a named tuple (e2, e2_tangential, e2_normal, amplitude) of lists, one value per sample: |E|² of the whole field and of its components along and normal to the layers, as fractions of the incident |E|², and the whole field's amplitude in V/m for 1 W/m² incident.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log('peak |E|², s:', Math.max(...design.electricField(550).s.e2));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("peak |E|², s:", max(design.electric_field(550).s.e2))
+```
+
+### p
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.p` | `field.p` |
+
+The p field, as for `s`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { p } = design.electricField(550, { angle: 45 });
+console.log('peak normal component, p:', Math.max(...p.e2Normal));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("peak normal component, p:", max(design.electric_field(550, angle=45).p.e2_normal))
+```
+
+### avg
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.avg` | `field.avg` |
+
+The unpolarized field, the mean of the s and p fields sample by sample, as for `s`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log('peak amplitude, avg:', Math.max(...design.electricField(550, { angle: 45 }).avg.amplitude), 'V/m');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("peak amplitude, avg:", max(design.electric_field(550, angle=45).avg.amplitude), "V/m")
+```
+
+### incidentAmplitude / incident_amplitude
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.incidentAmplitude` | `field.incident_amplitude` |
+
+The incident beam's amplitude in V/m for 1 W/m², from the index of the medium light comes from: |E|² of 1 reads this amplitude.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550).incidentAmplitude, 'V/m');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550).incident_amplitude, "V/m")
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.outOfRange` | `field.out_of_range` |
+
+**JavaScript**: The materials of the side computed whose data do not reach the wavelength, an array of `{ id, name, rangeNm, heldFlat }`, as for an Admittance.
+
+**Python**: The materials of the side computed whose data do not reach the wavelength, a list of dicts with id, name, rangeNm and heldFlat, as for an Admittance.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(5000).outOfRange.length, 'materials stop short of 5000 nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(len(design.electric_field(5000).out_of_range), "materials stop short of 5000 nm")
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.saveCsv(path)` | `field.save_csv(path)` |
+
+**JavaScript**: Writes the field to a CSV file as the window's Copy CSV writes its table with its factory display: a row per sample with the depth in `depthUnit` and the amplitude of the whole field in V/m for 1 W/m², for avg, s and p. A file that is there is written over.
+
+**Python**: Writes the field to a CSV file as the window's Copy CSV writes its table with its factory display: a row per sample with the depth in depth_unit and the amplitude of the whole field in V/m for 1 W/m², for avg, s and p. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `field-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.electricField(550).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+design = tf.new_design("Laser mirror", reference=1064)
+design.stack("(HL)^5 H")
+field = design.electric_field(1064, depth_unit="QWOT")
+name = "field-{}.csv".format(time.time_ns())
+field.save_csv(name)
+print("Wrote", len(field.z), "rows to", name)
 ```
 
 ## RunResult

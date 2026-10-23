@@ -9,9 +9,13 @@ function preferredSide(design, current) {
     return hasFront ? 'front' : current;
 }
 
+// The wavelength, nm, the window computes the field of a design with no
+// reference wavelength at, which the API's electricField falls back to too.
+export const EFIELD_LAMBDA_NM = 550;
+
 export const eFieldSession = createWindowSession({
     ...sessionDefaults('eFieldEvaluation'),
-    lambda: 550,
+    lambda: EFIELD_LAMBDA_NM,
     side: 'front',
     axisRefLambda: 550,
 }, {

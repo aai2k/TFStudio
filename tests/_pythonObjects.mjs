@@ -33,7 +33,9 @@
  *   operation's number read back through the layers, and its refusals;
  *   index_profile() and layer_thicknesses() as named tuples, save_csv(), the
  *   facts with and without side, layer.qwot read and set, None for a
- *   material that resolves to nothing, and their refusals;
+ *   material that resolves to nothing, and their refusals; admittance() and
+ *   electric_field() with their defaults and each argument, complex values as
+ *   complex, the side they take without one, save_csv() and their refusals;
  *   refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
@@ -439,13 +441,21 @@ const thicknessesOf = t => [t.mode, t.wavelength, t.rows.map(r => [r.side ?? t.m
 // and JavaScript print some of them differently (1e-05 and 0.00001).
 const csvRows = text => String(text).split(/\r?\n/).filter(Boolean).map(line => line.split(',').map(field => (field !== '' && Number.isFinite(Number(field)) ? Number(field) : field)));
 
+// What `make` gives for each of `items`, one after the other: t.attempt keeps
+// the console it found, so two at once would leave the console silent.
+async function inTurn(items, make) {
+    const out = [];
+    for (const item of items) out.push(await make(item));
+    return out;
+}
+
 async function stackViews(t, said) {
     const { api, ok, canon, attempt, WORK } = t;
     const got = said.stackViews ?? {};
     const design = got.design ?? {};
     const PROFILES = [undefined, { wavelength: 633 }, { side: 'back', wavelength: 1064 }];
-    const profiles = await Promise.all(PROFILES.map(options => attempt(() => profileOf(api.indexProfile(design, options)))));
-    const thicknesses = await Promise.all([undefined, { wavelength: 550, side: 'front' }].map(options => attempt(() => thicknessesOf(api.layerThicknesses(design, options)))));
+    const profiles = await inTurn(PROFILES, options => attempt(() => profileOf(api.indexProfile(design, options))));
+    const thicknesses = await inTurn([undefined, { wavelength: 550, side: 'front' }], options => attempt(() => thicknessesOf(api.layerThicknesses(design, options))));
     ok('index_profile() and layer_thicknesses() are indexProfile and layerThicknesses, with their defaults and each argument, as named tuples',
         canon(got.profiles) === canon(profiles) && canon(got.thicknesses) === canon(thicknesses) && profiles[0][0] === 'total'
         && canon(got.fields) === canon([['side', 'number', 'material', 'n', 'k', 'thickness', 'start', 'end'], ['side', 'number', 'material', 'thickness', 'optical_thickness', 'qwot', 'fwot']]),
@@ -479,6 +489,57 @@ async function stackViews(t, said) {
     ]), canon(got.worded));
     ok('and repr() shows what they hold', canon(got.shown) === canon([`<IndexProfile total at 600 nm: ${front + (design.backLayers?.length ?? 0)} layers, ${api.indexProfile(design, { wavelength: 600 }).thickness} nm>`,
         `<LayerThicknesses front at 600 nm: ${front} layers>`]), canon(got.shown));
+}
+
+// What _pythonObjects.py admittance_and_field() read of a design coated on
+// both sides, against the plain calls here on the design it read.
+const pair = c => [c.re, c.im];
+const locusOf = l => [pair(l.eta0), pair(l.etaSubstrate), l.boundaries.map(b => [b.layer, b.material, b.name, ...pair(b.Y), ...pair(b.gamma)]),
+    l.arcs.map(a => [a.layer, a.material, a.re, a.im])];
+const lociOf = a => [a.mode, a.wavelength, a.angle, a.plane, [a.incident.material, a.incident.name], [a.substrate.material, a.substrate.name],
+    locusOf(a.s), locusOf(a.p), a.outOfRange];
+const fieldOf = f => [f.mode, f.wavelength, f.angle, f.reference, f.depthUnit, f.pointsPerLayer, f.z, f.depth,
+    f.layers.map(l => [l.number, l.material, l.start, l.end, l.depthStart, l.depthEnd]),
+    ['s', 'p', 'avg'].map(pol => [f[pol].e2, f[pol].e2Tangential, f[pol].e2Normal, f[pol].amplitude]), f.incidentAmplitude, f.outOfRange];
+
+async function admittanceAndField(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.fields ?? {};
+    const design = got.design ?? {};
+    const LOCI = [{}, { wavelength: 633, angle: 45 }, { side: 'back', plane: 'reflection' }];
+    const FIELDS = [{}, { wavelength: 1064, depthUnit: 'QWOT' }, { wavelength: 633, angle: 45, side: 'back', pointsPerLayer: 9, depthUnit: 'OT', reference: 500 }];
+    const loci = await inTurn(LOCI, options => attempt(() => lociOf(api.admittance(design, options))));
+    const fields = await inTurn(FIELDS, options => attempt(() => fieldOf(api.electricField(design, options))));
+    ok('admittance() and electric_field() are admittance and electricField over the wire, with their defaults and each argument, complex values as complex',
+        canon(got.loci) === canon(loci) && canon(got.fields) === canon(fields) && canon(got.types) === canon(['complex', 'complex', 'complex'])
+        && canon(got.tuples) === canon([['eta0', 'eta_substrate', 'boundaries', 'arcs'], ['layer', 'material', 'name', 'Y', 'gamma'], ['layer', 'material', 're', 'im'],
+            ['e2', 'e2_tangential', 'e2_normal', 'amplitude'], ['number', 'material', 'start', 'end', 'depth_start', 'depth_end']]), canon(got.loci)?.slice(0, 300));
+    ok('without side they compute the front, and the back of a design coated on the back alone', canon(got.modes) === canon(['front', 'front', 'back', 'back']), canon(got.modes));
+    const objects = await import('../src/api/objects/index.js');
+    const written = [new objects.Admittance(api.admittance(design, { wavelength: 633, angle: 45 })), new objects.ElectricField(api.electricField(design, { wavelength: 1064, depthUnit: 'QWOT' }))]
+        .map((result, i) => {
+            const file = path.join(WORK, `js-fields-${i}.csv`);
+            result.saveCsv(file);
+            return csvRows(fs.readFileSync(file, 'utf8'));
+        });
+    ok('save_csv writes what saveCsv writes, for an Admittance and an ElectricField', canon((got.csv ?? []).map(csvRows)) === canon(written)
+        && written[0][0].join() === 'Layer,Material,Re(Y),Im(Y),Re(Γ),Im(Γ)' && written[1][0].join() === 'QWOT,E (avg) [V/m],E (s-pol) [V/m],E (p-pol) [V/m]',
+        String(got.csv?.[0]).slice(0, 200));
+    ok('their refusals are in Python\'s words', canon(got.worded) === canon([
+        'admittance: angle is an angle of incidence in degrees, 0 <= angle < 90, not 95',
+        "admittance: side is 'front' or 'back', not 'total'",
+        "admittance: plane is 'admittance' or 'reflection', not 'smith'",
+        'electric_field: wavelength is a wavelength in nm above 0, not -1',
+        'electric_field: points_per_layer is a whole number of samples across a layer, 2 or more, not 1',
+        "electric_field: depth_unit is 'nm', 'OT', 'QWOT' or 'FWOT', not 'um'",
+        'electric_field: 1250006 samples (layers times points per layer) is more than 1000000; take fewer points per layer',
+        "electric_field: unknown option 'depth_units'; the options are angle, side, points_per_layer, depth_unit, reference",
+        'electric_field: the back has no layer thicker than 0 nm',
+        'admittance: the back has no layers',
+    ]), canon(got.worded));
+    const front = design.frontLayers?.length ?? 0;
+    ok('and repr() shows what they hold', canon(got.shown) === canon([`<Admittance front at 550 nm, 45 degrees: ${front} layers, admittance plane>`,
+        `<ElectricField front at 550 nm, 0 degrees: ${front} layers, ${front * 60 + 1} samples>`]), canon(got.shown));
 }
 
 const RUN_CALLS = {
@@ -660,6 +721,7 @@ export async function checkObjects(t) {
     await yields(u, ran.said);
     await cleaning(u, ran.said);
     await stackViews(u, ran.said);
+    await admittanceAndField(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

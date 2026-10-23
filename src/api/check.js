@@ -68,13 +68,17 @@ export const isNonNegative = v => Number.isFinite(v) && v >= 0;
 /** An angle of incidence in degrees that the evaluators take: 0 or more and below grazing. */
 export const isAngle = v => Number.isFinite(v) && v >= 0 && v < 90;
 export const isBoolean = v => typeof v === 'boolean';
+/** One coated side. */
+export const isSide = v => v === 'front' || v === 'back';
 /** A side a stack is read on: one side's layers, or both sides of the part. */
 export const isViewSide = v => v === 'front' || v === 'back' || v === 'total';
 
-// Points a spectrum or a Monte Carlo grid may hold, so a mistyped step cannot
-// exhaust the process's memory: an answer holds five arrays of this many
-// numbers, 40 MB at the limit.
-const MAX_POINTS = 1e6;
+/**
+ * Points a spectrum, a Monte Carlo grid or a field profile may hold, so a
+ * mistyped step cannot exhaust the process's memory: a spectrum holds five
+ * arrays of this many numbers, 40 MB at the limit.
+ */
+export const MAX_POINTS = 1e6;
 
 /**
  * Refuses a wavelength range [from, to] in nm sampled every `step` nm at

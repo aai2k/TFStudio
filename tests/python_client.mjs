@@ -11,7 +11,8 @@
  *      took aside: designs built, edited, cleaned, saved (to the bytes the API
  *      writes) and opened again, a layer set by its QWOT, spectra, index
  *      profiles, one of a side with no layers refused, layer thicknesses,
- *      the design's facts, materials, merit, a specification
+ *      the design's facts, admittance loci and electric fields, one of a
+ *      side with no layers refused, materials, merit, a specification
  *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
  *      a seeded yield.
  *   2. Values: a spectrum's angles are keyed by text, and the spectrum as
@@ -178,6 +179,8 @@ const undrawn = v => {
 };
 const canon = v => encode(undrawn(v));
 // The engine prints as it runs; the runs made here keep it off the test's output.
+// Each keeps the console it found, so two may not overlap, as two in one
+// Promise.all would: the second would keep the first's silent console.
 const quietly = async run => {
     const { log, warn, info } = console;
     console.log = console.warn = console.info = () => {};
@@ -284,6 +287,9 @@ const STOPPED_WITHIN_S = 5;
         ['layerThicknesses', [stack, { side: 'total' }]],
         ['designFacts', [stack]],
         ['setLayer', [stack, { index: 1, qwot: 1.5 }]],
+        ['admittance', [stack, { wavelength: 633, angle: 45, plane: 'reflection' }]],
+        ['electricField', [stack, { wavelength: 1064, depthUnit: 'FWOT', pointsPerLayer: 12 }]],
+        ['electricField', [stack, { side: 'back' }]],
         ['setMerit', [stack, AR_ROWS]],
         ['merit', [start]],
         ['setSpecification', [start, CHECKS]],

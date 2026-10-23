@@ -32,7 +32,10 @@
  *   refusals in the objects' words; indexProfile() and layerThicknesses()
  *   with their defaults and options, totalThickness(), opticalThickness()
  *   and layerCounts() with and without side, layer.qwot read and set on both
- *   sides, and their refusals in the objects' words; refine and synthesize with seeds, Monte
+ *   sides, and their refusals in the objects' words; admittance() and
+ *   electricField() with their defaults and options, the side they take
+ *   without one, an Admittance's CSV, and their refusals in the objects'
+ *   words; refine and synthesize with seeds, Monte
  *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
  *   back rows and locked rows; the Progress objects of a refinement, a Needle
  *   run, a Deep Synthesis run and a Monte Carlo run; a stop aborted in
@@ -685,6 +688,50 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     const worded = await Promise.all(QWOT_WORDED.map(([make]) => refused(make)));
     ok('their refusals are in the objects\' words, and a material that resolves to nothing has no QWOT to read', canon(worded) === canon(QWOT_WORDED.map(([, words]) => words))
         && lost.layers[top].qwot === null && lost.opticalThickness() === null, worded.join('\n'));
+}
+
+// ── A side's admittance locus and electric field ───────────────────────────
+{
+    // Coated on both sides, the back with layers unlike the front's.
+    const read = both.copy();
+    // Each [the method's arguments, the plain call's options].
+    const LOCI = [[[], {}], [[633], { wavelength: 633 }], [[{ angle: 45, side: 'back', plane: 'reflection' }], { angle: 45, side: 'back', plane: 'reflection' }],
+        [[700, { angle: 30 }], { wavelength: 700, angle: 30 }]];
+    const FIELDS = [[[], {}], [[1064, { depthUnit: 'QWOT' }], { wavelength: 1064, depthUnit: 'QWOT' }],
+        [[633, { angle: 45, side: 'back', pointsPerLayer: 9, depthUnit: 'OT', reference: 500 }], { wavelength: 633, angle: 45, side: 'back', pointsPerLayer: 9, depthUnit: 'OT', reference: 500 }]];
+    const lociFields = a => [a.mode, a.wavelength, a.angle, a.plane, a.incident, a.substrate, a.s, a.p, a.outOfRange];
+    const fieldFields = f => [f.mode, f.wavelength, f.angle, f.reference, f.depthUnit, f.pointsPerLayer, f.z, f.depth, f.layers, f.s, f.p, f.avg, f.incidentAmplitude, f.outOfRange];
+    ok('admittance() and electricField() give what admittance and electricField give, with their defaults and with each option, the wavelength before the options',
+        canon([...LOCI.map(([args]) => lociFields(read.admittance(...args))), ...FIELDS.map(([args]) => fieldFields(read.electricField(...args)))])
+        === canon([...LOCI.map(([, options]) => lociFields(api.admittance(read._data, options))), ...FIELDS.map(([, options]) => fieldFields(api.electricField(read._data, options)))]));
+    const backOnly = read.copy();
+    backOnly.sides = 'back';
+    const modes = [read.admittance().mode, read.electricField().mode, backOnly.admittance().mode, backOnly.electricField().mode];
+    backOnly.scoreOn = 'whole part';
+    ok('without side they compute the front, and the back of a design coated on the back alone, for either scoring',
+        canon([...modes, backOnly.electricField().mode]) === canon(['front', 'front', 'back', 'back', 'back']), modes.join());
+    const file = path.join(WORK, 'admittance.csv');
+    read.admittance(550, { angle: 45 }).saveCsv(file);
+    const lines = fs.readFileSync(file, 'utf8').split('\n');
+    const shape = [lines[0], lines.length, lines[1].split(',')[0], lines.at(-1).split(',').slice(0, 2)];
+    ok('an Admittance writes the window\'s table, s then p, ending each on the medium',
+        canon(shape) === canon(['Layer,Material,Re(Y),Im(Y),Re(Γ),Im(Γ)', 2 * (read.layers.length + 2) + 1, 'η_s (s)', ['η₀ (p)', 'Air']]), canon(shape));
+    const shown = [inspect(read.admittance(550, { angle: 45 })), inspect(read.electricField(550))];
+    ok('an Admittance and an ElectricField print what they hold', canon(shown) === canon([`<Admittance front at 550 nm, 45 degrees: ${read.layers.length} layers, admittance plane>`,
+        `<ElectricField front at 550 nm, 0 degrees: ${read.layers.length} layers, ${read.layers.length * 60 + 1} samples>`]), shown.join(' / '));
+    const FIELD_WORDED = [
+        [() => read.admittance(550, { wavelength: 600 }), "admittance: unknown option 'wavelength'; the options are angle, side, plane"],
+        [() => read.admittance(550, { angle: 95 }), 'admittance: angle is an angle of incidence in degrees, 0 <= angle < 90, not 95'],
+        [() => read.admittance(550, { side: 'total' }), 'admittance: side is \'front\' or \'back\', not "total"'],
+        [() => read.admittance(550, 45), 'admittance: takes wavelength before its options object, not 2 values'],
+        [() => read.electricField(-1), 'electricField: wavelength is a wavelength in nm above 0, not -1'],
+        [() => read.electricField(550, { pointsPerLayer: 1 }), 'electricField: pointsPerLayer is a whole number of samples across a layer, 2 or more, not 1'],
+        [() => read.electricField(550, { depthUnit: 'um' }), 'electricField: depthUnit is \'nm\', \'OT\', \'QWOT\' or \'FWOT\', not "um"'],
+        [() => design.electricField(550, { side: 'back' }), 'electricField: the back has no layer thicker than 0 nm'],
+        [() => design.admittance(550, { side: 'back' }), 'admittance: the back has no layers'],
+    ];
+    const worded = await Promise.all(FIELD_WORDED.map(([make]) => refused(make)));
+    ok('their refusals are in the objects\' words', canon(worded) === canon(FIELD_WORDED.map(([, words]) => words)), worded.join('\n'));
 }
 
 // ── Runs ────────────────────────────────────────────────────────────────────

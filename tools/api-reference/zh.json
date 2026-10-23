@@ -543,6 +543,82 @@
     "hash": "99cc4a5a",
     "text": "不是 \"front\"、\"back\" 或 \"total\" 的面"
   },
+  "Design.admittance.arg.wavelength": {
+    "hash": "f6a4593e",
+    "text": "波长，单位 nm。不给出时，使用设计的参考波长。"
+  },
+  "Design.admittance.arg.angle": {
+    "hash": "04ad2001",
+    "text": "入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。"
+  },
+  "Design.admittance.arg.side": {
+    "hash": "b6711e3a",
+    "text": "`'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。"
+  },
+  "Design.admittance.arg.plane": {
+    "hash": "beb15659",
+    "text": "圆弧所在的平面：`'admittance'` 为 Y 平面，`'reflection'` 为反射系数 Γ 的平面。"
+  },
+  "Design.admittance.returns": {
+    "hash": "d3657b15",
+    "text": "一个 Admittance。"
+  },
+  "Design.admittance.lead.1.js": {
+    "hash": "b40e0a42",
+    "text": "一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。"
+  },
+  "Design.admittance.lead.1.py": {
+    "hash": "c8a8aa72",
+    "text": "一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 Python 的 complex，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。"
+  },
+  "Design.admittance.refuses.1.js": {
+    "hash": "7e5e5d37",
+    "text": "它不接受的选项、小于等于 0 的波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'admittance'` 或 `'reflection'` 的平面、没有膜层的面，或用到找不到对应材料的设计"
+  },
+  "Design.admittance.refuses.1.py": {
+    "hash": "77633ca3",
+    "text": "小于等于 0 的波长、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、不是 \"admittance\" 或 \"reflection\" 的平面、没有膜层的面，或用到找不到对应材料的设计"
+  },
+  "Design.electricField.arg.wavelength": {
+    "hash": "f6a4593e",
+    "text": "波长，单位 nm。不给出时，使用设计的参考波长。"
+  },
+  "Design.electricField.arg.angle": {
+    "hash": "04ad2001",
+    "text": "入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。"
+  },
+  "Design.electricField.arg.side": {
+    "hash": "b6711e3a",
+    "text": "`'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。"
+  },
+  "Design.electricField.arg.pointsPerLayer": {
+    "hash": "640d7d70",
+    "text": "每层取的采样点数，为 2 或更大的整数。"
+  },
+  "Design.electricField.arg.depthUnit": {
+    "hash": "2bfafbd3",
+    "text": "`depth` 的单位：`'nm'`、`'OT'`（n 与厚度之积的累加，nm）、`'QWOT'` 或 `'FWOT'`。"
+  },
+  "Design.electricField.arg.reference": {
+    "hash": "c72f24d4",
+    "text": "光学深度单位读取 n 所用的波长 λ0，单位 nm。不给出时，使用设计的参考波长。"
+  },
+  "Design.electricField.returns": {
+    "hash": "3b299bff",
+    "text": "一个 ElectricField。"
+  },
+  "Design.electricField.lead.1": {
+    "hash": "07419e7f",
+    "text": "一个镀膜面在某一波长处 s、p 和非偏振光的电场，与电场窗口的计算相同，从光射来的介质到基底。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。|E|² 为入射 |E|² 的比例，幅值以 V/m 计，对应 1 W/m² 的入射光。"
+  },
+  "Design.electricField.refuses.1.js": {
+    "hash": "df14dc07",
+    "text": "它不接受的选项、小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、它没有的深度单位、不是 2 或更大整数的 pointsPerLayer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
+  },
+  "Design.electricField.refuses.1.py": {
+    "hash": "b2695bd7",
+    "text": "小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、它没有的深度单位、不是 2 或更大整数的 points_per_layer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
+  },
   "Design.refine.arg.method": {
     "hash": "a481a40e",
     "text": "方法：API 参考中 refine 方法表里的一个 id，例如 `'dls'`、`'cg'` 或 `'de'`；`'all'` 表示依次运行每一个；或一个 id 列表，从同一起点逐个尝试，保留最好的结果。精炼窗口打开时使用 `'sqp'`，直到你在其中选择另一种方法。"
@@ -1854,6 +1930,178 @@
   "LayerThicknesses.outOfRange.lead.1.py": {
     "hash": "5123d42b",
     "text": "数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list，与 IndexProfile 的相同。"
+  },
+  "Admittance.lead.1.js": {
+    "hash": "e0b797c7",
+    "text": "一个镀膜面在某一波长处的 s 和 p 导纳轨迹，由 design.admittance() 计算，与导纳图窗口绘出的相同。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的导纳虚部为负。"
+  },
+  "Admittance.lead.1.py": {
+    "hash": "b63216fb",
+    "text": "一个镀膜面在某一波长处的 s 和 p 导纳轨迹，由 design.admittance() 计算，与导纳图窗口绘出的相同。复数值为 Python 的 complex，采用 Macleod 的符号，即窗口所用的符号：吸收材料的导纳虚部为负。"
+  },
+  "Admittance.mode.lead.1": {
+    "hash": "ece3f133",
+    "text": "计算所在的面：`'front'` 或 `'back'`。"
+  },
+  "Admittance.wavelength.lead.1": {
+    "hash": "c7cce5ad",
+    "text": "波长，单位 nm。"
+  },
+  "Admittance.angle.lead.1": {
+    "hash": "bd01efdb",
+    "text": "入射角，单位为度，在光射来的介质中计。"
+  },
+  "Admittance.plane.lead.1": {
+    "hash": "c0f236c0",
+    "text": "圆弧所在的平面：`'admittance'` 为 Y 平面，`'reflection'` 为反射系数 Γ 的平面。"
+  },
+  "Admittance.incident.lead.1.js": {
+    "hash": "14547f7d",
+    "text": "光射来的介质 `{ material, name }`：正面为入射介质，背面为出射介质。"
+  },
+  "Admittance.incident.lead.1.py": {
+    "hash": "1bd25e4a",
+    "text": "光射来的介质，一个具名元组 (material, name)：正面为入射介质，背面为出射介质。"
+  },
+  "Admittance.substrate.lead.1.js": {
+    "hash": "0c5dfc6b",
+    "text": "基底 `{ material, name }`。"
+  },
+  "Admittance.substrate.lead.1.py": {
+    "hash": "eb0caf6b",
+    "text": "基底，一个具名元组 (material, name)。"
+  },
+  "Admittance.s.lead.1.js": {
+    "hash": "036547b7",
+    "text": "s 导纳轨迹 `{ eta0, etaSubstrate, boundaries, arcs }`：eta0 和 etaSubstrate 为介质和基底的导纳；boundaries 即窗口的表格，从基底向外每个界面一个 `{ layer, material, name, Y, gamma }`，layer 0 为裸基底，之后是每个有厚度的膜层，编号与 design.layers 相同，Y 为其外表面处的导纳，gamma 为该处的反射系数，最后一个位于镀膜的外表面；arcs 为每个有厚度的膜层一个 `{ layer, material, re, im }`，从基底向外，re 和 im 是窗口绘制该圆弧所经过的点，位于所选的平面中。"
+  },
+  "Admittance.s.lead.1.py": {
+    "hash": "9917cab7",
+    "text": "s 导纳轨迹，一个具名元组 (eta0, eta_substrate, boundaries, arcs)：eta0 和 eta_substrate 为介质和基底的导纳；boundaries 即窗口的表格，从基底向外每个界面一个具名元组 (layer, material, name, Y, gamma)，layer 0 为裸基底，之后是每个有厚度的膜层，编号与 design.layers 相同，Y 为其外表面处的导纳，gamma 为该处的反射系数，最后一个位于镀膜的外表面；arcs 为每个有厚度的膜层一个具名元组 (layer, material, re, im)，从基底向外，re 和 im 是窗口绘制该圆弧所经过的点的 list，位于所选的平面中。"
+  },
+  "Admittance.p.lead.1": {
+    "hash": "9a9e0a17",
+    "text": "p 导纳轨迹，与 `s` 相同。"
+  },
+  "Admittance.outOfRange.lead.1.js": {
+    "hash": "76ad602e",
+    "text": "所计算的面上数据达不到该波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：它们在该处的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该波长时为空。"
+  },
+  "Admittance.outOfRange.lead.1.py": {
+    "hash": "37f1749a",
+    "text": "所计算的面上数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：它们在该处的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波长时为空。"
+  },
+  "Admittance.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "Admittance.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "Admittance.saveCsv.lead.1.js": {
+    "hash": "b7bf71b8",
+    "text": "把导纳轨迹写入 CSV 文件，与窗口在显示两种偏振时以“复制 CSV”写出其表格的方式相同：先 s 后 p，基底一行，从基底向外每层一行，光射来的介质一行，各行给出 Re(Y)、Im(Y)、Re(Γ) 和 Im(Γ)。已存在的文件会被覆盖。"
+  },
+  "Admittance.saveCsv.lead.1.py": {
+    "hash": "c4b73533",
+    "text": "把导纳轨迹写入 CSV 文件，与窗口在显示两种偏振时以“复制 CSV”写出其表格的方式相同：先 s 后 p，基底一行，从基底向外每层一行，光射来的介质一行，各行给出 Re(Y)、Im(Y)、Re(Γ) 和 Im(Γ)。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+  },
+  "ElectricField.lead.1": {
+    "hash": "a9915b56",
+    "text": "一个镀膜面在某一波长处 s、p 和非偏振光的电场，由 `design.electricField()` / `design.electric_field()` 计算，与电场窗口绘出的相同。"
+  },
+  "ElectricField.mode.lead.1": {
+    "hash": "ece3f133",
+    "text": "计算所在的面：`'front'` 或 `'back'`。"
+  },
+  "ElectricField.wavelength.lead.1": {
+    "hash": "02cdb52c",
+    "text": "计算电场所用的波长，单位 nm。"
+  },
+  "ElectricField.angle.lead.1": {
+    "hash": "bd01efdb",
+    "text": "入射角，单位为度，在光射来的介质中计。"
+  },
+  "ElectricField.reference.lead.1": {
+    "hash": "d1c07332",
+    "text": "读取深度所用的波长 λ0，单位 nm。"
+  },
+  "ElectricField.depthUnit.lead.1": {
+    "hash": "d558a7d7",
+    "text": "`depth` 的单位：`'nm'`、`'OT'`、`'QWOT'` 或 `'FWOT'`；要求光学单位而某种材料在参考波长处没有折射率时为 `'nm'`。"
+  },
+  "ElectricField.pointsPerLayer.lead.1": {
+    "hash": "5d7c9945",
+    "text": "每层取的采样点数。"
+  },
+  "ElectricField.z.lead.1.js": {
+    "hash": "4d3c65c6",
+    "text": "每个采样点距外表面的深度，单位 nm，一个数组：第一个位于外表面，最后一个位于基底。"
+  },
+  "ElectricField.z.lead.1.py": {
+    "hash": "ed714dd5",
+    "text": "每个采样点距外表面的深度，单位 nm，一个 list：第一个位于外表面，最后一个位于基底。"
+  },
+  "ElectricField.depth.lead.1.js": {
+    "hash": "ad7c8a7a",
+    "text": "每个采样点以 `depthUnit` 计的深度，一个数组。"
+  },
+  "ElectricField.depth.lead.1.py": {
+    "hash": "6eae70d4",
+    "text": "每个采样点以 depth_unit 计的深度，一个 list。"
+  },
+  "ElectricField.layers.lead.1.js": {
+    "hash": "712c8d82",
+    "text": "每个有厚度的膜层一个对象，按光遇到它们的顺序排列，`{ number, material, start, end, depthStart, depthEnd }`：number 与 design.layers 和 design.backLayers 的编号相同；material 为材料 id；start 和 end 为其距外表面的深度，单位 nm，depthStart 和 depthEnd 以 `depthUnit` 计。"
+  },
+  "ElectricField.layers.lead.1.py": {
+    "hash": "21956b66",
+    "text": "每个有厚度的膜层一个具名元组 (number, material, start, end, depth_start, depth_end)，按光遇到它们的顺序排列：number 与 design.layers 和 design.back_layers 的编号相同；material 为材料 id；start 和 end 为其距外表面的深度，单位 nm，depth_start 和 depth_end 以 depth_unit 计。"
+  },
+  "ElectricField.s.lead.1.js": {
+    "hash": "e934abd1",
+    "text": "s 电场 `{ e2, e2Tangential, e2Normal, amplitude }`，每个采样点一个值：总场及其沿膜层方向和垂直于膜层的分量的 |E|²，为入射 |E|² 的比例；以及总场的幅值，单位 V/m，对应 1 W/m² 的入射光。"
+  },
+  "ElectricField.s.lead.1.py": {
+    "hash": "8c74490d",
+    "text": "s 电场，一个由 list 组成的具名元组 (e2, e2_tangential, e2_normal, amplitude)，每个采样点一个值：总场及其沿膜层方向和垂直于膜层的分量的 |E|²，为入射 |E|² 的比例；以及总场的幅值，单位 V/m，对应 1 W/m² 的入射光。"
+  },
+  "ElectricField.p.lead.1": {
+    "hash": "9a658385",
+    "text": "p 电场，与 `s` 相同。"
+  },
+  "ElectricField.avg.lead.1": {
+    "hash": "e047b526",
+    "text": "非偏振电场，即逐个采样点取 s 和 p 电场的平均，与 `s` 相同。"
+  },
+  "ElectricField.incidentAmplitude.lead.1": {
+    "hash": "9833ed80",
+    "text": "入射光束的幅值，单位 V/m，对应 1 W/m²，由光射来的介质的折射率得出：|E|² 为 1 时读出的就是这个幅值。"
+  },
+  "ElectricField.outOfRange.lead.1.js": {
+    "hash": "863fa7d6",
+    "text": "所计算的面上数据达不到该波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组，与 Admittance 的相同。"
+  },
+  "ElectricField.outOfRange.lead.1.py": {
+    "hash": "6173c102",
+    "text": "所计算的面上数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list，与 Admittance 的相同。"
+  },
+  "ElectricField.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "ElectricField.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "ElectricField.saveCsv.lead.1.js": {
+    "hash": "5eb58131",
+    "text": "把电场写入 CSV 文件，与窗口在出厂显示设置下以“复制 CSV”写出其表格的方式相同：每个采样点一行，给出以 `depthUnit` 计的深度，以及 avg、s 和 p 的总场幅值，单位 V/m，对应 1 W/m²。已存在的文件会被覆盖。"
+  },
+  "ElectricField.saveCsv.lead.1.py": {
+    "hash": "09ad64c4",
+    "text": "把电场写入 CSV 文件，与窗口在出厂显示设置下以“复制 CSV”写出其表格的方式相同：每个采样点一行，给出以 depth_unit 计的深度，以及 avg、s 和 p 的总场幅值，单位 V/m，对应 1 W/m²。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
   },
   "RunResult.lead.1": {
     "hash": "73b2c003",

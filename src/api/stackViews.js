@@ -10,9 +10,10 @@ import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { editorLayerNumber } from '../utils/misc/layerNumbers.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { requireResolved } from './materials.js';
-import { checkOptions, requireValue, isPositive, isViewSide, refusal } from './check.js';
+import { checkOptions, requireValue, isPositive, isSide, isViewSide, refusal } from './check.js';
 
-const storedLayers = (design, side) => (side === 'back' ? design.backLayers : design.frontLayers) || [];
+/** The layers of `side` of `design` as it stores them. */
+export const storedLayers = (design, side) => (side === 'back' ? design.backLayers : design.frontLayers) || [];
 
 /**
  * The side a stack view of `design` is read on: `side` when given, else what
@@ -24,33 +25,59 @@ export function viewSide(call, design, side) {
     return side;
 }
 
-// The wavelength a view is read at: the one given, else the design's
-// reference wavelength, else the window's own when the design holds none.
-function viewWavelength(call, design, wavelength, fallback) {
+/**
+ * The one side an admittance diagram or an electric field of `design` is
+ * computed on: `side` when given, else the back of a design coated on the back
+ * alone and the front of any other, the side the PR, GD, PSI and EFMX merit
+ * rows score.
+ */
+export function scoredSide(call, design, side) {
+    if (side === undefined) return design.surfaceMode === 'back_only' ? 'back' : 'front';
+    requireValue(call, 'side', side, isSide, "'front' or 'back'");
+    return side;
+}
+
+/**
+ * The wavelength a view is read at: the one given, else the design's
+ * reference wavelength, else the window's own when the design holds none.
+ */
+export function viewWavelength(call, design, wavelength, fallback) {
     const lambda = wavelength === undefined ? design.referenceWavelength || fallback : wavelength;
     requireValue(call, 'wavelength', lambda, isPositive, 'a wavelength in nm above 0');
     return lambda;
 }
 
-// Refuses a view of a side with no layers, or of a whole part with none.
-function requireLayers(call, design, mode) {
+// The calls whose view leaves out a layer with no thickness, so that a side
+// with none thicker than 0 nm has nothing to show.
+const THICK_LAYERS_ONLY = new Set(['indexProfile', 'electricField']);
+
+/** The refusal of a view of `side`, which has no layers for the call `call` to show. */
+export function emptySide(call, side) {
+    return refusal('emptySide', { call, side }, `${call}: the ${side} has no ${THICK_LAYERS_ONLY.has(call) ? 'layer thicker than 0 nm' : 'layers'}`);
+}
+
+/** Refuses a view of a side with no layers, or of a whole part with none. */
+export function requireLayers(call, design, mode) {
     if (mode === 'total') {
         if (!storedLayers(design, 'front').length && !storedLayers(design, 'back').length) {
             throw refusal('noLayers', { call }, `${call}: the design has no layers; add them with insertLayer or stackFromFormula`);
         }
     } else if (!storedLayers(design, mode).length) {
-        throw refusal('emptySide', { call, side: mode }, `${call}: the ${mode} has no ${call === 'indexProfile' ? 'layer thicker than 0 nm' : 'layers'}`);
+        throw emptySide(call, mode);
     }
 }
 
 // profileModel.js leaves out a layer with no material or no thickness.
 const isProfiled = layer => !!layer.material && layer.thickness > 0;
 
-// The Design Editor numbers of the layers profileModel.js lays out on `side`,
-// in its order. The back shown alone runs from its outer layer in, as light
-// coming from the exit medium meets it; in the whole part it runs from the
-// substrate out.
-function profiledNumbers(layers, side, alone) {
+/**
+ * The Design Editor numbers of the layers with a material and a thickness
+ * among `layers`, the stored layers of `side`, as the Refractive Index Profile
+ * and Electric Field windows lay them out. The back shown alone runs from its
+ * outer layer in, as light coming from the exit medium meets it; in the whole
+ * part it runs from the substrate out.
+ */
+export function profiledNumbers(layers, side, alone) {
     const numbered = layers.map((layer, i) => ({ layer, number: editorLayerNumber(side, layers.length, i) })).filter(({ layer }) => isProfiled(layer));
     return (side === 'back' && alone ? numbered.reverse() : numbered).map(({ number }) => number);
 }
@@ -75,7 +102,7 @@ function coatingSums(layers) {
 
 function oneSideProfile(design, lambda, side) {
     const profile = computeProfileForSide(design, lambda, side);
-    if (!profile) throw refusal('emptySide', { call: 'indexProfile', side }, `indexProfile: the ${side} has no layer thicker than 0 nm`);
+    if (!profile) throw emptySide('indexProfile', side);
     return {
         incident: { material: side === 'back' ? design.exitMedium : design.incidentMedium, n: profile.n0.n, k: profile.n0.k },
         substrate: { material: design.substrate?.material, n: profile.ns.n, k: profile.ns.k },

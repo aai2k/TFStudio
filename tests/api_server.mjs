@@ -15,6 +15,8 @@
  *      the wire; an index profile, layer thicknesses and the design's facts,
  *      a layer set by its QWOT, a side with no layers refused with its code
  *      and fields, and a QWOT the Design Editor has none of crossing as null;
+ *      a side's admittance locus and electric field, and a side with no layer
+ *      thicker than 0 nm refused with its code and fields;
  *      materials; merit; a specification set and checked, and
  *      checking a design without one refused with its code and fields; layer
  *      sensitivity; and the runs, a refinement, a Needle and a Structural run
@@ -175,6 +177,13 @@ const specified = api.setSpecification(start, CHECKS);
     const facts = await same('designFacts', [lost]);
     ok('a layer with no quarter wave crosses with its QWOT null, and so does the optical thickness', facts.result?.qwot.front.at(-1) === null
         && facts.result.opticalThickness === null && facts.result.qwot.front.slice(0, -1).every(q => q > 0), JSON.stringify(facts.result?.qwot));
+    await same('admittance', [twoSided, { wavelength: 633, angle: 45 }]);
+    await same('admittance', [twoSided, { side: 'back', plane: 'reflection' }]);
+    await same('electricField', [twoSided, { wavelength: 1064, depthUnit: 'QWOT' }]);
+    await same('electricField', [twoSided, { side: 'back', angle: 30, pointsPerLayer: 8 }]);
+    const flat = await same('electricField', [{ ...stack, frontLayers: stack.frontLayers.map(layer => ({ ...layer, thickness: 0 })) }]);
+    ok('a side with no layer thicker than 0 nm is refused with its code and fields', flat.error?.code === 'emptySide'
+        && canon(flat.error.fields) === canon({ call: 'electricField', side: 'front' }), JSON.stringify(flat.error));
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);

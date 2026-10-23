@@ -73,6 +73,8 @@ const CLASSES = [
     { name: 'Curve', receiver: 's.R' },
     { name: 'IndexProfile', receiver: 'profile' },
     { name: 'LayerThicknesses', receiver: 'thicknesses' },
+    { name: 'Admittance', receiver: 'locus' },
+    { name: 'ElectricField', receiver: 'field' },
     { name: 'RunResult', receiver: 'run' },
     { name: 'Progress', receiver: 'p' },
     { name: 'MonteCarlo', receiver: 'mc' },

@@ -56,6 +56,7 @@ def objects(given):
         yields(tf)
         cleaning(tf)
         stack_views(tf)
+        admittance_and_field(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -432,6 +433,62 @@ def stack_views(tf):
                         "shown": [repr(two.index_profile(wavelength=600)), repr(two.layer_thicknesses(side="front"))],
                         "fields": [list(type(two.index_profile().layers[0])._fields),
                                    list(type(two.layer_thicknesses().rows[0])._fields)]}})
+
+
+def complex_of(value):
+    return [value.real, value.imag]
+
+
+def locus_of(locus):
+    return [complex_of(locus.eta0), complex_of(locus.eta_substrate),
+            [[b.layer, b.material, b.name] + complex_of(b.Y) + complex_of(b.gamma) for b in locus.boundaries],
+            [list(arc) for arc in locus.arcs]]
+
+
+def loci_of(loci):
+    return [loci.mode, loci.wavelength, loci.angle, loci.plane, list(loci.incident), list(loci.substrate),
+            locus_of(loci.s), locus_of(loci.p), loci.out_of_range]
+
+
+def field_of(field):
+    return [field.mode, field.wavelength, field.angle, field.reference, field.depth_unit, field.points_per_layer, field.z,
+            field.depth, [list(layer) for layer in field.layers], [list(field.s), list(field.p), list(field.avg)],
+            field.incident_amplitude, field.out_of_range]
+
+
+def admittance_and_field(tf):
+    """admittance() and electric_field() of a design coated on both sides,
+    unlike materials on each, with their defaults and each argument; their
+    complex values' type; the side taken on a design coated on the back
+    alone; the CSV of each; their refusals and repr()."""
+    two = tf.new_design("Two sides", reference=600)
+    two.stack("(HL)^2 H")
+    two.sides = "both"
+    two.back_layers.append("MgF2", 95)
+    two.back_layers.append("Ta2O5", 20)
+    loci = [loci_of(two.admittance()), loci_of(two.admittance(633, angle=45)),
+            loci_of(two.admittance(side="back", plane="reflection"))]
+    fields = [field_of(two.electric_field()), field_of(two.electric_field(1064, depth_unit="QWOT")),
+              field_of(two.electric_field(633, angle=45, side="back", points_per_layer=9, depth_unit="OT", reference=500))]
+    locus = two.admittance(633, angle=45).s
+    types = [type(locus.eta0).__name__, type(locus.boundaries[-1].Y).__name__, type(locus.boundaries[-1].gamma).__name__]
+    back = two.copy()
+    back.sides = "back"
+    two.admittance(633, angle=45).save_csv("admittance.csv")
+    two.electric_field(1064, depth_unit="QWOT").save_csv("field.csv")
+    worded = [refused(make) for make in (
+        lambda: two.admittance(550, angle=95), lambda: two.admittance(550, side="total"),
+        lambda: two.admittance(550, plane="smith"), lambda: two.electric_field(-1),
+        lambda: two.electric_field(550, points_per_layer=1), lambda: two.electric_field(550, depth_unit="um"),
+        lambda: two.electric_field(550, points_per_layer=250001), lambda: two.electric_field(550, depth_units="nm"),
+        lambda: tf.new_design("Front").electric_field(550, side="back"),
+        lambda: tf.new_design("Front").admittance(550, side="back"))]
+    out({"fields": {"design": two._data, "loci": loci, "fields": fields, "types": types,
+                    "modes": [two.admittance().mode, two.electric_field().mode, back.admittance().mode, back.electric_field().mode],
+                    "csv": [text_of("admittance.csv"), text_of("field.csv")], "worded": worded,
+                    "shown": [repr(two.admittance(550, angle=45)), repr(two.electric_field(550))],
+                    "tuples": [list(type(locus)._fields), list(type(locus.boundaries[0])._fields), list(type(locus.arcs[0])._fields),
+                               list(type(two.electric_field().s)._fields), list(type(two.electric_field().layers[0])._fields)]}})
 
 
 def ran(before, design, result):

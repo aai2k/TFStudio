@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 29
+ *   1. The session: initialize and version negotiation, the tool list (the 31
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -20,7 +20,9 @@
  *      MNT row and the refine that do the window's Re-optimize; a two-sided
  *      stack's index profile, layer thicknesses and facts give the API's,
  *      in short and with their values, a layer is set by its QWOT, and a side
- *      with no layers is refused; misspelt
+ *      with no layers is refused; its admittance locus and electric field give
+ *      the API's, in short with the end of each locus and the peak of each
+ *      field, and in full with their values, and side total is refused; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
  *   3. stdout carries only messages, also when the server's own code prints;
@@ -64,7 +66,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 29 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 31 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -223,6 +225,35 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const bare = (await server.call('newDesign', { name: 'Bare' })).designId;
     const empty = await server.call('layerThicknesses', { designId: bare, side: 'back' });
     ok('a side with no layers is refused', /layerThicknesses: the back has no layers/.test(empty.error ?? ''), empty.error);
+
+    // The same two-sided stack after the QWOT edit, its admittance and field.
+    const edited = api.setLayer(local, { index: 0, qwot: 2 });
+    const loci = api.admittance(edited, { wavelength: 633, angle: 45 });
+    const end = locus => {
+        const { Y, gamma } = locus.boundaries.at(-1);
+        return { eta0: locus.eta0, etaSubstrate: locus.etaSubstrate, Y, gamma, R: gamma.re ** 2 + gamma.im ** 2 };
+    };
+    const { s, p, ...lociFacts } = loci;
+    // Rs of the front alone, which is what the locus ends on.
+    const frontRs = api.spectrum(api.setDesignSetup(edited, { surfaceMode: 'front_only' }), { from: 633, to: 634, angles: [45] }).angles[45].Rs[0];
+    const shortLoci = await server.call('admittance', { designId: two, wavelength: 633, angle: 45 });
+    const fullLoci = await server.call('admittance', { designId: two, wavelength: 633, angle: 45, values: true });
+    ok('admittance answers with where each locus ends, its reflectance, and every boundary and arc for values true',
+        JSON.stringify(shortLoci) === JSON.stringify({ designId: two, ...lociFacts, layerCount: s.arcs.length, s: end(s), p: end(p) })
+        && JSON.stringify([fullLoci.s, fullLoci.p]) === JSON.stringify([s, p]) && shortLoci.mode === 'front' && Math.abs(shortLoci.s.R - frontRs) < 1e-12,
+        JSON.stringify(shortLoci).slice(0, 300));
+    const field = api.electricField(edited, { wavelength: 1064, side: 'back', angle: 30 });
+    const shortField = await server.call('electricField', { designId: two, wavelength: 1064, side: 'back', angle: 30 });
+    const fullField = await server.call('electricField', { designId: two, wavelength: 1064, side: 'back', angle: 30, values: true });
+    const top = Math.max(...field.s.e2);
+    const at = field.s.e2.indexOf(top);
+    const shortSaid = [shortField.peak?.s.e2, shortField.peak?.s.z, shortField.peak?.s.layer, shortField.mode, shortField.sampleCount, shortField.layerCount, shortField.incidentAmplitude, 'z' in shortField];
+    ok('electricField answers with the peak of each field and where it sits, and every sample for values true',
+        JSON.stringify(shortSaid) === JSON.stringify([top, field.z[at], 1, 'back', field.z.length, 1, field.incidentAmplitude, false])
+        && JSON.stringify([fullField.z, fullField.s, fullField.avg, fullField.layers]) === JSON.stringify([field.z, field.s, field.avg, field.layers]),
+        JSON.stringify(shortSaid));
+    const total = await server.call('electricField', { designId: two, side: 'total' });
+    ok('a stack view of the whole part is refused', /side/.test(total.error ?? ''), total.error);
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────

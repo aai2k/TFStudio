@@ -4,6 +4,8 @@ computations made on it."""
 import copy
 import numbers
 
+from ._admittance import Admittance
+from ._electric_field import ElectricField
 from ._errors import TFStudioError
 from ._merit import Merit
 from ._names import api_names
@@ -29,6 +31,8 @@ _SETUP_WORDS = Words("setDesignSetup", names={"referenceWavelength": "reference"
 _MONTE_CARLO_WORDS = Words("monteCarlo", "monte_carlo", hidden=("from", "to"), extra=("progress", "stop"))
 # design.clean()'s names for cleanDesign's options, where they are not their snake_case.
 _CLEAN_WORDS = Words("cleanDesign", "clean", {"mergeAdjacent": "merge", "cleanBack": "back"})
+# design.electric_field() takes the wavelength as its argument and the rest as keywords.
+_FIELD_WORDS = Words("electricField", "electric_field", hidden=("wavelength",))
 
 
 def mode_of(data):
@@ -912,6 +916,93 @@ class Design:
             print(design.layer_counts())
         """
         return self._read("designFacts", "layer_counts", side=side)["layerCounts"]
+
+    def admittance(self, wavelength=None, *, angle=0, side=None, plane="admittance"):
+        """The admittance locus of one coated side at one wavelength, for s
+        and p, as the Admittance Diagram window draws it and lists it in its
+        table: from the substrate's admittance through the admittance at the
+        outer surface of each layer to the coating's outer surface. It is
+        computed on the front, or on the back of a design coated on the back
+        alone, unless side is given. The design's cone of incidence is not
+        used, as the window does not use it. Complex values are Python complex
+        numbers in Macleod's sign, the window's: an absorbing material's index
+        is n − ik.
+
+        Args:
+            wavelength: The wavelength, nm. Default: the design's reference
+                wavelength.
+            angle: The angle of incidence, degrees in the medium light comes
+                from, 0 up to but not including 90. Default 0.
+            side: "front" or "back". Default: the back of a design coated on
+                the back alone and the front of any other.
+            plane: What the arcs are drawn in: "admittance", the Y plane, or
+                "reflection", the plane of the reflection coefficient Γ.
+                Default "admittance".
+
+        Returns:
+            An Admittance.
+
+        Raises:
+            TFStudioError: a wavelength of 0 or less, an angle outside 0 to
+                90, a side other than "front" or "back", a plane other than
+                "admittance" or "reflection", a side with no layers, or a
+                design that names a material that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            locus = design.admittance(550, angle=45)
+            front = locus.s.boundaries[-1]
+            print(locus.mode, "Y", front.Y, "Rs", abs(front.gamma) ** 2)
+        """
+        return Admittance(self._read("admittance", "admittance", wavelength=wavelength, angle=angle, side=side,
+                                     plane=plane))
+
+    def electric_field(self, wavelength=None, **options):
+        """The electric field through one coated side at one wavelength, for
+        s, p and unpolarized light, as the Electric Field window computes it,
+        from the medium light comes from to the substrate. It is computed on
+        the front, or on the back of a design coated on the back alone, unless
+        side is given. The design's cone of incidence is not used, as the
+        window does not use it. |E|² is a fraction of the incident |E|², and
+        the amplitude is in V/m for 1 W/m² incident.
+
+        Args:
+            wavelength: The wavelength, nm. Default: the design's reference
+                wavelength.
+            angle: The angle of incidence, degrees in the medium light comes
+                from, 0 up to but not including 90. Default 0.
+            side: "front" or "back". Default: the back of a design coated on
+                the back alone and the front of any other.
+            points_per_layer: The samples taken across each layer, a whole
+                number of 2 or more. Default 60.
+            depth_unit: What depth is in: "nm", "OT" (n times thickness
+                summed, nm), "QWOT" or "FWOT". Default "nm".
+            reference: The wavelength λ0, nm, the optical depth units read n
+                at. Default: the design's reference wavelength.
+
+        Returns:
+            An ElectricField.
+
+        Raises:
+            TFStudioError: a wavelength or reference of 0 or less, an angle
+                outside 0 to 90, a side other than "front" or "back", a depth
+                unit it does not have, a points_per_layer that is not a whole
+                number of 2 or more, more than a million samples, a side with
+                no layer thicker than 0 nm, or a design that names a material
+                that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror", reference=1064)
+            design.stack("(HL)^4 H")
+            field = design.electric_field(1064, angle=45)
+            peak = field.p.e2.index(max(field.p.e2))
+            print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1), "nm")
+        """
+        with worded(_FIELD_WORDS):
+            return ElectricField(self._calls.electricField(self._data, api_names({**options, "wavelength": wavelength})))
 
     def _read(self, call, method, **options):
         """What the API's call `call` reads of the design with `options`, for

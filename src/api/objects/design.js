@@ -7,8 +7,10 @@ import { resolveEvalMode } from '../../utils/physics/optimizer.js';
 import { ended, hooksFor } from './hooks.js';
 import { Layers } from './layers.js';
 import { Merit } from './merit.js';
-import { defined, optionsOf } from './options.js';
+import { defined, optionsOf, trailingOptions } from './options.js';
 import { worded } from './refusals.js';
+import { Admittance } from './admittance.js';
+import { ElectricField } from './electricField.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
@@ -453,6 +455,69 @@ export class Design {
     // The design's facts (designFacts) for the method `method`.
     _facts(method, options) {
         return worded({ method, call: 'designFacts' }, () => api.designFacts(this._data, options));
+    }
+
+    /**
+     * The admittance locus of one coated side at one wavelength, for s and p,
+     * as the Admittance Diagram window draws it and lists it in its table:
+     * from the substrate's admittance through the admittance at the outer
+     * surface of each layer to the coating's outer surface. It is computed on
+     * the front, or on the back of a design coated on the back alone, unless
+     * `side` is given. The design's cone of incidence is not used, as the
+     * window does not use it. Complex values are `{ re, im }` in Macleod's
+     * sign, the window's: an absorbing material's index is n − ik.
+     *
+     * @param [wavelength] The wavelength, nm. Without it, the design's reference wavelength.
+     * @param [options]
+     * @param [options.angle=0] The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90.
+     * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
+     * @param [options.plane='admittance'] What the arcs are drawn in: `'admittance'`, the Y plane, or `'reflection'`, the plane of the reflection coefficient Γ.
+     * @returns An Admittance.
+     * @throws an option it does not take, a wavelength of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a plane other than `'admittance'` or `'reflection'`, a side with no layers, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const locus = design.admittance(550, { angle: 45 });
+     * const { Y, gamma } = locus.s.boundaries.at(-1);
+     * console.log(locus.mode, 'Y', Y.re.toFixed(4), Y.im.toFixed(4), 'Rs', (gamma.re ** 2 + gamma.im ** 2).toFixed(6));
+     */
+    admittance(...args) {
+        const [[wavelength], options] = trailingOptions('admittance', args, ['wavelength']);
+        const words = { method: 'admittance', call: 'admittance', hidden: ['wavelength'] };
+        const given = checkOptions('admittance', options, ['angle', 'side', 'plane']);
+        return new Admittance(worded(words, () => api.admittance(this._data, defined({ ...given, wavelength }))));
+    }
+
+    /**
+     * The electric field through one coated side at one wavelength, for s, p
+     * and unpolarized light, as the Electric Field window computes it, from
+     * the medium light comes from to the substrate. It is computed on the
+     * front, or on the back of a design coated on the back alone, unless
+     * `side` is given. The design's cone of incidence is not used, as the
+     * window does not use it. |E|² is a fraction of the incident |E|², and
+     * the amplitude is in V/m for 1 W/m² incident.
+     *
+     * @param [wavelength] The wavelength, nm. Without it, the design's reference wavelength.
+     * @param [options]
+     * @param [options.angle=0] The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90.
+     * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
+     * @param [options.pointsPerLayer=60] The samples taken across each layer, a whole number of 2 or more.
+     * @param [options.depthUnit='nm'] What `depth` is in: `'nm'`, `'OT'` (n times thickness summed, nm), `'QWOT'` or `'FWOT'`.
+     * @param [options.reference] The wavelength λ0, nm, the optical depth units read n at. Without it, the design's reference wavelength.
+     * @returns An ElectricField.
+     * @throws an option it does not take, a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a depth unit it does not have, a pointsPerLayer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror', { reference: 1064 });
+     * design.stack('(HL)^4 H');
+     * const field = design.electricField(1064, { angle: 45 });
+     * const peak = field.p.e2.indexOf(Math.max(...field.p.e2));
+     * console.log('peak |E|², p:', field.p.e2[peak].toFixed(4), 'at', field.z[peak].toFixed(1), 'nm');
+     */
+    electricField(...args) {
+        const [[wavelength], options] = trailingOptions('electricField', args, ['wavelength']);
+        const words = { method: 'electricField', call: 'electricField', hidden: ['wavelength'] };
+        const given = checkOptions('electricField', options, ['angle', 'side', 'pointsPerLayer', 'depthUnit', 'reference']);
+        return new ElectricField(worded(words, () => api.electricField(this._data, defined({ ...given, wavelength }))));
     }
 
     /**

@@ -10,6 +10,8 @@
  *   findMaterials(query), materialNK(id, wavelengths, design)
  *   spectrum(design, { from, to, step, angles }), summarize(spectrum, { bands })
  *   indexProfile(design, { wavelength, side }), layerThicknesses(design, { wavelength, side }), designFacts(design, { side })
+ *   admittance(design, { wavelength, angle, side, plane })
+ *   electricField(design, { wavelength, angle, side, pointsPerLayer, depthUnit, reference })
  *   setMerit(design, rows), merit(design)
  *   setSpecification(design, checks), checkSpecification(design)
  *   refine(design, settings, hooks), synthesize(design, { method, pool, settings }, hooks), runHooks(method)
@@ -28,6 +30,8 @@ export { findMaterials, materialNK } from './materials.js';
 export { spectrum, summarize } from './evaluate.js';
 export { indexProfile, layerThicknesses } from './stackViews.js';
 export { designFacts } from './designFacts.js';
+export { admittance } from './admittance.js';
+export { electricField } from './electricField.js';
 export { setMerit, merit } from './merit.js';
 export { setSpecification, checkSpecification } from './specification.js';
 export { refine, synthesize, runHooks } from './runs.js';

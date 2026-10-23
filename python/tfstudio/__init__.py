@@ -16,7 +16,9 @@ substrate's thickness in mm, R, T and A as fractions of 1. The manual's
 Python page (https://docs.tfstudio.xyz/automation/python/) says more.
 """
 
+from ._admittance import Admittance
 from ._design import Design, Layer, Layers, Substrate
+from ._electric_field import ElectricField
 from ._errors import AppError, ServerError, TFStudioError
 from ._merit import Merit, MeritRow
 from ._results import (CheckResult, CleanReport, Curve, LayerSensitivity, MonteCarlo, Progress, RunResult, SensitivityRow,
@@ -29,6 +31,7 @@ from ._studio import App, AppDesign, Material, Materials, TFStudio
 __version__ = "0.1.0"
 
 __all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
-           "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Progress",
+           "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Admittance",
+           "ElectricField", "Progress",
            "RunResult", "MonteCarlo", "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material", "App",
            "AppDesign", "Stop", "TFStudioError", "AppError", "ServerError"]

@@ -38,14 +38,15 @@ function axisRefLambda(design, lambda_nm, refLambda_nm) {
 /**
  * The field through one side's stack.
  *
- * `params` is `{ lambda, theta, pol, side, refLambda }`: the wavelength and
- * angle the field is computed at, the polarization, which coating, and the λ₀
- * the depth axis is read at. Back layers are stored substrate-to-exit and are
- * reversed into propagation order.
+ * `params` is `{ lambda, theta, pol, side, refLambda, pointsPerLayer }`: the
+ * wavelength and angle the field is computed at, the polarization, which
+ * coating, the λ₀ the depth axis is read at, and the samples taken across each
+ * layer (FIELD_SAMPLES_PER_LAYER when left out). Back layers are stored
+ * substrate-to-exit and are reversed into propagation order.
  */
 export function computeProfile(design, params) {
     if (!design) return null;
-    const { lambda: lambda_nm, theta: theta_deg, pol, side = 'front', refLambda = null } = params;
+    const { lambda: lambda_nm, theta: theta_deg, pol, side = 'front', refLambda = null, pointsPerLayer = NPTS } = params;
     const srcLayers = side === 'back' ? design.backLayers : design.frontLayers;
     if (!srcLayers?.length) return null;
 
@@ -71,10 +72,10 @@ export function computeProfile(design, params) {
     const incidentIndex = n0[0];
     const common = { validLayers, side, incidentIndex, refLambda: refLambda_nm };
     if (pol === 'avg') {
-        const s = computeEFieldProfile(lambda_nm, theta_deg, 's', n0, ns, layerInput, NPTS);
-        const p = computeEFieldProfile(lambda_nm, theta_deg, 'p', n0, ns, layerInput, NPTS);
+        const s = computeEFieldProfile(lambda_nm, theta_deg, 's', n0, ns, layerInput, pointsPerLayer);
+        const p = computeEFieldProfile(lambda_nm, theta_deg, 'p', n0, ns, layerInput, pointsPerLayer);
         return { s, p, avg: unpolarizedProfile(s, p), ...common };
     }
-    const result = computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layerInput, NPTS);
+    const result = computeEFieldProfile(lambda_nm, theta_deg, pol, n0, ns, layerInput, pointsPerLayer);
     return { [pol]: result, ...common };
 }

@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -771,6 +771,84 @@ console.log(design.layerCounts());
 design = tf.new_design("Mirror")
 design.stack("(HL)^3 H", H="Ta2O5", L="SiO2")
 print(design.layer_counts())
+```
+
+### admittance
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.admittance(wavelength, { angle, side, plane })` | `design.admittance(wavelength=..., angle=0, side=..., plane="admittance")` |
+
+**JavaScript**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。
+
+**Python**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 Python 的 complex，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `wavelength` | `wavelength` |  | 波长，单位 nm。不给出时，使用设计的参考波长。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
+| `plane` | `plane` | `'admittance'` | 圆弧所在的平面：`'admittance'` 为 Y 平面，`'reflection'` 为反射系数 Γ 的平面。 |
+
+**返回**：一个 Admittance。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、小于等于 0 的波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'admittance'` 或 `'reflection'` 的平面、没有膜层的面，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长、0 到 90 以外的角度、不是 "front" 或 "back" 的面、不是 "admittance" 或 "reflection" 的平面、没有膜层的面，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const locus = design.admittance(550, { angle: 45 });
+const { Y, gamma } = locus.s.boundaries.at(-1);
+console.log(locus.mode, 'Y', Y.re.toFixed(4), Y.im.toFixed(4), 'Rs', (gamma.re ** 2 + gamma.im ** 2).toFixed(6));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+locus = design.admittance(550, angle=45)
+front = locus.s.boundaries[-1]
+print(locus.mode, "Y", front.Y, "Rs", abs(front.gamma) ** 2)
+```
+
+### electricField / electric_field
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.electricField(wavelength, { angle, side, pointsPerLayer, depthUnit, reference })` | `design.electric_field(wavelength=..., angle=0, side=..., points_per_layer=60, depth_unit="nm", reference=...)` |
+
+一个镀膜面在某一波长处 s、p 和非偏振光的电场，与电场窗口的计算相同，从光射来的介质到基底。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。|E|² 为入射 |E|² 的比例，幅值以 V/m 计，对应 1 W/m² 的入射光。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `wavelength` | `wavelength` |  | 波长，单位 nm。不给出时，使用设计的参考波长。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
+| `pointsPerLayer` | `points_per_layer` | `60` | 每层取的采样点数，为 2 或更大的整数。 |
+| `depthUnit` | `depth_unit` | `'nm'` | `depth` 的单位：`'nm'`、`'OT'`（n 与厚度之积的累加，nm）、`'QWOT'` 或 `'FWOT'`。 |
+| `reference` | `reference` |  | 光学深度单位读取 n 所用的波长 λ0，单位 nm。不给出时，使用设计的参考波长。 |
+
+**返回**：一个 ElectricField。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、它没有的深度单位、不是 2 或更大整数的 pointsPerLayer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 "front" 或 "back" 的面、它没有的深度单位、不是 2 或更大整数的 points_per_layer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror', { reference: 1064 });
+design.stack('(HL)^4 H');
+const field = design.electricField(1064, { angle: 45 });
+const peak = field.p.e2.indexOf(Math.max(...field.p.e2));
+console.log('peak |E|², p:', field.p.e2[peak].toFixed(4), 'at', field.z[peak].toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror", reference=1064)
+design.stack("(HL)^4 H")
+field = design.electric_field(1064, angle=45)
+peak = field.p.e2.index(max(field.p.e2))
+print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1), "nm")
 ```
 
 ### refine
@@ -4223,6 +4301,595 @@ console.log(design.layerThicknesses({ wavelength: 5000 }).outOfRange.length, 'ma
 design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 print(len(design.layer_thicknesses(wavelength=5000).out_of_range), "materials stop short of 5000 nm")
+```
+
+## Admittance
+
+**JavaScript**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，由 design.admittance() 计算，与导纳图窗口绘出的相同。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的导纳虚部为负。
+
+**Python**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，由 design.admittance() 计算，与导纳图窗口绘出的相同。复数值为 Python 的 complex，采用 Macleod 的符号，即窗口所用的符号：吸收材料的导纳虚部为负。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const locus = design.admittance(550).s;
+for (const b of locus.boundaries) console.log(b.layer, b.name, b.Y.re.toFixed(4), b.Y.im.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+locus = design.admittance(550).s
+for b in locus.boundaries:
+    print(b.layer, b.name, b.Y)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.mode` | `locus.mode` |
+
+计算所在的面：`'front'` 或 `'back'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550).mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.wavelength` | `locus.wavelength` |
+
+波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance().wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance().wavelength, "nm")
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.angle` | `locus.angle` |
+
+入射角，单位为度，在光射来的介质中计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550, { angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550, angle=30).angle, "degrees")
+```
+
+### plane
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.plane` | `locus.plane` |
+
+圆弧所在的平面：`'admittance'` 为 Y 平面，`'reflection'` 为反射系数 Γ 的平面。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550, { plane: 'reflection' }).plane);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550, plane="reflection").plane)
+```
+
+### incident
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.incident` | `locus.incident` |
+
+**JavaScript**：光射来的介质 `{ material, name }`：正面为入射介质，背面为出射介质。
+
+**Python**：光射来的介质，一个具名元组 (material, name)：正面为入射介质，背面为出射介质。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550).incident);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550).incident)
+```
+
+### substrate
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.substrate` | `locus.substrate` |
+
+**JavaScript**：基底 `{ material, name }`。
+
+**Python**：基底，一个具名元组 (material, name)。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(550).substrate.name);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.admittance(550).substrate.name)
+```
+
+### s
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.s` | `locus.s` |
+
+**JavaScript**：s 导纳轨迹 `{ eta0, etaSubstrate, boundaries, arcs }`：eta0 和 etaSubstrate 为介质和基底的导纳；boundaries 即窗口的表格，从基底向外每个界面一个 `{ layer, material, name, Y, gamma }`，layer 0 为裸基底，之后是每个有厚度的膜层，编号与 design.layers 相同，Y 为其外表面处的导纳，gamma 为该处的反射系数，最后一个位于镀膜的外表面；arcs 为每个有厚度的膜层一个 `{ layer, material, re, im }`，从基底向外，re 和 im 是窗口绘制该圆弧所经过的点，位于所选的平面中。
+
+**Python**：s 导纳轨迹，一个具名元组 (eta0, eta_substrate, boundaries, arcs)：eta0 和 eta_substrate 为介质和基底的导纳；boundaries 即窗口的表格，从基底向外每个界面一个具名元组 (layer, material, name, Y, gamma)，layer 0 为裸基底，之后是每个有厚度的膜层，编号与 design.layers 相同，Y 为其外表面处的导纳，gamma 为该处的反射系数，最后一个位于镀膜的外表面；arcs 为每个有厚度的膜层一个具名元组 (layer, material, re, im)，从基底向外，re 和 im 是窗口绘制该圆弧所经过的点的 list，位于所选的平面中。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { gamma } = design.admittance(550, { angle: 45 }).s.boundaries.at(-1);
+console.log('Rs', gamma.re ** 2 + gamma.im ** 2);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+gamma = design.admittance(550, angle=45).s.boundaries[-1].gamma
+print("Rs", abs(gamma) ** 2)
+```
+
+### p
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.p` | `locus.p` |
+
+p 导纳轨迹，与 `s` 相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { Y } = design.admittance(550, { angle: 45 }).p.boundaries.at(-1);
+console.log('Y at the front surface, p:', Y.re, Y.im);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("Y at the front surface, p:", design.admittance(550, angle=45).p.boundaries[-1].Y)
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.outOfRange` | `locus.out_of_range` |
+
+**JavaScript**：所计算的面上数据达不到该波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：它们在该处的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该波长时为空。
+
+**Python**：所计算的面上数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：它们在该处的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波长时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.admittance(5000).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print([m["id"] for m in design.admittance(5000).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.saveCsv(path)` | `locus.save_csv(path)` |
+
+**JavaScript**：把导纳轨迹写入 CSV 文件，与窗口在显示两种偏振时以“复制 CSV”写出其表格的方式相同：先 s 后 p，基底一行，从基底向外每层一行，光射来的介质一行，各行给出 Re(Y)、Im(Y)、Re(Γ) 和 Im(Γ)。已存在的文件会被覆盖。
+
+**Python**：把导纳轨迹写入 CSV 文件，与窗口在显示两种偏振时以“复制 CSV”写出其表格的方式相同：先 s 后 p，基底一行，从基底向外每层一行，光射来的介质一行，各行给出 Re(Y)、Im(Y)、Re(Γ) 和 Im(Γ)。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `admittance-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.admittance(550, { angle: 45 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "admittance-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.admittance(550, angle=45).save_csv(name)
+print("Wrote", name)
+```
+
+## ElectricField
+
+一个镀膜面在某一波长处 s、p 和非偏振光的电场，由 `design.electricField()` / `design.electric_field()` 计算，与电场窗口绘出的相同。
+
+```js
+const design = tf.newDesign('Mirror', { reference: 1064 });
+design.stack('(HL)^4 H');
+const field = design.electricField(1064);
+console.log('peak |E|², s:', Math.max(...field.s.e2), 'over', field.z.length, 'samples');
+```
+
+```python
+design = tf.new_design("Mirror", reference=1064)
+design.stack("(HL)^4 H")
+field = design.electric_field(1064)
+print("peak |E|², s:", max(field.s.e2), "over", len(field.z), "samples")
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.mode` | `field.mode` |
+
+计算所在的面：`'front'` 或 `'back'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550).mode)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.wavelength` | `field.wavelength` |
+
+计算电场所用的波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField().wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field().wavelength, "nm")
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.angle` | `field.angle` |
+
+入射角，单位为度，在光射来的介质中计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550, { angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550, angle=30).angle, "degrees")
+```
+
+### reference
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.reference` | `field.reference` |
+
+读取深度所用的波长 λ0，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(633, { depthUnit: 'QWOT' }).reference, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(633, depth_unit="QWOT").reference, "nm")
+```
+
+### depthUnit / depth_unit
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.depthUnit` | `field.depth_unit` |
+
+`depth` 的单位：`'nm'`、`'OT'`、`'QWOT'` 或 `'FWOT'`；要求光学单位而某种材料在参考波长处没有折射率时为 `'nm'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550, { depthUnit: 'FWOT' }).depthUnit);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550, depth_unit="FWOT").depth_unit)
+```
+
+### pointsPerLayer / points_per_layer
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.pointsPerLayer` | `field.points_per_layer` |
+
+每层取的采样点数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550, { pointsPerLayer: 200 }).pointsPerLayer);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550, points_per_layer=200).points_per_layer)
+```
+
+### z
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.z` | `field.z` |
+
+**JavaScript**：每个采样点距外表面的深度，单位 nm，一个数组：第一个位于外表面，最后一个位于基底。
+
+**Python**：每个采样点距外表面的深度，单位 nm，一个 list：第一个位于外表面，最后一个位于基底。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { z } = design.electricField(550);
+console.log(z.length, 'samples down to', z.at(-1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+z = design.electric_field(550).z
+print(len(z), "samples down to", z[-1], "nm")
+```
+
+### depth
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.depth` | `field.depth` |
+
+**JavaScript**：每个采样点以 `depthUnit` 计的深度，一个数组。
+
+**Python**：每个采样点以 depth_unit 计的深度，一个 list。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550, { depthUnit: 'QWOT' }).depth.at(-1), 'quarter waves');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550, depth_unit="QWOT").depth[-1], "quarter waves")
+```
+
+### layers
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.layers` | `field.layers` |
+
+**JavaScript**：每个有厚度的膜层一个对象，按光遇到它们的顺序排列，`{ number, material, start, end, depthStart, depthEnd }`：number 与 design.layers 和 design.backLayers 的编号相同；material 为材料 id；start 和 end 为其距外表面的深度，单位 nm，depthStart 和 depthEnd 以 `depthUnit` 计。
+
+**Python**：每个有厚度的膜层一个具名元组 (number, material, start, end, depth_start, depth_end)，按光遇到它们的顺序排列：number 与 design.layers 和 design.back_layers 的编号相同；material 为材料 id；start 和 end 为其距外表面的深度，单位 nm，depth_start 和 depth_end 以 depth_unit 计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+for (const l of design.electricField(550).layers) console.log(l.number, l.material, l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+for l in design.electric_field(550).layers:
+    print(l.number, l.material, round(l.start, 1), "to", round(l.end, 1), "nm")
+```
+
+### s
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.s` | `field.s` |
+
+**JavaScript**：s 电场 `{ e2, e2Tangential, e2Normal, amplitude }`，每个采样点一个值：总场及其沿膜层方向和垂直于膜层的分量的 |E|²，为入射 |E|² 的比例；以及总场的幅值，单位 V/m，对应 1 W/m² 的入射光。
+
+**Python**：s 电场，一个由 list 组成的具名元组 (e2, e2_tangential, e2_normal, amplitude)，每个采样点一个值：总场及其沿膜层方向和垂直于膜层的分量的 |E|²，为入射 |E|² 的比例；以及总场的幅值，单位 V/m，对应 1 W/m² 的入射光。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log('peak |E|², s:', Math.max(...design.electricField(550).s.e2));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("peak |E|², s:", max(design.electric_field(550).s.e2))
+```
+
+### p
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.p` | `field.p` |
+
+p 电场，与 `s` 相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { p } = design.electricField(550, { angle: 45 });
+console.log('peak normal component, p:', Math.max(...p.e2Normal));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("peak normal component, p:", max(design.electric_field(550, angle=45).p.e2_normal))
+```
+
+### avg
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.avg` | `field.avg` |
+
+非偏振电场，即逐个采样点取 s 和 p 电场的平均，与 `s` 相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log('peak amplitude, avg:', Math.max(...design.electricField(550, { angle: 45 }).avg.amplitude), 'V/m');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("peak amplitude, avg:", max(design.electric_field(550, angle=45).avg.amplitude), "V/m")
+```
+
+### incidentAmplitude / incident_amplitude
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.incidentAmplitude` | `field.incident_amplitude` |
+
+入射光束的幅值，单位 V/m，对应 1 W/m²，由光射来的介质的折射率得出：|E|² 为 1 时读出的就是这个幅值。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(550).incidentAmplitude, 'V/m');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.electric_field(550).incident_amplitude, "V/m")
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.outOfRange` | `field.out_of_range` |
+
+**JavaScript**：所计算的面上数据达不到该波长的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组，与 Admittance 的相同。
+
+**Python**：所计算的面上数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list，与 Admittance 的相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.electricField(5000).outOfRange.length, 'materials stop short of 5000 nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(len(design.electric_field(5000).out_of_range), "materials stop short of 5000 nm")
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.saveCsv(path)` | `field.save_csv(path)` |
+
+**JavaScript**：把电场写入 CSV 文件，与窗口在出厂显示设置下以“复制 CSV”写出其表格的方式相同：每个采样点一行，给出以 `depthUnit` 计的深度，以及 avg、s 和 p 的总场幅值，单位 V/m，对应 1 W/m²。已存在的文件会被覆盖。
+
+**Python**：把电场写入 CSV 文件，与窗口在出厂显示设置下以“复制 CSV”写出其表格的方式相同：每个采样点一行，给出以 depth_unit 计的深度，以及 avg、s 和 p 的总场幅值，单位 V/m，对应 1 W/m²。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `field-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.electricField(550).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+design = tf.new_design("Laser mirror", reference=1064)
+design.stack("(HL)^5 H")
+field = design.electric_field(1064, depth_unit="QWOT")
+name = "field-{}.csv".format(time.time_ns())
+field.save_csv(name)
+print("Wrote", len(field.z), "rows to", name)
 ```
 
 ## RunResult
