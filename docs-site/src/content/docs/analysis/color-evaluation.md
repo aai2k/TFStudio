@@ -49,11 +49,7 @@ The evaluation surface (front, back, or total) is set in the
 
 ## How to read it
 
-The chromaticity diagram shows the spectral locus (the horseshoe of pure
-colors), the Planckian white points, and a marker for your coating. A marker
-near the white point means a near-neutral, colorless coating; a marker pulled
-toward an edge of the locus means a strong, saturated tint. The swatch renders
-the same result as an approximate on-screen color.
+The chromaticity diagram shows the spectral locus (the horseshoe of pure colors, closed by the purple line) with wavelength marks every 20 nm from 460 to 620 nm, the white point of the chosen illuminant, and a marker for your coating. A marker near the white point means a near-neutral, colorless coating; a marker pulled toward an edge of the locus means a strong, saturated tint. Two swatches in the corner of the diagram show the coating's color as an approximate on-screen color, with its Y, next to the reference white of the illuminant.
 
 Because the swatch is referenced to a perfect white reflector, a dim reflection
 looks dark or black even when the chromaticity marker sits far out toward the
@@ -61,15 +57,9 @@ locus: the color is genuinely there, but there is little reflected light to carr
 it. Use the **Exposure** setting to bring that hue up to a visible brightness
 without changing the reported values.
 
-The numeric panel reports the full set of standard descriptors: tristimulus
-X, Y, Z; xy and u′v′ chromaticity; CIE L\*a\*b\* and L\*u\*v\* with their
-chroma and hue angles; dominant wavelength and purity; and correlated color
-temperature (CCT) with its offset from the Planckian locus (Duv). For
-industrial color matching, a color difference of ΔE ≤ 1 is generally taken as
-the threshold of a just-noticeable difference.
+The numeric panel reports tristimulus X, Y, Z; xy, u′v′ and CIE 1960 uv chromaticity; CIE L\*a\*b\* and L\*u\*v\* with their chroma and hue angles; Hunter Lab; the dominant wavelength, or for a purple, which has none, the complementary wavelength, each with its purity; and correlated color temperature (CCT) with its offset from the Planckian locus (Duv). CCT reads as a dash for a color too far from the Planckian locus to have one.
 
 ## References
 
 - CIE 15:2004, *Colorimetry*, 3rd ed.
-- Sharma, Wu, Dalal, *Color Res. Appl.* **30**, 21 (2005), CIEDE2000.
 - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §12.2 (Eqs. 12.1–12.5).
