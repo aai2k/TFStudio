@@ -10,7 +10,7 @@ import { parse } from './wire.js';
 import { streamedHooks } from './hooks.js';
 
 /** The calls that run: their third argument is their hooks, and one runs at a time. */
-export const RUNS = new Set(['refine', 'synthesize', 'monteCarlo']);
+export const RUNS = new Set(['refine', 'synthesize', 'monteCarlo', 'estimateYield']);
 
 const isRecord = v => !!v && typeof v === 'object' && !Array.isArray(v);
 const isId = id => typeof id === 'string' || Number.isInteger(id);

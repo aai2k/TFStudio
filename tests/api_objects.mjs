@@ -20,8 +20,13 @@
  *   and the CSV file; merit rows, with start and end left out before the
  *   options, and options given as undefined or null, value, rows and clear(),
  *   and rows added in separate processes, as separate Script Console runs add
- *   them, each with an id of its own; refine and synthesize with seeds, Monte
- *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
+ *   them, each with an id of its own; specification checks of every kind
+ *   added with the wavelengths each kind takes and the defaults add()
+ *   documents, read back as SpecChecks, removed and cleared, the verdict of
+ *   check(), estimateYield() with a seed, its documented defaults, progress,
+ *   stop and a progress that throws, and a Monte Carlo run's spec as a Yield;
+ *   refine and synthesize with seeds, Monte Carlo with a seed and layer
+ *   sensitivity, its step 'nm' or 'percent', with
  *   back rows and locked rows; the Progress objects of a refinement, a Needle
  *   run, a Deep Synthesis run and a Monte Carlo run; a stop aborted in
  *   progress and before the run, a run of each method stopped part way leaving
@@ -37,9 +42,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { inspect } from 'node:util';
 import { execFileSync } from 'node:child_process';
 import { encode } from '../src/apiServer/wire.js';
 import { deleteOperands } from '../src/components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
+import { QUALIFIER_KINDS } from '../src/utils/synthesis/qualifiers.js';
+import { fixtureFile } from './_apiCorpus.mjs';
 
 const api = await import('../src/api/index.js');
 const objects = await import('../src/api/objects/index.js');
@@ -355,6 +363,211 @@ const SCORE_ON = { side: 'side', 'whole part': 'total' };
     const { operands: left } = deleteOperands(rows, [ids[1]]);
     ok('rows merit.add() adds in separate processes each have an id of their own, so deleting one in the editor keeps the other',
         rows.length === 2 && ids[0] !== ids[1] && left.length === 1 && left[0].id === ids[0], ids.join(', '));
+}
+
+// ── The specification ───────────────────────────────────────────────────────
+// A design's checks without the id each draws, as the wire writes them.
+const checksOf = data => encode(data.qualifiers.map(({ id, ...check }) => check));
+// A check of each kind, added to the gain flattening fixture, which holds a
+// measured curve for PPEF: the arguments add() is given, and the fields
+// setSpecification is given for the same check. No wavelength is one a check
+// starts with, so a wavelength given to another field shows.
+const measured = tf.openDesign(fixtureFile('measured-curve-ppef'));
+const curveId = measured._data.measuredCurves[0].id;
+const SPEC_KINDS = [
+    ['T_AT', [1530, { cmp: 'ge', target: 0.5 }], { lambda: 1530, cmp: 'ge', target: 0.5 }],
+    ['R_AT', [1560, { cmp: 'le', target: 0.5, aoi: 30, pol: 'p' }], { lambda: 1560, cmp: 'le', target: 0.5, aoi: 30, pol: 'p' }],
+    ['A_AT', [1575], { lambda: 1575 }],
+    ['T_AVG', [1510, 1590, { cmp: 'between', lo: 0.1, hi: 0.9 }], { lambdaStart: 1510, lambdaEnd: 1590, cmp: 'between', lo: 0.1, hi: 0.9 }],
+    ['R_AVG', [1520, 1580, { flag: 2, label: 'R band' }], { lambdaStart: 1520, lambdaEnd: 1580, flag: 2, label: 'R band' }],
+    ['A_AVG', [1505, 1595, { enabled: false }], { lambdaStart: 1505, lambdaEnd: 1595, enabled: false }],
+    ['MIN_MAX', [1515, 1585, { channel: 'R', direction: 'min', cmp: 'le', target: 0.4 }],
+        { lambdaStart: 1515, lambdaEnd: 1585, channel: 'R', direction: 'min', cmp: 'le', target: 0.4 }],
+    ['CENTRAL_LAMBDA', [1500, 1600, { cmp: 'eq', target: 1550, tol: 20 }], { lambdaStart: 1500, lambdaEnd: 1600, cmp: 'eq', target: 1550, tol: 20 }],
+    ['FWHM', [1500, 1600, { level: 0.4, bandPoints: 801, cmp: 'ge', target: 10 }], { lambdaStart: 1500, lambdaEnd: 1600, level: 0.4, bandPoints: 801, cmp: 'ge', target: 10 }],
+    ['EDGE_LAMBDA', [1500, 1600, { channel: 'R', edgeSide: 'right', cmp: 'ge', target: 1520 }],
+        { lambdaStart: 1500, lambdaEnd: 1600, channel: 'R', edgeSide: 'right', cmp: 'ge', target: 1520 }],
+    ['INTEGRAL', [1500, 1600, { channel: 'R', source: { id: 'blackbody', T: 3000 }, detector: { id: 'flat' }, presetLabel: 'Lamp' }],
+        { lambdaStart: 1500, lambdaEnd: 1600, channel: 'R', source: { id: 'blackbody', T: 3000 }, detector: { id: 'flat' }, presetLabel: 'Lamp' }],
+    ['INTEGRAL', [{ presetKey: 'TNIR', cmp: 'ge', target: 0.5 }], { presetKey: 'TNIR', cmp: 'ge', target: 0.5 }],
+    ['THICKNESS_BUDGET', [{ cmp: 'le', target: 5000, side: 'front' }], { cmp: 'le', target: 5000, side: 'front' }],
+    ['LAYER_COUNT', [{ cmp: 'le', target: 30 }], { cmp: 'le', target: 30 }],
+    ['PPEF', [{ curveId, cmp: 'le', target: 3 }], { curveId, cmp: 'le', target: 3 }],
+];
+// SpecCheck's attributes, by the fields of a check they read.
+const SPEC_FIELDS = {
+    kind: 'kind', label: 'label', enabled: 'enabled', cmp: 'cmp', target: 'target', tol: 'tol', lo: 'lo', hi: 'hi', wavelength: 'lambda',
+    start: 'lambdaStart', end: 'lambdaEnd', aoi: 'aoi', pol: 'pol', channel: 'channel', direction: 'direction', level: 'level',
+    edgeSide: 'edgeSide', flag: 'flag', side: 'side', presetKey: 'presetKey', presetLabel: 'presetLabel', source: 'source',
+    detector: 'detector', bandPoints: 'bandPoints', curveId: 'curveId',
+};
+// A mirror whose checks a few % of thickness error fails now and then, and a
+// check left out of the verdict.
+const yielded = tf.newDesign('Mirror');
+yielded.stack('(HL)^5 H');
+yielded.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9953 });
+yielded.specification.add('R_AT', 550, { cmp: 'ge', target: 0.99585 });
+yielded.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+yielded.specification.add('T_AT', 600, { cmp: 'le', target: 0.5, enabled: false });
+const ERRORS = { thicknessRelPct: 3, indexRe: 0.01, distribution: 'uniform', seed: 9 };
+// A yield's fields, and those of the API's answer they are read from.
+const yieldRead = y => [y.value, y.passCount, y.evaluated, y.interval, y.checks, y.runs, y.seed, y.mode];
+const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evaluated, spec.yieldInterval, spec.perQualifier, spec.nTrials, seed, mode];
+{
+    const added = measured.copy();
+    const before = added.specification;
+    SPEC_KINDS.forEach(([kind, args]) => added.specification.add(kind, ...args));
+    const made = api.setSpecification(measured._data, SPEC_KINDS.map(([kind, , fields]) => ({ kind, ...fields })));
+    const ids = added._data.qualifiers.map(check => check.id);
+    ok('specification.add() makes the checks setSpecification makes, with the wavelengths each kind takes', checksOf(added._data) === checksOf(made),
+        checksOf(added._data).slice(0, 300));
+    ok('for every kind', QUALIFIER_KINDS.every(kind => SPEC_KINDS.some(([listed]) => listed === kind)));
+    ok('and changes the design in place, the rest of it as it was', canon({ ...added._data, qualifiers: null }) === canon({ ...measured._data, qualifiers: null }));
+    ok('a Specification read before the adds seeing them, each check with an id of its own, and the design copied from without one',
+        before.length === SPEC_KINDS.length && new Set(ids).size === ids.length && measured.specification.length === 0);
+    // A check the app saved that setSpecification refuses, such as one of an
+    // integral preset its user saved, stays as it is when a check is added.
+    const saved = { ...made.qualifiers[11], id: 'saved', presetKey: 'My preset' };
+    const holding = measured.copy();
+    holding._data = { ...holding._data, qualifiers: [saved] };
+    holding.specification.add('LAYER_COUNT', { cmp: 'le', target: 30 });
+    ok('and a check the app saved that setSpecification refuses stays as it was', encode(holding._data.qualifiers[0]) === encode(saved) && holding.specification.length === 2);
+    const DEFAULTS = { cmp: 'ge', target: 0.99, lo: 0.95, hi: 1, aoi: 0, pol: 'avg', channel: 'T', direction: 'max', level: 0.5, presetKey: '', presetLabel: '',
+        source: { id: 'D65' }, detector: { id: 'photopic' }, label: '', enabled: true };
+    const plainAdded = design.copy();
+    plainAdded.specification.add('MIN_MAX');
+    plainAdded.specification.add('T_AT');
+    ok('and the defaults it documents are the window\'s, 550 nm for one wavelength and 400 to 700 nm for a band among them',
+        checksOf(plainAdded._data) === checksOf(api.setSpecification(design._data, [{ kind: 'MIN_MAX', ...DEFAULTS, lambdaStart: 400, lambdaEnd: 700 },
+            { kind: 'T_AT', ...DEFAULTS, lambda: 550 }])));
+
+    const rows = added.specification.rows;
+    const read = rows.map(check => Object.keys(SPEC_FIELDS).map(name => check[name]));
+    // The wire writes a field a check does not hold as null, as its attribute gives it.
+    const held = added._data.qualifiers.map(check => Object.values(SPEC_FIELDS).map(field => check[field]));
+    const getters = Object.getOwnPropertyNames(objects.SpecCheck.prototype).filter(name => name !== 'constructor').sort();
+    ok('rows are SpecChecks', rows.every(check => check instanceof objects.SpecCheck));
+    ok('each attribute reading its field of the check', encode(read) === encode(held), encode(read[0]));
+    ok('every attribute among them', encode(getters) === encode(Object.keys(SPEC_FIELDS).sort()), encode(getters));
+    rows[10].source.T = 1;
+    ok('as they were when rows was read, so changing what one holds changes nothing', added._data.qualifiers[10].source.T === 3000);
+
+    const removed = added.copy();
+    removed.specification.remove(1);
+    removed.specification.remove(removed.specification.length - 1);
+    const last = SPEC_KINDS.length - 1;
+    ok('remove() takes out the check at its index from 0, the others staying in order',
+        checksOf(removed._data) === checksOf({ qualifiers: made.qualifiers.filter((_, i) => ![1, last].includes(i)) }));
+    const count = added.specification.length;
+    const outside = await Promise.all([-1, count, 1.5, '1', true].map(index => refused(() => added.specification.remove(index))));
+    const numberedFrom0 = `the specification has ${count} checks, numbered from 0`;
+    ok('and refuses an index the specification has no check at, naming the indices', encode(outside) === encode([`check -1: ${numberedFrom0}`,
+        `check ${count}: ${numberedFrom0}`, `check 1.5: ${numberedFrom0}`, `check "1": ${numberedFrom0}`, `check true: ${numberedFrom0}`]), encode(outside));
+    const cleared = added.copy();
+    cleared.specification.clear();
+    ok('clear() leaves no check, in the copy alone', canon(cleared._data) === canon(api.setSpecification(added._data, [])) && cleared.specification.length === 0
+        && added.specification.length === count);
+
+    const report = added.specification.check();
+    const verdict = api.checkSpecification(added._data);
+    const resultRows = report.rows.map(r => [r.kind, r.label, r.value, r.unit, r.passed, r.margin, r.threshold, r.reason]);
+    const plainRows = verdict.rows.map(r => [r.kind, r.label, r.value, r.unit, r.passed, r.margin, r.threshold, r.reason]);
+    const passes = [...new Set(report.rows.map(r => r.passed))].sort();
+    const signs = [...new Set(report.rows.map(r => Math.sign(r.margin)))].sort();
+    ok('check() is checkSpecification: each row with its kind, label, value, unit, verdict, margin, threshold and reason',
+        encode(resultRows) === encode(plainRows), encode(resultRows).slice(0, 300));
+    ok('a SpecReport of CheckResults', report instanceof objects.SpecReport && report.rows.every(r => r instanceof objects.CheckResult));
+    ok('with checks that pass, fail and are left out, and margins on both sides of 0', encode(passes) === '[false,null,true]' && signs.includes(-1) && signs.includes(1),
+        `${encode(passes)} ${encode(signs)}`);
+    ok('and passed, passing, total and mode are its', encode([report.passed, report.passing, report.total, report.mode])
+        === encode([verdict.passed, verdict.passing, verdict.total, verdict.mode]) && report.total === count - 1 && report.passing > 0);
+    const whole = added.copy();
+    whole.scoreOn = 'whole part';
+    ok('and its mode is what the design is scored on', report.mode === 'front' && whole.specification.check().mode === 'total');
+    const layerCount = report.rows[13];
+    ok('console.log shows a disabled check as disabled, and a value with no unit without one', inspect(report.rows[5]) === '<CheckResult A_AVG: disabled>'
+        && inspect(layerCount) === `<CheckResult LAYER_COUNT: ${layerCount.value}, ${layerCount.passed ? 'passed' : 'not passed'}>`,
+        `${inspect(report.rows[5])} ${inspect(layerCount)}`);
+}
+{
+    const y = await yielded.specification.estimateYield(40, ERRORS);
+    const there = await api.estimateYield(yielded._data, { runs: 40, ...ERRORS });
+    ok('estimateYield() is the API\'s estimateYield with the same seed: value, passCount, evaluated, interval, checks, runs, seed and mode',
+        encode(yieldRead(y)) === encode(yieldThere(there, there.seed, there.mode)), encode(yieldRead(y)));
+    ok('a Yield, of some trials and not all, the checks failing in shares of their own', y instanceof objects.Yield && y.value > 0 && y.value < 1
+        && new Set(y.checks.map(check => check.failRate)).size === 3);
+    ok('console.log shows the yield with the trials that passed of those checked', inspect(y) === `<Yield ${y.value} (${y.passCount} of ${y.evaluated} checked), seed 9>`, inspect(y));
+    const defaulted = await yielded.specification.estimateYield(30, { seed: 4 });
+    const documented = await api.estimateYield(yielded._data, { runs: 30, seed: 4, thicknessRelPct: 1, thicknessAbsNm: 0, indexRe: 0, indexIm: 0, distribution: 'gaussian' });
+    ok('and the defaults it documents are monteCarlo\'s', encode(yieldRead(defaulted)) === encode(yieldThere(documented, 4, 'front')));
+    const mc = await yielded.monteCarlo(500, 600, { step: 10, runs: 40, ...ERRORS });
+    const mcThere = await api.monteCarlo(yielded._data, { from: 500, to: 600, step: 10, runs: 40, ...ERRORS });
+    ok('a MonteCarlo\'s spec is a Yield of its trials, monteCarlo\'s spec with the run\'s seed and mode',
+        mc.spec instanceof objects.Yield && encode(yieldRead(mc.spec)) === encode(yieldThere(mcThere.spec, mcThere.seed, 'front')), encode(yieldRead(mc.spec)));
+    ok('and the yield estimateYield() counts', encode(yieldRead(mc.spec)) === encode(yieldRead(y)));
+    // With every check left out of the verdict, no trial is checked, though
+    // each is run; scored on the whole part, its mode says so.
+    const unchecked = yielded.copy();
+    unchecked.specification.clear();
+    unchecked.specification.add('LAYER_COUNT', { cmp: 'le', target: 15, enabled: false });
+    unchecked.scoreOn = 'whole part';
+    const none = (await unchecked.monteCarlo(500, 600, { step: 50, runs: 5, seed: 1 })).spec;
+    ok('a spec with no trial checked has no value or interval, its runs the trials run, and the mode the whole part', encode(yieldRead(none))
+        === encode([null, 0, 0, null, [{ label: 'LAYER_COUNT', failRate: 0 }], 5, 1, 'total']), encode(yieldRead(none)));
+
+    const reports = [];
+    await yielded.specification.estimateYield(10, { seed: 2, progress: p => reports.push([p.trial, p.total]) });
+    ok('progress is given a Progress after each trial', encode(reports) === encode(Array.from({ length: 10 }, (_, i) => [i + 1, 10])), encode(reports));
+    const early = new AbortController();
+    early.abort();
+    const stopped = await yielded.specification.estimateYield(100000, { seed: 2, stop: early.signal });
+    ok('a stop aborted before the run ends it at once, answering with the trials made', stopped.runs <= 1, stopped.runs);
+    const thrown = new Error('thrown at report 3');
+    let calls = 0;
+    const kept = yielded.copy()._data;
+    const how = await yielded.specification.estimateYield(20, { seed: 2, progress: () => { if (++calls === 3) throw thrown; } }).then(() => 'resolved', err => err);
+    ok('a progress function that throws ends the run, which rejects with it, calling progress no more, the design as it was',
+        how === thrown && calls === 3 && canon(yielded._data) === canon(kept), `${how} ${calls}`);
+}
+{
+    // The refusals of the checks and the yield in the objects' words.
+    const bare = design.copy();
+    const SPEC_WORDED = [
+        [() => bare.specification.check(), 'check: the design has no specification check; add one with specification.add()'],
+        [() => bare.specification.estimateYield(5), 'estimateYield: the design has no enabled specification check; add one with specification.add()'],
+        [() => bare.specification.add('R_AT', 550, 600), 'add: R_AT is checked at one wavelength, start, and takes no end, not 600'],
+        [() => bare.specification.add('LAYER_COUNT', 15), 'add: LAYER_COUNT reads no wavelength, and takes no start or end, not 15'],
+        [() => bare.specification.add('PPEF', undefined, 3), 'add: PPEF reads no wavelength, and takes no start or end, not 3'],
+        [() => bare.specification.add('R_AVG', 650, 450), 'add: start 650 is above end 450'],
+        [() => bare.specification.add('R_AT', -5), 'add: start is a wavelength in nm above 0, not -5'],
+        [() => bare.specification.add('R_AVG', 450, 'x'), 'add: end is a wavelength in nm above 0, not "x"'],
+        [() => bare.specification.add('R_AVG', 450, 650, 1, {}), 'add: takes start and end before its options object, not 3 values'],
+        [() => bare.specification.add('R_AVG', 450, 650, { id: 'mine' }), "add: unknown option 'id'; each check add() adds gets an id of its own"],
+        [() => bare.specification.add('R_AVG', 450, 650, { lambdaStart: 450 }),
+            "add: unknown option 'lambdaStart'; a check's kind and wavelengths are add()'s arguments, kind, start and end"],
+        [() => bare.specification.add('R_AVG', 450, 650, { kind: 'T_AVG' }),
+            "add: unknown option 'kind'; a check's kind and wavelengths are add()'s arguments, kind, start and end"],
+        [() => bare.specification.add('EDGE_LAMBDA', 450, 650, { edgeSide: 'up' }), "add: edgeSide is 'left' or 'right', not \"up\""],
+        [() => bare.specification.add('INTEGRAL', 400, 700, { presetKey: 'Rvis' }), 'add: start is 380, as preset Rvis sets it, or left out, not 400'],
+        [() => bare.specification.add('R_AT', 550, { cmp: 'between', lo: 0.9, hi: 0.8 }), "add: hi is a number in the check's unit no lower than lo, 0.9, not 0.8"],
+        [() => bare.specification.add('MIN_MAX', 450, 650, { channel: 'R', flag: 2 }), 'add: flag is null, as MIN_MAX of the highest R has no Step, not 2'],
+        [() => bare.specification.add('PPEF', { curveId: 'none' }), "add: curveId is the id of one of the design's measured curves, and it has none, not \"none\""],
+        [() => bare.specification.remove(0), 'check 0: the specification has 0 checks, numbered from 0'],
+        [() => yielded.specification.estimateYield(0), 'estimateYield: runs is a whole number of 1 or more, not 0'],
+        [() => yielded.specification.estimateYield(), 'estimateYield: runs is a whole number of 1 or more, not undefined'],
+        [() => yielded.specification.estimateYield(5, { rnus: 2 }),
+            "estimateYield: unknown option 'rnus'; the options are thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop"],
+        [() => yielded.specification.estimateYield(5, { runs: 7 }), "estimateYield: unknown option 'runs'; the trials are estimateYield()'s first argument"],
+    ];
+    const unlike = (await Promise.all(SPEC_WORDED.map(async ([make, words]) => [await refused(make), words]))).filter(([got, words]) => got !== words);
+    ok('the specification\'s refusals reach the objects in the objects\' words', unlike.length === 0, unlike.map(([got]) => got).join('\n'));
+    const point = bare.copy();
+    point.specification.add('R_AVG', 600, 600);
+    ok('a band whose end is its start is taken', point.specification.rows[0].start === 600 && point.specification.rows[0].end === 600);
+    const rowOption = String(await refused(() => bare.specification.add('R_AVG', 450, 650, { targt: 1 })));
+    const listed = rowOption.slice(rowOption.indexOf('; the options are ') + '; the options are '.length).split(', ');
+    ok('and an option a check does not take is refused naming the options add() takes', ['cmp', 'edgeSide', 'curveId'].every(name => listed.includes(name)), rowOption);
+    ok('kind, start, end and the id being none of them', !['kind', 'id', 'lambda', 'lambdaStart', 'lambdaEnd', 'start', 'end'].some(name => listed.includes(name)), rowOption);
 }
 
 // ── Runs ────────────────────────────────────────────────────────────────────

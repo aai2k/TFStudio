@@ -6,8 +6,10 @@ API's calls and compares.
     python -B -I tests/_pythonObjects.py objects <folder holding tfstudio>
 
 The first line on stdin is the input, as JSON: { name, pool, settingNames,
-dataDir }, dataDir a data folder whose user catalog holds two materials named
-Twin.
+dataDir, measured, specKinds }, dataDir a data folder whose user catalog
+holds two materials named Twin, measured a design file with a measured curve,
+and specKinds the checks to add to it, each [kind, wavelengths, keyword
+arguments, the fields the test gives setSpecification].
 """
 
 import inspect
@@ -50,6 +52,8 @@ def objects(given):
         materials(tf, given)
         spectra(design)
         merit(design)
+        specification(tf, design, given)
+        yields(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -233,6 +237,101 @@ def merit(design):
     cleared.merit.clear()
     out({"merit": {"design": rated._data, "count": len(rated.merit), "value": rated.merit.value,
                    "optical": rated.merit.optical_value, "rows": rows, "cleared": [len(cleared.merit), len(rated.merit)]}})
+
+
+# SpecCheck's attributes, in the order the test reads them.
+SPEC_ATTRIBUTES = ("kind", "label", "enabled", "cmp", "target", "tol", "lo", "hi", "wavelength", "start", "end", "aoi", "pol",
+                   "channel", "direction", "level", "edge_side", "flag", "side", "preset_key", "preset_label", "source",
+                   "detector", "band_points", "curve_id")
+
+
+def specification(tf, design, given):
+    """Checks of each kind added with the wavelengths each kind takes, read
+    back, removed and cleared, the verdict on them, and the refusals of the
+    checks in Python's words on `design`, which has no specification."""
+    added = tf.open_design(given["measured"])
+    for kind, where, keywords, _ in given["specKinds"]:
+        added.specification.add(kind, *where, **keywords)
+    holding = added.copy()
+    holding._data = dict(holding._data, qualifiers=[dict(holding._data["qualifiers"][11], id="saved", presetKey="My preset")])
+    holding.specification.add("LAYER_COUNT", cmp="le", target=30)
+    removed = added.copy()
+    removed.specification.remove(1)
+    removed.specification.remove(len(removed.specification) - 1)
+    cleared = added.copy()
+    cleared.specification.clear()
+    count = len(added.specification)
+    added.specification.rows[10].source["T"] = 1
+    report = added.specification.check()
+    bare = design.copy().specification
+    worded = [refused(make) for make in (
+        bare.check, lambda: bare.estimate_yield(5), lambda: bare.add("R_AT", 550, 600), lambda: bare.add("LAYER_COUNT", 15),
+        lambda: bare.add("PPEF", end=3), lambda: bare.add("R_AVG", 650, 450),
+        lambda: bare.add("R_AT", -5), lambda: bare.add("R_AVG", 450, "x"), lambda: bare.add("R_AVG", 450, 650, id="mine"),
+        lambda: bare.add("R_AVG", 450, 650, lambda_start=450), lambda: bare.add("R_AVG", 450, 650, lambdaStart=500, lambdaEnd=600),
+        lambda: bare.add("R_AVG", lambdaStart=500, lambdaEnd=600), lambda: bare.add("EDGE_LAMBDA", 450, 650, edge_side="up"),
+        lambda: bare.add("INTEGRAL", 400, 700, preset_key="Rvis"), lambda: bare.add("R_AT", 550, cmp="between", lo=0.9, hi=0.8),
+        lambda: bare.add("MIN_MAX", 450, 650, channel="R", flag=2),
+        lambda: bare.add("PPEF", curve_id="none"), lambda: bare.add("FWHM", 400, 700, band_points=1), lambda: bare.remove(0),
+        lambda: bare.add("R_AVG", 450, 650, targt=1))]
+    point = design.copy()
+    point.specification.add("R_AVG", 600, 600)
+    out({"specification": {
+        "point": [point.specification.rows[0].start, point.specification.rows[0].end],
+        "shown": [repr(report.rows[5]), repr(report.rows[13]), report.rows[13].value, report.rows[13].passed],
+        "added": added._data, "snapshot": added._data["qualifiers"][10]["source"]["T"], "holding": holding._data["qualifiers"],
+        "removed": removed._data,
+        "cleared": [cleared._data, len(cleared.specification), count],
+        "rows": [[getattr(check, name) for name in SPEC_ATTRIBUTES] for check in added.specification.rows],
+        "attributes": sorted(name for name in vars(tfstudio.SpecCheck) if not name.startswith("_")),
+        "outside": [refused(lambda index=index: added.specification.remove(index)) for index in (-1, count, 1.5, "1", True)],
+        "report": [[r.kind, r.label, r.value, r.unit, r.passed, r.margin, list(r.threshold), r.reason] for r in report.rows],
+        "verdict": [report.passed, report.passing, report.total, report.mode], "worded": worded}})
+
+
+def yield_of(y):
+    return [y.value, y.pass_count, y.evaluated, y.interval, [[check.label, check.fail_rate] for check in y.checks], y.runs, y.seed,
+            y.mode]
+
+
+def yields(tf):
+    """A mirror whose checks a few % of thickness error fails now and then:
+    its yield with a seed and with the documented defaults, a Monte Carlo
+    run's, the Progress of each trial, a progress function that raises, a
+    Stop stopped before the run, and the runs refused."""
+    mirror = tf.new_design("Mirror")
+    mirror.stack("(HL)^5 H")
+    spec = mirror.specification
+    spec.add("R_AVG", 520, 580, cmp="ge", target=0.9953)
+    spec.add("R_AT", 550, cmp="ge", target=0.99585)
+    spec.add("LAYER_COUNT", cmp="le", target=15)
+    spec.add("T_AT", 600, cmp="le", target=0.5, enabled=False)
+    errors = {"thickness_rel_pct": 3, "index_re": 0.01, "distribution": "uniform", "seed": 9}
+    trials = []
+    spec.estimate_yield(10, seed=2, progress=lambda p: trials.append([p.trial, p.total]))
+
+    def raises(p):
+        raise ValueError("raised at trial {} of {}".format(p.trial, p.total))
+
+    try:
+        spec.estimate_yield(20, seed=2, progress=raises)
+        raised = None
+    except ValueError as err:
+        raised = str(err)
+    early = tfstudio.Stop()
+    early.stop()
+    unchecked = mirror.copy()
+    unchecked.specification.clear()
+    unchecked.specification.add("LAYER_COUNT", cmp="le", target=15, enabled=False)
+    unchecked.score_on = "whole part"
+    seeded = spec.estimate_yield(40, **errors)
+    out({"yield": {"design": mirror._data, "seeded": yield_of(seeded), "shown": repr(seeded),
+                   "defaults": yield_of(spec.estimate_yield(30, seed=4)),
+                   "monteCarlo": yield_of(mirror.monte_carlo(500, 600, step=10, runs=40, **errors).spec),
+                   "unchecked": yield_of(unchecked.monte_carlo(500, 600, step=50, runs=5, seed=1).spec),
+                   "trials": trials, "raised": raised, "stopped": spec.estimate_yield(100000, seed=2, stop=early).runs,
+                   "refused": [refused(lambda: spec.estimate_yield(0)), refused(lambda: spec.estimate_yield(None)),
+                               refused(lambda: spec.estimate_yield(5, thickness_rel=3))]}})
 
 
 def ran(before, design, result):

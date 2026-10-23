@@ -2,14 +2,18 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 23
+ *   1. The session: initialize and version negotiation, the tool list (the 25
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
  *      method names every object has, ids that are not a string or an integer,
  *      and an unknown tool. The server answers on after each.
- *   2. Designs: a quarter-wave stack built through the tools has the spectrum
- *      and merit the API computes for it in this process; a design saved and
+ *   2. Designs: a quarter-wave stack built through the tools has the spectrum,
+ *      merit and specification verdict the API computes for it in this
+ *      process, a refused specification leaves the design as it was, showDesign
+ *      lists the checks with their ids, which setSpecification takes back as
+ *      they are, and an empty one clears it, answered with the mode; a design
+ *      saved and
  *      opened again has the same layers; the setup changes; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
@@ -54,7 +58,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 23 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 25 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -96,6 +100,26 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const rows = [{ type: 'RAV', lambdaStart: 580, lambdaEnd: 620, target: 1, weight: 1 }];
     const rated = await server.call('setMerit', { designId: id, rows });
     ok('the merit is the API\'s', rated.total === api.merit(api.setMerit(local, rows)).total && rated.rows.length === 1, JSON.stringify(rated));
+    const checks = [{ kind: 'R_AVG', lambdaStart: 580, lambdaEnd: 620, cmp: 'ge', target: 0.9 }, { kind: 'LAYER_COUNT', cmp: 'le', target: 5 }];
+    const verdict = JSON.stringify({ designId: id, ...api.checkSpecification(api.setSpecification(local, checks)) });
+    const specified = await server.call('setSpecification', { designId: id, checks });
+    ok('setSpecification answers with the verdict the API gives', JSON.stringify(specified) === verdict && specified.rows.length === 2, JSON.stringify(specified));
+    ok('and so does checkSpecification', JSON.stringify(await server.call('checkSpecification', { designId: id })) === verdict);
+    const misspelt = await server.call('setSpecification', { designId: id, checks: [{ kind: 'T_AVG', lamStart: 400 }] });
+    ok('a refused specification leaves the design as it was', /'lamStart' is not a field of a check/.test(misspelt.error ?? '')
+        && JSON.stringify(await server.call('checkSpecification', { designId: id })) === verdict, misspelt.error);
+    const shown = (await server.call('showDesign', { designId: id })).specification ?? [];
+    ok('showDesign lists the checks the design holds, each with its id', shown.length === 2 && shown.every(check => typeof check.id === 'string')
+        && JSON.stringify(shown.map(({ id: _omit, ...check }) => check)) === JSON.stringify(api.setSpecification(local, checks).qualifiers.map(({ id: _omit, ...check }) => check)),
+        JSON.stringify(shown[0]));
+    await server.call('setSpecification', { designId: id, checks: [...shown, { kind: 'T_AT' }] });
+    const extended = (await server.call('showDesign', { designId: id })).specification ?? [];
+    ok('and setSpecification takes them back as they are beside a new one', JSON.stringify(extended.slice(0, 2)) === JSON.stringify(shown) && extended[2]?.kind === 'T_AT',
+        JSON.stringify(extended));
+    const cleared = await server.call('setSpecification', { designId: id, checks: [] });
+    ok('an empty specification clears it, answering as a verdict on no check with the mode, and checking one is then refused',
+        JSON.stringify(cleared) === JSON.stringify({ designId: id, passed: false, passing: 0, total: 0, mode: specified.mode, rows: [] }) && specified.mode === 'front'
+        && /no specification; set one with setSpecification/.test((await server.call('checkSpecification', { designId: id })).error ?? ''), JSON.stringify(cleared));
 }
 {
     const file = path.join(TEMP, 'mirror.tfs');
@@ -128,6 +152,9 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const badMerit = await server.call('setMerit', { designId: lab, rows: [{ type: 'RAV', lambdaStart: 500, lambdaEnd: 600, target: 1 }] });
     ok('a merit that cannot be computed leaves the design as it was', /resolve to nothing/.test(badMerit.error ?? '')
         && JSON.stringify((await server.call('showDesign', { designId: lab })).meritRows) === JSON.stringify(before), badMerit.error);
+    const badSpecification = await server.call('setSpecification', { designId: lab, checks: [{ kind: 'T_AT' }] });
+    ok('so does a specification that cannot be checked', /resolve to nothing/.test(badSpecification.error ?? '')
+        && /no specification/.test((await server.call('checkSpecification', { designId: lab })).error ?? ''), badSpecification.error);
     ok('a design shows how it is scored', changed.mfEvalMode === 'side');
     const nk = await server.call('materialNK', { material: 'SiO2', wavelengths: [10, 550] });
     ok('n,k comes with the range the data cover', nk.nk?.length === 2 && nk.nk[0].outside === true && Array.isArray(nk.rangeNm), JSON.stringify(nk));

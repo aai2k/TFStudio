@@ -18,16 +18,22 @@ function formatQualifierValue(v, unit, units) {
     return String(v);
 }
 
+// The bounds an equality check holds a value between: the bounds Generate MF
+// holds the row between, in the same arithmetic, so a value on a bound passes
+// the check and meets the rows, or neither.
+function eqBounds(qual) {
+    const tol = eqTolerance(qual);
+    return [qual.target - tol, qual.target + tol];
+}
+
 // Apply the qualifier's comparator to a (finite) value, returning the
 // PASS/FAIL verdict and the deviation magnitude (> 0 means the spec is violated).
 function compareToThreshold(qual, value) {
     if (qual.cmp === 'ge') return { pass: value >= qual.target, deviation: qual.target - value };
     if (qual.cmp === 'le') return { pass: value <= qual.target, deviation: value - qual.target };
     if (qual.cmp === 'eq') {
-        // The bounds Generate MF holds the row between, in the same arithmetic,
-        // so a value on a bound passes the check and meets the rows, or neither.
-        const tol = eqTolerance(qual);
-        return { pass: value >= qual.target - tol && value <= qual.target + tol, deviation: Math.abs(value - qual.target) };
+        const [low, high] = eqBounds(qual);
+        return { pass: value >= low && value <= high, deviation: Math.abs(value - qual.target) };
     }
     if (qual.cmp === 'between') {
         const deviation = value < qual.lo ? qual.lo - value
@@ -36,6 +42,24 @@ function compareToThreshold(qual, value) {
         return { pass: value >= qual.lo && value <= qual.hi, deviation };
     }
     return { pass: false, deviation: 0 };
+}
+
+/**
+ * The room a finite value has inside the qualifier's threshold, in the
+ * value's unit: how far it is from the nearest bound, positive inside, negative
+ * outside and 0 on a bound. It is taken against the bounds compareToThreshold
+ * holds the value to, so it is 0 or more exactly when the check passes. Null
+ * for a comparison the check does not know.
+ */
+export function thresholdMargin(qual, value) {
+    if (qual.cmp === 'ge') return value - qual.target;
+    if (qual.cmp === 'le') return qual.target - value;
+    if (qual.cmp === 'eq') {
+        const [low, high] = eqBounds(qual);
+        return Math.min(value - low, high - value);
+    }
+    if (qual.cmp === 'between') return Math.min(value - qual.lo, qual.hi - value);
+    return null;
 }
 
 // The threshold a value was held to, as the summary states it.

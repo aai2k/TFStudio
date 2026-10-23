@@ -3,7 +3,7 @@ title: Python
 description: Design and compute thin-film coatings from a Python program, on designs of its own or on the design open in the app.
 ---
 
-A Python program can work with TFStudio's designs through the `tfstudio` package: the same objects a Python script in the [Script Console](/automation/script-console/) has, which the [API Reference](/automation/api-reference/) lists. The package starts a TFStudio of its own with no window, which computes for the program, and ends it when the program is done with it. The program can build designs, compute spectra and merit functions, run refinement and synthesis, and save what it finds; with `live=True` it can also read and change the design open in the app. The objects compute with the code the windows compute with, so their numbers are the app's.
+A Python program can work with TFStudio's designs through the `tfstudio` package: the same objects a Python script in the [Script Console](/automation/script-console/) has, which the [API Reference](/automation/api-reference/) lists. The package starts a TFStudio of its own with no window, which computes for the program, and ends it when the program is done with it. The program can build designs, compute spectra and merit functions, check a design against its specification and count its yield, run refinement and synthesis, and save what it finds; with `live=True` it can also read and change the design open in the app. The objects compute with the code the windows compute with, so their numbers are the app's.
 
 ## Install
 
@@ -71,7 +71,7 @@ with tfstudio.TFStudio() as tf:
 
 ## Runs
 
-`refine()`, `synthesize()` and `monte_carlo()` compute in the program's TFStudio, and the call returns when the run ends. `progress=` takes a function, which is called with a `tfstudio.Progress` each time the run reports. `stop=` takes a `tfstudio.Stop`, whose `stop()`, called from the progress function or from another thread, ends the run at its next step. A refinement or synthesis that is stopped leaves the design as it was.
+`refine()`, `synthesize()`, `monte_carlo()` and `specification.estimate_yield()` compute in the program's TFStudio, and the call returns when the run ends. `progress=` takes a function, which is called with a `tfstudio.Progress` each time the run reports. `stop=` takes a `tfstudio.Stop`, whose `stop()`, called from the progress function or from another thread, ends the run at its next step. A refinement or synthesis that is stopped leaves the design as it was.
 
 Ctrl+C during a run stops it, then raises `KeyboardInterrupt`; the design keeps the layers it had. A run looks for the stop between its steps; if it has not stopped after 15 seconds, or you press Ctrl+C again, the server is ended, and the `TFStudio()` takes no more calls. An exception the progress function raises stops the run, and the exception goes on to the program.
 

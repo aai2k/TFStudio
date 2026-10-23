@@ -30,11 +30,11 @@
  *
  * The implementation is split into focused modules under ./qualifiers/:
  *   constants      → QUALIFIER_KINDS, QUALIFIER_CMPS, defaultTolForKind,
- *                    checkStepFlag, scanStepFlag, checkStepKind, hasOwnStep,
- *                    budgetSide, coatedSide, startingSide
+ *                    checkStepFlag, scanStepFlag, checkStepKind, stepFlags,
+ *                    hasOwnStep, budgetSide, coatedSide, startingSide
  *   construction   → makeQualifier
  *   channelTypes   → channel / MF-operand-type helpers
- *   format         → value formatting + threshold comparison
+ *   format         → value formatting, threshold comparison and margin
  *   bandScan       → FWHM / EDGE_LAMBDA dense-scan evaluation
  *   evaluate       → evaluateQualifier / evaluateQualifiers / aggregateVerdict
  *   mfOperands     → qualifiersToMFOperands (the "Generate MF from
@@ -49,7 +49,7 @@ export * from './qualifiers/constants.js';
 export * from './qualifiers/construction.js';
 export * from './qualifiers/evaluate.js';
 export * from './qualifiers/mfOperands.js';
-export { qualifierSummary, qualifierValueText } from './qualifiers/format.js';
+export { qualifierSummary, qualifierValueText, thresholdMargin } from './qualifiers/format.js';
 
 // Return an empty qualifier list. Designers usually start blank and add rows
 // as their spec sheet dictates.

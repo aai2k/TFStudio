@@ -2,15 +2,15 @@
 computations made on it."""
 
 import copy
-import functools
 import numbers
 
 from ._errors import TFStudioError
 from ._merit import Merit
 from ._names import api_names
 from ._refusals import Words, worded
-from ._results import LayerSensitivity, MonteCarlo, Progress, RunResult, Spectrum
-from ._stop import Stop
+from ._results import LayerSensitivity, MonteCarlo, RunResult, Spectrum
+from ._specification import Specification
+from ._stop import run_hooks
 
 # design.sides by the API's surfaceMode, and design.score_on by its mfEvalMode.
 SIDES = {"front": "front_only", "back": "back_only", "both": "both_independent", "symmetric": "symmetric"}
@@ -46,36 +46,6 @@ def _named(mapping, what, value):
         names = [repr(name) for name in mapping]
         raise TFStudioError("{} is {} or {}, not {!r}".format(what, ", ".join(names[:-1]), names[-1], value))
     return mapping[value]
-
-
-def run_hooks(options, names):
-    """The hooks a run is given, made of the progress and stop that the
-    keyword arguments `options` hold, which are taken out of them: stop, and
-    progress reporting through each hook that names() lists."""
-    progress, stop = options.pop("progress", None), options.pop("stop", None)
-    if stop is not None and not isinstance(stop, Stop):
-        raise TFStudioError("stop is a tfstudio.Stop, whose stop() ends the run")
-    if progress is None:
-        return {"signal": stop}
-    return dict(_reporting([hook for hook in names() if hook != "signal"], progress), signal=stop)
-
-
-def _reporting(hooks, progress):
-    """The run's hooks named in `hooks`, each calling `progress` with a
-    Progress of everything the run has reported up to it."""
-    if not callable(progress):
-        raise TFStudioError("progress is a function, called with a tfstudio.Progress as the run reports")
-    reported = {}
-
-    def report(hook, *args):
-        if hook == "onMethodStart":
-            reported["method"] = args[0]
-        for arg in args:
-            if isinstance(arg, dict):
-                reported.update(arg)
-        progress(Progress(dict(reported)))
-
-    return {hook: functools.partial(report, hook) for hook in hooks}
 
 
 class Layer:
@@ -626,6 +596,21 @@ class Design:
             print(design.merit.value)
         """
         return Merit(self)
+
+    @property
+    def specification(self):
+        """The specification, a Specification: the pass or fail checks of
+        the Specification window, the verdict on them and the yield against
+        them.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            print(design.specification.check().passed)
+        """
+        return Specification(self)
 
     def stack(self, formula, **options):
         """Replaces the layers of one side with those a stack formula builds,

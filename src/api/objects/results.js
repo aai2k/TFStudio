@@ -1,5 +1,6 @@
 // What runs and tolerance checks answer with: a run's progress and result, a
-// Monte Carlo run and a layer sensitivity ranking.
+// Monte Carlo run and the yield of trials against a specification, the verdict
+// on a specification, and a layer sensitivity ranking.
 
 import { inspect } from 'node:util';
 import { curveOf } from './spectrum.js';
@@ -321,6 +322,7 @@ export class MonteCarlo {
         this._result = result;
         this._wavelength = wavelength;
         this._mode = mode;
+        this._spec = result.spec ? new Yield({ ...result.spec, seed: result.seed, mode }) : null;
     }
 
     /**
@@ -443,17 +445,18 @@ export class MonteCarlo {
     get seed() { return this._result.seed; }
 
     /**
-     * With the design's specification, the share of trials that meet it: an
-     * object `{ yield, passCount, evaluated, yieldInterval }`, `yieldInterval`
-     * the 95 % interval of the share; null for a design without one.
+     * With the design's specification, the share of the trials that meet it,
+     * a Yield, as specification.estimateYield() counts it; null for a design
+     * without one.
      *
      * @example
-     * const design = tf.newDesign('AR');
-     * design.stack('(HL)^2');
-     * const mc = await design.monteCarlo(400, 700, { step: 10, runs: 5 });
-     * console.log(mc.spec ? `yield ${mc.spec.yield}` : 'no specification');
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * const mc = await design.monteCarlo(400, 700, { step: 10, runs: 20, seed: 1 });
+     * console.log('yield', mc.spec.value, 'of', mc.spec.runs, 'trials');
      */
-    get spec() { return this._result.spec ?? null; }
+    get spec() { return this._spec; }
 
     /**
      * What the trials scored: `'front'` or `'back'`, the coated side alone,
@@ -469,6 +472,337 @@ export class MonteCarlo {
 
     // What console.log prints for a Monte Carlo result.
     [inspect.custom]() { return `<MonteCarlo ${this.runs} trials of ${this.quantity}, seed ${this.seed}>`; }
+}
+
+/**
+ * The yield of Monte Carlo trials with random layer errors against a design's
+ * specification, as the Monte Carlo window counts it: the share of the trials
+ * that meet every enabled check, each check read at its own Step.
+ *
+ * @example
+ * const design = tf.newDesign('Mirror');
+ * design.stack('(HL)^5 H');
+ * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+ * const y = await design.specification.estimateYield(50, { thicknessRelPct: 2, seed: 1 });
+ * console.log('yield', y.value, 'from', y.interval[0], 'to', y.interval[1]);
+ */
+export class Yield {
+    constructor(result) {
+        this._result = result;
+        this._checks = result.perQualifier.map(({ label, failRate }) => ({ label, failRate }));
+    }
+
+    /**
+     * The yield: the share of the trials checked that met every enabled
+     * check, 0 to 1; null when no trial was checked.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * console.log((await design.specification.estimateYield(20, { seed: 1 })).value);
+     */
+    get value() { return this._result.yield ?? null; }
+
+    /**
+     * How many trials met every enabled check.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * const y = await design.specification.estimateYield(20, { seed: 1 });
+     * console.log(y.passCount, 'of', y.evaluated);
+     */
+    get passCount() { return this._result.passCount; }
+
+    /**
+     * How many trials were checked: those run, less any whose checks could
+     * not be evaluated.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * console.log((await design.specification.estimateYield(20, { seed: 1 })).evaluated);
+     */
+    get evaluated() { return this._result.evaluated; }
+
+    /**
+     * The 95 % interval of the yield, `[low, high]`, 0 to 1; null when no
+     * trial was checked.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * const [low, high] = (await design.specification.estimateYield(20, { seed: 1 })).interval;
+     * console.log(low, high);
+     */
+    get interval() { return this._result.yieldInterval ?? null; }
+
+    /**
+     * One object per check of the specification, in its order: `{ label,
+     * failRate }`, the check's label, or its kind when it has none, and the
+     * share of all the trials run in which it failed. A check left out of the
+     * verdict fails in none.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.99 });
+     * const y = await design.specification.estimateYield(20, { thicknessRelPct: 2, seed: 1 });
+     * for (const check of y.checks) console.log(check.label, check.failRate);
+     */
+    get checks() { return this._checks; }
+
+    /**
+     * The trials run: as many as asked, or fewer when the run was stopped.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * console.log((await design.specification.estimateYield(20, { seed: 1 })).runs);
+     */
+    get runs() { return this._result.nTrials; }
+
+    /**
+     * The seed the draws started from: the same seed, design and settings
+     * repeat the trials.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * const y = await design.specification.estimateYield(20);
+     * const again = await design.specification.estimateYield(20, { seed: y.seed });
+     * console.log(y.seed, y.value === again.value);
+     */
+    get seed() { return this._result.seed; }
+
+    /**
+     * What the trials scored: `'front'` or `'back'`, the coated side alone,
+     * or `'total'`, the whole part, as the design's `sides` and `scoreOn`
+     * said.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * console.log((await design.specification.estimateYield(20, { seed: 1 })).mode);
+     */
+    get mode() { return this._result.mode; }
+
+    // What console.log prints for a yield.
+    [inspect.custom]() { return `<Yield ${this.value} (${this.passCount} of ${this.evaluated} checked), seed ${this.seed}>`; }
+}
+
+/**
+ * One check of a design's specification as specification.check() judged it,
+ * as the Specification window shows its row.
+ *
+ * @example
+ * const design = tf.newDesign('Mirror');
+ * design.stack('(HL)^5 H');
+ * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+ * for (const row of design.specification.check().rows) console.log(row.kind, row.value, row.passed, row.margin);
+ */
+export class CheckResult {
+    constructor(row) {
+        this._row = row;
+    }
+
+    /**
+     * The check's kind, such as `'R_AVG'`.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * console.log(design.specification.check().rows[0].kind);
+     */
+    get kind() { return this._row.kind; }
+
+    /**
+     * The check's label, `''` when it has none.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9, label: 'Stop band' });
+     * console.log(design.specification.check().rows[0].label);
+     */
+    get label() { return this._row.label; }
+
+    /**
+     * The check's value: T, R and A as fractions of 1, wavelengths, widths
+     * and thicknesses in nm, PPEF in dB, a layer count as a count; null when
+     * there is none, as for a check left out of the verdict.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * console.log(design.specification.check().rows[0].value);
+     */
+    get value() { return this._row.value; }
+
+    /**
+     * The value's unit: `'fraction'`, `'nm'` or `'dB'`, or `''` for a layer
+     * count and for a check left out of the verdict.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('THICKNESS_BUDGET', { cmp: 'le', target: 2000 });
+     * const row = design.specification.check().rows[0];
+     * console.log(row.value, row.unit);
+     */
+    get unit() { return this._row.unit; }
+
+    /**
+     * Whether the value meets the threshold, as the window marks it: `false`
+     * when there is no value, null for a check left out of the verdict.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+     * console.log(design.specification.check().rows[0].passed);
+     */
+    get passed() { return this._row.passed; }
+
+    /**
+     * How far the value is from the nearest bound, in its unit: positive by
+     * the room left, negative by how far it is out, 0 on a bound, so
+     * `passed` is `true` exactly when it is 0 or more; null when there is no
+     * value.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AT', 550, { cmp: 'between', lo: 0.95, hi: 1 });
+     * console.log(design.specification.check().rows[0].margin);
+     */
+    get margin() { return this._row.margin; }
+
+    /**
+     * The comparison the value is held to, as the check holds it: an object
+     * `{ cmp, target, tol, lo, hi }`.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AT', 550, { cmp: 'eq', target: 0.98, tol: 0.01 });
+     * const { cmp, target, tol } = design.specification.check().rows[0].threshold;
+     * console.log(cmp, target, tol);
+     */
+    get threshold() { return this._row.threshold; }
+
+    /**
+     * Why there is no value, or null: `'disabled'`, a check left out of the
+     * verdict; `'notComputable'`, a value that came out as no number;
+     * `'noCurve'`, a PPEF check whose curve the design does not hold;
+     * `'fwhmNotBracketed'` or `'edgeNotCrossed'`, a width or an edge whose
+     * crossing is not inside the band; `'unknownKind'`.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9, enabled: false });
+     * console.log(design.specification.check().rows[0].reason);
+     */
+    get reason() { return this._row.reason; }
+
+    // What console.log prints for a check's result; a disabled check is not judged.
+    [inspect.custom]() {
+        if (this.passed === null) return `<CheckResult ${this.kind}: disabled>`;
+        return `<CheckResult ${this.kind}: ${this.value}${this.unit ? ` ${this.unit}` : ''}, ${this.passed ? 'passed' : 'not passed'}>`;
+    }
+}
+
+/**
+ * A design judged against its specification, as specification.check()
+ * judges it and the Specification window shows it: a CheckResult per check.
+ *
+ * @example
+ * const design = tf.newDesign('Mirror');
+ * design.stack('(HL)^5 H');
+ * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+ * design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+ * const report = design.specification.check();
+ * console.log(report.passing, 'of', report.total, 'checks pass');
+ */
+export class SpecReport {
+    constructor(verdict) {
+        this._verdict = verdict;
+        this._rows = verdict.rows.map(row => new CheckResult(row));
+    }
+
+    /**
+     * One CheckResult per check, in the specification's order.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * for (const row of design.specification.check().rows) console.log(row.kind, row.passed);
+     */
+    get rows() { return this._rows; }
+
+    /**
+     * `true` when every enabled check passes and there is one at least.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * console.log(design.specification.check().passed);
+     */
+    get passed() { return this._verdict.passed; }
+
+    /**
+     * How many enabled checks pass.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+     * console.log(design.specification.check().passing);
+     */
+    get passing() { return this._verdict.passing; }
+
+    /**
+     * How many checks are enabled.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9, enabled: false });
+     * console.log(design.specification.check().total);
+     */
+    get total() { return this._verdict.total; }
+
+    /**
+     * What the checks were computed on: `'front'` or `'back'`, the coated
+     * side alone, or `'total'`, the whole part, as the design's `sides` and
+     * `scoreOn` said.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * design.scoreOn = 'whole part';
+     * console.log(design.specification.check().mode);
+     */
+    get mode() { return this._verdict.mode; }
+
+    // What console.log prints for a verdict.
+    [inspect.custom]() { return `<SpecReport ${this.passing} of ${this.total} checks pass>`; }
 }
 
 /**

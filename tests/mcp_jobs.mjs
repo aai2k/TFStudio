@@ -6,7 +6,9 @@
  *      job runs, the answer is still a design of its own.
  *   2. A long synthesis is stopped and keeps its design; a job with a setting
  *      the run does not take fails and says why; what a job prints reaches
- *      stderr; Monte Carlo runs as a job.
+ *      stderr; Monte Carlo runs as a job, and on a design with a
+ *      specification its spec is the yield estimateYield gives, each check's
+ *      fail rate with it.
  *   3. Cancelling: a cancelled jobStatus gets no answer, also after its job
  *      ends; a cancelled call that started a job stops that job.
  *   4. Closing stdin ends the server with a job running.
@@ -18,6 +20,8 @@ import { fileURLToPath } from 'node:url';
 import { startClient, onlyMessages, INIT } from './_mcpClient.mjs';
 
 const SERVER = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'mcp', 'server.js');
+const api = await import('../src/api/index.js');
+await api.init();
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -83,6 +87,16 @@ const ar = await twoLayerAR();
     const trials = await server.call('monteCarlo', { designId: ar.id, from: 450, to: 650, step: 10, runs: 5, seed: 3, waitSeconds: 50 });
     ok('Monte Carlo runs as a job', trials.state === 'done' && trials.result?.nTrials === 5 && trials.result.mean?.length === 21 && !trials.designId,
         JSON.stringify({ state: trials.state, n: trials.result?.nTrials, error: trials.error }));
+    const checks = [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'le', target: 0.02, label: 'R avg' }, { kind: 'R_AT', lambda: 550, cmp: 'le', target: 0.01 }];
+    const specified = (await server.call('copyDesign', { designId: ar.id })).designId;
+    await server.call('setSpecification', { designId: specified, checks });
+    const judged = await server.call('monteCarlo', { designId: specified, from: 450, to: 650, step: 10, runs: 20, thicknessRelPct: 3, seed: 3, waitSeconds: 50 });
+    const here = api.setSpecification(api.setMerit(api.insertLayer(api.insertLayer(api.newDesign({}), { material: 'TiO2', thickness: 30 }), { material: 'SiO2', thickness: 50 }), AR), checks);
+    const estimated = await api.estimateYield(here, { runs: 20, thicknessRelPct: 3, seed: 3 });
+    // The fields of the yield that a Monte Carlo result's spec holds, in its order.
+    const yieldHere = Object.fromEntries(['nTrials', 'evaluated', 'passCount', 'yield', 'yieldInterval', 'perQualifier'].map(key => [key, estimated[key]]));
+    ok('on a design with a specification its spec is the yield estimateYield gives, each check\'s fail rate with it', judged.state === 'done'
+        && JSON.stringify(judged.result?.spec) === JSON.stringify(yieldHere) && judged.result.spec.perQualifier.length === 2, JSON.stringify([judged.result?.spec, yieldHere]));
     const many = await server.call('monteCarlo', { designId: ar.id, from: 400, to: 800, step: 1, runs: 200000, waitSeconds: 0 });
     await sleep(1500);
     const midway = await server.call('jobStatus', { jobId: many.jobId });

@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[Spectrum](#spectrum-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -483,6 +483,28 @@ design = tf.new_design("AR")
 design.stack("(HL)^2")
 design.merit.add("RAV", 420, 680, target=0)
 print(design.merit.value)
+```
+
+### specification
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification` | `design.specification` |
+
+规格，一个 Specification：规格说明窗口中判定通过或不通过的各项检查、对它们的判定，以及相对它们的良率。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.check().passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.check().passed)
 ```
 
 ### stack
@@ -1767,6 +1789,1396 @@ for row in design.merit.rows:
     print(row.type, row.error or "evaluated")
 ```
 
+## Specification
+
+设计的规格，内容与规格说明窗口相同：按顺序排列、判定通过或不通过的检查，每一项都是对设计的一个要求，例如某个波段上 R 不低于 0.99，或不超过 30 层。check() 按该窗口的方式判定设计是否满足它们，`estimateYield()` / `estimate_yield()` 统计满足它们的蒙特卡洛试验所占的比例。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+const report = design.specification.check();
+console.log(report.passed, report.rows.map(row => row.margin));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+report = design.specification.check()
+print(report.passed, [row.margin for row in report.rows])
+```
+
+### add
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.add(kind, start, end, { cmp, target, tol, lo, hi, aoi, pol, channel, direction, level, edgeSide, flag, side, presetKey, presetLabel, source, detector, bandPoints, curveId, label, enabled })` | `design.specification.add(kind, start=..., end=..., cmp="ge", target=0.99, tol=..., lo=0.95, hi=1, aoi=0, pol="avg", channel="T", direction="max", level=0.5, edge_side=..., flag=..., side=..., preset_key="", preset_label="", source=..., detector=..., band_points=..., curve_id=..., label="", enabled=True)` |
+
+在规格末尾添加一项检查，做法与规格说明窗口添加一行相同：未给出的字段取在窗口中新加一行时的初始值，未给出面的厚度预算或层数累加设计所镀的面。波长随种类而定：单波长检查取一个，`start`；波段检查取 `start` 和 `end`；THICKNESS_BUDGET、LAYER_COUNT 和 PPEF 不取波长。给出预设的 INTEGRAL 检查从预设取得波段，因此可以省略其 `start` 和 `end`。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `kind` | `kind` |  | 检查的内容：`'T_AT'`、`'R_AT'` 或 `'A_AT'`，在单个波长处；`'T_AVG'`、`'R_AVG'` 或 `'A_AVG'`，波段上的平均值；`'MIN_MAX'`，波段上的最小值或最大值；`'INTEGRAL'`，加权平均值，例如 Tvis；`'CENTRAL_LAMBDA'`，波段中峰或谷的波长；`'FWHM'`，峰在 `level` 处的宽度；`'EDGE_LAMBDA'`，曲线穿过峰值的 `level` 处的波长；`'THICKNESS_BUDGET'`，总厚度；`'LAYER_COUNT'`，层数；`'PPEF'`，相对实测曲线的峰峰误差。 |
+| `start` | `start` |  | 单波长检查的波长，或波段的起始波长，单位 nm。不给出时，单波长为 550 nm，波段为 400 nm。 |
+| `end` | `end` |  | 波段的结束波长，单位 nm，不小于 `start`。不给出时为 700 nm。 |
+| `cmp` | `cmp` | `'ge'` | 比较方式：`'ge'` 或 `'le'`，与 `target` 比较；`'eq'`，在 `target` 加减 `tol` 之内；或 `'between'`，在 `lo` 到 `hi` 之间。 |
+| `target` | `target` | `0.99` | 界限，使用该检查的单位：T、R 和 A 用 0 到 1 之间的小数表示（窗口中显示为百分比）；波长、宽度和厚度单位为 nm；层数为计数；PPEF 单位为 dB。 |
+| `tol` | `tol` |  | `'eq'` 的容差，使用该检查的单位；小于等于 0 时数值必须等于目标值本身。不给出时，T、R 和 A 为 0.01，中心或边缘为 1 nm，宽度为 2 nm，厚度为 10 nm，层数为 0，PPEF 为 0.05 dB。 |
+| `lo` | `lo` | `0.95` | `'between'` 的最小值，使用该检查的单位。 |
+| `hi` | `hi` | `1` | `'between'` 的最大值，不小于 `lo`。 |
+| `aoi` | `aoi` | `0` | 入射角，为入射介质中的度数。 |
+| `pol` | `pol` | `'avg'` | `'avg'`、`'s'` 或 `'p'`。 |
+| `channel` | `channel` | `'T'` | MIN_MAX、INTEGRAL、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA 读取的量：`'T'`、`'R'` 或 `'A'`。 |
+| `direction` | `direction` | `'max'` | 用于 MIN_MAX、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA：`'max'`，最大值或峰；`'min'`，最小值或谷。 |
+| `level` | `level` | `0.5` | 用于 FWHM 和 EDGE_LAMBDA，曲线穿越的电平，0 到 1：direction 为 `'max'` 时为波段内最大值的该比例，为 `'min'` 时为从波段内最小值到 1 之间该比例处的值。小于 0.001 或大于 0.999 的电平按 0.001 或 0.999 计。 |
+| `edgeSide` | `edge_side` |  | 用于 EDGE_LAMBDA：`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。 |
+| `flag` | `flag` |  | 窗口中的步长，`null` / `None` 表示默认值：对 T_AVG、R_AVG、A_AVG 和 INTEGRAL 为 1 到 4，网格步长不大于 1、0.1、0.01 或 0.001 nm，默认按设计的干涉条纹取网格；对 FWHM 和 EDGE_LAMBDA，以及取 T 或 A 最大值或 R 最小值的 MIN_MAX 和 CENTRAL_LAMBDA 为 2 到 4，以 0.1、0.01 或 0.001 nm 搜索，默认为 1 nm。单波长检查、取 T 或 A 最小值或 R 最大值的 MIN_MAX 和 CENTRAL_LAMBDA、总厚度检查、层数检查和 PPEF 没有步长，只接受 `null` / `None`。 |
+| `side` | `side` |  | 用于 THICKNESS_BUDGET 和 LAYER_COUNT，累加的膜层：`'front'`、`'back'` 或 `'both'`。不给出时，为设计所镀的面。 |
+| `presetKey` | `preset_key` | `''` | 用于 INTEGRAL，积分预设 Tvis、Rvis、Avis、Tsol、Rsol、Asol、TUV、RUV、TNIR 和 RNIR 之一，它会像在窗口中选择它一样设置通道、波段、光源、探测器和 `presetLabel` / `preset_label`；`''` 表示不用预设。 |
+| `presetLabel` | `preset_label` | `''` | 用于 INTEGRAL，窗口中显示的预设名称。 |
+| `source` | `source` | `{ id: 'D65' }` | **JavaScript**：用于不带预设的 INTEGRAL，光源：`{ id }`，id 为 D65、D50、A、AM1.5G、E、blackbody（带 `T`，单位 K）或 custom（带 `table`，各行为 [nm, value]）之一。<br>**Python**：用于不带预设的 INTEGRAL，光源：{"id": ...}，id 为 D65、D50、A、AM1.5G、E、blackbody（带 "T"，单位 K）或 custom（带 "table"，各行为 [nm, value]）之一。不给出时为 {"id": "D65"}。 |
+| `detector` | `detector` | `{ id: 'photopic' }` | **JavaScript**：用于不带预设的 INTEGRAL，探测器：`{ id }`，id 为 photopic、flat 或 custom（带 `table`）。<br>**Python**：用于不带预设的 INTEGRAL，探测器：{"id": ...}，id 为 photopic、flat 或 custom（带 "table"）。不给出时为 {"id": "photopic"}。 |
+| `bandPoints` | `band_points` |  | 用于 INTEGRAL、FWHM 和 EDGE_LAMBDA，代替默认值的波段采样点数，不小于 2 的整数；宽度或边缘扫描至少取 11 个点。 |
+| `curveId` | `curve_id` |  | 用于 PPEF，设计中某条实测曲线的 id。 |
+| `label` | `label` | `''` | 该检查的标签。 |
+| `enabled` | `enabled` | `true` / `True` | 为 `false` / `False` 时，该检查不计入判定。 |
+
+**拒绝**：
+
+- 此版本无法计算的种类、任何检查都没有的字段、字段无法接受的值、结束波长小于起始波长的波段，或小于 `lo` 的 `hi`
+- **JavaScript**：该种类不读取的波长、选项对象之前除 `start` 和 `end` 外还有其他值，或在选项中给出检查的种类、波长或 id<br>**Python**：该种类不读取的波长，或在关键字参数中给出检查的波长或 id
+- 窗口不提供的预设、检查给出的值与其预设设置的不同的字段、曲线不是设计中实测曲线之一的 PPEF 检查，或在没有步长的检查上给出的 flag
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.99 });
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97, aoi: 45, pol: 's' });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+console.log(design.specification.length, 'checks, the layer count on the', design.specification.rows[2].side);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="ge", target=0.99)
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97, aoi=45, pol="s")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+print(len(design.specification), "checks, the layer count on the", design.specification.rows[2].side)
+```
+
+### remove
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.remove(index)` | `design.specification.remove(index)` |
+
+删除第 `index` 项检查；其后的检查依次前移一位。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `index` | `index` |  | 该检查在规格中的位置，从 0 开始，与 `rows` 中相同。 |
+
+**拒绝**：
+
+- 规格中没有对应检查的位置
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+design.specification.remove(0);
+console.log(design.specification.length, 'check:', design.specification.rows[0].kind);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+design.specification.remove(0)
+print(len(design.specification), "check:", design.specification.rows[0].kind)
+```
+
+### clear
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.clear()` | `design.specification.clear()` |
+
+删除规格中的所有检查。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.clear();
+console.log(design.specification.length, 'checks');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.clear()
+print(len(design.specification), "checks")
+```
+
+### rows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.rows` | `design.specification.rows` |
+
+各项检查，按顺序排列，每一项都是一个 SpecCheck。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+for (const check of design.specification.rows) console.log(check.kind, check.cmp, check.target);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+for check in design.specification.rows:
+    print(check.kind, check.cmp, check.target)
+```
+
+### length / len()
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.length` | `len(design.specification)` |
+
+规格中的检查数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+console.log(design.specification.length, 'check');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+print(len(design.specification), "check")
+```
+
+### check
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.check()` | `design.specification.check()` |
+
+按规格说明窗口的方式，判定设计当前状态是否满足其规格：每项检查按其自身的步长读取；设计有入射锥角时，按锥角取平均。
+
+**返回**：一个 SpecReport。
+
+**拒绝**：
+
+- 没有检查的设计
+- 用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+const report = design.specification.check();
+for (const row of report.rows) console.log(row.kind, row.value, row.unit, row.passed, 'margin', row.margin);
+console.log('Passes:', report.passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("LAYER_COUNT", cmp="le", target=9)
+report = design.specification.check()
+for row in report.rows:
+    print(row.kind, row.value, row.unit, row.passed, "margin", row.margin)
+print("Passes:", report.passed)
+```
+
+### estimateYield / estimate_yield
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `await design.specification.estimateYield(runs, { thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop })` | `design.specification.estimate_yield(runs, thickness_rel_pct=1, thickness_abs_nm=0, index_re=0, index_im=0, distribution="gaussian", seed=..., progress=..., stop=...)` |
+
+带有随机膜层误差的蒙特卡洛试验中满足规格的比例，与蒙特卡洛窗口统计良率的方式相同：每次试验由每一项启用的检查按其自身的步长判定，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。在种子和设置相同时，这些试验抽取的误差与 `design.monteCarlo()` / `design.monte_carlo()` 相同，因此良率就是其 `spec`；不计算分散。设计不会改变。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `runs` | `runs` |  | 试验次数，不小于 1 的整数。 |
+| `thicknessRelPct` | `thickness_rel_pct` | `1` | 厚度误差，为每层厚度的百分比。 |
+| `thicknessAbsNm` | `thickness_abs_nm` | `0` | 以 nm 计、加到每一层上的厚度误差。 |
+| `indexRe` | `index_re` | `0` | n 的误差，为绝对量：使用 `'gaussian'` 时为一个标准差，使用 `'uniform'` 和 `'truncated'` 时为界限。 |
+| `indexIm` | `index_im` | `0` | k 的误差，含义与 `indexRe` / `index_re` 对 n 的相同；k 不会小于 0。 |
+| `distribution` | `distribution` | `'gaussian'` | `'gaussian'`、`'uniform'` 或 `'truncated'`（在三个标准差处截断）。 |
+| `seed` | `seed` |  | 抽样的起始数，1 到 2^32 - 1 之间的整数；相同的种子和设置会重复同样的运行。不给出时，使用一个新的种子，并在结果中给出。 |
+| `progress` | `progress` |  | **JavaScript**：一个函数，试验进行时以一个 Progress（`trial` 和 `total`）调用它。它抛出的错误会结束运行，运行随即以该错误拒绝。<br>**Python**：一个函数，试验进行时以一个 Progress（trial 和 total）调用它。它引发的异常会停止运行，并继续向外传递。 |
+| `stop` | `stop` |  | **JavaScript**：一个 AbortSignal；中止其 AbortController 会结束运行，运行随即以已完成的试验返回结果。<br>**Python**：一个 tfstudio.Stop，调用其 stop() 会结束运行，运行随即以已完成的试验返回结果。 |
+
+**返回**：**JavaScript**：一个 Yield 的 promise。<br>**Python**：一个 Yield。
+
+**拒绝**：
+
+- 没有启用的检查的设计，或在其评价面上没有可供试验改变的膜层的设计
+- 它不接受的设置、超出范围的值，或用到找不到对应材料的设计
+- Python 引发 `KeyboardInterrupt`：运行期间按下 Ctrl+C，在停止运行之后引发
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const y = await design.specification.estimateYield(100, { thicknessRelPct: 2, seed: 1 });
+console.log('Yield', y.value, 'of', y.runs, 'trials; fails:', y.checks.map(check => check.failRate));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+y = design.specification.estimate_yield(100, thickness_rel_pct=2, seed=1)
+print("Yield", y.value, "of", y.runs, "trials; fails:", [check.fail_rate for check in y.checks])
+```
+
+## SpecCheck
+
+设计规格中的一项检查，为读取 design.specification.rows 时的状态。每个属性给出设计中保存的该检查的字段，设计中没有的字段为 `null` / `None`；该检查的种类不读取的字段，保存的是给出的值，或在规格说明窗口中新加一项检查时的初始值。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+for (const check of design.specification.rows) console.log(check.kind, check.start, check.end, check.cmp, check.target);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+for check in design.specification.rows:
+    print(check.kind, check.start, check.end, check.cmp, check.target)
+```
+
+### kind
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.kind` | `check.kind` |
+
+检查的内容，例如 `'R_AVG'` 或 `'LAYER_COUNT'`；specification.add() 列出了各个种类。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+console.log(design.specification.rows[0].kind);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+print(design.specification.rows[0].kind)
+```
+
+### label
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.label` | `check.label` |
+
+该检查的标签，没有标签时为 `''`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { label: 'Stop band' });
+console.log(design.specification.rows[0].label);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, label="Stop band")
+print(design.specification.rows[0].label)
+```
+
+### enabled
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.enabled` | `check.enabled` |
+
+不计入判定的检查为 `false` / `False`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { enabled: false });
+console.log(design.specification.rows[0].enabled);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, enabled=False)
+print(design.specification.rows[0].enabled)
+```
+
+### cmp
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.cmp` | `check.cmp` |
+
+比较方式：`'ge'`、`'le'`、`'eq'` 或 `'between'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+console.log(design.specification.rows[0].cmp);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+print(design.specification.rows[0].cmp)
+```
+
+### target
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.target` | `check.target` |
+
+`'ge'` 和 `'le'` 的界限，以及 `'eq'` 所要求的值，使用该检查的单位：T、R 和 A 用 0 到 1 之间的小数表示，波长、宽度和厚度单位为 nm，层数为计数，PPEF 单位为 dB。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].target);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.rows[0].target)
+```
+
+### tol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.tol` | `check.tol` |
+
+`'eq'` 的容差，使用该检查的单位。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('CENTRAL_LAMBDA', 500, 600, { cmp: 'eq', target: 550 });
+console.log(design.specification.rows[0].tol, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("CENTRAL_LAMBDA", 500, 600, cmp="eq", target=550)
+print(design.specification.rows[0].tol, "nm")
+```
+
+### lo
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.lo` | `check.lo` |
+
+`'between'` 的最小值，使用该检查的单位。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'between', lo: 0.95, hi: 1 });
+console.log(design.specification.rows[0].lo);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="between", lo=0.95, hi=1)
+print(design.specification.rows[0].lo)
+```
+
+### hi
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.hi` | `check.hi` |
+
+`'between'` 的最大值，使用该检查的单位。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'between', lo: 0.95, hi: 1 });
+console.log(design.specification.rows[0].hi);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="between", lo=0.95, hi=1)
+print(design.specification.rows[0].hi)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.wavelength` | `check.wavelength` |
+
+单波长检查（T_AT、R_AT 或 A_AT）的波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.99 });
+console.log(design.specification.rows[0].wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="ge", target=0.99)
+print(design.specification.rows[0].wavelength, "nm")
+```
+
+### start
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.start` | `check.start` |
+
+波段检查所读取波段的起始波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].start, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.rows[0].start, "nm")
+```
+
+### end
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.end` | `check.end` |
+
+波段的结束波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].end, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.rows[0].end, "nm")
+```
+
+### aoi
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.aoi` | `check.aoi` |
+
+入射角，为入射介质中的度数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { aoi: 45, pol: 's' });
+console.log(design.specification.rows[0].aoi);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, aoi=45, pol="s")
+print(design.specification.rows[0].aoi)
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.pol` | `check.pol` |
+
+偏振，`'avg'`、`'s'` 或 `'p'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { aoi: 45, pol: 's' });
+console.log(design.specification.rows[0].pol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, aoi=45, pol="s")
+print(design.specification.rows[0].pol)
+```
+
+### channel
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.channel` | `check.channel` |
+
+MIN_MAX、INTEGRAL、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA 读取的量：`'T'`、`'R'` 或 `'A'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('MIN_MAX', 520, 580, { channel: 'R', direction: 'min', cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].channel);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("MIN_MAX", 520, 580, channel="R", direction="min", cmp="ge", target=0.9)
+print(design.specification.rows[0].channel)
+```
+
+### direction
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.direction` | `check.direction` |
+
+用于 MIN_MAX、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA：`'max'`，最大值或峰；`'min'`，最小值或谷。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('MIN_MAX', 520, 580, { channel: 'R', direction: 'min', cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].direction);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("MIN_MAX", 520, 580, channel="R", direction="min", cmp="ge", target=0.9)
+print(design.specification.rows[0].direction)
+```
+
+### level
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.level` | `check.level` |
+
+用于 FWHM 和 EDGE_LAMBDA，曲线穿越的电平，0 到 1：direction 为 `'max'` 时为波段内最大值的该比例，为 `'min'` 时为从波段内最小值到 1 之间该比例处的值。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('FWHM', 400, 800, { channel: 'R', level: 0.5, cmp: 'ge', target: 100 });
+console.log(design.specification.rows[0].level);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("FWHM", 400, 800, channel="R", level=0.5, cmp="ge", target=100)
+print(design.specification.rows[0].level)
+```
+
+### edgeSide / edge_side
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.edgeSide` | `check.edge_side` |
+
+用于 EDGE_LAMBDA，`'left'` 或 `'right'`，峰以下或峰以上的交点；`null` / `None` 表示峰以下的交点，峰以下没有交点时为峰以上的交点。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('EDGE_LAMBDA', 400, 800, { channel: 'R', edgeSide: 'right', cmp: 'ge', target: 600 });
+console.log(design.specification.rows[0].edgeSide);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("EDGE_LAMBDA", 400, 800, channel="R", edge_side="right", cmp="ge", target=600)
+print(design.specification.rows[0].edge_side)
+```
+
+### flag
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.flag` | `check.flag` |
+
+窗口中的步长，`null` / `None` 表示默认值；specification.add() 说明它在每个种类上的含义。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { flag: 2 });
+console.log(design.specification.rows[0].flag);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, flag=2)
+print(design.specification.rows[0].flag)
+```
+
+### side
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.side` | `check.side` |
+
+用于 THICKNESS_BUDGET 和 LAYER_COUNT，累加的膜层：`'front'`、`'back'` 或 `'both'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('THICKNESS_BUDGET', { cmp: 'le', target: 2000 });
+console.log(design.specification.rows[0].side);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("THICKNESS_BUDGET", cmp="le", target=2000)
+print(design.specification.rows[0].side)
+```
+
+### presetKey / preset_key
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.presetKey` | `check.preset_key` |
+
+用于 INTEGRAL，设置其通道、波段、光源和探测器的积分预设，例如 `'Tvis'`；没有预设时为 `''`。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.specification.add('INTEGRAL', { presetKey: 'Rvis', cmp: 'le', target: 0.01 });
+console.log(design.specification.rows[0].presetKey);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.specification.add("INTEGRAL", preset_key="Rvis", cmp="le", target=0.01)
+print(design.specification.rows[0].preset_key)
+```
+
+### presetLabel / preset_label
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.presetLabel` | `check.preset_label` |
+
+用于 INTEGRAL，窗口中显示的预设名称。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.specification.add('INTEGRAL', { presetKey: 'Rvis', cmp: 'le', target: 0.01 });
+console.log(design.specification.rows[0].presetLabel);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.specification.add("INTEGRAL", preset_key="Rvis", cmp="le", target=0.01)
+print(design.specification.rows[0].preset_label)
+```
+
+### source
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.source` | `check.source` |
+
+**JavaScript**：用于 INTEGRAL，对波段加权的光源，例如 `{ id: 'D65' }`。
+
+**Python**：用于 INTEGRAL，对波段加权的光源，例如 {"id": "D65"}。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.specification.add('INTEGRAL', { presetKey: 'Rvis', cmp: 'le', target: 0.01 });
+console.log(design.specification.rows[0].source);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.specification.add("INTEGRAL", preset_key="Rvis", cmp="le", target=0.01)
+print(design.specification.rows[0].source)
+```
+
+### detector
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.detector` | `check.detector` |
+
+**JavaScript**：用于 INTEGRAL，对波段加权的探测器，例如 `{ id: 'photopic' }`。
+
+**Python**：用于 INTEGRAL，对波段加权的探测器，例如 {"id": "photopic"}。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.specification.add('INTEGRAL', { presetKey: 'Rvis', cmp: 'le', target: 0.01 });
+console.log(design.specification.rows[0].detector);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.specification.add("INTEGRAL", preset_key="Rvis", cmp="le", target=0.01)
+print(design.specification.rows[0].detector)
+```
+
+### bandPoints / band_points
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.bandPoints` | `check.band_points` |
+
+用于 INTEGRAL、FWHM 和 EDGE_LAMBDA，波段的采样点数；`null` / `None` 表示默认值。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('FWHM', 400, 800, { channel: 'R', bandPoints: 801, cmp: 'ge', target: 100 });
+console.log(design.specification.rows[0].bandPoints);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("FWHM", 400, 800, channel="R", band_points=801, cmp="ge", target=100)
+print(design.specification.rows[0].band_points)
+```
+
+### curveId / curve_id
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.curveId` | `check.curve_id` |
+
+用于 PPEF，计算误差所相对的实测曲线的 id；其他种类的检查为 `null` / `None`，如下例中的层数检查。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+const check = design.specification.rows[0];
+console.log(check.kind, 'is taken against no curve:', check.curveId);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+check = design.specification.rows[0]
+print(check.kind, "is taken against no curve:", check.curve_id)
+```
+
+## SpecReport
+
+设计相对其规格的判定，与 specification.check() 的判定和规格说明窗口的显示相同：每项检查一个 CheckResult。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+const report = design.specification.check();
+console.log(report.passing, 'of', report.total, 'checks pass');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.specification.add("LAYER_COUNT", cmp="le", target=9)
+report = design.specification.check()
+print(report.passing, "of", report.total, "checks pass")
+```
+
+### rows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.rows` | `report.rows` |
+
+每项检查一个 CheckResult，按规格中的顺序排列。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+for (const row of design.specification.check().rows) console.log(row.kind, row.passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+for row in design.specification.check().rows:
+    print(row.kind, row.passed)
+```
+
+### passed
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.passed` | `report.passed` |
+
+每一项启用的检查都通过、且至少有一项时为 `true` / `True`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.check().passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.check().passed)
+```
+
+### passing
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.passing` | `report.passing` |
+
+通过的启用检查数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+console.log(design.specification.check().passing);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.specification.add("LAYER_COUNT", cmp="le", target=9)
+print(design.specification.check().passing)
+```
+
+### total
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.total` | `report.total` |
+
+启用的检查数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9, enabled: false });
+console.log(design.specification.check().total);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.specification.add("LAYER_COUNT", cmp="le", target=9, enabled=False)
+print(design.specification.check().total)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.mode` | `report.mode` |
+
+检查的计算对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.scoreOn = 'whole part';
+console.log(design.specification.check().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.score_on = "whole part"
+print(design.specification.check().mode)
+```
+
+## CheckResult
+
+设计规格中的一项检查经 specification.check() 判定的结果，与规格说明窗口中该行的显示相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+for (const row of design.specification.check().rows) console.log(row.kind, row.value, row.passed, row.margin);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+for row in design.specification.check().rows:
+    print(row.kind, row.value, row.passed, row.margin)
+```
+
+### kind
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.kind` | `row.kind` |
+
+该检查的种类，例如 `'R_AVG'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.check().rows[0].kind);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.check().rows[0].kind)
+```
+
+### label
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.label` | `row.label` |
+
+该检查的标签，没有标签时为 `''`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9, label: 'Stop band' });
+console.log(design.specification.check().rows[0].label);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, label="Stop band")
+print(design.specification.check().rows[0].label)
+```
+
+### value
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.value` | `row.value` |
+
+该检查的数值：T、R 和 A 用 0 到 1 之间的小数表示，波长、宽度和厚度单位为 nm，PPEF 单位为 dB，层数为计数；没有数值时为 `null` / `None`，例如不计入判定的检查。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.check().rows[0].value);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.check().rows[0].value)
+```
+
+### unit
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.unit` | `row.unit` |
+
+数值的单位：`'fraction'`、`'nm'` 或 `'dB'`；层数和不计入判定的检查为 `''`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('THICKNESS_BUDGET', { cmp: 'le', target: 2000 });
+const row = design.specification.check().rows[0];
+console.log(row.value, row.unit);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("THICKNESS_BUDGET", cmp="le", target=2000)
+row = design.specification.check().rows[0]
+print(row.value, row.unit)
+```
+
+### passed
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.passed` | `row.passed` |
+
+数值是否满足阈值，与窗口中的标记相同：没有数值时为 `false` / `False`，不计入判定的检查为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+console.log(design.specification.check().rows[0].passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("LAYER_COUNT", cmp="le", target=9)
+print(design.specification.check().rows[0].passed)
+```
+
+### margin
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.margin` | `row.margin` |
+
+数值离最近界限的距离，使用数值的单位：为正时表示剩余的余量，为负时表示超出的量，位于界限上时为 0，因此 `passed` 恰好在它大于等于 0 时为 `true` / `True`；没有数值时为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'between', lo: 0.95, hi: 1 });
+console.log(design.specification.check().rows[0].margin);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="between", lo=0.95, hi=1)
+print(design.specification.check().rows[0].margin)
+```
+
+### threshold
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.threshold` | `row.threshold` |
+
+**JavaScript**：数值所依据的比较，与检查中保存的相同：一个对象 `{ cmp, target, tol, lo, hi }`。
+
+**Python**：数值所依据的比较，与检查中保存的相同：一个具名元组 (cmp, target, tol, lo, hi)。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'eq', target: 0.98, tol: 0.01 });
+const { cmp, target, tol } = design.specification.check().rows[0].threshold;
+console.log(cmp, target, tol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="eq", target=0.98, tol=0.01)
+held = design.specification.check().rows[0].threshold
+print(held.cmp, held.target, held.tol)
+```
+
+### reason
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.reason` | `row.reason` |
+
+没有数值的原因，或 `null` / `None`：`'disabled'`，不计入判定的检查；`'notComputable'`，算出的值不是数；`'noCurve'`，设计中没有其曲线的 PPEF 检查；`'fwhmNotBracketed'` 或 `'edgeNotCrossed'`，交点不在波段内的宽度或边缘；`'unknownKind'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9, enabled: false });
+console.log(design.specification.check().rows[0].reason);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, enabled=False)
+print(design.specification.check().rows[0].reason)
+```
+
+## Yield
+
+带有随机膜层误差的蒙特卡洛试验相对设计规格的良率，与蒙特卡洛窗口的统计方式相同：满足每一项启用检查的试验所占的比例，每项检查按其自身的步长读取。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const y = await design.specification.estimateYield(50, { thicknessRelPct: 2, seed: 1 });
+console.log('yield', y.value, 'from', y.interval[0], 'to', y.interval[1]);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+y = design.specification.estimate_yield(50, thickness_rel_pct=2, seed=1)
+print("yield", y.value, "from", y.interval[0], "to", y.interval[1])
+```
+
+### value
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.value` | `y.value` |
+
+良率：经过检查的试验中满足每一项启用检查的比例，0 到 1；没有试验经过检查时为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+console.log((await design.specification.estimateYield(20, { seed: 1 })).value);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+print(design.specification.estimate_yield(20, seed=1).value)
+```
+
+### passCount / pass_count
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.passCount` | `y.pass_count` |
+
+满足每一项启用检查的试验数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const y = await design.specification.estimateYield(20, { seed: 1 });
+console.log(y.passCount, 'of', y.evaluated);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+y = design.specification.estimate_yield(20, seed=1)
+print(y.pass_count, "of", y.evaluated)
+```
+
+### evaluated
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.evaluated` | `y.evaluated` |
+
+经过检查的试验数：已运行的试验，减去其检查无法计算的试验。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+console.log((await design.specification.estimateYield(20, { seed: 1 })).evaluated);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+print(design.specification.estimate_yield(20, seed=1).evaluated)
+```
+
+### interval
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.interval` | `y.interval` |
+
+良率的 95 % 区间，`[low, high]`，0 到 1；没有试验经过检查时为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const [low, high] = (await design.specification.estimateYield(20, { seed: 1 })).interval;
+console.log(low, high);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+low, high = design.specification.estimate_yield(20, seed=1).interval
+print(low, high)
+```
+
+### checks
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.checks` | `y.checks` |
+
+**JavaScript**：规格中每项检查一个对象，按其顺序排列：`{ label, failRate }`，即该检查的标签（没有标签时为其种类），以及在全部已运行试验中该检查未通过的比例。不计入判定的检查在任何试验中都不算未通过。
+
+**Python**：规格中每项检查一个具名元组 (label, fail_rate)，按其顺序排列：该检查的标签（没有标签时为其种类），以及在全部已运行试验中该检查未通过的比例。不计入判定的检查在任何试验中都不算未通过。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.99 });
+const y = await design.specification.estimateYield(20, { thicknessRelPct: 2, seed: 1 });
+for (const check of y.checks) console.log(check.label, check.failRate);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("R_AT", 550, cmp="ge", target=0.99)
+y = design.specification.estimate_yield(20, thickness_rel_pct=2, seed=1)
+for check in y.checks:
+    print(check.label, check.fail_rate)
+```
+
+### runs
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.runs` | `y.runs` |
+
+已运行的试验数：与要求的相同；运行被停止时会更少。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+console.log((await design.specification.estimateYield(20, { seed: 1 })).runs);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+print(design.specification.estimate_yield(20, seed=1).runs)
+```
+
+### seed
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.seed` | `y.seed` |
+
+抽样所用的起始种子：相同的种子、设计和设置会重复同样的试验。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const y = await design.specification.estimateYield(20);
+const again = await design.specification.estimateYield(20, { seed: y.seed });
+console.log(y.seed, y.value === again.value);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+y = design.specification.estimate_yield(20)
+again = design.specification.estimate_yield(20, seed=y.seed)
+print(y.seed, y.value == again.value)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.mode` | `y.mode` |
+
+试验的评价对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+console.log((await design.specification.estimateYield(20, { seed: 1 })).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+print(design.specification.estimate_yield(20, seed=1).mode)
+```
+
 ## Spectrum
 
 设计在一段波长范围内、一个或多个入射角下的 R、T 和 A，由 design.spectrum() 计算。`s.R` 及其他量都是所要求的第一个角度下的值；`s.angle(45)` 是另一个角度下的光谱。
@@ -3032,22 +4444,22 @@ print(design.monte_carlo(400, 700, step=10, runs=5).seed)
 | ---------- | ------ |
 | `mc.spec` | `mc.spec` |
 
-**JavaScript**：设计有规格时，满足规格的试验所占的比例：一个对象 `{ yield, passCount, evaluated, yieldInterval }`，其中 `yieldInterval` 是该比例的 95 % 区间；没有规格的设计为 null。
-
-**Python**：设计有规格时，满足规格的试验所占的比例：一个 dict { yield, passCount, evaluated, yieldInterval }，其中 yieldInterval 是该比例的 95 % 区间；没有规格的设计为 None。
+设计有规格时，满足规格的试验所占的比例，一个 Yield，与 `specification.estimateYield()` / `specification.estimate_yield()` 的统计相同；没有规格的设计为 `null` / `None`。
 
 ```js
-const design = tf.newDesign('AR');
-design.stack('(HL)^2');
-const mc = await design.monteCarlo(400, 700, { step: 10, runs: 5 });
-console.log(mc.spec ? `yield ${mc.spec.yield}` : 'no specification');
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const mc = await design.monteCarlo(400, 700, { step: 10, runs: 20, seed: 1 });
+console.log('yield', mc.spec.value, 'of', mc.spec.runs, 'trials');
 ```
 
 ```python
-design = tf.new_design("AR")
-design.stack("(HL)^2")
-mc = design.monte_carlo(400, 700, step=10, runs=5)
-print("yield {}".format(mc.spec["yield"]) if mc.spec else "no specification")
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+mc = design.monte_carlo(400, 700, step=10, runs=20, seed=1)
+print("yield", mc.spec.value, "of", mc.spec.runs, "trials")
 ```
 
 ### mode

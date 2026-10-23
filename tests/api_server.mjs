@@ -11,8 +11,10 @@
  *      design draws and the time a synthesis step took aside:
  *      a design built, edited, saved (the same file) and opened again; the
  *      spectrum at two angles, summarized from what came over the wire;
- *      materials; merit; layer sensitivity; and the runs, a refinement, a
- *      Needle and a Structural run with a seed, and a seeded Monte Carlo.
+ *      materials; merit; a specification set and checked, and checking a
+ *      design without one refused with its code and fields; layer
+ *      sensitivity; and the runs, a refinement, a Needle and a Structural run
+ *      with a seed, a seeded Monte Carlo and a seeded yield.
  *   3. The wire: a summary of NaN values crosses as the bare tokens NaN,
  *      Infinity and -Infinity; a typed array is written as a list; a NaN
  *      sent in gets the API's refusal, with the code and fields a client's
@@ -27,7 +29,8 @@
  *      in this process, with the same arguments; onProgress comes at most
  *      about four times a second, its reports merged on the wire still hold
  *      every value the run reported, no other hook overtakes a report held
- *      back, and its last report comes before the answer; a stop ends a run
+ *      back, and its last report comes before the answer; a yield run streams
+ *      its trials and stops when asked; a stop ends a run
  *      stopped with the design as it was given, a run asked for stopped ends
  *      so at once, stopped is refused on a call that is not a run and as
  *      anything but true, and a stop of another id, sent while a run goes,
@@ -103,6 +106,8 @@ const start = api.setMerit(twoLayers, AR_ROWS);
 const stack = api.stackFromFormula(api.newDesign({ name: 'Stack' }), { formula: '(HL)^3 H' });
 const NEEDLE = { method: 'needle', pool: POOL, settings: { maxLayers: 6, refineIter: 10, threads: 1 } };
 const STRUCTURAL = { method: 'structural', pool: POOL, settings: { maxIter: 3, refineIter: 5, threads: 1, seed: 7 } };
+const CHECKS = [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'le', target: 0.02 }, { kind: 'LAYER_COUNT', cmp: 'le', target: 2 }];
+const specified = api.setSpecification(start, CHECKS);
 
 // ── 1. The hello ───────────────────────────────────────────────────────────
 {
@@ -150,6 +155,11 @@ const STRUCTURAL = { method: 'structural', pool: POOL, settings: { maxIter: 3, r
     await same('summarize', [spectrum.result, { bands: [{ from: 450, to: 650 }] }]);
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
+    await same('setSpecification', [start, CHECKS]);
+    await same('checkSpecification', [specified]);
+    const unspecified = await same('checkSpecification', [start]);
+    ok('checking a design without a specification is refused with its code and fields', unspecified.error?.code === 'noSpecification'
+        && canon(unspecified.error.fields) === canon({ call: 'checkSpecification' }), JSON.stringify(unspecified.error));
     await same('layerSensitivity', [start, { deltaNm: 2 }]);
     await same('runHooks', ['needle']);
     await same('runHooks', ['nothing']);
@@ -157,6 +167,7 @@ const STRUCTURAL = { method: 'structural', pool: POOL, settings: { maxIter: 3, r
     await same('synthesize', [start, NEEDLE]);
     await same('synthesize', [start, STRUCTURAL]);
     await same('monteCarlo', [start, { from: 450, to: 650, step: 10, runs: 5, seed: 3 }]);
+    await same('estimateYield', [specified, { runs: 5, thicknessRelPct: 3, seed: 3 }]);
     const taken = path.join(TEMP, 'taken.tfs');
     fs.writeFileSync(taken, '');
     await same('saveDesign', [start, taken]);
@@ -269,6 +280,9 @@ const STRUCTURAL = { method: 'structural', pool: POOL, settings: { maxIter: 3, r
     const last = mc.progress.at(-1)?.args[0];
     ok('onProgress comes at most about four times a second', mc.progress.length >= 2 && mc.progress.length <= took / 250 + 2, `${mc.progress.length} reports in ${took} ms`);
     ok('its last report comes before the answer, the run\'s last', last?.trial === TRIALS && last.total === TRIALS && mc.result?.nTrials === TRIALS, JSON.stringify(last));
+    const judged = await server.call('estimateYield', [specified, { runs: 100000, seed: 5 }], { hooks: ['onProgress'], onProgress: (_, id) => server.stop(id) });
+    ok('a yield run streams its trials and stops when asked, with the trials it ran', judged.progress[0]?.args[0]?.total === 100000
+        && judged.result?.nTrials >= 1 && judged.result.nTrials < 100000, JSON.stringify(judged.error ?? judged.result?.nTrials));
 
     const LONG = { method: 'needle', pool: POOL, settings: { maxLayers: 20, refineIter: 10, threads: 1, targetMF: 0 } };
     const stopped = await server.call('synthesize', [start, LONG], { hooks: ['onProgress'], onProgress: (_, id) => server.stop(id) });

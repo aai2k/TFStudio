@@ -10,8 +10,9 @@
  *   findMaterials(query), materialNK(id, wavelengths, design)
  *   spectrum(design, { from, to, step, angles }), summarize(spectrum, { bands })
  *   setMerit(design, rows), merit(design)
+ *   setSpecification(design, checks), checkSpecification(design)
  *   refine(design, settings, hooks), synthesize(design, { method, pool, settings }, hooks), runHooks(method)
- *   monteCarlo(design, options), layerSensitivity(design, options)
+ *   monteCarlo(design, options, hooks), estimateYield(design, options, hooks), layerSensitivity(design, options)
  *
  * Wavelengths and layer thicknesses are in nm, angles in degrees in the
  * incident medium, substrate thickness in mm, reflectance and transmittance as
@@ -24,5 +25,6 @@ export { insertLayer, deleteLayer, setLayer, stackFromFormula } from './stack.js
 export { findMaterials, materialNK } from './materials.js';
 export { spectrum, summarize } from './evaluate.js';
 export { setMerit, merit } from './merit.js';
+export { setSpecification, checkSpecification } from './specification.js';
 export { refine, synthesize, runHooks } from './runs.js';
-export { monteCarlo, layerSensitivity } from './tolerance.js';
+export { monteCarlo, estimateYield, layerSensitivity } from './tolerance.js';

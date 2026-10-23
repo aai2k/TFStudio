@@ -4,7 +4,7 @@ description: Run a script in JavaScript or Python on the open design, and keep t
 ribbonIcon: script-console
 ---
 
-The **Script Console** window runs a script on the open design, written in JavaScript or in Python. A script works with TFStudio's designs as objects: it can build a stack, compute spectra and the merit function, run refinement and synthesis, write files and print what it finds. The window opens from the **Scripts** group of the **Optimization** tab. Its buttons sit in one row over the editor, and what the script prints shows under the editor; drag the bar between the two to share the window as you need.
+The **Script Console** window runs a script on the open design, written in JavaScript or in Python. A script works with TFStudio's designs as objects: it can build a stack, compute spectra and the merit function, check the design against its specification and count its yield, run refinement and synthesis, write files and print what it finds. The window opens from the **Scripts** group of the **Optimization** tab. Its buttons sit in one row over the editor, and what the script prints shows under the editor; drag the bar between the two to share the window as you need.
 
 A script runs with the rights of any program you run: it can read, write and delete your files and start other programs. Run only scripts you trust.
 

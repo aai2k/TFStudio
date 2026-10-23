@@ -1,6 +1,9 @@
 """What computations answer with: a spectrum and its curves, a run's result
-and its progress, a Monte Carlo run and a layer sensitivity ranking."""
+and its progress, a Monte Carlo run and the yield of trials against a
+specification, the verdict on a specification, and a layer sensitivity
+ranking."""
 
+import collections
 import csv
 
 from ._errors import TFStudioError
@@ -636,8 +639,10 @@ class MonteCarlo:
         self._curves = {name: Curve(result[key], wavelength) for name, key in (
             ("theory", "theory"), ("mean", "mean"), ("stdev", "stdev"), ("lower", "lower"), ("upper", "upper"),
             ("lowest", "envLower"), ("highest", "envUpper"))}
+        spec = result.get("spec")
         self._values = {"wavelength": wavelength, "runs": result["nTrials"], "quantity": result["char"],
-                        "seed": result["seed"], "spec": result.get("spec"), "mode": mode}
+                        "seed": result["seed"], "spec": Yield(dict(spec, seed=result["seed"], mode=mode)) if spec else None,
+                        "mode": mode}
 
     wavelength = _reading("wavelength", """The wavelengths, nm.
 
@@ -727,16 +732,16 @@ class MonteCarlo:
             design.stack("(HL)^2")
             print(design.monte_carlo(400, 700, step=10, runs=5).seed)
         """)
-    spec = _reading("spec", """With the design's specification, the share of trials that meet it: a
-        dict { yield, passCount, evaluated, yieldInterval }, yieldInterval the 95 % interval of the
-        share; None for a design without one.
+    spec = _reading("spec", """With the design's specification, the share of the trials that meet it, a
+        Yield, as specification.estimate_yield() counts it; None for a design without one.
 
         Example::
 
-            design = tf.new_design("AR")
-            design.stack("(HL)^2")
-            mc = design.monte_carlo(400, 700, step=10, runs=5)
-            print("yield {}".format(mc.spec["yield"]) if mc.spec else "no specification")
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            mc = design.monte_carlo(400, 700, step=10, runs=20, seed=1)
+            print("yield", mc.spec.value, "of", mc.spec.runs, "trials")
         """)
     mode = _reading("mode", """What the trials scored: "front" or "back", the coated side alone, or
         "total", the whole part, as the design's sides and score_on said.
@@ -750,6 +755,308 @@ class MonteCarlo:
 
     def __repr__(self):
         return "<MonteCarlo {} trials of {}, seed {}>".format(self.runs, self.quantity, self.seed)
+
+
+# A check of a Yield: its label and the share of the trials it failed in.
+YieldCheck = collections.namedtuple("YieldCheck", "label fail_rate")
+
+
+class Yield:
+    """The yield of Monte Carlo trials with random layer errors against a
+    design's specification, as the Monte Carlo window counts it: the share of
+    the trials that meet every enabled check, each check read at its own Step.
+
+    Example::
+
+        design = tf.new_design("Mirror")
+        design.stack("(HL)^5 H")
+        design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+        y = design.specification.estimate_yield(50, thickness_rel_pct=2, seed=1)
+        print("yield", y.value, "from", y.interval[0], "to", y.interval[1])
+    """
+
+    def __init__(self, result):
+        self._values = {"value": result.get("yield"), "pass_count": result["passCount"], "evaluated": result["evaluated"],
+                        "interval": result.get("yieldInterval"),
+                        "checks": [YieldCheck(check["label"], check["failRate"]) for check in result["perQualifier"]],
+                        "runs": result["nTrials"], "seed": result["seed"], "mode": result["mode"]}
+
+    value = _reading("value", """The yield: the share of the trials checked that met every enabled check,
+        0 to 1; None when no trial was checked.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            print(design.specification.estimate_yield(20, seed=1).value)
+        """)
+    pass_count = _reading("pass_count", """How many trials met every enabled check.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            y = design.specification.estimate_yield(20, seed=1)
+            print(y.pass_count, "of", y.evaluated)
+        """)
+    evaluated = _reading("evaluated", """How many trials were checked: those run, less any whose checks could
+        not be evaluated.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            print(design.specification.estimate_yield(20, seed=1).evaluated)
+        """)
+    interval = _reading("interval", """The 95 % interval of the yield, [low, high], 0 to 1; None when no
+        trial was checked.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            low, high = design.specification.estimate_yield(20, seed=1).interval
+            print(low, high)
+        """)
+    checks = _reading("checks", """One named tuple (label, fail_rate) per check of the specification, in
+        its order: the check's label, or its kind when it has none, and the share of all the trials
+        run in which it failed. A check left out of the verdict fails in none.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            design.specification.add("R_AT", 550, cmp="ge", target=0.99)
+            y = design.specification.estimate_yield(20, thickness_rel_pct=2, seed=1)
+            for check in y.checks:
+                print(check.label, check.fail_rate)
+        """)
+    runs = _reading("runs", """The trials run: as many as asked, or fewer when the run was stopped.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            print(design.specification.estimate_yield(20, seed=1).runs)
+        """)
+    seed = _reading("seed", """The seed the draws started from: the same seed, design and settings repeat
+        the trials.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            y = design.specification.estimate_yield(20)
+            again = design.specification.estimate_yield(20, seed=y.seed)
+            print(y.seed, y.value == again.value)
+        """)
+    mode = _reading("mode", """What the trials scored: "front" or "back", the coated side alone, or
+        "total", the whole part, as the design's sides and score_on said.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            print(design.specification.estimate_yield(20, seed=1).mode)
+        """)
+
+    def __repr__(self):
+        return "<Yield {} ({} of {} checked), seed {}>".format(self.value, self.pass_count, self.evaluated, self.seed)
+
+
+# The comparison a CheckResult's value is held to, as its check holds it.
+Threshold = collections.namedtuple("Threshold", "cmp target tol lo hi")
+
+
+class CheckResult:
+    """One check of a design's specification as specification.check() judged
+    it, as the Specification window shows its row.
+
+    Example::
+
+        design = tf.new_design("Mirror")
+        design.stack("(HL)^5 H")
+        design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+        for row in design.specification.check().rows:
+            print(row.kind, row.value, row.passed, row.margin)
+    """
+
+    def __init__(self, row):
+        held = row["threshold"]
+        self._values = dict(row, threshold=Threshold(*(held.get(field) for field in Threshold._fields)))
+
+    kind = _reading("kind", """The check's kind, such as "R_AVG".
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            print(design.specification.check().rows[0].kind)
+        """)
+    label = _reading("label", """The check's label, "" when it has none.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, label="Stop band")
+            print(design.specification.check().rows[0].label)
+        """)
+    value = _reading("value", """The check's value: T, R and A as fractions of 1, wavelengths, widths and
+        thicknesses in nm, PPEF in dB, a layer count as a count; None when there is none, as for a
+        check left out of the verdict.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            print(design.specification.check().rows[0].value)
+        """)
+    unit = _reading("unit", """The value's unit: "fraction", "nm" or "dB", or "" for a layer count and for
+        a check left out of the verdict.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("THICKNESS_BUDGET", cmp="le", target=2000)
+            row = design.specification.check().rows[0]
+            print(row.value, row.unit)
+        """)
+    passed = _reading("passed", """Whether the value meets the threshold, as the window marks it: False when
+        there is no value, None for a check left out of the verdict.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("LAYER_COUNT", cmp="le", target=9)
+            print(design.specification.check().rows[0].passed)
+        """)
+    margin = _reading("margin", """How far the value is from the nearest bound, in its unit: positive by the
+        room left, negative by how far it is out, 0 on a bound, so passed is True exactly when it is
+        0 or more; None when there is no value.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AT", 550, cmp="between", lo=0.95, hi=1)
+            print(design.specification.check().rows[0].margin)
+        """)
+    threshold = _reading("threshold", """The comparison the value is held to, as the check holds it: a named
+        tuple (cmp, target, tol, lo, hi).
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AT", 550, cmp="eq", target=0.98, tol=0.01)
+            held = design.specification.check().rows[0].threshold
+            print(held.cmp, held.target, held.tol)
+        """)
+    reason = _reading("reason", """Why there is no value, or None: "disabled", a check left out of the
+        verdict; "notComputable", a value that came out as no number; "noCurve", a PPEF check whose
+        curve the design does not hold; "fwhmNotBracketed" or "edgeNotCrossed", a width or an edge
+        whose crossing is not inside the band; "unknownKind".
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, enabled=False)
+            print(design.specification.check().rows[0].reason)
+        """)
+
+    def __repr__(self):
+        # A disabled check is not judged.
+        if self.passed is None:
+            return "<CheckResult {}: disabled>".format(self.kind)
+        value = "{} {}".format(self.value, self.unit) if self.unit else str(self.value)
+        return "<CheckResult {}: {}, {}>".format(self.kind, value, "passed" if self.passed else "not passed")
+
+
+class SpecReport:
+    """A design judged against its specification, as specification.check()
+    judges it and the Specification window shows it: a CheckResult per check.
+
+    Example::
+
+        design = tf.new_design("Mirror")
+        design.stack("(HL)^5 H")
+        design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+        design.specification.add("LAYER_COUNT", cmp="le", target=9)
+        report = design.specification.check()
+        print(report.passing, "of", report.total, "checks pass")
+    """
+
+    def __init__(self, verdict):
+        self._values = {"rows": [CheckResult(row) for row in verdict["rows"]], "passed": verdict["passed"],
+                        "passing": verdict["passing"], "total": verdict["total"], "mode": verdict["mode"]}
+
+    rows = _reading("rows", """One CheckResult per check, in the specification's order.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            for row in design.specification.check().rows:
+                print(row.kind, row.passed)
+        """)
+    passed = _reading("passed", """True when every enabled check passes and there is one at least.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            print(design.specification.check().passed)
+        """)
+    passing = _reading("passing", """How many enabled checks pass.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            design.specification.add("LAYER_COUNT", cmp="le", target=9)
+            print(design.specification.check().passing)
+        """)
+    total = _reading("total", """How many checks are enabled.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            design.specification.add("LAYER_COUNT", cmp="le", target=9, enabled=False)
+            print(design.specification.check().total)
+        """)
+    mode = _reading("mode", """What the checks were computed on: "front" or "back", the coated side alone,
+        or "total", the whole part, as the design's sides and score_on said.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            design.score_on = "whole part"
+            print(design.specification.check().mode)
+        """)
+
+    def __repr__(self):
+        return "<SpecReport {} of {} checks pass>".format(self.passing, self.total)
 
 
 class SensitivityRow:

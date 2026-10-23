@@ -1,6 +1,41 @@
-"""Stop: the Stop button of a run made from Python."""
+"""Stop: the Stop button of a run made from Python, and the hooks a run is
+given for its progress and stop."""
 
+import functools
 import threading
+
+from ._errors import TFStudioError
+from ._results import Progress
+
+
+def run_hooks(options, names):
+    """The hooks a run is given, made of the progress and stop that the
+    keyword arguments `options` hold, which are taken out of them: stop, and
+    progress reporting through each hook that names() lists."""
+    progress, stop = options.pop("progress", None), options.pop("stop", None)
+    if stop is not None and not isinstance(stop, Stop):
+        raise TFStudioError("stop is a tfstudio.Stop, whose stop() ends the run")
+    if progress is None:
+        return {"signal": stop}
+    return dict(_reporting([hook for hook in names() if hook != "signal"], progress), signal=stop)
+
+
+def _reporting(hooks, progress):
+    """The run's hooks named in `hooks`, each calling `progress` with a
+    Progress of everything the run has reported up to it."""
+    if not callable(progress):
+        raise TFStudioError("progress is a function, called with a tfstudio.Progress as the run reports")
+    reported = {}
+
+    def report(hook, *args):
+        if hook == "onMethodStart":
+            reported["method"] = args[0]
+        for arg in args:
+            if isinstance(arg, dict):
+                reported.update(arg)
+        progress(Progress(dict(reported)))
+
+    return {hook: functools.partial(report, hook) for hook in hooks}
 
 
 class Stop:

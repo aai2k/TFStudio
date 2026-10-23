@@ -4,11 +4,13 @@ import { inspect } from 'node:util';
 import * as api from '../index.js';
 import { checkOptions, requireValue } from '../check.js';
 import { resolveEvalMode } from '../../utils/physics/optimizer.js';
+import { ended, hooksFor } from './hooks.js';
 import { Layers } from './layers.js';
 import { Merit } from './merit.js';
 import { defined, optionsOf } from './options.js';
 import { worded } from './refusals.js';
-import { LayerSensitivity, MonteCarlo, Progress, RunResult } from './results.js';
+import { LayerSensitivity, MonteCarlo, RunResult } from './results.js';
+import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
 
 // design.sides by the API's surfaceMode, and design.scoreOn by its mfEvalMode;
@@ -35,60 +37,6 @@ function named(mapping, what, value) {
 // design.stack()'s options by the API's names for them.
 const STACK_OPTIONS = { at: 'referenceWavelength', side: 'side', fromSubstrate: 'startFromSubstrate' };
 const STACK_NAMES = Object.fromEntries(Object.entries(STACK_OPTIONS).map(([name, apiName]) => [apiName, name]));
-
-const isRecord = value => value !== null && typeof value === 'object' && !Array.isArray(value);
-
-// What each of a run's hooks does with what it is given: progress gets a
-// Progress of everything the run has reported up to then. Once progress has
-// thrown, `fail` is given the error and progress is not called again.
-function reporting(hooks, progress, failure, fail) {
-    const reported = {};
-    const report = hook => (...args) => {
-        if (failure.thrown) return;
-        if (hook === 'onMethodStart') reported.method = args[0];
-        for (const arg of args) if (isRecord(arg)) Object.assign(reported, arg);
-        try { progress(new Progress({ ...reported })); } catch (err) { fail(err); }
-    };
-    return Object.fromEntries(hooks.map(hook => [hook, report(hook)]));
-}
-
-// A run's hooks for its options `progress` and `stop`, as { hooks, failure,
-// end }: a signal of the run's own, which aborting `stop` aborts, and
-// progress through each hook names() lists. An error progress throws does
-// not reach the run, whose engines catch errors where some of their reports
-// come from: it is kept in `failure` and aborts the run's signal, so the run
-// stops as a Stop stops it. end() lets go of `stop` once the run has ended.
-function hooksFor(progress, stop, names) {
-    if (stop != null && !(stop instanceof AbortSignal)) {
-        throw new Error('stop is an AbortSignal, the signal of an AbortController whose abort() ends the run');
-    }
-    if (progress != null && typeof progress !== 'function') throw new Error('progress is a function, called with a Progress as the run reports');
-    const own = new AbortController();
-    const forward = () => own.abort();
-    if (stop?.aborted) forward();
-    else stop?.addEventListener('abort', forward);
-    const failure = { thrown: false, error: undefined };
-    const fail = error => {
-        Object.assign(failure, { thrown: true, error });
-        own.abort();
-    };
-    const reports = progress == null ? {} : reporting(names().filter(hook => hook !== 'signal'), progress, failure, fail);
-    return { hooks: { ...reports, signal: own.signal }, failure, end: () => stop?.removeEventListener('abort', forward) };
-}
-
-// What `run()` resolves to once the run has ended, or, when the progress
-// function threw, that error, in place of what the run answered or threw.
-async function ended(control, run) {
-    try {
-        const answer = await run();
-        if (!control.failure.thrown) return answer;
-    } catch (err) {
-        if (!control.failure.thrown) throw err;
-    } finally {
-        control.end();
-    }
-    throw control.failure.error;
-}
 
 /**
  * A design's substrate: its material and thickness. Setting either changes
@@ -291,6 +239,18 @@ export class Design {
      * console.log(design.merit.value);
      */
     get merit() { return new Merit(this); }
+
+    /**
+     * The specification, a Specification: the pass or fail checks of the
+     * Specification window, the verdict on them and the yield against them.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * console.log(design.specification.check().passed);
+     */
+    get specification() { return new Specification(this); }
 
     /**
      * Replaces the layers of one side with those a stack formula builds, as

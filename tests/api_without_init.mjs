@@ -4,8 +4,9 @@
  * calculation then runs on the JavaScript path, with the same numbers but many
  * times slower.
  *
- *   1. Each call that calculates warns, once: spectrum, merit, refine,
- *      synthesize, monteCarlo, layerSensitivity.
+ *   1. Each call that calculates warns, once: spectrum, merit,
+ *      checkSpecification, refine, synthesize, monteCarlo, estimateYield,
+ *      layerSensitivity.
  *   2. A call refused before it calculates, and a call that does not
  *      calculate, say nothing, so the one warning is kept for a calculation.
  *   3. A script that awaits init() hears nothing, also when init() could not
@@ -24,9 +25,10 @@ import { fileURLToPath } from 'node:url';
 const API = new URL('../src/api/index.js', import.meta.url).href;
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 
-// Runs `body` in a fresh process with `api`, `qw` (a quarter-wave stack) and
-// `scored` (the stack with a merit row) at hand, and answers how many warnings
-// it heard and what `body` returned.
+// Runs `body` in a fresh process with `api`, `qw` (a quarter-wave stack),
+// `scored` (the stack with a merit row) and `specified` (the stack with a
+// specification check) at hand, and answers how many warnings it heard and
+// what `body` returned.
 function inFreshProcess(body) {
     const script = `
 let heard = 0;
@@ -35,6 +37,7 @@ console.log = () => {};
 const api = await import(${JSON.stringify(API)});
 const qw = api.stackFromFormula(api.newDesign(), { formula: '(HL)^2 H', referenceWavelength: 550 });
 const scored = api.setMerit(qw, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0, weight: 1 }]);
+const specified = api.setSpecification(qw, [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'ge', target: 0.9 }]);
 const value = await (async () => { ${body} })();
 await new Promise(resolve => setImmediate(resolve));
 process.stdout.write(JSON.stringify({ heard, value: value ?? null }));
@@ -48,9 +51,11 @@ process.stdout.write(JSON.stringify({ heard, value: value ?? null }));
 const CALCULATING = {
     spectrum: `api.spectrum(qw, { from: 500, to: 600, step: 10 }); api.spectrum(qw, { from: 500, to: 600, step: 10 });`,
     merit: `api.merit(scored);`,
+    checkSpecification: `api.checkSpecification(specified);`,
     refine: `await api.refine(scored, { method: 'dls', maxIter: 2 });`,
     synthesize: `await api.synthesize(scored, { method: 'structural', pool: ['TiO2', 'SiO2'], settings: { maxIter: 1, refineIter: 2, threads: 1, seed: 7 } });`,
     monteCarlo: `api.monteCarlo(qw, { from: 500, to: 600, step: 10, runs: 2 });`,
+    estimateYield: `await api.estimateYield(specified, { runs: 2 });`,
     layerSensitivity: `api.layerSensitivity(scored, {});`,
 };
 for (const [call, body] of Object.entries(CALCULATING)) {
@@ -64,6 +69,9 @@ for (const [call, body] of Object.entries(CALCULATING)) {
         try { await api.synthesize(scored, { method: 'needle', pool: [] }); } catch (_) {}
         try { api.monteCarlo(api.newDesign(), { from: 500, to: 600 }); } catch (_) {}
         try { api.layerSensitivity(qw, {}); } catch (_) {}
+        try { api.checkSpecification(qw); } catch (_) {}
+        try { api.estimateYield(qw, { runs: 2 }); } catch (_) {}
+        api.setSpecification(qw, [{ kind: 'T_AT' }]);
         api.merit(qw);
         api.findMaterials('TiO2'); api.materialNK('TiO2', [550]);
         await new Promise(resolve => setImmediate(resolve));

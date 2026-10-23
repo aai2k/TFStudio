@@ -41,6 +41,14 @@ def _closed_side(fields):
             "to 'both', or score_on to 'whole part'".format(_OTHER_SIDE[fields["side"]], fields["side"]))
 
 
+def _no_specification(fields):
+    # checkSpecification takes a design whose checks are all disabled, and
+    # estimateYield does not.
+    if fields["call"] == "checkSpecification":
+        return "the design has no specification check; add one with specification.add()"
+    return "the design has no enabled specification check; add one with specification.add()"
+
+
 def _unknown_option(fields, words):
     listed = [words.name(option) for option in fields["options"] if option not in words.hidden] + list(words.extra)
     return "unknown option {!r}; the options are {}".format(words.name(fields["option"]), ", ".join(listed))
@@ -64,6 +72,7 @@ _WORDS = {
     "badValue": lambda fields, words: "{} is {}, not {!r}".format(words.name(fields["option"]),
                                                                   _python_takes(fields["takes"]), fields["value"]),
     "noMerit": lambda fields, words: "the design has no merit function; add a row with merit.add()",
+    "noSpecification": lambda fields, words: _no_specification(fields),
     "closedSide": lambda fields, words: _closed_side(fields),
     "wavelengthRange": lambda fields, words: "start and end are wavelengths in nm, 0 < start < end",
     "bandOrder": lambda fields, words: "start {} is above end {}".format(fields["start"], fields["end"]),

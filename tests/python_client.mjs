@@ -9,8 +9,9 @@
  *      are the API's exports but init, and every call answers what the API
  *      answers here, the ids a design draws and the time a synthesis step
  *      took aside: designs built, edited, saved (to the bytes the API
- *      writes) and opened again, spectra, materials, merit, layer
- *      sensitivity, the runs and a seeded Monte Carlo.
+ *      writes) and opened again, spectra, materials, merit, a specification
+ *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
+ *      a seeded yield.
  *   2. Values: a spectrum's angles are keyed by text, and the spectrum as
  *      Python holds it summarizes as here; NaN, Infinity and -Infinity come
  *      back as floats; a NaN sent in gets the API's refusal; an object with
@@ -243,6 +244,8 @@ const start = api.setMerit(twoLayers, AR_ROWS);
 const stack = api.stackFromFormula(api.newDesign({ name: 'Stack' }), { formula: '(HL)^3 H' });
 const NEEDLE = { method: 'needle', pool: POOL, settings: { maxLayers: 6, refineIter: 10, threads: 1 } };
 const STRUCTURAL = { method: 'structural', pool: POOL, settings: { maxIter: 3, refineIter: 5, threads: 1, seed: 7 } };
+const CHECKS = [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'le', target: 0.02 }, { kind: 'LAYER_COUNT', cmp: 'le', target: 2 }];
+const specified = api.setSpecification(start, CHECKS);
 // A Needle run that stops on its own at 'maxLayers', and a Monte Carlo run
 // that takes about ten seconds unless it is stopped.
 const LONG_NEEDLE = { method: 'needle', pool: POOL, settings: { maxLayers: 20, refineIter: 10, threads: 1, targetMF: 0 } };
@@ -272,6 +275,8 @@ const STOPPED_WITHIN_S = 5;
         ['summarize', [spectrum, { bands: [{ from: 450, to: 650 }] }]],
         ['setMerit', [stack, AR_ROWS]],
         ['merit', [start]],
+        ['setSpecification', [start, CHECKS]],
+        ['checkSpecification', [specified]],
         ['layerSensitivity', [start, { deltaNm: 2 }]],
         ['runHooks', ['needle']],
         ['runHooks', ['nothing']],
@@ -279,6 +284,7 @@ const STOPPED_WITHIN_S = 5;
         ['synthesize', [start, NEEDLE]],
         ['synthesize', [start, STRUCTURAL]],
         ['monteCarlo', [start, { from: 450, to: 650, step: 10, runs: 5, seed: 3 }]],
+        ['estimateYield', [specified, { runs: 5, thicknessRelPct: 3, seed: 3 }]],
         ['saveDesign', [start, taken]],
         ['saveDesign', [start, there]],
         ['openDesign', [there]],

@@ -1,6 +1,6 @@
 // The Step and side selects of a Specification row (QRow.js).
 
-import { checkStepKind, budgetSide } from '../../../../utils/synthesis/qualifiers.js';
+import { checkStepKind, stepFlags, budgetSide } from '../../../../utils/synthesis/qualifiers.js';
 import { extremumStepNm } from '../../../../utils/physics/optimizer.js';
 import { Field, selStyle } from './fields.js';
 
@@ -13,7 +13,7 @@ const { createElement: h } = React;
 export function renderStep(q, onF, c, ts, units) {
     const kind = checkStepKind(q);
     if (!kind) return null;
-    const flags = kind === 'band' ? [1, 2, 3, 4] : [2, 3, 4];
+    const flags = stepFlags(q);
     const value = flags.includes(q.flag) ? String(q.flag) : '';
     const nm = flag => `${extremumStepNm({ flag })} ${units.nm}`;
     return h(Field, { label: ts.step, c, tip: ts.stepTips[kind] },

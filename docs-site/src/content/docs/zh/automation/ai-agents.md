@@ -39,12 +39,13 @@ claude mcp add tfstudio -- "C:\Users\you\AppData\Local\Programs\TFStudio\TFStudi
 | 设计 | `openDesign`、`newDesign`、`setDesignSetup`、`saveDesign`、`showDesign`、`listDesigns`、`copyDesign` |
 | 膜层堆栈 | `insertLayer`、`deleteLayer`、`setLayer`、`stackFromFormula` |
 | 评价函数 | `setMerit`、`merit` |
+| 规格说明 | `setSpecification`、`checkSpecification` |
 | 材料 | `findMaterials`、`materialNK` |
 | 分析 | `spectrum`、`layerSensitivity` |
 | 运行 | `refine`、`synthesize`、`monteCarlo`、`jobStatus`、`stopJob`、`listJobs` |
 | 打开的设计（需 `--live`） | `listAppDesigns`、`readAppDesign`、`applyToApp` |
 
-`spectrum` 按[光学评估](/zh/analysis/optical-evaluation/)窗口的方式计算 R、T、A、Rs 和 Rp；`merit` 按[评价函数编辑器](/zh/design/merit-function-editor/)的显示给出总值和每一行；`refine` 可运行[精炼](/zh/synthesis/refinement/)窗口的任一方法；`synthesize` 运行[针式变化](/zh/synthesis/needle/)、[渐进演化（GE）](/zh/synthesis/gradual-evolution/)或[结构优化器](/zh/synthesis/structural-optimizer/)。`monteCarlo` 和 `layerSensitivity` 与[蒙特卡洛](/zh/analysis/error-analysis/)和[层灵敏度](/zh/analysis/layer-sensitivity/)窗口的计算相同。评价函数的行使用[操作数参考](/zh/design/operands/)中的操作数。
+`spectrum` 按[光学评估](/zh/analysis/optical-evaluation/)窗口的方式计算 R、T、A、Rs 和 Rp；`merit` 按[评价函数编辑器](/zh/design/merit-function-editor/)的显示给出总值和每一行；`refine` 可运行[精炼](/zh/synthesis/refinement/)窗口的任一方法；`synthesize` 运行[针式变化](/zh/synthesis/needle/)、[渐进演化（GE）](/zh/synthesis/gradual-evolution/)或[结构优化器](/zh/synthesis/structural-optimizer/)。`monteCarlo` 和 `layerSensitivity` 与[蒙特卡洛](/zh/analysis/error-analysis/)和[层灵敏度](/zh/analysis/layer-sensitivity/)窗口的计算相同。评价函数的行使用[操作数参考](/zh/design/operands/)中的操作数。`setSpecification` 接受[规格说明](/zh/design/specification/)窗口的检查，`checkSpecification` 按该窗口的方式判定设计是否满足这些检查，并给出每个数值离其界限还有多远；对带有检查的设计，`monteCarlo` 还会统计良率。
 
 ## 工作方式
 

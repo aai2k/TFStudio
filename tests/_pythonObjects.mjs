@@ -22,7 +22,12 @@
  *   share refused, and one of them by its catalog:key id; spectrum curves at
  *   two angles, their mean, min and max over a band and the whole range, NaN
  *   left out of min and max, inf and -inf over a band of NaN alone, and the
- *   CSV file; merit rows, value, rows and clear(); refine and synthesize with
+ *   CSV file; merit rows, value, rows and clear(); specification checks of
+ *   every kind added with the wavelengths each kind takes and keywords in
+ *   snake_case, read back as SpecChecks, removed and cleared, the verdict of
+ *   check(), estimate_yield() with a seed and with its documented defaults,
+ *   a Monte Carlo run's spec, progress, a progress function that raises and
+ *   a Stop, and their refusals; refine and synthesize with
  *   seeds, Monte Carlo with a seed and layer sensitivity; the settings'
  *   snake_case names; the Progress objects of a refinement, a Needle run and
  *   a Monte Carlo run; stop= in progress, Deep Synthesis's included, and
@@ -41,6 +46,7 @@ import { fileURLToPath } from 'node:url';
 import { NEEDLE_DEFAULTS } from '../src/utils/needle/settings.js';
 import { GE_DEFAULTS } from '../src/utils/gradualEvolution/settings.js';
 import { RUN_DEFAULTS } from '../src/utils/structural/settings.js';
+import { fixtureFile } from './_apiCorpus.mjs';
 
 const DRIVER = path.join(path.dirname(fileURLToPath(import.meta.url)), '_pythonObjects.py');
 
@@ -245,6 +251,142 @@ async function merit(t, said, count) {
     ok('clear() leaves no row, in the copy alone', canon(got.cleared) === '[0,3]', canon(got.cleared));
 }
 
+// A check of each kind as the package adds it to a design with the measured
+// curve `curveId`: [kind, wavelengths, keyword arguments, the fields
+// setSpecification is given for the same check]. No wavelength is one a check
+// starts with, so a wavelength given to another field shows.
+const specKinds = curveId => [
+    ['T_AT', [1530], { cmp: 'ge', target: 0.5 }, { lambda: 1530, cmp: 'ge', target: 0.5 }],
+    ['R_AT', [1560], { cmp: 'le', target: 0.5, aoi: 30, pol: 'p' }, { lambda: 1560, cmp: 'le', target: 0.5, aoi: 30, pol: 'p' }],
+    ['A_AT', [1575], {}, { lambda: 1575 }],
+    ['T_AVG', [1510, 1590], { cmp: 'between', lo: 0.1, hi: 0.9 }, { lambdaStart: 1510, lambdaEnd: 1590, cmp: 'between', lo: 0.1, hi: 0.9 }],
+    ['R_AVG', [1520, 1580], { flag: 2, label: 'R band' }, { lambdaStart: 1520, lambdaEnd: 1580, flag: 2, label: 'R band' }],
+    ['A_AVG', [1505, 1595], { enabled: false }, { lambdaStart: 1505, lambdaEnd: 1595, enabled: false }],
+    ['MIN_MAX', [1515, 1585], { channel: 'R', direction: 'min', cmp: 'le', target: 0.4 },
+        { lambdaStart: 1515, lambdaEnd: 1585, channel: 'R', direction: 'min', cmp: 'le', target: 0.4 }],
+    ['CENTRAL_LAMBDA', [1500, 1600], { cmp: 'eq', target: 1550, tol: 20 }, { lambdaStart: 1500, lambdaEnd: 1600, cmp: 'eq', target: 1550, tol: 20 }],
+    ['FWHM', [1500, 1600], { level: 0.4, band_points: 801, cmp: 'ge', target: 10 },
+        { lambdaStart: 1500, lambdaEnd: 1600, level: 0.4, bandPoints: 801, cmp: 'ge', target: 10 }],
+    ['EDGE_LAMBDA', [1500, 1600], { channel: 'R', edge_side: 'right', cmp: 'ge', target: 1520 },
+        { lambdaStart: 1500, lambdaEnd: 1600, channel: 'R', edgeSide: 'right', cmp: 'ge', target: 1520 }],
+    ['INTEGRAL', [1500, 1600], { channel: 'R', source: { id: 'blackbody', T: 3000 }, detector: { id: 'flat' }, preset_label: 'Lamp' },
+        { lambdaStart: 1500, lambdaEnd: 1600, channel: 'R', source: { id: 'blackbody', T: 3000 }, detector: { id: 'flat' }, presetLabel: 'Lamp' }],
+    ['INTEGRAL', [], { preset_key: 'TNIR', cmp: 'ge', target: 0.5 }, { presetKey: 'TNIR', cmp: 'ge', target: 0.5 }],
+    ['THICKNESS_BUDGET', [], { cmp: 'le', target: 5000, side: 'front' }, { cmp: 'le', target: 5000, side: 'front' }],
+    ['LAYER_COUNT', [], { cmp: 'le', target: 30 }, { cmp: 'le', target: 30 }],
+    ['PPEF', [], { curve_id: curveId, cmp: 'le', target: 3 }, { curveId, cmp: 'le', target: 3 }],
+];
+// SpecCheck's attributes in Python's names, in _pythonObjects.py's order, by
+// the fields of a check they read.
+const SPEC_FIELDS = [['kind', 'kind'], ['label', 'label'], ['enabled', 'enabled'], ['cmp', 'cmp'], ['target', 'target'], ['tol', 'tol'], ['lo', 'lo'],
+    ['hi', 'hi'], ['wavelength', 'lambda'], ['start', 'lambdaStart'], ['end', 'lambdaEnd'], ['aoi', 'aoi'], ['pol', 'pol'], ['channel', 'channel'],
+    ['direction', 'direction'], ['level', 'level'], ['edge_side', 'edgeSide'], ['flag', 'flag'], ['side', 'side'], ['preset_key', 'presetKey'],
+    ['preset_label', 'presetLabel'], ['source', 'source'], ['detector', 'detector'], ['band_points', 'bandPoints'], ['curve_id', 'curveId']];
+// A design's checks without the id each draws.
+const checksOf = (canon, data) => canon((data?.qualifiers ?? []).map(({ id, ...check }) => check));
+
+// The words each refusal of _pythonObjects.py specification() is to be in, in its order.
+const SPEC_WORDED = [
+    'check: the design has no specification check; add one with specification.add()',
+    'estimate_yield: the design has no enabled specification check; add one with specification.add()',
+    'add: R_AT is checked at one wavelength, start, and takes no end, not 600',
+    'add: LAYER_COUNT reads no wavelength, and takes no start or end, not 15',
+    'add: PPEF reads no wavelength, and takes no start or end, not 3',
+    'add: start 650 is above end 450',
+    'add: start is a wavelength in nm above 0, not -5',
+    "add: end is a wavelength in nm above 0, not 'x'",
+    "add: unknown option 'id'; each check add() adds gets an id of its own",
+    "add: unknown option 'lambda_start'; a check's kind and wavelengths are add()'s arguments, kind, start and end",
+    "add: unknown option 'lambdaStart'; a check's kind and wavelengths are add()'s arguments, kind, start and end",
+    "add: unknown option 'lambdaStart'; a check's kind and wavelengths are add()'s arguments, kind, start and end",
+    "add: edge_side is 'left' or 'right', not 'up'",
+    'add: start is 380, as preset Rvis sets it, or left out, not 400',
+    "add: hi is a number in the check's unit no lower than lo, 0.9, not 0.8",
+    'add: flag is None, as MIN_MAX of the highest R has no Step, not 2',
+    "add: curve_id is the id of one of the design's measured curves, and it has none, not 'none'",
+    'add: band_points is a whole number of 2 or more, or None for the default, not 1',
+    'check 0: the specification has 0 checks, numbered from 0',
+    "add: unknown option 'targt'; the options are enabled, label, cmp, target, tol, lo, hi, aoi, pol, channel, direction, level, edge_side, flag, side, "
+        + 'preset_key, preset_label, source, detector, band_points, curve_id',
+];
+
+// The checks _pythonObjects.py added, read, removed and cleared, and the
+// verdict on them, against setSpecification and checkSpecification here.
+async function specification(t, said, measured) {
+    const { api, ok, canon, attempt } = t;
+    const got = said.specification ?? {};
+    const kinds = specKinds(measured.measuredCurves[0].id);
+    const made = await attempt(() => api.setSpecification(measured, kinds.map(([kind, , , fields]) => ({ kind, ...fields }))));
+    ok('specification.add() makes the checks setSpecification makes, for every kind, with the wavelengths its kind takes and keywords in snake_case',
+        checksOf(canon, got.added) === checksOf(canon, made) && canon({ ...got.added, qualifiers: null }) === canon({ ...measured, qualifiers: null }),
+        checksOf(canon, got.added).slice(0, 300));
+    const held = (got.added?.qualifiers ?? []).map(check => SPEC_FIELDS.map(([, field]) => check[field] ?? null));
+    // A check the app saved that setSpecification refuses, such as one of an
+    // integral preset its user saved, stays as it is when a check is added.
+    const layerCount = (await attempt(() => api.setSpecification(measured, [{ kind: 'LAYER_COUNT', cmp: 'le', target: 30 }]))).qualifiers?.[0];
+    ok('and a check the app saved that setSpecification refuses stays as it was',
+        canon(got.holding) === canon([{ ...made.qualifiers?.[11], presetKey: 'My preset' }, layerCount]), canon(got.holding));
+    ok('rows are SpecChecks, each attribute reading its field of the check', canon(got.rows) === canon(held)
+        && canon(got.attributes) === canon(SPEC_FIELDS.map(([name]) => name).sort()), canon(got.rows?.[0]));
+    ok('as they were when rows was read, so changing what one holds changes nothing', got.snapshot === 3000, got.snapshot);
+    const last = kinds.length - 1;
+    const [cleared, clearedCount, count] = got.cleared ?? [];
+    ok('remove() takes out the check at its index from 0', checksOf(canon, got.removed) === checksOf(canon, { qualifiers: made.qualifiers?.filter((_, i) => ![1, last].includes(i)) }));
+    ok('and clear() every check, in the copy alone', canon(cleared) === canon(await attempt(() => api.setSpecification(got.added, [])))
+        && clearedCount === 0 && count === kinds.length);
+    const numberedFrom0 = `the specification has ${count} checks, numbered from 0`;
+    ok('and remove() refuses an index the specification has no check at, True among them', canon(got.outside) === canon([`check -1: ${numberedFrom0}`,
+        `check ${count}: ${numberedFrom0}`, `check 1.5: ${numberedFrom0}`, `check '1': ${numberedFrom0}`, `check True: ${numberedFrom0}`]), canon(got.outside));
+    const verdict = await attempt(() => api.checkSpecification(got.added));
+    const rows = (verdict.rows ?? []).map(r => [r.kind, r.label, r.value, r.unit, r.passed, r.margin,
+        ['cmp', 'target', 'tol', 'lo', 'hi'].map(field => r.threshold[field] ?? null), r.reason]);
+    ok('check() is checkSpecification, row by row, with passed, passing, total and mode', rows.length === kinds.length && canon(got.report) === canon(rows)
+        && canon(got.verdict) === canon([verdict.passed, verdict.passing, verdict.total, verdict.mode]), canon(got.report)?.slice(0, 300));
+    const unlike = SPEC_WORDED.map((words, i) => [got.worded?.[i], words]).filter(([saidWords, words]) => saidWords !== words);
+    ok('the specification\'s refusals reach the objects in Python\'s words', got.worded?.length === SPEC_WORDED.length && unlike.length === 0,
+        unlike.map(([saidWords]) => saidWords).join('\n'));
+    ok('a band whose end is its start is taken', canon(got.point) === '[600,600]', canon(got.point));
+    const [disabled, counted, value, passed] = got.shown ?? [];
+    ok('repr() shows a disabled check as disabled, and a value with no unit without one', disabled === '<CheckResult A_AVG: disabled>'
+        && counted === `<CheckResult LAYER_COUNT: ${value}, ${passed ? 'passed' : 'not passed'}>`, `${disabled} ${counted}`);
+}
+
+// The yields _pythonObjects.py yields() counted, against estimateYield and
+// monteCarlo here with the same seeds.
+async function yields(t, said) {
+    const { api, ok, canon, attempt } = t;
+    const got = said.yield ?? {};
+    const errors = { thicknessRelPct: 3, indexRe: 0.01, distribution: 'uniform', seed: 9 };
+    const fields = (spec, seed, mode) => [spec?.yield, spec?.passCount, spec?.evaluated, spec?.yieldInterval,
+        (spec?.perQualifier ?? []).map(check => [check.label, check.failRate]), spec?.nTrials, seed, mode];
+    const seeded = await attempt(() => api.estimateYield(got.design, { runs: 40, ...errors }));
+    ok('estimate_yield() is estimateYield with the same seed: value, pass_count, evaluated, interval, checks, runs, seed and mode',
+        canon(got.seeded) === canon(fields(seeded, seeded.seed, seeded.mode)) && got.seeded[0] > 0 && got.seeded[0] < 1, canon(got.seeded));
+    ok('repr() shows the yield with the trials that passed of those checked', got.shown === `<Yield ${seeded.yield} (${seeded.passCount} of ${seeded.evaluated} checked), seed 9>`, got.shown);
+    const documented = await attempt(() => api.estimateYield(got.design, { runs: 30, seed: 4, thicknessRelPct: 1, thicknessAbsNm: 0, indexRe: 0, indexIm: 0,
+        distribution: 'gaussian' }));
+    ok('and the defaults it documents are monteCarlo\'s', canon(got.defaults) === canon(fields(documented, 4, 'front')), canon(got.defaults));
+    const mc = await attempt(() => api.monteCarlo(got.design, { from: 500, to: 600, step: 10, runs: 40, ...errors }));
+    ok('a MonteCarlo\'s spec is a Yield of its trials, monteCarlo\'s spec with the run\'s seed and mode', canon(got.monteCarlo) === canon(fields(mc.spec, mc.seed, 'front'))
+        && canon(got.monteCarlo) === canon(got.seeded), canon(got.monteCarlo));
+    // With every check left out of the verdict, no trial is checked, though
+    // each is run; scored on the whole part, its mode says so.
+    ok('a spec with no trial checked has no value or interval, its runs the trials run, and the mode the whole part',
+        canon(got.unchecked) === canon([null, 0, 0, null, [['LAYER_COUNT', 0]], 5, 1, 'total']), canon(got.unchecked));
+    // The server sends on at most four reports a second (apiServer/hooks.js),
+    // so the trials reported are the first, the last and some between.
+    const trials = got.trials ?? [];
+    const inOrder = trials.every(([trial, total], i) => total === 10 && trial >= (trials[i - 1]?.[0] ?? 1));
+    ok('progress= is given a Progress of the trials made, the first to the last', canon(trials[0]) === '[1,10]' && canon(trials.at(-1)) === '[10,10]' && inOrder,
+        canon(trials));
+    ok('and an exception it raises stops the run and goes on', got.raised === 'raised at trial 1 of 20', got.raised);
+    ok('a Stop stopped before the run ends it at once, answering with the trials made', got.stopped <= 1, got.stopped);
+    ok('and runs that are not a count of trials, and a setting it does not take, are refused in Python\'s words', canon(got.refused) === canon([
+        'estimate_yield: runs is a whole number of 1 or more, not 0', 'estimate_yield: runs is a whole number of 1 or more, not None',
+        "estimate_yield: unknown option 'thickness_rel'; the options are thickness_rel_pct, thickness_abs_nm, index_re, index_im, distribution, seed, progress, stop"]),
+    canon(got.refused));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -400,7 +542,10 @@ async function refusals(t, got) {
 
 export async function checkObjects(t) {
     const named = t.api.findMaterials('').find(m => m.catalog === 'builtin' && m.name !== m.id);
-    const input = { name: named.name, pool: t.POOL, settingNames: SETTINGS.map(snake), dataDir: twinsFolder(t.WORK) };
+    const measuredFile = fixtureFile('measured-curve-ppef');
+    const measured = t.api.openDesign(measuredFile);
+    const input = { name: named.name, pool: t.POOL, settingNames: SETTINGS.map(snake), dataDir: twinsFolder(t.WORK), measured: measuredFile,
+        specKinds: specKinds(measured.measuredCurves[0].id) };
     const ran = await t.scenario('objects', { driver: DRIVER, input });
     const u = { ...t, ran };
     const count = await designs(u, ran.said);
@@ -409,6 +554,8 @@ export async function checkObjects(t) {
     await materials(u, ran.said, named);
     await spectra(u, ran.said);
     await merit(u, ran.said, count);
+    await specification(u, ran.said, measured);
+    await yields(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

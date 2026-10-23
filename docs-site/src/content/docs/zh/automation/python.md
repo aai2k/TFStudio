@@ -3,7 +3,7 @@ title: Python
 description: 在 Python 程序中设计和计算薄膜镀膜，处理程序自己的设计，或应用中打开的设计。
 ---
 
-Python 程序可以通过 `tfstudio` 包处理 TFStudio 的设计：使用的对象与[脚本控制台](/zh/automation/script-console/)中 Python 脚本可用的相同，[API 参考](/zh/automation/api-reference/)列出了它们。该包会启动一个属于它自己、不打开任何窗口的 TFStudio 来为程序计算，并在程序用完后将其结束。程序可以构建设计、计算光谱和评价函数、运行精炼与合成，并保存得到的结果；加上 `live=True` 后，它还可以读取和修改应用中打开的设计。这些对象与各窗口使用同一套计算代码，因此给出的数值与应用显示的一致。
+Python 程序可以通过 `tfstudio` 包处理 TFStudio 的设计：使用的对象与[脚本控制台](/zh/automation/script-console/)中 Python 脚本可用的相同，[API 参考](/zh/automation/api-reference/)列出了它们。该包会启动一个属于它自己、不打开任何窗口的 TFStudio 来为程序计算，并在程序用完后将其结束。程序可以构建设计、计算光谱和评价函数、判定设计是否满足其规格并统计其良率、运行精炼与合成，并保存得到的结果；加上 `live=True` 后，它还可以读取和修改应用中打开的设计。这些对象与各窗口使用同一套计算代码，因此给出的数值与应用显示的一致。
 
 ## 安装
 
@@ -71,7 +71,7 @@ with tfstudio.TFStudio() as tf:
 
 ## 运行
 
-`refine()`、`synthesize()` 和 `monte_carlo()` 在程序的 TFStudio 中计算，运行结束时调用才返回。`progress=` 接受一个函数，运行每次报告时以一个 `tfstudio.Progress` 调用它。`stop=` 接受一个 `tfstudio.Stop`，在 progress 函数中或另一个线程中调用其 `stop()`，就会在下一步结束运行。被停止的精炼或合成会保持设计原样。
+`refine()`、`synthesize()`、`monte_carlo()` 和 `specification.estimate_yield()` 在程序的 TFStudio 中计算，运行结束时调用才返回。`progress=` 接受一个函数，运行每次报告时以一个 `tfstudio.Progress` 调用它。`stop=` 接受一个 `tfstudio.Stop`，在 progress 函数中或另一个线程中调用其 `stop()`，就会在下一步结束运行。被停止的精炼或合成会保持设计原样。
 
 运行期间按 Ctrl+C 会停止运行，然后引发 `KeyboardInterrupt`；设计保留原来的膜层。运行在各步之间检查停止请求；如果 15 秒后仍未停止，或你再次按下 Ctrl+C，服务器会被结束，该 `TFStudio()` 不再接受调用。progress 函数引发的异常会停止运行，该异常随后在程序中引发。
 

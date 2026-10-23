@@ -15,6 +15,11 @@ const WORDS = {
     unknownOption: (f, w) => `unknown option '${f.option}'; the options are ${[...f.options.filter(option => !w.hidden.includes(option)).map(w.name), ...w.extra].join(', ')}`,
     badValue: (f, w) => `${w.name(f.option)} is ${f.takes}, not ${shown(f.value)}`,
     noMerit: () => 'the design has no merit function; add a row with merit.add()',
+    // checkSpecification takes a design whose checks are all disabled, and
+    // estimateYield does not.
+    noSpecification: f => (f.call === 'checkSpecification'
+        ? 'the design has no specification check; add one with specification.add()'
+        : 'the design has no enabled specification check; add one with specification.add()'),
     closedSide: f => (f.surfaceMode === 'symmetric'
         ? 'the back of a symmetric design mirrors its front; edit the front'
         : `a design coated on the ${OTHER_SIDE[f.side]} alone and scored on that side does not evaluate the ${f.side}; to edit it, set sides to 'both', or scoreOn to 'whole part'`),

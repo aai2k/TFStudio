@@ -1,5 +1,6 @@
-// Tools that compute on a design: its spectrum, its merit, and how much each
-// layer moves it. Monte Carlo runs as a job (runTools.js).
+// Tools that compute on a design: its spectrum, its merit, its verdict against
+// its specification, and how much each layer moves the merit. Monte Carlo runs
+// as a job (runTools.js).
 
 import { object, num, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
@@ -38,6 +39,12 @@ export function analysisTools({ api, store }) {
             description: "A design's merit as the Merit Function Editor shows it: the total, the optical merit without the manufacturing rows (MNT, MXT, TT, STR), and each row's value with what it scores: lambdaStart, lambdaEnd for a band, aoi and pol for an optical row (no pol for one scored on both polarizations, such as PSI or DPR), the layer range lambdaStart to lambdaEnd for MNT and MXT, cmp for TT and STR. A row that cannot be evaluated says why, and the totals are then null.",
             inputSchema: object({ designId: DESIGN_ID }, ['designId']),
             run: ({ designId }) => ({ designId, ...plain(api.merit(store.get(designId))) }),
+        },
+        {
+            name: 'checkSpecification', title: 'Check the specification',
+            description: "A design judged against its specification as the Specification window judges it, each check at its own Step and averaged over the design's cone of incidence when it has one: passed (true when every enabled check passes and there is one), passing and total (the enabled checks), mode (front, back or total, how the design was scored) and a row per check in order with its index, kind, label, enabled, value, unit ('fraction' for T, R and A, 'nm', 'dB', or '' for a layer count and a disabled check), passed (null for a disabled check), margin (how far the value is from the nearest bound in its unit, positive inside, negative outside, so passed is true exactly when it is 0 or more), threshold { cmp, target, tol, lo, hi } and reason, null or why there is no value: disabled, notComputable, noCurve, fwhmNotBracketed, edgeNotCrossed or unknownKind. A design with no specification is refused; setSpecification sets one.",
+            inputSchema: object({ designId: DESIGN_ID }, ['designId']),
+            run: ({ designId }) => ({ designId, ...api.checkSpecification(store.get(designId)) }),
         },
         {
             name: 'layerSensitivity', title: 'Layer sensitivity',

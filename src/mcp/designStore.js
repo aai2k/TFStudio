@@ -43,7 +43,10 @@ const layersView = layers => (layers || []).map((layer, index) => ({
  * A design as the tools show it: media, substrate (thickness in mm), surface
  * mode and how a one-sided design is scored, each side's layers as the design stores them (the front from the
  * incident medium inward, the back from the substrate outward; thickness in
- * nm), and the merit rows, in full with `rows`, as a count otherwise.
+ * nm), and the merit rows, in full with `rows`, as a count otherwise. With
+ * `rows` it also gives the specification's checks as the design holds them,
+ * each with its id, which marks it to setSpecification as a check the design
+ * holds.
  */
 export function designView(id, design, { rows = false } = {}) {
     const operands = design.meritOperands || [];
@@ -53,7 +56,7 @@ export function designView(id, design, { rows = false } = {}) {
         substrate: { material: design.substrate?.material, thicknessMm: design.substrate?.thickness },
         referenceWavelength: design.referenceWavelength ?? null,
         front: layersView(design.frontLayers), back: layersView(design.backLayers),
-        ...(rows ? { meritRows: operands.map(withoutId) } : { meritRowCount: operands.length }),
+        ...(rows ? { meritRows: operands.map(withoutId), specification: design.qualifiers || [] } : { meritRowCount: operands.length }),
     };
 }
 

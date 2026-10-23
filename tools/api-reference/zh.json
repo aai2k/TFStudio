@@ -335,6 +335,10 @@
     "hash": "dcb76544",
     "text": "评价函数，一个 Merit：它的各行，以及这些行合计得到的评价函数值。"
   },
+  "Design.specification.lead.1": {
+    "hash": "78903321",
+    "text": "规格，一个 Specification：规格说明窗口中判定通过或不通过的各项检查、对它们的判定，以及相对它们的良率。"
+  },
   "Design.stack.arg.formula": {
     "hash": "52d7e502",
     "text": "只写膜层，例如 `'(HL)^5 H'`；介质保持设计原有的。"
@@ -983,6 +987,458 @@
     "hash": "77413ddd",
     "text": "该行无法计算的原因，或 `null` / `None`。"
   },
+  "Specification.lead.1": {
+    "hash": "8de1d126",
+    "text": "设计的规格，内容与规格说明窗口相同：按顺序排列、判定通过或不通过的检查，每一项都是对设计的一个要求，例如某个波段上 R 不低于 0.99，或不超过 30 层。check() 按该窗口的方式判定设计是否满足它们，`estimateYield()` / `estimate_yield()` 统计满足它们的蒙特卡洛试验所占的比例。"
+  },
+  "Specification.add.arg.kind": {
+    "hash": "e53c7c96",
+    "text": "检查的内容：`'T_AT'`、`'R_AT'` 或 `'A_AT'`，在单个波长处；`'T_AVG'`、`'R_AVG'` 或 `'A_AVG'`，波段上的平均值；`'MIN_MAX'`，波段上的最小值或最大值；`'INTEGRAL'`，加权平均值，例如 Tvis；`'CENTRAL_LAMBDA'`，波段中峰或谷的波长；`'FWHM'`，峰在 `level` 处的宽度；`'EDGE_LAMBDA'`，曲线穿过峰值的 `level` 处的波长；`'THICKNESS_BUDGET'`，总厚度；`'LAYER_COUNT'`，层数；`'PPEF'`，相对实测曲线的峰峰误差。"
+  },
+  "Specification.add.arg.start": {
+    "hash": "6fcbf4b5",
+    "text": "单波长检查的波长，或波段的起始波长，单位 nm。不给出时，单波长为 550 nm，波段为 400 nm。"
+  },
+  "Specification.add.arg.end": {
+    "hash": "f2892f84",
+    "text": "波段的结束波长，单位 nm，不小于 `start`。不给出时为 700 nm。"
+  },
+  "Specification.add.arg.cmp": {
+    "hash": "32b0fec9",
+    "text": "比较方式：`'ge'` 或 `'le'`，与 `target` 比较；`'eq'`，在 `target` 加减 `tol` 之内；或 `'between'`，在 `lo` 到 `hi` 之间。"
+  },
+  "Specification.add.arg.target": {
+    "hash": "da30e7db",
+    "text": "界限，使用该检查的单位：T、R 和 A 用 0 到 1 之间的小数表示（窗口中显示为百分比）；波长、宽度和厚度单位为 nm；层数为计数；PPEF 单位为 dB。"
+  },
+  "Specification.add.arg.tol": {
+    "hash": "882b86d7",
+    "text": "`'eq'` 的容差，使用该检查的单位；小于等于 0 时数值必须等于目标值本身。不给出时，T、R 和 A 为 0.01，中心或边缘为 1 nm，宽度为 2 nm，厚度为 10 nm，层数为 0，PPEF 为 0.05 dB。"
+  },
+  "Specification.add.arg.lo": {
+    "hash": "ad70660d",
+    "text": "`'between'` 的最小值，使用该检查的单位。"
+  },
+  "Specification.add.arg.hi": {
+    "hash": "a23d9863",
+    "text": "`'between'` 的最大值，不小于 `lo`。"
+  },
+  "Specification.add.arg.aoi": {
+    "hash": "6fdcefc2",
+    "text": "入射角，为入射介质中的度数。"
+  },
+  "Specification.add.arg.pol": {
+    "hash": "dfbe97e8",
+    "text": "`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "Specification.add.arg.channel": {
+    "hash": "e5a1bb74",
+    "text": "MIN_MAX、INTEGRAL、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA 读取的量：`'T'`、`'R'` 或 `'A'`。"
+  },
+  "Specification.add.arg.direction": {
+    "hash": "0df20ecd",
+    "text": "用于 MIN_MAX、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA：`'max'`，最大值或峰；`'min'`，最小值或谷。"
+  },
+  "Specification.add.arg.level": {
+    "hash": "70121201",
+    "text": "用于 FWHM 和 EDGE_LAMBDA，曲线穿越的电平，0 到 1：direction 为 `'max'` 时为波段内最大值的该比例，为 `'min'` 时为从波段内最小值到 1 之间该比例处的值。小于 0.001 或大于 0.999 的电平按 0.001 或 0.999 计。"
+  },
+  "Specification.add.arg.edgeSide": {
+    "hash": "b146e421",
+    "text": "用于 EDGE_LAMBDA：`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。"
+  },
+  "Specification.add.arg.flag": {
+    "hash": "101b2133",
+    "text": "窗口中的步长，`null` / `None` 表示默认值：对 T_AVG、R_AVG、A_AVG 和 INTEGRAL 为 1 到 4，网格步长不大于 1、0.1、0.01 或 0.001 nm，默认按设计的干涉条纹取网格；对 FWHM 和 EDGE_LAMBDA，以及取 T 或 A 最大值或 R 最小值的 MIN_MAX 和 CENTRAL_LAMBDA 为 2 到 4，以 0.1、0.01 或 0.001 nm 搜索，默认为 1 nm。单波长检查、取 T 或 A 最小值或 R 最大值的 MIN_MAX 和 CENTRAL_LAMBDA、总厚度检查、层数检查和 PPEF 没有步长，只接受 `null` / `None`。"
+  },
+  "Specification.add.arg.side": {
+    "hash": "56a54033",
+    "text": "用于 THICKNESS_BUDGET 和 LAYER_COUNT，累加的膜层：`'front'`、`'back'` 或 `'both'`。不给出时，为设计所镀的面。"
+  },
+  "Specification.add.arg.presetKey": {
+    "hash": "69010950",
+    "text": "用于 INTEGRAL，积分预设 Tvis、Rvis、Avis、Tsol、Rsol、Asol、TUV、RUV、TNIR 和 RNIR 之一，它会像在窗口中选择它一样设置通道、波段、光源、探测器和 `presetLabel` / `preset_label`；`''` 表示不用预设。"
+  },
+  "Specification.add.arg.presetLabel": {
+    "hash": "cc177fd5",
+    "text": "用于 INTEGRAL，窗口中显示的预设名称。"
+  },
+  "Specification.add.arg.source.js": {
+    "hash": "60ba51a0",
+    "text": "用于不带预设的 INTEGRAL，光源：`{ id }`，id 为 D65、D50、A、AM1.5G、E、blackbody（带 `T`，单位 K）或 custom（带 `table`，各行为 [nm, value]）之一。"
+  },
+  "Specification.add.arg.source.py": {
+    "hash": "cab0b7e9",
+    "text": "用于不带预设的 INTEGRAL，光源：{\"id\": ...}，id 为 D65、D50、A、AM1.5G、E、blackbody（带 \"T\"，单位 K）或 custom（带 \"table\"，各行为 [nm, value]）之一。不给出时为 {\"id\": \"D65\"}。"
+  },
+  "Specification.add.arg.detector.js": {
+    "hash": "5a2fabe1",
+    "text": "用于不带预设的 INTEGRAL，探测器：`{ id }`，id 为 photopic、flat 或 custom（带 `table`）。"
+  },
+  "Specification.add.arg.detector.py": {
+    "hash": "4d5dcb31",
+    "text": "用于不带预设的 INTEGRAL，探测器：{\"id\": ...}，id 为 photopic、flat 或 custom（带 \"table\"）。不给出时为 {\"id\": \"photopic\"}。"
+  },
+  "Specification.add.arg.bandPoints": {
+    "hash": "f9dbd17d",
+    "text": "用于 INTEGRAL、FWHM 和 EDGE_LAMBDA，代替默认值的波段采样点数，不小于 2 的整数；宽度或边缘扫描至少取 11 个点。"
+  },
+  "Specification.add.arg.curveId": {
+    "hash": "baf081c2",
+    "text": "用于 PPEF，设计中某条实测曲线的 id。"
+  },
+  "Specification.add.arg.label": {
+    "hash": "a837845f",
+    "text": "该检查的标签。"
+  },
+  "Specification.add.arg.enabled": {
+    "hash": "08a8d045",
+    "text": "为 `false` / `False` 时，该检查不计入判定。"
+  },
+  "Specification.add.lead.1": {
+    "hash": "c0b7313c",
+    "text": "在规格末尾添加一项检查，做法与规格说明窗口添加一行相同：未给出的字段取在窗口中新加一行时的初始值，未给出面的厚度预算或层数累加设计所镀的面。波长随种类而定：单波长检查取一个，`start`；波段检查取 `start` 和 `end`；THICKNESS_BUDGET、LAYER_COUNT 和 PPEF 不取波长。给出预设的 INTEGRAL 检查从预设取得波段，因此可以省略其 `start` 和 `end`。"
+  },
+  "Specification.add.refuses.1": {
+    "hash": "87d7e3b6",
+    "text": "此版本无法计算的种类、任何检查都没有的字段、字段无法接受的值、结束波长小于起始波长的波段，或小于 `lo` 的 `hi`"
+  },
+  "Specification.add.refuses.2.js": {
+    "hash": "90deed8f",
+    "text": "该种类不读取的波长、选项对象之前除 `start` 和 `end` 外还有其他值，或在选项中给出检查的种类、波长或 id"
+  },
+  "Specification.add.refuses.2.py": {
+    "hash": "94bea275",
+    "text": "该种类不读取的波长，或在关键字参数中给出检查的波长或 id"
+  },
+  "Specification.add.refuses.3": {
+    "hash": "df115fa8",
+    "text": "窗口不提供的预设、检查给出的值与其预设设置的不同的字段、曲线不是设计中实测曲线之一的 PPEF 检查，或在没有步长的检查上给出的 flag"
+  },
+  "Specification.remove.arg.index": {
+    "hash": "1ac1fe22",
+    "text": "该检查在规格中的位置，从 0 开始，与 `rows` 中相同。"
+  },
+  "Specification.remove.lead.1": {
+    "hash": "60558944",
+    "text": "删除第 `index` 项检查；其后的检查依次前移一位。"
+  },
+  "Specification.remove.refuses.1": {
+    "hash": "a2c5a697",
+    "text": "规格中没有对应检查的位置"
+  },
+  "Specification.clear.lead.1": {
+    "hash": "f54624e5",
+    "text": "删除规格中的所有检查。"
+  },
+  "Specification.rows.lead.1": {
+    "hash": "a327f157",
+    "text": "各项检查，按顺序排列，每一项都是一个 SpecCheck。"
+  },
+  "Specification.length.lead.1": {
+    "hash": "cb133af6",
+    "text": "规格中的检查数。"
+  },
+  "Specification.check.returns": {
+    "hash": "32a099bc",
+    "text": "一个 SpecReport。"
+  },
+  "Specification.check.lead.1": {
+    "hash": "c6e9f674",
+    "text": "按规格说明窗口的方式，判定设计当前状态是否满足其规格：每项检查按其自身的步长读取；设计有入射锥角时，按锥角取平均。"
+  },
+  "Specification.check.refuses.1": {
+    "hash": "c9c74ffd",
+    "text": "没有检查的设计"
+  },
+  "Specification.check.refuses.2": {
+    "hash": "cefbf1ab",
+    "text": "用到找不到对应材料的设计"
+  },
+  "Specification.estimateYield.arg.runs": {
+    "hash": "e27ea065",
+    "text": "试验次数，不小于 1 的整数。"
+  },
+  "Specification.estimateYield.arg.thicknessRelPct": {
+    "hash": "27c82fcc",
+    "text": "厚度误差，为每层厚度的百分比。"
+  },
+  "Specification.estimateYield.arg.thicknessAbsNm": {
+    "hash": "b3f1bc25",
+    "text": "以 nm 计、加到每一层上的厚度误差。"
+  },
+  "Specification.estimateYield.arg.indexRe": {
+    "hash": "20f7b674",
+    "text": "n 的误差，为绝对量：使用 `'gaussian'` 时为一个标准差，使用 `'uniform'` 和 `'truncated'` 时为界限。"
+  },
+  "Specification.estimateYield.arg.indexIm": {
+    "hash": "33a58a21",
+    "text": "k 的误差，含义与 `indexRe` / `index_re` 对 n 的相同；k 不会小于 0。"
+  },
+  "Specification.estimateYield.arg.distribution": {
+    "hash": "94af9065",
+    "text": "`'gaussian'`、`'uniform'` 或 `'truncated'`（在三个标准差处截断）。"
+  },
+  "Specification.estimateYield.arg.seed": {
+    "hash": "239aa5b4",
+    "text": "抽样的起始数，1 到 2^32 - 1 之间的整数；相同的种子和设置会重复同样的运行。不给出时，使用一个新的种子，并在结果中给出。"
+  },
+  "Specification.estimateYield.arg.progress.js": {
+    "hash": "bcc2ecae",
+    "text": "一个函数，试验进行时以一个 Progress（`trial` 和 `total`）调用它。它抛出的错误会结束运行，运行随即以该错误拒绝。"
+  },
+  "Specification.estimateYield.arg.progress.py": {
+    "hash": "d29d61a5",
+    "text": "一个函数，试验进行时以一个 Progress（trial 和 total）调用它。它引发的异常会停止运行，并继续向外传递。"
+  },
+  "Specification.estimateYield.arg.stop.js": {
+    "hash": "b791f96a",
+    "text": "一个 AbortSignal；中止其 AbortController 会结束运行，运行随即以已完成的试验返回结果。"
+  },
+  "Specification.estimateYield.arg.stop.py": {
+    "hash": "fc81131f",
+    "text": "一个 tfstudio.Stop，调用其 stop() 会结束运行，运行随即以已完成的试验返回结果。"
+  },
+  "Specification.estimateYield.returns.js": {
+    "hash": "8aa9d393",
+    "text": "一个 Yield 的 promise。"
+  },
+  "Specification.estimateYield.returns.py": {
+    "hash": "22fadce6",
+    "text": "一个 Yield。"
+  },
+  "Specification.estimateYield.lead.1": {
+    "hash": "2d672211",
+    "text": "带有随机膜层误差的蒙特卡洛试验中满足规格的比例，与蒙特卡洛窗口统计良率的方式相同：每次试验由每一项启用的检查按其自身的步长判定，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。在种子和设置相同时，这些试验抽取的误差与 `design.monteCarlo()` / `design.monte_carlo()` 相同，因此良率就是其 `spec`；不计算分散。设计不会改变。"
+  },
+  "Specification.estimateYield.refuses.1": {
+    "hash": "597a6db8",
+    "text": "没有启用的检查的设计，或在其评价面上没有可供试验改变的膜层的设计"
+  },
+  "Specification.estimateYield.refuses.2": {
+    "hash": "5e05b683",
+    "text": "它不接受的设置、超出范围的值，或用到找不到对应材料的设计"
+  },
+  "Specification.estimateYield.raises.1": {
+    "hash": "1de6a7f3",
+    "text": "运行期间按下 Ctrl+C，在停止运行之后引发"
+  },
+  "SpecCheck.lead.1": {
+    "hash": "cf6124c0",
+    "text": "设计规格中的一项检查，为读取 design.specification.rows 时的状态。每个属性给出设计中保存的该检查的字段，设计中没有的字段为 `null` / `None`；该检查的种类不读取的字段，保存的是给出的值，或在规格说明窗口中新加一项检查时的初始值。"
+  },
+  "SpecCheck.kind.lead.1": {
+    "hash": "415f52f2",
+    "text": "检查的内容，例如 `'R_AVG'` 或 `'LAYER_COUNT'`；specification.add() 列出了各个种类。"
+  },
+  "SpecCheck.label.lead.1": {
+    "hash": "69246a06",
+    "text": "该检查的标签，没有标签时为 `''`。"
+  },
+  "SpecCheck.enabled.lead.1": {
+    "hash": "d3a52173",
+    "text": "不计入判定的检查为 `false` / `False`。"
+  },
+  "SpecCheck.cmp.lead.1": {
+    "hash": "5c80226e",
+    "text": "比较方式：`'ge'`、`'le'`、`'eq'` 或 `'between'`。"
+  },
+  "SpecCheck.target.lead.1": {
+    "hash": "3ae642f1",
+    "text": "`'ge'` 和 `'le'` 的界限，以及 `'eq'` 所要求的值，使用该检查的单位：T、R 和 A 用 0 到 1 之间的小数表示，波长、宽度和厚度单位为 nm，层数为计数，PPEF 单位为 dB。"
+  },
+  "SpecCheck.tol.lead.1": {
+    "hash": "74508ae6",
+    "text": "`'eq'` 的容差，使用该检查的单位。"
+  },
+  "SpecCheck.lo.lead.1": {
+    "hash": "ad70660d",
+    "text": "`'between'` 的最小值，使用该检查的单位。"
+  },
+  "SpecCheck.hi.lead.1": {
+    "hash": "d6491356",
+    "text": "`'between'` 的最大值，使用该检查的单位。"
+  },
+  "SpecCheck.wavelength.lead.1": {
+    "hash": "05632422",
+    "text": "单波长检查（T_AT、R_AT 或 A_AT）的波长，单位 nm。"
+  },
+  "SpecCheck.start.lead.1": {
+    "hash": "1c718cd2",
+    "text": "波段检查所读取波段的起始波长，单位 nm。"
+  },
+  "SpecCheck.end.lead.1": {
+    "hash": "fe334a67",
+    "text": "波段的结束波长，单位 nm。"
+  },
+  "SpecCheck.aoi.lead.1": {
+    "hash": "6fdcefc2",
+    "text": "入射角，为入射介质中的度数。"
+  },
+  "SpecCheck.pol.lead.1": {
+    "hash": "5dc0d53b",
+    "text": "偏振，`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "SpecCheck.channel.lead.1": {
+    "hash": "e5a1bb74",
+    "text": "MIN_MAX、INTEGRAL、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA 读取的量：`'T'`、`'R'` 或 `'A'`。"
+  },
+  "SpecCheck.direction.lead.1": {
+    "hash": "0df20ecd",
+    "text": "用于 MIN_MAX、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA：`'max'`，最大值或峰；`'min'`，最小值或谷。"
+  },
+  "SpecCheck.level.lead.1": {
+    "hash": "a26fc478",
+    "text": "用于 FWHM 和 EDGE_LAMBDA，曲线穿越的电平，0 到 1：direction 为 `'max'` 时为波段内最大值的该比例，为 `'min'` 时为从波段内最小值到 1 之间该比例处的值。"
+  },
+  "SpecCheck.edgeSide.lead.1": {
+    "hash": "0ce3a30e",
+    "text": "用于 EDGE_LAMBDA，`'left'` 或 `'right'`，峰以下或峰以上的交点；`null` / `None` 表示峰以下的交点，峰以下没有交点时为峰以上的交点。"
+  },
+  "SpecCheck.flag.lead.1": {
+    "hash": "d7d483fc",
+    "text": "窗口中的步长，`null` / `None` 表示默认值；specification.add() 说明它在每个种类上的含义。"
+  },
+  "SpecCheck.side.lead.1": {
+    "hash": "753c72de",
+    "text": "用于 THICKNESS_BUDGET 和 LAYER_COUNT，累加的膜层：`'front'`、`'back'` 或 `'both'`。"
+  },
+  "SpecCheck.presetKey.lead.1": {
+    "hash": "1938c91d",
+    "text": "用于 INTEGRAL，设置其通道、波段、光源和探测器的积分预设，例如 `'Tvis'`；没有预设时为 `''`。"
+  },
+  "SpecCheck.presetLabel.lead.1": {
+    "hash": "cc177fd5",
+    "text": "用于 INTEGRAL，窗口中显示的预设名称。"
+  },
+  "SpecCheck.source.lead.1.js": {
+    "hash": "d966112d",
+    "text": "用于 INTEGRAL，对波段加权的光源，例如 `{ id: 'D65' }`。"
+  },
+  "SpecCheck.source.lead.1.py": {
+    "hash": "6ad0be4e",
+    "text": "用于 INTEGRAL，对波段加权的光源，例如 {\"id\": \"D65\"}。"
+  },
+  "SpecCheck.detector.lead.1.js": {
+    "hash": "3b01af98",
+    "text": "用于 INTEGRAL，对波段加权的探测器，例如 `{ id: 'photopic' }`。"
+  },
+  "SpecCheck.detector.lead.1.py": {
+    "hash": "8e04fff5",
+    "text": "用于 INTEGRAL，对波段加权的探测器，例如 {\"id\": \"photopic\"}。"
+  },
+  "SpecCheck.bandPoints.lead.1": {
+    "hash": "c07f07f3",
+    "text": "用于 INTEGRAL、FWHM 和 EDGE_LAMBDA，波段的采样点数；`null` / `None` 表示默认值。"
+  },
+  "SpecCheck.curveId.lead.1": {
+    "hash": "7b00f296",
+    "text": "用于 PPEF，计算误差所相对的实测曲线的 id；其他种类的检查为 `null` / `None`，如下例中的层数检查。"
+  },
+  "SpecReport.lead.1": {
+    "hash": "e8a91439",
+    "text": "设计相对其规格的判定，与 specification.check() 的判定和规格说明窗口的显示相同：每项检查一个 CheckResult。"
+  },
+  "SpecReport.rows.lead.1": {
+    "hash": "d6f52db2",
+    "text": "每项检查一个 CheckResult，按规格中的顺序排列。"
+  },
+  "SpecReport.passed.lead.1": {
+    "hash": "5300311a",
+    "text": "每一项启用的检查都通过、且至少有一项时为 `true` / `True`。"
+  },
+  "SpecReport.passing.lead.1": {
+    "hash": "5460bad1",
+    "text": "通过的启用检查数。"
+  },
+  "SpecReport.total.lead.1": {
+    "hash": "1bb05db9",
+    "text": "启用的检查数。"
+  },
+  "SpecReport.mode.lead.1": {
+    "hash": "3667490f",
+    "text": "检查的计算对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。"
+  },
+  "CheckResult.lead.1": {
+    "hash": "aafb7925",
+    "text": "设计规格中的一项检查经 specification.check() 判定的结果，与规格说明窗口中该行的显示相同。"
+  },
+  "CheckResult.kind.lead.1": {
+    "hash": "95800aef",
+    "text": "该检查的种类，例如 `'R_AVG'`。"
+  },
+  "CheckResult.label.lead.1": {
+    "hash": "69246a06",
+    "text": "该检查的标签，没有标签时为 `''`。"
+  },
+  "CheckResult.value.lead.1": {
+    "hash": "1c5f14ca",
+    "text": "该检查的数值：T、R 和 A 用 0 到 1 之间的小数表示，波长、宽度和厚度单位为 nm，PPEF 单位为 dB，层数为计数；没有数值时为 `null` / `None`，例如不计入判定的检查。"
+  },
+  "CheckResult.unit.lead.1": {
+    "hash": "dc6633ac",
+    "text": "数值的单位：`'fraction'`、`'nm'` 或 `'dB'`；层数和不计入判定的检查为 `''`。"
+  },
+  "CheckResult.passed.lead.1": {
+    "hash": "bf79cc6a",
+    "text": "数值是否满足阈值，与窗口中的标记相同：没有数值时为 `false` / `False`，不计入判定的检查为 `null` / `None`。"
+  },
+  "CheckResult.margin.lead.1": {
+    "hash": "0b5ffb27",
+    "text": "数值离最近界限的距离，使用数值的单位：为正时表示剩余的余量，为负时表示超出的量，位于界限上时为 0，因此 `passed` 恰好在它大于等于 0 时为 `true` / `True`；没有数值时为 `null` / `None`。"
+  },
+  "CheckResult.threshold.lead.1.js": {
+    "hash": "2e7c6aa9",
+    "text": "数值所依据的比较，与检查中保存的相同：一个对象 `{ cmp, target, tol, lo, hi }`。"
+  },
+  "CheckResult.threshold.lead.1.py": {
+    "hash": "3a41dcc0",
+    "text": "数值所依据的比较，与检查中保存的相同：一个具名元组 (cmp, target, tol, lo, hi)。"
+  },
+  "CheckResult.reason.lead.1": {
+    "hash": "cd03edc4",
+    "text": "没有数值的原因，或 `null` / `None`：`'disabled'`，不计入判定的检查；`'notComputable'`，算出的值不是数；`'noCurve'`，设计中没有其曲线的 PPEF 检查；`'fwhmNotBracketed'` 或 `'edgeNotCrossed'`，交点不在波段内的宽度或边缘；`'unknownKind'`。"
+  },
+  "Yield.lead.1": {
+    "hash": "48d7421d",
+    "text": "带有随机膜层误差的蒙特卡洛试验相对设计规格的良率，与蒙特卡洛窗口的统计方式相同：满足每一项启用检查的试验所占的比例，每项检查按其自身的步长读取。"
+  },
+  "Yield.value.lead.1": {
+    "hash": "33341fb6",
+    "text": "良率：经过检查的试验中满足每一项启用检查的比例，0 到 1；没有试验经过检查时为 `null` / `None`。"
+  },
+  "Yield.passCount.lead.1": {
+    "hash": "79bdef1d",
+    "text": "满足每一项启用检查的试验数。"
+  },
+  "Yield.evaluated.lead.1": {
+    "hash": "068a1afa",
+    "text": "经过检查的试验数：已运行的试验，减去其检查无法计算的试验。"
+  },
+  "Yield.interval.lead.1": {
+    "hash": "829caaf4",
+    "text": "良率的 95 % 区间，`[low, high]`，0 到 1；没有试验经过检查时为 `null` / `None`。"
+  },
+  "Yield.checks.lead.1.js": {
+    "hash": "89378bc9",
+    "text": "规格中每项检查一个对象，按其顺序排列：`{ label, failRate }`，即该检查的标签（没有标签时为其种类），以及在全部已运行试验中该检查未通过的比例。不计入判定的检查在任何试验中都不算未通过。"
+  },
+  "Yield.checks.lead.1.py": {
+    "hash": "2a08e829",
+    "text": "规格中每项检查一个具名元组 (label, fail_rate)，按其顺序排列：该检查的标签（没有标签时为其种类），以及在全部已运行试验中该检查未通过的比例。不计入判定的检查在任何试验中都不算未通过。"
+  },
+  "Yield.runs.lead.1": {
+    "hash": "8cf49914",
+    "text": "已运行的试验数：与要求的相同；运行被停止时会更少。"
+  },
+  "Yield.seed.lead.1": {
+    "hash": "39b07192",
+    "text": "抽样所用的起始种子：相同的种子、设计和设置会重复同样的试验。"
+  },
+  "Yield.mode.lead.1": {
+    "hash": "95a2b0aa",
+    "text": "试验的评价对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。"
+  },
   "Spectrum.lead.1": {
     "hash": "41480900",
     "text": "设计在一段波长范围内、一个或多个入射角下的 R、T 和 A，由 design.spectrum() 计算。`s.R` 及其他量都是所要求的第一个角度下的值；`s.angle(45)` 是另一个角度下的光谱。"
@@ -1291,13 +1747,9 @@
     "hash": "eea26263",
     "text": "抽样所用的起始种子：相同的种子和设置会重复同样的运行。"
   },
-  "MonteCarlo.spec.lead.1.js": {
-    "hash": "efdcb594",
-    "text": "设计有规格时，满足规格的试验所占的比例：一个对象 `{ yield, passCount, evaluated, yieldInterval }`，其中 `yieldInterval` 是该比例的 95 % 区间；没有规格的设计为 null。"
-  },
-  "MonteCarlo.spec.lead.1.py": {
-    "hash": "7cf714c2",
-    "text": "设计有规格时，满足规格的试验所占的比例：一个 dict { yield, passCount, evaluated, yieldInterval }，其中 yieldInterval 是该比例的 95 % 区间；没有规格的设计为 None。"
+  "MonteCarlo.spec.lead.1": {
+    "hash": "c97e3132",
+    "text": "设计有规格时，满足规格的试验所占的比例，一个 Yield，与 `specification.estimateYield()` / `specification.estimate_yield()` 的统计相同；没有规格的设计为 `null` / `None`。"
   },
   "MonteCarlo.mode.lead.1": {
     "hash": "95a2b0aa",

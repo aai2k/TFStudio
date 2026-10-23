@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [Spectrum](#spectrum-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -483,6 +483,28 @@ design = tf.new_design("AR")
 design.stack("(HL)^2")
 design.merit.add("RAV", 420, 680, target=0)
 print(design.merit.value)
+```
+
+### specification
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification` | `design.specification` |
+
+The specification, a Specification: the pass or fail checks of the Specification window, the verdict on them and the yield against them.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.check().passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.check().passed)
 ```
 
 ### stack
@@ -1767,6 +1789,1396 @@ for row in design.merit.rows:
     print(row.type, row.error or "evaluated")
 ```
 
+## Specification
+
+A design's specification, as the Specification window holds it: pass or fail checks in order, each a requirement on the design, such as R of 0.99 or more over a band, or no more than 30 layers. check() judges the design against them as the window does, and `estimateYield()` / `estimate_yield()` counts the share of Monte Carlo trials that meet them.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+const report = design.specification.check();
+console.log(report.passed, report.rows.map(row => row.margin));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+report = design.specification.check()
+print(report.passed, [row.margin for row in report.rows])
+```
+
+### add
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.add(kind, start, end, { cmp, target, tol, lo, hi, aoi, pol, channel, direction, level, edgeSide, flag, side, presetKey, presetLabel, source, detector, bandPoints, curveId, label, enabled })` | `design.specification.add(kind, start=..., end=..., cmp="ge", target=0.99, tol=..., lo=0.95, hi=1, aoi=0, pol="avg", channel="T", direction="max", level=0.5, edge_side=..., flag=..., side=..., preset_key="", preset_label="", source=..., detector=..., band_points=..., curve_id=..., label="", enabled=True)` |
+
+Adds a check at the end of the specification, made as the Specification window makes a row: a field left out takes the value a row added there starts with, and a thickness budget or layer count given no side adds up the side the design coats. The wavelengths follow the kind: one, `start`, for a check at one wavelength, `start` and `end` for a check over a band, and none for THICKNESS_BUDGET, LAYER_COUNT and PPEF. An INTEGRAL check given a preset takes its band from the preset, so its `start` and `end` may be left out.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `kind` | `kind` |  | What is checked: `'T_AT'`, `'R_AT'` or `'A_AT'` at one wavelength; `'T_AVG'`, `'R_AVG'` or `'A_AVG'`, the average over a band; `'MIN_MAX'`, the lowest or highest value over a band; `'INTEGRAL'`, a weighted average such as Tvis; `'CENTRAL_LAMBDA'`, the wavelength of the band's peak or dip; `'FWHM'`, the width of the peak at `level`; `'EDGE_LAMBDA'`, where the curve crosses `level` of the peak; `'THICKNESS_BUDGET'`, the total thickness; `'LAYER_COUNT'`, the number of layers; `'PPEF'`, the peak-to-peak error against a measured curve. |
+| `start` | `start` |  | The wavelength of a check at one wavelength, or the first wavelength of the band, nm. Without it, 550 nm for one wavelength and 400 nm for a band. |
+| `end` | `end` |  | The last wavelength of the band, nm, no lower than `start`. Without it, 700 nm. |
+| `cmp` | `cmp` | `'ge'` | The comparison: `'ge'` or `'le'` with `target`, `'eq'` within `target` plus or minus `tol`, or `'between'` from `lo` to `hi`. |
+| `target` | `target` | `0.99` | The bound, in the check's unit: T, R and A as fractions of 1, where the window shows percent; wavelengths, widths and thicknesses in nm; a layer count as a count; PPEF in dB. |
+| `tol` | `tol` |  | The tolerance of `'eq'`, in the check's unit; 0 or less holds the value to the target itself. Without it, 0.01 for T, R and A, 1 nm for a centre or an edge, 2 nm for a width, 10 nm for a thickness, 0 for a layer count, 0.05 dB for PPEF. |
+| `lo` | `lo` | `0.95` | The lowest value of `'between'`, in the check's unit. |
+| `hi` | `hi` | `1` | The highest value of `'between'`, no lower than `lo`. |
+| `aoi` | `aoi` | `0` | The angle of incidence, degrees in the incident medium. |
+| `pol` | `pol` | `'avg'` | `'avg'`, `'s'` or `'p'`. |
+| `channel` | `channel` | `'T'` | What MIN_MAX, INTEGRAL, CENTRAL_LAMBDA, FWHM and EDGE_LAMBDA read: `'T'`, `'R'` or `'A'`. |
+| `direction` | `direction` | `'max'` | For MIN_MAX, CENTRAL_LAMBDA, FWHM and EDGE_LAMBDA: `'max'`, the highest value or a peak, or `'min'`, the lowest value or a dip. |
+| `level` | `level` | `0.5` | For FWHM and EDGE_LAMBDA, the level the curve crosses, 0 to 1: with direction `'max'` that fraction of the band's highest value, with `'min'` that fraction of the way from its lowest value up to 1. A level below 0.001 or above 0.999 is taken as 0.001 or 0.999. |
+| `edgeSide` | `edge_side` |  | For EDGE_LAMBDA, `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below. |
+| `flag` | `flag` |  | The window's Step, `null` / `None` for its default: on T_AVG, R_AVG, A_AVG and INTEGRAL 1 to 4, a grid no coarser than 1, 0.1, 0.01 or 0.001 nm, the default being the design's fringe grid; on FWHM and EDGE_LAMBDA, and on MIN_MAX and CENTRAL_LAMBDA of the highest T or A or the lowest R, 2 to 4, a search at 0.1, 0.01 or 0.001 nm, the default being 1 nm. A check at one wavelength, MIN_MAX and CENTRAL_LAMBDA of the lowest T or A or the highest R, a thickness budget, a layer count and PPEF have no Step, and take `null` / `None`. |
+| `side` | `side` |  | For THICKNESS_BUDGET and LAYER_COUNT, the layers added up: `'front'`, `'back'` or `'both'`. Without it, the side the design coats. |
+| `presetKey` | `preset_key` | `''` | For INTEGRAL, one of the integral presets Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR and RNIR, which sets the channel, band, source, detector and `presetLabel` / `preset_label` as picking it in the window does, or `''` for none. |
+| `presetLabel` | `preset_label` | `''` | For INTEGRAL, the preset's name as the window shows it. |
+| `source` | `source` | `{ id: 'D65' }` | **JavaScript**: For INTEGRAL without a preset, the source: `{ id }`, the id one of D65, D50, A, AM1.5G, E, blackbody (with `T` in K) or custom (with `table`, rows of [nm, value]).<br>**Python**: For INTEGRAL without a preset, the source: {"id": ...}, the id one of D65, D50, A, AM1.5G, E, blackbody (with "T" in K) or custom (with "table", rows of [nm, value]). Without it, {"id": "D65"}. |
+| `detector` | `detector` | `{ id: 'photopic' }` | **JavaScript**: For INTEGRAL without a preset, the detector: `{ id }`, the id photopic, flat or custom (with `table`).<br>**Python**: For INTEGRAL without a preset, the detector: {"id": ...}, the id photopic, flat or custom (with "table"). Without it, {"id": "photopic"}. |
+| `bandPoints` | `band_points` |  | For INTEGRAL, FWHM and EDGE_LAMBDA, how many points the band is sampled at in place of the default, a whole number of 2 or more; a width or edge scan takes 11 at the least. |
+| `curveId` | `curve_id` |  | For PPEF, the id of one of the design's measured curves. |
+| `label` | `label` | `''` | The check's label. |
+| `enabled` | `enabled` | `true` / `True` | `false` / `False` leaves the check out of the verdict. |
+
+**Refuses**:
+
+- a kind this version does not evaluate, a field no check has, a value its field cannot take, a band whose end is below its start, or a `hi` below `lo`
+- **JavaScript**: a wavelength the kind does not read, more than `start` and `end` before the options, or the check's kind, wavelengths or id among the options<br>**Python**: a wavelength the kind does not read, or the check's wavelengths or id among the keyword arguments
+- a preset the window does not offer, a field the check gives otherwise than its preset sets it, a PPEF check whose curve is not one of the design's measured curves, or a flag on a check with no Step
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.99 });
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97, aoi: 45, pol: 's' });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+console.log(design.specification.length, 'checks, the layer count on the', design.specification.rows[2].side);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="ge", target=0.99)
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97, aoi=45, pol="s")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+print(len(design.specification), "checks, the layer count on the", design.specification.rows[2].side)
+```
+
+### remove
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.remove(index)` | `design.specification.remove(index)` |
+
+Takes check `index` out; the checks after it move one up.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `index` | `index` |  | The check's place in the specification, from 0, as in `rows`. |
+
+**Refuses**:
+
+- an index the specification has no check at
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+design.specification.remove(0);
+console.log(design.specification.length, 'check:', design.specification.rows[0].kind);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+design.specification.remove(0)
+print(len(design.specification), "check:", design.specification.rows[0].kind)
+```
+
+### clear
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.clear()` | `design.specification.clear()` |
+
+Takes every check out of the specification.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.clear();
+console.log(design.specification.length, 'checks');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.clear()
+print(len(design.specification), "checks")
+```
+
+### rows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.rows` | `design.specification.rows` |
+
+The checks, in order, each a SpecCheck.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+for (const check of design.specification.rows) console.log(check.kind, check.cmp, check.target);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+for check in design.specification.rows:
+    print(check.kind, check.cmp, check.target)
+```
+
+### length / len()
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.length` | `len(design.specification)` |
+
+How many checks the specification has.
+
+```js
+const design = tf.newDesign('Mirror');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+console.log(design.specification.length, 'check');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+print(len(design.specification), "check")
+```
+
+### check
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.specification.check()` | `design.specification.check()` |
+
+The design as it is now judged against its specification, as the Specification window judges it: each check read at its own Step, and averaged over the design's cone of incidence when it has one.
+
+**Returns**: A SpecReport.
+
+**Refuses**:
+
+- a design with no check
+- a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+const report = design.specification.check();
+for (const row of report.rows) console.log(row.kind, row.value, row.unit, row.passed, 'margin', row.margin);
+console.log('Passes:', report.passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("LAYER_COUNT", cmp="le", target=9)
+report = design.specification.check()
+for row in report.rows:
+    print(row.kind, row.value, row.unit, row.passed, "margin", row.margin)
+print("Passes:", report.passed)
+```
+
+### estimateYield / estimate_yield
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `await design.specification.estimateYield(runs, { thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop })` | `design.specification.estimate_yield(runs, thickness_rel_pct=1, thickness_abs_nm=0, index_re=0, index_im=0, distribution="gaussian", seed=..., progress=..., stop=...)` |
+
+The share of Monte Carlo trials with random layer errors that meet the specification, as the Monte Carlo window counts its yield: each trial is judged by every enabled check, at the check's own Step, on what the design's `sides` and `scoreOn` / `score_on` say. The trials draw the errors `design.monteCarlo()` / `design.monte_carlo()` draws with the same seed and settings, so the yield is its `spec`; no spread is computed. The design is not changed.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `runs` | `runs` |  | How many trials, a whole number of 1 or more. |
+| `thicknessRelPct` | `thickness_rel_pct` | `1` | The thickness error, % of each layer. |
+| `thicknessAbsNm` | `thickness_abs_nm` | `0` | A thickness error in nm added to every layer's. |
+| `indexRe` | `index_re` | `0` | The error on n, an absolute amount: one standard deviation with `'gaussian'`, a bound with `'uniform'` and `'truncated'`. |
+| `indexIm` | `index_im` | `0` | The error on k, an amount as `indexRe` / `index_re` is on n; k does not go below 0. |
+| `distribution` | `distribution` | `'gaussian'` | `'gaussian'`, `'uniform'` or `'truncated'` (a bound at three standard deviations). |
+| `seed` | `seed` |  | The number the draws start from, a whole number from 1 to 2^32 - 1; the same seed and settings repeat the run. Without it, a fresh one, which the result reports. |
+| `progress` | `progress` |  | **JavaScript**: A function called with a Progress (`trial` and `total`) as the trials go. An error it throws ends the run, which then rejects with it.<br>**Python**: A function called with a Progress (trial and total) as the trials go. An exception it raises stops the run and goes on. |
+| `stop` | `stop` |  | **JavaScript**: An AbortSignal; aborting its AbortController ends the run, which then answers with the trials it made.<br>**Python**: A tfstudio.Stop whose stop() ends the run, which then answers with the trials it made. |
+
+**Returns**: **JavaScript**: A promise of a Yield.<br>**Python**: A Yield.
+
+**Refuses**:
+
+- a design with no enabled check, or with no layer the trials can change on the side it is scored on
+- a setting it does not take, a value outside its range, or a design that names a material that resolves to nothing
+- Python raises `KeyboardInterrupt`: Ctrl+C during the run, after stopping it
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const y = await design.specification.estimateYield(100, { thicknessRelPct: 2, seed: 1 });
+console.log('Yield', y.value, 'of', y.runs, 'trials; fails:', y.checks.map(check => check.failRate));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+y = design.specification.estimate_yield(100, thickness_rel_pct=2, seed=1)
+print("Yield", y.value, "of", y.runs, "trials; fails:", [check.fail_rate for check in y.checks])
+```
+
+## SpecCheck
+
+One check of a design's specification, as it was when design.specification.rows was read. Each attribute holds the check's field as the design holds it, `null` / `None` for a field it holds none of; a field the check's kind does not read holds the value it was given, or the one a check added in the Specification window starts with.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+for (const check of design.specification.rows) console.log(check.kind, check.start, check.end, check.cmp, check.target);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+for check in design.specification.rows:
+    print(check.kind, check.start, check.end, check.cmp, check.target)
+```
+
+### kind
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.kind` | `check.kind` |
+
+What the check checks, such as `'R_AVG'` or `'LAYER_COUNT'`; specification.add() lists the kinds.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+console.log(design.specification.rows[0].kind);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+print(design.specification.rows[0].kind)
+```
+
+### label
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.label` | `check.label` |
+
+The check's label, `''` when it has none.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { label: 'Stop band' });
+console.log(design.specification.rows[0].label);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, label="Stop band")
+print(design.specification.rows[0].label)
+```
+
+### enabled
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.enabled` | `check.enabled` |
+
+`false` / `False` for a check left out of the verdict.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { enabled: false });
+console.log(design.specification.rows[0].enabled);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, enabled=False)
+print(design.specification.rows[0].enabled)
+```
+
+### cmp
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.cmp` | `check.cmp` |
+
+The comparison: `'ge'`, `'le'`, `'eq'` or `'between'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+console.log(design.specification.rows[0].cmp);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+print(design.specification.rows[0].cmp)
+```
+
+### target
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.target` | `check.target` |
+
+The bound of `'ge'` and `'le'`, and the value `'eq'` holds to, in the check's unit: T, R and A as fractions of 1, wavelengths, widths and thicknesses in nm, a layer count as a count, PPEF in dB.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].target);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.rows[0].target)
+```
+
+### tol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.tol` | `check.tol` |
+
+The tolerance of `'eq'`, in the check's unit.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('CENTRAL_LAMBDA', 500, 600, { cmp: 'eq', target: 550 });
+console.log(design.specification.rows[0].tol, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("CENTRAL_LAMBDA", 500, 600, cmp="eq", target=550)
+print(design.specification.rows[0].tol, "nm")
+```
+
+### lo
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.lo` | `check.lo` |
+
+The lowest value of `'between'`, in the check's unit.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'between', lo: 0.95, hi: 1 });
+console.log(design.specification.rows[0].lo);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="between", lo=0.95, hi=1)
+print(design.specification.rows[0].lo)
+```
+
+### hi
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.hi` | `check.hi` |
+
+The highest value of `'between'`, in the check's unit.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'between', lo: 0.95, hi: 1 });
+console.log(design.specification.rows[0].hi);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="between", lo=0.95, hi=1)
+print(design.specification.rows[0].hi)
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.wavelength` | `check.wavelength` |
+
+The wavelength of a check at one wavelength, T_AT, R_AT or A_AT, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.99 });
+console.log(design.specification.rows[0].wavelength, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="ge", target=0.99)
+print(design.specification.rows[0].wavelength, "nm")
+```
+
+### start
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.start` | `check.start` |
+
+The first wavelength of the band a check over a band reads, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].start, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.rows[0].start, "nm")
+```
+
+### end
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.end` | `check.end` |
+
+The last wavelength of the band, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].end, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.rows[0].end, "nm")
+```
+
+### aoi
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.aoi` | `check.aoi` |
+
+The angle of incidence, degrees in the incident medium.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { aoi: 45, pol: 's' });
+console.log(design.specification.rows[0].aoi);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, aoi=45, pol="s")
+print(design.specification.rows[0].aoi)
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.pol` | `check.pol` |
+
+The polarization, `'avg'`, `'s'` or `'p'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { aoi: 45, pol: 's' });
+console.log(design.specification.rows[0].pol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, aoi=45, pol="s")
+print(design.specification.rows[0].pol)
+```
+
+### channel
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.channel` | `check.channel` |
+
+What MIN_MAX, INTEGRAL, CENTRAL_LAMBDA, FWHM and EDGE_LAMBDA read: `'T'`, `'R'` or `'A'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('MIN_MAX', 520, 580, { channel: 'R', direction: 'min', cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].channel);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("MIN_MAX", 520, 580, channel="R", direction="min", cmp="ge", target=0.9)
+print(design.specification.rows[0].channel)
+```
+
+### direction
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.direction` | `check.direction` |
+
+For MIN_MAX, CENTRAL_LAMBDA, FWHM and EDGE_LAMBDA: `'max'`, the highest value or a peak, or `'min'`, the lowest value or a dip.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('MIN_MAX', 520, 580, { channel: 'R', direction: 'min', cmp: 'ge', target: 0.9 });
+console.log(design.specification.rows[0].direction);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("MIN_MAX", 520, 580, channel="R", direction="min", cmp="ge", target=0.9)
+print(design.specification.rows[0].direction)
+```
+
+### level
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.level` | `check.level` |
+
+For FWHM and EDGE_LAMBDA, the level the curve crosses, 0 to 1: with direction `'max'` that fraction of the band's highest value, with `'min'` that fraction of the way from its lowest value up to 1.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('FWHM', 400, 800, { channel: 'R', level: 0.5, cmp: 'ge', target: 100 });
+console.log(design.specification.rows[0].level);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("FWHM", 400, 800, channel="R", level=0.5, cmp="ge", target=100)
+print(design.specification.rows[0].level)
+```
+
+### edgeSide / edge_side
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.edgeSide` | `check.edge_side` |
+
+For EDGE_LAMBDA, `'left'` or `'right'`, the crossing below or above the peak; `null` / `None` for the one below it, or the one above where there is none below.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('EDGE_LAMBDA', 400, 800, { channel: 'R', edgeSide: 'right', cmp: 'ge', target: 600 });
+console.log(design.specification.rows[0].edgeSide);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("EDGE_LAMBDA", 400, 800, channel="R", edge_side="right", cmp="ge", target=600)
+print(design.specification.rows[0].edge_side)
+```
+
+### flag
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.flag` | `check.flag` |
+
+The window's Step, or `null` / `None` for its default; specification.add() says what it is on each kind.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { flag: 2 });
+console.log(design.specification.rows[0].flag);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, flag=2)
+print(design.specification.rows[0].flag)
+```
+
+### side
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.side` | `check.side` |
+
+For THICKNESS_BUDGET and LAYER_COUNT, the layers added up: `'front'`, `'back'` or `'both'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('THICKNESS_BUDGET', { cmp: 'le', target: 2000 });
+console.log(design.specification.rows[0].side);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("THICKNESS_BUDGET", cmp="le", target=2000)
+print(design.specification.rows[0].side)
+```
+
+### presetKey / preset_key
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.presetKey` | `check.preset_key` |
+
+For INTEGRAL, the integral preset that set its channel, band, source and detector, such as `'Tvis'`, or `''` for none.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.specification.add('INTEGRAL', { presetKey: 'Rvis', cmp: 'le', target: 0.01 });
+console.log(design.specification.rows[0].presetKey);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.specification.add("INTEGRAL", preset_key="Rvis", cmp="le", target=0.01)
+print(design.specification.rows[0].preset_key)
+```
+
+### presetLabel / preset_label
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.presetLabel` | `check.preset_label` |
+
+For INTEGRAL, the preset's name as the window shows it.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.specification.add('INTEGRAL', { presetKey: 'Rvis', cmp: 'le', target: 0.01 });
+console.log(design.specification.rows[0].presetLabel);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.specification.add("INTEGRAL", preset_key="Rvis", cmp="le", target=0.01)
+print(design.specification.rows[0].preset_label)
+```
+
+### source
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.source` | `check.source` |
+
+**JavaScript**: For INTEGRAL, the source the band is weighted by, such as `{ id: 'D65' }`.
+
+**Python**: For INTEGRAL, the source the band is weighted by, such as {"id": "D65"}.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.specification.add('INTEGRAL', { presetKey: 'Rvis', cmp: 'le', target: 0.01 });
+console.log(design.specification.rows[0].source);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.specification.add("INTEGRAL", preset_key="Rvis", cmp="le", target=0.01)
+print(design.specification.rows[0].source)
+```
+
+### detector
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.detector` | `check.detector` |
+
+**JavaScript**: For INTEGRAL, the detector the band is weighted by, such as `{ id: 'photopic' }`.
+
+**Python**: For INTEGRAL, the detector the band is weighted by, such as {"id": "photopic"}.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.specification.add('INTEGRAL', { presetKey: 'Rvis', cmp: 'le', target: 0.01 });
+console.log(design.specification.rows[0].detector);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.specification.add("INTEGRAL", preset_key="Rvis", cmp="le", target=0.01)
+print(design.specification.rows[0].detector)
+```
+
+### bandPoints / band_points
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.bandPoints` | `check.band_points` |
+
+For INTEGRAL, FWHM and EDGE_LAMBDA, how many points the band is sampled at; `null` / `None` for the default.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('FWHM', 400, 800, { channel: 'R', bandPoints: 801, cmp: 'ge', target: 100 });
+console.log(design.specification.rows[0].bandPoints);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("FWHM", 400, 800, channel="R", band_points=801, cmp="ge", target=100)
+print(design.specification.rows[0].band_points)
+```
+
+### curveId / curve_id
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.curveId` | `check.curve_id` |
+
+For PPEF, the id of the measured curve the error is taken against; `null` / `None` on a check of another kind, such as the layer count below.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 15 });
+const check = design.specification.rows[0];
+console.log(check.kind, 'is taken against no curve:', check.curveId);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("LAYER_COUNT", cmp="le", target=15)
+check = design.specification.rows[0]
+print(check.kind, "is taken against no curve:", check.curve_id)
+```
+
+## SpecReport
+
+A design judged against its specification, as specification.check() judges it and the Specification window shows it: a CheckResult per check.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+const report = design.specification.check();
+console.log(report.passing, 'of', report.total, 'checks pass');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.specification.add("LAYER_COUNT", cmp="le", target=9)
+report = design.specification.check()
+print(report.passing, "of", report.total, "checks pass")
+```
+
+### rows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.rows` | `report.rows` |
+
+One CheckResult per check, in the specification's order.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+for (const row of design.specification.check().rows) console.log(row.kind, row.passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+for row in design.specification.check().rows:
+    print(row.kind, row.passed)
+```
+
+### passed
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.passed` | `report.passed` |
+
+`true` / `True` when every enabled check passes and there is one at least.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.check().passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.check().passed)
+```
+
+### passing
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.passing` | `report.passing` |
+
+How many enabled checks pass.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+console.log(design.specification.check().passing);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.specification.add("LAYER_COUNT", cmp="le", target=9)
+print(design.specification.check().passing)
+```
+
+### total
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.total` | `report.total` |
+
+How many checks are enabled.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9, enabled: false });
+console.log(design.specification.check().total);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.specification.add("LAYER_COUNT", cmp="le", target=9, enabled=False)
+print(design.specification.check().total)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.mode` | `report.mode` |
+
+What the checks were computed on: `'front'` or `'back'`, the coated side alone, or `'total'`, the whole part, as the design's `sides` and `scoreOn` / `score_on` said.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.scoreOn = 'whole part';
+console.log(design.specification.check().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.score_on = "whole part"
+print(design.specification.check().mode)
+```
+
+## CheckResult
+
+One check of a design's specification as specification.check() judged it, as the Specification window shows its row.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+for (const row of design.specification.check().rows) console.log(row.kind, row.value, row.passed, row.margin);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+for row in design.specification.check().rows:
+    print(row.kind, row.value, row.passed, row.margin)
+```
+
+### kind
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.kind` | `row.kind` |
+
+The check's kind, such as `'R_AVG'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.check().rows[0].kind);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.check().rows[0].kind)
+```
+
+### label
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.label` | `row.label` |
+
+The check's label, `''` when it has none.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9, label: 'Stop band' });
+console.log(design.specification.check().rows[0].label);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, label="Stop band")
+print(design.specification.check().rows[0].label)
+```
+
+### value
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.value` | `row.value` |
+
+The check's value: T, R and A as fractions of 1, wavelengths, widths and thicknesses in nm, PPEF in dB, a layer count as a count; `null` / `None` when there is none, as for a check left out of the verdict.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+console.log(design.specification.check().rows[0].value);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+print(design.specification.check().rows[0].value)
+```
+
+### unit
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.unit` | `row.unit` |
+
+The value's unit: `'fraction'`, `'nm'` or `'dB'`, or `''` for a layer count and for a check left out of the verdict.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('THICKNESS_BUDGET', { cmp: 'le', target: 2000 });
+const row = design.specification.check().rows[0];
+console.log(row.value, row.unit);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("THICKNESS_BUDGET", cmp="le", target=2000)
+row = design.specification.check().rows[0]
+print(row.value, row.unit)
+```
+
+### passed
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.passed` | `row.passed` |
+
+Whether the value meets the threshold, as the window marks it: `false` / `False` when there is no value, `null` / `None` for a check left out of the verdict.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('LAYER_COUNT', { cmp: 'le', target: 9 });
+console.log(design.specification.check().rows[0].passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("LAYER_COUNT", cmp="le", target=9)
+print(design.specification.check().rows[0].passed)
+```
+
+### margin
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.margin` | `row.margin` |
+
+How far the value is from the nearest bound, in its unit: positive by the room left, negative by how far it is out, 0 on a bound, so `passed` is `true` / `True` exactly when it is 0 or more; `null` / `None` when there is no value.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'between', lo: 0.95, hi: 1 });
+console.log(design.specification.check().rows[0].margin);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="between", lo=0.95, hi=1)
+print(design.specification.check().rows[0].margin)
+```
+
+### threshold
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.threshold` | `row.threshold` |
+
+**JavaScript**: The comparison the value is held to, as the check holds it: an object `{ cmp, target, tol, lo, hi }`.
+
+**Python**: The comparison the value is held to, as the check holds it: a named tuple (cmp, target, tol, lo, hi).
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AT', 550, { cmp: 'eq', target: 0.98, tol: 0.01 });
+const { cmp, target, tol } = design.specification.check().rows[0].threshold;
+console.log(cmp, target, tol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AT", 550, cmp="eq", target=0.98, tol=0.01)
+held = design.specification.check().rows[0].threshold
+print(held.cmp, held.target, held.tol)
+```
+
+### reason
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.reason` | `row.reason` |
+
+Why there is no value, or `null` / `None`: `'disabled'`, a check left out of the verdict; `'notComputable'`, a value that came out as no number; `'noCurve'`, a PPEF check whose curve the design does not hold; `'fwhmNotBracketed'` or `'edgeNotCrossed'`, a width or an edge whose crossing is not inside the band; `'unknownKind'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9, enabled: false });
+console.log(design.specification.check().rows[0].reason);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, enabled=False)
+print(design.specification.check().rows[0].reason)
+```
+
+## Yield
+
+The yield of Monte Carlo trials with random layer errors against a design's specification, as the Monte Carlo window counts it: the share of the trials that meet every enabled check, each check read at its own Step.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const y = await design.specification.estimateYield(50, { thicknessRelPct: 2, seed: 1 });
+console.log('yield', y.value, 'from', y.interval[0], 'to', y.interval[1]);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+y = design.specification.estimate_yield(50, thickness_rel_pct=2, seed=1)
+print("yield", y.value, "from", y.interval[0], "to", y.interval[1])
+```
+
+### value
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.value` | `y.value` |
+
+The yield: the share of the trials checked that met every enabled check, 0 to 1; `null` / `None` when no trial was checked.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+console.log((await design.specification.estimateYield(20, { seed: 1 })).value);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+print(design.specification.estimate_yield(20, seed=1).value)
+```
+
+### passCount / pass_count
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.passCount` | `y.pass_count` |
+
+How many trials met every enabled check.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const y = await design.specification.estimateYield(20, { seed: 1 });
+console.log(y.passCount, 'of', y.evaluated);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+y = design.specification.estimate_yield(20, seed=1)
+print(y.pass_count, "of", y.evaluated)
+```
+
+### evaluated
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.evaluated` | `y.evaluated` |
+
+How many trials were checked: those run, less any whose checks could not be evaluated.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+console.log((await design.specification.estimateYield(20, { seed: 1 })).evaluated);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+print(design.specification.estimate_yield(20, seed=1).evaluated)
+```
+
+### interval
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.interval` | `y.interval` |
+
+The 95 % interval of the yield, `[low, high]`, 0 to 1; `null` / `None` when no trial was checked.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const [low, high] = (await design.specification.estimateYield(20, { seed: 1 })).interval;
+console.log(low, high);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+low, high = design.specification.estimate_yield(20, seed=1).interval
+print(low, high)
+```
+
+### checks
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.checks` | `y.checks` |
+
+**JavaScript**: One object per check of the specification, in its order: `{ label, failRate }`, the check's label, or its kind when it has none, and the share of all the trials run in which it failed. A check left out of the verdict fails in none.
+
+**Python**: One named tuple (label, fail_rate) per check of the specification, in its order: the check's label, or its kind when it has none, and the share of all the trials run in which it failed. A check left out of the verdict fails in none.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.99 });
+const y = await design.specification.estimateYield(20, { thicknessRelPct: 2, seed: 1 });
+for (const check of y.checks) console.log(check.label, check.failRate);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.specification.add("R_AT", 550, cmp="ge", target=0.99)
+y = design.specification.estimate_yield(20, thickness_rel_pct=2, seed=1)
+for check in y.checks:
+    print(check.label, check.fail_rate)
+```
+
+### runs
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.runs` | `y.runs` |
+
+The trials run: as many as asked, or fewer when the run was stopped.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+console.log((await design.specification.estimateYield(20, { seed: 1 })).runs);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+print(design.specification.estimate_yield(20, seed=1).runs)
+```
+
+### seed
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.seed` | `y.seed` |
+
+The seed the draws started from: the same seed, design and settings repeat the trials.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const y = await design.specification.estimateYield(20);
+const again = await design.specification.estimateYield(20, { seed: y.seed });
+console.log(y.seed, y.value === again.value);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+y = design.specification.estimate_yield(20)
+again = design.specification.estimate_yield(20, seed=y.seed)
+print(y.seed, y.value == again.value)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.mode` | `y.mode` |
+
+What the trials scored: `'front'` or `'back'`, the coated side alone, or `'total'`, the whole part, as the design's `sides` and `scoreOn` / `score_on` said.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+console.log((await design.specification.estimateYield(20, { seed: 1 })).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+print(design.specification.estimate_yield(20, seed=1).mode)
+```
+
 ## Spectrum
 
 R, T and A of a design over a range of wavelengths, at one angle of incidence or several, as design.spectrum() computes them. `s.R` and the other quantities are at the first angle asked; `s.angle(45)` is the spectrum at another.
@@ -3032,22 +4444,22 @@ print(design.monte_carlo(400, 700, step=10, runs=5).seed)
 | ---------- | ------ |
 | `mc.spec` | `mc.spec` |
 
-**JavaScript**: With the design's specification, the share of trials that meet it: an object `{ yield, passCount, evaluated, yieldInterval }`, `yieldInterval` the 95 % interval of the share; null for a design without one.
-
-**Python**: With the design's specification, the share of trials that meet it: a dict { yield, passCount, evaluated, yieldInterval }, yieldInterval the 95 % interval of the share; None for a design without one.
+With the design's specification, the share of the trials that meet it, a Yield, as `specification.estimateYield()` / `specification.estimate_yield()` counts it; `null` / `None` for a design without one.
 
 ```js
-const design = tf.newDesign('AR');
-design.stack('(HL)^2');
-const mc = await design.monteCarlo(400, 700, { step: 10, runs: 5 });
-console.log(mc.spec ? `yield ${mc.spec.yield}` : 'no specification');
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+const mc = await design.monteCarlo(400, 700, { step: 10, runs: 20, seed: 1 });
+console.log('yield', mc.spec.value, 'of', mc.spec.runs, 'trials');
 ```
 
 ```python
-design = tf.new_design("AR")
-design.stack("(HL)^2")
-mc = design.monte_carlo(400, 700, step=10, runs=5)
-print("yield {}".format(mc.spec["yield"]) if mc.spec else "no specification")
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+mc = design.monte_carlo(400, 700, step=10, runs=20, seed=1)
+print("yield", mc.spec.value, "of", mc.spec.runs, "trials")
 ```
 
 ### mode

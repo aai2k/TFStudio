@@ -1,7 +1,8 @@
 // Tools that open, create, save, show and edit the session's designs, set
-// their merit functions and look up materials.
+// their merit functions and specifications, and look up materials.
 
 import { isAbsolute } from 'node:path';
+import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { designView } from './designStore.js';
 import { object, num, int, str, bool, list, oneOf, DESIGN_ID, SIDE, INDEX } from './schemaParts.js';
 
@@ -71,7 +72,7 @@ export function designTools({ api, store }) {
         },
         {
             name: 'showDesign', title: 'Show a design',
-            description: 'A design in full: media, substrate, surface mode, the layers of each side (thickness in nm; the front listed from the incident medium inward, the back from the substrate outward) and its merit rows.',
+            description: 'A design in full: media, substrate, surface mode, the layers of each side (thickness in nm; the front listed from the incident medium inward, the back from the substrate outward), its merit rows, and its specification, the checks as the design holds them, each with its id.',
             inputSchema: object({ designId: DESIGN_ID }, ['designId']),
             run: ({ designId }) => view(designId, { rows: true }),
         },
@@ -138,6 +139,18 @@ export function designTools({ api, store }) {
                 const value = api.merit(rated);
                 store.set(designId, rated);
                 return { designId, ...value };
+            },
+        },
+        {
+            name: 'setSpecification', title: 'Set the specification',
+            description: "Replaces a design's specification, the pass or fail checks of the Specification window, with the given checks, and answers with the verdict checkSpecification gives; an empty list clears it. Each check takes the window's fields: kind (T_AT, R_AT, A_AT at the wavelength lambda; T_AVG, R_AVG, A_AVG band averages; MIN_MAX the lowest or highest value over a band; INTEGRAL a weighted average such as Tvis; CENTRAL_LAMBDA the wavelength of a peak or dip; FWHM the width of the peak at level; EDGE_LAMBDA where the curve crosses level of the peak; THICKNESS_BUDGET the total thickness in nm and LAYER_COUNT the number of layers of side, 'front', 'back' or 'both', by default the side the design coats; PPEF the peak-to-peak error in dB against the measured curve curveId), lambdaStart and lambdaEnd in nm, aoi in degrees, pol ('avg', 's' or 'p'), channel ('T', 'R' or 'A') and direction ('max' or 'min') for the kinds that read them, cmp ('ge' or 'le' with target, 'eq' within target plus or minus tol, 'between' lo to hi), label and enabled. T, R and A are fractions of 1, where the window shows percent. level, 0 to 1, is the fraction of the band's highest value the curve crosses, or with direction 'min' the fraction of the way from its lowest value up to 1. INTEGRAL takes presetKey, one of Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, which sets its channel, band, source and detector, or source and detector of its own. flag is the window's Step: 1 to 4 on a band average or INTEGRAL for a grid no coarser than 1, 0.1, 0.01 or 0.001 nm, the default being spaced from the design's fringes; 2 to 4 on FWHM, EDGE_LAMBDA, and MIN_MAX or CENTRAL_LAMBDA of the highest T or A or the lowest R, for a search at 0.1, 0.01 or 0.001 nm, the default being 1 nm; the other checks, MIN_MAX or CENTRAL_LAMBDA of the lowest T or A or the highest R among them, have no Step and take none. A check given without an id is a new one: a field it leaves out takes the value a check added in the window starts with, and a field no check has, or a value a field cannot take, is refused, the design staying as it was. A check given with an id, as showDesign lists the checks a design holds, is kept as it is given, so to change one check of a design, give the others as showDesign lists them and the changed one without its id; a thickness budget or layer count saved without a side still adds up both sides, as the window reads it, and keeps that when changed only if given side 'both'. An empty list answers with no rows, passed false and total 0.",
+            inputSchema: object({ designId: DESIGN_ID, checks: list({ type: 'object' }, 'The checks, each with at least a kind') }, ['designId', 'checks']),
+            run: ({ designId, checks }) => {
+                const specified = api.setSpecification(store.get(designId), checks);
+                const verdict = checks.length ? api.checkSpecification(specified)
+                    : { passed: false, passing: 0, total: 0, mode: resolveEvalMode(specified), rows: [] };
+                store.set(designId, specified);
+                return { designId, ...verdict };
             },
         },
         {

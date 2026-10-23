@@ -39,12 +39,13 @@ The server works on the data folder the app uses: `Documents\TFStudio` unless yo
 | Designs | `openDesign`, `newDesign`, `setDesignSetup`, `saveDesign`, `showDesign`, `listDesigns`, `copyDesign` |
 | Stack | `insertLayer`, `deleteLayer`, `setLayer`, `stackFromFormula` |
 | Merit function | `setMerit`, `merit` |
+| Specification | `setSpecification`, `checkSpecification` |
 | Materials | `findMaterials`, `materialNK` |
 | Analysis | `spectrum`, `layerSensitivity` |
 | Runs | `refine`, `synthesize`, `monteCarlo`, `jobStatus`, `stopJob`, `listJobs` |
 | The open design, with `--live` | `listAppDesigns`, `readAppDesign`, `applyToApp` |
 
-`spectrum` computes R, T, A, Rs and Rp as the [Optical Evaluation](/analysis/optical-evaluation/) window does, `merit` gives the total and each row as the [Merit Function Editor](/design/merit-function-editor/) shows them, `refine` runs any method of the [Refinement](/synthesis/refinement/) window, and `synthesize` runs [Needle](/synthesis/needle/), [Gradual Evolution](/synthesis/gradual-evolution/) or the [Structural Optimizer](/synthesis/structural-optimizer/). `monteCarlo` and `layerSensitivity` are the [Monte Carlo](/analysis/error-analysis/) and [Layer Sensitivity](/analysis/layer-sensitivity/) windows' computations. Merit rows take the operands of the [Operand Reference](/design/operands/).
+`spectrum` computes R, T, A, Rs and Rp as the [Optical Evaluation](/analysis/optical-evaluation/) window does, `merit` gives the total and each row as the [Merit Function Editor](/design/merit-function-editor/) shows them, `refine` runs any method of the [Refinement](/synthesis/refinement/) window, and `synthesize` runs [Needle](/synthesis/needle/), [Gradual Evolution](/synthesis/gradual-evolution/) or the [Structural Optimizer](/synthesis/structural-optimizer/). `monteCarlo` and `layerSensitivity` are the [Monte Carlo](/analysis/error-analysis/) and [Layer Sensitivity](/analysis/layer-sensitivity/) windows' computations. Merit rows take the operands of the [Operand Reference](/design/operands/). `setSpecification` takes the checks of the [Specification](/design/specification/) window, `checkSpecification` judges a design against them as the window does, with how far each value is from its bound, and `monteCarlo` on a design with checks also counts its yield.
 
 ## How it works
 

@@ -12,13 +12,15 @@
  *   unknownOption    { call, option, options, row }  an option the call does not take
  *   badValue         { call, option, takes, value, row }  a value the option cannot take
  *   noMerit          { call }  a design with no merit function
+ *   noSpecification  { call }  a design with no specification check, or none enabled where the call needs one
  *   closedSide       { call, side, surfaceMode }  a side the Design Editor does not let you edit
  *   wavelengthRange  { call, from, to }  wavelengths that are not a range
- *   bandOrder        { call, row, start, end }  a merit row whose band starts above its end
+ *   bandOrder        { call, row, start, end }  a merit row or a check whose band starts above its end
  *   fileExists       { call, path }  a file that is there, without overwrite
  *   formulaMedia     { call }  a stack formula that names media
  *
- * `row` is there on a refusal of a merit row only: its place in the rows.
+ * `row` is there on a refusal of a merit row or a specification check only:
+ * its place in the rows or checks.
  */
 export function refusal(code, fields, message) {
     return Object.assign(new Error(message), { code, fields });

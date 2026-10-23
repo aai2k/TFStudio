@@ -96,6 +96,15 @@ class Calls:
     def merit(self, design):
         return self._call("merit", design)
 
+    def setSpecification(self, design, checks):
+        return self._call("setSpecification", design, checks)
+
+    def checkSpecification(self, design):
+        return self._call("checkSpecification", design)
+
+    def estimateYield(self, design, options=None, hooks=None):
+        return self._run("estimateYield", design, options, hooks)
+
     def refine(self, design, settings, hooks=None):
         return self._run("refine", design, settings, hooks)
 

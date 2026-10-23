@@ -116,6 +116,16 @@ export function checkStepKind(qual) {
     return type && takesStepFlag({ type, pol: qual.pol }) ? 'peak' : null;
 }
 
+// The flags a check's Step control offers beside none (checkStepKind): 1 to 4
+// on an average or integral check, whose none is the design's fringe grid; 2
+// to 4 on a peak, centre, FWHM or edge check, whose none is already the 1 nm
+// of flag 1. None on a check that has no Step.
+export function stepFlags(qual) {
+    const kind = checkStepKind(qual);
+    if (!kind) return [];
+    return kind === 'band' ? [1, 2, 3, 4] : [2, 3, 4];
+}
+
 // Whether a check's own Step reads its band otherwise than its default step
 // does: a peak, centre, FWHM or edge check finer than 1 nm, or an average or
 // integral check with any Step, its default being the design's fringe grid.
