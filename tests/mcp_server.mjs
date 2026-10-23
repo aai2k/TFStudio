@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 36
+ *   1. The session: initialize and version negotiation, the tool list (the 37
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -14,7 +14,9 @@
  *      lists the checks with their ids, which setSpecification takes back as
  *      they are, and an empty one clears it, answered with the mode; a design
  *      saved and
- *      opened again has the same layers; the setup changes; a stack cleaned
+ *      opened again has the same layers; the setup changes; a material's
+ *      dispersion gives the API's, in short with the extremes of each curve
+ *      and in full with its values, and a slab of 0 mm is refused; a stack cleaned
  *      gives the API's operations and layer counts, keeps the cleaned design
  *      under its id and refuses a value it cannot use, and the tool gives the
  *      MNT row and the refine that do the window's Re-optimize; a two-sided
@@ -75,7 +77,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 36 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 37 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -177,6 +179,21 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('a design shows how it is scored', changed.mfEvalMode === 'side');
     const nk = await server.call('materialNK', { material: 'SiO2', wavelengths: [10, 550] });
     ok('n,k comes with the range the data cover', nk.nk?.length === 2 && nk.nk[0].outside === true && Array.isArray(nk.rangeNm), JSON.stringify(nk));
+    const dispersion = api.materialDispersion('Si', { from: 400, to: 1100, thickness: 0.5 });
+    const shortDispersion = await server.call('materialDispersion', { material: 'Si', from: 400, to: 1100, thickness: 0.5 });
+    const fullDispersion = await server.call('materialDispersion', { material: 'Si', from: 400, to: 1100, thickness: 0.5, values: true });
+    const finiteGdd = dispersion.gdd.filter(Number.isFinite);
+    const lowestGdd = Math.min(...finiteGdd);
+    ok('materialDispersion answers with the extremes of each curve past masked wavelengths, and every value for values true',
+        JSON.stringify([shortDispersion.model, shortDispersion.pointCount, shortDispersion.knotCount, shortDispersion.outsideCount, shortDispersion.maskedCount,
+            shortDispersion.maskedReasons, shortDispersion.maskedThicknessLimit, shortDispersion.masked,
+            shortDispersion.gdd?.min, shortDispersion.gdd?.minAt, shortDispersion.wavelength, fullDispersion.wavelength, fullDispersion.groupIndex, fullDispersion.knots, fullDispersion.masked])
+        === JSON.stringify([dispersion.model, dispersion.wavelength.length, dispersion.knots.length, dispersion.outside.filter(Boolean).length, dispersion.masked.length,
+            [...new Set(dispersion.masked.map(m => m.reason))], Math.min(...dispersion.masked.map(m => m.maximumThickness)), undefined,
+            lowestGdd, dispersion.wavelength[dispersion.gdd.indexOf(lowestGdd)], undefined, dispersion.wavelength, dispersion.groupIndex, dispersion.knots, dispersion.masked])
+        && dispersion.masked.length > 0, JSON.stringify(shortDispersion).slice(0, 300));
+    const thin = await server.call('materialDispersion', { material: 'BK7', thickness: 0 });
+    ok('a slab of 0 mm is refused', /thickness/.test(thin.error ?? ''), thin.error);
     const wide = await server.call('spectrum', { designId: id, from: 350, to: 900, step: 10 });
     ok('a spectrum names the materials whose data stop inside it', Array.isArray(wide.outOfRange), JSON.stringify(wide.outOfRange));
     const copy = await server.call('copyDesign', { designId: id });

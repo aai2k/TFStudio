@@ -8003,6 +8003,307 @@ ns, ks = tf.materials["TiO2"].nk([400, 550, 700])
 print(n, k, ns, ks)
 ```
 
+### range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `material.range` | `material.range` |
+
+The range of wavelengths the material's data cover, `[first, last]` in nm, or `null` / `None` when it states none, as a formula with no stated range.
+
+```js
+console.log('TiO2 has data from', tf.materials.get('TiO2').range);
+```
+
+```python
+print("TiO2 has data from", tf.materials["TiO2"].range)
+```
+
+### dispersion
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `material.dispersion(start, end, { thickness })` | `material.dispersion(start=400, end=1100, thickness=1)` |
+
+Phase, group delay, GDD, CDC and TOD of light through a slab of the material, and its group index, against wavelength, as the Material Dispersion window computes them: φ = −(d/c)·ω·n of the slab of thickness d and its derivatives against ω, from the material's formula or its table read as the app reads it, so the values are analytic at each wavelength and the phase is absolute. The wavelengths are the window's, 2000 steps over the range and never finer than 0.2 nm, with a sample on each table knot in range. Light the slab absorbs to an optical depth above 50 leaves no value.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` | `400` | The first wavelength, nm. |
+| `end` | `end` | `1100` | The last wavelength, nm, above `start`. |
+| `thickness` | `thickness` | `1` | The slab's thickness, mm, from 1e-9 (1 pm) to 100000 (100 m). |
+
+**Returns**: A MaterialDispersion.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a range that is not one, or a thickness outside 1e-9 to 100000 mm<br>**Python**: a range that is not one, or a thickness outside 1e-9 to 100000 mm
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900, { thickness: 2 });
+console.log('2 mm of BK7: GDD from', d.gdd.min().toFixed(1), 'to', d.gdd.max().toFixed(1), 'fs²');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900, thickness=2)
+print("2 mm of BK7: GDD from", round(d.gdd.min(), 1), "to", round(d.gdd.max(), 1), "fs²")
+```
+
+## MaterialDispersion
+
+Phase, group delay, GDD, CDC and TOD of light through a slab of one material, and its group index, against wavelength, as material.dispersion() computes them and the Material Dispersion window shows them. `d.phase`, `d.gd`, `d.gdd`, `d.cdc`, `d.tod` and `d.groupIndex` / `d.group_index` are Curves.
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900, { thickness: 2 });
+console.log('mean GDD of 2 mm of BK7 from 780 to 820 nm:', d.gdd.mean(780, 820).toFixed(1), 'fs²');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900, thickness=2)
+print("mean GDD of 2 mm of BK7 from 780 to 820 nm:", round(d.gdd.mean(780, 820), 1), "fs²")
+```
+
+### thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.thickness` | `d.thickness` |
+
+The slab's thickness, mm.
+
+```js
+console.log(tf.materials.get('BK7').dispersion().thickness, 'mm');
+```
+
+```python
+print(tf.materials["BK7"].dispersion().thickness, "mm")
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.wavelength` | `d.wavelength` |
+
+The wavelengths, nm: the window's grid, with a sample on each table knot in range.
+
+```js
+console.log(tf.materials.get('BK7').dispersion(700, 900).wavelength.length, 'wavelengths');
+```
+
+```python
+print(len(tf.materials["BK7"].dispersion(700, 900).wavelength), "wavelengths")
+```
+
+### phase
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.phase` | `d.phase` |
+
+The phase φ = −(d/c)·ω·n, degrees, a Curve.
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('phase from', d.phase.min().toFixed(0), 'to', d.phase.max().toFixed(0), 'degrees');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("phase from", round(d.phase.min()), "to", round(d.phase.max()), "degrees")
+```
+
+### gd
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.gd` | `d.gd` |
+
+The group delay, fs, a Curve.
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('GD of 1 mm of BK7 at 800 nm:', d.gd[d.wavelength.indexOf(800)].toFixed(1), 'fs');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("GD of 1 mm of BK7 at 800 nm:", round(d.gd[d.wavelength.index(800)], 1), "fs")
+```
+
+### gdd
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.gdd` | `d.gdd` |
+
+The GDD, fs², a Curve.
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('GDD of 1 mm of BK7 at 800 nm:', d.gdd[d.wavelength.indexOf(800)].toFixed(2), 'fs²');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("GDD of 1 mm of BK7 at 800 nm:", round(d.gdd[d.wavelength.index(800)], 2), "fs²")
+```
+
+### cdc
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.cdc` | `d.cdc` |
+
+The CDC, GDD · 2πc/λ², fs/nm, a Curve, with the sign of GDD; the slope of group delay against wavelength, dGD/dλ, is its negative.
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('CDC of 1 mm of BK7 at 800 nm:', d.cdc[d.wavelength.indexOf(800)].toFixed(4), 'fs/nm');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("CDC of 1 mm of BK7 at 800 nm:", round(d.cdc[d.wavelength.index(800)], 4), "fs/nm")
+```
+
+### tod
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.tod` | `d.tod` |
+
+The TOD, fs³, a Curve.
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('TOD of 1 mm of BK7 at 800 nm:', d.tod[d.wavelength.indexOf(800)].toFixed(2), 'fs³');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("TOD of 1 mm of BK7 at 800 nm:", round(d.tod[d.wavelength.index(800)], 2), "fs³")
+```
+
+### groupIndex / group_index
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.groupIndex` | `d.group_index` |
+
+The group index n − λ·dn/dλ, a Curve.
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('group index of BK7 at 800 nm:', d.groupIndex[d.wavelength.indexOf(800)].toFixed(5));
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("group index of BK7 at 800 nm:", round(d.group_index[d.wavelength.index(800)], 5))
+```
+
+### outside
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.outside` | `d.outside` |
+
+For each wavelength, the material's name where its value was taken outside the material's data, held at the edge or extrapolated, or `null` / `None`.
+
+```js
+const d = tf.materials.get('TiO2').dispersion(300, 1100);
+console.log(d.outside.filter(Boolean).length, 'wavelengths outside the data');
+```
+
+```python
+d = tf.materials["TiO2"].dispersion(300, 1100)
+print(sum(1 for name in d.outside if name), "wavelengths outside the data")
+```
+
+### masked
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.masked` | `d.masked` |
+
+**JavaScript**: The wavelengths with no value, an array of `{ wavelength, reason, maximumThickness }`. `reason` says why: most often the slab absorbs the light there to an optical depth above 50, and `maximumThickness`, mm, is then the thickness up to which it would have one; it is `null` when no thickness gives one, as where the material's model has no third derivative. The curves are NaN there. Empty when every wavelength has one.
+
+**Python**: The wavelengths with no value, a list of dicts with wavelength, reason and maximumThickness. reason says why: most often the slab absorbs the light there to an optical depth above 50, and maximumThickness, mm, is then the thickness up to which it would have one; it is None when no thickness gives one, as where the material's model has no third derivative. The curves are NaN there. Empty when every wavelength has one.
+
+```js
+const d = tf.materials.get('Si').dispersion(400, 1100, { thickness: 1 });
+console.log(d.masked.length, 'wavelengths with no value; the first', d.masked[0]);
+```
+
+```python
+d = tf.materials["Si"].dispersion(400, 1100, thickness=1)
+print(len(d.masked), "wavelengths with no value; the first", d.masked[0])
+```
+
+### knots
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.knots` | `d.knots` |
+
+**JavaScript**: The table knots that are wavelengths of the grid, an array of `{ wavelength, gd, gdd, tod, cdc }`, each quantity a pair `[left, right]` of its values on the two sides of the knot; the value the curves hold at that wavelength reads the material averaged across the knot. None is read when the knots are dense against the grid, more than one per 8 points.
+
+**Python**: The table knots that are wavelengths of the grid, a list of dicts with wavelength, gd, gdd, tod and cdc, each quantity a pair [left, right] of its values on the two sides of the knot; the value the curves hold at that wavelength reads the material averaged across the knot. None is read when the knots are dense against the grid, more than one per 8 points.
+
+```js
+for (const knot of tf.materials.get('TiO2').dispersion().knots.slice(0, 3)) console.log(knot.wavelength, 'nm: GDD', knot.gdd[0].toFixed(3), 'and', knot.gdd[1].toFixed(3), 'fs²');
+```
+
+```python
+for knot in tf.materials["TiO2"].dispersion().knots[:3]:
+    print(knot["wavelength"], "nm: GDD", round(knot["gdd"][0], 3), "and", round(knot["gdd"][1], 3), "fs²")
+```
+
+### model
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.model` | `d.model` |
+
+The models the material's n and k come from, as the window names them.
+
+```js
+console.log(tf.materials.get('BK7').dispersion().model);
+```
+
+```python
+print(tf.materials["BK7"].dispersion().model)
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.saveCsv(path)` | `d.save_csv(path)` |
+
+**JavaScript**: Writes the curves to a CSV file as the window's Copy CSV writes its table: λ (nm), then Outside data where a value was taken outside the material's data, then Phase φ (°), Group Delay (fs), GDD (fs²), CDC (fs/nm), TOD (fs³) and nᵧ, the group index. A file that is there is written over.
+
+**Python**: Writes the curves to a CSV file as the window's Copy CSV writes its table: λ (nm), then Outside data where a value was taken outside the material's data, then Phase φ (°), Group Delay (fs), GDD (fs²), CDC (fs/nm), TOD (fs³) and nᵧ, the group index. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `bk7-dispersion-${Date.now()}.csv`);
+tf.materials.get('BK7').dispersion(700, 900).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "bk7-dispersion-{}.csv".format(time.time_ns())
+tf.materials["BK7"].dispersion(700, 900).save_csv(name)
+print("Wrote", name)
+```
+
 ## Stop
 
 A Stop button for runs. Give it to a run as `stop=`, and `stop()` ends the run at its next step, as the Stop button of the run's window does: a refinement or synthesis then leaves the design as it was, and a Monte Carlo run answers with the trials it made.

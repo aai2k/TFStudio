@@ -88,6 +88,7 @@ const CLASSES = [
     { name: 'CleanReport', receiver: 'report' },
     { name: 'Materials', receiver: 'tf.materials' },
     { name: 'Material', receiver: 'material' },
+    { name: 'MaterialDispersion', receiver: 'd' },
     { name: 'Stop', receiver: 'stop' },
     { name: 'App', receiver: 'tf.app' },
     { name: 'AppDesign', receiver: 'd' },

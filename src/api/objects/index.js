@@ -7,6 +7,7 @@
  *
  *   const tf = await start({ dataDir })       a Node program; the console has its tf
  *   tf.newDesign(name, { substrate, reference }), tf.openDesign(path), tf.materials.get(id)
+ *   material.nk(wavelengths), material.range, material.dispersion(start, end, { thickness })
  *   design.layers[n], design.merit, design.spectrum(start, end, { step, angles })
  *   design.clean({ minThickness, merge, back }), design.layers[n].qwot
  *   design.indexProfile({ wavelength, side }), design.layerThicknesses({ wavelength, side })
@@ -42,6 +43,7 @@ export { Color } from './color.js';
 export { Integrals } from './integrals.js';
 export { Ellipsometry } from './ellipsometry.js';
 export { GroupDelay } from './groupDelay.js';
+export { MaterialDispersion } from './materialDispersion.js';
 export { Progress, RunResult, MonteCarlo, Yield, SpecReport, CheckResult, LayerSensitivity, SensitivityRow, CleanReport } from './results.js';
 
 /**

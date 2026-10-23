@@ -23,7 +23,8 @@
  *      89.5 degrees refused with its code and fields; a side's group delay,
  *      the whole part's in transmission on the window's grid, and the whole
  *      part in reflection refused with its code and fields;
- *      materials; merit; a specification set and checked, and
+ *      materials, a material's dispersion with masked wavelengths crossing
+ *      as NaN, and a slab of 0 mm refused with its code and fields; merit; a specification set and checked, and
  *      checking a design without one refused with its code and fields; layer
  *      sensitivity; and the runs, a refinement, a Needle and a Structural run
  *      with a seed, a seeded Monte Carlo and a seeded yield.
@@ -167,6 +168,12 @@ const specified = api.setSpecification(start, CHECKS);
     await same('findMaterials', ['SiO2']);
     await same('findMaterials', []);
     await same('materialNK', ['TiO2', [400, 550, 700]]);
+    await same('materialDispersion', ['TiO2', { from: 300, to: 900, thickness: 2 }]);
+    const thick = await same('materialDispersion', ['Si', { from: 400, to: 1100 }]);
+    ok('a material\'s dispersion crosses with its masked wavelengths as NaN', thick.result?.masked.length > 0 && Number.isNaN(thick.result.gd[0]), JSON.stringify(thick.result?.masked?.[0]));
+    const slab = await same('materialDispersion', ['BK7', { thickness: 0 }]);
+    ok('a slab thickness of 0 is refused with its code and fields', slab.error?.code === 'badValue'
+        && canon(slab.error.fields) === canon({ call: 'materialDispersion', option: 'thickness', takes: 'a thickness in mm from 1e-9 to 100000', value: 0 }), JSON.stringify(slab.error));
     const spectrum = await same('spectrum', [stack, { from: 400, to: 700, step: 10, angles: [0, 45] }]);
     ok('a spectrum\'s angles are keyed by their values', Object.keys(spectrum.result?.angles ?? {}).join() === '0,45');
     await same('summarize', [spectrum.result, { bands: [{ from: 450, to: 650 }] }]);

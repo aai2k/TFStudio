@@ -16,7 +16,8 @@
  *      integral values with rows of no value, Psi and Delta against
  *      wavelength and against angle, a sweep of start above end refused,
  *      phase and group delay on a uniform grid and on the window's, the whole
- *      part in reflection refused, materials, merit, a specification
+ *      part in reflection refused, materials, a material's dispersion with
+ *      masked wavelengths, a slab of 0 mm refused, merit, a specification
  *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
  *      a seeded yield.
  *   2. Values: a spectrum's angles are keyed by text, and the spectrum as
@@ -284,6 +285,8 @@ const STOPPED_WITHIN_S = 5;
         ['findMaterials', ['SiO2']],
         ['findMaterials', []],
         ['materialNK', ['TiO2', [400, 550, 700]]],
+        ['materialDispersion', ['Si', { from: 400, to: 1100, thickness: 2 }]],
+        ['materialDispersion', ['BK7', { thickness: 0 }]],
         ['spectrum', [stack, { from: 400, to: 700, step: 10, angles: [0, 45] }]],
         ['summarize', [spectrum, { bands: [{ from: 450, to: 650 }] }]],
         ['indexProfile', [stack, { wavelength: 633 }]],

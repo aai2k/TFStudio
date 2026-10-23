@@ -8003,6 +8003,307 @@ ns, ks = tf.materials["TiO2"].nk([400, 550, 700])
 print(n, k, ns, ks)
 ```
 
+### range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `material.range` | `material.range` |
+
+材料数据覆盖的波长范围，`[first, last]`，单位 nm；材料未声明范围时为 `null` / `None`，例如未注明范围的公式。
+
+```js
+console.log('TiO2 has data from', tf.materials.get('TiO2').range);
+```
+
+```python
+print("TiO2 has data from", tf.materials["TiO2"].range)
+```
+
+### dispersion
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `material.dispersion(start, end, { thickness })` | `material.dispersion(start=400, end=1100, thickness=1)` |
+
+光穿过该材料平板时的相位、群延迟、GDD、CDC 和 TOD，以及材料的群折射率，随波长的变化，与材料色散窗口的计算相同：厚度为 d 的平板的 φ = −(d/c)·ω·n 及其对 ω 的导数，取自材料的公式或按应用程序的读法读取的表格，因此每个波长处的数值都是解析值，相位为绝对值。波长取窗口的网格：在范围内分 2000 步，步长不小于 0.2 nm，并在范围内每个表格节点处加一个采样点。平板吸收使光学深度超过 50 的波长没有数值。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` | `400` | 起始波长，单位 nm。 |
+| `end` | `end` | `1100` | 结束波长，单位 nm，大于 `start`。 |
+| `thickness` | `thickness` | `1` | 平板的厚度，单位 mm，从 1e-9（1 pm）到 100000（100 m）。 |
+
+**返回**：一个 MaterialDispersion。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、不构成范围的波长范围，或 1e-9 到 100000 mm 以外的厚度<br>**Python**：不构成范围的波长范围，或 1e-9 到 100000 mm 以外的厚度
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900, { thickness: 2 });
+console.log('2 mm of BK7: GDD from', d.gdd.min().toFixed(1), 'to', d.gdd.max().toFixed(1), 'fs²');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900, thickness=2)
+print("2 mm of BK7: GDD from", round(d.gdd.min(), 1), "to", round(d.gdd.max(), 1), "fs²")
+```
+
+## MaterialDispersion
+
+光穿过一种材料的平板时的相位、群延迟、GDD、CDC 和 TOD，以及材料的群折射率，随波长的变化，由 material.dispersion() 计算，与材料色散窗口的显示相同。`d.phase`、`d.gd`、`d.gdd`、`d.cdc`、`d.tod` 和 `d.groupIndex` / `d.group_index` 都是 Curve。
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900, { thickness: 2 });
+console.log('mean GDD of 2 mm of BK7 from 780 to 820 nm:', d.gdd.mean(780, 820).toFixed(1), 'fs²');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900, thickness=2)
+print("mean GDD of 2 mm of BK7 from 780 to 820 nm:", round(d.gdd.mean(780, 820), 1), "fs²")
+```
+
+### thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.thickness` | `d.thickness` |
+
+平板的厚度，单位 mm。
+
+```js
+console.log(tf.materials.get('BK7').dispersion().thickness, 'mm');
+```
+
+```python
+print(tf.materials["BK7"].dispersion().thickness, "mm")
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.wavelength` | `d.wavelength` |
+
+各波长，单位 nm：窗口的网格，并在范围内每个表格节点处有一个采样点。
+
+```js
+console.log(tf.materials.get('BK7').dispersion(700, 900).wavelength.length, 'wavelengths');
+```
+
+```python
+print(len(tf.materials["BK7"].dispersion(700, 900).wavelength), "wavelengths")
+```
+
+### phase
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.phase` | `d.phase` |
+
+相位 φ = −(d/c)·ω·n，单位为度，一个 Curve。
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('phase from', d.phase.min().toFixed(0), 'to', d.phase.max().toFixed(0), 'degrees');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("phase from", round(d.phase.min()), "to", round(d.phase.max()), "degrees")
+```
+
+### gd
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.gd` | `d.gd` |
+
+群延迟，单位 fs，一个 Curve。
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('GD of 1 mm of BK7 at 800 nm:', d.gd[d.wavelength.indexOf(800)].toFixed(1), 'fs');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("GD of 1 mm of BK7 at 800 nm:", round(d.gd[d.wavelength.index(800)], 1), "fs")
+```
+
+### gdd
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.gdd` | `d.gdd` |
+
+GDD，单位 fs²，一个 Curve。
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('GDD of 1 mm of BK7 at 800 nm:', d.gdd[d.wavelength.indexOf(800)].toFixed(2), 'fs²');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("GDD of 1 mm of BK7 at 800 nm:", round(d.gdd[d.wavelength.index(800)], 2), "fs²")
+```
+
+### cdc
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.cdc` | `d.cdc` |
+
+CDC，即 GDD·2πc/λ²，单位 fs/nm，一个 Curve，符号与 GDD 相同；群延迟对波长的斜率 dGD/dλ 等于 −CDC。
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('CDC of 1 mm of BK7 at 800 nm:', d.cdc[d.wavelength.indexOf(800)].toFixed(4), 'fs/nm');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("CDC of 1 mm of BK7 at 800 nm:", round(d.cdc[d.wavelength.index(800)], 4), "fs/nm")
+```
+
+### tod
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.tod` | `d.tod` |
+
+TOD，单位 fs³，一个 Curve。
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('TOD of 1 mm of BK7 at 800 nm:', d.tod[d.wavelength.indexOf(800)].toFixed(2), 'fs³');
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("TOD of 1 mm of BK7 at 800 nm:", round(d.tod[d.wavelength.index(800)], 2), "fs³")
+```
+
+### groupIndex / group_index
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.groupIndex` | `d.group_index` |
+
+群折射率 n − λ·dn/dλ，一个 Curve。
+
+```js
+const d = tf.materials.get('BK7').dispersion(700, 900);
+console.log('group index of BK7 at 800 nm:', d.groupIndex[d.wavelength.indexOf(800)].toFixed(5));
+```
+
+```python
+d = tf.materials["BK7"].dispersion(700, 900)
+print("group index of BK7 at 800 nm:", round(d.group_index[d.wavelength.index(800)], 5))
+```
+
+### outside
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.outside` | `d.outside` |
+
+对每个波长，若其数值取自材料数据之外（保持在边界值或外推得到），给出材料的名称；否则为 `null` / `None`。
+
+```js
+const d = tf.materials.get('TiO2').dispersion(300, 1100);
+console.log(d.outside.filter(Boolean).length, 'wavelengths outside the data');
+```
+
+```python
+d = tf.materials["TiO2"].dispersion(300, 1100)
+print(sum(1 for name in d.outside if name), "wavelengths outside the data")
+```
+
+### masked
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.masked` | `d.masked` |
+
+**JavaScript**：没有数值的波长，一个由 `{ wavelength, reason, maximumThickness }` 组成的数组。`reason` 说明原因：最常见的是平板在该处的吸收使光学深度超过 50，此时 `maximumThickness` 是平板在该处仍有数值的最大厚度，单位 mm；没有任何厚度能给出数值时为 `null`，例如材料模型在该处没有三阶导数。曲线在这些波长处为 NaN。每个波长都有数值时为空。
+
+**Python**：没有数值的波长，一个由 dict（wavelength、reason 和 maximumThickness）组成的 list。reason 说明原因：最常见的是平板在该处的吸收使光学深度超过 50，此时 maximumThickness 是平板在该处仍有数值的最大厚度，单位 mm；没有任何厚度能给出数值时为 None，例如材料模型在该处没有三阶导数。曲线在这些波长处为 NaN。每个波长都有数值时为空。
+
+```js
+const d = tf.materials.get('Si').dispersion(400, 1100, { thickness: 1 });
+console.log(d.masked.length, 'wavelengths with no value; the first', d.masked[0]);
+```
+
+```python
+d = tf.materials["Si"].dispersion(400, 1100, thickness=1)
+print(len(d.masked), "wavelengths with no value; the first", d.masked[0])
+```
+
+### knots
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.knots` | `d.knots` |
+
+**JavaScript**：落在网格波长上的表格节点，一个由 `{ wavelength, gd, gdd, tod, cdc }` 组成的数组，每个量是它在节点两侧的数值组成的一对 `[left, right]`；曲线在该波长处的值读取的是节点两侧平均后的材料。若节点相对网格过密，即每 8 个点多于一个节点，则不取任何节点。
+
+**Python**：落在网格波长上的表格节点，一个由 dict（wavelength、gd、gdd、tod 和 cdc）组成的 list，每个量是它在节点两侧的数值组成的一对 [left, right]；曲线在该波长处的值读取的是节点两侧平均后的材料。若节点相对网格过密，即每 8 个点多于一个节点，则不取任何节点。
+
+```js
+for (const knot of tf.materials.get('TiO2').dispersion().knots.slice(0, 3)) console.log(knot.wavelength, 'nm: GDD', knot.gdd[0].toFixed(3), 'and', knot.gdd[1].toFixed(3), 'fs²');
+```
+
+```python
+for knot in tf.materials["TiO2"].dispersion().knots[:3]:
+    print(knot["wavelength"], "nm: GDD", round(knot["gdd"][0], 3), "and", round(knot["gdd"][1], 3), "fs²")
+```
+
+### model
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.model` | `d.model` |
+
+材料的 n 和 k 所用的模型，名称与窗口中的相同。
+
+```js
+console.log(tf.materials.get('BK7').dispersion().model);
+```
+
+```python
+print(tf.materials["BK7"].dispersion().model)
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `d.saveCsv(path)` | `d.save_csv(path)` |
+
+**JavaScript**：把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有数值取自材料数据之外时接着是 Outside data 列；然后是 Phase φ (°)、Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、TOD (fs³) 和群折射率 nᵧ。已存在的文件会被覆盖。
+
+**Python**：把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有数值取自材料数据之外时接着是 Outside data 列；然后是 Phase φ (°)、Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、TOD (fs³) 和群折射率 nᵧ。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，使用完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `bk7-dispersion-${Date.now()}.csv`);
+tf.materials.get('BK7').dispersion(700, 900).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "bk7-dispersion-{}.csv".format(time.time_ns())
+tf.materials["BK7"].dispersion(700, 900).save_csv(name)
+print("Wrote", name)
+```
+
 ## Stop
 
 运行的停止按钮。把它作为 `stop=` 交给运行，`stop()` 会在下一步结束运行，与该运行窗口中的停止按钮相同：精炼或合成随后保持设计原样，蒙特卡洛运行则以已完成的试验返回结果。

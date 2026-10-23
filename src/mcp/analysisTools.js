@@ -2,8 +2,8 @@
 // thicknesses, what its stack adds up to, a side's admittance locus and
 // electric field, its colour and integral values, a side's Psi and Delta, its
 // phase and group delay, its merit, its verdict against its specification,
-// and how much each layer moves the merit. Monte Carlo runs as a job
-// (runTools.js).
+// and how much each layer moves the merit; and the dispersion of a slab of
+// one material. Monte Carlo runs as a job (runTools.js).
 
 import { object, num, int, str, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
@@ -257,6 +257,29 @@ export function analysisTools({ api, store }) {
                 return {
                     designId, ...curves, from: wavelength[0], to: wavelength[wavelength.length - 1], pointCount: wavelength.length, knotCount: knots.length,
                     ...(values ? { wavelength, ...all, outside, knots } : summary),
+                };
+            },
+        },
+        {
+            name: 'materialDispersion', title: 'Material dispersion',
+            description: "Phase, group delay, GDD, CDC and TOD of light through a slab of one material, and its group index, against wavelength, as the Material Dispersion window computes them: phi = -(d/c) omega n of the slab of thickness d in degrees, GD = -dphi/domega in fs, GDD = -d2phi/domega2 in fs², TOD in fs³, CDC = GDD * 2 pi c/lambda² in fs/nm with the sign of GDD (the slope dGD/dlambda is its negative), and the group index n - lambda dn/dlambda, each analytic at its wavelength from the material's formula or table. The wavelengths are the window's: 2000 steps over the range, never finer than 0.2 nm, with a sample on each table knot in range. Light the slab absorbs to an optical depth above 50 has no value. Answers with id, name, thickness (mm), model, from, to, pointCount, knotCount, outsideCount (wavelengths whose value was taken outside the material's data), maskedCount (wavelengths with no value), maskedReasons (why, each once), maskedThicknessLimit (the thinnest slab in mm that a masked wavelength would have a value up to, or null), and phase, gd, gdd, cdc, tod and groupIndex, each { min, minAt, max, maxAt } with the wavelengths in nm; with values true, also wavelength (nm), phase, gd, gdd, cdc, tod and groupIndex at every wavelength, outside (per wavelength the material's name where its value was taken outside its data, or null), knots (each { wavelength, gd, gdd, tod, cdc }, each quantity a pair [left, right] of its values on the two sides of a table knot) and masked (each { wavelength, reason, maximumThickness } with no value, maximumThickness in mm or null). With designId, a material the design carries resolves as it does in that design.",
+            inputSchema: object({
+                material: str('Material id'),
+                from: num('First wavelength in nm. Default 400'), to: num('Last wavelength in nm. Default 1100'),
+                thickness: num('Slab thickness in mm, 1e-9 to 100000. Default 1'),
+                designId: DESIGN_ID,
+                values: bool('Also answer with every value. Default false'),
+            }, ['material']),
+            run: ({ material, designId, values = false, ...options }) => {
+                const { wavelength, phase, gd, gdd, cdc, tod, groupIndex, outside, knots, masked, ...rest } = api.materialDispersion(material, options, designId ? store.get(designId) : null);
+                const all = { phase, gd, gdd, cdc, tod, groupIndex };
+                const summary = Object.fromEntries(Object.entries(all).map(([key, series]) => [key, extremes(wavelength, series)]));
+                const limits = masked.map(m => m.maximumThickness).filter(limit => limit !== null);
+                return {
+                    ...rest, from: wavelength[0], to: wavelength[wavelength.length - 1], pointCount: wavelength.length, knotCount: knots.length,
+                    outsideCount: outside.filter(Boolean).length, maskedCount: masked.length, maskedReasons: [...new Set(masked.map(m => m.reason))],
+                    maskedThicknessLimit: limits.length ? Math.min(...limits) : null,
+                    ...(values ? { wavelength, ...all, outside, knots, masked } : summary),
                 };
             },
         },

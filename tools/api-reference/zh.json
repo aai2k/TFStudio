@@ -3210,5 +3210,113 @@
   "GroupDelay.saveCsv.lead.1.py": {
     "hash": "4a64917a",
     "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有采样的表格节点时接着是 Knot 列，节点两侧各一行，即 λ− 和 λ+；有数值取自材料数据之外时接着是 Outside data 列；然后是 Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、Phase φ (°) 和 TOD (fs³)。相位即 phase 所含的相位。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+  },
+  "Material.dispersion.arg.start": {
+    "hash": "115f61f2",
+    "text": "起始波长，单位 nm。"
+  },
+  "Material.dispersion.arg.end": {
+    "hash": "b4a9096d",
+    "text": "结束波长，单位 nm，大于 `start`。"
+  },
+  "MaterialDispersion.gd.lead.1": {
+    "hash": "018a4edc",
+    "text": "群延迟，单位 fs，一个 Curve。"
+  },
+  "MaterialDispersion.gdd.lead.1": {
+    "hash": "b5e55c00",
+    "text": "GDD，单位 fs²，一个 Curve。"
+  },
+  "MaterialDispersion.tod.lead.1": {
+    "hash": "ca78098c",
+    "text": "TOD，单位 fs³，一个 Curve。"
+  },
+  "MaterialDispersion.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，使用完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "MaterialDispersion.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "Material.range.lead.1": {
+    "hash": "855cefd9",
+    "text": "材料数据覆盖的波长范围，`[first, last]`，单位 nm；材料未声明范围时为 `null` / `None`，例如未注明范围的公式。"
+  },
+  "Material.dispersion.arg.thickness": {
+    "hash": "54b7a216",
+    "text": "平板的厚度，单位 mm，从 1e-9（1 pm）到 100000（100 m）。"
+  },
+  "Material.dispersion.returns": {
+    "hash": "d218914a",
+    "text": "一个 MaterialDispersion。"
+  },
+  "Material.dispersion.lead.1": {
+    "hash": "1abe6493",
+    "text": "光穿过该材料平板时的相位、群延迟、GDD、CDC 和 TOD，以及材料的群折射率，随波长的变化，与材料色散窗口的计算相同：厚度为 d 的平板的 φ = −(d/c)·ω·n 及其对 ω 的导数，取自材料的公式或按应用程序的读法读取的表格，因此每个波长处的数值都是解析值，相位为绝对值。波长取窗口的网格：在范围内分 2000 步，步长不小于 0.2 nm，并在范围内每个表格节点处加一个采样点。平板吸收使光学深度超过 50 的波长没有数值。"
+  },
+  "Material.dispersion.refuses.1.js": {
+    "hash": "e7c19032",
+    "text": "它不接受的选项、不构成范围的波长范围，或 1e-9 到 100000 mm 以外的厚度"
+  },
+  "Material.dispersion.refuses.1.py": {
+    "hash": "24cc744b",
+    "text": "不构成范围的波长范围，或 1e-9 到 100000 mm 以外的厚度"
+  },
+  "MaterialDispersion.lead.1": {
+    "hash": "fcf15eee",
+    "text": "光穿过一种材料的平板时的相位、群延迟、GDD、CDC 和 TOD，以及材料的群折射率，随波长的变化，由 material.dispersion() 计算，与材料色散窗口的显示相同。`d.phase`、`d.gd`、`d.gdd`、`d.cdc`、`d.tod` 和 `d.groupIndex` / `d.group_index` 都是 Curve。"
+  },
+  "MaterialDispersion.thickness.lead.1": {
+    "hash": "70f732d8",
+    "text": "平板的厚度，单位 mm。"
+  },
+  "MaterialDispersion.wavelength.lead.1": {
+    "hash": "f74f07fe",
+    "text": "各波长，单位 nm：窗口的网格，并在范围内每个表格节点处有一个采样点。"
+  },
+  "MaterialDispersion.phase.lead.1": {
+    "hash": "b6645e26",
+    "text": "相位 φ = −(d/c)·ω·n，单位为度，一个 Curve。"
+  },
+  "MaterialDispersion.cdc.lead.1": {
+    "hash": "589c194a",
+    "text": "CDC，即 GDD·2πc/λ²，单位 fs/nm，一个 Curve，符号与 GDD 相同；群延迟对波长的斜率 dGD/dλ 等于 −CDC。"
+  },
+  "MaterialDispersion.groupIndex.lead.1": {
+    "hash": "e2b3ff5d",
+    "text": "群折射率 n − λ·dn/dλ，一个 Curve。"
+  },
+  "MaterialDispersion.outside.lead.1": {
+    "hash": "2fcf5381",
+    "text": "对每个波长，若其数值取自材料数据之外（保持在边界值或外推得到），给出材料的名称；否则为 `null` / `None`。"
+  },
+  "MaterialDispersion.masked.lead.1.js": {
+    "hash": "1c79b809",
+    "text": "没有数值的波长，一个由 `{ wavelength, reason, maximumThickness }` 组成的数组。`reason` 说明原因：最常见的是平板在该处的吸收使光学深度超过 50，此时 `maximumThickness` 是平板在该处仍有数值的最大厚度，单位 mm；没有任何厚度能给出数值时为 `null`，例如材料模型在该处没有三阶导数。曲线在这些波长处为 NaN。每个波长都有数值时为空。"
+  },
+  "MaterialDispersion.masked.lead.1.py": {
+    "hash": "33cbc506",
+    "text": "没有数值的波长，一个由 dict（wavelength、reason 和 maximumThickness）组成的 list。reason 说明原因：最常见的是平板在该处的吸收使光学深度超过 50，此时 maximumThickness 是平板在该处仍有数值的最大厚度，单位 mm；没有任何厚度能给出数值时为 None，例如材料模型在该处没有三阶导数。曲线在这些波长处为 NaN。每个波长都有数值时为空。"
+  },
+  "MaterialDispersion.knots.lead.1.js": {
+    "hash": "0104c8b1",
+    "text": "落在网格波长上的表格节点，一个由 `{ wavelength, gd, gdd, tod, cdc }` 组成的数组，每个量是它在节点两侧的数值组成的一对 `[left, right]`；曲线在该波长处的值读取的是节点两侧平均后的材料。若节点相对网格过密，即每 8 个点多于一个节点，则不取任何节点。"
+  },
+  "MaterialDispersion.knots.lead.1.py": {
+    "hash": "c1a90aac",
+    "text": "落在网格波长上的表格节点，一个由 dict（wavelength、gd、gdd、tod 和 cdc）组成的 list，每个量是它在节点两侧的数值组成的一对 [left, right]；曲线在该波长处的值读取的是节点两侧平均后的材料。若节点相对网格过密，即每 8 个点多于一个节点，则不取任何节点。"
+  },
+  "MaterialDispersion.model.lead.1": {
+    "hash": "1ac9af9d",
+    "text": "材料的 n 和 k 所用的模型，名称与窗口中的相同。"
+  },
+  "MaterialDispersion.saveCsv.lead.1.js": {
+    "hash": "303ce9cd",
+    "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有数值取自材料数据之外时接着是 Outside data 列；然后是 Phase φ (°)、Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、TOD (fs³) 和群折射率 nᵧ。已存在的文件会被覆盖。"
+  },
+  "MaterialDispersion.saveCsv.lead.1.py": {
+    "hash": "6a6202af",
+    "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有数值取自材料数据之外时接着是 Outside data 列；然后是 Phase φ (°)、Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、TOD (fs³) 和群折射率 nᵧ。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
   }
 }

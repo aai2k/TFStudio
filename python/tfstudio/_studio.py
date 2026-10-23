@@ -6,11 +6,16 @@ import numbers
 from ._calls import Calls
 from ._design import Design
 from ._errors import TFStudioError
-from ._refusals import Words, worded
+from ._material_dispersion import MaterialDispersion
+from ._names import api_names
+from ._refusals import Words, refuse_arguments, worded
 
 # How designs may name a built-in material besides its bare id: the form the
 # Design Editor and stack() write, which findMaterials does not list.
 BUILTIN = "builtin:"
+# material.dispersion() takes the range as its arguments.
+_DISPERSION_WORDS = Words("materialDispersion", "dispersion", hidden=("from", "to"))
+_DISPERSION_OPTIONS = ("thickness",)
 
 
 class Material:
@@ -88,6 +93,53 @@ class Material:
             nk = self._calls.materialNK(self.id, [wavelengths] if one else list(wavelengths))["nk"]
         n, k = [point["n"] for point in nk], [point["k"] for point in nk]
         return (n[0], k[0]) if one else (n, k)
+
+    @property
+    def range(self):
+        """The range of wavelengths the material's data cover, [first, last]
+        in nm, or None when it states none, as a formula with no stated
+        range.
+
+        Example::
+
+            print("TiO2 has data from", tf.materials["TiO2"].range)
+        """
+        # materialNK reports the range beside n and k; the wavelength asked is any one.
+        return self._calls.materialNK(self.id, [550])["rangeNm"]
+
+    def dispersion(self, start=None, end=None, **options):
+        """Phase, group delay, GDD, CDC and TOD of light through a slab of
+        the material, and its group index, against wavelength, as the
+        Material Dispersion window computes them: φ = −(d/c)·ω·n of the slab
+        of thickness d and its derivatives against ω, from the material's
+        formula or its table read as the app reads it, so the values are
+        analytic at each wavelength and the phase is absolute. The
+        wavelengths are the window's, 2000 steps over the range and never
+        finer than 0.2 nm, with a sample on each table knot in range. Light
+        the slab absorbs to an optical depth above 50 leaves no value.
+
+        Args:
+            start: The first wavelength, nm. Default 400.
+            end: The last wavelength, nm, above start. Default 1100.
+            thickness: The slab's thickness, mm, from 1e-9 (1 pm) to 100000
+                (100 m). Default 1.
+
+        Returns:
+            A MaterialDispersion.
+
+        Raises:
+            TFStudioError: a range that is not one, or a thickness outside
+                1e-9 to 100000 mm.
+
+        Example::
+
+            d = tf.materials["BK7"].dispersion(700, 900, thickness=2)
+            print("2 mm of BK7: GDD from", round(d.gdd.min(), 1), "to", round(d.gdd.max(), 1), "fs²")
+        """
+        refuse_arguments("dispersion", options, ("from", "to"), _DISPERSION_OPTIONS)
+        with worded(_DISPERSION_WORDS):
+            return MaterialDispersion(self._calls.materialDispersion(
+                self.id, api_names({**options, "from": start, "to": end})))
 
     def __repr__(self):
         return "<Material {} ({}, {})>".format(self.id, self.name, self.catalog)

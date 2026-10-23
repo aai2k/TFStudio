@@ -7,7 +7,7 @@
  *   await init({ dataDir })        WASM kernel, and the user's catalogs from a data folder
  *   openDesign(path), saveDesign(design, path, { overwrite }), newDesign(setup), setDesignSetup(design, setup)
  *   insertLayer, deleteLayer, setLayer, stackFromFormula, cleanDesign(design, options)
- *   findMaterials(query), materialNK(id, wavelengths, design)
+ *   findMaterials(query), materialNK(id, wavelengths, design), materialDispersion(id, { from, to, thickness }, design)
  *   spectrum(design, { from, to, step, angles }), summarize(spectrum, { bands })
  *   indexProfile(design, { wavelength, side }), layerThicknesses(design, { wavelength, side }), designFacts(design, { side })
  *   admittance(design, { wavelength, angle, side, plane })
@@ -32,6 +32,7 @@ export { openDesign, saveDesign, newDesign, setDesignSetup } from './designs.js'
 export { insertLayer, deleteLayer, setLayer, stackFromFormula } from './stack.js';
 export { cleanDesign } from './cleaner.js';
 export { findMaterials, materialNK } from './materials.js';
+export { materialDispersion } from './materialDispersion.js';
 export { spectrum, summarize } from './evaluate.js';
 export { indexProfile, layerThicknesses } from './stackViews.js';
 export { designFacts } from './designFacts.js';

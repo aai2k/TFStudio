@@ -4,7 +4,8 @@ import { inspect } from 'node:util';
 import * as api from '../index.js';
 import { checkOptions } from '../check.js';
 import { Design } from './design.js';
-import { trailingOptions } from './options.js';
+import { MaterialDispersion } from './materialDispersion.js';
+import { defined, trailingOptions } from './options.js';
 import { worded } from './refusals.js';
 
 // A built-in material's id as a design may also hold it, after this prefix:
@@ -71,6 +72,46 @@ export class Material {
         const { nk } = worded({ method: 'nk', call: 'materialNK' }, () => api.materialNK(this.id, one ? [wavelengths] : wavelengths));
         const n = nk.map(point => point.n), k = nk.map(point => point.k);
         return one ? [n[0], k[0]] : [n, k];
+    }
+
+    /**
+     * The range of wavelengths the material's data cover, `[first, last]` in
+     * nm, or null when it states none, as a formula with no stated range.
+     *
+     * @example
+     * console.log('TiO2 has data from', tf.materials.get('TiO2').range);
+     */
+    get range() {
+        // materialNK reports the range beside n and k; the wavelength asked is any one.
+        return api.materialNK(this.id, [550]).rangeNm;
+    }
+
+    /**
+     * Phase, group delay, GDD, CDC and TOD of light through a slab of the
+     * material, and its group index, against wavelength, as the Material
+     * Dispersion window computes them: φ = −(d/c)·ω·n of the slab of
+     * thickness d and its derivatives against ω, from the material's formula
+     * or its table read as the app reads it, so the values are analytic at
+     * each wavelength and the phase is absolute. The wavelengths are the
+     * window's, 2000 steps over the range and never finer than 0.2 nm, with
+     * a sample on each table knot in range. Light the slab absorbs to an
+     * optical depth above 50 leaves no value.
+     *
+     * @param [start=400] The first wavelength, nm.
+     * @param [end=1100] The last wavelength, nm, above `start`.
+     * @param [options]
+     * @param [options.thickness=1] The slab's thickness, mm, from 1e-9 (1 pm) to 100000 (100 m).
+     * @returns A MaterialDispersion.
+     * @throws an option it does not take, a range that is not one, or a thickness outside 1e-9 to 100000 mm
+     * @example
+     * const d = tf.materials.get('BK7').dispersion(700, 900, { thickness: 2 });
+     * console.log('2 mm of BK7: GDD from', d.gdd.min().toFixed(1), 'to', d.gdd.max().toFixed(1), 'fs²');
+     */
+    dispersion(...args) {
+        const [[start, end], options] = trailingOptions('dispersion', args, ['start', 'end']);
+        const words = { method: 'dispersion', call: 'materialDispersion', hidden: ['from', 'to'] };
+        const given = checkOptions('dispersion', options, ['thickness']);
+        return new MaterialDispersion(worded(words, () => api.materialDispersion(this.id, defined({ ...given, from: start, to: end }))));
     }
 
     // What console.log prints for a material.

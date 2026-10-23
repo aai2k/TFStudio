@@ -81,6 +81,9 @@ class Calls:
     def materialNK(self, id, wavelengths, design=None):
         return self._call("materialNK", id, wavelengths, design)
 
+    def materialDispersion(self, id, options=None, design=None):
+        return self._call("materialDispersion", id, options, design)
+
     def spectrum(self, design, options):
         return self._call("spectrum", design, options)
 

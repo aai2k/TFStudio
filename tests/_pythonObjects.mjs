@@ -42,7 +42,9 @@
  *   argument, Curves and AngleCurves, an AngleCurve's mean, min and max
  *   against JavaScript's, save_csv() and their refusals; group_delay() with
  *   its defaults and each argument, its Curves, save_csv() on a uniform grid
- *   and on the window's, and its refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
+ *   and on the window's, and its refusals; a material's dispersion() with
+ *   its defaults and each argument, its Curves, range, save_csv() with and
+ *   without masked wavelengths, and its refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
  *   Synthesis's included, and before the run; Ctrl+C in progress; every
@@ -672,6 +674,36 @@ async function groupDelay(t, said) {
         '<GroupDelay back T p at 30 degrees from 450 to 900 nm, 226 points>', `<GroupDelay total T avg at 0 degrees from 400 to 800 nm, ${asked[2]?.[6]?.length} points>`]), canon(got.shown));
 }
 
+// What _pythonObjects.py material_dispersion() read, against the plain call
+// and the object here.
+async function materialDispersion(t, said) {
+    const { api, ok, canon, WORK } = t;
+    const got = said.materialDispersion ?? {};
+    const ASKED = [['TiO2', {}], ['TiO2', { from: 300, to: 900, thickness: 2 }], ['Si', { from: 400, to: 1100, thickness: 0.5 }]];
+    const asked = ASKED.map(([id, options]) => {
+        const d = api.materialDispersion(id, options);
+        return [d.thickness, d.wavelength, d.phase, d.gd, d.gdd, d.cdc, d.tod, d.groupIndex, d.outside, d.masked, d.knots, d.model];
+    });
+    ok('dispersion() is materialDispersion over the wire, with its defaults and each argument, its curves Curves, and range materialNK\'s',
+        canon(got.asked) === canon(asked) && asked[2][9].length > 0 && canon(got.types) === canon(['Curve', 'Curve'])
+        && canon(got.range) === canon(['TiO2', 'Si'].map(id => api.materialNK(id, [550]).rangeNm)), canon(got.asked)?.slice(0, 300));
+    const objects = await import('../src/api/objects/index.js');
+    const tf = new objects.TFStudio({});
+    const files = ['js-outside.csv', 'js-masked.csv'].map(name => path.join(WORK, name));
+    tf.materials.get('TiO2').dispersion(300, 900, { thickness: 2 }).saveCsv(files[0]);
+    tf.materials.get('Si').dispersion(400, 1100, { thickness: 0.5 }).saveCsv(files[1]);
+    const written = files.map(file => csvRows(fs.readFileSync(file, 'utf8')));
+    ok('save_csv writes what saveCsv writes', canon((got.csv ?? []).map(csvRows)) === canon(written) && written[0][0][1] === 'Outside data', String(got.csv?.[0]).slice(0, 200));
+    ok('its refusals are in Python\'s words', canon(got.worded) === canon([
+        'dispersion: start and end are wavelengths in nm, 0 < start < end',
+        'dispersion: thickness is a thickness in mm from 1e-9 to 100000, not 0',
+        "dispersion: unknown option 'start_at'; the options are thickness",
+        "dispersion: unknown option 'to'; the options are thickness",
+    ]), canon(got.worded));
+    ok('and repr() shows what it holds', canon(got.shown) === canon([`<MaterialDispersion TiO2, 1 mm, from 400 to 1100 nm, ${asked[0][1].length} points>`,
+        `<MaterialDispersion TiO2, 2 mm, from 300 to 900 nm, ${asked[1][1].length} points>`, `<MaterialDispersion Si, 0.5 mm, from 400 to 1100 nm, ${asked[2][1].length} points>`]), canon(got.shown));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -857,6 +889,7 @@ export async function checkObjects(t) {
     await colourAndIntegrals(u, ran.said);
     await ellipsometry(u, ran.said);
     await groupDelay(u, ran.said);
+    await materialDispersion(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

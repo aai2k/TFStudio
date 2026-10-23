@@ -8,12 +8,11 @@ import { ChoiceGroup, NumInput, RangeField } from '../chrome/controls.js';
 import { AnalysisWindow, CenteredMessage, ControlRow, PlotArea } from '../chrome/layout.js';
 import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { GDChart } from '../gdGddEvaluation/GDChart.js';
-import { knotGrid, knotSteps, sampleKnots, stepAtKnots } from '../knots.js';
+import { knotSteps, stepAtKnots } from '../knots.js';
 import { chromaticDispersionCoefficient } from '../../../../utils/physics/thinFilmMath.js';
-import { toSignificantFigures } from '../../../../utils/math/significantFigures.js';
 import {
-    materialKnotWavelengths, materialPropagationDispersion,
-} from '../../../../utils/materials/materialDispersion.js';
+    materialDispersionSpectrum, materialDispersionTable,
+} from '../../../../utils/materials/materialDispersionSpectrum.js';
 import { uncoveredMaterialRegions } from '../../../../utils/materials/materialRange.js';
 import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
@@ -27,22 +26,15 @@ const { createElement: h, useCallback, useMemo } = React;
 // `tr` names the axis title in t.gdgdd, which the Group Delay / GDD window
 // already carries for the same quantities. `knot` names the pair of one-sided
 // values a knot sample holds for it; phase is continuous and has none. CDC is
-// GDD taken against wavelength, so it shares GDD's order and is written to
-// significant figures rather than decimals, its magnitude being set by the
-// conversion rather than by the material. `unitKey` names the unit in t.units.
+// GDD taken against wavelength, so it shares GDD's order. `unitKey` names the
+// unit in t.units.
 const QUANTITIES = {
     phase: { key: 'phaseDeg', tr: 'phaseAxis', unit: '°', digits: 2, order: 0 },
     gd: { key: 'gdFs', knot: 'gd', tr: 'gdAxis', unitKey: 'fs', digits: 3, order: 1 },
     gdd: { key: 'gddFs2', knot: 'gdd', tr: 'gddAxis', unitKey: 'fs2', digits: 3, order: 2 },
-    cdc: { key: 'cdc', knot: 'cdc', tr: 'cdcAxis', unitKey: 'fsPerNm', significantFigures: 5, order: 2 },
+    cdc: { key: 'cdc', knot: 'cdc', tr: 'cdcAxis', unitKey: 'fsPerNm', order: 2 },
     tod: { key: 'todFs3', knot: 'tod', tr: 'todAxis', unitKey: 'fs3', digits: 3, order: 3 },
 };
-
-const figures = (entry, value) => (Number.isFinite(value)
-    ? (entry.significantFigures
-        ? toSignificantFigures(value, entry.significantFigures)
-        : value.toFixed(entry.digits))
-    : '');
 
 // Slab thickness units, keyed as t.units names them.
 const THICKNESS_UNITS = {
@@ -67,39 +59,6 @@ function thicknessStep(value) {
 function formatThickness(valueMm, unit, units) {
     const value = thicknessFromMm(valueMm, unit);
     return `${Number(value.toPrecision(6))} ${units[unit]}`;
-}
-
-function sampleWavelengths(start, end) {
-    const low = Math.min(start, end);
-    const high = Math.max(start, end);
-    const spacing = Math.max(0.2, (high - low) / 2000);
-    const count = Math.floor((high - low) / spacing + 1e-12) + 1;
-    const result = Array.from({ length: count }, (_, index) => low + index * spacing);
-    if (high - result[result.length - 1] > 1e-9) result.push(high);
-    return result;
-}
-
-function buildSpectrum(material, start, end, thicknessMm) {
-    if (!material) return null;
-    const at = (wavelength, knotSide) =>
-        materialPropagationDispersion(material, wavelength, thicknessMm, knotSide);
-    const grid = knotGrid(
-        sampleWavelengths(start, end), materialKnotWavelengths(material), start, end);
-    const lambda = grid.wavelengths;
-    const values = lambda.map(wavelength => at(wavelength));
-    const continuityOrders = values
-        .map(value => value.phaseContinuousOrder)
-        .filter(Number.isFinite);
-    return {
-        lambda,
-        values,
-        materialName: material.name || material.id || '',
-        knotSamples: sampleKnots(lambda, grid.knots, at),
-        invalid: values.filter(value => !value.valid),
-        model: values.find(value => value.model)?.model || 'Unavailable',
-        phaseModel: values.find(value => value.phaseModel)?.phaseModel || 'Unavailable',
-        phaseContinuousOrder: continuityOrders.length ? Math.min(...continuityOrders) : 0,
-    };
 }
 
 function quantityValue(value, quantity, meta) {
@@ -194,39 +153,6 @@ function Setup({ state, c, t }) {
     );
 }
 
-function tableModel(spectrum, text, lambdaAxis, outsideLabel) {
-    if (!spectrum) return { columns: [], rows: [] };
-    // Rows taken from outside the material's data are marked with the material,
-    // the same name the plot's shaded band carries. The plot says which part of
-    // the curve is not measurement; without this column a row copied out of the
-    // table, or read from the exported file, would not.
-    const outside = spectrum.values.some(value => value.outsideRange);
-    // The group index is a symbol and reads the same everywhere.
-    const columns = [
-        { key: 'lambda', label: lambdaAxis, align: 'left', fmt: value => value.toFixed(2) },
-        ...(outside
-            ? [{ key: 'outside', label: outsideLabel, align: 'left', fmt: value => value || '' }]
-            : []),
-        { key: 'phase', label: text.phaseAxis, fmt: value => value.toFixed(2) },
-        { key: 'gd', label: text.gdAxis, fmt: value => value.toFixed(3) },
-        { key: 'gdd', label: text.gddAxis, fmt: value => value.toFixed(3) },
-        { key: 'cdc', label: text.cdcAxis, fmt: value => figures(QUANTITIES.cdc, value) },
-        { key: 'tod', label: text.todAxis, fmt: value => value.toFixed(3) },
-        { key: 'groupIndex', label: 'nᵧ', fmt: value => value.toFixed(6) },
-    ];
-    const rows = spectrum.values.map((value, index) => ({
-        lambda: spectrum.lambda[index],
-        outside: value.outsideRange ? spectrum.materialName : '',
-        phase: value.valid ? value.phaseRad * 180 / Math.PI : NaN,
-        gd: value.valid ? value.gdFs : NaN,
-        gdd: value.valid ? value.gddFs2 : NaN,
-        cdc: value.valid ? chromaticDispersionCoefficient(value.gddFs2, spectrum.lambda[index]) : NaN,
-        tod: value.valid ? value.todFs3 : NaN,
-        groupIndex: value.valid ? value.groupIndex : NaN,
-    }));
-    return { columns, rows };
-}
-
 export function MaterialDispersionEvaluation({ c, t }) {
     const footerText = t.gdgdd || {};
     const { design } = useDesign();
@@ -237,12 +163,12 @@ export function MaterialDispersionEvaluation({ c, t }) {
     const curve = useAnalysisColors('materialDispersion');
     const { material, missing } = useDispersionMaterial(design, materialId);
     const spectrum = useMemo(
-        () => buildSpectrum(material, start, end, thicknessMm),
+        () => materialDispersionSpectrum(material, start, end, thicknessMm),
         [material, start, end, thicknessMm],
     );
     const quantityMeta = QUANTITIES[quantity];
     const plotData = plotModel(spectrum, quantity, quantityMeta);
-    const table = tableModel(
+    const table = materialDispersionTable(
         spectrum, t.gdgdd, t.spectralAxis.lambdaShort, t.materialRange.outsideColumn);
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),

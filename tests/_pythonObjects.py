@@ -60,6 +60,7 @@ def objects(given):
         colour_and_integrals(tf)
         ellipsometry(tf)
         group_delay(tf)
+        material_dispersion(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -598,6 +599,23 @@ def group_delay(tf):
                         "types": [type(asked[0].gd).__name__, type(asked[0].phase).__name__],
                         "csv": [text_of("uniform.csv"), text_of("auto.csv")], "worded": worded,
                         "shown": [repr(g) for g in asked]}})
+
+
+def material_dispersion(tf):
+    """dispersion() of two materials, with its defaults and each argument;
+    the curve type; range; the CSV of each; its refusals and repr()."""
+    tio2, si = tf.materials["TiO2"], tf.materials["Si"]
+    asked = [tio2.dispersion(), tio2.dispersion(300, 900, thickness=2), si.dispersion(400, 1100, thickness=0.5)]
+    asked[1].save_csv("outside.csv")
+    asked[2].save_csv("masked.csv")
+    worded = [refused(make) for make in (
+        lambda: tio2.dispersion(800, 400), lambda: tio2.dispersion(thickness=0), lambda: tio2.dispersion(start_at=400),
+        lambda: tio2.dispersion(to=900))]
+    out({"materialDispersion": {
+        "asked": [[d.thickness, d.wavelength, list(d.phase), list(d.gd), list(d.gdd), list(d.cdc), list(d.tod), list(d.group_index),
+                   d.outside, d.masked, d.knots, d.model] for d in asked],
+        "types": [type(asked[0].gdd).__name__, type(asked[0].group_index).__name__], "range": [tio2.range, si.range],
+        "csv": [text_of("outside.csv"), text_of("masked.csv")], "worded": worded, "shown": [repr(d) for d in asked]}})
 
 
 def ran(before, design, result):
