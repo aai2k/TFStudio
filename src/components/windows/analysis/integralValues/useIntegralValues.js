@@ -1,7 +1,6 @@
-import { computeIntegralValueBatch } from '../../../../utils/physics/integralValues.js';
 import {
-    buildIntegralDefinitions,
     highestCustomCounter,
+    integralTable,
     makeCustomDefinition,
 } from './integralModel.js';
 import { computeSpectrumForMode } from './spectrum.js';
@@ -123,13 +122,9 @@ export function useIntegralValues(design, evalMode) {
     );
     const evaluation = coneActive ? workerResult : directResult;
     const spectrum = evaluation.data;
-    const integrals = useMemo(
-        () => buildIntegralDefinitions(customDefs),
-        [customDefs],
-    );
-    const results = useMemo(
-        () => spectrum ? computeIntegralValueBatch(spectrum, integrals) : null,
-        [spectrum, integrals],
+    const { definitions: integrals, results } = useMemo(
+        () => integralTable(spectrum, customDefs),
+        [spectrum, customDefs],
     );
     const selected = integrals.find(integral => integral.key === selKey) || integrals[0];
     const selectedResult = results && selected ? results[selected.key] : null;

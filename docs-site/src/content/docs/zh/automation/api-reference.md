@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -849,6 +849,86 @@ design.stack("(HL)^4 H")
 field = design.electric_field(1064, angle=45)
 peak = field.p.e2.index(max(field.p.e2))
 print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1), "nm")
+```
+
+### color
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.color({ quantity, angle, pol, observer, illuminant, step, side })` | `design.color(quantity="R", angle=0, pol="avg", observer=2, illuminant="D65", step=0.5, side=...)` |
+
+设计的反射率或透射率的 CIE 颜色，与颜色评估窗口的计算相同：在一种光源下 R 或 T 在 380-780 nm 波段上的三刺激值，以及窗口显示的各颜色空间、主波长、相关色温和 sRGB 色块。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。没有膜层的面给出其裸表面的颜色。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `quantity` | `quantity` | `'R'` | 计算颜色的量：`'R'` 或 `'T'`。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在入射介质中计，从 0 起，小于 90。 |
+| `pol` | `pol` | `'avg'` | 偏振：`'avg'`（非偏振）、`'s'` 或 `'p'`。 |
+| `observer` | `observer` | `2` | CIE 标准观察者，按其视场角度给出：`2`（CIE 1931）或 `10`（CIE 1964）。 |
+| `illuminant` | `illuminant` | `'D65'` | CIE 光源：`'D65'`、`'D50'`、`'A'` 或 `'E'`。 |
+| `step` | `step` | `0.5` | 用于积分颜色的光谱的波长步长，单位 nm。 |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+
+**返回**：一个 Color。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长，或用到找不到对应材料的设计<br>**Python**：它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const c = design.color({ quantity: 'R', illuminant: 'D65' });
+console.log(c.mode, 'x', c.x.toFixed(4), 'y', c.y.toFixed(4), 'Y', c.Y.toFixed(2), '%, dominant', c.dominant.wavelength?.toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+c = design.color(quantity="R", illuminant="D65")
+print(c.mode, "x", round(c.x, 4), "y", round(c.y, 4), "Y", round(c.Y, 2), "%, dominant",
+      c.dominant.wavelength, "nm")
+```
+
+### integrals
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.integrals({ start, end, step, angle, pol, custom, side })` | `design.integrals(start=300, end=2500, step=0.5, angle=0, pol="avg", custom=..., side=...)` |
+
+**JavaScript**：设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 `custom` 给出。计算对象由设计的 `sides` 和 `scoreOn` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 NaN，`covered` 为 false。权重在整个波段上为 0 的行同样没有数值，但 `covered` 为 true。
+
+**Python**：设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 custom 给出。计算对象由设计的 sides 和 score_on 决定，与光谱相同，除非给出 side；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 nan，covered 为 False。权重在整个波段上为 0 的行同样没有数值，但 covered 为 True。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` | `300` | 光谱的起始波长，单位 nm。 |
+| `end` | `end` | `2500` | 终止波长，单位 nm，大于 `start`。 |
+| `step` | `step` | `0.5` | 波长步长，单位 nm。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在入射介质中计，从 0 起，小于 90。 |
+| `pol` | `pol` | `'avg'` | 偏振：`'avg'`（非偏振）、`'s'` 或 `'p'`。 |
+| `custom` | `custom` | `[]` | **JavaScript**：你自己的行，每行为 `{ key, quantity, source, detector, band }`：`key` 为其名称，不能与其他行相同；`quantity` 为 `'T'`、`'R'` 或 `'A'`；`source` 为 `{ id }`，id 为 `'D65'`、`'D50'`、`'A'`、`'AM1.5G'`、`'E'`、带 `T`（其温度，单位 K）的 `'blackbody'`，或带 `table`（其 `[nm, value]` 行，至少两行且波长不同）的 `'custom'`；`detector` 为 `{ id }`，id 为 `'photopic'`、`'flat'` 或带其 `table` 的 `'custom'`；`band` 为以 nm 计的 `[start, end]`，并受权重自身范围的限制。字段不给出时：`'T'`、D65、明视觉和 380-780 nm；黑体的 T 为 5778 K。<br>**Python**：你自己的行，每行是一个 dict，含 key、quantity、source、detector 和 band：key 为其名称，不能与其他行相同；quantity 为 "T"、"R" 或 "A"；source 为 {"id": ...}，id 为 "D65"、"D50"、"A"、"AM1.5G"、"E"、带 "T"（其温度，单位 K）的 "blackbody"，或带 "table"（其 [nm, value] 行，至少两行且波长不同）的 "custom"；detector 为 {"id": ...}，id 为 "photopic"、"flat" 或带其 "table" 的 "custom"；band 为以 nm 计的 [start, end]，并受权重自身范围的限制。字段不给出时："T"、D65、明视觉和 380-780 nm；黑体的 T 为 5778 K。不给出时，没有你自己的行。 |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+
+**返回**：一个 Integrals。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key，或用到找不到对应材料的设计<br>**Python**：不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+const iv = design.integrals({ custom: [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }] });
+console.log('Tvis', iv.get('Tvis').value.toFixed(4), 'T3000K', iv.get('T3000K').value.toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+iv = design.integrals(custom=[{"key": "T3000K", "source": {"id": "blackbody", "T": 3000},
+                               "band": [400, 700]}])
+print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
 ```
 
 ### refine
@@ -4890,6 +4970,783 @@ field = design.electric_field(1064, depth_unit="QWOT")
 name = "field-{}.csv".format(time.time_ns())
 field.save_csv(name)
 print("Wrote", len(field.z), "rows to", name)
+```
+
+## Color
+
+设计的反射率或透射率的 CIE 颜色，与 design.color() 的计算和颜色评估窗口的显示相同：在一种光源下 380-780 nm 波段上的三刺激值、各颜色空间、主波长、相关色温和 sRGB 色块。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const c = design.color({ illuminant: 'D50' });
+console.log(c.mode, c.x.toFixed(4), c.y.toFixed(4), c.lab);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+c = design.color(illuminant="D50")
+print(c.mode, round(c.x, 4), round(c.y, 4), c.lab)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.mode` | `c.mode` |
+
+所计算的对象：`'front'`、`'back'` 或 `'total'`（整个元件）。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().mode)
+```
+
+### quantity
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.quantity` | `c.quantity` |
+
+计算颜色的量：`'R'` 或 `'T'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ quantity: 'T' }).quantity);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(quantity="T").quantity)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.angle` | `c.angle` |
+
+入射角，单位为度，在入射介质中计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(angle=30).angle, "degrees")
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.pol` | `c.pol` |
+
+偏振：`'avg'`、`'s'` 或 `'p'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ angle: 45, pol: 's' }).pol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(angle=45, pol="s").pol)
+```
+
+### observer
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.observer` | `c.observer` |
+
+CIE 标准观察者，按其视场角度给出：`2` 或 `10`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ observer: 10 }).observer);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(observer=10).observer)
+```
+
+### illuminant
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.illuminant` | `c.illuminant` |
+
+CIE 光源：`'D65'`、`'D50'`、`'A'` 或 `'E'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ illuminant: 'A' }).illuminant);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(illuminant="A").illuminant)
+```
+
+### step
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.step` | `c.step` |
+
+用于积分颜色的光谱的波长步长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ step: 1 }).step, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(step=1).step, "nm")
+```
+
+### X
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.X` | `c.X` |
+
+三刺激值 X，以白色的 Y 为 100 计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().X);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().X)
+```
+
+### Y
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.Y` | `c.Y` |
+
+三刺激值 Y：光度反射率或透射率，单位 %。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log('luminous R', design.color().Y.toFixed(2), '%');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("luminous R", round(design.color().Y, 2), "%")
+```
+
+### Z
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.Z` | `c.Z` |
+
+三刺激值 Z，以白色的 Y 为 100 计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().Z);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().Z)
+```
+
+### x
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.x` | `c.x` |
+
+色度坐标 x。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().x.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(round(design.color().x, 4))
+```
+
+### y
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.y` | `c.y` |
+
+色度坐标 y。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().y.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(round(design.color().y, 4))
+```
+
+### white
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.white` | `c.white` |
+
+**JavaScript**：光源的白色，`{ X, Y, Z }`，Y 为 100：即 R 或 T 为 1 时在同一网格上积分的结果。
+
+**Python**：光源的白色，一个具名元组 (X, Y, Z)，Y 为 100：即 R 或 T 为 1 时在同一网格上积分的结果。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ illuminant: 'D50' }).white);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(illuminant="D50").white)
+```
+
+### whiteXy / white_xy
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.whiteXy` | `c.white_xy` |
+
+**JavaScript**：白色的色度坐标，`{ x, y }`。
+
+**Python**：白色的色度坐标，一个具名元组 (x, y)。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().whiteXy);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().white_xy)
+```
+
+### lab
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.lab` | `c.lab` |
+
+**JavaScript**：CIE L*a*b*，`{ L, a, b, C, h }`，色相角 h 以度计。
+
+**Python**：CIE L*a*b*，一个具名元组 (L, a, b, C, h)，色相角 h 以度计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { L, a, b } = design.color().lab;
+console.log(L.toFixed(2), a.toFixed(2), b.toFixed(2));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+lab = design.color().lab
+print(round(lab.L, 2), round(lab.a, 2), round(lab.b, 2))
+```
+
+### luv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.luv` | `c.luv` |
+
+**JavaScript**：CIE L*u*v*，`{ L, u, v, C, h, s }`，色相角 h 以度计，s 为饱和度。
+
+**Python**：CIE L*u*v*，一个具名元组 (L, u, v, C, h, s)，色相角 h 以度计，s 为饱和度。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().luv);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().luv)
+```
+
+### uv1976
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.uv1976` | `c.uv1976` |
+
+**JavaScript**：CIE 1976 UCS 色度坐标，`{ u, v }`：即 u′ 和 v′。
+
+**Python**：CIE 1976 UCS 色度坐标，一个具名元组 (u, v)：即 u′ 和 v′。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().uv1976);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().uv1976)
+```
+
+### uv1960
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.uv1960` | `c.uv1960` |
+
+**JavaScript**：CIE 1960 UCS 色度坐标，`{ u, v }`。
+
+**Python**：CIE 1960 UCS 色度坐标，一个具名元组 (u, v)。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().uv1960);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().uv1960)
+```
+
+### hunterLab / hunter_lab
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.hunterLab` | `c.hunter_lab` |
+
+**JavaScript**：Hunter Lab，`{ L, a, b }`。
+
+**Python**：Hunter Lab，一个具名元组 (L, a, b)。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().hunterLab);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().hunter_lab)
+```
+
+### dominant
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.dominant` | `c.dominant` |
+
+**JavaScript**：`{ wavelength, complementary, purity }`：主波长，单位 nm；紫色则主波长为 null，并给出其补色波长，单位 nm；purity 为兴奋纯度，以 1 的分数计，紫色的纯度量到紫线。对白色本身，两个波长都为 null。
+
+**Python**：一个具名元组 (wavelength, complementary, purity)：主波长，单位 nm；紫色则主波长为 None，并给出其补色波长，单位 nm；purity 为兴奋纯度，以 1 的分数计，紫色的纯度量到紫线。对白色本身，两个波长都为 None。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { wavelength, complementary, purity } = design.color().dominant;
+console.log(wavelength ?? `complementary ${complementary}`, 'nm, purity', purity.toFixed(3));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+d = design.color().dominant
+print(d.wavelength if d.wavelength is not None else "complementary {}".format(d.complementary),
+      "nm, purity", round(d.purity, 3))
+```
+
+### cct
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.cct` | `c.cct` |
+
+**JavaScript**：相关色温，单位 K，由 McCamy 公式在 2 度色度坐标上求得，与观察者无关；超出该公式覆盖的 1000 K 到 1e6 K，或离普朗克轨迹超过 0.05 时为 NaN。
+
+**Python**：相关色温，单位 K，由 McCamy 公式在 2 度色度坐标上求得，与观察者无关；超出该公式覆盖的 1000 K 到 1e6 K，或离普朗克轨迹超过 0.05 时为 nan。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.color({ quantity: 'T' }).cct.toFixed(0), 'K');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(round(design.color(quantity="T").cct), "K")
+```
+
+### duv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.duv` | `c.duv` |
+
+**JavaScript**：到普朗克轨迹的距离，在 CIE 1960 u, v 中计，在轨迹上方为正；超出 McCamy 公式覆盖的范围时为 NaN。
+
+**Python**：到普朗克轨迹的距离，在 CIE 1960 u, v 中计，在轨迹上方为正；超出 McCamy 公式覆盖的范围时为 nan。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.color({ quantity: 'T' }).duv.toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(round(design.color(quantity="T").duv, 4))
+```
+
+### srgb
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.srgb` | `c.srgb` |
+
+**JavaScript**：窗口的色块，`{ r, g, b }`，各为 0 到 255：曝光为 1 时的 sRGB，从光源的白色适配到 D65。
+
+**Python**：窗口的色块，一个具名元组 (r, g, b)，各为 0 到 255：曝光为 1 时的 sRGB，从光源的白色适配到 D65。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { r, g, b } = design.color().srgb;
+console.log(`rgb(${r}, ${g}, ${b})`);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("rgb{}".format(tuple(design.color().srgb)))
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.outOfRange` | `c.out_of_range` |
+
+**JavaScript**：所计算对象上数据在 380-780 nm 内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该波段时为空。
+
+**Python**：所计算对象上数据在 380-780 nm 内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波段时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print([m["id"] for m in design.color().out_of_range])
+```
+
+## Integrals
+
+**JavaScript**：设计的 T、R 和 A 的加权平均，与 design.integrals() 的计算和积分值窗口的列表相同：先是内置的行，从 Tvis 到 RNIR，然后是你自己的行，每行用 get() 按其 key 读取。
+
+**Python**：设计的 T、R 和 A 的加权平均，与 design.integrals() 的计算和积分值窗口的列表相同：先是内置的行，从 Tvis 到 RNIR，然后是你自己的行，每行用 [] 按其 key 读取。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+const iv = design.integrals();
+console.log(iv.mode, 'Tvis', iv.get('Tvis').value.toFixed(4), 'Rsol', iv.get('Rsol').value.toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+iv = design.integrals()
+print(iv.mode, "Tvis", round(iv["Tvis"].value, 4), "Rsol", round(iv["Rsol"].value, 4))
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.mode` | `iv.mode` |
+
+所计算的对象：`'front'`、`'back'` 或 `'total'`（整个元件）。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals().mode);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals().mode)
+```
+
+### start
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.start` | `iv.start` |
+
+光谱的起始波长，单位 nm。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ start: 350 }).start, 'nm');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(start=350).start, "nm")
+```
+
+### end
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.end` | `iv.end` |
+
+光谱的终止波长，单位 nm。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ end: 1200 }).end, 'nm');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(end=1200).end, "nm")
+```
+
+### step
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.step` | `iv.step` |
+
+波长步长，单位 nm。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ step: 1 }).step, 'nm');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(step=1).step, "nm")
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.angle` | `iv.angle` |
+
+入射角，单位为度，在入射介质中计。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(angle=30).angle, "degrees")
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.pol` | `iv.pol` |
+
+偏振：`'avg'`、`'s'` 或 `'p'`。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ angle: 45, pol: 'p' }).pol);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(angle=45, pol="p").pol)
+```
+
+### rows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.rows` | `iv.rows` |
+
+**JavaScript**：各行，先是窗口所列的内置行，再是你的行，每行为 `{ key, quantity, value, min, minAt, max, maxAt, band, covered, spectrumSpan }`：`quantity` 为 `'T'`、`'R'` 或 `'A'`；`value` 为加权平均，`min` 和 `max` 为该波段上的最低值和最高值，以 1 的分数计；`minAt` 和 `maxAt` 为它们所在的波长，单位 nm；`band` 为所积分的波段，以 nm 计的 `[start, end]`；`covered` 表示光谱是否覆盖该波段，不覆盖时或权重在整个波段上为 0 时，各个数为 NaN；`spectrumSpan` 为光谱的首末波长，单位 nm。
+
+**Python**：各行，先是窗口所列的内置行，再是你的行，每行是一个具名元组 (key, quantity, value, min, min_at, max, max_at, band, covered, spectrum_span)：quantity 为 "T"、"R" 或 "A"；value 为加权平均，min 和 max 为该波段上的最低值和最高值，以 1 的分数计；min_at 和 max_at 为它们所在的波长，单位 nm；band 为所积分的波段，以 nm 计的 (start, end)；covered 表示光谱是否覆盖该波段，不覆盖时或权重在整个波段上为 0 时，各个数为 nan；spectrum_span 为光谱的首末波长，单位 nm。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+for (const row of design.integrals().rows) console.log(row.key, row.covered ? row.value.toFixed(4) : 'no value');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+for row in design.integrals().rows:
+    print(row.key, round(row.value, 4) if row.covered else "no value")
+```
+
+### get / []
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.get(key)` | `iv[key]` |
+
+名为 `key` 的积分所在的行，与 `rows` 给出的相同。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `key` | `key` |  | 行的 key：Tvis、Rvis、Avis、Tsol、Rsol、Asol、TUV、RUV、TNIR、RNIR，或你自己某一行的 key。 |
+
+**返回**：该行。
+
+**拒绝**：
+
+- 没有任何行使用的 key
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+const { value, min, minAt } = design.integrals().get('Rvis');
+console.log('Rvis', value.toFixed(4), 'lowest', min.toFixed(4), 'at', minAt, 'nm');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+row = design.integrals()["Rvis"]
+print("Rvis", round(row.value, 4), "lowest", round(row.min, 4), "at", row.min_at, "nm")
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.outOfRange` | `iv.out_of_range` |
+
+**JavaScript**：所计算对象上数据在该范围内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该范围时为空。
+
+**Python**：所计算对象上数据在该范围内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals().outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print([m["id"] for m in design.integrals().out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.saveCsv(path)` | `iv.save_csv(path)` |
+
+**JavaScript**：把各行写入 CSV 文件，与窗口的英文导出写出其表格的方式相同：Integral、Value、%、Min、Min λ (nm)、Max、Max λ (nm) 和 Band 各列，每行以其 key 命名（内置行的 key 即窗口自己的名称），没有数值的行留空单元格。已存在的文件会被覆盖。
+
+**Python**：把各行写入 CSV 文件，与窗口的英文导出写出其表格的方式相同：Integral、Value、%、Min、Min λ (nm)、Max、Max λ (nm) 和 Band 各列，每行以其 key 命名（内置行的 key 即窗口自己的名称），没有数值的行留空单元格。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `integrals-${Date.now()}.csv`);
+const design = tf.newDesign('AR');
+design.stack('HL');
+design.integrals().saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "integrals-{}.csv".format(time.time_ns())
+design = tf.new_design("AR")
+design.stack("HL")
+design.integrals().save_csv(name)
+print("Wrote", name)
 ```
 
 ## RunResult

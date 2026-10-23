@@ -5,8 +5,10 @@ import copy
 import numbers
 
 from ._admittance import Admittance
+from ._color import Color
 from ._electric_field import ElectricField
 from ._errors import TFStudioError
+from ._integrals import Integrals
 from ._merit import Merit
 from ._names import api_names
 from ._refusals import Words, worded
@@ -1003,6 +1005,104 @@ class Design:
         """
         with worded(_FIELD_WORDS):
             return ElectricField(self._calls.electricField(self._data, api_names({**options, "wavelength": wavelength})))
+
+    def color(self, **options):
+        """The CIE colour of the design's reflectance or transmittance, as
+        the Color Evaluation window computes it: the tristimulus values of R
+        or T on the 380-780 nm band under one illuminant, and the colour
+        spaces, dominant wavelength, correlated colour temperature and sRGB
+        swatch the window shows. What it is computed on follows the design's
+        sides and score_on, as a spectrum does, unless side is given, and a
+        design under a cone of incidence is averaged over its cone, as the
+        window averages it. A side with no layers gives the colour of its
+        bare surface.
+
+        Args:
+            quantity: What is coloured: "R" or "T". Default "R".
+            angle: The angle of incidence, degrees in the incident medium, 0
+                up to but not including 90. Default 0.
+            pol: The polarization: "avg", unpolarized, "s" or "p". Default
+                "avg".
+            observer: The CIE standard observer, by its field in degrees: 2
+                (CIE 1931) or 10 (CIE 1964). Default 2.
+            illuminant: The CIE illuminant: "D65", "D50", "A" or "E".
+                Default "D65".
+            step: The wavelength step of the spectrum the colour is
+                integrated on, nm. Default 0.5.
+            side: "front", "back" or "total", the whole part. Default: what
+                the design is scored on.
+
+        Returns:
+            A Color.
+
+        Raises:
+            TFStudioError: a quantity, polarization, observer, illuminant or
+                side it does not have, an angle outside 0 to 90, a step of 0
+                or less, more than a million wavelengths, or a design that
+                names a material that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            c = design.color(quantity="R", illuminant="D65")
+            print(c.mode, "x", round(c.x, 4), "y", round(c.y, 4), "Y", round(c.Y, 2), "%, dominant",
+                  c.dominant.wavelength, "nm")
+        """
+        return Color(self._read("color", "color", **options))
+
+    def integrals(self, **options):
+        """Weighted averages of the design's T, R and A, as the Integral
+        Values window computes them: each integral is ∫ C(λ) w(λ) dλ / ∫ w(λ)
+        dλ over its weighting's band, on the spectrum's grid. The built-in
+        rows are the window's, Tvis to RNIR; rows of your own come in custom.
+        What it is computed on follows the design's sides and score_on, as a
+        spectrum does, unless side is given, and a design under a cone of
+        incidence is averaged over its cone, as the window averages it. A row
+        whose band the spectrum does not span has no value: its numbers are
+        nan and covered is False. A row whose weighting is 0 over the whole
+        band has no value either, though covered is True.
+
+        Args:
+            start: The first wavelength of the spectrum, nm. Default 300.
+            end: The last wavelength, nm, above start. Default 2500.
+            step: The wavelength step, nm. Default 0.5.
+            angle: The angle of incidence, degrees in the incident medium, 0
+                up to but not including 90. Default 0.
+            pol: The polarization: "avg", unpolarized, "s" or "p". Default
+                "avg".
+            custom: Rows of your own, each a dict with key, quantity, source,
+                detector and band: key its name, which no other row has;
+                quantity "T", "R" or "A"; source {"id": ...} with an id of
+                "D65", "D50", "A", "AM1.5G", "E", "blackbody" with "T", its
+                temperature in K, or "custom" with "table", its [nm, value]
+                rows, at least two at different wavelengths; detector
+                {"id": ...} with an id of "photopic", "flat" or "custom" with
+                its "table"; band [start, end] in nm, which the weighting's
+                own range narrows. Left out: "T", D65, photopic and 380-780
+                nm; a blackbody's T 5778 K. Default: no rows of your own.
+            side: "front", "back" or "total", the whole part. Default: what
+                the design is scored on.
+
+        Returns:
+            An Integrals.
+
+        Raises:
+            TFStudioError: a range that is not one, an angle outside 0 to 90,
+                a polarization or side it does not have, more than a million
+                wavelengths, a custom row with a field it does not have or
+                cannot use, a key another row has, or a design that names a
+                material that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("HL")
+            iv = design.integrals(custom=[{"key": "T3000K", "source": {"id": "blackbody", "T": 3000},
+                                           "band": [400, 700]}])
+            print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
+        """
+        return Integrals(self._read("integrals", "integrals", **options))
 
     def _read(self, call, method, **options):
         """What the API's call `call` reads of the design with `options`, for

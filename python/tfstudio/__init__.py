@@ -17,9 +17,11 @@ Python page (https://docs.tfstudio.xyz/automation/python/) says more.
 """
 
 from ._admittance import Admittance
+from ._color import Color
 from ._design import Design, Layer, Layers, Substrate
 from ._electric_field import ElectricField
 from ._errors import AppError, ServerError, TFStudioError
+from ._integrals import Integrals
 from ._merit import Merit, MeritRow
 from ._results import (CheckResult, CleanReport, Curve, LayerSensitivity, MonteCarlo, Progress, RunResult, SensitivityRow,
                        SpecReport, Spectrum, Yield)
@@ -32,6 +34,6 @@ __version__ = "0.1.0"
 
 __all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
            "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Admittance",
-           "ElectricField", "Progress",
+           "ElectricField", "Color", "Integrals", "Progress",
            "RunResult", "MonteCarlo", "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material", "App",
            "AppDesign", "Stop", "TFStudioError", "AppError", "ServerError"]

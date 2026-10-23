@@ -30,9 +30,10 @@ export const jsNameOf = name => apiName(name, EXCEPTIONS);
 export const pyNameOf = name => Object.keys(EXCEPTIONS).find(key => EXCEPTIONS[key] === name) ?? pythonName(name);
 
 // Python's operators by the JavaScript members in their place: [] is [n],
-// which Layers take through a proxy (jsObjects.mjs), and Materials take
-// get(), since an object's [] in JavaScript reads its properties.
-const OPERATORS = { __len__: () => 'length', __iter__: () => '[Symbol.iterator]', __getitem__: cls => (cls === 'Materials' ? 'get' : '[n]') };
+// which Layers take through a proxy (jsObjects.mjs), and Materials and
+// Integrals take get(), since an object's [] in JavaScript reads its
+// properties.
+const OPERATORS = { __len__: () => 'length', __iter__: () => '[Symbol.iterator]', __getitem__: cls => (['Materials', 'Integrals'].includes(cls) ? 'get' : '[n]') };
 
 // The forms of an attribute: read, and set where it can be.
 const attributeForms = (at, name, settable) => (settable ? [`${at}.${name}`, `${at}.${name} = value`] : [`${at}.${name}`]);

@@ -102,6 +102,12 @@ class Calls:
     def electricField(self, design, options=None):
         return self._call("electricField", design, options)
 
+    def color(self, design, options=None):
+        return self._call("color", design, options)
+
+    def integrals(self, design, options=None):
+        return self._call("integrals", design, options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

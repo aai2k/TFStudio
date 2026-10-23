@@ -109,7 +109,7 @@ server.write({ jsonrpc: '2.0', method: 'notifications/initialized' });
     const listed = (await server.request('tools/list')).result.tools;
     const byName = Object.fromEntries(listed.map(t => [t.name, t]));
     ok('with --live the server lists the tools that reach the app', ['listAppDesigns', 'readAppDesign', 'applyToApp'].every(name => byName[name]?.description)
-        && listed.length === 34, listed.map(t => t.name).join(','));
+        && listed.length === 36, listed.map(t => t.name).join(','));
     ok('refine and synthesize take applyToApp, Monte Carlo does not', byName.refine.inputSchema.properties.applyToApp?.type === 'boolean'
         && byName.synthesize.inputSchema.properties.applyToApp?.type === 'boolean' && !byName.monteCarlo.inputSchema.properties.applyToApp);
     ok('the instructions say how to work on the open design', /readAppDesign/.test(init.result.instructions) && /applyToApp/.test(init.result.instructions));

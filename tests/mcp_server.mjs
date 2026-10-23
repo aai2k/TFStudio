@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 31
+ *   1. The session: initialize and version negotiation, the tool list (the 33
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -22,7 +22,10 @@
  *      in short and with their values, a layer is set by its QWOT, and a side
  *      with no layers is refused; its admittance locus and electric field give
  *      the API's, in short with the end of each locus and the peak of each
- *      field, and in full with their values, and side total is refused; misspelt
+ *      field, and in full with their values, and side total is refused; its
+ *      colour and integral values give the API's, in short and with their
+ *      values, a row with no value as null, and an observer or a custom
+ *      source it does not have is refused; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
  *   3. stdout carries only messages, also when the server's own code prints;
@@ -66,7 +69,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 31 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 33 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -254,6 +257,28 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         JSON.stringify(shortSaid));
     const total = await server.call('electricField', { designId: two, side: 'total' });
     ok('a stack view of the whole part is refused', /side/.test(total.error ?? ''), total.error);
+
+    // Its colour and integral values, on the whole part it is scored on.
+    const { white, whiteXy, luv, uv1976, uv1960, hunterLab, ...colour } = api.color(edited, { quantity: 'T', illuminant: 'D50' });
+    const shortColour = await server.call('color', { designId: two, quantity: 'T', illuminant: 'D50' });
+    const fullColour = await server.call('color', { designId: two, quantity: 'T', illuminant: 'D50', values: true });
+    ok('color answers with the API\'s colour, and the white and the other colour spaces for values true',
+        JSON.stringify(shortColour) === JSON.stringify({ designId: two, ...colour }) && shortColour.mode === 'total'
+        && JSON.stringify([fullColour.white, fullColour.whiteXy, fullColour.luv, fullColour.uv1976, fullColour.uv1960, fullColour.hunterLab])
+            === JSON.stringify([white, whiteXy, luv, uv1976, uv1960, hunterLab]), JSON.stringify(shortColour).slice(0, 300));
+    const custom = [{ key: 'bb', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }];
+    const table = api.integrals(edited, { start: 350, end: 1000, step: 2, custom });
+    const shortTable = await server.call('integrals', { designId: two, start: 350, end: 1000, step: 2, custom });
+    const fullTable = await server.call('integrals', { designId: two, start: 350, end: 1000, step: 2, custom, values: true });
+    const tsol = shortTable.rows?.find(r => r.key === 'Tsol');
+    const said = [shortTable.rows, fullTable.rows, tsol, shortTable.rows?.length];
+    const meant = [table.rows.map(({ key, quantity, value, covered }) => ({ key, quantity, value, covered })), table.rows, { key: 'Tsol', quantity: 'T', value: null, covered: false }, 11];
+    ok('integrals answers with each row\'s value, null where it has none, and every field for values true',
+        JSON.stringify(said) === JSON.stringify(meant), JSON.stringify(shortTable).slice(0, 300));
+    const observer = await server.call('color', { designId: two, observer: 4 });
+    const source = await server.call('integrals', { designId: two, custom: [{ key: 'x', source: { id: 'F11' } }] });
+    ok('an observer or a custom source it does not have is refused', /observer/.test(observer.error ?? '') && /integrals: custom\[0\]\.source is/.test(source.error ?? ''),
+        `${observer.error} / ${source.error}`);
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────

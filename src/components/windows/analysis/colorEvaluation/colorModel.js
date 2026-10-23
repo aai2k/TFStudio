@@ -20,8 +20,12 @@ import {
 export const formatValue = (value, digits = 4) =>
     (value == null || !isFinite(value) ? '—' : value.toFixed(digits));
 
-// R|T(λ) as a fraction on the colour band, every `step` nm.
-function responseSpectrum(design, { evalMode, characteristic, pol, theta, step }) {
+/**
+ * R|T(λ) as a fraction on the colour band, every `step` nm, on the sides
+ * `evalMode` names ('front', 'back' or 'total'), averaged over the design's
+ * cone. A side with no layers gives its bare surface.
+ */
+export function responseSpectrum(design, { evalMode, characteristic, pol, theta, step }) {
     const resolveMaterial = designMaterialLookup(design);
     const incMat = resolveMaterial(design.incidentMedium);
     const subMat = resolveMaterial(design.substrate?.material);

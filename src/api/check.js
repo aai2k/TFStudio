@@ -83,11 +83,11 @@ export const MAX_POINTS = 1e6;
 /**
  * Refuses a wavelength range [from, to] in nm sampled every `step` nm at
  * `angles` angles that is not a range, or that holds more than MAX_POINTS
- * points.
+ * points. `names` are the call's names for from and to.
  */
-export function checkRange(call, { from, to, step }, angles = 1) {
+export function checkRange(call, { from, to, step }, angles = 1, [first, last] = ['from', 'to']) {
     if (!(Number.isFinite(from) && Number.isFinite(to) && from > 0 && to > from)) {
-        throw refusal('wavelengthRange', { call, from, to }, `${call}: from and to are wavelengths in nm, 0 < from < to`);
+        throw refusal('wavelengthRange', { call, from, to }, `${call}: ${first} and ${last} are wavelengths in nm, 0 < ${first} < ${last}`);
     }
     requireValue(call, 'step', step, isPositive, 'a wavelength step in nm above 0');
     const points = (Math.floor((to - from) / step) + 1) * angles;

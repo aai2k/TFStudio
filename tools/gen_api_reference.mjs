@@ -75,6 +75,8 @@ const CLASSES = [
     { name: 'LayerThicknesses', receiver: 'thicknesses' },
     { name: 'Admittance', receiver: 'locus' },
     { name: 'ElectricField', receiver: 'field' },
+    { name: 'Color', receiver: 'c' },
+    { name: 'Integrals', receiver: 'iv' },
     { name: 'RunResult', receiver: 'run' },
     { name: 'Progress', receiver: 'p' },
     { name: 'MonteCarlo', receiver: 'mc' },

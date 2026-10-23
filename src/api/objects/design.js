@@ -11,6 +11,8 @@ import { defined, optionsOf, trailingOptions } from './options.js';
 import { worded } from './refusals.js';
 import { Admittance } from './admittance.js';
 import { ElectricField } from './electricField.js';
+import { Color } from './color.js';
+import { Integrals } from './integrals.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
@@ -518,6 +520,68 @@ export class Design {
         const words = { method: 'electricField', call: 'electricField', hidden: ['wavelength'] };
         const given = checkOptions('electricField', options, ['angle', 'side', 'pointsPerLayer', 'depthUnit', 'reference']);
         return new ElectricField(worded(words, () => api.electricField(this._data, defined({ ...given, wavelength }))));
+    }
+
+    /**
+     * The CIE colour of the design's reflectance or transmittance, as the
+     * Color Evaluation window computes it: the tristimulus values of R or T
+     * on the 380-780 nm band under one illuminant, and the colour spaces,
+     * dominant wavelength, correlated colour temperature and sRGB swatch the
+     * window shows. What it is computed on follows the design's `sides` and
+     * `scoreOn`, as a spectrum does, unless `side` is given, and a design
+     * under a cone of incidence is averaged over its cone, as the window
+     * averages it. A side with no layers gives the colour of its bare surface.
+     *
+     * @param [options]
+     * @param [options.quantity='R'] What is coloured: `'R'` or `'T'`.
+     * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90.
+     * @param [options.pol='avg'] The polarization: `'avg'`, unpolarized, `'s'` or `'p'`.
+     * @param [options.observer=2] The CIE standard observer, by its field in degrees: `2` (CIE 1931) or `10` (CIE 1964).
+     * @param [options.illuminant='D65'] The CIE illuminant: `'D65'`, `'D50'`, `'A'` or `'E'`.
+     * @param [options.step=0.5] The wavelength step of the spectrum the colour is integrated on, nm.
+     * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
+     * @returns A Color.
+     * @throws an option it does not take, a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * const c = design.color({ quantity: 'R', illuminant: 'D65' });
+     * console.log(c.mode, 'x', c.x.toFixed(4), 'y', c.y.toFixed(4), 'Y', c.Y.toFixed(2), '%, dominant', c.dominant.wavelength?.toFixed(1), 'nm');
+     */
+    color(options) {
+        return new Color(worded({ method: 'color', call: 'color' }, () => api.color(this._data, options)));
+    }
+
+    /**
+     * Weighted averages of the design's T, R and A, as the Integral Values
+     * window computes them: each integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over
+     * its weighting's band, on the spectrum's grid. The built-in rows are the
+     * window's, Tvis to RNIR; rows of your own come in `custom`. What it is
+     * computed on follows the design's `sides` and `scoreOn`, as a spectrum
+     * does, unless `side` is given, and a design under a cone of incidence is
+     * averaged over its cone, as the window averages it. A row whose band the
+     * spectrum does not span has no value: its numbers are NaN and `covered`
+     * is false. A row whose weighting is 0 over the whole band has no value
+     * either, though `covered` is true.
+     *
+     * @param [options]
+     * @param [options.start=300] The first wavelength of the spectrum, nm.
+     * @param [options.end=2500] The last wavelength, nm, above `start`.
+     * @param [options.step=0.5] The wavelength step, nm.
+     * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90.
+     * @param [options.pol='avg'] The polarization: `'avg'`, unpolarized, `'s'` or `'p'`.
+     * @param [options.custom=[]] Rows of your own, each `{ key, quantity, source, detector, band }`: `key` its name, which no other row has; `quantity` `'T'`, `'R'` or `'A'`; `source` `{ id }` with an id of `'D65'`, `'D50'`, `'A'`, `'AM1.5G'`, `'E'`, `'blackbody'` with `T`, its temperature in K, or `'custom'` with `table`, its `[nm, value]` rows, at least two at different wavelengths; `detector` `{ id }` with an id of `'photopic'`, `'flat'` or `'custom'` with its `table`; `band` `[start, end]` in nm, which the weighting's own range narrows. Left out: `'T'`, D65, photopic and 380-780 nm; a blackbody's T 5778 K.
+     * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
+     * @returns An Integrals.
+     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('HL');
+     * const iv = design.integrals({ custom: [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }] });
+     * console.log('Tvis', iv.get('Tvis').value.toFixed(4), 'T3000K', iv.get('T3000K').value.toFixed(4));
+     */
+    integrals(options) {
+        return new Integrals(worded({ method: 'integrals', call: 'integrals' }, () => api.integrals(this._data, options)));
     }
 
     /**

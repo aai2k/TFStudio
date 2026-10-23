@@ -12,8 +12,9 @@
  *   that rescales the layers); save(), refusing a file that is there without
  *   overwrite, and openDesign(); sides and scoreOn
  *   round-tripping to surfaceMode and mfEvalMode, and the mode of a spectrum, a
- *   Monte Carlo run, a refinement, a layer ranking, an index profile and a
- *   list of layer thicknesses being the API's evaluation mode, and the
+ *   Monte Carlo run, a refinement, a layer ranking, an index profile, a
+ *   list of layer thicknesses, a colour and an integral table being the API's
+ *   evaluation mode, and the
  *   design's facts counting its coated sides, for every pair; materials by id, catalog:key ids
  *   included, by name and by the builtin: id a stacked layer holds, and their
  *   n and k, and a name two materials share refused; spectrum curves at two
@@ -35,6 +36,8 @@
  *   sides, and their refusals in the objects' words; admittance() and
  *   electricField() with their defaults and options, the side they take
  *   without one, an Admittance's CSV, and their refusals in the objects'
+ *   words; color() and integrals() with their defaults and options, a row
+ *   read by its key, an Integrals' CSV, and their refusals in the objects'
  *   words; refine and synthesize with seeds, Monte
  *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
  *   back rows and locked rows; the Progress objects of a refinement, a Needle
@@ -254,7 +257,7 @@ const SCORE_ON = { side: 'side', 'whole part': 'total' };
             const { evalMode } = api.spectrum(api.setDesignSetup(twoSided._data, { surfaceMode: SIDES[sides], mfEvalMode: SCORE_ON[scoreOn] }), { from: 500, to: 600, step: 50 });
             const found = [each.spectrum(500, 600, { step: 50 }).mode, (await each.monteCarlo(500, 600, { step: 50, runs: 1, seed: 1 })).mode,
                 (await quietly(() => each.copy().refine({ maxIter: 1 }))).mode, each.layerSensitivity().mode,
-                each.indexProfile().mode, each.layerThicknesses().mode];
+                each.indexProfile().mode, each.layerThicknesses().mode, each.color({ step: 5 }).mode, each.integrals({ step: 5 }).mode];
             kinds.add(evalMode);
             if (!held || !found.every(mode => mode === evalMode)) wrong.push(`${sides}/${scoreOn}: ${found} / ${evalMode}`);
             // The facts count the coated sides, which the TT row sums, whatever the scoring.
@@ -263,7 +266,7 @@ const SCORE_ON = { side: 'side', 'whole part': 'total' };
             if (canon([facts.mode, each.totalThickness()]) !== canon([coated, facts.thickness])) wrong.push(`${sides}/${scoreOn}: facts ${facts.mode} / ${coated}`);
         }
     }
-    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, a spectrum\'s, a Monte Carlo run\'s, a run\'s, a ranking\'s, an index profile\'s and a thickness list\'s mode are the API\'s evaluation mode, and the facts\' the coated sides, for every pair',
+    ok('sides and scoreOn round-trip to surfaceMode and mfEvalMode, a spectrum\'s, a Monte Carlo run\'s, a run\'s, a ranking\'s, an index profile\'s, a thickness list\'s, a colour\'s and an integral table\'s mode are the API\'s evaluation mode, and the facts\' the coated sides, for every pair',
         wrong.length === 0 && kinds.size === 3, wrong.join('; '));
     const badSides = await refused(() => { twoSided.sides = 'two'; });
     const badScoreOn = await refused(() => { twoSided.scoreOn = 'total'; });
@@ -732,6 +735,42 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     ];
     const worded = await Promise.all(FIELD_WORDED.map(([make]) => refused(make)));
     ok('their refusals are in the objects\' words', canon(worded) === canon(FIELD_WORDED.map(([, words]) => words)), worded.join('\n'));
+}
+
+// ── Colour and integral values ──────────────────────────────────────────────
+{
+    const read = both.copy();
+    const CUSTOM = [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }, { key: 'Rled', quantity: 'R', source: { id: 'custom', table: [[440, 0.2], [450, 1], [470, 0.1]] } }];
+    const COLOURS = [{}, { quantity: 'T', angle: 30, pol: 's', observer: 10, illuminant: 'A', step: 1, side: 'front' }];
+    const TABLES = [{}, { start: 350, end: 1100, step: 1, angle: 45, pol: 'p', custom: CUSTOM, side: 'back' }];
+    const colourFields = c => [c.mode, c.quantity, c.angle, c.pol, c.observer, c.illuminant, c.step, c.X, c.Y, c.Z, c.x, c.y, c.white, c.whiteXy, c.lab, c.luv,
+        c.uv1976, c.uv1960, c.hunterLab, c.dominant, c.cct, c.duv, c.srgb, c.outOfRange];
+    const tableFields = t => [t.mode, t.start, t.end, t.step, t.angle, t.pol, t.rows, t.outOfRange];
+    ok('color() and integrals() give what color and integrals give, with their defaults and with each option',
+        canon([...COLOURS.map(o => colourFields(read.color(o))), ...TABLES.map(o => tableFields(read.integrals(o)))])
+        === canon([...COLOURS.map(o => colourFields(api.color(read._data, o))), ...TABLES.map(o => tableFields(api.integrals(read._data, o)))]));
+    const table = read.integrals({ custom: CUSTOM });
+    ok('get() reads a row by its key, a row of your own too', table.get('Tvis') === table.rows[0] && table.get('Rled').quantity === 'R' && table.get('T3000K').covered);
+    const file = path.join(WORK, 'integrals.csv');
+    table.saveCsv(file);
+    const lines = fs.readFileSync(file, 'utf8').split('\n');
+    const csvShape = [lines[0], lines.length, lines[1].split(',').at(0), lines[1].split(',').at(-1), lines[12].split(',').at(0)];
+    ok('an Integrals writes the window\'s English export, each row named by its key',
+        canon(csvShape) === canon(['Integral,Value,%,Min,Min λ (nm),Max,Max λ (nm),Band', 13, 'Tvis', '380-780 nm', 'Rled']), canon(csvShape));
+    const colour = read.color();
+    const shown = [inspect(colour), inspect(table)];
+    ok('a Color and an Integrals print what they hold', canon(shown) === canon([`<Color R total, D65 2 degrees: x ${colour.x.toFixed(4)}, y ${colour.y.toFixed(4)}, Y ${colour.Y.toFixed(3)}>`,
+        '<Integrals total from 300 to 2500 nm: 12 rows>']), shown.join(' / '));
+    const WORDED = [
+        [() => read.color({ characteristic: 'T' }), "color: unknown option 'characteristic'; the options are quantity, angle, pol, observer, illuminant, step, side"],
+        [() => read.color({ observer: 3 }), 'color: observer is 2 or 10, not 3'],
+        [() => read.color({ illuminant: 'F2' }), 'color: illuminant is \'D65\', \'D50\', \'A\' or \'E\', not "F2"'],
+        [() => read.integrals({ start: 900, end: 400 }), 'integrals: start and end are wavelengths in nm, 0 < start < end'],
+        [() => read.integrals({ custom: [{ key: 'x', char: 'T' }] }), "integrals: unknown option 'custom[0].char'; the options are key, quantity, source, detector, band"],
+        [() => table.get('Tsun'), "integrals: no row has the key 'Tsun'; the keys are Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, T3000K, Rled"],
+    ];
+    const worded = await Promise.all(WORDED.map(([make]) => refused(make)));
+    ok('their refusals are in the objects\' words', canon(worded) === canon(WORDED.map(([, words]) => words)), worded.join('\n'));
 }
 
 // ── Runs ────────────────────────────────────────────────────────────────────

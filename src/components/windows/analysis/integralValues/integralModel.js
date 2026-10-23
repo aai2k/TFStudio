@@ -1,4 +1,4 @@
-import { DEFAULT_INTEGRALS } from '../../../../utils/physics/integralValues.js';
+import { DEFAULT_INTEGRALS, computeIntegralValueBatch } from '../../../../utils/physics/integralValues.js';
 import { composeWeighting } from '../../../../utils/physics/spectralWeightings.js';
 
 export const INITIAL_BUILDER = {
@@ -33,6 +33,18 @@ export function buildIntegralDefinitions(customDefinitions) {
         });
     }
     return definitions;
+}
+
+/**
+ * The window's table for `spectrum`: the built-in integrals and then each of
+ * `customDefinitions`, as makeCustomDefinition makes them, with each one's
+ * result by its key. `results` is null when there is no spectrum.
+ *
+ * @returns {{ definitions: object[], results: object|null }}
+ */
+export function integralTable(spectrum, customDefinitions) {
+    const definitions = buildIntegralDefinitions(customDefinitions);
+    return { definitions, results: spectrum ? computeIntegralValueBatch(spectrum, definitions) : null };
 }
 
 export function highestCustomCounter(presets) {

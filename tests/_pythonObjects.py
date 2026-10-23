@@ -57,6 +57,7 @@ def objects(given):
         cleaning(tf)
         stack_views(tf)
         admittance_and_field(tf)
+        colour_and_integrals(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -489,6 +490,48 @@ def admittance_and_field(tf):
                     "shown": [repr(two.admittance(550, angle=45)), repr(two.electric_field(550))],
                     "tuples": [list(type(locus)._fields), list(type(locus.boundaries[0])._fields), list(type(locus.arcs[0])._fields),
                                list(type(two.electric_field().s)._fields), list(type(two.electric_field().layers[0])._fields)]}})
+
+
+def colour_of(c):
+    return [c.mode, c.quantity, c.angle, c.pol, c.observer, c.illuminant, c.step, c.X, c.Y, c.Z, c.x, c.y, list(c.white),
+            list(c.white_xy), list(c.lab), list(c.luv), list(c.uv1976), list(c.uv1960), list(c.hunter_lab), list(c.dominant),
+            c.cct, c.duv, list(c.srgb), c.out_of_range]
+
+
+def table_of(t):
+    return [t.mode, t.start, t.end, t.step, t.angle, t.pol,
+            [[r.key, r.quantity, r.value, r.min, r.min_at, r.max, r.max_at, list(r.band), r.covered, list(r.spectrum_span)]
+             for r in t.rows], t.out_of_range]
+
+
+_CUSTOM = [{"key": "T3000K", "source": {"id": "blackbody", "T": 3000}, "band": [400, 700]},
+           {"key": "Rled", "quantity": "R", "source": {"id": "custom", "table": [[440, 0.2], [450, 1], [470, 0.1]]},
+            "detector": {"id": "flat"}}]
+
+
+def colour_and_integrals(tf):
+    """color() and integrals() of a design coated on both sides, with their
+    defaults and each argument; their groups' fields; a row by its key; the
+    CSV of an Integrals; their refusals and repr()."""
+    two = tf.new_design("Two sides", reference=600)
+    two.stack("(HL)^2 H")
+    two.sides = "both"
+    two.back_layers.append("MgF2", 95)
+    colours = [colour_of(two.color()),
+               colour_of(two.color(quantity="T", angle=30, pol="s", observer=10, illuminant="A", step=1, side="front"))]
+    tables = [table_of(two.integrals()),
+              table_of(two.integrals(start=350, end=1100, step=1, angle=45, pol="p", custom=_CUSTOM, side="back"))]
+    iv = two.integrals(custom=_CUSTOM)
+    iv.save_csv("integrals.csv")
+    c = two.color()
+    worded = [refused(make) for make in (
+        lambda: two.color(observer=3), lambda: two.color(illuminant="F2"), lambda: two.color(side="both"),
+        lambda: two.integrals(start=900, end=400), lambda: two.integrals(custom=[{"key": "x", "char": "T"}]),
+        lambda: two.integrals(custom=[{"key": "Tvis"}]), lambda: iv["Tsun"])]
+    out({"colour": {"design": two._data, "colours": colours, "tables": tables, "rows": [list(iv["Rled"]), iv["Tvis"] == iv.rows[0]],
+                    "csv": text_of("integrals.csv"), "worded": worded, "shown": [repr(c), repr(iv)],
+                    "tuples": [list(type(c.lab)._fields), list(type(c.luv)._fields), list(type(c.dominant)._fields),
+                               list(type(c.srgb)._fields), list(type(c.white)._fields), list(type(iv.rows[0])._fields)]}})
 
 
 def ran(before, design, result):

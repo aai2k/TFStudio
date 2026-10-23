@@ -1,9 +1,10 @@
 // Tools that compute on a design: its spectrum, its index profile and layer
 // thicknesses, what its stack adds up to, a side's admittance locus and
-// electric field, its merit, its verdict against its specification, and how
-// much each layer moves the merit. Monte Carlo runs as a job (runTools.js).
+// electric field, its colour and integral values, its merit, its verdict
+// against its specification, and how much each layer moves the merit. Monte
+// Carlo runs as a job (runTools.js).
 
-import { object, num, int, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
+import { object, num, int, str, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
 const VIEW_SIDE = oneOf(['front', 'back', 'total'], "'front' or 'back', that side's layers, or 'total', both sides of the part. Default: what the design is scored on");
 
@@ -132,6 +133,49 @@ export function analysisTools({ api, store }) {
                 const { z, depth, layers, s, p, avg, ...facts } = field;
                 const peak = { s: fieldPeak(field, 's'), p: fieldPeak(field, 'p'), avg: fieldPeak(field, 'avg') };
                 return { designId, ...facts, layerCount: layers.length, sampleCount: z.length, peak, ...(values ? { z, depth, layers, s, p, avg } : {}) };
+            },
+        },
+        {
+            name: 'color', title: 'Colour',
+            description: "The CIE colour of a design's reflectance or transmittance, as the Color Evaluation window computes it: the tristimulus values of R or T on 380-780 nm under one illuminant, integrated on a grid of step nm. Without side, computed on what the design is scored on, as spectrum is; a design under a cone of incidence is averaged over its cone; a side with no layers gives its bare surface. Answers with mode (front, back or total), quantity, angle, pol, observer, illuminant, step, X, Y, Z (the white's Y 100, so Y is the luminous R or T in %, and Y / 100 for T under D65 and the 2 degree observer is the integrals tool's Tvis when its grid has this one's wavelengths on 380-780 nm, as the two defaults do), x and y, lab { L, a, b, C, h }, dominant { wavelength, complementary, purity } (the dominant wavelength in nm, or null and the complementary one for a purple; purity a fraction of 1), cct (K) and duv (CCT and Duv from the 2 degree chromaticity, null where McCamy's formula has no value), srgb { r, g, b } 0 to 255, the window's swatch, and outOfRange (the materials whose data stop inside 380-780 nm); with values true, also white { X, Y, Z }, whiteXy { x, y }, luv { L, u, v, C, h, s }, uv1976 { u, v } (u' and v'), uv1960 { u, v } and hunterLab { L, a, b }.",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                quantity: oneOf(['R', 'T'], "What is coloured. Default 'R'"),
+                angle: num('Angle of incidence in degrees in the incident medium, 0 <= angle < 90; the cone axis under a cone. Default 0'),
+                pol: oneOf(['avg', 's', 'p'], "Polarization. Default 'avg'"),
+                observer: { type: 'number', enum: [2, 10], description: 'CIE standard observer by its field in degrees: 2 (CIE 1931) or 10 (CIE 1964). Default 2' },
+                illuminant: oneOf(['D65', 'D50', 'A', 'E'], "CIE illuminant. Default 'D65'"),
+                step: num('Wavelength step of the spectrum the colour is integrated on, nm. Default 0.5'),
+                side: VIEW_SIDE,
+                values: bool('Also answer with the white and every other colour space. Default false'),
+            }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const { white, whiteXy, luv, uv1976, uv1960, hunterLab, ...colour } = api.color(store.get(designId), options);
+                return { designId, ...colour, ...(values ? { white, whiteXy, luv, uv1976, uv1960, hunterLab } : {}) };
+            },
+        },
+        {
+            name: 'integrals', title: 'Integral values',
+            description: "Weighted averages of a design's T, R and A, as the Integral Values window computes them: each is the integral of C(λ) w(λ) over its weighting's band divided by that of w(λ), by the trapezoidal rule on the spectrum from start to end every step nm. The built-in rows: Tvis, Rvis, Avis (D65 times the CIE photopic V(λ), 380-780 nm), Tsol, Rsol, Asol (ASTM G173-03 AM1.5G, 300-2500 nm), TUV, RUV (flat, 300-380 nm), TNIR, RNIR (flat, 780-2500 nm); custom adds rows of your own. Without side, computed on what the design is scored on, as spectrum is; a design under a cone of incidence is averaged over its cone; a side with no layers gives its bare surface. Answers with mode (front, back or total), start, end, step, angle, pol, outOfRange (the materials whose data stop inside the range) and rows, one per integral in the window's order, each { key, quantity, value, covered }: value a fraction of 1, null with covered false when the spectrum does not span the row's band, and null with covered true when the row's weighting is 0 over the whole band; with values true, each row also has min and max (fractions of 1) with minAt and maxAt (nm), band [start, end] (nm) and spectrumSpan [first, last] (nm).",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                start: num('First wavelength of the spectrum, nm. Default 300'), end: num('Last wavelength, nm. Default 2500'),
+                step: num('Wavelength step, nm. Default 0.5'),
+                angle: num('Angle of incidence in degrees in the incident medium, 0 <= angle < 90; the cone axis under a cone. Default 0'),
+                pol: oneOf(['avg', 's', 'p'], "Polarization. Default 'avg'"),
+                custom: list(object({
+                    key: str('The row\'s name, which no other row has'),
+                    quantity: oneOf(['T', 'R', 'A'], "Default 'T'"),
+                    source: { type: 'object', description: "{ id }: id 'D65', 'D50', 'A', 'AM1.5G', 'E', 'blackbody' with T, its temperature in K (default 5778), or 'custom' with table, its [nm, value] rows, at least two at different wavelengths. Default { id: 'D65' }" },
+                    detector: { type: 'object', description: "{ id }: id 'photopic', 'flat', or 'custom' with table, its [nm, value] rows, at least two at different wavelengths. Default { id: 'photopic' }" },
+                    band: list({ type: 'number' }, '[start, end] in nm, start < end, which the weighting\'s own range narrows. Default [380, 780]'),
+                }, ['key']), 'Rows of your own, after the built-in ones'),
+                side: VIEW_SIDE,
+                values: bool('Also answer with each row\'s extremes, band and the span of the spectrum. Default false'),
+            }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const { rows, ...table } = api.integrals(store.get(designId), options);
+                return { designId, ...table, rows: values ? rows : rows.map(({ key, quantity, value, covered }) => ({ key, quantity, value, covered })) };
             },
         },
         {

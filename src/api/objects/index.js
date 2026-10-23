@@ -13,6 +13,8 @@
  *   design.totalThickness({ side }), design.opticalThickness({ side }), design.layerCounts({ side })
  *   design.admittance(wavelength, { angle, side, plane })
  *   design.electricField(wavelength, { angle, side, pointsPerLayer, depthUnit, reference })
+ *   design.color({ quantity, angle, pol, observer, illuminant, step, side })
+ *   design.integrals({ start, end, step, angle, pol, custom, side }), .get(key)
  *   design.specification.add(kind, start, end, { ... }), .check(), await .estimateYield(runs, { ... })
  *   await design.refine({ method, ... }), await design.synthesize(method, pool, { ... })
  *   await design.monteCarlo(start, end, { ... }), design.layerSensitivity({ ... })
@@ -33,6 +35,8 @@ export { Spectrum, Curve } from './spectrum.js';
 export { IndexProfile, LayerThicknesses } from './stackViews.js';
 export { Admittance } from './admittance.js';
 export { ElectricField } from './electricField.js';
+export { Color } from './color.js';
+export { Integrals } from './integrals.js';
 export { Progress, RunResult, MonteCarlo, Yield, SpecReport, CheckResult, LayerSensitivity, SensitivityRow, CleanReport } from './results.js';
 
 /**

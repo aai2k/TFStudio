@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -849,6 +849,86 @@ design.stack("(HL)^4 H")
 field = design.electric_field(1064, angle=45)
 peak = field.p.e2.index(max(field.p.e2))
 print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1), "nm")
+```
+
+### color
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.color({ quantity, angle, pol, observer, illuminant, step, side })` | `design.color(quantity="R", angle=0, pol="avg", observer=2, illuminant="D65", step=0.5, side=...)` |
+
+The CIE colour of the design's reflectance or transmittance, as the Color Evaluation window computes it: the tristimulus values of R or T on the 380-780 nm band under one illuminant, and the colour spaces, dominant wavelength, correlated colour temperature and sRGB swatch the window shows. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A side with no layers gives the colour of its bare surface.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `quantity` | `quantity` | `'R'` | What is coloured: `'R'` or `'T'`. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the incident medium, 0 up to but not including 90. |
+| `pol` | `pol` | `'avg'` | The polarization: `'avg'`, unpolarized, `'s'` or `'p'`. |
+| `observer` | `observer` | `2` | The CIE standard observer, by its field in degrees: `2` (CIE 1931) or `10` (CIE 1964). |
+| `illuminant` | `illuminant` | `'D65'` | The CIE illuminant: `'D65'`, `'D50'`, `'A'` or `'E'`. |
+| `step` | `step` | `0.5` | The wavelength step of the spectrum the colour is integrated on, nm. |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+
+**Returns**: A Color.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, or a design that names a material that resolves to nothing<br>**Python**: a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const c = design.color({ quantity: 'R', illuminant: 'D65' });
+console.log(c.mode, 'x', c.x.toFixed(4), 'y', c.y.toFixed(4), 'Y', c.Y.toFixed(2), '%, dominant', c.dominant.wavelength?.toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+c = design.color(quantity="R", illuminant="D65")
+print(c.mode, "x", round(c.x, 4), "y", round(c.y, 4), "Y", round(c.Y, 2), "%, dominant",
+      c.dominant.wavelength, "nm")
+```
+
+### integrals
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.integrals({ start, end, step, angle, pol, custom, side })` | `design.integrals(start=300, end=2500, step=0.5, angle=0, pol="avg", custom=..., side=...)` |
+
+**JavaScript**: Weighted averages of the design's T, R and A, as the Integral Values window computes them: each integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over its weighting's band, on the spectrum's grid. The built-in rows are the window's, Tvis to RNIR; rows of your own come in `custom`. What it is computed on follows the design's `sides` and `scoreOn`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A row whose band the spectrum does not span has no value: its numbers are NaN and `covered` is false. A row whose weighting is 0 over the whole band has no value either, though `covered` is true.
+
+**Python**: Weighted averages of the design's T, R and A, as the Integral Values window computes them: each integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over its weighting's band, on the spectrum's grid. The built-in rows are the window's, Tvis to RNIR; rows of your own come in custom. What it is computed on follows the design's sides and score_on, as a spectrum does, unless side is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A row whose band the spectrum does not span has no value: its numbers are nan and covered is False. A row whose weighting is 0 over the whole band has no value either, though covered is True.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` | `300` | The first wavelength of the spectrum, nm. |
+| `end` | `end` | `2500` | The last wavelength, nm, above `start`. |
+| `step` | `step` | `0.5` | The wavelength step, nm. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the incident medium, 0 up to but not including 90. |
+| `pol` | `pol` | `'avg'` | The polarization: `'avg'`, unpolarized, `'s'` or `'p'`. |
+| `custom` | `custom` | `[]` | **JavaScript**: Rows of your own, each `{ key, quantity, source, detector, band }`: `key` its name, which no other row has; `quantity` `'T'`, `'R'` or `'A'`; `source` `{ id }` with an id of `'D65'`, `'D50'`, `'A'`, `'AM1.5G'`, `'E'`, `'blackbody'` with `T`, its temperature in K, or `'custom'` with `table`, its `[nm, value]` rows, at least two at different wavelengths; `detector` `{ id }` with an id of `'photopic'`, `'flat'` or `'custom'` with its `table`; `band` `[start, end]` in nm, which the weighting's own range narrows. Left out: `'T'`, D65, photopic and 380-780 nm; a blackbody's T 5778 K.<br>**Python**: Rows of your own, each a dict with key, quantity, source, detector and band: key its name, which no other row has; quantity "T", "R" or "A"; source {"id": ...} with an id of "D65", "D50", "A", "AM1.5G", "E", "blackbody" with "T", its temperature in K, or "custom" with "table", its [nm, value] rows, at least two at different wavelengths; detector {"id": ...} with an id of "photopic", "flat" or "custom" with its "table"; band [start, end] in nm, which the weighting's own range narrows. Left out: "T", D65, photopic and 380-780 nm; a blackbody's T 5778 K. Without it, no rows of your own. |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+
+**Returns**: An Integrals.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, or a design that names a material that resolves to nothing<br>**Python**: a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+const iv = design.integrals({ custom: [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }] });
+console.log('Tvis', iv.get('Tvis').value.toFixed(4), 'T3000K', iv.get('T3000K').value.toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+iv = design.integrals(custom=[{"key": "T3000K", "source": {"id": "blackbody", "T": 3000},
+                               "band": [400, 700]}])
+print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
 ```
 
 ### refine
@@ -4890,6 +4970,783 @@ field = design.electric_field(1064, depth_unit="QWOT")
 name = "field-{}.csv".format(time.time_ns())
 field.save_csv(name)
 print("Wrote", len(field.z), "rows to", name)
+```
+
+## Color
+
+The CIE colour of a design's reflectance or transmittance, as design.color() computes it and the Color Evaluation window shows it: the tristimulus values on the 380-780 nm band under one illuminant, the colour spaces, the dominant wavelength, the correlated colour temperature and the sRGB swatch.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const c = design.color({ illuminant: 'D50' });
+console.log(c.mode, c.x.toFixed(4), c.y.toFixed(4), c.lab);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+c = design.color(illuminant="D50")
+print(c.mode, round(c.x, 4), round(c.y, 4), c.lab)
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.mode` | `c.mode` |
+
+The sides computed: `'front'`, `'back'` or `'total'`, the whole part.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().mode)
+```
+
+### quantity
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.quantity` | `c.quantity` |
+
+What is coloured: `'R'` or `'T'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ quantity: 'T' }).quantity);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(quantity="T").quantity)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.angle` | `c.angle` |
+
+The angle of incidence, degrees in the incident medium.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(angle=30).angle, "degrees")
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.pol` | `c.pol` |
+
+The polarization: `'avg'`, `'s'` or `'p'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ angle: 45, pol: 's' }).pol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(angle=45, pol="s").pol)
+```
+
+### observer
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.observer` | `c.observer` |
+
+The CIE standard observer, by its field in degrees: `2` or `10`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ observer: 10 }).observer);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(observer=10).observer)
+```
+
+### illuminant
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.illuminant` | `c.illuminant` |
+
+The CIE illuminant: `'D65'`, `'D50'`, `'A'` or `'E'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ illuminant: 'A' }).illuminant);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(illuminant="A").illuminant)
+```
+
+### step
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.step` | `c.step` |
+
+The wavelength step of the spectrum the colour is integrated on, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ step: 1 }).step, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(step=1).step, "nm")
+```
+
+### X
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.X` | `c.X` |
+
+The tristimulus X, on the scale where the white's Y is 100.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().X);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().X)
+```
+
+### Y
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.Y` | `c.Y` |
+
+The tristimulus Y: the luminous reflectance or transmittance, %.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log('luminous R', design.color().Y.toFixed(2), '%');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("luminous R", round(design.color().Y, 2), "%")
+```
+
+### Z
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.Z` | `c.Z` |
+
+The tristimulus Z, on the scale where the white's Y is 100.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().Z);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().Z)
+```
+
+### x
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.x` | `c.x` |
+
+The chromaticity x.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().x.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(round(design.color().x, 4))
+```
+
+### y
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.y` | `c.y` |
+
+The chromaticity y.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().y.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(round(design.color().y, 4))
+```
+
+### white
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.white` | `c.white` |
+
+**JavaScript**: The illuminant's white, `{ X, Y, Z }` with Y 100: R or T of 1, integrated on the same grid.
+
+**Python**: The illuminant's white, a named tuple (X, Y, Z) with Y 100: R or T of 1, integrated on the same grid.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color({ illuminant: 'D50' }).white);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color(illuminant="D50").white)
+```
+
+### whiteXy / white_xy
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.whiteXy` | `c.white_xy` |
+
+**JavaScript**: The white's chromaticity, `{ x, y }`.
+
+**Python**: The white's chromaticity, a named tuple (x, y).
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().whiteXy);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().white_xy)
+```
+
+### lab
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.lab` | `c.lab` |
+
+**JavaScript**: CIE L*a*b*, `{ L, a, b, C, h }`, the hue angle h in degrees.
+
+**Python**: CIE L*a*b*, a named tuple (L, a, b, C, h), the hue angle h in degrees.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { L, a, b } = design.color().lab;
+console.log(L.toFixed(2), a.toFixed(2), b.toFixed(2));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+lab = design.color().lab
+print(round(lab.L, 2), round(lab.a, 2), round(lab.b, 2))
+```
+
+### luv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.luv` | `c.luv` |
+
+**JavaScript**: CIE L*u*v*, `{ L, u, v, C, h, s }`, the hue angle h in degrees and s the saturation.
+
+**Python**: CIE L*u*v*, a named tuple (L, u, v, C, h, s), the hue angle h in degrees and s the saturation.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().luv);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().luv)
+```
+
+### uv1976
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.uv1976` | `c.uv1976` |
+
+**JavaScript**: The CIE 1976 UCS chromaticity, `{ u, v }`: u′ and v′.
+
+**Python**: The CIE 1976 UCS chromaticity, a named tuple (u, v): u′ and v′.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().uv1976);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().uv1976)
+```
+
+### uv1960
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.uv1960` | `c.uv1960` |
+
+**JavaScript**: The CIE 1960 UCS chromaticity, `{ u, v }`.
+
+**Python**: The CIE 1960 UCS chromaticity, a named tuple (u, v).
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().uv1960);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().uv1960)
+```
+
+### hunterLab / hunter_lab
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.hunterLab` | `c.hunter_lab` |
+
+**JavaScript**: Hunter Lab, `{ L, a, b }`.
+
+**Python**: Hunter Lab, a named tuple (L, a, b).
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().hunterLab);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print(design.color().hunter_lab)
+```
+
+### dominant
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.dominant` | `c.dominant` |
+
+**JavaScript**: `{ wavelength, complementary, purity }`: the dominant wavelength in nm, or for a purple null and its complementary wavelength in nm; purity the excitation purity as a fraction of 1, measured to the purple line for a purple. Both wavelengths are null for the white itself.
+
+**Python**: A named tuple (wavelength, complementary, purity): the dominant wavelength in nm, or for a purple None and its complementary wavelength in nm; purity the excitation purity as a fraction of 1, measured to the purple line for a purple. Both wavelengths are None for the white itself.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { wavelength, complementary, purity } = design.color().dominant;
+console.log(wavelength ?? `complementary ${complementary}`, 'nm, purity', purity.toFixed(3));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+d = design.color().dominant
+print(d.wavelength if d.wavelength is not None else "complementary {}".format(d.complementary),
+      "nm, purity", round(d.purity, 3))
+```
+
+### cct
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.cct` | `c.cct` |
+
+**JavaScript**: The correlated colour temperature, K, by McCamy's formula on the 2 degree chromaticity whatever the observer; NaN outside the 1000 K to 1e6 K it covers, or more than 0.05 from the Planckian locus.
+
+**Python**: The correlated colour temperature, K, by McCamy's formula on the 2 degree chromaticity whatever the observer; nan outside the 1000 K to 1e6 K it covers, or more than 0.05 from the Planckian locus.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.color({ quantity: 'T' }).cct.toFixed(0), 'K');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(round(design.color(quantity="T").cct), "K")
+```
+
+### duv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.duv` | `c.duv` |
+
+**JavaScript**: The distance from the Planckian locus in CIE 1960 u, v, positive above it; NaN outside the range McCamy's formula covers.
+
+**Python**: The distance from the Planckian locus in CIE 1960 u, v, positive above it; nan outside the range McCamy's formula covers.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.color({ quantity: 'T' }).duv.toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(round(design.color(quantity="T").duv, 4))
+```
+
+### srgb
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.srgb` | `c.srgb` |
+
+**JavaScript**: The window's swatch, `{ r, g, b }`, each 0 to 255: sRGB at an exposure of 1, adapted from the illuminant's white to D65.
+
+**Python**: The window's swatch, a named tuple (r, g, b), each 0 to 255: sRGB at an exposure of 1, adapted from the illuminant's white to D65.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+const { r, g, b } = design.color().srgb;
+console.log(`rgb(${r}, ${g}, ${b})`);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print("rgb{}".format(tuple(design.color().srgb)))
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.outOfRange` | `c.out_of_range` |
+
+**JavaScript**: The materials of the sides computed whose data stop inside 380-780 nm, an array of `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers the band.
+
+**Python**: The materials of the sides computed whose data stop inside 380-780 nm, a list of dicts with id, name, rangeNm and heldFlat: outside rangeNm their n and k are held at the last value (heldFlat True) or extrapolated. Empty when every material covers the band.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+console.log(design.color().outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+print([m["id"] for m in design.color().out_of_range])
+```
+
+## Integrals
+
+**JavaScript**: A design's weighted averages of T, R and A, as design.integrals() computes them and the Integral Values window lists them: the built-in rows, Tvis to RNIR, and then the rows of your own, each read by its key with get().
+
+**Python**: A design's weighted averages of T, R and A, as design.integrals() computes them and the Integral Values window lists them: the built-in rows, Tvis to RNIR, and then the rows of your own, each read by its key with [].
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+const iv = design.integrals();
+console.log(iv.mode, 'Tvis', iv.get('Tvis').value.toFixed(4), 'Rsol', iv.get('Rsol').value.toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+iv = design.integrals()
+print(iv.mode, "Tvis", round(iv["Tvis"].value, 4), "Rsol", round(iv["Rsol"].value, 4))
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.mode` | `iv.mode` |
+
+The sides computed: `'front'`, `'back'` or `'total'`, the whole part.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals().mode);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals().mode)
+```
+
+### start
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.start` | `iv.start` |
+
+The first wavelength of the spectrum, nm.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ start: 350 }).start, 'nm');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(start=350).start, "nm")
+```
+
+### end
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.end` | `iv.end` |
+
+The last wavelength of the spectrum, nm.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ end: 1200 }).end, 'nm');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(end=1200).end, "nm")
+```
+
+### step
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.step` | `iv.step` |
+
+The wavelength step, nm.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ step: 1 }).step, 'nm');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(step=1).step, "nm")
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.angle` | `iv.angle` |
+
+The angle of incidence, degrees in the incident medium.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(angle=30).angle, "degrees")
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.pol` | `iv.pol` |
+
+The polarization: `'avg'`, `'s'` or `'p'`.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals({ angle: 45, pol: 'p' }).pol);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print(design.integrals(angle=45, pol="p").pol)
+```
+
+### rows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.rows` | `iv.rows` |
+
+**JavaScript**: The rows, the built-in ones first as the window lists them, then yours, each `{ key, quantity, value, min, minAt, max, maxAt, band, covered, spectrumSpan }`: `quantity` `'T'`, `'R'` or `'A'`; `value` the weighted average and `min` and `max` the lowest and highest value over the band, fractions of 1; `minAt` and `maxAt` their wavelengths, nm; `band` the band integrated, `[start, end]` in nm; `covered` whether the spectrum spans the band, its numbers NaN when it does not or when the weighting is 0 over the whole band; `spectrumSpan` the spectrum's first and last wavelength, nm.
+
+**Python**: The rows, the built-in ones first as the window lists them, then yours, each a named tuple (key, quantity, value, min, min_at, max, max_at, band, covered, spectrum_span): quantity "T", "R" or "A"; value the weighted average and min and max the lowest and highest value over the band, fractions of 1; min_at and max_at their wavelengths, nm; band the band integrated, (start, end) in nm; covered whether the spectrum spans the band, its numbers nan when it does not or when the weighting is 0 over the whole band; spectrum_span the spectrum's first and last wavelength, nm.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+for (const row of design.integrals().rows) console.log(row.key, row.covered ? row.value.toFixed(4) : 'no value');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+for row in design.integrals().rows:
+    print(row.key, round(row.value, 4) if row.covered else "no value")
+```
+
+### get / []
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.get(key)` | `iv[key]` |
+
+The row of the integral named `key`, as `rows` gives it.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `key` | `key` |  | The row's key: Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, or the key of a row of your own. |
+
+**Returns**: The row.
+
+**Refuses**:
+
+- a key no row has
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+const { value, min, minAt } = design.integrals().get('Rvis');
+console.log('Rvis', value.toFixed(4), 'lowest', min.toFixed(4), 'at', minAt, 'nm');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+row = design.integrals()["Rvis"]
+print("Rvis", round(row.value, 4), "lowest", round(row.min, 4), "at", row.min_at, "nm")
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.outOfRange` | `iv.out_of_range` |
+
+**JavaScript**: The materials of the sides computed whose data stop inside the range, an array of `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers it.
+
+**Python**: The materials of the sides computed whose data stop inside the range, a list of dicts with id, name, rangeNm and heldFlat: outside rangeNm their n and k are held at the last value (heldFlat True) or extrapolated. Empty when every material covers it.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+console.log(design.integrals().outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+print([m["id"] for m in design.integrals().out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.saveCsv(path)` | `iv.save_csv(path)` |
+
+**JavaScript**: Writes the rows to a CSV file as the window's English export writes its table: Integral, Value, %, Min, Min λ (nm), Max, Max λ (nm) and Band, with each row named by its key, which for the built-in rows is the window's own name, and an empty cell where a row has no value. A file that is there is written over.
+
+**Python**: Writes the rows to a CSV file as the window's English export writes its table: Integral, Value, %, Min, Min λ (nm), Max, Max λ (nm) and Band, with each row named by its key, which for the built-in rows is the window's own name, and an empty cell where a row has no value. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `integrals-${Date.now()}.csv`);
+const design = tf.newDesign('AR');
+design.stack('HL');
+design.integrals().saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "integrals-{}.csv".format(time.time_ns())
+design = tf.new_design("AR")
+design.stack("HL")
+design.integrals().save_csv(name)
+print("Wrote", name)
 ```
 
 ## RunResult

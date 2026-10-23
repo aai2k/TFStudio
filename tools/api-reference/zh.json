@@ -619,6 +619,102 @@
     "hash": "b2695bd7",
     "text": "小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、它没有的深度单位、不是 2 或更大整数的 points_per_layer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
   },
+  "Design.color.arg.quantity": {
+    "hash": "d5abc355",
+    "text": "计算颜色的量：`'R'` 或 `'T'`。"
+  },
+  "Design.color.arg.angle": {
+    "hash": "796fdf6a",
+    "text": "入射角，单位为度，在入射介质中计，从 0 起，小于 90。"
+  },
+  "Design.color.arg.pol": {
+    "hash": "96994516",
+    "text": "偏振：`'avg'`（非偏振）、`'s'` 或 `'p'`。"
+  },
+  "Design.color.arg.observer": {
+    "hash": "7ae7bf50",
+    "text": "CIE 标准观察者，按其视场角度给出：`2`（CIE 1931）或 `10`（CIE 1964）。"
+  },
+  "Design.color.arg.illuminant": {
+    "hash": "2347e1fb",
+    "text": "CIE 光源：`'D65'`、`'D50'`、`'A'` 或 `'E'`。"
+  },
+  "Design.color.arg.step": {
+    "hash": "79823a5c",
+    "text": "用于积分颜色的光谱的波长步长，单位 nm。"
+  },
+  "Design.color.arg.side": {
+    "hash": "3c5b4dfa",
+    "text": "`'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。"
+  },
+  "Design.color.returns": {
+    "hash": "fca8b3f5",
+    "text": "一个 Color。"
+  },
+  "Design.color.lead.1": {
+    "hash": "9ceabf11",
+    "text": "设计的反射率或透射率的 CIE 颜色，与颜色评估窗口的计算相同：在一种光源下 R 或 T 在 380-780 nm 波段上的三刺激值，以及窗口显示的各颜色空间、主波长、相关色温和 sRGB 色块。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。没有膜层的面给出其裸表面的颜色。"
+  },
+  "Design.color.refuses.1.js": {
+    "hash": "910bb30a",
+    "text": "它不接受的选项、它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长，或用到找不到对应材料的设计"
+  },
+  "Design.color.refuses.1.py": {
+    "hash": "7ad1adec",
+    "text": "它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长，或用到找不到对应材料的设计"
+  },
+  "Design.integrals.arg.start": {
+    "hash": "b2ebb6ef",
+    "text": "光谱的起始波长，单位 nm。"
+  },
+  "Design.integrals.arg.end": {
+    "hash": "b4a9096d",
+    "text": "终止波长，单位 nm，大于 `start`。"
+  },
+  "Design.integrals.arg.step": {
+    "hash": "078399d3",
+    "text": "波长步长，单位 nm。"
+  },
+  "Design.integrals.arg.angle": {
+    "hash": "796fdf6a",
+    "text": "入射角，单位为度，在入射介质中计，从 0 起，小于 90。"
+  },
+  "Design.integrals.arg.pol": {
+    "hash": "96994516",
+    "text": "偏振：`'avg'`（非偏振）、`'s'` 或 `'p'`。"
+  },
+  "Design.integrals.arg.custom.js": {
+    "hash": "fcdc93ec",
+    "text": "你自己的行，每行为 `{ key, quantity, source, detector, band }`：`key` 为其名称，不能与其他行相同；`quantity` 为 `'T'`、`'R'` 或 `'A'`；`source` 为 `{ id }`，id 为 `'D65'`、`'D50'`、`'A'`、`'AM1.5G'`、`'E'`、带 `T`（其温度，单位 K）的 `'blackbody'`，或带 `table`（其 `[nm, value]` 行，至少两行且波长不同）的 `'custom'`；`detector` 为 `{ id }`，id 为 `'photopic'`、`'flat'` 或带其 `table` 的 `'custom'`；`band` 为以 nm 计的 `[start, end]`，并受权重自身范围的限制。字段不给出时：`'T'`、D65、明视觉和 380-780 nm；黑体的 T 为 5778 K。"
+  },
+  "Design.integrals.arg.custom.py": {
+    "hash": "7d1816fb",
+    "text": "你自己的行，每行是一个 dict，含 key、quantity、source、detector 和 band：key 为其名称，不能与其他行相同；quantity 为 \"T\"、\"R\" 或 \"A\"；source 为 {\"id\": ...}，id 为 \"D65\"、\"D50\"、\"A\"、\"AM1.5G\"、\"E\"、带 \"T\"（其温度，单位 K）的 \"blackbody\"，或带 \"table\"（其 [nm, value] 行，至少两行且波长不同）的 \"custom\"；detector 为 {\"id\": ...}，id 为 \"photopic\"、\"flat\" 或带其 \"table\" 的 \"custom\"；band 为以 nm 计的 [start, end]，并受权重自身范围的限制。字段不给出时：\"T\"、D65、明视觉和 380-780 nm；黑体的 T 为 5778 K。不给出时，没有你自己的行。"
+  },
+  "Design.integrals.arg.side": {
+    "hash": "3c5b4dfa",
+    "text": "`'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。"
+  },
+  "Design.integrals.returns": {
+    "hash": "9e1276f1",
+    "text": "一个 Integrals。"
+  },
+  "Design.integrals.lead.1.js": {
+    "hash": "e1242d0d",
+    "text": "设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 `custom` 给出。计算对象由设计的 `sides` 和 `scoreOn` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 NaN，`covered` 为 false。权重在整个波段上为 0 的行同样没有数值，但 `covered` 为 true。"
+  },
+  "Design.integrals.lead.1.py": {
+    "hash": "e017efdf",
+    "text": "设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 custom 给出。计算对象由设计的 sides 和 score_on 决定，与光谱相同，除非给出 side；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 nan，covered 为 False。权重在整个波段上为 0 的行同样没有数值，但 covered 为 True。"
+  },
+  "Design.integrals.refuses.1.js": {
+    "hash": "976a39b9",
+    "text": "它不接受的选项、不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key，或用到找不到对应材料的设计"
+  },
+  "Design.integrals.refuses.1.py": {
+    "hash": "4bf311ab",
+    "text": "不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key，或用到找不到对应材料的设计"
+  },
   "Design.refine.arg.method": {
     "hash": "a481a40e",
     "text": "方法：API 参考中 refine 方法表里的一个 id，例如 `'dls'`、`'cg'` 或 `'de'`；`'all'` 表示依次运行每一个；或一个 id 列表，从同一起点逐个尝试，保留最好的结果。精炼窗口打开时使用 `'sqp'`，直到你在其中选择另一种方法。"
@@ -2102,6 +2198,234 @@
   "ElectricField.saveCsv.lead.1.py": {
     "hash": "09ad64c4",
     "text": "把电场写入 CSV 文件，与窗口在出厂显示设置下以“复制 CSV”写出其表格的方式相同：每个采样点一行，给出以 depth_unit 计的深度，以及 avg、s 和 p 的总场幅值，单位 V/m，对应 1 W/m²。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+  },
+  "Color.lead.1": {
+    "hash": "8d0958af",
+    "text": "设计的反射率或透射率的 CIE 颜色，与 design.color() 的计算和颜色评估窗口的显示相同：在一种光源下 380-780 nm 波段上的三刺激值、各颜色空间、主波长、相关色温和 sRGB 色块。"
+  },
+  "Color.mode.lead.1": {
+    "hash": "ec5cdf05",
+    "text": "所计算的对象：`'front'`、`'back'` 或 `'total'`（整个元件）。"
+  },
+  "Color.quantity.lead.1": {
+    "hash": "d5abc355",
+    "text": "计算颜色的量：`'R'` 或 `'T'`。"
+  },
+  "Color.angle.lead.1": {
+    "hash": "6fdcefc2",
+    "text": "入射角，单位为度，在入射介质中计。"
+  },
+  "Color.pol.lead.1": {
+    "hash": "80884b87",
+    "text": "偏振：`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "Color.observer.lead.1": {
+    "hash": "c531428c",
+    "text": "CIE 标准观察者，按其视场角度给出：`2` 或 `10`。"
+  },
+  "Color.illuminant.lead.1": {
+    "hash": "2347e1fb",
+    "text": "CIE 光源：`'D65'`、`'D50'`、`'A'` 或 `'E'`。"
+  },
+  "Color.step.lead.1": {
+    "hash": "79823a5c",
+    "text": "用于积分颜色的光谱的波长步长，单位 nm。"
+  },
+  "Color.X.lead.1": {
+    "hash": "c32cd524",
+    "text": "三刺激值 X，以白色的 Y 为 100 计。"
+  },
+  "Color.Y.lead.1": {
+    "hash": "f0b2c1a5",
+    "text": "三刺激值 Y：光度反射率或透射率，单位 %。"
+  },
+  "Color.Z.lead.1": {
+    "hash": "117f2978",
+    "text": "三刺激值 Z，以白色的 Y 为 100 计。"
+  },
+  "Color.x.lead.1": {
+    "hash": "72d7f60a",
+    "text": "色度坐标 x。"
+  },
+  "Color.y.lead.1": {
+    "hash": "5816cf7d",
+    "text": "色度坐标 y。"
+  },
+  "Color.white.lead.1.js": {
+    "hash": "02aa224c",
+    "text": "光源的白色，`{ X, Y, Z }`，Y 为 100：即 R 或 T 为 1 时在同一网格上积分的结果。"
+  },
+  "Color.white.lead.1.py": {
+    "hash": "67bffe51",
+    "text": "光源的白色，一个具名元组 (X, Y, Z)，Y 为 100：即 R 或 T 为 1 时在同一网格上积分的结果。"
+  },
+  "Color.whiteXy.lead.1.js": {
+    "hash": "a479cc67",
+    "text": "白色的色度坐标，`{ x, y }`。"
+  },
+  "Color.whiteXy.lead.1.py": {
+    "hash": "8b00c102",
+    "text": "白色的色度坐标，一个具名元组 (x, y)。"
+  },
+  "Color.lab.lead.1.js": {
+    "hash": "1a9acf8e",
+    "text": "CIE L*a*b*，`{ L, a, b, C, h }`，色相角 h 以度计。"
+  },
+  "Color.lab.lead.1.py": {
+    "hash": "10c4d798",
+    "text": "CIE L*a*b*，一个具名元组 (L, a, b, C, h)，色相角 h 以度计。"
+  },
+  "Color.luv.lead.1.js": {
+    "hash": "a92a4fdc",
+    "text": "CIE L*u*v*，`{ L, u, v, C, h, s }`，色相角 h 以度计，s 为饱和度。"
+  },
+  "Color.luv.lead.1.py": {
+    "hash": "8ea25f25",
+    "text": "CIE L*u*v*，一个具名元组 (L, u, v, C, h, s)，色相角 h 以度计，s 为饱和度。"
+  },
+  "Color.uv1976.lead.1.js": {
+    "hash": "09bbc3d7",
+    "text": "CIE 1976 UCS 色度坐标，`{ u, v }`：即 u′ 和 v′。"
+  },
+  "Color.uv1976.lead.1.py": {
+    "hash": "196ed174",
+    "text": "CIE 1976 UCS 色度坐标，一个具名元组 (u, v)：即 u′ 和 v′。"
+  },
+  "Color.uv1960.lead.1.js": {
+    "hash": "37815d05",
+    "text": "CIE 1960 UCS 色度坐标，`{ u, v }`。"
+  },
+  "Color.uv1960.lead.1.py": {
+    "hash": "f170eb34",
+    "text": "CIE 1960 UCS 色度坐标，一个具名元组 (u, v)。"
+  },
+  "Color.hunterLab.lead.1.js": {
+    "hash": "652a3fb6",
+    "text": "Hunter Lab，`{ L, a, b }`。"
+  },
+  "Color.hunterLab.lead.1.py": {
+    "hash": "e00455c5",
+    "text": "Hunter Lab，一个具名元组 (L, a, b)。"
+  },
+  "Color.dominant.lead.1.js": {
+    "hash": "3c21cd0a",
+    "text": "`{ wavelength, complementary, purity }`：主波长，单位 nm；紫色则主波长为 null，并给出其补色波长，单位 nm；purity 为兴奋纯度，以 1 的分数计，紫色的纯度量到紫线。对白色本身，两个波长都为 null。"
+  },
+  "Color.dominant.lead.1.py": {
+    "hash": "d5a408cc",
+    "text": "一个具名元组 (wavelength, complementary, purity)：主波长，单位 nm；紫色则主波长为 None，并给出其补色波长，单位 nm；purity 为兴奋纯度，以 1 的分数计，紫色的纯度量到紫线。对白色本身，两个波长都为 None。"
+  },
+  "Color.cct.lead.1.js": {
+    "hash": "09831662",
+    "text": "相关色温，单位 K，由 McCamy 公式在 2 度色度坐标上求得，与观察者无关；超出该公式覆盖的 1000 K 到 1e6 K，或离普朗克轨迹超过 0.05 时为 NaN。"
+  },
+  "Color.cct.lead.1.py": {
+    "hash": "b0bc0aaa",
+    "text": "相关色温，单位 K，由 McCamy 公式在 2 度色度坐标上求得，与观察者无关；超出该公式覆盖的 1000 K 到 1e6 K，或离普朗克轨迹超过 0.05 时为 nan。"
+  },
+  "Color.duv.lead.1.js": {
+    "hash": "4c5cd511",
+    "text": "到普朗克轨迹的距离，在 CIE 1960 u, v 中计，在轨迹上方为正；超出 McCamy 公式覆盖的范围时为 NaN。"
+  },
+  "Color.duv.lead.1.py": {
+    "hash": "00de2f1c",
+    "text": "到普朗克轨迹的距离，在 CIE 1960 u, v 中计，在轨迹上方为正；超出 McCamy 公式覆盖的范围时为 nan。"
+  },
+  "Color.srgb.lead.1.js": {
+    "hash": "d28fc612",
+    "text": "窗口的色块，`{ r, g, b }`，各为 0 到 255：曝光为 1 时的 sRGB，从光源的白色适配到 D65。"
+  },
+  "Color.srgb.lead.1.py": {
+    "hash": "b7b8bc15",
+    "text": "窗口的色块，一个具名元组 (r, g, b)，各为 0 到 255：曝光为 1 时的 sRGB，从光源的白色适配到 D65。"
+  },
+  "Color.outOfRange.lead.1.js": {
+    "hash": "4a22b624",
+    "text": "所计算对象上数据在 380-780 nm 内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该波段时为空。"
+  },
+  "Color.outOfRange.lead.1.py": {
+    "hash": "e49776d0",
+    "text": "所计算对象上数据在 380-780 nm 内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波段时为空。"
+  },
+  "Integrals.lead.1.js": {
+    "hash": "8fefd89a",
+    "text": "设计的 T、R 和 A 的加权平均，与 design.integrals() 的计算和积分值窗口的列表相同：先是内置的行，从 Tvis 到 RNIR，然后是你自己的行，每行用 get() 按其 key 读取。"
+  },
+  "Integrals.lead.1.py": {
+    "hash": "afd4cb74",
+    "text": "设计的 T、R 和 A 的加权平均，与 design.integrals() 的计算和积分值窗口的列表相同：先是内置的行，从 Tvis 到 RNIR，然后是你自己的行，每行用 [] 按其 key 读取。"
+  },
+  "Integrals.mode.lead.1": {
+    "hash": "ec5cdf05",
+    "text": "所计算的对象：`'front'`、`'back'` 或 `'total'`（整个元件）。"
+  },
+  "Integrals.start.lead.1": {
+    "hash": "b2ebb6ef",
+    "text": "光谱的起始波长，单位 nm。"
+  },
+  "Integrals.end.lead.1": {
+    "hash": "b12659ef",
+    "text": "光谱的终止波长，单位 nm。"
+  },
+  "Integrals.step.lead.1": {
+    "hash": "078399d3",
+    "text": "波长步长，单位 nm。"
+  },
+  "Integrals.angle.lead.1": {
+    "hash": "6fdcefc2",
+    "text": "入射角，单位为度，在入射介质中计。"
+  },
+  "Integrals.pol.lead.1": {
+    "hash": "80884b87",
+    "text": "偏振：`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "Integrals.rows.lead.1.js": {
+    "hash": "34ad7d23",
+    "text": "各行，先是窗口所列的内置行，再是你的行，每行为 `{ key, quantity, value, min, minAt, max, maxAt, band, covered, spectrumSpan }`：`quantity` 为 `'T'`、`'R'` 或 `'A'`；`value` 为加权平均，`min` 和 `max` 为该波段上的最低值和最高值，以 1 的分数计；`minAt` 和 `maxAt` 为它们所在的波长，单位 nm；`band` 为所积分的波段，以 nm 计的 `[start, end]`；`covered` 表示光谱是否覆盖该波段，不覆盖时或权重在整个波段上为 0 时，各个数为 NaN；`spectrumSpan` 为光谱的首末波长，单位 nm。"
+  },
+  "Integrals.rows.lead.1.py": {
+    "hash": "5bc9add2",
+    "text": "各行，先是窗口所列的内置行，再是你的行，每行是一个具名元组 (key, quantity, value, min, min_at, max, max_at, band, covered, spectrum_span)：quantity 为 \"T\"、\"R\" 或 \"A\"；value 为加权平均，min 和 max 为该波段上的最低值和最高值，以 1 的分数计；min_at 和 max_at 为它们所在的波长，单位 nm；band 为所积分的波段，以 nm 计的 (start, end)；covered 表示光谱是否覆盖该波段，不覆盖时或权重在整个波段上为 0 时，各个数为 nan；spectrum_span 为光谱的首末波长，单位 nm。"
+  },
+  "Integrals.get.arg.key": {
+    "hash": "28769e9b",
+    "text": "行的 key：Tvis、Rvis、Avis、Tsol、Rsol、Asol、TUV、RUV、TNIR、RNIR，或你自己某一行的 key。"
+  },
+  "Integrals.get.returns": {
+    "hash": "904ff3b7",
+    "text": "该行。"
+  },
+  "Integrals.get.lead.1": {
+    "hash": "94a2cdfc",
+    "text": "名为 `key` 的积分所在的行，与 `rows` 给出的相同。"
+  },
+  "Integrals.get.refuses.1": {
+    "hash": "ffb9a476",
+    "text": "没有任何行使用的 key"
+  },
+  "Integrals.outOfRange.lead.1.js": {
+    "hash": "44769615",
+    "text": "所计算对象上数据在该范围内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "Integrals.outOfRange.lead.1.py": {
+    "hash": "e75a50b7",
+    "text": "所计算对象上数据在该范围内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "Integrals.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "Integrals.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "Integrals.saveCsv.lead.1.js": {
+    "hash": "5477c967",
+    "text": "把各行写入 CSV 文件，与窗口的英文导出写出其表格的方式相同：Integral、Value、%、Min、Min λ (nm)、Max、Max λ (nm) 和 Band 各列，每行以其 key 命名（内置行的 key 即窗口自己的名称），没有数值的行留空单元格。已存在的文件会被覆盖。"
+  },
+  "Integrals.saveCsv.lead.1.py": {
+    "hash": "ad74f210",
+    "text": "把各行写入 CSV 文件，与窗口的英文导出写出其表格的方式相同：Integral、Value、%、Min、Min λ (nm)、Max、Max λ (nm) 和 Band 各列，每行以其 key 命名（内置行的 key 即窗口自己的名称），没有数值的行留空单元格。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
   },
   "RunResult.lead.1": {
     "hash": "73b2c003",

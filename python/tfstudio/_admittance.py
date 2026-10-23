@@ -3,6 +3,8 @@ answers."""
 
 import collections
 
+from ._csv import write_rows
+
 # The medium light comes from, or the substrate: its material id and its name
 # as the window's table gives it.
 Medium = collections.namedtuple("Medium", "material name")
@@ -29,12 +31,6 @@ def _locus(locus):
                  [Boundary(b["layer"], b["material"], b["name"], _complex(b["Y"]), _complex(b["gamma"]))
                   for b in locus["boundaries"]],
                  [Arc(arc["layer"], arc["material"], arc["re"], arc["im"]) for arc in locus["arcs"]])
-
-
-def _cell(value):
-    """A CSV cell as the window's Copy CSV writes it: a number in Python's
-    float notation, a name with each comma made a semicolon."""
-    return str(value) if isinstance(value, (int, float)) else str(value).replace(",", ";")
 
 
 def _table_rows(admittance):
@@ -183,8 +179,7 @@ class Admittance:
             design.admittance(550, angle=45).save_csv(name)
             print("Wrote", name)
         """
-        with open(path, "w", newline="", encoding="utf-8") as file:
-            file.write("\n".join(",".join(_cell(value) for value in row) for row in _table_rows(self)))
+        write_rows(path, _table_rows(self))
 
     def __repr__(self):
         return "<Admittance {} at {} nm, {} degrees: {} layers, {} plane>".format(

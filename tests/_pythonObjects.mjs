@@ -36,6 +36,8 @@
  *   material that resolves to nothing, and their refusals; admittance() and
  *   electric_field() with their defaults and each argument, complex values as
  *   complex, the side they take without one, save_csv() and their refusals;
+ *   color() and integrals() with their defaults and each argument, their
+ *   groups as named tuples, a row by its key, save_csv() and their refusals;
  *   refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
@@ -542,6 +544,52 @@ async function admittanceAndField(t, said) {
         `<ElectricField front at 550 nm, 0 degrees: ${front} layers, ${front * 60 + 1} samples>`]), canon(got.shown));
 }
 
+// What _pythonObjects.py colour_and_integrals() read of a design coated on
+// both sides, against the plain calls here on the design it read.
+const colourOf = c => [c.mode, c.quantity, c.angle, c.pol, c.observer, c.illuminant, c.step, c.X, c.Y, c.Z, c.x, c.y, Object.values(c.white),
+    Object.values(c.whiteXy), Object.values(c.lab), Object.values(c.luv), Object.values(c.uv1976), Object.values(c.uv1960), Object.values(c.hunterLab),
+    Object.values(c.dominant), c.cct, c.duv, Object.values(c.srgb), c.outOfRange];
+const tableOf = t => [t.mode, t.start, t.end, t.step, t.angle, t.pol,
+    t.rows.map(r => [r.key, r.quantity, r.value, r.min, r.minAt, r.max, r.maxAt, r.band, r.covered, r.spectrumSpan]), t.outOfRange];
+const CUSTOM = [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] },
+    { key: 'Rled', quantity: 'R', source: { id: 'custom', table: [[440, 0.2], [450, 1], [470, 0.1]] }, detector: { id: 'flat' } }];
+
+async function colourAndIntegrals(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.colour ?? {};
+    const design = got.design ?? {};
+    const COLOURS = [{}, { quantity: 'T', angle: 30, pol: 's', observer: 10, illuminant: 'A', step: 1, side: 'front' }];
+    const TABLES = [{}, { start: 350, end: 1100, step: 1, angle: 45, pol: 'p', custom: CUSTOM, side: 'back' }];
+    const colours = await inTurn(COLOURS, options => attempt(() => colourOf(api.color(design, options))));
+    const tables = await inTurn(TABLES, options => attempt(() => tableOf(api.integrals(design, options))));
+    ok('color() and integrals() are color and integrals over the wire, with their defaults and each argument, the groups as named tuples',
+        canon(got.colours) === canon(colours) && canon(got.tables) === canon(tables) && colours[0][0] === 'total'
+        && canon(got.tuples) === canon([['L', 'a', 'b', 'C', 'h'], ['L', 'u', 'v', 'C', 'h', 's'], ['wavelength', 'complementary', 'purity'], ['r', 'g', 'b'], ['X', 'Y', 'Z'],
+            ['key', 'quantity', 'value', 'min', 'min_at', 'max', 'max_at', 'band', 'covered', 'spectrum_span']]), canon(got.colours)?.slice(0, 300));
+    const table = await attempt(() => api.integrals(design, { custom: CUSTOM }));
+    const rled = table.rows?.find(r => r.key === 'Rled');
+    ok('[] reads a row by its key', canon(got.rows) === canon([[rled?.key, rled?.quantity, rled?.value, rled?.min, rled?.minAt, rled?.max, rled?.maxAt, rled?.band, rled?.covered, rled?.spectrumSpan], true]),
+        canon(got.rows));
+    const objects = await import('../src/api/objects/index.js');
+    const file = path.join(WORK, 'js-integrals.csv');
+    new objects.Integrals(table).saveCsv(file);
+    const written = csvRows(fs.readFileSync(file, 'utf8'));
+    ok('save_csv writes what saveCsv writes', canon(csvRows(got.csv)) === canon(written) && written[0].join() === 'Integral,Value,%,Min,Min λ (nm),Max,Max λ (nm),Band'
+        && written.length === 13, String(got.csv).slice(0, 200));
+    ok('their refusals are in Python\'s words', canon(got.worded) === canon([
+        'color: observer is 2 or 10, not 3',
+        "color: illuminant is 'D65', 'D50', 'A' or 'E', not 'F2'",
+        "color: side is 'front', 'back' or 'total', not 'both'",
+        'integrals: start and end are wavelengths in nm, 0 < start < end',
+        "integrals: unknown option 'custom[0].char'; the options are key, quantity, source, detector, band",
+        "integrals: custom[0].key is a name, as text, other than Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, not 'Tvis'",
+        "integrals: no row has the key 'Tsun'; the keys are Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, T3000K, Rled",
+    ]), canon(got.worded));
+    const colour = api.color(design);
+    ok('and repr() shows what they hold', canon(got.shown) === canon([`<Color R total, D65 2 degrees: x ${colour.x.toFixed(4)}, y ${colour.y.toFixed(4)}, Y ${colour.Y.toFixed(3)}>`,
+        '<Integrals total from 300 to 2500 nm: 12 rows>']), canon(got.shown));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -722,6 +770,7 @@ export async function checkObjects(t) {
     await cleaning(u, ran.said);
     await stackViews(u, ran.said);
     await admittanceAndField(u, ran.said);
+    await colourAndIntegrals(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

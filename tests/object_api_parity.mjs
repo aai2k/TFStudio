@@ -13,7 +13,7 @@
  *      by tests/_pythonNames.py, is in JavaScript under its camelCase name, and
  *      each JavaScript one is in Python, but for the departures below, each
  *      still a departure. Python's len(), for loop and [] are length, for...of,
- *      and [n] on Layers or get() on Materials. Without Python this part is
+ *      and [n] on Layers or get() on Materials and Integrals. Without Python this part is
  *      skipped, and says so.
  *
  * The names are read from the source on both sides, with acorn here and ast
@@ -53,8 +53,8 @@ const PYTHON_ONLY = {
 const JS_ONLY = {};
 
 // Python's operators by what the JavaScript objects have in their place.
-// Materials take get(), since an object's [] in JavaScript reads its
-// properties and a material's id is any text; a layer's number is a number,
+// Materials and Integrals take get(), since an object's [] in JavaScript reads
+// its properties and a material's id or a row's key is any text; a layer's number is a number,
 // which no property is named, so Layers take [n].
 const OPERATORS = { __len__: () => 'length', __iter__: () => '[Symbol.iterator]', __getitem__: cls => (cls === 'Layers' ? '[n]' : 'get') };
 const camel = name => name.replace(/_([a-z0-9])/g, (_, ch) => ch.toUpperCase());

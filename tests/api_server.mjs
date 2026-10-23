@@ -16,7 +16,9 @@
  *      a layer set by its QWOT, a side with no layers refused with its code
  *      and fields, and a QWOT the Design Editor has none of crossing as null;
  *      a side's admittance locus and electric field, and a side with no layer
- *      thicker than 0 nm refused with its code and fields;
+ *      thicker than 0 nm refused with its code and fields; a colour and an
+ *      integral table, an integral with no value crossing as NaN, and an
+ *      observer refused with its code and fields;
  *      materials; merit; a specification set and checked, and
  *      checking a design without one refused with its code and fields; layer
  *      sensitivity; and the runs, a refinement, a Needle and a Structural run
@@ -184,6 +186,15 @@ const specified = api.setSpecification(start, CHECKS);
     const flat = await same('electricField', [{ ...stack, frontLayers: stack.frontLayers.map(layer => ({ ...layer, thickness: 0 })) }]);
     ok('a side with no layer thicker than 0 nm is refused with its code and fields', flat.error?.code === 'emptySide'
         && canon(flat.error.fields) === canon({ call: 'electricField', side: 'front' }), JSON.stringify(flat.error));
+    await same('color', [twoSided]);
+    await same('color', [twoSided, { quantity: 'T', observer: 10, illuminant: 'A', side: 'back', step: 2 }]);
+    // A narrow grid leaves the solar, UV and NIR rows without a value: NaN crosses as NaN.
+    const table = await same('integrals', [twoSided, { start: 350, end: 1000, step: 2, custom: [{ key: 'bb', source: { id: 'blackbody', T: 3000 } }] }]);
+    ok('an integral with no value crosses as NaN', Number.isNaN(table.result?.rows.find(r => r.key === 'Tsol').value) && table.result.rows.find(r => r.key === 'bb').covered,
+        JSON.stringify(table.result?.rows[3]));
+    const observer = await same('color', [twoSided, { observer: 3 }]);
+    ok('an observer it does not have is refused with its code and fields', observer.error?.code === 'badValue'
+        && canon(observer.error.fields) === canon({ call: 'color', option: 'observer', takes: '2 or 10', value: 3 }), JSON.stringify(observer.error));
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);

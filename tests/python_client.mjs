@@ -12,7 +12,8 @@
  *      writes) and opened again, a layer set by its QWOT, spectra, index
  *      profiles, one of a side with no layers refused, layer thicknesses,
  *      the design's facts, admittance loci and electric fields, one of a
- *      side with no layers refused, materials, merit, a specification
+ *      side with no layers refused, colours, one with an observer refused,
+ *      integral values with rows of no value, materials, merit, a specification
  *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
  *      a seeded yield.
  *   2. Values: a spectrum's angles are keyed by text, and the spectrum as
@@ -290,6 +291,9 @@ const STOPPED_WITHIN_S = 5;
         ['admittance', [stack, { wavelength: 633, angle: 45, plane: 'reflection' }]],
         ['electricField', [stack, { wavelength: 1064, depthUnit: 'FWOT', pointsPerLayer: 12 }]],
         ['electricField', [stack, { side: 'back' }]],
+        ['color', [stack, { quantity: 'T', observer: 10, illuminant: 'D50', step: 2 }]],
+        ['color', [stack, { observer: 3 }]],
+        ['integrals', [stack, { start: 350, end: 1000, step: 2, custom: [{ key: 'bb', source: { id: 'blackbody', T: 3000 } }] }]],
         ['setMerit', [stack, AR_ROWS]],
         ['merit', [start]],
         ['setSpecification', [start, CHECKS]],
