@@ -1,7 +1,16 @@
 // n / k sweeps replace a layer with a NON-dispersive constant-index material
 // (the un-swept member of the n,k pair is taken from the layer's nominal value
-// at the probe λ for optical, or at 550 nm for MF). This is an explicit
-// what-if — the real material's dispersion is bypassed for the swept layer only.
+// at the probe λ for optical, or at the design's reference wavelength for MF).
+// This is an explicit what-if: the real material's dispersion is bypassed for
+// the swept layer only.
+
+/**
+ * The wavelength (nm) an MF surface's n or k sweep reads the other member at:
+ * the design's reference wavelength, 550 nm for a design without one.
+ */
+export function overrideReference(design) {
+    return design.referenceWavelength || 550;
+}
 
 /** A constant-index ("what-if") pseudo-material: getNK returns [n,k] for all λ. */
 function constMaterial(n, k) {

@@ -14,6 +14,8 @@
  *   4. The polarization control reaches the kernel: avg is the mean of s and p.
  *   5. The session store opens on the registry's values and saves them back.
  *   6. A run is followed through useLiveDesign, like the other analysis windows.
+ *   7. The material table the sweep's workers get holds every wavelength the
+ *      sweep reads, at a step whose samples are not whole binary fractions.
  *
  * Run: node tests/wavelength_angle_map.mjs
  */
@@ -22,7 +24,7 @@ import assert from 'node:assert/strict';
 import { initWasmForTest } from './_wasmInit.mjs';
 import { axisSteps, buildMapSpec } from '../src/components/windows/analysis/wavelengthAngleMap/mapSpec.js';
 import { wavelengthAngleMapSession } from '../src/components/windows/analysis/wavelengthAngleMap/sessionState.js';
-import { computeSurface } from '../src/utils/physics/plotQuantities.js';
+import { computeSurface, requiredSurfaceLambdas } from '../src/utils/physics/plotQuantities.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
 import { sessionDefaults } from '../src/constants/analysisDefaults.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
@@ -210,6 +212,20 @@ const controls = {
         'and is shorter than it, so each sampled frame of a run gets its sweep');
     assert.match(live, /OPTIMIZATION_PREVIEW_MS = \d+/,
         'the interval it is derived from is still declared there');
+}
+
+// ── 7. The workers' material table covers the sweep ─────────────────────────
+{
+    const read = new Set();
+    const noting = id => {
+        const mat = resolveMat(id);
+        return { ...mat, getNK: lam => { read.add(lam); return mat.getNK(lam); } };
+    };
+    const spec = buildMapSpec({ ...controls, lambdaStart: 380, lambdaEnd: 780, lambdaStep: 0.7 }, 'front');
+    computeSurface(spec, design, noting);
+    const table = new Set(requiredSurfaceLambdas(spec, design));
+    const missing = [...read].filter(lam => !table.has(lam));
+    assert.deepEqual(missing.slice(0, 3), [], `${missing.length} of ${read.size} wavelengths read are not in the table`);
 }
 
 console.log('wavelength_angle_map: passed');

@@ -3,7 +3,10 @@
  * exact-λ set the surface compute will query (for worker pre-sampling).
  */
 
-import { requiredLambdas } from '../optimizer.js';
+import { requiredLambdas, withDesignSampleCounts } from '../optimizer.js';
+import { buildLambdaGrid } from '../thinFilmMath.js';
+import { designMaterialLookup } from '../../materials/designMaterials.js';
+import { overrideReference } from './materialOverride.js';
 import { buildAxisVarOptions, parseAxisVar } from './axisVars.js';
 
 export const Z_QUANTITIES = ['T', 'R', 'A', 'MF'];
@@ -63,18 +66,30 @@ export function makeDefaultSurfaceSpec(design, defaults = {}) {
 /**
  * Exact λ set the surface compute will query getNK at — for Approach-A worker
  * pre-sampling (so the worker's table-lookup getNK is byte-identical to the
- * main thread). MF: the operands' sample λ + 550 (n/k override reference).
- * Optical: the wavelength-axis samples (or the fixed λ) — both the RAW linspace
- * values (n/k override reference samples there) AND their 1e-3 rounding (what
- * evaluateSpectrum queries internally).
+ * main thread). MF: the operands' sample λ and the n/k override reference
+ * (overrideReference).
+ * Optical: the wavelength-axis samples (or the fixed λ), both as they stand (an
+ * n/k override samples its reference there) and on the grid the spectrum
+ * evaluates them at (buildLambdaGrid): one wavelength at a time, and a whole
+ * wavelength axis as the single spectrum opticalSurface.js batches it into.
  */
 export function requiredSurfaceLambdas(spec, design) {
     const set = new Set();
-    const add = v => { if (Number.isFinite(v)) { set.add(v); set.add(Math.round(v * 1000) / 1000); } };
+    const addGrid = (from, to, step) => { for (const l of buildLambdaGrid(from, to, step)) set.add(l); };
+    const add = v => { if (Number.isFinite(v)) { set.add(v); addGrid(v, v, 1); } };
     if (spec.z === 'MF') {
-        const operands = (design.meritOperands || []).filter(op => op && op.enabled);
+        // The surface samples its bands for the design's fringes
+        // (meritSurface.js). The count is set by each material's group index
+        // just around a band's short end, so those reads go in the table too.
+        const lookup = designMaterialLookup(design);
+        const noting = id => {
+            const mat = lookup(id);
+            return mat && { ...mat, getNK: lam => { set.add(lam); return mat.getNK(lam); } };
+        };
+        const enabled = (design.meritOperands || []).filter(op => op && op.enabled);
+        const operands = withDesignSampleCounts(enabled, design, noting);
         for (const lam of requiredLambdas(operands)) set.add(lam);   // exact, no rounding
-        add(550);
+        add(overrideReference(design));
     } else {
         const xk = parseAxisVar(spec.xVar).kind, yk = parseAxisVar(spec.yVar).kind;
         let lams;
@@ -82,6 +97,8 @@ export function requiredSurfaceLambdas(spec, design) {
         else if (yk === 'lambda') lams = linspace(spec.yFrom, spec.yTo, spec.ySteps);
         else                      lams = [spec.fixedLambda_nm];
         for (const l of lams) add(l);
+        const last = lams[lams.length - 1];
+        if (lams.length > 1) addGrid(lams[0], last, (last - lams[0]) / (lams.length - 1));
     }
     return Array.from(set).sort((a, b) => a - b);
 }
