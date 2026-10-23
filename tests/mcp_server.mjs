@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 25
+ *   1. The session: initialize and version negotiation, the tool list (the 26
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -14,7 +14,10 @@
  *      lists the checks with their ids, which setSpecification takes back as
  *      they are, and an empty one clears it, answered with the mode; a design
  *      saved and
- *      opened again has the same layers; the setup changes; misspelt
+ *      opened again has the same layers; the setup changes; a stack cleaned
+ *      gives the API's operations and layer counts, keeps the cleaned design
+ *      under its id and refuses a value it cannot use, and the tool gives the
+ *      MNT row and the refine that do the window's Re-optimize; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
  *   3. stdout carries only messages, also when the server's own code prints;
@@ -58,7 +61,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 25 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 26 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -86,6 +89,8 @@ for (const [asked, answered] of [['2025-06-18', '2025-06-18'], ['2025-03-26', '2
 
 // ── 2. Designs ─────────────────────────────────────────────────────────────
 const api = await import('../src/api/index.js');
+const { DESIGN_CLEANER_DEFAULTS } = await import('../src/components/windows/optimization/designCleaner/sessionState.js');
+const { DEFAULT_REFINE_METHOD } = await import('../src/utils/optimizers/index.js');
 await api.init();
 const id = (await server.call('newDesign', { name: 'QW mirror' })).designId;
 const built = await server.call('stackFromFormula', { designId: id, formula: '(HL)^3 H', symbols: { H: 'Ta2O5', L: 'SiO2' }, referenceWavelength: 600 });
@@ -163,6 +168,28 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const copy = await server.call('copyDesign', { designId: id });
     const listedDesigns = (await server.call('listDesigns', {})).designs;
     ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 4);
+}
+{
+    // A stack with a thin layer between two of one material, cleaned through the tools.
+    const formula = '(HL)^2 0.03H L';
+    const messy = (await server.call('newDesign', { name: 'To clean' })).designId;
+    await server.call('stackFromFormula', { designId: messy, formula });
+    const local = api.cleanDesign(api.stackFromFormula(api.newDesign({ name: 'To clean' }), { formula }));
+    const { design: localDesign, ...report } = local;
+    const refusedClean = await server.call('cleanDesign', { designId: messy, minThickness: -1 });
+    const unchanged = (await server.call('showDesign', { designId: messy })).front.length === 6;
+    const cleaned = await server.call('cleanDesign', { designId: messy });
+    ok('cleanDesign answers with the operations and the layer counts the API gives', JSON.stringify(cleaned) === JSON.stringify({ designId: messy, ...report })
+        && cleaned.removed === 1 && cleaned.merged === 1 && cleaned.layersAfter?.front === 4, JSON.stringify(cleaned));
+    const shown = (await server.call('showDesign', { designId: messy })).front ?? [];
+    ok('and leaves the cleaned design under its id', JSON.stringify(shown.map(l => [l.material, l.thickness])) === JSON.stringify(localDesign.frontLayers.map(l => [l.material, l.thickness])),
+        JSON.stringify(shown));
+    ok('a value it cannot use is refused, the design staying as it was', /minThickness is a thickness in nm of 0 or more, not -1/.test(refusedClean.error ?? '') && unchanged,
+        refusedClean.error);
+    const description = listed.find(t => t.name === 'cleanDesign')?.description ?? '';
+    ok('its description gives the MNT row and the refine, with the window\'s method and step budget, that do the window\'s Re-optimize, and the floor refine keeps without the row',
+        description.includes(`add an MNT row with target minThickness to the design's rows through setMerit and refine with method ${DEFAULT_REFINE_METHOD} and maxIter ${DESIGN_CLEANER_DEFAULTS.reoptIters}`)
+        && description.includes('without that row refine keeps layers at 1 nm or more'), description);
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────

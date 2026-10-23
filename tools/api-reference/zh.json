@@ -260,8 +260,8 @@
     "text": "一个薄膜设计，内容与 .tfs 文件相同：介质和基底、每一面的膜层，以及评价函数。`tf.newDesign()` / `tf.new_design()`、`tf.openDesign()` / `tf.open_design()` 和 copy() 会给出一个设计；在脚本控制台中，`tf.design` 是打开的设计。"
   },
   "Design.lead.2": {
-    "hash": "5cd4d42b",
-    "text": "改变设计的方法会直接修改该设计：stack()、各项膜层编辑、refine() 和 synthesize()。copy() 可以先保留一份副本。"
+    "hash": "53d28144",
+    "text": "改变设计的方法会直接修改该设计：stack()、各项膜层编辑、clean()、refine() 和 synthesize()。copy() 可以先保留一份副本。"
   },
   "Design.lead.3.py": {
     "hash": "41a03195",
@@ -366,6 +366,42 @@
   "Design.stack.refuses.1": {
     "hash": "8e3548f8",
     "text": "无法解析的公式（并说明解析在何处停止）；写出了介质的公式；公式中没有用到的字母；stack 不接受的选项；对称设计的背面；或找不到对应材料的材料 id"
+  },
+  "Design.clean.arg.minThickness": {
+    "hash": "8c63490d",
+    "text": "保留的最薄膜层，单位 nm：比它薄的膜层会被移除。为 0 时不移除任何膜层。"
+  },
+  "Design.clean.arg.merge": {
+    "hash": "4a8a64c5",
+    "text": "为 `true` / `True` 时，合并相邻的同材料膜层。"
+  },
+  "Design.clean.arg.back": {
+    "hash": "c7d35a19",
+    "text": "为 `true` / `True` 时同时清理背面，设计只按正面计算、膜层编辑不允许修改其背面时也是如此；为 `false` / `False` 时只清理正面，设计只在背面镀膜时也是如此。"
+  },
+  "Design.clean.returns": {
+    "hash": "2ef59ed9",
+    "text": "一个 CleanReport。"
+  },
+  "Design.clean.lead.1": {
+    "hash": "828de9df",
+    "text": "按设计清理器窗口的方式清理膜层堆栈：相邻的同材料膜层合并为一层，薄于 `minThickness` / `min_thickness` 的膜层被移除，并分多轮进行，因为移除一层后可能使两个同材料膜层相邻接触。被锁定的膜层永远不会被合并或移除，对称设计的背面跟随其正面。之后设计中保存的是清理后的膜层。"
+  },
+  "Design.clean.lead.2.js": {
+    "hash": "3da8a097",
+    "text": "由于堆栈改变，评价函数值通常会略微变差。要做到窗口的“重新优化”所做的，先添加一个目标为 `minThickness` 的 MNT 行，再用 sqp 精炼：`design.merit.add('MNT', { target: 5 })`，然后 `await design.refine({ method: 'sqp', maxIter: 80 })`。各层随后停在窗口的这一轮精炼给出的厚度上。窗口的这一轮精炼让每层不低于 `minThickness`，sqp 让每层保持在 MNT 行的界限之内；没有这一行时，refine 只让各层不低于 1 nm。"
+  },
+  "Design.clean.lead.2.py": {
+    "hash": "7f36f72e",
+    "text": "由于堆栈改变，评价函数值通常会略微变差。要做到窗口的“重新优化”所做的，先添加一个目标为 min_thickness 的 MNT 行，再用 sqp 精炼：design.merit.add(\"MNT\", target=5)，然后 design.refine(method=\"sqp\", max_iter=80)。各层随后停在窗口的这一轮精炼给出的厚度上。窗口的这一轮精炼让每层不低于 min_thickness，sqp 让每层保持在 MNT 行的界限之内；没有这一行时，refine 只让各层不低于 1 nm。"
+  },
+  "Design.clean.refuses.1.js": {
+    "hash": "deb60481",
+    "text": "clean 不接受的选项、不是大于等于 0 的数的 minThickness、不是 `true` 或 `false` 的 merge 或 back，或没有膜层的设计"
+  },
+  "Design.clean.refuses.1.py": {
+    "hash": "2300b7fb",
+    "text": "不是大于等于 0 的数的 min_thickness、不是 True 或 False 的 merge 或 back，或没有膜层的设计"
   },
   "Design.spectrum.arg.start": {
     "hash": "115f61f2",
@@ -1810,6 +1846,26 @@
   "SensitivityRow.locked.lead.1": {
     "hash": "00c85bc2",
     "text": "锁定的膜层为 `true` / `True`。"
+  },
+  "CleanReport.lead.1": {
+    "hash": "cb087a29",
+    "text": "design.clean() 对设计所做的操作，与设计清理器窗口列出的操作相同：移除的膜层，以及合并到相邻层中的膜层。"
+  },
+  "CleanReport.removed.lead.1": {
+    "hash": "520c16ec",
+    "text": "移除的膜层数。"
+  },
+  "CleanReport.merged.lead.1": {
+    "hash": "530c3e0d",
+    "text": "合并到相邻层中的膜层数。"
+  },
+  "CleanReport.operations.lead.1.js": {
+    "hash": "3d733b38",
+    "text": "每个操作一个对象，按执行顺序排列，正面的在前：`{ side, kind, number, material, thickness, mergedInto }`。kind 为 `'remove'` 或 `'merge'`；number 为该层在清理前其所在面的编号，1 紧邻基底，与当时 design.layers 和 design.backLayers 的编号相同；material 为其材料 id；thickness 单位 nm，对被移除的膜层是它被移除时的厚度，包括此前合并进它的膜层，对合并操作是它加到被合并进的那一层上的厚度；mergedInto 对合并操作是那一层的编号，编号方式与 number 相同，对被移除的膜层为 null。"
+  },
+  "CleanReport.operations.lead.1.py": {
+    "hash": "629a2751",
+    "text": "每个操作一个具名元组 (side, kind, number, material, thickness, merged_into)，按执行顺序排列，正面的在前。kind 为 \"remove\" 或 \"merge\"；number 为该层在清理前其所在面的编号，1 紧邻基底，与当时 design.layers 和 design.back_layers 的编号相同；material 为其材料 id；thickness 单位 nm，对被移除的膜层是它被移除时的厚度，包括此前合并进它的膜层，对合并操作是它加到被合并进的那一层上的厚度；merged_into 对合并操作是那一层的编号，编号方式与 number 相同，对被移除的膜层为 None。"
   },
   "Materials.lead.1": {
     "hash": "4d7c2b0c",

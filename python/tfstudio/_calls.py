@@ -72,6 +72,9 @@ class Calls:
     def stackFromFormula(self, design, options):
         return self._call("stackFromFormula", design, options)
 
+    def cleanDesign(self, design, options=None):
+        return self._call("cleanDesign", design, options)
+
     def findMaterials(self, query=None):
         return self._call("findMaterials", query)
 

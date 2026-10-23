@@ -8,7 +8,7 @@ from ._errors import TFStudioError
 from ._merit import Merit
 from ._names import api_names
 from ._refusals import Words, worded
-from ._results import LayerSensitivity, MonteCarlo, RunResult, Spectrum
+from ._results import CleanReport, LayerSensitivity, MonteCarlo, RunResult, Spectrum
 from ._specification import Specification
 from ._stop import run_hooks
 
@@ -26,6 +26,8 @@ _STACK_WORDS = Words("stackFromFormula", "stack", {name: option for option, name
 _SETUP_WORDS = Words("setDesignSetup", names={"referenceWavelength": "reference", "substrate": "substrate.material",
                                               "substrateThicknessMm": "substrate.thickness"})
 _MONTE_CARLO_WORDS = Words("monteCarlo", "monte_carlo", hidden=("from", "to"), extra=("progress", "stop"))
+# design.clean()'s names for cleanDesign's options, where they are not their snake_case.
+_CLEAN_WORDS = Words("cleanDesign", "clean", {"mergeAdjacent": "merge", "cleanBack": "back"})
 
 
 def mode_of(data):
@@ -394,7 +396,7 @@ class Design:
     the open design.
 
     Methods that change a design change it in place: stack(), the layer
-    edits, refine() and synthesize(). copy() keeps a copy first.
+    edits, clean(), refine() and synthesize(). copy() keeps a copy first.
 
     In a program started with live=True, tf.app.open_design() reads one from
     the app, and push() writes it back.
@@ -656,6 +658,54 @@ class Design:
         given = {_STACK_OPTIONS[name]: value for name, value in settings.items() if value is not None}
         with worded(_STACK_WORDS):
             self._data = self._calls.stackFromFormula(self._data, dict(given, formula=formula, symbols=symbols))
+
+    def clean(self, *, min_thickness=5, merge=True, back=True):
+        """Cleans the stack as the Design Cleaner window does: adjacent layers
+        of one material merged into one, and layers thinner than
+        min_thickness taken out, in passes, since taking a layer out can leave
+        two layers of one material touching. Locked layers are never merged or
+        taken out, and a symmetric design's back follows its front. The
+        design then holds the cleaned layers.
+
+        The merit usually worsens a little, since the stack changed. To do
+        what the window's Re-optimize does, add an MNT row at min_thickness
+        and refine with sqp: design.merit.add("MNT", target=5), then
+        design.refine(method="sqp", max_iter=80). The layers end on the
+        thicknesses the window's pass gives. The window's pass keeps each
+        layer at min_thickness or above, and sqp keeps each layer inside the
+        MNT row; without that row refine keeps layers at 1 nm or above.
+
+        Args:
+            min_thickness: The thinnest layer kept, nm: a layer below it is
+                taken out. 0 takes none out. Default 5.
+            merge: True merges adjacent layers of one material. Default True.
+            back: True cleans the back too, also on a design scored on its
+                front alone, whose back the layer edits refuse to change;
+                False cleans the front alone, also on a design coated on the
+                back alone. Default True.
+
+        Returns:
+            A CleanReport.
+
+        Raises:
+            TFStudioError: a min_thickness that is not a number of 0 or more,
+                a merge or back other than True or False, or a design with no
+                layers.
+
+        Example::
+
+            design = tf.new_design("Stack with a thin layer")
+            design.stack("(HL)^2 0.03H L")
+            report = design.clean(min_thickness=5)
+            for op in report.operations:
+                print(op.kind, op.side, "layer", op.number, op.material, op.thickness)
+            print(len(design.layers), "layers now")
+        """
+        options = {"minThickness": min_thickness, "mergeAdjacent": merge, "cleanBack": back}
+        with worded(_CLEAN_WORDS):
+            cleaned = self._calls.cleanDesign(self._data, options)
+        self._data = cleaned["design"]
+        return CleanReport(cleaned)
 
     def spectrum(self, start, end, *, step=1, angles=(0,)):
         """R, T and A over a range of wavelengths, for unpolarized light and

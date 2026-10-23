@@ -27,14 +27,17 @@
  *   snake_case, read back as SpecChecks, removed and cleared, the verdict of
  *   check(), estimate_yield() with a seed and with its documented defaults,
  *   a Monte Carlo run's spec, progress, a progress function that raises and
- *   a Stop, and their refusals; refine and synthesize with
- *   seeds, Monte Carlo with a seed and layer sensitivity; the settings'
- *   snake_case names; the Progress objects of a refinement, a Needle run and
- *   a Monte Carlo run; stop= in progress, Deep Synthesis's included, and
- *   before the run; Ctrl+C in progress; every public name documented with an
- *   example; and the plain calls' refusals in Python's words, synthesize()'s
- *   among them and true, false and null written True, False and None, while
- *   studio._calls keeps the API's, with their code and fields.
+ *   a Stop, and their refusals; clean() with its defaults, with each option
+ *   and on a symmetric design, its CleanReport's named tuples, each
+ *   operation's number read back through the layers, and its refusals;
+ *   refine and synthesize with seeds, Monte Carlo with a seed and layer
+ *   sensitivity; the settings' snake_case names; the Progress objects of a
+ *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
+ *   Synthesis's included, and before the run; Ctrl+C in progress; every
+ *   public name documented with an example; and the plain calls' refusals in
+ *   Python's words, synthesize()'s among them and true, false and null
+ *   written True, False and None, while studio._calls keeps the API's, with
+ *   their code and fields.
  *
  * checkObjects(t) runs them with the test's helpers in `t`: api, scenario,
  * ok, canon, attempt, local, failure, POOL, QUANTITIES, WORK, DRAWN and
@@ -387,6 +390,34 @@ async function yields(t, said) {
     canon(got.refused));
 }
 
+// The cleanups _pythonObjects.py cleaning() made, against cleanDesign here on
+// the design they started from.
+async function cleaning(t, said) {
+    const { api, ok, canon, attempt } = t;
+    const got = said.cleaning ?? {};
+    const reportOf = cleaned => [cleaned.removed, cleaned.merged, (cleaned.operations ?? []).map(op => [op.side, op.kind, op.number, op.material, op.thickness, op.mergedInto])];
+    const plain = await attempt(() => api.cleanDesign(got.before));
+    ok('clean() changes the design in place to what cleanDesign gives with its defaults, and its CleanReport holds cleanDesign\'s counts and operations',
+        !!plain.design && canon(got.after) === canon(plain.design) && canon(got.report) === canon(reportOf(plain)) && plain.operations.length === 5, canon(got.report));
+    ok('as named tuples (side, kind, number, material, thickness, merged_into), and repr() shows the counts',
+        canon(got.fields) === canon(['side', 'kind', 'number', 'material', 'thickness', 'merged_into']) && got.shown === '<CleanReport 3 taken out, 2 merged>', got.shown);
+    ok('each operation\'s number reads, through design.layers and design.back_layers of the design before, its layer and the one it is merged into',
+        canon(got.named) === canon((plain.operations ?? []).map(op => [op.material, op.thickness, op.kind === 'merge' ? op.material : null])), canon(got.named));
+    const [optioned, backOnly] = got.optioned ?? [];
+    const optionedThere = await attempt(() => api.cleanDesign(got.before, { minThickness: 1.8, mergeAdjacent: false, cleanBack: true }));
+    ok('min_thickness, merge and back are cleanDesign\'s minThickness, mergeAdjacent and cleanBack', canon(optioned) === canon(optionedThere.design)
+        && canon(backOnly) === canon(reportOf(optionedThere)) && optionedThere.operations?.length === 1, canon(backOnly));
+    ok('back=False leaves the back as it was', canon(got.frontOnly) === canon((await attempt(() => api.cleanDesign(got.before, { cleanBack: false }))).design)
+        && got.frontOnly?.backLayers?.length === 5);
+    const [symmetricBefore, symmetricAfter] = got.symmetric ?? [];
+    ok('a symmetric design\'s back follows its cleaned front', canon(symmetricAfter) === canon((await attempt(() => api.cleanDesign(symmetricBefore))).design)
+        && symmetricAfter?.backLayers?.length === symmetricAfter?.frontLayers?.length);
+    ok('clean()\'s refusals are in Python\'s words, and leave the design as it was', canon(got.worded) === canon([
+        'clean: min_thickness is a thickness in nm of 0 or more, not -1', 'clean: min_thickness is a thickness in nm of 0 or more, not None',
+        'clean: merge is True or False, not 1', "clean: back is True or False, not 'yes'",
+        'clean: the design has no layers; add them with layers.append() or stack()']) && got.kept === true, canon(got.worded));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -556,6 +587,7 @@ export async function checkObjects(t) {
     await merit(u, ran.said, count);
     await specification(u, ran.said, measured);
     await yields(u, ran.said);
+    await cleaning(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

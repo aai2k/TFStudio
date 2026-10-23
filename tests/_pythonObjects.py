@@ -54,6 +54,7 @@ def objects(given):
         merit(design)
         specification(tf, design, given)
         yields(tf)
+        cleaning(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -332,6 +333,46 @@ def yields(tf):
                    "trials": trials, "raised": raised, "stopped": spec.estimate_yield(100000, seed=2, stop=early).runs,
                    "refused": [refused(lambda: spec.estimate_yield(0)), refused(lambda: spec.estimate_yield(None)),
                                refused(lambda: spec.estimate_yield(5, thickness_rel=3))]}})
+
+
+def report_of(report):
+    return [report.removed, report.merged, [list(op) for op in report.operations]]
+
+
+def cleaning(tf):
+    """clean() on a design coated on both sides, each with a same-material
+    pair and thin layers, more taken out than merged, no two other layers
+    alike, one 4.5 nm and one 5.5 nm thick, either side of the default
+    minimum: with its defaults, with each option, on a symmetric copy, and its
+    refusals; and the layer each operation's number names in the design
+    before, read by that number."""
+    dirty = tf.new_design("Two sides to clean")
+    dirty.sides = "both"
+    for material, thickness in (("TiO2", 20), ("SiO2", 30), ("SiO2", 50), ("Ta2O5", 4.5), ("MgF2", 100), ("Al2O3", 3)):
+        dirty.layers.append(material, thickness)
+    for material, thickness in (("Al2O3", 40), ("Al2O3", 25), ("TiO2", 60), ("MgF2", 1.5), ("SiO2", 5.5)):
+        dirty.back_layers.append(material, thickness)
+    before = dirty.copy()
+    report = dirty.clean()
+    side_of = {"front": before.layers, "back": before.back_layers}
+    named = [[side_of[op.side][op.number].material, side_of[op.side][op.number].thickness,
+              None if op.merged_into is None else side_of[op.side][op.merged_into].material] for op in report.operations]
+    optioned = before.copy()
+    back_only = optioned.clean(min_thickness=1.8, merge=False, back=True)
+    front_only = before.copy()
+    front_only.clean(back=False)
+    symmetric = before.copy()
+    symmetric.sides = "symmetric"
+    symmetric_before = symmetric._data
+    symmetric.clean()
+    kept = before.copy()
+    worded = [refused(make) for make in (
+        lambda: kept.clean(min_thickness=-1), lambda: kept.clean(min_thickness=None), lambda: kept.clean(merge=1),
+        lambda: kept.clean(back="yes"), lambda: tf.new_design("Bare").clean())]
+    out({"cleaning": {"before": before._data, "after": dirty._data, "report": report_of(report), "shown": repr(report),
+                      "fields": list(type(report.operations[0])._fields), "named": named,
+                      "optioned": [optioned._data, report_of(back_only)], "frontOnly": front_only._data,
+                      "symmetric": [symmetric_before, symmetric._data], "worded": worded, "kept": kept._data == before._data}})
 
 
 def ran(before, design, result):

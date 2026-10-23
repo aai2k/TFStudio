@@ -76,6 +76,7 @@ const CLASSES = [
     { name: 'MonteCarlo', receiver: 'mc' },
     { name: 'LayerSensitivity', receiver: 'ls' },
     { name: 'SensitivityRow', receiver: 'row' },
+    { name: 'CleanReport', receiver: 'report' },
     { name: 'Materials', receiver: 'tf.materials' },
     { name: 'Material', receiver: 'material' },
     { name: 'Stop', receiver: 'stop' },

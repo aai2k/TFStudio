@@ -1,6 +1,6 @@
 // What runs and tolerance checks answer with: a run's progress and result, a
 // Monte Carlo run and the yield of trials against a specification, the verdict
-// on a specification, and a layer sensitivity ranking.
+// on a specification, a layer sensitivity ranking, and what a cleanup did.
 
 import { inspect } from 'node:util';
 import { curveOf } from './spectrum.js';
@@ -983,4 +983,62 @@ export class LayerSensitivity {
 
     // What console.log prints for a ranking.
     [inspect.custom]() { return `<LayerSensitivity of ${this.rows.length} layers>`; }
+}
+
+/**
+ * What design.clean() did to the design, as the Design Cleaner window lists
+ * its operations: the layers it took out and those it merged into a
+ * neighbour.
+ *
+ * @example
+ * const design = tf.newDesign('Stack with a thin layer');
+ * design.stack('(HL)^2 0.03H L');
+ * const report = design.clean();
+ * console.log(report.removed, 'taken out,', report.merged, 'merged');
+ */
+export class CleanReport {
+    constructor(cleaned) {
+        this._cleaned = cleaned;
+    }
+
+    /**
+     * How many layers were taken out.
+     *
+     * @example
+     * const design = tf.newDesign('Stack with a thin layer');
+     * design.stack('(HL)^2 0.03H L');
+     * console.log(design.clean().removed);
+     */
+    get removed() { return this._cleaned.removed; }
+
+    /**
+     * How many layers were merged into a neighbour.
+     *
+     * @example
+     * const design = tf.newDesign('Stack with a thin layer');
+     * design.stack('(HL)^2 0.03H L');
+     * console.log(design.clean().merged);
+     */
+    get merged() { return this._cleaned.merged; }
+
+    /**
+     * One object per operation, in the order they were made, the front's
+     * first: `{ side, kind, number, material, thickness, mergedInto }`. kind
+     * is `'remove'` or `'merge'`; number the layer's number on its side
+     * before the cleanup, 1 next to the substrate, as design.layers and
+     * design.backLayers numbered it then; material its material, by id;
+     * thickness, nm, for a layer taken out its thickness then, which counts
+     * any layer merged into it before, and for a merge what it adds to the
+     * layer it is merged into; mergedInto, for a merge, the number of that
+     * layer, numbered as number is, and null for a layer taken out.
+     *
+     * @example
+     * const design = tf.newDesign('Stack with a thin layer');
+     * design.stack('(HL)^2 0.03H L');
+     * for (const op of design.clean().operations) console.log(op.kind, op.side, op.number, op.material, op.thickness, op.mergedInto);
+     */
+    get operations() { return this._cleaned.operations; }
+
+    // What console.log prints for a cleanup.
+    [inspect.custom]() { return `<CleanReport ${this.removed} taken out, ${this.merged} merged>`; }
 }

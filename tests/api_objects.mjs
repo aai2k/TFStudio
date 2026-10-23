@@ -25,8 +25,11 @@
  *   documents, read back as SpecChecks, removed and cleared, the verdict of
  *   check(), estimateYield() with a seed, its documented defaults, progress,
  *   stop and a progress that throws, and a Monte Carlo run's spec as a Yield;
- *   refine and synthesize with seeds, Monte Carlo with a seed and layer
- *   sensitivity, its step 'nm' or 'percent', with
+ *   clean() changing the design in place to what cleanDesign gives, its
+ *   options by the objects' names, its defaults and a symmetric design's
+ *   back, its operations naming their layers by number on both sides, and its
+ *   refusals in the objects' words; refine and synthesize with seeds, Monte
+ *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
  *   back rows and locked rows; the Progress objects of a refinement, a Needle
  *   run, a Deep Synthesis run and a Monte Carlo run; a stop aborted in
  *   progress and before the run, a run of each method stopped part way leaving
@@ -568,6 +571,60 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     const listed = rowOption.slice(rowOption.indexOf('; the options are ') + '; the options are '.length).split(', ');
     ok('and an option a check does not take is refused naming the options add() takes', ['cmp', 'edgeSide', 'curveId'].every(name => listed.includes(name)), rowOption);
     ok('kind, start, end and the id being none of them', !['kind', 'id', 'lambda', 'lambdaStart', 'lambdaEnd', 'start', 'end'].some(name => listed.includes(name)), rowOption);
+}
+
+// ── Cleaning ────────────────────────────────────────────────────────────────
+{
+    // Coated on both sides, each with a same-material pair and thin layers,
+    // more taken out than merged, no two other layers alike, so a number
+    // counted from the wrong end names a layer of another material or
+    // thickness.
+    const dirty = tf.newDesign('Two sides to clean');
+    dirty.sides = 'both';
+    [['TiO2', 20], ['SiO2', 30], ['SiO2', 50], ['Ta2O5', 2], ['MgF2', 100], ['Al2O3', 3]].forEach(([material, thickness]) => dirty.layers.append(material, thickness));
+    [['Al2O3', 40], ['Al2O3', 25], ['TiO2', 60], ['MgF2', 1.5]].forEach(([material, thickness]) => dirty.backLayers.append(material, thickness));
+    const before = dirty.copy();
+    const report = dirty.clean();
+    const plain = api.cleanDesign(before._data);
+    ok('clean() changes the design in place to what cleanDesign gives with its defaults, its CleanReport holding cleanDesign\'s counts and operations',
+        canon([dirty._data, report.removed, report.merged, report.operations, inspect(report)])
+        === canon([plain.design, 3, 2, plain.operations, '<CleanReport 3 taken out, 2 merged>']), inspect(report));
+    // Each operation's layer, and the one a merge goes into, read by number in the design before.
+    const layerOf = (side, number) => before[SIDE_LAYERS[side]][number] ?? {};
+    const read = report.operations.map(op => [op.side, op.kind, op.number, op.mergedInto, layerOf(op.side, op.number).material,
+        layerOf(op.side, op.number).thickness, layerOf(op.side, op.mergedInto).material, op.material, op.thickness]);
+    ok('each operation names its layer by its number in the design before, as design.layers and design.backLayers number them, on both sides',
+        canon(read) === canon([['front', 'merge', 2, 3, 'SiO2', 30, 'SiO2', 'SiO2', 30], ['front', 'remove', 6, null, 'Al2O3', 3, undefined, 'Al2O3', 3],
+            ['front', 'remove', 4, null, 'Ta2O5', 2, undefined, 'Ta2O5', 2],
+            ['back', 'merge', 2, 1, 'Al2O3', 25, 'Al2O3', 'Al2O3', 25], ['back', 'remove', 4, null, 'MgF2', 1.5, undefined, 'MgF2', 1.5]]), canon(read));
+    const optioned = before.copy();
+    const backOnly = optioned.clean({ minThickness: 1.8, merge: false, back: true });
+    const frontOnly = before.copy();
+    frontOnly.clean({ back: false, merge: true });
+    const undefinedOptions = before.copy();
+    undefinedOptions.clean({ minThickness: undefined, merge: undefined, back: undefined });
+    ok('minThickness, merge and back are cleanDesign\'s minThickness, mergeAdjacent and cleanBack, and an option given as undefined takes its default',
+        canon([optioned._data, backOnly.operations, frontOnly._data, frontOnly.backLayers.length, undefinedOptions._data]) === canon([
+            api.cleanDesign(before._data, { minThickness: 1.8, mergeAdjacent: false, cleanBack: true }).design,
+            [{ side: 'back', kind: 'remove', number: 4, material: 'MgF2', thickness: 1.5, mergedInto: null }],
+            api.cleanDesign(before._data, { cleanBack: false, mergeAdjacent: true }).design, 4, plain.design]), canon(backOnly.operations));
+    const symmetric = before.copy();
+    symmetric.sides = 'symmetric';
+    const symmetricData = symmetric._data;
+    symmetric.clean();
+    ok('a symmetric design\'s back follows its cleaned front', canon([symmetric._data, symmetric.backLayers.length])
+        === canon([api.cleanDesign(symmetricData).design, 3]));
+    const kept = before.copy();
+    const CLEAN_WORDED = [
+        [() => kept.clean({ mergeAdjacent: true }), "clean: unknown option 'mergeAdjacent'; the options are minThickness, merge, back"],
+        [() => kept.clean({ minThickness: -1 }), 'clean: minThickness is a thickness in nm of 0 or more, not -1'],
+        [() => kept.clean({ merge: 1 }), 'clean: merge is true or false, not 1'],
+        [() => kept.clean({ back: 'yes' }), 'clean: back is true or false, not "yes"'],
+        [() => tf.newDesign('Bare').clean(), 'clean: the design has no layers; add them with layers.append() or stack()'],
+    ];
+    const worded = await Promise.all(CLEAN_WORDED.map(([make]) => refused(make)));
+    ok('clean()\'s refusals are in the objects\' words, and leave the design as it was', canon([worded, kept._data])
+        === canon([CLEAN_WORDED.map(([, words]) => words), before._data]), worded.join('\n'));
 }
 
 // ── Runs ────────────────────────────────────────────────────────────────────

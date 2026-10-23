@@ -29,7 +29,7 @@ const clientName = info => [info?.title, info?.name].find(name => typeof name ==
 
 const INSTRUCTIONS = [
     'TFStudio designs and analyzes optical thin-film coatings. The tools work on designs held in this session by id ("d1").',
-    'Start from a .tfs file (openDesign) or a new design (newDesign); change its media, substrate and sides (setDesignSetup); build or edit the stack (stackFromFormula, insertLayer, setLayer, deleteLayer); set the merit function (setMerit) and the specification (setSpecification); compute (spectrum, merit, checkSpecification, layerSensitivity).',
+    'Start from a .tfs file (openDesign) or a new design (newDesign); change its media, substrate and sides (setDesignSetup); build or edit the stack (stackFromFormula, insertLayer, setLayer, deleteLayer, cleanDesign); set the merit function (setMerit) and the specification (setSpecification); compute (spectrum, merit, checkSpecification, layerSensitivity).',
     'refine, synthesize and monteCarlo run as jobs: they answer with the job\'s state, and jobStatus follows a job that is still running. A run that changed the design adds its answer as a new design. saveDesign writes a design to a .tfs file the app opens.',
     'Units: wavelengths and layer thicknesses in nm, angles in degrees in the incident medium, substrate thickness in mm, R, T and A as fractions of 1. A value a tool cannot use is refused with a message that says what it takes.',
 ].join('\n');

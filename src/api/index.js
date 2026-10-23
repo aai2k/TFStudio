@@ -6,7 +6,7 @@
  *
  *   await init({ dataDir })        WASM kernel, and the user's catalogs from a data folder
  *   openDesign(path), saveDesign(design, path, { overwrite }), newDesign(setup), setDesignSetup(design, setup)
- *   insertLayer, deleteLayer, setLayer, stackFromFormula
+ *   insertLayer, deleteLayer, setLayer, stackFromFormula, cleanDesign(design, options)
  *   findMaterials(query), materialNK(id, wavelengths, design)
  *   spectrum(design, { from, to, step, angles }), summarize(spectrum, { bands })
  *   setMerit(design, rows), merit(design)
@@ -22,6 +22,7 @@
 export { init } from './environment.js';
 export { openDesign, saveDesign, newDesign, setDesignSetup } from './designs.js';
 export { insertLayer, deleteLayer, setLayer, stackFromFormula } from './stack.js';
+export { cleanDesign } from './cleaner.js';
 export { findMaterials, materialNK } from './materials.js';
 export { spectrum, summarize } from './evaluate.js';
 export { setMerit, merit } from './merit.js';

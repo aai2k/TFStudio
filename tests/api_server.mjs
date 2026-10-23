@@ -9,10 +9,11 @@
  *      with init's error, and the server exits with 1.
  *   2. Every call answers what the API answers in this process, the ids a
  *      design draws and the time a synthesis step took aside:
- *      a design built, edited, saved (the same file) and opened again; the
- *      spectrum at two angles, summarized from what came over the wire;
- *      materials; merit; a specification set and checked, and checking a
- *      design without one refused with its code and fields; layer
+ *      a design built, edited, cleaned, saved (the same file) and opened
+ *      again, and cleaning one with no layers refused with its code and
+ *      fields; the spectrum at two angles, summarized from what came over
+ *      the wire; materials; merit; a specification set and checked, and
+ *      checking a design without one refused with its code and fields; layer
  *      sensitivity; and the runs, a refinement, a Needle and a Structural run
  *      with a seed, a seeded Monte Carlo and a seeded yield.
  *   3. The wire: a summary of NaN values crosses as the bare tokens NaN,
@@ -147,6 +148,11 @@ const specified = api.setSpecification(start, CHECKS);
     await same('deleteLayer', [stack, { index: 0 }]);
     await same('setLayer', [stack, { index: 1, thickness: 99, locked: true }]);
     await same('stackFromFormula', [twoLayers, { formula: '(HL)^2', symbols: { H: 'Ta2O5' } }]);
+    const cleaned = await same('cleanDesign', [api.insertLayer(stack, { material: 'Ta2O5', thickness: 3, index: 2 }), { minThickness: 4 }]);
+    ok('a design is cleaned over the wire', cleaned.result?.removed === 1 && cleaned.result.operations.length === 1, JSON.stringify(cleaned.result?.operations));
+    const bare = await same('cleanDesign', [api.newDesign()]);
+    ok('cleaning a design with no layers is refused with its code and fields', bare.error?.code === 'noLayers'
+        && canon(bare.error.fields) === canon({ call: 'cleanDesign' }), JSON.stringify(bare.error));
     await same('findMaterials', ['SiO2']);
     await same('findMaterials', []);
     await same('materialNK', ['TiO2', [400, 550, 700]]);

@@ -3,6 +3,8 @@
 
 import { isAbsolute } from 'node:path';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
+import { DEFAULT_REFINE_METHOD } from '../utils/optimizers/index.js';
+import { DESIGN_CLEANER_DEFAULTS } from '../components/windows/optimization/designCleaner/sessionState.js';
 import { designView } from './designStore.js';
 import { object, num, int, str, bool, list, oneOf, DESIGN_ID, SIDE, INDEX } from './schemaParts.js';
 
@@ -129,6 +131,21 @@ export function designTools({ api, store }) {
                 startFromSubstrate: bool('Read the formula from the substrate outward. Default true; false reads it from the outer medium inward'),
             }, ['designId', 'formula']),
             run: args => edit(args.designId, d => api.stackFromFormula(d, editArgs(args))),
+        },
+        {
+            name: 'cleanDesign', title: 'Clean a design',
+            description: `Cleans a design's stack as the Design Cleaner window does: adjacent layers of one material merged into one, and layers thinner than minThickness taken out, in passes, since taking a layer out can leave two layers of one material touching. Locked layers are never merged or taken out, and a symmetric design's front is cleaned and its back made its mirror. Answers with removed and merged, the counts; operations, in the order made, the front's first, each { side, kind ('remove' or 'merge'), number, material, thickness (nm; for a layer taken out its thickness then, counting any layer merged into it before; for a merge what it adds to the layer it is merged into), mergedInto (for a merge the number of that layer, otherwise null) }, number counting a side's layers from 1 next to the substrate in the design before the cleanup, unlike the index showDesign and the layer tools take; and layersBefore and layersAfter, { front, back }, the layer count of each side. The merit usually worsens a little. To do what the window's Re-optimize does, add an MNT row with target minThickness to the design's rows through setMerit and refine with method ${DEFAULT_REFINE_METHOD} and maxIter ${DESIGN_CLEANER_DEFAULTS.reoptIters}; the layers then end on the thicknesses the window's pass gives. The window's pass keeps each layer at minThickness or more, and sqp keeps each layer inside the MNT row, while without that row refine keeps layers at 1 nm or more. A design with no layers is refused.`,
+            inputSchema: object({
+                designId: DESIGN_ID,
+                minThickness: num(`The thinnest layer kept, nm; a thinner one is taken out, and 0 takes none out. Default ${DESIGN_CLEANER_DEFAULTS.dMin}`),
+                mergeAdjacent: bool(`Merge adjacent layers of one material. Default ${DESIGN_CLEANER_DEFAULTS.mergeAdjacent}`),
+                cleanBack: bool(`Clean the back too, also on a design scored on its front alone, whose back the layer tools refuse to change; false cleans the front alone, also on a design coated on the back alone. A symmetric design's back follows its front either way. Default ${DESIGN_CLEANER_DEFAULTS.cleanBack}`),
+            }, ['designId']),
+            run: ({ designId, ...options }) => {
+                const { design, ...report } = api.cleanDesign(store.get(designId), options);
+                store.set(designId, design);
+                return { designId, ...report };
+            },
         },
         {
             name: 'setMerit', title: 'Set the merit function',

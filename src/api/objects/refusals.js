@@ -20,6 +20,7 @@ const WORDS = {
     noSpecification: f => (f.call === 'checkSpecification'
         ? 'the design has no specification check; add one with specification.add()'
         : 'the design has no enabled specification check; add one with specification.add()'),
+    noLayers: () => 'the design has no layers; add them with layers.append() or stack()',
     closedSide: f => (f.surfaceMode === 'symmetric'
         ? 'the back of a symmetric design mirrors its front; edit the front'
         : `a design coated on the ${OTHER_SIDE[f.side]} alone and scored on that side does not evaluate the ${f.side}; to edit it, set sides to 'both', or scoreOn to 'whole part'`),

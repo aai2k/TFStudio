@@ -8,7 +8,7 @@
  *   1. The calls the objects are made on: their names are the hello's, which
  *      are the API's exports but init, and every call answers what the API
  *      answers here, the ids a design draws and the time a synthesis step
- *      took aside: designs built, edited, saved (to the bytes the API
+ *      took aside: designs built, edited, cleaned, saved (to the bytes the API
  *      writes) and opened again, spectra, materials, merit, a specification
  *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
  *      a seeded yield.
@@ -268,6 +268,8 @@ const STOPPED_WITHIN_S = 5;
         ['deleteLayer', [stack, { index: 0 }]],
         ['setLayer', [stack, { index: 1, thickness: 99, locked: true }]],
         ['stackFromFormula', [twoLayers, { formula: '(HL)^2', symbols: { H: 'Ta2O5' } }]],
+        ['cleanDesign', [api.insertLayer(stack, { material: 'TiO2', thickness: 3, index: 2 }), { minThickness: 4 }]],
+        ['cleanDesign', [api.newDesign()]],
         ['findMaterials', ['SiO2']],
         ['findMaterials', []],
         ['materialNK', ['TiO2', [400, 550, 700]]],

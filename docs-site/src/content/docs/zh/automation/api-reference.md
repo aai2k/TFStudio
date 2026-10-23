@@ -223,7 +223,7 @@ tf.close()
 
 一个薄膜设计，内容与 .tfs 文件相同：介质和基底、每一面的膜层，以及评价函数。`tf.newDesign()` / `tf.new_design()`、`tf.openDesign()` / `tf.open_design()` 和 copy() 会给出一个设计；在脚本控制台中，`tf.design` 是打开的设计。
 
-改变设计的方法会直接修改该设计：stack()、各项膜层编辑、refine() 和 synthesize()。copy() 可以先保留一份副本。
+改变设计的方法会直接修改该设计：stack()、各项膜层编辑、clean()、refine() 和 synthesize()。copy() 可以先保留一份副本。
 
 **Python**：在以 live=True 启动的程序中，tf.app.open_design() 从应用中读取一个设计，push() 把它写回。
 
@@ -537,6 +537,47 @@ console.log(design.layers.length, 'layers at', design.reference, 'nm');
 design = tf.new_design("Mirror")
 design.stack("(HL)^4 H", H="Ta2O5", L="SiO2", at=600)
 print(len(design.layers), "layers at", design.reference, "nm")
+```
+
+### clean
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.clean({ minThickness, merge, back })` | `design.clean(min_thickness=5, merge=True, back=True)` |
+
+按设计清理器窗口的方式清理膜层堆栈：相邻的同材料膜层合并为一层，薄于 `minThickness` / `min_thickness` 的膜层被移除，并分多轮进行，因为移除一层后可能使两个同材料膜层相邻接触。被锁定的膜层永远不会被合并或移除，对称设计的背面跟随其正面。之后设计中保存的是清理后的膜层。
+
+**JavaScript**：由于堆栈改变，评价函数值通常会略微变差。要做到窗口的“重新优化”所做的，先添加一个目标为 `minThickness` 的 MNT 行，再用 sqp 精炼：`design.merit.add('MNT', { target: 5 })`，然后 `await design.refine({ method: 'sqp', maxIter: 80 })`。各层随后停在窗口的这一轮精炼给出的厚度上。窗口的这一轮精炼让每层不低于 `minThickness`，sqp 让每层保持在 MNT 行的界限之内；没有这一行时，refine 只让各层不低于 1 nm。
+
+**Python**：由于堆栈改变，评价函数值通常会略微变差。要做到窗口的“重新优化”所做的，先添加一个目标为 min_thickness 的 MNT 行，再用 sqp 精炼：design.merit.add("MNT", target=5)，然后 design.refine(method="sqp", max_iter=80)。各层随后停在窗口的这一轮精炼给出的厚度上。窗口的这一轮精炼让每层不低于 min_thickness，sqp 让每层保持在 MNT 行的界限之内；没有这一行时，refine 只让各层不低于 1 nm。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `minThickness` | `min_thickness` | `5` | 保留的最薄膜层，单位 nm：比它薄的膜层会被移除。为 0 时不移除任何膜层。 |
+| `merge` | `merge` | `true` / `True` | 为 `true` / `True` 时，合并相邻的同材料膜层。 |
+| `back` | `back` | `true` / `True` | 为 `true` / `True` 时同时清理背面，设计只按正面计算、膜层编辑不允许修改其背面时也是如此；为 `false` / `False` 时只清理正面，设计只在背面镀膜时也是如此。 |
+
+**返回**：一个 CleanReport。
+
+**拒绝**：
+
+- **JavaScript**：clean 不接受的选项、不是大于等于 0 的数的 minThickness、不是 `true` 或 `false` 的 merge 或 back，或没有膜层的设计<br>**Python**：不是大于等于 0 的数的 min_thickness、不是 True 或 False 的 merge 或 back，或没有膜层的设计
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+const report = design.clean({ minThickness: 5 });
+for (const op of report.operations) console.log(op.kind, op.side, 'layer', op.number, op.material, op.thickness);
+console.log(design.layers.length, 'layers now');
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+report = design.clean(min_thickness=5)
+for op in report.operations:
+    print(op.kind, op.side, "layer", op.number, op.material, op.thickness)
+print(len(design.layers), "layers now")
 ```
 
 ### spectrum
@@ -4793,6 +4834,87 @@ design.merit.add("RAV", 450, 650, target=0)
 design.layers[1].locked = True
 for row in design.layer_sensitivity(include_locked=True).rows:
     print(row.number, row.locked)
+```
+
+## CleanReport
+
+design.clean() 对设计所做的操作，与设计清理器窗口列出的操作相同：移除的膜层，以及合并到相邻层中的膜层。
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+const report = design.clean();
+console.log(report.removed, 'taken out,', report.merged, 'merged');
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+report = design.clean()
+print(report.removed, "taken out,", report.merged, "merged")
+```
+
+### removed
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.removed` | `report.removed` |
+
+移除的膜层数。
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+console.log(design.clean().removed);
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+print(design.clean().removed)
+```
+
+### merged
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.merged` | `report.merged` |
+
+合并到相邻层中的膜层数。
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+console.log(design.clean().merged);
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+print(design.clean().merged)
+```
+
+### operations
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.operations` | `report.operations` |
+
+**JavaScript**：每个操作一个对象，按执行顺序排列，正面的在前：`{ side, kind, number, material, thickness, mergedInto }`。kind 为 `'remove'` 或 `'merge'`；number 为该层在清理前其所在面的编号，1 紧邻基底，与当时 design.layers 和 design.backLayers 的编号相同；material 为其材料 id；thickness 单位 nm，对被移除的膜层是它被移除时的厚度，包括此前合并进它的膜层，对合并操作是它加到被合并进的那一层上的厚度；mergedInto 对合并操作是那一层的编号，编号方式与 number 相同，对被移除的膜层为 null。
+
+**Python**：每个操作一个具名元组 (side, kind, number, material, thickness, merged_into)，按执行顺序排列，正面的在前。kind 为 "remove" 或 "merge"；number 为该层在清理前其所在面的编号，1 紧邻基底，与当时 design.layers 和 design.back_layers 的编号相同；material 为其材料 id；thickness 单位 nm，对被移除的膜层是它被移除时的厚度，包括此前合并进它的膜层，对合并操作是它加到被合并进的那一层上的厚度；merged_into 对合并操作是那一层的编号，编号方式与 number 相同，对被移除的膜层为 None。
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+for (const op of design.clean().operations) console.log(op.kind, op.side, op.number, op.material, op.thickness, op.mergedInto);
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+for op in design.clean().operations:
+    print(op.kind, op.side, op.number, op.material, op.thickness, op.merged_into)
 ```
 
 ## Materials

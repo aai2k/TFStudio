@@ -9,7 +9,7 @@ import { Layers } from './layers.js';
 import { Merit } from './merit.js';
 import { defined, optionsOf } from './options.js';
 import { worded } from './refusals.js';
-import { LayerSensitivity, MonteCarlo, RunResult } from './results.js';
+import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
 
@@ -37,6 +37,8 @@ function named(mapping, what, value) {
 // design.stack()'s options by the API's names for them.
 const STACK_OPTIONS = { at: 'referenceWavelength', side: 'side', fromSubstrate: 'startFromSubstrate' };
 const STACK_NAMES = Object.fromEntries(Object.entries(STACK_OPTIONS).map(([name, apiName]) => [apiName, name]));
+// design.clean()'s names for cleanDesign's options, where they differ.
+const CLEAN_NAMES = { mergeAdjacent: 'merge', cleanBack: 'back' };
 
 /**
  * A design's substrate: its material and thickness. Setting either changes
@@ -90,7 +92,7 @@ export class Substrate {
  * the open design.
  *
  * Methods that change a design change it in place: stack(), the layer edits,
- * refine() and synthesize(). copy() keeps a copy first.
+ * clean(), refine() and synthesize(). copy() keeps a copy first.
  *
  * @example
  * const design = tf.newDesign('Mirror 550', { substrate: 'BK7', reference: 550 });
@@ -279,6 +281,43 @@ export class Design {
         const settings = Object.fromEntries(Object.entries(STACK_OPTIONS).map(([name, apiName]) => [apiName, given[name]]));
         this._data = worded({ method: 'stack', call: 'stackFromFormula', names: STACK_NAMES },
             () => api.stackFromFormula(this._data, { ...settings, formula, symbols }));
+    }
+
+    /**
+     * Cleans the stack as the Design Cleaner window does: adjacent layers of
+     * one material merged into one, and layers thinner than `minThickness`
+     * taken out, in passes, since taking a layer out can leave two layers of
+     * one material touching. Locked layers are never merged or taken out, and
+     * a symmetric design's back follows its front. The design then holds the
+     * cleaned layers.
+     *
+     * The merit usually worsens a little, since the stack changed. To do what
+     * the window's Re-optimize does, add an MNT row at `minThickness` and
+     * refine with sqp: `design.merit.add('MNT', { target: 5 })`, then
+     * `await design.refine({ method: 'sqp', maxIter: 80 })`. The layers end
+     * on the thicknesses the window's pass gives. The window's pass keeps each
+     * layer at `minThickness` or above, and sqp keeps each layer inside the
+     * MNT row; without that row refine keeps layers at 1 nm or above.
+     *
+     * @param [options]
+     * @param [options.minThickness=5] The thinnest layer kept, nm: a layer below it is taken out. 0 takes none out.
+     * @param [options.merge=true] `true` merges adjacent layers of one material.
+     * @param [options.back=true] `true` cleans the back too, also on a design scored on its front alone, whose back the layer edits refuse to change; `false` cleans the front alone, also on a design coated on the back alone.
+     * @returns A CleanReport.
+     * @throws an option clean does not take, a minThickness that is not a number of 0 or more, a merge or back other than `true` or `false`, or a design with no layers
+     * @example
+     * const design = tf.newDesign('Stack with a thin layer');
+     * design.stack('(HL)^2 0.03H L');
+     * const report = design.clean({ minThickness: 5 });
+     * for (const op of report.operations) console.log(op.kind, op.side, 'layer', op.number, op.material, op.thickness);
+     * console.log(design.layers.length, 'layers now');
+     */
+    clean(options) {
+        const { minThickness, merge, back } = checkOptions('clean', options, ['minThickness', 'merge', 'back']);
+        const cleaned = worded({ method: 'clean', call: 'cleanDesign', names: CLEAN_NAMES },
+            () => api.cleanDesign(this._data, defined({ minThickness, mergeAdjacent: merge, cleanBack: back })));
+        this._data = cleaned.design;
+        return new CleanReport(cleaned);
     }
 
     /**

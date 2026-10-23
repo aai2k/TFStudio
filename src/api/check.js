@@ -13,6 +13,7 @@
  *   badValue         { call, option, takes, value, row }  a value the option cannot take
  *   noMerit          { call }  a design with no merit function
  *   noSpecification  { call }  a design with no specification check, or none enabled where the call needs one
+ *   noLayers         { call }  a design with no layers on either side
  *   closedSide       { call, side, surfaceMode }  a side the Design Editor does not let you edit
  *   wavelengthRange  { call, from, to }  wavelengths that are not a range
  *   bandOrder        { call, row, start, end }  a merit row or a check whose band starts above its end

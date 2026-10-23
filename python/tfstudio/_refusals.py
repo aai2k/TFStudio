@@ -73,6 +73,7 @@ _WORDS = {
                                                                   _python_takes(fields["takes"]), fields["value"]),
     "noMerit": lambda fields, words: "the design has no merit function; add a row with merit.add()",
     "noSpecification": lambda fields, words: _no_specification(fields),
+    "noLayers": lambda fields, words: "the design has no layers; add them with layers.append() or stack()",
     "closedSide": lambda fields, words: _closed_side(fields),
     "wavelengthRange": lambda fields, words: "start and end are wavelengths in nm, 0 < start < end",
     "bandOrder": lambda fields, words: "start {} is above end {}".format(fields["start"], fields["end"]),

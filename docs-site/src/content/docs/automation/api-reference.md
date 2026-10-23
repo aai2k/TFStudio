@@ -223,7 +223,7 @@ tf.close()
 
 A thin-film design, as a .tfs file holds it: its media and substrate, the layers of each side, and its merit function. `tf.newDesign()` / `tf.new_design()`, `tf.openDesign()` / `tf.open_design()` and copy() give one; in the Script Console, `tf.design` is the open design.
 
-Methods that change a design change it in place: stack(), the layer edits, refine() and synthesize(). copy() keeps a copy first.
+Methods that change a design change it in place: stack(), the layer edits, clean(), refine() and synthesize(). copy() keeps a copy first.
 
 **Python**: In a program started with live=True, tf.app.open_design() reads one from the app, and push() writes it back.
 
@@ -537,6 +537,47 @@ console.log(design.layers.length, 'layers at', design.reference, 'nm');
 design = tf.new_design("Mirror")
 design.stack("(HL)^4 H", H="Ta2O5", L="SiO2", at=600)
 print(len(design.layers), "layers at", design.reference, "nm")
+```
+
+### clean
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.clean({ minThickness, merge, back })` | `design.clean(min_thickness=5, merge=True, back=True)` |
+
+Cleans the stack as the Design Cleaner window does: adjacent layers of one material merged into one, and layers thinner than `minThickness` / `min_thickness` taken out, in passes, since taking a layer out can leave two layers of one material touching. Locked layers are never merged or taken out, and a symmetric design's back follows its front. The design then holds the cleaned layers.
+
+**JavaScript**: The merit usually worsens a little, since the stack changed. To do what the window's Re-optimize does, add an MNT row at `minThickness` and refine with sqp: `design.merit.add('MNT', { target: 5 })`, then `await design.refine({ method: 'sqp', maxIter: 80 })`. The layers end on the thicknesses the window's pass gives. The window's pass keeps each layer at `minThickness` or above, and sqp keeps each layer inside the MNT row; without that row refine keeps layers at 1 nm or above.
+
+**Python**: The merit usually worsens a little, since the stack changed. To do what the window's Re-optimize does, add an MNT row at min_thickness and refine with sqp: design.merit.add("MNT", target=5), then design.refine(method="sqp", max_iter=80). The layers end on the thicknesses the window's pass gives. The window's pass keeps each layer at min_thickness or above, and sqp keeps each layer inside the MNT row; without that row refine keeps layers at 1 nm or above.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `minThickness` | `min_thickness` | `5` | The thinnest layer kept, nm: a layer below it is taken out. 0 takes none out. |
+| `merge` | `merge` | `true` / `True` | `true` / `True` merges adjacent layers of one material. |
+| `back` | `back` | `true` / `True` | `true` / `True` cleans the back too, also on a design scored on its front alone, whose back the layer edits refuse to change; `false` / `False` cleans the front alone, also on a design coated on the back alone. |
+
+**Returns**: A CleanReport.
+
+**Refuses**:
+
+- **JavaScript**: an option clean does not take, a minThickness that is not a number of 0 or more, a merge or back other than `true` or `false`, or a design with no layers<br>**Python**: a min_thickness that is not a number of 0 or more, a merge or back other than True or False, or a design with no layers
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+const report = design.clean({ minThickness: 5 });
+for (const op of report.operations) console.log(op.kind, op.side, 'layer', op.number, op.material, op.thickness);
+console.log(design.layers.length, 'layers now');
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+report = design.clean(min_thickness=5)
+for op in report.operations:
+    print(op.kind, op.side, "layer", op.number, op.material, op.thickness)
+print(len(design.layers), "layers now")
 ```
 
 ### spectrum
@@ -4793,6 +4834,87 @@ design.merit.add("RAV", 450, 650, target=0)
 design.layers[1].locked = True
 for row in design.layer_sensitivity(include_locked=True).rows:
     print(row.number, row.locked)
+```
+
+## CleanReport
+
+What design.clean() did to the design, as the Design Cleaner window lists its operations: the layers it took out and those it merged into a neighbour.
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+const report = design.clean();
+console.log(report.removed, 'taken out,', report.merged, 'merged');
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+report = design.clean()
+print(report.removed, "taken out,", report.merged, "merged")
+```
+
+### removed
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.removed` | `report.removed` |
+
+How many layers were taken out.
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+console.log(design.clean().removed);
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+print(design.clean().removed)
+```
+
+### merged
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.merged` | `report.merged` |
+
+How many layers were merged into a neighbour.
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+console.log(design.clean().merged);
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+print(design.clean().merged)
+```
+
+### operations
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.operations` | `report.operations` |
+
+**JavaScript**: One object per operation, in the order they were made, the front's first: `{ side, kind, number, material, thickness, mergedInto }`. kind is `'remove'` or `'merge'`; number the layer's number on its side before the cleanup, 1 next to the substrate, as design.layers and design.backLayers numbered it then; material its material, by id; thickness, nm, for a layer taken out its thickness then, which counts any layer merged into it before, and for a merge what it adds to the layer it is merged into; mergedInto, for a merge, the number of that layer, numbered as number is, and null for a layer taken out.
+
+**Python**: One named tuple (side, kind, number, material, thickness, merged_into) per operation, in the order they were made, the front's first. kind is "remove" or "merge"; number the layer's number on its side before the cleanup, 1 next to the substrate, as design.layers and design.back_layers numbered it then; material its material, by id; thickness, nm, for a layer taken out its thickness then, which counts any layer merged into it before, and for a merge what it adds to the layer it is merged into; merged_into, for a merge, the number of that layer, numbered as number is, and None for a layer taken out.
+
+```js
+const design = tf.newDesign('Stack with a thin layer');
+design.stack('(HL)^2 0.03H L');
+for (const op of design.clean().operations) console.log(op.kind, op.side, op.number, op.material, op.thickness, op.mergedInto);
+```
+
+```python
+design = tf.new_design("Stack with a thin layer")
+design.stack("(HL)^2 0.03H L")
+for op in design.clean().operations:
+    print(op.kind, op.side, op.number, op.material, op.thickness, op.merged_into)
 ```
 
 ## Materials

@@ -8,6 +8,7 @@
  *   const tf = await start({ dataDir })       a Node program; the console has its tf
  *   tf.newDesign(name, { substrate, reference }), tf.openDesign(path), tf.materials.get(id)
  *   design.layers[n], design.merit, design.spectrum(start, end, { step, angles })
+ *   design.clean({ minThickness, merge, back })
  *   design.specification.add(kind, start, end, { ... }), .check(), await .estimateYield(runs, { ... })
  *   await design.refine({ method, ... }), await design.synthesize(method, pool, { ... })
  *   await design.monteCarlo(start, end, { ... }), design.layerSensitivity({ ... })
@@ -25,7 +26,7 @@ export { Layers, Layer } from './layers.js';
 export { Merit, MeritRow } from './merit.js';
 export { Specification, SpecCheck } from './specification.js';
 export { Spectrum, Curve } from './spectrum.js';
-export { Progress, RunResult, MonteCarlo, Yield, SpecReport, CheckResult, LayerSensitivity, SensitivityRow } from './results.js';
+export { Progress, RunResult, MonteCarlo, Yield, SpecReport, CheckResult, LayerSensitivity, SensitivityRow, CleanReport } from './results.js';
 
 /**
  * Starts TFStudio in a Node program, as the API's init() starts it: loads the

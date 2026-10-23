@@ -19,8 +19,8 @@ Python page (https://docs.tfstudio.xyz/automation/python/) says more.
 from ._design import Design, Layer, Layers, Substrate
 from ._errors import AppError, ServerError, TFStudioError
 from ._merit import Merit, MeritRow
-from ._results import (CheckResult, Curve, LayerSensitivity, MonteCarlo, Progress, RunResult, SensitivityRow, SpecReport,
-                       Spectrum, Yield)
+from ._results import (CheckResult, CleanReport, Curve, LayerSensitivity, MonteCarlo, Progress, RunResult, SensitivityRow,
+                       SpecReport, Spectrum, Yield)
 from ._specification import SpecCheck, Specification
 from ._stop import Stop
 from ._studio import App, AppDesign, Material, Materials, TFStudio
@@ -29,5 +29,5 @@ __version__ = "0.1.0"
 
 __all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
            "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "Progress", "RunResult", "MonteCarlo",
-           "LayerSensitivity", "SensitivityRow", "Materials", "Material", "App", "AppDesign", "Stop", "TFStudioError",
-           "AppError", "ServerError"]
+           "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material", "App", "AppDesign", "Stop",
+           "TFStudioError", "AppError", "ServerError"]

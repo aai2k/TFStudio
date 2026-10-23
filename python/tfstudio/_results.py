@@ -1,7 +1,7 @@
 """What computations answer with: a spectrum and its curves, a run's result
 and its progress, a Monte Carlo run and the yield of trials against a
-specification, the verdict on a specification, and a layer sensitivity
-ranking."""
+specification, the verdict on a specification, a layer sensitivity ranking,
+and what a cleanup did."""
 
 import collections
 import csv
@@ -1220,3 +1220,62 @@ class LayerSensitivity:
 
     def __repr__(self):
         return "<LayerSensitivity of {} layers>".format(len(self.rows))
+
+
+# An operation of a CleanReport: what the cleanup did to one layer.
+CleanOperation = collections.namedtuple("CleanOperation", "side kind number material thickness merged_into")
+
+
+class CleanReport:
+    """What design.clean() did to the design, as the Design Cleaner window
+    lists its operations: the layers it took out and those it merged into a
+    neighbour.
+
+    Example::
+
+        design = tf.new_design("Stack with a thin layer")
+        design.stack("(HL)^2 0.03H L")
+        report = design.clean()
+        print(report.removed, "taken out,", report.merged, "merged")
+    """
+
+    def __init__(self, cleaned):
+        operations = [CleanOperation(op["side"], op["kind"], op["number"], op["material"], op["thickness"], op["mergedInto"])
+                      for op in cleaned["operations"]]
+        self._values = {"removed": cleaned["removed"], "merged": cleaned["merged"], "operations": operations}
+
+    removed = _reading("removed", """How many layers were taken out.
+
+        Example::
+
+            design = tf.new_design("Stack with a thin layer")
+            design.stack("(HL)^2 0.03H L")
+            print(design.clean().removed)
+        """)
+    merged = _reading("merged", """How many layers were merged into a neighbour.
+
+        Example::
+
+            design = tf.new_design("Stack with a thin layer")
+            design.stack("(HL)^2 0.03H L")
+            print(design.clean().merged)
+        """)
+    operations = _reading("operations", """One named tuple (side, kind, number, material, thickness,
+        merged_into) per operation, in the order they were made, the front's first. kind is
+        "remove" or "merge"; number the layer's number on its side before the cleanup, 1 next to
+        the substrate, as design.layers and design.back_layers numbered it then; material its
+        material, by id; thickness, nm, for a layer taken out its thickness then, which counts
+        any layer merged into it before, and for a merge what it adds to the layer it is merged
+        into; merged_into, for a merge, the number of that layer, numbered as number is, and None
+        for a layer taken out.
+
+        Example::
+
+            design = tf.new_design("Stack with a thin layer")
+            design.stack("(HL)^2 0.03H L")
+            for op in design.clean().operations:
+                print(op.kind, op.side, op.number, op.material, op.thickness, op.merged_into)
+        """)
+
+    def __repr__(self):
+        return "<CleanReport {} taken out, {} merged>".format(self.removed, self.merged)
