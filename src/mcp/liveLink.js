@@ -94,6 +94,10 @@ function connect(file, program, onEnd) {
             else pending.get(message?.id)?.(message);
         }, () => socket.destroy()));
         // Every failure ends in 'close', which answers what is still waiting.
+        // The app hanging up ends the connection's use at once: 'close' comes
+        // some turns of the event loop later, and a request sent in between
+        // would go to an app that no longer reads it.
+        socket.on('end', onEnd);
         socket.on('error', () => {});
         socket.on('close', () => {
             helloArrived();

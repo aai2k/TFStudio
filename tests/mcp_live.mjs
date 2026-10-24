@@ -34,6 +34,8 @@
  *      client called itself in initialize, its title before its name. While
  *      the app asks its user, the link waits for the answer past its own
  *      deadline for the hello.
+ *   6. A hang-up: a request made the moment the app has ended the link's
+ *      connection goes on a new one.
  *
  * Run: node tests/mcp_live.mjs
  */
@@ -310,6 +312,32 @@ bridge.close();
     asking.close();
     globalThis.setTimeout = realSetTimeout;
     globalThis.clearTimeout = realClearTimeout;
+}
+
+// ── 6. A hang-up ───────────────────────────────────────────────────────────
+// The servers' end of the link in this process, its connections caught as it
+// makes them, so the test can call the moment the app's hang-up arrives.
+{
+    const { createLiveLink } = await import('../src/mcp/liveLink.js');
+    const hangUpFile = path.join(dir, 'hang-up-bridge.json');
+    const hangingUp = createLiveBridge({ file: hangUpFile, log: () => {}, version: '9.9.9', forward: app.forward });
+    await hangingUp.open();
+    const realConnect = net.connect;
+    const connections = [];
+    net.connect = (...args) => {
+        const socket = realConnect(...args);
+        connections.push(socket);
+        return socket;
+    };
+    const link = createLiveLink(hangUpFile, () => 'python.exe');
+    await link.request('designs');
+    hangingUp.drop();
+    await new Promise(resolve => connections[0].once('end', resolve));
+    const again = await link.request('designs').then(result => ({ result }), err => ({ err }));
+    ok('a request made as the app hangs up goes on a new connection', again.result?.designs?.length === 2 && connections.length === 2, again.err?.code);
+    net.connect = realConnect;
+    link.close();
+    hangingUp.close();
 }
 fs.rmSync(dir, { recursive: true, force: true });
 

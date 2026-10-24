@@ -76,8 +76,10 @@ const ok = (name, cond, detail = '') => {
     else { fail++; console.error(`FAIL: ${name}${detail ? `  (${detail})` : ''}`); }
 };
 // A value without what differs from one computation of it to the next: the
-// ids a design draws at random, and the time a synthesis step took (tMs).
-const DRAWN = new Set(['id', 'tMs']);
+// ids a design draws at random, the time a synthesis step took (tMs), and the
+// design a synthesis worker has in flight (live), which it reports each time
+// 80 ms have passed.
+const DRAWN = new Set(['id', 'tMs', 'live']);
 const undrawn = v => {
     if (Array.isArray(v)) return v.map(undrawn);
     if (!v || typeof v !== 'object' || ArrayBuffer.isView(v)) return v;
@@ -974,8 +976,10 @@ async function folded(run) {
         wrong.length === 0 && reached && reports.deep.length > 0, wrong.join(', '));
     // A Needle, Deep Synthesis or Monte Carlo run makes the same reports in the
     // same order each time, so each Progress it gives is compared, Deep's
-    // being given two objects at once.
-    const unlike = ['needle', 'deep', 'monteCarlo'].filter(name => canon(seen[name]) !== canon(expected[name].each));
+    // being given two objects at once. A live design comes by the clock, so a
+    // Progress that holds nothing new besides one is left out on both sides.
+    const changes = list => list.filter((entry, i) => entry !== list[i - 1]);
+    const unlike = ['needle', 'deep', 'monteCarlo'].filter(name => canon(changes(seen[name])) !== canon(changes(expected[name].each)));
     ok('and every Progress before the last holds what the run had reported by then', unlike.length === 0, unlike.join(', '));
     const trials = reports.monteCarlo;
     ok('each Progress a snapshot of its own', trials[0].reported !== trials.at(-1).reported && trials[0].trial !== trials.at(-1).trial);

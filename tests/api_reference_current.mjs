@@ -121,9 +121,13 @@ const homeFiles = () => new Map(fs.readdirSync(home).map(name => [name, fs.statS
 
 // An example that wrote files there, `before` being the folder as it was,
 // runs again and must leave every file there as it was after its first run.
+// It runs again once the clock has moved on, as a reader's second run would:
+// an example that writes a file names it by the time, in milliseconds.
 async function runsAgainWritingOverNothing(text, where, before) {
     const after = homeFiles();
     if (after.size === before.size) return;
+    const firstRanBy = Date.now();
+    while (Date.now() === firstRanBy) await new Promise(resolve => setTimeout(resolve, 1));
     await runExample(text, scriptRequire).catch(err => assert.fail(`${where} threw when run again: ${err.stack}`));
     const now = homeFiles();
     const rewritten = [...after].filter(([name, at]) => now.get(name) !== at).map(([name]) => name);
