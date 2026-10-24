@@ -969,6 +969,85 @@ design.apply_edge_filter(edge=700, a="SiO2", b="TiO2", periods=8)
 print(len(design.layers), "layers; reference", design.reference, "nm")
 ```
 
+### needleProfile / needle_profile
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.needleProfile({ pool, side, step, intraSamples })` | `design.needle_profile(pool, side=..., step=0.5, intra_samples=16)` |
+
+各材料的薄层放在哪里会降低评价函数值，与针法手动窗口的“计算 P 函数”所求的相同：把材料池中每种材料的针层放在某一面各膜层的每个界面上以及每层内部的各点上，求光学评价函数值对针层厚度的斜率。梯度为负处，放入针层会降低评价函数值。扫描计入启用的评价函数行，但不含 MNT、MXT 和 PPEF 行，与窗口相同。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `pool` | `pool` |  | **JavaScript**：针层可用的材料，按 id 给出：一种或多种，不得重复。<br>**Python**：针层可用的材料，为 id 列表：一种或多种，不得重复。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。窗口不扫描的一面会被拒绝：对称设计的背面，或单面镀膜设计未镀膜的一面。 |
+| `step` | `step` | `0.5` | 探测针层的厚度，单位 nm，不小于 0.05；没有精确公式的斜率按这一厚度做差分：即窗口的“探测 δ”。 |
+| `intraSamples` | `intra_samples` | `16` | 每层内部的取点数，为 2 到 60 的整数：即窗口的“每层剖面点数”。 |
+
+**返回**：**JavaScript**：一个对象：`mode`，所扫描的面；`mf0`，扫描所计的设计当前光学评价函数值，没有候选时为 null；以及 `candidates`，按扫描顺序排列，窗口会判定设计已达到针法最优时为空，每个为 `{ material, kind, layer, position, fraction, depth, gradient }`：kind 为 `'gap'` 或 `'inside'`；layer 对 `'inside'` 为被分开的膜层编号，紧邻基底的为 1，否则为 null；position 对 `'gap'` 为该间隙与基底之间的膜层数，否则为 null；fraction 对 `'inside'` 为膜层被分开的位置，从光先到达的一侧算起（正面为入射介质一侧，背面为基底一侧），否则为 null；depth 为从同一侧算起的深度，单位 nm；gradient 为光学评价函数值对针层厚度的斜率，单位为每 nm。针层成为第 `position + 1` 或第 `layer + 1` 层。<br>**Python**：一个 NeedleProfile，即具名元组：mode，所扫描的面；mf0，扫描所计的设计当前光学评价函数值，没有候选时为 None；以及 candidates，按扫描顺序排列，窗口会判定设计已达到针法最优时为空，每个为一个 NeedleCandidate：material；kind 为 "gap" 或 "inside"；layer 对 "inside" 为被分开的膜层编号，紧邻基底的为 1，否则为 None；position 对 "gap" 为该间隙与基底之间的膜层数，否则为 None；fraction 对 "inside" 为膜层被分开的位置，从光先到达的一侧算起（正面为入射介质一侧，背面为基底一侧），否则为 None；depth 为从同一侧算起的深度，单位 nm；gradient 为光学评价函数值对针层厚度的斜率，单位为每 nm。针层成为第 position + 1 或第 layer + 1 层。
+
+**拒绝**：
+
+- **JavaScript**：不接受的选项或选项不能取的值、窗口不扫描的一面、没有扫描所计评价函数行的设计，或材料池中找不到对应材料的材料 id<br>**Python**：参数不能取的值、窗口不扫描的一面、没有扫描所计评价函数行的设计，或材料池中找不到对应材料的材料 id
+
+```js
+const design = tf.newDesign('AR');
+design.stack('H L');
+design.merit.add('RAV', 450, 650, { target: 0 });
+const profile = design.needleProfile({ pool: ['TiO2', 'SiO2', 'MgF2'] });
+const best = profile.candidates.reduce((a, b) => (b.gradient < a.gradient ? b : a));
+console.log(profile.candidates.length, 'candidates; steepest', best.material, best.kind, best.gradient);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("H L")
+design.merit.add("RAV", 450, 650, target=0)
+profile = design.needle_profile(["TiO2", "SiO2", "MgF2"])
+best = min(profile.candidates, key=lambda c: c.gradient)
+print(len(profile.candidates), "candidates; steepest", best.material, best.kind, best.gradient)
+```
+
+### insertNeedle / insert_needle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.insertNeedle(candidate, { thickness, side })` | `design.insert_needle(candidate, thickness=..., side=...)` |
+
+放入一个针层，与针法手动窗口的“应用插入”放入从剖面中选中的候选相同：在候选的间隙处放入一层候选材料，或在候选的位置把其膜层分成两层。对称设计的背面跟随其正面。不给出 `thickness` 时，针层从窗口的起始厚度开始：在 1 到 60 nm 之间用黄金分割搜索求得的光学评价函数值最低的厚度，该范围内没有更好的厚度时为 1 nm。
+
+**JavaScript**：要做到“应用插入”在勾选“插入后精炼”时所做的，先添加一个 1 nm 的 MNT 行（窗口的最小厚度），再用 sqp 精炼：`design.merit.add('MNT', { target: 1 })`，然后 `await design.refine({ method: 'sqp', maxIter: 80 })`。各层随后停在窗口精炼给出的厚度上。
+
+**Python**：要做到“应用插入”在勾选“插入后精炼”时所做的，先添加一个 1 nm 的 MNT 行（窗口的最小厚度），再用 sqp 精炼：design.merit.add("MNT", target=1)，然后 design.refine(method="sqp", max_iter=80)。各层随后停在窗口精炼给出的厚度上。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `candidate` | `candidate` |  | **JavaScript**：needleProfile() 在此设计和此面上给出的一个候选。<br>**Python**：needle_profile() 在此设计和此面上给出的一个 NeedleCandidate，或含其各字段的 dict。 |
+| `thickness` | `thickness` |  | 针层的厚度，单位 nm：在间隙处为 1 到 200，在膜层内部为 1 到被分开膜层的厚度减 1（至少为 2）：即窗口滑块的范围。不给出时为窗口的起始厚度。 |
+| `side` | `side` |  | 与 `needleProfile()` / `needle_profile()` 相同的面。 |
+
+**拒绝**：
+
+- **JavaScript**：不接受的选项、needleProfile() 拒绝的面、超出窗口在该处范围的厚度、此设计和此面没有的候选，或在不给出厚度时，没有扫描所计评价函数行的设计<br>**Python**：needle_profile() 拒绝的面、超出窗口在该处范围的厚度、此设计和此面没有的候选，或在不给出厚度时，没有扫描所计评价函数行的设计
+
+```js
+const design = tf.newDesign('AR');
+design.stack('H L');
+design.merit.add('RAV', 450, 650, { target: 0 });
+const { candidates } = design.needleProfile({ pool: ['TiO2', 'SiO2', 'MgF2'] });
+design.insertNeedle(candidates.reduce((a, b) => (b.gradient < a.gradient ? b : a)));
+console.log(design.layers.length, 'layers; optical merit', design.merit.opticalValue);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("H L")
+design.merit.add("RAV", 450, 650, target=0)
+profile = design.needle_profile(["TiO2", "SiO2", "MgF2"])
+design.insert_needle(min(profile.candidates, key=lambda c: c.gradient))
+print(len(design.layers), "layers; optical merit", design.merit.optical_value)
+```
+
 ### spectrum
 
 | JavaScript | Python |

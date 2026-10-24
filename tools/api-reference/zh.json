@@ -3911,6 +3911,82 @@
     "hash": "30eef390",
     "text": "edge_filter() 引发的错误、不在列表中的解、\"front\" 或 \"back\" 以外的面、对称设计的背面，或 \"replace\" 或 \"append\" 以外的模式"
   },
+  "Design.needleProfile.arg.pool.js": {
+    "hash": "bfee6e95",
+    "text": "针层可用的材料，按 id 给出：一种或多种，不得重复。"
+  },
+  "Design.needleProfile.arg.pool.py": {
+    "hash": "06de91be",
+    "text": "针层可用的材料，为 id 列表：一种或多种，不得重复。"
+  },
+  "Design.needleProfile.arg.side": {
+    "hash": "d7963f0e",
+    "text": "`'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。窗口不扫描的一面会被拒绝：对称设计的背面，或单面镀膜设计未镀膜的一面。"
+  },
+  "Design.needleProfile.arg.step": {
+    "hash": "bfbca4f7",
+    "text": "探测针层的厚度，单位 nm，不小于 0.05；没有精确公式的斜率按这一厚度做差分：即窗口的“探测 δ”。"
+  },
+  "Design.needleProfile.arg.intraSamples": {
+    "hash": "3cb203a8",
+    "text": "每层内部的取点数，为 2 到 60 的整数：即窗口的“每层剖面点数”。"
+  },
+  "Design.needleProfile.returns.js": {
+    "hash": "84a3f02b",
+    "text": "一个对象：`mode`，所扫描的面；`mf0`，扫描所计的设计当前光学评价函数值，没有候选时为 null；以及 `candidates`，按扫描顺序排列，窗口会判定设计已达到针法最优时为空，每个为 `{ material, kind, layer, position, fraction, depth, gradient }`：kind 为 `'gap'` 或 `'inside'`；layer 对 `'inside'` 为被分开的膜层编号，紧邻基底的为 1，否则为 null；position 对 `'gap'` 为该间隙与基底之间的膜层数，否则为 null；fraction 对 `'inside'` 为膜层被分开的位置，从光先到达的一侧算起（正面为入射介质一侧，背面为基底一侧），否则为 null；depth 为从同一侧算起的深度，单位 nm；gradient 为光学评价函数值对针层厚度的斜率，单位为每 nm。针层成为第 `position + 1` 或第 `layer + 1` 层。"
+  },
+  "Design.needleProfile.returns.py": {
+    "hash": "227c27f3",
+    "text": "一个 NeedleProfile，即具名元组：mode，所扫描的面；mf0，扫描所计的设计当前光学评价函数值，没有候选时为 None；以及 candidates，按扫描顺序排列，窗口会判定设计已达到针法最优时为空，每个为一个 NeedleCandidate：material；kind 为 \"gap\" 或 \"inside\"；layer 对 \"inside\" 为被分开的膜层编号，紧邻基底的为 1，否则为 None；position 对 \"gap\" 为该间隙与基底之间的膜层数，否则为 None；fraction 对 \"inside\" 为膜层被分开的位置，从光先到达的一侧算起（正面为入射介质一侧，背面为基底一侧），否则为 None；depth 为从同一侧算起的深度，单位 nm；gradient 为光学评价函数值对针层厚度的斜率，单位为每 nm。针层成为第 position + 1 或第 layer + 1 层。"
+  },
+  "Design.needleProfile.lead.1": {
+    "hash": "800dbc8b",
+    "text": "各材料的薄层放在哪里会降低评价函数值，与针法手动窗口的“计算 P 函数”所求的相同：把材料池中每种材料的针层放在某一面各膜层的每个界面上以及每层内部的各点上，求光学评价函数值对针层厚度的斜率。梯度为负处，放入针层会降低评价函数值。扫描计入启用的评价函数行，但不含 MNT、MXT 和 PPEF 行，与窗口相同。"
+  },
+  "Design.needleProfile.refuses.1.js": {
+    "hash": "a85372b9",
+    "text": "不接受的选项或选项不能取的值、窗口不扫描的一面、没有扫描所计评价函数行的设计，或材料池中找不到对应材料的材料 id"
+  },
+  "Design.needleProfile.refuses.1.py": {
+    "hash": "a76d5daa",
+    "text": "参数不能取的值、窗口不扫描的一面、没有扫描所计评价函数行的设计，或材料池中找不到对应材料的材料 id"
+  },
+  "Design.insertNeedle.arg.candidate.js": {
+    "hash": "e2d4c0e1",
+    "text": "needleProfile() 在此设计和此面上给出的一个候选。"
+  },
+  "Design.insertNeedle.arg.candidate.py": {
+    "hash": "e0d23619",
+    "text": "needle_profile() 在此设计和此面上给出的一个 NeedleCandidate，或含其各字段的 dict。"
+  },
+  "Design.insertNeedle.arg.thickness": {
+    "hash": "bc7ca99c",
+    "text": "针层的厚度，单位 nm：在间隙处为 1 到 200，在膜层内部为 1 到被分开膜层的厚度减 1（至少为 2）：即窗口滑块的范围。不给出时为窗口的起始厚度。"
+  },
+  "Design.insertNeedle.arg.side": {
+    "hash": "59723efb",
+    "text": "与 `needleProfile()` / `needle_profile()` 相同的面。"
+  },
+  "Design.insertNeedle.lead.1": {
+    "hash": "1dacc8aa",
+    "text": "放入一个针层，与针法手动窗口的“应用插入”放入从剖面中选中的候选相同：在候选的间隙处放入一层候选材料，或在候选的位置把其膜层分成两层。对称设计的背面跟随其正面。不给出 `thickness` 时，针层从窗口的起始厚度开始：在 1 到 60 nm 之间用黄金分割搜索求得的光学评价函数值最低的厚度，该范围内没有更好的厚度时为 1 nm。"
+  },
+  "Design.insertNeedle.lead.2.js": {
+    "hash": "2ea03a98",
+    "text": "要做到“应用插入”在勾选“插入后精炼”时所做的，先添加一个 1 nm 的 MNT 行（窗口的最小厚度），再用 sqp 精炼：`design.merit.add('MNT', { target: 1 })`，然后 `await design.refine({ method: 'sqp', maxIter: 80 })`。各层随后停在窗口精炼给出的厚度上。"
+  },
+  "Design.insertNeedle.lead.2.py": {
+    "hash": "509544e9",
+    "text": "要做到“应用插入”在勾选“插入后精炼”时所做的，先添加一个 1 nm 的 MNT 行（窗口的最小厚度），再用 sqp 精炼：design.merit.add(\"MNT\", target=1)，然后 design.refine(method=\"sqp\", max_iter=80)。各层随后停在窗口精炼给出的厚度上。"
+  },
+  "Design.insertNeedle.refuses.1.js": {
+    "hash": "a508de59",
+    "text": "不接受的选项、needleProfile() 拒绝的面、超出窗口在该处范围的厚度、此设计和此面没有的候选，或在不给出厚度时，没有扫描所计评价函数行的设计"
+  },
+  "Design.insertNeedle.refuses.1.py": {
+    "hash": "bf92a79b",
+    "text": "needle_profile() 拒绝的面、超出窗口在该处范围的厚度、此设计和此面没有的候选，或在不给出厚度时，没有扫描所计评价函数行的设计"
+  },
   "Design.processSteps.arg.start": {
     "hash": "115f61f2",
     "text": "起始波长，单位 nm。"

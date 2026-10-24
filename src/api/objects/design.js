@@ -531,6 +531,66 @@ export class Design {
     }
 
     /**
+     * Where a thin layer of each material would lower the merit, as the
+     * Needle Manual window's Compute P-function finds it: the slope of the
+     * optical merit against the thickness of a needle of each pool material
+     * put in at each interface of one side's layers and at points inside each
+     * layer. A negative gradient is a place where a needle lowers the merit.
+     * The scan scores the enabled merit rows less the MNT, MXT and PPEF rows,
+     * as the window does.
+     *
+     * @param options
+     * @param options.pool The materials a needle may be, by id: one or more, none twice.
+     * @param [options.side] `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone. A side the window does not scan is refused: the back of a symmetric design, or the uncoated side of a one-sided design.
+     * @param [options.step=0.5] The probe needle's thickness, nm, 0.05 or more, over which a slope with no exact formula is differenced: the window's Probe δ.
+     * @param [options.intraSamples=16] Points inside each layer, a whole number from 2 to 60: the window's Profile pts / layer.
+     * @returns An object: `mode`, the side scanned; `mf0`, the optical merit of the design as the scan scores it, null when there is no candidate; and `candidates`, in the scan's order, none when the window would call the design needle-optimal, each `{ material, kind, layer, position, fraction, depth, gradient }`: kind `'gap'` or `'inside'`; layer, for `'inside'`, the number of the layer split, 1 next to the substrate, else null; position, for `'gap'`, how many layers lie between the gap and the substrate, else null; fraction, for `'inside'`, where the layer is split, from the side light reaches first (the incident medium on the front, the substrate on the back), else null; depth in nm from that same side; gradient, the slope of the optical merit per nm. The needle becomes layer `position + 1` or `layer + 1`.
+     * @throws an option it does not take or a value an option cannot take, a side the window does not scan, a design with no merit row the scan scores, or a pool material id that resolves to nothing
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('H L');
+     * design.merit.add('RAV', 450, 650, { target: 0 });
+     * const profile = design.needleProfile({ pool: ['TiO2', 'SiO2', 'MgF2'] });
+     * const best = profile.candidates.reduce((a, b) => (b.gradient < a.gradient ? b : a));
+     * console.log(profile.candidates.length, 'candidates; steepest', best.material, best.kind, best.gradient);
+     */
+    needleProfile(options) {
+        return worded({ method: 'needleProfile', call: 'needleProfile' }, () => api.needleProfile(this._data, optionsOf('needleProfile', options)));
+    }
+
+    /**
+     * Puts one needle in, as the Needle Manual window's Apply puts in the
+     * candidate picked from its profile: a layer of the candidate's material
+     * at its gap, or splitting its layer in two at its fraction. A symmetric
+     * design's back follows its front. Without `thickness` the needle starts
+     * where the window starts it: at the thickness between 1 and 60 nm where
+     * golden-section search finds the optical merit lowest, or at 1 nm when
+     * no thickness there beats it.
+     *
+     * To do what Apply does with Refine after insert, add an MNT row at 1 nm,
+     * the window's minimum thickness, and refine with sqp:
+     * `design.merit.add('MNT', { target: 1 })`, then
+     * `await design.refine({ method: 'sqp', maxIter: 80 })`. The layers end
+     * on the thicknesses the window's refine gives.
+     *
+     * @param candidate A candidate from needleProfile() on this design and side.
+     * @param [options]
+     * @param [options.thickness] The needle's thickness, nm, from 1 to 200 at a gap and from 1 to the split layer's thickness less 1 inside one (at least 2): the window's slider range. Without it, the window's starting thickness.
+     * @param [options.side] needleProfile()'s side.
+     * @throws an option it does not take, a side needleProfile() refuses, a thickness outside the window's range there, a candidate this design and side do not have, or, without a thickness, a design with no merit row the scan scores
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('H L');
+     * design.merit.add('RAV', 450, 650, { target: 0 });
+     * const { candidates } = design.needleProfile({ pool: ['TiO2', 'SiO2', 'MgF2'] });
+     * design.insertNeedle(candidates.reduce((a, b) => (b.gradient < a.gradient ? b : a)));
+     * console.log(design.layers.length, 'layers; optical merit', design.merit.opticalValue);
+     */
+    insertNeedle(candidate, options) {
+        this._data = worded({ method: 'insertNeedle', call: 'insertNeedle' }, () => api.insertNeedle(this._data, candidate, optionsOf('insertNeedle', options)));
+    }
+
+    /**
      * R, T and A over a range of wavelengths, for unpolarized light and for s
      * and p, as the Optical Evaluation window computes them. What it is
      * computed on follows the design's `sides` and `scoreOn`, and the

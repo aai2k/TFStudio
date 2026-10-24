@@ -68,6 +68,7 @@ def objects(given):
         measured_curves(tf)
         measured_files(tf)
         production(tf)
+        needle(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -753,6 +754,28 @@ def production(tf):
                         "found": dict(found._asdict(), solutions=[s._asdict() for s in found.solutions]),
                         "run": dict(run._asdict(), steps=[s._asdict() for s in run.steps]), "paths": paths,
                         "types": [type(x).__name__ for x in (found, found.solutions[0], run, run.steps[0])], "worded": worded}})
+
+
+def needle(tf):
+    """needle_profile() with intra_samples, insert_needle() with a
+    NeedleCandidate and with a dict and a thickness, the named tuples they
+    give, and their refusals."""
+    design = tf.new_design("AR")
+    design.stack("H L")
+    design.merit.add("RAV", 450, 650, target=0)
+    before = design._data
+    profile = design.needle_profile(["TiO2", "SiO2"], intra_samples=4)
+    best = min(profile.candidates, key=lambda c: c.gradient)
+    gap = next(c for c in profile.candidates if c.kind == "gap")
+    twin = design.copy()
+    design.insert_needle(best)
+    twin.insert_needle(dict(gap._asdict()), thickness=2)
+    worded = [refused(make) for make in (
+        lambda: twin.needle_profile(["TiO2"], intra_samples=61), lambda: twin.needle_profile(["TiO2"], side="back"),
+        lambda: twin.insert_needle(gap, thickness=300), lambda: twin.insert_needle(dict(gap._asdict(), kind="edge")))]
+    out({"needle": {"before": before, "picked": design._data, "fixed": twin._data,
+                    "profile": dict(profile._asdict(), candidates=[c._asdict() for c in profile.candidates]),
+                    "types": [type(x).__name__ for x in (profile, best)], "worded": worded}})
 
 
 def measured_files(tf):

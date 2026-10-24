@@ -17,6 +17,7 @@ from ._integrals import Integrals
 from ._production import edge_filter_of, process_steps_of, run_options
 from ._merit import Merit
 from ._names import api_names
+from ._needle import candidate_argument, needle_profile_of
 from ._refusals import Words, refuse_arguments, worded
 from ._results import CleanReport, LayerSensitivity, MonteCarlo, RunResult, Spectrum
 from ._specification import Specification
@@ -68,6 +69,8 @@ _GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference")
 # design.edge_filter()'s pass_ is the API's pass, a keyword in Python.
 _EDGE_FILTER_WORDS = Words("edgeFilter", "edge_filter", names={"pass": "pass_"})
 _APPLY_EDGE_FILTER_WORDS = Words("applyEdgeFilter", "apply_edge_filter", names={"pass": "pass_"})
+# design.needle_profile() takes the pool as its argument.
+_NEEDLE_PROFILE_WORDS = Words("needleProfile", "needle_profile", hidden=("pool",))
 # design.process_steps() and export_process() take the range as their arguments.
 _PROCESS_WORDS = Words("processSteps", "process_steps", hidden=("from", "to"))
 _PROCESS_OPTIONS = ("step", "side", "other_side", "quantity", "angle", "pol", "chips")
@@ -1071,6 +1074,104 @@ class Design:
         """
         with worded(_APPLY_EDGE_FILTER_WORDS):
             self._data = self._calls.applyEdgeFilter(self._data, api_names(options))
+
+    def needle_profile(self, pool, *, side=None, step=0.5, intra_samples=16):
+        """Where a thin layer of each material would lower the merit, as the
+        Needle Manual window's Compute P-function finds it: the slope of the
+        optical merit against the thickness of a needle of each pool material
+        put in at each interface of one side's layers and at points inside
+        each layer. A negative gradient is a place where a needle lowers the
+        merit. The scan scores the enabled merit rows less the MNT, MXT and
+        PPEF rows, as the window does.
+
+        Args:
+            pool: The materials a needle may be, a list of ids: one or more,
+                none twice.
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone. A side the window does not
+                scan is refused: the back of a symmetric design, or the
+                uncoated side of a one-sided design.
+            step: The probe needle's thickness, nm, 0.05 or more, over which a
+                slope with no exact formula is differenced: the window's
+                Probe δ. Default 0.5.
+            intra_samples: Points inside each layer, a whole number from 2 to
+                60: the window's Profile pts / layer. Default 16.
+
+        Returns:
+            A NeedleProfile, a named tuple: mode, the side scanned; mf0, the
+            optical merit of the design as the scan scores it, None when there
+            is no candidate; and candidates, in the scan's order, none when
+            the window would call the design needle-optimal, each a
+            NeedleCandidate: material; kind, "gap" or "inside"; layer, for
+            "inside", the number of the layer split, 1 next to the substrate,
+            else None; position, for "gap", how many layers lie between the
+            gap and the substrate, else None; fraction, for "inside", where
+            the layer is split, from the side light reaches first (the
+            incident medium on the front, the substrate on the back), else
+            None; depth in nm from that same side; gradient, the slope of the
+            optical merit per nm. The needle becomes layer position + 1 or
+            layer + 1.
+
+        Raises:
+            TFStudioError: a value an argument cannot take, a side the window
+                does not scan, a design with no merit row the scan scores, or
+                a pool material id that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("H L")
+            design.merit.add("RAV", 450, 650, target=0)
+            profile = design.needle_profile(["TiO2", "SiO2", "MgF2"])
+            best = min(profile.candidates, key=lambda c: c.gradient)
+            print(len(profile.candidates), "candidates; steepest", best.material, best.kind, best.gradient)
+        """
+        options = {"pool": pool, "side": side, "step": step, "intra_samples": intra_samples}
+        with worded(_NEEDLE_PROFILE_WORDS):
+            return needle_profile_of(self._calls.needleProfile(self._data, api_names(options)))
+
+    def insert_needle(self, candidate, *, thickness=None, side=None):
+        """Puts one needle in, as the Needle Manual window's Apply puts in the
+        candidate picked from its profile: a layer of the candidate's
+        material at its gap, or splitting its layer in two at its fraction. A
+        symmetric design's back follows its front. Without thickness the
+        needle starts where the window starts it: at the thickness between 1
+        and 60 nm where golden-section search finds the optical merit lowest,
+        or at 1 nm when no thickness there beats it.
+
+        To do what Apply does with Refine after insert, add an MNT row at
+        1 nm, the window's minimum thickness, and refine with sqp:
+        design.merit.add("MNT", target=1), then
+        design.refine(method="sqp", max_iter=80). The layers end on the
+        thicknesses the window's refine gives.
+
+        Args:
+            candidate: A NeedleCandidate from needle_profile() on this design
+                and side, or a dict of its fields.
+            thickness: The needle's thickness, nm, from 1 to 200 at a gap and
+                from 1 to the split layer's thickness less 1 inside one (at
+                least 2): the window's slider range. Default: the window's
+                starting thickness.
+            side: needle_profile()'s side.
+
+        Raises:
+            TFStudioError: a side needle_profile() refuses, a thickness
+                outside the window's range there, a candidate this design and
+                side do not have, or, without a thickness, a design with no
+                merit row the scan scores.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("H L")
+            design.merit.add("RAV", 450, 650, target=0)
+            profile = design.needle_profile(["TiO2", "SiO2", "MgF2"])
+            design.insert_needle(min(profile.candidates, key=lambda c: c.gradient))
+            print(len(design.layers), "layers; optical merit", design.merit.optical_value)
+        """
+        with worded(Words("insertNeedle", "insert_needle")):
+            self._data = self._calls.insertNeedle(self._data, candidate_argument(candidate),
+                                                  api_names({"thickness": thickness, "side": side}))
 
     def _edit(self, call, method, **options):
         """The design changed by the API's call `call` with `options`, for the

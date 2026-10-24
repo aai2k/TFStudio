@@ -54,7 +54,8 @@
  *   was when the spectrum was computed, and their refusals; edge_filter()
  *   with pass_, apply_edge_filter(), process_steps() on chips given in
  *   snake_case and export_process() as named tuples and paths, and their
- *   refusals; read_ellipsometry_file(), add_measured_curves(), fit_measured()
+ *   refusals; needle_profile() as named tuples and insert_needle() from a
+ *   NeedleCandidate and from a dict, and their refusals; read_ellipsometry_file(), add_measured_curves(), fit_measured()
  *   and export_measured_curves() as named tuples and files, save_jcamp()
  *   byte for byte, a Psi/Delta save_csv() with its # lines, and their
  *   refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
@@ -874,6 +875,27 @@ async function production(t, said) {
     ]), canon(got.worded));
 }
 
+// What _pythonObjects.py needle() read and put in, against the plain calls here.
+async function needle(t, said) {
+    const { ok, canon, api, attempt } = t;
+    const got = said.needle ?? {};
+    ok('needle() ran', !!said.needle, t.failure(t.ran));
+    const profile = await attempt(() => api.needleProfile(got.before, { pool: ['TiO2', 'SiO2'], intraSamples: 4 }));
+    const best = profile?.candidates?.reduce((a, b) => (b.gradient < a.gradient ? b : a));
+    const gap = profile?.candidates?.find(c => c.kind === 'gap');
+    ok('needle_profile() gives what needleProfile gives, as a NeedleProfile of NeedleCandidates',
+        canon([got.profile, got.types]) === canon([profile, ['NeedleProfile', 'NeedleCandidate']]), canon(got.profile)?.slice(0, 300));
+    ok('insert_needle() puts in what insertNeedle puts in, from a NeedleCandidate and from a dict with a thickness',
+        canon(got.picked ?? null) === canon(await attempt(() => api.insertNeedle(got.before, best)))
+        && canon(got.fixed ?? null) === canon(await attempt(() => api.insertNeedle(got.before, gap, { thickness: 2 }))));
+    ok('and their refusals are in Python\'s words', canon(got.worded) === canon([
+        'needle_profile: intra_samples is a whole number from 2 to 60, not 61',
+        "needle_profile: side is 'front' or left out: the window scans a front_only design on its front, not 'back'",
+        'insert_needle: thickness is a needle thickness in nm from 1 to 200 there, not 300',
+        "insert_needle: candidate.kind is 'gap' or 'inside', not 'edge'",
+    ]), canon(got.worded));
+}
+
 // What _pythonObjects.py measured_files() read, wrote and fitted, against the plain calls and the JS objects.
 function measuredFiles(t, said) {
     const { ok, canon, api, WORK } = t;
@@ -1107,6 +1129,7 @@ export async function checkObjects(t) {
     measuredCurves(u, ran.said);
     measuredFiles(u, ran.said);
     await production(u, ran.said);
+    await needle(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

@@ -3,6 +3,7 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { MaterialPoolPanel, PpefNote } from '../synthesisShared/synthesisHelpers.js';
+import { NEEDLE_MANUAL_LIMITS as L } from './sessionState.js';
 
 const { createElement: h } = React;
 
@@ -55,9 +56,9 @@ export function LeftSidebar({
                     sd === 'front' ? tn.front : tn.back
                 ))
             ),
-            numRow(tn.deltaNm, deltaNm, v => onDeltaNm(Math.max(0.05, v)), 0.05, 0.1),
+            numRow(tn.deltaNm, deltaNm, v => onDeltaNm(Math.max(L.deltaNmMin, v)), L.deltaNmMin, 0.1),
             numRow(tn.dMin,    dMin,    v => onDMin(Math.max(0.1, v)),     0.1,  1.0),
-            numRow(tn.profileRes, nIntra, v => onNIntra(Math.max(2, Math.min(60, Math.round(v)))), 2, 1),
+            numRow(tn.profileRes, nIntra, v => onNIntra(Math.max(L.nIntraMin, Math.min(L.nIntraMax, Math.round(v)))), L.nIntraMin, 1),
             h('label', { style: { display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: c.textDim, margin: '4px 0 3px' } },
                 h(Checkbox, { c, checked: refineAfter, disabled: busy, onChange: e => onRefineAfter(e.target.checked) }),
                 tn.refineAfter),

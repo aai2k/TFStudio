@@ -99,6 +99,12 @@ class Calls:
     def applyEdgeFilter(self, design, options=None):
         return self._call("applyEdgeFilter", design, options)
 
+    def needleProfile(self, design, options):
+        return self._call("needleProfile", design, options)
+
+    def insertNeedle(self, design, candidate, options=None):
+        return self._call("insertNeedle", design, candidate, options)
+
     def findMaterials(self, query=None):
         return self._call("findMaterials", query)
 

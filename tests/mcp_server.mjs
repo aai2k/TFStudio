@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 55
+ *   1. The session: initialize and version negotiation, the tool list (the 57
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -12,7 +12,9 @@
  *      a band's width, an edge against angle (in short with counts and
  *      extremes, in full with every angle), a spectrum file read and the
  *      design compared with a curve of it (in short with counts, spans and
- *      extremes, in full with every point), a relative file path refused, an
+ *      extremes, in full with every point), a relative file path refused, a
+ *      needle profile (in short with counts and each material's steepest
+ *      candidate, in full with every one) and a needle put in, an
  *      ellipsometer file read (in short and in full), its curves and a scan
  *      added to a copy, a fit added and the curves written, a file that is
  *      there refused, an edge filter search (in short with the count and the best period, in full with every one), a deposition run on chips (in short with each step's mean, min and max, in full with its values) and its files written, a relative folder refused, a copy perturbed with its seed
@@ -85,7 +87,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 55 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 57 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -208,6 +210,23 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const rows = [{ type: 'RAV', lambdaStart: 580, lambdaEnd: 620, target: 1, weight: 1 }];
     const rated = await server.call('setMerit', { designId: id, rows });
     ok('the merit is the API\'s', rated.total === api.merit(api.setMerit(local, rows)).total && rated.rows.length === 1, JSON.stringify(rated));
+    const scored = api.setMerit(local, rows);
+    const needleArgs = { pool: ['TiO2', 'SiO2'], intraSamples: 4 };
+    const profile = api.needleProfile(scored, needleArgs);
+    const shortNeedle = await server.call('needleProfile', { designId: id, ...needleArgs });
+    const fullNeedle = await server.call('needleProfile', { designId: id, ...needleArgs, values: true });
+    const steepTiO2 = profile.candidates.filter(c => c.material === 'TiO2').reduce((a, b) => (b.gradient < a.gradient ? b : a));
+    const needleSummary = [
+        shortNeedle.count === profile.candidates.length, shortNeedle.improving === profile.candidates.filter(c => c.gradient < 0).length,
+        shortNeedle.steepest?.length === 2, JSON.stringify(shortNeedle.steepest?.find(c => c.material === 'TiO2')) === JSON.stringify(steepTiO2),
+        !('candidates' in shortNeedle), JSON.stringify(fullNeedle.candidates) === JSON.stringify(profile.candidates),
+    ];
+    ok('needleProfile answers with the counts and each material\'s steepest candidate, and every candidate for values true',
+        needleSummary.every(Boolean), JSON.stringify(shortNeedle).slice(0, 300));
+    const needleId = (await server.call('copyDesign', { designId: id })).designId;
+    const needled = await server.call('insertNeedle', { designId: needleId, candidate: steepTiO2 });
+    ok('insertNeedle puts the candidate in at the window\'s starting thickness', JSON.stringify(needled.front?.map(l => l.thickness))
+        === JSON.stringify(api.insertNeedle(scored, steepTiO2).frontLayers.map(l => l.thickness)), JSON.stringify(needled.front));
     const checks = [{ kind: 'R_AVG', lambdaStart: 580, lambdaEnd: 620, cmp: 'ge', target: 0.9 }, { kind: 'LAYER_COUNT', cmp: 'le', target: 5 }];
     const verdict = JSON.stringify({ designId: id, ...api.checkSpecification(api.setSpecification(local, checks)) });
     const specified = await server.call('setSpecification', { designId: id, checks });
@@ -285,7 +304,7 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('a spectrum names the materials whose data stop inside it', Array.isArray(wide.outOfRange), JSON.stringify(wide.outOfRange));
     const copy = await server.call('copyDesign', { designId: id });
     const listedDesigns = (await server.call('listDesigns', {})).designs;
-    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 6);
+    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 7);
 }
 {
     // A stack with a thin layer between two of one material, cleaned through the tools.

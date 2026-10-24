@@ -14,7 +14,8 @@
  *      fields; a side scaled, rounded, perturbed with its seed and copied,
  *      a flip of a closed side refused with its code and fields, and two
  *      designs compared; an edge filter searched, with a pass region that
- *      does not end crossing as Infinity, and put in; a deposition run on the
+ *      does not end crossing as Infinity, and put in; a needle profile, and a
+ *      candidate of it put in; a deposition run on the
  *      part and on witness chips, and its files written; the spectrum at two angles, summarized from what came over
  *      the wire; a band's width and an edge against angle; a spectrum file
  *      read and a design compared with a curve of it, and a file of several
@@ -187,6 +188,9 @@ const specified = api.setSpecification(start, CHECKS);
     await same('edgeFilter', [stack, { angle: 45, edge: 650 }]);
     const edge = await same('edgeFilter', [stack, { pass: 'long', edge: 650 }]);
     await same('applyEdgeFilter', [stack, { angle: 45, edge: 650, solution: 1, mode: 'append', periods: 3 }]);
+    const needles = await same('needleProfile', [start, { pool: POOL, intraSamples: 4 }]);
+    await same('insertNeedle', [start, needles.result?.candidates[0]]);
+    ok('a needle profile crosses the wire and its candidate goes back in', needles.result?.candidates.length > 0, JSON.stringify(needles.error));
     ok('an edge filter search crosses with a pass region that does not end as Infinity', edge.result?.solutions.length === 2
         && edge.result.solutions.every(s => s.passWidth === Infinity), JSON.stringify(edge.result?.solutions?.map(s => s.passWidth)));
     await same('processSteps', [stack, { otherSide: 'coated', step: 5, chips: null }]);

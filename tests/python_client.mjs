@@ -12,7 +12,8 @@
  *      writes) and opened again, a layer set by its QWOT, sides scaled,
  *      rounded, perturbed, flipped and copied, one rounding and one flip
  *      refused, two designs compared, an edge filter searched, one refused
- *      and one put in, a deposition run on the part, one on chips with a
+ *      and one put in, a needle profile, one refused and a needle put in, a
+ *      deposition run on the part, one on chips with a
  *      plan of the wrong length refused, its files written, spectra, a band's
  *      width and an edge against angle, a spectrum file read and a design
  *      compared with a curve of it or one given, and a file of several curves
@@ -310,6 +311,9 @@ const STOPPED_WITHIN_S = 5;
         ['edgeFilter', [stack, { angle: 45, edge: 650 }]],
         ['edgeFilter', [stack, { pass: 'band' }]],
         ['applyEdgeFilter', [stack, { solution: 1, periods: 4 }]],
+        ['needleProfile', [start, { pool: POOL, intraSamples: 4 }]],
+        ['needleProfile', [start, { pool: POOL, step: 0.01 }]],
+        ['insertNeedle', [start, api.needleProfile(start, { pool: POOL, intraSamples: 4 }).candidates[0]]],
         ['processSteps', [stack, { otherSide: 'coated', step: 5 }]],
         ['processSteps', [stack, { chips: { plan: [1] } }]],
         ['exportProcess', [stack, processFolder, { step: 10 }]],

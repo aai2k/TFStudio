@@ -1,59 +1,20 @@
 /**
- * Pure (non-React) helpers for the Needle Manual insertion window: the rows it
- * scores on, stack-depth geometry, the shared insert-for-selection dispatch,
- * the P-function plot data builder, and the refine that polishes the stack
- * after an insertion.
+ * The Needle Manual insertion window's model: its computation from
+ * insertion.js, the P-function plot data builder, the selection's labels, and
+ * the refine that polishes the stack after an insertion.
  */
 
-import {
-    scanNeedlesPFunction, insertNeedle, insertNeedleIntra, mirrorLayers, withDesignSampleCounts, resolveScanSide,
-} from '../../../../utils/physics/optimizer.js';
+import { mirrorLayers } from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { densifyForRun } from '../../../../utils/refinement/workerInputs.js';
-import { matFriendlyName, matColor, withoutPPEF } from '../synthesisShared/synthesisHelpers.js';
+import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.js';
 import { refineOffThread } from '../synthesisShared/workerRefine.js';
-import { displayLayerNumber } from '../../analysis/layerSensitivity/viewModel.js';
+import { candidateDepth, scanLayerNumber, profileScan } from './insertion.js';
 
-// Which layer array a side maps to.
-export const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
-
-// The rows the profile scan and the predicted merit score on, and the refine
-// after an insertion starts from: the design's enabled rows less the PPEF
-// ones, with band rows sampled for the design's fringes.
-export function runOperands(design, resolveMat) {
-    const enabled = withoutPPEF((design?.meritOperands || []).filter(op => op.enabled));
-    return withDesignSampleCounts(enabled, design, resolveMat);
-}
-
-// Cumulative depth boundaries for a layer array: returns z[0..N] with z[0]=0,
-// z[k+1]=z[k]+d_k. z is the physical depth (nm) into the stack in storage order.
-export function depthBoundaries(layers) {
-    const z = [0];
-    for (const l of layers) z.push(z[z.length - 1] + (l.thickness || 0));
-    return z;
-}
-
-// Map a scan candidate to its physical depth z (nm) within the side stack.
-export function candidateDepth(cand, zb) {
-    if (cand.intra) {
-        const z0 = zb[cand.layerK] ?? 0;
-        const z1 = zb[cand.layerK + 1] ?? z0;
-        return z0 + cand.frac * (z1 - z0);
-    }
-    return zb[cand.pos] ?? 0;   // gap index → boundary depth
-}
-
-// Apply a selected candidate's insertion (gap or intra-layer) to a design.
-// Shared by the live OMF preview and the Apply commit so both use identical
-// geometry. `side` is the window's side setting, which the design's surface
-// mode overrides as it does for the scan, so the needle goes on the side the
-// candidate was found on.
-export function insertForSelection(selected, design, dNew, side) {
-    const onSide = resolveScanSide(design?.surfaceMode || 'front_only', side);
-    return selected.intra
-        ? insertNeedleIntra(design, selected, dNew, onSide)
-        : insertNeedle(design, selected.pos, selected.materialId, dNew, onSide);
-}
+export {
+    sideKey, runOperands, scanOperands, depthBoundaries, candidateDepth, insertForSelection, scanLayerNumber,
+    resolveDRange, startingThickness, profileScan,
+} from './insertion.js';
 
 // The optional pass after Apply: the app's default refinement method on the
 // inserted stack, at most `iters` steps, no layer below `dMin` (nm), its rows
@@ -103,20 +64,11 @@ export async function refineAndCommit({ inserted, job, resolveMat, signal, isCur
 
 // Run the P-function profile scan and package the result (or the "already
 // optimal" status) for the caller to commit to state.
-export function runNeedleScan({ operands, design, resolveMat, candidateMats, deltaNm, nIntra, side, effSide, tn }) {
-    const res = scanNeedlesPFunction({
-        operands, design, resolveMat, candidateMats, deltaNm, nIntra, side,
-    });
-    if (!res || !res.candidates || !res.candidates.length) {
-        return { scan: null, statusMsg: tn.alreadyOptimal };
-    }
-    const layers = design[sideKey(effSide)] || [];
-    const zb = depthBoundaries(layers);
-    const improving = res.candidates.filter(cc => cc.grad < 0).length;
-    return {
-        scan: { ...res, side: effSide, zb, layers },
-        statusMsg: tn.scanDone(res.candidates.length, improving),
-    };
+export function runNeedleScan({ operands, design, resolveMat, candidateMats, deltaNm, nIntra, side, tn }) {
+    const scan = profileScan({ operands, design, resolveMat, candidateMats, deltaNm, nIntra, side });
+    if (!scan) return { scan: null, statusMsg: tn.alreadyOptimal };
+    const improving = scan.candidates.filter(cc => cc.grad < 0).length;
+    return { scan, statusMsg: tn.scanDone(scan.candidates.length, improving) };
 }
 
 // Build renderer-neutral P-function material curves, layer boundaries
@@ -181,20 +133,3 @@ export function resolveHostInfo(selected, scan, dMin, tn, design = null) {
     return { gapLabel, hostThickness: 0 };
 }
 
-/**
- * The number the Design Editor gives scanned layer k: front layers are stored
- * air side first and back layers substrate first, and on both sides layer 1 is
- * the one on the substrate.
- */
-export function scanLayerNumber(scan, k) {
-    return displayLayerNumber({ side: scan.side, layerIndex: k }, scan.layers.length);
-}
-
-export function resolveDRange(selected, hostInfo, dMin) {
-    if (!selected) return [dMin, 200];
-    if (selected.intra && hostInfo) {
-        const hi = Math.max(dMin * 2, hostInfo.hostThickness - dMin);
-        return [dMin, Math.max(hi, dMin + 1)];
-    }
-    return [dMin, 200];
-}

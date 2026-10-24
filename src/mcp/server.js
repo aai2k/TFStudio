@@ -29,7 +29,7 @@ const clientName = info => [info?.title, info?.name].find(name => typeof name ==
 
 const INSTRUCTIONS = [
     'TFStudio designs and analyzes optical thin-film coatings. The tools work on designs held in this session by id ("d1").',
-    'Start from a .tfs file (openDesign) or a new design (newDesign); change its media, substrate and sides (setDesignSetup); build or edit the stack (stackFromFormula, insertLayer, setLayer, deleteLayer, cleanDesign, scaleThicknesses, quantize, perturb, flipLayers, copySide), search and put in a non-polarizing edge filter (edgeFilter, applyEdgeFilter) and compare two designs (designDifferences); set the merit function (setMerit) and the specification (setSpecification); compute (spectrum, color, integrals, merit, checkSpecification, layerSensitivity) and find a band\'s peak, edge and width and how an edge moves with angle (bandFeature, edgeShift); read a measured spectrum file and compare a design with a curve in one (readSpectrumFile, measuredDifference), read an ellipsometer file (readEllipsometryFile), add a file\'s measured curves to a design, add the merit rows that fit it to one and write them to a file (addMeasuredCurves, fitMeasured, exportMeasuredCurves); read the stack (indexProfile, layerThicknesses, designFacts) and a side\'s admittance locus, electric field and Psi and Delta (admittance, electricField, ellipsometry, ellipsometryVsAngle), and a side\'s phase, group delay and GDD (groupDelay); compute the spectrum a monitor reads after each layer of a deposition run and write the Process Exporter\'s files (processSteps, exportProcess); find materials and read their n, k and dispersion (findMaterials, materialNK, materialDispersion).',
+    'Start from a .tfs file (openDesign) or a new design (newDesign); change its media, substrate and sides (setDesignSetup); build or edit the stack (stackFromFormula, insertLayer, setLayer, deleteLayer, cleanDesign, scaleThicknesses, quantize, perturb, flipLayers, copySide), search and put in a non-polarizing edge filter (edgeFilter, applyEdgeFilter), find where a needle lowers the merit and put one in (needleProfile, insertNeedle) and compare two designs (designDifferences); set the merit function (setMerit) and the specification (setSpecification); compute (spectrum, color, integrals, merit, checkSpecification, layerSensitivity) and find a band\'s peak, edge and width and how an edge moves with angle (bandFeature, edgeShift); read a measured spectrum file and compare a design with a curve in one (readSpectrumFile, measuredDifference), read an ellipsometer file (readEllipsometryFile), add a file\'s measured curves to a design, add the merit rows that fit it to one and write them to a file (addMeasuredCurves, fitMeasured, exportMeasuredCurves); read the stack (indexProfile, layerThicknesses, designFacts) and a side\'s admittance locus, electric field and Psi and Delta (admittance, electricField, ellipsometry, ellipsometryVsAngle), and a side\'s phase, group delay and GDD (groupDelay); compute the spectrum a monitor reads after each layer of a deposition run and write the Process Exporter\'s files (processSteps, exportProcess); find materials and read their n, k and dispersion (findMaterials, materialNK, materialDispersion).',
     'refine, synthesize and monteCarlo run as jobs: they answer with the job\'s state, and jobStatus follows a job that is still running. A run that changed the design adds its answer as a new design. saveDesign writes a design to a .tfs file the app opens.',
     'Units: wavelengths and layer thicknesses in nm, angles in degrees in the incident medium, substrate thickness in mm, R, T and A as fractions of 1. A value a tool cannot use is refused with a message that says what it takes.',
 ].join('\n');
@@ -55,6 +55,7 @@ export async function serve({ dataDir = null, version, wasmPath, live = null } =
     const { analysisTools } = await import('./analysisTools.js');
     const { processTools } = await import('./processTools.js');
     const { measuredTools } = await import('./measuredTools.js');
+    const { needleTools } = await import('./needleTools.js');
     const { runTools } = await import('./runTools.js');
     const { liveTools, LIVE_INSTRUCTIONS } = await import('./liveTools.js');
     const { createLiveLink } = await import('./liveLink.js');
@@ -78,7 +79,7 @@ export async function serve({ dataDir = null, version, wasmPath, live = null } =
         finish: app?.finishRun,
     });
     const tools = [
-        ...designTools({ api, store }), ...analysisTools({ api, store }), ...measuredTools({ api, store }), ...processTools({ api, store }),
+        ...designTools({ api, store }), ...analysisTools({ api, store }), ...measuredTools({ api, store }), ...processTools({ api, store }), ...needleTools({ api, store }),
         ...runTools({ store, jobs, live: !!app }),
         ...(app ? app.tools : []),
     ];

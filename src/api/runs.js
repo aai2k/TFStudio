@@ -112,10 +112,10 @@ export async function refine(design, settings = {}, hooks) {
     return { result, design: result.completed ? withAnswer(design, result) : design };
 }
 
-// The candidate materials as the runs take them, from catalog or design ids.
-function poolOf(design, ids) {
-    if (!Array.isArray(ids) || !ids.length) throw new Error('synthesize: pool is a list of one or more material ids to insert');
-    if (new Set(ids).size !== ids.length) throw new Error('synthesize: a material appears twice in the pool');
+/** The candidate materials as the runs and the needle scan take them, from catalog or design ids. */
+export function poolOf(call, design, ids) {
+    if (!Array.isArray(ids) || !ids.length) throw new Error(`${call}: pool is a list of one or more material ids to insert`);
+    if (new Set(ids).size !== ids.length) throw new Error(`${call}: a material appears twice in the pool`);
     return ids.map(id => ({ id, name: materialName(design, id), mat: requireMaterial(design, id) }));
 }
 
@@ -205,7 +205,7 @@ export async function synthesize(design, request, hooks) {
     if (!run) throw new Error(`synthesize: method is one of ${Object.keys(SYNTHESIS).join(', ')}, not '${method}'`);
     if (settings && 'pool' in settings) throw new Error('synthesize: give the pool as `pool`, a list of material ids');
     const operands = operandsOf('synthesize', design);
-    const plan = { ...settingsFor(method, operands, settings), pool: poolOf(design, pool) };
+    const plan = { ...settingsFor(method, operands, settings), pool: poolOf('synthesize', design, pool) };
     const passed = checkHooks(`synthesize ${method}`, hooks, HOOKS[method]);
     warnWithoutKernel();
     const result = await run(design, operands, plan, passed);
