@@ -3822,5 +3822,221 @@
   "Design.compareMeasured.refuses.1": {
     "hash": "eb876216",
     "text": "既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 `curve` 的文件、不是 R、T 或 A 的曲线、不接受的选项或选项无法取的值、没有可比较的点，或设计中有无法解析的材料"
+  },
+  "Design.edgeFilter.arg.pass": {
+    "hash": "f37eee91",
+    "text": "`'short'` 为短波通，`'long'` 为长波通。"
+  },
+  "Design.edgeFilter.arg.edge": {
+    "hash": "5be98274",
+    "text": "边缘波长，单位 nm。不给出时为设计的参考波长。"
+  },
+  "Design.edgeFilter.arg.angle": {
+    "hash": "796fdf6a",
+    "text": "入射角，单位为度，在入射介质中计，从 0 起，小于 90。"
+  },
+  "Design.edgeFilter.arg.a": {
+    "hash": "cc6c25c9",
+    "text": "材料 A，按 id 给出。不给出时为正面膜层中折射率最低的材料；正面材料不足两种时为 SiO2。"
+  },
+  "Design.edgeFilter.arg.b": {
+    "hash": "3a899eb1",
+    "text": "材料 B，按 id 给出。不给出时为正面膜层中折射率最高的材料，或 TiO2。"
+  },
+  "Design.edgeFilter.arg.incident": {
+    "hash": "8f6f2084",
+    "text": "光射来的介质，按 id 给出。不给出时为设计的入射介质。"
+  },
+  "Design.edgeFilter.arg.lower": {
+    "hash": "725f2cdf",
+    "text": "搜索的第一个 a，单位为四分之一波，从 0 起。"
+  },
+  "Design.edgeFilter.arg.upper": {
+    "hash": "342d89c9",
+    "text": "搜索的最后一个 a，单位为四分之一波，大于 lower 且不超过 2。"
+  },
+  "Design.edgeFilter.arg.step": {
+    "hash": "0c723957",
+    "text": "a 的步长，不小于 0.0001；在大于 0 的入射角下，以最细步长搜索最宽范围需要几分钟。"
+  },
+  "Design.edgeFilter.arg.periods": {
+    "hash": "2abecc9b",
+    "text": "每个解的公式重复的周期数。"
+  },
+  "Design.edgeFilter.returns.js": {
+    "hash": "8eb6a5a9",
+    "text": "一个对象：`pass`、`edge`（nm）、`angle`；`materials` 和 `indices`，各为 `{ a, b, incident }`，即所搜索材料的 id 及其在边缘处的实折射率；`absorbing`，A 与 B 中在该处 k 大于 0 的材料 id；`periods`；以及 `solutions`，最好的在前，每个为 `{ outer, a, b, c, sigma, zoneS, zoneP, passWidth, formula }`：outer 为 `'A'` 或 `'B'`，即外层和中心层的材料；a、b、c 以四分之一波计；sigma 为边缘处的 N11，+1 或 -1；zoneS 与 zoneP 为 s 与 p 截止带的宽度，passWidth 为通带宽度，单位 nm，通带不结束时为 Infinity；formula 为按堆栈公式写出的滤光片，H 为 A 与 B 中折射率较高者。"
+  },
+  "Design.edgeFilter.returns.py": {
+    "hash": "c3f7a132",
+    "text": "一个 EdgeFilter，即具名元组：pass_、edge（nm）、angle；materials 和 indices，各为含 a、b、incident 的 dict，即所搜索材料的 id 及其在边缘处的实折射率；absorbing，A 与 B 中在该处 k 大于 0 的材料 id；periods；以及 solutions，最好的在前，每个为一个 EdgeSolution：outer 为 \"A\" 或 \"B\"，即外层和中心层的材料；a、b、c 以四分之一波计；sigma 为边缘处的 N11，+1 或 -1；zone_s 与 zone_p 为 s 与 p 截止带的宽度，pass_width 为通带宽度，单位 nm，通带不结束时为 inf；formula 为按堆栈公式写出的滤光片，H 为 A 与 B 中折射率较高者。"
+  },
+  "Design.edgeFilter.lead.1.js": {
+    "hash": "dc94bfb8",
+    "text": "按边缘滤光片窗口的方式搜索非偏振边缘滤光片的周期：五层周期 (aA bB cA bB aA) 或 (aB bA cB bA aB)，其 s 与 p 截止带边缘在该入射角下落在边缘波长处，a、b、c 为边缘波长处的四分之一波倍数；最好的在前：截止带最宽者优先，其次是通带最宽者。在 0° 时搜索给出正反两种排列的四分之一波周期，c 为 null。A 与 B 按其在边缘波长处的实折射率视为无损耗。不给选项时，使用窗口在此设计上打开时的设置。"
+  },
+  "Design.edgeFilter.lead.1.py": {
+    "hash": "24b95673",
+    "text": "按边缘滤光片窗口的方式搜索非偏振边缘滤光片的周期：五层周期 (aA bB cA bB aA) 或 (aB bA cB bA aB)，其 s 与 p 截止带边缘在该入射角下落在边缘波长处，a、b、c 为边缘波长处的四分之一波倍数；最好的在前：截止带最宽者优先，其次是通带最宽者。在 0° 时搜索给出正反两种排列的四分之一波周期，c 为 None。A 与 B 按其在边缘波长处的实折射率视为无损耗。不给关键字参数时，使用窗口在此设计上打开时的设置。"
+  },
+  "Design.edgeFilter.refuses.1": {
+    "hash": "aa14fac2",
+    "text": "不接受的选项或选项不能取的值、找不到对应材料的材料 id、在边缘波长处没有折射率的材料、A 与 B 在该处折射率相同，或材料超过其临界角"
+  },
+  "Design.applyEdgeFilter.arg.options.js": {
+    "hash": "7305b958",
+    "text": "edgeFilter() 的选项，以及以下各项。"
+  },
+  "Design.applyEdgeFilter.arg.solution": {
+    "hash": "10d5e0e6",
+    "text": "选用哪个解，即它在 `edgeFilter()` / `edge_filter()` 列表中的位置，从 0 起，0 为最好的。"
+  },
+  "Design.applyEdgeFilter.arg.side": {
+    "hash": "7a4a0e38",
+    "text": "`'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。对称设计取正面。"
+  },
+  "Design.applyEdgeFilter.arg.mode": {
+    "hash": "4c73b0cb",
+    "text": "`'replace'` 或 `'append'`。"
+  },
+  "Design.applyEdgeFilter.lead.1.js": {
+    "hash": "09427f8a",
+    "text": "按边缘滤光片窗口“替换”或“追加”放入所列周期的方式放入边缘滤光片：搜索与 edgeFilter() 使用相同选项时相同，所选的解通过堆栈公式构建，每对相接的外层合并为一层。“替换”用滤光片取代该面的膜层，把边缘波长设为参考波长，并把所搜索的介质设为正面滤光片的入射介质或背面滤光片的出射介质；“追加”把膜层加在该面原有膜层的外侧。向单面设计未镀膜的一面放入膜层时，若另一面有膜层，设计变为两面镀膜；若另一面没有膜层，则只在放入的一面镀膜，与窗口相同。"
+  },
+  "Design.applyEdgeFilter.lead.1.py": {
+    "hash": "ad46e91c",
+    "text": "按边缘滤光片窗口“替换”或“追加”放入所列周期的方式放入边缘滤光片：搜索与 edge_filter() 使用相同关键字参数时相同，所选的解通过堆栈公式构建，每对相接的外层合并为一层。“替换”用滤光片取代该面的膜层，把边缘波长设为参考波长，并把所搜索的介质设为正面滤光片的入射介质或背面滤光片的出射介质；“追加”把膜层加在该面原有膜层的外侧。向单面设计未镀膜的一面放入膜层时，若另一面有膜层，设计变为两面镀膜；若另一面没有膜层，则只在放入的一面镀膜，与窗口相同。它也接受 edge_filter() 的关键字参数，用于搜索。"
+  },
+  "Design.applyEdgeFilter.refuses.1.js": {
+    "hash": "7b270c17",
+    "text": "edgeFilter() 抛出的错误、不在列表中的解、`'front'` 或 `'back'` 以外的面、对称设计的背面，或 `'replace'` 或 `'append'` 以外的模式"
+  },
+  "Design.applyEdgeFilter.refuses.1.py": {
+    "hash": "30eef390",
+    "text": "edge_filter() 引发的错误、不在列表中的解、\"front\" 或 \"back\" 以外的面、对称设计的背面，或 \"replace\" 或 \"append\" 以外的模式"
+  },
+  "Design.processSteps.arg.start": {
+    "hash": "115f61f2",
+    "text": "起始波长，单位 nm。"
+  },
+  "Design.processSteps.arg.end": {
+    "hash": "b4a9096d",
+    "text": "终止波长，单位 nm，大于 `start`。"
+  },
+  "Design.processSteps.arg.step": {
+    "hash": "078399d3",
+    "text": "波长步长，单位 nm。"
+  },
+  "Design.processSteps.arg.side": {
+    "hash": "a0e7721c",
+    "text": "`'front'` 或 `'back'`，即沉积的那一面。不给出时为正面，只在背面镀膜的设计则为背面。"
+  },
+  "Design.processSteps.arg.otherSide": {
+    "hash": "35b0c11a",
+    "text": "`'bare'` 或 `'coated'`：工件的另一面无镀膜或带有其镀膜。监控片上不使用。"
+  },
+  "Design.processSteps.arg.quantity": {
+    "hash": "6d444dd5",
+    "text": "`'T'`、`'R'` 或 `'A'`。"
+  },
+  "Design.processSteps.arg.angle": {
+    "hash": "6b622636",
+    "text": "入射角，单位为度，在空气中计，从 0 起，小于 90。"
+  },
+  "Design.processSteps.arg.pol": {
+    "hash": "dfbe97e8",
+    "text": "`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "Design.processSteps.arg.chips.js": {
+    "hash": "0e335442",
+    "text": "在监控片上时为 `{ layersPerChip, plan, glass, witnessRatio }`，各项均可省略：`plan` 为该面从基底向外每一层的监控片编号，包括空层，代替每片 `layersPerChip` 层（两者都不给时为 3）；`glass` 为监控片玻璃，按 id 给出，不给出时为基底；`witnessRatio` 为监控片厚度与工件厚度之比，从 0.05 到 10，不给出时为 1。不给出时为工件。"
+  },
+  "Design.processSteps.arg.chips.py": {
+    "hash": "53534443",
+    "text": "在监控片上时为含 layers_per_chip、plan、glass 和 witness_ratio 的 dict，各项均可省略：plan 为该面从基底向外每一层的监控片编号，包括空层，代替每片 layers_per_chip 层（两者都不给时为 3）；glass 为监控片玻璃，按 id 给出，不给出时为基底；witness_ratio 为监控片厚度与工件厚度之比，从 0.05 到 10，不给出时为 1。不给出时为工件。"
+  },
+  "Design.processSteps.returns.js": {
+    "hash": "37eec5d4",
+    "text": "一个对象：`mode`，沉积的那一面；`quantity`；`wavelength`（nm）；`bare`，第一层之前的光谱；以及 `steps`，每沉积一层一项，每项为 `{ step, layer, material, thickness, chip, values }`：step 从 1 起，layer 为它在设计编辑器中的编号，从紧邻基底的 1 起，material 按 id 给出，thickness 为所读取被测件上的厚度，单位 nm，chip 为它的监控片编号，工件上为 null，values 为该层完成时的光谱，以 1 的分数表示。"
+  },
+  "Design.processSteps.returns.py": {
+    "hash": "633a339a",
+    "text": "一个 ProcessSteps，即具名元组：mode，沉积的那一面；quantity；wavelength（nm）；bare，第一层之前的光谱；以及 steps，每沉积一层一个 ProcessStep：step 从 1 起，layer 为它在设计编辑器中的编号，从紧邻基底的 1 起，material 按 id 给出，thickness 为所读取被测件上的厚度，单位 nm，chip 为它的监控片编号，工件上为 None，values 为该层完成时的光谱，以 1 的分数表示。"
+  },
+  "Design.processSteps.lead.1": {
+    "hash": "f3b419f1",
+    "text": "按工艺导出器窗口计算各层完成光谱的方式，给出腔体内监控仪在一面的每层之后读到的光谱：膜层从基底向外沉积，空层略去，被测件在空气中读取。在工件上，另一面在整个运行中保持裸露或带有其全部镀膜；在监控片上，每片监控片从裸监控片玻璃开始自成一次运行，每层厚度为其在工件上厚度的 `witnessRatio` / `witness_ratio` 倍。不使用设计的入射锥角。"
+  },
+  "Design.processSteps.refuses.1": {
+    "hash": "0c2ef836",
+    "text": "不接受的选项或选项不能取的值、不构成范围的波长、超过一百万个波长、长度不等于该面层数的监控片方案、找不到对应材料的监控片玻璃，或引用了找不到对应材料的设计"
+  },
+  "Design.exportProcess.arg.folder": {
+    "hash": "bdd0aed2",
+    "text": "写入文件的文件夹，必须已经存在。"
+  },
+  "Design.exportProcess.arg.start": {
+    "hash": "53b9044b",
+    "text": "写入的起始波长，单位 nm。"
+  },
+  "Design.exportProcess.arg.end": {
+    "hash": "5903149d",
+    "text": "写入的终止波长，单位 nm，大于 `start`。"
+  },
+  "Design.exportProcess.arg.options.js": {
+    "hash": "8a192a76",
+    "text": "processSteps() 的选项，以及以下各项。"
+  },
+  "Design.exportProcess.arg.format.js": {
+    "hash": "a0722ee7",
+    "text": "`'res'`、`'csv'` 或 `'txt'`。`.res` 文件只有一种格式，以下选项不改变它。"
+  },
+  "Design.exportProcess.arg.format.py": {
+    "hash": "9be847fc",
+    "text": "\"res\"、\"csv\" 或 \"txt\"。`.res` 文件只有一种格式，以下关键字参数不改变它。"
+  },
+  "Design.exportProcess.arg.files": {
+    "hash": "90daf6d9",
+    "text": "`'step'` 为每步一个文件，`'table'` 为每次运行一个文件，每步一列。"
+  },
+  "Design.exportProcess.arg.header": {
+    "hash": "7324ff28",
+    "text": "`'layers'` 为带膜层表的 `.res` 文件头；`'conditions'` 为实测光谱导入能读回的条件行；`'none'` 为无文件头。"
+  },
+  "Design.exportProcess.arg.delimiter": {
+    "hash": "b7ae29e0",
+    "text": "`','`、`';'`、制表符或空格。"
+  },
+  "Design.exportProcess.arg.scale": {
+    "hash": "a2bf351c",
+    "text": "`'percent'` 或 `'fraction'`。"
+  },
+  "Design.exportProcess.arg.decimals": {
+    "hash": "ed06409d",
+    "text": "每个数值的小数位数，从 0 到 12 的整数。"
+  },
+  "Design.exportProcess.arg.decimalMark": {
+    "hash": "2be8b40f",
+    "text": "`'.'` 或 `','`；用逗号时分隔符不能是逗号。"
+  },
+  "Design.exportProcess.returns": {
+    "hash": "06b20ecc",
+    "text": "写入的文件路径，按运行顺序。"
+  },
+  "Design.exportProcess.lead.1.js": {
+    "hash": "1cf99457",
+    "text": "把工艺导出器窗口“保存”为一次运行写出的文件写入文件夹：每步一个 `.res` 文件（01.res、02.res……），或 CSV、文本文件，每步一个或每次运行一个表格，每个光谱都按 processSteps() 的方式计算。在监控片上，每片监控片的文件放在该文件夹内各自的子文件夹中。文件夹中已有同名文件时会被替换，与“保存”相同。"
+  },
+  "Design.exportProcess.lead.1.py": {
+    "hash": "abaa4a3f",
+    "text": "把工艺导出器窗口“保存”为一次运行写出的文件写入文件夹：每步一个 `.res` 文件（01.res、02.res……），或 CSV、文本文件，每步一个或每次运行一个表格，每个光谱都按 process_steps() 的方式计算。在监控片上，每片监控片的文件放在该文件夹内各自的子文件夹中。文件夹中已有同名文件时会被替换，与“保存”相同。它也接受 process_steps() 的关键字参数，用于设定这次运行。"
+  },
+  "Design.exportProcess.refuses.1.js": {
+    "hash": "c30df533",
+    "text": "processSteps() 抛出的错误、不接受的输出选项或值、不存在的文件夹，或没有可沉积膜层的面"
+  },
+  "Design.exportProcess.refuses.1.py": {
+    "hash": "91c7bfb1",
+    "text": "process_steps() 引发的错误、不接受的输出选项或值、不存在的文件夹，或没有可沉积膜层的面"
   }
 }

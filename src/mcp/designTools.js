@@ -25,6 +25,20 @@ function differenceSummary({ same, setup, layers }) {
     };
 }
 
+// The search the edgeFilter and applyEdgeFilter tools share, the Edge Filter window's inputs.
+const EDGE_SEARCH = {
+    pass: oneOf(['short', 'long'], "A shortwave or a longwave pass. Default 'short'"),
+    edge: num("Edge wavelength in nm. Default: the design's reference wavelength"),
+    angle: num('Angle of incidence in degrees in the incident medium, 0 <= angle < 90. Default 0'),
+    a: str('Material A, by id. Default: the lowest index of the front layers, or SiO2 when the front has fewer than two materials'),
+    b: str('Material B, by id. Default: the highest index of the front layers, or TiO2'),
+    incident: str("The medium the light arrives from, by id. Default: the design's incident medium"),
+    lower: num('The first a searched, quarter waves, from 0. Default 0.1'),
+    upper: num('The last a searched, quarter waves, above lower and up to 2. Default 1'),
+    step: num('The step of a, 0.0001 or more; at an angle above 0 the finest step over the widest range takes minutes. Default 0.05'),
+    periods: int('The number of periods the formula repeats. Default 10'),
+};
+
 // The fields an edit tool passes on to the API: its arguments without designId.
 const editArgs = args => Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'designId'));
 
@@ -221,6 +235,26 @@ export function designTools({ api, store }) {
                 const found = api.designDifferences(store.get(designId), store.get(otherId));
                 return values ? { designId, otherId, ...found } : { designId, otherId, ...differenceSummary(found) };
             },
+        },
+        {
+            name: 'edgeFilter', title: 'Search an edge filter',
+            description: "The periods of a non-polarizing edge filter, as the Edge Filter window searches them: the five-layer period (aA bB cA bB aA) or (aB bA cB bA aB) whose s and p zone edges meet at the edge wavelength at the angle of incidence, a, b and c in quarter waves at the edge wavelength, ranked by the rejection band (the narrower of the s and p zones), then the pass region. At 0 degrees it gives the quarter-wave period both ways round, c null. A and B are taken as lossless at their real indices at the edge wavelength. Answers with pass, edge, angle, materials and indices ({ a, b, incident }: the ids searched and their real indices at the edge), absorbing (the ids of A and B with k above 0 there), periods, count (how many periods were found) and best, the first: { outer ('A' or 'B', the material of the outer and centre layers), a, b, c, sigma (N11 at the edge, +1 or -1), zoneS, zoneP and passWidth (nm; passWidth null where the pass region does not end), formula (the filter in Stack Formula's syntax, H the higher index of A and B) }, or null; with values true, also solutions, every period in that shape, best first. applyEdgeFilter puts one in.",
+            inputSchema: object({ designId: DESIGN_ID, ...EDGE_SEARCH, values: bool('Answer with every period too. Default false') }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const { solutions, ...found } = api.edgeFilter(store.get(designId), options);
+                return { designId, ...found, count: solutions.length, ...(values ? { solutions } : { best: solutions[0] ?? null }) };
+            },
+        },
+        {
+            name: 'applyEdgeFilter', title: 'Put an edge filter in',
+            description: "Puts an edge filter in a design, as the Edge Filter window's Replace or Append puts a period it lists in: the search is edgeFilter's with the same arguments, and the solution chosen is built through Stack Formula with each pair of touching outer layers joined. Replace puts the filter in place of the side's layers, makes the edge wavelength the reference wavelength, and makes the medium searched the incident medium of a front filter or the exit medium of a back one; append adds the layers outside the side's own. Filling the side a one-sided design does not coat makes it both_independent when its other side has layers, and front_only or back_only, the filled side, when it has none, as the window does. Answers with the design.",
+            inputSchema: object({
+                designId: DESIGN_ID, ...EDGE_SEARCH,
+                solution: int("Which period, its place in edgeFilter's list from 0, the best. Default 0"),
+                side: oneOf(['front', 'back'], "The side it goes on. Default: the front, or the back of a back_only design; a symmetric design takes the front"),
+                mode: oneOf(['replace', 'append'], "Default 'replace'"),
+            }, ['designId']),
+            run: args => edit(args.designId, d => api.applyEdgeFilter(d, editArgs(args))),
         },
         {
             name: 'setMerit', title: 'Set the merit function',

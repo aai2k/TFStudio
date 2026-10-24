@@ -51,7 +51,10 @@
  *   its defaults and each argument, its Curves, range, save_csv() with and
  *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
- *   was when the spectrum was computed, and their refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
+ *   was when the spectrum was computed, and their refusals; edge_filter()
+ *   with pass_, apply_edge_filter(), process_steps() on chips given in
+ *   snake_case and export_process() as named tuples and paths, and their
+ *   refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
  *   Synthesis's included, and before the run; Ctrl+C in progress; every
@@ -840,6 +843,32 @@ function measuredCurves(t, said) {
     ]), canon(got.worded));
 }
 
+// What _pythonObjects.py production() read, against the objects and plain calls here.
+async function production(t, said) {
+    const { ok, canon, api, attempt, WORK } = t;
+    const got = said.production ?? {};
+    ok('production() ran', !!said.production, t.failure(t.ran));
+    const objects = await import('../src/api/objects/index.js');
+    const search = { pass: 'long', angle: 30, edge: 700, a: 'SiO2', b: 'TiO2', periods: 4 };
+    const snakeKeys = found => Object.fromEntries(Object.entries(found).map(([key, value]) => [key === 'pass' ? 'pass_' : snake(key), value]));
+    const found = new objects.Design(got.before ?? {}).edgeFilter(search);
+    const run = new objects.Design(got.ar ?? {}).processSteps(450, 700, { step: 10, quantity: 'R', chips: { layersPerChip: 2, witnessRatio: 1.5 } });
+    const paths = await attempt(() => api.exportProcess(got.ar, path.join(WORK, 'process-objects'), { from: 450, to: 700, step: 10, format: 'csv', decimalMark: ',', delimiter: ';' }));
+    ok('edge_filter(), process_steps() and export_process() give what the objects here give, as EdgeFilter, EdgeSolution, ProcessSteps and ProcessStep of their snake_case fields',
+        canon([got.found, got.run, got.paths, got.types]) === canon([{ ...snakeKeys(found), solutions: found.solutions.map(snakeKeys) },
+            { ...snakeKeys(run), steps: run.steps.map(snakeKeys) }, paths, ['EdgeFilter', 'EdgeSolution', 'ProcessSteps', 'ProcessStep']])
+        && run.steps.every(step => step.chip >= 1), canon(got.found)?.slice(0, 300));
+    ok('apply_edge_filter() puts in what applyEdgeFilter puts in', canon(got.after ?? null) === canon(await attempt(() => api.applyEdgeFilter(got.before, { ...search, solution: 1 }))));
+    ok('and their refusals are in Python\'s words', canon(got.worded) === canon([
+        "edge_filter: pass_ is 'short' or 'long', not 'band'",
+        "edge_filter: unknown option 'passes'; the options are pass_, edge, angle, a, b, incident, lower, upper, step, periods",
+        "process_steps: chips.plan is a chip number from 1 to 10000 for each of the side's 3 layers, empty ones included, not [1]",
+        "process_steps: unknown option 'chips.layer'; the options are chips.layers_per_chip, chips.plan, chips.glass, chips.witness_ratio",
+        "process_steps: unknown option 'to'; the options are step, side, other_side, quantity, angle, pol, chips",
+        'export_process: decimals is a whole number of decimals from 0 to 12, not 13',
+    ]), canon(got.worded));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -1029,6 +1058,7 @@ export async function checkObjects(t) {
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
     measuredCurves(u, ran.said);
+    await production(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

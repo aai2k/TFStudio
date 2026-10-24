@@ -9,6 +9,7 @@
  *   insertLayer, deleteLayer, setLayer, stackFromFormula, cleanDesign(design, options)
  *   scaleThicknesses(design, { factor, side }), quantize(design, { mode, value, side }), perturb(design, { percent, side, seed })
  *   flipLayers(design, { side }), copySide(design, { from }), designDifferences(design, other)
+ *   edgeFilter(design, { pass, edge, angle, a, b, incident, periods }), applyEdgeFilter(design, { solution, periods, side, mode })
  *   findMaterials(query), materialNK(id, wavelengths, design), materialDispersion(id, { from, to, thickness }, design)
  *   spectrum(design, { from, to, step, angles }), summarize(spectrum, { bands })
  *   bandFeature(design, { feature, from, to, quantity, angle, level }), edgeShift(design, { from, to, angles, level })
@@ -21,6 +22,7 @@
  *   ellipsometry(design, { from, to, step, angles, side, deltaConvention })
  *   ellipsometryVsAngle(design, { wavelength, angleStart, angleEnd, angleStep, side, deltaConvention })
  *   groupDelay(design, { from, to, step, angle, pol, response, side, reference })
+ *   processSteps(design, { side, otherSide, quantity, angle, pol, from, to, step, chips }), exportProcess(design, folder, options)
  *   setMerit(design, rows), merit(design)
  *   setSpecification(design, checks), checkSpecification(design)
  *   refine(design, settings, hooks), synthesize(design, { method, pool, settings }, hooks), runHooks(method)
@@ -36,6 +38,7 @@ export { openDesign, saveDesign, newDesign, setDesignSetup } from './designs.js'
 export { insertLayer, deleteLayer, setLayer, stackFromFormula } from './stack.js';
 export { cleanDesign } from './cleaner.js';
 export { scaleThicknesses, quantize, perturb, flipLayers, copySide, designDifferences } from './designEdits.js';
+export { edgeFilter, applyEdgeFilter } from './edgeFilter.js';
 export { findMaterials, materialNK } from './materials.js';
 export { materialDispersion } from './materialDispersion.js';
 export { spectrum, summarize } from './evaluate.js';
@@ -49,6 +52,7 @@ export { color } from './color.js';
 export { integrals } from './integrals.js';
 export { ellipsometry, ellipsometryVsAngle } from './ellipsometry.js';
 export { groupDelay } from './groupDelay.js';
+export { processSteps, exportProcess } from './process.js';
 export { setMerit, merit } from './merit.js';
 export { setSpecification, checkSpecification } from './specification.js';
 export { refine, synthesize, runHooks } from './runs.js';

@@ -4,6 +4,16 @@ import { designMaterialLookup } from '../../../../utils/materials/designMaterial
 import { CHAMBER_MEDIUM_ID } from '../../../../utils/monitoring/chamberMedium.js';
 import { chipsInRunOrder } from '../../../../utils/monitoring/monoSim.js';
 
+/**
+ * The settings the window opens with before any are remembered: the front
+ * deposited on the part with its back bare, T at normal incidence for
+ * unpolarized light, 400 to 1100 nm at 0.5 nm on screen and in the files.
+ */
+export const PROCESS_SETUP_DEFAULTS = Object.freeze({
+    activeSide: 'front', secondSurface: 'bare', quantity: 'T', aoi: 0, polarization: 'avg',
+    lambdaStart: 400, lambdaEnd: 1100, lambdaStep: 0.5, exportStep: 0.5,
+});
+
 // One side's layers in deposition order, the empty ones dropped. Each keeps
 // its step over the whole side, so a chip plan indexed by step still applies
 // after the drop, and carries the thickness the piece being read receives.

@@ -14,6 +14,7 @@ from ._ellipsometry import Ellipsometry
 from ._errors import TFStudioError
 from ._group_delay import GroupDelay
 from ._integrals import Integrals
+from ._production import edge_filter_of, process_steps_of, run_options
 from ._merit import Merit
 from ._names import api_names
 from ._refusals import Words, refuse_arguments, worded
@@ -62,6 +63,14 @@ _COMPARE_NAMES = {"start": "from", "end": "to"}
 _COMPARE_WORDS = Words("measuredDifference", "compare_measured", names={"from": "start", "to": "end"})
 _GROUP_DELAY_WORDS = Words("groupDelay", "group_delay", hidden=("from", "to"))
 _GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference")
+# design.edge_filter()'s pass_ is the API's pass, a keyword in Python.
+_EDGE_FILTER_WORDS = Words("edgeFilter", "edge_filter", names={"pass": "pass_"})
+_APPLY_EDGE_FILTER_WORDS = Words("applyEdgeFilter", "apply_edge_filter", names={"pass": "pass_"})
+# design.process_steps() and export_process() take the range as their arguments.
+_PROCESS_WORDS = Words("processSteps", "process_steps", hidden=("from", "to"))
+_PROCESS_OPTIONS = ("step", "side", "other_side", "quantity", "angle", "pol", "chips")
+_EXPORT_WORDS = Words("exportProcess", "export_process", hidden=("from", "to"))
+_EXPORT_OPTIONS = _PROCESS_OPTIONS + ("format", "files", "header", "delimiter", "scale", "decimals", "decimal_mark")
 
 
 def mode_of(data):
@@ -965,6 +974,102 @@ class Design:
         return differences_of(found, {mode: side for side, mode in SIDES.items()},
                               {mode: name for name, mode in SCORE_ON.items()})
 
+    def edge_filter(self, **options):
+        """The periods of a non-polarizing edge filter, as the Edge Filter
+        window searches them: the five-layer period (aA bB cA bB aA), or
+        (aB bA cB bA aB), whose s and p zone edges meet at the edge
+        wavelength at the angle of incidence, a, b and c quarter waves at the
+        edge wavelength, best first: the widest rejection band, then the
+        widest pass region. At 0° the search gives the quarter-wave period
+        both ways round, with c None. A and B are taken as lossless, at their
+        real indices at the edge wavelength. Without keywords, the window's
+        opening settings on this design.
+
+        Args:
+            pass_: "short", a shortwave pass, or "long", a longwave pass.
+                Default "short".
+            edge: The edge wavelength, nm. Default: the design's reference
+                wavelength.
+            angle: The angle of incidence, degrees in the incident medium, 0
+                up to but not including 90. Default 0.
+            a: Material A, by id. Default: the lowest index of the front
+                layers, or SiO2 when the front has fewer than two materials.
+            b: Material B, by id. Default: the highest index of the front
+                layers, or TiO2.
+            incident: The medium the light arrives from, by id. Default: the
+                design's incident medium.
+            lower: The first a searched, quarter waves, from 0. Default 0.1.
+            upper: The last a searched, quarter waves, above lower and up to
+                2. Default 1.
+            step: The step of a, 0.0001 or more; at an angle above 0 the
+                finest step over the widest range takes minutes. Default 0.05.
+            periods: The number of periods each solution's formula repeats.
+                Default 10.
+
+        Returns:
+            An EdgeFilter, a named tuple: pass_, edge (nm), angle; materials
+            and indices, each a dict of a, b and incident, the ids searched
+            and their real indices at the edge; absorbing, the ids of A and B
+            with k above 0 there; periods; and solutions, best first, each an
+            EdgeSolution: outer, "A" or "B", the material of the outer and
+            centre layers; a, b and c in quarter waves; sigma, N11 at the
+            edge, +1 or -1; zone_s and zone_p the widths of the s and p zones
+            and pass_width that of the pass region, nm, inf where it does not
+            end; formula, the filter as Stack Formula writes it, H the higher
+            index of A and B.
+
+        Raises:
+            TFStudioError: an option it does not take or a value an option
+                cannot take, a material id that resolves to nothing, a
+                material with no index at the edge wavelength, A and B of one
+                index there, or a material past its critical angle.
+
+        Example::
+
+            design = tf.new_design("Edge")
+            found = design.edge_filter(edge=1000, angle=45, a="SiO2", b="TiO2")
+            print(len(found.solutions), "periods; best", found.solutions[0].formula)
+        """
+        with worded(_EDGE_FILTER_WORDS):
+            return edge_filter_of(self._calls.edgeFilter(self._data, api_names(options)))
+
+    def apply_edge_filter(self, **options):
+        """Puts an edge filter in, as the Edge Filter window's Replace or
+        Append puts the period it lists in: the search is edge_filter()'s
+        with the same keywords, and the solution chosen is built through
+        Stack Formula with each pair of touching outer layers joined into
+        one. Replace puts the filter in place of the side's layers, makes the
+        edge wavelength the reference wavelength, and makes the medium
+        searched the incident medium of a front filter or the exit medium of
+        a back one; Append adds the layers outside the side's own. Filling the
+        side a one-sided design does not coat makes it coated on both when its
+        other side has layers, and on the filled side alone when it has none,
+        as the window does. It takes edge_filter()'s keywords too, which give
+        the search.
+
+        Args:
+            solution: Which solution, its place in edge_filter()'s list, from
+                0, the best. Default 0.
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone. A symmetric design takes the
+                front.
+            mode: "replace" or "append". Default "replace".
+
+        Raises:
+            TFStudioError: what edge_filter() raises, a solution that is not
+                in the list, a side other than "front" or "back", the back of
+                a symmetric design, or a mode other than "replace" or
+                "append".
+
+        Example::
+
+            design = tf.new_design("Short-wave pass")
+            design.apply_edge_filter(edge=700, a="SiO2", b="TiO2", periods=8)
+            print(len(design.layers), "layers; reference", design.reference, "nm")
+        """
+        with worded(_APPLY_EDGE_FILTER_WORDS):
+            self._data = self._calls.applyEdgeFilter(self._data, api_names(options))
+
     def _edit(self, call, method, **options):
         """The design changed by the API's call `call` with `options`, for the
         method `method`, whose name its refusals then begin with."""
@@ -1598,6 +1703,113 @@ class Design:
             print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
         """
         return GroupDelay(self._over_range(_GROUP_DELAY_WORDS, _GROUP_DELAY_OPTIONS, start, end, options))
+
+    def process_steps(self, start=None, end=None, **options):
+        """The spectrum a monitor in the chamber reads after each layer of
+        one side, as the Process Exporter window computes its finished-layer
+        curves: the layers deposited from the substrate out, an empty layer
+        left out, the piece read in air. On the part the other side stays
+        bare or carries its whole coating for the run; on witness chips each
+        chip is a run of its own from bare chip glass, each layer
+        witness_ratio times its thickness on the part. The design's cone of
+        incidence is not used.
+
+        Args:
+            start: The first wavelength, nm. Default 400.
+            end: The last wavelength, nm, above start. Default 1100.
+            step: The wavelength step, nm. Default 0.5.
+            side: "front" or "back", the side deposited. Default: the front,
+                or the back of a design coated on the back alone.
+            other_side: "bare" or "coated": the other side of the part,
+                without or with its coating. Not used on chips. Default
+                "bare".
+            quantity: "T", "R" or "A". Default "T".
+            angle: The angle of incidence, degrees in air, 0 up to but not
+                including 90. Default 0.
+            pol: "avg", "s" or "p". Default "avg".
+            chips: On witness chips, a dict of layers_per_chip, plan, glass
+                and witness_ratio, each optional: plan a chip number for each
+                layer of the side from the substrate out, empty layers
+                included, in place of layers_per_chip layers to a chip (3
+                without either); glass the chip glass by id, the substrate
+                without it; witness_ratio the witness thickness over the
+                part's, from 0.05 to 10, 1 without it. Default: the part.
+
+        Returns:
+            A ProcessSteps, a named tuple: mode, the side deposited;
+            quantity; wavelength (nm); bare, the spectrum before the first
+            layer; and steps, one ProcessStep per layer deposited: step from
+            1, layer its Design Editor number from 1 next to the substrate,
+            material by id, thickness on the piece read in nm, chip its chip
+            number or None on the part, values the spectrum when it is
+            finished, fractions of 1.
+
+        Raises:
+            TFStudioError: an option it does not take or a value an option
+                cannot take, a range that is not one, more than a million
+                wavelengths, a chip plan whose length is not the side's layer
+                count, a chip glass that resolves to nothing, or a design that
+                names a material that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("H L")
+            run = design.process_steps(400, 800, step=5)
+            at = run.wavelength.index(550)
+            for s in run.steps:
+                print("step", s.step, s.material, "T at 550 nm", round(s.values[at], 4))
+        """
+        refuse_arguments("process_steps", options, ("from", "to"), _PROCESS_OPTIONS)
+        with worded(_PROCESS_WORDS):
+            answer = self._calls.processSteps(self._data, dict(run_options(options), **api_names({"from": start, "to": end})))
+        return process_steps_of(answer)
+
+    def export_process(self, folder, start=None, end=None, **options):
+        """Writes the files the Process Exporter window's Save writes for a
+        run into a folder: one .res file a step (01.res, 02.res, ...), or
+        CSV or text files, one a step or one table a run, each spectrum as
+        process_steps() computes it. On witness chips each chip's files go in
+        a folder of its own inside it. A file of the same name already there
+        is replaced, as Save replaces it. It takes process_steps()'s keywords
+        too, which give the run.
+
+        Args:
+            folder: The folder the files go in, which must be there.
+            start: The first wavelength written, nm. Default 400.
+            end: The last wavelength written, nm, above start. Default 1100.
+            format: "res", "csv" or "txt". A .res file has one layout, which
+                the keywords below do not change. Default "res".
+            files: "step", one file a step, or "table", one file a run with a
+                column a step. Default "step".
+            header: "layers", the .res header with its layer table;
+                "conditions", the lines Measured Spectra's import reads back;
+                or "none". Default "layers".
+            delimiter: ",", ";", a tab or a space. Default ",".
+            scale: "percent" or "fraction". Default "percent".
+            decimals: The decimals of each value, a whole number from 0 to
+                12. Default 5.
+            decimal_mark: "." or ","; a comma takes a delimiter other than a
+                comma. Default ".".
+
+        Returns:
+            The paths of the files written, in run order.
+
+        Raises:
+            TFStudioError: what process_steps() raises, an output option or
+                value it does not take, a folder that is not there, or a side
+                with no layers to deposit.
+
+        Example::
+
+            import tempfile
+            design = tf.new_design("AR")
+            design.stack("H L")
+            print(design.export_process(tempfile.mkdtemp(), 400, 800, step=1))
+        """
+        refuse_arguments("export_process", options, ("from", "to"), _EXPORT_OPTIONS)
+        with worded(_EXPORT_WORDS):
+            return self._calls.exportProcess(self._data, folder, dict(run_options(options), **api_names({"from": start, "to": end})))
 
     def _read(self, call, method, **options):
         """What the API's call `call` reads of the design with `options`, for

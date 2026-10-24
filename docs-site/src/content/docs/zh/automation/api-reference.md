@@ -810,6 +810,80 @@ for layer in design.differences(kicked).layers:
     print(layer.side, layer.number, layer.change)
 ```
 
+### edgeFilter / edge_filter
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.edgeFilter({ pass, edge, angle, a, b, incident, lower, upper, step, periods })` | `design.edge_filter(pass_="short", edge=..., angle=0, a=..., b=..., incident=..., lower=0.1, upper=1, step=0.05, periods=10)` |
+
+**JavaScript**：按边缘滤光片窗口的方式搜索非偏振边缘滤光片的周期：五层周期 (aA bB cA bB aA) 或 (aB bA cB bA aB)，其 s 与 p 截止带边缘在该入射角下落在边缘波长处，a、b、c 为边缘波长处的四分之一波倍数；最好的在前：截止带最宽者优先，其次是通带最宽者。在 0° 时搜索给出正反两种排列的四分之一波周期，c 为 null。A 与 B 按其在边缘波长处的实折射率视为无损耗。不给选项时，使用窗口在此设计上打开时的设置。
+
+**Python**：按边缘滤光片窗口的方式搜索非偏振边缘滤光片的周期：五层周期 (aA bB cA bB aA) 或 (aB bA cB bA aB)，其 s 与 p 截止带边缘在该入射角下落在边缘波长处，a、b、c 为边缘波长处的四分之一波倍数；最好的在前：截止带最宽者优先，其次是通带最宽者。在 0° 时搜索给出正反两种排列的四分之一波周期，c 为 None。A 与 B 按其在边缘波长处的实折射率视为无损耗。不给关键字参数时，使用窗口在此设计上打开时的设置。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `pass` | `pass_` | `'short'` | `'short'` 为短波通，`'long'` 为长波通。 |
+| `edge` | `edge` |  | 边缘波长，单位 nm。不给出时为设计的参考波长。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在入射介质中计，从 0 起，小于 90。 |
+| `a` | `a` |  | 材料 A，按 id 给出。不给出时为正面膜层中折射率最低的材料；正面材料不足两种时为 SiO2。 |
+| `b` | `b` |  | 材料 B，按 id 给出。不给出时为正面膜层中折射率最高的材料，或 TiO2。 |
+| `incident` | `incident` |  | 光射来的介质，按 id 给出。不给出时为设计的入射介质。 |
+| `lower` | `lower` | `0.1` | 搜索的第一个 a，单位为四分之一波，从 0 起。 |
+| `upper` | `upper` | `1` | 搜索的最后一个 a，单位为四分之一波，大于 lower 且不超过 2。 |
+| `step` | `step` | `0.05` | a 的步长，不小于 0.0001；在大于 0 的入射角下，以最细步长搜索最宽范围需要几分钟。 |
+| `periods` | `periods` | `10` | 每个解的公式重复的周期数。 |
+
+**返回**：**JavaScript**：一个对象：`pass`、`edge`（nm）、`angle`；`materials` 和 `indices`，各为 `{ a, b, incident }`，即所搜索材料的 id 及其在边缘处的实折射率；`absorbing`，A 与 B 中在该处 k 大于 0 的材料 id；`periods`；以及 `solutions`，最好的在前，每个为 `{ outer, a, b, c, sigma, zoneS, zoneP, passWidth, formula }`：outer 为 `'A'` 或 `'B'`，即外层和中心层的材料；a、b、c 以四分之一波计；sigma 为边缘处的 N11，+1 或 -1；zoneS 与 zoneP 为 s 与 p 截止带的宽度，passWidth 为通带宽度，单位 nm，通带不结束时为 Infinity；formula 为按堆栈公式写出的滤光片，H 为 A 与 B 中折射率较高者。<br>**Python**：一个 EdgeFilter，即具名元组：pass_、edge（nm）、angle；materials 和 indices，各为含 a、b、incident 的 dict，即所搜索材料的 id 及其在边缘处的实折射率；absorbing，A 与 B 中在该处 k 大于 0 的材料 id；periods；以及 solutions，最好的在前，每个为一个 EdgeSolution：outer 为 "A" 或 "B"，即外层和中心层的材料；a、b、c 以四分之一波计；sigma 为边缘处的 N11，+1 或 -1；zone_s 与 zone_p 为 s 与 p 截止带的宽度，pass_width 为通带宽度，单位 nm，通带不结束时为 inf；formula 为按堆栈公式写出的滤光片，H 为 A 与 B 中折射率较高者。
+
+**拒绝**：
+
+- 不接受的选项或选项不能取的值、找不到对应材料的材料 id、在边缘波长处没有折射率的材料、A 与 B 在该处折射率相同，或材料超过其临界角
+
+```js
+const design = tf.newDesign('Edge');
+const found = design.edgeFilter({ edge: 1000, angle: 45, a: 'SiO2', b: 'TiO2' });
+console.log(found.solutions.length, 'periods; best', found.solutions[0].formula);
+```
+
+```python
+design = tf.new_design("Edge")
+found = design.edge_filter(edge=1000, angle=45, a="SiO2", b="TiO2")
+print(len(found.solutions), "periods; best", found.solutions[0].formula)
+```
+
+### applyEdgeFilter / apply_edge_filter
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.applyEdgeFilter({ solution, side, mode })` | `design.apply_edge_filter(solution=0, side=..., mode="replace")` |
+
+**JavaScript**：按边缘滤光片窗口“替换”或“追加”放入所列周期的方式放入边缘滤光片：搜索与 edgeFilter() 使用相同选项时相同，所选的解通过堆栈公式构建，每对相接的外层合并为一层。“替换”用滤光片取代该面的膜层，把边缘波长设为参考波长，并把所搜索的介质设为正面滤光片的入射介质或背面滤光片的出射介质；“追加”把膜层加在该面原有膜层的外侧。向单面设计未镀膜的一面放入膜层时，若另一面有膜层，设计变为两面镀膜；若另一面没有膜层，则只在放入的一面镀膜，与窗口相同。
+
+**Python**：按边缘滤光片窗口“替换”或“追加”放入所列周期的方式放入边缘滤光片：搜索与 edge_filter() 使用相同关键字参数时相同，所选的解通过堆栈公式构建，每对相接的外层合并为一层。“替换”用滤光片取代该面的膜层，把边缘波长设为参考波长，并把所搜索的介质设为正面滤光片的入射介质或背面滤光片的出射介质；“追加”把膜层加在该面原有膜层的外侧。向单面设计未镀膜的一面放入膜层时，若另一面有膜层，设计变为两面镀膜；若另一面没有膜层，则只在放入的一面镀膜，与窗口相同。它也接受 edge_filter() 的关键字参数，用于搜索。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `options` |  |  | **JavaScript**：edgeFilter() 的选项，以及以下各项。 |
+| `solution` | `solution` | `0` | 选用哪个解，即它在 `edgeFilter()` / `edge_filter()` 列表中的位置，从 0 起，0 为最好的。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。对称设计取正面。 |
+| `mode` | `mode` | `'replace'` | `'replace'` 或 `'append'`。 |
+
+**拒绝**：
+
+- **JavaScript**：edgeFilter() 抛出的错误、不在列表中的解、`'front'` 或 `'back'` 以外的面、对称设计的背面，或 `'replace'` 或 `'append'` 以外的模式<br>**Python**：edge_filter() 引发的错误、不在列表中的解、"front" 或 "back" 以外的面、对称设计的背面，或 "replace" 或 "append" 以外的模式
+
+```js
+const design = tf.newDesign('Short-wave pass');
+design.applyEdgeFilter({ edge: 700, a: 'SiO2', b: 'TiO2', periods: 8 });
+console.log(design.layers.length, 'layers; reference', design.reference, 'nm');
+```
+
+```python
+design = tf.new_design("Short-wave pass")
+design.apply_edge_filter(edge=700, a="SiO2", b="TiO2", periods=8)
+print(len(design.layers), "layers; reference", design.reference, "nm")
+```
+
 ### spectrum
 
 | JavaScript | Python |
@@ -1367,6 +1441,94 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 g = design.group_delay(500, 600, step=1)
 print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+```
+
+### processSteps / process_steps
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.processSteps(start, end, { step, side, otherSide, quantity, angle, pol, chips })` | `design.process_steps(start=400, end=1100, step=0.5, side=..., other_side="bare", quantity="T", angle=0, pol="avg", chips=...)` |
+
+按工艺导出器窗口计算各层完成光谱的方式，给出腔体内监控仪在一面的每层之后读到的光谱：膜层从基底向外沉积，空层略去，被测件在空气中读取。在工件上，另一面在整个运行中保持裸露或带有其全部镀膜；在监控片上，每片监控片从裸监控片玻璃开始自成一次运行，每层厚度为其在工件上厚度的 `witnessRatio` / `witness_ratio` 倍。不使用设计的入射锥角。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` | `400` | 起始波长，单位 nm。 |
+| `end` | `end` | `1100` | 终止波长，单位 nm，大于 `start`。 |
+| `step` | `step` | `0.5` | 波长步长，单位 nm。 |
+| `side` | `side` |  | `'front'` 或 `'back'`，即沉积的那一面。不给出时为正面，只在背面镀膜的设计则为背面。 |
+| `otherSide` | `other_side` | `'bare'` | `'bare'` 或 `'coated'`：工件的另一面无镀膜或带有其镀膜。监控片上不使用。 |
+| `quantity` | `quantity` | `'T'` | `'T'`、`'R'` 或 `'A'`。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在空气中计，从 0 起，小于 90。 |
+| `pol` | `pol` | `'avg'` | `'avg'`、`'s'` 或 `'p'`。 |
+| `chips` | `chips` |  | **JavaScript**：在监控片上时为 `{ layersPerChip, plan, glass, witnessRatio }`，各项均可省略：`plan` 为该面从基底向外每一层的监控片编号，包括空层，代替每片 `layersPerChip` 层（两者都不给时为 3）；`glass` 为监控片玻璃，按 id 给出，不给出时为基底；`witnessRatio` 为监控片厚度与工件厚度之比，从 0.05 到 10，不给出时为 1。不给出时为工件。<br>**Python**：在监控片上时为含 layers_per_chip、plan、glass 和 witness_ratio 的 dict，各项均可省略：plan 为该面从基底向外每一层的监控片编号，包括空层，代替每片 layers_per_chip 层（两者都不给时为 3）；glass 为监控片玻璃，按 id 给出，不给出时为基底；witness_ratio 为监控片厚度与工件厚度之比，从 0.05 到 10，不给出时为 1。不给出时为工件。 |
+
+**返回**：**JavaScript**：一个对象：`mode`，沉积的那一面；`quantity`；`wavelength`（nm）；`bare`，第一层之前的光谱；以及 `steps`，每沉积一层一项，每项为 `{ step, layer, material, thickness, chip, values }`：step 从 1 起，layer 为它在设计编辑器中的编号，从紧邻基底的 1 起，material 按 id 给出，thickness 为所读取被测件上的厚度，单位 nm，chip 为它的监控片编号，工件上为 null，values 为该层完成时的光谱，以 1 的分数表示。<br>**Python**：一个 ProcessSteps，即具名元组：mode，沉积的那一面；quantity；wavelength（nm）；bare，第一层之前的光谱；以及 steps，每沉积一层一个 ProcessStep：step 从 1 起，layer 为它在设计编辑器中的编号，从紧邻基底的 1 起，material 按 id 给出，thickness 为所读取被测件上的厚度，单位 nm，chip 为它的监控片编号，工件上为 None，values 为该层完成时的光谱，以 1 的分数表示。
+
+**拒绝**：
+
+- 不接受的选项或选项不能取的值、不构成范围的波长、超过一百万个波长、长度不等于该面层数的监控片方案、找不到对应材料的监控片玻璃，或引用了找不到对应材料的设计
+
+```js
+const design = tf.newDesign('AR');
+design.stack('H L');
+const run = design.processSteps(400, 800, { step: 5 });
+const at = run.wavelength.indexOf(550);
+for (const s of run.steps) console.log('step', s.step, s.material, 'T at 550 nm', s.values[at].toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("H L")
+run = design.process_steps(400, 800, step=5)
+at = run.wavelength.index(550)
+for s in run.steps:
+    print("step", s.step, s.material, "T at 550 nm", round(s.values[at], 4))
+```
+
+### exportProcess / export_process
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.exportProcess(folder, start, end, { format, files, header, delimiter, scale, decimals, decimalMark })` | `design.export_process(folder, start=400, end=1100, format="res", files="step", header="layers", delimiter=",", scale="percent", decimals=5, decimal_mark=".")` |
+
+**JavaScript**：把工艺导出器窗口“保存”为一次运行写出的文件写入文件夹：每步一个 `.res` 文件（01.res、02.res……），或 CSV、文本文件，每步一个或每次运行一个表格，每个光谱都按 processSteps() 的方式计算。在监控片上，每片监控片的文件放在该文件夹内各自的子文件夹中。文件夹中已有同名文件时会被替换，与“保存”相同。
+
+**Python**：把工艺导出器窗口“保存”为一次运行写出的文件写入文件夹：每步一个 `.res` 文件（01.res、02.res……），或 CSV、文本文件，每步一个或每次运行一个表格，每个光谱都按 process_steps() 的方式计算。在监控片上，每片监控片的文件放在该文件夹内各自的子文件夹中。文件夹中已有同名文件时会被替换，与“保存”相同。它也接受 process_steps() 的关键字参数，用于设定这次运行。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `folder` | `folder` |  | 写入文件的文件夹，必须已经存在。 |
+| `start` | `start` | `400` | 写入的起始波长，单位 nm。 |
+| `end` | `end` | `1100` | 写入的终止波长，单位 nm，大于 `start`。 |
+| `options` |  |  | **JavaScript**：processSteps() 的选项，以及以下各项。 |
+| `format` | `format` | `'res'` | **JavaScript**：`'res'`、`'csv'` 或 `'txt'`。`.res` 文件只有一种格式，以下选项不改变它。<br>**Python**："res"、"csv" 或 "txt"。`.res` 文件只有一种格式，以下关键字参数不改变它。 |
+| `files` | `files` | `'step'` | `'step'` 为每步一个文件，`'table'` 为每次运行一个文件，每步一列。 |
+| `header` | `header` | `'layers'` | `'layers'` 为带膜层表的 `.res` 文件头；`'conditions'` 为实测光谱导入能读回的条件行；`'none'` 为无文件头。 |
+| `delimiter` | `delimiter` | `','` | `','`、`';'`、制表符或空格。 |
+| `scale` | `scale` | `'percent'` | `'percent'` 或 `'fraction'`。 |
+| `decimals` | `decimals` | `5` | 每个数值的小数位数，从 0 到 12 的整数。 |
+| `decimalMark` | `decimal_mark` | `'.'` | `'.'` 或 `','`；用逗号时分隔符不能是逗号。 |
+
+**返回**：写入的文件路径，按运行顺序。
+
+**拒绝**：
+
+- **JavaScript**：processSteps() 抛出的错误、不接受的输出选项或值、不存在的文件夹，或没有可沉积膜层的面<br>**Python**：process_steps() 引发的错误、不接受的输出选项或值、不存在的文件夹，或没有可沉积膜层的面
+
+```js
+const fs = require('fs'), path = require('path'), os = require('os');
+const design = tf.newDesign('AR');
+design.stack('H L');
+const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'process-'));
+console.log(design.exportProcess(folder, 400, 800, { step: 1 }));
+```
+
+```python
+import tempfile
+design = tf.new_design("AR")
+design.stack("H L")
+print(design.export_process(tempfile.mkdtemp(), 400, 800, step=1))
 ```
 
 ### refine

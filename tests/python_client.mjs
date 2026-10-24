@@ -11,7 +11,9 @@
  *      took aside: designs built, edited, cleaned, saved (to the bytes the API
  *      writes) and opened again, a layer set by its QWOT, sides scaled,
  *      rounded, perturbed, flipped and copied, one rounding and one flip
- *      refused, two designs compared, spectra, a band's
+ *      refused, two designs compared, an edge filter searched, one refused
+ *      and one put in, a deposition run on the part, one on chips with a
+ *      plan of the wrong length refused, its files written, spectra, a band's
  *      width and an edge against angle, a spectrum file read and a design
  *      compared with a curve of it or one given, and a file of several curves
  *      compared without naming one refused, index
@@ -277,6 +279,8 @@ const STOPPED_WITHIN_S = 5;
     fs.writeFileSync(taken, '');
     const there = path.join(WORK, 'there.tfs');
     const here = path.join(WORK, 'here.tfs');
+    const processFolder = path.join(WORK, 'process');
+    fs.mkdirSync(processFolder);
     const spectrum = api.spectrum(stack, { from: 400, to: 700, step: 10, angles: [0, 45] });
     const scan = path.join(WORK, 'scan.csv');
     fs.writeFileSync(scan, '# AOI 8 deg\nWavelength (nm),R,Ts\n450,0.1,0.85\n500,0.06,0.9\n550,0.04,0.93\n600,0.05,0.91\n650,0.08,0.88\n');
@@ -297,6 +301,12 @@ const STOPPED_WITHIN_S = 5;
         ['flipLayers', [stack, { side: 'back' }]],
         ['copySide', [api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { from: 'front' }]],
         ['designDifferences', [stack, api.scaleThicknesses(stack, { factor: 1.1 })]],
+        ['edgeFilter', [stack, { angle: 45, edge: 650 }]],
+        ['edgeFilter', [stack, { pass: 'band' }]],
+        ['applyEdgeFilter', [stack, { solution: 1, periods: 4 }]],
+        ['processSteps', [stack, { otherSide: 'coated', step: 5 }]],
+        ['processSteps', [stack, { chips: { plan: [1] } }]],
+        ['exportProcess', [stack, processFolder, { step: 10 }]],
         ['findMaterials', ['SiO2']],
         ['findMaterials', []],
         ['materialNK', ['TiO2', [400, 550, 700]]],

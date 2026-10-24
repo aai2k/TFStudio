@@ -471,6 +471,64 @@ export class Design {
     }
 
     /**
+     * The periods of a non-polarizing edge filter, as the Edge Filter window
+     * searches them: the five-layer period (aA bB cA bB aA), or (aB bA cB bA
+     * aB), whose s and p zone edges meet at the edge wavelength at the angle
+     * of incidence, a, b and c quarter waves at the edge wavelength, best
+     * first: the widest rejection band, then the widest pass region. At 0° the
+     * search gives the quarter-wave period both ways round, with c null. A and
+     * B are taken as lossless, at their real indices at the edge wavelength.
+     * Without options, the window's opening settings on this design.
+     *
+     * @param [options]
+     * @param [options.pass='short'] `'short'`, a shortwave pass, or `'long'`, a longwave pass.
+     * @param [options.edge] The edge wavelength, nm. Without it, the design's reference wavelength.
+     * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90.
+     * @param [options.a] Material A, by id. Without it, the lowest index of the front layers, or SiO2 when the front has fewer than two materials.
+     * @param [options.b] Material B, by id. Without it, the highest index of the front layers, or TiO2.
+     * @param [options.incident] The medium the light arrives from, by id. Without it, the design's incident medium.
+     * @param [options.lower=0.1] The first a searched, quarter waves, from 0.
+     * @param [options.upper=1] The last a searched, quarter waves, above lower and up to 2.
+     * @param [options.step=0.05] The step of a, 0.0001 or more; at an angle above 0 the finest step over the widest range takes minutes.
+     * @param [options.periods=10] The number of periods each solution's formula repeats.
+     * @returns An object: `pass`, `edge` (nm), `angle`; `materials` and `indices`, each `{ a, b, incident }`, the ids searched and their real indices at the edge; `absorbing`, the ids of A and B with k above 0 there; `periods`; and `solutions`, best first, each `{ outer, a, b, c, sigma, zoneS, zoneP, passWidth, formula }`: outer `'A'` or `'B'`, the material of the outer and centre layers; a, b and c in quarter waves; sigma, N11 at the edge, +1 or -1; zoneS and zoneP the widths of the s and p zones and passWidth that of the pass region, nm, Infinity where it does not end; formula, the filter as Stack Formula writes it, H the higher index of A and B.
+     * @throws an option it does not take or a value an option cannot take, a material id that resolves to nothing, a material with no index at the edge wavelength, A and B of one index there, or a material past its critical angle
+     * @example
+     * const design = tf.newDesign('Edge');
+     * const found = design.edgeFilter({ edge: 1000, angle: 45, a: 'SiO2', b: 'TiO2' });
+     * console.log(found.solutions.length, 'periods; best', found.solutions[0].formula);
+     */
+    edgeFilter(options) {
+        return worded({ method: 'edgeFilter', call: 'edgeFilter' }, () => api.edgeFilter(this._data, optionsOf('edgeFilter', options)));
+    }
+
+    /**
+     * Puts an edge filter in, as the Edge Filter window's Replace or Append
+     * puts the period it lists in: the search is edgeFilter()'s with the same
+     * options, and the solution chosen is built through Stack Formula with
+     * each pair of touching outer layers joined into one. Replace puts the
+     * filter in place of the side's layers, makes the edge wavelength the
+     * reference wavelength, and makes the medium searched the incident medium
+     * of a front filter or the exit medium of a back one; Append adds the
+     * layers outside the side's own. Filling the side a one-sided design does
+     * not coat makes it coated on both when its other side has layers, and on
+     * the filled side alone when it has none, as the window does.
+     *
+     * @param [options] edgeFilter()'s options, and these.
+     * @param [options.solution=0] Which solution, its place in edgeFilter()'s list, from 0, the best.
+     * @param [options.side] `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone. A symmetric design takes the front.
+     * @param [options.mode='replace'] `'replace'` or `'append'`.
+     * @throws what edgeFilter() throws, a solution that is not in the list, a side other than `'front'` or `'back'`, the back of a symmetric design, or a mode other than `'replace'` or `'append'`
+     * @example
+     * const design = tf.newDesign('Short-wave pass');
+     * design.applyEdgeFilter({ edge: 700, a: 'SiO2', b: 'TiO2', periods: 8 });
+     * console.log(design.layers.length, 'layers; reference', design.reference, 'nm');
+     */
+    applyEdgeFilter(options) {
+        this._data = worded({ method: 'applyEdgeFilter', call: 'applyEdgeFilter' }, () => api.applyEdgeFilter(this._data, optionsOf('applyEdgeFilter', options)));
+    }
+
+    /**
      * R, T and A over a range of wavelengths, for unpolarized light and for s
      * and p, as the Optical Evaluation window computes them. What it is
      * computed on follows the design's `sides` and `scoreOn`, and the
@@ -903,6 +961,77 @@ export class Design {
         const words = { method: 'groupDelay', call: 'groupDelay', hidden: ['from', 'to'] };
         const given = checkOptions('groupDelay', options, ['step', 'angle', 'pol', 'response', 'side', 'reference']);
         return new GroupDelay(worded(words, () => api.groupDelay(this._data, defined({ ...given, from: start, to: end }))));
+    }
+
+    /**
+     * The spectrum a monitor in the chamber reads after each layer of one
+     * side, as the Process Exporter window computes its finished-layer
+     * curves: the layers deposited from the substrate out, an empty layer
+     * left out, the piece read in air. On the part the other side stays bare
+     * or carries its whole coating for the run; on witness chips each chip is
+     * a run of its own from bare chip glass, each layer `witnessRatio` times
+     * its thickness on the part. The design's cone of incidence is not used.
+     *
+     * @param [start=400] The first wavelength, nm.
+     * @param [end=1100] The last wavelength, nm, above `start`.
+     * @param [options]
+     * @param [options.step=0.5] The wavelength step, nm.
+     * @param [options.side] `'front'` or `'back'`, the side deposited. Without it, the front, or the back of a design coated on the back alone.
+     * @param [options.otherSide='bare'] `'bare'` or `'coated'`: the other side of the part, without or with its coating. Not used on chips.
+     * @param [options.quantity='T'] `'T'`, `'R'` or `'A'`.
+     * @param [options.angle=0] The angle of incidence, degrees in air, 0 up to but not including 90.
+     * @param [options.pol='avg'] `'avg'`, `'s'` or `'p'`.
+     * @param [options.chips] On witness chips, `{ layersPerChip, plan, glass, witnessRatio }`, each optional: `plan` a chip number for each layer of the side from the substrate out, empty layers included, in place of `layersPerChip` layers to a chip (3 without either); `glass` the chip glass by id, the substrate without it; `witnessRatio` the witness thickness over the part's, from 0.05 to 10, 1 without it. Without it, the part.
+     * @returns An object: `mode`, the side deposited; `quantity`; `wavelength` (nm); `bare`, the spectrum before the first layer; and `steps`, one per layer deposited, each `{ step, layer, material, thickness, chip, values }`: step from 1, layer its Design Editor number from 1 next to the substrate, material by id, thickness on the piece read in nm, chip its chip number or null on the part, values the spectrum when it is finished, fractions of 1.
+     * @throws an option it does not take or a value an option cannot take, a range that is not one, more than a million wavelengths, a chip plan whose length is not the side's layer count, a chip glass that resolves to nothing, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('H L');
+     * const run = design.processSteps(400, 800, { step: 5 });
+     * const at = run.wavelength.indexOf(550);
+     * for (const s of run.steps) console.log('step', s.step, s.material, 'T at 550 nm', s.values[at].toFixed(4));
+     */
+    processSteps(...args) {
+        const [[start, end], options] = trailingOptions('processSteps', args, ['start', 'end']);
+        const words = { method: 'processSteps', call: 'processSteps', hidden: ['from', 'to'] };
+        const given = checkOptions('processSteps', options, ['step', 'side', 'otherSide', 'quantity', 'angle', 'pol', 'chips']);
+        return worded(words, () => api.processSteps(this._data, defined({ ...given, from: start, to: end })));
+    }
+
+    /**
+     * Writes the files the Process Exporter window's Save writes for a run
+     * into a folder: one .res file a step (01.res, 02.res, ...), or CSV or
+     * text files, one a step or one table a run, each spectrum as
+     * processSteps() computes it. On witness chips each chip's files go in a
+     * folder of its own inside it. A file of the same name already there is
+     * replaced, as Save replaces it.
+     *
+     * @param folder The folder the files go in, which must be there.
+     * @param [start=400] The first wavelength written, nm.
+     * @param [end=1100] The last wavelength written, nm, above `start`.
+     * @param [options] processSteps()'s options, and these.
+     * @param [options.format='res'] `'res'`, `'csv'` or `'txt'`. A .res file has one layout, which the options below do not change.
+     * @param [options.files='step'] `'step'`, one file a step, or `'table'`, one file a run with a column a step.
+     * @param [options.header='layers'] `'layers'`, the .res header with its layer table; `'conditions'`, the lines Measured Spectra's import reads back; or `'none'`.
+     * @param [options.delimiter=','] `','`, `';'`, a tab or a space.
+     * @param [options.scale='percent'] `'percent'` or `'fraction'`.
+     * @param [options.decimals=5] The decimals of each value, a whole number from 0 to 12.
+     * @param [options.decimalMark='.'] `'.'` or `','`; a comma takes a delimiter other than a comma.
+     * @returns The paths of the files written, in run order.
+     * @throws what processSteps() throws, an output option or value it does not take, a folder that is not there, or a side with no layers to deposit
+     * @example
+     * const fs = require('fs'), path = require('path'), os = require('os');
+     * const design = tf.newDesign('AR');
+     * design.stack('H L');
+     * const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'process-'));
+     * console.log(design.exportProcess(folder, 400, 800, { step: 1 }));
+     */
+    exportProcess(folder, ...args) {
+        const [[start, end], options] = trailingOptions('exportProcess', args, ['start', 'end']);
+        const words = { method: 'exportProcess', call: 'exportProcess', hidden: ['from', 'to'] };
+        const given = checkOptions('exportProcess', options, ['step', 'side', 'otherSide', 'quantity', 'angle', 'pol', 'chips',
+            'format', 'files', 'header', 'delimiter', 'scale', 'decimals', 'decimalMark']);
+        return worded(words, () => api.exportProcess(this._data, folder, defined({ ...given, from: start, to: end })));
     }
 
     /**

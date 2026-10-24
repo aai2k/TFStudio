@@ -30,6 +30,13 @@ async function handlePickDir(ctx) {
 }
 
 async function handleSaveFiles(ctx, files, dir) {
+  return writeProcessFiles(ctx, files, dir);
+}
+
+// Writes `files` into `dir`, a chip's files in its own folder there, and
+// answers as the save IPC does. The headless API's exportProcess writes
+// through it too.
+function writeProcessFiles(ctx, files, dir) {
   const { fs, path, log, safeName } = ctx;
   try {
     if (!Array.isArray(files) || files.length === 0) {
@@ -58,4 +65,4 @@ async function handleSaveFiles(ctx, files, dir) {
   }
 }
 
-module.exports = { register };
+module.exports = { register, writeProcessFiles };

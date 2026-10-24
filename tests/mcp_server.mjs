@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 47
+ *   1. The session: initialize and version negotiation, the tool list (the 51
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -12,7 +12,7 @@
  *      a band's width, an edge against angle (in short with counts and
  *      extremes, in full with every angle), a spectrum file read and the
  *      design compared with a curve of it (in short with counts, spans and
- *      extremes, in full with every point), a relative file path refused, a copy perturbed with its seed
+ *      extremes, in full with every point), a relative file path refused, an edge filter search (in short with the count and the best period, in full with every one), a deposition run on chips (in short with each step's mean, min and max, in full with its values) and its files written, a relative folder refused, a copy perturbed with its seed
  *      and the differences from it (in short with counts and the largest
  *      change, in full with every layer), merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
@@ -82,7 +82,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 47 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 51 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -146,6 +146,27 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         JSON.stringify([shortCompared.rms, shortCompared.ppef, shortCompared.points, shortCompared.deviation?.max, shortCompared.wavelength, fullCompared.deviation, fullCompared.design])
         === JSON.stringify([compared.rms, compared.ppef, 4, Math.max(...compared.deviation), undefined, compared.deviation, compared.design]), JSON.stringify(shortCompared));
     ok('a relative spectrum path is refused', /absolute path/.test((await server.call('readSpectrumFile', { path: 'scan.csv' })).error));
+    const found = api.edgeFilter(local, { angle: 45 });
+    const shortEdge = await server.call('edgeFilter', { designId: id, angle: 45 });
+    const fullEdge = await server.call('edgeFilter', { designId: id, angle: 45, values: true });
+    const { solutions, ...search } = found;
+    const asJson = value => JSON.parse(JSON.stringify(value));
+    ok('edgeFilter answers with the count and the best period, and every period for values true',
+        JSON.stringify(shortEdge) === JSON.stringify(asJson({ designId: id, ...search, count: solutions.length, best: solutions[0] }))
+        && JSON.stringify(fullEdge.solutions) === JSON.stringify(asJson(solutions)) && solutions.length > 2, JSON.stringify(shortEdge).slice(0, 300));
+    const run = api.processSteps(local, { otherSide: 'coated', step: 10, chips: { layersPerChip: 3 } });
+    const shortRun = await server.call('processSteps', { designId: id, otherSide: 'coated', step: 10, chips: { layersPerChip: 3 } });
+    const fullRun = await server.call('processSteps', { designId: id, otherSide: 'coated', step: 10, chips: { layersPerChip: 3 }, values: true });
+    const last = run.steps.at(-1);
+    const shortLast = shortRun.steps?.at(-1) ?? {};
+    const summarized = [shortRun.steps?.length === 7, shortLast.max === Math.max(...last.values), shortLast.chip === 3, shortRun.pointCount === run.wavelength.length].every(Boolean);
+    ok('processSteps answers with each step\'s mean, min and max, and every value for values true',
+        summarized && !('values' in shortLast) && JSON.stringify(fullRun.steps) === JSON.stringify(run.steps), JSON.stringify(shortLast));
+    const processFolder = path.join(TEMP, 'process');
+    fs.mkdirSync(processFolder);
+    const written = await server.call('exportProcess', { designId: id, folder: processFolder, step: 10 });
+    ok('exportProcess writes the files and answers with their paths, and a relative folder is refused', written.paths?.length === 7
+        && written.paths.every(file => fs.existsSync(file)) && /absolute path/.test((await server.call('exportProcess', { designId: id, folder: 'process' })).error), JSON.stringify(written));
     const copyId = (await server.call('copyDesign', { designId: id })).designId;
     const kicked = await server.call('perturb', { designId: copyId, percent: 4, seed: 12 });
     const kickedHere = api.perturb(local, { percent: 4, seed: 12 }).design;

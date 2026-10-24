@@ -1,23 +1,9 @@
-/**
- * The edge filter into a design, the ways Stack Formula offers: Replace or
- * Append on the active design, or a New design. The light arrives from the
- * medium the filter was searched for, so that medium is the incident medium of
- * a front coating and the exit medium of a back one.
- */
+/** The edge filter as a New design. */
 
 import { makeDefaultDesign } from '../../../../state/DesignContext.js';
-import { buildReplaceAppendPatch } from '../stackFormula/designBuild.js';
+import { edgeFilterPatch } from './model.js';
 
 const reId = (layers, prefix) => layers.map((layer, i) => ({ ...layer, id: `${prefix}${i}` }));
-
-/** The design patch for Replace or Append, as Stack Formula builds it. */
-export function edgeFilterPatch({ design, mode, isSym, effSide, compiled, inputs, formula, stamp }) {
-    return buildReplaceAppendPatch({
-        design, mode, isSym, effSide, compiled, refLambda: inputs.edgeLambda,
-        substrateMat: inputs.substrateMat, incidentMat: inputs.incidentMat, exitMat: inputs.incidentMat,
-        text: formula, stamp,
-    });
-}
 
 /**
  * A new design holding the filter: an empty design with the filter put in as

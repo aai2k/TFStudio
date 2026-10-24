@@ -810,6 +810,80 @@ for layer in design.differences(kicked).layers:
     print(layer.side, layer.number, layer.change)
 ```
 
+### edgeFilter / edge_filter
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.edgeFilter({ pass, edge, angle, a, b, incident, lower, upper, step, periods })` | `design.edge_filter(pass_="short", edge=..., angle=0, a=..., b=..., incident=..., lower=0.1, upper=1, step=0.05, periods=10)` |
+
+**JavaScript**: The periods of a non-polarizing edge filter, as the Edge Filter window searches them: the five-layer period (aA bB cA bB aA), or (aB bA cB bA aB), whose s and p zone edges meet at the edge wavelength at the angle of incidence, a, b and c quarter waves at the edge wavelength, best first: the widest rejection band, then the widest pass region. At 0° the search gives the quarter-wave period both ways round, with c null. A and B are taken as lossless, at their real indices at the edge wavelength. Without options, the window's opening settings on this design.
+
+**Python**: The periods of a non-polarizing edge filter, as the Edge Filter window searches them: the five-layer period (aA bB cA bB aA), or (aB bA cB bA aB), whose s and p zone edges meet at the edge wavelength at the angle of incidence, a, b and c quarter waves at the edge wavelength, best first: the widest rejection band, then the widest pass region. At 0° the search gives the quarter-wave period both ways round, with c None. A and B are taken as lossless, at their real indices at the edge wavelength. Without keywords, the window's opening settings on this design.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `pass` | `pass_` | `'short'` | `'short'`, a shortwave pass, or `'long'`, a longwave pass. |
+| `edge` | `edge` |  | The edge wavelength, nm. Without it, the design's reference wavelength. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the incident medium, 0 up to but not including 90. |
+| `a` | `a` |  | Material A, by id. Without it, the lowest index of the front layers, or SiO2 when the front has fewer than two materials. |
+| `b` | `b` |  | Material B, by id. Without it, the highest index of the front layers, or TiO2. |
+| `incident` | `incident` |  | The medium the light arrives from, by id. Without it, the design's incident medium. |
+| `lower` | `lower` | `0.1` | The first a searched, quarter waves, from 0. |
+| `upper` | `upper` | `1` | The last a searched, quarter waves, above lower and up to 2. |
+| `step` | `step` | `0.05` | The step of a, 0.0001 or more; at an angle above 0 the finest step over the widest range takes minutes. |
+| `periods` | `periods` | `10` | The number of periods each solution's formula repeats. |
+
+**Returns**: **JavaScript**: An object: `pass`, `edge` (nm), `angle`; `materials` and `indices`, each `{ a, b, incident }`, the ids searched and their real indices at the edge; `absorbing`, the ids of A and B with k above 0 there; `periods`; and `solutions`, best first, each `{ outer, a, b, c, sigma, zoneS, zoneP, passWidth, formula }`: outer `'A'` or `'B'`, the material of the outer and centre layers; a, b and c in quarter waves; sigma, N11 at the edge, +1 or -1; zoneS and zoneP the widths of the s and p zones and passWidth that of the pass region, nm, Infinity where it does not end; formula, the filter as Stack Formula writes it, H the higher index of A and B.<br>**Python**: An EdgeFilter, a named tuple: pass_, edge (nm), angle; materials and indices, each a dict of a, b and incident, the ids searched and their real indices at the edge; absorbing, the ids of A and B with k above 0 there; periods; and solutions, best first, each an EdgeSolution: outer, "A" or "B", the material of the outer and centre layers; a, b and c in quarter waves; sigma, N11 at the edge, +1 or -1; zone_s and zone_p the widths of the s and p zones and pass_width that of the pass region, nm, inf where it does not end; formula, the filter as Stack Formula writes it, H the higher index of A and B.
+
+**Refuses**:
+
+- an option it does not take or a value an option cannot take, a material id that resolves to nothing, a material with no index at the edge wavelength, A and B of one index there, or a material past its critical angle
+
+```js
+const design = tf.newDesign('Edge');
+const found = design.edgeFilter({ edge: 1000, angle: 45, a: 'SiO2', b: 'TiO2' });
+console.log(found.solutions.length, 'periods; best', found.solutions[0].formula);
+```
+
+```python
+design = tf.new_design("Edge")
+found = design.edge_filter(edge=1000, angle=45, a="SiO2", b="TiO2")
+print(len(found.solutions), "periods; best", found.solutions[0].formula)
+```
+
+### applyEdgeFilter / apply_edge_filter
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.applyEdgeFilter({ solution, side, mode })` | `design.apply_edge_filter(solution=0, side=..., mode="replace")` |
+
+**JavaScript**: Puts an edge filter in, as the Edge Filter window's Replace or Append puts the period it lists in: the search is edgeFilter()'s with the same options, and the solution chosen is built through Stack Formula with each pair of touching outer layers joined into one. Replace puts the filter in place of the side's layers, makes the edge wavelength the reference wavelength, and makes the medium searched the incident medium of a front filter or the exit medium of a back one; Append adds the layers outside the side's own. Filling the side a one-sided design does not coat makes it coated on both when its other side has layers, and on the filled side alone when it has none, as the window does.
+
+**Python**: Puts an edge filter in, as the Edge Filter window's Replace or Append puts the period it lists in: the search is edge_filter()'s with the same keywords, and the solution chosen is built through Stack Formula with each pair of touching outer layers joined into one. Replace puts the filter in place of the side's layers, makes the edge wavelength the reference wavelength, and makes the medium searched the incident medium of a front filter or the exit medium of a back one; Append adds the layers outside the side's own. Filling the side a one-sided design does not coat makes it coated on both when its other side has layers, and on the filled side alone when it has none, as the window does. It takes edge_filter()'s keywords too, which give the search.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `options` |  |  | **JavaScript**: edgeFilter()'s options, and these. |
+| `solution` | `solution` | `0` | Which solution, its place in `edgeFilter()'s` / `edge_filter()'s` list, from 0, the best. |
+| `side` | `side` |  | `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone. A symmetric design takes the front. |
+| `mode` | `mode` | `'replace'` | `'replace'` or `'append'`. |
+
+**Refuses**:
+
+- **JavaScript**: what edgeFilter() throws, a solution that is not in the list, a side other than `'front'` or `'back'`, the back of a symmetric design, or a mode other than `'replace'` or `'append'`<br>**Python**: what edge_filter() raises, a solution that is not in the list, a side other than "front" or "back", the back of a symmetric design, or a mode other than "replace" or "append"
+
+```js
+const design = tf.newDesign('Short-wave pass');
+design.applyEdgeFilter({ edge: 700, a: 'SiO2', b: 'TiO2', periods: 8 });
+console.log(design.layers.length, 'layers; reference', design.reference, 'nm');
+```
+
+```python
+design = tf.new_design("Short-wave pass")
+design.apply_edge_filter(edge=700, a="SiO2", b="TiO2", periods=8)
+print(len(design.layers), "layers; reference", design.reference, "nm")
+```
+
 ### spectrum
 
 | JavaScript | Python |
@@ -1367,6 +1441,94 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 g = design.group_delay(500, 600, step=1)
 print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+```
+
+### processSteps / process_steps
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.processSteps(start, end, { step, side, otherSide, quantity, angle, pol, chips })` | `design.process_steps(start=400, end=1100, step=0.5, side=..., other_side="bare", quantity="T", angle=0, pol="avg", chips=...)` |
+
+The spectrum a monitor in the chamber reads after each layer of one side, as the Process Exporter window computes its finished-layer curves: the layers deposited from the substrate out, an empty layer left out, the piece read in air. On the part the other side stays bare or carries its whole coating for the run; on witness chips each chip is a run of its own from bare chip glass, each layer `witnessRatio` / `witness_ratio` times its thickness on the part. The design's cone of incidence is not used.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` | `400` | The first wavelength, nm. |
+| `end` | `end` | `1100` | The last wavelength, nm, above `start`. |
+| `step` | `step` | `0.5` | The wavelength step, nm. |
+| `side` | `side` |  | `'front'` or `'back'`, the side deposited. Without it, the front, or the back of a design coated on the back alone. |
+| `otherSide` | `other_side` | `'bare'` | `'bare'` or `'coated'`: the other side of the part, without or with its coating. Not used on chips. |
+| `quantity` | `quantity` | `'T'` | `'T'`, `'R'` or `'A'`. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in air, 0 up to but not including 90. |
+| `pol` | `pol` | `'avg'` | `'avg'`, `'s'` or `'p'`. |
+| `chips` | `chips` |  | **JavaScript**: On witness chips, `{ layersPerChip, plan, glass, witnessRatio }`, each optional: `plan` a chip number for each layer of the side from the substrate out, empty layers included, in place of `layersPerChip` layers to a chip (3 without either); `glass` the chip glass by id, the substrate without it; `witnessRatio` the witness thickness over the part's, from 0.05 to 10, 1 without it. Without it, the part.<br>**Python**: On witness chips, a dict of layers_per_chip, plan, glass and witness_ratio, each optional: plan a chip number for each layer of the side from the substrate out, empty layers included, in place of layers_per_chip layers to a chip (3 without either); glass the chip glass by id, the substrate without it; witness_ratio the witness thickness over the part's, from 0.05 to 10, 1 without it. Without it, the part. |
+
+**Returns**: **JavaScript**: An object: `mode`, the side deposited; `quantity`; `wavelength` (nm); `bare`, the spectrum before the first layer; and `steps`, one per layer deposited, each `{ step, layer, material, thickness, chip, values }`: step from 1, layer its Design Editor number from 1 next to the substrate, material by id, thickness on the piece read in nm, chip its chip number or null on the part, values the spectrum when it is finished, fractions of 1.<br>**Python**: A ProcessSteps, a named tuple: mode, the side deposited; quantity; wavelength (nm); bare, the spectrum before the first layer; and steps, one ProcessStep per layer deposited: step from 1, layer its Design Editor number from 1 next to the substrate, material by id, thickness on the piece read in nm, chip its chip number or None on the part, values the spectrum when it is finished, fractions of 1.
+
+**Refuses**:
+
+- an option it does not take or a value an option cannot take, a range that is not one, more than a million wavelengths, a chip plan whose length is not the side's layer count, a chip glass that resolves to nothing, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('AR');
+design.stack('H L');
+const run = design.processSteps(400, 800, { step: 5 });
+const at = run.wavelength.indexOf(550);
+for (const s of run.steps) console.log('step', s.step, s.material, 'T at 550 nm', s.values[at].toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("H L")
+run = design.process_steps(400, 800, step=5)
+at = run.wavelength.index(550)
+for s in run.steps:
+    print("step", s.step, s.material, "T at 550 nm", round(s.values[at], 4))
+```
+
+### exportProcess / export_process
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.exportProcess(folder, start, end, { format, files, header, delimiter, scale, decimals, decimalMark })` | `design.export_process(folder, start=400, end=1100, format="res", files="step", header="layers", delimiter=",", scale="percent", decimals=5, decimal_mark=".")` |
+
+**JavaScript**: Writes the files the Process Exporter window's Save writes for a run into a folder: one .res file a step (01.res, 02.res, ...), or CSV or text files, one a step or one table a run, each spectrum as processSteps() computes it. On witness chips each chip's files go in a folder of its own inside it. A file of the same name already there is replaced, as Save replaces it.
+
+**Python**: Writes the files the Process Exporter window's Save writes for a run into a folder: one .res file a step (01.res, 02.res, ...), or CSV or text files, one a step or one table a run, each spectrum as process_steps() computes it. On witness chips each chip's files go in a folder of its own inside it. A file of the same name already there is replaced, as Save replaces it. It takes process_steps()'s keywords too, which give the run.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `folder` | `folder` |  | The folder the files go in, which must be there. |
+| `start` | `start` | `400` | The first wavelength written, nm. |
+| `end` | `end` | `1100` | The last wavelength written, nm, above `start`. |
+| `options` |  |  | **JavaScript**: processSteps()'s options, and these. |
+| `format` | `format` | `'res'` | **JavaScript**: `'res'`, `'csv'` or `'txt'`. A .res file has one layout, which the options below do not change.<br>**Python**: "res", "csv" or "txt". A .res file has one layout, which the keywords below do not change. |
+| `files` | `files` | `'step'` | `'step'`, one file a step, or `'table'`, one file a run with a column a step. |
+| `header` | `header` | `'layers'` | `'layers'`, the .res header with its layer table; `'conditions'`, the lines Measured Spectra's import reads back; or `'none'`. |
+| `delimiter` | `delimiter` | `','` | `','`, `';'`, a tab or a space. |
+| `scale` | `scale` | `'percent'` | `'percent'` or `'fraction'`. |
+| `decimals` | `decimals` | `5` | The decimals of each value, a whole number from 0 to 12. |
+| `decimalMark` | `decimal_mark` | `'.'` | `'.'` or `','`; a comma takes a delimiter other than a comma. |
+
+**Returns**: The paths of the files written, in run order.
+
+**Refuses**:
+
+- **JavaScript**: what processSteps() throws, an output option or value it does not take, a folder that is not there, or a side with no layers to deposit<br>**Python**: what process_steps() raises, an output option or value it does not take, a folder that is not there, or a side with no layers to deposit
+
+```js
+const fs = require('fs'), path = require('path'), os = require('os');
+const design = tf.newDesign('AR');
+design.stack('H L');
+const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'process-'));
+console.log(design.exportProcess(folder, 400, 800, { step: 1 }));
+```
+
+```python
+import tempfile
+design = tf.new_design("AR")
+design.stack("H L")
+print(design.export_process(tempfile.mkdtemp(), 400, 800, step=1))
 ```
 
 ### refine

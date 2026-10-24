@@ -15,6 +15,7 @@ arguments, the fields the test gives setSpecification].
 import copy
 import inspect
 import json
+import os
 import sys
 import time
 
@@ -65,6 +66,7 @@ def objects(given):
         material_dispersion(tf)
         band_features(tf)
         measured_curves(tf)
+        production(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -726,6 +728,30 @@ def measured_curves(tf):
     out({"measured": {"design": design._data, "read": as_dict(read), "changed": as_dict(changed),
                       "onFile": on_file._asdict(), "onCurve": on_curve._asdict(),
                       "types": [type(x).__name__ for x in (read, read.curves[0], on_file)], "worded": worded}})
+
+
+def production(tf):
+    """edge_filter() with pass_ and keywords, apply_edge_filter(),
+    process_steps() on chips given in snake_case, export_process(), the
+    named tuples they give, and their refusals."""
+    design = tf.new_design("Edge")
+    search = dict(pass_="long", angle=30, edge=700, a="SiO2", b="TiO2", periods=4)
+    found = design.edge_filter(**search)
+    before = design._data
+    design.apply_edge_filter(solution=1, **search)
+    ar = tf.new_design("AR")
+    ar.stack("H L H")
+    run = ar.process_steps(450, 700, step=10, quantity="R", chips={"layers_per_chip": 2, "witness_ratio": 1.5})
+    os.mkdir("process-objects")
+    paths = ar.export_process("process-objects", 450, 700, step=10, format="csv", decimal_mark=",", delimiter=";")
+    worded = [refused(make) for make in (
+        lambda: design.edge_filter(pass_="band"), lambda: design.edge_filter(passes=3),
+        lambda: ar.process_steps(400, 700, chips={"plan": [1]}), lambda: ar.process_steps(400, 700, chips={"layer": 2}),
+        lambda: ar.process_steps(to=800), lambda: ar.export_process("process-objects", decimals=13))]
+    out({"production": {"before": before, "after": design._data, "ar": ar._data,
+                        "found": dict(found._asdict(), solutions=[s._asdict() for s in found.solutions]),
+                        "run": dict(run._asdict(), steps=[s._asdict() for s in run.steps]), "paths": paths,
+                        "types": [type(x).__name__ for x in (found, found.solutions[0], run, run.steps[0])], "worded": worded}})
 
 
 def ran(before, design, result):

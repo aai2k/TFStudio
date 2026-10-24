@@ -13,7 +13,9 @@
  *      again, and cleaning one with no layers refused with its code and
  *      fields; a side scaled, rounded, perturbed with its seed and copied,
  *      a flip of a closed side refused with its code and fields, and two
- *      designs compared; the spectrum at two angles, summarized from what came over
+ *      designs compared; an edge filter searched, with a pass region that
+ *      does not end crossing as Infinity, and put in; a deposition run on the
+ *      part and on witness chips, and its files written; the spectrum at two angles, summarized from what came over
  *      the wire; a band's width and an edge against angle; a spectrum file
  *      read and a design compared with a curve of it, and a file of several
  *      curves compared without naming one refused, naming them;
@@ -178,6 +180,17 @@ const specified = api.setSpecification(start, CHECKS);
         && closed.error?.code === 'closedSide' && canon(closed.error.fields) === canon({ call: 'flipLayers', side: 'back', surfaceMode: 'front_only' }), JSON.stringify(closed.error));
     await same('copySide', [api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { from: 'front' }]);
     await same('designDifferences', [stack, kicked.result?.design]);
+    await same('edgeFilter', [stack, { angle: 45, edge: 650 }]);
+    const edge = await same('edgeFilter', [stack, { pass: 'long', edge: 650 }]);
+    await same('applyEdgeFilter', [stack, { angle: 45, edge: 650, solution: 1, mode: 'append', periods: 3 }]);
+    ok('an edge filter search crosses with a pass region that does not end as Infinity', edge.result?.solutions.length === 2
+        && edge.result.solutions.every(s => s.passWidth === Infinity), JSON.stringify(edge.result?.solutions?.map(s => s.passWidth)));
+    await same('processSteps', [stack, { otherSide: 'coated', step: 5, chips: null }]);
+    await same('processSteps', [stack, { chips: { layersPerChip: 2, witnessRatio: 1.2 }, step: 10 }]);
+    const processFolder = path.join(TEMP, 'process');
+    fs.mkdirSync(processFolder);
+    const exported = await same('exportProcess', [stack, processFolder, { format: 'csv', files: 'table', step: 5 }]);
+    ok('process files are written over the wire, and the paths come back', exported.result?.length === 1 && fs.existsSync(exported.result[0]), JSON.stringify(exported));
     await same('findMaterials', ['SiO2']);
     await same('findMaterials', []);
     await same('materialNK', ['TiO2', [400, 550, 700]]);

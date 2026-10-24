@@ -93,6 +93,12 @@ class Calls:
     def designDifferences(self, design, other):
         return self._call("designDifferences", design, other)
 
+    def edgeFilter(self, design, options=None):
+        return self._call("edgeFilter", design, options)
+
+    def applyEdgeFilter(self, design, options=None):
+        return self._call("applyEdgeFilter", design, options)
+
     def findMaterials(self, query=None):
         return self._call("findMaterials", query)
 
@@ -151,6 +157,12 @@ class Calls:
 
     def groupDelay(self, design, options=None):
         return self._call("groupDelay", design, options)
+
+    def processSteps(self, design, options=None):
+        return self._call("processSteps", design, options)
+
+    def exportProcess(self, design, folder, options=None):
+        return self._call("exportProcess", design, _absolute(folder), options)
 
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)

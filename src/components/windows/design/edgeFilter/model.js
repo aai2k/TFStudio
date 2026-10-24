@@ -1,7 +1,8 @@
 /**
  * The Edge Filter window's model, pure of React: its starting inputs, the
  * request the search runs on, the period written as a Stack Formula formula,
- * the layers that formula builds, and the preview spectrum.
+ * the layers that formula builds, the preview spectrum, and the design patch
+ * of Replace and Append.
  *
  * The search itself is src/utils/synthesis/edgeFilter.js.
  */
@@ -10,6 +11,7 @@ import { evaluateSpectrum } from '../../../../utils/physics/thinFilmMath.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { autoSymbolMap, buildStackFromFormula, stackFormulaResolvers } from '../../../../utils/synthesis/stackFormula.js';
 import { previewWavelengthRange } from '../stackFormula/model.js';
+import { buildReplaceAppendPatch } from '../stackFormula/designBuild.js';
 
 // The settings a first opening starts from: a shortwave pass at normal
 // incidence, 10 periods, and a searched from 0.1 to 1 in steps of 0.05, the
@@ -177,6 +179,19 @@ export function edgePreviewSpectrum(design, compiled, inputs) {
     } catch (error) {
         return { error: error.message };
     }
+}
+
+/**
+ * The design patch for Replace or Append, as Stack Formula builds it. The
+ * light arrives from the medium the filter was searched for, so that medium is
+ * the incident medium of a front coating and the exit medium of a back one.
+ */
+export function edgeFilterPatch({ design, mode, isSym, effSide, compiled, inputs, formula, stamp }) {
+    return buildReplaceAppendPatch({
+        design, mode, isSym, effSide, compiled, refLambda: inputs.edgeLambda,
+        substrateMat: inputs.substrateMat, incidentMat: inputs.incidentMat, exitMat: inputs.incidentMat,
+        text: formula, stamp,
+    });
 }
 
 /**

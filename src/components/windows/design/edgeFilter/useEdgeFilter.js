@@ -1,8 +1,8 @@
 import {
     initialInputs, searchSignature, edgeRequest, formulaSymbols, periodFormula,
-    compileEdgeFilter, stackFormulaSeed,
+    compileEdgeFilter, stackFormulaSeed, edgeFilterPatch,
 } from './model.js';
-import { buildNewEdgeFilterDesign, edgeFilterPatch } from './designBuild.js';
+import { buildNewEdgeFilterDesign } from './designBuild.js';
 import { startEdgeSearch, stopEdgeSearch } from './searchRun.js';
 import { readRememberedInputs, rememberInputs } from './rememberedInputs.js';
 
