@@ -1,4 +1,6 @@
-import { computeDesignSpectrum } from '../../../../utils/io/designSpectrum.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
+import { computeOpticalSpectrum } from '../../analysis/opticalEvaluation/spectrum.js';
+import { evaluateOnAnalysisWorker } from '../../analysis/useAnalysisEvaluation.js';
 import {
     designExportBaseName,
     designExportDocument,
@@ -7,6 +9,14 @@ import {
 } from './model.js';
 
 const { useCallback } = React;
+
+// The design's spectrum as Optical Evaluation computes it, averaged over the
+// design's cone of incidence; under a cone it is computed on the analysis
+// worker, where every point costs one evaluation per ray.
+function designSpectrum(design, params, evalMode) {
+    if (!coneIsActive(makeConeSpec(design.cone || {}))) return Promise.resolve(computeOpticalSpectrum(design, params, evalMode));
+    return evaluateOnAnalysisWorker('opticalSpectrum', { design, params, evalMode });
+}
 
 export function useMeasuredExport({ design, expFormat, curves, xUnit, asPercent, flash, sx }) {
     return useCallback(async () => {
@@ -39,7 +49,7 @@ export function useDesignExport(options) {
         const params = { lambdaStart: dStart, lambdaEnd: dEnd, lambdaStep: dStep, thetas };
         const base = designExportBaseName(design);
         try {
-            const spectrum = computeDesignSpectrum(design, params, evalMode);
+            const spectrum = await designSpectrum(design, params, evalMode);
             if (!spectrum.lambda.length) {
                 flash('error', sx.errParse);
                 return;
