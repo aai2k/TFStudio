@@ -124,7 +124,9 @@ export function useImportActions(options) {
                 isAbsorbance: resolvedScale === 'absorbance',
                 source: fileName,
                 aoi: Number.isFinite(column.aoi) ? column.aoi : aoi,
-                pol: polarizationFor(quantityOf, pol),
+                // A column headed with its polarization, such as Rs, keeps it
+                // whatever the panel says.
+                pol: column.pol ?? polarizationFor(quantityOf, pol),
             });
         });
     }, [parsed, selectedIndex, name, quantity, yscale, xUnit, fileName, ov, aoi, pol]);

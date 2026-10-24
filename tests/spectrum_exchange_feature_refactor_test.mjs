@@ -207,6 +207,7 @@ function MultiColumnProbe() {
             { name: 'Transmission', x: [500, 600], values: [90, 91], quantity: 'T', isPercent: true },
             { name: 'Reflection', x: [500, 600], values: [8, 7], quantity: 'R', isPercent: true },
             { name: 'Absorptance', x: [500, 600], values: [2, 2], quantity: 'A', isPercent: true },
+            { name: 'Rs', x: [500, 600], values: [9, 8], quantity: 'R', pol: 's', isPercent: true },
         ],
     };
     multiActions = actionHooks.useImportActions({
@@ -230,17 +231,18 @@ function MultiColumnProbe() {
 renderToStaticMarkup(React.createElement(MultiColumnProbe));
 multiActions.onAdd();
 const importedPair = multiEvents[1][1].measuredCurves;
-assert.equal(importedPair.length, 3);
+assert.equal(importedPair.length, 4);
 assert.deepEqual(importedPair.map(curve => [curve.name, curve.quantity]), [
     ['pair: Transmission', 'T'],
     ['Rear R', 'R'],
     ['pair: Absorptance', 'A'],
+    ['pair: Rs', 'R'],
 ]);
 assert.ok(importedPair.every(curve => curve.aoi === 8));
 // Absorptance is what the sample keeps of everything that reached it, so the
 // panel asks for no polarization and the curve must not carry the one left over
-// from the column beside it.
-assert.deepEqual(importedPair.map(curve => curve.pol), ['p', 'p', 'avg']);
+// from the column beside it. A column headed with its polarization keeps it.
+assert.deepEqual(importedPair.map(curve => curve.pol), ['p', 'p', 'avg', 's']);
 
 const originalApi = window.electronAPI;
 window.electronAPI = {
@@ -291,6 +293,13 @@ assert.deepEqual(actionEvents.at(-1), ['loading', false]);
     for (const label of labels) {
         assert.ok(!stated.includes(label), `${label} is not asked when the file states it`);
     }
+
+    // A column headed Rs keeps its own polarization, so a file of such columns
+    // is asked none.
+    spectrumExchangeSession.write(design, {
+        parsed: { ...parsed, columns: [{ ...parsed.columns[0], name: 'Rs', quantity: 'R', pol: 's' }] },
+    }, null);
+    assert.ok(!render().includes(sx.polarizationLabel), 'a column that states its polarization is not asked one');
 
     // The configured column states its angle, the one beside it does not, and
     // "Add all curves" would add both at whatever this field holds.

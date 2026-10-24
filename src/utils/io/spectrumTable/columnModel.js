@@ -8,7 +8,9 @@
  */
 
 import { X_UNITS } from './constants.js';
-import { detectXUnit, guessXUnitFromRange, detectQuantity, detectIsPercent, isAbsorbanceHeader } from './headerHeuristics.js';
+import {
+    detectXUnit, guessXUnitFromRange, detectQuantity, detectPolarizedQuantity, detectIsPercent, isAbsorbanceHeader,
+} from './headerHeuristics.js';
 import { groupSampleName } from './headerLayout.js';
 
 function isMonotonic(values) {
@@ -102,7 +104,11 @@ function buildColumn({ index, name, baseName, unit, sampleName, xIndex, x, xUnit
     // "[%]" belonging to one column decides the scale of every other column in
     // the file, which is how raw detector counts end up divided by 100.
     const percentText = unit ? `${baseName} ${unit}` : hdr;
-    const quantity = detectQuantity(baseName) || detectQuantity(unit)
+    // A heading that names its polarization with its quantity, such as Rs, is
+    // read before the whole header, whose other columns would otherwise decide
+    // what this one holds.
+    const polarized = detectPolarizedQuantity(baseName);
+    const quantity = polarized?.quantity || detectQuantity(baseName) || detectQuantity(unit)
         || detectQuantity(headerText, { angular: false });
     const angular = quantity === 'PSI' || quantity === 'DEL';
     return {
@@ -115,6 +121,7 @@ function buildColumn({ index, name, baseName, unit, sampleName, xIndex, x, xUnit
         xUnit,
         values,
         quantity,
+        pol: polarized?.pol ?? null,
         isPercent: angular || isAbsorbance ? false : detectIsPercent(percentText, values),
         isAbsorbance,
     };

@@ -797,5 +797,22 @@ for (const quantity of ['T', 'R', 'A']) {
         parseSpectrumTable('# d\n# AOI 70 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n400,13.3,172.7\n405,13.1,171.9\n').side === 'front');
 }
 
+// A heading that names its polarization with its quantity, as the Optical
+// Evaluation export (Rs), Measured Spectra's export (R s %) and a script's
+// spectrum CSV (Rs at 30 deg) write it, is that quantity in that polarization,
+// whatever the other columns of the header say.
+{
+    const named = text => parseSpectrumTable(text).columns.map(column => `${column.quantity}${column.pol ?? ''}`).join();
+    ok('Optical Evaluation headings Rs, Rp, Ts and Tp',
+        named('lambda_nm,R,Rs,Rp,T,Ts,Tp\n500,1,2,3,4,5,6\n501,1,2,3,4,5,6\n') === 'R,Rs,Rp,T,Ts,Tp');
+    ok('Measured Spectra headings R s % and T p %',
+        named('Wavelength (nm),R s %,T p %,A %\n500,1,2,3\n501,1,2,3\n') === 'Rs,Tp,A');
+    ok('a script\'s headings Rs at 30 deg and As at 30 deg',
+        named('Wavelength (nm),Rs at 30 deg,As at 30 deg\n500,0.1,0.2\n501,0.1,0.2\n') === 'Rs,As');
+    ok('a heading that only starts with those letters names no polarization',
+        parseSpectrumTable('nm,R spectrum,Tpeak,As deposited T%\n500,0.1,0.2,0.3\n501,0.1,0.2,0.3\n').columns.every(column => column.pol === null));
+    ok('"As deposited T%" stays a T column', named('Wavelength (nm),As deposited T%,Annealed T%\n500,90,91\n501,90,91\n') === 'T,T');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

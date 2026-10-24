@@ -40,7 +40,7 @@ one before adding the curve.
   near-normal accessory is usually 6 or 8 degrees, not 0.
 - **Polarization**: average, s, or p. Not asked for absorptance, which is what
   the sample keeps of everything that reached it and has no polarization to
-  pick.
+  pick. A column headed with its polarization, such as Rs or Tp, keeps it.
 
 Every imported curve carries its own copy of these, and you can correct them
 afterwards on the curve itself. A measurement is taken with the coated face

@@ -51,6 +51,20 @@ const QUANTITY_PATTERNS = [
 ];
 
 /**
+ * The quantity and polarization a column heading names together, such as
+ * `Rs`, `Tp` or `R s`, as the Optical Evaluation and Measured Spectra exports
+ * and a script's spectrum CSV write them: `{ quantity, pol }`, or null when the
+ * heading names no polarized quantity. The letters are matched as written, a
+ * capital quantity and a lower-case s or p, and must end the heading or be
+ * followed by a unit, a bracket or "at", so a heading such as "R spectrum",
+ * "Tpeak" or "As deposited" is not read as one.
+ */
+export function detectPolarizedQuantity(name) {
+    const hit = String(name || '').match(/(?:^|[\s,;])([RTA]) ?([sp])(?=$|[,;_%(\[]|\s+(?:at\b|[%(\[])|\s*$)/);
+    return hit ? { quantity: hit[1], pol: hit[2] } : null;
+}
+
+/**
  * The quantity a header names, or null.
  *
  * `angular` decides whether Ψ and Δ are candidates. They are named in their own

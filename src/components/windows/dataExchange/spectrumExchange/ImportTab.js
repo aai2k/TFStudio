@@ -18,21 +18,23 @@ const UNIT_IDS = [X_UNITS.NM, X_UNITS.UM, X_UNITS.CM1];
  * What the file leaves unsaid, stored on the curve when it is added and
  * editable on its card afterwards: the angle when the file states none, the
  * polarization when its header states none. Absorptance has no polarization to
- * pick.
+ * pick, and a column headed with its polarization, such as Rs, keeps its own.
  *
- * The angle covers every column the file leaves without one, not only the one
- * being configured, because "Add all curves" adds those columns too and they
- * would otherwise be stamped with a setting the panel never showed.
+ * The angle and the polarization cover every column the file leaves without
+ * one, not only the one being configured, because "Add all curves" adds those
+ * columns too and they would otherwise be stamped with a setting the panel
+ * never showed.
  */
 function ColumnConditions({ controller, quantity, c, sx }) {
     const { parsed, aoi, setAoi, pol, setPol } = controller;
     const anyColumnWithoutAngle = parsed.columns.some(column => !Number.isFinite(column.aoi));
+    const anyColumnWithoutPol = parsed.columns.some(column => !column.pol);
     return h(Fragment, null,
         anyColumnWithoutAngle && h(FieldRow, { c, label: sx.measurementAoiLabel },
             h(NumInput, { value: aoi, onChange: setAoi, min: 0, max: 90, step: 0.1, width: 64, c }),
             h('span', { style: { color: c.textDim, fontSize: 11 } }, '°'),
         ),
-        !parsed.pol && quantity !== 'A' && h(FieldRow, { c, label: sx.polarizationLabel },
+        !parsed.pol && quantity !== 'A' && anyColumnWithoutPol && h(FieldRow, { c, label: sx.polarizationLabel },
             h(ChoiceGroup, {
                 c, activeId: pol, onSelect: setPol,
                 items: [{ id: 'avg', label: sx.polAverage }, { id: 's', label: 's' }, { id: 'p', label: 'p' }],
