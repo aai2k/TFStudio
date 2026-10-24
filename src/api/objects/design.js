@@ -30,6 +30,8 @@ const STEPS = { nm: 'absolute', percent: 'relative' };
 // The attributes that set what setDesignSetup's options set, where their
 // names differ.
 const SETUP_NAMES = { referenceWavelength: 'reference', substrate: 'substrate.material', substrateThicknessMm: 'substrate.thickness' };
+// differences()'s names for the settings designDifferences compares, where they differ.
+const SETTING_NAMES = { ...SETUP_NAMES, surfaceMode: 'sides', mfEvalMode: 'scoreOn' };
 
 // The API's name of `value`, one of the names `mapping` holds for the
 // attribute `what`.
@@ -325,6 +327,144 @@ export class Design {
             () => api.cleanDesign(this._data, defined({ minThickness, mergeAdjacent: merge, cleanBack: back })));
         this._data = cleaned.design;
         return new CleanReport(cleaned);
+    }
+
+    /**
+     * Makes every unlocked layer of one side thicker or thinner by one
+     * factor. Locked layers stay as they are, and a symmetric design's back
+     * follows its front.
+     *
+     * @param factor What each thickness is multiplied by, above 0: 1.02 makes every unlocked layer 2% thicker.
+     * @param [options]
+     * @param [options.side] `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone.
+     * @throws a factor that is not a number above 0, an option scaleThicknesses does not take, a side other than `'front'` or `'back'`, or a side the design does not let you edit, such as the back of a symmetric design
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.scaleThicknesses(1.05);
+     * console.log(design.layers[1].thickness, 'nm');
+     */
+    scaleThicknesses(factor, options) {
+        const { side } = checkOptions('scaleThicknesses', options, ['side']);
+        this._data = worded({ method: 'scaleThicknesses', call: 'scaleThicknesses' },
+            () => api.scaleThicknesses(this._data, defined({ factor, side })));
+    }
+
+    /**
+     * Rounds the unlocked layers of one side as the Design Editor's Round /
+     * quantize dialog does: to a number of decimal places of a nm, to the
+     * nearest whole number of controller steps, or to the nearest whole
+     * number of a QWOT increment at the reference wavelength. Locked layers
+     * stay as they are, and a symmetric design's back follows its front. A
+     * layer thinner than half a step rounds to 0 nm, as in the dialog; in
+     * `'qwot'` mode a layer whose material has no quarter wave stays as it is.
+     *
+     * @param [options]
+     * @param [options.mode='step'] `'decimals'`, `'step'` (a controller step in nm) or `'qwot'` (a QWOT increment).
+     * @param [options.value] The number of decimal places, from 0 to 8, the step in nm, or the QWOT increment, as the mode takes. Without it, what the dialog opens with: 2 places, 0.1 nm or 1 QWOT.
+     * @param [options.side] `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone.
+     * @throws an option quantize does not take, a mode other than `'decimals'`, `'step'` or `'qwot'`, a value the mode does not take, a side other than `'front'` or `'back'`, or a side the design does not let you edit
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.quantize({ mode: 'step', value: 0.5 });
+     * console.log(design.layers);
+     */
+    quantize(options) {
+        const given = checkOptions('quantize', options, ['mode', 'value', 'side']);
+        this._data = worded({ method: 'quantize', call: 'quantize' }, () => api.quantize(this._data, given));
+    }
+
+    /**
+     * Gives the unlocked layers of one side random thickness errors, as the
+     * Design Editor's Perturb dialog does: each thickness is multiplied by
+     * 1 + k · percent / 100, with k drawn for each layer uniformly from -1 to
+     * 1. Locked layers stay as they are, and a symmetric design's back follows
+     * its front. The same seed, design and percent give the same errors.
+     *
+     * @param [percent=2] The largest error, ± % of each thickness, above 0 and up to 100.
+     * @param [options]
+     * @param [options.side] `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone.
+     * @param [options.seed] The number the draws start from, a whole number from 1 to 2^32 - 1. Without it, or with null, a fresh one.
+     * @returns The seed the draws started from.
+     * @throws a percent that is not above 0 and up to 100, an option perturb does not take, a seed that is not a whole number from 1 to 2^32 - 1, a side other than `'front'` or `'back'`, or a side the design does not let you edit
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * const seed = design.perturb(3, { seed: 7 });
+     * console.log('seed', seed, design.layers);
+     */
+    perturb(...args) {
+        const [[percent], options] = trailingOptions('perturb', args, ['percent']);
+        const { side, seed } = checkOptions('perturb', options, ['side', 'seed']);
+        const kicked = worded({ method: 'perturb', call: 'perturb' },
+            () => api.perturb(this._data, defined({ percent, side, seed })));
+        this._data = kicked.design;
+        return kicked.seed;
+    }
+
+    /**
+     * Copies the front's layers onto the back, as the Design Editor's Copy to
+     * back does: the back gets the same stack outward from the substrate, and
+     * its own layers are replaced. `sides` stays as it was, so set it to
+     * `'both'` to coat both.
+     *
+     * @throws a front the design does not let you edit, on a design coated on the back alone and scored on that side
+     * @example
+     * const design = tf.newDesign('Two-sided AR');
+     * design.stack('H L');
+     * design.sides = 'both';
+     * design.copyFrontToBack();
+     * console.log(design.backLayers);
+     */
+    copyFrontToBack() {
+        this._data = worded({ method: 'copyFrontToBack', call: 'copySide' }, () => api.copySide(this._data, { from: 'front' }));
+    }
+
+    /**
+     * Copies the back's layers onto the front, as the Design Editor's Copy to
+     * front does: the front gets the same stack outward from the substrate,
+     * and its own layers are replaced. `sides` stays as it was.
+     *
+     * @throws a back the design does not let you edit: the back of a symmetric design, or of a design coated on the front alone and scored on that side
+     * @example
+     * const design = tf.newDesign('Two-sided AR');
+     * design.sides = 'both';
+     * design.backLayers.append('MgF2', 100);
+     * design.copyBackToFront();
+     * console.log(design.layers);
+     */
+    copyBackToFront() {
+        this._data = worded({ method: 'copyBackToFront', call: 'copySide' }, () => api.copySide(this._data, { from: 'back' }));
+    }
+
+    /**
+     * What differs between this design and `other`: their setup and their
+     * layers, compared side by side by number from the substrate, so a layer
+     * added near the substrate shows every layer outside it as changed.
+     * Values are compared exactly. The name, merit rows, specification
+     * checks, the cone of incidence and the materials a design carries are
+     * not compared.
+     *
+     * @param other The Design compared with this one.
+     * @returns An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'` or `'scoreOn'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null.
+     * @throws an other that is not a Design
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * const kicked = design.copy();
+     * kicked.perturb(2, { seed: 3 });
+     * for (const l of design.differences(kicked).layers) console.log(l.side, l.number, l.change);
+     */
+    differences(other) {
+        if (!(other instanceof Design)) throw new Error('differences: other is a Design, as tf.newDesign() or copy() give one');
+        const found = api.designDifferences(this._data, other._data);
+        const word = (setting, value) => (setting === 'surfaceMode' ? nameOf(SIDES, value)
+            : setting === 'mfEvalMode' ? nameOf(SCORE_ON, value) : value);
+        const setup = found.setup.map(({ setting, before, after }) => ({
+            setting: SETTING_NAMES[setting] ?? setting, before: word(setting, before), after: word(setting, after),
+        }));
+        return { same: found.same, setup, layers: found.layers };
     }
 
     /**

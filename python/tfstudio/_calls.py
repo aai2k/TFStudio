@@ -75,6 +75,24 @@ class Calls:
     def cleanDesign(self, design, options=None):
         return self._call("cleanDesign", design, options)
 
+    def scaleThicknesses(self, design, options):
+        return self._call("scaleThicknesses", design, options)
+
+    def quantize(self, design, options=None):
+        return self._call("quantize", design, options)
+
+    def perturb(self, design, options=None):
+        return self._call("perturb", design, options)
+
+    def flipLayers(self, design, options=None):
+        return self._call("flipLayers", design, options)
+
+    def copySide(self, design, options):
+        return self._call("copySide", design, options)
+
+    def designDifferences(self, design, other):
+        return self._call("designDifferences", design, other)
+
     def findMaterials(self, query=None):
         return self._call("findMaterials", query)
 

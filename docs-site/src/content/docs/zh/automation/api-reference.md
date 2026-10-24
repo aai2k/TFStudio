@@ -580,6 +580,194 @@ for op in report.operations:
 print(len(design.layers), "layers now")
 ```
 
+### scaleThicknesses / scale_thicknesses
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.scaleThicknesses(factor, { side })` | `design.scale_thicknesses(factor, side=...)` |
+
+把某一面每个未锁定的膜层按同一系数加厚或减薄。被锁定的膜层保持不变，对称设计的背面跟随其正面。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `factor` | `factor` |  | 每个厚度所乘的系数，大于 0：1.02 使每个未锁定的膜层厚 2%。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。 |
+
+**拒绝**：
+
+- **JavaScript**：不是大于 0 的数的系数、scaleThicknesses 不接受的选项、`'front'` 或 `'back'` 以外的面，或设计不允许编辑的一面，例如对称设计的背面<br>**Python**：不是大于 0 的数的系数、"front" 或 "back" 以外的面，或设计不允许编辑的一面，例如对称设计的背面
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.scaleThicknesses(1.05);
+console.log(design.layers[1].thickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.scale_thicknesses(1.05)
+print(design.layers[1].thickness, "nm")
+```
+
+### quantize
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.quantize({ mode, value, side })` | `design.quantize(mode="step", value=..., side=...)` |
+
+按设计编辑器中“取整 / 量化厚度”对话框的方式对某一面未锁定的膜层取整：取到 nm 的若干位小数，取到最接近的整数个控制步长，或取到参考波长处最接近的整数个 QWOT 增量。被锁定的膜层保持不变，对称设计的背面跟随其正面。薄于半个步长的膜层会取整为 0 nm，与对话框相同；在 `'qwot'` 模式下，材料没有四分之一波长的膜层保持不变。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `mode` | `mode` | `'step'` | `'decimals'`、`'step'`（控制步长，单位 nm）或 `'qwot'`（QWOT 增量）。 |
+| `value` | `value` |  | 小数位数（0 到 8）、步长（单位 nm）或 QWOT 增量，取决于模式。不给出时，取对话框打开时的值：2 位、0.1 nm 或 1 个 QWOT。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。 |
+
+**拒绝**：
+
+- **JavaScript**：quantize 不接受的选项、`'decimals'`、`'step'` 或 `'qwot'` 以外的模式、该模式不接受的值、`'front'` 或 `'back'` 以外的面，或设计不允许编辑的一面<br>**Python**："decimals"、"step" 或 "qwot" 以外的模式、该模式不接受的值、"front" 或 "back" 以外的面，或设计不允许编辑的一面
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.quantize({ mode: 'step', value: 0.5 });
+console.log(design.layers);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.quantize("step", 0.5)
+print(design.layers)
+```
+
+### perturb
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.perturb(percent, { side, seed })` | `design.perturb(percent=2, side=..., seed=...)` |
+
+按设计编辑器中“扰动厚度”对话框的方式，给某一面未锁定的膜层加上随机厚度误差：每个厚度乘以 1 + k · percent / 100，其中 k 对每层在 -1 到 1 之间均匀抽取。被锁定的膜层保持不变，对称设计的背面跟随其正面。相同的种子、设计和 percent 给出相同的误差。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `percent` | `percent` | `2` | 最大误差，为每个厚度的 ± %，大于 0 且不超过 100。 |
+| `side` | `side` |  | `'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。 |
+| `seed` | `seed` |  | **JavaScript**：抽样的起始数，1 到 2^32 - 1 之间的整数。不给出或为 null 时，使用一个新的种子。<br>**Python**：抽样的起始数，1 到 2^32 - 1 之间的整数。不给出时，使用一个新的种子。 |
+
+**返回**：抽样开始所用的种子。
+
+**拒绝**：
+
+- **JavaScript**：不大于 0 或超过 100 的 percent、perturb 不接受的选项、不是 1 到 2^32 - 1 之间整数的种子、`'front'` 或 `'back'` 以外的面，或设计不允许编辑的一面<br>**Python**：不大于 0 或超过 100 的 percent、不是 1 到 2^32 - 1 之间整数的种子、"front" 或 "back" 以外的面，或设计不允许编辑的一面
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const seed = design.perturb(3, { seed: 7 });
+console.log('seed', seed, design.layers);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+seed = design.perturb(3, seed=7)
+print("seed", seed, design.layers)
+```
+
+### copyFrontToBack / copy_front_to_back
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.copyFrontToBack()` | `design.copy_front_to_back()` |
+
+按设计编辑器中“复制到背面”的方式，把正面的膜层复制到背面：背面得到从基底向外相同的膜层堆栈，其原有膜层被替换。`sides` 保持不变，因此要两面都镀膜，请将其设为 `'both'`。
+
+**拒绝**：
+
+- 设计不允许编辑的正面，即只在背面镀膜且只按该面评价的设计
+
+```js
+const design = tf.newDesign('Two-sided AR');
+design.stack('H L');
+design.sides = 'both';
+design.copyFrontToBack();
+console.log(design.backLayers);
+```
+
+```python
+design = tf.new_design("Two-sided AR")
+design.stack("H L")
+design.sides = "both"
+design.copy_front_to_back()
+print(design.back_layers)
+```
+
+### copyBackToFront / copy_back_to_front
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.copyBackToFront()` | `design.copy_back_to_front()` |
+
+按设计编辑器中“复制到正面”的方式，把背面的膜层复制到正面：正面得到从基底向外相同的膜层堆栈，其原有膜层被替换。`sides` 保持不变。
+
+**拒绝**：
+
+- 设计不允许编辑的背面：对称设计的背面，或只在正面镀膜且只按该面评价的设计的背面
+
+```js
+const design = tf.newDesign('Two-sided AR');
+design.sides = 'both';
+design.backLayers.append('MgF2', 100);
+design.copyBackToFront();
+console.log(design.layers);
+```
+
+```python
+design = tf.new_design("Two-sided AR")
+design.sides = "both"
+design.back_layers.append("MgF2", 100)
+design.copy_back_to_front()
+print(design.layers)
+```
+
+### differences
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.differences(other)` | `design.differences(other)` |
+
+本设计与 `other` 之间的不同之处：它们的设置和膜层，膜层按从基底起的编号逐面比较，因此在靠近基底处加一层，会使其外侧的每一层都显示为改变。数值按精确值比较。名称、评价函数的行、规格检查、入射锥角和设计携带的材料不参与比较。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `other` | `other` |  | 与本设计比较的 Design。 |
+
+**返回**：**JavaScript**：一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'` 或 `'scoreOn'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null。<br>**Python**：命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（"incident_medium"、"exit_medium"、"substrate.material"、"substrate.thickness"、"reference"、"sides" 或 "score_on"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None。
+
+**拒绝**：
+
+- 不是 Design 的 other
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const kicked = design.copy();
+kicked.perturb(2, { seed: 3 });
+for (const l of design.differences(kicked).layers) console.log(l.side, l.number, l.change);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+kicked = design.copy()
+kicked.perturb(2, seed=3)
+for layer in design.differences(kicked).layers:
+    print(layer.side, layer.number, layer.change)
+```
+
 ### spectrum
 
 | JavaScript | Python |
@@ -1652,6 +1840,32 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.layers.remove(len(design.layers))
 print(len(design.layers), "layers")
+```
+
+### flip
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.layers.flip()` | `design.layers.flip()` |
+
+按设计编辑器中“反转”按钮的方式，把这一面的膜层顺序在基底上颠倒：第 1 层变为最外层。对称设计的背面跟随翻转后的正面。
+
+**拒绝**：
+
+- 设计不允许编辑的一面，例如对称设计的背面
+
+```js
+const design = tf.newDesign('Graded');
+design.stack('H 2L M');
+design.layers.flip();
+console.log(design.layers[1].material, 'is now on the substrate');
+```
+
+```python
+design = tf.new_design("Graded")
+design.stack("H 2L M")
+design.layers.flip()
+print(design.layers[1].material, "is now on the substrate")
 ```
 
 ### [n]

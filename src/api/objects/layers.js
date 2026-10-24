@@ -241,6 +241,22 @@ export class Layers {
         this._change('remove', 'deleteLayer', { index: this._index(number) });
     }
 
+    /**
+     * Reverses the side's layer order on the substrate, as the Design
+     * Editor's Invert button does: layer 1 becomes the outermost. On a
+     * symmetric design the back follows the flipped front.
+     *
+     * @throws a side the design does not let you edit, such as the back of a symmetric design
+     * @example
+     * const design = tf.newDesign('Graded');
+     * design.stack('H 2L M');
+     * design.layers.flip();
+     * console.log(design.layers[1].material, 'is now on the substrate');
+     */
+    flip() {
+        this._change('flip', 'flipLayers', {});
+    }
+
     _layer(number) {
         this._index(number);
         return new Layer(this, number);

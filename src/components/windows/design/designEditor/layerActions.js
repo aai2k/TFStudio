@@ -165,27 +165,40 @@ export function setAllLocked(design, updateDesign, side, locked) {
     applyLayers(design, updateDesign, side, next);
 }
 
-export function copyToOther(design, updateDesign, activeSide) {
-    const srcLayers = activeSide === 'front' ? (design.frontLayers || []) : (design.backLayers || []);
-    // Reverse order: back coating is illuminated from the substrate side,
-    // so layer order is mirrored relative to the front.
-    const cloned = [...srcLayers].reverse().map(l => ({ ...l, id: newLayerId() }));
-    if (activeSide === 'front') {
-        updateDesign({ backLayers: cloned });
-    } else {
-        updateDesign({ frontLayers: cloned });
-    }
+// The sides of `next` whose layers differ from `design`'s, as one update.
+const layerPatch = (design, next) => Object.fromEntries(['frontLayers', 'backLayers']
+    .filter(key => next[key] !== design[key]).map(key => [key, next[key]]));
+
+/**
+ * `design` with the layers of `side` copied onto the other side, each with a
+ * new id, as Copy to back and Copy to front copy them. The front stores its
+ * layers from the outermost in and the back from the substrate out, so the
+ * copy is stored in reverse order: the layer next to the substrate stays next
+ * to the substrate. The design's surface mode is left as it is.
+ */
+export function copiedToOtherSide(design, side) {
+    const cloned = [...(design[keyOf(side)] || [])].reverse().map(l => ({ ...l, id: newLayerId() }));
+    return { ...design, [side === 'front' ? 'backLayers' : 'frontLayers']: cloned };
 }
 
-// Flip the active stack's layer order on the substrate (1st ↔ last).
-// In symmetric mode the back stack is re-mirrored from the new front
-// so the two sides stay physically identical.
-export function invertActiveSide(design, updateDesign, activeSide) {
-    const key = activeSide === 'front' ? 'frontLayers' : 'backLayers';
+/**
+ * `design` with the layer order of `side` reversed on the substrate (first
+ * and last change places), as Invert flips it. In symmetric mode the back is
+ * mirrored again from the new front, so the two sides stay identical.
+ */
+export function flippedSide(design, side) {
+    const key = keyOf(side);
     const reversed = [...(design[key] || [])].reverse();
-    if (design.surfaceMode === 'symmetric' && activeSide === 'front') {
-        updateDesign({ frontLayers: reversed, backLayers: mirrorLayers(reversed) });
-    } else {
-        updateDesign({ [key]: reversed });
+    if (design.surfaceMode === 'symmetric' && side === 'front') {
+        return { ...design, frontLayers: reversed, backLayers: mirrorLayers(reversed) };
     }
+    return { ...design, [key]: reversed };
+}
+
+export function copyToOther(design, updateDesign, activeSide) {
+    updateDesign(layerPatch(design, copiedToOtherSide(design, activeSide)));
+}
+
+export function invertActiveSide(design, updateDesign, activeSide) {
+    updateDesign(layerPatch(design, flippedSide(design, activeSide)));
 }

@@ -9,7 +9,9 @@
  *      are the API's exports but init, and every call answers what the API
  *      answers here, the ids a design draws and the time a synthesis step
  *      took aside: designs built, edited, cleaned, saved (to the bytes the API
- *      writes) and opened again, a layer set by its QWOT, spectra, a band's
+ *      writes) and opened again, a layer set by its QWOT, sides scaled,
+ *      rounded, perturbed, flipped and copied, one rounding and one flip
+ *      refused, two designs compared, spectra, a band's
  *      width and an edge against angle, index
  *      profiles, one of a side with no layers refused, layer thicknesses,
  *      the design's facts, admittance loci and electric fields, one of a
@@ -283,6 +285,14 @@ const STOPPED_WITHIN_S = 5;
         ['stackFromFormula', [twoLayers, { formula: '(HL)^2', symbols: { H: 'Ta2O5' } }]],
         ['cleanDesign', [api.insertLayer(stack, { material: 'TiO2', thickness: 3, index: 2 }), { minThickness: 4 }]],
         ['cleanDesign', [api.newDesign()]],
+        ['scaleThicknesses', [stack, { factor: 1.03 }]],
+        ['quantize', [stack, { mode: 'qwot', value: 0.5 }]],
+        ['quantize', [stack, { mode: 'decimals', value: 9 }]],
+        ['perturb', [stack, { percent: 4, seed: 11 }]],
+        ['flipLayers', [stack, { side: 'front' }]],
+        ['flipLayers', [stack, { side: 'back' }]],
+        ['copySide', [api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { from: 'front' }]],
+        ['designDifferences', [stack, api.scaleThicknesses(stack, { factor: 1.1 })]],
         ['findMaterials', ['SiO2']],
         ['findMaterials', []],
         ['materialNK', ['TiO2', [400, 550, 700]]],

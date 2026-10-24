@@ -7,6 +7,7 @@ import numbers
 from ._admittance import Admittance
 from ._band_feature import EdgeShift, answered
 from ._color import Color
+from ._design_edits import differences_of
 from ._electric_field import ElectricField
 from ._ellipsometry import Ellipsometry
 from ._errors import TFStudioError
@@ -352,6 +353,24 @@ class Layers:
             print(len(design.layers), "layers")
         """
         self._change("remove", "deleteLayer", index=self._index(number))
+
+    def flip(self):
+        """Reverses the side's layer order on the substrate, as the Design
+        Editor's Invert button does: layer 1 becomes the outermost. On a
+        symmetric design the back follows the flipped front.
+
+        Raises:
+            TFStudioError: a side the design does not let you edit, such as
+                the back of a symmetric design.
+
+        Example::
+
+            design = tf.new_design("Graded")
+            design.stack("H 2L M")
+            design.layers.flip()
+            print(design.layers[1].material, "is now on the substrate")
+        """
+        self._change("flip", "flipLayers")
 
     def _insert(self, method, number, **layer):
         self._change(method, "insertLayer", index=self._index(number, insert=True), **layer)
@@ -762,6 +781,188 @@ class Design:
             cleaned = self._calls.cleanDesign(self._data, options)
         self._data = cleaned["design"]
         return CleanReport(cleaned)
+
+    def scale_thicknesses(self, factor, *, side=None):
+        """Makes every unlocked layer of one side thicker or thinner by one
+        factor. Locked layers stay as they are, and a symmetric design's back
+        follows its front.
+
+        Args:
+            factor: What each thickness is multiplied by, above 0: 1.02 makes
+                every unlocked layer 2% thicker.
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone.
+
+        Raises:
+            TFStudioError: a factor that is not a number above 0, a side other
+                than "front" or "back", or a side the design does not let you
+                edit, such as the back of a symmetric design.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            design.scale_thicknesses(1.05)
+            print(design.layers[1].thickness, "nm")
+        """
+        self._edit("scaleThicknesses", "scale_thicknesses", factor=factor, side=side)
+
+    def quantize(self, mode="step", value=None, *, side=None):
+        """Rounds the unlocked layers of one side as the Design Editor's
+        Round / quantize dialog does: to a number of decimal places of a nm,
+        to the nearest whole number of controller steps, or to the nearest
+        whole number of a QWOT increment at the reference wavelength. Locked
+        layers stay as they are, and a symmetric design's back follows its
+        front. A layer thinner than half a step rounds to 0 nm, as in the
+        dialog; in "qwot" mode a layer whose material has no quarter wave
+        stays as it is.
+
+        Args:
+            mode: "decimals", "step" (a controller step in nm) or "qwot" (a
+                QWOT increment). Default "step".
+            value: The number of decimal places, from 0 to 8, the step in nm,
+                or the QWOT increment, as the mode takes. Default: what the
+                dialog opens with: 2 places, 0.1 nm or 1 QWOT.
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone.
+
+        Raises:
+            TFStudioError: a mode other than "decimals", "step" or "qwot", a
+                value the mode does not take, a side other than "front" or
+                "back", or a side the design does not let you edit.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            design.quantize("step", 0.5)
+            print(design.layers)
+        """
+        self._edit("quantize", "quantize", mode=mode, value=value, side=side)
+
+    def perturb(self, percent=2, *, side=None, seed=None):
+        """Gives the unlocked layers of one side random thickness errors, as
+        the Design Editor's Perturb dialog does: each thickness is multiplied
+        by 1 + k · percent / 100, with k drawn for each layer uniformly from
+        -1 to 1. Locked layers stay as they are, and a symmetric design's back
+        follows its front. The same seed, design and percent give the same
+        errors.
+
+        Args:
+            percent: The largest error, ± % of each thickness, above 0 and up
+                to 100. Default 2.
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone.
+            seed: The number the draws start from, a whole number from 1 to
+                2^32 - 1. Default: a fresh one.
+
+        Returns:
+            The seed the draws started from.
+
+        Raises:
+            TFStudioError: a percent that is not above 0 and up to 100, a seed
+                that is not a whole number from 1 to 2^32 - 1, a side other
+                than "front" or "back", or a side the design does not let you
+                edit.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            seed = design.perturb(3, seed=7)
+            print("seed", seed, design.layers)
+        """
+        with worded(Words("perturb", "perturb")):
+            kicked = self._calls.perturb(self._data, api_names({"percent": percent, "side": side, "seed": seed}))
+        self._data = kicked["design"]
+        return kicked["seed"]
+
+    def copy_front_to_back(self):
+        """Copies the front's layers onto the back, as the Design Editor's
+        Copy to back does: the back gets the same stack outward from the
+        substrate, and its own layers are replaced. sides stays as it was, so
+        set it to "both" to coat both.
+
+        Raises:
+            TFStudioError: a front the design does not let you edit, on a
+                design coated on the back alone and scored on that side.
+
+        Example::
+
+            design = tf.new_design("Two-sided AR")
+            design.stack("H L")
+            design.sides = "both"
+            design.copy_front_to_back()
+            print(design.back_layers)
+        """
+        self._edit("copySide", "copy_front_to_back", **{"from": "front"})
+
+    def copy_back_to_front(self):
+        """Copies the back's layers onto the front, as the Design Editor's
+        Copy to front does: the front gets the same stack outward from the
+        substrate, and its own layers are replaced. sides stays as it was.
+
+        Raises:
+            TFStudioError: a back the design does not let you edit: the back
+                of a symmetric design, or of a design coated on the front
+                alone and scored on that side.
+
+        Example::
+
+            design = tf.new_design("Two-sided AR")
+            design.sides = "both"
+            design.back_layers.append("MgF2", 100)
+            design.copy_back_to_front()
+            print(design.layers)
+        """
+        self._edit("copySide", "copy_back_to_front", **{"from": "back"})
+
+    def differences(self, other):
+        """What differs between this design and `other`: their setup and
+        their layers, compared side by side by number from the substrate, so
+        a layer added near the substrate shows every layer outside it as
+        changed. Values are compared exactly. The name, merit rows,
+        specification checks, the cone of incidence and the materials a
+        design carries are not compared.
+
+        Args:
+            other: The Design compared with this one.
+
+        Returns:
+            A named tuple Differences: same, True when nothing compared
+            differs; setup, each setting that differs as a SetupChange
+            (setting, before, after), setting by the package's name
+            ("incident_medium", "exit_medium", "substrate.material",
+            "substrate.thickness", "reference", "sides" or "score_on"),
+            before its value here and after in other; layers, each layer that
+            differs, the front's first, as a LayerChange (side, number,
+            before, after, change), before and after a LayerState (material,
+            thickness, locked) or None where that design has no layer of the
+            number, change after's thickness less before's in nm, or None.
+
+        Raises:
+            TFStudioError: an other that is not a Design.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            kicked = design.copy()
+            kicked.perturb(2, seed=3)
+            for layer in design.differences(kicked).layers:
+                print(layer.side, layer.number, layer.change)
+        """
+        if not isinstance(other, Design):
+            raise TFStudioError("differences: other is a Design, as tf.new_design() or copy() give one")
+        found = self._calls.designDifferences(self._data, other._data)
+        return differences_of(found, {mode: side for side, mode in SIDES.items()},
+                              {mode: name for name, mode in SCORE_ON.items()})
+
+    def _edit(self, call, method, **options):
+        """The design changed by the API's call `call` with `options`, for the
+        method `method`, whose name its refusals then begin with."""
+        with worded(Words(call, method)):
+            self._data = getattr(self._calls, call)(self._data, api_names(options))
 
     def spectrum(self, start, end, *, step=1, angles=(0,)):
         """R, T and A over a range of wavelengths, for unpolarized light and

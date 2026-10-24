@@ -12,7 +12,8 @@ import { warnWithoutKernel } from './environment.js';
 import { checkOptions, checkHooks, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean, refusal } from './check.js';
 
 const oneOf = list => v => list.includes(v);
-const isSeed = v => v == null || (Number.isInteger(v) && v >= 1 && v <= MAX_SEED);
+/** A seed a random run takes: a whole number from 1 to 2^32 - 1, or null or nothing for a fresh one. */
+export const isSeed = v => v == null || (Number.isInteger(v) && v >= 1 && v <= MAX_SEED);
 
 // The options of the layer errors and the trials, and the values they start from.
 const ERROR_OPTIONS = ['runs', 'thicknessRelPct', 'thicknessAbsNm', 'indexRe', 'indexIm', 'distribution', 'seed'];

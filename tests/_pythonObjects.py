@@ -12,6 +12,7 @@ and specKinds the checks to add to it, each [kind, wavelengths, keyword
 arguments, the fields the test gives setSpecification].
 """
 
+import copy
 import inspect
 import json
 import sys
@@ -55,6 +56,7 @@ def objects(given):
         specification(tf, design, given)
         yields(tf)
         cleaning(tf)
+        design_edits(tf)
         stack_views(tf)
         admittance_and_field(tf)
         colour_and_integrals(tf)
@@ -362,6 +364,49 @@ def yields(tf):
 
 def report_of(report):
     return [report.removed, report.merged, [list(op) for op in report.operations]]
+
+
+def design_edits(tf):
+    """scale_thicknesses(), quantize() with its defaults and each argument,
+    perturb() with a seed and without, layers.flip(), copy_front_to_back(),
+    copy_back_to_front() and differences(), each from the design before it,
+    and their refusals."""
+    design = tf.new_design("Edits")
+    design.stack("(HL)^2 H")
+    design.layers[2].locked = True
+    steps = {"before": copy.deepcopy(design._data)}
+    design.scale_thicknesses(1.07)
+    steps["scaled"] = copy.deepcopy(design._data)
+    design.quantize()
+    steps["rounded"] = copy.deepcopy(design._data)
+    design.quantize("qwot", 0.5)
+    steps["qwot"] = copy.deepcopy(design._data)
+    seed = design.perturb(3, seed=17)
+    steps["kicked"] = copy.deepcopy(design._data)
+    fresh = design.copy()
+    fresh_seed = fresh.perturb()
+    design.layers.flip()
+    steps["flipped"] = copy.deepcopy(design._data)
+    design.sides = "both"
+    design.copy_front_to_back()
+    steps["copied"] = copy.deepcopy(design._data)
+    design.back_layers.append("MgF2", 90)
+    design.copy_back_to_front()
+    steps["back"] = copy.deepcopy(design._data)
+    other = design.copy()
+    other.sides = "symmetric"
+    other.substrate.thickness = 2
+    other.layers[1].thickness = 50
+    found = design.differences(other)
+    worded = [refused(make) for make in (
+        lambda: design.scale_thicknesses(0), lambda: design.quantize("decimals", 9), lambda: design.quantize("round"),
+        lambda: design.perturb(150), lambda: design.perturb(seed=0), lambda: other.back_layers.flip(),
+        lambda: design.differences(design._data), lambda: design.quantize(side="total"))]
+    out({"designEdits": {"steps": steps, "seed": seed, "fresh": [fresh_seed, fresh._data, steps["kicked"]],
+                         "found": [found.same, [s._asdict() for s in found.setup],
+                                   [[c.side, c.number, c.before and c.before._asdict(), c.after and c.after._asdict(), c.change]
+                                    for c in found.layers], type(found).__name__],
+                         "other": other._data, "worded": worded}})
 
 
 def cleaning(tf):

@@ -11,7 +11,9 @@
  *      design draws and the time a synthesis step took aside:
  *      a design built, edited, cleaned, saved (the same file) and opened
  *      again, and cleaning one with no layers refused with its code and
- *      fields; the spectrum at two angles, summarized from what came over
+ *      fields; a side scaled, rounded, perturbed with its seed and copied,
+ *      a flip of a closed side refused with its code and fields, and two
+ *      designs compared; the spectrum at two angles, summarized from what came over
  *      the wire; a band's width and an edge against angle; an index profile, layer thicknesses and the design's facts,
  *      a layer set by its QWOT, a side with no layers refused with its code
  *      and fields, and a QWOT the Design Editor has none of crossing as null;
@@ -165,6 +167,14 @@ const specified = api.setSpecification(start, CHECKS);
     const bare = await same('cleanDesign', [api.newDesign()]);
     ok('cleaning a design with no layers is refused with its code and fields', bare.error?.code === 'noLayers'
         && canon(bare.error.fields) === canon({ call: 'cleanDesign' }), JSON.stringify(bare.error));
+    await same('scaleThicknesses', [stack, { factor: 0.97 }]);
+    await same('quantize', [stack, { mode: 'step', value: 0.5 }]);
+    const kicked = await same('perturb', [stack, { percent: 5, seed: 8 }]);
+    const closed = await same('flipLayers', [stack, { side: 'back' }]);
+    ok('a perturbed design crosses with its seed, and a closed side is refused with its code and fields', kicked.result?.seed === 8
+        && closed.error?.code === 'closedSide' && canon(closed.error.fields) === canon({ call: 'flipLayers', side: 'back', surfaceMode: 'front_only' }), JSON.stringify(closed.error));
+    await same('copySide', [api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { from: 'front' }]);
+    await same('designDifferences', [stack, kicked.result?.design]);
     await same('findMaterials', ['SiO2']);
     await same('findMaterials', []);
     await same('materialNK', ['TiO2', [400, 550, 700]]);

@@ -37,7 +37,8 @@ function closedSide(design) {
     return null;
 }
 
-function openSideKey(call, design, side) {
+/** The design's key of `side`, after refusing a side the Design Editor does not let you edit. */
+export function openSideKey(call, design, side) {
     const key = sideKey(side);
     const closed = closedSide(design);
     if (closed && closed.side === side) throw refusal('closedSide', { call, side, surfaceMode: design.surfaceMode || 'front_only' }, `${call}: ${closed.why}`);

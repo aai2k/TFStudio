@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 39
+ *   1. The session: initialize and version negotiation, the tool list (the 45
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -10,7 +10,9 @@
  *      and an unknown tool. The server answers on after each.
  *   2. Designs: a quarter-wave stack built through the tools has the spectrum,
  *      a band's width, an edge against angle (in short with counts and
- *      extremes, in full with every angle), merit and specification verdict the API computes for it in this
+ *      extremes, in full with every angle), a copy perturbed with its seed
+ *      and the differences from it (in short with counts and the largest
+ *      change, in full with every layer), merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
  *      they are, and an empty one clears it, answered with the mode; a design
@@ -78,7 +80,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 39 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 45 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -127,6 +129,18 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('edgeShift answers with counts and the extremes of the edge and shift, and every angle\'s values for values true',
         JSON.stringify([shortMoved.angleCount, shortMoved.notCrossedCount, shortMoved.edge?.max, shortMoved.edge?.maxAt, shortMoved.shift?.min, shortMoved.shift?.minAt, shortMoved.angles, fullMoved.edge, fullMoved.reason])
         === JSON.stringify([3, 0, moved.edge[0], 0, moved.shift[2], 30, undefined, moved.edge, moved.reason]) && moved.shift[2] < 0, JSON.stringify(shortMoved));
+    const copyId = (await server.call('copyDesign', { designId: id })).designId;
+    const kicked = await server.call('perturb', { designId: copyId, percent: 4, seed: 12 });
+    const kickedHere = api.perturb(local, { percent: 4, seed: 12 }).design;
+    ok('perturb changes the design as the API does and answers with its seed', kicked.seed === 12
+        && JSON.stringify(kicked.front.map(l => l.thickness)) === JSON.stringify(kickedHere.frontLayers.map(l => l.thickness)), JSON.stringify(kicked.front?.[0]));
+    const differs = api.designDifferences(local, kickedHere);
+    const shortDiff = await server.call('designDifferences', { designId: id, otherId: copyId });
+    const fullDiff = await server.call('designDifferences', { designId: id, otherId: copyId, values: true });
+    const largest = differs.layers.reduce((a, b) => (Math.abs(a.change) >= Math.abs(b.change) ? a : b));
+    ok('designDifferences answers with counts and the largest change, and every layer for values true',
+        JSON.stringify([shortDiff.same, shortDiff.layersDiffering, shortDiff.largestChange, shortDiff.layers, fullDiff.layers])
+        === JSON.stringify([false, { front: 7, back: 0 }, { side: largest.side, number: largest.number, change: largest.change }, undefined, differs.layers]), JSON.stringify(shortDiff));
     const rows = [{ type: 'RAV', lambdaStart: 580, lambdaEnd: 620, target: 1, weight: 1 }];
     const rated = await server.call('setMerit', { designId: id, rows });
     ok('the merit is the API\'s', rated.total === api.merit(api.setMerit(local, rows)).total && rated.rows.length === 1, JSON.stringify(rated));
@@ -207,7 +221,7 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('a spectrum names the materials whose data stop inside it', Array.isArray(wide.outOfRange), JSON.stringify(wide.outOfRange));
     const copy = await server.call('copyDesign', { designId: id });
     const listedDesigns = (await server.call('listDesigns', {})).designs;
-    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 4);
+    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 5);
 }
 {
     // A stack with a thin layer between two of one material, cleaned through the tools.

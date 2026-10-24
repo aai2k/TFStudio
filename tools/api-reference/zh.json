@@ -3542,5 +3542,125 @@
   "Curve.peak.refuses.1": {
     "hash": "8293692d",
     "text": "不是光谱曲线的曲线、不在曲线范围以内的波段，或不接受的选项、选项不能取的值"
+  },
+  "Design.scaleThicknesses.arg.factor": {
+    "hash": "cacd6b21",
+    "text": "每个厚度所乘的系数，大于 0：1.02 使每个未锁定的膜层厚 2%。"
+  },
+  "Design.scaleThicknesses.arg.side": {
+    "hash": "f4cf39ae",
+    "text": "`'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。"
+  },
+  "Design.scaleThicknesses.lead.1": {
+    "hash": "010a676c",
+    "text": "把某一面每个未锁定的膜层按同一系数加厚或减薄。被锁定的膜层保持不变，对称设计的背面跟随其正面。"
+  },
+  "Design.scaleThicknesses.refuses.1.js": {
+    "hash": "776ff379",
+    "text": "不是大于 0 的数的系数、scaleThicknesses 不接受的选项、`'front'` 或 `'back'` 以外的面，或设计不允许编辑的一面，例如对称设计的背面"
+  },
+  "Design.scaleThicknesses.refuses.1.py": {
+    "hash": "f802c025",
+    "text": "不是大于 0 的数的系数、\"front\" 或 \"back\" 以外的面，或设计不允许编辑的一面，例如对称设计的背面"
+  },
+  "Design.quantize.arg.mode": {
+    "hash": "7d240a37",
+    "text": "`'decimals'`、`'step'`（控制步长，单位 nm）或 `'qwot'`（QWOT 增量）。"
+  },
+  "Design.quantize.arg.value": {
+    "hash": "cce4a0f7",
+    "text": "小数位数（0 到 8）、步长（单位 nm）或 QWOT 增量，取决于模式。不给出时，取对话框打开时的值：2 位、0.1 nm 或 1 个 QWOT。"
+  },
+  "Design.quantize.arg.side": {
+    "hash": "f4cf39ae",
+    "text": "`'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。"
+  },
+  "Design.quantize.lead.1": {
+    "hash": "b4097e5f",
+    "text": "按设计编辑器中“取整 / 量化厚度”对话框的方式对某一面未锁定的膜层取整：取到 nm 的若干位小数，取到最接近的整数个控制步长，或取到参考波长处最接近的整数个 QWOT 增量。被锁定的膜层保持不变，对称设计的背面跟随其正面。薄于半个步长的膜层会取整为 0 nm，与对话框相同；在 `'qwot'` 模式下，材料没有四分之一波长的膜层保持不变。"
+  },
+  "Design.quantize.refuses.1.js": {
+    "hash": "b9c7dda3",
+    "text": "quantize 不接受的选项、`'decimals'`、`'step'` 或 `'qwot'` 以外的模式、该模式不接受的值、`'front'` 或 `'back'` 以外的面，或设计不允许编辑的一面"
+  },
+  "Design.quantize.refuses.1.py": {
+    "hash": "40ea699e",
+    "text": "\"decimals\"、\"step\" 或 \"qwot\" 以外的模式、该模式不接受的值、\"front\" 或 \"back\" 以外的面，或设计不允许编辑的一面"
+  },
+  "Design.perturb.arg.percent": {
+    "hash": "2acb67fe",
+    "text": "最大误差，为每个厚度的 ± %，大于 0 且不超过 100。"
+  },
+  "Design.perturb.arg.side": {
+    "hash": "f4cf39ae",
+    "text": "`'front'` 或 `'back'`。不给出时为正面，只在背面镀膜的设计则为背面。"
+  },
+  "Design.perturb.arg.seed.js": {
+    "hash": "c04da07e",
+    "text": "抽样的起始数，1 到 2^32 - 1 之间的整数。不给出或为 null 时，使用一个新的种子。"
+  },
+  "Design.perturb.arg.seed.py": {
+    "hash": "d2a6f91e",
+    "text": "抽样的起始数，1 到 2^32 - 1 之间的整数。不给出时，使用一个新的种子。"
+  },
+  "Design.perturb.returns": {
+    "hash": "76fe77af",
+    "text": "抽样开始所用的种子。"
+  },
+  "Design.perturb.lead.1": {
+    "hash": "b3fec706",
+    "text": "按设计编辑器中“扰动厚度”对话框的方式，给某一面未锁定的膜层加上随机厚度误差：每个厚度乘以 1 + k · percent / 100，其中 k 对每层在 -1 到 1 之间均匀抽取。被锁定的膜层保持不变，对称设计的背面跟随其正面。相同的种子、设计和 percent 给出相同的误差。"
+  },
+  "Design.perturb.refuses.1.js": {
+    "hash": "5ddc2ad8",
+    "text": "不大于 0 或超过 100 的 percent、perturb 不接受的选项、不是 1 到 2^32 - 1 之间整数的种子、`'front'` 或 `'back'` 以外的面，或设计不允许编辑的一面"
+  },
+  "Design.perturb.refuses.1.py": {
+    "hash": "9acdcd9a",
+    "text": "不大于 0 或超过 100 的 percent、不是 1 到 2^32 - 1 之间整数的种子、\"front\" 或 \"back\" 以外的面，或设计不允许编辑的一面"
+  },
+  "Design.copyFrontToBack.lead.1": {
+    "hash": "1ed8a8df",
+    "text": "按设计编辑器中“复制到背面”的方式，把正面的膜层复制到背面：背面得到从基底向外相同的膜层堆栈，其原有膜层被替换。`sides` 保持不变，因此要两面都镀膜，请将其设为 `'both'`。"
+  },
+  "Design.copyFrontToBack.refuses.1": {
+    "hash": "1a0a537b",
+    "text": "设计不允许编辑的正面，即只在背面镀膜且只按该面评价的设计"
+  },
+  "Design.copyBackToFront.lead.1": {
+    "hash": "b611d963",
+    "text": "按设计编辑器中“复制到正面”的方式，把背面的膜层复制到正面：正面得到从基底向外相同的膜层堆栈，其原有膜层被替换。`sides` 保持不变。"
+  },
+  "Design.copyBackToFront.refuses.1": {
+    "hash": "544e2e43",
+    "text": "设计不允许编辑的背面：对称设计的背面，或只在正面镀膜且只按该面评价的设计的背面"
+  },
+  "Design.differences.arg.other": {
+    "hash": "15d0eb70",
+    "text": "与本设计比较的 Design。"
+  },
+  "Design.differences.returns.js": {
+    "hash": "58f92a2e",
+    "text": "一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'` 或 `'scoreOn'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null。"
+  },
+  "Design.differences.returns.py": {
+    "hash": "be83a72a",
+    "text": "命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（\"incident_medium\"、\"exit_medium\"、\"substrate.material\"、\"substrate.thickness\"、\"reference\"、\"sides\" 或 \"score_on\"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None。"
+  },
+  "Design.differences.lead.1": {
+    "hash": "78dd37cf",
+    "text": "本设计与 `other` 之间的不同之处：它们的设置和膜层，膜层按从基底起的编号逐面比较，因此在靠近基底处加一层，会使其外侧的每一层都显示为改变。数值按精确值比较。名称、评价函数的行、规格检查、入射锥角和设计携带的材料不参与比较。"
+  },
+  "Design.differences.refuses.1": {
+    "hash": "01e96f4f",
+    "text": "不是 Design 的 other"
+  },
+  "Layers.flip.lead.1": {
+    "hash": "01dac617",
+    "text": "按设计编辑器中“反转”按钮的方式，把这一面的膜层顺序在基底上颠倒：第 1 层变为最外层。对称设计的背面跟随翻转后的正面。"
+  },
+  "Layers.flip.refuses.1": {
+    "hash": "4514fc7b",
+    "text": "设计不允许编辑的一面，例如对称设计的背面"
   }
 }

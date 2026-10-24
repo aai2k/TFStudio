@@ -45,9 +45,20 @@ function indexAt(resolveMaterial, id, lambda) {
     }
 }
 
+/**
+ * The Round / quantize dialog's opening method and the value each method
+ * opens with: decimal places, a controller step in nm, or a QWOT increment.
+ */
+export const QUANTIZE_DEFAULTS = { mode: 'step', value: { decimals: 2, step: 0.1, qwot: 1 } };
+/** The most decimal places the Round / quantize dialog rounds to. */
+export const MAX_DECIMALS = 8;
+/** The Perturb dialog's opening maximum kick, ± % of each thickness. */
+export const PERTURB_DEFAULT_PERCENT = 2;
+
 export function quantizeLayers(layers, design, options = {}) {
-    const mode = options.mode || 'step';
+    const mode = options.mode || QUANTIZE_DEFAULTS.mode;
     const value = Number(options.value);
+    const opening = QUANTIZE_DEFAULTS.value;
     const lambda = Number(options.referenceWavelength || design?.referenceWavelength || 550);
     const resolveMaterial = designMaterialLookup(design);
     return (layers || []).map(layer => {
@@ -56,17 +67,17 @@ export function quantizeLayers(layers, design, options = {}) {
         if (!Number.isFinite(d)) return layer;
         let thickness = d;
         if (mode === 'decimals') {
-            const places = Math.max(0, Math.min(8, Math.round(Number.isFinite(value) ? value : 2)));
+            const places = Math.max(0, Math.min(MAX_DECIMALS, Math.round(Number.isFinite(value) ? value : opening.decimals)));
             const scale = 10 ** places;
             thickness = Math.round(d * scale) / scale;
         } else if (mode === 'qwot') {
-            const multiple = Number.isFinite(value) && value > 0 ? value : 1;
+            const multiple = Number.isFinite(value) && value > 0 ? value : opening.qwot;
             const n = indexAt(resolveMaterial, layer.material, lambda);
             if (!(Number.isFinite(n) && n > 0 && lambda > 0)) return layer;
             const step = multiple * lambda / (4 * n);
             thickness = Math.round(d / step) * step;
         } else {
-            const step = Number.isFinite(value) && value > 0 ? value : 0.1;
+            const step = Number.isFinite(value) && value > 0 ? value : opening.step;
             thickness = Math.round(d / step) * step;
         }
         return Math.abs(thickness - d) < 1e-12 ? layer : { ...layer, thickness: Math.max(0, thickness) };

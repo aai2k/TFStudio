@@ -33,6 +33,9 @@
  *   a Stop, and their refusals; clean() with its defaults, with each option
  *   and on a symmetric design, its CleanReport's named tuples, each
  *   operation's number read back through the layers, and its refusals;
+ *   scale_thicknesses(), quantize(), perturb() with a seed and without,
+ *   layers.flip(), copy_front_to_back(), copy_back_to_front() and
+ *   differences() as named tuples, and their refusals;
  *   index_profile() and layer_thicknesses() as named tuples, save_csv(), the
  *   facts with and without side, layer.qwot read and set, None for a
  *   material that resolves to nothing, and their refusals; admittance() and
@@ -480,6 +483,47 @@ async function cleaning(t, said) {
         'clean: min_thickness is a thickness in nm of 0 or more, not -1', 'clean: min_thickness is a thickness in nm of 0 or more, not None',
         'clean: merge is True or False, not 1', "clean: back is True or False, not 'yes'",
         'clean: the design has no layers; add them with layers.append() or stack()']) && got.kept === true, canon(got.worded));
+}
+
+// The edits _pythonObjects.py design_edits() made, each against the plain
+// call here on the design before it.
+async function designEdits(t, said) {
+    const { api, ok, canon, attempt } = t;
+    const got = said.designEdits ?? {};
+    const s = got.steps ?? {};
+    const sameAs = async (after, make) => canon(after) === canon(await attempt(make));
+    const both = s.flipped && api.setDesignSetup(s.flipped, { surfaceMode: 'both_independent' });
+    const withBack = s.copied && api.insertLayer(s.copied, { side: 'back', material: 'MgF2', thickness: 90 });
+    const steps = [
+        await sameAs(s.scaled, () => api.scaleThicknesses(s.before, { factor: 1.07 })),
+        await sameAs(s.rounded, () => api.quantize(s.scaled)),
+        await sameAs(s.qwot, () => api.quantize(s.rounded, { mode: 'qwot', value: 0.5 })),
+        await sameAs(s.kicked, () => api.perturb(s.qwot, { percent: 3, seed: 17 }).design),
+        await sameAs(s.flipped, () => api.flipLayers(s.kicked)),
+        await sameAs(s.copied, () => api.copySide(both, { from: 'front' })),
+        await sameAs(s.back, () => api.copySide(withBack, { from: 'back' })),
+    ];
+    ok('scale_thicknesses(), quantize() with its defaults and its arguments, perturb(), layers.flip(), copy_front_to_back() and copy_back_to_front() change the design as the plain calls do',
+        [...steps, got.seed === 17, s.before?.frontLayers?.[3]?.locked === true].every(Boolean), `${steps.join()} ${got.seed}`);
+    const [freshSeed, fresh, kicked] = got.fresh ?? [];
+    ok('perturb() without a seed draws a fresh one, which repeats it', Number.isInteger(freshSeed)
+        && await sameAs(fresh, () => api.perturb(kicked, { seed: freshSeed }).design));
+    const found = await attempt(() => api.designDifferences(s.back, got.other));
+    const [same, setup, layers, type] = got.found ?? [];
+    ok('differences() gives designDifferences as named tuples, the settings by Python\'s names', [same === false, type === 'Differences',
+        canon(setup) === canon([{ setting: 'substrate.thickness', before: 1, after: 2 }, { setting: 'sides', before: 'both', after: 'symmetric' }]),
+        canon(layers) === canon((found.layers ?? []).map(l => [l.side, l.number, l.before, l.after, l.change])), layers?.length > 0].every(Boolean),
+        `${canon(got.found)?.slice(0, 400)} / ${canon(found)?.slice(0, 400)}`);
+    ok('and their refusals are in Python\'s words', canon(got.worded) === canon([
+        'scale_thicknesses: factor is a number above 0, not 0',
+        'quantize: value is a whole number of decimal places from 0 to 8, not 9',
+        "quantize: mode is 'decimals', 'step' or 'qwot', not 'round'",
+        'perturb: percent is a percentage above 0 and up to 100, not 150',
+        'perturb: seed is a whole number from 1 to 2^32 - 1, or None for a fresh one, not 0',
+        'flip: the back of a symmetric design mirrors its front; edit the front',
+        'differences: other is a Design, as tf.new_design() or copy() give one',
+        "quantize: side is 'front' or 'back', not 'total'",
+    ]), canon(got.worded));
 }
 
 // What _pythonObjects.py stack_views() read of a design coated on both
@@ -953,6 +997,7 @@ export async function checkObjects(t) {
     await specification(u, ran.said, measured);
     await yields(u, ran.said);
     await cleaning(u, ran.said);
+    await designEdits(u, ran.said);
     await stackViews(u, ran.said);
     await admittanceAndField(u, ran.said);
     await colourAndIntegrals(u, ran.said);

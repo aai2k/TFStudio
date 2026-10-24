@@ -580,6 +580,194 @@ for op in report.operations:
 print(len(design.layers), "layers now")
 ```
 
+### scaleThicknesses / scale_thicknesses
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.scaleThicknesses(factor, { side })` | `design.scale_thicknesses(factor, side=...)` |
+
+Makes every unlocked layer of one side thicker or thinner by one factor. Locked layers stay as they are, and a symmetric design's back follows its front.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `factor` | `factor` |  | What each thickness is multiplied by, above 0: 1.02 makes every unlocked layer 2% thicker. |
+| `side` | `side` |  | `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone. |
+
+**Refuses**:
+
+- **JavaScript**: a factor that is not a number above 0, an option scaleThicknesses does not take, a side other than `'front'` or `'back'`, or a side the design does not let you edit, such as the back of a symmetric design<br>**Python**: a factor that is not a number above 0, a side other than "front" or "back", or a side the design does not let you edit, such as the back of a symmetric design
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.scaleThicknesses(1.05);
+console.log(design.layers[1].thickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.scale_thicknesses(1.05)
+print(design.layers[1].thickness, "nm")
+```
+
+### quantize
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.quantize({ mode, value, side })` | `design.quantize(mode="step", value=..., side=...)` |
+
+Rounds the unlocked layers of one side as the Design Editor's Round / quantize dialog does: to a number of decimal places of a nm, to the nearest whole number of controller steps, or to the nearest whole number of a QWOT increment at the reference wavelength. Locked layers stay as they are, and a symmetric design's back follows its front. A layer thinner than half a step rounds to 0 nm, as in the dialog; in `'qwot'` mode a layer whose material has no quarter wave stays as it is.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `mode` | `mode` | `'step'` | `'decimals'`, `'step'` (a controller step in nm) or `'qwot'` (a QWOT increment). |
+| `value` | `value` |  | The number of decimal places, from 0 to 8, the step in nm, or the QWOT increment, as the mode takes. Without it, what the dialog opens with: 2 places, 0.1 nm or 1 QWOT. |
+| `side` | `side` |  | `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone. |
+
+**Refuses**:
+
+- **JavaScript**: an option quantize does not take, a mode other than `'decimals'`, `'step'` or `'qwot'`, a value the mode does not take, a side other than `'front'` or `'back'`, or a side the design does not let you edit<br>**Python**: a mode other than "decimals", "step" or "qwot", a value the mode does not take, a side other than "front" or "back", or a side the design does not let you edit
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.quantize({ mode: 'step', value: 0.5 });
+console.log(design.layers);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.quantize("step", 0.5)
+print(design.layers)
+```
+
+### perturb
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.perturb(percent, { side, seed })` | `design.perturb(percent=2, side=..., seed=...)` |
+
+Gives the unlocked layers of one side random thickness errors, as the Design Editor's Perturb dialog does: each thickness is multiplied by 1 + k · percent / 100, with k drawn for each layer uniformly from -1 to 1. Locked layers stay as they are, and a symmetric design's back follows its front. The same seed, design and percent give the same errors.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `percent` | `percent` | `2` | The largest error, ± % of each thickness, above 0 and up to 100. |
+| `side` | `side` |  | `'front'` or `'back'`. Without it, the front, or the back of a design coated on the back alone. |
+| `seed` | `seed` |  | **JavaScript**: The number the draws start from, a whole number from 1 to 2^32 - 1. Without it, or with null, a fresh one.<br>**Python**: The number the draws start from, a whole number from 1 to 2^32 - 1. Without it, a fresh one. |
+
+**Returns**: The seed the draws started from.
+
+**Refuses**:
+
+- **JavaScript**: a percent that is not above 0 and up to 100, an option perturb does not take, a seed that is not a whole number from 1 to 2^32 - 1, a side other than `'front'` or `'back'`, or a side the design does not let you edit<br>**Python**: a percent that is not above 0 and up to 100, a seed that is not a whole number from 1 to 2^32 - 1, a side other than "front" or "back", or a side the design does not let you edit
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const seed = design.perturb(3, { seed: 7 });
+console.log('seed', seed, design.layers);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+seed = design.perturb(3, seed=7)
+print("seed", seed, design.layers)
+```
+
+### copyFrontToBack / copy_front_to_back
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.copyFrontToBack()` | `design.copy_front_to_back()` |
+
+Copies the front's layers onto the back, as the Design Editor's Copy to back does: the back gets the same stack outward from the substrate, and its own layers are replaced. `sides` stays as it was, so set it to `'both'` to coat both.
+
+**Refuses**:
+
+- a front the design does not let you edit, on a design coated on the back alone and scored on that side
+
+```js
+const design = tf.newDesign('Two-sided AR');
+design.stack('H L');
+design.sides = 'both';
+design.copyFrontToBack();
+console.log(design.backLayers);
+```
+
+```python
+design = tf.new_design("Two-sided AR")
+design.stack("H L")
+design.sides = "both"
+design.copy_front_to_back()
+print(design.back_layers)
+```
+
+### copyBackToFront / copy_back_to_front
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.copyBackToFront()` | `design.copy_back_to_front()` |
+
+Copies the back's layers onto the front, as the Design Editor's Copy to front does: the front gets the same stack outward from the substrate, and its own layers are replaced. `sides` stays as it was.
+
+**Refuses**:
+
+- a back the design does not let you edit: the back of a symmetric design, or of a design coated on the front alone and scored on that side
+
+```js
+const design = tf.newDesign('Two-sided AR');
+design.sides = 'both';
+design.backLayers.append('MgF2', 100);
+design.copyBackToFront();
+console.log(design.layers);
+```
+
+```python
+design = tf.new_design("Two-sided AR")
+design.sides = "both"
+design.back_layers.append("MgF2", 100)
+design.copy_back_to_front()
+print(design.layers)
+```
+
+### differences
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.differences(other)` | `design.differences(other)` |
+
+What differs between this design and `other`: their setup and their layers, compared side by side by number from the substrate, so a layer added near the substrate shows every layer outside it as changed. Values are compared exactly. The name, merit rows, specification checks, the cone of incidence and the materials a design carries are not compared.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `other` | `other` |  | The Design compared with this one. |
+
+**Returns**: **JavaScript**: An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'` or `'scoreOn'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null.<br>**Python**: A named tuple Differences: same, True when nothing compared differs; setup, each setting that differs as a SetupChange (setting, before, after), setting by the package's name ("incident_medium", "exit_medium", "substrate.material", "substrate.thickness", "reference", "sides" or "score_on"), before its value here and after in other; layers, each layer that differs, the front's first, as a LayerChange (side, number, before, after, change), before and after a LayerState (material, thickness, locked) or None where that design has no layer of the number, change after's thickness less before's in nm, or None.
+
+**Refuses**:
+
+- an other that is not a Design
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const kicked = design.copy();
+kicked.perturb(2, { seed: 3 });
+for (const l of design.differences(kicked).layers) console.log(l.side, l.number, l.change);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+kicked = design.copy()
+kicked.perturb(2, seed=3)
+for layer in design.differences(kicked).layers:
+    print(layer.side, layer.number, layer.change)
+```
+
 ### spectrum
 
 | JavaScript | Python |
@@ -1652,6 +1840,32 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.layers.remove(len(design.layers))
 print(len(design.layers), "layers")
+```
+
+### flip
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.layers.flip()` | `design.layers.flip()` |
+
+Reverses the side's layer order on the substrate, as the Design Editor's Invert button does: layer 1 becomes the outermost. On a symmetric design the back follows the flipped front.
+
+**Refuses**:
+
+- a side the design does not let you edit, such as the back of a symmetric design
+
+```js
+const design = tf.newDesign('Graded');
+design.stack('H 2L M');
+design.layers.flip();
+console.log(design.layers[1].material, 'is now on the substrate');
+```
+
+```python
+design = tf.new_design("Graded")
+design.stack("H 2L M")
+design.layers.flip()
+print(design.layers[1].material, "is now on the substrate")
 ```
 
 ### [n]

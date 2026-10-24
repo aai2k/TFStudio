@@ -5,10 +5,25 @@ import { isAbsolute } from 'node:path';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../utils/optimizers/index.js';
 import { DESIGN_CLEANER_DEFAULTS } from '../components/windows/optimization/designCleaner/sessionState.js';
+import { MAX_DECIMALS, PERTURB_DEFAULT_PERCENT, QUANTIZE_DEFAULTS } from '../components/windows/design/designEditor/layerTools.js';
 import { designView } from './designStore.js';
 import { object, num, int, str, bool, list, oneOf, DESIGN_ID, SIDE, INDEX } from './schemaParts.js';
 
 const SURFACE_MODES = ['front_only', 'back_only', 'both_independent', 'symmetric'];
+const QUANTIZE_MODES = Object.keys(QUANTIZE_DEFAULTS.value);
+const EDITED_SIDE = oneOf(['front', 'back'], "The coating changed: 'front' faces the incident medium, 'back' the exit medium. Default: the front, or the back of a back_only design. A side the Design Editor does not let you edit is refused, as in insertLayer");
+
+// designDifferences in short: its verdict and setup, and how many layers
+// differ on each side with the largest thickness change among them.
+function differenceSummary({ same, setup, layers }) {
+    const count = side => layers.filter(layer => layer.side === side).length;
+    const changed = layers.filter(layer => layer.change !== null);
+    const largest = changed.reduce((best, layer) => (best && Math.abs(best.change) >= Math.abs(layer.change) ? best : layer), null);
+    return {
+        same, setup, layersDiffering: { front: count('front'), back: count('back') },
+        largestChange: largest && { side: largest.side, number: largest.number, change: largest.change },
+    };
+}
 
 // The fields an edit tool passes on to the API: its arguments without designId.
 const editArgs = args => Object.fromEntries(Object.entries(args).filter(([key]) => key !== 'designId'));
@@ -147,6 +162,64 @@ export function designTools({ api, store }) {
                 const { design, ...report } = api.cleanDesign(store.get(designId), options);
                 store.set(designId, design);
                 return { designId, ...report };
+            },
+        },
+        {
+            name: 'scaleThicknesses', title: 'Scale the thicknesses',
+            description: "Multiplies the thickness of every unlocked layer of one side by factor. Locked layers stay as they are, and a symmetric design's back follows its front. Answers with the design.",
+            inputSchema: object({
+                designId: DESIGN_ID, factor: num('What each thickness is multiplied by, above 0: 1.02 makes every unlocked layer 2% thicker'), side: EDITED_SIDE,
+            }, ['designId', 'factor']),
+            run: args => edit(args.designId, d => api.scaleThicknesses(d, editArgs(args))),
+        },
+        {
+            name: 'quantize', title: 'Round the thicknesses',
+            description: `Rounds the unlocked layers of one side as the Design Editor's Round / quantize dialog does: to a number of decimal places of a nm, to the nearest whole number of controller steps, or to the nearest whole number of a QWOT increment at the design's reference wavelength. Locked layers stay as they are, and a symmetric design's back follows its front. A layer thinner than half a step rounds to 0 nm, as in the dialog; in qwot mode a layer whose material has no quarter wave stays as it is. Answers with the design.`,
+            inputSchema: object({
+                designId: DESIGN_ID,
+                mode: oneOf(QUANTIZE_MODES, `'decimals', 'step' (a controller step in nm) or 'qwot' (a QWOT increment). Default '${QUANTIZE_DEFAULTS.mode}'`),
+                value: num(`The decimal places (a whole number from 0 to ${MAX_DECIMALS}), the step in nm, or the QWOT increment, as the mode takes. Default ${QUANTIZE_MODES.map(mode => `${QUANTIZE_DEFAULTS.value[mode]} for ${mode}`).join(', ')}`),
+                side: EDITED_SIDE,
+            }, ['designId']),
+            run: args => edit(args.designId, d => api.quantize(d, editArgs(args))),
+        },
+        {
+            name: 'perturb', title: 'Perturb the thicknesses',
+            description: "Gives the unlocked layers of one side random thickness errors, as the Design Editor's Perturb dialog does: each thickness is multiplied by 1 + k * percent / 100, with k drawn for each layer uniformly from -1 to 1. Locked layers stay as they are, and a symmetric design's back follows its front. The same seed, design and percent give the same errors. Answers with the design and the seed the draws started from.",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                percent: num(`The largest error, plus or minus % of each thickness, above 0 and up to 100. Default ${PERTURB_DEFAULT_PERCENT}`),
+                side: EDITED_SIDE,
+                seed: int('The number the draws start from, a whole number from 1 to 2^32 - 1. Default: a fresh one'),
+            }, ['designId']),
+            run: ({ designId, ...options }) => {
+                const { design, seed } = api.perturb(store.get(designId), options);
+                store.set(designId, design);
+                return { ...view(designId), seed };
+            },
+        },
+        {
+            name: 'flipLayers', title: 'Flip a side',
+            description: "Reverses the layer order of one side on the substrate, as the Design Editor's Invert button does: the layer next to the substrate becomes the outermost. A symmetric design's back follows its front. Answers with the design.",
+            inputSchema: object({ designId: DESIGN_ID, side: EDITED_SIDE }, ['designId']),
+            run: args => edit(args.designId, d => api.flipLayers(d, editArgs(args))),
+        },
+        {
+            name: 'copySide', title: 'Copy one side to the other',
+            description: "Copies the layers of one side onto the other, as the Design Editor's Copy to back and Copy to front do: the other side gets the same stack outward from the substrate, and its own layers are replaced. The surface mode stays as it was, so make the design both_independent with setDesignSetup to coat both. Copying from a side the Design Editor does not let you edit is refused. Answers with the design.",
+            inputSchema: object({ designId: DESIGN_ID, from: oneOf(['front', 'back'], 'The side copied') }, ['designId', 'from']),
+            run: args => edit(args.designId, d => api.copySide(d, editArgs(args))),
+        },
+        {
+            name: 'designDifferences', title: 'Compare two designs',
+            description: "What differs between two designs of the session: their setup as setDesignSetup sets it, but the name, and their layers, compared side by side by number from 1 next to the substrate, so a layer added near the substrate shows every layer outside it as changed. Values are compared exactly; merit rows, specification checks, the cone and carried materials are not compared. Answers with same, true when nothing compared differs; setup, each setting that differs as { setting, before, after }, before in designId and after in otherId; and the count of layers that differ on each side, with the largest thickness change. With values true, also layers: each layer that differs as { side, number, before, after, change }, before and after { material, thickness, locked } or null where that design has no such layer, change the thickness after less before in nm, or null.",
+            inputSchema: object({
+                designId: DESIGN_ID, otherId: str('The id of the design compared with it'),
+                values: bool('Answer with every layer that differs too. Default false'),
+            }, ['designId', 'otherId']),
+            run: ({ designId, otherId, values = false }) => {
+                const found = api.designDifferences(store.get(designId), store.get(otherId));
+                return values ? { designId, otherId, ...found } : { designId, otherId, ...differenceSummary(found) };
             },
         },
         {

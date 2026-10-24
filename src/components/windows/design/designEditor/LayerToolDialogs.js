@@ -1,6 +1,7 @@
 import {
     designMerit, herpinCollapsePreview, makePerturbationMap,
     perturbDesignSide, quantizeDesignSide,
+    MAX_DECIMALS, PERTURB_DEFAULT_PERCENT, QUANTIZE_DEFAULTS,
 } from './layerTools.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
@@ -110,8 +111,8 @@ function useMeritPreview(design, preview) {
 
 export function QuantizeDialog({ design, side, c, t, onApply, onClose }) {
     const strings = t.designEditor.layerTools;
-    const [mode, setMode] = useState('step');
-    const [rawValue, setRawValue] = useState('0.1');
+    const [mode, setMode] = useState(QUANTIZE_DEFAULTS.mode);
+    const [rawValue, setRawValue] = useState(String(QUANTIZE_DEFAULTS.value[QUANTIZE_DEFAULTS.mode]));
     const value = parseNumberStrict(rawValue);
     const options = { mode, value, referenceWavelength: design.referenceWavelength || 550 };
     const preview = useMemo(() => {
@@ -131,7 +132,7 @@ export function QuantizeDialog({ design, side, c, t, onApply, onClose }) {
             onChange: event => {
                 const next = event.target.value;
                 setMode(next);
-                setRawValue(next === 'decimals' ? '2' : next === 'qwot' ? '1' : '0.1');
+                setRawValue(String(QUANTIZE_DEFAULTS.value[next]));
             },
             style: { height: 25, color: c.text, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 4 },
         },
@@ -142,7 +143,7 @@ export function QuantizeDialog({ design, side, c, t, onApply, onClose }) {
         h(FormRow, { label: labels[mode], c },
             h(NumberInput, {
                 value: rawValue, onChange: setRawValue, c,
-                min: 0, max: mode === 'decimals' ? 8 : undefined,
+                min: 0, max: mode === 'decimals' ? MAX_DECIMALS : undefined,
                 step: mode === 'decimals' ? 1 : mode === 'qwot' ? 0.25 : 0.01,
             }),
             mode === 'qwot' && h('span', { style: { color: c.textDim } },
@@ -156,7 +157,7 @@ export function QuantizeDialog({ design, side, c, t, onApply, onClose }) {
 export function PerturbDialog({ design, side, c, t, onApply, onClose }) {
     const strings = t.designEditor.layerTools;
     const key = side === 'back' ? 'backLayers' : 'frontLayers';
-    const [rawPercent, setRawPercent] = useState('2');
+    const [rawPercent, setRawPercent] = useState(String(PERTURB_DEFAULT_PERCENT));
     const [sample, setSample] = useState(() => makePerturbationMap(design[key] || []));
     const percent = parseNumberStrict(rawPercent);
     const preview = useMemo(
