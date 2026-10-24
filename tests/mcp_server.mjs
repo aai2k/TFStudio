@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 51
+ *   1. The session: initialize and version negotiation, the tool list (the 55
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -12,7 +12,10 @@
  *      a band's width, an edge against angle (in short with counts and
  *      extremes, in full with every angle), a spectrum file read and the
  *      design compared with a curve of it (in short with counts, spans and
- *      extremes, in full with every point), a relative file path refused, an edge filter search (in short with the count and the best period, in full with every one), a deposition run on chips (in short with each step's mean, min and max, in full with its values) and its files written, a relative folder refused, a copy perturbed with its seed
+ *      extremes, in full with every point), a relative file path refused, an
+ *      ellipsometer file read (in short and in full), its curves and a scan
+ *      added to a copy, a fit added and the curves written, a file that is
+ *      there refused, an edge filter search (in short with the count and the best period, in full with every one), a deposition run on chips (in short with each step's mean, min and max, in full with its values) and its files written, a relative folder refused, a copy perturbed with its seed
  *      and the differences from it (in short with counts and the largest
  *      change, in full with every layer), merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
@@ -82,7 +85,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 51 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 55 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -110,6 +113,7 @@ for (const [asked, answered] of [['2025-06-18', '2025-06-18'], ['2025-03-26', '2
 
 // ── 2. Designs ─────────────────────────────────────────────────────────────
 const api = await import('../src/api/index.js');
+const { measuredDocument } = await import('../src/components/windows/dataExchange/measuredEllipsometry/model.js');
 const { DESIGN_CLEANER_DEFAULTS } = await import('../src/components/windows/optimization/designCleaner/sessionState.js');
 const { DEFAULT_REFINE_METHOD } = await import('../src/utils/optimizers/index.js');
 await api.init();
@@ -146,6 +150,28 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         JSON.stringify([shortCompared.rms, shortCompared.ppef, shortCompared.points, shortCompared.deviation?.max, shortCompared.wavelength, fullCompared.deviation, fullCompared.design])
         === JSON.stringify([compared.rms, compared.ppef, 4, Math.max(...compared.deviation), undefined, compared.deviation, compared.design]), JSON.stringify(shortCompared));
     ok('a relative spectrum path is refused', /absolute path/.test((await server.call('readSpectrumFile', { path: 'scan.csv' })).error));
+    const witness = path.join(TEMP, 'witness.csv');
+    fs.writeFileSync(witness, '# AOI 70 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n500,30.1,120.5\n550,28.4,110.2\n600,27.9,100.8\n650,27.1,95.3\n');
+    const witnessRead = api.readEllipsometryFile(witness);
+    const shortWitness = await server.call('readEllipsometryFile', { path: witness });
+    const fullWitness = await server.call('readEllipsometryFile', { path: witness, values: true });
+    ok('readEllipsometryFile answers with each curve\'s conditions, points and span, and its values for values true',
+        JSON.stringify(shortWitness.curves) === JSON.stringify(witnessRead.curves.map(({ wavelength, values: _v, ...c }) => ({ ...c, points: 4, from: 500, to: 650 })))
+        && JSON.stringify(fullWitness) === JSON.stringify(witnessRead), JSON.stringify(shortWitness));
+    const fitId = (await server.call('copyDesign', { designId: id })).designId;
+    const addedScan = await server.call('addMeasuredCurves', { designId: fitId, path: scan, curves: ['scan: R'] });
+    const addedWitness = await server.call('addMeasuredCurves', { designId: fitId, path: witness, ellipsometry: true, deltaConvention: 'reversed' });
+    ok('addMeasuredCurves adds a file\'s curves and names the curves the design holds', JSON.stringify([addedScan.added, addedWitness.measuredCurves, addedWitness.ellipsometryCurves])
+        === JSON.stringify([['scan: R'], ['scan: R'], witnessRead.curves.map(c => c.name)]), JSON.stringify(addedWitness));
+    const fitted = await server.call('fitMeasured', { designId: fitId, curve: 'scan: R', grid: 'uniform', step: 25, constraints: { min: 20 } });
+    ok('fitMeasured adds the block and its MNT and MXT rows, and answers with the block\'s points and span',
+        fitted.meritRowCount === addedWitness.meritRowCount + 3 && JSON.stringify([fitted.points, fitted.from, fitted.to]) === JSON.stringify([7, 500, 650]), JSON.stringify(fitted));
+    const heldHere = api.addMeasuredCurves(local, api.readEllipsometryFile(witness, { deltaConvention: 'reversed' }).curves);
+    const curvesFile = path.join(TEMP, 'witness out.csv');
+    const wroteCurves = await server.call('exportMeasuredCurves', { designId: fitId, path: curvesFile, curves: witnessRead.curves.map(c => c.name) });
+    ok('exportMeasuredCurves writes the curves as the Export tab writes them', wroteCurves.curves === 2
+        && fs.readFileSync(curvesFile, 'utf8') === measuredDocument(heldHere, { curves: heldHere.measuredEllipsometry }).text, JSON.stringify(wroteCurves));
+    ok('and refuses a file that is there', /exists; pass \{ overwrite: true \}/.test((await server.call('exportMeasuredCurves', { designId: fitId, path: curvesFile })).error));
     const found = api.edgeFilter(local, { angle: 45 });
     const shortEdge = await server.call('edgeFilter', { designId: id, angle: 45 });
     const fullEdge = await server.call('edgeFilter', { designId: id, angle: 45, values: true });
@@ -259,7 +285,7 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('a spectrum names the materials whose data stop inside it', Array.isArray(wide.outOfRange), JSON.stringify(wide.outOfRange));
     const copy = await server.call('copyDesign', { designId: id });
     const listedDesigns = (await server.call('listDesigns', {})).designs;
-    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 5);
+    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 6);
 }
 {
     // A stack with a thin layer between two of one material, cleaned through the tools.

@@ -18,7 +18,10 @@
  *      part and on witness chips, and its files written; the spectrum at two angles, summarized from what came over
  *      the wire; a band's width and an edge against angle; a spectrum file
  *      read and a design compared with a curve of it, and a file of several
- *      curves compared without naming one refused, naming them;
+ *      curves compared without naming one refused, naming them; an
+ *      ellipsometer file read, its curves added to a design, fits added for
+ *      a curve of each kind, a Δ curve compared, and the curves written as
+ *      the Export tab writes them, a file that is there refused with its code;
  *      an index profile, layer thicknesses and the design's facts,
  *      a layer set by its QWOT, a side with no layers refused with its code
  *      and fields, and a QWOT the Design Editor has none of crossing as null;
@@ -102,6 +105,7 @@ const undrawn = v => {
 const canon = v => encode(undrawn(v));
 
 const api = await import('../src/api/index.js');
+const { measuredExportDocument } = await import('../src/components/windows/dataExchange/spectrumExchange/model.js');
 await api.init();
 // What the API answers in this process, as the server answers: { result } or
 // { error }, a refusal's code and fields with it.
@@ -211,6 +215,21 @@ const specified = api.setSpecification(start, CHECKS);
     await same('measuredDifference', [stack, scan, { curve: 1, grid: 'uniform', step: 5, levelFree: true }]);
     const several = await same('measuredDifference', [stack, scan]);
     ok('a file of several curves compared without curve is refused, naming them', /holds 2 curves \(scan: R, scan: Ts\); curve names/.test(several.error?.message), JSON.stringify(several.error));
+    const witness = path.join(TEMP, 'witness.csv');
+    fs.writeFileSync(witness, '# AOI 70 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n450,30.1,120.5\n550,28.4,110.2\n650,27.9,100.8\n');
+    const witnessCurves = api.readEllipsometryFile(witness).curves;
+    await same('readEllipsometryFile', [witness, { deltaConvention: 'reversed' }]);
+    await same('addMeasuredCurves', [stack, witnessCurves]);
+    const held = api.addMeasuredCurves(stack, [...api.readSpectrumFile(scan).curves, ...witnessCurves]);
+    await same('fitMeasured', [held, 'scan: R', { grid: 'uniform', step: 5, constraints: { min: 20 } }]);
+    await same('fitMeasured', [held, witnessCurves[1].name]);
+    await same('measuredDifference', [stack, witnessCurves[1], { grid: 'uniform', step: 20 }]);
+    const curvesFile = path.join(TEMP, 'curves.dx');
+    const wrote = await server.call('exportMeasuredCurves', [held, curvesFile, { format: 'jcamp' }]);
+    ok('measured curves are written over the wire as the Export tab writes them', !wrote.error && wrote.result === null
+        && fs.readFileSync(curvesFile, 'utf8') === measuredExportDocument(held, 'jcamp', { curves: held.measuredCurves }).text, JSON.stringify(wrote));
+    const again = await server.call('exportMeasuredCurves', [held, curvesFile]);
+    ok('and a file that is there is refused with its code', again.error?.code === 'fileExists', JSON.stringify(again.error));
     const twoSided = api.insertLayer(api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { side: 'back', material: 'MgF2', thickness: 90 });
     await same('indexProfile', [twoSided, { wavelength: 633 }]);
     await same('indexProfile', [stack, { side: 'front' }]);

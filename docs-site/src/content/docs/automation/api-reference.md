@@ -230,6 +230,91 @@ scan = tf.read_spectrum_file(name).curves[0]
 print(scan.name, scan.quantity, scan.wavelength, scan.values)
 ```
 
+### readEllipsometryFile / read_ellipsometry_file
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.readEllipsometryFile(path, { angle, side, deltaConvention, xUnit, quantities })` | `tf.read_ellipsometry_file(path, angle=..., side=..., delta_convention="azzam", x_unit=..., quantities=...)` |
+
+**JavaScript**: Reads an ellipsometer file as the Measured Ellipsometry window's import reads it: a table of a wavelength column and columns of Ψ and Δ in degrees, each column typed as the window types it, the curves the window's Add all adds. The options take the place of the import panel's settings: an angle the file states, in its header lines or in a column's heading, is kept, as in the window, and the side its header states fills the panel, which `side` replaces.
+
+**Python**: Reads an ellipsometer file as the Measured Ellipsometry window's import reads it: a table of a wavelength column and columns of Psi and Delta in degrees, each column typed as the window types it, the curves the window's Add all adds. The keywords take the place of the import panel's settings: an angle the file states, in its header lines or in a column's heading, is kept, as in the window, and the side its header states fills the panel, which side replaces.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file, by its full path. A relative path is taken as `openDesign` takes it.<br>**Python**: The file. A relative path is taken as open_design() takes it. |
+| `angle` | `angle` |  | **JavaScript**: The angle of incidence, degrees, for the columns whose file states none; 70 where neither does.<br>**Python**: The angle of incidence, degrees, for the columns whose file states none. Without it, 70 where neither does. |
+| `side` | `side` |  | **JavaScript**: `'front'` or `'back'`, the side measured; without it, the side the file's header states, or `'front'`.<br>**Python**: "front" or "back", the side measured. Without it, the side the file's header states, or "front". |
+| `deltaConvention` | `delta_convention` | `'azzam'` | **JavaScript**: The sign the file writes Δ in: `'azzam'` or `'reversed'`, 360 degrees less it.<br>**Python**: The sign the file writes Delta in: "azzam" or "reversed", 360 degrees less it. |
+| `xUnit` | `x_unit` |  | **JavaScript**: The unit of the wavelength column: `'nm'`, `'um'`, `'cm-1'` or `'eV'`; without it, what the import makes of it.<br>**Python**: The unit of the wavelength column: "nm", "um", "cm-1" or "eV". Without it, what the import makes of it. |
+| `quantities` | `quantities` |  | Each column's type, in the file's order: `'PSI'`, `'DEL'`, or `null` / `None` for the type the import gives it; a column with no type is left out. |
+
+**Returns**: **JavaScript**: An object: `fileName`; `xUnit`, the unit the wavelengths were read in; `skippedRows`, lines that held no row; and `curves`, each `{ name, quantity, angle, side, deltaConvention, cosDelta, wavelength, values }`: quantity `'PSI'` or `'DEL'`, deltaConvention null for Ψ, cosDelta true for a Δ that looks like cos Δ, the wavelengths in nm rising and the values in degrees, which `design.addMeasuredCurves()` and `design.compareMeasured()` take.<br>**Python**: An EllipsometryFile, a named tuple: file_name; x_unit, the unit the wavelengths were read in; skipped_rows, lines that held no row; and curves, each an EllipsometryCurve, a named tuple of name, quantity ("PSI" or "DEL"), angle, side, delta_convention (None for Psi), cos_delta (True for a Delta that looks like cos Delta), wavelength and values, the wavelengths in nm rising and the values in degrees, which design.add_measured_curves() and design.compare_measured() take.
+
+**Refuses**:
+
+- a file that cannot be read or holds no table of numbers, an option it does not take or a value an option cannot take
+
+```js
+const file = require('path').join(require('os').homedir(), `witness-${Date.now()}.csv`);
+require('fs').writeFileSync(file, '# AOI 65 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n500,24.9,242.6\n600,20.7,218.4\n');
+const [psi, delta] = tf.readEllipsometryFile(file).curves;
+console.log(psi.angle, psi.values, delta.values);
+```
+
+```python
+import time
+
+name = "witness-{}.csv".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("# AOI 65 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n500,24.9,242.6\n600,20.7,218.4\n")
+psi, delta = tf.read_ellipsometry_file(name).curves
+print(psi.angle, psi.values, delta.values)
+```
+
+### exportMeasuredCurves / export_measured_curves
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.exportMeasuredCurves(design, path, { curves, format, xUnit, scale, overwrite })` | `tf.export_measured_curves(design, path, curves=..., format="csv", x_unit="nm", scale="percent", overwrite=False)` |
+
+**JavaScript**: Writes measured curves a design holds to a file as the Export tab writes them: Measured Spectra's for R, T and A, as CSV, its condition lines above the columns, or as JCAMP-DX; Measured Ellipsometry's for Ψ and Δ, as CSV in degrees. Without options, the window's factory format: CSV, nm, R, T and A in percent.
+
+**Python**: Writes measured curves a design holds to a file as the Export tab writes them: Measured Spectra's for R, T and A, as CSV, its condition lines above the columns, or as JCAMP-DX; Measured Ellipsometry's for Psi and Delta, as CSV in degrees. Without keywords, the window's factory format: CSV, nm, R, T and A in percent.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `design` | `design` |  | The design, a Design. |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken as `openDesign` takes it.<br>**Python**: The file to write. A relative path is taken as open_design() takes it. |
+| `curves` | `curves` |  | **JavaScript**: The names of the curves written, all R, T and A or all Ψ and Δ. Without it, every R, T and A curve the design holds, or its Ψ and Δ when it holds none.<br>**Python**: The names of the curves written, all R, T and A or all Psi and Delta. Without it, every R, T and A curve the design holds, or its Psi and Delta when it holds none. |
+| `format` | `format` | `'csv'` | `'csv'`, or `'jcamp'` for JCAMP-DX, which R, T and A take. |
+| `xUnit` | `x_unit` | `'nm'` | **JavaScript**: The unit of the wavelength column: `'nm'`, `'um'` or `'cm-1'` for R, T and A, `'nm'`, `'um'` or `'eV'` for Ψ and Δ.<br>**Python**: The unit of the wavelength column: "nm", "um" or "cm-1" for R, T and A, "nm", "um" or "eV" for Psi and Delta. |
+| `scale` | `scale` | `'percent'` | For R, T and A, `'percent'` or `'fraction'`. |
+| `overwrite` | `overwrite` | `false` / `False` | **JavaScript**: Write over a file that is already there.<br>**Python**: True writes over a file that is already there. |
+
+**Refuses**:
+
+- a design that is not a Design or holds no measured curve, a name of a curve it does not hold, curves of both kinds, an option it does not take or a value an option cannot take, or a file that is already there, without `overwrite`
+
+```js
+const file = require('path').join(require('os').homedir(), `bench-${Date.now()}.csv`);
+const design = tf.newDesign('AR');
+design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', angle: 8, wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] });
+tf.exportMeasuredCurves(design, file, { scale: 'fraction' });
+console.log(require('fs').readFileSync(file, 'utf8'));
+```
+
+```python
+import time
+
+name = "bench-{}.csv".format(time.time_ns())
+design = tf.new_design("AR")
+design.add_measured_curves({"name": "Bench R", "quantity": "R", "angle": 8,
+                            "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]})
+tf.export_measured_curves(design, name, scale="fraction")
+print(open(name).read())
+```
+
 ### app
 
 | JavaScript | Python |
@@ -965,13 +1050,13 @@ for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
 | ---------- | ------ |
 | `design.compareMeasured(measured, { curve, angle, pol, quantity, scale, xUnit, grid, step, thinEvery, start, end, db, levelFree })` | `design.compare_measured(measured, curve=..., angle=..., pol=..., quantity=..., scale=..., x_unit=..., grid="measured", step=..., thin_every=2, start=..., end=..., db=False, level_free=False)` |
 
-**JavaScript**: How the design's spectrum differs from a measured curve, as the MCURVE merit row the Measured Spectra window's Fit… dialog writes scores it: the curve sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization. What it is read on follows the design's `sides` and `scoreOn`, as the merit function scores it, and a design under a cone of incidence is averaged over its cone.
+**JavaScript**: How the design differs from a measured curve, as the MCURVE merit row the Fit… dialog writes scores it: Measured Spectra's for R, T and A, Measured Ellipsometry's for Ψ and Δ. The curve is sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization. R, T and A are read on what the design's `sides` and `scoreOn` say, as the merit function scores them, averaged over a cone of incidence the design has; Ψ and Δ on the front side alone, each Δ difference taken the short way round the circle.
 
-**Python**: How the design's spectrum differs from a measured curve, as the MCURVE merit row the Measured Spectra window's Fit... dialog writes scores it: the curve sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization. What it is read on follows the design's sides and score_on, as the merit function scores it, and a design under a cone of incidence is averaged over its cone.
+**Python**: How the design differs from a measured curve, as the MCURVE merit row the Fit... dialog writes scores it: Measured Spectra's for R, T and A, Measured Ellipsometry's for Psi and Delta. The curve is sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization. R, T and A are read on what the design's sides and score_on say, as the merit function scores them, averaged over a cone of incidence the design has; Psi and Delta on the front side alone, each Delta difference taken the short way round the circle.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
-| `measured` | `measured` |  | **JavaScript**: The path of a spectrum file, read as `tf.readSpectrumFile()` reads it, or a curve as that gives one, `{ wavelength, values, quantity, angle, pol, name }`, its values fractions of 1, quantity `'T'` unless given, angle 0 and pol `'avg'`.<br>**Python**: The path of a spectrum file, read as tf.read_spectrum_file() reads it, or a MeasuredCurve that gives, or a dict of wavelength, values, quantity, angle, pol and name, its values fractions of 1, quantity "T" unless given, angle 0 and pol "avg". |
+| `measured` | `measured` |  | **JavaScript**: The path of a spectrum file, read as `tf.readSpectrumFile()` reads it, or a curve as that or `tf.readEllipsometryFile()` gives one, `{ wavelength, values, quantity, angle, pol, name }`, its values fractions of 1, quantity `'T'` unless given, angle 0 and pol `'avg'`; a Ψ or Δ curve also takes `side` and `deltaConvention`, its values in degrees.<br>**Python**: The path of a spectrum file, read as tf.read_spectrum_file() reads it, or a MeasuredCurve that gives, an EllipsometryCurve tf.read_ellipsometry_file() gives, or a dict of wavelength, values, quantity, angle, pol and name, its values fractions of 1, quantity "T" unless given, angle 0 and pol "avg"; a Psi or Delta curve also takes side and delta_convention, its values in degrees. |
 | `curve` | `curve` |  | For a file of several curves, the one compared, by its name or its number from 0. |
 | `angle` | `angle` |  | For a file, as `tf.readSpectrumFile()` / `tf.read_spectrum_file()` takes it. |
 | `pol` | `pol` |  | For a file, as `tf.readSpectrumFile()` / `tf.read_spectrum_file()` takes it. |
@@ -984,13 +1069,13 @@ for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
 | `start` | `start` |  | **JavaScript**: The first wavelength compared, nm; the curve's first without it.<br>**Python**: The first wavelength compared, nm. Without it, the curve's first. |
 | `end` | `end` |  | **JavaScript**: The last wavelength compared, nm; the curve's last without it.<br>**Python**: The last wavelength compared, nm. Without it, the curve's last. |
 | `db` | `db` | `false` / `False` | For a T curve, `true` / `True` compares in dB, as the dialog's dB scale does. |
-| `levelFree` | `level_free` | `false` / `False` | `true` / `True` takes off the mean difference before the RMS, as an MCURVE row with its level free scores. |
+| `levelFree` | `level_free` | `false` / `False` | For R, T and A, `true` / `True` takes off the mean difference before the RMS, as an MCURVE row with its level free scores. |
 
-**Returns**: **JavaScript**: An object: `rms`, the MCURVE row's value, a fraction of 1 or dB with `db`; `ppef`, a PPEF row's value against it, dB; `level`, the mean difference taken off with `levelFree`, otherwise null; `wavelength`, the wavelengths compared, nm, and at each `measured`, `design` and `deviation`, design less measured (less `level`); `clipped`, true when fewer wavelengths were compared than asked for; and `mode`, `name`, `quantity`, `angle`, `pol`, `grid`, `db` and `levelFree`.<br>**Python**: A MeasuredDifference, a named tuple: rms, the MCURVE row's value, a fraction of 1 or dB with db; ppef, a PPEF row's value against it, dB; level, the mean difference taken off with level_free, otherwise None; wavelength, the wavelengths compared, nm, and at each measured, design and deviation, design less measured (less level); clipped, True when fewer wavelengths were compared than asked for; and mode, name, quantity, angle, pol, grid, db and level_free.
+**Returns**: **JavaScript**: An object: `rms`, the MCURVE row's value, a fraction of 1, dB with `db`, or degrees for Ψ and Δ; `ppef`, a PPEF row's value against it, dB, null for Ψ and Δ; `level`, the mean difference taken off with `levelFree`, otherwise null; `wavelength`, the wavelengths compared, nm, and at each `measured`, `design` and `deviation`, design less measured (less `level`); `clipped`, true when fewer wavelengths were compared than asked for; and `mode`, `name`, `quantity`, `angle`, `pol`, `grid`, `db` and `levelFree`.<br>**Python**: A MeasuredDifference, a named tuple: rms, the MCURVE row's value, a fraction of 1, dB with db, or degrees for Psi and Delta; ppef, a PPEF row's value against it, dB, None for Psi and Delta; level, the mean difference taken off with level_free, otherwise None; wavelength, the wavelengths compared, nm, and at each measured, design and deviation, design less measured (less level); clipped, True when fewer wavelengths were compared than asked for; and mode, name, quantity, angle, pol, grid, db and level_free.
 
 **Refuses**:
 
-- a measured that is not a file path or a curve, a file that cannot be read or holds no spectrum, a file of several curves without `curve`, a curve that is not R, T or A, an option it does not take or a value an option cannot take, no point to compare, or a design that names a material that resolves to nothing
+- **JavaScript**: a measured that is not a file path or a curve, a file that cannot be read or holds no spectrum, a file of several curves without `curve`, an option it does not take or a value an option cannot take, no point to compare, a Ψ or Δ curve at normal incidence or on the back side or one on a design scored on its back alone, or a design that names a material that resolves to nothing<br>**Python**: a measured that is not a file path or a curve, a file that cannot be read or holds no spectrum, a file of several curves without curve, an option it does not take or a value an option cannot take, no point to compare, a Psi or Delta curve at normal incidence or on the back side or one on a design scored on its back alone, or a design that names a material that resolves to nothing
 
 ```js
 const design = tf.newDesign('AR');
@@ -1006,6 +1091,82 @@ design.stack("0.5H L")
 scan = {"quantity": "R", "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]}
 d = design.compare_measured(scan)
 print("RMS", round(d.rms, 4), "PPEF", round(d.ppef, 2), "dB")
+```
+
+### addMeasuredCurves / add_measured_curves
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.addMeasuredCurves(curves)` | `design.add_measured_curves(curves)` |
+
+**JavaScript**: Adds measured curves to the design as the import of Measured Spectra and Measured Ellipsometry adds them, each with an id of its own: R, T and A to the design's spectra, Ψ and Δ to its ellipsometry, after the curves it holds. The design saves them, the windows show them, and `fitMeasured()` turns one into merit rows. A curve holds what it is given: the file it came from, the unit that file was written in and whether it was in percent are not part of it.
+
+**Python**: Adds measured curves to the design as the import of Measured Spectra and Measured Ellipsometry adds them, each with an id of its own: R, T and A to the design's spectra, Psi and Delta to its ellipsometry, after the curves it holds. The design saves them, the windows show them, and fit_measured() turns one into merit rows. A curve holds what it is given: the file it came from, the unit that file was written in and whether it was in percent are not part of it.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `curves` | `curves` |  | **JavaScript**: A curve or a list of curves, as `tf.readSpectrumFile()` or `tf.readEllipsometryFile()` gives them, `{ wavelength, values, quantity, angle, pol, name }`: R, T and A as fractions of 1, quantity `'T'` unless given, angle 0 and pol `'avg'`; a Ψ or Δ curve also takes `side` and `deltaConvention`, `'front'` and `'azzam'` unless given, its values in degrees.<br>**Python**: A curve or a list of curves: MeasuredCurves as tf.read_spectrum_file() gives them, EllipsometryCurves as tf.read_ellipsometry_file() gives them, or dicts of wavelength, values, quantity, angle, pol and name, R, T and A as fractions of 1, quantity "T" unless given, angle 0 and pol "avg"; a Psi or Delta curve also takes side and delta_convention, "front" and "azzam" unless given, its values in degrees. |
+
+**Refuses**:
+
+- **JavaScript**: a curve that is not an object of those fields, or a value a field cannot take<br>**Python**: a curve that is not one of those, or a value a field cannot take
+
+```js
+const design = tf.newDesign('AR');
+design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] });
+console.log(design.compareMeasured({ quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] }).rms);
+```
+
+```python
+design = tf.new_design("AR")
+design.add_measured_curves({"name": "Bench R", "quantity": "R",
+                            "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]})
+print(design.compare_measured({"quantity": "R", "wavelength": [450, 550, 650],
+                               "values": [0.021, 0.009, 0.018]}).rms)
+```
+
+### fitMeasured / fit_measured
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.fitMeasured(curve, { grid, step, thinEvery, start, end, db, weight, output, constraints })` | `design.fit_measured(curve, grid="measured", step=..., thin_every=2, start=..., end=..., db=False, weight=1, output="append", constraints=...)` |
+
+**JavaScript**: Adds the merit rows the Fit… dialog adds for a measured curve the design holds: Measured Spectra's for R, T and A, Measured Ellipsometry's for Ψ and Δ. The MCURVE block holds the curve sampled on the dialog's grid, kept to the span every material of the design has data for; a Ψ or Δ block is scored on the front side alone. With `constraints`, an MNT and an MXT row follow it, as the dialog's thickness constraints add them. `compareMeasured()` with the same options gives the block's value.
+
+**Python**: Adds the merit rows the Fit... dialog adds for a measured curve the design holds: Measured Spectra's for R, T and A, Measured Ellipsometry's for Psi and Delta. The MCURVE block holds the curve sampled on the dialog's grid, kept to the span every material of the design has data for; a Psi or Delta block is scored on the front side alone. With constraints, an MNT and an MXT row follow it, as the dialog's thickness constraints add them. compare_measured() with the same keywords gives the block's value.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `curve` | `curve` |  | The name of a curve the design holds. |
+| `grid` | `grid` | `'measured'` | `'measured'`, the curve's own points; `'thinned'`, every `thinEvery-th` / `thin_every-th` of them and the last; or `'uniform'`, every `step` nm, the curve read between its points as the dialog reads it. |
+| `step` | `step` |  | **JavaScript**: With grid `'uniform'`, the step, nm; the curve's median spacing without it.<br>**Python**: With grid "uniform", the step, nm. Without it, the curve's median spacing. |
+| `thinEvery` | `thin_every` | `2` | With grid `'thinned'`, which points are kept. |
+| `start` | `start` |  | **JavaScript**: The first wavelength kept, nm; the curve's first without it.<br>**Python**: The first wavelength kept, nm. Without it, the curve's first. |
+| `end` | `end` |  | **JavaScript**: The last wavelength kept, nm; the curve's last without it.<br>**Python**: The last wavelength kept, nm. Without it, the curve's last. |
+| `db` | `db` | `false` / `False` | For a T curve, `true` / `True` fits in dB, as the dialog's dB scale does. |
+| `weight` | `weight` | `1` | The block's weight, 0 or more. |
+| `output` | `output` | `'append'` | `'append'` adds the rows after the merit rows the design has; `'replace'` puts them in place of all of them. |
+| `constraints` | `constraints` |  | **JavaScript**: `{ min: 10, max: 1000, weight: 1 }`, thicknesses in nm, to add the dialog's MNT and MXT rows over every layer.<br>**Python**: A dict of min, max and weight, thicknesses in nm, 10, 1000 and 1 unless given, to add the dialog's MNT and MXT rows over every layer. Without it, none. |
+
+**Refuses**:
+
+- **JavaScript**: a curve the design does not hold or two of that name, an option it does not take or a value an option cannot take, no point to keep, a Ψ or Δ curve at normal incidence or on the back side or one on a design scored on its back alone, or a design that names a material that resolves to nothing<br>**Python**: a curve the design does not hold or two of that name, an option it does not take or a value an option cannot take, no point to keep, a Psi or Delta curve at normal incidence or on the back side or one on a design scored on its back alone, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('AR');
+design.stack('0.5H L');
+design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', wavelength: [450, 500, 550, 600, 650], values: [0.021, 0.012, 0.009, 0.011, 0.018] });
+design.fitMeasured('Bench R', { start: 470, end: 640 });
+console.log(design.merit.value);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("0.5H L")
+design.add_measured_curves({"name": "Bench R", "quantity": "R", "wavelength": [450, 500, 550, 600, 650],
+                            "values": [0.021, 0.012, 0.009, 0.011, 0.018]})
+design.fit_measured("Bench R", start=470, end=640)
+print(design.merit.value)
 ```
 
 ### indexProfile / index_profile
@@ -4540,6 +4701,38 @@ design.spectrum(400, 700, step=10, angles=[0, 45]).save_csv(name)
 print("Wrote", name)
 ```
 
+### saveJcamp / save_jcamp
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.saveJcamp(path)` | `s.save_jcamp(path)` |
+
+**JavaScript**: Writes the spectrum to a JCAMP-DX file as Measured Spectra's Export tab writes a design spectrum, with T, R and A and "Include s and p" checked: one spectrum each of T, R and A for unpolarized light and of Ts, Rs, Tp and Rp at each angle, as fractions of 1, each titled with the design's name, its quantity and, at more than one angle, its angle. Measured Spectra's import reads each back as a curve. A file that is there is written over.
+
+**Python**: Writes the spectrum to a JCAMP-DX file as Measured Spectra's Export tab writes a design spectrum, with T, R and A and "Include s and p" checked: one spectrum each of T, R and A for unpolarized light and of Ts, Rs, Tp and Rp at each angle, as fractions of 1, each titled with the design's name, its quantity and, at more than one angle, its angle. The file is the window's, byte for byte, and Measured Spectra's import reads each spectrum back as a curve. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `spectrum-${Date.now()}.dx`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.spectrum(400, 700, { step: 10, angles: [0, 45] }).saveJcamp(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "spectrum-{}.dx".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.spectrum(400, 700, step=10, angles=[0, 45]).save_jcamp(name)
+print("Wrote", name)
+```
+
 ## Curve
 
 **JavaScript**: One value per wavelength: an array of numbers, so `Math.max(...curve)`, a for loop and the array methods take it as they take any array; map(), filter() and the other methods that make a new array make a plain one.
@@ -6788,9 +6981,9 @@ print(min(e.angle(70).psi))
 | ---------- | ------ |
 | `e.saveCsv(path)` | `e.save_csv(path)` |
 
-**JavaScript**: Writes Ψ and Δ to a CSV file as the window's export writes its table: a column of wavelengths, λ (nm), or of angles, AOI (°), then Ψ (°) and Δ (°). Against wavelength at more than one angle, Ψ and Δ come for each angle in turn, each headed with its angle. A file that is there is written over.
+**JavaScript**: Writes Ψ and Δ to a CSV file as the window's export writes its table: a column of wavelengths, λ (nm), or of angles, AOI (°), then Ψ (°) and Δ (°). Against wavelength at more than one angle, Ψ and Δ come for each angle in turn, each headed with its angle. Against wavelength at one angle, two # lines come first, as Measured Ellipsometry's export of the design's Ψ/Δ writes them: the design's name, then the angle and the side, which its import reads back. A file that is there is written over.
 
-**Python**: Writes Ψ and Δ to a CSV file as the window's export writes its table: a column of wavelengths, λ (nm), or of angles, AOI (°), then Ψ (°) and Δ (°). Against wavelength at more than one angle, Ψ and Δ come for each angle in turn, each headed with its angle. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+**Python**: Writes Ψ and Δ to a CSV file as the window's export writes its table: a column of wavelengths, λ (nm), or of angles, AOI (°), then Ψ (°) and Δ (°). Against wavelength at more than one angle, Ψ and Δ come for each angle in turn, each headed with its angle. Against wavelength at one angle, two # lines come first, as Measured Ellipsometry's export of the design's Psi/Delta writes them: the design's name, then the angle and the side, which its import reads back. The numbers are the window's, written in Python's float notation. A file that is there is written over.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |

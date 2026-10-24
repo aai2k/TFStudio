@@ -230,6 +230,91 @@ scan = tf.read_spectrum_file(name).curves[0]
 print(scan.name, scan.quantity, scan.wavelength, scan.values)
 ```
 
+### readEllipsometryFile / read_ellipsometry_file
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.readEllipsometryFile(path, { angle, side, deltaConvention, xUnit, quantities })` | `tf.read_ellipsometry_file(path, angle=..., side=..., delta_convention="azzam", x_unit=..., quantities=...)` |
+
+**JavaScript**：按实测椭偏窗口的导入方式读取椭偏仪文件：一列波长和若干列以度为单位的 Ψ 与 Δ 组成的表格，每列按窗口的方式判定类型，得到的是窗口“添加全部已标注列”会添加的曲线。选项代替导入面板的设置：文件在表头行或列标题中写明的入射角予以保留，与窗口中相同；表头写明的面填入面板，`side` 可替换它。
+
+**Python**：按实测椭偏窗口的导入方式读取椭偏仪文件：一列波长和若干列以度为单位的 Psi 与 Delta 组成的表格，每列按窗口的方式判定类型，得到的是窗口“添加全部已标注列”会添加的曲线。关键字参数代替导入面板的设置：文件在表头行或列标题中写明的入射角予以保留，与窗口中相同；表头写明的面填入面板，side 可替换它。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：文件，给出完整路径。相对路径按 `openDesign` 的方式解释。<br>**Python**：文件。相对路径按 open_design() 的方式解释。 |
+| `angle` | `angle` |  | **JavaScript**：入射角，单位度，用于文件未说明入射角的列；两者都未给出时为 70。<br>**Python**：入射角，单位度，用于文件未说明入射角的列。不给出时，两者都未给出则为 70。 |
+| `side` | `side` |  | **JavaScript**：`'front'` 或 `'back'`，测量的面；不给出时，取文件表头写明的面，未写明时为 `'front'`。<br>**Python**："front" 或 "back"，测量的面。不给出时，取文件表头写明的面，未写明时为 "front"。 |
+| `deltaConvention` | `delta_convention` | `'azzam'` | **JavaScript**：文件中 Δ 的符号约定：`'azzam'`，或 `'reversed'`，即 360 度减去前者。<br>**Python**：文件中 Delta 的符号约定："azzam"，或 "reversed"，即 360 度减去前者。 |
+| `xUnit` | `x_unit` |  | **JavaScript**：波长列的单位：`'nm'`、`'um'`、`'cm-1'` 或 `'eV'`；不给出时，取导入对它的判断。<br>**Python**：波长列的单位："nm"、"um"、"cm-1" 或 "eV"。不给出时，取导入对它的判断。 |
+| `quantities` | `quantities` |  | 各列的类型，按文件中的顺序：`'PSI'`、`'DEL'`，或 `null` / `None` 表示取导入给出的类型；没有类型的列不读入。 |
+
+**返回**：**JavaScript**：一个对象：`fileName`；`xUnit`，读取波长时所用的单位；`skippedRows`，不含数据行的行数；以及 `curves`，每条为 `{ name, quantity, angle, side, deltaConvention, cosDelta, wavelength, values }`：quantity 为 `'PSI'` 或 `'DEL'`，Ψ 的 deltaConvention 为 null，看起来像 cos Δ 的 Δ 的 cosDelta 为 true，波长单位 nm 且递增，数值单位为度，可交给 `design.addMeasuredCurves()` 和 `design.compareMeasured()`。<br>**Python**：一个 EllipsometryFile，即命名元组：file_name；x_unit，读取波长时所用的单位；skipped_rows，不含数据行的行数；以及 curves，每条为一个 EllipsometryCurve，即由 name、quantity（"PSI" 或 "DEL"）、angle、side、delta_convention（Psi 为 None）、cos_delta（看起来像 cos Delta 的 Delta 为 True）、wavelength 和 values 组成的命名元组，波长单位 nm 且递增，数值单位为度，可交给 design.add_measured_curves() 和 design.compare_measured()。
+
+**拒绝**：
+
+- 无法读取或不含数字表格的文件、不接受的选项或选项无法取的值
+
+```js
+const file = require('path').join(require('os').homedir(), `witness-${Date.now()}.csv`);
+require('fs').writeFileSync(file, '# AOI 65 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n500,24.9,242.6\n600,20.7,218.4\n');
+const [psi, delta] = tf.readEllipsometryFile(file).curves;
+console.log(psi.angle, psi.values, delta.values);
+```
+
+```python
+import time
+
+name = "witness-{}.csv".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("# AOI 65 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n500,24.9,242.6\n600,20.7,218.4\n")
+psi, delta = tf.read_ellipsometry_file(name).curves
+print(psi.angle, psi.values, delta.values)
+```
+
+### exportMeasuredCurves / export_measured_curves
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.exportMeasuredCurves(design, path, { curves, format, xUnit, scale, overwrite })` | `tf.export_measured_curves(design, path, curves=..., format="csv", x_unit="nm", scale="percent", overwrite=False)` |
+
+**JavaScript**：把设计所含的实测曲线写入文件，与导出选项卡的写法相同：R、T 和 A 按实测光谱窗口的方式写成 CSV（各列上方是条件行）或 JCAMP-DX；Ψ 和 Δ 按实测椭偏窗口的方式写成以度为单位的 CSV。不给出选项时，使用窗口的出厂格式：CSV、nm、R、T 和 A 用百分比。
+
+**Python**：把设计所含的实测曲线写入文件，与导出选项卡的写法相同：R、T 和 A 按实测光谱窗口的方式写成 CSV（各列上方是条件行）或 JCAMP-DX；Psi 和 Delta 按实测椭偏窗口的方式写成以度为单位的 CSV。不给出关键字参数时，使用窗口的出厂格式：CSV、nm、R、T 和 A 用百分比。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `design` | `design` |  | 设计，一个 Design。 |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径按 `openDesign` 的方式解释。<br>**Python**：要写入的文件。相对路径按 open_design() 的方式解释。 |
+| `curves` | `curves` |  | **JavaScript**：要写出的曲线的名称，全部为 R、T 和 A，或全部为 Ψ 和 Δ。不给出时，写出设计所含的全部 R、T 和 A 曲线；没有这类曲线时写出其 Ψ 和 Δ。<br>**Python**：要写出的曲线的名称，全部为 R、T 和 A，或全部为 Psi 和 Delta。不给出时，写出设计所含的全部 R、T 和 A 曲线；没有这类曲线时写出其 Psi 和 Delta。 |
+| `format` | `format` | `'csv'` | `'csv'`，或 `'jcamp'` 表示 JCAMP-DX，后者只用于 R、T 和 A。 |
+| `xUnit` | `x_unit` | `'nm'` | **JavaScript**：波长列的单位：R、T 和 A 为 `'nm'`、`'um'` 或 `'cm-1'`，Ψ 和 Δ 为 `'nm'`、`'um'` 或 `'eV'`。<br>**Python**：波长列的单位：R、T 和 A 为 "nm"、"um" 或 "cm-1"，Psi 和 Delta 为 "nm"、"um" 或 "eV"。 |
+| `scale` | `scale` | `'percent'` | 对 R、T 和 A，`'percent'` 或 `'fraction'`。 |
+| `overwrite` | `overwrite` | `false` / `False` | **JavaScript**：覆盖已存在的文件。<br>**Python**：为 True 时，覆盖已存在的文件。 |
+
+**拒绝**：
+
+- 不是 Design 或不含实测曲线的设计、设计不含的曲线名称、两类曲线混在一起、不接受的选项或选项无法取的值，或已存在的文件（未给出 `overwrite` 时）
+
+```js
+const file = require('path').join(require('os').homedir(), `bench-${Date.now()}.csv`);
+const design = tf.newDesign('AR');
+design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', angle: 8, wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] });
+tf.exportMeasuredCurves(design, file, { scale: 'fraction' });
+console.log(require('fs').readFileSync(file, 'utf8'));
+```
+
+```python
+import time
+
+name = "bench-{}.csv".format(time.time_ns())
+design = tf.new_design("AR")
+design.add_measured_curves({"name": "Bench R", "quantity": "R", "angle": 8,
+                            "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]})
+tf.export_measured_curves(design, name, scale="fraction")
+print(open(name).read())
+```
+
 ### app
 
 | JavaScript | Python |
@@ -965,13 +1050,13 @@ for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
 | ---------- | ------ |
 | `design.compareMeasured(measured, { curve, angle, pol, quantity, scale, xUnit, grid, step, thinEvery, start, end, db, levelFree })` | `design.compare_measured(measured, curve=..., angle=..., pol=..., quantity=..., scale=..., x_unit=..., grid="measured", step=..., thin_every=2, start=..., end=..., db=False, level_free=False)` |
 
-**JavaScript**：设计的光谱与一条实测曲线相差多少，按实测光谱窗口的“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。计算对象取决于设计的 `sides` 和 `scoreOn`，与评价函数的评分方式相同；有入射锥角的设计在其锥角上平均。
+**JavaScript**：设计与一条实测曲线相差多少，按“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：R、T 和 A 按实测光谱窗口的对话框，Ψ 和 Δ 按实测椭偏窗口的对话框。曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。R、T 和 A 的计算对象取决于设计的 `sides` 和 `scoreOn`，与评价函数的评分方式相同，有入射锥角的设计在其锥角上平均；Ψ 和 Δ 只在正面计算，每个 Δ 差值沿圆周取较短的一侧。
 
-**Python**：设计的光谱与一条实测曲线相差多少，按实测光谱窗口的“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。计算对象取决于设计的 sides 和 score_on，与评价函数的评分方式相同；有入射锥角的设计在其锥角上平均。
+**Python**：设计与一条实测曲线相差多少，按“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：R、T 和 A 按实测光谱窗口的对话框，Psi 和 Delta 按实测椭偏窗口的对话框。曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。R、T 和 A 的计算对象取决于设计的 sides 和 score_on，与评价函数的评分方式相同，有入射锥角的设计在其锥角上平均；Psi 和 Delta 只在正面计算，每个 Delta 差值沿圆周取较短的一侧。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
-| `measured` | `measured` |  | **JavaScript**：光谱文件的路径，按 `tf.readSpectrumFile()` 的方式读取；或它给出的那种曲线 `{ wavelength, values, quantity, angle, pol, name }`，数值为 1 的分数，未给出时 quantity 为 `'T'`，angle 为 0，pol 为 `'avg'`。<br>**Python**：光谱文件的路径，按 tf.read_spectrum_file() 的方式读取；或它给出的 MeasuredCurve；或由 wavelength、values、quantity、angle、pol 和 name 组成的 dict，数值为 1 的分数，未给出时 quantity 为 "T"，angle 为 0，pol 为 "avg"。 |
+| `measured` | `measured` |  | **JavaScript**：光谱文件的路径，按 `tf.readSpectrumFile()` 的方式读取；或它或 `tf.readEllipsometryFile()` 给出的那种曲线 `{ wavelength, values, quantity, angle, pol, name }`，数值为 1 的分数，未给出时 quantity 为 `'T'`，angle 为 0，pol 为 `'avg'`；Ψ 或 Δ 曲线还接受 `side` 和 `deltaConvention`，数值单位为度。<br>**Python**：光谱文件的路径，按 tf.read_spectrum_file() 的方式读取；或它给出的 MeasuredCurve、tf.read_ellipsometry_file() 给出的 EllipsometryCurve；或由 wavelength、values、quantity、angle、pol 和 name 组成的 dict，数值为 1 的分数，未给出时 quantity 为 "T"，angle 为 0，pol 为 "avg"；Psi 或 Delta 曲线还接受 side 和 delta_convention，数值单位为度。 |
 | `curve` | `curve` |  | 对含多条曲线的文件，要比较的那条，按其名称或从 0 起的编号。 |
 | `angle` | `angle` |  | 对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。 |
 | `pol` | `pol` |  | 对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。 |
@@ -984,13 +1069,13 @@ for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
 | `start` | `start` |  | **JavaScript**：比较的第一个波长，单位 nm；不给出时为曲线的第一个波长。<br>**Python**：比较的第一个波长，单位 nm。不给出时为曲线的第一个波长。 |
 | `end` | `end` |  | **JavaScript**：比较的最后一个波长，单位 nm；不给出时为曲线的最后一个波长。<br>**Python**：比较的最后一个波长，单位 nm。不给出时为曲线的最后一个波长。 |
 | `db` | `db` | `false` / `False` | 对 T 曲线，`true` / `True` 以 dB 比较，与对话框的 dB 标度相同。 |
-| `levelFree` | `level_free` | `false` / `False` | `true` / `True` 在求 RMS 之前减去平均差值，与电平自由的 MCURVE 行的评分方式相同。 |
+| `levelFree` | `level_free` | `false` / `False` | 对 R、T 和 A，`true` / `True` 在求 RMS 之前减去平均差值，与电平自由的 MCURVE 行的评分方式相同。 |
 
-**返回**：**JavaScript**：一个对象：`rms`，MCURVE 行的值，为 1 的分数，使用 `db` 时为 dB；`ppef`，针对它的 PPEF 行的值，单位 dB；`level`，使用 `levelFree` 时减去的平均差值，否则为 null；`wavelength`，比较的波长，单位 nm，以及每个波长处的 `measured`、`design` 和 `deviation`，即设计值减实测值（再减 `level`）；`clipped`，比较的波长少于所要求的时为 true；以及 `mode`、`name`、`quantity`、`angle`、`pol`、`grid`、`db` 和 `levelFree`。<br>**Python**：一个 MeasuredDifference，即命名元组：rms，MCURVE 行的值，为 1 的分数，使用 db 时为 dB；ppef，针对它的 PPEF 行的值，单位 dB；level，使用 level_free 时减去的平均差值，否则为 None；wavelength，比较的波长，单位 nm，以及每个波长处的 measured、design 和 deviation，即设计值减实测值（再减 level）；clipped，比较的波长少于所要求的时为 True；以及 mode、name、quantity、angle、pol、grid、db 和 level_free。
+**返回**：**JavaScript**：一个对象：`rms`，MCURVE 行的值，为 1 的分数，使用 `db` 时为 dB，Ψ 和 Δ 为度；`ppef`，针对它的 PPEF 行的值，单位 dB，Ψ 和 Δ 为 null；`level`，使用 `levelFree` 时减去的平均差值，否则为 null；`wavelength`，比较的波长，单位 nm，以及每个波长处的 `measured`、`design` 和 `deviation`，即设计值减实测值（再减 `level`）；`clipped`，比较的波长少于所要求的时为 true；以及 `mode`、`name`、`quantity`、`angle`、`pol`、`grid`、`db` 和 `levelFree`。<br>**Python**：一个 MeasuredDifference，即命名元组：rms，MCURVE 行的值，为 1 的分数，使用 db 时为 dB，Psi 和 Delta 为度；ppef，针对它的 PPEF 行的值，单位 dB，Psi 和 Delta 为 None；level，使用 level_free 时减去的平均差值，否则为 None；wavelength，比较的波长，单位 nm，以及每个波长处的 measured、design 和 deviation，即设计值减实测值（再减 level）；clipped，比较的波长少于所要求的时为 True；以及 mode、name、quantity、angle、pol、grid、db 和 level_free。
 
 **拒绝**：
 
-- 既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 `curve` 的文件、不是 R、T 或 A 的曲线、不接受的选项或选项无法取的值、没有可比较的点，或设计中有无法解析的材料
+- **JavaScript**：既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 `curve` 的文件、不接受的选项或选项无法取的值、没有可比较的点、法向入射或背面测得的 Ψ 或 Δ 曲线或在只以背面评价的设计上的此类曲线，或设计中有无法解析的材料<br>**Python**：既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 curve 的文件、不接受的选项或选项无法取的值、没有可比较的点、法向入射或背面测得的 Psi 或 Delta 曲线或在只以背面评价的设计上的此类曲线，或设计中有无法解析的材料
 
 ```js
 const design = tf.newDesign('AR');
@@ -1006,6 +1091,82 @@ design.stack("0.5H L")
 scan = {"quantity": "R", "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]}
 d = design.compare_measured(scan)
 print("RMS", round(d.rms, 4), "PPEF", round(d.ppef, 2), "dB")
+```
+
+### addMeasuredCurves / add_measured_curves
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.addMeasuredCurves(curves)` | `design.add_measured_curves(curves)` |
+
+**JavaScript**：按实测光谱和实测椭偏窗口的导入方式把实测曲线加入设计，每条都有自己的 id：R、T 和 A 加入设计的光谱，Ψ 和 Δ 加入其椭偏数据，排在已有曲线之后。设计会保存它们，窗口会显示它们，`fitMeasured()` 可把其中一条变为评价函数行。曲线只含给出的内容：来源文件、文件所用的单位以及是否为百分比都不属于它。
+
+**Python**：按实测光谱和实测椭偏窗口的导入方式把实测曲线加入设计，每条都有自己的 id：R、T 和 A 加入设计的光谱，Psi 和 Delta 加入其椭偏数据，排在已有曲线之后。设计会保存它们，窗口会显示它们，fit_measured() 可把其中一条变为评价函数行。曲线只含给出的内容：来源文件、文件所用的单位以及是否为百分比都不属于它。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `curves` | `curves` |  | **JavaScript**：一条曲线或曲线列表，即 `tf.readSpectrumFile()` 或 `tf.readEllipsometryFile()` 给出的那种 `{ wavelength, values, quantity, angle, pol, name }`：R、T 和 A 为 1 的分数，未给出时 quantity 为 `'T'`，angle 为 0，pol 为 `'avg'`；Ψ 或 Δ 曲线还接受 `side` 和 `deltaConvention`，未给出时为 `'front'` 和 `'azzam'`，数值单位为度。<br>**Python**：一条曲线或曲线列表：tf.read_spectrum_file() 给出的 MeasuredCurve、tf.read_ellipsometry_file() 给出的 EllipsometryCurve，或由 wavelength、values、quantity、angle、pol 和 name 组成的 dict，R、T 和 A 为 1 的分数，未给出时 quantity 为 "T"，angle 为 0，pol 为 "avg"；Psi 或 Delta 曲线还接受 side 和 delta_convention，未给出时为 "front" 和 "azzam"，数值单位为度。 |
+
+**拒绝**：
+
+- **JavaScript**：不是由这些字段组成的对象的曲线，或字段无法取的值<br>**Python**：不属于上述任一种的曲线，或字段无法取的值
+
+```js
+const design = tf.newDesign('AR');
+design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] });
+console.log(design.compareMeasured({ quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] }).rms);
+```
+
+```python
+design = tf.new_design("AR")
+design.add_measured_curves({"name": "Bench R", "quantity": "R",
+                            "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]})
+print(design.compare_measured({"quantity": "R", "wavelength": [450, 550, 650],
+                               "values": [0.021, 0.009, 0.018]}).rms)
+```
+
+### fitMeasured / fit_measured
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.fitMeasured(curve, { grid, step, thinEvery, start, end, db, weight, output, constraints })` | `design.fit_measured(curve, grid="measured", step=..., thin_every=2, start=..., end=..., db=False, weight=1, output="append", constraints=...)` |
+
+**JavaScript**：为设计所含的一条实测曲线加入“拟合…”对话框所加的评价函数行：R、T 和 A 按实测光谱窗口的对话框，Ψ 和 Δ 按实测椭偏窗口的对话框。MCURVE 块保存在对话框网格上取样的曲线，并限制在设计的每种材料都有数据的范围内；Ψ 或 Δ 块只在正面评分。给出 `constraints` 时，其后跟随一行 MNT 和一行 MXT，与对话框的厚度约束所加的相同。用相同选项调用 `compareMeasured()` 可得到该块的值。
+
+**Python**：为设计所含的一条实测曲线加入“拟合…”对话框所加的评价函数行：R、T 和 A 按实测光谱窗口的对话框，Psi 和 Delta 按实测椭偏窗口的对话框。MCURVE 块保存在对话框网格上取样的曲线，并限制在设计的每种材料都有数据的范围内；Psi 或 Delta 块只在正面评分。给出 constraints 时，其后跟随一行 MNT 和一行 MXT，与对话框的厚度约束所加的相同。用相同关键字参数调用 compare_measured() 可得到该块的值。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `curve` | `curve` |  | 设计所含的一条曲线的名称。 |
+| `grid` | `grid` | `'measured'` | `'measured'`，曲线自身的点；`'thinned'`，每 `thinEvery-th` / `thin_every-th` 个点取一个，外加最后一个；或 `'uniform'`，每隔 `step` nm 取一点，点与点之间按对话框的方式读取曲线。 |
+| `step` | `step` |  | **JavaScript**：网格为 `'uniform'` 时的步长，单位 nm；不给出时为曲线点距的中位数。<br>**Python**：网格为 "uniform" 时的步长，单位 nm。不给出时为曲线点距的中位数。 |
+| `thinEvery` | `thin_every` | `2` | 网格为 `'thinned'` 时保留哪些点。 |
+| `start` | `start` |  | **JavaScript**：保留的第一个波长，单位 nm；不给出时为曲线的第一个波长。<br>**Python**：保留的第一个波长，单位 nm。不给出时为曲线的第一个波长。 |
+| `end` | `end` |  | **JavaScript**：保留的最后一个波长，单位 nm；不给出时为曲线的最后一个波长。<br>**Python**：保留的最后一个波长，单位 nm。不给出时为曲线的最后一个波长。 |
+| `db` | `db` | `false` / `False` | 对 T 曲线，`true` / `True` 以 dB 拟合，与对话框的 dB 标度相同。 |
+| `weight` | `weight` | `1` | 该块的权重，0 或以上。 |
+| `output` | `output` | `'append'` | `'append'` 把这些行加在设计已有的评价函数行之后；`'replace'` 用它们取代全部已有的行。 |
+| `constraints` | `constraints` |  | **JavaScript**：`{ min: 10, max: 1000, weight: 1 }`，厚度单位 nm，用于加入对话框作用于所有膜层的 MNT 和 MXT 行。<br>**Python**：由 min、max 和 weight 组成的 dict，厚度单位 nm，未给出时为 10、1000 和 1，用于加入对话框作用于所有膜层的 MNT 和 MXT 行。不给出时不加入。 |
+
+**拒绝**：
+
+- **JavaScript**：设计不含的曲线或有两条同名曲线、不接受的选项或选项无法取的值、没有可保留的点、法向入射或背面测得的 Ψ 或 Δ 曲线或在只以背面评价的设计上的此类曲线，或设计中有无法解析的材料<br>**Python**：设计不含的曲线或有两条同名曲线、不接受的选项或选项无法取的值、没有可保留的点、法向入射或背面测得的 Psi 或 Delta 曲线或在只以背面评价的设计上的此类曲线，或设计中有无法解析的材料
+
+```js
+const design = tf.newDesign('AR');
+design.stack('0.5H L');
+design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', wavelength: [450, 500, 550, 600, 650], values: [0.021, 0.012, 0.009, 0.011, 0.018] });
+design.fitMeasured('Bench R', { start: 470, end: 640 });
+console.log(design.merit.value);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("0.5H L")
+design.add_measured_curves({"name": "Bench R", "quantity": "R", "wavelength": [450, 500, 550, 600, 650],
+                            "values": [0.021, 0.012, 0.009, 0.011, 0.018]})
+design.fit_measured("Bench R", start=470, end=640)
+print(design.merit.value)
 ```
 
 ### indexProfile / index_profile
@@ -4540,6 +4701,38 @@ design.spectrum(400, 700, step=10, angles=[0, 45]).save_csv(name)
 print("Wrote", name)
 ```
 
+### saveJcamp / save_jcamp
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.saveJcamp(path)` | `s.save_jcamp(path)` |
+
+**JavaScript**：把光谱写入 JCAMP-DX 文件，与实测光谱窗口的导出选项卡在勾选 T、R、A 和“包含 s 和 p”时写出设计光谱的方式相同：每个角度下非偏振光的 T、R 和 A 以及 Ts、Rs、Tp 和 Rp 各一个光谱，用 0 到 1 之间的小数表示，每个光谱的标题为设计名称、物理量，多个角度时还有其角度。实测光谱窗口的导入会把每个光谱读回为一条曲线。已存在的文件会被覆盖。
+
+**Python**：把光谱写入 JCAMP-DX 文件，与实测光谱窗口的导出选项卡在勾选 T、R、A 和“包含 s 和 p”时写出设计光谱的方式相同：每个角度下非偏振光的 T、R 和 A 以及 Ts、Rs、Tp 和 Rp 各一个光谱，用 0 到 1 之间的小数表示，每个光谱的标题为设计名称、物理量，多个角度时还有其角度。文件与窗口写出的逐字节相同，实测光谱窗口的导入会把每个光谱读回为一条曲线。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，使用完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `spectrum-${Date.now()}.dx`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.spectrum(400, 700, { step: 10, angles: [0, 45] }).saveJcamp(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "spectrum-{}.dx".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.spectrum(400, 700, step=10, angles=[0, 45]).save_jcamp(name)
+print("Wrote", name)
+```
+
 ## Curve
 
 **JavaScript**：每个波长一个值：一个数字数组，因此 `Math.max(...curve)`、for 循环和数组方法都能像处理任何数组一样处理它；map()、filter() 等生成新数组的方法生成的是普通数组。
@@ -6788,9 +6981,9 @@ print(min(e.angle(70).psi))
 | ---------- | ------ |
 | `e.saveCsv(path)` | `e.save_csv(path)` |
 
-**JavaScript**：把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。已存在的文件会被覆盖。
+**JavaScript**：把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。随波长计算且只有一个角度时，先写两行 #，与实测椭偏窗口导出设计 Ψ/Δ 的写法相同：设计的名称，然后是入射角和面，其导入会读回这些内容。已存在的文件会被覆盖。
 
-**Python**：把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+**Python**：把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。随波长计算且只有一个角度时，先写两行 #，与实测椭偏窗口导出设计 Psi/Delta 的写法相同：设计的名称，然后是入射角和面，其导入会读回这些内容。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |

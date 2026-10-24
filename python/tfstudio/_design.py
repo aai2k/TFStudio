@@ -6,7 +6,7 @@ import numbers
 
 from ._admittance import Admittance
 from ._band_feature import EdgeShift, answered
-from ._measured import measured_argument, measured_difference
+from ._measured import curves_argument, measured_argument, measured_difference
 from ._color import Color
 from ._design_edits import differences_of
 from ._electric_field import ElectricField
@@ -61,6 +61,8 @@ _COMPARE_OPTIONS = ("curve", "angle", "pol", "quantity", "scale", "x_unit", "gri
 # which Python cannot take as keywords.
 _COMPARE_NAMES = {"start": "from", "end": "to"}
 _COMPARE_WORDS = Words("measuredDifference", "compare_measured", names={"from": "start", "to": "end"})
+_FIT_OPTIONS = ("grid", "step", "thin_every", "start", "end", "db", "weight", "output", "constraints")
+_FIT_WORDS = Words("fitMeasured", "fit_measured", names={"from": "start", "to": "end"})
 _GROUP_DELAY_WORDS = Words("groupDelay", "group_delay", hidden=("from", "to"))
 _GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference")
 # design.edge_filter()'s pass_ is the API's pass, a keyword in Python.
@@ -1169,21 +1171,25 @@ class Design:
         return answered(EdgeShift, answer)
 
     def compare_measured(self, measured, **options):
-        """How the design's spectrum differs from a measured curve, as the
-        MCURVE merit row the Measured Spectra window's Fit... dialog writes
-        scores it: the curve sampled on the dialog's grid and kept to the
-        span every material of the design has data for, and the design read
-        at each point at the curve's angle and polarization. What it is read
-        on follows the design's sides and score_on, as the merit function
-        scores it, and a design under a cone of incidence is averaged over
-        its cone.
+        """How the design differs from a measured curve, as the MCURVE merit
+        row the Fit... dialog writes scores it: Measured Spectra's for R, T
+        and A, Measured Ellipsometry's for Psi and Delta. The curve is sampled
+        on the dialog's grid and kept to the span every material of the
+        design has data for, and the design read at each point at the curve's
+        angle and polarization. R, T and A are read on what the design's
+        sides and score_on say, as the merit function scores them, averaged
+        over a cone of incidence the design has; Psi and Delta on the front
+        side alone, each Delta difference taken the short way round the
+        circle.
 
         Args:
             measured: The path of a spectrum file, read as
                 tf.read_spectrum_file() reads it, or a MeasuredCurve that gives,
-                or a dict of wavelength, values, quantity, angle, pol and name,
-                its values fractions of 1, quantity "T" unless given, angle 0
-                and pol "avg".
+                an EllipsometryCurve tf.read_ellipsometry_file() gives, or a
+                dict of wavelength, values, quantity, angle, pol and name, its
+                values fractions of 1, quantity "T" unless given, angle 0 and
+                pol "avg"; a Psi or Delta curve also takes side and
+                delta_convention, its values in degrees.
             curve: For a file of several curves, the one compared, by its
                 name or its number from 0.
             angle: For a file, as tf.read_spectrum_file() takes it.
@@ -1202,13 +1208,15 @@ class Design:
             end: The last wavelength compared, nm. Default: the curve's last.
             db: For a T curve, True compares in dB, as the dialog's dB scale
                 does. Default False.
-            level_free: True takes off the mean difference before the RMS, as
-                an MCURVE row with its level free scores. Default False.
+            level_free: For R, T and A, True takes off the mean difference
+                before the RMS, as an MCURVE row with its level free scores.
+                Default False.
 
         Returns:
             A MeasuredDifference, a named tuple: rms, the MCURVE row's value,
-            a fraction of 1 or dB with db; ppef, a PPEF row's value against
-            it, dB; level, the mean difference taken off with level_free,
+            a fraction of 1, dB with db, or degrees for Psi and Delta; ppef,
+            a PPEF row's value against it, dB, None for Psi and Delta;
+            level, the mean difference taken off with level_free,
             otherwise None; wavelength, the wavelengths compared, nm, and at
             each measured, design and deviation, design less measured (less
             level); clipped, True when fewer wavelengths were compared than
@@ -1218,10 +1226,11 @@ class Design:
         Raises:
             TFStudioError: a measured that is not a file path or a curve, a
                 file that cannot be read or holds no spectrum, a file of
-                several curves without curve, a curve that is not R, T or A,
-                an option it does not take or a value an option cannot take,
-                no point to compare, or a design that names a material that
-                resolves to nothing.
+                several curves without curve, an option it does not take or a
+                value an option cannot take, no point to compare, a Psi or
+                Delta curve at normal incidence or on the back side or one on
+                a design scored on its back alone, or a design that names a
+                material that resolves to nothing.
 
         Example::
 
@@ -1236,6 +1245,93 @@ class Design:
         with worded(_COMPARE_WORDS):
             answer = self._calls.measuredDifference(self._data, measured_argument(measured), given)
         return measured_difference(answer)
+
+    def add_measured_curves(self, curves):
+        """Adds measured curves to the design as the import of Measured
+        Spectra and Measured Ellipsometry adds them, each with an id of its
+        own: R, T and A to the design's spectra, Psi and Delta to its
+        ellipsometry, after the curves it holds. The design saves them, the
+        windows show them, and fit_measured() turns one into merit rows. A
+        curve holds what it is given: the file it came from, the unit that
+        file was written in and whether it was in percent are not part of it.
+
+        Args:
+            curves: A curve or a list of curves: MeasuredCurves as
+                tf.read_spectrum_file() gives them, EllipsometryCurves as
+                tf.read_ellipsometry_file() gives them, or dicts of
+                wavelength, values, quantity, angle, pol and name, R, T and A
+                as fractions of 1, quantity "T" unless given, angle 0 and pol
+                "avg"; a Psi or Delta curve also takes side and
+                delta_convention, "front" and "azzam" unless given, its values
+                in degrees.
+
+        Raises:
+            TFStudioError: a curve that is not one of those, or a value a
+                field cannot take.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.add_measured_curves({"name": "Bench R", "quantity": "R",
+                                        "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]})
+            print(design.compare_measured({"quantity": "R", "wavelength": [450, 550, 650],
+                                           "values": [0.021, 0.009, 0.018]}).rms)
+        """
+        with worded(Words("addMeasuredCurves", "add_measured_curves")):
+            self._data = self._calls.addMeasuredCurves(self._data, curves_argument(curves))
+
+    def fit_measured(self, curve, **options):
+        """Adds the merit rows the Fit... dialog adds for a measured curve the
+        design holds: Measured Spectra's for R, T and A, Measured
+        Ellipsometry's for Psi and Delta. The MCURVE block holds the curve
+        sampled on the dialog's grid, kept to the span every material of the
+        design has data for; a Psi or Delta block is scored on the front side
+        alone. With constraints, an MNT and an MXT row follow it, as the
+        dialog's thickness constraints add them. compare_measured() with the
+        same keywords gives the block's value.
+
+        Args:
+            curve: The name of a curve the design holds.
+            grid: "measured", the curve's own points; "thinned", every
+                thin_every-th of them and the last; or "uniform", every step
+                nm, the curve read between its points as the dialog reads it.
+                Default "measured".
+            step: With grid "uniform", the step, nm. Default: the curve's
+                median spacing.
+            thin_every: With grid "thinned", which points are kept. Default 2.
+            start: The first wavelength kept, nm. Default: the curve's first.
+            end: The last wavelength kept, nm. Default: the curve's last.
+            db: For a T curve, True fits in dB, as the dialog's dB scale does.
+                Default False.
+            weight: The block's weight, 0 or more. Default 1.
+            output: "append" adds the rows after the merit rows the design
+                has; "replace" puts them in place of all of them. Default
+                "append".
+            constraints: A dict of min, max and weight, thicknesses in nm,
+                10, 1000 and 1 unless given, to add the dialog's MNT and MXT
+                rows over every layer. Default: none.
+
+        Raises:
+            TFStudioError: a curve the design does not hold or two of that
+                name, an option it does not take or a value an option cannot
+                take, no point to keep, a Psi or Delta curve at normal
+                incidence or on the back side or one on a design scored on its
+                back alone, or a design that names a material that resolves to
+                nothing.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("0.5H L")
+            design.add_measured_curves({"name": "Bench R", "quantity": "R", "wavelength": [450, 500, 550, 600, 650],
+                                        "values": [0.021, 0.012, 0.009, 0.011, 0.018]})
+            design.fit_measured("Bench R", start=470, end=640)
+            print(design.merit.value)
+        """
+        refuse_arguments("fit_measured", options, ("from", "to"), _FIT_OPTIONS)
+        given = api_names({_COMPARE_NAMES.get(name, name): value for name, value in options.items()})
+        with worded(_FIT_WORDS):
+            self._data = self._calls.fitMeasured(self._data, curve, given)
 
     def index_profile(self, wavelength=None, side=None):
         """The refractive index of the layers at one wavelength, laid out by
@@ -1598,7 +1694,7 @@ class Design:
             e = design.ellipsometry(400, 800, step=1, angles=[55, 70])
             print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.psi), 2))
         """
-        return Ellipsometry(self._over_range(_ELLIPSOMETRY_WORDS, _ELLIPSOMETRY_OPTIONS, start, end, options))
+        return Ellipsometry(self._over_range(_ELLIPSOMETRY_WORDS, _ELLIPSOMETRY_OPTIONS, start, end, options))._named(self.name)
 
     def ellipsometry_vs_angle(self, wavelength=None, start=None, end=None, **options):
         """Ψ and Δ of one coated side against angle of incidence at one

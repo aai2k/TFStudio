@@ -41,7 +41,7 @@ claude mcp add tfstudio -- "C:\Users\you\AppData\Local\Programs\TFStudio\TFStudi
 | 评价函数 | `setMerit`、`merit` |
 | 规格说明 | `setSpecification`、`checkSpecification` |
 | 材料 | `findMaterials`、`materialNK`、`materialDispersion` |
-| 分析 | `spectrum`、`layerSensitivity`、`indexProfile`、`layerThicknesses`、`designFacts`、`admittance`、`electricField`、`color`、`integrals`、`ellipsometry`、`ellipsometryVsAngle`、`groupDelay`、`bandFeature`、`edgeShift`、`readSpectrumFile`、`measuredDifference`、`processSteps`、`exportProcess` |
+| 分析 | `spectrum`、`layerSensitivity`、`indexProfile`、`layerThicknesses`、`designFacts`、`admittance`、`electricField`、`color`、`integrals`、`ellipsometry`、`ellipsometryVsAngle`、`groupDelay`、`bandFeature`、`edgeShift`、`readSpectrumFile`、`measuredDifference`、`readEllipsometryFile`、`addMeasuredCurves`、`fitMeasured`、`exportMeasuredCurves`、`processSteps`、`exportProcess` |
 | 运行 | `refine`、`synthesize`、`monteCarlo`、`jobStatus`、`stopJob`、`listJobs` |
 | 打开的设计（需 `--live`） | `listAppDesigns`、`readAppDesign`、`applyToApp` |
 

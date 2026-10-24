@@ -227,12 +227,12 @@ for (const [name, design] of designs) {
     plain(() => api.measuredDifference(d, asApi(sourceT), { step: 2 }), /^measuredDifference: step is a wavelength step in nm above 0, with grid 'uniform'/);
     plain(() => api.measuredDifference(d, asApi(sourceT), { grid: 'fine' }), /^measuredDifference: grid is 'measured', 'thinned' or 'uniform'/);
     plain(() => api.measuredDifference(d, asApi(sourceT), { angle: 5 }), /^measuredDifference: unknown option 'angle'; the options are grid, step/);
-    plain(() => api.measuredDifference(d, { ...asApi(sourceT), quantity: 'PSI' }), /^measuredDifference: quantity is 'T', 'R' or 'A'; a Ψ or Δ curve/);
+    plain(() => api.measuredDifference(d, { ...asApi(sourceT), quantity: 'PSI', angle: 0 }), /^measuredDifference: a Ψ or Δ curve at normal incidence says nothing about the film/);
     plain(() => api.measuredDifference(d, { ...asApi(sourceT), quantity: 'r' }), /^measuredDifference: quantity is 'T', 'R' or 'A'.*, not "r"$/);
     {
         const psi = path.join(dir, 'psi.csv');
         fs.writeFileSync(psi, 'nm,Psi\n500,30\n600,31\n');
-        plain(() => api.measuredDifference(d, psi), /^measuredDifference: measured is a T, R or A curve/);
+        plain(() => api.measuredDifference(d, psi), /^measuredDifference: a Ψ or Δ curve at normal incidence says nothing about the film/);
     }
     plain(() => api.measuredDifference(d, { ...asApi(sourceT), side: 'back' }), /^measuredDifference: 'side' is not a field of a curve/);
     plain(() => api.measuredDifference(d, asApi(sourceT), { from: 900, to: 1000 }), /^measuredDifference: no measured point lies inside/);

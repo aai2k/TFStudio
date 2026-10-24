@@ -10,8 +10,8 @@ def _cell(value):
     return str(value) if isinstance(value, (int, float)) else str(value).replace(",", ";")
 
 
-def write_rows(path, rows):
+def write_rows(path, rows, lines=()):
     """Writes `rows`, lists of cells, to the file `path`, one line each,
-    over a file that is there."""
+    after `lines`, written as they are, over a file that is there."""
     with open(path, "w", newline="", encoding="utf-8") as file:
-        file.write("\n".join(",".join(_cell(value) for value in row) for row in rows))
+        file.write("\n".join(list(lines) + [",".join(_cell(value) for value in row) for row in rows]))

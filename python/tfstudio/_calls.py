@@ -123,6 +123,18 @@ class Calls:
     def readSpectrumFile(self, filePath, options=None):
         return self._call("readSpectrumFile", _absolute(filePath), options)
 
+    def readEllipsometryFile(self, filePath, options=None):
+        return self._call("readEllipsometryFile", _absolute(filePath), options)
+
+    def addMeasuredCurves(self, design, curves):
+        return self._call("addMeasuredCurves", design, curves)
+
+    def fitMeasured(self, design, curve, options=None):
+        return self._call("fitMeasured", design, curve, options)
+
+    def exportMeasuredCurves(self, design, filePath, options=None):
+        return self._call("exportMeasuredCurves", design, _absolute(filePath), options)
+
     def measuredDifference(self, design, measured, options=None):
         if isinstance(measured, (str, os.PathLike)):
             measured = _absolute(measured)

@@ -16,7 +16,9 @@
  *      plan of the wrong length refused, its files written, spectra, a band's
  *      width and an edge against angle, a spectrum file read and a design
  *      compared with a curve of it or one given, and a file of several curves
- *      compared without naming one refused, index
+ *      compared without naming one refused, a Δ curve compared, an
+ *      ellipsometer file read, its curves added, fits added and one of a curve
+ *      the design does not hold refused, measured curves written, index
  *      profiles, one of a side with no layers refused, layer thicknesses,
  *      the design's facts, admittance loci and electric fields, one of a
  *      side with no layers refused, colours, one with an observer refused,
@@ -284,6 +286,10 @@ const STOPPED_WITHIN_S = 5;
     const spectrum = api.spectrum(stack, { from: 400, to: 700, step: 10, angles: [0, 45] });
     const scan = path.join(WORK, 'scan.csv');
     fs.writeFileSync(scan, '# AOI 8 deg\nWavelength (nm),R,Ts\n450,0.1,0.85\n500,0.06,0.9\n550,0.04,0.93\n600,0.05,0.91\n650,0.08,0.88\n');
+    const witness = path.join(WORK, 'witness.csv');
+    fs.writeFileSync(witness, '# AOI 70 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n450,30.1,120.5\n550,28.4,110.2\n650,27.9,100.8\n');
+    const witnessCurves = api.readEllipsometryFile(witness).curves;
+    const held = api.addMeasuredCurves(stack, [...api.readSpectrumFile(scan).curves, ...witnessCurves]);
     const CALLS = [
         ['newDesign', [{ name: 'AR', substrate: 'SiO2', referenceWavelength: 600 }]],
         ['setDesignSetup', [stack, { referenceWavelength: 600, surfaceMode: 'symmetric' }]],
@@ -320,6 +326,12 @@ const STOPPED_WITHIN_S = 5;
         ['measuredDifference', [stack, scan, { curve: 1, grid: 'uniform', step: 5, levelFree: true }]],
         ['measuredDifference', [stack, { quantity: 'R', wavelength: [450, 550, 650], values: [0.1, 0.05, 0.08] }]],
         ['measuredDifference', [stack, scan]],
+        ['measuredDifference', [stack, witnessCurves[1], { grid: 'uniform', step: 20 }]],
+        ['readEllipsometryFile', [witness, { deltaConvention: 'reversed' }]],
+        ['addMeasuredCurves', [stack, witnessCurves]],
+        ['fitMeasured', [held, 'scan: R', { grid: 'uniform', step: 5, constraints: { min: 20 } }]],
+        ['fitMeasured', [held, 'nothing']],
+        ['exportMeasuredCurves', [held, path.join(WORK, 'curves.dx'), { format: 'jcamp', overwrite: true }]],
         ['indexProfile', [stack, { wavelength: 633 }]],
         ['indexProfile', [stack, { side: 'back' }]],
         ['layerThicknesses', [stack, { side: 'total' }]],

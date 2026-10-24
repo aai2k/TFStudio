@@ -3028,12 +3028,12 @@
     "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
   },
   "Ellipsometry.saveCsv.lead.1.js": {
-    "hash": "c76447ca",
-    "text": "把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。已存在的文件会被覆盖。"
+    "hash": "12985cc0",
+    "text": "把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。随波长计算且只有一个角度时，先写两行 #，与实测椭偏窗口导出设计 Ψ/Δ 的写法相同：设计的名称，然后是入射角和面，其导入会读回这些内容。已存在的文件会被覆盖。"
   },
   "Ellipsometry.saveCsv.lead.1.py": {
-    "hash": "4a92a9b2",
-    "text": "把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+    "hash": "7441b7a4",
+    "text": "把 Ψ 和 Δ 写入 CSV 文件，与窗口的导出写出其表格的方式相同：一列波长 λ (nm) 或一列角度 AOI (°)，然后是 Ψ (°) 和 Δ (°)。随波长计算且有多个角度时，依次给出每个角度的 Ψ 和 Δ，各列标题注明其角度。随波长计算且只有一个角度时，先写两行 #，与实测椭偏窗口导出设计 Psi/Delta 的写法相同：设计的名称，然后是入射角和面，其导入会读回这些内容。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
   },
   "AngleCurve.lead.1.js": {
     "hash": "415f7dd5",
@@ -3732,12 +3732,12 @@
     "text": "无法读取或不含导入可读光谱的文件、不接受的选项或选项无法取的值，或对 JCAMP-DX 文件给出 angle 和 pol 以外的选项"
   },
   "Design.compareMeasured.arg.measured.js": {
-    "hash": "0a0adc76",
-    "text": "光谱文件的路径，按 `tf.readSpectrumFile()` 的方式读取；或它给出的那种曲线 `{ wavelength, values, quantity, angle, pol, name }`，数值为 1 的分数，未给出时 quantity 为 `'T'`，angle 为 0，pol 为 `'avg'`。"
+    "hash": "d59beec1",
+    "text": "光谱文件的路径，按 `tf.readSpectrumFile()` 的方式读取；或它或 `tf.readEllipsometryFile()` 给出的那种曲线 `{ wavelength, values, quantity, angle, pol, name }`，数值为 1 的分数，未给出时 quantity 为 `'T'`，angle 为 0，pol 为 `'avg'`；Ψ 或 Δ 曲线还接受 `side` 和 `deltaConvention`，数值单位为度。"
   },
   "Design.compareMeasured.arg.measured.py": {
-    "hash": "19bf62e1",
-    "text": "光谱文件的路径，按 tf.read_spectrum_file() 的方式读取；或它给出的 MeasuredCurve；或由 wavelength、values、quantity、angle、pol 和 name 组成的 dict，数值为 1 的分数，未给出时 quantity 为 \"T\"，angle 为 0，pol 为 \"avg\"。"
+    "hash": "ad68f02e",
+    "text": "光谱文件的路径，按 tf.read_spectrum_file() 的方式读取；或它给出的 MeasuredCurve、tf.read_ellipsometry_file() 给出的 EllipsometryCurve；或由 wavelength、values、quantity、angle、pol 和 name 组成的 dict，数值为 1 的分数，未给出时 quantity 为 \"T\"，angle 为 0，pol 为 \"avg\"；Psi 或 Delta 曲线还接受 side 和 delta_convention，数值单位为度。"
   },
   "Design.compareMeasured.arg.curve": {
     "hash": "03d7efe1",
@@ -3800,28 +3800,24 @@
     "text": "对 T 曲线，`true` / `True` 以 dB 比较，与对话框的 dB 标度相同。"
   },
   "Design.compareMeasured.arg.levelFree": {
-    "hash": "216212d6",
-    "text": "`true` / `True` 在求 RMS 之前减去平均差值，与电平自由的 MCURVE 行的评分方式相同。"
+    "hash": "d36a3607",
+    "text": "对 R、T 和 A，`true` / `True` 在求 RMS 之前减去平均差值，与电平自由的 MCURVE 行的评分方式相同。"
   },
   "Design.compareMeasured.returns.js": {
-    "hash": "8398ad2b",
-    "text": "一个对象：`rms`，MCURVE 行的值，为 1 的分数，使用 `db` 时为 dB；`ppef`，针对它的 PPEF 行的值，单位 dB；`level`，使用 `levelFree` 时减去的平均差值，否则为 null；`wavelength`，比较的波长，单位 nm，以及每个波长处的 `measured`、`design` 和 `deviation`，即设计值减实测值（再减 `level`）；`clipped`，比较的波长少于所要求的时为 true；以及 `mode`、`name`、`quantity`、`angle`、`pol`、`grid`、`db` 和 `levelFree`。"
+    "hash": "cdc26cb7",
+    "text": "一个对象：`rms`，MCURVE 行的值，为 1 的分数，使用 `db` 时为 dB，Ψ 和 Δ 为度；`ppef`，针对它的 PPEF 行的值，单位 dB，Ψ 和 Δ 为 null；`level`，使用 `levelFree` 时减去的平均差值，否则为 null；`wavelength`，比较的波长，单位 nm，以及每个波长处的 `measured`、`design` 和 `deviation`，即设计值减实测值（再减 `level`）；`clipped`，比较的波长少于所要求的时为 true；以及 `mode`、`name`、`quantity`、`angle`、`pol`、`grid`、`db` 和 `levelFree`。"
   },
   "Design.compareMeasured.returns.py": {
-    "hash": "a842d708",
-    "text": "一个 MeasuredDifference，即命名元组：rms，MCURVE 行的值，为 1 的分数，使用 db 时为 dB；ppef，针对它的 PPEF 行的值，单位 dB；level，使用 level_free 时减去的平均差值，否则为 None；wavelength，比较的波长，单位 nm，以及每个波长处的 measured、design 和 deviation，即设计值减实测值（再减 level）；clipped，比较的波长少于所要求的时为 True；以及 mode、name、quantity、angle、pol、grid、db 和 level_free。"
+    "hash": "cbb7fe77",
+    "text": "一个 MeasuredDifference，即命名元组：rms，MCURVE 行的值，为 1 的分数，使用 db 时为 dB，Psi 和 Delta 为度；ppef，针对它的 PPEF 行的值，单位 dB，Psi 和 Delta 为 None；level，使用 level_free 时减去的平均差值，否则为 None；wavelength，比较的波长，单位 nm，以及每个波长处的 measured、design 和 deviation，即设计值减实测值（再减 level）；clipped，比较的波长少于所要求的时为 True；以及 mode、name、quantity、angle、pol、grid、db 和 level_free。"
   },
   "Design.compareMeasured.lead.1.js": {
-    "hash": "88d6c3a7",
-    "text": "设计的光谱与一条实测曲线相差多少，按实测光谱窗口的“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。计算对象取决于设计的 `sides` 和 `scoreOn`，与评价函数的评分方式相同；有入射锥角的设计在其锥角上平均。"
+    "hash": "553f07c4",
+    "text": "设计与一条实测曲线相差多少，按“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：R、T 和 A 按实测光谱窗口的对话框，Ψ 和 Δ 按实测椭偏窗口的对话框。曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。R、T 和 A 的计算对象取决于设计的 `sides` 和 `scoreOn`，与评价函数的评分方式相同，有入射锥角的设计在其锥角上平均；Ψ 和 Δ 只在正面计算，每个 Δ 差值沿圆周取较短的一侧。"
   },
   "Design.compareMeasured.lead.1.py": {
-    "hash": "0a7a84e4",
-    "text": "设计的光谱与一条实测曲线相差多少，按实测光谱窗口的“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。计算对象取决于设计的 sides 和 score_on，与评价函数的评分方式相同；有入射锥角的设计在其锥角上平均。"
-  },
-  "Design.compareMeasured.refuses.1": {
-    "hash": "eb876216",
-    "text": "既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 `curve` 的文件、不是 R、T 或 A 的曲线、不接受的选项或选项无法取的值、没有可比较的点，或设计中有无法解析的材料"
+    "hash": "53f5ec43",
+    "text": "设计与一条实测曲线相差多少，按“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：R、T 和 A 按实测光谱窗口的对话框，Psi 和 Delta 按实测椭偏窗口的对话框。曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。R、T 和 A 的计算对象取决于设计的 sides 和 score_on，与评价函数的评分方式相同，有入射锥角的设计在其锥角上平均；Psi 和 Delta 只在正面计算，每个 Delta 差值沿圆周取较短的一侧。"
   },
   "Design.edgeFilter.arg.pass": {
     "hash": "f37eee91",
@@ -4038,5 +4034,245 @@
   "Design.exportProcess.refuses.1.py": {
     "hash": "91c7bfb1",
     "text": "process_steps() 引发的错误、不接受的输出选项或值、不存在的文件夹，或没有可沉积膜层的面"
+  },
+  "TFStudio.readEllipsometryFile.arg.path.js": {
+    "hash": "4857de1f",
+    "text": "文件，给出完整路径。相对路径按 `openDesign` 的方式解释。"
+  },
+  "TFStudio.readEllipsometryFile.arg.path.py": {
+    "hash": "723a9967",
+    "text": "文件。相对路径按 open_design() 的方式解释。"
+  },
+  "TFStudio.readEllipsometryFile.arg.angle.js": {
+    "hash": "76c96060",
+    "text": "入射角，单位度，用于文件未说明入射角的列；两者都未给出时为 70。"
+  },
+  "TFStudio.readEllipsometryFile.arg.angle.py": {
+    "hash": "90b4cf35",
+    "text": "入射角，单位度，用于文件未说明入射角的列。不给出时，两者都未给出则为 70。"
+  },
+  "TFStudio.readEllipsometryFile.arg.side.js": {
+    "hash": "6ffb295f",
+    "text": "`'front'` 或 `'back'`，测量的面；不给出时，取文件表头写明的面，未写明时为 `'front'`。"
+  },
+  "TFStudio.readEllipsometryFile.arg.side.py": {
+    "hash": "463a7b78",
+    "text": "\"front\" 或 \"back\"，测量的面。不给出时，取文件表头写明的面，未写明时为 \"front\"。"
+  },
+  "TFStudio.readEllipsometryFile.arg.deltaConvention.js": {
+    "hash": "f76f49bf",
+    "text": "文件中 Δ 的符号约定：`'azzam'`，或 `'reversed'`，即 360 度减去前者。"
+  },
+  "TFStudio.readEllipsometryFile.arg.deltaConvention.py": {
+    "hash": "bba8795d",
+    "text": "文件中 Delta 的符号约定：\"azzam\"，或 \"reversed\"，即 360 度减去前者。"
+  },
+  "TFStudio.readEllipsometryFile.arg.xUnit.js": {
+    "hash": "7914d4f5",
+    "text": "波长列的单位：`'nm'`、`'um'`、`'cm-1'` 或 `'eV'`；不给出时，取导入对它的判断。"
+  },
+  "TFStudio.readEllipsometryFile.arg.xUnit.py": {
+    "hash": "0719d720",
+    "text": "波长列的单位：\"nm\"、\"um\"、\"cm-1\" 或 \"eV\"。不给出时，取导入对它的判断。"
+  },
+  "TFStudio.readEllipsometryFile.arg.quantities": {
+    "hash": "b7198e36",
+    "text": "各列的类型，按文件中的顺序：`'PSI'`、`'DEL'`，或 `null` / `None` 表示取导入给出的类型；没有类型的列不读入。"
+  },
+  "TFStudio.readEllipsometryFile.returns.js": {
+    "hash": "c247861d",
+    "text": "一个对象：`fileName`；`xUnit`，读取波长时所用的单位；`skippedRows`，不含数据行的行数；以及 `curves`，每条为 `{ name, quantity, angle, side, deltaConvention, cosDelta, wavelength, values }`：quantity 为 `'PSI'` 或 `'DEL'`，Ψ 的 deltaConvention 为 null，看起来像 cos Δ 的 Δ 的 cosDelta 为 true，波长单位 nm 且递增，数值单位为度，可交给 `design.addMeasuredCurves()` 和 `design.compareMeasured()`。"
+  },
+  "TFStudio.readEllipsometryFile.returns.py": {
+    "hash": "636dda6d",
+    "text": "一个 EllipsometryFile，即命名元组：file_name；x_unit，读取波长时所用的单位；skipped_rows，不含数据行的行数；以及 curves，每条为一个 EllipsometryCurve，即由 name、quantity（\"PSI\" 或 \"DEL\"）、angle、side、delta_convention（Psi 为 None）、cos_delta（看起来像 cos Delta 的 Delta 为 True）、wavelength 和 values 组成的命名元组，波长单位 nm 且递增，数值单位为度，可交给 design.add_measured_curves() 和 design.compare_measured()。"
+  },
+  "TFStudio.readEllipsometryFile.lead.1.js": {
+    "hash": "a95b5a0b",
+    "text": "按实测椭偏窗口的导入方式读取椭偏仪文件：一列波长和若干列以度为单位的 Ψ 与 Δ 组成的表格，每列按窗口的方式判定类型，得到的是窗口“添加全部已标注列”会添加的曲线。选项代替导入面板的设置：文件在表头行或列标题中写明的入射角予以保留，与窗口中相同；表头写明的面填入面板，`side` 可替换它。"
+  },
+  "TFStudio.readEllipsometryFile.lead.1.py": {
+    "hash": "6043b2b4",
+    "text": "按实测椭偏窗口的导入方式读取椭偏仪文件：一列波长和若干列以度为单位的 Psi 与 Delta 组成的表格，每列按窗口的方式判定类型，得到的是窗口“添加全部已标注列”会添加的曲线。关键字参数代替导入面板的设置：文件在表头行或列标题中写明的入射角予以保留，与窗口中相同；表头写明的面填入面板，side 可替换它。"
+  },
+  "TFStudio.readEllipsometryFile.refuses.1": {
+    "hash": "bffd473c",
+    "text": "无法读取或不含数字表格的文件、不接受的选项或选项无法取的值"
+  },
+  "TFStudio.exportMeasuredCurves.arg.design": {
+    "hash": "fe3ad304",
+    "text": "设计，一个 Design。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.path.js": {
+    "hash": "f18f6024",
+    "text": "要写入的文件，给出完整路径。相对路径按 `openDesign` 的方式解释。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.path.py": {
+    "hash": "33fb609d",
+    "text": "要写入的文件。相对路径按 open_design() 的方式解释。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.curves.js": {
+    "hash": "9f6ecbf1",
+    "text": "要写出的曲线的名称，全部为 R、T 和 A，或全部为 Ψ 和 Δ。不给出时，写出设计所含的全部 R、T 和 A 曲线；没有这类曲线时写出其 Ψ 和 Δ。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.curves.py": {
+    "hash": "60acc352",
+    "text": "要写出的曲线的名称，全部为 R、T 和 A，或全部为 Psi 和 Delta。不给出时，写出设计所含的全部 R、T 和 A 曲线；没有这类曲线时写出其 Psi 和 Delta。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.format": {
+    "hash": "0188f30c",
+    "text": "`'csv'`，或 `'jcamp'` 表示 JCAMP-DX，后者只用于 R、T 和 A。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.scale": {
+    "hash": "b0199a42",
+    "text": "对 R、T 和 A，`'percent'` 或 `'fraction'`。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.overwrite.js": {
+    "hash": "d8c14312",
+    "text": "覆盖已存在的文件。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.overwrite.py": {
+    "hash": "30d81617",
+    "text": "为 True 时，覆盖已存在的文件。"
+  },
+  "TFStudio.exportMeasuredCurves.lead.1.js": {
+    "hash": "8ea2f306",
+    "text": "把设计所含的实测曲线写入文件，与导出选项卡的写法相同：R、T 和 A 按实测光谱窗口的方式写成 CSV（各列上方是条件行）或 JCAMP-DX；Ψ 和 Δ 按实测椭偏窗口的方式写成以度为单位的 CSV。不给出选项时，使用窗口的出厂格式：CSV、nm、R、T 和 A 用百分比。"
+  },
+  "TFStudio.exportMeasuredCurves.lead.1.py": {
+    "hash": "7f3fee2f",
+    "text": "把设计所含的实测曲线写入文件，与导出选项卡的写法相同：R、T 和 A 按实测光谱窗口的方式写成 CSV（各列上方是条件行）或 JCAMP-DX；Psi 和 Delta 按实测椭偏窗口的方式写成以度为单位的 CSV。不给出关键字参数时，使用窗口的出厂格式：CSV、nm、R、T 和 A 用百分比。"
+  },
+  "TFStudio.exportMeasuredCurves.refuses.1": {
+    "hash": "5b108f36",
+    "text": "不是 Design 或不含实测曲线的设计、设计不含的曲线名称、两类曲线混在一起、不接受的选项或选项无法取的值，或已存在的文件（未给出 `overwrite` 时）"
+  },
+  "Design.compareMeasured.refuses.1.js": {
+    "hash": "2e2ea17c",
+    "text": "既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 `curve` 的文件、不接受的选项或选项无法取的值、没有可比较的点、法向入射或背面测得的 Ψ 或 Δ 曲线或在只以背面评价的设计上的此类曲线，或设计中有无法解析的材料"
+  },
+  "Design.compareMeasured.refuses.1.py": {
+    "hash": "1d0393a6",
+    "text": "既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 curve 的文件、不接受的选项或选项无法取的值、没有可比较的点、法向入射或背面测得的 Psi 或 Delta 曲线或在只以背面评价的设计上的此类曲线，或设计中有无法解析的材料"
+  },
+  "Design.addMeasuredCurves.arg.curves.js": {
+    "hash": "b6f0a5d6",
+    "text": "一条曲线或曲线列表，即 `tf.readSpectrumFile()` 或 `tf.readEllipsometryFile()` 给出的那种 `{ wavelength, values, quantity, angle, pol, name }`：R、T 和 A 为 1 的分数，未给出时 quantity 为 `'T'`，angle 为 0，pol 为 `'avg'`；Ψ 或 Δ 曲线还接受 `side` 和 `deltaConvention`，未给出时为 `'front'` 和 `'azzam'`，数值单位为度。"
+  },
+  "Design.addMeasuredCurves.arg.curves.py": {
+    "hash": "5ecd7059",
+    "text": "一条曲线或曲线列表：tf.read_spectrum_file() 给出的 MeasuredCurve、tf.read_ellipsometry_file() 给出的 EllipsometryCurve，或由 wavelength、values、quantity、angle、pol 和 name 组成的 dict，R、T 和 A 为 1 的分数，未给出时 quantity 为 \"T\"，angle 为 0，pol 为 \"avg\"；Psi 或 Delta 曲线还接受 side 和 delta_convention，未给出时为 \"front\" 和 \"azzam\"，数值单位为度。"
+  },
+  "Design.addMeasuredCurves.lead.1.js": {
+    "hash": "0b7c795a",
+    "text": "按实测光谱和实测椭偏窗口的导入方式把实测曲线加入设计，每条都有自己的 id：R、T 和 A 加入设计的光谱，Ψ 和 Δ 加入其椭偏数据，排在已有曲线之后。设计会保存它们，窗口会显示它们，`fitMeasured()` 可把其中一条变为评价函数行。曲线只含给出的内容：来源文件、文件所用的单位以及是否为百分比都不属于它。"
+  },
+  "Design.addMeasuredCurves.lead.1.py": {
+    "hash": "f76f1de0",
+    "text": "按实测光谱和实测椭偏窗口的导入方式把实测曲线加入设计，每条都有自己的 id：R、T 和 A 加入设计的光谱，Psi 和 Delta 加入其椭偏数据，排在已有曲线之后。设计会保存它们，窗口会显示它们，fit_measured() 可把其中一条变为评价函数行。曲线只含给出的内容：来源文件、文件所用的单位以及是否为百分比都不属于它。"
+  },
+  "Design.addMeasuredCurves.refuses.1.js": {
+    "hash": "5ef5a47c",
+    "text": "不是由这些字段组成的对象的曲线，或字段无法取的值"
+  },
+  "Design.addMeasuredCurves.refuses.1.py": {
+    "hash": "4d79b854",
+    "text": "不属于上述任一种的曲线，或字段无法取的值"
+  },
+  "Design.fitMeasured.arg.curve": {
+    "hash": "2dbed452",
+    "text": "设计所含的一条曲线的名称。"
+  },
+  "Design.fitMeasured.arg.grid": {
+    "hash": "5fc334f4",
+    "text": "`'measured'`，曲线自身的点；`'thinned'`，每 `thinEvery-th` / `thin_every-th` 个点取一个，外加最后一个；或 `'uniform'`，每隔 `step` nm 取一点，点与点之间按对话框的方式读取曲线。"
+  },
+  "Design.fitMeasured.arg.step.js": {
+    "hash": "9e086a7a",
+    "text": "网格为 `'uniform'` 时的步长，单位 nm；不给出时为曲线点距的中位数。"
+  },
+  "Design.fitMeasured.arg.step.py": {
+    "hash": "8dba1524",
+    "text": "网格为 \"uniform\" 时的步长，单位 nm。不给出时为曲线点距的中位数。"
+  },
+  "Design.fitMeasured.arg.thinEvery": {
+    "hash": "36ad21b6",
+    "text": "网格为 `'thinned'` 时保留哪些点。"
+  },
+  "Design.fitMeasured.arg.start.js": {
+    "hash": "1e884b2a",
+    "text": "保留的第一个波长，单位 nm；不给出时为曲线的第一个波长。"
+  },
+  "Design.fitMeasured.arg.start.py": {
+    "hash": "8e22cafe",
+    "text": "保留的第一个波长，单位 nm。不给出时为曲线的第一个波长。"
+  },
+  "Design.fitMeasured.arg.end.js": {
+    "hash": "4f2960e8",
+    "text": "保留的最后一个波长，单位 nm；不给出时为曲线的最后一个波长。"
+  },
+  "Design.fitMeasured.arg.end.py": {
+    "hash": "6e4c8c8b",
+    "text": "保留的最后一个波长，单位 nm。不给出时为曲线的最后一个波长。"
+  },
+  "Design.fitMeasured.arg.db": {
+    "hash": "2f9e1924",
+    "text": "对 T 曲线，`true` / `True` 以 dB 拟合，与对话框的 dB 标度相同。"
+  },
+  "Design.fitMeasured.arg.weight": {
+    "hash": "16e4c6c1",
+    "text": "该块的权重，0 或以上。"
+  },
+  "Design.fitMeasured.arg.output": {
+    "hash": "fa6765ab",
+    "text": "`'append'` 把这些行加在设计已有的评价函数行之后；`'replace'` 用它们取代全部已有的行。"
+  },
+  "Design.fitMeasured.arg.constraints.js": {
+    "hash": "4df6f14c",
+    "text": "`{ min: 10, max: 1000, weight: 1 }`，厚度单位 nm，用于加入对话框作用于所有膜层的 MNT 和 MXT 行。"
+  },
+  "Design.fitMeasured.arg.constraints.py": {
+    "hash": "e6f367aa",
+    "text": "由 min、max 和 weight 组成的 dict，厚度单位 nm，未给出时为 10、1000 和 1，用于加入对话框作用于所有膜层的 MNT 和 MXT 行。不给出时不加入。"
+  },
+  "Design.fitMeasured.lead.1.js": {
+    "hash": "19d7c340",
+    "text": "为设计所含的一条实测曲线加入“拟合…”对话框所加的评价函数行：R、T 和 A 按实测光谱窗口的对话框，Ψ 和 Δ 按实测椭偏窗口的对话框。MCURVE 块保存在对话框网格上取样的曲线，并限制在设计的每种材料都有数据的范围内；Ψ 或 Δ 块只在正面评分。给出 `constraints` 时，其后跟随一行 MNT 和一行 MXT，与对话框的厚度约束所加的相同。用相同选项调用 `compareMeasured()` 可得到该块的值。"
+  },
+  "Design.fitMeasured.lead.1.py": {
+    "hash": "6c8e38af",
+    "text": "为设计所含的一条实测曲线加入“拟合…”对话框所加的评价函数行：R、T 和 A 按实测光谱窗口的对话框，Psi 和 Delta 按实测椭偏窗口的对话框。MCURVE 块保存在对话框网格上取样的曲线，并限制在设计的每种材料都有数据的范围内；Psi 或 Delta 块只在正面评分。给出 constraints 时，其后跟随一行 MNT 和一行 MXT，与对话框的厚度约束所加的相同。用相同关键字参数调用 compare_measured() 可得到该块的值。"
+  },
+  "Design.fitMeasured.refuses.1.js": {
+    "hash": "20ad3701",
+    "text": "设计不含的曲线或有两条同名曲线、不接受的选项或选项无法取的值、没有可保留的点、法向入射或背面测得的 Ψ 或 Δ 曲线或在只以背面评价的设计上的此类曲线，或设计中有无法解析的材料"
+  },
+  "Design.fitMeasured.refuses.1.py": {
+    "hash": "f6986e11",
+    "text": "设计不含的曲线或有两条同名曲线、不接受的选项或选项无法取的值、没有可保留的点、法向入射或背面测得的 Psi 或 Delta 曲线或在只以背面评价的设计上的此类曲线，或设计中有无法解析的材料"
+  },
+  "Spectrum.saveJcamp.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，使用完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "Spectrum.saveJcamp.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "Spectrum.saveJcamp.lead.1.js": {
+    "hash": "de53677c",
+    "text": "把光谱写入 JCAMP-DX 文件，与实测光谱窗口的导出选项卡在勾选 T、R、A 和“包含 s 和 p”时写出设计光谱的方式相同：每个角度下非偏振光的 T、R 和 A 以及 Ts、Rs、Tp 和 Rp 各一个光谱，用 0 到 1 之间的小数表示，每个光谱的标题为设计名称、物理量，多个角度时还有其角度。实测光谱窗口的导入会把每个光谱读回为一条曲线。已存在的文件会被覆盖。"
+  },
+  "Spectrum.saveJcamp.lead.1.py": {
+    "hash": "ecc67b3f",
+    "text": "把光谱写入 JCAMP-DX 文件，与实测光谱窗口的导出选项卡在勾选 T、R、A 和“包含 s 和 p”时写出设计光谱的方式相同：每个角度下非偏振光的 T、R 和 A 以及 Ts、Rs、Tp 和 Rp 各一个光谱，用 0 到 1 之间的小数表示，每个光谱的标题为设计名称、物理量，多个角度时还有其角度。文件与窗口写出的逐字节相同，实测光谱窗口的导入会把每个光谱读回为一条曲线。已存在的文件会被覆盖。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.xUnit.js": {
+    "hash": "87559254",
+    "text": "波长列的单位：R、T 和 A 为 `'nm'`、`'um'` 或 `'cm-1'`，Ψ 和 Δ 为 `'nm'`、`'um'` 或 `'eV'`。"
+  },
+  "TFStudio.exportMeasuredCurves.arg.xUnit.py": {
+    "hash": "6466c582",
+    "text": "波长列的单位：R、T 和 A 为 \"nm\"、\"um\" 或 \"cm-1\"，Psi 和 Delta 为 \"nm\"、\"um\" 或 \"eV\"。"
   }
 }

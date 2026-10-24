@@ -30,9 +30,16 @@ export class Ellipsometry {
         const series = angular ? [{ psi: result.psi, delta: result.delta }] : result.angles;
         const angles = angular ? result.angle : series.map(one => one.angle);
         const over = angular ? values => angleCurveOf(values, angles) : values => curveOf(values, wavelength);
-        this._values = { mode, wavelength, angles, deltaConvention, outOfRange, angular };
+        this._values = { mode, wavelength, angles, deltaConvention, outOfRange, angular, name: null };
         this._series = series;
         this._curves = series.map(({ psi, delta }) => ({ psi: over(psi), delta: over(delta) }));
+    }
+
+    // The result with the name of the design it was computed on, which its CSV
+    // file gives.
+    _named(name) {
+        this._values.name = name;
+        return this;
     }
 
     /**
@@ -134,15 +141,17 @@ export class Ellipsometry {
         if (angular) throw new Error(`angle: this sweep runs over angle at ${wavelength} nm; psi and delta hold it`);
         const i = angles.indexOf(angle);
         if (i < 0) throw new Error(`angle: the sweep was computed at [${angles.join(', ')}], not at ${angle}`);
-        return new Ellipsometry({ mode, wavelength, deltaConvention, outOfRange, angles: [this._series[i]] });
+        return new Ellipsometry({ mode, wavelength, deltaConvention, outOfRange, angles: [this._series[i]] })._named(this._values.name);
     }
 
     /**
      * Writes Ψ and Δ to a CSV file as the window's export writes its table:
      * a column of wavelengths, λ (nm), or of angles, AOI (°), then Ψ (°) and
      * Δ (°). Against wavelength at more than one angle, Ψ and Δ come for each
-     * angle in turn, each headed with its angle. A file that is there is
-     * written over.
+     * angle in turn, each headed with its angle. Against wavelength at one
+     * angle, two # lines come first, as Measured Ellipsometry's export of the
+     * design's Ψ/Δ writes them: the design's name, then the angle and the side,
+     * which its import reads back. A file that is there is written over.
      *
      * @param path The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.
      * @example
@@ -153,13 +162,14 @@ export class Ellipsometry {
      * console.log('Wrote', file);
      */
     saveCsv(path) {
-        const { wavelength, angles, angular } = this._values;
+        const { mode, wavelength, angles, angular, name } = this._values;
         const xs = angular ? angles : wavelength;
+        const conditions = !angular && angles.length === 1 ? [`# ${name || 'design'}`, `# AOI ${angles[0]} deg, ${mode} side`] : [];
         const headed = (label, angle) => (angles.length === 1 ? label : `${label} at ${angle} deg`);
         const header = angular ? [en.spectrumExchange.aoiLabel, PSI, DELTA]
             : [en.spectralAxis.lambdaShort, ...angles.flatMap(angle => [headed(PSI, angle), headed(DELTA, angle)])];
         const rows = xs.map((x, i) => [x, ...this._series.flatMap(({ psi, delta }) => [psi[i], delta[i]])]);
-        fs.writeFileSync(path, [header, ...rows].map(row => row.join(',')).join('\n'), 'utf8');
+        fs.writeFileSync(path, [...conditions, ...[header, ...rows].map(row => row.join(','))].join('\n'), 'utf8');
     }
 
     // What console.log prints for a sweep.

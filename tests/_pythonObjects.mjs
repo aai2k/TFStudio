@@ -54,6 +54,9 @@
  *   was when the spectrum was computed, and their refusals; edge_filter()
  *   with pass_, apply_edge_filter(), process_steps() on chips given in
  *   snake_case and export_process() as named tuples and paths, and their
+ *   refusals; read_ellipsometry_file(), add_measured_curves(), fit_measured()
+ *   and export_measured_curves() as named tuples and files, save_jcamp()
+ *   byte for byte, a Psi/Delta save_csv() with its # lines, and their
  *   refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
@@ -74,6 +77,8 @@ import { NEEDLE_DEFAULTS } from '../src/utils/needle/settings.js';
 import { GE_DEFAULTS } from '../src/utils/gradualEvolution/settings.js';
 import { RUN_DEFAULTS } from '../src/utils/structural/settings.js';
 import { fixtureFile } from './_apiCorpus.mjs';
+import { Design } from '../src/api/objects/design.js';
+import { measuredExportDocument } from '../src/components/windows/dataExchange/spectrumExchange/model.js';
 
 const DRIVER = path.join(path.dirname(fileURLToPath(import.meta.url)), '_pythonObjects.py');
 
@@ -869,6 +874,48 @@ async function production(t, said) {
     ]), canon(got.worded));
 }
 
+// What _pythonObjects.py measured_files() read, wrote and fitted, against the plain calls and the JS objects.
+function measuredFiles(t, said) {
+    const { ok, canon, api, WORK } = t;
+    const got = said.measuredFiles ?? {};
+    const witness = path.join(WORK, 'witness.csv');
+    const snakeKeys = found => Object.fromEntries(Object.entries(found).map(([key, value]) => [snake(key), value]));
+    const asTuples = file => ({ ...snakeKeys(file), curves: file.curves.map(snakeKeys) });
+    const read = api.readEllipsometryFile(witness);
+    ok('read_ellipsometry_file() gives readEllipsometryFile\'s answers as EllipsometryFile and EllipsometryCurve',
+        canon([got.read, got.swapped, got.types]) === canon([asTuples(read),
+            asTuples(api.readEllipsometryFile(witness, { angle: 60, deltaConvention: 'reversed', quantities: ['DEL', 'PSI'] })), ['EllipsometryFile', 'EllipsometryCurve']]),
+        JSON.stringify(got.swapped)?.slice(0, 300) ?? t.failure(t.ran));
+    const design = got.design ?? api.newDesign();
+    const rowOf = ({ id: _id, curveId: _c, ...row }) => row;
+    const heldOf = ({ id: _id, ...curve }) => curve;
+    const scan = api.readSpectrumFile(path.join(WORK, 'scan.csv')).curves[0];
+    const expected = api.fitMeasured(api.fitMeasured(api.addMeasuredCurves({ ...design, measuredCurves: [], measuredEllipsometry: [], meritOperands: [] }, [...read.curves, scan]),
+        'scan: R', { grid: 'uniform', step: 5, from: 460, to: 640, constraints: { min: 20 } }), read.curves[1].name);
+    ok('add_measured_curves() and fit_measured() give the plain calls\' curves and rows, start and end for from and to',
+        canon([(design.measuredCurves ?? []).map(heldOf), (design.measuredEllipsometry ?? []).map(heldOf), (design.meritOperands ?? []).map(rowOf)])
+        === canon([expected.measuredCurves.map(heldOf), expected.measuredEllipsometry.map(heldOf), expected.meritOperands.map(rowOf)]) && expected.meritOperands.length === 4,
+        JSON.stringify(design.meritOperands)?.slice(0, 300));
+    const text = file => (fs.existsSync(path.join(WORK, file)) ? fs.readFileSync(path.join(WORK, file), 'utf8') : null);
+    ok('export_measured_curves() writes exportMeasuredCurves\'s file', text('measured curves.dx') === measuredExportDocument(design, 'jcamp', { curves: design.measuredCurves ?? [] }).text);
+    const jsJcamp = (file, angles) => {
+        const where = path.join(WORK, `js ${file}`);
+        new Design(design).spectrum(400, 700, { step: 10, angles }).saveJcamp(where);
+        return fs.readFileSync(where, 'utf8');
+    };
+    ok('save_jcamp() writes the JS object\'s file byte for byte', text('spectrum.dx') === jsJcamp('spectrum.dx', [0, 45]) && text('one angle.dx') === jsJcamp('one angle.dx', [0]));
+    const psiDelta = text('psi delta.csv') ?? '';
+    ok('a Psi/Delta save_csv() at one angle starts with its # lines and reads back at its angle and side',
+        psiDelta.startsWith('# AR\n# AOI 70 deg, front side\n') && canon(api.readEllipsometryFile(path.join(WORK, 'psi delta.csv')).curves.map(c => [c.quantity, c.angle, c.side])) === canon([['PSI', 70, 'front'], ['DEL', 70, 'front']]),
+        psiDelta.slice(0, 80));
+    ok('and their refusals are in Python\'s words', canon(got.worded ?? null) === canon([
+        `fit_measured: curve is the name of a curve the design holds: scan: R, ${read.curves.map(c => c.name).join(', ')}, not 'nothing'`,
+        "fit_measured: unknown option 'to'; the options are grid, step, thin_every, start, end, db, weight, output, constraints",
+        "read_ellipsometry_file: unknown option 'pol'; the options are angle, side, delta_convention, x_unit, quantities",
+        'export_measured_curves: design is a Design, as tf.new_design() or tf.open_design() gives one',
+        `export_measured_curves: ${path.join(WORK, 'measured curves.dx')} exists; pass overwrite=True to write over it`,
+    ]), JSON.stringify(got.worded));
+}
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -1058,6 +1105,7 @@ export async function checkObjects(t) {
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
     measuredCurves(u, ran.said);
+    measuredFiles(u, ran.said);
     await production(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);

@@ -32,7 +32,7 @@ const FEATURE_LEVEL = num('For edge and fwhm, the level crossed, a fraction of t
 const FEATURE_EDGE_SIDE = oneOf(['left', 'right'], "For edge, 'right' for the crossing above the peak. Default: the one below it, or the one above where there is none below");
 
 // The import panel's settings, which the readSpectrumFile and measuredDifference tools share.
-const READ_SETTINGS = {
+export const READ_SETTINGS = {
     angle: num('Angle of incidence in degrees for the curves whose file states none, 0 <= angle < 90. Default 0'),
     pol: oneOf(['avg', 's', 'p'], "Polarization for the curves whose file states none; a column headed with its polarization, such as Rs, keeps it, and an A column headed with none is avg. Default 'avg'"),
     quantity: oneOf(['T', 'R', 'A'], 'For a table, the quantity of every column. Default: what each column heading says, T where it says none'),
@@ -41,13 +41,13 @@ const READ_SETTINGS = {
 };
 
 // A spectrum file path the tools take, absolute for the reason designTools.js gives.
-function spectrumPath(path) {
+export function spectrumPath(path) {
     if (!isAbsolute(path)) throw new Error(`path is an absolute path, not '${path}'`);
     return path;
 }
 
 // A curve as the readSpectrumFile tool answers without values: its conditions, how many points and their span.
-const curveSummary = ({ wavelength, values: _values, ...curve }) => ({
+export const curveSummary = ({ wavelength, values: _values, ...curve }) => ({
     ...curve, points: wavelength.length, from: wavelength[0], to: wavelength[wavelength.length - 1],
 });
 
@@ -160,7 +160,7 @@ export function analysisTools({ api, store }) {
         },
         {
             name: 'measuredDifference', title: 'Difference from a measured curve',
-            description: "How a design's spectrum differs from a measured curve in a spectrum file, as the MCURVE merit row the Measured Spectra window's Fit dialog writes scores it: the curve read as readSpectrumFile reads it, sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization, the way the design's surface mode says, as the merit function scores it, averaged over the design's cone of incidence when it has one. Only a T, R or A curve is compared. Answers with mode (front, back or total), name, quantity, angle, pol, grid, db, levelFree, clipped (true when fewer wavelengths were compared than asked for), rms (the MCURVE row's value, a fraction of 1 or dB with db), ppef (a PPEF row's value, the spread of measured less design in dB), level (the mean difference taken off with levelFree, else null), points, from and to (nm) and deviation { min, minAt, max, maxAt }, design less measured; with values true, also wavelength, measured, design and deviation at every point.",
+            description: "How a design's spectrum differs from a measured curve in a spectrum file, as the MCURVE merit row the Measured Spectra window's Fit dialog writes scores it: the curve read as readSpectrumFile reads it, sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization, the way the design's surface mode says, as the merit function scores it, averaged over the design's cone of incidence when it has one. A Psi or Delta column (PSI or DEL) is scored as the Measured Ellipsometry window's Fit dialog scores it: on the front side alone, at an angle above 0, each Delta difference the short way round the circle; to read an ellipsometer file as that window reads it, use readEllipsometryFile and addMeasuredCurves, then fitMeasured. Answers with mode (front, back or total), name, quantity, angle, pol, grid, db, levelFree, clipped (true when fewer wavelengths were compared than asked for), rms (the MCURVE row's value, a fraction of 1, dB with db, or degrees for Psi and Delta), ppef (a PPEF row's value, the spread of measured less design in dB; null for Psi and Delta), level (the mean difference taken off with levelFree, else null), points, from and to (nm) and deviation { min, minAt, max, maxAt }, design less measured; with values true, also wavelength, measured, design and deviation at every point.",
             inputSchema: object({
                 designId: DESIGN_ID,
                 path: str('Absolute path of the spectrum file'),

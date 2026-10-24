@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import { inspect } from 'node:util';
 import { spectrumConditionLines } from '../../utils/io/spectrumTable.js';
+import { designExportDocument } from '../../components/windows/dataExchange/spectrumExchange/model.js';
 import { logValue } from '../../utils/physics/optimizer/logReadings.js';
 import * as api from '../index.js';
 import { checkOptions, requireValue, shown } from '../check.js';
@@ -621,6 +622,29 @@ export class Spectrum {
         const header = ['Wavelength (nm)', ...this.angles.flatMap(angle => QUANTITIES.map(name => `${name} at ${angle} deg`))];
         const rows = this.wavelength.map((wavelength, i) => [wavelength, ...this._curves.flatMap(curves => QUANTITIES.map(name => curves[name][i]))]);
         fs.writeFileSync(path, [...conditions, ...[header, ...rows].map(row => row.join(','))].map(line => `${line}\r\n`).join(''), 'utf8');
+    }
+
+    /**
+     * Writes the spectrum to a JCAMP-DX file as Measured Spectra's Export tab
+     * writes a design spectrum, with T, R and A and "Include s and p"
+     * checked: one spectrum each of T, R and A for unpolarized light and of
+     * Ts, Rs, Tp and Rp at each angle, as fractions of 1, each titled with the
+     * design's name, its quantity and, at more than one angle, its angle.
+     * Measured Spectra's import reads each back as a curve. A file that is
+     * there is written over.
+     *
+     * @param path The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.
+     * @example
+     * const file = require('path').join(require('os').homedir(), `spectrum-${Date.now()}.dx`);
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.spectrum(400, 700, { step: 10, angles: [0, 45] }).saveJcamp(file);
+     * console.log('Wrote', file);
+     */
+    saveJcamp(path) {
+        const spec = { lambda: this.wavelength, series: this.angles.map((theta, i) => ({ theta, ...this._series[i] })) };
+        const { text } = designExportDocument({ spec, design: { name: this._values.name }, quantities: ['T', 'R', 'A'], includeSP: true, expFormat: 'jcamp' });
+        fs.writeFileSync(path, text, 'utf8');
     }
 
     // What console.log prints for a spectrum.

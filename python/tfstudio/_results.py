@@ -10,6 +10,7 @@ import math
 
 from ._band_feature import band_feature, computed_on
 from ._errors import TFStudioError
+from ._jcamp import design_spectrum_jcamp
 
 # The quantities of a spectrum: R, T and A for unpolarized light, then for s
 # and p, as the API's spectrum gives them.
@@ -749,6 +750,34 @@ class Spectrum:
                                                    for angle in self.angles for name in QUANTITIES])
             for i, wavelength in enumerate(self.wavelength):
                 writer.writerow([wavelength] + [curves[name][i] for curves in self._curves for name in QUANTITIES])
+
+    def save_jcamp(self, path):
+        """Writes the spectrum to a JCAMP-DX file as Measured Spectra's
+        Export tab writes a design spectrum, with T, R and A and "Include s
+        and p" checked: one spectrum each of T, R and A for unpolarized light
+        and of Ts, Rs, Tp and Rp at each angle, as fractions of 1, each titled
+        with the design's name, its quantity and, at more than one angle, its
+        angle. The file is the window's, byte for byte, and Measured Spectra's
+        import reads each spectrum back as a curve. A file that is there is
+        written over.
+
+        Args:
+            path: The file to write. A relative path is taken from the
+                program's working folder: in the Script Console, the script's
+                folder, or the data folder for a script not saved.
+
+        Example::
+
+            import time
+
+            name = "spectrum-{}.dx".format(time.time_ns())
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            design.spectrum(400, 700, step=10, angles=[0, 45]).save_jcamp(name)
+            print("Wrote", name)
+        """
+        with open(path, "w", newline="", encoding="utf-8") as file:
+            file.write(design_spectrum_jcamp(self._name, self.wavelength, self.angles, self._series))
 
     def __repr__(self):
         return "<Spectrum {} to {} nm, {} points, angles {}, {}>".format(

@@ -277,8 +277,8 @@ const plain = corpus.filter(([, design]) => design.frontLayers.length || design.
     const spectral = windowSweep(data, { mode: 'spectral', side: e.mode, lambdaStart: 400, lambdaEnd: 800, lambdaStep: 50, thetaDeg: 65, deltaConvention: 'azzam' });
     const angular = windowSweep(data, { mode: 'angular', side: a.mode, lambdaNm: 633, angleStart: 40, angleEnd: 80, angleStep: 0.5, deltaConvention: 'reversed' });
     const header = fs.readFileSync(two, 'utf8').split('\n')[0];
-    ok('saveCsv writes the window\'s table, one column pair per angle when there are several',
-        fs.readFileSync(one, 'utf8') === table('λ (nm)', spectral) && fs.readFileSync(swept, 'utf8') === table('AOI (°)', angular)
+    ok('saveCsv writes the window\'s table, at one angle after the design\'s name, the angle and the side as Measured Ellipsometry writes them, one column pair per angle when there are several',
+        fs.readFileSync(one, 'utf8') === `# ${design.name}\n# AOI 65 deg, ${e.mode} side\n${table('λ (nm)', spectral)}` && fs.readFileSync(swept, 'utf8') === table('AOI (°)', angular)
         && header === 'λ (nm),Ψ (°) at 55 deg,Δ (°) at 55 deg,Ψ (°) at 70 deg,Δ (°) at 70 deg', header);
 }
 

@@ -4,7 +4,8 @@ import { chartData, ellipsometryCurves, looksLikeCosDelta } from './model.js';
 import {
     ellipsometryFitSnapshot, orphanEllipsometryFitBlocks, restoredEllipsometryCurves,
 } from './fitModel.js';
-import { defaultCurveName, useImportActions } from './importActions.js';
+import { useImportActions } from './importActions.js';
+import { defaultCurveName } from './importedCurves.js';
 import { useExportActions } from './exportActions.js';
 import {
     clampedFitRange, defaultMeasuredFitOptions, measuredFitConstraintsInvalid,

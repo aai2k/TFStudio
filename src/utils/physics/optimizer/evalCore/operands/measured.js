@@ -9,6 +9,7 @@ import { charOf } from '../../sampling.js';
 import { measuredCurveEngineTargets } from '../../measuredCurveOperand.js';
 import { tmmProp } from '../tmmEval.js';
 import { _normalizeDegrees } from '../angles.js';
+import { CALCULATED_DELTA_CONVENTION, convertDeltaConvention } from '../../../thinFilmMath.js';
 import { OperandEvaluationError, _assertMeasurementSide, _assertFrontEllipsometry } from './errors.js';
 import { _gridKey, _ellipsometryBatch } from './ellipsometry.js';
 
@@ -78,23 +79,38 @@ export function _evalMeasuredCurve(op, ctx) {
     return Math.sqrt(sumSq / deviations.length);
 }
 
-// A measured Ψ or Δ block: the RMS deviation of the front stack's Ψ or Δ from
-// the snapshot, with the snapshot's Δ moved into the sign the evaluator returns
-// and each Δ difference taken the short way round the circle.
-function _evalMeasuredEllipsometry(op, ctx) {
+/**
+ * What the front stack reads at each point of a Ψ or Δ measured block, and
+ * how far that is from the block's snapshot: `design` in degrees, Δ in the
+ * sign the block records, `deviations` the design less the snapshot at each
+ * point, each Δ difference taken the short way round the circle, and `level`
+ * null. The block's row scores the RMS of `deviations`, and the API's
+ * measuredDifference reports them.
+ */
+export function measuredEllipsometryDeviations(op, ctx) {
     _assertFrontEllipsometry(op, ctx);
     const lambdas = _measuredSnapshotLambdas(op);
     const targets = measuredCurveEngineTargets(op);
     const aoi = op.aoi ?? 0;
     const batch = _ellipsometryBatch(ctx, aoi, lambdas, _gridKey(aoi, lambdas));
     const delta = op.quantity === 'DEL';
-    let sumSq = 0;
-    for (let index = 0; index < lambdas.length; index++) {
-        const point = batch.get(lambdas[index]);
-        const difference = delta
-            ? _normalizeDegrees(point.delta - targets[index])
-            : point.psi - targets[index];
-        sumSq += difference * difference;
-    }
-    return Math.sqrt(sumSq / lambdas.length);
+    const read = lambdas.map(lambda => (delta ? batch.get(lambda).delta : batch.get(lambda).psi));
+    const deviations = read.map((value, index) => (delta
+        ? _normalizeDegrees(value - targets[index])
+        : value - targets[index]));
+    const design = delta
+        ? convertDeltaConvention(read, CALCULATED_DELTA_CONVENTION, op.deltaConvention || 'azzam')
+        : read;
+    // Moving Δ into the block's sign mirrors each difference as well.
+    const sign = delta && (op.deltaConvention || 'azzam') !== CALCULATED_DELTA_CONVENTION ? -1 : 1;
+    return { design, deviations: deviations.map(value => sign * value), level: null };
+}
+
+// A measured Ψ or Δ block: the RMS deviation of the front stack's Ψ or Δ from
+// the snapshot, with the snapshot's Δ moved into the sign the evaluator returns
+// and each Δ difference taken the short way round the circle.
+function _evalMeasuredEllipsometry(op, ctx) {
+    const { deviations } = measuredEllipsometryDeviations(op, ctx);
+    const sumSq = deviations.reduce((sum, value) => sum + value * value, 0);
+    return Math.sqrt(sumSq / deviations.length);
 }

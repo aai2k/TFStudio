@@ -66,6 +66,7 @@ def objects(given):
         material_dispersion(tf)
         band_features(tf)
         measured_curves(tf)
+        measured_files(tf)
         production(tf)
         runs(design, given)
         progress(design, given)
@@ -753,6 +754,33 @@ def production(tf):
                         "run": dict(run._asdict(), steps=[s._asdict() for s in run.steps]), "paths": paths,
                         "types": [type(x).__name__ for x in (found, found.solutions[0], run, run.steps[0])], "worded": worded}})
 
+
+def measured_files(tf):
+    """tf.read_ellipsometry_file() at its defaults and with keywords,
+    design.add_measured_curves() and fit_measured(), tf.export_measured_curves(),
+    a spectrum's save_jcamp(), a Psi/Delta result's save_csv() at one angle,
+    the named tuples, and their refusals."""
+    name = "witness.csv"
+    with open(name, "w") as f:
+        f.write("# AOI 70 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n450,30.1,120.5\n550,28.4,110.2\n650,27.9,100.8\n")
+    read = tf.read_ellipsometry_file(name)
+    swapped = tf.read_ellipsometry_file(name, angle=60, delta_convention="reversed", quantities=["DEL", "PSI"])
+    design = tf.new_design("AR")
+    design.stack("0.5H L")
+    design.add_measured_curves(list(read.curves) + [tf.read_spectrum_file("scan.csv").curves[0]])
+    design.fit_measured("scan: R", grid="uniform", step=5, start=460, end=640, constraints={"min": 20})
+    design.fit_measured(read.curves[1].name)
+    tf.export_measured_curves(design, "measured curves.dx", format="jcamp")
+    design.spectrum(400, 700, step=10, angles=[0, 45]).save_jcamp("spectrum.dx")
+    design.spectrum(400, 700, step=10).save_jcamp("one angle.dx")
+    design.ellipsometry(400, 800, step=50, angles=[70]).save_csv("psi delta.csv")
+    as_dict = lambda file: dict(file._asdict(), curves=[curve._asdict() for curve in file.curves])
+    worded = [refused(make) for make in (
+        lambda: design.fit_measured("nothing"), lambda: design.fit_measured("scan: R", to=600),
+        lambda: tf.read_ellipsometry_file(name, pol="avg"), lambda: tf.export_measured_curves(design._data, "x.csv"),
+        lambda: tf.export_measured_curves(design, "measured curves.dx"))]
+    out({"measuredFiles": {"design": design._data, "read": as_dict(read), "swapped": as_dict(swapped),
+                           "types": [type(x).__name__ for x in (read, read.curves[0])], "worded": worded}})
 
 def ran(before, design, result):
     return {"before": before, "after": design._data, "reported": result.reported,

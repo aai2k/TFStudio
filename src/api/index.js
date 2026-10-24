@@ -14,6 +14,8 @@
  *   spectrum(design, { from, to, step, angles }), summarize(spectrum, { bands })
  *   bandFeature(design, { feature, from, to, quantity, angle, level }), edgeShift(design, { from, to, angles, level })
  *   readSpectrumFile(path, { angle, pol, quantity, scale, xUnit }), measuredDifference(design, measured, { grid, from, to, db, levelFree })
+ *   readEllipsometryFile(path, { angle, side, deltaConvention, xUnit }), addMeasuredCurves(design, curves)
+ *   fitMeasured(design, curve, { grid, from, to, weight, output, constraints }), exportMeasuredCurves(design, path, { curves, format, xUnit, scale })
  *   indexProfile(design, { wavelength, side }), layerThicknesses(design, { wavelength, side }), designFacts(design, { side })
  *   admittance(design, { wavelength, angle, side, plane })
  *   electricField(design, { wavelength, angle, side, pointsPerLayer, depthUnit, reference })
@@ -44,6 +46,8 @@ export { materialDispersion } from './materialDispersion.js';
 export { spectrum, summarize } from './evaluate.js';
 export { bandFeature, edgeShift } from './bandFeature.js';
 export { readSpectrumFile, measuredDifference } from './measured.js';
+export { readEllipsometryFile } from './ellipsometryFile.js';
+export { addMeasuredCurves, fitMeasured, exportMeasuredCurves } from './measuredCurves.js';
 export { indexProfile, layerThicknesses } from './stackViews.js';
 export { designFacts } from './designFacts.js';
 export { admittance } from './admittance.js';

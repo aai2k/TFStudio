@@ -33,6 +33,8 @@ const SETUP_NAMES = { referenceWavelength: 'reference', substrate: 'substrate.ma
 // The options compareMeasured() passes to measuredDifference as they are; it
 // takes from and to as start and end, as the other methods over a range do.
 const COMPARE_OPTIONS = ['curve', 'angle', 'pol', 'quantity', 'scale', 'xUnit', 'grid', 'step', 'thinEvery', 'db', 'levelFree'];
+// The options fitMeasured() passes to fitMeasured as they are, start and end aside.
+const FIT_OPTIONS = ['grid', 'step', 'thinEvery', 'db', 'weight', 'output', 'constraints'];
 // differences()'s names for the settings designDifferences compares, where they differ.
 const SETTING_NAMES = { ...SETUP_NAMES, surfaceMode: 'sides', mfEvalMode: 'scoreOn' };
 
@@ -589,15 +591,17 @@ export class Design {
     }
 
     /**
-     * How the design's spectrum differs from a measured curve, as the MCURVE
-     * merit row the Measured Spectra window's Fit… dialog writes scores it:
-     * the curve sampled on the dialog's grid and kept to the span every
-     * material of the design has data for, and the design read at each point
-     * at the curve's angle and polarization. What it is read on follows the
-     * design's `sides` and `scoreOn`, as the merit function scores it, and a
-     * design under a cone of incidence is averaged over its cone.
+     * How the design differs from a measured curve, as the MCURVE merit row
+     * the Fit… dialog writes scores it: Measured Spectra's for R, T and A,
+     * Measured Ellipsometry's for Ψ and Δ. The curve is sampled on the
+     * dialog's grid and kept to the span every material of the design has
+     * data for, and the design read at each point at the curve's angle and
+     * polarization. R, T and A are read on what the design's `sides` and
+     * `scoreOn` say, as the merit function scores them, averaged over a cone
+     * of incidence the design has; Ψ and Δ on the front side alone, each Δ
+     * difference taken the short way round the circle.
      *
-     * @param measured The path of a spectrum file, read as `tf.readSpectrumFile()` reads it, or a curve as that gives one, `{ wavelength, values, quantity, angle, pol, name }`, its values fractions of 1, quantity `'T'` unless given, angle 0 and pol `'avg'`.
+     * @param measured The path of a spectrum file, read as `tf.readSpectrumFile()` reads it, or a curve as that or `tf.readEllipsometryFile()` gives one, `{ wavelength, values, quantity, angle, pol, name }`, its values fractions of 1, quantity `'T'` unless given, angle 0 and pol `'avg'`; a Ψ or Δ curve also takes `side` and `deltaConvention`, its values in degrees.
      * @param [options]
      * @param [options.curve] For a file of several curves, the one compared, by its name or its number from 0.
      * @param [options.angle] For a file, as `tf.readSpectrumFile()` takes it.
@@ -611,9 +615,9 @@ export class Design {
      * @param [options.start] The first wavelength compared, nm; the curve's first without it.
      * @param [options.end] The last wavelength compared, nm; the curve's last without it.
      * @param [options.db=false] For a T curve, `true` compares in dB, as the dialog's dB scale does.
-     * @param [options.levelFree=false] `true` takes off the mean difference before the RMS, as an MCURVE row with its level free scores.
-     * @returns An object: `rms`, the MCURVE row's value, a fraction of 1 or dB with `db`; `ppef`, a PPEF row's value against it, dB; `level`, the mean difference taken off with `levelFree`, otherwise null; `wavelength`, the wavelengths compared, nm, and at each `measured`, `design` and `deviation`, design less measured (less `level`); `clipped`, true when fewer wavelengths were compared than asked for; and `mode`, `name`, `quantity`, `angle`, `pol`, `grid`, `db` and `levelFree`.
-     * @throws a measured that is not a file path or a curve, a file that cannot be read or holds no spectrum, a file of several curves without `curve`, a curve that is not R, T or A, an option it does not take or a value an option cannot take, no point to compare, or a design that names a material that resolves to nothing
+     * @param [options.levelFree=false] For R, T and A, `true` takes off the mean difference before the RMS, as an MCURVE row with its level free scores.
+     * @returns An object: `rms`, the MCURVE row's value, a fraction of 1, dB with `db`, or degrees for Ψ and Δ; `ppef`, a PPEF row's value against it, dB, null for Ψ and Δ; `level`, the mean difference taken off with `levelFree`, otherwise null; `wavelength`, the wavelengths compared, nm, and at each `measured`, `design` and `deviation`, design less measured (less `level`); `clipped`, true when fewer wavelengths were compared than asked for; and `mode`, `name`, `quantity`, `angle`, `pol`, `grid`, `db` and `levelFree`.
+     * @throws a measured that is not a file path or a curve, a file that cannot be read or holds no spectrum, a file of several curves without `curve`, an option it does not take or a value an option cannot take, no point to compare, a Ψ or Δ curve at normal incidence or on the back side or one on a design scored on its back alone, or a design that names a material that resolves to nothing
      * @example
      * const design = tf.newDesign('AR');
      * design.stack('0.5H L');
@@ -625,6 +629,61 @@ export class Design {
         const { start, end, ...given } = checkOptions('compareMeasured', options, [...COMPARE_OPTIONS, 'start', 'end']);
         const words = { method: 'compareMeasured', call: 'measuredDifference', names: { from: 'start', to: 'end' } };
         return worded(words, () => api.measuredDifference(this._data, measured, { ...given, ...defined({ from: start, to: end }) }));
+    }
+
+    /**
+     * Adds measured curves to the design as the import of Measured Spectra
+     * and Measured Ellipsometry adds them, each with an id of its own: R, T
+     * and A to the design's spectra, Ψ and Δ to its ellipsometry, after the
+     * curves it holds. The design saves them, the windows show them, and
+     * `fitMeasured()` turns one into merit rows. A curve holds what it is
+     * given: the file it came from, the unit that file was written in and
+     * whether it was in percent are not part of it.
+     *
+     * @param curves A curve or a list of curves, as `tf.readSpectrumFile()` or `tf.readEllipsometryFile()` gives them, `{ wavelength, values, quantity, angle, pol, name }`: R, T and A as fractions of 1, quantity `'T'` unless given, angle 0 and pol `'avg'`; a Ψ or Δ curve also takes `side` and `deltaConvention`, `'front'` and `'azzam'` unless given, its values in degrees.
+     * @throws a curve that is not an object of those fields, or a value a field cannot take
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] });
+     * console.log(design.compareMeasured({ quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] }).rms);
+     */
+    addMeasuredCurves(curves) {
+        this._data = worded({ method: 'addMeasuredCurves', call: 'addMeasuredCurves' }, () => api.addMeasuredCurves(this._data, curves));
+    }
+
+    /**
+     * Adds the merit rows the Fit… dialog adds for a measured curve the
+     * design holds: Measured Spectra's for R, T and A, Measured
+     * Ellipsometry's for Ψ and Δ. The MCURVE block holds the curve sampled on
+     * the dialog's grid, kept to the span every material of the design has
+     * data for; a Ψ or Δ block is scored on the front side alone. With
+     * `constraints`, an MNT and an MXT row follow it, as the dialog's
+     * thickness constraints add them. `compareMeasured()` with the same
+     * options gives the block's value.
+     *
+     * @param curve The name of a curve the design holds.
+     * @param [options]
+     * @param [options.grid='measured'] `'measured'`, the curve's own points; `'thinned'`, every `thinEvery`-th of them and the last; or `'uniform'`, every `step` nm, the curve read between its points as the dialog reads it.
+     * @param [options.step] With grid `'uniform'`, the step, nm; the curve's median spacing without it.
+     * @param [options.thinEvery=2] With grid `'thinned'`, which points are kept.
+     * @param [options.start] The first wavelength kept, nm; the curve's first without it.
+     * @param [options.end] The last wavelength kept, nm; the curve's last without it.
+     * @param [options.db=false] For a T curve, `true` fits in dB, as the dialog's dB scale does.
+     * @param [options.weight=1] The block's weight, 0 or more.
+     * @param [options.output='append'] `'append'` adds the rows after the merit rows the design has; `'replace'` puts them in place of all of them.
+     * @param [options.constraints] `{ min: 10, max: 1000, weight: 1 }`, thicknesses in nm, to add the dialog's MNT and MXT rows over every layer.
+     * @throws a curve the design does not hold or two of that name, an option it does not take or a value an option cannot take, no point to keep, a Ψ or Δ curve at normal incidence or on the back side or one on a design scored on its back alone, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('0.5H L');
+     * design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', wavelength: [450, 500, 550, 600, 650], values: [0.021, 0.012, 0.009, 0.011, 0.018] });
+     * design.fitMeasured('Bench R', { start: 470, end: 640 });
+     * console.log(design.merit.value);
+     */
+    fitMeasured(curve, options) {
+        const { start, end, ...given } = checkOptions('fitMeasured', options, [...FIT_OPTIONS, 'start', 'end']);
+        const words = { method: 'fitMeasured', call: 'fitMeasured', names: { from: 'start', to: 'end' } };
+        this._data = worded(words, () => api.fitMeasured(this._data, curve, { ...given, ...defined({ from: start, to: end }) }));
     }
 
     /**
@@ -886,7 +945,7 @@ export class Design {
         const [[start, end], options] = trailingOptions('ellipsometry', args, ['start', 'end']);
         const words = { method: 'ellipsometry', call: 'ellipsometry', hidden: ['from', 'to'] };
         const given = checkOptions('ellipsometry', options, ['step', 'angles', 'side', 'deltaConvention']);
-        return new Ellipsometry(worded(words, () => api.ellipsometry(this._data, defined({ ...given, from: start, to: end }))));
+        return new Ellipsometry(worded(words, () => api.ellipsometry(this._data, defined({ ...given, from: start, to: end }))))._named(this.name);
     }
 
     /**

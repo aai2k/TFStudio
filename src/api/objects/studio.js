@@ -283,6 +283,62 @@ export class TFStudio {
         return worded({ method: 'readSpectrumFile', call: 'readSpectrumFile' }, () => api.readSpectrumFile(path, options));
     }
 
+    /**
+     * Reads an ellipsometer file as the Measured Ellipsometry window's import
+     * reads it: a table of a wavelength column and columns of Ψ and Δ in
+     * degrees, each column typed as the window types it, the curves the
+     * window's Add all adds. The options take the place of the import panel's
+     * settings: an angle the file states, in its header lines or in a
+     * column's heading, is kept, as in the window, and the side its header
+     * states fills the panel, which `side` replaces.
+     *
+     * @param path The file, by its full path. A relative path is taken as `openDesign` takes it.
+     * @param [options]
+     * @param [options.angle] The angle of incidence, degrees, for the columns whose file states none; 70 where neither does.
+     * @param [options.side] `'front'` or `'back'`, the side measured; without it, the side the file's header states, or `'front'`.
+     * @param [options.deltaConvention='azzam'] The sign the file writes Δ in: `'azzam'` or `'reversed'`, 360 degrees less it.
+     * @param [options.xUnit] The unit of the wavelength column: `'nm'`, `'um'`, `'cm-1'` or `'eV'`; without it, what the import makes of it.
+     * @param [options.quantities] Each column's type, in the file's order: `'PSI'`, `'DEL'`, or null for the type the import gives it; a column with no type is left out.
+     * @returns An object: `fileName`; `xUnit`, the unit the wavelengths were read in; `skippedRows`, lines that held no row; and `curves`, each `{ name, quantity, angle, side, deltaConvention, cosDelta, wavelength, values }`: quantity `'PSI'` or `'DEL'`, deltaConvention null for Ψ, cosDelta true for a Δ that looks like cos Δ, the wavelengths in nm rising and the values in degrees, which `design.addMeasuredCurves()` and `design.compareMeasured()` take.
+     * @throws a file that cannot be read or holds no table of numbers, an option it does not take or a value an option cannot take
+     * @example
+     * const file = require('path').join(require('os').homedir(), `witness-${Date.now()}.csv`);
+     * require('fs').writeFileSync(file, '# AOI 65 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n500,24.9,242.6\n600,20.7,218.4\n');
+     * const [psi, delta] = tf.readEllipsometryFile(file).curves;
+     * console.log(psi.angle, psi.values, delta.values);
+     */
+    readEllipsometryFile(path, options) {
+        return worded({ method: 'readEllipsometryFile', call: 'readEllipsometryFile' }, () => api.readEllipsometryFile(path, options));
+    }
+
+    /**
+     * Writes measured curves a design holds to a file as the Export tab
+     * writes them: Measured Spectra's for R, T and A, as CSV, its condition
+     * lines above the columns, or as JCAMP-DX; Measured Ellipsometry's for Ψ
+     * and Δ, as CSV in degrees. Without options, the window's factory format:
+     * CSV, nm, R, T and A in percent.
+     *
+     * @param design The design, a Design.
+     * @param path The file to write, by its full path. A relative path is taken as `openDesign` takes it.
+     * @param [options]
+     * @param [options.curves] The names of the curves written, all R, T and A or all Ψ and Δ. Without it, every R, T and A curve the design holds, or its Ψ and Δ when it holds none.
+     * @param [options.format='csv'] `'csv'`, or `'jcamp'` for JCAMP-DX, which R, T and A take.
+     * @param [options.xUnit='nm'] The unit of the wavelength column: `'nm'`, `'um'` or `'cm-1'` for R, T and A, `'nm'`, `'um'` or `'eV'` for Ψ and Δ.
+     * @param [options.scale='percent'] For R, T and A, `'percent'` or `'fraction'`.
+     * @param [options.overwrite=false] Write over a file that is already there.
+     * @throws a design that is not a Design or holds no measured curve, a name of a curve it does not hold, curves of both kinds, an option it does not take or a value an option cannot take, or a file that is already there, without `overwrite`
+     * @example
+     * const file = require('path').join(require('os').homedir(), `bench-${Date.now()}.csv`);
+     * const design = tf.newDesign('AR');
+     * design.addMeasuredCurves({ name: 'Bench R', quantity: 'R', angle: 8, wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] });
+     * tf.exportMeasuredCurves(design, file, { scale: 'fraction' });
+     * console.log(require('fs').readFileSync(file, 'utf8'));
+     */
+    exportMeasuredCurves(design, path, options) {
+        if (!(design instanceof Design)) throw new Error('exportMeasuredCurves: design is a Design, as tf.newDesign() or tf.openDesign() gives one');
+        worded({ method: 'exportMeasuredCurves', call: 'exportMeasuredCurves' }, () => api.exportMeasuredCurves(design._data, path, options));
+    }
+
     // What console.log prints for tf.
-    [inspect.custom]() { return '<TFStudio: tf.design, tf.materials, tf.newDesign(), tf.openDesign(), tf.readSpectrumFile()>'; }
+    [inspect.custom]() { return '<TFStudio: tf.design, tf.materials, tf.newDesign(), tf.openDesign(), tf.readSpectrumFile(), tf.readEllipsometryFile()>'; }
 }

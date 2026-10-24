@@ -7,7 +7,7 @@ from ._calls import Calls
 from ._design import Design
 from ._errors import TFStudioError
 from ._material_dispersion import MaterialDispersion
-from ._measured import spectrum_file
+from ._measured import ellipsometry_file, spectrum_file
 from ._names import api_names
 from ._refusals import Words, refuse_arguments, worded
 
@@ -644,6 +644,102 @@ class TFStudio:
         """
         with worded(Words("readSpectrumFile", "read_spectrum_file")):
             return spectrum_file(self._calls.readSpectrumFile(path, api_names(options)))
+
+    def read_ellipsometry_file(self, path, **options):
+        """Reads an ellipsometer file as the Measured Ellipsometry window's
+        import reads it: a table of a wavelength column and columns of Psi
+        and Delta in degrees, each column typed as the window types it, the
+        curves the window's Add all adds. The keywords take the place of the
+        import panel's settings: an angle the file states, in its header
+        lines or in a column's heading, is kept, as in the window, and the
+        side its header states fills the panel, which side replaces.
+
+        Args:
+            path: The file. A relative path is taken as open_design() takes it.
+            angle: The angle of incidence, degrees, for the columns whose file
+                states none. Default: 70 where neither does.
+            side: "front" or "back", the side measured. Default: the side the
+                file's header states, or "front".
+            delta_convention: The sign the file writes Delta in: "azzam" or
+                "reversed", 360 degrees less it. Default "azzam".
+            x_unit: The unit of the wavelength column: "nm", "um", "cm-1" or
+                "eV". Default: what the import makes of it.
+            quantities: Each column's type, in the file's order: "PSI", "DEL",
+                or None for the type the import gives it; a column with no
+                type is left out.
+
+        Returns:
+            An EllipsometryFile, a named tuple: file_name; x_unit, the unit
+            the wavelengths were read in; skipped_rows, lines that held no
+            row; and curves, each an EllipsometryCurve, a named tuple of name,
+            quantity ("PSI" or "DEL"), angle, side, delta_convention (None for
+            Psi), cos_delta (True for a Delta that looks like cos Delta),
+            wavelength and values, the wavelengths in nm rising and the values
+            in degrees, which design.add_measured_curves() and
+            design.compare_measured() take.
+
+        Raises:
+            TFStudioError: a file that cannot be read or holds no table of
+                numbers, an option it does not take or a value an option
+                cannot take.
+
+        Example::
+
+            import time
+
+            name = "witness-{}.csv".format(time.time_ns())
+            with open(name, "w") as f:
+                f.write("# AOI 65 deg, front side\\nWavelength (nm),Psi (deg),Delta (deg)\\n500,24.9,242.6\\n600,20.7,218.4\\n")
+            psi, delta = tf.read_ellipsometry_file(name).curves
+            print(psi.angle, psi.values, delta.values)
+        """
+        with worded(Words("readEllipsometryFile", "read_ellipsometry_file")):
+            return ellipsometry_file(self._calls.readEllipsometryFile(path, api_names(options)))
+
+    def export_measured_curves(self, design, path, **options):
+        """Writes measured curves a design holds to a file as the Export tab
+        writes them: Measured Spectra's for R, T and A, as CSV, its condition
+        lines above the columns, or as JCAMP-DX; Measured Ellipsometry's for
+        Psi and Delta, as CSV in degrees. Without keywords, the window's
+        factory format: CSV, nm, R, T and A in percent.
+
+        Args:
+            design: The design, a Design.
+            path: The file to write. A relative path is taken as
+                open_design() takes it.
+            curves: The names of the curves written, all R, T and A or all
+                Psi and Delta. Default: every R, T and A curve the design
+                holds, or its Psi and Delta when it holds none.
+            format: "csv", or "jcamp" for JCAMP-DX, which R, T and A take.
+                Default "csv".
+            x_unit: The unit of the wavelength column: "nm", "um" or "cm-1"
+                for R, T and A, "nm", "um" or "eV" for Psi and Delta. Default
+                "nm".
+            scale: For R, T and A, "percent" or "fraction". Default "percent".
+            overwrite: True writes over a file that is already there.
+                Default False.
+
+        Raises:
+            TFStudioError: a design that is not a Design or holds no measured
+                curve, a name of a curve it does not hold, curves of both
+                kinds, an option it does not take or a value an option cannot
+                take, or a file that is already there, without overwrite.
+
+        Example::
+
+            import time
+
+            name = "bench-{}.csv".format(time.time_ns())
+            design = tf.new_design("AR")
+            design.add_measured_curves({"name": "Bench R", "quantity": "R", "angle": 8,
+                                        "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]})
+            tf.export_measured_curves(design, name, scale="fraction")
+            print(open(name).read())
+        """
+        if not isinstance(design, Design):
+            raise TFStudioError("export_measured_curves: design is a Design, as tf.new_design() or tf.open_design() gives one")
+        with worded(Words("exportMeasuredCurves", "export_measured_curves")):
+            self._calls.exportMeasuredCurves(design._data, path, api_names(options))
 
     def close(self):
         """Ends the TFStudio serving this program, after stopping a run it

@@ -3,7 +3,7 @@ design.ellipsometry_vs_angle() answer."""
 
 from ._csv import write_rows
 from ._errors import TFStudioError
-from ._results import AngleCurve, Curve
+from ._results import AngleCurve, Curve, _js_number
 
 # The window's table headings (EllipsometryResults.js, and the English
 # spectralAxis.lambdaShort and spectrumExchange.aoiLabel).
@@ -30,6 +30,16 @@ def _header(e):
     return [_WAVELENGTH] + ["{} at {:g} deg".format(label, angle) for angle in angles for label in (_PSI, _DELTA)]
 
 
+def _condition_lines(e):
+    """The # lines above the table: against wavelength at one angle, the
+    design's name and the angle and side, as Measured Ellipsometry's export of
+    the design's Psi/Delta writes them; none otherwise."""
+    if e._values["angular"] or len(e.angles) != 1:
+        return []
+    return ["# {}".format(e._values["name"] or "design"),
+            "# AOI {} deg, {} side".format(_js_number(e.angles[0]), e.mode)]
+
+
 class Ellipsometry:
     """Ψ and Δ of one coated side, as design.ellipsometry() computes them
     against wavelength, at one angle of incidence or several, or
@@ -53,12 +63,18 @@ class Ellipsometry:
         angles = result["angle"] if angular else [one["angle"] for one in series]
         self._values = {"mode": result["mode"], "wavelength": wavelength, "angles": angles,
                         "delta_convention": result["deltaConvention"], "out_of_range": result["outOfRange"],
-                        "angular": angular}
+                        "angular": angular, "name": None}
         self._series = series
         if angular:
             self._curves = [{name: AngleCurve(one[name], angles) for name in ("psi", "delta")} for one in series]
         else:
             self._curves = [{name: Curve(one[name], wavelength) for name in ("psi", "delta")} for one in series]
+
+    def _named(self, name):
+        """The result with the name of the design it was computed on, which its
+        CSV file gives."""
+        self._values["name"] = name
+        return self
 
     mode = _reading("mode", """The side computed: "front" or "back".
 
@@ -157,16 +173,19 @@ class Ellipsometry:
             if computed == angle:
                 return Ellipsometry({"mode": values["mode"], "wavelength": values["wavelength"],
                                      "deltaConvention": values["delta_convention"],
-                                     "outOfRange": values["out_of_range"], "angles": [self._series[i]]})
+                                     "outOfRange": values["out_of_range"], "angles": [self._series[i]]})._named(values["name"])
         raise TFStudioError("angle: the sweep was computed at {}, not at {}".format(values["angles"], angle))
 
     def save_csv(self, path):
         """Writes Ψ and Δ to a CSV file as the window's export writes its
         table: a column of wavelengths, λ (nm), or of angles, AOI (°), then
         Ψ (°) and Δ (°). Against wavelength at more than one angle, Ψ and Δ
-        come for each angle in turn, each headed with its angle. The numbers
-        are the window's, written in Python's float notation. A file that is
-        there is written over.
+        come for each angle in turn, each headed with its angle. Against
+        wavelength at one angle, two # lines come first, as Measured
+        Ellipsometry's export of the design's Psi/Delta writes them: the
+        design's name, then the angle and the side, which its import reads
+        back. The numbers are the window's, written in Python's float
+        notation. A file that is there is written over.
 
         Args:
             path: The file to write. A relative path is taken from the
@@ -185,7 +204,7 @@ class Ellipsometry:
         """
         xs = self.angles if self._values["angular"] else self.wavelength
         rows = [[x] + [one[name][i] for one in self._series for name in ("psi", "delta")] for i, x in enumerate(xs)]
-        write_rows(path, [_header(self)] + rows)
+        write_rows(path, [_header(self)] + rows, _condition_lines(self))
 
     def __repr__(self):
         values = self._values
