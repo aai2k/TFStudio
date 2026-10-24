@@ -88,10 +88,14 @@ try {
         assert.equal(renamed.mtime, fs.statSync(tree.dir(F, 'D final.tfs')).mtimeMs, 'a rename answers with the time too');
 
         // A rename of a file another program wrote since does not hand back a
-        // time the next save would pass with: that save still asks.
-        tree.write(F, 'D final.tfs', design('design-d', 'D final', { notes: 'B again' }));
-        const laterStill = new Date(renamed.mtime + 5000);
-        fs.utimesSync(tree.dir(F, 'D final.tfs'), laterStill, laterStill);
+        // time the next save would pass with: that save still asks. The other
+        // program writes once the file system's clock, which moves in steps,
+        // has passed the rename's time, as it would for a person, so the
+        // second rename's own write is later than the first's too.
+        do {
+            await new Promise(resolve => setTimeout(resolve, 1));
+            tree.write(F, 'D final.tfs', design('design-d', 'D final', { notes: 'B again' }));
+        } while (fs.statSync(tree.dir(F, 'D final.tfs')).mtimeMs <= renamed.mtime);
         const renamedOver = await tree.call('rename-item', F, 'D final', 'D v2', 'design-d', renamed.mtime);
         assert.equal(renamedOver.success, true, 'the rename itself goes through');
         assert.equal(renamedOver.mtime, renamed.mtime, 'it answers with the time the renderer knew');
