@@ -6,7 +6,7 @@
  */
 
 import {
-    scanNeedlesPFunction, insertNeedle, insertNeedleIntra, mirrorLayers, withDesignSampleCounts,
+    scanNeedlesPFunction, insertNeedle, insertNeedleIntra, mirrorLayers, withDesignSampleCounts, resolveScanSide,
 } from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { densifyForRun } from '../../../../utils/refinement/workerInputs.js';
@@ -45,11 +45,14 @@ export function candidateDepth(cand, zb) {
 
 // Apply a selected candidate's insertion (gap or intra-layer) to a design.
 // Shared by the live OMF preview and the Apply commit so both use identical
-// geometry.
+// geometry. `side` is the window's side setting, which the design's surface
+// mode overrides as it does for the scan, so the needle goes on the side the
+// candidate was found on.
 export function insertForSelection(selected, design, dNew, side) {
+    const onSide = resolveScanSide(design?.surfaceMode || 'front_only', side);
     return selected.intra
-        ? insertNeedleIntra(design, selected, dNew, side)
-        : insertNeedle(design, selected.pos, selected.materialId, dNew, side);
+        ? insertNeedleIntra(design, selected, dNew, onSide)
+        : insertNeedle(design, selected.pos, selected.materialId, dNew, onSide);
 }
 
 // The optional pass after Apply: the app's default refinement method on the

@@ -157,5 +157,27 @@ console.log('— symmetric mirror —');
     ok(mats && thk, 'symmetric: backLayers == mirror(frontLayers) after insert');
 }
 
+// ── 7. back-only design: the needle goes on the side scanned ──────────────────
+console.log('-- back-only design --');
+{
+    // The window's side setting opens on front and is shown only on a design
+    // coated on both sides; on a back-only design the scan reads the back.
+    const back = { ...makeDesign(), surfaceMode: 'back_only', frontLayers: [], backLayers: makeDesign().frontLayers };
+    const backScan = scanNeedlesPFunction({ operands: ops, design: back, resolveMat, candidateMats: POOL, deltaNm: 0.5, nIntra: 16, side: 'front' });
+    const bestBack = backScan.candidates.filter(c => c.grad < 0).sort((a, b) => a.grad - b.grad)[0];
+    const ins = insertForSelection(bestBack, back, dMin, 'front');
+    ok(ins.frontLayers.length === 0 && ins.backLayers.length > back.backLayers.length,
+        `the insertion grows the back (front ${ins.frontLayers.length}, back ${ins.backLayers.length})`);
+    ok(omfOf(ins, makeOps()) < backScan.mf0, 'and the predicted merit falls, as the scan says it does');
+    // A symmetric design keeps its back the mirror of the front whatever the
+    // side setting holds from when the design was coated on both sides.
+    const sym = { ...makeDesign(), surfaceMode: 'symmetric' };
+    sym.backLayers = mirrorLayers(sym.frontLayers);
+    const symIns = insertForSelection({ pos: 1, materialId: 'MgF2' }, sym, 8, 'back');
+    ok(symIns.frontLayers.length === 4 && symIns.backLayers.length === 4
+        && symIns.backLayers.every((l, i) => l.material === mirrorLayers(symIns.frontLayers)[i].material),
+    'symmetric: the needle goes on the front and the back mirrors it');
+}
+
 console.log(fails === 0 ? '\nALL PASS' : `\n${fails} FAILED`);
 process.exit(fails === 0 ? 0 : 1);
