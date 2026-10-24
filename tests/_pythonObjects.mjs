@@ -46,7 +46,9 @@
  *   its defaults and each argument, its Curves, save_csv() on a uniform grid
  *   and on the window's, and its refusals; a material's dispersion() with
  *   its defaults and each argument, its Curves, range, save_csv() with and
- *   without masked wavelengths, and its refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
+ *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
+ *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
+ *   was when the spectrum was computed, and their refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
  *   Synthesis's included, and before the run; Ctrl+C in progress; every
@@ -745,6 +747,32 @@ async function materialDispersion(t, said) {
         `<MaterialDispersion TiO2, 2 mm, from 300 to 900 nm, ${asked[1][1].length} points>`, `<MaterialDispersion Si, 0.5 mm, from 400 to 1100 nm, ${asked[2][1].length} points>`]), canon(got.shown));
 }
 
+// What _pythonObjects.py band_features() read, against the objects here.
+async function bandFeatures(t, said) {
+    const { ok, canon } = t;
+    const got = said.bandFeatures ?? {};
+    const objects = await import('../src/api/objects/index.js');
+    const s = new objects.Design(got.design ?? {}).spectrum(500, 600, { angles: [0, 30] });
+    const asked = [s.T.peak(), s.angle(30).Rp.fwhm(520, 580, { level: 0.3, direction: 'min', step: 0.1 }),
+        s.T.edge(520, 580, { edgeSide: 'right' }), s.R.peak(510, 590, { direction: 'min', step: 0.01 })];
+    const moved = new objects.Design(got.lwp ?? {}).edgeShift(600, 760, [0, 15, 30], { quantity: 'Tp', level: 0.4 });
+    const snakeKeys = found => Object.fromEntries(Object.entries(found).map(([key, value]) => [snake(key), value]));
+    ok('peak(), fwhm(), edge() and edge_shift() give what the objects here give, as Peak, Width, Edge and EdgeShift of their snake_case fields',
+        canon([got.asked, got.moved, got.types]) === canon([asked.map(snakeKeys), snakeKeys(moved), ['Peak', 'Width', 'Edge', 'Peak', 'EdgeShift']]) && asked[1].width > 0,
+        canon(got.asked)?.slice(0, 300));
+    ok('on the design as it was when the spectrum was computed', canon(got.again) === canon(got.asked));
+    ok('and their refusals are in Python\'s words', canon(got.worded) === canon([
+        'peak: the curve is from 500 to 600 nm, and the band 450 to 600 nm is not inside it',
+        "peak: unknown option 'level'; the options are direction, step",
+        'fwhm: step is 1, 0.1, 0.01 or 0.001 nm, not 0.5',
+        'peak: step is 1, as the peak of R is found without a step, not 0.1',
+        "edge: only a spectrum's curves have edge(), since it is found on the design the spectrum was computed on",
+        'edge_shift: angles is a list of angles of incidence in degrees, each 0 <= angle < 90, not []',
+        'edge_shift: start and end are wavelengths in nm, 0 < start < end',
+        "edge_shift: unknown option 'to'; the options are quantity, level, edge_side, direction, step",
+    ]), canon(got.worded));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -931,6 +959,7 @@ export async function checkObjects(t) {
     await ellipsometry(u, ran.said);
     await groupDelay(u, ran.said);
     await materialDispersion(u, ran.said);
+    await bandFeatures(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);

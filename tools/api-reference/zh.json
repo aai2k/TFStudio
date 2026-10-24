@@ -3374,5 +3374,173 @@
   "Curve.density.refuses.1": {
     "hash": "0334c8e3",
     "text": "不是光谱的 T、Ts 或 Tp 的曲线"
+  },
+  "Design.edgeShift.arg.start": {
+    "hash": "46cca0f4",
+    "text": "波段的起始波长，单位 nm。"
+  },
+  "Design.edgeShift.arg.end": {
+    "hash": "dc313a2e",
+    "text": "波段的结束波长，单位 nm，大于 `start`。"
+  },
+  "Design.edgeShift.arg.angles": {
+    "hash": "37d4294f",
+    "text": "入射角，为入射介质中的度数，每个都在 0 到 90 之间，不含 90。"
+  },
+  "Design.edgeShift.arg.quantity": {
+    "hash": "a24a0054",
+    "text": "`'R'`、`'T'` 或 `'A'`（非偏振光），或 `'Rs'`、`'Rp'`、`'Ts'`、`'Tp'`、`'As'` 或 `'Ap'`。"
+  },
+  "Design.edgeShift.arg.level": {
+    "hash": "238aab08",
+    "text": "穿越的电平，0 到 1 之间的比例；小于 0.001 或大于 0.999 时按 0.001 或 0.999 计。"
+  },
+  "Design.edgeShift.arg.edgeSide.js": {
+    "hash": "456287b4",
+    "text": "`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。"
+  },
+  "Design.edgeShift.arg.edgeSide.py": {
+    "hash": "bcd64e63",
+    "text": "\"right\" 表示峰以上的交点。不给出时，取峰以下的交点，峰以下没有交点时取峰以上的交点。"
+  },
+  "Design.edgeShift.arg.direction": {
+    "hash": "44010ff4",
+    "text": "`'max'`，电平为波段内最大值的该比例；或 `'min'`，电平为从波段内最小值到 1 之间该比例处的值。"
+  },
+  "Design.edgeShift.arg.step": {
+    "hash": "fb71334c",
+    "text": "搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。交点在不粗于该步长、且至少 301 个采样点的波段扫描上确定。"
+  },
+  "Design.edgeShift.returns.js": {
+    "hash": "654c176d",
+    "text": "一个对象：`angles`，以及每个入射角在下列各项中的一个值：`edge`，交点，单位 nm；`shift`，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 null；`reason`，此时为 `'edgeNotCrossed'`，否则为 null；`peak`、`peakValue` 和 `levelValue`；还有 `level`，所用的电平，以及 `mode`、`quantity`、`direction` 和 `step`。"
+  },
+  "Design.edgeShift.returns.py": {
+    "hash": "c75dce1a",
+    "text": "一个 EdgeShift，即命名元组：angles，以及每个入射角在下列各项中的一个值：edge，交点，单位 nm；shift，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 None；reason，此时为 \"edgeNotCrossed\"，否则为 None；peak、peak_value 和 level_value；还有 level，所用的电平，以及 mode、quantity、direction 和 step。"
+  },
+  "Design.edgeShift.lead.1": {
+    "hash": "6c9792c7",
+    "text": "在多个入射角下，设计的光谱在波段的峰旁穿越某一电平的位置，以及该边缘相对第一个入射角下的位置移动了多少；每个都按规格窗口的 EDGE_LAMBDA 检查的方法求出，与光谱曲线的 edge() 相同。计算对象随设计的 `sides` 和 `scoreOn` / `score_on` 而定，与光谱相同；带有入射锥角的设计会在锥角上取平均。"
+  },
+  "Design.edgeShift.refuses.1": {
+    "hash": "db8e9965",
+    "text": "不构成范围的波段、空的入射角列表或超出 0 到 90 的入射角、不接受的选项或选项不能取的值，或引用了找不到对应材料的设计"
+  },
+  "Curve.edge.arg.start": {
+    "hash": "b28781c1",
+    "text": "波段的起始波长，单位 nm，在曲线范围以内。不给出时，为曲线的第一个波长。"
+  },
+  "Curve.edge.arg.end": {
+    "hash": "f5df0241",
+    "text": "波段的结束波长，单位 nm，在曲线范围以内。不给出时，为曲线的最后一个波长。"
+  },
+  "Curve.edge.arg.level": {
+    "hash": "238aab08",
+    "text": "穿越的电平，0 到 1 之间的比例；小于 0.001 或大于 0.999 时按 0.001 或 0.999 计。"
+  },
+  "Curve.edge.arg.edgeSide.js": {
+    "hash": "456287b4",
+    "text": "`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。"
+  },
+  "Curve.edge.arg.edgeSide.py": {
+    "hash": "bcd64e63",
+    "text": "\"right\" 表示峰以上的交点。不给出时，取峰以下的交点，峰以下没有交点时取峰以上的交点。"
+  },
+  "Curve.edge.arg.direction": {
+    "hash": "44010ff4",
+    "text": "`'max'`，电平为波段内最大值的该比例；或 `'min'`，电平为从波段内最小值到 1 之间该比例处的值。"
+  },
+  "Curve.edge.arg.step": {
+    "hash": "fb71334c",
+    "text": "搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。交点在不粗于该步长、且至少 301 个采样点的波段扫描上确定。"
+  },
+  "Curve.edge.returns.js": {
+    "hash": "12eacd6b",
+    "text": "一个对象：`edge`，交点，单位 nm，曲线在波段内不穿越该电平时为 null；`reason`，此时为 `'edgeNotCrossed'`，否则为 null；`peak`，波段峰的波长，单位 nm，`peakValue`，曲线在该处的值；`level`，所用的电平，0.001 到 0.999，`levelValue`，曲线在交点处的值；以及 `feature`、`mode`、`quantity`、`angle`、`direction` 和 `step`。"
+  },
+  "Curve.edge.returns.py": {
+    "hash": "d831bdc6",
+    "text": "一个 Edge，即命名元组：edge，交点，单位 nm，曲线在波段内不穿越该电平时为 None；reason，此时为 \"edgeNotCrossed\"，否则为 None；peak，波段峰的波长，单位 nm，peak_value，曲线在该处的值；level，所用的电平，0.001 到 0.999，level_value，曲线在交点处的值；以及 feature、mode、quantity、angle、direction 和 step。"
+  },
+  "Curve.edge.lead.1.js": {
+    "hash": "f4a37fce",
+    "text": "曲线在波段的峰旁穿越某一电平的位置，按规格窗口的 EDGE_LAMBDA 检查的方法求出：在计算该光谱的设计上、以曲线的入射角计算，因此交点是精确的，而不是从采样点读出的。电平是波段峰值的比例，因此在峰值为 T = 0.90 的波段上，`level: 0.5` 在 T = 0.45 处穿越。光谱的曲线有此方法；其他曲线没有。"
+  },
+  "Curve.edge.lead.1.py": {
+    "hash": "c5715a9f",
+    "text": "曲线在波段的峰旁穿越某一电平的位置，按规格窗口的 EDGE_LAMBDA 检查的方法求出：在计算该光谱的设计上、以曲线的入射角计算，因此交点是精确的，而不是从采样点读出的。电平是波段峰值的比例，因此在峰值为 T = 0.90 的波段上，level=0.5 在 T = 0.45 处穿越。光谱的曲线有此方法；其他曲线没有。"
+  },
+  "Curve.edge.refuses.1": {
+    "hash": "8293692d",
+    "text": "不是光谱曲线的曲线、不在曲线范围以内的波段，或不接受的选项、选项不能取的值"
+  },
+  "Curve.fwhm.arg.start": {
+    "hash": "b28781c1",
+    "text": "波段的起始波长，单位 nm，在曲线范围以内。不给出时，为曲线的第一个波长。"
+  },
+  "Curve.fwhm.arg.end": {
+    "hash": "f5df0241",
+    "text": "波段的结束波长，单位 nm，在曲线范围以内。不给出时，为曲线的最后一个波长。"
+  },
+  "Curve.fwhm.arg.level": {
+    "hash": "5b8c2894",
+    "text": "穿越的电平，峰值的比例，0 到 1；小于 0.001 或大于 0.999 时按 0.001 或 0.999 计。"
+  },
+  "Curve.fwhm.arg.direction": {
+    "hash": "cda2c4cd",
+    "text": "`'max'`，峰的宽度；或 `'min'`，谷的宽度，电平为从最小值到 1 之间该比例处的值。"
+  },
+  "Curve.fwhm.arg.step": {
+    "hash": "25200d01",
+    "text": "搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。两个交点在不粗于该步长、且至少 301 个采样点的波段扫描上确定。"
+  },
+  "Curve.fwhm.returns.js": {
+    "hash": "298a60d0",
+    "text": "一个对象：`width`，`right` − `left`，单位 nm，即 FWHM 检查的值；`left` 和 `right`，峰以下和峰以上的交点，单位 nm；`centre`，二者的中点，单位 nm；有交点不在波段内时它们都为 null；`reason`，此时为 `'fwhmNotBracketed'`，否则为 null；`peak`、`peakValue`、`level` 和 `levelValue`，与 edge() 给出的相同；以及 `feature`、`mode`、`quantity`、`angle`、`direction` 和 `step`。"
+  },
+  "Curve.fwhm.returns.py": {
+    "hash": "f1129e23",
+    "text": "一个 Width，即命名元组：width，right - left，单位 nm，即 FWHM 检查的值；left 和 right，峰以下和峰以上的交点，单位 nm；centre，二者的中点，单位 nm；有交点不在波段内时它们都为 None；reason，此时为 \"fwhmNotBracketed\"，否则为 None；peak、peak_value、level 和 level_value，与 edge() 给出的相同；以及 feature、mode、quantity、angle、direction 和 step。"
+  },
+  "Curve.fwhm.lead.1": {
+    "hash": "b0c55f50",
+    "text": "波段的峰在曲线穿越某一电平处的全宽，默认为峰值的一半，按规格窗口的 FWHM 检查的方法求出，并给出两个交点、它们的中点和峰：在计算该光谱的设计上、以曲线的入射角计算，因此交点是精确的，而不是从采样点读出的。光谱的曲线有此方法；其他曲线没有。"
+  },
+  "Curve.fwhm.refuses.1": {
+    "hash": "8293692d",
+    "text": "不是光谱曲线的曲线、不在曲线范围以内的波段，或不接受的选项、选项不能取的值"
+  },
+  "Curve.peak.arg.start": {
+    "hash": "b28781c1",
+    "text": "波段的起始波长，单位 nm，在曲线范围以内。不给出时，为曲线的第一个波长。"
+  },
+  "Curve.peak.arg.end": {
+    "hash": "f5df0241",
+    "text": "波段的结束波长，单位 nm，在曲线范围以内。不给出时，为曲线的最后一个波长。"
+  },
+  "Curve.peak.arg.direction": {
+    "hash": "a0b585a7",
+    "text": "`'max'`，最大值；或 `'min'`，最小值。"
+  },
+  "Curve.peak.arg.step": {
+    "hash": "c2d343c3",
+    "text": "搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。R 的峰以及 T 或 A 的谷不用步长求出，因此只能为 1。"
+  },
+  "Curve.peak.returns.js": {
+    "hash": "bcb24575",
+    "text": "一个对象：`peak`，波长，单位 nm，`peakValue`，曲线在该处的值；以及 `feature`、`mode`、`quantity`、`angle`、`direction` 和 `step`。"
+  },
+  "Curve.peak.returns.py": {
+    "hash": "6183e545",
+    "text": "一个 Peak，即命名元组：peak，波长，单位 nm，peak_value，曲线在该处的值；以及 feature、mode、quantity、angle、direction 和 step。"
+  },
+  "Curve.peak.lead.1": {
+    "hash": "40cbf342",
+    "text": "波段的峰或谷的波长，按规格窗口的中心 λ 检查的方法求出：在计算该光谱的设计上、以曲线的入射角搜索，而不是从采样点读出的。光谱的曲线有此方法；其他曲线没有。"
+  },
+  "Curve.peak.refuses.1": {
+    "hash": "8293692d",
+    "text": "不是光谱曲线的曲线、不在曲线范围以内的波段，或不接受的选项、选项不能取的值"
   }
 }

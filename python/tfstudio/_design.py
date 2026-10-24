@@ -5,6 +5,7 @@ import copy
 import numbers
 
 from ._admittance import Admittance
+from ._band_feature import EdgeShift, answered
 from ._color import Color
 from ._electric_field import ElectricField
 from ._ellipsometry import Ellipsometry
@@ -49,6 +50,8 @@ _SWEEP_OPTIONS = ("step", "side", "delta_convention")
 _MONTE_CARLO_OPTIONS = ("quantity", "step", "angle", "polarization", "runs", "thickness_rel_pct", "thickness_abs_nm",
                         "index_re", "index_im", "distribution", "seed", "progress", "stop")
 # design.group_delay() takes the range as its arguments.
+_EDGE_SHIFT_WORDS = Words("edgeShift", "edge_shift", hidden=("from", "to", "angles"))
+_EDGE_SHIFT_OPTIONS = ("quantity", "level", "edge_side", "direction", "step")
 _GROUP_DELAY_WORDS = Words("groupDelay", "group_delay", hidden=("from", "to"))
 _GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference")
 
@@ -795,7 +798,62 @@ class Design:
             answer = self._calls.spectrum(self._data, {"from": start, "to": end, "step": step, "angles": angles})
         computed = answer["angles"]
         series = [next(computed[key] for key in computed if float(key) == angle) for angle in angles]
-        return Spectrum(answer["evalMode"], answer["lambda"], angles, series, answer["outOfRange"])._named(self.name)
+        return (Spectrum(answer["evalMode"], answer["lambda"], angles, series, answer["outOfRange"])
+                ._named(self.name)._computed_on(self._calls, copy.deepcopy(self._data)))
+
+    def edge_shift(self, start, end, angles, **options):
+        """Where the design's spectrum crosses a level beside the peak of a
+        band at each of several angles of incidence, and how far that edge
+        has moved from where it is at the first angle, each found as an
+        EDGE_LAMBDA check of the Specification window finds it, as a spectrum
+        curve's edge() finds it. What it is computed on follows the design's
+        sides and score_on, as a spectrum does, and a design under a cone of
+        incidence is averaged over its cone.
+
+        Args:
+            start: The first wavelength of the band, nm.
+            end: The last wavelength of the band, nm, above start.
+            angles: The angles of incidence, degrees in the incident medium,
+                each from 0 up to but not including 90.
+            quantity: "R", "T" or "A" for unpolarized light, or "Rs", "Rp",
+                "Ts", "Tp", "As" or "Ap". Default "T".
+            level: The level crossed, a fraction from 0 to 1; below 0.001 or
+                above 0.999 it is taken as 0.001 or 0.999. Default 0.5.
+            edge_side: "right" for the crossing above the peak. Default: the
+                one below it, or the one above where there is none below.
+            direction: "max", the level a fraction of the band's highest
+                value, or "min", a fraction of the way from its lowest value
+                up to 1. Default "max".
+            step: The step the peak is searched at, nm: 1, 0.1, 0.01 or
+                0.001. The crossing is bracketed on a scan of the band no
+                coarser than it, of 301 samples at the least. Default 1.
+
+        Returns:
+            An EdgeShift, a named tuple: angles, and one value per angle in
+            each of edge, the crossing, nm, shift, the edge less the edge at
+            the first angle, nm, both None where the spectrum does not cross
+            the level inside the band, reason, then "edgeNotCrossed" and
+            otherwise None, peak, peak_value and level_value; and level, the
+            level used, mode, quantity, direction and step.
+
+        Raises:
+            TFStudioError: a band that is not one, an empty list of angles or
+                an angle outside 0 to 90, an option it does not take or a
+                value an option cannot take, or a design that names a
+                material that resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("Long-wave pass")
+            design.stack("(0.5H L 0.5H)^8")
+            moved = design.edge_shift(600, 760, [0, 15, 30, 45], level=0.5)
+            for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
+                print(angle, "degrees:", round(edge, 2), "nm, moved", round(shift, 2), "nm")
+        """
+        refuse_arguments("edge_shift", options, ("from", "to", "angles"), _EDGE_SHIFT_OPTIONS)
+        with worded(_EDGE_SHIFT_WORDS):
+            answer = self._calls.edgeShift(self._data, dict(api_names(options), angles=angles, **{"from": start, "to": end}))
+        return answered(EdgeShift, answer)
 
     def index_profile(self, wavelength=None, side=None):
         """The refractive index of the layers at one wavelength, laid out by

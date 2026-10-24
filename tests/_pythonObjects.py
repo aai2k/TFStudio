@@ -61,6 +61,7 @@ def objects(given):
         ellipsometry(tf)
         group_delay(tf)
         material_dispersion(tf)
+        band_features(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -631,6 +632,31 @@ def material_dispersion(tf):
                    d.outside, d.masked, d.knots, d.model] for d in asked],
         "types": [type(asked[0].gdd).__name__, type(asked[0].group_index).__name__], "range": [tio2.range, si.range],
         "csv": [text_of("outside.csv"), text_of("masked.csv")], "worded": worded, "shown": [repr(d) for d in asked]}})
+
+
+def band_features(tf):
+    """A spectrum curve's peak(), fwhm() and edge() with their defaults and
+    each argument, read again after the design changed, edge_shift(), the
+    named tuples they give, and their refusals."""
+    design = tf.new_design("Bandpass")
+    design.stack("(HL)^4 HH (LH)^4")
+    before = design._data
+    s = design.spectrum(500, 600, angles=[0, 30])
+    read = lambda: [s.T.peak(), s.angle(30).Rp.fwhm(520, 580, level=0.3, direction="min", step=0.1),
+                    s.T.edge(520, 580, edge_side="right"), s.R.peak(510, 590, direction="min", step=0.01)]
+    asked = read()
+    design.stack("(HL)^2")
+    again = read()
+    lwp = tf.new_design("Long-wave pass")
+    lwp.stack("(0.5H L 0.5H)^8")
+    moved = lwp.edge_shift(600, 760, [0, 15, 30], quantity="Tp", level=0.4)
+    worded = [refused(make) for make in (
+        lambda: s.T.peak(450, 600), lambda: s.T.peak(level=0.5), lambda: s.T.fwhm(step=0.5), lambda: s.R.peak(step=0.1),
+        lambda: tfstudio.Curve([0.1, 0.2], [500, 510]).edge(), lambda: lwp.edge_shift(600, 760, []),
+        lambda: lwp.edge_shift(700, 600, [0]), lambda: lwp.edge_shift(600, 760, [0], to=800))]
+    out({"bandFeatures": {"design": before, "lwp": lwp._data, "asked": [a._asdict() for a in asked],
+                          "again": [a._asdict() for a in again], "moved": moved._asdict(),
+                          "types": [type(a).__name__ for a in asked + [moved]], "worded": worded}})
 
 
 def ran(before, design, result):

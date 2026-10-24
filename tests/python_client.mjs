@@ -9,7 +9,8 @@
  *      are the API's exports but init, and every call answers what the API
  *      answers here, the ids a design draws and the time a synthesis step
  *      took aside: designs built, edited, cleaned, saved (to the bytes the API
- *      writes) and opened again, a layer set by its QWOT, spectra, index
+ *      writes) and opened again, a layer set by its QWOT, spectra, a band's
+ *      width and an edge against angle, index
  *      profiles, one of a side with no layers refused, layer thicknesses,
  *      the design's facts, admittance loci and electric fields, one of a
  *      side with no layers refused, colours, one with an observer refused,
@@ -289,6 +290,8 @@ const STOPPED_WITHIN_S = 5;
         ['materialDispersion', ['BK7', { thickness: 0 }]],
         ['spectrum', [stack, { from: 400, to: 700, step: 10, angles: [0, 45] }]],
         ['summarize', [spectrum, { bands: [{ from: 450, to: 650 }] }]],
+        ['bandFeature', [stack, { feature: 'fwhm', from: 400, to: 700, quantity: 'R', angle: 30, level: 0.3 }]],
+        ['edgeShift', [stack, { from: 400, to: 700, angles: [0, 30], quantity: 'R' }]],
         ['indexProfile', [stack, { wavelength: 633 }]],
         ['indexProfile', [stack, { side: 'back' }]],
         ['layerThicknesses', [stack, { side: 'total' }]],

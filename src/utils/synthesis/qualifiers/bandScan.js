@@ -84,9 +84,17 @@ export function crossingLevel(qual) {
     return Math.max(0.001, Math.min(0.999, qual.level ?? 0.5));
 }
 
-export function evalBandDerived(qual, design, ctx, options) {
-    const k   = qual.kind;
-    const ch  = channelFromKind(k) || qual.channel || 'T';
+/**
+ * The band's peak (or notch) as a FWHM or edge check finds it, the level the
+ * check crosses and the crossings either side of the peak: { peak, peakValue,
+ * level, levelValue, left, right }. peak is in nm, peakValue the channel's
+ * value there, level the fraction crossingLevel holds and levelValue the
+ * channel's value at the crossings; left() and right() find the crossing
+ * below and above the peak when called, each a wavelength in nm, or null when
+ * the channel does not cross inside the band on that side.
+ */
+export function bandCrossings(qual, ctx, options) {
+    const ch  = channelFromKind(qual.kind) || qual.channel || 'T';
     const pol = qual.pol || 'avg';
     const at = lam => evaluateOperands([makeOperand({
         type: singleType(ch, pol),
@@ -117,12 +125,29 @@ export function evalBandDerived(qual, design, ctx, options) {
     const scan = { at, lamAt, N, peakLam, peakV, cross, direction };
     const rightI = firstSampleAfter(scan, peakLam);
     // Each side is walked only when its crossing is needed.
-    const leftCross = () => findCross(scan, rightI - 1, -1);
-    const rightCross = () => findCross(scan, rightI, +1);
+    return {
+        peak: peakLam, peakValue: peakV, level, levelValue: cross,
+        left: () => findCross(scan, rightI - 1, -1),
+        right: () => findCross(scan, rightI, +1),
+    };
+}
 
-    if (k === 'FWHM') {
-        const leftLam = leftCross();
-        const rightLam = leftLam == null ? null : rightCross();
+/**
+ * The crossing an edge check reads, of the crossings bandCrossings gives:
+ * with edgeSide 'right' the one above the peak; otherwise the one below it,
+ * or the one above where there is none below. Null when there is none.
+ */
+export function edgeCrossing(crossings, edgeSide) {
+    return edgeSide === 'right' ? crossings.right() : (crossings.left() ?? crossings.right());
+}
+
+export function evalBandDerived(qual, design, ctx, options) {
+    const crossings = bandCrossings(qual, ctx, options);
+    const { level } = crossings;
+
+    if (qual.kind === 'FWHM') {
+        const leftLam = crossings.left();
+        const rightLam = leftLam == null ? null : crossings.right();
         if (leftLam == null || rightLam == null) {
             // Couldn't bracket both crossings inside the scan band.
             return {
@@ -139,7 +164,7 @@ export function evalBandDerived(qual, design, ctx, options) {
     // band. Pick whichever side has a real crossing (left for LP↑, right for
     // SP↓ etc.); if both exist, the qualifier carries `edgeSide`
     // ('left' | 'right'); default 'left'.
-    const which = qual.edgeSide === 'right' ? rightCross() : (leftCross() ?? rightCross());
+    const which = edgeCrossing(crossings, qual.edgeSide);
     if (which == null) {
         return {
             value: NaN, pass: false, deviation: NaN, unit: 'nm',

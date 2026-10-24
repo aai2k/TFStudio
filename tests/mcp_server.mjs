@@ -2,14 +2,15 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 37
+ *   1. The session: initialize and version negotiation, the tool list (the 39
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
  *      method names every object has, ids that are not a string or an integer,
  *      and an unknown tool. The server answers on after each.
  *   2. Designs: a quarter-wave stack built through the tools has the spectrum,
- *      merit and specification verdict the API computes for it in this
+ *      a band's width, an edge against angle (in short with counts and
+ *      extremes, in full with every angle), merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
  *      they are, and an empty one clears it, answered with the mode; a design
@@ -77,7 +78,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 37 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 39 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -118,6 +119,14 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const here = api.spectrum(local, range);
     ok('the spectrum is the API\'s', JSON.stringify(there.angles) === JSON.stringify(here.angles)
         && JSON.stringify(there.summary) === JSON.stringify(api.summarize(here, { bands: [{ from: 580, to: 620 }] })));
+    const width = { feature: 'fwhm', from: 450, to: 750, quantity: 'R', angle: 30, level: 0.5 };
+    ok('bandFeature is the API\'s', JSON.stringify(await server.call('bandFeature', { designId: id, ...width })) === JSON.stringify({ designId: id, ...api.bandFeature(local, width) }));
+    const moved = api.edgeShift(local, { from: 450, to: 750, angles: [0, 15, 30], quantity: 'R' });
+    const shortMoved = await server.call('edgeShift', { designId: id, from: 450, to: 750, angles: [0, 15, 30], quantity: 'R' });
+    const fullMoved = await server.call('edgeShift', { designId: id, from: 450, to: 750, angles: [0, 15, 30], quantity: 'R', values: true });
+    ok('edgeShift answers with counts and the extremes of the edge and shift, and every angle\'s values for values true',
+        JSON.stringify([shortMoved.angleCount, shortMoved.notCrossedCount, shortMoved.edge?.max, shortMoved.edge?.maxAt, shortMoved.shift?.min, shortMoved.shift?.minAt, shortMoved.angles, fullMoved.edge, fullMoved.reason])
+        === JSON.stringify([3, 0, moved.edge[0], 0, moved.shift[2], 30, undefined, moved.edge, moved.reason]) && moved.shift[2] < 0, JSON.stringify(shortMoved));
     const rows = [{ type: 'RAV', lambdaStart: 580, lambdaEnd: 620, target: 1, weight: 1 }];
     const rated = await server.call('setMerit', { designId: id, rows });
     ok('the merit is the API\'s', rated.total === api.merit(api.setMerit(local, rows)).total && rated.rows.length === 1, JSON.stringify(rated));

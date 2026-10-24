@@ -615,6 +615,46 @@ s = design.spectrum(400, 800, step=1, angles=[0, 45])
 print(s.mode, max(s.R), min(s.angle(45).Tp))
 ```
 
+### edgeShift / edge_shift
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.edgeShift(start, end, angles, { quantity, level, edgeSide, direction, step })` | `design.edge_shift(start, end, angles, quantity="T", level=0.5, edge_side=..., direction="max", step=1)` |
+
+Where the design's spectrum crosses a level beside the peak of a band at each of several angles of incidence, and how far that edge has moved from where it is at the first angle, each found as an EDGE_LAMBDA check of the Specification window finds it, as a spectrum curve's edge() finds it. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, and a design under a cone of incidence is averaged over its cone.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` |  | The first wavelength of the band, nm. |
+| `end` | `end` |  | The last wavelength of the band, nm, above `start`. |
+| `angles` | `angles` |  | The angles of incidence, degrees in the incident medium, each from 0 up to but not including 90. |
+| `quantity` | `quantity` | `'T'` | `'R'`, `'T'` or `'A'` for unpolarized light, or `'Rs'`, `'Rp'`, `'Ts'`, `'Tp'`, `'As'` or `'Ap'`. |
+| `level` | `level` | `0.5` | The level crossed, a fraction from 0 to 1; below 0.001 or above 0.999 it is taken as 0.001 or 0.999. |
+| `edgeSide` | `edge_side` |  | **JavaScript**: `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below.<br>**Python**: "right" for the crossing above the peak. Without it, the one below it, or the one above where there is none below. |
+| `direction` | `direction` | `'max'` | `'max'`, the level a fraction of the band's highest value, or `'min'`, a fraction of the way from its lowest value up to 1. |
+| `step` | `step` | `1` | The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001. The crossing is bracketed on a scan of the band no coarser than it, of 301 samples at the least. |
+
+**Returns**: **JavaScript**: An object: `angles`, and one value per angle in each of `edge`, the crossing, nm, `shift`, the edge less the edge at the first angle, nm, both null where the spectrum does not cross the level inside the band, `reason`, then `'edgeNotCrossed'` and otherwise null, `peak`, `peakValue` and `levelValue`; and `level`, the level used, `mode`, `quantity`, `direction` and `step`.<br>**Python**: An EdgeShift, a named tuple: angles, and one value per angle in each of edge, the crossing, nm, shift, the edge less the edge at the first angle, nm, both None where the spectrum does not cross the level inside the band, reason, then "edgeNotCrossed" and otherwise None, peak, peak_value and level_value; and level, the level used, mode, quantity, direction and step.
+
+**Refuses**:
+
+- a band that is not one, an empty list of angles or an angle outside 0 to 90, an option it does not take or a value an option cannot take, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Long-wave pass');
+design.stack('(0.5H L 0.5H)^8');
+const moved = design.edgeShift(600, 760, [0, 15, 30, 45], { level: 0.5 });
+moved.angles.forEach((angle, i) => console.log(angle, 'degrees:', moved.edge[i].toFixed(2), 'nm, moved', moved.shift[i].toFixed(2), 'nm'));
+```
+
+```python
+design = tf.new_design("Long-wave pass")
+design.stack("(0.5H L 0.5H)^8")
+moved = design.edge_shift(600, 760, [0, 15, 30, 45], level=0.5)
+for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
+    print(angle, "degrees:", round(edge, 2), "nm, moved", round(shift, 2), "nm")
+```
+
 ### indexProfile / index_profile
 
 | JavaScript | Python |
@@ -4270,6 +4310,122 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 s = design.spectrum(400, 700)
 print("Highest optical density from 500 to 600 nm:", s.T.density().max(500, 600))
+```
+
+### edge
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.edge(start, end, { level, edgeSide, direction, step })` | `s.R.edge(start=..., end=..., level=0.5, edge_side=..., direction="max", step=1)` |
+
+**JavaScript**: Where the curve crosses a level beside the peak of a band, as an EDGE_LAMBDA check of the Specification window finds it: computed on the design the spectrum was computed on, at the curve's angle, so the crossing is exact and not read off the samples. The level is a fraction of the band's peak, so on a band peaking at T = 0.90, `level: 0.5` is crossed where T = 0.45. A spectrum's curves have it; other curves do not.
+
+**Python**: Where the curve crosses a level beside the peak of a band, as an EDGE_LAMBDA check of the Specification window finds it: computed on the design the spectrum was computed on, at the curve's angle, so the crossing is exact and not read off the samples. The level is a fraction of the band's peak, so on a band peaking at T = 0.90, level=0.5 is crossed where T = 0.45. A spectrum's curves have it; other curves do not.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` |  | The first wavelength of the band, nm, inside the curve. Without it, the curve's first. |
+| `end` | `end` |  | The last wavelength of the band, nm, inside the curve. Without it, the curve's last. |
+| `level` | `level` | `0.5` | The level crossed, a fraction from 0 to 1; below 0.001 or above 0.999 it is taken as 0.001 or 0.999. |
+| `edgeSide` | `edge_side` |  | **JavaScript**: `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below.<br>**Python**: "right" for the crossing above the peak. Without it, the one below it, or the one above where there is none below. |
+| `direction` | `direction` | `'max'` | `'max'`, the level a fraction of the band's highest value, or `'min'`, a fraction of the way from its lowest value up to 1. |
+| `step` | `step` | `1` | The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001. The crossing is bracketed on a scan of the band no coarser than it, of 301 samples at the least. |
+
+**Returns**: **JavaScript**: An object: `edge`, the crossing, nm, null when the curve does not cross the level inside the band, and `reason`, then `'edgeNotCrossed'` and otherwise null; `peak`, the wavelength of the band's peak, nm, and `peakValue`, the curve's value there; `level`, the level used, 0.001 to 0.999, and `levelValue`, the curve's value at the crossing; and `feature`, `mode`, `quantity`, `angle`, `direction` and `step`.<br>**Python**: An Edge, a named tuple: edge, the crossing, nm, None when the curve does not cross the level inside the band, and reason, then "edgeNotCrossed" and otherwise None; peak, the wavelength of the band's peak, nm, and peak_value, the curve's value there; level, the level used, 0.001 to 0.999, and level_value, the curve's value at the crossing; and feature, mode, quantity, angle, direction and step.
+
+**Refuses**:
+
+- a curve that is not a spectrum's, a band not inside the curve, or an option it does not take or a value an option cannot take
+
+```js
+const design = tf.newDesign('Long-wave pass');
+design.stack('(0.5H L 0.5H)^8');
+const s = design.spectrum(600, 760);
+const e = s.T.edge(600, 760, { level: 0.5 });
+console.log('T crosses', e.levelValue.toFixed(3), 'at', e.edge.toFixed(2), 'nm');
+```
+
+```python
+design = tf.new_design("Long-wave pass")
+design.stack("(0.5H L 0.5H)^8")
+s = design.spectrum(600, 760)
+e = s.T.edge(600, 760, level=0.5)
+print("T crosses", round(e.level_value, 3), "at", round(e.edge, 2), "nm")
+```
+
+### fwhm
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.fwhm(start, end, { level, direction, step })` | `s.R.fwhm(start=..., end=..., level=0.5, direction="max", step=1)` |
+
+The full width of the peak of a band where the curve crosses a level, by default half the peak, as a FWHM check of the Specification window finds it, with the two crossings, their midpoint and the peak: computed on the design the spectrum was computed on, at the curve's angle, so the crossings are exact and not read off the samples. A spectrum's curves have it; other curves do not.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` |  | The first wavelength of the band, nm, inside the curve. Without it, the curve's first. |
+| `end` | `end` |  | The last wavelength of the band, nm, inside the curve. Without it, the curve's last. |
+| `level` | `level` | `0.5` | The level crossed, a fraction of the peak from 0 to 1; below 0.001 or above 0.999 it is taken as 0.001 or 0.999. |
+| `direction` | `direction` | `'max'` | `'max'`, the width of a peak, or `'min'`, of a dip, crossed a fraction of the way from its lowest value up to 1. |
+| `step` | `step` | `1` | The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001. The crossings are bracketed on a scan of the band no coarser than it, of 301 samples at the least. |
+
+**Returns**: **JavaScript**: An object: `width`, `right` − `left`, nm, the value of a FWHM check; `left` and `right`, the crossings below and above the peak, nm; `centre`, their midpoint, nm; each null when a crossing is not inside the band, and `reason`, then `'fwhmNotBracketed'` and otherwise null; `peak`, `peakValue`, `level` and `levelValue`, as edge() gives them; and `feature`, `mode`, `quantity`, `angle`, `direction` and `step`.<br>**Python**: A Width, a named tuple: width, right - left, nm, the value of a FWHM check; left and right, the crossings below and above the peak, nm; centre, their midpoint, nm; each None when a crossing is not inside the band, and reason, then "fwhmNotBracketed" and otherwise None; peak, peak_value, level and level_value, as edge() gives them; and feature, mode, quantity, angle, direction and step.
+
+**Refuses**:
+
+- a curve that is not a spectrum's, a band not inside the curve, or an option it does not take or a value an option cannot take
+
+```js
+const design = tf.newDesign('Bandpass');
+design.stack('(HL)^4 HH (LH)^4');
+const s = design.spectrum(500, 600);
+const band = s.T.fwhm(500, 600);
+console.log('FWHM', band.width.toFixed(2), 'nm, centred at', band.centre.toFixed(2), 'nm, peak T', band.peakValue.toFixed(4));
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.stack("(HL)^4 HH (LH)^4")
+s = design.spectrum(500, 600)
+band = s.T.fwhm(500, 600)
+print("FWHM", round(band.width, 2), "nm, centred at", round(band.centre, 2), "nm, peak T", round(band.peak_value, 4))
+```
+
+### peak
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.peak(start, end, { direction, step })` | `s.R.peak(start=..., end=..., direction="max", step=1)` |
+
+The wavelength of the peak of a band, or of its dip, as a Central λ check of the Specification window finds it: searched on the design the spectrum was computed on, at the curve's angle, not read off the samples. A spectrum's curves have it; other curves do not.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `start` | `start` |  | The first wavelength of the band, nm, inside the curve. Without it, the curve's first. |
+| `end` | `end` |  | The last wavelength of the band, nm, inside the curve. Without it, the curve's last. |
+| `direction` | `direction` | `'max'` | `'max'`, the highest value, or `'min'`, the lowest. |
+| `step` | `step` | `1` | The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001. The peak of R, and the dip of T or A, is found without a step, so it stays 1. |
+
+**Returns**: **JavaScript**: An object: `peak`, the wavelength, nm, and `peakValue`, the curve's value there; and `feature`, `mode`, `quantity`, `angle`, `direction` and `step`.<br>**Python**: A Peak, a named tuple: peak, the wavelength, nm, and peak_value, the curve's value there; and feature, mode, quantity, angle, direction and step.
+
+**Refuses**:
+
+- a curve that is not a spectrum's, a band not inside the curve, or an option it does not take or a value an option cannot take
+
+```js
+const design = tf.newDesign('Bandpass');
+design.stack('(HL)^4 HH (LH)^4');
+const s = design.spectrum(500, 600);
+const top = s.T.peak(500, 600, { step: 0.01 });
+console.log('Peak T', top.peakValue.toFixed(4), 'at', top.peak.toFixed(3), 'nm');
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.stack("(HL)^4 HH (LH)^4")
+s = design.spectrum(500, 600)
+top = s.T.peak(500, 600, step=0.01)
+print("Peak T", round(top.peak_value, 4), "at", round(top.peak, 3), "nm")
 ```
 
 ## IndexProfile

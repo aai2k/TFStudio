@@ -90,6 +90,12 @@ class Calls:
     def summarize(self, result, options=None):
         return self._call("summarize", result, options)
 
+    def bandFeature(self, design, options):
+        return self._call("bandFeature", design, options)
+
+    def edgeShift(self, design, options):
+        return self._call("edgeShift", design, options)
+
     def indexProfile(self, design, options=None):
         return self._call("indexProfile", design, options)
 

@@ -12,7 +12,7 @@
  *      a design built, edited, cleaned, saved (the same file) and opened
  *      again, and cleaning one with no layers refused with its code and
  *      fields; the spectrum at two angles, summarized from what came over
- *      the wire; an index profile, layer thicknesses and the design's facts,
+ *      the wire; a band's width and an edge against angle; an index profile, layer thicknesses and the design's facts,
  *      a layer set by its QWOT, a side with no layers refused with its code
  *      and fields, and a QWOT the Design Editor has none of crossing as null;
  *      a side's admittance locus and electric field, and a side with no layer
@@ -177,6 +177,8 @@ const specified = api.setSpecification(start, CHECKS);
     const spectrum = await same('spectrum', [stack, { from: 400, to: 700, step: 10, angles: [0, 45] }]);
     ok('a spectrum\'s angles are keyed by their values', Object.keys(spectrum.result?.angles ?? {}).join() === '0,45');
     await same('summarize', [spectrum.result, { bands: [{ from: 450, to: 650 }] }]);
+    await same('bandFeature', [stack, { feature: 'fwhm', from: 400, to: 700, quantity: 'R', angle: 30, level: 0.3 }]);
+    await same('edgeShift', [stack, { from: 400, to: 700, angles: [0, 30], quantity: 'R' }]);
     const twoSided = api.insertLayer(api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { side: 'back', material: 'MgF2', thickness: 90 });
     await same('indexProfile', [twoSided, { wavelength: 633 }]);
     await same('indexProfile', [stack, { side: 'front' }]);

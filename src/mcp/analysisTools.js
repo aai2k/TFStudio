@@ -1,4 +1,5 @@
-// Tools that compute on a design: its spectrum, its index profile and layer
+// Tools that compute on a design: its spectrum, a band's peak, edge and width
+// and how an edge moves with angle, its index profile and layer
 // thicknesses, what its stack adds up to, a side's admittance locus and
 // electric field, its colour and integral values, a side's Psi and Delta, its
 // phase and group delay, its merit, its verdict against its specification,
@@ -18,6 +19,15 @@ function plain(value) {
 }
 
 const BAND = object({ from: num('Start of the band in nm'), to: num('End of the band in nm') }, ['from', 'to']);
+
+// What the bandFeature and edgeShift tools share.
+const FEATURE_SETTINGS = {
+    quantity: oneOf(['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'], "The quantity read. Default 'T'"),
+    direction: oneOf(['max', 'min'], "'max', a peak, or 'min', a dip. Default 'max'"),
+    step: num('Step in nm the peak is searched at: 1, 0.1, 0.01 or 0.001; the crossings are bracketed on a scan of the band no coarser than it, of 301 samples at the least. The peak of R and the dip of T or A are found without a step, so a peak feature of those takes 1. Default 1'),
+};
+const FEATURE_LEVEL = num('For edge and fwhm, the level crossed, a fraction of the peak from 0 to 1; below 0.001 or above 0.999 it is taken as 0.001 or 0.999. Default 0.5');
+const FEATURE_EDGE_SIDE = oneOf(['left', 'right'], "For edge, 'right' for the crossing above the peak. Default: the one below it, or the one above where there is none below");
 
 const ONE_SIDE = oneOf(['front', 'back'], "The coated side. Default: the back of a back_only design and the front of any other, the side the PR, GD, PSI and EFMX merit rows score");
 const ANGLE = num('Angle of incidence in degrees in the medium light comes from, 0 <= angle < 90. Default 0');
@@ -76,6 +86,40 @@ export function analysisTools({ api, store }) {
                 return {
                     designId, evalMode: result.evalMode, outOfRange: result.outOfRange, summary: api.summarize(result, { bands }),
                     ...(values ? { lambda: result.lambda, angles: result.angles } : {}),
+                };
+            },
+        },
+        {
+            name: 'bandFeature', title: 'Band peak, edge or width',
+            description: "The peak of a band of a design's spectrum, where the spectrum crosses a level beside it, or the width between the crossings below and above it, as the Specification window's CENTRAL_LAMBDA, EDGE_LAMBDA and FWHM checks find them: the peak searched at step, each crossing exact, bracketed on a scan of the band no coarser than step and of 301 samples at the least, then bisected. The level is a fraction of the peak: with direction max, level times the band's highest value; with min, that fraction of the way from its lowest value up to 1. Scored the way the design's surface mode says, as spectrum is, and averaged over the design's cone of incidence when it has one. Answers with feature, mode (front, back or total), quantity, angle, direction, step, peak (nm) and peakValue; for edge and fwhm also level (the fraction used, 0.001 to 0.999) and levelValue (the quantity at the crossings) and reason (null, or edgeNotCrossed or fwhmNotBracketed when a crossing is not inside the band); for edge, edge (nm or null); for fwhm, left, right, width (the FWHM check's value) and centre (their midpoint), in nm or null.",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                feature: oneOf(['peak', 'edge', 'fwhm'], "'peak', the wavelength of the band's highest value (lowest with direction min); 'edge', where the spectrum crosses the level; 'fwhm', the width between the crossings below and above the peak"),
+                from: num('First wavelength of the band in nm'), to: num('Last wavelength of the band in nm'),
+                ...FEATURE_SETTINGS,
+                angle: num('Angle of incidence in degrees in the incident medium, 0 <= angle < 90. Default 0'),
+                level: FEATURE_LEVEL,
+                edgeSide: FEATURE_EDGE_SIDE,
+            }, ['designId', 'feature', 'from', 'to']),
+            run: ({ designId, ...options }) => ({ designId, ...api.bandFeature(store.get(designId), options) }),
+        },
+        {
+            name: 'edgeShift', title: 'Edge against angle',
+            description: "Where a design's spectrum crosses a level beside the peak of a band at each of several angles of incidence, and how far that edge has moved from where it is at the first angle, each found as bandFeature with feature edge finds it, as an EDGE_LAMBDA check does. Scored the way the design's surface mode says, as spectrum is, and averaged over the design's cone of incidence when it has one. Answers with mode (front, back or total), quantity, direction, step, level (the fraction used), angleCount, notCrossedCount (angles where the spectrum does not cross the level inside the band), and edge and shift (edge less the edge at the first angle), each { min, minAt, max, maxAt } in nm with the angles in degrees; with values true, also angles and, one per angle, edge, shift, peak and peakValue, levelValue and reason (null or edgeNotCrossed), edge and shift null where there is no crossing.",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                from: num('First wavelength of the band in nm'), to: num('Last wavelength of the band in nm'),
+                angles: list({ type: 'number' }, 'Angles of incidence in degrees in the incident medium, each 0 <= angle < 90'),
+                ...FEATURE_SETTINGS,
+                level: FEATURE_LEVEL,
+                edgeSide: FEATURE_EDGE_SIDE,
+                values: bool('Also answer with the values at every angle. Default false'),
+            }, ['designId', 'from', 'to', 'angles']),
+            run: ({ designId, values = false, ...options }) => {
+                const { angles, edge, shift, peak, peakValue, levelValue, reason, ...settings } = api.edgeShift(store.get(designId), options);
+                return {
+                    designId, ...settings, angleCount: angles.length, notCrossedCount: edge.filter(e => e === null).length,
+                    ...(values ? { angles, edge, shift, peak, peakValue, levelValue, reason } : { edge: extremes(angles, edge), shift: extremes(angles, shift) }),
                 };
             },
         },

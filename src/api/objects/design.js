@@ -351,7 +351,40 @@ export class Design {
         const { step = 1, angles = [0] } = checkOptions('spectrum', options, ['step', 'angles']);
         const answer = worded({ method: 'spectrum', call: 'spectrum' }, () => api.spectrum(this._data, { from: start, to: end, step, angles }));
         const asked = [...angles];
-        return new Spectrum(answer.evalMode, answer.lambda, asked, asked.map(angle => answer.angles[angle]), answer.outOfRange)._named(this.name);
+        return new Spectrum(answer.evalMode, answer.lambda, asked, asked.map(angle => answer.angles[angle]), answer.outOfRange)
+            ._named(this.name)._computedOn(JSON.parse(JSON.stringify(this._data)));
+    }
+
+    /**
+     * Where the design's spectrum crosses a level beside the peak of a band
+     * at each of several angles of incidence, and how far that edge has moved
+     * from where it is at the first angle, each found as an EDGE_LAMBDA check
+     * of the Specification window finds it, as a spectrum curve's edge()
+     * finds it. What it is computed on follows the design's `sides` and
+     * `scoreOn`, as a spectrum does, and a design under a cone of incidence
+     * is averaged over its cone.
+     *
+     * @param start The first wavelength of the band, nm.
+     * @param end The last wavelength of the band, nm, above `start`.
+     * @param angles The angles of incidence, degrees in the incident medium, each from 0 up to but not including 90.
+     * @param [options]
+     * @param [options.quantity='T'] `'R'`, `'T'` or `'A'` for unpolarized light, or `'Rs'`, `'Rp'`, `'Ts'`, `'Tp'`, `'As'` or `'Ap'`.
+     * @param [options.level=0.5] The level crossed, a fraction from 0 to 1; below 0.001 or above 0.999 it is taken as 0.001 or 0.999.
+     * @param [options.edgeSide] `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below.
+     * @param [options.direction='max'] `'max'`, the level a fraction of the band's highest value, or `'min'`, a fraction of the way from its lowest value up to 1.
+     * @param [options.step=1] The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001. The crossing is bracketed on a scan of the band no coarser than it, of 301 samples at the least.
+     * @returns An object: `angles`, and one value per angle in each of `edge`, the crossing, nm, `shift`, the edge less the edge at the first angle, nm, both null where the spectrum does not cross the level inside the band, `reason`, then `'edgeNotCrossed'` and otherwise null, `peak`, `peakValue` and `levelValue`; and `level`, the level used, `mode`, `quantity`, `direction` and `step`.
+     * @throws a band that is not one, an empty list of angles or an angle outside 0 to 90, an option it does not take or a value an option cannot take, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Long-wave pass');
+     * design.stack('(0.5H L 0.5H)^8');
+     * const moved = design.edgeShift(600, 760, [0, 15, 30, 45], { level: 0.5 });
+     * moved.angles.forEach((angle, i) => console.log(angle, 'degrees:', moved.edge[i].toFixed(2), 'nm, moved', moved.shift[i].toFixed(2), 'nm'));
+     */
+    edgeShift(start, end, angles, options) {
+        const given = checkOptions('edgeShift', options, ['quantity', 'level', 'edgeSide', 'direction', 'step']);
+        const words = { method: 'edgeShift', call: 'edgeShift', hidden: ['from', 'to', 'angles'] };
+        return worded(words, () => api.edgeShift(this._data, { ...given, from: start, to: end, angles }));
     }
 
     /**

@@ -41,7 +41,7 @@ The server works on the data folder the app uses: `Documents\TFStudio` unless yo
 | Merit function | `setMerit`, `merit` |
 | Specification | `setSpecification`, `checkSpecification` |
 | Materials | `findMaterials`, `materialNK`, `materialDispersion` |
-| Analysis | `spectrum`, `layerSensitivity`, `indexProfile`, `layerThicknesses`, `designFacts`, `admittance`, `electricField`, `color`, `integrals`, `ellipsometry`, `ellipsometryVsAngle`, `groupDelay` |
+| Analysis | `spectrum`, `layerSensitivity`, `indexProfile`, `layerThicknesses`, `designFacts`, `admittance`, `electricField`, `color`, `integrals`, `ellipsometry`, `ellipsometryVsAngle`, `groupDelay`, `bandFeature`, `edgeShift` |
 | Runs | `refine`, `synthesize`, `monteCarlo`, `jobStatus`, `stopJob`, `listJobs` |
 | The open design, with `--live` | `listAppDesigns`, `readAppDesign`, `applyToApp` |
 

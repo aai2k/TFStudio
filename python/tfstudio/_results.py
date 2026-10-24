@@ -8,6 +8,7 @@ import collections
 import csv
 import math
 
+from ._band_feature import band_feature, computed_on
 from ._errors import TFStudioError
 
 # The quantities of a spectrum: R, T and A for unpolarized light, then for s
@@ -76,12 +77,14 @@ class _CurveOverX(list):
     """One value per x, with what the mean(), min() and max() of a curve
     share. A curve holds its x in _x, and its class names that x and its unit
     in _AXIS, and in _quantity the spectrum's quantity it holds, such as "T",
-    or None."""
+    or None; in _source a spectrum's curve holds the calls, the design and
+    the angle it was computed with, and any other curve None."""
 
     def __init__(self, values, xs):
         super().__init__(values)
         self._x = xs
         self._quantity = None
+        self._source = None
 
     def _over(self, reduce, what, start, end):
         """`reduce` of the values whose x is from `start` to `end`, both
@@ -284,6 +287,130 @@ class Curve(_CurveOverX):
                 self._quantity or "this curve"))
         return Curve([-_log10(max(value, _DENSITY_FLOOR)) for value in self], self._x)
 
+    def edge(self, start=None, end=None, **options):
+        """Where the curve crosses a level beside the peak of a band, as an
+        EDGE_LAMBDA check of the Specification window finds it: computed on
+        the design the spectrum was computed on, at the curve's angle, so the
+        crossing is exact and not read off the samples. The level is a
+        fraction of the band's peak, so on a band peaking at T = 0.90,
+        level=0.5 is crossed where T = 0.45. A spectrum's curves have it;
+        other curves do not.
+
+        Args:
+            start: The first wavelength of the band, nm, inside the curve. Default: the curve's first.
+            end: The last wavelength of the band, nm, inside the curve. Default: the curve's last.
+            level: The level crossed, a fraction from 0 to 1; below 0.001 or
+                above 0.999 it is taken as 0.001 or 0.999. Default 0.5.
+            edge_side: "right" for the crossing above the peak. Default: the
+                one below it, or the one above where there is none below.
+            direction: "max", the level a fraction of the band's highest
+                value, or "min", a fraction of the way from its lowest value
+                up to 1. Default "max".
+            step: The step the peak is searched at, nm: 1, 0.1, 0.01 or
+                0.001. The crossing is bracketed on a scan of the band no
+                coarser than it, of 301 samples at the least. Default 1.
+
+        Returns:
+            An Edge, a named tuple: edge, the crossing, nm, None when the
+            curve does not cross the level inside the band, and reason, then
+            "edgeNotCrossed" and otherwise None; peak, the wavelength of the
+            band's peak, nm, and peak_value, the curve's value there; level,
+            the level used, 0.001 to 0.999, and level_value, the curve's
+            value at the crossing; and feature, mode, quantity, angle, direction and step.
+
+        Raises:
+            TFStudioError: a curve that is not a spectrum's, a band not inside
+                the curve, or an option it does not take or a value an option
+                cannot take.
+
+        Example::
+
+            design = tf.new_design("Long-wave pass")
+            design.stack("(0.5H L 0.5H)^8")
+            s = design.spectrum(600, 760)
+            e = s.T.edge(600, 760, level=0.5)
+            print("T crosses", round(e.level_value, 3), "at", round(e.edge, 2), "nm")
+        """
+        return band_feature(self, "edge", start, end, options)
+
+    def fwhm(self, start=None, end=None, **options):
+        """The full width of the peak of a band where the curve crosses a
+        level, by default half the peak, as a FWHM check of the Specification
+        window finds it, with the two crossings, their midpoint and the peak:
+        computed on the design the spectrum was computed on, at the curve's
+        angle, so the crossings are exact and not read off the samples. A
+        spectrum's curves have it; other curves do not.
+
+        Args:
+            start: The first wavelength of the band, nm, inside the curve. Default: the curve's first.
+            end: The last wavelength of the band, nm, inside the curve. Default: the curve's last.
+            level: The level crossed, a fraction of the peak from 0 to 1;
+                below 0.001 or above 0.999 it is taken as 0.001 or 0.999.
+                Default 0.5.
+            direction: "max", the width of a peak, or "min", of a dip,
+                crossed a fraction of the way from its lowest value up to 1.
+                Default "max".
+            step: The step the peak is searched at, nm: 1, 0.1, 0.01 or
+                0.001. The crossings are bracketed on a scan of the band no
+                coarser than it, of 301 samples at the least. Default 1.
+
+        Returns:
+            A Width, a named tuple: width, right - left, nm, the value of a
+            FWHM check; left and right, the crossings below and above the
+            peak, nm; centre, their midpoint, nm; each None when a crossing
+            is not inside the band, and reason, then "fwhmNotBracketed" and
+            otherwise None; peak, peak_value, level and level_value, as
+            edge() gives them; and feature, mode, quantity, angle, direction and step.
+
+        Raises:
+            TFStudioError: a curve that is not a spectrum's, a band not inside
+                the curve, or an option it does not take or a value an option
+                cannot take.
+
+        Example::
+
+            design = tf.new_design("Bandpass")
+            design.stack("(HL)^4 HH (LH)^4")
+            s = design.spectrum(500, 600)
+            band = s.T.fwhm(500, 600)
+            print("FWHM", round(band.width, 2), "nm, centred at", round(band.centre, 2), "nm, peak T", round(band.peak_value, 4))
+        """
+        return band_feature(self, "fwhm", start, end, options)
+
+    def peak(self, start=None, end=None, **options):
+        """The wavelength of the peak of a band, or of its dip, as a Central
+        λ check of the Specification window finds it: searched on the design
+        the spectrum was computed on, at the curve's angle, not read off the
+        samples. A spectrum's curves have it; other curves do not.
+
+        Args:
+            start: The first wavelength of the band, nm, inside the curve. Default: the curve's first.
+            end: The last wavelength of the band, nm, inside the curve. Default: the curve's last.
+            direction: "max", the highest value, or "min", the lowest.
+                Default "max".
+            step: The step the peak is searched at, nm: 1, 0.1, 0.01 or
+                0.001. The peak of R, and the dip of T or A, is found without
+                a step, so it stays 1. Default 1.
+
+        Returns:
+            A Peak, a named tuple: peak, the wavelength, nm, and peak_value,
+            the curve's value there; and feature, mode, quantity, angle, direction and step.
+
+        Raises:
+            TFStudioError: a curve that is not a spectrum's, a band not inside
+                the curve, or an option it does not take or a value an option
+                cannot take.
+
+        Example::
+
+            design = tf.new_design("Bandpass")
+            design.stack("(HL)^4 HH (LH)^4")
+            s = design.spectrum(500, 600)
+            top = s.T.peak(500, 600, step=0.01)
+            print("Peak T", round(top.peak_value, 4), "at", round(top.peak, 3), "nm")
+        """
+        return band_feature(self, "peak", start, end, options)
+
 
 class AngleCurve(_CurveOverX):
     """One value per angle of incidence: a list of floats, so ``max(curve)``,
@@ -421,6 +548,7 @@ class Spectrum:
     def __init__(self, mode, wavelength, angles, series, out_of_range):
         self._values = {"mode": mode, "wavelength": wavelength, "angles": angles, "out_of_range": out_of_range}
         self._name = None
+        self._design = (None, None)
         self._series = series
         self._curves = [{quantity: _spectrum_curve(values[quantity], wavelength, quantity) for quantity in QUANTITIES}
                         for values in series]
@@ -429,6 +557,15 @@ class Spectrum:
         """The spectrum with the name of the design it was computed on,
         which its CSV file gives."""
         self._name = name
+        return self
+
+    def _computed_on(self, calls, design):
+        """The spectrum with a copy of the design it was computed on and the
+        calls that compute on it, on which its curves find their edges,
+        widths and peaks, each at its own angle; with no design, its curves
+        have none."""
+        self._design = (calls, design)
+        computed_on(self._curves, self.angles, calls, design)
         return self
 
     mode = _reading("mode", """What the spectrum was computed on, as the design's sides and score_on
@@ -576,7 +713,8 @@ class Spectrum:
         """
         for i, computed in enumerate(self.angles):
             if computed == angle:
-                return Spectrum(self.mode, self.wavelength, [computed], [self._series[i]], self.out_of_range)._named(self._name)
+                return (Spectrum(self.mode, self.wavelength, [computed], [self._series[i]], self.out_of_range)
+                        ._named(self._name)._computed_on(*self._design))
         raise TFStudioError("angle: the spectrum was computed at {}, not at {}".format(self.angles, angle))
 
     def save_csv(self, path):

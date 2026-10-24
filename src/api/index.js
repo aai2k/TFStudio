@@ -9,6 +9,7 @@
  *   insertLayer, deleteLayer, setLayer, stackFromFormula, cleanDesign(design, options)
  *   findMaterials(query), materialNK(id, wavelengths, design), materialDispersion(id, { from, to, thickness }, design)
  *   spectrum(design, { from, to, step, angles }), summarize(spectrum, { bands })
+ *   bandFeature(design, { feature, from, to, quantity, angle, level }), edgeShift(design, { from, to, angles, level })
  *   indexProfile(design, { wavelength, side }), layerThicknesses(design, { wavelength, side }), designFacts(design, { side })
  *   admittance(design, { wavelength, angle, side, plane })
  *   electricField(design, { wavelength, angle, side, pointsPerLayer, depthUnit, reference })
@@ -34,6 +35,7 @@ export { cleanDesign } from './cleaner.js';
 export { findMaterials, materialNK } from './materials.js';
 export { materialDispersion } from './materialDispersion.js';
 export { spectrum, summarize } from './evaluate.js';
+export { bandFeature, edgeShift } from './bandFeature.js';
 export { indexProfile, layerThicknesses } from './stackViews.js';
 export { designFacts } from './designFacts.js';
 export { admittance } from './admittance.js';

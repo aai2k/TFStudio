@@ -615,6 +615,46 @@ s = design.spectrum(400, 800, step=1, angles=[0, 45])
 print(s.mode, max(s.R), min(s.angle(45).Tp))
 ```
 
+### edgeShift / edge_shift
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.edgeShift(start, end, angles, { quantity, level, edgeSide, direction, step })` | `design.edge_shift(start, end, angles, quantity="T", level=0.5, edge_side=..., direction="max", step=1)` |
+
+在多个入射角下，设计的光谱在波段的峰旁穿越某一电平的位置，以及该边缘相对第一个入射角下的位置移动了多少；每个都按规格窗口的 EDGE_LAMBDA 检查的方法求出，与光谱曲线的 edge() 相同。计算对象随设计的 `sides` 和 `scoreOn` / `score_on` 而定，与光谱相同；带有入射锥角的设计会在锥角上取平均。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` |  | 波段的起始波长，单位 nm。 |
+| `end` | `end` |  | 波段的结束波长，单位 nm，大于 `start`。 |
+| `angles` | `angles` |  | 入射角，为入射介质中的度数，每个都在 0 到 90 之间，不含 90。 |
+| `quantity` | `quantity` | `'T'` | `'R'`、`'T'` 或 `'A'`（非偏振光），或 `'Rs'`、`'Rp'`、`'Ts'`、`'Tp'`、`'As'` 或 `'Ap'`。 |
+| `level` | `level` | `0.5` | 穿越的电平，0 到 1 之间的比例；小于 0.001 或大于 0.999 时按 0.001 或 0.999 计。 |
+| `edgeSide` | `edge_side` |  | **JavaScript**：`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。<br>**Python**："right" 表示峰以上的交点。不给出时，取峰以下的交点，峰以下没有交点时取峰以上的交点。 |
+| `direction` | `direction` | `'max'` | `'max'`，电平为波段内最大值的该比例；或 `'min'`，电平为从波段内最小值到 1 之间该比例处的值。 |
+| `step` | `step` | `1` | 搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。交点在不粗于该步长、且至少 301 个采样点的波段扫描上确定。 |
+
+**返回**：**JavaScript**：一个对象：`angles`，以及每个入射角在下列各项中的一个值：`edge`，交点，单位 nm；`shift`，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 null；`reason`，此时为 `'edgeNotCrossed'`，否则为 null；`peak`、`peakValue` 和 `levelValue`；还有 `level`，所用的电平，以及 `mode`、`quantity`、`direction` 和 `step`。<br>**Python**：一个 EdgeShift，即命名元组：angles，以及每个入射角在下列各项中的一个值：edge，交点，单位 nm；shift，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 None；reason，此时为 "edgeNotCrossed"，否则为 None；peak、peak_value 和 level_value；还有 level，所用的电平，以及 mode、quantity、direction 和 step。
+
+**拒绝**：
+
+- 不构成范围的波段、空的入射角列表或超出 0 到 90 的入射角、不接受的选项或选项不能取的值，或引用了找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Long-wave pass');
+design.stack('(0.5H L 0.5H)^8');
+const moved = design.edgeShift(600, 760, [0, 15, 30, 45], { level: 0.5 });
+moved.angles.forEach((angle, i) => console.log(angle, 'degrees:', moved.edge[i].toFixed(2), 'nm, moved', moved.shift[i].toFixed(2), 'nm'));
+```
+
+```python
+design = tf.new_design("Long-wave pass")
+design.stack("(0.5H L 0.5H)^8")
+moved = design.edge_shift(600, 760, [0, 15, 30, 45], level=0.5)
+for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
+    print(angle, "degrees:", round(edge, 2), "nm, moved", round(shift, 2), "nm")
+```
+
 ### indexProfile / index_profile
 
 | JavaScript | Python |
@@ -4270,6 +4310,122 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 s = design.spectrum(400, 700)
 print("Highest optical density from 500 to 600 nm:", s.T.density().max(500, 600))
+```
+
+### edge
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.edge(start, end, { level, edgeSide, direction, step })` | `s.R.edge(start=..., end=..., level=0.5, edge_side=..., direction="max", step=1)` |
+
+**JavaScript**：曲线在波段的峰旁穿越某一电平的位置，按规格窗口的 EDGE_LAMBDA 检查的方法求出：在计算该光谱的设计上、以曲线的入射角计算，因此交点是精确的，而不是从采样点读出的。电平是波段峰值的比例，因此在峰值为 T = 0.90 的波段上，`level: 0.5` 在 T = 0.45 处穿越。光谱的曲线有此方法；其他曲线没有。
+
+**Python**：曲线在波段的峰旁穿越某一电平的位置，按规格窗口的 EDGE_LAMBDA 检查的方法求出：在计算该光谱的设计上、以曲线的入射角计算，因此交点是精确的，而不是从采样点读出的。电平是波段峰值的比例，因此在峰值为 T = 0.90 的波段上，level=0.5 在 T = 0.45 处穿越。光谱的曲线有此方法；其他曲线没有。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` |  | 波段的起始波长，单位 nm，在曲线范围以内。不给出时，为曲线的第一个波长。 |
+| `end` | `end` |  | 波段的结束波长，单位 nm，在曲线范围以内。不给出时，为曲线的最后一个波长。 |
+| `level` | `level` | `0.5` | 穿越的电平，0 到 1 之间的比例；小于 0.001 或大于 0.999 时按 0.001 或 0.999 计。 |
+| `edgeSide` | `edge_side` |  | **JavaScript**：`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。<br>**Python**："right" 表示峰以上的交点。不给出时，取峰以下的交点，峰以下没有交点时取峰以上的交点。 |
+| `direction` | `direction` | `'max'` | `'max'`，电平为波段内最大值的该比例；或 `'min'`，电平为从波段内最小值到 1 之间该比例处的值。 |
+| `step` | `step` | `1` | 搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。交点在不粗于该步长、且至少 301 个采样点的波段扫描上确定。 |
+
+**返回**：**JavaScript**：一个对象：`edge`，交点，单位 nm，曲线在波段内不穿越该电平时为 null；`reason`，此时为 `'edgeNotCrossed'`，否则为 null；`peak`，波段峰的波长，单位 nm，`peakValue`，曲线在该处的值；`level`，所用的电平，0.001 到 0.999，`levelValue`，曲线在交点处的值；以及 `feature`、`mode`、`quantity`、`angle`、`direction` 和 `step`。<br>**Python**：一个 Edge，即命名元组：edge，交点，单位 nm，曲线在波段内不穿越该电平时为 None；reason，此时为 "edgeNotCrossed"，否则为 None；peak，波段峰的波长，单位 nm，peak_value，曲线在该处的值；level，所用的电平，0.001 到 0.999，level_value，曲线在交点处的值；以及 feature、mode、quantity、angle、direction 和 step。
+
+**拒绝**：
+
+- 不是光谱曲线的曲线、不在曲线范围以内的波段，或不接受的选项、选项不能取的值
+
+```js
+const design = tf.newDesign('Long-wave pass');
+design.stack('(0.5H L 0.5H)^8');
+const s = design.spectrum(600, 760);
+const e = s.T.edge(600, 760, { level: 0.5 });
+console.log('T crosses', e.levelValue.toFixed(3), 'at', e.edge.toFixed(2), 'nm');
+```
+
+```python
+design = tf.new_design("Long-wave pass")
+design.stack("(0.5H L 0.5H)^8")
+s = design.spectrum(600, 760)
+e = s.T.edge(600, 760, level=0.5)
+print("T crosses", round(e.level_value, 3), "at", round(e.edge, 2), "nm")
+```
+
+### fwhm
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.fwhm(start, end, { level, direction, step })` | `s.R.fwhm(start=..., end=..., level=0.5, direction="max", step=1)` |
+
+波段的峰在曲线穿越某一电平处的全宽，默认为峰值的一半，按规格窗口的 FWHM 检查的方法求出，并给出两个交点、它们的中点和峰：在计算该光谱的设计上、以曲线的入射角计算，因此交点是精确的，而不是从采样点读出的。光谱的曲线有此方法；其他曲线没有。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` |  | 波段的起始波长，单位 nm，在曲线范围以内。不给出时，为曲线的第一个波长。 |
+| `end` | `end` |  | 波段的结束波长，单位 nm，在曲线范围以内。不给出时，为曲线的最后一个波长。 |
+| `level` | `level` | `0.5` | 穿越的电平，峰值的比例，0 到 1；小于 0.001 或大于 0.999 时按 0.001 或 0.999 计。 |
+| `direction` | `direction` | `'max'` | `'max'`，峰的宽度；或 `'min'`，谷的宽度，电平为从最小值到 1 之间该比例处的值。 |
+| `step` | `step` | `1` | 搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。两个交点在不粗于该步长、且至少 301 个采样点的波段扫描上确定。 |
+
+**返回**：**JavaScript**：一个对象：`width`，`right` − `left`，单位 nm，即 FWHM 检查的值；`left` 和 `right`，峰以下和峰以上的交点，单位 nm；`centre`，二者的中点，单位 nm；有交点不在波段内时它们都为 null；`reason`，此时为 `'fwhmNotBracketed'`，否则为 null；`peak`、`peakValue`、`level` 和 `levelValue`，与 edge() 给出的相同；以及 `feature`、`mode`、`quantity`、`angle`、`direction` 和 `step`。<br>**Python**：一个 Width，即命名元组：width，right - left，单位 nm，即 FWHM 检查的值；left 和 right，峰以下和峰以上的交点，单位 nm；centre，二者的中点，单位 nm；有交点不在波段内时它们都为 None；reason，此时为 "fwhmNotBracketed"，否则为 None；peak、peak_value、level 和 level_value，与 edge() 给出的相同；以及 feature、mode、quantity、angle、direction 和 step。
+
+**拒绝**：
+
+- 不是光谱曲线的曲线、不在曲线范围以内的波段，或不接受的选项、选项不能取的值
+
+```js
+const design = tf.newDesign('Bandpass');
+design.stack('(HL)^4 HH (LH)^4');
+const s = design.spectrum(500, 600);
+const band = s.T.fwhm(500, 600);
+console.log('FWHM', band.width.toFixed(2), 'nm, centred at', band.centre.toFixed(2), 'nm, peak T', band.peakValue.toFixed(4));
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.stack("(HL)^4 HH (LH)^4")
+s = design.spectrum(500, 600)
+band = s.T.fwhm(500, 600)
+print("FWHM", round(band.width, 2), "nm, centred at", round(band.centre, 2), "nm, peak T", round(band.peak_value, 4))
+```
+
+### peak
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.R.peak(start, end, { direction, step })` | `s.R.peak(start=..., end=..., direction="max", step=1)` |
+
+波段的峰或谷的波长，按规格窗口的中心 λ 检查的方法求出：在计算该光谱的设计上、以曲线的入射角搜索，而不是从采样点读出的。光谱的曲线有此方法；其他曲线没有。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `start` | `start` |  | 波段的起始波长，单位 nm，在曲线范围以内。不给出时，为曲线的第一个波长。 |
+| `end` | `end` |  | 波段的结束波长，单位 nm，在曲线范围以内。不给出时，为曲线的最后一个波长。 |
+| `direction` | `direction` | `'max'` | `'max'`，最大值；或 `'min'`，最小值。 |
+| `step` | `step` | `1` | 搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。R 的峰以及 T 或 A 的谷不用步长求出，因此只能为 1。 |
+
+**返回**：**JavaScript**：一个对象：`peak`，波长，单位 nm，`peakValue`，曲线在该处的值；以及 `feature`、`mode`、`quantity`、`angle`、`direction` 和 `step`。<br>**Python**：一个 Peak，即命名元组：peak，波长，单位 nm，peak_value，曲线在该处的值；以及 feature、mode、quantity、angle、direction 和 step。
+
+**拒绝**：
+
+- 不是光谱曲线的曲线、不在曲线范围以内的波段，或不接受的选项、选项不能取的值
+
+```js
+const design = tf.newDesign('Bandpass');
+design.stack('(HL)^4 HH (LH)^4');
+const s = design.spectrum(500, 600);
+const top = s.T.peak(500, 600, { step: 0.01 });
+console.log('Peak T', top.peakValue.toFixed(4), 'at', top.peak.toFixed(3), 'nm');
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.stack("(HL)^4 HH (LH)^4")
+s = design.spectrum(500, 600)
+top = s.T.peak(500, 600, step=0.01)
+print("Peak T", round(top.peak_value, 4), "at", round(top.peak, 3), "nm")
 ```
 
 ## IndexProfile
