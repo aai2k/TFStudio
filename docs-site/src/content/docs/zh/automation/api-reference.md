@@ -188,6 +188,48 @@ design = tf.open_design(name)
 print(design.name, len(design.layers), "layers, from", name)
 ```
 
+### readSpectrumFile / read_spectrum_file
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.readSpectrumFile(path, { angle, pol, quantity, scale, xUnit })` | `tf.read_spectrum_file(path, angle=..., pol=..., quantity=..., scale=..., x_unit=...)` |
+
+**JavaScript**：按实测光谱窗口的导入方式读取光谱文件：CSV 或文本表格，波长列之后每列一条曲线；或 JCAMP-DX 文件，每个光谱一条曲线；每条都是该窗口会添加到设计中的曲线。选项代替导入面板的设置，面板只询问文件未写明的内容：文件在表头行或列标题中写明的入射角或偏振予以保留，与窗口中相同。
+
+**Python**：按实测光谱窗口的导入方式读取光谱文件：CSV 或文本表格，波长列之后每列一条曲线；或 JCAMP-DX 文件，每个光谱一条曲线；每条都是该窗口会添加到设计中的曲线。关键字参数代替导入面板的设置，面板只询问文件未写明的内容：文件在表头行或列标题中写明的入射角或偏振予以保留，与窗口中相同。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：文件，给出完整路径。相对路径按 `openDesign` 的方式解释。<br>**Python**：文件。相对路径按 open_design() 的方式解释。 |
+| `angle` | `angle` |  | **JavaScript**：入射角，单位度，用于文件未说明入射角的曲线；两者都未给出时为 0。<br>**Python**：入射角，单位度，用于文件未说明入射角的曲线。不给出时，两者都未给出则为 0。 |
+| `pol` | `pol` |  | **JavaScript**：`'avg'`、`'s'` 或 `'p'`，用于文件未说明偏振的曲线；两者都未给出时为 `'avg'`。标题中写明偏振的列（如 Rs）保留其偏振，未写明偏振的 A 列为 `'avg'`。<br>**Python**："avg"、"s" 或 "p"，用于文件未说明偏振的曲线。不给出时，两者都未给出则为 "avg"。标题中写明偏振的列（如 Rs）保留其偏振，未写明偏振的 A 列为 "avg"。 |
+| `quantity` | `quantity` |  | **JavaScript**：对表格文件，所有列的物理量 `'T'`、`'R'` 或 `'A'`；不给出时，取各列标题所写的物理量，标题未写时为 T。<br>**Python**：对表格文件，所有列的物理量 "T"、"R" 或 "A"。不给出时，取各列标题所写的物理量，标题未写时为 T。 |
+| `scale` | `scale` |  | **JavaScript**：对表格文件，所有列数值的写法：`'fraction'`、`'percent'` 或 `'absorbance'`；不给出时，取导入对各列的判断。<br>**Python**：对表格文件，所有列数值的写法："fraction"、"percent" 或 "absorbance"。不给出时，取导入对各列的判断。 |
+| `xUnit` | `x_unit` |  | **JavaScript**：对表格文件，其波长列的单位：`'nm'`、`'um'`、`'cm-1'` 或 `'eV'`；不给出时，取导入对它的判断。<br>**Python**：对表格文件，其波长列的单位："nm"、"um"、"cm-1" 或 "eV"。不给出时，取导入对它的判断。 |
+
+**返回**：**JavaScript**：一个对象：`format`，`'table'` 或 `'jcamp'`；`fileName`；`xUnit`，表格波长读取时所用的单位，或 null；`skippedRows`，表格中不含数据行的行数；以及 `curves`，每条为 `{ name, quantity, angle, pol, wavelength, values }`，波长单位 nm 且递增，R、T 和 A 为 1 的分数，可交给 `design.compareMeasured()`。<br>**Python**：一个 SpectrumFile，即命名元组：format，"table" 或 "jcamp"；file_name；x_unit，表格波长读取时所用的单位，或 None；skipped_rows，表格中不含数据行的行数；以及 curves，每条为一个 MeasuredCurve，即由 name、quantity、angle、pol、wavelength 和 values 组成的命名元组，波长单位 nm 且递增，R、T 和 A 为 1 的分数，可交给 design.compare_measured()。
+
+**拒绝**：
+
+- 无法读取或不含导入可读光谱的文件、不接受的选项或选项无法取的值，或对 JCAMP-DX 文件给出 angle 和 pol 以外的选项
+
+```js
+const file = require('path').join(require('os').homedir(), `scan-${Date.now()}.csv`);
+require('fs').writeFileSync(file, 'Wavelength (nm),%R\n450,2.1\n550,0.9\n650,1.8\n');
+const [scan] = tf.readSpectrumFile(file).curves;
+console.log(scan.name, scan.quantity, scan.wavelength, scan.values);
+```
+
+```python
+import time
+
+name = "scan-{}.csv".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("Wavelength (nm),%R\n450,2.1\n550,0.9\n650,1.8\n")
+scan = tf.read_spectrum_file(name).curves[0]
+print(scan.name, scan.quantity, scan.wavelength, scan.values)
+```
+
 ### app
 
 | JavaScript | Python |
@@ -841,6 +883,55 @@ design.stack("(0.5H L 0.5H)^8")
 moved = design.edge_shift(600, 760, [0, 15, 30, 45], level=0.5)
 for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
     print(angle, "degrees:", round(edge, 2), "nm, moved", round(shift, 2), "nm")
+```
+
+### compareMeasured / compare_measured
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.compareMeasured(measured, { curve, angle, pol, quantity, scale, xUnit, grid, step, thinEvery, start, end, db, levelFree })` | `design.compare_measured(measured, curve=..., angle=..., pol=..., quantity=..., scale=..., x_unit=..., grid="measured", step=..., thin_every=2, start=..., end=..., db=False, level_free=False)` |
+
+**JavaScript**：设计的光谱与一条实测曲线相差多少，按实测光谱窗口的“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。计算对象取决于设计的 `sides` 和 `scoreOn`，与评价函数的评分方式相同；有入射锥角的设计在其锥角上平均。
+
+**Python**：设计的光谱与一条实测曲线相差多少，按实测光谱窗口的“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。计算对象取决于设计的 sides 和 score_on，与评价函数的评分方式相同；有入射锥角的设计在其锥角上平均。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `measured` | `measured` |  | **JavaScript**：光谱文件的路径，按 `tf.readSpectrumFile()` 的方式读取；或它给出的那种曲线 `{ wavelength, values, quantity, angle, pol, name }`，数值为 1 的分数，未给出时 quantity 为 `'T'`，angle 为 0，pol 为 `'avg'`。<br>**Python**：光谱文件的路径，按 tf.read_spectrum_file() 的方式读取；或它给出的 MeasuredCurve；或由 wavelength、values、quantity、angle、pol 和 name 组成的 dict，数值为 1 的分数，未给出时 quantity 为 "T"，angle 为 0，pol 为 "avg"。 |
+| `curve` | `curve` |  | 对含多条曲线的文件，要比较的那条，按其名称或从 0 起的编号。 |
+| `angle` | `angle` |  | 对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。 |
+| `pol` | `pol` |  | 对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。 |
+| `quantity` | `quantity` |  | 对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。 |
+| `scale` | `scale` |  | 对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。 |
+| `xUnit` | `x_unit` |  | 对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。 |
+| `grid` | `grid` | `'measured'` | `'measured'`，曲线自身的点；`'thinned'`，每 `thinEvery-th` / `thin_every-th` 个点取一个，外加最后一个；或 `'uniform'`，每隔 `step` nm 取一点，点与点之间按对话框的方式读取曲线。 |
+| `step` | `step` |  | **JavaScript**：网格为 `'uniform'` 时的步长，单位 nm；不给出时为曲线点距的中位数。<br>**Python**：网格为 "uniform" 时的步长，单位 nm。不给出时为曲线点距的中位数。 |
+| `thinEvery` | `thin_every` | `2` | 网格为 `'thinned'` 时保留哪些点。 |
+| `start` | `start` |  | **JavaScript**：比较的第一个波长，单位 nm；不给出时为曲线的第一个波长。<br>**Python**：比较的第一个波长，单位 nm。不给出时为曲线的第一个波长。 |
+| `end` | `end` |  | **JavaScript**：比较的最后一个波长，单位 nm；不给出时为曲线的最后一个波长。<br>**Python**：比较的最后一个波长，单位 nm。不给出时为曲线的最后一个波长。 |
+| `db` | `db` | `false` / `False` | 对 T 曲线，`true` / `True` 以 dB 比较，与对话框的 dB 标度相同。 |
+| `levelFree` | `level_free` | `false` / `False` | `true` / `True` 在求 RMS 之前减去平均差值，与电平自由的 MCURVE 行的评分方式相同。 |
+
+**返回**：**JavaScript**：一个对象：`rms`，MCURVE 行的值，为 1 的分数，使用 `db` 时为 dB；`ppef`，针对它的 PPEF 行的值，单位 dB；`level`，使用 `levelFree` 时减去的平均差值，否则为 null；`wavelength`，比较的波长，单位 nm，以及每个波长处的 `measured`、`design` 和 `deviation`，即设计值减实测值（再减 `level`）；`clipped`，比较的波长少于所要求的时为 true；以及 `mode`、`name`、`quantity`、`angle`、`pol`、`grid`、`db` 和 `levelFree`。<br>**Python**：一个 MeasuredDifference，即命名元组：rms，MCURVE 行的值，为 1 的分数，使用 db 时为 dB；ppef，针对它的 PPEF 行的值，单位 dB；level，使用 level_free 时减去的平均差值，否则为 None；wavelength，比较的波长，单位 nm，以及每个波长处的 measured、design 和 deviation，即设计值减实测值（再减 level）；clipped，比较的波长少于所要求的时为 True；以及 mode、name、quantity、angle、pol、grid、db 和 level_free。
+
+**拒绝**：
+
+- 既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 `curve` 的文件、不是 R、T 或 A 的曲线、不接受的选项或选项无法取的值、没有可比较的点，或设计中有无法解析的材料
+
+```js
+const design = tf.newDesign('AR');
+design.stack('0.5H L');
+const scan = { quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] };
+const d = design.compareMeasured(scan);
+console.log('RMS', d.rms.toFixed(4), 'PPEF', d.ppef.toFixed(2), 'dB');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("0.5H L")
+scan = {"quantity": "R", "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]}
+d = design.compare_measured(scan)
+print("RMS", round(d.rms, 4), "PPEF", round(d.ppef, 2), "dB")
 ```
 
 ### indexProfile / index_profile

@@ -1,11 +1,13 @@
 // Tools that compute on a design: its spectrum, a band's peak, edge and width
-// and how an edge moves with angle, its index profile and layer
+// and how an edge moves with angle, a measured spectrum file and the design's
+// difference from a curve in one, its index profile and layer
 // thicknesses, what its stack adds up to, a side's admittance locus and
 // electric field, its colour and integral values, a side's Psi and Delta, its
 // phase and group delay, its merit, its verdict against its specification,
 // and how much each layer moves the merit; and the dispersion of a slab of
 // one material. Monte Carlo runs as a job (runTools.js).
 
+import { isAbsolute } from 'node:path';
 import { object, num, int, str, bool, list, oneOf, DESIGN_ID } from './schemaParts.js';
 
 const VIEW_SIDE = oneOf(['front', 'back', 'total'], "'front' or 'back', that side's layers, or 'total', both sides of the part. Default: what the design is scored on");
@@ -28,6 +30,26 @@ const FEATURE_SETTINGS = {
 };
 const FEATURE_LEVEL = num('For edge and fwhm, the level crossed, a fraction of the peak from 0 to 1; below 0.001 or above 0.999 it is taken as 0.001 or 0.999. Default 0.5');
 const FEATURE_EDGE_SIDE = oneOf(['left', 'right'], "For edge, 'right' for the crossing above the peak. Default: the one below it, or the one above where there is none below");
+
+// The import panel's settings, which the readSpectrumFile and measuredDifference tools share.
+const READ_SETTINGS = {
+    angle: num('Angle of incidence in degrees for the curves whose file states none, 0 <= angle < 90. Default 0'),
+    pol: oneOf(['avg', 's', 'p'], "Polarization for the curves whose file states none; a column headed with its polarization, such as Rs, keeps it, and an A column headed with none is avg. Default 'avg'"),
+    quantity: oneOf(['T', 'R', 'A'], 'For a table, the quantity of every column. Default: what each column heading says, T where it says none'),
+    scale: oneOf(['fraction', 'percent', 'absorbance'], "For a table, how every column's values are written. Default: what the import makes of each column"),
+    xUnit: oneOf(['nm', 'um', 'cm-1', 'eV'], 'For a table, the unit of its wavelength column. Default: what the import makes of it, nm where it cannot tell'),
+};
+
+// A spectrum file path the tools take, absolute for the reason designTools.js gives.
+function spectrumPath(path) {
+    if (!isAbsolute(path)) throw new Error(`path is an absolute path, not '${path}'`);
+    return path;
+}
+
+// A curve as the readSpectrumFile tool answers without values: its conditions, how many points and their span.
+const curveSummary = ({ wavelength, values: _values, ...curve }) => ({
+    ...curve, points: wavelength.length, from: wavelength[0], to: wavelength[wavelength.length - 1],
+});
 
 const ONE_SIDE = oneOf(['front', 'back'], "The coated side. Default: the back of a back_only design and the front of any other, the side the PR, GD, PSI and EFMX merit rows score");
 const ANGLE = num('Angle of incidence in degrees in the medium light comes from, 0 <= angle < 90. Default 0');
@@ -120,6 +142,45 @@ export function analysisTools({ api, store }) {
                 return {
                     designId, ...settings, angleCount: angles.length, notCrossedCount: edge.filter(e => e === null).length,
                     ...(values ? { angles, edge, shift, peak, peakValue, levelValue, reason } : { edge: extremes(angles, edge), shift: extremes(angles, shift) }),
+                };
+            },
+        },
+        {
+            name: 'readSpectrumFile', title: 'Read a spectrum file',
+            description: "Reads a measured spectrum file as the Measured Spectra window's import reads it: a CSV or text table, one curve per column after the wavelength column, or a JCAMP-DX file, one curve per spectrum, each what the window would add to a design, wavelengths in nm rising and R, T and A as fractions of 1. The settings take the place of the import panel's, which asks only what the file leaves unsaid: an angle or a polarization the file states, in its header lines or a column's heading, is kept. A JCAMP-DX file takes only angle and pol. Answers with format (table or jcamp), fileName, xUnit (the unit a table's wavelengths were read in, or null), skippedRows (lines of a table that held no row) and curves, each { name, quantity (T, R, A, or PSI or DEL for Psi or Delta), angle, pol, points, from, to } in nm; with values true each curve also has wavelength and values.",
+            inputSchema: object({
+                path: str('Absolute path of the spectrum file'),
+                ...READ_SETTINGS,
+                values: bool('Also answer with every curve\'s wavelengths and values. Default false'),
+            }, ['path']),
+            run: ({ path, values = false, ...options }) => {
+                const read = api.readSpectrumFile(spectrumPath(path), options);
+                return { ...read, curves: read.curves.map(curve => (values ? curve : curveSummary(curve))) };
+            },
+        },
+        {
+            name: 'measuredDifference', title: 'Difference from a measured curve',
+            description: "How a design's spectrum differs from a measured curve in a spectrum file, as the MCURVE merit row the Measured Spectra window's Fit dialog writes scores it: the curve read as readSpectrumFile reads it, sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization, the way the design's surface mode says, as the merit function scores it, averaged over the design's cone of incidence when it has one. Only a T, R or A curve is compared. Answers with mode (front, back or total), name, quantity, angle, pol, grid, db, levelFree, clipped (true when fewer wavelengths were compared than asked for), rms (the MCURVE row's value, a fraction of 1 or dB with db), ppef (a PPEF row's value, the spread of measured less design in dB), level (the mean difference taken off with levelFree, else null), points, from and to (nm) and deviation { min, minAt, max, maxAt }, design less measured; with values true, also wavelength, measured, design and deviation at every point.",
+            inputSchema: object({
+                designId: DESIGN_ID,
+                path: str('Absolute path of the spectrum file'),
+                curve: { type: ['string', 'integer'], description: 'For a file of several curves, the one compared, by its name or its number from 0' },
+                ...READ_SETTINGS,
+                grid: oneOf(['measured', 'thinned', 'uniform'], "'measured', the curve's own points; 'thinned', every thinEvery-th of them and the last; 'uniform', every step nm, the curve read between its points with PCHIP. Default 'measured'"),
+                step: num("With grid 'uniform', the step in nm. Default: the curve's median spacing"),
+                thinEvery: int("With grid 'thinned', which points are kept. Default 2"),
+                from: num("First wavelength compared, nm. Default: the curve's first"),
+                to: num("Last wavelength compared, nm. Default: the curve's last"),
+                db: bool('For a T curve, compare in dB, as the dialog\'s dB scale does; points at or below 0 are left out. Default false'),
+                levelFree: bool('Take off the mean difference before the RMS, as an MCURVE row with its level free scores. Default false'),
+                values: bool('Also answer with the values at every point. Default false'),
+            }, ['designId', 'path']),
+            run: ({ designId, path, values = false, ...options }) => {
+                const found = api.measuredDifference(store.get(designId), spectrumPath(path), options);
+                const { wavelength, measured, design, deviation, ...settings } = found;
+                return {
+                    designId, ...settings, points: wavelength.length, from: wavelength[0], to: wavelength[wavelength.length - 1],
+                    ...(values ? { wavelength, measured, design, deviation } : { deviation: extremes(wavelength, deviation) }),
                 };
             },
         },

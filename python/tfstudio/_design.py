@@ -6,6 +6,7 @@ import numbers
 
 from ._admittance import Admittance
 from ._band_feature import EdgeShift, answered
+from ._measured import measured_argument, measured_difference
 from ._color import Color
 from ._design_edits import differences_of
 from ._electric_field import ElectricField
@@ -53,6 +54,12 @@ _MONTE_CARLO_OPTIONS = ("quantity", "step", "angle", "polarization", "runs", "th
 # design.group_delay() takes the range as its arguments.
 _EDGE_SHIFT_WORDS = Words("edgeShift", "edge_shift", hidden=("from", "to", "angles"))
 _EDGE_SHIFT_OPTIONS = ("quantity", "level", "edge_side", "direction", "step")
+_COMPARE_OPTIONS = ("curve", "angle", "pol", "quantity", "scale", "x_unit", "grid", "step", "thin_every", "start",
+                    "end", "db", "level_free")
+# design.compare_measured()'s names for measuredDifference's from and to,
+# which Python cannot take as keywords.
+_COMPARE_NAMES = {"start": "from", "end": "to"}
+_COMPARE_WORDS = Words("measuredDifference", "compare_measured", names={"from": "start", "to": "end"})
 _GROUP_DELAY_WORDS = Words("groupDelay", "group_delay", hidden=("from", "to"))
 _GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference")
 
@@ -1055,6 +1062,75 @@ class Design:
         with worded(_EDGE_SHIFT_WORDS):
             answer = self._calls.edgeShift(self._data, dict(api_names(options), angles=angles, **{"from": start, "to": end}))
         return answered(EdgeShift, answer)
+
+    def compare_measured(self, measured, **options):
+        """How the design's spectrum differs from a measured curve, as the
+        MCURVE merit row the Measured Spectra window's Fit... dialog writes
+        scores it: the curve sampled on the dialog's grid and kept to the
+        span every material of the design has data for, and the design read
+        at each point at the curve's angle and polarization. What it is read
+        on follows the design's sides and score_on, as the merit function
+        scores it, and a design under a cone of incidence is averaged over
+        its cone.
+
+        Args:
+            measured: The path of a spectrum file, read as
+                tf.read_spectrum_file() reads it, or a MeasuredCurve that gives,
+                or a dict of wavelength, values, quantity, angle, pol and name,
+                its values fractions of 1, quantity "T" unless given, angle 0
+                and pol "avg".
+            curve: For a file of several curves, the one compared, by its
+                name or its number from 0.
+            angle: For a file, as tf.read_spectrum_file() takes it.
+            pol: For a file, as tf.read_spectrum_file() takes it.
+            quantity: For a file, as tf.read_spectrum_file() takes it.
+            scale: For a file, as tf.read_spectrum_file() takes it.
+            x_unit: For a file, as tf.read_spectrum_file() takes it.
+            grid: "measured", the curve's own points; "thinned", every
+                thin_every-th of them and the last; or "uniform", every step
+                nm, the curve read between its points as the dialog reads it.
+                Default "measured".
+            step: With grid "uniform", the step, nm. Default: the curve's
+                median spacing.
+            thin_every: With grid "thinned", which points are kept. Default 2.
+            start: The first wavelength compared, nm. Default: the curve's first.
+            end: The last wavelength compared, nm. Default: the curve's last.
+            db: For a T curve, True compares in dB, as the dialog's dB scale
+                does. Default False.
+            level_free: True takes off the mean difference before the RMS, as
+                an MCURVE row with its level free scores. Default False.
+
+        Returns:
+            A MeasuredDifference, a named tuple: rms, the MCURVE row's value,
+            a fraction of 1 or dB with db; ppef, a PPEF row's value against
+            it, dB; level, the mean difference taken off with level_free,
+            otherwise None; wavelength, the wavelengths compared, nm, and at
+            each measured, design and deviation, design less measured (less
+            level); clipped, True when fewer wavelengths were compared than
+            asked for; and mode, name, quantity, angle, pol, grid, db and
+            level_free.
+
+        Raises:
+            TFStudioError: a measured that is not a file path or a curve, a
+                file that cannot be read or holds no spectrum, a file of
+                several curves without curve, a curve that is not R, T or A,
+                an option it does not take or a value an option cannot take,
+                no point to compare, or a design that names a material that
+                resolves to nothing.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("0.5H L")
+            scan = {"quantity": "R", "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]}
+            d = design.compare_measured(scan)
+            print("RMS", round(d.rms, 4), "PPEF", round(d.ppef, 2), "dB")
+        """
+        refuse_arguments("compare_measured", options, ("from", "to"), _COMPARE_OPTIONS)
+        given = api_names({_COMPARE_NAMES.get(name, name): value for name, value in options.items()})
+        with worded(_COMPARE_WORDS):
+            answer = self._calls.measuredDifference(self._data, measured_argument(measured), given)
+        return measured_difference(answer)
 
     def index_profile(self, wavelength=None, side=None):
         """The refractive index of the layers at one wavelength, laid out by

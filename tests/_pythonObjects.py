@@ -64,6 +64,7 @@ def objects(given):
         group_delay(tf)
         material_dispersion(tf)
         band_features(tf)
+        measured_curves(tf)
         runs(design, given)
         progress(design, given)
         stopping(design, given)
@@ -702,6 +703,29 @@ def band_features(tf):
     out({"bandFeatures": {"design": before, "lwp": lwp._data, "asked": [a._asdict() for a in asked],
                           "again": [a._asdict() for a in again], "moved": moved._asdict(),
                           "types": [type(a).__name__ for a in asked + [moved]], "worded": worded}})
+
+
+def measured_curves(tf):
+    """tf.read_spectrum_file() at its defaults and with keywords,
+    design.compare_measured() on a file and on a MeasuredCurve, the named
+    tuples they give, and their refusals."""
+    name = "scan.csv"
+    with open(name, "w") as f:
+        f.write("# AOI 8 deg\nWavelength (nm),R,Ts\n450,0.1,0.85\n500,0.06,0.9\n550,0.04,0.93\n600,0.05,0.91\n650,0.08,0.88\n")
+    read = tf.read_spectrum_file(name)
+    changed = tf.read_spectrum_file(name, angle=12, x_unit="nm", scale="fraction")
+    design = tf.new_design("AR")
+    design.stack("0.5H L")
+    on_file = design.compare_measured(name, curve=1, grid="uniform", step=5, level_free=True, start=460, end=640)
+    on_curve = design.compare_measured(read.curves[0])
+    as_dict = lambda file: dict(file._asdict(), curves=[curve._asdict() for curve in file.curves])
+    worded = [refused(make) for make in (
+        lambda: design.compare_measured(name, curve=7), lambda: design.compare_measured(read.curves[0], to=700),
+        lambda: design.compare_measured(read.curves[0], db=True), lambda: design.compare_measured(read.curves[0], angle=5),
+        lambda: tf.read_spectrum_file(name, x_unit="mm"))]
+    out({"measured": {"design": design._data, "read": as_dict(read), "changed": as_dict(changed),
+                      "onFile": on_file._asdict(), "onCurve": on_curve._asdict(),
+                      "types": [type(x).__name__ for x in (read, read.curves[0], on_file)], "worded": worded}})
 
 
 def ran(before, design, result):

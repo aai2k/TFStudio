@@ -12,7 +12,9 @@
  *      writes) and opened again, a layer set by its QWOT, sides scaled,
  *      rounded, perturbed, flipped and copied, one rounding and one flip
  *      refused, two designs compared, spectra, a band's
- *      width and an edge against angle, index
+ *      width and an edge against angle, a spectrum file read and a design
+ *      compared with a curve of it or one given, and a file of several curves
+ *      compared without naming one refused, index
  *      profiles, one of a side with no layers refused, layer thicknesses,
  *      the design's facts, admittance loci and electric fields, one of a
  *      side with no layers refused, colours, one with an observer refused,
@@ -276,6 +278,8 @@ const STOPPED_WITHIN_S = 5;
     const there = path.join(WORK, 'there.tfs');
     const here = path.join(WORK, 'here.tfs');
     const spectrum = api.spectrum(stack, { from: 400, to: 700, step: 10, angles: [0, 45] });
+    const scan = path.join(WORK, 'scan.csv');
+    fs.writeFileSync(scan, '# AOI 8 deg\nWavelength (nm),R,Ts\n450,0.1,0.85\n500,0.06,0.9\n550,0.04,0.93\n600,0.05,0.91\n650,0.08,0.88\n');
     const CALLS = [
         ['newDesign', [{ name: 'AR', substrate: 'SiO2', referenceWavelength: 600 }]],
         ['setDesignSetup', [stack, { referenceWavelength: 600, surfaceMode: 'symmetric' }]],
@@ -302,6 +306,10 @@ const STOPPED_WITHIN_S = 5;
         ['summarize', [spectrum, { bands: [{ from: 450, to: 650 }] }]],
         ['bandFeature', [stack, { feature: 'fwhm', from: 400, to: 700, quantity: 'R', angle: 30, level: 0.3 }]],
         ['edgeShift', [stack, { from: 400, to: 700, angles: [0, 30], quantity: 'R' }]],
+        ['readSpectrumFile', [scan, { pol: 'p' }]],
+        ['measuredDifference', [stack, scan, { curve: 1, grid: 'uniform', step: 5, levelFree: true }]],
+        ['measuredDifference', [stack, { quantity: 'R', wavelength: [450, 550, 650], values: [0.1, 0.05, 0.08] }]],
+        ['measuredDifference', [stack, scan]],
         ['indexProfile', [stack, { wavelength: 633 }]],
         ['indexProfile', [stack, { side: 'back' }]],
         ['layerThicknesses', [stack, { side: 'total' }]],

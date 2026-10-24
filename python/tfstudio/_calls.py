@@ -114,6 +114,14 @@ class Calls:
     def edgeShift(self, design, options):
         return self._call("edgeShift", design, options)
 
+    def readSpectrumFile(self, filePath, options=None):
+        return self._call("readSpectrumFile", _absolute(filePath), options)
+
+    def measuredDifference(self, design, measured, options=None):
+        if isinstance(measured, (str, os.PathLike)):
+            measured = _absolute(measured)
+        return self._call("measuredDifference", design, measured, options)
+
     def indexProfile(self, design, options=None):
         return self._call("indexProfile", design, options)
 

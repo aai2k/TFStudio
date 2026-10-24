@@ -7,6 +7,7 @@ from ._calls import Calls
 from ._design import Design
 from ._errors import TFStudioError
 from ._material_dispersion import MaterialDispersion
+from ._measured import spectrum_file
 from ._names import api_names
 from ._refusals import Words, refuse_arguments, worded
 
@@ -590,6 +591,59 @@ class TFStudio:
             print(design.name, len(design.layers), "layers, from", name)
         """
         return Design(self._calls, self._calls.openDesign(path))
+
+    def read_spectrum_file(self, path, **options):
+        """Reads a spectrum file as the Measured Spectra window's import
+        reads it: a CSV or text table, one curve per column after the
+        wavelength column, or a JCAMP-DX file, one curve per spectrum, each
+        what the window would add to a design. The keywords take the place of
+        the import panel's settings, which ask only what the file leaves
+        unsaid: an angle or a polarization the file states, in its header
+        lines or in a column's heading, is kept, as in the window.
+
+        Args:
+            path: The file. A relative path is taken as open_design() takes it.
+            angle: The angle of incidence, degrees, for the curves whose file
+                states none. Default: 0 where neither does.
+            pol: "avg", "s" or "p", for the curves whose file states none.
+                Default: "avg" where neither does. A column headed with its
+                polarization, such as Rs, keeps it, and an A column headed
+                with none is "avg".
+            quantity: For a table, "T", "R" or "A" for every column. Default:
+                what each column's heading says, and T where it says none.
+            scale: For a table, how every column's values are written:
+                "fraction", "percent" or "absorbance". Default: what the
+                import makes of each column.
+            x_unit: For a table, the unit of its wavelength column: "nm",
+                "um", "cm-1" or "eV". Default: what the import makes of it.
+
+        Returns:
+            A SpectrumFile, a named tuple: format, "table" or "jcamp";
+            file_name; x_unit, the unit a table's wavelengths were read in,
+            or None; skipped_rows, lines of a table that held no row; and
+            curves, each a MeasuredCurve, a named tuple of name, quantity,
+            angle, pol, wavelength and values, the wavelengths in nm rising
+            and R, T and A as fractions of 1, which design.compare_measured()
+            takes.
+
+        Raises:
+            TFStudioError: a file that cannot be read or holds no spectrum the
+                import reads, an option it does not take or a value an option
+                cannot take, or for a JCAMP-DX file an option other than angle
+                and pol.
+
+        Example::
+
+            import time
+
+            name = "scan-{}.csv".format(time.time_ns())
+            with open(name, "w") as f:
+                f.write("Wavelength (nm),%R\\n450,2.1\\n550,0.9\\n650,1.8\\n")
+            scan = tf.read_spectrum_file(name).curves[0]
+            print(scan.name, scan.quantity, scan.wavelength, scan.values)
+        """
+        with worded(Words("readSpectrumFile", "read_spectrum_file")):
+            return spectrum_file(self._calls.readSpectrumFile(path, api_names(options)))
 
     def close(self):
         """Ends the TFStudio serving this program, after stopping a run it

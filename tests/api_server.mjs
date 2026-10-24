@@ -14,7 +14,10 @@
  *      fields; a side scaled, rounded, perturbed with its seed and copied,
  *      a flip of a closed side refused with its code and fields, and two
  *      designs compared; the spectrum at two angles, summarized from what came over
- *      the wire; a band's width and an edge against angle; an index profile, layer thicknesses and the design's facts,
+ *      the wire; a band's width and an edge against angle; a spectrum file
+ *      read and a design compared with a curve of it, and a file of several
+ *      curves compared without naming one refused, naming them;
+ *      an index profile, layer thicknesses and the design's facts,
  *      a layer set by its QWOT, a side with no layers refused with its code
  *      and fields, and a QWOT the Design Editor has none of crossing as null;
  *      a side's admittance locus and electric field, and a side with no layer
@@ -189,6 +192,12 @@ const specified = api.setSpecification(start, CHECKS);
     await same('summarize', [spectrum.result, { bands: [{ from: 450, to: 650 }] }]);
     await same('bandFeature', [stack, { feature: 'fwhm', from: 400, to: 700, quantity: 'R', angle: 30, level: 0.3 }]);
     await same('edgeShift', [stack, { from: 400, to: 700, angles: [0, 30], quantity: 'R' }]);
+    const scan = path.join(TEMP, 'scan.csv');
+    fs.writeFileSync(scan, '# AOI 8 deg\nWavelength (nm),R,Ts\n450,0.1,0.85\n500,0.06,0.9\n550,0.04,0.93\n600,0.05,0.91\n650,0.08,0.88\n');
+    await same('readSpectrumFile', [scan, { pol: 'p' }]);
+    await same('measuredDifference', [stack, scan, { curve: 1, grid: 'uniform', step: 5, levelFree: true }]);
+    const several = await same('measuredDifference', [stack, scan]);
+    ok('a file of several curves compared without curve is refused, naming them', /holds 2 curves \(scan: R, scan: Ts\); curve names/.test(several.error?.message), JSON.stringify(several.error));
     const twoSided = api.insertLayer(api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { side: 'back', material: 'MgF2', thickness: 90 });
     await same('indexProfile', [twoSided, { wavelength: 633 }]);
     await same('indexProfile', [stack, { side: 'front' }]);

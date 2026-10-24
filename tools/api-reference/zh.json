@@ -3662,5 +3662,165 @@
   "Layers.flip.refuses.1": {
     "hash": "4514fc7b",
     "text": "设计不允许编辑的一面，例如对称设计的背面"
+  },
+  "TFStudio.readSpectrumFile.arg.path.js": {
+    "hash": "4857de1f",
+    "text": "文件，给出完整路径。相对路径按 `openDesign` 的方式解释。"
+  },
+  "TFStudio.readSpectrumFile.arg.path.py": {
+    "hash": "723a9967",
+    "text": "文件。相对路径按 open_design() 的方式解释。"
+  },
+  "TFStudio.readSpectrumFile.arg.angle.js": {
+    "hash": "715ec2b7",
+    "text": "入射角，单位度，用于文件未说明入射角的曲线；两者都未给出时为 0。"
+  },
+  "TFStudio.readSpectrumFile.arg.angle.py": {
+    "hash": "1da9dd32",
+    "text": "入射角，单位度，用于文件未说明入射角的曲线。不给出时，两者都未给出则为 0。"
+  },
+  "TFStudio.readSpectrumFile.arg.pol.js": {
+    "hash": "17abcec9",
+    "text": "`'avg'`、`'s'` 或 `'p'`，用于文件未说明偏振的曲线；两者都未给出时为 `'avg'`。标题中写明偏振的列（如 Rs）保留其偏振，未写明偏振的 A 列为 `'avg'`。"
+  },
+  "TFStudio.readSpectrumFile.arg.pol.py": {
+    "hash": "6b76efee",
+    "text": "\"avg\"、\"s\" 或 \"p\"，用于文件未说明偏振的曲线。不给出时，两者都未给出则为 \"avg\"。标题中写明偏振的列（如 Rs）保留其偏振，未写明偏振的 A 列为 \"avg\"。"
+  },
+  "TFStudio.readSpectrumFile.arg.quantity.js": {
+    "hash": "52ed3acb",
+    "text": "对表格文件，所有列的物理量 `'T'`、`'R'` 或 `'A'`；不给出时，取各列标题所写的物理量，标题未写时为 T。"
+  },
+  "TFStudio.readSpectrumFile.arg.quantity.py": {
+    "hash": "3447ba11",
+    "text": "对表格文件，所有列的物理量 \"T\"、\"R\" 或 \"A\"。不给出时，取各列标题所写的物理量，标题未写时为 T。"
+  },
+  "TFStudio.readSpectrumFile.arg.scale.js": {
+    "hash": "8e0de79d",
+    "text": "对表格文件，所有列数值的写法：`'fraction'`、`'percent'` 或 `'absorbance'`；不给出时，取导入对各列的判断。"
+  },
+  "TFStudio.readSpectrumFile.arg.scale.py": {
+    "hash": "51b55517",
+    "text": "对表格文件，所有列数值的写法：\"fraction\"、\"percent\" 或 \"absorbance\"。不给出时，取导入对各列的判断。"
+  },
+  "TFStudio.readSpectrumFile.arg.xUnit.js": {
+    "hash": "fff6b063",
+    "text": "对表格文件，其波长列的单位：`'nm'`、`'um'`、`'cm-1'` 或 `'eV'`；不给出时，取导入对它的判断。"
+  },
+  "TFStudio.readSpectrumFile.arg.xUnit.py": {
+    "hash": "bc5d5ea9",
+    "text": "对表格文件，其波长列的单位：\"nm\"、\"um\"、\"cm-1\" 或 \"eV\"。不给出时，取导入对它的判断。"
+  },
+  "TFStudio.readSpectrumFile.returns.js": {
+    "hash": "b4e2c71c",
+    "text": "一个对象：`format`，`'table'` 或 `'jcamp'`；`fileName`；`xUnit`，表格波长读取时所用的单位，或 null；`skippedRows`，表格中不含数据行的行数；以及 `curves`，每条为 `{ name, quantity, angle, pol, wavelength, values }`，波长单位 nm 且递增，R、T 和 A 为 1 的分数，可交给 `design.compareMeasured()`。"
+  },
+  "TFStudio.readSpectrumFile.returns.py": {
+    "hash": "fd1655b3",
+    "text": "一个 SpectrumFile，即命名元组：format，\"table\" 或 \"jcamp\"；file_name；x_unit，表格波长读取时所用的单位，或 None；skipped_rows，表格中不含数据行的行数；以及 curves，每条为一个 MeasuredCurve，即由 name、quantity、angle、pol、wavelength 和 values 组成的命名元组，波长单位 nm 且递增，R、T 和 A 为 1 的分数，可交给 design.compare_measured()。"
+  },
+  "TFStudio.readSpectrumFile.lead.1.js": {
+    "hash": "a744dd63",
+    "text": "按实测光谱窗口的导入方式读取光谱文件：CSV 或文本表格，波长列之后每列一条曲线；或 JCAMP-DX 文件，每个光谱一条曲线；每条都是该窗口会添加到设计中的曲线。选项代替导入面板的设置，面板只询问文件未写明的内容：文件在表头行或列标题中写明的入射角或偏振予以保留，与窗口中相同。"
+  },
+  "TFStudio.readSpectrumFile.lead.1.py": {
+    "hash": "1817d0a9",
+    "text": "按实测光谱窗口的导入方式读取光谱文件：CSV 或文本表格，波长列之后每列一条曲线；或 JCAMP-DX 文件，每个光谱一条曲线；每条都是该窗口会添加到设计中的曲线。关键字参数代替导入面板的设置，面板只询问文件未写明的内容：文件在表头行或列标题中写明的入射角或偏振予以保留，与窗口中相同。"
+  },
+  "TFStudio.readSpectrumFile.refuses.1": {
+    "hash": "11fd0791",
+    "text": "无法读取或不含导入可读光谱的文件、不接受的选项或选项无法取的值，或对 JCAMP-DX 文件给出 angle 和 pol 以外的选项"
+  },
+  "Design.compareMeasured.arg.measured.js": {
+    "hash": "0a0adc76",
+    "text": "光谱文件的路径，按 `tf.readSpectrumFile()` 的方式读取；或它给出的那种曲线 `{ wavelength, values, quantity, angle, pol, name }`，数值为 1 的分数，未给出时 quantity 为 `'T'`，angle 为 0，pol 为 `'avg'`。"
+  },
+  "Design.compareMeasured.arg.measured.py": {
+    "hash": "19bf62e1",
+    "text": "光谱文件的路径，按 tf.read_spectrum_file() 的方式读取；或它给出的 MeasuredCurve；或由 wavelength、values、quantity、angle、pol 和 name 组成的 dict，数值为 1 的分数，未给出时 quantity 为 \"T\"，angle 为 0，pol 为 \"avg\"。"
+  },
+  "Design.compareMeasured.arg.curve": {
+    "hash": "03d7efe1",
+    "text": "对含多条曲线的文件，要比较的那条，按其名称或从 0 起的编号。"
+  },
+  "Design.compareMeasured.arg.angle": {
+    "hash": "b8dd61c8",
+    "text": "对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。"
+  },
+  "Design.compareMeasured.arg.pol": {
+    "hash": "b8dd61c8",
+    "text": "对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。"
+  },
+  "Design.compareMeasured.arg.quantity": {
+    "hash": "b8dd61c8",
+    "text": "对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。"
+  },
+  "Design.compareMeasured.arg.scale": {
+    "hash": "b8dd61c8",
+    "text": "对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。"
+  },
+  "Design.compareMeasured.arg.xUnit": {
+    "hash": "b8dd61c8",
+    "text": "对文件，与 `tf.readSpectrumFile()` / `tf.read_spectrum_file()` 的取法相同。"
+  },
+  "Design.compareMeasured.arg.grid": {
+    "hash": "5fc334f4",
+    "text": "`'measured'`，曲线自身的点；`'thinned'`，每 `thinEvery-th` / `thin_every-th` 个点取一个，外加最后一个；或 `'uniform'`，每隔 `step` nm 取一点，点与点之间按对话框的方式读取曲线。"
+  },
+  "Design.compareMeasured.arg.step.js": {
+    "hash": "9e086a7a",
+    "text": "网格为 `'uniform'` 时的步长，单位 nm；不给出时为曲线点距的中位数。"
+  },
+  "Design.compareMeasured.arg.step.py": {
+    "hash": "8dba1524",
+    "text": "网格为 \"uniform\" 时的步长，单位 nm。不给出时为曲线点距的中位数。"
+  },
+  "Design.compareMeasured.arg.thinEvery": {
+    "hash": "36ad21b6",
+    "text": "网格为 `'thinned'` 时保留哪些点。"
+  },
+  "Design.compareMeasured.arg.start.js": {
+    "hash": "df6c2880",
+    "text": "比较的第一个波长，单位 nm；不给出时为曲线的第一个波长。"
+  },
+  "Design.compareMeasured.arg.start.py": {
+    "hash": "716a411e",
+    "text": "比较的第一个波长，单位 nm。不给出时为曲线的第一个波长。"
+  },
+  "Design.compareMeasured.arg.end.js": {
+    "hash": "c5a62a9c",
+    "text": "比较的最后一个波长，单位 nm；不给出时为曲线的最后一个波长。"
+  },
+  "Design.compareMeasured.arg.end.py": {
+    "hash": "6a7082e9",
+    "text": "比较的最后一个波长，单位 nm。不给出时为曲线的最后一个波长。"
+  },
+  "Design.compareMeasured.arg.db": {
+    "hash": "721cecfc",
+    "text": "对 T 曲线，`true` / `True` 以 dB 比较，与对话框的 dB 标度相同。"
+  },
+  "Design.compareMeasured.arg.levelFree": {
+    "hash": "216212d6",
+    "text": "`true` / `True` 在求 RMS 之前减去平均差值，与电平自由的 MCURVE 行的评分方式相同。"
+  },
+  "Design.compareMeasured.returns.js": {
+    "hash": "8398ad2b",
+    "text": "一个对象：`rms`，MCURVE 行的值，为 1 的分数，使用 `db` 时为 dB；`ppef`，针对它的 PPEF 行的值，单位 dB；`level`，使用 `levelFree` 时减去的平均差值，否则为 null；`wavelength`，比较的波长，单位 nm，以及每个波长处的 `measured`、`design` 和 `deviation`，即设计值减实测值（再减 `level`）；`clipped`，比较的波长少于所要求的时为 true；以及 `mode`、`name`、`quantity`、`angle`、`pol`、`grid`、`db` 和 `levelFree`。"
+  },
+  "Design.compareMeasured.returns.py": {
+    "hash": "a842d708",
+    "text": "一个 MeasuredDifference，即命名元组：rms，MCURVE 行的值，为 1 的分数，使用 db 时为 dB；ppef，针对它的 PPEF 行的值，单位 dB；level，使用 level_free 时减去的平均差值，否则为 None；wavelength，比较的波长，单位 nm，以及每个波长处的 measured、design 和 deviation，即设计值减实测值（再减 level）；clipped，比较的波长少于所要求的时为 True；以及 mode、name、quantity、angle、pol、grid、db 和 level_free。"
+  },
+  "Design.compareMeasured.lead.1.js": {
+    "hash": "88d6c3a7",
+    "text": "设计的光谱与一条实测曲线相差多少，按实测光谱窗口的“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。计算对象取决于设计的 `sides` 和 `scoreOn`，与评价函数的评分方式相同；有入射锥角的设计在其锥角上平均。"
+  },
+  "Design.compareMeasured.lead.1.py": {
+    "hash": "0a7a84e4",
+    "text": "设计的光谱与一条实测曲线相差多少，按实测光谱窗口的“拟合…”对话框所写的 MCURVE 评价函数行的方式评分：曲线在对话框的网格上取样，并限制在设计的每种材料都有数据的范围内，设计在每个点按曲线的入射角和偏振读取。计算对象取决于设计的 sides 和 score_on，与评价函数的评分方式相同；有入射锥角的设计在其锥角上平均。"
+  },
+  "Design.compareMeasured.refuses.1": {
+    "hash": "eb876216",
+    "text": "既不是文件路径也不是曲线的 measured、无法读取或不含光谱的文件、含多条曲线却未给出 `curve` 的文件、不是 R、T 或 A 的曲线、不接受的选项或选项无法取的值、没有可比较的点，或设计中有无法解析的材料"
   }
 }

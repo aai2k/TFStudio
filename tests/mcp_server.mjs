@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 45
+ *   1. The session: initialize and version negotiation, the tool list (the 47
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -10,7 +10,9 @@
  *      and an unknown tool. The server answers on after each.
  *   2. Designs: a quarter-wave stack built through the tools has the spectrum,
  *      a band's width, an edge against angle (in short with counts and
- *      extremes, in full with every angle), a copy perturbed with its seed
+ *      extremes, in full with every angle), a spectrum file read and the
+ *      design compared with a curve of it (in short with counts, spans and
+ *      extremes, in full with every point), a relative file path refused, a copy perturbed with its seed
  *      and the differences from it (in short with counts and the largest
  *      change, in full with every layer), merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
@@ -80,7 +82,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 45 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 47 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -129,6 +131,21 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('edgeShift answers with counts and the extremes of the edge and shift, and every angle\'s values for values true',
         JSON.stringify([shortMoved.angleCount, shortMoved.notCrossedCount, shortMoved.edge?.max, shortMoved.edge?.maxAt, shortMoved.shift?.min, shortMoved.shift?.minAt, shortMoved.angles, fullMoved.edge, fullMoved.reason])
         === JSON.stringify([3, 0, moved.edge[0], 0, moved.shift[2], 30, undefined, moved.edge, moved.reason]) && moved.shift[2] < 0, JSON.stringify(shortMoved));
+    const scan = path.join(TEMP, 'scan.csv');
+    fs.writeFileSync(scan, '# AOI 8 deg\nWavelength (nm),R,Ts\n500,0.9,0.05\n550,0.96,0.02\n600,0.93,0.04\n650,0.7,0.25\n');
+    const read = api.readSpectrumFile(scan);
+    const shortRead = await server.call('readSpectrumFile', { path: scan });
+    const fullRead = await server.call('readSpectrumFile', { path: scan, values: true });
+    ok('readSpectrumFile answers with each curve\'s conditions, points and span, and its values for values true',
+        JSON.stringify(shortRead.curves) === JSON.stringify(read.curves.map(({ wavelength, values: _v, ...c }) => ({ ...c, points: 4, from: 500, to: 650 })))
+        && JSON.stringify(fullRead) === JSON.stringify(read) && shortRead.curves[1].pol === 's', JSON.stringify(shortRead));
+    const compared = api.measuredDifference(local, scan, { curve: 0, levelFree: true });
+    const shortCompared = await server.call('measuredDifference', { designId: id, path: scan, curve: 0, levelFree: true });
+    const fullCompared = await server.call('measuredDifference', { designId: id, path: scan, curve: 0, levelFree: true, values: true });
+    ok('measuredDifference answers with the RMS, the PPEF, the count and the extremes of the deviation, and every point for values true',
+        JSON.stringify([shortCompared.rms, shortCompared.ppef, shortCompared.points, shortCompared.deviation?.max, shortCompared.wavelength, fullCompared.deviation, fullCompared.design])
+        === JSON.stringify([compared.rms, compared.ppef, 4, Math.max(...compared.deviation), undefined, compared.deviation, compared.design]), JSON.stringify(shortCompared));
+    ok('a relative spectrum path is refused', /absolute path/.test((await server.call('readSpectrumFile', { path: 'scan.csv' })).error));
     const copyId = (await server.call('copyDesign', { designId: id })).designId;
     const kicked = await server.call('perturb', { designId: copyId, percent: 4, seed: 12 });
     const kickedHere = api.perturb(local, { percent: 4, seed: 12 }).design;

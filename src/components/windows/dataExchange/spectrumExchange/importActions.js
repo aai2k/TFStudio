@@ -1,34 +1,8 @@
-import { parseJcampDx } from '../../../../utils/io/jcampDx.js';
-import {
-    makeMeasuredCurve, measuredCurveId, parseSpectrumTable, X_UNITS,
-} from '../../../../utils/io/spectrumTable.js';
+import { measuredCurveId } from '../../../../utils/io/spectrumTable.js';
 import { useCurveEdits } from './curveEdits.js';
-import { isJcampText } from './model.js';
+import { jcampCurves, readSpectrumText, tableConditions, tableCurves } from './importedCurves.js';
 
 const { useCallback, useMemo } = React;
-
-// Absorptance is what the sample keeps of everything that reached it, so it has
-// no polarization to pick and the panel asks for none. Stamping the setting
-// left over from another column would model the curve at the wrong one.
-const polarizationFor = (quantity, pol) => (quantity === 'A' ? 'avg' : pol);
-
-function importedJcampCurves(jcamp, result, conditions) {
-    const baseName = (result.fileName || 'spectrum').replace(/\.[^.]+$/, '');
-    return jcamp.spectra.map((spectrum, index) => makeMeasuredCurve({
-        name: spectrum.title && spectrum.title !== 'JCAMP-DX'
-            ? spectrum.title
-            : `${baseName}${jcamp.spectra.length > 1 ? ' ' + (index + 1) : ''}`,
-        x: spectrum.x,
-        xUnit: spectrum.xUnit,
-        y: spectrum.y,
-        quantity: spectrum.quantity || 'T',
-        isPercent: spectrum.isPercent,
-        isAbsorbance: spectrum.isAbsorbance,
-        source: result.fileName,
-        ...conditions,
-        pol: polarizationFor(spectrum.quantity || 'T', conditions.pol),
-    }));
-}
 
 function useImportFile(options) {
     const {
@@ -46,15 +20,15 @@ function useImportFile(options) {
                 setLoading(false);
                 return;
             }
-            if (isJcampText(result.text)) {
-                const jcamp = parseJcampDx(result.text);
-                if (!jcamp.ok) {
-                    flash('error', sx.errParse);
-                    setLoading(false);
-                    return;
-                }
+            const read = readSpectrumText(result.text);
+            if (read.error) {
+                flash('error', sx.errParse);
+                setLoading(false);
+                return;
+            }
+            if (read.jcamp) {
                 checkpoint();
-                const added = importedJcampCurves(jcamp, result, { aoi, pol });
+                const added = jcampCurves(read.jcamp, result.fileName, { aoi, pol });
                 updateDesign({ measuredCurves: [...(design.measuredCurves || []), ...added] });
                 setParsed(null); setOv({});
                 setFileName(result.fileName || 'spectrum');
@@ -63,20 +37,12 @@ function useImportFile(options) {
                 setLoading(false);
                 return;
             }
-            const nextParsed = parseSpectrumTable(result.text);
-            if (!nextParsed.ok) {
-                flash('error', sx.errParse);
-                setLoading(false);
-                return;
-            }
+            const nextParsed = read.table;
+            const stated = tableConditions(nextParsed);
             setParsed(nextParsed); setFileName(result.fileName || 'spectrum');
-            setColIdx(0); setOv({}); setXUnit(nextParsed.xUnit === X_UNITS.UNKNOWN ? X_UNITS.NM : nextParsed.xUnit);
-            // Conditions the file states replace the panel's own. A file that
-            // declares none leaves every setting as the user left it, so an
-            // instrument export without a header still imports as before.
-            const detectedAoi = nextParsed.aoi ?? nextParsed.columns.find(column => Number.isFinite(column.aoi))?.aoi;
-            if (Number.isFinite(detectedAoi)) setAoi?.(detectedAoi);
-            if (nextParsed.pol) setPol?.(nextParsed.pol);
+            setColIdx(0); setOv({}); setXUnit(stated.xUnit);
+            if (stated.aoi !== undefined) setAoi?.(stated.aoi);
+            if (stated.pol !== undefined) setPol?.(stated.pol);
             const loadedMessage = sx.loaded(result.fileName || '', nextParsed.nRows, nextParsed.columns.length);
             // Rows of the file were dropped: a warning, so the report stays up.
             if (nextParsed.skippedRows > 0) flash('warning', `${loadedMessage}. ${sx.skippedRows(nextParsed.skippedRows)}`);
@@ -86,15 +52,6 @@ function useImportFile(options) {
         }
         setLoading(false);
     }, [sx, design, updateDesign, checkpoint, aoi, pol]);
-}
-
-function columnScale(column, override) {
-    return override.yscale || (column.isAbsorbance ? 'absorbance' : (column.isPercent ? 'percent' : 'fraction'));
-}
-
-function defaultCurveName(fileName, parsed, column) {
-    const base = (fileName || 'spectrum').replace(/\.[^.]+$/, '');
-    return parsed.columns.length > 1 ? `${base}: ${column.name}` : base;
 }
 
 export function useImportActions(options) {
@@ -109,26 +66,10 @@ export function useImportActions(options) {
 
     const previewCurves = useMemo(() => {
         if (!parsed) return [];
-        return parsed.columns.map((column, index) => {
-            const selectedFallback = index === selectedIndex ? { name, quantity, yscale } : {};
-            const override = { ...selectedFallback, ...(ov[index] || {}) };
-            const resolvedScale = columnScale(column, override);
-            const quantityOf = override.quantity || column.quantity || 'T';
-            return makeMeasuredCurve({
-                name: override.name || defaultCurveName(fileName, parsed, column),
-                x: column.x || parsed.x,
-                xUnit,
-                y: column.values,
-                quantity: quantityOf,
-                isPercent: resolvedScale === 'percent',
-                isAbsorbance: resolvedScale === 'absorbance',
-                source: fileName,
-                aoi: Number.isFinite(column.aoi) ? column.aoi : aoi,
-                // A column headed with its polarization, such as Rs, keeps it
-                // whatever the panel says.
-                pol: column.pol ?? polarizationFor(quantityOf, pol),
-            });
-        });
+        const overrides = parsed.columns.map((_column, index) => ({
+            ...(index === selectedIndex ? { name, quantity, yscale } : {}), ...(ov[index] || {}),
+        }));
+        return tableCurves(parsed, { fileName, xUnit, aoi, pol, overrides });
     }, [parsed, selectedIndex, name, quantity, yscale, xUnit, fileName, ov, aoi, pol]);
     const previewCurve = previewCurves[selectedIndex] || null;
 

@@ -30,6 +30,9 @@ const STEPS = { nm: 'absolute', percent: 'relative' };
 // The attributes that set what setDesignSetup's options set, where their
 // names differ.
 const SETUP_NAMES = { referenceWavelength: 'reference', substrate: 'substrate.material', substrateThicknessMm: 'substrate.thickness' };
+// The options compareMeasured() passes to measuredDifference as they are; it
+// takes from and to as start and end, as the other methods over a range do.
+const COMPARE_OPTIONS = ['curve', 'angle', 'pol', 'quantity', 'scale', 'xUnit', 'grid', 'step', 'thinEvery', 'db', 'levelFree'];
 // differences()'s names for the settings designDifferences compares, where they differ.
 const SETTING_NAMES = { ...SETUP_NAMES, surfaceMode: 'sides', mfEvalMode: 'scoreOn' };
 
@@ -525,6 +528,45 @@ export class Design {
         const given = checkOptions('edgeShift', options, ['quantity', 'level', 'edgeSide', 'direction', 'step']);
         const words = { method: 'edgeShift', call: 'edgeShift', hidden: ['from', 'to', 'angles'] };
         return worded(words, () => api.edgeShift(this._data, { ...given, from: start, to: end, angles }));
+    }
+
+    /**
+     * How the design's spectrum differs from a measured curve, as the MCURVE
+     * merit row the Measured Spectra window's Fit… dialog writes scores it:
+     * the curve sampled on the dialog's grid and kept to the span every
+     * material of the design has data for, and the design read at each point
+     * at the curve's angle and polarization. What it is read on follows the
+     * design's `sides` and `scoreOn`, as the merit function scores it, and a
+     * design under a cone of incidence is averaged over its cone.
+     *
+     * @param measured The path of a spectrum file, read as `tf.readSpectrumFile()` reads it, or a curve as that gives one, `{ wavelength, values, quantity, angle, pol, name }`, its values fractions of 1, quantity `'T'` unless given, angle 0 and pol `'avg'`.
+     * @param [options]
+     * @param [options.curve] For a file of several curves, the one compared, by its name or its number from 0.
+     * @param [options.angle] For a file, as `tf.readSpectrumFile()` takes it.
+     * @param [options.pol] For a file, as `tf.readSpectrumFile()` takes it.
+     * @param [options.quantity] For a file, as `tf.readSpectrumFile()` takes it.
+     * @param [options.scale] For a file, as `tf.readSpectrumFile()` takes it.
+     * @param [options.xUnit] For a file, as `tf.readSpectrumFile()` takes it.
+     * @param [options.grid='measured'] `'measured'`, the curve's own points; `'thinned'`, every `thinEvery`-th of them and the last; or `'uniform'`, every `step` nm, the curve read between its points as the dialog reads it.
+     * @param [options.step] With grid `'uniform'`, the step, nm; the curve's median spacing without it.
+     * @param [options.thinEvery=2] With grid `'thinned'`, which points are kept.
+     * @param [options.start] The first wavelength compared, nm; the curve's first without it.
+     * @param [options.end] The last wavelength compared, nm; the curve's last without it.
+     * @param [options.db=false] For a T curve, `true` compares in dB, as the dialog's dB scale does.
+     * @param [options.levelFree=false] `true` takes off the mean difference before the RMS, as an MCURVE row with its level free scores.
+     * @returns An object: `rms`, the MCURVE row's value, a fraction of 1 or dB with `db`; `ppef`, a PPEF row's value against it, dB; `level`, the mean difference taken off with `levelFree`, otherwise null; `wavelength`, the wavelengths compared, nm, and at each `measured`, `design` and `deviation`, design less measured (less `level`); `clipped`, true when fewer wavelengths were compared than asked for; and `mode`, `name`, `quantity`, `angle`, `pol`, `grid`, `db` and `levelFree`.
+     * @throws a measured that is not a file path or a curve, a file that cannot be read or holds no spectrum, a file of several curves without `curve`, a curve that is not R, T or A, an option it does not take or a value an option cannot take, no point to compare, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('0.5H L');
+     * const scan = { quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] };
+     * const d = design.compareMeasured(scan);
+     * console.log('RMS', d.rms.toFixed(4), 'PPEF', d.ppef.toFixed(2), 'dB');
+     */
+    compareMeasured(measured, options) {
+        const { start, end, ...given } = checkOptions('compareMeasured', options, [...COMPARE_OPTIONS, 'start', 'end']);
+        const words = { method: 'compareMeasured', call: 'measuredDifference', names: { from: 'start', to: 'end' } };
+        return worded(words, () => api.measuredDifference(this._data, measured, { ...given, ...defined({ from: start, to: end }) }));
     }
 
     /**

@@ -188,6 +188,48 @@ design = tf.open_design(name)
 print(design.name, len(design.layers), "layers, from", name)
 ```
 
+### readSpectrumFile / read_spectrum_file
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.readSpectrumFile(path, { angle, pol, quantity, scale, xUnit })` | `tf.read_spectrum_file(path, angle=..., pol=..., quantity=..., scale=..., x_unit=...)` |
+
+**JavaScript**: Reads a spectrum file as the Measured Spectra window's import reads it: a CSV or text table, one curve per column after the wavelength column, or a JCAMP-DX file, one curve per spectrum, each what the window would add to a design. The options take the place of the import panel's settings, which ask only what the file leaves unsaid: an angle or a polarization the file states, in its header lines or in a column's heading, is kept, as in the window.
+
+**Python**: Reads a spectrum file as the Measured Spectra window's import reads it: a CSV or text table, one curve per column after the wavelength column, or a JCAMP-DX file, one curve per spectrum, each what the window would add to a design. The keywords take the place of the import panel's settings, which ask only what the file leaves unsaid: an angle or a polarization the file states, in its header lines or in a column's heading, is kept, as in the window.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file, by its full path. A relative path is taken as `openDesign` takes it.<br>**Python**: The file. A relative path is taken as open_design() takes it. |
+| `angle` | `angle` |  | **JavaScript**: The angle of incidence, degrees, for the curves whose file states none; 0 where neither does.<br>**Python**: The angle of incidence, degrees, for the curves whose file states none. Without it, 0 where neither does. |
+| `pol` | `pol` |  | **JavaScript**: `'avg'`, `'s'` or `'p'`, for the curves whose file states none; `'avg'` where neither does. A column headed with its polarization, such as Rs, keeps it, and an A column headed with none is `'avg'`.<br>**Python**: "avg", "s" or "p", for the curves whose file states none. Without it, "avg" where neither does. A column headed with its polarization, such as Rs, keeps it, and an A column headed with none is "avg". |
+| `quantity` | `quantity` |  | **JavaScript**: For a table, `'T'`, `'R'` or `'A'` for every column; without it, what each column's heading says, and T where it says none.<br>**Python**: For a table, "T", "R" or "A" for every column. Without it, what each column's heading says, and T where it says none. |
+| `scale` | `scale` |  | **JavaScript**: For a table, how every column's values are written: `'fraction'`, `'percent'` or `'absorbance'`; without it, what the import makes of each column.<br>**Python**: For a table, how every column's values are written: "fraction", "percent" or "absorbance". Without it, what the import makes of each column. |
+| `xUnit` | `x_unit` |  | **JavaScript**: For a table, the unit of its wavelength column: `'nm'`, `'um'`, `'cm-1'` or `'eV'`; without it, what the import makes of it.<br>**Python**: For a table, the unit of its wavelength column: "nm", "um", "cm-1" or "eV". Without it, what the import makes of it. |
+
+**Returns**: **JavaScript**: An object: `format`, `'table'` or `'jcamp'`; `fileName`; `xUnit`, the unit a table's wavelengths were read in, or null; `skippedRows`, lines of a table that held no row; and `curves`, each `{ name, quantity, angle, pol, wavelength, values }`, the wavelengths in nm rising and R, T and A as fractions of 1, which `design.compareMeasured()` takes.<br>**Python**: A SpectrumFile, a named tuple: format, "table" or "jcamp"; file_name; x_unit, the unit a table's wavelengths were read in, or None; skipped_rows, lines of a table that held no row; and curves, each a MeasuredCurve, a named tuple of name, quantity, angle, pol, wavelength and values, the wavelengths in nm rising and R, T and A as fractions of 1, which design.compare_measured() takes.
+
+**Refuses**:
+
+- a file that cannot be read or holds no spectrum the import reads, an option it does not take or a value an option cannot take, or for a JCAMP-DX file an option other than angle and pol
+
+```js
+const file = require('path').join(require('os').homedir(), `scan-${Date.now()}.csv`);
+require('fs').writeFileSync(file, 'Wavelength (nm),%R\n450,2.1\n550,0.9\n650,1.8\n');
+const [scan] = tf.readSpectrumFile(file).curves;
+console.log(scan.name, scan.quantity, scan.wavelength, scan.values);
+```
+
+```python
+import time
+
+name = "scan-{}.csv".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("Wavelength (nm),%R\n450,2.1\n550,0.9\n650,1.8\n")
+scan = tf.read_spectrum_file(name).curves[0]
+print(scan.name, scan.quantity, scan.wavelength, scan.values)
+```
+
 ### app
 
 | JavaScript | Python |
@@ -841,6 +883,55 @@ design.stack("(0.5H L 0.5H)^8")
 moved = design.edge_shift(600, 760, [0, 15, 30, 45], level=0.5)
 for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
     print(angle, "degrees:", round(edge, 2), "nm, moved", round(shift, 2), "nm")
+```
+
+### compareMeasured / compare_measured
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.compareMeasured(measured, { curve, angle, pol, quantity, scale, xUnit, grid, step, thinEvery, start, end, db, levelFree })` | `design.compare_measured(measured, curve=..., angle=..., pol=..., quantity=..., scale=..., x_unit=..., grid="measured", step=..., thin_every=2, start=..., end=..., db=False, level_free=False)` |
+
+**JavaScript**: How the design's spectrum differs from a measured curve, as the MCURVE merit row the Measured Spectra window's Fit… dialog writes scores it: the curve sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization. What it is read on follows the design's `sides` and `scoreOn`, as the merit function scores it, and a design under a cone of incidence is averaged over its cone.
+
+**Python**: How the design's spectrum differs from a measured curve, as the MCURVE merit row the Measured Spectra window's Fit... dialog writes scores it: the curve sampled on the dialog's grid and kept to the span every material of the design has data for, and the design read at each point at the curve's angle and polarization. What it is read on follows the design's sides and score_on, as the merit function scores it, and a design under a cone of incidence is averaged over its cone.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `measured` | `measured` |  | **JavaScript**: The path of a spectrum file, read as `tf.readSpectrumFile()` reads it, or a curve as that gives one, `{ wavelength, values, quantity, angle, pol, name }`, its values fractions of 1, quantity `'T'` unless given, angle 0 and pol `'avg'`.<br>**Python**: The path of a spectrum file, read as tf.read_spectrum_file() reads it, or a MeasuredCurve that gives, or a dict of wavelength, values, quantity, angle, pol and name, its values fractions of 1, quantity "T" unless given, angle 0 and pol "avg". |
+| `curve` | `curve` |  | For a file of several curves, the one compared, by its name or its number from 0. |
+| `angle` | `angle` |  | For a file, as `tf.readSpectrumFile()` / `tf.read_spectrum_file()` takes it. |
+| `pol` | `pol` |  | For a file, as `tf.readSpectrumFile()` / `tf.read_spectrum_file()` takes it. |
+| `quantity` | `quantity` |  | For a file, as `tf.readSpectrumFile()` / `tf.read_spectrum_file()` takes it. |
+| `scale` | `scale` |  | For a file, as `tf.readSpectrumFile()` / `tf.read_spectrum_file()` takes it. |
+| `xUnit` | `x_unit` |  | For a file, as `tf.readSpectrumFile()` / `tf.read_spectrum_file()` takes it. |
+| `grid` | `grid` | `'measured'` | `'measured'`, the curve's own points; `'thinned'`, every `thinEvery-th` / `thin_every-th` of them and the last; or `'uniform'`, every `step` nm, the curve read between its points as the dialog reads it. |
+| `step` | `step` |  | **JavaScript**: With grid `'uniform'`, the step, nm; the curve's median spacing without it.<br>**Python**: With grid "uniform", the step, nm. Without it, the curve's median spacing. |
+| `thinEvery` | `thin_every` | `2` | With grid `'thinned'`, which points are kept. |
+| `start` | `start` |  | **JavaScript**: The first wavelength compared, nm; the curve's first without it.<br>**Python**: The first wavelength compared, nm. Without it, the curve's first. |
+| `end` | `end` |  | **JavaScript**: The last wavelength compared, nm; the curve's last without it.<br>**Python**: The last wavelength compared, nm. Without it, the curve's last. |
+| `db` | `db` | `false` / `False` | For a T curve, `true` / `True` compares in dB, as the dialog's dB scale does. |
+| `levelFree` | `level_free` | `false` / `False` | `true` / `True` takes off the mean difference before the RMS, as an MCURVE row with its level free scores. |
+
+**Returns**: **JavaScript**: An object: `rms`, the MCURVE row's value, a fraction of 1 or dB with `db`; `ppef`, a PPEF row's value against it, dB; `level`, the mean difference taken off with `levelFree`, otherwise null; `wavelength`, the wavelengths compared, nm, and at each `measured`, `design` and `deviation`, design less measured (less `level`); `clipped`, true when fewer wavelengths were compared than asked for; and `mode`, `name`, `quantity`, `angle`, `pol`, `grid`, `db` and `levelFree`.<br>**Python**: A MeasuredDifference, a named tuple: rms, the MCURVE row's value, a fraction of 1 or dB with db; ppef, a PPEF row's value against it, dB; level, the mean difference taken off with level_free, otherwise None; wavelength, the wavelengths compared, nm, and at each measured, design and deviation, design less measured (less level); clipped, True when fewer wavelengths were compared than asked for; and mode, name, quantity, angle, pol, grid, db and level_free.
+
+**Refuses**:
+
+- a measured that is not a file path or a curve, a file that cannot be read or holds no spectrum, a file of several curves without `curve`, a curve that is not R, T or A, an option it does not take or a value an option cannot take, no point to compare, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('AR');
+design.stack('0.5H L');
+const scan = { quantity: 'R', wavelength: [450, 550, 650], values: [0.021, 0.009, 0.018] };
+const d = design.compareMeasured(scan);
+console.log('RMS', d.rms.toFixed(4), 'PPEF', d.ppef.toFixed(2), 'dB');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("0.5H L")
+scan = {"quantity": "R", "wavelength": [450, 550, 650], "values": [0.021, 0.009, 0.018]}
+d = design.compare_measured(scan)
+print("RMS", round(d.rms, 4), "PPEF", round(d.ppef, 2), "dB")
 ```
 
 ### indexProfile / index_profile

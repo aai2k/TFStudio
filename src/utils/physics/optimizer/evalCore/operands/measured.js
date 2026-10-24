@@ -29,14 +29,40 @@ function _measuredSnapshotLambdas(op) {
     return lambdas;
 }
 
+/**
+ * What the design reads at each point of a T, R or A measured block, and how
+ * far that is from the block's snapshot: `design` in the block's unit (dB on
+ * the T-in-dB channel, TDB, a fraction otherwise), `deviations` the design
+ * less the snapshot at each point, and `level` null. With the block's level
+ * free, `level` is the mean of those differences, the constant that fits them
+ * best, and `deviations` are the differences less it. The block's row scores
+ * the RMS of `deviations`, and the API's measuredDifference reports them.
+ */
+export function measuredCurveDeviations(op, ctx) {
+    const channel = measuredCurveChannel(op);
+    const lambdas = _measuredSnapshotLambdas(op);
+    const targets = op.sampleTargets;
+    const pol = op.pol || 'avg';
+    const char = charOf(channel);
+    const design = lambdas.map(lambda => rowReading(
+        channel, tmmProp(lambda, op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats),
+    ));
+    const deviations = design.map((value, index) => value - targets[index]);
+    let level = null;
+    if (hasFreeLevel(op)) {
+        level = deviations.reduce((sum, value) => sum + value, 0) / deviations.length;
+        for (let index = 0; index < deviations.length; index++) deviations[index] -= level;
+    }
+    return { design, deviations, level };
+}
+
 // Persisted measured-curve block: its value is already the RMS residual, so
 // `_operandResidual` consumes it directly just like a continuous range target.
 // A block on the T-in-dB channel (TDB) holds its points in dB and is scored in
-// dB, as the TDB points it expands into are. A block with its level free
-// scores the deviations less their mean, the constant that fits them best,
-// and keeps those deviations on the context: such a block is not expanded for
-// a run, and the least-squares engine takes one residual per point from them,
-// as it does for a range target.
+// dB, as the TDB points it expands into are. A block with its level free keeps
+// its deviations on the context: such a block is not expanded for a run, and
+// the least-squares engine takes one residual per point from them, as it does
+// for a range target.
 export function _evalMeasuredCurve(op, ctx) {
     const channel = measuredCurveChannel(op);
     if (!channel) {
@@ -46,20 +72,10 @@ export function _evalMeasuredCurve(op, ctx) {
     }
     if (isEllipsometricMeasuredCurve(op)) return _evalMeasuredEllipsometry(op, ctx);
     _assertMeasurementSide(op, ctx);
-    const lambdas = _measuredSnapshotLambdas(op);
-    const targets = op.sampleTargets;
-    const pol = op.pol || 'avg';
-    const char = charOf(channel);
-    const deviations = lambdas.map((lambda, index) => rowReading(
-        channel, tmmProp(lambda, op.aoi ?? 0, pol, char, ctx, ctx.frontThicks, ctx.frontMats),
-    ) - targets[index]);
-    if (hasFreeLevel(op)) {
-        const level = deviations.reduce((sum, value) => sum + value, 0) / deviations.length;
-        for (let index = 0; index < deviations.length; index++) deviations[index] -= level;
-        ctx._sampleDeviations?.set(op, deviations);
-    }
+    const { deviations } = measuredCurveDeviations(op, ctx);
+    if (hasFreeLevel(op)) ctx._sampleDeviations?.set(op, deviations);
     const sumSq = deviations.reduce((sum, value) => sum + value * value, 0);
-    return Math.sqrt(sumSq / lambdas.length);
+    return Math.sqrt(sumSq / deviations.length);
 }
 
 // A measured Ψ or Δ block: the RMS deviation of the front stack's Ψ or Δ from

@@ -255,6 +255,34 @@ export class TFStudio {
         return new Design(api.openDesign(path));
     }
 
+    /**
+     * Reads a spectrum file as the Measured Spectra window's import reads it:
+     * a CSV or text table, one curve per column after the wavelength column,
+     * or a JCAMP-DX file, one curve per spectrum, each what the window would
+     * add to a design. The options take the place of the import panel's
+     * settings, which ask only what the file leaves unsaid: an angle or a
+     * polarization the file states, in its header lines or in a column's
+     * heading, is kept, as in the window.
+     *
+     * @param path The file, by its full path. A relative path is taken as `openDesign` takes it.
+     * @param [options]
+     * @param [options.angle] The angle of incidence, degrees, for the curves whose file states none; 0 where neither does.
+     * @param [options.pol] `'avg'`, `'s'` or `'p'`, for the curves whose file states none; `'avg'` where neither does. A column headed with its polarization, such as Rs, keeps it, and an A column headed with none is `'avg'`.
+     * @param [options.quantity] For a table, `'T'`, `'R'` or `'A'` for every column; without it, what each column's heading says, and T where it says none.
+     * @param [options.scale] For a table, how every column's values are written: `'fraction'`, `'percent'` or `'absorbance'`; without it, what the import makes of each column.
+     * @param [options.xUnit] For a table, the unit of its wavelength column: `'nm'`, `'um'`, `'cm-1'` or `'eV'`; without it, what the import makes of it.
+     * @returns An object: `format`, `'table'` or `'jcamp'`; `fileName`; `xUnit`, the unit a table's wavelengths were read in, or null; `skippedRows`, lines of a table that held no row; and `curves`, each `{ name, quantity, angle, pol, wavelength, values }`, the wavelengths in nm rising and R, T and A as fractions of 1, which `design.compareMeasured()` takes.
+     * @throws a file that cannot be read or holds no spectrum the import reads, an option it does not take or a value an option cannot take, or for a JCAMP-DX file an option other than angle and pol
+     * @example
+     * const file = require('path').join(require('os').homedir(), `scan-${Date.now()}.csv`);
+     * require('fs').writeFileSync(file, 'Wavelength (nm),%R\n450,2.1\n550,0.9\n650,1.8\n');
+     * const [scan] = tf.readSpectrumFile(file).curves;
+     * console.log(scan.name, scan.quantity, scan.wavelength, scan.values);
+     */
+    readSpectrumFile(path, options) {
+        return worded({ method: 'readSpectrumFile', call: 'readSpectrumFile' }, () => api.readSpectrumFile(path, options));
+    }
+
     // What console.log prints for tf.
-    [inspect.custom]() { return '<TFStudio: tf.design, tf.materials, tf.newDesign(), tf.openDesign()>'; }
+    [inspect.custom]() { return '<TFStudio: tf.design, tf.materials, tf.newDesign(), tf.openDesign(), tf.readSpectrumFile()>'; }
 }

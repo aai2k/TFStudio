@@ -817,6 +817,29 @@ async function bandFeatures(t, said) {
     ]), canon(got.worded));
 }
 
+// What _pythonObjects.py measured_curves() read, against the plain calls.
+function measuredCurves(t, said) {
+    const { ok, canon, api, WORK } = t;
+    const got = said.measured ?? {};
+    const file = path.join(WORK, 'scan.csv');
+    const snakeKeys = found => Object.fromEntries(Object.entries(found).map(([key, value]) => [snake(key), value]));
+    const read = api.readSpectrumFile(file);
+    const changed = api.readSpectrumFile(file, { angle: 12, xUnit: 'nm', scale: 'fraction' });
+    const design = got.design ?? api.newDesign();
+    ok('read_spectrum_file() and compare_measured() give the plain calls\' answers, as SpectrumFile, MeasuredCurve and MeasuredDifference of their snake_case fields',
+        canon([got.read, got.changed, got.onFile, got.onCurve, got.types]) === canon([snakeKeys(read), snakeKeys(changed),
+            snakeKeys(api.measuredDifference(design, file, { curve: 1, grid: 'uniform', step: 5, levelFree: true, from: 460, to: 640 })),
+            snakeKeys(api.measuredDifference(design, read.curves[0])), ['SpectrumFile', 'MeasuredCurve', 'MeasuredDifference']]),
+        canon(got.onFile)?.slice(0, 300));
+    ok('and their refusals are in Python\'s words', canon(got.worded) === canon([
+        "compare_measured: curve is the name or the number from 0 of one of the file's curves: scan: R, scan: Ts, not 7",
+        "compare_measured: unknown option 'to'; the options are curve, angle, pol, quantity, scale, x_unit, grid, step, thin_every, start, end, db, level_free",
+        'compare_measured: db is True or False; True for a T curve only, and this one is R, not True',
+        "compare_measured: unknown option 'angle'; the options are grid, step, thin_every, start, end, db, level_free",
+        "read_spectrum_file: x_unit is 'nm', 'um', 'cm-1' or 'eV', not 'mm'",
+    ]), canon(got.worded));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -1005,6 +1028,7 @@ export async function checkObjects(t) {
     await groupDelay(u, ran.said);
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
+    measuredCurves(u, ran.said);
     await runs(u, ran.said);
     await progress(u, ran.said);
     stopping(u, ran.said);
