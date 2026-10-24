@@ -463,6 +463,11 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     });
     ok('groupDelay\'s extremes pass over the wavelengths with no value, the first among them',
         Number.isNaN(known.gd[0]) && offKeys.length === 0, `${offKeys.join(', ')}: ${JSON.stringify(partial).slice(0, 300)}`);
+    const partialValues = await server.call('groupDelay', { designId: silica, from: 52, to: 200, step: 1, values: true });
+    ok('and it counts them and says why once each, listing them only for values true',
+        JSON.stringify([partial.invalidCount, partial.invalidReasons, partial.invalid, partialValues.invalid])
+        === JSON.stringify([known.invalid.length, [...new Set(known.invalid.map(point => point.reason))], undefined, known.invalid]) && known.invalid.length > 0,
+        JSON.stringify([partial.invalidCount, partial.invalidReasons, partial.invalid?.length]));
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────
