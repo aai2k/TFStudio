@@ -37,6 +37,18 @@ assert.deepEqual(quantizeLayers(base.frontLayers, base, { mode: 'decimals', valu
     base.frontLayers[1],
 ]);
 assert.equal(quantizeLayers(base.frontLayers, base, { mode: 'step', value: 0.25 })[0].thickness, 10.25);
+{
+    // In QWOT mode a layer whose material resolves nowhere has no quarter wave
+    // and stays as it is; the others still round.
+    const sio2Qw = lambda / (4 * designMaterialLookup(base)('SiO2').getNK(lambda)[0]);
+    const layers = [
+        { id: 'q', material: 'SiO2', thickness: sio2Qw * 1.04, locked: false },
+        { id: 'm', material: 'builtin:NoSuchMaterial', thickness: 91.7, locked: false },
+    ];
+    const rounded = quantizeLayers(layers, base, { mode: 'qwot', value: 0.5 });
+    assert.ok(Math.abs(rounded[0].thickness - sio2Qw) < 1e-9, 'QWOT rounding goes on past a layer whose material resolves nowhere');
+    assert.strictEqual(rounded[1], layers[1], 'and that layer stays as it is');
+}
 
 const perturb = makePerturbationMap(base.frontLayers, () => 1);
 const kicked = perturbLayers(base.frontLayers, 5, perturb);

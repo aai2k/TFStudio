@@ -34,6 +34,17 @@ export function designMerit(design) {
     }
 }
 
+// n of material `id` at `lambda`, or null for an id that resolves nowhere,
+// which has no quarter wave.
+function indexAt(resolveMaterial, id, lambda) {
+    try {
+        return resolveMaterial(id)?.getNK?.(lambda)?.[0];
+    } catch (error) {
+        if (error?.code === 'UNRESOLVED_DESIGN_MATERIAL') return null;
+        throw error;
+    }
+}
+
 export function quantizeLayers(layers, design, options = {}) {
     const mode = options.mode || 'step';
     const value = Number(options.value);
@@ -50,7 +61,7 @@ export function quantizeLayers(layers, design, options = {}) {
             thickness = Math.round(d * scale) / scale;
         } else if (mode === 'qwot') {
             const multiple = Number.isFinite(value) && value > 0 ? value : 1;
-            const n = resolveMaterial(layer.material)?.getNK?.(lambda)?.[0];
+            const n = indexAt(resolveMaterial, layer.material, lambda);
             if (!(Number.isFinite(n) && n > 0 && lambda > 0)) return layer;
             const step = multiple * lambda / (4 * n);
             thickness = Math.round(d / step) * step;
