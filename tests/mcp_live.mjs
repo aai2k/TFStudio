@@ -35,7 +35,8 @@
  *      the app asks its user, the link waits for the answer past its own
  *      deadline for the hello.
  *   6. A hang-up: a request made the moment the app has ended the link's
- *      connection goes on a new one.
+ *      connection, or at once after, before the link has read that, goes on
+ *      a new one.
  *
  * Run: node tests/mcp_live.mjs
  */
@@ -212,7 +213,8 @@ server.write({ jsonrpc: '2.0', method: 'notifications/initialized' });
 {
     letIn = false;
     bridge.drop();
-    ok('an app whose user clicked Deny says so, and points to Interactive', DENIED.test((await server.call('listAppDesigns', {})).error ?? ''));
+    const denied = await server.call('listAppDesigns', {});
+    ok('an app whose user clicked Deny says so, and points to Interactive', DENIED.test(denied.error ?? ''), `${JSON.stringify(denied).slice(0, 300)}; asked ${programs.length} times`);
     letIn = true;
     ok('and once the user lets the agent in, it works again', (await server.call('listAppDesigns', {})).designs?.length === 2);
     bridge.close();
@@ -316,7 +318,8 @@ bridge.close();
 
 // ── 6. A hang-up ───────────────────────────────────────────────────────────
 // The servers' end of the link in this process, its connections caught as it
-// makes them, so the test can call the moment the app's hang-up arrives.
+// makes them, so the test can call the moment the app's hang-up arrives, or
+// at once after it, before the link has read it.
 {
     const { createLiveLink } = await import('../src/mcp/liveLink.js');
     const hangUpFile = path.join(dir, 'hang-up-bridge.json');
@@ -330,11 +333,15 @@ bridge.close();
         return socket;
     };
     const link = createLiveLink(hangUpFile, () => 'python.exe');
+    const designs = () => link.request('designs').then(result => ({ result }), err => ({ err }));
     await link.request('designs');
     hangingUp.drop();
     await new Promise(resolve => connections[0].once('end', resolve));
-    const again = await link.request('designs').then(result => ({ result }), err => ({ err }));
+    const again = await designs();
     ok('a request made as the app hangs up goes on a new connection', again.result?.designs?.length === 2 && connections.length === 2, again.err?.code);
+    hangingUp.drop();
+    const atOnce = await designs();
+    ok('so does one made at once after, before the link has read the hang-up', atOnce.result?.designs?.length === 2 && connections.length === 3, atOnce.err?.code);
     net.connect = realConnect;
     link.close();
     hangingUp.close();

@@ -29,6 +29,9 @@ const ANSWER_TIMEOUT_MS = 20000;
 const failure = (code, message) => Object.assign(new Error(message), { code });
 const OFF = () => failure('off', 'TFStudio is not running, or it is not listening for this program');
 const NO_ANSWER = () => failure('timeout', 'TFStudio did not answer');
+// A request whose write failed: the app hung up before it, so it never had
+// the request, which can go again on a new connection.
+const UNSENT = () => Object.assign(OFF(), { unsent: true });
 
 // Why a hello was not answered as the app answers it.
 function refused(message) {
@@ -45,7 +48,7 @@ function deadline(fail) {
 
 // A connection to the app the live link file `file` names, for the program
 // named `program`, resolved once the app has taken its hello; `onEnd` is
-// called when it closes. While the app asks its user whether to let the
+// called once it is over. While the app asks its user whether to let the
 // program in, the hello waits for as long as the user takes: the app has
 // proved by then that it holds the secret, and it hangs up should it close.
 function connect(file, program, onEnd) {
@@ -68,7 +71,12 @@ function connect(file, program, onEnd) {
                     if (message.error) refused(failure(message.error.code, message.error.message));
                     else answered(message.result);
                 });
-                socket.write(`${JSON.stringify({ id, method, params })}\n`);
+                socket.write(`${JSON.stringify({ id, method, params })}\n`, err => {
+                    if (!err || !pending.delete(id)) return;
+                    arrived();
+                    onEnd();
+                    refused(UNSENT());
+                });
             }),
             close: () => socket.destroy(),
         };
@@ -127,8 +135,17 @@ export function createLiveLink(file, program = () => null) {
         }
         return current;
     };
+    // A request the app hung up before goes once more, on a new connection.
+    const request = async (method, params) => {
+        try {
+            return await (await connection()).ask(method, params);
+        } catch (err) {
+            if (!err.unsent) throw err;
+            return (await connection()).ask(method, params);
+        }
+    };
     return {
-        request: async (method, params = {}) => (await connection()).ask(method, params),
+        request: (method, params = {}) => request(method, params),
         appVersion: () => version,
         close: () => { current?.then(c => c.close(), () => {}); current = null; },
     };
