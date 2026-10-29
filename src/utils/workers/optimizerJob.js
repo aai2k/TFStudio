@@ -20,7 +20,10 @@
  *
  * Messages go out through `post`: 'init', throttled 'progress', then 'done',
  * or 'error'. A 'score' job runs no optimizer: it posts one 'score' message
- * with the merit and optical merit of its design, or 'error'.
+ * with the merit and optical merit of its design, or 'error'. A Structural
+ * run's refine jobs also have their 'done' carry the full merit of the design
+ * the run keeps, and its needle jobs post one 'structural' message
+ * (structural/workerJobs.js).
  */
 
 import { makeEngine } from '../optimizers/index.js';
@@ -28,6 +31,7 @@ import { DLSOptimizer } from '../physics/optimizer.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
 import { makeTableHolder } from './jobTables.js';
+import { STRUCTURAL_JOBS, withStructuralScore } from '../structural/workerJobs.js';
 
 const POST_MS = 80;     // progress-message rate limit (wall clock)
 
@@ -119,20 +123,25 @@ function scoreDesign(job, resolveMat, postMessage) {
 
 // ── Message entry point ───────────────────────────────────────────────────────
 
+const isStructuralJob = type => Object.hasOwn(STRUCTURAL_JOBS, type);
+
+function runJob(job, resolveMat, postMessage) {
+    if (job.type === 'score') scoreDesign(job, resolveMat, postMessage);
+    else if (isStructuralJob(job.type)) postMessage({ type: 'structural', result: STRUCTURAL_JOBS[job.type](job, resolveMat) });
+    else runSingle(job, resolveMat, job.structuralScore ? withStructuralScore(job, resolveMat, postMessage) : postMessage);
+}
+
 export async function handleOptimizerMessage(job, postMessage, tablesOf = makeTableHolder()) {
     if (!job) return;
     // One-time WASM kernel init (bytes may arrive as a dedicated message or ride
-    // on a 'start' or 'score' job). Enabling is per-worker; falls back to JS on
-    // failure.
+    // on any job). Enabling is per-worker; falls back to JS on failure.
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
-    if (job.type !== 'start' && job.type !== 'score') return;
+    if (job.type !== 'start' && job.type !== 'score' && !isStructuralJob(job.type)) return;
     try {
         const materials = tablesOf(job);
         noteTmmWasmBytes(job.wasmBytes);
         await awaitTmmWasmReady();
-        const resolveMat = makeResolveMat(materials, 'optimizerWorker', postMessage);
-        if (job.type === 'score') scoreDesign(job, resolveMat, postMessage);
-        else runSingle(job, resolveMat, postMessage);
+        runJob(job, makeResolveMat(materials, 'optimizerWorker', postMessage), postMessage);
     } catch (err) {
         postMessage({
             type: 'error',

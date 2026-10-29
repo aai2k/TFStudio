@@ -42,7 +42,7 @@ export function splitRefined(S, results) {
 // improvement keeps running, so refining one design alone cannot hold a run
 // open. Returns true when the target merit is reached.
 export function adoptPolish(S, polish, recordBest) {
-    const candidate = normalizeResult(S, polish.result);
+    const candidate = normalizeResult(polish.result);
     if (!(candidate.mf < S.current.mf - 1e-12)) return false;
     S.current = candidate;
     if (!(candidate.mf < S.best.mf - 1e-12)) return false;

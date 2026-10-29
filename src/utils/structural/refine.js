@@ -2,12 +2,11 @@
 
 import {
     requiredLambdas, collectDesignMaterialIds, mirrorLayers, buildPresampledTable, isPhaseDispersion,
-    buildEvalContext, evaluateOperands, calcMF, calcOMF,
 } from '../physics/optimizer.js';
-import { tidyLayers } from '../synthesis/structuralOptimizer.js';
 import { materialLookup } from '../../components/windows/optimization/synthesisShared/materialNames.js';
 import { regridForDesign } from '../../components/windows/optimization/synthesisShared/runGrid.js';
-import { deep, mkLayers } from './core.js';
+import { mkLayers } from './core.js';
+import { scoreDesign } from './workerJobs.js';
 import { refineGuarded } from './workers.js';
 
 // Worker material tables for every material the design and the pool use, built
@@ -35,18 +34,11 @@ export function designFor(S, activeLayers, otherLayers) {
     return design;
 }
 
+// The merit and optical merit of a design on every row the run scores with,
+// computed on this thread.
 export function trueEval(S, frontLayers, backLayers, fallbackMf, fallbackOmf) {
-    try {
-        const resolveMat = materialLookup(S.curDes);
-        const design = { ...S.media, frontLayers: frontLayers || [], backLayers: backLayers || [] };
-        const computed = evaluateOperands(S.fullOps, buildEvalContext(design, resolveMat));
-        const mf = calcMF(S.fullOps, computed);
-        const omf = calcOMF(S.fullOps, computed);
-        if (Number.isFinite(mf)) {
-            return { mf, omf: Number.isFinite(omf) ? omf : (fallbackOmf ?? null) };
-        }
-    } catch (_) {}
-    return { mf: fallbackMf, omf: fallbackOmf ?? null };
+    const design = { ...S.media, frontLayers: frontLayers || [], backLayers: backLayers || [] };
+    return scoreDesign(S.fullOps, design, materialLookup(S.curDes), fallbackMf, fallbackOmf);
 }
 
 // When the current design has outgrown the run's sampling grid (runGrid.js),
@@ -69,27 +61,32 @@ export function regridIfGrown(S) {
     console.log(`[Structural] Grid re-sampled for the grown design: bestMF=${S.best.mf.toFixed(6)}`);
 }
 
-export function refineJob(S, design) {
+/**
+ * The refine job for `design`. Its answer carries `scored`, the merit and
+ * optical merit on every row the run scores with (structural/workerJobs.js):
+ * of the refined design tidied as the run keeps it, or with `tidy` false of
+ * the refined design as it is.
+ */
+export function refineJob(S, design, tidy = true) {
     return {
         type: 'start', method: S.structEngine, operands: S.operands, design,
         materials: S.materials, opts: { maxIter: S.cfg.refineIter },
         engineOpts: { dMin: S.cfg.dMin, dMax: S.cfg.dMax }, wasmBytes: S.wasmBytes,
+        structuralScore: {
+            operands: S.fullOps,
+            tidy: tidy ? { layerKey: S.layerKey, dMin: S.cfg.dMin, surfaceMode: S.surfaceMode } : null,
+        },
     };
 }
 
-export function normalizeResult(S, result) {
-    const rawActive = S.layerKey === 'frontLayers' ? result.frontLayers : result.backLayers;
-    const tidied = tidyLayers(rawActive || [], S.cfg.dMin);
-    const frontLayers = S.layerKey === 'frontLayers' ? tidied : deep(result.frontLayers);
-    const backLayers = S.layerKey === 'backLayers'
-        ? tidied
-        : (S.surfaceMode === 'symmetric' ? mirrorLayers(tidied) : deep(result.backLayers));
-    const score = trueEval(S, frontLayers, backLayers, result.mf, result.omf ?? null);
-    return { mf: score.mf, omf: score.omf, frontLayers, backLayers };
+// The tidied design of a refine and its merit, as the worker scored it.
+export function normalizeResult(result) {
+    const { mf, omf, frontLayers, backLayers } = result.scored;
+    return { mf, omf, frontLayers, backLayers };
 }
 
 export async function refineScore(S, activeLayers, otherLayers, workerIndex = 0) {
     const result = await refineGuarded(
         S, workerIndex, refineJob(S, designFor(S, activeLayers, otherLayers)), null);
-    return result ? normalizeResult(S, result) : null;
+    return result ? normalizeResult(result) : null;
 }

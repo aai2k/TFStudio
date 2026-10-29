@@ -2,7 +2,7 @@
  * Stop ends a Structural run's refines at once: none is left waiting out its
  * timeout, and the run pressed after it ends on its own. A refine that hangs
  * while its run goes on times out: its worker is replaced and the run ends on
- * its own.
+ * its own, also when the worker cannot be rebuilt.
  *
  * The refine timeouts are held instead of run, so the test counts any the
  * stopped run left and fires them while the next run is mid-refine, and fires
@@ -95,6 +95,26 @@ ok('the next run ends on its own', !seen.running && seen.statuses.at(-1) === 'ma
 ok('a hung refine holds its run until its timeout', seen.waiting && seen.hung === 1, `${seen.hung} timers`);
 ok('its worker is replaced and every worker is ended', seen.built === 2 && seen.ended === 2, `${seen.built} built, ${seen.ended} ended`);
 ok('the run goes on and ends on its own', !seen.hungRunning && seen.hungStatus === 'max-iterations', seen.hungStatus);
+
+// A run that also scans for needles, whose hung refine's worker cannot be
+// rebuilt when its timeout runs out: the jobs sent to that worker afterwards,
+// needle jobs among them, fail at once, and the run ends on its own.
+const lost = makeWindow({ ...win.spec, cfg: { ...win.spec.cfg, kinds: ['add', 'perturb'] }, poolIds: ['TiO2', 'SiO2'] }, 'unbuilt-worker');
+useWindow(lost);
+const unbuilt = await withWindowSettings({}, async () => {
+    lost.press = { holdAtJob: 2 };
+    const timers = held.length;
+    startWindowRun(lost.ctx);
+    for (let i = 0; i < 200 && lost.jobCount < 2; i++) await tick();
+    for (let i = 0; i < 20; i++) await tick();
+    const hung = held.slice(timers).filter(timer => !timer.cleared);
+    lost.press.workersThrow = true;
+    for (const timer of hung) timer.fn();
+    await settle(lost);
+    return { hung: hung.length, running: lost.ctx.runningRef.current, status: lost.statuses.at(-1) };
+});
+ok('a worker that cannot be rebuilt leaves the run going to its own end', unbuilt.hung === 1
+    && !unbuilt.running && unbuilt.status === 'max-iterations', `${unbuilt.hung} timers, ${unbuilt.status}`);
 
 console.log(`${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

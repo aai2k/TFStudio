@@ -5026,7 +5026,7 @@
         "statuses": [
           "baseline",
           "refining:1",
-          "\"undefined\" is not valid JSON"
+          "Cannot destructure property 'mf' of 'result.scored' as it is undefined."
         ]
       }
     ],

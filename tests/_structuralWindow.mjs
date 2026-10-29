@@ -6,12 +6,19 @@
  * The scripted worker answers each refine from the run's phase, which it reads
  * off the status line: the baseline refine scores 0.8, smart-seed refines 0.55
  * and lower, a reheat 0.1, and the proposals of an iteration the merits listed
- * in the window's `normalMf`. A window whose spec says `worker: 'real'` refines
- * on the calling thread with the real optimizer job (InThreadOptimizerWorker).
+ * in the window's `normalMf`. The run then scores the refined design on its
+ * rows as a worker does, and the scripted merit stands where it cannot. Needle
+ * jobs run for real and do not count as refines. A window whose spec says
+ * `worker: 'real'` refines on the calling thread with the real optimizer job
+ * (InThreadOptimizerWorker).
  *
  * Import it after shimBrowserGlobals() (_uiShim.mjs).
  */
 import { InThreadOptimizerWorker } from '../src/utils/workers/inThreadOptimizerWorker.js';
+import { handleOptimizerMessage } from '../src/utils/workers/optimizerJob.js';
+import { makeTableHolder } from '../src/utils/workers/jobTables.js';
+import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
+import { STRUCTURAL_JOBS, withStructuralScore } from '../src/utils/structural/workerJobs.js';
 import { getCatalogs } from '../src/utils/materials/catalogManager.js';
 import { getCached, setCached } from '../src/components/windows/optimization/structuralOptimizer/sessionState.js';
 import { reconcileStructuralBaseWithEdits } from '../src/components/windows/optimization/structuralOptimizer/useStructuralOptimizer.js';
@@ -77,16 +84,26 @@ class ScriptedWorker {
         this.win = current;
         this.win.workers++;
         this.onmessage = null; this.onerror = null; this.dead = false;
+        this.tablesOf = makeTableHolder();
     }
     postMessage(job) {
-        if (this.dead || !job || job.type !== 'start') return;
+        if (this.dead || !job) return;
+        const post = data => this.post(data);
+        if (Object.hasOwn(STRUCTURAL_JOBS, job.type)) {
+            const tables = this.tablesOf(job);
+            setTimeout(() => { if (!this.dead) handleOptimizerMessage(job, post, () => tables); }, 0);
+            return;
+        }
+        if (job.type !== 'start') return;
         const win = this.win;
         const n = ++win.jobCount;
         if (n === 1) win.firstJob = jobSummary(job);
-        setTimeout(() => this.run(job, n), 0);
+        const tables = this.tablesOf(job);
+        const scored = job.structuralScore ? withStructuralScore(job, makeResolveMat(tables, 'scripted', post), post) : post;
+        setTimeout(() => this.run(job, n, scored), 0);
     }
     post(data) { if (!this.dead && this.onmessage) this.onmessage({ data }); }
-    run(job, n) {
+    run(job, n, post) {
         const win = this.win;
         if (this.dead || scriptedJob(win, this, n)) return;
         if (win.phase === 'smart' && !win.failedSeed) {
@@ -95,8 +112,8 @@ class ScriptedWorker {
             return;
         }
         const mf = scriptedMerit(win);
-        this.post({ type: 'progress', mf: mf + 0.01, omf: mf + 0.02 });
-        this.post({
+        post({ type: 'progress', mf: mf + 0.01, omf: mf + 0.02 });
+        post({
             type: 'done', mfBest: mf, omfBest: mf + 0.001,
             bestFrontLayers: copy(job.design.frontLayers || []), bestBackLayers: copy(job.design.backLayers || []),
         });

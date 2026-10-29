@@ -37,6 +37,11 @@ const { getPoolMaterials, serializableMedia, densifyForRun } = await import(
     '../src/components/windows/optimization/synthesisShared/synthesisHelpers.js');
 const { CGOptimizer } = await import('../src/utils/optimizers/cg.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
+const { withStructuralScore } = await import('../src/utils/structural/workerJobs.js');
+const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
+const { buildWorkers } = await import('../src/utils/structural/workers.js');
+const { presampleAll } = await import('../src/utils/structural/refine.js');
+const { InThreadOptimizerWorker } = await import('../src/utils/workers/inThreadOptimizerWorker.js');
 
 const layer = (material, thickness, locked = false) => ({ id: `${material}-${thickness}`, material, thickness, locked });
 
@@ -56,14 +61,17 @@ const layer = (material, thickness, locked = false) => ({ id: `${material}-${thi
         'a starting design with two touching layers of one material compares as one layer');
 }
 
-// Workers that answer each refine with a scripted result.
+// Workers that answer each refine with a scripted result, tidied and scored as
+// a worker scores it. The runs here score on no rows, so the scripted merit
+// stands.
 class ScriptedWorker {
     constructor(result) { this.result = result; this.onmessage = null; }
-    postMessage() {
-        setTimeout(() => this.onmessage?.({ data: {
+    postMessage(job) {
+        const post = withStructuralScore(job, makeResolveMat({}), data => this.onmessage?.({ data }));
+        setTimeout(() => post({
             type: 'done', mfBest: this.result.mf, omfBest: this.result.mf,
             bestFrontLayers: this.result.frontLayers, bestBackLayers: [],
-        } }), 0);
+        }), 0);
     }
     terminate() {}
 }
@@ -185,6 +193,8 @@ function runState(frontLayers, { dMin, seed = 1, workerCount = 8 }) {
         kinds: MUTATION_KINDS.slice(), workerCount, pool, poolLite: pool.map(m => ({ id: m.id, name: m.name })),
         cfg: { dMin, dMax: Infinity, maxLayers: 80, addMaxNm: 120, jitterPct: 0.15 },
         rng: makeRng(seed), media: serializableMedia(design), operands, curDes: design,
+        workerPool: buildWorkers(() => new InThreadOptimizerWorker(), workerCount),
+        materials: presampleAll(design, operands, pool), wasmBytes: null,
     };
 }
 
@@ -192,8 +202,8 @@ function runState(frontLayers, { dMin, seed = 1, workerCount = 8 }) {
     let randomGrowth = 0;
     for (const seed of [1, 2, 3, 4, 5]) {
         const S = runState([layer('SiO2', 90)], { dMin: 40, seed });
-        const needles = needleProposals(S, S.current, Math.ceil(S.workerCount / 2)).length;
-        const { proposals } = generateProposals(S);
+        const needles = (await needleProposals(S, S.current, Math.ceil(S.workerCount / 2))).length;
+        const { proposals } = await generateProposals(S);
         assert.equal(proposals.length, S.workerCount, 'every slot holds a proposal');
         randomGrowth += proposals.slice(needles)
             .filter(p => p.mutation.kind === 'add' || p.mutation.kind === 'split').length;
@@ -204,7 +214,7 @@ function runState(frontLayers, { dMin, seed = 1, workerCount = 8 }) {
 {
     const dMin = 40;
     const S = runState([layer('SiO2', 180), layer('TiO2', 100)], { dMin });
-    const proposals = needleProposals(S, S.current, 16);
+    const proposals = await needleProposals(S, S.current, 16);
     const splits = proposals.filter(p => p.mutation.kind === 'split');
     assert.ok(splits.length > 0, `the scan offers splits here (${splits.length} of ${proposals.length})`);
     const thin = proposals.flatMap(p => p.layers).filter(l => l.thickness < dMin - 1e-9);

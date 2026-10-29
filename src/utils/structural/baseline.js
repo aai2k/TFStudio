@@ -4,7 +4,7 @@
 import { buildARSeedCandidates } from '../../components/windows/optimization/synthesisShared/synthesisMath.js';
 import { deep, sumD } from './core.js';
 import { alive } from './runState.js';
-import { designFor, refineJob, trueEval } from './refine.js';
+import { designFor, refineJob } from './refine.js';
 import { refineGuarded } from './workers.js';
 
 function smartSeedDesign(S, candidate) {
@@ -34,7 +34,7 @@ async function smartSeedBaseline(S) {
     for (let offset = 0; offset < candidates.length && alive(S); offset += S.workerCount) {
         const wave = candidates.slice(offset, offset + S.workerCount);
         const waveResults = await Promise.all(wave.map((candidate, index) => refineGuarded(
-            S, index, refineJob(S, smartSeedDesign(S, candidate)),
+            S, index, refineJob(S, smartSeedDesign(S, candidate), false),
             index === 0 ? S.onTick : null)));
         results.push(...waveResults);
     }
@@ -75,12 +75,11 @@ export async function establishBaseline(S) {
     if (!alive(S)) return 'stop';
     if (!baseline) {
         const design = designFor(S, S.curDes[S.layerKey], S.curDes[S.otherKey]);
-        baseline = await refineGuarded(S, 0, refineJob(S, design), S.onTick);
+        baseline = await refineGuarded(S, 0, refineJob(S, design, false), S.onTick);
     }
     if (!alive(S)) return 'stop';
     if (!baseline) return { end: { stopReason: 'noMutation' } };
-    const score = trueEval(
-        S, baseline.frontLayers, baseline.backLayers, baseline.mf, baseline.omf ?? null);
+    const score = baseline.scored;
     S.current = {
         mf: score.mf, omf: score.omf,
         frontLayers: deep(baseline.frontLayers), backLayers: deep(baseline.backLayers),

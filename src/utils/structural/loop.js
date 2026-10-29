@@ -100,7 +100,8 @@ function checkTimeBudget(state) {
 
 async function checkProposals(state) {
     const { S } = state;
-    const batch = generateProposals(S);
+    const batch = await generateProposals(S);
+    if (!alive(S)) return 'stop';
     if (batch.reason) return { end: { stopReason: batch.reason } };
     state.refined = await refineProposals(S, batch.proposals);
     if (!alive(S)) return 'stop';

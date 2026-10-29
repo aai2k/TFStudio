@@ -1,66 +1,38 @@
 // The proposals of one Structural iteration, their refines, and which of them
 // the annealing chain takes.
 
-import {
-    scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra,
-} from '../physics/optimizer.js';
 import { proposeMutation, pickAcceptedMove } from '../synthesis/structuralOptimizer.js';
-import { materialLookup } from '../../components/windows/optimization/synthesisShared/materialNames.js';
 import { alive } from './runState.js';
 import { designFor, refineJob, normalizeResult } from './refine.js';
-import { refineGuarded } from './workers.js';
+import { refineGuarded, needleTask } from './workers.js';
 import { splitRefined, adoptPolish, isSameDesign } from './sameDesign.js';
 
 const SCAN_DELTA = 0.5;
 
-export function needleProposals(S, current, count) {
+const warnScanFailed = err => console.warn('[Structural] needle scan failed:', err);
+
+/**
+ * Up to `count` needle proposals for `current`, the best first: one worker
+ * scans for the insertions that lower the merit to first order, then each
+ * needle gets its thickness and goes in on a worker of its own
+ * (structural/workerJobs.js). Each proposal is { layers, mutation }.
+ */
+export async function needleProposals(S, current, count) {
     if (!S.pool.length || count <= 0) return [];
     const design = {
         ...S.media,
         [S.layerKey]: current[S.layerKey],
         [S.otherKey]: current[S.otherKey],
     };
-    const resolveMat = materialLookup(S.curDes);
-    let candidates;
-    try {
-        ({ candidates } = scanNeedlesPFunction({
-            operands: S.operands, design, resolveMat, candidateMats: S.pool,
-            deltaNm: SCAN_DELTA, side: S.side, dMin: S.cfg.dMin,
-        }));
-    } catch (err) {
-        console.warn('[Structural] needle scan failed:', err);
-        return [];
-    }
-    const improving = (candidates || []).filter(candidate => candidate.dMF < 0)
-        .sort((a, b) => a.dMF - b.dMF);
-    const proposals = [];
-    for (let i = 0; i < improving.length && proposals.length < count; i++) {
-        const candidate = improving[i];
-        let thickness = S.cfg.dMin;
-        try {
-            thickness = findOptimalNeedleThickness({
-                operands: S.operands, design, resolveMat, candidate,
-                deltaNm: S.cfg.dMin, maxNm: Math.min(500, S.cfg.dMax), tol: 0.5, side: S.side,
-            });
-            if (!(thickness >= S.cfg.dMin)) thickness = S.cfg.dMin;
-        } catch (_) {
-            thickness = S.cfg.dMin;
-        }
-        const nextDesign = candidate.intra
-            ? insertNeedleIntra(design, candidate, thickness, S.side)
-            : insertNeedle(design, candidate.pos, candidate.materialId, thickness, S.side);
-        proposals.push({
-            layers: nextDesign[S.layerKey],
-            mutation: {
-                kind: candidate.intra ? 'split' : 'add',
-                pos: candidate.intra ? candidate.layerK : candidate.pos,
-                materialId: candidate.materialId,
-                insertMat: candidate.materialId,
-                thickness,
-            },
-        });
-    }
-    return proposals;
+    const shared = { operands: S.operands, design, side: S.side, dMin: S.cfg.dMin, materials: S.materials, wasmBytes: S.wasmBytes };
+    const candidates = await needleTask(S, 0, {
+        ...shared, type: 'structuralNeedleScan', pool: S.poolLite, deltaNm: SCAN_DELTA, count,
+    }, warnScanFailed);
+    if (!candidates?.length || !alive(S)) return [];
+    const placed = await Promise.all(candidates.map((candidate, index) => needleTask(S, index, {
+        ...shared, type: 'structuralNeedle', candidate, layerKey: S.layerKey, maxNm: Math.min(500, S.cfg.dMax),
+    })));
+    return placed.filter(Boolean);
 }
 
 /**
@@ -69,7 +41,7 @@ export function needleProposals(S, current, count) {
  * not add a layer are proposed. `reason` is 'layerCap' when no kind is left at
  * the limit and 'noMutation' when nothing could be proposed, else null.
  */
-export function generateProposals(S) {
+export async function generateProposals(S) {
     const currentLayers = S.current[S.layerKey] || [];
     const atCap = currentLayers.filter(layer => !layer.locked).length >= S.cfg.maxLayers;
     const enabledKinds = atCap
@@ -79,7 +51,7 @@ export function generateProposals(S) {
 
     const proposals = [];
     if (enabledKinds.includes('add') || enabledKinds.includes('split')) {
-        proposals.push(...needleProposals(S, S.current, Math.ceil(S.workerCount / 2)));
+        proposals.push(...await needleProposals(S, S.current, Math.ceil(S.workerCount / 2)));
     }
     // The needles are the insertions that improve the merit to first order; the
     // remaining slots take random mutations of every enabled kind, so layers too
@@ -124,7 +96,7 @@ function takenMove(S, moves, lowest, temperature) {
  * merit is reached. */
 export function acceptProposal(S, batch, temperature, recordBest) {
     if (batch?.polish && adoptPolish(S, batch.polish, recordBest)) return true;
-    const moves = (batch?.moves || []).map(item => ({ item, candidate: normalizeResult(S, item.result) }))
+    const moves = (batch?.moves || []).map(item => ({ item, candidate: normalizeResult(item.result) }))
         .filter(move => Number.isFinite(move.candidate.mf));
     if (!moves.length) {
         S.noImprove += 1;
