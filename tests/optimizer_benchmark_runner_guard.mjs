@@ -133,8 +133,8 @@ const expected = {
     emptySweep: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
     needle: '18f1d2ca96d633ea63557c2a7eb19a67d6f38932eca26386a59fed5d058a0721',
     gradualEvolution: '60b9d78c4dd8efe756719ec34975f6262edf8849b83ad5e2a08b17ce1a984bb9',
-    structural: '8cbc140d9f86dc61892e1c839381525a6a03282f46703ddc58d7fc0278e2f5ab',
-    structuralDeepBudget: '81a20a4ce73d86ed13e797760cb5269aa85bc4ef8002ad2328d30f0f16a38b94',
+    structural: 'f204e6461a32ee428094343ca670e3b6fecce3a9ec5cc8b0e64c3d4793387d75',
+    structuralDeepBudget: '383c5c241759ef04d11a6ca7b6ba2b60e742b840279b8115b08457f9e887be9f',
 };
 assert.deepEqual(actual, expected);
 

@@ -12,7 +12,8 @@
  *   2. The slots after the needles take random mutations of every enabled kind,
  *      add and split included.
  *   3. At a Min thickness the needle scan offers no split whose halves are
- *      under it.
+ *      under it. Each needle goes in at the thickness the line search finds
+ *      for it on the run's own thread, not at the Min thickness.
  *   4. A Deep search kick never leaves the stack without a free layer, and a
  *      random split inserts a layer no thicker than Max added.
  *   5. CG stops at once when no layer is free.
@@ -42,6 +43,8 @@ const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
 const { buildWorkers } = await import('../src/utils/structural/workers.js');
 const { presampleAll } = await import('../src/utils/structural/refine.js');
 const { InThreadOptimizerWorker } = await import('../src/utils/workers/inThreadOptimizerWorker.js');
+const { scanNeedlesPFunction, findOptimalNeedleThickness } = await import('../src/utils/physics/optimizer.js');
+const { materialLookup } = await import('../src/components/windows/optimization/synthesisShared/materialNames.js');
 
 const layer = (material, thickness, locked = false) => ({ id: `${material}-${thickness}`, material, thickness, locked });
 
@@ -220,6 +223,29 @@ function runState(frontLayers, { dMin, seed = 1, workerCount = 8 }) {
     const thin = proposals.flatMap(p => p.layers).filter(l => l.thickness < dMin - 1e-9);
     assert.equal(thin.length, 0,
         `no proposal has a layer under ${dMin} nm (${thin.map(l => l.thickness.toFixed(1)).join(', ')})`);
+}
+
+// The BBAR from TiO2 30 / SiO2 50 nm at a 1 nm floor: the four best needles,
+// each at the thickness the line search gives it with its material on the
+// run's own thread.
+{
+    const dMin = 1;
+    const S = runState([layer('TiO2', 30), layer('SiO2', 50)], { dMin });
+    const proposals = await needleProposals(S, S.current, 4);
+    const design = { ...S.media, frontLayers: S.current.frontLayers, backLayers: [] };
+    const resolveMat = materialLookup(S.curDes);
+    const { candidates } = scanNeedlesPFunction({
+        operands: S.operands, design, resolveMat, candidateMats: S.pool, deltaNm: 0.5, side: 'front', dMin,
+    });
+    const expected = candidates.filter(c => c.dMF < 0).sort((a, b) => a.dMF - b.dMF).slice(0, 4)
+        .map(candidate => findOptimalNeedleThickness({
+            operands: S.operands, design, resolveMat, candidate: { ...candidate, _mat: resolveMat(candidate.materialId) },
+            deltaNm: dMin, maxNm: 500, tol: 0.5, side: 'front',
+        }));
+    const thicknesses = proposals.map(p => p.mutation.thickness);
+    assert.deepEqual(thicknesses, expected, 'each needle goes in at the thickness the line search finds for it');
+    assert.ok(thicknesses.length === 4 && thicknesses.every(d => d > dMin + 1),
+        `and none at the 1 nm floor (${thicknesses.map(d => d.toFixed(2)).join(', ')} nm)`);
 }
 
 // ── 4. Deep search kicks ───────────────────────────────────────────────────────

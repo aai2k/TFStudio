@@ -85,7 +85,8 @@ function placeNeedle(job, resolveMat) {
     let thickness = dMin;
     try {
         thickness = findOptimalNeedleThickness({
-            operands: job.operands, design, resolveMat, candidate,
+            operands: job.operands, design, resolveMat,
+            candidate: { ...candidate, _mat: resolveMat(candidate.materialId) },
             deltaNm: dMin, maxNm: job.maxNm, tol: 0.5, side,
         });
         if (!(thickness >= dMin)) thickness = dMin;
