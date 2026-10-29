@@ -1,10 +1,4 @@
 import { cleanupDesign } from '../../../../utils/synthesis/designCleaner.js';
-import {
-    evaluateOperands,
-    calcMF,
-    buildEvalContext,
-    withFringeSampleCounts,
-} from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { densifyForRun } from '../../../../utils/refinement/workerInputs.js';
 import { refineOffThread, refineInTicks } from '../synthesisShared/workerRefine.js';
@@ -12,20 +6,6 @@ import { refineOffThread, refineInTicks } from '../synthesisShared/workerRefine.
 export function computeCleanupPreview(design, opts) {
     if (!design?.frontLayers) return null;
     return cleanupDesign(design, opts);
-}
-
-// Merit-function value of a design tree, or null if there is nothing to
-// score against (no operands) or the evaluation throws. Band operands are
-// sampled for that design's fringes, as the merit table samples them.
-export function computeMeritValue(targetDesign, meritOperands, resolveMat) {
-    if (!targetDesign || !meritOperands?.length) return null;
-    try {
-        const ctx = buildEvalContext(targetDesign, resolveMat);
-        const sampled = withFringeSampleCounts(meritOperands, ctx);
-        return calcMF(sampled, evaluateOperands(sampled, ctx));
-    } catch {
-        return null;
-    }
 }
 
 // The post-clean refinement: the app's default refiner on the cleaned stack,

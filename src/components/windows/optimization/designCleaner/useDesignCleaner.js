@@ -1,11 +1,31 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { listThinLayers } from '../../../../utils/synthesis/designCleaner.js';
-import { applyCleanup, computeCleanupPreview, computeMeritValue } from './model.js';
+import { applyCleanup, computeCleanupPreview } from './model.js';
 import { designCleanerSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useMeritValues, MERIT_ONLY, meritOrInfinity } from '../useMeritValues.js';
 
 const { useState, useMemo, useCallback, useEffect, useRef } = React;
+const NO_OPERANDS = [];
+
+/**
+ * The MF of the design and of its cleaned preview, as the Merit Function
+ * Editor shows each (useMeritValues), with `beforeProvisional` and
+ * `afterProvisional` marking a value read at the default steps, and `busy`
+ * while a cone evaluation works. `hold` is on while an optimizer run moves the
+ * design.
+ */
+export function useCleanerMerit(design, cleaned, hold) {
+    const operands = design?.meritOperands || NO_OPERANDS;
+    const before = useMeritValues(design, operands, hold, MERIT_ONLY);
+    const after = useMeritValues(cleaned, operands, hold, MERIT_ONLY);
+    return {
+        mfBefore: meritOrInfinity(before, 'mf'), mfAfter: meritOrInfinity(after, 'mf'),
+        beforeProvisional: before.mfProvisional, afterProvisional: after.mfProvisional,
+        mfBusy: before.busy || after.busy,
+    };
+}
 
 // Apply + the optional re-optimize pass, run in the optimizer worker so the
 // window stays responsive. `progress` is { step, iters, mf } while the pass
@@ -72,7 +92,7 @@ export function useCleanupRun({ dc, design, preview, settings, resolveMaterial, 
 }
 
 export function useDesignCleaner(dc) {
-    const { design, updateDesign, checkpoint } = useDesign();
+    const { design, updateDesign, checkpoint, isOptimizing } = useDesign();
 
     const [session, setField] = useWindowSession(designCleanerSession, design);
     const { dMin, mergeAdjacent, cleanBack, reoptimize, reoptIters } = session;
@@ -89,15 +109,7 @@ export function useDesignCleaner(dc) {
         [design, dMin, mergeAdjacent, cleanBack]
     );
 
-    // MF (before vs after) — uses live design operands if any
-    const mfBefore = useMemo(
-        () => computeMeritValue(design, design?.meritOperands, resolveMaterial),
-        [design, resolveMaterial]
-    );
-    const mfAfter = useMemo(
-        () => computeMeritValue(preview?.design, design?.meritOperands, resolveMaterial),
-        [preview, design, resolveMaterial]
-    );
+    const merit = useCleanerMerit(design, preview?.design ?? null, isOptimizing);
 
     const settings = useMemo(() => ({ reoptimize, reoptIters, dMin }), [reoptimize, reoptIters, dMin]);
     const run = useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateDesign, checkpoint });
@@ -114,7 +126,7 @@ export function useDesignCleaner(dc) {
         design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
         cleanBack, setCleanBack, reoptimize, setReoptimize,
         reoptIters, setReoptIters, ...run,
-        preview, mfBefore, mfAfter,
+        preview, ...merit,
         ops, removedOps, mergedOps, thinList,
     };
 }

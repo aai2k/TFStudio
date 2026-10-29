@@ -1,7 +1,9 @@
 /**
  * The History window, the Round and Perturb dialogs and Layer Sensitivity show
  * the merit the Merit Function Editor shows: band rows sampled on the design's
- * fringe grid (withFringeSampleCounts), not at their design-free counts.
+ * fringe grid (withFringeSampleCounts), not at their design-free counts. The
+ * row has no Step of its own, so what each reads on the window's thread is
+ * final (merit_readouts_worker.mjs has the rows that do).
  *
  * The design is 60 TiO2/SiO2 layers with a band average over 400-700 nm, thick
  * enough that its fringes need more samples than the band's default count.
@@ -12,14 +14,16 @@
 import { createRequire } from 'node:module';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
 import { meritTable } from '../src/utils/physics/meritDisplay.js';
-import { designMerit } from '../src/components/windows/design/designEditor/layerTools.js';
 import { computeLayerSensitivity } from '../src/utils/physics/errorAnalysis.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import { initWasmForTest } from './_wasmInit.mjs';
+import { makeEffectRuntime } from './_effectRuntime.mjs';
 
 const require = createRequire(import.meta.url);
-globalThis.React = require('react');
-const { mfFor } = await import('../src/components/windows/edit/HistoryWindow.js');
+const runtime = makeEffectRuntime(require('react'));
+globalThis.React = runtime;
+const { quickMerit } = await import('../src/components/windows/edit/HistoryWindow.js');
+const { useMeritPreview } = await import('../src/components/windows/design/designEditor/LayerToolDialogs.js');
 
 await initWasmForTest();
 
@@ -41,13 +45,14 @@ const design = {
 const editor = meritTable(design, design.meritOperands).mf;
 const same = (v) => Number.isFinite(v) && Math.abs(v - editor) <= 1e-12 * Math.max(1, Math.abs(editor));
 
-const history = mfFor(design).mf;
-const round = designMerit(design);
+const history = quickMerit(design);
+const round = runtime.run(() => useMeritPreview(design, design, false));
+runtime.unmount();
 const sensitivity = computeLayerSensitivity(design, design.meritOperands, designMaterialLookup(design)).mf0;
 
-console.log(`editor ${editor}, History ${history}, Round/Perturb ${round}, Layer Sensitivity ${sensitivity}`);
-ok(same(history), 'History shows the editor\'s MF');
-ok(same(round), 'Round and Perturb show the editor\'s MF');
+console.log(`editor ${editor}, History ${history.mf}, Round/Perturb ${round.before}, Layer Sensitivity ${sensitivity}`);
+ok(same(history.mf) && !history.pending, 'History shows the editor\'s MF');
+ok(same(round.before) && !round.beforeProvisional, 'Round and Perturb show the editor\'s MF');
 ok(same(sensitivity), 'Layer Sensitivity starts from the editor\'s MF');
 
 if (fails) { console.log(`\n${fails} check(s) failed`); process.exit(1); }

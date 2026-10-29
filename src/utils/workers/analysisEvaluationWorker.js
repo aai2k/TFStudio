@@ -1,6 +1,7 @@
 /**
- * Off-renderer evaluation for cone-aware live display consumers and pulse
- * analysis, and Monte Carlo runs with their progress.
+ * Off-renderer evaluation for cone-aware live display consumers, merit
+ * readouts at the rows' own Steps and pulse analysis, and Monte Carlo runs
+ * with their progress.
  */
 import { computeOpticalSpectrum } from '../../components/windows/analysis/opticalEvaluation/spectrum.js';
 import { computeSpectrumForMode } from '../../components/windows/analysis/integralValues/spectrum.js';
@@ -9,7 +10,7 @@ import { computePulseAnalysis } from '../../components/windows/analysis/pulseAna
 import { designMaterialLookup, unresolvedMaterials } from '../materials/designMaterials.js';
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
 import { evaluateQualifiers } from '../synthesis/qualifiers.js';
-import { runErrorAnalysisMC } from '../physics/errorAnalysis.js';
+import { runErrorAnalysisMC, computeLayerSensitivity } from '../physics/errorAnalysis.js';
 import { toleranceSpecInputs } from '../../components/windows/analysis/toleranceSpecInputs.js';
 import { computeCurveResults } from '../../components/windows/analysis/plotEngine/curveResults.js';
 import { computeVariatorSpectrum } from '../../components/windows/optimization/variator/model.js';
@@ -78,6 +79,8 @@ const EVALUATIONS = {
     }),
     pulseAnalysis: ({ design, request }) => computePulseAnalysis(design, request),
     meritTimeline: ({ designs }) => (designs || []).map(timelineMerit),
+    layerSensitivity: ({ design, operands, options }) =>
+        computeLayerSensitivity(design, operands || [], designMaterialLookup(design), options),
     plotCurves: ({ design, curves }) => computeCurveResults(curves, design),
     variatorSpectrum: request => computeVariatorSpectrum(request),
     designPreview: ({ design, curve, missing }) => designPreview(design, curve, missing),

@@ -1,7 +1,6 @@
 import { designMaterialLookup, designMaterialName } from '../../../../utils/materials/designMaterials.js';
 import { herpinMaterialRecord } from '../../../../utils/materials/herpinMaterial.js';
 import { mirrorLayers } from '../../../../utils/physics/optimizer.js';
-import { meritTable } from '../../../../utils/physics/meritDisplay.js';
 
 const TWO_PI = 2 * Math.PI;
 const layerId = prefix => `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -20,18 +19,6 @@ export function withSideLayers(design, side, layers, extra = {}) {
         next.backLayers = mirrorLayers(layers);
     }
     return next;
-}
-
-/** The design's MF as the Merit Function Editor shows it (meritTable), or null when it cannot be evaluated. */
-export function designMerit(design) {
-    const operands = design?.meritOperands || [];
-    if (!operands.length) return null;
-    try {
-        const value = meritTable(design, operands).mf;
-        return Number.isFinite(value) ? value : null;
-    } catch {
-        return null;
-    }
 }
 
 // n of material `id` at `lambda`, or null for an id that resolves nowhere,

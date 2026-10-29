@@ -12,7 +12,7 @@ import { refineOffThread } from '../synthesisShared/workerRefine.js';
 import { candidateDepth, scanLayerNumber, profileScan } from './insertion.js';
 
 export {
-    sideKey, runOperands, scanOperands, depthBoundaries, candidateDepth, insertForSelection, scanLayerNumber,
+    sideKey, enabledRows, runOperands, scanOperands, depthBoundaries, candidateDepth, insertForSelection, scanLayerNumber,
     resolveDRange, startingThickness, profileScan,
 } from './insertion.js';
 

@@ -1,14 +1,15 @@
 import {
-    designMerit, herpinCollapsePreview, makePerturbationMap,
+    herpinCollapsePreview, makePerturbationMap,
     perturbDesignSide, quantizeDesignSide,
     MAX_DECIMALS, PERTURB_DEFAULT_PERCENT, QUANTIZE_DEFAULTS,
 } from './layerTools.js';
-import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { stepKeys } from '../../../ui/numberField.js';
-import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
+import { useMeritValues, MERIT_ONLY } from '../../optimization/useMeritValues.js';
+import { provisionalMark } from '../../optimization/provisionalMark.js';
 
 const { createElement: h, useMemo, useState } = React;
+const NO_OPERANDS = [];
 
 function DialogFrame({ title, c, children, onClose }) {
     return h('div', {
@@ -67,7 +68,15 @@ function Footer({ c, strings, onClose, onApply, applyLabel, disabled = false }) 
     );
 }
 
-function MeritDelta({ before, after, busy, c, strings, computingLabel }) {
+// A value read with a row at its default step in place of its own Step is
+// marked until the value at the rows' own Steps comes (provisionalMark.js).
+function markedValue(text, provisional, tip, style) {
+    const mark = provisionalMark(provisional, tip);
+    return h('span', { title: mark.title, style: { ...style, opacity: mark.opacity } }, mark.prefix + text);
+}
+
+function MeritDelta({ merit, c, strings, computingLabel, tip }) {
+    const { before, after, busy } = merit;
     if (busy) {
         return h('div', { style: { marginTop: 12, color: c.textDim } }, computingLabel);
     }
@@ -83,33 +92,34 @@ function MeritDelta({ before, after, busy, c, strings, computingLabel }) {
             borderRadius: 5, fontVariantNumeric: 'tabular-nums',
         },
     },
-        h('span', null, `${strings.mfBefore}  ${before.toFixed(6)}`),
-        h('span', null, `${strings.mfAfter}  ${after.toFixed(6)}`),
-        h('span', { style: { color: delta > 0 ? c.error : delta < 0 ? c.success : c.text } },
-            `Δ ${delta >= 0 ? '+' : ''}${delta.toExponential(3)}`),
+        markedValue(`${strings.mfBefore}  ${before.toFixed(6)}`, merit.beforeProvisional, tip),
+        markedValue(`${strings.mfAfter}  ${after.toFixed(6)}`, merit.afterProvisional, tip),
+        markedValue(`Δ ${delta >= 0 ? '+' : ''}${delta.toExponential(3)}`,
+            merit.beforeProvisional || merit.afterProvisional, tip,
+            { color: delta > 0 ? c.error : delta < 0 ? c.success : c.text }),
     );
 }
 
-function useMeritPreview(design, preview) {
-    const operands = design?.meritOperands || [];
-    const coneActive = operands.length > 0 && coneIsActive(makeConeSpec(design?.cone || {}));
-    const payload = useMemo(
-        () => ({ design, candidateDesign: preview, operands }),
-        [design, preview, operands],
-    );
-    const workerResult = useAnalysisEvaluation(coneActive, 'meritPair', payload);
-    const direct = useMemo(() => coneActive ? null : {
-        before: designMerit(design),
-        after: designMerit(preview),
-    }, [coneActive, design, preview]);
-    return coneActive ? {
-        before: workerResult.data?.before?.mf ?? null,
-        after: workerResult.data?.after?.mf ?? null,
-        busy: workerResult.busy,
-    } : { ...direct, busy: false };
+const finiteOrNull = value => (Number.isFinite(value) ? value : null);
+
+/**
+ * The MF before and after a dialog's edit, as the Merit Function Editor shows
+ * each design's (useMeritValues), with `beforeProvisional` and
+ * `afterProvisional` marking a value read at the default steps. `hold` is on
+ * while an optimizer run moves the design.
+ */
+export function useMeritPreview(design, preview, hold) {
+    const operands = design?.meritOperands || NO_OPERANDS;
+    const before = useMeritValues(design, operands, hold, MERIT_ONLY);
+    const after = useMeritValues(preview, operands, hold, MERIT_ONLY);
+    return {
+        before: finiteOrNull(before.mf), after: finiteOrNull(after.mf),
+        beforeProvisional: before.mfProvisional, afterProvisional: after.mfProvisional,
+        busy: before.busy || after.busy,
+    };
 }
 
-export function QuantizeDialog({ design, side, c, t, onApply, onClose }) {
+export function QuantizeDialog({ design, side, c, t, hold, onApply, onClose }) {
     const strings = t.designEditor.layerTools;
     const [mode, setMode] = useState(QUANTIZE_DEFAULTS.mode);
     const [rawValue, setRawValue] = useState(String(QUANTIZE_DEFAULTS.value[QUANTIZE_DEFAULTS.mode]));
@@ -118,7 +128,7 @@ export function QuantizeDialog({ design, side, c, t, onApply, onClose }) {
     const preview = useMemo(() => {
         try { return quantizeDesignSide(design, side, options); } catch { return design; }
     }, [design, side, mode, value]);
-    const { before, after, busy } = useMeritPreview(design, preview);
+    const merit = useMeritPreview(design, preview, hold);
     const invalid = !Number.isFinite(value) || (mode !== 'decimals' && value <= 0) || (mode === 'decimals' && value < 0);
     const labels = {
         decimals: strings.decimalPlaces, step: strings.controllerStep, qwot: strings.qwotIncrement,
@@ -149,12 +159,15 @@ export function QuantizeDialog({ design, side, c, t, onApply, onClose }) {
             mode === 'qwot' && h('span', { style: { color: c.textDim } },
                 strings.atReference(design.referenceWavelength || 550)),
         ),
-        h(MeritDelta, { before, after, busy, c, strings, computingLabel: t.analysisEvaluation.computing }),
+        h(MeritDelta, {
+            merit, c, strings, computingLabel: t.analysisEvaluation.computing,
+            tip: t.meritFunctionEditor.provisionalTip,
+        }),
         h(Footer, { c, strings, onClose, disabled: invalid, onApply: () => onApply(preview) }),
     );
 }
 
-export function PerturbDialog({ design, side, c, t, onApply, onClose }) {
+export function PerturbDialog({ design, side, c, t, hold, onApply, onClose }) {
     const strings = t.designEditor.layerTools;
     const key = side === 'back' ? 'backLayers' : 'frontLayers';
     const [rawPercent, setRawPercent] = useState(String(PERTURB_DEFAULT_PERCENT));
@@ -164,7 +177,7 @@ export function PerturbDialog({ design, side, c, t, onApply, onClose }) {
         () => perturbDesignSide(design, side, percent, sample),
         [design, side, percent, sample],
     );
-    const { before, after, busy } = useMeritPreview(design, preview);
+    const merit = useMeritPreview(design, preview, hold);
     const invalid = !Number.isFinite(percent) || percent <= 0 || percent > 100;
     const sideLabel = side === 'front' ? strings.frontSide : strings.backSide;
     return h(DialogFrame, { title: strings.perturbTitle, c, onClose },
@@ -181,7 +194,10 @@ export function PerturbDialog({ design, side, c, t, onApply, onClose }) {
                 },
             }, strings.reshuffle),
         ),
-        h(MeritDelta, { before, after, busy, c, strings, computingLabel: t.analysisEvaluation.computing }),
+        h(MeritDelta, {
+            merit, c, strings, computingLabel: t.analysisEvaluation.computing,
+            tip: t.meritFunctionEditor.provisionalTip,
+        }),
         h(Footer, { c, strings, onClose, disabled: invalid, onApply: () => onApply(preview), applyLabel: strings.applyKick }),
     );
 }

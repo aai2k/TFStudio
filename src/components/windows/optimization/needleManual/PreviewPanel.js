@@ -3,11 +3,15 @@
 
 import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.js';
 import { NumberField } from '../../../ui/numberField.js';
+import { provisionalMark } from '../provisionalMark.js';
 
 const { createElement: h } = React;
 
 // Materials are named and coloured as `design` resolves them.
-export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, omf0, evaluationBusy, onDNew, onApply, onStop, busy, refining, design, c, t }) {
+export function PreviewPanel({
+    selected, hostInfo, dNew, dRange, predictedOMF, omf0, predictedProvisional, omf0Provisional, evaluationBusy,
+    onDNew, onApply, onStop, busy, refining, design, c, t,
+}) {
     const tn = t.needleManual;
     if (!selected) {
         return h('div', { style: { padding: '12px 12px', color: c.textDim, fontSize: 12, fontStyle: 'italic' } }, tn.clickHint);
@@ -41,7 +45,7 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
             }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, t.units.nm),
         ),
-        h(MeritLine, { predictedOMF, omf0, evaluationBusy, c, t }),
+        h(MeritLine, { predictedOMF, omf0, predictedProvisional, omf0Provisional, evaluationBusy, c, t }),
         h(ApplyRow, { onApply, onStop, busy, refining, c, tn })
     );
 }
@@ -50,18 +54,27 @@ export function PreviewPanel({ selected, hostInfo, dNew, dRange, predictedOMF, o
 // dropped), and a freshly inserted thin needle always starts below MNT, so
 // the preview reports OMF (constraint-free): the full MF's transient
 // penalty would swamp the optical gain the insertion actually delivers.
-// Constraints are re-imposed by the refine after Apply.
-function MeritLine({ predictedOMF, omf0, evaluationBusy, c, t }) {
+// Constraints are re-imposed by the refine after Apply. A value read with a
+// row at its default step in place of its own Step is marked until the value
+// at the rows' own Steps comes (provisionalMark.js).
+function MeritLine({ predictedOMF, omf0, predictedProvisional, omf0Provisional, evaluationBusy, c, t }) {
     const tn = t.needleManual;
     if (evaluationBusy) {
         return h('div', { style: { fontSize: 11, color: c.textDim } }, t.analysisEvaluation.computing);
     }
     const dMF   = (predictedOMF != null && omf0 != null) ? (predictedOMF - omf0) : null;
     const dMFColor = dMF == null ? c.text : (dMF < 0 ? c.success : c.error);
+    const tip = t.meritFunctionEditor.provisionalTip;
+    const item = (label, text, provisional, color) => {
+        const mark = provisionalMark(provisional && text !== '—', tip);
+        return h('span', { title: mark.title, style: { opacity: mark.opacity } },
+            label, ' ', h('b', { style: { color } }, mark.prefix + text));
+    };
     return h('div', { style: { display: 'flex', gap: 16, fontSize: 11, color: c.textDim } },
-        h('span', null, tn.omf0, ' ', h('b', { style: { color: c.text } }, omf0 == null ? '—' : omf0.toFixed(6))),
-        h('span', null, tn.omfPred, ' ', h('b', { style: { color: c.text } }, predictedOMF == null ? '—' : predictedOMF.toFixed(6))),
-        h('span', null, tn.dMF, ' ', h('b', { style: { color: dMFColor } }, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6))),
+        item(tn.omf0, omf0 == null ? '—' : omf0.toFixed(6), omf0Provisional, c.text),
+        item(tn.omfPred, predictedOMF == null ? '—' : predictedOMF.toFixed(6), predictedProvisional, c.text),
+        item(tn.dMF, dMF == null ? '—' : (dMF < 0 ? '' : '+') + dMF.toFixed(6),
+            omf0Provisional || predictedProvisional, dMFColor),
     );
 }
 

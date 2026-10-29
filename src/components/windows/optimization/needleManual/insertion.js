@@ -18,12 +18,15 @@ const START_TOL_NM = 0.5;
 // Which layer array a side maps to.
 export const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
 
+// The design's enabled rows less the PPEF ones, as the design holds them.
+export function enabledRows(design) {
+    return withoutPPEF((design?.meritOperands || []).filter(op => op.enabled));
+}
+
 // The rows the predicted merit scores on, and the refine after an insertion
-// starts from: the design's enabled rows less the PPEF ones, with band rows
-// sampled for the design's fringes.
+// starts from: enabledRows with band rows sampled for the design's fringes.
 export function runOperands(design, resolveMat) {
-    const enabled = withoutPPEF((design?.meritOperands || []).filter(op => op.enabled));
-    return withDesignSampleCounts(enabled, design, resolveMat);
+    return withDesignSampleCounts(enabledRows(design), design, resolveMat);
 }
 
 // The rows the profile scan and the starting thickness score on: `operands`

@@ -107,6 +107,7 @@ export function NeedleManual({ c, theme, t }) {
                     h(PreviewPanel, {
                         selected: s.selected, hostInfo: s.hostInfo || {}, dNew: s.dNew, dRange: s.dRange,
                         predictedOMF: s.predictedOMF, omf0: s.omfNow,
+                        predictedProvisional: s.predictedProvisional, omf0Provisional: s.omfNowProvisional,
                         evaluationBusy: s.predictedOMFBusy,
                         onDNew: s.setDNew, onApply: s.handleApply, onStop: s.stop,
                         busy: s.busy, refining: s.refining, design: s.design, c, t,

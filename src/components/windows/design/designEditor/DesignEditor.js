@@ -49,7 +49,7 @@ function SideTabButton({ side, activeSide, disabledSide, disabledReason, design,
 // ── Design Editor ─────────────────────────────────────────────────────────────
 
 export function DesignEditor({ c, t }) {
-    const { design, updateDesign, removeLayer, updateLayer } = useDesign();
+    const { design, updateDesign, removeLayer, updateLayer, isOptimizing } = useDesign();
     const missingMaterialIds = useUnresolvedMaterials(design);
     const [session, setSessionField] = useWindowSession(designEditorSession, design);
     const activeSide = session.activeSide;
@@ -150,7 +150,7 @@ export function DesignEditor({ c, t }) {
                 pasteLayersAtDisplayIndex, removeLayers, reorderLayers, moveLayersByStep,
                 invertActiveSide, setAllLocked, copyToOther,
                 onOpenReplaceMaterials: () => setReplaceOpen(true),
-                refLambda, t
+                refLambda, isOptimizing, t
             })
         ),
 

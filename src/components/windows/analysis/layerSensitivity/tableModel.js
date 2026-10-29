@@ -1,4 +1,5 @@
 import { LockIcon } from '../../../ui/LockIcon.js';
+import { provisionalMark } from '../../optimization/provisionalMark.js';
 import { matFriendlyName } from '../../optimization/synthesisShared/materialNames.js';
 import { displayLayerLabel, rankSensitivityRows } from './viewModel.js';
 
@@ -55,7 +56,16 @@ function materialSwatch(c, matColorMap) {
     );
 }
 
-export function sensitivityColumns({ t, c, matColorMap }) {
+// A ranking read with a row at its default step in place of its own Step
+// shows its merit changes and ranks as the merit tables show such a value
+// until the ranking at the rows' own Steps comes (provisionalMark.js).
+function marked(provisional, tip, format) {
+    if (!provisional) return format;
+    const mark = provisionalMark(true, tip);
+    return value => h('span', { title: mark.title, style: { opacity: mark.opacity } }, mark.prefix + format(value));
+}
+
+export function sensitivityColumns({ t, c, matColorMap, provisional = false, tip }) {
     const ls = t.layerSensitivity;
     return [
         { key: 'index', label: '#', align: 'left' },
@@ -63,8 +73,8 @@ export function sensitivityColumns({ t, c, matColorMap }) {
         { key: 'material', label: ls.colMaterial, align: 'left', fmt: materialSwatch(c, matColorMap) },
         { key: 'thickness', label: `d (${t.units.nm})`, fmt: value => value.toFixed(2) },
         { key: 'deltaNm', label: `Δd (${t.units.nm})`, fmt: value => value.toFixed(3) },
-        { key: 'deltaMFAbs', label: '|ΔOMF|', fmt: value => value.toExponential(3) },
-        { key: 'sensitivity', label: ls.colSens, fmt: value => value.toFixed(1) },
-        { key: 'rank', label: ls.colRank },
+        { key: 'deltaMFAbs', label: '|ΔOMF|', fmt: marked(provisional, tip, value => value.toExponential(3)) },
+        { key: 'sensitivity', label: ls.colSens, fmt: marked(provisional, tip, value => value.toFixed(1)) },
+        { key: 'rank', label: ls.colRank, fmt: marked(provisional, tip, String) },
     ];
 }

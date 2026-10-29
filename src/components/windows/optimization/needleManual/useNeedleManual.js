@@ -12,20 +12,18 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
 import { needleManualSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
-import {
-    resolveScanSide,
-    buildEvalContext, evaluateOperands, calcOMF,
-    makeConeSpec, coneIsActive,
-} from '../../../../utils/physics/optimizer.js';
+import { resolveScanSide, makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import {
     countPoolMaterials, POOL_MAX_SYNC,
     useCatSelection, materialLookup, matFriendlyName, getPoolMaterials,
 } from '../synthesisShared/synthesisHelpers.js';
 import {
     candidateDepth, insertForSelection, runNeedleScan, buildPlotData,
-    resolveHostInfo, resolveDRange, insertionRefineJob, refineAndCommit, runOperands, scanOperands, startingThickness,
+    resolveHostInfo, resolveDRange, insertionRefineJob, refineAndCommit, enabledRows, runOperands, scanOperands,
+    startingThickness,
 } from './model.js';
 import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
+import { useMeritValues, sampledOn, meritOrInfinity } from '../useMeritValues.js';
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -159,13 +157,27 @@ function useNeedleWorkflow({ design, resolveMat, effSide, operands, selectedCats
 // and a thin needle always starts below MNT; showing the full MF here would
 // report a large, transient constraint penalty rather than the optical benefit.
 
-function usePredictedOMF({ selected, scan, design, resolveMat, operands, dNew, requestedSide }) {
-    const [predictedOMF, setPredictedOMF] = useState(null);   // optical MF after insert
-    const [omfNow,       setOmfNow]       = useState(null);   // optical MF of current design
+const NO_PREDICTION = Object.freeze({
+    predictedOMF: null, omfNow: null, predictedOMFBusy: false,
+    predictedProvisional: false, omfNowProvisional: false,
+});
+
+/**
+ * The OMF of the design and of the design with the picked needle inserted.
+ * Under a cone the analysis worker scores each on the rows `operands`
+ * (runOperands), sampled further where that design's own fringes need more,
+ * with `predictedOMFBusy` on while it works. Otherwise both are scored on the
+ * enabled rows sampled on the design's grid, read as the merit tables read
+ * theirs (useMeritValues): at the default steps first, marked by
+ * `omfNowProvisional` and `predictedProvisional`, then on the worker at the
+ * rows' own Steps unless `hold` is on.
+ */
+export function usePredictedOMF({ selected, scan, design, operands, dNew, requestedSide, hold }) {
     const inserted = useMemo(
         () => selected ? insertForSelection(selected, design, dNew, requestedSide) : null,
         [selected, design, dNew, requestedSide],
     );
+    const picked = !!(selected && scan && inserted);
     const coneActive = !!inserted && operands.length > 0
         && coneIsActive(makeConeSpec(design?.cone || {}));
     const meritPayload = useMemo(
@@ -173,35 +185,26 @@ function usePredictedOMF({ selected, scan, design, resolveMat, operands, dNew, r
         [design, inserted, operands],
     );
     const workerResult = useAnalysisEvaluation(coneActive, 'meritPair', meritPayload);
+    const here = picked && !coneActive;
+    const rows = useMemo(() => enabledRows(design), [design]);
+    const onDesignGrid = useMemo(() => sampledOn(design), [design]);
+    const now = useMeritValues(here ? design : null, rows, hold, onDesignGrid);
+    const after = useMeritValues(here ? inserted : null, rows, hold, onDesignGrid);
 
-    useEffect(() => {
-        if (!selected || !scan || !inserted) {
-            setPredictedOMF(null); setOmfNow(null);
-            return;
-        }
-        if (coneActive) {
-            if (workerResult.data) {
-                setOmfNow(workerResult.data.before?.omf ?? null);
-                setPredictedOMF(workerResult.data.after?.omf ?? null);
-            } else if (workerResult.error) {
-                setPredictedOMF(null); setOmfNow(null);
-            }
-            return;
-        }
-        const id = setTimeout(() => {
-            try {
-                const ops = operands;   // full enabled set; calcOMF skips constraint terms
-                const compNow = evaluateOperands(ops, buildEvalContext(design, resolveMat));
-                setOmfNow(calcOMF(ops, compNow));
-                const compIns = evaluateOperands(ops, buildEvalContext(inserted, resolveMat));
-                setPredictedOMF(calcOMF(ops, compIns));
-            } catch (_) { setPredictedOMF(null); setOmfNow(null); }
-        }, 30);
-        return () => clearTimeout(id);
-    }, [selected, scan, design, inserted, resolveMat, operands, coneActive,
-        workerResult.data, workerResult.error]);
-
-    return { predictedOMF, omfNow, predictedOMFBusy: coneActive && workerResult.busy };
+    if (!picked) return NO_PREDICTION;
+    if (coneActive) {
+        return {
+            ...NO_PREDICTION,
+            omfNow: workerResult.data?.before?.omf ?? null,
+            predictedOMF: workerResult.data?.after?.omf ?? null,
+            predictedOMFBusy: workerResult.busy,
+        };
+    }
+    return {
+        omfNow: meritOrInfinity(now, 'omf'), predictedOMF: meritOrInfinity(after, 'omf'),
+        omfNowProvisional: now.mfProvisional, predictedProvisional: after.mfProvisional,
+        predictedOMFBusy: false,
+    };
 }
 
 // ── Apply: single insertion, optionally followed by one refinement pass ─────────
@@ -302,7 +305,7 @@ function useNeedleApply({
 // ── Top-level combinator ─────────────────────────────────────────────────────────
 
 export function useNeedleManual(t) {
-    const { design, updateDesign, checkpoint } = useDesign();
+    const { design, updateDesign, checkpoint, isOptimizing } = useDesign();
     const tn = t.needleManual;
     const settings = useNeedleSettings(design);
     const resolveMat = useMemo(() => materialLookup(design), [design]);
@@ -320,8 +323,8 @@ export function useNeedleManual(t) {
     });
 
     const predicted = usePredictedOMF({
-        selected: workflow.selected, scan: workflow.scan, design, resolveMat, operands,
-        dNew: workflow.dNew, requestedSide: settings.requestedSide,
+        selected: workflow.selected, scan: workflow.scan, design, operands,
+        dNew: workflow.dNew, requestedSide: settings.requestedSide, hold: isOptimizing,
     });
 
     const apply = useNeedleApply({

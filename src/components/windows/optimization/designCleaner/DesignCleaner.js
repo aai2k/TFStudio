@@ -45,7 +45,10 @@ export function DesignCleaner({ c, theme, t }) {
         }
     },
         h(CleanerControls, { ...state, c, dc, units: t.units }),
-        h(CleanerSummary, { ...state, c, dc }),
+        h(CleanerSummary, {
+            ...state, c, dc,
+            tip: t.meritFunctionEditor.provisionalTip, computingLabel: t.analysisEvaluation.computing,
+        }),
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'row' } },
             h(CleanerOpsTable, { c, dc, units: t.units, design, ops, dMin }),
             h(CleanerThinList, { c, dc, units: t.units, design, thinList }),

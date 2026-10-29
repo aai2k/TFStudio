@@ -46,7 +46,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     addLayerAtDisplayIndex, removeLayerAt, duplicateLayerAt,
     pasteLayersAtDisplayIndex, removeLayers, reorderLayers, moveLayersByStep,
     invertActiveSide, setAllLocked, copyToOther, onOpenReplaceMaterials,
-    refLambda, t }) {
+    refLambda, isOptimizing, t }) {
 
     const [session, setSessionField] = useWindowSession(designEditorSession, design);
     const selectedId = session.selectedLayerId;
@@ -560,10 +560,10 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
             c, onClose: closeContextMenu, ariaLabel: menuText.label,
         }),
         toolDialog === 'quantize' && h(QuantizeDialog, {
-            design, side, c, t, onApply: applyToolDesign, onClose: () => setToolDialog(null),
+            design, side, c, t, hold: isOptimizing, onApply: applyToolDesign, onClose: () => setToolDialog(null),
         }),
         toolDialog === 'perturb' && h(PerturbDialog, {
-            design, side, c, t, onApply: applyToolDesign, onClose: () => setToolDialog(null),
+            design, side, c, t, hold: isOptimizing, onApply: applyToolDesign, onClose: () => setToolDialog(null),
         }),
         toolDialog === 'herpin' && h(HerpinDialog, {
             design, side, selectedIds: selectedIdArray, c, t,

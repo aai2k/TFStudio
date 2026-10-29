@@ -1,4 +1,30 @@
+import { provisionalMark } from '../provisionalMark.js';
+
 const { createElement: h } = React;
+
+// One MF of the summary, marked while it is read at the default steps
+// (provisionalMark.js).
+function meritItem(key, label, value, provisional, { c, tip, color }) {
+    const mark = provisionalMark(provisional, tip);
+    return h('div', { key, title: mark.title, style: { opacity: mark.opacity } },
+        h('span', { style: { color: c.textDim, marginRight: 4 } }, label + ':'),
+        h('span', { style: color ? { color } : null }, mark.prefix + value.toFixed(6)));
+}
+
+function afterColor(mfAfter, mfBefore, c) {
+    if (mfAfter > mfBefore + 1e-9) return c.error;
+    return mfAfter < mfBefore - 1e-9 ? c.success : c.text;
+}
+
+// The MF before and after the cleanup, or the cone evaluation at work.
+function meritItems({ c, dc, mfBefore, mfAfter, beforeProvisional, afterProvisional, mfBusy, tip, computingLabel }) {
+    if (mfBusy) return [h('div', { key: 'busy', style: { color: c.textDim } }, computingLabel)];
+    return [
+        mfBefore != null && meritItem('before', dc.mfBefore, mfBefore, beforeProvisional, { c, tip }),
+        mfAfter != null && meritItem('after', dc.mfAfter, mfAfter, afterProvisional,
+            { c, tip, color: afterColor(mfAfter, mfBefore, c) }),
+    ];
+}
 
 export function CleanerPlaceholder({ message, c }) {
     return h('div', {
@@ -10,7 +36,11 @@ export function CleanerPlaceholder({ message, c }) {
     }, message);
 }
 
-export function CleanerSummary({ c, dc, preview, ops, removedOps, mergedOps, mfBefore, mfAfter, resultMsg }) {
+export function CleanerSummary({
+    c, dc, preview, ops, removedOps, mergedOps, resultMsg,
+    mfBefore, mfAfter, beforeProvisional, afterProvisional, mfBusy, tip, computingLabel,
+}) {
+    const merit = { mfBefore, mfAfter, beforeProvisional, afterProvisional, mfBusy, tip, computingLabel };
     return h('div', {
         style: {
             display: 'flex', gap: 18, flexWrap: 'wrap',
@@ -37,18 +67,7 @@ export function CleanerSummary({ c, dc, preview, ops, removedOps, mergedOps, mfB
             h('span', { style: { color: c.textDim, marginRight: 4 } }, dc.toMerge + ':'),
             h('span', { style: { color: mergedOps.length ? '#ffd54f' : c.text } }, mergedOps.length)
         ),
-        mfBefore != null && h('div', null,
-            h('span', { style: { color: c.textDim, marginRight: 4 } }, dc.mfBefore + ':'),
-            h('span', null, mfBefore.toFixed(6))
-        ),
-        mfAfter != null && h('div', null,
-            h('span', { style: { color: c.textDim, marginRight: 4 } }, dc.mfAfter + ':'),
-            h('span', {
-                style: { color: mfAfter > mfBefore + 1e-9 ? c.error
-                              : mfAfter < mfBefore - 1e-9 ? c.success
-                              : c.text }
-            }, mfAfter.toFixed(6))
-        ),
+        ...meritItems({ c, dc, ...merit }),
         resultMsg && h('div', { style: { color: c.accent, marginLeft: 'auto' } }, resultMsg),
     );
 }

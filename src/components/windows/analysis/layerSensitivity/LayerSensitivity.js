@@ -9,6 +9,7 @@ import { SpecVerdict } from '../../../SpecVerdict.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
+import { provisionalMark } from '../../optimization/provisionalMark.js';
 import { SensitivityBars } from './SensitivityBars.js';
 import { SensitivityControls } from './SensitivityControls.js';
 import { sensitivityColumns, sensitivityRows } from './tableModel.js';
@@ -21,7 +22,10 @@ export function LayerSensitivity({ c, theme, t }) {
     const { design, operands, sensHasLayers, error, orderedRows } = state;
     const ls = t.layerSensitivity;
     const dt = t.dataTable;
-    const columns = sensitivityColumns({ t, c, matColorMap: state.matColorMap });
+    const columns = sensitivityColumns({
+        t, c, matColorMap: state.matColorMap,
+        provisional: state.provisional, tip: t.meritFunctionEditor.provisionalTip,
+    });
     const rows = sensitivityRows(orderedRows, state.frontCount, design);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
@@ -30,6 +34,11 @@ export function LayerSensitivity({ c, theme, t }) {
 
     if (!sensHasLayers) return h(CenteredMessage, { c, message: ls.noLayers });
     if (!operands.length) return h(CenteredMessage, { c, message: ls.noOperands });
+    // Under a cone the ranking comes from the analysis worker alone.
+    let note = error;
+    if (state.busy) note = t.analysisEvaluation.computing;
+    else if (state.failed) note = t.analysisEvaluation.failed;
+    const chartMark = provisionalMark(state.provisional, t.meritFunctionEditor.provisionalTip);
 
     // The ranking is what the window is for, so the table gets the height and
     // the badges and export ride on the control row rather than on a strip
@@ -46,7 +55,7 @@ export function LayerSensitivity({ c, theme, t }) {
                 }),
                 h(ExportMenu, {
                     key: 'export',
-                    c, enabled: rows.length > 0, ...csv,
+                    c, enabled: rows.length > 0 && !note, ...csv,
                     labels: {
                         export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
                         copied: dt.csvCopied, saved: dt.csvSaved,
@@ -55,15 +64,15 @@ export function LayerSensitivity({ c, theme, t }) {
             ],
         }),
         h(PlotArea, null,
-            error
-                ? h(CenteredMessage, { c, message: error })
+            note
+                ? h(CenteredMessage, { c, message: note })
                 : h(ResultsGrid, { columns, rows, c, fill: true }),
         ),
         h(ResultsSection, {
             c, label: ls.chartTitle, summary: `${rows.length} ${ls.layers}`,
             open: state.showChart, setOpen: state.setShowChart,
-        }, h('div', { style: { height: 220, backgroundColor: c.bg } },
-            error
+        }, h('div', { title: chartMark.title, style: { height: 220, backgroundColor: c.bg, opacity: chartMark.opacity } },
+            note
                 ? null
                 : h(SensitivityBars, {
                     rows: orderedRows, matColorMap: state.matColorMap,
