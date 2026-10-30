@@ -10,10 +10,11 @@
  *
  * The first case is the validation design of
  * `validation/macleod/Stress validation case/`, built as a TFStudio design and
- * run at the first of the three dialog settings. It is the end-to-end check:
- * layer order, which coating counts, the temperature bookkeeping, the units the
- * window prints and the numbering that puts layer 1 at the substrate, all
- * against numbers a different program printed.
+ * run at the first of the three dialog settings (`tests/_stressValidation.mjs`).
+ * It is the end-to-end check: layer order, which coating counts, the
+ * temperature bookkeeping, the units the window prints and the numbering that
+ * puts layer 1 at the substrate, all against numbers a different program
+ * printed.
  */
 
 import assert from 'node:assert/strict';
@@ -22,6 +23,7 @@ import { designMaterialLookup } from '../src/utils/materials/designMaterials.js'
 import { stressForceNm } from '../src/utils/physics/stress/stackForce.js';
 import { computeStress } from '../src/components/windows/analysis/stressAnalysis/model.js';
 import { filmColumns, wholeRows } from '../src/components/windows/analysis/stressAnalysis/tableModel.js';
+import { MATERIALS, OPTICS, validationBack, validationDesign } from './_stressValidation.mjs';
 
 // The table prints three figures, so a value is checked to half of the last
 // place it showed or a twentieth of a percent, whichever is looser.
@@ -31,54 +33,6 @@ function close(actual, printed, message) {
     const tolerance = Math.max(0.5 * 10 ** -decimals, Math.abs(expected) * 0.005);
     assert.ok(actual != null && Math.abs(actual - expected) <= tolerance,
         `${message}: ${actual} is not within ${tolerance} of ${expected}`);
-}
-
-const OPTICS = { formulaNum: -1, tabData: [[400, 2.0, 0], [700, 2.0, 0]] };
-
-const MATERIALS = {
-    'user_m:H': {
-        id: 'H', name: 'TFS Stress H', ...OPTICS,
-        mechanical: {
-            youngsModulusGPa: 200, poissonsRatio: 0.25, linearExpansionPerK: 3.0e-6,
-            intrinsicStressMPa: -300, referenceTemperatureC: 300, surfaceEnergyJm2: 1.0,
-        },
-    },
-    'user_m:L': {
-        id: 'L', name: 'TFS Stress L', ...OPTICS,
-        mechanical: {
-            youngsModulusGPa: 70, poissonsRatio: 0.17, linearExpansionPerK: 10.0e-6,
-            intrinsicStressMPa: 150, referenceTemperatureC: 200, surfaceEnergyJm2: 0.3,
-        },
-    },
-    'user_m:Sub': {
-        id: 'Sub', name: 'TFS Stress Sub', ...OPTICS,
-        mechanical: {
-            youngsModulusGPa: 80, poissonsRatio: 0.22, linearExpansionPerK: 5.0e-6,
-            surfaceEnergyJm2: 0.5,
-        },
-    },
-};
-
-// Essential Macleod numbers layers from the incident medium, and TFStudio
-// stores a front coating air-first, so this list is in the program's own
-// order: its layer 1 is next to the medium.
-function validationDesign(overrides = {}) {
-    return {
-        name: 'Stress validation case',
-        incidentMedium: 'builtin:Air', exitMedium: 'builtin:Air',
-        substrate: { material: 'user_m:Sub', thickness: 15, diameterMm: 33 },
-        frontLayers: [
-            { id: 'F1', material: 'user_m:H', thickness: 300 },
-            { id: 'F2', material: 'user_m:L', thickness: 250 },
-            { id: 'F3', material: 'user_m:H', thickness: 450 },
-            { id: 'F4', material: 'user_m:L', thickness: 400 },
-        ],
-        backLayers: [],
-        surfaceMode: 'front_only', mfEvalMode: 'side',
-        stress: { temperatureC: 20, depositionTemperatureC: 3000 },
-        materials: MATERIALS,
-        ...overrides,
-    };
 }
 
 const analyse = design => computeStress(design, resolveEvalMode(design));
@@ -210,6 +164,39 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
     const single = analyse(validationDesign());
     close(result.whole.strainEnergy, (single.whole.strainEnergy * 2).toPrecision(6),
         'while the strain energy doubles, because energy does not cancel');
+}
+
+// ── A coating on one face alone reads the same on either face ────────────────
+//
+// The validation films moved to the back: on a back-only design, and on a
+// two-sided design with its front bare scored on the whole part. The force,
+// the radius and the deflection refer to the coated face, so each reads as the
+// films do on the front, and Macleod's table holds on the back too.
+
+{
+    const front = analyse(validationDesign());
+    const cases = {
+        'back only': validationDesign({
+            surfaceMode: 'back_only', frontLayers: [], backLayers: validationBack(),
+        }),
+        'both faces, the front bare': validationDesign({
+            surfaceMode: 'both_independent', frontLayers: [], backLayers: validationBack(),
+        }),
+    };
+    for (const [label, design] of Object.entries(cases)) {
+        const result = analyse(design);
+        assert.deepEqual(result.rows.map(row => row.side), ['back', 'back', 'back', 'back'],
+            `${label}: the four films are on the back`);
+        assert.deepEqual(result.rows.map(({ side, ...row }) => row), front.rows.map(({ side, ...row }) => row),
+            `${label}: each film reads as it does on the front`);
+        assert.deepEqual(result.whole, front.whole, `${label}: and so does the whole part`);
+        close(result.whole.forceNm, '-3657.6', `${label}: a compressive coating gives a negative force`);
+        close(result.whole.radiusM, '1050', `${label}: and a positive radius on its own face`);
+        close(result.whole.deflectionUm, '0.129', `${label}: and a positive centre deflection`);
+        const ctx = buildEvalContext(design, designMaterialLookup(design));
+        close(stressForceNm(ctx), result.whole.forceNm.toPrecision(6),
+            `${label}: the STR row reads the same force as the window`);
+    }
 }
 
 // ── What the tables print ────────────────────────────────────────────────────

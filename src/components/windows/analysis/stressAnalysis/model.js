@@ -13,7 +13,9 @@
  *   the part. Strain energy, the delamination factor and the edge shear are
  *   computed per side against that side's own stack; the curvature comes from
  *   the net force, F_front − F_back, because the two coatings bend the
- *   substrate against each other.
+ *   substrate against each other. A coating on one face alone is referred to
+ *   that face, so the force, the radius and the deflection read the same on
+ *   the back as on the front (`forceSigns`).
  *
  * Which coatings count follows the design's evaluation mode, the same rule the
  * STR merit operand reads, so the force this window bends the substrate with is
@@ -27,7 +29,7 @@ import {
     biaxialModulusPa, interfaceForcesNm, missingStressFields, youngsModulusPa,
 } from '../../../../utils/physics/stress/filmStress.js';
 import {
-    layerStressPa, statesStress, stressCountedSides, stressRun,
+    forceSigns, layerStressPa, statesStress, stressCountedSides, stressRun,
 } from '../../../../utils/physics/stress/stackForce.js';
 import {
     centreDeflectionM, curvaturePerM, edgeShearPa, radiusM, shearParameterPerM,
@@ -143,7 +145,8 @@ function sideResult(films, substrate) {
 const addOrNull = (a, b) => (stated(a) && stated(b) ? a + b : null);
 
 function wholePart(front, back, substrate) {
-    const forceNm = front.forceNm - back.forceNm;
+    const signs = forceSigns(front.rows.length, back.rows.length);
+    const forceNm = signs.front * front.forceNm + signs.back * back.forceNm;
     const curvature = curvaturePerM(forceNm, substrate);
     const deflectionM = centreDeflectionM(curvature, substrate.radiusM);
     return {

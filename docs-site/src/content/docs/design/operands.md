@@ -211,7 +211,7 @@ A coating pulls on the substrate it sits on, and a substrate too thin to ignore 
 F = Σ σ_l · d_l      (N/m, which is MPa·µm)
 ```
 
-summed over the films, with the back coating entering negative because it pulls the other way. `STR` puts that force in the merit function, so the bow becomes something the optimizer steers rather than something the first part off the machine reveals. **A target of 0 is the zero-deflection condition:** a coating whose compressive and tensile films balance leaves the substrate flat.
+summed over the films. With coatings on both faces the back one enters negative, because it pulls the other way; a coating on one face alone counts as it would on the front, so it reads the same on the back. `STR` puts that force in the merit function, so the bow becomes something the optimizer steers rather than something the first part off the machine reveals. **A target of 0 is the zero-deflection condition:** a coating whose compressive and tensile films balance leaves the substrate flat.
 
 Each film's stress comes from its material record, on the **Mechanical** tab of the [Material Editor](/design/material-editor/), never from the row. The one number `STR` needs is the **intrinsic stress in MPa**, tensile positive, which is what a wafer-bow measurement gives. A material that states no intrinsic stress contributes nothing, and the merit table names it, so a blank record never reads as an unstressed film.
 

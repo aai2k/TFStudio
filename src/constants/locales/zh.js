@@ -2360,7 +2360,7 @@ export default {
         group: 'thick',
       },
       STR: {
-        label: 'STR: 薄膜应力合力 Σσd，背面镀膜取负 (N/m)',
+        label: 'STR: 薄膜应力合力 Σσd (N/m)',
         group: 'thick',
       },
       MNT: {

@@ -2381,7 +2381,7 @@ export default {
         group: 'thick',
       },
       STR: {
-        label: 'STR: forza dello stress dei film Σσd, il rivestimento posteriore sottrae (N/m)',
+        label: 'STR: forza dello stress dei film Σσd (N/m)',
         group: 'thick',
       },
       MNT: {

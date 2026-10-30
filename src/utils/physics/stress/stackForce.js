@@ -13,7 +13,9 @@
  *
  * Sign: the front coating pulls on the front face and the back coating on the
  * back, so their bending moments oppose and the net force is F_front − F_back.
- * A coating mirrored onto the back therefore nulls it exactly.
+ * A coating mirrored onto the back therefore nulls it exactly. A coating on one
+ * face alone is referred to that face, so it reads Σ σ d on the back as on the
+ * front (`forceSigns`).
  */
 
 import { filmStressPa } from './filmStress.js';
@@ -83,6 +85,27 @@ function countedSides(mode, evalFullSystem) {
 }
 
 /**
+ * The sign each face's force Σ σ d enters the net force with, from the number
+ * of layers counted on each face.
+ *
+ * With coatings on both faces the front is the reference: the back coating
+ * bends the substrate the other way, so the net force is F_front − F_back.
+ * When every counted layer is on the back, the back is the reference, so a
+ * coating reads the same on the back alone as on the front alone: a
+ * compressive one gives a negative force and a positive radius on its own
+ * face. The radius and the centre deflection follow the force's sign, so they
+ * refer to the same face.
+ *
+ * Layers are counted, not their thicknesses, so the reference stays put while
+ * an optimizer thins a layer to nothing and the force stays continuous.
+ */
+export function forceSigns(frontLayers, backLayers) {
+    return frontLayers === 0 && backLayers > 0
+        ? { front: -1, back: 1 }
+        : { front: 1, back: -1 };
+}
+
+/**
  * Every counted layer as `{ stressPa, thicknessM, variable }`: its stress with
  * the sign its side contributes, its thickness, and the optimization variable
  * that drives it, or -1 where its side is held fixed.
@@ -93,6 +116,10 @@ function countedLayers(ctx) {
     const sides = countedSides(mode, !!ctx?.evalFullSystem);
     const run = stressRun(ctx);
     const nFront = ctx?.frontThicks?.length || 0;
+    const signs = forceSigns(
+        sides.front ? nFront : 0,
+        sides.back ? (ctx?.backThicks?.length || 0) : 0,
+    );
     const layers = [];
     const walk = (side, sign, thicks, mats, variableIndex) => {
         if (!sides[side]) return;
@@ -104,12 +131,15 @@ function countedLayers(ctx) {
             });
         }
     };
-    walk('front', 1, ctx?.frontThicks, ctx?.frontMats, layout.front);
-    walk('back', -1, ctx?.backThicks, ctx?.backMats, layout.back);
+    walk('front', signs.front, ctx?.frontThicks, ctx?.frontMats, layout.front);
+    walk('back', signs.back, ctx?.backThicks, ctx?.backMats, layout.back);
     return layers;
 }
 
-/** Net bending force per unit width, N/m: F_front − F_back over the counted sides. */
+/**
+ * Net bending force per unit width, N/m, over the counted sides: F_front −
+ * F_back, or Σ σ d of the back coating when it is the only one counted.
+ */
 export function stressForceNm(ctx) {
     let force = 0;
     for (const layer of countedLayers(ctx)) force += layer.stressPa * layer.thicknessM;

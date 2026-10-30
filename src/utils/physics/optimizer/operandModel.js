@@ -49,7 +49,8 @@ export const RANGE_TARGET_OPERAND_TYPES = ['TGT', 'RGT', 'AGT'];
 // stack(s). Target is in nm; residual is two-sided (value − target).
 export const TOTAL_THICKNESS_OPERAND_TYPES = ['TT'];
 // Film-stress operand: value = Σ σ_l d_l over the coatings the evaluation mode
-// holds, the back one subtracting, in N/m (= MPa·µm). That is the bending force
+// holds, in N/m (= MPa·µm); with both faces coated the back one subtracts, and
+// a coating on one face alone reads as it would on the front. That is the bending force
 // per unit width of Klein 2001 Eq. (14); a target of 0 is his Eq. (34), the
 // zero-deflection condition. Per-layer stress comes off the material record,
 // never off the operand row.

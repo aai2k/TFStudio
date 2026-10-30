@@ -25,7 +25,8 @@ export function _evalTotalThickness(op, ctx) {
 }
 
 // Film stress (STR): the net bending force per unit width the coatings put on
-// the substrate, Σ σ_l d_l in N/m, the back coating subtracting. Which sides
+// the substrate, Σ σ_l d_l in N/m; with both faces coated the back subtracts,
+// and a coating on one face alone reads as it would on the front. Which sides
 // count follows the evaluation mode, so the number is the force the stress
 // analysis window bends the substrate with. Per-layer stress comes off the
 // material record; a material that states none contributes zero.

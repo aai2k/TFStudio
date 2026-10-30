@@ -23,9 +23,11 @@ import {
 } from '../src/utils/physics/optimizer.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import { filmStressPa } from '../src/utils/physics/stress/filmStress.js';
+import { stressCoefficientsNm } from '../src/utils/physics/stress/stackForce.js';
 import { buildPayload } from '../src/utils/refinement/workerInputs.js';
 import { stressOperandNotices } from '../src/components/windows/optimization/stressOperandScope.js';
 import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
+import { validationBack, validationDesign } from './_stressValidation.mjs';
 
 const close = (actual, expected, tolerance, message) =>
     assert.ok(Math.abs(actual - expected) <= tolerance,
@@ -138,6 +140,31 @@ close(valueOf(makeDesign()), -31.5, 1e-9, 'the force is Σ σ d over the front c
     close(valueOf(design), -31.5, 1e-9, 'under "ignore the other side" only the active coating counts');
     close(valueOf({ ...design, mfEvalMode: 'total' }), -61.5, 1e-9,
         'in total mode both coatings count');
+}
+
+// ── A coating on one face alone reads the same on either face ────────────────
+//
+// With every counted layer on the back, the back is the reference: the row
+// reads Σ σ d of that coating, as the same coating reads on the front. The
+// Macleod validation case of the Stress window on the front, on the back of a
+// back-only design, and on the back of a two-sided design with its front bare
+// scored on the whole part.
+
+{
+    const onFront = valueOf(validationDesign());
+    close(onFront, -3657.6, 0.05, 'the validation case on the front reads the Stress window’s force');
+    close(valueOf(validationDesign({ surfaceMode: 'back_only', frontLayers: [], backLayers: validationBack() })),
+        onFront, 1e-9, 'on the back of a back-only design it reads the same');
+    close(valueOf(validationDesign({
+        surfaceMode: 'both_independent', frontLayers: [], backLayers: validationBack(),
+    })), onFront, 1e-9, 'and on the back of a two-sided design with its front bare');
+
+    const back = makeDesign().frontLayers.slice().reverse().map(layer => ({ ...layer, id: 'B' + layer.id.slice(1) }));
+    const backOnly = makeDesign({ surfaceMode: 'back_only', frontLayers: [], backLayers: back });
+    close(valueOf(backOnly), -31.5, 1e-9, 'a three-layer coating on the back alone reads as on the front');
+    assert.deepEqual(stressCoefficientsNm(contextFor(backOnly)),
+        stressCoefficientsNm(contextFor(makeDesign())).slice().reverse(),
+        'and its Jacobian row has the front coating’s signs, layer for layer');
 }
 
 // ── A material with no stress adds nothing, and is named ─────────────────────

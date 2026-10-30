@@ -2039,7 +2039,7 @@ export default {
       MNWA:  { label: 'MNWA: λ of min A over band (Pol via column)', group: 'argwave' },
       // ── Thickness and stress ─────────────────────────────────────────────
       TT:   { label: 'TT: Total physical thickness of all layers (nm)', group: 'thick' },
-      STR:  { label: 'STR: Film stress force Σσd, back coating subtracting (N/m)', group: 'thick' },
+      STR:  { label: 'STR: Film stress force Σσd (N/m)', group: 'thick' },
       MNT:  { label: 'MNT: Min Thickness constraint (≥ nm)', group: 'thick' },
       MXT:  { label: 'MXT: Max Thickness constraint (≤ nm)', group: 'thick' },
       // ── Comment ──────────────────────────────────────────────────────────
