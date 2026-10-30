@@ -66,27 +66,19 @@ function phaseQuantities(options, target, withThicknessJacobian) {
 // One phase call on the loaded kernel: { r, t }, each side null where its
 // coefficient is exactly zero. Polarization 'p' is p and anything else s.
 // With an incident sine given as a jet (a reference incident medium other than
-// the stack's own) the call is the one that takes that jet as an option.
+// the stack's own) the call takes that jet in place of the angle.
 function kernelPhase(wasm, options, withThicknessJacobian) {
     const pol = options.polarization === 'p' ? 'p' : 's';
-    if (options.incidentSineJet) {
-        return wasm[withThicknessJacobian ? 'tmmPhaseJacobian' : 'tmmPhaseOne'](
-            options.wavelengthNm,
-            options.thetaDeg,
-            pol === 'p' ? 1 : 0,
-            options.incidentIndexJet,
-            options.substrateIndexJet,
-            options.layers.map(layer => ({ nJet: layer.indexJet, d: layer.thicknessNm })),
-            { omega: options.omega, sinTheta0Jet: options.incidentSineJet },
-        );
-    }
     const stack = {
         incident: { n: options.incidentIndexJet },
         substrate: { n: options.substrateIndexJet },
         layers: options.layers.map(layer => ({ n: layer.indexJet, d: layer.thicknessNm })),
     };
+    const incidence = options.incidentSineJet
+        ? { sine: options.incidentSineJet }
+        : { angle: Number(options.thetaDeg) };
     const call = withThicknessJacobian ? wasm.phaseJacobian : wasm.phase;
-    return call(stack, Number(options.wavelengthNm), { angle: Number(options.thetaDeg), pol });
+    return call(stack, Number(options.wavelengthNm), { ...incidence, pol });
 }
 
 export function continuityMetadata(materials) {
@@ -112,7 +104,6 @@ export function evaluateStackPhaseDispersion(options) {
         withThicknessJacobian = false,
         knotSide,
     } = options;
-    const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;
     const responseCache = new Map();
     const responseFor = (material, name) => {
         if (!responseCache.has(material)) {
@@ -160,7 +151,6 @@ export function evaluateStackPhaseDispersion(options) {
         : null;
     const quantities = phaseQuantities({
         wavelengthNm,
-        omega,
         thetaDeg,
         polarization,
         incidentIndexJet: incident.response.jet,

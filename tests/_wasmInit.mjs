@@ -38,9 +38,6 @@ const STACK_CALLS = ['rta', 'rtaSpectrum', 'jacobian', 'jacobianSpectrum', 'hess
 const polName = code => (code === 1 ? 'p' : 's');
 const POINT_CALLS = {
   tmmNeedleScan: (lam, aoi, pol, ...rest) => tmmcore.tmmNeedleScan(lam, aoi, polName(pol), ...rest),
-  tmmPhaseOne: (lam, aoi, pol, ...rest) => tmmcore.tmmPhaseDispersion(lam, aoi, polName(pol), ...rest),
-  tmmPhaseJacobian: (lam, aoi, pol, ...rest) =>
-    tmmcore.tmmPhaseThicknessJacobian(lam, aoi, polName(pol), ...rest),
 };
 
 /**
