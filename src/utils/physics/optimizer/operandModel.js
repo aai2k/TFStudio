@@ -188,7 +188,9 @@ export function isManufacturability(type) {
 }
 // Rows whose value is a plain linear function of the layer thicknesses, scored
 // against a target through a ≤ / ≥ / = comparison. Their analytic Jacobian row
-// is the coefficient vector and their curvature is zero.
+// is the coefficient vector and their curvature is zero. STR's coefficients
+// change sign where a bare face's first layer grows past 0 nm, and it is linear
+// on either side of that point.
 export function isLinearThickness(type) {
     return isTotalThickness(type) || isStress(type);
 }

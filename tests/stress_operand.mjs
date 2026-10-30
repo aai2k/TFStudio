@@ -167,6 +167,27 @@ close(valueOf(makeDesign()), -31.5, 1e-9, 'the force is Σ σ d over the front c
         'and its Jacobian row has the front coating’s signs, layer for layer');
 }
 
+// ── A face whose layers are all 0 nm is bare ─────────────────────────────────
+//
+// The validation case on the back of a two-sided design scored on the whole
+// part, as `tests/stress_window.mjs` reads it through the window. Only a layer
+// thicker than 0 nm coats a face: a front holding only a 0 nm layer reads as
+// the bare front, and one 1 nm layer coats it, so the front is the reference.
+
+const onValidationBack = frontLayers => validationDesign({
+    surfaceMode: 'both_independent', frontLayers, backLayers: validationBack(),
+});
+const validationFront = thickness => [{ id: 'F1', material: 'user_m:L', thickness }];
+
+{
+    const bare = valueOf(onValidationBack([]));
+    close(bare, -3657.6, 0.05, 'with the front bare the row reads the back coating as on the front');
+    assert.equal(valueOf(onValidationBack(validationFront(0))), bare,
+        'a front holding only a 0 nm layer reads exactly as the bare front');
+    close(valueOf(onValidationBack(validationFront(1))), 3656.7, 0.05,
+        'one 1 nm layer coats the front, which then is the reference');
+}
+
 // ── A material with no stress adds nothing, and is named ─────────────────────
 
 {
@@ -300,6 +321,34 @@ function checkJacobian(mode) {
 }
 
 for (const mode of ['front_only', 'back_only', 'symmetric', 'both_independent']) checkJacobian(mode);
+
+// Near a layer at 0 nm. At its default floor of 1 nm an engine starts a 0 nm
+// layer at 1 nm and keeps it there or above, where that front is coated, so the
+// analytic rows match central differences and the engine's own
+// finite-difference fallback.
+{
+    const design = onValidationBack(validationFront(0));
+    const operands = [
+        strOperand({ target: 0 }),
+        strOperand({ target: 1000, cmp: 'le' }),
+        strOperand({ target: 5000, cmp: 'ge' }),
+    ];
+    const engine = new DLSOptimizer(operands, design, designMaterialLookup(design));
+    const thicknesses = engine.thicknesses.slice();
+    assert.equal(thicknesses[0], 1, 'the 0 nm front layer starts the run at the 1 nm floor');
+    close(engine._residuals(thicknesses)[0], 3656.7, 0.05, 'where the front is coated and is the reference');
+    const freeIdx = thicknesses.map((_, index) => index);
+    const analytic = engine._analyticJacobian(thicknesses, freeIdx);
+    assert.ok(analytic, 'the analytic Jacobian is taken, not declined');
+    const fallback = engine._fdJacobian(thicknesses, freeIdx, analytic.length);
+    const central = fdJacobian(engine, thicknesses, freeIdx);
+    let worst = 0;
+    analytic.forEach((row, r) => row.forEach((entry, column) => {
+        worst = Math.max(worst, Math.abs(entry - central[r][column]), Math.abs(entry - fallback[r][column]));
+    }));
+    assert.ok(worst < 1e-6, `the rows match both differences at a 1 nm front layer (worst ${worst.toExponential(2)})`);
+    assert.ok(analytic.every(row => row[0] !== 0), 'and every row moves with that layer');
+}
 
 // A satisfied one-sided row contributes a zero row, the way MNT and MXT do, so
 // the step ignores a bound it has not crossed.

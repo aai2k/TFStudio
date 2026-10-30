@@ -211,13 +211,15 @@ A coating pulls on the substrate it sits on, and a substrate too thin to ignore 
 F = Σ σ_l · d_l      (N/m, which is MPa·µm)
 ```
 
-summed over the films. With coatings on both faces the back one enters negative, because it pulls the other way; a coating on one face alone counts as it would on the front, so it reads the same on the back. `STR` puts that force in the merit function, so the bow becomes something the optimizer steers rather than something the first part off the machine reveals. **A target of 0 is the zero-deflection condition:** a coating whose compressive and tensile films balance leaves the substrate flat.
+summed over the films. With coatings on both faces the back one enters negative, because it pulls the other way; a coating on one face alone counts as it would on the front, so it reads the same on the back. A face whose layers are all 0 nm thick counts as bare. `STR` puts that force in the merit function, so the bow becomes something the optimizer steers rather than something the first part off the machine reveals. **A target of 0 is the zero-deflection condition:** a coating whose compressive and tensile films balance leaves the substrate flat.
 
 Each film's stress comes from its material record, on the **Mechanical** tab of the [Material Editor](/design/material-editor/), never from the row. The one number `STR` needs is the **intrinsic stress in MPa**, tensile positive, which is what a wafer-bow measurement gives. A material that states no intrinsic stress contributes nothing, and the merit table names it, so a blank record never reads as an unstressed film.
 
 If the material also states Young's modulus, Poisson's ratio and an expansion coefficient, and the design carries stress temperatures, set in the [Stress Analysis](/analysis/stress/) window (a missing one reads 20 °C), two thermal terms are added. One corrects for the stress having been measured at the material's reference temperature rather than at deposition; a material with no reference temperature is taken as measured at deposition. The other is the expansion mismatch with the substrate between the deposition and evaluation temperatures, when the substrate states its expansion coefficient. The deposition temperature is the substrate's temperature while the film grows.
 
 Which coatings count follows the design's evaluation mode, as in every analysis window: the active side alone with "ignore the other side" on, both otherwise. In symmetric mode the mirrored back coating cancels the front exactly, so the row sits at zero whatever the layers do, and the merit table says so.
+
+When the back coating counts and the front is bare, the force changes sign as soon as a front layer grows thicker than 0 nm, since the back coating then enters negative. An `STR` row with ≤, ≥ or a target other than 0 changes meaning at that point: in a Needle run on the bare front of a two-sided design, and at the start of a refinement whose front holds only 0 nm layers, since Refinement starts an unlocked 0 nm layer at 1 nm. A row with = and a target of 0 scores the same just before and just after.
 
 The residual is raw N/m and the merit adds weight times its square, so a 1 N/m miss at weight 10⁻⁵ weighs about as much as a 0.3 % reflectance miss at weight 1.
 

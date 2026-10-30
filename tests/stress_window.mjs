@@ -199,6 +199,45 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
     }
 }
 
+// ── A face whose layers are all 0 nm is bare ─────────────────────────────────
+//
+// The validation films on the back of a two-sided design scored on the whole
+// part, its front bare, holding one 0 nm layer, and holding one 1 nm layer.
+// Only a layer thicker than 0 nm coats a face, so a 0 nm layer, which changes
+// no spectrum, changes no stress either, and the Design Cleaner taking it out
+// changes nothing. A 1 nm layer coats the front, which then is the reference.
+// Each number is checked to half of the last place given.
+
+{
+    const asGiven = (actual, given, message) => {
+        const decimals = (given.split('.')[1] || '').length;
+        const tolerance = 0.5 * 10 ** -decimals;
+        assert.ok(Math.abs(actual - Number(given)) <= tolerance,
+            `${message}: ${actual} is not within ${tolerance} of ${given}`);
+    };
+    const front = thickness => [{ id: 'F1', material: 'user_m:L', thickness }];
+    const table = [
+        ['bare', [], '-3657.6', '1051.5', '0.1295'],
+        ['one 0 nm layer', front(0), '-3657.6', '1051.5', '0.1295'],
+        ['one 1 nm layer', front(1), '3656.7', '-1051.8', '-0.1294'],
+    ];
+    const wholes = {};
+    for (const [label, frontLayers, force, radius, deflection] of table) {
+        const design = validationDesign({
+            surfaceMode: 'both_independent', frontLayers, backLayers: validationBack(),
+        });
+        const { whole } = analyse(design);
+        asGiven(whole.forceNm, force, `front ${label}: the force`);
+        asGiven(whole.radiusM, radius, `front ${label}: the radius, m`);
+        asGiven(whole.deflectionUm, deflection, `front ${label}: the deflection, µm`);
+        const ctx = buildEvalContext(design, designMaterialLookup(design));
+        asGiven(stressForceNm(ctx), force, `front ${label}: the STR row`);
+        wholes[label] = whole;
+    }
+    assert.deepEqual(wholes['one 0 nm layer'], wholes.bare,
+        'a front holding only a 0 nm layer reads exactly as the bare front');
+}
+
 // ── What the tables print ────────────────────────────────────────────────────
 
 {

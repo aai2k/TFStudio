@@ -94,7 +94,7 @@ window: the active side alone with "ignore the other side" on, both otherwise.
 With coatings on both faces the two bending moments oppose, so the force is
 F_front − F_back; a mirrored back coating cancels the bow exactly and the
 window says so. A coating on one face alone reads the same on the back as on
-the front.
+the front. A face whose layers are all 0 nm thick counts as bare.
 
 ## Nulling the bow
 

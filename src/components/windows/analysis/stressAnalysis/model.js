@@ -167,7 +167,8 @@ function sideResult(films, substrate) {
 const addOrNull = (a, b) => (stated(a) && stated(b) ? a + b : null);
 
 function wholePart(front, back, substrate) {
-    const signs = forceSigns(front.rows.length, back.rows.length);
+    const thicknesses = side => side.rows.map(row => row.thicknessNm);
+    const signs = forceSigns(thicknesses(front), thicknesses(back));
     const forceNm = signs.front * front.forceNm + signs.back * back.forceNm;
     const curvature = curvaturePerM(forceNm, substrate);
     const deflectionM = centreDeflectionM(curvature, substrate.radiusM);

@@ -84,23 +84,28 @@ function countedSides(mode, evalFullSystem) {
     return { front: mode !== 'back_only', back: mode === 'back_only' };
 }
 
+// A face is coated when one of its counted layers is thicker than 0 nm. A 0 nm
+// layer changes no spectrum and no force, so a face holding nothing else is
+// bare, and taking such a layer out changes nothing.
+const coated = thicknessesNm => (thicknessesNm || []).some(d => d > 0);
+
 /**
- * The sign each face's force Σ σ d enters the net force with, from the number
- * of layers counted on each face.
+ * The sign each face's force Σ σ d enters the net force with, from the
+ * thicknesses of the layers counted on each face, in nm.
  *
  * With coatings on both faces the front is the reference: the back coating
  * bends the substrate the other way, so the net force is F_front − F_back.
- * When every counted layer is on the back, the back is the reference, so a
+ * When the back is the only face coated, the back is the reference, so a
  * coating reads the same on the back alone as on the front alone: a
  * compressive one gives a negative force and a positive radius on its own
  * face. The radius and the centre deflection follow the force's sign, so they
  * refer to the same face.
  *
- * Layers are counted, not their thicknesses, so the reference stays put while
- * an optimizer thins a layer to nothing and the force stays continuous.
+ * The reference moves to the front when the front's first layer grows past
+ * 0 nm on a part coated on the back, so the force changes sign there.
  */
-export function forceSigns(frontLayers, backLayers) {
-    return frontLayers === 0 && backLayers > 0
+export function forceSigns(frontThicknessesNm, backThicknessesNm) {
+    return !coated(frontThicknessesNm) && coated(backThicknessesNm)
         ? { front: -1, back: 1 }
         : { front: 1, back: -1 };
 }
@@ -117,8 +122,8 @@ function countedLayers(ctx) {
     const run = stressRun(ctx);
     const nFront = ctx?.frontThicks?.length || 0;
     const signs = forceSigns(
-        sides.front ? nFront : 0,
-        sides.back ? (ctx?.backThicks?.length || 0) : 0,
+        sides.front ? ctx?.frontThicks : [],
+        sides.back ? ctx?.backThicks : [],
     );
     const layers = [];
     const walk = (side, sign, thicks, mats, variableIndex) => {
@@ -138,7 +143,7 @@ function countedLayers(ctx) {
 
 /**
  * Net bending force per unit width, N/m, over the counted sides: F_front −
- * F_back, or Σ σ d of the back coating when it is the only one counted.
+ * F_back, or Σ σ d of the back coating when the back is the only face coated.
  */
 export function stressForceNm(ctx) {
     let force = 0;
@@ -149,9 +154,10 @@ export function stressForceNm(ctx) {
 /**
  * ∂F/∂d, N/m per nm, one entry per optimization variable in the order the
  * thickness vector holds them. The force is linear in every thickness, so this
- * is exact and constant across a step. In symmetric mode each front layer and
- * its mirror cancel, leaving every entry zero: a mirrored coating cannot bend
- * the substrate however thick it grows.
+ * is exact, and constant across a step that leaves each face coated or bare as
+ * it was (`forceSigns`). In symmetric mode each front layer and its mirror
+ * cancel, leaving every entry zero: a mirrored coating cannot bend the
+ * substrate however thick it grows.
  */
 export function stressCoefficientsNm(ctx) {
     const variables = (ctx?.fullThicks || ctx?.frontThicks || []).length;

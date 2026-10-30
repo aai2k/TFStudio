@@ -7,7 +7,8 @@
  * derivative is a constant coefficient per layer and needs no TMM at all. TT's
  * coefficients are all 1, one nanometre of any layer adding one nanometre to
  * the total; STR's are the per-layer stresses, signed by which face the layer
- * sits on.
+ * sits on. Those signs change only where a bare face's first layer grows past
+ * 0 nm (`forceSigns`), so STR is linear on either side of that point.
  *
  * The comparison makes the row one-sided: an `=` row is always active, a `≤` or
  * `≥` row only on the side it is violated, exactly as the MNT/MXT rows work.
