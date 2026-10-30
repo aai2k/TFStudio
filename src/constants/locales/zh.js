@@ -2895,6 +2895,7 @@ export default {
     statusConverged: mf => `已收敛 MF=${mf.toFixed(6)}`,
     statusCap: '已达最大膜层数。',
     statusNoMut: '无适用的变异 — 请调整启用的变异或材料池。',
+    statusRefineFailed: '精炼基线失败。',
     statusPresampleFailed: '无法为工作池准备材料。',
     statusWorkerFailed: '优化器工作池无法启动。',
   },

@@ -44,6 +44,7 @@ const END_TEXT = {
     budget:       (ts) => ts.statusTimeUp,
     layerCap:     (ts) => ts.statusCap,
     noMutation:   (ts) => ts.statusNoMut,
+    refineFailed: (ts) => ts.statusRefineFailed,
 };
 
 const newWorker = () => new Worker(OPTIMIZER_WORKER_URL, { type: 'module' });

@@ -2443,6 +2443,7 @@ export default {
     statusConverged: mf => `Сходимость MF=${mf.toFixed(6)}`,
     statusCap:       'Достигнуто макс. кол-во слоёв.',
     statusNoMut:     'Нет применимых мутаций — измените набор мутаций или пул.',
+    statusRefineFailed: 'Не удалось оптимизировать базовый дизайн.',
     statusPresampleFailed: 'Не удалось подготовить материалы для воркеров.',
     statusWorkerFailed:    'Не удалось запустить воркеры оптимизатора.',
     omfLabel: 'OMF:',

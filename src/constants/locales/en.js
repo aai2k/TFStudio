@@ -2492,6 +2492,7 @@ export default {
     statusConverged: mf => `Converged MF=${mf.toFixed(6)}`,
     statusCap:       'Max layers reached.',
     statusNoMut:     'No applicable mutation. Adjust the enabled mutations or the pool.',
+    statusRefineFailed: 'Refining baseline failed.',
     statusPresampleFailed: 'Could not prepare the materials for the workers.',
     statusWorkerFailed:    'The optimizer workers could not start.',
   },

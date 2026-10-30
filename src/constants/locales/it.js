@@ -2917,6 +2917,7 @@ export default {
     statusConverged: mf => `Convergenza MF=${mf.toFixed(6)}`,
     statusCap: 'Numero massimo di strati raggiunto.',
     statusNoMut: 'Nessuna mutazione applicabile. Modifica le mutazioni attive o l\'insieme dei materiali.',
+    statusRefineFailed: 'Affinamento del design di partenza non riuscito.',
     statusPresampleFailed: 'Impossibile preparare i materiali per i worker.',
     statusWorkerFailed: "Impossibile avviare i worker dell'ottimizzatore.",
   },

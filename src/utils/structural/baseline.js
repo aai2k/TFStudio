@@ -68,17 +68,21 @@ function recordBaseline(S, score) {
  * Refines the starting design (smart-seeded or as it is) into the run's first
  * best and current design and reports it. Returns 'continue', 'stop' when the
  * run was stopped meanwhile, or { end } when no starting design could be
- * refined.
+ * refined: 'refineFailed', with the refine's error as `message`.
  */
 export async function establishBaseline(S) {
     let baseline = await smartSeedBaseline(S);
     if (!alive(S)) return 'stop';
+    let failure = null;
     if (!baseline) {
         const design = designFor(S, S.curDes[S.layerKey], S.curDes[S.otherKey]);
-        baseline = await refineGuarded(S, 0, refineJob(S, design, false), S.onTick);
+        baseline = await refineGuarded(S, 0, refineJob(S, design, false), S.onTick, err => { failure = err; });
     }
     if (!alive(S)) return 'stop';
-    if (!baseline) return { end: { stopReason: 'noMutation' } };
+    if (!baseline) {
+        console.warn('[Structural] the starting design could not be refined:', failure);
+        return { end: { stopReason: 'refineFailed', message: String((failure && failure.message) || failure) } };
+    }
     const score = baseline.scored;
     S.current = {
         mf: score.mf, omf: score.omf,

@@ -70,7 +70,11 @@ const STRUCTURAL_RUN = { tag: 'Structural', firstReport: { activity: { id: 'base
  *   makeWorker()      required: an optimizer worker (utils/workers/
  *                     optimizerWorker.js, or InThreadOptimizerWorker on the
  *                     calling thread): postMessage, onmessage, onerror,
- *                     terminate
+ *                     terminate, and onmessageerror where the worker has it.
+ *                     A job has no time limit: it ends when its worker
+ *                     answers, when the worker fails (an error event, or a
+ *                     message that cannot be read; the worker is then
+ *                     replaced) or on Stop
  *   signal            AbortSignal that stops the run
  *   onStart()         the run has started: its workers are built
  *   onProgress(patch) what changed:
@@ -99,12 +103,13 @@ const STRUCTURAL_RUN = { tag: 'Structural', firstReport: { activity: { id: 'base
  * completed run ends on 'maxIter', 'iterationCap' (Deep search's iteration
  * limit), 'target' (with stopMF, the best merit then), 'patience' (with
  * patience, the iterations without a new best it waited), 'budget' (the Deep
- * search time limit), 'layerCap' (no kind left to propose at the layer limit)
- * or 'noMutation' (nothing could be proposed, or the starting design could not
- * be refined: then the layers and merit are null), with iters, reheats and
- * seed. Otherwise stopReason is 'stopped', 'workerFailed' (the workers could
- * not be built), 'workerError' (the run failed, with `message`), 'noOperands',
- * 'noMaterials' or 'presampleFailed', and the layers are null. A hook that
+ * search time limit), 'layerCap' (no kind left to propose at the layer limit),
+ * 'noMutation' (nothing could be proposed) or 'refineFailed' (the starting
+ * design could not be refined, with the refine's error as `message`: then the
+ * layers and merit are null), with iters, reheats and seed. Otherwise
+ * stopReason is 'stopped', 'workerFailed' (the workers could not be built),
+ * 'workerError' (the run failed, with `message`), 'noOperands', 'noMaterials'
+ * or 'presampleFailed', and the layers are null. A hook that
  * throws from one of the run's steps ends the run the way an error does. A live
  * report (onProgress with `live`) is made from the worker's own message
  * handling, so what a throw there does is up to the worker. onStart or the

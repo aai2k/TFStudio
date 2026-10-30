@@ -31,7 +31,7 @@ const copy = value => JSON.parse(JSON.stringify(value));
 export const TS = {
     noOperands: 'no-operands', noMaterials: 'no-materials',
     statusPresampleFailed: 'presample-failed', statusWorkerFailed: 'worker-failed',
-    statusBaseline: 'baseline', statusNoMut: 'no-mutation',
+    statusBaseline: 'baseline', statusNoMut: 'no-mutation', statusRefineFailed: 'refine-failed',
     statusDone: 'done', statusMaxIter: 'max-iterations', statusCap: 'layer-cap',
     statusTimeUp: 'time-up', statusStopped: 'stopped',
     smartSeeding: count => `smart:${count}`,
@@ -55,14 +55,16 @@ const jobSummary = job => ({
 
 // What the scripted worker answers for the nth job of a press: `stopAtJob`
 // presses Stop as it starts, `failAtJob` fails it, `malformedAtJob` answers
-// with no layers, `holdAtJob` never answers, as a refine that hangs. Returns
-// true when the job is taken care of.
+// with no layers, and `dieAtJob` fails the worker itself, which then takes no
+// more jobs, as a worker thread that crashed. Returns true when the job is
+// taken care of.
 function scriptedJob(win, worker, n) {
     const press = win.press;
     if (n === press.stopAtJob) { win.ctx.stopOpt(); return true; }
     if (n === press.failAtJob) { worker.post({ type: 'error', message: 'scripted refine failure' }); return true; }
     if (n === press.malformedAtJob) { worker.post({ type: 'done', mfBest: 0.2, omfBest: 0.2 }); return true; }
-    return n === press.holdAtJob;
+    if (n === press.dieAtJob) { worker.crash(); return true; }
+    return false;
 }
 
 function scriptedMerit(win) {
@@ -78,16 +80,19 @@ function scriptedMerit(win) {
 
 // The optimizer worker the run builds. `press.workersThrow` makes building it
 // throw; a smart-seed phase fails its first refine, as one seed job can.
+// `press.slowAtJob` answers that job `press.slowMs` after it starts, and
+// `press.dieAfterJob` crashes the worker once it has answered that job, while
+// it holds none.
 class ScriptedWorker {
     constructor() {
         if (current.press.workersThrow) throw new Error('no workers');
         this.win = current;
         this.win.workers++;
-        this.onmessage = null; this.onerror = null; this.dead = false;
+        this.onmessage = null; this.onerror = null; this.dead = false; this.crashed = false;
         this.tablesOf = makeTableHolder();
     }
     postMessage(job) {
-        if (this.dead || !job) return;
+        if (this.dead || this.crashed || !job) return;
         const post = data => this.post(data);
         if (Object.hasOwn(STRUCTURAL_JOBS, job.type)) {
             const tables = this.tablesOf(job);
@@ -106,6 +111,12 @@ class ScriptedWorker {
     run(job, n, post) {
         const win = this.win;
         if (this.dead || scriptedJob(win, this, n)) return;
+        if (n === win.press.slowAtJob) { setTimeout(() => this.answer(job, n, post), win.press.slowMs); return; }
+        this.answer(job, n, post);
+    }
+    answer(job, n, post) {
+        const win = this.win;
+        if (this.dead) return;
         if (win.phase === 'smart' && !win.failedSeed) {
             win.failedSeed = true;
             this.post({ type: 'error', message: 'scripted seed failure' });
@@ -117,6 +128,11 @@ class ScriptedWorker {
             type: 'done', mfBest: mf, omfBest: mf + 0.001,
             bestFrontLayers: copy(job.design.frontLayers || []), bestBackLayers: copy(job.design.backLayers || []),
         });
+        if (n === win.press.dieAfterJob) this.crash();
+    }
+    crash() {
+        this.crashed = true;
+        this.onerror?.({ message: 'scripted worker crash' });
     }
     terminate() { if (!this.dead) { this.dead = true; this.win.terminated++; } }
 }
