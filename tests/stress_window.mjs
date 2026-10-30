@@ -27,9 +27,10 @@ import { filmColumns, filmRows, wholeRows } from '../src/components/windows/anal
 import { localeSources } from '../src/constants/locales/index.js';
 import { MATERIALS, OPTICS, validationBack, validationDesign } from './_stressValidation.mjs';
 
-// The window's CSV writer sits in a module of React components.
+// The window's CSV writer and its notices sit in modules of React components.
 globalThis.React = createRequire(import.meta.url)('react');
 const { csvFromRows } = await import('../src/components/ui/ResultsSection.js');
+const { stressNotices } = await import('../src/components/windows/analysis/stressAnalysis/StressControls.js');
 
 // The table prints three figures, so a value is checked to half of the last
 // place it showed or a twentieth of a percent, whichever is looser.
@@ -146,6 +147,19 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
     assert.ok(result.rows.every(row => row.shearMPa != null), 'and so does the edge shear');
     assert.deepEqual(result.missing, [{ materialId: 'user_m:U', name: 'No stress', fields: ['intrinsicStressMPa'] }],
         'and the notice names the stress it lacks');
+
+    // In every language, the notice's line says that the force and what follows
+    // from it count the film as the STR row does.
+    for (const [language, t] of Object.entries(localeSources)) {
+        const line = t.stressAnalysis.noticeMissing(1);
+        assert.ok(stressNotices(result, t).some(notice => notice.label === line),
+            `${language}: the notice counts the material`);
+        assert.ok(/\bSTR\b/.test(line), `${language}: and ties the force to the STR row: ${line}`);
+    }
+    const english = localeSources.en.stressAnalysis.noticeMissing(1);
+    for (const quantity of ['film force', 'radius', 'deflection', 'edge shear']) {
+        assert.ok(english.includes(quantity), `the English line names the ${quantity}: ${english}`);
+    }
 }
 
 {

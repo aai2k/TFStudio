@@ -17,9 +17,13 @@ predicting a part in absolute terms.
 ## What it needs
 
 Every constant comes off the **Mechanical** tab of the
-[Material Editor](/design/material-editor/), one set per material. The window
-substitutes nothing: a constant nobody entered leaves the rows that need it
-blank, and the notice badge names the material and the field.
+[Material Editor](/design/material-editor/), one set per material. A constant
+nobody entered leaves the rows that need it blank, and the notice badge names
+the material and the field. A film whose material states no intrinsic stress
+counts as carrying none in the film force, the radius, the centre deflection
+and the edge shear, as in the `STR` row. Its own stress and strain energy are
+blank, and so are the delamination factor of that film and of every film below
+it, the total strain energy and the cracking parameter.
 
 | Quantity | Needs |
 | --- | --- |
@@ -27,9 +31,10 @@ blank, and the notice badge names the material and the field.
 | Strain energy | the film's stress, modulus and Poisson's ratio |
 | Delamination factor | the strain energies, and the surface energy of the two materials meeting at the interface |
 | Cracking parameter | every film's strain energy and surface energy |
-| Edge shear | the modulus and Poisson's ratio of every film and of the substrate, and the substrate thickness |
-| Radius of curvature | the substrate's modulus, Poisson's ratio and thickness |
-| Centre deflection | the radius, and the substrate diameter |
+| Film force | the stress of every film; a film whose material states none counts as carrying none |
+| Edge shear | the stress of the film and of every film outside it, counted as in the film force; the modulus and Poisson's ratio of every film of its coating and of the substrate; and the substrate thickness |
+| Radius of curvature | the film force, and the substrate's modulus, Poisson's ratio and thickness |
+| Centre deflection | what the radius needs, and the substrate diameter |
 
 ## The four inputs
 

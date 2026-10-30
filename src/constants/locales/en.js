@@ -3123,7 +3123,7 @@ export default {
     totalStrainEnergy: 'Total strain energy',
     crackingParameter: 'Cracking parameter',
     noticeNoRun:    'No temperatures set, so every film carries its intrinsic stress and nothing thermal',
-    noticeMissing:  (n) => `${n} material${n === 1 ? '' : 's'} leave${n === 1 ? 's' : ''} constants unstated; the rows that need them are blank rather than guessed`,
+    noticeMissing:  (n) => `${n} material${n === 1 ? '' : 's'} leave${n === 1 ? 's' : ''} constants unstated; the rows that need them are blank, but a film whose material states no intrinsic stress counts as carrying none in the film force, radius, deflection and edge shear, as in the STR row`,
     noticeNoDiameter: 'No substrate diameter, so the centre deflection is blank',
     noticeBalanced: 'The two coatings pull equally, so the substrate stays flat: the deflection is zero and there is no radius. The per-film rows still apply',
   },

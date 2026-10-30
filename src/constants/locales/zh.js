@@ -3518,7 +3518,7 @@ export default {
     totalStrainEnergy: '总应变能',
     crackingParameter: '开裂参数',
     noticeNoRun: '未设置温度，因此每层膜只承担自身的本征应力，不含热应力',
-    noticeMissing: (n) => `有 ${n} 种材料未给出常数；需要这些常数的行留空，而不是凭猜测填入`,
+    noticeMissing: (n) => `有 ${n} 种材料未给出常数；需要这些常数的行留空，但材料未给出本征应力的膜层在薄膜合力、曲率半径、中心挠度和边缘剪切中按应力为零计算，与 STR 行一致`,
     noticeNoDiameter: '未给出基底直径，因此中心挠度留空',
     noticeBalanced: '两面镀膜拉力相等，基底保持平整：挠度为零，没有曲率半径。逐层结果仍然有效',
   },
