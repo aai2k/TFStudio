@@ -573,6 +573,19 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('null unsets them, and a diameter of 0 is refused',
         unsetRun.run === null && unsetRun.substrate?.diameter === null && /substrateDiameterMm is a diameter in mm above 0/.test(flat.error ?? ''),
         JSON.stringify([unsetRun.run, unsetRun.substrate, flat.error]));
+
+    // The design as the tools show it holds the three settings, each only when set.
+    const fresh = (await server.call('newDesign', { name: 'Stress setup' })).designId;
+    const setUp = await server.call('setDesignSetup', { designId: fresh, stressTemperatureC: 60, depositionTemperatureC: 250, substrateDiameterMm: 25.4 });
+    ok('setDesignSetup answers with the diameter in substrate and the two temperatures',
+        JSON.stringify(setUp).includes('"substrate":{"material":"BK7","thicknessMm":1,"diameterMm":25.4},"stressTemperatureC":60,"depositionTemperatureC":250,"referenceWavelength"'),
+        JSON.stringify(setUp));
+    const partly = await server.call('setDesignSetup', { designId: fresh, stressTemperatureC: null, substrateDiameterMm: null });
+    const cleared = await server.call('setDesignSetup', { designId: fresh, depositionTemperatureC: null });
+    ok('and leaves each one out once it is unset',
+        JSON.stringify(partly).includes('"substrate":{"material":"BK7","thicknessMm":1},"depositionTemperatureC":250,"referenceWavelength"')
+        && JSON.stringify(cleared).includes('"substrate":{"material":"BK7","thicknessMm":1},"referenceWavelength"'),
+        JSON.stringify([partly, cleared]));
 }
 
 // Coating files: a stack written to a COATING.DAT and a .seq, each read back in

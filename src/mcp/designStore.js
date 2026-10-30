@@ -39,9 +39,13 @@ const layersView = layers => (layers || []).map((layer, index) => ({
     index, material: layer.material, thickness: layer.thickness, ...(layer.locked ? { locked: true } : {}),
 }));
 
+// `{ [name]: value }` when the value is set, nothing otherwise.
+const ifSet = (name, value) => (typeof value === 'number' && Number.isFinite(value) ? { [name]: value } : {});
+
 /**
- * A design as the tools show it: media, substrate (thickness in mm), surface
- * mode and how a one-sided design is scored, each side's layers as the design stores them (the front from the
+ * A design as the tools show it: media, substrate (thickness and, when set,
+ * diameter in mm), the temperatures the stress tool reads in °C, each when set,
+ * surface mode and how a one-sided design is scored, each side's layers as the design stores them (the front from the
  * incident medium inward, the back from the substrate outward; thickness in
  * nm), and the merit rows, in full with `rows`, as a count otherwise. With
  * `rows` it also gives the specification's checks as the design holds them,
@@ -53,7 +57,12 @@ export function designView(id, design, { rows = false } = {}) {
     return {
         designId: id, name: design.name ?? null, surfaceMode: design.surfaceMode ?? 'front_only', mfEvalMode: design.mfEvalMode ?? 'side',
         incidentMedium: design.incidentMedium, exitMedium: design.exitMedium,
-        substrate: { material: design.substrate?.material, thicknessMm: design.substrate?.thickness },
+        substrate: {
+            material: design.substrate?.material, thicknessMm: design.substrate?.thickness,
+            ...ifSet('diameterMm', design.substrate?.diameterMm),
+        },
+        ...ifSet('stressTemperatureC', design.stress?.temperatureC),
+        ...ifSet('depositionTemperatureC', design.stress?.depositionTemperatureC),
         referenceWavelength: design.referenceWavelength ?? null,
         front: layersView(design.frontLayers), back: layersView(design.backLayers),
         ...(rows ? { meritRows: operands.map(withoutId), specification: design.qualifiers || [] } : { meritRowCount: operands.length }),
