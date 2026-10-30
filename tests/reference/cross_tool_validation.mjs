@@ -26,7 +26,8 @@ import {
     tmmWithAdmittances, computeEllipsometry,
     computeEFieldProfile, C_NM_PER_FS,
 } from '../../src/utils/physics/thinFilmMath.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
+import { pointStack } from '../../src/utils/physics/kernelStack.js';
 import { coefficientPhaseDispersion, tmmCoefficientJets } from '../../src/tmmcore.js';
 import { jetConstant, wavelengthOmegaJet } from '../../src/tmmcore.js';
 
@@ -54,9 +55,10 @@ console.log(`${ref.cases.length} coating cases · byte-identical inputs · MATH-
 // ── R/T/A per case (power — convention-free) ─────────────────────────────────
 for (const c of ref.cases) {
     const { n0, ns, layers } = toLayers(c);
+    const stack = pointStack(n0, ns, layers);
     let nRTA = 0, maxRTA = 0;
     for (const p of c.spectral) {
-        const e = tmm(p.lam, p.th, p.pol, n0, ns, layers);
+        const e = rta(stack, p.lam, { angle: p.th, pol: p.pol });
         near(e.R, p.R, 5e-6, `${c.name} R @${p.lam}/${p.th}°/${p.pol}`, 'R');
         near(e.T, p.T, 5e-6, `${c.name} T @${p.lam}/${p.th}°/${p.pol}`, 'T');
         near(e.A, p.A, 5e-6, `${c.name} A @${p.lam}/${p.th}°/${p.pol}`, 'A');

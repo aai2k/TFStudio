@@ -38,7 +38,8 @@ import {
     tmmWithAdmittances, computeEllipsometry, computeEFieldProfile,
     evaluateSpectrumTotal, C_NM_PER_FS,
 } from '../src/utils/physics/thinFilmMath.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 import { coefficientPhaseDispersion, tmmCoefficientJets } from '../src/tmmcore.js';
 import { jetConstant, wavelengthOmegaJet } from '../src/tmmcore.js';
 import { getMaterial, getNK } from '../src/utils/materials/materialDatabase.js';
@@ -130,18 +131,18 @@ function fresnelR(n0, n1, thetaDeg) {
     const n0 = 1.0, ns = 1.52;
     for (const ang of [0, 30, 45, 60, 75, 85]) {
         const f = fresnelR(n0, ns, ang);
-        const rs = tmm(550, ang, 's', [n0, 0], [ns, 0], []);
-        const rp = tmm(550, ang, 'p', [n0, 0], [ns, 0], []);
+        const rs = rta(pointStack([n0, 0], [ns, 0], []), 550, { angle: ang, pol: 's' });
+        const rp = rta(pointStack([n0, 0], [ns, 0], []), 550, { angle: ang, pol: 'p' });
         near(rs.R, f.Rs, 1e-12, `R_s @${ang}°`);
         near(rp.R, f.Rp, 1e-12, `R_p @${ang}°`);
         near(rs.R + rs.T, 1, 1e-12, `energy R+T (s) @${ang}°`);
         near(rp.R + rp.T, 1, 1e-12, `energy R+T (p) @${ang}°`);
     }
     // Normal-incidence "4% per glass surface" sanity: R = ((1−n)/(1+n))²
-    near(tmm(550, 0, 's', [1, 0], [ns, 0], []).R, ((1 - ns) / (1 + ns)) ** 2, 1e-12, 'normal-incidence glass R≈4%');
+    near(rta(pointStack([1, 0], [ns, 0], []), 550, { pol: 's' }).R, ((1 - ns) / (1 + ns)) ** 2, 1e-12, 'normal-incidence glass R≈4%');
     // Brewster: R_p → 0 at θ_B = atan(ns/n0)
     const brew = Math.atan(ns / n0) * 180 / Math.PI;
-    near(tmm(550, brew, 'p', [n0, 0], [ns, 0], []).R, 0, 1e-12, `Brewster R_p=0 @${brew.toFixed(2)}°`);
+    near(rta(pointStack([n0, 0], [ns, 0], []), 550, { angle: brew, pol: 'p' }).R, 0, 1e-12, `Brewster R_p=0 @${brew.toFixed(2)}°`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -156,7 +157,7 @@ for (const [id, lam] of [['Ag', 550], ['Au', 650], ['Cr', 550], ['Al', 550]]) {
     if (mat.id !== id) { console.log(`  · ${id} not in library — skipped`); continue; }
     const [n, k] = getNK(id, lam);
     const Rref = ((n - 1) ** 2 + k * k) / ((n + 1) ** 2 + k * k);
-    const r = tmm(lam, 0, 's', [1, 0], [n, k], []);
+    const r = rta(pointStack([1, 0], [n, k], []), lam, { pol: 's' });
     near(r.R, Rref, 1e-12, `${id} R@${lam}nm vs ((n−1)²+k²)/((n+1)²+k²)`, );
     console.log(`      ${id}: n=${n.toFixed(4)}, k=${k.toFixed(4)} → R=${(r.R * 100).toFixed(2)}%`);
     ok(r.A >= -1e-12 && r.R <= 1 + 1e-12, `${id} passive (0≤R≤1, A≥0)`);
@@ -171,15 +172,15 @@ head('§3  Single-layer AR (matched QW / unmatched QW / half-wave absentee)');
 {
     const n0 = 1.0, ns = 1.52, lam0 = 550;
     const nM = Math.sqrt(n0 * ns), dM = lam0 / (4 * nM);
-    near(tmm(lam0, 0, 's', [n0, 0], [ns, 0], [{ n: [nM, 0], d: dM }]).R, 0, 1e-12, 'matched QW AR R=0 at λ0');
+    near(rta(pointStack([n0, 0], [ns, 0], [{ n: [nM, 0], d: dM }]), lam0, { pol: 's' }).R, 0, 1e-12, 'matched QW AR R=0 at λ0');
 
     const n1 = 1.8, d1 = lam0 / (4 * n1);
     const Runmatched = ((n0 * ns - n1 * n1) / (n0 * ns + n1 * n1)) ** 2;
-    near(tmm(lam0, 0, 's', [n0, 0], [ns, 0], [{ n: [n1, 0], d: d1 }]).R, Runmatched, 1e-12, 'unmatched QW R vs closed form');
+    near(rta(pointStack([n0, 0], [ns, 0], [{ n: [n1, 0], d: d1 }]), lam0, { pol: 's' }).R, Runmatched, 1e-12, 'unmatched QW R vs closed form');
 
     const nH = 2.35, dHW = lam0 / (2 * nH);         // half-wave "absentee"
-    const bare = tmm(lam0, 0, 's', [n0, 0], [ns, 0], []).R;
-    near(tmm(lam0, 0, 's', [n0, 0], [ns, 0], [{ n: [nH, 0], d: dHW }]).R, bare, 1e-11, 'half-wave layer is absentee (=bare substrate)');
+    const bare = rta(pointStack([n0, 0], [ns, 0], []), lam0, { pol: 's' }).R;
+    near(rta(pointStack([n0, 0], [ns, 0], [{ n: [nH, 0], d: dHW }]), lam0, { pol: 's' }).R, bare, 1e-11, 'half-wave layer is absentee (=bare substrate)');
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -199,7 +200,7 @@ head('§4  QW high-reflector stack (H L)^m — admittance-recursion oracle');
         let Y = ns;
         for (let i = front.length - 1; i >= 0; i--) { const nf = front[i].n[0]; Y = nf * nf / Y; }
         const Rref = ((n0 - Y) / (n0 + Y)) ** 2;
-        const r = tmm(lam0, 0, 's', [n0, 0], [ns, 0], front);
+        const r = rta(pointStack([n0, 0], [ns, 0], front), lam0, { pol: 's' });
         near(r.R, Rref, 1e-9, `(HL)^${m} R@λ0 vs QW-admittance recursion`);
         console.log(`      m=${m}: R=${(r.R * 100).toFixed(4)}%  (${2 * m} layers)`);
     }
@@ -213,14 +214,14 @@ head('§4  QW high-reflector stack (H L)^m — admittance-recursion oracle');
 head('§5  Energy conservation, absorbing layer (oblique s/p)');
 for (const ang of [0, 40, 70]) {
     for (const pol of ['s', 'p']) {
-        const r = tmm(550, ang, pol, [1, 0], [1.52, 0], [{ n: [2.2, 0.05], d: 120 }]);
+        const r = rta(pointStack([1, 0], [1.52, 0], [{ n: [2.2, 0.05], d: 120 }]), 550, { angle: ang, pol });
         near(r.R + r.T + r.A, 1, 1e-10, `R+T+A=1 (${pol}) @${ang}°`);
         ok(r.A > 0, `A>0 — no gain (${pol}) @${ang}°`, `A=${r.A.toFixed(5)}`);
     }
 }
 // Thick absorber stays finite and opaque, R converges to the front interface
 {
-    const rRef = tmm(532, 0, 's', [1, 0], [1.52, 0], [{ n: [1, 5], d: 50000 }]);
+    const rRef = rta(pointStack([1, 0], [1.52, 0], [{ n: [1, 5], d: 50000 }]), 532, { pol: 's' });
     ok(Number.isFinite(rRef.R) && rRef.T < 1e-12, 'thick absorber finite & opaque');
     near(rRef.R, 0.8620689655, 1e-6, 'thick absorber R = front-interface value');
 }
@@ -308,7 +309,7 @@ head('§7  Multilayer R/T vs independent Rouard recursion');
           L: [{ n: [1.46, 0], d: 40 }, { n: [0.0596, 3.5974], d: 15 }, { n: [1.46, 0], d: 40 }] },
     ];
     for (const c of cases) {
-        const r = tmm(c.lam, c.ang, 's', [1, 0], c.ns, c.L);
+        const r = rta(pointStack([1, 0], c.ns, c.L), c.lam, { angle: c.ang, pol: 's' });
         const ref = rouard(c.lam, c.ang, [1, 0], c.ns, c.L);
         const Rref = cabs(ref.rs) ** 2;
         near(r.R, Rref, 1e-9, `R (s) ${c.name}`);
@@ -449,8 +450,8 @@ head('§13  Roughness: Carniglia-Jensen layer vs scalar scattering');
     const lam = 633, sigma = 1.5;
     for (const [na, ns] of [[1, 1.52], [1.52, 1], [1.46, 2.35]]) {
         const [n, k] = carnigliaJensenNK(na, ns, sigma, lam);
-        const smooth = tmm(lam, 0, 's', [na, 0], [ns, 0], []);
-        const rough = tmm(lam, 0, 's', [na, 0], [ns, 0], [{ n: [n, k], d: 2 * sigma }]);
+        const smooth = rta(pointStack([na, 0], [ns, 0], []), lam, { pol: 's' });
+        const rough = rta(pointStack([na, 0], [ns, 0], [{ n: [n, k], d: 2 * sigma }]), lam, { pol: 's' });
         const dRs = -smooth.R * (4 * Math.PI * na * sigma / lam) ** 2;
         const dTs = -smooth.T * (2 * Math.PI * (na - ns) * sigma / lam) ** 2;
         near((rough.R - smooth.R) / dRs, 1, 2e-3, `n_a=${na}, n_s=${ns}: ΔR / Eq. 4`);
@@ -458,8 +459,9 @@ head('§13  Roughness: Carniglia-Jensen layer vs scalar scattering');
     }
     // Short range: 20 graded slices between 2.35 and 1.46 on glass, lossless.
     const slices = buildGradedSlices({ id: 'H', getNK: () => [2.35, 0] }, { id: 'L', getNK: () => [1.46, 0] }, 6, 'linear', 20);
-    const graded = tmm(lam, 30, 'p', [1, 0], [1.52, 0],
-        [{ n: [2.35, 0], d: 60 }, ...slices.map(s => ({ n: s.material.getNK(lam), d: s.thickness })), { n: [1.46, 0], d: 100 }]);
+    const graded = rta(pointStack([1, 0], [1.52, 0],
+        [{ n: [2.35, 0], d: 60 }, ...slices.map(s => ({ n: s.material.getNK(lam), d: s.thickness })), { n: [1.46, 0], d: 100 }]),
+        lam, { angle: 30, pol: 'p' });
     near(graded.R + graded.T, 1, 1e-12, 'short-range graded layer, lossless stack at 30° p: R + T = 1');
 }
 
@@ -538,10 +540,10 @@ head('§15  Inhomogeneous / graded-index layers (linear mixing + AR physics)');
     near(slices.reduce((a, s) => a + s.thickness, 0), 300, 1e-9, 'sublayer thicknesses sum to total');
     // PHYSICS: a linear graded interlayer Air→glass suppresses the 4.26% Fresnel step
     const lam = 550;
-    const Rabrupt = tmm(lam, 0, 's', [1, 0], [1.52, 0], []).R;
+    const Rabrupt = rta(pointStack([1, 0], [1.52, 0], []), lam, { pol: 's' }).R;
     const Rof = (thick) => {
         const L = buildGradedSlices(air, glass, thick, 'linear', 40).map(s => ({ n: s.material.getNK(lam), d: s.thickness }));
-        return tmm(lam, 0, 's', [1, 0], [1.52, 0], L).R;
+        return rta(pointStack([1, 0], [1.52, 0], L), lam, { pol: 's' }).R;
     };
     const R300 = Rof(300), R600 = Rof(600), R1200 = Rof(1200);
     ok(R300 < Rabrupt, 'graded interlayer reduces reflection vs abrupt interface', `${(Rabrupt * 100).toFixed(3)}% → ${(R300 * 100).toFixed(3)}%`);

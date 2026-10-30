@@ -2,7 +2,7 @@
  * TMM analytic-limit oracle + thick-absorber stability (T1 + D4).
  *
  * Every other TMM test compares JS to WASM (same formula both sides → a shared
- * sign/admittance bug passes silently). This pins `tmm()` to CLOSED-FORM
+ * sign/admittance bug passes silently). This pins tmmcore's `rta()` to CLOSED-FORM
  * analytic truth: Fresnel (s & p, multiple angles), Brewster, quarter-wave AR,
  * and energy conservation. Plus the D4 regression: a thick absorbing layer must
  * stay finite (was NaN via cosh overflow before the Im-δ clamp).
@@ -16,7 +16,8 @@
 
 import './_kernel.mjs';
 import { createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -37,8 +38,8 @@ function fresnel(n0, n1, thetaDeg) {
 const n0 = 1.0, ns = 1.52;
 for (const ang of [0, 15, 30, 45, 60, 75, 85]) {
     const f = fresnel(n0, ns, ang);
-    const rs = tmm(550, ang, 's', [n0, 0], [ns, 0], []);
-    const rp = tmm(550, ang, 'p', [n0, 0], [ns, 0], []);
+    const rs = rta(pointStack([n0, 0], [ns, 0], []), 550, { angle: ang, pol: 's' });
+    const rp = rta(pointStack([n0, 0], [ns, 0], []), 550, { angle: ang, pol: 'p' });
     near(rs.R, f.Rs, 1e-12, `Fresnel R_s @${ang}°`);
     near(rp.R, f.Rp, 1e-12, `Fresnel R_p @${ang}°`);
     // lossless bare interface: A=0, R+T=1
@@ -49,26 +50,26 @@ for (const ang of [0, 15, 30, 45, 60, 75, 85]) {
 
 // ── 2) Brewster angle: R_p → 0 ───────────────────────────────────────────────
 const brew = Math.atan(ns / n0) * 180 / Math.PI;
-const rpB = tmm(550, brew, 'p', [n0, 0], [ns, 0], []);
+const rpB = rta(pointStack([n0, 0], [ns, 0], []), 550, { angle: brew, pol: 'p' });
 near(rpB.R, 0, 1e-12, `Brewster R_p @${brew.toFixed(3)}°`);
 
 // ── 3) Quarter-wave AR: n1=√(n0·ns), d=λ/(4 n1) ⇒ R=0 at λ ───────────────────
 const lam0 = 550;
 const n1 = Math.sqrt(n0 * ns);
 const dQ = lam0 / (4 * n1);
-const ar = tmm(lam0, 0, 's', [n0, 0], [ns, 0], [{ n: [n1, 0], d: dQ }]);
+const ar = rta(pointStack([n0, 0], [ns, 0], [{ n: [n1, 0], d: dQ }]), lam0, { pol: 's' });
 near(ar.R, 0, 1e-12, 'quarter-wave AR R=0 at design λ');
 // analytic single-layer R at λ0 for a non-matched n1: ((n0 ns − n1²)/(n0 ns + n1²))²
 const n1b = 1.8;
 const dQb = lam0 / (4 * n1b);
-const arb = tmm(lam0, 0, 's', [n0, 0], [ns, 0], [{ n: [n1b, 0], d: dQb }]);
+const arb = rta(pointStack([n0, 0], [ns, 0], [{ n: [n1b, 0], d: dQb }]), lam0, { pol: 's' });
 const Rb = ((n0 * ns - n1b * n1b) / (n0 * ns + n1b * n1b)) ** 2;
 near(arb.R, Rb, 1e-12, 'quarter-wave (unmatched) R vs closed form');
 
 // ── 4) Energy conservation with an ABSORBING layer, oblique ──────────────────
 for (const ang of [0, 40, 70]) {
     for (const pol of ['s', 'p']) {
-        const r = tmm(550, ang, pol, [1, 0], [1.52, 0], [{ n: [2.2, 0.05], d: 120 }]);
+        const r = rta(pointStack([1, 0], [1.52, 0], [{ n: [2.2, 0.05], d: 120 }]), 550, { angle: ang, pol });
         near(r.R + r.T + r.A, 1, 1e-10, `energy R+T+A (${pol}) @${ang}° absorbing`);
         ok(r.A > 0, `absorbing layer has A>0 (${pol}) @${ang}°`);
     }
@@ -80,7 +81,7 @@ for (const ang of [0, 40, 70]) {
     const air = [1, 0], sub = [1.52, 0];
     let prevR = null;
     for (const d of [1000, 5000, 20000, 100000, 1e6]) {
-        const r = tmm(532, 0, 's', air, sub, [{ n: [1, 5], d }]);
+        const r = rta(pointStack(air, sub, [{ n: [1, 5], d }]), 532, { pol: 's' });
         ok(Number.isFinite(r.R) && Number.isFinite(r.T) && Number.isFinite(r.A),
             `thick absorber finite @d=${d}nm`);
         near(r.R + r.T + r.A, 1, 1e-9, `thick absorber energy @d=${d}nm`);
@@ -90,14 +91,14 @@ for (const ang of [0, 40, 70]) {
         prevR = r.R;
     }
     // converged value (front interface 1 | (1+5i)) — independently stable
-    const rRef = tmm(532, 0, 's', [1, 0], [1.52, 0], [{ n: [1, 5], d: 50000 }]);
+    const rRef = rta(pointStack([1, 0], [1.52, 0], [{ n: [1, 5], d: 50000 }]), 532, { pol: 's' });
     near(rRef.R, 0.8620689655, 1e-6, 'thick absorber converged R value');
 }
 
 // ── 6) Opaque multilayers remain finite when their matrix product is huge ────
 {
     const layers = Array.from({ length: 10 }, () => ({ n: [2, 1], d: 100000 }));
-    const r = tmm(500, 0, 's', [1, 0], [1.5, 0], layers);
+    const r = rta(pointStack([1, 0], [1.5, 0], layers), 500, { pol: 's' });
     ok([r.R, r.T, r.A].every(Number.isFinite), 'opaque multilayer R/T/A are finite');
     near(r.R, 0.2, 1e-12, 'opaque multilayer reaches front-interface R');
     near(r.T, 0, 1e-300, 'opaque multilayer T=0 within double precision');

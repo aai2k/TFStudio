@@ -18,7 +18,8 @@ import { dirname, join } from 'node:path';
 import {
     computeEllipsometry, computeEFieldProfile, C_NM_PER_FS,
 } from '../../src/utils/physics/thinFilmMath.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
+import { pointStack } from '../../src/utils/physics/kernelStack.js';
 import { coefficientPhaseDispersion, tmmCoefficientJets } from '../../src/tmmcore.js';
 import { jetConstant, wavelengthOmegaJet } from '../../src/tmmcore.js';
 
@@ -39,9 +40,10 @@ const P = ref.plots, out = {};
 for (const key of ['ar', 'mirror', 'absorb', 'metal']) {
     const spec = P[key]; const { n0, ns, layers } = toLayers(caseByName(spec.case));
     const D = spec.data, lam = D.lam;
+    const stack = pointStack(n0, ns, layers);
     const R = [], T = [], A = [], resR = [], resT = [], resA = [];
     for (let i = 0; i < lam.length; i++) {
-        const e = tmm(lam[i], D.th, D.pol, n0, ns, layers);
+        const e = rta(stack, lam[i], { angle: D.th, pol: D.pol });
         R.push(e.R); T.push(e.T); A.push(e.A);
         resR.push(e.R - D.R[i]); resT.push(e.T - D.T[i]); resA.push(e.A - D.A[i]);
     }

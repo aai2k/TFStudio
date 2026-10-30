@@ -24,7 +24,8 @@
 import assert from 'node:assert/strict';
 import { parseCodevSeq, codevStackToDesign } from '../src/utils/io/codevCoatingFile.js';
 import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
-import { tmm, tmmPhaseDispersion, jetConstant } from '../src/tmmcore.js';
+import { rta, phase } from '../src/tmmcore.js';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 
 const RT_TOLERANCE = 1.5e-6;
 const PHASE_TOLERANCE_DEG = 1.5e-4;
@@ -36,21 +37,15 @@ const near = (actual, expected, tolerance, message) => {
 };
 const wrapDeg = (deg) => ((deg % 360) + 540) % 360 - 180;
 
-// The design's stack at one wavelength, as tmm takes it.
+// The design's stack at one wavelength, as tmmcore's calls take it.
 function stackAt(design, lam) {
     const getNK = Object.fromEntries(design.materials.map(({ key, material }) => [key, makeGetNK(material)]));
     const index = (key) => getNK[key](lam);
-    return {
-        n0: index(design.incidentKey),
-        ns: index(design.substrateKey),
-        layers: design.layers.map(layer => ({ n: index(layer.materialKey), d: layer.thickness })),
-    };
+    return pointStack(index(design.incidentKey), index(design.substrateKey),
+        design.layers.map(layer => ({ n: index(layer.materialKey), d: layer.thickness })));
 }
 
-function reflectionPhaseDeg(stack, lam, angle, pol) {
-    const layers = stack.layers.map(layer => ({ nJet: jetConstant(...layer.n), d: layer.d }));
-    return tmmPhaseDispersion(lam, angle, pol, jetConstant(...stack.n0), jetConstant(...stack.ns), layers).r.phaseDeg;
-}
+const reflectionPhaseDeg = (stack, lam, angle, pol) => phase(stack, lam, { angle, pol }).r.phaseDeg;
 
 // Rows: [angle, λ, Rs, Rp, Ts, Tp], and for Example 3 the phases [Rs°, Rp°].
 function checkTable(name, text, rows, phases = null) {
@@ -58,8 +53,8 @@ function checkTable(name, text, rows, phases = null) {
     const design = codevStackToDesign(stack, { sourceName: name });
     rows.forEach(([angle, lam, Rs, Rp, Ts, Tp], i) => {
         const at = stackAt(design, lam);
-        const s = tmm(lam, angle, 's', at.n0, at.ns, at.layers);
-        const p = tmm(lam, angle, 'p', at.n0, at.ns, at.layers);
+        const s = rta(at, lam, { angle, pol: 's' });
+        const p = rta(at, lam, { angle, pol: 'p' });
         const where = `${name}, ${angle}°, ${lam} nm`;
         near(s.R, Rs, RT_TOLERANCE, `${where}: Rs`);
         near(p.R, Rp, RT_TOLERANCE, `${where}: Rp`);

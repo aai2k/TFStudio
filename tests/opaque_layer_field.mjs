@@ -4,7 +4,7 @@
  * tmmcore holds the imaginary phase thickness of a layer at 50 so that cosh
  * cannot overflow, and the held matrix is the true one divided by
  * e^{|Im δ| − 50}. The evaluators TFStudio builds on layerMatrix have to carry
- * that factor as tmm() does. Without it T stops near 1e-43 per such layer,
+ * that factor as rta() does. Without it T stops near 1e-43 per such layer,
  * and the field profile stays flat at its front-face value through the first
  * part of the layer instead of decaying: 0.16 of the incident |E|² 200 nm
  * into 1 µm of aluminium at normal incidence, where it is 8.5e-15.
@@ -24,8 +24,9 @@
 import assert from 'node:assert/strict';
 
 import './_kernel.mjs';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
 import { onJsReference } from './_wasmInit.mjs';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 import { initCatalogs } from '../src/utils/materials/catalogManager.js';
 import {
     computeEFieldProfile, createGrowingLayerEvaluator, createMonitorTmmEvaluator, tmmWithAdmittances,
@@ -178,7 +179,8 @@ function checkEvaluators(run, exact, Tfac) {
 
 for (const run of RUNS) {
     const exact = reference(run);
-    close(tmm(...run.args).T, exact.T, 1e-12, `${run.at}: T from tmmcore`);
+    const stack = pointStack(run.n0, run.ns, run.layers);
+    close(rta(stack, run.lambda, { angle: run.theta, pol: run.pol }).T, exact.T, 1e-12, `${run.at}: T from tmmcore`);
     const w = tmmWithAdmittances(...run.args);
     const Tfac = w.etaS[0] / w.eta0[0];
     close(Tfac * abs2(w.t), exact.T, 1e-12, `${run.at}: T from tmmWithAdmittances`);

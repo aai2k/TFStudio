@@ -19,7 +19,8 @@ import { buildBuiltinCatalog } from '../src/utils/materials/catalogManager/built
 import { buildNKFromDraft, draftToMaterial } from '../src/components/windows/design/materialEditor/materialDraft.js';
 import { sampleMaterial } from '../src/utils/materials/riiDatabase/sampling.js';
 import { riiToMaterialEntry } from '../src/utils/materials/riiDatabase/catalogEntry.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 
 const near = (actual, expected, tolerance = 1e-12, message = '') => {
     assert.ok(Math.abs(actual - expected) <= tolerance,
@@ -194,8 +195,8 @@ for (let wavelength = 400; wavelength <= 800 + 1e-9; wavelength += 0.1) {
         newLayers.push({ n: high.getNK(wavelength), d: highThickness });
         newLayers.push({ n: low.getNK(wavelength), d: lowThickness });
     }
-    const oldR = tmm(wavelength, 0, 's', [1, 0], substrate.getNK(wavelength), oldLayers).R;
-    const newR = tmm(wavelength, 0, 's', [1, 0], substrate.getNK(wavelength), newLayers).R;
+    const oldR = rta(pointStack([1, 0], substrate.getNK(wavelength), oldLayers), wavelength, { pol: 's' }).R;
+    const newR = rta(pointStack([1, 0], substrate.getNK(wavelength), newLayers), wavelength, { pol: 's' }).R;
     const delta = Math.abs(newR - oldR) * 100;
     if (delta > maxDeltaPercentagePoints) {
         maxDeltaPercentagePoints = delta;

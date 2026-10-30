@@ -28,7 +28,7 @@ import {
     makeOperand,
 } from '../src/utils/physics/optimizer.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
 import { initWasmForTest } from './_wasmInit.mjs';
 import { MATS, resolveMat, filterLayers, filterDesign, glOn, maxAbsDiff } from './_coneFilter.mjs';
 
@@ -106,7 +106,7 @@ function tableIntensity(a) {
 
 {
     const functions = [
-        ['Rs', theta => tmm(550, theta * RAD, 's', [1, 0], [1.5, 0], []).R],
+        ['Rs', theta => rta({ incident: 1, substrate: 1.5, layers: [] }, 550, { angle: theta * RAD, pol: 's' }).R],
         ['cos', theta => Math.cos(theta)],
     ];
     // Uniform and Lambertian weights are smooth on every θ range, so 40 points

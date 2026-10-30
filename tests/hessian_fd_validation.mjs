@@ -2,9 +2,9 @@
  * FD validation of the analytic thickness-Hessian kernel.
  *
  * MANDATORY gate: every numerical method is validated before trust.
- * Here we check the EXACT analytic ∂²{R,T}/∂dᵢ∂dⱼ from tmmThicknessHessian
+ * Here we check the EXACT analytic ∂²{R,T}/∂dᵢ∂dⱼ from tmmcore's hessian
  * against a central finite difference of the EXACT analytic first derivative
- * (tmmThicknessJacobian) — i.e. d²R/∂dᵢ∂dⱼ ≈ [dRdd_j(d+h·eᵢ) − dRdd_j(d−h·eᵢ)]/2h.
+ * (jacobian) — i.e. d²R/∂dᵢ∂dⱼ ≈ [dRdd_j(d+h·eᵢ) − dRdd_j(d−h·eᵢ)]/2h.
  * Differencing the analytic 1st derivative isolates the new 2nd-derivative
  * machinery (layer d²M, middle product, 2nd-order chain) from 1st-order code.
  *
@@ -12,7 +12,8 @@
  *
  * Run: node tests/hessian_fd_validation.mjs
  */
-import { tmmThicknessJacobian, tmmThicknessHessian } from 'tmmcore';
+import { jacobian, hessian } from 'tmmcore';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 
 const n0 = [1.0, 0];          // air
 const ns = [1.52, 0];         // glass substrate
@@ -35,14 +36,15 @@ const cases = [
 
 const H = 1e-3;   // FD step in nm
 const withD = (layers, i, dd) => layers.map((l, k) => k === i ? { ...l, d: l.d + dd } : l);
+const at = (c, layers) => [pointStack(n0, ns, layers), c.lam, { angle: c.theta, pol: c.pol }];
 
 let maxRelR = 0, maxRelT = 0, maxAbsR = 0, maxAbsT = 0, worst = null;
 let firstDerivMaxAbs = 0;
 
 for (const c of cases) {
   const N = baseLayers.length;
-  const hess = tmmThicknessHessian(c.lam, c.theta, c.pol, n0, ns, baseLayers);
-  const jac0 = tmmThicknessJacobian(c.lam, c.theta, c.pol, n0, ns, baseLayers);
+  const hess = hessian(...at(c, baseLayers));
+  const jac0 = jacobian(...at(c, baseLayers));
 
   // Sanity: Hessian's own first derivatives must equal the Jacobian's.
   for (let k = 0; k < N; k++) {
@@ -52,8 +54,8 @@ for (const c of cases) {
   }
 
   for (let i = 0; i < N; i++) {
-    const jp = tmmThicknessJacobian(c.lam, c.theta, c.pol, n0, ns, withD(baseLayers, i, +H));
-    const jm = tmmThicknessJacobian(c.lam, c.theta, c.pol, n0, ns, withD(baseLayers, i, -H));
+    const jp = jacobian(...at(c, withD(baseLayers, i, +H)));
+    const jm = jacobian(...at(c, withD(baseLayers, i, -H)));
     for (let j = 0; j < N; j++) {
       const fdR = (jp.dRdd[j] - jm.dRdd[j]) / (2 * H);
       const fdT = (jp.dTdd[j] - jm.dTdd[j]) / (2 * H);

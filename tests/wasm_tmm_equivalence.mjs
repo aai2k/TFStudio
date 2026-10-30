@@ -2,9 +2,9 @@
  * WASM TMM kernel ⇆ JS equivalence test.
  *
  * Validates that tmmcore's prebuilt WASM kernel reproduces tmmcore's JavaScript
- * TMM, tmm() one wavelength at a time and over a grid (tmm_spectrum),
- * tmmThicknessJacobian() and tmmNeedleScan(), across absorbing, dispersive,
- * oblique-incidence, s/p cases.
+ * TMM through the calls TFStudio makes: rta one wavelength at a time and
+ * rtaSpectrum over a grid, jacobian and needleScan, the instance's against the
+ * module's, across absorbing, dispersive, oblique-incidence, s/p cases.
  *
  * NOT bit-identical by design: the only divergence from the JS path is the libm
  * sin/cos/exp/atan2 (Emscripten musl vs. V8 fdlibm), differing at ~1 ULP. The
@@ -17,7 +17,8 @@
 
 import { readFileSync } from 'node:fs';
 
-import { instantiateTmmWasm, tmm, tmmThicknessJacobian, tmmNeedleScan } from 'tmmcore';
+import { instantiateTmmWasm, rta, jacobian, needleScan } from 'tmmcore';
+import { gridStack, pointStack } from '../src/utils/physics/kernelStack.js';
 import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 let fails = 0;
@@ -52,36 +53,38 @@ function relabs(a, b) { return Math.abs(a - b); }
 
 const wasm = await instantiateTmmWasm(readFileSync(TMMCORE_WASM_PATH));
 
-// ── 1) tmm_one vs JS tmm() ───────────────────────────────────────────────────
+// ── 1) rta, WASM vs JS ───────────────────────────────────────────────────────
 for (const layers of stacks) {
     for (const lam of lambdas) {
         for (const aoi of angles) {
             for (const pol of pols) {
-                const js = tmm(lam, aoi, pol, air, absorbingSub, layers);
-                const w = wasm.tmmOne(lam, aoi, pol === 'p' ? 1 : 0, air, absorbingSub, layers);
+                const stack = pointStack(air, absorbingSub, layers);
+                const js = rta(stack, lam, { angle: aoi, pol });
+                const w = wasm.rta(stack, lam, { angle: aoi, pol });
                 for (const key of ['R', 'T', 'A']) {
                     const d = relabs(js[key], w[key]);
                     if (d > maxOne) maxOne = d;
-                    ok(d < 1e-9, `tmm_one ${key} λ=${lam} aoi=${aoi} ${pol} N=${layers.length} Δ=${d}`);
+                    ok(d < 1e-9, `rta ${key} λ=${lam} aoi=${aoi} ${pol} N=${layers.length} Δ=${d}`);
                 }
             }
         }
     }
 }
-console.log(`tmm_one      max |Δ(R,T,A)| = ${maxOne.toExponential(3)}  (tol 1e-9)`);
+console.log(`rta          max |Δ(R,T,A)| = ${maxOne.toExponential(3)}  (tol 1e-9)`);
 
 // Opaque imports must remain finite in the accelerated path as well as JS.
 {
     const layers = Array.from({ length: 10 }, () => ({ n: [2, 1], d: 100000 }));
-    const js = tmm(500, 0, 's', air, glass, layers);
-    const w = wasm.tmmOne(500, 0, 0, air, glass, layers);
+    const stack = pointStack(air, glass, layers);
+    const js = rta(stack, 500, { pol: 's' });
+    const w = wasm.rta(stack, 500, { pol: 's' });
     ok([w.R, w.T, w.A].every(Number.isFinite), 'opaque WASM multilayer R/T/A are finite');
     for (const key of ['R', 'T', 'A']) {
         ok(Math.abs(js[key] - w[key]) < 1e-12, `opaque WASM ${key} matches JS`);
     }
 }
 
-// ── 2) tmm_spectrum vs JS tmm() at each λ ───────────────────────────────────
+// ── 2) rtaSpectrum on WASM vs JS rta at each λ ──────────────────────────────
 {
     const N = 9;
     const valid = Array.from({ length: N }, (_, i) => i); // layer indices
@@ -89,18 +92,19 @@ console.log(`tmm_one      max |Δ(R,T,A)| = ${maxOne.toExponential(3)}  (tol 1e-
     const matFns = valid.map((i) => (i % 2 ? dispL : dispH));
     const theta = 22;
 
-    // JS reference: tmm() in s and in p at each λ over the same stack.
+    // JS reference: rta in s and in p at each λ over the same stack.
     const n0List = lambdas.map(() => air);
     const nsList = lambdas.map(() => glass);
     const layerNK = valid.map((i) => lambdas.map((lam) => matFns[i](lam)));
 
-    const sp = wasm.tmmSpectrum(lambdas, n0List, nsList, layerNK, thick, theta);
+    const sp = wasm.rtaSpectrum(gridStack(n0List, nsList, layerNK, thick), lambdas, { angle: theta });
 
     for (let li = 0; li < lambdas.length; li++) {
         const lam = lambdas[li];
         const layerNDs = valid.map((i) => ({ n: matFns[i](lam), d: thick[i] }));
-        const s = tmm(lam, theta, 's', air, glass, layerNDs);
-        const p = tmm(lam, theta, 'p', air, glass, layerNDs);
+        const stack = pointStack(air, glass, layerNDs);
+        const s = rta(stack, lam, { angle: theta, pol: 's' });
+        const p = rta(stack, lam, { angle: theta, pol: 'p' });
         const pairs = [
             ['Rs', sp.Rs[li], s.R], ['Ts', sp.Ts[li], s.T], ['As', sp.As[li], s.A],
             ['Rp', sp.Rp[li], p.R], ['Tp', sp.Tp[li], p.T], ['Ap', sp.Ap[li], p.A],
@@ -108,26 +112,27 @@ console.log(`tmm_one      max |Δ(R,T,A)| = ${maxOne.toExponential(3)}  (tol 1e-
         for (const [name, a, b] of pairs) {
             const d = relabs(a, b);
             if (d > maxSpec) maxSpec = d;
-            ok(d < 1e-9, `tmm_spectrum ${name} λ=${lam} Δ=${d}`);
+            ok(d < 1e-9, `rtaSpectrum ${name} λ=${lam} Δ=${d}`);
         }
     }
 }
-console.log(`tmm_spectrum max |Δ|        = ${maxSpec.toExponential(3)}  (tol 1e-9)`);
+console.log(`rtaSpectrum  max |Δ|        = ${maxSpec.toExponential(3)}  (tol 1e-9)`);
 
-// ── 3) tmm_jacobian vs JS tmmThicknessJacobian() ────────────────────────────
+// ── 3) jacobian, WASM vs JS ──────────────────────────────────────────────────
 for (const layers of stacks) {
     if (layers.length === 0) continue;
     for (const lam of [450, 633, 1064]) {
         for (const aoi of [0, 40]) {
             for (const pol of pols) {
-                const js = tmmThicknessJacobian(lam, aoi, pol, air, absorbingSub, layers);
-                const w = wasm.tmmJacobian(lam, aoi, pol === 'p' ? 1 : 0, air, absorbingSub, layers);
+                const stack = pointStack(air, absorbingSub, layers);
+                const js = jacobian(stack, lam, { angle: aoi, pol });
+                const w = wasm.jacobian(stack, lam, { angle: aoi, pol });
                 ok(w.N === js.N, `jacobian N mismatch`);
                 // base R,T,A
                 for (const key of ['R', 'T', 'A']) {
                     const d = relabs(js[key], w[key]);
                     if (d > maxJac) maxJac = d;
-                    ok(d < 1e-9, `tmm_jacobian base ${key} λ=${lam} aoi=${aoi} ${pol} Δ=${d}`);
+                    ok(d < 1e-9, `jacobian base ${key} λ=${lam} aoi=${aoi} ${pol} Δ=${d}`);
                 }
                 for (let k = 0; k < js.N; k++) {
                     for (const arr of ['dRdd', 'dTdd', 'dAdd']) {
@@ -135,35 +140,36 @@ for (const layers of stacks) {
                         const d = relabs(a, b);
                         const tol = 1e-7 * Math.abs(b) + 1e-12;
                         if (d > maxJac) maxJac = d;
-                        ok(d < tol, `tmm_jacobian ${arr}[${k}] λ=${lam} aoi=${aoi} ${pol} Δ=${d} (tol ${tol.toExponential(2)})`);
+                        ok(d < tol, `jacobian ${arr}[${k}] λ=${lam} aoi=${aoi} ${pol} Δ=${d} (tol ${tol.toExponential(2)})`);
                     }
                 }
             }
         }
     }
 }
-console.log(`tmm_jacobian max |Δ|        = ${maxJac.toExponential(3)}`);
+console.log(`jacobian     max |Δ|        = ${maxJac.toExponential(3)}`);
 
-// ── 4) tmm_needle_scan vs JS tmmNeedleScan() ────────────────────────────────
+// ── 4) needleScan, WASM vs JS ────────────────────────────────────────────────
 let maxNeedle = 0;
 {
-    const candidateNs = [[2.35, 0.0008], [1.46, 0], [1.38, 0], [2.1, 0.0003]];
+    const candidates = [{ n: 2.35, k: 0.0008 }, 1.46, 1.38, { n: 2.1, k: 0.0003 }];
     const fracsArr = [0.25, 0.5, 0.75];
     for (const layers of stacks) {
         if (layers.length === 0) continue;
         for (const lam of [450, 633]) {
             for (const aoi of [0, 35]) {
                 for (const pol of pols) {
-                    const polN = pol === 'p' ? 1 : 0;
-                    const js = tmmNeedleScan(lam, aoi, pol, air, absorbingSub, layers, candidateNs, fracsArr);
-                    const w  = wasm.tmmNeedleScan(lam, aoi, polN, air, absorbingSub, layers, candidateNs, fracsArr);
+                    const stack = pointStack(air, absorbingSub, layers);
+                    const options = { angle: aoi, pol, candidates, fractions: fracsArr };
+                    const js = needleScan(stack, lam, options);
+                    const w  = wasm.needleScan(stack, lam, options);
                     ok(w.N === js.N, `needle N mismatch`);
                     for (const key of ['R', 'T', 'A']) {
                         const d = relabs(js[key], w[key]); if (d > maxNeedle) maxNeedle = d;
                         ok(d < 1e-9, `needle base ${key} λ=${lam} aoi=${aoi} ${pol} Δ=${d}`);
                     }
                     for (let pos = 0; pos <= js.N; pos++) {
-                        for (let c = 0; c < candidateNs.length; c++) {
+                        for (let c = 0; c < candidates.length; c++) {
                             for (const m of ['dR', 'dT', 'dA']) {
                                 const a = w.gaps[pos][c][m], b = js.gaps[pos][c][m];
                                 const d = relabs(a, b), tol = 1e-7 * Math.abs(b) + 1e-12;
@@ -175,7 +181,7 @@ let maxNeedle = 0;
                     for (let k = 0; k < js.N; k++) {
                         for (let fi = 0; fi < fracsArr.length; fi++) {
                             ok(Math.abs(w.intra[k][fi].frac - js.intra[k][fi].frac) < 1e-15, `needle intra frac`);
-                            for (let c = 0; c < candidateNs.length; c++) {
+                            for (let c = 0; c < candidates.length; c++) {
                                 for (const m of ['dR', 'dT', 'dA']) {
                                     const a = w.intra[k][fi].perCand[c][m], b = js.intra[k][fi].perCand[c][m];
                                     const d = relabs(a, b), tol = 1e-7 * Math.abs(b) + 1e-12;
@@ -190,7 +196,7 @@ let maxNeedle = 0;
         }
     }
 }
-console.log(`tmm_needle   max |Δ|        = ${maxNeedle.toExponential(3)}`);
+console.log(`needleScan   max |Δ|        = ${maxNeedle.toExponential(3)}`);
 
 if (fails === 0) {
     console.log('\nPASS — WASM TMM kernel agrees with the JS reference within tolerance.');

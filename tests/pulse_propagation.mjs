@@ -53,7 +53,8 @@ import {
     omegaWidthFromWavelengthWidth, wavelengthWidthFromOmegaWidth, transformLimitedOmegaWidth,
 } from '../src/utils/physics/pulsePropagation.js';
 import { pulseSpectrumModel } from '../src/utils/physics/pulsePropagation/pulseSpectrum.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import {
     LAMBDA0, OMEGA0, allPass, directFwhm, gtiResponse, phaseResponse, pureGdd, pureTod, quarterWaveMirror, unity,
@@ -253,8 +254,8 @@ for (const shape of ['gaussian', 'sech2']) {
                 const layers = design.frontLayers.map(layer => ({
                     n: resolve(layer.material).getNK(wavelengthNm), d: layer.thickness,
                 }));
-                const reference = tmm(wavelengthNm, thetaDeg, polarization,
-                    resolve('Air').getNK(wavelengthNm), resolve('BK7').getNK(wavelengthNm), layers);
+                const reference = rta(pointStack(resolve('Air').getNK(wavelengthNm), resolve('BK7').getNK(wavelengthNm), layers),
+                    wavelengthNm, { angle: thetaDeg, pol: polarization });
                 const r = rFn(wavelengthNm), t = tFn(wavelengthNm);
                 ok(rel(r.re ** 2 + r.im ** 2, reference.R) < 1e-12, `|r|² = R at ${wavelengthNm} nm ${polarization} ${thetaDeg}°`);
                 ok(rel(t.re ** 2 + t.im ** 2, reference.T) < 1e-12, `|t'|² = T at ${wavelengthNm} nm ${polarization} ${thetaDeg}°`);
@@ -273,8 +274,8 @@ for (const shape of ['gaussian', 'sech2']) {
             const layers = [...backOnly.backLayers].reverse().map(layer => ({
                 n: resolve(layer.material).getNK(wavelengthNm), d: layer.thickness,
             }));
-            const reference = tmm(wavelengthNm, 30, 'p',
-                resolve('Air').getNK(wavelengthNm), resolve('BK7').getNK(wavelengthNm), layers);
+            const reference = rta(pointStack(resolve('Air').getNK(wavelengthNm), resolve('BK7').getNK(wavelengthNm), layers),
+                wavelengthNm, { angle: 30, pol: 'p' });
             const point = fn(wavelengthNm);
             ok(rel(point.re ** 2 + point.im ** 2, reference[target]) < 1e-12,
                 `back side: |H|² = ${target} at ${wavelengthNm} nm p 30°`);
@@ -471,11 +472,13 @@ for (const shape of ['gaussian', 'sech2']) {
         const [whole] = createCoatingResponses(part, { side: 'whole', polarization, thetaDeg });
         for (const wavelengthNm of [600, 700, 820]) {
             const nk = id => resolve(id).getNK(wavelengthNm);
-            const front = tmm(wavelengthNm, thetaDeg, polarization, nk('Air'), nk(substrate),
-                part.frontLayers.map(layer => ({ n: nk(layer.material), d: layer.thickness })));
+            const front = rta(pointStack(nk('Air'), nk(substrate),
+                part.frontLayers.map(layer => ({ n: nk(layer.material), d: layer.thickness }))),
+                wavelengthNm, { angle: thetaDeg, pol: polarization });
             const thetaSub = Math.asin(Math.sin(thetaDeg * Math.PI / 180) / nk(substrate)[0]) * 180 / Math.PI;
-            const back = tmm(wavelengthNm, thetaSub, polarization, nk(substrate), nk(exit),
-                part.backLayers.map(layer => ({ n: nk(layer.material), d: layer.thickness })));
+            const back = rta(pointStack(nk(substrate), nk(exit),
+                part.backLayers.map(layer => ({ n: nk(layer.material), d: layer.thickness }))),
+                wavelengthNm, { angle: thetaSub, pol: polarization });
             // Bulk transmittance of one pass, exp(−4πkd/(λ cos θs)), d = 2 mm.
             const pass = Math.exp(-4 * Math.PI * nk(substrate)[1] * 2e6 / (wavelengthNm * Math.cos(thetaSub * Math.PI / 180)));
             const point = whole(wavelengthNm);

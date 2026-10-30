@@ -1,19 +1,20 @@
 /**
  * WASM Hessian kernel ⇄ JS oracle equivalence.
  *
- * tmm_hessian (owned by tmmcore) is a line-by-line port of
- * tmmThicknessHessian (thinFilmMath.js) — the analytic ∂²{R,T,A}/∂dᵢ∂dⱼ used by
- * the bounded-SQP / Newton inner refiner. This asserts the WASM kernel agrees
- * with the JS oracle to float64 round-off across non-absorbing AND absorbing
- * stacks, s/p polarization, and oblique incidence — base R/T/A, the first
- * derivatives, and the full N×N second-derivative matrices.
+ * tmmcore's C hessian is a line-by-line port of its JavaScript hessian, the
+ * analytic ∂²{R,T,A}/∂dᵢ∂dⱼ used by the bounded-SQP / Newton inner refiner.
+ * This asserts the instance's hessian agrees with the module's to float64
+ * round-off across non-absorbing AND absorbing stacks, s/p polarization, and
+ * oblique incidence — base R/T/A, the first derivatives, and the full N×N
+ * second-derivative matrices.
  *
  * Uses the prebuilt kernel shipped by tmmcore.
  * Run: node tests/wasm_hessian_equivalence.mjs
  */
 import { readFileSync } from 'node:fs';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, getTmmWasm, tmmWasmActive, tmmThicknessHessian } from 'tmmcore';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
+import { initTmmWasmMainThread, getTmmWasm, tmmWasmActive, hessian } from 'tmmcore';
 import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
@@ -22,8 +23,6 @@ const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; }
 
 const w = getTmmWasm();
 ok(tmmWasmActive(), 'WASM active');
-ok(w.hasHessian(), 'module carries tmm_hessian export');
-if (!w.hasHessian()) { console.error('\n✗ tmmcore kernel lacks the tmm_hessian export'); process.exit(1); }
 
 const resolveMat = (id) => getMaterial(id);
 // Tolerance: relative with an absolute floor (derivatives span many magnitudes).
@@ -47,9 +46,9 @@ let maxRel = 0, nChecked = 0;
 for (const C of CASES) {
     for (const lam of LAMS) for (const aoi of AOIS) for (const pol of POLS) {
         const layers = mkLayers(C.spec, lam);
-        const ns = NS.getNK(lam);
-        const js = tmmThicknessHessian(lam, aoi, pol, N0, ns, layers);
-        const wa = w.tmmHessian(lam, aoi, pol === 'p' ? 1 : 0, N0, ns, layers);
+        const stack = pointStack(N0, NS.getNK(lam), layers);
+        const js = hessian(stack, lam, { angle: aoi, pol });
+        const wa = w.hessian(stack, lam, { angle: aoi, pol });
         const tag = `${C.name} λ${lam} aoi${aoi} ${pol}`;
         const N = layers.length;
         // base

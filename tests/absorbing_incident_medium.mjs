@@ -32,7 +32,8 @@
  */
 import assert from 'node:assert/strict';
 import { tmmWithAdmittances } from '../src/utils/physics/thinFilmMath.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 import { bareInterface, incidence } from '../src/utils/physics/thinFilmMath/totalSystem.js';
 
 const near = (actual, expected, tolerance, message) => assert.ok(
@@ -67,7 +68,7 @@ for (const [name, layers] of Object.entries(STACKS)) {
                 const gap = Math.abs(1 - R - T - interference);
                 worstGap = Math.max(worstGap, gap);
                 assert.ok(gap <= 1e-14, `${at}: 1 − R − T = ${1 - R - T}, interference ${interference}, gap ${gap}`);
-                const kernel = tmm(550, theta, pol, n0, GLASS, layers);
+                const kernel = rta(pointStack(n0, GLASS, layers), 550, { angle: theta, pol });
                 near(kernel.R, R, 1e-15, `${at}: the kernel's R`);
                 near(kernel.T, T, 1e-15, `${at}: the kernel's T`);
             }
@@ -88,7 +89,7 @@ for (const [name, layers] of Object.entries(STACKS)) {
 // ── 3. The bare interface of Eq. 2.82 ───────────────────────────────────────
 
 for (const [n, k] of [[1.5, 0.01], [1.5, 0.1], [2, 0.3]]) {
-    const { R, T } = tmm(550, 0, 's', [n, k], [n, -k], []);
+    const { R, T } = rta({ incident: { n, k }, substrate: { n, k: -k }, layers: [] }, 550, { pol: 's' });
     near(T, 1 + (k / n) ** 2, 1e-15, `T into the conjugate admittance, n0 = ${n} + ${k}i`);
     near(R, (k / n) ** 2, 1e-15, `R from the conjugate admittance, n0 = ${n} + ${k}i`);
 }
@@ -109,7 +110,7 @@ for (const [n, k] of [[1.5, 0.01], [1.5, 0.1], [2, 0.3]]) {
     for (const pol of ['s', 'p']) {
         const { eta0 } = tmmWithAdmittances(550, 60, pol, n0, GLASS, []);
         assert.deepEqual(face[pol].eta0, eta0, `the slab model's bare face uses the coated pass's incident admittance (${pol})`);
-        near(face[pol].R, tmm(550, 60, pol, n0, GLASS, []).R, 1e-15, `and its reflectance is the kernel's (${pol})`);
+        near(face[pol].R, rta(pointStack(n0, GLASS, []), 550, { angle: 60, pol }).R, 1e-15, `and its reflectance is the kernel's (${pol})`);
     }
 }
 

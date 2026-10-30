@@ -27,7 +27,8 @@ import { fileURLToPath } from 'node:url';
 import { parseCodevSeq, codevStackToDesign } from '../src/utils/io/codevCoatingFile.js';
 import { micCurve, micExtinctionAt, micIndexAt } from '../src/utils/io/codevCoating/micIndex.js';
 import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
-import { tmm } from '../src/tmmcore.js';
+import { rta } from '../src/tmmcore.js';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURES = path.join(HERE, 'reference', 'codev');
@@ -67,8 +68,9 @@ for (const [name, rows] of Object.entries(data.man)) {
     const getNK = Object.fromEntries(design.materials.map(({ key, material }) => [key, makeGetNK(material)]));
     for (const [angle, lam, Rs, Rp, Ts, Tp] of rows) {
         const at = stackAt(design, getNK, lam);
-        const s = tmm(lam, angle, 's', at.n0, at.ns, at.layers);
-        const p = tmm(lam, angle, 'p', at.n0, at.ns, at.layers);
+        const stack = pointStack(at.n0, at.ns, at.layers);
+        const s = rta(stack, lam, { angle, pol: 's' });
+        const p = rta(stack, lam, { angle, pol: 'p' });
         const where = `${name}, ${angle}°, ${lam} nm`;
         const tolerance = RT_EDGE_TOLERANCE[name] ?? RT_TOLERANCE;
         near(s.R, Rs, tolerance, name, `${where}: Rs`);

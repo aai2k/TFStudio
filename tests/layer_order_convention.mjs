@@ -19,7 +19,8 @@
 
 import './_kernel.mjs';
 import { createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 import { partialThicknesses } from '../src/utils/monitoring/depositionSpectrum.js';
 import { buildWDMStack } from '../src/utils/filter/wdmDesigner/stack.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
@@ -31,6 +32,8 @@ const AIR_METAL_R = 100 / 104;
 const TOL = 1e-9;
 
 let fails = 0;
+// R, T and A in s at normal incidence.
+const sAt = (lam, n0, ns, layers) => rta(pointStack(n0, ns, layers), lam, { pol: 's' });
 const check = (name, ok, detail = '') => {
     console.log(`${ok ? 'ok  ' : 'FAIL'}  ${name}${detail ? `  — ${detail}` : ''}`);
     if (!ok) fails++;
@@ -40,9 +43,9 @@ const check = (name, ok, detail = '') => {
 // Anchors every other claim here. An opaque metal at index 0 must reproduce the
 // analytic air/metal interface reflectance; behind a dielectric it cannot.
 {
-    const metalFirst = tmm(LAM, 0, 's', [1, 0], [1.52, 0], [{ n: METAL, d: 200 }, { n: DIEL, d: 100 }]);
-    const dielFirst  = tmm(LAM, 0, 's', [1, 0], [1.52, 0], [{ n: DIEL, d: 100 }, { n: METAL, d: 200 }]);
-    check('tmm: layers[0] faces the incident medium',
+    const metalFirst = sAt(LAM, [1, 0], [1.52, 0], [{ n: METAL, d: 200 }, { n: DIEL, d: 100 }]);
+    const dielFirst  = sAt(LAM, [1, 0], [1.52, 0], [{ n: DIEL, d: 100 }, { n: METAL, d: 200 }]);
+    check('rta: layers[0] faces the incident medium',
         Math.abs(metalFirst.R - AIR_METAL_R) < 1e-6 && Math.abs(dielFirst.R - AIR_METAL_R) > 1e-4,
         `R=${metalFirst.R.toFixed(6)} vs analytic ${AIR_METAL_R.toFixed(6)}`);
 }
@@ -55,8 +58,8 @@ const check = (name, ok, detail = '') => {
     const ev = createMonitorTmmEvaluator(0, mk([1, 0]), mk([1.52, 0]), [mk(DIEL)], [100], [LAM]);
     const monitor = ev.sample('R', 's', mk(METAL), 200)[0];
 
-    const growingOutermost = tmm(LAM, 0, 's', [1, 0], [1.52, 0], [{ n: METAL, d: 200 }, { n: DIEL, d: 100 }]);
-    const growingBuried    = tmm(LAM, 0, 's', [1, 0], [1.52, 0], [{ n: DIEL, d: 100 }, { n: METAL, d: 200 }]);
+    const growingOutermost = sAt(LAM, [1, 0], [1.52, 0], [{ n: METAL, d: 200 }, { n: DIEL, d: 100 }]);
+    const growingBuried    = sAt(LAM, [1, 0], [1.52, 0], [{ n: DIEL, d: 100 }, { n: METAL, d: 200 }]);
 
     check('monitor evaluator: growing layer sits above the completed stack',
         Math.abs(monitor - growingOutermost.R) < TOL,
@@ -93,8 +96,8 @@ const check = (name, ok, detail = '') => {
     // Orientation must actually matter for this design, or the check above is vacuous.
     const inc = getMaterial('Air'), sub = getMaterial('BK7');
     const toL = (arr) => arr.map(l => ({ n: getMaterial(l.material).getNK(1550), d: l.thickness }));
-    const fwd = tmm(1550, 0, 's', inc.getNK(1550), sub.getNK(1550), toL(stack.layers));
-    const rev = tmm(1550, 0, 's', inc.getNK(1550), sub.getNK(1550), toL([...stack.layers].reverse()));
+    const fwd = sAt(1550, inc.getNK(1550), sub.getNK(1550), toL(stack.layers));
+    const rev = sAt(1550, inc.getNK(1550), sub.getNK(1550), toL([...stack.layers].reverse()));
     check('WDM: the two orientations are optically distinct',
         Math.abs(fwd.T - rev.T) > 1e-6, `ΔT=${Math.abs(fwd.T - rev.T).toExponential(2)}`);
 }

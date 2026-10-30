@@ -27,8 +27,10 @@ import {
     adjustToIncidentMedium, bandCentreAtAngle, angleWindowLow,
 } from '../src/utils/filter/filterDesign.js';
 import { buildFilterDesignObject } from '../src/utils/filter/filterDesignBuild.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
+import './_kernel.mjs';
 
 let fails = 0;
 const ok = (c, m) => { if (!c) { console.error('FAIL:', m); fails++; } };
@@ -45,7 +47,7 @@ const layersAt = (M, ref, mirrors, spacers) => buildPrototypeLayers({ nH: M.nH, 
 /** T of a layer list in air at an angle. */
 function airT(layers, lam, M, aoi, pol) {
     const v = M.nSub(lam);
-    return tmm(lam, aoi, pol, [1, 0], Array.isArray(v) ? v : [v, 0], toNDLayers(layers, lam)).T;
+    return rta(pointStack([1, 0], Array.isArray(v) ? v : [v, 0], toNDLayers(layers, lam)), lam, { angle: aoi, pol }).T;
 }
 
 /** Peak T and where it is, and the range over the specified passband, in air. */

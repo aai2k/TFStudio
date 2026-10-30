@@ -27,7 +27,7 @@ import {
     halfAngleFromFNumber, fNumberFromHalfAngle,
     buildEvalContext, evaluateOperands, makeOperand,
 } from '../src/utils/physics/optimizer.js';
-import { tmm } from 'tmmcore';
+import { rta } from 'tmmcore';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
 let fails = 0;
@@ -139,8 +139,8 @@ const baseDesign = (cone) => ({
 // monotonically with angle, so an oblique cone must raise R above normal and
 // stay below the rim ray; uniform (more rim weight) must exceed lambertian.
 {
-    const n0 = [1, 0], ns = [2, 0];
-    const Rs = (deg) => tmm(550, deg, 's', n0, ns, []).R;
+    const bare = { incident: 1, substrate: 2, layers: [] };
+    const Rs = (deg) => rta(bare, 550, { angle: deg, pol: 's' }).R;
     const coneAvgRs = (dist, halfAngleDeg) => {
         const nodes = coneNodes(makeConeSpec({ enabled: true, halfAngleDeg, distribution: dist, gridPoints: 24 }), 0);
         return nodes.reduce((s, nd) => s + nd.weight * Rs(nd.aoiDeg), 0);

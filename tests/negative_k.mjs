@@ -29,7 +29,8 @@ await loadApp();
 const { createInterpolator, createTabulatedNKSampler } = await import('../src/utils/materials/pchip.js');
 const { makeGetNK, interpK, negativeKPoints } = await import('../src/utils/materials/catalogManager/dispersion.js');
 const { buildNKFromDraft, materialToDraft } = await import('../src/components/windows/design/materialEditor/materialDraft.js');
-const { tmm } = await import('tmmcore');
+const { rta } = await import('tmmcore');
+const { pointStack } = await import('../src/utils/physics/kernelStack.js');
 const { UserMaterialForm } = await import('../src/components/windows/design/materialEditor/userMaterialForm.js');
 const { MaterialImportDialog } = await import('../src/components/windows/design/materialEditor/materialImportDialog.js');
 const { DEFAULT_IMPORT_UNITS } = await import('../src/utils/materials/materialFileImport.js');
@@ -118,7 +119,7 @@ function leastEnergyBalance(high) {
         layers.push({ n: high(lam), d: dH });
         for (const angle of [0, 60]) {
             for (const pol of ['s', 'p']) {
-                const { R, T } = tmm(lam, angle, pol, [1, 0], [1.52, 0], layers);
+                const { R, T } = rta(pointStack([1, 0], [1.52, 0], layers), lam, { angle, pol });
                 least = Math.min(least, 1 - R - T);
             }
         }

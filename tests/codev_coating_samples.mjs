@@ -38,7 +38,8 @@ import { readCodevMul } from '../src/utils/io/codevCoating/parseMul.js';
 import { readMulRecord } from '../src/utils/io/codevCoating/mulRecord.js';
 import { micExtinctionAt, micIndexAt } from '../src/utils/io/codevCoating/micIndex.js';
 import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
-import { tmm } from '../src/tmmcore.js';
+import { rta } from '../src/tmmcore.js';
+import { pointStack } from '../src/utils/physics/kernelStack.js';
 import { listingRun, manRows, mprSection } from './reference/codevListing.mjs';
 
 const SAVED = path.join(path.dirname(fileURLToPath(import.meta.url)), 'reference', 'codev');
@@ -147,8 +148,9 @@ function againstRun(stack, lines, name, { rt = RT, nTolerance = {} } = {}) {
         equal(lam.toFixed(1), printedNm.toFixed(1), `${name}: MAN row ${row + 1} wavelength`);
         const index = (key) => getNK[key](lam);
         const layers = design.layers.map(layer => ({ n: index(layer.materialKey), d: layer.thickness }));
-        const s = tmm(lam, angle, 's', index(design.incidentKey), index(design.substrateKey), layers);
-        const p = tmm(lam, angle, 'p', index(design.incidentKey), index(design.substrateKey), layers);
+        const stack = pointStack(index(design.incidentKey), index(design.substrateKey), layers);
+        const s = rta(stack, lam, { angle, pol: 's' });
+        const p = rta(stack, lam, { angle, pol: 'p' });
         const where = `${name}, ${angle}°, ${printedNm} nm`;
         worstRT = Math.max(worstRT, within(s.R, Rs, rt, `${where}: Rs`), within(p.R, Rp, rt, `${where}: Rp`),
             within(s.T, Ts, rt, `${where}: Ts`), within(p.T, Tp, rt, `${where}: Tp`));
