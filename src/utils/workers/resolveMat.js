@@ -27,31 +27,34 @@ import { getMaterialById } from '../materials/catalogManager.js';
 import { makeGetNK } from '../materials/catalogManager/dispersion.js';
 import { isBuiltinId } from '../materials/designMaterials.js';
 
-// Index a pre-sampled table into an exact-hit map plus a λ-ascending parallel
-// pair (sortedL / sortedNK) used by the nearest-λ fallback.
-function indexTable(entry) {
-    const map = new Map();
-    if (!entry || !entry.lambdas) return { map, sortedL: null, sortedNK: null };
-    const { lambdas, n, k, omegaResponses } = entry;
-    for (let i = 0; i < lambdas.length; i++) {
-        map.set(lambdas[i], { nk: [n[i], k[i]], omegaResponse: omegaResponses?.[i] || null });
+const NO_SAMPLES = new Map();
+
+// λ → its sample index in `lambdas`; a λ listed twice maps to its last place.
+// The tables of one job share a single lambdas array (sampling.js
+// buildPresampledTable), and postMessage keeps that sharing, so `indexes`
+// builds one map per array rather than one per material.
+function sampleIndex(lambdas, indexes) {
+    if (!lambdas) return NO_SAMPLES;
+    let at = indexes.get(lambdas);
+    if (!at) {
+        at = new Map();
+        for (let i = 0; i < lambdas.length; i++) at.set(lambdas[i], i);
+        indexes.set(lambdas, at);
     }
-    const idx = lambdas.map((_, i) => i).sort((a, b) => lambdas[a] - lambdas[b]);
-    return {
-        map,
-        sortedL:  idx.map(i => lambdas[i]),
-        sortedNK: idx.map(i => ({ nk: [n[i], k[i]], omegaResponse: omegaResponses?.[i] || null })),
-    };
+    return at;
 }
 
-// Nearest-λ [n,k] via binary search over the ascending sortedL grid.
-function nearestNK(sortedL, sortedNK, lam) {
-    let lo = 0, hi = sortedL.length - 1;
+// Sample indices in ascending λ, for the nearest-λ fallback.
+const ascendingSamples = lambdas => lambdas.map((_, i) => i).sort((a, b) => lambdas[a] - lambdas[b]);
+
+// The sample index of the λ nearest `lam`, by binary search over `order`.
+function nearestSample(lambdas, order, lam) {
+    let lo = 0, hi = order.length - 1;
     while (hi - lo > 1) {
         const mid = (lo + hi) >> 1;
-        if (sortedL[mid] < lam) lo = mid; else hi = mid;
+        if (lambdas[order[mid]] < lam) lo = mid; else hi = mid;
     }
-    return (Math.abs(sortedL[lo] - lam) <= Math.abs(sortedL[hi] - lam)) ? sortedNK[lo] : sortedNK[hi];
+    return (Math.abs(lambdas[order[lo]] - lam) <= Math.abs(lambdas[order[hi]] - lam)) ? order[lo] : order[hi];
 }
 
 // The getNK the table entry for `id` was sampled from, or null when the entry
@@ -77,17 +80,19 @@ function onceWarner(post) {
 
 // The `{ getNK, getOmegaResponse }` stub for one id. An id the table lacks
 // reads the Air entry, wavelengths off its grid included.
-function tableStub(id, materials, label, warn) {
+function tableStub(id, materials, label, warn, indexes) {
     const entryId = materials[id] ? id : 'Air';
     const entry = materials[entryId] || null;
-    const { map, sortedL, sortedNK } = indexTable(entry);
-    let model;
+    const at = sampleIndex(entry?.lambdas, indexes);
+    let model, order;
     const offGridNK = lam => {
         if (model === undefined) model = modelGetNK(entryId, entry);
         if (model) return model(lam);
-        if (!sortedL || sortedL.length === 0) return [1, 0];
+        if (at.size === 0) return [1, 0];
         warn('nk', `${label}: λ ${lam} not pre-sampled for "${id}", nearest-λ fallback, not bit-identical`);
-        return nearestNK(sortedL, sortedNK, lam).nk;
+        order ??= ascendingSamples(entry.lambdas);
+        const i = nearestSample(entry.lambdas, order, lam);
+        return [entry.n[i], entry.k[i]];
     };
     return {
         _wkrMat: true,
@@ -96,12 +101,12 @@ function tableStub(id, materials, label, warn) {
         // them off the stub exactly as it reads them off a material record.
         mechanical: entry?.mechanical,
         getNK(lam) {
-            const v = map.get(lam);
-            return v !== undefined ? v.nk : offGridNK(lam);
+            const i = at.get(lam);
+            return i !== undefined ? [entry.n[i], entry.k[i]] : offGridNK(lam);
         },
         getOmegaResponse(lam) {
-            const v = map.get(lam);
-            if (v !== undefined) return v.omegaResponse;
+            const i = at.get(lam);
+            if (i !== undefined) return entry.omegaResponses?.[i] || null;
             warn('omega', `${label}: exact omega response unavailable at lambda ${lam} for "${id}"`);
             return null;
         },
@@ -111,7 +116,8 @@ function tableStub(id, materials, label, warn) {
 export function makeResolveMat(materials, label = 'worker', post = workerPost) {
     const cache = new Map();
     const warn = onceWarner(post);
-    const build = id => tableStub(id, materials, label, warn);
+    const indexes = new Map();
+    const build = id => tableStub(id, materials, label, warn, indexes);
 
     return function resolveMat(id) {
         const key = (id == null || id === '') ? 'Air' : id;
