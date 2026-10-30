@@ -126,6 +126,11 @@ const CASES = {
     ok('with no run each film carries its intrinsic stress', bare.run === null && same(bare.films.map(f => f.stress), [150, -300, 150, -300]), JSON.stringify(bare.films.map(f => f.stress)));
     const deposited = api.stress(CASES['the deposition temperature alone']);
     ok('the deposition temperature alone reads the other as 20 °C', same([deposited.run, deposited.whole, deposited.films], [{ temperature: 20, depositionTemperature: 3000 }, single.whole, single.films]));
+    const silica = validationDesign({ substrate: { material: 'SiO2', thickness: 1 },
+        frontLayers: [{ id: 'F1', material: 'builtin:SiO2', thickness: 100 }, { id: 'F2', material: 'SiO2', thickness: 100 }] });
+    const { missing } = api.stress(silica);
+    ok('a material that is the substrate and a film, by two ids, is one entry of missing', missing.length === 1 && missing[0].fields.length === 6
+        && same(missing, asCall(silica).missing), JSON.stringify(missing));
 }
 
 // ── 2. Cross-check: the force is the STR row ───────────────────────────────

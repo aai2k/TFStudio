@@ -114,6 +114,7 @@ function filmsOf(layers, side, resolveMaterial, run) {
         return {
             side,
             layerNumber: index + 1,
+            material,
             materialId: layer.material || null,
             materialName: material?.name || layer.material || '?',
             mechanical,
@@ -183,13 +184,17 @@ function wholePart(front, back, substrate) {
 
 // One entry per material that leaves something out, in the order the layers
 // meet it, by id and by name. The substrate is named too, since the curvature
-// and the lowest delamination factor read its constants.
-function missingConstants(films, substrate) {
+// and the lowest delamination factor read its constants. A material is matched
+// by what its id resolves to, so `SiO2` and `builtin:SiO2` are one entry, under
+// the id the layers meet first. A substrate that is also a film is not listed
+// again: a film reads every constant the substrate does, so the film's entry
+// already names them.
+function missingConstants(films, substrate, substrateMaterial) {
     const missing = [];
     const seen = new Set();
     for (const film of films) {
-        if (seen.has(film.materialId)) continue;
-        seen.add(film.materialId);
+        if (seen.has(film.material)) continue;
+        seen.add(film.material);
         const fields = [
             ...missingStressFields(film.mechanical),
             ...(stated(film.mechanical?.surfaceEnergyJm2) ? [] : ['surfaceEnergyJm2']),
@@ -197,7 +202,7 @@ function missingConstants(films, substrate) {
         if (fields.length) missing.push({ materialId: film.materialId, name: film.materialName, fields });
     }
     const substrateFields = SUBSTRATE_FIELDS.filter(field => !stated(substrate.mechanical?.[field]));
-    if (substrateFields.length) {
+    if (substrateFields.length && !seen.has(substrateMaterial)) {
         missing.push({ materialId: substrate.materialId, name: substrate.materialName, fields: substrateFields });
     }
     return missing;
@@ -238,7 +243,7 @@ export function computeStress(design, evalMode) {
         bothSides: front.length > 0 && back.length > 0,
         rows: [...frontResult.rows, ...backResult.rows],
         whole: wholePart(frontResult, backResult, substrate),
-        missing: missingConstants(films, substrate),
+        missing: missingConstants(films, substrate, substrateMaterial),
         matColorMap: colorMap(films, resolveMaterial),
     };
 }

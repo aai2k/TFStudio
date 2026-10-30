@@ -3720,12 +3720,12 @@
     "text": "每个参与计算的膜一项，正面在前，每项为命名元组 (side, number, material, name, thickness, stress, strain_energy, delamination, shear)：number 从基底处的 1 起，与 layers 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strain_energy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 None，其余各项则按该膜不承受应力计算；所需的其他常数缺失时，各项为 None。"
   },
   "Stress.missing.lead.1.js": {
-    "hash": "ed41fa3f",
-    "text": "缺少常数的材料（包括基底），一个数组，每项为 `{ material, name, fields }`：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料都给出了全部常数时为空。"
+    "hash": "e6fcca64",
+    "text": "缺少常数的材料（包括基底），一个数组，每项为 `{ material, name, fields }`：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料只列一次：既是基底又是膜层的材料，或有两个 id 的材料（如 `SiO2` 与 `builtin:SiO2`），只占一项，记在膜层最先使用的 id 下。每种材料都给出了全部常数时为空。"
   },
   "Stress.missing.lead.1.py": {
-    "hash": "a999adeb",
-    "text": "缺少常数的材料（包括基底），每项为命名元组 (material, name, fields)：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料都给出了全部常数时为空。"
+    "hash": "baa832d4",
+    "text": "缺少常数的材料（包括基底），每项为命名元组 (material, name, fields)：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料只列一次：既是基底又是膜层的材料，或有两个 id 的材料（如 SiO2 与 builtin:SiO2），只占一项，记在膜层最先使用的 id 下。每种材料都给出了全部常数时为空。"
   },
   "Stress.saveCsv.arg.path.js": {
     "hash": "b38b7297",

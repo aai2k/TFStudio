@@ -128,8 +128,10 @@ class Stress:
         """)
     missing = _reading("missing", """The materials that leave a constant out, the substrate's included,
         each a named tuple (material, name, fields): material by id, and fields the constants it
-        lacks by their names on the material's mechanical record. Empty when every material states
-        every constant.
+        lacks by their names on the material's mechanical record. Each material is listed once: one
+        that is the substrate and a film, or that two ids name, as SiO2 and builtin:SiO2 do, is one
+        entry, under the id the films name it by first. Empty when every material states every
+        constant.
 
         Example::
 

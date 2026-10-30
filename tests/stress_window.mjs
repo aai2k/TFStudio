@@ -119,6 +119,27 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
 }
 
 {
+    // Fused silica as the substrate and as two of the films, named by its bare
+    // name and by its compound id: one material, which the notice counts once
+    // with every constant it lacks.
+    const design = validationDesign({
+        substrate: { material: 'SiO2', thickness: 1 },
+        frontLayers: [
+            { id: 'F1', material: 'user_m:H', thickness: 100 },
+            { id: 'F2', material: 'builtin:SiO2', thickness: 100 },
+            { id: 'F3', material: 'SiO2', thickness: 100 },
+        ],
+    });
+    const { missing } = analyse(design);
+    assert.equal(missing.length, 1, `one material leaves constants out: ${JSON.stringify(missing)}`);
+    assert.equal(missing[0].name, 'SiO2 (Fused Silica)', 'and it is the silica');
+    assert.deepEqual(missing[0].fields, [
+        'youngsModulusGPa', 'poissonsRatio', 'linearExpansionPerK',
+        'intrinsicStressMPa', 'referenceTemperatureC', 'surfaceEnergyJm2',
+    ], 'with every constant a film or the substrate reads');
+}
+
+{
     const design = validationDesign({ substrate: { material: 'user_m:Sub', thickness: 15 } });
     const result = analyse(design);
     assert.equal(result.whole.deflectionUm, null, 'no diameter, no centre deflection');

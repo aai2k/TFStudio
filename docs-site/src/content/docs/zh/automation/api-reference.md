@@ -9160,9 +9160,9 @@ for film in design.stress().films:
 | ---------- | ------ |
 | `s.missing` | `s.missing` |
 
-**JavaScript**：缺少常数的材料（包括基底），一个数组，每项为 `{ material, name, fields }`：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料都给出了全部常数时为空。
+**JavaScript**：缺少常数的材料（包括基底），一个数组，每项为 `{ material, name, fields }`：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料只列一次：既是基底又是膜层的材料，或有两个 id 的材料（如 `SiO2` 与 `builtin:SiO2`），只占一项，记在膜层最先使用的 id 下。每种材料都给出了全部常数时为空。
 
-**Python**：缺少常数的材料（包括基底），每项为命名元组 (material, name, fields)：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料都给出了全部常数时为空。
+**Python**：缺少常数的材料（包括基底），每项为命名元组 (material, name, fields)：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料只列一次：既是基底又是膜层的材料，或有两个 id 的材料（如 SiO2 与 builtin:SiO2），只占一项，记在膜层最先使用的 id 下。每种材料都给出了全部常数时为空。
 
 ```js
 const design = tf.newDesign('Mirror');
