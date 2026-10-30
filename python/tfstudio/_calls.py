@@ -211,6 +211,9 @@ class Calls:
     def importCodevCoating(self, design, filePath, options=None):
         return self._call("importCodevCoating", design, _absolute(filePath), options)
 
+    def inhomogeneities(self, design, options=None):
+        return self._call("inhomogeneities", design, options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

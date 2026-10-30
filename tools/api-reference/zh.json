@@ -3067,6 +3067,50 @@
     "hash": "505a5107",
     "text": "它不接受的选项或选项不能取的值、response=\"R\" 时的 \"total\"、对不含强度大于零的光谱的设计使用 source=\"design\"、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应，或没有光从元件射出"
   },
+  "Design.inhomogeneities.arg.interlayers.js": {
+    "hash": "82f29207",
+    "text": "每个界面层一行，每行为 `{ side, interface, thickness, profile, slices }`：`side` 为 `'front'` 或 `'back'`，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；`interface` 从 0（基底表面）到该面的层数；`thickness` 单位 nm，不小于 0，不给出时为 5；`profile` 为 `'linear'`、`'parabolic'`、`'invParabolic'`、`'exponential'` 或 `'sigmoid'`，不给出时为 `'linear'`；`slices` 为整数，不小于 2，不给出时为 10。一个界面只能有一行。"
+  },
+  "Design.inhomogeneities.arg.interlayers.py": {
+    "hash": "48dd7a30",
+    "text": "每个界面层一个 dict，含 side、interface、thickness、profile 和 slices：side 为 \"front\" 或 \"back\"，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；interface 从 0（基底表面）到该面的层数；thickness 单位 nm，不小于 0，不给出时为 5；profile 为 \"linear\"、\"parabolic\"、\"invParabolic\"、\"exponential\" 或 \"sigmoid\"，不给出时为 \"linear\"；slices 为整数，不小于 2，不给出时为 10。一个界面只能有一行。不给出时，没有界面层。"
+  },
+  "Design.inhomogeneities.arg.start": {
+    "hash": "115f61f2",
+    "text": "起始波长，单位 nm。"
+  },
+  "Design.inhomogeneities.arg.end": {
+    "hash": "b4a9096d",
+    "text": "终止波长，单位 nm，大于 `start`。"
+  },
+  "Design.inhomogeneities.arg.step": {
+    "hash": "078399d3",
+    "text": "波长步长，单位 nm。"
+  },
+  "Design.inhomogeneities.arg.angle": {
+    "hash": "796fdf6a",
+    "text": "入射角，单位为度，在入射介质中计，从 0 起，小于 90。"
+  },
+  "Design.inhomogeneities.arg.side": {
+    "hash": "3c5b4dfa",
+    "text": "`'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。"
+  },
+  "Design.inhomogeneities.returns": {
+    "hash": "9d032553",
+    "text": "一个 Inhomogeneities。"
+  },
+  "Design.inhomogeneities.lead.1": {
+    "hash": "8d74eb23",
+    "text": "设计在其界面处带有渐变界面层时的光谱，与设计原样的光谱对比，计算方式与非均匀性窗口相同：每个界面层放在其界面处相接的两种材料之间，使镀膜增加其厚度，并被切成若干各有一个折射率的切片，第二种材料所占的比例沿其分布增加，n 和 k 按比例混合。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会在其锥角内取平均，与窗口相同。没有膜层的面没有界面，给出其裸表面的结果。"
+  },
+  "Design.inhomogeneities.lead.2": {
+    "hash": "754a0d34",
+    "text": "一个面的界面 k 是其第 k 层的顶面，膜层按 `layers` 的方式从基底起编号：0 为基底表面，有 N 层的面上 N 为与介质相接的表面。厚度为 0 nm 的层保留其编号和界面。正面的渐变从离基底较远的材料到较近的材料，背面从较近的到较远的，与窗口的渐变方式相同；线性或 S 形分布两个方向读起来相同。设计有规格时，`specification` 是放入界面层后对它的判定，与窗口图表下方的标记相同。"
+  },
+  "Design.inhomogeneities.refuses.1": {
+    "hash": "3b73c6ed",
+    "text": "它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面、小于 0 的厚度、它没有的分布、不是不小于 2 的整数的切片数，或用到找不到对应材料的设计"
+  },
   "Ellipsometry.lead.1": {
     "hash": "a7421ab7",
     "text": "一个镀膜面的 Ψ 和 Δ：design.ellipsometry() 在一个或多个入射角下随波长计算它们，`design.ellipsometryVsAngle()` / `design.ellipsometry_vs_angle()` 在一个波长处随角度计算它们。随波长计算时，`e.psi` 和 `e.delta` 是第一个所要求角度下的 Curve，`e.angle(70)` 是另一个角度下的扫描；随角度计算时，它们是 AngleCurve。"
@@ -3402,6 +3446,74 @@
   "Pulse.saveCsv.lead.1.py": {
     "hash": "eccd5561",
     "text": "把各项数值写入 CSV 文件，与窗口以“复制 CSV”写出其结果表的方式相同：Quantity、Value 和 Unit 三列，每项数值一行，用窗口的措辞，峰值和能量以百分数表示；只有输入带啁啾时才有输入的半高全宽一行。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+  },
+  "Inhomogeneities.lead.1": {
+    "hash": "93214d64",
+    "text": "设计在其界面处带有渐变界面层时的光谱，与设计原样的光谱对比，由 design.inhomogeneities() 计算，与非均匀性窗口的显示相同。`r.homogeneous` 和 `r.graded` 包含各条曲线，每条为一个 Curve。"
+  },
+  "Inhomogeneities.mode.lead.1": {
+    "hash": "ec5cdf05",
+    "text": "所计算的对象：`'front'`、`'back'` 或 `'total'`（整个元件）。"
+  },
+  "Inhomogeneities.angle.lead.1": {
+    "hash": "6fdcefc2",
+    "text": "入射角，为入射介质中的度数。"
+  },
+  "Inhomogeneities.wavelength.lead.1": {
+    "hash": "f86617c1",
+    "text": "各波长，单位 nm。"
+  },
+  "Inhomogeneities.homogeneous.lead.1.js": {
+    "hash": "ce66d404",
+    "text": "设计原样的结果：非偏振光的 `R`、`T` 和 `A`，以及 s 和 p 偏振的 `Rs`、`Rp`、`Ts`、`Tp`、`As` 和 `Ap`，每条为一个 Curve，以 1 的分数表示。"
+  },
+  "Inhomogeneities.homogeneous.lead.1.py": {
+    "hash": "b96cc040",
+    "text": "设计原样的结果，一个由 Curve 组成的具名元组，以 1 的分数表示：非偏振光的 R、T 和 A，以及 s 和 p 偏振的 Rs、Rp、Ts、Tp、As 和 Ap。"
+  },
+  "Inhomogeneities.graded.lead.1": {
+    "hash": "35192f8d",
+    "text": "放入界面层后的设计，曲线与 `homogeneous` 相同。"
+  },
+  "Inhomogeneities.interlayers.lead.1.js": {
+    "hash": "c84577d1",
+    "text": "各界面层，按给出的顺序，并填入其默认值，一个由 `{ side, interface, thickness, profile, slices, materials }` 组成的数组：`materials` 为在该处相接的两种材料的 id，按界面层从一种渐变到另一种的顺序。"
+  },
+  "Inhomogeneities.interlayers.lead.1.py": {
+    "hash": "1bd5fff9",
+    "text": "各界面层，按给出的顺序，并填入其默认值，每个为一个具名元组（side、interface、thickness、profile、slices、materials）：materials 为在该处相接的两种材料的 id，按界面层从一种渐变到另一种的顺序。"
+  },
+  "Inhomogeneities.addedThickness.lead.1": {
+    "hash": "7eceacc2",
+    "text": "界面层使镀膜增加的厚度，单位 nm：即窗口的 Σ。"
+  },
+  "Inhomogeneities.specification.lead.1": {
+    "hash": "927ed39a",
+    "text": "放入界面层后对设计的判定，一个 SpecReport，与 specification.check() 给出的相同，每项检查按其自身的步长读取，与窗口图表下方的标记相同；设计没有规格时为 `null` / `None`。"
+  },
+  "Inhomogeneities.outOfRange.lead.1.js": {
+    "hash": "44769615",
+    "text": "所计算对象上数据在该范围内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "Inhomogeneities.outOfRange.lead.1.py": {
+    "hash": "e75a50b7",
+    "text": "所计算对象上数据在该范围内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "Inhomogeneities.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，使用完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "Inhomogeneities.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "Inhomogeneities.saveCsv.lead.1.js": {
+    "hash": "5a11a22a",
+    "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出所有曲线都打开时的表格的方式相同：先是 λ (nm)，然后依次为 T、Ts、Tp、R、Rs、Rp、A、As 和 Ap 的均匀值和渐变值，以 1 的分数表示。已存在的文件会被覆盖。"
+  },
+  "Inhomogeneities.saveCsv.lead.1.py": {
+    "hash": "943f2420",
+    "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出所有曲线都打开时的表格的方式相同：先是 λ (nm)，然后依次为 T、Ts、Tp、R、Rs、Rp、A、As 和 Ap 的均匀值和渐变值，以 1 的分数表示。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
   },
   "Material.dispersion.arg.start": {
     "hash": "115f61f2",

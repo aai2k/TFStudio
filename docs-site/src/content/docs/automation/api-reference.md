@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [Inhomogeneities](#inhomogeneities-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -2139,6 +2139,47 @@ design = tf.new_design("AR")
 print(design.import_codev_coating(name))
 for layer in design.layers:
     print(layer.material, layer.thickness, "nm", "locked" if layer.locked else "")
+```
+
+### inhomogeneities
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.inhomogeneities({ interlayers, start, end, step, angle, side })` | `design.inhomogeneities(interlayers=..., start=400, end=800, step=0.5, angle=0, side=...)` |
+
+The spectrum of the design with graded interlayers at its interfaces, against the design as it stands, as the Inhomogeneities window computes it: each interlayer is put in between the two materials that meet at its interface, adding its thickness to the coating, and is cut into slices of one index each, the share of the second material rising along its profile, n and k mixed in proportion. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A side with no layers has no interface, and gives its bare surface.
+
+Interface k of a side is the top of its layer k, numbered from the substrate as `layers` numbers them: 0 is the substrate's surface and N, on a side of N layers, the surface that meets the medium. A layer of 0 nm keeps its number and its interfaces. On the front the grading runs from the material farther from the substrate to the nearer one, and on the back from the nearer to the farther, as the window grades them; a linear or sigmoid profile reads the same either way. When the design has a specification, `specification` is its verdict with the interlayers in, as the badge under the window's chart reads it.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `interlayers` | `interlayers` | `[]` | **JavaScript**: One row per interlayer, each `{ side, interface, thickness, profile, slices }`: `side` `'front'` or `'back'`, the side computed when there is one, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `thickness` in nm, 0 or more, 5 when left out; `profile` `'linear'`, `'parabolic'`, `'invParabolic'`, `'exponential'` or `'sigmoid'`, `'linear'` when left out; `slices` a whole number, 2 or more, 10 when left out. One row to an interface.<br>**Python**: One dict per interlayer, with side, interface, thickness, profile and slices: side "front" or "back", the side computed when there is one, and given on each row of a whole part coated on both sides; interface from 0, the substrate's surface, to the side's layer count; thickness in nm, 0 or more, 5 when left out; profile "linear", "parabolic", "invParabolic", "exponential" or "sigmoid", "linear" when left out; slices a whole number, 2 or more, 10 when left out. One row to an interface. Without it, none. |
+| `start` | `start` | `400` | The first wavelength, nm. |
+| `end` | `end` | `800` | The last wavelength, nm, above `start`. |
+| `step` | `step` | `0.5` | The wavelength step, nm. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the incident medium, 0 up to but not including 90. |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+
+**Returns**: An Inhomogeneities.
+
+**Refuses**:
+
+- an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a thickness below 0, a profile it does not have, slices that are not a whole number of 2 or more, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1 });
+console.log(r.interlayers[0].materials.join(' to '), 'adds', r.addedThickness, 'nm; R at 550 nm', r.homogeneous.R.at(550).toFixed(5), 'becomes', r.graded.R.at(550).toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3, "profile": "sigmoid"}],
+                           start=450, end=650, step=1)
+print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R at 550 nm",
+      round(r.homogeneous.R.at(550), 5), "becomes", round(r.graded.R.at(550), 5))
 ```
 
 ### refine
@@ -8343,6 +8384,252 @@ name = "pulse-{}.csv".format(time.time_ns())
 design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 design.pulse(centre=550).save_csv(name)
+print("Wrote", name)
+```
+
+## Inhomogeneities
+
+The spectrum of a design with graded interlayers at its interfaces, against the design as it stands, as design.inhomogeneities() computes it and the Inhomogeneities window shows it. `r.homogeneous` and `r.graded` hold the curves, each a Curve.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3 }] });
+console.log(r.mode, 'mean R from 500 to 600 nm', r.homogeneous.R.mean(500, 600).toFixed(5), 'becomes', r.graded.R.mean(500, 600).toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3}])
+print(r.mode, "mean R from 500 to 600 nm", round(r.homogeneous.R.mean(500, 600), 5), "becomes",
+      round(r.graded.R.mean(500, 600), 5))
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.mode` | `r.mode` |
+
+The sides computed: `'front'`, `'back'` or `'total'`, the whole part.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities().mode, design.inhomogeneities({ side: 'total' }).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.inhomogeneities().mode, design.inhomogeneities(side="total").mode)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.angle` | `r.angle` |
+
+The angle of incidence, degrees in the incident medium.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities({ angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.inhomogeneities(angle=30).angle, "degrees")
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.wavelength` | `r.wavelength` |
+
+The wavelengths, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities({ step: 100 }).wavelength.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.inhomogeneities(step=100).wavelength)
+```
+
+### homogeneous
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.homogeneous` | `r.homogeneous` |
+
+**JavaScript**: The design as it stands: `R`, `T` and `A` for unpolarized light and `Rs`, `Rp`, `Ts`, `Tp`, `As` and `Ap` for s and p, each a Curve of fractions of 1.
+
+**Python**: The design as it stands, a named tuple of Curves of fractions of 1: R, T and A for unpolarized light and Rs, Rp, Ts, Tp, As and Ap for s and p.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log('peak R', design.inhomogeneities().homogeneous.R.max().toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print("peak R", round(design.inhomogeneities().homogeneous.R.max(), 5))
+```
+
+### graded
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.graded` | `r.graded` |
+
+The design with the interlayers in, the same curves as `homogeneous`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3 }, { interface: 5, thickness: 3 }] });
+console.log('peak R', r.graded.R.max().toFixed(5), 'against', r.homogeneous.R.max().toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3}, {"interface": 5, "thickness": 3}])
+print("peak R", round(r.graded.R.max(), 5), "against", round(r.homogeneous.R.max(), 5))
+```
+
+### interlayers
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.interlayers` | `r.interlayers` |
+
+**JavaScript**: The interlayers, in the order given, with their defaults filled in, an array of `{ side, interface, thickness, profile, slices, materials }`: `materials` the two that meet there, by id, in the order the interlayer grades from one to the other.
+
+**Python**: The interlayers, in the order given, with their defaults filled in, each a named tuple (side, interface, thickness, profile, slices, materials): materials the two that meet there, by id, in the order the interlayer grades from one to the other.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+for (const row of design.inhomogeneities({ interlayers: [{ interface: 0 }, { interface: 9 }] }).interlayers) {
+    console.log(row.side, row.interface, row.thickness, 'nm', row.profile, row.slices, 'slices:', row.materials.join(' to '));
+}
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+for row in design.inhomogeneities(interlayers=[{"interface": 0}, {"interface": 9}]).interlayers:
+    print(row.side, row.interface, row.thickness, "nm", row.profile, row.slices, "slices:", " to ".join(row.materials))
+```
+
+### addedThickness / added_thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.addedThickness` | `r.added_thickness` |
+
+What the interlayers add to the coating, nm: the window's Σ.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities({ interlayers: [{ interface: 1, thickness: 2 }, { interface: 2 }] }).addedThickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.inhomogeneities(interlayers=[{"interface": 1, "thickness": 2}, {"interface": 2}]).added_thickness, "nm")
+```
+
+### specification
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.specification` | `r.specification` |
+
+The verdict for the design with its interlayers in, a SpecReport as specification.check() gives one, each check read at its own Step, as the badge under the window's chart reads it; `null` / `None` when the design has no specification.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.98 });
+const report = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 10 }] }).specification;
+console.log(report.passed, report.rows[0].value.toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.98)
+report = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 10}]).specification
+print(report.passed, round(report.rows[0].value, 5))
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.outOfRange` | `r.out_of_range` |
+
+**JavaScript**: The materials of the sides computed whose data stop inside the range, an array of `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers it.
+
+**Python**: The materials of the sides computed whose data stop inside the range, a list of dicts with id, name, rangeNm and heldFlat: outside rangeNm their n and k are held at the last value (heldFlat True) or extrapolated. Empty when every material covers it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities({ start: 200, end: 2500, step: 10 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print([m["id"] for m in design.inhomogeneities(start=200, end=2500, step=10).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.saveCsv(path)` | `r.save_csv(path)` |
+
+**JavaScript**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs, Rp, A, As and Ap in turn the homogeneous and the graded value, as fractions of 1. A file that is there is written over.
+
+**Python**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs, Rp, A, As and Ap in turn the homogeneous and the graded value, as fractions of 1. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `interlayers-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.inhomogeneities({ interlayers: [{ interface: 4 }] }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "interlayers-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.inhomogeneities(interlayers=[{"interface": 4}]).save_csv(name)
 print("Wrote", name)
 ```
 

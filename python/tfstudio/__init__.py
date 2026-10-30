@@ -23,6 +23,7 @@ from ._electric_field import ElectricField
 from ._ellipsometry import Ellipsometry
 from ._errors import AppError, ServerError, TFStudioError
 from ._group_delay import GroupDelay
+from ._inhomogeneities import Inhomogeneities
 from ._integrals import Integrals
 from ._material_dispersion import MaterialDispersion
 from ._merit import Merit, MeritRow
@@ -38,7 +39,8 @@ __version__ = "0.1.0"
 
 __all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
            "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Admittance",
-           "ElectricField", "Color", "Integrals", "Ellipsometry", "AngleCurve", "GroupDelay", "Pulse", "Progress",
+           "ElectricField", "Color", "Integrals", "Ellipsometry", "AngleCurve", "GroupDelay", "Pulse", "Inhomogeneities",
+           "Progress",
            "RunResult", "MonteCarlo", "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material",
            "MaterialDispersion", "App",
            "AppDesign", "Stop", "TFStudioError", "AppError", "ServerError"]

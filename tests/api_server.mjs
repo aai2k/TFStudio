@@ -321,6 +321,13 @@ const specified = api.setSpecification(start, CHECKS);
     ok('a pulse from a design holding no spectrum is refused with its code and fields', noSpectrum.error?.code === 'noPulseSpectrum'
         && canon(noSpectrum.error.fields) === canon({ call: 'pulseAnalysis' }), JSON.stringify(noSpectrum.error));
     await same('setPulseSpectrum', [twoSided, [[580, 0.5, 0.1], [600, 1, 0.2], [620, 0.5, 0]]]);
+    await same('inhomogeneities', [twoSided, { interlayers: [{ side: 'front', interface: 3, thickness: 4, profile: 'sigmoid', slices: 6 }, { side: 'back', interface: 1 }],
+        start: 450, end: 650, step: 5, angle: 20 }]);
+    await same('inhomogeneities', [specified, { interlayers: [{ interface: 1, thickness: 3 }], step: 10 }]);
+    const sideless = await same('inhomogeneities', [twoSided, { interlayers: [{ interface: 3 }] }]);
+    ok('an interlayer with no side on the whole part is refused with its code and fields', sideless.error?.code === 'badValue'
+        && canon(sideless.error.fields) === canon({ call: 'inhomogeneities', option: 'interlayers[0].side', takes: "'front' or 'back', given on each row of the whole part" }),
+        JSON.stringify(sideless.error));
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);

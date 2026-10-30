@@ -3,6 +3,9 @@ import { runSpectrum } from '../../../../utils/physics/plotQuantities/spectrumRu
 import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
 import { expandLayersWithInterlayers } from '../../../../utils/physics/inhomogeneity.js';
 
+/** What a new interlayer row holds before it is edited: 5 nm, a linear profile, 10 slices. */
+export const NEW_INTERLAYER = Object.freeze({ thickness: 5, profile: 'linear', slices: 10, enabled: true });
+
 // Every layer is kept, zero-thickness ones included, so an interlayer row's
 // afterIndex counts layers as the editor lists them; the TMM skips empty layers.
 function resolveLayers(resolveMaterial, layers) {

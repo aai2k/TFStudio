@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 66
+ *   1. The session: initialize and version negotiation, the tool list (the 67
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -101,7 +101,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 66 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 67 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -522,6 +522,25 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const oneNumber = await server.call('setPulseSpectrum', { designId: two, rows: [[800, 1], [810]] });
     ok('without path or rows, or with a row of one number, it is refused in the words of its own arguments',
         /give either path or rows/.test(neither.error ?? '') && /rows\[1\] is \[wavelength nm, intensity\]/.test(oneNumber.error ?? ''), `${neither.error} / ${oneNumber.error}`);
+
+    // Graded interlayers on both sides of the part.
+    const interlayerRows = [{ side: 'front', interface: 2, thickness: 4, profile: 'sigmoid' }, { side: 'back', interface: 0, thickness: 3 }];
+    const range = { start: 450, end: 650, step: 2 };
+    const graded = api.inhomogeneities(edited, { interlayers: interlayerRows, ...range });
+    const shortInh = await server.call('inhomogeneities', { designId: two, interlayers: interlayerRows, ...range });
+    const fullInh = await server.call('inhomogeneities', { designId: two, interlayers: interlayerRows, ...range, values: true });
+    const mean = values => values.reduce((sum, v) => sum + v, 0) / values.length;
+    const changes = graded.graded.R.map((v, i) => v - graded.homogeneous.R[i]);
+    const largest = changes.reduce((best, v, i) => (Math.abs(v) > Math.abs(changes[best]) ? i : best), 0);
+    const saidInh = [shortInh.mode, shortInh.addedThickness, shortInh.pointCount, shortInh.from, shortInh.to, shortInh.interlayers, shortInh.homogeneous?.T.mean, shortInh.graded?.R.max,
+        shortInh.largestChange?.R, 'wavelength' in shortInh];
+    ok('inhomogeneities answers with the rows, what they add, the mean and extremes of T, R and A and the largest change, and every curve for values true',
+        JSON.stringify(saidInh) === JSON.stringify(asJson(['total', 7, 101, 450, 650, graded.interlayers, mean(graded.homogeneous.T), Math.max(...graded.graded.R),
+            { change: changes[largest], at: graded.wavelength[largest] }, false]))
+        && JSON.stringify([fullInh.wavelength, fullInh.homogeneous, fullInh.graded]) === JSON.stringify([graded.wavelength, graded.homogeneous, graded.graded]),
+        JSON.stringify(shortInh).slice(0, 300));
+    const sideless = await server.call('inhomogeneities', { designId: two, interlayers: [{ interface: 2 }] });
+    ok('a row without its side on the whole part is refused', /interlayers\[0\]\.side/.test(sideless.error ?? ''), sideless.error);
 }
 
 // Coating files: a stack written to a COATING.DAT and a .seq, each read back in

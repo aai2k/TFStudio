@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[Inhomogeneities](#inhomogeneities-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -2139,6 +2139,47 @@ design = tf.new_design("AR")
 print(design.import_codev_coating(name))
 for layer in design.layers:
     print(layer.material, layer.thickness, "nm", "locked" if layer.locked else "")
+```
+
+### inhomogeneities
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.inhomogeneities({ interlayers, start, end, step, angle, side })` | `design.inhomogeneities(interlayers=..., start=400, end=800, step=0.5, angle=0, side=...)` |
+
+设计在其界面处带有渐变界面层时的光谱，与设计原样的光谱对比，计算方式与非均匀性窗口相同：每个界面层放在其界面处相接的两种材料之间，使镀膜增加其厚度，并被切成若干各有一个折射率的切片，第二种材料所占的比例沿其分布增加，n 和 k 按比例混合。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会在其锥角内取平均，与窗口相同。没有膜层的面没有界面，给出其裸表面的结果。
+
+一个面的界面 k 是其第 k 层的顶面，膜层按 `layers` 的方式从基底起编号：0 为基底表面，有 N 层的面上 N 为与介质相接的表面。厚度为 0 nm 的层保留其编号和界面。正面的渐变从离基底较远的材料到较近的材料，背面从较近的到较远的，与窗口的渐变方式相同；线性或 S 形分布两个方向读起来相同。设计有规格时，`specification` 是放入界面层后对它的判定，与窗口图表下方的标记相同。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `interlayers` | `interlayers` | `[]` | **JavaScript**：每个界面层一行，每行为 `{ side, interface, thickness, profile, slices }`：`side` 为 `'front'` 或 `'back'`，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；`interface` 从 0（基底表面）到该面的层数；`thickness` 单位 nm，不小于 0，不给出时为 5；`profile` 为 `'linear'`、`'parabolic'`、`'invParabolic'`、`'exponential'` 或 `'sigmoid'`，不给出时为 `'linear'`；`slices` 为整数，不小于 2，不给出时为 10。一个界面只能有一行。<br>**Python**：每个界面层一个 dict，含 side、interface、thickness、profile 和 slices：side 为 "front" 或 "back"，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；interface 从 0（基底表面）到该面的层数；thickness 单位 nm，不小于 0，不给出时为 5；profile 为 "linear"、"parabolic"、"invParabolic"、"exponential" 或 "sigmoid"，不给出时为 "linear"；slices 为整数，不小于 2，不给出时为 10。一个界面只能有一行。不给出时，没有界面层。 |
+| `start` | `start` | `400` | 起始波长，单位 nm。 |
+| `end` | `end` | `800` | 终止波长，单位 nm，大于 `start`。 |
+| `step` | `step` | `0.5` | 波长步长，单位 nm。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在入射介质中计，从 0 起，小于 90。 |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+
+**返回**：一个 Inhomogeneities。
+
+**拒绝**：
+
+- 它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面、小于 0 的厚度、它没有的分布、不是不小于 2 的整数的切片数，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1 });
+console.log(r.interlayers[0].materials.join(' to '), 'adds', r.addedThickness, 'nm; R at 550 nm', r.homogeneous.R.at(550).toFixed(5), 'becomes', r.graded.R.at(550).toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3, "profile": "sigmoid"}],
+                           start=450, end=650, step=1)
+print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R at 550 nm",
+      round(r.homogeneous.R.at(550), 5), "becomes", round(r.graded.R.at(550), 5))
 ```
 
 ### refine
@@ -8343,6 +8384,252 @@ name = "pulse-{}.csv".format(time.time_ns())
 design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 design.pulse(centre=550).save_csv(name)
+print("Wrote", name)
+```
+
+## Inhomogeneities
+
+设计在其界面处带有渐变界面层时的光谱，与设计原样的光谱对比，由 design.inhomogeneities() 计算，与非均匀性窗口的显示相同。`r.homogeneous` 和 `r.graded` 包含各条曲线，每条为一个 Curve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3 }] });
+console.log(r.mode, 'mean R from 500 to 600 nm', r.homogeneous.R.mean(500, 600).toFixed(5), 'becomes', r.graded.R.mean(500, 600).toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3}])
+print(r.mode, "mean R from 500 to 600 nm", round(r.homogeneous.R.mean(500, 600), 5), "becomes",
+      round(r.graded.R.mean(500, 600), 5))
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.mode` | `r.mode` |
+
+所计算的对象：`'front'`、`'back'` 或 `'total'`（整个元件）。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities().mode, design.inhomogeneities({ side: 'total' }).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.inhomogeneities().mode, design.inhomogeneities(side="total").mode)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.angle` | `r.angle` |
+
+入射角，为入射介质中的度数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities({ angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.inhomogeneities(angle=30).angle, "degrees")
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.wavelength` | `r.wavelength` |
+
+各波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities({ step: 100 }).wavelength.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.inhomogeneities(step=100).wavelength)
+```
+
+### homogeneous
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.homogeneous` | `r.homogeneous` |
+
+**JavaScript**：设计原样的结果：非偏振光的 `R`、`T` 和 `A`，以及 s 和 p 偏振的 `Rs`、`Rp`、`Ts`、`Tp`、`As` 和 `Ap`，每条为一个 Curve，以 1 的分数表示。
+
+**Python**：设计原样的结果，一个由 Curve 组成的具名元组，以 1 的分数表示：非偏振光的 R、T 和 A，以及 s 和 p 偏振的 Rs、Rp、Ts、Tp、As 和 Ap。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log('peak R', design.inhomogeneities().homogeneous.R.max().toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print("peak R", round(design.inhomogeneities().homogeneous.R.max(), 5))
+```
+
+### graded
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.graded` | `r.graded` |
+
+放入界面层后的设计，曲线与 `homogeneous` 相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3 }, { interface: 5, thickness: 3 }] });
+console.log('peak R', r.graded.R.max().toFixed(5), 'against', r.homogeneous.R.max().toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3}, {"interface": 5, "thickness": 3}])
+print("peak R", round(r.graded.R.max(), 5), "against", round(r.homogeneous.R.max(), 5))
+```
+
+### interlayers
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.interlayers` | `r.interlayers` |
+
+**JavaScript**：各界面层，按给出的顺序，并填入其默认值，一个由 `{ side, interface, thickness, profile, slices, materials }` 组成的数组：`materials` 为在该处相接的两种材料的 id，按界面层从一种渐变到另一种的顺序。
+
+**Python**：各界面层，按给出的顺序，并填入其默认值，每个为一个具名元组（side、interface、thickness、profile、slices、materials）：materials 为在该处相接的两种材料的 id，按界面层从一种渐变到另一种的顺序。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+for (const row of design.inhomogeneities({ interlayers: [{ interface: 0 }, { interface: 9 }] }).interlayers) {
+    console.log(row.side, row.interface, row.thickness, 'nm', row.profile, row.slices, 'slices:', row.materials.join(' to '));
+}
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+for row in design.inhomogeneities(interlayers=[{"interface": 0}, {"interface": 9}]).interlayers:
+    print(row.side, row.interface, row.thickness, "nm", row.profile, row.slices, "slices:", " to ".join(row.materials))
+```
+
+### addedThickness / added_thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.addedThickness` | `r.added_thickness` |
+
+界面层使镀膜增加的厚度，单位 nm：即窗口的 Σ。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities({ interlayers: [{ interface: 1, thickness: 2 }, { interface: 2 }] }).addedThickness, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.inhomogeneities(interlayers=[{"interface": 1, "thickness": 2}, {"interface": 2}]).added_thickness, "nm")
+```
+
+### specification
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.specification` | `r.specification` |
+
+放入界面层后对设计的判定，一个 SpecReport，与 specification.check() 给出的相同，每项检查按其自身的步长读取，与窗口图表下方的标记相同；设计没有规格时为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.98 });
+const report = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 10 }] }).specification;
+console.log(report.passed, report.rows[0].value.toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.98)
+report = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 10}]).specification
+print(report.passed, round(report.rows[0].value, 5))
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.outOfRange` | `r.out_of_range` |
+
+**JavaScript**：所计算对象上数据在该范围内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该范围时为空。
+
+**Python**：所计算对象上数据在该范围内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.inhomogeneities({ start: 200, end: 2500, step: 10 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print([m["id"] for m in design.inhomogeneities(start=200, end=2500, step=10).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.saveCsv(path)` | `r.save_csv(path)` |
+
+**JavaScript**：把曲线写入 CSV 文件，与窗口以“复制 CSV”写出所有曲线都打开时的表格的方式相同：先是 λ (nm)，然后依次为 T、Ts、Tp、R、Rs、Rp、A、As 和 Ap 的均匀值和渐变值，以 1 的分数表示。已存在的文件会被覆盖。
+
+**Python**：把曲线写入 CSV 文件，与窗口以“复制 CSV”写出所有曲线都打开时的表格的方式相同：先是 λ (nm)，然后依次为 T、Ts、Tp、R、Rs、Rp、A、As 和 Ap 的均匀值和渐变值，以 1 的分数表示。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，使用完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `interlayers-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.inhomogeneities({ interlayers: [{ interface: 4 }] }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "interlayers-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.inhomogeneities(interlayers=[{"interface": 4}]).save_csv(name)
 print("Wrote", name)
 ```
 

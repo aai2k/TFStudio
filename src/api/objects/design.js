@@ -16,6 +16,7 @@ import { Integrals } from './integrals.js';
 import { Ellipsometry } from './ellipsometry.js';
 import { GroupDelay } from './groupDelay.js';
 import { Pulse } from './pulse.js';
+import { Inhomogeneities } from './inhomogeneities.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
@@ -1320,6 +1321,47 @@ export class Design {
         const { design, warnings } = worded({ method: 'importCodevCoating', call: 'importCodevCoating' }, () => api.importCodevCoating(this._data, path, options));
         this._data = design;
         return warnings;
+    }
+
+    /**
+     * The spectrum of the design with graded interlayers at its interfaces,
+     * against the design as it stands, as the Inhomogeneities window computes
+     * it: each interlayer is put in between the two materials that meet at
+     * its interface, adding its thickness to the coating, and is cut into
+     * slices of one index each, the share of the second material rising along
+     * its profile, n and k mixed in proportion. What it is computed on
+     * follows the design's `sides` and `scoreOn`, as a spectrum does, unless
+     * `side` is given, and a design under a cone of incidence is averaged over
+     * its cone, as the window averages it. A side with no layers has no
+     * interface, and gives its bare surface.
+     *
+     * Interface k of a side is the top of its layer k, numbered from the
+     * substrate as `layers` numbers them: 0 is the substrate's surface and N,
+     * on a side of N layers, the surface that meets the medium. A layer of
+     * 0 nm keeps its number and its interfaces. On the front the grading runs
+     * from the material farther from the substrate to the nearer one, and on
+     * the back from the nearer to the farther, as the window grades them; a
+     * linear or sigmoid profile reads the same either way. When the design has
+     * a specification, `specification` is its verdict with the interlayers
+     * in, as the badge under the window's chart reads it.
+     *
+     * @param [options]
+     * @param [options.interlayers=[]] One row per interlayer, each `{ side, interface, thickness, profile, slices }`: `side` `'front'` or `'back'`, the side computed when there is one, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `thickness` in nm, 0 or more, 5 when left out; `profile` `'linear'`, `'parabolic'`, `'invParabolic'`, `'exponential'` or `'sigmoid'`, `'linear'` when left out; `slices` a whole number, 2 or more, 10 when left out. One row to an interface.
+     * @param [options.start=400] The first wavelength, nm.
+     * @param [options.end=800] The last wavelength, nm, above `start`.
+     * @param [options.step=0.5] The wavelength step, nm.
+     * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90.
+     * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
+     * @returns An Inhomogeneities.
+     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a thickness below 0, a profile it does not have, slices that are not a whole number of 2 or more, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1 });
+     * console.log(r.interlayers[0].materials.join(' to '), 'adds', r.addedThickness, 'nm; R at 550 nm', r.homogeneous.R.at(550).toFixed(5), 'becomes', r.graded.R.at(550).toFixed(5));
+     */
+    inhomogeneities(options) {
+        return new Inhomogeneities(worded({ method: 'inhomogeneities', call: 'inhomogeneities' }, () => api.inhomogeneities(this._data, options)));
     }
 
     /**

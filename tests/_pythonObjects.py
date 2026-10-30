@@ -65,6 +65,7 @@ def objects(given):
         ellipsometry(tf)
         group_delay(tf)
         pulse(tf)
+        inhomogeneities(tf)
         material_dispersion(tf)
         band_features(tf)
         measured_curves(tf)
@@ -717,6 +718,48 @@ def pulse(tf):
                               list(type(p.spectrum.input)._fields)],
                    "csv": [text_of("pulse.csv"), text_of("chirped.csv")], "worded": worded,
                    "shown": [repr(asked[0]), repr(asked[1]), repr(asked[5])]}})
+
+
+def interlayers_of(r):
+    return [r.mode, r.angle, r.wavelength, [list(c) for c in r.homogeneous], [list(c) for c in r.graded],
+            [list(row) for row in r.interlayers], r.added_thickness, r.out_of_range]
+
+
+def inhomogeneities(tf):
+    """inhomogeneities() of a mirror and of a design coated on both sides,
+    with its defaults and each keyword; the named tuples; the verdict of a
+    design with a specification; the CSV; its refusals and repr()."""
+    mirror = tf.new_design("Mirror")
+    mirror.stack("(HL)^4 H")
+    two = mirror.copy()
+    two.sides = "both"
+    two.back_layers.append("MgF2", 95)
+    checked = mirror.copy()
+    checked.specification.add("R_AVG", 520, 580, cmp="ge", target=0.98)
+    asked = [mirror.inhomogeneities(step=10),
+             mirror.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3, "profile": "sigmoid", "slices": 6},
+                                                 {"interface": 0}], start=450, end=650, step=5, angle=30),
+             two.inhomogeneities(interlayers=[{"side": "back", "interface": 1, "thickness": 2},
+                                              {"side": "front", "interface": 9}], step=10),
+             two.inhomogeneities(interlayers=[{"interface": 1}], side="back", step=10),
+             checked.inhomogeneities(interlayers=[{"interface": 4, "thickness": 10}], step=10)]
+    asked[1].save_csv("interlayers.csv")
+    r = asked[1]
+    report = asked[4].specification
+    worded = [refused(make) for make in (
+        lambda: mirror.inhomogeneities(interlayer=[]), lambda: mirror.inhomogeneities(interlayers=[{"interface": 10}]),
+        lambda: two.inhomogeneities(interlayers=[{"interface": 0}]),
+        lambda: mirror.inhomogeneities(interlayers=[{"interface": 1, "profile": "gaussian"}]),
+        lambda: mirror.inhomogeneities(interlayers=[{"interface": 1, "slices": 1}]),
+        lambda: mirror.inhomogeneities(side="back", interlayers=[{"interface": 0}]),
+        lambda: mirror.inhomogeneities(start=800, end=400))]
+    out({"inhomogeneities": {"designs": [mirror._data, two._data, checked._data], "asked": [interlayers_of(x) for x in asked],
+                             "tuples": [type(r.homogeneous).__name__, list(type(r.homogeneous)._fields),
+                                        type(r.homogeneous.R).__name__, type(r.interlayers[0]).__name__,
+                                        list(type(r.interlayers[0])._fields)],
+                             "verdict": [type(report).__name__, report.passed, [row.value for row in report.rows],
+                                         asked[0].specification],
+                             "csv": text_of("interlayers.csv"), "worded": worded, "shown": [repr(asked[0]), repr(asked[2])]}})
 
 
 def material_dispersion(tf):

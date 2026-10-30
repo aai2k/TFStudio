@@ -258,6 +258,16 @@ function rowOf(check, result, index) {
 }
 
 /**
+ * The verdict checkSpecification gives, from the design's `checks`, their
+ * `results` as the evaluator gives them, and `mode`, how the design they
+ * were judged on is scored.
+ */
+export function verdictOf(checks, results, mode) {
+    const { passing, total, allPass } = aggregateVerdict(results);
+    return { passed: allPass, passing, total, mode, rows: checks.map((check, i) => rowOf(check, results[i], i)) };
+}
+
+/**
  * A design judged against its specification as the
  * [Specification](/design/specification/) window judges it: each check read
  * at its own Step, as the window's final value is, and averaged over the
@@ -300,6 +310,5 @@ export function checkSpecification(design) {
     warnWithoutKernel();
     const shownDesign = withHerpinRecords(design);
     const results = evaluateQualifiers(checks, shownDesign, designMaterialLookup(shownDesign), {});
-    const { passing, total, allPass } = aggregateVerdict(results);
-    return { passed: allPass, passing, total, mode: resolveEvalMode(shownDesign), rows: checks.map((check, i) => rowOf(check, results[i], i)) };
+    return verdictOf(checks, results, resolveEvalMode(shownDesign));
 }

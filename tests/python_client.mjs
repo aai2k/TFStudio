@@ -373,6 +373,8 @@ const STOPPED_WITHIN_S = 5;
         ['pulseAnalysis', [stack, { centre: 600, duration: 20, pol: 's', passes: 2 }]],
         ['pulseAnalysis', [stack, { side: 'total' }]],
         ['setPulseSpectrum', [stack, [[580, 0.5], [600, 1], [620, 0.5]]]],
+        ['inhomogeneities', [stack, { interlayers: [{ interface: 2, thickness: 4, profile: 'parabolic' }], start: 450, end: 650, step: 5 }]],
+        ['inhomogeneities', [stack, { interlayers: [{ interface: 9 }] }]],
         ['setMerit', [stack, AR_ROWS]],
         ['merit', [start]],
         ['setSpecification', [start, CHECKS]],

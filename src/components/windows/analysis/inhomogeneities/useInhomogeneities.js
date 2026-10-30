@@ -5,7 +5,7 @@ import {
 import { designInterfaces } from '../designInterfaces.js';
 import { useEvaluationUnderCone } from '../useEvaluationUnderCone.js';
 import {
-    activeDesignSides, buildSpecificationInputs, inhomogeneitySpectraState,
+    activeDesignSides, buildSpecificationInputs, inhomogeneitySpectraState, NEW_INTERLAYER,
 } from './model.js';
 import { inhomogeneityDesignSession, inhomogeneityViewSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -29,7 +29,7 @@ function upsertInhomogeneity(previous, side, afterIndex, patch) {
     if (index >= 0) {
         list[index] = { ...list[index], ...patch };
     } else {
-        list.push({ afterIndex, thickness: 5, profile: 'linear', slices: 10, enabled: true, ...patch });
+        list.push({ afterIndex, ...NEW_INTERLAYER, ...patch });
     }
     return { ...previous, [key]: list };
 }

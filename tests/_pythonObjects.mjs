@@ -50,7 +50,10 @@
  *   and on the window's, and its refusals; pulse() with its defaults and
  *   each keyword on one side, the other and the whole part,
  *   set_pulse_spectrum() from rows and from a file, its named tuples,
- *   save_csv() for a plain and a chirped input, and its refusals; a material's dispersion() with
+ *   save_csv() for a plain and a chirped input, and its refusals;
+ *   inhomogeneities() with its defaults and each keyword on one side, the
+ *   other and the whole part, its named tuples, its verdict, save_csv() and
+ *   its refusals; a material's dispersion() with
  *   its defaults and each argument, its Curves, range, save_csv() with and
  *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
@@ -823,6 +826,46 @@ async function pulse(t, said) {
         '<Pulse front R s at 20 degrees, centre 780 nm, 2 passes>', `<Pulse front R avg at 0 degrees, centre ${asked[5]?.[6]} nm, 1 pass>`]), canon(got.shown));
 }
 
+// What _pythonObjects.py inhomogeneities() read of a mirror and a design
+// coated on both sides, against the plain call and the object here on the
+// designs it read.
+const interlayersOf = r => [r.mode, r.angle, r.wavelength, Object.values(r.homogeneous), Object.values(r.graded),
+    r.interlayers.map(row => [row.side, row.interface, row.thickness, row.profile, row.slices, row.materials]), r.addedThickness, r.outOfRange];
+
+async function inhomogeneities(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.inhomogeneities ?? {};
+    const [mirror = {}, two = {}, checked = {}] = got.designs ?? [];
+    const ASKED = [[mirror, { step: 10 }],
+        [mirror, { interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid', slices: 6 }, { interface: 0 }], start: 450, end: 650, step: 5, angle: 30 }],
+        [two, { interlayers: [{ side: 'back', interface: 1, thickness: 2 }, { side: 'front', interface: 9 }], step: 10 }],
+        [two, { interlayers: [{ interface: 1 }], side: 'back', step: 10 }],
+        [checked, { interlayers: [{ interface: 4, thickness: 10 }], step: 10 }]];
+    const asked = await inTurn(ASKED, ([design, options]) => attempt(() => interlayersOf(api.inhomogeneities(design, options))));
+    ok('inhomogeneities() is inhomogeneities over the wire, with its defaults and each keyword, on one side, the other and the whole part',
+        canon(got.asked) === canon(asked) && canon(asked.map(r => r?.[0])) === canon(['front', 'front', 'total', 'back', 'front']), canon(got.asked)?.slice(0, 300));
+    ok('its curves and rows are named tuples', canon(got.tuples) === canon(['SpectrumCurves', ['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'], 'Curve', 'Interlayer',
+        ['side', 'interface', 'thickness', 'profile', 'slices', 'materials']]), canon(got.tuples));
+    const verdict = api.inhomogeneities(checked, ASKED[4][1]).specification;
+    ok('its verdict is a SpecReport, and None without a specification',
+        canon(got.verdict) === canon(['SpecReport', verdict?.passed, verdict?.rows.map(row => row.value), null]), canon(got.verdict));
+    const objects = await import('../src/api/objects/index.js');
+    const file = path.join(WORK, 'js-interlayers.csv');
+    new objects.Design(mirror).inhomogeneities(ASKED[1][1]).saveCsv(file);
+    ok('save_csv writes what saveCsv writes', canon(csvRows(got.csv ?? '')) === canon(csvRows(fs.readFileSync(file, 'utf8'))), String(got.csv).slice(0, 200));
+    ok('its refusals are in Python\'s words', canon(got.worded) === canon([
+        "inhomogeneities: unknown option 'interlayer'; the options are interlayers, start, end, step, angle, side",
+        "inhomogeneities: interlayers[0].interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10",
+        "inhomogeneities: interlayers[0].side is 'front' or 'back', given on each row of the whole part, not None",
+        "inhomogeneities: interlayers[0].profile is 'linear', 'parabolic', 'invParabolic', 'exponential' or 'sigmoid', not 'gaussian'",
+        'inhomogeneities: interlayers[0].slices is a whole number of slices, 2 or more, not 1',
+        'inhomogeneities: the back has no layers',
+        'inhomogeneities: start and end are wavelengths in nm, 0 < start < end',
+    ]), canon(got.worded));
+    ok('and repr() shows what it holds', canon(got.shown) === canon(['<Inhomogeneities front at 0 degrees from 400 to 800 nm, 41 points, 0 interlayers>',
+        '<Inhomogeneities total at 0 degrees from 400 to 800 nm, 41 points, 2 interlayers>']), canon(got.shown));
+}
+
 // What _pythonObjects.py material_dispersion() read, against the plain call
 // and the object here.
 async function materialDispersion(t, said) {
@@ -1234,6 +1277,7 @@ export async function checkObjects(t) {
     await ellipsometry(u, ran.said);
     await groupDelay(u, ran.said);
     await pulse(u, ran.said);
+    await inhomogeneities(u, ran.said);
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
     measuredCurves(u, ran.said);
