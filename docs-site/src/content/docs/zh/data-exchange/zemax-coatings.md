@@ -47,6 +47,8 @@ TFStudio 与 Zemax 在若干约定上有所不同，窗口会自动为你处理�
 
 层顺序无需反转。Zemax 从最外层到基底的顺序，正是 TFStudio 存储前表面镀膜的方式（设计编辑器只是将其反向显示）。将一个设计导出到 `COATING.DAT` 再导入回来，会同时保留层厚度和 k 符号约定。`IDEAL`、`IDEAL2` 和 `TABLE` 镀膜以反射率和透射率而不是膜层描述一个表面，`ENCRYPTED` 镀膜无法解码，因此它们都不会成为膜层堆栈。
 
+导入的材料按行与行之间的直线读取其 `MATE` 表，表外保持首行和末行的值，与 Zemax 的读法相同，因此在两行之间它的折射率与 Zemax 使用的一致。早期版本从该文件建立的目录按平滑曲线读取表格：在材料标签页再次导入这些材料时，它们会列为已更改，替换前会先询问；导入镀膜则保持它们不变。
+
 ## 参考文献
 
 - Zemax OpticStudio Help → *The Coating Tab → Coating File Definitions*（`MATE`、`COAT`、`IDEAL`、`TABLE`），即 `COATING.DAT` 格式的来源。

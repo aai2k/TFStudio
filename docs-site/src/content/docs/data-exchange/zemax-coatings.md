@@ -47,6 +47,8 @@ TFStudio and Zemax differ in a few conventions, which the window handles for you
 
 Layer order needs no reversal. Zemax's outermost-to-substrate order is exactly how TFStudio stores the front coating (the Design Editor only displays it reversed). Round-tripping a design out to `COATING.DAT` and back in preserves both the layer thicknesses and the k-sign convention. `IDEAL`, `IDEAL2` and `TABLE` coatings describe a surface by its reflectance and transmittance rather than by layers, and `ENCRYPTED` ones cannot be decoded, so none of them becomes a stack.
 
+An imported material reads its `MATE` table by straight lines between the rows, holding the first and last rows outside the table, as Zemax reads it, so between rows it has the index Zemax uses. A catalog an earlier version made from the file reads its tables as a smooth curve: importing those materials again on the Materials tab lists them as changed and asks before replacing them, and a coating import keeps them as they are.
+
 ## References
 
 - Zemax OpticStudio Help → *The Coating Tab → Coating File Definitions* (`MATE`, `COAT`, `IDEAL`, `TABLE`), the source of the `COATING.DAT` format.

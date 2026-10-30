@@ -1,12 +1,15 @@
 import { sanitizeZemaxName } from './names.js';
 import {
-    createPchipInterpolator,
-    TABULATED_INTERPOLATION,
+    createLinearInterpolator,
+    LINEAR_INTERPOLATION,
 } from '../../materials/pchip.js';
 
 /**
  * Build a TFStudio tabular catalog material from a parsed MATE entry.
- * Flips the extinction sign (Zemax imag ≤ 0  →  TFStudio k ≥ 0).
+ * Flips the extinction sign (Zemax imag ≤ 0  →  TFStudio k ≥ 0). The material
+ * reads its table by straight lines between the rows, the end rows held
+ * outside, as Zemax reads a MATE table (OpticStudio User Manual, "The MATE
+ * Data Section"), so between rows it has the index Zemax uses.
  * @returns {object} material object (formulaNum −1, tabData [[λ_nm,n,k],…]).
  */
 export function mateToTfMaterial(mate, opts = {}) {
@@ -23,7 +26,7 @@ export function mateToTfMaterial(mate, opts = {}) {
         id: sanitizeZemaxName(name).toLowerCase() || 'material',
         name,
         formulaNum: -1,
-        interp: TABULATED_INTERPOLATION,
+        interp: LINEAR_INTERPOLATION,
         coefficients: [],
         kTable: [],
         tabData,
@@ -37,9 +40,9 @@ export function mateToTfMaterial(mate, opts = {}) {
     };
 }
 
-/** PCHIP-interpolate n from a [[λ_nm,n,k], ...] table (clamped at ends). */
+/** n at `lamNm` from a [[λ_nm,n,k], ...] table, read as the material reads it. */
 function nIndexFromTab(tab, lamNm) {
-    const interpolate = createPchipInterpolator((tab || []).map(row => [row[0], row[1]]));
+    const interpolate = createLinearInterpolator((tab || []).map(row => [row[0], row[1]]));
     return interpolate ? interpolate(lamNm) : null;
 }
 
