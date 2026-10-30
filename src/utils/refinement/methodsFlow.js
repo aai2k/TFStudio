@@ -119,6 +119,9 @@ async function scoreStart(F) {
     else F.startSettled = true;
 }
 
+// mfNow and omfNow are the running method's best so far. mfBest and omfBest
+// describe one design: that one when it has beaten the run's best, the run's
+// best otherwise.
 function updateFlowProgress(F, mfNow, iters, omfNow) {
     const { R, best } = F;
     const reportedIter = Number(iters);
@@ -128,7 +131,7 @@ function updateFlowProgress(F, mfNow, iters, omfNow) {
     const y = Math.min(best.cur.mf, mfNow);
     const patch = { mf: mfNow, mfBest: y };
     if (omfNow != null) patch.omf = omfNow;
-    patch.omfBest = best.cur.omf;
+    patch.omfBest = mfNow < best.cur.mf ? omfNow : best.cur.omf;
     const totalIter = F.iterationOffset + localIter;
     F.aggregateHistory = appendMfSample(F.aggregateHistory, totalIter, y);
     patch.iter = totalIter;
