@@ -17,6 +17,7 @@ import { Ellipsometry } from './ellipsometry.js';
 import { GroupDelay } from './groupDelay.js';
 import { Pulse } from './pulse.js';
 import { Inhomogeneities } from './inhomogeneities.js';
+import { Roughness } from './roughness.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
@@ -1362,6 +1363,52 @@ export class Design {
      */
     inhomogeneities(options) {
         return new Inhomogeneities(worded({ method: 'inhomogeneities', call: 'inhomogeneities' }, () => api.inhomogeneities(this._data, options)));
+    }
+
+    /**
+     * The specular R and T of the design with rough interfaces, against the
+     * smooth design, as the Roughness / Scattering window computes them: each
+     * rough interface becomes a transition layer 2σ thick, σ the rms
+     * roughness. Short range is a graded layer whose n and k run in a
+     * straight line from one material to the other, and loses no light; long
+     * range is one layer whose extinction coefficient stands for the light
+     * scattered out of the specular beams, derived for one surface at normal
+     * incidence, so at an angle, under a cone or in a multilayer it is an
+     * estimate. What it is computed on follows the design's `sides` and
+     * `scoreOn`, as a spectrum does, unless `side` is given, and a design
+     * under a cone of incidence is averaged over its cone, as the window
+     * averages it.
+     *
+     * Interface k of a side is the top of its layer k, numbered from the
+     * substrate as `layers` numbers them: 0 is the substrate's surface and N,
+     * on a side of N layers, the surface that meets the medium. The front
+     * keeps interface 0 with no layers; a back with no layers has none. A
+     * transition layer takes its thickness out of the layer beneath its
+     * interface, and the substrate is not thinned; a layer thinner than 2σ is
+     * set to 0 nm and listed in `thinned`. A layer of 0 nm is not in the
+     * coating: the σ set on its top is not used, and the layer beneath it
+     * meets the next layer there is, at the interface on top of the layer
+     * beneath.
+     *
+     * @param [options]
+     * @param [options.sigma=1] The rms roughness of every interface, nm, 0 or more.
+     * @param [options.range='long'] The kind of roughness of every interface: `'short'` or `'long'`.
+     * @param [options.interfaces=[]] The interfaces that differ from `sigma` and `range`, one row each, `{ side, interface, sigma, range }`, as the per-interface editor sets them: `side` `'front'` or `'back'`, the side computed when there is one, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `sigma` and `range` as above, the call's own when left out. One row to an interface. One rough interface alone is `sigma: 0` with that interface listed.
+     * @param [options.start=400] The first wavelength, nm.
+     * @param [options.end=800] The last wavelength, nm, above `start`.
+     * @param [options.step=0.5] The wavelength step, nm.
+     * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90.
+     * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
+     * @returns A Roughness.
+     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a σ below 0 or a kind other than `'short'` or `'long'`, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, or a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * const r = design.roughness({ sigma: 0, interfaces: [{ interface: 9, sigma: 3 }], start: 400, end: 700, step: 1 });
+     * console.log('R at 550 nm', r.smooth.R.at(550).toFixed(5), 'becomes', r.rough.R.at(550).toFixed(5), '; loss', (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+     */
+    roughness(options) {
+        return new Roughness(worded({ method: 'roughness', call: 'roughness' }, () => api.roughness(this._data, options)));
     }
 
     /**

@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[Inhomogeneities](#inhomogeneities-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[Inhomogeneities](#inhomogeneities-1)、[Roughness](#roughness-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -2180,6 +2180,48 @@ r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3, "profil
                            start=450, end=650, step=1)
 print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R at 550 nm",
       round(r.homogeneous.R.at(550), 5), "becomes", round(r.graded.R.at(550), 5))
+```
+
+### roughness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.roughness({ sigma, range, interfaces, start, end, step, angle, side })` | `design.roughness(sigma=1, range="long", interfaces=..., start=400, end=800, step=0.5, angle=0, side=...)` |
+
+设计带有粗糙界面时的镜面 R 与 T，与光滑设计对比，计算方式与粗糙度 / 散射窗口相同：每个粗糙界面变为一个厚 2σ 的过渡层，σ 为 RMS 粗糙度。小尺度是一个渐变层，其 n 和 k 从一种材料线性过渡到另一种材料，没有光损失；大尺度是一个单层，其消光系数代表散射出镜面光束的光，它针对正入射下的单个表面推导，因此在斜入射、入射锥角内或多层膜中只是估算。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会在其锥角内取平均，与窗口相同。
+
+一个面的界面 k 是其第 k 层的顶面，膜层按 `layers` 的方式从基底起编号：0 为基底表面，有 N 层的面上 N 为与介质相接的表面。没有膜层时正面仍保留界面 0；没有膜层的背面没有界面。过渡层的厚度取自其界面下方的那一层，基底不被减薄；比 2σ 还薄的层被设为 0 nm，并列在 `thinned` 中。厚度为 0 nm 的层不在镀膜中：其顶面所设的 σ 不被使用，它下方的层与上方下一个存在的层在下方那一层的顶面界面相接。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `sigma` | `sigma` | `1` | 每个界面的 RMS 粗糙度，单位 nm，不小于 0。 |
+| `range` | `range` | `'long'` | **JavaScript**：每个界面的粗糙度类型：`'short'`（小尺度）或 `'long'`（大尺度）。<br>**Python**：每个界面的粗糙度类型，"short"（小尺度）或 "long"（大尺度）。 |
+| `interfaces` | `interfaces` | `[]` | **JavaScript**：与 `sigma` 和 `range` 不同的界面，每个一行，每行为 `{ side, interface, sigma, range }`，与逐界面编辑器的设置方式相同：`side` 为 `'front'` 或 `'back'`，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；`interface` 从 0（基底表面）到该面的层数；`sigma` 和 `range` 同上，不给出时取调用本身的值。一个界面只能有一行。只让一个界面粗糙，就把 `sigma` 设为 0 并列出该界面。<br>**Python**：与 sigma 和 range 不同的界面，每个一个 dict，含 side、interface、sigma 和 range，与逐界面编辑器的设置方式相同：side 为 "front" 或 "back"，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；interface 从 0（基底表面）到该面的层数；sigma 和 range 同上，不给出时取调用本身的值。一个界面只能有一行。只让一个界面粗糙，就设 sigma=0 并列出该界面。不给出时，没有这样的界面。 |
+| `start` | `start` | `400` | 起始波长，单位 nm。 |
+| `end` | `end` | `800` | 结束波长，单位 nm，大于 `start`。 |
+| `step` | `step` | `0.5` | 波长步长，单位 nm。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在入射介质中计，从 0 起，小于 90。 |
+| `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+
+**返回**：一个 Roughness。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、小于 0 的 σ 或不是 `'short'` 或 `'long'` 的类型、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面，或用到找不到对应材料的设计<br>**Python**：它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、小于 0 的 sigma 或不是 "short" 或 "long" 的 range、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面，或用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.roughness({ sigma: 0, interfaces: [{ interface: 9, sigma: 3 }], start: 400, end: 700, step: 1 });
+console.log('R at 550 nm', r.smooth.R.at(550).toFixed(5), 'becomes', r.rough.R.at(550).toFixed(5), '; loss', (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.roughness(sigma=0, interfaces=[{"interface": 9, "sigma": 3}], start=400, end=700, step=1)
+print("R at 550 nm", round(r.smooth.R.at(550), 5), "becomes", round(r.rough.R.at(550), 5), "; loss",
+      round(r.loss.at(550) * 1e6, 1), "ppm")
 ```
 
 ### refine
@@ -8630,6 +8672,249 @@ name = "interlayers-{}.csv".format(time.time_ns())
 design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.inhomogeneities(interlayers=[{"interface": 4}]).save_csv(name)
+print("Wrote", name)
+```
+
+## Roughness
+
+设计带有粗糙界面时的镜面 R 与 T，与光滑设计对比，由 design.roughness() 计算，与粗糙度 / 散射窗口的显示相同。`r.smooth` 和 `r.rough` 包含各条曲线，`r.loss` 包含镜面光束中损失的光，每条为一个 Curve。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.roughness({ sigma: 2 });
+console.log(r.mode, 'mean R from 500 to 600 nm', r.smooth.R.mean(500, 600).toFixed(5), 'becomes', r.rough.R.mean(500, 600).toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.roughness(sigma=2)
+print(r.mode, "mean R from 500 to 600 nm", round(r.smooth.R.mean(500, 600), 5), "becomes",
+      round(r.rough.R.mean(500, 600), 5))
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.mode` | `r.mode` |
+
+所计算的对象：`'front'`、`'back'` 或 `'total'`（整个元件）。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness().mode, design.roughness({ side: 'total' }).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.roughness().mode, design.roughness(side="total").mode)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.angle` | `r.angle` |
+
+入射角，为入射介质中的度数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness({ angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.roughness(angle=30).angle, "degrees")
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.wavelength` | `r.wavelength` |
+
+各波长，单位 nm。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness({ step: 100 }).wavelength.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.roughness(step=100).wavelength)
+```
+
+### smooth
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.smooth` | `r.smooth` |
+
+**JavaScript**：设计原样的结果：非偏振光的 `R` 和 `T`，以及 s 和 p 偏振的 `Rs`、`Rp`、`Ts` 和 `Tp`，每条为一个 Curve，以 1 的分数表示。
+
+**Python**：设计原样的结果，一个由 Curve 组成的具名元组，以 1 的分数表示：非偏振光的 R 和 T，以及 s 和 p 偏振的 Rs、Rp、Ts 和 Tp。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log('peak R', design.roughness().smooth.R.max().toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print("peak R", round(design.roughness().smooth.R.max(), 5))
+```
+
+### rough
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.rough` | `r.rough` |
+
+带有粗糙界面的设计，曲线与 `smooth` 相同。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.roughness({ sigma: 3, range: 'short' });
+console.log('peak R', r.rough.R.max().toFixed(5), 'against', r.smooth.R.max().toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.roughness(sigma=3, range="short")
+print("peak R", round(r.rough.R.max(), 5), "against", round(r.smooth.R.max(), 5))
+```
+
+### loss
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.loss` | `r.loss` |
+
+镜面光束中损失的光，即非偏振光下光滑的 R + T 减去粗糙的 R + T，一个以 1 的分数表示的 Curve。在吸收设计中它也包含吸收的变化；当过渡层替换了吸收层的一部分时，它可能低于 0。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const loss = design.roughness({ sigma: 2 }).loss;
+console.log('largest loss', (loss.max() * 1e6).toFixed(1), 'ppm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+loss = design.roughness(sigma=2).loss
+print("largest loss", round(loss.max() * 1e6, 1), "ppm")
+```
+
+### thinned
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.thinned` | `r.thinned` |
+
+**JavaScript**：因过渡层扣除的厚度超过其自身厚度而被设为 0 nm 的层，一个由 `{ side, number }` 组成的数组，按设计编辑器的方式编号。每层都比 2σ 厚时为空。
+
+**Python**：因过渡层扣除的厚度超过其自身厚度而被设为 0 nm 的层，每个为一个具名元组（side、number），按设计编辑器的方式编号。每层都比 2σ 厚时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.layers[1].thickness = 3;
+console.log(design.roughness({ sigma: 2 }).thinned);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.layers[1].thickness = 3
+print(design.roughness(sigma=2).thinned)
+```
+
+### longRange / long_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.longRange` | `r.long_range` |
+
+有 σ 大于 0 的大尺度界面时为 `true` / `True`。大尺度层针对正入射下的单个表面推导，因此在斜入射、入射锥角内或多层膜中只是估算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness().longRange, design.roughness({ range: 'short' }).longRange);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.roughness().long_range, design.roughness(range="short").long_range)
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.outOfRange` | `r.out_of_range` |
+
+**JavaScript**：所计算对象上数据在该范围内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该范围时为空。
+
+**Python**：所计算对象上数据在该范围内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness({ start: 200, end: 2500, step: 10 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print([m["id"] for m in design.roughness(start=200, end=2500, step=10).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.saveCsv(path)` | `r.save_csv(path)` |
+
+**JavaScript**：把曲线写入 CSV 文件，与窗口以“复制 CSV”写出所有曲线都打开时的表格的方式相同：先是 λ (nm)，然后依次为 T、Ts、Tp、R、Rs 和 Rp 的光滑值和粗糙值，最后是损耗。窗口的表头写的是 % 和 ppm，而它的“复制 CSV”以 1 的分数写出数值，这里也一样。已存在的文件会被覆盖。
+
+**Python**：把曲线写入 CSV 文件，与窗口以“复制 CSV”写出所有曲线都打开时的表格的方式相同：先是 λ (nm)，然后依次为 T、Ts、Tp、R、Rs 和 Rp 的光滑值和粗糙值，最后是损耗。窗口的表头写的是 % 和 ppm，而它的“复制 CSV”以 1 的分数写出数值，这里也一样。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，使用完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `roughness-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.roughness({ sigma: 2 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "roughness-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.roughness(sigma=2).save_csv(name)
 print("Wrote", name)
 ```
 

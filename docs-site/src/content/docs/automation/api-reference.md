@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [Inhomogeneities](#inhomogeneities-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [Inhomogeneities](#inhomogeneities-1), [Roughness](#roughness-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -2180,6 +2180,48 @@ r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3, "profil
                            start=450, end=650, step=1)
 print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R at 550 nm",
       round(r.homogeneous.R.at(550), 5), "becomes", round(r.graded.R.at(550), 5))
+```
+
+### roughness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.roughness({ sigma, range, interfaces, start, end, step, angle, side })` | `design.roughness(sigma=1, range="long", interfaces=..., start=400, end=800, step=0.5, angle=0, side=...)` |
+
+The specular R and T of the design with rough interfaces, against the smooth design, as the Roughness / Scattering window computes them: each rough interface becomes a transition layer 2σ thick, σ the rms roughness. Short range is a graded layer whose n and k run in a straight line from one material to the other, and loses no light; long range is one layer whose extinction coefficient stands for the light scattered out of the specular beams, derived for one surface at normal incidence, so at an angle, under a cone or in a multilayer it is an estimate. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it.
+
+Interface k of a side is the top of its layer k, numbered from the substrate as `layers` numbers them: 0 is the substrate's surface and N, on a side of N layers, the surface that meets the medium. The front keeps interface 0 with no layers; a back with no layers has none. A transition layer takes its thickness out of the layer beneath its interface, and the substrate is not thinned; a layer thinner than 2σ is set to 0 nm and listed in `thinned`. A layer of 0 nm is not in the coating: the σ set on its top is not used, and the layer beneath it meets the next layer there is, at the interface on top of the layer beneath.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `sigma` | `sigma` | `1` | The rms roughness of every interface, nm, 0 or more. |
+| `range` | `range` | `'long'` | **JavaScript**: The kind of roughness of every interface: `'short'` or `'long'`.<br>**Python**: The kind of roughness of every interface, "short" or "long". |
+| `interfaces` | `interfaces` | `[]` | **JavaScript**: The interfaces that differ from `sigma` and `range`, one row each, `{ side, interface, sigma, range }`, as the per-interface editor sets them: `side` `'front'` or `'back'`, the side computed when there is one, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `sigma` and `range` as above, the call's own when left out. One row to an interface. One rough interface alone is `sigma: 0` with that interface listed.<br>**Python**: The interfaces that differ from sigma and range, one dict each, with side, interface, sigma and range, as the per-interface editor sets them: side "front" or "back", the side computed when there is one, and given on each row of a whole part coated on both sides; interface from 0, the substrate's surface, to the side's layer count; sigma and range as above, the call's own when left out. One row to an interface. One rough interface alone is sigma=0 with that interface listed. Without it, none. |
+| `start` | `start` | `400` | The first wavelength, nm. |
+| `end` | `end` | `800` | The last wavelength, nm, above `start`. |
+| `step` | `step` | `0.5` | The wavelength step, nm. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the incident medium, 0 up to but not including 90. |
+| `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+
+**Returns**: A Roughness.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a σ below 0 or a kind other than `'short'` or `'long'`, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, or a design that names a material that resolves to nothing<br>**Python**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a sigma below 0 or a range other than "short" or "long", a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, or a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.roughness({ sigma: 0, interfaces: [{ interface: 9, sigma: 3 }], start: 400, end: 700, step: 1 });
+console.log('R at 550 nm', r.smooth.R.at(550).toFixed(5), 'becomes', r.rough.R.at(550).toFixed(5), '; loss', (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.roughness(sigma=0, interfaces=[{"interface": 9, "sigma": 3}], start=400, end=700, step=1)
+print("R at 550 nm", round(r.smooth.R.at(550), 5), "becomes", round(r.rough.R.at(550), 5), "; loss",
+      round(r.loss.at(550) * 1e6, 1), "ppm")
 ```
 
 ### refine
@@ -8630,6 +8672,249 @@ name = "interlayers-{}.csv".format(time.time_ns())
 design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.inhomogeneities(interlayers=[{"interface": 4}]).save_csv(name)
+print("Wrote", name)
+```
+
+## Roughness
+
+The specular R and T of a design with rough interfaces, against the smooth design, as design.roughness() computes them and the Roughness / Scattering window shows them. `r.smooth` and `r.rough` hold the curves and `r.loss` the light lost from the specular beams, each a Curve.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.roughness({ sigma: 2 });
+console.log(r.mode, 'mean R from 500 to 600 nm', r.smooth.R.mean(500, 600).toFixed(5), 'becomes', r.rough.R.mean(500, 600).toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.roughness(sigma=2)
+print(r.mode, "mean R from 500 to 600 nm", round(r.smooth.R.mean(500, 600), 5), "becomes",
+      round(r.rough.R.mean(500, 600), 5))
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.mode` | `r.mode` |
+
+The sides computed: `'front'`, `'back'` or `'total'`, the whole part.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness().mode, design.roughness({ side: 'total' }).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.roughness().mode, design.roughness(side="total").mode)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.angle` | `r.angle` |
+
+The angle of incidence, degrees in the incident medium.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness({ angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.roughness(angle=30).angle, "degrees")
+```
+
+### wavelength
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.wavelength` | `r.wavelength` |
+
+The wavelengths, nm.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness({ step: 100 }).wavelength.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.roughness(step=100).wavelength)
+```
+
+### smooth
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.smooth` | `r.smooth` |
+
+**JavaScript**: The design as it stands: `R` and `T` for unpolarized light and `Rs`, `Rp`, `Ts` and `Tp` for s and p, each a Curve of fractions of 1.
+
+**Python**: The design as it stands, a named tuple of Curves of fractions of 1: R and T for unpolarized light and Rs, Rp, Ts and Tp for s and p.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log('peak R', design.roughness().smooth.R.max().toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print("peak R", round(design.roughness().smooth.R.max(), 5))
+```
+
+### rough
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.rough` | `r.rough` |
+
+The design with its rough interfaces, the same curves as `smooth`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const r = design.roughness({ sigma: 3, range: 'short' });
+console.log('peak R', r.rough.R.max().toFixed(5), 'against', r.smooth.R.max().toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+r = design.roughness(sigma=3, range="short")
+print("peak R", round(r.rough.R.max(), 5), "against", round(r.smooth.R.max(), 5))
+```
+
+### loss
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.loss` | `r.loss` |
+
+The light lost from the specular beams, smooth R + T minus rough R + T for unpolarized light, a Curve of fractions of 1. In an absorbing design it holds the change in absorption too, and where a transition layer replaces part of an absorbing layer it can fall below 0.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const loss = design.roughness({ sigma: 2 }).loss;
+console.log('largest loss', (loss.max() * 1e6).toFixed(1), 'ppm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+loss = design.roughness(sigma=2).loss
+print("largest loss", round(loss.max() * 1e6, 1), "ppm")
+```
+
+### thinned
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.thinned` | `r.thinned` |
+
+**JavaScript**: The layers set to 0 nm because their transition layer took more than they had, an array of `{ side, number }`, numbered as the Design Editor numbers them. Empty when every layer is thicker than 2σ.
+
+**Python**: The layers set to 0 nm because their transition layer took more than they had, each a named tuple (side, number), numbered as the Design Editor numbers them. Empty when every layer is thicker than 2σ.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.layers[1].thickness = 3;
+console.log(design.roughness({ sigma: 2 }).thinned);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.layers[1].thickness = 3
+print(design.roughness(sigma=2).thinned)
+```
+
+### longRange / long_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.longRange` | `r.long_range` |
+
+`true` / `True` when a long-range interface with a σ above 0 is in. The long-range layer is derived for one surface at normal incidence, so at an angle, under a cone or in a multilayer it is an estimate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness().longRange, design.roughness({ range: 'short' }).longRange);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.roughness().long_range, design.roughness(range="short").long_range)
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.outOfRange` | `r.out_of_range` |
+
+**JavaScript**: The materials of the sides computed whose data stop inside the range, an array of `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers it.
+
+**Python**: The materials of the sides computed whose data stop inside the range, a list of dicts with id, name, rangeNm and heldFlat: outside rangeNm their n and k are held at the last value (heldFlat True) or extrapolated. Empty when every material covers it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.roughness({ start: 200, end: 2500, step: 10 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print([m["id"] for m in design.roughness(start=200, end=2500, step=10).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.saveCsv(path)` | `r.save_csv(path)` |
+
+**JavaScript**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs and Rp in turn the smooth and the rough value, then the loss. The window's headings name % and ppm, and its Copy CSV writes the values as fractions of 1, as this does. A file that is there is written over.
+
+**Python**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs and Rp in turn the smooth and the rough value, then the loss. The window's headings name % and ppm, and its Copy CSV writes the values as fractions of 1, as this does. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `roughness-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.roughness({ sigma: 2 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "roughness-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.roughness(sigma=2).save_csv(name)
 print("Wrote", name)
 ```
 

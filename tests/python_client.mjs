@@ -375,6 +375,8 @@ const STOPPED_WITHIN_S = 5;
         ['setPulseSpectrum', [stack, [[580, 0.5], [600, 1], [620, 0.5]]]],
         ['inhomogeneities', [stack, { interlayers: [{ interface: 2, thickness: 4, profile: 'parabolic' }], start: 450, end: 650, step: 5 }]],
         ['inhomogeneities', [stack, { interlayers: [{ interface: 9 }] }]],
+        ['roughness', [stack, { sigma: 0, interfaces: [{ interface: 2, sigma: 3, range: 'short' }], start: 450, end: 650, step: 5 }]],
+        ['roughness', [stack, { sigma: -1 }]],
         ['setMerit', [stack, AR_ROWS]],
         ['merit', [start]],
         ['setSpecification', [start, CHECKS]],

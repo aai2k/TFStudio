@@ -66,6 +66,7 @@ def objects(given):
         group_delay(tf)
         pulse(tf)
         inhomogeneities(tf)
+        roughness(tf)
         material_dispersion(tf)
         band_features(tf)
         measured_curves(tf)
@@ -760,6 +761,44 @@ def inhomogeneities(tf):
                              "verdict": [type(report).__name__, report.passed, [row.value for row in report.rows],
                                          asked[0].specification],
                              "csv": text_of("interlayers.csv"), "worded": worded, "shown": [repr(asked[0]), repr(asked[2])]}})
+
+
+def rough_of(r):
+    return [r.mode, r.angle, r.wavelength, [list(c) for c in r.smooth], [list(c) for c in r.rough], list(r.loss),
+            [list(layer) for layer in r.thinned], r.long_range, r.out_of_range]
+
+
+def roughness(tf):
+    """roughness() of a mirror and of a design coated on both sides, with its
+    defaults and each keyword; a layer thinned to 0 nm; the named tuples; the
+    CSV; its refusals and repr()."""
+    mirror = tf.new_design("Mirror")
+    mirror.stack("(HL)^4 H")
+    two = mirror.copy()
+    two.sides = "both"
+    two.back_layers.append("MgF2", 95)
+    thin = mirror.copy()
+    thin.layers[1].thickness = 3
+    asked = [mirror.roughness(step=10),
+             mirror.roughness(sigma=0, interfaces=[{"interface": 4, "sigma": 3, "range": "short"}, {"interface": 0, "sigma": 2}],
+                              start=450, end=650, step=5, angle=30),
+             two.roughness(sigma=1.5, range="short", interfaces=[{"side": "back", "interface": 1, "sigma": 4, "range": "long"},
+                                                                 {"side": "front", "interface": 9, "sigma": 0}], step=10),
+             two.roughness(interfaces=[{"interface": 1}], side="back", step=10),
+             thin.roughness(sigma=2, step=10)]
+    asked[1].save_csv("roughness.csv")
+    r = asked[4]
+    worded = [refused(make) for make in (
+        lambda: mirror.roughness(sigmas=[]), lambda: mirror.roughness(sigma=-1), lambda: mirror.roughness(range="medium"),
+        lambda: mirror.roughness(interfaces=[{"interface": 10}]),
+        lambda: two.roughness(interfaces=[{"interface": 0}]),
+        lambda: mirror.roughness(interfaces=[{"interface": 1, "sigma": -2}]),
+        lambda: mirror.roughness(side="back", interfaces=[{"interface": 0}]),
+        lambda: mirror.roughness(start=800, end=400))]
+    out({"roughness": {"designs": [mirror._data, two._data, thin._data], "asked": [rough_of(x) for x in asked],
+                       "tuples": [type(r.smooth).__name__, list(type(r.smooth)._fields), type(r.smooth.R).__name__,
+                                  type(r.loss).__name__, type(r.thinned[0]).__name__, list(type(r.thinned[0])._fields)],
+                       "csv": text_of("roughness.csv"), "worded": worded, "shown": [repr(asked[0]), repr(asked[4])]}})
 
 
 def material_dispersion(tf):

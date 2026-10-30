@@ -214,6 +214,9 @@ class Calls:
     def inhomogeneities(self, design, options=None):
         return self._call("inhomogeneities", design, options)
 
+    def roughness(self, design, options=None):
+        return self._call("roughness", design, options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

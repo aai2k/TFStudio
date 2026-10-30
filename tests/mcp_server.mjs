@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 67
+ *   1. The session: initialize and version negotiation, the tool list (the 68
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -101,7 +101,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 67 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 68 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -541,6 +541,22 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         JSON.stringify(shortInh).slice(0, 300));
     const sideless = await server.call('inhomogeneities', { designId: two, interlayers: [{ interface: 2 }] });
     ok('a row without its side on the whole part is refused', /interlayers\[0\]\.side/.test(sideless.error ?? ''), sideless.error);
+
+    // Rough interfaces on both sides of the part.
+    const roughRows = [{ side: 'front', interface: 1, sigma: 3, range: 'short' }, { side: 'back', interface: 1, sigma: 0 }];
+    const roughened = api.roughness(edited, { sigma: 2, interfaces: roughRows, ...range });
+    const shortRough = await server.call('roughness', { designId: two, sigma: 2, interfaces: roughRows, ...range });
+    const fullRough = await server.call('roughness', { designId: two, sigma: 2, interfaces: roughRows, ...range, values: true });
+    const most = Math.max(...roughened.loss);
+    const saidRough = [shortRough.mode, shortRough.pointCount, shortRough.from, shortRough.to, shortRough.thinned, shortRough.longRange, shortRough.smooth, shortRough.rough?.R,
+        shortRough.loss, 'wavelength' in shortRough];
+    ok('roughness answers with the R and T means, the loss\'s mean, largest value and where, and every curve and the loss for values true',
+        JSON.stringify(saidRough) === JSON.stringify(asJson(['total', 101, 450, 650, roughened.thinned, true, { T: mean(roughened.smooth.T), R: mean(roughened.smooth.R) }, mean(roughened.rough.R),
+            { mean: mean(roughened.loss), max: most, at: roughened.wavelength[roughened.loss.indexOf(most)] }, false]))
+        && JSON.stringify([fullRough.wavelength, fullRough.smooth, fullRough.rough, fullRough.loss]) === JSON.stringify([roughened.wavelength, roughened.smooth, roughened.rough, roughened.loss]),
+        JSON.stringify(shortRough).slice(0, 300));
+    const negative = await server.call('roughness', { designId: two, sigma: -1 });
+    ok('a σ below 0 is refused', /sigma is a roughness in nm, 0 or more/.test(negative.error ?? ''), negative.error);
 }
 
 // Coating files: a stack written to a COATING.DAT and a .seq, each read back in

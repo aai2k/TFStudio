@@ -53,7 +53,8 @@
  *   save_csv() for a plain and a chirped input, and its refusals;
  *   inhomogeneities() with its defaults and each keyword on one side, the
  *   other and the whole part, its named tuples, its verdict, save_csv() and
- *   its refusals; a material's dispersion() with
+ *   its refusals; roughness() the same way, with a layer thinned to 0 nm;
+ *   a material's dispersion() with
  *   its defaults and each argument, its Curves, range, save_csv() with and
  *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
@@ -866,6 +867,45 @@ async function inhomogeneities(t, said) {
         '<Inhomogeneities total at 0 degrees from 400 to 800 nm, 41 points, 2 interlayers>']), canon(got.shown));
 }
 
+// What _pythonObjects.py roughness() read of a mirror, a design coated on
+// both sides and a mirror with a thin layer, against the plain call and the
+// object here on the designs it read.
+const roughOf = r => [r.mode, r.angle, r.wavelength, Object.values(r.smooth), Object.values(r.rough), r.loss,
+    r.thinned.map(layer => [layer.side, layer.number]), r.longRange, r.outOfRange];
+
+async function roughness(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.roughness ?? {};
+    const [mirror = {}, two = {}, thin = {}] = got.designs ?? [];
+    const ASKED = [[mirror, { step: 10 }],
+        [mirror, { sigma: 0, interfaces: [{ interface: 4, sigma: 3, range: 'short' }, { interface: 0, sigma: 2 }], start: 450, end: 650, step: 5, angle: 30 }],
+        [two, { sigma: 1.5, range: 'short', interfaces: [{ side: 'back', interface: 1, sigma: 4, range: 'long' }, { side: 'front', interface: 9, sigma: 0 }], step: 10 }],
+        [two, { interfaces: [{ interface: 1 }], side: 'back', step: 10 }],
+        [thin, { sigma: 2, step: 10 }]];
+    const asked = await inTurn(ASKED, ([design, options]) => attempt(() => roughOf(api.roughness(design, options))));
+    ok('roughness() is roughness over the wire, with its defaults and each keyword, on one side, the other and the whole part',
+        canon(got.asked) === canon(asked) && canon(asked.map(r => r?.[0])) === canon(['front', 'front', 'total', 'back', 'front'])
+        && canon(asked[4]?.[6]) === canon([['front', 1]]), canon(got.asked)?.slice(0, 300));
+    ok('its curves and thinned layers are named tuples', canon(got.tuples) === canon(['RoughnessCurves', ['R', 'T', 'Rs', 'Rp', 'Ts', 'Tp'], 'Curve', 'Curve', 'ThinnedLayer',
+        ['side', 'number']]), canon(got.tuples));
+    const objects = await import('../src/api/objects/index.js');
+    const file = path.join(WORK, 'js-roughness.csv');
+    new objects.Design(mirror).roughness(ASKED[1][1]).saveCsv(file);
+    ok('save_csv writes what saveCsv writes', canon(csvRows(got.csv ?? '')) === canon(csvRows(fs.readFileSync(file, 'utf8'))), String(got.csv).slice(0, 200));
+    ok('its refusals are in Python\'s words', canon(got.worded) === canon([
+        "roughness: unknown option 'sigmas'; the options are sigma, range, interfaces, start, end, step, angle, side",
+        'roughness: sigma is a roughness in nm, 0 or more, not -1',
+        "roughness: range is 'short' or 'long', not 'medium'",
+        "roughness: interfaces[0].interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10",
+        "roughness: interfaces[0].side is 'front' or 'back', given on each row of the whole part, not None",
+        'roughness: interfaces[0].sigma is a roughness in nm, 0 or more, not -2',
+        'roughness: the back has no layers',
+        'roughness: start and end are wavelengths in nm, 0 < start < end',
+    ]), canon(got.worded));
+    ok('and repr() shows what it holds', canon(got.shown) === canon(['<Roughness front at 0 degrees from 400 to 800 nm, 41 points, 0 layers thinned to 0 nm>',
+        '<Roughness front at 0 degrees from 400 to 800 nm, 41 points, 1 layer thinned to 0 nm>']), canon(got.shown));
+}
+
 // What _pythonObjects.py material_dispersion() read, against the plain call
 // and the object here.
 async function materialDispersion(t, said) {
@@ -1278,6 +1318,7 @@ export async function checkObjects(t) {
     await groupDelay(u, ran.said);
     await pulse(u, ran.said);
     await inhomogeneities(u, ran.said);
+    await roughness(u, ran.said);
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
     measuredCurves(u, ran.said);

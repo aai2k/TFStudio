@@ -328,6 +328,13 @@ const specified = api.setSpecification(start, CHECKS);
     ok('an interlayer with no side on the whole part is refused with its code and fields', sideless.error?.code === 'badValue'
         && canon(sideless.error.fields) === canon({ call: 'inhomogeneities', option: 'interlayers[0].side', takes: "'front' or 'back', given on each row of the whole part" }),
         JSON.stringify(sideless.error));
+    await same('roughness', [twoSided, { sigma: 1.5, interfaces: [{ side: 'front', interface: 2, sigma: 3, range: 'short' }, { side: 'back', interface: 0, sigma: 0 }],
+        start: 450, end: 650, step: 5, angle: 20 }]);
+    await same('roughness', [stack, { range: 'short', step: 10 }]);
+    const negative = await same('roughness', [stack, { sigma: -1 }]);
+    ok('a σ below 0 is refused with its code and fields', negative.error?.code === 'badValue'
+        && canon(negative.error.fields) === canon({ call: 'roughness', option: 'sigma', takes: 'a roughness in nm, 0 or more', value: -1 }),
+        JSON.stringify(negative.error));
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);
