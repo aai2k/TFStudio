@@ -205,6 +205,27 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
         'and the substrate is named alongside the films');
 }
 
+{
+    // A substrate that states its modulus but no Poisson's ratio. The radius
+    // and the deflection need the ratio through the biaxial modulus, and the
+    // edge shear needs it through k, so all three are blank. Read with a ratio
+    // of 0, the shear of film 1 would be 22.75 MPa against 20.59.
+    const { poissonsRatio, ...noRatio } = MATERIALS['user_m:Sub'].mechanical;
+    assert.ok(Number.isFinite(poissonsRatio), 'the substrate states a ratio the new one leaves out');
+    const design = validationDesign({
+        materials: { ...MATERIALS, 'user_m:Sub': { ...MATERIALS['user_m:Sub'], mechanical: noRatio } },
+    });
+    const result = analyse(design);
+    assert.equal(result.whole.radiusM, null, 'a substrate with no Poisson\'s ratio has no radius');
+    assert.equal(result.whole.deflectionUm, null, 'and no centre deflection');
+    assert.deepEqual(result.rows.map(row => row.shearMPa), [null, null, null, null],
+        'and every edge shear, which needs the substrate\'s ratio as it needs the films\', is blank');
+    assert.ok(result.rows.every(row => row.stressMPa != null && row.strainEnergy != null),
+        'while the films keep their stresses and strain energies');
+    assert.deepEqual(result.missing, [{ materialId: 'user_m:Sub', name: 'TFS Stress Sub', fields: ['poissonsRatio'] }],
+        'and the notice names the ratio the substrate lacks');
+}
+
 // ── Which coatings count ─────────────────────────────────────────────────────
 
 {

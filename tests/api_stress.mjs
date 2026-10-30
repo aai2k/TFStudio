@@ -6,8 +6,9 @@
  *   1. The call is computeStress in the API's names on the stress fixture and
  *      on the Macleod validation case on the front, the back, both faces with
  *      the front bare, both faces coated, symmetric, with no run, with the
- *      deposition temperature alone and with a film on top that states no
- *      stress. On each face the case gives Macleod's printed table.
+ *      deposition temperature alone, with a film on top that states no stress
+ *      and with a substrate that states no Poisson's ratio. On each face the
+ *      case gives Macleod's printed table.
  *   2. Cross-check: the force is the STR row of merit.
  *   3. On the corpus every force is 0 and every material is missing, since the
  *      built-in materials state no constants.
@@ -82,6 +83,9 @@ const withUnstressed = validationDesign({
     materials: { ...MATERIALS, 'user_m:U': { id: 'U', name: 'No stress', ...OPTICS, mechanical: unstressed } },
     frontLayers: [{ id: 'F0', material: 'user_m:U', thickness: 300 }, ...front.frontLayers],
 });
+// A substrate that states its modulus but no Poisson's ratio.
+const { poissonsRatio, ...noRatio } = MATERIALS['user_m:Sub'].mechanical;
+const withoutRatio = validationDesign({ materials: { ...MATERIALS, 'user_m:Sub': { ...MATERIALS['user_m:Sub'], mechanical: noRatio } } });
 const CASES = {
     'the front': front,
     'the back': validationDesign({ surfaceMode: 'back_only', frontLayers: [], backLayers: validationBack() }),
@@ -91,6 +95,7 @@ const CASES = {
     'no run': validationDesign({ stress: undefined }),
     'the deposition temperature alone': api.setDesignSetup(validationDesign({ stress: undefined }), { depositionTemperatureC: 3000 }),
     'a film on top that states no stress': withUnstressed,
+    'a substrate that states no Poisson\'s ratio': withoutRatio,
 };
 
 // ── 1. The window's numbers ────────────────────────────────────────────────
@@ -139,6 +144,12 @@ const CASES = {
         Number.isFinite(intrinsicStressMPa) && same(
             [top.name, top.stress, top.strainEnergy, unknown.films.map(film => film.delamination), unknown.whole.strainEnergy, unknown.whole.cracking, unknown.whole.force],
             ['No stress', null, null, [null, null, null, null, null], null, null, single.whole.force]), JSON.stringify([unknown.whole, top]));
+    const ratioless = api.stress(CASES['a substrate that states no Poisson\'s ratio']);
+    ok('a substrate that states no Poisson\'s ratio leaves null the radius, the deflection and every edge shear, and missing names the ratio',
+        Number.isFinite(poissonsRatio) && same(
+            [ratioless.whole.radius, ratioless.whole.deflection, ratioless.films.map(film => film.shear), ratioless.missing],
+            [null, null, [null, null, null, null], [{ material: 'user_m:Sub', name: 'TFS Stress Sub', fields: ['poissonsRatio'] }]]),
+        JSON.stringify([ratioless.whole, ratioless.films.map(film => film.shear)]));
     const silica = validationDesign({ substrate: { material: 'SiO2', thickness: 1 },
         frontLayers: [{ id: 'F1', material: 'builtin:SiO2', thickness: 100 }, { id: 'F2', material: 'SiO2', thickness: 100 }] });
     const { missing } = api.stress(silica);

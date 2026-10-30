@@ -91,11 +91,12 @@ export function interfaceSubstrateStressPa(filmForceNm, substrate) {
  *     k = [ (3/2) E_s / ((1 + ν_s) t_s) / Σ_l E_l d_l/(1 − ν_l²) ]^{1/2}
  *
  * Its reciprocal is the width of the strip at the edge of the coating over
- * which the shear is carried; the sum runs over every film.
+ * which the shear is carried; the sum runs over every film. Null when the
+ * substrate's modulus, Poisson's ratio or thickness is missing.
  */
 export function shearParameterPerM(films, substrate) {
     const { youngsPa, poissonsRatio, thicknessM } = substrate;
-    if (!(youngsPa > 0) || !(thicknessM > 0)) return null;
+    if (!(youngsPa > 0) || !Number.isFinite(poissonsRatio) || !(thicknessM > 0)) return null;
     const compliance = films.reduce(
         (sum, film) => sum + film.youngsPa * film.thicknessM / (1 - film.poissonsRatio ** 2), 0);
     if (!(compliance > 0)) return null;
