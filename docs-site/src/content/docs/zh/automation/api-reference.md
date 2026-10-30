@@ -7527,7 +7527,7 @@ print(design.ellipsometry(400, 800, delta_convention="reversed").delta_conventio
 | ---------- | ------ |
 | `e.psi` | `e.psi` |
 
-Ψ，单位为度，从 0 到 90，其中 tan Ψ 为 |r_p| / |r_s|；r_s 或 r_p 恰好为零时（例如所有折射率都相同）为 NaN：随波长计算时为第一个角度下的 Curve，随角度计算时为 AngleCurve。
+Ψ，单位为度，从 0 到 90，其中 tan Ψ 为 |r_p| / |r_s|；计算得到的 r_s 或 r_p 恰好为零时为 NaN：随波长计算时为第一个角度下的 Curve，随角度计算时为 AngleCurve。
 
 ```js
 const design = tf.newDesign('Mirror');

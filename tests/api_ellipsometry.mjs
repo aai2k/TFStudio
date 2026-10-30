@@ -19,8 +19,9 @@
  *      wavelength and against angle; in every surface mode a PSI and a DEL
  *      row in each convention score what the API computes without side; a
  *      side with no layers gives the bare surface, whose Psi is that of
- *      the Fresnel coefficients of the substrate; with no interface at all
- *      Psi and Delta are NaN, the thickness Jacobian has no value there and
+ *      the Fresnel coefficients of the substrate; with BK7 both as incident
+ *      medium and substrate Psi and Delta are NaN, the thickness Jacobian of
+ *      a matched pair has no value there and
  *      the merit rows that read them cannot be evaluated; 'azzam' and
  *      'reversed' add up to 360 degrees.
  *   3. The sides: without side, the back of a back_only design and the front
@@ -193,10 +194,12 @@ const plain = corpus.filter(([, design]) => design.frontLayers.length || design.
         k === 0 && Math.abs(got.angles?.[0].psi[0] - psi) <= 1e-9 && Math.abs(angular.psi?.[0] - psi) <= 1e-9, `${got.message ?? got.angles?.[0].psi[0]} / ${angular.message ?? angular.psi?.[0]} / ${psi}`);
 }
 {
-    // With no interface, the medium light comes from being the substrate's
-    // glass, r_s and r_p are exactly zero and Psi and Delta are undefined: both
-    // calls give NaN there, as the thickness Jacobian gives no value, a merit
-    // row that reads them cannot be evaluated, and a Curve leaves them out.
+    // With BK7 both as the medium light comes from and as the substrate, the
+    // computed r_s and r_p are exactly zero at these samples and Psi and Delta
+    // are undefined: both calls give NaN there, as the thickness Jacobian
+    // gives no value, a merit row that reads them cannot be evaluated, and a
+    // Curve leaves them out. A matched pair with k = 0 leaves round-off at
+    // some oblique angles instead, so the test holds BK7.
     const matched = api.newDesign({ name: 'Matched', incidentMedium: 'BK7', substrate: 'BK7' });
     const spectral = api.ellipsometry(matched, { from: 500, to: 600, step: 50, angles: [0, 30] });
     const angular = api.ellipsometryVsAngle(matched, { wavelength: 550, angleStart: 20, angleEnd: 40, angleStep: 10 });

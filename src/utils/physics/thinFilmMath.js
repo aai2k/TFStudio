@@ -823,10 +823,9 @@ export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
 // are zero gives exact Ψ and Δ and asks nothing of a material beyond n and k.
 //
 // The kernel reports φ = −arg(r), Macleod's physical sign (see the group-delay
-// note below), so the argument is negated on the way back in. Where a reflection
-// amplitude is exactly zero, as when every index is the same, the kernel leaves
-// NaN behind: Ψ and Δ are undefined there and that sample is NaN, as the
-// thickness derivatives below report no value there.
+// note below), so the argument is negated on the way back in. Where a computed
+// reflection amplitude is exactly zero the kernel leaves NaN behind, and that
+// sample is NaN, as the thickness derivatives below report it null.
 
 const UNDEFINED_ANGLES = { psi: NaN, delta: NaN };
 
@@ -861,8 +860,8 @@ function collectSweep(count, sampleAt) {
  * @param {[re,im][]} nsList     substrate ñ per λ
  * @param {[re,im][][]} layerNK  [layer][λ] = ñ
  * @param {number[]} thick       layer thicknesses in nm
- * @returns {{ psi:number[], delta:number[] }} degrees, NaN where a reflection
- *   amplitude is exactly zero
+ * @returns {{ psi:number[], delta:number[] }} degrees, NaN where a computed
+ *   reflection amplitude is exactly zero
  */
 export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList, layerNK, thick) {
     const kernel = wasmKernel();
@@ -886,8 +885,8 @@ export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList,
  * @param {[re,im]} n0
  * @param {[re,im]} ns
  * @param {{ n:[re,im], d:number }[]} layers
- * @returns {{ psi:number[], delta:number[] }} degrees, NaN where a reflection
- *   amplitude is exactly zero
+ * @returns {{ psi:number[], delta:number[] }} degrees, NaN where a computed
+ *   reflection amplitude is exactly zero
  */
 export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
     const kernel = wasmKernel();

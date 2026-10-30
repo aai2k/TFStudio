@@ -3228,8 +3228,8 @@
     "text": "Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。"
   },
   "Ellipsometry.psi.lead.1": {
-    "hash": "913415b7",
-    "text": "Ψ，单位为度，从 0 到 90，其中 tan Ψ 为 |r_p| / |r_s|；r_s 或 r_p 恰好为零时（例如所有折射率都相同）为 NaN：随波长计算时为第一个角度下的 Curve，随角度计算时为 AngleCurve。"
+    "hash": "b296326f",
+    "text": "Ψ，单位为度，从 0 到 90，其中 tan Ψ 为 |r_p| / |r_s|；计算得到的 r_s 或 r_p 恰好为零时为 NaN：随波长计算时为第一个角度下的 Curve，随角度计算时为 AngleCurve。"
   },
   "Ellipsometry.delta.lead.1": {
     "hash": "9e456f34",
