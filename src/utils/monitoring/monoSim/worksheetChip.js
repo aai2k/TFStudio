@@ -85,9 +85,10 @@ function terminationFigures({ ctx, dCut, extrema, flat, signalError }) {
     return { strategy, slope, errNm, errPct };
 }
 
-// The layer's curve on the run axis, including the continuation past the cut.
+// The layer's curve on the run axis, including the continuation past the cut,
+// with the layer's own thickness on the chip at each point, nm.
 function chartCurve(curve, xStart, xPerNm) {
-    return { x: Array.from(curve.d, d => xStart + d * xPerNm), y: Array.from(curve.s) };
+    return { x: Array.from(curve.d, d => xStart + d * xPerNm), y: Array.from(curve.s), thickness: Array.from(curve.d) };
 }
 
 function buildRow({ layer, chip, onChip, ctx, geom, cfg, noise, chipStartLevel, chipExtrema, xStart }) {

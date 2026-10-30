@@ -190,6 +190,9 @@ class Calls:
     def exportProcess(self, design, folder, options=None):
         return self._call("exportProcess", design, _absolute(folder), options)
 
+    def monitorWorksheet(self, design, options=None):
+        return self._call("monitorWorksheet", design, options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

@@ -18,7 +18,9 @@
  *      full; and the refusals.
  *   3. Cross-check: the last step of a run on the part with the other side
  *      coated is the spectrum of the whole part in air, as spectrum computes
- *      it.
+ *      it; on witness chips, from the front and the back, each finished layer
+ *      reads the signal the Monitor Worksheet gives it on the same chip plan
+ *      (monitorWorksheet).
  *
  * Run: node tests/api_process_steps.mjs
  */
@@ -186,6 +188,14 @@ for (const [quantity, angle, pol] of [['T', 0, 'avg'], ['R', 40, 's']]) {
 const front = api.processSteps(twoSided, { side: 'front', otherSide: 'coated', step: 4 }).steps.at(-1).values;
 const back = api.processSteps(twoSided, { side: 'back', otherSide: 'coated', step: 4 }).steps.at(-1).values;
 ok('the last step of a back run with the front coated is the last step of a front run with the back coated', Math.max(...front.map((v, i) => Math.abs(v - back[i]))) < 1e-12);
+// The Monitor Worksheet reads the same chip plan: a finished layer on its chip reads the worksheet's signal.
+for (const side of ['front', 'back']) {
+    const chips = { plan: [1, 2, 1, 3, 2, 3, 1], glass: 'builtin:SiO2', witnessRatio: 1.4 };
+    const run = api.processSteps(zeroBoth, { side, chips, quantity: 'R', angle: 25, from: 540, to: 560, step: 1 });
+    const sheet = api.monitorWorksheet(zeroBoth, { side, chips, quantity: 'R', angle: 25, wavelengths: 550 });
+    const worst = Math.max(...run.steps.map(s => Math.abs(s.values[run.wavelength.indexOf(550)] - sheet.rows.find(r => r.layer === s.layer && r.chip === s.chip).signal)));
+    ok(`${side} on chips: each finished layer reads the Monitor Worksheet's signal at its chip's wavelength`, run.steps.length === 6 && worst < 1e-12, `${worst}`);
+}
 
 console.log(`api_process_steps: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

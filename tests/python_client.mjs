@@ -14,7 +14,8 @@
  *      refused, two designs compared, an edge filter searched, one refused
  *      and one put in, a needle profile, one refused and a needle put in, a
  *      deposition run on the part, one on chips with a
- *      plan of the wrong length refused, its files written, spectra, a band's
+ *      plan of the wrong length refused, its files written, a monitor
+ *      worksheet, one with a list of wavelengths of the wrong length refused, spectra, a band's
  *      width and an edge against angle, a spectrum file read and a design
  *      compared with a curve of it or one given, and a file of several curves
  *      compared without naming one refused, a Δ curve compared, an
@@ -317,6 +318,8 @@ const STOPPED_WITHIN_S = 5;
         ['processSteps', [stack, { otherSide: 'coated', step: 5 }]],
         ['processSteps', [stack, { chips: { plan: [1] } }]],
         ['exportProcess', [stack, processFolder, { step: 10 }]],
+        ['monitorWorksheet', [stack, { chips: { layersPerChip: 2, witnessRatio: 1.1 }, wavelengths: 'auto', pol: 's' }]],
+        ['monitorWorksheet', [stack, { wavelengths: [500] }]],
         ['findMaterials', ['SiO2']],
         ['findMaterials', []],
         ['materialNK', ['TiO2', [400, 550, 700]]],

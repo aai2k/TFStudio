@@ -1,25 +1,31 @@
 // Tools for a deposition run as the Process Exporter models it: the spectrum
 // a monitor in the chamber reads after each layer, and the files its Save
-// writes.
+// writes; and the Monitor Worksheet's table of the same run on witness chips.
 
 import { isAbsolute } from 'node:path';
 import { object, num, int, str, bool, oneOf, DESIGN_ID } from './schemaParts.js';
 
+const SIDE = oneOf(['front', 'back'], 'The side deposited. Default: the front, or the back of a back_only design');
+const ANGLE = num('Angle of incidence in degrees in air, 0 <= angle < 90. Default 0');
+const POL = oneOf(['avg', 's', 'p'], "Polarization. Default 'avg'");
+// The witness chip plan the Process Exporter and the Monitor Worksheet share.
+const CHIPS = {
+    layersPerChip: int('Layers to a chip, in place of a plan. Default 3'),
+    plan: { type: 'array', items: { type: 'integer' }, description: "A chip number for each layer of the side from the substrate out, empty layers included" },
+    glass: str("The chip glass, by material id. Default: the design's substrate"),
+    witnessRatio: num('Witness thickness over the part thickness, 0.05 to 10. Default 1'),
+};
+
 // The run the processSteps and exportProcess tools share, the Process Exporter's settings.
 const RUN = {
-    side: oneOf(['front', 'back'], 'The side deposited. Default: the front, or the back of a back_only design'),
+    side: SIDE,
     otherSide: oneOf(['bare', 'coated'], "The other side of the part, without or with its coating, for the whole run. Not used on chips. Default 'bare'"),
     quantity: oneOf(['T', 'R', 'A'], "Default 'T'"),
-    angle: num('Angle of incidence in degrees in air, 0 <= angle < 90. Default 0'),
-    pol: oneOf(['avg', 's', 'p'], "Polarization. Default 'avg'"),
+    angle: ANGLE,
+    pol: POL,
     from: num('First wavelength in nm. Default 400'), to: num('Last wavelength in nm. Default 1100'),
     step: num('Wavelength step in nm. Default 0.5'),
-    chips: object({
-        layersPerChip: int('Layers to a chip, in place of a plan. Default 3'),
-        plan: { type: 'array', items: { type: 'integer' }, description: "A chip number for each layer of the side from the substrate out, empty layers included" },
-        glass: str("The chip glass, by material id. Default: the design's substrate"),
-        witnessRatio: num('Witness thickness over the part thickness, 0.05 to 10. Default 1'),
-    }),
+    chips: object(CHIPS),
 };
 const RUN_TEXT = "The layers are deposited from the substrate out, an empty layer left out, and the piece is read in air whatever media the design is in. On the part the other side stays bare or carries its whole coating for the run. With chips, each chip is a run of its own from bare chip glass, back face bare, each layer witnessRatio times its thickness on the part, as the Monitor Worksheet plans them. The design's cone of incidence is not used.";
 
@@ -65,6 +71,25 @@ export function processTools({ api, store }) {
             run: ({ designId, folder, ...options }) => {
                 if (!isAbsolute(folder)) throw new Error(`folder is an absolute path, not '${folder}'`);
                 return { designId, paths: api.exportProcess(store.get(designId), folder, options) };
+            },
+        },
+        {
+            name: 'monitorWorksheet', title: 'Monitor worksheet',
+            description: "Whether each layer of one side can be stopped on an optical monitor, as the Monitor Worksheet window works it out: the layers deposited from the substrate out on witness chips, each chip a short coating of its own from bare chip glass, back face bare, read in air, each layer witnessRatio times its thickness on the part. Every layer is a row, an empty one included. The chip plan is processSteps's chips: processSteps given the same chips, {} for 3 layers to a chip, gives the Process Exporter's spectra of these chips; without chips it runs on the part. The design's cone of incidence is not used. Answers with mode (the side deposited), runLength (the run's optical thickness on the witnesses, quarter waves at the reference wavelength), chips (each { chip, wavelength nm, initialLevel, steps }), flagged (how many rows are poor) and rows, one per layer in deposition order, each { step, layer (Design Editor number from 1 next to the substrate), chip, onChip, material, wavelength (nm), thickness (the witness's, nm), signal (the reading at the cut), turningPoints, amplitude, swingIn, swingOut (fractions of 1; amplitude null with no turning point after the cut), cutoffRatio, terminationError (nm; null for a layer cut on time, strategy 'time', and for one whose signal has no slope or turn to read, which is poor), crystal (the part's thickness, nm), initialLevel, poor (no turning point after the cut, or the termination error past maxTerminationErrPct of the layer), strategy ('turning', 'level' or 'time') }; with values true each row also has curve { thickness (nm on the chip), signal }, the reading as the layer grows.",
+            inputSchema: object({
+                designId: DESIGN_ID, side: SIDE,
+                quantity: oneOf(['T', 'R'], "What the monitor reads. Default 'T'"),
+                angle: ANGLE, pol: POL, chips: object(CHIPS),
+                wavelengths: { type: ['string', 'number', 'array'], items: { type: 'number' }, description: "The monitor wavelengths in nm: 'auto', the window's Auto button, the best of 25 from 0.7 to 1.3 times the reference wavelength for each chip; a number for every chip; or one for each layer of the side from the substrate out, empty layers included, a chip read at the one for its first layer. Default: every chip at the design's reference wavelength" },
+                signalErrorPct: num("The monitor's signal error, % of the reading, 0.001 to 50. Default 0.3"),
+                noiseFloorPct: num("The monitor's noise floor, % of full scale, 0 to 10. Default 0.1"),
+                maxTerminationErrPct: num('The termination error a layer is flagged past, % of its thickness, 0.01 to 100. Default 1'),
+                values: bool("Give each row's curve. Default false"),
+            }, ['designId']),
+            run: ({ designId, values = false, ...options }) => {
+                const { rows, ...sheet } = api.monitorWorksheet(store.get(designId), options);
+                const flagged = rows.filter(row => row.poor).length;
+                return { designId, ...sheet, flagged, rows: values ? rows : rows.map(({ curve: _curve, ...row }) => row) };
             },
         },
     ];

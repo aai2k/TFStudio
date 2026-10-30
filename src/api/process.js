@@ -21,7 +21,7 @@ import { checkOptions, checkRange, requireValue, refusal, isAngle } from './chec
 
 const RUN_OPTIONS = ['side', 'otherSide', 'quantity', 'angle', 'pol', 'from', 'to', 'step', 'chips'];
 const OUTPUT_OPTIONS = Object.keys(DEFAULT_OUTPUT);
-const CHIP_OPTIONS = ['layersPerChip', 'plan', 'glass', 'witnessRatio'];
+export const CHIP_OPTIONS = ['layersPerChip', 'plan', 'glass', 'witnessRatio'];
 const CHIP_DEFAULTS = sessionDefaults('monitorWorksheet');
 // The bounds of the chip fields the Monitor Worksheet and the Process
 // Exporter share; a chip number goes up to the most layers a chip takes.
@@ -42,8 +42,8 @@ const isChipNumber = v => Number.isInteger(v) && v >= 1 && v <= MAX_CHIP;
 
 // The window's chip plan ({ chipByStep, chipMaterial, witnessRatio }) for
 // `chips`, the side having `stepCount` layers, empty ones included, as the
-// Monitor Worksheet numbers its plan.
-function chipPlan(call, design, chips, stepCount) {
+// Monitor Worksheet numbers its plan; monitorWorksheet reads it the same way.
+export function chipPlan(call, design, chips, stepCount) {
     if (chips == null) return null;
     requireValue(call, 'chips', chips, v => typeof v === 'object' && !Array.isArray(v), `null for the part, or an object of ${CHIP_OPTIONS.join(', ')}`);
     const unknown = Object.keys(chips).find(key => !CHIP_OPTIONS.includes(key));

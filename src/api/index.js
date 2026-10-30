@@ -27,6 +27,7 @@
  *   groupDelay(design, { from, to, step, angle, pol, response, side, reference })
  *   pulseAnalysis(design, { source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes }), setPulseSpectrum(design, fileOrRows)
  *   processSteps(design, { side, otherSide, quantity, angle, pol, from, to, step, chips }), exportProcess(design, folder, options)
+ *   monitorWorksheet(design, { side, quantity, angle, pol, chips, wavelengths, signalErrorPct, noiseFloorPct, maxTerminationErrPct })
  *   setMerit(design, rows), merit(design)
  *   setSpecification(design, checks), checkSpecification(design)
  *   refine(design, settings, hooks), synthesize(design, { method, pool, settings }, hooks), runHooks(method)
@@ -61,6 +62,7 @@ export { ellipsometry, ellipsometryVsAngle } from './ellipsometry.js';
 export { groupDelay } from './groupDelay.js';
 export { pulseAnalysis, setPulseSpectrum } from './pulse.js';
 export { processSteps, exportProcess } from './process.js';
+export { monitorWorksheet } from './monitorWorksheet.js';
 export { setMerit, merit } from './merit.js';
 export { setSpecification, checkSpecification } from './specification.js';
 export { refine, synthesize, runHooks } from './runs.js';

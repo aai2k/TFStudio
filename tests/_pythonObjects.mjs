@@ -56,8 +56,8 @@
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
  *   was when the spectrum was computed, and their refusals; edge_filter()
  *   with pass_, apply_edge_filter(), process_steps() on chips given in
- *   snake_case and export_process() as named tuples and paths, and their
- *   refusals; needle_profile() as named tuples and insert_needle() from a
+ *   snake_case, export_process() and monitor_worksheet() on a plan given in
+ *   snake_case as named tuples and paths, and their refusals; needle_profile() as named tuples and insert_needle() from a
  *   NeedleCandidate and from a dict, and their refusals; read_ellipsometry_file(), add_measured_curves(), fit_measured()
  *   and export_measured_curves() as named tuples and files, save_jcamp()
  *   byte for byte, a Psi/Delta save_csv() with its # lines, and their
@@ -910,10 +910,15 @@ async function production(t, said) {
     const run = new objects.Design(got.ar ?? {}).processSteps(450, 700, { step: 10, quantity: 'R', chips: { layersPerChip: 2, witnessRatio: 1.5 } });
     const paths = await attempt(() => api.exportProcess(got.ar, path.join(WORK, 'process-objects'), { from: 450, to: 700, step: 10, format: 'csv', decimalMark: ',', delimiter: ';' }));
     ok('edge_filter(), process_steps() and export_process() give what the objects here give, as EdgeFilter, EdgeSolution, ProcessSteps and ProcessStep of their snake_case fields',
-        canon([got.found, got.run, got.paths, got.types]) === canon([{ ...snakeKeys(found), solutions: found.solutions.map(snakeKeys) },
+        canon([got.found, got.run, got.paths, got.types?.slice(0, 4)]) === canon([{ ...snakeKeys(found), solutions: found.solutions.map(snakeKeys) },
             { ...snakeKeys(run), steps: run.steps.map(snakeKeys) }, paths, ['EdgeFilter', 'EdgeSolution', 'ProcessSteps', 'ProcessStep']])
         && run.steps.every(step => step.chip >= 1), canon(got.found)?.slice(0, 300));
     ok('apply_edge_filter() puts in what applyEdgeFilter puts in', canon(got.after ?? null) === canon(await attempt(() => api.applyEdgeFilter(got.before, { ...search, solution: 1 }))));
+    const sheet = new objects.Design(got.ar ?? {}).monitorWorksheet({ chips: { plan: [2, 1, 2], witnessRatio: 1.2 }, wavelengths: 'auto', noiseFloorPct: 0.2, quantity: 'R' });
+    ok('monitor_worksheet() gives what the objects here give, as MonitorWorksheet, WorksheetRow, WorksheetCurve and WorksheetChip of their snake_case fields',
+        canon(got.sheet) === canon({ ...snakeKeys(sheet), rows: sheet.rows.map(snakeKeys), chips: sheet.chips.map(snakeKeys) })
+        && canon(got.types?.slice(4)) === canon(['MonitorWorksheet', 'WorksheetRow', 'WorksheetCurve', 'WorksheetChip'])
+        && canon(sheet.rows.map(row => row.chip)) === canon([2, 1, 2]), canon(got.sheet)?.slice(0, 300));
     ok('and their refusals are in Python\'s words', canon(got.worded) === canon([
         "edge_filter: pass_ is 'short' or 'long', not 'band'",
         "edge_filter: unknown option 'passes'; the options are pass_, edge, angle, a, b, incident, lower, upper, step, periods",
@@ -921,6 +926,10 @@ async function production(t, said) {
         "process_steps: unknown option 'chips.layer'; the options are chips.layers_per_chip, chips.plan, chips.glass, chips.witness_ratio",
         "process_steps: unknown option 'to'; the options are step, side, other_side, quantity, angle, pol, chips",
         'export_process: decimals is a whole number of decimals from 0 to 12, not 13',
+        'monitor_worksheet: chips.layers_per_chip is a whole number of layers from 1 to 10000, not 0',
+        'monitor_worksheet: noise_floor_pct is a percentage from 0 to 10, not 20',
+        "monitor_worksheet: wavelengths is 'auto', a wavelength in nm above 0 for every chip, or one for each of the side's 3 layers, empty ones included, not [500]",
+        "monitor_worksheet: unknown option 'wave'; the options are side, quantity, angle, pol, chips, wavelengths, signal_error_pct, noise_floor_pct, max_termination_err_pct",
     ]), canon(got.worded));
 }
 

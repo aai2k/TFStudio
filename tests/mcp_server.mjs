@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 59
+ *   1. The session: initialize and version negotiation, the tool list (the 60
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -17,7 +17,7 @@
  *      candidate, in full with every one) and a needle put in, an
  *      ellipsometer file read (in short and in full), its curves and a scan
  *      added to a copy, a fit added and the curves written, a file that is
- *      there refused, an edge filter search (in short with the count and the best period, in full with every one), a deposition run on chips (in short with each step's mean, min and max, in full with its values) and its files written, a relative folder refused, a copy perturbed with its seed
+ *      there refused, an edge filter search (in short with the count and the best period, in full with every one), a deposition run on chips (in short with each step's mean, min and max, in full with its values) and its files written, a relative folder refused, a monitor worksheet (in short without its curves, in full with them) and wavelengths it cannot take refused, a copy perturbed with its seed
  *      and the differences from it (in short with counts and the largest
  *      change, in full with every layer), merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
@@ -98,7 +98,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 59 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 60 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -206,6 +206,15 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const written = await server.call('exportProcess', { designId: id, folder: processFolder, step: 10 });
     ok('exportProcess writes the files and answers with their paths, and a relative folder is refused', written.paths?.length === 7
         && written.paths.every(file => fs.existsSync(file)) && /absolute path/.test((await server.call('exportProcess', { designId: id, folder: 'process' })).error), JSON.stringify(written));
+    const plan = { chips: { layersPerChip: 2 }, wavelengths: 'auto' };
+    const { rows: sheetRows, ...sheet } = api.monitorWorksheet(local, plan);
+    const shortSheet = await server.call('monitorWorksheet', { designId: id, ...plan });
+    const fullSheet = await server.call('monitorWorksheet', { designId: id, ...plan, values: true });
+    ok('monitorWorksheet answers with the rows less their curves and the flagged count, and the curves for values true',
+        JSON.stringify(shortSheet) === JSON.stringify(asJson({ designId: id, ...sheet, flagged: sheetRows.filter(r => r.poor).length, rows: sheetRows.map(({ curve: _c, ...r }) => r) }))
+        && JSON.stringify(fullSheet.rows) === JSON.stringify(asJson(sheetRows)) && shortSheet.rows?.length === 7 && fullSheet.rows[0].curve.signal.length > 100, JSON.stringify(shortSheet).slice(0, 300));
+    ok('and a list of wavelengths, or a word, it cannot take is refused', /wavelengths is 'auto'/.test((await server.call('monitorWorksheet', { designId: id, wavelengths: [500] })).error ?? '')
+        && /wavelengths is 'auto'/.test((await server.call('monitorWorksheet', { designId: id, wavelengths: 'best' })).error ?? ''));
     const copyId = (await server.call('copyDesign', { designId: id })).designId;
     const kicked = await server.call('perturb', { designId: copyId, percent: 4, seed: 12 });
     const kickedHere = api.perturb(local, { percent: 4, seed: 12 }).design;

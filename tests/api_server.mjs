@@ -16,7 +16,9 @@
  *      designs compared; an edge filter searched, with a pass region that
  *      does not end crossing as Infinity, and put in; a needle profile, and a
  *      candidate of it put in; a deposition run on the
- *      part and on witness chips, and its files written; the spectrum at two angles, summarized from what came over
+ *      part and on witness chips, and its files written; a monitor worksheet
+ *      on a plan, and one whose layer of the chip's own index has a
+ *      termination error crossing as Infinity; the spectrum at two angles, summarized from what came over
  *      the wire; a band's width and an edge against angle; a spectrum file
  *      read and a design compared with a curve of it, and a file of several
  *      curves compared without naming one refused, naming them; an
@@ -199,6 +201,11 @@ const specified = api.setSpecification(start, CHECKS);
     fs.mkdirSync(processFolder);
     const exported = await same('exportProcess', [stack, processFolder, { format: 'csv', files: 'table', step: 5 }]);
     ok('process files are written over the wire, and the paths come back', exported.result?.length === 1 && fs.existsSync(exported.result[0]), JSON.stringify(exported));
+    await same('monitorWorksheet', [stack, { chips: { plan: [1, 2, 1, 2, 3, 3, 3], glass: 'builtin:SiO2' }, wavelengths: 'auto', quantity: 'R' }]);
+    const ownIndex = api.stackFromFormula(api.newDesign({ name: 'Own index' }), { formula: 'L H' });
+    const unseen = await same('monitorWorksheet', [ownIndex, { chips: { layersPerChip: 1, glass: 'builtin:SiO2' } }]);
+    ok('a worksheet crosses with the termination error of a layer of the chip\'s own index as Infinity', unseen.result?.rows[0].terminationError === Infinity
+        && unseen.result.rows[0].amplitude === null, JSON.stringify(unseen.result?.rows?.map(r => r.terminationError)));
     await same('findMaterials', ['SiO2']);
     await same('findMaterials', []);
     await same('materialNK', ['TiO2', [400, 550, 700]]);

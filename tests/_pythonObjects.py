@@ -784,8 +784,9 @@ def measured_curves(tf):
 
 def production(tf):
     """edge_filter() with pass_ and keywords, apply_edge_filter(),
-    process_steps() on chips given in snake_case, export_process(), the
-    named tuples they give, and their refusals."""
+    process_steps() on chips given in snake_case, export_process(),
+    monitor_worksheet() on a plan given in snake_case, the named tuples they
+    give, and their refusals."""
     design = tf.new_design("Edge")
     search = dict(pass_="long", angle=30, edge=700, a="SiO2", b="TiO2", periods=4)
     found = design.edge_filter(**search)
@@ -796,14 +797,20 @@ def production(tf):
     run = ar.process_steps(450, 700, step=10, quantity="R", chips={"layers_per_chip": 2, "witness_ratio": 1.5})
     os.mkdir("process-objects")
     paths = ar.export_process("process-objects", 450, 700, step=10, format="csv", decimal_mark=",", delimiter=";")
+    sheet = ar.monitor_worksheet(chips={"plan": [2, 1, 2], "witness_ratio": 1.2}, wavelengths="auto", noise_floor_pct=0.2, quantity="R")
     worded = [refused(make) for make in (
         lambda: design.edge_filter(pass_="band"), lambda: design.edge_filter(passes=3),
         lambda: ar.process_steps(400, 700, chips={"plan": [1]}), lambda: ar.process_steps(400, 700, chips={"layer": 2}),
-        lambda: ar.process_steps(to=800), lambda: ar.export_process("process-objects", decimals=13))]
+        lambda: ar.process_steps(to=800), lambda: ar.export_process("process-objects", decimals=13),
+        lambda: ar.monitor_worksheet(chips={"layers_per_chip": 0}), lambda: ar.monitor_worksheet(noise_floor_pct=20),
+        lambda: ar.monitor_worksheet(wavelengths=[500]), lambda: ar.monitor_worksheet(wave=500))]
     out({"production": {"before": before, "after": design._data, "ar": ar._data,
                         "found": dict(found._asdict(), solutions=[s._asdict() for s in found.solutions]),
                         "run": dict(run._asdict(), steps=[s._asdict() for s in run.steps]), "paths": paths,
-                        "types": [type(x).__name__ for x in (found, found.solutions[0], run, run.steps[0])], "worded": worded}})
+                        "sheet": dict(sheet._asdict(), rows=[dict(r._asdict(), curve=r.curve._asdict()) for r in sheet.rows],
+                                      chips=[c._asdict() for c in sheet.chips]),
+                        "types": [type(x).__name__ for x in (found, found.solutions[0], run, run.steps[0], sheet, sheet.rows[0],
+                                                             sheet.rows[0].curve, sheet.chips[0])], "worded": worded}})
 
 
 def needle(tf):

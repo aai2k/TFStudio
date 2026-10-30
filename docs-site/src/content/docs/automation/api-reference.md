@@ -1854,6 +1854,48 @@ design.stack("H L")
 print(design.export_process(tempfile.mkdtemp(), 400, 800, step=1))
 ```
 
+### monitorWorksheet / monitor_worksheet
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.monitorWorksheet({ side, quantity, angle, pol, chips, wavelengths, signalErrorPct, noiseFloorPct, maxTerminationErrPct })` | `design.monitor_worksheet(side=..., quantity="T", angle=0, pol="avg", chips=..., wavelengths=..., signal_error_pct=0.3, noise_floor_pct=0.1, max_termination_err_pct=1)` |
+
+Whether each layer of one side can be stopped on an optical monitor, as the Monitor Worksheet window works it out: the layers deposited from the substrate out on witness chips, each chip a short coating of its own from bare chip glass, read in air, each layer `witnessRatio` / `witness_ratio` times its thickness on the part. Each row gives the signal at its chip's wavelength when the layer is cut, the turning points in it, the swing there is to stop on and the thickness a signal error of the monitor's own size costs, flagged past `maxTerminationErrPct` / `max_termination_err_pct` of the layer. Every layer is a row, an empty one included. The chip plan is `processSteps()'s` / `process_steps()'s` `chips`: `processSteps()` / `process_steps()` given the same `chips` gives the Process Exporter's spectra of these chips, and needs them given, `{}` for 3 layers to a chip, as without `chips` it runs on the part. A plan given here does not reach the window or the Report. The design's cone of incidence is not used.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `side` | `side` |  | `'front'` or `'back'`, the side deposited. Without it, the front, or the back of a design coated on the back alone; the window has the front alone. |
+| `quantity` | `quantity` | `'T'` | `'T'` or `'R'`, what the monitor reads. |
+| `angle` | `angle` | `0` | The angle of incidence on the chip, degrees in air, 0 up to but not including 90. |
+| `pol` | `pol` | `'avg'` | `'avg'`, `'s'` or `'p'`. |
+| `chips` | `chips` |  | **JavaScript**: The chip plan, `{ layersPerChip, plan, glass, witnessRatio }`, each optional: `plan` a chip number for each layer of the side from the substrate out, empty layers included, in place of `layersPerChip` layers to a chip (3 without either); `glass` the chip glass by id, the substrate without it; `witnessRatio` the witness thickness over the part's, from 0.05 to 10, 1 without it.<br>**Python**: The chip plan, a dict of layers_per_chip, plan, glass and witness_ratio, each optional: plan a chip number for each layer of the side from the substrate out, empty layers included, in place of layers_per_chip layers to a chip (3 without either); glass the chip glass by id, the substrate without it; witness_ratio the witness thickness over the part's, from 0.05 to 10, 1 without it. |
+| `wavelengths` | `wavelengths` |  | The monitor wavelengths, nm: `'auto'`, the window's Auto button, each chip at the reference wavelength or one of 25 from 0.7 to 1.3 times it, whichever its worst layer stops most closely at, to the whole nm; a number, every chip there, as Set all does; or a list of one for each layer of the side from the substrate out, empty layers included, a chip read at the one given for its first layer. Without it, every chip at the design's reference wavelength. |
+| `signalErrorPct` | `signal_error_pct` | `0.3` | The monitor's signal error, % of the reading, from 0.001 to 50. |
+| `noiseFloorPct` | `noise_floor_pct` | `0.1` | The monitor's noise floor, % of full scale, from 0 to 10. |
+| `maxTerminationErrPct` | `max_termination_err_pct` | `1` | The termination error a layer is flagged past, % of its thickness, from 0.01 to 100. |
+
+**Returns**: **JavaScript**: An object: `mode`, the side deposited; `rows`, one per layer in deposition order; `chips`, one per chip in the order it enters the run, each `{ chip, wavelength, initialLevel, steps }`, its wavelength in nm, its bare reading and the steps on it; and `runLength`, the run's optical thickness on the witnesses in quarter waves at the reference wavelength, the length of the window's chart. Each row is `{ step, layer, chip, onChip, material, wavelength, thickness, signal, turningPoints, amplitude, swingIn, swingOut, cutoffRatio, terminationError, crystal, initialLevel, poor, strategy, curve }`: step from 1; layer its Design Editor number from 1 next to the substrate, the same as step; chip its chip number and onChip its place on that chip from 1; material by id; wavelength the chip's, nm; thickness the witness's, nm; signal the reading when the layer is cut, a fraction of 1 (the window shows %); turningPoints how many lie inside the layer; amplitude the swing from the reading the cut is taken against, the last turning point at or before the cut on the chip or else the chip's bare reading, to the next turning point, null with none after the cut; swingIn and swingOut the swing from that reading to the layer's start and to the cut, fractions of 1; cutoffRatio swingOut over amplitude, or null; terminationError the thickness a signal error of the monitor's own size leaves, nm, null for a layer cut on time and Infinity where the signal has no slope or turn to read; crystal the part's thickness, nm, which a quartz monitor runs to (the window shows kÅ); initialLevel the chip's bare reading on its first layer, null on the others; poor true when the layer has no turning point after its cut or its termination error is past the budget; strategy `'turning'`, `'level'` or `'time'`, how the layer is cut; curve `{ thickness, signal }`, the reading against the layer's own thickness on the chip, nm, from 0 to 1.35 quarter waves of the layer past the cut, beyond the next turning point where there is one.<br>**Python**: A MonitorWorksheet, a named tuple: mode, the side deposited; rows, one WorksheetRow per layer in deposition order; chips, one WorksheetChip per chip in the order it enters the run, its chip, its wavelength in nm, its bare reading initial_level and the steps on it; and run_length, the run's optical thickness on the witnesses in quarter waves at the reference wavelength, the length of the window's chart. A WorksheetRow holds step from 1; layer its Design Editor number from 1 next to the substrate, the same as step; chip its chip number and on_chip its place on that chip from 1; material by id; wavelength the chip's, nm; thickness the witness's, nm; signal the reading when the layer is cut, a fraction of 1 (the window shows %); turning_points how many lie inside the layer; amplitude the swing from the reading the cut is taken against, the last turning point at or before the cut on the chip or else the chip's bare reading, to the next turning point, None with none after the cut; swing_in and swing_out the swing from that reading to the layer's start and to the cut, fractions of 1; cutoff_ratio swing_out over amplitude, or None; termination_error the thickness a signal error of the monitor's own size leaves, nm, None for a layer cut on time and inf where the signal has no slope or turn to read; crystal the part's thickness, nm, which a quartz monitor runs to (the window shows kÅ); initial_level the chip's bare reading on its first layer, None on the others; poor True when the layer has no turning point after its cut or its termination error is past the budget; strategy "turning", "level" or "time", how the layer is cut; curve a WorksheetCurve of thickness and signal, the reading against the layer's own thickness on the chip, nm, from 0 to 1.35 quarter waves of the layer past the cut, beyond the next turning point where there is one.
+
+**Refuses**:
+
+- an option it does not take or a value an option cannot take, a chip plan or a list of wavelengths whose length is not the side's layer count, a chip glass that resolves to nothing, a design that names a material that resolves to nothing, or a material with no refractive index at the reference wavelength or at a chip's wavelength, named by id
+
+```js
+const design = tf.newDesign('AR');
+design.stack('H L H L');
+const sheet = design.monitorWorksheet({ chips: { layersPerChip: 2 }, wavelengths: 'auto' });
+for (const r of sheet.rows) console.log('step', r.step, 'chip', r.chip, 'at', r.wavelength, 'nm: error', r.terminationError?.toFixed(2), 'nm', r.poor ? 'flagged' : '');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("H L H L")
+sheet = design.monitor_worksheet(chips={"layers_per_chip": 2}, wavelengths="auto")
+for r in sheet.rows:
+    error = r.termination_error
+    print("step", r.step, "chip", r.chip, "at", r.wavelength, "nm: error", error if error is None else round(error, 2), "nm", "flagged" if r.poor else "")
+```
+
 ### refine
 
 | JavaScript | Python |

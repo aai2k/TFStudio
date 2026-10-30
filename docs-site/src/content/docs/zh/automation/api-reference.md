@@ -1854,6 +1854,48 @@ design.stack("H L")
 print(design.export_process(tempfile.mkdtemp(), 400, 800, step=1))
 ```
 
+### monitorWorksheet / monitor_worksheet
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.monitorWorksheet({ side, quantity, angle, pol, chips, wavelengths, signalErrorPct, noiseFloorPct, maxTerminationErrPct })` | `design.monitor_worksheet(side=..., quantity="T", angle=0, pol="avg", chips=..., wavelengths=..., signal_error_pct=0.3, noise_floor_pct=0.1, max_termination_err_pct=1)` |
+
+按监控工作表窗口的方式判定一面的每一层能否在光学监控下停切：膜层从基底向外沉积在监控片上，每片监控片从裸监控片玻璃开始自成一段短膜系，在空气中读取，每层厚度为其在工件上厚度的 `witnessRatio` / `witness_ratio` 倍。每行给出该层停切时在其监控片波长处的信号、层内的极值点、可供停切的摆幅，以及与监控自身信号误差大小相同的误差造成的厚度误差，超过该层厚度的 `maxTerminationErrPct` / `max_termination_err_pct` 时被标记。每一层都是一行，空层也一样。监控片方案即 `processSteps()` / `process_steps()` 的 `chips`：给 `processSteps()` / `process_steps()` 同样的 `chips`，就得到这些监控片上工艺导出器的光谱；它需要给出 `chips`，每片 3 层时为 `{}`，因为不给 `chips` 时它计算的是工件。这里给出的方案不影响窗口或报告。不使用设计的入射锥角。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `side` | `side` |  | `'front'` 或 `'back'`，即沉积的那一面。不给出时为正面，只在背面镀膜的设计则为背面；窗口只处理正面。 |
+| `quantity` | `quantity` | `'T'` | `'T'` 或 `'R'`，即监控读取的量。 |
+| `angle` | `angle` | `0` | 监控片上的入射角，单位为度，在空气中计，从 0 起，小于 90。 |
+| `pol` | `pol` | `'avg'` | `'avg'`、`'s'` 或 `'p'`。 |
+| `chips` | `chips` |  | **JavaScript**：监控片方案 `{ layersPerChip, plan, glass, witnessRatio }`，各项均可省略：`plan` 为该面从基底向外每一层的监控片编号，包括空层，代替每片 `layersPerChip` 层（两者都不给时为 3）；`glass` 为监控片玻璃，按 id 给出，不给出时为基底；`witnessRatio` 为监控片厚度与工件厚度之比，从 0.05 到 10，不给出时为 1。<br>**Python**：监控片方案，即含 layers_per_chip、plan、glass 和 witness_ratio 的 dict，各项均可省略：plan 为该面从基底向外每一层的监控片编号，包括空层，代替每片 layers_per_chip 层（两者都不给时为 3）；glass 为监控片玻璃，按 id 给出，不给出时为基底；witness_ratio 为监控片厚度与工件厚度之比，从 0.05 到 10，不给出时为 1。 |
+| `wavelengths` | `wavelengths` |  | 监控波长，单位 nm：`'auto'`，即窗口的“自动 λ”按钮，每片监控片取参考波长，或参考波长 0.7 到 1.3 倍之间 25 个波长中的一个，取该片上最差一层停切最准的那个，取整到 nm；一个数，每片监控片都用该波长，与“全部设为”相同；或一个列表，该面从基底向外每层一个，包括空层，每片监控片按其第一层给出的波长读取。不给出时，每片监控片都用设计的参考波长。 |
+| `signalErrorPct` | `signal_error_pct` | `0.3` | 监控的信号误差，以读数的百分比表示，从 0.001 到 50。 |
+| `noiseFloorPct` | `noise_floor_pct` | `0.1` | 监控的噪声底，以满量程的百分比表示，从 0 到 10。 |
+| `maxTerminationErrPct` | `max_termination_err_pct` | `1` | 停切厚度误差超过此值的层被标记，以该层厚度的百分比表示，从 0.01 到 100。 |
+
+**返回**：**JavaScript**：一个对象：`mode`，沉积的那一面；`rows`，每层一行，按沉积顺序排列；`chips`，每片监控片一项，按其进入运行的顺序排列，每项为 `{ chip, wavelength, initialLevel, steps }`，即其波长（nm）、其裸片读数和其上的各步；以及 `runLength`，整炉在监控片上的光学厚度，以参考波长处的四分之一波长数计，即窗口曲线图的长度。每行为 `{ step, layer, chip, onChip, material, wavelength, thickness, signal, turningPoints, amplitude, swingIn, swingOut, cutoffRatio, terminationError, crystal, initialLevel, poor, strategy, curve }`：step 从 1 起；layer 为它在设计编辑器中的编号，从紧邻基底的 1 起，与 step 相同；chip 为它的监控片编号，onChip 为它在该片上的位置，从 1 起；material 按 id 给出；wavelength 为该片的波长，单位 nm；thickness 为监控片上的厚度，单位 nm；signal 为该层停切时的读数，以 1 的分数表示（窗口显示为 %）；turningPoints 为该层内的极值点个数；amplitude 为从停切所参照的读数（片上停切点处或之前的最后一个极值点，没有时为该片的裸片读数）到下一个极值点的摆幅，停切点之后没有极值点时为 null；swingIn 和 swingOut 为从该读数到该层起点和到停切点的摆幅，以 1 的分数表示；cutoffRatio 为 swingOut 除以 amplitude，或 null；terminationError 为与监控自身信号误差大小相同的误差留下的厚度误差，单位 nm，按时间停切的层为 null，信号没有可读取的斜率或反转时为 Infinity；crystal 为工件上的厚度，单位 nm，即石英晶控要走到的厚度（窗口显示为 kÅ）；initialLevel 为该片第一层上的裸片读数，其余各层为 null；poor 在该层停切点之后没有极值点或其停切厚度误差超出允差时为 true；strategy 为 `'turning'`、`'level'` 或 `'time'`，即该层的停切方式；curve 为 `{ thickness, signal }`，即读数对该层在监控片上自身厚度（nm）的曲线，从 0 起，到停切点之后该层的 1.35 个四分之一波长为止，有下一个极值点时越过它。<br>**Python**：一个 MonitorWorksheet，即具名元组：mode，沉积的那一面；rows，每层一个 WorksheetRow，按沉积顺序排列；chips，每片监控片一个 WorksheetChip，按其进入运行的顺序排列，含其 chip、其波长（nm）、其裸片读数 initial_level 和其上的各步 steps；以及 run_length，整炉在监控片上的光学厚度，以参考波长处的四分之一波长数计，即窗口曲线图的长度。WorksheetRow 含：step 从 1 起；layer 为它在设计编辑器中的编号，从紧邻基底的 1 起，与 step 相同；chip 为它的监控片编号，on_chip 为它在该片上的位置，从 1 起；material 按 id 给出；wavelength 为该片的波长，单位 nm；thickness 为监控片上的厚度，单位 nm；signal 为该层停切时的读数，以 1 的分数表示（窗口显示为 %）；turning_points 为该层内的极值点个数；amplitude 为从停切所参照的读数（片上停切点处或之前的最后一个极值点，没有时为该片的裸片读数）到下一个极值点的摆幅，停切点之后没有极值点时为 None；swing_in 和 swing_out 为从该读数到该层起点和到停切点的摆幅，以 1 的分数表示；cutoff_ratio 为 swing_out 除以 amplitude，或 None；termination_error 为与监控自身信号误差大小相同的误差留下的厚度误差，单位 nm，按时间停切的层为 None，信号没有可读取的斜率或反转时为 inf；crystal 为工件上的厚度，单位 nm，即石英晶控要走到的厚度（窗口显示为 kÅ）；initial_level 为该片第一层上的裸片读数，其余各层为 None；poor 在该层停切点之后没有极值点或其停切厚度误差超出允差时为 True；strategy 为 "turning"、"level" 或 "time"，即该层的停切方式；curve 为含 thickness 和 signal 的 WorksheetCurve，即读数对该层在监控片上自身厚度（nm）的曲线，从 0 起，到停切点之后该层的 1.35 个四分之一波长为止，有下一个极值点时越过它。
+
+**拒绝**：
+
+- 不接受的选项或选项不能取的值、长度不等于该面层数的监控片方案或波长列表、找不到对应材料的监控片玻璃、引用了找不到对应材料的设计，或在参考波长或某片监控片的波长处没有折射率的材料（按 id 给出）
+
+```js
+const design = tf.newDesign('AR');
+design.stack('H L H L');
+const sheet = design.monitorWorksheet({ chips: { layersPerChip: 2 }, wavelengths: 'auto' });
+for (const r of sheet.rows) console.log('step', r.step, 'chip', r.chip, 'at', r.wavelength, 'nm: error', r.terminationError?.toFixed(2), 'nm', r.poor ? 'flagged' : '');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("H L H L")
+sheet = design.monitor_worksheet(chips={"layers_per_chip": 2}, wavelengths="auto")
+for r in sheet.rows:
+    error = r.termination_error
+    print("step", r.step, "chip", r.chip, "at", r.wavelength, "nm: error", error if error is None else round(error, 2), "nm", "flagged" if r.poor else "")
+```
+
 ### refine
 
 | JavaScript | Python |

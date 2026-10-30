@@ -1222,6 +1222,44 @@ export class Design {
     }
 
     /**
+     * Whether each layer of one side can be stopped on an optical monitor, as
+     * the Monitor Worksheet window works it out: the layers deposited from
+     * the substrate out on witness chips, each chip a short coating of its own
+     * from bare chip glass, read in air, each layer `witnessRatio` times its
+     * thickness on the part. Each row gives the signal at its chip's
+     * wavelength when the layer is cut, the turning points in it, the swing
+     * there is to stop on and the thickness a signal error of the monitor's
+     * own size costs, flagged past `maxTerminationErrPct` of the layer. Every
+     * layer is a row, an empty one included. The chip plan is
+     * processSteps()'s `chips`: processSteps() given the same `chips` gives
+     * the Process Exporter's spectra of these chips, and needs them given,
+     * `{}` for 3 layers to a chip, as without `chips` it runs on the part. A
+     * plan given here does not reach the window or the Report. The design's
+     * cone of incidence is not used.
+     *
+     * @param [options]
+     * @param [options.side] `'front'` or `'back'`, the side deposited. Without it, the front, or the back of a design coated on the back alone; the window has the front alone.
+     * @param [options.quantity='T'] `'T'` or `'R'`, what the monitor reads.
+     * @param [options.angle=0] The angle of incidence on the chip, degrees in air, 0 up to but not including 90.
+     * @param [options.pol='avg'] `'avg'`, `'s'` or `'p'`.
+     * @param [options.chips] The chip plan, `{ layersPerChip, plan, glass, witnessRatio }`, each optional: `plan` a chip number for each layer of the side from the substrate out, empty layers included, in place of `layersPerChip` layers to a chip (3 without either); `glass` the chip glass by id, the substrate without it; `witnessRatio` the witness thickness over the part's, from 0.05 to 10, 1 without it.
+     * @param [options.wavelengths] The monitor wavelengths, nm: `'auto'`, the window's Auto button, each chip at the reference wavelength or one of 25 from 0.7 to 1.3 times it, whichever its worst layer stops most closely at, to the whole nm; a number, every chip there, as Set all does; or a list of one for each layer of the side from the substrate out, empty layers included, a chip read at the one given for its first layer. Without it, every chip at the design's reference wavelength.
+     * @param [options.signalErrorPct=0.3] The monitor's signal error, % of the reading, from 0.001 to 50.
+     * @param [options.noiseFloorPct=0.1] The monitor's noise floor, % of full scale, from 0 to 10.
+     * @param [options.maxTerminationErrPct=1] The termination error a layer is flagged past, % of its thickness, from 0.01 to 100.
+     * @returns An object: `mode`, the side deposited; `rows`, one per layer in deposition order; `chips`, one per chip in the order it enters the run, each `{ chip, wavelength, initialLevel, steps }`, its wavelength in nm, its bare reading and the steps on it; and `runLength`, the run's optical thickness on the witnesses in quarter waves at the reference wavelength, the length of the window's chart. Each row is `{ step, layer, chip, onChip, material, wavelength, thickness, signal, turningPoints, amplitude, swingIn, swingOut, cutoffRatio, terminationError, crystal, initialLevel, poor, strategy, curve }`: step from 1; layer its Design Editor number from 1 next to the substrate, the same as step; chip its chip number and onChip its place on that chip from 1; material by id; wavelength the chip's, nm; thickness the witness's, nm; signal the reading when the layer is cut, a fraction of 1 (the window shows %); turningPoints how many lie inside the layer; amplitude the swing from the reading the cut is taken against, the last turning point at or before the cut on the chip or else the chip's bare reading, to the next turning point, null with none after the cut; swingIn and swingOut the swing from that reading to the layer's start and to the cut, fractions of 1; cutoffRatio swingOut over amplitude, or null; terminationError the thickness a signal error of the monitor's own size leaves, nm, null for a layer cut on time and Infinity where the signal has no slope or turn to read; crystal the part's thickness, nm, which a quartz monitor runs to (the window shows kÅ); initialLevel the chip's bare reading on its first layer, null on the others; poor true when the layer has no turning point after its cut or its termination error is past the budget; strategy `'turning'`, `'level'` or `'time'`, how the layer is cut; curve `{ thickness, signal }`, the reading against the layer's own thickness on the chip, nm, from 0 to 1.35 quarter waves of the layer past the cut, beyond the next turning point where there is one.
+     * @throws an option it does not take or a value an option cannot take, a chip plan or a list of wavelengths whose length is not the side's layer count, a chip glass that resolves to nothing, a design that names a material that resolves to nothing, or a material with no refractive index at the reference wavelength or at a chip's wavelength, named by id
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('H L H L');
+     * const sheet = design.monitorWorksheet({ chips: { layersPerChip: 2 }, wavelengths: 'auto' });
+     * for (const r of sheet.rows) console.log('step', r.step, 'chip', r.chip, 'at', r.wavelength, 'nm: error', r.terminationError?.toFixed(2), 'nm', r.poor ? 'flagged' : '');
+     */
+    monitorWorksheet(options) {
+        return worded({ method: 'monitorWorksheet', call: 'monitorWorksheet' }, () => api.monitorWorksheet(this._data, optionsOf('monitorWorksheet', options)));
+    }
+
+    /**
      * Refines the layer thicknesses against the merit function, as the
      * Refinement window does; no layer is added or taken out. The design then
      * holds the refined layers, or, when the run is stopped, the layers it
