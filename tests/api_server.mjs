@@ -273,6 +273,12 @@ const specified = api.setSpecification(start, CHECKS);
     const reflected = await same('groupDelay', [twoSided, { side: 'total' }]);
     ok('the whole part in reflection is refused with its code and fields', reflected.error?.code === 'badValue'
         && canon(reflected.error.fields) === canon({ call: 'groupDelay', option: 'side', takes: "'front' or 'back' with response 'R'", value: 'total' }), JSON.stringify(reflected.error));
+    await same('pulseAnalysis', [twoSided, { centre: 600, duration: 20, side: 'back', pol: 'p', passes: 2 }]);
+    await same('pulseAnalysis', [twoSided, { response: 'T', side: 'total', angle: 30, shape: 'sech2' }]);
+    const noSpectrum = await same('pulseAnalysis', [twoSided, { source: 'design' }]);
+    ok('a pulse from a design holding no spectrum is refused with its code and fields', noSpectrum.error?.code === 'noPulseSpectrum'
+        && canon(noSpectrum.error.fields) === canon({ call: 'pulseAnalysis' }), JSON.stringify(noSpectrum.error));
+    await same('setPulseSpectrum', [twoSided, [[580, 0.5, 0.1], [600, 1, 0.2], [620, 0.5, 0]]]);
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);

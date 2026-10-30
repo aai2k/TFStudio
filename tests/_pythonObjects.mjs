@@ -47,7 +47,10 @@
  *   argument, Curves and AngleCurves, an AngleCurve's mean, min and max
  *   against JavaScript's, save_csv() and their refusals; group_delay() with
  *   its defaults and each argument, its Curves, save_csv() on a uniform grid
- *   and on the window's, and its refusals; a material's dispersion() with
+ *   and on the window's, and its refusals; pulse() with its defaults and
+ *   each keyword on one side, the other and the whole part,
+ *   set_pulse_spectrum() from rows and from a file, its named tuples,
+ *   save_csv() for a plain and a chirped input, and its refusals; a material's dispersion() with
  *   its defaults and each argument, its Curves, range, save_csv() with and
  *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
@@ -770,6 +773,52 @@ async function groupDelay(t, said) {
         '<GroupDelay back T p at 30 degrees from 450 to 900 nm, 226 points>', `<GroupDelay total T avg at 0 degrees from 400 to 800 nm, ${asked[2]?.[6]?.length} points>`]), canon(got.shown));
 }
 
+// What _pythonObjects.py pulse() read of a mirror and a design coated on both
+// sides, against the plain calls and the object here on the designs it read.
+const pulseOf = p => [p.mode, p.response, p.pol, p.angle, p.passes, p.source, p.centre, p.converged, p.chirped, Object.values(p.metrics),
+    ['flp', 'input', 'output'].map(key => [p.time[key].t, p.time[key].intensity]),
+    ['input', 'output', 'coatingGdd', 'compensatingGdd'].map(key => [p.spectrum[key].wavelength, p.spectrum[key].values]), p.spectrum.band,
+    p.echoDelay, p.outOfRange];
+
+async function pulse(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.pulse ?? {};
+    const [mirror = {}, two = {}, held = {}, read = {}] = got.designs ?? [];
+    const ASKED = [[mirror, {}], [mirror, { shape: 'sech2', centre: 780, duration: 12, gdd: 40, tod: 200, pol: 's', angle: 20, passes: 2 }],
+        [mirror, { shape: 'superGaussian', bandwidth: 60, order: 4, response: 'T' }], [two, { side: 'total', response: 'T', angle: 10 }],
+        [two, { side: 'back', pol: 'p' }], [held, { source: 'design' }], [read, { source: 'design', centre: 805 }]];
+    const asked = await inTurn(ASKED, ([design, options]) => attempt(() => pulseOf(api.pulseAnalysis(design, options))));
+    ok('pulse() is pulseAnalysis over the wire, with its defaults and each keyword, on one side, the other and the whole part',
+        canon(got.asked) === canon(asked) && canon(asked.map(p => p?.[0])) === canon(['front', 'front', 'front', 'total', 'back', 'front', 'front']), canon(got.asked)?.slice(0, 300));
+    const spectra = await inTurn([got.rows, path.join(WORK, 'pulse.txt')], given => attempt(() => api.setPulseSpectrum(mirror, given).pulseSpectrum));
+    ok('set_pulse_spectrum() is setPulseSpectrum over the wire, from rows and from a file', canon([held.pulseSpectrum, read.pulseSpectrum]) === canon(spectra)
+        && spectra[1]?.source === 'pulse.txt' && spectra[0]?.rows?.length === 41, canon([held.pulseSpectrum, read.pulseSpectrum]).slice(0, 300));
+    const metricNames = ['flpFwhm', 'inputFwhm', 'outputFwhm', 'outputRms', 'peakVsFlp', 'transformLimitedRatio', 'energyRatio', 'delay',
+        'residualGdd', 'residualTod', 'inputBandwidth', 'outputBandwidth', 'timeBandwidth'];
+    ok('its groups are named tuples, the metrics in the API\'s order', canon(got.tuples) === canon(['PulseMetrics', metricNames.map(snake),
+        'PulseTime', ['flp', 'input', 'output'], 'TimeCurve', ['t', 'intensity'],
+        'PulseSpectrum', ['input', 'output', 'coating_gdd', 'compensating_gdd', 'band'], 'SpectrumCurve', ['wavelength', 'values']]), canon(got.tuples));
+    const objects = await import('../src/api/objects/index.js');
+    const files = ['js-pulse.csv', 'js-chirped.csv'].map(name => path.join(WORK, name));
+    new objects.Design(mirror).pulse().saveCsv(files[0]);
+    new objects.Design(mirror).pulse(ASKED[1][1]).saveCsv(files[1]);
+    const written = files.map(file => csvRows(fs.readFileSync(file, 'utf8')));
+    ok('save_csv writes what saveCsv writes, the input\'s FWHM row only when chirped', canon((got.csv ?? []).map(csvRows)) === canon(written)
+        && written[1].length === written[0].length + 1, String(got.csv?.[1]).slice(0, 200));
+    ok('their refusals are in Python\'s words', canon(got.worded) === canon([
+        "pulse: unknown option 'center'; the options are source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes",
+        "pulse: side is 'front' or 'back' with response 'R', not 'total'",
+        'pulse: passes is a whole number of bounces, 1 or more, not 1.5',
+        "pulse: shape is 'gaussian', 'sech2' or 'superGaussian', not 'lorentzian'",
+        'pulse: the design holds no pulse spectrum with light in it; set one with set_pulse_spectrum(), or take source="model"',
+        'pulse: the pulse is too short for its centre wavelength: part of its spectrum reaches zero frequency',
+        'set_pulse_spectrum: a spectrum needs at least two rows with a wavelength above zero and an intensity not below zero',
+        'set_pulse_spectrum: file_or_rows is the path of a text table, or rows [wavelength nm, intensity] or [wavelength nm, intensity, phase rad], not [[800]]',
+    ]), canon(got.worded));
+    ok('and repr() shows its settings', canon(got.shown) === canon(['<Pulse front R avg at 0 degrees, centre 800 nm, 1 pass>',
+        '<Pulse front R s at 20 degrees, centre 780 nm, 2 passes>', `<Pulse front R avg at 0 degrees, centre ${asked[5]?.[6]} nm, 1 pass>`]), canon(got.shown));
+}
+
 // What _pythonObjects.py material_dispersion() read, against the plain call
 // and the object here.
 async function materialDispersion(t, said) {
@@ -1124,6 +1173,7 @@ export async function checkObjects(t) {
     await colourAndIntegrals(u, ran.said);
     await ellipsometry(u, ran.said);
     await groupDelay(u, ran.said);
+    await pulse(u, ran.said);
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
     measuredCurves(u, ran.said);

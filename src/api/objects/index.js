@@ -19,6 +19,7 @@
  *   design.ellipsometry(start, end, { step, angles, side, deltaConvention }), .angle(a)
  *   design.ellipsometryVsAngle(wavelength, start, end, { step, side, deltaConvention })
  *   design.groupDelay(start, end, { step, angle, pol, response, side, reference })
+ *   design.pulse({ source, shape, centre, duration, ... }), design.setPulseSpectrum(fileOrRows)
  *   design.specification.add(kind, start, end, { ... }), .check(), await .estimateYield(runs, { ... })
  *   await design.refine({ method, ... }), await design.synthesize(method, pool, { ... })
  *   await design.monteCarlo(start, end, { ... }), design.layerSensitivity({ ... })
@@ -43,6 +44,7 @@ export { Color } from './color.js';
 export { Integrals } from './integrals.js';
 export { Ellipsometry } from './ellipsometry.js';
 export { GroupDelay } from './groupDelay.js';
+export { Pulse } from './pulse.js';
 export { MaterialDispersion } from './materialDispersion.js';
 export { Progress, RunResult, MonteCarlo, Yield, SpecReport, CheckResult, LayerSensitivity, SensitivityRow, CleanReport } from './results.js';
 

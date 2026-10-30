@@ -15,6 +15,7 @@ import { Color } from './color.js';
 import { Integrals } from './integrals.js';
 import { Ellipsometry } from './ellipsometry.js';
 import { GroupDelay } from './groupDelay.js';
+import { Pulse } from './pulse.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
@@ -1080,6 +1081,73 @@ export class Design {
         const words = { method: 'groupDelay', call: 'groupDelay', hidden: ['from', 'to'] };
         const given = checkOptions('groupDelay', options, ['step', 'angle', 'pol', 'response', 'side', 'reference']);
         return new GroupDelay(worded(words, () => api.groupDelay(this._data, defined({ ...given, from: start, to: end }))));
+    }
+
+    /**
+     * Sets the spectrum the design holds for Pulse Analysis, as the window's
+     * Load file… and Apply set it: a text table read as the curve editor
+     * reads it, its wavelength column in the unit its heading names, or rows
+     * given. Each row is a wavelength, an intensity and, when a third column
+     * is given, the spectral phase in rad; against wavelength the intensity
+     * is read as per unit wavelength, as a spectrometer records it. The rows
+     * are kept in the units given, in rising order, and the design saves
+     * them. pulse() with `source: 'design'` reads them, its centre then their
+     * centroid, where the window's Apply moves its centre.
+     *
+     * @param fileOrRows The path of a text table, by its full path, or rows `[wavelength nm, intensity]` or `[wavelength nm, intensity, phase rad]`.
+     * @throws a file that cannot be read or holds no wavelength and intensity columns, a row that is not two or three numbers, fewer than two rows with a wavelength above 0 and an intensity not below 0, no row with an intensity above 0, or a phase on some rows and not on others
+     * @example
+     * const rows = [];
+     * for (let w = 760; w <= 840; w += 2) rows.push([w, Math.exp(-(((w - 800) / 20) ** 2))]);
+     * const design = tf.newDesign('Mirror', { reference: 800 });
+     * design.stack('(HL)^8 H');
+     * design.setPulseSpectrum(rows);
+     * console.log('centre', design.pulse({ source: 'design' }).centre, 'nm');
+     */
+    setPulseSpectrum(fileOrRows) {
+        this._data = worded({ method: 'setPulseSpectrum', call: 'setPulseSpectrum' }, () => api.setPulseSpectrum(this._data, fileOrRows));
+    }
+
+    /**
+     * A pulse's passage through the design, in time and in its spectrum, as
+     * the Pulse Analysis window computes it: the pulse is reflected off or
+     * transmitted through one coated side, or through the whole part, the
+     * front coating, one pass through the substrate and the back coating,
+     * the first pulse to come out of it; `passes` bounces or passes in a
+     * row. Its spectrum is a Gaussian, sech² or super-Gaussian about the
+     * centre wavelength, or with `source: 'design'` the spectrum the design
+     * holds (setPulseSpectrum()), with the chirp of `gdd` and `tod` on top.
+     * The design's cone of incidence is not used, as the window does not use
+     * it. Without options, the window's opening settings, on the side the
+     * PR, GD, GDD and TOD merit rows score: the back of a design coated on
+     * the back alone and the front of any other. The window opens on the
+     * front unless only the back holds layers, so with one side empty the two
+     * can differ; a side with no layers gives its bare surface.
+     *
+     * @param [options]
+     * @param [options.source='model'] `'model'`, the spectrum of `shape`, or `'design'`, the spectrum the design holds.
+     * @param [options.shape='gaussian'] `'gaussian'` or `'sech2'`, a pulse of `duration`, or `'superGaussian'`, a spectrum of `bandwidth` and `order`.
+     * @param [options.centre] The centre wavelength, nm, the carrier the chirp is taken about. Without it, 800 nm; with `source: 'design'`, the spectrum's centroid in frequency to the hundredth of a nanometre, as Apply sets it.
+     * @param [options.duration=10] The intensity FWHM of the transform-limited pulse, fs, for `'gaussian'` and `'sech2'`.
+     * @param [options.bandwidth=100] The intensity FWHM of the spectrum, nm, for `'superGaussian'`.
+     * @param [options.order=2] The super-Gaussian's order, above 0; 2 is a Gaussian, and a higher order flattens the top of the spectrum.
+     * @param [options.gdd=0] The input's own GDD, fs², about the centre wavelength.
+     * @param [options.tod=0] The input's own TOD, fs³, about the centre wavelength.
+     * @param [options.side] `'front'`, `'back'`, or with `response: 'T'` `'total'`, the whole part. Without it, the back of a design coated on the back alone and the front of any other.
+     * @param [options.response='R'] `'R'`, the reflected pulse, or `'T'`, the transmitted one.
+     * @param [options.pol='avg'] The polarization: `'avg'`, `'s'` or `'p'`.
+     * @param [options.angle=0] The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90.
+     * @param [options.passes=1] The bounces off the coating, or passes through it, a whole number.
+     * @returns A Pulse.
+     * @throws an option it does not take or a value an option cannot take, `'total'` with `response: 'R'`, `source: 'design'` on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, or no light out of the part
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^8 H');
+     * const p = design.pulse({ centre: 550, duration: 20, passes: 2 });
+     * console.log('output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, peak', (100 * p.metrics.peakVsFlp).toFixed(1), '% of the Fourier-limited pulse');
+     */
+    pulse(options) {
+        return new Pulse(worded({ method: 'pulse', call: 'pulseAnalysis' }, () => api.pulseAnalysis(this._data, optionsOf('pulse', options))));
     }
 
     /**

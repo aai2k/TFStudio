@@ -88,6 +88,8 @@ _WORDS = {
     "badValue": lambda fields, words: "{} is {}, not {!r}".format(words.name(fields["option"]),
                                                                   _python_takes(fields["takes"]), fields["value"]),
     "noMerit": lambda fields, words: "the design has no merit function; add a row with merit.add()",
+    "noPulseSpectrum": lambda fields, words: ("the design holds no pulse spectrum with light in it; set one with "
+                                              "set_pulse_spectrum(), or take source=\"model\""),
     "noSpecification": lambda fields, words: _no_specification(fields),
     "noLayers": lambda fields, words: ("the design has no layer thicker than 0 nm" if fields.get("thin")
                                        else "the design has no layers; add them with layers.append() or stack()"),

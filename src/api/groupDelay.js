@@ -8,24 +8,12 @@ import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { requireResolved } from './materials.js';
 import { warnWithoutKernel } from './environment.js';
-import { scoredSide } from './stackViews.js';
-import { checkOptions, checkRange, requireValue, refusal, isAngle, isPositive } from './check.js';
+import { phaseSide } from './stackViews.js';
+import { checkOptions, checkRange, requireValue, isAngle, isPositive } from './check.js';
 
 const DEFAULTS = sessionDefaults('gdGddEvaluation');
 // The uniform step without `step`, nm, the step the other analysis calls take.
 const STEP_NM = 0.5;
-
-// The sides computed: one coated side, or 'total', the whole part in
-// transmission, which the window's model names 'whole' as Pulse Analysis does.
-function computedSide(design, side, response) {
-    requireValue('groupDelay', 'side', side, v => v === undefined || ['front', 'back', 'total'].includes(v), "'front', 'back' or 'total'");
-    if (side !== 'total') return scoredSide('groupDelay', design, side);
-    if (response !== 'T') {
-        throw refusal('badValue', { call: 'groupDelay', option: 'side', takes: "'front' or 'back' with response 'R'", value: side },
-            "groupDelay: the whole part is computed in transmission alone, so with response 'R' side is 'front' or 'back', not 'total'");
-    }
-    return 'total';
-}
 
 /**
  * Phase, group delay, GDD, TOD and CDC of a design's reflected or transmitted
@@ -102,7 +90,8 @@ export function groupDelay(design, options) {
     requireValue('groupDelay', 'pol', pol, v => ['avg', 's', 'p'].includes(v), "'avg', 's' or 'p'");
     requireValue('groupDelay', 'response', response, v => v === 'R' || v === 'T', "'R' or 'T'");
     requireValue('groupDelay', 'reference', reference, v => v === undefined || isPositive(v), 'a wavelength in nm above 0');
-    const mode = computedSide(design, side, response);
+    // 'total' is the whole part, which the window's model names 'whole'.
+    const mode = phaseSide('groupDelay', design, side, response);
     requireResolved(design);
     warnWithoutKernel();
     const shown = withHerpinRecords(design);

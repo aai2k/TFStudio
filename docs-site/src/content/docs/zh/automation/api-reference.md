@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -1681,6 +1681,89 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 g = design.group_delay(500, 600, step=1)
 print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+```
+
+### setPulseSpectrum / set_pulse_spectrum
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.setPulseSpectrum(fileOrRows)` | `design.set_pulse_spectrum(file_or_rows)` |
+
+**JavaScript**：设置设计为脉冲分析保存的光谱，与窗口的“载入文件…”和“应用”的设置方式相同：文本表格按曲线编辑器的读法读取，波长列的单位取其标题所写的单位；或直接给出若干行。每行为一个波长和一个强度；给出第三列时，还有以弧度表示的光谱相位。对波长而言，强度按单位波长的强度读取，与光谱仪的记录方式相同。各行按给出的单位、按升序保存，并随设计一起保存。`source: 'design'` 时 pulse() 读取它们，其中心波长即为它们的重心，窗口的“应用”也把中心波长移到该处。
+
+**Python**：设置设计为脉冲分析保存的光谱，与窗口的“载入文件…”和“应用”的设置方式相同：文本表格按曲线编辑器的读法读取，波长列的单位取其标题所写的单位；或直接给出若干行。每行为一个波长和一个强度；给出第三列时，还有以弧度表示的光谱相位。对波长而言，强度按单位波长的强度读取，与光谱仪的记录方式相同。各行按给出的单位、按升序保存，并随设计一起保存。source="design" 时 pulse() 读取它们，其中心波长即为它们的重心，窗口的“应用”也把中心波长移到该处。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `fileOrRows` | `file_or_rows` |  | **JavaScript**：文本表格的路径，给出完整路径；或若干行 `[wavelength nm, intensity]` 或 `[wavelength nm, intensity, phase rad]`。<br>**Python**：文本表格的路径；或若干行 [wavelength nm, intensity] 或 [wavelength nm, intensity, phase rad]。相对路径以程序的工作文件夹为基准。 |
+
+**拒绝**：
+
+- 无法读取或没有波长和强度列的文件、不是两个或三个数的行、波长大于 0 且强度不小于 0 的行少于两行、没有强度大于 0 的行，或部分行有相位而其他行没有
+
+```js
+const rows = [];
+for (let w = 760; w <= 840; w += 2) rows.push([w, Math.exp(-(((w - 800) / 20) ** 2))]);
+const design = tf.newDesign('Mirror', { reference: 800 });
+design.stack('(HL)^8 H');
+design.setPulseSpectrum(rows);
+console.log('centre', design.pulse({ source: 'design' }).centre, 'nm');
+```
+
+```python
+import math
+
+rows = [[w, math.exp(-((w - 800) / 20) ** 2)] for w in range(760, 841, 2)]
+design = tf.new_design("Mirror", reference=800)
+design.stack("(HL)^8 H")
+design.set_pulse_spectrum(rows)
+print("centre", design.pulse(source="design").centre, "nm")
+```
+
+### pulse
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.pulse({ source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes })` | `design.pulse(source="model", shape="gaussian", centre=..., duration=10, bandwidth=100, order=2, gdd=0, tod=0, side=..., response="R", pol="avg", angle=0, passes=1)` |
+
+**JavaScript**：脉冲经过设计后在时间和光谱上的变化，与脉冲分析窗口的计算相同：脉冲在一个镀膜面上反射或透射，或穿过整个元件，即正面膜层、穿过一次基底以及背面膜层，取从中射出的第一个脉冲；连续反射或穿过 `passes` 次。其光谱为以中心波长为中心的高斯、sech² 或超高斯光谱，或在 `source: 'design'` 时为设计保存的光谱（setPulseSpectrum()），再叠加 `gdd` 和 `tod` 给出的啁啾。与窗口一样，不使用设计的入射锥角。不给出选项时，使用窗口打开时的设置，面为 PR、GD、GDD 和 TOD 评价函数行所评价的面：仅背面镀膜的设计为背面，其他设计为正面。窗口打开时，除非只有背面有膜层，否则选择正面，因此一面没有膜层时两者可能不同；没有膜层的面给出其裸表面的结果。
+
+**Python**：脉冲经过设计后在时间和光谱上的变化，与脉冲分析窗口的计算相同：脉冲在一个镀膜面上反射或透射，或穿过整个元件，即正面膜层、穿过一次基底以及背面膜层，取从中射出的第一个脉冲；连续反射或穿过 passes 次。其光谱为以中心波长为中心的高斯、sech² 或超高斯光谱，或在 source="design" 时为设计保存的光谱（set_pulse_spectrum()），再叠加 gdd 和 tod 给出的啁啾。与窗口一样，不使用设计的入射锥角。不给出关键字参数时，使用窗口打开时的设置，面为 PR、GD、GDD 和 TOD 评价函数行所评价的面：仅背面镀膜的设计为背面，其他设计为正面。窗口打开时，除非只有背面有膜层，否则选择正面，因此一面没有膜层时两者可能不同；没有膜层的面给出其裸表面的结果。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `source` | `source` | `'model'` | `'model'`，即 `shape` 给出的光谱；或 `'design'`，即设计保存的光谱。 |
+| `shape` | `shape` | `'gaussian'` | `'gaussian'` 或 `'sech2'`，即给定 `duration` 的脉冲；或 `'superGaussian'`，即给定 `bandwidth` 和 `order` 的光谱。 |
+| `centre` | `centre` |  | **JavaScript**：中心波长，单位 nm，即啁啾所围绕展开的载波。不给出时为 800 nm；`source: 'design'` 时为光谱在频率上的重心，精确到百分之一纳米，与“应用”的设置相同。<br>**Python**：中心波长，单位 nm，即啁啾所围绕展开的载波。不给出时为 800 nm；source="design" 时为光谱在频率上的重心，精确到百分之一纳米，与“应用”的设置相同。 |
+| `duration` | `duration` | `10` | 变换极限脉冲的强度半高全宽，单位 fs，用于 `'gaussian'` 和 `'sech2'`。 |
+| `bandwidth` | `bandwidth` | `100` | 光谱的强度半高全宽，单位 nm，用于 `'superGaussian'`。 |
+| `order` | `order` | `2` | 超高斯的阶数，大于 0；2 为高斯，阶数越高，光谱顶部越平。 |
+| `gdd` | `gdd` | `0` | 输入自身的 GDD，单位 fs²，以中心波长为展开点。 |
+| `tod` | `tod` | `0` | 输入自身的 TOD，单位 fs³，以中心波长为展开点。 |
+| `side` | `side` |  | **JavaScript**：`'front'`、`'back'`，或在 `response: 'T'` 时为 `'total'`（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。<br>**Python**："front"、"back"，或在 response="T" 时为 "total"（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
+| `response` | `response` | `'R'` | `'R'` 为反射脉冲，`'T'` 为透射脉冲。 |
+| `pol` | `pol` | `'avg'` | 偏振：`'avg'`、`'s'` 或 `'p'`。 |
+| `angle` | `angle` | `0` | 入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。 |
+| `passes` | `passes` | `1` | 在膜层上反射或穿过膜层的次数，为整数。 |
+
+**返回**：一个 Pulse。
+
+**拒绝**：
+
+- **JavaScript**：它不接受的选项或选项不能取的值、`response: 'R'` 时的 `'total'`、对不含强度大于零的光谱的设计使用 `source: 'design'`、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应，或没有光从元件射出<br>**Python**：它不接受的选项或选项不能取的值、response="R" 时的 "total"、对不含强度大于零的光谱的设计使用 source="design"、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应，或没有光从元件射出
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const p = design.pulse({ centre: 550, duration: 20, passes: 2 });
+console.log('output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, peak', (100 * p.metrics.peakVsFlp).toFixed(1), '% of the Fourier-limited pulse');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+p = design.pulse(centre=550, duration=20, passes=2)
+print("output FWHM", round(p.metrics.output_fwhm, 2), "fs, peak", round(100 * p.metrics.peak_vs_flp, 1), "% of the Fourier-limited pulse")
 ```
 
 ### processSteps / process_steps
@@ -7629,6 +7712,350 @@ name = "group-delay-{}.csv".format(time.time_ns())
 design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 design.group_delay(400, 800, step=1).save_csv(name)
+print("Wrote", name)
+```
+
+## Pulse
+
+脉冲经过设计后在时间和光谱上的变化，由 design.pulse() 计算，与脉冲分析窗口的显示相同：其各项数值、窗口的结果表以及其曲线。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const p = design.pulse({ centre: 550, duration: 20 });
+console.log(p.mode, 'output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, delay', p.metrics.delay.toFixed(2), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+p = design.pulse(centre=550, duration=20)
+print(p.mode, "output FWHM", round(p.metrics.output_fwhm, 2), "fs, delay", round(p.metrics.delay, 2), "fs")
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.mode` | `p.mode` |
+
+所计算的对象：`'front'` 或 `'back'`，一个镀膜面；`'total'`，透射时的整个元件。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).mode, design.pulse({ centre: 550, response: 'T', side: 'total' }).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550).mode, design.pulse(centre=550, response="T", side="total").mode)
+```
+
+### response
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.response` | `p.response` |
+
+所取的脉冲：`'R'` 为反射脉冲，`'T'` 为透射脉冲。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, response: 'T' }).response);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550, response="T").response)
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.pol` | `p.pol` |
+
+偏振：`'avg'`、`'s'` 或 `'p'`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, angle: 45, pol: 'p' }).pol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550, angle=45, pol="p").pol)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.angle` | `p.angle` |
+
+入射角，单位为度，在光射来的介质中计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550, angle=30).angle, "degrees")
+```
+
+### passes
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.passes` | `p.passes` |
+
+在膜层上反射或穿过膜层的次数。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, passes: 4 }).passes, 'bounces');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550, passes=4).passes, "bounces")
+```
+
+### source
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.source` | `p.source` |
+
+光谱的来源：`'model'`，即形状；`'design'`，即设计保存的光谱。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).source);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550).source)
+```
+
+### centre
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.centre` | `p.centre` |
+
+中心波长，单位 nm：给出的值、800 nm，或使用设计的光谱时为其重心。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse().centre, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse().centre, "nm")
+```
+
+### converged
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.converged` | `p.converged` |
+
+时间窗口已扩大到最大、输出仍未完全容纳其中时为 `false` / `False`，此时输出的一部分可能从窗口一端卷绕到另一端，曲线和数值不可靠；否则为 `true` / `True`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).converged);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550).converged)
+```
+
+### chirped
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.chirped` | `p.chirped` |
+
+输入自身的啁啾是否在某处使其形状的改变超过傅里叶变换极限峰值的 1e-4；只有这时，窗口的表格才列出输入的半高全宽。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).chirped, design.pulse({ centre: 550, gdd: 50 }).chirped);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550).chirped, design.pulse(centre=550, gdd=50).chirped)
+```
+
+### metrics
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.metrics` | `p.metrics` |
+
+**JavaScript**：窗口的结果表：`flpFwhm`、`inputFwhm` 和 `outputFwhm`，即傅里叶变换极限脉冲、输入和输出的强度半高全宽，单位 fs；`outputRms`，输出的均方根宽度，单位 fs；`peakVsFlp`，输出峰值与傅里叶变换极限脉冲峰值之比，`transformLimitedRatio`，输出峰值与输出光谱在相位平坦时所能达到的峰值之比，均以 1 的分数表示；`energyRatio`，输出能量与输入能量之比；`delay`，输出相对输入的延迟，单位 fs；`residualGdd` 和 `residualTod`，输出在其光谱上平均的 GDD（单位 fs²）和 TOD（单位 fs³）；`inputBandwidth` 和 `outputBandwidth`，光谱强度半高全宽，单位 nm；`timeBandwidth`，输出的时间带宽积。
+
+**Python**：窗口的结果表，一个 PulseMetrics 具名元组：flp_fwhm、input_fwhm 和 output_fwhm，即傅里叶变换极限脉冲、输入和输出的强度半高全宽，单位 fs；output_rms，输出的均方根宽度，单位 fs；peak_vs_flp，输出峰值与傅里叶变换极限脉冲峰值之比，transform_limited_ratio，输出峰值与输出光谱在相位平坦时所能达到的峰值之比，均以 1 的分数表示；energy_ratio，输出能量与输入能量之比；delay，输出相对输入的延迟，单位 fs；residual_gdd 和 residual_tod，输出在其光谱上平均的 GDD（单位 fs²）和 TOD（单位 fs³）；input_bandwidth 和 output_bandwidth，光谱强度半高全宽，单位 nm；time_bandwidth，输出的时间带宽积。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const m = design.pulse({ centre: 550, duration: 20 }).metrics;
+console.log('FLP', m.flpFwhm.toFixed(2), 'fs, out', m.outputFwhm.toFixed(2), 'fs, residual GDD', m.residualGdd.toFixed(2), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+m = design.pulse(centre=550, duration=20).metrics
+print("FLP", round(m.flp_fwhm, 2), "fs, out", round(m.output_fwhm, 2), "fs, residual GDD", round(m.residual_gdd, 2), "fs²")
+```
+
+### time
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.time` | `p.time` |
+
+**JavaScript**：时间曲线 `flp`、`input` 和 `output`，每条为 `{ t, intensity }`：t 单位为 fs，强度以傅里叶变换极限脉冲峰值为 1 计。它们包含变换中从第一个到最后一个高于该峰值 1e-4 的采样点；超过 4000 个采样点时，依次取每段中的最低点和最高点，因此每条曲线有其自己的 t。输出位于其绝对延迟处；窗口的“去除延迟”视图把它移回 `metrics.delay`。
+
+**Python**：时间曲线，一个 PulseTime 具名元组，包含 flp、input 和 output，每条为 TimeCurve，含 t（单位 fs）和 intensity，强度以傅里叶变换极限脉冲峰值为 1 计。它们包含变换中从第一个到最后一个高于该峰值 1e-4 的采样点；超过 4000 个采样点时，依次取每段中的最低点和最高点，因此每条曲线有其自己的 t。输出位于其绝对延迟处；窗口的“去除延迟”视图把它移回 metrics.delay。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const { output } = design.pulse({ centre: 550 }).time;
+console.log(output.t.length, 'samples, peak', Math.max(...output.intensity).toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+output = design.pulse(centre=550).time.output
+print(len(output.t), "samples, peak", round(max(output.intensity), 4))
+```
+
+### spectrum
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.spectrum` | `p.spectrum` |
+
+**JavaScript**：光谱曲线，每条为 `{ wavelength, values }`，波长单位 nm，按升序：`input` 和 `output`，光谱强度，以输入峰值为 1 计；`coatingGdd`，响应的 GDD 乘以通过次数，单位 fs²，`pol: 'avg'` 时为 s 和 p 的平均；`compensatingGdd`，抵消输入自身啁啾所需的 GDD，单位 fs²。它们包含输入高于其峰值 1e-3 处的变换采样点；变换的采样点较少时，则在该波段上重新计算至少 600 个点。超过 4000 个采样点时，每条曲线依次取其自身数值每段中的最低点和最高点，因此每条曲线这时有其自己的波长。`band` 为 `[low, high]`，单位 nm，即曲线覆盖的波段。
+
+**Python**：光谱曲线，一个 PulseSpectrum 具名元组，每条曲线为 SpectrumCurve，含 wavelength（单位 nm，按升序）和 values：input 和 output，光谱强度，以输入峰值为 1 计；coating_gdd，响应的 GDD 乘以通过次数，单位 fs²，pol="avg" 时为 s 和 p 的平均；compensating_gdd，抵消输入自身啁啾所需的 GDD，单位 fs²。它们包含输入高于其峰值 1e-3 处的变换采样点；变换的采样点较少时，则在该波段上重新计算至少 600 个点。超过 4000 个采样点时，每条曲线依次取其自身数值每段中的最低点和最高点，因此每条曲线这时有其自己的波长。band 为 [low, high]，单位 nm，即曲线覆盖的波段。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const s = design.pulse({ centre: 550 }).spectrum;
+console.log('from', s.band[0].toFixed(1), 'to', s.band[1].toFixed(1), 'nm,', s.coatingGdd.wavelength.length, 'points');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+s = design.pulse(centre=550).spectrum
+print("from", round(s.band[0], 1), "to", round(s.band[1], 1), "nm,", len(s.coating_gdd.wavelength), "points")
+```
+
+### echoDelay / echo_delay
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.echoDelay` | `p.echo_delay` |
+
+对整个元件，从此脉冲到在基底内部反射的第一个回波的时间，单位 fs，即基底在中心波长处往返的群延迟；对一个面为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, response: 'T', side: 'total' }).echoDelay.toFixed(0), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(round(design.pulse(centre=550, response="T", side="total").echo_delay), "fs")
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.outOfRange` | `p.out_of_range` |
+
+**JavaScript**：所计算对象上数据在光谱波段内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该波段时为空。
+
+**Python**：所计算对象上数据在光谱波段内中断的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波段时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print([m["id"] for m in design.pulse(centre=550).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.saveCsv(path)` | `p.save_csv(path)` |
+
+**JavaScript**：把各项数值写入 CSV 文件，与窗口以“复制 CSV”写出其结果表的方式相同：Quantity、Value 和 Unit 三列，每项数值一行，用窗口的措辞，峰值和能量以百分数表示；只有输入带啁啾时才有输入的半高全宽一行。已存在的文件会被覆盖。
+
+**Python**：把各项数值写入 CSV 文件，与窗口以“复制 CSV”写出其结果表的方式相同：Quantity、Value 和 Unit 三列，每项数值一行，用窗口的措辞，峰值和能量以百分数表示；只有输入带啁啾时才有输入的半高全宽一行。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `pulse-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+design.pulse({ centre: 550 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "pulse-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+design.pulse(centre=550).save_csv(name)
 print("Wrote", name)
 ```
 

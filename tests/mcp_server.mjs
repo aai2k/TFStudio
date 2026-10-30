@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 57
+ *   1. The session: initialize and version negotiation, the tool list (the 59
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -43,7 +43,11 @@
  *      past 89.5 degrees are refused; its group delay gives the API's, in
  *      short with the extremes of each curve, past wavelengths with no value,
  *      and in full with its values, through the whole part in transmission on the window's grid, and side
- *      total in reflection and a step that is not one are refused; misspelt
+ *      total in reflection and a step that is not one are refused; a pulse off
+ *      its front gives the API's, in short with its curves counted and in full
+ *      with them, a spectrum set from rows and from a file gives the pulse the
+ *      API computes from it, and a relative path, or a path with rows, is
+ *      refused; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
  *   3. stdout carries only messages, also when the server's own code prints;
@@ -70,6 +74,13 @@ const ok = (name, cond, detail = '') => {
 };
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const alive = async client => (await client.request('ping')).result !== undefined;
+// What pulseAnalysis answers without values: the curves counted, not given.
+const withoutCurves = ({ time, spectrum: { band, ...spectra }, ...settled }) => ({
+    ...settled, band, samples: {
+        time: Object.fromEntries(Object.entries(time).map(([name, curve]) => [name, curve.t.length])),
+        spectrum: Object.fromEntries(Object.entries(spectra).map(([name, curve]) => [name, curve.wavelength.length])),
+    },
+});
 
 // A server whose own code prints to the console after it starts, as library
 // code may: the line must reach stderr, never the protocol.
@@ -87,7 +98,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 57 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 59 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -468,6 +479,37 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         JSON.stringify([partial.invalidCount, partial.invalidReasons, partial.invalid, partialValues.invalid])
         === JSON.stringify([known.invalid.length, [...new Set(known.invalid.map(point => point.reason))], undefined, known.invalid]) && known.invalid.length > 0,
         JSON.stringify([partial.invalidCount, partial.invalidReasons, partial.invalid?.length]));
+
+    // A pulse off its front, and through it from a spectrum the design holds.
+    const asJson = value => JSON.parse(JSON.stringify(value));
+    const pulse = api.pulseAnalysis(edited, { centre: 600, duration: 20 });
+    const shortPulse = await server.call('pulseAnalysis', { designId: two, centre: 600, duration: 20 });
+    const fullPulse = await server.call('pulseAnalysis', { designId: two, centre: 600, duration: 20, values: true });
+    const { time, spectrum: { band, ...spectra }, ...settled } = pulse;
+    ok('pulseAnalysis answers with the settings, the metrics and how many samples each curve holds, and every curve for values true',
+        JSON.stringify(shortPulse) === JSON.stringify(asJson({ designId: two, ...withoutCurves(pulse) }))
+        && JSON.stringify(fullPulse) === JSON.stringify(asJson({ designId: two, ...settled, band, time, spectrum: spectra })), JSON.stringify(shortPulse).slice(0, 300));
+    const spectrumRows = [];
+    for (let w = 560; w <= 640; w += 2) spectrumRows.push([w, Math.exp(-(((w - 600) / 15) ** 2))]);
+    const spectrumFile = path.join(TEMP, 'pulse.csv');
+    fs.writeFileSync(spectrumFile, `Wavelength (nm),Intensity\n${spectrumRows.map(row => row.join(',')).join('\n')}\n`);
+    const fromRows = await server.call('setPulseSpectrum', { designId: two, rows: spectrumRows });
+    const throughRows = await server.call('pulseAnalysis', { designId: two, source: 'design' });
+    const held = api.setPulseSpectrum(edited, spectrumRows);
+    ok('setPulseSpectrum sets the rows, which pulseAnalysis with source design reads',
+        fromRows.rows === spectrumRows.length && JSON.stringify(throughRows) === JSON.stringify(asJson({ designId: two, ...withoutCurves(api.pulseAnalysis(held, { source: 'design' })) })),
+        JSON.stringify(fromRows).slice(0, 200));
+    const fromFile = await server.call('setPulseSpectrum', { designId: two, path: spectrumFile });
+    const centred = (await server.call('pulseAnalysis', { designId: two, source: 'design' })).centre;
+    const relative = await server.call('setPulseSpectrum', { designId: two, path: 'pulse.csv' });
+    const both = await server.call('setPulseSpectrum', { designId: two, path: spectrumFile, rows: spectrumRows });
+    ok('it reads a table file, and a relative path and a path with rows are refused',
+        fromFile.rows === spectrumRows.length && centred === api.pulseAnalysis(api.setPulseSpectrum(edited, spectrumFile), { source: 'design' }).centre
+        && /absolute path/.test(relative.error ?? '') && /path or rows/.test(both.error ?? ''), `${centred} / ${relative.error} / ${both.error}`);
+    const neither = await server.call('setPulseSpectrum', { designId: two });
+    const oneNumber = await server.call('setPulseSpectrum', { designId: two, rows: [[800, 1], [810]] });
+    ok('without path or rows, or with a row of one number, it is refused in the words of its own arguments',
+        /give either path or rows/.test(neither.error ?? '') && /rows\[1\] is \[wavelength nm, intensity\]/.test(oneNumber.error ?? ''), `${neither.error} / ${oneNumber.error}`);
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────

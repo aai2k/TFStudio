@@ -15,6 +15,7 @@ arguments, the fields the test gives setSpecification].
 import copy
 import inspect
 import json
+import math
 import os
 import sys
 import time
@@ -63,6 +64,7 @@ def objects(given):
         colour_and_integrals(tf)
         ellipsometry(tf)
         group_delay(tf)
+        pulse(tf)
         material_dispersion(tf)
         band_features(tf)
         measured_curves(tf)
@@ -665,6 +667,54 @@ def group_delay(tf):
                         "types": [type(asked[0].gd).__name__, type(asked[0].phase).__name__],
                         "csv": [text_of("uniform.csv"), text_of("auto.csv")], "worded": worded,
                         "shown": [repr(g) for g in asked]}})
+
+
+def pulse_of(p):
+    return [p.mode, p.response, p.pol, p.angle, p.passes, p.source, p.centre, p.converged, p.chirped, list(p.metrics),
+            [[c.t, c.intensity] for c in p.time], [[c.wavelength, c.values] for c in p.spectrum[:4]], p.spectrum.band,
+            p.echo_delay, p.out_of_range]
+
+
+def pulse(tf):
+    """pulse() of a mirror and of a design coated on both sides, with its
+    defaults and each keyword; set_pulse_spectrum() from rows and from a
+    file, and pulse() from each; the named tuples; the CSV of a plain and a
+    chirped pulse; their refusals and repr()."""
+    mirror = tf.new_design("Mirror", reference=800)
+    mirror.stack("(HL)^8 H")
+    two = mirror.copy()
+    two.sides = "both"
+    two.back_layers.append("MgF2", 140)
+    rows = [[w, math.exp(-((w - 800) / 20) ** 2)] for w in range(760, 841, 2)]
+    held = mirror.copy()
+    held.set_pulse_spectrum(rows)
+    with open("pulse.txt", "w", encoding="utf-8") as file:
+        file.write("Wavelength (nm)\tIntensity\tPhase (rad)\n"
+                   + "\n".join("{}\t{}\t{}".format(w, i, 0.001 * (w - 800) ** 2) for w, i in rows) + "\n")
+    read = mirror.copy()
+    read.set_pulse_spectrum("pulse.txt")
+    asked = [mirror.pulse(),
+             mirror.pulse(shape="sech2", centre=780, duration=12, gdd=40, tod=200, pol="s", angle=20, passes=2),
+             mirror.pulse(shape="superGaussian", bandwidth=60, order=4, response="T"),
+             two.pulse(side="total", response="T", angle=10),
+             two.pulse(side="back", pol="p"),
+             held.pulse(source="design"),
+             read.pulse(source="design", centre=805)]
+    asked[0].save_csv("pulse.csv")
+    asked[1].save_csv("chirped.csv")
+    p = asked[1]
+    worded = [refused(make) for make in (
+        lambda: mirror.pulse(center=800), lambda: mirror.pulse(side="total"), lambda: mirror.pulse(passes=1.5),
+        lambda: mirror.pulse(shape="lorentzian"), lambda: mirror.pulse(source="design"), lambda: mirror.pulse(duration=1),
+        lambda: mirror.copy().set_pulse_spectrum([[800, 1]]), lambda: mirror.copy().set_pulse_spectrum([[800]]))]
+    out({"pulse": {"designs": [mirror._data, two._data, held._data, read._data], "rows": rows,
+                   "asked": [pulse_of(x) for x in asked],
+                   "tuples": [type(p.metrics).__name__, list(type(p.metrics)._fields), type(p.time).__name__,
+                              list(type(p.time)._fields), type(p.time.output).__name__, list(type(p.time.output)._fields),
+                              type(p.spectrum).__name__, list(type(p.spectrum)._fields), type(p.spectrum.input).__name__,
+                              list(type(p.spectrum.input)._fields)],
+                   "csv": [text_of("pulse.csv"), text_of("chirped.csv")], "worded": worded,
+                   "shown": [repr(asked[0]), repr(asked[1]), repr(asked[5])]}})
 
 
 def material_dispersion(tf):

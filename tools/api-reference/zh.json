@@ -2967,6 +2967,106 @@
     "hash": "15de6106",
     "text": "不构成范围的波长范围、既不是正数也不是 \"auto\" 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、response=\"R\" 时的 \"total\"、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计"
   },
+  "Design.setPulseSpectrum.arg.fileOrRows.js": {
+    "hash": "32cc0e3d",
+    "text": "文本表格的路径，给出完整路径；或若干行 `[wavelength nm, intensity]` 或 `[wavelength nm, intensity, phase rad]`。"
+  },
+  "Design.setPulseSpectrum.arg.fileOrRows.py": {
+    "hash": "410384c1",
+    "text": "文本表格的路径；或若干行 [wavelength nm, intensity] 或 [wavelength nm, intensity, phase rad]。相对路径以程序的工作文件夹为基准。"
+  },
+  "Design.setPulseSpectrum.lead.1.js": {
+    "hash": "3bdff2e4",
+    "text": "设置设计为脉冲分析保存的光谱，与窗口的“载入文件…”和“应用”的设置方式相同：文本表格按曲线编辑器的读法读取，波长列的单位取其标题所写的单位；或直接给出若干行。每行为一个波长和一个强度；给出第三列时，还有以弧度表示的光谱相位。对波长而言，强度按单位波长的强度读取，与光谱仪的记录方式相同。各行按给出的单位、按升序保存，并随设计一起保存。`source: 'design'` 时 pulse() 读取它们，其中心波长即为它们的重心，窗口的“应用”也把中心波长移到该处。"
+  },
+  "Design.setPulseSpectrum.lead.1.py": {
+    "hash": "88dca008",
+    "text": "设置设计为脉冲分析保存的光谱，与窗口的“载入文件…”和“应用”的设置方式相同：文本表格按曲线编辑器的读法读取，波长列的单位取其标题所写的单位；或直接给出若干行。每行为一个波长和一个强度；给出第三列时，还有以弧度表示的光谱相位。对波长而言，强度按单位波长的强度读取，与光谱仪的记录方式相同。各行按给出的单位、按升序保存，并随设计一起保存。source=\"design\" 时 pulse() 读取它们，其中心波长即为它们的重心，窗口的“应用”也把中心波长移到该处。"
+  },
+  "Design.setPulseSpectrum.refuses.1": {
+    "hash": "7feb4b9d",
+    "text": "无法读取或没有波长和强度列的文件、不是两个或三个数的行、波长大于 0 且强度不小于 0 的行少于两行、没有强度大于 0 的行，或部分行有相位而其他行没有"
+  },
+  "Design.pulse.arg.source": {
+    "hash": "068eaa9c",
+    "text": "`'model'`，即 `shape` 给出的光谱；或 `'design'`，即设计保存的光谱。"
+  },
+  "Design.pulse.arg.shape": {
+    "hash": "097eb4c1",
+    "text": "`'gaussian'` 或 `'sech2'`，即给定 `duration` 的脉冲；或 `'superGaussian'`，即给定 `bandwidth` 和 `order` 的光谱。"
+  },
+  "Design.pulse.arg.centre.js": {
+    "hash": "c2911277",
+    "text": "中心波长，单位 nm，即啁啾所围绕展开的载波。不给出时为 800 nm；`source: 'design'` 时为光谱在频率上的重心，精确到百分之一纳米，与“应用”的设置相同。"
+  },
+  "Design.pulse.arg.centre.py": {
+    "hash": "dfa305e6",
+    "text": "中心波长，单位 nm，即啁啾所围绕展开的载波。不给出时为 800 nm；source=\"design\" 时为光谱在频率上的重心，精确到百分之一纳米，与“应用”的设置相同。"
+  },
+  "Design.pulse.arg.duration": {
+    "hash": "fc8e9865",
+    "text": "变换极限脉冲的强度半高全宽，单位 fs，用于 `'gaussian'` 和 `'sech2'`。"
+  },
+  "Design.pulse.arg.bandwidth": {
+    "hash": "82bc1168",
+    "text": "光谱的强度半高全宽，单位 nm，用于 `'superGaussian'`。"
+  },
+  "Design.pulse.arg.order": {
+    "hash": "b60000d9",
+    "text": "超高斯的阶数，大于 0；2 为高斯，阶数越高，光谱顶部越平。"
+  },
+  "Design.pulse.arg.gdd": {
+    "hash": "9f69bec4",
+    "text": "输入自身的 GDD，单位 fs²，以中心波长为展开点。"
+  },
+  "Design.pulse.arg.tod": {
+    "hash": "ee1ac351",
+    "text": "输入自身的 TOD，单位 fs³，以中心波长为展开点。"
+  },
+  "Design.pulse.arg.side.js": {
+    "hash": "338f59b4",
+    "text": "`'front'`、`'back'`，或在 `response: 'T'` 时为 `'total'`（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。"
+  },
+  "Design.pulse.arg.side.py": {
+    "hash": "18f88555",
+    "text": "\"front\"、\"back\"，或在 response=\"T\" 时为 \"total\"（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。"
+  },
+  "Design.pulse.arg.response": {
+    "hash": "0cd05c41",
+    "text": "`'R'` 为反射脉冲，`'T'` 为透射脉冲。"
+  },
+  "Design.pulse.arg.pol": {
+    "hash": "80884b87",
+    "text": "偏振：`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "Design.pulse.arg.angle": {
+    "hash": "04ad2001",
+    "text": "入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。"
+  },
+  "Design.pulse.arg.passes": {
+    "hash": "05e65d96",
+    "text": "在膜层上反射或穿过膜层的次数，为整数。"
+  },
+  "Design.pulse.returns": {
+    "hash": "ddd74cad",
+    "text": "一个 Pulse。"
+  },
+  "Design.pulse.lead.1.js": {
+    "hash": "d32b46f8",
+    "text": "脉冲经过设计后在时间和光谱上的变化，与脉冲分析窗口的计算相同：脉冲在一个镀膜面上反射或透射，或穿过整个元件，即正面膜层、穿过一次基底以及背面膜层，取从中射出的第一个脉冲；连续反射或穿过 `passes` 次。其光谱为以中心波长为中心的高斯、sech² 或超高斯光谱，或在 `source: 'design'` 时为设计保存的光谱（setPulseSpectrum()），再叠加 `gdd` 和 `tod` 给出的啁啾。与窗口一样，不使用设计的入射锥角。不给出选项时，使用窗口打开时的设置，面为 PR、GD、GDD 和 TOD 评价函数行所评价的面：仅背面镀膜的设计为背面，其他设计为正面。窗口打开时，除非只有背面有膜层，否则选择正面，因此一面没有膜层时两者可能不同；没有膜层的面给出其裸表面的结果。"
+  },
+  "Design.pulse.lead.1.py": {
+    "hash": "1b25e5a5",
+    "text": "脉冲经过设计后在时间和光谱上的变化，与脉冲分析窗口的计算相同：脉冲在一个镀膜面上反射或透射，或穿过整个元件，即正面膜层、穿过一次基底以及背面膜层，取从中射出的第一个脉冲；连续反射或穿过 passes 次。其光谱为以中心波长为中心的高斯、sech² 或超高斯光谱，或在 source=\"design\" 时为设计保存的光谱（set_pulse_spectrum()），再叠加 gdd 和 tod 给出的啁啾。与窗口一样，不使用设计的入射锥角。不给出关键字参数时，使用窗口打开时的设置，面为 PR、GD、GDD 和 TOD 评价函数行所评价的面：仅背面镀膜的设计为背面，其他设计为正面。窗口打开时，除非只有背面有膜层，否则选择正面，因此一面没有膜层时两者可能不同；没有膜层的面给出其裸表面的结果。"
+  },
+  "Design.pulse.refuses.1.js": {
+    "hash": "7bef0d7a",
+    "text": "它不接受的选项或选项不能取的值、`response: 'R'` 时的 `'total'`、对不含强度大于零的光谱的设计使用 `source: 'design'`、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应，或没有光从元件射出"
+  },
+  "Design.pulse.refuses.1.py": {
+    "hash": "505a5107",
+    "text": "它不接受的选项或选项不能取的值、response=\"R\" 时的 \"total\"、对不含强度大于零的光谱的设计使用 source=\"design\"、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应，或没有光从元件射出"
+  },
   "Ellipsometry.lead.1": {
     "hash": "a7421ab7",
     "text": "一个镀膜面的 Ψ 和 Δ：design.ellipsometry() 在一个或多个入射角下随波长计算它们，`design.ellipsometryVsAngle()` / `design.ellipsometry_vs_angle()` 在一个波长处随角度计算它们。随波长计算时，`e.psi` 和 `e.delta` 是第一个所要求角度下的 Curve，`e.angle(70)` 是另一个角度下的扫描；随角度计算时，它们是 AngleCurve。"
@@ -3210,6 +3310,98 @@
   "GroupDelay.saveCsv.lead.1.py": {
     "hash": "4a64917a",
     "text": "把曲线写入 CSV 文件，与窗口以“复制 CSV”写出其表格的方式相同：先是 λ (nm)；有采样的表格节点时接着是 Knot 列，节点两侧各一行，即 λ− 和 λ+；有数值取自材料数据之外时接着是 Outside data 列；然后是 Group Delay (fs)、GDD (fs²)、CDC (fs/nm)、Phase φ (°) 和 TOD (fs³)。相位即 phase 所含的相位。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+  },
+  "Pulse.lead.1": {
+    "hash": "324ab3e4",
+    "text": "脉冲经过设计后在时间和光谱上的变化，由 design.pulse() 计算，与脉冲分析窗口的显示相同：其各项数值、窗口的结果表以及其曲线。"
+  },
+  "Pulse.mode.lead.1": {
+    "hash": "f3b565fb",
+    "text": "所计算的对象：`'front'` 或 `'back'`，一个镀膜面；`'total'`，透射时的整个元件。"
+  },
+  "Pulse.response.lead.1": {
+    "hash": "697cdb70",
+    "text": "所取的脉冲：`'R'` 为反射脉冲，`'T'` 为透射脉冲。"
+  },
+  "Pulse.pol.lead.1": {
+    "hash": "80884b87",
+    "text": "偏振：`'avg'`、`'s'` 或 `'p'`。"
+  },
+  "Pulse.angle.lead.1": {
+    "hash": "bd01efdb",
+    "text": "入射角，单位为度，在光射来的介质中计。"
+  },
+  "Pulse.passes.lead.1": {
+    "hash": "e844855d",
+    "text": "在膜层上反射或穿过膜层的次数。"
+  },
+  "Pulse.source.lead.1": {
+    "hash": "339948d9",
+    "text": "光谱的来源：`'model'`，即形状；`'design'`，即设计保存的光谱。"
+  },
+  "Pulse.centre.lead.1": {
+    "hash": "0aee9fe4",
+    "text": "中心波长，单位 nm：给出的值、800 nm，或使用设计的光谱时为其重心。"
+  },
+  "Pulse.converged.lead.1": {
+    "hash": "5b729624",
+    "text": "时间窗口已扩大到最大、输出仍未完全容纳其中时为 `false` / `False`，此时输出的一部分可能从窗口一端卷绕到另一端，曲线和数值不可靠；否则为 `true` / `True`。"
+  },
+  "Pulse.chirped.lead.1": {
+    "hash": "abf363ec",
+    "text": "输入自身的啁啾是否在某处使其形状的改变超过傅里叶变换极限峰值的 1e-4；只有这时，窗口的表格才列出输入的半高全宽。"
+  },
+  "Pulse.metrics.lead.1.js": {
+    "hash": "f186c31c",
+    "text": "窗口的结果表：`flpFwhm`、`inputFwhm` 和 `outputFwhm`，即傅里叶变换极限脉冲、输入和输出的强度半高全宽，单位 fs；`outputRms`，输出的均方根宽度，单位 fs；`peakVsFlp`，输出峰值与傅里叶变换极限脉冲峰值之比，`transformLimitedRatio`，输出峰值与输出光谱在相位平坦时所能达到的峰值之比，均以 1 的分数表示；`energyRatio`，输出能量与输入能量之比；`delay`，输出相对输入的延迟，单位 fs；`residualGdd` 和 `residualTod`，输出在其光谱上平均的 GDD（单位 fs²）和 TOD（单位 fs³）；`inputBandwidth` 和 `outputBandwidth`，光谱强度半高全宽，单位 nm；`timeBandwidth`，输出的时间带宽积。"
+  },
+  "Pulse.metrics.lead.1.py": {
+    "hash": "34f81f12",
+    "text": "窗口的结果表，一个 PulseMetrics 具名元组：flp_fwhm、input_fwhm 和 output_fwhm，即傅里叶变换极限脉冲、输入和输出的强度半高全宽，单位 fs；output_rms，输出的均方根宽度，单位 fs；peak_vs_flp，输出峰值与傅里叶变换极限脉冲峰值之比，transform_limited_ratio，输出峰值与输出光谱在相位平坦时所能达到的峰值之比，均以 1 的分数表示；energy_ratio，输出能量与输入能量之比；delay，输出相对输入的延迟，单位 fs；residual_gdd 和 residual_tod，输出在其光谱上平均的 GDD（单位 fs²）和 TOD（单位 fs³）；input_bandwidth 和 output_bandwidth，光谱强度半高全宽，单位 nm；time_bandwidth，输出的时间带宽积。"
+  },
+  "Pulse.time.lead.1.js": {
+    "hash": "ba69752f",
+    "text": "时间曲线 `flp`、`input` 和 `output`，每条为 `{ t, intensity }`：t 单位为 fs，强度以傅里叶变换极限脉冲峰值为 1 计。它们包含变换中从第一个到最后一个高于该峰值 1e-4 的采样点；超过 4000 个采样点时，依次取每段中的最低点和最高点，因此每条曲线有其自己的 t。输出位于其绝对延迟处；窗口的“去除延迟”视图把它移回 `metrics.delay`。"
+  },
+  "Pulse.time.lead.1.py": {
+    "hash": "18644b66",
+    "text": "时间曲线，一个 PulseTime 具名元组，包含 flp、input 和 output，每条为 TimeCurve，含 t（单位 fs）和 intensity，强度以傅里叶变换极限脉冲峰值为 1 计。它们包含变换中从第一个到最后一个高于该峰值 1e-4 的采样点；超过 4000 个采样点时，依次取每段中的最低点和最高点，因此每条曲线有其自己的 t。输出位于其绝对延迟处；窗口的“去除延迟”视图把它移回 metrics.delay。"
+  },
+  "Pulse.spectrum.lead.1.js": {
+    "hash": "aba638fe",
+    "text": "光谱曲线，每条为 `{ wavelength, values }`，波长单位 nm，按升序：`input` 和 `output`，光谱强度，以输入峰值为 1 计；`coatingGdd`，响应的 GDD 乘以通过次数，单位 fs²，`pol: 'avg'` 时为 s 和 p 的平均；`compensatingGdd`，抵消输入自身啁啾所需的 GDD，单位 fs²。它们包含输入高于其峰值 1e-3 处的变换采样点；变换的采样点较少时，则在该波段上重新计算至少 600 个点。超过 4000 个采样点时，每条曲线依次取其自身数值每段中的最低点和最高点，因此每条曲线这时有其自己的波长。`band` 为 `[low, high]`，单位 nm，即曲线覆盖的波段。"
+  },
+  "Pulse.spectrum.lead.1.py": {
+    "hash": "062d9072",
+    "text": "光谱曲线，一个 PulseSpectrum 具名元组，每条曲线为 SpectrumCurve，含 wavelength（单位 nm，按升序）和 values：input 和 output，光谱强度，以输入峰值为 1 计；coating_gdd，响应的 GDD 乘以通过次数，单位 fs²，pol=\"avg\" 时为 s 和 p 的平均；compensating_gdd，抵消输入自身啁啾所需的 GDD，单位 fs²。它们包含输入高于其峰值 1e-3 处的变换采样点；变换的采样点较少时，则在该波段上重新计算至少 600 个点。超过 4000 个采样点时，每条曲线依次取其自身数值每段中的最低点和最高点，因此每条曲线这时有其自己的波长。band 为 [low, high]，单位 nm，即曲线覆盖的波段。"
+  },
+  "Pulse.echoDelay.lead.1": {
+    "hash": "fe0abbe2",
+    "text": "对整个元件，从此脉冲到在基底内部反射的第一个回波的时间，单位 fs，即基底在中心波长处往返的群延迟；对一个面为 `null` / `None`。"
+  },
+  "Pulse.outOfRange.lead.1.js": {
+    "hash": "fe4d4cf2",
+    "text": "所计算对象上数据在光谱波段内中断的材料，一个由 `{ id, name, rangeNm, heldFlat }` 组成的数组：在 `rangeNm` 之外，它们的 n 和 k 保持在最后的值（`heldFlat` 为 true）或外推得到。每种材料都覆盖该波段时为空。"
+  },
+  "Pulse.outOfRange.lead.1.py": {
+    "hash": "3c6dea23",
+    "text": "所计算对象上数据在光谱波段内中断的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波段时为空。"
+  },
+  "Pulse.saveCsv.arg.path.js": {
+    "hash": "b38b7297",
+    "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
+  },
+  "Pulse.saveCsv.arg.path.py": {
+    "hash": "0a83b55a",
+    "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
+  },
+  "Pulse.saveCsv.lead.1.js": {
+    "hash": "e8061827",
+    "text": "把各项数值写入 CSV 文件，与窗口以“复制 CSV”写出其结果表的方式相同：Quantity、Value 和 Unit 三列，每项数值一行，用窗口的措辞，峰值和能量以百分数表示；只有输入带啁啾时才有输入的半高全宽一行。已存在的文件会被覆盖。"
+  },
+  "Pulse.saveCsv.lead.1.py": {
+    "hash": "eccd5561",
+    "text": "把各项数值写入 CSV 文件，与窗口以“复制 CSV”写出其结果表的方式相同：Quantity、Value 和 Unit 三列，每项数值一行，用窗口的措辞，峰值和能量以百分数表示；只有输入带啁啾时才有输入的半高全宽一行。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
   },
   "Material.dispersion.arg.start": {
     "hash": "115f61f2",

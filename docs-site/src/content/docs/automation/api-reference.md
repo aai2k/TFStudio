@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -1681,6 +1681,89 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 g = design.group_delay(500, 600, step=1)
 print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+```
+
+### setPulseSpectrum / set_pulse_spectrum
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.setPulseSpectrum(fileOrRows)` | `design.set_pulse_spectrum(file_or_rows)` |
+
+**JavaScript**: Sets the spectrum the design holds for Pulse Analysis, as the window's Load file… and Apply set it: a text table read as the curve editor reads it, its wavelength column in the unit its heading names, or rows given. Each row is a wavelength, an intensity and, when a third column is given, the spectral phase in rad; against wavelength the intensity is read as per unit wavelength, as a spectrometer records it. The rows are kept in the units given, in rising order, and the design saves them. pulse() with `source: 'design'` reads them, its centre then their centroid, where the window's Apply moves its centre.
+
+**Python**: Sets the spectrum the design holds for Pulse Analysis, as the window's Load file… and Apply set it: a text table read as the curve editor reads it, its wavelength column in the unit its heading names, or rows given. Each row is a wavelength, an intensity and, when a third column is given, the spectral phase in rad; against wavelength the intensity is read as per unit wavelength, as a spectrometer records it. The rows are kept in the units given, in rising order, and the design saves them. pulse() with source="design" reads them, its centre then their centroid, where the window's Apply moves its centre.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `fileOrRows` | `file_or_rows` |  | **JavaScript**: The path of a text table, by its full path, or rows `[wavelength nm, intensity]` or `[wavelength nm, intensity, phase rad]`.<br>**Python**: The path of a text table, or rows [wavelength nm, intensity] or [wavelength nm, intensity, phase rad]. A relative path is taken from the program's working folder. |
+
+**Refuses**:
+
+- a file that cannot be read or holds no wavelength and intensity columns, a row that is not two or three numbers, fewer than two rows with a wavelength above 0 and an intensity not below 0, no row with an intensity above 0, or a phase on some rows and not on others
+
+```js
+const rows = [];
+for (let w = 760; w <= 840; w += 2) rows.push([w, Math.exp(-(((w - 800) / 20) ** 2))]);
+const design = tf.newDesign('Mirror', { reference: 800 });
+design.stack('(HL)^8 H');
+design.setPulseSpectrum(rows);
+console.log('centre', design.pulse({ source: 'design' }).centre, 'nm');
+```
+
+```python
+import math
+
+rows = [[w, math.exp(-((w - 800) / 20) ** 2)] for w in range(760, 841, 2)]
+design = tf.new_design("Mirror", reference=800)
+design.stack("(HL)^8 H")
+design.set_pulse_spectrum(rows)
+print("centre", design.pulse(source="design").centre, "nm")
+```
+
+### pulse
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.pulse({ source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes })` | `design.pulse(source="model", shape="gaussian", centre=..., duration=10, bandwidth=100, order=2, gdd=0, tod=0, side=..., response="R", pol="avg", angle=0, passes=1)` |
+
+**JavaScript**: A pulse's passage through the design, in time and in its spectrum, as the Pulse Analysis window computes it: the pulse is reflected off or transmitted through one coated side, or through the whole part, the front coating, one pass through the substrate and the back coating, the first pulse to come out of it; `passes` bounces or passes in a row. Its spectrum is a Gaussian, sech² or super-Gaussian about the centre wavelength, or with `source: 'design'` the spectrum the design holds (setPulseSpectrum()), with the chirp of `gdd` and `tod` on top. The design's cone of incidence is not used, as the window does not use it. Without options, the window's opening settings, on the side the PR, GD, GDD and TOD merit rows score: the back of a design coated on the back alone and the front of any other. The window opens on the front unless only the back holds layers, so with one side empty the two can differ; a side with no layers gives its bare surface.
+
+**Python**: A pulse's passage through the design, in time and in its spectrum, as the Pulse Analysis window computes it: the pulse is reflected off or transmitted through one coated side, or through the whole part, the front coating, one pass through the substrate and the back coating, the first pulse to come out of it; passes bounces or passes in a row. Its spectrum is a Gaussian, sech² or super-Gaussian about the centre wavelength, or with source="design" the spectrum the design holds (set_pulse_spectrum()), with the chirp of gdd and tod on top. The design's cone of incidence is not used, as the window does not use it. Without keywords, the window's opening settings, on the side the PR, GD, GDD and TOD merit rows score: the back of a design coated on the back alone and the front of any other. The window opens on the front unless only the back holds layers, so with one side empty the two can differ; a side with no layers gives its bare surface.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `source` | `source` | `'model'` | `'model'`, the spectrum of `shape`, or `'design'`, the spectrum the design holds. |
+| `shape` | `shape` | `'gaussian'` | `'gaussian'` or `'sech2'`, a pulse of `duration`, or `'superGaussian'`, a spectrum of `bandwidth` and `order`. |
+| `centre` | `centre` |  | **JavaScript**: The centre wavelength, nm, the carrier the chirp is taken about. Without it, 800 nm; with `source: 'design'`, the spectrum's centroid in frequency to the hundredth of a nanometre, as Apply sets it.<br>**Python**: The centre wavelength, nm, the carrier the chirp is taken about. Without it, 800 nm, or with source="design" the spectrum's centroid in frequency to the hundredth of a nanometre, as Apply sets it. |
+| `duration` | `duration` | `10` | The intensity FWHM of the transform-limited pulse, fs, for `'gaussian'` and `'sech2'`. |
+| `bandwidth` | `bandwidth` | `100` | The intensity FWHM of the spectrum, nm, for `'superGaussian'`. |
+| `order` | `order` | `2` | The super-Gaussian's order, above 0; 2 is a Gaussian, and a higher order flattens the top of the spectrum. |
+| `gdd` | `gdd` | `0` | The input's own GDD, fs², about the centre wavelength. |
+| `tod` | `tod` | `0` | The input's own TOD, fs³, about the centre wavelength. |
+| `side` | `side` |  | **JavaScript**: `'front'`, `'back'`, or with `response: 'T'` `'total'`, the whole part. Without it, the back of a design coated on the back alone and the front of any other.<br>**Python**: "front", "back", or with response="T" "total", the whole part. Without it, the back of a design coated on the back alone and the front of any other. |
+| `response` | `response` | `'R'` | `'R'`, the reflected pulse, or `'T'`, the transmitted one. |
+| `pol` | `pol` | `'avg'` | The polarization: `'avg'`, `'s'` or `'p'`. |
+| `angle` | `angle` | `0` | The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90. |
+| `passes` | `passes` | `1` | The bounces off the coating, or passes through it, a whole number. |
+
+**Returns**: A Pulse.
+
+**Refuses**:
+
+- **JavaScript**: an option it does not take or a value an option cannot take, `'total'` with `response: 'R'`, `source: 'design'` on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, or no light out of the part<br>**Python**: an option it does not take or a value an option cannot take, "total" with response="R", source="design" on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, or no light out of the part
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const p = design.pulse({ centre: 550, duration: 20, passes: 2 });
+console.log('output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, peak', (100 * p.metrics.peakVsFlp).toFixed(1), '% of the Fourier-limited pulse');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+p = design.pulse(centre=550, duration=20, passes=2)
+print("output FWHM", round(p.metrics.output_fwhm, 2), "fs, peak", round(100 * p.metrics.peak_vs_flp, 1), "% of the Fourier-limited pulse")
 ```
 
 ### processSteps / process_steps
@@ -7629,6 +7712,350 @@ name = "group-delay-{}.csv".format(time.time_ns())
 design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 design.group_delay(400, 800, step=1).save_csv(name)
+print("Wrote", name)
+```
+
+## Pulse
+
+A pulse's passage through a design, in time and in its spectrum, as design.pulse() computes it and the Pulse Analysis window shows it: its metrics, the window's Results table, and its curves.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const p = design.pulse({ centre: 550, duration: 20 });
+console.log(p.mode, 'output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, delay', p.metrics.delay.toFixed(2), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+p = design.pulse(centre=550, duration=20)
+print(p.mode, "output FWHM", round(p.metrics.output_fwhm, 2), "fs, delay", round(p.metrics.delay, 2), "fs")
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.mode` | `p.mode` |
+
+The sides computed: `'front'` or `'back'`, one coated side, or `'total'`, the whole part in transmission.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).mode, design.pulse({ centre: 550, response: 'T', side: 'total' }).mode);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550).mode, design.pulse(centre=550, response="T", side="total").mode)
+```
+
+### response
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.response` | `p.response` |
+
+The pulse taken: `'R'`, the reflected one, or `'T'`, the transmitted one.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, response: 'T' }).response);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550, response="T").response)
+```
+
+### pol
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.pol` | `p.pol` |
+
+The polarization: `'avg'`, `'s'` or `'p'`.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, angle: 45, pol: 'p' }).pol);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550, angle=45, pol="p").pol)
+```
+
+### angle
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.angle` | `p.angle` |
+
+The angle of incidence, degrees in the medium light comes from.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, angle: 30 }).angle, 'degrees');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550, angle=30).angle, "degrees")
+```
+
+### passes
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.passes` | `p.passes` |
+
+The bounces off the coating, or passes through it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, passes: 4 }).passes, 'bounces');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550, passes=4).passes, "bounces")
+```
+
+### source
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.source` | `p.source` |
+
+Where the spectrum comes from: `'model'`, the shape, or `'design'`, the spectrum the design holds.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).source);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550).source)
+```
+
+### centre
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.centre` | `p.centre` |
+
+The centre wavelength, nm: the one given, 800 nm, or with the design's spectrum its centroid.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse().centre, 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse().centre, "nm")
+```
+
+### converged
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.converged` | `p.converged` |
+
+`false` / `False` when the time window reached its largest size before the output fitted inside it, so part of the output may wrap round from one end to the other and the curves and metrics are not reliable; `true` / `True` otherwise.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).converged);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550).converged)
+```
+
+### chirped
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.chirped` | `p.chirped` |
+
+Whether the input's own chirp changes its shape anywhere by more than 1e-4 of the Fourier-limited peak; the window's table lists the input's FWHM only then.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).chirped, design.pulse({ centre: 550, gdd: 50 }).chirped);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(design.pulse(centre=550).chirped, design.pulse(centre=550, gdd=50).chirped)
+```
+
+### metrics
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.metrics` | `p.metrics` |
+
+**JavaScript**: The window's Results table: `flpFwhm`, `inputFwhm` and `outputFwhm`, the intensity FWHM of the Fourier-limited pulse, the input and the output, fs; `outputRms`, the output's RMS width, fs; `peakVsFlp`, the output's peak over the Fourier-limited pulse's, and `transformLimitedRatio`, over the peak the output's own spectrum would reach with a flat phase, fractions of 1; `energyRatio`, the energy out over the energy in; `delay`, the output's delay after the input, fs; `residualGdd` and `residualTod`, the output's GDD, fs², and TOD, fs³, averaged over its spectrum; `inputBandwidth` and `outputBandwidth`, the spectral intensity FWHM, nm; `timeBandwidth`, the output's time-bandwidth product.
+
+**Python**: The window's Results table, a PulseMetrics named tuple: flp_fwhm, input_fwhm and output_fwhm, the intensity FWHM of the Fourier-limited pulse, the input and the output, fs; output_rms, the output's RMS width, fs; peak_vs_flp, the output's peak over the Fourier-limited pulse's, and transform_limited_ratio, over the peak the output's own spectrum would reach with a flat phase, fractions of 1; energy_ratio, the energy out over the energy in; delay, the output's delay after the input, fs; residual_gdd and residual_tod, the output's GDD, fs², and TOD, fs³, averaged over its spectrum; input_bandwidth and output_bandwidth, the spectral intensity FWHM, nm; time_bandwidth, the output's time-bandwidth product.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const m = design.pulse({ centre: 550, duration: 20 }).metrics;
+console.log('FLP', m.flpFwhm.toFixed(2), 'fs, out', m.outputFwhm.toFixed(2), 'fs, residual GDD', m.residualGdd.toFixed(2), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+m = design.pulse(centre=550, duration=20).metrics
+print("FLP", round(m.flp_fwhm, 2), "fs, out", round(m.output_fwhm, 2), "fs, residual GDD", round(m.residual_gdd, 2), "fs²")
+```
+
+### time
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.time` | `p.time` |
+
+**JavaScript**: The time curves, `flp`, `input` and `output`, each `{ t, intensity }`: t in fs, the intensity on the scale where the Fourier-limited pulse peaks at 1. They hold the transform's samples from the first to the last above 1e-4 of that peak, and past 4000 samples the lowest and highest of each run in turn, so each curve has its own t. The output is at its absolute delay; the window's Delay removed view moves it back by `metrics.delay`.
+
+**Python**: The time curves, a PulseTime named tuple of flp, input and output, each a TimeCurve of t, fs, and intensity, on the scale where the Fourier-limited pulse peaks at 1. They hold the transform's samples from the first to the last above 1e-4 of that peak, and past 4000 samples the lowest and highest of each run in turn, so each curve has its own t. The output is at its absolute delay; the window's Delay removed view moves it back by metrics.delay.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const { output } = design.pulse({ centre: 550 }).time;
+console.log(output.t.length, 'samples, peak', Math.max(...output.intensity).toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+output = design.pulse(centre=550).time.output
+print(len(output.t), "samples, peak", round(max(output.intensity), 4))
+```
+
+### spectrum
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.spectrum` | `p.spectrum` |
+
+**JavaScript**: The spectrum curves, each `{ wavelength, values }`, wavelengths in nm rising: `input` and `output`, the spectral intensity on the scale where the input peaks at 1; `coatingGdd`, the response's GDD times the passes, fs², the mean of s and p with `pol: 'avg'`; `compensatingGdd`, the GDD that undoes the input's own chirp, fs². They hold the transform's samples where the input is above 1e-3 of its peak, or a fresh evaluation at least 600 points across that band when the transform has fewer. Past 4000 samples each keeps the lowest and highest of each run of its own values in turn, so each curve then has its own wavelengths. `band` is `[low, high]`, nm, the band they cover.
+
+**Python**: The spectrum curves, a PulseSpectrum named tuple, each curve a SpectrumCurve of wavelength, nm rising, and values: input and output, the spectral intensity on the scale where the input peaks at 1; coating_gdd, the response's GDD times the passes, fs², the mean of s and p with pol="avg"; compensating_gdd, the GDD that undoes the input's own chirp, fs². They hold the transform's samples where the input is above 1e-3 of its peak, or a fresh evaluation at least 600 points across that band when the transform has fewer. Past 4000 samples each keeps the lowest and highest of each run of its own values in turn, so each curve then has its own wavelengths. band is [low, high], nm, the band they cover.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+const s = design.pulse({ centre: 550 }).spectrum;
+console.log('from', s.band[0].toFixed(1), 'to', s.band[1].toFixed(1), 'nm,', s.coatingGdd.wavelength.length, 'points');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+s = design.pulse(centre=550).spectrum
+print("from", round(s.band[0], 1), "to", round(s.band[1], 1), "nm,", len(s.coating_gdd.wavelength), "points")
+```
+
+### echoDelay / echo_delay
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.echoDelay` | `p.echo_delay` |
+
+On the whole part, the time from this pulse to the first echo reflected inside the substrate, fs, the substrate's group delay there and back at the centre wavelength; `null` / `None` on one side.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550, response: 'T', side: 'total' }).echoDelay.toFixed(0), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print(round(design.pulse(centre=550, response="T", side="total").echo_delay), "fs")
+```
+
+### outOfRange / out_of_range
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.outOfRange` | `p.out_of_range` |
+
+**JavaScript**: The materials of the sides computed whose data stop inside the spectrum's band, an array of `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` true) or extrapolated. Empty when every material covers it.
+
+**Python**: The materials of the sides computed whose data stop inside the spectrum's band, a list of dicts with id, name, rangeNm and heldFlat: outside rangeNm their n and k are held at the last value (heldFlat True) or extrapolated. Empty when every material covers it.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+console.log(design.pulse({ centre: 550 }).outOfRange.map(m => m.id));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+print([m["id"] for m in design.pulse(centre=550).out_of_range])
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.saveCsv(path)` | `p.save_csv(path)` |
+
+**JavaScript**: Writes the metrics to a CSV file as the window's Copy CSV writes its Results table: Quantity, Value and Unit, a row for each metric in the window's words, the peaks and the energy in percent, and the input's FWHM only when the input is chirped. A file that is there is written over.
+
+**Python**: Writes the metrics to a CSV file as the window's Copy CSV writes its Results table: Quantity, Value and Unit, a row for each metric in the window's words, the peaks and the energy in percent, and the input's FWHM only when the input is chirped. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `pulse-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+design.pulse({ centre: 550 }).saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "pulse-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+design.pulse(centre=550).save_csv(name)
 print("Wrote", name)
 ```
 

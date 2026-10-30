@@ -38,6 +38,21 @@ export function scoredSide(call, design, side) {
 }
 
 /**
+ * The sides a phase or a pulse of `design` is computed on: one coated side,
+ * as scoredSide gives it, or 'total', the whole part, which is computed in
+ * transmission alone, so `response` 'T'.
+ */
+export function phaseSide(call, design, side, response) {
+    requireValue(call, 'side', side, v => v === undefined || isViewSide(v), "'front', 'back' or 'total'");
+    if (side !== 'total') return scoredSide(call, design, side);
+    if (response !== 'T') {
+        throw refusal('badValue', { call, option: 'side', takes: "'front' or 'back' with response 'R'", value: side },
+            `${call}: the whole part is computed in transmission alone, so with response 'R' side is 'front' or 'back', not 'total'`);
+    }
+    return 'total';
+}
+
+/**
  * The wavelength a view is read at: the one given, else the design's
  * reference wavelength, else the window's own when the design holds none.
  */

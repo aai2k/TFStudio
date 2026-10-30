@@ -176,6 +176,14 @@ class Calls:
     def groupDelay(self, design, options=None):
         return self._call("groupDelay", design, options)
 
+    def pulseAnalysis(self, design, options=None):
+        return self._call("pulseAnalysis", design, options)
+
+    def setPulseSpectrum(self, design, fileOrRows):
+        if isinstance(fileOrRows, (str, os.PathLike)):
+            fileOrRows = _absolute(fileOrRows)
+        return self._call("setPulseSpectrum", design, fileOrRows)
+
     def processSteps(self, design, options=None):
         return self._call("processSteps", design, options)
 

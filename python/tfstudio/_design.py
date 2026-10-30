@@ -18,6 +18,7 @@ from ._production import edge_filter_of, process_steps_of, run_options
 from ._merit import Merit
 from ._names import api_names
 from ._needle import candidate_argument, needle_profile_of
+from ._pulse import Pulse
 from ._refusals import Words, refuse_arguments, worded
 from ._results import CleanReport, LayerSensitivity, MonteCarlo, RunResult, Spectrum
 from ._specification import Specification
@@ -66,6 +67,8 @@ _FIT_OPTIONS = ("grid", "step", "thin_every", "start", "end", "db", "weight", "o
 _FIT_WORDS = Words("fitMeasured", "fit_measured", names={"from": "start", "to": "end"})
 _GROUP_DELAY_WORDS = Words("groupDelay", "group_delay", hidden=("from", "to"))
 _GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference")
+_PULSE_WORDS = Words("pulseAnalysis", "pulse")
+_SET_PULSE_SPECTRUM_WORDS = Words("setPulseSpectrum", "set_pulse_spectrum")
 # design.edge_filter()'s pass_ is the API's pass, a keyword in Python.
 _EDGE_FILTER_WORDS = Words("edgeFilter", "edge_filter", names={"pass": "pass_"})
 _APPLY_EDGE_FILTER_WORDS = Words("applyEdgeFilter", "apply_edge_filter", names={"pass": "pass_"})
@@ -1900,6 +1903,111 @@ class Design:
             print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
         """
         return GroupDelay(self._over_range(_GROUP_DELAY_WORDS, _GROUP_DELAY_OPTIONS, start, end, options))
+
+    def set_pulse_spectrum(self, file_or_rows):
+        """Sets the spectrum the design holds for Pulse Analysis, as the
+        window's Load file… and Apply set it: a text table read as the curve
+        editor reads it, its wavelength column in the unit its heading names,
+        or rows given. Each row is a wavelength, an intensity and, when a
+        third column is given, the spectral phase in rad; against wavelength
+        the intensity is read as per unit wavelength, as a spectrometer
+        records it. The rows are kept in the units given, in rising order,
+        and the design saves them. pulse() with source="design" reads them,
+        its centre then their centroid, where the window's Apply moves its
+        centre.
+
+        Args:
+            file_or_rows: The path of a text table, or rows [wavelength nm,
+                intensity] or [wavelength nm, intensity, phase rad]. A
+                relative path is taken from the program's working folder.
+
+        Raises:
+            TFStudioError: a file that cannot be read or holds no wavelength
+                and intensity columns, a row that is not two or three
+                numbers, fewer than two rows with a wavelength above 0 and an
+                intensity not below 0, no row with an intensity above 0, or a
+                phase on some rows and not on others.
+
+        Example::
+
+            import math
+
+            rows = [[w, math.exp(-((w - 800) / 20) ** 2)] for w in range(760, 841, 2)]
+            design = tf.new_design("Mirror", reference=800)
+            design.stack("(HL)^8 H")
+            design.set_pulse_spectrum(rows)
+            print("centre", design.pulse(source="design").centre, "nm")
+        """
+        with worded(_SET_PULSE_SPECTRUM_WORDS):
+            self._data = self._calls.setPulseSpectrum(self._data, file_or_rows)
+
+    def pulse(self, **options):
+        """A pulse's passage through the design, in time and in its spectrum,
+        as the Pulse Analysis window computes it: the pulse is reflected off
+        or transmitted through one coated side, or through the whole part,
+        the front coating, one pass through the substrate and the back
+        coating, the first pulse to come out of it; passes bounces or passes
+        in a row. Its spectrum is a Gaussian, sech² or super-Gaussian about
+        the centre wavelength, or with source="design" the spectrum the
+        design holds (set_pulse_spectrum()), with the chirp of gdd and tod on
+        top. The design's cone of incidence is not used, as the window does
+        not use it. Without keywords, the window's opening settings, on the
+        side the PR, GD, GDD and TOD merit rows score: the back of a design
+        coated on the back alone and the front of any other. The window opens
+        on the front unless only the back holds layers, so with one side empty
+        the two can differ; a side with no layers gives its bare surface.
+
+        Args:
+            source: "model", the spectrum of shape, or "design", the spectrum
+                the design holds. Default "model".
+            shape: "gaussian" or "sech2", a pulse of duration, or
+                "superGaussian", a spectrum of bandwidth and order. Default
+                "gaussian".
+            centre: The centre wavelength, nm, the carrier the chirp is taken
+                about. Default: 800 nm, or with source="design" the
+                spectrum's centroid in frequency to the hundredth of a
+                nanometre, as Apply sets it.
+            duration: The intensity FWHM of the transform-limited pulse, fs,
+                for "gaussian" and "sech2". Default 10.
+            bandwidth: The intensity FWHM of the spectrum, nm, for
+                "superGaussian". Default 100.
+            order: The super-Gaussian's order, above 0; 2 is a Gaussian, and
+                a higher order flattens the top of the spectrum. Default 2.
+            gdd: The input's own GDD, fs², about the centre wavelength.
+                Default 0.
+            tod: The input's own TOD, fs³, about the centre wavelength.
+                Default 0.
+            side: "front", "back", or with response="T" "total", the whole
+                part. Default: the back of a design coated on the back alone
+                and the front of any other.
+            response: "R", the reflected pulse, or "T", the transmitted one.
+                Default "R".
+            pol: The polarization: "avg", "s" or "p". Default "avg".
+            angle: The angle of incidence, degrees in the medium light comes
+                from, 0 up to but not including 90. Default 0.
+            passes: The bounces off the coating, or passes through it, a whole
+                number. Default 1.
+
+        Returns:
+            A Pulse.
+
+        Raises:
+            TFStudioError: an option it does not take or a value an option
+                cannot take, "total" with response="R", source="design" on a
+                design that holds no spectrum with light in it, a design that
+                names a material that resolves to nothing, a pulse too short
+                for its centre wavelength, a response that cannot be computed
+                across the spectrum, or no light out of the part.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^8 H")
+            p = design.pulse(centre=550, duration=20, passes=2)
+            print("output FWHM", round(p.metrics.output_fwhm, 2), "fs, peak", round(100 * p.metrics.peak_vs_flp, 1), "% of the Fourier-limited pulse")
+        """
+        with worded(_PULSE_WORDS):
+            return Pulse(self._calls.pulseAnalysis(self._data, api_names(options)))
 
     def process_steps(self, start=None, end=None, **options):
         """The spectrum a monitor in the chamber reads after each layer of

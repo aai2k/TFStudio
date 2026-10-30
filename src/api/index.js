@@ -25,6 +25,7 @@
  *   ellipsometry(design, { from, to, step, angles, side, deltaConvention })
  *   ellipsometryVsAngle(design, { wavelength, angleStart, angleEnd, angleStep, side, deltaConvention })
  *   groupDelay(design, { from, to, step, angle, pol, response, side, reference })
+ *   pulseAnalysis(design, { source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes }), setPulseSpectrum(design, fileOrRows)
  *   processSteps(design, { side, otherSide, quantity, angle, pol, from, to, step, chips }), exportProcess(design, folder, options)
  *   setMerit(design, rows), merit(design)
  *   setSpecification(design, checks), checkSpecification(design)
@@ -58,6 +59,7 @@ export { color } from './color.js';
 export { integrals } from './integrals.js';
 export { ellipsometry, ellipsometryVsAngle } from './ellipsometry.js';
 export { groupDelay } from './groupDelay.js';
+export { pulseAnalysis, setPulseSpectrum } from './pulse.js';
 export { processSteps, exportProcess } from './process.js';
 export { setMerit, merit } from './merit.js';
 export { setSpecification, checkSpecification } from './specification.js';

@@ -15,6 +15,7 @@ const WORDS = {
     unknownOption: (f, w) => `unknown option '${f.option}'; the options are ${[...f.options.filter(option => !w.hidden.includes(option)).map(w.name), ...w.extra].join(', ')}`,
     badValue: (f, w) => `${w.name(f.option)} is ${f.takes}, not ${shown(f.value)}`,
     noMerit: () => 'the design has no merit function; add a row with merit.add()',
+    noPulseSpectrum: () => "the design holds no pulse spectrum with light in it; set one with setPulseSpectrum(), or take source 'model'",
     // checkSpecification takes a design whose checks are all disabled, and
     // estimateYield does not.
     noSpecification: f => (f.call === 'checkSpecification'
