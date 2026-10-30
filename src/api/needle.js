@@ -9,6 +9,7 @@ import { resolveScanSide } from '../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { editorLayerNumber } from '../utils/misc/layerNumbers.js';
 import { requireMaterial, requireResolved } from './materials.js';
+import { requireKernel } from './environment.js';
 import { poolOf } from './runs.js';
 import { scoredSide } from './stackViews.js';
 import { checkOptions, requireValue } from './check.js';
@@ -119,6 +120,7 @@ export function needleProfile(design, options) {
     const onSide = scannedSide('needleProfile', design, side);
     const { resolveMat, rows } = scanRows('needleProfile', design);
     const candidateMats = poolOf('needleProfile', design, pool);
+    requireKernel();
     const scan = profileScan({ operands: rows, design, resolveMat, candidateMats, deltaNm: step, nIntra: intraSamples, side: onSide });
     if (!scan) return { mode: onSide, mf0: null, candidates: [] };
     return { mode: onSide, mf0: scan.mf0, candidates: scan.candidates.map(cand => candidateOf(cand, onSide, scan.layers, scan.zb)) };
@@ -166,7 +168,8 @@ export function insertNeedle(design, candidate, options) {
     let dNew = thickness;
     if (dNew === undefined) {
         const { resolveMat, rows } = scanRows('insertNeedle', design);
-        dNew = startingThickness({ operands: rows, design, resolveMat, candidate: selected, mat, dMin: D.dMin, side: onSide });
+        requireKernel();
+        dNew =startingThickness({ operands: rows, design, resolveMat, candidate: selected, mat, dMin: D.dMin, side: onSide });
     } else {
         const [lo, hi] = resolveDRange(selected, { hostThickness: layers[selected.layerK]?.thickness || 0 }, D.dMin);
         requireValue('insertNeedle', 'thickness', thickness, v => Number.isFinite(v) && v >= lo && v <= hi, `a needle thickness in nm from ${lo} to ${hi} there`);

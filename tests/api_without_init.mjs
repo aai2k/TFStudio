@@ -5,7 +5,11 @@
  *
  *   1. Each call that calculates throws before init(): spectrum, merit,
  *      checkSpecification, refine, synthesize, monteCarlo, estimateYield,
- *      layerSensitivity.
+ *      layerSensitivity, color, integrals, bandFeature, edgeShift,
+ *      measuredDifference, ellipsometry, ellipsometryVsAngle, groupDelay,
+ *      pulseAnalysis, processSteps, exportProcess, monitorWorksheet,
+ *      inhomogeneities, roughness, needleProfile, and insertNeedle without a
+ *      thickness.
  *   2. A call refused before it calculates keeps its own error, and a call
  *      that does not calculate works without the kernel.
  *   3. After init() every calculation runs. An init() that could not load the
@@ -16,6 +20,9 @@
  */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const API = new URL('../src/api/index.js', import.meta.url).href;
@@ -27,6 +34,8 @@ const api = await import(API);
 const qw = api.stackFromFormula(api.newDesign(), { formula: '(HL)^2 H', referenceWavelength: 550 });
 const scored = api.setMerit(qw, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0, weight: 1 }]);
 const specified = api.setSpecification(qw, [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'ge', target: 0.9 }]);
+const measured = { quantity: 'R', wavelength: [450, 500, 550, 600, 650], values: [0.5, 0.6, 0.7, 0.6, 0.5] };
+const folder = mkdtempSync(join(tmpdir(), 'api-without-init-'));
 
 // The message a call fails with, or null when it does not fail.
 async function failure(call) {
@@ -48,6 +57,22 @@ const CALCULATING = {
     monteCarlo: () => api.monteCarlo(qw, { from: 500, to: 600, step: 10, runs: 2 }),
     estimateYield: () => api.estimateYield(specified, { runs: 2 }),
     layerSensitivity: () => api.layerSensitivity(scored, {}),
+    color: () => api.color(qw),
+    integrals: () => api.integrals(qw),
+    bandFeature: () => api.bandFeature(qw, { feature: 'edge', from: 400, to: 700 }),
+    edgeShift: () => api.edgeShift(qw, { from: 400, to: 700, angles: [0, 30] }),
+    measuredDifference: () => api.measuredDifference(qw, measured),
+    ellipsometry: () => api.ellipsometry(qw, { from: 500, to: 600, step: 50 }),
+    ellipsometryVsAngle: () => api.ellipsometryVsAngle(qw, {}),
+    groupDelay: () => api.groupDelay(qw, { from: 500, to: 600, step: 50 }),
+    pulseAnalysis: () => api.pulseAnalysis(qw, {}),
+    processSteps: () => api.processSteps(qw, { step: 10 }),
+    exportProcess: () => api.exportProcess(qw, folder, { step: 10 }),
+    monitorWorksheet: () => api.monitorWorksheet(qw, {}),
+    inhomogeneities: () => api.inhomogeneities(qw, {}),
+    roughness: () => api.roughness(qw, {}),
+    needleProfile: () => api.needleProfile(scored, { pool: ['TiO2', 'SiO2'] }),
+    insertNeedle: () => api.insertNeedle(scored, { material: 'TiO2', kind: 'gap', position: 0 }),
 };
 for (const [name, call] of Object.entries(CALCULATING)) {
     assert.match(await failure(call) ?? 'no error', NOT_LOADED, `${name} before init() throws and says to await init()`);
@@ -76,6 +101,7 @@ assert.equal((await api.init()).wasm, true, 'init loads the kernel');
 for (const [name, call] of Object.entries(CALCULATING)) {
     assert.equal(await failure(call), null, `${name} runs after init()`);
 }
+rmSync(folder, { recursive: true, force: true, maxRetries: 3 });
 
 // An init() that cannot load the kernel, in a process of its own.
 const missing = fileURLToPath(new URL('./no-such-kernel.wasm', import.meta.url));
