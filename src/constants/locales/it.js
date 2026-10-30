@@ -495,6 +495,8 @@ export default {
       overwrite: 'Sovrascrivi',
     },
     sessionFull: 'Lo spazio per le modifiche non salvate è pieno, quindi le nuove modifiche non ci saranno dopo un riavvio. Salva i tuoi design (Ctrl+S) per conservarli.',
+    kernelNotRead: (error) => `Il kernel a matrici di trasferimento compilato in WebAssembly non è leggibile, quindi TFStudio non può calcolare nulla: ${error}`,
+    kernelNotStarted: 'Il kernel a matrici di trasferimento compilato in WebAssembly è stato letto, ma è impossibile avviarlo, quindi TFStudio non può calcolare nulla.',
     agentChanged: (name) => `Un programma collegato ha modificato “${name}”. Ctrl+Z annulla la modifica.`,
     contextMenu: {
       renameFolder: 'Rinomina cartella',

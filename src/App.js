@@ -21,6 +21,7 @@ import { AnalysisSettingsProvider } from './state/AnalysisSettingsContext.js';
 import { UpdateProvider } from './components/ui/UpdateContext.js';
 import { loadCatalogsFromDisk } from './utils/materials/catalogStartup.js';
 import { useCatalogSaveFailures } from './utils/materials/useCatalogSaveFailures.js';
+import { kernelFailureNotice } from './utils/physics/tmmWasmBootstrap.js';
 import { useAppSettings } from './hooks/useAppSettings.js';
 import { useDesignStore } from './hooks/useDesignStore.js';
 import { useWorkspaceLayout } from './hooks/useWorkspaceLayout.js';
@@ -31,7 +32,11 @@ import { useAppCommands } from './hooks/useAppCommands.js';
 
 const { createElement: h, useState, useEffect, useRef } = React;
 
-export const App = () => {
+/**
+ * @param {Object} [props]
+ * @param {Promise<Object|null>} [props.kernelStartup]  the kernel's load, as bootstrapTmmWasm returns it
+ */
+export const App = ({ kernelStartup } = {}) => {
     const [inputDialog, setInputDialog] = useState(null);
     const {
         notices: messageNotifications, notify: setMessageNotification, dismiss: dismissMessage,
@@ -70,6 +75,13 @@ export const App = () => {
 
     useEffect(() => { loadCatalogsFromDisk(); }, []);
     useCatalogSaveFailures(t, setMessageNotification, setInputDialog);
+
+    // A kernel that did not load is reported once the saved language is known,
+    // however long after the window opened its load ends.
+    useEffect(() => {
+        if (!settingsLoaded) return;
+        kernelStartup.then(failure => { if (failure) setMessageNotification(kernelFailureNotice(failure, t)); });
+    }, [settingsLoaded]);
 
     // Main-process directory getters switch immediately after a successful
     // Settings change. The whole data folder moves at once, so both registries

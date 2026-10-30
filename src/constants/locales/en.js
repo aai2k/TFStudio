@@ -498,6 +498,8 @@ export default {
       overwrite: 'Overwrite',
     },
     sessionFull: 'The space for unsaved edits is full, so new edits will not be there after a restart. Save your designs (Ctrl+S) to keep them.',
+    kernelNotRead: (error) => `The WebAssembly transfer-matrix kernel could not be read, so TFStudio cannot calculate anything: ${error}`,
+    kernelNotStarted: 'The WebAssembly transfer-matrix kernel was read but could not start, so TFStudio cannot calculate anything.',
     agentChanged: (name) => `A connected program changed “${name}”. Ctrl+Z undoes the change.`,
     contextMenu: {
       renameFolder: 'Rename Folder',

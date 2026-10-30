@@ -492,6 +492,8 @@ export default {
       overwrite: '覆盖',
     },
     sessionFull: '存放未保存修改的空间已满，新的修改在重启后将不会保留。请保存您的设计（Ctrl+S）以免丢失。',
+    kernelNotRead: (error) => `无法读取 WebAssembly 传递矩阵内核，TFStudio 无法进行任何计算：${error}`,
+    kernelNotStarted: '已读取 WebAssembly 传递矩阵内核，但无法启动，TFStudio 无法进行任何计算。',
     agentChanged: (name) => `已连接的程序修改了“${name}”。按 Ctrl+Z 可撤销此修改。`,
     contextMenu: {
       renameFolder: '重命名文件夹',
