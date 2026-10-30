@@ -81,7 +81,7 @@ export function designTools({ api, store }) {
         },
         {
             name: 'setDesignSetup', title: 'Change the setup',
-            description: "Changes a design's name, media, substrate and its thickness, which sides it has, how a one-sided design is scored or its reference wavelength, as the Design Editor's fields do. Making it symmetric gives it the mirror of its front as its back. A new referenceWavelength rescales every layer to keep its quarter-wave count, as the Design Editor's λ0 field does. Answers with the design.",
+            description: "Changes a design's name, media, substrate and its thickness, which sides it has, how a one-sided design is scored or its reference wavelength, as the Design Editor's fields do, and the two temperatures and the substrate diameter the stress tool reads, as the Stress window's fields do. Making it symmetric gives it the mirror of its front as its back. A new referenceWavelength rescales every layer to keep its quarter-wave count, as the Design Editor's λ0 field does. A temperature or the diameter given as null is unset. Answers with the design.",
             inputSchema: object({
                 designId: DESIGN_ID, name: str('The design name'),
                 incidentMedium: str('Material id of the incident medium'), exitMedium: str('Material id of the exit medium'),
@@ -89,6 +89,9 @@ export function designTools({ api, store }) {
                 surfaceMode: oneOf(SURFACE_MODES, "'front_only', 'back_only', 'both_independent' or 'symmetric'"),
                 mfEvalMode: oneOf(['side', 'total'], "How a one-sided design is scored: 'side' on its coated side alone, 'total' as the whole part with the substrate and the bare side"),
                 referenceWavelength: num('Reference wavelength in nm'),
+                stressTemperatureC: { type: ['number', 'null'], description: 'The temperature the stress is read at in °C, above -273.15; null unsets it. While only the deposition temperature is set it reads 20' },
+                depositionTemperatureC: { type: ['number', 'null'], description: 'The substrate temperature while the films grew in °C, above -273.15; null unsets it. While only the other temperature is set it reads 20; with neither set each film carries its intrinsic stress alone' },
+                substrateDiameterMm: { type: ['number', 'null'], description: 'Substrate diameter in mm, above 0, which only the centre deflection needs; null unsets it' },
             }, ['designId']),
             run: args => edit(args.designId, d => api.setDesignSetup(d, editArgs(args))),
         },

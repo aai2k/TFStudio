@@ -54,7 +54,10 @@
  *   inhomogeneities() with its defaults and each keyword on one side, the
  *   other and the whole part, its named tuples, its verdict, save_csv() and
  *   its refusals; roughness() the same way, with a layer thinned to 0 nm;
- *   a material's dispersion() with
+ *   stress() on a design whose materials carry constants, on one face and
+ *   on both, and on a mirror with no run and with one, stress_temperature,
+ *   deposition_temperature and substrate.diameter set, read back and unset,
+ *   its named tuples, save_csv() and its refusals; a material's dispersion() with
  *   its defaults and each argument, its Curves, range, save_csv() with and
  *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
@@ -906,6 +909,47 @@ async function roughness(t, said) {
         '<Roughness front at 0 degrees from 400 to 800 nm, 41 points, 1 layer thinned to 0 nm>']), canon(got.shown));
 }
 
+// What _pythonObjects.py stress() read of the stress fixture, of it coated on
+// both faces and of a mirror with no run and with one, against the plain call
+// and the object here on the designs it read.
+const stressOf = s => [s.mode, s.run && Object.values(s.run), Object.values(s.substrate), Object.values(s.whole),
+    s.films.map(film => Object.values(film)), s.missing.map(m => [m.material, m.name, m.fields])];
+
+async function stress(t, said) {
+    const { api, ok, canon, attempt, WORK } = t;
+    const got = said.stress ?? {};
+    const [fixture = {}, two = {}, mirror = {}, setup = {}, unset = {}] = got.designs ?? [];
+    const asked = await inTurn([fixture, two, mirror, setup], design => attempt(() => stressOf(api.stress(design))));
+    ok('stress() is stress over the wire, on the fixture, on it coated on both faces and on a mirror with no run and with one',
+        canon(got.asked) === canon(asked) && canon(asked.map(s => s?.[0])) === canon(['front', 'total', 'front', 'front']) && asked[0]?.[3]?.[0] > 0,
+        canon(got.asked)?.slice(0, 300));
+    const settings = { stressTemperatureC: 60, depositionTemperatureC: 250, substrateDiameterMm: 25.4 };
+    const nulls = { stressTemperatureC: null, depositionTemperatureC: null, substrateDiameterMm: null };
+    ok('stress_temperature, deposition_temperature and substrate.diameter set what setDesignSetup sets, read back as set, and None unsets them',
+        canon(setup) === canon(await attempt(() => api.setDesignSetup(mirror, settings))) && canon(unset) === canon(await attempt(() => api.setDesignSetup(setup, nulls)))
+        && canon(got.read) === canon([60, 250, 25.4]) && canon(got.unsetRead) === canon([null, null, null]), canon([got.read, got.unsetRead]));
+    ok('its parts are named tuples', canon(got.tuples) === canon(['StressRun', ['temperature', 'deposition_temperature'], 'StressSubstrate', ['material', 'thickness', 'diameter'],
+        'WholePart', ['force', 'radius', 'deflection', 'strain_energy', 'cracking'],
+        'Film', ['side', 'number', 'material', 'name', 'thickness', 'stress', 'strain_energy', 'delamination', 'shear'], 'MissingConstants', ['material', 'name', 'fields']]),
+    canon(got.tuples));
+    const objects = await import('../src/api/objects/index.js');
+    const written = [fixture, two].map((design, i) => {
+        const file = path.join(WORK, `js-stress-${i}.csv`);
+        new objects.Design(design).stress().saveCsv(file);
+        return fs.readFileSync(file, 'utf8');
+    });
+    ok('save_csv writes what saveCsv writes, with the side when both faces count',
+        canon((got.csv ?? []).map(csvRows)) === canon(written.map(csvRows)) && /^Side,/.test(written[1]) && !/^Side,/.test(written[0]), String(got.csv?.[1]).slice(0, 200));
+    ok('its refusals are in Python\'s words', canon(got.worded) === canon([
+        'stress_temperature is a temperature in °C above -273.15, or None to unset it, not -300',
+        "deposition_temperature is a temperature in °C above -273.15, or None to unset it, not 'hot'",
+        'substrate.diameter is a diameter in mm above 0, or None to unset it, not 0',
+    ]), canon(got.worded));
+    ok('and repr() shows what it holds', canon(got.shown) === canon([
+        `<Stress front: 9 films, force ${asked[0]?.[3]?.[0]} N/m, 3 materials missing constants>`,
+        `<Stress front: 5 films, force 0 N/m, ${asked[2]?.[5]?.length} materials missing constants>`]), canon(got.shown));
+}
+
 // What _pythonObjects.py material_dispersion() read, against the plain call
 // and the object here.
 async function materialDispersion(t, said) {
@@ -1298,7 +1342,7 @@ export async function checkObjects(t) {
     const measuredFile = fixtureFile('measured-curve-ppef');
     const measured = t.api.openDesign(measuredFile);
     const input = { name: named.name, pool: t.POOL, settingNames: SETTINGS.map(snake), dataDir: twinsFolder(t.WORK), measured: measuredFile,
-        specKinds: specKinds(measured.measuredCurves[0].id) };
+        specKinds: specKinds(measured.measuredCurves[0].id), stressed: fixtureFile('stress-mechanical-diameter') };
     const ran = await t.scenario('objects', { driver: DRIVER, input });
     const u = { ...t, ran };
     const count = await designs(u, ran.said);
@@ -1319,6 +1363,7 @@ export async function checkObjects(t) {
     await pulse(u, ran.said);
     await inhomogeneities(u, ran.said);
     await roughness(u, ran.said);
+    await stress(u, ran.said);
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
     measuredCurves(u, ran.said);

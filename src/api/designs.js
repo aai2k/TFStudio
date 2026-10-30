@@ -8,6 +8,7 @@ import { embedDesignMaterials } from '../utils/materials/designMaterials.js';
 import { makeDefaultDesign, ensureLayerIds } from '../utils/io/newDesign.js';
 import { mirrorLayers } from '../utils/physics/optimizer.js';
 import { rescaleLayersPreserveQWOT } from '../components/windows/design/designEditor/units.js';
+import { stressBlockWith } from '../components/windows/analysis/stressAnalysis/model.js';
 import designFile from '../main/designFile.js';
 import mainPaths from '../main/paths.js';
 import { requireMaterial } from './materials.js';
@@ -71,7 +72,35 @@ const SIDES = { front: 'frontLayers', back: 'backLayers' };
 const SURFACE_MODES = ['front_only', 'back_only', 'both_independent', 'symmetric'];
 
 const EVAL_MODES = ['side', 'total'];
-const SETUP = ['name', 'incidentMedium', 'exitMedium', 'substrate', 'substrateThicknessMm', 'surfaceMode', 'mfEvalMode', 'referenceWavelength'];
+const SETUP = [
+    'name', 'incidentMedium', 'exitMedium', 'substrate', 'substrateThicknessMm', 'surfaceMode', 'mfEvalMode', 'referenceWavelength',
+    'stressTemperatureC', 'depositionTemperatureC', 'substrateDiameterMm',
+];
+// The Stress window's temperature fields by setDesignSetup's names, each a
+// field of the design's `stress` block.
+const TEMPERATURES = { stressTemperatureC: 'temperatureC', depositionTemperatureC: 'depositionTemperatureC' };
+const isTemperatureOrNull = v => v === null || (Number.isFinite(v) && v > -273.15);
+const isDiameterOrNull = v => v === null || isPositive(v);
+
+// `next` with the stress run and the substrate's diameter `setup` gives, as
+// the Stress window's fields write them: null unsets a value, and unsetting
+// the last temperature removes the design's stress block (stressBlockWith).
+function applyStressSetup(call, next, setup) {
+    const changes = {};
+    for (const [option, field] of Object.entries(TEMPERATURES)) {
+        if (setup[option] === undefined) continue;
+        requireValue(call, option, setup[option], isTemperatureOrNull, 'a temperature in °C above -273.15, or null to unset it');
+        changes[field] = setup[option];
+    }
+    if (setup.substrateDiameterMm !== undefined) {
+        requireValue(call, 'substrateDiameterMm', setup.substrateDiameterMm, isDiameterOrNull, 'a diameter in mm above 0, or null to unset it');
+        next.substrate.diameterMm = setup.substrateDiameterMm;
+    }
+    if (!Object.keys(changes).length) return;
+    const stress = stressBlockWith(next.stress, changes);
+    if (stress) next.stress = stress;
+    else delete next.stress;
+}
 
 function checkSetup(call, { name, surfaceMode, mfEvalMode, substrate, referenceWavelength }) {
     requireValue(call, 'name', name, v => typeof v === 'string' && v.trim() !== '', 'a name');
@@ -101,6 +130,7 @@ function withSetup(call, design, setup) {
         referenceWavelength: setup.referenceWavelength ?? design.referenceWavelength ?? 550,
     };
     checkSetup(call, next);
+    applyStressSetup(call, next, setup);
     for (const id of [next.incidentMedium, next.exitMedium, next.substrate.material]) requireMaterial(next, id);
     const was = design.referenceWavelength;
     if (was > 0 && next.referenceWavelength !== was) {
@@ -123,12 +153,16 @@ function withSetup(call, design, setup) {
  * @param [options.surfaceMode='front_only'] Which sides carry layers: `'front_only'`, `'back_only'`, `'both_independent'`, or `'symmetric'`, whose back mirrors its front. The [evaluation modes](/design/evaluation-modes/) page explains them.
  * @param [options.mfEvalMode='side'] How a one-sided design is scored: `'side'`, its coated side alone, or `'total'`, the whole part.
  * @param [options.referenceWavelength=550] The reference wavelength, nm, at which stack formulas count quarter waves.
+ * @param [options.stressTemperatureC=null] The temperature the [Stress](/analysis/stress/) window evaluates the part at, °C, above -273.15, or null to leave it unset. While only the deposition temperature is set, it reads 20 °C.
+ * @param [options.depositionTemperatureC=null] The temperature the films were deposited at, °C, above -273.15, or null to leave it unset. While only the other temperature is set, it reads 20 °C. With neither set, each film carries its intrinsic stress alone.
+ * @param [options.substrateDiameterMm=null] The substrate's diameter, mm, above 0, which only the Stress window's centre deflection needs, or null to leave it unset.
  * @returns The design.
  * @property id The design's own id.
  * @property name Its name.
  * @property incidentMedium The medium the light comes from, by material id.
  * @property exitMedium The medium behind the substrate, by material id.
- * @property substrate `{ material, thickness }`, the thickness in mm.
+ * @property substrate `{ material, thickness }`, the thickness in mm, and `diameterMm` once `substrateDiameterMm` is given, null when that unsets it.
+ * @property stress `{ temperatureC, depositionTemperatureC }`, each there when set, in °C; a design with neither set has no `stress`.
  * @property surfaceMode Which sides carry layers.
  * @property mfEvalMode How a one-sided design is scored.
  * @property referenceWavelength The reference wavelength, nm.
@@ -149,7 +183,9 @@ export function newDesign(options) {
  * A design with any of the settings `newDesign` takes changed. A new
  * reference wavelength rescales every layer to keep its count of quarter
  * waves, as the Design Editor's λ0 field does, and a design made symmetric
- * takes the mirror of its front as its back.
+ * takes the mirror of its front as its back. A stress temperature or the
+ * diameter given as null is unset, as clearing the Stress window's field
+ * unsets it, and unsetting the last temperature removes `stress`.
  *
  * @param design The design.
  * @param options Any of the options of `newDesign`.

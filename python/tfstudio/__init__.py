@@ -34,6 +34,7 @@ from ._results import (AngleCurve, CheckResult, CleanReport, Curve, LayerSensiti
 from ._specification import SpecCheck, Specification
 from ._stack_views import IndexProfile, LayerThicknesses
 from ._stop import Stop
+from ._stress import Stress
 from ._studio import App, AppDesign, Material, Materials, TFStudio
 
 __version__ = "0.1.0"
@@ -41,7 +42,7 @@ __version__ = "0.1.0"
 __all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
            "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Admittance",
            "ElectricField", "Color", "Integrals", "Ellipsometry", "AngleCurve", "GroupDelay", "Pulse", "Inhomogeneities",
-           "Roughness", "Progress",
+           "Roughness", "Stress", "Progress",
            "RunResult", "MonteCarlo", "LayerSensitivity", "SensitivityRow", "CleanReport", "Materials", "Material",
            "MaterialDispersion", "App",
            "AppDesign", "Stop", "TFStudioError", "AppError", "ServerError"]

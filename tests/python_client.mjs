@@ -377,6 +377,8 @@ const STOPPED_WITHIN_S = 5;
         ['inhomogeneities', [stack, { interlayers: [{ interface: 9 }] }]],
         ['roughness', [stack, { sigma: 0, interfaces: [{ interface: 2, sigma: 3, range: 'short' }], start: 450, end: 650, step: 5 }]],
         ['roughness', [stack, { sigma: -1 }]],
+        ['stress', [api.setDesignSetup(stack, { depositionTemperatureC: 250, substrateDiameterMm: 25.4 })]],
+        ['setDesignSetup', [stack, { stressTemperatureC: -300 }]],
         ['setMerit', [stack, AR_ROWS]],
         ['merit', [start]],
         ['setSpecification', [start, CHECKS]],

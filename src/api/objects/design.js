@@ -18,6 +18,7 @@ import { GroupDelay } from './groupDelay.js';
 import { Pulse } from './pulse.js';
 import { Inhomogeneities } from './inhomogeneities.js';
 import { Roughness } from './roughness.js';
+import { Stress } from './stress.js';
 import { CleanReport, LayerSensitivity, MonteCarlo, RunResult } from './results.js';
 import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
@@ -32,7 +33,10 @@ const nameOf = (mapping, value) => Object.keys(mapping).find(name => mapping[nam
 const STEPS = { nm: 'absolute', percent: 'relative' };
 // The attributes that set what setDesignSetup's options set, where their
 // names differ.
-const SETUP_NAMES = { referenceWavelength: 'reference', substrate: 'substrate.material', substrateThicknessMm: 'substrate.thickness' };
+const SETUP_NAMES = {
+    referenceWavelength: 'reference', substrate: 'substrate.material', substrateThicknessMm: 'substrate.thickness',
+    stressTemperatureC: 'stressTemperature', depositionTemperatureC: 'depositionTemperature', substrateDiameterMm: 'substrate.diameter',
+};
 // The options compareMeasured() passes to measuredDifference as they are; it
 // takes from and to as start and end, as the other methods over a range do.
 const COMPARE_OPTIONS = ['curve', 'angle', 'pol', 'quantity', 'scale', 'xUnit', 'grid', 'step', 'thinEvery', 'db', 'levelFree'];
@@ -58,8 +62,8 @@ const STACK_NAMES = Object.fromEntries(Object.entries(STACK_OPTIONS).map(([name,
 const CLEAN_NAMES = { mergeAdjacent: 'merge', cleanBack: 'back' };
 
 /**
- * A design's substrate: its material and thickness. Setting either changes
- * the design.
+ * A design's substrate: its material, thickness and diameter. Setting any of
+ * them changes the design.
  *
  * @example
  * const design = tf.newDesign('Bare SiO2');
@@ -97,6 +101,21 @@ export class Substrate {
     get thickness() { return this._design._data.substrate.thickness; }
 
     set thickness(thickness) { this._design._setup({ substrateThicknessMm: thickness }); }
+
+    /**
+     * The substrate's diameter, mm, which only the Stress window's centre
+     * deflection needs, or null when it is not set. Setting it to null unsets
+     * it.
+     *
+     * @throws a diameter of 0 or less
+     * @example
+     * const design = tf.newDesign('Bare BK7');
+     * design.substrate.diameter = 25.4;
+     * console.log(design.substrate.diameter, 'mm');
+     */
+    get diameter() { return this._design._data.substrate.diameterMm ?? null; }
+
+    set diameter(diameter) { this._design._setup({ substrateDiameterMm: diameter }); }
 
     // What console.log prints for a substrate.
     [inspect.custom]() { return `<Substrate ${this.material} ${this.thickness} mm>`; }
@@ -216,7 +235,38 @@ export class Design {
     set exitMedium(material) { this._setup({ exitMedium: material }); }
 
     /**
-     * The substrate: its material and thickness, a Substrate.
+     * The temperature the Stress window evaluates the part at, °C, or null
+     * when it is not set. While only the deposition temperature is set it
+     * reads 20 °C; with neither set, each film carries its intrinsic stress
+     * alone. Setting it to null unsets it.
+     *
+     * @throws a temperature of -273.15 °C or less
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stressTemperature = 60;
+     * console.log(design.stressTemperature, '°C');
+     */
+    get stressTemperature() { return this._data.stress?.temperatureC ?? null; }
+
+    set stressTemperature(temperature) { this._setup({ stressTemperatureC: temperature }); }
+
+    /**
+     * The temperature the films were deposited at, °C, or null when it is
+     * not set. While only the other temperature is set it reads 20 °C.
+     * Setting it to null unsets it.
+     *
+     * @throws a temperature of -273.15 °C or less
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.depositionTemperature = 250;
+     * console.log(design.depositionTemperature, '°C');
+     */
+    get depositionTemperature() { return this._data.stress?.depositionTemperatureC ?? null; }
+
+    set depositionTemperature(temperature) { this._setup({ depositionTemperatureC: temperature }); }
+
+    /**
+     * The substrate: its material, thickness and diameter, a Substrate.
      *
      * @example
      * const design = tf.newDesign('Bare BK7');
@@ -455,7 +505,7 @@ export class Design {
      * not compared.
      *
      * @param other The Design compared with this one.
-     * @returns An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'` or `'scoreOn'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null.
+     * @returns An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'` or `'substrate.diameter'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null.
      * @throws an other that is not a Design
      * @example
      * const design = tf.newDesign('Mirror');
@@ -1409,6 +1459,35 @@ export class Design {
      */
     roughness(options) {
         return new Roughness(worded({ method: 'roughness', call: 'roughness' }, () => api.roughness(this._data, options)));
+    }
+
+    /**
+     * The stress each film carries and what the coating does to the part, as
+     * the Stress window computes them from the constants on the materials'
+     * Mechanical tab, `stressTemperature`, `depositionTemperature` and the
+     * substrate's thickness and diameter. A film's stress is tensile
+     * positive, and the force is Σ σ·d, the quantity the `STR` merit row
+     * reads. The coatings that count follow the design's `sides` and
+     * `scoreOn`, as the window and the `STR` row count them. With coatings on
+     * both faces the force is F_front − F_back; a coating on one face alone
+     * reads the same on the back as on the front. A film whose material
+     * states no stress counts as carrying none, as in the `STR` row. Nothing
+     * else is substituted: any other constant a material does not state leaves
+     * the quantities that need it null, and `missing` names it. The built-in
+     * materials state no constants, so a design of them reads a force of 0.
+     *
+     * @returns A Stress.
+     * @throws a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.depositionTemperature = 250;
+     * design.substrate.diameter = 25.4;
+     * const s = design.stress();
+     * console.log(s.mode, 'force', s.whole.force, 'N/m;', s.films.length, 'films;', s.missing.length, 'materials missing constants');
+     */
+    stress() {
+        return new Stress(worded({ method: 'stress', call: 'stress' }, () => api.stress(this._data)));
     }
 
     /**

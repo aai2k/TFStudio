@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 68
+ *   1. The session: initialize and version negotiation, the tool list (the 69
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -101,7 +101,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 68 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 69 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -557,6 +557,22 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         JSON.stringify(shortRough).slice(0, 300));
     const negative = await server.call('roughness', { designId: two, sigma: -1 });
     ok('a σ below 0 is refused', /sigma is a roughness in nm, 0 or more/.test(negative.error ?? ''), negative.error);
+
+    // Film stress, and the three settings it reads.
+    const stressed = await server.call('stress', { designId: two });
+    ok('stress answers in full, as the API reads the design', JSON.stringify(stressed) === JSON.stringify(asJson({ designId: two, ...api.stress(edited) })), JSON.stringify(stressed).slice(0, 300));
+    const stressSetup = { depositionTemperatureC: 250, stressTemperatureC: 20, substrateDiameterMm: 25.4 };
+    await server.call('setDesignSetup', { designId: two, ...stressSetup });
+    const withRun = await server.call('stress', { designId: two });
+    ok('setDesignSetup sets the two temperatures and the diameter, which stress reads',
+        JSON.stringify(withRun) === JSON.stringify(asJson({ designId: two, ...api.stress(api.setDesignSetup(edited, stressSetup)) }))
+        && withRun.run?.depositionTemperature === 250 && withRun.substrate?.diameter === 25.4, JSON.stringify([withRun.run, withRun.substrate]));
+    await server.call('setDesignSetup', { designId: two, depositionTemperatureC: null, stressTemperatureC: null, substrateDiameterMm: null });
+    const unsetRun = await server.call('stress', { designId: two });
+    const flat = await server.call('setDesignSetup', { designId: two, substrateDiameterMm: 0 });
+    ok('null unsets them, and a diameter of 0 is refused',
+        unsetRun.run === null && unsetRun.substrate?.diameter === null && /substrateDiameterMm is a diameter in mm above 0/.test(flat.error ?? ''),
+        JSON.stringify([unsetRun.run, unsetRun.substrate, flat.error]));
 }
 
 // Coating files: a stack written to a COATING.DAT and a .seq, each read back in

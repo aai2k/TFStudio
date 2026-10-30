@@ -1,6 +1,6 @@
 import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevision.js';
 import { useDesign } from '../../../../state/DesignContext.js';
-import { computeStress } from './model.js';
+import { computeStress, stressBlockWith } from './model.js';
 import { stressViewSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
@@ -27,18 +27,9 @@ export function useStressAnalysis() {
         [design, evalMode, catalogRevision],
     );
 
-    // Setting either temperature creates the block, and from then on the other
-    // one reads as 20 °C rather than as absent. Clearing one drops it back out
-    // again, and the last one out takes the block with it: a block holding
-    // nothing is still a block, and would leave the design on a thermal run it
-    // no longer describes, with no way back to stating no process at all.
-    const setTemperature = (key, value) => {
-        const next = { ...(design?.stress || {}), [key]: value };
-        for (const field of Object.keys(next)) {
-            if (next[field] == null) delete next[field];
-        }
-        updateDesign({ stress: Object.keys(next).length ? next : undefined });
-    };
+    const setTemperature = (key, value) => updateDesign({
+        stress: stressBlockWith(design?.stress, { [key]: value }),
+    });
     const setSubstrate = (key, value) => updateDesign({
         substrate: { ...(design?.substrate || {}), [key]: value },
     });

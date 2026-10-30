@@ -1,5 +1,6 @@
 // Tools for a design's spectrum with graded interlayers or rough interfaces,
-// as the Inhomogeneities and Roughness / Scattering windows compute it.
+// and for its film stress, as the Inhomogeneities, Roughness / Scattering and
+// Stress windows compute them.
 
 import { object, num, int, list, oneOf, bool, DESIGN_ID } from './schemaParts.js';
 
@@ -98,6 +99,12 @@ export function toleranceTools({ api, store }) {
                 if (values) return { designId, ...result, ...range, wavelength, smooth, rough, loss };
                 return { designId, ...result, ...range, smooth: meansOf(smooth), rough: meansOf(rough), loss: lossSummary(wavelength, loss) };
             },
+        },
+        {
+            name: 'stress', title: 'Film stress',
+            description: "The stress each film carries and what the coating does to the part, as the Stress window computes them from the constants on the materials' Mechanical tab and the design's two temperatures, substrate thickness and diameter, which setDesignSetup sets. A film's stress is σ_ref plus the thermal terms, tensile positive; the force is Σ σ·d, the quantity the STR merit row reads. The coatings counted follow what the design is scored on. With coatings on both faces the force is F_front − F_back; a coating on one face alone reads the same on the back as on the front. A film whose material states no intrinsic stress has a stress of null and counts as carrying none, as in the STR row, so it adds nothing to the force or the strain energy. Nothing else is substituted: any other constant a material does not state leaves the quantities that need it null. Built-in materials state no constants, so a design of them reads a force of 0. Answers with mode (front, back or total), run ({ temperature, depositionTemperature } in °C, null when the design sets neither and each film carries its intrinsic stress alone), substrate ({ material, thickness, diameter }, mm, the diameter null when unset), whole ({ force N/m, radius m, deflection µm, strainEnergy J/m², cracking }; radius and deflection positive for the convex face a compressive coating leaves, radius null at no force, deflection null without a diameter), films (front first, each { side, number from 1 at the substrate, material id, name, thickness nm, stress MPa, strainEnergy J/m², delamination, shear MPa }) and missing (each { material, name, fields }, the constants a material lacks, the substrate's included).",
+            inputSchema: object({ designId: DESIGN_ID }, ['designId']),
+            run: ({ designId }) => ({ designId, ...api.stress(store.get(designId)) }),
         },
     ];
 }

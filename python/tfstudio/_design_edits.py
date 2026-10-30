@@ -12,7 +12,8 @@ LayerState = collections.namedtuple("LayerState", "material thickness locked")
 # are not their snake_case.
 _SETTINGS = {"incidentMedium": "incident_medium", "exitMedium": "exit_medium", "substrate": "substrate.material",
              "substrateThicknessMm": "substrate.thickness", "referenceWavelength": "reference",
-             "surfaceMode": "sides", "mfEvalMode": "score_on"}
+             "surfaceMode": "sides", "mfEvalMode": "score_on", "stressTemperatureC": "stress_temperature",
+             "depositionTemperatureC": "deposition_temperature", "substrateDiameterMm": "substrate.diameter"}
 
 
 def _state(layer):

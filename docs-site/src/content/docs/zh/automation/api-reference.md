@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[Inhomogeneities](#inhomogeneities-1)、[Roughness](#roughness-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[Inhomogeneities](#inhomogeneities-1)、[Roughness](#roughness-1)、[Stress](#stress-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -691,13 +691,63 @@ design.exit_medium = "BK7"
 print(design.exit_medium)
 ```
 
+### stressTemperature / stress_temperature
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.stressTemperature` | `design.stress_temperature` |
+| `design.stressTemperature = value` | `design.stress_temperature = value` |
+
+应力窗口评估工件时的温度，单位 °C；未设置时为 `null` / `None`。只设置了沉积温度时，它按 20 °C 计；两者都未设置时，每层膜只承担自身的本征应力。设为 `null` / `None` 即取消设置。
+
+**拒绝**：
+
+- 小于等于 -273.15 °C 的温度
+
+```js
+const design = tf.newDesign('Mirror');
+design.stressTemperature = 60;
+console.log(design.stressTemperature, '°C');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stress_temperature = 60
+print(design.stress_temperature, "°C")
+```
+
+### depositionTemperature / deposition_temperature
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.depositionTemperature` | `design.deposition_temperature` |
+| `design.depositionTemperature = value` | `design.deposition_temperature = value` |
+
+薄膜沉积时的温度，单位 °C；未设置时为 `null` / `None`。只设置了另一个温度时，它按 20 °C 计。设为 `null` / `None` 即取消设置。
+
+**拒绝**：
+
+- 小于等于 -273.15 °C 的温度
+
+```js
+const design = tf.newDesign('Mirror');
+design.depositionTemperature = 250;
+console.log(design.depositionTemperature, '°C');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.deposition_temperature = 250
+print(design.deposition_temperature, "°C")
+```
+
 ### substrate
 
 | JavaScript | Python |
 | ---------- | ------ |
 | `design.substrate` | `design.substrate` |
 
-基底：其材料和厚度，一个 Substrate。
+基底：其材料、厚度和直径，一个 Substrate。
 
 ```js
 const design = tf.newDesign('Bare BK7');
@@ -1037,7 +1087,7 @@ print(design.layers)
 | ---------- | ------ | --- | --- |
 | `other` | `other` |  | 与本设计比较的 Design。 |
 
-**返回**：**JavaScript**：一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'` 或 `'scoreOn'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null。<br>**Python**：命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（"incident_medium"、"exit_medium"、"substrate.material"、"substrate.thickness"、"reference"、"sides" 或 "score_on"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None。
+**返回**：**JavaScript**：一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'` 或 `'substrate.diameter'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null。<br>**Python**：命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（"incident_medium"、"exit_medium"、"substrate.material"、"substrate.thickness"、"reference"、"sides"、"score_on"、"stress_temperature"、"deposition_temperature" 或 "substrate.diameter"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None。
 
 **拒绝**：
 
@@ -2224,6 +2274,39 @@ print("R at 550 nm", round(r.smooth.R.at(550), 5), "becomes", round(r.rough.R.at
       round(r.loss.at(550) * 1e6, 1), "ppm")
 ```
 
+### stress
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.stress()` | `design.stress()` |
+
+每层膜承担的应力，以及镀膜对工件的作用，计算方式与应力窗口相同，依据材料「力学」选项卡上的常数、`stressTemperature` / `stress_temperature`、`depositionTemperature` / `deposition_temperature` 以及基底的厚度和直径。薄膜应力以张应力为正，合力为 Σ σ·d，即 `STR` 评价函数行所读取的量。哪些镀膜参与计算取决于设计的 `sides` 和 `scoreOn` / `score_on`，与窗口和 `STR` 行的计法相同。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。材料没有给出应力的膜按不承受应力计，与 `STR` 行相同。除此之外不替你补任何值：材料没有给出的其他常数会让需要它的量为 `null` / `None`，并由 `missing` 指出。内置材料没有给出任何常数，因此由它们构成的设计读出的合力为 0。
+
+**返回**：一个 Stress。
+
+**拒绝**：
+
+- 用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.depositionTemperature = 250;
+design.substrate.diameter = 25.4;
+const s = design.stress();
+console.log(s.mode, 'force', s.whole.force, 'N/m;', s.films.length, 'films;', s.missing.length, 'materials missing constants');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.deposition_temperature = 250
+design.substrate.diameter = 25.4
+s = design.stress()
+print(s.mode, "force", s.whole.force, "N/m;", len(s.films), "films;", len(s.missing),
+      "materials missing constants")
+```
+
 ### refine
 
 | JavaScript | Python |
@@ -2565,7 +2648,7 @@ with tfstudio.TFStudio(live=True) as tf:
 
 ## Substrate
 
-设计的基底：其材料和厚度。设置其中任何一项都会改变设计。
+设计的基底：其材料、厚度和直径。设置其中任何一项都会改变设计。
 
 ```js
 const design = tf.newDesign('Bare SiO2');
@@ -2629,6 +2712,31 @@ console.log(design.substrate.thickness, 'mm');
 design = tf.new_design("Bare BK7")
 design.substrate.thickness = 3
 print(design.substrate.thickness, "mm")
+```
+
+### diameter
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.substrate.diameter` | `design.substrate.diameter` |
+| `design.substrate.diameter = value` | `design.substrate.diameter = value` |
+
+基底的直径，单位 mm，只有应力窗口的中心挠度需要它；未设置时为 `null` / `None`。设为 `null` / `None` 即取消设置。
+
+**拒绝**：
+
+- 小于等于 0 的直径
+
+```js
+const design = tf.newDesign('Bare BK7');
+design.substrate.diameter = 25.4;
+console.log(design.substrate.diameter, 'mm');
+```
+
+```python
+design = tf.new_design("Bare BK7")
+design.substrate.diameter = 25.4
+print(design.substrate.diameter, "mm")
 ```
 
 ## Layers
@@ -8915,6 +9023,189 @@ name = "roughness-{}.csv".format(time.time_ns())
 design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.roughness(sigma=2).save_csv(name)
+print("Wrote", name)
+```
+
+## Stress
+
+每层膜承担的应力，以及镀膜对工件的作用，由 design.stress() 计算，与应力窗口的显示相同：`s.films` 为逐层表格，`s.whole` 为整体。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const s = design.stress();
+console.log(s.mode, 'force', s.whole.force, 'N/m;', s.missing.map(m => m.material).join(', '), 'state no constants');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+s = design.stress()
+print(s.mode, "force", s.whole.force, "N/m;", ", ".join(m.material for m in s.missing),
+      "state no constants")
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.mode` | `s.mode` |
+
+参与计算的镀膜：`'front'`、`'back'` 或 `'total'`（两面）。
+
+```js
+const design = tf.newDesign('Two-sided');
+design.sides = 'both';
+console.log(design.stress().mode);
+```
+
+```python
+design = tf.new_design("Two-sided")
+design.sides = "both"
+print(design.stress().mode)
+```
+
+### run
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.run` | `s.run` |
+
+**JavaScript**：温度，`{ temperature, depositionTemperature }`，单位 °C，未设置的那个按 20 计；设计两者都未设置时为 null，此时每层膜只承担自身的本征应力。
+
+**Python**：温度，命名元组 (temperature, deposition_temperature)，单位 °C，未设置的那个按 20 计；设计两者都未设置时为 None，此时每层膜只承担自身的本征应力。
+
+```js
+const design = tf.newDesign('Mirror');
+design.depositionTemperature = 250;
+console.log(design.stress().run);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.deposition_temperature = 250
+print(design.stress().run)
+```
+
+### substrate
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.substrate` | `s.substrate` |
+
+**JavaScript**：基底，`{ material, thickness, diameter }`：材料按 id 给出，厚度和直径单位 mm，直径未设置时为 null。
+
+**Python**：基底，命名元组 (material, thickness, diameter)：材料按 id 给出，厚度和直径单位 mm，直径未设置时为 None。
+
+```js
+const design = tf.newDesign('Mirror');
+design.substrate.diameter = 25.4;
+console.log(design.stress().substrate);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.substrate.diameter = 25.4
+print(design.stress().substrate)
+```
+
+### whole
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.whole` | `s.whole` |
+
+**JavaScript**：工件整体：`force`，所计各膜的 Σ σ·d，单位 N/m；`radius`，曲率半径，单位 m，合力为零时为 null；`deflection`，中心挠度，单位 µm，没有直径时为 null；`strainEnergy`，各膜应变能之和，单位 J/m²；`cracking`，各膜 U/2γ 之和。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。曲率半径与中心挠度在压应力镀膜留下凸面时为正。所需常数缺失时，各项为 null；没有给出应力的膜按不承受应力计。
+
+**Python**：工件整体，一个命名元组：force，所计各膜的 Σ σ·d，单位 N/m；radius，曲率半径，单位 m，合力为零时为 None；deflection，中心挠度，单位 µm，没有直径时为 None；strain_energy，各膜应变能之和，单位 J/m²；cracking，各膜 U/2γ 之和。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。曲率半径与中心挠度在压应力镀膜留下凸面时为正。所需常数缺失时，各项为 None；没有给出应力的膜按不承受应力计。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.stress().whole);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.stress().whole)
+```
+
+### films
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.films` | `s.films` |
+
+**JavaScript**：每个参与计算的膜一项，正面在前，每项为 `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`：number 从基底处的 1 起，与 `layers` 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strainEnergy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 null，其余各项则按该膜不承受应力计算；所需的其他常数缺失时，各项为 null。
+
+**Python**：每个参与计算的膜一项，正面在前，每项为命名元组 (side, number, material, name, thickness, stress, strain_energy, delamination, shear)：number 从基底处的 1 起，与 layers 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strain_energy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 None，其余各项则按该膜不承受应力计算；所需的其他常数缺失时，各项为 None。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^2 H');
+for (const film of design.stress().films) console.log(film.number, film.name, film.thickness.toFixed(2), 'nm', film.stress);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^2 H")
+for film in design.stress().films:
+    print(film.number, film.name, round(film.thickness, 2), "nm", film.stress)
+```
+
+### missing
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.missing` | `s.missing` |
+
+**JavaScript**：缺少常数的材料（包括基底），一个数组，每项为 `{ material, name, fields }`：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料都给出了全部常数时为空。
+
+**Python**：缺少常数的材料（包括基底），每项为命名元组 (material, name, fields)：material 为 id，fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料都给出了全部常数时为空。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^2 H');
+for (const m of design.stress().missing) console.log(m.material, m.fields.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^2 H")
+for m in design.stress().missing:
+    print(m.material, ", ".join(m.fields))
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.saveCsv(path)` | `s.save_csv(path)` |
+
+**JavaScript**：把各膜写入 CSV 文件，与窗口以“复制 CSV”写出逐层表格的方式相同：两面都参与计算时先是面，然后是膜层、材料、d (nm)、应力 (MPa)、U (J/m²)、脱层因子和边缘剪切 (MPa)，常数缺失处为空单元格。已存在的文件会被覆盖。
+
+**Python**：把各膜写入 CSV 文件，与窗口以“复制 CSV”写出逐层表格的方式相同：两面都参与计算时先是面，然后是膜层、材料、d (nm)、应力 (MPa)、U (J/m²)、脱层因子和边缘剪切 (MPa)，常数缺失处为空单元格。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：要写入的文件，使用完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。<br>**Python**：要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。 |
+
+```js
+const file = require('path').join(require('os').homedir(), `stress-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.stress().saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "stress-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.stress().save_csv(name)
 print("Wrote", name)
 ```
 

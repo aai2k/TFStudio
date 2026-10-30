@@ -34,6 +34,7 @@
  *   importCodevCoating(design, path, { side })
  *   inhomogeneities(design, { interlayers, start, end, step, angle, side })
  *   roughness(design, { sigma, range, interfaces, start, end, step, angle, side })
+ *   stress(design)
  *   setMerit(design, rows), merit(design)
  *   setSpecification(design, checks), checkSpecification(design)
  *   refine(design, settings, hooks), synthesize(design, { method, pool, settings }, hooks), runHooks(method)
@@ -73,6 +74,7 @@ export { saveZemaxCoating, readZemaxCoating, importZemaxCoating } from './zemaxC
 export { saveCodevCoating, readCodevCoating, importCodevCoating } from './codevCoating.js';
 export { inhomogeneities } from './inhomogeneities.js';
 export { roughness } from './roughness.js';
+export { stress } from './stress.js';
 export { setMerit, merit } from './merit.js';
 export { setSpecification, checkSpecification } from './specification.js';
 export { refine, synthesize, runHooks } from './runs.js';

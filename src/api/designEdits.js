@@ -183,6 +183,9 @@ const SETUP = {
     referenceWavelength: d => d.referenceWavelength || 550,
     surfaceMode: d => d.surfaceMode || 'front_only',
     mfEvalMode: d => d.mfEvalMode || 'side',
+    stressTemperatureC: d => d.stress?.temperatureC ?? null,
+    depositionTemperatureC: d => d.stress?.depositionTemperatureC ?? null,
+    substrateDiameterMm: d => d.substrate?.diameterMm ?? null,
 };
 
 const layerState = layer => ({ material: layer.material, thickness: layer.thickness, locked: !!layer.locked });
@@ -218,7 +221,7 @@ function sideDifferences(side, design, other) {
  * @param other The design compared with it.
  * @returns What differs.
  * @property same True when nothing compared differs.
- * @property setup Each setting that differs, `{ setting, before, after }`: setting by setDesignSetup's name (`'incidentMedium'`, `'exitMedium'`, `'substrate'`, `'substrateThicknessMm'`, `'referenceWavelength'`, `'surfaceMode'` or `'mfEvalMode'`), before its value in `design` and after in `other`.
+ * @property setup Each setting that differs, `{ setting, before, after }`: setting by setDesignSetup's name (`'incidentMedium'`, `'exitMedium'`, `'substrate'`, `'substrateThicknessMm'`, `'referenceWavelength'`, `'surfaceMode'`, `'mfEvalMode'`, `'stressTemperatureC'`, `'depositionTemperatureC'` or `'substrateDiameterMm'`), before its value in `design` and after in `other`.
  * @property layers Each layer that differs, the front's first: `{ side, number, before, after, change }`, number from 1 next to the substrate, before and after the layer in each design as `{ material, thickness, locked }` (thickness in nm), or null where that design has no layer of the number; change is after's thickness less before's, nm, or null when one design has no such layer.
  * @throws a design or an other that is not a design
  * @example

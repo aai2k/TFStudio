@@ -83,6 +83,7 @@ const CLASSES = [
     { name: 'Pulse', receiver: 'p' },
     { name: 'Inhomogeneities', receiver: 'r' },
     { name: 'Roughness', receiver: 'r' },
+    { name: 'Stress', receiver: 's' },
     { name: 'RunResult', receiver: 'run' },
     { name: 'Progress', receiver: 'p' },
     { name: 'MonteCarlo', receiver: 'mc' },

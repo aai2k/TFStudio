@@ -22,6 +22,7 @@
  *   design.pulse({ source, shape, centre, duration, ... }), design.setPulseSpectrum(fileOrRows)
  *   design.inhomogeneities({ interlayers, start, end, step, angle, side })
  *   design.roughness({ sigma, range, interfaces, start, end, step, angle, side })
+ *   design.stress(), design.stressTemperature, design.depositionTemperature, design.substrate.diameter
  *   design.specification.add(kind, start, end, { ... }), .check(), await .estimateYield(runs, { ... })
  *   await design.refine({ method, ... }), await design.synthesize(method, pool, { ... })
  *   await design.monteCarlo(start, end, { ... }), design.layerSensitivity({ ... })
@@ -49,6 +50,7 @@ export { GroupDelay } from './groupDelay.js';
 export { Pulse } from './pulse.js';
 export { Inhomogeneities } from './inhomogeneities.js';
 export { Roughness } from './roughness.js';
+export { Stress } from './stress.js';
 export { MaterialDispersion } from './materialDispersion.js';
 export { Progress, RunResult, MonteCarlo, Yield, SpecReport, CheckResult, LayerSensitivity, SensitivityRow, CleanReport } from './results.js';
 

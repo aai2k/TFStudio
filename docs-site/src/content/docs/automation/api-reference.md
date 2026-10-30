@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [Inhomogeneities](#inhomogeneities-1), [Roughness](#roughness-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [Inhomogeneities](#inhomogeneities-1), [Roughness](#roughness-1), [Stress](#stress-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -691,13 +691,63 @@ design.exit_medium = "BK7"
 print(design.exit_medium)
 ```
 
+### stressTemperature / stress_temperature
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.stressTemperature` | `design.stress_temperature` |
+| `design.stressTemperature = value` | `design.stress_temperature = value` |
+
+The temperature the Stress window evaluates the part at, °C, or `null` / `None` when it is not set. While only the deposition temperature is set it reads 20 °C; with neither set, each film carries its intrinsic stress alone. Setting it to `null` / `None` unsets it.
+
+**Refuses**:
+
+- a temperature of -273.15 °C or less
+
+```js
+const design = tf.newDesign('Mirror');
+design.stressTemperature = 60;
+console.log(design.stressTemperature, '°C');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stress_temperature = 60
+print(design.stress_temperature, "°C")
+```
+
+### depositionTemperature / deposition_temperature
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.depositionTemperature` | `design.deposition_temperature` |
+| `design.depositionTemperature = value` | `design.deposition_temperature = value` |
+
+The temperature the films were deposited at, °C, or `null` / `None` when it is not set. While only the other temperature is set it reads 20 °C. Setting it to `null` / `None` unsets it.
+
+**Refuses**:
+
+- a temperature of -273.15 °C or less
+
+```js
+const design = tf.newDesign('Mirror');
+design.depositionTemperature = 250;
+console.log(design.depositionTemperature, '°C');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.deposition_temperature = 250
+print(design.deposition_temperature, "°C")
+```
+
 ### substrate
 
 | JavaScript | Python |
 | ---------- | ------ |
 | `design.substrate` | `design.substrate` |
 
-The substrate: its material and thickness, a Substrate.
+The substrate: its material, thickness and diameter, a Substrate.
 
 ```js
 const design = tf.newDesign('Bare BK7');
@@ -1037,7 +1087,7 @@ What differs between this design and `other`: their setup and their layers, comp
 | ---------- | ------ | ------- | ------- |
 | `other` | `other` |  | The Design compared with this one. |
 
-**Returns**: **JavaScript**: An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'` or `'scoreOn'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null.<br>**Python**: A named tuple Differences: same, True when nothing compared differs; setup, each setting that differs as a SetupChange (setting, before, after), setting by the package's name ("incident_medium", "exit_medium", "substrate.material", "substrate.thickness", "reference", "sides" or "score_on"), before its value here and after in other; layers, each layer that differs, the front's first, as a LayerChange (side, number, before, after, change), before and after a LayerState (material, thickness, locked) or None where that design has no layer of the number, change after's thickness less before's in nm, or None.
+**Returns**: **JavaScript**: An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'` or `'substrate.diameter'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null.<br>**Python**: A named tuple Differences: same, True when nothing compared differs; setup, each setting that differs as a SetupChange (setting, before, after), setting by the package's name ("incident_medium", "exit_medium", "substrate.material", "substrate.thickness", "reference", "sides", "score_on", "stress_temperature", "deposition_temperature" or "substrate.diameter"), before its value here and after in other; layers, each layer that differs, the front's first, as a LayerChange (side, number, before, after, change), before and after a LayerState (material, thickness, locked) or None where that design has no layer of the number, change after's thickness less before's in nm, or None.
 
 **Refuses**:
 
@@ -2224,6 +2274,39 @@ print("R at 550 nm", round(r.smooth.R.at(550), 5), "becomes", round(r.rough.R.at
       round(r.loss.at(550) * 1e6, 1), "ppm")
 ```
 
+### stress
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.stress()` | `design.stress()` |
+
+The stress each film carries and what the coating does to the part, as the Stress window computes them from the constants on the materials' Mechanical tab, `stressTemperature` / `stress_temperature`, `depositionTemperature` / `deposition_temperature` and the substrate's thickness and diameter. A film's stress is tensile positive, and the force is Σ σ·d, the quantity the `STR` merit row reads. The coatings that count follow the design's `sides` and `scoreOn` / `score_on`, as the window and the `STR` row count them. With coatings on both faces the force is F_front − F_back; a coating on one face alone reads the same on the back as on the front. A film whose material states no stress counts as carrying none, as in the `STR` row. Nothing else is substituted: any other constant a material does not state leaves the quantities that need it `null` / `None`, and `missing` names it. The built-in materials state no constants, so a design of them reads a force of 0.
+
+**Returns**: A Stress.
+
+**Refuses**:
+
+- a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.depositionTemperature = 250;
+design.substrate.diameter = 25.4;
+const s = design.stress();
+console.log(s.mode, 'force', s.whole.force, 'N/m;', s.films.length, 'films;', s.missing.length, 'materials missing constants');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.deposition_temperature = 250
+design.substrate.diameter = 25.4
+s = design.stress()
+print(s.mode, "force", s.whole.force, "N/m;", len(s.films), "films;", len(s.missing),
+      "materials missing constants")
+```
+
 ### refine
 
 | JavaScript | Python |
@@ -2565,7 +2648,7 @@ with tfstudio.TFStudio(live=True) as tf:
 
 ## Substrate
 
-A design's substrate: its material and thickness. Setting either changes the design.
+A design's substrate: its material, thickness and diameter. Setting any of them changes the design.
 
 ```js
 const design = tf.newDesign('Bare SiO2');
@@ -2629,6 +2712,31 @@ console.log(design.substrate.thickness, 'mm');
 design = tf.new_design("Bare BK7")
 design.substrate.thickness = 3
 print(design.substrate.thickness, "mm")
+```
+
+### diameter
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.substrate.diameter` | `design.substrate.diameter` |
+| `design.substrate.diameter = value` | `design.substrate.diameter = value` |
+
+The substrate's diameter, mm, which only the Stress window's centre deflection needs, or `null` / `None` when it is not set. Setting it to `null` / `None` unsets it.
+
+**Refuses**:
+
+- a diameter of 0 or less
+
+```js
+const design = tf.newDesign('Bare BK7');
+design.substrate.diameter = 25.4;
+console.log(design.substrate.diameter, 'mm');
+```
+
+```python
+design = tf.new_design("Bare BK7")
+design.substrate.diameter = 25.4
+print(design.substrate.diameter, "mm")
 ```
 
 ## Layers
@@ -8915,6 +9023,189 @@ name = "roughness-{}.csv".format(time.time_ns())
 design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.roughness(sigma=2).save_csv(name)
+print("Wrote", name)
+```
+
+## Stress
+
+The stress each film carries and what the coating does to the part, as design.stress() computes them and the Stress window shows them: `s.films` the per-film table and `s.whole` the whole part.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+const s = design.stress();
+console.log(s.mode, 'force', s.whole.force, 'N/m;', s.missing.map(m => m.material).join(', '), 'state no constants');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+s = design.stress()
+print(s.mode, "force", s.whole.force, "N/m;", ", ".join(m.material for m in s.missing),
+      "state no constants")
+```
+
+### mode
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.mode` | `s.mode` |
+
+The coatings counted: `'front'`, `'back'` or `'total'`, both faces.
+
+```js
+const design = tf.newDesign('Two-sided');
+design.sides = 'both';
+console.log(design.stress().mode);
+```
+
+```python
+design = tf.new_design("Two-sided")
+design.sides = "both"
+print(design.stress().mode)
+```
+
+### run
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.run` | `s.run` |
+
+**JavaScript**: The temperatures, `{ temperature, depositionTemperature }` in °C, the one not set reading 20, or null when the design sets neither and each film carries its intrinsic stress alone.
+
+**Python**: The temperatures, a named tuple (temperature, deposition_temperature) in °C, the one not set reading 20, or None when the design sets neither and each film carries its intrinsic stress alone.
+
+```js
+const design = tf.newDesign('Mirror');
+design.depositionTemperature = 250;
+console.log(design.stress().run);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.deposition_temperature = 250
+print(design.stress().run)
+```
+
+### substrate
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.substrate` | `s.substrate` |
+
+**JavaScript**: The substrate, `{ material, thickness, diameter }`: the material by id, the thickness and the diameter in mm, the diameter null when it is not set.
+
+**Python**: The substrate, a named tuple (material, thickness, diameter): the material by id, the thickness and the diameter in mm, the diameter None when it is not set.
+
+```js
+const design = tf.newDesign('Mirror');
+design.substrate.diameter = 25.4;
+console.log(design.stress().substrate);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.substrate.diameter = 25.4
+print(design.stress().substrate)
+```
+
+### whole
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.whole` | `s.whole` |
+
+**JavaScript**: The part: `force`, Σ σ·d over the films counted, N/m; `radius`, the radius of curvature, m, null at no force; `deflection`, the centre deflection, µm, null without a diameter; `strainEnergy`, the films' total, J/m²; `cracking`, the sum over the films of U/2γ. With coatings on both faces the force is F_front − F_back; a coating on one face alone reads the same on the back as on the front. The radius and the deflection are positive for the convex face a compressive coating leaves. Each null when a constant it needs is missing; a film that states no stress counts as carrying none.
+
+**Python**: The part, a named tuple: force, Σ σ·d over the films counted, N/m; radius, the radius of curvature, m, None at no force; deflection, the centre deflection, µm, None without a diameter; strain_energy, the films' total, J/m²; cracking, the sum over the films of U/2γ. With coatings on both faces the force is F_front − F_back; a coating on one face alone reads the same on the back as on the front. The radius and the deflection are positive for the convex face a compressive coating leaves. Each None when a constant it needs is missing; a film that states no stress counts as carrying none.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+console.log(design.stress().whole);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+print(design.stress().whole)
+```
+
+### films
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.films` | `s.films` |
+
+**JavaScript**: One per film counted, front first, each `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`: number from 1 at the substrate, as `layers` numbers them; material by id and name as the window shows it; thickness in nm; stress in MPa, tensile positive; strainEnergy in J/m²; delamination, at 1 the energy to let go at the interface below the film; shear, the peak shear at the coating's edge, MPa. stress is null when the material states none, and the others then count the film as carrying none; each is null when another constant it needs is missing.
+
+**Python**: One per film counted, front first, each a named tuple (side, number, material, name, thickness, stress, strain_energy, delamination, shear): number from 1 at the substrate, as layers numbers them; material by id and name as the window shows it; thickness in nm; stress in MPa, tensile positive; strain_energy in J/m²; delamination, at 1 the energy to let go at the interface below the film; shear, the peak shear at the coating's edge, MPa. stress is None when the material states none, and the others then count the film as carrying none; each is None when another constant it needs is missing.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^2 H');
+for (const film of design.stress().films) console.log(film.number, film.name, film.thickness.toFixed(2), 'nm', film.stress);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^2 H")
+for film in design.stress().films:
+    print(film.number, film.name, round(film.thickness, 2), "nm", film.stress)
+```
+
+### missing
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.missing` | `s.missing` |
+
+**JavaScript**: The materials that leave a constant out, the substrate's included, an array of `{ material, name, fields }`: material by id, and fields the constants it lacks by their names on the material's mechanical record. Empty when every material states every constant.
+
+**Python**: The materials that leave a constant out, the substrate's included, each a named tuple (material, name, fields): material by id, and fields the constants it lacks by their names on the material's mechanical record. Empty when every material states every constant.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^2 H');
+for (const m of design.stress().missing) console.log(m.material, m.fields.join(', '));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^2 H")
+for m in design.stress().missing:
+    print(m.material, ", ".join(m.fields))
+```
+
+### saveCsv / save_csv
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.saveCsv(path)` | `s.save_csv(path)` |
+
+**JavaScript**: Writes the films to a CSV file as the window's Copy CSV writes its per-film table: the side when both faces are counted, then the layer, the material, d (nm), the stress (MPa), U (J/m²), the delamination factor and the edge shear (MPa), an empty cell where a constant is missing. A file that is there is written over.
+
+**Python**: Writes the films to a CSV file as the window's Copy CSV writes its per-film table: the side when both faces are counted, then the layer, the material, d (nm), the stress (MPa), U (J/m²), the delamination factor and the edge shear (MPa), an empty cell where a constant is missing. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.<br>**Python**: The file to write. A relative path is taken from the program's working folder: in the Script Console, the script's folder, or the data folder for a script not saved. |
+
+```js
+const file = require('path').join(require('os').homedir(), `stress-${Date.now()}.csv`);
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.stress().saveCsv(file);
+console.log('Wrote', file);
+```
+
+```python
+import time
+
+name = "stress-{}.csv".format(time.time_ns())
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.stress().save_csv(name)
 print("Wrote", name)
 ```
 

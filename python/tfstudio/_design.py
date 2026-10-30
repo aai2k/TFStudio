@@ -15,6 +15,7 @@ from ._errors import TFStudioError
 from ._group_delay import GroupDelay
 from ._inhomogeneities import Inhomogeneities
 from ._roughness import Roughness
+from ._stress import Stress
 from ._integrals import Integrals
 from ._production import edge_filter_of, monitor_worksheet_of, process_steps_of, run_options
 from ._merit import Merit
@@ -39,7 +40,10 @@ _STACK_WORDS = Words("stackFromFormula", "stack", {name: option for option, name
 # The attributes that set what setDesignSetup's options set, where their
 # names are not the options' snake_case.
 _SETUP_WORDS = Words("setDesignSetup", names={"referenceWavelength": "reference", "substrate": "substrate.material",
-                                              "substrateThicknessMm": "substrate.thickness"})
+                                              "substrateThicknessMm": "substrate.thickness",
+                                              "stressTemperatureC": "stress_temperature",
+                                              "depositionTemperatureC": "deposition_temperature",
+                                              "substrateDiameterMm": "substrate.diameter"})
 _MONTE_CARLO_WORDS = Words("monteCarlo", "monte_carlo", hidden=("from", "to"), extra=("progress", "stop"))
 # design.clean()'s names for cleanDesign's options, where they are not their snake_case.
 _CLEAN_WORDS = Words("cleanDesign", "clean", {"mergeAdjacent": "merge", "cleanBack": "back"})
@@ -435,8 +439,8 @@ class Layers:
 
 
 class Substrate:
-    """A design's substrate: its material and thickness. Setting either
-    changes the design.
+    """A design's substrate: its material, thickness and diameter. Setting
+    any of them changes the design.
 
     Example::
 
@@ -486,6 +490,27 @@ class Substrate:
     @thickness.setter
     def thickness(self, thickness):
         self._design._setup(substrateThicknessMm=thickness)
+
+    @property
+    def diameter(self):
+        """The substrate's diameter, mm, which only the Stress window's
+        centre deflection needs, or None when it is not set. Setting it to
+        None unsets it.
+
+        Raises:
+            TFStudioError: a diameter of 0 or less.
+
+        Example::
+
+            design = tf.new_design("Bare BK7")
+            design.substrate.diameter = 25.4
+            print(design.substrate.diameter, "mm")
+        """
+        return self._design._data["substrate"].get("diameterMm")
+
+    @diameter.setter
+    def diameter(self, diameter):
+        self._design._setup(substrateDiameterMm=diameter)
 
     def __repr__(self):
         return "<Substrate {} {} mm>".format(self.material, self.thickness)
@@ -648,8 +673,51 @@ class Design:
         self._setup(exitMedium=material)
 
     @property
+    def stress_temperature(self):
+        """The temperature the Stress window evaluates the part at, °C, or
+        None when it is not set. While only the deposition temperature is set
+        it reads 20 °C; with neither set, each film carries its intrinsic
+        stress alone. Setting it to None unsets it.
+
+        Raises:
+            TFStudioError: a temperature of -273.15 °C or less.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stress_temperature = 60
+            print(design.stress_temperature, "°C")
+        """
+        return (self._data.get("stress") or {}).get("temperatureC")
+
+    @stress_temperature.setter
+    def stress_temperature(self, temperature):
+        self._setup(stressTemperatureC=temperature)
+
+    @property
+    def deposition_temperature(self):
+        """The temperature the films were deposited at, °C, or None when it
+        is not set. While only the other temperature is set it reads 20 °C.
+        Setting it to None unsets it.
+
+        Raises:
+            TFStudioError: a temperature of -273.15 °C or less.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.deposition_temperature = 250
+            print(design.deposition_temperature, "°C")
+        """
+        return (self._data.get("stress") or {}).get("depositionTemperatureC")
+
+    @deposition_temperature.setter
+    def deposition_temperature(self, temperature):
+        self._setup(depositionTemperatureC=temperature)
+
+    @property
     def substrate(self):
-        """The substrate: its material and thickness, a Substrate.
+        """The substrate: its material, thickness and diameter, a Substrate.
 
         Example::
 
@@ -960,7 +1028,9 @@ class Design:
             differs; setup, each setting that differs as a SetupChange
             (setting, before, after), setting by the package's name
             ("incident_medium", "exit_medium", "substrate.material",
-            "substrate.thickness", "reference", "sides" or "score_on"),
+            "substrate.thickness", "reference", "sides", "score_on",
+            "stress_temperature", "deposition_temperature" or
+            "substrate.diameter"),
             before its value here and after in other; layers, each layer that
             differs, the front's first, as a LayerChange (side, number,
             before, after, change), before and after a LayerState (material,
@@ -2453,6 +2523,42 @@ class Design:
                   round(r.loss.at(550) * 1e6, 1), "ppm")
         """
         return Roughness(self._read("roughness", "roughness", **options))
+
+    def stress(self):
+        """The stress each film carries and what the coating does to the
+        part, as the Stress window computes them from the constants on the
+        materials' Mechanical tab, stress_temperature,
+        deposition_temperature and the substrate's thickness and diameter. A
+        film's stress is tensile positive, and the force is Σ σ·d, the
+        quantity the STR merit row reads. The coatings that count follow the
+        design's sides and score_on, as the window and the STR row count
+        them. With coatings on both faces the force is F_front − F_back; a
+        coating on one face alone reads the same on the back as on the
+        front. A film whose material states no stress counts as carrying
+        none, as in the STR row. Nothing else is substituted: any other
+        constant a material does not state leaves the quantities that need
+        it None, and missing names it. The built-in materials state no
+        constants, so a design of them reads a force of 0.
+
+        Returns:
+            A Stress.
+
+        Raises:
+            TFStudioError: a design that names a material that resolves to
+                nothing.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            design.deposition_temperature = 250
+            design.substrate.diameter = 25.4
+            s = design.stress()
+            print(s.mode, "force", s.whole.force, "N/m;", len(s.films), "films;", len(s.missing),
+                  "materials missing constants")
+        """
+        with worded(Words("stress", "stress")):
+            return Stress(self._calls.stress(self._data))
 
     def _read(self, call, method, **options):
         """What the API's call `call` reads of the design with `options`, for

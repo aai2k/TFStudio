@@ -6,10 +6,11 @@ API's calls and compares.
     python -B -I tests/_pythonObjects.py objects <folder holding tfstudio>
 
 The first line on stdin is the input, as JSON: { name, pool, settingNames,
-dataDir, measured, specKinds }, dataDir a data folder whose user catalog
-holds two materials named Twin, measured a design file with a measured curve,
-and specKinds the checks to add to it, each [kind, wavelengths, keyword
-arguments, the fields the test gives setSpecification].
+dataDir, measured, specKinds, stressed }, dataDir a data folder whose user
+catalog holds two materials named Twin, measured a design file with a
+measured curve, specKinds the checks to add to it, each [kind, wavelengths,
+keyword arguments, the fields the test gives setSpecification], and stressed
+a design file whose materials carry mechanical constants.
 """
 
 import copy
@@ -67,6 +68,7 @@ def objects(given):
         pulse(tf)
         inhomogeneities(tf)
         roughness(tf)
+        stress(tf, given)
         material_dispersion(tf)
         band_features(tf)
         measured_curves(tf)
@@ -799,6 +801,51 @@ def roughness(tf):
                        "tuples": [type(r.smooth).__name__, list(type(r.smooth)._fields), type(r.smooth.R).__name__,
                                   type(r.loss).__name__, type(r.thinned[0]).__name__, list(type(r.thinned[0])._fields)],
                        "csv": text_of("roughness.csv"), "worded": worded, "shown": [repr(asked[0]), repr(asked[4])]}})
+
+
+def stress_of(s):
+    return [s.mode, s.run and list(s.run), list(s.substrate), list(s.whole), [list(film) for film in s.films],
+            [[m.material, m.name, m.fields] for m in s.missing]]
+
+
+def stress(tf, given):
+    """stress() of the stress fixture, whose materials carry constants, of it
+    coated on both faces, and of a mirror with no run and with one; the three
+    attributes set, read back and unset; the named tuples; the CSV; the
+    refusals and repr()."""
+    fixture = tf.open_design(given["stressed"])
+    two = fixture.copy()
+    two.sides = "both"
+    two.score_on = "whole part"
+    two.back_layers.append(fixture.layers[1].material, 120)
+    mirror = tf.new_design("Mirror")
+    mirror.stack("(HL)^2 H")
+    setup = mirror.copy()
+    setup.stress_temperature = 60
+    setup.deposition_temperature = 250
+    setup.substrate.diameter = 25.4
+    unset = setup.copy()
+    unset.stress_temperature = None
+    unset.deposition_temperature = None
+    unset.substrate.diameter = None
+    asked = [fixture.stress(), two.stress(), mirror.stress(), setup.stress()]
+    asked[0].save_csv("stress.csv")
+    asked[1].save_csv("stress-both.csv")
+    s = asked[0]
+    worded = [refused(make) for make in (
+        lambda: setattr(mirror.copy(), "stress_temperature", -300),
+        lambda: setattr(mirror.copy(), "deposition_temperature", "hot"),
+        lambda: setattr(mirror.copy().substrate, "diameter", 0))]
+    out({"stress": {"designs": [fixture._data, two._data, mirror._data, setup._data, unset._data],
+                    "read": [setup.stress_temperature, setup.deposition_temperature, setup.substrate.diameter],
+                    "unsetRead": [unset.stress_temperature, unset.deposition_temperature, unset.substrate.diameter],
+                    "asked": [stress_of(x) for x in asked],
+                    "tuples": [type(s.run).__name__, list(type(s.run)._fields), type(s.substrate).__name__,
+                               list(type(s.substrate)._fields), type(s.whole).__name__, list(type(s.whole)._fields),
+                               type(s.films[0]).__name__, list(type(s.films[0])._fields), type(s.missing[0]).__name__,
+                               list(type(s.missing[0])._fields)],
+                    "csv": [text_of("stress.csv"), text_of("stress-both.csv")], "worded": worded,
+                    "shown": [repr(asked[0]), repr(asked[2])]}})
 
 
 def material_dispersion(tf):

@@ -67,9 +67,31 @@ export function stressRunOf(design, substrateMaterial) {
     return stressRun({ stress: design?.stress || null, nsmat: substrateMaterial });
 }
 
+/**
+ * A design's `stress` block with `changes` applied, each a temperature in °C
+ * or null to unset it, or undefined when nothing is left.
+ *
+ * Setting either temperature creates the block, and from then on the other
+ * one reads as 20 °C rather than as absent. Clearing one drops it back out
+ * again, and the last one out takes the block with it: a block holding
+ * nothing is still a block, and would leave the design on a thermal run it
+ * no longer describes, with no way back to stating no process at all.
+ *
+ * @param {Object|undefined} stress  the design's block, `{ temperatureC, depositionTemperatureC }`
+ * @param {Object} changes           the fields to set, by the block's names
+ */
+export function stressBlockWith(stress, changes) {
+    const next = { ...(stress || {}), ...changes };
+    for (const field of Object.keys(next)) {
+        if (next[field] == null) delete next[field];
+    }
+    return Object.keys(next).length ? next : undefined;
+}
+
 function substrateBundle(design, material) {
     const mechanical = material?.mechanical;
     return {
+        materialId: design?.substrate?.material ?? 'BK7',
         materialName: material?.name || design?.substrate?.material || '?',
         mechanical,
         youngsPa: youngsModulusPa(mechanical),
@@ -159,8 +181,8 @@ function wholePart(front, back, substrate) {
 }
 
 // One entry per material that leaves something out, in the order the layers
-// meet it. The substrate is named too, since the curvature and the lowest
-// delamination factor read its constants.
+// meet it, by id and by name. The substrate is named too, since the curvature
+// and the lowest delamination factor read its constants.
 function missingConstants(films, substrate) {
     const missing = [];
     const seen = new Set();
@@ -171,10 +193,12 @@ function missingConstants(films, substrate) {
             ...missingStressFields(film.mechanical),
             ...(stated(film.mechanical?.surfaceEnergyJm2) ? [] : ['surfaceEnergyJm2']),
         ];
-        if (fields.length) missing.push({ name: film.materialName, fields });
+        if (fields.length) missing.push({ materialId: film.materialId, name: film.materialName, fields });
     }
     const substrateFields = SUBSTRATE_FIELDS.filter(field => !stated(substrate.mechanical?.[field]));
-    if (substrateFields.length) missing.push({ name: substrate.materialName, fields: substrateFields });
+    if (substrateFields.length) {
+        missing.push({ materialId: substrate.materialId, name: substrate.materialName, fields: substrateFields });
+    }
     return missing;
 }
 

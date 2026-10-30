@@ -335,6 +335,13 @@ const specified = api.setSpecification(start, CHECKS);
     ok('a σ below 0 is refused with its code and fields', negative.error?.code === 'badValue'
         && canon(negative.error.fields) === canon({ call: 'roughness', option: 'sigma', takes: 'a roughness in nm, 0 or more', value: -1 }),
         JSON.stringify(negative.error));
+    await same('stress', [twoSided]);
+    const deposited = await same('setDesignSetup', [twoSided, { depositionTemperatureC: 250, substrateDiameterMm: 25.4 }]);
+    await same('stress', [deposited.result]);
+    const flatDisc = await same('setDesignSetup', [twoSided, { substrateDiameterMm: 0 }]);
+    ok('a diameter of 0 mm is refused with its code and fields', flatDisc.error?.code === 'badValue'
+        && canon(flatDisc.error.fields) === canon({ call: 'setDesignSetup', option: 'substrateDiameterMm', takes: 'a diameter in mm above 0, or null to unset it', value: 0 }),
+        JSON.stringify(flatDisc.error));
     await same('setMerit', [stack, AR_ROWS]);
     await same('merit', [start]);
     await same('setSpecification', [start, CHECKS]);
