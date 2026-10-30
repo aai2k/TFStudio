@@ -185,7 +185,7 @@ for (const method of ['dls', 'cg', 'sqp', 'newton']) {
         return {
             map: async jobs => jobs.map(job => {
                 evaluator ??= new DLSOptimizer(job.operands, job.design, makeResolveMat(job.materials, 'test'));
-                return { mfs: job.vectors.map(v => evaluator.mfAt(v)) };
+                return { mfs: job.vectors.map(v => evaluator.mfAt(v)), omfs: job.vectors.map(v => evaluator.mfOpticalAt(v)) };
             }),
             terminate() {},
         };
@@ -197,6 +197,7 @@ for (const method of ['dls', 'cg', 'sqp', 'newton']) {
     assert.equal(pools, 1, 'four free layers take the evaluation pool');
     assert.deepEqual(parallel.frontLayers, serial.frontLayers, 'parallel DE lands on the serial DE design');
     assert.equal(parallel.mf, serial.mf, 'with the same merit');
+    assert.equal(parallel.omf, serial.omf, 'and the same optical merit');
 
     const dying = () => ({ map: async () => { throw new Error('an evaluation worker failed'); }, terminate() {} });
     const fellBack = await runRefinement(DESIGN, OPS(), settings, { makeWorker, makeEvalPool: dying });

@@ -3,10 +3,11 @@
  *
  * STATELESS RPC runner, WorkerPool-compatible (responds with `{type:'result'}`).
  * It evaluates the merit function for a BATCH of thickness vectors and returns
- * their MFs. This is the parallelism primitive for Differential Evolution: a
- * generation's `popSize` trial-vector evaluations are independent, so the
- * main-thread DE orchestrator (Refinement.js) fans them across a pool of
- * these workers and does the cheap mutation/crossover/selection itself.
+ * their MFs, and their optical MFs from the same evaluation. This is the
+ * parallelism primitive for Differential Evolution: the starting population's
+ * and each generation's `popSize` evaluations are independent, so the
+ * main-thread DE orchestrator (refinement/deEngine.js) fans them across a pool
+ * of these workers and does the cheap mutation/crossover/selection itself.
  *
  * Determinism: all RNG (mutation/crossover/selection) stays on the main thread;
  * these workers are PURE functions of their input vectors, so seeded DE stays
@@ -14,7 +15,7 @@
  * SAME result as the serial one (synchronous DE — trials built from the old
  * population).
  *
- * The evaluator is a `DLSOptimizer` used only via its pure `mfAt(vec)` helper
+ * The evaluator is a `DLSOptimizer` used only via its pure `meritsAt(vec)` helper
  * (identical surface-mode/bounds/material handling as every other engine). It is
  * cached per `sid` (session id) so it is constructed once per worker per DE run,
  * not once per generation. Materials cross via Approach A pre-sampling, sent to
@@ -45,9 +46,9 @@ onmessage = async (e) => {
         }
         const opt = CACHE.opt;
         const vectors = job.vectors || [];
-        const mfs = new Array(vectors.length);
-        for (let i = 0; i < vectors.length; i++) mfs[i] = opt.mfAt(vectors[i]);
-        postMessage({ type: 'result', mfs, idx: job.idx });
+        const mfs = new Array(vectors.length), omfs = new Array(vectors.length);
+        for (let i = 0; i < vectors.length; i++) ({ mf: mfs[i], omf: omfs[i] } = opt.meritsAt(vectors[i]));
+        postMessage({ type: 'result', mfs, omfs, idx: job.idx });
     } catch (err) {
         postMessage({ type: 'error', message: (err && err.stack) || String(err) });
     }

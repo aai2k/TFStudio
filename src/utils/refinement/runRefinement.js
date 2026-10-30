@@ -58,8 +58,9 @@ function prepare(design, operands) {
  *                      an InThreadOptimizerWorker on a thread of its own
  *   makeEvalPool(size) a pool of `size` MF-evaluation workers for parallel DE on
  *                      a design with four or more free layers: map(jobs)
- *                      resolving to one { mfs } per { type: 'evalBatch', ... }
- *                      job, and terminate(); utils/workers/workerPool.js over
+ *                      resolving to one { mfs, omfs } per { type: 'evalBatch',
+ *                      ... } job, the merits and optical merits of its
+ *                      vectors, and terminate(); utils/workers/workerPool.js over
  *                      mfEvalWorker.js is one. Without it DE runs serially in
  *                      one optimizer worker, with the same result.
  *   signal             AbortSignal that stops the run. A worker that runs its job

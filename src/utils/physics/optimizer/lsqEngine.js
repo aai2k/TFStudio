@@ -590,6 +590,12 @@ export class LSQEngine {
         return calcMF(this.operands, evaluateOperands(this.operands, this._ctxFor(thk)), { skipConstraints: true });
     }
 
+    // { mf: mfAt(thk), omf: mfOpticalAt(thk) } from one evaluation, bit for bit.
+    meritsAt(thk) {
+        const comp = evaluateOperands(this.operands, this._ctxFor(thk));
+        return { mf: calcMF(this.operands, comp), omf: calcMF(this.operands, comp, { skipConstraints: true }) };
+    }
+
     // Exact analytic gradient ∇MF(thk), length = thk.length, zero at locked
     // indices. Derivation: MF = √(SSR/ΣW), SSR = Σ rᵢ² = dot(_residuals).
     // _analyticJacobian is J = ∂(_residuals)/∂d, so ∂SSR/∂dⱼ = 2(Jᵀr)ⱼ and

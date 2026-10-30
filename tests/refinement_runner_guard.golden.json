@@ -168,24 +168,24 @@
   "methodsFlow/de/both": {
     "applied": {
       "front": [
-        100.642254686,
-        100.374266343
+        99.991710154,
+        99.9866612
       ],
       "back": [
-        99.837412368,
-        99.622627382
+        100.229857345,
+        100.208335913
       ]
     },
-    "mf": 7.21e-7,
-    "mfBest": 7.21e-7,
+    "mf": 9.6e-8,
+    "mfBest": 9.6e-8,
     "mfInitial": 0.196568758,
-    "iter": 40,
+    "iter": 37,
     "stopReason": "target",
     "history": [
       {
         "label": "Differential Evolution",
-        "iter": 40,
-        "mf": 7.21e-7,
+        "iter": 37,
+        "mf": 9.6e-8,
         "layerCount": 2,
         "layerSide": "frontLayers"
       }

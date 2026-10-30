@@ -88,11 +88,12 @@ class MockWorker {
     }
     terminate() { this.terminated = true; }
     _run(job) {
-        // Parallel-DE path (mfEvalWorker via WorkerPool): score each trial vector
-        // with a fixed quadratic bowl so DEOptimizer has a deterministic landscape.
+        // Parallel-DE path (mfEvalWorker via WorkerPool): score each member and
+        // trial vector with a fixed quadratic bowl so DEOptimizer has a
+        // deterministic landscape, the optical merit the same bowl.
         if (job.type === 'evalBatch') {
             const mfs = (job.vectors || []).map(v => v.reduce((a, x) => a + (x - 100) * (x - 100), 0) * 1e-6);
-            this._post({ type: 'done', mfs });
+            this._post({ type: 'done', mfs, omfs: mfs });
             return;
         }
         if (job.type !== 'start' && job.type !== 'score') return;   // ignore unknown

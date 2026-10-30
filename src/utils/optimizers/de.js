@@ -21,7 +21,9 @@
  * One step() = one generation (popSize MF evaluations). The population is
  * seeded with the current design (member 0 = x0) so DE can never finish worse
  * than the starting point; the rest are perturbed around x0 and clamped to the
- * box, with locked layers pinned.
+ * box, with locked layers pinned. The population is drawn first and scored
+ * after, so an orchestrator can score it too (opts.scoreMembers false, then
+ * ingestPopulation).
  *
  * SYNCHRONOUS (generational) selection: a generation's entire trial population
  * is built from the OLD population, then evaluated, then selected — no mid-
@@ -55,14 +57,21 @@ export class DEOptimizer extends EngineBase {
         this._stallLimit = opts.stallLimit ?? 60;   // generations w/o improvement → converged
         this._stall = 0;
 
-        // ── Initialize population ──────────────────────────────────────────────
-        // Member 0 = current design (elitism vs the start). Others = x0 with each
-        // free coordinate scaled by (1 ± spread·U), clamped, locked coords pinned.
-        this.pop    = new Array(this.NP);
-        this.popMF  = new Array(this.NP);
-        this.pop[0]   = this.x0.slice();
-        this.popMF[0] = this.mf;
-        let bestIdx = 0, bestMF = this.popMF[0];
+        this.pop   = this._drawPopulation();
+        this.popMF = new Array(this.NP);
+        // scoreMembers false: the caller scores this.pop and hands the merits to
+        // ingestPopulation, as parallel DE does on its worker pool. Until then
+        // the merits held here mean nothing.
+        if (opts.scoreMembers !== false) {
+            this.ingestPopulation(this.pop.map((member, p) => (p === 0 ? this.mf : this.mfAt(member))));
+        }
+    }
+
+    // The starting population. Member 0 = current design (elitism vs the
+    // start). Others = x0 with each free coordinate scaled by (1 ± spread·U),
+    // clamped, locked coords pinned. Consumes RNG.
+    _drawPopulation() {
+        const pop = [this.x0.slice()];
         const fallbackBase = this._meanFreeThickness();
         for (let p = 1; p < this.NP; p++) {
             const v = this.x0.slice();
@@ -70,14 +79,27 @@ export class DEOptimizer extends EngineBase {
                 const base = this.x0[j] > 0 ? this.x0[j] : fallbackBase;
                 v[j] = base * (1 + this._spread * (2 * this.rng() - 1));
             }
-            const c = this.clampVec(v);
-            this.pop[p]   = c;
-            this.popMF[p] = this.mfAt(c);
-            if (this.popMF[p] < bestMF) { bestMF = this.popMF[p]; bestIdx = p; }
+            pop.push(this.clampVec(v));
         }
-        this._bestIdx = bestIdx;
-        this._accept(this.pop[bestIdx].slice(), bestMF);
+        return pop;
     }
+
+    // The merits of the starting population, mfs[p] = MF(pop[p]), mfs[0] being
+    // the merit of the design as it is. The best member becomes the current and
+    // the best point.
+    ingestPopulation(mfs) {
+        this.popMF = mfs.slice();
+        this.mf = this.mfBest = mfs[0];
+        this.thicknesses = this.x0.slice();
+        this.thickBest = this.x0.slice();
+        let bestIdx = 0;
+        for (let p = 1; p < this.NP; p++) if (mfs[p] < mfs[bestIdx]) bestIdx = p;
+        this._bestIdx = bestIdx;
+        this._accept(this.pop[bestIdx].slice(), mfs[bestIdx]);
+    }
+
+    // Index of the population's best member.
+    get bestIndex() { return this._bestIdx; }
 
     // Spread centre, nm, for a free layer that starts at zero thickness and so
     // has no scale of its own: the mean of the design's nonzero free layers, or

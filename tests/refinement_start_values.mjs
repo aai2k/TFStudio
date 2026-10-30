@@ -4,8 +4,8 @@
  * methodsFlow.js, engineRun.js, workers/optimizerJob.js). At a fine Step one
  * evaluation of a large design takes seconds, and the Refinement window would
  * hold for it at every Run. DE here runs serially in one worker; the parallel
- * DE the window uses on machines with more than two threads still scores its
- * population on the calling thread, which is a separate matter.
+ * DE the window uses on machines with more than two threads is tested in
+ * parallel_de_window_thread.mjs.
  *
  *   1. Stub workers report sentinel start values. A single DLS run and a flow
  *      whose first method starts from the design as it is show the start its
