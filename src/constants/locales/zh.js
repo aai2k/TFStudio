@@ -3553,7 +3553,7 @@ export default {
     traceSpecular: '粗糙',
     traceLoss: '镜面损耗',
     noticeThinned: (n) => `${n} 层比从中扣除的过渡层更薄，其厚度已设为零`,
-    noticeOblique: '大尺度层是按正入射推导的；在此入射角下结果只是估算',
+    noticeOblique: '大尺度层是按正入射推导的；斜入射或在入射角锥上结果只是估算',
   },
   inhomogeneities: {
     noLayers: '设计中无膜层。',

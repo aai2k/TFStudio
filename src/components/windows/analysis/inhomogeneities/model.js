@@ -1,7 +1,6 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import {
-    evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
-} from '../../../../utils/physics/thinFilmMath.js';
+import { runSpectrum } from '../../../../utils/physics/plotQuantities/spectrumRunner.js';
+import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
 import { expandLayersWithInterlayers } from '../../../../utils/physics/inhomogeneity.js';
 
 function resolveLayers(resolveMaterial, layers) {
@@ -29,26 +28,36 @@ export function buildExpandedStacks(design, inh) {
     return { incMat, subMat, exitMat, frontRaw, backRaw, frontExp, backExp };
 }
 
+/**
+ * The homogeneous and the graded spectrum of the design for the evaluation
+ * mode, both averaged over the design's cone of incidence as Optical
+ * Evaluation averages its spectrum.
+ */
 export function computeInhomogeneitySpectra(design, params, inh, evalMode) {
-    const stacks = buildExpandedStacks(design, inh);
-    const { incMat, subMat, exitMat, frontRaw, backRaw, frontExp, backExp } = stacks;
-    const subThk = design.substrate?.thickness ?? 1.0;
-    if (evalMode === 'back') {
-        return {
-            baseline: evaluateSpectrumBack(params, exitMat, subMat, backRaw),
-            perturbed: evaluateSpectrumBack(params, exitMat, subMat, backExp),
-        };
-    }
-    if (evalMode === 'total') {
-        return {
-            baseline: evaluateSpectrumTotal(params, incMat, subMat, exitMat, frontRaw, backRaw, subThk),
-            perturbed: evaluateSpectrumTotal(params, incMat, subMat, exitMat, frontExp, backExp, subThk),
-        };
-    }
-    return {
-        baseline: evaluateSpectrum(params, incMat, subMat, frontRaw),
-        perturbed: evaluateSpectrum(params, incMat, subMat, frontExp),
+    const { incMat, subMat, exitMat, frontRaw, backRaw, frontExp, backExp } = buildExpandedStacks(design, inh);
+    const media = {
+        incMat, subMat, exitMat,
+        subThickness_mm: design.substrate?.thickness ?? 1.0,
+        cone: makeConeSpec(design.cone || {}),
     };
+    return {
+        baseline: runSpectrum(evalMode, params, { ...media, frontLayers: frontRaw, backLayers: backRaw }),
+        perturbed: runSpectrum(evalMode, params, { ...media, frontLayers: frontExp, backLayers: backExp }),
+    };
+}
+
+/**
+ * The window's spectra, { baseline, perturbed, error }: `error` holds the
+ * message of a computation that failed, and the spectra are null then. The
+ * analysis worker runs it under a cone of incidence.
+ */
+export function inhomogeneitySpectraState({ design, params, inh, evalMode }) {
+    if (!design?.frontLayers) return { baseline: null, perturbed: null, error: null };
+    try {
+        return { ...computeInhomogeneitySpectra(design, params, inh, evalMode), error: null };
+    } catch (caught) {
+        return { baseline: null, perturbed: null, error: caught.message || String(caught) };
+    }
 }
 
 export function buildSpecificationInputs(design, inh) {

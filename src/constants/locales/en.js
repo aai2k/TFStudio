@@ -3159,7 +3159,7 @@ export default {
     traceSpecular:  'rough',
     traceLoss:      'Specular loss',
     noticeThinned:  (n) => `${n} layer${n === 1 ? ' is' : 's are'} thinner than the transition layer taken from ${n === 1 ? 'it, so it is' : 'them, so they are'} set to zero thickness`,
-    noticeOblique:  'The long-range layer is derived for normal incidence; at this angle it is an estimate',
+    noticeOblique:  'The long-range layer is derived for normal incidence; at an angle or over a cone of incidence it is an estimate',
   },
 
   inhomogeneities: {

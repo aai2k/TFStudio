@@ -3,25 +3,15 @@ import {
     cloneInhomogeneity, emptyInhomogeneity,
 } from '../../../../utils/physics/inhomogeneity.js';
 import { designInterfaces } from '../designInterfaces.js';
+import { useEvaluationUnderCone } from '../useEvaluationUnderCone.js';
 import {
-    activeDesignSides, buildSpecificationInputs, computeInhomogeneitySpectra,
+    activeDesignSides, buildSpecificationInputs, inhomogeneitySpectraState,
 } from './model.js';
 import { inhomogeneityDesignSession, inhomogeneityViewSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
-const { useCallback, useMemo, useState } = React;
+const { useCallback, useMemo } = React;
 const keyFor = side => (side === 'back' ? 'backInterlayers' : 'interlayers');
-
-function computeSpectraState(design, params, inh, evalMode, setError) {
-    if (!design?.frontLayers) return { baseline: null, perturbed: null };
-    try {
-        setError(null);
-        return computeInhomogeneitySpectra(design, params, inh, evalMode);
-    } catch (caught) {
-        setError(caught.message || String(caught));
-        return { baseline: null, perturbed: null };
-    }
-}
 
 function computeSpecificationState(design, inh) {
     if (!design?.frontLayers) return null;
@@ -68,7 +58,6 @@ export function useInhomogeneities(ih) {
 
     const [view, setViewField] = useWindowSession(inhomogeneityViewSession, design);
     const { showCurves, lambdaStart, lambdaEnd, lambdaStep, aoi, showEditor, showTable } = view;
-    const [error, setError] = useState(null);
     const activeSides = activeDesignSides(design, evalMode);
     const hasBack = (design?.backLayers?.length || 0) > 0;
     const interfaces = useMemo(() => designInterfaces(design, ih), [design, ih]);
@@ -78,10 +67,13 @@ export function useInhomogeneities(ih) {
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: 'avg',
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi]);
 
-    const { baseline, perturbed } = useMemo(
-        () => computeSpectraState(design, params, inh, evalMode, setError),
-        [design, params, inh, evalMode],
-    );
+    // Under a cone of incidence the spectra are computed in the analysis worker,
+    // as Optical Evaluation computes its own.
+    const request = useMemo(() => ({ design, params, inh, evalMode }), [design, params, inh, evalMode]);
+    const evaluated = useEvaluationUnderCone(design, 'inhomogeneitySpectra', request, inhomogeneitySpectraState);
+    const baseline = evaluated.data?.baseline ?? null;
+    const perturbed = evaluated.data?.perturbed ?? null;
+    const error = evaluated.data?.error ?? evaluated.error;
     const specInputs = useMemo(() => computeSpecificationState(design, inh), [design, inh]);
 
     const findInterlayer = useCallback((side, afterIndex) =>

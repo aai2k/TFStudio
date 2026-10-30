@@ -19,16 +19,21 @@ import { useRoughnessScattering } from './useRoughnessScattering.js';
 
 const { createElement: h } = React;
 
-function buildNotices({ state, rs, rangeNotice }) {
+function buildNotices({ state, t, rangeNotice }) {
+    const rs = t.roughnessScattering;
     const notices = [];
-    if (state.error) notices.push({ label: state.error, tone: 'error' });
+    if (state.error) {
+        const label = state.error === 'ANALYSIS_EVALUATION_FAILED' ? t.analysisEvaluation.failed : state.error;
+        notices.push({ label, tone: 'error' });
+    }
     if (state.activeSides.includes('back') && !state.hasBack) {
         notices.push({ label: rs.noBackLayers });
     }
     const { calc } = state;
     const thinned = (calc?.thinned?.front.length || 0) + (calc?.thinned?.back.length || 0);
     if (thinned > 0) notices.push({ label: rs.noticeThinned(thinned) });
-    if (calc?.hasLongRange && state.aoi > 0) notices.push({ label: rs.noticeOblique });
+    // A cone's rays are oblique even about a normal axis.
+    if (calc?.hasLongRange && (state.aoi > 0 || state.coneActive)) notices.push({ label: rs.noticeOblique });
     if (rangeNotice) notices.push(rangeNotice);
     return notices;
 }
@@ -56,7 +61,7 @@ export function RoughnessScattering({ c, theme, t }) {
 
     return h(AnalysisWindow, { c },
         h(RoughnessControls, {
-            c, t, rs, state, notices: buildNotices({ state, rs, rangeNotice }),
+            c, t, rs, state, notices: buildNotices({ state, t, rangeNotice }),
         }),
         h(PlotArea, null,
             calc

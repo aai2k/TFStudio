@@ -12,7 +12,12 @@
  *   4. the Variator, both arms;
  *   5. the Measured Spectra preview and the curve editor's backdrop;
  *   6. the analysis worker's evaluations those windows send a design under a
- *      cone to, given the design as the window sends it.
+ *      cone to, given the design as the window sends it;
+ *   7. Inhomogeneities, with no interlayers and with an interlayer between two
+ *      halves of the layer, which is that layer made thicker, and Roughness,
+ *      with σ 0 and with σ 2 nm of either kind between two halves of the
+ *      layer, which leaves the design as it was; and the worker's evaluations
+ *      of both windows.
  *
  * Run: node tests/cone_matches_optical_evaluation.mjs
  */
@@ -32,6 +37,8 @@ const { computeVariatorSpectrum, captureVariatorBaseline } = await import('../sr
 const { designPreview, previewGrid } = await import('../src/components/windows/dataExchange/spectrumExchange/designPreview.js');
 const { designBackdrop } = await import('../src/components/windows/dataExchange/curveEditor/designBackdrop.js');
 const { tableFromCurve } = await import('../src/components/windows/dataExchange/curveEditor/curveTable.js');
+const { inhomogeneitySpectraState } = await import('../src/components/windows/analysis/inhomogeneities/model.js');
+const { calculateRoughness } = await import('../src/components/windows/analysis/roughnessScattering/model.js');
 const { dispatchAnalysisEvaluation } = await import('../src/utils/workers/analysisEvaluationWorker.js');
 const { designMaterialLookup, embedDesignMaterials } = await import('../src/utils/materials/designMaterials.js');
 const { resolveEvalMode, makeConeSpec, coneIsActive } = await import('../src/utils/physics/optimizer.js');
@@ -137,6 +144,52 @@ close(backdrop[0].y, fine.R, 'curve editor backdrop R');
         'the worker draws the Measured Spectra preview the window would');
     assert.deepEqual(dispatchAnalysisEvaluation('designBackdrop', { design: sent, table, conditions, missing: [] }), backdrop,
         "the worker draws the curve editor's backdrop the window would");
+}
+
+// ── 7. Inhomogeneities and Roughness ─────────────────────────────────────────
+{
+    const params = { ...range, theta: 45, polarization: 'avg' };
+    const none = { interlayers: [], backInterlayers: [] };
+    const plain = inhomogeneitySpectraState({ design, params, inh: none, evalMode: mode });
+    assert.equal(plain.error, null);
+    for (const key of ['R', 'T', 'A', 'Rs', 'Tp']) {
+        close(plain.baseline[key], at45[key], `Inhomogeneities homogeneous ${key}`);
+        close(plain.perturbed[key], at45[key], `Inhomogeneities graded ${key} with no interlayers`);
+    }
+    // The fixture's one layer in two halves, a 10 nm interlayer of its own
+    // material between them: the layer 10 nm thicker, as Optical Evaluation
+    // shows it.
+    const [layer] = design.frontLayers;
+    const halves = { ...design, frontLayers: [{ ...layer, thickness: layer.thickness / 2 }, { ...layer, thickness: layer.thickness / 2 }] };
+    const thicker = computeOpticalSpectrum({ ...design, frontLayers: [{ ...layer, thickness: layer.thickness + 10 }] },
+        { ...range, thetas: [45] }, mode).series[0];
+    const graded = { interlayers: [{ afterIndex: 0, thickness: 10, profile: 'sigmoid', slices: 7, enabled: true }], backInterlayers: [] };
+    const split = inhomogeneitySpectraState({ design: halves, params, inh: graded, evalMode: mode });
+    close(split.perturbed.R, thicker.R, 'Inhomogeneities graded R, an interlayer inside the layer');
+    close(split.perturbed.T, thicker.T, 'Inhomogeneities graded T, an interlayer inside the layer');
+
+    const smoothOnly = calculateRoughness({ design, params, rough: { mode: 'uniform', sigma: 0, range: 'long' }, evalMode: mode });
+    assert.equal(smoothOnly.error, null);
+    for (const key of ['R', 'T', 'Rs', 'Tp']) {
+        close(smoothOnly.data.ideal[key], at45[key], `Roughness smooth ${key}`);
+        close(smoothOnly.data.specular[key], at45[key], `Roughness rough ${key} at σ 0`);
+    }
+    // A rough interface inside one material takes its 2σ out of the layer
+    // beneath and puts back the same material, so the design is unchanged.
+    for (const kind of ['short', 'long']) {
+        const rough = { mode: 'perInterface', sigma: 0, range: kind, sigmas: [0, 2, 0], ranges: [] };
+        const inside = calculateRoughness({ design: halves, params, rough, evalMode: mode });
+        close(inside.data.specular.R, at45.R, `Roughness rough R, ${kind} range inside the layer`);
+        close(inside.data.specular.T, at45.T, `Roughness rough T, ${kind} range inside the layer`);
+    }
+
+    const sent = embedDesignMaterials(halves);
+    const request = { design: halves, params, inh: graded, evalMode: mode };
+    assert.deepEqual(dispatchAnalysisEvaluation('inhomogeneitySpectra', { ...request, design: sent }), split,
+        'the worker draws the Inhomogeneities spectra the window would');
+    const roughRequest = { design: halves, params, rough: { mode: 'uniform', sigma: 1.5, range: 'short' }, evalMode: mode };
+    assert.deepEqual(dispatchAnalysisEvaluation('roughnessSpectra', { ...roughRequest, design: sent }), calculateRoughness(roughRequest),
+        'the worker draws the Roughness spectra the window would');
 }
 
 console.log('PASS: cone_matches_optical_evaluation');

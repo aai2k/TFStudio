@@ -46,11 +46,12 @@ The long-range layer comes from a calculation for:
 
 Within those limits it gives the same drop in R and in T as scalar scattering
 theory, for light arriving from either side. The window also applies it at
-every interface of a multilayer and at any angle of incidence, which that
-calculation does not cover, so read those results as an estimate. Next to an
-absorbing material, a metal for example, only the real part of its index enters
-the layer. When the angle of incidence is not zero and a long-range interface is
-set, the window shows a note saying so.
+every interface of a multilayer, at any angle of incidence and over a design's
+cone of incidence, which that calculation does not cover, so read those results
+as an estimate. Next to an absorbing material, a metal for example, only the
+real part of its index enters the layer. When the angle of incidence is not zero
+or the design has a cone of incidence, and a long-range interface is set, the
+window shows a note saying so.
 
 ## Settings
 

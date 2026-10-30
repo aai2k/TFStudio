@@ -3577,7 +3577,7 @@ export default {
     noticeThinned: (n) => (n === 1
         ? '1 strato è più sottile dello strato di transizione tolto da esso, quindi il suo spessore è portato a zero'
         : `${n} strati sono più sottili dello strato di transizione tolto da essi, quindi il loro spessore è portato a zero`),
-    noticeOblique: 'Lo strato a lungo raggio è ricavato per incidenza normale; a questo angolo è una stima',
+    noticeOblique: 'Lo strato a lungo raggio è ricavato per incidenza normale; con incidenza obliqua o su un cono di angoli di incidenza è una stima',
   },
   inhomogeneities: {
     noLayers: 'Nessuno strato nel design.',

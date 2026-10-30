@@ -1,6 +1,8 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { emptyRoughness, cloneRoughness } from '../../../../utils/physics/scattering.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { designInterfaces } from '../designInterfaces.js';
+import { useEvaluationUnderCone } from '../useEvaluationUnderCone.js';
 import { calculateRoughness, getRoughnessContext } from './model.js';
 import { roughnessDesignSession, roughnessViewSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -30,10 +32,12 @@ export function useRoughnessScattering(rs) {
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi]);
     const context = getRoughnessContext(design, evalMode);
     const labels = useMemo(() => designInterfaces(design, rs), [design, rs]);
-    const result = useMemo(
-        () => calculateRoughness({ design, params, rough, evalMode, context }),
-        [design, params, rough, evalMode, context.frontN, context.backN, context.hasBack]
-    );
+    // Under a cone of incidence the spectra are computed in the analysis worker,
+    // as Optical Evaluation computes its own.
+    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const request = useMemo(() => ({ design, params, rough, evalMode }), [design, params, rough, evalMode]);
+    const evaluated = useEvaluationUnderCone(design, 'roughnessSpectra', request, calculateRoughness);
+    const result = { data: evaluated.data?.data ?? null, error: evaluated.data?.error ?? evaluated.error };
 
     const setMode = useCallback(mode => setRough(current => ({ ...current, mode })), []);
     const setUniformSigma = useCallback(value => {
@@ -61,7 +65,7 @@ export function useRoughnessScattering(rs) {
     const clearAll = useCallback(() => setRough(emptyRoughness()), []);
 
     return {
-        design, evalMode, rough, labels, ...context,
+        design, evalMode, rough, labels, ...context, coneActive,
         calc: result.data, error: result.error,
         lambdaStart, setLambdaStart: value => setViewField('lambdaStart', value),
         lambdaEnd, setLambdaEnd: value => setViewField('lambdaEnd', value),

@@ -26,9 +26,13 @@ function activeInterlayerCount(inh) {
         .filter(interlayer => interlayer.enabled !== false).length;
 }
 
-function buildNotices({ state, ih, rangeNotice }) {
+function buildNotices({ state, t, rangeNotice }) {
+    const ih = t.inhomogeneities;
     const notices = [];
-    if (state.error) notices.push({ label: state.error, tone: 'error' });
+    if (state.error) {
+        const label = state.error === 'ANALYSIS_EVALUATION_FAILED' ? t.analysisEvaluation.failed : state.error;
+        notices.push({ label, tone: 'error' });
+    }
     if (state.activeSides.includes('back') && !state.hasBack) {
         notices.push({ label: ih.noBackLayers });
     }
@@ -60,7 +64,7 @@ export function Inhomogeneities({ c, theme, t }) {
     }
 
     return h(AnalysisWindow, { c },
-        h(InhomogeneityControls, { c, t, ih, state, notices: buildNotices({ state, ih, rangeNotice }) }),
+        h(InhomogeneityControls, { c, t, ih, state, notices: buildNotices({ state, t, rangeNotice }) }),
         h(PlotArea, null,
             h(OverlayChart, {
                 baseline: state.baseline, perturbed: state.perturbed,

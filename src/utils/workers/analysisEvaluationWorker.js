@@ -14,6 +14,8 @@ import { runErrorAnalysisMC, computeLayerSensitivity } from '../physics/errorAna
 import { toleranceSpecInputs } from '../../components/windows/analysis/toleranceSpecInputs.js';
 import { computeCurveResults } from '../../components/windows/analysis/plotEngine/curveResults.js';
 import { computeVariatorSpectrum } from '../../components/windows/optimization/variator/model.js';
+import { inhomogeneitySpectraState } from '../../components/windows/analysis/inhomogeneities/model.js';
+import { calculateRoughness } from '../../components/windows/analysis/roughnessScattering/model.js';
 import { designPreview } from '../../components/windows/dataExchange/spectrumExchange/designPreview.js';
 import { designBackdrop } from '../../components/windows/dataExchange/curveEditor/designBackdrop.js';
 import { meritDisplay, meritTable } from '../physics/meritDisplay.js';
@@ -83,6 +85,8 @@ const EVALUATIONS = {
         computeLayerSensitivity(design, operands || [], designMaterialLookup(design), options),
     plotCurves: ({ design, curves }) => computeCurveResults(curves, design),
     variatorSpectrum: request => computeVariatorSpectrum(request),
+    inhomogeneitySpectra: request => inhomogeneitySpectraState(request),
+    roughnessSpectra: ({ design, params, rough, evalMode }) => calculateRoughness({ design, params, rough, evalMode }),
     designPreview: ({ design, curve, missing }) => designPreview(design, curve, missing),
     designBackdrop: ({ design, table, conditions, missing }) => designBackdrop(design, table, conditions, missing),
 };

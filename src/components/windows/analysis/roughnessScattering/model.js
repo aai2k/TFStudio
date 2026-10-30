@@ -1,7 +1,6 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import {
-    evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
-} from '../../../../utils/physics/thinFilmMath.js';
+import { runSpectrum } from '../../../../utils/physics/plotQuantities/spectrumRunner.js';
+import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
 import {
     countInterfaces, extrapolateSlicing, GRADED_SLICES, resolveRanges, resolveSigmas,
     roughenBackStack, roughenFrontStack,
@@ -51,23 +50,22 @@ function resolveSetup(design, params, evalMode) {
         front: resolveLayers(design.frontLayers),
         back: resolveLayers(design.backLayers),
         subThk: design.substrate?.thickness ?? 1.0,
+        cone: makeConeSpec(design.cone || {}),
     };
 }
 
 /**
- * The design's spectrum for the evaluation mode, with `roughen(side, layers)`
- * giving the layer list to evaluate for each stack that mode includes.
+ * The design's spectrum for the evaluation mode, averaged over the design's
+ * cone of incidence as Optical Evaluation averages its spectrum, with
+ * `roughen(side, layers)` giving the layer list to evaluate for each stack
+ * that mode includes.
  */
-function evaluateMode({ params, evalMode, media, front, back, subThk }, roughen) {
-    const { inc, sub, exit } = media;
-    if (evalMode === 'back') {
-        return evaluateSpectrumBack(params, exit, sub, roughen('back', back));
-    }
-    if (evalMode === 'total') {
-        return evaluateSpectrumTotal(params, inc, sub, exit,
-            roughen('front', front), roughen('back', back), subThk);
-    }
-    return evaluateSpectrum(params, inc, sub, roughen('front', front));
+function evaluateMode({ params, evalMode, media, front, back, subThk, cone }, roughen) {
+    return runSpectrum(evalMode, params, {
+        incMat: media.inc, subMat: media.sub, exitMat: media.exit, subThickness_mm: subThk, cone,
+        frontLayers: evalMode === 'back' ? [] : roughen('front', front),
+        backLayers: evalMode === 'back' || evalMode === 'total' ? roughen('back', back) : [],
+    });
 }
 
 /**
