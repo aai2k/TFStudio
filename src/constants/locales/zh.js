@@ -3527,7 +3527,6 @@ export default {
     clear: '重置',
     interfaces: '界面',
     backModeWarn: '粗糙度在正面堆栈界面上建模 — 仅背面光谱不会反映它。请在上方将"分析"切换为正面或整体。',
-    noBackLayers: '此评价包含背面镀膜，但设计没有背面膜层。请在设计编辑器中添加背面镀膜以建模其粗糙度。',
     frontInterfaces: '正面堆栈界面',
     backInterfaces: '背面堆栈界面',
     interface: '界面',

@@ -3549,7 +3549,6 @@ export default {
     clear: 'Reimposta',
     interfaces: 'interfacce',
     backModeWarn: 'La rugosità è modellata sulle interfacce dello stack anteriore, quindi lo spettro del solo posteriore non la rispecchia. Porta Analizza su Anteriore o Totale qui sopra.',
-    noBackLayers: "Questa valutazione comprende il rivestimento posteriore, ma il design non ha strati posteriori. Aggiungi un rivestimento posteriore nell'Editor del design per modellarne la rugosità.",
     frontInterfaces: 'Interfacce dello stack anteriore',
     backInterfaces: 'Interfacce dello stack posteriore',
     interface: 'Interfaccia',

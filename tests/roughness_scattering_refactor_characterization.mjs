@@ -96,19 +96,25 @@ assert.equal(scatterOption.yAxis[1].name, 'loss (frac)');
 assert.equal(scatterOption.legend.show, false,
     'toolbar curve toggles replace the duplicate in-chart legend');
 
+// A design coated on the back alone, read in Back mode, shows its back and
+// the back's two interfaces; a design with no layers on the side read says so.
 const c = makeTheme();
-const backOnlyDesign = makeSampleDesign();
-backOnlyDesign.frontLayers = [];
-backOnlyDesign.backLayers = [{ material: 'builtin:SiO2', thickness: 75 }];
-const backOnlyContext = { ...makeDesignCtx(backOnlyDesign), evalMode: 'back' };
-const backOnlyHtml = renderToStaticMarkup(
+const renderWith = (design, evalMode) => renderToStaticMarkup(
     React.createElement(
         DesignContext.Provider,
-        { value: backOnlyContext },
+        { value: { ...makeDesignCtx(design), evalMode } },
         React.createElement(RoughnessScattering, { c, t: makeLocale(), theme: c })
     )
 );
-assert.match(backOnlyHtml, /No layers in design\./);
+const backOnlyDesign = makeSampleDesign();
+backOnlyDesign.frontLayers = [];
+backOnlyDesign.backLayers = [{ material: 'builtin:SiO2', thickness: 75 }];
+const backOnlyHtml = renderWith(backOnlyDesign, 'back');
+assert.doesNotMatch(backOnlyHtml, /No layers in design\./);
+assert.ok(backOnlyHtml.includes(`2 ${makeLocale().roughnessScattering.interfaces}`), 'the back has two interfaces');
+const bareDesign = { ...makeSampleDesign(), frontLayers: [], backLayers: [] };
+assert.match(renderWith(bareDesign, 'front'), /No layers in design\./);
+assert.match(renderWith(bareDesign, 'back'), /No layers in design\./);
 
 // The editor offers both kinds and states the long-range model's limits where
 // the kind is chosen, in every language.

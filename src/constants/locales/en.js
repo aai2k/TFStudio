@@ -3132,7 +3132,6 @@ export default {
     clear:          'Reset',
     interfaces:     'interfaces',
     backModeWarn:   'Roughness is modelled on the front-stack interfaces, so the back-only spectrum doesn\'t reflect it. Switch Analyze to Front or Total above.',
-    noBackLayers:   'This evaluation includes the back coating, but the design has no back layers. Add a back coating in the Design Editor to model its roughness.',
     frontInterfaces:'Front-stack interfaces',
     backInterfaces: 'Back-stack interfaces',
     interface:      'Interface',

@@ -12,6 +12,7 @@ import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.j
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
+import { hasLayersForMode } from '../layersForMode.js';
 import { RoughnessControls, RoughnessEditor, RoughnessEditorActions } from './RoughnessControls.js';
 import { ScatterChart } from './ScatterChart.js';
 import { scatterColumns, scatterRows } from './tableModel.js';
@@ -25,9 +26,6 @@ function buildNotices({ state, t, rangeNotice }) {
     if (state.error) {
         const label = state.error === 'ANALYSIS_EVALUATION_FAILED' ? t.analysisEvaluation.failed : state.error;
         notices.push({ label, tone: 'error' });
-    }
-    if (state.activeSides.includes('back') && !state.hasBack) {
-        notices.push({ label: rs.noBackLayers });
     }
     const { calc } = state;
     const thinned = (calc?.thinned?.front.length || 0) + (calc?.thinned?.back.length || 0);
@@ -57,7 +55,7 @@ export function RoughnessScattering({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_scattering.csv`,
     );
 
-    if (!design.frontLayers?.length) return h(CenteredMessage, { c, message: rs.noLayers });
+    if (!hasLayersForMode(design, state.evalMode)) return h(CenteredMessage, { c, message: rs.noLayers });
 
     return h(AnalysisWindow, { c },
         h(RoughnessControls, {
