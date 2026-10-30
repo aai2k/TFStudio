@@ -6,7 +6,8 @@
  * no interlayers are enabled, expansion produces the right slice count and
  * preserves the host layers' thicknesses, and a very-thin interlayer
  * perturbs the spectrum only slightly while a thick interlayer perturbs it
- * a lot.
+ * a lot; and the window's rows below an empty layer stay at the interface
+ * they name.
  *
  * Run: node tests/inhomogeneity.mjs
  */
@@ -17,6 +18,8 @@ import {
     emptyInhomogeneity, cloneInhomogeneity,
 } from '../src/utils/physics/inhomogeneity.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
+import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
+import { computeInhomogeneitySpectra } from '../src/components/windows/analysis/inhomogeneities/model.js';
 
 let fails = 0;
 const ok    = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -286,6 +289,36 @@ ok(near(applyProfile('nonsense', 0.5), 0.5), 'unknown profile falls back to line
     ok(copy.interlayers[0].thickness === 999, 'cloneInhomogeneity: copy mutates independently');
     const e = cloneInhomogeneity(null);
     ok(Array.isArray(e.interlayers) && e.interlayers.length === 0, 'cloneInhomogeneity(null) → empty');
+}
+
+// ── 19) A row below an empty layer stays at the interface it names ─────────
+// 1H 0.04L 1H 1L in TiO2 and SiO2 on BK7, rounded to a 10 nm step, which
+// leaves the second layer from the substrate at 0 nm. Each row of the
+// window's interface list puts its interlayer where its afterIndex counts on
+// the stack with every layer kept, and the row at the substrate changes R.
+{
+    const design = {
+        incidentMedium: 'builtin:Air', substrate: { material: 'builtin:BK7', thickness: 1 },
+        frontLayers: [
+            { material: 'builtin:SiO2', thickness: 90 }, { material: 'builtin:TiO2', thickness: 50 },
+            { material: 'builtin:SiO2', thickness: 0 }, { material: 'builtin:TiO2', thickness: 50 },
+        ],
+        backLayers: [],
+    };
+    const lookup = designMaterialLookup(design);
+    const kept = design.frontLayers.map(layer => ({ material: lookup(layer.material), thickness: layer.thickness }));
+    const params = { lambdaStart: 550, lambdaEnd: 550, lambdaStep: 1, theta: 0, polarization: 'avg' };
+    const homogeneous = evaluateSpectrum(params, lookup('builtin:Air'), lookup('builtin:BK7'), kept).R[0];
+    for (let afterIndex = -1; afterIndex < kept.length; afterIndex++) {
+        const row = { afterIndex, thickness: 10, profile: 'linear', slices: 10, enabled: true };
+        const shown = computeInhomogeneitySpectra(design, params, { interlayers: [row], backInterlayers: [] }, 'front').perturbed.R[0];
+        const expected = evaluateSpectrum(params, lookup('builtin:Air'), lookup('builtin:BK7'),
+            expandLayersWithInterlayers(kept, lookup('builtin:Air'), lookup('builtin:BK7'), [row])).R[0];
+        ok(near(shown, expected), `rounded design, row afterIndex ${afterIndex}: R ${shown} is the stack with every layer kept, ${expected}`);
+    }
+    const atSubstrate = computeInhomogeneitySpectra(design, params,
+        { interlayers: [{ afterIndex: kept.length - 1, thickness: 10, profile: 'linear', slices: 10, enabled: true }], backInterlayers: [] }, 'front').perturbed.R[0];
+    ok(Math.abs(atSubstrate - homogeneous) > 1e-3, `rounded design: the row at the substrate changes R (${atSubstrate} against ${homogeneous})`);
 }
 
 // ── Summary ────────────────────────────────────────────────────────────────

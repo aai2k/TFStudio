@@ -3,9 +3,10 @@ import { runSpectrum } from '../../../../utils/physics/plotQuantities/spectrumRu
 import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
 import { expandLayersWithInterlayers } from '../../../../utils/physics/inhomogeneity.js';
 
+// Every layer is kept, zero-thickness ones included, so an interlayer row's
+// afterIndex counts layers as the editor lists them; the TMM skips empty layers.
 function resolveLayers(resolveMaterial, layers) {
     return (layers || [])
-        .filter(layer => layer.thickness > 0)
         .map(layer => ({ material: resolveMaterial(layer.material), thickness: layer.thickness }));
 }
 
