@@ -2,7 +2,7 @@
 // design as it stands, as the Inhomogeneities window computes it
 // (inhomogeneities/model.js, physics in utils/physics/inhomogeneity.js).
 
-import { activeDesignSides, NEW_INTERLAYER } from '../components/windows/analysis/inhomogeneities/model.js';
+import { NEW_INTERLAYER } from '../components/windows/analysis/inhomogeneities/model.js';
 import { toleranceSpecInputs } from '../components/windows/analysis/toleranceSpecInputs.js';
 import { sessionDefaults } from '../constants/analysisDefaults.js';
 import { embedDesignMaterials, withHerpinRecords } from '../utils/materials/designMaterials.js';
@@ -37,15 +37,22 @@ export function interfaceCount(design, side) {
 
 /**
  * What reads the rows of the option `list` of the call `call`, each a record
- * of `fields`, on a design whose sides computed are `sides`. `side(row, i)`
- * gives the side of row `i`, after refusing a row that is not a record or has
- * a field not in `fields`: the side given, which must be one of `sides`, or
- * else the one side computed. `interface(row, i, side, count)` gives its
- * interface on a side of `count` interfaces, refused unless it is a whole
- * number from 0 to count - 1 that no earlier row of the side names.
+ * of `fields`, on `design` computed in `mode`. `side(row, i)` gives the side
+ * of row `i`, after refusing a row that is not a record or has a field not in
+ * `fields`: the side given, which must be the side computed or, on the whole
+ * part, either side; or else the side computed, or on the whole part the side
+ * with layers. A row on the whole part of a design coated on both sides gives
+ * its side. `interface(row, i, side, count)` gives its interface on a side of
+ * `count` interfaces, refused unless it is a whole number from 0 to count - 1
+ * that no earlier row of the side names.
  */
-export function rowReader(call, list, sides, fields) {
+export function rowReader(call, list, design, mode, fields) {
     const seen = new Set();
+    const sides = mode === 'total' ? ['front', 'back'] : [mode];
+    const coated = sides.filter(side => storedLayers(design, side).length);
+    const fallback = coated.length > 1 ? undefined : (coated[0] ?? sides[0]);
+    const takes = sides.length === 1 ? `'${mode}', the side computed`
+        : `'front' or 'back'${fallback ? '' : ', given on each row of a whole part coated on both sides'}`;
     return {
         side(row, i) {
             requireValue(call, `${list}[${i}]`, row, isRecord, `a row { ${fields.join(', ')} }`);
@@ -54,9 +61,8 @@ export function rowReader(call, list, sides, fields) {
                 throw refusal('unknownOption', { call, option: `${list}[${i}].${unknown}`, options: fields },
                     `${call}: unknown option '${list}[${i}].${unknown}'; the options are ${fields.join(', ')}`);
             }
-            const side = row.side ?? (sides.length === 1 ? sides[0] : undefined);
-            requireValue(call, `${list}[${i}].side`, side, v => sides.includes(v),
-                sides.length === 1 ? `'${sides[0]}', the side computed` : "'front' or 'back', given on each row of the whole part");
+            const side = row.side ?? fallback;
+            requireValue(call, `${list}[${i}].side`, side, v => sides.includes(v), takes);
             return side;
         },
         interface(row, i, side, count) {
@@ -79,7 +85,7 @@ export function rowReader(call, list, sides, fields) {
 function interlayersOf(design, given, mode) {
     requireValue('inhomogeneities', 'interlayers', given, Array.isArray, `a list of rows, each { ${ROW_FIELDS.join(', ')} }`);
     const call = 'inhomogeneities';
-    const reader = rowReader(call, 'interlayers', activeDesignSides(design, mode), ROW_FIELDS);
+    const reader = rowReader(call, 'interlayers', design, mode, ROW_FIELDS);
     const inh = { interlayers: [], backInterlayers: [] };
     const rows = given.map((row, i) => {
         const side = reader.side(row, i);
@@ -136,7 +142,7 @@ const curvesOf = spectrum => Object.fromEntries(QUANTITIES.map(q => [q, Array.fr
  *
  * @param design The design.
  * @param [options]
- * @param [options.interlayers=[]] One row per interlayer, each `{ side, interface, thickness, profile, slices }`: `side` `'front'` or `'back'`, the side computed when there is one, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `thickness` in nm, 0 or more, 5 when left out; `profile` `'linear'`, `'parabolic'`, `'invParabolic'`, `'exponential'` or `'sigmoid'`, `'linear'` when left out; `slices` a whole number, 2 or more, 10 when left out. One row to an interface.
+ * @param [options.interlayers=[]] One row per interlayer, each `{ side, interface, thickness, profile, slices }`: `side` `'front'` or `'back'`, the side computed, or the coated side on a whole part coated on one side, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `thickness` in nm, 0 or more, 5 when left out; `profile` `'linear'`, `'parabolic'`, `'invParabolic'`, `'exponential'` or `'sigmoid'`, `'linear'` when left out; `slices` a whole number, 2 or more, 10 when left out. One row to an interface.
  * @param [options.start=400] The first wavelength, nm.
  * @param [options.end=800] The last wavelength, nm, above `start`.
  * @param [options.step=0.5] The wavelength step, nm.

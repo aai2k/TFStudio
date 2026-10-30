@@ -857,7 +857,7 @@ async function inhomogeneities(t, said) {
     ok('its refusals are in Python\'s words', canon(got.worded) === canon([
         "inhomogeneities: unknown option 'interlayer'; the options are interlayers, start, end, step, angle, side",
         "inhomogeneities: interlayers[0].interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10",
-        "inhomogeneities: interlayers[0].side is 'front' or 'back', given on each row of the whole part, not None",
+        "inhomogeneities: interlayers[0].side is 'front' or 'back', given on each row of a whole part coated on both sides, not None",
         "inhomogeneities: interlayers[0].profile is 'linear', 'parabolic', 'invParabolic', 'exponential' or 'sigmoid', not 'gaussian'",
         'inhomogeneities: interlayers[0].slices is a whole number of slices, 2 or more, not 1',
         'inhomogeneities: the back has no layers',
@@ -897,7 +897,7 @@ async function roughness(t, said) {
         'roughness: sigma is a roughness in nm, 0 or more, not -1',
         "roughness: range is 'short' or 'long', not 'medium'",
         "roughness: interfaces[0].interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10",
-        "roughness: interfaces[0].side is 'front' or 'back', given on each row of the whole part, not None",
+        "roughness: interfaces[0].side is 'front' or 'back', given on each row of a whole part coated on both sides, not None",
         'roughness: interfaces[0].sigma is a roughness in nm, 0 or more, not -2',
         'roughness: the back has no layers',
         'roughness: start and end are wavelengths in nm, 0 < start < end',

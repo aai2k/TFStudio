@@ -269,6 +269,13 @@ function everyInterface(design, mode, profile) {
 
 // ── 5. Refusals ────────────────────────────────────────────────────────────
 {
+    // On the whole part of a design coated on one side, a row without a side
+    // is that side's.
+    const backOnly = corpus.find(([name]) => name === 'back-only-side')[1];
+    const sideless = api.inhomogeneities(backOnly, { side: 'total', interlayers: [{ interface: 1, thickness: 4 }], ...RANGE });
+    const named = api.inhomogeneities(backOnly, { side: 'total', interlayers: [{ side: 'back', interface: 1, thickness: 4 }], ...RANGE });
+    ok('on the whole part of a design coated on the back alone, a row without a side is the back\'s',
+        same(sideless, named) && sideless.interlayers[0].side === 'back' && !same(sideless.graded, sideless.homogeneous));
     const REFUSED = [
         ['an option it does not take', () => api.inhomogeneities(mirror, { interlayer: [] }), 'unknownOption', { option: 'interlayer' },
             /^inhomogeneities: unknown option 'interlayer'; the options are interlayers, start, end, step, angle, side$/],
@@ -280,8 +287,12 @@ function everyInterface(design, mode, profile) {
             /unknown option 'interlayers\[0\]\.sigma'; the options are side, interface, thickness, profile, slices$/],
         ['a row for a side not computed', () => api.inhomogeneities(mirror, { interlayers: [{ side: 'back', interface: 0 }] }), 'badValue', { option: 'interlayers[0].side', value: 'back' },
             /interlayers\[0\]\.side is 'front', the side computed, not "back"$/],
-        ['a row with no side on the whole part', () => api.inhomogeneities(twoSided, { interlayers: [{ interface: 0 }] }), 'badValue', { option: 'interlayers[0].side' },
-            /interlayers\[0\]\.side is 'front' or 'back', given on each row of the whole part, not undefined$/],
+        ['a row with no side on the whole part of a design coated on both sides', () => api.inhomogeneities(twoSided, { interlayers: [{ interface: 0 }] }), 'badValue', { option: 'interlayers[0].side' },
+            /interlayers\[0\]\.side is 'front' or 'back', given on each row of a whole part coated on both sides, not undefined$/],
+        ['a back row on the whole part of a design coated on the front alone', () => api.inhomogeneities(mirror, { side: 'total', interlayers: [{ side: 'back', interface: 0 }] }), 'emptySide', { side: 'back' },
+            /^inhomogeneities: the back has no layers$/],
+        ['a front row on the whole part of a design coated on the back alone', () => api.inhomogeneities(backOnly, { side: 'total', interlayers: [{ side: 'front', interface: 0 }] }), 'emptySide', { side: 'front' },
+            /^inhomogeneities: the front has no layers$/],
         ['an interface past the side\'s count', () => api.inhomogeneities(mirror, { interlayers: [{ interface: 10 }] }), 'badValue', { option: 'interlayers[0].interface', value: 10 },
             /interlayers\[0\]\.interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10$/],
         ['an interface that is not whole', () => api.inhomogeneities(mirror, { interlayers: [{ interface: 2.5 }] }), 'badValue', { option: 'interlayers[0].interface', value: 2.5 }, /not 2\.5$/],

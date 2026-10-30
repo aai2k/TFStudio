@@ -292,6 +292,13 @@ function settings(design, mode, variant) {
 
 // ── 5. Refusals ────────────────────────────────────────────────────────────
 {
+    // On the whole part of a design coated on one side, a row without a side
+    // is that side's.
+    const backOnly = corpus.find(([name]) => name === 'back-only-side')[1];
+    const sideless = api.roughness(backOnly, { side: 'total', sigma: 0, interfaces: [{ interface: 1, sigma: 4 }], ...RANGE });
+    const named = api.roughness(backOnly, { side: 'total', sigma: 0, interfaces: [{ side: 'back', interface: 1, sigma: 4 }], ...RANGE });
+    ok('on the whole part of a design coated on the back alone, a row without a side is the back\'s',
+        same(sideless, named) && !same(sideless.rough, sideless.smooth));
     const REFUSED = [
         ['an option it does not take', () => api.roughness(mirror, { sigmas: [] }), 'unknownOption', { option: 'sigmas' },
             /^roughness: unknown option 'sigmas'; the options are sigma, range, interfaces, start, end, step, angle, side$/],
@@ -306,8 +313,10 @@ function settings(design, mode, variant) {
             /unknown option 'interfaces\[0\]\.thickness'; the options are side, interface, sigma, range$/],
         ['a row for a side not computed', () => api.roughness(mirror, { interfaces: [{ side: 'back', interface: 0 }] }), 'badValue', { option: 'interfaces[0].side', value: 'back' },
             /interfaces\[0\]\.side is 'front', the side computed, not "back"$/],
-        ['a row with no side on the whole part', () => api.roughness(twoSided, { interfaces: [{ interface: 0 }] }), 'badValue', { option: 'interfaces[0].side' },
-            /interfaces\[0\]\.side is 'front' or 'back', given on each row of the whole part, not undefined$/],
+        ['a row with no side on the whole part of a design coated on both sides', () => api.roughness(twoSided, { interfaces: [{ interface: 0 }] }), 'badValue', { option: 'interfaces[0].side' },
+            /interfaces\[0\]\.side is 'front' or 'back', given on each row of a whole part coated on both sides, not undefined$/],
+        ['a back row on the whole part of a design coated on the front alone', () => api.roughness(mirror, { side: 'total', interfaces: [{ side: 'back', interface: 0 }] }), 'emptySide', { side: 'back' },
+            /^roughness: the back has no layers$/],
         ['an interface past the side\'s count', () => api.roughness(mirror, { interfaces: [{ interface: 10 }] }), 'badValue', { option: 'interfaces[0].interface', value: 10 },
             /interfaces\[0\]\.interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10$/],
         ['an interface that is not whole', () => api.roughness(mirror, { interfaces: [{ interface: 2.5 }] }), 'badValue', { option: 'interfaces[0].interface', value: 2.5 }, /not 2\.5$/],

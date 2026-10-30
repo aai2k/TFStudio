@@ -1347,7 +1347,7 @@ export class Design {
      * in, as the badge under the window's chart reads it.
      *
      * @param [options]
-     * @param [options.interlayers=[]] One row per interlayer, each `{ side, interface, thickness, profile, slices }`: `side` `'front'` or `'back'`, the side computed when there is one, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `thickness` in nm, 0 or more, 5 when left out; `profile` `'linear'`, `'parabolic'`, `'invParabolic'`, `'exponential'` or `'sigmoid'`, `'linear'` when left out; `slices` a whole number, 2 or more, 10 when left out. One row to an interface.
+     * @param [options.interlayers=[]] One row per interlayer, each `{ side, interface, thickness, profile, slices }`: `side` `'front'` or `'back'`, the side computed, or the coated side on a whole part coated on one side, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `thickness` in nm, 0 or more, 5 when left out; `profile` `'linear'`, `'parabolic'`, `'invParabolic'`, `'exponential'` or `'sigmoid'`, `'linear'` when left out; `slices` a whole number, 2 or more, 10 when left out. One row to an interface.
      * @param [options.start=400] The first wavelength, nm.
      * @param [options.end=800] The last wavelength, nm, above `start`.
      * @param [options.step=0.5] The wavelength step, nm.
@@ -1393,7 +1393,7 @@ export class Design {
      * @param [options]
      * @param [options.sigma=1] The rms roughness of every interface, nm, 0 or more.
      * @param [options.range='long'] The kind of roughness of every interface: `'short'` or `'long'`.
-     * @param [options.interfaces=[]] The interfaces that differ from `sigma` and `range`, one row each, `{ side, interface, sigma, range }`, as the per-interface editor sets them: `side` `'front'` or `'back'`, the side computed when there is one, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `sigma` and `range` as above, the call's own when left out. One row to an interface. One rough interface alone is `sigma: 0` with that interface listed.
+     * @param [options.interfaces=[]] The interfaces that differ from `sigma` and `range`, one row each, `{ side, interface, sigma, range }`, as the per-interface editor sets them: `side` `'front'` or `'back'`, the side computed, or the coated side on a whole part coated on one side, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `sigma` and `range` as above, the call's own when left out. One row to an interface. One rough interface alone is `sigma: 0` with that interface listed.
      * @param [options.start=400] The first wavelength, nm.
      * @param [options.end=800] The last wavelength, nm, above `start`.
      * @param [options.step=0.5] The wavelength step, nm.

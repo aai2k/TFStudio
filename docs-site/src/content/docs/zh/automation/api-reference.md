@@ -2153,7 +2153,7 @@ for layer in design.layers:
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
-| `interlayers` | `interlayers` | `[]` | **JavaScript**：每个界面层一行，每行为 `{ side, interface, thickness, profile, slices }`：`side` 为 `'front'` 或 `'back'`，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；`interface` 从 0（基底表面）到该面的层数；`thickness` 单位 nm，不小于 0，不给出时为 5；`profile` 为 `'linear'`、`'parabolic'`、`'invParabolic'`、`'exponential'` 或 `'sigmoid'`，不给出时为 `'linear'`；`slices` 为整数，不小于 2，不给出时为 10。一个界面只能有一行。<br>**Python**：每个界面层一个 dict，含 side、interface、thickness、profile 和 slices：side 为 "front" 或 "back"，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；interface 从 0（基底表面）到该面的层数；thickness 单位 nm，不小于 0，不给出时为 5；profile 为 "linear"、"parabolic"、"invParabolic"、"exponential" 或 "sigmoid"，不给出时为 "linear"；slices 为整数，不小于 2，不给出时为 10。一个界面只能有一行。不给出时，没有界面层。 |
+| `interlayers` | `interlayers` | `[]` | **JavaScript**：每个界面层一行，每行为 `{ side, interface, thickness, profile, slices }`：`side` 为 `'front'` 或 `'back'`，默认为所计算的面，在只有一面镀膜的整个元件上为镀膜的那一面，在两面都镀膜的整个元件上每行都要给出；`interface` 从 0（基底表面）到该面的层数；`thickness` 单位 nm，不小于 0，不给出时为 5；`profile` 为 `'linear'`、`'parabolic'`、`'invParabolic'`、`'exponential'` 或 `'sigmoid'`，不给出时为 `'linear'`；`slices` 为整数，不小于 2，不给出时为 10。一个界面只能有一行。<br>**Python**：每个界面层一个 dict，含 side、interface、thickness、profile 和 slices：side 为 "front" 或 "back"，默认为所计算的面，在只有一面镀膜的整个元件上为镀膜的那一面，在两面都镀膜的整个元件上每行都要给出；interface 从 0（基底表面）到该面的层数；thickness 单位 nm，不小于 0，不给出时为 5；profile 为 "linear"、"parabolic"、"invParabolic"、"exponential" 或 "sigmoid"，不给出时为 "linear"；slices 为整数，不小于 2，不给出时为 10。一个界面只能有一行。不给出时，没有界面层。 |
 | `start` | `start` | `400` | 起始波长，单位 nm。 |
 | `end` | `end` | `800` | 终止波长，单位 nm，大于 `start`。 |
 | `step` | `step` | `0.5` | 波长步长，单位 nm。 |
@@ -2196,7 +2196,7 @@ print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R
 | ---------- | ------ | --- | --- |
 | `sigma` | `sigma` | `1` | 每个界面的 RMS 粗糙度，单位 nm，不小于 0。 |
 | `range` | `range` | `'long'` | **JavaScript**：每个界面的粗糙度类型：`'short'`（小尺度）或 `'long'`（大尺度）。<br>**Python**：每个界面的粗糙度类型，"short"（小尺度）或 "long"（大尺度）。 |
-| `interfaces` | `interfaces` | `[]` | **JavaScript**：与 `sigma` 和 `range` 不同的界面，每个一行，每行为 `{ side, interface, sigma, range }`，与逐界面编辑器的设置方式相同：`side` 为 `'front'` 或 `'back'`，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；`interface` 从 0（基底表面）到该面的层数；`sigma` 和 `range` 同上，不给出时取调用本身的值。一个界面只能有一行。只让一个界面粗糙，就把 `sigma` 设为 0 并列出该界面。<br>**Python**：与 sigma 和 range 不同的界面，每个一个 dict，含 side、interface、sigma 和 range，与逐界面编辑器的设置方式相同：side 为 "front" 或 "back"，只计算一个面时为该面，在两面都镀膜的整个元件上每行都要给出；interface 从 0（基底表面）到该面的层数；sigma 和 range 同上，不给出时取调用本身的值。一个界面只能有一行。只让一个界面粗糙，就设 sigma=0 并列出该界面。不给出时，没有这样的界面。 |
+| `interfaces` | `interfaces` | `[]` | **JavaScript**：与 `sigma` 和 `range` 不同的界面，每个一行，每行为 `{ side, interface, sigma, range }`，与逐界面编辑器的设置方式相同：`side` 为 `'front'` 或 `'back'`，默认为所计算的面，在只有一面镀膜的整个元件上为镀膜的那一面，在两面都镀膜的整个元件上每行都要给出；`interface` 从 0（基底表面）到该面的层数；`sigma` 和 `range` 同上，不给出时取调用本身的值。一个界面只能有一行。只让一个界面粗糙，就把 `sigma` 设为 0 并列出该界面。<br>**Python**：与 sigma 和 range 不同的界面，每个一个 dict，含 side、interface、sigma 和 range，与逐界面编辑器的设置方式相同：side 为 "front" 或 "back"，默认为所计算的面，在只有一面镀膜的整个元件上为镀膜的那一面，在两面都镀膜的整个元件上每行都要给出；interface 从 0（基底表面）到该面的层数；sigma 和 range 同上，不给出时取调用本身的值。一个界面只能有一行。只让一个界面粗糙，就设 sigma=0 并列出该界面。不给出时，没有这样的界面。 |
 | `start` | `start` | `400` | 起始波长，单位 nm。 |
 | `end` | `end` | `800` | 结束波长，单位 nm，大于 `start`。 |
 | `step` | `step` | `0.5` | 波长步长，单位 nm。 |

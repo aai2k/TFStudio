@@ -2342,8 +2342,9 @@ class Design:
         Args:
             interlayers: One dict per interlayer, with side, interface,
                 thickness, profile and slices: side "front" or "back", the
-                side computed when there is one, and given on each row of a
-                whole part coated on both sides; interface from 0, the
+                side computed, or the coated side on a whole part coated on
+                one side, and given on each row of a whole part coated on
+                both sides; interface from 0, the
                 substrate's surface, to the side's layer count; thickness in
                 nm, 0 or more, 5 when left out; profile "linear",
                 "parabolic", "invParabolic", "exponential" or "sigmoid",
@@ -2415,8 +2416,9 @@ class Design:
             interfaces: The interfaces that differ from sigma and range, one
                 dict each, with side, interface, sigma and range, as the
                 per-interface editor sets them: side "front" or "back", the
-                side computed when there is one, and given on each row of a
-                whole part coated on both sides; interface from 0, the
+                side computed, or the coated side on a whole part coated on
+                one side, and given on each row of a whole part coated on
+                both sides; interface from 0, the
                 substrate's surface, to the side's layer count; sigma and
                 range as above, the call's own when left out. One row to an
                 interface. One rough interface alone is sigma=0 with that

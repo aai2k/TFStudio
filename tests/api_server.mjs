@@ -326,7 +326,7 @@ const specified = api.setSpecification(start, CHECKS);
     await same('inhomogeneities', [specified, { interlayers: [{ interface: 1, thickness: 3 }], step: 10 }]);
     const sideless = await same('inhomogeneities', [twoSided, { interlayers: [{ interface: 3 }] }]);
     ok('an interlayer with no side on the whole part is refused with its code and fields', sideless.error?.code === 'badValue'
-        && canon(sideless.error.fields) === canon({ call: 'inhomogeneities', option: 'interlayers[0].side', takes: "'front' or 'back', given on each row of the whole part" }),
+        && canon(sideless.error.fields) === canon({ call: 'inhomogeneities', option: 'interlayers[0].side', takes: "'front' or 'back', given on each row of a whole part coated on both sides" }),
         JSON.stringify(sideless.error));
     await same('roughness', [twoSided, { sigma: 1.5, interfaces: [{ side: 'front', interface: 2, sigma: 3, range: 'short' }, { side: 'back', interface: 0, sigma: 0 }],
         start: 450, end: 650, step: 5, angle: 20 }]);

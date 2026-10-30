@@ -35,14 +35,14 @@ function roughSpec(design, { sigma, range, interfaces }, mode) {
     requireValue('roughness', 'sigma', sigma, isNonNegative, SIGMA_TAKEN);
     requireValue('roughness', 'range', range, isRange, RANGE_TAKEN);
     requireValue('roughness', 'interfaces', interfaces, Array.isArray, `a list of rows, each { ${ROW_FIELDS.join(', ')} }`);
-    const { activeSides, frontN, backN } = getRoughnessContext(design, mode);
+    const { frontN, backN } = getRoughnessContext(design, mode);
     const counts = { front: frontN, back: backN };
     const spec = {
         mode: 'perInterface', sigma, range,
         sigmas: new Array(frontN).fill(sigma), ranges: new Array(frontN).fill(range),
         backSigmas: new Array(backN).fill(sigma), backRanges: new Array(backN).fill(range),
     };
-    const reader = rowReader('roughness', 'interfaces', activeSides, ROW_FIELDS);
+    const reader = rowReader('roughness', 'interfaces', design, mode, ROW_FIELDS);
     interfaces.forEach((row, i) => {
         const side = reader.side(row, i);
         const k = reader.interface(row, i, side, counts[side]);
@@ -102,7 +102,7 @@ function thinnedLayers(design, thinned) {
  * @param [options]
  * @param [options.sigma=1] The rms roughness of every interface, nm, 0 or more.
  * @param [options.range='long'] The kind of roughness of every interface: `'short'` or `'long'`.
- * @param [options.interfaces=[]] The interfaces that differ from `sigma` and `range`, one row each, `{ side, interface, sigma, range }`, as the per-interface editor sets them: `side` `'front'` or `'back'`, the side computed when there is one, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `sigma` and `range` as above, the call's own when left out. One row to an interface. One rough interface alone is `sigma: 0` with that interface listed.
+ * @param [options.interfaces=[]] The interfaces that differ from `sigma` and `range`, one row each, `{ side, interface, sigma, range }`, as the per-interface editor sets them: `side` `'front'` or `'back'`, the side computed, or the coated side on a whole part coated on one side, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `sigma` and `range` as above, the call's own when left out. One row to an interface. One rough interface alone is `sigma: 0` with that interface listed.
  * @param [options.start=400] The first wavelength, nm.
  * @param [options.end=800] The last wavelength, nm, above `start`.
  * @param [options.step=0.5] The wavelength step, nm.

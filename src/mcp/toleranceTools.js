@@ -5,7 +5,7 @@ import { object, num, int, list, oneOf, bool, DESIGN_ID } from './schemaParts.js
 
 const VIEW_SIDE = oneOf(['front', 'back', 'total'], "'front' or 'back', that side's layers, or 'total', both sides of the part. Default: what the design is scored on");
 const ANGLE = num('Angle of incidence in degrees in the incident medium, 0 <= angle < 90; the cone axis under a cone. Default 0');
-const ROW_SIDE = oneOf(['front', 'back'], 'The side the interface is on. Default: the side computed; on the whole part of a design coated on both sides it is given on each row');
+const ROW_SIDE = oneOf(['front', 'back'], 'The side the interface is on. Default: the side computed, or on the whole part the side with layers; on the whole part of a design coated on both sides it is given on each row');
 const INTERFACE = int("The interface, numbered from the substrate: 0 is the substrate's surface, k the top of layer k (Design Editor numbers), and the side's layer count the surface that meets the medium");
 const INTERFACE_NUMBERS = "Interface k of a side is the top of its layer k, the layers numbered from the substrate as the Design Editor numbers them, so 0 is the substrate's surface and N, on a side of N layers, the surface that meets the medium";
 const WAVELENGTHS = {
