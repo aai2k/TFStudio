@@ -384,7 +384,7 @@ Reads a Zemax OpticStudio COATING.DAT file as the Zemax Coatings window lists it
 
 ```js
 const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
-require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');
+require('fs').writeFileSync(file, 'MATE MGF2\n0.4 1.39 0\n0.8 1.38 0\nMATE AL2O3\n0.4 1.68 0\n0.8 1.66 0\nCOAT AR\nMGF2 0.25 0\nAL2O3 0.25 0\n');
 const read = tf.readZemaxCoating(file);
 for (const layer of read.coatings[0].layers) console.log(layer.material, layer.thickness.toFixed(2), 'nm');
 ```
@@ -394,7 +394,7 @@ import time
 
 name = "COATING-{}.DAT".format(time.time_ns())
 with open(name, "w") as f:
-    f.write("MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n")
+    f.write("MATE MGF2\n0.4 1.39 0\n0.8 1.38 0\nMATE AL2O3\n0.4 1.68 0\n0.8 1.66 0\nCOAT AR\nMGF2 0.25 0\nAL2O3 0.25 0\n")
 for layer in tf.read_zemax_coating(name).coatings[0].layers:
     print(layer.material, round(layer.thickness, 2), "nm")
 ```
@@ -2084,7 +2084,7 @@ Puts the layers of a COAT record of a Zemax OpticStudio COATING.DAT file on one 
 
 ```js
 const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
-require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');
+require('fs').writeFileSync(file, 'MATE MGF2\n0.4 1.39 0\n0.8 1.38 0\nMATE AL2O3\n0.4 1.68 0\n0.8 1.66 0\nCOAT AR\nMGF2 0.25 0\nAL2O3 0.25 0\n');
 const design = tf.newDesign('AR');
 console.log(design.importZemaxCoating(file));
 for (const layer of design.layers) console.log(layer.material, layer.thickness.toFixed(2), 'nm');
@@ -2095,7 +2095,7 @@ import time
 
 name = "COATING-{}.DAT".format(time.time_ns())
 with open(name, "w") as f:
-    f.write("MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n")
+    f.write("MATE MGF2\n0.4 1.39 0\n0.8 1.38 0\nMATE AL2O3\n0.4 1.68 0\n0.8 1.66 0\nCOAT AR\nMGF2 0.25 0\nAL2O3 0.25 0\n")
 design = tf.new_design("AR")
 print(design.import_zemax_coating(name))
 for layer in design.layers:

@@ -1285,7 +1285,7 @@ export class Design {
      * @throws a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a side the Design Editor does not let you edit, an option it does not take or a value an option cannot take
      * @example
      * const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
-     * require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');
+     * require('fs').writeFileSync(file, 'MATE MGF2\n0.4 1.39 0\n0.8 1.38 0\nMATE AL2O3\n0.4 1.68 0\n0.8 1.66 0\nCOAT AR\nMGF2 0.25 0\nAL2O3 0.25 0\n');
      * const design = tf.newDesign('AR');
      * console.log(design.importZemaxCoating(file));
      * for (const layer of design.layers) console.log(layer.material, layer.thickness.toFixed(2), 'nm');

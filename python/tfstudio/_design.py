@@ -2261,7 +2261,7 @@ class Design:
 
             name = "COATING-{}.DAT".format(time.time_ns())
             with open(name, "w") as f:
-                f.write("MATE TIO2\\n0.4 2.35 0\\n0.8 2.25 0\\nMATE SIO2\\n0.4 1.47 0\\n0.8 1.45 0\\nCOAT AR\\nTIO2 0.25 0\\nSIO2 0.25 0\\n")
+                f.write("MATE MGF2\\n0.4 1.39 0\\n0.8 1.38 0\\nMATE AL2O3\\n0.4 1.68 0\\n0.8 1.66 0\\nCOAT AR\\nMGF2 0.25 0\\nAL2O3 0.25 0\\n")
             design = tf.new_design("AR")
             print(design.import_zemax_coating(name))
             for layer in design.layers:
