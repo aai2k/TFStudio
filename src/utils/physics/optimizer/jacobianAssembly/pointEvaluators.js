@@ -8,8 +8,8 @@
  *    onto the free-variable vector per the surface mode's layout.
  */
 
-import { computeLayerJacobian, layerJacobianStacks } from './layerJacobian.js';
-import { kernelPol } from '../evalCore/kernels.js';
+import { layerJacobianStacks } from './layerJacobian.js';
+import { makePackageCache } from './packageCache.js';
 import { coneNodesAt } from '../evalCore/tmmEval.js';
 
 // Per-layer thickness-derivative array of one characteristic (T/R/A) from a
@@ -79,23 +79,16 @@ export function _surfaceLayout(surfaceMode, evalFull) {
 // Build the memoized point evaluator used to assemble the analytic Jacobian:
 //   propDeriv(λ,pol,char,aoi) → ∂(property)/∂d for every free variable,
 // honoring pol='avg' as ½(s+p). `jacCfg` is the computeLayerJacobian config;
-// `sideMap` is the free-variable layout { N, varSide, nFront, nBack }. One
-// Jacobian package is cached per (λ, polCode, aoi) and reused across operands.
+// `sideMap` is the free-variable layout { N, varSide, nFront, nBack }. The
+// Jacobian packages are cached per (λ, polCode, aoi) within a memory budget
+// (makePackageCache) and reused across operands.
 //
 // With a cone on jacCfg.ctx, `aoi` is the cone axis. The cone average is a
 // fixed weighted sum over the rays in coneNodesAt, so its derivative is the
 // same weighted sum of the per-ray derivatives, taken over the same rays and
 // weights tmmProp averaged the values with. No cone: the one ray at `aoi`.
 export function makePointEvaluators(jacCfg, sideMap) {
-    const cfg = { ...jacCfg, stacks: layerJacobianStacks(jacCfg) };
-    const jacCache = new Map();
-    const getJac = (lam, polCode, aoi) => {
-        const pc = kernelPol(aoi, polCode);
-        const key = lam + '|' + pc + '|' + aoi;
-        let v = jacCache.get(key);
-        if (v === undefined) { v = computeLayerJacobian(lam, pc, aoi, cfg); jacCache.set(key, v); }
-        return v;
-    };
+    const getJac = makePackageCache({ ...jacCfg, stacks: layerJacobianStacks(jacCfg) });
     // Every (ray, polarization) package the average at (λ, pol, aoi) is taken
     // over, with its weight: 'avg' is ½(s+p).
     const forEachPackage = (lam, pol, aoi, visit) => {

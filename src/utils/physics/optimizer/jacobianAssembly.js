@@ -8,6 +8,8 @@
  *    package (single-front, single-back, full-system composition).
  *  - pointEvaluators.js — `_surfaceLayout` mode resolution and
  *    `makePointEvaluators` (memoized propDeriv over free variables).
+ *  - packageCache.js: `makePackageCache`, the packages one Jacobian keeps,
+ *    within a memory budget.
  *  - jacRows.js, bandRows.js, extremumRows.js, linearRows.js, phaseRows.js,
  *    mathRows.js: the per-operand-type row builders and the `_jacRows` dispatch.
  *
