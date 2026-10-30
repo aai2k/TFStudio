@@ -29,7 +29,7 @@
  *   processSteps(design, { side, otherSide, quantity, angle, pol, from, to, step, chips }), exportProcess(design, folder, options)
  *   monitorWorksheet(design, { side, quantity, angle, pol, chips, wavelengths, signalErrorPct, noiseFloorPct, maxTerminationErrPct })
  *   saveZemaxCoating(design, path, { name, thickness, wavelength, from, to, step, scope, side, overwrite }), readZemaxCoating(path, { wavelength })
- *   importZemaxCoating(design, path, { coating, wavelength })
+ *   importZemaxCoating(design, path, { coating, wavelength, side })
  *   saveCodevCoating(design, path, { title, saveName, from, to, step, angles, wavelength, side, overwrite }), readCodevCoating(path)
  *   importCodevCoating(design, path, { side })
  *   setMerit(design, rows), merit(design)

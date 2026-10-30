@@ -572,6 +572,10 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         JSON.stringify(materialPart(onBack.back)) === JSON.stringify(materialPart(localBack.design.backLayers))
         && JSON.stringify(materialPart(onBack.back)) === JSON.stringify(materialPart(stack.layers.map(layer => ({ material: `c:${layer.index.label.toLowerCase()}`, thickness: layer.thickness }))).reverse())
         && JSON.stringify(materialPart(onBack.front)) === JSON.stringify(materialPart(imported.front)), JSON.stringify(onBack).slice(0, 300));
+    const zemaxBack = await server.call('importZemaxCoating', { designId: bare, path: dat, side: 'back' });
+    ok('importZemaxCoating with side back puts the COAT on the back, reversed, the front kept',
+        JSON.stringify(materialPart(zemaxBack.back)) === JSON.stringify(materialPart(imported.front).reverse())
+        && JSON.stringify(materialPart(zemaxBack.front)) === JSON.stringify(materialPart(imported.front)), JSON.stringify(zemaxBack).slice(0, 300));
     const again = await server.call('saveZemaxCoating', { designId: coated, path: dat });
     const relativeDat = await server.call('readZemaxCoating', { path: 'COATING.DAT' });
     const symmetric = (await server.call('newDesign', { name: 'Symmetric' })).designId;

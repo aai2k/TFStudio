@@ -2065,21 +2065,22 @@ for r in sheet.rows:
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.importZemaxCoating(path, { coating, wavelength })` | `design.import_zemax_coating(path, coating=..., wavelength=550)` |
+| `design.importZemaxCoating(path, { coating, wavelength, side })` | `design.import_zemax_coating(path, coating=..., wavelength=550, side=...)` |
 
-Puts the layers of a COAT record of a Zemax OpticStudio COATING.DAT file on the front of the design, as the Zemax Coatings window's Import to front coating puts them: in the file's order, incident medium side first, a relative thickness converted at `wavelength` with the index the file gives. The front's layers are replaced; the media and the substrate stay the design's. Each layer's material takes the id an import in the app gives it, in the catalog of the file, and the design carries its definition, so it computes and saves with it: nothing is written to a catalog. On a computer where the app imported the file before, the ids are that catalog's and the materials it holds are used, edits included; otherwise each import draws a new random part of the catalog id, as a first import does.
+Puts the layers of a COAT record of a Zemax OpticStudio COATING.DAT file on one side of the design, as the Zemax Coatings window's Import to front coating puts them on the front: a relative thickness converted at `wavelength` with the index the file gives. A COAT lists its layers from the incident medium, so on the back they go in reversed. The side's layers are replaced; the media and the substrate stay the design's. Each layer's material takes the id an import in the app gives it, in the catalog of the file, and the design carries its definition, so it computes and saves with it: nothing is written to a catalog. On a computer where the app imported the file before, the ids are that catalog's and the materials it holds are used, edits included; otherwise each import draws a new random part of the catalog id, as a first import does.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
 | `path` | `path` |  | **JavaScript**: The file, by its full path. A relative path is taken as `tf.openDesign()` takes it.<br>**Python**: The file. A relative path is taken as tf.open_design() takes it. |
 | `coating` | `coating` |  | **JavaScript**: The COAT record, by its name or its place among the file's coatings from 0; without it, the first stack of layers.<br>**Python**: The COAT record, by its name or its place among the file's coatings from 0. Without it, the first stack of layers. |
 | `wavelength` | `wavelength` | `550` | **JavaScript**: λ₀, nm, at which a thickness the file gives in waves is converted to nm.<br>**Python**: The wavelength, nm, at which a thickness the file gives in waves is converted to nm. |
+| `side` | `side` |  | **JavaScript**: `'front'` or `'back'`; without it, the front, or the back of a design coated on the back alone.<br>**Python**: "front" or "back". Without it, the front, or the back of a design coated on the back alone. |
 
 **Returns**: The layers left out, each with why: a material the file does not define, or a relative thickness whose material it gives no index for.
 
 **Refuses**:
 
-- **JavaScript**: a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a front the Design Editor does not let you edit, an option it does not take or a value an option cannot take<br>**Python**: a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a front the Design Editor does not let you edit, or a value an argument cannot take
+- **JavaScript**: a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a side the Design Editor does not let you edit, an option it does not take or a value an option cannot take<br>**Python**: a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a side the Design Editor does not let you edit, or a value an argument cannot take
 
 ```js
 const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);

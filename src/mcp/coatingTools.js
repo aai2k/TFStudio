@@ -67,12 +67,13 @@ export function coatingTools({ api, store }) {
         },
         {
             name: 'importZemaxCoating', title: 'Import a Zemax coating',
-            description: `Puts the layers of a COAT record of a Zemax OpticStudio COATING.DAT file on the front of a design, as the Zemax Coatings window's Import to front coating does: in the file's order, incident medium side first, a relative thickness converted at wavelength with the index the file gives. ${IMPORT_TEXT} A design coated on the back alone and scored on that side is refused. Answers with the design and warnings, the layers left out and why.`,
+            description: `Puts the layers of a COAT record of a Zemax OpticStudio COATING.DAT file on one side of a design, as the Zemax Coatings window's Import to front coating does on the front: a relative thickness converted at wavelength with the index the file gives; a COAT lists its layers from the incident medium, so on the back they go in reversed. ${IMPORT_TEXT} A side the Design Editor does not let you edit is refused. Answers with the design and warnings, the layers left out and why.`,
             inputSchema: object({
                 designId: DESIGN_ID,
                 path: str('Absolute path of the file'),
                 coating: { type: ['string', 'integer'], description: "The COAT record, by its name or its place among the file's coatings from 0. Default: the first stack of layers" },
                 wavelength: num('Wavelength at which a thickness the file gives in waves is converted to nm. Default 550'),
+                side: SIDE,
             }, ['designId', 'path']),
             run: ({ designId, path, ...options }) => {
                 const { design, warnings } = api.importZemaxCoating(store.get(designId), spectrumPath(path), options);

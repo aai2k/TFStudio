@@ -347,6 +347,7 @@ const STOPPED_WITHIN_S = 5;
         ['saveZemaxCoating', [stack, coatingDat, { thickness: 'relative', step: 50, overwrite: true }]],
         ['readZemaxCoating', [coatingDat, { wavelength: 600 }]],
         ['importZemaxCoating', [twoLayers, coatingDat, { coating: 0 }]],
+        ['importZemaxCoating', [api.setDesignSetup(twoLayers, { surfaceMode: 'both_independent' }), coatingDat, { coating: 0, side: 'back' }]],
         ['importZemaxCoating', [twoLayers, coatingDat, { coating: 'nothing' }]],
         ['saveCodevCoating', [stack, coatingSeq, { angles: [0, 45], step: 25, overwrite: true }]],
         ['readCodevCoating', [coatingSeq]],

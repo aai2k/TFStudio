@@ -1031,6 +1031,11 @@ async function coatingFiles(t, said) {
     ok('import_zemax_coating() and import_codev_coating() put in what the plain calls put in, and give their warnings',
         canon([frontAfter, skipped, backAfter, readNotes]) === canon([zemaxImport.design, zemaxImport.warnings, codevImport.design, codevImport.warnings])
         && frontAfter?.frontLayers.length === 5 && backAfter?.backLayers.length === 5 && backAfter?.frontLayers.length === 2, canon(frontAfter ?? null).slice(0, 300));
+    const [turnedBefore, turnedAfter, turnedSkipped] = got.turned ?? [];
+    const turnedImport = await attempt(() => api.importZemaxCoating(turnedBefore, at('coating.dat'), { coating: 0, wavelength: 600, side: 'back' }));
+    ok('import_zemax_coating() with side="back" puts on the back what the plain call puts there',
+        canon([turnedAfter, turnedSkipped]) === canon([turnedImport.design, turnedImport.warnings])
+        && turnedAfter?.backLayers.length === 5 && turnedAfter?.frontLayers.length === 0, canon(turnedAfter ?? null).slice(0, 300));
     ok('and their refusals are in Python\'s words', canon(got.worded ?? null) === canon([
         `save_zemax_coating: ${at('coating.dat')} exists; pass overwrite=True to write over it`,
         'save_zemax_coating: design is a Design, as tf.new_design() or tf.open_design() gives one',

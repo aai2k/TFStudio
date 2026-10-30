@@ -2216,19 +2216,20 @@ class Design:
         with worded(_WORKSHEET_WORDS):
             return monitor_worksheet_of(self._calls.monitorWorksheet(self._data, run_options(options)))
 
-    def import_zemax_coating(self, path, coating=None, wavelength=550):
+    def import_zemax_coating(self, path, coating=None, wavelength=550, side=None):
         """Puts the layers of a COAT record of a Zemax OpticStudio
-        COATING.DAT file on the front of the design, as the Zemax Coatings
-        window's Import to front coating puts them: in the file's order,
-        incident medium side first, a relative thickness converted at
-        wavelength with the index the file gives. The front's layers are
-        replaced; the media and the substrate stay the design's. Each layer's
-        material takes the id an import in the app gives it, in the catalog of
-        the file, and the design carries its definition, so it computes and
-        saves with it: nothing is written to a catalog. On a computer where
-        the app imported the file before, the ids are that catalog's and the
-        materials it holds are used, edits included; otherwise each import
-        draws a new random part of the catalog id, as a first import does.
+        COATING.DAT file on one side of the design, as the Zemax Coatings
+        window's Import to front coating puts them on the front: a relative
+        thickness converted at wavelength with the index the file gives. A
+        COAT lists its layers from the incident medium, so on the back they
+        go in reversed. The side's layers are replaced; the media and the
+        substrate stay the design's. Each layer's material takes the id an
+        import in the app gives it, in the catalog of the file, and the design
+        carries its definition, so it computes and saves with it: nothing is
+        written to a catalog. On a computer where the app imported the file
+        before, the ids are that catalog's and the materials it holds are
+        used, edits included; otherwise each import draws a new random part
+        of the catalog id, as a first import does.
 
         Args:
             path: The file. A relative path is taken as tf.open_design()
@@ -2237,6 +2238,8 @@ class Design:
                 file's coatings from 0. Default: the first stack of layers.
             wavelength: The wavelength, nm, at which a thickness the file
                 gives in waves is converted to nm. Default 550.
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone.
 
         Returns:
             The layers left out, each with why: a material the file does not
@@ -2247,7 +2250,7 @@ class Design:
             TFStudioError: a file that cannot be read or holds neither a MATE
                 record nor a coating, a coating the file does not hold or one
                 that is not a stack of layers, one none of whose layers
-                converts, a front the Design Editor does not let you edit, or
+                converts, a side the Design Editor does not let you edit, or
                 a value an argument cannot take.
 
         Example::
@@ -2263,7 +2266,7 @@ class Design:
                 print(layer.material, round(layer.thickness, 2), "nm")
         """
         with worded(Words("importZemaxCoating", "import_zemax_coating")):
-            imported = self._calls.importZemaxCoating(self._data, path, api_names({"coating": coating, "wavelength": wavelength}))
+            imported = self._calls.importZemaxCoating(self._data, path, api_names({"coating": coating, "wavelength": wavelength, "side": side}))
         self._data = imported["design"]
         return imported["warnings"]
 

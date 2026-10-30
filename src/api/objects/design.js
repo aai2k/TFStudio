@@ -1261,24 +1261,26 @@ export class Design {
 
     /**
      * Puts the layers of a COAT record of a Zemax OpticStudio COATING.DAT
-     * file on the front of the design, as the Zemax Coatings window's Import
-     * to front coating puts them: in the file's order, incident medium side
-     * first, a relative thickness converted at `wavelength` with the index
-     * the file gives. The front's layers are replaced; the media and the
-     * substrate stay the design's. Each layer's material takes the id an
-     * import in the app gives it, in the catalog of the file, and the design
-     * carries its definition, so it computes and saves with it: nothing is
-     * written to a catalog. On a computer where the app imported the file
-     * before, the ids are that catalog's and the materials it holds are used,
-     * edits included; otherwise each import draws a new random part of the
-     * catalog id, as a first import does.
+     * file on one side of the design, as the Zemax Coatings window's Import
+     * to front coating puts them on the front: a relative thickness converted
+     * at `wavelength` with the index the file gives. A COAT lists its layers
+     * from the incident medium, so on the back they go in reversed. The
+     * side's layers are replaced; the media and the substrate stay the
+     * design's. Each layer's material takes the id an import in the app gives
+     * it, in the catalog of the file, and the design carries its definition,
+     * so it computes and saves with it: nothing is written to a catalog. On a
+     * computer where the app imported the file before, the ids are that
+     * catalog's and the materials it holds are used, edits included;
+     * otherwise each import draws a new random part of the catalog id, as a
+     * first import does.
      *
      * @param path The file, by its full path. A relative path is taken as `tf.openDesign()` takes it.
      * @param [options]
      * @param [options.coating] The COAT record, by its name or its place among the file's coatings from 0; without it, the first stack of layers.
      * @param [options.wavelength=550] λ₀, nm, at which a thickness the file gives in waves is converted to nm.
+     * @param [options.side] `'front'` or `'back'`; without it, the front, or the back of a design coated on the back alone.
      * @returns The layers left out, each with why: a material the file does not define, or a relative thickness whose material it gives no index for.
-     * @throws a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a front the Design Editor does not let you edit, an option it does not take or a value an option cannot take
+     * @throws a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a side the Design Editor does not let you edit, an option it does not take or a value an option cannot take
      * @example
      * const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
      * require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');

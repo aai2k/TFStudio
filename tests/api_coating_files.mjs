@@ -29,7 +29,9 @@
  *   4. Round trips: a side written and imported back gives its layers, and
  *      its spectrum at the wavelengths the file samples, on the front and the
  *      back; the back is written from the exit medium to the substrate, so it
- *      reads back reversed and goes on the back reversed again.
+ *      reads back reversed and goes on the back reversed again, by either
+ *      import. Without a side, both imports put Back face AR's back, coated
+ *      on the back alone, on its back as it was.
  *   5. The refusals, each with its code where it has one, writing no file.
  *   6. The object methods (tf.saveZemaxCoating(), design.importCodevCoating()
  *      and the rest) give the plain calls' files and answers, start and end
@@ -329,6 +331,32 @@ ok('a back is written from the exit medium to the substrate, read back reversed,
     && spectraClose(api.spectrum(backAgain, GRID), api.spectrum(twoSided, GRID), 1e-4), JSON.stringify(backRead.map(l => l.thickness)));
 const zemaxBack = api.importZemaxCoating(fresh, at('back.dat')).design;
 ok('the Zemax back read onto a front faces air as it did', close(zemaxBack.frontLayers.map(l => l.thickness), [...twoSided.backLayers].reverse().map(l => l.thickness), 1e-3));
+const unbacked = api.setDesignSetup({ ...twoSided, backLayers: [] }, {});
+const zemaxBackAgain = api.importZemaxCoating(unbacked, at('back.dat'), { side: 'back' }).design;
+ok('and with side back it goes on the back as it was, the front import reversed, the front kept',
+    close(zemaxBackAgain.backLayers.map(l => l.thickness), twoSided.backLayers.map(l => l.thickness), 1e-3)
+    && spectraClose(api.spectrum(zemaxBackAgain, GRID), api.spectrum(twoSided, GRID), 1e-4)
+    && isDeepStrictEqual(layerRows(zemaxBackAgain.backLayers), layerRows([...zemaxBack.frontLayers].reverse()))
+    && isDeepStrictEqual(zemaxBackAgain.frontLayers, unbacked.frontLayers), JSON.stringify(zemaxBackAgain.backLayers.map(l => l.thickness)));
+
+// Back face AR is coated on the back alone: Al2O3 on the glass, MgF2 facing air.
+const backAr = api.openDesign(fixtureFile('back-only-side'));
+api.saveZemaxCoating(backAr, at('back face AR.dat'));
+api.saveCodevCoating(backAr, at('back face AR.seq'));
+const nameOf = (design, layer) => design.materials?.[layer.material]?.name ?? layer.material;
+const rounded = (design, layers) => layers.map(l => [nameOf(design, l), Number(l.thickness.toFixed(2))]);
+const arCoat = api.readZemaxCoating(at('back face AR.dat')).coatings[0].layers.map(l => [l.material, Number(l.thickness.toFixed(2))]);
+const arOwn = api.importZemaxCoating(backAr, at('back face AR.dat')).design;
+const arBack = api.importZemaxCoating(backAr, at('back face AR.dat'), { side: 'back' }).design;
+const arCodev = api.importCodevCoating(backAr, at('back face AR.seq')).design;
+ok('Back face AR\'s back is written as MGF2 99.75 nm then AL2O3__SAPPHIRE_ 155.33 nm', isDeepStrictEqual(arCoat, [['MGF2', 99.75], ['AL2O3__SAPPHIRE_', 155.33]]), JSON.stringify(arCoat));
+ok('with side back it goes on the back as AL2O3__SAPPHIRE_ 155.33 nm then MGF2 99.75 nm, as it was, where the CODE V import of the same back puts it',
+    isDeepStrictEqual(rounded(arBack, arBack.backLayers), [['AL2O3__SAPPHIRE_', 155.33], ['MGF2', 99.75]])
+    && close(arCodev.backLayers.map(l => l.thickness), arBack.backLayers.map(l => l.thickness), 1e-3)
+    && close(arBack.backLayers.map(l => l.thickness), backAr.backLayers.map(l => l.thickness), 1e-3),
+JSON.stringify([rounded(arBack, arBack.backLayers), rounded(arCodev, arCodev.backLayers)]));
+ok('and without a side it goes on the back as well, the front left bare',
+    isDeepStrictEqual(layerRows(arOwn.backLayers), layerRows(arBack.backLayers)) && arOwn.frontLayers.length === 0, JSON.stringify(rounded(arOwn, arOwn.frontLayers)));
 
 // ── 5. Refusals ─────────────────────────────────────────────────────────────
 before = saves.length;
@@ -349,7 +377,10 @@ const REFUSED = [
     ['a wavelength', () => api.readZemaxCoating(at('LIBRARY.DAT'), { wavelength: 0 }), 'badValue'],
     ['a coating the file does not hold', () => api.importZemaxCoating(fresh, at('LIBRARY.DAT'), { coating: 'nothing' }), 'badValue'],
     ['a place past the coatings', () => api.importZemaxCoating(fresh, at('LIBRARY.DAT'), { coating: 5 }), 'badValue'],
-    ['the front of a design scored on its back alone', () => api.importZemaxCoating(backOnly, at('LIBRARY.DAT')), 'closedSide'],
+    ['the front of a design scored on its back alone', () => api.importZemaxCoating(backOnly, at('LIBRARY.DAT'), { side: 'front' }), 'closedSide'],
+    ['the back of a design scored on its front alone', () => api.importZemaxCoating(fresh, at('LIBRARY.DAT'), { side: 'back' }), 'closedSide'],
+    ['the back of a symmetric design', () => api.importZemaxCoating(api.setDesignSetup(fresh, { surfaceMode: 'symmetric' }), at('LIBRARY.DAT'), { side: 'back' }), 'closedSide'],
+    ['a side', () => api.importZemaxCoating(fresh, at('LIBRARY.DAT'), { side: 'total' }), 'badValue'],
     ['the back of a symmetric design', () => api.importCodevCoating(api.setDesignSetup(fresh, { surfaceMode: 'symmetric' }), at('defaults.seq'), { side: 'back' }), 'closedSide'],
     ['the back of a design scored on its front alone', () => api.importCodevCoating(fresh, at('defaults.seq'), { side: 'back' }), 'closedSide'],
     ['a side', () => api.importCodevCoating(fresh, at('defaults.seq'), { side: 'total' }), 'badValue'],
@@ -391,10 +422,16 @@ const plainImport = api.importZemaxCoating(fresh, at('LIBRARY.DAT'), { coating: 
 const backDesign = new objects.Design(both);
 const objectRead = backDesign.importCodevCoating(at('plain.seq'), { side: 'back' });
 const plainBack = api.importCodevCoating(both, at('plain.seq'), { side: 'back' });
+const turnedDesign = new objects.Design(both);
+const turnedSkipped = turnedDesign.importZemaxCoating(at('LIBRARY.DAT'), { coating: 'AR3', wavelength: 600, side: 'back' });
+const plainTurned = api.importZemaxCoating(both, at('LIBRARY.DAT'), { coating: 'AR3', wavelength: 600, side: 'back' });
 const withoutIds = layers => layers.map(({ id: _id, ...l }) => l);
 ok('design.importZemaxCoating() and design.importCodevCoating() put in what the plain calls put in and give their warnings',
     isDeepStrictEqual(withoutIds(ownDesign._data.frontLayers), withoutIds(plainImport.design.frontLayers)) && isDeepStrictEqual(objectSkipped, plainImport.warnings)
     && isDeepStrictEqual(layerRows(backDesign._data.backLayers), layerRows(plainBack.design.backLayers)) && isDeepStrictEqual(objectRead, plainBack.warnings));
+ok('design.importZemaxCoating() with side back puts on the back what the plain call puts there',
+    isDeepStrictEqual(layerRows(turnedDesign._data.backLayers), layerRows(plainTurned.design.backLayers)) && turnedDesign._data.backLayers.length === 4
+    && isDeepStrictEqual(turnedSkipped, plainTurned.warnings));
 const OBJECT_REFUSALS = [
     [() => tf.saveZemaxCoating(coated, refusedFile, { to: 700 }),
         "saveZemaxCoating: unknown option 'to'; the options are name, thickness, wavelength, step, scope, side, overwrite, start, end"],

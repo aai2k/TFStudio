@@ -877,8 +877,8 @@ def coating_files(tf):
     """tf.save_zemax_coating() and tf.save_codev_coating() with keywords,
     start and end among them, tf.read_zemax_coating() and
     tf.read_codev_coating() as named tuples, design.import_zemax_coating()
-    by a coating's name and design.import_codev_coating() on the back, and
-    their refusals."""
+    by a coating's name and, on the back, by its place,
+    design.import_codev_coating() on the back, and their refusals."""
     design = tf.new_design("Coated")
     design.stack("(HL)^2 H")
     tf.save_zemax_coating(design, "coating.dat", name="Coated", thickness="relative", wavelength=600, start=450, end=700, step=50)
@@ -893,6 +893,10 @@ def coating_files(tf):
     back.stack("H L")
     back_before = back._data
     read_notes = back.import_codev_coating("coating.seq", side="back")
+    turned = tf.new_design("Turned")
+    turned.sides = "both"
+    turned_before = turned._data
+    turned_skipped = turned.import_zemax_coating("coating.dat", coating=0, wavelength=600, side="back")
     shut = tf.new_design("Shut")
     shut.sides = "symmetric"
     worded = [refused(make) for make in (
@@ -902,6 +906,7 @@ def coating_files(tf):
         lambda: shut.import_codev_coating("coating.seq", side="back"))]
     out({"coatingFiles": {"design": design._data, "zemax": tuples_of(zemax), "noted": noted, "codev": tuples_of(codev),
                           "front": [front_before, front._data, skipped], "back": [back_before, back._data, read_notes],
+                          "turned": [turned_before, turned._data, turned_skipped],
                           "types": [type(x).__name__ for x in (zemax, zemax.materials[0], zemax.coatings[0], zemax.coatings[0].layers[0],
                                                                codev, codev.incident, codev.layers[0])],
                           "worded": worded}})

@@ -2065,21 +2065,22 @@ for r in sheet.rows:
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.importZemaxCoating(path, { coating, wavelength })` | `design.import_zemax_coating(path, coating=..., wavelength=550)` |
+| `design.importZemaxCoating(path, { coating, wavelength, side })` | `design.import_zemax_coating(path, coating=..., wavelength=550, side=...)` |
 
-按 Zemax 镀膜窗口“导入 → 正面镀膜”的方式，把 Zemax OpticStudio COATING.DAT 文件中一条 COAT 记录的膜层放到设计的正面：按文件中的顺序，入射介质一侧在前，相对厚度在 `wavelength` 处用文件给出的折射率换算。正面原有的膜层被替换；介质和基底保持设计原有的。每层的材料取应用中导入时给它的 id，位于该文件的材料目录中，设计携带其定义，因此计算和保存时都使用它：不向任何材料目录写入内容。在应用以前导入过该文件的计算机上，id 为该目录的 id，并使用目录中保存的材料，包括其编辑；否则每次导入都会像首次导入那样为目录 id 重新抽取一个随机部分。
+按 Zemax 镀膜窗口“导入 → 正面镀膜”把膜层放到正面的方式，把 Zemax OpticStudio COATING.DAT 文件中一条 COAT 记录的膜层放到设计的一个面上：相对厚度在 `wavelength` 处用文件给出的折射率换算。COAT 从入射介质开始列出膜层，因此放到背面时顺序反转。该面原有的膜层被替换；介质和基底保持设计原有的。每层的材料取应用中导入时给它的 id，位于该文件的材料目录中，设计携带其定义，因此计算和保存时都使用它：不向任何材料目录写入内容。在应用以前导入过该文件的计算机上，id 为该目录的 id，并使用目录中保存的材料，包括其编辑；否则每次导入都会像首次导入那样为目录 id 重新抽取一个随机部分。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
 | `path` | `path` |  | **JavaScript**：文件，给出完整路径。相对路径按 `tf.openDesign()` 的方式解释。<br>**Python**：文件。相对路径按 tf.open_design() 的方式解释。 |
 | `coating` | `coating` |  | **JavaScript**：COAT 记录，按其名称或其在文件各镀膜中的位置（从 0 开始）给出。不给出时为第一个膜层堆栈。<br>**Python**：COAT 记录，按其名称或其在文件各镀膜中的位置（从 0 开始）给出。不给出时为第一个膜层堆栈。 |
 | `wavelength` | `wavelength` | `550` | **JavaScript**：λ₀，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。<br>**Python**：波长，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。 |
+| `side` | `side` |  | **JavaScript**：`'front'` 或 `'back'`。不给出时为正面；仅背面镀膜的设计为背面。<br>**Python**："front" 或 "back"。不给出时为正面；仅背面镀膜的设计为背面。 |
 
 **返回**：被略去的膜层，各附原因：文件没有定义的材料，或文件没有给出其材料折射率的相对厚度。
 
 **拒绝**：
 
-- **JavaScript**：无法读取的文件或既没有 MATE 记录也没有镀膜的文件、文件中没有的镀膜或不是膜层堆栈的镀膜、没有一层能换算的镀膜、设计编辑器不允许编辑的正面、它不接受的选项，或选项不能取的值<br>**Python**：无法读取的文件或既没有 MATE 记录也没有镀膜的文件、文件中没有的镀膜或不是膜层堆栈的镀膜、没有一层能换算的镀膜、设计编辑器不允许编辑的正面，或参数不能取的值
+- **JavaScript**：无法读取的文件或既没有 MATE 记录也没有镀膜的文件、文件中没有的镀膜或不是膜层堆栈的镀膜、没有一层能换算的镀膜、设计编辑器不允许编辑的面、它不接受的选项，或选项不能取的值<br>**Python**：无法读取的文件或既没有 MATE 记录也没有镀膜的文件、文件中没有的镀膜或不是膜层堆栈的镀膜、没有一层能换算的镀膜、设计编辑器不允许编辑的面，或参数不能取的值
 
 ```js
 const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);

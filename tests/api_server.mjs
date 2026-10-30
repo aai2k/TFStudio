@@ -228,6 +228,7 @@ const specified = api.setSpecification(start, CHECKS);
         && fs.readFileSync(datThere, 'utf8') === fs.readFileSync(datHere, 'utf8') && datAgain.error?.code === 'fileExists', JSON.stringify([wroteDat, datAgain.error]));
     await same('readZemaxCoating', [datThere, { wavelength: 600 }]);
     const zemaxImport = await sameImport('importZemaxCoating', [twoLayers, datThere, { coating: 0 }]);
+    const zemaxBack = await sameImport('importZemaxCoating', [api.setDesignSetup(twoLayers, { surfaceMode: 'both_independent' }), datThere, { coating: 0, side: 'back' }]);
     await same('importZemaxCoating', [twoLayers, datThere, { coating: 'nothing' }]);
     const [seqThere, seqHere] = coatingFile('stack.seq');
     const wroteSeq = await server.call('saveCodevCoating', [stack, seqThere, { angles: [0, 45], step: 25 }]);
@@ -238,6 +239,7 @@ const specified = api.setSpecification(start, CHECKS);
     const codevImport = await sameImport('importCodevCoating', [api.setDesignSetup(twoLayers, { surfaceMode: 'both_independent' }), seqThere, { side: 'back' }]);
     const shut = await same('importCodevCoating', [twoLayers, seqThere, { side: 'back' }]);
     ok('a coating file\'s layers come back on the design, and a closed side is refused with its code and fields', zemaxImport.result?.design.frontLayers.length === 7
+        && zemaxBack.result?.design.backLayers.length === 7
         && codevImport.result?.design.backLayers.length === 7 && shut.error?.code === 'closedSide', JSON.stringify(shut.error));
     await same('findMaterials', ['SiO2']);
     await same('findMaterials', []);
