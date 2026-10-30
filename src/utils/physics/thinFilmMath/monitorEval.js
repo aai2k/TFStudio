@@ -7,7 +7,7 @@
  * calls. Conventions follow thinFilmMath.js.
  */
 
-import { wasmKernel } from '../kernelStack.js';
+import { gridIndex, gridStack, pointStack, wasmKernel } from '../kernelStack.js';
 import {
     bareInterface, combineGrowingSample, incidence, materialNkTable, pickCharPol,
     substratePass, substrateRay,
@@ -63,8 +63,9 @@ export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMa
     const nkList = materialNkTable(lambdas);
     const n0List = nkList(incMat);
     const nsList = nkList(subMat);
-    const ev = wasmKernel().growingEval(lambdas, n0List, nsList,
-        completedMats.map(m => nkList(m)), completedThicks, theta_deg);
+    const ev = wasmKernel().growingStack(
+        gridStack(n0List, nsList, completedMats.map(m => nkList(m)), completedThicks),
+        lambdas, { angle: Number(theta_deg) });
 
     // Slab constants, fixed for the life of the evaluator: the bare back
     // face's R/T per polarization and the substrate's bulk pass.
@@ -89,7 +90,7 @@ export function createMonitorTmmEvaluator(theta_deg, incMat, subMat, completedMa
     return {
         lambdas,
         sample(char, pol, topMat, dTop) {
-            if (topMat !== lastTop) { ev.setTop(nkList(topMat)); lastTop = topMat; }
+            if (topMat !== lastTop) { ev.setTop(gridIndex(nkList(topMat))); lastTop = topMat; }
             raw = ev.sample(dTop, raw);
             const out = new Float64Array(NL);
             for (let li = 0; li < NL; li++) {
@@ -139,8 +140,9 @@ export function createGrowingLayerEvaluator(theta_deg, incMat, subMat,
 
     return {
         sampleMany(char, pol, topMat, dArr) {
-            const res = wasmKernel().monitorCurve(lam, theta_deg, n0, ns, base,
-                topMat.getNK(lam), dArr);
+            const [n, k] = topMat.getNK(lam);
+            const res = wasmKernel().monitorCurve(pointStack(n0, ns, base), Number(lam),
+                { angle: Number(theta_deg), top: { n, k }, thicknesses: dArr });
             const out = new Float64Array(dArr.length);
             for (let i = 0; i < dArr.length; i++) {
                 const { s, p } = combineGrowingSample(res, i, back, P);

@@ -666,7 +666,10 @@ export function evaluateDepositionSpectra(params, incMaterial, subMaterial, exit
     const airRow = lambdas.map(() => [1, 0]);
     const layerNK = depositionLayers.map(l => (l.material ? nkFor(l.material) : airRow));
     const thick = depositionLayers.map(l => (l.material ? l.thickness : 0));
-    const sp = wasmKernel().depositionSpectra(lambdas, n0List, nsList, layerNK, thick, theta);
+    // The call takes the stack as light meets it, the last deposited layer
+    // first, and deposits it from the substrate outward.
+    const sp = wasmKernel().depositionSpectra(
+        gridStack(n0List, nsList, [...layerNK].reverse(), [...thick].reverse()), lambdas, { angle: Number(theta) });
 
     // The static side of the system, once per wavelength: the back coating's
     // pass at the refracted angle and the substrate's bulk transmittance.

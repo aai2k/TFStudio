@@ -35,8 +35,8 @@ export function pointStack(n0, ns, layers) {
     };
 }
 
-// One index over a grid, from its [n, k] pair at each wavelength.
-const overGrid = pairs => ({ n: pairs.map(pair => pair[0]), k: pairs.map(pair => pair[1]) });
+/** One index over a grid, { n, k }, from its [n, k] pair at each wavelength. */
+export const gridIndex = pairs => ({ n: pairs.map(pair => pair[0]), k: pairs.map(pair => pair[1]) });
 
 /**
  * A stack over a wavelength grid: the incident and substrate indices per
@@ -45,9 +45,9 @@ const overGrid = pairs => ({ n: pairs.map(pair => pair[0]), k: pairs.map(pair =>
  */
 export function gridStack(n0List, nsList, layerNK, thick) {
     return {
-        incident: overGrid(n0List),
-        substrate: overGrid(nsList),
-        layers: layerNK.map((row, k) => ({ ...overGrid(row), d: thick[k] })),
+        incident: gridIndex(n0List),
+        substrate: gridIndex(nsList),
+        layers: layerNK.map((row, k) => ({ ...gridIndex(row), d: thick[k] })),
     };
 }
 

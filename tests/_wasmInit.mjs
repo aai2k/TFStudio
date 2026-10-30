@@ -30,15 +30,14 @@ export async function initWasmForTest(wasmPath = TMMCORE_WASM_PATH) {
 // The calls a loaded kernel and tmmcore's JavaScript index both carry, under
 // the same names and with the same stack and options.
 const STACK_CALLS = ['rta', 'rtaSpectrum', 'jacobian', 'jacobianSpectrum', 'hessian',
-  'hessianSpectrum', 'needleScan', 'phase', 'phaseSpectrum', 'phaseJacobian', 'phaseJacobianSpectrum'];
+  'hessianSpectrum', 'needleScan', 'phase', 'phaseSpectrum', 'phaseJacobian', 'phaseJacobianSpectrum',
+  'monitorCurve', 'depositionSpectra', 'growingStack'];
 
 /**
  * Runs `fn` with the loaded kernel's calls answered by tmmcore's JavaScript
- * reference wherever it has one, and returns what `fn` returns. TFStudio's own
- * code runs unchanged, so comparing against a plain run holds the kernel to
- * the reference on exactly the stacks TFStudio builds. The growing-stack calls
- * have no JavaScript twin on tmmcore's index and stay on the kernel. `fn` is
- * synchronous.
+ * reference, and returns what `fn` returns. TFStudio's own code runs
+ * unchanged, so comparing against a plain run holds the kernel to the
+ * reference on exactly the stacks TFStudio builds. `fn` is synchronous.
  */
 export function onJsReference(fn) {
   const kernel = getTmmWasm();
