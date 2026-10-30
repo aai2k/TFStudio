@@ -1,6 +1,6 @@
 /**
  * Per-descriptor characteristic sensitivity d(char)/d(needle) — the front_only /
- * back_only / full-system chain rule that turns a tmmNeedleScan pass into the
+ * back_only / full-system chain rule that turns a needleScan pass into the
  * merit-relevant ∂R/∂T/∂A for one insertion descriptor.
  *
  * Derivatives (d → 0), full-system composition (Macleod §2.6.4):
@@ -13,7 +13,7 @@
  *     ∂T/∂d = (P·T_f/D²) · [ D·∂T_b/∂d + T_b·P²·R_f'·∂R_b/∂d ]
  */
 
-// Read needle derivative {dR, dT} at a position descriptor from a tmmNeedleScan
+// Read needle derivative {dR, dT} at a position descriptor from a needleScan
 // result, with optional position mirroring (used for the reverse-front and
 // symmetric-back passes: gap p ↔ N-p, intra (k, fi) ↔ (N-1-k, nIntra-1-fi)).
 function _readDeriv(scan, d, NLayers, mirror, nIntra) {

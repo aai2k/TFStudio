@@ -1,7 +1,7 @@
 /**
  * TMM needle-scan passes for the analytic P-function scan.
  *
- * Single-surface modes need one tmmNeedleScan; full-system (symmetric /
+ * Single-surface modes need one needleScan; full-system (symmetric /
  * both_independent) needs three passes (forward front, reverse front, back)
  * composed via Macleod §2.6.4. `_makeScanAt` memoizes the result per (λ,pol,aoi).
  */
@@ -85,7 +85,7 @@ const SCAN_CACHE_BYTES = 64 * 2 ** 20;
 
 // Bytes one result takes: about 104 per derivative (one per insertion position
 // and candidate material) and 113 per position, measured on the shapes
-// tmmNeedleScan returns. A full-system result holds two passes over the front
+// needleScan returns. A full-system result holds two passes over the front
 // and one over the back.
 function resultBytes(cfg) {
     const positions = n => (n + 1) + n * cfg.nIntra;
@@ -96,7 +96,7 @@ function resultBytes(cfg) {
 }
 
 // Memoized (λ,pol,aoi) → scan-result factory; for full-system a result bundles
-// three tmmNeedleScan passes plus the composed R/T/A and P. A band row asks for
+// three needleScan passes plus the composed R/T/A and P. A band row asks for
 // a result at every sample of its grid, which a fine Step makes tens of
 // thousands long; holding them all took 4.9 GB for one band row at 0.01 nm over
 // 400-700 nm on 30 layers. The rows read their samples one row after another,

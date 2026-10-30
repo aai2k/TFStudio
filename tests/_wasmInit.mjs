@@ -30,15 +30,7 @@ export async function initWasmForTest(wasmPath = TMMCORE_WASM_PATH) {
 // The calls a loaded kernel and tmmcore's JavaScript index both carry, under
 // the same names and with the same stack and options.
 const STACK_CALLS = ['rta', 'rtaSpectrum', 'jacobian', 'jacobianSpectrum', 'hessian',
-  'hessianSpectrum', 'phase', 'phaseSpectrum', 'phaseJacobian', 'phaseJacobianSpectrum'];
-
-// The kernel's one-wavelength calls of 0.4 that TFStudio still makes, and
-// their JavaScript twins. The kernel takes the polarization as 1 for p and 0
-// for s, the JavaScript as 'p' or 's'.
-const polName = code => (code === 1 ? 'p' : 's');
-const POINT_CALLS = {
-  tmmNeedleScan: (lam, aoi, pol, ...rest) => tmmcore.tmmNeedleScan(lam, aoi, polName(pol), ...rest),
-};
+  'hessianSpectrum', 'needleScan', 'phase', 'phaseSpectrum', 'phaseJacobian', 'phaseJacobianSpectrum'];
 
 /**
  * Runs `fn` with the loaded kernel's calls answered by tmmcore's JavaScript
@@ -50,7 +42,7 @@ const POINT_CALLS = {
  */
 export function onJsReference(fn) {
   const kernel = getTmmWasm();
-  const swaps = [...STACK_CALLS.map(name => [name, tmmcore[name]]), ...Object.entries(POINT_CALLS)];
+  const swaps = STACK_CALLS.map(name => [name, tmmcore[name]]);
   const own = swaps.map(([name]) => [name, Object.getOwnPropertyDescriptor(kernel, name)]);
   for (const [name, call] of swaps) kernel[name] = call;
   try {

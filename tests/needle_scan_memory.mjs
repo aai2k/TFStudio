@@ -53,9 +53,9 @@ const pool = ['TiO2', 'SiO2'].map(id => ({ id, name: id, mat: resolveMat(id) }))
 
 // The heap is read inside the kernel calls, while the scan is under way.
 const kernel = getTmmWasm();
-const scan = kernel.tmmNeedleScan;
+const scan = kernel.needleScan;
 let calls = 0, peak = 0;
-kernel.tmmNeedleScan = function sampled(...args) {
+kernel.needleScan = function sampled(...args) {
     if (++calls % 250 === 0) { collect(); peak = Math.max(peak, process.memoryUsage().heapUsed); }
     return scan.apply(this, args);
 };
@@ -68,7 +68,7 @@ const start = process.memoryUsage().heapUsed;
 const result = model.profileScan({
     operands, design, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front',
 });
-kernel.tmmNeedleScan = scan;
+kernel.needleScan = scan;
 
 assert.ok(calls >= 3001, `the scan asked the kernel for every sample (${calls} calls)`);
 assert.ok(result?.candidates.length > 0 && result.candidates.every(c => Number.isFinite(c.grad)),
@@ -88,7 +88,7 @@ const ranged = {
 const rangedOps = model.runOperands(ranged, resolveMat).filter(op => !isConstraint(op.type));
 assert.equal(operandSampleLambdas(rangedOps[0]).length, 30001, 'the range target at 0.01 nm samples its band 30001 times');
 calls = 0; peak = 0;
-kernel.tmmNeedleScan = function sampled(...args) {
+kernel.needleScan = function sampled(...args) {
     if (++calls % 1000 === 0) { collect(); peak = Math.max(peak, process.memoryUsage().heapUsed); }
     return scan.apply(this, args);
 };
@@ -97,7 +97,7 @@ const rangedStart = process.memoryUsage().heapUsed;
 model.profileScan({
     operands: rangedOps, design: ranged, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front',
 });
-kernel.tmmNeedleScan = scan;
+kernel.needleScan = scan;
 const rangedGrowth = (peak - rangedStart) / 2 ** 20;
 assert.ok(rangedGrowth < 150, `the range target scan's heap grew by ${rangedGrowth.toFixed(0)} MB, under 150 MB`);
 
@@ -110,11 +110,11 @@ const shared = {
 const sharedOps = model.runOperands(shared, resolveMat).filter(op => !isConstraint(op.type));
 const samples = operandSampleLambdas(sharedOps[0]).length;
 let sharedCalls = 0;
-kernel.tmmNeedleScan = function counted(...args) { sharedCalls++; return scan.apply(this, args); };
+kernel.needleScan = function counted(...args) { sharedCalls++; return scan.apply(this, args); };
 model.profileScan({
     operands: sharedOps, design: shared, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front',
 });
-kernel.tmmNeedleScan = scan;
+kernel.needleScan = scan;
 assert.equal(sharedCalls, samples, `two rows on one grid of ${samples} samples made ${sharedCalls} kernel calls`);
 
 // On a grid longer than the cache holds, the second row still finds the
@@ -123,11 +123,11 @@ const fine = { ...shared, meritOperands: shared.meritOperands.map(op => ({ ...op
 const fineOps = model.runOperands(fine, resolveMat).filter(op => !isConstraint(op.type));
 const fineSamples = operandSampleLambdas(fineOps[0]).length;
 let fineCalls = 0;
-kernel.tmmNeedleScan = function counted(...args) { fineCalls++; return scan.apply(this, args); };
+kernel.needleScan = function counted(...args) { fineCalls++; return scan.apply(this, args); };
 model.profileScan({
     operands: fineOps, design: fine, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front',
 });
-kernel.tmmNeedleScan = scan;
+kernel.needleScan = scan;
 assert.ok(fineCalls <= 2 * fineSamples - 300, `two rows on ${fineSamples} samples made ${fineCalls} kernel calls, sharing what the cache holds`);
 
 console.log(`PASS: needle_scan_memory (heap growth ${growth.toFixed(0)} MB band average, ${rangedGrowth.toFixed(0)} MB range target)`);

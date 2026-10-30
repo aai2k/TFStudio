@@ -39,8 +39,11 @@ export function tmmHessEval(lam, aoi, polCode, n0, ns, layers) {
     return wasmKernel().hessian(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
 }
 
-// Analytic needle P-function scan. Returns the nested {R,T,A,gaps,intra,N} the
-// Needle/GE scanners read.
+// Analytic needle P-function scan, for candidate materials given as [re, im]
+// and split fractions of each layer. Returns the nested {R,T,A,gaps,intra,N}
+// the Needle/GE scanners read.
 export function tmmNeedleScanEval(lam, aoi, polCode, n0, ns, layers, candNs, fracs) {
-    return wasmKernel().tmmNeedleScan(lam, aoi, polCode === 'p' ? 1 : 0, n0, ns, layers, candNs, fracs);
+    return wasmKernel().needleScan(pointStack(n0, ns, layers), Number(lam), {
+        angle: Number(aoi), pol: sOrP(polCode), candidates: candNs.map(([n, k]) => ({ n, k })), fractions: fracs,
+    });
 }

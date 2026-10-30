@@ -2,8 +2,8 @@
  * Analytic P-function needle scan (d→0 limit of the pre/post method).
  *
  * Surface-mode-aware orchestration. Two math paths:
- *   front_only  → single tmmNeedleScan on the front stack (fast).
- *   full-system → tmmNeedleScan three times (forward front, reverse front, back),
+ *   front_only  → single needleScan on the front stack (fast).
+ *   full-system → needleScan three times (forward front, reverse front, back),
  *                 then chain-rule through Macleod §2.6.4.
  * The TMM passes live in needleScanPasses.js, the per-descriptor chain rule in
  * chainRule.js, and the per-row gradient accumulation in gradientAccum.js.
@@ -47,7 +47,7 @@ import { _accumRowDifference } from './rowDifference.js';
 
 const MF_OPT = { skipConstraints: true };
 
-// Rows whose needle slope the R and T derivatives of tmmNeedleScan do not give:
+// Rows whose needle slope the R and T derivatives of needleScan do not give:
 // the thickness rows (TT, STR, MNT, MXT), which the scan meets only through a
 // math row since the synthesis merit skips them, and the rows read from the
 // complex amplitudes (phase, group delay and its orders, Ψ, Δ, tanΨ, cosΔ).
