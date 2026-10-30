@@ -119,8 +119,9 @@ function filmsOf(layers, side, resolveMaterial, run) {
             materialName: material?.name || layer.material || '?',
             mechanical,
             // Zero for a material that states no intrinsic stress, which is the
-            // rule the STR operand follows too; `statesStress` is what tells a
-            // real zero from an unknown.
+            // rule the STR operand follows for the force; `statesStress` is
+            // what tells a real zero from an unknown, and `sideResult` reads
+            // the unknown into the energies.
             stressPa: layerStressPa(material, run),
             statesStress: statesStress(material),
             thicknessM: (layer.thickness || 0) * NM,
@@ -139,10 +140,17 @@ function shearOf(films, substrate) {
     return complete ? shearParameterPerM(films, substrate) : null;
 }
 
+// The films as the energies read them. A film whose material states no stress
+// carries none in the force, as in the STR row, but its strain energy is
+// unknown rather than zero, so its own energy, every delamination factor that
+// sums it and both totals are null instead of sums that leave it out.
+const withUnknownStress = films => films.map(film => (film.statesStress ? film : { ...film, stressPa: null }));
+
 /** The rows of one coating, and what it contributes to the whole part. */
 function sideResult(films, substrate) {
-    const energies = films.map(strainEnergyJm2);
-    const factors = delaminationFactors(films, substrate.surfaceEnergyJm2);
+    const energyFilms = withUnknownStress(films);
+    const energies = energyFilms.map(strainEnergyJm2);
+    const factors = delaminationFactors(energyFilms, substrate.surfaceEnergyJm2);
     const forces = interfaceForcesNm(films);
     const shearParameter = shearOf(films, substrate);
     const rows = films.map((film, index) => ({
@@ -161,7 +169,7 @@ function sideResult(films, substrate) {
         forceNm: forces.length ? forces[0] : 0,
         // A partial sum reads as a small one, so both totals need every film.
         strainEnergy: energies.every(stated) ? energies.reduce((sum, value) => sum + value, 0) : null,
-        cracking: films.length ? crackingParameter(films) : 0,
+        cracking: films.length ? crackingParameter(energyFilms) : 0,
     };
 }
 

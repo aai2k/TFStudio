@@ -1471,10 +1471,13 @@ export class Design {
      * `scoreOn`, as the window and the `STR` row count them. With coatings on
      * both faces the force is F_front − F_back; a coating on one face alone
      * reads the same on the back as on the front. A film whose material
-     * states no stress counts as carrying none, as in the `STR` row. Nothing
-     * else is substituted: any other constant a material does not state leaves
-     * the quantities that need it null, and `missing` names it. The built-in
-     * materials state no constants, so a design of them reads a force of 0.
+     * states no stress counts as carrying none in the force and the edge
+     * shear, as in the `STR` row; its strain energy, the delamination factor
+     * of it and of every film below it, the total strain energy and the
+     * cracking parameter are null. Nothing else is substituted: any other
+     * constant a material does not state leaves the quantities that need it
+     * null, and `missing` names it. The built-in materials state no
+     * constants, so a design of them reads a force of 0.
      *
      * @returns A Stress.
      * @throws a design that names a material that resolves to nothing

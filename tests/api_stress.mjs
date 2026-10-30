@@ -5,9 +5,9 @@
  *
  *   1. The call is computeStress in the API's names on the stress fixture and
  *      on the Macleod validation case on the front, the back, both faces with
- *      the front bare, both faces coated, symmetric, with no run and with the
- *      deposition temperature alone. On each face the case gives Macleod's
- *      printed table.
+ *      the front bare, both faces coated, symmetric, with no run, with the
+ *      deposition temperature alone and with a film on top that states no
+ *      stress. On each face the case gives Macleod's printed table.
  *   2. Cross-check: the force is the STR row of merit.
  *   3. On the corpus every force is 0 and every material is missing, since the
  *      built-in materials state no constants.
@@ -24,7 +24,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { inspect, isDeepStrictEqual } from 'node:util';
 import { fixtureFile, manifest } from './_apiCorpus.mjs';
-import { validationBack, validationDesign } from './_stressValidation.mjs';
+import { MATERIALS, OPTICS, validationBack, validationDesign } from './_stressValidation.mjs';
 
 // The window's CSV writer sits in a module of React components.
 globalThis.React = createRequire(import.meta.url)('react');
@@ -76,6 +76,12 @@ const strOf = design => api.merit(api.setMerit(design, [{ type: 'STR', target: 0
 // ── The designs ────────────────────────────────────────────────────────────
 const fixture = api.openDesign(fixtureFile('stress-mechanical-diameter'));
 const front = validationDesign();
+// A fifth film on top whose material states every constant H does but the stress.
+const { intrinsicStressMPa, ...unstressed } = MATERIALS['user_m:H'].mechanical;
+const withUnstressed = validationDesign({
+    materials: { ...MATERIALS, 'user_m:U': { id: 'U', name: 'No stress', ...OPTICS, mechanical: unstressed } },
+    frontLayers: [{ id: 'F0', material: 'user_m:U', thickness: 300 }, ...front.frontLayers],
+});
 const CASES = {
     'the front': front,
     'the back': validationDesign({ surfaceMode: 'back_only', frontLayers: [], backLayers: validationBack() }),
@@ -84,6 +90,7 @@ const CASES = {
     symmetric: api.setDesignSetup(front, { surfaceMode: 'symmetric' }),
     'no run': validationDesign({ stress: undefined }),
     'the deposition temperature alone': api.setDesignSetup(validationDesign({ stress: undefined }), { depositionTemperatureC: 3000 }),
+    'a film on top that states no stress': withUnstressed,
 };
 
 // ── 1. The window's numbers ────────────────────────────────────────────────
@@ -126,6 +133,12 @@ const CASES = {
     ok('with no run each film carries its intrinsic stress', bare.run === null && same(bare.films.map(f => f.stress), [150, -300, 150, -300]), JSON.stringify(bare.films.map(f => f.stress)));
     const deposited = api.stress(CASES['the deposition temperature alone']);
     ok('the deposition temperature alone reads the other as 20 °C', same([deposited.run, deposited.whole, deposited.films], [{ temperature: 20, depositionTemperature: 3000 }, single.whole, single.films]));
+    const unknown = api.stress(CASES['a film on top that states no stress']);
+    const top = unknown.films[4];
+    ok('a film on top that states no stress leaves null its strain energy, every delamination factor, the total strain energy and the cracking parameter, and the force counts it as carrying none',
+        Number.isFinite(intrinsicStressMPa) && same(
+            [top.name, top.stress, top.strainEnergy, unknown.films.map(film => film.delamination), unknown.whole.strainEnergy, unknown.whole.cracking, unknown.whole.force],
+            ['No stress', null, null, [null, null, null, null, null], null, null, single.whole.force]), JSON.stringify([unknown.whole, top]));
     const silica = validationDesign({ substrate: { material: 'SiO2', thickness: 1 },
         frontLayers: [{ id: 'F1', material: 'builtin:SiO2', thickness: 100 }, { id: 'F2', material: 'SiO2', thickness: 100 }] });
     const { missing } = api.stress(silica);

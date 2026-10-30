@@ -2280,7 +2280,7 @@ print("R at 550 nm", round(r.smooth.R.at(550), 5), "becomes", round(r.rough.R.at
 | ---------- | ------ |
 | `design.stress()` | `design.stress()` |
 
-每层膜承担的应力，以及镀膜对工件的作用，计算方式与应力窗口相同，依据材料「力学」选项卡上的常数、`stressTemperature` / `stress_temperature`、`depositionTemperature` / `deposition_temperature` 以及基底的厚度和直径。薄膜应力以张应力为正，合力为 Σ σ·d，即 `STR` 评价函数行所读取的量。哪些镀膜参与计算取决于设计的 `sides` 和 `scoreOn` / `score_on`，与窗口和 `STR` 行的计法相同。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。材料没有给出应力的膜按不承受应力计，与 `STR` 行相同。除此之外不替你补任何值：材料没有给出的其他常数会让需要它的量为 `null` / `None`，并由 `missing` 指出。内置材料没有给出任何常数，因此由它们构成的设计读出的合力为 0。
+每层膜承担的应力，以及镀膜对工件的作用，计算方式与应力窗口相同，依据材料「力学」选项卡上的常数、`stressTemperature` / `stress_temperature`、`depositionTemperature` / `deposition_temperature` 以及基底的厚度和直径。薄膜应力以张应力为正，合力为 Σ σ·d，即 `STR` 评价函数行所读取的量。哪些镀膜参与计算取决于设计的 `sides` 和 `scoreOn` / `score_on`，与窗口和 `STR` 行的计法相同。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。材料没有给出应力的膜在合力和边缘剪切中按不承受应力计，与 `STR` 行相同；它的应变能、它及其下方各膜的脱层因子、总应变能和开裂参数为 `null` / `None`。除此之外不替你补任何值：材料没有给出的其他常数会让需要它的量为 `null` / `None`，并由 `missing` 指出。内置材料没有给出任何常数，因此由它们构成的设计读出的合力为 0。
 
 **返回**：一个 Stress。
 
@@ -9115,9 +9115,9 @@ print(design.stress().substrate)
 | ---------- | ------ |
 | `s.whole` | `s.whole` |
 
-**JavaScript**：工件整体：`force`，所计各膜的 Σ σ·d，单位 N/m；`radius`，曲率半径，单位 m，合力为零时为 null；`deflection`，中心挠度，单位 µm，没有直径时为 null；`strainEnergy`，各膜应变能之和，单位 J/m²；`cracking`，各膜 U/2γ 之和。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。曲率半径与中心挠度在压应力镀膜留下凸面时为正。所需常数缺失时，各项为 null；没有给出应力的膜按不承受应力计。
+**JavaScript**：工件整体：`force`，所计各膜的 Σ σ·d，单位 N/m；`radius`，曲率半径，单位 m，合力为零时为 null；`deflection`，中心挠度，单位 µm，没有直径时为 null；`strainEnergy`，各膜应变能之和，单位 J/m²；`cracking`，各膜 U/2γ 之和。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。曲率半径与中心挠度在压应力镀膜留下凸面时为正。所需常数缺失时，各项为 null；没有给出应力的膜在合力、曲率半径和中心挠度中按不承受应力计，而应变能与开裂参数为 null。
 
-**Python**：工件整体，一个命名元组：force，所计各膜的 Σ σ·d，单位 N/m；radius，曲率半径，单位 m，合力为零时为 None；deflection，中心挠度，单位 µm，没有直径时为 None；strain_energy，各膜应变能之和，单位 J/m²；cracking，各膜 U/2γ 之和。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。曲率半径与中心挠度在压应力镀膜留下凸面时为正。所需常数缺失时，各项为 None；没有给出应力的膜按不承受应力计。
+**Python**：工件整体，一个命名元组：force，所计各膜的 Σ σ·d，单位 N/m；radius，曲率半径，单位 m，合力为零时为 None；deflection，中心挠度，单位 µm，没有直径时为 None；strain_energy，各膜应变能之和，单位 J/m²；cracking，各膜 U/2γ 之和。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。曲率半径与中心挠度在压应力镀膜留下凸面时为正。所需常数缺失时，各项为 None；没有给出应力的膜在合力、曲率半径和中心挠度中按不承受应力计，而应变能与开裂参数为 None。
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -9137,9 +9137,9 @@ print(design.stress().whole)
 | ---------- | ------ |
 | `s.films` | `s.films` |
 
-**JavaScript**：每个参与计算的膜一项，正面在前，每项为 `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`：number 从基底处的 1 起，与 `layers` 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strainEnergy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 null，其余各项则按该膜不承受应力计算；所需的其他常数缺失时，各项为 null。
+**JavaScript**：每个参与计算的膜一项，正面在前，每项为 `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`：number 从基底处的 1 起，与 `layers` 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strainEnergy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 null；此时 strainEnergy 也为 null，该膜及其下方各膜的 delamination 同样为 null，而 shear 按该膜不承受应力计算。所需的其他常数缺失时，各项为 null。
 
-**Python**：每个参与计算的膜一项，正面在前，每项为命名元组 (side, number, material, name, thickness, stress, strain_energy, delamination, shear)：number 从基底处的 1 起，与 layers 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strain_energy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 None，其余各项则按该膜不承受应力计算；所需的其他常数缺失时，各项为 None。
+**Python**：每个参与计算的膜一项，正面在前，每项为命名元组 (side, number, material, name, thickness, stress, strain_energy, delamination, shear)：number 从基底处的 1 起，与 layers 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strain_energy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 None；此时 strain_energy 也为 None，该膜及其下方各膜的 delamination 同样为 None，而 shear 按该膜不承受应力计算。所需的其他常数缺失时，各项为 None。
 
 ```js
 const design = tf.newDesign('Mirror');

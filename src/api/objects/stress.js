@@ -76,7 +76,9 @@ export class Stress {
      * reads the same on the back as on the front. The radius and the
      * deflection are positive for the convex face a compressive coating
      * leaves. Each null when a constant it needs is missing; a film that
-     * states no stress counts as carrying none.
+     * states no stress counts as carrying none in the force, the radius and
+     * the deflection, and leaves the strain energy and the cracking parameter
+     * null.
      *
      * @example
      * const design = tf.newDesign('Mirror');
@@ -92,9 +94,10 @@ export class Stress {
      * name as the window shows it; thickness in nm; stress in MPa, tensile
      * positive; strainEnergy in J/m²; delamination, at 1 the energy to let go
      * at the interface below the film; shear, the peak shear at the coating's
-     * edge, MPa. stress is null when the material states none, and the
-     * others then count the film as carrying none; each is null when another
-     * constant it needs is missing.
+     * edge, MPa. stress is null when the material states none; strainEnergy
+     * is then null too, and so is the delamination of that film and of every
+     * film below it, while shear counts it as carrying none. Each is null
+     * when another constant it needs is missing.
      *
      * @example
      * const design = tf.newDesign('Mirror');

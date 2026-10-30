@@ -119,6 +119,36 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
 }
 
 {
+    // A fifth film on top whose material states every constant H does but its
+    // intrinsic stress. Its stress is unknown, so its strain energy, every
+    // delamination factor that sums that energy, the total strain energy and
+    // the cracking parameter are blank, not partial sums that leave it out. The
+    // force and the edge shear count it as carrying none, as the STR row does.
+    const { intrinsicStressMPa, ...unstressed } = MATERIALS['user_m:H'].mechanical;
+    assert.ok(Number.isFinite(intrinsicStressMPa), 'H states a stress the new material leaves out');
+    const four = analyse(validationDesign());
+    const design = validationDesign({
+        materials: { ...MATERIALS, 'user_m:U': { id: 'U', name: 'No stress', ...OPTICS, mechanical: unstressed } },
+        frontLayers: [{ id: 'F0', material: 'user_m:U', thickness: 300 }, ...validationDesign().frontLayers],
+    });
+    const result = analyse(design);
+    const top = result.rows[4];
+    assert.equal(top.materialName, 'No stress', 'the fifth film is on top');
+    assert.equal(top.stressMPa, null, 'it shows no stress');
+    assert.equal(top.strainEnergy, null, 'and no strain energy, which needs its stress');
+    assert.deepEqual(result.rows.map(row => row.delamination), [null, null, null, null, null],
+        'every delamination factor sums the films outside its interface, the top one among them');
+    assert.equal(result.whole.strainEnergy, null, 'the total strain energy needs every film');
+    assert.equal(result.whole.cracking, null, 'and so does the cracking parameter');
+    assert.deepEqual(result.rows.slice(0, 4).map(row => row.strainEnergy), four.rows.map(row => row.strainEnergy),
+        'the four films below keep their own strain energies');
+    assert.equal(result.whole.forceNm, four.whole.forceNm, 'the force counts the fifth film as carrying none');
+    assert.ok(result.rows.every(row => row.shearMPa != null), 'and so does the edge shear');
+    assert.deepEqual(result.missing, [{ materialId: 'user_m:U', name: 'No stress', fields: ['intrinsicStressMPa'] }],
+        'and the notice names the stress it lacks');
+}
+
+{
     // Fused silica as the substrate and as two of the films, named by its bare
     // name and by its compound id: one material, which the notice counts once
     // with every constant it lacks.
