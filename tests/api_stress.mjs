@@ -228,13 +228,17 @@ const CASES = {
     ok('it prints its coatings, films, force and missing materials', shown === `<Stress front: 9 films, force ${plain.whole.force} N/m, 3 materials missing constants>`, shown);
 
     // The window's Copy CSV, with and without the side column.
-    const wrong = [['the fixture', fixture], ['both faces coated', CASES['both faces coated']]].filter(([what, shownDesign], i) => {
+    const written = [['the fixture', fixture], ['both faces coated', CASES['both faces coated']]].map(([what, shownDesign], i) => {
         const file = path.join(WORK, `${i}.csv`);
         new objects.Design(shownDesign).stress().saveCsv(file);
         const result = computeStress(shownDesign, resolveEvalMode(shownDesign));
-        return fs.readFileSync(file, 'utf8') !== csvFromRows(filmColumns(en.stressAnalysis, result.bothSides), filmRows(result.rows, en.stressAnalysis));
-    }).map(([what]) => what);
+        const columns = filmColumns(en.stressAnalysis, result.bothSides);
+        return { what, text: fs.readFileSync(file, 'utf8'), columns, window: csvFromRows(columns, filmRows(result.rows, en.stressAnalysis)) };
+    });
+    const wrong = written.filter(file => file.text !== file.window).map(file => file.what);
     ok('the CSV is the window\'s per-film table through its Copy CSV, with the side column when both faces count', wrong.length === 0, wrong.join(', '));
+    const split = written.filter(file => !file.text.split('\n').every(line => line.split(',').length === file.columns.length)).map(file => file.what);
+    ok('its heading has as many fields as each row', split.length === 0, `${split.join(', ')}: ${written[0].text.split('\n')[0]}`);
 }
 
 // ── 6. Refusals ────────────────────────────────────────────────────────────

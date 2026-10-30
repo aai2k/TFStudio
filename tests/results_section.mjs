@@ -58,6 +58,8 @@ assert.equal(csvFromRows(columns, rows), [
 ].join('\n'), 'CSV carries full precision, and a comma in text cannot split a field');
 assert.equal(csvFromRows(columns, []), 'λ (nm),GD (fs),Note');
 assert.equal(csvFromRows([], rows), '');
+assert.equal(csvFromRows([{ key: 'd', label: 'd, nm' }, { key: 'note', label: 'Note' }], [{ d: 64.2, note: 'a, b' }]),
+    'd; nm,Note\n64.2,a; b', 'nor can a comma in a heading');
 
 // ── Export menu ───────────────────────────────────────────────────────────────
 

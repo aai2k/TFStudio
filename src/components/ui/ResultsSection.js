@@ -122,11 +122,15 @@ export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
     );
 }
 
-/** Raw values, one row per sample. Commas inside text become semicolons. */
+/**
+ * Raw values, one row per sample. Commas inside text become semicolons, in the
+ * headings as in the cells, so "d, nm" is written "d; nm" and every heading
+ * stays one field.
+ */
 export function csvFromRows(columns, rows) {
     const cols = columns || [];
     if (!cols.length) return '';
-    const header = cols.map(col => col.csv || col.label || col.key).join(',');
+    const header = cols.map(col => String(col.csv || col.label || col.key).replace(/,/g, ';')).join(',');
     const lines = (rows || []).map(row => cols.map(col => {
         const value = row[col.key];
         if (value == null) return '';

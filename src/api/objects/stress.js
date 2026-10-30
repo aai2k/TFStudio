@@ -7,8 +7,8 @@ import { filmColumns, filmRows } from '../../components/windows/analysis/stressA
 import en from '../../constants/locales/en.js';
 
 // The text of a CSV cell as the window's Copy CSV writes it (csvFromRows): a
-// number as it is, a name with each comma made a semicolon, an empty cell for
-// none.
+// number as it is, a name or a heading with each comma made a semicolon, an
+// empty cell for none.
 const cell = value => (value == null ? '' : typeof value === 'number' ? String(value) : String(value).replace(/,/g, ';'));
 
 // A film in the window's row names, which its table reads.
@@ -135,7 +135,7 @@ export class Stress {
         const sa = en.stressAnalysis;
         const rows = filmRows(this._result.films.map(windowRow), sa);
         const columns = filmColumns(sa, rows.some(row => row.side === 'front') && rows.some(row => row.side === 'back'));
-        const lines = [columns.map(column => column.label), ...rows.map(row => columns.map(column => cell(row[column.key])))];
+        const lines = [columns.map(column => cell(column.label)), ...rows.map(row => columns.map(column => cell(row[column.key])))];
         fs.writeFileSync(path, lines.map(line => line.join(',')).join('\n'), 'utf8');
     }
 

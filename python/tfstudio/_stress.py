@@ -18,9 +18,10 @@ MissingConstants = collections.namedtuple("MissingConstants", "material name fie
 
 # The window's per-film table (stressAnalysis/tableModel.js, and the English
 # stressAnalysis): the side column only when both faces are counted. Its Copy
-# CSV writes the headings as they are, commas and all.
+# CSV writes each comma in a heading as a semicolon, as it does in a name, so
+# each heading is one field.
 _SIDE = "Side"
-_HEADINGS = ("Layer", "Material", "d, nm", "Stress, MPa", "U, J/m²", "Delamination", "Edge shear, MPa")
+_HEADINGS = ("Layer", "Material", "d; nm", "Stress; MPa", "U; J/m²", "Delamination", "Edge shear; MPa")
 _SIDE_NAMES = {"front": "Front", "back": "Back"}
 
 

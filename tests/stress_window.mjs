@@ -18,12 +18,18 @@
  */
 
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import { buildEvalContext, resolveEvalMode } from '../src/utils/physics/optimizer.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import { stressForceNm } from '../src/utils/physics/stress/stackForce.js';
 import { computeStress } from '../src/components/windows/analysis/stressAnalysis/model.js';
-import { filmColumns, wholeRows } from '../src/components/windows/analysis/stressAnalysis/tableModel.js';
+import { filmColumns, filmRows, wholeRows } from '../src/components/windows/analysis/stressAnalysis/tableModel.js';
+import { localeSources } from '../src/constants/locales/index.js';
 import { MATERIALS, OPTICS, validationBack, validationDesign } from './_stressValidation.mjs';
+
+// The window's CSV writer sits in a module of React components.
+globalThis.React = createRequire(import.meta.url)('react');
+const { csvFromRows } = await import('../src/components/ui/ResultsSection.js');
 
 // The table prints three figures, so a value is checked to half of the last
 // place it showed or a twentieth of a percent, whichever is looser.
@@ -252,6 +258,34 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
         'a quantity the design cannot support prints a dash, never a zero');
     assert.ok(/^-?\d/.test(rows.find(row => row.quantity === 'Film force').display),
         'and one it can prints a number');
+}
+
+// ── What Copy CSV writes ─────────────────────────────────────────────────────
+//
+// The per-film table in every language, on one face and with both counted: a
+// spreadsheet reads as many fields in the heading as in each row, so every
+// value sits under its own heading.
+
+{
+    const designs = {
+        'one face': validationDesign(),
+        'both faces': validationDesign({
+            backLayers: [{ id: 'B1', material: 'user_m:H', thickness: 300 }], mfEvalMode: 'total',
+        }),
+    };
+    for (const [language, t] of Object.entries(localeSources)) {
+        const sa = t.stressAnalysis;
+        for (const [label, design] of Object.entries(designs)) {
+            const result = analyse(design);
+            const columns = filmColumns(sa, result.bothSides);
+            const [heading, ...lines] = csvFromRows(columns, filmRows(result.rows, sa)).split('\n');
+            const fields = line => line.split(',').length;
+            assert.equal(fields(heading), columns.length,
+                `${language}, ${label}: the heading has one field per column: ${heading}`);
+            assert.ok(lines.length > 0 && lines.every(line => fields(line) === columns.length),
+                `${language}, ${label}: and so has each row`);
+        }
+    }
 }
 
 console.log('stress_window: ok');
