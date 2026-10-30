@@ -193,6 +193,24 @@ class Calls:
     def monitorWorksheet(self, design, options=None):
         return self._call("monitorWorksheet", design, options)
 
+    def saveZemaxCoating(self, design, filePath, options=None):
+        return self._call("saveZemaxCoating", design, _absolute(filePath), options)
+
+    def readZemaxCoating(self, filePath, options=None):
+        return self._call("readZemaxCoating", _absolute(filePath), options)
+
+    def importZemaxCoating(self, design, filePath, options=None):
+        return self._call("importZemaxCoating", design, _absolute(filePath), options)
+
+    def saveCodevCoating(self, design, filePath, options=None):
+        return self._call("saveCodevCoating", design, _absolute(filePath), options)
+
+    def readCodevCoating(self, filePath):
+        return self._call("readCodevCoating", _absolute(filePath))
+
+    def importCodevCoating(self, design, filePath, options=None):
+        return self._call("importCodevCoating", design, _absolute(filePath), options)
+
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)
 

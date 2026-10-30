@@ -315,6 +315,171 @@ tf.export_measured_curves(design, name, scale="fraction")
 print(open(name).read())
 ```
 
+### saveZemaxCoating / save_zemax_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.saveZemaxCoating(design, path, { name, thickness, wavelength, start, end, step, scope, side, overwrite })` | `tf.save_zemax_coating(design, path, name="TFSTUDIO_DESIGN", thickness="absolute", wavelength=550, start=400, end=800, step=25, scope="used", side=..., overwrite=False)` |
+
+**JavaScript**: Writes one side of a design to a Zemax OpticStudio COATING.DAT file as the Zemax Coatings window's Export tab writes it: a MATE record for each material, n and k sampled every `step` nm from `start` to `end` and written in µm with the imaginary index as -k, then one COAT record of the side's layers, from the incident medium side. The back is written from the exit medium to the substrate, so on either face the file means air to glass.
+
+**Python**: Writes one side of a design to a Zemax OpticStudio COATING.DAT file as the Zemax Coatings window's Export tab writes it: a MATE record for each material, n and k sampled every step nm from start to end and written in um with the imaginary index as -k, then one COAT record of the side's layers, from the incident medium side. The back is written from the exit medium to the substrate, so on either face the file means air to glass.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `design` | `design` |  | The design, a Design. |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken as `openDesign` takes it.<br>**Python**: The file to write. A relative path is taken as open_design() takes it. |
+| `name` | `name` | `'TFSTUDIO_DESIGN'` | The name of the COAT record, written in capitals, every character but letters, digits, `_` and `.` as `_`, and cut to 32 characters. |
+| `thickness` | `thickness` | `'absolute'` | **JavaScript**: `'absolute'`, each layer's physical thickness in µm; or `'relative'`, its optical thickness in waves of `wavelength`.<br>**Python**: "absolute", each layer's physical thickness in um; or "relative", its optical thickness in waves of wavelength. |
+| `wavelength` | `wavelength` | `550` | **JavaScript**: λ₀, nm, for relative thicknesses.<br>**Python**: The reference wavelength, nm, for relative thicknesses. |
+| `start` | `start` | `400` | The first wavelength of the MATE records, nm. |
+| `end` | `end` | `800` | The last wavelength of the MATE records, nm, above `start`. |
+| `step` | `step` | `25` | The step of the MATE records, nm. |
+| `scope` | `scope` | `'used'` | `'used'`, the materials the design uses, its media and substrate included; or `'all'`, every material of the catalogs here as well. |
+| `side` | `side` |  | **JavaScript**: `'front'` or `'back'`; without it, the front, or the back of a design coated on the back alone.<br>**Python**: "front" or "back". Without it, the front, or the back of a design coated on the back alone. |
+| `overwrite` | `overwrite` | `false` / `False` | **JavaScript**: Write over a file that is already there.<br>**Python**: True writes over a file that is already there. |
+
+**Refuses**:
+
+- a design that is not a Design, a side with no layers, an option it does not take or a value an option cannot take, a start and end that are not a range, a file that is already there, without `overwrite`, or a design that names a material that resolves to nothing
+
+```js
+const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
+const design = tf.newDesign('AR');
+design.stack('0.5H L');
+tf.saveZemaxCoating(design, file, { name: 'AR', thickness: 'relative' });
+const text = require('fs').readFileSync(file, 'utf8');
+console.log(text.slice(text.indexOf('COAT')));
+```
+
+```python
+import time
+
+name = "COATING-{}.DAT".format(time.time_ns())
+design = tf.new_design("AR")
+design.stack("0.5H L")
+tf.save_zemax_coating(design, name, name="AR", thickness="relative")
+text = open(name).read()
+print(text[text.index("COAT"):])
+```
+
+### readZemaxCoating / read_zemax_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.readZemaxCoating(path, { wavelength })` | `tf.read_zemax_coating(path, wavelength=550)` |
+
+Reads a Zemax OpticStudio COATING.DAT file as the Zemax Coatings window lists it: its MATE records, as the Materials tab lists them, and its coatings, as the Coatings tab lists them, a relative thickness given in nm at `wavelength`. Nothing is written to a catalog.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file, by its full path. A relative path is taken as `openDesign` takes it.<br>**Python**: The file. A relative path is taken as open_design() takes it. |
+| `wavelength` | `wavelength` | `550` | **JavaScript**: λ₀, nm, at which a thickness the file gives in waves is converted to nm.<br>**Python**: The wavelength, nm, at which a thickness the file gives in waves is converted to nm. |
+
+**Returns**: **JavaScript**: An object: `fileName`; `materials`, each MATE record `{ name, repeat, importedAs, wavelength, n, k }`, repeat `{ index, count }` for a name the file defines more than once and null otherwise, importedAs the name an import gives it, wavelengths in nm rising and k 0 or more; and `coatings`, each COAT `{ name, type, layers }`, type `'stack'` for a stack of layers, the only kind that imports, or `'ideal'`, `'table'` or `'encrypted'`, and layers null but for a stack, each `{ material, thickness, fileThickness, mode }`, thickness in nm (null for a relative thickness whose material the file gives no index for), fileThickness as the file writes it, mode `'absolute'` or `'relative'`.<br>**Python**: A ZemaxCoatingFile, a named tuple: file_name; materials, each a ZemaxMaterial, a named tuple of name, repeat (for a name the file defines more than once, a dict of index and count from 1; else None), imported_as (the name an import gives it), wavelength (nm, rising), n and k (0 or more); and coatings, each a ZemaxCoating, a named tuple of name, type ("stack", the only kind that imports, or "ideal", "table" or "encrypted") and layers, None but for a stack, each a ZemaxLayer, a named tuple of material, thickness (nm; None for a relative thickness whose material the file gives no index for), file_thickness (as the file writes it) and mode ("absolute" or "relative").
+
+**Refuses**:
+
+- **JavaScript**: a file that cannot be read or holds neither a MATE record nor a coating, an option it does not take or a value an option cannot take<br>**Python**: a file that cannot be read or holds neither a MATE record nor a coating, or a value wavelength cannot take
+
+```js
+const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
+require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');
+const read = tf.readZemaxCoating(file);
+for (const layer of read.coatings[0].layers) console.log(layer.material, layer.thickness.toFixed(2), 'nm');
+```
+
+```python
+import time
+
+name = "COATING-{}.DAT".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n")
+for layer in tf.read_zemax_coating(name).coatings[0].layers:
+    print(layer.material, round(layer.thickness, 2), "nm")
+```
+
+### saveCodevCoating / save_codev_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.saveCodevCoating(design, path, { title, saveName, start, end, step, angles, wavelength, side, overwrite })` | `tf.save_codev_coating(design, path, title=..., save_name=..., start=400, end=800, step=10, angles=[0], wavelength=..., side=..., overwrite=False)` |
+
+Writes one side of a design to a CODE V .seq command file as the CODE V Coatings window's Export tab writes it: the commands that enter the stack in the MULTILAYER option, thicknesses in nm from the incident medium side, layers of zero thickness left out, a MIC table of each material's n and k at up to 21 of the analysis wavelengths, and SAV, which has CODE V save it as a .mul. The back is written from the exit medium to the substrate.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `design` | `design` |  | The design, a Design. |
+| `path` | `path` |  | **JavaScript**: The file to write, by its full path. A relative path is taken as `openDesign` takes it.<br>**Python**: The file to write. A relative path is taken as open_design() takes it. |
+| `title` | `title` |  | **JavaScript**: TIT, the stack's title, cut to 80 characters, single quotes left out; without it, the design's name.<br>**Python**: TIT, the stack's title, cut to 80 characters, single quotes left out. Without it, the design's name. |
+| `saveName` | `save_name` |  | **JavaScript**: The name SAV saves the .mul under, each run of characters but letters, digits, `_` and `-` written as one `_`; without it, the design's name.<br>**Python**: The name SAV saves the .mul under, each run of characters but letters, digits, _ and - written as one _. Without it, the design's name. |
+| `start` | `start` | `400` | The first analysis wavelength, nm. |
+| `end` | `end` | `800` | The last analysis wavelength, nm, above `start`. |
+| `step` | `step` | `10` | The step of the analysis wavelengths, nm; CODE V takes 100 of them at most. |
+| `angles` | `angles` | `[0]` | ANG, the angles of incidence in degrees, 0 or more and below 90; CODE V takes 5 at most. |
+| `wavelength` | `wavelength` |  | **JavaScript**: REF, the reference wavelength, nm; without it, the design's reference wavelength.<br>**Python**: REF, the reference wavelength, nm. Without it, the design's reference wavelength. |
+| `side` | `side` |  | **JavaScript**: `'front'` or `'back'`; without it, the front, or the back of a design coated on the back alone.<br>**Python**: "front" or "back". Without it, the front, or the back of a design coated on the back alone. |
+| `overwrite` | `overwrite` | `false` / `False` | **JavaScript**: Write over a file that is already there.<br>**Python**: True writes over a file that is already there. |
+
+**Returns**: What the writer noted, as the window lists it under the text: a material sampled on fewer wavelengths than it has, or an absorbing medium written without its k.
+
+**Refuses**:
+
+- a design that is not a Design, a side with no layers, a stack past a limit of the MUL option (1000 layers, 100 wavelengths, 5 angles), an option it does not take or a value an option cannot take, a start and end that are not a range, a file that is already there, without `overwrite`, or a design that names a material that resolves to nothing
+
+```js
+const file = require('path').join(require('os').homedir(), `ar-${Date.now()}.seq`);
+const design = tf.newDesign('AR');
+design.stack('0.5H L');
+console.log(tf.saveCodevCoating(design, file, { angles: [0, 45] }));
+console.log(require('fs').readFileSync(file, 'utf8').split('\n').filter(line => /^(COA|SUB|SAV)/.test(line.trim())).join('\n'));
+```
+
+```python
+import time
+
+name = "ar-{}.seq".format(time.time_ns())
+design = tf.new_design("AR")
+design.stack("0.5H L")
+print(tf.save_codev_coating(design, name, angles=[0, 45]))
+print([line for line in open(name).read().splitlines() if line.strip().startswith(("COA", "SUB", "SAV"))])
+```
+
+### readCodevCoating / read_codev_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.readCodevCoating(path)` | `tf.read_codev_coating(path)` |
+
+Reads a CODE V coating file, a .seq command file or a .mul CODE V saved, as the CODE V Coatings window's Import tab shows it: what the stack sets around its layers, and its layers from the incident medium side, a thickness the file gives in waves of REF given in nm. Nothing is written to a catalog.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file, by its full path; a name ending in .mul is read as a saved .mul, any other as commands. A relative path is taken as `openDesign` takes it.<br>**Python**: The file; a name ending in .mul is read as a saved .mul, any other as commands. A relative path is taken as open_design() takes it. |
+
+**Returns**: **JavaScript**: An object: `fileName`; `title`; `reference`, REF in nm; `wavelengths`, the analysis wavelengths in nm; `angles`, in degrees; `incident` and `substrate`, each `{ label, n, k }`, a MIC material by its label with n and k null, or a constant index with label null; `layers`, each `{ index, thickness, code, locked }`, index as for `incident`, thickness in nm, code its COA code (100 frozen, 0 free, 1 to 99 coupled) and locked whether it is 100; and `warnings`, what the reader noted.<br>**Python**: A CodevCoatingFile, a named tuple: file_name; title; reference, REF in nm; wavelengths, the analysis wavelengths in nm; angles, in degrees; incident and substrate, each a CodevIndex, a named tuple of label, n and k, a MIC material by its label with n and k None, or a constant index with label None; layers, each a CodevLayer, a named tuple of index (a CodevIndex), thickness (nm), code (its COA code: 100 frozen, 0 free, 1 to 99 coupled) and locked (whether the code is 100); and warnings, what the reader noted.
+
+**Refuses**:
+
+- a file that cannot be read, or that does not enter a stack the reader can read, with what stopped it
+
+```js
+const file = require('path').join(require('os').homedir(), `ar-${Date.now()}.seq`);
+require('fs').writeFileSync(file, "MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n");
+const read = tf.readCodevCoating(file);
+for (const layer of read.layers) console.log('n', layer.index.n, layer.thickness, 'nm', layer.locked ? 'locked' : '');
+```
+
+```python
+import time
+
+name = "ar-{}.seq".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n")
+for layer in tf.read_codev_coating(name).layers:
+    print("n", layer.index.n, layer.thickness, "nm", "locked" if layer.locked else "")
+```
+
 ### app
 
 | JavaScript | Python |
@@ -1894,6 +2059,85 @@ sheet = design.monitor_worksheet(chips={"layers_per_chip": 2}, wavelengths="auto
 for r in sheet.rows:
     error = r.termination_error
     print("step", r.step, "chip", r.chip, "at", r.wavelength, "nm: error", error if error is None else round(error, 2), "nm", "flagged" if r.poor else "")
+```
+
+### importZemaxCoating / import_zemax_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.importZemaxCoating(path, { coating, wavelength })` | `design.import_zemax_coating(path, coating=..., wavelength=550)` |
+
+Puts the layers of a COAT record of a Zemax OpticStudio COATING.DAT file on the front of the design, as the Zemax Coatings window's Import to front coating puts them: in the file's order, incident medium side first, a relative thickness converted at `wavelength` with the index the file gives. The front's layers are replaced; the media and the substrate stay the design's. Each layer's material takes the id an import in the app gives it, in the catalog of the file, and the design carries its definition, so it computes and saves with it: nothing is written to a catalog. On a computer where the app imported the file before, the ids are that catalog's and the materials it holds are used, edits included; otherwise each import draws a new random part of the catalog id, as a first import does.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file, by its full path. A relative path is taken as `tf.openDesign()` takes it.<br>**Python**: The file. A relative path is taken as tf.open_design() takes it. |
+| `coating` | `coating` |  | **JavaScript**: The COAT record, by its name or its place among the file's coatings from 0; without it, the first stack of layers.<br>**Python**: The COAT record, by its name or its place among the file's coatings from 0. Without it, the first stack of layers. |
+| `wavelength` | `wavelength` | `550` | **JavaScript**: λ₀, nm, at which a thickness the file gives in waves is converted to nm.<br>**Python**: The wavelength, nm, at which a thickness the file gives in waves is converted to nm. |
+
+**Returns**: The layers left out, each with why: a material the file does not define, or a relative thickness whose material it gives no index for.
+
+**Refuses**:
+
+- **JavaScript**: a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a front the Design Editor does not let you edit, an option it does not take or a value an option cannot take<br>**Python**: a file that cannot be read or holds neither a MATE record nor a coating, a coating the file does not hold or one that is not a stack of layers, one none of whose layers converts, a front the Design Editor does not let you edit, or a value an argument cannot take
+
+```js
+const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
+require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');
+const design = tf.newDesign('AR');
+console.log(design.importZemaxCoating(file));
+for (const layer of design.layers) console.log(layer.material, layer.thickness.toFixed(2), 'nm');
+```
+
+```python
+import time
+
+name = "COATING-{}.DAT".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n")
+design = tf.new_design("AR")
+print(design.import_zemax_coating(name))
+for layer in design.layers:
+    print(layer.material, round(layer.thickness, 2), "nm")
+```
+
+### importCodevCoating / import_codev_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.importCodevCoating(path, { side })` | `design.import_codev_coating(path, side=...)` |
+
+Puts the layers of a CODE V coating file, a .seq or a .mul, on one side of the design, as the CODE V Coatings window's Import to front coating and Import to back coating put them: physical thickness in nm, a layer of code 100 locked. The file lists its layers from the incident medium, so on the back they go in reversed. The side's layers are replaced; the media and the substrate stay the design's, and the file's INC and SUB are not taken. The materials are carried in the design under the ids an import in the app gives them, as `importZemaxCoating()` / `import_zemax_coating()` carries them.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `path` | `path` |  | **JavaScript**: The file, by its full path; a name ending in .mul is read as a saved .mul, any other as commands. A relative path is taken as `tf.openDesign()` takes it.<br>**Python**: The file; a name ending in .mul is read as a saved .mul, any other as commands. A relative path is taken as tf.open_design() takes it. |
+| `side` | `side` |  | **JavaScript**: `'front'` or `'back'`; without it, the front, or the back of a design coated on the back alone.<br>**Python**: "front" or "back". Without it, the front, or the back of a design coated on the back alone. |
+
+**Returns**: What the reader and the conversion noted, as `tf.readCodevCoating()` / `tf.read_codev_coating()` and the window's report give it.
+
+**Refuses**:
+
+- **JavaScript**: a file that cannot be read, or that does not enter a stack the reader can read, a side the Design Editor does not let you edit, an option it does not take or a value an option cannot take<br>**Python**: a file that cannot be read, or that does not enter a stack the reader can read, a side the Design Editor does not let you edit, or a value an argument cannot take
+
+```js
+const file = require('path').join(require('os').homedir(), `ar-${Date.now()}.seq`);
+require('fs').writeFileSync(file, "MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n");
+const design = tf.newDesign('AR');
+console.log(design.importCodevCoating(file));
+for (const layer of design.layers) console.log(layer.material, layer.thickness, 'nm', layer.locked ? 'locked' : '');
+```
+
+```python
+import time
+
+name = "ar-{}.seq".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n")
+design = tf.new_design("AR")
+print(design.import_codev_coating(name))
+for layer in design.layers:
+    print(layer.material, layer.thickness, "nm", "locked" if layer.locked else "")
 ```
 
 ### refine

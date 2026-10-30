@@ -61,7 +61,10 @@
  *   NeedleCandidate and from a dict, and their refusals; read_ellipsometry_file(), add_measured_curves(), fit_measured()
  *   and export_measured_curves() as named tuples and files, save_jcamp()
  *   byte for byte, a Psi/Delta save_csv() with its # lines, and their
- *   refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
+ *   refusals; a Zemax COATING.DAT and a CODE V .seq written with start and
+ *   end, read back as named tuples and put on a design by a coating's name
+ *   and on the back, the files, answers and designs the plain calls give,
+ *   and their refusals; refine and synthesize with seeds, Monte Carlo with a seed and layer
  *   sensitivity; the settings' snake_case names; the Progress objects of a
  *   refinement, a Needle run and a Monte Carlo run; stop= in progress, Deep
  *   Synthesis's included, and before the run; Ctrl+C in progress; every
@@ -996,6 +999,48 @@ function measuredFiles(t, said) {
         `export_measured_curves: ${path.join(WORK, 'measured curves.dx')} exists; pass overwrite=True to write over it`,
     ]), JSON.stringify(got.worded));
 }
+// A value with the API's names in snake_case, the objects and lists in it too.
+const snakeDeep = value => {
+    if (Array.isArray(value)) return value.map(snakeDeep);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [snake(key), snakeDeep(item)]));
+};
+
+// What _pythonObjects.py coating_files() wrote, read and put in, against the plain calls.
+async function coatingFiles(t, said) {
+    const { ok, canon, api, attempt, WORK } = t;
+    const got = said.coatingFiles ?? {};
+    ok('coating_files() ran', !!said.coatingFiles, t.failure(t.ran));
+    const design = got.design ?? api.newDesign();
+    const at = file => path.join(WORK, file);
+    const text = file => (fs.existsSync(at(file)) ? fs.readFileSync(at(file), 'utf8') : null);
+    await attempt(() => api.saveZemaxCoating(design, at('js coating.dat'), { name: 'Coated', thickness: 'relative', wavelength: 600, from: 450, to: 700, step: 50 }));
+    const noted = await attempt(() => api.saveCodevCoating(design, at('js coating.seq'), { title: 'Five', saveName: 'five', from: 450, to: 700, step: 25, angles: [0, 30] }));
+    ok('save_zemax_coating() and save_codev_coating() write the plain calls\' files, start and end for from and to, and give their warnings',
+        text('coating.dat') !== null && text('coating.dat') === text('js coating.dat') && text('coating.seq') === text('js coating.seq') && canon(got.noted ?? null) === canon(noted));
+    const zemax = await attempt(() => api.readZemaxCoating(at('coating.dat'), { wavelength: 600 }));
+    const codev = await attempt(() => api.readCodevCoating(at('coating.seq')));
+    ok('read_zemax_coating() and read_codev_coating() give the plain calls\' answers as named tuples of their snake_case fields',
+        canon([got.zemax, got.codev, got.types]) === canon([snakeDeep(zemax), snakeDeep(codev),
+            ['ZemaxCoatingFile', 'ZemaxMaterial', 'ZemaxCoating', 'ZemaxLayer', 'CodevCoatingFile', 'CodevIndex', 'CodevLayer']]),
+        JSON.stringify(got.codev)?.slice(0, 300) ?? t.failure(t.ran));
+    const [frontBefore, frontAfter, skipped] = got.front ?? [];
+    const [backBefore, backAfter, readNotes] = got.back ?? [];
+    const zemaxImport = await attempt(() => api.importZemaxCoating(frontBefore, at('coating.dat'), { coating: 'coated', wavelength: 600 }));
+    const codevImport = await attempt(() => api.importCodevCoating(backBefore, at('coating.seq'), { side: 'back' }));
+    ok('import_zemax_coating() and import_codev_coating() put in what the plain calls put in, and give their warnings',
+        canon([frontAfter, skipped, backAfter, readNotes]) === canon([zemaxImport.design, zemaxImport.warnings, codevImport.design, codevImport.warnings])
+        && frontAfter?.frontLayers.length === 5 && backAfter?.backLayers.length === 5 && backAfter?.frontLayers.length === 2, canon(frontAfter ?? null).slice(0, 300));
+    ok('and their refusals are in Python\'s words', canon(got.worded ?? null) === canon([
+        `save_zemax_coating: ${at('coating.dat')} exists; pass overwrite=True to write over it`,
+        'save_zemax_coating: design is a Design, as tf.new_design() or tf.open_design() gives one',
+        "save_zemax_coating: unknown option 'to'; the options are name, thickness, wavelength, start, end, step, scope, side, overwrite",
+        'save_codev_coating: start and end are wavelengths in nm, 0 < start < end',
+        "import_zemax_coating: coating is the name of a coating of the file or its place from 0: COATED, not 'nothing'",
+        'import_codev_coating: the back of a symmetric design mirrors its front; edit the front',
+    ]), JSON.stringify(got.worded));
+}
+
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
@@ -1187,6 +1232,7 @@ export async function checkObjects(t) {
     await bandFeatures(u, ran.said);
     measuredCurves(u, ran.said);
     measuredFiles(u, ran.said);
+    await coatingFiles(u, ran.said);
     await production(u, ran.said);
     await needle(u, ran.said);
     await runs(u, ran.said);

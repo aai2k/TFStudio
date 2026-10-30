@@ -12,6 +12,16 @@ import { worded } from './refusals.js';
 // the form stack() writes, which findMaterials does not list.
 const BUILTIN = 'builtin:';
 
+// What the coating writers call the plain calls' from and to.
+const RANGE_NAMES = { from: 'start', to: 'end' };
+
+// `options` after refusing a name not in `known`, start or end, with start
+// and end under the plain call's names.
+function rangeOptions(method, options, known) {
+    const { start, end, ...given } = checkOptions(method, options, [...known, 'start', 'end']);
+    return { ...given, ...defined({ from: start, to: end }) };
+}
+
 /**
  * A material of TFStudio's catalogs, as tf.materials gives it.
  *
@@ -337,6 +347,119 @@ export class TFStudio {
     exportMeasuredCurves(design, path, options) {
         if (!(design instanceof Design)) throw new Error('exportMeasuredCurves: design is a Design, as tf.newDesign() or tf.openDesign() gives one');
         worded({ method: 'exportMeasuredCurves', call: 'exportMeasuredCurves' }, () => api.exportMeasuredCurves(design._data, path, options));
+    }
+
+    /**
+     * Writes one side of a design to a Zemax OpticStudio COATING.DAT file as
+     * the Zemax Coatings window's Export tab writes it: a MATE record for
+     * each material, n and k sampled every `step` nm from `start` to `end`
+     * and written in µm with the imaginary index as -k, then one COAT record
+     * of the side's layers, from the incident medium side. The back is
+     * written from the exit medium to the substrate, so on either face the
+     * file means air to glass.
+     *
+     * @param design The design, a Design.
+     * @param path The file to write, by its full path. A relative path is taken as `openDesign` takes it.
+     * @param [options]
+     * @param [options.name='TFSTUDIO_DESIGN'] The name of the COAT record, written in capitals, every character but letters, digits, `_` and `.` as `_`, and cut to 32 characters.
+     * @param [options.thickness='absolute'] `'absolute'`, each layer's physical thickness in µm; or `'relative'`, its optical thickness in waves of `wavelength`.
+     * @param [options.wavelength=550] λ₀, nm, for relative thicknesses.
+     * @param [options.start=400] The first wavelength of the MATE records, nm.
+     * @param [options.end=800] The last wavelength of the MATE records, nm, above `start`.
+     * @param [options.step=25] The step of the MATE records, nm.
+     * @param [options.scope='used'] `'used'`, the materials the design uses, its media and substrate included; or `'all'`, every material of the catalogs here as well.
+     * @param [options.side] `'front'` or `'back'`; without it, the front, or the back of a design coated on the back alone.
+     * @param [options.overwrite=false] Write over a file that is already there.
+     * @throws a design that is not a Design, a side with no layers, an option it does not take or a value an option cannot take, a start and end that are not a range, a file that is already there, without `overwrite`, or a design that names a material that resolves to nothing
+     * @example
+     * const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
+     * const design = tf.newDesign('AR');
+     * design.stack('0.5H L');
+     * tf.saveZemaxCoating(design, file, { name: 'AR', thickness: 'relative' });
+     * const text = require('fs').readFileSync(file, 'utf8');
+     * console.log(text.slice(text.indexOf('COAT')));
+     */
+    saveZemaxCoating(design, path, options) {
+        if (!(design instanceof Design)) throw new Error('saveZemaxCoating: design is a Design, as tf.newDesign() or tf.openDesign() gives one');
+        const given = rangeOptions('saveZemaxCoating', options, ['name', 'thickness', 'wavelength', 'step', 'scope', 'side', 'overwrite']);
+        worded({ method: 'saveZemaxCoating', call: 'saveZemaxCoating', names: RANGE_NAMES }, () => api.saveZemaxCoating(design._data, path, given));
+    }
+
+    /**
+     * Reads a Zemax OpticStudio COATING.DAT file as the Zemax Coatings
+     * window lists it: its MATE records, as the Materials tab lists them,
+     * and its coatings, as the Coatings tab lists them, a relative thickness
+     * given in nm at `wavelength`. Nothing is written to a catalog.
+     *
+     * @param path The file, by its full path. A relative path is taken as `openDesign` takes it.
+     * @param [options]
+     * @param [options.wavelength=550] λ₀, nm, at which a thickness the file gives in waves is converted to nm.
+     * @returns An object: `fileName`; `materials`, each MATE record `{ name, repeat, importedAs, wavelength, n, k }`, repeat `{ index, count }` for a name the file defines more than once and null otherwise, importedAs the name an import gives it, wavelengths in nm rising and k 0 or more; and `coatings`, each COAT `{ name, type, layers }`, type `'stack'` for a stack of layers, the only kind that imports, or `'ideal'`, `'table'` or `'encrypted'`, and layers null but for a stack, each `{ material, thickness, fileThickness, mode }`, thickness in nm (null for a relative thickness whose material the file gives no index for), fileThickness as the file writes it, mode `'absolute'` or `'relative'`.
+     * @throws a file that cannot be read or holds neither a MATE record nor a coating, an option it does not take or a value an option cannot take
+     * @example
+     * const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
+     * require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');
+     * const read = tf.readZemaxCoating(file);
+     * for (const layer of read.coatings[0].layers) console.log(layer.material, layer.thickness.toFixed(2), 'nm');
+     */
+    readZemaxCoating(path, options) {
+        return worded({ method: 'readZemaxCoating', call: 'readZemaxCoating' }, () => api.readZemaxCoating(path, options));
+    }
+
+    /**
+     * Writes one side of a design to a CODE V .seq command file as the CODE V
+     * Coatings window's Export tab writes it: the commands that enter the
+     * stack in the MULTILAYER option, thicknesses in nm from the incident
+     * medium side, layers of zero thickness left out, a MIC table of each
+     * material's n and k at up to 21 of the analysis wavelengths, and SAV,
+     * which has CODE V save it as a .mul. The back is written from the exit
+     * medium to the substrate.
+     *
+     * @param design The design, a Design.
+     * @param path The file to write, by its full path. A relative path is taken as `openDesign` takes it.
+     * @param [options]
+     * @param [options.title] TIT, the stack's title, cut to 80 characters, single quotes left out; without it, the design's name.
+     * @param [options.saveName] The name SAV saves the .mul under, each run of characters but letters, digits, `_` and `-` written as one `_`; without it, the design's name.
+     * @param [options.start=400] The first analysis wavelength, nm.
+     * @param [options.end=800] The last analysis wavelength, nm, above `start`.
+     * @param [options.step=10] The step of the analysis wavelengths, nm; CODE V takes 100 of them at most.
+     * @param [options.angles=[0]] ANG, the angles of incidence in degrees, 0 or more and below 90; CODE V takes 5 at most.
+     * @param [options.wavelength] REF, the reference wavelength, nm; without it, the design's reference wavelength.
+     * @param [options.side] `'front'` or `'back'`; without it, the front, or the back of a design coated on the back alone.
+     * @param [options.overwrite=false] Write over a file that is already there.
+     * @returns What the writer noted, as the window lists it under the text: a material sampled on fewer wavelengths than it has, or an absorbing medium written without its k.
+     * @throws a design that is not a Design, a side with no layers, a stack past a limit of the MUL option (1000 layers, 100 wavelengths, 5 angles), an option it does not take or a value an option cannot take, a start and end that are not a range, a file that is already there, without `overwrite`, or a design that names a material that resolves to nothing
+     * @example
+     * const file = require('path').join(require('os').homedir(), `ar-${Date.now()}.seq`);
+     * const design = tf.newDesign('AR');
+     * design.stack('0.5H L');
+     * console.log(tf.saveCodevCoating(design, file, { angles: [0, 45] }));
+     * console.log(require('fs').readFileSync(file, 'utf8').split('\n').filter(line => /^(COA|SUB|SAV)/.test(line.trim())).join('\n'));
+     */
+    saveCodevCoating(design, path, options) {
+        if (!(design instanceof Design)) throw new Error('saveCodevCoating: design is a Design, as tf.newDesign() or tf.openDesign() gives one');
+        const given = rangeOptions('saveCodevCoating', options, ['title', 'saveName', 'step', 'angles', 'wavelength', 'side', 'overwrite']);
+        return worded({ method: 'saveCodevCoating', call: 'saveCodevCoating', names: RANGE_NAMES }, () => api.saveCodevCoating(design._data, path, given));
+    }
+
+    /**
+     * Reads a CODE V coating file, a .seq command file or a .mul CODE V
+     * saved, as the CODE V Coatings window's Import tab shows it: what the
+     * stack sets around its layers, and its layers from the incident medium
+     * side, a thickness the file gives in waves of REF given in nm. Nothing
+     * is written to a catalog.
+     *
+     * @param path The file, by its full path; a name ending in .mul is read as a saved .mul, any other as commands. A relative path is taken as `openDesign` takes it.
+     * @returns An object: `fileName`; `title`; `reference`, REF in nm; `wavelengths`, the analysis wavelengths in nm; `angles`, in degrees; `incident` and `substrate`, each `{ label, n, k }`, a MIC material by its label with n and k null, or a constant index with label null; `layers`, each `{ index, thickness, code, locked }`, index as for `incident`, thickness in nm, code its COA code (100 frozen, 0 free, 1 to 99 coupled) and locked whether it is 100; and `warnings`, what the reader noted.
+     * @throws a file that cannot be read, or that does not enter a stack the reader can read, with what stopped it
+     * @example
+     * const file = require('path').join(require('os').homedir(), `ar-${Date.now()}.seq`);
+     * require('fs').writeFileSync(file, "MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n");
+     * const read = tf.readCodevCoating(file);
+     * for (const layer of read.layers) console.log('n', layer.index.n, layer.thickness, 'nm', layer.locked ? 'locked' : '');
+     */
+    readCodevCoating(path) {
+        return worded({ method: 'readCodevCoating', call: 'readCodevCoating' }, () => api.readCodevCoating(path));
     }
 
     // What console.log prints for tf.

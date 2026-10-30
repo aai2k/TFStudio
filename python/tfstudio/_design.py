@@ -2216,6 +2216,101 @@ class Design:
         with worded(_WORKSHEET_WORDS):
             return monitor_worksheet_of(self._calls.monitorWorksheet(self._data, run_options(options)))
 
+    def import_zemax_coating(self, path, coating=None, wavelength=550):
+        """Puts the layers of a COAT record of a Zemax OpticStudio
+        COATING.DAT file on the front of the design, as the Zemax Coatings
+        window's Import to front coating puts them: in the file's order,
+        incident medium side first, a relative thickness converted at
+        wavelength with the index the file gives. The front's layers are
+        replaced; the media and the substrate stay the design's. Each layer's
+        material takes the id an import in the app gives it, in the catalog of
+        the file, and the design carries its definition, so it computes and
+        saves with it: nothing is written to a catalog. On a computer where
+        the app imported the file before, the ids are that catalog's and the
+        materials it holds are used, edits included; otherwise each import
+        draws a new random part of the catalog id, as a first import does.
+
+        Args:
+            path: The file. A relative path is taken as tf.open_design()
+                takes it.
+            coating: The COAT record, by its name or its place among the
+                file's coatings from 0. Default: the first stack of layers.
+            wavelength: The wavelength, nm, at which a thickness the file
+                gives in waves is converted to nm. Default 550.
+
+        Returns:
+            The layers left out, each with why: a material the file does not
+            define, or a relative thickness whose material it gives no index
+            for.
+
+        Raises:
+            TFStudioError: a file that cannot be read or holds neither a MATE
+                record nor a coating, a coating the file does not hold or one
+                that is not a stack of layers, one none of whose layers
+                converts, a front the Design Editor does not let you edit, or
+                a value an argument cannot take.
+
+        Example::
+
+            import time
+
+            name = "COATING-{}.DAT".format(time.time_ns())
+            with open(name, "w") as f:
+                f.write("MATE TIO2\\n0.4 2.35 0\\n0.8 2.25 0\\nMATE SIO2\\n0.4 1.47 0\\n0.8 1.45 0\\nCOAT AR\\nTIO2 0.25 0\\nSIO2 0.25 0\\n")
+            design = tf.new_design("AR")
+            print(design.import_zemax_coating(name))
+            for layer in design.layers:
+                print(layer.material, round(layer.thickness, 2), "nm")
+        """
+        with worded(Words("importZemaxCoating", "import_zemax_coating")):
+            imported = self._calls.importZemaxCoating(self._data, path, api_names({"coating": coating, "wavelength": wavelength}))
+        self._data = imported["design"]
+        return imported["warnings"]
+
+    def import_codev_coating(self, path, side=None):
+        """Puts the layers of a CODE V coating file, a .seq or a .mul, on one
+        side of the design, as the CODE V Coatings window's Import to front
+        coating and Import to back coating put them: physical thickness in
+        nm, a layer of code 100 locked. The file lists its layers from the
+        incident medium, so on the back they go in reversed. The side's
+        layers are replaced; the media and the substrate stay the design's,
+        and the file's INC and SUB are not taken. The materials are carried
+        in the design under the ids an import in the app gives them, as
+        import_zemax_coating() carries them.
+
+        Args:
+            path: The file; a name ending in .mul is read as a saved .mul, any
+                other as commands. A relative path is taken as
+                tf.open_design() takes it.
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone.
+
+        Returns:
+            What the reader and the conversion noted, as tf.read_codev_coating()
+            and the window's report give it.
+
+        Raises:
+            TFStudioError: a file that cannot be read, or that does not enter
+                a stack the reader can read, a side the Design Editor does not
+                let you edit, or a value an argument cannot take.
+
+        Example::
+
+            import time
+
+            name = "ar-{}.seq".format(time.time_ns())
+            with open(name, "w") as f:
+                f.write("MUL\\nMDA\\nPHT Y\\nTIT 'AR'\\nWLG 400 700 50\\nREF 550\\nCOA 99.6 100 1.38\\nCOA 59.8 0 2.3\\nSUB 1.52\\nEND\\nMEX\\n")
+            design = tf.new_design("AR")
+            print(design.import_codev_coating(name))
+            for layer in design.layers:
+                print(layer.material, layer.thickness, "nm", "locked" if layer.locked else "")
+        """
+        with worded(Words("importCodevCoating", "import_codev_coating")):
+            imported = self._calls.importCodevCoating(self._data, path, api_names({"side": side}))
+        self._data = imported["design"]
+        return imported["warnings"]
+
     def _read(self, call, method, **options):
         """What the API's call `call` reads of the design with `options`, for
         the method `method`, whose name its refusals then begin with."""

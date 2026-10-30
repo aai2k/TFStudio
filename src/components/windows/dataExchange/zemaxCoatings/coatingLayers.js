@@ -50,9 +50,11 @@ export function convertSelectedCoating({ z, doc, selCoating, fileName, filePath,
     return { coating, layers, warnings, registration };
 }
 
-// The records behind the layers' ids in the file's catalog, as the import
-// would hold them there.
-function catalogRecords(layers, { catId, cat }) {
+/**
+ * The records behind the layers' ids in the file's catalog, as the import
+ * would hold them there, from convertSelectedCoating's registration.
+ */
+export function catalogRecords(layers, { catId, cat }) {
     const prefix = `${catId}:`;
     const records = {};
     for (const { material } of layers) {

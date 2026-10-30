@@ -6,7 +6,7 @@
 
 import { CodevParseError, codevStackToDesign } from '../../../../utils/io/codevCoatingFile.js';
 import { shortestNear } from '../../../../utils/io/codevCoating/mulReader.js';
-import { codevRegistration } from './catalogImport.js';
+import { codevRegistration, registerCodevMaterials } from './catalogImport.js';
 import { parseErrorText } from './messages.js';
 
 // CODE V holds a wavelength as a float32 in µm: WLG adds its step in single
@@ -29,6 +29,42 @@ export function convertStack(z, stack, fileName) {
         if (!(err instanceof CodevParseError)) throw err;
         return { error: parseErrorText(z, err) };
     }
+}
+
+/**
+ * The layers an import of the stack puts on one side of a design, each
+ * material under the id the import gives it in the catalog named after the
+ * file, with the record that catalog holds under that id.
+ *
+ * The file lists the layers incident side first, the order frontLayers are
+ * kept in. backLayers are kept substrate side first, so the back takes them
+ * reversed: the file's incident medium faces the exit side. Only the materials
+ * the layers use are taken; the file's INC and SUB are not, unless a layer
+ * uses them too. With `write` they are registered in the catalog, as the
+ * window's import does; without it nothing is written, and a file never
+ * imported gets the ids of the catalog a first import would make, as
+ * codevRegistration describes.
+ *
+ * @param {{ z: object, stack: object, fileName: string, filePath?: string }} file
+ * @param {'front'|'back'} side
+ * @param {{ write: boolean }} how
+ * @returns {{ layers: Array<{material: string, thickness: number, locked: boolean}>,
+ *   materials: Object<string, object>, catName: string, warnings: object[] } | { error: string }}
+ *   layers in the side's stored order, thickness in nm; materials each layer
+ *   id's record; warnings the reader's, then the conversion's
+ */
+export function importedLayers({ z, stack, fileName, filePath }, side, { write }) {
+    const converted = convertStack(z, stack, fileName);
+    if (converted.error) return converted;
+    const used = new Set(converted.layers.map(layer => layer.materialKey));
+    const register = write ? registerCodevMaterials : codevRegistration;
+    // A catalog written takes the name the registry gives it.
+    const { cat, catName = cat.name, idOf } = register(converted.materials.filter(({ key }) => used.has(key)), fileName, filePath);
+    const layers = converted.layers.map(layer => ({
+        material: idOf[layer.materialKey], thickness: layer.thickness, locked: layer.locked,
+    }));
+    const materials = Object.fromEntries([...used].map(key => [idOf[key], cat.materials[idOf[key].slice(cat.id.length + 1)]]));
+    return { layers: side === 'back' ? layers.reverse() : layers, materials, catName, warnings: converted.warnings };
 }
 
 const AIR = 'builtin:Air';

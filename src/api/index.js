@@ -28,6 +28,10 @@
  *   pulseAnalysis(design, { source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes }), setPulseSpectrum(design, fileOrRows)
  *   processSteps(design, { side, otherSide, quantity, angle, pol, from, to, step, chips }), exportProcess(design, folder, options)
  *   monitorWorksheet(design, { side, quantity, angle, pol, chips, wavelengths, signalErrorPct, noiseFloorPct, maxTerminationErrPct })
+ *   saveZemaxCoating(design, path, { name, thickness, wavelength, from, to, step, scope, side, overwrite }), readZemaxCoating(path, { wavelength })
+ *   importZemaxCoating(design, path, { coating, wavelength })
+ *   saveCodevCoating(design, path, { title, saveName, from, to, step, angles, wavelength, side, overwrite }), readCodevCoating(path)
+ *   importCodevCoating(design, path, { side })
  *   setMerit(design, rows), merit(design)
  *   setSpecification(design, checks), checkSpecification(design)
  *   refine(design, settings, hooks), synthesize(design, { method, pool, settings }, hooks), runHooks(method)
@@ -63,6 +67,8 @@ export { groupDelay } from './groupDelay.js';
 export { pulseAnalysis, setPulseSpectrum } from './pulse.js';
 export { processSteps, exportProcess } from './process.js';
 export { monitorWorksheet } from './monitorWorksheet.js';
+export { saveZemaxCoating, readZemaxCoating, importZemaxCoating } from './zemaxCoating.js';
+export { saveCodevCoating, readCodevCoating, importCodevCoating } from './codevCoating.js';
 export { setMerit, merit } from './merit.js';
 export { setSpecification, checkSpecification } from './specification.js';
 export { refine, synthesize, runHooks } from './runs.js';

@@ -4598,5 +4598,293 @@
   "TFStudio.exportMeasuredCurves.arg.xUnit.py": {
     "hash": "6466c582",
     "text": "波长列的单位：R、T 和 A 为 \"nm\"、\"um\" 或 \"cm-1\"，Psi 和 Delta 为 \"nm\"、\"um\" 或 \"eV\"。"
+  },
+  "TFStudio.saveZemaxCoating.arg.design": {
+    "hash": "fe3ad304",
+    "text": "设计，一个 Design。"
+  },
+  "TFStudio.saveZemaxCoating.arg.path.js": {
+    "hash": "f18f6024",
+    "text": "要写入的文件，给出完整路径。相对路径按 `openDesign` 的方式解释。"
+  },
+  "TFStudio.saveZemaxCoating.arg.path.py": {
+    "hash": "33fb609d",
+    "text": "要写入的文件。相对路径按 open_design() 的方式解释。"
+  },
+  "TFStudio.saveZemaxCoating.arg.name": {
+    "hash": "b5bded72",
+    "text": "COAT 记录的名称，以大写写出，字母、数字、`_` 和 `.` 以外的字符都写为 `_`，并截断为 32 个字符。"
+  },
+  "TFStudio.saveZemaxCoating.arg.thickness.js": {
+    "hash": "ff92ca2b",
+    "text": "`'absolute'`，每层的物理厚度，单位 µm；或 `'relative'`，每层的光学厚度，以 `wavelength` 的波数计。"
+  },
+  "TFStudio.saveZemaxCoating.arg.thickness.py": {
+    "hash": "c43fd8d5",
+    "text": "\"absolute\"，每层的物理厚度，单位 um；或 \"relative\"，每层的光学厚度，以 wavelength 的波数计。"
+  },
+  "TFStudio.saveZemaxCoating.arg.wavelength.js": {
+    "hash": "cefe11ff",
+    "text": "λ₀，单位 nm，用于相对厚度。"
+  },
+  "TFStudio.saveZemaxCoating.arg.wavelength.py": {
+    "hash": "dc829e42",
+    "text": "参考波长，单位 nm，用于相对厚度。"
+  },
+  "TFStudio.saveZemaxCoating.arg.start": {
+    "hash": "4f641109",
+    "text": "MATE 记录的第一个波长，单位 nm。"
+  },
+  "TFStudio.saveZemaxCoating.arg.end": {
+    "hash": "98697659",
+    "text": "MATE 记录的最后一个波长，单位 nm，大于 `start`。"
+  },
+  "TFStudio.saveZemaxCoating.arg.step": {
+    "hash": "d85143da",
+    "text": "MATE 记录的波长步长，单位 nm。"
+  },
+  "TFStudio.saveZemaxCoating.arg.scope": {
+    "hash": "6327f07f",
+    "text": "`'used'`，设计用到的材料，包括其介质和基底；或 `'all'`，另加此处各材料目录中的全部材料。"
+  },
+  "TFStudio.saveZemaxCoating.arg.side.js": {
+    "hash": "565f4e0e",
+    "text": "`'front'` 或 `'back'`。不给出时为正面；仅背面镀膜的设计为背面。"
+  },
+  "TFStudio.saveZemaxCoating.arg.side.py": {
+    "hash": "51b465cf",
+    "text": "\"front\" 或 \"back\"。不给出时为正面；仅背面镀膜的设计为背面。"
+  },
+  "TFStudio.saveZemaxCoating.arg.overwrite.js": {
+    "hash": "d8c14312",
+    "text": "覆盖已存在的文件。"
+  },
+  "TFStudio.saveZemaxCoating.arg.overwrite.py": {
+    "hash": "30d81617",
+    "text": "为 True 时，覆盖已存在的文件。"
+  },
+  "TFStudio.saveZemaxCoating.lead.1.js": {
+    "hash": "e1930da0",
+    "text": "按 Zemax 镀膜窗口导出标签页的写法，把设计的一个面写成 Zemax OpticStudio 的 COATING.DAT 文件：每种材料一条 MATE 记录，n 和 k 从 `start` 到 `end` 每隔 `step` nm 取样，波长以 µm 写出，折射率虚部写为 -k；然后是该面膜层的一条 COAT 记录，从入射介质一侧开始。背面从出射介质写到基底，因此无论哪一面，文件的含义都是从空气到玻璃。"
+  },
+  "TFStudio.saveZemaxCoating.lead.1.py": {
+    "hash": "0f3ecaa8",
+    "text": "按 Zemax 镀膜窗口导出标签页的写法，把设计的一个面写成 Zemax OpticStudio 的 COATING.DAT 文件：每种材料一条 MATE 记录，n 和 k 从 start 到 end 每隔 step nm 取样，波长以 um 写出，折射率虚部写为 -k；然后是该面膜层的一条 COAT 记录，从入射介质一侧开始。背面从出射介质写到基底，因此无论哪一面，文件的含义都是从空气到玻璃。"
+  },
+  "TFStudio.saveZemaxCoating.refuses.1": {
+    "hash": "a8cf5215",
+    "text": "不是 Design 的设计、没有膜层的面、它不接受的选项或选项不能取的值、不构成范围的 start 和 end、未给出 `overwrite` 时已存在的文件，或用到找不到对应材料的设计"
+  },
+  "TFStudio.readZemaxCoating.arg.path.js": {
+    "hash": "4857de1f",
+    "text": "文件，给出完整路径。相对路径按 `openDesign` 的方式解释。"
+  },
+  "TFStudio.readZemaxCoating.arg.path.py": {
+    "hash": "723a9967",
+    "text": "文件。相对路径按 open_design() 的方式解释。"
+  },
+  "TFStudio.readZemaxCoating.arg.wavelength.js": {
+    "hash": "fbff1403",
+    "text": "λ₀，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。"
+  },
+  "TFStudio.readZemaxCoating.arg.wavelength.py": {
+    "hash": "4f83af08",
+    "text": "波长，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。"
+  },
+  "TFStudio.readZemaxCoating.returns.js": {
+    "hash": "0c0c52bf",
+    "text": "一个对象：`fileName`；`materials`，每条 MATE 记录为 `{ name, repeat, importedAs, wavelength, n, k }`，文件多次定义同一名称时 repeat 为 `{ index, count }`，否则为 null，importedAs 为导入时给它的名称，波长单位 nm 且递增，k 大于等于 0；以及 `coatings`，每条 COAT 为 `{ name, type, layers }`，type 为 `'stack'`（膜层堆栈，唯一可导入的类型），或 `'ideal'`、`'table'` 或 `'encrypted'`，layers 除膜层堆栈外均为 null，每层为 `{ material, thickness, fileThickness, mode }`，thickness 单位 nm（相对厚度而文件没有给出其材料的折射率时为 null），fileThickness 为文件中写的值，mode 为 `'absolute'` 或 `'relative'`。"
+  },
+  "TFStudio.readZemaxCoating.returns.py": {
+    "hash": "8c99a73e",
+    "text": "一个 ZemaxCoatingFile，即命名元组：file_name；materials，每条为一个 ZemaxMaterial，即由 name、repeat（文件多次定义同一名称时为由 index 和 count 组成的 dict，从 1 开始计数；否则为 None）、imported_as（导入时给它的名称）、wavelength（单位 nm，递增）、n 和 k（大于等于 0）组成的命名元组；以及 coatings，每条为一个 ZemaxCoating，即由 name、type（\"stack\"，唯一可导入的类型，或 \"ideal\"、\"table\" 或 \"encrypted\"）和 layers 组成的命名元组，layers 除膜层堆栈外均为 None，每层为一个 ZemaxLayer，即由 material、thickness（单位 nm；相对厚度而文件没有给出其材料的折射率时为 None）、file_thickness（文件中写的值）和 mode（\"absolute\" 或 \"relative\"）组成的命名元组。"
+  },
+  "TFStudio.readZemaxCoating.lead.1": {
+    "hash": "82945815",
+    "text": "按 Zemax 镀膜窗口的列法读取 Zemax OpticStudio 的 COATING.DAT 文件：其 MATE 记录按材料标签页的列法，其镀膜按镀膜标签页的列法，相对厚度在 `wavelength` 处换算为 nm。不向任何材料目录写入内容。"
+  },
+  "TFStudio.readZemaxCoating.refuses.1.js": {
+    "hash": "89992eb4",
+    "text": "无法读取的文件或既没有 MATE 记录也没有镀膜的文件、它不接受的选项，或选项不能取的值"
+  },
+  "TFStudio.readZemaxCoating.refuses.1.py": {
+    "hash": "609f92f1",
+    "text": "无法读取的文件或既没有 MATE 记录也没有镀膜的文件，或 wavelength 不能取的值"
+  },
+  "TFStudio.saveCodevCoating.arg.design": {
+    "hash": "fe3ad304",
+    "text": "设计，一个 Design。"
+  },
+  "TFStudio.saveCodevCoating.arg.path.js": {
+    "hash": "f18f6024",
+    "text": "要写入的文件，给出完整路径。相对路径按 `openDesign` 的方式解释。"
+  },
+  "TFStudio.saveCodevCoating.arg.path.py": {
+    "hash": "33fb609d",
+    "text": "要写入的文件。相对路径按 open_design() 的方式解释。"
+  },
+  "TFStudio.saveCodevCoating.arg.title.js": {
+    "hash": "b3886b78",
+    "text": "TIT，膜层堆栈的标题，截断为 80 个字符，并去掉单引号。不给出时为设计的名称。"
+  },
+  "TFStudio.saveCodevCoating.arg.title.py": {
+    "hash": "c58a7179",
+    "text": "TIT，膜层堆栈的标题，截断为 80 个字符，并去掉单引号。不给出时为设计的名称。"
+  },
+  "TFStudio.saveCodevCoating.arg.saveName.js": {
+    "hash": "f644717e",
+    "text": "SAV 保存 .mul 时所用的名称，字母、数字、`_` 和 `-` 以外的每一串连续字符都写为一个 `_`。不给出时为设计的名称。"
+  },
+  "TFStudio.saveCodevCoating.arg.saveName.py": {
+    "hash": "cbf5deb6",
+    "text": "SAV 保存 .mul 时所用的名称，字母、数字、_ 和 - 以外的每一串连续字符都写为一个 _。不给出时为设计的名称。"
+  },
+  "TFStudio.saveCodevCoating.arg.start": {
+    "hash": "7ab4e6a4",
+    "text": "第一个分析波长，单位 nm。"
+  },
+  "TFStudio.saveCodevCoating.arg.end": {
+    "hash": "dd737243",
+    "text": "最后一个分析波长，单位 nm，大于 `start`。"
+  },
+  "TFStudio.saveCodevCoating.arg.step": {
+    "hash": "78da9268",
+    "text": "分析波长的步长，单位 nm；CODE V 最多接受 100 个分析波长。"
+  },
+  "TFStudio.saveCodevCoating.arg.angles": {
+    "hash": "306fdaf8",
+    "text": "ANG，入射角，单位度，大于等于 0 且小于 90；CODE V 最多接受 5 个。"
+  },
+  "TFStudio.saveCodevCoating.arg.wavelength.js": {
+    "hash": "c37008b2",
+    "text": "REF，参考波长，单位 nm。不给出时为设计的参考波长。"
+  },
+  "TFStudio.saveCodevCoating.arg.wavelength.py": {
+    "hash": "6955baaf",
+    "text": "REF，参考波长，单位 nm。不给出时为设计的参考波长。"
+  },
+  "TFStudio.saveCodevCoating.arg.side.js": {
+    "hash": "565f4e0e",
+    "text": "`'front'` 或 `'back'`。不给出时为正面；仅背面镀膜的设计为背面。"
+  },
+  "TFStudio.saveCodevCoating.arg.side.py": {
+    "hash": "51b465cf",
+    "text": "\"front\" 或 \"back\"。不给出时为正面；仅背面镀膜的设计为背面。"
+  },
+  "TFStudio.saveCodevCoating.arg.overwrite.js": {
+    "hash": "d8c14312",
+    "text": "覆盖已存在的文件。"
+  },
+  "TFStudio.saveCodevCoating.arg.overwrite.py": {
+    "hash": "30d81617",
+    "text": "为 True 时，覆盖已存在的文件。"
+  },
+  "TFStudio.saveCodevCoating.returns": {
+    "hash": "3fba5764",
+    "text": "写出时的提示，与窗口在文本下方列出的相同：取样波长少于其自身数据点的材料，或写出时未带 k 的吸收介质。"
+  },
+  "TFStudio.saveCodevCoating.lead.1": {
+    "hash": "cc327750",
+    "text": "按 CODE V 镀膜窗口导出标签页的写法，把设计的一个面写成 CODE V 的 .seq 命令文件：在 MULTILAYER 选项中输入膜层堆栈的命令，厚度单位 nm，从入射介质一侧开始，厚度为零的膜层略去；每种材料在最多 21 个分析波长处的 n 和 k 组成的 MIC 表；以及让 CODE V 将其保存为 .mul 的 SAV。背面从出射介质写到基底。"
+  },
+  "TFStudio.saveCodevCoating.refuses.1": {
+    "hash": "13493457",
+    "text": "不是 Design 的设计、没有膜层的面、超出 MUL 选项限制（1000 层、100 个波长、5 个角度）的膜层堆栈、它不接受的选项或选项不能取的值、不构成范围的 start 和 end、未给出 `overwrite` 时已存在的文件，或用到找不到对应材料的设计"
+  },
+  "TFStudio.readCodevCoating.arg.path.js": {
+    "hash": "cdc31bf8",
+    "text": "文件，给出完整路径；名称以 .mul 结尾的按保存的 .mul 读取，其他按命令读取。相对路径按 `openDesign` 的方式解释。"
+  },
+  "TFStudio.readCodevCoating.arg.path.py": {
+    "hash": "98654297",
+    "text": "文件；名称以 .mul 结尾的按保存的 .mul 读取，其他按命令读取。相对路径按 open_design() 的方式解释。"
+  },
+  "TFStudio.readCodevCoating.returns.js": {
+    "hash": "5614629f",
+    "text": "一个对象：`fileName`；`title`；`reference`，REF，单位 nm；`wavelengths`，分析波长，单位 nm；`angles`，单位度；`incident` 和 `substrate`，各为 `{ label, n, k }`，MIC 材料给出其标签，n 和 k 为 null，常数折射率则 label 为 null；`layers`，每层为 `{ index, thickness, code, locked }`，index 与 `incident` 相同，thickness 单位 nm，code 为其 COA 代码（100 固定，0 自由，1 到 99 耦合），locked 表示代码是否为 100；以及 `warnings`，读取时的提示。"
+  },
+  "TFStudio.readCodevCoating.returns.py": {
+    "hash": "74360037",
+    "text": "一个 CodevCoatingFile，即命名元组：file_name；title；reference，REF，单位 nm；wavelengths，分析波长，单位 nm；angles，单位度；incident 和 substrate，各为一个 CodevIndex，即由 label、n 和 k 组成的命名元组，MIC 材料给出其标签，n 和 k 为 None，常数折射率则 label 为 None；layers，每层为一个 CodevLayer，即由 index（一个 CodevIndex）、thickness（单位 nm）、code（其 COA 代码：100 固定，0 自由，1 到 99 耦合）和 locked（代码是否为 100）组成的命名元组；以及 warnings，读取时的提示。"
+  },
+  "TFStudio.readCodevCoating.lead.1": {
+    "hash": "7a06299b",
+    "text": "按 CODE V 镀膜窗口导入标签页的显示读取 CODE V 镀膜文件，可以是 .seq 命令文件，也可以是 CODE V 保存的 .mul：膜层堆栈在其膜层周围设定的内容，以及从入射介质一侧开始的各层；文件以 REF 的波数给出的厚度换算为 nm。不向任何材料目录写入内容。"
+  },
+  "TFStudio.readCodevCoating.refuses.1": {
+    "hash": "80eb61a0",
+    "text": "无法读取的文件，或没有输入读取器能读取的膜层堆栈的文件，并说明读取在何处停止"
+  },
+  "Design.importZemaxCoating.arg.path.js": {
+    "hash": "14d961b6",
+    "text": "文件，给出完整路径。相对路径按 `tf.openDesign()` 的方式解释。"
+  },
+  "Design.importZemaxCoating.arg.path.py": {
+    "hash": "3149f2f9",
+    "text": "文件。相对路径按 tf.open_design() 的方式解释。"
+  },
+  "Design.importZemaxCoating.arg.coating.js": {
+    "hash": "db9486eb",
+    "text": "COAT 记录，按其名称或其在文件各镀膜中的位置（从 0 开始）给出。不给出时为第一个膜层堆栈。"
+  },
+  "Design.importZemaxCoating.arg.coating.py": {
+    "hash": "22cf26ff",
+    "text": "COAT 记录，按其名称或其在文件各镀膜中的位置（从 0 开始）给出。不给出时为第一个膜层堆栈。"
+  },
+  "Design.importZemaxCoating.arg.wavelength.js": {
+    "hash": "fbff1403",
+    "text": "λ₀，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。"
+  },
+  "Design.importZemaxCoating.arg.wavelength.py": {
+    "hash": "4f83af08",
+    "text": "波长，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。"
+  },
+  "Design.importZemaxCoating.returns": {
+    "hash": "a9eba870",
+    "text": "被略去的膜层，各附原因：文件没有定义的材料，或文件没有给出其材料折射率的相对厚度。"
+  },
+  "Design.importZemaxCoating.lead.1": {
+    "hash": "042659d7",
+    "text": "按 Zemax 镀膜窗口“导入 → 正面镀膜”的方式，把 Zemax OpticStudio COATING.DAT 文件中一条 COAT 记录的膜层放到设计的正面：按文件中的顺序，入射介质一侧在前，相对厚度在 `wavelength` 处用文件给出的折射率换算。正面原有的膜层被替换；介质和基底保持设计原有的。每层的材料取应用中导入时给它的 id，位于该文件的材料目录中，设计携带其定义，因此计算和保存时都使用它：不向任何材料目录写入内容。在应用以前导入过该文件的计算机上，id 为该目录的 id，并使用目录中保存的材料，包括其编辑；否则每次导入都会像首次导入那样为目录 id 重新抽取一个随机部分。"
+  },
+  "Design.importZemaxCoating.refuses.1.js": {
+    "hash": "f110dc2b",
+    "text": "无法读取的文件或既没有 MATE 记录也没有镀膜的文件、文件中没有的镀膜或不是膜层堆栈的镀膜、没有一层能换算的镀膜、设计编辑器不允许编辑的正面、它不接受的选项，或选项不能取的值"
+  },
+  "Design.importZemaxCoating.refuses.1.py": {
+    "hash": "28a05529",
+    "text": "无法读取的文件或既没有 MATE 记录也没有镀膜的文件、文件中没有的镀膜或不是膜层堆栈的镀膜、没有一层能换算的镀膜、设计编辑器不允许编辑的正面，或参数不能取的值"
+  },
+  "Design.importCodevCoating.arg.path.js": {
+    "hash": "411adf0f",
+    "text": "文件，给出完整路径；名称以 .mul 结尾的按保存的 .mul 读取，其他按命令读取。相对路径按 `tf.openDesign()` 的方式解释。"
+  },
+  "Design.importCodevCoating.arg.path.py": {
+    "hash": "1e5daff1",
+    "text": "文件；名称以 .mul 结尾的按保存的 .mul 读取，其他按命令读取。相对路径按 tf.open_design() 的方式解释。"
+  },
+  "Design.importCodevCoating.arg.side.js": {
+    "hash": "565f4e0e",
+    "text": "`'front'` 或 `'back'`。不给出时为正面；仅背面镀膜的设计为背面。"
+  },
+  "Design.importCodevCoating.arg.side.py": {
+    "hash": "51b465cf",
+    "text": "\"front\" 或 \"back\"。不给出时为正面；仅背面镀膜的设计为背面。"
+  },
+  "Design.importCodevCoating.returns": {
+    "hash": "7b6fc1f8",
+    "text": "读取和换算时的提示，与 `tf.readCodevCoating()` / `tf.read_codev_coating()` 以及窗口的报告给出的相同。"
+  },
+  "Design.importCodevCoating.lead.1": {
+    "hash": "5f961e63",
+    "text": "按 CODE V 镀膜窗口“导入 → 正面镀膜”和“导入 → 背面镀膜”的方式，把 CODE V 镀膜文件（.seq 或 .mul）中的膜层放到设计的一个面上：物理厚度单位 nm，代码为 100 的膜层锁定。文件从入射介质开始列出膜层，因此放到背面时顺序反转。该面原有的膜层被替换；介质和基底保持设计原有的，不采用文件中的 INC 和 SUB。材料以应用中导入时给出的 id 由设计携带，与 `importZemaxCoating()` / `import_zemax_coating()` 的方式相同。"
+  },
+  "Design.importCodevCoating.refuses.1.js": {
+    "hash": "52020cd4",
+    "text": "无法读取的文件，或没有输入读取器能读取的膜层堆栈的文件、设计编辑器不允许编辑的面、它不接受的选项，或选项不能取的值"
+  },
+  "Design.importCodevCoating.refuses.1.py": {
+    "hash": "1e330e9c",
+    "text": "无法读取的文件，或没有输入读取器能读取的膜层堆栈的文件、设计编辑器不允许编辑的面，或参数不能取的值"
   }
 }

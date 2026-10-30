@@ -89,9 +89,10 @@ export function codevRegistration(materials, fileName, filePath) {
  * Put the materials of one import into the file's catalog, as
  * codevRegistration describes.
  *
- * @returns {{ catName: string, idOf: Object<string, string> }}  each key's `catalogId:materialId`
+ * @returns {{ cat: Object, catName: string, idOf: Object<string, string> }}  the
+ *   catalog as written, its name, and each key's `catalogId:materialId`
  */
 export function registerCodevMaterials(materials, fileName, filePath) {
     const { cat, idOf } = codevRegistration(materials, fileName, filePath);
-    return { catName: addCatalog(cat).name, idOf };
+    return { cat, catName: addCatalog(cat).name, idOf };
 }

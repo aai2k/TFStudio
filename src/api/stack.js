@@ -63,8 +63,8 @@ function checkSymbols(design, symbols) {
     }
 }
 
-// In symmetric mode the back stack is the mirror of the front, as the app keeps it.
-function withLayers(design, key, layers) {
+/** `design` with `layers` on the side `key`; in symmetric mode the back stack is the mirror of the front, as the app keeps it. */
+export function withLayers(design, key, layers) {
     if (design.surfaceMode === 'symmetric') return { ...design, frontLayers: layers, backLayers: mirrorLayers(layers) };
     return { ...design, [key]: layers };
 }

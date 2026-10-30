@@ -1,6 +1,5 @@
 import { CodevParseError, parseCodevMul, parseCodevSeq } from '../../../../utils/io/codevCoatingFile.js';
-import { registerCodevMaterials } from './catalogImport.js';
-import { convertStack, libraryCoating } from './fileStack.js';
+import { importedLayers, libraryCoating } from './fileStack.js';
 import { parseErrorText, warningText } from './messages.js';
 
 const { useCallback } = React;
@@ -32,37 +31,31 @@ async function loadCodevFile({ z, flash, clear, setLoading, setFile }) {
 }
 
 // The layers of the stack replace one coating of the active design, as one undo
-// step; the design keeps its incident medium, exit medium and substrate. The
-// file lists the layers incident side first, the order frontLayers are kept in.
-// backLayers are kept substrate side first, so a back import is reversed: the
-// file's incident medium faces the exit side. The materials the layers use are
+// step, in the order importedLayers gives for that side; the design keeps its
+// incident medium, exit medium and substrate. The materials the layers use are
 // registered first, in the catalog named after the file, and Undo leaves them
-// there; the file's INC and SUB are not registered unless a layer uses them too.
-// The report adds what the conversion noted, and is then a warning, which stays
-// until the next action rather than clearing itself; what the reader noted is
-// in the window's notices already. With no design selected the window has a
-// placeholder that nothing keeps, so nothing is registered or written.
-function importStack({ z, flash, stack, fileName, filePath, checkpoint, updateDesign, hasActiveDesign }, side) {
+// there. The report adds what the conversion noted, and is then a warning,
+// which stays until the next action rather than clearing itself; what the
+// reader noted is in the window's notices already. With no design selected the
+// window has a placeholder that nothing keeps, so nothing is registered or
+// written.
+function importStack(args, side) {
+    const { z, flash, stack, checkpoint, updateDesign, hasActiveDesign } = args;
     if (!stack) return;
     if (hasActiveDesign === false) {
         flash('error', z.importNoDesign);
         return;
     }
-    const converted = convertStack(z, stack, fileName);
-    if (converted.error) {
-        flash('error', converted.error);
+    const built = importedLayers(args, side, { write: true });
+    if (built.error) {
+        flash('error', built.error);
         return;
     }
-    const used = new Set(converted.layers.map(layer => layer.materialKey));
-    const { catName, idOf } = registerCodevMaterials(
-        converted.materials.filter(({ key }) => used.has(key)), fileName, filePath);
-    const layers = converted.layers.map(layer => ({
-        material: idOf[layer.materialKey], thickness: layer.thickness, locked: layer.locked,
-    }));
+    const { layers, catName, warnings } = built;
     const back = side === 'back';
     checkpoint();
-    updateDesign(back ? { backLayers: layers.reverse() } : { frontLayers: layers });
-    const notes = converted.warnings
+    updateDesign(back ? { backLayers: layers } : { frontLayers: layers });
+    const notes = warnings
         .filter(warning => !stack.warnings.includes(warning))
         .map(warning => warningText(z, warning));
     const imported = back ? z.importedBack : z.importedFront;

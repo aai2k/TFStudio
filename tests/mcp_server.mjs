@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 60
+ *   1. The session: initialize and version negotiation, the tool list (the 66
  *      tools, none that reaches the open app, without --live), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
@@ -47,7 +47,10 @@
  *      its front gives the API's, in short with its curves counted and in full
  *      with them, a spectrum set from rows and from a file gives the pulse the
  *      API computes from it, and a relative path, or a path with rows, is
- *      refused; misspelt
+ *      refused; a stack written to a Zemax COATING.DAT and a CODE V .seq
+ *      gives the API's files, each read back in short and in full and put on
+ *      a design as the API puts it, and a file that is there, a relative path
+ *      and the back of a symmetric design are refused; misspelt
  *      arguments, inherited names, values of the wrong type and unknown ids are
  *      refused with a message, and a refused merit leaves the design as it was.
  *   3. stdout carries only messages, also when the server's own code prints;
@@ -98,7 +101,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 60 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 66 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
@@ -519,6 +522,64 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const oneNumber = await server.call('setPulseSpectrum', { designId: two, rows: [[800, 1], [810]] });
     ok('without path or rows, or with a row of one number, it is refused in the words of its own arguments',
         /give either path or rows/.test(neither.error ?? '') && /rows\[1\] is \[wavelength nm, intensity\]/.test(oneNumber.error ?? ''), `${neither.error} / ${oneNumber.error}`);
+}
+
+// Coating files: a stack written to a COATING.DAT and a .seq, each read back in
+// short and in full and put on a new design, as the API does it here.
+{
+    const coated = (await server.call('newDesign', { name: 'Coated' })).designId;
+    await server.call('stackFromFormula', { designId: coated, formula: '(HL)^2 H' });
+    const here = api.stackFromFormula(api.newDesign({ name: 'Coated' }), { formula: '(HL)^2 H' });
+    const dat = path.join(TEMP, 'COATING.DAT');
+    const localDat = path.join(TEMP, 'local.DAT');
+    const zemaxOptions = { thickness: 'relative', wavelength: 600, step: 50 };
+    const savedDat = await server.call('saveZemaxCoating', { designId: coated, path: dat, ...zemaxOptions });
+    api.saveZemaxCoating(here, localDat, zemaxOptions);
+    ok('saveZemaxCoating writes the file the API writes', savedDat.path === dat && fs.readFileSync(dat, 'utf8') === fs.readFileSync(localDat, 'utf8'), JSON.stringify(savedDat));
+    const read = api.readZemaxCoating(dat);
+    const shortDat = await server.call('readZemaxCoating', { path: dat });
+    const fullDat = await server.call('readZemaxCoating', { path: dat, values: true });
+    const first = read.materials[0];
+    ok('readZemaxCoating answers with names and counts, and every row and layer for values true',
+        JSON.stringify(fullDat) === JSON.stringify(read) && shortDat.materials.length === read.materials.length
+        && JSON.stringify(shortDat.materials[0]) === JSON.stringify({ name: first.name, repeat: null, importedAs: first.importedAs, points: first.wavelength.length, from: 400, to: 800 })
+        && JSON.stringify(shortDat.coatings) === JSON.stringify([{ name: 'TFSTUDIO_DESIGN', type: 'stack', layerCount: 5 }]), JSON.stringify(shortDat).slice(0, 300));
+    const bare = (await server.call('newDesign', { name: 'Bare' })).designId;
+    const imported = await server.call('importZemaxCoating', { designId: bare, path: dat, coating: 'tfstudio_design' });
+    const localImport = api.importZemaxCoating(api.newDesign({ name: 'Bare' }), dat);
+    const materialPart = layers => layers.map(layer => [layer.material.split(':')[1], layer.thickness]);
+    ok('importZemaxCoating puts the layers the API puts on the front, and keeps the design under its id',
+        imported.designId === bare && JSON.stringify(materialPart(imported.front)) === JSON.stringify(materialPart(localImport.design.frontLayers))
+        && imported.front.length === 5 && JSON.stringify(imported.warnings) === '[]', JSON.stringify(imported).slice(0, 300));
+    const seq = path.join(TEMP, 'coated.seq');
+    const localSeq = path.join(TEMP, 'local.seq');
+    const savedSeq = await server.call('saveCodevCoating', { designId: coated, path: seq, angles: [0, 30], step: 20 });
+    const localWarnings = api.saveCodevCoating(here, localSeq, { angles: [0, 30], step: 20 });
+    ok('saveCodevCoating writes the file the API writes, with its warnings', fs.readFileSync(seq, 'utf8') === fs.readFileSync(localSeq, 'utf8')
+        && JSON.stringify(savedSeq.warnings) === JSON.stringify(localWarnings), JSON.stringify(savedSeq).slice(0, 300));
+    const stack = api.readCodevCoating(seq);
+    const shortSeq = await server.call('readCodevCoating', { path: seq });
+    const fullSeq = await server.call('readCodevCoating', { path: seq, values: true });
+    const { wavelengths, layers, ...settled } = stack;
+    ok('readCodevCoating answers with the stack\'s settings and counts, and every wavelength and layer for values true',
+        JSON.stringify(fullSeq) === JSON.stringify(stack)
+        && JSON.stringify(shortSeq) === JSON.stringify({ ...settled, wavelengthCount: wavelengths.length, from: 400, to: 800, layerCount: layers.length }),
+        JSON.stringify(shortSeq).slice(0, 300));
+    await server.call('setDesignSetup', { designId: bare, surfaceMode: 'both_independent' });
+    const onBack = await server.call('importCodevCoating', { designId: bare, path: seq, side: 'back' });
+    const localBack = api.importCodevCoating(api.setDesignSetup(api.newDesign({ name: 'Bare' }), { surfaceMode: 'both_independent' }), seq, { side: 'back' });
+    ok('importCodevCoating puts the layers the API puts on the back, reversed, the front kept',
+        JSON.stringify(materialPart(onBack.back)) === JSON.stringify(materialPart(localBack.design.backLayers))
+        && JSON.stringify(materialPart(onBack.back)) === JSON.stringify(materialPart(stack.layers.map(layer => ({ material: `c:${layer.index.label.toLowerCase()}`, thickness: layer.thickness }))).reverse())
+        && JSON.stringify(materialPart(onBack.front)) === JSON.stringify(materialPart(imported.front)), JSON.stringify(onBack).slice(0, 300));
+    const again = await server.call('saveZemaxCoating', { designId: coated, path: dat });
+    const relativeDat = await server.call('readZemaxCoating', { path: 'COATING.DAT' });
+    const symmetric = (await server.call('newDesign', { name: 'Symmetric' })).designId;
+    await server.call('setDesignSetup', { designId: symmetric, surfaceMode: 'symmetric' });
+    const mirrored = await server.call('importCodevCoating', { designId: symmetric, path: seq, side: 'back' });
+    ok('a file that is there, a relative path and the back of a symmetric design are refused',
+        /exists; pass \{ overwrite: true \}/.test(again.error ?? '') && /absolute path/.test(relativeDat.error ?? '') && /symmetric mode/.test(mirrored.error ?? ''),
+        `${again.error} / ${relativeDat.error} / ${mirrored.error}`);
 }
 
 // ── 3. stdout and shutdown ─────────────────────────────────────────────────

@@ -315,6 +315,171 @@ tf.export_measured_curves(design, name, scale="fraction")
 print(open(name).read())
 ```
 
+### saveZemaxCoating / save_zemax_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.saveZemaxCoating(design, path, { name, thickness, wavelength, start, end, step, scope, side, overwrite })` | `tf.save_zemax_coating(design, path, name="TFSTUDIO_DESIGN", thickness="absolute", wavelength=550, start=400, end=800, step=25, scope="used", side=..., overwrite=False)` |
+
+**JavaScript**：按 Zemax 镀膜窗口导出标签页的写法，把设计的一个面写成 Zemax OpticStudio 的 COATING.DAT 文件：每种材料一条 MATE 记录，n 和 k 从 `start` 到 `end` 每隔 `step` nm 取样，波长以 µm 写出，折射率虚部写为 -k；然后是该面膜层的一条 COAT 记录，从入射介质一侧开始。背面从出射介质写到基底，因此无论哪一面，文件的含义都是从空气到玻璃。
+
+**Python**：按 Zemax 镀膜窗口导出标签页的写法，把设计的一个面写成 Zemax OpticStudio 的 COATING.DAT 文件：每种材料一条 MATE 记录，n 和 k 从 start 到 end 每隔 step nm 取样，波长以 um 写出，折射率虚部写为 -k；然后是该面膜层的一条 COAT 记录，从入射介质一侧开始。背面从出射介质写到基底，因此无论哪一面，文件的含义都是从空气到玻璃。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `design` | `design` |  | 设计，一个 Design。 |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径按 `openDesign` 的方式解释。<br>**Python**：要写入的文件。相对路径按 open_design() 的方式解释。 |
+| `name` | `name` | `'TFSTUDIO_DESIGN'` | COAT 记录的名称，以大写写出，字母、数字、`_` 和 `.` 以外的字符都写为 `_`，并截断为 32 个字符。 |
+| `thickness` | `thickness` | `'absolute'` | **JavaScript**：`'absolute'`，每层的物理厚度，单位 µm；或 `'relative'`，每层的光学厚度，以 `wavelength` 的波数计。<br>**Python**："absolute"，每层的物理厚度，单位 um；或 "relative"，每层的光学厚度，以 wavelength 的波数计。 |
+| `wavelength` | `wavelength` | `550` | **JavaScript**：λ₀，单位 nm，用于相对厚度。<br>**Python**：参考波长，单位 nm，用于相对厚度。 |
+| `start` | `start` | `400` | MATE 记录的第一个波长，单位 nm。 |
+| `end` | `end` | `800` | MATE 记录的最后一个波长，单位 nm，大于 `start`。 |
+| `step` | `step` | `25` | MATE 记录的波长步长，单位 nm。 |
+| `scope` | `scope` | `'used'` | `'used'`，设计用到的材料，包括其介质和基底；或 `'all'`，另加此处各材料目录中的全部材料。 |
+| `side` | `side` |  | **JavaScript**：`'front'` 或 `'back'`。不给出时为正面；仅背面镀膜的设计为背面。<br>**Python**："front" 或 "back"。不给出时为正面；仅背面镀膜的设计为背面。 |
+| `overwrite` | `overwrite` | `false` / `False` | **JavaScript**：覆盖已存在的文件。<br>**Python**：为 True 时，覆盖已存在的文件。 |
+
+**拒绝**：
+
+- 不是 Design 的设计、没有膜层的面、它不接受的选项或选项不能取的值、不构成范围的 start 和 end、未给出 `overwrite` 时已存在的文件，或用到找不到对应材料的设计
+
+```js
+const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
+const design = tf.newDesign('AR');
+design.stack('0.5H L');
+tf.saveZemaxCoating(design, file, { name: 'AR', thickness: 'relative' });
+const text = require('fs').readFileSync(file, 'utf8');
+console.log(text.slice(text.indexOf('COAT')));
+```
+
+```python
+import time
+
+name = "COATING-{}.DAT".format(time.time_ns())
+design = tf.new_design("AR")
+design.stack("0.5H L")
+tf.save_zemax_coating(design, name, name="AR", thickness="relative")
+text = open(name).read()
+print(text[text.index("COAT"):])
+```
+
+### readZemaxCoating / read_zemax_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.readZemaxCoating(path, { wavelength })` | `tf.read_zemax_coating(path, wavelength=550)` |
+
+按 Zemax 镀膜窗口的列法读取 Zemax OpticStudio 的 COATING.DAT 文件：其 MATE 记录按材料标签页的列法，其镀膜按镀膜标签页的列法，相对厚度在 `wavelength` 处换算为 nm。不向任何材料目录写入内容。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：文件，给出完整路径。相对路径按 `openDesign` 的方式解释。<br>**Python**：文件。相对路径按 open_design() 的方式解释。 |
+| `wavelength` | `wavelength` | `550` | **JavaScript**：λ₀，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。<br>**Python**：波长，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。 |
+
+**返回**：**JavaScript**：一个对象：`fileName`；`materials`，每条 MATE 记录为 `{ name, repeat, importedAs, wavelength, n, k }`，文件多次定义同一名称时 repeat 为 `{ index, count }`，否则为 null，importedAs 为导入时给它的名称，波长单位 nm 且递增，k 大于等于 0；以及 `coatings`，每条 COAT 为 `{ name, type, layers }`，type 为 `'stack'`（膜层堆栈，唯一可导入的类型），或 `'ideal'`、`'table'` 或 `'encrypted'`，layers 除膜层堆栈外均为 null，每层为 `{ material, thickness, fileThickness, mode }`，thickness 单位 nm（相对厚度而文件没有给出其材料的折射率时为 null），fileThickness 为文件中写的值，mode 为 `'absolute'` 或 `'relative'`。<br>**Python**：一个 ZemaxCoatingFile，即命名元组：file_name；materials，每条为一个 ZemaxMaterial，即由 name、repeat（文件多次定义同一名称时为由 index 和 count 组成的 dict，从 1 开始计数；否则为 None）、imported_as（导入时给它的名称）、wavelength（单位 nm，递增）、n 和 k（大于等于 0）组成的命名元组；以及 coatings，每条为一个 ZemaxCoating，即由 name、type（"stack"，唯一可导入的类型，或 "ideal"、"table" 或 "encrypted"）和 layers 组成的命名元组，layers 除膜层堆栈外均为 None，每层为一个 ZemaxLayer，即由 material、thickness（单位 nm；相对厚度而文件没有给出其材料的折射率时为 None）、file_thickness（文件中写的值）和 mode（"absolute" 或 "relative"）组成的命名元组。
+
+**拒绝**：
+
+- **JavaScript**：无法读取的文件或既没有 MATE 记录也没有镀膜的文件、它不接受的选项，或选项不能取的值<br>**Python**：无法读取的文件或既没有 MATE 记录也没有镀膜的文件，或 wavelength 不能取的值
+
+```js
+const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
+require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');
+const read = tf.readZemaxCoating(file);
+for (const layer of read.coatings[0].layers) console.log(layer.material, layer.thickness.toFixed(2), 'nm');
+```
+
+```python
+import time
+
+name = "COATING-{}.DAT".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n")
+for layer in tf.read_zemax_coating(name).coatings[0].layers:
+    print(layer.material, round(layer.thickness, 2), "nm")
+```
+
+### saveCodevCoating / save_codev_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.saveCodevCoating(design, path, { title, saveName, start, end, step, angles, wavelength, side, overwrite })` | `tf.save_codev_coating(design, path, title=..., save_name=..., start=400, end=800, step=10, angles=[0], wavelength=..., side=..., overwrite=False)` |
+
+按 CODE V 镀膜窗口导出标签页的写法，把设计的一个面写成 CODE V 的 .seq 命令文件：在 MULTILAYER 选项中输入膜层堆栈的命令，厚度单位 nm，从入射介质一侧开始，厚度为零的膜层略去；每种材料在最多 21 个分析波长处的 n 和 k 组成的 MIC 表；以及让 CODE V 将其保存为 .mul 的 SAV。背面从出射介质写到基底。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `design` | `design` |  | 设计，一个 Design。 |
+| `path` | `path` |  | **JavaScript**：要写入的文件，给出完整路径。相对路径按 `openDesign` 的方式解释。<br>**Python**：要写入的文件。相对路径按 open_design() 的方式解释。 |
+| `title` | `title` |  | **JavaScript**：TIT，膜层堆栈的标题，截断为 80 个字符，并去掉单引号。不给出时为设计的名称。<br>**Python**：TIT，膜层堆栈的标题，截断为 80 个字符，并去掉单引号。不给出时为设计的名称。 |
+| `saveName` | `save_name` |  | **JavaScript**：SAV 保存 .mul 时所用的名称，字母、数字、`_` 和 `-` 以外的每一串连续字符都写为一个 `_`。不给出时为设计的名称。<br>**Python**：SAV 保存 .mul 时所用的名称，字母、数字、_ 和 - 以外的每一串连续字符都写为一个 _。不给出时为设计的名称。 |
+| `start` | `start` | `400` | 第一个分析波长，单位 nm。 |
+| `end` | `end` | `800` | 最后一个分析波长，单位 nm，大于 `start`。 |
+| `step` | `step` | `10` | 分析波长的步长，单位 nm；CODE V 最多接受 100 个分析波长。 |
+| `angles` | `angles` | `[0]` | ANG，入射角，单位度，大于等于 0 且小于 90；CODE V 最多接受 5 个。 |
+| `wavelength` | `wavelength` |  | **JavaScript**：REF，参考波长，单位 nm。不给出时为设计的参考波长。<br>**Python**：REF，参考波长，单位 nm。不给出时为设计的参考波长。 |
+| `side` | `side` |  | **JavaScript**：`'front'` 或 `'back'`。不给出时为正面；仅背面镀膜的设计为背面。<br>**Python**："front" 或 "back"。不给出时为正面；仅背面镀膜的设计为背面。 |
+| `overwrite` | `overwrite` | `false` / `False` | **JavaScript**：覆盖已存在的文件。<br>**Python**：为 True 时，覆盖已存在的文件。 |
+
+**返回**：写出时的提示，与窗口在文本下方列出的相同：取样波长少于其自身数据点的材料，或写出时未带 k 的吸收介质。
+
+**拒绝**：
+
+- 不是 Design 的设计、没有膜层的面、超出 MUL 选项限制（1000 层、100 个波长、5 个角度）的膜层堆栈、它不接受的选项或选项不能取的值、不构成范围的 start 和 end、未给出 `overwrite` 时已存在的文件，或用到找不到对应材料的设计
+
+```js
+const file = require('path').join(require('os').homedir(), `ar-${Date.now()}.seq`);
+const design = tf.newDesign('AR');
+design.stack('0.5H L');
+console.log(tf.saveCodevCoating(design, file, { angles: [0, 45] }));
+console.log(require('fs').readFileSync(file, 'utf8').split('\n').filter(line => /^(COA|SUB|SAV)/.test(line.trim())).join('\n'));
+```
+
+```python
+import time
+
+name = "ar-{}.seq".format(time.time_ns())
+design = tf.new_design("AR")
+design.stack("0.5H L")
+print(tf.save_codev_coating(design, name, angles=[0, 45]))
+print([line for line in open(name).read().splitlines() if line.strip().startswith(("COA", "SUB", "SAV"))])
+```
+
+### readCodevCoating / read_codev_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.readCodevCoating(path)` | `tf.read_codev_coating(path)` |
+
+按 CODE V 镀膜窗口导入标签页的显示读取 CODE V 镀膜文件，可以是 .seq 命令文件，也可以是 CODE V 保存的 .mul：膜层堆栈在其膜层周围设定的内容，以及从入射介质一侧开始的各层；文件以 REF 的波数给出的厚度换算为 nm。不向任何材料目录写入内容。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：文件，给出完整路径；名称以 .mul 结尾的按保存的 .mul 读取，其他按命令读取。相对路径按 `openDesign` 的方式解释。<br>**Python**：文件；名称以 .mul 结尾的按保存的 .mul 读取，其他按命令读取。相对路径按 open_design() 的方式解释。 |
+
+**返回**：**JavaScript**：一个对象：`fileName`；`title`；`reference`，REF，单位 nm；`wavelengths`，分析波长，单位 nm；`angles`，单位度；`incident` 和 `substrate`，各为 `{ label, n, k }`，MIC 材料给出其标签，n 和 k 为 null，常数折射率则 label 为 null；`layers`，每层为 `{ index, thickness, code, locked }`，index 与 `incident` 相同，thickness 单位 nm，code 为其 COA 代码（100 固定，0 自由，1 到 99 耦合），locked 表示代码是否为 100；以及 `warnings`，读取时的提示。<br>**Python**：一个 CodevCoatingFile，即命名元组：file_name；title；reference，REF，单位 nm；wavelengths，分析波长，单位 nm；angles，单位度；incident 和 substrate，各为一个 CodevIndex，即由 label、n 和 k 组成的命名元组，MIC 材料给出其标签，n 和 k 为 None，常数折射率则 label 为 None；layers，每层为一个 CodevLayer，即由 index（一个 CodevIndex）、thickness（单位 nm）、code（其 COA 代码：100 固定，0 自由，1 到 99 耦合）和 locked（代码是否为 100）组成的命名元组；以及 warnings，读取时的提示。
+
+**拒绝**：
+
+- 无法读取的文件，或没有输入读取器能读取的膜层堆栈的文件，并说明读取在何处停止
+
+```js
+const file = require('path').join(require('os').homedir(), `ar-${Date.now()}.seq`);
+require('fs').writeFileSync(file, "MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n");
+const read = tf.readCodevCoating(file);
+for (const layer of read.layers) console.log('n', layer.index.n, layer.thickness, 'nm', layer.locked ? 'locked' : '');
+```
+
+```python
+import time
+
+name = "ar-{}.seq".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n")
+for layer in tf.read_codev_coating(name).layers:
+    print("n", layer.index.n, layer.thickness, "nm", "locked" if layer.locked else "")
+```
+
 ### app
 
 | JavaScript | Python |
@@ -1894,6 +2059,85 @@ sheet = design.monitor_worksheet(chips={"layers_per_chip": 2}, wavelengths="auto
 for r in sheet.rows:
     error = r.termination_error
     print("step", r.step, "chip", r.chip, "at", r.wavelength, "nm: error", error if error is None else round(error, 2), "nm", "flagged" if r.poor else "")
+```
+
+### importZemaxCoating / import_zemax_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.importZemaxCoating(path, { coating, wavelength })` | `design.import_zemax_coating(path, coating=..., wavelength=550)` |
+
+按 Zemax 镀膜窗口“导入 → 正面镀膜”的方式，把 Zemax OpticStudio COATING.DAT 文件中一条 COAT 记录的膜层放到设计的正面：按文件中的顺序，入射介质一侧在前，相对厚度在 `wavelength` 处用文件给出的折射率换算。正面原有的膜层被替换；介质和基底保持设计原有的。每层的材料取应用中导入时给它的 id，位于该文件的材料目录中，设计携带其定义，因此计算和保存时都使用它：不向任何材料目录写入内容。在应用以前导入过该文件的计算机上，id 为该目录的 id，并使用目录中保存的材料，包括其编辑；否则每次导入都会像首次导入那样为目录 id 重新抽取一个随机部分。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：文件，给出完整路径。相对路径按 `tf.openDesign()` 的方式解释。<br>**Python**：文件。相对路径按 tf.open_design() 的方式解释。 |
+| `coating` | `coating` |  | **JavaScript**：COAT 记录，按其名称或其在文件各镀膜中的位置（从 0 开始）给出。不给出时为第一个膜层堆栈。<br>**Python**：COAT 记录，按其名称或其在文件各镀膜中的位置（从 0 开始）给出。不给出时为第一个膜层堆栈。 |
+| `wavelength` | `wavelength` | `550` | **JavaScript**：λ₀，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。<br>**Python**：波长，单位 nm；文件以波数给出的厚度在此波长处换算为 nm。 |
+
+**返回**：被略去的膜层，各附原因：文件没有定义的材料，或文件没有给出其材料折射率的相对厚度。
+
+**拒绝**：
+
+- **JavaScript**：无法读取的文件或既没有 MATE 记录也没有镀膜的文件、文件中没有的镀膜或不是膜层堆栈的镀膜、没有一层能换算的镀膜、设计编辑器不允许编辑的正面、它不接受的选项，或选项不能取的值<br>**Python**：无法读取的文件或既没有 MATE 记录也没有镀膜的文件、文件中没有的镀膜或不是膜层堆栈的镀膜、没有一层能换算的镀膜、设计编辑器不允许编辑的正面，或参数不能取的值
+
+```js
+const file = require('path').join(require('os').homedir(), `COATING-${Date.now()}.DAT`);
+require('fs').writeFileSync(file, 'MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n');
+const design = tf.newDesign('AR');
+console.log(design.importZemaxCoating(file));
+for (const layer of design.layers) console.log(layer.material, layer.thickness.toFixed(2), 'nm');
+```
+
+```python
+import time
+
+name = "COATING-{}.DAT".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("MATE TIO2\n0.4 2.35 0\n0.8 2.25 0\nMATE SIO2\n0.4 1.47 0\n0.8 1.45 0\nCOAT AR\nTIO2 0.25 0\nSIO2 0.25 0\n")
+design = tf.new_design("AR")
+print(design.import_zemax_coating(name))
+for layer in design.layers:
+    print(layer.material, round(layer.thickness, 2), "nm")
+```
+
+### importCodevCoating / import_codev_coating
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.importCodevCoating(path, { side })` | `design.import_codev_coating(path, side=...)` |
+
+按 CODE V 镀膜窗口“导入 → 正面镀膜”和“导入 → 背面镀膜”的方式，把 CODE V 镀膜文件（.seq 或 .mul）中的膜层放到设计的一个面上：物理厚度单位 nm，代码为 100 的膜层锁定。文件从入射介质开始列出膜层，因此放到背面时顺序反转。该面原有的膜层被替换；介质和基底保持设计原有的，不采用文件中的 INC 和 SUB。材料以应用中导入时给出的 id 由设计携带，与 `importZemaxCoating()` / `import_zemax_coating()` 的方式相同。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `path` | `path` |  | **JavaScript**：文件，给出完整路径；名称以 .mul 结尾的按保存的 .mul 读取，其他按命令读取。相对路径按 `tf.openDesign()` 的方式解释。<br>**Python**：文件；名称以 .mul 结尾的按保存的 .mul 读取，其他按命令读取。相对路径按 tf.open_design() 的方式解释。 |
+| `side` | `side` |  | **JavaScript**：`'front'` 或 `'back'`。不给出时为正面；仅背面镀膜的设计为背面。<br>**Python**："front" 或 "back"。不给出时为正面；仅背面镀膜的设计为背面。 |
+
+**返回**：读取和换算时的提示，与 `tf.readCodevCoating()` / `tf.read_codev_coating()` 以及窗口的报告给出的相同。
+
+**拒绝**：
+
+- **JavaScript**：无法读取的文件，或没有输入读取器能读取的膜层堆栈的文件、设计编辑器不允许编辑的面、它不接受的选项，或选项不能取的值<br>**Python**：无法读取的文件，或没有输入读取器能读取的膜层堆栈的文件、设计编辑器不允许编辑的面，或参数不能取的值
+
+```js
+const file = require('path').join(require('os').homedir(), `ar-${Date.now()}.seq`);
+require('fs').writeFileSync(file, "MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n");
+const design = tf.newDesign('AR');
+console.log(design.importCodevCoating(file));
+for (const layer of design.layers) console.log(layer.material, layer.thickness, 'nm', layer.locked ? 'locked' : '');
+```
+
+```python
+import time
+
+name = "ar-{}.seq".format(time.time_ns())
+with open(name, "w") as f:
+    f.write("MUL\nMDA\nPHT Y\nTIT 'AR'\nWLG 400 700 50\nREF 550\nCOA 99.6 100 1.38\nCOA 59.8 0 2.3\nSUB 1.52\nEND\nMEX\n")
+design = tf.new_design("AR")
+print(design.import_codev_coating(name))
+for layer in design.layers:
+    print(layer.material, layer.thickness, "nm", "locked" if layer.locked else "")
 ```
 
 ### refine

@@ -20,7 +20,9 @@
  *      compared with a curve of it or one given, and a file of several curves
  *      compared without naming one refused, a Δ curve compared, an
  *      ellipsometer file read, its curves added, fits added and one of a curve
- *      the design does not hold refused, measured curves written, index
+ *      the design does not hold refused, measured curves written, a Zemax
+ *      COATING.DAT and a CODE V .seq written, read back and put on a design,
+ *      a coating not in the file and a closed side refused, index
  *      profiles, one of a side with no layers refused, layer thicknesses,
  *      the design's facts, admittance loci and electric fields, one of a
  *      side with no layers refused, colours, one with an observer refused,
@@ -186,14 +188,15 @@ async function goneWithin(pid, ms) {
 // of it to the next: the ids a design draws at random, the time a synthesis
 // step took (tMs), and a refine record's merit trend (mfHistory), whose points
 // are the progress the optimizer posts at most every 80 ms of wall clock, so a
-// slower machine records more of them.
+// slower machine records more of them. The random part of the catalog id a
+// coating file's import draws is left out of the text as well.
 const DRAWN = new Set(['id', 'tMs', 'mfHistory']);
 const undrawn = v => {
     if (Array.isArray(v)) return v.map(undrawn);
     if (!v || typeof v !== 'object' || ArrayBuffer.isView(v)) return v;
     return Object.fromEntries(Object.entries(v).filter(([key]) => !DRAWN.has(key)).map(([key, x]) => [key, undrawn(x)]));
 };
-const canon = v => encode(undrawn(v));
+const canon = v => encode(undrawn(v)).replace(/((?:zemax|codev)_\w*?)_[0-9a-f]{8}:/g, '$1:');
 // The engine prints as it runs; the runs made here keep it off the test's output.
 // Each keeps the console it found, so two may not overlap, as two in one
 // Promise.all would: the second would keep the first's silent console.
@@ -292,6 +295,8 @@ const STOPPED_WITHIN_S = 5;
     fs.writeFileSync(witness, '# AOI 70 deg, front side\nWavelength (nm),Psi (deg),Delta (deg)\n450,30.1,120.5\n550,28.4,110.2\n650,27.9,100.8\n');
     const witnessCurves = api.readEllipsometryFile(witness).curves;
     const held = api.addMeasuredCurves(stack, [...api.readSpectrumFile(scan).curves, ...witnessCurves]);
+    const coatingDat = path.join(WORK, 'calls COATING.DAT');
+    const coatingSeq = path.join(WORK, 'calls stack.seq');
     const CALLS = [
         ['newDesign', [{ name: 'AR', substrate: 'SiO2', referenceWavelength: 600 }]],
         ['setDesignSetup', [stack, { referenceWavelength: 600, surfaceMode: 'symmetric' }]],
@@ -339,6 +344,14 @@ const STOPPED_WITHIN_S = 5;
         ['fitMeasured', [held, 'scan: R', { grid: 'uniform', step: 5, constraints: { min: 20 } }]],
         ['fitMeasured', [held, 'nothing']],
         ['exportMeasuredCurves', [held, path.join(WORK, 'curves.dx'), { format: 'jcamp', overwrite: true }]],
+        ['saveZemaxCoating', [stack, coatingDat, { thickness: 'relative', step: 50, overwrite: true }]],
+        ['readZemaxCoating', [coatingDat, { wavelength: 600 }]],
+        ['importZemaxCoating', [twoLayers, coatingDat, { coating: 0 }]],
+        ['importZemaxCoating', [twoLayers, coatingDat, { coating: 'nothing' }]],
+        ['saveCodevCoating', [stack, coatingSeq, { angles: [0, 45], step: 25, overwrite: true }]],
+        ['readCodevCoating', [coatingSeq]],
+        ['importCodevCoating', [api.setDesignSetup(twoLayers, { surfaceMode: 'both_independent' }), coatingSeq, { side: 'back' }]],
+        ['importCodevCoating', [twoLayers, coatingSeq, { side: 'back' }]],
         ['indexProfile', [stack, { wavelength: 633 }]],
         ['indexProfile', [stack, { side: 'back' }]],
         ['layerThicknesses', [stack, { side: 'total' }]],

@@ -18,7 +18,11 @@
  *      candidate of it put in; a deposition run on the
  *      part and on witness chips, and its files written; a monitor worksheet
  *      on a plan, and one whose layer of the chip's own index has a
- *      termination error crossing as Infinity; the spectrum at two angles, summarized from what came over
+ *      termination error crossing as Infinity; a stack written to a Zemax
+ *      COATING.DAT and a CODE V .seq, a file that is there refused with its
+ *      code, each read back and put on a design, the random part of the
+ *      catalog id an import draws aside, and a closed side refused with its
+ *      code and fields; the spectrum at two angles, summarized from what came over
  *      the wire; a band's width and an edge against angle; a spectrum file
  *      read and a design compared with a curve of it, and a file of several
  *      curves compared without naming one refused, naming them; an
@@ -206,6 +210,35 @@ const specified = api.setSpecification(start, CHECKS);
     const unseen = await same('monitorWorksheet', [ownIndex, { chips: { layersPerChip: 1, glass: 'builtin:SiO2' } }]);
     ok('a worksheet crosses with the termination error of a layer of the chip\'s own index as Infinity', unseen.result?.rows[0].terminationError === Infinity
         && unseen.result.rows[0].amplitude === null, JSON.stringify(unseen.result?.rows?.map(r => r.terminationError)));
+    // An import draws the random part of a catalog id anew each time, so that
+    // part is left out of what is compared.
+    const undrawnCatalog = text => text.replace(/((?:zemax|codev)_\w*?)_[0-9a-f]{8}:/g, '$1:');
+    const sameImport = async (call, args) => {
+        const there = await server.call(call, args);
+        const [a, b] = [canon({ result: there.result, error: there.error }), canon(await local(call, args))].map(undrawnCatalog);
+        if (a !== b) differ.push(`${call}: ${a.slice(0, 160)} / ${b.slice(0, 160)}`);
+        return there;
+    };
+    const coatingFile = name => [path.join(TEMP, name), path.join(TEMP, `local ${name}`)];
+    const [datThere, datHere] = coatingFile('COATING.DAT');
+    const wroteDat = await server.call('saveZemaxCoating', [stack, datThere, { thickness: 'relative', step: 50 }]);
+    api.saveZemaxCoating(stack, datHere, { thickness: 'relative', step: 50 });
+    const datAgain = await same('saveZemaxCoating', [stack, datThere]);
+    ok('a COATING.DAT is written over the wire as the API writes it, and one that is there is refused with its code', wroteDat.result === null
+        && fs.readFileSync(datThere, 'utf8') === fs.readFileSync(datHere, 'utf8') && datAgain.error?.code === 'fileExists', JSON.stringify([wroteDat, datAgain.error]));
+    await same('readZemaxCoating', [datThere, { wavelength: 600 }]);
+    const zemaxImport = await sameImport('importZemaxCoating', [twoLayers, datThere, { coating: 0 }]);
+    await same('importZemaxCoating', [twoLayers, datThere, { coating: 'nothing' }]);
+    const [seqThere, seqHere] = coatingFile('stack.seq');
+    const wroteSeq = await server.call('saveCodevCoating', [stack, seqThere, { angles: [0, 45], step: 25 }]);
+    const seqWarnings = api.saveCodevCoating(stack, seqHere, { angles: [0, 45], step: 25 });
+    ok('a CODE V .seq is written over the wire as the API writes it, with its warnings', canon(wroteSeq.result) === canon(seqWarnings)
+        && fs.readFileSync(seqThere, 'utf8') === fs.readFileSync(seqHere, 'utf8'), JSON.stringify(wroteSeq));
+    await same('readCodevCoating', [seqThere]);
+    const codevImport = await sameImport('importCodevCoating', [api.setDesignSetup(twoLayers, { surfaceMode: 'both_independent' }), seqThere, { side: 'back' }]);
+    const shut = await same('importCodevCoating', [twoLayers, seqThere, { side: 'back' }]);
+    ok('a coating file\'s layers come back on the design, and a closed side is refused with its code and fields', zemaxImport.result?.design.frontLayers.length === 7
+        && codevImport.result?.design.backLayers.length === 7 && shut.error?.code === 'closedSide', JSON.stringify(shut.error));
     await same('findMaterials', ['SiO2']);
     await same('findMaterials', []);
     await same('materialNK', ['TiO2', [400, 550, 700]]);

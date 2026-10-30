@@ -22,7 +22,7 @@ export function coatToTfLayers(coat, resolve) {
     for (const L of (coat.layers || [])) {
         const id = resolve.materialId(L.material);
         if (!id) {
-            warnings.push(`Coating "${coat.name}": material "${L.material}" not found — layer skipped.`);
+            warnings.push(`Coating "${coat.name}": material "${L.material}" not found; layer skipped.`);
             continue;
         }
         let dNm;
@@ -32,7 +32,7 @@ export function coatToTfLayers(coat, resolve) {
             // d = T · λ₀ / n₀   (Help: "The COAT Data Section")
             const n0 = resolve.realIndex(L.material, refNm);
             if (!(n0 > 0)) {
-                warnings.push(`Coating "${coat.name}": no real index for "${L.material}" at λ₀ — layer skipped.`);
+                warnings.push(`Coating "${coat.name}": no real index for "${L.material}" at λ₀; layer skipped.`);
                 continue;
             }
             dNm = (L.thickness * refUm / n0) * 1000;

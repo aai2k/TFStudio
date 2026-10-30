@@ -4,6 +4,7 @@ the app that is open."""
 import numbers
 
 from ._calls import Calls
+from ._coatings import codev_coating_file, zemax_coating_file
 from ._design import Design
 from ._errors import TFStudioError
 from ._material_dispersion import MaterialDispersion
@@ -17,6 +18,17 @@ BUILTIN = "builtin:"
 # material.dispersion() takes the range as its arguments.
 _DISPERSION_WORDS = Words("materialDispersion", "dispersion", hidden=("from", "to"))
 _DISPERSION_OPTIONS = ("thickness",)
+# The coating writers take the range as start and end, the API's from and to.
+_RANGE_NAMES = {"start": "from", "end": "to"}
+_ZEMAX_SAVE_OPTIONS = ("name", "thickness", "wavelength", "start", "end", "step", "scope", "side", "overwrite")
+_ZEMAX_SAVE_WORDS = Words("saveZemaxCoating", "save_zemax_coating", names={"from": "start", "to": "end"})
+_CODEV_SAVE_OPTIONS = ("title", "save_name", "start", "end", "step", "angles", "wavelength", "side", "overwrite")
+_CODEV_SAVE_WORDS = Words("saveCodevCoating", "save_codev_coating", names={"from": "start", "to": "end"})
+
+
+def _range_options(options):
+    """A coating writer's keywords by the API's names, start and end as from and to."""
+    return api_names({_RANGE_NAMES.get(name, name): value for name, value in options.items()})
 
 
 class Material:
@@ -740,6 +752,203 @@ class TFStudio:
             raise TFStudioError("export_measured_curves: design is a Design, as tf.new_design() or tf.open_design() gives one")
         with worded(Words("exportMeasuredCurves", "export_measured_curves")):
             self._calls.exportMeasuredCurves(design._data, path, api_names(options))
+
+    def save_zemax_coating(self, design, path, **options):
+        """Writes one side of a design to a Zemax OpticStudio COATING.DAT
+        file as the Zemax Coatings window's Export tab writes it: a MATE
+        record for each material, n and k sampled every step nm from start to
+        end and written in um with the imaginary index as -k, then one COAT
+        record of the side's layers, from the incident medium side. The back
+        is written from the exit medium to the substrate, so on either face
+        the file means air to glass.
+
+        Args:
+            design: The design, a Design.
+            path: The file to write. A relative path is taken as
+                open_design() takes it.
+            name: The name of the COAT record, written in capitals, every
+                character but letters, digits, _ and . as _, and cut to 32
+                characters. Default "TFSTUDIO_DESIGN".
+            thickness: "absolute", each layer's physical thickness in um; or
+                "relative", its optical thickness in waves of wavelength.
+                Default "absolute".
+            wavelength: The reference wavelength, nm, for relative
+                thicknesses. Default 550.
+            start: The first wavelength of the MATE records, nm. Default 400.
+            end: The last wavelength of the MATE records, nm, above start.
+                Default 800.
+            step: The step of the MATE records, nm. Default 25.
+            scope: "used", the materials the design uses, its media and
+                substrate included; or "all", every material of the catalogs
+                here as well. Default "used".
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone.
+            overwrite: True writes over a file that is already there.
+                Default False.
+
+        Raises:
+            TFStudioError: a design that is not a Design, a side with no
+                layers, an option it does not take or a value an option
+                cannot take, a start and end that are not a range, a file that
+                is already there, without overwrite, or a design that names a
+                material that resolves to nothing.
+
+        Example::
+
+            import time
+
+            name = "COATING-{}.DAT".format(time.time_ns())
+            design = tf.new_design("AR")
+            design.stack("0.5H L")
+            tf.save_zemax_coating(design, name, name="AR", thickness="relative")
+            text = open(name).read()
+            print(text[text.index("COAT"):])
+        """
+        if not isinstance(design, Design):
+            raise TFStudioError("save_zemax_coating: design is a Design, as tf.new_design() or tf.open_design() gives one")
+        refuse_arguments("save_zemax_coating", options, ("from", "to"), _ZEMAX_SAVE_OPTIONS)
+        with worded(_ZEMAX_SAVE_WORDS):
+            self._calls.saveZemaxCoating(design._data, path, _range_options(options))
+
+    def read_zemax_coating(self, path, wavelength=550):
+        """Reads a Zemax OpticStudio COATING.DAT file as the Zemax Coatings
+        window lists it: its MATE records, as the Materials tab lists them,
+        and its coatings, as the Coatings tab lists them, a relative thickness
+        given in nm at wavelength. Nothing is written to a catalog.
+
+        Args:
+            path: The file. A relative path is taken as open_design() takes it.
+            wavelength: The wavelength, nm, at which a thickness the file
+                gives in waves is converted to nm. Default 550.
+
+        Returns:
+            A ZemaxCoatingFile, a named tuple: file_name; materials, each a
+            ZemaxMaterial, a named tuple of name, repeat (for a name the file
+            defines more than once, a dict of index and count from 1; else
+            None), imported_as (the name an import gives it), wavelength (nm,
+            rising), n and k (0 or more); and coatings, each a ZemaxCoating, a
+            named tuple of name, type ("stack", the only kind that imports, or
+            "ideal", "table" or "encrypted") and layers, None but for a stack,
+            each a ZemaxLayer, a named tuple of material, thickness (nm; None
+            for a relative thickness whose material the file gives no index
+            for), file_thickness (as the file writes it) and mode ("absolute"
+            or "relative").
+
+        Raises:
+            TFStudioError: a file that cannot be read or holds neither a MATE
+                record nor a coating, or a value wavelength cannot take.
+
+        Example::
+
+            import time
+
+            name = "COATING-{}.DAT".format(time.time_ns())
+            with open(name, "w") as f:
+                f.write("MATE TIO2\\n0.4 2.35 0\\n0.8 2.25 0\\nMATE SIO2\\n0.4 1.47 0\\n0.8 1.45 0\\nCOAT AR\\nTIO2 0.25 0\\nSIO2 0.25 0\\n")
+            for layer in tf.read_zemax_coating(name).coatings[0].layers:
+                print(layer.material, round(layer.thickness, 2), "nm")
+        """
+        with worded(Words("readZemaxCoating", "read_zemax_coating")):
+            return zemax_coating_file(self._calls.readZemaxCoating(path, api_names({"wavelength": wavelength})))
+
+    def save_codev_coating(self, design, path, **options):
+        """Writes one side of a design to a CODE V .seq command file as the
+        CODE V Coatings window's Export tab writes it: the commands that enter
+        the stack in the MULTILAYER option, thicknesses in nm from the
+        incident medium side, layers of zero thickness left out, a MIC table
+        of each material's n and k at up to 21 of the analysis wavelengths,
+        and SAV, which has CODE V save it as a .mul. The back is written from
+        the exit medium to the substrate.
+
+        Args:
+            design: The design, a Design.
+            path: The file to write. A relative path is taken as
+                open_design() takes it.
+            title: TIT, the stack's title, cut to 80 characters, single
+                quotes left out. Default: the design's name.
+            save_name: The name SAV saves the .mul under, each run of
+                characters but letters, digits, _ and - written as one _.
+                Default: the design's name.
+            start: The first analysis wavelength, nm. Default 400.
+            end: The last analysis wavelength, nm, above start. Default 800.
+            step: The step of the analysis wavelengths, nm; CODE V takes 100
+                of them at most. Default 10.
+            angles: ANG, the angles of incidence in degrees, 0 or more and
+                below 90; CODE V takes 5 at most. Default [0].
+            wavelength: REF, the reference wavelength, nm. Default: the
+                design's reference wavelength.
+            side: "front" or "back". Default: the front, or the back of a
+                design coated on the back alone.
+            overwrite: True writes over a file that is already there.
+                Default False.
+
+        Returns:
+            What the writer noted, as the window lists it under the text: a
+            material sampled on fewer wavelengths than it has, or an
+            absorbing medium written without its k.
+
+        Raises:
+            TFStudioError: a design that is not a Design, a side with no
+                layers, a stack past a limit of the MUL option (1000 layers,
+                100 wavelengths, 5 angles), an option it does not take or a
+                value an option cannot take, a start and end that are not a
+                range, a file that is already there, without overwrite, or a
+                design that names a material that resolves to nothing.
+
+        Example::
+
+            import time
+
+            name = "ar-{}.seq".format(time.time_ns())
+            design = tf.new_design("AR")
+            design.stack("0.5H L")
+            print(tf.save_codev_coating(design, name, angles=[0, 45]))
+            print([line for line in open(name).read().splitlines() if line.strip().startswith(("COA", "SUB", "SAV"))])
+        """
+        if not isinstance(design, Design):
+            raise TFStudioError("save_codev_coating: design is a Design, as tf.new_design() or tf.open_design() gives one")
+        refuse_arguments("save_codev_coating", options, ("from", "to"), _CODEV_SAVE_OPTIONS)
+        with worded(_CODEV_SAVE_WORDS):
+            return self._calls.saveCodevCoating(design._data, path, _range_options(options))
+
+    def read_codev_coating(self, path):
+        """Reads a CODE V coating file, a .seq command file or a .mul CODE V
+        saved, as the CODE V Coatings window's Import tab shows it: what the
+        stack sets around its layers, and its layers from the incident medium
+        side, a thickness the file gives in waves of REF given in nm. Nothing
+        is written to a catalog.
+
+        Args:
+            path: The file; a name ending in .mul is read as a saved .mul, any
+                other as commands. A relative path is taken as open_design()
+                takes it.
+
+        Returns:
+            A CodevCoatingFile, a named tuple: file_name; title; reference,
+            REF in nm; wavelengths, the analysis wavelengths in nm; angles, in
+            degrees; incident and substrate, each a CodevIndex, a named tuple
+            of label, n and k, a MIC material by its label with n and k None,
+            or a constant index with label None; layers, each a CodevLayer, a
+            named tuple of index (a CodevIndex), thickness (nm), code (its COA
+            code: 100 frozen, 0 free, 1 to 99 coupled) and locked (whether
+            the code is 100); and warnings, what the reader noted.
+
+        Raises:
+            TFStudioError: a file that cannot be read, or that does not enter
+                a stack the reader can read, with what stopped it.
+
+        Example::
+
+            import time
+
+            name = "ar-{}.seq".format(time.time_ns())
+            with open(name, "w") as f:
+                f.write("MUL\\nMDA\\nPHT Y\\nTIT 'AR'\\nWLG 400 700 50\\nREF 550\\nCOA 99.6 100 1.38\\nCOA 59.8 0 2.3\\nSUB 1.52\\nEND\\nMEX\\n")
+            for layer in tf.read_codev_coating(name).layers:
+                print("n", layer.index.n, layer.thickness, "nm", "locked" if layer.locked else "")
+        """
+        with worded(Words("readCodevCoating", "read_codev_coating")):
+            return codev_coating_file(self._calls.readCodevCoating(path))
 
     def close(self):
         """Ends the TFStudio serving this program, after stopping a run it
