@@ -3325,7 +3325,7 @@ export default {
       table: 'Questo design non contiene uno spettro con intensità maggiore di zero. Carica un file o digita uno spettro con Modifica…, oppure riporta lo spettro su Modello.',
       spectrumReachesZeroFrequency: "L'impulso è troppo corto per la sua lunghezza d'onda centrale: parte dello spettro arriva a frequenza zero.",
       responseUnavailable: detail => `La risposta del rivestimento non è disponibile: ${detail}`,
-      noOutput: 'Non esce luce: a questo angolo viene riflessa totalmente dentro il pezzo.',
+      noOutput: 'Non esce luce: il pezzo la assorbe tutta, oppure a questo angolo la riflette tutta al suo interno.',
     },
   },
 

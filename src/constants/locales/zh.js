@@ -3302,7 +3302,7 @@ export default {
       table: '此设计没有强度大于零的光谱。请载入文件或用“编辑…”输入光谱，或将光谱切换回“模型”。',
       spectrumReachesZeroFrequency: '对于该中心波长，脉冲过短：部分光谱延伸到零频率。',
       responseUnavailable: detail => `膜层响应不可用：${detail}`,
-      noOutput: '没有光射出：在此角度下光在元件内部发生全反射。',
+      noOutput: '没有光射出：元件将其全部吸收，或在此角度下在元件内部发生全反射。',
     },
   },
 

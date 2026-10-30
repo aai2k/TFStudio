@@ -134,8 +134,8 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
         `a long window's spectrum is its own ${spectrumIn.x.length} samples, peaking at 1`);
 }
 
-// Whole part reports the substrate echo; a pulse too short for its carrier is
-// refused with words for why.
+// Whole part reports the substrate echo; a pulse too short for its carrier,
+// and a part that lets no light out, are refused with words for why.
 {
     const whole = computePulseAnalysis(design, { ...request, side: 'whole', target: 'T', passes: 1, pulse: { ...request.pulse, gddFs2: 0 } });
     ok(whole.valid && whole.echoDelayFs > 9000, `Whole part: echo of 1 mm BK7 after ${whole.echoDelayFs} fs`);
@@ -143,6 +143,13 @@ const view = dispatchAnalysisEvaluation('pulseAnalysis', { design, request });
     const tooShort = computePulseAnalysis(design, { ...request, pulse: { ...request.pulse, shape: 'sech2', centerWavelengthNm: 4000, durationFs: 2 } });
     ok(!tooShort.valid && tooShort.reason === 'spectrumReachesZeroFrequency', 'a pulse too short for its carrier is reported, not drawn');
     ok(typeof text.errors[tooShort.reason] === 'string', 'and the window has words for it');
+    // A 1 mm silicon plate passes nothing at 400 nm, at normal incidence where
+    // nothing is totally reflected: the plate absorbs it, and the words for no
+    // light out say so.
+    const silicon = { ...design, substrate: { material: 'Si', thickness: 1 } };
+    const absorbed = computePulseAnalysis(silicon, { ...request, side: 'whole', target: 'T', thetaDeg: 0, passes: 1, pulse: { ...request.pulse, centerWavelengthNm: 400, durationFs: 5, gddFs2: 0 } });
+    ok(!absorbed.valid && absorbed.reason === 'noOutput' && /absorbs/.test(text.errors.noOutput) && /reflects all of it inside/.test(text.errors.noOutput),
+        `a silicon plate that absorbs the pulse gives no output, worded for absorption (${absorbed.reason}: ${text.errors.noOutput})`);
 }
 
 // ── Chart options ────────────────────────────────────────────────────────────

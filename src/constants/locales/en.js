@@ -2911,7 +2911,7 @@ export default {
       table: 'This design holds no spectrum with light in it. Load a file or type one with Edit…, or set the spectrum back to Model.',
       spectrumReachesZeroFrequency: 'The pulse is too short for its centre wavelength: part of its spectrum reaches zero frequency.',
       responseUnavailable: detail => `The coating's response is not available: ${detail}`,
-      noOutput: 'No light comes out: at this angle it is totally reflected inside the part.',
+      noOutput: 'No light comes out: the part absorbs all of it, or at this angle reflects all of it inside.',
     },
   },
 
