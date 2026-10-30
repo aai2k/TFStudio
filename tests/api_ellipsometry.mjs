@@ -19,8 +19,10 @@
  *      wavelength and against angle; in every surface mode a PSI and a DEL
  *      row in each convention score what the API computes without side; a
  *      side with no layers gives the bare surface, whose Psi is that of
- *      the Fresnel coefficients of the substrate; 'azzam' and 'reversed' add
- *      up to 360 degrees.
+ *      the Fresnel coefficients of the substrate; with no interface at all
+ *      Psi and Delta are NaN, the thickness Jacobian has no value there and
+ *      the merit rows that read them cannot be evaluated; 'azzam' and
+ *      'reversed' add up to 360 degrees.
  *   3. The sides: without side, the back of a back_only design and the front
  *      of any other, whatever the scoring.
  *   4. Refusals with their codes and fields: an unknown option, angles,
@@ -52,6 +54,7 @@ const { sessionDefaults } = await import('../src/constants/analysisDefaults.js')
 const { withHerpinRecords } = await import('../src/utils/materials/designMaterials.js');
 const { designRangeCoverage, materialsRangeCoverage, rangeMaterials } = await import('../src/utils/materials/materialRange.js');
 const { mirrorLayers } = await import('../src/utils/physics/optimizer.js');
+const { evaluateEllipsometryThicknessJacobian } = await import('../src/utils/physics/thinFilmMath.js');
 const { csvFromRows } = await import('../src/components/ui/ResultsSection.js');
 
 let pass = 0, fail = 0;
@@ -188,6 +191,24 @@ const plain = corpus.filter(([, design]) => design.frontLayers.length || design.
     const angular = thrown(() => api.ellipsometryVsAngle(bare, { wavelength: 600, angleStart: 60, angleEnd: 61, angleStep: 1 })) ?? api.ellipsometryVsAngle(bare, { wavelength: 600, angleStart: 60, angleEnd: 61, angleStep: 1 });
     ok('a side with no layers gives the bare surface: Psi of the substrate\'s Fresnel coefficients, against wavelength and against angle',
         k === 0 && Math.abs(got.angles?.[0].psi[0] - psi) <= 1e-9 && Math.abs(angular.psi?.[0] - psi) <= 1e-9, `${got.message ?? got.angles?.[0].psi[0]} / ${angular.message ?? angular.psi?.[0]} / ${psi}`);
+}
+{
+    // With no interface, the medium light comes from being the substrate's
+    // glass, r_s and r_p are exactly zero and Psi and Delta are undefined: both
+    // calls give NaN there, as the thickness Jacobian gives no value, a merit
+    // row that reads them cannot be evaluated, and a Curve leaves them out.
+    const matched = api.newDesign({ name: 'Matched', incidentMedium: 'BK7', substrate: 'BK7' });
+    const spectral = api.ellipsometry(matched, { from: 500, to: 600, step: 50, angles: [0, 30] });
+    const angular = api.ellipsometryVsAngle(matched, { wavelength: 550, angleStart: 20, angleEnd: 40, angleStep: 10 });
+    const values = [...spectral.angles.flatMap(({ psi, delta }) => [...psi, ...delta]), ...angular.psi, ...angular.delta];
+    ok('with no interface Psi and Delta are NaN, against wavelength and against angle', values.length === 18 && values.every(Number.isNaN), values.join(', '));
+    const jacobian = evaluateEllipsometryThicknessJacobian({ lambdas: [550], theta_deg: 30, n0List: [[1.5, 0]], nsList: [[1.5, 0]], layerNK: [], thick: [] });
+    ok('as the thickness Jacobian gives no value there', jacobian.length === 1 && jacobian[0] === null, JSON.stringify(jacobian));
+    const rows = ['PSI', 'DEL', 'TANPSI', 'COSDEL'].map(type => api.merit(api.setMerit(matched, [{ type, lambdaStart: 550, lambdaEnd: 550, aoi: 30, target: 0, weight: 1 }])));
+    ok('a PSI, DEL, TANPSI or COSDEL row there cannot be evaluated, and the merit is null',
+        rows.every(m => m.total === null && m.rows[0].value === null && m.rows[0].error !== null), JSON.stringify(rows.map(m => [m.total, m.rows[0].error])));
+    const curve = new objects.Design(matched).ellipsometry(500, 600, { step: 50, angles: [30] }).psi;
+    ok("an Ellipsometry's Curve leaves NaN out of min and max", curve.min() === Infinity && curve.max() === -Infinity && Number.isNaN(curve.mean()));
 }
 {
     const [, design] = corpus[0];

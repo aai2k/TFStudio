@@ -88,7 +88,8 @@ export class Ellipsometry {
     get deltaConvention() { return this._values.deltaConvention; }
 
     /**
-     * Ψ, degrees from 0 to 90, where tan Ψ is |r_p| / |r_s|: against
+     * Ψ, degrees from 0 to 90, where tan Ψ is |r_p| / |r_s|, and NaN where
+     * r_s or r_p is exactly zero, as when every index is the same: against
      * wavelength a Curve at the first angle, against angle an AngleCurve.
      *
      * @example
@@ -100,8 +101,8 @@ export class Ellipsometry {
 
     /**
      * Δ, degrees from 0 up to 360, the phase of r_p / r_s in the convention
-     * `deltaConvention` names: against wavelength a Curve at the first angle,
-     * against angle an AngleCurve.
+     * `deltaConvention` names, and NaN where Ψ is: against wavelength a Curve
+     * at the first angle, against angle an AngleCurve.
      *
      * @example
      * const design = tf.newDesign('Mirror');

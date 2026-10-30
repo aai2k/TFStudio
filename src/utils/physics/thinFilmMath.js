@@ -824,8 +824,11 @@ export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
 //
 // The kernel reports φ = −arg(r), Macleod's physical sign (see the group-delay
 // note below), so the argument is negated on the way back in. Where a reflection
-// amplitude is exactly zero the kernel leaves NaN behind and that one sample
-// falls back to the point evaluator above.
+// amplitude is exactly zero, as when every index is the same, the kernel leaves
+// NaN behind: Ψ and Δ are undefined there and that sample is NaN, as the
+// thickness derivatives below report no value there.
+
+const UNDEFINED_ANGLES = { psi: NaN, delta: NaN };
 
 function anglesFromPhase(sMagnitudeSquared, sPhaseRad, pMagnitudeSquared, pPhaseRad) {
     if (!Number.isFinite(sMagnitudeSquared) || !Number.isFinite(pMagnitudeSquared)) return null;
@@ -858,13 +861,10 @@ function collectSweep(count, sampleAt) {
  * @param {[re,im][]} nsList     substrate ñ per λ
  * @param {[re,im][][]} layerNK  [layer][λ] = ñ
  * @param {number[]} thick       layer thicknesses in nm
- * @returns {{ psi:number[], delta:number[] }}
+ * @returns {{ psi:number[], delta:number[] }} degrees, NaN where a reflection
+ *   amplitude is exactly zero
  */
 export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList, layerNK, thick) {
-    const reference = (index) => computeEllipsometry(
-        lambdas[index], theta_deg, n0List[index], nsList[index],
-        layerNK.map((row, k) => ({ n: row[index], d: thick[k] })));
-
     const kernel = wasmKernel();
     const stack = constantJetGridStack(n0List, nsList, layerNK, thick);
     const angle = Number(theta_deg);
@@ -872,7 +872,7 @@ export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList,
     const p = kernel.phaseSpectrum(stack, lambdas, { angle, pol: 'p' }).r;
     return collectSweep(lambdas.length, index => anglesFromPhase(
         s.magnitudeSquared[index], s.phaseRad[index],
-        p.magnitudeSquared[index], p.phaseRad[index]) || reference(index));
+        p.magnitudeSquared[index], p.phaseRad[index]) || UNDEFINED_ANGLES);
 }
 
 /**
@@ -886,11 +886,10 @@ export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList,
  * @param {[re,im]} n0
  * @param {[re,im]} ns
  * @param {{ n:[re,im], d:number }[]} layers
- * @returns {{ psi:number[], delta:number[] }}
+ * @returns {{ psi:number[], delta:number[] }} degrees, NaN where a reflection
+ *   amplitude is exactly zero
  */
 export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
-    const reference = (index) => computeEllipsometry(lambda_nm, thetas[index], n0, ns, layers);
-
     const kernel = wasmKernel();
     const lambdas = thetas.map(() => lambda_nm);
     const stack = constantJetGridStack(lambdas.map(() => n0), lambdas.map(() => ns),
@@ -900,7 +899,7 @@ export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
     const p = kernel.phaseSpectrum(stack, lambdas, { angle, pol: 'p' }).r;
     return collectSweep(thetas.length, index => anglesFromPhase(
         s.magnitudeSquared[index], s.phaseRad[index],
-        p.magnitudeSquared[index], p.phaseRad[index]) || reference(index));
+        p.magnitudeSquared[index], p.phaseRad[index]) || UNDEFINED_ANGLES);
 }
 
 // ── Ψ and Δ with their thickness derivatives ─────────────────────────────────

@@ -62,7 +62,7 @@ function checked(call, design, { side, deltaConvention }) {
  * @property mode The side computed: `'front'` or `'back'`.
  * @property wavelength The wavelengths, nm.
  * @property deltaConvention The sign of Δ: `'azzam'` or `'reversed'`.
- * @property angles One per angle asked, in the order asked, each `{ angle, psi, delta }`: the angle in degrees, and Ψ and Δ at each wavelength, degrees, Ψ from 0 to 90 and Δ from 0 to 360.
+ * @property angles One per angle asked, in the order asked, each `{ angle, psi, delta }`: the angle in degrees, and Ψ and Δ at each wavelength, degrees, Ψ from 0 to 90 and Δ from 0 to 360, both NaN where r_s or r_p is exactly zero, as when every index is the same.
  * @property outOfRange The materials of the side computed whose data stop inside the range, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, or more than a million points (wavelengths times angles)
  * @throws a design that names a material that resolves to nothing
@@ -119,8 +119,8 @@ export function ellipsometry(design, options) {
  * @property wavelength The wavelength, nm.
  * @property deltaConvention The sign of Δ: `'azzam'` or `'reversed'`.
  * @property angle The angles of incidence, degrees.
- * @property psi Ψ at each angle, degrees, 0 to 90.
- * @property delta Δ at each angle, degrees, 0 to 360.
+ * @property psi Ψ at each angle, degrees, 0 to 90; NaN where r_s or r_p is exactly zero, as when every index is the same.
+ * @property delta Δ at each angle, degrees, 0 to 360; NaN where Ψ is.
  * @property outOfRange The materials of the side computed whose data do not reach the wavelength, each `{ id, name, rangeNm, heldFlat }`: their n and k there are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take, a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than `'front'` or `'back'`, or a convention other than `'azzam'` or `'reversed'`
  * @throws a design that names a material that resolves to nothing

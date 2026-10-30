@@ -114,7 +114,8 @@ class Ellipsometry:
             print(design.ellipsometry(400, 800, delta_convention="reversed").delta_convention)
         """)
     psi = _curve("psi", """Ψ, degrees from 0 to 90, where tan Ψ is
-        |r_p| / |r_s|: against wavelength a Curve at the first angle, against angle an AngleCurve.
+        |r_p| / |r_s|, and NaN where r_s or r_p is exactly zero, as when every index is the
+        same: against wavelength a Curve at the first angle, against angle an AngleCurve.
 
         Example::
 
@@ -123,8 +124,8 @@ class Ellipsometry:
             print(design.ellipsometry().psi.mean(500, 600))
         """)
     delta = _curve("delta", """Δ, degrees from 0 up to 360, the phase of
-        r_p / r_s in the convention delta_convention names: against wavelength a Curve at the first
-        angle, against angle an AngleCurve.
+        r_p / r_s in the convention delta_convention names, and NaN where Ψ is: against wavelength
+        a Curve at the first angle, against angle an AngleCurve.
 
         Example::
 
