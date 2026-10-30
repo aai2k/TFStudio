@@ -1,7 +1,8 @@
 /**
  * The material range notices of the windows that compute one side alone, the
  * Electric Field, GD/GDD, Admittance, Refractive Index Profiler, Layer
- * Thicknesses and Ellipsometry windows, name the materials of that side only.
+ * Thicknesses, Ellipsometry and Pulse Analysis windows, name the materials of
+ * that side only.
  *
  * Checks, on a two-sided corpus design edited as the Design Editor edits one,
  * so that Ta2O5 is on the back alone and every front material covers the
@@ -22,6 +23,9 @@
  *      medium, and coated on the back alone with a ZnSe incident medium,
  *      neither shows a notice for ZnSe, which only the other side's medium
  *      holds; scored on the whole part, both show one.
+ *   5. The Pulse Analysis window, centred at 450 nm, names the materials of
+ *      the side it computes: on the front no notice, on the front of the
+ *      original design one, and through the whole part one.
  *
  * Run: node tests/range_notice_computed_side.mjs
  */
@@ -43,6 +47,8 @@ const { LayerThicknesses } = await import('../src/components/windows/analysis/la
 const { EllipsometryEvaluation } = await import('../src/components/windows/analysis/ellipsometryEvaluation/EllipsometryEvaluation.js');
 const { ColorEvaluation } = await import('../src/components/windows/analysis/colorEvaluation/ColorEvaluation.js');
 const { IntegralValues } = await import('../src/components/windows/analysis/integralValues/IntegralValues.js');
+const { PulseAnalysis } = await import('../src/components/windows/analysis/pulseAnalysis/PulseAnalysis.js');
+const { pulseSession } = await import('../src/components/windows/analysis/pulseAnalysis/sessionState.js');
 const { DesignContext } = await import('../src/state/DesignContext.js');
 const { resolveEvalMode } = await import('../src/utils/physics/optimizer.js');
 
@@ -118,6 +124,15 @@ for (const [label, shown, side] of [['front alone', frontOnly, 'front'], ['back 
         ok(`${name} on the same design scored on the whole part shows one`, modeNoticeShown(Window, whole));
     }
 }
+
+// ── 5. Pulse Analysis ──────────────────────────────────────────────────────
+// Before a result the notice reads the centre wavelength the window is set to.
+pulseSession.read(design);
+pulseSession.write(design, { centerWavelength: 450, side: 'front' });
+ok('Pulse Analysis on the front shows no notice for the back\'s Ta2O5', !noticeShown(PulseAnalysis, design));
+ok('Pulse Analysis on the front of the original design shows one', noticeShown(PulseAnalysis, original));
+pulseSession.write(design, { side: 'whole' });
+ok('Pulse Analysis through the whole part shows one', noticeShown(PulseAnalysis, design));
 
 console.log(`${pass} passed, ${fail} failed`);
 process.exitCode = fail ? 1 : 0;

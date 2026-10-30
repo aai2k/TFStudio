@@ -10,8 +10,8 @@
 
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
-import { uncoveredRegions } from '../../../../utils/materials/materialRange.js';
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { rangeMaterials, uncoveredMaterialRegions } from '../../../../utils/materials/materialRange.js';
+import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
@@ -106,11 +106,13 @@ export function PulseAnalysis({ c, t }) {
     const busy = !!analysis.payload && evaluation.busy && !analysis.stopped;
 
     const band = shown?.valid ? shown.spectrum.bandNm : null;
-    const rangeNotice = useMaterialRangeNotice(
-        design, band?.[0] ?? session.centerWavelength, band?.[1] ?? session.centerWavelength, t);
+    // The notice and the shading name the materials of the side computed.
+    const materials = useMemo(() => rangeMaterials(design, session.side), [design, session.side]);
+    const rangeNotice = useMaterialsRangeNotice(
+        materials, band?.[0] ?? session.centerWavelength, band?.[1] ?? session.centerWavelength, t);
     const materialBands = useMemo(
-        () => (band ? materialCoverageBands(uncoveredRegions(design, band), t.materialRange.bandLabel) : []),
-        [design, band, t],
+        () => (band ? materialCoverageBands(uncoveredMaterialRegions(materials, band), t.materialRange.bandLabel) : []),
+        [materials, band, t],
     );
     const labels = useMemo(() => ({
         flp: text.legend.flp, input: text.legend.input, output: text.legend.output,
