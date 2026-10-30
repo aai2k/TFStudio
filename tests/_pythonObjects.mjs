@@ -691,6 +691,7 @@ async function colourAndIntegrals(t, said) {
         'integrals: start and end are wavelengths in nm, 0 < start < end',
         "integrals: unknown option 'custom[0].char'; the options are key, quantity, source, detector, band",
         "integrals: custom[0].key is a name, as text, other than Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, not 'Tvis'",
+        'integrals: custom[0].key is a name, as text, other than Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, not None',
         "integrals: no row has the key 'Tsun'; the keys are Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, T3000K, Rled",
     ]), canon(got.worded));
     const colour = api.color(design);

@@ -85,8 +85,10 @@ def _python_takes(takes):
 # Words of the method that made the call.
 _WORDS = {
     "unknownOption": _unknown_option,
+    # An option left out has no value, which the refusal's fields then leave
+    # out; Python names it None.
     "badValue": lambda fields, words: "{} is {}, not {!r}".format(words.name(fields["option"]),
-                                                                  _python_takes(fields["takes"]), fields["value"]),
+                                                                  _python_takes(fields["takes"]), fields.get("value")),
     "noMerit": lambda fields, words: "the design has no merit function; add a row with merit.add()",
     "noPulseSpectrum": lambda fields, words: ("the design holds no pulse spectrum with light in it; set one with "
                                               "set_pulse_spectrum(), or take source=\"model\""),

@@ -599,7 +599,8 @@ def colour_and_integrals(tf):
     worded = [refused(make) for make in (
         lambda: two.color(observer=3), lambda: two.color(illuminant="F2"), lambda: two.color(side="both"),
         lambda: two.integrals(start=900, end=400), lambda: two.integrals(custom=[{"key": "x", "char": "T"}]),
-        lambda: two.integrals(custom=[{"key": "Tvis"}]), lambda: iv["Tsun"])]
+        lambda: two.integrals(custom=[{"key": "Tvis"}]), lambda: two.integrals(custom=[{"quantity": "T"}]),
+        lambda: iv["Tsun"])]
     out({"colour": {"design": two._data, "colours": colours, "tables": tables, "rows": [list(iv["Rled"]), iv["Tvis"] == iv.rows[0]],
                     "csv": text_of("integrals.csv"), "worded": worded, "shown": [repr(c), repr(iv)],
                     "tuples": [list(type(c.lab)._fields), list(type(c.luv)._fields), list(type(c.dominant)._fields),
