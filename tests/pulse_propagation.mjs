@@ -52,7 +52,7 @@ import {
     omegaWidthFromWavelengthWidth, wavelengthWidthFromOmegaWidth, transformLimitedOmegaWidth,
 } from '../src/utils/physics/pulsePropagation.js';
 import { pulseSpectrumModel } from '../src/utils/physics/pulsePropagation/pulseSpectrum.js';
-import { tmm } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import {
     LAMBDA0, OMEGA0, allPass, directFwhm, gtiResponse, phaseResponse, pureGdd, pureTod, quarterWaveMirror, unity,

@@ -19,4 +19,4 @@
 // `exports` map would otherwise hide; a browser cannot read an exports map, so
 // there is no alternative. tests/dev_module_graph.mjs resolves this path and
 // fails if a future tmmcore release moves it, which keeps the coupling honest.
-export * from '../node_modules/tmmcore/src/index.js';
+export * from '../node_modules/tmmcore/src/js/index.js';

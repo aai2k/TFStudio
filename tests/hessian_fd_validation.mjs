@@ -12,7 +12,7 @@
  *
  * Run: node tests/hessian_fd_validation.mjs
  */
-import { tmmThicknessJacobian, tmmThicknessHessian } from '../src/utils/physics/thinFilmMath.js';
+import { tmmThicknessJacobian, tmmThicknessHessian } from 'tmmcore';
 
 const n0 = [1.0, 0];          // air
 const ns = [1.52, 0];         // glass substrate

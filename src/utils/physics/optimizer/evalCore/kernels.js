@@ -1,12 +1,17 @@
 /**
  * TMM kernel entry points: each picks the WASM kernel when the feature flag is on
  * and a module is instantiated in this thread, and falls back to the JS
- * implementation in thinFilmMath.js otherwise. Every wrapper returns the same
- * shape from both paths, so callers never branch on which one ran.
+ * implementation in tmmcore otherwise. Every wrapper returns the same shape from
+ * both paths, so callers never branch on which one ran.
+ *
+ * Arguments are TFStudio's: pol 's' | 'p', each ñ as [re, im], layers as
+ * [{ n: [re, im], d }] with d in nm, angle of incidence in degrees. The
+ * wavelength and angle are read through Number(), so a row with neither set
+ * evaluates to NaN rather than throwing.
  */
 
-import { tmm, tmmNeedleScan, tmmThicknessJacobian, tmmThicknessHessian } from '../../thinFilmMath.js';
-import { tmmWasmActive, getTmmWasm } from '../../../../tmmcore.js';
+import { hessian, jacobian, rta, tmmNeedleScan, tmmWasmActive, getTmmWasm } from '../../../../tmmcore.js';
+import { pointStack } from '../../kernelStack.js';
 
 // The polarization a kernel result is cached and computed under. At normal
 // incidence cos θ = 1 in every medium, so the tilted admittances y·n·cos θ (s)
@@ -18,41 +23,32 @@ export function kernelPol(aoi, polCode) {
     return Number(aoi) === 0 ? 's' : polCode;
 }
 
-// Single (λ,θ,pol) R/T/A — WASM kernel when the feature flag is on AND a module
-// is instantiated (in this thread), else the JS tmm(). pol: 's'|'p'. Behind the
-// flag (default off) so optimizer output is unchanged until the .wasm is built,
-// the flag enabled, and tests/wasm_tmm_equivalence.mjs passes.
-export function tmmOne(lam, aoi, polCode, n0, ns, layers) {
-    if (tmmWasmActive()) {
-        return getTmmWasm().tmmOne(lam, aoi, polCode === 'p' ? 1 : 0, n0, ns, layers);
-    }
-    return tmm(lam, aoi, polCode, n0, ns, layers);
+// The kernels in use in this thread: the loaded module's when it is active.
+const kernels = () => (tmmWasmActive() ? getTmmWasm() : { rta, jacobian, hessian });
+
+// Single (λ,θ,pol) R/T/A.
+export function rtaEval(lam, aoi, polCode, n0, ns, layers) {
+    return kernels().rta(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: polCode });
 }
 
-// Analytic thickness Jacobian for one (λ,θ,pol) — WASM kernel when active, else
-// the JS tmmThicknessJacobian(). Returns the SAME shape ({R,T,A,dRdd,dTdd,dAdd,N})
-// so the DLS _analyticJacobian chain rule is unchanged. Behind the flag (off by
-// default); the DLS step is the other optimizer hot path besides mfAt.
+// Analytic thickness Jacobian for one (λ,θ,pol): { R, T, A, dRdd, dTdd, dAdd, N },
+// which the DLS chain rule reads. The DLS step is the other optimizer hot path
+// besides mfAt.
 export function tmmJacEval(lam, aoi, polCode, n0, ns, layers) {
-    if (tmmWasmActive()) {
-        return getTmmWasm().tmmJacobian(lam, aoi, polCode === 'p' ? 1 : 0, n0, ns, layers);
-    }
-    return tmmThicknessJacobian(lam, aoi, polCode, n0, ns, layers);
+    return kernels().jacobian(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: polCode });
 }
 
-// Analytic thickness HESSIAN — WASM kernel when active AND the loaded module
-// carries it (older .wasm builds lack it → JS fallback), else JS. Returns the
-// SAME shape ({R,T,A,dRdd,dTdd,dAdd,d2Rdd,d2Tdd,d2Add,N}) as the JS oracle so the
-// SQP/Newton getH() consumer is unchanged. The dense Hessian is ~17× a gradient
-// and was the un-accelerated hot spot starving SQP in synthesis.
+// Analytic thickness Hessian for one (λ,θ,pol): the Jacobian's keys plus
+// d2Rdd, d2Tdd and d2Add, which the SQP/Newton getH() reads. The dense Hessian
+// is ~17× a gradient and the hot spot of SQP in synthesis.
 export function tmmHessEval(lam, aoi, polCode, n0, ns, layers) {
     if (tmmWasmActive()) {
         const w = getTmmWasm();
         if (w.hasHessian()) {
-            return w.tmmHessian(lam, aoi, polCode === 'p' ? 1 : 0, n0, ns, layers);
+            return w.hessian(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: polCode });
         }
     }
-    return tmmThicknessHessian(lam, aoi, polCode, n0, ns, layers);
+    return hessian(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: polCode });
 }
 
 // Analytic needle P-function scan — WASM kernel when active, else JS. Returns

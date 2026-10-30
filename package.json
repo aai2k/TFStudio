@@ -166,7 +166,7 @@
     },
     "extraResources": [
       {
-        "from": "node_modules/tmmcore/src/tmm_kernel.wasm",
+        "from": "node_modules/tmmcore/src/wasm/tmm_kernel.wasm",
         "to": "tmm_kernel.wasm"
       },
       {

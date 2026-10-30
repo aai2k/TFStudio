@@ -21,14 +21,11 @@
 // The primitives are imported rather than redefined so that a correction to
 // layerMatrix (which carries the opaque-layer phase clamp) or rescaleMatrix
 // (the overflow threshold) reaches every caller. Local copies would let the
-// functions below drift away from tmm() imported into this same file.
+// functions below drift away from rta() imported into this same file.
 import {
     // spectral kernels and analytic derivatives
-    tmm,
-    tmmNeedleScan,
-    tmmThicknessHessian,
-    tmmThicknessJacobian,
-    tmmPhaseThicknessJacobian,
+    rta,
+    phaseJacobian,
     // WASM acceleration
     getTmmWasm,
     tmmWasmActive,
@@ -47,8 +44,7 @@ import {
     rescaleMatrix,
     snellCosTheta,
 } from '../../tmmcore.js';
-
-export { tmm, tmmNeedleScan, tmmThicknessHessian, tmmThicknessJacobian };
+import { constantJetGridStack, gridStack, pointStack } from './kernelStack.js';
 
 // ── TMM with per-interface admittances (for P-function needle scan) ───────────
 //
@@ -127,8 +123,11 @@ export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
 // ── Average polarization helper ───────────────────────────────────────────────
 
 export function tmmAvg(lambda_nm, theta_deg, n0, ns, layers) {
-    const s = tmm(lambda_nm, theta_deg, 's', n0, ns, layers);
-    const p = tmm(lambda_nm, theta_deg, 'p', n0, ns, layers);
+    const stack = pointStack(n0, ns, layers);
+    const wavelength = Number(lambda_nm);
+    const angle = Number(theta_deg);
+    const s = rta(stack, wavelength, { angle, pol: 's' });
+    const p = rta(stack, wavelength, { angle, pol: 'p' });
     return {
         R: (s.R + p.R) / 2,
         T: (s.T + p.T) / 2,
@@ -167,16 +166,24 @@ function pushSpectrumSample(result, Rs, Ts, As, Rp, Tp, Ap, polarization) {
 // pass the reversed valid layers). Returns true if WASM handled it.
 function fillSpectrumWasm(result, lambdas, incMat, subMat, validLayers, theta, polarization) {
     if (!tmmWasmActive()) return false;
-    const wasm = getTmmWasm();
-    const n0List = lambdas.map(lam => incMat.getNK(lam));
-    const nsList = lambdas.map(lam => subMat.getNK(lam));
-    const layerNK = validLayers.map(l => lambdas.map(lam => l.material.getNK(lam)));
-    const thick = validLayers.map(l => l.thickness);
-    const sp = wasm.tmmSpectrum(lambdas, n0List, nsList, layerNK, thick, theta);
+    const sp = spectrumPass(lambdas, Number(theta),
+        lambdas.map(lam => incMat.getNK(lam)), lambdas.map(lam => subMat.getNK(lam)), validLayers);
     for (let i = 0; i < lambdas.length; i++) {
         pushSpectrumSample(result, sp.Rs[i], sp.Ts[i], sp.As[i], sp.Rp[i], sp.Tp[i], sp.Ap[i], polarization);
     }
     return true;
+}
+
+/**
+ * One coherent pass over the grid through the loaded kernel, both polarizations:
+ * `angle` one angle of incidence for the grid or one per wavelength (degrees),
+ * `n0List` and `nsList` the incident and substrate ñ per wavelength, `layers`
+ * the { material, thickness } list in the order light meets it.
+ */
+function spectrumPass(lambdas, angle, n0List, nsList, layers) {
+    const layerNK = layers.map(l => lambdas.map(lam => l.material.getNK(lam)));
+    const thick = layers.map(l => l.thickness);
+    return getTmmWasm().rtaSpectrum(gridStack(n0List, nsList, layerNK, thick), lambdas, { angle });
 }
 
 function pushTotalSample(result, fwd, rev, back, P, polarization) {
@@ -215,48 +222,43 @@ function emptySpectrum(lambdas) {
     return { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
 }
 
-/** One coherent pass through the kernel, both polarizations. */
-function wasmPass(wasm, lam, theta_deg, n0, ns, layerNDs) {
-    const s = wasm.tmmOne(lam, theta_deg, 0, n0, ns, layerNDs);
-    const p = wasm.tmmOne(lam, theta_deg, 1, n0, ns, layerNDs);
-    return { Rs: s.R, Ts: s.T, Rp: p.R, Tp: p.T };
+// The refracted ray in the substrate at each wavelength of a grid: the angle
+// the substrate-side passes start at, in degrees, and its cosine, which the
+// bulk pass reads. It follows the substrate's own dispersion.
+function substrateRays(n0List, nsList, theta) {
+    const sinTheta0 = Math.sin(theta * Math.PI / 180);
+    return n0List.map((n0, index) => substrateRay(n0, nsList[index], sinTheta0));
 }
+
+// The s and p values of one wavelength of a pass, as pushTotalSample takes them.
+const passSample = (pass, index) => ({
+    Rs: pass.Rs[index], Ts: pass.Ts[index], Rp: pass.Rp[index], Tp: pass.Tp[index],
+});
 
 /**
  * Kernel fill for a front + incoherent substrate + back system.
  *
- * The forward pass runs at the angle of incidence, the same at every
- * wavelength, so the whole grid goes through the batched kernel in one call.
- * The two substrate-side passes start inside the substrate at the refracted
- * angle, which follows the substrate's own dispersion and so differs at every
- * wavelength; the batched kernel takes one angle for the grid, so those go
- * through the single-point kernel instead. That costs about as much as a
- * batched call at this size and works at any angle of incidence, which is why
- * there is one path here rather than a fast one and a slow one.
+ * The forward pass runs at the angle of incidence. The two substrate-side
+ * passes start inside the substrate at the refracted angle, which follows the
+ * substrate's own dispersion and so differs at every wavelength; each is one
+ * call over the grid with an angle per wavelength.
  */
 function fillTotalSpectrumWasm(result, lambdas, materials, validFront, validBack,
                                subThickness_mm, theta, polarization) {
     if (!tmmWasmActive()) return false;
-    const wasm = getTmmWasm();
     const { incident, substrate, exit } = materials;
-    const fwd = emptySpectrum(lambdas);
-    if (!fillSpectrumWasm(fwd, lambdas, incident, substrate, validFront, theta, 'avg')) return false;
-    const reversedFront = [...validFront].reverse();
-    const sinTheta0 = Math.sin(theta * Math.PI / 180);
-    for (let index = 0; index < lambdas.length; index++) {
-        const lam = lambdas[index];
-        const n0 = incident.getNK(lam);
-        const ns = substrate.getNK(lam);
-        const { cosThetaSub, thetaSub_deg } = substrateRay(n0, ns, sinTheta0);
-        const rev = wasmPass(wasm, lam, thetaSub_deg, ns, n0,
-            reversedFront.map(l => ({ n: l.material.getNK(lam), d: l.thickness })));
-        const back = wasmPass(wasm, lam, thetaSub_deg, ns, exit.getNK(lam),
-            validBack.map(l => ({ n: l.material.getNK(lam), d: l.thickness })));
-        pushTotalSample(result, {
-            Rs: fwd.Rs[index], Ts: fwd.Ts[index], Rp: fwd.Rp[index], Tp: fwd.Tp[index],
-        }, rev, back,
-            substratePass(ns[1], subThickness_mm, lam, cosThetaSub), polarization);
-    }
+    const n0List = lambdas.map(lam => incident.getNK(lam));
+    const nsList = lambdas.map(lam => substrate.getNK(lam));
+    const rays = substrateRays(n0List, nsList, theta);
+    const thetaSub = rays.map(ray => ray.thetaSub_deg);
+    const fwd = spectrumPass(lambdas, Number(theta), n0List, nsList, validFront);
+    const rev = spectrumPass(lambdas, thetaSub, nsList, n0List, [...validFront].reverse());
+    const back = spectrumPass(lambdas, thetaSub, nsList,
+        lambdas.map(lam => exit.getNK(lam)), validBack);
+    lambdas.forEach((lam, index) => {
+        pushTotalSample(result, passSample(fwd, index), passSample(rev, index), passSample(back, index),
+            substratePass(nsList[index][1], subThickness_mm, lam, rays[index].cosThetaSub), polarization);
+    });
     return true;
 }
 
@@ -775,17 +777,12 @@ export function evaluateDepositionSpectra(params, incMaterial, subMaterial, exit
     // The static side of the system, once per wavelength: the back coating's
     // pass at the refracted angle and the substrate's bulk transmittance.
     const validBack = backLayers.filter(l => l.material && l.thickness > 0);
-    const sinTheta0 = Math.sin(theta * Math.PI / 180);
-    const backPass = new Array(lambdas.length);
-    const bulkPass = new Array(lambdas.length);
-    lambdas.forEach((lam, li) => {
-        const n0 = n0List[li];
-        const ns = nsList[li];
-        const { cosThetaSub, thetaSub_deg } = substrateRay(n0, ns, sinTheta0);
-        backPass[li] = wasmPass(wasm, lam, thetaSub_deg, ns, exitMaterial.getNK(lam),
-            validBack.map(l => ({ n: l.material.getNK(lam), d: l.thickness })));
-        bulkPass[li] = substratePass(ns[1], subThickness_mm, lam, cosThetaSub);
-    });
+    const rays = substrateRays(n0List, nsList, theta);
+    const back = spectrumPass(lambdas, rays.map(ray => ray.thetaSub_deg), nsList,
+        lambdas.map(lam => exitMaterial.getNK(lam)), validBack);
+    const backPass = lambdas.map((_, li) => passSample(back, li));
+    const bulkPass = lambdas.map((lam, li) =>
+        substratePass(nsList[li][1], subThickness_mm, lam, rays[li].cosThetaSub));
 
     const out = new Array(N);
     for (let step = 0; step < N; step++) {
@@ -922,7 +919,7 @@ export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
 // ── Ellipsometry across a sweep ──────────────────────────────────────────────
 //
 // Ψ and Δ need the complex reflection amplitudes, and of the kernels only the
-// phase kernel reports them: tmmSpectrum returns intensities alone. That kernel
+// phase kernel reports them: rtaSpectrum returns intensities alone. That kernel
 // carries refractive indices as Taylor jets in ω because group delay needs the
 // derivatives. Ellipsometry does not, and jet arithmetic leaves the value at
 // order 0 a function of the order-0 terms only, so a jet whose derivative terms
@@ -932,9 +929,6 @@ export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
 // note below), so the argument is negated on the way back in. Where a reflection
 // amplitude is exactly zero the kernel leaves NaN behind and that one sample
 // falls back to the point evaluator above.
-
-const ZERO_JET_TERM = [0, 0];
-function constantJet(nk) { return [nk, ZERO_JET_TERM, ZERO_JET_TERM, ZERO_JET_TERM]; }
 
 /** The loaded kernel, when one is instantiated in this thread and carries phase. */
 function phaseKernel() {
@@ -984,11 +978,10 @@ export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList,
     const wasm = phaseKernel();
     if (!wasm) return collectSweep(lambdas.length, reference);
 
-    const n0Jets = n0List.map(constantJet);
-    const nsJets = nsList.map(constantJet);
-    const layerJets = layerNK.map(row => row.map(constantJet));
-    const s = wasm.tmmPhaseSpectrum(lambdas, n0Jets, nsJets, layerJets, thick, theta_deg, 0).r;
-    const p = wasm.tmmPhaseSpectrum(lambdas, n0Jets, nsJets, layerJets, thick, theta_deg, 1).r;
+    const stack = constantJetGridStack(n0List, nsList, layerNK, thick);
+    const angle = Number(theta_deg);
+    const s = wasm.phaseSpectrum(stack, lambdas, { angle, pol: 's' }).r;
+    const p = wasm.phaseSpectrum(stack, lambdas, { angle, pol: 'p' }).r;
     return collectSweep(lambdas.length, index => anglesFromPhase(
         s.magnitudeSquared[index], s.phaseRad[index],
         p.magnitudeSquared[index], p.phaseRad[index]) || reference(index));
@@ -997,9 +990,8 @@ export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList,
 /**
  * Ψ(θ) and Δ(θ) across an angle sweep at one wavelength.
  *
- * The batched kernel takes one angle for a whole grid, so an angle sweep goes
- * through the single-point kernel instead. Layers as computeEllipsometry takes
- * them.
+ * The sweep is one grid call: the same wavelength at every entry, with an
+ * angle per entry. Layers as computeEllipsometry takes them.
  *
  * @param {number} lambda_nm
  * @param {number[]} thetas
@@ -1014,15 +1006,15 @@ export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
     const wasm = phaseKernel();
     if (!wasm) return collectSweep(thetas.length, reference);
 
-    const n0Jet = constantJet(n0);
-    const nsJet = constantJet(ns);
-    const jetLayers = layers.map(layer => ({ nJet: constantJet(layer.n), d: layer.d }));
-    return collectSweep(thetas.length, (index) => {
-        const s = wasm.tmmPhaseOne(lambda_nm, thetas[index], 0, n0Jet, nsJet, jetLayers).r;
-        const p = wasm.tmmPhaseOne(lambda_nm, thetas[index], 1, n0Jet, nsJet, jetLayers).r;
-        return (s && p && anglesFromPhase(
-            s.magnitudeSquared, s.phaseRad, p.magnitudeSquared, p.phaseRad)) || reference(index);
-    });
+    const lambdas = thetas.map(() => lambda_nm);
+    const stack = constantJetGridStack(lambdas.map(() => n0), lambdas.map(() => ns),
+        layers.map(layer => lambdas.map(() => layer.n)), layers.map(layer => layer.d));
+    const angle = thetas.map(Number);
+    const s = wasm.phaseSpectrum(stack, lambdas, { angle, pol: 's' }).r;
+    const p = wasm.phaseSpectrum(stack, lambdas, { angle, pol: 'p' }).r;
+    return collectSweep(thetas.length, index => anglesFromPhase(
+        s.magnitudeSquared[index], s.phaseRad[index],
+        p.magnitudeSquared[index], p.phaseRad[index]) || reference(index));
 }
 
 // ── Ψ and Δ with their thickness derivatives ─────────────────────────────────
@@ -1045,14 +1037,13 @@ export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
 // it, the single-wavelength kernel call otherwise, and the JavaScript reference
 // with no kernel. Each entry is `{ phaseRad, magnitudeSquared, dPhaseDeg,
 // dLogMagnitudeSquared }` or null where the amplitude vanishes.
-function reflectionPhaseJacobians(grid, polCode) {
+function reflectionPhaseJacobians(grid, pol) {
     const { lambdas, theta_deg, n0List, nsList, layerNK, thick } = grid;
     const wasm = phaseKernel();
     const N = thick.length;
+    const stack = constantJetGridStack(n0List, nsList, layerNK, thick);
     if (wasm && wasm.hasPhaseJacobianSpectrum?.()) {
-        const batch = wasm.tmmPhaseJacobianSpectrum(
-            lambdas, n0List.map(constantJet), nsList.map(constantJet),
-            layerNK.map(row => row.map(constantJet)), thick, theta_deg, polCode).r;
+        const batch = wasm.phaseJacobianSpectrum(stack, lambdas, { angle: Number(theta_deg), pol }).r;
         return lambdas.map((_, index) => (Number.isNaN(batch.magnitudeSquared[index]) ? null : {
             phaseRad: batch.phaseRad[index],
             magnitudeSquared: batch.magnitudeSquared[index],
@@ -1061,14 +1052,14 @@ function reflectionPhaseJacobians(grid, polCode) {
                 batch.dLogMagnitudeSquared.subarray(index * N, (index + 1) * N),
         }));
     }
-    return lambdas.map((lambda, index) => {
-        const layers = layerNK.map((row, k) => ({ nJet: constantJet(row[index]), d: thick[k] }));
-        const n0Jet = constantJet(n0List[index]);
-        const nsJet = constantJet(nsList[index]);
-        return wasm
-            ? wasm.tmmPhaseJacobian(lambda, theta_deg, polCode, n0Jet, nsJet, layers).r
-            : tmmPhaseThicknessJacobian(lambda, theta_deg, polCode ? 'p' : 's', n0Jet, nsJet, layers).r;
+    const at = index => ({
+        incident: { n: stack.incident.n[index] },
+        substrate: { n: stack.substrate.n[index] },
+        layers: stack.layers.map(layer => ({ n: layer.n[index], d: layer.d })),
     });
+    const kernel = wasm ? wasm.phaseJacobian : phaseJacobian;
+    return lambdas.map((lambda, index) =>
+        kernel(at(index), lambda, { angle: Number(theta_deg), pol }).r);
 }
 
 /**
@@ -1082,8 +1073,8 @@ function reflectionPhaseJacobians(grid, polCode) {
  *   a reflection amplitude vanishes and the quantities are undefined.
  */
 export function evaluateEllipsometryThicknessJacobian(grid) {
-    const sPhase = reflectionPhaseJacobians(grid, 0);
-    const pPhase = reflectionPhaseJacobians(grid, 1);
+    const sPhase = reflectionPhaseJacobians(grid, 's');
+    const pPhase = reflectionPhaseJacobians(grid, 'p');
     const N = grid.thick.length;
     const toDeg = 180 / Math.PI;
     return grid.lambdas.map((_, index) => {

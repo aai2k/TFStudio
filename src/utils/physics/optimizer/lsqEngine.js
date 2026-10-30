@@ -238,7 +238,7 @@ export class LSQEngine {
 
     // Analytic ∂(residual)/∂(thickness) Jacobian (Macleod Eq. 2.111/2.113 +
     // Sullivan & Dobrowolski 1996 pre/post derivative, via
-    // tmmThicknessJacobian). Rows align EXACTLY with _residuals() (same
+    // tmmcore jacobian). Rows align EXACTLY with _residuals() (same
     // operand iteration & skip logic).
     //
     // Per-surface-mode model:
@@ -326,7 +326,7 @@ export class LSQEngine {
     // (the factor 2 cancels). Gauss–Newton / LM keeps only JᵀJ and drops S; the
     // S curvature term is what gives genuine quadratic convergence near the
     // minimum (Tikhonov–Tikhonravov–Trubetskov 1993). Per-residual ∂²rₚ uses the
-    // analytic comp-Hessian tmmThicknessHessian
+    // analytic comp-Hessian, tmmcore hessian
     // (FD-validated, tests/hessian_fd_validation.mjs).
     //
     // Scope: a merit scored on one surface, front_only or back_only with
@@ -383,7 +383,7 @@ export class LSQEngine {
         // back_only with "ignore the other side" on (mfEvalMode='side', i.e.
         // !evalFullSystem). Back_only is the identical single-surface problem (light
         // enters from the exit medium through the reversed stack into the substrate),
-        // so the same analytic comp-Hessian (tmmThicknessHessian) applies; getH()
+        // so the same analytic comp-Hessian (tmmcore hessian) applies; getH()
         // below mirrors _analyticJacobian's isSingleBack reversal. When the MF is
         // FULL-SYSTEM (evalFullSystem: surfaceMode both_independent / symmetric, OR a
         // single side with "ignore the other side" off / mfEvalMode='total') the MF

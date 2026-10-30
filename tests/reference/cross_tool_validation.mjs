@@ -23,9 +23,10 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-    tmm, tmmWithAdmittances, computeEllipsometry,
+    tmmWithAdmittances, computeEllipsometry,
     computeEFieldProfile, C_NM_PER_FS,
 } from '../../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 import { coefficientPhaseDispersion, tmmCoefficientJets }
     from '../../src/utils/physics/phaseDispersion.js';
 import { jetConstant, wavelengthOmegaJet } from '../../src/tmmcore.js';

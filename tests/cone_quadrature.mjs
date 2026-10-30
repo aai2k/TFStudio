@@ -27,7 +27,8 @@ import {
     CONE_AVERAGE_TOLERANCE, buildEvalContext, evaluateOperands, operandSampleDeviations,
     makeOperand,
 } from '../src/utils/physics/optimizer.js';
-import { tmm, evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
+import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 import { initWasmForTest } from './_wasmInit.mjs';
 import { MATS, resolveMat, filterLayers, filterDesign, glOn, maxAbsDiff } from './_coneFilter.mjs';
 

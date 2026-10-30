@@ -29,7 +29,7 @@ await loadApp();
 const { createInterpolator, createTabulatedNKSampler } = await import('../src/utils/materials/pchip.js');
 const { makeGetNK, interpK, negativeKPoints } = await import('../src/utils/materials/catalogManager/dispersion.js');
 const { buildNKFromDraft, materialToDraft } = await import('../src/components/windows/design/materialEditor/materialDraft.js');
-const { tmm } = await import('../src/utils/physics/thinFilmMath.js');
+const { tmm } = await import('tmmcore');
 const { UserMaterialForm } = await import('../src/components/windows/design/materialEditor/userMaterialForm.js');
 const { MaterialImportDialog } = await import('../src/components/windows/design/materialEditor/materialImportDialog.js');
 const { DEFAULT_IMPORT_UNITS } = await import('../src/utils/materials/materialFileImport.js');

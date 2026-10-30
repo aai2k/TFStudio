@@ -3,7 +3,7 @@
  *
  * TFStudio must consume one tmmcore package instance from the renderer and all
  * worker entry points. The package owns the reference kernels, loader state,
- * C source, and prebuilt WASM binary; thinFilmMath is only an app-level facade.
+ * C source, and prebuilt WASM binary.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,23 +13,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import * as core from 'tmmcore';
 import * as loader from 'tmmcore/tmmWasm.js';
-import {
-    tmm as facadeTmm,
-    tmmNeedleScan as facadeNeedleScan,
-    tmmThicknessHessian as facadeHessian,
-    tmmThicknessJacobian as facadeJacobian,
-} from '../src/utils/physics/thinFilmMath.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
 const require = createRequire(import.meta.url);
-
-// The TFStudio facade must expose the package functions themselves, not copies
-// or forwarding implementations that can drift.
-assert.strictEqual(facadeTmm, core.tmm);
-assert.strictEqual(facadeNeedleScan, core.tmmNeedleScan);
-assert.strictEqual(facadeJacobian, core.tmmThicknessJacobian);
-assert.strictEqual(facadeHessian, core.tmmThicknessHessian);
 
 // Root and explicit loader subpath must share one module-level singleton.
 assert.strictEqual(core.getTmmWasm, loader.getTmmWasm);
@@ -61,12 +48,12 @@ const wasmBytes = fs.readFileSync(wasmPath);
 assert.equal(await core.initTmmWasmMainThread(wasmBytes, true), true);
 assert.equal(loader.tmmWasmActive(), true, 'subpath observes root loader state');
 
-const args = [
-    550, 27, 'p', [1, 0], [1.52, 0],
-    [{ n: [2.35, 0.0005], d: 73 }, { n: [1.46, 0], d: 121 }],
-];
-const js = core.tmm(...args);
-const wasm = core.getTmmWasm().tmmOne(args[0], args[1], 1, args[3], args[4], args[5]);
+const stack = {
+    incident: 1, substrate: 1.52,
+    layers: [{ n: 2.35, k: 0.0005, d: 73 }, { n: 1.46, d: 121 }],
+};
+const js = core.rta(stack, 550, { angle: 27, pol: 'p' });
+const wasm = core.getTmmWasm().rta(stack, 550, { angle: 27, pol: 'p' });
 for (const key of ['R', 'T', 'A']) {
     assert.ok(Math.abs(js[key] - wasm[key]) < 1e-12, `${key}: JS/WASM mismatch`);
 }

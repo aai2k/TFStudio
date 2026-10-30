@@ -12,9 +12,8 @@
  * Run: node tests/wasm_hessian_equivalence.mjs
  */
 import { readFileSync } from 'node:fs';
-import { tmmThicknessHessian } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, getTmmWasm, tmmWasmActive } from 'tmmcore';
+import { initTmmWasmMainThread, getTmmWasm, tmmWasmActive, tmmThicknessHessian } from 'tmmcore';
 import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);

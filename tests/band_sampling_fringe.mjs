@@ -33,7 +33,7 @@ import {
     fringeSampleCount, groupThicknessAt, withFringeSampleCounts, DLSOptimizer,
     evaluateOperands, tmmJacEval, extremumSearchCount,
 } from '../src/utils/physics/optimizer.js';
-import { tmmOne } from '../src/utils/physics/optimizer/evalCore/kernels.js';
+import { rtaEval } from '../src/utils/physics/optimizer/evalCore/kernels.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { initWasmForTest } from './_wasmInit.mjs';
 
@@ -168,7 +168,7 @@ console.log('WASM:', await initWasmForTest());
     for (const lam of [380, 455.5, 632.8, 1064, 1550]) {
         const layers = mats.map((m, i) => ({ n: m.getNK(lam), d: 20 + 37 * i }));
         const n0 = [1, 0], ns = getMaterial('BK7').getNK(lam);
-        const a = tmmOne(lam, 0, 's', n0, ns, layers), b = tmmOne(lam, 0, 'p', n0, ns, layers);
+        const a = rtaEval(lam, 0, 's', n0, ns, layers), b = rtaEval(lam, 0, 'p', n0, ns, layers);
         const ja = tmmJacEval(lam, 0, 's', n0, ns, layers), jb = tmmJacEval(lam, 0, 'p', n0, ns, layers);
         const checks = [sameValues(a, b), sameArray(ja.dTdd, jb.dTdd), sameArray(ja.dRdd, jb.dRdd)];
         if (!checks.every(Boolean)) identical = false;

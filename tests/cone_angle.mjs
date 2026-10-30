@@ -26,7 +26,7 @@ import {
     halfAngleFromFNumber, fNumberFromHalfAngle,
     buildEvalContext, evaluateOperands, makeOperand,
 } from '../src/utils/physics/optimizer.js';
-import { tmm } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
 let fails = 0;

@@ -5,7 +5,7 @@
  *
  * Single-front is direct; single-back is evaluated on the reversed stack (light
  * enters from the exit medium) and remapped to storage-layer order. Per-residual
- * ∂²rₚ uses the analytic comp-Hessian tmmThicknessHessian (FD-validated,
+ * ∂²rₚ uses the analytic comp-Hessian, tmmcore hessian (FD-validated,
  * tests/hessian_fd_validation.mjs). Reference: Tikhonov–Tikhonravov–Trubetskov
  * 1993; Nocedal & Wright 2e.
  */

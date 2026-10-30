@@ -19,7 +19,7 @@ import { buildBuiltinCatalog } from '../src/utils/materials/catalogManager/built
 import { buildNKFromDraft, draftToMaterial } from '../src/components/windows/design/materialEditor/materialDraft.js';
 import { sampleMaterial } from '../src/utils/materials/riiDatabase/sampling.js';
 import { riiToMaterialEntry } from '../src/utils/materials/riiDatabase/catalogEntry.js';
-import { tmm } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 
 const near = (actual, expected, tolerance = 1e-12, message = '') => {
     assert.ok(Math.abs(actual - expected) <= tolerance,

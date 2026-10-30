@@ -10,8 +10,8 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { tmm, tmmAvg, tmmThicknessJacobian, tmmNeedleScan } from '../src/utils/physics/thinFilmMath.js';
-import { instantiateTmmWasm } from 'tmmcore';
+import { tmmAvg } from '../src/utils/physics/thinFilmMath.js';
+import { instantiateTmmWasm, tmm, tmmThicknessJacobian, tmmNeedleScan } from 'tmmcore';
 import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 const wasm = await instantiateTmmWasm(readFileSync(TMMCORE_WASM_PATH));

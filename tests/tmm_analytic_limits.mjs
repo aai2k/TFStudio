@@ -14,7 +14,8 @@
  * Run: node tests/tmm_analytic_limits.mjs
  */
 
-import { createMonitorTmmEvaluator, tmm } from '../src/utils/physics/thinFilmMath.js';
+import { createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };

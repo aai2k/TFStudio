@@ -1,5 +1,5 @@
-import { tmm } from '../../physics/thinFilmMath.js';
-import { getTmmWasm, tmmWasmActive } from '../../../tmmcore.js';
+import { getTmmWasm, rta, tmmWasmActive } from '../../../tmmcore.js';
+import { pointStack } from '../../physics/kernelStack.js';
 import { toNDLayers } from './prototypeLayers.js';
 
 /**
@@ -23,8 +23,8 @@ function transmittance(lam, nd, media, aoi, pol) {
         const s = transmittance(lam, nd, media, aoi, 's');
         return aoi === 0 ? s : (s + transmittance(lam, nd, media, aoi, 'p')) / 2;
     }
-    if (tmmWasmActive()) return getTmmWasm().tmmOne(lam, aoi, pol === 'p' ? 1 : 0, n0, ns, nd).T;
-    return tmm(lam, aoi, pol, n0, ns, nd).T;
+    const kernel = tmmWasmActive() ? getTmmWasm().rta : rta;
+    return kernel(pointStack(n0, ns, nd), Number(lam), { angle: Number(aoi), pol }).T;
 }
 
 /**

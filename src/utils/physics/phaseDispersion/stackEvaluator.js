@@ -62,15 +62,7 @@ function inFemtoseconds(quantities) {
 function phaseQuantities(options, target, withThicknessJacobian) {
     const wasm = tmmWasmActive() ? getTmmWasm() : null;
     if (wasm && wasm.hasPhase()) {
-        const result = wasm[withThicknessJacobian ? 'tmmPhaseJacobian' : 'tmmPhaseOne'](
-            options.wavelengthNm,
-            options.thetaDeg,
-            options.polarization === 'p' ? 1 : 0,
-            options.incidentIndexJet,
-            options.substrateIndexJet,
-            options.layers.map(layer => ({ nJet: layer.indexJet, d: layer.thicknessNm })),
-            { omega: options.omega, sinTheta0Jet: options.incidentSineJet },
-        );
+        const result = kernelPhase(wasm, options, withThicknessJacobian);
         const side = target === 'T' ? result.t : result.r;
         if (!side) return null;
         const { dPhaseDeg, dGd, dGdd, dTod, ...dispersion } = side;
@@ -94,6 +86,32 @@ function phaseQuantities(options, target, withThicknessJacobian) {
                 coefficientPhaseThicknessDerivatives(side.jet, side.thicknessJets))
             : undefined,
     };
+}
+
+// One phase call on the loaded kernel: { r, t }, each side null where its
+// coefficient is exactly zero. Polarization 'p' is p and anything else s.
+// With an incident sine given as a jet (a reference incident medium other than
+// the stack's own) the call is the one that takes that jet as an option.
+function kernelPhase(wasm, options, withThicknessJacobian) {
+    const pol = options.polarization === 'p' ? 'p' : 's';
+    if (options.incidentSineJet) {
+        return wasm[withThicknessJacobian ? 'tmmPhaseJacobian' : 'tmmPhaseOne'](
+            options.wavelengthNm,
+            options.thetaDeg,
+            pol === 'p' ? 1 : 0,
+            options.incidentIndexJet,
+            options.substrateIndexJet,
+            options.layers.map(layer => ({ nJet: layer.indexJet, d: layer.thicknessNm })),
+            { omega: options.omega, sinTheta0Jet: options.incidentSineJet },
+        );
+    }
+    const stack = {
+        incident: { n: options.incidentIndexJet },
+        substrate: { n: options.substrateIndexJet },
+        layers: options.layers.map(layer => ({ n: layer.indexJet, d: layer.thicknessNm })),
+    };
+    const call = withThicknessJacobian ? wasm.phaseJacobian : wasm.phase;
+    return call(stack, Number(options.wavelengthNm), { angle: Number(options.thetaDeg), pol });
 }
 
 // The coefficient a target reads, its thickness jets, and the log of the

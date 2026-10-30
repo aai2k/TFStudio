@@ -98,7 +98,7 @@ const render = () => runtime.run(() => useNeedleManual(en));
 // computes, which every method of the kernel goes through.
 const kernel = getTmmWasm();
 const entryPoints = Object.keys(kernel).filter(k => /^_(tmm|growing)_/.test(k) && typeof kernel[k] === 'function');
-assert.ok(entryPoints.includes('_tmm_needle_scan') && entryPoints.includes('_tmm_spectrum'), 'the kernel exports are found');
+assert.ok(entryPoints.includes('_tmm_needle_scan') && entryPoints.includes('_tmm_rta_spectrum'), 'the kernel exports are found');
 let kernelCalls = 0;
 for (const name of entryPoints) {
     const call = kernel[name];

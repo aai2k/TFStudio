@@ -39,9 +39,9 @@ const design = {
 };
 
 const kernel = getTmmWasm();
-const batched = kernel.tmmPhaseSpectrum;
+const batched = kernel.phaseSpectrum;
 let calls = 0;
-kernel.tmmPhaseSpectrum = function counted(...args) {
+kernel.phaseSpectrum = function counted(...args) {
     calls++;
     return batched.apply(this, args);
 };
@@ -86,6 +86,6 @@ calls = 0;
 check(evaluateOperands(rowsAt(633), buildEvalContext(design, resolveMat)), 633, 'kernel off');
 assert.equal(calls, 0, 'the kernel was called while it was off');
 setTmmWasmEnabled(true);
-kernel.tmmPhaseSpectrum = batched;
+kernel.phaseSpectrum = batched;
 
 console.log('PASS: ellipsometry_typed_row_kernel');

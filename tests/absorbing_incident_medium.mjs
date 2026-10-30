@@ -31,7 +31,8 @@
  * Run: node tests/absorbing_incident_medium.mjs
  */
 import assert from 'node:assert/strict';
-import { tmm, tmmWithAdmittances } from '../src/utils/physics/thinFilmMath.js';
+import { tmmWithAdmittances } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 import { bareInterface, incidence } from '../src/utils/physics/thinFilmMath/totalSystem.js';
 
 const near = (actual, expected, tolerance, message) => assert.ok(

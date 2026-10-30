@@ -7,7 +7,7 @@
  * uniformly. Reference: Macleod, Thin-Film Optical Filters 5e §2.6.4.
  */
 
-import { tmmOne, kernelPol } from './kernels.js';
+import { rtaEval, kernelPol } from './kernels.js';
 import { coneIsActive, coneNodes } from '../coneAngle.js';
 
 // ── Per-evaluateOperands memoization ──────────────────────────────────────────
@@ -64,7 +64,7 @@ function layersAt(ctx, mats, thicknesses, lam) {
 // polarization. Nested maps keep λ and aoi as numeric keys.
 function tmmC(ctx, tag, lam, aoi, polCode, n0, ns, layers) {
     const c = ctx && ctx._tmmCache;
-    if (!c) return tmmOne(lam, aoi, polCode, n0, ns, layers);
+    if (!c) return rtaEval(lam, aoi, polCode, n0, ns, layers);
     const pc = kernelPol(aoi, polCode);
     const pass = tag + pc;
     let byAoi = c.get(pass);
@@ -72,7 +72,7 @@ function tmmC(ctx, tag, lam, aoi, polCode, n0, ns, layers) {
     let byLam = byAoi.get(aoi);
     if (!byLam) { byLam = new Map(); byAoi.set(aoi, byLam); }
     let v = byLam.get(lam);
-    if (v === undefined) { v = tmmOne(lam, aoi, pc, n0, ns, layers); byLam.set(lam, v); }
+    if (v === undefined) { v = rtaEval(lam, aoi, pc, n0, ns, layers); byLam.set(lam, v); }
     return v;
 }
 

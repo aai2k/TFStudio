@@ -27,7 +27,7 @@ import {
     adjustToIncidentMedium, bandCentreAtAngle, angleWindowLow,
 } from '../src/utils/filter/filterDesign.js';
 import { buildFilterDesignObject } from '../src/utils/filter/filterDesignBuild.js';
-import { tmm } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
 let fails = 0;

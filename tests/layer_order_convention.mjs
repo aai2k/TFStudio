@@ -17,7 +17,8 @@
  * Run: node tests/layer_order_convention.mjs
  */
 
-import { tmm, createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
+import { createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 import { partialThicknesses } from '../src/utils/monitoring/depositionSpectrum.js';
 import { buildWDMStack } from '../src/utils/filter/wdmDesigner/stack.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';

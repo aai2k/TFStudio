@@ -25,7 +25,7 @@ import {
     bandCentreAtAngle, embeddedAngleDeg, invariantOf, angleWindowLow,
     globalIntegerSearch, adjustToIncidentMedium,
 } from '../src/utils/filter/filterDesign.js';
-import { tmm } from '../src/utils/physics/thinFilmMath.js';
+import { tmm } from 'tmmcore';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 
 let fails = 0;
