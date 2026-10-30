@@ -34,32 +34,64 @@ function _remapHessianRev(Hr, N) {
              d2Tdd: d2(Hr.d2Tdd), d2Rdd: d2(Hr.d2Rdd), d2Add: d2(Hr.d2Add) };
 }
 
+// Memory the sampler keeps kernel packages in: about 500 packages on 60 layers,
+// 2800 on 20. A dozen synthesis workers refining at once keep under 1 GB of
+// them, whatever the Step.
+const HESSIAN_CACHE_BYTES = 64 * 2 ** 20;
+
+// Bytes one kept package takes on N layers: three N×N second-derivative tables
+// and three first-derivative rows, each row 8N bytes and about 220 more. Measured
+// on what the WASM kernel returns from 10 to 120 layers; the JS kernel's
+// packages and the back-side remap are smaller.
+function packageBytes(N) {
+    return 3 * (N + 1) * (8 * N + 220);
+}
+
+// The kernel package at one (λ, pol, aoi), in storage-layer order.
+function _hessianAt(cfg, lam, polCode, aoi) {
+    const { n0mat, nsmat, neMat, mats, thk, N, isSingleBack } = cfg;
+    const ns = nsmat.getNK(lam);
+    if (isSingleBack) {
+        const n0 = neMat.getNK(lam);
+        const layersRev = [];
+        for (let i = N - 1; i >= 0; i--) layersRev.push({ n: mats[i].getNK(lam), d: thk[i] });
+        return _remapHessianRev(tmmHessEval(lam, aoi, polCode, n0, ns, layersRev), N);
+    }
+    const n0 = n0mat.getNK(lam);
+    const layers = thk.map((d, i) => ({ n: mats[i].getNK(lam), d }));
+    return tmmHessEval(lam, aoi, polCode, n0, ns, layers);
+}
+
+// Memoized (λ,pol,aoi) → kernel package. A band row asks for a package at
+// every sample of its grid, which a fine Step makes tens of thousands long;
+// holding them all took 1.4 GB for one step on 60 layers at 0.1 nm over
+// 400-1600 nm. The rows read their samples one row after another, in the same
+// order, so the cache keeps the first packages that fit in HESSIAN_CACHE_BYTES,
+// which every later row on the grid finds, and the latest package, which the s
+// and p halves of an average at normal incidence share.
+function _makePackageCache(cfg) {
+    const cache = new Map();
+    const capacity = Math.max(1, Math.floor(HESSIAN_CACHE_BYTES / packageBytes(cfg.N)));
+    let latest = { key: null, value: null };
+    return (lam, pol, aoi) => {
+        const polCode = kernelPol(aoi, pol);
+        const key = lam + '|' + polCode + '|' + aoi;
+        const kept = latest.key === key ? latest.value : cache.get(key);
+        if (kept !== undefined) return kept;
+        const value = _hessianAt(cfg, lam, polCode, aoi);
+        if (cache.size < capacity) cache.set(key, value);
+        latest = { key, value };
+        return value;
+    };
+}
+
 // Build the per-(λ,pol,char,aoi) comp value/first/second-derivative sampler over
 // the FREE variables (honoring pol='avg' = ½(s+p)) used to assemble the analytic
 // second-order curvature term. `cfg` bundles the engine fields getH needs:
 //   { n0mat, nsmat, neMat, mats, thk, N, isSingleBack, freeIdx, nFree }.
 export function makeHessianSampler(cfg) {
-    const { n0mat, nsmat, neMat, mats, thk, N, isSingleBack, freeIdx, nFree } = cfg;
-    const hcache = new Map();
-    const getH = (lam, pol, aoi) => {
-        const polCode = kernelPol(aoi, pol);
-        const key = lam + '|' + polCode + '|' + aoi;
-        let v = hcache.get(key);
-        if (v !== undefined) return v;
-        const ns = nsmat.getNK(lam);
-        if (isSingleBack) {
-            const n0 = neMat.getNK(lam);
-            const layersRev = [];
-            for (let i = N - 1; i >= 0; i--) layersRev.push({ n: mats[i].getNK(lam), d: thk[i] });
-            v = _remapHessianRev(tmmHessEval(lam, aoi, polCode, n0, ns, layersRev), N);
-        } else {
-            const n0 = n0mat.getNK(lam);
-            const layers = thk.map((d, i) => ({ n: mats[i].getNK(lam), d }));
-            v = tmmHessEval(lam, aoi, polCode, n0, ns, layers);
-        }
-        hcache.set(key, v);
-        return v;
-    };
+    const { freeIdx, nFree } = cfg;
+    const getH = _makePackageCache(cfg);
     // { val, d1:[nFree], d2:[nFree][nFree] (upper) }
     const sample = (lam, pol, ch, aoi) => {
         const d1 = new Array(nFree).fill(0);
