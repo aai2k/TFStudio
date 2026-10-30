@@ -23,12 +23,16 @@
  * with the merit and optical merit of its design, or 'error'. A Structural
  * run's refine jobs also have their 'done' carry the full merit of the design
  * the run keeps, and its needle jobs post one 'structural' message
- * (structural/workerJobs.js).
+ * (structural/workerJobs.js). A 'needleProfile' or 'needleStart' job runs
+ * Needle Manual's profile scan or the starting thickness of a picked needle
+ * (needleManual/insertion.js) and posts one message of its own type with the
+ * answer, or 'error'.
  */
 
 import { makeEngine } from '../optimizers/index.js';
 import { DLSOptimizer } from '../physics/optimizer.js';
 import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
+import { profileScanJob, startingThicknessJob } from '../../components/windows/optimization/needleManual/insertion.js';
 import { makeResolveMat } from './resolveMat.js';
 import { makeTableHolder } from './jobTables.js';
 import { STRUCTURAL_JOBS, withStructuralScore } from '../structural/workerJobs.js';
@@ -125,9 +129,17 @@ function scoreDesign(job, resolveMat, postMessage) {
 
 const isStructuralJob = type => Object.hasOwn(STRUCTURAL_JOBS, type);
 
+// Needle Manual's jobs, each answered by one message of its own type.
+const NEEDLE_JOBS = {
+    needleProfile: (job, resolveMat) => ({ type: 'needleProfile', scan: profileScanJob(job, resolveMat) }),
+    needleStart: (job, resolveMat) => ({ type: 'needleStart', dNew: startingThicknessJob(job, resolveMat) }),
+};
+const isNeedleJob = type => Object.hasOwn(NEEDLE_JOBS, type);
+
 function runJob(job, resolveMat, postMessage) {
     if (job.type === 'score') scoreDesign(job, resolveMat, postMessage);
     else if (isStructuralJob(job.type)) postMessage({ type: 'structural', result: STRUCTURAL_JOBS[job.type](job, resolveMat) });
+    else if (isNeedleJob(job.type)) postMessage(NEEDLE_JOBS[job.type](job, resolveMat));
     else runSingle(job, resolveMat, job.structuralScore ? withStructuralScore(job, resolveMat, postMessage) : postMessage);
 }
 
@@ -136,7 +148,7 @@ export async function handleOptimizerMessage(job, postMessage, tablesOf = makeTa
     // One-time WASM kernel init (bytes may arrive as a dedicated message or ride
     // on any job). Enabling is per-worker; falls back to JS on failure.
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
-    if (job.type !== 'start' && job.type !== 'score' && !isStructuralJob(job.type)) return;
+    if (job.type !== 'start' && job.type !== 'score' && !isStructuralJob(job.type) && !isNeedleJob(job.type)) return;
     try {
         const materials = tablesOf(job);
         noteTmmWasmBytes(job.wasmBytes);

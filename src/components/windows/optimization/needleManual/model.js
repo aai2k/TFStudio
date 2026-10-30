@@ -1,20 +1,73 @@
 /**
  * The Needle Manual insertion window's model: its computation from
- * insertion.js, the P-function plot data builder, the selection's labels, and
- * the refine that polishes the stack after an insertion.
+ * insertion.js, run in the optimizer worker, the P-function plot data builder,
+ * the selection's labels, and the refine that polishes the stack after an
+ * insertion.
  */
 
 import { mirrorLayers } from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { densifyForRun } from '../../../../utils/refinement/workerInputs.js';
 import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.js';
-import { refineOffThread } from '../synthesisShared/workerRefine.js';
-import { candidateDepth, scanLayerNumber, profileScan } from './insertion.js';
+import { refineOffThread, inOptimizerWorker } from '../synthesisShared/workerRefine.js';
+import { presampleSynthesisMaterials } from '../synthesisShared/runGrid.js';
+import { candidateDepth, scanLayerNumber } from './insertion.js';
 
 export {
     sideKey, enabledRows, runOperands, scanOperands, depthBoundaries, candidateDepth, insertForSelection, scanLayerNumber,
     resolveDRange, startingThickness, profileScan,
 } from './insertion.js';
+
+// The optimizer worker's answer to the Needle Manual job `makeJob` builds
+// (optimizerJob.js): the message it posts back of the job's type, or null when
+// `signal` aborts first. Rejects when building the job throws, the job fails
+// or no worker starts. The job is built and let go here, so its material
+// tables are not held on this thread once the worker has its copy.
+function needleJob(makeJob, signal) {
+    if (signal && signal.aborted) return Promise.resolve(null);
+    let job;
+    try { job = makeJob(); } catch (err) { return Promise.reject(err); }
+    const { type } = job;
+    let answer = null, failure = null;
+    return inOptimizerWorker(job, {
+        signal,
+        onMessage: (m) => {
+            if (m.type === type) answer = m;
+            if (m.type === 'error') failure = m.message;
+            return answer !== null || failure !== null;
+        },
+    }).then((started) => {
+        if (answer) return answer;
+        if (signal && signal.aborted) return null;
+        throw new Error(failure || (started ? 'the optimizer worker stopped' : 'no optimizer worker started'));
+    });
+}
+
+/**
+ * profileScan in the optimizer worker, on `candidateMats`, the pool's
+ * { id, mat }. Resolves with { scan }, scan null when no candidate is found,
+ * or null when `signal` aborts first; rejects when the scan fails. The worker
+ * gets every material sampled on the rows' wavelengths, so the profile is the
+ * one profileScan gives on this thread.
+ */
+export function profileScanOffThread({ operands, design, candidateMats, deltaNm, nIntra, side }, signal) {
+    return needleJob(() => ({
+        type: 'needleProfile', operands, design, poolIds: candidateMats.map(p => p.id), deltaNm, nIntra, side,
+        materials: presampleSynthesisMaterials(design, operands, candidateMats),
+    }), signal).then(answer => answer && { scan: answer.scan });
+}
+
+/**
+ * startingThickness in the optimizer worker, for `candidate` of material
+ * `mat`. Resolves with the thickness in nm, or null when `signal` aborts
+ * first; rejects when the worker fails.
+ */
+export function startingThicknessOffThread({ operands, design, candidate, mat, dMin, side }, signal) {
+    return needleJob(() => ({
+        type: 'needleStart', operands, design, candidate, dMin, side,
+        materials: presampleSynthesisMaterials(design, operands, [{ id: candidate.materialId, mat }]),
+    }), signal).then(answer => answer && answer.dNew);
+}
 
 // The optional pass after Apply: the app's default refinement method on the
 // inserted stack, at most `iters` steps, no layer below `dMin` (nm), its rows
@@ -62,13 +115,12 @@ export async function refineAndCommit({ inserted, job, resolveMat, signal, isCur
     return { mfBest: res ? res.mfBest : null };
 }
 
-// Run the P-function profile scan and package the result (or the "already
-// optimal" status) for the caller to commit to state.
-export function runNeedleScan({ operands, design, resolveMat, candidateMats, deltaNm, nIntra, side, tn }) {
-    const scan = profileScan({ operands, design, resolveMat, candidateMats, deltaNm, nIntra, side });
-    if (!scan) return { scan: null, statusMsg: tn.alreadyOptimal };
+// The status line for a finished profile scan: the "already optimal" note when
+// it found no candidate, else how many candidates it found and how many improve.
+export function scanStatus(scan, tn) {
+    if (!scan) return tn.alreadyOptimal;
     const improving = scan.candidates.filter(cc => cc.grad < 0).length;
-    return { scan, statusMsg: tn.scanDone(scan.candidates.length, improving) };
+    return tn.scanDone(scan.candidates.length, improving);
 }
 
 // Build renderer-neutral P-function material curves, layer boundaries

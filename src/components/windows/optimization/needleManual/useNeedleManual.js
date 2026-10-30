@@ -5,6 +5,9 @@
 //   • insertNeedle / insertNeedleIntra — gap / intra-layer insertion (auto-mirror in symmetric)
 //   • startingThickness (insertion.js): golden-section thickness for the initial d_new
 //
+// The scan and the starting-thickness search run in the optimizer worker, with
+// Stop, so the window keeps answering while a fine Step takes seconds.
+//
 // Reference: Tikhonravov et al., Applied Optics 35(28), 5493 (1996);
 //            Sullivan & Dobrowolski, Applied Optics 35(28), 5484 (1996).
 
@@ -18,9 +21,9 @@ import {
     useCatSelection, materialLookup, matFriendlyName, getPoolMaterials,
 } from '../synthesisShared/synthesisHelpers.js';
 import {
-    candidateDepth, insertForSelection, runNeedleScan, buildPlotData,
+    candidateDepth, insertForSelection, scanStatus, buildPlotData,
     resolveHostInfo, resolveDRange, insertionRefineJob, refineAndCommit, enabledRows, runOperands, scanOperands,
-    startingThickness,
+    profileScanOffThread, startingThicknessOffThread,
 } from './model.js';
 import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 import { useMeritValues, sampledOn, meritOrInfinity } from '../useMeritValues.js';
@@ -54,30 +57,71 @@ function useNeedleSettings(design) {
 
 // ── Scan → selection workflow (P-function profile, candidate pick, geometry) ────
 
-function scanAndSetResult({ ops, design, resolveMat, pool, deltaNm, nIntra, requestedSide, tn, setScan, setStatusMsg, setScanning }) {
-    try {
-        const { scan, statusMsg } = runNeedleScan({
-            operands: ops, design, resolveMat, candidateMats: pool,
-            deltaNm, nIntra, side: requestedSide, tn,
-        });
-        setScan(scan);
-        setStatusMsg(statusMsg);
-    } catch (err) {
-        console.error('[NeedleManual] scan failed:', err);
-        setStatusMsg(tn.scanError);
-        setScan(null);
-    } finally {
-        setScanning(false);
-    }
+/**
+ * The profile scan or the starting-thickness search in the optimizer worker,
+ * one at a time, each kept with the design it was asked for. Starting another,
+ * `stop`, a change to that design and closing the window end it. `finish(job)`
+ * takes `job` off as the one running and says whether it still was, so the
+ * answer of a job another has replaced is dropped; `onScreen(job)` says whether
+ * its design is still the one on screen, as an answer for a design that has
+ * changed since is not shown either.
+ */
+function useNeedleJobs(design) {
+    const jobRef = useRef(null);
+    const designRef = useRef(design);
+    designRef.current = design;
+
+    useEffect(() => () => {
+        const job = jobRef.current;
+        jobRef.current = null;
+        job?.ctrl.abort();
+    }, []);
+    useEffect(() => {
+        if (jobRef.current && jobRef.current.design !== design) jobRef.current.ctrl.abort();
+    }, [design]);
+
+    return useMemo(() => ({
+        start(forDesign) {
+            jobRef.current?.ctrl.abort();
+            const job = { ctrl: new AbortController(), design: forDesign };
+            jobRef.current = job;
+            return job;
+        },
+        finish(job) {
+            if (jobRef.current !== job) return false;
+            jobRef.current = null;
+            return true;
+        },
+        onScreen: job => job.design === designRef.current,
+        stop: () => jobRef.current?.ctrl.abort(),
+    }), []);
 }
 
-// The profile scan runs synchronously on the UI thread; past POOL_MAX_SYNC
-// candidate materials it freezes/crashes the renderer, so refuse rather than
-// attempt it and leave the user with no way to stop.
+// What the window shows once the scan `job` ends: the profile and its status
+// line, or the scan error; for a design no longer on screen, no profile and a
+// status line saying the design changed; stopped, no profile and no status, as
+// before a scan.
+function endScan(ctx, job, out, err) {
+    const { jobs, tn, setScanning, setScan, setStatusMsg } = ctx;
+    if (!jobs.finish(job)) return;
+    setScanning(false);
+    if (!jobs.onScreen(job)) { setStatusMsg(tn.designChanged); return; }
+    if (!out && !err) { setStatusMsg(''); return; }
+    if (err) {
+        console.error('[NeedleManual] scan failed:', err);
+        setStatusMsg(tn.scanError);
+        return;
+    }
+    setScan(out.scan);
+    setStatusMsg(scanStatus(out.scan, tn));
+}
+
+// Starts the profile scan in the optimizer worker. The profile on screen goes
+// at once, so no point of it can be picked while the new one is computed.
+// More candidate materials than POOL_MAX_SYNC are refused.
 function runComputeProfile(ctx) {
     const {
-        design, operands, selectedCats, excludedMats, deltaNm, nIntra,
-        requestedSide, resolveMat, tn, t,
+        design, operands, selectedCats, excludedMats, deltaNm, nIntra, requestedSide, tn, t, jobs,
         setStatusMsg, setScanBlocked, setScanning, setSelected, setScan,
     } = ctx;
     const ops = scanOperands(operands);
@@ -94,21 +138,54 @@ function runComputeProfile(ctx) {
     });
     if (!pool.length) { setStatusMsg(tn.noMaterials); return; }
 
-    setScanning(true); setStatusMsg(tn.scanning); setSelected(null);
-    // Defer so the "Scanning…" status paints before the (synchronous) scan.
-    setTimeout(() => scanAndSetResult({
-        ops, design, resolveMat, pool, deltaNm, nIntra, requestedSide, tn,
-        setScan, setStatusMsg, setScanning,
-    }), 0);
+    setScanning(true); setStatusMsg(tn.scanning); setSelected(null); setScan(null);
+    const job = jobs.start(design);
+    // Started a timer turn later, so the status paints before the material
+    // tables are sampled and copied to the worker.
+    setTimeout(() => profileScanOffThread(
+        { operands: ops, design, candidateMats: pool, deltaNm, nIntra, side: requestedSide }, job.ctrl.signal,
+    ).then(out => endScan(ctx, job, out, null), err => endScan(ctx, job, null, err)), 0);
+}
+
+// Picks `cand`. The needle starts at dMin while the worker searches for its
+// starting thickness (startingThickness) and moves there when the answer comes.
+// Stopped, it stays at dMin, the thickness the search gives when it finds none
+// better; answered for a design no longer on screen, it stays at dMin and the
+// status line says the design changed.
+function runPick(ctx, cand) {
+    const {
+        scan, design, operands, selectedCats, excludedMats, resolveMat, dMin, requestedSide, jobs, tn,
+        setSelected, setDNew, setPicking, setStatusMsg,
+    } = ctx;
+    setSelected({ ...cand, z: candidateDepth(cand, scan?.zb || [0]), grad: cand.grad });
+    setDNew(dMin);
+    setPicking(true);
+    const pool = getPoolMaterials(selectedCats, { excluded: excludedMats, design });
+    const mat  = pool.find(p => p.id === cand.materialId)?.mat || resolveMat(cand.materialId);
+    const job = jobs.start(design);
+    const end = (dNew) => {
+        if (!jobs.finish(job)) return;
+        setPicking(false);
+        if (!jobs.onScreen(job)) setStatusMsg(tn.designChanged);
+        else if (dNew != null) setDNew(dNew);
+    };
+    startingThicknessOffThread(
+        { operands: scanOperands(operands), design, candidate: cand, mat, dMin, side: requestedSide }, job.ctrl.signal,
+    ).then(end, (err) => {
+        console.error('[NeedleManual] starting thickness search failed:', err);
+        end(null);
+    });
 }
 
 function useNeedleWorkflow({ design, resolveMat, effSide, operands, selectedCats, excludedMats, deltaNm, nIntra, dMin, requestedSide, tn, t }) {
     const [scan,      setScan]      = useState(null);   // { candidates, mf0, side, zb, layers }
     const [scanning,  setScanning]  = useState(false);
+    const [picking,   setPicking]   = useState(false);  // the starting-thickness search of a pick runs
     const [statusMsg, setStatusMsg] = useState('');
-    const [scanBlocked, setScanBlocked] = useState(false);   // pool too large for the single-threaded scan
+    const [scanBlocked, setScanBlocked] = useState(false);   // pool larger than POOL_MAX_SYNC
     const [selected,  setSelected]  = useState(null);   // { ...candidate, z, grad }
     const [dNew,      setDNew]      = useState(1.0);
+    const jobs = useNeedleJobs(design);
 
     // Clear selection + scan when the design or active side changes.
     useEffect(() => {
@@ -117,11 +194,10 @@ function useNeedleWorkflow({ design, resolveMat, effSide, operands, selectedCats
 
     const computeProfile = useCallback(() => {
         runComputeProfile({
-            design, operands, selectedCats, excludedMats, deltaNm, nIntra,
-            requestedSide, resolveMat, tn, t,
+            design, operands, selectedCats, excludedMats, deltaNm, nIntra, requestedSide, tn, t, jobs,
             setStatusMsg, setScanBlocked, setScanning, setSelected, setScan,
         });
-    }, [design, resolveMat, operands, selectedCats, excludedMats, deltaNm, nIntra, requestedSide, effSide, tn, t]);
+    }, [design, operands, selectedCats, excludedMats, deltaNm, nIntra, requestedSide, tn, t, jobs]);
 
     const plotData = useMemo(() => buildPlotData(scan, design), [scan, design]);
 
@@ -130,15 +206,11 @@ function useNeedleWorkflow({ design, resolveMat, effSide, operands, selectedCats
     const dRange   = useMemo(() => resolveDRange(selected, hostInfo, dMin), [selected, hostInfo, dMin]);
 
     const handlePick = useCallback((cand) => {
-        const zb = scan?.zb || [0];
-        const z = candidateDepth(cand, zb);
-        setSelected({ ...cand, z, grad: cand.grad });
-        const pool = getPoolMaterials(selectedCats, { excluded: excludedMats, design });
-        const mat  = pool.find(p => p.id === cand.materialId)?.mat || resolveMat(cand.materialId);
-        setDNew(startingThickness({
-            operands: scanOperands(operands), design, resolveMat, candidate: cand, mat, dMin, side: requestedSide,
-        }));
-    }, [scan, selectedCats, excludedMats, operands, design, resolveMat, dMin, requestedSide]);
+        runPick({
+            scan, design, operands, selectedCats, excludedMats, resolveMat, dMin, requestedSide, jobs, tn,
+            setSelected, setDNew, setPicking, setStatusMsg,
+        }, cand);
+    }, [scan, selectedCats, excludedMats, operands, design, resolveMat, dMin, requestedSide, jobs, tn]);
 
     // Clamp d_new into range when the selection / range changes.
     useEffect(() => {
@@ -147,7 +219,7 @@ function useNeedleWorkflow({ design, resolveMat, effSide, operands, selectedCats
     }, [dRange[0], dRange[1], selected]);
 
     return {
-        scan, setScan, scanning, statusMsg, setStatusMsg, scanBlocked, computeProfile,
+        scan, setScan, scanning, picking, statusMsg, setStatusMsg, scanBlocked, computeProfile, stopSearch: jobs.stop,
         selected, setSelected, dNew, setDNew, plotData, hostInfo, dRange, handlePick,
     };
 }
@@ -262,13 +334,14 @@ function runHandleApply(ctx) {
 // Apply, and the refine after it. Stop, or closing the window, ends the refine
 // early and keeps the insertion with the best thicknesses so far; Stop before
 // the first step keeps it unrefined. Switching to another design ends it and
-// writes nothing more to either design.
+// writes nothing more to either design. `searching` is on while the scan or a
+// pick's starting-thickness search runs, which Apply waits for.
 function useNeedleApply({
-    scanning, selected, design, resolveMat, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
+    searching, selected, design, resolveMat, dNew, refineAfter, requestedSide, operands, dMin, dlsIter,
     checkpoint, updateDesign, tn, setStatusMsg, setScan, setSelected,
 }) {
     const [refining, setRefining] = useState(false);
-    const busy = scanning || refining;
+    const busy = searching || refining;
     const runRef = useRef(null);             // { designId, ctrl } of the refine in flight
     const designIdRef = useRef(design?.id);
     designIdRef.current = design?.id;
@@ -322,18 +395,23 @@ export function useNeedleManual(t) {
         requestedSide: settings.requestedSide,
     });
 
+    // Nothing is predicted for a pick until its starting thickness comes.
     const predicted = usePredictedOMF({
-        selected: workflow.selected, scan: workflow.scan, design, operands,
+        selected: workflow.picking ? null : workflow.selected, scan: workflow.scan, design, operands,
         dNew: workflow.dNew, requestedSide: settings.requestedSide, hold: isOptimizing,
     });
 
     const apply = useNeedleApply({
-        scanning: workflow.scanning, selected: workflow.selected, design, resolveMat,
+        searching: workflow.scanning || workflow.picking, selected: workflow.selected, design, resolveMat,
         dNew: workflow.dNew, refineAfter: settings.refineAfter, requestedSide: settings.requestedSide,
         operands, dMin: settings.dMin, dlsIter: settings.dlsIter,
         checkpoint, updateDesign, tn,
         setStatusMsg: workflow.setStatusMsg, setScan: workflow.setScan, setSelected: workflow.setSelected,
     });
+
+    const { stopSearch } = workflow;
+    const stopRefine = apply.stop;
+    const stop = useCallback(() => { stopSearch(); stopRefine(); }, [stopSearch, stopRefine]);
 
     return {
         design, tn, surfaceMode, effSide, showSideRadio, operands,
@@ -342,5 +420,6 @@ export function useNeedleManual(t) {
         ...workflow,
         ...predicted,
         ...apply,
+        stop,
     };
 }

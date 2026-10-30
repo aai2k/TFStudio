@@ -119,3 +119,23 @@ export function startingThickness({ operands, design, resolveMat, candidate, mat
     const [lo, hi] = resolveDRange(candidate, { hostThickness: layers[candidate.layerK]?.thickness || 0 }, dMin);
     return Math.min(Math.max(d0, lo), hi);
 }
+
+/**
+ * profileScan as the optimizer worker runs it for the window. `job` carries
+ * profileScan's settings with the pool as `poolIds`; every material, the
+ * pool's included, comes from `resolveMat`.
+ */
+export function profileScanJob(job, resolveMat) {
+    const { operands, design, poolIds, deltaNm, nIntra, side } = job;
+    const candidateMats = poolIds.map(id => ({ id, mat: resolveMat(id) }));
+    return profileScan({ operands, design, resolveMat, candidateMats, deltaNm, nIntra, side });
+}
+
+/**
+ * startingThickness as the optimizer worker runs it for the window, with the
+ * candidate's material from `resolveMat`.
+ */
+export function startingThicknessJob(job, resolveMat) {
+    const { operands, design, candidate, dMin, side } = job;
+    return startingThickness({ operands, design, resolveMat, candidate, mat: resolveMat(candidate.materialId), dMin, side });
+}

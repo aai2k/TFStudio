@@ -2,7 +2,7 @@
  * The headless API's needleProfile and insertNeedle (src/api/needle.js)
  * against the Needle Manual window's own code.
  *
- *   1. needleProfile gives the candidates runNeedleScan gives on the window's
+ *   1. needleProfile gives the candidates profileScan gives on the window's
  *      rows (runOperands less the MNT and MXT rows) at the window's side
  *      setting, on the corpus designs whose materials resolve, each given a
  *      RAV row when it has no row the scan scores: front-only, back-only,
@@ -40,7 +40,6 @@ const { findOptimalNeedleThickness, resolveScanSide } = await import('../src/uti
 const { designMaterialLookup, resolveDesignMaterial, unresolvedMaterials } = await import('../src/utils/materials/designMaterials.js');
 const model = await import('../src/components/windows/optimization/needleManual/model.js');
 const { NEEDLE_MANUAL_DEFAULTS: FACTORY } = await import('../src/components/windows/optimization/needleManual/sessionState.js');
-const en = (await import('../src/constants/locales/en.js')).default;
 
 let pass = 0, fail = 0;
 const ok = (name, cond, detail = '') => {
@@ -91,11 +90,11 @@ function expectedCandidate(cand, side, stored, zb) {
     const between = side === 'front' ? stored.slice(cand.pos) : stored.slice(0, cand.pos);
     return { ...common, kind: 'gap', layer: null, position: between.length, fraction: null };
 }
-// The window's scan of case `c` (runNeedleScan at the window's side setting).
-const windowScan = c => model.runNeedleScan({
+// The window's scan of case `c` (profileScan at the window's side setting).
+const windowScan = c => model.profileScan({
     operands: windowRows(c.design), design: c.design, resolveMat: designMaterialLookup(c.design),
-    candidateMats: windowPool(c.design, POOL), deltaNm: FACTORY.deltaNm, nIntra: INTRA, side: c.requested, tn: en.needleManual,
-}).scan;
+    candidateMats: windowPool(c.design, POOL), deltaNm: FACTORY.deltaNm, nIntra: INTRA, side: c.requested,
+});
 
 const wrongScans = [];
 const seen = new Set();

@@ -6,9 +6,9 @@ import { matDisplayName } from './materialNames.js';
 
 // Above this many candidate materials the pool panel warns that scans may be slow.
 export const POOL_WARN_COUNT = 200;
-// Hard ceiling for single-threaded scans (Needle Manual): past this the profile
-// scan runs long enough on the UI thread to freeze/crash the renderer, so it is
-// refused rather than attempted.
+// Hard ceiling for the Needle Manual profile scan: a larger pool is refused
+// rather than scanned. The scan runs in the optimizer worker, whose material
+// tables grow with the pool times the rows' samples.
 export const POOL_MAX_SYNC = 400;
 
 // Full material id for a catalog key. Builtin keys are unprefixed; design-catalog

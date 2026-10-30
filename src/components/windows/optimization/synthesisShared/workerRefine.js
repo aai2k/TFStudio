@@ -14,6 +14,10 @@
  * { mfInitial, mfBest, design }, the design at the best point, and report
  * progress as { step, iters, mf, frontLayers, backLayers }: the best merit so
  * far and the layers of that best point.
+ *
+ * inOptimizerWorker runs any other job of the optimizer worker the same way,
+ * with the same Stop: Needle Manual's profile scan and the starting thickness
+ * of a picked needle run through it.
  */
 
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
@@ -26,46 +30,69 @@ function startWorker() {
     catch (_) { return null; }
 }
 
-// Runs `job` in a worker. Resolves when the worker finishes, or when `signal`
-// aborts, with the best point it last reported. Resolves null when no worker
-// starts, or it fails before reporting a point; the caller then runs the pass
-// on its own thread.
-export function refineInWorker(job, { signal, onProgress } = {}) {
-    if (signal && signal.aborted) return Promise.resolve(null);
-    const materials = presampleSynthesisMaterials(job.design, job.operands, []);
+/**
+ * Runs one job in an optimizer worker of its own: posts `message` with the
+ * WASM kernel, and hands each message the worker posts back to `onMessage`,
+ * which returns true once the job is over. Resolves true then, when the worker
+ * fails, or when `signal` aborts (at once if it already has), and the worker
+ * is terminated. Resolves false when no worker starts.
+ */
+export function inOptimizerWorker(message, { signal, onMessage }) {
+    if (signal && signal.aborted) return Promise.resolve(true);
     const worker = startWorker();
-    if (!worker) return Promise.resolve(null);
+    if (!worker) return Promise.resolve(false);
+    worker.postMessage({ ...message, wasmBytes: getTmmWasmBytesForWorker() });
+    return untilDone(worker, { signal, onMessage });
+}
 
+// The job's end in `worker`, for inOptimizerWorker. The message is not in reach
+// from here, so its material tables are not held on this thread while the
+// worker runs.
+function untilDone(worker, { signal, onMessage }) {
     return new Promise((resolve) => {
-        let mfInitial = null, best = null, settled = false;
+        let settled = false;
         const finish = () => {
             if (settled) return;
             settled = true;
             worker.terminate();
             if (signal) signal.removeEventListener('abort', finish);
-            resolve(best && {
-                mfInitial, mfBest: best.mf,
-                design: { ...job.design, frontLayers: best.frontLayers, backLayers: best.backLayers },
-            });
-        };
-        const report = (m) => {
-            best = { mf: m.mfBest, frontLayers: m.bestFrontLayers, backLayers: m.bestBackLayers };
-            if (onProgress) onProgress({ step: m.iter, iters: job.iters, ...best });
+            resolve(true);
         };
         if (signal) signal.addEventListener('abort', finish);
         worker.onmessage = ({ data: m }) => {
-            if (settled || !m) return;
-            if (m.type === 'init') mfInitial = m.mfInitial;
-            if (m.type === 'progress' || m.type === 'done') report(m);
-            if (m.type === 'done' || m.type === 'error') finish();
+            if (!settled && m && onMessage(m)) finish();
         };
         worker.onerror = finish;
-        worker.postMessage({
-            type: 'start', method: job.method, operands: job.operands, design: job.design, materials,
-            opts: { maxIter: job.iters }, engineOpts: { dMin: job.dMin },
-            wasmBytes: getTmmWasmBytesForWorker(),
-        });
     });
+}
+
+// Runs `job` in a worker. Resolves when the worker finishes, or when `signal`
+// aborts, with the best point it last reported. Resolves null when no worker
+// starts, or it fails before reporting a point; the caller then runs the pass
+// on its own thread.
+export async function refineInWorker(job, { signal, onProgress } = {}) {
+    if (signal && signal.aborted) return null;
+    const materials = presampleSynthesisMaterials(job.design, job.operands, []);
+    let mfInitial = null, best = null;
+    const report = (m) => {
+        best = { mf: m.mfBest, frontLayers: m.bestFrontLayers, backLayers: m.bestBackLayers };
+        if (onProgress) onProgress({ step: m.iter, iters: job.iters, ...best });
+    };
+    await inOptimizerWorker({
+        type: 'start', method: job.method, operands: job.operands, design: job.design, materials,
+        opts: { maxIter: job.iters }, engineOpts: { dMin: job.dMin },
+    }, {
+        signal,
+        onMessage: (m) => {
+            if (m.type === 'init') mfInitial = m.mfInitial;
+            if (m.type === 'progress' || m.type === 'done') report(m);
+            return m.type === 'done' || m.type === 'error';
+        },
+    });
+    return best && {
+        mfInitial, mfBest: best.mf,
+        design: { ...job.design, frontLayers: best.frontLayers, backLayers: best.backLayers },
+    };
 }
 
 // One macrotask boundary: the browser paints and dispatches input here.

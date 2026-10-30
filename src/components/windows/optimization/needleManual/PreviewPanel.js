@@ -1,5 +1,6 @@
 // Insertion preview panel: picked geometry, predicted optical merit, and the
-// Apply button, with Stop beside it while the refine after Apply runs.
+// Apply button, with Stop beside it while the starting thickness of a pick is
+// searched for or the refine after Apply runs.
 
 import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.js';
 import { NumberField } from '../../../ui/numberField.js';
@@ -7,10 +8,11 @@ import { provisionalMark } from '../provisionalMark.js';
 
 const { createElement: h } = React;
 
-// Materials are named and coloured as `design` resolves them.
+// Materials are named and coloured as `design` resolves them. `picking` is on
+// while the starting thickness is searched for, `stoppable` while Stop shows.
 export function PreviewPanel({
     selected, hostInfo, dNew, dRange, predictedOMF, omf0, predictedProvisional, omf0Provisional, evaluationBusy,
-    onDNew, onApply, onStop, busy, refining, design, c, t,
+    picking, onDNew, onApply, onStop, busy, stoppable, design, c, t,
 }) {
     const tn = t.needleManual;
     if (!selected) {
@@ -45,8 +47,10 @@ export function PreviewPanel({
             }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, t.units.nm),
         ),
-        h(MeritLine, { predictedOMF, omf0, predictedProvisional, omf0Provisional, evaluationBusy, c, t }),
-        h(ApplyRow, { onApply, onStop, busy, refining, c, tn })
+        picking
+            ? h('div', { style: { fontSize: 11, color: c.textDim } }, tn.picking)
+            : h(MeritLine, { predictedOMF, omf0, predictedProvisional, omf0Provisional, evaluationBusy, c, t }),
+        h(ApplyRow, { onApply, onStop, busy, stoppable, c, tn })
     );
 }
 
@@ -78,7 +82,7 @@ function MeritLine({ predictedOMF, omf0, predictedProvisional, omf0Provisional, 
     );
 }
 
-function ApplyRow({ onApply, onStop, busy, refining, c, tn }) {
+function ApplyRow({ onApply, onStop, busy, stoppable, c, tn }) {
     return h('div', { style: { display: 'flex', gap: 6 } },
         h('button', {
             onClick: onApply, disabled: busy,
@@ -88,14 +92,20 @@ function ApplyRow({ onApply, onStop, busy, refining, c, tn }) {
                 cursor: busy ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit', opacity: busy ? 0.6 : 1,
             }
         }, tn.apply),
-        refining && h('button', {
-            onClick: onStop,
-            style: {
-                padding: '4px 16px', fontSize: 12, cursor: 'pointer',
-                border: `1px solid ${c.error}`, borderRadius: 3,
-                background: c.error + '33', color: c.error,
-                fontWeight: 600, fontFamily: 'inherit',
-            }
-        }, tn.stop)
+        stoppable && h(StopButton, { onStop, c, tn })
     );
+}
+
+// The window's Stop, beside Apply and, while the profile scan runs, beside
+// Compute P-function.
+export function StopButton({ onStop, c, tn, style = null }) {
+    return h('button', {
+        onClick: onStop,
+        style: {
+            padding: '4px 16px', fontSize: 12, cursor: 'pointer',
+            border: `1px solid ${c.error}`, borderRadius: 3,
+            background: c.error + '33', color: c.error,
+            fontWeight: 600, fontFamily: 'inherit', ...style,
+        }
+    }, tn.stop);
 }

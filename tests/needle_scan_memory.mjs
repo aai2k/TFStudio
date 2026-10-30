@@ -7,9 +7,11 @@
  * out of a 4 GB heap at 0.01 nm. Rows that share a grid of a few hundred
  * samples still share the kernel's results.
  *
- * The scan runs the Needle Manual window's path (needleManual/model.js). The
- * scanned values are checked against finite differences by the needle scan
- * tests (needle_scan_spec_merits.mjs and others); this test checks memory.
+ * The scan is the Needle Manual window's (profileScan), run here on this thread
+ * where the window runs it in the optimizer worker; the material tables the
+ * worker is sent are not part of what this test measures. The scanned values
+ * are checked against finite differences by the needle scan tests
+ * (needle_scan_spec_merits.mjs and others); this test checks memory.
  *
  * Run: node tests/needle_scan_memory.mjs
  */
@@ -63,14 +65,13 @@ assert.equal(operandSampleLambdas(operands[0]).length, 3001, 'the row at 0.1 nm 
 
 collect();
 const start = process.memoryUsage().heapUsed;
-const result = model.runNeedleScan({
-    operands, design, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front', effSide: 'front',
-    tn: { alreadyOptimal: 'optimal', scanDone: (a, b) => `${a}/${b}` },
+const result = model.profileScan({
+    operands, design, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front',
 });
 kernel.tmmNeedleScan = scan;
 
 assert.ok(calls >= 3001, `the scan asked the kernel for every sample (${calls} calls)`);
-assert.ok(result.scan?.candidates.length > 0 && result.scan.candidates.every(c => Number.isFinite(c.grad)),
+assert.ok(result?.candidates.length > 0 && result.candidates.every(c => Number.isFinite(c.grad)),
     'the scan returns a slope for every candidate');
 const growth = (peak - start) / 2 ** 20;
 // The scan keeps at most 64 MB of results; holding them all took about 500 MB
@@ -93,9 +94,8 @@ kernel.tmmNeedleScan = function sampled(...args) {
 };
 collect();
 const rangedStart = process.memoryUsage().heapUsed;
-model.runNeedleScan({
-    operands: rangedOps, design: ranged, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front', effSide: 'front',
-    tn: { alreadyOptimal: 'optimal', scanDone: (a, b) => `${a}/${b}` },
+model.profileScan({
+    operands: rangedOps, design: ranged, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front',
 });
 kernel.tmmNeedleScan = scan;
 const rangedGrowth = (peak - rangedStart) / 2 ** 20;
@@ -111,9 +111,8 @@ const sharedOps = model.runOperands(shared, resolveMat).filter(op => !isConstrai
 const samples = operandSampleLambdas(sharedOps[0]).length;
 let sharedCalls = 0;
 kernel.tmmNeedleScan = function counted(...args) { sharedCalls++; return scan.apply(this, args); };
-model.runNeedleScan({
-    operands: sharedOps, design: shared, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front', effSide: 'front',
-    tn: { alreadyOptimal: 'optimal', scanDone: (a, b) => `${a}/${b}` },
+model.profileScan({
+    operands: sharedOps, design: shared, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front',
 });
 kernel.tmmNeedleScan = scan;
 assert.equal(sharedCalls, samples, `two rows on one grid of ${samples} samples made ${sharedCalls} kernel calls`);
@@ -125,9 +124,8 @@ const fineOps = model.runOperands(fine, resolveMat).filter(op => !isConstraint(o
 const fineSamples = operandSampleLambdas(fineOps[0]).length;
 let fineCalls = 0;
 kernel.tmmNeedleScan = function counted(...args) { fineCalls++; return scan.apply(this, args); };
-model.runNeedleScan({
-    operands: fineOps, design: fine, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front', effSide: 'front',
-    tn: { alreadyOptimal: 'optimal', scanDone: (a, b) => `${a}/${b}` },
+model.profileScan({
+    operands: fineOps, design: fine, resolveMat, candidateMats: pool, deltaNm: 0.5, nIntra: 16, side: 'front',
 });
 kernel.tmmNeedleScan = scan;
 assert.ok(fineCalls <= 2 * fineSamples - 300, `two rows on ${fineSamples} samples made ${fineCalls} kernel calls, sharing what the cache holds`);

@@ -7,8 +7,10 @@
  *   1. Compute the P-function profile ∂MF/∂d_needle along the stack depth z,
  *      one curve per candidate material (Tikhonravov 1996; Sullivan &
  *      Dobrowolski 1996). Curves below zero mark depths where a thin needle of
- *      that material lowers the merit function.
- *   2. Click a point on a curve to pick a position (z) + material.
+ *      that material lowers the merit function. The scan runs in the
+ *      optimizer worker and can be stopped.
+ *   2. Click a point on a curve to pick a position (z) + material; the
+ *      needle's starting thickness is searched for in the worker too.
  *   3. Preview the resulting split-layer geometry and the predicted ΔMF, and
  *      tune the inserted thickness d_new with a slider.
  *   4. Apply: a single insertion (optionally followed by one refinement pass
@@ -22,7 +24,7 @@ import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { useNeedleManual } from './useNeedleManual.js';
 import { PFunctionPlot } from './PFunctionPlot.js';
 import { LeftSidebar } from './LeftSidebar.js';
-import { PreviewPanel } from './PreviewPanel.js';
+import { PreviewPanel, StopButton } from './PreviewPanel.js';
 
 const { createElement: h } = React;
 
@@ -54,6 +56,7 @@ export function NeedleManual({ c, theme, t }) {
                     cursor: s.busy ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit', opacity: s.busy ? 0.6 : 1,
                 }
             }, s.scanning ? tn.scanningBtn : tn.compute),
+            s.scanning && h(StopButton, { onStop: s.stop, c, tn, style: { padding: '3px 14px' } }),
             h(OptimizeBadge, { design: s.design, c, t }),
             h(EvalModeBadge, { design: s.design, c, t }),
             h(MeritRangeBadge, { design: s.design, c, t }),
@@ -108,9 +111,9 @@ export function NeedleManual({ c, theme, t }) {
                         selected: s.selected, hostInfo: s.hostInfo || {}, dNew: s.dNew, dRange: s.dRange,
                         predictedOMF: s.predictedOMF, omf0: s.omfNow,
                         predictedProvisional: s.predictedProvisional, omf0Provisional: s.omfNowProvisional,
-                        evaluationBusy: s.predictedOMFBusy,
+                        evaluationBusy: s.predictedOMFBusy, picking: s.picking,
                         onDNew: s.setDNew, onApply: s.handleApply, onStop: s.stop,
-                        busy: s.busy, refining: s.refining, design: s.design, c, t,
+                        busy: s.busy, stoppable: s.refining || s.picking, design: s.design, c, t,
                     })
                 )
             )
