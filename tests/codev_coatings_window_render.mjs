@@ -9,13 +9,13 @@
  * writer's notes in the notice badge there. The Import tab opens the file in
  * its panel, sums up what the file sets there, and beside it shows the stack,
  * incident side first, with the layers CODE V holds fixed locked; it offers the
- * stack to the front and the back coating, the back off in Symmetric mode and
- * both off with no design selected, and to the Coating Library. Wavelengths
- * are shown as short as the float32 CODE V holds them in allows. The Export
- * tab holds its options in a panel section
- * above the preview, and is blocked while the design has a material this
- * computer cannot resolve, as the Zemax window's is. With no design selected it
- * asks for one in place of all of that.
+ * stack to the front and the back coating, each off on a side the design does
+ * not compute, the back off in Symmetric mode, and both off with no design
+ * selected, and to the Coating Library. Wavelengths are shown as short as the
+ * float32 CODE V holds them in allows. The Export tab holds its options in a
+ * panel section above the preview, and is blocked while the design has a
+ * material this computer cannot resolve, as the Zemax window's is. With no
+ * design selected it asks for one in place of all of that.
  *
  * Run: node tests/codev_coatings_window_render.mjs
  */
@@ -48,7 +48,7 @@ const z = t.codevCoatings;
 const noop = () => {};
 const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
 const attr = (value) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
-const renderWindow = (tl) => renderToStaticMarkup(withDesign(React.createElement(CodevCoatings, { c, t: tl })));
+const renderWindow = (tl, design) => renderToStaticMarkup(withDesign(React.createElement(CodevCoatings, { c, t: tl }), design));
 
 // ── Registered, on the ribbon beside Zemax Coatings, with a help page ─────────
 {
@@ -112,14 +112,30 @@ const buttons = (markup, labels = [z.importToFront, z.importToBack]) => [...mark
     assert.deepEqual(rows.map(row => (row.match(/>(\d+\.\d\d)</) || [])[1]), ['95.00', '400.00', '12.50'], 'layers in file order');
     assert.deepEqual(rows.map(row => row.includes('<svg')), [false, true, false], 'only the code 100 layer is locked');
 
-    // Both import buttons are live, unless the back mirrors the front.
-    assert.deepEqual(buttons(html), [[z.importToFront, false], [z.importToBack, false]]);
     assert.ok(!html.includes(attr(z.importNoDesign)), 'with a design open nothing asks for one');
-    const symmetric = renderImport({ ...makeSampleDesign(), surfaceMode: 'symmetric' });
-    assert.deepEqual(buttons(symmetric), [[z.importToFront, false], [z.importToBack, true]],
-        'in Symmetric mode the back coating is the mirror of the front');
-    assert.ok(symmetric.includes(`title="${attr(z.importBackSymmetric)}"`), 'and the back button says so');
-    assert.ok(!html.includes(`title="${attr(z.importBackSymmetric)}"`), 'which it does not say otherwise');
+
+    // An import button is on for a side the design computes. A design coated
+    // on one side alone and scored on that side ignores the other, and the
+    // back of a symmetric design is the mirror of its front: the button for
+    // that side is off and says why, each design as [surfaceMode, mfEvalMode,
+    // front off, back off, the reason given]. A design with neither set is
+    // coated on the front alone and scored on that side.
+    const cases = [
+        [undefined, undefined, false, true, z.importBackIgnored],
+        ['front_only', 'side', false, true, z.importBackIgnored],
+        ['back_only', 'side', true, false, z.importFrontIgnored],
+        ['symmetric', 'side', false, true, z.importBackSymmetric],
+        ['front_only', 'total', false, false, null],
+        ['back_only', 'total', false, false, null],
+        ['both_independent', 'side', false, false, null],
+    ];
+    for (const [surfaceMode, mfEvalMode, frontOff, backOff, reason] of cases) {
+        const markup = renderImport({ ...makeSampleDesign(), surfaceMode, mfEvalMode });
+        assert.deepEqual(buttons(markup), [[z.importToFront, frontOff], [z.importToBack, backOff]], `${surfaceMode}, ${mfEvalMode}`);
+        for (const tip of [z.importFrontIgnored, z.importBackIgnored, z.importBackSymmetric]) {
+            assert.equal(markup.includes(`<span title="${attr(tip)}"><button`), tip === reason, `${surfaceMode}, ${mfEvalMode}: ${tip}`);
+        }
+    }
 }
 
 // A stack with no title is headed by its file name.
@@ -165,10 +181,12 @@ assert.ok(text(renderImport(makeSampleDesign(), { ...stack, title: '' })).includ
 
     codevCoatingsSession.reset();
     codevCoatingsSession.write(null, { stack, fileName: 'silver.seq', filePath: 'C:\\silver.seq' });
-    const html = renderWindow(t);
+    const html = renderWindow(t, { ...makeSampleDesign(), surfaceMode: 'both_independent' });
     assert.ok(html.includes(`title="${t.analysisChrome.notices}"`), 'a file with a note raises the notice badge');
     assert.ok(text(html).includes('Silver Reflector'), 'beside the stack read');
-    assert.deepEqual(buttons(html), [[z.importToFront, false], [z.importToBack, false]], 'a design open, both imports are on');
+    assert.deepEqual(buttons(html), [[z.importToFront, false], [z.importToBack, false]], 'a design coated on both sides, both imports are on');
+    assert.deepEqual(buttons(renderWindow(t, { ...makeSampleDesign(), surfaceMode: 'back_only', mfEvalMode: 'side' })),
+        [[z.importToFront, true], [z.importToBack, false]], 'on one coated on the back alone, the front import is off');
     codevCoatingsSession.reset();
 }
 

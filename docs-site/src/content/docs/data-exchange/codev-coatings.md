@@ -38,7 +38,7 @@ A file that writes its numbers with a decimal comma (`403,03`) imports with a wa
 
 A thickness entered in waves (`PHT N`) is converted to nm with the layer's n at `REF`, or at the central analysis wavelength when the file has no `REF`, which is what CODE V takes then. An imported `MIC` material is tabulated over the span of its `MWL` points, the analysis wavelengths and `REF`, with n and k that follow CODE V 11.2's interpolation of its table, between the `MWL` points and past them. When `REF` lies outside a `MIC` table that a layer entered in waves uses, a warning names the material.
 
-The front coating takes the layers in the order the file lists them. The back coating takes them with the file's first layer on the exit side and its last against the substrate, the order the export writes a back coating in. When [**Symmetric (back = front)**](/design/evaluation-modes/) is ticked, the back coating is the mirror of the front, so only **Import → front coating** is available.
+The front coating takes the layers in the order the file lists them. The back coating takes them with the file's first layer on the exit side and its last against the substrate, the order the export writes a back coating in. When [**Symmetric (back = front)**](/design/evaluation-modes/) is ticked, the back coating is the mirror of the front, so only **Import → front coating** is available. A design coated on one side alone with **Ignore other side** ticked does not compute the other side, so the import to that side is off.
 
 A layer CODE V holds fixed (code 100) is imported locked. A layer coupled to others (code 1 to 99) is imported free, since TFStudio has no coupled layers, and the report says how many there were.
 

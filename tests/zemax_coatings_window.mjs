@@ -5,9 +5,10 @@
  * The tabs, the reference wavelength and the report of the last action sit in
  * one control row, as in Measured Spectra. Both import tabs carry the panel
  * that opens the file; the Coatings tab offers the selected stack to the front
- * coating, off with no design selected, and to the Coating Library; the
- * Materials tab selects records; the Export tab holds its options in a panel
- * section above the preview, and with no design selected asks for one instead.
+ * coating, off with no design selected or on a design that does not compute
+ * its front, and to the Coating Library; the Materials tab selects records;
+ * the Export tab holds its options in a panel section above the preview, and
+ * with no design selected asks for one instead.
  * A file that defines a material name twice raises a notice in the control row.
  *
  * Run: node tests/zemax_coatings_window.mjs
@@ -15,7 +16,7 @@
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeDesignCtx, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { loadApp, makeDesignCtx, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 const { DesignContext } = await loadApp();
@@ -29,7 +30,7 @@ const [{ ZemaxCoatings }, { zemaxCoatingsSession }, { WINDOW_REGISTRY }, { parse
 
 const c = makeTheme();
 const text = (html) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&');
-const render = (t) => renderToStaticMarkup(withDesign(React.createElement(ZemaxCoatings, { c, t, setInputDialog: () => {} })));
+const render = (t, design) => renderToStaticMarkup(withDesign(React.createElement(ZemaxCoatings, { c, t, setInputDialog: () => {} }), design));
 // The window as it is with no design selected in the explorer.
 const renderNoDesign = (t) => renderToStaticMarkup(React.createElement(DesignContext.Provider,
     { value: { ...makeDesignCtx(), hasActiveDesign: false } },
@@ -106,6 +107,22 @@ const load = (patch) => {
     zemaxCoatingsSession.write(null, { doc: long, fileName: 'LONG.DAT', selCoating: 0, tab: 'coatings' });
     const shown = text(render(t));
     assert.ok(shown.includes(`0.123457 ${z.modeAbs}`) && !shown.includes('0.123456789012345'), 'the Mode column rounds the file value');
+}
+
+// A design coated on the back alone and scored on that side does not compute
+// its front, so the import is off there and says why; on every other design
+// it is on.
+{
+    load({ tab: 'coatings' });
+    const renderOn = (surfaceMode, mfEvalMode) => render(t, { ...makeSampleDesign(), surfaceMode, mfEvalMode });
+    const backAlone = renderOn('back_only', 'side');
+    assert.deepEqual(buttons(backAlone, [z.importToFront]), [[z.importToFront, true]], 'back alone: the import is off');
+    assert.ok(backAlone.includes(`<span title="${attr(z.importFrontIgnored)}"><button`), 'and says the front is ignored');
+    for (const [surfaceMode, mfEvalMode] of [['back_only', 'total'], ['front_only', 'side'], ['front_only', 'total'], ['both_independent', 'side'], ['symmetric', 'side']]) {
+        const html = renderOn(surfaceMode, mfEvalMode);
+        assert.deepEqual(buttons(html, [z.importToFront]), [[z.importToFront, false]], `${surfaceMode}, ${mfEvalMode}: the import is on`);
+        assert.ok(!html.includes(attr(z.importFrontIgnored)), `${surfaceMode}, ${mfEvalMode}: and gives no reason`);
+    }
 }
 
 // Materials: the selection actions in the panel, the records beside them, and

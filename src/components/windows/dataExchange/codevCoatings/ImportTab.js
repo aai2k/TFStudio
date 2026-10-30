@@ -1,5 +1,6 @@
 import { ActionButton } from '../../analysis/chrome/controls.js';
 import { CenteredMessage, EditorGroupTitle } from '../../analysis/chrome/layout.js';
+import { CoatingImportButton } from '../chrome/coatingImportButton.js';
 import { ImportPage, PanelSection } from '../chrome/panel.js';
 import { LockIcon } from '../../../ui/LockIcon.js';
 import { td, th } from '../zemaxCoatings/ui.js';
@@ -62,30 +63,14 @@ function LayersTable({ c, z, layers }) {
     );
 }
 
-// Why an import button is off, or undefined while it is on. With no design
-// selected there is nothing to import into. In Symmetric mode the design
-// replaces any back coating written to it with the mirror of the front, so
-// layers imported to the back would not stay there.
-function offReason(z, side, design, hasActiveDesign) {
-    if (hasActiveDesign === false) return z.importNoDesign;
-    if (side === 'back' && design?.surfaceMode === 'symmetric') return z.importBackSymmetric;
-    return undefined;
-}
-
-function ImportButton({ c, z, side, label, design, hasActiveDesign, importCoating }) {
-    const reason = offReason(z, side, design, hasActiveDesign);
-    return h('span', { title: reason },
-        h(ActionButton, { c, label, onClick: () => importCoating(side), disabled: reason != null }));
-}
-
 // The stack read, its layers as the file lists them, and what can be done with it.
 function StackView({ c, z, stack, fileName, design, hasActiveDesign, importCoating, saveToLibrary }) {
-    const importProps = { c, z, design, hasActiveDesign, importCoating };
+    const importProps = { c, z, design, hasActiveDesign };
     return h(React.Fragment, null,
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
             h('div', { style: { fontWeight: 600, fontSize: 12, marginRight: 'auto' } }, stack.title || fileName),
-            h(ImportButton, { ...importProps, side: 'front', label: z.importToFront }),
-            h(ImportButton, { ...importProps, side: 'back', label: z.importToBack }),
+            h(CoatingImportButton, { ...importProps, side: 'front', label: z.importToFront, onClick: () => importCoating('front') }),
+            h(CoatingImportButton, { ...importProps, side: 'back', label: z.importToBack, onClick: () => importCoating('back') }),
             h(ActionButton, { c, label: z.saveToLibrary, title: z.saveToLibraryTip, onClick: saveToLibrary }),
         ),
         h(EditorGroupTitle, { c }, z.layersHeader(stack.layers.length)),

@@ -1,5 +1,6 @@
 import { ActionButton } from '../../analysis/chrome/controls.js';
 import { CenteredMessage, EditorGroupTitle } from '../../analysis/chrome/layout.js';
+import { CoatingImportButton } from '../chrome/coatingImportButton.js';
 import { PanelSection } from '../chrome/panel.js';
 import { LockIcon } from '../../../ui/LockIcon.js';
 import { ImportPage } from './ImportPage.js';
@@ -63,17 +64,10 @@ function coatingLayerRow(layer, index, { c, z, materialsByName, refNm, units }) 
     );
 }
 
-// With no design selected there is nothing to import into.
-function ImportButton({ c, z, hasActiveDesign, importCoating }) {
-    const noDesign = hasActiveDesign === false;
-    return h('span', { title: noDesign ? z.importNoDesign : undefined },
-        h(ActionButton, { c, label: z.importToFront, onClick: importCoating, disabled: noDesign }));
-}
-
 // The selected COAT, its layers as the file lists them, and what can be done
 // with it. A layer naming a material the file defines more than once is
 // converted with the last record of that name, as the import does.
-function CoatingDetail({ c, t, z, doc, selected, refNm, hasActiveDesign, importCoating, saveToLibrary }) {
+function CoatingDetail({ c, t, z, doc, selected, refNm, design, hasActiveDesign, importCoating, saveToLibrary }) {
     if (!selected) return h(CenteredMessage, { c, message: z.selectCoating });
     if (selected.type !== 'layers') return h(CenteredMessage, { c, message: z.importNotStack });
     const materialsByName = {};
@@ -81,7 +75,7 @@ function CoatingDetail({ c, t, z, doc, selected, refNm, hasActiveDesign, importC
     return h(React.Fragment, null,
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
             h('div', { style: { fontWeight: 600, fontSize: 12, marginRight: 'auto' } }, selected.name),
-            h(ImportButton, { c, z, hasActiveDesign, importCoating }),
+            h(CoatingImportButton, { c, z, side: 'front', label: z.importToFront, design, hasActiveDesign, onClick: importCoating }),
             h(ActionButton, { c, label: z.saveToLibrary, title: z.saveToLibraryTip, onClick: saveToLibrary }),
         ),
         h(EditorGroupTitle, { c }, z.layersHeader),
