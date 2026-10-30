@@ -5,6 +5,7 @@
 
 import { getNKById } from '../../../../utils/materials/catalogManager.js';
 import { makeGetNK } from '../../../../utils/materials/catalogManager/dispersion.js';
+import { LINEAR_INTERPOLATION } from '../../../../utils/materials/pchip.js';
 import { isBuiltinId, savedMaterialRecord } from '../../../../utils/materials/designMaterials.js';
 import { coatToTfLayers } from '../../../../utils/io/zemaxCoatingFile.js';
 import { buildMaterialRegistration, registerMaterials, rowsNamed } from './catalogImport.js';
@@ -15,7 +16,8 @@ import { buildMaterialRegistration, registerMaterials, rowsNamed } from './catal
  * the id the import gives it in the catalog of the file.
  *
  * The layers use the materials the catalog holds, edits included; a relative
- * thickness is converted with the index the file gives, as Zemax converts it.
+ * thickness is converted with the index the file gives, read as Zemax reads a
+ * MATE table: by straight lines between its rows, the end rows held outside.
  * A layer naming a material the file defines more than once takes the last
  * record of that name. With `write` the materials the layers name are
  * registered in the catalog, as an import does. Without it nothing is written:
@@ -39,7 +41,7 @@ export function convertSelectedCoating({ z, doc, selCoating, fileName, filePath,
         materialId: resolveId,
         realIndex: (zemaxName, wavelengthNm) => {
             const record = fileRecords[zemaxName.toUpperCase()];
-            if (record) return makeGetNK(record)(wavelengthNm)[0];
+            if (record) return makeGetNK({ ...record, interp: LINEAR_INTERPOLATION })(wavelengthNm)[0];
             const id = resolveId(zemaxName);
             return id ? getNKById(id, wavelengthNm)[0] : 0;
         },
