@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { renderToStaticMarkup } from 'react-dom/server';
 import {
     loadApp,
+    makeDesignCtx,
     makeLocale,
     makeSampleDesign,
     makeTheme,
@@ -130,6 +132,33 @@ for (const mode of ['front', 'back', 'total']) {
             assert.ok(Math.abs((spectrum.As[i] + spectrum.Ap[i]) / 2 - value) < 1e-12, `${mode}: (As + Ap) / 2 = A`);
             assert.ok(Math.abs(spectrum.As[i] - spectrum.Ap[i]) > 1e-4, `${mode}: s and p absorb differently`);
         });
+    }
+}
+
+// ── The window's empty state ─────────────────────────────────────────────────
+// A design coated on one side alone, read on its other side, is told which
+// side is bare, in every language; a design with no layers says it has none,
+// and a one-sided design read as the whole part is drawn.
+{
+    const { DesignContext } = await import('../src/state/DesignContext.js');
+    const render = (shown, evalMode, locale) => renderToStaticMarkup(React.createElement(
+        DesignContext.Provider, { value: { ...makeDesignCtx(shown), evalMode } },
+        React.createElement(Inhomogeneities, { c, t: locale, theme: c })));
+    const frontOnly = makeSampleDesign();
+    const backOnly = { ...makeSampleDesign(), frontLayers: [], backLayers: [{ id: 'b1', material: 'builtin:SiO2', thickness: 80 }] };
+    const bare = { ...makeSampleDesign(), frontLayers: [], backLayers: [] };
+    assert.match(render(frontOnly, 'back', t), /This design has no back layers\./);
+    assert.match(render(backOnly, 'front', t), /This design has no front layers\./);
+    assert.match(render(bare, 'front', t), /No layers in design\./);
+    for (const code of ['en', 'ru', 'zh', 'it']) {
+        const locale = makeLocale(code);
+        const empty = locale.analysisChrome;
+        assert.ok(render(frontOnly, 'back', locale).includes(empty.noBackLayers), `${code}: the bare back is named`);
+        assert.ok(render(backOnly, 'front', locale).includes(empty.noFrontLayers), `${code}: the bare front is named`);
+        assert.ok(render(bare, 'back', locale).includes(empty.noLayers), `${code}: a design with no layers says so`);
+        const whole = render(frontOnly, 'total', locale);
+        assert.ok(![empty.noLayers, empty.noFrontLayers, empty.noBackLayers].some(text => whole.includes(text)),
+            `${code}: a one-sided design read as the whole part is drawn`);
     }
 }
 

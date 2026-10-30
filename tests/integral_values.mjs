@@ -18,6 +18,10 @@
  *     the 5 nm CIE table spacing counts at its true width.
  * 19. 300-2500 nm at a 3 nm step, which ends on 2500 after a shorter last
  *     interval, gives every built-in row a value.
+ * 20. The window, on a design coated on one side alone and read on its other
+ *     side, names the bare side, in every language; on a design with no
+ *     layers it says it has none, and on a one-sided design read as the whole
+ *     part it draws.
  */
 
 import {
@@ -439,6 +443,38 @@ console.log('3 nm window grid');
         ok(got.covered === true && Number.isFinite(got.value), `${def.key} has a value on 300-2500 nm at 3 nm`);
         ok(Math.abs(got.value - ref) < 1e-4,
            `${def.key} at 3 nm within 0.01 points of the 0.1 nm grid (${got.value} vs ${ref})`);
+    }
+}
+
+// ── 20. The window's empty state ─────────────────────────────────────────────
+console.log('empty state');
+{
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { loadApp, makeDesignCtx, makeLocale, makeSampleDesign, makeTheme, shimBrowserGlobals } = await import('./_uiShim.mjs');
+    shimBrowserGlobals();
+    await loadApp();
+    const { DesignContext } = await import('../src/state/DesignContext.js');
+    const { IntegralValues } = await import('../src/components/windows/analysis/integralValues/IntegralValues.js');
+    const c = makeTheme();
+    const render = (shown, evalMode, t) => renderToStaticMarkup(React.createElement(
+        DesignContext.Provider, { value: { ...makeDesignCtx(shown), evalMode } },
+        React.createElement(IntegralValues, { c, t, theme: c })));
+    const frontOnly = makeSampleDesign();
+    const backOnly = { ...frontOnly, frontLayers: [], backLayers: frontOnly.frontLayers };
+    const bare = { ...frontOnly, frontLayers: [] };
+    const en = makeLocale();
+    ok(render(frontOnly, 'back', en).includes('This design has no back layers.'), 'the bare back is named');
+    ok(render(backOnly, 'front', en).includes('This design has no front layers.'), 'the bare front is named');
+    ok(render(bare, 'front', en).includes('No layers in design.'), 'a design with no layers says so');
+    for (const code of ['en', 'ru', 'zh', 'it']) {
+        const t = makeLocale(code);
+        const empty = t.analysisChrome;
+        ok(render(frontOnly, 'back', t).includes(empty.noBackLayers), `${code}: the bare back is named`);
+        ok(render(backOnly, 'front', t).includes(empty.noFrontLayers), `${code}: the bare front is named`);
+        ok(render(bare, 'total', t).includes(empty.noLayers), `${code}: a design with no layers says so`);
+        const whole = render(backOnly, 'total', t);
+        ok(![empty.noLayers, empty.noFrontLayers, empty.noBackLayers].some(text => whole.includes(text)),
+            `${code}: a one-sided design read as the whole part is drawn`);
     }
 }
 

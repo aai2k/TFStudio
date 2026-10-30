@@ -1221,6 +1221,9 @@ export default {
     restoreDefaultsTip: 'Вернуться к значениям, с которыми поставляется TFStudio.',
     defaultsUnavailable: 'Сейчас значения по умолчанию сохранить нельзя. Перезапустите TFStudio и повторите.',
     defaultsFailed: (reason) => `Не удалось сохранить значения по умолчанию: ${reason}`,
+    noLayers: 'Нет слоёв в проекте.',
+    noFrontLayers: 'В этом проекте нет передних слоёв.',
+    noBackLayers: 'В этом проекте нет задних слоёв.',
   },
 
   dataTable: {
@@ -2948,7 +2951,6 @@ export default {
   },
 
   wavelengthAngleMap: {
-    noLayers:      'Нет слоёв в проекте.',
     channel:       'Величина',
     polarization:  'Поляризация',
     polAvg:        'ср.',
@@ -3076,7 +3078,6 @@ export default {
   },
 
   roughnessScattering: {
-    noLayers:       'Нет слоёв в проекте.',
     computing:      'Расчёт…',
     step:           'шаг',
     clear:          'Сброс',
@@ -3111,7 +3112,6 @@ export default {
   },
 
   inhomogeneities: {
-    noLayers:           'Нет слоёв в проекте.',
     backModeUnsupported:'Переходные слои применяются к переднему покрытию — в режиме Back они не действуют. Переключите «Анализ» на Front или Total выше.',
     step:               'шаг',
     clearAll:           'Очистить',
@@ -3572,7 +3572,6 @@ export default {
       custom:   (name) => `весовая функция ${name}`,
     },
     weightingCurve: (name) => `${name} (нормиров.)`,
-    noLayers:    'Нет слоёв в проекте.',
     lambdaRange: 'λ',
     step:        'шаг',
     aoi:         'Угол',

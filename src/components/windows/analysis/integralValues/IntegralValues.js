@@ -18,7 +18,7 @@ import { ResultsTable } from './ResultsTable.js';
 import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
 import { tableFromWeights } from '../../dataExchange/curveEditor/curveTable.js';
 import { pointsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
-import { hasLayersForMode } from '../layersForMode.js';
+import { noLayersMessage } from '../layersForMode.js';
 import { exportColumns, exportRows } from './exportModel.js';
 import { useIntegralValues } from './useIntegralValues.js';
 
@@ -75,9 +75,8 @@ export function IntegralValues({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_integrals.csv`,
     );
 
-    if (!hasLayersForMode(design, evalMode)) {
-        return h(CenteredMessage, { c, message: iv.noLayers });
-    }
+    const emptyMessage = noLayersMessage(design, evalMode, t);
+    if (emptyMessage) return h(CenteredMessage, { c, message: emptyMessage });
 
     return h(AnalysisWindow, { c },
         h(IntegralControls, { c, t, model, notices: [

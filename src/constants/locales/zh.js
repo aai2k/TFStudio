@@ -1321,6 +1321,9 @@ export default {
     restoreDefaultsTip: '恢复 TFStudio 出厂设置。',
     defaultsUnavailable: '当前无法保存默认设置。请重启 TFStudio 后重试。',
     defaultsFailed: (reason) => `无法保存默认设置：${reason}`,
+    noLayers: '设计中无膜层。',
+    noFrontLayers: '此设计没有正面膜层。',
+    noBackLayers: '此设计没有背面膜层。',
   },
   dataTable: {
     data: '数据',
@@ -3395,7 +3398,6 @@ export default {
     scaleAbsoluteTip: '每层的原始 |ΔOMF|（对数刻度）。适合评估实际 OMF 影响大小。',
   },
   wavelengthAngleMap: {
-    noLayers: '设计中无膜层。',
     channel: '物理量',
     polarization: '偏振',
     polAvg: '平均',
@@ -3521,7 +3523,6 @@ export default {
   },
 
   roughnessScattering: {
-    noLayers: '设计中无膜层。',
     computing: '计算中…',
     step: '步长',
     clear: '重置',
@@ -3555,7 +3556,6 @@ export default {
     noticeOblique: '大尺度层是按正入射推导的；斜入射或在入射角锥上结果只是估算',
   },
   inhomogeneities: {
-    noLayers: '设计中无膜层。',
     backModeUnsupported: '过渡层适用于正面镀膜 — 在背面模式下无效果。请在上方将"分析"切换为正面或整体。',
     noBackLayers: '此评价包含背面镀膜，但设计没有背面膜层。请在设计编辑器中添加背面镀膜以渐变其界面。',
     step: '步长',
@@ -4031,7 +4031,6 @@ export default {
       custom: (name) => `${name} 权重`,
     },
     weightingCurve: (name) => `${name}（归一化）`,
-    noLayers: '设计中无膜层。',
     lambdaRange: 'λ',
     step: '步长',
     aoi: '入射角',

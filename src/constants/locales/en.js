@@ -1256,6 +1256,9 @@ export default {
     restoreDefaultsTip: 'Go back to the values TFStudio ships with.',
     defaultsUnavailable: 'Defaults cannot be saved right now. Restart TFStudio and try again.',
     defaultsFailed: (reason) => `Could not save the defaults: ${reason}`,
+    noLayers: 'No layers in design.',
+    noFrontLayers: 'This design has no front layers.',
+    noBackLayers: 'This design has no back layers.',
   },
 
   dataTable: {
@@ -2998,7 +3001,6 @@ export default {
   },
 
   wavelengthAngleMap: {
-    noLayers:      'No layers in design.',
     channel:       'Quantity',
     polarization:  'Polarization',
     polAvg:        'avg',
@@ -3126,7 +3128,6 @@ export default {
   },
 
   roughnessScattering: {
-    noLayers:       'No layers in design.',
     computing:      'Computing…',
     step:           'step',
     clear:          'Reset',
@@ -3162,7 +3163,6 @@ export default {
   },
 
   inhomogeneities: {
-    noLayers:           'No layers in design.',
     backModeUnsupported:'Interlayers apply to the front coating, so they have no effect in Back mode. Switch Analyze to Front or Total above.',
     noBackLayers:       'This evaluation includes the back coating, but the design has no back layers. Add a back coating in the Design Editor to grade its interfaces.',
     step:               'step',
@@ -3643,7 +3643,6 @@ export default {
     },
     // Legend entry of the weighting curve, which is drawn scaled to a 100 % peak.
     weightingCurve: (name) => `${name} (norm.)`,
-    noLayers:    'No layers in design.',
     lambdaRange: 'λ',
     step:        'step',
     aoi:         'AOI',

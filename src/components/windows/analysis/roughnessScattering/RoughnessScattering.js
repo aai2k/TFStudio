@@ -12,7 +12,7 @@ import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.j
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
-import { hasLayersForMode } from '../layersForMode.js';
+import { noLayersMessage } from '../layersForMode.js';
 import { RoughnessControls, RoughnessEditor, RoughnessEditorActions } from './RoughnessControls.js';
 import { ScatterChart } from './ScatterChart.js';
 import { scatterColumns, scatterRows } from './tableModel.js';
@@ -55,7 +55,8 @@ export function RoughnessScattering({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_scattering.csv`,
     );
 
-    if (!hasLayersForMode(design, state.evalMode)) return h(CenteredMessage, { c, message: rs.noLayers });
+    const emptyMessage = noLayersMessage(design, state.evalMode, t);
+    if (emptyMessage) return h(CenteredMessage, { c, message: emptyMessage });
 
     return h(AnalysisWindow, { c },
         h(RoughnessControls, {

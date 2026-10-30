@@ -1336,6 +1336,9 @@ export default {
     restoreDefaultsTip: 'Torna ai valori con cui TFStudio viene distribuito.',
     defaultsUnavailable: 'Al momento non è possibile salvare i predefiniti. Riavvia TFStudio e riprova.',
     defaultsFailed: (reason) => `Impossibile salvare i predefiniti: ${reason}`,
+    noLayers: 'Nessuno strato nel design.',
+    noFrontLayers: 'Questo design non ha strati anteriori.',
+    noBackLayers: 'Questo design non ha strati posteriori.',
   },
   dataTable: {
     data: 'Dati',
@@ -3418,7 +3421,6 @@ export default {
     scaleAbsoluteTip: "|ΔOMF| grezzo per strato (scala logaritmica). Utile per l'entità reale dell'impatto sull'OMF.",
   },
   wavelengthAngleMap: {
-    noLayers: 'Nessuno strato nel design.',
     channel: 'Grandezza',
     polarization: 'Polarizzazione',
     polAvg: 'media',
@@ -3543,7 +3545,6 @@ export default {
   },
 
   roughnessScattering: {
-    noLayers: 'Nessuno strato nel design.',
     computing: 'Calcolo in corso…',
     step: 'passo',
     clear: 'Reimposta',
@@ -3579,7 +3580,6 @@ export default {
     noticeOblique: 'Lo strato a lungo raggio è ricavato per incidenza normale; con incidenza obliqua o su un cono di angoli di incidenza è una stima',
   },
   inhomogeneities: {
-    noLayers: 'Nessuno strato nel design.',
     backModeUnsupported: 'Gli interstrati riguardano il rivestimento anteriore e non hanno effetto in modalità Posteriore. Porta Analizza su Anteriore o Totale qui sopra.',
     noBackLayers: "Questa valutazione comprende il rivestimento posteriore, ma il design non ha strati posteriori. Aggiungi un rivestimento posteriore nell'Editor del design per graduarne le interfacce.",
     step: 'passo',
@@ -4055,7 +4055,6 @@ export default {
       custom: (name) => `pesatura ${name}`,
     },
     weightingCurve: (name) => `${name} (normalizzata)`,
-    noLayers: 'Nessuno strato nel design.',
     lambdaRange: 'λ',
     step: 'passo',
     aoi: 'AOI',

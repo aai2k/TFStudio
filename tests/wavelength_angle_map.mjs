@@ -16,6 +16,9 @@
  *   6. A run is followed through useLiveDesign, like the other analysis windows.
  *   7. The material table the sweep's workers get holds every wavelength the
  *      sweep reads, at a step whose samples are not whole binary fractions.
+ *   8. A design coated on one side alone, read on its other side, is told
+ *      which side is bare, in every language; one with no layers says it has
+ *      none, and a one-sided design read as the whole part is drawn.
  *
  * Run: node tests/wavelength_angle_map.mjs
  */
@@ -226,6 +229,36 @@ const controls = {
     const table = new Set(requiredSurfaceLambdas(spec, design));
     const missing = [...read].filter(lam => !table.has(lam));
     assert.deepEqual(missing.slice(0, 3), [], `${missing.length} of ${read.size} wavelengths read are not in the table`);
+}
+
+// ── 8. The window's empty state ─────────────────────────────────────────────
+{
+    const { renderToStaticMarkup } = await import('react-dom/server');
+    const { loadApp, makeDesignCtx, makeLocale, makeTheme, shimBrowserGlobals } = await import('./_uiShim.mjs');
+    shimBrowserGlobals();
+    await loadApp();
+    const { DesignContext } = await import('../src/state/DesignContext.js');
+    const { WavelengthAngleMap } = await import('../src/components/windows/analysis/wavelengthAngleMap/WavelengthAngleMap.js');
+    const c = makeTheme();
+    const render = (shown, evalMode, t) => renderToStaticMarkup(React.createElement(
+        DesignContext.Provider, { value: { ...makeDesignCtx(shown), evalMode } },
+        React.createElement(WavelengthAngleMap, { c, t })));
+    const backOnly = { ...design, surfaceMode: 'back_only', frontLayers: [], backLayers: design.frontLayers };
+    const bare = { ...design, frontLayers: [] };
+    const en = makeLocale();
+    assert.match(render(design, 'back', en), /This design has no back layers\./);
+    assert.match(render(backOnly, 'front', en), /This design has no front layers\./);
+    assert.match(render(bare, 'front', en), /No layers in design\./);
+    for (const code of ['en', 'ru', 'zh', 'it']) {
+        const t = makeLocale(code);
+        const empty = t.analysisChrome;
+        assert.ok(render(design, 'back', t).includes(empty.noBackLayers), `${code}: the bare back is named`);
+        assert.ok(render(backOnly, 'front', t).includes(empty.noFrontLayers), `${code}: the bare front is named`);
+        assert.ok(render(bare, 'total', t).includes(empty.noLayers), `${code}: a design with no layers says so`);
+        const whole = render(backOnly, 'total', t);
+        assert.ok(![empty.noLayers, empty.noFrontLayers, empty.noBackLayers].some(text => whole.includes(text)),
+            `${code}: a one-sided design read as the whole part is drawn`);
+    }
 }
 
 console.log('wavelength_angle_map: passed');

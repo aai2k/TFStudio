@@ -15,7 +15,7 @@ import {
     InhomogeneityControls, InhomogeneityEditor, InhomogeneityEditorActions,
 } from './InhomogeneityControls.js';
 import { OverlayChart } from './OverlayChart.js';
-import { hasLayersForMode } from '../layersForMode.js';
+import { noLayersMessage } from '../layersForMode.js';
 import { overlayColumns, overlayRows } from './tableModel.js';
 import { useInhomogeneities } from './useInhomogeneities.js';
 
@@ -59,9 +59,8 @@ export function Inhomogeneities({ c, theme, t }) {
     const rangeNotice = useMaterialRangeNotice(
         design, state.lambdaStart, state.lambdaEnd, t, fixRange);
 
-    if (!hasLayersForMode(design, evalMode)) {
-        return h(CenteredMessage, { c, message: ih.noLayers });
-    }
+    const emptyMessage = noLayersMessage(design, evalMode, t);
+    if (emptyMessage) return h(CenteredMessage, { c, message: emptyMessage });
 
     return h(AnalysisWindow, { c },
         h(InhomogeneityControls, { c, t, ih, state, notices: buildNotices({ state, t, rangeNotice }) }),

@@ -12,7 +12,7 @@ import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.j
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
-import { hasLayersForMode } from '../layersForMode.js';
+import { noLayersMessage } from '../layersForMode.js';
 import { SurfaceChart } from '../plotEngine/charts.js';
 import { surfaceColumns, surfaceRows } from '../plotEngine/resultTable.js';
 import { MapControls } from './MapControls.js';
@@ -51,9 +51,8 @@ export function WavelengthAngleMap({ c, t }) {
     const rangeNotice = useMaterialRangeNotice(
         design, state.lambdaStart, state.lambdaEnd, t, fixRange);
 
-    if (!hasLayersForMode(design, state.evalMode)) {
-        return h(CenteredMessage, { c, message: wam.noLayers });
-    }
+    const emptyMessage = noLayersMessage(design, state.evalMode, t);
+    if (emptyMessage) return h(CenteredMessage, { c, message: emptyMessage });
 
     return h(AnalysisWindow, { c },
         h(MapControls, { c, t, wam, state, notices: [rangeNotice].filter(Boolean) }),

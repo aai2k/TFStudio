@@ -14,3 +14,16 @@ export function hasLayersForMode(design, evalMode) {
     if (evalMode === 'front') return hasFront;
     return hasFront || hasBack;
 }
+
+/**
+ * What a window shows in place of its result when the sides it computes have
+ * no layers, or null when they have some. A design coated on the other side
+ * alone is told which side is bare, since "no layers" would not be true of it.
+ */
+export function noLayersMessage(design, evalMode, t) {
+    if (hasLayersForMode(design, evalMode)) return null;
+    const empty = t.analysisChrome;
+    if (evalMode === 'back' && design?.frontLayers?.length) return empty.noBackLayers;
+    if (evalMode === 'front' && design?.backLayers?.length) return empty.noFrontLayers;
+    return empty.noLayers;
+}

@@ -99,11 +99,11 @@ assert.equal(scatterOption.legend.show, false,
 // A design coated on the back alone, read in Back mode, shows its back and
 // the back's two interfaces; a design with no layers on the side read says so.
 const c = makeTheme();
-const renderWith = (design, evalMode) => renderToStaticMarkup(
+const renderWith = (design, evalMode, t = makeLocale()) => renderToStaticMarkup(
     React.createElement(
         DesignContext.Provider,
         { value: { ...makeDesignCtx(design), evalMode } },
-        React.createElement(RoughnessScattering, { c, t: makeLocale(), theme: c })
+        React.createElement(RoughnessScattering, { c, t, theme: c })
     )
 );
 const backOnlyDesign = makeSampleDesign();
@@ -115,6 +115,21 @@ assert.ok(backOnlyHtml.includes(`2 ${makeLocale().roughnessScattering.interfaces
 const bareDesign = { ...makeSampleDesign(), frontLayers: [], backLayers: [] };
 assert.match(renderWith(bareDesign, 'front'), /No layers in design\./);
 assert.match(renderWith(bareDesign, 'back'), /No layers in design\./);
+
+// A design coated on one side alone, read on its other side, is told which
+// side is bare, in every language; read as the whole part it is drawn.
+assert.match(renderWith(makeSampleDesign(), 'back'), /This design has no back layers\./);
+assert.match(renderWith(backOnlyDesign, 'front'), /This design has no front layers\./);
+for (const code of ['en', 'ru', 'zh', 'it']) {
+    const t = makeLocale(code);
+    const empty = t.analysisChrome;
+    assert.ok(renderWith(makeSampleDesign(), 'back', t).includes(empty.noBackLayers), `${code}: the bare back is named`);
+    assert.ok(renderWith(backOnlyDesign, 'front', t).includes(empty.noFrontLayers), `${code}: the bare front is named`);
+    assert.ok(renderWith(bareDesign, 'total', t).includes(empty.noLayers), `${code}: a design with no layers says so`);
+    const whole = renderWith(backOnlyDesign, 'total', t);
+    assert.ok(![empty.noLayers, empty.noFrontLayers, empty.noBackLayers].some(text => whole.includes(text)),
+        `${code}: a one-sided design read as the whole part is drawn`);
+}
 
 // The editor offers both kinds and states the long-range model's limits where
 // the kind is chosen, in every language.
