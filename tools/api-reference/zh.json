@@ -192,12 +192,12 @@
     "text": "在脚本控制台中，是脚本开始时应用中打开的设计，一个 Design；没有打开设计时为 `null` / `None`；在程序中为 `null` / `None`。脚本结束时，留在这里的设计，无论 `tf.design` 是被直接修改还是被设为另一个 Design，都会作为撤销可以撤回的一步应用到打开的设计上，前提是该设计在此期间没有改变。打开的设计保留它的名称，即其文件的名称，因此当设计除名称外与开始时相同时，不会应用任何内容。"
   },
   "TFStudio.info.lead.1.js": {
-    "hash": "c941255a",
-    "text": "启动 TFStudio 时得到的情况，一个对象：`wasm`，快速内核加载成功时为 `true`；`dataDir`，读取了其材料目录的数据文件夹，或 null；`unreadable`，无法读取的材料目录文件。"
+    "hash": "7dc3caa6",
+    "text": "启动 TFStudio 时得到的情况，一个对象：`wasm`，WebAssembly 内核加载成功时为 `true`；`dataDir`，读取了其材料目录的数据文件夹，或 null；`unreadable`，无法读取的材料目录文件。"
   },
   "TFStudio.info.lead.1.py": {
-    "hash": "c31c6586",
-    "text": "为本程序服务的 TFStudio 在启动时给出的信息，一个 dict：version、wasm（快速内核是否加载）、dataDir（数据文件夹，或 None）、unreadable（无法读取的材料目录）和 live。"
+    "hash": "485cbead",
+    "text": "为本程序服务的 TFStudio 在启动时给出的信息，一个 dict：version、wasm（WebAssembly 内核是否加载）、dataDir（数据文件夹，或 None）、unreadable（无法读取的材料目录）和 live。"
   },
   "TFStudio.materials.lead.1": {
     "hash": "ca091908",

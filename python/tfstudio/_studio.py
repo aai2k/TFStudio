@@ -514,9 +514,9 @@ class TFStudio:
     @property
     def info(self):
         """What the TFStudio serving this program said as it started, a
-        dict: version, wasm (whether the fast kernel loaded), dataDir (the
-        data folder, or None), unreadable (catalogs it could not read) and
-        live.
+        dict: version, wasm (whether the WebAssembly kernel loaded),
+        dataDir (the data folder, or None), unreadable (catalogs it could
+        not read) and live.
 
         Example::
 

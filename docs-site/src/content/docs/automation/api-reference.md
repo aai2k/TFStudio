@@ -90,9 +90,9 @@ else:
 | ---------- | ------ |
 | `tf.info` | `tf.info` |
 
-**JavaScript**: What starting TFStudio found, an object: `wasm`, `true` when the fast kernel loaded, `dataDir`, the data folder whose catalogs it read, or null, and `unreadable`, the catalog files it could not read.
+**JavaScript**: What starting TFStudio found, an object: `wasm`, `true` when the WebAssembly kernel loaded, `dataDir`, the data folder whose catalogs it read, or null, and `unreadable`, the catalog files it could not read.
 
-**Python**: What the TFStudio serving this program said as it started, a dict: version, wasm (whether the fast kernel loaded), dataDir (the data folder, or None), unreadable (catalogs it could not read) and live.
+**Python**: What the TFStudio serving this program said as it started, a dict: version, wasm (whether the WebAssembly kernel loaded), dataDir (the data folder, or None), unreadable (catalogs it could not read) and live.
 
 ```js
 console.log(tf.info.wasm, tf.info.dataDir);

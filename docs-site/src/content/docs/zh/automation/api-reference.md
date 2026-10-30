@@ -90,9 +90,9 @@ else:
 | ---------- | ------ |
 | `tf.info` | `tf.info` |
 
-**JavaScript**：启动 TFStudio 时得到的情况，一个对象：`wasm`，快速内核加载成功时为 `true`；`dataDir`，读取了其材料目录的数据文件夹，或 null；`unreadable`，无法读取的材料目录文件。
+**JavaScript**：启动 TFStudio 时得到的情况，一个对象：`wasm`，WebAssembly 内核加载成功时为 `true`；`dataDir`，读取了其材料目录的数据文件夹，或 null；`unreadable`，无法读取的材料目录文件。
 
-**Python**：为本程序服务的 TFStudio 在启动时给出的信息，一个 dict：version、wasm（快速内核是否加载）、dataDir（数据文件夹，或 None）、unreadable（无法读取的材料目录）和 live。
+**Python**：为本程序服务的 TFStudio 在启动时给出的信息，一个 dict：version、wasm（WebAssembly 内核是否加载）、dataDir（数据文件夹，或 None）、unreadable（无法读取的材料目录）和 live。
 
 ```js
 console.log(tf.info.wasm, tf.info.dataDir);

@@ -122,7 +122,7 @@ Two things make every method faster without changing its results:
   and synthesis candidate searches spread their work across your CPU cores,
   so they stay responsive on large designs.
 - **Hardware-accelerated math**: the core optical calculation runs through
-  an optimized engine (on by default; *Settings → Performance*), giving a
+  an optimized engine, giving a
   large speed-up on every optimization.
 
 ---
