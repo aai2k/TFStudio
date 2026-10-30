@@ -7,6 +7,7 @@
  * does. Several designs render as a comparison, not as one report per design.
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { loadApp, makeLocale, shimBrowserGlobals } from './_uiShim.mjs';
 

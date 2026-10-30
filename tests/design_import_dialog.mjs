@@ -11,6 +11,7 @@
  *
  * Run: node tests/design_import_dialog.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadApp, makeLocale, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';

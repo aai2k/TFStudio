@@ -13,6 +13,7 @@
  * This locks `_residuals` to the reported merit: MF-from-residuals == calcMF.
  */
 
+import './_kernel.mjs';
 import {
     makeOperand, evaluateOperands, calcMF, buildEvalContext,
     operandResidualScale, DLSOptimizer,

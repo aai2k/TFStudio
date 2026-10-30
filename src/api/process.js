@@ -15,7 +15,7 @@ import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import processIpc from '../main/ipc/process.js';
 import mainPaths from '../main/paths.js';
 import { requireMaterial, requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { scoredSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, refusal, isAngle } from './check.js';
 
@@ -125,7 +125,7 @@ function runSettings(call, design, options) {
  */
 export function processSteps(design, options) {
     const settings = runSettings('processSteps', design, checkOptions('processSteps', options, RUN_OPTIONS));
-    warnWithoutKernel();
+    requireKernel();
     const shown = withHerpinRecords(design);
     const deposition = buildDepositionModel(shown, settings.activeSide, settings.chips);
     const common = {
@@ -206,7 +206,7 @@ export function exportProcess(design, folderPath, options) {
     const output = outputSettings('exportProcess', Object.fromEntries(Object.entries(given).filter(([key]) => OUTPUT_OPTIONS.includes(key))));
     const settings = runSettings('exportProcess', design, run);
     if (!fs.existsSync(folder) || !fs.statSync(folder).isDirectory()) throw new Error(`exportProcess: ${folder} is not a folder that is there`);
-    warnWithoutKernel();
+    requireKernel();
     const shown = withHerpinRecords(design);
     const files = buildAllProcessFiles(shown, {
         ...settings, outputDir: folder, appVersion: appVersion(), projectLabel: design.name, output,

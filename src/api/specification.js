@@ -12,7 +12,7 @@ import { BUILTIN_SOURCES, BUILTIN_DETECTORS } from '../utils/physics/spectralWei
 import { OPERAND_POLS, resolveEvalMode } from '../utils/physics/optimizer.js';
 import { designMaterialLookup, withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { isAngle, isBoolean, isPositive, shown, refusal } from './check.js';
 
 // The fields a check holds, over every kind: those makeQualifier gives a new
@@ -307,7 +307,7 @@ export function checkSpecification(design) {
         throw refusal('noSpecification', { call: 'checkSpecification' }, 'checkSpecification: the design has no specification; set one with setSpecification');
     }
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     const shownDesign = withHerpinRecords(design);
     const results = evaluateQualifiers(checks, shownDesign, designMaterialLookup(shownDesign), {});
     return verdictOf(checks, results, resolveEvalMode(shownDesign));

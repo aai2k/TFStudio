@@ -11,7 +11,7 @@ import { emptyRoughness, ROUGHNESS_RANGES } from '../utils/physics/scattering.js
 import { makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import { dispatchAnalysisEvaluation } from '../utils/workers/analysisEvaluationWorker.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { rowReader } from './inhomogeneities.js';
 import { storedLayers, viewSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, isAngle, isNonNegative } from './check.js';
@@ -140,7 +140,7 @@ export function roughness(design, options) {
     const mode = viewSide('roughness', shown, side);
     const rough = roughSpec(shown, { sigma, range, interfaces }, mode);
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     // The window's 'roughnessSpectra', in the analysis worker under a cone on
     // the design with its materials embedded, as the worker receives it.
     const coned = coneIsActive(makeConeSpec(shown.cone || {}));

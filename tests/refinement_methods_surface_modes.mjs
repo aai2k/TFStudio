@@ -25,6 +25,7 @@
  * Run: node tests/refinement_methods_surface_modes.mjs
  */
 
+import './_kernel.mjs';
 import { mirrorLayers } from '../src/utils/physics/optimizer.js';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
 import { makeEngine, ALL_METHODS } from '../src/utils/optimizers/index.js';

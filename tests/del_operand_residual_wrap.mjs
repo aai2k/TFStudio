@@ -11,6 +11,7 @@
  *
  * Run: node tests/del_operand_residual_wrap.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import {
     _operandResidual, buildEvalContext, calcMF, evaluateOperands, isWrappedAngle, makeOperand,

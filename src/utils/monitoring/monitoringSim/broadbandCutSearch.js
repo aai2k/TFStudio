@@ -156,8 +156,7 @@ export function runBroadbandLayerCut(p) {
     // evaluation. Deposition runs substrate-first, so the layers beneath
     // layer `i` are the higher storage indices i+1…N-1 (storage is
     // air→substrate). Declared outside the try so the finally can release
-    // whichever of the two exists: the evaluators hold kernel-side state when
-    // the WASM growing evaluator is active.
+    // whichever of the two exists: the evaluators hold kernel-side state.
     let truthEval = null;
     let modelEval = null;
     try {
@@ -169,9 +168,7 @@ export function runBroadbandLayerCut(p) {
             noiseStdFrac: randomPct / 100, absNoiseFrac: absNoisePct / 100, driftSlope, rng,
         }, p);
     } finally {
-        // Unconditional release; the JS evaluators have no free and nothing
-        // to release.
-        truthEval?.free?.();
-        modelEval?.free?.();
+        truthEval?.free();
+        modelEval?.free();
     }
 }

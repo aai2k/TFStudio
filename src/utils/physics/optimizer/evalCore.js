@@ -5,7 +5,7 @@
  * below are arranged. Reference: Macleod, Thin-Film Optical Filters 5e;
  * Sullivan & Dobrowolski Appl. Opt. 35 (1996).
  *
- *   kernels          TMM kernel entry points, WASM kernel with a JS fallback
+ *   kernels          TMM kernel entry points on the WASM kernel
  *   tmmEval          one (λ, angle, polarization) property through whichever
  *                    surface model the design's modes call for
  *   mathOperands     value and residual tables for the math operand kinds

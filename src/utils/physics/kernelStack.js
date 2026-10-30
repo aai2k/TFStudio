@@ -1,9 +1,30 @@
 /**
- * The stack tmmcore's calls take, { incident, substrate, layers: [{ n, k, d }] },
- * built from the shapes the rest of TFStudio carries: an index as an [n, k]
- * pair (ñ = n + ik), a layer as { n: [n, k], d } with d in nm, and over a
- * wavelength grid one [n, k] pair per wavelength.
+ * The WASM kernel TFStudio computes on, and the stack its calls take,
+ * { incident, substrate, layers: [{ n, k, d }] }, built from the shapes the
+ * rest of TFStudio carries: an index as an [n, k] pair (ñ = n + ik), a layer as
+ * { n: [n, k], d } with d in nm, and over a wavelength grid one [n, k] pair per
+ * wavelength.
  */
+
+import { getTmmWasm } from '../../tmmcore.js';
+
+/**
+ * The WASM kernel loaded in this thread. Every TMM calculation runs on it: the
+ * app loads it at startup, each worker from the bytes the app hands it, and a
+ * script before its first calculation (tf.init). A calculation before then is
+ * an error rather than a slower path.
+ */
+export function wasmKernel() {
+    const kernel = getTmmWasm();
+    if (!kernel) throw new Error('The WASM TMM kernel is not loaded in this thread');
+    return kernel;
+}
+
+/**
+ * The polarization a TFStudio row names, as tmmcore's calls take it: 'p' is p
+ * and anything else is s, a row saved without a polarization included.
+ */
+export const sOrP = pol => (pol === 'p' ? 'p' : 's');
 
 /** A stack at one wavelength. */
 export function pointStack(n0, ns, layers) {

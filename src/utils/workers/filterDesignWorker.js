@@ -7,12 +7,10 @@
  * interpolating index function from the dense λ grid.
  *
  * WASM: the main thread sends `{type:'wasmInit', wasmBytes}` once before the
- * job, when the kernel is enabled, so the search's hot path runs on the same
- * kernel the GUI uses. Without bytes `awaitTmmWasmReady()` resolves at once and
- * the search falls back to the JS kernel.
+ * job, so the search's hot path runs on the same kernel the GUI uses.
  *
  * Protocol:
- *   main → worker : { type:'wasmInit', wasmBytes }   (once, optional)
+ *   main → worker : { type:'wasmInit', wasmBytes }   (once)
  *                   { lambda0, targetParams, search, tables }
  *   worker → main : { type:'tick', best, candidates, iteration }  (after each restart)
  *                   { type:'result', candidates }         (search complete)

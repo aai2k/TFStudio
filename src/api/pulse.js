@@ -14,7 +14,7 @@ import { pulseProblem } from '../utils/physics/pulsePropagation.js';
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { phaseSide } from './stackViews.js';
 import { checkOptions, requireValue, refusal, isAngle, isPositive } from './check.js';
 
@@ -152,7 +152,7 @@ export function pulseAnalysis(design, options) {
             "pulseAnalysis: the design holds no pulse spectrum with light in it; set one with setPulseSpectrum, or take source 'model'");
     }
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     const shown = withHerpinRecords(design);
     const result = computePulseAnalysis(shown, {
         pulse, side: mode === 'total' ? 'whole' : mode, target: response, polarization: pol, thetaDeg: angle, passes,

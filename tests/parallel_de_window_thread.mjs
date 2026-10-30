@@ -19,6 +19,7 @@
  *
  * Run: node tests/parallel_de_window_thread.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { shimBrowserGlobals } from './_uiShim.mjs';
 import { NodeModuleWorker } from './_moduleWorker.mjs';
@@ -37,6 +38,7 @@ const { DLSOptimizer, makeOperand } = await import('../src/utils/physics/optimiz
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { getMaterialById } = await import('../src/utils/materials/catalogManager.js');
+const { getTmmWasmBytesForWorker } = await import('../src/tmmcore.js');
 
 const DESIGN = {
     id: 'ar6', incidentMedium: 'Air', exitMedium: 'Air', substrate: { material: 'BK7', thickness: 1 },
@@ -80,7 +82,8 @@ for (const id of ['TiO2', 'SiO2', 'BK7', 'Air']) { watch(getMaterial(id)); watch
     let result;
     try {
         result = await quiet(runRefinement)(DESIGN, OPS(), SETTINGS, {
-            makeWorker, makeEvalPool: size => new WorkerPool(MFEVAL_WORKER_URL, size),
+            makeWorker,
+            makeEvalPool: size => new WorkerPool(MFEVAL_WORKER_URL, size, { type: 'wasmInit', wasmBytes: getTmmWasmBytesForWorker() }),
             onStart: () => { counting = true; },
         });
     } finally {

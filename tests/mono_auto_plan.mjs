@@ -11,6 +11,7 @@
  *
  * Run: node tests/mono_auto_plan.mjs
  */
+import './_kernel.mjs';
 import { pickMonitoringPlan, simulateRunMono, mulberry32 } from '../src/utils/monitoring/monoSim.js';
 import { sampleLayerCurve, signalAt, findExtrema, nearestExtremum } from '../src/utils/monitoring/monoSim/worksheetSignal.js';
 

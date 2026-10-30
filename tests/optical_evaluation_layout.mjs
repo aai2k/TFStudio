@@ -1,3 +1,4 @@
+import './_kernel.mjs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
     shimBrowserGlobals, loadApp, makeTheme, makeLocale, withDesign,

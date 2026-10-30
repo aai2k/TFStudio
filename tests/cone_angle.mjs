@@ -20,6 +20,7 @@
  * Run: node tests/cone_angle.mjs
  */
 
+import './_kernel.mjs';
 import {
     gaussLegendre, makeConeSpec, coneIsActive, coneNodes,
     naFromHalfAngle, halfAngleFromNA, naFromFNumber, fNumberFromNA,

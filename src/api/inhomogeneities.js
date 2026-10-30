@@ -12,7 +12,7 @@ import { makeConeSpec, coneIsActive, resolveEvalMode } from '../utils/physics/op
 import { evaluateQualifiers } from '../utils/synthesis/qualifiers.js';
 import { dispatchAnalysisEvaluation } from '../utils/workers/analysisEvaluationWorker.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { verdictOf } from './specification.js';
 import { emptySide, storedLayers, viewSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, refusal, isAngle, isNonNegative } from './check.js';
@@ -180,7 +180,7 @@ export function inhomogeneities(design, options) {
     const mode = viewSide('inhomogeneities', shown, side);
     const { rows, inh } = interlayersOf(shown, interlayers, mode);
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     // The window's 'inhomogeneitySpectra', in the analysis worker under a cone
     // on the design with its materials embedded, as the worker receives it.
     const coned = coneIsActive(makeConeSpec(shown.cone || {}));

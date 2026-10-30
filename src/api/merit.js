@@ -11,7 +11,7 @@ import { editableColsForRow } from '../components/windows/optimization/meritFunc
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { meritTable } from '../utils/physics/meritDisplay.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { isAngle, shown, refusal } from './check.js';
 
 // The fields an operand row holds, over every operand type: the editor's
@@ -187,7 +187,7 @@ function rowScope(op) {
 export function merit(design) {
     requireResolved(design);
     const operands = design.meritOperands || [];
-    if (operands.length) warnWithoutKernel();
+    if (operands.length) requireKernel();
     const result = meritTable(withHerpinRecords(design), operands);
     return {
         total: result.mf, optical: result.omf,

@@ -12,6 +12,7 @@
  *
  * Run: node tests/optical_evaluation_absorptance_sp.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import {
     CURVE_BY_KEY, CURVE_GROUPS, buildCSV, buildTableColumns,

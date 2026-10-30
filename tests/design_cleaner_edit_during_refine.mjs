@@ -14,6 +14,7 @@
  *
  * Run: node tests/design_cleaner_edit_during_refine.mjs
  */
+import './_kernel.mjs';
 import { shimBrowserGlobals, loadApp } from './_uiShim.mjs';
 import { makeHookRuntime, importWithHookRuntime } from './_hookHarness.mjs';
 

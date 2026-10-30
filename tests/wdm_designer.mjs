@@ -18,6 +18,7 @@
  *     stopbands, and MNT/MXT constraints covering past the current layer count
  */
 
+import './_kernel.mjs';
 import {
     buildWDMStack, buildWDMOperands, buildWDMDesign, estimateFWHM_nm,
     isMaterialLosslessForWDM, WDM_LOSSY_THRESHOLD,

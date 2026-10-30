@@ -17,6 +17,7 @@
  *
  * Run: node tests/needle_p_tanpsi_tod.mjs
  */
+import './_kernel.mjs';
 import {
   makeOperand, scanNeedlesAnalytic, scanNeedlesFD, scanNeedlesPFunction,
 } from '../src/utils/physics/optimizer.js';

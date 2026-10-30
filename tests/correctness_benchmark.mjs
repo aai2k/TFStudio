@@ -33,13 +33,13 @@
  * ═══════════════════════════════════════════════════════════════════════════
  */
 
+import './_kernel.mjs';
 import {
     tmmWithAdmittances, computeEllipsometry, computeEFieldProfile,
     evaluateSpectrumTotal, C_NM_PER_FS,
 } from '../src/utils/physics/thinFilmMath.js';
 import { tmm } from 'tmmcore';
-import { coefficientPhaseDispersion, tmmCoefficientJets }
-    from '../src/utils/physics/phaseDispersion.js';
+import { coefficientPhaseDispersion, tmmCoefficientJets } from '../src/tmmcore.js';
 import { jetConstant, wavelengthOmegaJet } from '../src/tmmcore.js';
 import { getMaterial, getNK } from '../src/utils/materials/materialDatabase.js';
 import { carnigliaJensenNK } from '../src/utils/physics/scattering.js';

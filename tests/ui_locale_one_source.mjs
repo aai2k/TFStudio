@@ -14,6 +14,7 @@
  *
  * Run: node tests/ui_locale_one_source.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadApp, makeTheme, makeSampleDesign, shimBrowserGlobals, withDesign } from './_uiShim.mjs';

@@ -22,6 +22,7 @@
  * Run: node tests/color_design_grid.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { colorReport, tristimulus, whitePoint, illuminantSPD } from '../src/utils/physics/colorimetry.js';
 import { cmfTable, interp } from '../src/utils/physics/colorimetry/tables.js';

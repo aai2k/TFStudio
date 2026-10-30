@@ -18,6 +18,7 @@
  * Run: node tests/wavelength_fields_unbounded.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 

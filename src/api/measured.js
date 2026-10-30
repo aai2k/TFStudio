@@ -13,7 +13,7 @@ import { measuredCurveDeviations, measuredEllipsometryDeviations } from '../util
 import { inConeRow } from '../utils/physics/optimizer/evalCore/tmmEval.js';
 import { designMaterialLookup, withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { checkOptions, requireValue, isAngle, isBoolean } from './check.js';
 import { curveRecord, fitConfig, fitSnapshot, GRID_OPTIONS, isAngular } from './curveRecords.js';
 
@@ -209,7 +209,7 @@ export function measuredDifference(design, measured, options) {
     requireValue('measuredDifference', 'levelFree', fit.levelFree, v => v === undefined || (isBoolean(v) && !(v && angular)),
         `true or false; true for a T, R or A curve only, and this one is ${curve.quantity}`);
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     const shown = withHerpinRecords(design);
     const { settings, snapshot, clipped } = fitSnapshot('measuredDifference', shown, curve, config);
     const levelFree = fit.levelFree === true;

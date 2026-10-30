@@ -4,6 +4,7 @@
  * buttons that open it in Measured Spectra and Measured Ellipsometry.
  * Run: node tests/curve_editor_window.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {

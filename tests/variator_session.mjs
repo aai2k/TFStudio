@@ -9,6 +9,7 @@
  *
  * Run: node tests/variator_session.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 // ── A React stand-in: state, refs, memos and effects keyed on their deps ────

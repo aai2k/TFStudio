@@ -10,6 +10,7 @@
  *   node tests/operand_contribution.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import {

@@ -52,8 +52,8 @@ export function substrateRay(n0, ns, sinTheta0) {
 
 // Add one λ-sample of a front + incoherent substrate + back system to the
 // result, from the three coherent passes and the substrate's single-pass
-// transmittance. Shared by the JS loop and the WASM batched path so both
-// assemble results byte-for-byte the same way.
+// transmittance. Shared by the spectrum builders, tmmTotalAvg and the monitor
+// evaluators so each assembles results the same way.
 //
 // A here is 1 − R − T of the whole plate: what the front coating, the
 // substrate bulk and the back coating absorb together, by energy balance over

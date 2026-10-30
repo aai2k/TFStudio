@@ -20,6 +20,7 @@
  * Run: node tests/error_analysis_index_alignment.mjs
  */
 
+import './_kernel.mjs';
 import { runErrorAnalysisMC } from '../src/utils/physics/errorAnalysis.js';
 import { evaluateSpectrum }   from '../src/utils/physics/thinFilmMath.js';
 

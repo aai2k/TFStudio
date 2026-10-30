@@ -8,6 +8,7 @@
  * smooth AR minimum, a lossless design's absorptance, a band end, and the step
  * the flag sets.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import {
     buildEvalContext, evaluateOperands, makeOperand, operandSampleLambdas, operandExtremumLambdas,

@@ -35,7 +35,6 @@ export function AppModals({
             c, t,
             theme: settings.theme, setTheme: settings.setTheme,
             locale: settings.locale, setLocale: settings.setLocale,
-            wasmTmm: settings.wasmTmm, setWasmTmm: settings.setWasmTmm,
             updateCheckEnabled: settings.updateCheckEnabled,
             setUpdateCheckEnabled: settings.setUpdateCheckEnabled,
             liveBridge: settings.liveBridge, setLiveBridge: settings.setLiveBridge,

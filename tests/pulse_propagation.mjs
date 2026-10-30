@@ -46,6 +46,7 @@
  *      threshold.
  *  Misc: passes, and the s and p average against the two channels' energies.
  */
+import './_kernel.mjs';
 import { fftInPlace } from '../src/utils/physics/pulsePropagation/fft.js';
 import {
     propagatePulse, createCoatingResponses, carrierOmega, wavelengthFromOmega,

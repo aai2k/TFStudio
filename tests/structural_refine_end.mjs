@@ -21,6 +21,7 @@
  *
  * Run: node tests/structural_refine_end.mjs
  */
+import './_kernel.mjs';
 import { shimBrowserGlobals } from './_uiShim.mjs';
 
 shimBrowserGlobals();

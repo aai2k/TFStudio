@@ -19,6 +19,7 @@
  * Run: node tests/qualifiers.mjs
  */
 
+import './_kernel.mjs';
 import {
     makeQualifier, evaluateQualifier, evaluateQualifiers,
     aggregateVerdict, qualifiersToMFOperands, qualifierValueText,

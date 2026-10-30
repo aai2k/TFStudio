@@ -207,8 +207,6 @@ export default {
     updateCheckHint: "Chiede a GitHub una volta all'avvio se esiste una release più recente e in tal caso mostra un avviso. Nulla viene scaricato o installato automaticamente.",
     updateCheckNow: 'Controlla ora',
     updateChecking: 'Controllo in corso…',
-    wasmAccel: 'Accelerazione WASM del TMM',
-    wasmAccelHint: 'Usa il kernel a matrici di trasferimento compilato in WebAssembly per ottimizzazioni e spettri più veloci. Richiede che il kernel sia stato compilato. Se non è disponibile, si ricade su JavaScript.',
     liveBridge: 'Resta in ascolto dall\'avvio di TFStudio',
     liveBridgeHint: 'TFStudio resta allora in ascolto dei programmi fin dall\'avvio, senza Interattivo nella scheda Ottimizzazione, e chiede il permesso prima che un programma si colleghi la prima volta. Un programma consentito può leggere i design di Esplora progetti e modificare quello aperto, e il resto di TFStudio attende finché non premi Termina. Lascialo spento se non ti serve.',
     liveBridgeOn: 'In ascolto. TFStudio chiede il permesso prima che un nuovo programma si colleghi.',

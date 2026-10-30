@@ -1,8 +1,8 @@
 /**
  * evaluateSpectrum / evaluateSpectrumBack / evaluateSpectrumTotal WASM seam.
  *
- * Confirms the WASM path in thinFilmMath.js gives the same spectrum as the JS
- * loop, to float64 round-off: the kernel computes the same physics, so a
+ * Confirms the WASM path in thinFilmMath.js gives the same spectrum as
+ * tmmcore's JavaScript reference, to float64 round-off: the kernel computes the same physics, so a
  * difference here is the seam (material→layerNK gathering, layer ordering with
  * front as-is and back reversed, the substrate-side angles, polarization
  * selection). Also counts the kernel calls: each pass over a grid is one call.
@@ -10,19 +10,14 @@
  * Run: node tests/wasm_evaluatespectrum_seam.mjs
  */
 
+import './_kernel.mjs';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../src/utils/physics/thinFilmMath.js';
-import { setTmmWasmEnabled } from 'tmmcore';
-import { initWasmForTest, getTmmWasm } from './_wasmInit.mjs';
+import { getTmmWasm, onJsReference } from './_wasmInit.mjs';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
-
-if (!(await initWasmForTest())) {
-    console.error('FAIL: the WASM kernel did not load');
-    process.exit(1);
-}
 
 // Kernel calls, counted on the grid and the one-wavelength R/T exports.
 const kernel = getTmmWasm();
@@ -69,11 +64,9 @@ const run = () => ({
     totalOblique: evaluateSpectrumTotal(params, air, bk7, air, frontLayers, backLayers, 1.1),
 });
 
-// JS reference (flag off), then the WASM path.
-setTmmWasmEnabled(false);
-const js = run();
+// The JavaScript reference, then the WASM path.
+const js = onJsReference(run);
 ok(calls.grid === 0 && calls.point === 0, 'the JS reference runs no kernel call');
-setTmmWasmEnabled(true);
 const w = run();
 
 for (const key of Object.keys(js)) compareAll(key, js[key], w[key]);
@@ -89,12 +82,10 @@ for (const [label, p] of [['normal', normal], ['oblique', params]]) {
         `total at ${label} incidence is three grid calls (got ${calls.grid} grid, ${calls.point} point)`);
 }
 
-setTmmWasmEnabled(false);
-
 // The exit code is set rather than process.exit() called: on Windows, Node 24
 // aborts with a libuv assertion when process.exit() follows this run directly.
 if (fails === 0) {
-    console.log('PASS: evaluateSpectrum WASM seam matches the JS loop (front + back + total + s/p).');
+    console.log('PASS: evaluateSpectrum WASM seam matches the JS reference (front + back + total + s/p).');
 } else {
     console.error(`${fails} assertion(s) FAILED.`);
     process.exitCode = 1;

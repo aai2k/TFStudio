@@ -21,6 +21,7 @@
  *
  * Run: node tests/math_rows_unit_scale.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 const {

@@ -10,6 +10,7 @@
  * Run: node tests/dls_jacobian_surface_modes.mjs
  */
 
+import './_kernel.mjs';
 import {
     DLSOptimizer, makeOperand,
 } from '../src/utils/physics/optimizer.js';

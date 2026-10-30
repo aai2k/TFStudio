@@ -23,34 +23,25 @@
  * deliberate, correct behavior change):  node tests/optimizer_refactor_guard.mjs --update
  * Run the guard:                          node tests/optimizer_refactor_guard.mjs
  */
+import './_kernel.mjs';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, setTmmWasmEnabled, tmmWasmActive } from 'tmmcore';
-import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
 const resolveMat = id => getMaterial(id);
 const deep = x => JSON.parse(JSON.stringify(x));
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const GOLDEN = join(__dirname, 'optimizer_refactor_guard.golden.json');
 const UPDATE = process.argv.includes('--update');
-const NOWASM = process.argv.includes('--no-wasm');
 
-// WASM acceleration: route mfAt + the analytic Jacobian through the compiled TMM
-// kernel (the production path). The --no-wasm flag keeps the pure-JS path
-// available for comparison. The kernel mode is recorded in the
-// golden so a comparison across modes is flagged rather than mistaken for a
-// refactor regression (WASM agrees with JS to ~1e-15/call, not bit-identically).
-let wasmOn = false;
-if (!NOWASM) {
-    await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
-    wasmOn = tmmWasmActive();
-} else {
-    setTmmWasmEnabled(false);
-}
+// mfAt and the analytic Jacobian run on the compiled TMM kernel. The kernel
+// mode is recorded in the golden, so a golden captured on the JavaScript path
+// of an earlier release is flagged rather than mistaken for a refactor
+// regression (WASM agrees with JS to ~1e-15/call, not bit-identically).
+const wasmOn = true;
 
 // Perturb a design's free thicknesses deterministically so every method has real
 // work to do from an identical, reproducible start.

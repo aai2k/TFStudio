@@ -76,5 +76,4 @@ const packaged = await loadKernel();
 assert.equal(packaged.success, true);
 assert.equal(Buffer.compare(Buffer.from(packaged.bytes), wasmBytes), 0);
 
-core.setTmmWasmEnabled(false);
 console.log(`PASS tmmcore integration (${entries.length} renderer/worker entries, ${wasmBytes.length} WASM bytes)`);

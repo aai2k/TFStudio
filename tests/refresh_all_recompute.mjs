@@ -15,6 +15,7 @@
  *
  * Run: node tests/refresh_all_recompute.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeSampleDesign, shimBrowserGlobals } from './_uiShim.mjs';
 import { makeHookRuntime } from './_hookHarness.mjs';

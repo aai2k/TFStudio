@@ -9,6 +9,7 @@
  * Run: node tests/plot_engine.mjs
  */
 
+import './_kernel.mjs';
 import {
     makeDefaultCurve, xSamples, computeCurve,
 } from '../src/utils/physics/plotQuantities.js';

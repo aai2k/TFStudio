@@ -10,6 +10,7 @@
  *
  * Run: node tests/run_check_matches_run_grid.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
 import { atDefaultSteps } from '../src/utils/physics/meritDisplay.js';

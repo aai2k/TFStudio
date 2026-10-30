@@ -1,11 +1,10 @@
 /**
  * Filter Design on the WASM kernel.
  *
- * The integer search evaluates the merit tens of millions of times, so the
- * filter engine dispatches to the WASM TMM whenever it is active. This checks
- * that switching kernels does not move a design: the merit, the coat and the
- * search all have to agree with the JS reference, and the search has to return
- * the same structure.
+ * The integer search evaluates the merit tens of millions of times on the WASM
+ * kernel. This checks that the kernel does not move a design: the merit, the
+ * coat and the search all have to agree with tmmcore's JavaScript reference,
+ * and the search has to return the same structure.
  *
  * Agreement is not bit-identical by design. The kernels differ only in libm
  * (Emscripten musl against V8 fdlibm) at about 1 ULP, which is far below any
@@ -13,8 +12,8 @@
  *
  * Run: node tests/filter_design_wasm.mjs
  */
-import { initWasmForTest } from './_wasmInit.mjs';
-import { setTmmWasmEnabled, tmmWasmActive } from 'tmmcore';
+import './_kernel.mjs';
+import { onJsReference } from './_wasmInit.mjs';
 import {
     constIndex, buildPrototypeLayers, coupledMirrors, buildFilterTarget,
     meritFunctionEmbedded, globalIntegerSearch, adjustToIncidentMedium, spectrumT,
@@ -23,22 +22,13 @@ import {
 let fails = 0;
 const ok = (c, m) => { if (!c) { console.error('FAIL:', m); fails++; } };
 
-const ready = await initWasmForTest();
-if (!ready) {
-    console.log('WASM kernel not available; nothing to compare. Skipping.');
-    process.exit(0);
-}
-
 const LAM0 = 1530;
 const nH = constIndex(2.20), nL = constIndex(1.45), nSub = constIndex(1.52), nAir = constIndex(1.0);
 const target = buildFilterTarget({ lambda0_nm: LAM0, halfPass: 7.5, halfStop: 10 });
 const layersOf = (m, s) => buildPrototypeLayers({ nH, nL, lambda0_nm: LAM0, mirrors: m, spacers: s });
 
-/** Run fn with the kernel forced on or off, restoring the flag afterwards. */
-function onKernel(useWasm, fn) {
-    setTmmWasmEnabled(useWasm);
-    try { return fn(); } finally { setTmmWasmEnabled(true); }
-}
+/** Run fn on the WASM kernel, or on the JavaScript reference. */
+const onKernel = (useWasm, fn) => (useWasm ? fn() : onJsReference(fn));
 
 // ── the merit agrees on both kernels ─────────────────────────────────────────
 console.log('-- merit --');
@@ -120,6 +110,5 @@ console.log('-- search --');
     ok(wa.ms < js.ms, `the WASM kernel is the faster one (${wa.ms} ms against ${js.ms} ms)`);
 }
 
-ok(tmmWasmActive(), 'the kernel flag is left enabled');
 if (fails === 0) console.log('\nAll filter-design WASM tests passed.');
 else { console.error(`\n${fails} assertion(s) failed.`); process.exit(1); }

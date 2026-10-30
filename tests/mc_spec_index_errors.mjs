@@ -10,6 +10,7 @@
  * Run: node tests/mc_spec_index_errors.mjs
  */
 
+import './_kernel.mjs';
 import { runErrorAnalysisMC } from '../src/utils/physics/errorAnalysis.js';
 import { evaluateQualifiers } from '../src/utils/synthesis/qualifiers.js';
 

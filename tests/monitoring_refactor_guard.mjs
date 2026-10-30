@@ -15,6 +15,7 @@
  * Run the guard:
  *   node tests/monitoring_refactor_guard.mjs
  */
+import './_kernel.mjs';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

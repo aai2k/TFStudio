@@ -1,3 +1,4 @@
+import './_kernel.mjs';
 import {
     buildChartSeries, buildChartOption, buildCSV,
     createTargetOperands, editTargetOperands, deleteTargetOperand,

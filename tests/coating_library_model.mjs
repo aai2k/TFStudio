@@ -10,6 +10,7 @@
  *
  * Run: node tests/coating_library_model.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import {
     COATING_TAGS, COATING_TAG_GROUPS, bandsText, entryDesign, entryFromDesign, entrySpecResults,

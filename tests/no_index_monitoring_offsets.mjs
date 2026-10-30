@@ -6,6 +6,7 @@
  * TiO2 Devore-o (refractiveindex.info formula 4, catalog formula 204) has its
  * pole near 283 nm and no real n below it; at 270 nm it has none.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 import { evalN } from '../src/utils/materials/dispersionFormulas.js';

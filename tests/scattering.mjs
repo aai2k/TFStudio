@@ -26,6 +26,7 @@
  * Run: node tests/scattering.mjs
  */
 
+import './_kernel.mjs';
 import {
     carnigliaJensenNK, longRangeMaterial, transitionLayers, roughenFrontStack, roughenBackStack,
     extrapolateSlicing, emptyRoughness, cloneRoughness, resolveSigmas, resolveRanges,

@@ -5,6 +5,7 @@
  * obtain `portable:Film` from the design's embedded materials block; a global
  * lookup would either throw or reproduce the historical Air substitution.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { initCatalogs } from '../src/utils/materials/catalogManager.js';

@@ -17,6 +17,7 @@
  * Run: node tests/layer_order_convention.mjs
  */
 
+import './_kernel.mjs';
 import { createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
 import { tmm } from 'tmmcore';
 import { partialThicknesses } from '../src/utils/monitoring/depositionSpectrum.js';

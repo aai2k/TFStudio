@@ -27,6 +27,7 @@
  *   Update baseline (after a verified intentional change):  node tests/refinement_runner_guard.mjs --update
  *   Run the guard:                                          node tests/refinement_runner_guard.mjs
  */
+import './_kernel.mjs';
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';

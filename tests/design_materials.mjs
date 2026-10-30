@@ -6,6 +6,7 @@
  * author's dispersion data, and a material that resolves nowhere must be
  * reported rather than quietly evaluated as vacuum.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { initCatalogs } from '../src/utils/materials/catalogManager.js';
 import { catalogServes } from '../src/utils/materials/catalogStamps.js';

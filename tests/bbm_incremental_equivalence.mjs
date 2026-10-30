@@ -26,6 +26,7 @@
  *          the design substrate, and the monitor's cuts react to the glass.
  */
 
+import './_kernel.mjs';
 import { tmmAvg, tmmTotalAvg, createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
 import { simulateRun } from '../src/utils/monitoring/monitoringSim.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';

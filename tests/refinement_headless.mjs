@@ -19,6 +19,7 @@
  *
  * Run: node tests/refinement_headless.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { runRefinement } from '../src/utils/refinement/runRefinement.js';
 import { densifyForRun } from '../src/utils/refinement/workerInputs.js';

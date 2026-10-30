@@ -8,7 +8,7 @@ import { sessionDefaults } from '../constants/analysisDefaults.js';
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { scoredSide, viewWavelength } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, isAngle, refusal } from './check.js';
 
@@ -35,7 +35,7 @@ function checked(call, design, { side, deltaConvention }) {
     requireValue(call, 'deltaConvention', deltaConvention, isConvention, "'azzam' or 'reversed'");
     const mode = oneSurface(call, design, side);
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     return mode;
 }
 

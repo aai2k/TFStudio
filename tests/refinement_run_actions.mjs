@@ -21,6 +21,7 @@
  *
  * Run: node tests/refinement_run_actions.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeEffectRuntime } from './_effectRuntime.mjs';
 import { ScriptedWorker } from './_scriptedOptimizerWorker.mjs';

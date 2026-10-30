@@ -206,8 +206,6 @@ export default {
     updateCheckHint: '启动时向 GitHub 询问一次是否有新版本，若有则显示提示。不会自动下载或安装任何内容。',
     updateCheckNow: '立即检查',
     updateChecking: '检查中…',
-    wasmAccel: 'WASM TMM 加速',
-    wasmAccelHint: '使用编译后的 WebAssembly 传递矩阵内核以加快优化和光谱计算。需要已构建内核。不可用时回退到 JavaScript。',
     liveBridge: 'TFStudio 启动时开始等待程序连接',
     liveBridgeHint: '开启后，TFStudio 从启动起就等待程序连接，无需点击“优化”选项卡上的“交互”，并在每个程序首次连接前先询问。获准的程序可以读取项目资源管理器中的设计并修改当前打开的设计，在你点击“终止”之前，TFStudio 的其余部分不可操作。如非必要请保持关闭。',
     liveBridgeOn: '正在等待连接。新程序连接前，TFStudio 会先询问。',

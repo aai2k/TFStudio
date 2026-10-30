@@ -14,10 +14,8 @@
  * runner, which draws the same built-in materials from the built-in catalog and
  * samples them onto the run's grid, as the window does.
  *
- * WASM: the pool broadcasts `{type:'wasmInit', wasmBytes}` once at construction
- * (when the kernel is enabled); we instantiate it so the optimizer hot paths run
- * on WASM exactly like the GUI. Without bytes, awaitTmmWasmReady() resolves
- * immediately and we fall back to JS.
+ * WASM: the pool broadcasts `{type:'wasmInit', wasmBytes}` once at construction;
+ * we instantiate it so the optimizer hot paths run on WASM exactly like the GUI.
  */
 import { runJob } from '../benchmark/optimizerBenchmark.js';
 import { getMaterial } from '../materials/materialDatabase.js';

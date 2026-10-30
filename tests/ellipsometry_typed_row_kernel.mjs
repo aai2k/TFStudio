@@ -1,28 +1,22 @@
 /**
  * A hand-typed ellipsometry row (PSI, DEL, TANPSI or COSDEL at one wavelength,
- * not expanded from a measured block) is evaluated on the phase kernel when one
- * is active, as a measured block's points are, and gives the numbers the
- * JavaScript point evaluator gives.
+ * not expanded from a measured block) is evaluated on the phase kernel, as a
+ * measured block's points are, and gives the numbers the JavaScript point
+ * evaluator gives.
  *
  * The kernel's batched phase call is counted: four rows at one wavelength and
  * angle share one pass, one call per polarization, and rows at a second
- * wavelength take a pass of their own. With the kernel off the rows still
- * evaluate, on the JavaScript path.
+ * wavelength take a pass of their own.
  *
  *   node tests/ellipsometry_typed_row_kernel.mjs
  */
 
 import assert from 'node:assert/strict';
-import { getTmmWasm, setTmmWasmEnabled, tmmWasmActive } from 'tmmcore';
-import { initWasmForTest } from './_wasmInit.mjs';
+import './_kernel.mjs';
+import { getTmmWasm } from 'tmmcore';
 import { makeOperand, evaluateOperands, buildEvalContext } from '../src/utils/physics/optimizer.js';
 import { computeEllipsometry } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-
-if (!(await initWasmForTest()) || !getTmmWasm().hasPhase()) {
-    console.log('SKIP: ellipsometry_typed_row_kernel (no kernel with the phase exports)');
-    process.exit(0);
-}
 
 const resolveMat = id => getMaterial(id);
 const design = {
@@ -67,10 +61,9 @@ function check(values, lambda, label) {
 }
 
 // One wavelength: one pass, one call per polarization.
-assert.equal(tmmWasmActive(), true);
 const ctx = buildEvalContext(design, resolveMat);
 calls = 0;
-check(evaluateOperands(rowsAt(633), ctx), 633, 'kernel on');
+check(evaluateOperands(rowsAt(633), ctx), 633, 'one wavelength');
 assert.equal(calls, 2, `four rows at one wavelength made ${calls} kernel calls, expected 2`);
 
 // A second wavelength takes its own pass.
@@ -79,13 +72,6 @@ const both = evaluateOperands([...rowsAt(633), ...rowsAt(450)], ctx);
 check(both.slice(0, 4), 633, 'two wavelengths');
 check(both.slice(4), 450, 'two wavelengths');
 assert.equal(calls, 4, `rows at two wavelengths made ${calls} kernel calls, expected 4`);
-
-// Kernel off: the JavaScript path, the same numbers.
-setTmmWasmEnabled(false);
-calls = 0;
-check(evaluateOperands(rowsAt(633), buildEvalContext(design, resolveMat)), 633, 'kernel off');
-assert.equal(calls, 0, 'the kernel was called while it was off');
-setTmmWasmEnabled(true);
 kernel.phaseSpectrum = batched;
 
 console.log('PASS: ellipsometry_typed_row_kernel');

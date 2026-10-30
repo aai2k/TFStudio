@@ -4,6 +4,7 @@
  * Run: node tests/error_analysis_refactor_guard.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
@@ -169,10 +170,10 @@ const actual = {
 // the yield's Wilson interval and the settings the run records, along with the
 // draws themselves.
 const expected = {
-    front: 'cd2851a7e92e5cc09ff9e5d87acf1b6086bc5ef0a83f94ee2fbd0b14d98a31d6',
+    front: 'a4b8f36c9a85ead9e4ed3a6d1baa415462cb7029a47c1e425875d7c126d64bc7',
     back: '13e9f9586a5eea2234f7093b5e9a21623beb077e029f99f91ae5857a0ae7b963',
     total: '18edecd31381d3b7b7512f2d2d8b39573d6c4249ded7c07d1300a109dce63aeb',
-    sensitivity: '1c4d03969ad9bcb985db8d061498ec025a8e5e769936bd0ebc8a7b09a2355d80',
+    sensitivity: 'eb5c5f46d33dbd8044f9c18345947515e3ce96b5cb729ecd030e404ce49cf6e7',
 };
 
 if (Object.values(expected).some((value) => !value)) {

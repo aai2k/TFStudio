@@ -11,6 +11,7 @@
  *
  * Run: node tests/sqp_validation.mjs
  */
+import './_kernel.mjs';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';

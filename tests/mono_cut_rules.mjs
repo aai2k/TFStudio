@@ -15,6 +15,7 @@
  *
  * Run: node tests/mono_cut_rules.mjs
  */
+import './_kernel.mjs';
 import { simulateRunMono, defaultMonoTable, mulberry32 } from '../src/utils/monitoring/monoSim.js';
 
 const mk = (n, k = 0) => ({ name: `n${n}`, getNK: () => [n, k] });

@@ -23,6 +23,7 @@
  * Run: node tests/needle_manual.mjs
  */
 
+import './_kernel.mjs';
 import {
     makeOperand, evaluateOperands, buildEvalContext, calcOMF,
     scanNeedlesPFunction, findOptimalNeedleThickness,

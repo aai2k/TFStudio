@@ -13,6 +13,7 @@
  *
  * Run: node tests/russian_units_in_windows.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadApp, makeSampleDesign, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';

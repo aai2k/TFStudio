@@ -13,6 +13,7 @@
  *
  * Run: node tests/refinement_multi_cell_paste.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import * as RealReact from 'react';
 import { makeEffectRuntime } from './_effectRuntime.mjs';

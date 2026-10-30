@@ -1,7 +1,8 @@
 // IPC: WASM TMM kernel bytes shipped by tmmcore. The renderer can't fetch
 // a file:// asset under contextIsolation, so the main process reads it and hands
 // the bytes to the renderer, which broadcasts them to its workers. Returns
-// { success, bytes }; resolution/read failures are a clean miss to the JS path.
+// { success, bytes }, or { success: false, error } when the file cannot be
+// resolved or read.
 //
 // CommonJS, Electron-free (deps via ctx).
 function register(ipcMain, ctx) {

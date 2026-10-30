@@ -18,6 +18,7 @@
  * Run: node tests/color_dominant_wavelength.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { dominantWavelength, spectralLocusXy } from '../src/utils/physics/colorimetry.js';
 import { computeColorReport } from '../src/components/windows/analysis/colorEvaluation/colorModel.js';

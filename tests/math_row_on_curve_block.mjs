@@ -13,6 +13,7 @@
  *
  * Run: node tests/math_row_on_curve_block.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 const {

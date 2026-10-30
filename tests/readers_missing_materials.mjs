@@ -9,6 +9,7 @@
  * error: it says which material is gone, in the user's language, and the chip
  * glass falls back to the design substrate.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {

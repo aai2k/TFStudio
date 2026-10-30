@@ -15,6 +15,7 @@
  *     bit-identical to the pre-rework white-noise model.
  */
 
+import './_kernel.mjs';
 import {
     simulateRun, sampleOURatePath,
 } from '../src/utils/monitoring/monitoringSim.js';

@@ -1,3 +1,4 @@
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import {
     loadApp,
@@ -89,6 +90,17 @@ function legacyAngular(design, options) {
     return { x, psi, delta };
 }
 
+// The window computes on the kernel and the legacy loop on the JavaScript
+// point evaluator; they agree to round-off, not bit for bit. The grid has to
+// match exactly, and Ψ and Δ to far below anything a reader sees.
+function assertMatchesLegacy(got, legacy, message) {
+    assert.deepEqual(got.x, legacy.x, message);
+    for (const key of ['psi', 'delta']) {
+        got[key].forEach((value, i) => assert.ok(Math.abs(value - legacy[key][i]) < 1e-9,
+            `${message}: ${key}[${i}] ${value} vs ${legacy[key][i]}`));
+    }
+}
+
 const design = makeSampleDesign();
 design.backLayers = [
     { material: 'builtin:SiO2', thickness: 71.25 },
@@ -104,16 +116,16 @@ const angularOptions = {
 const spectral = computeSpectral(design, spectralOptions);
 const angular = computeAngular(design, angularOptions);
 
-assert.deepEqual(spectral, legacySpectral(design, spectralOptions), 'spectral arithmetic or evaluation order changed');
-assert.deepEqual(angular, legacyAngular(design, angularOptions), 'angular arithmetic or back-side order changed');
+assertMatchesLegacy(spectral, legacySpectral(design, spectralOptions), 'spectral arithmetic or evaluation order changed');
+assertMatchesLegacy(angular, legacyAngular(design, angularOptions), 'angular arithmetic or back-side order changed');
 assert.deepEqual(spectral, {
     x: [501.234, 503.934, 506.634, 509.334],
-    psi: [13.344157239812693, 13.341301740705479, 13.34483155249725, 13.354897066268986],
-    delta: [314.31044504438694, 308.9402312535299, 303.9407434435898, 299.29200724757584],
+    psi: [13.344157239812727, 13.341301740705477, 13.344831552497238, 13.35489706626898],
+    delta: [314.31044504438694, 308.94023125353, 303.9407434435898, 299.29200724757584],
 });
 assert.deepEqual(angular, {
     x: [51.125, 53.375, 55.625, 57.875],
-    psi: [27.637504136582656, 25.783948397469725, 23.805759299693044, 21.706783360379465],
+    psi: [27.637504136582642, 25.783948397469732, 23.805759299693044, 21.70678336037946],
     delta: [166.0099624075965, 163.71817211903374, 160.93772789190882, 157.48736057433393],
 });
 const spectralSweepOptions = {

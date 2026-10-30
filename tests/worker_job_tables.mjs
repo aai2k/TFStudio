@@ -19,6 +19,7 @@
  *
  * Run: node tests/worker_job_tables.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { shimBrowserGlobals } from './_uiShim.mjs';
 import { NodeModuleWorker } from './_moduleWorker.mjs';
@@ -38,6 +39,10 @@ const { DLSOptimizer, makeOperand } = await import('../src/utils/physics/optimiz
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const { caseById } = await import('../src/utils/benchmark/optimizerBenchmark.js');
+const { getTmmWasmBytesForWorker } = await import('../src/tmmcore.js');
+
+// The kernel bytes every pool is built with, as the window builds its pools.
+const wasmInit = () => ({ type: 'wasmInit', wasmBytes: getTmmWasmBytesForWorker() });
 
 // What one run's posts carried: `tables`, posts that brought tables; `held`,
 // posts that named the tables their worker holds; `again`, posts that brought
@@ -131,7 +136,7 @@ const twoLayers = () => ({
     const settings = { method: 'de', maxIter: 12, seed: 21, threads: 3 };
     const serial = await runRefinement(AR, RAV(), settings, { makeWorker: inThread });
     const parallel = await counted(() => runRefinement(AR, RAV(), settings,
-        { makeWorker: inThread, makeEvalPool: size => new WorkerPool(MFEVAL_WORKER_URL, size) }));
+        { makeWorker: inThread, makeEvalPool: size => new WorkerPool(MFEVAL_WORKER_URL, size, wasmInit()) }));
     assert.deepEqual([parallel.tables, parallel.again], [4, 0], 'parallel DE sends the tables to its 3 evaluation workers and the scoring worker');
     assert.ok(parallel.held >= 3 * 11, `and every later generation names them (${parallel.held})`);
     assert.deepEqual(parallel.result.frontLayers, serial.frontLayers, 'parallel DE ends on the serial DE design');
@@ -141,7 +146,7 @@ const twoLayers = () => ({
     // builds it from the tables it holds when a job names them.
     const ops = densifyForRun(RAV(), AR), design = buildPayload(AR), materials = presampleMaterials(AR, ops);
     const vectors = [[30, 45, 100, 90]];
-    const pool = new WorkerPool(MFEVAL_WORKER_URL, 1);
+    const pool = new WorkerPool(MFEVAL_WORKER_URL, 1, wasmInit());
     const job = sid => ({ type: 'evalBatch', sid, operands: ops, design, materials, vectors });
     const mfs = [...await pool.map([job('a')]), ...await pool.map([job('b')])].map(r => r.mfs[0]);
     pool.terminate();
@@ -152,7 +157,7 @@ const twoLayers = () => ({
     const seed = () => ({ ...twoLayers(), frontLayers: [{ id: 'S', material: 'SiO2', thickness: 100, locked: false }] });
     const settings = { pool: [...POOL, { id: 'MgF2', name: 'MgF2', mat: getMaterial('MgF2') }], maxLayers: 6, deltaNm: 0.5, dMin: 1, refineIter: 30, targetMF: 1e-4, threads: 3 };
     const needle = makeWorkerPool => counted(() => runNeedle(seed(), caseById('bbar').ops, settings, { makeWorkerPool }));
-    const pooled = await needle(size => new WorkerPool(SYNTHESIS_WORKER_URL, size));
+    const pooled = await needle(size => new WorkerPool(SYNTHESIS_WORKER_URL, size, wasmInit()));
     const here = await needle(size => new InThreadSynthesisPool(size));
     assert.ok(pooled.held > 0 && pooled.again === 0, `Needle: no worker is sent the same tables twice (${JSON.stringify({ ...pooled, result: undefined })})`);
     const stack = run => run.result.frontLayers.map(({ material, thickness }) => [material, thickness]);

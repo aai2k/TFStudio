@@ -6,6 +6,7 @@
  *
  * Run: node tests/filter_design_build.mjs
  */
+import './_kernel.mjs';
 import { buildFilterDesignObject, buildFilterOperands, presampleForSearch } from '../src/utils/filter/filterDesignBuild.js';
 import { globalIntegerSearch, buildFilterTarget, constIndex, coupledMirrors } from '../src/utils/filter/filterDesign.js';
 

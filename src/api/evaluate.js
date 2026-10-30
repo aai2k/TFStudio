@@ -6,7 +6,7 @@ import { embedDesignMaterials, withHerpinRecords } from '../utils/materials/desi
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { resolveEvalMode, makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { checkOptions, checkRange, isAngle } from './check.js';
 
 // R, T and A for unpolarized light, then for s and p.
@@ -48,7 +48,7 @@ export function spectrum(design, options) {
     }
     checkRange('spectrum', { from, to, step }, angles.length);
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     const shown = withHerpinRecords(design);
     const evalMode = resolveEvalMode(shown);
     const coned = coneIsActive(makeConeSpec(shown.cone || {}));

@@ -39,6 +39,7 @@
  *   node tests/gd_gdd_physical_validation.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import {
@@ -312,8 +313,10 @@ console.log('\n3. Closed forms\n');
 
         if (nk[1] === 0) {
             for (const key of ['gdFs', 'gddFs2', 'todFs3']) {
-                assert.equal(point[key], 0,
-                    `lossless ${substrate}: ${key} is exactly zero at a single interface`);
+                // Either zero: the kernel's arithmetic can carry the sign of a
+                // zero through, which is still no phase variation at all.
+                assert.ok(point[key] === 0,
+                    `lossless ${substrate}: ${key} is exactly zero at a single interface (${point[key]})`);
                 checks++;
             }
         } else {

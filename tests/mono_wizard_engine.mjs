@@ -7,6 +7,7 @@
  *
  * Run: node tests/mono_wizard_engine.mjs
  */
+import './_kernel.mjs';
 import { simulateRunMono, defaultMonoTable, mulberry32 } from '../src/utils/monitoring/monoSim.js';
 import { analyzeModelCurve, singleSignal } from '../src/utils/monitoring/monoSim/signalModel.js';
 

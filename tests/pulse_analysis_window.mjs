@@ -10,6 +10,7 @@
  * target" button reads, and the session rule that Whole part is transmission
  * only.
  */
+import './_kernel.mjs';
 import './_uiShim.mjs';
 import { shimBrowserGlobals } from './_uiShim.mjs';
 

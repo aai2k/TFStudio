@@ -18,6 +18,7 @@
  *
  * Run: node tests/refinement_design_switch.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeEffectRuntime } from './_effectRuntime.mjs';
 import { ScriptedWorker } from './_scriptedOptimizerWorker.mjs';

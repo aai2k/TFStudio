@@ -7,7 +7,7 @@ import { sessionDefaults } from '../constants/analysisDefaults.js';
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { phaseSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, isAngle, isPositive } from './check.js';
 
@@ -93,7 +93,7 @@ export function groupDelay(design, options) {
     // 'total' is the whole part, which the window's model names 'whole'.
     const mode = phaseSide('groupDelay', design, side, response);
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     const shown = withHerpinRecords(design);
     const raw = computeGdGddSpectrum(shown, {
         side: mode === 'total' ? 'whole' : mode, target: response, polarization: pol, thetaDeg: angle,

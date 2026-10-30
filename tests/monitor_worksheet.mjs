@@ -19,6 +19,7 @@
  *
  * Run: node tests/monitor_worksheet.mjs
  */
+import './_kernel.mjs';
 import {
     assignChips, autoChipLambdas, buildMonitorWorksheet,
 } from '../src/utils/monitoring/monoSim.js';

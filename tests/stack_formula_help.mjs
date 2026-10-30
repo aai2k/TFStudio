@@ -6,6 +6,7 @@
  *
  * Run: node tests/stack_formula_help.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';

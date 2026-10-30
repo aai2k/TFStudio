@@ -19,6 +19,7 @@
  * Run: node tests/mf_eval_mode.mjs
  */
 
+import './_kernel.mjs';
 import {
     buildEvalContext, evaluateOperands, calcMF, makeOperand, isFullSystemEval,
 } from '../src/utils/physics/optimizer.js';

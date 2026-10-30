@@ -11,6 +11,7 @@
  *
  * Run: node tests/monte_carlo_window_run.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeSampleDesign, shimBrowserGlobals } from './_uiShim.mjs';
 import { makeHookRuntime } from './_hookHarness.mjs';

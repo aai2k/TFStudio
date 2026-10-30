@@ -8,7 +8,7 @@ import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { hasPerturbableLayers } from '../components/windows/analysis/errorAnalysis/trialModel.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { checkOptions, checkHooks, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean, refusal } from './check.js';
 
 const oneOf = list => v => list.includes(v);
@@ -108,7 +108,7 @@ function runTrials(call, design, o, { quantity, params }, { signal, onProgress }
     requireResolved(design);
     const evalMode = resolveEvalMode(design);
     if (!hasPerturbableLayers(design, evalMode)) throw new Error(`${call}: the design has no layers to perturb on the side it is scored on`);
-    warnWithoutKernel();
+    requireKernel();
     return runErrorAnalysisMC(design, params, designMaterialLookup(design), {
         char: quantity, evalMode, nTrials: o.runs,
         rmsRelPct: o.thicknessRelPct, rmsAbsNm: o.thicknessAbsNm, rmsReN: o.indexRe, rmsImN: o.indexIm,
@@ -228,7 +228,7 @@ export function layerSensitivity(design, options) {
     requireResolved(design);
     const operands = design.meritOperands || [];
     if (!operands.length) throw refusal('noMerit', { call: 'layerSensitivity' }, 'layerSensitivity: the design has no merit function; set one with setMerit');
-    warnWithoutKernel();
+    requireKernel();
     return computeLayerSensitivity(design, operands, designMaterialLookup(design),
         { mode, absDeltaNm: deltaNm, relPct, includeLocked });
 }

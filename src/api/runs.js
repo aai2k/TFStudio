@@ -16,7 +16,7 @@ import { strictestMnt } from '../components/windows/optimization/synthesisShared
 import { mirrorLayers } from '../utils/physics/optimizer.js';
 import { ensureLayerIds } from '../utils/io/newDesign.js';
 import { requireMaterial, requireResolved, materialName } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { checkOptions, checkHooks, refusal } from './check.js';
 
 const makeWorker = () => new InThreadOptimizerWorker();
@@ -107,7 +107,7 @@ export async function refine(design, settings = {}, hooks) {
     const passed = checkHooks('refine', hooks, HOOKS.refine);
     const operands = operandsOf('refine', design);
     const runSettings = given(settings);
-    warnWithoutKernel();
+    requireKernel();
     const result = await runRefinement(design, operands, runSettings, { ...passed, makeWorker });
     return { result, design: result.completed ? withAnswer(design, result) : design };
 }
@@ -207,7 +207,7 @@ export async function synthesize(design, request, hooks) {
     const operands = operandsOf('synthesize', design);
     const plan = { ...settingsFor(method, operands, settings), pool: poolOf('synthesize', design, pool) };
     const passed = checkHooks(`synthesize ${method}`, hooks, HOOKS[method]);
-    warnWithoutKernel();
+    requireKernel();
     const result = await run(design, operands, plan, passed);
     const answer = answerOf(method, design, result);
     return { result, design: answer.frontLayers || answer.backLayers ? withAnswer(design, answer) : design };

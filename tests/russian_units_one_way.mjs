@@ -29,6 +29,7 @@
  *
  * Run: node tests/russian_units_one_way.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { renderToStaticMarkup } from 'react-dom/server';

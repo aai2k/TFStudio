@@ -8,6 +8,7 @@
  * Each table goes through structuredClone, as postMessage sends it, and the
  * worker resolver evaluates the same rows the main thread does.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import {
     buildEvalContext, evaluateOperands, makeOperand,

@@ -146,7 +146,7 @@ function runJob(job, resolveMat, postMessage) {
 export async function handleOptimizerMessage(job, postMessage, tablesOf = makeTableHolder()) {
     if (!job) return;
     // One-time WASM kernel init (bytes may arrive as a dedicated message or ride
-    // on any job). Enabling is per-worker; falls back to JS on failure.
+    // on any job). Each worker instantiates its own module.
     if (job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
     if (job.type !== 'start' && job.type !== 'score' && !isStructuralJob(job.type) && !isNeedleJob(job.type)) return;
     try {

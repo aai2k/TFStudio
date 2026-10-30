@@ -10,7 +10,7 @@ import { makeQualifier } from '../utils/synthesis/qualifiers/construction.js';
 import { buildEvalContext, resolveEvalMode } from '../utils/physics/optimizer.js';
 import { designMaterialLookup, withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { checkOptions, requireValue, refusal, isAngle } from './check.js';
 
 // Each quantity of a spectrum as the channel and polarization a check reads.
@@ -72,7 +72,7 @@ function featureOf(feature, check, crossings) {
 // The design as the checks evaluate it, and the context they evaluate it in.
 function evaluated(design) {
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     const shown = withHerpinRecords(design);
     return { mode: resolveEvalMode(shown), ctx: buildEvalContext(shown, designMaterialLookup(shown)) };
 }

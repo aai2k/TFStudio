@@ -14,6 +14,7 @@
  * Run: node tests/gain_flattening_wizard.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 import { flatteningLossDb } from '../src/utils/physics/gainFlattening.js';

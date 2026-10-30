@@ -39,7 +39,7 @@ export function singleSignal(lam, mats, thicks, sys) {
  * Batched sampler for one growing layer's signal at the monitor wavelength.
  * The layers beneath the growing one are fixed while it grows, so their matrix
  * product is built once and every thickness sampled costs one 2x2 multiply
- * (batched into a single WASM call when the kernel is available). Same signal
+ * (batched into a single WASM call). Same signal
  * as singleSignal([curMat, ...matsBelow], [d, ...thicksBelow]), at linear
  * rather than quadratic cost over a grid.
  */

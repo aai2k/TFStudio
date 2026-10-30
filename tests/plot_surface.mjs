@@ -22,6 +22,7 @@
  * Run: node tests/plot_surface.mjs
  */
 
+import './_kernel.mjs';
 import {
     computeSurface, makeDefaultSurfaceSpec, buildAxisVarOptions, isLayerVar,
     requiredSurfaceLambdas,

@@ -19,17 +19,17 @@
  * tolerance, 1e-8 relative, sits far above the rounding in forming 1 − R from
  * R (about 3e-10) and far below the error the square-root form leaves.
  *
- * Held here: the spectrum path with and without the WASM kernel, the
- * ellipsometry point evaluator, the field profile, the monitor evaluators
- * (semi-infinite and slab, JavaScript and kernel), and the incident admittance
- * of the admittance diagram.
+ * Held here: the spectrum path on the WASM kernel and on tmmcore's JavaScript
+ * reference, the ellipsometry point evaluator, the field profile, the monitor
+ * evaluators (semi-infinite and slab), and the incident admittance of the
+ * admittance diagram.
  *
  * Run: node tests/grazing_incidence_cosine.mjs
  */
 import assert from 'node:assert/strict';
 
-import { setTmmWasmEnabled } from 'tmmcore';
-import { initWasmForTest } from './_wasmInit.mjs';
+import './_kernel.mjs';
+import { onJsReference } from './_wasmInit.mjs';
 import { initCatalogs } from '../src/utils/materials/catalogManager.js';
 import {
     computeEFieldProfile, computeEllipsometry, createGrowingLayerEvaluator,
@@ -38,7 +38,6 @@ import {
 import { buildDiagramData } from '../src/components/windows/analysis/admittanceDiagram/model.js';
 
 initCatalogs({});
-const kernel = await initWasmForTest();
 
 const THETA = 89.99999;           // degrees
 const LAMBDA = 550;               // nm
@@ -77,19 +76,16 @@ const slabT = pol => fresnelT(pol) / (2 - fresnelT(pol));
 
 // ── The spectrum path ────────────────────────────────────────────────────────
 
-for (const useKernel of [false, true]) {
-    if (useKernel && !kernel) continue;
-    setTmmWasmEnabled(useKernel);
-    const label = useKernel ? 'spectrum, kernel' : 'spectrum, JavaScript';
-    const spectrum = evaluateSpectrum({
-        lambdaStart: LAMBDA, lambdaEnd: LAMBDA, lambdaStep: 5, theta: THETA, polarization: 'avg',
-    }, AIR, GLASS, []);
+const bareSpectrum = () => evaluateSpectrum({
+    lambdaStart: LAMBDA, lambdaEnd: LAMBDA, lambdaStep: 5, theta: THETA, polarization: 'avg',
+}, AIR, GLASS, []);
+for (const [label, spectrum] of [['spectrum, kernel', bareSpectrum()],
+    ['spectrum, JavaScript', onJsReference(bareSpectrum)]]) {
     close(1 - spectrum.Rs[0], fresnelT('s'), `${label}: 1 − R, s`);
     close(1 - spectrum.Rp[0], fresnelT('p'), `${label}: 1 − R, p`);
     close(spectrum.Ts[0], fresnelT('s'), `${label}: T, s`);
     close(spectrum.Tp[0], fresnelT('p'), `${label}: T, p`);
 }
-setTmmWasmEnabled(false);
 
 // ── Ellipsometry and the field profile ──────────────────────────────────────
 
@@ -107,23 +103,17 @@ setTmmWasmEnabled(false);
 
 // ── Monitor evaluators ───────────────────────────────────────────────────────
 
-for (const useKernel of [false, true]) {
-    if (useKernel && !kernel) continue;
-    setTmmWasmEnabled(useKernel);
-    const label = useKernel ? 'kernel' : 'JavaScript';
-    for (const pol of ['s', 'p']) {
-        const bare = createMonitorTmmEvaluator(THETA, AIR, GLASS, [], [], [LAMBDA], null);
-        close(1 - bare.sample('R', pol, GLASS, 0)[0], fresnelT(pol), `monitor, ${label}, semi-infinite: 1 − R, ${pol}`);
-        bare.free?.();
-        const slab = createMonitorTmmEvaluator(THETA, AIR, GLASS, [], [], [LAMBDA], 1);
-        close(slab.sample('T', pol, GLASS, 0)[0], slabT(pol), `monitor, ${label}, slab: T, ${pol}`);
-        slab.free?.();
-        const growing = createGrowingLayerEvaluator(THETA, AIR, GLASS, [], [], LAMBDA, 1);
-        close(growing.sampleMany('T', pol, GLASS, [0])[0], slabT(pol), `growing layer, ${label}, slab: T, ${pol}`);
-        growing.free();
-    }
+for (const pol of ['s', 'p']) {
+    const bare = createMonitorTmmEvaluator(THETA, AIR, GLASS, [], [], [LAMBDA], null);
+    close(1 - bare.sample('R', pol, GLASS, 0)[0], fresnelT(pol), `monitor, semi-infinite: 1 − R, ${pol}`);
+    bare.free();
+    const slab = createMonitorTmmEvaluator(THETA, AIR, GLASS, [], [], [LAMBDA], 1);
+    close(slab.sample('T', pol, GLASS, 0)[0], slabT(pol), `monitor, slab: T, ${pol}`);
+    slab.free();
+    const growing = createGrowingLayerEvaluator(THETA, AIR, GLASS, [], [], LAMBDA, 1);
+    close(growing.sampleMany('T', pol, GLASS, [0])[0], slabT(pol), `growing layer, slab: T, ${pol}`);
+    growing.free();
 }
-setTmmWasmEnabled(false);
 
 // ── Admittance diagram ──────────────────────────────────────────────────────
 //
@@ -146,4 +136,4 @@ setTmmWasmEnabled(false);
     }
 }
 
-console.log(`PASS: grazing_incidence_cosine (${checks} checks at ${THETA}°${kernel ? '' : ', kernel rows skipped'})`);
+console.log(`PASS: grazing_incidence_cosine (${checks} checks at ${THETA}°)`);

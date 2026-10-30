@@ -21,6 +21,7 @@
  * Run: node tests/mc_seed_and_uncertainty.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { runErrorAnalysisMC } from '../src/utils/physics/errorAnalysis.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';

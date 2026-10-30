@@ -6,6 +6,7 @@
  *
  * Run: node tests/mono_wizard_preview.mjs
  */
+import './_kernel.mjs';
 import { monoSignalVsThickness } from '../src/components/windows/simulation/monoWizard/monoSignalModel.js';
 
 const mk = (n, k = 0) => ({ name: `n${n}`, getNK: () => [n, k] });

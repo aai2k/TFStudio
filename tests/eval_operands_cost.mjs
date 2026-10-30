@@ -22,6 +22,7 @@
  * Run: node tests/eval_operands_cost.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { buildEvalContext, evaluateOperands } from '../src/utils/physics/optimizer/evalCore.js';
 import { makeOperand } from '../src/utils/physics/optimizer.js';

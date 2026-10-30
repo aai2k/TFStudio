@@ -1,26 +1,68 @@
 /**
- * Test helper: activate the WASM TMM kernel in a Node test so the optimizer's
- * hot paths (rta / jacobian / tmmNeedleScan) run on WASM — identical math
- * to the GUI (Δ≈1e-15), just faster. Returns true if WASM is active.
+ * Test helper: load the WASM TMM kernel in a Node test as the app does at
+ * startup. TFStudio computes on the kernel alone; the bytes are kept for the
+ * workers a test starts, as the app keeps them. Returns true once the kernel
+ * is active.
  *
  *   import { initWasmForTest } from './_wasmInit.mjs';
- *   await initWasmForTest();   // call BEFORE creating any DLSOptimizer/engine
+ *   await initWasmForTest();   // before the first calculation
+ *
+ * A test that needs nothing more than the kernel loaded imports
+ * './_kernel.mjs' instead.
  */
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { instantiateTmmWasm, setTmmWasmEnabled, tmmWasmActive, getTmmWasm } from 'tmmcore';
+import * as tmmcore from 'tmmcore';
+
+const { initTmmWasmMainThread, tmmWasmActive, getTmmWasm } = tmmcore;
 
 export const TMMCORE_WASM_PATH = createRequire(import.meta.url).resolve('tmmcore/tmm_kernel.wasm');
 
 export async function initWasmForTest(wasmPath = TMMCORE_WASM_PATH) {
   try {
-    const bytes = readFileSync(wasmPath);
-    await instantiateTmmWasm(bytes);
-    setTmmWasmEnabled(true);
-    return tmmWasmActive();
+    return await initTmmWasmMainThread(readFileSync(wasmPath), true);
   } catch (e) {
-    console.warn(`[wasm] not active (${e.message}) — falling back to JS`);
+    console.warn(`[wasm] not loaded (${e.message})`);
     return false;
+  }
+}
+
+// The calls a loaded kernel and tmmcore's JavaScript index both carry, under
+// the same names and with the same stack and options.
+const STACK_CALLS = ['rta', 'rtaSpectrum', 'jacobian', 'jacobianSpectrum', 'hessian',
+  'hessianSpectrum', 'phase', 'phaseSpectrum', 'phaseJacobian', 'phaseJacobianSpectrum'];
+
+// The kernel's one-wavelength calls of 0.4 that TFStudio still makes, and
+// their JavaScript twins. The kernel takes the polarization as 1 for p and 0
+// for s, the JavaScript as 'p' or 's'.
+const polName = code => (code === 1 ? 'p' : 's');
+const POINT_CALLS = {
+  tmmNeedleScan: (lam, aoi, pol, ...rest) => tmmcore.tmmNeedleScan(lam, aoi, polName(pol), ...rest),
+  tmmPhaseOne: (lam, aoi, pol, ...rest) => tmmcore.tmmPhaseDispersion(lam, aoi, polName(pol), ...rest),
+  tmmPhaseJacobian: (lam, aoi, pol, ...rest) =>
+    tmmcore.tmmPhaseThicknessJacobian(lam, aoi, polName(pol), ...rest),
+};
+
+/**
+ * Runs `fn` with the loaded kernel's calls answered by tmmcore's JavaScript
+ * reference wherever it has one, and returns what `fn` returns. TFStudio's own
+ * code runs unchanged, so comparing against a plain run holds the kernel to
+ * the reference on exactly the stacks TFStudio builds. The growing-stack calls
+ * have no JavaScript twin on tmmcore's index and stay on the kernel. `fn` is
+ * synchronous.
+ */
+export function onJsReference(fn) {
+  const kernel = getTmmWasm();
+  const swaps = [...STACK_CALLS.map(name => [name, tmmcore[name]]), ...Object.entries(POINT_CALLS)];
+  const own = swaps.map(([name]) => [name, Object.getOwnPropertyDescriptor(kernel, name)]);
+  for (const [name, call] of swaps) kernel[name] = call;
+  try {
+    return fn();
+  } finally {
+    for (const [name, descriptor] of own) {
+      if (descriptor) Object.defineProperty(kernel, name, descriptor);
+      else delete kernel[name];
+    }
   }
 }
 

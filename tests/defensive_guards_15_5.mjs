@@ -14,6 +14,7 @@
  * Run: node tests/defensive_guards_15_5.mjs
  */
 
+import './_kernel.mjs';
 import { simulateRun } from '../src/utils/monitoring/monitoringSim.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { calcMF } from '../src/utils/physics/optimizer/evalCore.js';

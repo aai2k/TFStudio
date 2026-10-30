@@ -17,6 +17,7 @@
  *
  * Run: node tests/process_export_output_options.mjs
  */
+import './_kernel.mjs';
 import { buildAllProcessFiles, processFileSteps } from '../src/utils/io/processFileExport.js';
 import { parseSpectrumTable, tableToCsv } from '../src/utils/io/spectrumTable.js';
 

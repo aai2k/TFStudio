@@ -14,6 +14,7 @@
  * Run: node tests/tmm_analytic_limits.mjs
  */
 
+import './_kernel.mjs';
 import { createMonitorTmmEvaluator } from '../src/utils/physics/thinFilmMath.js';
 import { tmm } from 'tmmcore';
 

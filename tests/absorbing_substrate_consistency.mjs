@@ -25,6 +25,7 @@
  *
  * Run: node tests/absorbing_substrate_consistency.mjs
  */
+import './_kernel.mjs';
 import { createMonitorTmmEvaluator, evaluateSpectrumTotalAt } from '../src/utils/physics/thinFilmMath.js';
 
 const mk = (name, n, k = 0) => ({ name, getNK: () => [n, k] });

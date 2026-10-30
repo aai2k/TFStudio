@@ -12,6 +12,7 @@
  *
  * Run: node tests/spectrum_exchange_design_export.mjs
  */
+import './_kernel.mjs';
 import { fixtureFile } from './_apiCorpus.mjs';
 import { loadApp, makeLocale, shimBrowserGlobals } from './_uiShim.mjs';
 

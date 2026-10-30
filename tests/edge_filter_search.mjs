@@ -23,6 +23,7 @@
  * Run: node tests/edge_filter_search.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { layerMatrix, matmul, snellCosTheta } from '../src/tmmcore.js';
 import { evaluateSpectrumAt } from '../src/utils/physics/thinFilmMath.js';

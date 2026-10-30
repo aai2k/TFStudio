@@ -9,7 +9,7 @@ import { designMaterialLookup, withHerpinRecords } from '../utils/materials/desi
 import { ANALYSIS_DEFAULTS, numberAllowed, sessionDefaults } from '../constants/analysisDefaults.js';
 import en from '../constants/locales/en.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { scoredSide } from './stackViews.js';
 import { chipPlan, CHIP_OPTIONS } from './process.js';
 import { checkOptions, requireValue, isAngle, isPositive } from './check.js';
@@ -125,7 +125,7 @@ export function monitorWorksheet(design, options) {
     const shown = depositedAsFront(withHerpinRecords(design), mode);
     const stepCount = shown.frontLayers?.length || 0;
     const plan = chipPlan(call, design, chips ?? {}, stepCount);
-    warnWithoutKernel();
+    requireKernel();
     const resolveMat = designMaterialLookup(shown);
     const settings = { char: quantity, theta: angle, pol, ...plan, ...monitor };
     const lambdaByStep = wavelengthPlan(call, wavelengths, stepCount, () => withoutIndex(call, () => autoChipLambdas(shown, resolveMat, settings)));

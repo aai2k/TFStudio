@@ -19,6 +19,7 @@
  *
  * Run: node tests/tabulated_interpolation.mjs
  */
+import './_kernel.mjs';
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {

@@ -21,6 +21,7 @@
  * Run: node tests/ui_window_render.mjs
  */
 
+import './_kernel.mjs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';

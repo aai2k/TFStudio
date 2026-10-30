@@ -1,5 +1,4 @@
-import { getTmmWasm, rta, tmmWasmActive } from '../../../tmmcore.js';
-import { pointStack } from '../../physics/kernelStack.js';
+import { pointStack, sOrP, wasmKernel } from '../../physics/kernelStack.js';
 import { toNDLayers } from './prototypeLayers.js';
 
 /**
@@ -7,10 +6,8 @@ import { toNDLayers } from './prototypeLayers.js';
  * `media` is the [incident, substrate] admittance pair.
  *
  * The integer search evaluates this tens of millions of times on stacks of a
- * hundred layers and more, so it goes through the WASM kernel whenever that is
- * active, the same kernel and the same conventions the rest of the app uses.
- * The JS kernel is the reference and stays the fallback; the two agree to
- * float64 round-off (tests/wasm_tmm_equivalence.mjs).
+ * hundred layers and more, on the WASM kernel, the same kernel and the same
+ * conventions the rest of the app uses.
  */
 function transmittance(lam, nd, media, aoi, pol) {
     const [n0, ns] = media;
@@ -23,8 +20,7 @@ function transmittance(lam, nd, media, aoi, pol) {
         const s = transmittance(lam, nd, media, aoi, 's');
         return aoi === 0 ? s : (s + transmittance(lam, nd, media, aoi, 'p')) / 2;
     }
-    const kernel = tmmWasmActive() ? getTmmWasm().rta : rta;
-    return kernel(pointStack(n0, ns, nd), Number(lam), { angle: Number(aoi), pol }).T;
+    return wasmKernel().rta(pointStack(n0, ns, nd), Number(lam), { angle: Number(aoi), pol: sOrP(pol) }).T;
 }
 
 /**

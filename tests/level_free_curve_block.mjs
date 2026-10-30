@@ -15,6 +15,7 @@
  * Run: node tests/level_free_curve_block.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 import {

@@ -27,6 +27,7 @@
  *
  * Run: node tests/merit_values_worker.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeEffectRuntime } from './_effectRuntime.mjs';
 

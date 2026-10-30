@@ -1,3 +1,4 @@
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { dispatchAnalysisEvaluation } from '../src/utils/workers/analysisEvaluationWorker.js';
 import { makeOperand } from '../src/utils/physics/optimizer.js';

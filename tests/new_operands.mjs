@@ -23,6 +23,7 @@
  * Run: node tests/new_operands.mjs
  */
 
+import './_kernel.mjs';
 import {
     makeOperand, evaluateOperands, buildEvalContext, calcMF,
     operandSampleLambdas, bandSampleCount, OPERAND_TYPES,

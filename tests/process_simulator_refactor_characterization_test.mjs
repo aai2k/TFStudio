@@ -1,3 +1,4 @@
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -197,7 +198,7 @@ assert.deepEqual(model.computeSpectrum({
     ...spectrumOptions, activeSide: 'back', quantity: 'A', layerIdx: 1, frac: 0.5,
 }), {
     lambda: [500, 520, 540],
-    values: [1.6653345369377348e-16, 0, 5.551115123125783e-17],
+    values: [2.220446049250313e-16, 0, 1.6653345369377348e-16],
 });
 
 const absorbingBackOptions = {

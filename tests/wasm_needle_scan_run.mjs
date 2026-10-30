@@ -1,20 +1,19 @@
 /**
  * Real-kernel needle-scan equivalence through the optimizer.
  *
- * Runs scanNeedlesPFunction (which drives tmmNeedleScanEval) once on JS and once
- * with the WASM kernel enabled, and checks every candidate's analytic gradient
- * matches. Validates the tmm_needle_scan wiring + nested-reshape end-to-end on
+ * Runs scanNeedlesPFunction (which drives tmmNeedleScanEval) once on tmmcore's
+ * JavaScript reference and once on the WASM kernel, and checks every
+ * candidate's analytic gradient matches. Validates the tmm_needle_scan wiring + nested-reshape end-to-end on
  * front_only AND a full-system mode.
  *
  * Uses the prebuilt kernel shipped by tmmcore.
  * Run: node tests/wasm_needle_scan_run.mjs
  */
 
-import { readFileSync } from 'node:fs';
+import './_kernel.mjs';
 import { makeOperand, scanNeedlesPFunction } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, setTmmWasmEnabled, tmmWasmActive } from 'tmmcore';
-import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
+import { onJsReference } from './_wasmInit.mjs';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -44,10 +43,7 @@ function runScan(surfaceMode) {
 }
 
 for (const mode of ['front_only', 'symmetric']) {
-    setTmmWasmEnabled(false);
-    const js = runScan(mode);
-    await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
-    ok(tmmWasmActive(), `${mode}: wasm active`);
+    const js = onJsReference(() => runScan(mode));
     const w = runScan(mode);
 
     ok(js.candidates.length === w.candidates.length, `${mode}: candidate count (${js.candidates.length} vs ${w.candidates.length})`);
@@ -57,7 +53,6 @@ for (const mode of ['front_only', 'symmetric']) {
     for (let i = 0; i < n; i++) maxG = Math.max(maxG, Math.abs(js.candidates[i].grad - w.candidates[i].grad));
     ok(maxG < 1e-10, `${mode}: max |Δ grad| = ${maxG.toExponential(2)} (<1e-10)`);
     console.log(`  ${mode}: ${n} candidates, max|Δgrad|=${maxG.toExponential(2)}, mf0Δ=${Math.abs(js.mf0 - w.mf0).toExponential(2)}`);
-    setTmmWasmEnabled(false);
 }
 
 if (fails === 0) { console.log('\nPASS — WASM needle scan matches JS through scanNeedlesPFunction.'); process.exit(0); }

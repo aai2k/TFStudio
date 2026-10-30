@@ -26,6 +26,7 @@
  *
  * Run: node tests/refinement_start_values.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { runRefinement } from '../src/utils/refinement/runRefinement.js';
 import { ALL_ORDER } from '../src/utils/refinement/methods.js';

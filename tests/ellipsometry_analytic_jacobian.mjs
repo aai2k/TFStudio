@@ -18,8 +18,8 @@
  */
 import assert from 'node:assert/strict';
 
-import { initWasmForTest } from './_wasmInit.mjs';
-import { getTmmWasm, setTmmWasmEnabled } from 'tmmcore';
+import './_kernel.mjs';
+import { onJsReference } from './_wasmInit.mjs';
 import {
     DLSOptimizer, buildEvalContext, evaluateOperands, makeMeasuredCurveOperand, makeOperand,
 } from '../src/utils/physics/optimizer.js';
@@ -30,7 +30,6 @@ import {
 } from '../src/utils/physics/thinFilmMath.js';
 import { computeSpectral } from '../src/components/windows/analysis/ellipsometryEvaluation/spectrum.js';
 
-const kernel = await initWasmForTest();
 const resolveMat = id => getMaterial(id);
 
 const STACKS = {
@@ -194,9 +193,7 @@ function assertKernelMatchesJavaScript(tag, spec, lambdas, aoi) {
         thick,
     });
 
-    setTmmWasmEnabled(false);
-    const javascript = evaluate();
-    setTmmWasmEnabled(kernel);
+    const javascript = onJsReference(evaluate);
     const accelerated = evaluate();
     for (let i = 0; i < lambdas.length; i++) {
         const at = `${tag}, λ ${lambdas[i]}`;
@@ -220,9 +217,6 @@ function assertKernelMatchesJavaScript(tag, spec, lambdas, aoi) {
 }
 
 assertKernelMatchesJavaScript('QW 9L', STACKS['QW 9L'], [450, 500, 550, 600], 65);
-if (kernel) {
-    console.log(`kernel path: ${getTmmWasm().hasPhaseJacobianSpectrum?.() ? 'batched' : 'per-wavelength'} phase Jacobian`);
-}
 
 // ── Opaque stacks keep their analytic Jacobian ──────────────────────────────
 //
@@ -246,12 +240,9 @@ if (kernel) {
         const ops = [550, 600].flatMap((lambda, i) => ['PSI', 'DEL'].map(type => makeOperand({
             id: `${type}-${i}`, type, lambdaStart: lambda, aoi: 65, target: 0, weight: 1,
         })));
-        for (const backend of kernel ? [false, true] : [false]) {
-            setTmmWasmEnabled(backend);
-            assertAnalyticMatchesFd(`${name}, ${backend ? 'kernel' : 'JavaScript'}`, ops, designOf(spec));
-        }
+        onJsReference(() => assertAnalyticMatchesFd(`${name}, JavaScript`, ops, designOf(spec)));
+        assertAnalyticMatchesFd(`${name}, kernel`, ops, designOf(spec));
     }
-    setTmmWasmEnabled(kernel);
 }
 
 // ── Newton keeps its hands off rows it has no curvature for ─────────────────

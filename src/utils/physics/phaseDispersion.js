@@ -28,11 +28,6 @@
  */
 
 export {
-    tmmCoefficientJets, tmmCoefficientThicknessJets,
-    coefficientPhaseDispersion, coefficientPhaseThicknessDerivatives,
-} from '../../tmmcore.js';
-
-export {
     evaluateStackPhaseDispersion, evaluateSubstratePropagation,
 } from './phaseDispersion/stackEvaluator.js';
 

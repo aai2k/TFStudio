@@ -1,24 +1,22 @@
 /**
  * WASM TMM kernel ⇆ JS equivalence test.
  *
- * Validates that tmmcore's prebuilt WASM kernel reproduces its authoritative
- * JS TMM through TFStudio's thinFilmMath facade — tmm(), tmmAvg() (via the batched
- * tmm_spectrum), and tmmThicknessJacobian() — across absorbing, dispersive,
+ * Validates that tmmcore's prebuilt WASM kernel reproduces tmmcore's JavaScript
+ * TMM, tmm() one wavelength at a time and over a grid (tmm_spectrum),
+ * tmmThicknessJacobian() and tmmNeedleScan(), across absorbing, dispersive,
  * oblique-incidence, s/p cases.
  *
  * NOT bit-identical by design: the only divergence from the JS path is the libm
  * sin/cos/exp/atan2 (Emscripten musl vs. V8 fdlibm), differing at ~1 ULP. The
  * tolerances below (abs 1e-9 on R/T/A ∈ [0,1]; rel 1e-7 + abs 1e-12 on the
  * analytic derivatives) are far tighter than any physical/convergence tolerance
- * yet comfortably above libm noise. The JS worker-vs-serial BIT-identical tests
- * are unaffected (WASM is a separate, feature-flagged path).
+ * yet comfortably above libm noise.
  *
  * Run: node tests/wasm_tmm_equivalence.mjs
  */
 
 import { readFileSync } from 'node:fs';
 
-import { tmmAvg } from '../src/utils/physics/thinFilmMath.js';
 import { instantiateTmmWasm, tmm, tmmThicknessJacobian, tmmNeedleScan } from 'tmmcore';
 import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 
@@ -83,7 +81,7 @@ console.log(`tmm_one      max |Δ(R,T,A)| = ${maxOne.toExponential(3)}  (tol 1e-
     }
 }
 
-// ── 2) tmm_spectrum vs looping JS tmmAvg() ──────────────────────────────────
+// ── 2) tmm_spectrum vs JS tmm() at each λ ───────────────────────────────────
 {
     const N = 9;
     const valid = Array.from({ length: N }, (_, i) => i); // layer indices
@@ -91,7 +89,7 @@ console.log(`tmm_one      max |Δ(R,T,A)| = ${maxOne.toExponential(3)}  (tol 1e-
     const matFns = valid.map((i) => (i % 2 ? dispL : dispH));
     const theta = 22;
 
-    // JS reference: per-λ tmmAvg over the same stack.
+    // JS reference: tmm() in s and in p at each λ over the same stack.
     const n0List = lambdas.map(() => air);
     const nsList = lambdas.map(() => glass);
     const layerNK = valid.map((i) => lambdas.map((lam) => matFns[i](lam)));
@@ -101,10 +99,11 @@ console.log(`tmm_one      max |Δ(R,T,A)| = ${maxOne.toExponential(3)}  (tol 1e-
     for (let li = 0; li < lambdas.length; li++) {
         const lam = lambdas[li];
         const layerNDs = valid.map((i) => ({ n: matFns[i](lam), d: thick[i] }));
-        const js = tmmAvg(lam, theta, air, glass, layerNDs);
+        const s = tmm(lam, theta, 's', air, glass, layerNDs);
+        const p = tmm(lam, theta, 'p', air, glass, layerNDs);
         const pairs = [
-            ['Rs', sp.Rs[li], js.Rs], ['Ts', sp.Ts[li], js.Ts], ['As', sp.As[li], js.As],
-            ['Rp', sp.Rp[li], js.Rp], ['Tp', sp.Tp[li], js.Tp], ['Ap', sp.Ap[li], js.Ap],
+            ['Rs', sp.Rs[li], s.R], ['Ts', sp.Ts[li], s.T], ['As', sp.As[li], s.A],
+            ['Rp', sp.Rp[li], p.R], ['Tp', sp.Tp[li], p.T], ['Ap', sp.Ap[li], p.A],
         ];
         for (const [name, a, b] of pairs) {
             const d = relabs(a, b);

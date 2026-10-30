@@ -12,6 +12,7 @@
  * Run: node tests/inhomogeneity.mjs
  */
 
+import './_kernel.mjs';
 import {
     PROFILES, PROFILE_IDS, applyProfile, mixMaterials, buildGradedSlices,
     expandLayersWithInterlayers, enumerateInterfaces, totalInterlayerThickness,

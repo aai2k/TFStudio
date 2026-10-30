@@ -15,16 +15,17 @@
  * come (Macleod, Thin-Film Optical Filters 5th ed., §3, Eqs. 3.5 and 3.6).
  *
  * Held here: the field profile in s and p, tmmWithAdmittances, the monitor
- * evaluators with and without the kernel, with the growing layer on either
- * side of the bound, and |t|² from the phase evaluator with and without the
- * kernel.
+ * evaluators, with the growing layer on either side of the bound, and |t|²
+ * from the phase evaluator on the kernel and on tmmcore's JavaScript
+ * reference.
  *
  * Run: node tests/opaque_layer_field.mjs
  */
 import assert from 'node:assert/strict';
 
-import { setTmmWasmEnabled, tmm } from 'tmmcore';
-import { initWasmForTest } from './_wasmInit.mjs';
+import './_kernel.mjs';
+import { tmm } from 'tmmcore';
+import { onJsReference } from './_wasmInit.mjs';
 import { initCatalogs } from '../src/utils/materials/catalogManager.js';
 import {
     computeEFieldProfile, createGrowingLayerEvaluator, createMonitorTmmEvaluator, tmmWithAdmittances,
@@ -32,8 +33,6 @@ import {
 import { evaluateStackPhaseDispersion } from '../src/utils/physics/phaseDispersion/stackEvaluator.js';
 
 initCatalogs({});
-const kernel = await initWasmForTest();
-setTmmWasmEnabled(false);
 
 let checks = 0;
 function close(got, want, tolerance, what) {
@@ -139,9 +138,6 @@ const constant = (name, nk) => {
     return { name, getNK };
 };
 
-const KERNEL_MODES = kernel ? [false, true] : [false];
-const modeName = useKernel => (useKernel ? 'kernel' : 'JavaScript');
-
 // ── Checks ───────────────────────────────────────────────────────────────────
 
 // The field profile, sample by sample. The tangential component is what the
@@ -158,28 +154,26 @@ function checkField(run, exact) {
 }
 
 // The monitor evaluator, with the first layer growing on the rest, and |t|²
-// from the phase evaluator times the admittance ratio T takes, each with and
-// without the kernel.
+// from the phase evaluator times the admittance ratio T takes, on the kernel
+// and on tmmcore's JavaScript reference.
 function checkEvaluators(run, exact, Tfac) {
     const [top, ...below] = run.layers;
-    for (const useKernel of KERNEL_MODES) {
-        setTmmWasmEnabled(useKernel);
-        const monitor = createMonitorTmmEvaluator(run.theta, constant('incident', run.n0),
-            constant('substrate', run.ns), below.map((l, k) => constant(`below ${k}`, l.n)),
-            below.map(l => l.d), [run.lambda], null);
-        close(monitor.sample('T', run.pol, constant('top', top.n), top.d)[0], exact.T, 1e-12,
-            `${run.at}: T from the monitor evaluator, ${modeName(useKernel)}`);
-        monitor.free?.();
-        const phase = evaluateStackPhaseDispersion({
-            wavelengthNm: run.lambda, target: 'T', polarization: run.pol, thetaDeg: run.theta,
-            incidentMaterial: constant('incident', run.n0), substrateMaterial: constant('substrate', run.ns),
-            layers: run.layers.map((l, k) => ({ material: constant(`layer ${k}`, l.n), thicknessNm: l.d })),
-        });
+    const monitor = createMonitorTmmEvaluator(run.theta, constant('incident', run.n0),
+        constant('substrate', run.ns), below.map((l, k) => constant(`below ${k}`, l.n)),
+        below.map(l => l.d), [run.lambda], null);
+    close(monitor.sample('T', run.pol, constant('top', top.n), top.d)[0], exact.T, 1e-12,
+        `${run.at}: T from the monitor evaluator`);
+    monitor.free();
+    const phaseOf = () => evaluateStackPhaseDispersion({
+        wavelengthNm: run.lambda, target: 'T', polarization: run.pol, thetaDeg: run.theta,
+        incidentMaterial: constant('incident', run.n0), substrateMaterial: constant('substrate', run.ns),
+        layers: run.layers.map((l, k) => ({ material: constant(`layer ${k}`, l.n), thicknessNm: l.d })),
+    });
+    for (const [mode, phase] of [['kernel', phaseOf()], ['JavaScript', onJsReference(phaseOf)]]) {
         assert.ok(phase.valid, `${run.at}: phase evaluator: ${phase.reason}`);
         close(Tfac * phase.magnitudeSquared, exact.T, 1e-12,
-            `${run.at}: T from |t|² of the phase evaluator, ${modeName(useKernel)}`);
+            `${run.at}: T from |t|² of the phase evaluator, ${mode}`);
     }
-    setTmmWasmEnabled(false);
 }
 
 for (const run of RUNS) {
@@ -204,24 +198,20 @@ function checkGrowing(theta, pol) {
     const substrate = constant('substrate', GLASS);
     const silica = constant('SiO2', SIO2);
     const aluminium = constant('Al', AL);
-    for (const useKernel of KERNEL_MODES) {
-        setTmmWasmEnabled(useKernel);
-        const monitor = createMonitorTmmEvaluator(theta, incident, substrate, [silica], [90], [550], null);
-        const growing = createGrowingLayerEvaluator(theta, incident, substrate, [silica], [90], 550, null);
-        const curve = growing.sampleMany('T', pol, aluminium, GROWN);
-        GROWN.forEach((d, i) => {
-            const layers = [{ n: AL, d }, { n: SIO2, d: 90 }];
-            const exact = reference({ lambda: 550, theta, pol, n0: AIR, ns: GLASS, layers }).T;
-            const at = `Al ${d} nm growing on SiO2, ${theta}° ${pol}, ${modeName(useKernel)}`;
-            close(monitor.sample('T', pol, aluminium, d)[0], exact, 1e-12, `${at}: monitor evaluator`);
-            close(curve[i], exact, 1e-12, `${at}: growing-layer evaluator`);
-        });
-        monitor.free?.();
-        growing.free();
-    }
-    setTmmWasmEnabled(false);
+    const monitor = createMonitorTmmEvaluator(theta, incident, substrate, [silica], [90], [550], null);
+    const growing = createGrowingLayerEvaluator(theta, incident, substrate, [silica], [90], 550, null);
+    const curve = growing.sampleMany('T', pol, aluminium, GROWN);
+    GROWN.forEach((d, i) => {
+        const layers = [{ n: AL, d }, { n: SIO2, d: 90 }];
+        const exact = reference({ lambda: 550, theta, pol, n0: AIR, ns: GLASS, layers }).T;
+        const at = `Al ${d} nm growing on SiO2, ${theta}° ${pol}`;
+        close(monitor.sample('T', pol, aluminium, d)[0], exact, 1e-12, `${at}: monitor evaluator`);
+        close(curve[i], exact, 1e-12, `${at}: growing-layer evaluator`);
+    });
+    monitor.free();
+    growing.free();
 }
 
 for (const theta of [0, 45]) ['s', 'p'].forEach(pol => checkGrowing(theta, pol));
 
-console.log(`PASS: opaque_layer_field (${checks} checks${kernel ? '' : ', kernel rows skipped'})`);
+console.log(`PASS: opaque_layer_field (${checks} checks)`);

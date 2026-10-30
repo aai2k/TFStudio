@@ -13,22 +13,15 @@
  * physical sign. See computeEllipsometry.
  */
 
-// tmmcore owns the reference TMM kernels, the shared complex/matrix
-// primitives, and the optional WASM acceleration. This module remains
-// TFStudio's application-level facade for spectra, fields, ellipsometry,
-// monitoring, and substrate/back-surface composition.
+// tmmcore owns the TMM kernels, which run here on its WASM build, and the
+// shared complex/matrix primitives. This module remains TFStudio's
+// application-level facade for spectra, fields, ellipsometry, monitoring, and
+// substrate/back-surface composition.
 //
 // The primitives are imported rather than redefined so that a correction to
 // layerMatrix (which carries the opaque-layer phase clamp) or rescaleMatrix
-// (the overflow threshold) reaches every caller. Local copies would let the
-// functions below drift away from rta() imported into this same file.
+// (the overflow threshold) reaches every caller.
 import {
-    // spectral kernels and analytic derivatives
-    rta,
-    phaseJacobian,
-    // WASM acceleration
-    getTmmWasm,
-    tmmWasmActive,
     // complex arithmetic and 2×2 transfer-matrix primitives
     cadd,
     cabs2,
@@ -44,7 +37,7 @@ import {
     rescaleMatrix,
     snellCosTheta,
 } from '../../tmmcore.js';
-import { constantJetGridStack, gridStack, pointStack } from './kernelStack.js';
+import { constantJetGridStack, gridStack, pointStack, wasmKernel } from './kernelStack.js';
 
 // ── TMM with per-interface admittances (for P-function needle scan) ───────────
 //
@@ -123,11 +116,12 @@ export function tmmWithAdmittances(lambda_nm, theta_deg, pol, n0, ns, layers) {
 // ── Average polarization helper ───────────────────────────────────────────────
 
 export function tmmAvg(lambda_nm, theta_deg, n0, ns, layers) {
+    const kernel = wasmKernel();
     const stack = pointStack(n0, ns, layers);
     const wavelength = Number(lambda_nm);
     const angle = Number(theta_deg);
-    const s = rta(stack, wavelength, { angle, pol: 's' });
-    const p = rta(stack, wavelength, { angle, pol: 'p' });
+    const s = kernel.rta(stack, wavelength, { angle, pol: 's' });
+    const p = kernel.rta(stack, wavelength, { angle, pol: 'p' });
     return {
         R: (s.R + p.R) / 2,
         T: (s.T + p.T) / 2,
@@ -148,8 +142,6 @@ import { incidence, materialNkTable, substratePass, substrateRay, totalSample } 
 
 // Push one λ-sample of the s/p/avg spectrum into the result accumulator,
 // selecting the requested polarization. avg = (s+p)/2, identical to tmmAvg().
-// Shared by the JS loop and the WASM batched path so both assemble results
-// byte-for-byte the same way.
 function pushSpectrumSample(result, Rs, Ts, As, Rp, Tp, Ap, polarization) {
     if (polarization === 's') {
         result.R.push(Rs); result.T.push(Ts); result.A.push(As);
@@ -162,16 +154,15 @@ function pushSpectrumSample(result, Rs, Ts, As, Rp, Tp, Ap, polarization) {
     result.Rp.push(Rp); result.Tp.push(Tp); result.Ap.push(Ap);
 }
 
-// WASM batched fill for a single-surface spectrum (front: layers as-is; back:
-// pass the reversed valid layers). Returns true if WASM handled it.
-function fillSpectrumWasm(result, lambdas, incMat, subMat, validLayers, theta, polarization) {
-    if (!tmmWasmActive()) return false;
+// A single-surface spectrum over the grid in one kernel call (front: layers
+// as-is; back: pass the reversed valid layers).
+function fillSpectrum(result, lambdas, incMat, subMat, validLayers, theta, polarization) {
     const sp = spectrumPass(lambdas, Number(theta),
         lambdas.map(lam => incMat.getNK(lam)), lambdas.map(lam => subMat.getNK(lam)), validLayers);
     for (let i = 0; i < lambdas.length; i++) {
         pushSpectrumSample(result, sp.Rs[i], sp.Ts[i], sp.As[i], sp.Rp[i], sp.Tp[i], sp.Ap[i], polarization);
     }
-    return true;
+    return result;
 }
 
 /**
@@ -183,7 +174,7 @@ function fillSpectrumWasm(result, lambdas, incMat, subMat, validLayers, theta, p
 function spectrumPass(lambdas, angle, n0List, nsList, layers) {
     const layerNK = layers.map(l => lambdas.map(lam => l.material.getNK(lam)));
     const thick = layers.map(l => l.thickness);
-    return getTmmWasm().rtaSpectrum(gridStack(n0List, nsList, layerNK, thick), lambdas, { angle });
+    return wasmKernel().rtaSpectrum(gridStack(n0List, nsList, layerNK, thick), lambdas, { angle });
 }
 
 function pushTotalSample(result, fwd, rev, back, P, polarization) {
@@ -243,9 +234,8 @@ const passSample = (pass, index) => ({
  * substrate's own dispersion and so differs at every wavelength; each is one
  * call over the grid with an angle per wavelength.
  */
-function fillTotalSpectrumWasm(result, lambdas, materials, validFront, validBack,
-                               subThickness_mm, theta, polarization) {
-    if (!tmmWasmActive()) return false;
+function fillTotalSpectrum(result, lambdas, materials, validFront, validBack,
+                           subThickness_mm, theta, polarization) {
     const { incident, substrate, exit } = materials;
     const n0List = lambdas.map(lam => incident.getNK(lam));
     const nsList = lambdas.map(lam => substrate.getNK(lam));
@@ -259,7 +249,7 @@ function fillTotalSpectrumWasm(result, lambdas, materials, validFront, validBack
         pushTotalSample(result, passSample(fwd, index), passSample(rev, index), passSample(back, index),
             substratePass(nsList[index][1], subThickness_mm, lam, rays[index].cosThetaSub), polarization);
     });
-    return true;
+    return result;
 }
 
 /**
@@ -327,36 +317,10 @@ export function evaluateSpectrum(params, incidentMaterial, substrateMaterial, la
  */
 export function evaluateSpectrumAt(lambdas, params, incidentMaterial, substrateMaterial, layers) {
     const { theta = 0, polarization = 'avg' } = params;
-
-    const result = { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
-
-    // Batched WASM fast path (front coating, layers from the incident medium inward).
+    // Front coating, layers from the incident medium inward.
     const validFront = layers.filter(l => l.material && l.thickness > 0);
-    if (fillSpectrumWasm(result, lambdas, incidentMaterial, substrateMaterial, validFront, theta, polarization)) {
-        return result;
-    }
-
-    for (const lam of lambdas) {
-        const n0 = incidentMaterial.getNK(lam);
-        const ns = substrateMaterial.getNK(lam);
-        const layerNDs = layers
-            .filter(l => l.material && l.thickness > 0)
-            .map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
-
-        const out = tmmAvg(lam, theta, n0, ns, layerNDs);
-
-        if (polarization === 's') {
-            result.R.push(out.Rs); result.T.push(out.Ts); result.A.push(out.As);
-        } else if (polarization === 'p') {
-            result.R.push(out.Rp); result.T.push(out.Tp); result.A.push(out.Ap);
-        } else {
-            result.R.push(out.R);  result.T.push(out.T);  result.A.push(out.A);
-        }
-        result.Rs.push(out.Rs); result.Ts.push(out.Ts); result.As.push(out.As);
-        result.Rp.push(out.Rp); result.Tp.push(out.Tp); result.Ap.push(out.Ap);
-    }
-
-    return result;
+    return fillSpectrum(emptySpectrum(lambdas), lambdas, incidentMaterial, substrateMaterial,
+        validFront, theta, polarization);
 }
 
 /**
@@ -612,39 +576,11 @@ export function evaluateSpectrumBack(params, exitMaterial, substrateMaterial, la
             theta = 0, polarization = 'avg' } = params;
 
     const lambdas = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
-
-    const result = { lambda: lambdas, R: [], T: [], A: [], Rs: [], Ts: [], As: [], Rp: [], Tp: [], Ap: [] };
-
-    // Batched WASM fast path. Light travels exit→substrate, so the valid layers
-    // (stored substrate→exit) are reversed, matching the JS loop below.
+    // Light travels exit→substrate, so the valid layers (stored substrate→exit)
+    // are reversed.
     const validBack = layers.filter(l => l.material && l.thickness > 0).slice().reverse();
-    if (fillSpectrumWasm(result, lambdas, exitMaterial, substrateMaterial, validBack, theta, polarization)) {
-        return result;
-    }
-
-    for (const lam of lambdas) {
-        const n0 = exitMaterial.getNK(lam);
-        const ns = substrateMaterial.getNK(lam);
-        // Reverse: light travels exit→substrate (backLayers are stored substrate→exit)
-        const layerNDs = layers
-            .filter(l => l.material && l.thickness > 0)
-            .map(l => ({ n: l.material.getNK(lam), d: l.thickness }))
-            .reverse();
-
-        const out = tmmAvg(lam, theta, n0, ns, layerNDs);
-
-        if (polarization === 's') {
-            result.R.push(out.Rs); result.T.push(out.Ts); result.A.push(out.As);
-        } else if (polarization === 'p') {
-            result.R.push(out.Rp); result.T.push(out.Tp); result.A.push(out.Ap);
-        } else {
-            result.R.push(out.R);  result.T.push(out.T);  result.A.push(out.A);
-        }
-        result.Rs.push(out.Rs); result.Ts.push(out.Ts); result.As.push(out.As);
-        result.Rp.push(out.Rp); result.Tp.push(out.Tp); result.Ap.push(out.Ap);
-    }
-
-    return result;
+    return fillSpectrum(emptySpectrum(lambdas), lambdas, exitMaterial, substrateMaterial,
+        validBack, theta, polarization);
 }
 
 /**
@@ -691,45 +627,13 @@ export function evaluateSpectrumTotal(params, incMaterial, subMaterial, exitMate
 export function evaluateSpectrumTotalAt(lambdas, params, incMaterial, subMaterial, exitMaterial,
                                         frontLayers, backLayers, subThickness_mm) {
     const { theta = 0, polarization = 'avg' } = params;
-
-    const result = emptySpectrum(lambdas);
-
     const validFront = frontLayers.filter(l => l.material && l.thickness > 0);
     const validBack = backLayers.filter(l => l.material && l.thickness > 0);
-    if (fillTotalSpectrumWasm(
-        result, lambdas,
+    return fillTotalSpectrum(
+        emptySpectrum(lambdas), lambdas,
         { incident: incMaterial, substrate: subMaterial, exit: exitMaterial },
         validFront, validBack, subThickness_mm, theta, polarization,
-    )) {
-        return result;
-    }
-
-    const sinTheta0 = Math.sin(theta * Math.PI / 180);
-
-    for (const lam of lambdas) {
-        const n0 = incMaterial.getNK(lam);
-        const ns = subMaterial.getNK(lam);
-        const ne = exitMaterial.getNK(lam);
-
-        const frontNDs = validFront.map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
-        const backNDs = validBack.map(l => ({ n: l.material.getNK(lam), d: l.thickness }));
-
-        const { cosThetaSub, thetaSub_deg } = substrateRay(n0, ns, sinTheta0);
-
-        // Forward pass: incidentMedium → frontLayers → substrate
-        const fwd = tmmAvg(lam, theta, n0, ns, frontNDs);
-
-        // Reverse pass: substrate → frontLayers_reversed → incidentMedium  →  R_f', T_f'
-        const rev = tmmAvg(lam, thetaSub_deg, ns, n0, [...frontNDs].reverse());
-
-        // Back coating from substrate side: substrate → backLayers → exitMedium
-        const back = tmmAvg(lam, thetaSub_deg, ns, ne, backNDs);
-
-        pushTotalSample(result, fwd, rev, back,
-            substratePass(ns[1], subThickness_mm, lam, cosThetaSub), polarization);
-    }
-
-    return result;
+    );
 }
 
 /**
@@ -741,10 +645,9 @@ export function evaluateSpectrumTotalAt(lambdas, params, incMaterial, subMateria
  * face does not change during the run, so its pass and the substrate's bulk
  * pass are computed once and reused across every step.
  *
- * With the WASM growing-stack kernel the run costs about what its final
- * spectrum costs alone: the kernel folds each layer into the running front
- * product instead of rebuilding the stack per step. Without it, the steps are
- * evaluated one by one.
+ * The run costs about what its final spectrum costs alone: the kernel's
+ * growing-stack call folds each layer into the running front product instead
+ * of rebuilding the stack per step.
  */
 export function evaluateDepositionSpectra(params, incMaterial, subMaterial, exitMaterial,
                                           depositionLayers, backLayers, subThickness_mm) {
@@ -752,15 +655,6 @@ export function evaluateDepositionSpectra(params, incMaterial, subMaterial, exit
             theta = 0, polarization = 'avg' } = params;
     const lambdas = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
     const N = depositionLayers.length;
-
-    const wasm = tmmWasmActive() ? getTmmWasm() : null;
-    if (!wasm || !wasm.hasGrowingKernels?.()) {
-        return depositionLayers.map((_, step) => {
-            const stored = depositionLayers.slice(0, step + 1).reverse();
-            return evaluateSpectrumTotalAt(lambdas, params, incMaterial, subMaterial,
-                exitMaterial, stored, backLayers, subThickness_mm);
-        });
-    }
 
     // One ñ(λ) row per MATERIAL, not per layer: a run repeats a few materials
     // hundreds of times, and the rows are read-only in the kernel call.
@@ -772,7 +666,7 @@ export function evaluateDepositionSpectra(params, incMaterial, subMaterial, exit
     const airRow = lambdas.map(() => [1, 0]);
     const layerNK = depositionLayers.map(l => (l.material ? nkFor(l.material) : airRow));
     const thick = depositionLayers.map(l => (l.material ? l.thickness : 0));
-    const sp = wasm.depositionSpectra(lambdas, n0List, nsList, layerNK, thick, theta);
+    const sp = wasmKernel().depositionSpectra(lambdas, n0List, nsList, layerNK, thick, theta);
 
     // The static side of the system, once per wavelength: the back coating's
     // pass at the refracted angle and the substrate's bulk transmittance.
@@ -930,13 +824,6 @@ export function computeEllipsometry(lambda_nm, theta_deg, n0, ns, layers) {
 // amplitude is exactly zero the kernel leaves NaN behind and that one sample
 // falls back to the point evaluator above.
 
-/** The loaded kernel, when one is instantiated in this thread and carries phase. */
-function phaseKernel() {
-    if (!tmmWasmActive()) return null;
-    const wasm = getTmmWasm();
-    return wasm && wasm.hasPhase() ? wasm : null;
-}
-
 function anglesFromPhase(sMagnitudeSquared, sPhaseRad, pMagnitudeSquared, pPhaseRad) {
     if (!Number.isFinite(sMagnitudeSquared) || !Number.isFinite(pMagnitudeSquared)) return null;
     return ellipsometricAngles(
@@ -975,13 +862,11 @@ export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList,
         lambdas[index], theta_deg, n0List[index], nsList[index],
         layerNK.map((row, k) => ({ n: row[index], d: thick[k] })));
 
-    const wasm = phaseKernel();
-    if (!wasm) return collectSweep(lambdas.length, reference);
-
+    const kernel = wasmKernel();
     const stack = constantJetGridStack(n0List, nsList, layerNK, thick);
     const angle = Number(theta_deg);
-    const s = wasm.phaseSpectrum(stack, lambdas, { angle, pol: 's' }).r;
-    const p = wasm.phaseSpectrum(stack, lambdas, { angle, pol: 'p' }).r;
+    const s = kernel.phaseSpectrum(stack, lambdas, { angle, pol: 's' }).r;
+    const p = kernel.phaseSpectrum(stack, lambdas, { angle, pol: 'p' }).r;
     return collectSweep(lambdas.length, index => anglesFromPhase(
         s.magnitudeSquared[index], s.phaseRad[index],
         p.magnitudeSquared[index], p.phaseRad[index]) || reference(index));
@@ -1003,15 +888,13 @@ export function evaluateEllipsometrySpectrum(lambdas, theta_deg, n0List, nsList,
 export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
     const reference = (index) => computeEllipsometry(lambda_nm, thetas[index], n0, ns, layers);
 
-    const wasm = phaseKernel();
-    if (!wasm) return collectSweep(thetas.length, reference);
-
+    const kernel = wasmKernel();
     const lambdas = thetas.map(() => lambda_nm);
     const stack = constantJetGridStack(lambdas.map(() => n0), lambdas.map(() => ns),
         layers.map(layer => lambdas.map(() => layer.n)), layers.map(layer => layer.d));
     const angle = thetas.map(Number);
-    const s = wasm.phaseSpectrum(stack, lambdas, { angle, pol: 's' }).r;
-    const p = wasm.phaseSpectrum(stack, lambdas, { angle, pol: 'p' }).r;
+    const s = kernel.phaseSpectrum(stack, lambdas, { angle, pol: 's' }).r;
+    const p = kernel.phaseSpectrum(stack, lambdas, { angle, pol: 'p' }).r;
     return collectSweep(thetas.length, index => anglesFromPhase(
         s.magnitudeSquared[index], s.phaseRad[index],
         p.magnitudeSquared[index], p.phaseRad[index]) || reference(index));
@@ -1033,33 +916,21 @@ export function evaluateEllipsometryAngles(lambda_nm, thetas, n0, ns, layers) {
 // sample is reported null.
 
 // The reflection phase of one polarization with its thickness derivative at
-// every wavelength of a grid: the batched kernel call where the build carries
-// it, the single-wavelength kernel call otherwise, and the JavaScript reference
-// with no kernel. Each entry is `{ phaseRad, magnitudeSquared, dPhaseDeg,
-// dLogMagnitudeSquared }` or null where the amplitude vanishes.
+// every wavelength of a grid, in one kernel call. Each entry is `{ phaseRad,
+// magnitudeSquared, dPhaseDeg, dLogMagnitudeSquared }` or null where the
+// amplitude vanishes.
 function reflectionPhaseJacobians(grid, pol) {
     const { lambdas, theta_deg, n0List, nsList, layerNK, thick } = grid;
-    const wasm = phaseKernel();
     const N = thick.length;
     const stack = constantJetGridStack(n0List, nsList, layerNK, thick);
-    if (wasm && wasm.hasPhaseJacobianSpectrum?.()) {
-        const batch = wasm.phaseJacobianSpectrum(stack, lambdas, { angle: Number(theta_deg), pol }).r;
-        return lambdas.map((_, index) => (Number.isNaN(batch.magnitudeSquared[index]) ? null : {
-            phaseRad: batch.phaseRad[index],
-            magnitudeSquared: batch.magnitudeSquared[index],
-            dPhaseDeg: batch.dPhaseDeg.subarray(index * N, (index + 1) * N),
-            dLogMagnitudeSquared:
-                batch.dLogMagnitudeSquared.subarray(index * N, (index + 1) * N),
-        }));
-    }
-    const at = index => ({
-        incident: { n: stack.incident.n[index] },
-        substrate: { n: stack.substrate.n[index] },
-        layers: stack.layers.map(layer => ({ n: layer.n[index], d: layer.d })),
-    });
-    const kernel = wasm ? wasm.phaseJacobian : phaseJacobian;
-    return lambdas.map((lambda, index) =>
-        kernel(at(index), lambda, { angle: Number(theta_deg), pol }).r);
+    const batch = wasmKernel().phaseJacobianSpectrum(stack, lambdas, { angle: Number(theta_deg), pol }).r;
+    return lambdas.map((_, index) => (Number.isNaN(batch.magnitudeSquared[index]) ? null : {
+        phaseRad: batch.phaseRad[index],
+        magnitudeSquared: batch.magnitudeSquared[index],
+        dPhaseDeg: batch.dPhaseDeg.subarray(index * N, (index + 1) * N),
+        dLogMagnitudeSquared:
+            batch.dLogMagnitudeSquared.subarray(index * N, (index + 1) * N),
+    }));
 }
 
 /**

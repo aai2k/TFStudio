@@ -25,6 +25,7 @@
  *
  * Run: node tests/optimizer_thickness_cap.mjs
  */
+import './_kernel.mjs';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { projectedLineSearch } from '../src/utils/optimizers/cg/lineSearch.js';
 import { DEOptimizer } from '../src/utils/optimizers/de.js';

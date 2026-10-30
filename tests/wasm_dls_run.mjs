@@ -1,9 +1,10 @@
 /**
  * Real-kernel DLS-run equivalence (mfAt + analytic Jacobian via WASM).
  *
- * Runs the SAME multi-step DLS refinement twice — once on JS, once with the WASM
- * kernel enabled (so both DLSOptimizer.mfAt AND _analyticJacobian route through
- * tmm_one / tmm_jacobian) — and checks the trajectories track each other. The
+ * Runs the SAME multi-step DLS refinement twice, once on tmmcore's JavaScript
+ * reference and once on the WASM kernel (DLSOptimizer.mfAt and
+ * _analyticJacobian both route through rta / jacobian), and checks the
+ * trajectories track each other. The
  * kernel agrees with JS to ~1e-15 per call, so the LM step sequence stays
  * essentially identical; final MF must match to a tight tolerance.
  *
@@ -11,11 +12,10 @@
  * Run: node tests/wasm_dls_run.mjs
  */
 
-import { readFileSync } from 'node:fs';
+import './_kernel.mjs';
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initTmmWasmMainThread, setTmmWasmEnabled, tmmWasmActive } from 'tmmcore';
-import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
+import { onJsReference } from './_wasmInit.mjs';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -46,14 +46,7 @@ function runDLS() {
     return { mf: dls.mf, mfBest: dls.mfBest, thick: dls.thickBest.slice(), traj };
 }
 
-// JS reference
-setTmmWasmEnabled(false);
-ok(!tmmWasmActive(), 'flag off for JS run');
-const js = runDLS();
-
-// WASM
-await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
-ok(tmmWasmActive(), 'flag on for WASM run');
+const js = onJsReference(runDLS);
 const w = runDLS();
 
 const dMfBest = Math.abs(js.mfBest - w.mfBest);
@@ -67,8 +60,6 @@ console.log(`  max|Δ traj|=${dTraj.toExponential(2)}  |Δ mfBest|=${dMfBest.toE
 ok(js.traj.length === w.traj.length, `same step count (JS ${js.traj.length} vs WASM ${w.traj.length})`);
 ok(dMfBest < 1e-7, `mfBest match Δ=${dMfBest.toExponential(2)} (<1e-7)`);
 ok(dThk < 1e-4, `thickness match Δ=${dThk.toExponential(2)} nm (<1e-4)`);
-
-setTmmWasmEnabled(false);
 
 if (fails === 0) { console.log('\nPASS — WASM DLS run (mfAt + analytic Jacobian) tracks the JS run.'); process.exit(0); }
 else { console.error(`\n${fails} assertion(s) FAILED.`); process.exit(1); }

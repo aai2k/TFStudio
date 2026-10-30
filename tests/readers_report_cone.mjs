@@ -8,6 +8,7 @@
  * that disagree with the windows for the same design. A design without a cone
  * prints the collimated result.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 globalThis.window = Object.assign(new EventTarget(), { electronAPI: {} });

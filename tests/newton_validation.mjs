@@ -11,6 +11,7 @@
  *
  * Run: node tests/newton_validation.mjs
  */
+import './_kernel.mjs';
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { NewtonOptimizer } from '../src/utils/optimizers/newton.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';

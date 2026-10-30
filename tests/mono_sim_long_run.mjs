@@ -10,6 +10,7 @@
  *
  * Run: node tests/mono_sim_long_run.mjs
  */
+import './_kernel.mjs';
 import { simulateRunMono, defaultMonoTable, mulberry32 } from '../src/utils/monitoring/monoSim.js';
 import { growingSignalSampler, singleSignal } from '../src/utils/monitoring/monoSim/signalModel.js';
 

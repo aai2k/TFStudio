@@ -19,8 +19,7 @@ import {
     computeEllipsometry, computeEFieldProfile, C_NM_PER_FS,
 } from '../../src/utils/physics/thinFilmMath.js';
 import { tmm } from 'tmmcore';
-import { coefficientPhaseDispersion, tmmCoefficientJets }
-    from '../../src/utils/physics/phaseDispersion.js';
+import { coefficientPhaseDispersion, tmmCoefficientJets } from '../../src/tmmcore.js';
 import { jetConstant, wavelengthOmegaJet } from '../../src/tmmcore.js';
 
 const here = dirname(fileURLToPath(import.meta.url));

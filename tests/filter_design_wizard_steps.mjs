@@ -10,6 +10,7 @@
  *
  * Run: node tests/filter_design_wizard_steps.mjs
  */
+import './_kernel.mjs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { shimBrowserGlobals, loadApp, makeTheme, makeLocale } from './_uiShim.mjs';
 

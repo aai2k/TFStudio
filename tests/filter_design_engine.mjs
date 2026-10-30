@@ -13,6 +13,7 @@
  *
  * Run: node tests/filter_design_engine.mjs
  */
+import './_kernel.mjs';
 import {
     constIndex, qwThickness, buildPrototypeLayers, coupledMirrors,
     embeddedT, spectrumT, measureWidth, recommendCavities,

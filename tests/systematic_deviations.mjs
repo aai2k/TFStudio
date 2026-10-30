@@ -10,6 +10,7 @@
  * Run: node tests/systematic_deviations.mjs
  */
 
+import './_kernel.mjs';
 import {
     emptyDeviation, cloneDeviation, isIdentityDeviation,
     enumerateUniqueMaterials,

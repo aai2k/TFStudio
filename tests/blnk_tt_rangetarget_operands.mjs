@@ -8,6 +8,7 @@
  *               (no more "50→50" ramp on range-average types)
  */
 
+import './_kernel.mjs';
 import {
     makeOperand, evaluateOperands, calcMF, buildEvalContext,
     operandSampleLambdas, isRangeTarget, isBlank, isTotalThickness, isRamp,

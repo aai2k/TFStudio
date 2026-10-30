@@ -45,8 +45,8 @@ function makeResolveMat(materials) {
 
 self.onmessage = async (e) => {
     const job = e.data;
-    // The wizard ships the kernel bytes before the job so the run's per-scan
-    // spectra ride the WASM growing evaluator; without them the JS path runs.
+    // The wizard ships the kernel bytes before the job; the run's per-scan
+    // spectra ride the WASM growing evaluator.
     if (job && job.type === 'wasmInit') { noteTmmWasmBytes(job.wasmBytes); return; }
     if (!job || job.cmd !== 'bbm-run') {
         postMessage({ type: 'error', message: `bbmRunWorker: unknown cmd "${job?.cmd}"` });

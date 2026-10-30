@@ -11,6 +11,7 @@
  *
  * Run: node tests/report_integrals_window_grid.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeEffectRuntime } from './_effectRuntime.mjs';
 

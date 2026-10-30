@@ -16,6 +16,7 @@
  *
  * Run: node tests/specification_worker_requests.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeEffectRuntime } from './_effectRuntime.mjs';
 

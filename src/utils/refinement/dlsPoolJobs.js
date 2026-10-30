@@ -14,7 +14,7 @@ export function makeJob(S, r) {
         design: r === 0 ? S.payload : perturbPayload(S.payload, S.perturbPct, r, restartRng(S.seed, r)),
         materials: S.materials,
         opts: { maxIter: S.maxIter },
-        wasmBytes: getTmmWasmBytesForWorker(),   // null unless WASM enabled
+        wasmBytes: getTmmWasmBytesForWorker(),
         restartIdx: S.isMulti ? r : undefined,
         nRestarts:  S.isMulti ? S.N : undefined,
     };

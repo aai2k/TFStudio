@@ -157,8 +157,8 @@
 
   // ── Settings ────────────────────────────────────────────────────────────────
   // Defaults match the regular build exactly (see renderer.js useState): theme
-  // 'Light' (capital L is the palette key), ribbon 'minimalist', WASM on.
-  const DEFAULT_SETTINGS = { theme: 'Light', locale: 'en', wasmTmm: true, ribbonStyle: 'minimalist' };
+  // 'Light' (capital L is the palette key), ribbon 'minimalist'.
+  const DEFAULT_SETTINGS = { theme: 'Light', locale: 'en', ribbonStyle: 'minimalist' };
   async function loadSettings() {
     try {
       const stored = await S().getMeta('settings');

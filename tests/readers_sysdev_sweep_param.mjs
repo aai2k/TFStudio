@@ -11,6 +11,7 @@
  * The window's hook is driven through the hook harness, with a design context
  * standing in for the provider, so the store write its effect makes is seen.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { importWithHookRuntime, makeHookRuntime } from './_hookHarness.mjs';
 

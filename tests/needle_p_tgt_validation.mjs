@@ -10,6 +10,7 @@
  *
  * Run: node tests/needle_p_tgt_validation.mjs
  */
+import './_kernel.mjs';
 import {
   makeOperand, scanNeedlesAnalytic, scanNeedlesFD,
 } from '../src/utils/physics/optimizer.js';

@@ -7,17 +7,16 @@
  *   - witness chips: one pass per chip, on the chip glass at the witness
  *     thickness;
  *   - back side: evaluated step by step, and still right;
- *   - the same with the WASM growing kernels on, at the kernel's rounding;
  *   - the files come in order with a running count, which is what lets the
  *     window hand the UI a turn between them.
  *
  * Run: node tests/process_export_one_pass.mjs
  */
+import './_kernel.mjs';
 import {
     buildAllProcessFiles, buildResFileContent, processFileSteps,
 } from '../src/utils/io/processFileExport.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
-import { getTmmWasm, initWasmForTest } from './_wasmInit.mjs';
 
 let fail = 0;
 const ok = (cond, msg) => { console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`); if (!cond) fail++; };
@@ -98,22 +97,22 @@ function sameFiles(a, b) {
     });
 }
 
-function check(label) {
+function check() {
     const d = design();
     const frontDep = [...d.frontLayers].reverse();
     const backDep = d.backLayers.slice();
     const contents = (opts) => buildAllProcessFiles(d, opts).map(f => f.content);
 
     ok(sameFiles(contents(OPTS), perStepFiles(d, OPTS, frontDep, backDep, d.substrate.material)),
-       `${label}: front side over a coated back, one pass equals per step`);
+       'front side over a coated back, one pass equals per step');
 
     const reflect = { ...OPTS, quantity: 'R', secondSurface: 'bare' };
     ok(sameFiles(contents(reflect), perStepFiles(d, reflect, frontDep, [], d.substrate.material)),
-       `${label}: reflectance on a bare back too`);
+       'reflectance on a bare back too');
 
     const back = { ...OPTS, activeSide: 'back' };
     ok(sameFiles(contents(back), perStepFiles(d, back, backDep, frontDep, d.substrate.material)),
-       `${label}: back side, evaluated step by step`);
+       'back side, evaluated step by step');
 
     const chips = {
         chipByStep: frontDep.map((_, i) => (i % 3 === 2 ? 2 : 1)),
@@ -125,7 +124,7 @@ function check(label) {
         const chipLayers = steps.map(i => ({ ...frontDep[i], thickness: frontDep[i].thickness * 1.3 }));
         const got = files.filter(f => f.subdir === `chip-${chip}`).map(f => f.content);
         ok(sameFiles(got, perStepFiles(d, OPTS, chipLayers, [], 'builtin:Al2O3')),
-           `${label}: chip ${chip} on its glass at the witness thickness, one pass equals per step`);
+           `chip ${chip} on its glass at the witness thickness, one pass equals per step`);
     }
 }
 
@@ -144,11 +143,8 @@ function check(label) {
        'on witness chips the count runs over the whole run, not per chip');
 }
 
-// ── One pass equals per step, in JS and on the WASM kernels ─────────────────
-check('JS');
-const active = await initWasmForTest();
-if (active && getTmmWasm().hasGrowingKernels?.()) check('WASM');
-else console.log('SKIP  WASM growing kernels not available; JS path checked only');
+// ── One pass equals per step ─────────────────────────────────────────────────
+check();
 
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILURE(S)`);
 process.exit(fail === 0 ? 0 : 1);

@@ -7,6 +7,7 @@
  * Structural Optimizer window's own runner, so a change to its search moves
  * their hashes.
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
@@ -132,9 +133,9 @@ const expected = {
     emptyDefaults: '052521ec864608e9fb75ef94a65d424974c735450215e0f0980ae7e4061df392',
     emptySweep: '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945',
     needle: '18f1d2ca96d633ea63557c2a7eb19a67d6f38932eca26386a59fed5d058a0721',
-    gradualEvolution: '60b9d78c4dd8efe756719ec34975f6262edf8849b83ad5e2a08b17ce1a984bb9',
-    structural: 'f204e6461a32ee428094343ca670e3b6fecce3a9ec5cc8b0e64c3d4793387d75',
-    structuralDeepBudget: '383c5c241759ef04d11a6ca7b6ba2b60e742b840279b8115b08457f9e887be9f',
+    gradualEvolution: 'e61d5d2779203a8b683d580613bb3b348058405cd6f5bc49f05f0a3494c946df',
+    structural: '9235dcd0b99b5a6f60b0576bc233b2887a1226051ed0ccf08a76420f6dbe7f7b',
+    structuralDeepBudget: '4dba85464ab3647737e9d402a6719b926d74057e8bdfdfdb51a3ba2417a93041',
 };
 assert.deepEqual(actual, expected);
 

@@ -1,3 +1,4 @@
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 import {

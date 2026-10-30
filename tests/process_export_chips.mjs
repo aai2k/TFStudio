@@ -12,6 +12,7 @@
  *
  * Run: node tests/process_export_chips.mjs
  */
+import './_kernel.mjs';
 import { buildAllProcessFiles } from '../src/utils/io/processFileExport.js';
 import {
     buildDepositionModel, computeSpectrum, computeStepSpectra, evaluatedMaterials,

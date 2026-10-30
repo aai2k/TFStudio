@@ -1,7 +1,7 @@
 /**
  * Everything the app keeps in settings.json and the preferences file: the
  * palette and the themes imported into it, the language, the ribbon style, the
- * two opt-out toggles, the opt-in switch that has the live link listen for
+ * opt-out update check, the opt-in switch that has the live link listen for
  * programs from the start, the
  * Python the Script Console runs Python scripts in, the quick-access list and
  * the analysis-window defaults.
@@ -19,7 +19,6 @@ import {
 } from '../utils/theme/appearance.js';
 import { readAppSettings, writeAppSettings, readPreferences } from '../utils/io/settingsFile.js';
 import { setToolState, toolState, patchToolState } from '../utils/misc/toolState.js';
-import { initTmmWasmMainThread } from '../tmmcore.js';
 
 const { useState, useEffect, useCallback, useSyncExternalStore } = React;
 
@@ -36,7 +35,6 @@ function applyLoadedSettings(loaded, set) {
     if (loaded.theme)       set.theme(loaded.theme);
     if (loaded.locale)      set.locale(loaded.locale);
     if (loaded.ribbonStyle) set.ribbonStyle(loaded.ribbonStyle);
-    set.wasmTmm(loaded.wasmTmm);
     set.updateCheckEnabled(loaded.updateCheckEnabled);
     if (loaded.skippedVersion !== null) set.skippedVersion(loaded.skippedVersion);
     set.liveBridge(loaded.liveBridge);
@@ -70,12 +68,6 @@ export function useAppSettings(setMessageNotification) {
     // monochrome; 'colorful' tints them by group hue.
     const [ribbonStyle,    setRibbonStyle]    = useState(
         () => cachedAppearance().ribbonStyle || 'minimalist');
-    // WASM TMM acceleration. ON by default (opt-out): a missing persisted
-    // setting is treated as enabled; only an explicit `false` disables it.
-    // Toggled in Settings; flips the runtime flag (main thread + worker
-    // broadcasts) and persists via the settings effect below. If the .wasm
-    // artifact is missing it silently falls back to JS regardless.
-    const [wasmTmm,        setWasmTmmState]   = useState(true);
     // Update check. On by default (opt-out): the request is an unauthenticated
     // GET to a public API that sends no identifiers and stores nothing, and the
     // toggle exists for restricted networks.
@@ -114,7 +106,7 @@ export function useAppSettings(setMessageNotification) {
         readAppSettings().catch(() => null).then(loaded => {
             applyLoadedSettings(loaded, {
                 customThemes: setCustomThemes, theme: setTheme, locale: setCurrentLocale,
-                ribbonStyle: setRibbonStyle, wasmTmm: setWasmTmmState,
+                ribbonStyle: setRibbonStyle,
                 updateCheckEnabled: setUpdateCheckEnabled, skippedVersion: setSkippedVersion,
                 liveBridge: setLiveBridge, pythonPath: setPythonPath,
             });
@@ -131,7 +123,7 @@ export function useAppSettings(setMessageNotification) {
     }, []);
 
     const saveSettingsToDisk = () => writeAppSettings({
-        theme, locale, wasmTmm, ribbonStyle, customThemes,
+        theme, locale, ribbonStyle, customThemes,
         updateCheckEnabled, skippedVersion, liveBridge, pythonPath,
         // The colour the window frame paints with. Electron fills a newly
         // exposed area during a resize, and the whole window before the first
@@ -142,15 +134,11 @@ export function useAppSettings(setMessageNotification) {
 
     useEffect(() => {
         if (settingsLoaded) saveSettingsToDisk();
-    }, [settingsLoaded, theme, locale, wasmTmm, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion, liveBridge, pythonPath]);
+    }, [settingsLoaded, theme, locale, ribbonStyle, customThemes, updateCheckEnabled, skippedVersion, liveBridge, pythonPath]);
 
     const liveBridgeStatus = useLiveBridgeStatus(settingsLoaded, liveBridge);
 
     useEffect(() => { applyPaletteVariables(c); }, [c]);
-
-    // Toggle WASM acceleration: update UI state + apply at runtime (instantiate
-    // on first enable, reuse the loaded bytes thereafter). Persists via effect.
-    const setWasmTmm = (on) => { setWasmTmmState(on); initTmmWasmMainThread(null, on); };
 
     // Written straight through rather than on a debounce: the list changes one
     // button at a time, and it has to survive the app being closed right after.
@@ -201,7 +189,6 @@ export function useAppSettings(setMessageNotification) {
         c, t,
         theme, setTheme, locale, setLocale: setCurrentLocale, ribbonStyle, setRibbonStyle,
         customThemes, importThemeFromVscode, deleteCustomTheme,
-        wasmTmm, setWasmTmm,
         updateCheckEnabled, setUpdateCheckEnabled, skippedVersion, setSkippedVersion,
         liveBridge, setLiveBridge, liveBridgeStatus, pythonPath, setPythonPath,
         appVersion, devAllowed, settingsLoaded,

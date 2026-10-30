@@ -25,6 +25,7 @@
  * Run: node tests/inequality_argwave_operands.mjs
  */
 
+import './_kernel.mjs';
 import {
     makeOperand, evaluateOperands, buildEvalContext, calcMF, operandEvaluationErrors,
     operandSampleLambdas, requiredLambdas,

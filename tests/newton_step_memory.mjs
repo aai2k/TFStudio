@@ -67,18 +67,18 @@ const sharedRows = (flag, aoi) => [row('RAV', 0, 2, flag, aoi), row('TAV', 1, 1,
 // One step from the design above. The heap is read inside the Hessian kernel
 // calls, every `readEvery` calls, while the step assembles its system.
 const kernel = getTmmWasm();
-const hessian = kernel.tmmHessian;
+const hessian = kernel.hessian;
 function oneStep(method, operands, side, readEvery = 0) {
     const engine = makeEngine(method, operands, designOn(side), resolveMat, {});
     let calls = 0, peak = 0;
-    kernel.tmmHessian = function sampled(...args) {
+    kernel.hessian = function sampled(...args) {
         calls++;
         if (readEvery && calls % readEvery === 0) { collect(); peak = Math.max(peak, process.memoryUsage().heapUsed); }
         return hessian.apply(this, args);
     };
     collect();
     const start = process.memoryUsage().heapUsed;
-    try { engine.step(); } finally { kernel.tmmHessian = hessian; }
+    try { engine.step(); } finally { kernel.hessian = hessian; }
     return { mf: engine.mf, thk: [...engine.thicknesses], calls, growthMB: (peak - start) / 2 ** 20 };
 }
 

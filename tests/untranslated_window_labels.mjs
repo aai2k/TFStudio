@@ -23,6 +23,7 @@
  *
  * Run: node tests/untranslated_window_labels.mjs
  */
+import './_kernel.mjs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadApp, makeDesignCtx, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 

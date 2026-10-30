@@ -12,6 +12,7 @@
  * Run: node tests/rii_formula_catalog.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 const { riiToMaterialEntry, sampleMaterial } = await import('../src/utils/materials/riiDatabase.js');

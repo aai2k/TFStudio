@@ -11,6 +11,7 @@
  * Run: node tests/report_monte_carlo_run.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { loadApp, makeLocale, shimBrowserGlobals } from './_uiShim.mjs';
 import { NodeModuleWorker } from './_moduleWorker.mjs';

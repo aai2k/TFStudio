@@ -11,7 +11,7 @@ import { makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import { BUILTIN_DETECTORS, BUILTIN_SOURCES } from '../utils/physics/spectralWeightings.js';
 import { dispatchAnalysisEvaluation } from '../utils/workers/analysisEvaluationWorker.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { viewSide } from './stackViews.js';
 import { checkRange, checkOptions, requireValue, isAngle, isPositive, refusal } from './check.js';
 
@@ -139,7 +139,7 @@ export function integrals(design, options) {
     const shown = withHerpinRecords(design);
     const mode = viewSide('integrals', shown, side);
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     // The window's 'integralSpectrum', in the analysis worker under a cone on
     // the design with its materials embedded, as the worker receives it.
     const coned = coneIsActive(makeConeSpec(shown.cone || {}));

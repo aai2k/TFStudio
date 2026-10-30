@@ -1,3 +1,4 @@
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { makeOperand } from '../src/utils/physics/optimizer.js';

@@ -207,8 +207,6 @@ export default {
     updateCheckHint: 'Ask GitHub once at startup whether a newer release exists and show a notice if so. Nothing is downloaded or installed automatically.',
     updateCheckNow: 'Check now',
     updateChecking: 'Checking…',
-    wasmAccel: 'WASM TMM acceleration',
-    wasmAccelHint: 'Use the compiled WebAssembly transfer-matrix kernel for faster optimization and spectra. Requires the kernel to be built. Falls back to JavaScript if unavailable.',
     liveBridge: 'Start listening when TFStudio starts',
     liveBridgeHint: 'TFStudio then listens for programs from the moment it starts, without Interactive on the Optimization tab, and asks before a program connects for the first time. A program you allow can read the designs in the project explorer and change the open one, and the rest of TFStudio waits until you click Terminate. Leave it off unless you need it.',
     liveBridgeOn: 'Listening. TFStudio asks before a new program connects.',

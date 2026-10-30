@@ -16,6 +16,7 @@
  * Run: node tests/ppef_operand.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 import {

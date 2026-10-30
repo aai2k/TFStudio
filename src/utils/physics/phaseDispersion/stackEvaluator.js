@@ -24,8 +24,6 @@
 
 import { materialOmegaResponse, C_NM_PER_FS } from '../../materials/materialDispersion.js';
 import {
-    coefficientPhaseDispersion,
-    coefficientPhaseThicknessDerivatives,
     jetConstant,
     jetDerivatives,
     jetDivide,
@@ -33,12 +31,9 @@ import {
     jetScale,
     jetSqrt,
     jetSubtract,
-    getTmmWasm,
-    tmmCoefficientJets,
-    tmmCoefficientThicknessJets,
-    tmmWasmActive,
     wavelengthOmegaJet,
 } from '../../../tmmcore.js';
+import { wasmKernel } from '../kernelStack.js';
 
 // tmmcore reports each order in the reciprocal of whatever angular-frequency
 // unit it was given, and names them accordingly. Every caller here works in
@@ -51,39 +46,19 @@ function inFemtoseconds(quantities) {
 }
 
 /**
- * One phase evaluation of a prepared stack, through the WebAssembly kernel when
- * one is instantiated in this thread and the JavaScript otherwise.
- *
- * This is the only place either backend is called, so the two cannot drift apart
- * in how they are used; that they agree numerically is held by tmmcore's own
- * equivalence suite. Returns null where the coefficient is exactly zero and the
- * phase is undefined.
+ * One phase evaluation of a prepared stack on the WebAssembly kernel. This is
+ * the only place the kernel's phase calls are made. Returns null where the
+ * coefficient is exactly zero and the phase is undefined.
  */
 function phaseQuantities(options, target, withThicknessJacobian) {
-    const wasm = tmmWasmActive() ? getTmmWasm() : null;
-    if (wasm && wasm.hasPhase()) {
-        const result = kernelPhase(wasm, options, withThicknessJacobian);
-        const side = target === 'T' ? result.t : result.r;
-        if (!side) return null;
-        const { dPhaseDeg, dGd, dGdd, dTod, ...dispersion } = side;
-        return {
-            dispersion: inFemtoseconds(dispersion),
-            thicknessJacobian: withThicknessJacobian
-                ? inFemtoseconds({ phaseDeg: dPhaseDeg, gd: dGd, gdd: dGdd, tod: dTod })
-                : undefined,
-        };
-    }
-    const coefficients = withThicknessJacobian
-        ? tmmCoefficientThicknessJets(options)
-        : tmmCoefficientJets(options);
-    const side = coefficientSide(coefficients, target);
-    const dispersion = inFemtoseconds(coefficientPhaseDispersion(side.jet, side.logScale));
-    if (!dispersion) return null;
+    const result = kernelPhase(wasmKernel(), options, withThicknessJacobian);
+    const side = target === 'T' ? result.t : result.r;
+    if (!side) return null;
+    const { dPhaseDeg, dGd, dGdd, dTod, ...dispersion } = side;
     return {
-        dispersion,
+        dispersion: inFemtoseconds(dispersion),
         thicknessJacobian: withThicknessJacobian
-            ? inFemtoseconds(
-                coefficientPhaseThicknessDerivatives(side.jet, side.thicknessJets))
+            ? inFemtoseconds({ phaseDeg: dPhaseDeg, gd: dGd, gdd: dGdd, tod: dTod })
             : undefined,
     };
 }
@@ -114,20 +89,6 @@ function kernelPhase(wasm, options, withThicknessJacobian) {
     return call(stack, Number(options.wavelengthNm), { angle: Number(options.thetaDeg), pol });
 }
 
-// The coefficient a target reads, its thickness jets, and the log of the
-// factor its magnitude is too large by. Past the opaque-layer bound the jets'
-// |t| exceeds the true one by e^{logScale}, which they report alongside rather
-// than apply; the kernel path applies it itself. r is never off.
-function coefficientSide(coefficients, target) {
-    return target === 'T'
-        ? {
-            jet: coefficients.transmission,
-            thicknessJets: coefficients.transmissionThickness,
-            logScale: coefficients.transmissionLogScale,
-        }
-        : { jet: coefficients.reflection, thicknessJets: coefficients.reflectionThickness, logScale: 0 };
-}
-
 export function continuityMetadata(materials) {
     return {
         phaseContinuousOrder: materials.length
@@ -152,7 +113,6 @@ export function evaluateStackPhaseDispersion(options) {
         knotSide,
     } = options;
     const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;
-    const wavelengthJet = wavelengthOmegaJet(wavelengthNm, omega);
     const responseCache = new Map();
     const responseFor = (material, name) => {
         if (!responseCache.has(material)) {
@@ -201,7 +161,6 @@ export function evaluateStackPhaseDispersion(options) {
     const quantities = phaseQuantities({
         wavelengthNm,
         omega,
-        wavelengthJet,
         thetaDeg,
         polarization,
         incidentIndexJet: incident.response.jet,

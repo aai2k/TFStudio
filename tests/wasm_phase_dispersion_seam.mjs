@@ -3,37 +3,27 @@
  *
  * tmmcore's own suite proves its JavaScript and its C kernel agree. What that
  * cannot cover is TFStudio's side of the boundary: that a design resolved
- * through the material catalog is handed to either backend the same way, so
- * turning WASM on does not change a reported number.
+ * through the material catalog is handed to the kernel as the JavaScript
+ * reference reads it, so the kernel does not change a reported number.
  *
  * Every evaluation in the program funnels through evaluateStackPhaseDispersion,
- * so driving it with WASM off and then on, on the same designs, exercises the
- * whole seam: front and back sides, reflection and transmission, s and p,
+ * so driving it on tmmcore's JavaScript reference and then on the kernel, on
+ * the same designs, exercises the whole seam: front and back sides, reflection and transmission, s and p,
  * oblique incidence, the reference-incident jet the back coating needs, and the
  * thickness Jacobian the optimizer runs on.
  *
  *   node tests/wasm_phase_dispersion_seam.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
-import { setTmmWasmEnabled, tmmWasmActive, getTmmWasm } from 'tmmcore';
-import { initWasmForTest } from './_wasmInit.mjs';
+import { onJsReference } from './_wasmInit.mjs';
 import {
     evaluateDesignPhaseDispersion,
     evaluateStackPhaseDispersion,
     evaluateTotalTransmissionDispersion,
 } from '../src/utils/physics/phaseDispersion.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
-
-const ready = await initWasmForTest();
-if (!ready) {
-    console.log('SKIP: wasm_phase_dispersion_seam (no kernel instantiated)');
-    process.exit(0);
-}
-if (!getTmmWasm().hasPhase()) {
-    console.log('SKIP: wasm_phase_dispersion_seam (kernel predates the phase exports)');
-    process.exit(0);
-}
 
 // GD, GDD and TOD span many decades, and every derivative order amplifies libm
 // noise by about a decade. Compare relatively, with an absolute floor so the
@@ -82,13 +72,9 @@ function compare(off, on, label) {
     }
 }
 
-/** Run a thunk with WASM forced off, then on, and compare the two results. */
+/** Run a thunk on the JavaScript reference, then on the kernel, and compare the two results. */
 function bothWays(run, label) {
-    setTmmWasmEnabled(false);
-    assert.equal(tmmWasmActive(), false, 'the flag did not turn the kernel off');
-    const off = run();
-    setTmmWasmEnabled(true);
-    assert.equal(tmmWasmActive(), true, 'the flag did not turn the kernel back on');
+    const off = onJsReference(run);
     const on = run();
     compare(off, on, label);
 }
@@ -191,8 +177,6 @@ bothWays(() => evaluateStackPhaseDispersion({
     ],
     withThicknessJacobian: true,
 }), 'opaque silver stack');
-
-setTmmWasmEnabled(false);
 
 console.log(`PASS: wasm_phase_dispersion_seam (${comparisons} comparisons, ` +
     `worst relative difference ${worst === 0 ? 'below the floor' : worst.toExponential(2)})`);

@@ -15,6 +15,7 @@
  * elastic constants at all, comes back with its bending force nulled.
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import {
     DLSOptimizer, buildEvalContext, buildPresampledTable, calcMF, calcOMF,

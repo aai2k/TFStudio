@@ -1,3 +1,4 @@
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 import { evalN, evalNJet } from '../src/utils/materials/dispersionFormulas.js';
@@ -17,15 +18,15 @@ import {
     createTabulatedNKSampler,
 } from '../src/utils/materials/pchip.js';
 import {
-    coefficientPhaseDispersion,
     evaluateDesignPhaseDispersion,
     evaluateTotalTransmissionDispersion,
-    tmmCoefficientJets,
 } from '../src/utils/physics/phaseDispersion.js';
 import {
+    coefficientPhaseDispersion,
     jetDerivatives,
     jetFromDerivatives,
     jetScale,
+    tmmCoefficientJets,
     wavelengthOmegaJet,
 } from '../src/tmmcore.js';
 import {

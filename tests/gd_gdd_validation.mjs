@@ -27,6 +27,7 @@
  *      reference wavelength 550 nm. The text states the effect is small and
  *      that varying the total number of layers makes little difference.
  */
+import './_kernel.mjs';
 import {
     computeGdGddSpectrum,
     AUTOMATIC_GD_GDD_FINE_STEP_NM,

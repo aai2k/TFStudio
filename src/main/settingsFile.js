@@ -1,7 +1,7 @@
 // Read/modify/write access to settings.json.
 //
 // The file has two owners. The renderer sends a fixed payload (theme, locale,
-// wasmTmm, ribbonStyle, customThemes) whenever any of those change; the main
+// ribbonStyle, customThemes) whenever any of those change; the main
 // process owns the keys listed below. Because the renderer payload does not
 // carry the main-owned keys, every write has to merge rather than replace, or a
 // theme change would silently drop the user's folder configuration.

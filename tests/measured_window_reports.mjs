@@ -9,6 +9,7 @@
  * afterwards; a server render keeps no state between two renders.
  * Run: node tests/measured_window_reports.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import RealReact from 'react';
 import { makeHookRuntime } from './_hookHarness.mjs';

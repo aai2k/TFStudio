@@ -7,6 +7,7 @@
  * note instead of throwing, and the locales drive the headings.
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { loadApp, shimBrowserGlobals } from './_uiShim.mjs';
 import { REPORT_TEST_DESIGN as design, REPORT_TEST_SETTINGS as settings } from './_reportFixture.mjs';

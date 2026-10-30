@@ -9,7 +9,7 @@ import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { colorReport, COLOR_RANGE_NM, ILLUMINANTS, OBSERVERS } from '../utils/physics/colorimetry.js';
 import { makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import { requireResolved } from './materials.js';
-import { warnWithoutKernel } from './environment.js';
+import { requireKernel } from './environment.js';
 import { viewSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, isAngle } from './check.js';
 
@@ -102,7 +102,7 @@ export function color(design, options) {
     const shown = withHerpinRecords(design);
     const mode = viewSide('color', shown, side);
     requireResolved(design);
-    warnWithoutKernel();
+    requireKernel();
     // Under a cone the window computes in the analysis worker, on the design
     // with its materials embedded, as the worker receives it.
     const computed = coneIsActive(makeConeSpec(shown.cone || {})) ? embedDesignMaterials(shown) : shown;

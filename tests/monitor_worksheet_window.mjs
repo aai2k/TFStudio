@@ -5,6 +5,7 @@
  * Run: node tests/monitor_worksheet_window.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';

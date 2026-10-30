@@ -3,8 +3,9 @@
  *
  * Simulates what a pool/worker does when it receives the broadcast bytes:
  *   noteTmmWasmBytes(bytes)  →  await awaitTmmWasmReady()  →  run optimizer.
- * Then verifies DLSOptimizer.mfAt with WASM enabled matches the JS path, and
- * that the main-thread byte-gating (getTmmWasmBytesForWorker) tracks the flag.
+ * A calculation before the bytes arrive is an error; after, DLSOptimizer.mfAt
+ * runs on the kernel and matches tmmcore's JavaScript reference. The main
+ * thread, which loads the kernel at startup, keeps the bytes to hand on.
  *
  * Uses the prebuilt kernel shipped by tmmcore.
  * Run: node tests/wasm_worker_init.mjs
@@ -18,7 +19,7 @@ import {
     noteTmmWasmBytes, awaitTmmWasmReady, tmmWasmActive,
     getTmmWasmBytesForWorker, initTmmWasmMainThread,
 } from 'tmmcore';
-import { TMMCORE_WASM_PATH } from './_wasmInit.mjs';
+import { TMMCORE_WASM_PATH, onJsReference } from './_wasmInit.mjs';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -40,36 +41,33 @@ const des = {
     backLayers: [], surfaceMode: 'front_only', mfEvalMode: 'side',
 };
 
-// ── A) JS baseline (flag still off at module load) ───────────────────────────
+// ── A) Before the bytes arrive nothing can be calculated ─────────────────────
 ok(!tmmWasmActive(), 'starts inactive');
-const x = new DLSOptimizer(ops, des, resolveMat).thicknesses.slice();
-const mfJs = new DLSOptimizer(ops, des, resolveMat).mfAt(x);
+let early = null;
+try { new DLSOptimizer(ops, des, resolveMat).mfAt(des.frontLayers.map(l => l.thickness)); } catch (e) { early = e; }
+ok(/WASM TMM kernel is not loaded/.test(early?.message), `a calculation before the bytes arrive throws (${early?.message})`);
 
 // ── B) Worker receives the wasmInit broadcast ────────────────────────────────
 noteTmmWasmBytes(readFileSync(TMMCORE_WASM_PATH)); // what onmessage({type:'wasmInit'}) does
 await awaitTmmWasmReady();                      // what the job handler awaits
 ok(tmmWasmActive(), 'worker enabled WASM after init');
+const x = new DLSOptimizer(ops, des, resolveMat).thicknesses.slice();
+const mfJs = onJsReference(() => new DLSOptimizer(ops, des, resolveMat).mfAt(x));
 const mfW = new DLSOptimizer(ops, des, resolveMat).mfAt(x);
 const d = Math.abs(mfJs - mfW);
 ok(d < 1e-9, `worker mfAt WASM=${mfW} vs JS=${mfJs} Δ=${d.toExponential(3)} (tol 1e-9)`);
 console.log(`worker-init: WASM active, mfAt Δ = ${d.toExponential(3)}`);
 
-// ── C) Main-thread byte gating tracks the flag ───────────────────────────────
+// ── C) The main thread keeps the bytes for its workers ───────────────────────
 // The main thread is the one that broadcasts bytes to workers; it sets the byte
 // store via initTmmWasmMainThread (the worker-side noteTmmWasmBytes deliberately
-// does not, since workers never re-broadcast). Seed it, then toggle.
+// does not, since workers never re-broadcast).
 await initTmmWasmMainThread(readFileSync(TMMCORE_WASM_PATH), true);
 ok(tmmWasmActive(), 'main-thread bootstrap active');
-ok(getTmmWasmBytesForWorker() != null, 'bytes available for worker broadcast when active');
-await initTmmWasmMainThread(null, false);       // toggle OFF
-ok(!tmmWasmActive(), 'toggle off → inactive');
-ok(getTmmWasmBytesForWorker() === null, 'no bytes broadcast when disabled');
-await initTmmWasmMainThread(null, true);         // toggle back ON (reuses instance + stored bytes)
-ok(tmmWasmActive(), 'toggle on → active again (instance reused)');
-ok(getTmmWasmBytesForWorker() != null, 'bytes broadcast when re-enabled');
+ok(getTmmWasmBytesForWorker() != null, 'bytes available for worker broadcast');
 
 if (fails === 0) {
-    console.log('\nPASS — worker WASM init + main-thread gating behave correctly with the real kernel.');
+    console.log('\nPASS: worker WASM init and the main-thread byte store behave correctly with the real kernel.');
 } else {
     console.error(`\n${fails} assertion(s) FAILED.`);
 }

@@ -18,6 +18,7 @@
  * Run: node tests/db_od_operands.mjs
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 import {

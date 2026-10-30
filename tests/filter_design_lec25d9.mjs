@@ -6,6 +6,7 @@
  *
  * Run: node tests/filter_design_lec25d9.mjs
  */
+import './_kernel.mjs';
 import {
     constIndex, buildPrototypeLayers, embeddedT, spectrumT,
     recommendCavities, buildPrototypeFamily, buildFilterTarget,

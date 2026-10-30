@@ -12,6 +12,7 @@
  * rows are held by tests/ellipsometry_analytic_jacobian.mjs.
  */
 
+import './_kernel.mjs';
 import {
     makeOperand, evaluateOperands, calcMF, buildEvalContext,
     isPhase, isEllipsometry, isGroupDelay, isGroupDelayFlat, isEField, isFractionalUnit,

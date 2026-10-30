@@ -3,27 +3,23 @@
  *
  * The optimizer routes every single-(λ,θ,pol) R/T/A through tmmC → tmmEval and
  * every analytic gradient through the thickness Jacobian, both on the WASM
- * kernel when it is active. DLSOptimizer.mfAt and gradMF must agree with the JS
- * path to float64 round-off, which proves the seam passes the same stack, angle
+ * kernel. DLSOptimizer.mfAt and gradMF must agree with tmmcore's JavaScript
+ * reference to float64 round-off, which proves the seam passes the same stack, angle
  * and polarization. Covers front_only / back_only+total / symmetric so every
  * tmmProp branch is exercised.
  *
  * Run: node tests/wasm_optimizer_seam.mjs
  */
 
+import './_kernel.mjs';
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { setTmmWasmEnabled } from 'tmmcore';
-import { initWasmForTest } from './_wasmInit.mjs';
+import { onJsReference } from './_wasmInit.mjs';
+import { rtaEval, tmmJacEval, tmmHessEval } from '../src/utils/physics/optimizer/evalCore/kernels.js';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
 const resolveMat = id => getMaterial(id);
-
-if (!(await initWasmForTest())) {
-    console.error('FAIL: the WASM kernel did not load');
-    process.exit(1);
-}
 
 const ops = [
     makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 0, pol: 'avg', target: 0, weight: 1 }),
@@ -60,14 +56,13 @@ for (const [sm, me] of cases) {
     const des = makeDesign(sm, me);
 
     // JS reference
-    setTmmWasmEnabled(false);
-    const dlsJs = new DLSOptimizer(ops, des, resolveMat);
-    const x = dlsJs.thicknesses.slice();
-    const mfJs = dlsJs.mfAt(x);
-    const gJs = dlsJs.gradMF(x);
+    const { x, mfJs, gJs } = onJsReference(() => {
+        const dlsJs = new DLSOptimizer(ops, des, resolveMat);
+        const start = dlsJs.thicknesses.slice();
+        return { x: start, mfJs: dlsJs.mfAt(start), gJs: dlsJs.gradMF(start) };
+    });
 
     // WASM path
-    setTmmWasmEnabled(true);
     const dlsW = new DLSOptimizer(ops, des, resolveMat);
     const mfW = dlsW.mfAt(x);
     const gW = dlsW.gradMF(x);
@@ -81,7 +76,20 @@ for (const [sm, me] of cases) {
     console.log(`  ${sm}+${me}: mf rel Δ=${mfDelta.toExponential(2)}  grad rel Δ=${gmax.toExponential(2)}`);
 }
 
-setTmmWasmEnabled(false);
+// The kernel entry points read 'p' as p and anything else as s, so a merit row
+// saved without a polarization evaluates in s at an oblique angle, as it always
+// has, and does not become the s/p average tmmcore takes for a missing pol.
+{
+    const n0 = [1, 0], ns = [1.52, 0];
+    const layers = [{ n: [2.35, 0], d: 82 }, { n: [1.46, 0], d: 138 }];
+    for (const [name, call] of [['rtaEval', rtaEval], ['tmmJacEval', tmmJacEval], ['tmmHessEval', tmmHessEval]]) {
+        const s = JSON.stringify(call(550, 45, 's', n0, ns, layers));
+        ok(JSON.stringify(call(550, 45, 'p', n0, ns, layers)) !== s, `${name}: s and p differ at 45°`);
+        for (const pol of [undefined, null, 'S']) {
+            ok(JSON.stringify(call(550, 45, pol, n0, ns, layers)) === s, `${name}: pol ${pol} evaluates in s`);
+        }
+    }
+}
 
 // The exit code is set rather than process.exit() called: on Windows, Node 24
 // aborts with a libuv assertion when process.exit() follows this run directly.

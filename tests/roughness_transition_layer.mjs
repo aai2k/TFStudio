@@ -16,6 +16,7 @@
  * Run: node tests/roughness_transition_layer.mjs
  */
 
+import './_kernel.mjs';
 import { calculateRoughness, getRoughnessContext } from
     '../src/components/windows/analysis/roughnessScattering/model.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';

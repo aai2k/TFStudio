@@ -2,7 +2,7 @@
  * The window mounts the app once the WASM kernel is in (renderer.js), so the
  * first calculation of a design shown at startup runs on the kernel; a kernel
  * that never arrives holds the window only until the wait runs out, and the
- * app then mounts on the JavaScript path.
+ * app then mounts without it.
  *
  * renderer.js mounts into the page when it is imported, so each case imports
  * it under its own query, with ReactDOM's root standing in to record the mount.
@@ -46,7 +46,7 @@ async function mountedBy(deadline) {
     const mount = await mountedBy(started + 10000);
     assert.ok(mount, 'the app mounts once the wait runs out');
     assert.ok(mount.at - started >= 1900, `it waited ${mount.at - started} ms, the wait is 2000 ms`);
-    assert.equal(mount.kernel, false, 'and runs on the JavaScript path');
+    assert.equal(mount.kernel, false, 'and mounts without the kernel');
 }
 
 // ── A kernel that answers is in before the app mounts ────────────────────────

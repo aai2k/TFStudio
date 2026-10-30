@@ -11,6 +11,7 @@
  *   6. Loaded preset items have unique fresh ids (no id collisions across loads).
  */
 
+import './_kernel.mjs';
 import {
     QUALIFIER_PRESETS, applyPreset, getPreset, presetText,
 } from '../src/utils/synthesis/qualifierPresets.js';

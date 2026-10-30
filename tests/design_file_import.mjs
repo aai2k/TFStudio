@@ -22,6 +22,7 @@
  *
  * Run: node tests/design_file_import.mjs
  */
+import './_kernel.mjs';
 import { initCatalogs } from '../src/utils/materials/catalogManager.js';
 import { makeGetNK } from '../src/utils/materials/catalogManager/dispersion.js';
 import { designMaterialLookup, unresolvedMaterials } from '../src/utils/materials/designMaterials.js';

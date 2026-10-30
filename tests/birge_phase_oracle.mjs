@@ -7,6 +7,7 @@
  * https://doi.org/10.1364/AO.45.001478.
  */
 
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 
 import { evaluateStackPhaseDispersion } from '../src/utils/physics/phaseDispersion.js';

@@ -24,6 +24,7 @@
  * Run: node tests/adaptive_sampling.mjs
  */
 
+import './_kernel.mjs';
 import {
     makeOperand, evaluateOperands, calcMF, buildEvalContext,
     operandSampleLambdas, requiredLambdas,

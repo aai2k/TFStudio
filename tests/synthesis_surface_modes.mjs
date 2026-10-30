@@ -24,6 +24,7 @@
  *      mf0 it reports matches a full-system buildEvalContext baseline).
  */
 
+import './_kernel.mjs';
 import {
     makeOperand, evaluateOperands, buildEvalContext, calcMF,
     scanNeedlesAnalytic, scanNeedlesFD, scanGEInsertions,
