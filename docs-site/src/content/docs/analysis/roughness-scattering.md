@@ -33,7 +33,9 @@ never thinned, so the layer on the substrate adds its 2σ to the coating. A laye
 thinner than the transition layer taken from it is set to zero thickness, and
 the window says so. A layer that already has zero thickness is not in the
 coating, so the layers on either side of it meet at one interface, which takes
-the σ and type set for the interface on top of the layer beneath.
+the σ and type set for the interface on top of the layer beneath. A face with no
+layers, or with only layers of zero thickness, keeps its smooth bare surface: it
+has no interface, and the Roughness strip lists none for it.
 
 ## Where the long-range model holds
 

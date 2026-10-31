@@ -42,10 +42,10 @@ function roughSpec(design, { sigma, range, interfaces }, mode) {
         sigmas: new Array(frontN).fill(sigma), ranges: new Array(frontN).fill(range),
         backSigmas: new Array(backN).fill(sigma), backRanges: new Array(backN).fill(range),
     };
-    const reader = rowReader('roughness', 'interfaces', design, mode, ROW_FIELDS);
+    const reader = rowReader('roughness', 'interfaces', counts, mode, ROW_FIELDS);
     interfaces.forEach((row, i) => {
         const side = reader.side(row, i);
-        const k = reader.interface(row, i, side, counts[side]);
+        const k = reader.interface(row, i, side);
         const { sigma: own = sigma, range: kind = range } = row;
         requireValue('roughness', `interfaces[${i}].sigma`, own, isNonNegative, SIGMA_TAKEN);
         requireValue('roughness', `interfaces[${i}].range`, kind, isRange, RANGE_TAKEN);
@@ -90,13 +90,14 @@ function thinnedLayers(design, thinned) {
  * Interface k of a side is the top of its layer k, numbered from the
  * substrate as the Design Editor numbers layers: 0 is the substrate's surface
  * and N, on a side of N layers, the surface that meets the medium. A side with
- * no layers has no interface, and gives its bare surface, on its own or on the
- * whole part. A transition layer takes its thickness out of the layer
- * beneath its interface, the one deposited first, so the rest of the design
- * stays where it was; the substrate is not thinned. A layer thinner than 2σ is
- * set to 0 nm and listed in `thinned`. A layer of 0 nm is not in the coating:
- * the σ set on its top is not used, and the layer beneath it meets the next
- * layer there is, at the interface on top of the layer beneath.
+ * no layers, or none thicker than 0 nm, has no interface, and gives its bare
+ * surface, on its own or on the whole part. A transition layer takes its
+ * thickness out of the layer beneath its interface, the one deposited first,
+ * so the rest of the design stays where it was; the substrate is not thinned.
+ * A layer thinner than 2σ is set to 0 nm and listed in `thinned`. A layer of
+ * 0 nm is not in the coating: the σ set on its top is not used, and the layer
+ * beneath it meets the next layer there is, at the interface on top of the
+ * layer beneath.
  *
  * @param design The design.
  * @param [options]

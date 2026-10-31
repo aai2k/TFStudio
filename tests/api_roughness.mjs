@@ -275,6 +275,19 @@ function settings(design, mode, variant) {
     const at550 = ar.loss[ar.wavelength.indexOf(550)] * 1e6;
     ok('the whole part of a back-face AR counts the back\'s three interfaces and loses 87.1 ppm at 550 nm',
         same([getRoughnessContext(backOnly, 'total').nIfaces, at550.toFixed(1)], [3, '87.1']), `${at550}`);
+    // A face whose layers are all 0 nm is bare too, so a 0 nm layer added to
+    // it changes nothing: on the front of the back-face AR, on its own and on
+    // the whole part, and on the back of the QW mirror on the whole part.
+    const zeroFront = { ...backOnly, frontLayers: [{ id: 'F0', material: backOnly.backLayers[0].material, thickness: 0 }] };
+    const zeroAr = api.roughness(zeroFront, { side: 'total', sigma: 1, range: 'long', ...RANGE });
+    const zeroAt550 = zeroAr.loss[zeroAr.wavelength.indexOf(550)] * 1e6;
+    const zeroAlone = api.roughness(zeroFront, { side: 'front', sigma: 5, ...RANGE });
+    const zeroBack = { ...mirror, backLayers: [{ id: 'B0', material: mirror.frontLayers[0].material, thickness: 0 }] };
+    ok('a face of 0 nm layers is bare: the back-face AR with a 0 nm front reads as with none, 3 interfaces and 87.1 ppm at 550 nm',
+        same([getRoughnessContext(zeroFront, 'total').nIfaces, zeroAt550.toFixed(1), zeroAr.rough, zeroAr.loss, zeroAlone.rough],
+            [3, '87.1', ar.rough, ar.loss, zeroAlone.smooth]), `${zeroAt550}`);
+    ok('and the QW mirror with a 0 nm back reads on the whole part as with no back',
+        same(api.roughness(zeroBack, { side: 'total', sigma: 1, ...RANGE }).loss, api.roughness(mirror, { side: 'total', sigma: 1, ...RANGE }).loss));
 }
 
 // ── 4. The objects ─────────────────────────────────────────────────────────
@@ -318,6 +331,9 @@ function settings(design, mode, variant) {
     const named = api.roughness(backOnly, { side: 'total', sigma: 0, interfaces: [{ side: 'back', interface: 1, sigma: 4 }], ...RANGE });
     ok('on the whole part of a design coated on the back alone, a row without a side is the back\'s',
         same(sideless, named) && !same(sideless.rough, sideless.smooth));
+    const zeroFront = { ...backOnly, frontLayers: [{ id: 'F0', material: backOnly.backLayers[0].material, thickness: 0 }] };
+    ok('and so it is when the front holds only a layer of 0 nm',
+        same(api.roughness(zeroFront, { side: 'total', sigma: 0, interfaces: [{ interface: 1, sigma: 4 }], ...RANGE }).rough, named.rough));
     const REFUSED = [
         ['an option it does not take', () => api.roughness(mirror, { sigmas: [] }), 'unknownOption', { option: 'sigmas' },
             /^roughness: unknown option 'sigmas'; the options are sigma, range, interfaces, start, end, step, angle, side$/],
@@ -335,11 +351,15 @@ function settings(design, mode, variant) {
         ['a row with no side on the whole part of a design coated on both sides', () => api.roughness(twoSided, { interfaces: [{ interface: 0 }] }), 'badValue', { option: 'interfaces[0].side' },
             /interfaces\[0\]\.side is 'front' or 'back', given on each row of a whole part coated on both sides, not undefined$/],
         ['a back row on the whole part of a design coated on the front alone', () => api.roughness(mirror, { side: 'total', interfaces: [{ side: 'back', interface: 0 }] }), 'emptySide', { side: 'back' },
-            /^roughness: the back has no layers$/],
+            /^roughness: the back has no layer thicker than 0 nm$/],
         ['a front row on the whole part of a design coated on the back alone', () => api.roughness(backOnly, { side: 'total', interfaces: [{ side: 'front', interface: 0 }] }), 'emptySide', { side: 'front' },
-            /^roughness: the front has no layers$/],
+            /^roughness: the front has no layer thicker than 0 nm$/],
         ['a row on a bare front', () => api.roughness(backOnly, { side: 'front', interfaces: [{ interface: 0 }] }), 'emptySide', { side: 'front' },
-            /^roughness: the front has no layers$/],
+            /^roughness: the front has no layer thicker than 0 nm$/],
+        ['a front row on the whole part when the front holds only a layer of 0 nm', () => api.roughness(zeroFront, { side: 'total', interfaces: [{ side: 'front', interface: 0 }] }), 'emptySide', { side: 'front' },
+            /^roughness: the front has no layer thicker than 0 nm$/],
+        ['a row on a front of 0 nm layers', () => api.roughness(zeroFront, { side: 'front', interfaces: [{ interface: 1 }] }), 'emptySide', { side: 'front' },
+            /^roughness: the front has no layer thicker than 0 nm$/],
         ['an interface past the side\'s count', () => api.roughness(mirror, { interfaces: [{ interface: 10 }] }), 'badValue', { option: 'interfaces[0].interface', value: 10 },
             /interfaces\[0\]\.interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10$/],
         ['an interface that is not whole', () => api.roughness(mirror, { interfaces: [{ interface: 2.5 }] }), 'badValue', { option: 'interfaces[0].interface', value: 2.5 }, /not 2\.5$/],
@@ -350,7 +370,7 @@ function settings(design, mode, variant) {
         ['a row\'s kind it does not have', () => api.roughness(mirror, { interfaces: [{ interface: 3, range: 'mid' }] }), 'badValue', { option: 'interfaces[0].range', value: 'mid' },
             /interfaces\[0\]\.range is 'short' or 'long', not "mid"$/],
         ['a row on a side with no layers', () => api.roughness(mirror, { side: 'back', interfaces: [{ interface: 0 }] }), 'emptySide', { side: 'back' },
-            /^roughness: the back has no layers$/],
+            /^roughness: the back has no layer thicker than 0 nm$/],
         ['an angle of 90', () => api.roughness(mirror, { angle: 90 }), 'badValue', { option: 'angle', value: 90 }, /angle is an angle of incidence in degrees, 0 <= angle < 90, not 90$/],
         ['a range that runs down', () => api.roughness(mirror, { start: 800, end: 400 }), 'wavelengthRange', { from: 800, to: 400 }, /start and end are wavelengths in nm, 0 < start < end$/],
         ['a side it does not have', () => api.roughness(mirror, { side: 'whole' }), 'badValue', { option: 'side', value: 'whole' }, /side is 'front', 'back' or 'total', not "whole"$/],

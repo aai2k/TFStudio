@@ -128,6 +128,22 @@ assert.deepEqual(getRoughnessContext(backOnlyDesign, 'total'), {
 });
 assert.ok(renderWith(backOnlyDesign, 'total').includes(`2 ${makeLocale().roughnessScattering.interfaces}`),
     'the whole part of a back-only design has the back\'s two interfaces');
+// A face whose layers are all 0 nm is bare as well: with a 0 nm layer on its
+// front the same design counts the same interfaces, and the per-interface
+// editor lists the back's rows alone, under the back's heading.
+{
+    const { roughnessDesignSession } = await import(
+        '../src/components/windows/analysis/roughnessScattering/sessionState.js');
+    const zeroFront = { ...backOnlyDesign, id: 'zero-front-design', frontLayers: [{ material: 'builtin:SiO2', thickness: 0 }] };
+    assert.deepEqual(getRoughnessContext(zeroFront, 'total'), getRoughnessContext(backOnlyDesign, 'total'),
+        'a front of 0 nm layers has no interface');
+    roughnessDesignSession.write(zeroFront, { rough: { mode: 'perInterface', sigma: 1, range: 'long' } }, null);
+    const html = renderWith(zeroFront, 'total');
+    const rs = makeLocale().roughnessScattering;
+    assert.ok(html.includes(`2 ${rs.interfaces}`), 'the summary counts the back\'s two interfaces');
+    assert.ok(!html.includes(rs.frontInterfaces) && html.includes(rs.backInterfaces), 'the editor has no front heading');
+    assert.equal([...html.matchAll(/<option value="long" selected="">/g)].length, 2, 'and lists the back\'s two rows');
+}
 for (const code of ['en', 'ru', 'zh', 'it']) {
     const t = makeLocale(code);
     const empty = t.analysisChrome;

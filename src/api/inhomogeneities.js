@@ -37,19 +37,20 @@ export function interfaceCount(design, side) {
 
 /**
  * What reads the rows of the option `list` of the call `call`, each a record
- * of `fields`, on `design` computed in `mode`. `side(row, i)` gives the side
- * of row `i`, after refusing a row that is not a record or has a field not in
- * `fields`: the side given, which must be the side computed or, on the whole
- * part, either side; or else the side computed, or on the whole part the side
- * with layers. A row on the whole part of a design coated on both sides gives
- * its side. `interface(row, i, side, count)` gives its interface on a side of
- * `count` interfaces, refused unless it is a whole number from 0 to count - 1
+ * of `fields`, on a design computed in `mode` whose sides have `counts`
+ * interfaces, `{ front, back }`. `side(row, i)` gives the side of row `i`,
+ * after refusing a row that is not a record or has a field not in `fields`:
+ * the side given, which must be the side computed or, on the whole part,
+ * either side; or else the side computed, or on the whole part the side with
+ * interfaces. A row on the whole part of a design with interfaces on both
+ * sides gives its side. `interface(row, i, side)` gives its interface,
+ * refused unless it is a whole number from 0 to one below the side's count
  * that no earlier row of the side names.
  */
-export function rowReader(call, list, design, mode, fields) {
+export function rowReader(call, list, counts, mode, fields) {
     const seen = new Set();
     const sides = mode === 'total' ? ['front', 'back'] : [mode];
-    const coated = sides.filter(side => storedLayers(design, side).length);
+    const coated = sides.filter(side => counts[side] > 0);
     const fallback = coated.length > 1 ? undefined : (coated[0] ?? sides[0]);
     const takes = sides.length === 1 ? `'${mode}', the side computed`
         : `'front' or 'back'${fallback ? '' : ', given on each row of a whole part coated on both sides'}`;
@@ -65,7 +66,8 @@ export function rowReader(call, list, design, mode, fields) {
             requireValue(call, `${list}[${i}].side`, side, v => sides.includes(v), takes);
             return side;
         },
-        interface(row, i, side, count) {
+        interface(row, i, side) {
+            const count = counts[side];
             if (!count) throw emptySide(call, side);
             const k = row.interface;
             requireValue(call, `${list}[${i}].interface`, k, v => Number.isInteger(v) && v >= 0 && v < count,
@@ -85,11 +87,12 @@ export function rowReader(call, list, design, mode, fields) {
 function interlayersOf(design, given, mode) {
     requireValue('inhomogeneities', 'interlayers', given, Array.isArray, `a list of rows, each { ${ROW_FIELDS.join(', ')} }`);
     const call = 'inhomogeneities';
-    const reader = rowReader(call, 'interlayers', design, mode, ROW_FIELDS);
+    const counts = { front: interfaceCount(design, 'front'), back: interfaceCount(design, 'back') };
+    const reader = rowReader(call, 'interlayers', counts, mode, ROW_FIELDS);
     const inh = { interlayers: [], backInterlayers: [] };
     const rows = given.map((row, i) => {
         const side = reader.side(row, i);
-        const k = reader.interface(row, i, side, interfaceCount(design, side));
+        const k = reader.interface(row, i, side);
         const { thickness = NEW_INTERLAYER.thickness, profile = NEW_INTERLAYER.profile, slices = NEW_INTERLAYER.slices } = row;
         requireValue(call, `interlayers[${i}].thickness`, thickness, isNonNegative, 'a thickness in nm, 0 or more');
         requireValue(call, `interlayers[${i}].profile`, profile, v => PROFILE_IDS.includes(v), PROFILES_TAKEN);

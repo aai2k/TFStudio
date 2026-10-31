@@ -902,7 +902,7 @@ async function roughness(t, said) {
         "roughness: interfaces[0].interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10",
         "roughness: interfaces[0].side is 'front' or 'back', given on each row of a whole part coated on both sides, not None",
         'roughness: interfaces[0].sigma is a roughness in nm, 0 or more, not -2',
-        'roughness: the back has no layers',
+        'roughness: the back has no layer thicker than 0 nm',
         'roughness: start and end are wavelengths in nm, 0 < start < end',
     ]), canon(got.worded));
     ok('and repr() shows what it holds', canon(got.shown) === canon(['<Roughness front at 0 degrees from 400 to 800 nm, 41 points, 0 layers thinned to 0 nm>',

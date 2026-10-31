@@ -62,9 +62,9 @@ export function viewWavelength(call, design, wavelength, fallback) {
     return lambda;
 }
 
-// The calls whose view leaves out a layer with no thickness, so that a side
-// with none thicker than 0 nm has nothing to show.
-const THICK_LAYERS_ONLY = new Set(['indexProfile', 'electricField']);
+// The calls that leave out a layer with no thickness, so that a side with
+// none thicker than 0 nm has nothing for them to show or roughen.
+const THICK_LAYERS_ONLY = new Set(['indexProfile', 'electricField', 'roughness']);
 
 /** The refusal of a view of `side`, which has no layers for the call `call` to show. */
 export function emptySide(call, side) {

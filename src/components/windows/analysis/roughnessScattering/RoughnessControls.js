@@ -140,7 +140,8 @@ function EditorNote({ c, children }) {
 
 function InterfaceRows({ c, rs, state, units }) {
     const { rough } = state;
-    const sides = state.activeSides.filter(side => side === 'front' || state.hasBack);
+    // A side that is not coated has no interface, so it lists no rows.
+    const sides = state.activeSides.filter(side => (side === 'back' ? state.backN : state.frontN) > 0);
     return sides.map(side => {
         const back = side === 'back';
         const sigmas = back ? rough.backSigmas : rough.sigmas;

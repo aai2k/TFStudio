@@ -96,7 +96,8 @@ _WORDS = {
     "noLayers": lambda fields, words: ("the design has no layer thicker than 0 nm" if fields.get("thin")
                                        else "the design has no layers; add them with layers.append() or stack()"),
     "emptySide": lambda fields, words: "the {} has no {}".format(
-        fields["side"], "layer thicker than 0 nm" if fields["call"] in ("indexProfile", "electricField") else "layers"),
+        fields["side"], "layer thicker than 0 nm" if fields["call"] in ("indexProfile", "electricField", "roughness")
+        else "layers"),
     "noQwot": lambda fields, words: _no_qwot(fields),
     "closedSide": lambda fields, words: _closed_side(fields),
     "wavelengthRange": lambda fields, words: "start and end are wavelengths in nm, 0 < start < end",

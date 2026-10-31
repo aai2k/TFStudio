@@ -1,20 +1,26 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runSpectrum } from '../../../../utils/physics/plotQuantities/spectrumRunner.js';
 import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
+import { isCoated } from '../../../../utils/physics/coatedFace.js';
 import {
     countInterfaces, extrapolateSlicing, GRADED_SLICES, resolveRanges, resolveSigmas,
     roughenBackStack, roughenFrontStack,
 } from '../../../../utils/physics/scattering.js';
 
+// A face is roughened only when it is coated: one with no layers, or with
+// layers of 0 nm alone, keeps its bare surface and has no interface.
+const coated = layers => isCoated((layers || []).map(layer => layer.thickness));
+const interfacesOf = layers => (coated(layers) ? countInterfaces(layers.length) : 0);
+
 export function getRoughnessContext(design, evalMode) {
-    const hasBack = (design?.backLayers?.length || 0) > 0;
+    const hasBack = coated(design?.backLayers);
     const activeSides = evalMode === 'back'
         ? ['back']
         : evalMode === 'total'
             ? (hasBack ? ['front', 'back'] : ['front'])
             : ['front'];
-    const frontN = countInterfaces(design?.frontLayers?.length || 0);
-    const backN = hasBack ? countInterfaces(design.backLayers.length) : 0;
+    const frontN = interfacesOf(design?.frontLayers);
+    const backN = interfacesOf(design?.backLayers);
     const nIfaces = activeSides.reduce((sum, side) => sum + (side === 'back' ? backN : frontN), 0);
     return { hasBack, activeSides, frontN, backN, nIfaces };
 }
@@ -71,12 +77,12 @@ function evaluateMode({ params, evalMode, media, front, back, subThk, cone }, ro
 /**
  * The rough design's spectrum with `slices` graded sub-layers per short-range
  * interface. Layers set to zero thickness are recorded in `thinned`. A side
- * with no layers has no rough interface and keeps its bare surface.
+ * that is not coated keeps its bare surface.
  */
 function roughSpectrum(setup, { sides, thinned }, slices) {
     const { inc, sub, exit } = setup.media;
     return evaluateMode(setup, (side, layers) => {
-        if (!layers.length) return layers;
+        if (!coated(layers)) return layers;
         const result = side === 'back'
             ? roughenBackStack(layers, { substrate: sub, exit }, sides.back, slices)
             : roughenFrontStack(layers, { incident: inc, substrate: sub }, sides.front, slices);

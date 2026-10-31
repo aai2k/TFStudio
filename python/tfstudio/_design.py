@@ -2470,13 +2470,13 @@ class Design:
         Interface k of a side is the top of its layer k, numbered from the
         substrate as layers numbers them: 0 is the substrate's surface and N,
         on a side of N layers, the surface that meets the medium. A side with
-        no layers has no interface, and gives its bare surface, on its own or
-        on the whole part. A transition layer takes its thickness out of the
-        layer beneath its interface, and the substrate is not thinned; a
-        layer thinner than 2σ is set to 0 nm and listed in thinned. A layer
-        of 0 nm is not in the coating: the σ set on its top is not used, and
-        the layer beneath it meets the next layer there is, at the interface
-        on top of the layer beneath.
+        no layers, or none thicker than 0 nm, has no interface, and gives its
+        bare surface, on its own or on the whole part. A transition layer
+        takes its thickness out of the layer beneath its interface, and the
+        substrate is not thinned; a layer thinner than 2σ is set to 0 nm and
+        listed in thinned. A layer of 0 nm is not in the coating: the σ set
+        on its top is not used, and the layer beneath it meets the next layer
+        there is, at the interface on top of the layer beneath.
 
         Args:
             sigma: The rms roughness of every interface, nm, 0 or more.

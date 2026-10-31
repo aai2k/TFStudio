@@ -18,6 +18,7 @@
  * front (`forceSigns`).
  */
 
+import { isCoated } from '../coatedFace.js';
 import { filmStressPa } from './filmStress.js';
 
 const NM = 1e-9;
@@ -84,11 +85,6 @@ function countedSides(mode, evalFullSystem) {
     return { front: mode !== 'back_only', back: mode === 'back_only' };
 }
 
-// A face is coated when one of its counted layers is thicker than 0 nm. A 0 nm
-// layer changes no spectrum and no force, so a face holding nothing else is
-// bare, and taking such a layer out changes nothing.
-const coated = thicknessesNm => (thicknessesNm || []).some(d => d > 0);
-
 /**
  * The sign each face's force Σ σ d enters the net force with, from the
  * thicknesses of the layers counted on each face, in nm.
@@ -105,7 +101,7 @@ const coated = thicknessesNm => (thicknessesNm || []).some(d => d > 0);
  * 0 nm on a part coated on the back, so the force changes sign there.
  */
 export function forceSigns(frontThicknessesNm, backThicknessesNm) {
-    return !coated(frontThicknessesNm) && coated(backThicknessesNm)
+    return !isCoated(frontThicknessesNm) && isCoated(backThicknessesNm)
         ? { front: -1, back: 1 }
         : { front: 1, back: -1 };
 }
