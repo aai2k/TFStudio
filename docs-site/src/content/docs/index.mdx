@@ -140,8 +140,15 @@ what the tools do, so a page is easy to find from the window it documents.
   (§2.2); results are identical, phases carry the opposite sign.
 - **Absorbing incident medium** (a cemented cube, an immersion liquid): every
   angle in the stack follows from `n₀ sin θ₀` with `n₀` the real part of the
-  index (Macleod §10.2). Over lossless layers R + T then differs from 1 only
-  by the interference of the incident and reflected waves inside the
-  absorbing medium, Macleod's Eq. 2.83, which is second order in k₀ for a
-  bare interface.
+  index (Macleod §10.2). R is |r|², the reflected wave against the incident
+  wave at the surface. T is measured against the irradiance the incident
+  medium alone would carry, Macleod's Eq. 2.83, which the book gives at normal
+  incidence and TFStudio applies at every angle. With **Ignore other side** on,
+  A is what the coating's layers absorb, and R + T + A differs from 1, either
+  way, by the interference of the incident and reflected waves inside the
+  absorbing medium: second order in k₀ on a bare interface, first order over a
+  coating, and able to reach tens of percent beyond the critical angle or near
+  grazing incidence. R alone can come out above 1. The
+  light the coating sends back is then 1 − T − A, not R. With **Ignore other
+  side** off, A is 1 − R − T, never below 0, and takes that term in.
 - **Layer 1** = layer touching the substrate (first deposited).
