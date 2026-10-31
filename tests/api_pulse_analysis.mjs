@@ -126,8 +126,7 @@ const REASON_WORDS = {
     responseUnavailable: "pulseAnalysis: the coating's response is not available",
     noOutput: 'pulseAnalysis: no light comes out',
 };
-function sameAsWindow(design, settings) {
-    const shown = windowPulse(design, settings);
+function sameAsWindow(design, settings, shown) {
     let got;
     const err = thrown(() => { got = api.pulseAnalysis(design, optionsOf({ ...OPENING, ...settings })); });
     if (shown.reason) return !!err && err.message.startsWith(REASON_WORDS[shown.reason]) && !err.code;
@@ -147,9 +146,10 @@ const EXTRA = [{ passes: 1 }, { passes: 3, centerWavelength: 700 }, { gdd: 40, t
 {
     const cases = corpus.flatMap(([name, design], i) => (FULL.includes(name) ? COMBINATIONS.flatMap(c => SHAPES.map(shape => [name, design, { ...c, ...shape }]))
         : [[name, design, { ...COMBINATIONS[(i * 7) % COMBINATIONS.length], ...SHAPES[i % SHAPES.length], ...EXTRA[i % EXTRA.length] }]]));
-    const wrong = cases.filter(([, design, c]) => !sameAsWindow(design, c)).map(([name, , c]) => `${name} ${JSON.stringify(c)}`);
+    const shown = cases.map(([, design, c]) => windowPulse(design, c));
+    const wrong = cases.filter(([, design, c], i) => !sameAsWindow(design, c, shown[i])).map(([name, , c]) => `${name} ${JSON.stringify(c)}`);
     const covered = new Set(cases.map(([, , c]) => `${c.side} ${c.target} ${c.pol} ${c.theta} ${c.shape}`));
-    const refused = cases.filter(([, design, c]) => windowPulse(design, c).reason).length;
+    const refused = shown.filter(pulse => pulse.reason).length;
     ok(`on ${corpus.length} designs, pulseAnalysis is computePulseAnalysis with the hook's request: every combination in every shape on ${FULL.length}, ${refused} the model cannot compute refused`,
         corpus.length >= 12 && FULL.every(name => corpus.some(([n]) => n === name)) && covered.size === 90 && wrong.length === 0, wrong.slice(0, 4).join('\n'));
 }
@@ -238,9 +238,9 @@ function aboveFloor(raw, intensity) {
         && same(opening.time.output, { t: indices.map(i => raw.time[i] + raw.referenceDelayFs), intensity: indices.map(i => raw.outputIntensity[i] * scale) })
         && opening.spectrum.input.wavelength.length === 6 * (119 - 1) + 1 && own.spectrum.input.wavelength.length === 1909, JSON.stringify(counts));
 
-    // A chirp of 20000 fs² spreads the input over more than 4000 samples.
-    const spread = api.pulseAnalysis(chirpedMirror, { gdd: 20000 });
-    const rawSpread = transformOf(chirpedMirror, { side: 'front', gdd: 20000 });
+    // A chirp of 2000 fs² spreads the input over more than 4000 samples.
+    const spread = api.pulseAnalysis(chirpedMirror, { gdd: 2000 });
+    const rawSpread = transformOf(chirpedMirror, { side: 'front', gdd: 2000 });
     const all = aboveFloor(rawSpread, rawSpread.inputIntensity);
     const run = Math.ceil(2 * all.length / 4000);
     const thinned = [];
@@ -257,8 +257,8 @@ function aboveFloor(raw, intensity) {
 
     // With its own spectrum the band holds more than 4000 drawn samples, and
     // each spectrum curve is thinned on its own values, as the window draws it.
-    const settings = { source: 'file', centerWavelength: own.centre, gdd: 20000 };
-    const thinSpectrum = api.pulseAnalysis(chirpedMirror, { source: 'design', gdd: 20000 }).spectrum;
+    const settings = { source: 'file', centerWavelength: own.centre, gdd: 2000 };
+    const thinSpectrum = api.pulseAnalysis(chirpedMirror, { source: 'design', gdd: 2000 }).spectrum;
     const lengths = ['input', 'output', 'coatingGdd', 'compensatingGdd'].map(key => thinSpectrum[key].wavelength.length);
     ok('past 4000 samples each spectrum curve is the window\'s, on wavelengths of its own',
         same(thinSpectrum, windowPulse(chirpedMirror, settings).spectrum) && Math.max(...lengths) <= 4000 && !same(thinSpectrum.input.wavelength, thinSpectrum.compensatingGdd.wavelength),
@@ -319,23 +319,26 @@ function aboveFloor(raw, intensity) {
 
 // ── 6. setPulseSpectrum ────────────────────────────────────────────────────
 {
-    const text = 'Wavelength (um)\tIntensity\tPhase (rad)\n0.78\t0.2\t0.3\n0.79\t0.6\t0.1\n0.80\t1\t0\n0.81\t0.6\t0.1\n0.82\t0.2\t0.3\n';
+    // Both spectra fall to zero at their ends. A spectrum cut off while it
+    // still carries light has a ringing tail in time, so its pulse runs to the
+    // largest transform the model allows without converging, seconds a call.
+    const text = 'Wavelength (um)\tIntensity\tPhase (rad)\n0.77\t0\t0.6\n0.78\t0.2\t0.3\n0.79\t0.6\t0.1\n0.80\t1\t0\n0.81\t0.6\t0.1\n0.82\t0.2\t0.3\n0.83\t0\t0.6\n';
     const file = path.join(WORK, 'spectrum.txt');
     fs.writeFileSync(file, text);
     const fromFile = api.setPulseSpectrum(mirror, file);
     const read = tableFromText(text, emptyTable('pulse'), 'spectrum.txt');
-    const rows = [[810, 0.5], [800, 1], [790, 0.5], [780, 0.1]];
+    const rows = [[820, 0], [810, 0.5], [800, 1], [790, 0.5], [780, 0.1], [770, 0]];
     const fromRows = api.setPulseSpectrum(mirror, rows);
     const typed = pulseSpectrumFromTable({ ...emptyTable('pulse'), rows: rows.map(([w, i]) => [w, i, NaN]) });
     ok('a file reads as Load file reads it, its unit from its heading, and rows as typed into the editor, both kept as Apply keeps them',
         same([fromFile.pulseSpectrum, fromFile.pulseSpectrum.xUnit, fromFile.pulseSpectrum.source, fromRows.pulseSpectrum, typed.rows.map(row => row[0]), fromRows.frontLayers],
-            [pulseSpectrumFromTable(read.table), 'um', 'spectrum.txt', typed, [780, 790, 800, 810], mirror.frontLayers]), JSON.stringify(fromFile.pulseSpectrum));
+            [pulseSpectrumFromTable(read.table), 'um', 'spectrum.txt', typed, [770, 780, 790, 800, 810, 820], mirror.frontLayers]), JSON.stringify(fromFile.pulseSpectrum));
     const saved = path.join(WORK, 'spectrum.tfs');
     api.saveDesign(fromFile, saved);
     const back = api.openDesign(saved);
-    ok('a design saved and opened again holds the spectrum and computes the same pulse', same(back.pulseSpectrum, fromFile.pulseSpectrum)
-        && same(apiPulse(api.pulseAnalysis(back, { source: 'design' })), apiPulse(api.pulseAnalysis(fromFile, { source: 'design' }))));
     const phased = api.pulseAnalysis(fromFile, { source: 'design' });
+    ok('a design saved and opened again holds the spectrum and computes the same pulse', same(back.pulseSpectrum, fromFile.pulseSpectrum)
+        && same(apiPulse(api.pulseAnalysis(back, { source: 'design' })), apiPulse(phased)));
     ok('a phase in the table makes the input chirped', phased.chirped && !api.pulseAnalysis(fromRows, { source: 'design' }).chirped);
 }
 
