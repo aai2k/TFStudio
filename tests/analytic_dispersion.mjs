@@ -22,11 +22,10 @@ import {
     evaluateTotalTransmissionDispersion,
 } from '../src/utils/physics/phaseDispersion.js';
 import {
-    coefficientPhaseDispersion,
     jetDerivatives,
     jetFromDerivatives,
     jetScale,
-    tmmCoefficientJets,
+    phase,
     wavelengthOmegaJet,
 } from '../src/tmmcore.js';
 import {
@@ -219,45 +218,23 @@ function sevenPointDerivatives(values, step) {
     assert.equal(interpolation.derivativesAt(-1).inRange, false, 'clamped PCHIP reports out of range');
 }
 
-// Taylor TMM agrees with the scalar kernel, and rescaling is derivative-invariant.
+// The Taylor TMM of tmmcore's phase call agrees with the scalar kernel, and an
+// opaque layer leaves its r finite.
 {
     const wavelengthNm = 550;
-    const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;
-    const wavelengthJet = wavelengthOmegaJet(wavelengthNm, omega);
-    const constantIndex = (n, k = 0) => jetFromDerivatives([n, k]);
-    const options = {
-        wavelengthJet,
-        thetaDeg: 23,
-        polarization: 'p',
-        incidentIndexJet: constantIndex(1),
-        substrateIndexJet: constantIndex(1.52),
-        layers: [
-            { indexJet: constantIndex(2.1, .8), thicknessNm: 800 },
-            { indexJet: constantIndex(1.45), thicknessNm: 120 },
-        ],
-    };
-    const analytic = tmmCoefficientJets(options);
+    const stack = { incident: 1, substrate: 1.52, layers: [{ n: 2.1, k: .8, d: 800 }, { n: 1.45, d: 120 }] };
+    const { r } = phase(stack, wavelengthNm, { angle: 23, pol: 'p' });
     const scalar = tmmWithAdmittances(
         wavelengthNm, 23, 'p', [1, 0], [1.52, 0],
         [{ n: [2.1, .8], d: 800 }, { n: [1.45, 0], d: 120 }],
     );
-    close(analytic.reflection[0][0], scalar.r[0], 1e-12, 'Taylor TMM reflection real');
-    close(analytic.reflection[0][1], scalar.r[1], 1e-12, 'Taylor TMM reflection imaginary');
-    const rescaled = tmmCoefficientJets({ ...options, rescaleThreshold: 10 });
-    const unscaled = tmmCoefficientJets({ ...options, rescaleThreshold: Infinity });
-    for (const target of ['reflection', 'transmission']) {
-        const a = jetDerivatives(rescaled[target]);
-        const b = jetDerivatives(unscaled[target]);
-        for (let order = 0; order <= 3; order++) {
-            close(a[order][0], b[order][0], 1e-8 * Math.max(1, Math.abs(b[order][0])), `${target} rescale real order ${order}`);
-            close(a[order][1], b[order][1], 1e-8 * Math.max(1, Math.abs(b[order][1])), `${target} rescale imaginary order ${order}`);
-        }
-    }
-    const opaque = tmmCoefficientJets({
-        ...options,
-        layers: [{ indexJet: constantIndex(.2, 5), thicknessNm: 1e6 }],
-    });
-    assert.ok(opaque.reflection.flat(2).every(Number.isFinite), 'opaque-layer clamp keeps every derivative finite');
+    const scalarMagnitude = Math.hypot(scalar.r[0], scalar.r[1]);
+    close(r.magnitudeSquared, scalarMagnitude ** 2, 1e-12, 'Taylor TMM |r|²');
+    // The phase call reports -arg r. To first order, a move of 1e-12 in r
+    // turns arg r by at most 1e-12 / |r| radians.
+    close(r.phaseRad, -Math.atan2(scalar.r[1], scalar.r[0]), 1e-12 / scalarMagnitude, 'Taylor TMM reflection phase');
+    const opaque = phase({ ...stack, layers: [{ n: .2, k: 5, d: 1e6 }] }, wavelengthNm, { angle: 23, pol: 'p' });
+    assert.ok(opaque.r && Object.values(opaque.r).every(Number.isFinite), 'opaque-layer clamp keeps r and its derivatives finite');
 }
 
 // Closed-form matched dispersive slab, including a non-zero TOD oracle.
@@ -267,17 +244,10 @@ function sevenPointDerivatives(values, step) {
     const thicknessNm = 2000;
     const [n, first, second, third] = [2, .05, -.02, .03];
     const indexJet = jetFromDerivatives([n, 0], [first, 0], [second, 0], [third, 0]);
-    const coefficients = tmmCoefficientJets({
-        wavelengthJet: wavelengthOmegaJet(wavelengthNm, omega),
-        thetaDeg: 0,
-        polarization: 's',
-        incidentIndexJet: indexJet,
-        substrateIndexJet: indexJet,
-        layers: [{ indexJet, thicknessNm }],
-    });
-    // tmmcore's own key names: it takes the angular frequency that fixes the
-    // unit, so it does not presume fs. Everything above stackEvaluator.js does.
-    const result = coefficientPhaseDispersion(coefficients.transmission);
+    const slab = { incident: { n: indexJet }, substrate: { n: indexJet }, layers: [{ n: indexJet, d: thicknessNm }] };
+    // tmmcore's own key names, in fs, fs² and fs³; stackEvaluator.js renames
+    // them gdFs, gddFs2 and todFs3.
+    const result = phase(slab, wavelengthNm, { pol: 's' }).t;
     const scale = thicknessNm / C_NM_PER_FS;
     close(result.gd, scale * (n + omega * first), 1e-11, 'matched slab GD');
     close(result.gdd, scale * (2 * first + omega * second), 1e-11, 'matched slab GDD');

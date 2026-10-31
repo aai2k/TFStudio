@@ -38,10 +38,8 @@ import {
     tmmWithAdmittances, computeEllipsometry, computeEFieldProfile,
     evaluateSpectrumTotal, C_NM_PER_FS,
 } from '../src/utils/physics/thinFilmMath.js';
-import { rta } from 'tmmcore';
+import { phase, rta } from 'tmmcore';
 import { pointStack } from '../src/utils/physics/kernelStack.js';
-import { coefficientPhaseDispersion, tmmCoefficientJets } from '../src/tmmcore.js';
-import { jetConstant, wavelengthOmegaJet } from '../src/tmmcore.js';
 import { getMaterial, getNK } from '../src/utils/materials/materialDatabase.js';
 import { carnigliaJensenNK } from '../src/utils/physics/scattering.js';
 import { mixMaterials, buildGradedSlices, applyProfile } from '../src/utils/physics/inhomogeneity.js';
@@ -327,14 +325,7 @@ head('§7  Multilayer R/T vs independent Rouard recursion');
 head('§8  Group delay / GDD — matched-slab closed form');
 {
     const n = 2, d = 2000, lam = 1050, expectGD = n * d / C_NM_PER_FS;
-    const indexJet = jetConstant(n, 0);
-    const coefficients = tmmCoefficientJets({
-        wavelengthJet: wavelengthOmegaJet(lam, 2 * Math.PI * C_NM_PER_FS / lam),
-        thetaDeg: 0, polarization: 's',
-        incidentIndexJet: indexJet, substrateIndexJet: indexJet,
-        layers: [{ indexJet, thicknessNm: d }],
-    });
-    const res = coefficientPhaseDispersion(coefficients.transmission);
+    const res = phase({ incident: n, substrate: n, layers: [{ n, d }] }, lam, { pol: 's' }).t;
     ok(res.gd > 0, 'transmitted GD is POSITIVE (sign convention)', `GD=${res.gd.toFixed(3)} fs`);
     near(res.gd, expectGD, 1e-12, 'matched-slab GD = +n·d/c');
     near(res.gdd, 0, 1e-12, 'matched-slab GDD = 0');

@@ -16,12 +16,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
-    computeEllipsometry, computeEFieldProfile, C_NM_PER_FS,
+    computeEllipsometry, computeEFieldProfile,
 } from '../../src/utils/physics/thinFilmMath.js';
-import { rta } from 'tmmcore';
+import { phase, rta } from 'tmmcore';
 import { pointStack } from '../../src/utils/physics/kernelStack.js';
-import { coefficientPhaseDispersion, tmmCoefficientJets } from '../../src/tmmcore.js';
-import { jetConstant, wavelengthOmegaJet } from '../../src/tmmcore.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ref = JSON.parse(readFileSync(join(here, 'reference_tmm.json'), 'utf8'));
@@ -91,15 +89,9 @@ for (const key of ['ar', 'mirror', 'absorb', 'metal']) {
     const spec = P.gd; const { n0, ns, layers } = toLayers(caseByName(spec.case));
     const D = spec.data, lam = D.lam;
     // Analytic, so each point lands on the reference wavelength itself and needs
-    // no alignment. The reference indices are constants, so every jet is one.
-    const gdAt = (L) => coefficientPhaseDispersion(tmmCoefficientJets({
-        wavelengthJet: wavelengthOmegaJet(L, 2 * Math.PI * C_NM_PER_FS / L),
-        thetaDeg: 0,
-        polarization: 's',
-        incidentIndexJet: jetConstant(n0[0], n0[1]),
-        substrateIndexJet: jetConstant(ns[0], ns[1]),
-        layers: layers.map(l => ({ indexJet: jetConstant(l.n[0], l.n[1]), thicknessNm: l.d })),
-    }).reflection).gd;
+    // no alignment.
+    const stack = pointStack(n0, ns, layers);
+    const gdAt = (L) => phase(stack, L, { pol: 's' }).r.gd;
     const tf = lam.map(gdAt);
     const refGd = D.gd_tmm.map(v => -v);              // TFStudio convention = −tmm
     const res = tf.map((v, i) => v - refGd[i]);

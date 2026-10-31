@@ -24,12 +24,10 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import {
     tmmWithAdmittances, computeEllipsometry,
-    computeEFieldProfile, C_NM_PER_FS,
+    computeEFieldProfile,
 } from '../../src/utils/physics/thinFilmMath.js';
-import { rta } from 'tmmcore';
+import { phase, rta } from 'tmmcore';
 import { pointStack } from '../../src/utils/physics/kernelStack.js';
-import { coefficientPhaseDispersion, tmmCoefficientJets } from '../../src/tmmcore.js';
-import { jetConstant, wavelengthOmegaJet } from '../../src/tmmcore.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const ref = JSON.parse(readFileSync(join(here, 'reference_tmm.json'), 'utf8'));
@@ -140,20 +138,10 @@ console.log('\n  Group delay GD = −dφ/dω (Gires–Tournois mirror, analytic 
     const g = ref.gd_case;
     const c = ref.cases.find(x => x.name === g.name);
     const { n0, ns, layers } = toLayers(c);
-    // Every index in the reference is a constant complex number, so each carries
-    // a jet with zero derivatives and the only ω dependence left is the phase
-    // thickness of the layers.
-    const gdAt = (lambdaNm) => {
-        const coefficients = tmmCoefficientJets({
-            wavelengthJet: wavelengthOmegaJet(lambdaNm, 2 * Math.PI * C_NM_PER_FS / lambdaNm),
-            thetaDeg: 0,
-            polarization: 's',
-            incidentIndexJet: jetConstant(n0[0], n0[1]),
-            substrateIndexJet: jetConstant(ns[0], ns[1]),
-            layers: layers.map(l => ({ indexJet: jetConstant(l.n[0], l.n[1]), thicknessNm: l.d })),
-        });
-        return coefficientPhaseDispersion(coefficients.reflection).gd;
-    };
+    // Every index in the reference is a constant complex number, so the only ω
+    // dependence left is the phase thickness of the layers.
+    const stack = pointStack(n0, ns, layers);
+    const gdAt = (lambdaNm) => phase(stack, lambdaNm, { pol: 's' }).r.gd;
     let maxGD = 0, signOK = 0;
     for (let i = 0; i < g.lam.length; i++) {
         const a = gdAt(g.lam[i]), b = g.gd[i];
