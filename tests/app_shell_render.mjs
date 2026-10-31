@@ -84,7 +84,7 @@ ok(html.includes(t.explorer.searchPlaceholder), 'the project explorer is drawn')
         yield* walk(node.props.children);
     };
     let tree = null;
-    function Probe() { tree = App(); return null; }
+    function Probe() { tree = App({ kernelStartup: Promise.resolve(null) }); return null; }
     renderToStaticMarkup(React.createElement(Probe));
     const drawn = [...walk(tree)];
     ok(drawn.some(el => el.type === LiveDialogs), 'the shell draws the live link\'s dialogs');

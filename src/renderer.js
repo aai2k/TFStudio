@@ -9,7 +9,7 @@ import { bootstrapTmmWasm } from './utils/physics/tmmWasmBootstrap.js';
 // started, some 30 ms after the app's modules. A kernel still loading after
 // KERNEL_WAIT_MS holds the window no longer: the app mounts without it, a
 // calculation fails until it lands, and the app gets the load itself
-// (kernelStartup) to tell the user when it does not land at all.
+// (kernelStartup) to tell the user when the load fails.
 // The wait is four times the slowest load measured (0.5 s, started after the
 // app had mounted), so a normal start never reaches it.
 const KERNEL_WAIT_MS = 2000;

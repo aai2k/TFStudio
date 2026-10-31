@@ -2,9 +2,10 @@
  * The window mounts the app once the WASM kernel is in (renderer.js), so the
  * first calculation of a design shown at startup runs on the kernel; a kernel
  * that never arrives holds the window only until the wait runs out, and the
- * app then mounts without it. A kernel that cannot be loaded does not hold the
- * window, and the app is handed what went wrong, which its notice names in
- * each language.
+ * app then mounts without it, still handed the load, so a failure after the
+ * wait reaches it too. A kernel that cannot be loaded, or a loader that fails
+ * outright, does not hold the window, and the app is handed what went wrong,
+ * which its notice names in each language.
  *
  * renderer.js mounts into the page when it is imported, so each case imports
  * it under its own query, with ReactDOM's root standing in to record the mount.
@@ -29,11 +30,14 @@ globalThis.ReactDOM = { createRoot: () => ({
 }) };
 document.getElementById = () => ({});
 
-// Each request for the kernel, answered only when a case says so.
+// Each request for the kernel, answered only when a case says so: with the
+// loader's result, or with an Error the loader throws.
 const kernelRequests = [];
 window.electronAPI = new Proxy({
     loadSettings: async () => ({ success: true, settings: {} }),
-    loadWasmKernel: () => new Promise(resolve => { kernelRequests.push(resolve); }),
+    loadWasmKernel: () => new Promise((resolve, reject) => {
+        kernelRequests.push(answer => (answer instanceof Error ? reject(answer) : resolve(answer)));
+    }),
     diagLog: () => {},
 }, { get: (api, name) => api[name] ?? (() => Promise.resolve(null)) });
 
@@ -57,8 +61,10 @@ async function startWith(query, answer) {
 const LANGUAGES = ['en', 'ru', 'zh', 'it'];
 
 // ── A kernel that never answers holds the window until the wait runs out ─────
+// ── and a load that fails after it still reaches the app ─────────────────────
 {
     const started = Date.now();
+    const asked = kernelRequests.length;
     const imported = import('../src/renderer.js?no-kernel');
     await sleep(1000);
     assert.equal(mounts.length, 0, 'the app is not mounted while the kernel is awaited');
@@ -67,6 +73,18 @@ const LANGUAGES = ['en', 'ru', 'zh', 'it'];
     assert.ok(mount, 'the app mounts once the wait runs out');
     assert.ok(mount.at - started >= 1900, `it waited ${mount.at - started} ms, the wait is 2000 ms`);
     assert.equal(mount.kernel, false, 'and mounts without the kernel');
+    const error = "EACCES: permission denied, open 'tmm_kernel.wasm'";
+    kernelRequests[asked]({ success: false, error });
+    assert.deepEqual(await mount.kernelStartup, { error }, 'a load that fails after the wait still reaches the app');
+}
+
+// ── A loader that fails outright: the app is handed its message ──────────────
+{
+    const error = "Error invoking remote method 'wasm:load-kernel': Error: No handler registered for 'wasm:load-kernel'";
+    const { started, mount } = await startWith('loader-fails', new Error(error));
+    assert.ok(mount && mount.at - started < 1900, 'the app mounts without waiting out the wait');
+    assert.equal(mount.kernel, false, 'and without the kernel');
+    assert.deepEqual(await mount.kernelStartup, { error }, "the app is handed the loader's message");
 }
 
 // ── A kernel file that cannot be read: the app is told why, in each language ─

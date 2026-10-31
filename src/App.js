@@ -33,10 +33,10 @@ import { useAppCommands } from './hooks/useAppCommands.js';
 const { createElement: h, useState, useEffect, useRef } = React;
 
 /**
- * @param {Object} [props]
- * @param {Promise<Object|null>} [props.kernelStartup]  the kernel's load, as bootstrapTmmWasm returns it
+ * @param {Object} props
+ * @param {Promise<Object|null>} props.kernelStartup  the kernel's load, as bootstrapTmmWasm returns it
  */
-export const App = ({ kernelStartup } = {}) => {
+export const App = ({ kernelStartup }) => {
     const [inputDialog, setInputDialog] = useState(null);
     const {
         notices: messageNotifications, notify: setMessageNotification, dismiss: dismissMessage,
