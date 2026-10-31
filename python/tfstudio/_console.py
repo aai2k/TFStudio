@@ -52,6 +52,26 @@ def _streams():
     return reader, writer
 
 
+def _let_windows_show():
+    """Lets the windows the script opens show, on Windows. The app starts
+    Python hidden, so that no console window shows, and Windows applies that
+    hidden start in place of the first ShowWindow call the program makes: a
+    plot from matplotlib's plt.show(), shown by that call, would wait where
+    nobody can close it. A throwaway window, shown hidden here and off every
+    screen, makes that first call."""
+    import ctypes
+
+    # A user32 of its own, so the restype set here is not on the
+    # ctypes.windll.user32 the script gets.
+    user32 = ctypes.WinDLL("user32")
+    user32.CreateWindowExW.restype = ctypes.c_void_p
+    overlapped = 0x00CF0000  # WS_OVERLAPPEDWINDOW
+    window = ctypes.c_void_p(user32.CreateWindowExW(0, "STATIC", "", overlapped, -20000, -20000, 1, 1,
+                                                    None, None, None, None))
+    user32.ShowWindow(window, 0)  # SW_HIDE
+    user32.DestroyWindow(window)
+
+
 def _error_line(err, file_name):
     """The line of the script `err` was raised at: the line of a syntax error
     in it, or of the innermost call in it. None when there is none."""
@@ -100,6 +120,8 @@ def _ran(tf, run):
 
 def main():
     reader, writer = _streams()
+    if sys.platform == "win32":
+        _let_windows_show()
     run = json.loads(reader.readline().decode("utf-8"))
     tf = TFStudio._on(Calls(pipe=Pipe(reader, writer)))
     tf.design = None if run["design"] is None else Design(tf._calls, run["design"])

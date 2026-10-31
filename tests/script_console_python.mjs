@@ -24,10 +24,11 @@
  * while the script still runs; tf is the object API on the
  * run's own server, with tf.design the open design as a Design, and a run
  * computes through it; a script saved to a file runs in its folder; it reads
- * nothing. A tf.design changed, or one made with no design open, comes back,
- * and one left alone does not; one that is not a Design is refused with a
- * reason; a script that closes tf still has its design taken. An error names
- * the script's line, which the answer carries, and none of the package's
+ * nothing; on Windows a window it opens shows, and a console program it
+ * starts opens no console window. A tf.design changed, or one made with no
+ * design open, comes back, and one left alone does not; one that is not a
+ * Design is refused with a reason; a script that closes tf still has its
+ * design taken. An error names the script's line, which the answer carries, and none of the package's
  * frames; sys.exit() ends with no answer. Stop ends a script that never ends,
  * and its Python with it, and a run stopped while its Python is looked for
  * never starts one. In the window, what the script
@@ -283,6 +284,31 @@ assert.match(nested.answer.error, /line 4, in <module>\n {4}deeper\(\)\n( {4}[~^
     `a call in the script is in the traceback: ${nested.answer.error}`);
 assert.equal(nested.answer.line, 2, 'and the line marked is the innermost one in the script');
 
+// ── A window the script opens ───────────────────────────────────────────────
+// Windows applies a hidden start to the first window a program shows, which
+// would leave a plot that plt.show() waits on where nobody can close it. The
+// window sits far off every screen, so the check shows nothing.
+if (process.platform === 'win32') {
+    const shown = await run([
+        'import ctypes',
+        'user32 = ctypes.windll.user32',
+        'user32.CreateWindowExW.restype = ctypes.c_void_p',
+        'window = ctypes.c_void_p(user32.CreateWindowExW(0, "STATIC", "probe", 0x00CF0000, -20000, -20000, 120, 80, None, None, None, None))',
+        'user32.ShowWindow(window, 1)',
+        'print(bool(user32.IsWindowVisible(window)))',
+        'user32.DestroyWindow(window)',
+    ].join('\n'));
+    assert.deepEqual(shown.output, ['True'], `a window the script opens shows: ${shown.answer.error}`);
+    // A Python with no console, such as pythonw.exe, would leave a console
+    // program the script starts to open a console window of its own.
+    const child = await run([
+        'import subprocess, sys',
+        'probe = "import ctypes; print(bool(ctypes.windll.kernel32.GetConsoleWindow()))"',
+        'print(subprocess.run([sys.executable, "-c", probe], capture_output=True, text=True).stdout.strip())',
+    ].join('\n'));
+    assert.deepEqual(child.output, ['False'], `a console program the script starts opens no console window: ${child.answer.error}`);
+}
+
 // ── Stop ────────────────────────────────────────────────────────────────────
 {
     const endless = start('import os, time\nprint(os.getpid(), flush=True)\nwhile True:\n    time.sleep(0.01)');
@@ -418,5 +444,15 @@ async function runInWindow(text, meanwhile = () => {}) {
 }
 win.unmount();
 
-fs.rmSync(out, { recursive: true, force: true });
+// The Python just stopped can hold its working folder, in `out`, for a moment
+// after its run ends, and rmSync's own retries do not wait for a folder in use.
+for (let waited = 0; ; waited += 100) {
+    try {
+        fs.rmSync(out, { recursive: true, force: true });
+        break;
+    } catch (err) {
+        if (waited >= 5000) throw err;
+        await sleep(100);
+    }
+}
 console.log('PASS: script_console_python');

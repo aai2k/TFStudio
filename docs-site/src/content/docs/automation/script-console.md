@@ -38,6 +38,8 @@ A Python script runs in your own Python, 3.8 or newer; TFStudio does not ship Py
 
 A Python script runs in the folder of its file, so its relative paths and imports find the files beside it; a script not saved to a file runs in the data folder. A saved script whose folder is no longer there is not run.
 
+A window the script opens, such as the plot that matplotlib's `plt.show()` opens, shows as it does when you run the script yourself. The run goes on until you close it and the script ends.
+
 ## What a script gets
 
 Both languages give the script `tf`, which holds TFStudio's designs and materials, and `tf.design`, the open design, or `null` in JavaScript and `None` in Python when no design is open. What `tf` and a design offer, in both languages, is in the [API Reference](/automation/api-reference/). A design computes with the code the windows compute with, so its numbers are the app's. The materials are the built-in ones, those in your catalogs in the data folder, and the copies a design carries.
