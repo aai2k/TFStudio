@@ -59,7 +59,49 @@ Python 脚本在其文件所在的文件夹中运行，因此它的相对路径�
 
 ## 示例
 
-每个示例都自己构建要处理的设计，因此无论打开的是哪个设计都能运行。每个示例先给出 JavaScript 写法，再给出 Python 写法。
+前两个示例处理打开的设计 `tf.design`，因此需要打开一个设计，第二个示例还需要设置评价函数。其余示例自己构建要处理的设计，因此无论打开的是哪个设计都能运行。每个示例先给出 JavaScript 写法，再给出 Python 写法。
+
+### 在打开的设计上扫描入射角
+
+在打开的设计的参考波长处，从 0 到 80 度扫描其 Rs 和 Rp。光谱接受一个波长范围，因此扫描取参考波长到比它高 1 nm 的范围，并读取第一个波长。脚本只读取设计，因此不会应用任何更改：
+
+```js
+const design = tf.design;
+const w = design.reference;
+const angles = [0, 10, 20, 30, 40, 50, 60, 70, 80];
+const s = design.spectrum(w, w + 1, { angles });
+console.log(design.name, 'at', w, 'nm');
+for (const a of angles) console.log(`${a} deg: Rs ${s.angle(a).Rs[0].toFixed(4)}, Rp ${s.angle(a).Rp[0].toFixed(4)}`);
+```
+
+```python
+design = tf.design
+w = design.reference
+angles = [0, 10, 20, 30, 40, 50, 60, 70, 80]
+s = design.spectrum(w, w + 1, angles=angles)
+print(design.name, "at", w, "nm")
+for a in angles:
+    at = s.angle(a)
+    print(a, "deg: Rs", round(at.Rs[0], 4), "Rp", round(at.Rp[0], 4))
+```
+
+### 精炼打开的设计
+
+用 SQP 精炼打开的设计，按在评价函数编辑器中为它设置的评价函数运行。脚本直接修改 `tf.design`，因此脚本结束时，结果会作为一个步骤应用到打开的设计上，可用 Ctrl+Z 撤销：
+
+```js
+const design = tf.design;
+console.log('Merit before:', design.merit.value);
+const run = await design.refine({ method: 'sqp' });
+console.log('Merit after:', design.merit.value, `(${run.stopReason})`);
+```
+
+```python
+design = tf.design
+print("Merit before:", design.merit.value)
+run = design.refine(method="sqp")
+print("Merit after:", design.merit.value, "(" + run.stop_reason + ")")
+```
 
 ### 反射镜在其高反射带内的反射率
 
@@ -130,28 +172,6 @@ design.layers.append("SiO2", 100)
 design.merit.add("RAV", 420, 680, target=0)
 run = design.synthesize("needle", pool=["TiO2", "SiO2"], max_layers=12)
 print(run.stop_reason, len(design.layers), "layers, merit", run.merit)
-```
-
-### 扫描入射角
-
-在 550 nm 处从 0 到 80 度扫描该反射镜的 Rs 和 Rp。光谱接受一个波长范围，因此扫描取 550 到 551 nm，并读取第一个波长：
-
-```js
-const design = tf.newDesign('Mirror 550');
-design.stack('(HL)^8 H');
-const angles = [0, 10, 20, 30, 40, 50, 60, 70, 80];
-const s = design.spectrum(550, 551, { angles });
-for (const a of angles) console.log(`${a} deg: Rs ${s.angle(a).Rs[0].toFixed(4)}, Rp ${s.angle(a).Rp[0].toFixed(4)}`);
-```
-
-```python
-design = tf.new_design("Mirror 550")
-design.stack("(HL)^8 H")
-angles = [0, 10, 20, 30, 40, 50, 60, 70, 80]
-s = design.spectrum(550, 551, angles=angles)
-for a in angles:
-    at = s.angle(a)
-    print(a, "deg: Rs", round(at.Rs[0], 4), "Rp", round(at.Rp[0], 4))
 ```
 
 ### 把 s 和 p 的 R、T、A 写入文件

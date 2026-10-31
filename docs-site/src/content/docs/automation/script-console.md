@@ -59,7 +59,49 @@ The design is applied only to the design the script started on, and only while t
 
 ## Examples
 
-Each example builds the design it works on, so it runs whatever design is open. Each is shown in JavaScript, then in Python.
+The first two examples work on the open design, `tf.design`, so they need a design open, the second with a merit function set. The others build the design they work on, so they run whatever design is open. Each is shown in JavaScript, then in Python.
+
+### Scan the angle of incidence on the open design
+
+Rs and Rp of the open design at its reference wavelength, from 0 to 80 degrees. A spectrum takes a range of wavelengths, so the scan asks for the reference wavelength to 1 nm above it and reads the first. The script only reads the design, so nothing is applied:
+
+```js
+const design = tf.design;
+const w = design.reference;
+const angles = [0, 10, 20, 30, 40, 50, 60, 70, 80];
+const s = design.spectrum(w, w + 1, { angles });
+console.log(design.name, 'at', w, 'nm');
+for (const a of angles) console.log(`${a} deg: Rs ${s.angle(a).Rs[0].toFixed(4)}, Rp ${s.angle(a).Rp[0].toFixed(4)}`);
+```
+
+```python
+design = tf.design
+w = design.reference
+angles = [0, 10, 20, 30, 40, 50, 60, 70, 80]
+s = design.spectrum(w, w + 1, angles=angles)
+print(design.name, "at", w, "nm")
+for a in angles:
+    at = s.angle(a)
+    print(a, "deg: Rs", round(at.Rs[0], 4), "Rp", round(at.Rp[0], 4))
+```
+
+### Refine the open design
+
+A refinement of the open design with SQP, against the merit function set for it in the Merit Function Editor. The script changes `tf.design` in place, so when it ends the result is applied to the open design as one step that Ctrl+Z takes back:
+
+```js
+const design = tf.design;
+console.log('Merit before:', design.merit.value);
+const run = await design.refine({ method: 'sqp' });
+console.log('Merit after:', design.merit.value, `(${run.stopReason})`);
+```
+
+```python
+design = tf.design
+print("Merit before:", design.merit.value)
+run = design.refine(method="sqp")
+print("Merit after:", design.merit.value, "(" + run.stop_reason + ")")
+```
 
 ### A mirror's reflectance across its stop band
 
@@ -130,28 +172,6 @@ design.layers.append("SiO2", 100)
 design.merit.add("RAV", 420, 680, target=0)
 run = design.synthesize("needle", pool=["TiO2", "SiO2"], max_layers=12)
 print(run.stop_reason, len(design.layers), "layers, merit", run.merit)
-```
-
-### Scan the angle of incidence
-
-Rs and Rp of the mirror at 550 nm from 0 to 80 degrees. A spectrum takes a range of wavelengths, so the scan asks for 550 to 551 nm and reads the first:
-
-```js
-const design = tf.newDesign('Mirror 550');
-design.stack('(HL)^8 H');
-const angles = [0, 10, 20, 30, 40, 50, 60, 70, 80];
-const s = design.spectrum(550, 551, { angles });
-for (const a of angles) console.log(`${a} deg: Rs ${s.angle(a).Rs[0].toFixed(4)}, Rp ${s.angle(a).Rp[0].toFixed(4)}`);
-```
-
-```python
-design = tf.new_design("Mirror 550")
-design.stack("(HL)^8 H")
-angles = [0, 10, 20, 30, 40, 50, 60, 70, 80]
-s = design.spectrum(550, 551, angles=angles)
-for a in angles:
-    at = s.angle(a)
-    print(a, "deg: Rs", round(at.Rs[0], 4), "Rp", round(at.Rp[0], 4))
 ```
 
 ### Write R, T and A for s and p to a file

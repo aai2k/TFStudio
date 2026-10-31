@@ -43,7 +43,7 @@ export async function checkExamples(t) {
     const { bridge } = await t.openApp(link, []);
     for (const page of t.PAGES) {
         const examples = t.examplesOf(page.en);
-        const ran = await t.scenario('examples', { driver: DRIVER, input: { examples, link }, env, limit: t.limit });
+        const ran = await t.scenario('examples', { driver: DRIVER, input: { examples, link, open: page.slug === 'script-console' }, env, limit: t.limit });
         const bad = examples.map((code, i) => [code.split('\n').find(line => line && !line.startsWith('import')), wrong(ran.messages.find(m => m.example === i))])
             .filter(([, problem]) => problem).map(([first, problem]) => `${first}: ${problem}`);
         t.ok(`${page.slug}.md: each Python example runs, prints what it found, and run again writes over nothing`, examples.length > 0 && bad.length === 0,

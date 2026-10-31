@@ -16,11 +16,13 @@
  *      found on the classes themselves rather than read from their comments.
  *   3. Every js example on the reference and on the Script Console page runs
  *      through the console's runner (src/scripts/runScript.js) with no design
- *      open, so none leans on the design that happens to be open, without an
- *      error, leaves what the console can apply, and prints what it found,
- *      since the output is all a reader sees of a run. Each zh page shows the
- *      same examples, in JavaScript and in Python, so the ones run here and
- *      in tests/python_client.mjs are the ones its readers copy. A file an
+ *      open, so none leans on the design that happens to be open, but for a
+ *      Script Console example that reads tf.design, which starts on an open
+ *      design with a merit function. Each runs without an error, leaves what
+ *      the console can apply, and prints what it found, since the output is
+ *      all a reader sees of a run. Each zh page shows the same examples, in
+ *      JavaScript and in Python, so the ones run here and in
+ *      tests/python_client.mjs are the ones its readers copy. A file an
  *      example writes in the home folder goes to a folder of the test's own,
  *      and an example that writes one runs a second time there and must
  *      leave the files of its first run as they were: a reader who runs it
@@ -104,14 +106,25 @@ async function quietly(run) {
     try { return await run(); } finally { Object.assign(console, { log, warn, info: inform }); }
 }
 
-/** Runs `text` as the console runs a script, with no design open; resolves to { answer, printed }. */
-async function runExample(text, require) {
+/** Runs `text` as the console runs a script, on `design` or with none open; resolves to { answer, printed }. */
+async function runExample(text, require, design = null) {
     const printed = [];
     const print = (...args) => printed.push(format(...args));
     const scriptConsole = { log: print, info: print, warn: print, error: print, debug: print };
-    const answer = await quietly(() => runScript({ info, text, fileName: 'example.js', design: null, console: scriptConsole, require }));
+    const answer = await quietly(() => runScript({ info, text, fileName: 'example.js', design, console: scriptConsole, require }));
     return { answer, printed };
 }
+
+// The design open when a Script Console example that reads tf.design runs: an
+// antireflection coating with a merit function, as a reader's open design has
+// one. An example that only puts a design in tf.design reads nothing of it.
+const OPEN_DESIGN = (() => {
+    const design = new objects.TFStudio(info).newDesign('Open design');
+    design.stack('(HL)^2');
+    design.merit.add('RAV', 450, 650, { target: 0 });
+    return design._data;
+})();
+const readsOpenDesign = text => /tf\.design(?!\s*=[^=])/.test(text);
 
 const home = fs.mkdtempSync(path.join(os.tmpdir(), 'tfs-api-examples-'));
 const scriptRequire = id => (id === 'os' || id === 'node:os' ? { ...os, homedir: () => home } : realRequire(id));
@@ -123,12 +136,12 @@ const homeFiles = () => new Map(fs.readdirSync(home).map(name => [name, fs.statS
 // runs again and must leave every file there as it was after its first run.
 // It runs again once the clock has moved on, as a reader's second run would:
 // an example that writes a file names it by the time, in milliseconds.
-async function runsAgainWritingOverNothing(text, where, before) {
+async function runsAgainWritingOverNothing(text, where, before, open) {
     const after = homeFiles();
     if (after.size === before.size) return;
     const firstRanBy = Date.now();
     while (Date.now() === firstRanBy) await new Promise(resolve => setTimeout(resolve, 1));
-    await runExample(text, scriptRequire).catch(err => assert.fail(`${where} threw when run again: ${err.stack}`));
+    await runExample(text, scriptRequire, open()).catch(err => assert.fail(`${where} threw when run again: ${err.stack}`));
     const now = homeFiles();
     const rewritten = [...after].filter(([name, at]) => now.get(name) !== at).map(([name]) => name);
     assert.deepEqual(rewritten, [], `${where}, run again, leaves the files it wrote as they were`);
@@ -145,10 +158,11 @@ for (const pages of [PAGES, CONSOLE_PAGES]) {
     for (const text of examples) {
         const where = `${path.basename(pages.en)}: ${text.split('\n')[0]}`;
         const before = homeFiles();
-        const { answer, printed } = await runExample(text, scriptRequire).catch(err => assert.fail(`${where} threw: ${err.stack}`));
+        const open = () => (pages === CONSOLE_PAGES && readsOpenDesign(text) ? structuredClone(OPEN_DESIGN) : null);
+        const { answer, printed } = await runExample(text, scriptRequire, open()).catch(err => assert.fail(`${where} threw: ${err.stack}`));
         assert.equal(answer.invalid, undefined, `${where} leaves what the console can apply`);
         assert.ok(printed.length > 0, `${where} prints what it found`);
-        await runsAgainWritingOverNothing(text, where, before);
+        await runsAgainWritingOverNothing(text, where, before, open);
         ran++;
     }
 }
