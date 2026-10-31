@@ -32,7 +32,7 @@ import { halfWaveSpans, limitStepToSpans } from './halfWaveSpan.js';
 import { LM_MAX_DAMPING, scaledStepRatio, predictedReduction, lmStopReason } from './lmStopping.js';
 import { boxedStart, movablePositions, residualGradient, restrictColumns, projectedTrial } from './boundedStep.js';
 import { _surfaceLayout, makePointEvaluators, _jacRows } from './jacobianAssembly.js';
-import { _jtjUpper, _mirrorUpper, makeHessianSampler, _addS, _curvOperand, _operandSupportsFullNewton } from './newtonAssembly.js';
+import { _jtjUpper, _mirrorUpper, makeHessianSampler, addCurvature, _operandSupportsFullNewton } from './newtonAssembly.js';
 
 const sameValues = (a, b) => a.length === b.length && a.every((value, index) => value === b[index]);
 
@@ -411,20 +411,14 @@ export class LSQEngine {
         // Per-(λ,pol,char,aoi) analytic comp value/first/second derivatives over
         // the FREE variables (honoring pol='avg'). Single-front is a direct read;
         // single-back mirrors _analyticJacobian's reversed-stack handling.
-        const { sample } = makeHessianSampler({
+        const at = makeHessianSampler({
             n0mat: this.n0mat, nsmat: this.nsmat, neMat: this.neMat, mats: this.mats,
             thk, N: thk.length, isSingleBack, freeIdx, nFree,
         });
-        const addS = (coef, d2) => _addS(H, nFree, coef, d2);
 
-        // Second-order curvature term S, iterating operands in the SAME order as
-        // _analyticJacobian/_residuals so row index `rp` aligns with r0/J.
-        const hc = { r0, nFree, sample, addS };
-        let rp = 0;
-        for (let i = 0; i < this.operands.length; i++) {
-            if (!this.operands[i].enabled || comp[i] == null) continue;
-            rp += _curvOperand(this.operands[i], rp, hc);
-        }
+        // Second-order curvature term S, its rows in the SAME order as
+        // _analyticJacobian/_residuals so they align with r0/J.
+        addCurvature(H, this.operands, comp, { r0, nFree, at });
 
         _mirrorUpper(H, nFree);
         return { H, Jtr };

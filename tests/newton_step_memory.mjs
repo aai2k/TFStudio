@@ -1,26 +1,26 @@
 /**
- * One step of Newton, trust-region or SQP keeps its second-derivative kernel
- * packages within a memory budget (newtonAssembly/hessianSampler.js), so the
- * memory the step takes to assemble its second derivatives does not grow with
- * the samples of the rows. On 60 alternating TiO2 and SiO2 layers with TMX 0.9
- * and TAV 1 rows over 400-1600 nm, holding every wavelength's package grew the
- * heap by about 440 MB in one step with the rows at Step 2 (0.1 nm, 12001
- * samples), about ten times what it did at Step 1, and one step at Step 3 ran
- * out of a 4 GB heap.
+ * One step of Newton, trust-region or SQP assembles its second derivatives one
+ * wavelength at a time (newtonAssembly/curvature.js): each wavelength's kernel
+ * packages are read by every row there and dropped, so the memory the step
+ * takes does not grow with the samples of the rows. On 60 alternating TiO2 and
+ * SiO2 layers with TMX 0.9 and TAV 1 rows over 400-1600 nm, holding every
+ * wavelength's package grew the heap by about 440 MB in one step with the rows
+ * at Step 2 (0.1 nm, 12001 samples), about ten times what it did at Step 1, and
+ * one step at Step 3 ran out of a 4 GB heap.
  *
  * The heap is read while the step assembles its second derivatives, after a
  * full collection; the reading is the JavaScript heap, without the arrays the
  * WASM kernel's packages keep outside it.
  *
  *   1. For each engine, the heap of one step with the rows at Step 2 exceeds
- *      the one at Step 1 by less than the budget, 64 MB. Keeping every
+ *      the one at Step 1 by less than 64 MB, the kernel packages a synthesis
+ *      worker may hold, so that a dozen workers stay under 1 GB. Keeping every
  *      package made it grow about tenfold.
  *   2. The step's merit and thicknesses are the ones pinned below, bit for
  *      bit: on the rows above at Step 2 for each engine, and on an RAV and a
- *      TAV row on one grid at Step 1, front and back, where the budget is full
- *      before the second row reads it.
- *   3. Rows on one grid still share the packages that fit: about 500 on 60
- *      layers, so the second row makes that many fewer kernel calls.
+ *      TAV row on one grid at Step 1, front and back.
+ *   3. Rows on one grid make one kernel call per wavelength, or one per
+ *      polarization at oblique incidence.
  *
  * Run: node tests/newton_step_memory.mjs
  */
@@ -46,8 +46,8 @@ const { operandSampleLambdas } = await import('../src/utils/physics/optimizer/sa
 
 const resolveMat = id => getMaterial(id);
 const ENGINES = ['newton', 'trust-region', 'sqp'];
-// The sampler's budget, HESSIAN_CACHE_BYTES.
-const BUDGET_MB = 64;
+// The kernel packages a synthesis worker may hold, as the needle scan does.
+const BOUND_MB = 64;
 
 // 60 alternating TiO2 and SiO2 layers, 60 to 149 nm.
 const layers = Array.from({ length: 60 }, (_, i) => ({
@@ -58,11 +58,11 @@ const designOn = side => ({
     frontLayers: side === 'front' ? layers : [], backLayers: side === 'back' ? layers : [],
     surfaceMode: `${side}_only`, mfEvalMode: 'side',
 });
-const row = (type, target, weight, flag) => makeOperand({
-    type, lambdaStart: 400, lambdaEnd: 1600, aoi: 0, pol: 'avg', target, weight, flag,
+const row = (type, target, weight, flag, aoi = 0) => makeOperand({
+    type, lambdaStart: 400, lambdaEnd: 1600, aoi, pol: 'avg', target, weight, flag,
 });
 const itemRows = flag => [row('TMX', 0.9, 1, flag), row('TAV', 1, 1, flag)];
-const sharedRows = flag => [row('RAV', 0, 2, flag), row('TAV', 1, 1, flag)];
+const sharedRows = (flag, aoi) => [row('RAV', 0, 2, flag, aoi), row('TAV', 1, 1, flag, aoi)];
 
 // One step from the design above. The heap is read inside the Hessian kernel
 // calls, every `readEvery` calls, while the step assembles its system.
@@ -110,19 +110,20 @@ for (const method of ENGINES) {
     const fine = oneStep(method, itemRows(2), 'front', 1000);
     assert.equal(coarse.calls, 1201, `${method} at Step 1 asked the kernel once per sample (${coarse.calls} calls)`);
     assert.equal(fine.calls, 12001, `${method} at Step 2 asked the kernel once per sample (${fine.calls} calls)`);
-    assert.ok(fine.growthMB - coarse.growthMB < BUDGET_MB,
+    assert.ok(fine.growthMB - coarse.growthMB < BOUND_MB,
         `${method}: one step grew the heap by ${fine.growthMB.toFixed(1)} MB at Step 2 and ${coarse.growthMB.toFixed(1)} MB at Step 1`);
     assertPinned(`${method}, TMX and TAV, front, Step 2`, fine);
     growth[method] = `${coarse.growthMB.toFixed(0)} to ${fine.growthMB.toFixed(0)} MB`;
 }
 
-// ── 2 and 3: rows on one grid, past the budget ────────────────────────────────
-for (const side of ['front', 'back']) {
-    const step = oneStep('newton', sharedRows(1), side);
-    assertPinned(`newton, RAV and TAV, ${side}, Step 1`, step);
-    const n = samples(1);
-    assert.ok(step.calls >= n && step.calls <= 2 * n - 500,
-        `${side}: two rows on ${n} samples made ${step.calls} kernel calls, sharing what the budget holds`);
+// ── 2 and 3: two rows on one grid ─────────────────────────────────────────────
+const n = samples(1);
+for (const [side, aoi] of [['front', 0], ['back', 0], ['back', 30]]) {
+    const step = oneStep('newton', sharedRows(1, aoi), side);
+    if (aoi === 0) assertPinned(`newton, RAV and TAV, ${side}, Step 1`, step);
+    const perWavelength = aoi === 0 ? 1 : 2;
+    assert.equal(step.calls, perWavelength * n,
+        `${side} at ${aoi} degrees: two rows on ${n} samples made ${step.calls} kernel calls, not ${perWavelength} per wavelength`);
 }
 
 console.log(`PASS: newton_step_memory (heap growth from Step 1 to Step 2: ${ENGINES.map(m => `${m} ${growth[m]}`).join(', ')})`);
