@@ -233,7 +233,7 @@ const sum  = layers => layers.reduce((s, l) => s + l.thickness, 0);
     c2.sigmas[0] = 0;
     ok(c.sigmas[0] === 999, 'cloneRoughness: independent from source');
     ok(cloneRoughness({ mode: 'uniform', sigma: 2 }).range === 'long', 'cloneRoughness: a spec without a kind is long range');
-    ok(countInterfaces(0) === 1 && countInterfaces(1) === 2 && countInterfaces(5) === 6, 'countInterfaces = N + 1, at least 1');
+    ok(countInterfaces(0) === 0 && countInterfaces(1) === 2 && countInterfaces(5) === 6, 'countInterfaces = N + 1, and none on a side with no layers');
 }
 
 if (fails === 0) {

@@ -89,9 +89,9 @@ function thinnedLayers(design, thinned) {
  *
  * Interface k of a side is the top of its layer k, numbered from the
  * substrate as the Design Editor numbers layers: 0 is the substrate's surface
- * and N, on a side of N layers, the surface that meets the medium. The front
- * keeps interface 0 with no layers, the bare substrate's surface; a back with
- * no layers has none. A transition layer takes its thickness out of the layer
+ * and N, on a side of N layers, the surface that meets the medium. A side with
+ * no layers has no interface, and gives its bare surface, on its own or on the
+ * whole part. A transition layer takes its thickness out of the layer
  * beneath its interface, the one deposited first, so the rest of the design
  * stays where it was; the substrate is not thinned. A layer thinner than 2σ is
  * set to 0 nm and listed in `thinned`. A layer of 0 nm is not in the coating:

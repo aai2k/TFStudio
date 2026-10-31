@@ -258,15 +258,23 @@ function settings(design, mode, variant) {
     const below = api.roughness(empty, { ...beneath, ...RANGE });
     ok('the σ set on top of a layer of 0 nm is not used, and the interface below it is the window\'s',
         same([onTop.rough, below], [onTop.smooth, { ...below, ...asCall(empty, windowResult(empty, 'front', beneath, 0)) }]));
-    // The back of the QW mirror has no layers and no interface; the front of a
-    // design coated on the back alone keeps the substrate's surface.
+    // A face with no layers has no interface: the back of the QW mirror, and
+    // the front of a design coated on the back alone, read on its own or as
+    // the whole part.
     const bare = api.roughness(mirror, { side: 'back', ...RANGE });
     const backOnly = corpus.find(([name]) => name === 'back-only-side')[1];
-    const substrate = { sigma: 0, interfaces: [{ interface: 0, sigma: 5 }] };
-    const surface = api.roughness(backOnly, { side: 'front', ...substrate, ...RANGE });
-    ok('a back with no layers gives its bare surface, and a bare front keeps interface 0, the substrate\'s surface',
-        same([bare.mode, bare.rough, backOnly.frontLayers.length, surface], ['back', bare.smooth, 0, { ...surface, ...asCall(backOnly, windowResult(backOnly, 'front', substrate, 0)) }])
-        && !same(surface.rough, surface.smooth));
+    const front = api.roughness(backOnly, { side: 'front', sigma: 5, ...RANGE });
+    const smoothBack = { sigma: 1, interfaces: [0, 1, 2].map(k => ({ interface: k, sigma: 0 })) };
+    const whole = api.roughness(backOnly, { side: 'total', ...smoothBack, ...RANGE });
+    ok('a side with no layers gives its bare surface, front or back, and a whole part whose back is smooth loses nothing on its bare front',
+        same([bare.mode, bare.rough, backOnly.frontLayers.length, front.rough, whole.rough, whole.loss.every(v => v === 0)],
+            ['back', bare.smooth, 0, front.smooth, whole.smooth, true]));
+    // The whole part of the back-face AR at σ 1 nm, long range: its three back
+    // interfaces lose 87.1 ppm at 550 nm.
+    const ar = api.roughness(backOnly, { side: 'total', sigma: 1, range: 'long', ...RANGE });
+    const at550 = ar.loss[ar.wavelength.indexOf(550)] * 1e6;
+    ok('the whole part of a back-face AR counts the back\'s three interfaces and loses 87.1 ppm at 550 nm',
+        same([getRoughnessContext(backOnly, 'total').nIfaces, at550.toFixed(1)], [3, '87.1']), `${at550}`);
 }
 
 // ── 4. The objects ─────────────────────────────────────────────────────────
@@ -317,6 +325,10 @@ function settings(design, mode, variant) {
             /interfaces\[0\]\.side is 'front' or 'back', given on each row of a whole part coated on both sides, not undefined$/],
         ['a back row on the whole part of a design coated on the front alone', () => api.roughness(mirror, { side: 'total', interfaces: [{ side: 'back', interface: 0 }] }), 'emptySide', { side: 'back' },
             /^roughness: the back has no layers$/],
+        ['a front row on the whole part of a design coated on the back alone', () => api.roughness(backOnly, { side: 'total', interfaces: [{ side: 'front', interface: 0 }] }), 'emptySide', { side: 'front' },
+            /^roughness: the front has no layers$/],
+        ['a row on a bare front', () => api.roughness(backOnly, { side: 'front', interfaces: [{ interface: 0 }] }), 'emptySide', { side: 'front' },
+            /^roughness: the front has no layers$/],
         ['an interface past the side\'s count', () => api.roughness(mirror, { interfaces: [{ interface: 10 }] }), 'badValue', { option: 'interfaces[0].interface', value: 10 },
             /interfaces\[0\]\.interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10$/],
         ['an interface that is not whole', () => api.roughness(mirror, { interfaces: [{ interface: 2.5 }] }), 'badValue', { option: 'interfaces[0].interface', value: 2.5 }, /not 2\.5$/],

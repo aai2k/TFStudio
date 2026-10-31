@@ -122,11 +122,11 @@ export function resolveRanges(spec, nInterfaces) {
 }
 
 /**
- * Number of interfaces in a stack: N layers make N+1 (medium to L1, L1 to L2,
- * ..., L_N to substrate). A bare substrate still has its one surface.
+ * Number of rough interfaces in a stack: N layers make N+1 (medium to L1, L1
+ * to L2, ..., L_N to substrate). A side with no layers has none.
  */
 export function countInterfaces(nLayers) {
-    return Math.max(1, (nLayers || 0) + 1);
+    return nLayers > 0 ? nLayers + 1 : 0;
 }
 
 // ── The two transition layers ────────────────────────────────────────────────

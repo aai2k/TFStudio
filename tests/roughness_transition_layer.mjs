@@ -44,8 +44,11 @@ function run(design, rough, params, evalMode = 'front') {
 
 // ── 1. One surface: Carniglia-Jensen Eqs. 4 and 6 ────────────────────────────
 {
+    // A face with no layers has no rough interface, so the surface is the
+    // substrate under a 100 nm layer of air: the rough air/air interface on
+    // top of it changes nothing, and the one below it is the air/BK7 surface.
     const sigma = 2;
-    const data = run(baseDesign([]),
+    const data = run(baseDesign([{ material: 'builtin:Air', thickness: 100 }]),
         { mode: 'uniform', sigma, range: 'long' },
         { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 100, theta: 0, polarization: 'avg' });
     const BK7 = getMaterial('BK7');

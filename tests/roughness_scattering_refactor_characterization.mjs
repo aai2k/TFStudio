@@ -120,6 +120,14 @@ assert.match(renderWith(bareDesign, 'back'), /No layers in design\./);
 // side is bare, in every language; read as the whole part it is drawn.
 assert.match(renderWith(makeSampleDesign(), 'back'), /This design has no back layers\./);
 assert.match(renderWith(backOnlyDesign, 'front'), /This design has no front layers\./);
+// A face with no layers has no rough interface: the whole part of a design
+// coated on the back alone counts the back's two interfaces and nothing on
+// its bare front, as the editor lists them.
+assert.deepEqual(getRoughnessContext(backOnlyDesign, 'total'), {
+    hasBack: true, activeSides: ['front', 'back'], frontN: 0, backN: 2, nIfaces: 2,
+});
+assert.ok(renderWith(backOnlyDesign, 'total').includes(`2 ${makeLocale().roughnessScattering.interfaces}`),
+    'the whole part of a back-only design has the back\'s two interfaces');
 for (const code of ['en', 'ru', 'zh', 'it']) {
     const t = makeLocale(code);
     const empty = t.analysisChrome;

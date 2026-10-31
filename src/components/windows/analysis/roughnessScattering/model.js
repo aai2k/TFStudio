@@ -70,12 +70,13 @@ function evaluateMode({ params, evalMode, media, front, back, subThk, cone }, ro
 
 /**
  * The rough design's spectrum with `slices` graded sub-layers per short-range
- * interface. Layers set to zero thickness are recorded in `thinned`.
+ * interface. Layers set to zero thickness are recorded in `thinned`. A side
+ * with no layers has no rough interface and keeps its bare surface.
  */
-function roughSpectrum(setup, { sides, hasBack, thinned }, slices) {
+function roughSpectrum(setup, { sides, thinned }, slices) {
     const { inc, sub, exit } = setup.media;
     return evaluateMode(setup, (side, layers) => {
-        if (side === 'back' && !hasBack) return layers;
+        if (!layers.length) return layers;
         const result = side === 'back'
             ? roughenBackStack(layers, { substrate: sub, exit }, sides.back, slices)
             : roughenFrontStack(layers, { incident: inc, substrate: sub }, sides.front, slices);
@@ -121,7 +122,7 @@ export function calculateRoughness({
         };
         const active = context.activeSides.map(side => sides[side]);
         const thinned = { front: [], back: [] };
-        const roughAt = slices => roughSpectrum(setup, { sides, hasBack: context.hasBack, thinned }, slices);
+        const roughAt = slices => roughSpectrum(setup, { sides, thinned }, slices);
 
         const smooth = evaluateMode(setup, (side, layers) => layers);
         const coarse = roughAt(GRADED_SLICES);
