@@ -16,7 +16,7 @@
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196149.svg)](https://doi.org/10.5281/zenodo.21196149)
 
-**[Sito web](https://tfstudio.xyz)** · **[Tutorial](https://tfstudio.xyz/blog)** · **[Demo online](https://tfstudio.xyz/demo/)** · **[Documentazione](https://docs.tfstudio.xyz)** · **[Download](../../releases)** · **[Roadmap](./ROADMAP.md)**
+**[Sito web](https://tfstudio.xyz)** · **[Tutorial](https://tfstudio.xyz/blog)** · **[Demo online](https://tfstudio.xyz/demo/)** · **[Documentazione](https://docs.tfstudio.xyz)** · **[API](https://docs.tfstudio.xyz/automation/api-reference/)** · **[Download](../../releases)** · **[Roadmap](./ROADMAP.md)**
 
 [English](./README.md) · [简体中文](./README.zh-CN.md) · **Italiano**
 
@@ -26,7 +26,7 @@
 
 ## Che cos'è TFStudio?
 
-TFStudio è un'applicazione desktop per progettare e analizzare **rivestimenti ottici a film sottile**: trattamenti antiriflesso, specchi, divisori di fascio, filtri passa-banda e filtri a fronte, e altro ancora. Offre un motore ottico in doppia precisione, algoritmi di affinamento e di sintesi e un insieme di strumenti di analisi, in un'interfaccia a più finestre agganciabili.
+TFStudio è un'applicazione desktop per progettare e analizzare **rivestimenti ottici a film sottile**: trattamenti antiriflesso, specchi, divisori di fascio, filtri passa-banda e filtri a fronte, e altro ancora. Offre un motore ottico, algoritmi di affinamento e di sintesi e un insieme di strumenti di analisi, in un'interfaccia a più finestre agganciabili.
 
 > ⚠️ **Stato:** TFStudio è un software sviluppato in modo indipendente. Verifica sempre i design critici con i tuoi calcoli e le tue misure prima di destinarli a un ciclo di deposizione di produzione.
 
@@ -48,11 +48,12 @@ TFStudio è un'applicazione desktop per progettare e analizzare **rivestimenti o
 - Ottimizzazione **Needle** e sintesi per **evoluzione graduale** (inserimento automatico degli strati partendo da zero)
 - Ottimizzazione strutturale sul numero stesso degli strati
 - **Procedura guidata per la progettazione di filtri:** prototipi Fabry-Perot a più cavità, passa-banda e notch (DWDM, LWDM), costruiti in pochi passi guidati, a incidenza normale o obliqua
-- Funzione di merito flessibile: target spettrali, rampe, medie sulla banda, operandi del caso peggiore, vincoli di spessore
+- **Filtro a fronte:** trova un filtro a fronte non polarizzante, i cui fronti s e p coincidono all'angolo di incidenza
+- Funzione di merito flessibile: target spettrali, rampe, medie sulla banda, operandi del caso peggiore, vincoli di spessore, e un passo di ricerca per riga fino a 0,001 nm per picchi e bande passanti strette
 - Fit su uno spettro misurato importato, come una riga in più nella funzione di merito
 - **Variatore:** cursori sullo spessore di ogni strato e sul substrato, seguiti da ogni finestra aperta, e su n e k di ogni materiale
 - **Pulizia del design:** unisce gli strati adiacenti dello stesso materiale e rimuove quelli molto sottili, poi, se richiesto, esegue di nuovo l'affinamento
-- Esecuzione multi-thread con un pool di Web Worker; i kernel di calcolo più pesanti sono accelerati con **WebAssembly**
+- Esecuzione multi-thread con un pool di Web Worker; il kernel a matrici di trasferimento gira in **WebAssembly**
 
 ![Un target antiriflesso a banda larga impostato nella Procedura guidata per la funzione di merito, poi l'Evoluzione graduale che costruisce un rivestimento di 8 strati partendo da un substrato nudo](assets/gradual-evolution-bbar-it.gif)
 
@@ -91,6 +92,12 @@ TFStudio è un'applicazione desktop per progettare e analizzare **rivestimenti o
 - Importazione di design da TFCalc (`.tfd`), Essential Macleod (`.dds`) e OptiLayer (`.dsg`), con i materiali abbinati ai tuoi cataloghi
 - **Report:** un documento costruito a blocchi su uno o più design, salvato come PDF o come un unico file HTML
 
+**Script, Python e assistenti IA**
+- **Console script:** esegue uno script JavaScript o Python sul design aperto, con gli stessi calcoli, affinamento e sintesi delle finestre
+- **Pacchetto Python:** costruisci, valuta, affina e sintetizza design dai tuoi programmi Python, da soli o sul design aperto in TFStudio
+- **Assistenti IA:** avviato con `--mcp`, TFStudio permette a un assistente come Claude di aprire, costruire, valutare, affinare, sintetizzare e salvare design; avviato con `--mcp --live`, dopo un clic su **Interattivo** lavora sul design aperto, e ogni modifica è un passo che Ctrl+Z annulla
+- L'API dà gli stessi numeri delle finestre per la maggior parte delle finestre di analisi, le verifiche della specifica e la resa, le tolleranze, il foglio di monitoraggio, i dati misurati e lo scambio di rivestimenti: vedi il [riferimento dell'API](https://docs.tfstudio.xyz/automation/api-reference/), la [pagina Python](https://docs.tfstudio.xyz/automation/python/) e gli [assistenti IA](https://docs.tfstudio.xyz/automation/ai-agents/)
+
 **Piattaforma**
 - Applicazione desktop multipiattaforma (Electron + React, JavaScript puro)
 - Barra multifunzione a schede con una casella di ricerca che trova qualsiasi strumento per nome
@@ -107,9 +114,7 @@ Metodi e relative fonti:
 - **Dispersione e propagazione degli impulsi:** Birge & Kärtner, *Appl. Opt.* **45**, 1478 (2006)
 - **Stress dei film, curvatura del substrato e criteri di cedimento:** Klokholm, *IBM J. Res. Dev.* **31**, 585 (1987); Suhir, *J. Appl. Phys.* **88**, 2363 (2000); Klein, *J. Appl. Phys.* **88**, 5487 (2000) e *Opt. Eng.* **40**, 1115 (2001)
 
-Tutti i calcoli sono in doppia precisione.
-
-Il motore a matrici di trasferimento è pubblicato a parte come **[tmmcore](https://github.com/aai2k/tmmcore)**. La sua [pagina di confronto](https://aai2k.github.io/tmmcore/comparison/) ne misura accuratezza e velocità rispetto a `tmm` (Byrnes), `tmm_fast`, `tmmax` e `tmm_faster`, e descrive il metodo e i suoi limiti. I risultati di riferimento sono inclusi in quel repository, quindi `npm run compare` lì riproduce la tabella di accuratezza con il solo Node e senza Python.
+Il motore a matrici di trasferimento è pubblicato a parte come **[tmmcore](https://github.com/aai2k/tmmcore)**, per JavaScript e Python. La sua [pagina di confronto](https://aai2k.github.io/tmmcore/comparison/) ne misura accuratezza e velocità rispetto a `tmm` (Byrnes), `tmm_fast`, `tmmax` e `tmm_faster`, e descrive il metodo e i suoi limiti. I risultati di riferimento sono inclusi in quel repository, quindi `npm run compare` lì riproduce la tabella di accuratezza con il solo Node e senza Python.
 
 ## Installazione
 

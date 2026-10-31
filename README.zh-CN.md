@@ -16,7 +16,7 @@
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196149.svg)](https://doi.org/10.5281/zenodo.21196149)
 
-**[官网](https://tfstudio.xyz/zh/)** · **[教程](https://tfstudio.xyz/blog)** · **[在线演示](https://tfstudio.xyz/demo/)** · **[文档](https://docs.tfstudio.xyz)** · **[下载](../../releases)**
+**[官网](https://tfstudio.xyz/zh/)** · **[教程](https://tfstudio.xyz/blog)** · **[在线演示](https://tfstudio.xyz/demo/)** · **[文档](https://docs.tfstudio.xyz)** · **[API](https://docs.tfstudio.xyz/zh/automation/api-reference/)** · **[下载](../../releases)**
 
 [English](./README.md) · **简体中文** · [Italiano](./README.it.md)
 
@@ -28,7 +28,7 @@
 
 ## TFStudio 是什么？
 
-TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用于增透膜、高反射膜、分光膜、带通滤光片、截止滤光片等各类膜系。它提供双精度光学计算引擎、优化与自动合成算法，以及分析工具集，整合在一个可停靠的多窗口界面中。
+TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用于增透膜、高反射膜、分光膜、带通滤光片、截止滤光片等各类膜系。它提供光学计算引擎、优化与自动合成算法，以及分析工具集，整合在一个可停靠的多窗口界面中。
 
 > ⚠️ **声明：** TFStudio 为独立开发的软件。在将设计结果投入实际镀膜生产之前，请务必用您自己的计算和实测数据加以验证。
 
@@ -50,11 +50,12 @@ TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用�
 - **针式优化（needle）**与**逐步演化（gradual evolution）**自动合成，可从零开始自动插入膜层
 - 针对膜层数本身的结构优化
 - **滤光片设计向导：** 通过几个引导步骤构建多腔法布里-珀罗带通与陷波原型（DWDM、LWDM），支持正入射与斜入射
-- 灵活的评价函数：光谱目标值、斜坡目标、波段平均、最差值操作数、厚度约束
+- **边缘滤光片：** 寻找非偏振边缘滤光片，其 s 与 p 的边缘在入射角下重合
+- 灵活的评价函数：光谱目标值、斜坡目标、波段平均、最差值操作数、厚度约束，以及每行可设的搜索步长（最细 0.001 nm），用于窄峰与窄通带
 - 可将膜系拟合到导入的实测光谱，该拟合作为评价函数中的一行参与优化
 - **变分器：** 逐层厚度与基底厚度滑块，所有打开的窗口实时跟随；另可调节各材料的 n 与 k
 - **设计清理器：** 合并相邻同材料层并移除极薄层，然后可选地重新精炼
-- 基于 Web Worker 线程池的多线程计算，核心运算采用 **WebAssembly** 加速
+- 基于 Web Worker 线程池的多线程计算，传输矩阵内核运行于 **WebAssembly**
 
 ![在评价函数向导中设定宽带增透目标，然后由逐步演化从裸基底生成 8 层膜系](assets/gradual-evolution-bbar-zh.gif)
 
@@ -93,6 +94,12 @@ TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用�
 - 设计导入：TFCalc（`.tfd`）、Essential Macleod（`.dds`）与 OptiLayer（`.dsg`），材料自动与你的材料目录对应
 - **报告：** 由区块为一个或多个设计组装文档，保存为 PDF 或单个 HTML 文件
 
+**脚本、Python 与 AI 助手**
+- **脚本控制台：** 在打开的设计上运行 JavaScript 或 Python 脚本，使用与各窗口相同的计算、精炼与自动合成
+- **Python 包：** 在你自己的 Python 程序中构建、计算、精炼与合成设计，可独立运行，也可作用于 TFStudio 中打开的设计
+- **AI 助手：** 以 `--mcp` 启动时，TFStudio 让 Claude 等助手打开、构建、计算、精炼、合成并保存设计；以 `--mcp --live` 启动并点击 **交互** 后，助手可直接修改打开的设计，每次修改都可用 Ctrl+Z 撤销
+- API 给出与各窗口相同的数值，覆盖大部分分析窗口、规格说明检查与良率、容差分析、监控工作表、实测数据与膜系交换：参见 [API 参考](https://docs.tfstudio.xyz/zh/automation/api-reference/)、[Python](https://docs.tfstudio.xyz/zh/automation/python/) 与 [AI 助手（MCP）](https://docs.tfstudio.xyz/zh/automation/ai-agents/)
+
 **平台**
 - 跨平台桌面应用（Electron + React，纯 JavaScript 实现）
 - 选项卡式功能区，并带有可按名称查找任意工具的搜索框
@@ -109,9 +116,7 @@ TFStudio 是一款用于**光学薄膜**设计与分析的桌面软件，适用�
 - **色散与脉冲传播：** Birge & Kärtner, *Appl. Opt.* **45**, 1478 (2006)
 - **薄膜应力、基底弯曲与失效判据：** Klokholm, *IBM J. Res. Dev.* **31**, 585 (1987)；Suhir, *J. Appl. Phys.* **88**, 2363 (2000)；Klein, *J. Appl. Phys.* **88**, 5487 (2000) 与 *Opt. Eng.* **40**, 1115 (2001)
 
-所有计算均采用双精度。
-
-传输矩阵引擎已作为 **[tmmcore](https://github.com/aai2k/tmmcore)** 独立发布。其[对比页面](https://aai2k.github.io/tmmcore/comparison/)给出了它与 `tmm`（Byrnes）、`tmm_fast`、`tmmax` 和 `tmm_faster` 在精度与速度上的实测对比，并说明了测试方法及其局限。参考输出已随该仓库提交，因此仅需 Node 环境、无需 Python，在该仓库中执行 `npm run compare` 即可复现精度对比表。
+传输矩阵引擎已作为 **[tmmcore](https://github.com/aai2k/tmmcore)** 独立发布，提供 JavaScript 与 Python 版本。其[对比页面](https://aai2k.github.io/tmmcore/comparison/)给出了它与 `tmm`（Byrnes）、`tmm_fast`、`tmmax` 和 `tmm_faster` 在精度与速度上的实测对比，并说明了测试方法及其局限。参考输出已随该仓库提交，因此仅需 Node 环境、无需 Python，在该仓库中执行 `npm run compare` 即可复现精度对比表。
 
 ## 安装
 

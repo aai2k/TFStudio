@@ -16,7 +16,7 @@
 [![Maintainability](https://qlty.sh/gh/aai2k/projects/TFStudio/maintainability.svg)](https://qlty.sh/gh/aai2k/projects/TFStudio)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21196149.svg)](https://doi.org/10.5281/zenodo.21196149)
 
-**[Website](https://tfstudio.xyz)** · **[Tutorials](https://tfstudio.xyz/blog)** · **[Live demo](https://tfstudio.xyz/demo/)** · **[Documentation](https://docs.tfstudio.xyz)** · **[Download](../../releases)** · **[Roadmap](./ROADMAP.md)**
+**[Website](https://tfstudio.xyz)** · **[Tutorials](https://tfstudio.xyz/blog)** · **[Live demo](https://tfstudio.xyz/demo/)** · **[Documentation](https://docs.tfstudio.xyz)** · **[API](https://docs.tfstudio.xyz/automation/api-reference/)** · **[Download](../../releases)** · **[Roadmap](./ROADMAP.md)**
 
 **English** · [简体中文](./README.zh-CN.md) · [Italiano](./README.it.md)
 
@@ -28,7 +28,7 @@
 
 ## What is TFStudio?
 
-TFStudio is a desktop application for designing and analyzing **optical thin-film coatings**: antireflection coatings, mirrors, beamsplitters, bandpass and edge filters, and more. It provides a double-precision optical engine, refinement and synthesis algorithms, and an analysis suite, in a docked, multi-window interface.
+TFStudio is a desktop application for designing and analyzing **optical thin-film coatings**: antireflection coatings, mirrors, beamsplitters, bandpass and edge filters, and more. It provides an optical engine, refinement and synthesis algorithms, and an analysis suite, in a docked, multi-window interface.
 
 
 > ⚠️ **Status:** TFStudio is independently developed software. Always verify critical designs against your own calculations and measurements before committing them to a production deposition run.
@@ -52,11 +52,12 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 - **Needle** optimization and **gradual evolution** synthesis (automatic layer insertion from scratch)
 - Structural optimization over the layer count itself
 - **Filter design wizard:** multi-cavity Fabry-Perot bandpass and notch prototypes (DWDM, LWDM) built in a few guided steps, at normal or oblique incidence
-- Flexible merit function: spectral targets, ramps, band averages, worst-case operands, thickness constraints
+- **Edge filter:** finds a non-polarizing edge filter, whose s and p edges meet at the angle of incidence
+- Flexible merit function: spectral targets, ramps, band averages, worst-case operands, thickness constraints, and a search step per row down to 0.001 nm for narrow peaks and pass bands
 - Fitting to an imported measured spectrum, as one more row in the merit function
 - **Variator:** sliders on each layer's thickness and on the substrate that every open window follows, and on each material's n and k
 - **Design cleaner:** merges adjacent layers of one material and removes very thin ones, then refines again if asked
-- Multi-threaded via a Web Worker pool; hot kernels accelerated with **WebAssembly**
+- Multi-threaded via a Web Worker pool; the transfer-matrix kernel runs in **WebAssembly**
 
 ![A broadband AR target set in the merit function wizard, then Gradual Evolution building an 8-layer coating from a bare substrate](assets/gradual-evolution-bbar.gif)
 
@@ -95,6 +96,12 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 - Design import from TFCalc (`.tfd`), Essential Macleod (`.dds`) and OptiLayer (`.dsg`), with materials matched to your catalogs
 - **Report:** a document built from blocks over one or several designs, saved as PDF or a single HTML file
 
+**Scripts, Python and AI assistants**
+- **Script Console:** runs a JavaScript or Python script on the open design, with the calculations, refinement and synthesis the windows use
+- **Python package:** build, evaluate, refine and synthesize designs from your own Python programs, on their own or on the design open in TFStudio
+- **AI assistants:** started with `--mcp`, TFStudio lets an assistant such as Claude open, build, evaluate, refine, synthesize and save designs; started with `--mcp --live`, after you click **Interactive** it works on the open design, each change one step that Ctrl+Z undoes
+- The API gives the numbers the windows show for most analysis windows, specification checks and yield, tolerancing, the monitoring worksheet, measured data and coating exchange: see the [API reference](https://docs.tfstudio.xyz/automation/api-reference/), the [Python page](https://docs.tfstudio.xyz/automation/python/) and [AI assistants](https://docs.tfstudio.xyz/automation/ai-agents/)
+
 **Platform**
 - Cross-platform desktop app (Electron + React, pure JavaScript)
 - Tabbed ribbon with a search box that finds any tool by name
@@ -112,9 +119,7 @@ Methods and their sources:
 - **Dispersion and pulse propagation:** Birge & Kärtner, *Appl. Opt.* **45**, 1478 (2006)
 - **Film stress, substrate bow and failure criteria:** Klokholm, *IBM J. Res. Dev.* **31**, 585 (1987); Suhir, *J. Appl. Phys.* **88**, 2363 (2000); Klein, *J. Appl. Phys.* **88**, 5487 (2000) and *Opt. Eng.* **40**, 1115 (2001)
 
-All computations are double precision.
-
-The transfer-matrix engine is published separately as **[tmmcore](https://github.com/aai2k/tmmcore)**. Its [comparison page](https://aai2k.github.io/tmmcore/comparison/) measures it against `tmm` (Byrnes), `tmm_fast`, `tmmax` and `tmm_faster` on accuracy and speed, and states the method and its caveats. Reference outputs are committed to that repository, so `npm run compare` there reproduces the accuracy table with Node alone and no Python.
+The transfer-matrix engine is published separately as **[tmmcore](https://github.com/aai2k/tmmcore)**, for JavaScript and Python. Its [comparison page](https://aai2k.github.io/tmmcore/comparison/) measures it against `tmm` (Byrnes), `tmm_fast`, `tmmax` and `tmm_faster` on accuracy and speed, and states the method and its caveats. Reference outputs are committed to that repository, so `npm run compare` there reproduces the accuracy table with Node alone and no Python.
 
 ## Installation
 
