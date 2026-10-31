@@ -70,12 +70,12 @@ const sharedRows = (flag, lambdaEnd) => [row('RAV', 0, 2, flag, lambdaEnd), row(
 // since a step whose trial is rejected leaves them where they were. The heap
 // is read inside the Jacobian kernel calls, every `readEvery` calls.
 const kernel = getTmmWasm();
-const jacobian = kernel.tmmJacobian;
+const jacobian = kernel.jacobian;
 function stepsUntilMoved(method, operands, design, { readEvery = 0, maxSteps = 3, options = {} } = {}) {
     const engine = makeEngine(method, operands, design, resolveMat, options);
     const start = bits(engine.thicknesses);
     let calls = 0, peak = 0, steps = 0;
-    kernel.tmmJacobian = function sampled(...args) {
+    kernel.jacobian = function sampled(...args) {
         calls++;
         if (readEvery && calls % readEvery === 0) { collect(); peak = Math.max(peak, process.memoryUsage().heapUsed); }
         return jacobian.apply(this, args);
@@ -84,7 +84,7 @@ function stepsUntilMoved(method, operands, design, { readEvery = 0, maxSteps = 3
     const heapBefore = process.memoryUsage().heapUsed;
     try {
         do { engine.step(); steps++; } while (bits(engine.thicknesses) === start && steps < maxSteps);
-    } finally { kernel.tmmJacobian = jacobian; }
+    } finally { kernel.jacobian = jacobian; }
     return { steps, mf: engine.mf, thk: bits(engine.thicknesses), calls, growthMB: (peak - heapBefore) / 2 ** 20 };
 }
 
