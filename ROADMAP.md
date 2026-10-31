@@ -8,7 +8,7 @@ If something here matters to your work, or something you need is missing, open a
 
 ## Next
 
-a non-polarizing edge filter tool (give the edge wavelength, the angle and two materials, get a stack whose s and p edges coincide), evaluating a system built from several coated parts, rugate and graded-index synthesis, laser damage threshold estimation, and glazing U and g values
+evaluating a system built from several coated parts, rugate and graded-index synthesis, laser damage threshold estimation, and glazing U and g values
 
 ## After that
 
