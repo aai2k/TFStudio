@@ -1,8 +1,8 @@
 /**
  * References the pulse propagation tests check against, built with no code
  * from the propagation itself: analytic responses with their exact phase
- * derivatives, a quarter-wave mirror, and the FWHM of a pulse by direct
- * integration of its spectrum.
+ * derivatives, a quarter-wave mirror, the FWHM of a pulse by direct
+ * integration of its spectrum, and the FFT's butterflies in textbook order.
  *
  * Conventions as in the propagation code: exp(−iωt), Δω in rad/fs, time in fs,
  * wavelength in nm.
@@ -69,6 +69,46 @@ export function directFwhm({ amplitude, phase = () => 0, low, high, span, interv
     let last = values.length - 1;
     while (values[last] < half) last--;
     return bisect(scan[last], scan[last + 1]) - bisect(scan[first], scan[first - 1]);
+}
+
+/**
+ * The radix-2 FFT of fft.js in the textbook order of Press et al., Numerical
+ * Recipes, 3rd ed., §12.2: the bit-reversal permutation, then each pass taken
+ * twiddle by twiddle, each twiddle applied across the whole array. The twiddles
+ * come from the same expression as fftInPlace's, and every butterfly in a pass
+ * touches its own pair of samples, so the order the butterflies run in changes
+ * no bit of the result.
+ */
+export function textbookFft(re, im, sign) {
+    const n = re.length;
+    const bits = Math.log2(n);
+    for (let i = 0; i < n; i++) {
+        let j = 0;
+        for (let bit = 0; bit < bits; bit++) j |= ((i >> bit) & 1) << (bits - 1 - bit);
+        if (i < j) {
+            [re[i], re[j]] = [re[j], re[i]];
+            [im[i], im[j]] = [im[j], im[i]];
+        }
+    }
+    for (let size = 2; size <= n; size <<= 1) textbookPass(re, im, sign, size);
+}
+
+function textbookPass(re, im, sign, size) {
+    const half = size >> 1;
+    const angle = sign * 2 * Math.PI / size;
+    for (let k = 0; k < half; k++) {
+        const wr = Math.cos(angle * k);
+        const wi = Math.sin(angle * k);
+        for (let a = k; a < re.length; a += size) {
+            const b = a + half;
+            const tr = wr * re[b] - wi * im[b];
+            const ti = wr * im[b] + wi * re[b];
+            re[b] = re[a] - tr;
+            im[b] = im[a] - ti;
+            re[a] += tr;
+            im[a] += ti;
+        }
+    }
 }
 
 // An all-pass resonance (γ + iΔ)/(γ − iΔ): |H| = 1, energy stored for ~1/γ.

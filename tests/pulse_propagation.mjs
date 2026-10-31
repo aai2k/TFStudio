@@ -5,10 +5,12 @@
  *
  * Each case is checked against an answer from outside the propagation code: a
  * closed form, the transfer matrix, or a direct numerical integral. Where two
- * runs are compared instead, the case says so. The analytic responses and the
- * direct integral are in _pulseReference.mjs.
+ * runs are compared instead, or outputs are held at values this code gave, the
+ * case says so. The analytic responses, the direct integral and the textbook
+ * FFT are in _pulseReference.mjs.
  *
- *   1. The FFT against a direct DFT, both signs, and a round trip.
+ *   1. The FFT against a direct DFT, both signs, and a round trip; and in
+ *      every bit against the same butterflies taken in the textbook order.
  *   2. A flat unity response returns the input unchanged.
  *   3. Transform-limited time-bandwidth products: 2 ln2/π for a Gaussian and
  *      4 ln²(1+√2)/π² for sech², and the input FWHM equal to the one asked for.
@@ -44,6 +46,7 @@
  *  16. Echoes folded back onto the pulse by the window are caught.
  *  17. The zero-frequency share against its closed form, either side of the
  *      threshold.
+ *  18. A few outputs held at values this code gave.
  *  Misc: passes, and the s and p average against the two channels' energies.
  */
 import './_kernel.mjs';
@@ -57,7 +60,7 @@ import { rta } from 'tmmcore';
 import { pointStack } from '../src/utils/physics/kernelStack.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import {
-    LAMBDA0, OMEGA0, allPass, directFwhm, gtiResponse, phaseResponse, pureGdd, pureTod, quarterWaveMirror, unity,
+    LAMBDA0, OMEGA0, allPass, directFwhm, gtiResponse, phaseResponse, pureGdd, pureTod, quarterWaveMirror, textbookFft, unity,
 } from './_pulseReference.mjs';
 
 let fails = 0;
@@ -95,6 +98,23 @@ const CUT = 1e-5;
     let worst = 0;
     for (let k = 0; k < n; k++) worst = Math.max(worst, Math.hypot(fr[k] / n - re[k], fi[k] / n - im[k]));
     ok(worst < 1e-14, `FFT round trip (max error ${worst})`);
+}
+{
+    // fftInPlace finishes one block of a pass at a time; the textbook order
+    // takes one twiddle at a time across the whole array. They agree in every bit.
+    const bytes = (...arrays) => Buffer.concat(arrays.map(array => Buffer.from(array.buffer)));
+    let seed = 1;
+    const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647 - 0.5;
+    const runs = Array.from({ length: 17 }, (_, power) => [-1, 1].map(sign => {
+        const re = Float64Array.from({ length: 2 ** power }, random);
+        const im = Float64Array.from({ length: 2 ** power }, random);
+        const [tr, ti] = [re.slice(), im.slice()];
+        fftInPlace(re, im, sign);
+        textbookFft(tr, ti, sign);
+        return { name: `2^${power} sign ${sign}`, same: bytes(re, im).equals(bytes(tr, ti)) };
+    })).flat();
+    const differing = runs.filter(run => !run.same).map(run => run.name);
+    ok(differing.length === 0, `FFT equals the textbook order in every bit at 1 to 2^16 samples, both signs (${differing.join(', ')})`);
 }
 
 // ── 2. Unity response ────────────────────────────────────────────────────────
@@ -634,6 +654,32 @@ for (const shape of ['gaussian', 'sech2']) {
     // out a tail of about 1e-12 of the spectrum's energy.
     ok(rel(refused.removedEnergy, share(4.5)) < 1e-3,
         `the share refused, ${refused.removedEnergy}, is the closed form ${share(4.5)}`);
+}
+
+// ── 18. Pinned outputs ───────────────────────────────────────────────────────
+{
+    // These values are this code's own output, not an outside answer: the GTI
+    // of case 10 on 2^14 samples, the mirror of case 7 at 770 nm on 2^10 in two
+    // channels, and a sech² pulse broadened by GDD on 2^13. The RMS width is a
+    // sum over the transformed intensity; the FWHM and peak are found on the
+    // band-limited interpolant, the transform's samples only bracketing the
+    // search. Twiddles taken by recurrence move the RMS widths by under 1e-13
+    // of their size and leave the rest unchanged, inside the 1e-12 they are
+    // held to.
+    const pinned = [
+        ['GTI', { shape: 'gaussian', centerWavelengthNm: LAMBDA0, durationFs: 100 }, [gtiResponse(2 * 150e3 / 299.792458, -0.2)],
+            [100.00002684270953, 291.97966197255880, 0.92159999879882881]],
+        ['mirror', { shape: 'gaussian', centerWavelengthNm: 770, durationFs: 60 }, createCoatingResponses(quarterWaveMirror(8), { polarization: 'avg', thetaDeg: 30 }),
+            [60.006642152158243, 25.482364123461089, 0.99903811073129445]],
+        ['sech² with 400 fs²', { shape: 'sech2', centerWavelengthNm: LAMBDA0, durationFs: 15 }, [pureGdd(400)],
+            [62.679476025520430, 28.215159937783344, 0.25163443577889621]],
+    ];
+    pinned.forEach(([name, pulse, responses, expected]) => {
+        const m = propagatePulse({ pulse, responses }).metrics;
+        const got = [m.output.fwhmFs, m.output.rmsFs, m.peakRatio];
+        ok(got.every((value, index) => rel(value, expected[index]) < 1e-12),
+            `${name}: output FWHM, RMS width and peak ratio ${got.join(', ')} hold at ${expected.join(', ')}`);
+    });
 }
 
 // ── Misc: passes, polarization average, short pulses ─────────────────────────

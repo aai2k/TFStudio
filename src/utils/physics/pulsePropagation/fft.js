@@ -3,7 +3,10 @@
  *
  * Iterative decimation in time: a bit-reversal permutation followed by
  * log2(N) butterfly passes. Cooley and Tukey, Math. Comp. 19, 297-301 (1965);
- * the loop structure follows Press et al., Numerical Recipes, 3rd ed., §12.2.
+ * the butterflies are those of Press et al., Numerical Recipes, 3rd ed.,
+ * §12.2, taken a block at a time: each block of a pass is finished before the
+ * next, so a large transform reads its arrays in order rather than across their
+ * whole length for each twiddle.
  *
  * The transform computed is
  *
@@ -42,16 +45,22 @@ export function fftInPlace(re, im, sign) {
         throw new Error('fftInPlace: length must be a power of two and equal for both parts');
     }
     bitReverse(re, im);
+    const cos = new Float64Array(n >> 1);
+    const sin = new Float64Array(n >> 1);
     for (let size = 2; size <= n; size <<= 1) {
         const half = size >> 1;
         const angle = sign * 2 * Math.PI / size;
         // Twiddle factors are taken from the angle directly rather than by
         // repeated multiplication, which would accumulate rounding over a
-        // long transform.
+        // long transform. Each pass computes its twiddles once, into a table.
         for (let k = 0; k < half; k++) {
-            const wr = Math.cos(angle * k);
-            const wi = Math.sin(angle * k);
-            for (let start = 0; start < n; start += size) {
+            cos[k] = Math.cos(angle * k);
+            sin[k] = Math.sin(angle * k);
+        }
+        for (let start = 0; start < n; start += size) {
+            for (let k = 0; k < half; k++) {
+                const wr = cos[k];
+                const wi = sin[k];
                 const a = start + k;
                 const b = a + half;
                 const tr = wr * re[b] - wi * im[b];
