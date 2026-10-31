@@ -4,19 +4,20 @@
  * shades, and the realized extremes.
  */
 
-const PERCENT = value => (value == null ? '' : (value * 100).toFixed(4));
+// Fractions of 1, shown and written in percent.
+const PERCENT = { fmt: value => (value == null ? '' : (value * 100).toFixed(4)), scale: 100 };
 
 export function statisticsColumns(t, char, corridorSigma) {
     const ea = t.errorAnalysis;
     return [
         { key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) },
-        { key: 'theory', label: `${char} ${ea.colNominalSpectrum}`, fmt: PERCENT },
-        { key: 'mean', label: `${char} ${ea.colMean}`, fmt: PERCENT },
-        { key: 'stdev', label: `${char} σ`, fmt: PERCENT },
-        { key: 'lower', label: `−${corridorSigma}σ`, fmt: PERCENT },
-        { key: 'upper', label: `+${corridorSigma}σ`, fmt: PERCENT },
-        { key: 'envLower', label: ea.colMin, fmt: PERCENT },
-        { key: 'envUpper', label: ea.colMax, fmt: PERCENT },
+        { key: 'theory', label: `${char} ${ea.colNominalSpectrum}`, ...PERCENT },
+        { key: 'mean', label: `${char} ${ea.colMean}`, ...PERCENT },
+        { key: 'stdev', label: `${char} σ (%)`, ...PERCENT },
+        { key: 'lower', label: `−${corridorSigma}σ (%)`, ...PERCENT },
+        { key: 'upper', label: `+${corridorSigma}σ (%)`, ...PERCENT },
+        { key: 'envLower', label: ea.colMin, ...PERCENT },
+        { key: 'envUpper', label: ea.colMax, ...PERCENT },
     ];
 }
 

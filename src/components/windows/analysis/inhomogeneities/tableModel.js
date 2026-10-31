@@ -6,16 +6,17 @@
 
 import { enabledOverlayCurves } from './figure.js';
 
-// A design with no baseline spectrum leaves the homogeneous column empty rather
-// than printing a zero it did not compute.
-const PERCENT = value => (value == null ? '' : (value * 100).toFixed(4));
+// Fractions of 1, shown and written in percent. A design with no baseline
+// spectrum leaves the homogeneous column empty rather than printing a zero it
+// did not compute.
+const PERCENT = { fmt: value => (value == null ? '' : (value * 100).toFixed(4)), scale: 100 };
 
 export function overlayColumns(t, showCurves) {
     const ih = t.inhomogeneities;
     const columns = [{ key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) }];
     for (const key of enabledOverlayCurves(showCurves)) {
-        columns.push({ key: `${key}0`, label: `${key} ${ih.colHomogeneous}`, fmt: PERCENT });
-        columns.push({ key, label: `${key} ${ih.colGraded}`, fmt: PERCENT });
+        columns.push({ key: `${key}0`, label: `${key} ${ih.colHomogeneous}`, ...PERCENT });
+        columns.push({ key, label: `${key} ${ih.colGraded}`, ...PERCENT });
     }
     return columns;
 }

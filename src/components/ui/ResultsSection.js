@@ -64,8 +64,9 @@ export const RESULT_ROW_HEIGHT = 18;
  * Scrolling table for a `ResultsSection` body. Only the rows in view are drawn
  * (virtualRows.js), so a table of a fine sweep opens as quickly as a short one.
  *
- *   columns  [{ key, label, align?, color?, fmt? }] - `fmt` formats for display
- *            only; `csvFromRows` always writes the raw value
+ *   columns  [{ key, label, align?, color?, fmt?, scale? }] - `fmt` formats for
+ *            display only; `csvFromRows` writes the value, times `scale` when
+ *            given, the factor `fmt` shows it at (100 for percent, 10⁶ for ppm)
  *   rows     plain objects keyed by column.key
  */
 export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
@@ -123,9 +124,11 @@ export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
 }
 
 /**
- * Raw values, one row per sample. Commas inside text become semicolons, in the
- * headings as in the cells, so "d, nm" is written "d; nm" and every heading
- * stays one field.
+ * One row per sample, each value at full precision in the unit its heading
+ * names: the value as it is, or times the column's `scale` when it has one, so
+ * a column of fractions of 1 shown in percent is written in percent. Commas
+ * inside text become semicolons, in the headings as in the cells, so "d, nm"
+ * is written "d; nm" and every heading stays one field.
  */
 export function csvFromRows(columns, rows) {
     const cols = columns || [];
@@ -134,7 +137,8 @@ export function csvFromRows(columns, rows) {
     const lines = (rows || []).map(row => cols.map(col => {
         const value = row[col.key];
         if (value == null) return '';
-        return typeof value === 'number' ? value : String(value).replace(/,/g, ';');
+        if (typeof value === 'number') return col.scale ? value * col.scale : value;
+        return String(value).replace(/,/g, ';');
     }).join(','));
     return [header, ...lines].join('\n');
 }

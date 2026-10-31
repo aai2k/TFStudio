@@ -15,8 +15,8 @@ Interlayer = collections.namedtuple("Interlayer", "side interface thickness prof
 
 # The window's table with every curve switched on (inhomogeneities/tableModel.js,
 # and the English spectralAxis.lambdaShort and inhomogeneities): the curves in
-# its order, each its homogeneous and its graded value. Its Copy CSV keeps the
-# headings' (%) and writes the values as fractions of 1.
+# its order, each its homogeneous and its graded value. Its Copy CSV writes the
+# values in %, as the headings name them.
 _WAVELENGTH = "λ (nm)"
 _TABLE_CURVES = ("T", "Ts", "Tp", "R", "Rs", "Rp", "A", "As", "Ap")
 
@@ -36,7 +36,7 @@ def _table_rows(r):
                               for label in ("{} homogeneous (%)".format(key), "{} graded (%)".format(key))]
     rows = [header]
     for i, wavelength in enumerate(r.wavelength):
-        rows.append([wavelength] + [value for key in _TABLE_CURVES
+        rows.append([wavelength] + [value * 100 for key in _TABLE_CURVES
                                     for value in (getattr(r.homogeneous, key)[i], getattr(r.graded, key)[i])])
     return rows
 
@@ -158,9 +158,9 @@ class Inhomogeneities:
     def save_csv(self, path):
         """Writes the curves to a CSV file as the window's Copy CSV writes its
         table with every curve switched on: λ (nm), then for T, Ts, Tp, R,
-        Rs, Rp, A, As and Ap in turn the homogeneous and the graded value, as
-        fractions of 1. The numbers are the window's, written in Python's
-        float notation. A file that is there is written over.
+        Rs, Rp, A, As and Ap in turn the homogeneous and the graded value in
+        %, as the headings name them. The numbers are the window's, written
+        in Python's float notation. A file that is there is written over.
 
         Args:
             path: The file to write. A relative path is taken from the

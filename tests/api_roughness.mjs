@@ -290,6 +290,17 @@ function settings(design, mode, variant) {
         return fs.readFileSync(file, 'utf8') !== csvFromRows(scatterColumns(en, 'ppm', every, calc), scatterRows(calc, every));
     }).map(([what]) => what);
     ok('the CSV is the window\'s table with every curve and the loss in ppm through its Copy CSV', wrong.length === 0, wrong.join(', '));
+    // Each value in the unit its heading names: (HL)^4 H with σ 2 nm, the row
+    // at 500 nm, T smooth 2.25 % and a specular loss of 4343.6 ppm.
+    const file = path.join(WORK, 'units.csv');
+    const sample = new objects.Design(mirror).roughness({ sigma: 2, ...RANGE });
+    sample.saveCsv(file);
+    const [heading, ...lines] = fs.readFileSync(file, 'utf8').split('\n').map(line => line.split(','));
+    const at500 = lines.find(line => Number(line[0]) === 500).map(Number);
+    const read = label => at500[heading.indexOf(label)];
+    ok('the CSV writes R and T in % and the loss in ppm, as its headings name them',
+        same([read('T smooth (%)').toFixed(2), read('Specular loss (ppm)').toFixed(1), read('T smooth (%)'), read('Specular loss (ppm)')],
+            ['2.25', '4343.6', sample.smooth.T.at(500) * 100, sample.loss.at(500) * 1e6]), at500.join(','));
     const r = new objects.Design(mirror).roughness({ sigma: 2, ...RANGE });
     const plain = api.roughness(mirror, { sigma: 2, ...RANGE });
     ok('the object\'s curves are the call\'s', same([r.smooth.R.at(550), [...r.rough.Tp], [...r.loss], r.loss.max(), r.longRange],

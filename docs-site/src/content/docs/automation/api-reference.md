@@ -8757,9 +8757,9 @@ print([m["id"] for m in design.inhomogeneities(start=200, end=2500, step=10).out
 | ---------- | ------ |
 | `r.saveCsv(path)` | `r.save_csv(path)` |
 
-**JavaScript**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs, Rp, A, As and Ap in turn the homogeneous and the graded value, as fractions of 1. A file that is there is written over.
+**JavaScript**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs, Rp, A, As and Ap in turn the homogeneous and the graded value in %, as the headings name them. A file that is there is written over.
 
-**Python**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs, Rp, A, As and Ap in turn the homogeneous and the graded value, as fractions of 1. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+**Python**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs, Rp, A, As and Ap in turn the homogeneous and the graded value in %, as the headings name them. The numbers are the window's, written in Python's float notation. A file that is there is written over.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -9000,9 +9000,9 @@ print([m["id"] for m in design.roughness(start=200, end=2500, step=10).out_of_ra
 | ---------- | ------ |
 | `r.saveCsv(path)` | `r.save_csv(path)` |
 
-**JavaScript**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs and Rp in turn the smooth and the rough value, then the loss. The window's headings name % and ppm, and its Copy CSV writes the values as fractions of 1, as this does. A file that is there is written over.
+**JavaScript**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs and Rp in turn the smooth and the rough value in %, then the loss in ppm, as the headings name them. A file that is there is written over.
 
-**Python**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs and Rp in turn the smooth and the rough value, then the loss. The window's headings name % and ppm, and its Copy CSV writes the values as fractions of 1, as this does. The numbers are the window's, written in Python's float notation. A file that is there is written over.
+**Python**: Writes the curves to a CSV file as the window's Copy CSV writes its table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs and Rp in turn the smooth and the rough value in %, then the loss in ppm, as the headings name them. The numbers are the window's, written in Python's float notation. A file that is there is written over.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |

@@ -12,8 +12,9 @@ import { curveOf } from './spectrum.js';
 const EVERY_CURVE = Object.fromEntries(SCATTER_CURVES.map(key => [key, true]));
 
 // The text of a CSV cell as the window's Copy CSV writes it (csvFromRows): a
-// number as it is, an empty cell for none.
-const cell = value => (value == null ? '' : String(value));
+// number times its column's scale, in the unit its heading names, an empty
+// cell for none.
+const cell = (value, scale = 1) => (value == null ? '' : String(value * scale));
 
 // The curves of one spectrum, each a Curve.
 const curvesOf = (spectrum, wavelength) => Object.fromEntries(Object.entries(spectrum).map(([key, values]) => [key, curveOf(values, wavelength, key)]));
@@ -145,9 +146,8 @@ export class Roughness {
     /**
      * Writes the curves to a CSV file as the window's Copy CSV writes its
      * table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs
-     * and Rp in turn the smooth and the rough value, then the loss. The
-     * window's headings name % and ppm, and its Copy CSV writes the values as
-     * fractions of 1, as this does. A file that is there is written over.
+     * and Rp in turn the smooth and the rough value in %, then the loss in
+     * ppm, as the headings name them. A file that is there is written over.
      *
      * @param path The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.
      * @example
@@ -162,7 +162,7 @@ export class Roughness {
         const calc = { lambda: wavelength, ideal: smooth, specular: rough, loss };
         const columns = scatterColumns(en, 'ppm', EVERY_CURVE, calc);
         const rows = scatterRows(calc, EVERY_CURVE);
-        const lines = [columns.map(column => column.label), ...rows.map(row => columns.map(column => cell(row[column.key])))];
+        const lines = [columns.map(column => column.label), ...rows.map(row => columns.map(column => cell(row[column.key], column.scale)))];
         fs.writeFileSync(path, lines.map(line => line.join(',')).join('\n'), 'utf8');
     }
 

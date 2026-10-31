@@ -6,7 +6,8 @@
 
 const CHANNELS = ['T', 'R', 'A'];
 const SWEEP_KEYS = { T: 'T2D', R: 'R2D', A: 'A2D' };
-const PERCENT = value => (value == null ? '' : (value * 100).toFixed(4));
+// Fractions of 1, shown and written in percent.
+const PERCENT = { fmt: value => (value == null ? '' : (value * 100).toFixed(4)), scale: 100 };
 
 function channelsFor(channel) {
     return channel === 'all' ? CHANNELS : [channel];
@@ -16,8 +17,8 @@ export function deviationColumns(t, channel) {
     const sd = t.systematicDeviations;
     const columns = [{ key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) }];
     for (const key of channelsFor(channel)) {
-        columns.push({ key: `${key}0`, label: `${key} ${sd.colBaseline}`, fmt: PERCENT });
-        columns.push({ key, label: `${key} ${sd.colDeviated}`, fmt: PERCENT });
+        columns.push({ key: `${key}0`, label: `${key} ${sd.colBaseline}`, ...PERCENT });
+        columns.push({ key, label: `${key} ${sd.colDeviated}`, ...PERCENT });
     }
     return columns;
 }
@@ -40,7 +41,7 @@ export function sweepColumns(t, channel) {
     return [
         { key: 'param', label: sd.colParam, fmt: value => String(Number(value.toPrecision(6))) },
         { key: 'lambda', label: t.spectralAxis.lambdaShort, fmt: value => value.toFixed(1) },
-        ...channelsFor(channel).map(key => ({ key, label: `${key} (%)`, fmt: PERCENT })),
+        ...channelsFor(channel).map(key => ({ key, label: `${key} (%)`, ...PERCENT })),
     ];
 }
 

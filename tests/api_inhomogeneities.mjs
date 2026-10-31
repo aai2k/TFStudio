@@ -259,6 +259,15 @@ function everyInterface(design, mode, profile) {
         return fs.readFileSync(file, 'utf8') !== csvFromRows(overlayColumns(en, every), rows);
     }).map(([what]) => what);
     ok('the CSV is the window\'s table with every curve through its Copy CSV', wrong.length === 0, wrong.join(', '));
+    // Each value in the unit its heading names, %.
+    const file = path.join(WORK, 'units.csv');
+    const sample = new objects.Design(mirror).inhomogeneities({ interlayers: [{ interface: 4, thickness: 3 }], ...RANGE });
+    sample.saveCsv(file);
+    const [heading, ...lines] = fs.readFileSync(file, 'utf8').split('\n').map(line => line.split(','));
+    const at500 = lines.find(line => Number(line[0]) === 500).map(Number);
+    ok('the CSV writes R, T and A in %, as its headings name them',
+        same([at500[heading.indexOf('T homogeneous (%)')], at500[heading.indexOf('A graded (%)')]],
+            [sample.homogeneous.T.at(500) * 100, sample.graded.A.at(500) * 100]), at500.join(','));
     const r = new objects.Design(mirror).inhomogeneities({ interlayers: [{ interface: 4, thickness: 3 }], ...RANGE });
     const plain = api.inhomogeneities(mirror, { interlayers: [{ interface: 4, thickness: 3 }], ...RANGE });
     ok('the object\'s curves are the call\'s', r.homogeneous.R.at(550) === plain.homogeneous.R[plain.wavelength.indexOf(550)]

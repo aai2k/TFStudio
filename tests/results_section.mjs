@@ -61,6 +61,42 @@ assert.equal(csvFromRows([], rows), '');
 assert.equal(csvFromRows([{ key: 'd', label: 'd, nm' }, { key: 'note', label: 'Note' }], [{ d: 64.2, note: 'a, b' }]),
     'd; nm,Note\n64.2,a; b', 'nor can a comma in a heading');
 
+// Each value is written in the unit its heading names, the one the table shows
+// it in: a column of fractions of 1 shown in percent or in ppm writes them
+// times 100 or 10⁶, at full precision. Checked on every table that shows
+// fractions scaled, in every language.
+{
+    const { overlayColumns } = await import('../src/components/windows/analysis/inhomogeneities/tableModel.js');
+    const { scatterColumns } = await import('../src/components/windows/analysis/roughnessScattering/tableModel.js');
+    const { deviationColumns, sweepColumns } = await import('../src/components/windows/analysis/systematicDeviations/tableModel.js');
+    const { statisticsColumns } = await import('../src/components/windows/analysis/errorAnalysis/resultTable.js');
+    const every = Object.fromEntries(['T', 'Ts', 'Tp', 'R', 'Rs', 'Rp', 'A', 'As', 'Ap'].map(key => [key, true]));
+    const tables = lt => ({
+        Inhomogeneities: overlayColumns(lt, every),
+        'Roughness in ppm': scatterColumns(lt, 'ppm', every, { specular: every }),
+        'Roughness as a fraction': scatterColumns(lt, 'frac', every, { specular: every }),
+        'Systematic Deviations': deviationColumns(lt, 'all'),
+        'Systematic Deviations sweep': sweepColumns(lt, 'all'),
+        'Error Analysis': statisticsColumns(lt, 'T', 2),
+    });
+    // The specular loss of (HL)^4 H with σ 2 nm at 500 nm, in every cell but
+    // the wavelength and the swept parameter.
+    const value = 0.004343612;
+    const near = (a, b) => Number(a.toPrecision(3)) === Number(b.toPrecision(3));
+    for (const code of ['en', 'ru', 'zh', 'it']) {
+        for (const [name, columns] of Object.entries(tables(makeLocale(code)))) {
+            const row = { ...Object.fromEntries(columns.map(column => [column.key, value])), lambda: 500, param: 1.5 };
+            const written = csvFromRows(columns, [row]).split('\n')[1].split(',').map(Number);
+            columns.forEach((column, i) => {
+                const shown = Number(column.fmt(row[column.key], row));
+                assert.ok(near(written[i], shown), `${code} ${name}: "${column.label}" writes ${written[i]} where the table shows ${shown}`);
+                const unit = { 100: '(%)', 1e6: '(ppm)' }[column.scale];
+                assert.ok(!unit || column.label.endsWith(unit), `${code} ${name}: "${column.label}" names the ${unit} it is written in`);
+            });
+        }
+    }
+}
+
 // ── Export menu ───────────────────────────────────────────────────────────────
 
 const labels = {

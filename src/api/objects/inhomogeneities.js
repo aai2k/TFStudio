@@ -13,8 +13,9 @@ import { curveOf } from './spectrum.js';
 const EVERY_CURVE = Object.fromEntries(OVERLAY_CURVES.map(key => [key, true]));
 
 // The text of a CSV cell as the window's Copy CSV writes it (csvFromRows): a
-// number as it is, an empty cell for none.
-const cell = value => (value == null ? '' : String(value));
+// number times its column's scale, in the unit its heading names, an empty
+// cell for none.
+const cell = (value, scale = 1) => (value == null ? '' : String(value * scale));
 
 // The curves of one spectrum, each a Curve.
 const curvesOf = (spectrum, wavelength) => Object.fromEntries(Object.entries(spectrum).map(([key, values]) => [key, curveOf(values, wavelength, key)]));
@@ -148,8 +149,8 @@ export class Inhomogeneities {
     /**
      * Writes the curves to a CSV file as the window's Copy CSV writes its
      * table with every curve switched on: λ (nm), then for T, Ts, Tp, R, Rs,
-     * Rp, A, As and Ap in turn the homogeneous and the graded value, as
-     * fractions of 1. A file that is there is written over.
+     * Rp, A, As and Ap in turn the homogeneous and the graded value in %, as
+     * the headings name them. A file that is there is written over.
      *
      * @param path The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.
      * @example
@@ -163,7 +164,7 @@ export class Inhomogeneities {
         const { wavelength, homogeneous, graded } = this._result;
         const columns = overlayColumns(en, EVERY_CURVE);
         const rows = overlayRows({ lambda: wavelength, ...homogeneous }, { lambda: wavelength, ...graded }, EVERY_CURVE);
-        const lines = [columns.map(column => column.label), ...rows.map(row => columns.map(column => cell(row[column.key])))];
+        const lines = [columns.map(column => column.label), ...rows.map(row => columns.map(column => cell(row[column.key], column.scale)))];
         fs.writeFileSync(path, lines.map(line => line.join(',')).join('\n'), 'utf8');
     }
 

@@ -16,7 +16,8 @@ ThinnedLayer = collections.namedtuple("ThinnedLayer", "side number")
 # The window's table with every curve switched on (roughnessScattering/tableModel.js,
 # and the English spectralAxis.lambdaShort and roughnessScattering): the curves
 # in its order, each its smooth and its rough value, then the loss. Its Copy
-# CSV keeps the headings' (%) and (ppm) and writes the values as fractions of 1.
+# CSV writes each value in the unit its heading names: R and T in %, the loss
+# in ppm.
 _WAVELENGTH = "λ (nm)"
 _TABLE_CURVES = ("T", "Ts", "Tp", "R", "Rs", "Rp")
 _LOSS = "Specular loss (ppm)"
@@ -37,8 +38,8 @@ def _table_rows(r):
                               for label in ("{} smooth (%)".format(key), "{} rough (%)".format(key))] + [_LOSS]
     rows = [header]
     for i, wavelength in enumerate(r.wavelength):
-        rows.append([wavelength] + [value for key in _TABLE_CURVES
-                                    for value in (getattr(r.smooth, key)[i], getattr(r.rough, key)[i])] + [r.loss[i]])
+        rows.append([wavelength] + [value * 100 for key in _TABLE_CURVES
+                                    for value in (getattr(r.smooth, key)[i], getattr(r.rough, key)[i])] + [r.loss[i] * 1e6])
     return rows
 
 
@@ -159,9 +160,8 @@ class Roughness:
     def save_csv(self, path):
         """Writes the curves to a CSV file as the window's Copy CSV writes its
         table with every curve switched on: λ (nm), then for T, Ts, Tp, R,
-        Rs and Rp in turn the smooth and the rough value, then the loss. The
-        window's headings name % and ppm, and its Copy CSV writes the values
-        as fractions of 1, as this does. The numbers are the window's,
+        Rs and Rp in turn the smooth and the rough value in %, then the loss
+        in ppm, as the headings name them. The numbers are the window's,
         written in Python's float notation. A file that is there is written
         over.
 
