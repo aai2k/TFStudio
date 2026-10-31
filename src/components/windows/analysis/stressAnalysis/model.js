@@ -5,9 +5,17 @@
  * The physics is transcribed in `src/utils/physics/stress/`; this module only
  * assembles it from a design. Two rules shape it:
  *
- *   Nothing is substituted. A constant the material does not state leaves the
- *   quantities that need it null, and `missing` names the material and the
- *   fields, so a blank row always has a reason attached to it.
+ *   Every missing constant is named. A constant the material does not state
+ *   leaves the quantities that need it null, and `missing` names the material
+ *   and the fields, so a blank row always has a reason attached to it. A
+ *   film's stress is read as the STR row reads it (`layerStressPa`) instead: a
+ *   material that states no intrinsic stress counts as carrying none in the
+ *   force, though its own stress and energies are null, and with temperatures
+ *   set the stress leaves out each thermal term that needs a missing constant.
+ *   No reference temperature reads as the deposition temperature; no Young's
+ *   modulus, Poisson's ratio or expansion coefficient leaves the intrinsic
+ *   stress alone; a substrate with no expansion coefficient adds no expansion
+ *   mismatch (`filmStressPa`).
  *
  *   The per-film quantities belong to one coating and the bending belongs to
  *   the part. Strain energy, the delamination factor and the edge shear are

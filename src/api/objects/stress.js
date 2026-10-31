@@ -96,8 +96,10 @@ export class Stress {
      * at the interface below the film; shear, the peak shear at the coating's
      * edge, MPa. stress is null when the material states none; strainEnergy
      * is then null too, and so is the delamination of that film and of every
-     * film below it, while shear counts it as carrying none. Each is null
-     * when another constant it needs is missing.
+     * film below it, while shear counts it as carrying none. A missing
+     * thermal constant does not leave stress null: with the temperatures set, it
+     * leaves out the terms that need that constant, as design.stress() says.
+     * The other three are null when another constant they need is missing.
      *
      * @example
      * const design = tf.newDesign('Mirror');
@@ -126,8 +128,8 @@ export class Stress {
      * Writes the films to a CSV file as the window's Copy CSV writes its
      * per-film table: the side when both faces are counted, then the layer,
      * the material, d (nm), the stress (MPa), U (J/m²), the delamination
-     * factor and the edge shear (MPa), an empty cell where a constant is
-     * missing. A file that is there is written over.
+     * factor and the edge shear (MPa), an empty cell where `films` holds
+     * null. A file that is there is written over.
      *
      * @param path The file to write, by its full path. A relative path is taken from the folder the program was started from: in the Script Console, the folder TFStudio was started from, often its install folder.
      * @example

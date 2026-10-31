@@ -177,7 +177,7 @@ assert.equal(filmStressPa({ youngsModulusGPa: 70, poissonsRatio: 0.17 }, withSub
     'and one that states neither has no stress to report');
 assert.deepEqual(missingStressFields({ intrinsicStressMPa: -300 }),
     ['youngsModulusGPa', 'poissonsRatio', 'linearExpansionPerK', 'referenceTemperatureC'],
-    'what a stress is missing is named rather than substituted for');
+    'what a stress is missing is named');
 assert.deepEqual(missingStressFields(film), [], 'a material that states them all lacks nothing');
 
 // ── A stack, and a mirrored back coating ─────────────────────────────────────

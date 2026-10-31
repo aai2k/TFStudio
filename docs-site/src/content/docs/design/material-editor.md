@@ -187,8 +187,9 @@ Both temperature coefficients are entered in ppm/K, the way catalogs print
 them: an expansion coefficient of 0.00000055 per kelvin is typed as 0.55.
 
 Every box stands on its own and any of them may be left empty, which means
-unknown rather than zero: a material whose stress you measured but whose
-modulus you never looked up carries the stress alone. The constants are part
+unknown: a material whose stress you measured but whose modulus you never
+looked up carries the stress alone. What each stress calculation does with an
+empty box is on the [Stress](/analysis/stress/) page. The constants are part
 of the material, so they follow it into a user catalog, into a copy, and into
 a design file that embeds it. A glass imported from an AGF catalog arrives
 with its expansion coefficient, Young's modulus and Poisson's ratio already

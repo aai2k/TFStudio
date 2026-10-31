@@ -97,7 +97,7 @@ const STRESS_FIELDS = [
 
 /**
  * The constants the full stress needs that this material does not state, so a
- * caller can name them rather than substitute for them.
+ * caller can name them.
  */
 export function missingStressFields(mechanical) {
     return STRESS_FIELDS.filter(field => !stated(mechanical?.[field]));

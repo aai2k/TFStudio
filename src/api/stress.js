@@ -28,11 +28,19 @@ const stated = value => typeof value === 'number' && Number.isFinite(value);
  * counts as carrying none in the force and the edge shear, as in the `STR`
  * row, and leaves null what sums its strain energy: its own, the delamination
  * factor of it and of every film below it, the total strain energy and the
- * cracking parameter. Nothing else is substituted: any other constant a
- * material does not state leaves the quantities that need it null, and
- * `missing` names the material and the fields. The built-in materials state no
- * constants, so a design of them reads a force of 0; constants come from the
- * catalogs (`init({ dataDir })`) or the materials a design carries.
+ * cracking parameter. With the run's temperatures set, a missing thermal
+ * constant does not null a film's stress: the stress leaves out the terms that
+ * need it, as the `STR` row does. A film whose material states no reference
+ * temperature has its intrinsic stress read as that of a film deposited at
+ * the run's deposition temperature, so only the expansion mismatch is added
+ * to it; one that states no Young's modulus, Poisson's ratio or expansion
+ * coefficient carries its intrinsic stress alone; and a substrate that states
+ * no expansion coefficient adds no expansion mismatch to any film. Beyond the
+ * stress, a constant a material does not state leaves the quantities that
+ * need it null, and `missing` names the material and every field it lacks, a
+ * thermal one included. The built-in materials state no constants, so a
+ * design of them reads a force of 0; constants come from the catalogs
+ * (`init({ dataDir })`) or the materials a design carries.
  *
  * @param design The design.
  * @returns The films and the whole part.
@@ -40,7 +48,7 @@ const stated = value => typeof value === 'number' && Number.isFinite(value);
  * @property run The temperatures, `{ temperature, depositionTemperature }` in °C, the one not set reading 20, or null when the design sets neither and each film carries its intrinsic stress alone.
  * @property substrate `{ material, thickness, diameter }`: the material by id, the thickness and the diameter in mm, the diameter null when it is not set.
  * @property whole The part: `force`, N/m; `radius`, the radius of curvature, m, null at no force, since a flat substrate has none; `deflection`, the centre deflection, µm, null without a diameter; `strainEnergy`, the films' total, J/m²; `cracking`, the sum over the films of U/2γ, at 1 the energy to pay for the two faces of a crack. Each null when a constant it needs is missing; a film that states no stress counts as carrying none in the force, the radius and the deflection, and leaves the strain energy and the cracking parameter null.
- * @property films One per film counted, front first, each `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`: number from 1 at the substrate, as the Design Editor numbers layers; material by id and name as the window shows it; thickness in nm; stress in MPa; strainEnergy in J/m²; delamination, the strain energy of the film and every film outside it against the surface energy of the two materials meeting below it, at 1 the energy to let go there; shear, the peak shear at the coating's edge, MPa. `stress` is null when the material states none; `strainEnergy` is then null too, and so is the `delamination` of that film and of every film below it, while `shear` counts it as carrying none. Each is null when another constant it needs is missing.
+ * @property films One per film counted, front first, each `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`: number from 1 at the substrate, as the Design Editor numbers layers; material by id and name as the window shows it; thickness in nm; stress in MPa; strainEnergy in J/m²; delamination, the strain energy of the film and every film outside it against the surface energy of the two materials meeting below it, at 1 the energy to let go there; shear, the peak shear at the coating's edge, MPa. `stress` is null when the material states none; `strainEnergy` is then null too, and so is the `delamination` of that film and of every film below it, while `shear` counts it as carrying none. A missing thermal constant does not null `stress`: with the temperatures set, it leaves out the terms that need that constant. The other three are null when another constant they need is missing.
  * @property missing The materials that leave a constant out, the substrate's included, each `{ material, name, fields }`: material by id, and fields the constants it lacks by their names on the material's `mechanical` record, such as `'youngsModulusGPa'`. Each material is listed once: one that is the substrate and a film, or that two ids name, as `SiO2` and `builtin:SiO2` do, is one entry, under the id the films name it by first.
  * @throws a design that names a material that resolves to nothing
  * @example

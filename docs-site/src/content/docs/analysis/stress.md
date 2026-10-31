@@ -25,11 +25,14 @@ and the edge shear, as in the `STR` row. Its own stress and strain energy are
 blank, and so are the delamination factor of that film and of every film below
 it, the total strain energy and the cracking parameter.
 
+With the temperatures set, a missing thermal constant does not blank the film's stress: the stress leaves out the terms that need it, as in the `STR` row. A film whose material states no reference temperature has its intrinsic stress read as that of a film deposited at the run's deposition temperature, so only the expansion mismatch is added to it. A film whose material states no Young's modulus, Poisson's ratio or expansion coefficient carries its intrinsic stress alone. A substrate that states no expansion coefficient leaves the expansion mismatch out of every film. A missing modulus or Poisson's ratio still blanks every row the table says needs it. With no temperatures set there are no thermal terms, so a missing reference temperature or expansion coefficient changes no number, though the notice badge still names it.
+
 | Quantity | Needs |
 | --- | --- |
-| Film stress | the film's intrinsic stress; with its modulus, Poisson's ratio, expansion coefficient and reference temperature, and the substrate's expansion coefficient, the thermal terms too |
+| Film stress | the film's intrinsic stress; with the temperatures set, the thermal terms too, each left out where a constant it needs is missing: both need the film's modulus, Poisson's ratio and expansion coefficient, the reference-temperature term the film's reference temperature, and the expansion mismatch the substrate's expansion coefficient |
 | Strain energy | the film's stress, modulus and Poisson's ratio |
 | Delamination factor | the strain energies, and the surface energy of the two materials meeting at the interface |
+| Total strain energy | every film's strain energy |
 | Cracking parameter | every film's strain energy and surface energy |
 | Film force | the stress of every film; a film whose material states none counts as carrying none |
 | Edge shear | the stress of the film and of every film outside it, counted as in the film force; the modulus and Poisson's ratio of every film of its coating and of the substrate; and the substrate thickness |

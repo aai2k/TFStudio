@@ -3200,8 +3200,8 @@
     "text": "一个 Stress。"
   },
   "Design.stress.lead.1": {
-    "hash": "31462c3d",
-    "text": "每层膜承担的应力，以及镀膜对工件的作用，计算方式与应力窗口相同，依据材料「力学」选项卡上的常数、`stressTemperature` / `stress_temperature`、`depositionTemperature` / `deposition_temperature` 以及基底的厚度和直径。薄膜应力以张应力为正，合力为 Σ σ·d，即 `STR` 评价函数行所读取的量。哪些镀膜参与计算取决于设计的 `sides` 和 `scoreOn` / `score_on`，与窗口和 `STR` 行的计法相同。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。材料没有给出应力的膜在合力和边缘剪切中按不承受应力计，与 `STR` 行相同；它的应变能、它及其下方各膜的脱层因子、总应变能和开裂参数为 `null` / `None`。除此之外不替你补任何值：材料没有给出的其他常数会让需要它的量为 `null` / `None`，并由 `missing` 指出。内置材料没有给出任何常数，因此由它们构成的设计读出的合力为 0。"
+    "hash": "0d419dbc",
+    "text": "每层膜承担的应力，以及镀膜对工件的作用，计算方式与应力窗口相同，依据材料「力学」选项卡上的常数、`stressTemperature` / `stress_temperature`、`depositionTemperature` / `deposition_temperature` 以及基底的厚度和直径。薄膜应力以张应力为正，合力为 Σ σ·d，即 `STR` 评价函数行所读取的量。哪些镀膜参与计算取决于设计的 `sides` 和 `scoreOn` / `score_on`，与窗口和 `STR` 行的计法相同。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。材料没有给出应力的膜在合力和边缘剪切中按不承受应力计，与 `STR` 行相同；它的应变能、它及其下方各膜的脱层因子、总应变能和开裂参数为 `null` / `None`。设置了温度时，缺少热学常数不会让膜的应力为 `null` / `None`：应力略去需要该常数的项，与 `STR` 行相同。材料没有给出参考温度的膜，其本征应力按在沉积温度下沉积的薄膜的应力处理，因此只叠加膨胀失配；没有给出杨氏模量、泊松比或膨胀系数的膜只承担自身的本征应力；基底没有给出膨胀系数时，每层膜都不计膨胀失配。除应力之外，材料没有给出的常数会让需要它的量为 `null` / `None`，并由 `missing` 指出。内置材料没有给出任何常数，因此由它们构成的设计读出的合力为 0。"
   },
   "Design.stress.refuses.1": {
     "hash": "cefbf1ab",
@@ -3712,12 +3712,12 @@
     "text": "工件整体，一个命名元组：force，所计各膜的 Σ σ·d，单位 N/m；radius，曲率半径，单位 m，合力为零时为 None；deflection，中心挠度，单位 µm，没有直径时为 None；strain_energy，各膜应变能之和，单位 J/m²；cracking，各膜 U/2γ 之和。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。曲率半径与中心挠度在压应力镀膜留下凸面时为正。所需常数缺失时，各项为 None；没有给出应力的膜在合力、曲率半径和中心挠度中按不承受应力计，而应变能与开裂参数为 None。"
   },
   "Stress.films.lead.1.js": {
-    "hash": "668c77dc",
-    "text": "每个参与计算的膜一项，正面在前，每项为 `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`：number 从基底处的 1 起，与 `layers` 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strainEnergy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 null；此时 strainEnergy 也为 null，该膜及其下方各膜的 delamination 同样为 null，而 shear 按该膜不承受应力计算。所需的其他常数缺失时，各项为 null。"
+    "hash": "74e6fefc",
+    "text": "每个参与计算的膜一项，正面在前，每项为 `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`：number 从基底处的 1 起，与 `layers` 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strainEnergy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 null；此时 strainEnergy 也为 null，该膜及其下方各膜的 delamination 同样为 null，而 shear 按该膜不承受应力计算。缺少热学常数不会让 stress 为 null：设置了温度时，它略去需要该常数的项，详见 design.stress()。其余三项在所需的其他常数缺失时为 null。"
   },
   "Stress.films.lead.1.py": {
-    "hash": "3768d73f",
-    "text": "每个参与计算的膜一项，正面在前，每项为命名元组 (side, number, material, name, thickness, stress, strain_energy, delamination, shear)：number 从基底处的 1 起，与 layers 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strain_energy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 None；此时 strain_energy 也为 None，该膜及其下方各膜的 delamination 同样为 None，而 shear 按该膜不承受应力计算。所需的其他常数缺失时，各项为 None。"
+    "hash": "76944aaf",
+    "text": "每个参与计算的膜一项，正面在前，每项为命名元组 (side, number, material, name, thickness, stress, strain_energy, delamination, shear)：number 从基底处的 1 起，与 layers 的编号相同；material 为 id，name 为窗口显示的名称；thickness 单位 nm；stress 单位 MPa，以张应力为正；strain_energy 单位 J/m²；delamination 等于 1 时，该膜下方的界面已具备分离的能量；shear 为镀膜边缘处的峰值剪切，单位 MPa。材料没有给出应力时 stress 为 None；此时 strain_energy 也为 None，该膜及其下方各膜的 delamination 同样为 None，而 shear 按该膜不承受应力计算。缺少热学常数不会让 stress 为 None：设置了温度时，它略去需要该常数的项，详见 design.stress()。其余三项在所需的其他常数缺失时为 None。"
   },
   "Stress.missing.lead.1.js": {
     "hash": "e6fcca64",
@@ -3736,12 +3736,12 @@
     "text": "要写入的文件。相对路径以程序的工作文件夹为基准：在脚本控制台中，是脚本所在的文件夹；未保存的脚本则是数据文件夹。"
   },
   "Stress.saveCsv.lead.1.js": {
-    "hash": "1b7e9ece",
-    "text": "把各膜写入 CSV 文件，与窗口以“复制 CSV”写出逐层表格的方式相同：两面都参与计算时先是面，然后是膜层、材料、d (nm)、应力 (MPa)、U (J/m²)、脱层因子和边缘剪切 (MPa)，常数缺失处为空单元格。已存在的文件会被覆盖。"
+    "hash": "97e8bcd2",
+    "text": "把各膜写入 CSV 文件，与窗口以“复制 CSV”写出逐层表格的方式相同：两面都参与计算时先是面，然后是膜层、材料、d (nm)、应力 (MPa)、U (J/m²)、脱层因子和边缘剪切 (MPa)，`films` 中为 null 处为空单元格。已存在的文件会被覆盖。"
   },
   "Stress.saveCsv.lead.1.py": {
-    "hash": "2312c1f3",
-    "text": "把各膜写入 CSV 文件，与窗口以“复制 CSV”写出逐层表格的方式相同：两面都参与计算时先是面，然后是膜层、材料、d (nm)、应力 (MPa)、U (J/m²)、脱层因子和边缘剪切 (MPa)，常数缺失处为空单元格。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
+    "hash": "4e458e0a",
+    "text": "把各膜写入 CSV 文件，与窗口以“复制 CSV”写出逐层表格的方式相同：两面都参与计算时先是面，然后是膜层、材料、d (nm)、应力 (MPa)、U (J/m²)、脱层因子和边缘剪切 (MPa)，films 中为 None 处为空单元格。数值与窗口的相同，以 Python 的浮点数写法写出。已存在的文件会被覆盖。"
   },
   "Material.dispersion.arg.start": {
     "hash": "115f61f2",

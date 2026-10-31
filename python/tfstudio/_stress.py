@@ -119,7 +119,9 @@ class Stress:
         to let go at the interface below the film; shear, the peak shear at the coating's edge, MPa.
         stress is None when the material states none; strain_energy is then None too, and so is the
         delamination of that film and of every film below it, while shear counts it as carrying
-        none. Each is None when another constant it needs is missing.
+        none. A missing thermal constant does not leave stress None: with the temperatures set, it
+        leaves out the terms that need that constant, as design.stress() says. The other three are
+        None when another constant they need is missing.
 
         Example::
 
@@ -147,8 +149,8 @@ class Stress:
         """Writes the films to a CSV file as the window's Copy CSV writes its
         per-film table: the side when both faces are counted, then the
         layer, the material, d (nm), the stress (MPa), U (J/m²), the
-        delamination factor and the edge shear (MPa), an empty cell where a
-        constant is missing. The numbers are the window's, written in
+        delamination factor and the edge shear (MPa), an empty cell where
+        films holds None. The numbers are the window's, written in
         Python's float notation. A file that is there is written over.
 
         Args:

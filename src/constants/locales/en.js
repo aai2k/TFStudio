@@ -1753,7 +1753,7 @@ export default {
     interpHint: 'Sets the curve between the points and every derivative taken from it: spectra, phase, GD and GDD, the optimizer. Essential Macleod and TFCalc read a table linearly; a material imported from them keeps that.',
     nkTab: 'n & k',
     mechanicalTab: 'Mechanical',
-    mechanicalHint: 'Thermo-mechanical constants of the material. Blank means unknown: nothing is assumed in place of a missing value. Stress is tensile positive.',
+    mechanicalHint: 'Thermo-mechanical constants of the material. Blank means unknown, and the stress calculations leave out what needs it: a film with no intrinsic stress carries none in the film force, and a missing reference temperature reads as the deposition temperature. Stress is tensile positive.',
     mechanicalNone: 'No mechanical constants stored for this material.',
     mechanicalFields: {
         youngsModulusGPa: "Young's modulus",
@@ -3123,7 +3123,7 @@ export default {
     totalStrainEnergy: 'Total strain energy',
     crackingParameter: 'Cracking parameter',
     noticeNoRun:    'No temperatures set, so every film carries its intrinsic stress and nothing thermal',
-    noticeMissing:  (n) => `${n} material${n === 1 ? '' : 's'} leave${n === 1 ? 's' : ''} constants unstated; the rows that need them are blank, but a film whose material states no intrinsic stress counts as carrying none in the film force, radius, deflection and edge shear, as in the STR row`,
+    noticeMissing:  (n) => `${n} material${n === 1 ? '' : 's'} leave${n === 1 ? 's' : ''} constants unstated; the rows that need them are blank, but, as in the STR row, a film whose material states no intrinsic stress counts as carrying none in the film force, radius, deflection and edge shear, and with temperatures set, a film's stress leaves out any thermal term that needs an unstated reference temperature, Young's modulus, Poisson's ratio or linear expansion`,
     noticeNoDiameter: 'No substrate diameter, so the centre deflection is blank',
     noticeBalanced: 'The two coatings pull equally, so the substrate stays flat: the deflection is zero and there is no radius. The per-film rows still apply',
   },

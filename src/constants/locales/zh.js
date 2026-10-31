@@ -1881,7 +1881,7 @@ export default {
     interpHint: '决定点与点之间的曲线以及由它取得的全部导数：光谱、相位、GD 与 GDD、优化器。Essential Macleod 与 TFCalc 按线性读取表格；从它们导入的材料保持这一规则。',
     nkTab: 'n 与 k',
     mechanicalTab: '力学',
-    mechanicalHint: '材料自身的热力学与力学常数。留空表示未知：不会以任何数值代替。拉应力为正。',
+    mechanicalHint: '材料自身的热力学与力学常数。留空表示未知，应力计算会略去需要该值的部分：未给出本征应力的膜层在薄膜合力中按应力为零计算，未给出的参考温度按沉积温度计。拉应力为正。',
     mechanicalNone: '此材料未存储力学常数。',
     mechanicalFields: {
         youngsModulusGPa: '杨氏模量',
@@ -3518,7 +3518,7 @@ export default {
     totalStrainEnergy: '总应变能',
     crackingParameter: '开裂参数',
     noticeNoRun: '未设置温度，因此每层膜只承担自身的本征应力，不含热应力',
-    noticeMissing: (n) => `有 ${n} 种材料未给出常数；需要这些常数的行留空，但材料未给出本征应力的膜层在薄膜合力、曲率半径、中心挠度和边缘剪切中按应力为零计算，与 STR 行一致`,
+    noticeMissing: (n) => `有 ${n} 种材料未给出常数；需要这些常数的行留空，但与 STR 行一致：材料未给出本征应力的膜层在薄膜合力、曲率半径、中心挠度和边缘剪切中按应力为零计算；设置了温度时，膜层应力中凡需要未给出的参考温度、杨氏模量、泊松比或线膨胀系数的热应力项都不计入`,
     noticeNoDiameter: '未给出基底直径，因此中心挠度留空',
     noticeBalanced: '两面镀膜拉力相等，基底保持平整：挠度为零，没有曲率半径。逐层结果仍然有效',
   },

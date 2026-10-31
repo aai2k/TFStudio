@@ -2537,11 +2537,19 @@ class Design:
         front. A film whose material states no stress counts as carrying
         none in the force and the edge shear, as in the STR row; its strain
         energy, the delamination factor of it and of every film below it,
-        the total strain energy and the cracking parameter are None. Nothing
-        else is substituted: any other constant a material does not state
-        leaves the quantities that need it None, and missing names it. The
-        built-in materials state no constants, so a design of them reads a
-        force of 0.
+        the total strain energy and the cracking parameter are None. With the
+        temperatures set, a missing thermal constant does not leave a film's
+        stress None: the stress leaves out the terms that need it, as the STR
+        row does. A film whose material states no reference temperature has
+        its intrinsic stress read as that of a film deposited at the
+        deposition temperature, so only the expansion mismatch is added to
+        it; one that states no Young's modulus, Poisson's ratio or expansion
+        coefficient carries its intrinsic stress alone; and a substrate that
+        states no expansion coefficient adds no expansion mismatch to any
+        film. Beyond the stress, a constant a material does not state leaves
+        the quantities that need it None, and missing names it. The built-in
+        materials state no constants, so a design of them reads a force of
+        0.
 
         Returns:
             A Stress.

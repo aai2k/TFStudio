@@ -5,8 +5,8 @@
  * `tests/stress_analysis.mjs` against Essential Macleod's own table. What is
  * checked here is the assembly: that a TFStudio design, with its constants on
  * its materials and its temperatures on the design, reproduces that same table
- * through the window, and that everything the window refuses to guess stays
- * blank with a reason attached.
+ * through the window, and that every constant a material leaves out is named,
+ * with the rows that need it blank or the terms that need it left out.
  *
  * The first case is the validation design of
  * `validation/macleod/Stress validation case/`, built as a TFStudio design and
@@ -18,6 +18,7 @@
  */
 
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { buildEvalContext, resolveEvalMode } from '../src/utils/physics/optimizer.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
@@ -90,7 +91,7 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
         'the window and the STR operand bend the substrate with the same force');
 }
 
-// ── Nothing is substituted ───────────────────────────────────────────────────
+// ── What a missing constant does ─────────────────────────────────────────────
 
 {
     // A design that states no temperatures carries the intrinsic stress alone,
@@ -159,6 +160,72 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
     const english = localeSources.en.stressAnalysis.noticeMissing(1);
     for (const quantity of ['film force', 'radius', 'deflection', 'edge shear']) {
         assert.ok(english.includes(quantity), `the English line names the ${quantity}: ${english}`);
+    }
+}
+
+{
+    // A missing thermal constant leaves its term out of the stress, as the STR
+    // row does, rather than blanking the stress: the validation case at its
+    // run, 20 °C deposited at 3000 °C, with one constant removed. With all
+    // stated H carries -4049 MPa, L -955 MPa, the force is -3658 N/m and the
+    // radius 1052 m. Rows 0 and 1 are the L and the H next to the substrate.
+    const without = (id, field, overrides = {}) => {
+        const { [field]: absent, ...mechanical } = MATERIALS[id].mechanical;
+        assert.ok(Number.isFinite(absent), `${id} states the ${field} the case removes`);
+        return validationDesign({ materials: { ...MATERIALS, [id]: { ...MATERIALS[id], mechanical } }, ...overrides });
+    };
+    const CASES = [
+        // Read as measured at the deposition temperature: the expansion mismatch alone.
+        ['H states no reference temperature', without('user_m:H', 'referenceTemperatureC'), ['-1889', '-955', '-2038', '1888']],
+        // The intrinsic stress alone.
+        ['H states no Young\'s modulus', without('user_m:H', 'youngsModulusGPa'), ['-300', '-955', '-846', '4548']],
+        ['H states no expansion coefficient', without('user_m:H', 'linearExpansionPerK'), ['-300', '-955', '-846', '4548']],
+        // Each film keeps its reference-temperature term and loses the mismatch.
+        ['the substrate states no expansion coefficient', without('user_m:Sub', 'linearExpansionPerK'), ['-2460', '-2211', '-3282', '1172']],
+    ];
+    for (const [what, design, [h, l, force, radius]] of CASES) {
+        const result = analyse(design);
+        close(result.rows[1].stressMPa, h, `${what}: the stress of H`);
+        close(result.rows[0].stressMPa, l, `${what}: the stress of L`);
+        close(result.whole.forceNm, force, `${what}: the film force`);
+        close(result.whole.radiusM, radius, `${what}: the radius`);
+        close(result.whole.forceNm, stressForceNm(buildEvalContext(design, designMaterialLookup(design))).toPrecision(6),
+            `${what}: the force is the STR row's`);
+        assert.equal(result.missing.length, 1, `${what}: the notice names the constant`);
+    }
+
+    // With no temperatures set, a missing reference temperature or expansion
+    // coefficient changes no number, though the notice still names it.
+    const bare = analyse(validationDesign({ stress: undefined }));
+    for (const [id, field] of [['user_m:H', 'referenceTemperatureC'], ['user_m:H', 'linearExpansionPerK'], ['user_m:Sub', 'linearExpansionPerK']]) {
+        const result = analyse(without(id, field, { stress: undefined }));
+        assert.deepEqual([result.rows, result.whole], [bare.rows, bare.whole], `with no run, ${id} without ${field} reads as with it`);
+        assert.equal(result.missing.length, 1, `with no run, the notice still names ${id}'s ${field}`);
+    }
+
+    // In every language the notice names, as the Material Editor names them,
+    // the thermal constants whose absence changes the stress, and ties them to
+    // the STR row.
+    for (const [language, t] of Object.entries(localeSources)) {
+        const line = t.stressAnalysis.noticeMissing(1).toLowerCase();
+        for (const field of ['referenceTemperatureC', 'youngsModulusGPa', 'poissonsRatio', 'linearExpansionPerK']) {
+            const name = t.materialEditor.mechanicalFields[field].toLowerCase();
+            assert.ok(line.includes(name), `${language}: the notice says what a missing ${name} does: ${line}`);
+        }
+    }
+}
+
+{
+    // The manual's table of what each quantity needs has a row for every
+    // quantity the Whole part table prints, in English and in Chinese.
+    for (const [language, page] of [['en', 'analysis/stress.md'], ['zh', 'zh/analysis/stress.md']]) {
+        const text = readFileSync(new URL(`../docs-site/src/content/docs/${page}`, import.meta.url), 'utf8');
+        const named = new Set(text.split(/\r?\n/).filter(line => line.startsWith('| '))
+            .map(line => line.split('|')[1].trim()));
+        const t = localeSources[language];
+        for (const row of wholeRows({}, t.stressAnalysis, t.units)) {
+            assert.ok(named.has(row.quantity), `${language}: the manual says what the ${row.quantity} needs`);
+        }
     }
 }
 
