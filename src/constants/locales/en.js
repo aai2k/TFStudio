@@ -3123,7 +3123,7 @@ export default {
     noticeNoRun:    'No temperatures set, so every film carries its intrinsic stress and nothing thermal',
     noticeMissing:  (n) => `${n} material${n === 1 ? '' : 's'} leave${n === 1 ? 's' : ''} constants unstated; the rows that need them are blank, but, as in the STR row, a film whose material states no intrinsic stress counts as carrying none in the film force, radius, deflection and edge shear, and with temperatures set, a film's stress leaves out any thermal term that needs an unstated reference temperature, Young's modulus, Poisson's ratio or linear expansion`,
     noticeNoDiameter: 'No substrate diameter, so the centre deflection is blank',
-    noticeBalanced: 'The two coatings pull equally, so the substrate stays flat: the deflection is zero and there is no radius. The per-film rows still apply',
+    noticeBalanced: 'The two coatings pull equally, so the substrate stays flat: there is no radius. The per-film rows still apply',
   },
 
   roughnessScattering: {

@@ -325,6 +325,30 @@ const analyse = design => computeStress(design, resolveEvalMode(design));
         'while the strain energy doubles, because energy does not cancel');
 }
 
+{
+    // The mirrored design on a substrate of no stated diameter, as a new design
+    // has. The deflection row is blank, so the badge line saying the coatings
+    // pull equally names no deflection, in any language.
+    const design = validationDesign({
+        substrate: { material: 'user_m:Sub', thickness: 15 },
+        surfaceMode: 'symmetric',
+        backLayers: validationBack(),
+    });
+    const result = analyse(design);
+    assert.equal(result.whole.forceNm, 0, 'a mirrored coating bends the substrate not at all');
+    assert.equal(result.whole.deflectionUm, null, 'and with no diameter the deflection is blank');
+    const DEFLECTION = { en: 'deflection', ru: 'прогиб', zh: '挠度', it: 'freccia' };
+    for (const [language, t] of Object.entries(localeSources)) {
+        const line = t.stressAnalysis.noticeBalanced;
+        assert.ok(t.stressAnalysis.deflection.toLowerCase().includes(DEFLECTION[language]),
+            `${language}: the word checked is the one the deflection row uses: ${t.stressAnalysis.deflection}`);
+        assert.ok(stressNotices(result, t).some(notice => notice.label === line),
+            `${language}: the badge says the coatings pull equally`);
+        assert.ok(!line.toLowerCase().includes(DEFLECTION[language]),
+            `${language}: and does not name the deflection, which the window shows blank: ${line}`);
+    }
+}
+
 // ── A coating on one face alone reads the same on either face ────────────────
 //
 // The validation films moved to the back: on a back-only design, and on a

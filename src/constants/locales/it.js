@@ -3540,7 +3540,7 @@ export default {
     noticeNoRun: 'Nessuna temperatura impostata, quindi ogni film porta il proprio stress intrinseco e nulla di termico',
     noticeMissing: (n) => `${n} material${n === 1 ? 'e lascia' : 'i lasciano'} costanti non dichiarate; le righe che ne hanno bisogno restano vuote, ma, come nella riga STR, un film il cui materiale non dichiara uno stress intrinseco conta come privo di stress nella forza dei film, nel raggio, nella freccia e nel taglio al bordo, e con le temperature impostate lo stress di un film non include i termini termici che richiedono una temperatura di riferimento, un modulo di Young, un coefficiente di Poisson o una dilatazione lineare non dichiarati`,
     noticeNoDiameter: 'Nessun diametro del substrato, quindi la freccia al centro resta vuota',
-    noticeBalanced: 'I due rivestimenti tirano ugualmente, il substrato resta piano: la freccia è zero e non c’è raggio. Le righe per film restano valide',
+    noticeBalanced: 'I due rivestimenti tirano ugualmente, il substrato resta piano: non c’è raggio. Le righe per film restano valide',
   },
 
   roughnessScattering: {
