@@ -1,4 +1,4 @@
-// Preferences → Performance: update checks.
+// Preferences → Updates: update checks.
 import { UpdateCheckRow } from './UpdateCheckRow.js';
 
 const { createElement: h } = React;

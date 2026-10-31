@@ -1,4 +1,4 @@
-// Preferences → Performance: the startup update toggle plus an on-demand check.
+// Preferences → Updates: the startup update toggle plus an on-demand check.
 //
 // The result of an on-demand check is reported inline here rather than through
 // the notification card. The Preferences dialog sits above the card's stacking
