@@ -2,11 +2,11 @@
  * Modified-Newton ("Hyper Newton") refinement engine.
  *
  * Reuses the entire LSQEngine setup (surface-mode vector layout, residuals,
- * exact analytic Jacobian, bounds, locks, `_newtonSystem`), but each step() uses
- * the TRUE merit-function Hessian H = JᵀJ + Σ rₚ·∂²rₚ — assembled from the
- * FD-validated analytic comp-Hessian (tmmcore hessian) — and a Cholesky solve
- * of the diagonally-damped system (H + μ·diag)Δ = −Jᵀr, raising μ until PD (trust
- * region). This is the documented "Newton / Hyper Newton" endgame:
+ * exact analytic Jacobian, bounds, locks, `_newtonSystem`), but each step()
+ * solves the diagonally-damped system (H + μ·diag)Δ = −Jᵀr by Cholesky, raising
+ * μ until PD (trust region). H = JᵀJ + Σ rₚ·∂²rₚ is the TRUE merit-function
+ * Hessian, assembled from the FD-validated analytic comp-Hessian (tmmcore
+ * hessian). This is the documented "Newton / Hyper Newton" endgame:
  * Gauss–Newton/LM keeps only JᵀJ and converges linearly; the second-order S
  * term restores quadratic convergence near the minimum.
  *

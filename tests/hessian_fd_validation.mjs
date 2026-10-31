@@ -4,7 +4,7 @@
  * MANDATORY gate: every numerical method is validated before trust.
  * Here we check the EXACT analytic ∂²{R,T}/∂dᵢ∂dⱼ from tmmcore's hessian
  * against a central finite difference of the EXACT analytic first derivative
- * (jacobian) — i.e. d²R/∂dᵢ∂dⱼ ≈ [dRdd_j(d+h·eᵢ) − dRdd_j(d−h·eᵢ)]/2h.
+ * from its jacobian: d²R/∂dᵢ∂dⱼ ≈ [dRdd_j(d+h·eᵢ) − dRdd_j(d−h·eᵢ)]/2h.
  * Differencing the analytic 1st derivative isolates the new 2nd-derivative
  * machinery (layer d²M, middle product, 2nd-order chain) from 1st-order code.
  *

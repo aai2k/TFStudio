@@ -3,10 +3,10 @@
  *
  * tmmcore's C hessian is a line-by-line port of its JavaScript hessian, the
  * analytic ∂²{R,T,A}/∂dᵢ∂dⱼ used by the bounded-SQP / Newton inner refiner.
- * This asserts the instance's hessian agrees with the module's to float64
- * round-off across non-absorbing AND absorbing stacks, s/p polarization, and
- * oblique incidence — base R/T/A, the first derivatives, and the full N×N
- * second-derivative matrices.
+ * This asserts that the instance's hessian agrees with the module's to float64
+ * round-off in base R/T/A, the first derivatives and the full N×N
+ * second-derivative matrices, across non-absorbing AND absorbing stacks, s/p
+ * polarization, and oblique incidence.
  *
  * Uses the prebuilt kernel shipped by tmmcore.
  * Run: node tests/wasm_hessian_equivalence.mjs
