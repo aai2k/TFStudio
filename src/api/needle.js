@@ -169,7 +169,7 @@ export function insertNeedle(design, candidate, options) {
     if (dNew === undefined) {
         const { resolveMat, rows } = scanRows('insertNeedle', design);
         requireKernel();
-        dNew =startingThickness({ operands: rows, design, resolveMat, candidate: selected, mat, dMin: D.dMin, side: onSide });
+        dNew = startingThickness({ operands: rows, design, resolveMat, candidate: selected, mat, dMin: D.dMin, side: onSide });
     } else {
         const [lo, hi] = resolveDRange(selected, { hostThickness: layers[selected.layerK]?.thickness || 0 }, D.dMin);
         requireValue('insertNeedle', 'thickness', thickness, v => Number.isFinite(v) && v >= lo && v <= hi, `a needle thickness in nm from ${lo} to ${hi} there`);
