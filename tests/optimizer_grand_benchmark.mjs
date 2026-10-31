@@ -25,7 +25,7 @@ import {
     mntOperand, opticalMF, minFrontThk, describePool, REFINE_MAXITER, GLOBAL_MAXITER,
 } from '../src/utils/benchmark/optimizerBenchmark.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initWasmForTest, tmmWasmActive } from './_wasmInit.mjs';
+import './_kernel.mjs';
 
 const resolveMat = (id) => getMaterial(id);
 const QUICK = process.argv.includes('--quick');
@@ -52,8 +52,6 @@ const summary = [];
 
 console.log('═'.repeat(78));
 console.log('  TFStudio GRAND OPTIMIZER BENCHMARK');
-const wasm = await initWasmForTest();
-console.log(`  WASM kernel: ${wasm && tmmWasmActive() ? 'ACTIVE ✓' : 'INACTIVE (JS fallback)'}`);
 console.log(`  Mode: ${QUICK ? 'quick' : LONG ? 'long' : 'default'} · cases: ${CASES.length}${MNT ? ` · MNT ≥ ${MNT} nm constraint ON` : ''}`);
 console.log(`  Synthesis pool: ${describePool(resolveMat)}`);
 if (ENGINES.length > 1) console.log(`  Inner-engine sweep: ${ENGINES.join(', ')}`);

@@ -37,12 +37,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const GOLDEN = join(__dirname, 'optimizer_refactor_guard.golden.json');
 const UPDATE = process.argv.includes('--update');
 
-// mfAt and the analytic Jacobian run on the compiled TMM kernel. The kernel
-// mode is recorded in the golden, so a golden captured on the JavaScript path
-// of an earlier release is flagged rather than mistaken for a refactor
-// regression (WASM agrees with JS to ~1e-15/call, not bit-identically).
-const wasmOn = true;
-
 // Perturb a design's free thicknesses deterministically so every method has real
 // work to do from an identical, reproducible start.
 function perturb(d) {
@@ -157,33 +151,25 @@ function snapshot(design, ops, method) {
     return { mf: eng.mf, thk: Array.from(eng.thicknesses) };
 }
 
-console.log(`kernel: ${wasmOn ? 'WASM (accelerated)' : 'pure JS'}`);
 const results = {};
 for (const [name, { design, ops }] of Object.entries(CASES)) {
     for (const method of METHODS) {
         results[`${name} | ${method}`] = snapshot(design, ops, method);
     }
 }
-const current = { _meta: { wasm: wasmOn, steps: STEPS }, results };
+const current = { _meta: { steps: STEPS }, results };
 
 if (UPDATE || !existsSync(GOLDEN)) {
     writeFileSync(GOLDEN, JSON.stringify(current, null, 2) + '\n');
-    console.log(`${UPDATE ? 'Updated' : 'Created'} golden snapshot (${wasmOn ? 'WASM' : 'JS'}): ${GOLDEN}`);
+    console.log(`${UPDATE ? 'Updated' : 'Created'} golden snapshot: ${GOLDEN}`);
     console.log(`  ${Object.keys(results).length} (case × method) entries captured.`);
     process.exit(0);
 }
 
 const golden = JSON.parse(readFileSync(GOLDEN, 'utf8'));
-const gMeta = golden._meta || {};
 const gResults = golden.results || golden;   // tolerate a pre-_meta golden
-// Same kernel mode → demand strict numerical identity (a refactor must not move
-// any bit-relevant digit). Different mode → the ~1e-15/call WASM↔JS kernel gap
-// amplifies over the step sequence, so only assert the trajectories stayed close.
-const sameMode = !!gMeta.wasm === wasmOn;
-const REL = sameMode ? 1e-9 : 1e-5;
-if (!sameMode) {
-    console.log(`⚠  golden was captured under ${gMeta.wasm ? 'WASM' : 'JS'}, running under ${wasmOn ? 'WASM' : 'JS'} — using cross-mode tolerance ${REL.toExponential(0)} (kernel gap, not a refactor check). Re-run with matching mode or --update for a strict guard.`);
-}
+// A refactor must not move any bit-relevant digit.
+const REL = 1e-9;
 
 let maxDelta = 0, fails = 0, checked = 0;
 const relDiff = (a, b) => Math.abs(a - b) / (Math.max(Math.abs(a), Math.abs(b)) + 1e-30);

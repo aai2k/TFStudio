@@ -5,22 +5,18 @@
  * shows no wall-clock win over CG. This quantifies it and locates the cost:
  * dense O(N²) Hessian assembly + O(N³) solve.
  *
- * Runs on the WASM kernel, as the GUI does. That matters for the comparison
- * rather than only for the absolute numbers: CG/DLS get the WASM Jacobian while
+ * Runs on the WASM kernel, as the GUI does: CG/DLS get the WASM Jacobian while
  * the Hessian assembly stays pure JS, so the gap measured here is the gap a user
- * sees. Measured on the JS fallback it comes out far too flattering to Newton.
+ * sees.
  *
  * Run: node tests/newton_perf.mjs
  */
 import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { initWasmForTest, tmmWasmActive } from './_wasmInit.mjs';
+import './_kernel.mjs';
 
-// The GUI runs every TMM hot path on the WASM kernel, so a JS-fallback run
-// here would time (and pace) a path the app never takes.
-await initWasmForTest();
-console.log(`Newton perf probe · WASM ${tmmWasmActive() ? 'ON' : 'off (JS fallback)'}`);
+console.log('Newton perf probe');
 
 const resolveMat = id => getMaterial(id);
 const deep = x => JSON.parse(JSON.stringify(x));

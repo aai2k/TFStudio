@@ -9,7 +9,7 @@
  * reproduced below as guard tests.
  */
 import assert from 'node:assert/strict';
-import { initWasmForTest } from './_wasmInit.mjs';
+import './_kernel.mjs';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { evaluateDispersionFit } from '../src/utils/materials/dispersionFits.js';
 import {
@@ -18,11 +18,6 @@ import {
 import { extractEnvelope } from '../src/utils/materials/characterization/envelope.js';
 import { characterizeFilm } from '../src/utils/materials/characterization/nkFit.js';
 import { fitDiagnostics, resolvableExtinction } from '../src/utils/materials/characterization/diagnostics.js';
-
-// The same kernel the application runs on. It falls back to the JS loop when
-// the kernel has not been built, which changes the numbers below by about 1e-15
-// and the time this file takes by a factor of eight.
-await initWasmForTest();
 
 const air = getMaterial('Air');
 const bk7 = getMaterial('BK7');

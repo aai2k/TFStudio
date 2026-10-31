@@ -45,8 +45,7 @@ async function runOneAndPrint(caseId, n, seed) {
     const { makeEngine } = await import('../src/utils/optimizers/index.js');
     const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
     const { refineStart, caseById, GLOBAL_MAXITER } = await import('../src/utils/benchmark/optimizerBenchmark.js');
-    const { initWasmForTest, tmmWasmActive } = await import('./_wasmInit.mjs');
-    await initWasmForTest();
+    await import('./_kernel.mjs');
     const e = makeEngine('sa', caseById(caseId).ops, refineStart(n), (id) => getMaterial(id), { seed, dMin: 1 });
     const t0 = performance.now();
     while (!e.isConverged() && e.iter < GLOBAL_MAXITER.sa) e.step();
@@ -54,7 +53,7 @@ async function runOneAndPrint(caseId, n, seed) {
     if (e.mfBest < e.tol) stop = 'target';
     else if (e.T < e.Tmin) stop = 'cold';
     else if (e._stall >= e._stallLimit) stop = 'stall';
-    console.log(JSON.stringify({ mf: e.mfBest, iters: e.iter, stop, s: (performance.now() - t0) / 1000, wasm: tmmWasmActive() }));
+    console.log(JSON.stringify({ mf: e.mfBest, iters: e.iter, stop, s: (performance.now() - t0) / 1000 }));
 }
 
 function runChild(task) {
@@ -95,10 +94,6 @@ function countBy(values) {
 }
 
 function report(results) {
-    // The GUI runs every TMM hot path on the WASM kernel; a JS-fallback run
-    // would time a path the app never takes.
-    const wasm = results.every((q) => q.r?.wasm);
-    console.log(`WASM ${wasm ? 'ON' : 'off (JS fallback) in at least one run'}\n`);
     console.log('| start | median | per seed | stopped | iterations | s per run |');
     console.log('|---|---|---|---|---|---|');
     for (const c of CASES) {
