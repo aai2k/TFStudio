@@ -16,6 +16,7 @@
 import {
     hasFreeLevel,
     isArgwave,
+    isConstant,
     isConstraint,
     isEField,
     isEllipsometry,
@@ -41,11 +42,17 @@ import { inConeRow } from '../evalCore/tmmEval.js';
 
 const weighted = op => Math.sqrt(op.weight);
 
+// A constant does not depend on the thicknesses, and as a row it scores
+// nothing at any weight.
+const constantSlope = (op, i, jc) => new Array(jc.nFree).fill(0);
+const constantFactor = () => 0;
+
 // Operand kind → [slope, factor], checked top-down; the band-average /
 // single-λ builder is the fall-through default.
 const ROW_KINDS = [
     [isConstraint,      constraintSlope,      constraintFactor],
     [isLinearThickness, linearThicknessSlope, linearThicknessFactor],
+    [isConstant,        constantSlope,        constantFactor],
     [isIntegral,        integralSlope,        weighted],
     [isMinmax,          minmaxSlope,          minmaxFactor],
     [isArgwave,         argwaveSlope,         weighted],

@@ -306,6 +306,8 @@ export function textCell(ctx, colKey, width) {
     }, display ?? '');
 }
 
+const CONSTANT_DASHES = ['lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'weight'];
+
 export function rowRenderers(op, meta) {
     const renderers = {
         num: numberCell,
@@ -338,6 +340,9 @@ export function rowRenderers(op, meta) {
         renderers.aoi = dashCell;
         renderers.pol = dashCell;
     }
+    // A constant reads no wavelength, angle or polarization, and is never
+    // scored, so a weight would change nothing.
+    if (meta.isConst) CONSTANT_DASHES.forEach(colKey => { renderers[colKey] = dashCell; });
     // A PPEF row reads its curve block at the block's own angle and polarization.
     if (meta.isPpef) {
         renderers.lambdaStart = curveReferenceCell;

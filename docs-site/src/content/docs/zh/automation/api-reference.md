@@ -3206,7 +3206,7 @@ print(len(design.merit), "rows, merit", design.merit.value)
 | 椭偏 | `PSI`、`DEL`、`TANPSI`、`COSDEL` |
 | 相位与色散 | `PR`、`PT`、`DPR`、`DPT`、`GD`、`GDT`、`GDD`、`GDDT`、`TOD`、`TODT`、`GDFLAT`、`GDTFLAT`、`GDDFLAT`、`GDDTFLAT`、`TODFLAT`、`TODTFLAT` |
 | 电场 | `EFMX` |
-| 对其他行的数学运算 | `OPGT`、`OPLT`、`OPVA`、`ABSO`、`ABGT`、`ABLT`、`DIFF`、`SUMM`、`PROD` |
+| 对其他行的数学运算 | `OPGT`、`OPLT`、`OPVA`、`ABSO`、`ABGT`、`ABLT`、`DIFF`、`SUMM`、`PROD`、`CONS` |
 | 峰或谷的波长 | `MXWT`、`MXWR`、`MXWA`、`MNWT`、`MNWR`、`MNWA` |
 | 厚度与应力 | `TT`、`STR`、`MNT`、`MXT` |
 | 表格控制 | `BLNK` |

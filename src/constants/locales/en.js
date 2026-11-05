@@ -2031,6 +2031,7 @@ export default {
       DIFF: { label: 'DIFF: operand1 − operand2 equals target',              group: 'math' },
       SUMM: { label: 'SUMM: operand1 + operand2 equals target',              group: 'math' },
       PROD: { label: 'PROD: operand1 × operand2 equals target',              group: 'math' },
+      CONS: { label: 'CONS: constant for math rows, value equals target',    group: 'math' },
       // ── Argmax/argmin-wavelength (returns λ at extremum, in nm) ──────────
       MXWT:  { label: 'MXWT: λ of max T over band (Pol via column)', group: 'argwave' },
       MXWR:  { label: 'MXWR: λ of max R over band (Pol via column)', group: 'argwave' },

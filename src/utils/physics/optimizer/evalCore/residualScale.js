@@ -1,4 +1,4 @@
-import { isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isMathPairRef, isMathSingleRef, isInequality, isArgwave, isPPEF, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
+import { isConstant, isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isMathPairRef, isMathSingleRef, isInequality, isArgwave, isPPEF, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
 import { mathResidual } from './mathOperands.js';
 import { _normalizeDegrees } from './angles.js';
 
@@ -90,7 +90,9 @@ export function operandResidualScale(op) {
 // that row would with the same target. OpticStudio's math operands behave the
 // same way, there because every value keeps its own unit. DIFF and SUMM of two
 // rows scored on the same σ take it; two different σ share no scale, and σ
-// stays 1. PROD takes σ₁·σ₂, the scale of the product. A reference that cannot
+// stays 1. PROD takes σ₁·σ₂, the scale of the product. A constant (CONS) has
+// no unit and so no σ: a row reading one constant and one other row takes that
+// row's σ, and a row reading constants alone keeps 1. A reference that cannot
 // be followed, to a deleted row or round a loop, gives 1: such a row has no
 // value anyway. `walk` holds the rows by id, the math rows being followed and
 // the σ already found, so a chain that reads a row twice reads it once.
@@ -107,15 +109,17 @@ function _mathResidualScale(op, walk) {
 function _ownMathScale(op, walk) {
     if (isMathSingleRef(op.type)) return _singleRefScale(op, walk);
     if (!isMathPairRef(op.type)) return 1;
-    const first = _scaleOfRow(op.refId1, walk);
-    const second = _scaleOfRow(op.refId2, walk);
-    if (op.type === 'PROD') return first * second;
-    return first === second ? first : 1;
+    const scales = [_scaleOfRow(op.refId1, walk), _scaleOfRow(op.refId2, walk)].filter(s => s != null);
+    if (op.type === 'PROD') return scales.reduce((product, s) => product * s, 1);
+    if (scales.length < 2) return scales[0] ?? 1;
+    return scales[0] === scales[1] ? scales[0] : 1;
 }
 
+// The σ of the row `id` names, or null for a constant, which has none.
 function _scaleOfRow(id, walk) {
     const row = walk.rowsById.get(id);
     if (!row) return 1;
+    if (isConstant(row.type)) return null;
     return isMath(row.type) ? _mathResidualScale(row, walk) : operandResidualScale(row);
 }
 
@@ -123,7 +127,7 @@ function _singleRefScale(op, walk) {
     // An OPGT or OPLT saved before references existed names the row it reads
     // by type, and is evaluated as that row.
     if (isInequality(op.type) && !op.refId && op.baseType) return operandResidualScale({ ...op, type: op.baseType });
-    return _scaleOfRow(op.refId, walk);
+    return _scaleOfRow(op.refId, walk) ?? 1;
 }
 
 /**
@@ -187,19 +191,26 @@ export function _operandResidual(op, val) {
     return hit ? hit[1](op, val) : _targetResidual(op, val);
 }
 
+// Rows the merit leaves out, numerator and weight sum alike: a constant (CONS),
+// whose value is its own target, at any weight; and with skipConstraints the
+// manufacturability rows.
+export function skipsMerit(op, skipConstraints) {
+    return isConstant(op.type) || (skipConstraints && isManufacturability(op.type));
+}
+
 // opts.skipConstraints — exclude MNT/MXT penalties. Used by the needle/GE
 // synthesis scans, whose virtual probe layers are intentionally sub-floor;
 // the thickness bound is enforced by dMin insertion + post-insert DLS refine
 // (which keeps the penalty) + cleanupLayers pruning, not by the scan gradient.
-// Normalized per-operand merit residual, or null to skip (a constraint dropped
-// by skipConstraints). MNT/MXT, TT and STR are manufacturability rows —
+// Normalized per-operand merit residual, or null for a row skipsMerit leaves
+// out. MNT/MXT, TT and STR are manufacturability rows,
 // excluded from the synthesis-scan / OMF merit so they never distort needle
 // placement; active during DLS refinement only. Otherwise the raw residual is
 // divided by the row's unit scale `sc` (residualScaleIn), which makes it
 // dimensionless (σ = 1 for optical → no change; argwave nm residual ÷ σ_λ).
 // It may return a non-finite value, which the caller guards.
 export function _meritDiff(op, computedI, skipConstraints, sc) {
-    if (skipConstraints && isManufacturability(op.type)) return null;
+    if (skipsMerit(op, skipConstraints)) return null;
     let diff = _operandResidual(op, computedI);
     if (sc !== 1) diff /= sc;
     return diff;

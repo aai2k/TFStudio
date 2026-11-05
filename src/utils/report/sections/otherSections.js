@@ -13,7 +13,7 @@ import {
   componentOf, incidentAmplitudeVpm, plotValue, yAxisTitle,
 } from '../../../components/windows/analysis/eFieldEvaluation/yScale.js';
 import {
-  isBlank, isConstraint, isDmfs, isLinearThickness, isManufacturability,
+  isBlank, isConstant, isConstraint, isDmfs, isLinearThickness, isManufacturability,
   isMath, isMathPairRef, isMathSingleRef, readsWavelengthBand,
 } from '../../physics/optimizer/operandModel.js';
 import {
@@ -145,12 +145,12 @@ function nonSpectralRange(op) {
  * in it, so the cell names its own unit rather than leaning on the header: a
  * wavelength or a band in nm, a layer range for a thickness constraint, the
  * comparison a total-thickness or film-stress row applies, the rows a math
- * operand reads, or the text of a comment row.
+ * operand reads, or the text of a comment row. A constant has none.
  */
 function operandRange(op, tr) {
   const nonSpectral = nonSpectralRange(op);
   if (nonSpectral != null) return nonSpectral;
-  if (op.lambdaStart == null) return DASH;
+  if (op.lambdaStart == null || isConstant(op.type)) return DASH;
   const end = op.lambdaEnd ?? op.lambdaStart;
   if (isConstraint(op.type)) return escapeHtml(layerRange(tr, op.lambdaStart, end));
   const nm = escapeHtml(unitOf(tr, 'nm'));
@@ -158,7 +158,7 @@ function operandRange(op, tr) {
   return `${num(op.lambdaStart, 0)}-${num(end, 0)} ${nm}`;
 }
 
-const NO_INCIDENCE = [isManufacturability, isMath, isBlank, isDmfs];
+const NO_INCIDENCE = [isManufacturability, isMath, isConstant, isBlank, isDmfs];
 
 /** Angle and polarization are properties of a ray, so a row that scores no ray has neither. */
 function hasIncidence(type) {
@@ -175,11 +175,13 @@ export function buildMerit(ctx) {
   }
   const rows = m.map(op => {
     const incidence = hasIncidence(op.type);
+    // A constant is never scored, so it has no weight to report.
     return [
       `${op.index}`, escapeHtml(op.type), operandRange(op, tr),
       incidence ? `${deg(op.aoi)}°` : DASH,
       incidence ? escapeHtml(op.pol) : DASH,
-      op.target != null ? num(op.target, 4) : num(null), num(op.weight, 2),
+      op.target != null ? num(op.target, 4) : num(null),
+      isConstant(op.type) ? DASH : num(op.weight, 2),
     ];
   });
   const headers = ['#', tt(tr, 'type', 'Type'), tt(tr, 'lambdaOrLayer', 'λ / Layer'),

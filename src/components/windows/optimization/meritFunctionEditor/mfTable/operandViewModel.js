@@ -1,5 +1,5 @@
 import {
-    isArgwave, isBlank, isConstraint, isDmfs, isInequality, isIntegral,
+    isArgwave, isBlank, isConstant, isConstraint, isDmfs, isInequality, isIntegral,
     isLinearThickness, isMath, isMathPairRef, isMathSingleRef, isMinmax,
     isRangeTarget, isStress, isTotalThickness, isPhase, isWrappedAngle,
     isGroupDelayFlat, isFractionalUnit, isMeasuredCurve, isPPEF, logUnit,
@@ -32,7 +32,7 @@ const TYPE_COLORS = {
     TT: [180, 100, 255],
     OPGT: [140, 160, 200], OPLT: [140, 160, 200], OPVA: [140, 160, 200], ABSO: [140, 160, 200],
     ABGT: [140, 160, 200], ABLT: [140, 160, 200], DIFF: [140, 160, 200],
-    SUMM: [140, 160, 200], PROD: [140, 160, 200],
+    SUMM: [140, 160, 200], PROD: [140, 160, 200], CONS: [140, 160, 200],
     MXWT: [230, 190, 80], MXWR: [230, 190, 80], MXWA: [230, 190, 80],
     MNWT: [230, 190, 80], MNWR: [230, 190, 80], MNWA: [230, 190, 80],
     PSI: [80, 200, 200], DEL: [80, 200, 200], TANPSI: [80, 200, 200], COSDEL: [80, 200, 200],
@@ -108,6 +108,7 @@ const HEADER_LABELS = [
     [op => isPhase(op.type), { lambdaStart: LAMBDA, lambdaEnd: DASH }],
     [op => isMathSingleRef(op.type), { lambdaStart: 'refOp', lambdaEnd: DASH }],
     [op => isMathPairRef(op.type), { lambdaStart: 'refOp1', lambdaEnd: 'refOp2' }],
+    [op => isConstant(op.type), { lambdaStart: DASH, lambdaEnd: DASH }],
     [op => isPPEF(op.type), { lambdaStart: 'curveRef', lambdaEnd: DASH }],
     [op => isMinmax(op.type) || RANGE_AVG_TYPES.has(op.type) || RANGE_TARGET_TYPES.has(op.type),
         { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
@@ -124,6 +125,8 @@ const EDITABLE_COLS = [
     [op => isPhase(op.type), ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
     [op => isMathSingleRef(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     [op => isMathPairRef(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
+    // A constant is never scored, so its weight changes nothing.
+    [op => isConstant(op.type), ['enabled', 'type', 'target']],
     [op => isPPEF(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
 ];
 
@@ -195,9 +198,10 @@ function rowUnits(op, isMeasured, units) {
 // than recomputed here: the tooltip and the contribution share sit in the
 // same cell and must not disagree at a wrap boundary. Spectral-target and
 // phase-flatness rows carry an RMS deviation as their evaluated value, rather
-// than a signed current-minus-target difference.
+// than a signed current-minus-target difference. A constant is never scored
+// and has none.
 function displayResidual(op, value, rawCur, tgt, isRampRow) {
-    if (value == null) return null;
+    if (value == null || isConstant(op.type)) return null;
     if (isRampRow) return value;
     return isWrappedAngle(op.type) ? _operandResidual(op, rawCur) : value - tgt;
 }
@@ -221,7 +225,8 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null, unitNa
     const cur = isFlat && bandLevel != null ? bandLevel : value;
     return {
         isCon: isConstraint(op.type), isTT: isTotalThickness(op.type), isStr: isStress(op.type),
-        isArg: isArgwave(op.type), isMth, isPhs: units.isPhs, isMeasured, isPpef: isPPEF(op.type),
+        isArg: isArgwave(op.type), isMth, isConst: isConstant(op.type),
+        isPhs: units.isPhs, isMeasured, isPpef: isPPEF(op.type),
         logUnit: units.logUnit, phaseUnit: units.phaseUnit, unitNames,
         mthPct: mathPercent, useFraction, cur, tgt,
         rawResidual: displayResidual(op, value, rawCur, tgt, isRampRow),
@@ -262,7 +267,8 @@ export function residualTooltip(meta, text = {}) {
 
 // How a row's value prints: its unit and how many decimal places carry
 // meaning. A math row is not here because it inherits the unit of the row it
-// references, so it has no fixed scale of its own.
+// references, so it has no fixed scale of its own, and neither is a constant,
+// a plain number.
 const VALUE_FORMATS = [
     [meta => meta.logUnit, meta => ({ decimals: 3, unit: meta.logUnit })],
     [meta => meta.isPhs, meta => ({ decimals: 3, unit: meta.phaseUnit })],
@@ -276,7 +282,7 @@ function valueFormat(meta) {
 
 export function fmtCurrent(cur, meta) {
     if (cur == null) return '—';
-    if (meta.isMth) return cur.toPrecision(4);
+    if (meta.isMth || meta.isConst) return cur.toPrecision(4);
     const { decimals, unit } = valueFormat(meta);
     return withUnit(cur.toFixed(decimals), unit);
 }
@@ -295,8 +301,9 @@ function rampTargetText(op) {
 }
 
 // How a row's target prints, first match wins; a fraction prints in percent.
+// A constant prints as a math row reading no unit does, as a plain number.
 const TARGET_FORMATS = [
-    [meta => meta.isMth, (op, meta) => (meta.mthPct ? (op.target * 100).toFixed(2) : (op.target?.toPrecision?.(4) ?? '0'))],
+    [meta => meta.isMth || meta.isConst, (op, meta) => (meta.mthPct ? (op.target * 100).toFixed(2) : (op.target?.toPrecision?.(4) ?? '0'))],
     [meta => meta.logUnit && !meta.isRampRow, (op, meta) => withUnit(op.target.toFixed(2), meta.logUnit)],
     [meta => meta.isPhs, (op, meta) => withUnit(op.target.toFixed(2), meta.phaseUnit)],
     [meta => meta.isCon || meta.isTT || meta.isStr || meta.isArg, op => op.target.toFixed(2)],

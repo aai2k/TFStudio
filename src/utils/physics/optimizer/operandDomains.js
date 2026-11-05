@@ -13,7 +13,7 @@
  * and 700 are a sensible visible band, and nonsense as layer indices.
  */
 import {
-    isArgwave, isBlank, isConstraint, isDmfs, isIntegral, isLinearThickness,
+    isArgwave, isBlank, isConstant, isConstraint, isDmfs, isIntegral, isLinearThickness,
     isMath, isPPEF, isPhase, isStress, isTotalThickness, logUnit,
 } from './operandModel.js';
 
@@ -42,7 +42,7 @@ const TARGET_DOMAINS = [
     [isArgwave, 'wavelength'],
     [isPhase, 'phase'],
     [isPPEF, 'dB'],
-    [isMath, 'raw'],
+    [type => isMath(type) || isConstant(type), 'raw'],
     [type => isBlank(type) || isDmfs(type), 'none'],
 ];
 

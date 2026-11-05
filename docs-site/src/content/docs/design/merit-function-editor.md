@@ -32,7 +32,7 @@ arguments, its output value and unit, and how it forms a residual) is on the
 | In dB or optical density | `TDB` `TDBMN` `TDBMX` `RDBMX` `ODMN` `PPEF` | T or R in dB, optical density, peak-to-peak error against a curve |
 | Phase / field        | `PSI` `DEL` `TANPSI` `COSDEL` `PR` `PT` `DPR` `DPT` `GD*` `GDD*` `TOD*` `EFMX` | phase, ellipsometry, dispersion, peak \|E\|² |
 | Argmax/min λ         | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA` | wavelength of the extremum |
-| Math (reference rows)| `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` | derived from other rows |
+| Math (reference rows)| `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` `CONS` | derived from other rows, or a constant they read |
 | Thickness and stress | `TT` `STR` `MNT` `MXT`         | total / per-layer thickness, film force on the substrate |
 | Comment              | `BLNK` `DMFS`                  | inert                        |
 

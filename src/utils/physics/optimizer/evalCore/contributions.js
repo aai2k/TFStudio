@@ -34,9 +34,9 @@ function _contributionTerms(operands, computed, skipConstraints) {
 // percentage even though their weight stays out of the denominator: they raise
 // the numerator like everything else.
 //
-// A row that contributes nothing to the sum gets null — disabled, unevaluated,
-// non-finite, invalid weight, or a constraint dropped by skipConstraints. A row
-// sitting exactly on its target gets 0.
+// A row that contributes nothing to the sum gets null: disabled, unevaluated,
+// non-finite, invalid weight, a constant, or a constraint dropped by
+// skipConstraints. A row sitting exactly on its target gets 0.
 export function operandContributions(operands, computed, { skipConstraints = false } = {}) {
     if (!computed) return new Array(operands.length).fill(null);
     // Same first guard calcMF uses. With an operand that could not be evaluated

@@ -2332,6 +2332,10 @@ export default {
         label: 'PROD: 操作数1 × 操作数2 等于目标',
         group: 'math',
       },
+      CONS: {
+        label: 'CONS: 常数，值等于目标（供数学行引用）',
+        group: 'math',
+      },
       MXWT: {
         label: 'MXWT: 波段内最大 T 的 λ（偏振通过列指定）',
         group: 'argwave',

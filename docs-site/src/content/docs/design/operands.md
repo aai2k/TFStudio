@@ -20,7 +20,7 @@ Each row of the [Merit Function Editor](/design/merit-function-editor/) table is
 | [Ellipsometry](#ellipsometry) | `PSI` `DEL` `TANPSI` `COSDEL` |
 | [Phase and dispersion](#phase-and-dispersion) | `PR` `PT` `DPR` `DPT` `GD` `GDT` `GDD` `GDDT` `TOD` `TODT` and the `*FLAT` rows |
 | [Field](#field) | `EFMX` |
-| [Math on other rows](#math-on-other-rows) | `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` |
+| [Math on other rows](#math-on-other-rows) | `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` `CONS` |
 | [Thickness and stress](#thickness-and-stress) | `TT` `STR` `MNT` `MXT` |
 | [Table control](#table-control) | `BLNK` `DMFS` |
 
@@ -40,7 +40,7 @@ Each row of the [Merit Function Editor](/design/merit-function-editor/) table is
 
 The headers follow the row of the focused cell, or the one selected row, or else the first row. With an empty table or a `DMFS` row in focus they read **λ / Layer**, **End \*** and **Flag**.
 
-Hover a **% of MF²** cell to see how far the row is from its target in its own unit: **Current − target**, **Slack** for a layer constraint, or **RMS deviation** for a row whose value is a deviation. The figure is shown even when a one-sided row is satisfied and scores nothing. The cell shows a dash for a disabled row, a row with no value and a row with no valid weight; while any enabled row shows **Error**, every % of MF² cell shows a dash.
+Hover a **% of MF²** cell to see how far the row is from its target in its own unit: **Current − target**, **Slack** for a layer constraint, or **RMS deviation** for a row whose value is a deviation. The figure is shown even when a one-sided row is satisfied and scores nothing. The cell shows a dash for a disabled row, a row with no value, a row with no valid weight and a `CONS` row; while any enabled row shows **Error**, every % of MF² cell shows a dash.
 
 ---
 
@@ -183,8 +183,11 @@ For a polarized laser, set **Pol** to the beam's polarization: at an angle the t
 | `DIFF` | **Ref Op#1**, **Ref Op#2** | ref1 − ref2 | value = **Target** |
 | `SUMM` | **Ref Op#1**, **Ref Op#2** | ref1 + ref2 | value = **Target** |
 | `PROD` | **Ref Op#1**, **Ref Op#2** | ref1 · ref2 | value = **Target** |
+| `CONS` | nothing | **Target** | nothing |
 
-A math row reads the value of another row instead of computing one from the coating. Its target is in that row's unit, shown in percent when every row it reads is a T, R or A row. **AOI (°)** and **Pol** show a dash: the value read was computed at the other row's angle and polarization. The optimizers take a math row's slopes from those of the rows it reads. A math row that reads an `EFMX` row, or a curve block whose level is not free, directly or through another math row, makes every optimizer step slower: its slopes are taken by finite differences, and so are every other row's while it is in the merit function.
+A math row reads the value of another row instead of computing one from the coating. Its target is in that row's unit, shown in percent when every row it reads, other than a `CONS` row, is a T, R or A row. **AOI (°)** and **Pol** show a dash: the value read was computed at the other row's angle and polarization. The optimizers take a math row's slopes from those of the rows it reads. A math row that reads an `EFMX` row, or a curve block whose level is not free, directly or through another math row, makes every optimizer step slower: its slopes are taken by finite differences, and so are every other row's while it is in the merit function.
+
+`CONS` is a fixed number for the other math rows to read: its value is its own **Target**, a plain number with no unit, and a new row starts at 0. `PROD` of a `TAV` row and a `CONS` row of 2 reads twice the average transmittance and shows its target in percent, as the `TAV` row does. `SUMM` and `DIFF` add or subtract the constant as it is, and a T, R or A value is a fraction of 1, so `SUMM` of a `TAV` row and a `CONS` row of 0.05 adds 5 %, and a `CONS` row of 5 adds 500 %. A `CONS` row reads nothing and adds nothing to the merit at any weight, so only its **Type** and **Target** can be changed, and its **Weight** and **% of MF²** cells show a dash.
 
 The reference cell lists the rows by their current number and type, such as `#4 TMN`. The link is kept to the row itself, not to its number, so inserting, deleting or moving rows does not break it. Deleting a row also deletes the math rows that read it. A reference to a row that is no longer there, as in a merit function loaded from elsewhere, shows **(deleted)** in red. A row that reads a disabled, missing or valueless row, or that sits on a loop of references, has no value: **Current** shows **Error** and the merit cannot be computed until it is fixed.
 
@@ -242,7 +245,7 @@ The merit function is
 MF = √( Σ wᵢ · (rᵢ / σᵢ)²  /  W )
 ```
 
-with wᵢ the row's weight, rᵢ its residual and σᵢ the [scale of its unit](#unit-scale). W is the sum of the weights of the rows that have a value, leaving out `MNT`, `MXT`, `TT` and `STR`, whose weights count only when the other rows with a value weigh nothing in total. Disabled rows, comment rows and rows with no value add nothing. The OMF beside it is the same sum without the `MNT`, `MXT`, `TT` and `STR` rows.
+with wᵢ the row's weight, rᵢ its residual and σᵢ the [scale of its unit](#unit-scale). W is the sum of the weights of the rows that have a value, leaving out `MNT`, `MXT`, `TT` and `STR`, whose weights count only when the other rows with a value weigh nothing in total. Disabled rows, comment rows, `CONS` rows and rows with no value add nothing. The OMF beside it is the same sum without the `MNT`, `MXT`, `TT` and `STR` rows.
 
 | Residual | Rows | rᵢ |
 | -------- | ---- | -- |
@@ -274,7 +277,7 @@ Dividing each residual by σ puts rows of different units on one footing, so the
 | `TT` `STR` `MNT` `MXT` | 1, in nm or N/m | 0.01 nm or 0.01 N/m |
 | Math rows | the σ of the rows they read | |
 
-A math row takes the σ of the row it reads, so an `OPLT` on an `MXWT` row scores a miss exactly as the `MXWT` row would with that target. `DIFF` and `SUMM` of two rows with the same σ take that σ; of two rows with different σ they keep 1. `PROD` takes the product of the two σ. The thickness and stress rows are scored raw, so a violated manufacturing bound is fixed before anything else.
+A math row takes the σ of the row it reads, so an `OPLT` on an `MXWT` row scores a miss exactly as the `MXWT` row would with that target. `DIFF` and `SUMM` of two rows with the same σ take that σ; of two rows with different σ they keep 1. `PROD` takes the product of the two σ. A `CONS` row has no unit and so no σ: `DIFF`, `SUMM` or `PROD` of a row and a constant takes that row's σ, so `SUMM` of an `MXWT` row and a `CONS` row of 10, with a target of 560 nm, scores a miss as the `MXWT` row would with a target of 550 nm. A row that reads only constants keeps 1. The thickness and stress rows are scored raw, so a violated manufacturing bound is fixed before anything else.
 
 ## Searching for a peak or dip
 

@@ -1,5 +1,5 @@
 import { isManufacturability, isValidMeritWeight } from '../operandModel.js';
-import { _meritDiff, residualScaleIn } from './residualScale.js';
+import { _meritDiff, residualScaleIn, skipsMerit } from './residualScale.js';
 import { operandEvaluationErrors } from './evalContext.js';
 
 // Accumulate the weighted squared residuals over all contributing operands.
@@ -20,7 +20,7 @@ function _accumMerit(operands, computed, skipConstraints) {
         const op = operands[i];
         if (!op.enabled || computed[i] == null) continue;
         const diff = _meritDiff(op, computed[i], skipConstraints, scaleOf(op));
-        if (diff === null) continue;   // constraint dropped by skipConstraints
+        if (diff === null) continue;   // a constant, or a constraint dropped by skipConstraints
         if (!Number.isFinite(diff)) return { sumWRes2, sumWopt, sumWcon, n, nonFinite: true };
         const w = op.weight;
         sumWRes2 += w * diff * diff;
@@ -50,7 +50,7 @@ function hasInvalidContributingWeight(operands, computed, skipConstraints) {
     for (let i = 0; i < operands.length; i++) {
         const op = operands[i];
         if (!op.enabled || computed[i] == null) continue;
-        if (skipConstraints && isManufacturability(op.type)) continue;
+        if (skipsMerit(op, skipConstraints)) continue;
         if (!isValidMeritWeight(op.weight)) return true;
     }
     return false;
@@ -58,7 +58,7 @@ function hasInvalidContributingWeight(operands, computed, skipConstraints) {
 
 // The weight sum the merit is normalized by: the optical rows that were scored,
 // or the constraint rows when a merit has nothing else. Rows the merit skips
-// (disabled, unevaluated, comment rows) add nothing to it.
+// (disabled, unevaluated, comment and constant rows) add nothing to it.
 function _denominator({ sumWopt, sumWcon }) {
     return sumWopt > 0 ? sumWopt : sumWcon;
 }
@@ -66,9 +66,9 @@ function _denominator({ sumWopt, sumWcon }) {
 /**
  * The normalization denominator W of MF = √(SSR/W) for these evaluated values:
  * the weights of the rows calcMF scores (optical rows, or the constraint rows
- * when there are no others). Comment rows, disabled rows and rows without a
- * value carry no weight in it. The analytic gradient divides by this, since
- * MF = √(SSR/W) gives ∇MF = Jᵀr/(‖r‖·√W). 0 when no row contributes.
+ * when there are no others). Comment rows, constant rows, disabled rows and
+ * rows without a value carry no weight in it. The analytic gradient divides by
+ * this, since MF = √(SSR/W) gives ∇MF = Jᵀr/(‖r‖·√W). 0 when no row contributes.
  */
 export function mfWeightDenominator(operands, computed, { skipConstraints = false } = {}) {
     return _denominator(_accumMerit(operands, computed, skipConstraints));

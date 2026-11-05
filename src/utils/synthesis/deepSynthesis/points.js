@@ -18,7 +18,7 @@
 // either way.
 
 import { bandQuadratureWeights, operandSampleLambdas } from '../../physics/optimizer/sampling.js';
-import { isBlank, isDmfs, isManufacturability, isRangeTarget } from '../../physics/optimizer/operandModel.js';
+import { isBlank, isConstant, isDmfs, isManufacturability, isRangeTarget } from '../../physics/optimizer/operandModel.js';
 
 // Row types whose value is T or R at each of their sample wavelengths.
 export const PASS_STOP_TYPES = Object.freeze({
@@ -41,10 +41,10 @@ function quantityOf(type) {
 }
 
 // Rows that count toward the optical merit: enabled, weighted, and neither
-// inert nor a manufacturability row (operandModel.js 144-157).
+// inert, a constant nor a manufacturability row (operandModel.js 144-157).
 export function countsOptically(op) {
     if (!op.enabled || !(op.weight > 0)) return false;
-    return !isManufacturability(op.type) && !isBlank(op.type) && !isDmfs(op.type);
+    return !isManufacturability(op.type) && !isBlank(op.type) && !isDmfs(op.type) && !isConstant(op.type);
 }
 
 // A range target whose line is not flat is neither a pass nor a stop target

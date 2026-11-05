@@ -131,6 +131,10 @@ export const INEQUALITY_OPERAND_TYPES = ['OPGT', 'OPLT'];
 // Other Zemax math operands (the full catalog also includes trig, log,
 // range ops, factor ops).
 export const MATH_OPERAND_TYPES       = ['OPVA', 'ABSO', 'ABGT', 'ABLT', 'DIFF', 'SUMM', 'PROD'];
+// Constant (CONS): its value is its own target, a plain number with no unit,
+// so it adds nothing to the merit. Math rows read it as a fixed number: PROD of
+// a TAV row and a CONS of 2 reads twice the TAV.
+export const CONSTANT_OPERAND_TYPES   = ['CONS'];
 // Argmax/argmin-wavelength operands. Sample C(λ) ∈ {T,R,A} over [λStart, λEnd]
 // and return the λ (in nm) at which the band-max (MXW*) or band-min (MNW*)
 // occurs, refined by a 3-point parabolic interpolation around the discrete
@@ -155,6 +159,7 @@ export const OPERAND_TYPES = [
     ...PHASE_OPERAND_TYPES,
     ...INEQUALITY_OPERAND_TYPES,
     ...MATH_OPERAND_TYPES,
+    ...CONSTANT_OPERAND_TYPES,
     ...ARGWAVE_OPERAND_TYPES,
     ...TOTAL_THICKNESS_OPERAND_TYPES,
     ...STRESS_OPERAND_TYPES,
@@ -250,6 +255,9 @@ export function isMathSingleRef(type) { return SINGLE_REF_MATH_TYPES.has(type); 
 export function isMathPairRef(type) {
     return type === 'DIFF' || type === 'SUMM' || type === 'PROD';
 }
+// A constant row (CONSTANT_OPERAND_TYPES). It references no row and samples no
+// wavelength.
+export function isConstant(type) { return type === 'CONS'; }
 // Operand types whose VALUE is a fraction in [0, 1] (i.e. T/R/A). The UI
 // scales these to percent for display + editing. Used to pick the right
 // display unit for a math operand's `target` (math operands inherit the
@@ -263,24 +271,26 @@ const NON_FRACTIONAL_TYPES = [
     isArgwave, isPhase,    // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
     isLogOperand, isPPEF,  // dB, optical density
     isMath,                // math = inherit (resolved separately)
+    isConstant,            // a plain number
     isDmfs, isBlank,       // placeholders
 ];
 export function isFractionalUnit(type) {
     return !!type && !NON_FRACTIONAL_TYPES.some(test => test(type));
 }
 // Does a math operand's target display in percent? True iff every one of
-// its referenced rows has a fractional value. operandsById is a Map
-// from id → operand. Falls back to false (raw) when refs can't be
-// resolved or are themselves math (avoids deep chasing for a v1 fix).
+// its referenced rows that has a unit has a fractional value. A constant has
+// no unit, so a row reading one takes the unit of its other reference:
+// PROD(TAV, CONS 2) reads in percent, and a row reading constants alone reads
+// a plain number. operandsById is a Map from id → operand. Falls back to false
+// (raw) when refs can't be resolved or are themselves math (avoids deep
+// chasing for a v1 fix).
 export function mathTargetInPercent(op, operandsById) {
     if (!op || !isMath(op.type) || !operandsById) return false;
-    const refOptical = (refId) => {
-        const ref = operandsById.get?.(refId) ?? operandsById[refId];
-        return !!(ref && isFractionalUnit(ref.type));
-    };
-    if (isMathSingleRef(op.type)) return refOptical(op.refId);
-    if (isMathPairRef(op.type))   return refOptical(op.refId1) && refOptical(op.refId2);
-    return false;
+    const refIds = isMathPairRef(op.type) ? [op.refId1, op.refId2] : [op.refId];
+    const withUnit = refIds
+        .map(refId => operandsById.get?.(refId) ?? operandsById[refId])
+        .filter(ref => !isConstant(ref?.type));
+    return withUnit.length > 0 && withUnit.every(ref => isFractionalUnit(ref?.type));
 }
 // Optical character (T|R|A) from an argwave type code.  Position 3 (zero-based)
 // is the optical char by construction (M{X|N}W{T|R|A}[S|P]).
@@ -293,7 +303,7 @@ export function argwavePolCode(type) {
 }
 
 const TYPES_WITHOUT_POL_SUFFIX = [
-    isManufacturability, isDmfs, isBlank, isIntegral, isMinmax, isMath, isLogOperand, isPPEF,
+    isManufacturability, isDmfs, isBlank, isIntegral, isMinmax, isMath, isConstant, isLogOperand, isPPEF,
 ];
 
 export function polFromType(type) {
@@ -517,6 +527,13 @@ function seedComment(base) {
     if (base.comment == null) base.comment = '';
 }
 
+// A constant (CONS) starts at 0 rather than the fractional default. Any target
+// the row comes with is its value and is kept, 0.99 included, so a saved
+// constant of 0.99 loads back as 0.99.
+function seedConstantTarget(base, overrides) {
+    if (!Number.isFinite(overrides.target)) base.target = 0;
+}
+
 // Per-family semantic seeding, first match wins. The families are disjoint, so
 // the order here is documentation rather than precedence. Math operands
 // (OPGT…PROD) are deliberately absent: their refId depends on which other rows
@@ -529,6 +546,7 @@ const TYPE_SEEDS = [
     [isStress,         seedStressTarget],
     [type => isLogOperand(type) || isPPEF(type), seedLogTarget],
     [isBlank,          seedComment],
+    [isConstant,       seedConstantTarget],
     [type => type === 'DEL', seedDeltaConvention],
 ];
 
@@ -549,7 +567,7 @@ export function makeOperand(overrides = {}) {
     if (!isValidMeritWeight(base.weight)) base.weight = 1;
     // ── Semantic defaults (persisted) ────────────────────────────────────────
     seedMeasuredCurve(base);
-    TYPE_SEEDS.find(([inFamily]) => inFamily(base.type))?.[1](base);
+    TYPE_SEEDS.find(([inFamily]) => inFamily(base.type))?.[1](base, overrides);
     seedPhaseTarget(base, overrides);
     // ── Implementation hyperparameters NOT stamped ───────────────────────────
     // bandPoints, rampPoints: runtime defaults via operandSampleLambdas. This

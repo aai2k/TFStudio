@@ -1989,6 +1989,7 @@ export default {
       DIFF: { label: 'DIFF: операнд1 − операнд2 = цель',                      group: 'math' },
       SUMM: { label: 'SUMM: операнд1 + операнд2 = цель',                      group: 'math' },
       PROD: { label: 'PROD: операнд1 × операнд2 = цель',                      group: 'math' },
+      CONS: { label: 'CONS: константа для математических строк, значение = цель', group: 'math' },
       MXWT:  { label: 'MXWT: λ макс. T в полосе (пол. — столбец)',  group: 'argwave' },
       MXWR:  { label: 'MXWR: λ макс. R в полосе (пол. — столбец)',  group: 'argwave' },
       MXWA:  { label: 'MXWA: λ макс. A в полосе (пол. — столбец)',  group: 'argwave' },

@@ -3,7 +3,7 @@
  * and the resolver that lets a math row reference other rows.
  */
 
-import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, isLogPoint, isPPEF, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
+import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isConstant, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, isLogPoint, isPPEF, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
 import { charOf, operandSampleLambdas } from '../../sampling.js';
 import { computeMathValue } from '../mathOperands.js';
 import { _evalTotalThickness, _evalStressForce, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalLogPoint, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
@@ -68,6 +68,9 @@ function _evalMath(op, ctx) {
     return computeMathValue(op, makeRefResolver(ctx));
 }
 
+// A constant row's value is its target.
+const _evalConstant = op => op.target;
+
 // Ordered operand-kind → evaluator dispatch. Order matters (checked top-down);
 // the band-average / single-λ evaluator is the fall-through default. GDFLAT/
 // GDDFLAT precede isGroupDelay because they also satisfy isGroupDelay.
@@ -76,6 +79,7 @@ const _EVAL_DISPATCH = [
     [isStress,         _evalStressForce],
     [isConstraint,     _evalConstraint],
     [isMath,           _evalMath],
+    [isConstant,       _evalConstant],
     [isArgwave,        _evalArgwave],
     [isIntegral,       _evalIntegral],
     [isMinmax,         _evalMinmax],
@@ -114,7 +118,7 @@ function _evalRow(op, ctx) {
 // Rows whose evaluator reads nothing through tmmProp, and the PPEF row, which
 // reads at its curve block's points (ppefSpectrumReads).
 const _READS_NO_SPECTRUM = [
-    isDmfs, isBlank, isTotalThickness, isStress, isConstraint, isMath,
+    isDmfs, isBlank, isTotalThickness, isStress, isConstraint, isMath, isConstant,
     isEllipsometry, isGroupDelayFlat, isPhaseShift, isGroupDelay, isEField, isPPEF,
 ];
 
@@ -127,7 +131,7 @@ const _snapshotLambdas = op => (Array.isArray(op.sampleLambdas) ? op.sampleLambd
  * `aoi` (deg), polarization, channel ('T' | 'R' | 'A') and wavelengths (nm),
  * the same values its evaluator in this dispatch passes. Null for a row that
  * reads no R, T or A (phase, ellipsometry, fields, thickness rows, math,
- * comments).
+ * constants, comments).
  */
 export function operandSpectrumReads(op) {
     if (!isKnownOperandType(op.type) || _READS_NO_SPECTRUM.some(test => test(op.type))) return null;

@@ -3206,7 +3206,7 @@ The types this version evaluates, grouped as the [Operand Reference](/design/ope
 | Ellipsometry | `PSI`, `DEL`, `TANPSI`, `COSDEL` |
 | Phase and dispersion | `PR`, `PT`, `DPR`, `DPT`, `GD`, `GDT`, `GDD`, `GDDT`, `TOD`, `TODT`, `GDFLAT`, `GDTFLAT`, `GDDFLAT`, `GDDTFLAT`, `TODFLAT`, `TODTFLAT` |
 | Field | `EFMX` |
-| Math on other rows | `OPGT`, `OPLT`, `OPVA`, `ABSO`, `ABGT`, `ABLT`, `DIFF`, `SUMM`, `PROD` |
+| Math on other rows | `OPGT`, `OPLT`, `OPVA`, `ABSO`, `ABGT`, `ABLT`, `DIFF`, `SUMM`, `PROD`, `CONS` |
 | Wavelength of a peak or dip | `MXWT`, `MXWR`, `MXWA`, `MNWT`, `MNWR`, `MNWA` |
 | Thickness and stress | `TT`, `STR`, `MNT`, `MXT` |
 | Table control | `BLNK` |

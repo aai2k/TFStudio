@@ -9,7 +9,7 @@
  */
 
 import {
-    isDmfs, isBlank, isManufacturability, isMath, isRangeTarget,
+    isDmfs, isBlank, isManufacturability, isMath, isRangeTarget, isConstant,
     isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve, isPPEF,
     bandSampleCount, bandFlagCount, isBandGridRow, logOperand,
 } from './operandModel.js';
@@ -121,9 +121,10 @@ function mathSampleLambdas(op) {
 }
 
 // Rows that sample no wavelength of their own: DMFS / BLNK are inert, the
-// manufacturability rows act on layer thicknesses, and a PPEF row reads at its
-// curve block's points, which the block brings.
-const NO_OWN_LAMBDAS = [isDmfs, isBlank, isManufacturability, isPPEF];
+// manufacturability rows act on layer thicknesses, a constant is a plain
+// number, and a PPEF row reads at its curve block's points, which the block
+// brings.
+const NO_OWN_LAMBDAS = [isDmfs, isBlank, isManufacturability, isConstant, isPPEF];
 export function samplesNoWavelength(type) {
     return NO_OWN_LAMBDAS.some(test => test(type));
 }

@@ -2353,6 +2353,10 @@ export default {
         label: 'PROD: operando1 × operando2 uguale al target',
         group: 'math',
       },
+      CONS: {
+        label: 'CONS: costante per le righe matematiche, valore uguale al target',
+        group: 'math',
+      },
       MXWT: {
         label: 'MXWT: λ della T massima sulla banda (pol. dalla colonna)',
         group: 'argwave',

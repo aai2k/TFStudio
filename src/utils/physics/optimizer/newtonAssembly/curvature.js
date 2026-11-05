@@ -19,7 +19,7 @@ import { operandResidualScale } from '../evalCore.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../../spectralWeightings.js';
 import {
     isMath, isArgwave, isEField, isEllipsometry, isMeasuredCurve, polFromType,
-    isManufacturability, isMinmax, isRangeTarget, isIntegral,
+    isManufacturability, isMinmax, isRangeTarget, isIntegral, isConstant,
 } from '../operandModel.js';
 import { charOf, operandSampleLambdas, isRangeAvg, bandQuadratureWeights } from '../sampling.js';
 import { _addS } from './gaussNewton.js';
@@ -59,7 +59,8 @@ function _curvTerms(operands, comp, hc) {
 // One enabled, evaluated operand's curvature term, or null, and the number of
 // residual rows it occupies. The manufacturability rows contribute zero
 // curvature: the layer bounds are piecewise linear in the thicknesses, and the
-// total thickness and the film force are linear outright.
+// total thickness and the film force are linear outright. A constant does not
+// depend on the thicknesses at all.
 //
 // A worst-case min/max row (TMN..AMX) is given zero curvature as well, which
 // leaves it the Gauss-Newton term JᵀJ. It is not piecewise linear: at the
@@ -71,7 +72,7 @@ function _curvTerms(operands, comp, hc) {
 // Newton and SQP at a worse merit in three and a better one in two; the
 // envelope correction −C_dλ·C_λd/C_λλ did no better.
 function _curvOperand(op, rp, hc) {
-    if (isManufacturability(op.type) || isMinmax(op.type)) return { rows: 1, term: null };
+    if (isManufacturability(op.type) || isMinmax(op.type) || isConstant(op.type)) return { rows: 1, term: null };
     if (isRangeTarget(op.type)) {
         const term = _rangeTargetTerm(op, rp, hc);
         return { rows: term.lams.length, term };

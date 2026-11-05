@@ -26,7 +26,7 @@ MF = √( Σ_i  w_i · (r_i / σ_i)²  /  W )
 | 以 dB 或光密度计   | `TDB` `TDBMN` `TDBMX` `RDBMX` `ODMN` `PPEF` | 以 dB 表示的 T 或 R、光密度、相对曲线的峰峰误差 |
 | 相位 / 场          | `PSI` `DEL` `TANPSI` `COSDEL` `PR` `PT` `DPR` `DPT` `GD*` `GDD*` `TOD*` `EFMX` | 相位、椭偏、色散、峰值 \|E\|² |
 | 极值波长           | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA`  | 极值所在的波长               |
-| 数学（引用行）     | `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` | 由其他行派生 |
+| 数学（引用行）     | `OPGT` `OPLT` `OPVA` `ABSO` `ABGT` `ABLT` `DIFF` `SUMM` `PROD` `CONS` | 由其他行派生，或为它们读取的常数 |
 | 厚度与应力         | `TT` `STR` `MNT` `MXT`                     | 总厚度 / 每层厚度、薄膜施加于基底的合力 |
 | 注释               | `BLNK` `DMFS`                              | 惰性                         |
 
