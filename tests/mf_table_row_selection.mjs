@@ -9,6 +9,10 @@
  * Selecting a row also drops the focused cell. Without that, a comment row
  * clicked after a data cell was focused left the cell lit and the keyboard
  * acting on it, so the row just clicked was not the one anything happened to.
+ *
+ * An arrow onto a header or comment row selects it as a row. It has no cells
+ * to light, so an arrow that landed there showed nothing selected and Delete
+ * had no row to act on.
  * Run: node tests/mf_table_row_selection.mjs
  */
 import assert from 'node:assert/strict';
@@ -112,6 +116,55 @@ const rows = selection => [...selection.selIds].sort();
     assert.equal(tags.length, 2);
     for (const tag of tags) assert.match(tag, /user-select:none/, `${tag} holds no text to select`);
     assert.match(html, /<input[^>]*user-select:text/, 'the comment itself can still be selected to edit it');
+}
+
+// ── An arrow onto a header or comment row selects it as a row ────────────────
+{
+    const deleted = [];
+    const keyed = { ...props, onDelete: ids => deleted.push(ids) };
+    const renderKeyed = () => runtime.render(() => useMFTableSelection(keyed));
+    const press = (table, key, shiftKey = false) => table.onKeyDown({
+        key, shiftKey, ctrlKey: false, altKey: false, metaKey: false, target: {}, preventDefault() {},
+    });
+    const commentRow = selection => renderToStaticMarkup(React.createElement('table', null,
+        React.createElement('tbody', null, renderOperandRow({
+            selIds: selection.selIds, c: makeTheme(), t: makeLocale(),
+            onEdit: noop, selectRow: noop, beginDrag: noop, dragOver: noop,
+        }, operands[2], 2))));
+
+    let table = renderKeyed();
+    table.focusAt(1, 'target');
+    table = renderKeyed();
+    press(table, 'ArrowDown');
+    table = renderKeyed();
+    assert.deepEqual(rows(table), ['n'], 'the comment row the arrow landed on is selected');
+    assert.deepEqual(table.focusCell, { rowIdx: 2, colKey: 'target' }, 'and the focus keeps its column');
+    assert.match(commentRow(table), new RegExp(`<tr[^>]*background-color:${makeTheme().accent}66`),
+        'it is drawn selected');
+
+    press(table, 'ArrowDown');
+    table = renderKeyed();
+    assert.deepEqual(rows(table), [], 'the next data row takes the focus as a cell again');
+    assert.deepEqual(table.focusCell, { rowIdx: 3, colKey: 'target' });
+    press(table, 'ArrowUp');
+    table = renderKeyed();
+    press(table, 'Delete');
+    assert.deepEqual(deleted, [['n']], 'Delete removes the comment row');
+
+    table.focusAt(1, 'target');
+    table = renderKeyed();
+    press(table, 'ArrowUp');
+    table = renderKeyed();
+    assert.deepEqual(rows(table), ['h'], 'the DMFS header is selected the same way');
+
+    // A rectangle stretched with Shift passes over such a row without
+    // selecting it, as a drag over cells does.
+    press(table, 'ArrowDown', true);
+    table = renderKeyed();
+    press(table, 'ArrowDown', true);
+    table = renderKeyed();
+    assert.deepEqual(rows(table), []);
+    assert.deepEqual(table.focusCell, { rowIdx: 2, colKey: 'target' });
 }
 
 console.log('mf_table_row_selection: passed');

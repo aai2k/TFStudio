@@ -1,14 +1,14 @@
-import { isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
+import { OPERAND_POLS, isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
 import { CellInput } from '../../../../ui/grid/CellInput.js';
-import { CellSelect, PolList, selectable } from './CellControls.js';
-import { curveReferenceCell } from './curveReferenceCell.js';
+import { listCell, listEditorCell, selectable } from './CellControls.js';
+import { listEdit, listKind, listOf } from './listValues.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
 import { measuredSnapshotCell, measuredTypeCell } from './measuredCells.js';
 import { customIntegralName } from '../../../analysis/integralValues/integralModel.js';
 import {
     contributionBarWidth, fmtContribution, fmtCurrent, fmtTargetDisplay, residualTooltip,
 } from './operandViewModel.js';
-import { flagCellText } from './editModel.js';
+import { flagCellText, polFromKey } from './editModel.js';
 import { provisionalMark } from '../../provisionalMark.js';
 
 const { createElement: h } = React;
@@ -77,131 +77,89 @@ export function typePickerCell(ctx, colKey, width) {
     }));
 }
 
-// The ≤ / ≥ / = cell the linear-thickness rows carry in place of a wavelength:
-// the total thickness in nm (TT) or the film force in N/m (STR) against the
-// row's target.
-function comparisonCell(ctx, colKey, width) {
-    const { op, c, t, tdBase, cellClick, onEdit } = ctx;
-    const comparison = op.cmp || 'eq';
-    const titles = t?.meritFunctionEditor?.comparisonTitles?.[op.type];
-    const title = titles ? (titles[comparison] || titles.eq) : undefined;
-    return h('td', {
-        key: colKey, onClick: event => cellClick(colKey, event),
-        style: tdBase(colKey, width, { padding: '0 2px' }),
-    }, h(CellSelect, {
-        value: comparison,
-        onChange: event => onEdit(op.id, 'cmp', event.target.value),
-        title,
-        color: c.text,
+// How a list cell in a λ column reads, from its list (listValues.js): its
+// text, tip and colour, and `head`, where the list has one: the label of an
+// entry put first, whose value is null. A reference or a curve block the row
+// no longer finds is marked in red, and one not set asks for one; their lists
+// start with an entry that empties them, labelled as the cell then reads. An
+// integral of its own setup shows that setup and lists it first; picking it
+// changes nothing.
+const LIST_VIEWS = {
+    comparison: ({ op, c, t }, list, entry) => ({
+        text: entry.label, color: c.text,
+        title: t?.meritFunctionEditor?.comparisonTitles?.[op.type]?.[list.value],
+    }),
+    integral({ op, c, t }, list, entry) {
+        if (entry) return { text: entry.label, title: entry.label, color: c.text };
+        const desc = describeCustomIntegral(op, t.integralValues.customParts, t.units);
+        return { text: desc, title: t.meritFunctionEditor.customIntegralTip(desc), color: c.text, head: desc };
     },
-        h('option', { value: 'le', style: { background: c.panel } }, '≤'),
-        h('option', { value: 'ge', style: { background: c.panel } }, '≥'),
-        h('option', { value: 'eq', style: { background: c.panel } }, '='),
-    ));
+    // The row a math row reads, as its number and type, such as #4 TMN.
+    reference({ c, t, operands }, list, entry) {
+        const mfe = t.meritFunctionEditor;
+        const head = list.gone ? mfe.refDeleted : mfe.refPick;
+        if (list.gone) return { text: head, title: mfe.refDeletedTip, color: '#ef5350', head };
+        if (!entry) return { text: head, title: mfe.refPickTip, color: c.text, head };
+        const index = operands.findIndex(row => row.id === list.value);
+        return { text: entry.label, title: `#${index + 1} (${operands[index].type})`, color: c.text, head };
+    },
+    curve({ c, t }, list, entry) {
+        const mfe = t.meritFunctionEditor;
+        const head = list.gone ? mfe.curveRefGone : mfe.curveRefPick;
+        if (list.gone) return { text: head, title: head, color: c.error, head };
+        return { text: entry ? entry.label : head, title: mfe.curveRefTip, color: c.text, head };
+    },
+};
+
+// The row context carries the operands and the integral presets the lists
+// are made of.
+function listView(ctx, colKey) {
+    const list = listOf(ctx.op, colKey, ctx);
+    const entry = list.options.find(option => option.value === list.value);
+    const view = LIST_VIEWS[listKind(ctx.op, colKey)](ctx, list, entry);
+    const options = view.head == null ? list.options : [{ value: null, label: view.head }, ...list.options];
+    return { ...view, options, value: list.value };
 }
 
-function integralStartCell(ctx, colKey, width) {
-    const { op, c, t, tdBase, cellClick, onEdit, integralPresets } = ctx;
-    const matchKey = op.presetKey && integralPresets.some(preset => preset.key === op.presetKey) ? op.presetKey : '';
-    const customDesc = describeCustomIntegral(op, t.integralValues.customParts, t.units);
-    return h('td', {
-        key: colKey, onClick: event => cellClick(colKey, event),
-        style: tdBase(colKey, width, { padding: '0 2px' }),
-    }, h(CellSelect, {
-        value: matchKey,
-        onChange: event => {
-            const preset = integralPresets.find(item => item.key === event.target.value);
-            if (!preset) return;
-            const typeMap = { T: 'TIW', R: 'RIW', A: 'AIW' };
-            onEdit(op.id, '_patch', {
-                type: typeMap[preset.char] || op.type,
-                presetKey: preset.key,
-                source: { ...preset.sourceSpec },
-                detector: { ...preset.detectorSpec },
-                lambdaStart: preset.band[0],
-                lambdaEnd: preset.band[1],
-            });
+// A value out of a list in a λ column: a math row's reference, a thickness or
+// force row's comparison, an integral's preset or a PPEF row's curve block.
+export function listValueCell(ctx, colKey, width) {
+    return listCell(ctx, colKey, width, listView(ctx, colKey));
+}
+
+// The same cell with its list open under it. A pick makes the edit
+// listValues.js gives for it, if any.
+export function listValuePickerCell(ctx, colKey, width) {
+    const { op, onEdit } = ctx;
+    return listEditorCell(ctx, colKey, width, {
+        ...listView(ctx, colKey),
+        commit: value => {
+            const edit = listEdit(op, colKey, value, ctx);
+            if (edit) onEdit(op.id, edit[0], edit[1]);
         },
-        title: matchKey
-            ? (integralPresets.find(preset => preset.key === matchKey)?.label || matchKey)
-            : t.meritFunctionEditor.customIntegralTip(customDesc),
-        color: c.text,
-    },
-        !matchKey && h('option', {
-            key: '_none', value: '', style: { background: c.panel, color: c.textDim },
-        }, customDesc),
-        integralPresets.map(preset => h('option', {
-            key: preset.key, value: preset.key, title: preset.label, style: { background: c.panel },
-        }, preset.label)),
-    ));
+    });
 }
 
-function mathReferenceCell(ctx, colKey, width) {
-    const { op, c, t, tdBase, cellClick, onEdit, operands } = ctx;
-    const mfe = t.meritFunctionEditor;
-    const secondReference = colKey === 'lambdaEnd';
-    if (secondReference && !isMathPairRef(op.type)) return dashCell(ctx, colKey, width);
-    const refKey = isMathPairRef(op.type) ? (secondReference ? 'refId2' : 'refId1') : 'refId';
-    const currentRefId = op[refKey];
-    const referencedIndex = currentRefId ? operands.findIndex(item => item.id === currentRefId) : -1;
-    const stale = currentRefId && referencedIndex < 0;
-    const title = stale ? mfe.refDeletedTip
-        : referencedIndex >= 0 ? `#${referencedIndex + 1} (${operands[referencedIndex].type})`
-        : mfe.refPickTip;
-    return h('td', {
-        key: colKey,
-        onClick: event => cellClick(colKey, event),
-        style: tdBase(colKey, width, { padding: '0 2px', color: stale ? '#ef5350' : c.text }),
-    }, h(CellSelect, {
-        value: currentRefId || '',
-        onChange: event => onEdit(op.id, '_patch', { [refKey]: event.target.value || null }),
-        title,
-        color: stale ? '#ef5350' : c.text,
-    },
-        h('option', {
-            key: '_none', value: '', style: { background: c.panel, color: c.textDim },
-        }, stale ? mfe.refDeleted : mfe.refPick),
-        operands.map((candidate, index) => candidate.id === op.id ? null : h('option', {
-            key: candidate.id, value: candidate.id, style: { background: c.panel },
-        }, `#${index + 1} ${candidate.type}`)).filter(Boolean),
-    ));
-}
-
-// Polarization as text. Focused, the cell shows a chevron at its right, the
-// way a spreadsheet marks a cell that offers a list; the chevron, Enter or a
-// double-click drops the list open, and a typed a, s or p sets the value
-// outright. A type that carries its own polarization shows it dimmed and
-// takes no edit.
+// Polarization, picked from its three values, or set outright by a typed a, s
+// or p. A type that carries its own polarization shows it dimmed and takes no
+// edit.
 export function polarizationCell(ctx, colKey, width) {
-    const { op, rowIdx, c, tdBase, startEdit, focusColKey } = ctx;
+    const { op, c } = ctx;
     const embedded = polFromType(op.type);
-    const open = () => startEdit(rowIdx, colKey, null);
-    return h('td', {
-        key: colKey, ...selectable(ctx, colKey),
-        onDoubleClick: embedded ? undefined : open,
-        style: tdBase(colKey, width, { color: embedded ? c.textDim : c.text }),
-    },
-        embedded || op.pol,
-        !embedded && focusColKey === colKey && h('span', {
-            onClick: open,
-            style: { float: 'right', color: c.textDim, cursor: 'pointer', paddingLeft: 4 },
-        }, '▾'),
-    );
+    return listCell(ctx, colKey, width, {
+        text: embedded || op.pol, color: embedded ? c.textDim : c.text, fixed: !!embedded,
+    });
 }
 
-// The Pol cell while it is being edited: its value, with the list of the
-// three dropped under it.
+const POL_OPTIONS = OPERAND_POLS.map(pol => ({ value: pol, label: pol }));
+
+// The Pol cell with the list of the three dropped under it.
 export function polPickerCell(ctx, colKey, width) {
-    const { op, rowIdx, c, tdBase, commitEdit, focusAt, setEditCell } = ctx;
-    return h('td', { key: colKey, style: tdBase(colKey, width) },
-        op.pol,
-        h(PolList, {
-            value: op.pol,
-            onCommit: pol => { commitEdit(rowIdx, colKey, pol); focusAt(rowIdx, colKey); },
-            onCancel: refocus => { setEditCell(null); if (refocus) focusAt(rowIdx, colKey); },
-            c,
-        }),
-    );
+    const { op, c, onEdit } = ctx;
+    return listEditorCell(ctx, colKey, width, {
+        text: op.pol, color: c.text, options: POL_OPTIONS, value: op.pol, pickByKey: polFromKey,
+        commit: pol => onEdit(op.id, 'pol', pol),
+    });
 }
 
 // A value read at the row's default step where the row has a Step of its own,
@@ -325,18 +283,19 @@ export function rowRenderers(op, meta) {
     };
     if (meta.isCon) { renderers.aoi = dashCell; renderers.pol = dashCell; }
     if (meta.isTT || meta.isStr) {
-        renderers.lambdaStart = comparisonCell;
+        renderers.lambdaStart = listValueCell;
         renderers.lambdaEnd = dashCell;
         renderers.aoi = dashCell;
         renderers.pol = dashCell;
     }
     if (isIntegral(op.type)) {
-        renderers.lambdaStart = integralStartCell;
+        renderers.lambdaStart = listValueCell;
         renderers.lambdaEnd = dashCell;
     }
+    // A pair row reads its first row in λ Start and its second in λ End.
     if (meta.isMth) {
-        renderers.lambdaStart = mathReferenceCell;
-        renderers.lambdaEnd = mathReferenceCell;
+        renderers.lambdaStart = listValueCell;
+        renderers.lambdaEnd = isMathPairRef(op.type) ? listValueCell : dashCell;
         renderers.aoi = dashCell;
         renderers.pol = dashCell;
     }
@@ -345,7 +304,7 @@ export function rowRenderers(op, meta) {
     if (meta.isConst) CONSTANT_DASHES.forEach(colKey => { renderers[colKey] = dashCell; });
     // A PPEF row reads its curve block at the block's own angle and polarization.
     if (meta.isPpef) {
-        renderers.lambdaStart = curveReferenceCell;
+        renderers.lambdaStart = listValueCell;
         renderers.lambdaEnd = dashCell;
         renderers.aoi = dashCell;
         renderers.pol = dashCell;

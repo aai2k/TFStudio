@@ -3,12 +3,14 @@
  *
  * Two selections live side by side, the way they do in a spreadsheet. Rows are
  * selected from the row-number column, by a press, a drag down it, Shift and
- * Ctrl, and row actions (delete, cut, duplicate) act on them. Cells are
+ * Ctrl, and row actions (delete, cut, duplicate) act on them; with no row
+ * selected, they take the rows holding the selected cells. Cells are
  * selected by clicking, dragging, Shift and Ctrl on the cells themselves: one
  * focused cell, the rectangle from the anchor to it, and any cells added with
  * Ctrl, held by the shared grid selection (ui/grid/useGridSelection.js).
  * Clicking a cell clears the row selection, and selecting a row clears the
- * cells and the focus.
+ * cells and the focus. A header or comment row has no cells, so an arrow onto
+ * one selects it as a row.
  *
  * The handlers a row is given never change identity. A merit function runs to
  * thousands of rows and the table is re-rendered whenever anything above it is:
@@ -30,7 +32,9 @@ import { mathTargetInPercent } from '../../../../../utils/physics/optimizer.js';
 import { NO_CELLS } from '../../../../ui/grid/gridModel.js';
 import { useGridSelection } from '../../../../ui/grid/useGridSelection.js';
 import { commitEdit, startEdit } from './editModel.js';
-import { MF_GRID, navigationTarget, selectionAfterRowClick } from './selectionModel.js';
+import {
+    MF_GRID, isHeaderOrComment, navigationTarget, selectionAfterRowClick,
+} from './selectionModel.js';
 import { doKeyDown } from './tableKeyboard.js';
 
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
@@ -50,10 +54,15 @@ function selectRow(ctx, id, shift, ctrl, keepFocus = false) {
     if (!keepFocus) cells.tableRef.current?.focus();
 }
 
-// A cell was chosen: the row selection goes, and the operand is reported.
-function pickRow(ctx, rowIdx) {
+// A cell was chosen: the row selection goes, and the operand is reported. The
+// focus landing alone on a header or comment row, which has no cells, selects
+// that row instead, as a click on it does, so it is drawn selected and the row
+// keys act on it. The focus stays, so the next arrow keeps to its column.
+function pickRow(ctx, rowIdx, alone) {
     const op = ctx.operands[rowIdx];
-    ctx.set.selIds(NO_CELLS);
+    const asRow = alone && isHeaderOrComment(op);
+    ctx.set.selIds(asRow ? new Set([op.id]) : NO_CELLS);
+    if (asRow) ctx.set.anchor(op.id);
     ctx.lastReported.current = op.id;
     ctx.onSelect(op.id);
     ctx.cells.tableRef.current?.focus();
@@ -67,7 +76,9 @@ function navigate(ctx, fromRowIdx, fromColKey, direction) {
 }
 
 export function useMFTableSelection(props) {
-    const { operands, selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd } = props;
+    const {
+        operands, integralPresets, selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
+    } = props;
     const [selIds, setSelIds] = useState(() => selectedId ? new Set([selectedId]) : new Set());
     const [anchor, setAnchor] = useState(selectedId || null);
     const [editCell, setEditCell] = useState(null);
@@ -91,14 +102,27 @@ export function useMFTableSelection(props) {
     const context = useCallback(() => ({ ...live.current, lastReported, set }), [set]);
     const cells = useGridSelection(MF_GRID, {
         hasRow: rowIdx => !!live.current.operands[rowIdx],
-        onPick: rowIdx => pickRow(context(), rowIdx),
+        onPick: (rowIdx, alone) => pickRow(context(), rowIdx, alone),
         onRowDrag: (rowIdx) => {
             const op = live.current.operands[rowIdx];
             if (op) selectRow(context(), op.id, true, false);
         },
     });
-    live.current = { operands, anchor, onSelect, onEdit, operandsById, cells };
+    live.current = { operands, integralPresets, anchor, onSelect, onEdit, operandsById, cells };
     const { focusCell, setFocusCell, extraCells, range, tableRef } = cells;
+
+    // Delete and Cut take the focused cell's row with them. The focus then goes
+    // to the cell in the same column of the row that takes the first removed
+    // row's place, the last row when there is none below, so the keys keep
+    // working without a click. It is placed once the shorter list has arrived,
+    // since placing it reports its row to the window.
+    const refocus = useRef(null);
+    const focusAfterRemoval = useCallback((rowIdx, colKey) => { refocus.current = { rowIdx, colKey }; }, []);
+    useEffect(() => {
+        const target = refocus.current;
+        refocus.current = null;
+        if (target && operands.length > 0) cells.focusAt(Math.min(target.rowIdx, operands.length - 1), target.colKey);
+    }, [operands, cells.focusAt]);
 
     const isMathPct = useCallback(op => mathTargetInPercent(op, live.current.operandsById), []);
 
@@ -118,27 +142,30 @@ export function useMFTableSelection(props) {
     }, rowIdx, colKey, initChar), [isMathPct, setFocusCell]);
 
     const handleCommitEdit = useCallback((rowIdx, colKey, draft) => commitEdit({
-        operands: live.current.operands, onEdit: live.current.onEdit, setEditCell,
+        operands: live.current.operands, integralPresets: live.current.integralPresets,
+        onEdit: live.current.onEdit, setEditCell,
     }, rowIdx, colKey, draft), []);
 
     const handleNavigate = useCallback((rowIdx, colKey, direction) =>
         navigate(context(), rowIdx, colKey, direction), [context]);
 
     const onKeyDown = useCallback(event => doKeyDown({
-        editCell, focusCell, selectedIds: selIds, operands, setSelIds, setFocusCell,
+        editCell, focusCell, selectedIds: selIds, operands, integralPresets, setSelIds,
         range, extraCells, extendTo: cells.extendTo, collapseRange: cells.collapseRange,
+        clearCells: cells.clearCells, focusAfterRemoval,
         onDelete, onInsertAt, onDuplicate, onAdd, onEdit, onEditMany, focusAt: cells.focusAt,
         navigate: handleNavigate, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, isMathPct,
     }, event), [
-        editCell, focusCell, selIds, operands, range, extraCells, onDelete, onAdd, onInsertAt,
-        onDuplicate, onEdit, onEditMany, handleStartEdit, handleNavigate, setFocusCell,
-        handleCommitEdit, cells.extendTo, cells.collapseRange, cells.focusAt, isMathPct,
+        editCell, focusCell, selIds, operands, integralPresets, range, extraCells, onDelete, onAdd, onInsertAt,
+        onDuplicate, onEdit, onEditMany, handleStartEdit, handleNavigate,
+        handleCommitEdit, cells.extendTo, cells.collapseRange, cells.clearCells, cells.focusAt, isMathPct,
+        focusAfterRemoval,
     ]);
 
     return {
         selIds, setSelIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
-        range, extraCells,
+        range, extraCells, clearCells: cells.clearCells, focusAfterRemoval,
         isMathPct, selectRow: handleSelectRow, focusAt: cells.focusAt,
         extendTo: cells.extendTo, toggleCell: cells.toggleCell, pressCell: cells.pressCell,
         beginDrag: cells.beginDrag, dragOver: cells.dragOver,

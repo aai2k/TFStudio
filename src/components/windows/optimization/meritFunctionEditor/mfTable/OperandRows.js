@@ -1,7 +1,8 @@
 import { isBlank, isDmfs, isMath } from '../../../../../utils/physics/optimizer.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
 import {
-    editingCell, polPickerCell, polarizationCell, rowRenderers, textCell, typeCell, typePickerCell,
+    editingCell, listValueCell, listValuePickerCell, polPickerCell, polarizationCell,
+    rowRenderers, textCell, typeCell, typePickerCell,
 } from './OperandCells.js';
 import { COLS, rowDisplayMeta, rowTintAlpha, typeRgba } from './operandViewModel.js';
 import { selectedColumnsForRow } from './selectionModel.js';
@@ -125,6 +126,15 @@ function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, d
     );
 }
 
+// The cells that open an editor of their own, each with what it is drawn as
+// while that editor is open.
+const CELL_EDITORS = new Map([
+    [textCell, editingCell],
+    [typeCell, typePickerCell],
+    [polarizationCell, polPickerCell],
+    [listValueCell, listValuePickerCell],
+]);
+
 function MFDataRowView(props) {
     const {
         op, rowIdx, rawCur, bandLevel, contribution, largestContribution,
@@ -154,8 +164,8 @@ function MFDataRowView(props) {
     const rowDown = rowPress(op, selectRow, beginDrag);
     const rowEnter = () => dragOver(rowIdx, null);
 
-    // A click on a cell holding a control, a comparison or a reference
-    // dropdown, only focuses it.
+    // Current and % of MF² show results and take no part in a cell selection;
+    // a click on one only focuses it.
     const cellClick = colKey => focusAt(rowIdx, colKey);
 
     // Value cells select like spreadsheet cells; see useGridSelection.js.
@@ -177,13 +187,9 @@ function MFDataRowView(props) {
         style: { height: ROW_H, opacity: op.enabled ? 1 : 0.45 },
     },
         COLS.map(col => {
-            let render = renderers[col.key];
-            if (rowEdit?.colKey === col.key) {
-                if (render === textCell) render = editingCell;
-                else if (render === typeCell) render = typePickerCell;
-                else if (render === polarizationCell) render = polPickerCell;
-            }
-            return render(ctx, col.key, col.w);
+            const render = renderers[col.key];
+            const editor = rowEdit?.colKey === col.key && CELL_EDITORS.get(render);
+            return (editor || render)(ctx, col.key, col.w);
         }));
 }
 

@@ -13,7 +13,9 @@
  *   grid     the table's model from gridModel.js
  *   options  read at call time:
  *     hasRow(rowIdx)     whether the row exists to be selected
- *     onPick(rowIdx)     a click, Shift click, Ctrl click or arrow chose a cell
+ *     onPick(rowIdx, alone)  a click, Shift click, Ctrl click or arrow chose a
+ *                        cell; `alone` when that cell is now all that is
+ *                        selected, as after a plain click or arrow
  *     onRowDrag(rowIdx)  a drag begun with beginDrag('rows') entered a row
  */
 import { NO_CELLS, cellKey } from './gridModel.js';
@@ -25,7 +27,7 @@ const { useState, useEffect, useMemo, useRef } = React;
 // from a row-number column, 'cells' from a cell, null when nothing is held.
 
 const exists = (ctx, rowIdx) => ctx.live.current.options.hasRow(rowIdx);
-const picked = (ctx, rowIdx) => ctx.live.current.options.onPick?.(rowIdx);
+const picked = (ctx, rowIdx, alone) => ctx.live.current.options.onPick?.(rowIdx, alone);
 
 // The focus moves with nothing else selected, and nothing is reported.
 function place(ctx, rowIdx, colKey) {
@@ -39,7 +41,7 @@ function place(ctx, rowIdx, colKey) {
 function focusAt(ctx, rowIdx, colKey) {
     if (!exists(ctx, rowIdx)) return;
     place(ctx, rowIdx, colKey);
-    picked(ctx, rowIdx);
+    picked(ctx, rowIdx, true);
 }
 
 // Shift: the rectangle from the anchor grows to the cell.
@@ -47,7 +49,7 @@ function extendTo(ctx, rowIdx, colKey) {
     if (!ctx.live.current.anchorCell) focusAt(ctx, rowIdx, colKey);
     else if (exists(ctx, rowIdx)) {
         ctx.set.focusCell({ rowIdx, colKey });
-        picked(ctx, rowIdx);
+        picked(ctx, rowIdx, false);
     }
 }
 
@@ -66,7 +68,7 @@ function toggleCell(ctx, rowIdx, colKey) {
     ctx.set.extraCells(kept);
     ctx.set.focusCell(cell);
     ctx.set.anchorCell(cell);
-    picked(ctx, rowIdx);
+    picked(ctx, rowIdx, false);
 }
 
 // A rectangle set as given, with no check that its rows exist and nothing
@@ -82,7 +84,7 @@ function placeRange(ctx, anchor, focus) {
 function selectRange(ctx, anchor, focus) {
     if (!exists(ctx, focus.rowIdx)) return;
     placeRange(ctx, anchor, focus);
-    picked(ctx, focus.rowIdx);
+    picked(ctx, focus.rowIdx, false);
 }
 
 // A press on a cell: Shift stretches the rectangle to it, Ctrl adds or removes

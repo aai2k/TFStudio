@@ -3,6 +3,7 @@ import {
     bandFlagStepNm, extremumFlag, isBandGridRow, isFractionalUnit, isMath, isRangeTarget, isValidMeritWeight, polFromType,
 } from '../../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../../utils/misc/numberParsing.js';
+import { listKind, listPaste, listText } from './listValues.js';
 import { RANGE_TARGET_TYPES, editableColsForRow } from './operandViewModel.js';
 
 export function targetInitialValue(op, mathPercent) {
@@ -45,8 +46,15 @@ export function flagCellText(op) {
     return String(extremumFlag(op));
 }
 
-/** The text a cell shows in its editor, which is also what it copies. */
-export function cellInitialText(op, colKey, mathPercent) {
+/**
+ * The text a cell copies, which for a cell that takes text is also what its
+ * editor opens with. A cell holding a value out of a list copies that value's
+ * name in the list, or nothing when it holds none of its entries; `table`
+ * ({ operands, integralPresets }) holds what those lists are made of
+ * (listValues.js).
+ */
+export function cellInitialText(op, colKey, mathPercent, table) {
+    if (listKind(op, colKey)) return listText(op, colKey, table);
     if (colKey === 'target') return targetInitialValue(op, mathPercent);
     if (colKey === 'flag') return flagCellText(op);
     return String(op[colKey] ?? '');
@@ -94,9 +102,15 @@ const CELL_PARSERS = {
  * mark. Text that is not a
  * number from start to end, such as '94abc', is refused rather than read up to
  * the first letter.
+ *
+ * A cell holding a value out of a list, such as a math row's reference, takes
+ * the name of one of its entries, as it copies, and refuses anything else, a
+ * number included, so a paste never reaches the λ Start the cell hides.
+ * `table` is cellInitialText's.
  */
-export function cellEdit(op, colKey, draft) {
+export function cellEdit(op, colKey, draft, table) {
     const raw = (draft ?? '').toString().trim();
+    if (listKind(op, colKey)) return listPaste(op, colKey, raw, table);
     const parse = CELL_PARSERS[colKey];
     if (parse) return parse(op, raw);
     const value = parseNumberStrict(raw);
@@ -109,17 +123,26 @@ export function commitTarget(op, draft, onEdit) {
     if (edit) onEdit(op.id, edit[0], edit[1]);
 }
 
-// Pol: a typed a, s or p sets it outright; Enter or a double-click opens the
-// list of three. A type that carries its own polarization takes no edit.
+// Pol: a typed a, s or p sets it outright; Enter, Backspace or a double-click
+// opens the list of three. A type that carries its own polarization takes no
+// edit.
 function startPolEdit(ctx, op, rowIdx, initChar) {
     if (polFromType(op.type)) return;
-    if (initChar != null) {
+    if (initChar) {
         const pol = polFromKey(initChar);
         if (pol) ctx.onEdit(op.id, 'pol', pol);
         return;
     }
     ctx.setFocusCell({ rowIdx, colKey: 'pol' });
     ctx.setEditCell({ rowIdx, colKey: 'pol', initValue: op.pol });
+}
+
+// A cell holding one value out of a list opens the list. A typed character
+// does nothing: none of these cells takes text.
+function startListEdit(ctx, op, rowIdx, initChar, colKey) {
+    if (initChar) return;
+    ctx.setFocusCell({ rowIdx, colKey });
+    ctx.setEditCell({ rowIdx, colKey, initValue: '' });
 }
 
 // How editing starts in the cells that open something other than the text
@@ -133,31 +156,37 @@ const EDIT_STARTERS = {
     pol: startPolEdit,
 };
 
+function starterFor(op, colKey) {
+    return listKind(op, colKey) ? startListEdit : EDIT_STARTERS[colKey];
+}
+
 /**
  * Begin editing a cell from the keyboard or a double-click. `initChar` is the
- * key that started it, or null for Enter.
+ * character typed to start it, '' for Backspace, or null for Enter.
  *
  * Type opens the operand picker in the cell, with the typed letter already in
  * its search box. Pol opens its list of three values; a typed a, s or p sets
- * it outright instead, with no list. Every other editable cell opens the text
- * editor, holding the typed character or the current value.
+ * it outright instead, with no list. A math row's references, a thickness or
+ * force row's comparison, an integral's preset and a PPEF row's curve block
+ * open their lists. Every other editable cell opens the text editor, holding
+ * the typed character, nothing after Backspace, or the current value.
  */
 export function startEdit(ctx, rowIdx, colKey, initChar) {
     const op = ctx.operands[rowIdx];
     if (!op || !editableColsForRow(op).includes(colKey)) return;
-    const starter = EDIT_STARTERS[colKey];
+    const starter = starterFor(op, colKey);
     if (starter) {
-        starter(ctx, op, rowIdx, initChar);
+        starter(ctx, op, rowIdx, initChar, colKey);
         return;
     }
     const value = cellInitialText(op, colKey, ctx.isMathPct(op));
     ctx.setEditCell({ rowIdx, colKey, initValue: initChar != null ? initChar : value });
 }
 export function commitEdit(ctx, rowIdx, colKey, draft) {
-    const { operands, onEdit, setEditCell } = ctx;
+    const { operands, integralPresets, onEdit, setEditCell } = ctx;
     setEditCell(null);
     const op = operands[rowIdx];
     if (!op) return;
-    const edit = cellEdit(op, colKey, draft);
+    const edit = cellEdit(op, colKey, draft, { operands, integralPresets });
     if (edit) onEdit(op.id, edit[0], edit[1]);
 }

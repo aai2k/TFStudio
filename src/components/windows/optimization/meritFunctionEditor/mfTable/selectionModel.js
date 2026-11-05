@@ -1,7 +1,13 @@
+import { isBlank, isDmfs } from '../../../../../utils/physics/optimizer.js';
 import {
     createGridModel, navigationTarget as gridNavigationTarget,
 } from '../../../../ui/grid/gridModel.js';
 import { COLS, editableColsForRow } from './operandViewModel.js';
+
+/** A DMFS header or a comment row: a row with no cells, selected only as a row. */
+export function isHeaderOrComment(op) {
+    return isDmfs(op.type) || isBlank(op.type);
+}
 
 export function selectionAfterRowClick(options) {
     const { operands, previous, anchor, id, shift, ctrl } = options;
@@ -37,6 +43,21 @@ export const MF_GRID = createGridModel(RANGE_COLUMNS, {
 });
 
 export const { cellRange, selectedCells, selectedColumnsForRow } = MF_GRID;
+
+/**
+ * The rows Delete, Cut and Duplicate act on, from the keys, the right-click
+ * menu or the toolbar: the rows selected as rows, or else every row holding a
+ * selected cell, the focused one included. A header or comment row has no
+ * cells, so a rectangle drawn across one leaves it out.
+ */
+export function rowsOfSelection(operands, { selectedIds, focusCell, range, extraCells }) {
+    if (selectedIds.size > 0) return [...selectedIds];
+    const ids = selectedCells({ range, extraCells, focus: focusCell })
+        .map(cell => operands[cell.rowIdx])
+        .filter(op => op && !isHeaderOrComment(op))
+        .map(op => op.id);
+    return [...new Set(ids)];
+}
 
 /**
  * The cells an arrow key walks through on a row. Every value column counts,

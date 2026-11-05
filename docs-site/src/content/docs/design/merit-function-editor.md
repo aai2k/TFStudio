@@ -79,26 +79,40 @@ keeps its values while the window is closed and reopened.
 
 One row per operand. The table works like a spreadsheet:
 
-- Click a cell to focus it, type to replace its value, or press Enter or
-  double-click to edit it. Enter commits and moves down, Tab moves right,
-  Escape cancels.
+- Click a cell to focus it, type to replace a number, or press Enter or
+  double-click to edit it. Backspace opens a number cell with its text
+  cleared. Enter commits and moves down, Tab moves right, Escape cancels.
 - The **Type** cell holds the operand code. Typing a letter opens the operand
-  picker searching for it; Enter or a double-click opens it on the current
-  type. The **Pol** cell shows a chevron while it is focused; the chevron,
-  Enter or a double-click opens its three values as a list, and `a`, `s` or
-  `p` typed straight in sets it without the list.
+  picker searching for it, Backspace opens it with an empty search, and Enter
+  or a double-click opens it on the current type. The **Pol** cell shows a
+  chevron while it is focused; the chevron, Enter, Backspace or a double-click
+  opens its three values as a list, and `a`, `s` or `p` typed straight in sets
+  it without the list. A math row's **Ref Op#** cells name the rows it reads,
+  as `#4 TMN`, and open the table's other rows as a list the same way. So do
+  **Cmp** on a `TT` or `STR` row (`≤`, `≥` or `=`), **Integral** on a
+  weighted integral (the integral presets) and **Curve** on a `PPEF` row (the
+  table's curve blocks). On these four a typed key does nothing. The first
+  entry of a Ref Op# or Curve list empties the cell. A weighted integral that
+  matches no preset shows its own source, detector and band, and lists them
+  first.
 - The **Flag** cell is headed **Step** on the rows that take it. On a row that looks for a peak, such as `TMX` or `MXWT`, it sets how finely the band is searched, from 1 for 1 nm to 4 for 0.001 nm ([Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral or `*FLAT` row, the coarsest step of its grid ([Sampling a band](/design/operands/#sampling-a-band)). Other rows show a dash there.
 - Drag across cells, or hold Shift, to select a rectangle; hold Ctrl to add
   single cells. Ctrl+C copies the selection as tab-separated text, Ctrl+V
   pastes text over it: one value fills every selected cell, a block of values
   is laid out from the focused cell. Text that came from copying rows is
-  inserted as rows.
+  inserted as rows. A cell that picks from a list copies the name of its
+  value, such as `#4 TMN` or `Tvis`, and takes a name from its list when
+  pasted over; a number or any other text leaves it as it is.
 - Rows are selected from the row-number column at the left: click one, drag
   down the column for a run, Shift for a run, Ctrl to add. A comment or header
-  row is selected by a click anywhere on it. Delete, Ctrl+X and Ctrl+D act on
-  selected rows; Insert adds a row above the focused one, Shift+Insert below.
+  row is selected by a click anywhere on it, or by an arrow key landing on it.
+  Ctrl+X, Ctrl+D and Delete cut, duplicate and remove the selected rows, or
+  with none selected, the rows holding the selected cells. Insert adds a row
+  above the focused one, Shift+Insert below.
 - Right-click opens the same actions as a menu: copy and paste of the cell or
-  cells, cut, copy and paste of operands, insert, duplicate and delete.
+  cells, cut, copy and paste of operands, insert, duplicate and delete. Its
+  cut, copy, duplicate and delete act on the selected rows, or with none
+  selected, the rows holding the selected cells.
 
 **Load MF** and **Save MF** in the table's bar load and save the whole table as
 a named merit function you can reuse in another design.

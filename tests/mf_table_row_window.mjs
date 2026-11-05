@@ -124,8 +124,8 @@ const spansTable = (view, count) =>
 // A row names the operand it stands for, because its position among the built
 // rows is not its position in the table.
 {
-    // Type and Pol are text; the one dropdown left in a plain row is the
-    // comparison of a total-thickness operand, so one sits near the top.
+    // Plain rows, with a total-thickness operand near the top for its
+    // comparison cell.
     const operands = Array.from({ length: 4000 }, (_, index) => (index === 1
         ? { id: 'tt', type: 'TT', enabled: true, lambdaStart: 1, lambdaEnd: 1, aoi: 0, pol: 'avg', cmp: 'le', target: 3000, weight: 1 }
         : {
@@ -154,15 +154,13 @@ const spansTable = (view, count) =>
     // ── Nothing in a row may outgrow ROW_H ──────────────────────────────────
     // A row is placed from its index, and `height` on a table row is only a
     // minimum, so any cell content taller than ROW_H silently pushes the whole
-    // table out of step with its scrollbar. Two things in a row can: the
-    // dropdowns, which the customizable-select UA style gives a 24px minimum
-    // height of their own, and the DMFS header, which is a sentence.
-    for (const tag of html.match(/<select[^>]*>/g) || []) {
-        assert.match(tag, /min-height:0/, `a row dropdown clears the UA minimum: ${tag.slice(0, 90)}`);
-        assert.match(tag, new RegExp(`height:${ROW_H - 2}px`),
-            `a row dropdown is given a height that fits the row: ${tag.slice(0, 90)}`);
-    }
-    assert.ok((html.match(/<select[^>]*>/g) || []).length > 0, 'the fixture does render dropdowns');
+    // table out of step with its scrollbar. Two things in a row could: a native
+    // dropdown, which the customizable-select UA style gives a 24px minimum
+    // height of its own, and the DMFS header, which is a sentence. A cell that
+    // offers a choice draws its list in the page instead, so no row holds a
+    // dropdown.
+    assert.ok(html.includes('>≤</span>'), 'the comparison cell is among the rows built');
+    assert.ok(!html.includes('<select'), 'no row holds a native dropdown');
 }
 
 // ── The DMFS header is cut short rather than wrapped ────────────────────────

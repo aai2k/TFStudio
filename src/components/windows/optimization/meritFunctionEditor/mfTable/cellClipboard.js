@@ -27,17 +27,23 @@ export function clipboardScope({ op, focusCell, selectedIds }) {
     return selectedIds.size > 1 ? 'rows' : 'cell';
 }
 
-/** The text a cell shows in its editor, which is also what it copies. */
+/** The text a cell copies; see cellInitialText in editModel.js. */
 export const cellText = cellInitialText;
 
+// One cell's text, for the grid's copy below.
+function textOfCell(operands, isMathPct, integralPresets) {
+    const table = { operands, integralPresets };
+    return (op, colKey) => cellText(op, colKey, isMathPct(op), table);
+}
+
 /** A rectangle of operand cells as tab-separated lines; see gridModel.js. */
-export function rangeText(operands, range, isMathPct) {
-    return MF_GRID.rangeText(operands, range, (op, colKey) => cellText(op, colKey, isMathPct(op)));
+export function rangeText(operands, range, isMathPct, integralPresets) {
+    return MF_GRID.rangeText(operands, range, textOfCell(operands, isMathPct, integralPresets));
 }
 
 /** Operand cells that are not one rectangle as text; see gridModel.js. */
-export function selectionText(operands, selection, isMathPct) {
-    return MF_GRID.selectionText(operands, selection, (op, colKey) => cellText(op, colKey, isMathPct(op)));
+export function selectionText(operands, selection, isMathPct, integralPresets) {
+    return MF_GRID.selectionText(operands, selection, textOfCell(operands, isMathPct, integralPresets));
 }
 
 export function copyCellText(text, clipboard = navigator.clipboard) {
@@ -48,14 +54,14 @@ export function copyCellText(text, clipboard = navigator.clipboard) {
  * The edits a grid of text makes to the table: one entry per target cell, in
  * the form the window's edit callback takes. Text a cell cannot hold is skipped.
  */
-export function gridEdits({ grid, range, focus, operands, cells, text }) {
+export function gridEdits({ grid, range, focus, operands, integralPresets, cells, text }) {
     const edits = [];
     const targets = cells
         ? cells.map(cell => ({ ...cell, text }))
         : pasteTargets({ grid, range, focus, operands });
     for (const target of targets) {
         const op = operands[target.rowIdx];
-        const edit = cellEdit(op, target.colKey, target.text);
+        const edit = cellEdit(op, target.colKey, target.text, { operands, integralPresets });
         if (edit) edits.push({ id: op.id, key: edit[0], value: edit[1] });
     }
     return edits;
@@ -79,12 +85,13 @@ export function pasteIntoCell(ctx, clipboard = navigator.clipboard) {
         const grid = parseCellGrid(raw);
         const single = grid.length === 1 && grid[0].length === 1;
         if (single && grid[0][0] === '') return;
+        const { operands, integralPresets } = ctx;
         // Cells gathered with Ctrl take one value each, whatever their shape.
         if (single && ctx.extraCells?.size) {
             const cells = selectedCells({
                 range: ctx.range, extraCells: ctx.extraCells, focus: { rowIdx: ctx.rowIdx, colKey: ctx.colKey },
             });
-            applyEdits(ctx, gridEdits({ grid, range: null, focus: null, operands: ctx.operands, cells, text: grid[0][0] }));
+            applyEdits(ctx, gridEdits({ grid, range: null, focus: null, operands, integralPresets, cells, text: grid[0][0] }));
             return;
         }
         if (!ctx.range && single) {
@@ -97,7 +104,7 @@ export function pasteIntoCell(ctx, clipboard = navigator.clipboard) {
             return;
         }
         applyEdits(ctx, gridEdits({
-            grid, range: ctx.range || null, focus: { rowIdx: ctx.rowIdx, colKey: ctx.colKey }, operands: ctx.operands,
+            grid, range: ctx.range || null, focus: { rowIdx: ctx.rowIdx, colKey: ctx.colKey }, operands, integralPresets,
         }));
     }).catch(() => {});
 }

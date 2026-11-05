@@ -1,8 +1,5 @@
-import { OPERAND_POLS } from '../../../../../utils/physics/optimizer.js';
 import { dropPositionFrom } from '../../../../ui/PickerDropdown.js';
 import { listenForDismiss, ownerWindow } from '../../../../ui/ownerWindow.js';
-import { polFromKey } from './editModel.js';
-import { ROW_H } from './rowWindow.js';
 
 const { createElement: h, useState, useEffect, useLayoutEffect, useRef } = React;
 
@@ -31,52 +28,90 @@ export function TblBtn({ label, onClick, disabled, c, accent, title }) {
     }, label);
 }
 
-/**
- * A dropdown sized to sit inside one table row.
- *
- * The customizable select the app opts into carries a 24 px minimum height of
- * its own, which is taller than a row. Left alone it stretches the row past
- * `ROW_H`, and since a row is placed from its index the whole table then drifts
- * out of step with its scrollbar. The minimum is cleared and the height given
- * outright. Its text also wraps by default, and a long choice in a narrow
- * column, a curve block's name, would spill over the rows below; it is kept to
- * one line and cut short.
- */
-export function CellSelect({ value, onChange, title, color, children }) {
-    return h('select', {
-        value, onChange, title,
+// What a key does in an open list: moves the highlight, picks a value, or
+// closes the list. Null for a key the list has no use for.
+function listKeyAction(event, { options, highlight, pickByKey }) {
+    const count = options.length;
+    const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
+    if (step) return { highlight: count ? (highlight + step + count) % count : 0 };
+    if (event.key === 'Enter' || event.key === ' ') return { pick: options[highlight]?.value };
+    if (event.key === 'Escape') return { cancel: true };
+    const typed = event.ctrlKey || event.altKey || event.metaKey ? null : pickByKey?.(event.key);
+    return typed ? { pick: typed } : null;
+}
+
+// A long list, such as the rows a math row can read, scrolls; the highlighted
+// entry is kept in sight.
+function keepInView(list, index) {
+    const item = list?.children[index];
+    if (!item) return;
+    const bottom = item.offsetTop + item.offsetHeight;
+    if (item.offsetTop < list.scrollTop) list.scrollTop = item.offsetTop;
+    else if (bottom > list.scrollTop + list.clientHeight) list.scrollTop = bottom - list.clientHeight;
+}
+
+// Where the list sits: under or over its cell once measured. Until then it is
+// out of sight, with its scrollbar showing, so the width it is measured at
+// still fits its longest entry if it turns out long enough to scroll.
+function listPlacement(pos) {
+    if (!pos) return { visibility: 'hidden', overflowY: 'scroll' };
+    const edge = pos.top != null ? { top: pos.top } : { bottom: pos.bottom };
+    return { left: pos.left, width: pos.width, maxHeight: pos.maxH, ...edge };
+}
+
+// One entry: lit under the pointer or the arrows, marked when it is the
+// cell's value. It is picked on the press: a click would first move the focus
+// off the list and close it.
+function listItem(option, index, { current, highlight, setHighlight, onCommit, c }) {
+    const marked = index === current;
+    return h('div', {
+        key: index,
+        onMouseDown: event => { event.preventDefault(); onCommit(option.value); },
+        onMouseEnter: () => setHighlight(index),
         style: {
-            width: '100%', background: 'transparent', color, border: 'none',
-            fontSize: 11, padding: '1px 2px', fontFamily: 'inherit', outline: 'none', cursor: 'pointer',
-            height: ROW_H - 2, minHeight: 0, boxSizing: 'border-box',
+            padding: '2px 8px', cursor: 'pointer',
             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            background: index === highlight ? c.accent + '33' : 'transparent',
+            color: marked ? c.accent : c.text, fontWeight: marked ? 600 : 400,
         },
-    }, children);
+    }, option.label);
 }
 
 /**
- * The Pol cell's editor: the three polarizations as a short list dropped under
- * the cell, the current one marked. Arrows move the highlight, Enter or a click
- * picks, a typed a, s or p picks outright, and Escape or the focus leaving the
- * list closes it.
+ * A cell's list of values, dropped under the cell with the current one
+ * marked. Arrows move the highlight, Enter or a click picks, and Escape or the
+ * focus leaving the list closes it. `pickByKey(key)` names the value a typed
+ * key picks outright, as a, s and p do for polarization.
  *
  * It is drawn in the page, like the operand picker, and not as a native
  * dropdown: in the app's window that opens as a widget of its own, takes the
  * focus with it and reports no pick back to the cell.
+ *
+ * It is as wide as its longest entry, and never narrower than its cell or
+ * 60 px.
+ *
+ *   options   [{ value, label }] in list order; a value may be null, as for
+ *             the entry that empties a reference
+ *   value     the cell's value, marked in the list
  */
-export function PolList({ value, onCommit, onCancel, c }) {
-    const [highlight, setHighlight] = useState(Math.max(0, OPERAND_POLS.indexOf(value)));
+export function CellList({ options, value, onCommit, onCancel, pickByKey, c }) {
+    const current = options.findIndex(option => option.value === value);
+    const [highlight, setHighlight] = useState(Math.max(0, current));
     const [pos, setPos] = useState(null);
     const ref = useRef(null);
-    // Placed from the cell it hangs under, its parent, before the first paint;
-    // until measured it is drawn out of sight.
+    // Placed from the cell it hangs under, its parent, before the first paint,
+    // at the width it is drawn at out of sight.
     useLayoutEffect(() => {
-        const cell = ref.current?.parentElement;
-        if (cell) setPos(dropPositionFrom(cell.getBoundingClientRect(), 60, ownerWindow(cell)));
-    }, []);
+        const list = ref.current;
+        const cell = list?.parentElement;
+        if (!cell) return;
+        const width = Math.max(60, list.offsetWidth);
+        setPos(dropPositionFrom(cell.getBoundingClientRect(), width, ownerWindow(cell)));
+    }, []); // eslint-disable-line
     // Focused once it is placed, since a hidden element refuses the focus, and
     // the focus leaving is one of the two things that close the list.
     useLayoutEffect(() => { if (pos) ref.current?.focus(); }, [pos]);
+    useLayoutEffect(() => { if (pos) keepInView(ref.current, highlight); }, [pos, highlight]);
     // The other is a press anywhere outside it, in either window, which closes
     // it whether or not it ever held the focus. Escape from the table does too.
     useEffect(() => {
@@ -87,38 +122,67 @@ export function PolList({ value, onCommit, onCancel, c }) {
     }, []); // eslint-disable-line
     const onKeyDown = event => {
         event.stopPropagation();
-        const step = { ArrowDown: 1, ArrowUp: -1 }[event.key];
-        if (step) {
-            event.preventDefault();
-            setHighlight(index => (index + step + OPERAND_POLS.length) % OPERAND_POLS.length);
-            return;
-        }
-        if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onCommit(OPERAND_POLS[highlight]); return; }
-        if (event.key === 'Escape') { event.preventDefault(); onCancel(true); return; }
-        if (event.ctrlKey || event.altKey || event.metaKey) return;
-        const pol = polFromKey(event.key);
-        if (pol) { event.preventDefault(); onCommit(pol); }
+        const action = listKeyAction(event, { options, highlight, pickByKey });
+        if (!action) return;
+        event.preventDefault();
+        if (action.highlight != null) setHighlight(action.highlight);
+        else if (action.cancel) onCancel(true);
+        else onCommit(action.pick);
     };
-    const placement = pos
-        ? { left: pos.left, width: pos.width, ...(pos.top != null ? { top: pos.top } : { bottom: pos.bottom }) }
-        : { visibility: 'hidden' };
+    const item = { current, highlight, setHighlight, onCommit, c };
     return h('div', {
         ref, tabIndex: -1, onKeyDown, onBlur: () => onCancel(false),
         style: {
-            position: 'fixed', zIndex: 9999, outline: 'none', ...placement,
+            position: 'fixed', zIndex: 9999, outline: 'none', overflowY: 'auto', ...listPlacement(pos),
             background: c.panel, color: c.text, border: `1px solid ${c.border}`, borderRadius: 3,
             boxShadow: '0 4px 12px rgba(0,0,0,0.25)', fontSize: 11, padding: '2px 0',
         },
-    }, OPERAND_POLS.map((pol, index) => h('div', {
-        key: pol,
-        // Picked on the press: a click would first move the focus off the
-        // list and close it.
-        onMouseDown: event => { event.preventDefault(); onCommit(pol); },
-        onMouseEnter: () => setHighlight(index),
-        style: {
-            padding: '2px 8px', cursor: 'pointer',
-            background: index === highlight ? c.accent + '33' : 'transparent',
-            color: pol === value ? c.accent : c.text, fontWeight: pol === value ? 600 : 400,
-        },
-    }, pol)));
+    }, options.map((option, index) => listItem(option, index, item)));
+}
+
+// A list cell's face: its value on one line, cut short before the chevron.
+function listFace(text, caret) {
+    return h('span', { style: { display: 'flex', alignItems: 'center', gap: 4 } },
+        h('span', { style: { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, text),
+        caret);
+}
+
+/**
+ * A cell holding one value out of a list. Focused, it shows a chevron at its
+ * right, the way a spreadsheet marks a cell that offers a list; the chevron,
+ * Enter or a double-click opens the list (listEditorCell). A value the row
+ * fixes itself, such as a polarization carried in the type code, is shown
+ * dimmed and opens nothing.
+ *
+ *   view  { text, title, color, fixed }
+ */
+export function listCell(ctx, colKey, width, view) {
+    const { rowIdx, tdBase, startEdit, focusColKey } = ctx;
+    const open = () => startEdit(rowIdx, colKey, null);
+    const caret = !view.fixed && focusColKey === colKey
+        && h('span', { className: 'tf-caret', onClick: open, style: { cursor: 'pointer' } });
+    return h('td', {
+        key: colKey, ...selectable(ctx, colKey),
+        onDoubleClick: view.fixed ? undefined : open,
+        title: view.title,
+        style: tdBase(colKey, width, { color: view.color }),
+    }, listFace(view.text, caret));
+}
+
+/**
+ * A list cell with its list open under it. A pick goes to `list.commit` and
+ * puts the focus back on the cell, as Escape does; a click elsewhere leaves
+ * the focus where that click put it.
+ *
+ *   list  listCell's view, with { options, value, pickByKey, commit }
+ */
+export function listEditorCell(ctx, colKey, width, list) {
+    const { rowIdx, c, tdBase, focusAt, setEditCell } = ctx;
+    return h('td', { key: colKey, title: list.title, style: tdBase(colKey, width, { color: list.color }) },
+        listFace(list.text, h('span', { className: 'tf-caret tf-caret-open' })),
+        h(CellList, {
+            options: list.options, value: list.value, pickByKey: list.pickByKey, c,
+            onCommit: value => { setEditCell(null); list.commit(value); focusAt(rowIdx, colKey); },
+            onCancel: refocus => { setEditCell(null); if (refocus) focusAt(rowIdx, colKey); },
+        }));
 }

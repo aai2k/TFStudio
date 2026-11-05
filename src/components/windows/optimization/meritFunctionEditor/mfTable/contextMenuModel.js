@@ -7,9 +7,7 @@ import { clipboardScope } from './cellClipboard.js';
  * the operand. A click outside a cell (the empty area below the rows) has no
  * target. Neither has a right-click inside a typed control, which keeps the
  * browser's own copy and paste menu; the one exception is a comment row's
- * input, marked `data-row-menu`, since it covers the whole row. A dropdown is
- * not one of them: it offers nothing of its own to right-click, so the Pol,
- * comparison, integral and reference cells open the operand menu like any other.
+ * input, marked `data-row-menu`, since it covers the whole row.
  */
 export function menuTargetFromEvent(event, columns) {
     const target = event.target;
@@ -45,7 +43,8 @@ export function menuScope(op, colKey, selectedIds) {
 /**
  * The right-click menu of the operand table. Cell entries appear only when the
  * click landed on a text cell with no wider selection; the rest act on the
- * selected rows, or on the clicked row when nothing is selected.
+ * `selectedCount` rows the keys act on: the selected rows, or the rows holding
+ * the selected cells.
  */
 export function contextMenuItems({ te, scope, rowIdx, selectedCount, cellCount = 1, actions }) {
     const cm = te.contextMenu;

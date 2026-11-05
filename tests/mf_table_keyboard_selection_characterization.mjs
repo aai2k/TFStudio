@@ -95,6 +95,7 @@ const actionBase = {
     rowIdx: 1, colKey: 'target', operands: rows, selectedIds: new Set(['a', 'c']),
     setSelIds: value => actionCalls.push(['selection', [...value]]),
     setFocusCell: value => actionCalls.push(['focus-state', value]),
+    clearCells: () => actionCalls.push(['cells-cleared']),
     onDelete: ids => actionCalls.push(['delete', ids]),
     onInsertAt: (...args) => actionCalls.push(['insert', ...args]),
     onDuplicate: ids => actionCalls.push(['duplicate', ids]),
@@ -106,7 +107,7 @@ const deleteEvent = event('Delete');
 runKeyAction('Delete', { ...actionBase, event: deleteEvent });
 assert.equal(deleteEvent.prevented, true);
 assert.deepEqual(actionCalls.splice(0), [
-    ['delete', ['a', 'c']], ['selection', []], ['focus-state', null],
+    ['delete', ['a', 'c']], ['selection', []], ['cells-cleared'],
 ]);
 runKeyAction('Insert', { ...actionBase, event: event('Insert', { shiftKey: true }) });
 runKeyAction('Ctrl+d', { ...actionBase, event: event('d', { ctrlKey: true }) });
@@ -116,7 +117,7 @@ runKeyAction('Enter', { ...actionBase, event: event('Enter') });
 runKeyAction('Tab', { ...actionBase, event: event('Tab', { shiftKey: true }) });
 assert.deepEqual(actionCalls, [
     ['insert', 2, rows[1]],
-    ['duplicate', ['a', 'c']],
+    ['duplicate', ['a', 'c']], ['cells-cleared'],
     ['focus', 2, 'target'],
     ['navigate', 1, 'target', 'left'],
     ['edit', 1, 'target', null],
@@ -148,7 +149,7 @@ assert.deepEqual(keyCalls, [[0, 'weight', '7']]);
         event: { preventDefault: () => { prevented.count++; } },
         operands, selectedIds: selection, focusCell: focus, rowIdx: 0, colKey: 'target',
         onDelete: ids => deleted.push(ids),
-        setSelIds: next => { selection = next; }, setFocusCell: next => { focus = next; },
+        setSelIds: next => { selection = next; }, clearCells: () => { focus = null; }, focusAfterRemoval() {},
     });
     assert.deepEqual(deleted, [['r']], 'the focused row goes, even with a text cell focused');
     assert.equal(selection.size, 0);
@@ -156,7 +157,7 @@ assert.deepEqual(keyCalls, [[0, 'weight', '7']]);
     assert.equal(prevented.count, 1);
     runKeyAction('Ctrl+x', {
         event: { preventDefault() {} }, operands, selectedIds: new Set(), focusCell: null, rowIdx: 5, colKey: 'type',
-        onDelete: ids => deleted.push(ids), setSelIds() {}, setFocusCell() {},
+        onDelete: ids => deleted.push(ids), setSelIds() {}, clearCells() {},
     });
     assert.equal(deleted.length, 1, 'nothing to cut when no row is focused or selected');
 }

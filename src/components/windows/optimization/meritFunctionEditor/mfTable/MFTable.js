@@ -9,6 +9,8 @@ import { observeResize } from '../../../../ui/observeResize.js';
 import { ROW_H, rowWindow, scrollToRow } from './rowWindow.js';
 import { useTableContextMenu } from './useTableContextMenu.js';
 import { useMFTableSelection } from './useTableSelection.js';
+import { rowsOfSelection } from './selectionModel.js';
+import { deleteSelectedRows } from './tableKeyboard.js';
 import {
     COLS, TABLE_W, colLabel, columnPercent, dynamicHeaderLabels,
 } from './operandViewModel.js';
@@ -100,15 +102,6 @@ function tableBody(rowContext, view, noOperandsMsg) {
     ];
 }
 
-// The rows the Delete button removes: the selected rows, or the focused
-// cell's row. The Delete key is stricter and takes selected rows only, since
-// on a cell it reads as "clear", which a number cannot be.
-function rowsToDelete(operands, selIds, focusCell) {
-    if (selIds.size > 0) return [...selIds];
-    const focused = focusCell ? operands[focusCell.rowIdx] : null;
-    return focused ? [focused.id] : [];
-}
-
 // A toolbar button face: an icon, then its text. Block-level flex, so the
 // button lays it out without a line box and keeps the height of a text button.
 function iconLabel(icon, text) {
@@ -117,11 +110,14 @@ function iconLabel(icon, text) {
 
 function tableToolbar(options) {
     const {
-        operands, selIds, focusCell, primarySel, toolbarStart,
-        onAdd, onDelete, onClear, onMoveUp, onMoveDown, c, t,
+        operands, selIds, setSelIds, focusCell, range, extraCells, clearCells, focusAfterRemoval,
+        primarySel, toolbarStart, onAdd, onDelete, onClear, onMoveUp, onMoveDown, c, t,
     } = options;
     const te = t?.meritFunctionEditor || {};
-    const deletable = rowsToDelete(operands, selIds, focusCell);
+    const rowTable = {
+        operands, selectedIds: selIds, focusCell, range, extraCells, onDelete, setSelIds, clearCells, focusAfterRemoval,
+    };
+    const deletable = rowsOfSelection(operands, rowTable);
     return h('div', {
         style: {
             display: 'flex', alignItems: 'center', gap: 4, padding: '4px 6px',
@@ -136,7 +132,7 @@ function tableToolbar(options) {
             c,
         }),
         h(TblBtn, {
-            label: iconLabel('trash', te.deleteOperand || 'Delete'), onClick: () => onDelete(deletable),
+            label: iconLabel('trash', te.deleteOperand || 'Delete'), onClick: () => deleteSelectedRows(rowTable),
             disabled: deletable.length === 0, c,
         }),
         h(TblBtn, { label: '↑', onClick: onMoveUp, disabled: !primarySel, c }),
@@ -185,13 +181,13 @@ export function MFTable(props) {
     const integralPresets = useIntegralPresets();
     const {
         selIds, setSelIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
-        range, extraCells,
+        range, extraCells, clearCells, focusAfterRemoval,
         isMathPct, selectRow: handleSelectRow, focusAt: handleFocusAt,
         pressCell, beginDrag, dragOver,
         startEdit: handleStartEdit, commitEdit: handleCommitEdit,
         navigate: handleNavigate, onEdit: handleEdit, onKeyDown,
     } = useMFTableSelection({
-        operands, selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
+        operands, integralPresets, selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
     });
 
     const thStyle = {
@@ -248,7 +244,7 @@ export function MFTable(props) {
     }, [focusRow]);
 
     const contextMenu = useTableContextMenu({
-        operands, selIds, setSelIds, focusCell, range, extraCells,
+        operands, integralPresets, selIds, setSelIds, focusCell, range, extraCells, clearCells, focusAfterRemoval,
         focusAt: handleFocusAt, selectRow: handleSelectRow, setFocusCell,
         onAdd, onInsertAt, onDuplicate, onDelete, onEdit: handleEdit, onEditMany,
         commitEdit: handleCommitEdit, isMathPct,
@@ -295,8 +291,8 @@ export function MFTable(props) {
             ),
         ),
         showToolbar && tableToolbar({
-            operands, selIds, focusCell, primarySel, toolbarStart,
-            onAdd, onDelete, onClear, onMoveUp, onMoveDown, c, t,
+            operands, selIds, setSelIds, focusCell, range, extraCells, clearCells, focusAfterRemoval,
+            primarySel, toolbarStart, onAdd, onDelete, onClear, onMoveUp, onMoveDown, c, t,
         }),
     );
 }
