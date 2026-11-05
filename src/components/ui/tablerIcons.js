@@ -110,6 +110,12 @@ const PATHS = {
         'M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4',
         'M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4',
     ],
+    'player-play': [
+        'M7 4v16l13 -8l-13 -8',
+    ],
+    'player-stop': [
+        'M5 7a2 2 0 0 1 2 -2h10a2 2 0 0 1 2 2v10a2 2 0 0 1 -2 2h-10a2 2 0 0 1 -2 -2l0 -10',
+    ],
 };
 
 /** The icon called `name`, `size` px square, or null for a name not copied here. */

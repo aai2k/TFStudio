@@ -3,8 +3,6 @@
  *   'wavelength'      λ in nm           (optical Z only)
  *   'aoi'             angle of incidence in °  (optical Z only)
  *   'thk:<i>'         thickness of front layer i (nm)
- *   'n:<i>'           refractive index n of front layer i (constant-index what-if)
- *   'k:<i>'           extinction k of front layer i (constant-index what-if)
  */
 
 import { designMaterialShortName } from '../../materials/designMaterials.js';
@@ -14,30 +12,25 @@ import { editorLayerNumber } from '../../misc/layerNumbers.js';
 export function parseAxisVar(v) {
     if (v === 'wavelength') return { kind: 'lambda' };
     if (v === 'aoi')        return { kind: 'aoi' };
-    const m = /^(thk|n|k):(\d+)$/.exec(v || '');
-    if (m) return { kind: m[1], layer: parseInt(m[2], 10) };
+    const m = /^thk:(\d+)$/.exec(v || '');
+    if (m) return { kind: 'thk', layer: parseInt(m[1], 10) };
     return { kind: 'lambda' };
 }
 
 /** Is this axis variable a per-layer design parameter (vs λ/AOI)? */
 export function isLayerVar(v) {
-    const p = parseAxisVar(v);
-    return p.kind === 'thk' || p.kind === 'n' || p.kind === 'k';
+    return parseAxisVar(v).kind === 'thk';
 }
 
 /** Default unit/label suffix for an axis variable. */
 export function axisVarUnit(v) {
-    const p = parseAxisVar(v);
-    if (p.kind === 'lambda') return 'nm';
-    if (p.kind === 'aoi')    return '°';
-    if (p.kind === 'thk')    return 'nm';
-    return '';   // n, k are dimensionless
+    return parseAxisVar(v).kind === 'aoi' ? '°' : 'nm';
 }
 
 /**
- * Build the FULL token list with labels (one per thk/n/k per layer) — used to
- * resolve a token → axis title. The UI uses the layer-first picker below
- * (buildAxisTargetOptions + AXIS_PROPS) instead, which scales to many layers.
+ * The token list with labels, one per layer thickness, used to resolve a token
+ * to an axis title. The menus use buildAxisTargetOptions, which lists the
+ * layers L1 first.
  * @param {object} design
  * @param {boolean} opticalAllowed  include wavelength + AOI (false for MF Z)
  * @returns {{value:string, label:string}[]}
@@ -51,10 +44,7 @@ export function buildAxisVarOptions(design, opticalAllowed) {
     // Symbols rather than words, so the titles read the same in every language.
     const front = (design?.frontLayers || []);
     front.forEach((l, i) => {
-        const tag = layerTag(design, i);
-        opts.push({ value: `thk:${i}`, label: `${tag} d (nm)` });
-        opts.push({ value: `n:${i}`,   label: `${tag} n` });
-        opts.push({ value: `k:${i}`,   label: `${tag} k` });
+        opts.push({ value: `thk:${i}`, label: `${layerTag(design, i)} d (nm)` });
     });
     return opts;
 }
@@ -76,18 +66,10 @@ export function layerTag(design, i) {
     return name ? `L${number} (${name})` : `L${number}`;
 }
 
-// Per-axis layer property choices (shown after a layer is picked).
-export const AXIS_PROPS = [
-    { value: 'thk', label: 'Thickness (nm)' },
-    { value: 'n',   label: 'Index n' },
-    { value: 'k',   label: 'Index k' },
-];
-
 /**
- * Layer-first axis "target" options: Wavelength / AOI (optical) then one entry
- * PER LAYER (not per property) — so hundreds of layers stay a single dropdown.
- * Layers are listed from the substrate out, L1 first, in Design Editor order.
- * Property (thickness/n/k) is chosen separately via AXIS_PROPS.
+ * What an axis menu offers: Wavelength and AOI where the quantity takes them,
+ * then each front layer's thickness, the layers listed from the substrate out,
+ * L1 first, in Design Editor order. Each value is an axis-variable token.
  */
 export function buildAxisTargetOptions(design, opticalAllowed) {
     const opts = [];
@@ -97,32 +79,9 @@ export function buildAxisTargetOptions(design, opticalAllowed) {
     }
     const count = (design?.frontLayers || []).length;
     for (let i = count - 1; i >= 0; i--) {
-        opts.push({ value: `layer:${i}`, label: layerTag(design, i) });
+        opts.push({ value: `thk:${i}`, label: layerTag(design, i) });
     }
     return opts;
-}
-
-/** Token → axis "target" select value ('wavelength' | 'aoi' | 'layer:<i>'). */
-export function axisTarget(token) {
-    const p = parseAxisVar(token);
-    if (p.kind === 'lambda') return 'wavelength';
-    if (p.kind === 'aoi')    return 'aoi';
-    return `layer:${p.layer}`;
-}
-
-/** Token → property select value ('thk' | 'n' | 'k'), or null for λ/AOI. */
-export function axisProp(token) {
-    const p = parseAxisVar(token);
-    return (p.kind === 'thk' || p.kind === 'n' || p.kind === 'k') ? p.kind : null;
-}
-
-/** Compose a token from a target + property. */
-export function composeAxisVar(target, prop) {
-    if (target === 'wavelength') return 'wavelength';
-    if (target === 'aoi')        return 'aoi';
-    const m = /^layer:(\d+)$/.exec(target || '');
-    if (m) return `${prop || 'thk'}:${m[1]}`;
-    return 'wavelength';
 }
 
 /** Sensible default {from, to} for an axis token (used when the variable changes). */
@@ -133,16 +92,10 @@ export function defaultAxisRange(design, token) {
         result = { from: 400, to: 800 };
     } else if (p.kind === 'aoi') {
         result = { from: 0, to: 60 };
-    } else if (p.kind === 'thk') {
+    } else {
         const l = (design?.frontLayers || [])[p.layer];
         const d = (l?.thickness) || 100;
         result = { from: Math.max(1, Math.round(d * 0.5)), to: Math.round(d * 1.5) };
-    } else if (p.kind === 'n') {
-        result = { from: 1.3, to: 2.6 };
-    } else if (p.kind === 'k') {
-        result = { from: 0, to: 0.1 };
-    } else {
-        result = { from: 0, to: 1 };
     }
     return result;
 }

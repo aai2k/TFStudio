@@ -31,11 +31,11 @@ const count = design.frontLayers.length;
 const labels = getLocale('en').plotEngine;
 
 // The number a layer token carries, read from the dropdown entry for it.
-const layerOptions = buildAxisTargetOptions(design, true).filter(option => option.value.startsWith('layer:'));
+const layerOptions = buildAxisTargetOptions(design, true).filter(option => option.value.startsWith('thk:'));
 const numberOf = option => Number(/^L(\d+)/.exec(option.label)[1]);
 
 for (const option of layerOptions) {
-    const index = Number(option.value.slice('layer:'.length));
+    const index = Number(option.value.slice('thk:'.length));
     assert.equal(numberOf(option), displayLayerNumber({ side: 'front', layerIndex: index }, count),
         `${option.label} must name the layer the Design Editor numbers the same`);
 }
@@ -51,10 +51,10 @@ assert.ok(surfaceAxisLabel(spec.yVar, design, labels).startsWith('L4 (MgF2)'),
 
 // The chart writes the titles and cell readouts of a layer axis itself, and
 // numbers the layer the same way.
-for (const [token, quantity] of [['thk:2', 'd (nm)'], ['thk:0', 'd (nm)'], ['k:3', 'k']]) {
+for (const token of ['thk:2', 'thk:0', 'thk:3']) {
     const index = Number(token.split(':')[1]);
     const number = displayLayerNumber({ side: 'front', layerIndex: index }, count);
-    assert.equal(surfacePlotAxisLabel(token, design, labels, getLocale('en').units), `L${number} ${quantity}`,
+    assert.equal(surfacePlotAxisLabel(token, design, labels, getLocale('en').units), `L${number} d (nm)`,
         `the chart titles ${token} with Design Editor layer ${number}`);
 }
 

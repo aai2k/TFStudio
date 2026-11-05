@@ -7,7 +7,8 @@
  * A surface is written as its grid, one row per (x, y) point.
  */
 
-import { surfaceZLabel } from './charts/surfaceOption.js';
+import { isFraction } from '../../../../utils/physics/plotQuantities.js';
+import { surfaceZLabel, surfaceZTitle } from './charts/surfaceOption.js';
 
 export function curveColumns(t) {
     const pe = t.plotEngine;
@@ -30,12 +31,19 @@ export function curveRows(curves, results) {
     return rows;
 }
 
+// The grid holds T, R and A as fractions, which the table writes as they are,
+// so their heading carries no unit.
+function zHeading(t, result) {
+    if (!result?.zKey) return t.plotEngine.colZ;
+    return isFraction(result.zKey) ? surfaceZLabel(result, t) : surfaceZTitle(result, t);
+}
+
 export function surfaceColumns(t, result) {
     const pe = t.plotEngine;
     return [
         { key: 'x', label: pe.colX, fmt: value => value.toFixed(4) },
         { key: 'y', label: pe.colY, fmt: value => value.toFixed(4) },
-        { key: 'z', label: surfaceZLabel(result, pe) || pe.colZ, fmt: value => value.toFixed(6) },
+        { key: 'z', label: zHeading(t, result), fmt: value => value.toFixed(6) },
     ];
 }
 

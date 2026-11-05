@@ -1,8 +1,7 @@
-import {
-    AXIS_PROPS, axisTarget, axisProp, composeAxisVar, defaultAxisRange,
-} from '../../../../utils/physics/plotQuantities.js';
+import { defaultAxisRange } from '../../../../utils/physics/plotQuantities.js';
 import { FieldLabel, NumInput, RangeField, SelectField } from '../chrome/controls.js';
 import { SettingRow } from '../chrome/popover.js';
+import { axisOptionLabel } from './quantityLabels.js';
 
 const { createElement: h } = React;
 
@@ -25,34 +24,17 @@ function rangePatch(which, values, patch) {
         : { yFrom: patch.from ?? values.from, yTo: patch.to ?? values.to, ySteps: patch.steps ?? values.steps };
 }
 
-function targetLabel(option, pe) {
-    if (option.value === 'wavelength') return pe.varWavelength || option.label;
-    if (option.value === 'aoi') return pe.varAOI || option.label;
-    return option.label;
-}
-
-function propertyLabel(option, pe) {
-    if (option.value === 'thk') return pe.propThickness || option.label;
-    if (option.value === 'n') return pe.propN || option.label;
-    return pe.propK || option.label;
-}
-
 function compactInputNumber(value) {
     return Number.isFinite(value) ? Number(value.toFixed(4)) : value;
 }
 
 /**
- * One axis of the surface: what it sweeps, and over what.
- *
- * The variable is picked in two steps, layer first, so a hundred-layer stack
- * stays one dropdown rather than three hundred entries. The property row is
- * only shown for a layer, since wavelength and angle have nothing to choose.
+ * One axis of the surface: what it sweeps, and over what. A layer stands for
+ * its thickness, so a hundred-layer stack is a hundred entries.
  */
-export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions, selectWidth, c, pe }) {
+export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions, selectWidth, c, t }) {
+    const pe = t.plotEngine;
     const values = axisValues(spec, which);
-    const target = axisTarget(values.variable);
-    const property = axisProp(values.variable) || 'thk';
-    const isLayer = target.startsWith('layer:');
 
     const setVariable = (token) => {
         onUpdate(variablePatch(which, token, defaultAxisRange(design, token)));
@@ -62,19 +44,10 @@ export function SurfaceAxisGroup({ which, spec, design, onUpdate, targetOptions,
     return h('div', null,
         h(SettingRow, { c, label: which === 'x' ? (pe.xAxisVar || 'X axis') : (pe.yAxisVar || 'Y axis') },
             h(SelectField, {
-                c, width: selectWidth, value: target,
-                onChange: value => setVariable(composeAxisVar(value, property)),
+                c, width: selectWidth, value: values.variable,
+                onChange: setVariable,
                 options: targetOptions.map(option => ({
-                    id: option.value, label: targetLabel(option, pe),
-                })),
-            }),
-        ),
-        isLayer && h(SettingRow, { c, label: '' },
-            h(SelectField, {
-                c, width: selectWidth, value: property,
-                onChange: value => setVariable(composeAxisVar(target, value)),
-                options: AXIS_PROPS.map(option => ({
-                    id: option.value, label: propertyLabel(option, pe),
+                    id: option.value, label: axisOptionLabel(option, t),
                 })),
             }),
         ),

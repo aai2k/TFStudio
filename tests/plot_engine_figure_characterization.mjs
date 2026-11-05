@@ -10,7 +10,8 @@ await loadApp();
 
 const { getLocale } = await import('../src/constants/locales/index.js');
 // Surface axis titles are display text supplied by the window.
-const PE = getLocale('en').plotEngine;
+const EN = getLocale('en');
+const PE = EN.plotEngine;
 const { buildCurveSeries, buildSurfaceOption } = await import(
     '../src/components/windows/analysis/plotEngine/charts.js'
 );
@@ -42,7 +43,7 @@ const c = { panel: '#panel', bg: '#bg', text: '#text', border: '#border' };
 const result = { ok: true, x: [1, 2], y: [3, 4], z: [[5, 6], [7, 8]], zKey: 'R' };
 const design = { frontLayers: [], backLayers: [] };
 const baseSpec = { xVar: 'wavelength', yVar: 'aoi', z: 'R', colorscale: 'Cividis' };
-const heatmap = buildSurfaceOption(result, { ...baseSpec, render: 'heatmap' }, design, c, { labels: PE });
+const heatmap = buildSurfaceOption(result, { ...baseSpec, render: 'heatmap' }, design, c, { t: EN });
 
 assert.equal(heatmap.series.length, 1);
 assert.equal(heatmap.series[0].type, 'heatmap');
@@ -60,7 +61,7 @@ assert.deepEqual(
     [58, 84, 38, 52],
 );
 
-const surface = buildSurfaceOption(result, { ...baseSpec, render: 'surface' }, design, c, { labels: PE });
+const surface = buildSurfaceOption(result, { ...baseSpec, render: 'surface' }, design, c, { t: EN });
 assert.equal(surface.series[0].type, 'surface');
 assert.deepEqual(surface.series[0].data, [[1, 3, 500], [2, 3, 600], [1, 4, 700], [2, 4, 800]]);
 assert.equal(surface.series[0].wireframe.show, false);
@@ -81,13 +82,13 @@ assert.equal(surface.yAxis3D.max, 4);
 
 // Entered high-to-low, the axis still runs low to high.
 const reversed = buildSurfaceOption(
-    { ...result, x: [2, 1] }, { ...baseSpec, render: 'surface' }, design, c, { labels: PE });
+    { ...result, x: [2, 1] }, { ...baseSpec, render: 'surface' }, design, c, { t: EN });
 assert.equal(reversed.xAxis3D.min, 1);
 assert.equal(reversed.xAxis3D.max, 2);
 
 // Both ends the same has no width; the axis is padded rather than left flat.
 const flat = buildSurfaceOption(
-    { ...result, x: [5, 5] }, { ...baseSpec, render: 'surface' }, design, c, { labels: PE });
+    { ...result, x: [5, 5] }, { ...baseSpec, render: 'surface' }, design, c, { t: EN });
 assert.ok(flat.xAxis3D.max > flat.xAxis3D.min, 'a zero-width axis is padded');
 assert.equal(surface.zAxis3D.name, '%');
 assert.equal(surface.visualMap.text[0], 'R (%)');
@@ -116,7 +117,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
 // second readout on top of the window's own.
 {
     const heatSpec = { ...baseSpec, render: 'heatmap' };
-    const imaged = buildSurfaceOption(result, heatSpec, design, c, { labels: PE, image: { imageId: 7 } });
+    const imaged = buildSurfaceOption(result, heatSpec, design, c, { t: EN, image: { imageId: 7 } });
 
     assert.equal(imaged.tooltip.show, false, 'an image map asks for no tooltip');
     assert.equal(imaged.series[0].type, 'custom');
@@ -129,7 +130,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
     // chart goes on drawing the one before.
     assert.equal(imaged.series[0].imageId, 7);
     assert.notEqual(
-        buildSurfaceOption(result, heatSpec, design, c, { labels: PE, image: { imageId: 8 } }).series[0].imageId,
+        buildSurfaceOption(result, heatSpec, design, c, { t: EN, image: { imageId: 8 } }).series[0].imageId,
         imaged.series[0].imageId,
         'a different image is a different option');
 
@@ -137,14 +138,14 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
     // into it, both ends go NaN, every cell maps to the bottom of the scale and
     // the bar prints NaN: a map with one hole would misreport every value it has.
     const holed = buildSurfaceOption(
-        { ...result, z: [[5, Number.NaN], [7, 8]] }, heatSpec, design, c, { labels: PE, image: { imageId: 9 } });
+        { ...result, z: [[5, Number.NaN], [7, 8]] }, heatSpec, design, c, { t: EN, image: { imageId: 9 } });
     assert.equal(holed.visualMap.min, 500, 'the extent spans the cells that did evaluate');
     assert.equal(holed.visualMap.max, 800);
 
     // Nothing evaluated at all still has to leave the bar a range to draw on.
     const blank = buildSurfaceOption(
         { ...result, z: [[Number.NaN, Number.NaN], [Number.NaN, Number.NaN]] },
-        heatSpec, design, c, { labels: PE, image: { imageId: 10 } });
+        heatSpec, design, c, { t: EN, image: { imageId: 10 } });
     assert.ok(Number.isFinite(blank.visualMap.min) && blank.visualMap.max > blank.visualMap.min,
         'an empty grid still gives the colour bar a finite range');
 }
@@ -157,7 +158,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
 {
     const heatSpec = { ...baseSpec, render: 'heatmap' };
     const wide = { ok: true, x: [400, 500, 600], y: [0, 30, 60], z: [[1, 2, 3], [4, 5, 6], [7, 8, 9]], zKey: 'T' };
-    const series = buildSurfaceOption(wide, heatSpec, design, c, { labels: PE, image: { imageId: 13 } }).series[0];
+    const series = buildSurfaceOption(wide, heatSpec, design, c, { t: EN, image: { imageId: 13 } }).series[0];
     const grid = { x: 10, y: 20, width: 300, height: 200 };
 
     // All three columns in view: index i sits at the centre of band i, so the
@@ -194,7 +195,7 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
     const heatSpec = { ...baseSpec, render: 'heatmap' };
     const floored = buildSurfaceOption(
         { ...result, z: [[5.24e-26, 0.9951], [0.5, 0.2]] },
-        { ...heatSpec, z: 'T' }, design, c, { labels: PE, image: { imageId: 11 } });
+        { ...heatSpec, z: 'T' }, design, c, { t: EN, image: { imageId: 11 } });
     const label = floored.visualMap.formatter;
     assert.equal(label(floored.visualMap.min), '0',
         'a floor far below what the bar can resolve reads as zero');
@@ -204,9 +205,32 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
     // the rounding follows the bar rather than a fixed number of places.
     const tiny = buildSurfaceOption(
         { ...result, z: [[1.2e-8, 3.4e-8], [2e-8, 2.5e-8]] },
-        { ...heatSpec, z: 'k' }, design, c, { labels: PE, image: { imageId: 12 } });
+        { ...heatSpec, z: 'k' }, design, c, { t: EN, image: { imageId: 12 } });
     assert.equal(tiny.visualMap.formatter(tiny.visualMap.min), '1.2e-8');
     assert.equal(tiny.visualMap.formatter(tiny.visualMap.max), '3.4e-8');
+}
+
+// ── The quantities a surface adds to T, R, A and MF ─────────────────────────
+//
+// They are named by their symbols, each with its unit, and drawn as they are
+// rather than as a percentage. Russian names the group delay family as the
+// GD/GDD window does.
+{
+    const { surfaceColumns } = await import('../src/components/windows/analysis/plotEngine/resultTable.js');
+    const gdResult = { ...result, zKey: 'gdR' };
+    const gdSpec = { ...baseSpec, z: 'gdR', render: 'surface' };
+    const gd = buildSurfaceOption(gdResult, gdSpec, design, c, { t: EN });
+    assert.equal(gd.visualMap.text[0], 'GD (R) (fs)');
+    assert.equal(gd.zAxis3D.name, 'GD (R) (fs)');
+    assert.deepEqual(gd.series[0].data[0], [1, 3, 5]);
+    assert.equal(gd.tooltip.formatter({ value: [1, 3, 5] }).split('<br/>')[2], 'GD (R) (fs): 5');
+    assert.equal(surfaceColumns(EN, gdResult)[2].label, 'GD (R) (fs)');
+    assert.equal(surfaceColumns(EN, result)[2].label, 'Reflectance',
+        'the table writes R as the fraction it is, so its heading has no unit');
+    const ru = getLocale('ru');
+    assert.equal(buildSurfaceOption(gdResult, gdSpec, design, c, { t: ru }).visualMap.text[0], 'ГЗ (R) (фс)');
+    const psi = buildSurfaceOption({ ...result, zKey: 'psi' }, { ...gdSpec, z: 'psi' }, design, c, { t: EN });
+    assert.equal(psi.visualMap.text[0], 'Ψ (°)');
 }
 
 // ── Both modes of the window itself ─────────────────────────────────────────
@@ -228,11 +252,52 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
         React.createElement(PlotEngine, { c: theme, theme, t }), sample));
 
     plotEngineSession.reset();
-    assert.match(render(), /2D Curves/, '2D mode renders');
+    const curvesHtml = render();
+    assert.match(curvesHtml, /aria-label="Plot type"/, '2D mode renders');
+    assert.match(curvesHtml, /Curves \(1\)/, 'and offers its curves');
+    // The three ways to draw sit on the control row, in place of a 2D/3D pair
+    // with the heatmap kept inside the 3D settings.
+    for (const mode of [PE.mode2D, PE.modeHeatmap, PE.mode3D]) {
+        assert.match(curvesHtml, new RegExp(`aria-pressed="(true|false)"[^>]*>${mode}<`), `${mode} is a mode`);
+    }
+    // The curves compute on their own, so 2D shows no Compute until a Stop.
+    assert.doesNotMatch(curvesHtml, new RegExp(`>${PE.compute}<`), '2D has nothing to start');
 
-    plotEngineSession.write(sample, { plotMode: '3d' });
-    assert.match(render(), /Configure the axes/,
-        '3D mode renders its chart without throwing, and prompts for a computation');
+    // A curve the analysis worker computes can be stopped while it is out, and
+    // once stopped, started again.
+    const { makeDefaultCurve } = await import('../src/utils/physics/plotQuantities.js');
+    const { curveKey } = await import('../src/components/windows/analysis/plotEngine/curveResults.js');
+    const slow = makeDefaultCurve({ y: { quantity: 'gddR', polarization: 'avg', side: 'front' } });
+    plotEngineSession.write(sample, { curves: [slow] });
+    const runningHtml = render();
+    assert.match(runningHtml, new RegExp(`>${PE.stop}<`), 'a GDD curve can be stopped');
+    assert.ok(runningHtml.includes(`title="${PE.stopTip}"`), 'and a change starts it again, as its tip says');
+    assert.doesNotMatch(runningHtml, new RegExp(`>${PE.compute}<`));
+
+    // A change clears a map rather than computing it again, so the map modes'
+    // Stop says only Compute starts it.
+    const { runControl } = await import('../src/components/windows/analysis/plotEngine/PlotEngineView.js');
+    const map = runControl(false, {}, { computing: true }, PE);
+    assert.deepEqual([map.running, map.stopTip], [true, PE.stopMapTip]);
+    assert.equal(runControl(true, { busy: true }, {}, PE).stopTip, PE.stopTip);
+    for (const code of ['en', 'ru', 'zh', 'it']) {
+        const pe = getLocale(code).plotEngine;
+        assert.ok(pe.stopMapTip && pe.stopMapTip !== pe.stopTip, `${code} has its own map Stop tip`);
+    }
+    plotEngineSession.write(sample, { curvesStoppedFor: { design: sample, requestKey: curveKey(slow) } });
+    const stoppedHtml = render();
+    assert.match(stoppedHtml, new RegExp(`>${PE.compute}<`), 'and started again');
+    assert.doesNotMatch(stoppedHtml, new RegExp(`>${PE.stop}<`));
+    plotEngineSession.reset();
+
+    for (const plotMode of ['heatmap', '3d']) {
+        plotEngineSession.write(sample, { plotMode });
+        const surfaceHtml = render();
+        assert.match(surfaceHtml, /Configure the axes/,
+            `${plotMode} renders its chart without throwing, and prompts for a computation`);
+        assert.match(surfaceHtml, new RegExp(`>${PE.compute}<`), `${plotMode} has Compute on the control row`);
+        assert.match(surfaceHtml, />Settings</, `${plotMode} keeps the surface settings behind Settings`);
+    }
 
     // With a computed surface the results table lays the grid out row by row.
     plotEngineSession.write(sample, {
@@ -253,12 +318,43 @@ assert.equal(buildSurfaceOption({ ok: false }, baseSpec, design, c), null);
         '../src/utils/physics/plotQuantities.js');
     const panelHtml = renderToStaticMarkup(React.createElement(SurfacePanel, {
         spec: makeDefaultSurfaceSpec(sample, { surfaceMode: 'front' }),
-        onUpdate: () => {}, onCompute: () => {},
-        computing: false, progress: null, design: sample, result: null,
+        onUpdate: () => {}, design: sample, result: null,
         c: theme, t,
     }));
-    assert.match(panelHtml, /Compute surface/);
     assert.match(panelHtml, /Quantity \(Z\)/);
+    assert.match(panelHtml, /Grid: 40 × 40 = 1600 points/, 'the panel says what Compute will evaluate');
+    // How the grid is drawn is the mode on the control row, not a setting.
+    assert.doesNotMatch(panelHtml, /Render|<button/, 'the panel has no render choice and no run button');
+    for (const [z, symbol] of [['gddT', 'GDD (T)'], ['psi', 'Ψ'], ['delta', 'Δ']]) {
+        assert.ok(panelHtml.includes(`<option value="${z}">${symbol}</option>`), `${symbol} is a quantity`);
+    }
+    assert.doesNotMatch(panelHtml, /value="phaseR"/, 'a phase has no value at a point, only along a line');
+    // An axis is the wavelength, the angle or a layer's thickness, one entry
+    // per layer; a layer's n or k is not an axis.
+    assert.match(panelHtml, /<option value="thk:0"[^>]*>L\d+ \([^)]*\) d \(nm\)<\/option>/,
+        'a layer is listed by its thickness');
+    assert.doesNotMatch(panelHtml, /value="(n|k)(:\d+)?"/, 'no layer n or k on an axis');
+
+    // Ψ takes both polarizations at once and is read on one surface.
+    const psiHtml = renderToStaticMarkup(React.createElement(SurfacePanel, {
+        spec: { ...makeDefaultSurfaceSpec(sample), z: 'psi' },
+        onUpdate: () => {}, design: sample, result: null, c: theme, t,
+    }));
+    const selects = psiHtml.match(/<select[^>]*>[\s\S]*?<\/select>/g);
+    const polarization = selects.find(select => select.includes('value="avg"'));
+    const side = selects.find(select => select.includes('value="front"'));
+    assert.match(polarization, /<select[^>]*disabled/, 'Ψ has no polarization to choose');
+    assert.doesNotMatch(side, /value="total"/, 'nor a whole part to be read on');
+
+    // Choosing such a quantity moves the side to one it is read on.
+    const { patchSurfaceSpec } = await import(
+        '../src/components/windows/analysis/plotEngine/surfaceState.js');
+    const whole = { ...makeDefaultSurfaceSpec(sample), surfaceMode: 'total' };
+    assert.equal(patchSurfaceSpec(whole, { z: 'psi' }, sample).surfaceMode, 'front');
+    assert.equal(patchSurfaceSpec(whole, { z: 'gdR' }, sample).surfaceMode, 'front');
+    assert.equal(patchSurfaceSpec(whole, { z: 'gdT' }, sample).surfaceMode, 'total',
+        'GD of the light the whole part transmits');
+    assert.equal(patchSurfaceSpec({ ...whole, surfaceMode: 'back' }, { z: 'delta' }, sample).surfaceMode, 'back');
 }
 
 console.log('PlotEngine figure characterization passed.');

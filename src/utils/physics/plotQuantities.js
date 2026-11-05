@@ -1,57 +1,53 @@
 /**
- * Plot Engine — generic XY plot builder.
- *
- * A "curve" in the Plot Engine is a recipe that maps an x-axis quantity
- * (wavelength or angle of incidence) to a y-axis quantity (T, R, A — for
- * any polarization) at fixed values of the non-axis parameters.
+ * Plot Engine: any quantity against any other, read along one sweep.
  *
  * Pure compute helpers used by `PlotEngine.js`. No React, no global state.
  *
  * Curve spec:
  *   {
  *     id, label,
- *     xAxis: 'wavelength' | 'aoi',
- *     yChannel: 'T' | 'R' | 'A',
- *     polarization: 'avg' | 's' | 'p',
- *     surfaceMode: 'front' | 'back' | 'total',
- *     // Fixed (the non-x parameter):
- *     lambdaFixed_nm: number,   // used when xAxis = 'aoi'
- *     aoiFixed_deg:   number,   // used when xAxis = 'wavelength'
- *     // Range:
+ *     sweep: 'wavelength' | 'aoi' | 'thk:<i>',
+ *     // Range of the sweep, in its unit (nm, °, nm):
  *     rangeFrom: number,
  *     rangeTo:   number,
  *     rangeStep: number,
+ *     // Held while the sweep runs, each unless it is the swept one:
+ *     lambdaFixed_nm: number,
+ *     aoiFixed_deg:   number,
+ *     // What each axis reads (quantities.js):
+ *     x: { quantity, polarization: 'avg' | 's' | 'p', side: 'front' | 'back' | 'total' },
+ *     y: { quantity, polarization, side },
  *     // Visual:
  *     color, dash, width, visible
  *   }
  *
- * v1 scope: T/R/A vs (λ | AOI). v2 can add Ψ/Δ, φ, GD/GDD, |E|², admittance,
- * and per-layer quantities. The dispatch table here makes that extension easy:
- * just add new (xAxis, yChannel) handlers.
+ * The quantity 'sweep' is the swept value itself, so x = 'sweep' draws the
+ * ordinary curve against λ, AOI or the layer thickness.
  *
  * 3D surface plotting (see plotQuantities/computeSurface.js) plots a scalar Z
- * over TWO swept variables — an axis variable is one of:
- *   'wavelength'      λ in nm           (optical Z only)
- *   'aoi'             angle of incidence in °  (optical Z only)
+ * over TWO swept variables. An axis variable, and a curve's sweep, is one of:
+ *   'wavelength'      λ in nm           (any Z but MF)
+ *   'aoi'             angle of incidence in °  (any Z but MF)
  *   'thk:<i>'         thickness of front layer i (nm)
- *   'n:<i>'           refractive index n of front layer i (constant-index what-if)
- *   'k:<i>'           extinction k of front layer i (constant-index what-if)
  */
 
 export {
-    X_AXES, Y_CHANNELS, POLARIZATIONS, SURFACE_MODES, DASHES,
-    makeDefaultCurve, xSamples, computeCurve,
+    POLARIZATIONS, SURFACE_MODES, DASHES, LAMBDA_STEP_NM,
+    makeDefaultCurve, curveNumber, normalizeCurve, xSamples, curveSweep, computeCurve,
     yAxisLabel, yFormatter,
 } from './plotQuantities/curves.js';
 
 export {
+    SWEEP, QUANTITIES, phaseMember, quantityFamily, quantitySides, takesPolarization, isFraction,
+} from './plotQuantities/quantities.js';
+
+export {
     parseAxisVar, isLayerVar, axisVarUnit,
-    buildAxisVarOptions, layerNumber, layerTag, AXIS_PROPS, buildAxisTargetOptions,
-    axisTarget, axisProp, composeAxisVar, defaultAxisRange,
+    buildAxisVarOptions, layerNumber, layerTag, buildAxisTargetOptions, defaultAxisRange,
 } from './plotQuantities/axisVars.js';
 
 export {
-    Z_QUANTITIES, SURFACE_RENDERS, COLORSCALES, axisSampleCount,
+    Z_QUANTITIES, COLORSCALES, axisSampleCount,
     makeDefaultSurfaceSpec, requiredSurfaceLambdas, surfaceAxisLabel,
 } from './plotQuantities/surfaceSpec.js';
 

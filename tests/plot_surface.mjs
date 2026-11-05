@@ -5,19 +5,17 @@
  *   • Optical T/R/A at a single (λ, AOI) probe (reuses the validated TMM path).
  *   • Merit Function over two layer parameters (reuses buildEvalContext +
  *     evaluateOperands + calcMF — the SAME MF the optimizer minimizes).
- * Axis variables: wavelength, AOI, and per-layer thickness / n / k (the n,k
- * sweeps use a constant-index what-if material).
+ * Axis variables: wavelength, AOI, and per-layer thickness.
  *
  * Checks:
  *   1. Optical T grid: right shape (z[ny][nx]), every value in [0,1].
  *   2. Single-quarter-wave AR: T(λ=550, AOI=0) vs L thickness has a MAX near the
  *      QWOT — sweep thickness, confirm the peak sits at the quarter-wave point.
- *   3. n-override sweep: at a bare single layer, reflectance rises monotonically
- *      with the layer index n (more index contrast → more R). Physically correct.
- *   4. MF surface over two thicknesses reproduces calcMF exactly at a grid point
+ *   3. MF surface over two thicknesses reproduces calcMF exactly at a grid point
  *      (the surface IS the optimizer's MF — verified bit-for-bit).
- *   5. MF surface has its minimum at the design's optimum (a BBAR's AR thicknesses).
- *   6. Guard: MF with a λ/AOI axis is rejected.
+ *   4. MF surface has its minimum at the design's optimum (a BBAR's AR thicknesses).
+ *   5. Guard: MF with a λ/AOI axis is rejected; the axis options are λ, AOI and
+ *      layer thicknesses, with no n or k.
  *
  * Run: node tests/plot_surface.mjs
  */
@@ -76,9 +74,7 @@ const bbar = {
     const r = computeSurface(spec, single, resolveMat);
     ok(r.ok, '1a optical surface computes');
     ok(r.z.length === 7 && r.z[0].length === 9, `1b grid shape z[7][9] (got z[${r.z.length}][${r.z[0]?.length}])`);
-    let allIn = true;
-    for (const row of r.z) for (const v of row) if (!(v >= 0 && v <= 1)) allIn = false;
-    ok(allIn, '1c every T in [0,1]');
+    ok(r.z.flat().every(v => v >= 0 && v <= 1), '1c every T in [0,1]');
     ok(r.zKey === 'T', '1d zKey = T');
 }
 
@@ -89,34 +85,16 @@ const bbar = {
         xFrom: 20, xTo: 200, xSteps: 181, yFrom: 0, yTo: 0, ySteps: 2, fixedLambda_nm: 550 });
     const r = computeSurface(spec, single, resolveMat);
     const row = r.z[0];               // AOI = 0
-    let iMax = 0; for (let i = 1; i < row.length; i++) if (row[i] > row[iMax]) iMax = i;
-    const dPeak = r.x[iMax];
+    const dPeak = r.x[row.indexOf(Math.max(...row))];
     ok(Math.abs(dPeak - 99.3) < 8, `2 T peaks at quarter-wave thickness (~99 nm, got ${dPeak.toFixed(1)} nm)`);
 }
 
-// ── 3. n-override sweep: low-n layer = AR, high-n layer = reflector ──────────────
-// R(n) at fixed physical thickness is NOT monotonic (the phase n·d sweeps through
-// quarter/half-wave resonances), but the envelope is robust: the least reflective
-// point is the lowest index (near-AR) and the most reflective is the highest index.
-{
-    const bare = { ...single, frontLayers: [{ material: 'MgF2', thickness: 120 }] };
-    const spec = makeDefaultSurfaceSpec(bare, { z: 'R', xVar: 'n:0', yVar: 'aoi',
-        xFrom: 1.4, xTo: 2.6, xSteps: 13, yFrom: 0, yTo: 0, ySteps: 2, fixedLambda_nm: 550 });
-    const r = computeSurface(spec, bare, resolveMat);
-    const row = r.z[0];
-    let iMin = 0, iMax = 0;
-    for (let i = 1; i < row.length; i++) { if (row[i] < row[iMin]) iMin = i; if (row[i] > row[iMax]) iMax = i; }
-    ok(r.ok && iMin === 0, '3a least reflective at lowest index n (const-index override)');
-    ok(iMax === row.length - 1, '3b most reflective at highest index n');
-    ok(row[row.length - 1] > row[0] + 0.05, `3c high-n end clearly more reflective (${row[0].toFixed(3)} → ${row[row.length - 1].toFixed(3)})`);
-}
-
-// ── 4. MF surface == calcMF at a grid point (bit-for-bit) ───────────────────────
+// ── 3. MF surface == calcMF at a grid point (bit-for-bit) ───────────────────────
 {
     const spec = makeDefaultSurfaceSpec(bbar, { z: 'MF', xVar: 'thk:0', yVar: 'thk:1',
         xFrom: 80, xTo: 160, xSteps: 5, yFrom: 150, yTo: 230, ySteps: 5 });
     const r = computeSurface(spec, bbar, resolveMat);
-    ok(r.ok, '4a MF surface computes');
+    ok(r.ok, '3a MF surface computes');
     // Reproduce MF at grid cell (i=2, j=3) directly.
     const i = 2, j = 3;
     const dx = r.x[i], dy = r.y[j];
@@ -130,25 +108,24 @@ const bbar = {
     const ctx = buildEvalContext(probe, resolveMat);
     const computed = evaluateOperands(probe.meritOperands, ctx);
     const mfRef = calcMF(probe.meritOperands, computed);
-    ok(approx(r.z[j][i], mfRef, 1e-12), `4b surface MF matches calcMF exactly (Δ=${Math.abs(r.z[j][i] - mfRef).toExponential(1)})`);
+    ok(approx(r.z[j][i], mfRef, 1e-12), `3b surface MF matches calcMF exactly (Δ=${Math.abs(r.z[j][i] - mfRef).toExponential(1)})`);
 }
 
-// ── 5. MF surface minimum sits at the BBAR optimum ──────────────────────────────
+// ── 4. MF surface minimum sits at the BBAR optimum ──────────────────────────────
 {
     // Sweep both thicknesses around the nominal AR design; the minimum cell
     // should be close to the nominal (116.7 / 187.3 nm) which IS the optimum.
     const spec = makeDefaultSurfaceSpec(bbar, { z: 'MF', xVar: 'thk:0', yVar: 'thk:1',
         xFrom: 80, xTo: 160, xSteps: 33, yFrom: 150, yTo: 230, ySteps: 33 });
     const r = computeSurface(spec, bbar, resolveMat);
-    let best = Infinity, bi = 0, bj = 0;
-    for (let j = 0; j < r.y.length; j++) for (let i = 0; i < r.x.length; i++)
-        if (r.z[j][i] < best) { best = r.z[j][i]; bi = i; bj = j; }
-    const dxBest = r.x[bi], dyBest = r.y[bj];
+    const cells = r.z.flatMap((row, j) => row.map((value, i) => ({ value, i, j })));
+    const best = cells.reduce((a, b) => (b.value < a.value ? b : a));
+    const dxBest = r.x[best.i], dyBest = r.y[best.j];
     ok(Math.abs(dxBest - 116.7) < 12 && Math.abs(dyBest - 187.3) < 14,
-        `5 MF minimum near AR optimum (got ${dxBest.toFixed(1)}/${dyBest.toFixed(1)} nm, expect ~116.7/187.3)`);
+        `4 MF minimum near AR optimum (got ${dxBest.toFixed(1)}/${dyBest.toFixed(1)} nm, expect ~116.7/187.3)`);
 }
 
-// ── 5b. Batched λ-row optical path == per-point (WASM speedup, same result) ──────
+// ── 4b. Batched λ-row optical path == per-point (WASM speedup, same result) ──────
 // When an axis is wavelength and the other is AOI or thickness, computeSurface
 // batches the whole λ row through one evaluateSpectrum (WASM batch). It must be
 // bit-identical to the per-point path. Compare λ×AOI and λ×thickness surfaces
@@ -167,25 +144,25 @@ const bbar = {
                 yFrom: r.y[j], yTo: r.y[j], ySteps: 2 }, single, resolveMat);
             maxAbs = Math.max(maxAbs, Math.abs(r.z[j][i] - one.z[0][0]));
         }
-        ok(maxAbs < 1e-12, `5b batched λ×${otherVar} == per-point (max|Δ|=${maxAbs.toExponential(1)})`);
+        ok(maxAbs < 1e-12, `4b batched λ×${otherVar} == per-point (max|Δ|=${maxAbs.toExponential(1)})`);
     }
 }
 
-// ── 6. Guards + axis-option plumbing ────────────────────────────────────────────
+// ── 5. Guards + axis-option plumbing ────────────────────────────────────────────
 {
     const bad = makeDefaultSurfaceSpec(bbar, { z: 'MF', xVar: 'wavelength', yVar: 'thk:1' });
     const r = computeSurface(bad, bbar, resolveMat);
-    ok(!r.ok && r.errorKey === 'errMfAxes', '6a MF rejects a wavelength axis');
+    ok(!r.ok && r.errorKey === 'errMfAxes', '5a MF rejects a wavelength axis');
 
     const optOpts = buildAxisVarOptions(bbar, true).map(o => o.value);
     const mfOpts = buildAxisVarOptions(bbar, false).map(o => o.value);
-    ok(optOpts.includes('wavelength') && optOpts.includes('aoi'), '6b optical axis options include λ + AOI');
-    ok(!mfOpts.includes('wavelength') && mfOpts.every(isLayerVar), '6c MF axis options are layer params only');
-    ok(optOpts.includes('thk:1') && optOpts.includes('n:0') && optOpts.includes('k:0'),
-        '6d per-layer thickness/n/k options present');
+    ok(optOpts.includes('wavelength') && optOpts.includes('aoi'), '5b optical axis options include λ + AOI');
+    ok(!mfOpts.includes('wavelength') && mfOpts.every(isLayerVar), '5c MF axis options are layer params only');
+    ok(optOpts.includes('thk:1') && !optOpts.some(value => /^[nk]:/.test(value)),
+        '5d per-layer thickness options present, no n or k');
 }
 
-// ── 7. Worker path: chunked rows + Approach-A presampled materials == full ──────
+// ── 6. Worker path: chunked rows + Approach-A presampled materials == full ──────
 // The pool computes Y-row chunks in a worker whose materials come from a
 // pre-sampled exact-λ table (requiredSurfaceLambdas + buildPresampledTable).
 // Verify (a) the λ set is COMPLETE — a strict table-lookup getNK never misses —
@@ -210,7 +187,7 @@ const bbar = {
     const cases = [
         { name: 'MF thk×thk',  design: bbar,   spec: makeDefaultSurfaceSpec(bbar, { z: 'MF', xVar: 'thk:0', yVar: 'thk:1', xFrom: 90, xTo: 150, xSteps: 11, yFrom: 160, yTo: 220, ySteps: 9 }) },
         { name: 'opt λ×thk',   design: single, spec: makeDefaultSurfaceSpec(single, { z: 'T', xVar: 'wavelength', yVar: 'thk:0', xFrom: 420, xTo: 680, xSteps: 14, yFrom: 70, yTo: 130, ySteps: 8, fixedAOI_deg: 0 }) },
-        { name: 'opt thk×n',   design: single, spec: makeDefaultSurfaceSpec(single, { z: 'R', xVar: 'thk:0', yVar: 'n:0', xFrom: 80, xTo: 140, xSteps: 9, yFrom: 1.3, yTo: 2.4, ySteps: 7, fixedLambda_nm: 550, fixedAOI_deg: 0 }) },
+        { name: 'opt thk×AOI', design: single, spec: makeDefaultSurfaceSpec(single, { z: 'R', xVar: 'thk:0', yVar: 'aoi', xFrom: 80, xTo: 140, xSteps: 9, yFrom: 0, yTo: 60, ySteps: 7, fixedLambda_nm: 550 }) },
     ];
 
     for (const { name, design, spec } of cases) {
@@ -229,11 +206,9 @@ const bbar = {
             const part = computeSurface(spec, design, strict, { rowFrom: from, rowTo: to });
             for (let j = from; j < to; j++) z[j] = part.z[j];
         }
-        let maxAbs = 0;
-        for (let j = 0; j < ny; j++) for (let i = 0; i < full.x.length; i++)
-            maxAbs = Math.max(maxAbs, Math.abs(z[j][i] - full.z[j][i]));
-        ok(strict._misses.length === 0, `7 [${name}] presampled λ set complete (no table misses)`);
-        ok(maxAbs < 1e-12, `7 [${name}] chunked+presampled == single-thread (max|Δ|=${maxAbs.toExponential(1)})`);
+        const maxAbs = Math.max(...full.z.flatMap((row, j) => row.map((v, i) => Math.abs(z[j][i] - v))));
+        ok(strict._misses.length === 0, `6 [${name}] presampled λ set complete (no table misses)`);
+        ok(maxAbs < 1e-12, `6 [${name}] chunked+presampled == single-thread (max|Δ|=${maxAbs.toExponential(1)})`);
     }
 }
 

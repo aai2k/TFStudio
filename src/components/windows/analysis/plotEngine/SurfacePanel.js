@@ -1,11 +1,12 @@
 import {
-    POLARIZATIONS, SURFACE_MODES, Z_QUANTITIES, SURFACE_RENDERS, COLORSCALES, axisSampleCount,
-    buildAxisTargetOptions, parseAxisVar,
+    POLARIZATIONS, Z_QUANTITIES, COLORSCALES, axisSampleCount,
+    buildAxisTargetOptions, parseAxisVar, quantitySides, takesPolarization,
 } from '../../../../utils/physics/plotQuantities.js';
-import { ActionButton, NumInput, SelectField, valueOptions } from '../chrome/controls.js';
+import { NumInput, SelectField, valueOptions } from '../chrome/controls.js';
 import { SettingDivider, SettingRow } from '../chrome/popover.js';
 import { SurfaceAxisGroup } from './SurfaceAxisGroup.js';
 import { surfaceErrorText } from './charts/surfaceOption.js';
+import { quantitySymbol } from './quantityLabels.js';
 
 const { createElement: h } = React;
 
@@ -18,18 +19,22 @@ function panelNote(c) {
     return { fontSize: 10, color: c.textDim, lineHeight: 1.45, padding: '2px 0 4px' };
 }
 
-function QuantitySection({ spec, onUpdate, optical, isMF, c, pe }) {
+// Ψ and Δ take both polarizations at once, so their polarization is disabled;
+// the sides offered are the ones the quantity is read on.
+function QuantitySection({ spec, onUpdate, optical, isMF, c, t }) {
+    const pe = t.plotEngine;
     return h('div', null,
         h(SettingRow, { c, label: pe.quantity || 'Quantity' },
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: spec.z,
                 onChange: value => onUpdate({ z: value }),
-                options: valueOptions(Z_QUANTITIES, v => (v === 'MF' ? (pe.zMF || 'Merit Function') : v)),
+                options: valueOptions(Z_QUANTITIES, v => (v === 'MF' ? pe.zMF : quantitySymbol(v, t))),
             }),
         ),
         optical && h(SettingRow, { c, label: pe.polarization || 'Polarization' },
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: spec.polarization,
+                disabled: !takesPolarization(spec.z),
                 onChange: value => onUpdate({ polarization: value }),
                 options: valueOptions(POLARIZATIONS, v => (v === 'avg' && pe.polAvg) || v),
             }),
@@ -38,7 +43,7 @@ function QuantitySection({ spec, onUpdate, optical, isMF, c, pe }) {
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: spec.surfaceMode,
                 onChange: value => onUpdate({ surfaceMode: value }),
-                options: valueOptions(SURFACE_MODES, v => pe.surfaceModes?.[v] || v),
+                options: valueOptions(quantitySides(spec.z), v => pe.surfaceModes?.[v] || v),
             }),
         ),
         isMF && h('div', { style: panelNote(c) }, pe.mfHint),
@@ -67,15 +72,6 @@ function FixedParameters({ spec, onUpdate, needFixedLambda, needFixedAOI, c, pe 
 function Appearance({ spec, onUpdate, c, pe }) {
     return h('div', null,
         h(SettingDivider, { c }),
-        h(SettingRow, { c, label: pe.render || 'Render' },
-            h(SelectField, {
-                c, width: SELECT_WIDTH, value: spec.render,
-                onChange: value => onUpdate({ render: value }),
-                options: valueOptions(SURFACE_RENDERS, v => (v === 'surface'
-                    ? (pe.renderSurface || '3D surface')
-                    : (pe.renderHeatmap || 'Heatmap'))),
-            }),
-        ),
         h(SettingRow, { c, label: pe.colorscale || 'Colors' },
             h(SelectField, {
                 c, width: SELECT_WIDTH, value: spec.colorscale,
@@ -86,12 +82,6 @@ function Appearance({ spec, onUpdate, c, pe }) {
     );
 }
 
-function computeLabel(computing, progress, pe) {
-    if (!computing) return pe.compute || '▶ Compute surface';
-    if (progress && progress.total) return `${pe.computing || 'Computing…'} ${progress.done}/${progress.total}`;
-    return pe.computing || 'Computing…';
-}
-
 function gridLabel(spec, pe) {
     const nx = axisSampleCount(spec.xSteps);
     const ny = axisSampleCount(spec.ySteps);
@@ -99,20 +89,16 @@ function gridLabel(spec, pe) {
 }
 
 /**
- * The run, under a rule: the grid it will compute, and the reason it cannot if
+ * Under a rule: the grid Compute will evaluate, and the reason it could not if
  * the last attempt failed.
  */
-function ComputeFooter({ spec, onCompute, computing, progress, result, c, pe }) {
+function GridFooter({ spec, result, c, pe }) {
     return h('div', {
         style: {
             marginTop: 8, paddingTop: 8, borderTop: `1px solid ${c.border}`,
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
         },
     },
-        h(ActionButton, {
-            c, disabled: computing, onClick: onCompute,
-            label: computeLabel(computing, progress, pe),
-        }),
         h('div', { style: { fontSize: 10, color: c.textDim, textAlign: 'center' } },
             gridLabel(spec, pe)),
         result && !result.ok && h('div', {
@@ -122,7 +108,7 @@ function ComputeFooter({ spec, onCompute, computing, progress, result, c, pe }) 
     );
 }
 
-export function SurfacePanel({ spec, onUpdate, onCompute, computing, progress, design, result, c, t }) {
+export function SurfacePanel({ spec, onUpdate, design, result, c, t }) {
     const pe = (t && t.plotEngine) || {};
     const isMF = spec.z === 'MF';
     const optical = !isMF;
@@ -131,15 +117,15 @@ export function SurfacePanel({ spec, onUpdate, onCompute, computing, progress, d
     const yKind = parseAxisVar(spec.yVar).kind;
     const needFixedLambda = optical && xKind !== 'lambda' && yKind !== 'lambda';
     const needFixedAOI = optical && xKind !== 'aoi' && yKind !== 'aoi';
-    const axis = { spec, design, onUpdate, targetOptions, selectWidth: SELECT_WIDTH, c, pe };
+    const axis = { spec, design, onUpdate, targetOptions, selectWidth: SELECT_WIDTH, c, t };
 
     return h('div', null,
-        h(QuantitySection, { spec, onUpdate, optical, isMF, c, pe }),
+        h(QuantitySection, { spec, onUpdate, optical, isMF, c, t }),
         h(SettingDivider, { c }),
         h(SurfaceAxisGroup, { ...axis, which: 'x' }),
         h(SurfaceAxisGroup, { ...axis, which: 'y' }),
         h(FixedParameters, { spec, onUpdate, needFixedLambda, needFixedAOI, c, pe }),
         h(Appearance, { spec, onUpdate, c, pe }),
-        h(ComputeFooter, { spec, onCompute, computing, progress, result, c, pe }),
+        h(GridFooter, { spec, result, c, pe }),
     );
 }

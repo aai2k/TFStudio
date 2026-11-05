@@ -1,4 +1,4 @@
-import { computeSurface, requiredSurfaceLambdas } from '../../../../utils/physics/plotQuantities.js';
+import { computeSurface, phaseMember, requiredSurfaceLambdas } from '../../../../utils/physics/plotQuantities.js';
 import {
     collectDesignMaterialIds, buildPresampledTable, isPhaseDispersion,
 } from '../../../../utils/physics/optimizer.js';
@@ -17,8 +17,11 @@ function createPool(surfaceSpec, design) {
     const resolveMaterial = designMaterialLookup(design);
     const pairs = collectDesignMaterialIds(design).map(id => ({ id, mat: resolveMaterial(id) }));
     const meritOperands = surfaceSpec.z === 'MF' ? (design.meritOperands || []) : [];
+    // GD, GDD and TOD read each material's dispersion, which a worker takes
+    // from the table only.
     const materials = buildPresampledTable(lambdas, pairs, {
-        includeOmegaResponses: meritOperands.some(op => op.enabled && isPhaseDispersion(op.type)),
+        includeOmegaResponses: Boolean(phaseMember(surfaceSpec.z))
+            || meritOperands.some(op => op.enabled && isPhaseDispersion(op.type)),
     });
     const wasmBytes = getTmmWasmBytesForWorker();
     const size = poolSize();

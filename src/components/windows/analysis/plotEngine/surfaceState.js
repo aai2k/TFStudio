@@ -1,5 +1,5 @@
 import {
-    makeDefaultSurfaceSpec, computeSurface, isLayerVar, defaultAxisRange,
+    makeDefaultSurfaceSpec, computeSurface, isLayerVar, defaultAxisRange, quantitySides,
 } from '../../../../utils/physics/plotQuantities.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runSurfaceSweep } from './surfaceRunner.js';
@@ -37,8 +37,15 @@ function useStoredSurfaceState(design, evalMode) {
     };
 }
 
-function patchSurfaceSpec(previous, patch, design) {
-    const next = { ...previous, ...patch };
+// A quantity read on fewer sides than the one set is read on its first, as a
+// curve's axis is (curveEdits.js).
+function onItsSide(spec) {
+    const sides = quantitySides(spec.z);
+    return sides.length && !sides.includes(spec.surfaceMode) ? { ...spec, surfaceMode: sides[0] } : spec;
+}
+
+export function patchSurfaceSpec(previous, patch, design) {
+    const next = onItsSide({ ...previous, ...patch });
     if (patch.z !== 'MF') return next;
     const nLayers = (design?.frontLayers || []).length;
     if (!isLayerVar(next.xVar)) {
@@ -47,8 +54,10 @@ function patchSurfaceSpec(previous, patch, design) {
         next.xFrom = range.from;
         next.xTo = range.to;
     }
-    if (!isLayerVar(next.yVar)) {
-        next.yVar = nLayers > 1 ? 'thk:1' : 'n:0';
+    // A design with one front layer has no second thickness for Y; its MF
+    // surface is refused for its axes (computeSurface.js).
+    if (!isLayerVar(next.yVar) && nLayers > 1) {
+        next.yVar = 'thk:1';
         const range = defaultAxisRange(design, next.yVar);
         next.yFrom = range.from;
         next.yTo = range.to;
@@ -112,6 +121,14 @@ function useSurfaceCompute(state, design) {
         if (!computing) startSweep();
     }, [computing, startSweep]);
 
+    // Ends the sweep in flight. Nothing of it is drawn, since a grid is only set
+    // once every row is in; a surface already on screen stays.
+    const stop = useCallback(() => {
+        abandon();
+        setComputing(false);
+        setProgress(null);
+    }, [abandon]);
+
     // After Refresh all a surface on screen, or one being computed, is computed
     // again against the files just read. The design changed in the same render,
     // so the effect above has already ended a sweep in flight; `computing`
@@ -122,7 +139,7 @@ function useSurfaceCompute(state, design) {
         startSweep();
     });
 
-    return { computing, progress, computeSurfaceNow };
+    return { computing, progress, computeSurfaceNow, stop };
 }
 
 export function useSurfacePlot(design, evalMode) {

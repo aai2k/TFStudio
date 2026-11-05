@@ -1,14 +1,22 @@
 import { parseAxisVar } from './axisVars.js';
 
-/** Collect per-layer overrides {thk?,n?,k?} from the two axis values. */
-export function collectLayerOverrides(spec, xv, yv) {
+/**
+ * The per-layer overrides {thk?} that `[token, value]` pairs set, and
+ * the λ and AOI they set in place of the fixed ones.
+ */
+export function overridesFrom(pairs, fixedLambda, fixedAOI) {
     const byLayer = {};
-    let lambda = spec.fixedLambda_nm, aoi = spec.fixedAOI_deg;
-    for (const [varTok, value] of [[spec.xVar, xv], [spec.yVar, yv]]) {
+    let lambda = fixedLambda, aoi = fixedAOI;
+    for (const [varTok, value] of pairs) {
         const p = parseAxisVar(varTok);
         if (p.kind === 'lambda') lambda = value;
         else if (p.kind === 'aoi') aoi = value;
         else (byLayer[p.layer] || (byLayer[p.layer] = {}))[p.kind] = value;
     }
     return { byLayer, lambda, aoi };
+}
+
+/** Collect per-layer overrides {thk?} from the two axis values. */
+export function collectLayerOverrides(spec, xv, yv) {
+    return overridesFrom([[spec.xVar, xv], [spec.yVar, yv]], spec.fixedLambda_nm, spec.fixedAOI_deg);
 }

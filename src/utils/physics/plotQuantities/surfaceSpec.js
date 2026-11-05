@@ -6,11 +6,13 @@
 import { requiredLambdas, withDesignSampleCounts } from '../optimizer.js';
 import { buildLambdaGrid } from '../thinFilmMath.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
-import { overrideReference } from './materialOverride.js';
 import { buildAxisVarOptions, parseAxisVar } from './axisVars.js';
 
-export const Z_QUANTITIES = ['T', 'R', 'A', 'MF'];
-export const SURFACE_RENDERS = ['surface', 'heatmap'];
+// What a surface can show: a curve's quantities but the phase, which has no
+// value of its own at a point, only along a line it is unwrapped on.
+export const Z_QUANTITIES = [
+    'T', 'R', 'A', 'gdR', 'gdT', 'gddR', 'gddT', 'todR', 'todT', 'psi', 'delta', 'MF',
+];
 export const COLORSCALES = ['Turbo', 'Jet', 'Viridis', 'Cividis', 'Hot', 'Portland', 'Electric', 'Greys'];
 
 /**
@@ -57,7 +59,6 @@ export function makeDefaultSurfaceSpec(design, defaults = {}) {
         yFrom: hasL1 ? compact(Math.max(1, d1 * 0.5)) : 0,
         yTo:   hasL1 ? compact(d1 * 1.5) : 60,
         ySteps: 40,
-        render: 'surface',
         colorscale: 'Turbo',
         ...defaults,
     };
@@ -66,12 +67,11 @@ export function makeDefaultSurfaceSpec(design, defaults = {}) {
 /**
  * Exact λ set the surface compute will query getNK at — for Approach-A worker
  * pre-sampling (so the worker's table-lookup getNK is byte-identical to the
- * main thread). MF: the operands' sample λ and the n/k override reference
- * (overrideReference).
- * Optical: the wavelength-axis samples (or the fixed λ), both as they stand (an
- * n/k override samples its reference there) and on the grid the spectrum
- * evaluates them at (buildLambdaGrid): one wavelength at a time, and a whole
- * wavelength axis as the single spectrum opticalSurface.js batches it into.
+ * main thread). MF: the operands' sample λ.
+ * Optical: the wavelength-axis samples (or the fixed λ), both as they stand and
+ * on the grid the spectrum evaluates them at (buildLambdaGrid): one wavelength
+ * at a time, and a whole wavelength axis as the single spectrum
+ * opticalSurface.js batches it into.
  */
 export function requiredSurfaceLambdas(spec, design) {
     const set = new Set();
@@ -89,7 +89,6 @@ export function requiredSurfaceLambdas(spec, design) {
         const enabled = (design.meritOperands || []).filter(op => op && op.enabled);
         const operands = withDesignSampleCounts(enabled, design, noting);
         for (const lam of requiredLambdas(operands)) set.add(lam);   // exact, no rounding
-        add(overrideReference(design));
     } else {
         const xk = parseAxisVar(spec.xVar).kind, yk = parseAxisVar(spec.yVar).kind;
         let lams;

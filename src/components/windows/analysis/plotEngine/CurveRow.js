@@ -1,15 +1,20 @@
 import {
-    X_AXES, Y_CHANNELS, POLARIZATIONS, SURFACE_MODES, DASHES,
+    DASHES, POLARIZATIONS, QUANTITIES, SURFACE_MODES, SWEEP,
+    buildAxisTargetOptions, parseAxisVar, quantitySides, takesPolarization,
 } from '../../../../utils/physics/plotQuantities.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { FieldLabel, NumInput, RangeField, SelectField, valueOptions } from '../chrome/controls.js';
 import { SettingRow } from '../chrome/popover.js';
+import { readsMerit } from './curveEdits.js';
+import { axisOptionLabel, quantityOptionLabel, sweepUnit } from './quantityLabels.js';
 
 const { createElement: h } = React;
 
 const FONT = 'system-ui, -apple-system, sans-serif';
-const SELECT_WIDTH = 110;
+
+// How far one arrow key moves each kind of range end.
+const RANGE_NUDGE = { lambda: 10, aoi: 5, thk: 10 };
 
 /**
  * What the curve is called and whether it is drawn: the switch, its colour, its
@@ -22,12 +27,12 @@ function CurveHeader({ curve, onUpdate, onDelete, c, pe }) {
         h(Checkbox, {
             c, checked: curve.visible,
             onChange: event => onUpdate({ visible: event.target.checked }),
-            title: pe.visible || 'Visible',
+            title: pe.visible,
         }),
         h('input', {
             type: 'color', value: curve.color,
             onChange: event => onUpdate({ color: event.target.value }),
-            title: pe.color || 'Color',
+            title: pe.color,
             style: {
                 width: 24, height: 22, padding: 0, cursor: 'pointer',
                 background: 'transparent', border: `1px solid ${c.border}`, borderRadius: 4,
@@ -44,7 +49,7 @@ function CurveHeader({ curve, onUpdate, onDelete, c, pe }) {
             },
         }),
         h('button', {
-            type: 'button', onClick: onDelete, title: pe.delete || 'Delete curve',
+            type: 'button', onClick: onDelete, title: pe.delete,
             style: {
                 width: 22, height: 22, padding: 0, flexShrink: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -55,11 +60,110 @@ function CurveHeader({ curve, onUpdate, onDelete, c, pe }) {
     );
 }
 
-export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
-    const pe = (t && t.plotEngine) || {};
-    const overAngle = curve.xAxis === 'aoi';
-    const rangeStep = overAngle ? 5 : 10;
+/**
+ * What a curve can change along it: the wavelength, the angle, or the
+ * thickness of one front layer, the layers listed L1 first as the surface axes
+ * list them. A curve that reads the merit function changes a layer, so
+ * wavelength and angle are not offered to it.
+ */
+export function sweepOptions(curve, design, t) {
+    return buildAxisTargetOptions(design, !readsMerit(curve))
+        .map(option => ({ id: option.value, label: axisOptionLabel(option, t) }));
+}
 
+function SweepRow({ curve, design, onUpdate, c, t }) {
+    return h(SettingRow, { c, label: t.plotEngine.sweep },
+        h(SelectField, {
+            c, width: 268, value: curve.sweep,
+            onChange: sweep => onUpdate({ sweep }),
+            options: sweepOptions(curve, design, t),
+        }),
+    );
+}
+
+function RangeRow({ curve, onUpdate, c, t }) {
+    const pe = t.plotEngine;
+    const nudge = RANGE_NUDGE[parseAxisVar(curve.sweep).kind];
+    return h(SettingRow, { c, label: pe.range },
+        h(RangeField, {
+            c, width: 58, unit: sweepUnit(curve.sweep, t),
+            from: { value: curve.rangeFrom, step: nudge, onChange: value => onUpdate({ rangeFrom: value }) },
+            to: { value: curve.rangeTo, step: nudge, onChange: value => onUpdate({ rangeTo: value }) },
+        }),
+        h(FieldLabel, { c }, pe.step),
+        h(NumInput, {
+            c, width: 48, value: curve.rangeStep, step: nudge, positive: true,
+            onChange: value => onUpdate({ rangeStep: value }),
+        }),
+    );
+}
+
+/**
+ * The wavelength and angle the curve is read at while it sweeps something else.
+ * One that is swept, or that nothing on the curve reads, is shown but disabled:
+ * the merit function takes each operand's own.
+ */
+function FixedRow({ curve, onUpdate, c, t }) {
+    const pe = t.plotEngine;
+    const { kind } = parseAxisVar(curve.sweep);
+    const reads = [curve.x.quantity, curve.y.quantity].some(quantity => quantity !== SWEEP && quantity !== 'MF');
+    const unitStyle = { color: c.textDim, fontSize: 11 };
+    return h(SettingRow, { c, label: pe.fixed },
+        h(FieldLabel, { c }, 'λ'),
+        h(NumInput, {
+            c, width: 58, value: curve.lambdaFixed_nm, step: 10, positive: true,
+            disabled: !reads || kind === 'lambda',
+            onChange: value => onUpdate({ lambdaFixed_nm: value }),
+        }),
+        h('span', { style: unitStyle }, t.units.nm),
+        h(FieldLabel, { c }, pe.aoiShort),
+        h(NumInput, {
+            c, width: 48, value: curve.aoiFixed_deg, step: 5, min: 0, max: 89,
+            disabled: !reads || kind === 'aoi',
+            onChange: value => onUpdate({ aoiFixed_deg: value }),
+        }),
+        h('span', { style: unitStyle }, '°'),
+    );
+}
+
+// The quantities an axis can read. The merit function needs a layer to sweep,
+// so a design with no front layers is not offered it.
+function quantityOptions(curve, design, t) {
+    const hasFront = (design?.frontLayers || []).length > 0;
+    return [SWEEP, ...QUANTITIES.filter(quantity => quantity !== 'MF' || hasFront)]
+        .map(quantity => ({ id: quantity, label: quantityOptionLabel(quantity, curve.sweep, design, t) }));
+}
+
+/**
+ * One axis: the quantity it reads, and the polarization and side it is read in.
+ * A choice the quantity does not take is shown but disabled.
+ */
+function AxisRow({ which, curve, design, onUpdate, c, t }) {
+    const pe = t.plotEngine;
+    const axis = curve[which];
+    const sides = quantitySides(axis.quantity);
+    const setAxis = patch => onUpdate({ [which]: { ...axis, ...patch } });
+    return h(SettingRow, { c, label: which === 'x' ? pe.axisX : pe.axisY },
+        h(SelectField, {
+            c, width: 112, value: axis.quantity,
+            onChange: quantity => setAxis({ quantity }),
+            options: quantityOptions(curve, design, t),
+        }),
+        h(SelectField, {
+            c, width: 58, value: axis.polarization, disabled: !takesPolarization(axis.quantity),
+            onChange: polarization => setAxis({ polarization }),
+            options: valueOptions(POLARIZATIONS, v => (v === 'avg' ? pe.polAvg : v)),
+        }),
+        h(SelectField, {
+            c, width: 70, value: axis.side, disabled: sides.length === 0,
+            onChange: side => setAxis({ side }),
+            options: valueOptions(sides.length ? sides : SURFACE_MODES, v => pe.surfaceModes[v]),
+        }),
+    );
+}
+
+export function CurveRow({ curve, design, errorKey, onUpdate, onDelete, c, t }) {
+    const pe = t.plotEngine;
     return h('div', {
         style: {
             padding: '6px 0',
@@ -68,75 +172,26 @@ export function CurveRow({ curve, onUpdate, onDelete, c, t }) {
         },
     },
         h(CurveHeader, { curve, onUpdate, onDelete, c, pe }),
-        h(SettingRow, { c, label: pe.xAxis || 'X axis' },
+        h(SweepRow, { curve, design, onUpdate, c, t }),
+        h(RangeRow, { curve, onUpdate, c, t }),
+        h(FixedRow, { curve, onUpdate, c, t }),
+        h(AxisRow, { which: 'x', curve, design, onUpdate, c, t }),
+        h(AxisRow, { which: 'y', curve, design, onUpdate, c, t }),
+        h(SettingRow, { c, label: pe.dash },
             h(SelectField, {
-                c, width: SELECT_WIDTH, value: curve.xAxis,
-                onChange: value => onUpdate({ xAxis: value }),
-                options: valueOptions(X_AXES, v => (v === 'aoi' ? (pe.xAOI || 'AOI') : (pe.xWavelength || 'wavelength'))),
-            }),
-        ),
-        h(SettingRow, { c, label: pe.range || 'Range' },
-            h(RangeField, {
-                c, width: 58, unit: overAngle ? '°' : t.units.nm,
-                from: {
-                    value: curve.rangeFrom, step: rangeStep,
-                    onChange: value => onUpdate({ rangeFrom: value }),
-                },
-                to: {
-                    value: curve.rangeTo, step: rangeStep,
-                    onChange: value => onUpdate({ rangeTo: value }),
-                },
-            }),
-        ),
-        h(SettingRow, { c, label: pe.step || 'Step' },
-            h(NumInput, {
-                c, width: 58, value: curve.rangeStep, step: 1, positive: true,
-                onChange: value => onUpdate({ rangeStep: value }),
-            }),
-        ),
-        // The parameter the curve is not swept over is held at one value.
-        !overAngle && h(SettingRow, { c, label: pe.fixedAOI || 'AOI fixed' },
-            h(NumInput, {
-                c, width: 58, value: curve.aoiFixed_deg, step: 5, min: 0, max: 89,
-                onChange: value => onUpdate({ aoiFixed_deg: value }),
-            }),
-        ),
-        overAngle && h(SettingRow, { c, label: pe.fixedLambda || 'λ fixed' },
-            h(NumInput, {
-                c, width: 58, value: curve.lambdaFixed_nm, step: 10, positive: true,
-                onChange: value => onUpdate({ lambdaFixed_nm: value }),
-            }),
-        ),
-        h(SettingRow, { c, label: pe.channel || 'Y' },
-            h(SelectField, {
-                c, width: 58, value: curve.yChannel,
-                onChange: value => onUpdate({ yChannel: value }),
-                options: valueOptions(Y_CHANNELS),
-            }),
-            h(SelectField, {
-                c, width: 66, value: curve.polarization,
-                onChange: value => onUpdate({ polarization: value }),
-                options: valueOptions(POLARIZATIONS, v => (v === 'avg' && pe.polAvg) || v),
-            }),
-        ),
-        h(SettingRow, { c, label: pe.surface || 'Surface' },
-            h(SelectField, {
-                c, width: SELECT_WIDTH, value: curve.surfaceMode,
-                onChange: value => onUpdate({ surfaceMode: value }),
-                options: valueOptions(SURFACE_MODES, v => pe.surfaceModes?.[v] || v),
-            }),
-        ),
-        h(SettingRow, { c, label: pe.dash || 'Dash' },
-            h(SelectField, {
-                c, width: SELECT_WIDTH, value: curve.dash,
+                c, width: 100, value: curve.dash,
                 onChange: value => onUpdate({ dash: value }),
-                options: valueOptions(DASHES, v => pe.dashes?.[v] || v),
+                options: valueOptions(DASHES, v => pe.dashes[v]),
             }),
-            h(FieldLabel, { c }, pe.width || 'Width'),
+            h(FieldLabel, { c }, pe.width),
             h(NumInput, {
                 c, width: 48, value: curve.width, step: 0.5, min: 0.5, max: 5,
                 onChange: value => onUpdate({ width: value }),
             }),
         ),
+        errorKey && h('div', {
+            role: 'alert',
+            style: { fontSize: 10, color: c.error, lineHeight: 1.4, paddingTop: 2 },
+        }, pe[errorKey] || pe.errCannotCompute),
     );
 }

@@ -13,6 +13,7 @@ import {
     niceAxisBounds,
 } from '../../../../ui/chartOptions.js';
 import { plotMargin } from '../../chrome/plot.js';
+import { axisTitle, quantitySymbol, quantityUnit } from '../quantityLabels.js';
 import { colorScale } from './colorScales.js';
 
 const SURFACE_INTERACTION = Object.freeze({
@@ -25,18 +26,22 @@ const SURFACE_INTERACTION = Object.freeze({
 export function surfacePlotAxisLabel(token, design, labels, units) {
     const parsed = parseAxisVar(token);
     if (parsed.kind === 'thk') return `L${layerNumber(design, parsed.layer)} d (${units.nm})`;
-    if (parsed.kind === 'n' || parsed.kind === 'k') return `L${layerNumber(design, parsed.layer)} ${parsed.kind}`;
     return surfaceAxisLabel(token, design, labels);
 }
 
 /**
- * The quantity's full name, for a tooltip, a series or a table heading. The
- * compute returns the quantity as a key (T, R, A, MF); a key with no entry of
- * its own is shown as it comes.
+ * The quantity's full name, for a tooltip, a series or a table heading: T, R,
+ * A and MF by the names t.plotEngine gives them, the others by their symbol.
+ * The compute returns the quantity as a key.
  */
-export function surfaceZLabel(result, labels = {}) {
+export function surfaceZLabel(result, t) {
     const key = result?.zKey;
-    return (key && labels[`z${key}`]) || key || '';
+    return key ? (t.plotEngine[`z${key}`] || quantitySymbol(key, t)) : '';
+}
+
+/** The full name with the unit the surface draws the quantity in, as in "Transmittance (%)". */
+export function surfaceZTitle(result, t) {
+    return axisTitle([surfaceZLabel(result, t)], quantityUnit(result?.zKey, t));
 }
 
 /**
@@ -287,26 +292,23 @@ function heatmapCellSeries(zLabel, heatmap, c) {
  *
  * `view` is how the grid is being shown rather than what is in it:
  * `barHeight` the colour bar's measured height, `image` the grid already
- * rasterised, and `range` the band selected on the bar. `labels` and `units`
- * are t.plotEngine and t.units.
+ * rasterised, and `range` the band selected on the bar. `t` is the locale.
  */
 export function buildSurfaceOption(result, spec, design, c, view = {}) {
-    const { labels, units } = view;
-    const { barHeight = DEFAULT_BAR_HEIGHT, image = null, range = null } = view;
+    const { t, barHeight = DEFAULT_BAR_HEIGHT, image = null, range = null } = view;
     if (!result?.ok) return null;
-    const xName = surfacePlotAxisLabel(spec.xVar, design, labels, units);
-    const yName = surfacePlotAxisLabel(spec.yVar, design, labels, units);
+    const xName = surfacePlotAxisLabel(spec.xVar, design, t.plotEngine, t.units);
+    const yName = surfacePlotAxisLabel(spec.yVar, design, t.plotEngine, t.units);
     const colors = colorScale(spec.colorscale);
     const percent = isPercentQuantity(spec);
     const scale = heatmapScale(spec);
-    const zName = surfaceZLabel(result, labels);
-    const zLabel = `${zName}${percent ? ' (%)' : ''}`;
+    const zLabel = surfaceZTitle(result, t);
     // The tooltip and the series name carry the quantity's full name. The
     // captions on the chart itself take the symbol instead: a colour bar sits in
     // a margin about as wide as it is, and "Transmittance (%)" centred over it
     // runs off the edge of a narrow split-pane window.
-    const barLabel = percent ? `${spec.z} (%)` : spec.z;
-    const zAxisLabel = percent ? '%' : zName;
+    const barLabel = axisTitle([quantitySymbol(spec.z, t)], quantityUnit(spec.z, t));
+    const zAxisLabel = percent ? '%' : zLabel;
     const extent = valueExtent(result, scale);
     const zBounds = niceAxisBounds(extent.min, extent.max, {
         targetTicks: 6, minInterval: percent ? 1 : 0,

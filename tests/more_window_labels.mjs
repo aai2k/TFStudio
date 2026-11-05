@@ -203,8 +203,9 @@ const design = {
                 .replace(/<[^>]*>/g, '\n').split('\n').map(text => text.trim());
             const ids = ['front', 'back', 'total', 'solid', 'dashdot', 'avg'].filter(id => shown.includes(id));
             expect(ids.length === 0, `${code} lists ${ids.join(', ')}`);
-            expect(shown.includes(pe.surfaceModes.front) && shown.includes(pe.dashes.dot) && shown.includes(pe.xAOI),
-                `${code} does not name the surfaces, dashes and the angle axis`);
+            expect(shown.includes(pe.surfaceModes.front) && shown.includes(pe.dashes.dot)
+                && shown.includes(pe.aoiShort) && shown.includes(pe.varAOI),
+                `${code} does not name the surfaces, dashes and the angle`);
         }
     });
     await check('Plot Engine new curve name', () => {

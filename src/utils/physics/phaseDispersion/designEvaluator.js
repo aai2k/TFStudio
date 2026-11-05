@@ -41,11 +41,12 @@ export function evaluateTotalTransmissionDispersion(design, options) {
 /**
  * Prepare the front coating, the substrate transit and the back coating once
  * for repeated wavelength evaluation of the single-pass transmission through
- * the whole part. The returned evaluator takes a wavelength.
+ * the whole part. The returned evaluator takes a wavelength. `resolveMaterial`
+ * maps a material id to its material, the design's own materials when left out.
  */
 export function createTotalTransmissionDispersionEvaluator(design, options = {}) {
     const { polarization = 's', thetaDeg = 0 } = options;
-    const resolveMaterial = designMaterialLookup(design);
+    const resolveMaterial = options.resolveMaterial || designMaterialLookup(design);
     const incidentMaterial = resolveMaterial(design.incidentMedium);
     const substrateMaterial = resolveMaterial(design.substrate?.material);
     const exitMaterial = resolveMaterial(design.exitMedium);
@@ -159,6 +160,8 @@ export function evaluateDesignPhaseDispersion(design, options) {
  * The returned evaluator takes a wavelength and, optionally, which side of a
  * table knot to read there; reading `knotWavelengths` on it lists every interior
  * knot the stack's materials contribute, which is where that choice matters.
+ * `resolveMaterial` maps a material id to its material, the design's own
+ * materials when left out.
  */
 export function createDesignPhaseDispersionEvaluator(design, options = {}) {
     const {
@@ -167,7 +170,7 @@ export function createDesignPhaseDispersionEvaluator(design, options = {}) {
         polarization = 's',
         thetaDeg = 0,
     } = options;
-    const resolveMaterial = designMaterialLookup(design);
+    const resolveMaterial = options.resolveMaterial || designMaterialLookup(design);
     const definition = sideDefinition(design, side);
     const incidentMaterial = resolveMaterial(definition.incidentId);
     const substrateMaterial = resolveMaterial(definition.substrateId);

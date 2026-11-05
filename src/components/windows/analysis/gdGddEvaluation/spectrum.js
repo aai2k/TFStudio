@@ -4,102 +4,10 @@ import {
 import {
     createDesignPhaseDispersionEvaluator, createTotalTransmissionDispersionEvaluator,
 } from '../../../../utils/physics/phaseDispersion.js';
-import { KNOT_MATCH_TOLERANCE_NM, knotGrid, sampleKnots } from '../knots.js';
+import { sampleKnots } from '../knots.js';
+import { presentationGrid } from './grid.js';
 
-export const AUTOMATIC_GD_GDD_FINE_STEP_NM = 0.2;
-const AUTOMATIC_GRID_MAX_INTERVALS = 2000;
-// Live preview grid, used while an optimizer run is driving the design. The
-// curve is being watched for its shape as it moves, not read for knot detail,
-// so a coarse grid with no local refinement keeps the redraw far below the
-// preview interval and leaves the interface responsive.
-const PREVIEW_GRID_MAX_INTERVALS = 300;
-const PREVIEW_FINE_STEP_NM = 1;
-const AUTOMATIC_REFINEMENT_WIDTH_NM = 0.01;
-
-function wavelengthGrid(start, end, step) {
-    const count = Math.floor((end - start) / step + 1e-12) + 1;
-    const wavelengths = Array.from({ length: count }, (_, index) => start + index * step);
-    if (end - wavelengths[wavelengths.length - 1] > 1e-9) wavelengths.push(end);
-    return wavelengths;
-}
-
-function automaticWavelengthGrid(start, end, preview) {
-    const span = Math.abs(end - start);
-    const step = preview
-        ? Math.max(PREVIEW_FINE_STEP_NM, span / PREVIEW_GRID_MAX_INTERVALS)
-        : Math.max(AUTOMATIC_GD_GDD_FINE_STEP_NM, span / AUTOMATIC_GRID_MAX_INTERVALS);
-    return wavelengthGrid(start, end, step);
-}
-
-function adaptiveWavelengthGrid(baseWavelengths, evaluate) {
-    const wavelengths = new Set(baseWavelengths);
-    const maximumAdditional = Math.min(2048, baseWavelengths.length * 2);
-    let added = 0;
-
-    for (let level = 0; level < 12 && added < maximumAdditional; level++) {
-        const ordered = [...wavelengths].sort((left, right) => left - right);
-        const values = ordered.map(evaluate);
-        const candidates = new Set();
-        for (let index = 1; index < ordered.length - 1; index++) {
-            const left = values[index - 1];
-            const center = values[index];
-            const right = values[index + 1];
-            if (!left.valid || !center.valid || !right.valid) continue;
-            const localMinimum = center.magnitudeSquared <= left.magnitudeSquared
-                && center.magnitudeSquared <= right.magnitudeSquared;
-            const pronounced = center.magnitudeSquared < 0.05
-                || center.magnitudeSquared * 2 < Math.min(
-                    left.magnitudeSquared,
-                    right.magnitudeSquared,
-                );
-            if (!localMinimum || !pronounced) continue;
-            if (ordered[index] - ordered[index - 1] > AUTOMATIC_REFINEMENT_WIDTH_NM) {
-                candidates.add((ordered[index - 1] + ordered[index]) / 2);
-            }
-            if (ordered[index + 1] - ordered[index] > AUTOMATIC_REFINEMENT_WIDTH_NM) {
-                candidates.add((ordered[index] + ordered[index + 1]) / 2);
-            }
-        }
-        if (!candidates.size) break;
-        for (const wavelength of candidates) {
-            if (added >= maximumAdditional) break;
-            if (!wavelengths.has(wavelength)) {
-                wavelengths.add(wavelength);
-                added++;
-            }
-        }
-    }
-    return [...wavelengths].sort((left, right) => left - right);
-}
-
-// A grid every `stepNm` from lambdaStart, the last point at lambdaEnd, with no
-// point added at a coefficient minimum or a table knot. A table knot that is
-// one of its points, under the knot rule's density limit, is still read on
-// both sides, so a value there is not a silent midpoint.
-function uniformGrid(lambdaStart, lambdaEnd, stepNm, pointEvaluator) {
-    const wavelengths = wavelengthGrid(lambdaStart, lambdaEnd, stepNm);
-    const indexOf = knot => Math.round((knot - lambdaStart) / stepNm);
-    const { knots } = knotGrid(wavelengths, pointEvaluator.knotWavelengths, lambdaStart, lambdaEnd);
-    const onGrid = knots.filter(knot => Math.abs(wavelengths[indexOf(knot)] - knot) <= KNOT_MATCH_TOLERANCE_NM);
-    for (const knot of onGrid) wavelengths[indexOf(knot)] = knot;
-    return { wavelengths, knots: onGrid, basePointCount: wavelengths.length, adaptivePointCount: 0 };
-}
-
-// The wavelengths a spectrum is presented on: an automatic grid, refined around
-// narrow coefficient minima and carrying a sample on every table knot, unless
-// this is a live preview or a uniform step is asked for.
-function presentationGrid(lambdaStart, lambdaEnd, { preview, stepNm }, evaluate, pointEvaluator) {
-    if (stepNm) return uniformGrid(lambdaStart, lambdaEnd, stepNm, pointEvaluator);
-    const base = automaticWavelengthGrid(lambdaStart, lambdaEnd, preview);
-    const counts = { basePointCount: base.length, adaptivePointCount: 0 };
-    // A preview asks for no knots, so it must not read knotWavelengths either:
-    // gathering them walks every table the stack uses.
-    if (preview) return { wavelengths: base, knots: [], ...counts };
-    const refined = adaptiveWavelengthGrid(base, evaluate);
-    counts.adaptivePointCount = refined.length - base.length;
-    const knots = knotGrid(refined, pointEvaluator.knotWavelengths, lambdaStart, lambdaEnd);
-    return { ...knots, ...counts };
-}
+export { AUTOMATIC_GD_GDD_FINE_STEP_NM } from './grid.js';
 
 function normalizeRadians(value) {
     return ((value + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
@@ -146,9 +54,11 @@ function averagePolarizations(sValue, pValue) {
 // design's thickness and the back coating, the first pulse to come out. It
 // reads no table knot on one side, so none is sampled there. Its values carry
 // the substrate's propagation phase apart, for unwrapWholePartPhase.
-function polarizationEvaluator(design, { side, target, thetaDeg }, polarization) {
-    if (side !== 'whole') return createDesignPhaseDispersionEvaluator(design, { side, target, polarization, thetaDeg });
-    const evaluate = createTotalTransmissionDispersionEvaluator(design, { polarization, thetaDeg });
+function polarizationEvaluator(design, { side, target, thetaDeg, resolveMaterial }, polarization) {
+    if (side !== 'whole') {
+        return createDesignPhaseDispersionEvaluator(design, { side, target, polarization, thetaDeg, resolveMaterial });
+    }
+    const evaluate = createTotalTransmissionDispersionEvaluator(design, { polarization, thetaDeg, resolveMaterial });
     return wavelengthNm => {
         const value = evaluate(wavelengthNm);
         return { ...value, substratePhaseRad: value.components.substrate.phaseRad };
@@ -156,13 +66,15 @@ function polarizationEvaluator(design, { side, target, thetaDeg }, polarization)
 }
 
 /**
- * Phase, GD, GDD, TOD and CDC of one side of `design`, as the GD/GDD window
- * shows them. `stepNm`, which the window never passes, asks for a uniform grid
- * in place of the window's own.
+ * The window's values at one wavelength: `evaluateAt(wavelengthNm, knotSide)`
+ * gives phase, GD, GDD and TOD of one side in one polarization, or the mean of
+ * s and p for 'avg'. `options` as computeGdGddSpectrum takes them, with
+ * `resolveMaterial` mapping a material id to its material, the design's own
+ * materials when left out. `knotSource` is the evaluator whose table knots the
+ * window samples.
  */
-export function computeGdGddSpectrum(design, options) {
-    const { lambdaStart, lambdaEnd, polarization, preview } = options;
-    const valueCache = new Map();
+export function gdGddPointEvaluator(design, options) {
+    const { polarization } = options;
     const pointEvaluators = Object.fromEntries(
         (polarization === 'avg' ? ['s', 'p'] : [polarization]).map(code => [
             code, polarizationEvaluator(design, options, code),
@@ -174,19 +86,37 @@ export function computeGdGddSpectrum(design, options) {
             ? averagePolarizations(evaluatePolarization('s'), evaluatePolarization('p'))
             : evaluatePolarization(polarization);
     };
+    return { evaluateAt, knotSource: pointEvaluators[polarization === 'avg' ? 's' : polarization] };
+}
+
+/**
+ * The phase of a run of point values in degrees, unwrapped along their order
+ * as the window unwraps it along wavelength. NaN where a value is invalid.
+ */
+export function unwrappedPhaseDeg(values, side) {
+    const phaseRadians = side === 'whole'
+        ? unwrapWholePartPhase(values)
+        : unwrapFiniteRuns(values.map(value => value.valid ? value.phaseRad : NaN));
+    return phaseRadians.map(value => value * 180 / Math.PI);
+}
+
+/**
+ * Phase, GD, GDD, TOD and CDC of one side of `design`, as the GD/GDD window
+ * shows them. `stepNm`, which the window never passes, asks for a uniform grid
+ * in place of the window's own.
+ */
+export function computeGdGddSpectrum(design, options) {
+    const { lambdaStart, lambdaEnd, preview } = options;
+    const valueCache = new Map();
+    const { evaluateAt, knotSource } = gdGddPointEvaluator(design, options);
     const evaluate = (wavelengthNm) => {
         if (!valueCache.has(wavelengthNm)) valueCache.set(wavelengthNm, evaluateAt(wavelengthNm));
         return valueCache.get(wavelengthNm);
     };
-    const grid = presentationGrid(
-        lambdaStart, lambdaEnd, options, evaluate,
-        pointEvaluators[polarization === 'avg' ? 's' : polarization]);
+    const grid = presentationGrid(lambdaStart, lambdaEnd, options, evaluate, knotSource);
     const { wavelengths, knots } = grid;
     const values = wavelengths.map(evaluate);
-    const phaseRadians = options.side === 'whole'
-        ? unwrapWholePartPhase(values)
-        : unwrapFiniteRuns(values.map(value => value.valid ? value.phaseRad : NaN));
-    const phaseDeg = phaseRadians.map(value => value * 180 / Math.PI);
+    const phaseDeg = unwrappedPhaseDeg(values, options.side);
     return {
         lambda: wavelengths,
         phaseDeg,

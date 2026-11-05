@@ -1,6 +1,8 @@
 import { isLayerVar } from './axisVars.js';
 import { computeMeritSurface } from './meritSurface.js';
 import { computeOpticalSurface } from './opticalSurface.js';
+import { computePointSurface } from './pointSurface.js';
+import { quantityFamily } from './quantities.js';
 import { linspace } from './surfaceSpec.js';
 
 /**
@@ -35,7 +37,8 @@ export function computeSurface(spec, design, resolveMat, opts = {}) {
     const fullRange = rowFrom === 0 && rowTo === y.length;
     const grid = { x, y, rowFrom, rowTo, nPoints };
 
-    return isMF
-        ? computeMeritSurface(spec, design, resolveMat, grid)
-        : computeOpticalSurface(spec, design, resolveMat, grid, fullRange);
+    if (isMF) return computeMeritSurface(spec, design, resolveMat, grid);
+    return quantityFamily(spec.z) === 'optical'
+        ? computeOpticalSurface(spec, design, resolveMat, grid, fullRange)
+        : computePointSurface(spec, design, resolveMat, grid);
 }

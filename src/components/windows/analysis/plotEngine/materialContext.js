@@ -1,6 +1,8 @@
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
 
+// The design, its material resolver, and its stack resolved for the spectrum,
+// as computeCurve takes them.
 export function buildEvaluationContext(design) {
     if (!design) return null;
     const resolveMaterial = designMaterialLookup(design);
@@ -14,6 +16,7 @@ export function buildEvaluationContext(design) {
         .filter(l => l.thickness > 0)
         .map(l => ({ material: resolveMaterial(l.material), thickness: l.thickness }));
     return {
+        design, resolveMat: resolveMaterial,
         incMat, subMat, exitMat, frontLayers, backLayers,
         subThickness_mm: design.substrate?.thickness ?? 1.0,
         cone: makeConeSpec(design.cone || {}),

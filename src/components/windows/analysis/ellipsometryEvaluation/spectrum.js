@@ -4,10 +4,12 @@ import {
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { nkAt, sideLayersAt, sideMedia, sideStack } from './model.js';
 
+// `options.resolveMaterial` maps a material id to its material in both sweeps,
+// the design's own materials when left out.
 export function computeSpectral(design, options) {
     const { side, lambdaStart, lambdaEnd, lambdaStep, thetaDeg } = options;
     const { n0Id, nsId } = sideMedia(design, side);
-    const resolveMaterial = designMaterialLookup(design);
+    const resolveMaterial = options.resolveMaterial || designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(nsId);
     const x = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
@@ -22,19 +24,28 @@ export function computeSpectral(design, options) {
     return { x, psi, delta };
 }
 
+// The window's angles: from angleStart by angleStep up to angleEnd, each
+// rounded to 0.001 degree.
+function angleList(angleStart, angleEnd, angleStep) {
+    const x = [];
+    for (let a = angleStart; a <= angleEnd + 1e-9; a += angleStep) {
+        x.push(Math.round(a * 1000) / 1000);
+    }
+    return x;
+}
+
+// `options.angles`, a list of angles in degrees, takes the place of the
+// window's own from angleStart to angleEnd.
 export function computeAngular(design, options) {
     const { side, lambdaNm, angleStart, angleEnd, angleStep } = options;
     const { n0Id, nsId } = sideMedia(design, side);
-    const resolveMaterial = designMaterialLookup(design);
+    const resolveMaterial = options.resolveMaterial || designMaterialLookup(design);
     const n0mat = resolveMaterial(n0Id);
     const nsmat = resolveMaterial(nsId);
     const n0 = nkAt(n0mat, lambdaNm);
     const ns = nkAt(nsmat, lambdaNm);
     const layers = sideLayersAt(resolveMaterial, design, side, lambdaNm);
-    const x = [];
-    for (let a = angleStart; a <= angleEnd + 1e-9; a += angleStep) {
-        x.push(Math.round(a * 1000) / 1000);
-    }
+    const x = options.angles || angleList(angleStart, angleEnd, angleStep);
     const { psi, delta } = evaluateEllipsometryAngles(lambdaNm, x, n0, ns, layers);
     return { x, psi, delta };
 }
