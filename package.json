@@ -62,7 +62,7 @@
     "decimal.js": "^10.6.0",
     "echarts": "^6.1.0",
     "echarts-gl": "^2.1.0",
-    "electron": "^44.9.1",
+    "electron": "^45.2.3",
     "electron-builder": "^26.18.0",
     "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
