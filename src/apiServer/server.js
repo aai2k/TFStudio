@@ -31,7 +31,8 @@
  *   request      -> { id, call, args, hooks, stopped }
  *                   id a string or a whole number, which the answer carries;
  *                   call an API call's name or app.designs, app.read,
- *                   app.apply; args the list of its arguments, empty when
+ *                   app.apply, app.select, app.add, app.delete; args the
+ *                   list of its arguments, empty when
  *                   left out. Only a run (calls.js RUNS) takes hooks: the
  *                   names of the hooks to stream, its third argument made of
  *                   them and of the server's own signal, so it takes at most

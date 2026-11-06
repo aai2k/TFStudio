@@ -1008,8 +1008,8 @@
     "text": "已存在的文件（未给出 overwrite=True 时）"
   },
   "Design.push.lead.1": {
-    "hash": "347117db",
-    "text": "把设计写回 TFStudio 应用中它被读取时的那个设计，作为应用可以撤销的一步。只有来自 tf.app.open_design() 的设计才有对应的设计；再次修改后可以再次 push。"
+    "hash": "05ebce1b",
+    "text": "把设计写回 TFStudio 应用中它被读取时的那个设计，作为应用可以撤销的一步。只有来自 tf.app.open_design() 或 tf.app.add() 的设计才有对应的设计；再次修改后可以再次 push。"
   },
   "Design.push.refuses.1": {
     "hash": "4091bb3f",
@@ -2803,6 +2803,82 @@
     "hash": "5e0e4dd2",
     "text": "无法连接到应用，或应用中没有设计"
   },
+  "App.folders.returns": {
+    "hash": "44129ef0",
+    "text": "一个由 str 组成的 list。"
+  },
+  "App.folders.lead.1": {
+    "hash": "14a0bbd4",
+    "text": "应用的各个项目文件夹，每个以它在 Projects 下的路径表示，即 add() 接受的形式，空文件夹也包括在内。"
+  },
+  "App.folders.refuses.1": {
+    "hash": "aa705b4e",
+    "text": "未以 live=True 启动的 TFStudio()"
+  },
+  "App.folders.raises.1": {
+    "hash": "f45caf59",
+    "text": "无法连接到应用"
+  },
+  "App.select.arg.design": {
+    "hash": "9a6a46a2",
+    "text": "设计的 id 或名称、designs() 给出的一个 AppDesign，或从应用读取或添加到应用的一个 Design。"
+  },
+  "App.select.returns": {
+    "hash": "69f47c4c",
+    "text": "该 AppDesign，现在为打开的设计。"
+  },
+  "App.select.lead.1": {
+    "hash": "e26e0f76",
+    "text": "打开应用中的一个设计，与在项目资源管理器中点击它所在的行相同，使它成为 push() 写入的设计。"
+  },
+  "App.select.refuses.1": {
+    "hash": "2268789f",
+    "text": "未以 live=True 启动的 TFStudio()、应用中没有对应设计的 id 或名称、多个设计共用的名称，或不是从应用读取的 Design"
+  },
+  "App.select.raises.1": {
+    "hash": "f45caf59",
+    "text": "无法连接到应用"
+  },
+  "App.add.arg.design": {
+    "hash": "39f90691",
+    "text": "要添加的 Design，之后它保存应用中保存的内容并与之关联，因此它的 push() 写入那里。不给出时，为一个空白设计，与“新建设计”创建的相同。"
+  },
+  "App.add.arg.folder": {
+    "hash": "7eb3adb8",
+    "text": "项目文件夹，与 folders() 列出的相同。不给出时，为应用项目资源管理器中选中的文件夹，或第一个文件夹。"
+  },
+  "App.add.returns": {
+    "hash": "c260496b",
+    "text": "添加的 Design，已与应用关联。"
+  },
+  "App.add.lead.1": {
+    "hash": "40aaa384",
+    "text": "把一个设计添加到应用的一个项目文件夹，在那里写为 .tfs 文件，并打开它。文件夹中已有的名称后面会加上一个数字。"
+  },
+  "App.add.refuses.1": {
+    "hash": "5b0ef8af",
+    "text": "未以 live=True 启动的 TFStudio()，或含有 NaN 或无穷大的设计"
+  },
+  "App.add.raises.1": {
+    "hash": "29849a9f",
+    "text": "无法连接到应用：应用没有该文件夹时，代码为 \"noFolder\"；无法写入文件时为 \"failed\""
+  },
+  "App.delete.arg.design": {
+    "hash": "9a6a46a2",
+    "text": "设计的 id 或名称、designs() 给出的一个 AppDesign，或从应用读取或添加到应用的一个 Design。"
+  },
+  "App.delete.lead.1": {
+    "hash": "8b3f8081",
+    "text": "删除应用中的一个设计，与项目资源管理器中的“删除”相同，但不询问：它的文件移到回收站，可从那里恢复。应用中的撤销不能把它找回。"
+  },
+  "App.delete.refuses.1": {
+    "hash": "2268789f",
+    "text": "未以 live=True 启动的 TFStudio()、应用中没有对应设计的 id 或名称、多个设计共用的名称，或不是从应用读取的 Design"
+  },
+  "App.delete.raises.1": {
+    "hash": "1c66563a",
+    "text": "无法连接到应用，或什么也没有删除：设计有未保存的修改（回收站中的副本不会包含这些修改）时，代码为 \"unsaved\"；回收站没有接受它的文件时为 \"noBin\"；或为 \"failed\""
+  },
   "AppDesign.lead.1": {
     "hash": "0129b1df",
     "text": "TFStudio 应用中打开的一个设计，由 tf.app.designs() 列出。"
@@ -2840,8 +2916,8 @@
     "text": "被 TFStudio 拒绝的调用，附有用包中名称说明原因的信息：信息以所调用方法的名称开头，例如 \"refine: \"；对被设置的属性，则写出该属性的名称。不属于某个调用的拒绝（例如找不到对应材料的材料 id）只说明哪里出错。"
   },
   "AppError.lead.1": {
-    "hash": "6ab1acf2",
-    "text": "被拒绝的对应用（tf.app）的调用，`code` 说明原因：'off'、'timeout'、'protocol'、'denied'、'edited'、'switched'、'optimizing'、'noDesign'、'unknown' 或 'invalid'。"
+    "hash": "ce618006",
+    "text": "被拒绝的对应用（tf.app）的调用，`code` 说明原因：'off'、'timeout'、'protocol'、'denied'、'edited'、'switched'、'optimizing'、'noDesign'、'unknown'、'noFolder'、'unsaved'、'noBin'、'failed' 或 'invalid'。"
   },
   "ServerError.lead.1": {
     "hash": "97e0f0eb",

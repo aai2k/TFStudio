@@ -18,7 +18,8 @@
 //                or { error }, and the app hangs up; error code 'denied' when
 //                the user did not let the program in, 'off' when Terminate
 //                let it go earlier in the app's run
-//   request   -> { id, method, params }, method 'designs', 'read' or 'apply'
+//   request   -> { id, method, params }, method 'designs', 'read', 'apply',
+//                'select', 'add' or 'delete'
 //             <- { id, result } or { id, error: { code, message } }
 //
 // CommonJS, Electron-free: the main process requires it, and the servers'

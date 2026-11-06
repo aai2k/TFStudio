@@ -135,6 +135,16 @@ async function saveUnsaved(a) {
     return failed;
 }
 
+// Writes `design` into `folder` and puts it in the tree, opened. Resolves to its
+// id once it is there, or to null when its file could not be written.
+async function createInFolder(a, folder, design) {
+    const written = await a.persistChange(
+        writeIfPossible(folder.id, design),
+        (result) => a.commitNewDesign(design, folder, result?.mtime),
+    );
+    return written ? design.id : null;
+}
+
 function addDesign(a, overrideFolder) {
     const targetFolder = overrideFolder || a.selectedFolder;
     if (!targetFolder) return;
@@ -145,12 +155,7 @@ function addDesign(a, overrideFolder) {
     const taken  = a.existingDesignNames(targetFolder.id);
     const n      = taken.length + 1;
     const name   = uniqueDesignName(`Design ${n}`, taken, (_, k) => `Design ${n + k - 1}`);
-    const design = embedDesignMaterials(makeDefaultDesign(name));
-
-    return a.persistChange(
-        writeIfPossible(targetFolder.id, design),
-        (result) => a.commitNewDesign(design, targetFolder, result?.mtime),
-    );
+    return createInFolder(a, targetFolder, embedDesignMaterials(makeDefaultDesign(name)));
 }
 
 // A design the caller already built (a wizard's output, an import). Same path as
@@ -160,12 +165,7 @@ function addDesignFrom(a, incoming, overrideFolder) {
     if (!targetFolder || !incoming) return;
     const name   = uniqueDesignName(incoming.name, a.existingDesignNames(targetFolder.id), (b, k) => `${b} (${k})`);
     // Created with the material copies its file gets, like any saved design.
-    const design = embedDesignMaterials(name === incoming.name ? incoming : { ...incoming, name });
-
-    return a.persistChange(
-        writeIfPossible(targetFolder.id, design),
-        (result) => a.commitNewDesign(design, targetFolder, result?.mtime),
-    );
+    return createInFolder(a, targetFolder, embedDesignMaterials(name === incoming.name ? incoming : { ...incoming, name }));
 }
 
 // The source of a duplicate or a Save As stays open in the store, so it is

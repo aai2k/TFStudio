@@ -350,7 +350,7 @@ function makeWindow() {
                 historyView: store.historyView, onJumpToHistory: store.jumpToHistory,
             }).props.value;
         });
-        hostMount.render(() => LiveBridgeHost({ t, notify() {}, dirtyDesigns: store.dirtyDesigns }));
+        hostMount.render(() => LiveBridgeHost({ t, notify() {}, dirtyDesigns: store.dirtyDesigns, project: {}, activateDesign: store.activateDesign }));
     };
     globalThis.ReactDOM = { ...RealReactDOM, flushSync: (write) => { write(); redraw(); } };
     redraw();
@@ -359,15 +359,17 @@ function makeWindow() {
     store.setActiveDesignId('d1');
     redraw();
     let lastId = 0;
-    const ask = (method, params = {}) => {
+    // The host answers within a turn of the event loop.
+    const ask = async (method, params = {}) => {
         const id = ++lastId;
         onRequest({ id, method, params, deadline: Date.now() + 1000 });
+        await new Promise(resolve => setTimeout(resolve, 0));
         return replies.get(id);
     };
     onState({ interactive: true, programs: ['python.exe'] });
-    const first = ask('read').result;
-    const once = ask('apply', { appDesignId: 'd1', revision: first.revision, design: { ...first.design, frontLayers: first.design.frontLayers.slice(0, 1) } }).result;
-    const twice = ask('apply', { appDesignId: 'd1', revision: once.revision, design: { ...once.design, frontLayers: [] } }).result;
+    const first = (await ask('read')).result;
+    const once = (await ask('apply', { appDesignId: 'd1', revision: first.revision, design: { ...first.design, frontLayers: first.design.frontLayers.slice(0, 1) } })).result;
+    const twice = (await ask('apply', { appDesignId: 'd1', revision: once.revision, design: { ...once.design, frontLayers: [] } })).result;
     assert.ok(once && twice, 'the program writes twice');
     const steps = store.historyRef.current.d1.past.length;
     const holdMount = mount();

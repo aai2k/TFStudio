@@ -154,20 +154,25 @@ export function createLiveLink(file, program = () => null) {
 /**
  * What a client is told when a request fails with `err`: the reason its code
  * stands for, or the app's own message for a code without one. `calls` names
- * the client's own calls that read a design from the app (`read`) and list the
- * app's designs (`list`), which the reasons point to.
+ * the client's own calls that read a design from the app (`read`), list the
+ * app's designs (`list`) and list its project folders (`folders`), which the
+ * reasons point to.
  */
 export function failureText(err, calls) {
     const said = {
         off: "TFStudio is not running, or it is not listening for this program. Click Interactive on TFStudio's Optimization tab, then call this again.",
         denied: "Deny was clicked in TFStudio when this program asked to work on the open design. Click Interactive on TFStudio's Optimization tab, which lets a program in without asking, then call this again.",
-        timeout: 'TFStudio did not answer; it may be busy. Call this again.',
+        timeout: `TFStudio did not answer; it may be busy. Call this again; for an add or a delete, first check with ${calls.list} whether it was made after all.`,
         protocol: 'The TFStudio that is open speaks another version of the live link. Start this server with the TFStudio of that install.',
         edited: `The design changed in TFStudio since it was read: an edit, an undo or a run there. Nothing was applied. Read it again with ${calls.read} and make the change on that copy.`,
         switched: 'The design it was read from is no longer the one open in TFStudio: another design or none is open, or it was closed. Nothing was applied; only the open design takes changes.',
         optimizing: 'A run is going in a TFStudio window. Nothing was applied; apply again once it ends.',
         noDesign: `No design is open in TFStudio. Open one there, or name one that ${calls.list} lists.`,
-        unknown: `TFStudio holds no design under that appDesignId; ${calls.list} lists them.`,
+        unknown: `TFStudio holds no design under that appDesignId, or, to open or delete one, none in a project folder; ${calls.list} lists them with their folders.`,
+        noFolder: `TFStudio has no project folder of that name; ${calls.folders} lists them.`,
+        unsaved: 'The design has edits in TFStudio that are not saved, which the Recycle Bin\'s copy would not have. Nothing was deleted; once the user saves it, delete it again.',
+        noBin: 'The Recycle Bin did not take the design\'s file, so nothing was deleted. Only the user can delete it for good, from TFStudio\'s Project Explorer.',
+        failed: 'TFStudio could not write or delete the design\'s file and told its user why. Nothing was changed.',
     };
     return Object.hasOwn(said, err.code) ? said[err.code] : `TFStudio refused it: ${err.message}`;
 }

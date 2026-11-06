@@ -496,6 +496,8 @@ export default {
     kernelNotRead: (error) => `Il kernel a matrici di trasferimento compilato in WebAssembly non è leggibile, quindi TFStudio non può calcolare nulla: ${error}`,
     kernelNotStarted: 'Il kernel a matrici di trasferimento compilato in WebAssembly è stato letto, ma è impossibile avviarlo, quindi TFStudio non può calcolare nulla.',
     agentChanged: (name) => `Un programma collegato ha modificato “${name}”. Ctrl+Z annulla la modifica.`,
+    agentAdded: (name) => `Un programma collegato ha aggiunto “${name}”.`,
+    agentDeleted: (name) => `Un programma collegato ha eliminato “${name}”. Il file è nel Cestino.`,
     contextMenu: {
       renameFolder: 'Rinomina cartella',
     },

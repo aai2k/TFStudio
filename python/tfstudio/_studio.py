@@ -412,25 +412,166 @@ class App:
                 last = tf.app.open_design(tf.app.designs()[-1].name)
                 print("By name:", last.name)
         """
-        options = None if design is None else {"appDesignId": self._app_design_id(getattr(design, "id", design))}
+        options = None if design is None else {"appDesignId": self._app_design_id(getattr(design, "id", design), "open_design")}
         with worded(Words("app.read", "open_design")):
             answer = self._calls.app("read", options)
         return Design(self._calls, answer["design"], (answer["appDesignId"], answer["revision"]))
 
-    def _app_design_id(self, id_or_name):
-        with worded(Words("app.designs", "open_design")):
+    def folders(self):
+        """The app's project folders, each as its path under Projects, as
+        add() takes it, empty ones included.
+
+        Returns:
+            A list of str.
+
+        Raises:
+            TFStudioError: a TFStudio() started without live=True.
+            AppError: the app cannot be reached.
+
+        Example::
+
+            import tfstudio
+
+            with tfstudio.TFStudio(live=True) as tf:
+                print(tf.app.folders())
+        """
+        with worded(Words("app.designs", "folders")):
+            return self._calls.app("designs")["folders"]
+
+    def select(self, design):
+        """Opens a design the app holds, as a click on its row in the
+        Project Explorer does, so it becomes the design push() writes to.
+
+        Args:
+            design: The design's id or name, an AppDesign from designs(), or
+                a Design read from or added to the app.
+
+        Returns:
+            The AppDesign, now the open one.
+
+        Raises:
+            TFStudioError: a TFStudio() started without live=True, an id or
+                name the app holds no design of, a name several designs
+                have, or a Design not read from the app.
+            AppError: the app cannot be reached.
+
+        Example::
+
+            import tfstudio
+
+            with tfstudio.TFStudio(live=True) as tf:
+                first = tf.app.select(tf.app.designs()[0])
+                print("Open now:", first.name, first.active)
+        """
+        options = {"appDesignId": self._target(design, "select")}
+        with worded(Words("app.select", "select")):
+            return AppDesign(self._calls.app("select", options))
+
+    def add(self, design=None, folder=None):
+        """Adds a design to a project folder of the app, written there as a
+        .tfs file, and opens it. A name the folder already holds gets a
+        number after it.
+
+        Args:
+            design: The Design to add, which then holds what the app holds
+                and is linked to it, so its push() writes there. Default: a
+                blank design, as New Design makes it.
+            folder: The project folder, as folders() lists it. Default: the
+                folder selected in the app's Project Explorer, or the first.
+
+        Returns:
+            The Design added, linked to the app.
+
+        Raises:
+            TFStudioError: a TFStudio() started without live=True, or a
+                design holding NaN or infinity.
+            AppError: the app cannot be reached, with code "noFolder" for a
+                folder the app does not have, or "failed" when the file
+                could not be written.
+
+        Example::
+
+            import tfstudio
+
+            with tfstudio.TFStudio(live=True) as tf:
+                design = tf.new_design("Mirror 550")
+                design.stack("(HL)^4 H", H="TiO2", L="SiO2")
+                tf.app.add(design)
+                design.layers[1].thickness += 1
+                design.push()
+                print("Added", design.name, "with", len(design.layers), "layers")
+        """
+        options = {}
+        if design is not None:
+            options["design"] = design._data
+        if folder is not None:
+            options["folder"] = folder
+        with worded(Words("app.add", "add")):
+            answer = self._calls.app("add", options)
+        linked = (answer["appDesignId"], answer["revision"])
+        if design is None:
+            return Design(self._calls, answer["design"], linked)
+        design._data = answer["design"]
+        design._app = linked
+        return design
+
+    def delete(self, design):
+        """Deletes a design the app holds, as Delete in its Project Explorer
+        does but with no question: its file goes to the Recycle Bin, from
+        where it can be restored. Undo in the app does not bring it back.
+
+        Args:
+            design: The design's id or name, an AppDesign from designs(), or
+                a Design read from or added to the app.
+
+        Raises:
+            TFStudioError: a TFStudio() started without live=True, an id or
+                name the app holds no design of, a name several designs
+                have, or a Design not read from the app.
+            AppError: the app cannot be reached, or deleted nothing: with
+                code "unsaved" when the design has edits that are not saved,
+                which the Recycle Bin's copy would not have, "noBin" when the
+                Recycle Bin did not take its file, or "failed".
+
+        Example::
+
+            import tfstudio
+
+            with tfstudio.TFStudio(live=True) as tf:
+                was_open = [d for d in tf.app.designs() if d.active]
+                scratch = tf.app.add()
+                tf.app.delete(scratch)
+                if was_open:
+                    tf.app.select(was_open[0])
+                print(len(tf.app.designs()), "designs in the app")
+        """
+        options = {"appDesignId": self._target(design, "delete")}
+        with worded(Words("app.delete", "delete")):
+            self._calls.app("delete", options)
+
+    def _target(self, design, method):
+        """The app's id for `design`, as select() and delete() take it."""
+        if isinstance(design, Design):
+            if design._app is None:
+                raise TFStudioError("{}: this design was not read from the TFStudio app; give the id or name of one "
+                                    "tf.app.designs() lists".format(method))
+            return design._app[0]
+        return self._app_design_id(getattr(design, "id", design), method)
+
+    def _app_design_id(self, id_or_name, method):
+        with worded(Words("app.designs", method)):
             listed = self._calls.app("designs")["designs"]
         exact = [d for d in listed if d["appDesignId"] == id_or_name] or [d for d in listed if d["name"] == id_or_name]
         if len(exact) == 1:
             return exact[0]["appDesignId"]
         if exact:
-            raise TFStudioError("open_design: {} designs in the app are named {!r}: give one of their ids, {}"
-                                .format(len(exact), id_or_name, ", ".join(d["appDesignId"] for d in exact)))
-        raise TFStudioError("open_design: the app holds no design with the id or name {!r}; tf.app.designs() "
-                            "lists them".format(id_or_name))
+            raise TFStudioError("{}: {} designs in the app are named {!r}: give one of their ids, {}"
+                                .format(method, len(exact), id_or_name, ", ".join(d["appDesignId"] for d in exact)))
+        raise TFStudioError("{}: the app holds no design with the id or name {!r}; tf.app.designs() "
+                            "lists them".format(method, id_or_name))
 
     def __repr__(self):
-        return "<App: tf.app.designs(), tf.app.open_design()>"
+        return "<App: tf.app.designs(), tf.app.open_design(), tf.app.folders(), tf.app.select(), tf.app.add(), tf.app.delete()>"
 
 
 class TFStudio:

@@ -5,10 +5,18 @@
 // undo step, and refuses it when its design changed since that revision or is
 // no longer the open one.
 //
-//   app.designs()                          { activeDesignId, designs, appVersion }
+//   app.designs()                          { activeDesignId, designs, folders, appVersion }
 //   app.read({ appDesignId })              { appDesignId, revision, active, appRunning, design }
 //                                          the open design without appDesignId
 //   app.apply({ appDesignId, revision, design })   the same, at the new revision
+//   app.select({ appDesignId })            opens the design; { appDesignId, name, folder,
+//                                          active, unsaved, frontLayers, backLayers }
+//   app.add({ design, folder })            adds the design, or a blank one without it, to
+//                                          the folder, by default the one selected in the
+//                                          app or the first, and opens it; as app.read
+//                                          answers, with the folder
+//   app.delete({ appDesignId })            deletes the design, its file to the Recycle
+//                                          Bin; { appDesignId, name, folder }
 //
 // A refusal by the app or the link carries the code liveLink.js gives it, with
 // failureText's words, which name the calls of the Python package's tf.app
@@ -18,7 +26,7 @@
 import { createLiveLink, failureText } from '../mcp/liveLink.js';
 import { checkOptions } from '../api/check.js';
 
-const NAMES = ['app.designs', 'app.read', 'app.apply'];
+const NAMES = ['app.designs', 'app.read', 'app.apply', 'app.select', 'app.add', 'app.delete'];
 
 // Where `value` holds NaN or an infinite number, as a path such as
 // design.frontLayers[0].thickness, or null when it holds none.
@@ -32,13 +40,14 @@ function nonFinite(value, at) {
     return null;
 }
 
-// app.apply's options, checked. The live link writes JSON, which has no NaN
-// or Infinity, so such a number would reach the app as null; the design is
-// refused instead, as the API's own calls refuse it.
-function applied(options) {
-    const checked = checkOptions('app.apply', options, ['appDesignId', 'revision', 'design']);
-    const at = nonFinite(checked.design, 'design');
-    if (at) throw new Error(`app.apply: ${at} is NaN or infinite, which the app cannot take`);
+// The options of the call `name`, checked against `keys`, a design among them
+// included. The live link writes JSON, which has no NaN or Infinity, so such a
+// number would reach the app as null; the design is refused instead, as the
+// API's own calls refuse it.
+function withDesign(name, options, keys) {
+    const checked = checkOptions(name, options, keys);
+    const at = checked.design == null ? null : nonFinite(checked.design, 'design');
+    if (at) throw new Error(`${name}: ${at} is NaN or infinite, which the app cannot take`);
     return checked;
 }
 
@@ -58,7 +67,7 @@ export function liveCalls(live) {
         try {
             return await link.request(method, params);
         } catch (err) {
-            throw Object.assign(new Error(`${name}: ${failureText(err, { read: 'tf.app.open_design()', list: 'tf.app.designs()' })}`), { code: err.code });
+            throw Object.assign(new Error(`${name}: ${failureText(err, { read: 'tf.app.open_design()', list: 'tf.app.designs()', folders: 'tf.app.folders()' })}`), { code: err.code });
         }
     };
     const calls = new Map([
@@ -67,7 +76,10 @@ export function liveCalls(live) {
             const { appDesignId } = checkOptions('app.read', options, ['appDesignId']);
             return ask('app.read', 'read', appDesignId == null ? {} : { appDesignId });
         }],
-        ['app.apply', options => ask('app.apply', 'apply', applied(options))],
+        ['app.apply', options => ask('app.apply', 'apply', withDesign('app.apply', options, ['appDesignId', 'revision', 'design']))],
+        ['app.select', options => ask('app.select', 'select', checkOptions('app.select', options, ['appDesignId']))],
+        ['app.add', options => ask('app.add', 'add', withDesign('app.add', options, ['design', 'folder']))],
+        ['app.delete', options => ask('app.delete', 'delete', checkOptions('app.delete', options, ['appDesignId']))],
     ]);
     return { calls, close: () => link.close() };
 }

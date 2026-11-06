@@ -23,7 +23,8 @@ class TFStudioError(Exception):
 class AppError(TFStudioError):
     """A call to the app (tf.app) refused, with ``code`` saying why: 'off',
     'timeout', 'protocol', 'denied', 'edited', 'switched', 'optimizing',
-    'noDesign', 'unknown' or 'invalid'.
+    'noDesign', 'unknown', 'noFolder', 'unsaved', 'noBin', 'failed' or
+    'invalid'.
 
     Example::
 

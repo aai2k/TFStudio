@@ -2629,7 +2629,7 @@ print("Saved", name)
 | ---------- | ------ |
 | JavaScript 中没有：脚本结束时，控制台会应用 `tf.design`。 | `design.push()` |
 
-把设计写回 TFStudio 应用中它被读取时的那个设计，作为应用可以撤销的一步。只有来自 tf.app.open_design() 的设计才有对应的设计；再次修改后可以再次 push。
+把设计写回 TFStudio 应用中它被读取时的那个设计，作为应用可以撤销的一步。只有来自 tf.app.open_design() 或 tf.app.add() 的设计才有对应的设计；再次修改后可以再次 push。
 
 **拒绝**：
 
@@ -11020,6 +11020,116 @@ with tfstudio.TFStudio(live=True) as tf:
     print("By name:", last.name)
 ```
 
+### folders
+
+| Python |
+| ------ |
+| `tf.app.folders()` |
+
+应用的各个项目文件夹，每个以它在 Projects 下的路径表示，即 add() 接受的形式，空文件夹也包括在内。
+
+**返回**：一个由 str 组成的 list。
+
+**拒绝**：
+
+- 未以 live=True 启动的 TFStudio()
+- Python 引发 `AppError`：无法连接到应用
+
+```python
+import tfstudio
+
+with tfstudio.TFStudio(live=True) as tf:
+    print(tf.app.folders())
+```
+
+### select
+
+| Python |
+| ------ |
+| `tf.app.select(design)` |
+
+打开应用中的一个设计，与在项目资源管理器中点击它所在的行相同，使它成为 push() 写入的设计。
+
+| Python | 默认值 | 含义 |
+| ------ | --- | --- |
+| `design` |  | 设计的 id 或名称、designs() 给出的一个 AppDesign，或从应用读取或添加到应用的一个 Design。 |
+
+**返回**：该 AppDesign，现在为打开的设计。
+
+**拒绝**：
+
+- 未以 live=True 启动的 TFStudio()、应用中没有对应设计的 id 或名称、多个设计共用的名称，或不是从应用读取的 Design
+- Python 引发 `AppError`：无法连接到应用
+
+```python
+import tfstudio
+
+with tfstudio.TFStudio(live=True) as tf:
+    first = tf.app.select(tf.app.designs()[0])
+    print("Open now:", first.name, first.active)
+```
+
+### add
+
+| Python |
+| ------ |
+| `tf.app.add(design=..., folder=...)` |
+
+把一个设计添加到应用的一个项目文件夹，在那里写为 .tfs 文件，并打开它。文件夹中已有的名称后面会加上一个数字。
+
+| Python | 默认值 | 含义 |
+| ------ | --- | --- |
+| `design` |  | 要添加的 Design，之后它保存应用中保存的内容并与之关联，因此它的 push() 写入那里。不给出时，为一个空白设计，与“新建设计”创建的相同。 |
+| `folder` |  | 项目文件夹，与 folders() 列出的相同。不给出时，为应用项目资源管理器中选中的文件夹，或第一个文件夹。 |
+
+**返回**：添加的 Design，已与应用关联。
+
+**拒绝**：
+
+- 未以 live=True 启动的 TFStudio()，或含有 NaN 或无穷大的设计
+- Python 引发 `AppError`：无法连接到应用：应用没有该文件夹时，代码为 "noFolder"；无法写入文件时为 "failed"
+
+```python
+import tfstudio
+
+with tfstudio.TFStudio(live=True) as tf:
+    design = tf.new_design("Mirror 550")
+    design.stack("(HL)^4 H", H="TiO2", L="SiO2")
+    tf.app.add(design)
+    design.layers[1].thickness += 1
+    design.push()
+    print("Added", design.name, "with", len(design.layers), "layers")
+```
+
+### delete
+
+| Python |
+| ------ |
+| `tf.app.delete(design)` |
+
+删除应用中的一个设计，与项目资源管理器中的“删除”相同，但不询问：它的文件移到回收站，可从那里恢复。应用中的撤销不能把它找回。
+
+| Python | 默认值 | 含义 |
+| ------ | --- | --- |
+| `design` |  | 设计的 id 或名称、designs() 给出的一个 AppDesign，或从应用读取或添加到应用的一个 Design。 |
+
+**拒绝**：
+
+- 未以 live=True 启动的 TFStudio()、应用中没有对应设计的 id 或名称、多个设计共用的名称，或不是从应用读取的 Design
+- Python 引发 `AppError`：无法连接到应用，或什么也没有删除：设计有未保存的修改（回收站中的副本不会包含这些修改）时，代码为 "unsaved"；回收站没有接受它的文件时为 "noBin"；或为 "failed"
+
+```python
+import tfstudio
+
+with tfstudio.TFStudio(live=True) as tf:
+    was_open = [d for d in tf.app.designs() if d.active]
+    scratch = tf.app.add()
+    tf.app.delete(scratch)
+    if was_open:
+        tf.app.select(was_open[0])
+    print(len(tf.app.designs()), "designs in the app")
+```
+
 ## AppDesign
 
 TFStudio 应用中打开的一个设计，由 tf.app.designs() 列出。
@@ -11172,7 +11282,7 @@ except tfstudio.TFStudioError as err:
 
 ### AppError
 
-被拒绝的对应用（tf.app）的调用，`code` 说明原因：'off'、'timeout'、'protocol'、'denied'、'edited'、'switched'、'optimizing'、'noDesign'、'unknown' 或 'invalid'。
+被拒绝的对应用（tf.app）的调用，`code` 说明原因：'off'、'timeout'、'protocol'、'denied'、'edited'、'switched'、'optimizing'、'noDesign'、'unknown'、'noFolder'、'unsaved'、'noBin'、'failed' 或 'invalid'。
 
 ```python
 import tfstudio

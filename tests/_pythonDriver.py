@@ -396,6 +396,37 @@ def commands(given):
     out({"checkoutFirst": _finding.find_server(None, False, None)})
 
 
+def app_code(make):
+    """The code of the AppError `make()` raises, or None."""
+    try:
+        make()
+    except tfstudio.AppError as err:
+        return err.code
+    return None
+
+
+def select_add_delete(tf):
+    """Designs opened, added and deleted in the app: what each answered."""
+    opened = tf.app.select("Mirror")
+    open_ = [opened.id, opened.active, [d.id for d in tf.app.designs() if d.active], tf.app.folders()]
+    mine = tf.new_design("Agent mirror")
+    mine.stack("(HL)^2")
+    added = tf.app.add(mine)
+    app_id = added._app[0]
+    shown = [d for d in tf.app.designs() if d.id == app_id]
+    mine.layers[1].thickness = 33
+    mine.push()
+    blank = tf.app.add(folder="Coatings/AR")
+    add = [added is mine, mine.name, len(mine.layers), [d.active for d in shown], mine.layers[1].thickness,
+           blank.name, len(blank.layers), app_code(lambda: tf.app.add(folder="Nowhere"))]
+    unsaved = app_code(lambda: tf.app.delete(mine))
+    tf.app.delete(blank)
+    delete = [unsaved, refused(lambda: tf.app.delete(tf.new_design())), refused(lambda: tf.app.delete("Nothing")),
+              blank._app[0] in [d.id for d in tf.app.designs()]]
+    tf.app.select("app-ar")
+    return open_, add, delete
+
+
 def live(given):
     """The app's designs opened, changed and pushed back, through the live
     link file given, and refused as the app refuses them."""
@@ -434,6 +465,8 @@ def live(given):
             out({"notFinite": [type(err).__name__, str(err)]})
         out({"byId": tf.app.open_design("app-hr").name, "byListed": tf.app.open_design(tf.app.designs()[1]).name,
              "unknown": refused(lambda: tf.app.open_design("Nothing")), "notRead": refused(lambda: tf.new_design().push())})
+        selected, added, deleted = select_add_delete(tf)
+        out({"selectAddDelete": {"select": selected, "add": added, "delete": deleted}})
         wait("close")
         for name, call in (("off", tf.app.designs), ("offOpen", tf.app.open_design),
                            ("offOpenByName", lambda: tf.app.open_design("Mirror"))):

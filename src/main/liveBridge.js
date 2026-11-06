@@ -25,21 +25,36 @@ const { writeFileAtomic } = require('./paths');
 const { validateDesign } = require('./designFile');
 const { PROTOCOL, lineReader, proof } = require('./liveProtocol');
 
-const METHODS = ['designs', 'read', 'apply'];
+// Why a design-naming request cannot be handed on, or null when it can.
+const namesDesign = what => params => (typeof params.appDesignId === 'string' ? null : `${what} names the design (appDesignId)`);
+const hasName = design => typeof design.name === 'string' && design.name.trim() !== '';
 
-// Why a request cannot be handed to the window, or null when it can. The
-// design an apply carries gets the checks a design file gets when it opens.
+// Each method's own check of its params, answering as requestProblem does. The
+// design an apply or an add carries gets the checks a design file gets when it
+// opens; one an add carries also needs a name, which names its file.
+const CHECKS = {
+  designs: () => null,
+  read: () => null,
+  apply: params => (typeof params.appDesignId !== 'string' || typeof params.revision !== 'string'
+    ? 'an apply names the design (appDesignId) and the revision it was read at'
+    : validateDesign(params.design)),
+  select: namesDesign('a select'),
+  add: params => {
+    if (params.folder !== undefined && typeof params.folder !== 'string') return 'folder is a string';
+    if (params.design === undefined) return null;
+    return validateDesign(params.design) ?? (hasName(params.design) ? null : 'the design an add carries has a name');
+  },
+  delete: namesDesign('a delete'),
+};
+
+// Why a request cannot be handed to the window, or null when it can.
 function requestProblem(message) {
-  if (!message || typeof message !== 'object' || !METHODS.includes(message.method)) {
-    return `the method is one of ${METHODS.join(', ')}`;
+  if (!message || typeof message !== 'object' || !Object.hasOwn(CHECKS, message.method)) {
+    return `the method is one of ${Object.keys(CHECKS).join(', ')}`;
   }
   const params = message.params || {};
   if (params.appDesignId !== undefined && typeof params.appDesignId !== 'string') return 'appDesignId is a string';
-  if (message.method !== 'apply') return null;
-  if (typeof params.appDesignId !== 'string' || typeof params.revision !== 'string') {
-    return 'an apply names the design (appDesignId) and the revision it was read at';
-  }
-  return validateDesign(params.design);
+  return CHECKS[message.method](params);
 }
 
 // Where the pipe goes: a name no one can guess on Windows, a socket in a fresh

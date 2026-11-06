@@ -8,7 +8,9 @@
  *      shell at all, the file is deleted as before.
  *   2. Each window that deletes them asks, on 'no-bin', whether to delete for
  *      good, once per delete the user made, and sends the delete again with
- *      permanent: true only on yes.
+ *      permanent: true only on yes. A design a program deletes through the
+ *      live link is never deleted for good and nobody is asked: it is kept,
+ *      and the program is answered 'noBin'.
  *
  * Run: node tests/deletes_to_recycle_bin.mjs
  */
@@ -260,6 +262,21 @@ const settle = () => new Promise(resolve => setTimeout(resolve, 0));
     dialog.onConfirm();
     await settle();
     assert.deepEqual(take(), ['folder Customer', 'folder Customer for good'], 'explorer: and on Delete is deleted for good');
+
+    // A delete a program makes through the live link has nobody to ask.
+    dialog = null;
+    evicted.length = 0;
+    tree.foldersRef.current = [{ id: 'Customer', name: 'Customer', items: [{ id: 'design-ar', name: 'AR' }] }];
+    assert.equal(await removal.removeItemForProgram('Customer', 'design-ar'), 'noBin', 'program: a design the bin refuses is answered noBin');
+    assert.deepEqual([dialog, evicted, take()], [null, [], ['design AR']], 'program: with no question, nothing deleted for good, and the design kept');
+    const plain = api.deleteItem;
+    api.deleteItem = async (...args) => { sent.push(`design ${args[1]}`); return { success: true }; };
+    assert.equal(await removal.removeItemForProgram('Customer', 'design-ar'), 'deleted', 'program: a design the bin takes is answered deleted');
+    assert.deepEqual([evicted, take()], [['design-ar'], ['design AR']], 'program: and leaves the tree');
+    api.deleteItem = async () => ({ success: false, error: 'locked' });
+    assert.equal(await removal.removeItemForProgram('Customer', 'design-ar'), 'failed', 'program: a file that could not be deleted is answered failed');
+    assert.equal(notices.length, 1, 'program: and the user is told, as for their own delete');
+    api.deleteItem = plain;
 }
 
 // A design two folders show through linked files loses only the row whose file

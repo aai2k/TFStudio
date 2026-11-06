@@ -2629,7 +2629,7 @@ print("Saved", name)
 | ---------- | ------ |
 | Not in JavaScript: the console applies `tf.design` when the script ends. | `design.push()` |
 
-Writes the design over the one it was read from in the TFStudio app, as one step the app can undo. Only a design from tf.app.open_design() has one; push again after more changes.
+Writes the design over the one it was read from in the TFStudio app, as one step the app can undo. Only a design from tf.app.open_design() or tf.app.add() has one; push again after more changes.
 
 **Refuses**:
 
@@ -11020,6 +11020,116 @@ with tfstudio.TFStudio(live=True) as tf:
     print("By name:", last.name)
 ```
 
+### folders
+
+| Python |
+| ------ |
+| `tf.app.folders()` |
+
+The app's project folders, each as its path under Projects, as add() takes it, empty ones included.
+
+**Returns**: A list of str.
+
+**Refuses**:
+
+- a TFStudio() started without live=True
+- Python raises `AppError`: the app cannot be reached
+
+```python
+import tfstudio
+
+with tfstudio.TFStudio(live=True) as tf:
+    print(tf.app.folders())
+```
+
+### select
+
+| Python |
+| ------ |
+| `tf.app.select(design)` |
+
+Opens a design the app holds, as a click on its row in the Project Explorer does, so it becomes the design push() writes to.
+
+| Python | Default | Meaning |
+| ------ | ------- | ------- |
+| `design` |  | The design's id or name, an AppDesign from designs(), or a Design read from or added to the app. |
+
+**Returns**: The AppDesign, now the open one.
+
+**Refuses**:
+
+- a TFStudio() started without live=True, an id or name the app holds no design of, a name several designs have, or a Design not read from the app
+- Python raises `AppError`: the app cannot be reached
+
+```python
+import tfstudio
+
+with tfstudio.TFStudio(live=True) as tf:
+    first = tf.app.select(tf.app.designs()[0])
+    print("Open now:", first.name, first.active)
+```
+
+### add
+
+| Python |
+| ------ |
+| `tf.app.add(design=..., folder=...)` |
+
+Adds a design to a project folder of the app, written there as a .tfs file, and opens it. A name the folder already holds gets a number after it.
+
+| Python | Default | Meaning |
+| ------ | ------- | ------- |
+| `design` |  | The Design to add, which then holds what the app holds and is linked to it, so its push() writes there. Without it, a blank design, as New Design makes it. |
+| `folder` |  | The project folder, as folders() lists it. Without it, the folder selected in the app's Project Explorer, or the first. |
+
+**Returns**: The Design added, linked to the app.
+
+**Refuses**:
+
+- a TFStudio() started without live=True, or a design holding NaN or infinity
+- Python raises `AppError`: the app cannot be reached, with code "noFolder" for a folder the app does not have, or "failed" when the file could not be written
+
+```python
+import tfstudio
+
+with tfstudio.TFStudio(live=True) as tf:
+    design = tf.new_design("Mirror 550")
+    design.stack("(HL)^4 H", H="TiO2", L="SiO2")
+    tf.app.add(design)
+    design.layers[1].thickness += 1
+    design.push()
+    print("Added", design.name, "with", len(design.layers), "layers")
+```
+
+### delete
+
+| Python |
+| ------ |
+| `tf.app.delete(design)` |
+
+Deletes a design the app holds, as Delete in its Project Explorer does but with no question: its file goes to the Recycle Bin, from where it can be restored. Undo in the app does not bring it back.
+
+| Python | Default | Meaning |
+| ------ | ------- | ------- |
+| `design` |  | The design's id or name, an AppDesign from designs(), or a Design read from or added to the app. |
+
+**Refuses**:
+
+- a TFStudio() started without live=True, an id or name the app holds no design of, a name several designs have, or a Design not read from the app
+- Python raises `AppError`: the app cannot be reached, or deleted nothing: with code "unsaved" when the design has edits that are not saved, which the Recycle Bin's copy would not have, "noBin" when the Recycle Bin did not take its file, or "failed"
+
+```python
+import tfstudio
+
+with tfstudio.TFStudio(live=True) as tf:
+    was_open = [d for d in tf.app.designs() if d.active]
+    scratch = tf.app.add()
+    tf.app.delete(scratch)
+    if was_open:
+        tf.app.select(was_open[0])
+    print(len(tf.app.designs()), "designs in the app")
+```
+
 ## AppDesign
 
 A design open in the TFStudio app, as tf.app.designs() lists it.
@@ -11172,7 +11282,7 @@ except tfstudio.TFStudioError as err:
 
 ### AppError
 
-A call to the app (tf.app) refused, with `code` saying why: 'off', 'timeout', 'protocol', 'denied', 'edited', 'switched', 'optimizing', 'noDesign', 'unknown' or 'invalid'.
+A call to the app (tf.app) refused, with `code` saying why: 'off', 'timeout', 'protocol', 'denied', 'edited', 'switched', 'optimizing', 'noDesign', 'unknown', 'noFolder', 'unsaved', 'noBin', 'failed' or 'invalid'.
 
 ```python
 import tfstudio

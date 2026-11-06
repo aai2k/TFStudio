@@ -206,7 +206,7 @@ export const App = ({ kernelStartup }) => {
                 })
             ),
             h(SpectralMonitor, { c, t }),
-            h(LiveBridgeHost, { t, notify: setMessageNotification, dirtyDesigns: store.dirtyDesigns }),
+            h(LiveBridgeHost, { t, notify: setMessageNotification, dirtyDesigns: store.dirtyDesigns, project, activateDesign: store.activateDesign }),
             h(LiveDialogs, { c, t }),
             h(AppModals, {
                 c, t, settings, dialogs, welcome, project,

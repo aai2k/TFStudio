@@ -130,7 +130,11 @@ assert.deepEqual(await within(client.next(), 5000, 'hello'), { hello: PROTOCOL, 
     assert.match(bad.error.message, /substrate/, 'saying why, as a design file that cannot open does');
     client.send({ id: 9, method: 'apply', params: { appDesignId: 'app-1', design } });
     assert.equal((await within(client.next(), 5000, 'apply without revision')).error?.code, 'invalid', 'an apply must name the revision it was read at');
-    assert.equal(app.requests.length, asked, 'neither reached the window');
+    client.send({ id: 10, method: 'add', params: { design: { ...design, name: ' ' } } });
+    const nameless = await within(client.next(), 5000, 'add without a name');
+    assert.deepEqual([nameless.error?.code, nameless.error?.message], ['invalid', 'the design an add carries has a name'],
+        'an add whose design has no name, which would name its file, is refused');
+    assert.equal(app.requests.length, asked, 'none reached the window');
     assert.equal(app.writes, 0);
 }
 

@@ -499,6 +499,8 @@ export default {
     kernelNotRead: (error) => `The WebAssembly transfer-matrix kernel could not be read, so TFStudio cannot calculate anything: ${error}`,
     kernelNotStarted: 'The WebAssembly transfer-matrix kernel was read but could not start, so TFStudio cannot calculate anything.',
     agentChanged: (name) => `A connected program changed “${name}”. Ctrl+Z undoes the change.`,
+    agentAdded: (name) => `A connected program added “${name}”.`,
+    agentDeleted: (name) => `A connected program deleted “${name}”. Its file is in the Recycle Bin.`,
     contextMenu: {
       renameFolder: 'Rename Folder',
     },

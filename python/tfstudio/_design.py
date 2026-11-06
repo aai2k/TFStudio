@@ -539,7 +539,8 @@ class Design:
         self._calls = calls
         self._data = data
         # (the design's id in the app, the revision it was read or pushed at),
-        # for a design that tf.app.open_design() read; None for any other.
+        # for a design that tf.app.open_design() read or tf.app.add() added;
+        # None for any other.
         self._app = app
 
     @property
@@ -2816,7 +2817,8 @@ class Design:
     def push(self):
         """Writes the design over the one it was read from in the TFStudio
         app, as one step the app can undo. Only a design from
-        tf.app.open_design() has one; push again after more changes.
+        tf.app.open_design() or tf.app.add() has one; push again after more
+        changes.
 
         Raises:
             TFStudioError: a design that was not read from the app.

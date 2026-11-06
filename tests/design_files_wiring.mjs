@@ -5,7 +5,9 @@
  *      records it again once loaded, so a copy made outside the app is the one
  *      renumbered, never the original.
  *   2. Files the loader could not read are named in a notice, and their names
- *      stay taken: a new design is never proposed under one.
+ *      stay taken: a new design is never proposed under one. An add resolves
+ *      to the id of the design it added, or to null when its file could not
+ *      be written.
  *   3. Running from the default folder because the chosen one is unusable
  *      (a drive not plugged in) neither drops the session's working copies of
  *      the designs on that drive nor overwrites the record of where files are.
@@ -131,15 +133,26 @@ writeSessionEntry('gone', { design: design('gone', 'On the drive'), history: { p
 // that could not be read: writing it would be refused, the file being another's.
 {
     const written = [];
+    let refuse = false;
     const app = await start({
         loadFolders: async () => loaded({ unreadable: 1, unreadFiles: ['P/Design 2.tfs'] }),
-        saveDesign: async (folderId, d) => { written.push(d.name); return { success: true, mtime: 5000 }; },
+        saveDesign: async (folderId, d) => {
+            if (refuse) return { success: false, error: 'locked' };
+            written.push(d.name);
+            return { success: true, mtime: 5000 };
+        },
         createFolder: async () => ({ success: true }),
     });
     app.project.setSelectedFolder({ id: 'P', name: 'P' });
     app.render();
-    await app.project.addItem({ id: 'P', name: 'P' });
+    const id = await app.project.addItem({ id: 'P', name: 'P' });
     assert.deepEqual(written, ['Design 3'], 'a new design skips the name of the file that could not be read');
+    app.render();
+    assert.equal(app.store.designs[id]?.name, 'Design 3', 'and New Design resolves to the id of the design it added');
+    const copied = await app.project.addItemFromDesign(design('wizard', 'From a wizard'), { id: 'P', name: 'P' });
+    assert.equal(copied, 'wizard', 'as does an add of a design already built');
+    refuse = true;
+    assert.equal(await app.project.addItem({ id: 'P', name: 'P' }), null, 'an add whose file could not be written resolves to null');
 }
 
 {

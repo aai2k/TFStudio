@@ -80,7 +80,12 @@
  *      not the open one, and a design holding NaN refused by push before it
  *      is sent, none writing;
  *      open_design by name, by id and by a listed design, and an unknown one
- *      refused; push of a design not read from the app refused; 'off' once
+ *      refused; push of a design not read from the app refused; a design
+ *      opened by name with select, the folders listed, a design added, then
+ *      open and pushed to, a blank one added, a folder the app does not have
+ *      refused as 'noFolder', a delete refused as 'unsaved' for a design with
+ *      unsaved edits and before it is sent for a design not read from the app
+ *      or a name the app has no design of, and a design deleted; 'off' once
  *      the app's link closes, in words that say to click Interactive on the
  *      Optimization tab, by the method called; and tf.app without live
  *      refused. The app is asked to let the program in under the name of the
@@ -598,12 +603,24 @@ async function openApp(file, programs) {
     ok('and then holds the design the app stored, which keeps the app\'s name, not its own', said.afterPush === true, JSON.stringify(said.afterPush));
     ok('a push after an edit in the app is refused as edited, by push, naming open_design', said.edited?.[0] === 'edited'
         && /^push: .*Read it again with tf\.app\.open_design\(\)/.test(said.edited[1]), JSON.stringify(said.edited));
+    // Three writes in all: the two pushes above and the push to the design tf.app.add() adds below.
     const notOpen = [said.switched, said.notFinite, app.writes];
     ok('a design that is not the open one is refused as switched, and a design holding NaN, by push before it is sent, and none writes', canon(notOpen)
-        === canon(['switched', ['TFStudioError', 'push: design.frontLayers[0].thickness is NaN or infinite, which the app cannot take'], 2]), canon(notOpen));
+        === canon(['switched', ['TFStudioError', 'push: design.frontLayers[0].thickness is NaN or infinite, which the app cannot take'], 3]), canon(notOpen));
     ok('open_design takes a name, an id or a listed design', [said.byId, said.byListed].join() === 'Mirror,Mirror', JSON.stringify([said.byId, said.byListed]));
     ok('and refuses a name the app has no design of', /^open_design: the app holds no design with the id or name 'Nothing'/.test(said.unknown ?? ''), said.unknown);
     ok('push of a design not read from the app is refused', /^push: this design was not read from the TFStudio app/.test(said.notRead ?? ''), said.notRead);
+    const { select: opened, add: added, delete: deleted } = said.selectAddDelete ?? {};
+    const addedInApp = Object.values(app.designs).find(design => design.name === 'Agent mirror')?.frontLayers;
+    ok('tf.app.select() opens a design by name, and tf.app.folders() lists the project folders', canon(opened) === canon(['app-hr', true, ['app-hr'], ['Coatings/AR']]),
+        canon(opened));
+    ok('tf.app.add() adds a design, which is then linked to the app, opens it and pushes to it; with no design, a blank one; a folder the app does not have is noFolder',
+        canon(added?.slice(0, 5)) === canon([true, 'Agent mirror', 4, [true], 33]) && addedInApp?.at(-1)?.thickness === 33
+        && /^Design \d+$/.test(added?.[5] ?? '') && canon(added?.slice(6)) === canon([0, 'noFolder']),
+        `${canon(added)} ${addedInApp?.at(-1)?.thickness}`);
+    ok('tf.app.delete() refuses a design with unsaved edits, a design not read from the app and a name it has no design of, and deletes a design',
+        deleted?.[0] === 'unsaved' && /^delete: this design was not read from the TFStudio app/.test(deleted?.[1] ?? '')
+        && /^delete: the app holds no design with the id or name 'Nothing'/.test(deleted?.[2] ?? '') && deleted?.[3] === false, canon(deleted));
     ok('once the app\'s link closes, a call is refused as off, saying to click Interactive', said.off?.[0] === 'off'
         && said.off[1] === "designs: TFStudio is not running, or it is not listening for this program. Click Interactive on TFStudio's Optimization tab, then call this again.",
     JSON.stringify(said.off));

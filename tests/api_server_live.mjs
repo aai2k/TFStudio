@@ -17,12 +17,19 @@
  *      neither writes anything; a design the app does not hold is 'unknown'.
  *      The refusals name the Python package's calls that read and list the
  *      app's designs.
- *   3. The app's user clicking Deny refuses a call with the code 'denied', in
+ *   3. From no design open: app.designs lists the project folders; app.select
+ *      opens a design; app.add adds a design to the selected folder under a
+ *      name the folder does not hold, opens it, and answers at a revision an
+ *      apply takes; a design holding an infinite number is refused before it
+ *      is sent, and a folder the app does not have with the code 'noFolder',
+ *      in words that name tf.app.folders(); app.delete refuses a design with
+ *      unsaved edits with 'unsaved' and deletes it once saved.
+ *   4. The app's user clicking Deny refuses a call with the code 'denied', in
  *      words that point to Interactive on the Optimization tab. The app gone:
  *      once its link closes, a call is refused with the code 'off', in words
  *      that say to click Interactive there.
- *   4. Without --live the hello says so and every app.* call is refused.
- *   5. The server names its program to the app as --program gives it.
+ *   5. Without --live the hello says so and every app.* call is refused.
+ *   6. The server names its program to the app as --program gives it.
  *
  * Run: node tests/api_server_live.mjs
  */
@@ -117,7 +124,39 @@ const server = startApiClient(process.execPath, ['--no-warnings', SERVER, '--liv
     ok('a design the app does not hold is unknown', unknown.error?.code === 'unknown' && /tf\.app\.designs\(\) lists them/.test(unknown.error.message), JSON.stringify(unknown.error));
 }
 
-// ── 3. Deny, and the app gone ──────────────────────────────────────────────
+// ── 3. Open, add and delete ────────────────────────────────────────────────
+{
+    app.activeDesignId = null;
+    ok('app.designs lists the project folders', JSON.stringify((await server.call('app.designs')).result?.folders) === '["Coatings/AR"]');
+    const selected = await server.call('app.select', [{ appDesignId: 'app-hr' }]);
+    ok('app.select opens a design and answers as the list shows it', [selected.result?.appDesignId, selected.result?.active, app.activeDesignId].join() === 'app-hr,true,app-hr',
+        JSON.stringify(selected));
+    const mirrorRead = (await server.call('app.read')).result;
+    const added = await server.call('app.add', [{ design: mirrorRead.design }]);
+    const id = added.result?.appDesignId;
+    ok('app.add adds the design to the folder selected in the app, under a name it does not hold, and opens it, at its revision',
+        [added.result?.design?.name, added.result?.folder, added.result?.active, typeof added.result?.revision].join() === 'Mirror (2),Coatings/AR,true,string'
+        && id !== 'app-hr' && app.activeDesignId === id, JSON.stringify(added.error ?? added.result?.appDesignId));
+    const pushed = await server.call('app.apply', [{ appDesignId: id, revision: added.result?.revision, design: added.result?.design }]);
+    ok('which applies at once', !!pushed.result, JSON.stringify(pushed.error));
+    const holed = { ...mirrorRead.design, frontLayers: mirrorRead.design.frontLayers.map((layer, i) => (i === 2 ? { ...layer, thickness: Infinity } : layer)) };
+    const nan = await server.call('app.add', [{ design: holed }]);
+    ok('a design holding an infinite number is refused before it reaches the app', nan.error?.message === 'app.add: design.frontLayers[2].thickness is NaN or infinite, which the app cannot take'
+        && Object.keys(app.designs).length === 3, JSON.stringify(nan.error));
+    const nowhere = await server.call('app.add', [{ folder: 'Nowhere' }]);
+    ok('a folder the app does not have is refused as noFolder, naming tf.app.folders()', nowhere.error?.code === 'noFolder'
+        && /tf\.app\.folders\(\) lists them/.test(nowhere.error.message), JSON.stringify(nowhere.error));
+    const unsaved = await server.call('app.delete', [{ appDesignId: id }]);
+    ok('app.delete refuses a design with unsaved edits as unsaved', unsaved.error?.code === 'unsaved' && !!app.designs[id], JSON.stringify(unsaved.error));
+    app.dirtyDesigns = { ...app.dirtyDesigns, [id]: false };
+    const deleted = await server.call('app.delete', [{ appDesignId: id }]);
+    ok('and deletes it once saved', [deleted.result?.appDesignId, deleted.result?.name].join() === `${id},Mirror (2)` && !app.designs[id] && app.activeDesignId === null,
+        JSON.stringify(deleted));
+    ok('an option app.select does not take is refused in the API\'s words', /^app\.select: unknown option 'id'/.test((await server.call('app.select', [{ id: 'app-hr' }])).error?.message ?? ''));
+    app.activeDesignId = 'app-ar';
+}
+
+// ── 4. Deny, and the app gone ──────────────────────────────────────────────
 {
     letIn = false;
     bridge.drop();
@@ -139,12 +178,12 @@ ok('every line on stdout is a message', onlyMessages(server.lines));
 server.child.stdin.end();
 ok('closing stdin ends the server', await ended(server) === 0);
 
-// ── 4. Without --live ──────────────────────────────────────────────────────
+// ── 5. Without --live ──────────────────────────────────────────────────────
 {
     const plain = startApiClient(process.execPath, ['--no-warnings', SERVER]);
     ok('without --live the hello says the server is not live', (await plain.hello).live === false);
     const refused = [];
-    for (const call of ['app.designs', 'app.read', 'app.apply']) refused.push(await plain.call(call, [{}]));
+    for (const call of ['app.designs', 'app.read', 'app.apply', 'app.select', 'app.add', 'app.delete']) refused.push(await plain.call(call, [{}]));
     ok('and every app.* call is refused', refused.every(answer => /started without --live/.test(answer.error?.message ?? '') && !answer.error.code),
         JSON.stringify(refused.map(answer => answer.error)));
     plain.child.stdin.end();

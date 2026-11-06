@@ -251,8 +251,8 @@ class Calls:
         return self._call("runHooks", method)
 
     def app(self, call, options=None):
-        """The answer of the app call `call` ('designs', 'read' or 'apply'),
-        for a server started with live."""
+        """The answer of the app call `call` ('designs', 'read', 'apply',
+        'select', 'add' or 'delete'), for a server started with live."""
         if not self.info["live"]:
             raise TFStudioError("tf.app: this TFStudio() was started without live=True, so it reaches no app")
         return self._call("app." + call, options)

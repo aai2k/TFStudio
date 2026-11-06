@@ -12,7 +12,8 @@
  * another design by now.
  *
  * Deleted files go to the Recycle Bin. Where the bin refuses them, nothing is
- * deleted and the user is asked once per delete whether to delete for good.
+ * deleted and the user is asked once per delete whether to delete for good; a
+ * delete a program makes through the live link is refused instead.
  */
 
 import { folderSubtree, isFolderWithin, rowFileFailure } from '../components/panels/projectExplorerModel.js';
@@ -33,8 +34,8 @@ function askDeleteForGood(a, question, confirmLabel, deleteForGood) {
     });
 }
 
-// Delete one SPECIFIC design by id — used by the explorer's per-row delete
-// button/key. Must NOT route through "select, then delete the selection":
+// Delete one SPECIFIC design by id, as the explorer's per-row delete
+// button and key do. Must NOT route through "select, then delete the selection":
 // selection state updates asynchronously, so that path deleted the
 // previously-active design and failed on the first click.
 function removeOne(a, folderId, itemId) {
@@ -45,11 +46,11 @@ function removeOne(a, folderId, itemId) {
 }
 
 // Delete each design's file, one call at a time; `options`, when given, go with
-// every call. The files the Recycle Bin refused stay, and the user is asked
-// about all of them in one question. A row is its folder and its id: two
-// folders can show one design through linked files, and deleting the file of
-// one row leaves the other row and the design it shows.
-async function removeDesigns(a, deletions, ...options) {
+// every call. A row is its folder and its id: two folders can show one design
+// through linked files, and deleting the file of one row leaves the other row
+// and the design it shows. Resolves to the ids deleted and the deletions whose
+// file the Recycle Bin refused, which stay.
+async function deleteFiles(a, deletions, ...options) {
     const removedIds = new Set();
     const removedRows = new Set();
     const refused = [];
@@ -71,6 +72,13 @@ async function removeDesigns(a, deletions, ...options) {
         a.setFolders(prev => prev.map(f => ({ ...f, items: f.items.filter(item => !isRemoved(f, item)) })));
         a.evictDesigns(removedIds, isRemoved);
     }
+    return { removedIds, refused };
+}
+
+// Delete each design's file, and ask in one question whether to delete for good
+// those the Recycle Bin refused.
+async function removeDesigns(a, deletions, ...options) {
+    const { refused } = await deleteFiles(a, deletions, ...options);
     if (refused.length === 0) return;
     const { noBin, deleteDesign, deleteDesigns } = a.t.dialogs;
     const one = refused.length === 1;
@@ -78,6 +86,19 @@ async function removeDesigns(a, deletions, ...options) {
         one ? noBin.one(refused[0].itemName) : noBin.several(refused.length),
         (one ? deleteDesign : deleteDesigns).confirm,
         () => removeDesigns(a, refused, { permanent: true }));
+}
+
+// A design deleted for a program working through the live link
+// (utils/live/liveAnswers.js). Its file goes to the Recycle Bin and nowhere
+// else: nobody is there to be asked whether to delete it for good. Resolves to
+// 'deleted', 'noBin' when the bin refused the file and it was kept, or
+// 'failed' when it could not be deleted, which the user has been told.
+async function removeForProgram(a, folderId, itemId) {
+    const row = a.foldersRef.current.find(f => f.id === folderId)?.items.find(i => i.id === itemId);
+    if (!row) return 'failed';
+    const { removedIds, refused } = await deleteFiles(a, [{ id: itemId, folderId, itemName: row.name }]);
+    if (refused.length) return 'noBin';
+    return removedIds.has(itemId) ? 'deleted' : 'failed';
 }
 
 async function removeSelection(a, explicitList) {
@@ -143,6 +164,7 @@ export function useProjectRemoval({ tree, persistChange, setInputDialog, setMess
 
     return {
         removeItem:          useCallback((folderId, itemId) => removeOne(a.current, folderId, itemId), []),
+        removeItemForProgram: useCallback((folderId, itemId) => removeForProgram(a.current, folderId, itemId), []),
         removeSelectedItems: useCallback((explicitList) => removeSelection(a.current, explicitList), []),
         removeFolder:        useCallback((folderId) => removeFolderTree(a.current, folderId), []),
     };

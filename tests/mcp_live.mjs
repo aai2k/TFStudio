@@ -4,7 +4,7 @@
  * (src/main/liveBridge.js) in this process with the window's answers standing
  * in for the window (_fakeLiveApp.mjs).
  *
- *   1. With --live the server lists the three tools that reach the app, and
+ *   1. With --live the server lists the six tools that reach the app, and
  *      refine and synthesize take applyToApp; mcp_server.mjs checks that
  *      without it they are absent.
  *   2. Read, edit, apply: an app design read into the session, edited with the
@@ -20,7 +20,18 @@
  *      keeps its answer; a stopped Deep Synthesis applies nothing, though its
  *      answer is a design of its own; a run whose answer is on its way to the
  *      app shows applying, and Stop leaves it to finish.
- *   4. The app gone: no file, the switch turned off mid-session, a file a
+ *   4. From no design open: the list gives the project folders; nothing is
+ *      applied until selectAppDesign opens a design, and then a copy read
+ *      before applies; a design the app does not hold is not opened.
+ *      addAppDesign adds a session design to the selected folder under a
+ *      name the folder does not hold, under an id of its own, opens it with
+ *      a notice and no undo step, and links the session design to it, which
+ *      then applies at once; without one a blank design goes into the folder
+ *      named; a folder the app does not have, and a file it could not write,
+ *      are refused. deleteAppDesign refuses a design with unsaved edits and
+ *      one whose file the Recycle Bin does not take, and otherwise deletes,
+ *      with a notice, leaving the session's copy.
+ *   5. The app gone: no file, the switch turned off mid-session, a file a
  *      crash left, a file with the wrong secret, and a program at the pipe a
  *      file left behind names that cannot prove the secret, answering with
  *      the agent's own proof or with none, or telling the agent to wait for
@@ -30,11 +41,11 @@
  *      link follows the app when it opens again; an app that does not answer
  *      gives the "did not answer" one, and an app whose user clicked Deny the
  *      answer that says so and points to Interactive.
- *   5. The agent's name: the server names the agent to the app as the MCP
+ *   6. The agent's name: the server names the agent to the app as the MCP
  *      client called itself in initialize, its title before its name. While
  *      the app asks its user, the link waits for the answer past its own
  *      deadline for the hello.
- *   6. A hang-up: a request made the moment the app has ended the link's
+ *   7. A hang-up: a request made the moment the app has ended the link's
  *      connection, or at once after, before the link has read that, goes on
  *      a new one.
  *
@@ -111,11 +122,12 @@ server.write({ jsonrpc: '2.0', method: 'notifications/initialized' });
 {
     const listed = (await server.request('tools/list')).result.tools;
     const byName = Object.fromEntries(listed.map(t => [t.name, t]));
-    ok('with --live the server lists the tools that reach the app', ['listAppDesigns', 'readAppDesign', 'applyToApp'].every(name => byName[name]?.description)
-        && listed.length === 72, listed.map(t => t.name).join(','));
+    ok('with --live the server lists the tools that reach the app', ['listAppDesigns', 'readAppDesign', 'applyToApp', 'selectAppDesign', 'addAppDesign', 'deleteAppDesign']
+        .every(name => byName[name]?.description) && listed.length === 75, listed.map(t => t.name).join(','));
     ok('refine and synthesize take applyToApp, Monte Carlo does not', byName.refine.inputSchema.properties.applyToApp?.type === 'boolean'
         && byName.synthesize.inputSchema.properties.applyToApp?.type === 'boolean' && !byName.monteCarlo.inputSchema.properties.applyToApp);
-    ok('the instructions say how to work on the open design', /readAppDesign/.test(init.result.instructions) && /applyToApp/.test(init.result.instructions));
+    ok('the instructions say how to work on the open design, and to open or add one when none is', ['readAppDesign', 'applyToApp', 'selectAppDesign', 'addAppDesign']
+        .every(name => init.result.instructions.includes(name)));
     const apps = await server.call('listAppDesigns', {});
     const shown = apps.designs?.[0];
     ok('listAppDesigns lists the designs the app holds, with the app\'s version', [apps.appVersion, apps.activeDesignId, apps.designs?.length].join() === '9.9.9,app-ar,2', JSON.stringify(apps));
@@ -209,7 +221,57 @@ server.write({ jsonrpc: '2.0', method: 'notifications/initialized' });
     ok('so it ends done with its answer applied', handed.state === 'done' && handed.applied === true && app.writes === writes + 2, JSON.stringify(handed));
 }
 
-// ── 4. The app gone ────────────────────────────────────────────────────────
+// ── 4. Open, add and delete, from no design open ───────────────────────────
+{
+    app.activeDesignId = null;
+    const listed = await server.call('listAppDesigns', {});
+    ok('listAppDesigns lists the project folders', JSON.stringify(listed.folders) === '["Coatings/AR"]', JSON.stringify(listed));
+    const read = await server.call('readAppDesign', { appDesignId: 'app-hr' });
+    ok('with no design open, nothing is applied', /no longer the one open in TFStudio/.test((await server.call('applyToApp', { designId: read.designId })).error ?? ''));
+    const selected = await server.call('selectAppDesign', { appDesignId: 'app-hr' });
+    ok('selectAppDesign opens a design and answers as the list shows it', [selected.appDesignId, selected.name, selected.active, app.activeDesignId].join() === 'app-hr,Mirror,true,app-hr', JSON.stringify(selected));
+    ok('then a copy read before applies', (await server.call('applyToApp', { designId: read.designId })).applied === true);
+    ok('a design TFStudio does not hold is not opened', /holds no design under that appDesignId/.test((await server.call('selectAppDesign', { appDesignId: 'nowhere' })).error ?? '')
+        && app.activeDesignId === 'app-hr');
+
+    const copy = (await server.call('copyDesign', { designId: read.designId })).designId;
+    const writes = app.writes;
+    const added = await server.call('addAppDesign', { designId: copy });
+    ok('addAppDesign adds a session design to the folder selected in TFStudio, under a name the folder does not hold, and opens it',
+        [added.designId, added.name, added.folder, added.active, added.front?.length].join() === `${copy},Mirror (2),Coatings/AR,true,9`
+        && app.activeDesignId === added.appDesignId, JSON.stringify(added));
+    ok('under an id of its own, with a notice and no undo step', [added.appDesignId !== 'app-hr', !!app.designs['app-hr'], app.writes === writes,
+        app.noticeKinds.at(-1), app.notices.at(-1)].join() === 'true,true,true,agentAdded,Mirror (2)');
+    await server.call('setLayer', { designId: copy, index: 0, thickness: 77 });
+    ok('the session design is then linked to it, so applyToApp writes there at once', (await server.call('applyToApp', { designId: copy })).applied === true
+        && app.designs[added.appDesignId].frontLayers[0].thickness === 77);
+    app.folders.push({ id: 'Empty', items: [] });
+    const blank = await server.call('addAppDesign', { folder: 'Empty' });
+    ok('without a designId a blank design goes into the folder named, and is read into the session', /^d\d+$/.test(blank.designId ?? '')
+        && [blank.folder, blank.front?.length, app.activeDesignId].join() === `Empty,0,${blank.appDesignId}`, JSON.stringify(blank));
+    ok('a folder TFStudio does not have is refused', /no project folder of that name; listAppDesigns lists them/.test((await server.call('addAppDesign', { folder: 'Nowhere' })).error ?? ''));
+    app.fileFails = 'failed';
+    ok('and a file TFStudio could not write', /could not write or delete/.test((await server.call('addAppDesign', {})).error ?? ''));
+
+    app.fileFails = null;
+    const unsaved = await server.call('deleteAppDesign', { appDesignId: added.appDesignId });
+    ok('deleteAppDesign refuses a design with unsaved edits', /not saved/.test(unsaved.error ?? '') && !!app.designs[added.appDesignId], JSON.stringify(unsaved));
+    app.fileFails = 'noBin';
+    const kept = await server.call('deleteAppDesign', { appDesignId: blank.appDesignId });
+    ok('and one whose file the Recycle Bin does not take', /Recycle Bin did not take/.test(kept.error ?? '') && !!app.designs[blank.appDesignId], JSON.stringify(kept));
+    app.fileFails = null;
+    const deleted = await server.call('deleteAppDesign', { appDesignId: blank.appDesignId });
+    ok('deleteAppDesign deletes a design, with a notice', [deleted.deleted, deleted.name, deleted.folder].join() === 'true,Design 1,Empty'
+        && !app.designs[blank.appDesignId] && app.activeDesignId === null && app.noticeKinds.at(-1) === 'agentDeleted', JSON.stringify(deleted));
+    ok('and the session keeps the copy it read', (await server.call('showDesign', { designId: blank.designId })).front?.length === 0);
+    // Saved by the user, the added design deletes too, leaving the app as it was.
+    app.dirtyDesigns = { ...app.dirtyDesigns, [added.appDesignId]: false };
+    ok('once saved, it deletes', (await server.call('deleteAppDesign', { appDesignId: added.appDesignId })).deleted === true && Object.keys(app.designs).length === 2);
+    app.folders.pop();
+    app.activeDesignId = 'app-ar';
+}
+
+// ── 5. The app gone ────────────────────────────────────────────────────────
 {
     letIn = false;
     bridge.drop();
@@ -277,7 +339,7 @@ server.child.stdin.end();
 ok('closing stdin ends the server', await ended(server) === 0);
 bridge.close();
 
-// ── 5. Waiting for the user ────────────────────────────────────────────────
+// ── 6. Waiting for the user ────────────────────────────────────────────────
 // The servers' end of the link in this process, its 20 s deadlines held until
 // the test fires the ones still set, as they would have run out.
 {
@@ -316,7 +378,7 @@ bridge.close();
     globalThis.clearTimeout = realClearTimeout;
 }
 
-// ── 6. A hang-up ───────────────────────────────────────────────────────────
+// ── 7. A hang-up ───────────────────────────────────────────────────────────
 // The servers' end of the link in this process, its connections caught as it
 // makes them, so the test can call the moment the app's hang-up arrives, or
 // at once after it, before the link has read it.

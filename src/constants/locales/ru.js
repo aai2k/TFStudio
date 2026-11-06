@@ -493,6 +493,8 @@ export default {
     kernelNotRead: (error) => `Не удалось прочитать WebAssembly-ядро матрицы переноса, поэтому TFStudio ничего не может рассчитать: ${error}`,
     kernelNotStarted: 'WebAssembly-ядро матрицы переноса прочитано, но его не удалось запустить, поэтому TFStudio ничего не может рассчитать.',
     agentChanged: (name) => `Подключённая программа изменила проект «${name}». Ctrl+Z отменит это изменение.`,
+    agentAdded: (name) => `Подключённая программа добавила проект «${name}».`,
+    agentDeleted: (name) => `Подключённая программа удалила проект «${name}». Его файл в Корзине.`,
     contextMenu: {
       renameFolder: 'Переименовать папку',
     },

@@ -94,6 +94,8 @@ With `live=True`, `tf.app` reaches the designs open in TFStudio, while TFStudio 
 
 `tf.app.designs()` lists the designs the app holds, and `tf.app.open_design()` copies the open one, or one named by its name or id, as a design the program changes as it changes any other. `design.push()` writes it back over the design it was read from, as one step Undo takes back; only the open design takes a push, and a design pushed can be changed and pushed again. The app treats what a program writes as it treats an AI agent's; the rules are on the [AI agents](/automation/ai-agents/#work-on-the-open-design) page.
 
+A program can also choose the design it works on, so it needs nothing open when it connects. `tf.app.select()` opens a design, as a click on it in the Project Explorer does. `tf.app.add()` adds a design to a project folder and opens it: a design the program made, which then pushes to the design added, or a blank one as New Design makes it; `tf.app.folders()` lists the folders. `tf.app.delete()` moves a design's file to the Recycle Bin without asking; a design with edits that are not saved is not deleted.
+
 **Start listening when TFStudio starts**, in Preferences, then Automation, has TFStudio listen from the moment it starts, for a program that runs while you are away from the app. TFStudio then asks before a program connects for the first time, with **Allow** and **Deny**, and only then holds the app; the answer stands until TFStudio closes. A program denied, or let go with Terminate, gets back in only through Interactive. The setting is off by default: while it is on, any program you run can ask to work on your designs, so leave it off unless you need it.
 
 A call to `tf.app`, or a push, that the app does not take raises `tfstudio.AppError`, whose `code` says why:
@@ -101,14 +103,18 @@ A call to `tf.app`, or a push, that the app does not take raises `tfstudio.AppEr
 | Code | Meaning |
 | ---- | ------- |
 | `off` | TFStudio is not running, it is not listening for programs, or Terminate let this program go. Click Interactive, then try again. |
-| `timeout` | TFStudio did not answer in time; it may be busy. |
+| `timeout` | TFStudio did not answer in time; it may be busy. An add or a delete may still have been made, which `tf.app.designs()` shows. |
 | `protocol` | The TFStudio that is open speaks another version of the link; start the program's TFStudio from that install. |
 | `denied` | Deny was clicked when this program asked to connect. Interactive lets it in without asking. |
 | `edited` | The design changed in TFStudio since it was read. Nothing was written; read it again and make the change on that copy. |
 | `switched` | The design it was read from is no longer the open one. Nothing was written. |
 | `optimizing` | A run is going in a TFStudio window. Nothing was written; push again once it ends. |
 | `noDesign` | No design is open, and none was named. |
-| `unknown` | TFStudio holds no design under that id. |
+| `unknown` | TFStudio holds no design under that id, or, to open or delete one, none in a project folder. |
+| `noFolder` | The project has no folder of that name; `tf.app.folders()` lists them. |
+| `unsaved` | The design has edits that are not saved, so it was not deleted. Save it in TFStudio, then delete it again. |
+| `noBin` | The Recycle Bin did not take the design's file, so nothing was deleted. |
+| `failed` | TFStudio could not write or delete the design's file, and told you why. Nothing was changed. |
 | `invalid` | TFStudio cannot take what was sent, such as a design it would not open from a file; the message says why. |
 
 A design that was not read from the app, or that holds NaN or infinity, is refused before anything is sent, with `tfstudio.TFStudioError`.
