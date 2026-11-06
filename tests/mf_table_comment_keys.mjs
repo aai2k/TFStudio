@@ -262,6 +262,7 @@ function drawComment(editCell, focusCell = null) {
         startEdit: (...args) => calls.push(['startEdit', ...args]),
         setEditCell: value => calls.push(['editCell', value]),
         leaveComment: (...args) => calls.push(['leave', ...args]),
+        focusAt: (...args) => calls.push(['focus', ...args]),
     }, { ...operands[1], comment: 'x' }, 1);
     rowReact.unmount();
     let input = null;
@@ -304,8 +305,9 @@ function drawComment(editCell, focusCell = null) {
     const picker = find(tree, node => node.props?.initialQuery !== undefined);
     assert.equal(picker.props.initialQuery, 'r', 'the picker opens in the Type cell with the typed letter');
     assert.equal(typeCellIn(tree).props.onMouseDown, undefined, 'and a press in it is the picker\'s own');
-    picker.props.onClose();
-    assert.deepEqual(calls, [['editCell', null]], 'closing it closes the cell');
+    picker.props.onClose('escape');
+    assert.deepEqual(calls, [['editCell', null], ['focus', 1, 'type']],
+        'closing it closes the cell; see mf_cell_editor_close_focus.mjs for where the focus goes');
 }
 
 {

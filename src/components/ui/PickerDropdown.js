@@ -305,7 +305,8 @@ export function overlayEl(s) {
     );
 }
 
-// Close the overlay on outside-click or Escape while it is open.
+// Close the overlay on outside-click or Escape while it is open. `setOpen` is
+// called with false and how the overlay closed, 'outside' or 'escape'.
 //
 // The listeners go on the trigger's own document as well as the main one. A
 // picker in a torn-off window sees none of that window's clicks through the main
@@ -315,9 +316,9 @@ export function useDismiss(open, setOpen, dropRef, triggerRef) {
     useEffect(() => {
         if (!open) return undefined;
         const onDown = (e) => {
-            if (!dropRef.current?.contains(e.target) && !triggerRef.current?.contains(e.target)) setOpen(false);
+            if (!dropRef.current?.contains(e.target) && !triggerRef.current?.contains(e.target)) setOpen(false, 'outside');
         };
-        const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+        const onKey = (e) => { if (e.key === 'Escape') setOpen(false, 'escape'); };
         return listenForDismiss(triggerRef.current, { mousedown: onDown, keydown: onKey });
     }, [open]); // eslint-disable-line
 }
@@ -329,7 +330,10 @@ export function PickerDropdown(props) {
         searchPlaceholder, allLabel, emptyText, minDropWidth = 240,
         // A picker mounted already open, as a table cell does when its editor
         // starts: `initialQuery` is what was typed to start it, and `onClose`
-        // tells the host the picker has closed so it can take the cell back.
+        // tells the host the picker has closed so it can take the cell back. It
+        // is told how: 'pick', 'escape', 'trigger' for a press on the trigger,
+        // or 'outside' for a click elsewhere, which has put the keyboard focus
+        // where it wanted it.
         autoOpen = false, initialQuery = '', onClose,
     } = props;
 
@@ -352,9 +356,11 @@ export function PickerDropdown(props) {
         if (trigger) setDropPos(dropPositionFrom(trigger.getBoundingClientRect(), minDropWidth, ownerWindow(trigger)));
     }, []); // eslint-disable-line
 
+    const closedBy = useRef(null);
+    const close = how => { closedBy.current = how; setOpen(false); };
     const wasOpen = useRef(open);
     useEffect(() => {
-        if (wasOpen.current && !open) onClose?.();
+        if (wasOpen.current && !open) onClose?.(closedBy.current);
         wasOpen.current = open;
     }, [open]); // eslint-disable-line
 
@@ -399,14 +405,14 @@ export function PickerDropdown(props) {
         setScrollTop(top);
     }, [open, query, catFilter]); // eslint-disable-line
 
-    useDismiss(open, setOpen, dropRef, triggerRef);
+    useDismiss(open, (_, how) => close(how), dropRef, triggerRef);
 
     // The trigger toggles. Outside-click dismissal ignores the trigger, so
     // without this a click on an open picker would be swallowed by the exclusion
     // and then re-open, leaving the only ways out a pick, Escape, or a click
     // somewhere else entirely.
     const onTrigger = () => {
-        if (open) { setOpen(false); return; }
+        if (open) { close('trigger'); return; }
         const trigger = triggerRef.current;
         if (trigger) setDropPos(dropPositionFrom(trigger.getBoundingClientRect(), minDropWidth, ownerWindow(trigger)));
         // The list opens unfiltered every time: a tab left over from an earlier
@@ -417,7 +423,7 @@ export function PickerDropdown(props) {
         opening.current = true;
         setOpen(true);
     };
-    const select = (id) => { onChange(id); setOpen(false); };
+    const select = (id) => { onChange(id); close('pick'); };
     const onListScroll = (e) => setScrollTop(e.currentTarget.scrollTop);
 
     const shared = {

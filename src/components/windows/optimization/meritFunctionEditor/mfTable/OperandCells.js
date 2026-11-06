@@ -1,6 +1,6 @@
 import { OPERAND_POLS, isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
 import { CellInput } from '../../../../ui/grid/CellInput.js';
-import { listCell, listEditorCell, selectable } from './CellControls.js';
+import { cellEditorClosed, listCell, listEditorCell, selectable } from './CellControls.js';
 import { listEdit, listKind, listOf } from './listValues.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
 import { measuredSnapshotCell, measuredTypeCell } from './measuredCells.js';
@@ -61,9 +61,9 @@ export function typeCell(ctx, colKey, width) {
 
 // The Type cell while it is being edited: the operand picker, open, with what
 // was typed already in its search box. Closing it, by a pick, Escape or a
-// click elsewhere, returns the cell to text.
+// click elsewhere, returns the cell to text (cellEditorClosed).
 export function typePickerCell(ctx, colKey, width) {
-    const { op, c, t, tdBase, editCell, onEdit, setEditCell } = ctx;
+    const { op, c, t, tdBase, editCell, onEdit } = ctx;
     return h('td', {
         key: colKey,
         style: tdBase(colKey, width, { padding: '0 2px' }),
@@ -72,7 +72,7 @@ export function typePickerCell(ctx, colKey, width) {
         onChange: newType => onEdit(op.id, 'type', newType),
         autoOpen: true,
         initialQuery: editCell?.initValue || '',
-        onClose: () => setEditCell(null),
+        onClose: cellEditorClosed(ctx, colKey),
         c, t,
     }));
 }
@@ -230,14 +230,17 @@ function numberCell(ctx, colKey, width) {
     }, rowIdx + 1);
 }
 
+// A text cell being typed into. Escape closes it as every cell's editor
+// closes (cellEditorClosed); Enter, Tab, Up and Down commit and move on.
 function editingCell(ctx, colKey, width) {
-    const { rowIdx, c, tdBase, editCell, commitEdit, navigate, setEditCell } = ctx;
+    const { rowIdx, c, tdBase, editCell, commitEdit, navigate } = ctx;
+    const closed = cellEditorClosed(ctx, colKey);
     return h('td', {
         key: colKey, style: tdBase(colKey, width, { padding: '0 2px' }),
     }, h(CellInput, {
         initValue: editCell.initValue,
         onCommit: draft => commitEdit(rowIdx, colKey, draft),
-        onCancel: () => setEditCell(null),
+        onCancel: () => closed('escape'),
         onNavigate: direction => navigate(rowIdx, colKey, direction),
         c,
     }));

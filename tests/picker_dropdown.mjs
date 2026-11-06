@@ -377,9 +377,9 @@ for (const button of tabButtons) {
 const pickerSource = await readFile(
     new URL('../src/components/ui/PickerDropdown.js', import.meta.url), 'utf8');
 
-assert.match(pickerSource, /const onTrigger = \(\) => \{\s*if \(open\) \{ setOpen\(false\); return; \}/,
+assert.match(pickerSource, /const onTrigger = \(\) => \{\s*if \(open\) \{ close\('trigger'\); return; \}/,
     'a click on an open picker closes it instead of re-opening it');
-assert.match(pickerSource, /!triggerRef\.current\?\.contains\(e\.target\)\) setOpen\(false\)/,
+assert.match(pickerSource, /!triggerRef\.current\?\.contains\(e\.target\)\) setOpen\(false, 'outside'\)/,
     'and dismissal still ignores the trigger, so the two do not fight over the same click');
 assert.match(pickerSource, /setCatFilter\('all'\);[\s\S]{0,120}setOpen\(true\);/,
     'opening always shows the full list; the current group is marked, never used as the filter');

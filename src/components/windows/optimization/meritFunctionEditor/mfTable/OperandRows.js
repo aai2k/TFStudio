@@ -1,5 +1,6 @@
 import { isBlank, isDmfs, isMath } from '../../../../../utils/physics/optimizer.js';
 import { OperandTypePicker } from './OperandTypePicker.js';
+import { cellEditorClosed } from './CellControls.js';
 import {
     editingCell, listValueCell, listValuePickerCell, polPickerCell, polarizationCell,
     rowRenderers, textCell, typeCell, typePickerCell,
@@ -90,8 +91,9 @@ function commentRowFocus(c) {
 // search box. While the picker is open the cell takes no press of its own: a
 // click in the picker's list must not move the focus off the search box.
 function commentRowTypeCell(props, picking) {
-    const { op, rowIdx, focusColKey, rowEdit, c, t, onEdit, pressCell, startEdit, setEditCell } = props;
+    const { op, rowIdx, focusColKey, rowEdit, c, t, onEdit, pressCell, startEdit } = props;
     const focused = !picking && focusColKey === 'type';
+    const closed = cellEditorClosed(props, 'type');
     return h('td', {
         onMouseDown: picking ? undefined : event => { event.stopPropagation(); pressCell(rowIdx, 'type', event); },
         onDoubleClick: () => startEdit(rowIdx, 'type', null),
@@ -102,8 +104,11 @@ function commentRowTypeCell(props, picking) {
     }, picking
         ? h(OperandTypePicker, {
             value: op.type,
-            onChange: newType => onEdit(op.id, 'type', newType),
-            autoOpen: true, initialQuery: rowEdit.initValue || '', onClose: () => setEditCell(null),
+            // A pick makes the row an operand, which another kind of row draws,
+            // so the picker is gone before it can say it closed; the pick
+            // closes the cell itself.
+            onChange: newType => { onEdit(op.id, 'type', newType); closed('pick'); },
+            autoOpen: true, initialQuery: rowEdit.initValue || '', onClose: closed,
             c, t,
         })
         : op.type);
@@ -276,7 +281,7 @@ export function renderOperandRow(ctx, op, rowIdx) {
             // Narrowed to this row, as a data row's are; see below.
             focusColKey: ctx.focusCell?.rowIdx === rowIdx ? ctx.focusCell.colKey : null,
             rowEdit: ctx.editCell?.rowIdx === rowIdx ? ctx.editCell : null,
-            pressCell: ctx.pressCell, startEdit: ctx.startEdit,
+            pressCell: ctx.pressCell, startEdit: ctx.startEdit, focusAt: ctx.focusAt,
             setEditCell: ctx.setEditCell, leaveComment: ctx.leaveComment,
         });
     }

@@ -6,12 +6,27 @@
  * It opens with its text selected, so typing replaces it. `typed` is for an
  * editor opened by a key typed on the cell: that key is its text, and the caret
  * goes after it so the next key adds to it.
+ *
+ * A table takes the keyboard focus back as a key closes the editor, while this
+ * input is still on the page. The blur that follows is part of that close and
+ * commits nothing: after Escape the cell keeps its value, and after the other
+ * keys the value is committed once.
  */
 const { createElement: h, useState, useEffect, useRef, useCallback } = React;
+
+// The keys that commit, and the way each moves on from the cell. Escape closes
+// the editor where it is and commits nothing.
+const MOVES = {
+    Enter: () => 'down',
+    ArrowDown: () => 'down',
+    ArrowUp: () => 'up',
+    Tab: event => (event.shiftKey ? 'left' : 'right'),
+};
 
 export function CellInput({ initValue, onCommit, onCancel, onNavigate, c, typed = false }) {
     const [draft, setDraft] = useState(initValue);
     const ref = useRef(null);
+    const closedByKey = useRef(false);
     useEffect(() => {
         const input = ref.current;
         if (!input) return;
@@ -25,13 +40,16 @@ export function CellInput({ initValue, onCommit, onCancel, onNavigate, c, typed 
         ref,
         value: draft,
         onChange: event => setDraft(event.target.value),
-        onBlur: commit,
+        onBlur: () => { if (!closedByKey.current) commit(); },
         onKeyDown: event => {
-            if (event.key === 'Enter') { event.preventDefault(); event.stopPropagation(); commit(); onNavigate('down'); }
-            if (event.key === 'Tab') { event.preventDefault(); event.stopPropagation(); commit(); onNavigate(event.shiftKey ? 'left' : 'right'); }
-            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); onCancel(); }
-            if (event.key === 'ArrowDown') { event.preventDefault(); event.stopPropagation(); commit(); onNavigate('down'); }
-            if (event.key === 'ArrowUp') { event.preventDefault(); event.stopPropagation(); commit(); onNavigate('up'); }
+            const move = MOVES[event.key];
+            if (!move && event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            closedByKey.current = true;
+            if (!move) { onCancel(); return; }
+            commit();
+            onNavigate(move(event));
         },
         style: {
             width: '100%', background: c.bg, color: c.text,

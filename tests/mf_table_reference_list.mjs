@@ -113,8 +113,8 @@ const marked = html => html.match(/<div[^>]*font-weight:600[^>]*>([^<>]+)<\/div>
     list.props.onCommit('single');
     list.props.onCommit(null);
     assert.deepEqual(calls, [
-        ['editCell', null], ['edit', 'pair', '_patch', { refId2: 'single' }], ['focus', 3, 'lambdaEnd'],
-        ['editCell', null], ['edit', 'pair', '_patch', { refId2: null }], ['focus', 3, 'lambdaEnd'],
+        ['edit', 'pair', '_patch', { refId2: 'single' }], ['editCell', null], ['focus', 3, 'lambdaEnd'],
+        ['edit', 'pair', '_patch', { refId2: null }], ['editCell', null], ['focus', 3, 'lambdaEnd'],
     ], 'the entry heading the list empties the reference');
 }
 

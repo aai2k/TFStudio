@@ -84,11 +84,15 @@ function pickRow(ctx, rowIdx, alone, colKey) {
     ctx.cells.tableRef.current?.focus();
 }
 
+// The move an arrow, Tab or Enter makes from a cell. A cell's text editor that
+// moves on this way held the keyboard focus and is gone, so the table takes the
+// focus back whether the move left the row, stayed in it or met the table's
+// edge.
 function navigate(ctx, fromRowIdx, fromColKey, direction) {
     const target = navigationTarget(ctx.operands, fromRowIdx, fromColKey, direction);
-    if (!target) return;
-    if (target.focus) ctx.cells.focusAt(target.rowIdx, target.colKey);
-    else ctx.cells.place(target.rowIdx, target.colKey);
+    if (target?.focus) ctx.cells.focusAt(target.rowIdx, target.colKey);
+    else if (target) ctx.cells.place(target.rowIdx, target.colKey);
+    ctx.cells.tableRef.current?.focus();
 }
 
 // Up, Down and Escape in a comment's input close it and give the keys back to

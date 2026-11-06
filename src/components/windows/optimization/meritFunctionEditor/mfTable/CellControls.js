@@ -170,19 +170,37 @@ export function listCell(ctx, colKey, width, view) {
 }
 
 /**
- * A list cell with its list open under it. A pick goes to `list.commit` and
- * puts the focus back on the cell, as Escape does; a click elsewhere leaves
- * the focus where that click put it.
+ * What closing a cell's editor does, in every cell that has one: the cell goes
+ * back to text, and the keyboard focus goes back on the cell, unless the editor
+ * closed by a click elsewhere, which put the focus where it wanted it. The
+ * editor held the focus and is gone with it, so without this the keys reach
+ * nothing until the table is clicked.
+ *
+ *   cell  { rowIdx, setEditCell, focusAt }
+ *   how   'outside' for a click elsewhere; a key or a pick otherwise
+ */
+export function cellEditorClosed({ rowIdx, setEditCell, focusAt }, colKey) {
+    return how => {
+        setEditCell(null);
+        if (how !== 'outside') focusAt(rowIdx, colKey);
+    };
+}
+
+/**
+ * A list cell with its list open under it. A pick goes to `list.commit`; the
+ * list closes as every cell's editor does (cellEditorClosed), the focus leaving
+ * it counting as a click elsewhere.
  *
  *   list  listCell's view, with { options, value, pickByKey, commit }
  */
 export function listEditorCell(ctx, colKey, width, list) {
-    const { rowIdx, c, tdBase, focusAt, setEditCell } = ctx;
+    const { c, tdBase } = ctx;
+    const closed = cellEditorClosed(ctx, colKey);
     return h('td', { key: colKey, title: list.title, style: tdBase(colKey, width, { color: list.color }) },
         listFace(list.text, h('span', { className: 'tf-caret tf-caret-open' })),
         h(CellList, {
             options: list.options, value: list.value, pickByKey: list.pickByKey, c,
-            onCommit: value => { setEditCell(null); list.commit(value); focusAt(rowIdx, colKey); },
-            onCancel: refocus => { setEditCell(null); if (refocus) focusAt(rowIdx, colKey); },
+            onCommit: value => { list.commit(value); closed('pick'); },
+            onCancel: refocus => closed(refocus ? 'escape' : 'outside'),
         }));
 }
