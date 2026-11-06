@@ -185,7 +185,7 @@ export function MFTable(props) {
         isMathPct, selectRow: handleSelectRow, focusAt: handleFocusAt,
         pressCell, beginDrag, dragOver,
         startEdit: handleStartEdit, commitEdit: handleCommitEdit,
-        navigate: handleNavigate, onEdit: handleEdit, onKeyDown,
+        navigate: handleNavigate, leaveComment, onEdit: handleEdit, onKeyDown,
     } = useMFTableSelection({
         operands, integralPresets, selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
     });
@@ -222,7 +222,7 @@ export function MFTable(props) {
         operands, integralPresets, isMathPct, c, t,
         onEdit: handleEdit, selectRow: handleSelectRow, focusAt: handleFocusAt,
         pressCell, beginDrag, dragOver, startEdit: handleStartEdit,
-        commitEdit: handleCommitEdit, navigate: handleNavigate, setEditCell, setFocusCell,
+        commitEdit: handleCommitEdit, navigate: handleNavigate, leaveComment, setEditCell, setFocusCell,
     };
     const scrollRef = useRef(null);
     const headRef = useRef(null);

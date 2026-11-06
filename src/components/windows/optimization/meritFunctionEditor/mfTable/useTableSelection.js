@@ -9,8 +9,8 @@
  * focused cell, the rectangle from the anchor to it, and any cells added with
  * Ctrl, held by the shared grid selection (ui/grid/useGridSelection.js).
  * Clicking a cell clears the row selection, and selecting a row clears the
- * cells and the focus. A header or comment row has no cells, so an arrow onto
- * one selects it as a row.
+ * cells and the focus. A header or comment row has no value cells, so an arrow
+ * onto one selects it as a row.
  *
  * The handlers a row is given never change identity. A merit function runs to
  * thousands of rows and the table is re-rendered whenever anything above it is:
@@ -55,9 +55,9 @@ function selectRow(ctx, id, shift, ctrl, keepFocus = false) {
 }
 
 // A cell was chosen: the row selection goes, and the operand is reported. The
-// focus landing alone on a header or comment row, which has no cells, selects
-// that row instead, as a click on it does, so it is drawn selected and the row
-// keys act on it. The focus stays, so the next arrow keeps to its column.
+// focus landing alone on a header or comment row, which has no value cells,
+// selects that row too, as a click on it does, so it is drawn selected and the
+// row keys act on it. The focus stays, so the next arrow keeps to its column.
 function pickRow(ctx, rowIdx, alone) {
     const op = ctx.operands[rowIdx];
     const asRow = alone && isHeaderOrComment(op);
@@ -73,6 +73,17 @@ function navigate(ctx, fromRowIdx, fromColKey, direction) {
     if (!target) return;
     if (target.focus) ctx.cells.focusAt(target.rowIdx, target.colKey);
     else ctx.cells.place(target.rowIdx, target.colKey);
+}
+
+// Up, Down and Escape in a comment's input close it and give the keys back to
+// the table: the focus goes `step` rows up or down, or stays on the comment's
+// own row for Escape. It keeps the column the keys came in by; after a click
+// into the comment there is none, and it takes Type, as the keys do from any
+// row selected with a click.
+function leaveComment(ctx, rowIdx, step) {
+    const target = Math.min(Math.max(rowIdx + step, 0), ctx.operands.length - 1);
+    ctx.set.editCell(null);
+    ctx.cells.focusAt(target, ctx.cells.focusCell?.colKey ?? 'type');
 }
 
 export function useMFTableSelection(props) {
@@ -98,7 +109,7 @@ export function useMFTableSelection(props) {
 
     // The one thing the handlers below read; see the note at the top of the file.
     const live = useRef();
-    const set = useMemo(() => ({ selIds: setSelIds, anchor: setAnchor }), []);
+    const set = useMemo(() => ({ selIds: setSelIds, anchor: setAnchor, editCell: setEditCell }), []);
     const context = useCallback(() => ({ ...live.current, lastReported, set }), [set]);
     const cells = useGridSelection(MF_GRID, {
         hasRow: rowIdx => !!live.current.operands[rowIdx],
@@ -149,8 +160,11 @@ export function useMFTableSelection(props) {
     const handleNavigate = useCallback((rowIdx, colKey, direction) =>
         navigate(context(), rowIdx, colKey, direction), [context]);
 
+    const handleLeaveComment = useCallback((rowIdx, step) =>
+        leaveComment(context(), rowIdx, step), [context]);
+
     const onKeyDown = useCallback(event => doKeyDown({
-        editCell, focusCell, selectedIds: selIds, operands, integralPresets, setSelIds,
+        editCell, setEditCell, focusCell, selectedIds: selIds, operands, integralPresets, setSelIds,
         range, extraCells, extendTo: cells.extendTo, collapseRange: cells.collapseRange,
         clearCells: cells.clearCells, focusAfterRemoval,
         onDelete, onInsertAt, onDuplicate, onAdd, onEdit, onEditMany, focusAt: cells.focusAt,
@@ -170,6 +184,6 @@ export function useMFTableSelection(props) {
         extendTo: cells.extendTo, toggleCell: cells.toggleCell, pressCell: cells.pressCell,
         beginDrag: cells.beginDrag, dragOver: cells.dragOver,
         startEdit: handleStartEdit, commitEdit: handleCommitEdit,
-        navigate: handleNavigate, onEdit: handleEdit, onKeyDown,
+        navigate: handleNavigate, leaveComment: handleLeaveComment, onEdit: handleEdit, onKeyDown,
     };
 }

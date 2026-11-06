@@ -1,3 +1,4 @@
+import { isBlank } from '../../../../../utils/physics/optimizer.js';
 import {
     beginEdit, collapseRange, isPrintableEditKey, isTextControl, moveHorizontal, moveTab, moveVertical,
 } from '../../../../ui/grid/gridKeys.js';
@@ -174,6 +175,17 @@ export function runKeyAction(actionKey, ctx) {
     return false;
 }
 
+// A key typed on a comment row anywhere but its Type cell starts its comment,
+// as a key typed on a text cell starts that cell's value: the comment becomes
+// the key, and its input takes the focus for the keys that follow. The key goes
+// in through the edit alone, so it cannot also reach the input once that has
+// the focus.
+function typeIntoComment(ctx, event, rowIdx) {
+    event.preventDefault();
+    ctx.onEdit(ctx.operands[rowIdx].id, 'comment', event.key);
+    ctx.setEditCell({ rowIdx, colKey: 'comment' });
+}
+
 export function doKeyDown(ctx, event) {
     const { editCell, focusCell, selectedIds, operands, startEdit } = ctx;
     // A box that takes typing, a cell's editor or a comment, takes every key.
@@ -183,7 +195,7 @@ export function doKeyDown(ctx, event) {
     if (rowIdx < 0) return;
     const colKey = focusCell?.colKey ?? 'type';
     const handled = runKeyAction(keyComboOf(event), { ...ctx, event, rowIdx, colKey });
-    if (!handled && isPrintableEditKey(event)) {
-        startEdit(rowIdx, colKey, event.key);
-    }
+    if (handled || !isPrintableEditKey(event)) return;
+    if (isBlank(operands[rowIdx]?.type) && focusCell?.colKey !== 'type') typeIntoComment(ctx, event, rowIdx);
+    else startEdit(rowIdx, colKey, event.key);
 }

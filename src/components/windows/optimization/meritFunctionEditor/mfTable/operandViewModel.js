@@ -116,7 +116,10 @@ const HEADER_LABELS = [
 
 const EDITABLE_COLS = [
     [op => isMeasuredCurve(op.type), ['enabled', 'weight']],
-    [op => isDmfs(op.type) || isBlank(op.type), ['enabled']],
+    [op => isDmfs(op.type), ['enabled']],
+    // A comment row is never scored, so it has no on/off mark. Its Type can be
+    // changed like any row's, which turns the row into an operand.
+    [op => isBlank(op.type), ['type']],
     [op => isLinearThickness(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     [op => isConstraint(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
     [op => isIntegral(op.type), ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],

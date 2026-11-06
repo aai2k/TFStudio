@@ -9,7 +9,7 @@ import { selectedColumnsForRow } from './selectionModel.js';
 import { ROW_H } from './rowWindow.js';
 import { isTextControl } from '../../../../ui/grid/gridKeys.js';
 
-const { createElement: h, memo, useState } = React;
+const { createElement: h, memo, useEffect, useRef } = React;
 
 // The press that selects a row: from the row-number column of a data row, or
 // anywhere on a header or comment row, which has no cells of its own. Shift
@@ -65,15 +65,100 @@ function DmfsRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, d
     );
 }
 
-function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver }) {
-    // The type shows as text; a double-click opens the picker in the cell, the
-    // way a data row's Type cell does. While the picker is open the row takes
-    // no press of its own: a click in the picker's list must not select the
-    // row and move the focus off the search box.
-    const [picking, setPicking] = useState(false);
+// Up and Down leave a comment for the row above or below, as they leave a
+// cell's editor, and Escape for the table on the comment's own row, with the
+// comment as typed. Every other key, Left and Right included, stays in the text.
+const COMMENT_EXITS = { ArrowUp: -1, ArrowDown: 1, Escape: 0 };
+
+function commentKeyDown(rowIdx, leaveComment) {
+    return event => {
+        const step = COMMENT_EXITS[event.key];
+        if (step === undefined) return;
+        event.preventDefault();
+        event.stopPropagation();
+        leaveComment(rowIdx, step);
+    };
+}
+
+// A focused cell of a comment row is outlined, as a data row's is.
+function commentRowFocus(c) {
+    return { outline: `1px solid ${c.accent}`, outlineOffset: -1 };
+}
+
+// The operand code as text, as on a data row: a press focuses it, and Enter, a
+// double-click or a typed letter opens the picker in it with that letter in its
+// search box. While the picker is open the cell takes no press of its own: a
+// click in the picker's list must not move the focus off the search box.
+function commentRowTypeCell(props, picking) {
+    const { op, rowIdx, focusColKey, rowEdit, c, t, onEdit, pressCell, startEdit, setEditCell } = props;
+    const focused = !picking && focusColKey === 'type';
+    return h('td', {
+        onMouseDown: picking ? undefined : event => { event.stopPropagation(); pressCell(rowIdx, 'type', event); },
+        onDoubleClick: () => startEdit(rowIdx, 'type', null),
+        style: {
+            width: COLS[2].w, padding: picking ? '0 2px' : '0 4px', color: c.text, fontWeight: 500, userSelect: 'none',
+            ...(focused ? { ...commentRowFocus(c), backgroundColor: c.accent + 'AA' } : null),
+        },
+    }, picking
+        ? h(OperandTypePicker, {
+            value: op.type,
+            onChange: newType => onEdit(op.id, 'type', newType),
+            autoOpen: true, initialQuery: rowEdit.initValue || '', onClose: () => setEditCell(null),
+            c, t,
+        })
+        : op.type);
+}
+
+// The comment, which spans every column right of Type, so the focus on any of
+// them is on the comment.
+function commentCell(props, editing, inputRef) {
+    const { op, rowIdx, focusColKey, c, t, onEdit, selectRow, setEditCell, leaveComment } = props;
     // A click into the comment selects its row but leaves keyboard focus in the
     // input, so the comment can be typed.
     const selectForTyping = () => selectRow(op.id, false, false, true);
+    const focused = !editing && focusColKey != null && focusColKey !== 'type';
+    return h('td', {
+        colSpan: COLS.length - 3,
+        style: {
+            padding: '1px 6px', borderLeft: '2px solid rgba(140,140,140,0.4)',
+            ...(focused ? commentRowFocus(c) : null),
+        },
+    }, h('input', {
+        ref: inputRef,
+        value: op.comment || '',
+        placeholder: t.meritFunctionEditor.commentPlaceholder,
+        'data-row-menu': 'comment',
+        onChange: event => onEdit(op.id, 'comment', event.target.value),
+        onClick: event => { event.stopPropagation(); selectForTyping(); },
+        onFocus: editing ? undefined : selectForTyping,
+        onBlur: editing ? () => setEditCell(null) : undefined,
+        onKeyDown: commentKeyDown(rowIdx, leaveComment),
+        style: {
+            width: '100%', background: 'transparent', color: c.textDim, border: 'none',
+            fontSize: 11, fontStyle: 'italic', padding: '1px 2px',
+            fontFamily: 'inherit', outline: 'none', userSelect: 'text',
+        },
+    }));
+}
+
+// A comment row: its Type and its comment. It is never scored, so it has no
+// on/off mark, and the column is left empty.
+function BlnkRowView(props) {
+    const { op, rowIdx, rowSel, rowEdit, c, selectRow, beginDrag, dragOver } = props;
+    const picking = rowEdit?.colKey === 'type';
+    const editing = rowEdit?.colKey === 'comment';
+    // Opened by a key typed on the row, the comment takes the focus with the
+    // caret after that key, so the next key adds to it. Its row is already
+    // selected then, and the focused column is kept for Up and Down to leave
+    // by, so the focus arriving selects nothing. A click elsewhere closes it,
+    // as leaving by the keys does.
+    const inputRef = useRef(null);
+    useEffect(() => {
+        if (!editing) return;
+        const input = inputRef.current;
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+    }, [editing]);
     return h('tr', {
         'data-row': rowIdx,
         onMouseDown: picking ? undefined : rowPress(op, selectRow, beginDrag),
@@ -89,40 +174,9 @@ function BlnkRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, d
                 color: c.textDim, userSelect: 'none', fontSize: 11,
             },
         }, rowIdx + 1),
-        h('td', {
-            style: {
-                width: COLS[1].w, padding: '0 4px', textAlign: 'center', cursor: 'pointer',
-                color: op.enabled ? c.accent : c.textDim, userSelect: 'none', fontSize: 11,
-            },
-            onClick: event => { event.stopPropagation(); onEdit(op.id, 'enabled', !op.enabled); },
-        }, op.enabled ? '✓' : '○'),
-        h('td', {
-            style: { width: COLS[2].w, padding: picking ? '0 2px' : '0 4px', color: c.text, fontWeight: 500, userSelect: 'none' },
-            onDoubleClick: () => setPicking(true),
-        }, picking
-            ? h(OperandTypePicker, {
-                value: op.type,
-                onChange: newType => onEdit(op.id, 'type', newType),
-                autoOpen: true, onClose: () => setPicking(false),
-                c, t,
-            })
-            : op.type),
-        h('td', {
-            colSpan: COLS.length - 3,
-            style: { padding: '1px 6px', borderLeft: '2px solid rgba(140,140,140,0.4)' },
-        }, h('input', {
-            value: op.comment || '',
-            placeholder: t.meritFunctionEditor.commentPlaceholder,
-            'data-row-menu': 'comment',
-            onChange: event => onEdit(op.id, 'comment', event.target.value),
-            onClick: event => { event.stopPropagation(); selectForTyping(); },
-            onFocus: selectForTyping,
-            style: {
-                width: '100%', background: 'transparent', color: c.textDim, border: 'none',
-                fontSize: 11, fontStyle: 'italic', padding: '1px 2px',
-                fontFamily: 'inherit', outline: 'none', userSelect: 'text',
-            },
-        })),
+        h('td', { style: { width: COLS[1].w, padding: '0 4px' } }),
+        commentRowTypeCell(props, picking),
+        commentCell(props, editing, inputRef),
     );
 }
 
@@ -217,7 +271,14 @@ export function renderOperandRow(ctx, op, rowIdx) {
         return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver });
     }
     if (isBlank(op.type)) {
-        return h(BlnkRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver });
+        return h(BlnkRow, {
+            key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver,
+            // Narrowed to this row, as a data row's are; see below.
+            focusColKey: ctx.focusCell?.rowIdx === rowIdx ? ctx.focusCell.colKey : null,
+            rowEdit: ctx.editCell?.rowIdx === rowIdx ? ctx.editCell : null,
+            pressCell: ctx.pressCell, startEdit: ctx.startEdit,
+            setEditCell: ctx.setEditCell, leaveComment: ctx.leaveComment,
+        });
     }
     return h(MFDataRow, {
         key: op.id,

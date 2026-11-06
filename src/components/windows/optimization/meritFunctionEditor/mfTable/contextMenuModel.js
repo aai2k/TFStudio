@@ -1,4 +1,4 @@
-import { isBlank, isDmfs } from '../../../../../utils/physics/optimizer.js';
+import { isDmfs } from '../../../../../utils/physics/optimizer.js';
 import { clipboardScope } from './cellClipboard.js';
 
 /**
@@ -31,12 +31,13 @@ export function menuTargetFromEvent(event, columns) {
 }
 
 /**
- * What the menu acts on. A DMFS header or a comment row has no cell to copy
- * on its own, whichever column was under the pointer; every other row follows
- * the keyboard's rule.
+ * What the menu acts on. A DMFS header has no cell to copy on its own,
+ * whichever column was under the pointer; every other row follows the
+ * keyboard's rule, which gives a comment row its Type cell and the row
+ * everywhere else.
  */
 export function menuScope(op, colKey, selectedIds) {
-    if (!op || isDmfs(op.type) || isBlank(op.type)) return 'rows';
+    if (!op || isDmfs(op.type)) return 'rows';
     return clipboardScope({ op, focusCell: { rowIdx: 0, colKey }, selectedIds });
 }
 

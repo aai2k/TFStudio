@@ -34,7 +34,7 @@ const noop = () => {};
 // it whenever the operand list changes, which is on every committed edit, so a
 // row given the window's own copy loses its memo the moment anything is typed.
 // `onKeyDown` is not among them: it belongs to the table's container, not a row.
-const ROW_HANDLERS = ['selectRow', 'focusAt', 'startEdit', 'commitEdit', 'navigate', 'isMathPct', 'onEdit'];
+const ROW_HANDLERS = ['selectRow', 'focusAt', 'startEdit', 'commitEdit', 'navigate', 'leaveComment', 'isMathPct', 'onEdit'];
 
 const render = props => runtime.render(() => useMFTableSelection(props));
 const assertHandlersHeld = (before, after, why) => {

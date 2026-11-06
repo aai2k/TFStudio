@@ -4,7 +4,10 @@ import {
 } from '../../../../ui/grid/gridModel.js';
 import { COLS, editableColsForRow } from './operandViewModel.js';
 
-/** A DMFS header or a comment row: a row with no cells, selected only as a row. */
+/**
+ * A DMFS header or a comment row: a row with no value cells, selected as a row
+ * whenever the focus lands on it.
+ */
 export function isHeaderOrComment(op) {
     return isDmfs(op.type) || isBlank(op.type);
 }
@@ -59,21 +62,35 @@ export function rowsOfSelection(operands, { selectedIds, focusCell, range, extra
     return [...new Set(ids)];
 }
 
+// A comment row's Type, then its comment. The comment spans every column right
+// of Type and is reached as the first of them.
+const COMMENT_ROW_COLUMNS = ['type', 'lambdaStart'];
+
 /**
  * The cells an arrow key walks through on a row. Every value column counts,
- * a dash included, the way an empty spreadsheet cell can still be reached;
- * a header or comment row has only its enable mark.
+ * a dash included, the way an empty spreadsheet cell can still be reached; a
+ * header row has only its enable mark, a comment row its Type and comment.
  */
 export function navigationColumns(op) {
+    if (isBlank(op.type)) return COMMENT_ROW_COLUMNS;
     const editable = editableColsForRow(op);
     return editable.length === 1 ? editable : ['enabled', ...RANGE_COLUMNS];
 }
 
+// On a comment row every column but Type is the comment, so a step sideways
+// from any of them is a step from the comment. Up and down keep the column.
+function sidewaysFrom(op, colKey, direction) {
+    const sideways = direction === 'left' || direction === 'right';
+    return sideways && isBlank(op.type) && colKey !== 'type' ? COMMENT_ROW_COLUMNS[1] : colKey;
+}
+
 export function navigationTarget(operands, fromRowIdx, fromColKey, direction) {
+    const op = operands[fromRowIdx];
+    if (!op) return null;
     return gridNavigationTarget({
         rowCount: operands.length,
         columnsOf: rowIdx => navigationColumns(operands[rowIdx]),
-    }, fromRowIdx, fromColKey, direction);
+    }, fromRowIdx, sidewaysFrom(op, fromColKey, direction), direction);
 }
 
 /** The cells a pasted grid of text lands on; see gridModel.js. */

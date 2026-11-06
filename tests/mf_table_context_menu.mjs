@@ -40,9 +40,10 @@ assert.deepEqual(menuTargetFromEvent(cellEvent(8, 3617), COLS),
         { target: { tagName: 'TD', dataset: {}, closest: () => spacer } }, COLS), null);
 }
 
-// A header or comment row never offers a cell to copy; other rows follow the
-// keyboard's rule.
+// A header row never offers a cell to copy, nor a comment row outside its Type
+// cell; other rows follow the keyboard's rule.
 assert.equal(menuScope({ type: 'BLNK' }, 'lambdaStart', new Set()), 'rows');
+assert.equal(menuScope({ type: 'BLNK' }, 'type', new Set()), 'cell');
 assert.equal(menuScope({ type: 'DMFS' }, 'target', new Set()), 'rows');
 assert.equal(menuScope({ type: 'R' }, 'target', new Set()), 'cell');
 assert.equal(menuScope({ type: 'R' }, 'type', new Set()), 'cell');

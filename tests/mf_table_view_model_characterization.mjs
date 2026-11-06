@@ -75,7 +75,7 @@ for (const [operand, expected] of [
 
 const editableCases = [
     ['DMFS', ['enabled']],
-    ['BLNK', ['enabled']],
+    ['BLNK', ['type']],
     ['TT', ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     ['MXT', ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
     ['RIW', ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight', 'flag']],
