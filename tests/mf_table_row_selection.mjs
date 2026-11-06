@@ -167,4 +167,51 @@ const rows = selection => [...selection.selIds].sort();
     assert.deepEqual(table.focusCell, { rowIdx: 2, colKey: 'target' });
 }
 
+// ── Left past the on/off mark selects the whole row ──────────────────────────
+// The row number is a stop for the keys, so a row can be selected, copied and
+// deleted as a row without the mouse. The focus there selects the row, as a
+// press on it does; Up and Down keep to the row numbers and Shift stretches
+// the rows. Right goes back to the row's first cell.
+{
+    const deleted = [];
+    const keyed = { ...props, onDelete: ids => deleted.push(ids) };
+    runtime.reset();
+    const renderKeyed = () => runtime.render(() => useMFTableSelection(keyed));
+    const press = (table, key, shiftKey = false) => table.onKeyDown({
+        key, shiftKey, ctrlKey: false, altKey: false, metaKey: false, target: {}, preventDefault() {},
+    });
+
+    let table = renderKeyed();
+    table.focusAt(1, 'enabled');
+    table = renderKeyed();
+    press(table, 'ArrowLeft');
+    table = renderKeyed();
+    assert.deepEqual(table.focusCell, { rowIdx: 1, colKey: 'num' }, 'Left from on/off is the row number');
+    assert.deepEqual(rows(table), ['a'], 'which selects the whole row');
+    press(table, 'ArrowLeft');
+    table = renderKeyed();
+    assert.deepEqual(table.focusCell, { rowIdx: 1, colKey: 'num' }, 'there is nothing left of it');
+    press(table, 'ArrowRight');
+    table = renderKeyed();
+    assert.deepEqual(table.focusCell, { rowIdx: 1, colKey: 'enabled' }, 'Right goes back to on/off');
+    assert.deepEqual(rows(table), [], 'as a cell again');
+
+    press(table, 'ArrowLeft');
+    table = renderKeyed();
+    press(table, 'ArrowDown');
+    table = renderKeyed();
+    press(table, 'ArrowDown');
+    table = renderKeyed();
+    assert.deepEqual(table.focusCell, { rowIdx: 3, colKey: 'num' }, 'Down keeps to the row numbers');
+    assert.deepEqual(rows(table), ['b'], 'selecting each row in turn');
+    press(table, 'ArrowUp', true);
+    table = renderKeyed();
+    press(table, 'ArrowUp', true);
+    table = renderKeyed();
+    assert.deepEqual(rows(table), ['a', 'b', 'n'], 'Shift stretches the rows, a comment row included');
+    assert.equal(table.range, null, 'and selects no cells');
+    press(table, 'Delete');
+    assert.deepEqual(deleted.map(ids => [...ids].sort()), [['a', 'b', 'n']], 'the row keys act on them');
+}
+
 console.log('mf_table_row_selection: passed');

@@ -12,18 +12,23 @@ import { MF_GRID, RANGE_COLUMNS, pasteTargets, selectedCells } from './selection
 const CELL_TEXT_COLUMNS = new Set(RANGE_COLUMNS);
 
 /**
- * What Ctrl+C and Ctrl+V act on: one cell, when a value cell has focus and no
- * more than its own row is selected; otherwise whole rows, as a click in the #
- * column or a multi-row selection asks for.
+ * What Ctrl+C and Ctrl+V act on: 'cell', 'rows' or 'none'. A focused value
+ * cell copies and pastes its own value while no more than its own row is
+ * selected. Rows are the unit when they are selected as rows, from the #
+ * column or by the focus landing on a header or comment row, and when more
+ * than one row is selected.
  *
- * Which columns a row actually carries depends on its operand type: a thickness
- * constraint has no angle, a measured curve no target, and those cells show a
- * dash. A dash holds nothing to copy and must not be pasted over, so the row
- * stays the unit there.
+ * A focused cell that holds no value copies and pastes nothing: the on/off
+ * mark, the computed columns, and the dash a row shows in a column its operand
+ * type does not carry (a thickness constraint has no angle, a measured curve
+ * no target). Copying the whole row from one of them would put more on the
+ * clipboard than the cell shows.
  */
 export function clipboardScope({ op, focusCell, selectedIds }) {
-    if (!focusCell || !CELL_TEXT_COLUMNS.has(focusCell.colKey)) return 'rows';
-    if (op && !editableColsForRow(op).includes(focusCell.colKey)) return 'rows';
+    if (!focusCell) return 'rows';
+    const holdsValue = CELL_TEXT_COLUMNS.has(focusCell.colKey)
+        && (!op || editableColsForRow(op).includes(focusCell.colKey));
+    if (!holdsValue) return selectedIds.size > 0 ? 'rows' : 'none';
     return selectedIds.size > 1 ? 'rows' : 'cell';
 }
 

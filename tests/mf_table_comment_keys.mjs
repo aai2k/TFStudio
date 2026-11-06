@@ -188,9 +188,19 @@ function arrowOntoComment() {
     press(table, 'ArrowRight');
     table = render();
     assert.deepEqual(table.focusCell, { rowIdx: 2, colKey: 'enabled' }, 'and Right again is the next row');
+
+    press(table, 'ArrowUp');
+    table = render();
     press(table, 'ArrowLeft');
     table = render();
-    assert.deepEqual(table.focusCell, { rowIdx: 1, colKey: 'lambdaStart' }, 'Left from there is the comment again');
+    assert.deepEqual(table.focusCell, { rowIdx: 1, colKey: 'type' }, 'Left from the comment is Type');
+    press(table, 'ArrowLeft');
+    table = render();
+    assert.deepEqual(table.focusCell, { rowIdx: 1, colKey: 'num' }, 'and Left from Type the row number');
+    assert.deepEqual(rows(table), ['n']);
+    press(table, 'ArrowRight');
+    table = render();
+    assert.deepEqual(table.focusCell, { rowIdx: 1, colKey: 'type' }, 'Right from the row number is Type');
 }
 {
     // Right from the last cell of a row wraps to the comment row's Type, past
@@ -287,6 +297,7 @@ function drawComment(editCell, focusCell = null) {
     assert.ok(outlined(commentCellIn(focusedOn('target'))), 'any other column of the row is the comment');
     assert.ok(!outlined(typeCellIn(focusedOn('target'))));
     assert.ok(!outlined(commentCellIn(drawComment(null).tree)), 'nothing is outlined without the focus');
+    assert.ok(!outlined(commentCellIn(focusedOn('num'))), 'nor with the focus on the row number');
 }
 {
     const { tree, calls } = drawComment({ rowIdx: 1, colKey: 'type', initValue: 'r' });

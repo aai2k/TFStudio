@@ -5,7 +5,7 @@ import {
     rowRenderers, textCell, typeCell, typePickerCell,
 } from './OperandCells.js';
 import { COLS, rowDisplayMeta, rowTintAlpha, typeRgba } from './operandViewModel.js';
-import { selectedColumnsForRow } from './selectionModel.js';
+import { ROW_HEADER, selectedColumnsForRow } from './selectionModel.js';
 import { ROW_H } from './rowWindow.js';
 import { isTextControl } from '../../../../ui/grid/gridKeys.js';
 
@@ -116,7 +116,7 @@ function commentCell(props, editing, inputRef) {
     // A click into the comment selects its row but leaves keyboard focus in the
     // input, so the comment can be typed.
     const selectForTyping = () => selectRow(op.id, false, false, true);
-    const focused = !editing && focusColKey != null && focusColKey !== 'type';
+    const focused = !editing && focusColKey != null && focusColKey !== 'type' && focusColKey !== ROW_HEADER;
     return h('td', {
         colSpan: COLS.length - 3,
         style: {

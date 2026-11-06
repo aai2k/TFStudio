@@ -41,18 +41,21 @@ assert.deepEqual(menuTargetFromEvent(cellEvent(8, 3617), COLS),
 }
 
 // A header row never offers a cell to copy, nor a comment row outside its Type
-// cell; other rows follow the keyboard's rule.
-assert.equal(menuScope({ type: 'BLNK' }, 'lambdaStart', new Set()), 'rows');
+// cell; other rows follow the keyboard's rule. A right-click on a cell that
+// holds no value selects its row, and the menu then acts on rows.
+assert.equal(menuScope({ type: 'BLNK' }, 'lambdaStart', new Set()), 'none');
+assert.equal(menuScope({ type: 'BLNK' }, 'lambdaStart', new Set(['n'])), 'rows');
 assert.equal(menuScope({ type: 'BLNK' }, 'type', new Set()), 'cell');
 assert.equal(menuScope({ type: 'DMFS' }, 'target', new Set()), 'rows');
 assert.equal(menuScope({ type: 'R' }, 'target', new Set()), 'cell');
 assert.equal(menuScope({ type: 'R' }, 'type', new Set()), 'cell');
-assert.equal(menuScope({ type: 'R' }, 'current', new Set()), 'rows');
+assert.equal(menuScope({ type: 'R' }, 'current', new Set()), 'none');
+assert.equal(menuScope({ type: 'R' }, 'enabled', new Set(['a'])), 'rows');
 assert.equal(menuScope({ type: 'R' }, 'target', new Set(['a', 'b'])), 'rows');
 
 // A column the row does not carry shows a dash. There is nothing there to copy
-// and nothing that may be pasted over, so the row is the unit.
-assert.equal(menuScope({ type: 'MNT' }, 'aoi', new Set()), 'rows',
+// and nothing that may be pasted over.
+assert.equal(menuScope({ type: 'MNT' }, 'aoi', new Set()), 'none',
     'a thickness constraint has no angle to copy');
 assert.equal(menuScope({ type: 'MNT' }, 'target', new Set()), 'cell',
     'but its own thickness is still a cell');
@@ -99,6 +102,15 @@ assert.deepEqual(rowMenu.filter(item => !item.separator).map(item => item.label)
     'a row click offers no cell entries and counts the selection');
 assert.equal(rowMenu.find(item => item.id === 'copy').shortcut, 'Ctrl+C');
 assert.equal(rowMenu.find(item => item.id === 'paste').shortcut, 'Ctrl+V');
+
+// Where the keys copy and paste nothing, the row entries are still there and
+// claim neither key.
+const noneMenu = contextMenuItems({ te, scope: 'none', rowIdx: 4, selectedCount: 1, actions });
+assert.deepEqual(noneMenu.filter(item => !item.separator).map(item => item.label),
+    ['Cut', 'Copy', 'Paste', 'Insert', 'Insert after', 'Dup', 'Delete']);
+assert.equal(noneMenu.find(item => item.id === 'copy').shortcut, undefined);
+assert.equal(noneMenu.find(item => item.id === 'paste').shortcut, undefined);
+assert.equal(noneMenu.find(item => item.id === 'cut').shortcut, 'Ctrl+X');
 
 for (const item of rowMenu) if (!item.separator) item.onClick();
 assert.deepEqual(calls, ['cut', 'copy', 'paste', 'insert@4', 'insert@5', 'duplicate', 'delete'],

@@ -31,7 +31,8 @@ export function menuTargetFromEvent(event, columns) {
 }
 
 /**
- * What the menu acts on. A DMFS header has no cell to copy on its own,
+ * What the menu acts on: 'cell', 'rows' or 'none', as clipboardScope in
+ * cellClipboard.js says. A DMFS header has no cell to copy on its own,
  * whichever column was under the pointer; every other row follows the
  * keyboard's rule, which gives a comment row its Type cell and the row
  * everywhere else.
@@ -52,9 +53,10 @@ export function contextMenuItems({ te, scope, rowIdx, selectedCount, cellCount =
     const count = Math.max(1, selectedCount);
     const items = [];
     // Ctrl+C and Ctrl+V follow the same scope rule as the menu, so they are
-    // shown on the cell entries when those are offered and on the row entries
-    // otherwise.
+    // shown on the cell entries when those are offered, on the row entries when
+    // the keys act on rows, and on neither where the keys do nothing.
     const cell = scope === 'cell';
+    const rows = scope === 'rows';
     if (cell) {
         const many = cellCount > 1;
         items.push(
@@ -65,8 +67,8 @@ export function contextMenuItems({ te, scope, rowIdx, selectedCount, cellCount =
     }
     items.push(
         { id: 'cut', label: cm.cutOperand(count), shortcut: 'Ctrl+X', onClick: actions.cutRows },
-        { id: 'copy', label: cm.copyOperand(count), shortcut: cell ? undefined : 'Ctrl+C', onClick: actions.copyRows },
-        { id: 'paste', label: cm.pasteOperand, shortcut: cell ? undefined : 'Ctrl+V', onClick: actions.pasteRows },
+        { id: 'copy', label: cm.copyOperand(count), shortcut: rows ? 'Ctrl+C' : undefined, onClick: actions.copyRows },
+        { id: 'paste', label: cm.pasteOperand, shortcut: rows ? 'Ctrl+V' : undefined, onClick: actions.pasteRows },
         { separator: true },
         { id: 'insert', label: cm.insertOperand, shortcut: 'Insert', onClick: () => actions.insertAt(rowIdx) },
         { id: 'insertAfter', label: cm.insertOperandAfter, shortcut: 'Shift+Insert', onClick: () => actions.insertAt(rowIdx + 1) },

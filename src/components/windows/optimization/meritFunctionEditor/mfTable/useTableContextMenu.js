@@ -43,9 +43,10 @@ export function useTableContextMenu(table) {
         const keep = selIds.has(op.id)
             || (!isHeaderOrComment(op) && inCellSelection({ range, extraCells, focusCell }, target.rowIdx, target.colKey));
         if (!keep) {
-            // A comment or header row is selected as a row; a text cell takes
-            // the focus, the way a left click gives it.
-            if (target.colKey === 'num' || menuScope(op, target.colKey, new Set()) === 'rows') {
+            // A comment or header row, or a cell that holds no value, is
+            // selected as a row; a value cell takes the focus, the way a left
+            // click gives it.
+            if (target.colKey === 'num' || menuScope(op, target.colKey, new Set()) !== 'cell') {
                 selectRow(op.id, false, false, target.rowInput);
                 setFocusCell(null);
             } else {

@@ -102,13 +102,21 @@ One row per operand. The table works like a spreadsheet:
   is laid out from the focused cell. Text that came from copying rows is
   inserted as rows. A cell that picks from a list copies the name of its
   value, such as `#4 TMN` or `Tvis`, and takes a name from its list when
-  pasted over; a number or any other text leaves it as it is.
+  pasted over; a number or any other text leaves it as it is. On the ✓
+  column, a dash, **Current** or **% of MF²**, Ctrl+C and Ctrl+V do nothing.
 - Rows are selected from the row-number column at the left: click one, drag
-  down the column for a run, Shift for a run, Ctrl to add. A comment or header
-  row is selected by a click anywhere on it, or by an arrow key landing on it.
-  Ctrl+X, Ctrl+D and Delete cut, duplicate and remove the selected rows, or
-  with none selected, the rows holding the selected cells. Insert adds a row
-  above the focused one, Shift+Insert below.
+  down the column for a run, Shift for a run, Ctrl to add. Left from a row's
+  first cell also moves to its row number and selects the row; Up and Down
+  then move along the row numbers, Shift selects a run, and Ctrl+C and Ctrl+V
+  copy and paste whole rows. A comment or header row is selected by a click
+  anywhere on it, or by an arrow key landing on it. Ctrl+X, Ctrl+D and Delete
+  cut, duplicate and remove the selected rows, or with none selected, the rows
+  holding the selected cells. Insert adds a row above the focused one,
+  Shift+Insert below.
+- A comment row is typed into from the table: a key typed on it starts the
+  comment, Up or Down moves on to the next row, and Escape goes back to the
+  table with the comment kept. Its **Type** cell, left of the comment, takes
+  an operand code like any row's and turns the row into that operand.
 - Right-click opens the same actions as a menu: copy and paste of the cell or
   cells, cut, copy and paste of operands, insert, duplicate and delete. Its
   cut, copy, duplicate and delete act on the selected rows, or with none

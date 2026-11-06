@@ -127,21 +127,23 @@ function copyRows(ctx) {
         copyCellText(rangeText(operands, ctx.range, isMathPct, integralPresets));
         return;
     }
-    if (scopeOf(ctx) === 'cell') {
+    const scope = scopeOf(ctx);
+    if (scope === 'cell') {
         const op = operands[ctx.rowIdx];
         copyCellText(cellText(op, ctx.colKey, isMathPct(op), { operands, integralPresets }));
-        return;
+    } else if (scope === 'rows') {
+        copySelectedOperands(operands, rowsToCopy(ctx));
     }
-    copySelectedOperands(operands, rowsToCopy(ctx));
 }
 
 function pasteRows(ctx) {
     ctx.event.preventDefault();
-    if (hasCellSelection(ctx) || scopeOf(ctx) === 'cell') {
+    const scope = scopeOf(ctx);
+    if (hasCellSelection(ctx) || scope === 'cell') {
         pasteIntoCell(ctx);
         return;
     }
-    pasteOperands(ctx.onAdd, ctx.rowIdx + 1);
+    if (scope === 'rows') pasteOperands(ctx.onAdd, ctx.rowIdx + 1);
 }
 
 function cutRows(ctx) {

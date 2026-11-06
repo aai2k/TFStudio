@@ -77,6 +77,9 @@ export function navigationColumns(op) {
     return editable.length === 1 ? editable : ['enabled', ...RANGE_COLUMNS];
 }
 
+/** The row-number column. The focus there selects its whole row. */
+export const ROW_HEADER = 'num';
+
 // On a comment row every column but Type is the comment, so a step sideways
 // from any of them is a step from the comment. Up and down keep the column.
 function sidewaysFrom(op, colKey, direction) {
@@ -84,13 +87,29 @@ function sidewaysFrom(op, colKey, direction) {
     return sideways && isBlank(op.type) && colKey !== 'type' ? COMMENT_ROW_COLUMNS[1] : colKey;
 }
 
+// From the row number, Right goes to the row's first cell and Up and Down keep
+// to the row numbers. There is nothing to its left.
+function fromRowHeader(grid, rowIdx, direction) {
+    if (direction === 'left') return null;
+    if (direction === 'right') return { rowIdx, colKey: grid.columnsOf(rowIdx)[0], focus: true };
+    return gridNavigationTarget(grid, rowIdx, ROW_HEADER, direction);
+}
+
+/**
+ * The cell an arrow or Tab moves to; see gridModel.js. Left from a row's first
+ * cell goes on to its row number, which selects the whole row, rather than
+ * back to the row above.
+ */
 export function navigationTarget(operands, fromRowIdx, fromColKey, direction) {
     const op = operands[fromRowIdx];
     if (!op) return null;
-    return gridNavigationTarget({
-        rowCount: operands.length,
-        columnsOf: rowIdx => navigationColumns(operands[rowIdx]),
-    }, fromRowIdx, sidewaysFrom(op, fromColKey, direction), direction);
+    const grid = { rowCount: operands.length, columnsOf: rowIdx => navigationColumns(operands[rowIdx]) };
+    if (fromColKey === ROW_HEADER) return fromRowHeader(grid, fromRowIdx, direction);
+    const from = sidewaysFrom(op, fromColKey, direction);
+    if (direction === 'left' && grid.columnsOf(fromRowIdx)[0] === from) {
+        return { rowIdx: fromRowIdx, colKey: ROW_HEADER, focus: true };
+    }
+    return gridNavigationTarget(grid, fromRowIdx, from, direction);
 }
 
 /** The cells a pasted grid of text lands on; see gridModel.js. */

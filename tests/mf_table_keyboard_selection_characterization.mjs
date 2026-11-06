@@ -76,10 +76,14 @@ assert.equal(selection.anchor, 'c');
 
 assert.deepEqual(navigationTarget(rows, 0, 'type', 'right'), { rowIdx: 0, colKey: 'lambdaStart', focus: false });
 assert.deepEqual(navigationTarget(rows, 0, 'weight', 'right'), { rowIdx: 1, colKey: 'enabled', focus: true });
-assert.deepEqual(navigationTarget(rows, 2, 'enabled', 'left'), { rowIdx: 1, colKey: 'weight', focus: true });
+// Left from a row's first cell is its row number, never the row above.
+assert.deepEqual(navigationTarget(rows, 2, 'enabled', 'left'), { rowIdx: 2, colKey: 'num', focus: true });
 assert.deepEqual(navigationTarget(rows, 0, 'type', 'down'), { rowIdx: 1, colKey: 'type', focus: true });
 assert.deepEqual(navigationTarget(rows, 3, 'enabled', 'down'), null);
-assert.deepEqual(navigationTarget(rows, 0, 'enabled', 'left'), null);
+assert.deepEqual(navigationTarget(rows, 0, 'enabled', 'left'), { rowIdx: 0, colKey: 'num', focus: true });
+assert.deepEqual(navigationTarget(rows, 0, 'num', 'left'), null);
+assert.deepEqual(navigationTarget(rows, 0, 'num', 'right'), { rowIdx: 0, colKey: 'enabled', focus: true });
+assert.deepEqual(navigationTarget(rows, 0, 'num', 'down'), { rowIdx: 1, colKey: 'num', focus: true });
 
 function event(key, extra = {}) {
     return {
@@ -164,16 +168,21 @@ assert.deepEqual(keyCalls, [[0, 'weight', '7']]);
 
 // ── Single-cell copy and paste ────────────────────────────────────────────────
 //
-// A focused text cell copies and pastes its own value. Rows stay the unit when
-// the # column has focus (focusCell null), when more than one row is selected,
-// or when the focus is on a picked column such as Type or Pol.
+// A focused text cell copies and pastes its own value. Rows are the unit when
+// they are selected as rows, from the # column or with no cell focused, and
+// when more than one row is selected. A focused cell with no value copies and
+// pastes nothing.
 assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set() }), 'cell');
 assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set(['r']) }), 'cell');
 assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'target' }, selectedIds: new Set(['r', 'tt']) }), 'rows');
 assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'type' }, selectedIds: new Set() }), 'cell',
     'the type code is text like any other value cell');
-assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'current' }, selectedIds: new Set() }), 'rows',
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'current' }, selectedIds: new Set() }), 'none',
     'a computed column is not a value cell');
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'enabled' }, selectedIds: new Set() }), 'none',
+    'nor is the on/off mark');
+assert.equal(clipboardScope({ focusCell: { rowIdx: 0, colKey: 'num' }, selectedIds: new Set(['r']) }), 'rows',
+    'the focus on the # column selects its row');
 assert.equal(clipboardScope({ focusCell: null, selectedIds: new Set(['r']) }), 'rows');
 
 assert.equal(cellText(operands[0], 'target', false), '12.30', 'a fractional target copies as the percent the editor shows');

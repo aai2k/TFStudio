@@ -205,6 +205,66 @@ const menuAt = (from, to, rowIdx, colKey) => {
     }
 }
 
+// ── Ctrl+C and Ctrl+V on a cell that holds no value do nothing ───────────────
+// The on/off mark, a computed value and a dash are not values the row is
+// built from, and a key there that copied or pasted whole rows put more on the
+// clipboard than the cell shows. Rows are copied and pasted from the row
+// number, which the keys reach by Left from a row's first cell.
+{
+    runtime.reset();
+    const added = [];
+    const own = { ...props, onAdd: (items, at) => added.push([items.map(op => op.type), at]) };
+    const draw = () => runtime.render(() => useMFTableSelection(own));
+    const clipboard = globalThis.navigator.clipboard;
+    const readText = clipboard.readText;
+    clipboard.readText = async () => 'T\t400\t700\t0\tavg\t\t50.00\t1';
+    const settle = () => new Promise(resolve => setTimeout(resolve, 0));
+    const ctrl = (select, key) => {
+        select(draw());
+        draw().onKeyDown(keyEvent(key, { ctrlKey: true }));
+    };
+
+    for (const [rowIdx, colKey, what] of [[1, 'enabled', 'the on/off mark'], [1, 'current', 'a computed value'],
+        [4, 'lambdaEnd', 'a dash']]) {
+        ctrl(table => table.focusAt(rowIdx, colKey), 'c');
+        ctrl(table => table.focusAt(rowIdx, colKey), 'v');
+        await settle();
+        assert.deepEqual(written.splice(0), [], `${what} copies nothing`);
+        assert.deepEqual(added.splice(0), [], `${what} pastes nothing`);
+    }
+
+    const rowNumber = table => { table.focusAt(1, 'enabled'); draw().onKeyDown(keyEvent('ArrowLeft')); };
+    ctrl(rowNumber, 'c');
+    ctrl(rowNumber, 'v');
+    await settle();
+    assert.deepEqual(copiedTypes(), [['RAV']], 'the row number copies its row');
+    assert.deepEqual(added.splice(0), [[['T'], 2]], 'and pastes rows below it');
+    clipboard.readText = readText;
+}
+
+// ── The menu names the keys where they act ───────────────────────────────────
+// A right-click on the on/off mark selects the row, so the keys then act on
+// it and the row entries name them. On an on/off mark that already has the
+// focus, the keys do nothing, and no entry claims them.
+{
+    runtime.reset();
+    const entries = () => Object.fromEntries(renderWithMenu().menu.items.filter(item => item.id).map(item => [item.id, item]));
+    renderWithMenu().menu.onContextMenu(rightClick(1, 'enabled'));
+    let menu = entries();
+    assert.equal(menu.copyCell, undefined);
+    assert.deepEqual([menu.copy.shortcut, menu.paste.shortcut], ['Ctrl+C', 'Ctrl+V']);
+    renderWithMenu().onKeyDown(keyEvent('c', { ctrlKey: true }));
+    assert.deepEqual(copiedTypes(), [['RAV']], 'Ctrl+C copies the row the menu named');
+
+    runtime.reset();
+    renderWithMenu().focusAt(1, 'enabled');
+    renderWithMenu().menu.onContextMenu(rightClick(1, 'enabled'));
+    menu = entries();
+    assert.equal(menu.copyCell, undefined);
+    assert.deepEqual([menu.copy.shortcut, menu.paste.shortcut], [undefined, undefined]);
+    assert.equal(menu.cut.shortcut, 'Ctrl+X', 'Cut still takes the row of the focused cell');
+}
+
 // ── The toolbar's Delete clears the selection as the key does ────────────────
 // The whole table is drawn, so the button is the one the window shows.
 {

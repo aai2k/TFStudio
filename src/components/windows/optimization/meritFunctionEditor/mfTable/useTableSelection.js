@@ -33,7 +33,7 @@ import { NO_CELLS } from '../../../../ui/grid/gridModel.js';
 import { useGridSelection } from '../../../../ui/grid/useGridSelection.js';
 import { commitEdit, startEdit } from './editModel.js';
 import {
-    MF_GRID, isHeaderOrComment, navigationTarget, selectionAfterRowClick,
+    MF_GRID, ROW_HEADER, isHeaderOrComment, navigationTarget, selectionAfterRowClick,
 } from './selectionModel.js';
 import { doKeyDown } from './tableKeyboard.js';
 
@@ -54,15 +54,31 @@ function selectRow(ctx, id, shift, ctrl, keepFocus = false) {
     if (!keepFocus) cells.tableRef.current?.focus();
 }
 
+// The focus on a row number selects that whole row, and with Shift the rows
+// from the anchor row to it, as a press and a Shift press down the row numbers
+// do.
+function selectFromRowHeader(ctx, op, alone) {
+    const { operands, anchor, set } = ctx;
+    set.selIds(previous => {
+        const next = selectionAfterRowClick({ operands, previous, anchor, id: op.id, shift: !alone, ctrl: false });
+        set.anchor(next.anchor);
+        return next.selectedIds;
+    });
+}
+
 // A cell was chosen: the row selection goes, and the operand is reported. The
 // focus landing alone on a header or comment row, which has no value cells,
 // selects that row too, as a click on it does, so it is drawn selected and the
 // row keys act on it. The focus stays, so the next arrow keeps to its column.
-function pickRow(ctx, rowIdx, alone) {
+function pickRow(ctx, rowIdx, alone, colKey) {
     const op = ctx.operands[rowIdx];
-    const asRow = alone && isHeaderOrComment(op);
-    ctx.set.selIds(asRow ? new Set([op.id]) : NO_CELLS);
-    if (asRow) ctx.set.anchor(op.id);
+    if (colKey === ROW_HEADER) {
+        selectFromRowHeader(ctx, op, alone);
+    } else {
+        const asRow = alone && isHeaderOrComment(op);
+        ctx.set.selIds(asRow ? new Set([op.id]) : NO_CELLS);
+        if (asRow) ctx.set.anchor(op.id);
+    }
     ctx.lastReported.current = op.id;
     ctx.onSelect(op.id);
     ctx.cells.tableRef.current?.focus();
@@ -113,7 +129,7 @@ export function useMFTableSelection(props) {
     const context = useCallback(() => ({ ...live.current, lastReported, set }), [set]);
     const cells = useGridSelection(MF_GRID, {
         hasRow: rowIdx => !!live.current.operands[rowIdx],
-        onPick: (rowIdx, alone) => pickRow(context(), rowIdx, alone),
+        onPick: (rowIdx, alone, colKey) => pickRow(context(), rowIdx, alone, colKey),
         onRowDrag: (rowIdx) => {
             const op = live.current.operands[rowIdx];
             if (op) selectRow(context(), op.id, true, false);
