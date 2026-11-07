@@ -33,6 +33,7 @@ import {
 import { computeGdGdd } from './reportData/dispersion.js';
 import { computeWorksheet } from './reportData/worksheet.js';
 import { withDefaults } from './blocks.js';
+import { gridEvenIn } from '../physics/spectralAxis.js';
 
 export {
   resolveMaterial, materialName, designEvalMode, buildSpectrum,
@@ -49,7 +50,8 @@ export {
 // design (title, facts, layers, materials, notes, signatures) have no entry.
 const COMPUTE = {
   spectrum:     (design, s) => buildSpectrum(design, {
-    lambdaStart: s.lambdaStart, lambdaEnd: s.lambdaEnd, lambdaStep: s.lambdaStep, thetas: s.thetas,
+    lambdaStart: s.lambdaStart, lambdaEnd: s.lambdaEnd, lambdaStep: s.lambdaStep,
+    wavenumberStep: s.wavenumberStep, evenIn: gridEvenIn(s.spectralUnit), thetas: s.thetas,
   }),
   color:        (design, s) => computeColor(design, s),
   integrals:    (design, s, external) => computeIntegrals(design, {

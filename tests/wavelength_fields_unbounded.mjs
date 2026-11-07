@@ -243,7 +243,7 @@ function fieldProps(path, expr) {
 }
 
 const WINDOW_FIELDS = {
-    'analysis/opticalEvaluation/SetupPanel.js': ['range.start', 'range.end', 'params.lambdaStep'],
+    'analysis/opticalEvaluation/SetupPanel.js': ['range.start', 'range.end', 'step.value'],
     'analysis/gdGddEvaluation/GDControls.js': ['state.lamStart', 'state.lamEnd', 'state.refLam'],
     'analysis/systematicDeviations/SystematicControls.js': ['state.lambdaStart', 'state.lambdaEnd', 'state.lambdaStep'],
     'analysis/errorAnalysis/ErrorControls.js': ['params.lambdaStart', 'params.lambdaEnd', 'params.lambdaStep'],

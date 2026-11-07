@@ -333,11 +333,11 @@ function themedToolbox(toolbox, colors) {
  * stack, would otherwise list every one of them: sixty rows that run off the
  * window and name curves nobody can pick out of the plot anyway.
  */
-function axisRows(params, include, formatValue, valueSuffix) {
+function axisRows(params, include, formatValue, valueSuffix, formatX) {
     const rows = (Array.isArray(params) ? params : [params]).filter(include);
     if (!rows.length) return '';
     return [
-        `<div style="margin-bottom:3px">${formatChartReadout(rows[0].axisValue)}</div>`,
+        `<div style="margin-bottom:3px">${formatX(rows[0].axisValue)}</div>`,
         ...rows.map(row => [
             '<div style="display:flex;gap:14px;align-items:baseline">',
             `<span style="flex:1">${row.marker}${row.seriesName}</span>`,
@@ -395,7 +395,7 @@ const seriesColor = series =>
  * Unnamed series are skipped: those are the target lines, markers and band
  * decoration, which are annotations on the plot rather than readings.
  */
-function allSeriesRows(params, series, formatValue, valueSuffix) {
+function allSeriesRows(params, series, formatValue, valueSuffix, formatX) {
     const matched = Array.isArray(params) ? params : [params];
     if (!matched.length) return '';
     const x = matched[0].axisValue;
@@ -417,7 +417,7 @@ function allSeriesRows(params, series, formatValue, valueSuffix) {
         ].join(''));
     });
     if (!rows.length) return '';
-    return [`<div style="margin-bottom:3px">${formatChartReadout(x)}</div>`, ...rows].join('');
+    return [`<div style="margin-bottom:3px">${formatX(x)}</div>`, ...rows].join('');
 }
 
 /**
@@ -429,14 +429,18 @@ function allSeriesRows(params, series, formatValue, valueSuffix) {
  *   series   the chart's own series array. Pass it where curves sit on
  *            different x grids, and every one of them is read at the pointer
  *            instead of only those ECharts happened to match.
+ *   formatX  writes the x value under the pointer, in the readout's first line
+ *            and on the axis label. A chart whose axis is labelled in another
+ *            unit than its data passes the conversion.
  */
 export function axisTooltip({
-    cross = true, colors, valueSuffix = '', formatValue = formatChartReadout, include, series,
+    cross = true, colors, valueSuffix = '', formatValue = formatChartReadout, formatX = formatChartReadout,
+    include, series,
 } = {}) {
     const formatter = series
-        ? params => allSeriesRows(params, series, formatValue, valueSuffix)
+        ? params => allSeriesRows(params, series, formatValue, valueSuffix, formatX)
         : include
-            ? params => axisRows(params, include, formatValue, valueSuffix)
+            ? params => axisRows(params, include, formatValue, valueSuffix, formatX)
             : null;
     return themedTooltip({
         trigger: 'axis',
@@ -454,7 +458,7 @@ export function axisTooltip({
                 fontWeight: 'normal',
                     formatter: params => `${params.axisDimension === 'y'
                         ? formatValue(params.value)
-                        : formatChartReadout(params.value)}${
+                        : formatX(params.value)}${
                         params.axisDimension === 'y' ? valueSuffix : ''}`,
                 },
             },

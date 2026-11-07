@@ -359,9 +359,9 @@ for (const windowId of WINDOWS) {
     const t = makeLocale();
 
     // A window that lets its range be entered in another unit gets unit-aware
-    // rows for the range instead of plain numbers, so those carry the unit in
-    // their label rather than the key's own name.
-    const UNIT_AWARE_ROWS = ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'spectralUnit'];
+    // rows for the range and its step instead of plain numbers, so those carry
+    // the unit in their label rather than the key's own name.
+    const UNIT_AWARE_ROWS = ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'wavenumberStep', 'spectralUnit'];
 
     for (const windowId of ANALYSIS_WINDOW_IDS) {
         const resolved = resolvedSections(windowId);
@@ -378,6 +378,7 @@ for (const windowId of WINDOWS) {
         if (unitAware) {
             assert.ok(html.includes(t.settings.analysis.rangeFrom('nm'))
                 && html.includes(t.settings.analysis.rangeTo('nm'))
+                && html.includes(t.settings.analysis.rangeStep('nm'))
                 && html.includes(t.settings.analysis.fields.spectralUnit),
             `Settings → ${windowId} renders its range in the selected unit`);
         }

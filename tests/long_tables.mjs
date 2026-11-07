@@ -88,13 +88,13 @@ assert.deepEqual(visibleRows(5, 20, 0, 240), [0, 5], 'a short table is drawn who
     const lambda = Array.from({ length: 40001 }, (_, i) => Number((400 + i * 0.01).toFixed(2)));
     const data = { lambda, series: [{ theta: 0, T: lambda.map(() => 0.9), R: lambda.map(() => 0.1) }] };
     const html = render(React.createElement(DataTable, {
-        data, showCurves: { T: true, R: true }, yScale: 'percent', c, oe: t.opticalEval,
+        data, showCurves: { T: true, R: true }, yScale: 'percent', spectralUnit: 'nm', units: t.units, c, oe: t.opticalEval,
     }));
     assert.ok(rowsDrawn(html) < 60, `40,001 wavelengths draw ${rowsDrawn(html)} rows`);
     assert.match(html, />400\.01</, 'a 0.01 nm grid prints 400.01, not 400.0 twice');
     const quarter = render(React.createElement(DataTable, {
         data: { lambda: [400, 400.25, 400.5], series: [{ theta: 0, T: [1, 1, 1] }] },
-        showCurves: { T: true }, yScale: 'percent', c, oe: t.opticalEval,
+        showCurves: { T: true }, yScale: 'percent', spectralUnit: 'nm', units: t.units, c, oe: t.opticalEval,
     }));
     assert.match(quarter, />400\.25</, 'and a 0.25 nm grid prints 400.25');
     assert.match(quarter, />400\.00</);

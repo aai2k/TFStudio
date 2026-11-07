@@ -60,10 +60,11 @@ export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
   if (!registry) return null;
 
   // A window that lets the range be entered in another unit needs unit-aware
-  // fields rather than plain numbers, because the values are stored in nm but
-  // shown in the chosen unit. Those three are then left out of the plain rows.
+  // fields rather than plain numbers, because the values are stored in nm, or
+  // a step in cm⁻¹, but shown in the chosen unit. Those are then left out of
+  // the plain rows.
   const unitAware = !!registry.enums?.spectralUnit;
-  const SPECTRAL = ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'spectralUnit'];
+  const SPECTRAL = ['lambdaStart', 'lambdaEnd', 'lambdaStep', 'wavenumberStep', 'spectralUnit'];
   const plain = ([key]) => !unitAware || !SPECTRAL.includes(key);
 
   const colorKeys = Object.keys(registry.colors || {});

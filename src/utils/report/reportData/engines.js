@@ -6,8 +6,9 @@
  */
 
 import {
-  evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
+  evaluateSpectrumAt, evaluateSpectrumBackAt, evaluateSpectrumTotalAt,
 } from '../../physics/thinFilmMath.js';
+import { spectralGrid } from '../../physics/spectralGrid.js';
 import { coneAverageResult, makeConeSpec, resolveEvalMode } from '../../physics/optimizer.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 
@@ -55,9 +56,11 @@ export function designEvalMode(design) {
 // With a cone set on the design, each angle is the cone axis and its spectrum
 // is the average over the cone, as Optical Evaluation, Integral Values and
 // Color Evaluation compute it; without one it is the collimated spectrum.
+// `evenIn` and `wavenumberStep` pick the grid as in spectralGrid: a spectrum
+// read in cm⁻¹, THz or eV is sampled evenly in wavenumber, as the window does.
 export function buildSpectrum(design, opts = {}) {
   const {
-    lambdaStart = 400, lambdaEnd = 800, lambdaStep = 2, pol = 'avg',
+    lambdaStart = 400, lambdaEnd = 800, lambdaStep = 2, wavenumberStep, evenIn, pol = 'avg',
   } = opts;
   // Accept either a `thetas` list (multi-AOI) or a single `aoi` (wizard option).
   const thetas = (opts.thetas && opts.thetas.length) ? opts.thetas
@@ -72,12 +75,13 @@ export function buildSpectrum(design, opts = {}) {
   const front   = frontLayersWithMat(design, resolve);
   const back    = backLayersWithMat(design, resolve);
 
+  const lambdas = spectralGrid({ lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, evenIn });
   const coneSpec = makeConeSpec(design.cone || {});
   const evaluateAt = (theta) => {
-    const p = { lambdaStart, lambdaEnd, lambdaStep, theta, polarization: pol };
-    if (evalMode === 'back')  return evaluateSpectrumBack(p, exitMat, subMat, back);
-    if (evalMode === 'total') return evaluateSpectrumTotal(p, incMat, subMat, exitMat, front, back, subThk);
-    return evaluateSpectrum(p, incMat, subMat, front);
+    const p = { theta, polarization: pol };
+    if (evalMode === 'back')  return evaluateSpectrumBackAt(lambdas, p, exitMat, subMat, back);
+    if (evalMode === 'total') return evaluateSpectrumTotalAt(lambdas, p, incMat, subMat, exitMat, front, back, subThk);
+    return evaluateSpectrumAt(lambdas, p, incMat, subMat, front);
   };
 
   const series = [];

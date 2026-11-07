@@ -1,10 +1,12 @@
-// A spectral range shown in whichever spectral unit is selected.
+// A spectral range and its step shown in whichever spectral unit is selected.
 //
-// Values are stored in nanometres because the physics engine always works in
+// The range is stored in nanometres because the physics engine always works in
 // vacuum wavelength; only the display converts. cm⁻¹, THz and eV are reciprocal
-// in λ, so converting a range in those units reverses its ends — the writes
+// in λ, so converting a range in those units reverses its ends, and the writes
 // below re-order the pair so the stored nm range always runs low to high.
-import { SPECTRAL_UNITS, fromNm, toNm } from '../../../../utils/physics/spectralAxis.js';
+import {
+    SPECTRAL_UNITS, fromNm, spectralStepControl, switchSpectralUnit, toNm,
+} from '../../../../utils/physics/spectralAxis.js';
 import { EnumRow } from './FieldRows.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { selectStyle } from '../ui.js';
@@ -44,8 +46,8 @@ function ValueRow({ c, label, value, step, onCommit }) {
 export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
     const unit = resolved.enums.spectralUnit;
     const unitSymbol = t.units[SPECTRAL_UNITS[unit] ? unit : 'nm'];
-    const { lambdaStart, lambdaEnd, lambdaStep } = resolved.numbers;
-    const spec = registry.numbers;
+    const { lambdaStart, lambdaEnd } = resolved.numbers;
+    const step = spectralStepControl(unit, resolved.numbers);
 
     // Write both ends together so a reciprocal unit cannot leave start > end.
     // Rounded to twelve significant figures, which drops float residue from the
@@ -57,9 +59,17 @@ export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
         onChange('numbers', 'lambdaEnd', Number(Math.max(asNm, other).toPrecision(12)));
     };
 
-    // The step is an interval, not a position, so it is a difference in nm and
-    // has no meaningful reciprocal-unit form. It stays in nm and says so.
-    const commitStep = (entered) => onChange('numbers', 'lambdaStep', entered);
+    // The step is entered in the unit too. In cm⁻¹, THz and eV the points are
+    // evenly spaced in that unit, so its step is stored apart from the nm one,
+    // and switching between the two kinds of unit converts it, as the window's
+    // own unit switch does.
+    const commitPatch = (patch) => {
+        for (const [key, value] of Object.entries(patch)) {
+            onChange(key === 'spectralUnit' ? 'enums' : 'numbers', key, value);
+        }
+    };
+    const commitStep = (entered) => commitPatch(step.patch(entered));
+    const commitUnit = (value) => commitPatch(switchSpectralUnit({ ...resolved.numbers, spectralUnit: unit }, value));
 
     const decimals = STEP_DECIMALS[unit] ?? 2;
     const edgeStep = Math.pow(10, -decimals) * 10;
@@ -71,7 +81,7 @@ export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
             value: unit,
             spec: registry.enums.spectralUnit,
             optionLabels: t.units,
-            onChange: (value) => onChange('enums', 'spectralUnit', value),
+            onChange: commitUnit,
         }),
         h(ValueRow, {
             c,
@@ -89,9 +99,9 @@ export const SpectralRangeRows = ({ registry, resolved, onChange, c, t }) => {
         }),
         h(ValueRow, {
             c,
-            label: t.settings.analysis.fields.lambdaStep,
-            value: lambdaStep,
-            step: spec.lambdaStep.step,
+            label: t.settings.analysis.rangeStep(unitSymbol),
+            value: step.value,
+            step: step.arrow,
             onCommit: commitStep,
         }),
         unit !== 'nm' && h('span', {

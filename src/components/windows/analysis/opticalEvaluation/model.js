@@ -3,11 +3,13 @@ import {
     applyHandleEdit, snapDrawnLine,
 } from '../../../../utils/physics/spectrumTargets.js';
 import { logOperand, makeOperand } from '../../../../utils/physics/optimizer.js';
-import { spectralAxisOption } from '../../../../utils/physics/spectralAxis.js';
+import {
+    SPECTRAL_UNITS, fromNm, spectralAxisOption, spectralDecimals,
+} from '../../../../utils/physics/spectralAxis.js';
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
-    axisTooltip, cartesianOption, chartToolbox, dimmedBandSeries, lineSeries, seriesExtent,
-    valueAxis,
+    axisTooltip, cartesianOption, chartToolbox, dimmedBandSeries, formatChartReadout, lineSeries,
+    seriesExtent, valueAxis,
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
@@ -201,10 +203,12 @@ export function buildChartOption(options) {
     // Band x coordinates are nanometres, like every plotted point, whatever
     // unit the axis is labelled in.
     series.push(...dimmedBandSeries(materialBands, palette));
+    // The pointer is read in the unit the axis is labelled in.
+    const formatX = nm => formatChartReadout(fromNm(nm, spectralUnit));
     return cartesianOption({
         colors: palette,
         grid: plotMargin(),
-        tooltip: drawing ? { show: false } : axisTooltip({ ...yScaleTooltip(yScale), series }),
+        tooltip: drawing ? { show: false } : axisTooltip({ ...yScaleTooltip(yScale), formatX, series }),
         toolbox: chartToolbox('spectrum', { dataZoom: !drawing, restore: true }),
         xAxis,
         yAxis: {
@@ -249,17 +253,37 @@ export function buildTableColumns(data, showCurves, curveColors, yScale, curveLa
     return columns;
 }
 
-export function buildCSV(data, showCurves, yScale) {
+// The first column's name in each axis unit. nm keeps the name this export has
+// always written; the others are names the spectrum importer reads its unit
+// from, so a file in µm, cm⁻¹ or eV imports at the wavelengths it was written
+// at. The importer has no frequency unit, so a file in THz does not.
+const CSV_X_COLUMN = {
+    nm: 'lambda_nm',
+    um: 'Wavelength (µm)',
+    cm1: 'Wavenumber (cm-1)',
+    THz: 'Frequency (THz)',
+    eV: 'Photon energy (eV)',
+};
+
+/**
+ * The curves the table shows, as CSV text, with the first column in
+ * `spectralUnit`. That column keeps the two decimals nm has always been written
+ * with, or takes the table's when its step needs more.
+ */
+export function buildCSV(data, showCurves, yScale, spectralUnit = 'nm') {
     if (!data?.lambda || !data?.series?.length) return '';
+    const unit = SPECTRAL_UNITS[spectralUnit] ? spectralUnit : 'nm';
     const multiple = data.series.length > 1;
-    const unit = yScaleOf(yScale).csvSuffix;
+    const suffix = yScaleOf(yScale).csvSuffix;
     const columns = buildTableColumns(data, showCurves, undefined, yScale).map(column => ({
-        name: column.cv.key + unit + (multiple ? `_${formatTheta(column.theta)}deg` : ''),
+        name: column.cv.key + suffix + (multiple ? `_${formatTheta(column.theta)}deg` : ''),
         values: column.ys,
     }));
-    const header = ['lambda_nm', ...columns.map(column => column.name)].join(',');
-    const rows = data.lambda.map((wavelength, index) => [
-        wavelength.toFixed(2),
+    const x = data.lambda.map(nm => fromNm(nm, unit));
+    const decimals = Math.max(2, spectralDecimals(x.slice(0, 2)));
+    const header = [CSV_X_COLUMN[unit], ...columns.map(column => column.name)].join(',');
+    const rows = x.map((value, index) => [
+        value.toFixed(decimals),
         ...columns.map(column => formatYExport(yScale, column.values[index])),
     ].join(','));
     return [header, ...rows].join('\n');

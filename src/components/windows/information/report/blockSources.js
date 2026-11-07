@@ -31,7 +31,7 @@ const listCopy = list => (Array.isArray(list) && list.length ? [...list] : undef
 // when the report is built, so there is nothing to copy.
 const FROM_WINDOW = {
     spectrum: v => ({
-        lambdaStart: v.lambdaStart, lambdaEnd: v.lambdaEnd, lambdaStep: v.lambdaStep,
+        lambdaStart: v.lambdaStart, lambdaEnd: v.lambdaEnd, lambdaStep: v.lambdaStep, wavenumberStep: v.wavenumberStep,
         thetas: listCopy(v.thetas), curves: v.showCurves ? { ...v.showCurves } : undefined,
         spectralUnit: v.spectralUnit, yScale: v.yScale, yAuto: v.yAuto, yMin: v.yMin, yMax: v.yMax,
     }),

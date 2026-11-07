@@ -572,10 +572,14 @@ export function computeEFieldProfile(
  * @returns {{ lambda:number[], R:number[], T:number[], A:number[], Rs,Ts,As,Rp,Tp,Ap }}
  */
 export function evaluateSpectrumBack(params, exitMaterial, substrateMaterial, layers) {
-    const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5,
-            theta = 0, polarization = 'avg' } = params;
+    const { lambdaStart = 400, lambdaEnd = 800, lambdaStep = 5 } = params;
+    return evaluateSpectrumBackAt(buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep),
+        params, exitMaterial, substrateMaterial, layers);
+}
 
-    const lambdas = buildLambdaGrid(lambdaStart, lambdaEnd, lambdaStep);
+/** The same back-coating spectrum on an explicit wavelength list. */
+export function evaluateSpectrumBackAt(lambdas, params, exitMaterial, substrateMaterial, layers) {
+    const { theta = 0, polarization = 'avg' } = params;
     // Light travels exit→substrate, so the valid layers (stored substrate→exit)
     // are reversed.
     const validBack = layers.filter(l => l.material && l.thickness > 0).slice().reverse();

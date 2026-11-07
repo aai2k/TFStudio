@@ -13,6 +13,7 @@ import { CurveGroup } from '../../analysis/opticalEvaluation/controls.js';
 import { CURVE_GROUPS } from '../../analysis/opticalEvaluation/model.js';
 import { SpectralRange, VerticalRange } from '../../analysis/opticalEvaluation/SetupPanel.js';
 import { BUILTIN_TYPES, withDefaults } from '../../../../utils/report/blocks.js';
+import { switchSpectralUnit } from '../../../../utils/physics/spectralAxis.js';
 import { blockName } from './blockText.js';
 import { TextArea, AngleListField, PanelButton } from './controls.js';
 import { RAIL_WIDTH } from './BlockRail.js';
@@ -58,10 +59,15 @@ function RangeRows({ c, W, s, set }) {
 // it is set there.
 function spectrumRows({ c, t, W, s, set, patch }) {
     const oe = t.opticalEval;
-    const params = { lambdaStart: s.lambdaStart, lambdaEnd: s.lambdaEnd, lambdaStep: s.lambdaStep };
+    const params = {
+        lambdaStart: s.lambdaStart, lambdaEnd: s.lambdaEnd, lambdaStep: s.lambdaStep, wavenumberStep: s.wavenumberStep,
+    };
     const setParams = next => {
         const merged = typeof next === 'function' ? next(params) : { ...params, ...next };
-        patch({ lambdaStart: merged.lambdaStart, lambdaEnd: merged.lambdaEnd, lambdaStep: merged.lambdaStep });
+        patch({
+            lambdaStart: merged.lambdaStart, lambdaEnd: merged.lambdaEnd,
+            lambdaStep: merged.lambdaStep, wavenumberStep: merged.wavenumberStep,
+        });
     };
     return [
         h(SettingRow, { c, key: 'aoi', label: oe.aoi, wrap: true },
@@ -69,7 +75,7 @@ function spectrumRows({ c, t, W, s, set, patch }) {
         h(SettingDivider, { c, key: 'd1' }),
         h(SpectralRange, {
             key: 'range', c, oe, units: t.units, params, setParams,
-            spectralUnit: s.spectralUnit, setSpectralUnit: v => set('spectralUnit', v),
+            spectralUnit: s.spectralUnit, setSpectralUnit: v => patch(switchSpectralUnit(s, v)),
         }),
         h(VerticalRange, {
             key: 'y', c, oe,

@@ -19,7 +19,7 @@
  * session-wide evaluation parameters (state/DesignContext.js), which every
  * analysis window reads.
  */
-import { SPECTRAL_UNIT_IDS } from '../utils/physics/spectralAxis.js';
+import { SPECTRAL_UNIT_IDS, switchSpectralUnit } from '../utils/physics/spectralAxis.js';
 import { COLORSCALES } from '../utils/physics/plotQuantities.js';
 
 export { SPECTRAL_UNIT_IDS };
@@ -117,8 +117,13 @@ export function pickDefaults(windowId, keys, { invert = false } = {}) {
  * may not be open.
  */
 export const EVAL_PARAM_KEYS = [
-  'lambdaStart', 'lambdaEnd', 'lambdaStep', 'spectralUnit', 'thetas',
+  'lambdaStart', 'lambdaEnd', 'lambdaStep', 'wavenumberStep', 'spectralUnit', 'thetas',
 ];
+
+// Optical Evaluation's shipped grid, in nm. Its step in cm⁻¹, THz and eV is the
+// one that gives the same range as many points.
+const EVAL_GRID = { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 0.5 };
+const EVAL_WAVENUMBER_STEP = switchSpectralUnit(EVAL_GRID, 'cm1').wavenumberStep;
 
 export const ANALYSIS_DEFAULTS = {
   opticalEvaluation: {
@@ -128,12 +133,16 @@ export const ANALYSIS_DEFAULTS = {
       Tp: '#1565c0', Rp: '#c62828', Ap: '#2e7d32',
     },
     // The spectral range is stored in nanometres because the physics engine
-    // always works in vacuum wavelength; the unit below is a display choice
-    // only, and the Settings fields convert through utils/physics/spectralAxis.js.
+    // always works in vacuum wavelength, and the Settings fields convert it
+    // through utils/physics/spectralAxis.js. The unit below also decides how
+    // the points are spaced: evenly in wavelength for nm and µm, at
+    // `lambdaStep` nm, and evenly in wavenumber for cm⁻¹, THz and eV, at
+    // `wavenumberStep` cm⁻¹.
     numbers: {
-      lambdaStart: { def: 400, positive: true, step: 1 },
-      lambdaEnd:   { def: 800, positive: true, step: 1 },
-      lambdaStep:  { def: 0.5, positive: true, step: 0.1 },
+      lambdaStart: { def: EVAL_GRID.lambdaStart, positive: true, step: 1 },
+      lambdaEnd:   { def: EVAL_GRID.lambdaEnd, positive: true, step: 1 },
+      lambdaStep:  { def: EVAL_GRID.lambdaStep, positive: true },
+      wavenumberStep: { def: EVAL_WAVENUMBER_STEP, positive: true },
       // Match the bounds enforced by Optical Evaluation's own axis controls.
       yMin: { def: 0,   min: -10, max: 200, step: 5 },
       yMax: { def: 100, min: -10, max: 200, step: 5 },

@@ -1,4 +1,7 @@
-import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../../../../utils/physics/thinFilmMath.js';
+import {
+    evaluateSpectrumAt, evaluateSpectrumBackAt, evaluateSpectrumTotalAt,
+} from '../../../../utils/physics/thinFilmMath.js';
+import { spectralGrid } from '../../../../utils/physics/spectralGrid.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { makeConeSpec, coneAverageResult } from '../../../../utils/physics/optimizer.js';
 
@@ -12,10 +15,11 @@ function resolveLayers(resolveMaterial, layers) {
 
 function evaluateAtAngle(state, theta) {
     const params = { ...state.params, theta };
-    if (state.evalMode === 'front') return evaluateSpectrum(params, state.incMat, state.subMat, state.frontLayers);
-    if (state.evalMode === 'back') return evaluateSpectrumBack(params, state.exitMat, state.subMat, state.backLayers);
-    return evaluateSpectrumTotal(
-        params, state.incMat, state.subMat, state.exitMat,
+    const { lambdas } = state;
+    if (state.evalMode === 'front') return evaluateSpectrumAt(lambdas, params, state.incMat, state.subMat, state.frontLayers);
+    if (state.evalMode === 'back') return evaluateSpectrumBackAt(lambdas, params, state.exitMat, state.subMat, state.backLayers);
+    return evaluateSpectrumTotalAt(
+        lambdas, params, state.incMat, state.subMat, state.exitMat,
         state.frontLayers, state.backLayers, state.subThick
     );
 }
@@ -24,6 +28,7 @@ function spectrumState(design, params, evalMode) {
     const resolveMaterial = designMaterialLookup(design);
     return {
         design, params, evalMode,
+        lambdas: spectralGrid(params),
         incMat: resolveMaterial(design.incidentMedium),
         subMat: resolveMaterial(design.substrate.material),
         exitMat: resolveMaterial(design.exitMedium),

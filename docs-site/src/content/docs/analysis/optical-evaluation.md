@@ -20,12 +20,9 @@ zero and `T + R = 100 %`.
 
 ## Settings
 
-**Wavelength range and step**: the span and sampling resolution of the plot, in nanometres. The default is 400–800 nm in 0.5 nm steps. Go finer near narrow features such as bandpass notches, where a coarse grid can skip over a deep dip.
+**Range and step**: the span of the plot and the spacing of its points, both entered in the axis unit. The default is 400–800 nm in 0.5 nm steps. Go finer near narrow features such as bandpass notches, where a coarse grid can skip over a deep dip.
 
-**Axis units**: relabels the horizontal axis in nm, µm, cm⁻¹ (wavenumber),
-THz or eV. This is a display choice only: the underlying sampling always stays
-in nanometres, so switching units never changes the computed curves. Wavenumber
-and energy axes increase in the opposite direction to wavelength.
+**Axis units**: reads the horizontal axis, the readout under the pointer, the range, the step, the data table and the CSV in nm, µm, cm⁻¹ (wavenumber), THz or eV. In nm and µm the points are evenly spaced in wavelength. In cm⁻¹, THz and eV they are evenly spaced in that unit, the way the points of an FTIR spectrum are evenly spaced in wavenumber. Switching between nm and µm, or among cm⁻¹, THz and eV, leaves every point where it is. Switching from one group to the other converts the step so the range keeps its number of points: 0.5 nm over 400–800 nm becomes 15.625 cm⁻¹. The thin-film calculation itself always runs in vacuum wavelength. Wavenumber and energy axes increase in the opposite direction to wavelength.
 
 **AOI**: the angle of incidence in degrees from the normal. You can list
 several angles at once; each is drawn as its own set of curves, with later
@@ -63,16 +60,7 @@ until you pick another unit; the table and the CSV follow. An exported CSV
 names its columns with the unit, `T_dB` or `T_OD`, so a file opened later is
 not read as percentages.
 
-Like the horizontal axis units, this is a display choice only: the computed
-curves and the merit targets keep the values they had. The axis picks its
-gridlines from the span in front of it, so a blocking filter is ruled one
-density unit or 10 dB at a time while an antireflection coating is ruled in
-hundredths, rather than both being forced onto decades. A range that starts at
-0 % takes its lower edge from the curves themselves, since a logarithmic axis
-has no position for zero, while the top keeps the value in the field. Both the
-fields and the axis stop at OD 12: a thick metal layer transmits far less, and
-following it down would leave the reflectance in a sliver at the top of the
-plot.
+This is a display choice only: the computed curves and the merit targets keep the values they had. The axis picks its gridlines from the span in front of it, so a blocking filter is ruled one density unit or 10 dB at a time while an antireflection coating is ruled in hundredths, rather than both being forced onto decades. A range that starts at 0 % takes its lower edge from the curves themselves, since a logarithmic axis has no position for zero, while the top keeps the value in the field. Both the fields and the axis stop at OD 12: a thick metal layer transmits far less, and following it down would leave the reflectance in a sliver at the top of the plot.
 
 A curve breaks off where it reaches zero, and on a dB axis the absorptance of a
 transparent stack disappears entirely: `A` is calculated as `1 − R − T`, so with
@@ -132,11 +120,7 @@ toward 100 %, and a filter shows sharp transitions between pass and block
 regions. A gap between `T + R` and 100 % is absorption, so check that no layer is
 accidentally using a metal when you expect a transparent coating.
 
-The collapsible data table lists `λ, T, R, A` for the curves on screen, and
-**Copy CSV** / **Save CSV** export exactly those curves at the chosen angle and
-wavelength grid. Curves imported through
-[Measured Spectra](/data-exchange/measured-spectra/) appear as dotted lines with
-open-circle markers, so you can lay a measurement over the prediction.
+The collapsible data table lists the curves on screen against the axis unit: λ in nm or µm, ν̃ in cm⁻¹, f in THz, E in eV. **Copy CSV** / **Save CSV** export exactly those curves at the same points and angles, with the first column in the axis unit as well. The spectrum importer reads nm, µm, cm⁻¹ and eV but not THz, so export in one of those to import the file again. Curves imported through [Measured Spectra](/data-exchange/measured-spectra/) appear as dotted lines with open-circle markers, so you can lay a measurement over the prediction.
 
 ## References
 

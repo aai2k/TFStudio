@@ -9,6 +9,7 @@ import { opticalEvaluationSession, opticalTargetSession } from './sessionState.j
 import { evalParamsSession } from '../../../../state/evalParamsSession.js';
 import { isLogYScale, yScaleReadsQuantity } from './yScale.js';
 import { useWindowSession } from '../../windowSession.js';
+import { gridEvenIn, switchSpectralUnit } from '../../../../utils/physics/spectralAxis.js';
 
 const { useState, useEffect, useCallback, useMemo } = React;
 
@@ -17,12 +18,14 @@ const { useState, useEffect, useCallback, useMemo } = React;
 function useSpectrumEvaluation({ params, evalMode }) {
     const { design } = useLiveDesign();
     // Narrowed to what the spectrum is actually computed from. The display unit
-    // travels with the range but only changes axis labels, so recomputing every
-    // wavelength for it would be work for nothing.
-    const { lambdaStart, lambdaEnd, lambdaStep, thetas } = params;
+    // moves the points only between a wavelength unit and a reciprocal one: nm
+    // and µm sample the same wavelengths, as do cm⁻¹, THz and eV, so a switch
+    // within either group relabels and recomputes nothing.
+    const { lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, thetas } = params;
+    const evenIn = gridEvenIn(params.spectralUnit);
     const spectrumParams = useMemo(
-        () => ({ lambdaStart, lambdaEnd, lambdaStep, thetas }),
-        [lambdaStart, lambdaEnd, lambdaStep, thetas]);
+        () => ({ lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, evenIn, thetas }),
+        [lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, evenIn, thetas]);
     const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
     const payload = useMemo(
         () => ({ design, params: spectrumParams, evalMode }),
@@ -120,22 +123,22 @@ function useDisplayOptions(params, setParams, design) {
         yMin, setYMin: value => setField('yMin', value),
         yMax, setYMax: value => setField('yMax', value),
         yScale, setYScale: value => setField('yScale', value),
-        spectralUnit, setSpectralUnit: value => setParams({ spectralUnit: value }),
+        spectralUnit, setSpectralUnit: value => setParams(current => switchSpectralUnit(current, value)),
         yRange, lamRange, toggleCurve, setThetas,
     };
 }
 
-function useCsvActions({ data, showCurves, yScale, design }) {
+function useCsvActions({ data, showCurves, yScale, spectralUnit, design }) {
     const [copied, setCopied] = useState(false);
     const [saved, setSaved] = useState(false);
     const copyCSV = () => {
-        const csv = buildCSV(data, showCurves, yScale);
+        const csv = buildCSV(data, showCurves, yScale, spectralUnit);
         if (navigator.clipboard) navigator.clipboard.writeText(csv);
         setCopied(true);
         setTimeout(() => setCopied(false), 1500);
     };
     const saveCSV = async () => {
-        const csv = buildCSV(data, showCurves, yScale);
+        const csv = buildCSV(data, showCurves, yScale, spectralUnit);
         if (!csv || !window.electronAPI?.spectrumSaveFile) return;
         const base = (design.name || 'spectrum').replace(/[^\w.-]+/g, '_');
         const result = await window.electronAPI.spectrumSaveFile(csv, `${base}_spectrum.csv`);
@@ -172,7 +175,8 @@ export function useOpticalEvaluation() {
         design, updateDesign, yScale: display.yScale, thetas: params.thetas,
     });
     const csv = useCsvActions({
-        data: spectrum.data, showCurves: display.showCurves, yScale: display.yScale, design,
+        data: spectrum.data, showCurves: display.showCurves, yScale: display.yScale,
+        spectralUnit: display.spectralUnit, design,
     });
     return {
         design, evalMode, params, setParams,
