@@ -13,6 +13,7 @@ import { designMaterialLookup } from '../materials/designMaterials.js';
 import { evaluateSpectrum } from '../physics/thinFilmMath.js';
 import { buildEvalContext, evaluateOperands, makeOperand, withFringeSampleCounts } from '../physics/optimizer.js';
 import { evaluateQualifier, makeQualifier } from '../synthesis/qualifiers.js';
+import { bandCrossings } from '../synthesis/qualifiers/bandScan.js';
 import { entryDesign, totalThickness } from './entryModel.js';
 
 /**
@@ -22,9 +23,10 @@ import { entryDesign, totalThickness } from './entryModel.js';
  * where the channel peaks, with the half-maximum points found outside it;
  * `notch-center` and `notch-width` of the dip, from the wavelengths where T
  * crosses 50%; `edge` where T crosses half its peak over the whole band
- * envelope; `extinction` the ratio of p to s transmittance. Centres and
- * widths are read off a fine grid around the feature, so they can differ
- * from a claim's own scan in the last digit.
+ * envelope; `extinction` the ratio of p to s transmittance. A peak's centre
+ * and width come from the Central λ and FWHM checks the claims use, so they
+ * read as a claim on the same band does; a notch's from a fine grid around
+ * its dip.
  */
 export const PROPERTY_SETS = {
     ar: [['R', 'avg'], ['R', 'max'], ['T', 'avg']],
@@ -87,9 +89,8 @@ function featureBand(entry, rows, channel, dip) {
     return entry.bands[best];
 }
 
-// Scan density for the width and edge searches: fine enough to place a
-// crossing to a fraction of a nanometre on a sub-nanometre DWDM passband. The
-// centre comes from the peak search of the MXW rows, which does not scan.
+// Scan density for the notch and edge searches: fine enough to place a
+// crossing to a fraction of a nanometre on a sub-nanometre DWDM passband.
 const SCAN_POINTS = 801;
 
 function qualifierValue(entry, design, resolve, overrides) {
@@ -108,27 +109,23 @@ function widened(band) {
     return [Math.max(1, band[0] - 3 * width), band[1] + 3 * width];
 }
 
-// Wavelength where T crosses `level`, walking outward from sample `start` in
-// direction `step`: rising through it away from a dip, falling through it
-// away from a peak. `scan` is the sampled `{ lambda, T }`.
-function crossingFrom(scan, start, step, level, rising) {
+// Wavelength where T rises through `level`, walking outward from sample
+// `start` in direction `step`. `scan` is the sampled `{ lambda, T }`.
+function crossingFrom(scan, start, step, level) {
     const { lambda, T } = scan;
     for (let i = start; i + step >= 0 && i + step < T.length; i += step) {
         const a = T[i];
         const b = T[i + step];
-        const crossed = rising ? (a < level && b >= level) : (a >= level && b < level);
-        if (crossed) return lambda[i] + (lambda[i + step] - lambda[i]) * (level - a) / (b - a);
+        if (a < level && b >= level) return lambda[i] + (lambda[i + step] - lambda[i]) * (level - a) / (b - a);
     }
     return null;
 }
 
-// Centre and width of a passband or a notch. The extreme is located inside
-// the stated band, which is the passband or the rejection band itself, and
-// the crossings are found walking outward from it over the widened window: a
-// peak's half-maximum points, a dip's 50% points. A peak's centre is where it
-// peaks; a notch's centre is halfway between its crossings, since its floor
-// is flat.
-function featureCrossings({ entry, design, resolve }, band, dip) {
+// Centre and width of a notch. The dip is located inside the stated band,
+// which is the rejection band itself, and the 50% crossings are found walking
+// outward from it over the widened window. The centre is halfway between the
+// crossings, since a notch's floor is flat.
+function notchCrossings({ entry, design, resolve }, band) {
     const [lambdaStart, lambdaEnd] = widened(band);
     const params = {
         lambdaStart, lambdaEnd, lambdaStep: (lambdaEnd - lambdaStart) / (SCAN_POINTS - 1),
@@ -140,14 +137,41 @@ function featureCrossings({ entry, design, resolve }, band, dip) {
     let at = -1;
     lambda.forEach((lam, i) => {
         if (lam < band[0] || lam > band[1]) return;
-        if (at < 0 || (dip ? T[i] < T[at] : T[i] > T[at])) at = i;
+        if (at < 0 || T[i] < T[at]) at = i;
     });
     if (at < 0) return { center: null, width: null };
-    const level = dip ? NOTCH_LEVEL : T[at] / 2;
-    const left = crossingFrom(scan, at, -1, level, dip);
-    const right = crossingFrom(scan, at, 1, level, dip);
-    if (left == null || right == null) return { center: dip ? null : lambda[at], width: null };
-    return { center: dip ? (left + right) / 2 : lambda[at], width: right - left };
+    const left = crossingFrom(scan, at, -1, NOTCH_LEVEL);
+    const right = crossingFrom(scan, at, 1, NOTCH_LEVEL);
+    if (left == null || right == null) return { center: null, width: null };
+    return { center: (left + right) / 2, width: right - left };
+}
+
+// A peak's centre and width through the Central λ and FWHM checks the claims
+// use. The centre is sought inside the stated band, which is the passband
+// itself. The width is read on the smallest window around the band that holds
+// both half-maximum points: the band, then the band widened by one, two and
+// three of its widths each side. A wider window can hold a higher peak beside
+// the passband, so a window whose crossings do not bracket the centre is
+// passed over.
+function peakFigures({ entry, design, resolve }, band, channel) {
+    const check = { channel, direction: 'max', pol: entry.polarization };
+    const center = qualifierValue(entry, design, resolve, {
+        ...check, kind: 'CENTRAL_LAMBDA', lambdaStart: band[0], lambdaEnd: band[1],
+    });
+    if (center == null) return { center: null, width: null };
+    const ctx = buildEvalContext(design, resolve);
+    const span = band[1] - band[0];
+    for (const reach of [0, 1, 2, 3]) {
+        const qualifier = makeQualifier({
+            ...check, kind: 'FWHM', aoi: entry.aoi, level: 0.5,
+            lambdaStart: Math.max(1, band[0] - reach * span), lambdaEnd: band[1] + reach * span,
+        });
+        const crossings = bandCrossings(qualifier, ctx);
+        const left = crossings.left();
+        const right = left == null ? null : crossings.right();
+        if (left != null && right != null && left <= center && center <= right) return { center, width: right - left };
+    }
+    return { center, width: null };
 }
 
 function extinctionRow(bandRows) {
@@ -173,7 +197,8 @@ function shapeRow(scope, channel, stat) {
         return { channel, pol, stat, unit: 'nm', value };
     }
     const dip = stat.startsWith('notch');
-    const feature = featureCrossings(scope, featureBand(entry, bandRows, channel, dip), dip);
+    const band = featureBand(entry, bandRows, channel, dip);
+    const feature = dip ? notchCrossings(scope, band) : peakFigures(scope, band, channel);
     const value = stat === 'center' || stat === 'notch-center' ? feature.center : feature.width;
     return { channel, pol, stat, unit: 'nm', value };
 }

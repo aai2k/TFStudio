@@ -87,6 +87,22 @@ for (const entry of BUILTIN_COATINGS) {
         });
         assert.ok(verdict.allPass, `${where}: specification does not pass at ${step}`);
     }
+
+    // A band-pass's centre and FWHM in the library are the numbers its own
+    // Central λ and FWHM claims read, not a separate estimate of them. The
+    // library and a claim can read different windows, and on a rippled flat
+    // top the peak search can settle on a different ripple maximum in each,
+    // which moves the half-maximum level and so the width by a few 1e-5 nm.
+    if (entry.type === 'bandpass') {
+        const { qualifiers, results } = entrySpecResults(entry);
+        const shapeValue = stat => metrics.shape.find(row => row.stat === stat).value;
+        qualifiers.forEach((qualifier, i) => {
+            const stat = { CENTRAL_LAMBDA: 'center', FWHM: 'fwhm' }[qualifier.kind];
+            if (!stat || qualifier.direction !== 'max') return;
+            assert.ok(Math.abs(shapeValue(stat) - results[i].value) < 1e-4,
+                `${where}: library ${stat} ${shapeValue(stat)} nm, claim ${i + 1} reads ${results[i].value} nm`);
+        });
+    }
 }
 
 // The shared records themselves: sound tables, and none that no entry uses,
