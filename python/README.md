@@ -26,6 +26,8 @@ It writes `tfstudio.pth`, which points that Python at this folder, into its site
 
 On Linux, the deb package puts the folder at `/opt/TFStudio/resources/python`. An AppImage's files exist only while it runs: run it once with `--appimage-extract`, which writes them to a `squashfs-root` folder in the current folder, and run `install.py` from `squashfs-root/resources/python`.
 
+The Flatpak keeps the folder at `~/.local/share/flatpak/app/xyz.tfstudio.TFStudio/current/active/files/main/resources/python`, or under `/var/lib/flatpak/app/` when it is installed for all users. Set `TFSTUDIO_EXE` to `~/.local/share/flatpak/exports/bin/xyz.tfstudio.TFStudio` (or the same name under `/var/lib/flatpak/exports/bin/`), so the package starts TFStudio in its sandbox. There TFStudio reads and writes files only in the data folder, `~/Documents/TFStudio`: a file it writes for the program anywhere else is lost when the program ends.
+
 ## Documentation
 
 - [Python](https://docs.tfstudio.xyz/automation/python/): starting TFStudio, designs and their layers, spectra, merit, runs and their progress, and working on the open design.

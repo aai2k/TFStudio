@@ -18,6 +18,9 @@
 #                                   this is the one target that keeps the Chromium
 #                                   sandbox enabled.
 #   TFStudio-<ver>-x86_64.AppImage  single-file portable application
+#   TFStudio-<ver>-x86_64.flatpak   Flatpak bundle, sandboxed to its data folder;
+#                                   built only when flatpak and flatpak-builder
+#                                   are installed, see build/flatpak/
 #
 # Staging: when the source tree lives on a Windows drive (/mnt/...), the build
 # is copied into the Linux filesystem first and the artifacts are copied back at
@@ -190,6 +193,33 @@ printf 'tmmcore WASM kernel present: %s bytes\n' "$(stat -c %s "$WASM")"
 section "Seeding materials, building docs site, packaging Linux artifacts"
 npm run build:linux
 
+# --- 4b. Flatpak bundle ------------------------------------------------------
+# Packs dist/linux-unpacked on the Electron base app; the manifest says what the
+# sandbox allows. The runtime, SDK and base app are installed from Flathub into
+# the user's own Flatpak installation on the first run and reused after that.
+# A Flatpak that fails to build is reported and leaves the deb and the AppImage
+# to be copied back as usual; the Release workflow fails on the missing bundle.
+FLATPAK_ID=xyz.tfstudio.TFStudio
+FLATHUB_REPO=https://dl.flathub.org/repo/flathub.flatpakrepo
+if have flatpak && have flatpak-builder; then
+    section "Flatpak bundle"
+    rm -rf dist/flatpak
+    # --runtime-repo lets `flatpak install` of the bundle fetch the runtime
+    # and base app from Flathub when the user does not have them yet.
+    if ! { flatpak --user remote-add --if-not-exists flathub "$FLATHUB_REPO" &&
+           flatpak-builder --user --install-deps-from=flathub --force-clean \
+               --state-dir=dist/flatpak/state --repo=dist/flatpak/repo \
+               dist/flatpak/build "build/flatpak/$FLATPAK_ID.yml" &&
+           flatpak build-bundle --runtime-repo="$FLATHUB_REPO" \
+               dist/flatpak/repo "dist/TFStudio-${VERSION}-x86_64.flatpak" "$FLATPAK_ID"; }; then
+        echo "The Flatpak bundle failed to build; see above. The deb and the AppImage are not affected." >&2
+    fi
+else
+    section "Flatpak bundle - SKIPPED"
+    echo "flatpak and flatpak-builder are not installed. To build the Flatpak as well:"
+    echo "  sudo apt-get install -y flatpak flatpak-builder"
+fi
+
 # --- 5. Smoke test -----------------------------------------------------------
 # The unpacked build is tested rather than the AppImage: running an AppImage
 # needs FUSE, which WSL does not provide by default, and the unpacked tree
@@ -243,18 +273,21 @@ if [ "$STAGE" != "$SRC" ]; then
     # dist/ is generated output. Remove stale Linux packages so a 1.5.0 build
     # cannot appear to have produced an old 1.4.3 artifact.
     find "$SRC/dist" -maxdepth 1 -type f \
-        \( -name 'TFStudio-*.AppImage' -o -name 'TFStudio-*.deb' \) \
+        \( -name 'TFStudio-*.AppImage' -o -name 'TFStudio-*.deb' \
+           -o -name 'TFStudio-*.flatpak' \) \
         -delete
 
     find "$STAGE/dist" -maxdepth 1 -type f \
         \( -name "TFStudio-${VERSION}-*.AppImage" \
-           -o -name "TFStudio-${VERSION}-*.deb" \) \
+           -o -name "TFStudio-${VERSION}-*.deb" \
+           -o -name "TFStudio-${VERSION}-*.flatpak" \) \
         -exec cp -f {} "$SRC/dist/" \;
 fi
 
 section "Build complete - artifacts in dist/"
 find "$SRC/dist" -maxdepth 1 -type f \
     \( -name "TFStudio-${VERSION}-*.AppImage" \
-       -o -name "TFStudio-${VERSION}-*.deb" \) \
+       -o -name "TFStudio-${VERSION}-*.deb" \
+       -o -name "TFStudio-${VERSION}-*.flatpak" \) \
     -printf '%f\t%s\n' 2>/dev/null \
     | awk -F'\t' '{ printf "%-44s %8.1f MB\n", $1, $2/1048576 }'

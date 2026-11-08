@@ -133,7 +133,7 @@ sudo apt install ./TFStudio-*-amd64.deb
 tfstudio
 ```
 
-以 root 身份安装才能保持 Chromium 沙箱处于启用状态。`.deb` 是唯一保留沙箱的 Linux 安装包，也是唯一会将 TFStudio 添加到应用程序菜单、并让 `.tfs` 文件能从文件管理器中直接打开的安装包。AppImage 不经过安装，因此不会注册该文件类型。
+以 root 身份安装才能保持 Chromium 沙箱处于启用状态。`.deb` 与 Flatpak 都保留该沙箱（Flatpak 借助 Flatpak 自身的沙箱），也只有这两种安装包会将 TFStudio 添加到应用程序菜单、并让 `.tfs` 文件能从文件管理器中直接打开。AppImage 不经过安装，因此不会注册该文件类型。
 
 `TFStudio-<ver>-x86_64.AppImage` 是便携式方案：
 
@@ -143,6 +143,19 @@ chmod +x TFStudio-*-x86_64.AppImage
 ```
 
 AppImage 不需要 `libfuse2`。若完全无法自行挂载（例如在没有 FUSE 的容器中），请以 `--appimage-extract-and-run` 方式运行。
+
+`TFStudio-<ver>-x86_64.flatpak` 在 Flatpak 沙箱中运行 TFStudio：
+
+```bash
+flatpak install --user ./TFStudio-*-x86_64.flatpak
+flatpak run xyz.tfstudio.TFStudio
+```
+
+首次安装时还会从 Flathub 下载所需的运行时。更新时，用 `flatpak install --user --reinstall` 安装新版文件即可，膜系与设置均会保留。
+
+在您的文件中，Flatpak 只能访问数据文件夹 `~/Documents/TFStudio`。应用的打开与保存对话框通过系统文件选择器访问其他位置。脚本、Python 程序或 AI 助手没有文件选择器：它们保存到数据文件夹以外的文件，会在其运行结束后丢失。
+
+在 Wayland 下，Flatpak 需要会话设置 `XDG_SESSION_TYPE=wayland`，GNOME 与 KDE 均会设置。
 
 想先试用？可直接运行 **[在线演示](https://tfstudio.xyz/demo/)**，在浏览器中查看示例膜系与实时光谱，无需任何安装。
 

@@ -1,0 +1,84 @@
+# TFStudio as a Flatpak, packed from the Linux app electron-builder leaves in
+# dist/linux-unpacked. build-release-linux.sh builds it after the deb and the
+# AppImage and bundles it as dist/TFStudio-<version>-x86_64.flatpak.
+#
+# Sandbox: the window draws through Wayland, or X11 where there is no Wayland,
+# on the GPU; the network is open for refractiveindex.info and the update check.
+# Of the user's files the app sees only its data folder, Documents/TFStudio.
+# Every other file is opened and saved through the system file picker.
+id: xyz.tfstudio.TFStudio
+runtime: org.freedesktop.Platform
+runtime-version: '26.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '26.08'
+command: tfstudio
+separate-locales: false
+# The desktop file and the icon keep the names the deb gives them, so the
+# metainfo file in build/ serves both packages; they are renamed after the app
+# id here.
+rename-desktop-file: tfstudio.desktop
+rename-icon: tfstudio
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --filesystem=xdg-documents/TFStudio:create
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+modules:
+  - name: tfstudio
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: ../../dist/linux-unpacked
+        dest: main
+      - type: dir
+        path: ../icons/linux
+        dest: icons
+      - type: dir
+        path: ../linux-mime
+        dest: mime
+      - type: file
+        path: ../xyz.tfstudio.TFStudio.appdata.xml
+      - type: inline
+        dest-filename: tfstudio.desktop
+        contents: |
+          [Desktop Entry]
+          Name=TFStudio
+          Comment=Optical thin-film coating design and analysis
+          Exec=tfstudio %f
+          Terminal=false
+          Type=Application
+          Icon=tfstudio
+          StartupWMClass=tfstudio
+          MimeType=application/x-tfstudio-design;
+          Categories=Science;
+      - type: script
+        dest-filename: tfstudio
+        commands:
+          - exec zypak-wrapper /app/main/tfstudio "$@"
+    build-commands:
+      - cp -a main /app/main
+      # Under Wayland the window is named after package.json's desktopName,
+      # tfstudio.desktop. Here the desktop file is named after the app id, so
+      # without this the window gets no icon and an entry of its own in the dock.
+      - patch-electron-desktop-filename /app/main/resources/app.asar
+      - install -Dm755 tfstudio /app/bin/tfstudio
+      - install -Dm644 tfstudio.desktop /app/share/applications/tfstudio.desktop
+      - install -Dm644 xyz.tfstudio.TFStudio.appdata.xml /app/share/metainfo/xyz.tfstudio.TFStudio.metainfo.xml
+      - |
+        for png in icons/*.png; do
+          size=$(basename "$png" .png)
+          install -Dm644 "$png" "/app/share/icons/hicolor/$size/apps/tfstudio.png"
+        done
+      # A Flatpak exports only icons named after its id, so the .tfs document
+      # icon carries the id in front of the name the MIME entry gives it.
+      - |
+        for png in mime/icons/*.png; do
+          size=$(basename "$png" .png)
+          install -Dm644 "$png" "/app/share/icons/hicolor/$size/mimetypes/xyz.tfstudio.TFStudio.application-x-tfstudio-design.png"
+        done
+      - install -d /app/share/mime/packages
+      - sed 's/<icon name="application-x-tfstudio-design"/<icon name="xyz.tfstudio.TFStudio.application-x-tfstudio-design"/' mime/tfstudio.xml > /app/share/mime/packages/xyz.tfstudio.TFStudio.xml

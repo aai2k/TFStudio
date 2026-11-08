@@ -1,6 +1,7 @@
 /** Build scripts tolerate a PATH rewritten by tools such as emsdk. */
 import { existsSync as fileExists, readFileSync } from 'node:fs';
 import path from 'node:path';
+import yaml from 'js-yaml';
 import { prepareBuilderEnvironment } from '../tools/run-electron-builder.mjs';
 
 let passed = 0;
@@ -119,6 +120,42 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
     'the reusable WSL stage checks dependencies by version, not by directory presence');
   ok(!/\[ -d node_modules\/tmmcore \]/.test(linuxScript),
     'the per-directory dependency probe is gone');
+  const copyBack = linuxScript.slice(linuxScript.indexOf('Copying artifacts back'), linuxScript.indexOf('Build complete'));
+  ok(copyBack.includes('-name "TFStudio-${VERSION}-*.flatpak"'),
+    'only current-version Flatpak bundles are copied back');
+  // A Flatpak that fails to build must not cost a local build its deb and AppImage.
+  ok(/if ! \{\s*flatpak --user remote-add/.test(linuxScript), 'a failed Flatpak build leaves the deb and the AppImage');
+}
+
+{
+  const pkg = JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'utf8'));
+  const manifest = yaml.load(readFileSync(path.join(process.cwd(), 'build', 'flatpak', 'xyz.tfstudio.TFStudio.yml'), 'utf8'));
+  const appdata = readFileSync(path.join(process.cwd(), 'build', 'xyz.tfstudio.TFStudio.appdata.xml'), 'utf8');
+  ok(appdata.includes(`<id>${manifest.id}</id>`), 'the Flatpak id is the id the AppStream file carries');
+  // The base app is built against one runtime branch and runs only on it.
+  ok(manifest['base-version'] === manifest['runtime-version'], 'the Electron base app matches the runtime branch');
+  // The AppStream file names the deb's desktop file; flatpak-builder renames
+  // that file after the id, so the one AppStream file serves both packages.
+  ok(manifest['rename-desktop-file'] === pkg.desktopName, 'the Flatpak renames the desktop file the AppStream file names');
+
+  const args = manifest['finish-args'];
+  ok(args.includes('--filesystem=xdg-documents/TFStudio:create'), 'the Flatpak sees the default data folder');
+  ok(!args.some(arg => /^--filesystem=(home|host)/.test(arg)), 'the Flatpak does not see the whole home folder');
+
+  const module = manifest.modules.find(m => m.name === 'tfstudio');
+  const desktop = module.sources.find(s => s['dest-filename'] === pkg.desktopName).contents;
+  ok(desktop.includes(`MimeType=${pkg.build.linux.mimeTypes.join(';')};`), 'the Flatpak launcher offers the .tfs type');
+  ok(/^Exec=tfstudio %f$/m.test(desktop), 'the Flatpak launcher passes the opened file, as the deb does');
+  // Electron names its Wayland window after desktopName, which the Flatpak's
+  // renamed desktop file no longer matches unless the packed app says so too.
+  ok(module['build-commands'].includes('patch-electron-desktop-filename /app/main/resources/app.asar'),
+    'the Flatpak window carries the name of its desktop file');
+
+  // The MIME entry's icon is renamed with sed; a pattern that no longer matches
+  // the file leaves the .tfs icon unexported without any error.
+  const mimeXml = readFileSync(path.join(process.cwd(), 'build', 'linux-mime', 'tfstudio.xml'), 'utf8');
+  const sed = module['build-commands'].find(c => c.startsWith('sed ')).match(/^sed 's\/([^/]+)\//)[1];
+  ok(mimeXml.includes(sed), 'the Flatpak renames the .tfs icon the MIME entry names');
 }
 
 console.log(`build_environment: ${passed} passed`);

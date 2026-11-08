@@ -17,7 +17,9 @@ python "C:\Users\you\AppData\Local\Programs\TFStudio\resources\python\install.py
 
 在 Linux 上，deb 包把该文件夹放在 `/opt/TFStudio/resources/python`。AppImage 的文件只在它运行时存在：先用 `--appimage-extract` 运行它一次，它会把文件写入当前文件夹中的 `squashfs-root` 文件夹，然后从 `squashfs-root/resources/python` 运行 `install.py`。
 
-脚本控制台中的 Python 脚本不需要这些：控制台会把该包交给脚本。
+Flatpak 把该文件夹放在 `~/.local/share/flatpak/app/xyz.tfstudio.TFStudio/current/active/files/main/resources/python`；为所有用户安装时则在 `/var/lib/flatpak/app/` 下。请把 `TFSTUDIO_EXE` 设为 Flatpak 为 TFStudio 生成的命令 `~/.local/share/flatpak/exports/bin/xyz.tfstudio.TFStudio`（或 `/var/lib/flatpak/exports/bin/` 下的同名命令），这样该包会在沙箱中启动 TFStudio，而不是启动包旁边的可执行文件。在沙箱中，TFStudio 只能读写数据文件夹 `~/Documents/TFStudio` 中的文件：它为程序写到其他位置的文件，会在程序结束后丢失。
+
+脚本控制台中的 Python 脚本不需要这些：控制台会把该包交给脚本。在 Flatpak 中，控制台用 Flatpak 自带的 Python 运行脚本，它只有标准库，没有其他包。
 
 ## 启动 TFStudio
 

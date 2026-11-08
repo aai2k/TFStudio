@@ -136,7 +136,7 @@ sudo apt install ./TFStudio-*-amd64.deb
 tfstudio
 ```
 
-Installing as root is what lets the Chromium sandbox stay enabled. The `.deb` is the only Linux package that keeps it on, and it is also the only one that adds TFStudio to the applications menu and makes `.tfs` designs open in it from the file manager. The AppImage is not installed by anything, so it does not register the file type.
+Installing as root is what lets the Chromium sandbox stay enabled. The `.deb` and the Flatpak keep it on, the Flatpak through Flatpak's own sandbox, and they are the packages that add TFStudio to the applications menu and make `.tfs` designs open in it from the file manager. The AppImage is not installed by anything, so it does not register the file type.
 
 `TFStudio-<ver>-x86_64.AppImage` is the portable alternative:
 
@@ -146,6 +146,19 @@ chmod +x TFStudio-*-x86_64.AppImage
 ```
 
 The AppImage does not need `libfuse2`. Where it cannot mount itself at all, as in a container without FUSE, run it with `--appimage-extract-and-run`.
+
+`TFStudio-<ver>-x86_64.flatpak` runs TFStudio in a Flatpak sandbox:
+
+```bash
+flatpak install --user ./TFStudio-*-x86_64.flatpak
+flatpak run xyz.tfstudio.TFStudio
+```
+
+The first install also fetches its runtime from Flathub. To update, install the newer file with `flatpak install --user --reinstall`; designs and settings stay.
+
+Of your files the Flatpak sees only the data folder, `~/Documents/TFStudio`. The app's open and save dialogs reach everything else through the system file picker. A script, a Python program or an AI assistant has no picker: a file it saves outside the data folder is lost when it ends.
+
+On Wayland the Flatpak needs a session that sets `XDG_SESSION_TYPE=wayland`, as GNOME and KDE do.
 
 Want to try it first? Run the **[live web demo](https://tfstudio.xyz/demo/)** for example designs and live spectra in the browser, with no installation required.
 
@@ -184,7 +197,7 @@ to answer up front.
 ```powershell
 npm run dist                  # Windows 10/11 installer + portable
 npm run dist -- -Win7         # ...and the Windows 7/8.1 builds
-npm run dist -- -Linux        # Linux .deb + AppImage only
+npm run dist -- -Linux        # Linux .deb, AppImage and Flatpak only
 ```
 
 The Linux artifacts are produced by `build-release-linux.sh`, which the release
@@ -198,6 +211,8 @@ Xvfb is not installed.
 Note that the smoke test runs under Xvfb, so it exercises the X11 path only. A
 regression that appears solely under native Wayland, such as a window that is
 never presented, will pass it.
+
+Where `flatpak` and `flatpak-builder` are installed, `build-release-linux.sh` also packs the unpacked application into the Flatpak bundle, as `build/flatpak/xyz.tfstudio.TFStudio.yml` describes. The first run installs the runtime, SDK and Electron base app from Flathub for the user. Without the two tools the script says so and skips the Flatpak.
 
 macOS builds require a macOS host and are not currently published.
 

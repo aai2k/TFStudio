@@ -17,7 +17,9 @@ python "C:\Users\you\AppData\Local\Programs\TFStudio\resources\python\install.py
 
 On Linux, the deb package puts the folder at `/opt/TFStudio/resources/python`. An AppImage's files exist only while it runs: run it once with `--appimage-extract`, which writes them to a `squashfs-root` folder in the current folder, and run `install.py` from `squashfs-root/resources/python`.
 
-A Python script in the Script Console needs none of this: the console gives it the package.
+The Flatpak keeps the folder at `~/.local/share/flatpak/app/xyz.tfstudio.TFStudio/current/active/files/main/resources/python`, or under `/var/lib/flatpak/app/` when it is installed for all users. Set `TFSTUDIO_EXE` to the command Flatpak makes for TFStudio, `~/.local/share/flatpak/exports/bin/xyz.tfstudio.TFStudio` (or the same name under `/var/lib/flatpak/exports/bin/`), so the package starts TFStudio in its sandbox rather than the executable beside the package. In the sandbox TFStudio reads and writes files only in the data folder, `~/Documents/TFStudio`: a file it writes for the program anywhere else is lost when the program ends.
+
+A Python script in the Script Console needs none of this: the console gives it the package. In the Flatpak the console runs the script in the Flatpak's own Python, which has the standard library and no other packages.
 
 ## Start TFStudio
 

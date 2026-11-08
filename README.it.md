@@ -131,7 +131,7 @@ sudo apt install ./TFStudio-*-amd64.deb
 tfstudio
 ```
 
-L'installazione come root è ciò che permette di tenere attiva la sandbox di Chromium. Il `.deb` è l'unico pacchetto Linux che la mantiene attiva, ed è anche l'unico che aggiunge TFStudio al menu delle applicazioni e fa aprire i design `.tfs` con TFStudio dal gestore di file. L'AppImage non passa da alcuna installazione, quindi non registra il tipo di file.
+L'installazione come root è ciò che permette di tenere attiva la sandbox di Chromium. Il `.deb` e il Flatpak la mantengono attiva, il Flatpak tramite la sandbox di Flatpak stesso, e sono i pacchetti che aggiungono TFStudio al menu delle applicazioni e fanno aprire i design `.tfs` con TFStudio dal gestore di file. L'AppImage non passa da alcuna installazione, quindi non registra il tipo di file.
 
 `TFStudio-<ver>-x86_64.AppImage` è l'alternativa portatile:
 
@@ -141,6 +141,19 @@ chmod +x TFStudio-*-x86_64.AppImage
 ```
 
 L'AppImage non richiede `libfuse2`. Se non riesce proprio a montarsi da sola, come in un container senza FUSE, avviala con `--appimage-extract-and-run`.
+
+`TFStudio-<ver>-x86_64.flatpak` esegue TFStudio in una sandbox Flatpak:
+
+```bash
+flatpak install --user ./TFStudio-*-x86_64.flatpak
+flatpak run xyz.tfstudio.TFStudio
+```
+
+La prima installazione scarica anche il suo runtime da Flathub. Per aggiornare, installa il file più recente con `flatpak install --user --reinstall`; design e impostazioni restano.
+
+Dei tuoi file il Flatpak vede solo la cartella dei dati, `~/Documents/TFStudio`. Le finestre Apri e Salva dell'app raggiungono tutto il resto tramite il selettore di file del sistema. Uno script, un programma Python o un assistente IA non hanno un selettore: un file che salvano fuori dalla cartella dei dati va perso quando terminano.
+
+Su Wayland il Flatpak richiede una sessione che imposti `XDG_SESSION_TYPE=wayland`, come fanno GNOME e KDE.
 
 Vuoi provarlo prima? Apri la **[demo web online](https://tfstudio.xyz/demo/)**: design di esempio e spettri in tempo reale nel browser, senza installare nulla.
 
@@ -174,12 +187,14 @@ npm run build         # crea un pacchetto distribuibile (electron-builder)
 ```powershell
 npm run dist                  # installer Windows 10/11 + versione portatile
 npm run dist -- -Win7         # ...e le versioni per Windows 7/8.1
-npm run dist -- -Linux        # solo Linux: .deb + AppImage
+npm run dist -- -Linux        # solo Linux: .deb, AppImage e Flatpak
 ```
 
 I pacchetti Linux sono prodotti da `build-release-linux.sh`, che lo script di rilascio esegue tramite WSL; funziona anche direttamente su qualsiasi host Linux. Richiede una distribuzione con Node.js 22.12+ e `rsync`, e compila nel filesystem Linux invece che sul posto, così un checkout Windows conserva il proprio `node_modules` di Windows. La compilazione WSL avviata da Windows salta la verifica dell'interfaccia grafica. Una compilazione diretta su Linux avvia l'applicazione non impacchettata sotto Xvfb come smoke test, oppure lo salta con un messaggio se Xvfb non è installato.
 
 Nota: lo smoke test gira sotto Xvfb, quindi prova solo il percorso X11. Una regressione che compare soltanto sotto Wayland nativo, come una finestra che non viene mai mostrata, lo supera.
+
+Dove sono installati `flatpak` e `flatpak-builder`, `build-release-linux.sh` mette anche l'applicazione non impacchettata nel bundle Flatpak, come descrive `build/flatpak/xyz.tfstudio.TFStudio.yml`. La prima esecuzione installa per l'utente il runtime, l'SDK e l'app base di Electron da Flathub. Senza i due strumenti lo script lo segnala e salta il Flatpak.
 
 Le build per macOS richiedono un host macOS e al momento non vengono pubblicate.
 
