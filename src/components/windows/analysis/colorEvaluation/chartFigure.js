@@ -6,7 +6,7 @@ import {
 } from '../../../ui/chartOptions.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import {
-  LIGHTNESS_DIAGRAMS, diagramPlane, locusMarks, locusOutline, planckianLocus, srgbTriangle,
+  LIGHTNESS_DIAGRAMS, POLAR_DIAGRAMS, diagramPlane, locusMarks, locusOutline, planckianLocus, srgbTriangle,
 } from '../../../../utils/physics/colorimetry.js';
 import { formatTheta } from '../opticalEvaluation/model.js';
 import { legendAbove } from '../chrome/plot.js';
@@ -90,11 +90,16 @@ function roundStep(x) {
 /**
  * The extent `id` is drawn over, given the points it has to show: the whole
  * locus on the two chromaticity diagrams, and on the CIELAB and CIELUV planes
- * the coating's points with the white at the centre.
+ * the coating's points with the white at the centre. A hue and chroma plane is
+ * drawn as a disc, so it reaches each point's chroma, its distance from the
+ * white; the square a*, b* plane only the larger of its two coordinates.
  */
 export function diagramView(id, points) {
   if (CHROMATICITY_VIEWS[id]) return CHROMATICITY_VIEWS[id];
-  const far = Math.max(0, ...points.flat().map(Math.abs).filter(Number.isFinite));
+  const extent = POLAR_DIAGRAMS.includes(id)
+    ? ([p, q]) => Math.hypot(p, q)
+    : ([p, q]) => Math.max(Math.abs(p), Math.abs(q));
+  const far = Math.max(0, ...points.map(extent).filter(Number.isFinite));
   const reach = Math.max(PLANE_LEAST, far * PLANE_MARGIN);
   const interval = roundStep(reach / PLANE_STEPS);
   const edge = Math.ceil(reach / interval - 1e-9) * interval;

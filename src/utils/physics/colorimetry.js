@@ -61,5 +61,6 @@ export { ciede2000 } from './colorimetry/deltaE.js';
 export { xyzToSRGB, chromaticityDisplayRgb, SRGB_PRIMARIES, srgbPrimariesUnder } from './colorimetry/srgb.js';
 export { colorReport } from './colorimetry/report.js';
 export {
-  DIAGRAM_IDS, LIGHTNESS_DIAGRAMS, diagramPlane, locusOutline, locusMarks, planckianLocus, srgbTriangle,
+  DIAGRAM_IDS, LIGHTNESS_DIAGRAMS, POLAR_DIAGRAMS, diagramPlane, locusOutline, locusMarks, planckianLocus,
+  srgbTriangle,
 } from './colorimetry/diagram.js';

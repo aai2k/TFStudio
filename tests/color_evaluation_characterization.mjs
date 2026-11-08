@@ -126,7 +126,7 @@ const named = series => series.map(item => [item.name || null, item.type]);
     uv: ['u′', 'v′', [-0.08, 0.7], [-0.08, 0.7], [first.uvP.up, first.uvP.vp]],
     ab: ['a*', 'b*', [-100, 100], [-100, 100], [first.Lab.a, first.Lab.b]],
     chUv: ['u*', 'v*', [-150, 150], [-150, 150], [first.Luv.u, first.Luv.v]],
-    chAb: ['a*', 'b*', [-100, 100], [-100, 100], [first.Lab.a, first.Lab.b]],
+    chAb: ['a*', 'b*', [-150, 150], [-150, 150], [first.Lab.a, first.Lab.b]],
   };
   for (const id of DIAGRAM_IDS) {
     const { xAxis, yAxis, series } = option(three, id);
@@ -139,6 +139,15 @@ const named = series => series.map(item => [item.name || null, item.type]);
   }
   assert.deepEqual(diagramView('ab', [[-30, 12]]).x, [-40, 40], 'a tenth past the farthest point, on a round step');
   assert.deepEqual(diagramView('ab', [[-400, 20]]).x, [-600, 600], 'R or T above 1 puts a point far out; the frame holds it');
+  // A round tab is a disc, so it reaches a point's chroma, its distance from
+  // the white. A transmission at a* 62.9, b* -68.6 is 93 from it, past the ±80
+  // its larger coordinate gives, and had been drawn off the disc.
+  const purple = [62.854, -68.611];
+  assert.equal(diagramView('ab', [purple]).x[1], 80, 'the square holds the larger coordinate');
+  for (const id of ['chUv', 'chAb']) {
+    const { x } = diagramView(id, [purple]);
+    assert.ok(x[1] >= Math.hypot(...purple), `${id}: the disc, ±${x[1]}, holds the point's chroma`);
+  }
 }
 
 // ── The CIELAB and CIELUV planes are drawn at the coating's lightness ────────

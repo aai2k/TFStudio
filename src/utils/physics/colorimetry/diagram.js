@@ -23,6 +23,9 @@ export const DIAGRAM_IDS = ['xy', 'uv', 'ab', 'chUv', 'chAb'];
 /** Diagrams drawn at one lightness, which the window takes from the colour it shows. */
 export const LIGHTNESS_DIAGRAMS = ['ab', 'chUv', 'chAb'];
 
+/** The hue and chroma planes, drawn as a disc of chroma rings and hue spokes. */
+export const POLAR_DIAGRAMS = ['chUv', 'chAb'];
+
 // Unit Y; the chromaticity alone is what the two diagrams use.
 const xyzOfChromaticity = (x, y, Y = 1) => ({ X: x / y * Y, Y, Z: (1 - x - y) / y * Y });
 
@@ -97,7 +100,7 @@ export function diagramPlane(id, { white, lightness }) {
         || lightnessPlane(id === 'chUv' ? 'luv' : 'lab', white, lightness);
     const w = chromaticityXy(white);
     return {
-        id, polar: id === 'chUv' || id === 'chAb', ...base,
+        id, polar: POLAR_DIAGRAMS.includes(id), ...base,
         white: base.toPlane(w.x, w.y), relativeTo: chromaticityPlanes[id] ? null : white,
     };
 }
