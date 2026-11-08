@@ -56,10 +56,11 @@ const TYPE_COLORS = {
 // Type is the widest of the fixed-vocabulary columns because the longest operand
 // names (GDDTFLAT, TODTFLAT) must read in full inside the picker, which spends
 // about 25 px of the column on its padding and caret. The wavelength, layer,
-// angle and weight columns hold at most a four-digit number, the flag one digit
-// under a header of four letters. The rest are as wide as what they hold with
-// 4 px either side: Pol "avg" and its list mark, Target a ramp "10.0→90.0",
-// Current a wavelength "1234.56 nm", the share "100.0%".
+// angle and weight columns hold at most a four-digit number, so the End and
+// Weight columns are as wide as their headers. The flag holds one digit and is
+// as wide as its widest header, the Russian Флаг. The rest are as wide as what
+// they hold with 4 px either side: Pol "avg" and its list mark, Target a ramp
+// "10.0→90.0", Current a wavelength "1234.56 nm", the share "100.0%".
 // Column widths, and the t.meritFunctionEditor.cols key each header reads. The
 // row number and the enabled tick are symbols and carry no key.
 export const COLS = [
@@ -67,12 +68,12 @@ export const COLS = [
     { key: 'enabled', w: 20, symbol: '✓' },
     { key: 'type', w: 80, tr: 'type' },
     { key: 'lambdaStart', w: 54, tr: 'lambdaLayer' },
-    { key: 'lambdaEnd', w: 48, tr: 'endDefault' },
+    { key: 'lambdaEnd', w: 47, tr: 'endDefault' },
     { key: 'aoi', w: 44, tr: 'aoi' },
     { key: 'pol', w: 36, tr: 'pol' },
-    { key: 'flag', w: 31, tr: 'flag' },
+    { key: 'flag', w: 33, tr: 'flag' },
     { key: 'target', w: 58, tr: 'target' },
-    { key: 'weight', w: 44, tr: 'weight' },
+    { key: 'weight', w: 43, tr: 'weight' },
     { key: 'current', w: 66, tr: 'current' },
     { key: 'contribution', w: 46, tr: 'contribution' },
 ];

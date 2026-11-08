@@ -2428,7 +2428,7 @@ export default {
       refOp2: 'Op. n.2',
       curveRef: 'Curva',
       flag: 'Flag',
-      step: 'Passo',
+      step: 'Step',
     },
     stepFlagTip: 'Passo di ricerca di una riga che cerca un picco, o passo massimo della griglia di una riga su banda: 1 = 1 nm, 2 = 0,1 nm, 3 = 0,01 nm, 4 = 0,001 nm. Picchi più vicini di circa due passi possono essere letti come uno solo. Una riga su banda lasciata vuota prende la griglia dalle frange del progetto, che può scavalcare una banda passante stretta. I passi 3 e 4 su una banda larga rallentano la tabella e le ottimizzazioni.',
     operandGroups: {
