@@ -108,7 +108,7 @@ function iconLabel(icon, text) {
     return h('span', { style: { display: 'flex', alignItems: 'center', gap: 4 } }, tablerIcon(icon, 12), text);
 }
 
-function tableToolbar(options) {
+export function tableToolbar(options) {
     const {
         operands, selIds, setSelIds, focusCell, range, extraCells, clearCells, focusAfterRemoval,
         primarySel, toolbarStart, onAdd, onDelete, onClear, onMoveUp, onMoveDown, c, t,
@@ -144,7 +144,7 @@ function tableToolbar(options) {
         }),
         selIds.size > 1 && h('span', {
             style: { fontSize: 10, color: c.textDim, marginLeft: 4 },
-        }, `${selIds.size} selected`),
+        }, te.selectedRows?.(selIds.size)),
     );
 }
 
