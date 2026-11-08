@@ -38,21 +38,22 @@ const PLANCK_LABELS_K = [1500, 2000, 3000, 4000, 6500, 10000];
 // The x, y and u′, v′ diagrams open on the whole spectral locus, with room past
 // it on the low sides and the top of u′, v′ for the wavelengths written there,
 // clear of the axis numbers; the ticks stay on multiples of the interval. The
-// CIELAB and CIELUV planes reach as far as the spectral locus does at the
-// plane's lightness, so a dark coating, whose locus is small, is drawn close
-// up, and no further than ±200, which holds every colour a coating can have:
-// the most saturated colour any surface reflects or transmits is an optimal
-// colour, R = 1 inside one band and 0 outside it, or the reverse (Macleod,
-// §12.2), and those reach a chroma of 197 at most under the window's
-// illuminants and observers. Only R or T above 1 puts a point further out, and
-// the frame then widens to keep it on the plot.
+// CIELAB and CIELUV planes are framed to the coating instead: a square on the
+// white reaching a tenth past the farthest point, so the colour's shift with
+// angle fills the plot, as a coating's a*, b* is plotted in a colour
+// specification. The whole locus stays on the two chromaticity diagrams; at a
+// dark coating's lightness it reaches out to ±200 and more, which left a faint
+// reflection's path a dot in the middle. No frame is tighter than ±5, so a
+// coating whose colour hardly changes is not stretched until a shift too small
+// to see fills the plot: a few units of ΔE*ab are about the least difference
+// seen between two colours side by side.
 const CHROMATICITY_VIEWS = {
   xy: { x: [-0.08, 0.8], y: [-0.08, 0.9], interval: 0.1 },
   uv: { x: [-0.08, 0.7], y: [-0.08, 0.7], interval: 0.1 },
 };
-const PLANE_REACH = 200;
-const PLANE_INTERVAL = 50;
-// A closer frame keeps about four grid steps to a side.
+const PLANE_LEAST = 5;
+const PLANE_MARGIN = 1.1;
+// About four grid steps to a side.
 const PLANE_STEPS = 4;
 // One hue spoke every 30°, so the hue axes at 0°, 90°, 180° and 270° fall on
 // spokes with two between each.
@@ -87,14 +88,15 @@ function roundStep(x) {
 }
 
 /**
- * The extent `id` is drawn over, given the points it has to show and, on the
- * CIELAB and CIELUV planes, the spectral locus at the plane's lightness.
+ * The extent `id` is drawn over, given the points it has to show: the whole
+ * locus on the two chromaticity diagrams, and on the CIELAB and CIELUV planes
+ * the coating's points with the white at the centre.
  */
-export function diagramView(id, points, outline = []) {
+export function diagramView(id, points) {
   if (CHROMATICITY_VIEWS[id]) return CHROMATICITY_VIEWS[id];
-  const far = list => Math.max(0, ...list.flat().map(Math.abs).filter(Number.isFinite));
-  const reach = Math.max(Math.min(PLANE_REACH, far(outline)) || PLANE_REACH, far(points) * 1.1);
-  const interval = reach >= PLANE_REACH ? PLANE_INTERVAL : roundStep(reach / PLANE_STEPS);
+  const far = Math.max(0, ...points.flat().map(Math.abs).filter(Number.isFinite));
+  const reach = Math.max(PLANE_LEAST, far * PLANE_MARGIN);
+  const interval = roundStep(reach / PLANE_STEPS);
   const edge = Math.ceil(reach / interval - 1e-9) * interval;
   return { x: [-edge, edge], y: [-edge, edge], interval };
 }
@@ -172,13 +174,15 @@ function outwardNormal(plane, observer, lam, [p, q]) {
   return [sign * normal[0] / length, sign * normal[1] / length];
 }
 
-// Where a wavelength is written: set off its point square to the locus, with
-// the whole text on the outer side, so none of it lies on the fill. Directions
+// How far a wavelength is written from its point on the locus, px.
+const LABEL_GAP = 6;
+
+// Which way a wavelength's text runs from its point, so the whole text is on
+// the outer side of the locus and none of it lies on the fill. Directions
 // within 22.5° of an axis centre the text on that axis.
 function labelBeside([nx, ny]) {
   const side = (v, low, mid, high) => (v > 0.38 ? high : v < -0.38 ? low : mid);
   return {
-    offset: [nx * 6, ny * 6],
     align: side(nx, 'right', 'center', 'left'),
     verticalAlign: side(ny, 'bottom', 'middle', 'top'),
   };
@@ -186,21 +190,24 @@ function labelBeside([nx, ny]) {
 
 // The wavelengths along the locus. They sit on the plot's background, in the
 // theme's text colour, edged in that background so grid lines and the edge of
-// the fill do not cut through them.
+// the fill do not cut through them. Each is set off its point square to the
+// locus; the gap is given to the series' labelLayout, which replaces each
+// label's own offset with its dx and dy.
 function wavelengthSeries(plane, observer, view, c) {
   const marks = locusMarks(plane, observer, LOCUS_LABELS).filter(mark => onPlot(plane, view, mark.at));
+  const normals = marks.map(({ lam, at }) => outwardNormal(plane, observer, lam, at));
   const series = scatterSeries({
     name: '', color: c.text, symbolSize: 3, silent: true,
-    data: marks.map(({ lam, at }) => ({
-      value: at, wavelength: lam, label: labelBeside(outwardNormal(plane, observer, lam, at)),
-    })),
+    data: marks.map(({ lam, at }, index) => ({ value: at, wavelength: lam, label: labelBeside(normals[index]) })),
   });
   series.label = {
     show: true, position: 'inside', color: c.text, fontSize: 10,
     textBorderColor: chartColors(c).background, textBorderWidth: 3,
     formatter: params => String(params.data.wavelength),
   };
-  series.labelLayout = { hideOverlap: true };
+  series.labelLayout = ({ dataIndex }) => ({
+    hideOverlap: true, dx: normals[dataIndex][0] * LABEL_GAP, dy: normals[dataIndex][1] * LABEL_GAP,
+  });
   return series;
 }
 
@@ -335,7 +342,7 @@ export function buildChromaticityOption({
   const lightness = planeLightness(reports);
   const plane = diagramPlane(diagram, { white, lightness });
   const outline = locusOutline(plane, observer);
-  const view = diagramView(diagram, reports.map(({ report }) => plane.ofReport(report)), outline);
+  const view = diagramView(diagram, reports.map(({ report }) => plane.ofReport(report)));
   const image = fill && rasteriseDiagramFill(
     fillKey({ diagram, observer, lightness, white, view }),
     { plane, outline, view, discRadius: plane.polar ? view.x[1] : null },

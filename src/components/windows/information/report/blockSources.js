@@ -39,7 +39,7 @@ const FROM_WINDOW = {
     // The block prints one angle, the first of the window's, listed or in a range.
     color: v => ({
         characteristic: v.characteristic, pol: v.pol, theta: windowAngles(v).angles[0],
-        observer: v.observer, illuminant: v.illuminant, step: v.step,
+        observer: v.observer, illuminant: v.illuminant, step: v.step, exposure: v.exposure,
     }),
     integrals: v => ({ theta: v.theta, polarization: v.polarization }),
     // The window shows one quantity at a time; the block starts with that one.

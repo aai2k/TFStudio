@@ -84,9 +84,12 @@ export function DiagramTabs({ c, ce, state }) {
     );
 }
 
+// Shrinks to the row when its angle chips would run past it, so the chips wrap
+// onto more lines and + stays in reach. The label and the List or Range switch
+// keep their width.
 function ToolbarField({ c, label, children }) {
     return h('div', {
-        style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 },
+        style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 1 },
     }, h(FieldLabel, { c }, label), children);
 }
 

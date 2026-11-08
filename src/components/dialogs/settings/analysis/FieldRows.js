@@ -1,5 +1,6 @@
 // Generic rows for one analysis-window setting, rendered from the registry so a
 // new field is a registry entry rather than new UI.
+import { listAngle } from '../../../../constants/analysisDefaults.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { selectStyle } from '../ui.js';
@@ -62,7 +63,8 @@ export const BooleanRow = ({ c, label, value, onChange }) =>
     h(Checkbox, { c, checked: !!value, onChange: (e) => onChange(e.target.checked) }));
 
 // A list is typed as separated numbers and committed only when the whole thing
-// parses, so a half-typed entry never reaches the window. Out-of-range and
+// parses, so a half-typed entry never reaches the window. Every list here is of
+// angles, each kept as the angle chips keep it, to 0.1°. Out-of-range and
 // duplicate entries are dropped rather than rejecting the edit outright.
 export const ListRow = ({ c, label, value, spec, onChange }) => {
   const { useState, useEffect } = React;
@@ -73,7 +75,8 @@ export const ListRow = ({ c, label, value, spec, onChange }) => {
   const commit = () => {
     const parsed = raw.split(/[,;\s]+/).filter(Boolean).map(parseFloat);
     const clean = parsed
-      .filter(entry => Number.isFinite(entry) && entry >= spec.min && entry <= spec.max)
+      .map(listAngle)
+      .filter(entry => entry !== null)
       .filter((entry, index, all) => all.indexOf(entry) === index)
       .slice(0, spec.maxLength);
     if (clean.length > 0) onChange(clean);

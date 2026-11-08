@@ -155,6 +155,6 @@ export function buildColorComparison({ designs, block, tr }) {
   const rows = colorRows(first.report, tr).map(([key], i) =>
     ({ label: escapeHtml(key), cells: perDesign.map(r => r ? escapeHtml(r[i][1]) : num(null)) }));
   rows.unshift({ label: '', cells: results.map(cd => cd?.report
-    ? `<span class="tf-swatch tf-swatch-sm" style="background:${escapeHtml(cd.report.rgb)}"></span>` : '') });
+    ? `<span class="tf-swatch tf-swatch-sm" style="background:${escapeHtml(cd.rgb)}"></span>` : '') });
   return wrap('color', title, comparisonTables(designs, rows), { subtitle: colorCaption(first, tr) });
 }

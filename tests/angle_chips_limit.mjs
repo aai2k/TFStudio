@@ -9,6 +9,14 @@
  *   4. A saved list holding 89.9° survives a reload; one holding 90° falls back
  *      to the shipped list.
  *   5. Color Evaluation's range of angles runs to the same top.
+ *   6. Settings keeps a typed angle list the way the chips do: each angle
+ *      rounded to 0.1°, one past the top refused, a repeat after rounding
+ *      dropped.
+ *   7. So does the report's angle list, so 89.95° is not made 90° there.
+ *   8. The report's color block, which copies the window's first angle, takes
+ *      an angle up to the top.
+ *   9. The one angle Color Evaluation saved in 2.0.0 opens as a list of that
+ *      angle.
  *
  * Run: node tests/angle_chips_limit.mjs
  */
@@ -89,6 +97,55 @@ for (const windowId of ['opticalEvaluation', 'colorEvaluation']) {
 {
     const { angleStart, angleEnd } = ANALYSIS_DEFAULTS.colorEvaluation.numbers;
     assert.deepEqual([angleStart.max, angleEnd.max], [TOP, TOP]);
+}
+
+// ── 6. Settings keeps a list as the chips do ─────────────────────────────────
+{
+    const { ListRow } = await import('../src/components/dialogs/settings/analysis/FieldRows.js');
+    const changes = [];
+    mount(ListRow, {
+        c, label: '', value: [0], spec: ANALYSIS_DEFAULTS.opticalEvaluation.lists.thetas,
+        onChange: next => changes.push(next),
+    }).type('45.37, 45.4, 89.95, 30').press('Enter');
+    assert.deepEqual(changes, [[45.4, 30]], 'rounded to 0.1°, 89.95° refused, the second 45.4° dropped');
+}
+
+// ── 7. So does the report's angle list ───────────────────────────────────────
+{
+    const { AngleListField } = await import('../src/components/windows/information/report/controls.js');
+    const changes = [];
+    mount(AngleListField, { value: [65], onChange: next => changes.push(next), c })
+        .type('89.95, 89.94, 45').press('Enter');
+    assert.deepEqual(changes, [[TOP, 45]], '89.95° is refused rather than made 90°');
+}
+
+// ── 8. The report's color block takes an angle up to the top ────────────────
+{
+    const { BlockSettingsPanel } = await import('../src/components/windows/information/report/BlockSettings.js');
+    const { newBlock } = await import('../src/utils/report/blocks.js');
+    const en = getLocale('en');
+    const changes = [];
+    const field = mount(BlockSettingsPanel, {
+        c, W: en.report.window, t: en, block: newBlock('color', { theta: 89 }), index: 0, count: 1, design: null,
+        onChange: (id, change) => changes.push(change), onMove() {}, onRemove() {}, onClose() {},
+    });
+    field.type('89.5').press('Enter');
+    assert.deepEqual(changes, [{ theta: 89.5 }], 'an angle above 89° is kept');
+    field.type('89.5').press('ArrowUp');
+    assert.deepEqual(changes.at(-1), { theta: TOP }, 'and the up arrow raises it to the top, not back to 89°');
+}
+
+// ── 9. Color Evaluation's angle saved by 2.0.0 opens as a list ──────────────
+{
+    const { sanitizeAnalysisOverrides } = await import('../src/utils/analysisSettings.js');
+    const saved = { colorEvaluation: { numbers: { theta: 45, step: 1 } } };
+    assert.deepEqual(resolvedWindowValues('colorEvaluation', saved).thetas, [45], 'the saved angle is the list');
+    assert.deepEqual(sanitizeAnalysisOverrides(saved), { colorEvaluation: { numbers: { step: 1 }, lists: { thetas: [45] } } },
+        'and is kept as a list at the next save');
+    const listed = { colorEvaluation: { numbers: { theta: 45 }, lists: { thetas: [10, 20] } } };
+    assert.deepEqual(resolvedWindowValues('colorEvaluation', listed).thetas, [10, 20], 'a saved list wins over it');
+    const grazing = { colorEvaluation: { numbers: { theta: 89.97 } } };
+    assert.deepEqual(resolvedWindowValues('colorEvaluation', grazing).thetas, [0], 'an angle the list would refuse is not carried');
 }
 
 console.log('angle_chips_limit: passed');

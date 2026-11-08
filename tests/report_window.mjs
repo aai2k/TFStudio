@@ -81,6 +81,30 @@ const design = makeSampleDesign();
   assert.deepEqual(settingsFromWindow('worksheet', design), {});
 }
 
+// ── The color block prints the patch the window shows ────────────────────────
+// The window shows its patches at its exposure, Fit hue unless set otherwise.
+// The block copies the exposure, so the page prints that patch, for one design
+// and side by side with another.
+{
+  const { gatherDesignData } = await import('../src/utils/report/reportData.js');
+  const { composeReport } = await import('../src/utils/report/template.js');
+  const { exposedRgb } = await import('../src/components/windows/analysis/colorEvaluation/colorModel.js');
+  colorEvaluationSession.reset();
+  const block = newBlock('color', settingsFromWindow('color', design));
+  assert.equal(block.settings.exposure, 'fit', 'the block copies the window\'s exposure');
+  const page = (b, designs) => composeReport({
+    lang: 'en', tr: t.report, blocks: [b],
+    designs: designs.map(d => ({ design: d, data: gatherDesignData(d, [b]) })),
+  });
+  const report = gatherDesignData(design, [block]).blocks[block.id].report;
+  const fit = `background:${exposedRgb(report, 'fit')}`;
+  assert.notEqual(exposedRgb(report, 'fit'), report.rgb, 'the two exposures differ for this design');
+  assert.ok(page(block, [design]).includes(fit), 'the page prints the patch at Fit hue');
+  assert.ok(page(block, [design, { ...design, id: 'other', name: 'Other' }]).includes(fit), 'and so does a comparison');
+  const asIs = newBlock('color', { ...block.settings, exposure: '1' });
+  assert.ok(page(asIs, [design]).includes(`background:${report.rgb}`), 'as is when the block is set so');
+}
+
 // ── Names and summaries ──────────────────────────────────────────────────────
 for (const spec of BLOCK_TYPES) {
   const block = newBlock(spec.type, settingsFromWindow(spec.type, design));

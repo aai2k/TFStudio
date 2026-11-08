@@ -10,19 +10,21 @@ import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { resolveColor } from '../../materials/catalogManager.js';
 import { materialName, buildSpectrum } from './engines.js';
 import { sessionDefaults } from '../../../constants/analysisDefaults.js';
+import { exposedRgb } from '../../../components/windows/analysis/colorEvaluation/colorModel.js';
 
 // ── Color ───────────────────────────────────────────────────────────────────
 // The spectrum is computed on the colour band every `step` nm and the colour is
-// integrated over every point of it, as the Color Evaluation window does.
+// integrated over every point of it, as the Color Evaluation window does. `rgb`
+// is the patch at the block's exposure, as the window shows it.
 export function computeColor(design, opts = {}) {
   const { characteristic = 'R', pol = 'avg', theta = 0,
-          observer = '2', illuminant = 'D65', step = 1 } = opts;
+          observer = '2', illuminant = 'D65', step = 1, exposure } = opts;
   const spec = buildSpectrum(design, {
     lambdaStart: COLOR_RANGE_NM[0], lambdaEnd: COLOR_RANGE_NM[1], lambdaStep: step, thetas: [theta], pol,
   });
   const response = { lambda: spec.lambda, values: spec.series[0][characteristic === 'T' ? 'T' : 'R'] };
-  return { characteristic, pol, theta, observer, illuminant,
-           report: colorReport(response, { observer, illuminant }) };
+  const report = colorReport(response, { observer, illuminant });
+  return { characteristic, pol, theta, observer, illuminant, exposure, report, rgb: exposedRgb(report, exposure) };
 }
 
 // ── Integral values (Tvis / Tsol / TUV / TNIR …) ────────────────────────────

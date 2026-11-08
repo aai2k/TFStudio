@@ -252,8 +252,9 @@ export class Color {
     get duv() { return this._colour.duv; }
 
     /**
-     * The window's swatch, `{ r, g, b }`, each 0 to 255: sRGB at an exposure
-     * of 1, adapted from the illuminant's white to D65.
+     * The colour the window's patches show with Exposure set to As is,
+     * `{ r, g, b }`, each 0 to 255: sRGB against a perfect white reflector,
+     * adapted from the illuminant's white to D65.
      *
      * @example
      * const design = tf.newDesign('Mirror');

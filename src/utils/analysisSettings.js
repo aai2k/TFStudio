@@ -9,7 +9,7 @@
  * only carried through as they were stored, so a newer release that has the
  * window finds them again.
  */
-import { ANALYSIS_DEFAULTS, numberAllowed } from '../constants/analysisDefaults.js';
+import { ANALYSIS_DEFAULTS, listAngle, numberAllowed } from '../constants/analysisDefaults.js';
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -68,6 +68,15 @@ function resolveLists(defaults, stored) {
   return out;
 }
 
+// Color Evaluation took one angle up to 2.0.0, saved as `numbers.theta`, and
+// takes a list now. A saved angle with no saved list opens as a list of that
+// one angle, so an upgrade does not lose it.
+function withAngleAsList(windowId, overrides) {
+  const angle = listAngle(overrides.numbers?.theta);
+  if (windowId !== 'colorEvaluation' || overrides.lists?.thetas || angle === null) return overrides;
+  return { ...overrides, lists: { ...overrides.lists, thetas: [angle] } };
+}
+
 /**
  * Resolved settings for one window.
  *
@@ -79,7 +88,7 @@ function resolveLists(defaults, stored) {
 export function resolveAnalysisSettings(windowId, stored) {
   const registry = ANALYSIS_DEFAULTS[windowId];
   if (!registry) return { colors: {}, numbers: {}, enums: {}, booleans: {}, lists: {} };
-  const overrides = stored?.[windowId] || {};
+  const overrides = withAngleAsList(windowId, stored?.[windowId] || {});
   return {
     colors:   resolveColors(registry.colors     || {}, overrides.colors),
     numbers:  resolveNumbers(registry.numbers   || {}, overrides.numbers),

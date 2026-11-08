@@ -8,21 +8,27 @@ import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 
 export const ANGLE_CAP = ANALYSIS_DEFAULTS.colorEvaluation.lists.thetas.maxLength;
 
-// Angles are kept to the 0.1° the angle chips hold.
-const tenth = value => Math.round(value * 10) / 10;
+/** `value`, degrees, to the 0.1° the angle chips hold. */
+export const tenth = value => Math.round(value * 10) / 10;
 
 /**
  * The angles from `from` to `to`, `step` apart, first to last, as `angles`,
  * and how many the range holds before the cap, as `total`. A last angle the
  * step does not land on is left out; a range that runs downward is kept in
  * that order.
+ *
+ * The first angle, the last and the step are each rounded to 0.1° once, and
+ * the range is counted in whole tenths, so every angle lands on the 0.1° grid
+ * exactly, the steps between them are equal, and none passes the last angle.
  */
 export function rangeAngles(from, to, step) {
-    const size = Math.abs(step);
-    if (!(size > 0) || !Number.isFinite(from) || !Number.isFinite(to)) return { angles: [tenth(from || 0)], total: 1 };
-    const total = Math.floor(Math.abs(to - from) / size + 1e-9) + 1;
-    const sign = to < from ? -1 : 1;
-    const angles = Array.from({ length: Math.min(total, ANGLE_CAP) }, (_, k) => tenth(from + sign * k * size));
+    const first = Math.round(from * 10);
+    const last = Math.round(to * 10);
+    const stride = Math.round(Math.abs(step) * 10);
+    if (!(stride > 0) || !Number.isFinite(first) || !Number.isFinite(last)) return { angles: [tenth(from || 0)], total: 1 };
+    const total = Math.floor(Math.abs(last - first) / stride) + 1;
+    const sign = last < first ? -1 : 1;
+    const angles = Array.from({ length: Math.min(total, ANGLE_CAP) }, (_, k) => (first + sign * k * stride) / 10);
     return { angles, total };
 }
 

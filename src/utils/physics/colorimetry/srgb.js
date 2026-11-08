@@ -14,11 +14,27 @@ const M_XYZ_RGB = [[ 3.2406255,-1.5372080,-0.4986286],
                    [-0.9689307, 1.8757561, 0.0415175],
                    [ 0.0557101,-0.2040211, 1.0569959]]; // sRGB, D65
 
+// The D65 white the sRGB matrix is defined on, Y 1.
+const D65_WHITE = [0.95047, 1.0, 1.08883];
+
 function mul3(M, v) {
   return [M[0][0]*v[0]+M[0][1]*v[1]+M[0][2]*v[2],
           M[1][0]*v[0]+M[1][1]*v[1]+M[1][2]*v[2],
           M[2][0]*v[0]+M[2][1]*v[1]+M[2][2]*v[2]];
 }
+
+// XYZ seen under the white `from` as the XYZ that looks the same under the
+// white `to`: Bradford, a von Kries scaling in its cone space. Both whites are
+// [X, Y, Z] on the scale of `xyz`.
+function bradford(xyz, from, to) {
+  const lmsS = mul3(M_BFD, from), lmsD = mul3(M_BFD, to);
+  const lms  = mul3(M_BFD, xyz);
+  return mul3(M_BFD_INV,
+    [lms[0]*lmsD[0]/lmsS[0], lms[1]*lmsD[1]/lmsS[1], lms[2]*lmsD[2]/lmsS[2]]);
+}
+
+// A white's XYZ, any scale, as [X, Y, Z] with Y 1.
+const unitWhite = white => [white.X / white.Y, 1, white.Z / white.Y];
 
 // The sRGB transfer curve, linear 0..1 to encoded 0..1 (IEC 61966-2-1).
 function encode(v) {
@@ -36,28 +52,49 @@ export const SRGB_PRIMARIES = {
 };
 
 /**
+ * Chromaticities x, y of the sRGB primaries as seen under the illuminant whose
+ * white has the XYZ `white`: the colours a display shows as its primaries once
+ * they are adapted from that white to D65 (Bradford), as the colour patches
+ * are. Mixtures of two primaries are straight lines in XYZ, and the adaptation
+ * is linear, so they stay a triangle.
+ */
+export function srgbPrimariesUnder(white) {
+  const under = ({ x, y }) => {
+    const [X, Y, Z] = bradford([x / y, 1, (1 - x - y) / y], D65_WHITE, unitWhite(white));
+    return { x: X / (X + Y + Z), y: Y / (X + Y + Z) };
+  };
+  const { red, green, blue } = SRGB_PRIMARIES;
+  return { red: under(red), green: under(green), blue: under(blue) };
+}
+
+/**
  * The colour a chromaticity diagram is filled with at x, y: the chromaticity as
  * an sRGB display shows it, at full brightness. Returns [r, g, b], each 0 to
  * 255, or null where y is not positive.
  *
- * Linear sRGB of the stimulus first. A chromaticity outside the sRGB primaries
- * has a negative channel; equal parts of R, G and B, which is the display's D65
- * white, are added until none is negative. Adding white moves the point
- * straight toward the D65 white point, so the colour shown keeps the dominant
- * wavelength, measured from D65, of the chromaticity it stands for and gives
- * up purity only: a
- * colour is its spectral line mixed with white (Macleod, Thin-Film Optical
- * Filters, 5th ed., §12.2). The brightest channel is then set to 1 and the
- * result encoded with the sRGB transfer curve.
+ * Without `white`, there is no chromatic adaptation: the chromaticity is shown
+ * as a D65 display shows it, whatever illuminant the colour was computed under.
+ * With `white`, the XYZ of an illuminant's white, the chromaticity is taken as
+ * seen under that illuminant and adapted from its white to D65 first
+ * (Bradford), as the colour patches are, so that white is shown white.
  *
- * There is no chromatic adaptation: each chromaticity is shown as a D65 display
- * shows it, whatever illuminant the colour was computed under. The sRGB matrix
- * is defined on the 1931 2° observer, so on a 10° diagram the fill is that
- * matrix applied to 10° chromaticities, which is close but not exact.
+ * Linear sRGB of the stimulus next. A chromaticity outside the sRGB primaries
+ * has a negative channel; equal parts of R, G and B, the display's white, are
+ * added until none is negative. That moves the point straight toward the white
+ * it is shown against, D65 or `white`, so the colour shown keeps the dominant
+ * wavelength, measured from that white, of the chromaticity it stands for and
+ * gives up purity only: a colour is its spectral line mixed with white
+ * (Macleod, Thin-Film Optical Filters, 5th ed., §12.2). The brightest channel
+ * is then set to 1 and the result encoded with the sRGB transfer curve.
+ *
+ * The sRGB matrix is defined on the 1931 2° observer, so on a 10° diagram the
+ * fill is that matrix applied to 10° chromaticities, which is close but not
+ * exact.
  */
-export function chromaticityDisplayRgb(x, y) {
+export function chromaticityDisplayRgb(x, y, white = null) {
   if (!(y > 0)) return null;
-  const linear = mul3(M_XYZ_RGB, [x / y, 1, (1 - x - y) / y]);
+  const stimulus = [x / y, 1, (1 - x - y) / y];
+  const linear = mul3(M_XYZ_RGB, white ? bradford(stimulus, unitWhite(white), D65_WHITE) : stimulus);
   const low = Math.min(linear[0], linear[1], linear[2]);
   const lifted = low < 0 ? linear.map(v => v - low) : linear;
   const peak = Math.max(lifted[0], lifted[1], lifted[2]);
@@ -82,12 +119,7 @@ export function xyzToSRGB(XYZ, white, { fit = false } = {}) {
   // Normalise so white maps to Y=1; adapt source-white → D65.
   const src = [XYZ.X / 100, XYZ.Y / 100, XYZ.Z / 100];
   const wS  = [white.X / 100, white.Y / 100, white.Z / 100];
-  const wD  = [0.95047, 1.0, 1.08883]; // D65 reference white
-  const lmsS = mul3(M_BFD, wS), lmsD = mul3(M_BFD, wD);
-  const lms  = mul3(M_BFD, src);
-  const adapted = mul3(M_BFD_INV,
-    [lms[0]*lmsD[0]/lmsS[0], lms[1]*lmsD[1]/lmsS[1], lms[2]*lmsD[2]/lmsS[2]]);
-  let rgb = mul3(M_XYZ_RGB, adapted);
+  let rgb = mul3(M_XYZ_RGB, bradford(src, wS, D65_WHITE));
   if (fit) {
     const peak = Math.max(rgb[0], rgb[1], rgb[2], 1e-12);
     rgb = rgb.map(v => Math.max(0, v) / peak);

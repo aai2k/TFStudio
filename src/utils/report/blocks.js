@@ -66,8 +66,9 @@ const ALL_CURVES_OFF = {
   T: false, R: false, A: false, Ts: false, Rs: false, As: false, Tp: false, Rp: false, Ap: false,
 };
 // The color block starts from the Color Evaluation window's shipped settings the
-// same way. The block prints one angle, the first of the window's.
-const COLOR_EVALUATION_KEYS = ['characteristic', 'pol', 'observer', 'illuminant', 'step'];
+// same way, its patch shown at the window's exposure. The block prints one
+// angle, the first of the window's.
+const COLOR_EVALUATION_KEYS = ['characteristic', 'pol', 'observer', 'illuminant', 'step', 'exposure'];
 function colorBlockDefaults() {
   const shipped = sessionDefaults('colorEvaluation');
   return { ...pick(shipped, COLOR_EVALUATION_KEYS), theta: shipped.thetas[0] };

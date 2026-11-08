@@ -12,6 +12,7 @@ import { AoiChips } from '../../analysis/opticalEvaluation/AoiChips.js';
 import { CurveGroup } from '../../analysis/opticalEvaluation/controls.js';
 import { CURVE_GROUPS } from '../../analysis/opticalEvaluation/model.js';
 import { SpectralRange, VerticalRange } from '../../analysis/opticalEvaluation/SetupPanel.js';
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { BUILTIN_TYPES, withDefaults } from '../../../../utils/report/blocks.js';
 import { switchSpectralUnit } from '../../../../utils/physics/spectralAxis.js';
 import { blockName } from './blockText.js';
@@ -105,10 +106,17 @@ function LambdaRow({ c, W, s, set, design }) {
         h(NumInput, { c, value: useRef ? ref : s.lambda, ...LAMBDA, step: 10, width: 64, disabled: useRef, onChange: v => set('lambda', v) }));
 }
 
-function AngleRow({ c, W, s, set }) {
+// The angle of a block that prints one.
+function AngleRow({ c, W, s, set, max = 89 }) {
     return h(SettingRow, { c, label: W.angle },
-        h(NumInput, { c, value: s.theta, min: 0, max: 89, step: 1, width: 56, onChange: v => set('theta', v) }));
+        h(NumInput, { c, value: s.theta, min: 0, max, step: 1, width: 56, onChange: v => set('theta', v) }));
 }
+
+// The color block copies the first of Color Evaluation's angles, which go as
+// far as its angle list does, and shows its patch at one of the window's
+// exposures.
+const COLOR_ANGLE_TOP = ANALYSIS_DEFAULTS.colorEvaluation.lists.thetas.max;
+const EXPOSURES = ANALYSIS_DEFAULTS.colorEvaluation.enums.exposure.options;
 
 const polItems = W => [{ id: 'avg', label: W.polAvg }, { id: 's', label: 's' }, { id: 'p', label: 'p' }];
 
@@ -136,7 +144,7 @@ const FORMS = {
             h(ResponseChoice, { c, t, activeId: s.characteristic, onSelect: id => set('characteristic', id) })),
         h(SettingRow, { c, key: 'pol', label: W.polarization },
             h(ChoiceGroup, { c, items: polItems(W), activeId: s.pol, onSelect: id => set('pol', id) })),
-        h(AngleRow, { key: 'angle', c, W, s, set }),
+        h(AngleRow, { key: 'angle', c, W, s, set, max: COLOR_ANGLE_TOP }),
         h(SettingRow, { c, key: 'observer', label: W.observer },
             h(ChoiceGroup, { c, items: [{ id: '2', label: '2°' }, { id: '10', label: '10°' }], activeId: String(s.observer), onSelect: id => set('observer', id) })),
         h(SettingRow, { c, key: 'illuminant', label: W.illuminant },
@@ -144,6 +152,11 @@ const FORMS = {
         h(SettingRow, { c, key: 'step', label: W.step },
             h(NumInput, { c, value: s.step, positive: true, step: 1, width: 56, onChange: v => set('step', v) }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, W.nm)),
+        h(SettingRow, { c, key: 'exposure', label: t.colorEval.exposure },
+            h(ChoiceGroup, {
+                c, items: EXPOSURES.map(id => ({ id, label: t.colorEval.exposures[id] })),
+                activeId: s.exposure, onSelect: id => set('exposure', id),
+            })),
     ],
     integrals: ({ c, W, s, set }) => [
         h(AngleRow, { key: 'angle', c, W, s, set }),

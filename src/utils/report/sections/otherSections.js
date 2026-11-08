@@ -58,7 +58,7 @@ export function buildColor(ctx) {
   const { d: cdata, fail } = blockData(ctx, 'color', title);
   if (fail) return fail;
   const r = cdata.report;
-  const swatch = `<div class="tf-swatch" style="background:${escapeHtml(r.rgb)}"></div>`;
+  const swatch = `<div class="tf-swatch" style="background:${escapeHtml(cdata.rgb)}"></div>`;
   const rows = table([tt(tr, 'quantity', 'Quantity'), tt(tr, 'value', 'Value')].map(escapeHtml),
     colorRows(r, tr).map(([k, v]) => [escapeHtml(k), escapeHtml(v)]), { align: ['l', 'r'] });
   const inner = `<div class="tf-cols"><div class="tf-swatch-wrap">${swatch}</div><div>${rows}</div></div>`;

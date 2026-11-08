@@ -1,5 +1,5 @@
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { ANALYSIS_DEFAULTS, listAngle } from '../../../../constants/analysisDefaults.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { stepKeys } from '../../../ui/numberField.js';
 import { AOI_MAX, formatTheta } from './model.js';
@@ -11,14 +11,8 @@ const AOI_TOP = ANALYSIS_DEFAULTS.opticalEvaluation.lists.thetas.max;
 
 // The angle boxes are text fields that keep what is typed until Enter or the
 // box is left, and take a comma or a dot as the decimal separator. An angle is
-// kept to the 0.1° a chip shows, and one that rounds past the top is refused
-// rather than taken as grazing incidence.
-function parsedAoi(raw) {
-    const value = parseNumberStrict(raw);
-    if (!(value >= 0)) return null;
-    const rounded = Math.round(value * 10) / 10;
-    return rounded <= AOI_TOP ? rounded : null;
-}
+// kept as the angle lists keep it.
+const parsedAoi = raw => listAngle(parseNumberStrict(raw));
 
 // The arrow keys step the angle being typed by 1° within 0 and the top; it
 // still applies on Enter or when the box is left.

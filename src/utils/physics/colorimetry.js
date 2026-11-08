@@ -29,8 +29,11 @@
  *    adaptation (illuminant white → D65) so the patch shows the perceived
  *    colour under the selected source.
  *  - Chromaticity diagram fill: IEC 61966-2-1 linear sRGB, out-of-gamut
- *    chromaticities brought in by adding the D65 white, which keeps the
- *    dominant wavelength measured from that white (Macleod §12.2); see srgb.js.
+ *    chromaticities brought in by adding the display's white, which keeps the
+ *    dominant wavelength measured from that white (Macleod §12.2). On the
+ *    CIELAB and CIELUV planes, which are relative to the illuminant's white,
+ *    the fill is Bradford-adapted from that white to D65 as the patch is; see
+ *    srgb.js.
  *  - Planckian locus: chromaticities of Planck's law summed over the observer
  *    table, with c2 = 1.4388e-2 m·K, the value ITS-90 fixes (H. Preston-Thomas,
  *    Metrologia 27, 3 (1990)).
@@ -55,7 +58,7 @@ export {
   spectralLocusXy, dominantWavelength, correlatedColorTemperature, planckianXyz,
 } from './colorimetry/locus.js';
 export { ciede2000 } from './colorimetry/deltaE.js';
-export { xyzToSRGB, chromaticityDisplayRgb, SRGB_PRIMARIES } from './colorimetry/srgb.js';
+export { xyzToSRGB, chromaticityDisplayRgb, SRGB_PRIMARIES, srgbPrimariesUnder } from './colorimetry/srgb.js';
 export { colorReport } from './colorimetry/report.js';
 export {
   DIAGRAM_IDS, LIGHTNESS_DIAGRAMS, diagramPlane, locusOutline, locusMarks, planckianLocus, srgbTriangle,

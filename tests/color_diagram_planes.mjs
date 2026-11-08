@@ -5,14 +5,17 @@
  *     primary is its own channel alone; a spectral colour outside the sRGB
  *     primaries is brought in by adding white, so the colour shown keeps its
  *     dominant wavelength (Macleod, Thin-Film Optical Filters 5th ed., §12.2);
+ *     adapted from an illuminant's white, as on the CIELAB and CIELUV planes,
+ *     that white is white and the primaries seen under it are their channels;
  *   - the sRGB primaries and white: the IEC 61966-2-1 matrix takes each primary
  *     to one channel and the white to equal channels;
  *   - CIELAB and CIELUV solved back for XYZ are the inverses of the forward
  *     formulas, on both branches of L*;
  *   - every plane takes a chromaticity there and back, and places a computed
  *     colour where its report says: x, y; u′, v′; a*, b*; u*, v*;
- *   - no optimal colour, the most saturated a surface can have, reaches past
- *     the chroma of 200 that the CIELAB and CIELUV planes are drawn to;
+ *   - no optimal colour, the most saturated a surface can have, reaches a
+ *     chroma of 200, so no coating's point on the CIELAB and CIELUV planes
+ *     does unless R or T is above 1;
  *   - the Planckian locus at 2856 K is CIE illuminant A's chromaticity, CIE
  *     15:2004 Table T.3, as far as the 5 nm table and the two values of c2
  *     allow.
@@ -24,7 +27,7 @@ import assert from 'node:assert/strict';
 import {
     chromaticityDisplayRgb, chromaticityXy, colorReport, diagramPlane, DIAGRAM_IDS, dominantWavelength,
     ILLUMINANTS, lab, labToXyz, locusOutline, luv, luvToXyz, OBSERVERS, planckianLocus, planckianXyz,
-    spectralLocusXy, SRGB_PRIMARIES, srgbTriangle, tristimulus, whitePoint,
+    spectralLocusXy, SRGB_PRIMARIES, srgbPrimariesUnder, srgbTriangle, tristimulus, whitePoint,
 } from '../src/utils/physics/colorimetry.js';
 
 let failures = 0;
@@ -121,6 +124,24 @@ check('a computed colour sits where its report says, and the white at the white'
     }
 });
 
+check('adapted from an illuminant\'s white, that white fills white and its primaries their own channel', () => {
+    for (const { id } of ILLUMINANTS) {
+        const white = whitePoint(grid, '2', id);
+        const w = chromaticityXy(white);
+        assert.deepEqual(chromaticityDisplayRgb(w.x, w.y, white), [255, 255, 255], `${id} white`);
+        // The triangle drawn on a plane relative to that white bounds the
+        // colours shown with no white added.
+        const { red, green, blue } = srgbPrimariesUnder(white);
+        assert.deepEqual(chromaticityDisplayRgb(red.x, red.y, white), [255, 0, 0], `${id} red`);
+        assert.deepEqual(chromaticityDisplayRgb(green.x, green.y, white), [0, 255, 0], `${id} green`);
+        assert.deepEqual(chromaticityDisplayRgb(blue.x, blue.y, white), [0, 0, 255], `${id} blue`);
+        const corners = srgbTriangle(diagramPlane('xy', { white, lightness: 50 }));
+        const relative = diagramPlane('ab', { white, lightness: 50 });
+        assert.deepEqual(srgbTriangle(relative)[0], relative.toPlane(red.x, red.y), `${id}: a*, b* triangle at the adapted red`);
+        assert.deepEqual(corners[0], [SRGB_PRIMARIES.red.x, SRGB_PRIMARIES.red.y], `${id}: x, y triangle at the red primary`);
+    }
+});
+
 check('the outline, the Planckian locus and the sRGB triangle close where they should', () => {
     const plane = diagramPlane('xy', { white: D65, lightness: 50 });
     const outline = locusOutline(plane, '2');
@@ -135,11 +156,11 @@ check('the outline, the Planckian locus and the sRGB triangle close where they s
     assert.ok(planck.every((p, i) => i === 0 || p.at[0] < planck[i - 1].at[0]), 'x falls as T rises');
 });
 
-// The CIELAB and CIELUV planes run to a chroma of 200 because no surface can
-// be more saturated than an optimal colour, R = 1 inside one band and 0
-// outside it or the reverse (Macleod §12.2). The XYZ of a band is a sum of the
-// XYZ of its samples, so every band on the 5 nm grid is checked from running
-// sums.
+// No surface can be more saturated than an optimal colour, R = 1 inside one
+// band and 0 outside it or the reverse (Macleod §12.2), so these bound where a
+// coating's point can fall on the CIELAB and CIELUV planes. The XYZ of a band
+// is a sum of the XYZ of its samples, so every band on the 5 nm grid is checked
+// from running sums.
 function mostSaturatedOptimalColour(observer, illuminant) {
     const lambda = Array.from({ length: 81 }, (_, i) => 380 + 5 * i);
     const white = whitePoint(lambda, observer, illuminant);

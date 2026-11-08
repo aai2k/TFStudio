@@ -76,7 +76,7 @@ function channels(rgb) {
  * @property dominant `{ wavelength, complementary, purity }`: the dominant wavelength in nm, or for a purple null and its complementary wavelength in nm; purity the excitation purity as a fraction of 1, measured to the purple line for a purple (Macleod Eq. 12.6). Both wavelengths are null for the white itself.
  * @property cct The correlated colour temperature, K, by McCamy's formula; NaN outside the 1000 K to 1e6 K it covers, or more than 0.05 from the Planckian locus.
  * @property duv The distance from the Planckian locus in CIE 1960 u, v, positive above it; NaN outside the range McCamy's formula covers.
- * @property srgb The window's swatch, `{ r, g, b }`, each 0 to 255: sRGB at an exposure of 1, adapted from the illuminant's white to D65.
+ * @property srgb The colour the window's patches show with Exposure set to As is, `{ r, g, b }`, each 0 to 255: sRGB against a perfect white reflector, adapted from the illuminant's white to D65.
  * @property outOfRange The materials of the sides computed whose data stop inside 380-780 nm, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take, a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, or more than a million wavelengths
  * @throws a design that names a material that resolves to nothing

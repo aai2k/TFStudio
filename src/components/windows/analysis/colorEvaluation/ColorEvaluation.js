@@ -56,11 +56,13 @@ function useColorState(design) {
 // The diagram with a line per angle under it, or a message in their place. The
 // lines step aside while Results is open, whose tables hold the same values,
 // so the diagram keeps its room. The diagram never goes below its least
-// height; in a window too short for it and every line, the lines scroll.
+// height; in a window too short for it and every line, the lines scroll, down
+// to one line, and in one too short for the diagram and one line, the two
+// scroll together, so no line is cut off out of reach.
 function DiagramArea({ c, t, ce, state, reports, busy }) {
     if (busy) return h(CenteredMessage, { c, message: t.analysisEvaluation.computing });
     if (!reports) return h(CenteredMessage, { c, message: ce.noData });
-    return h(React.Fragment, null,
+    return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' } },
         h('div', { style: { flex: '1 1 0', minHeight: CHART_MIN_HEIGHT } },
             h(ChromaticityChart, {
                 reports, observer: state.observer, diagram: state.diagram,

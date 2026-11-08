@@ -243,8 +243,9 @@ class Color:
             design.stack("HL")
             print(round(design.color(quantity="T").duv, 4))
         """)
-    srgb = _reading("srgb", """The window's swatch, a named tuple (r, g, b), each 0 to 255: sRGB at an
-        exposure of 1, adapted from the illuminant's white to D65.
+    srgb = _reading("srgb", """The colour the window's patches show with Exposure set to As is, a named
+        tuple (r, g, b), each 0 to 255: sRGB against a perfect white reflector, adapted from the
+        illuminant's white to D65.
 
         Example::
 

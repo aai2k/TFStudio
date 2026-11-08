@@ -73,6 +73,19 @@ export function numberAllowed(spec, value) {
 }
 
 /**
+ * An angle as an angle list keeps it, degrees: rounded to the 0.1° a chip
+ * shows, or null when it is below the lists' lowest angle or rounds past their
+ * highest. The top is checked after rounding, so 89.95° is refused rather than
+ * taken as 90°, grazing incidence. Every list the registry declares is a list
+ * of angles with these bounds.
+ */
+export function listAngle(value) {
+  if (!Number.isFinite(value) || value < AOI_LIST.min) return null;
+  const rounded = Math.round(value * 10) / 10;
+  return rounded <= AOI_LIST.max ? rounded : null;
+}
+
+/**
  * The shipped values for one window's scalar settings, as a session store's
  * defaults.
  *

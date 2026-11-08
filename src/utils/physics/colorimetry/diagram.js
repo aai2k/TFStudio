@@ -15,7 +15,7 @@
 
 import { chromaticityXy, lab, labToXyz, lightnessToY, luv, luvToXyz, uvPrime } from './colorSpaces.js';
 import { planckianXyz, spectralLocusXy } from './locus.js';
-import { SRGB_PRIMARIES } from './srgb.js';
+import { SRGB_PRIMARIES, srgbPrimariesUnder } from './srgb.js';
 
 /** The diagrams in the order the window's tabs show them. */
 export const DIAGRAM_IDS = ['xy', 'uv', 'ab', 'chUv', 'chAb'];
@@ -86,14 +86,20 @@ function lightnessPlane(space, white, L) {
  *        white, Y 100, as the colour report carries it
  * @param {number} options.lightness  L*, above 0 and up to 100; read by the
  *        CIELAB and CIELUV planes only
- * @returns {{ id, axes, polar, toPlane, fromPlane, ofReport, white }}
- *          `white` is where the white sits on the plane.
+ * @returns {{ id, axes, polar, toPlane, fromPlane, ofReport, white, relativeTo }}
+ *          `white` is where the white sits on the plane. `relativeTo` is the
+ *          illuminant's white on the CIELAB and CIELUV planes, whose colours
+ *          are relative to it, so they are shown adapted from it; null on the
+ *          two chromaticity diagrams, which are absolute.
  */
 export function diagramPlane(id, { white, lightness }) {
     const base = chromaticityPlanes[id]
         || lightnessPlane(id === 'chUv' ? 'luv' : 'lab', white, lightness);
     const w = chromaticityXy(white);
-    return { id, polar: id === 'chUv' || id === 'chAb', ...base, white: base.toPlane(w.x, w.y) };
+    return {
+        id, polar: id === 'chUv' || id === 'chAb', ...base,
+        white: base.toPlane(w.x, w.y), relativeTo: chromaticityPlanes[id] ? null : white,
+    };
 }
 
 // Points `count` steps apart from a to b, b left out.
@@ -142,9 +148,14 @@ export function planckianLocus(plane, observer, temperatures) {
     });
 }
 
-/** The triangle of the sRGB primaries on `plane`, closed, as [p, q] pairs. */
+/**
+ * The triangle of the sRGB primaries on `plane`, closed, as [p, q] pairs: the
+ * colours a display can show as they are. On a plane relative to an
+ * illuminant's white, whose fill is adapted from that white, these are the
+ * primaries as seen under it.
+ */
 export function srgbTriangle(plane) {
-    const { red, green, blue } = SRGB_PRIMARIES;
+    const { red, green, blue } = plane.relativeTo ? srgbPrimariesUnder(plane.relativeTo) : SRGB_PRIMARIES;
     const corners = [red, green, blue, red];
     const points = [];
     for (let i = 0; i < 3; i++) points.push(...stepsBetween(corners[i], corners[i + 1], LINE_STEPS));

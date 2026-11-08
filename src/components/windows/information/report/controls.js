@@ -4,6 +4,7 @@
  * Sized like the shared inputs so a panel mixes them freely.
  */
 
+import { listAngle } from '../../../../constants/analysisDefaults.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 
 const { createElement: h, useState, useEffect } = React;
@@ -37,14 +38,17 @@ export function TextArea({ value, onChange, c, width = 260, rows = 5, placeholde
     });
 }
 
-/** Angles of incidence as a comma-separated list, committed on blur or Enter. */
+/**
+ * Angles of incidence as a comma-separated list, committed on blur or Enter,
+ * each kept as the angle chips keep it.
+ */
 export function AngleListField({ value, onChange, c, width = 110 }) {
     const text = list => (list || []).join(', ');
     const [raw, setRaw] = useState(text(value));
     useEffect(() => { setRaw(text(value)); }, [value]);
     const commit = () => {
-        const parsed = [...new Set(raw.split(/[,\s;]+/).map(s => parseNumberStrict(s))
-            .filter(v => Number.isFinite(v) && v >= 0 && v < 90).map(v => Math.round(v * 10) / 10))];
+        const parsed = [...new Set(raw.split(/[,\s;]+/).map(s => listAngle(parseNumberStrict(s)))
+            .filter(v => v !== null))];
         if (parsed.length) onChange(parsed); else setRaw(text(value));
     };
     return h('input', {

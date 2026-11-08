@@ -19,6 +19,11 @@ const CELL_PAD = 3;
 // does not take the diagram's room.
 const LINES_IN_VIEW = 6;
 const LINE_HEIGHT = PATCH.height + 2 * CELL_PAD;
+// The strip's padding above and below the lines and its top border, which its
+// height includes.
+const STRIP_PAD = 6;
+const STRIP_BORDER = 1;
+const STRIP_EDGES = 2 * STRIP_PAD + STRIP_BORDER;
 
 // The type size of the results tables, and gaps kept small, so a line of eight
 // values fits a window docked at half the screen.
@@ -29,9 +34,9 @@ export function AngleLines({ reports, exposure, ce, units, c }) {
     // Shrinks before the diagram does, down to one line, and scrolls the rest.
     return h('div', {
         style: {
-            flex: '0 1 auto', minHeight: 36, maxHeight: LINES_IN_VIEW * LINE_HEIGHT,
-            overflow: 'auto', padding: '6px 8px',
-            borderTop: `1px solid ${c.border}`, backgroundColor: c.panel,
+            flex: '0 1 auto', minHeight: LINE_HEIGHT + STRIP_EDGES, maxHeight: LINES_IN_VIEW * LINE_HEIGHT + STRIP_EDGES,
+            overflow: 'auto', padding: `${STRIP_PAD}px 8px`,
+            borderTop: `${STRIP_BORDER}px solid ${c.border}`, backgroundColor: c.panel,
         },
     },
         h('table', { style: { borderCollapse: 'collapse', fontSize: 11, fontVariantNumeric: 'tabular-nums' } },

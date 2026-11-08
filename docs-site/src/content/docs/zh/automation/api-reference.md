@@ -7132,9 +7132,9 @@ print(round(design.color(quantity="T").duv, 4))
 | ---------- | ------ |
 | `c.srgb` | `c.srgb` |
 
-**JavaScript**：窗口的色块，`{ r, g, b }`，各为 0 到 255：曝光为 1 时的 sRGB，从光源的白色适配到 D65。
+**JavaScript**：曝光设为原样时窗口色块显示的颜色，`{ r, g, b }`，各为 0 到 255：以理想白色反射体为基准的 sRGB，从光源的白色适配到 D65。
 
-**Python**：窗口的色块，一个具名元组 (r, g, b)，各为 0 到 255：曝光为 1 时的 sRGB，从光源的白色适配到 D65。
+**Python**：曝光设为原样时窗口色块显示的颜色，一个具名元组 (r, g, b)，各为 0 到 255：以理想白色反射体为基准的 sRGB，从光源的白色适配到 D65。
 
 ```js
 const design = tf.newDesign('Mirror');

@@ -73,13 +73,18 @@ const named = series => series.map(item => [item.name || null, item.type]);
     'ticked on multiples of 0.1, not from the frame\'s edge');
   assert.deepEqual([xAxis.axisLabel.showMinLabel, xAxis.axisLine.onZero], [false, false],
     'the edge is not numbered and the axis line stays on it');
-  for (const mark of series[1].data) {
-    const [dx, dy] = mark.label.offset;
+  // A series' labelLayout sets each label's offset to its dx and dy, whatever
+  // the label itself asks (ECharts' LabelManager), so the gap is read there.
+  assert.equal(typeof series[1].labelLayout, 'function', 'the gap from the locus is given where ECharts keeps it');
+  series[1].data.forEach((mark, dataIndex) => {
+    const { dx, dy, hideOverlap } = series[1].labelLayout({ dataIndex });
+    assert.ok(hideOverlap, 'overlapping wavelengths are hidden');
+    assert.ok(Math.abs(Math.hypot(dx, dy) - 6) < 1e-9, `${mark.wavelength} nm is written 6 px from its point`);
     const p = mark.value[0] + dx * 1e-4;
     const q = mark.value[1] - dy * 1e-4;
     assert.ok(Math.hypot(p - white.x, q - white.y) > Math.hypot(mark.value[0] - white.x, mark.value[1] - white.y),
       `${mark.wavelength} nm is written on the outer side of the locus`);
-  }
+  });
   assert.equal(grid.left, 48);
   assert.equal(grid.top, 64);
   assert.equal(legend.orient, 'horizontal');
@@ -119,9 +124,9 @@ const named = series => series.map(item => [item.name || null, item.type]);
   const expected = {
     xy: ['x', 'y', [-0.08, 0.8], [-0.08, 0.9], [first.xy.x, first.xy.y]],
     uv: ['u′', 'v′', [-0.08, 0.7], [-0.08, 0.7], [first.uvP.up, first.uvP.vp]],
-    ab: ['a*', 'b*', [-200, 200], [-200, 200], [first.Lab.a, first.Lab.b]],
-    chUv: ['u*', 'v*', [-200, 200], [-200, 200], [first.Luv.u, first.Luv.v]],
-    chAb: ['a*', 'b*', [-200, 200], [-200, 200], [first.Lab.a, first.Lab.b]],
+    ab: ['a*', 'b*', [-100, 100], [-100, 100], [first.Lab.a, first.Lab.b]],
+    chUv: ['u*', 'v*', [-150, 150], [-150, 150], [first.Luv.u, first.Luv.v]],
+    chAb: ['a*', 'b*', [-100, 100], [-100, 100], [first.Lab.a, first.Lab.b]],
   };
   for (const id of DIAGRAM_IDS) {
     const { xAxis, yAxis, series } = option(three, id);
@@ -132,7 +137,8 @@ const named = series => series.map(item => [item.name || null, item.type]);
     const unnamedLines = series.filter(item => item.type === 'line' && !item.name).length;
     assert.equal(unnamedLines > 0, id === 'chUv' || id === 'chAb', `${id}: chroma rings and hue spokes only on the round diagrams`);
   }
-  assert.deepEqual(diagramView('ab', [[-400, 20]]).x, [-450, 450], 'a colour past the frame widens it');
+  assert.deepEqual(diagramView('ab', [[-30, 12]]).x, [-40, 40], 'a tenth past the farthest point, on a round step');
+  assert.deepEqual(diagramView('ab', [[-400, 20]]).x, [-600, 600], 'R or T above 1 puts a point far out; the frame holds it');
 }
 
 // ── The CIELAB and CIELUV planes are drawn at the coating's lightness ────────
@@ -174,11 +180,16 @@ const named = series => series.map(item => [item.name || null, item.type]);
       }
     }
   }
-  // A faint colour is drawn close up, its locus filling the frame; a bright one
-  // keeps the frame that holds any surface colour.
-  const near = option([{ theta: 0, report: faint }], 'chUv');
-  assert.ok(near.xAxis.max < 50 && near.xAxis.max > 2, `faint: ±${near.xAxis.max}`);
-  assert.equal(option([{ theta: 0, report: bright }], 'chUv').xAxis.max, 200);
+  // The planes are framed to the coating, so the faint reflection of an
+  // antireflection coating, a dot on a frame that held the whole locus, is
+  // drawn close up on all three; a neutral colour is not stretched past ±5;
+  // a bright one is framed out to its own a*, b* or u*, v*.
+  const neutral = colorReport({ lambda, values: lambda.map(() => 0.04) }, { observer: '2', illuminant: 'D65' });
+  for (const id of ['ab', 'chUv', 'chAb']) {
+    assert.equal(option([{ theta: 0, report: faint }], id).xAxis.max, 6, `${id}: the faint colour close up`);
+    assert.equal(option([{ theta: 0, report: neutral }], id).xAxis.max, 6, `${id}: no closer than ±5 for a neutral one`);
+  }
+  assert.equal(option([{ theta: 0, report: bright }], 'ab').xAxis.max, 80, 'a bright one out to its own a*, b*');
 }
 
 // ── The fill is made again only when what it shows changes ───────────────────
@@ -286,6 +297,21 @@ const named = series => series.map(item => [item.name || null, item.type]);
   });
   assert.equal(pixelAt(discPixels, 60, [30, 30])[3], 255, 'the white at the centre of the disc is filled');
   assert.equal(pixelAt(discPixels, 60, [59, 59])[3], 0, 'no fill in the corner, outside the disc');
+
+  // The CIELAB and CIELUV planes are relative to the illuminant's white, and
+  // their fill is adapted from it as the coating's points are: under
+  // illuminant A their centre, a* = b* = 0, is white, not A's orange.
+  const { whitePoint } = await import('../src/utils/physics/colorimetry.js');
+  const tungsten = whitePoint(Array.from({ length: 81 }, (_, i) => 380 + 5 * i), '2', 'A');
+  for (const id of ['ab', 'chUv', 'chAb']) {
+    const plane = diagramPlane(id, { white: tungsten, lightness: 50 });
+    const pixels = diagramFillPixels({
+      plane, outline: locusOutline(plane, '2'), view: { x: [-150, 150], y: [-150, 150] }, width: 61, height: 61,
+    });
+    assert.deepEqual(pixelAt(pixels, 61, [30, 30]), [255, 255, 255, 255], `${id} under A: white at the centre`);
+  }
+  const absolute = diagramPlane('xy', { white: tungsten, lightness: 50 });
+  assert.equal(absolute.relativeTo, null, 'x, y is absolute: A\'s white point is drawn as a D65 screen shows it');
 }
 
 // ── The window ────────────────────────────────────────────────────────────────
@@ -375,7 +401,28 @@ assert.ok(!html.includes('position:absolute'), 'nothing is laid over the diagram
   const open = render();
   assert.ok(!open.includes('width:36px;height:22px'), 'Results open: no lines under the diagram');
   colorEvaluationSession.write(design, { showTable: false });
-  assert.ok(render().includes('width:36px;height:22px'), 'Results closed: the lines are back');
+  const closed = render();
+  assert.ok(closed.includes('width:36px;height:22px'), 'Results closed: the lines are back');
+  // In a window too short for the diagram and a line under it, the two scroll
+  // together rather than the lines being cut off out of reach.
+  assert.ok(closed.includes(`overflow-y:auto"><div style="flex:1 1 0;min-height:${CHART_MIN_HEIGHT}px`),
+    'the diagram and its lines sit in one scrolling column');
+  // The angle field may shrink to the control row, so its chips wrap onto more
+  // lines rather than running past the window's edge with + among them.
+  const aoiAt = closed.indexOf(`>${CE.aoi}</span>`);
+  assert.ok(closed.slice(closed.lastIndexOf('<div style="', aoiAt), aoiAt).includes('flex-shrink:1"><span'),
+    'the angle field shrinks to the row');
+
+  // The lines' strip is as tall as its padding and border plus six lines at
+  // most and one at least: its height includes them (border-box).
+  const { AngleLines } = await import('../src/components/windows/analysis/colorEvaluation/AngleLines.js');
+  const sixLines = [0, 10, 20, 30, 40, 50].map(theta => ({ theta, report: colourAt(500 + theta) }));
+  const strip = renderToStaticMarkup(React.createElement(AngleLines, { reports: sixLines, exposure: 'fit', ce: CE, units: EN.units, c }));
+  const px = pattern => Number(pattern.exec(strip)[1]);
+  const edges = 2 * px(/padding:(\d+)px 8px/) + px(/border-top:(\d+)px/);
+  const line = px(/;height:(\d+)px/) + 2 * px(/padding:(\d+)px 0/);
+  assert.equal(px(/max-height:(\d+)px/) - edges, 6 * line, 'six whole lines in view');
+  assert.equal(px(/min-height:(\d+)px/) - edges, line, 'one whole line at least');
 
   // A patch per angle and the reference white, cells of one grid: they share
   // the row, more angles than fit wrap onto rows the strip scrolls through,
@@ -400,6 +447,23 @@ assert.ok(!html.includes('position:absolute'), 'nothing is laid over the diagram
   assert.deepEqual(rangeAngles(0, 0.3, 0.1).angles, [0, 0.1, 0.2, 0.3], 'steps of 0.1° land on tenths');
   assert.deepEqual(rangeAngles(30, 30, 5).angles, [30], 'a range of one angle');
   assert.deepEqual(rangeAngles(10, 20, 0), { angles: [10], total: 1 }, 'a zero step gives the first angle');
+  // Off the 0.1° grid the ends and the step are each rounded once, so every
+  // angle is on the grid, the steps between them are equal and none passes the
+  // rounded last angle.
+  assert.deepEqual(rangeAngles(2.05, 3.05, 0.1).angles, [2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9, 3, 3.1],
+    'no angle repeated or skipped');
+  assert.deepEqual(rangeAngles(0, 2, 0.25).angles, [0, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8], 'one step, rounded to 0.1°');
+  let seed = 1;
+  const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 2000; i++) {
+    const [from, to] = [random() * 60, random() * 60];
+    const { angles } = rangeAngles(from, to, 0.1 + random() * 3);
+    const tenths = angles.map(angle => Math.round(angle * 10));
+    assert.ok(angles.every((angle, k) => angle === tenths[k] / 10), `on the 0.1° grid: ${angles}`);
+    assert.ok(new Set(tenths.slice(1).map((v, k) => v - tenths[k])).size <= 1, `equal steps: ${angles}`);
+    const end = Math.round(to * 10);
+    assert.ok(tenths.every(v => (from <= to ? v <= end : v >= end)), `none past the end: ${angles}`);
+  }
   const fine = rangeAngles(0, 89, 0.5);
   assert.equal(fine.total, 179);
   assert.equal(fine.angles.length, ANGLE_CAP, 'past the cap only the first angles are computed');
@@ -428,6 +492,10 @@ assert.ok(!html.includes('position:absolute'), 'nothing is laid over the diagram
   colorEvaluationSession.write(design, { angleStep: 0.5, angleEnd: 89 });
   assert.ok(render().includes(notices), 'a range past the cap: a notice');
   assert.equal(CE.anglesCapped(179, ANGLE_CAP), 'The range holds 179 angles. The first 91 are shown.');
+  // The range's fields hold what is counted, so they show the angles computed.
+  colorEvaluationSession.write(design, { angleStart: 2.05, angleEnd: 30.04, angleStep: 0.25 });
+  const kept = colorEvaluationSession.read(design);
+  assert.deepEqual([kept.angleStart, kept.angleEnd, kept.angleStep], [2.1, 30, 0.3], 'the ends and the step kept to 0.1°');
   colorEvaluationSession.reset();
 }
 

@@ -5,8 +5,12 @@
  * rebuilt on every frame of a resize.
  *
  * Each pixel inside the spectral locus is the colour of the chromaticity it
- * stands for (colorimetry/srgb.js, chromaticityDisplayRgb). Outside the locus
- * no real colour exists and the pixel is left clear.
+ * stands for (colorimetry/srgb.js, chromaticityDisplayRgb): as a D65 display
+ * shows it on the two chromaticity diagrams, and on the CIELAB and CIELUV
+ * planes, whose colours are relative to the illuminant's white, adapted from
+ * that white to D65 as the coating's points are, so the plane's centre is
+ * white under any illuminant. Outside the locus no real colour exists and the
+ * pixel is left clear.
  */
 
 import { chromaticityDisplayRgb } from '../../../../utils/physics/colorimetry.js';
@@ -34,7 +38,7 @@ const columnCentre = (view, width, column) => view.x[0] + (column + 0.5) / width
 function colourAt({ plane, discRadius = null }, p, q) {
     if (discRadius != null && Math.hypot(p, q) > discRadius) return null;
     const xy = plane.fromPlane(p, q);
-    return xy && chromaticityDisplayRgb(xy.x, xy.y);
+    return xy && chromaticityDisplayRgb(xy.x, xy.y, plane.relativeTo);
 }
 
 // Paint the pixels of `row` whose centres lie between two crossings of the
