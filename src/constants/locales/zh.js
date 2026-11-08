@@ -1663,7 +1663,7 @@ export default {
     targetsTooltipOn: '显示评价函数目标',
     targetsTooltipOff: '未定义评价函数目标',
     addAoiPlaceholder: '+',
-    addAoiTooltip: (max) => `添加入射角 (0–89°)，最多 ${max} 个角度`,
+    addAoiTooltip: (max, top) => `添加入射角 (0–${top}°)，最多 ${max} 个角度`,
     editAoiTooltip: '点击编辑此角度',
     aoiAtLeastOne: '至少需要一个入射角',
     editTargets: '编辑',

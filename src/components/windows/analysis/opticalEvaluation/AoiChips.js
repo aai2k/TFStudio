@@ -1,20 +1,28 @@
 import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { stepKeys } from '../../../ui/numberField.js';
 import { AOI_MAX, formatTheta } from './model.js';
 
 const { createElement: h, useState } = React;
 
+// The highest angle a chip holds, degrees, the same as the saved angle lists.
+const AOI_TOP = ANALYSIS_DEFAULTS.opticalEvaluation.lists.thetas.max;
+
 // The angle boxes are text fields that keep what is typed until Enter or the
-// box is left, and take a comma or a dot as the decimal separator.
+// box is left, and take a comma or a dot as the decimal separator. An angle is
+// kept to the 0.1° a chip shows, and one that rounds past the top is refused
+// rather than taken as grazing incidence.
 function parsedAoi(raw) {
     const value = parseNumberStrict(raw);
-    return isNaN(value) || value < 0 || value >= 90 ? null : Math.round(value * 10) / 10;
+    if (!(value >= 0)) return null;
+    const rounded = Math.round(value * 10) / 10;
+    return rounded <= AOI_TOP ? rounded : null;
 }
 
-// The arrow keys step the angle being typed by 1° within 0 to 89°; it still
-// applies on Enter or when the box is left.
-const stepAoi = (event, text, setText) => stepKeys(text, setText, { step: 1, min: 0, max: 89 })(event);
+// The arrow keys step the angle being typed by 1° within 0 and the top; it
+// still applies on Enter or when the box is left.
+const stepAoi = (event, text, setText) => stepKeys(text, setText, { step: 1, min: 0, max: AOI_TOP })(event);
 
 function addDraftAoi({ draft, values, onChange, setDraft, max }) {
     if (!draft.trim()) return;
@@ -96,7 +104,7 @@ export function AoiChips({ values, onChange, c, oe, max = AOI_MAX }) {
         addDraftAoi({ draft, values, onChange, setDraft, max });
         setAdding(false);
     };
-    const addTitle = oe.addAoiTooltip(max);
+    const addTitle = oe.addAoiTooltip(max, AOI_TOP);
     return h('div', {
         style: {
             minHeight: 28, display: 'inline-flex', alignItems: 'center', gap: 2,

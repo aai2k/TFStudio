@@ -52,8 +52,9 @@ export function paletteColors(colors, prefix, size = PALETTE_SIZE) {
 const LAMBDA = { positive: true, step: 10 };
 const AOI = { def: 0, min: 0, max: 89, step: 1 };
 // Several angles at once, entered with Optical Evaluation's angle chips, which
-// hold up to six.
-const AOI_LIST = { def: [0], min: 0, max: 89, maxLength: 6 };
+// hold up to six, in 0.1° steps up to 89.9°, the last step short of grazing
+// incidence.
+const AOI_LIST = { def: [0], min: 0, max: 89.9, maxLength: 6 };
 const POL = { def: 'avg', options: ['avg', 's', 'p'], labelsAt: 'settings.analysis.polarizations' };
 const SIDE = { def: 'front', options: ['front', 'back'], labelsAt: 'settings.analysis.sides' };
 
@@ -204,11 +205,11 @@ export const ANALYSIS_DEFAULTS = {
       // narrower than the step is not seen, so it starts fine.
       step: { def: 0.5, positive: true, step: 1 },
       // A range of angles opens at 0 to 60°, the span most coatings are
-      // specified over, every 10°. The step goes down to the 0.1° the angle
-      // chips hold.
-      angleStart: { def: 0, min: 0, max: 89, step: 5 },
-      angleEnd: { def: 60, min: 0, max: 89, step: 5 },
-      angleStep: { def: 10, min: 0.1, max: 89, step: 1 },
+      // specified over, every 10°. Its ends go as far as the angle chips do,
+      // and the step down to the 0.1° the chips hold.
+      angleStart: { def: 0, min: 0, max: AOI_LIST.max, step: 5 },
+      angleEnd: { def: 60, min: 0, max: AOI_LIST.max, step: 5 },
+      angleStep: { def: 10, min: 0.1, max: AOI_LIST.max, step: 1 },
     },
     // The colour at each angle is one point on the diagram, so a coating's
     // shift with angle reads as a path. Up to 91 angles, a range or a list: each

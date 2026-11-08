@@ -1680,7 +1680,7 @@ export default {
     targetsTooltipOn: 'Mostra i target della funzione di merito',
     targetsTooltipOff: 'Nessun target della funzione di merito definito',
     addAoiPlaceholder: '+',
-    addAoiTooltip: (max) => `Aggiungi un angolo AOI (0–89°), fino a ${max} angoli`,
+    addAoiTooltip: (max, top) => `Aggiungi un angolo AOI (0–${String(top).replace('.', ',')}°), fino a ${max} angoli`,
     editAoiTooltip: 'Clicca per modificare questo angolo',
     aoiAtLeastOne: 'È richiesto almeno un angolo AOI',
     editTargets: 'Modifica',

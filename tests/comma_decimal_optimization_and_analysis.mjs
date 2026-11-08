@@ -226,7 +226,7 @@ function received(Component, props, name, pick, act) {
         const click = test => nodeWhere(field.render(), test).props.onClick();
         return { changes, field, click };
     };
-    const addButton = node => node.type === 'button' && node.props.title === oe.addAoiTooltip(6);
+    const addButton = node => node.type === 'button' && node.props.title === oe.addAoiTooltip(6, 89.9);
     const chipLabel = node => node.type === 'span' && node.props.title === oe.editAoiTooltip;
 
     {
@@ -268,9 +268,11 @@ function received(Component, props, name, pick, act) {
         const { changes, field, click } = chips([10, 45]);
         click(chipLabel);
         field.type('88,5').press('ArrowUp');
-        assert.equal(field.shown, '89', 'Optical Evaluation: the up arrow steps an angle by 1, up to 89');
+        assert.equal(field.shown, '89.5', 'Optical Evaluation: the up arrow steps an angle by 1');
+        field.press('ArrowUp');
+        assert.equal(field.shown, '89.9', 'Optical Evaluation: up to 89.9');
         field.press('ArrowDown').press('Enter');
-        assert.deepEqual(changes, [[88, 45]], 'Optical Evaluation: and the down arrow back down');
+        assert.deepEqual(changes, [[88.9, 45]], 'Optical Evaluation: and the down arrow back down');
     }
 }
 

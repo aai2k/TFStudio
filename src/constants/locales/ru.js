@@ -1499,7 +1499,7 @@ export default {
     targetsTooltipOn: 'Показать цели функции качества',
     targetsTooltipOff: 'Цели функции качества не заданы',
     addAoiPlaceholder: '+',
-    addAoiTooltip: (max) => `Добавить угол УПП (0–89°), не более ${max}`,
+    addAoiTooltip: (max, top) => `Добавить угол УПП (0–${String(top).replace('.', ',')}°), не более ${max}`,
     editAoiTooltip: 'Нажмите для изменения угла',
     aoiAtLeastOne: 'Должен быть хотя бы один угол падения',
     editTargets: 'Правка',

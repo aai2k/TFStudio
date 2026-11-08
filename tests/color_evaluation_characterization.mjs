@@ -393,6 +393,7 @@ assert.ok(!html.includes('position:absolute'), 'nothing is laid over the diagram
 {
   // The angles as a list, or as a range in equal steps, up to the cap.
   const { ANGLE_CAP, rangeAngles, windowAngles } = await import('../src/components/windows/analysis/colorEvaluation/angles.js');
+  const { ANALYSIS_DEFAULTS } = await import('../src/constants/analysisDefaults.js');
   assert.deepEqual(rangeAngles(0, 60, 10), { angles: [0, 10, 20, 30, 40, 50, 60], total: 7 });
   assert.deepEqual(rangeAngles(0, 45, 10).angles, [0, 10, 20, 30, 40], 'a step past the end stops before it');
   assert.deepEqual(rangeAngles(60, 0, 20).angles, [60, 40, 20, 0], 'a range from high to low counts down');
@@ -414,13 +415,14 @@ assert.ok(!html.includes('position:absolute'), 'nothing is laid over the diagram
   const notices = `title="${EN.analysisChrome.notices}"`;
   const listed = render();
   assert.ok(listed.includes(`>${CE.angleModes.list}<`) && listed.includes(`>${CE.angleModes.range}<`));
-  assert.ok(listed.includes(`title="${EN.opticalEval.addAoiTooltip(ANGLE_CAP)}"`), 'the chips take up to the cap');
+  const addTitle = EN.opticalEval.addAoiTooltip(ANGLE_CAP, ANALYSIS_DEFAULTS.colorEvaluation.lists.thetas.max);
+  assert.ok(listed.includes(`title="${addTitle}"`), 'the chips take up to the cap');
   assert.ok(!listed.includes(`>${CE.angleStep}<`), 'List: no step field');
   assert.ok(!listed.includes(notices), 'one angle: nothing to report');
   colorEvaluationSession.write(design, { angleMode: 'range', angleStart: 0, angleEnd: 60, angleStep: 10 });
   const ranged = render();
   assert.ok(ranged.includes(`>${CE.angleStep}<`), 'Range: the step field');
-  assert.ok(!ranged.includes(EN.opticalEval.addAoiTooltip(ANGLE_CAP)), 'Range: no chips');
+  assert.ok(!ranged.includes(addTitle), 'Range: no chips');
   assert.equal(ranged.split('width:36px;height:22px').length - 1, 7, 'a line per angle of the range');
   assert.ok(!ranged.includes(notices), 'a range within the cap: nothing to report');
   colorEvaluationSession.write(design, { angleStep: 0.5, angleEnd: 89 });

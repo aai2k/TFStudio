@@ -1534,7 +1534,7 @@ export default {
     targetsTooltipOn: 'Show merit function targets',
     targetsTooltipOff: 'No merit function targets defined',
     addAoiPlaceholder: '+',
-    addAoiTooltip: (max) => `Add AOI angle (0–89°), up to ${max} angles`,
+    addAoiTooltip: (max, top) => `Add AOI angle (0–${top}°), up to ${max} angles`,
     editAoiTooltip: 'Click to edit this angle',
     aoiAtLeastOne: 'At least one AOI angle is required',
     editTargets: 'Edit',
