@@ -86,15 +86,19 @@ export function _surfaceLayout(surfaceMode, evalFull) {
 // With a cone on jacCfg.ctx, `aoi` is the cone axis. The cone average is a
 // fixed weighted sum over the rays in coneNodesAt, so its derivative is the
 // same weighted sum of the per-ray derivatives, taken over the same rays and
-// weights tmmProp averaged the values with. No cone: the one ray at `aoi`.
+// weights tmmProp averaged the values with. The rays' packages are computed
+// together, one kernel call per stack and polarization. No cone: the one ray
+// at `aoi`.
 export function makePointEvaluators(jacCfg, sideMap) {
-    const getJac = makePackageCache({ ...jacCfg, stacks: layerJacobianStacks(jacCfg) });
+    const packages = makePackageCache({ ...jacCfg, stacks: layerJacobianStacks(jacCfg) });
     // Every (ray, polarization) package the average at (λ, pol, aoi) is taken
     // over, with its weight: 'avg' is ½(s+p).
     const forEachPackage = (lam, pol, aoi, visit) => {
         const pols = pol === 'avg' ? ['s', 'p'] : [pol];
-        for (const { aoiDeg, weight } of coneNodesAt(jacCfg.ctx, aoi, lam)) {
-            for (const p of pols) visit(getJac(lam, p, aoiDeg), weight / pols.length);
+        const rays = coneNodesAt(jacCfg.ctx, aoi, lam);
+        packages.fill(lam, pols, rays);
+        for (const { aoiDeg, weight } of rays) {
+            for (const p of pols) visit(packages.at(lam, p, aoiDeg), weight / pols.length);
         }
     };
     const propDeriv = (lam, pol, char, aoi) => {

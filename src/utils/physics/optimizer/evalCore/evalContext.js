@@ -103,9 +103,9 @@ function _legacyContext(n0mat, nsmat, thicknesses, mats) {
 }
 
 // Fresh per-call memoization. Thicknesses/materials are fixed for the
-// duration of this call, so (λ,aoi,polCode)→{R,T,A}, (mat,λ)→ñ and each
-// stack's distinct-material index are invariant and shared across operands
-// (paired R+T rows above all). Always
+// duration of this call, so (λ,aoi,polCode)→{R,T,A}, the cone's rays per λ,
+// (mat,λ)→ñ and each stack's distinct-material index are invariant and shared
+// across operands (paired R+T rows above all). Always
 // overwritten so a reused ctx object can never serve a stale result.
 // Operands are indexed by id so math operands can resolve op.refId / refId1/2
 // in O(1) and so makeRefResolver can do recursive eval with memoization and
@@ -115,6 +115,7 @@ function _legacyContext(n0mat, nsmat, thicknesses, mats) {
 // extremum in _extremumLambdas, both keyed by operand.
 function _resetPerCallCaches(ctx, operands) {
     ctx._tmmCache = new Map();
+    ctx._coneRayCache = new Map();
     ctx._nkCache  = new Map();
     ctx._stackIndex = new Map();
     ctx._sampleDeviations = new Map();

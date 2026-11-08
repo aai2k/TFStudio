@@ -20,9 +20,39 @@ export function kernelPol(aoi, polCode) {
     return Number(aoi) === 0 ? 's' : polCode;
 }
 
+// The angles of a cone's `rays` ({ aoiDeg }) a cache still has to compute for
+// the polarizations `pols`: [polarization, angles] pairs, grouped by the
+// polarization each is computed and kept under (kernelPol), without the ones
+// `isHeld(polarization, angle)` and without repeats.
+export function raysToCompute(rays, pols, isHeld) {
+    const groups = new Map();
+    for (const pol of pols) {
+        for (const { aoiDeg } of rays) {
+            const pc = kernelPol(aoiDeg, pol);
+            if (isHeld(pc, aoiDeg)) continue;
+            if (!groups.has(pc)) groups.set(pc, new Set());
+            groups.get(pc).add(aoiDeg);
+        }
+    }
+    return [...groups].map(([pc, angles]) => [pc, [...angles]]);
+}
+
 // Single (λ,θ,pol) R/T/A.
 export function rtaEval(lam, aoi, polCode, n0, ns, layers) {
     return wasmKernel().rta(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
+}
+
+// The calls below that end in RaysEval take a whole cone's rays at one λ:
+// a grid call with the same wavelength at every entry and one angle of
+// incidence (degrees) per entry, `stack` as { n0, ns, layers }. Each entry
+// runs the kernel the one-angle call runs, on the same inputs, so it is
+// bit-identical to that call at its angle.
+const sameWavelength = (lam, angles) => new Float64Array(angles.length).fill(Number(lam));
+
+// R, T and A in s and p at every angle in `angles`: { Rs, Ts, As, Rp, Tp, Ap },
+// entry i at angles[i].
+export function rtaRaysEval(lam, angles, { n0, ns, layers }) {
+    return wasmKernel().rtaSpectrum(pointStack(n0, ns, layers), sameWavelength(lam, angles), { angle: angles, pol: 's' });
 }
 
 // Analytic thickness Jacobian for one (λ,θ,pol): { R, T, A, dRdd, dTdd, dAdd, N },
@@ -30,6 +60,14 @@ export function rtaEval(lam, aoi, polCode, n0, ns, layers) {
 // besides mfAt.
 export function tmmJacEval(lam, aoi, polCode, n0, ns, layers) {
     return wasmKernel().jacobian(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
+}
+
+// tmmJacEval at every angle in `angles`, one polarization: R, T and A as one
+// entry per angle, dRdd, dTdd and dAdd as N entries per angle, angle by angle,
+// and N.
+export function tmmJacRaysEval(lam, angles, polCode, { n0, ns, layers }) {
+    return wasmKernel().jacobianSpectrum(pointStack(n0, ns, layers), sameWavelength(lam, angles),
+        { angle: angles, pol: sOrP(polCode) });
 }
 
 // Analytic thickness Hessian for one (λ,θ,pol): the Jacobian's keys plus
@@ -45,5 +83,16 @@ export function tmmHessEval(lam, aoi, polCode, n0, ns, layers) {
 export function tmmNeedleScanEval(lam, aoi, polCode, n0, ns, layers, candNs, fracs) {
     return wasmKernel().needleScan(pointStack(n0, ns, layers), Number(lam), {
         angle: Number(aoi), pol: sOrP(polCode), candidates: candNs.map(([n, k]) => ({ n, k })), fractions: fracs,
+    });
+}
+
+// tmmNeedleScanEval at every angle in `angles`, one polarization, for the
+// candidates and split fractions { candNs, fracs }, in the kernel's flat
+// layout: R, T and A per angle, and gaps and intra each as { dR, dT, dA },
+// angle by angle, [position][candidate] and [layer][fraction][candidate]
+// within an angle.
+export function tmmNeedleScanRaysEval(lam, angles, polCode, { n0, ns, layers }, { candNs, fracs }) {
+    return wasmKernel().needleScanSpectrum(pointStack(n0, ns, layers), sameWavelength(lam, angles), {
+        angle: angles, pol: sOrP(polCode), candidates: candNs.map(([n, k]) => ({ n, k })), fractions: fracs,
     });
 }

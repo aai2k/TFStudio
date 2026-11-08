@@ -27,7 +27,7 @@
 
 import { isPPEF } from '../operandModel.js';
 import { coneIsActive, resolveConeNodes } from '../coneAngle.js';
-import { tmmPropSingle, coneAxisKey, coneAxisRays, inConeRow } from './tmmEval.js';
+import { coneSum, coneAxisKey, coneAxisRays, inConeRow } from './tmmEval.js';
 import { operandSpectrumReads } from './operands/index.js';
 import { ppefSpectrumReads } from './operands/ppef.js';
 
@@ -42,14 +42,8 @@ function maxDifference(a, b) {
 
 // Settle one wavelength by doubling; returns the node count kept.
 function settleWavelength(ctx, axis, rays, lam, channels) {
-    const averageAt = nodes => channels.map(({ pol, char }) => {
-        let acc = 0;
-        for (let i = 0; i < nodes.length; i++) {
-            acc += nodes[i].weight *
-                tmmPropSingle(lam, nodes[i].aoiDeg, pol, char, ctx, ctx.frontThicks, ctx.frontMats);
-        }
-        return acc;
-    });
+    const averageAt = nodes => channels.map(({ pol, char }) =>
+        coneSum(ctx, lam, nodes, { pol, char, thicknesses: ctx.frontThicks, mats: ctx.frontMats }));
     return resolveConeNodes(ctx.cone, axis, averageAt, maxDifference,
         { nodesFor: count => rays.nodesFor(count) }).count;
 }

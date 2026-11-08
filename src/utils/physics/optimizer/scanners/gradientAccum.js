@@ -18,13 +18,17 @@
 
 import { _charDerivAt } from './chainRule.js';
 
-/** { propDeriv, propValue } over the descriptors `descs`, from the memoized scan `scanAt`. */
-export function needlePointEvaluators(cfg, descs, scanAt) {
-    // Every scan result the average at (λ, pol, aoi) is taken over, with its weight.
+/** { propDeriv, propValue } over the descriptors `descs`, from the memoized scan `scans` (_makeScanAt). */
+export function needlePointEvaluators(cfg, descs, scans) {
+    // Every scan result the average at (λ, pol, aoi) is taken over, with its
+    // weight. A cone's rays are scanned together, one kernel call per pass and
+    // polarization.
     const forEachRead = (lam, pol, aoi, visit) => {
         const pols = pol === 'avg' ? ['s', 'p'] : [pol];
+        const rays = cfg.raysAt(aoi, lam);
+        scans.fill(lam, pols, rays);
         for (const pl of pols) {
-            for (const ray of cfg.raysAt(aoi, lam)) visit(scanAt(lam, pl, ray.aoiDeg), ray.weight / pols.length);
+            for (const ray of rays) visit(scans.at(lam, pl, ray.aoiDeg), ray.weight / pols.length);
         }
     };
     const propDeriv = (lam, pol, char, aoi) => {

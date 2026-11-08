@@ -3,8 +3,8 @@
  * within a memory budget.
  */
 
-import { computeLayerJacobian } from './layerJacobian.js';
-import { kernelPol } from '../evalCore/kernels.js';
+import { computeLayerJacobian, computeLayerJacobians } from './layerJacobian.js';
+import { kernelPol, raysToCompute } from '../evalCore/kernels.js';
 
 // Memory one Jacobian keeps kernel packages in: about 32000 packages on 60
 // layers of one coating. A dozen synthesis workers refining at once keep under
@@ -22,8 +22,12 @@ function packageBytes(cfg) {
 }
 
 /**
- * (λ, polCode, aoi) → computeLayerJacobian package, for the computeLayerJacobian
- * config `cfg`.
+ * The computeLayerJacobian packages for the computeLayerJacobian config `cfg`:
+ *   at(λ, polCode, aoi)    the package at one ray
+ *   fill(λ, pols, rays)    compute together the packages not held yet of a
+ *                          cone's rays ({ aoiDeg }) in each polarization of
+ *                          `pols`, one kernel call per stack and polarization;
+ *                          a single ray is left to at()
  *
  * A band row asks for a package at every sample of its grid, which a fine Step
  * makes tens of thousands long; holding them all took 92 MB of heap, and 258 MB
@@ -39,15 +43,30 @@ export function makePackageCache(cfg) {
     const current = new Map();
     const capacity = Math.max(1, Math.floor(JACOBIAN_CACHE_BYTES / packageBytes(cfg)));
     let currentLam;
-    return (lam, polCode, aoi) => {
-        const pc = kernelPol(aoi, polCode);
-        const key = lam + '|' + pc + '|' + aoi;
+    const keyOf = (lam, pc, aoi) => lam + '|' + pc + '|' + aoi;
+    const held = key => kept.get(key) ?? current.get(key);
+    const keep = (key, value) => (kept.size < capacity ? kept : current).set(key, value);
+    const atWavelength = lam => {
         if (lam !== currentLam) { current.clear(); currentLam = lam; }
-        let value = kept.get(key) ?? current.get(key);
+    };
+    const at = (lam, polCode, aoi) => {
+        const pc = kernelPol(aoi, polCode);
+        const key = keyOf(lam, pc, aoi);
+        atWavelength(lam);
+        let value = held(key);
         if (value === undefined) {
             value = computeLayerJacobian(lam, pc, aoi, cfg);
-            (kept.size < capacity ? kept : current).set(key, value);
+            keep(key, value);
         }
         return value;
     };
+    const fill = (lam, pols, rays) => {
+        if (rays.length < 2) return;
+        atWavelength(lam);
+        const isHeld = (pc, aoi) => held(keyOf(lam, pc, aoi)) !== undefined;
+        for (const [pc, angles] of raysToCompute(rays, pols, isHeld)) {
+            computeLayerJacobians(lam, pc, angles, cfg).forEach((value, i) => keep(keyOf(lam, pc, angles[i]), value));
+        }
+    };
+    return { at, fill };
 }

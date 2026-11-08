@@ -19,7 +19,7 @@
  *   fringeSampling   band sample counts from the coating's fringe spacing
  */
 
-export { tmmJacEval, tmmHessEval, tmmNeedleScanEval } from './evalCore/kernels.js';
+export { tmmJacEval, tmmJacRaysEval, tmmHessEval, tmmNeedleScanEval, tmmNeedleScanRaysEval } from './evalCore/kernels.js';
 
 export { tmmProp, tmmFullSystem, isFullSystemEval, resolveEvalMode } from './evalCore/tmmEval.js';
 

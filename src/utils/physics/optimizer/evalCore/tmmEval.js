@@ -9,6 +9,12 @@
 
 import { rtaEval, kernelPol } from './kernels.js';
 import { coneIsActive, coneNodes } from '../coneAngle.js';
+import {
+    nkOf, layersAt, _rtaChar, surfaceModel, substrateAngle, bulkTransmittance, combineFullSystem,
+} from './surfaceModel.js';
+import { coneAverage } from './coneRays.js';
+
+export { nkOf, distinctMaterials } from './surfaceModel.js';
 
 // ── Per-evaluateOperands memoization ──────────────────────────────────────────
 //
@@ -17,46 +23,6 @@ import { coneIsActive, coneNodes } from '../coneAngle.js';
 // Paired R+T operands (every AR/HR/BS/edge generator emits them) otherwise
 // each trigger an independent full TMM that discards two-thirds of its result.
 // These caches return bit-identical numbers — pure speedup, no math change.
-
-export function nkOf(ctx, mat, lam) {
-    const c = ctx && ctx._nkCache;
-    if (!c) return mat.getNK(lam);
-    let m = c.get(mat);
-    if (!m) { m = new Map(); c.set(mat, m); }
-    let v = m.get(lam);
-    if (v === undefined) { v = mat.getNK(lam); m.set(lam, v); }
-    return v;
-}
-
-// The distinct materials of a stack and, per layer, its position among them,
-// so the stack's indices at one λ take one lookup per material rather than one
-// per layer (an H/L stack has two materials however many layers it has).
-export function distinctMaterials(mats) {
-    const materials = [];
-    const index = new Array(mats.length);
-    const at = new Map();
-    for (let i = 0; i < mats.length; i++) {
-        let k = at.get(mats[i]);
-        if (k === undefined) { k = materials.length; materials.push(mats[i]); at.set(mats[i], k); }
-        index[i] = k;
-    }
-    return { materials, index };
-}
-
-// Layers {n, d} of one stack at λ. The stack is fixed for one evaluateOperands
-// call, so its distinct-material index is built once per call.
-function layersAt(ctx, mats, thicknesses, lam) {
-    const c = ctx && ctx._stackIndex;
-    let di = c && c.get(mats);
-    if (!di) {
-        di = distinctMaterials(mats);
-        if (c) c.set(mats, di);
-    }
-    const nks = di.materials.map(m => nkOf(ctx, m, lam));
-    const layers = new Array(mats.length);
-    for (let i = 0; i < mats.length; i++) layers[i] = { n: nks[di.index[i]], d: thicknesses[i] };
-    return layers;
-}
 
 // Cached single-polarization TMM. Keyed on (pass, aoi, λ), where the pass is a
 // `tag` distinguishing independent stacks/passes that share those coordinates
@@ -75,10 +41,6 @@ function tmmC(ctx, tag, lam, aoi, polCode, n0, ns, layers) {
     if (v === undefined) { v = rtaEval(lam, aoi, pc, n0, ns, layers); byLam.set(lam, v); }
     return v;
 }
-
-// Select the R/T/A component named by `char` ('T'|'R' → T/R, else A) from a
-// {T,R,A} result object.
-const _rtaChar = (r, char) => (char === 'T' ? r.T : char === 'R' ? r.R : r.A);
 
 // Front-coating-only TMM evaluation (no back stack, ignores substrate bulk and exit medium).
 // Used when ctx.surfaceMode === 'front_only'.
@@ -115,31 +77,14 @@ function tmmBackOnly(lam, aoi, pol, char, ctx, thicknesses, mats) {
     return _rtaChar(tmmC(ctx, 'b', lam, aoi, pol, n0, ns, layers), char);
 }
 
-// Per-polarization full-system R/T/A for one incidence: coherent front and back
-// coatings joined by an incoherent (intensity-summed) substrate bulk pass P.
-// `s` carries the precomputed geometry/indices from tmmFullSystem.
+// Per-polarization full-system R/T/A for one incidence. `s` carries the
+// precomputed geometry/indices from tmmFullSystem.
 function _fullSystemRTA(polCode, s) {
     const { ctx, lam, aoi, aoiSub, cosTs, n0, ns, ne, fLayers, bLayers } = s;
-    // forward pass:   incident → front → substrate
     const fwd = tmmC(ctx, 'fwd', lam, aoi,    polCode, n0, ns, fLayers);
-    // reverse pass:  substrate → front_reversed → incident   (R_f', T_f')
     const rev = tmmC(ctx, 'rev', lam, aoiSub, polCode, ns, n0, [...fLayers].reverse());
-    // back coating from substrate side:  substrate → back → exit
     const bck = tmmC(ctx, 'bck', lam, aoiSub, polCode, ns, ne, bLayers);
-
-    // Substrate bulk transmittance per pass: P = exp(−4π k d / (λ cosθ_sub))
-    const k_sub    = ns[1];
-    const d_sub_nm = (ctx.substrateThicknessMm || 1.0) * 1e6;
-    const P = (k_sub > 0 && cosTs > 0)
-        ? Math.exp(-4 * Math.PI * k_sub * d_sub_nm / (lam * cosTs))
-        : 1.0;
-    const P2 = P * P;
-
-    const denom = 1 - rev.R * bck.R * P2;
-    const T = denom > 0 ? (fwd.T * P * bck.T) / denom : 0;
-    const R = denom > 0 ? fwd.R + (fwd.T * rev.T * P2 * bck.R) / denom : 1;
-    const A = Math.max(0, 1 - R - T);
-    return { R, T, A };
+    return combineFullSystem(fwd, rev, bck, bulkTransmittance(ctx, lam, ns, cosTs));
 }
 
 // Full-system R/T/A combining front coating + (incoherent) substrate bulk + back coating.
@@ -154,12 +99,7 @@ export function tmmFullSystem(lam, aoi, pol, char, ctx, frontThicks, frontMats, 
 
     const fLayers = layersAt(ctx, frontMats, frontThicks, lam).filter(l => l.d > 0);
     const bLayers = layersAt(ctx, backMats,  backThicks,  lam).filter(l => l.d > 0);
-
-    // Angle inside substrate via real-part Snell's law
-    const sinT0  = Math.sin(aoi * Math.PI / 180);
-    const sinTs  = (ns[0] > 0) ? Math.min(1, n0[0] * sinT0 / ns[0]) : 0;
-    const cosTs  = Math.sqrt(1 - sinTs * sinTs);
-    const aoiSub = Math.asin(sinTs) * 180 / Math.PI;
+    const { aoiSub, cosTs } = substrateAngle(aoi, n0, ns);
 
     const s = { ctx, lam, aoi, aoiSub, cosTs, n0, ns, ne, fLayers, bLayers };
 
@@ -263,8 +203,9 @@ export function coneNodesAt(ctx, aoi, lam) {
 //
 // Cone-angle averaging wraps the single-angle evaluation: when
 // ctx.cone is active, `aoi` is treated as the cone AXIS and the property is the
-// weighted sum over the cone's quadrature nodes (coneNodesAt). With no cone (the
-// default) this is a single call to tmmPropSingle → bit-identical to before.
+// weighted sum over the cone's quadrature nodes (coneNodesAt, coneSum). With no
+// cone (the default) this is a single call to tmmPropSingle → bit-identical to
+// before.
 // Because EVERY optical operand (TGT/TAV/TMN/integral/argwave/…) funnels through
 // here, cone averaging applies uniformly to the merit function, every viewer,
 // and all synthesis (all T/R/A operands + synthesis).
@@ -272,16 +213,27 @@ export function tmmProp(lam, aoi, pol, char, ctx, thicknesses, mats) {
     const cone = ctx.cone;
     if (cone && coneIsActive(cone)) {
         const nodes = coneNodesAt(ctx, aoi, lam);
-        if (nodes.length > 1) {
-            let acc = 0;
-            for (let i = 0; i < nodes.length; i++) {
-                acc += nodes[i].weight *
-                    tmmPropSingle(lam, nodes[i].aoiDeg, pol, char, ctx, thicknesses, mats);
-            }
-            return acc;
-        }
+        if (nodes.length > 1) return coneSum(ctx, lam, nodes, { pol, char, thicknesses, mats });
     }
     return tmmPropSingle(lam, aoi, pol, char, ctx, thicknesses, mats);
+}
+
+/**
+ * The weighted sum of tmmPropSingle over `nodes` ({ aoiDeg, weight }) at
+ * wavelength `lam` (nm) for the read { pol, char, thicknesses, mats }. A mean
+ * of s and p takes the rays together (coneRays.js), one kernel call per pass
+ * that returns both polarizations. A read of one polarization takes them one
+ * at a time, since that call would compute the other polarization for
+ * nothing.
+ */
+export function coneSum(ctx, lam, nodes, read) {
+    if (read.pol === 'avg') return coneAverage(ctx, lam, nodes, read);
+    let acc = 0;
+    for (let i = 0; i < nodes.length; i++) {
+        acc += nodes[i].weight *
+            tmmPropSingle(lam, nodes[i].aoiDeg, read.pol, read.char, ctx, read.thicknesses, read.mats);
+    }
+    return acc;
 }
 
 /**
@@ -289,10 +241,8 @@ export function tmmProp(lam, aoi, pol, char, ctx, thicknesses, mats) {
  * through the same surface model and caches as tmmProp.
  */
 export function tmmPropSingle(lam, aoi, pol, char, ctx, thicknesses, mats) {
-    const sm = ctx.surfaceMode || 'front_only';
-    const fullSystem = ctx.evalFullSystem
-        || sm === 'symmetric' || sm === 'both_independent';
-    if (fullSystem) {
+    const model = surfaceModel(ctx);
+    if (model === 'full') {
         // Full system: front = ctx.frontThicks/Mats, back = ctx.backThicks/Mats.
         // For front_only+total the back stack is the FIXED back coating (or bare
         // substrate if empty); for back_only+total the front is the fixed front.
@@ -300,7 +250,7 @@ export function tmmPropSingle(lam, aoi, pol, char, ctx, thicknesses, mats) {
             ctx.frontThicks || thicknesses, ctx.frontMats || mats,
             ctx.backThicks || [], ctx.backMats || []);
     }
-    if (sm === 'back_only') {
+    if (model === 'back') {
         // Single back-surface model: evalOperand passes ctx.frontThicks/Mats by
         // convention, but in back_only those are inactive — read the back stack
         // directly from ctx so the merit function and SpectralMonitor's "back"
