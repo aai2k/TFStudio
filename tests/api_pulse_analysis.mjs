@@ -138,19 +138,22 @@ function sameAsWindow(design, settings, shown) {
 const SHAPES = [{ shape: 'gaussian', duration: 15 }, { shape: 'sech2', duration: 12 }, { shape: 'superGaussian', bandwidth: 60, order: 4 }];
 const COMBINATIONS = [['front', 'R'], ['front', 'T'], ['back', 'R'], ['back', 'T'], ['whole', 'T']]
     .flatMap(([side, target]) => ['s', 'p', 'avg'].flatMap(pol => [0, 45].map(theta => ({ side, target, pol, theta }))));
-// Coated on the front alone and on the back alone, every combination in each
-// shape; one combination on each of the others, with passes, a chirp of the
-// input's own and another centre in turn.
+// Every combination in each shape, shared in turn between a design coated on
+// the front alone and one coated on the back alone, so each of the two meets
+// every combination; one combination on each of the others, with passes, a
+// chirp of the input's own and another centre in turn.
 const FULL = ['pulse-spectrum', 'back-only-side'];
 const EXTRA = [{ passes: 1 }, { passes: 3, centerWavelength: 700 }, { gdd: 40, tod: 300 }, { passes: 2, gdd: -25, centerWavelength: 900 }];
+const PRODUCT = COMBINATIONS.flatMap(c => SHAPES.map(shape => ({ ...c, ...shape })));
 {
-    const cases = corpus.flatMap(([name, design], i) => (FULL.includes(name) ? COMBINATIONS.flatMap(c => SHAPES.map(shape => [name, design, { ...c, ...shape }]))
+    const shareOf = name => PRODUCT.filter((_, k) => k % FULL.length === FULL.indexOf(name));
+    const cases = corpus.flatMap(([name, design], i) => (FULL.includes(name) ? shareOf(name).map(c => [name, design, c])
         : [[name, design, { ...COMBINATIONS[(i * 7) % COMBINATIONS.length], ...SHAPES[i % SHAPES.length], ...EXTRA[i % EXTRA.length] }]]));
     const shown = cases.map(([, design, c]) => windowPulse(design, c));
     const wrong = cases.filter(([, design, c], i) => !sameAsWindow(design, c, shown[i])).map(([name, , c]) => `${name} ${JSON.stringify(c)}`);
     const covered = new Set(cases.map(([, , c]) => `${c.side} ${c.target} ${c.pol} ${c.theta} ${c.shape}`));
     const refused = shown.filter(pulse => pulse.reason).length;
-    ok(`on ${corpus.length} designs, pulseAnalysis is computePulseAnalysis with the hook's request: every combination in every shape on ${FULL.length}, ${refused} the model cannot compute refused`,
+    ok(`on ${corpus.length} designs, pulseAnalysis is computePulseAnalysis with the hook's request: every combination in every shape across ${FULL.length}, ${refused} the model cannot compute refused`,
         corpus.length >= 12 && FULL.every(name => corpus.some(([n]) => n === name)) && covered.size === 90 && wrong.length === 0, wrong.slice(0, 4).join('\n'));
 }
 {

@@ -53,8 +53,11 @@ console.log(`=== Needle sensitivity (H1, safe tail-trim) · WASM ${tmmWasmActive
 }
 
 // ── (2) Headless GE in THOROUGH mode: cull must not worsen quality ────────────
-const STEPS = 12;
-const CASES = ['bbar', 'bandpass'];
+// bbar runs long enough for the cull to change the design it ends on, so the
+// comparison with off compares different runs. The thick-seed band-pass is the
+// case the rejected variant froze at one layer; growth shows in its first
+// steps, so a short run guards against that.
+const CASES = [{ id: 'bbar', steps: 12 }, { id: 'bandpass', steps: 6 }];
 const FLOORS = [
   { label: 'off',        floor: 0 },
   { label: 'light',      floor: 0.01 },
@@ -62,7 +65,7 @@ const FLOORS = [
 ];
 
 console.log(`  ${'case'.padEnd(10)} ${'sens'.padEnd(11)} ${'MF'.padStart(10)} ${'layers'.padStart(7)} ${'steps'.padStart(6)} ${'time'.padStart(7)}`);
-for (const id of CASES) {
+for (const { id, steps } of CASES) {
   const C = caseById(id);
   const results = {};
   for (const { label, floor } of FLOORS) {
@@ -72,7 +75,7 @@ for (const id of CASES) {
     // limit gives a run fewer steps on a loaded machine, and the comparison
     // would then measure the load, not the cull.
     const r = runSynth(true, C.thick(), C.ops, 1, resolveMat,
-      { budgetMs: Infinity, maxSteps: STEPS, engine: 'cg', needleSensFloor: floor });
+      { budgetMs: Infinity, maxSteps: steps, engine: 'cg', needleSensFloor: floor });
     const mf = opticalMF(r.design, C.ops, resolveMat);
     results[label] = { ...r, mfOpt: mf };
     console.log(`  ${id.padEnd(10)} ${label.padEnd(11)} ${fmt(mf).padStart(10)} ${String(r.layers).padStart(7)} ${String(r.steps).padStart(6)} ${(`${(r.ms/1000).toFixed(1)}s`).padStart(7)}`);

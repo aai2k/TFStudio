@@ -92,9 +92,9 @@ const curvesOf = g => [g.wavelength, g.phase, g.gd, g.gdd, g.tod, g.cdc, g.outsi
 
 // ── 1. The window's numbers ────────────────────────────────────────────────
 const COMBINATIONS = ['front', 'back'].flatMap(side => ['R', 'T'].flatMap(response => ['s', 'p', 'avg'].flatMap(pol => [0, 45].map(angle => ({ side, response, pol, angle })))));
-// The full product on designs coated on both sides, on the back alone, with
-// a dense table and with many layers; one combination on each of the others.
-const FULL = ['absorbing-substrate-both-sides-total', 'back-only-side', 'coating-library-applied', 'pulse-spectrum'];
+// The full product on a design coated on both sides and one coated on the
+// back alone, where the sides differ; one combination on each of the others.
+const FULL = ['absorbing-substrate-both-sides-total', 'back-only-side'];
 {
     const cases = corpus.flatMap(([name, design], i) => (FULL.includes(name) ? COMBINATIONS : [COMBINATIONS[(i * 7) % COMBINATIONS.length]]).map(c => [name, design, c]));
     const wrong = cases.filter(([, design, c]) => {

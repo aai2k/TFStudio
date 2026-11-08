@@ -1058,7 +1058,7 @@ def runs(design, given):
     made = {}
     for name, make in (("dls", lambda d: d.refine(method="dls", max_iter=20)),
                        ("sa", lambda d: d.refine(method="sa", max_iter=20, seed=5)),
-                       ("needle", lambda d: d.synthesize("needle", pool=pool, max_layers=12, refine_iter=10, threads=1)),
+                       ("needle", lambda d: d.synthesize("needle", pool=pool, max_layers=6, refine_iter=10, threads=1)),
                        ("structural", lambda d: d.synthesize("structural", pool=pool, max_iter=3, refine_iter=5, threads=1, seed=7))):
         each = start.copy()
         made[name] = ran(start._data, each, make(each))

@@ -4,7 +4,8 @@
  *
  *   1. On the corpus designs with no catalog, the cone design among them,
  *      over two bands and a spread of quantities, angles, directions, levels,
- *      edge sides and steps: bandFeature's peak, edge and width each equal
+ *      edge sides and steps, the whole spread on four designs and one band and
+ *      setting on each other: bandFeature's peak, edge and width each equal
  *      the value checkSpecification gives a CENTRAL_LAMBDA, EDGE_LAMBDA or
  *      FWHM check with the same settings, a missing crossing null with the
  *      check's reason, and the mode the check's; a FWHM's width is right −
@@ -63,6 +64,16 @@ const SETTINGS = [
 // A design under a cone takes seconds a call, so it is read on one band and
 // two of the settings.
 const CONED = { bands: [[500, 600]], settings: SETTINGS.slice(0, 2), fine: [] };
+// The whole spread on one design of each kind: coated on the back alone, on
+// both sides, scored on the whole part, and a mirror with peaks and edges to
+// find. The options reach the check the same way on any design, so each other
+// design is read on one band and one setting, in turn, with every feature.
+const FULL = ['back-only-side', 'absorbing-substrate-both-sides-total', 'front-only-total-mode', 'builtin-bare-ids-qw-mirror'];
+const spreadFor = (name, design, i) => {
+    if (isConed(design)) return CONED;
+    if (FULL.includes(name)) return { bands: BANDS, settings: SETTINGS, fine: FINE };
+    return { bands: [BANDS[i % BANDS.length]], settings: [SETTINGS[i % SETTINGS.length]], fine: [] };
+};
 const isConed = design => coneIsActive(makeConeSpec(design.cone || {}));
 
 // The options of `feature` among `settings`, and the check of the same.
@@ -80,9 +91,12 @@ const FINE = Object.keys(KINDS).map(feature => asked(feature, { quantity: 'T', a
 const coned = designs.filter(([, design]) => isConed(design)).length;
 {
     const wrong = { value: [], mode: [], width: [], peak: [] };
-    let counted = 0, found = 0;
-    for (const [name, design] of designs) {
-        const { bands, settings: spread, fine } = isConed(design) ? CONED : { bands: BANDS, settings: SETTINGS, fine: FINE };
+    // Crossings looked for and found, by design.
+    const crossings = new Map();
+    for (const [i, [name, design]] of designs.entries()) {
+        const tally = { counted: 0, found: 0 };
+        crossings.set(name, tally);
+        const { bands, settings: spread, fine } = spreadFor(name, design, i);
         const cases = [...bands.flatMap(band => spread.flatMap(settings => Object.keys(KINDS).map(feature => asked(feature, settings, band)))), ...fine];
         const verdict = api.checkSpecification(api.setSpecification(design, cases.map(c => c.check)));
         cases.forEach(({ options }, i) => {
@@ -93,15 +107,19 @@ const coned = designs.filter(([, design]) => isConed(design)).length;
             if (!isDeepStrictEqual([value, got.reason ?? null], [row.value, row.reason])) wrong.value.push(`${said}: ${value} / ${row.value} ${row.reason}`);
             if (got.mode !== verdict.mode) wrong.mode.push(name);
             if (options.feature === 'peak') return;
-            counted++;
-            if (value !== null) found++;
+            tally.counted++;
+            if (value !== null) tally.found++;
             if (got.width && (got.width !== got.right - got.left || got.centre !== (got.left + got.right) / 2)) wrong.width.push(said);
             const peak = api.bandFeature(design, asked('peak', options, [options.from, options.to]).options);
             if (peak.peak !== got.peak || peak.peakValue !== got.peakValue) wrong.peak.push(`${said}: ${got.peak} / ${peak.peak}`);
         });
     }
-    ok('the corpus has designs to read, one of them under a cone', designs.length > 10 && coned > 0, `${designs.length} designs, ${coned} under a cone`);
-    ok('crossings are found on some and missed on others', found > 50 && found < counted, `${found} of ${counted}`);
+    ok('the corpus has designs to read, one of them under a cone, and each design the whole spread is read on',
+        designs.length > 10 && coned > 0 && FULL.every(name => designs.some(([n]) => n === name)), `${designs.length} designs, ${coned} under a cone`);
+    const spreadTallies = FULL.map(name => [name, crossings.get(name) ?? { counted: 0, found: 0 }]);
+    ok('on each design read with the whole spread, crossings are found on some cases and missed on others',
+        spreadTallies.every(([, { counted, found }]) => found > 0 && found < counted),
+        spreadTallies.map(([name, { counted, found }]) => `${name} ${found} of ${counted}`).join(', '));
     ok('bandFeature\'s peak, edge and width are the CENTRAL_LAMBDA, EDGE_LAMBDA and FWHM checks\' values, a missing crossing null with the check\'s reason',
         wrong.value.length === 0, wrong.value.slice(0, 3).join('; '));
     ok('and its mode is the one the checks were scored on', wrong.mode.length === 0, wrong.mode.slice(0, 3).join(', '));

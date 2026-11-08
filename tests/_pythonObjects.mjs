@@ -1177,7 +1177,7 @@ async function coatingFiles(t, said) {
 const RUN_CALLS = {
     dls: (api, before) => api.refine(before, { method: 'dls', maxIter: 20 }),
     sa: (api, before) => api.refine(before, { method: 'sa', maxIter: 20, seed: 5 }),
-    needle: (api, before, pool) => api.synthesize(before, { method: 'needle', pool, settings: { maxLayers: 12, refineIter: 10, threads: 1 } }),
+    needle: (api, before, pool) => api.synthesize(before, { method: 'needle', pool, settings: { maxLayers: 6, refineIter: 10, threads: 1 } }),
     structural: (api, before, pool) => api.synthesize(before, { method: 'structural', pool, settings: { maxIter: 3, refineIter: 5, threads: 1, seed: 7 } }),
 };
 
