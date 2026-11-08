@@ -4844,7 +4844,6 @@ export default {
     secondSurface: 'Lato opposto',
     bare: 'Nudo',
     coated: 'Rivestito',
-    quantity: 'Grandezza',
     aoi: 'AOI (°)',
     polarization: 'Polarizzazione',
     polAvg: 'media',

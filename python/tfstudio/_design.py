@@ -2102,7 +2102,7 @@ class Design:
             other_side: "bare" or "coated": the other side of the part,
                 without or with its coating. Not used on chips. Default
                 "bare".
-            quantity: "T", "R" or "A". Default "T".
+            quantity: "T" or "R", what the monitor reads. Default "T".
             angle: The angle of incidence, degrees in air, 0 up to but not
                 including 90. Default 0.
             pol: "avg", "s" or "p". Default "avg".

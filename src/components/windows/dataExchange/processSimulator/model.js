@@ -214,17 +214,12 @@ export function computeSpectrum(options) {
         backStored,
         options.substrateThk,
     );
-    let values = spec.T;
-    if (options.quantity === 'R') values = spec.R;
-    if (options.quantity === 'A') values = spec.A;
-    return { lambda: spec.lambda, values };
+    return pickQuantity(spec, options.quantity);
 }
 
+// The spectrum the monitor reads, T or R.
 function pickQuantity(spec, quantity) {
-    let values = spec.T;
-    if (quantity === 'R') values = spec.R;
-    if (quantity === 'A') values = spec.A;
-    return { lambda: spec.lambda, values };
+    return { lambda: spec.lambda, values: quantity === 'R' ? spec.R : spec.T };
 }
 
 /**

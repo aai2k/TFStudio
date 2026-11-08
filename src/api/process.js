@@ -71,7 +71,7 @@ function runSettings(call, design, options) {
     } = options;
     const activeSide = scoredSide(call, design, side);
     requireValue(call, 'otherSide', otherSide, v => v === 'bare' || v === 'coated', "'bare' or 'coated'");
-    requireValue(call, 'quantity', quantity, v => ['T', 'R', 'A'].includes(v), "'T', 'R' or 'A'");
+    requireValue(call, 'quantity', quantity, v => v === 'T' || v === 'R', "'T' or 'R'");
     requireValue(call, 'angle', angle, isAngle, 'an angle of incidence in degrees, 0 <= angle < 90');
     requireValue(call, 'pol', pol, v => ['avg', 's', 'p'].includes(v), "'avg', 's' or 'p'");
     checkRange(call, { from, to, step });
@@ -101,7 +101,7 @@ function runSettings(call, design, options) {
  * @param [options]
  * @param [options.side] `'front'` or `'back'`, the side deposited. Without it, the front, or the back of a design coated on the back alone.
  * @param [options.otherSide='bare'] `'bare'` or `'coated'`: the other side of the part, without or with its coating. Not used on chips.
- * @param [options.quantity='T'] `'T'`, `'R'` or `'A'`.
+ * @param [options.quantity='T'] `'T'` or `'R'`, what the monitor reads.
  * @param [options.angle=0] The angle of incidence, degrees in air, 0 up to but not including 90.
  * @param [options.pol='avg'] `'avg'`, `'s'` or `'p'`.
  * @param [options.from=400] The first wavelength, nm.
@@ -110,7 +110,7 @@ function runSettings(call, design, options) {
  * @param [options.chips] Without it, or null, the part. On witness chips, `{ layersPerChip, plan, glass, witnessRatio }`, each optional: `plan` a chip number for each layer of the side from the substrate out, empty layers included, in place of `layersPerChip` layers to a chip (3 without either); `glass` the chip glass by id, the design's substrate without it; `witnessRatio` the witness thickness over the part's, from 0.05 to 10, 1 without it.
  * @returns The run.
  * @property mode The side deposited, `'front'` or `'back'`.
- * @property quantity `'T'`, `'R'` or `'A'`.
+ * @property quantity `'T'` or `'R'`.
  * @property wavelength The wavelengths, nm.
  * @property bare The spectrum before the first layer: the bare part, with the other side's coating when it is coated, or a bare chip.
  * @property steps One per layer deposited, in order, each `{ step, layer, material, thickness, chip, values }`: step from 1; layer, its number in the Design Editor, from 1 next to the substrate, empty layers counted; material by id; thickness on the piece read, nm, the witness's on a chip; chip, its chip number, or null on the part; values, the spectrum when it is finished, a fraction of 1 at each wavelength. On chips each layer's spectrum is its own chip's.

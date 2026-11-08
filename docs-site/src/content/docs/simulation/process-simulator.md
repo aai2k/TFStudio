@@ -22,7 +22,7 @@ spectrometer would really see. The piece sits in the chamber, so it is read with
 ## Settings
 
 The toolbar holds what defines the run: the side, the part or witness chips,
-the state of the opposite surface, the quantity, and Show all layers. The
+the state of the opposite surface, T or R, and Show all layers. The
 Settings button at its right-hand end holds the monitor's geometry, the
 spectral range, the export step and the file format. The left sidebar lists the deposition
 sequence and per-material rates, and on witness chips the chip setup above
@@ -35,7 +35,7 @@ them.
 **Opposite-surface state**: on the part, whether the other surface is bare or already
 coated for the whole run.
 
-**Quantity**: measure reflectance, transmittance, or absorptance.
+**T / R**: what the monitor reads, transmittance or reflectance.
 
 **Angle of incidence** and **polarization**: the standard analysis controls
 (s, p, or average), in Settings.

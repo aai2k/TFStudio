@@ -72,7 +72,7 @@ function windowRun(design, { side, otherSide = 'bare', quantity = 'T', angle = 0
 // ── 1. The window's spectra ─────────────────────────────────────────────────
 const SETTINGS = [
     { step: 5 }, { otherSide: 'coated', quantity: 'R', angle: 45, pol: 's', from: 450, to: 900, step: 3 },
-    { otherSide: 'coated', quantity: 'A', step: 7 }, { quantity: 'T', angle: 30, step: 10 },
+    { otherSide: 'coated', quantity: 'R', step: 7 }, { quantity: 'T', angle: 30, step: 10 },
 ];
 let compared = 0;
 DESIGNS.forEach(({ name, design }, i) => {
@@ -118,13 +118,19 @@ ok('on chips the empty layer is counted in the plan and left out of the run', is
 const refusals = [
     [{ chips: { plan: [1, 2] } }, 'badValue'], [{ chips: { plan: [1, 2, 1, 3, 2, 3, 0] } }, 'badValue'], [{ chips: { layersPerChip: 0 } }, 'badValue'],
     [{ chips: { witnessRatio: 20 } }, 'badValue'], [{ chips: { layer: 2 } }, 'unknownOption'], [{ chips: [1] }, 'badValue'],
-    [{ side: 'total' }, 'badValue'], [{ otherSide: 'half' }, 'badValue'], [{ quantity: 'Rs' }, 'badValue'], [{ angle: 90 }, 'badValue'],
+    [{ side: 'total' }, 'badValue'], [{ otherSide: 'half' }, 'badValue'], [{ quantity: 'Rs' }, 'badValue'], [{ quantity: 'A' }, 'badValue'], [{ angle: 90 }, 'badValue'],
     [{ pol: 'x' }, 'badValue'], [{ from: 900, to: 400 }, 'wavelengthRange'], [{ speed: 2 }, 'unknownOption'],
 ];
 ok('a value an option cannot take, or an option it does not take, is refused with its code',
     refusals.every(([options, code]) => thrown(() => api.processSteps(zero, options))?.code === code),
     refusals.map(([options]) => thrown(() => api.processSteps(zero, options))?.code).join(','));
 ok('a chip glass that resolves to nothing is refused', /chips.glass: Unknown material/.test(thrown(() => api.processSteps(zero, { chips: { glass: 'Unobtainium' } }))?.message ?? ''));
+// A monitor in the chamber reads T or R; absorptance is not a reading.
+ok('A is refused, as what the monitor reads is T or R',
+    ['processSteps', 'exportProcess'].every(call => thrown(() => (call === 'processSteps'
+        ? api.processSteps(zero, { quantity: 'A' })
+        : api.exportProcess(zero, os.tmpdir(), { quantity: 'A' })))?.message === `${call}: quantity is 'T' or 'R', not "A"`),
+    thrown(() => api.processSteps(zero, { quantity: 'A' }))?.message);
 
 // ── 2. The files Save writes ────────────────────────────────────────────────
 const TEMP = fs.mkdtempSync(path.join(os.tmpdir(), 'api-process-'));
@@ -140,7 +146,7 @@ function firstDifference(a = '', b = '') {
 const OUTPUTS = [
     [{}, null],
     [{ chips: { layersPerChip: 2 }, format: 'csv', files: 'table', scale: 'fraction', decimals: 8 }, { chipByStep: assignChips(7, 2), chipMaterial: null, witnessRatio: 1 }],
-    [{ format: 'txt', header: 'conditions', delimiter: ';', decimalMark: ',', side: 'front', otherSide: 'coated', quantity: 'A', angle: 20, pol: 'p' }, null],
+    [{ format: 'txt', header: 'conditions', delimiter: ';', decimalMark: ',', side: 'front', otherSide: 'coated', quantity: 'R', angle: 20, pol: 'p' }, null],
 ];
 for (const [k, [options, plan]] of OUTPUTS.entries()) {
     const folder = path.join(TEMP, `run-${k}`);

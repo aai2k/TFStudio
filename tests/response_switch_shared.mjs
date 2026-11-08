@@ -2,8 +2,8 @@
  * Transmitted or reflected light is one switch, the same in every window that
  * picks between the two: T with a blue dot and R with a red one.
  *
- *   1. GD/GDD, Pulse Analysis and Color Evaluation each render the shared
- *      switch in every language, and only once.
+ *   1. GD/GDD, Pulse Analysis, Color Evaluation and the Process Exporter each
+ *      render the shared switch in every language, and only once.
  *   2. So do the report's color and GD/GDD block settings.
  *   3. Pulse Analysis offers T alone for the whole part, which it computes in
  *      transmission only.
@@ -12,6 +12,7 @@
  *
  * Run: node tests/response_switch_shared.mjs
  */
+import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -28,12 +29,16 @@ const { GDGDDEvaluation } = await import('../src/components/windows/analysis/gdG
 const { PulseAnalysis } = await import('../src/components/windows/analysis/pulseAnalysis/PulseAnalysis.js');
 const { pulseSession } = await import('../src/components/windows/analysis/pulseAnalysis/sessionState.js');
 const { ColorEvaluation } = await import('../src/components/windows/analysis/colorEvaluation/ColorEvaluation.js');
+const { ProcessSimulator } = await import('../src/components/windows/dataExchange/processSimulator/ProcessSimulator.js');
 const { BlockSettingsPanel } = await import('../src/components/windows/information/report/BlockSettings.js');
 const { newBlock } = await import('../src/utils/report/blocks.js');
 
 const c = makeTheme();
 const design = makeSampleDesign();
-const WINDOWS = { 'GD/GDD': GDGDDEvaluation, 'Pulse Analysis': PulseAnalysis, 'Color Evaluation': ColorEvaluation };
+const WINDOWS = {
+    'GD/GDD': GDGDDEvaluation, 'Pulse Analysis': PulseAnalysis, 'Color Evaluation': ColorEvaluation,
+    'Process Exporter': ProcessSimulator,
+};
 
 const rendered = (Window, t) => renderToStaticMarkup(withDesign(React.createElement(Window, { c, t, theme: c }), design));
 const switchMarkup = (t, activeId, ids) =>

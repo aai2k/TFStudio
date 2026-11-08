@@ -1217,7 +1217,7 @@ export class Design {
      * @param [options.step=0.5] The wavelength step, nm.
      * @param [options.side] `'front'` or `'back'`, the side deposited. Without it, the front, or the back of a design coated on the back alone.
      * @param [options.otherSide='bare'] `'bare'` or `'coated'`: the other side of the part, without or with its coating. Not used on chips.
-     * @param [options.quantity='T'] `'T'`, `'R'` or `'A'`.
+     * @param [options.quantity='T'] `'T'` or `'R'`, what the monitor reads.
      * @param [options.angle=0] The angle of incidence, degrees in air, 0 up to but not including 90.
      * @param [options.pol='avg'] `'avg'`, `'s'` or `'p'`.
      * @param [options.chips] On witness chips, `{ layersPerChip, plan, glass, witnessRatio }`, each optional: `plan` a chip number for each layer of the side from the substrate out, empty layers included, in place of `layersPerChip` layers to a chip (3 without either); `glass` the chip glass by id, the substrate without it; `witnessRatio` the witness thickness over the part's, from 0.05 to 10, 1 without it. Without it, the part.

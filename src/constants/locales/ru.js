@@ -4346,7 +4346,6 @@ export default {
     secondSurface: 'Противоположная сторона',
     bare:          'Без покрытия',
     coated:        'С покрытием',
-    quantity:      'Величина',
     aoi:           'УПЛ (°)',
     polarization:  'Поляризация',
     polAvg:        'ср.',

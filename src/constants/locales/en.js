@@ -4419,7 +4419,6 @@ export default {
     secondSurface: 'Opposite side',
     bare:          'Bare',
     coated:        'Coated',
-    quantity:      'Quantity',
     aoi:           'AOI (°)',
     polarization:  'Polarization',
     polAvg:        'avg',

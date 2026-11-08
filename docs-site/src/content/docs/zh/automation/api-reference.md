@@ -1996,7 +1996,7 @@ print("output FWHM", round(p.metrics.output_fwhm, 2), "fs, peak", round(100 * p.
 | `step` | `step` | `0.5` | 波长步长，单位 nm。 |
 | `side` | `side` |  | `'front'` 或 `'back'`，即沉积的那一面。不给出时为正面，只在背面镀膜的设计则为背面。 |
 | `otherSide` | `other_side` | `'bare'` | `'bare'` 或 `'coated'`：工件的另一面无镀膜或带有其镀膜。监控片上不使用。 |
-| `quantity` | `quantity` | `'T'` | `'T'`、`'R'` 或 `'A'`。 |
+| `quantity` | `quantity` | `'T'` | `'T'` 或 `'R'`，即监控读取的量。 |
 | `angle` | `angle` | `0` | 入射角，单位为度，在空气中计，从 0 起，小于 90。 |
 | `pol` | `pol` | `'avg'` | `'avg'`、`'s'` 或 `'p'`。 |
 | `chips` | `chips` |  | **JavaScript**：在监控片上时为 `{ layersPerChip, plan, glass, witnessRatio }`，各项均可省略：`plan` 为该面从基底向外每一层的监控片编号，包括空层，代替每片 `layersPerChip` 层（两者都不给时为 3）；`glass` 为监控片玻璃，按 id 给出，不给出时为基底；`witnessRatio` 为监控片厚度与工件厚度之比，从 0.05 到 10，不给出时为 1。不给出时为工件。<br>**Python**：在监控片上时为含 layers_per_chip、plan、glass 和 witness_ratio 的 dict，各项均可省略：plan 为该面从基底向外每一层的监控片编号，包括空层，代替每片 layers_per_chip 层（两者都不给时为 3）；glass 为监控片玻璃，按 id 给出，不给出时为基底；witness_ratio 为监控片厚度与工件厚度之比，从 0.05 到 10，不给出时为 1。不给出时为工件。 |

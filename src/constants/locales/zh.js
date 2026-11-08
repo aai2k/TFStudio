@@ -4786,7 +4786,6 @@ export default {
     secondSurface: '另一面',
     bare: '裸',
     coated: '已镀膜',
-    quantity: '物理量',
     aoi: '入射角 (°)',
     polarization: '偏振',
     polAvg: '平均',

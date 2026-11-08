@@ -1996,7 +1996,7 @@ The spectrum a monitor in the chamber reads after each layer of one side, as the
 | `step` | `step` | `0.5` | The wavelength step, nm. |
 | `side` | `side` |  | `'front'` or `'back'`, the side deposited. Without it, the front, or the back of a design coated on the back alone. |
 | `otherSide` | `other_side` | `'bare'` | `'bare'` or `'coated'`: the other side of the part, without or with its coating. Not used on chips. |
-| `quantity` | `quantity` | `'T'` | `'T'`, `'R'` or `'A'`. |
+| `quantity` | `quantity` | `'T'` | `'T'` or `'R'`, what the monitor reads. |
 | `angle` | `angle` | `0` | The angle of incidence, degrees in air, 0 up to but not including 90. |
 | `pol` | `pol` | `'avg'` | `'avg'`, `'s'` or `'p'`. |
 | `chips` | `chips` |  | **JavaScript**: On witness chips, `{ layersPerChip, plan, glass, witnessRatio }`, each optional: `plan` a chip number for each layer of the side from the substrate out, empty layers included, in place of `layersPerChip` layers to a chip (3 without either); `glass` the chip glass by id, the substrate without it; `witnessRatio` the witness thickness over the part's, from 0.05 to 10, 1 without it. Without it, the part.<br>**Python**: On witness chips, a dict of layers_per_chip, plan, glass and witness_ratio, each optional: plan a chip number for each layer of the side from the substrate out, empty layers included, in place of layers_per_chip layers to a chip (3 without either); glass the chip glass by id, the substrate without it; witness_ratio the witness thickness over the part's, from 0.05 to 10, 1 without it. Without it, the part. |

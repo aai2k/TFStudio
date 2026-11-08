@@ -17,7 +17,8 @@ export function useSetupState() {
     // only the layers assigned to them.
     const [mode, setMode] = useState(persisted.mode === 'chips' ? 'chips' : 'part');
     const [secondSurface, setSecondSurface] = useState(persisted.secondSurface || D.secondSurface);
-    const [quantity, setQuantity] = useState(persisted.quantity || D.quantity);
+    // What the monitor reads, T or R; any other saved value opens on the default.
+    const [quantity, setQuantity] = useState(persisted.quantity === 'R' ? 'R' : D.quantity);
     const [aoi, setAoi] = useState(persisted.aoi != null ? persisted.aoi : D.aoi);
     const [polarization, setPolarization] = useState(persisted.polarization || D.polarization);
     const [lambdaStart, setLambdaStart] = useState(persisted.lambdaStart || D.lambdaStart);

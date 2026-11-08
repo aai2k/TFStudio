@@ -30,7 +30,7 @@ assert.ok(html.length > 10000, 'the full simulator controls render');
 // geometry, the spectral range and the export step are behind the Settings
 // button, so the row fits a docked window without wrapping and rearranging
 // itself on every resize.
-for (const label of ['Active side', 'Deposit on', 'Opposite side', 'Quantity', 'Show all layers']) {
+for (const label of ['Active side', 'Deposit on', 'Opposite side', 'Show all layers']) {
     assert.ok(html.includes(label), `${label} is on the control row`);
 }
 assert.match(html, /aria-expanded="false"/, 'the settings panel is closed behind its button');
@@ -195,10 +195,10 @@ assert.deepEqual(model.computeSpectrum(spectrumOptions), {
     values: [0.14687603497767276, 0.16392105997083806, 0.17893765779820353],
 });
 assert.deepEqual(model.computeSpectrum({
-    ...spectrumOptions, activeSide: 'back', quantity: 'A', layerIdx: 1, frac: 0.5,
+    ...spectrumOptions, activeSide: 'back', quantity: 'T', layerIdx: 1, frac: 0.5,
 }), {
     lambda: [500, 520, 540],
-    values: [2.220446049250313e-16, 0, 1.6653345369377348e-16],
+    values: [0.7841992267885831, 0.7896969554703863, 0.7950482963019324],
 });
 
 const absorbingBackOptions = {
@@ -212,10 +212,8 @@ assert.deepEqual(model.computeSpectrum(absorbingBackOptions), {
     lambda: [500, 520, 540],
     values: [0.22068057797541313, 0.2137858146328576, 0.2069011301535813],
 });
-assert.deepEqual(model.computeSpectrum({ ...absorbingBackOptions, quantity: 'A' }), {
-    lambda: [500, 520, 540],
-    values: [0.7793194220245869, 0.7862141853671425, 0.7930988698464188],
-});
+assert.ok(model.computeSpectrum({ ...absorbingBackOptions, quantity: 'T' }).values.every(v => v >= 0 && v < 1e-100),
+    'a millimetre of substrate with k = 0.01 passes nothing');
 
 const sp = makeLocale().processSim;
 const colors = figure.spectraColors(c);
@@ -341,6 +339,22 @@ assert.equal(localStorage.getItem('tfstudio-process-sim-v1'),
 assert.deepEqual(persistence.loadPersist(), {
     activeSide: 'back', rates: { H: 2 }, quantity: 'R',
 });
+{
+    // The monitor reads T or R: a saved R opens on R, anything else on T.
+    const { useSetupState } = await import('../src/components/windows/dataExchange/processSimulator/useSetupState.js');
+    let opened;
+    function SetupProbe() {
+        opened = useSetupState().quantity;
+        return null;
+    }
+    for (const [saved, expected] of [['R', 'R'], ['A', 'T'], ['x', 'T']]) {
+        localStorage.clear();
+        persistence.savePersist({ quantity: saved });
+        renderToStaticMarkup(React.createElement(SetupProbe));
+        assert.equal(opened, expected, `a setup saved with ${saved} opens on ${expected}`);
+    }
+    localStorage.clear();
+}
 
 const saveDesign = {
     ...design,

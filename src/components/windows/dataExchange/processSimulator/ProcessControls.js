@@ -3,14 +3,14 @@
  *
  * The row holds what defines the run and what is drawn: the side being
  * deposited, whether it goes on the part or on witness chips, the state of the
- * opposite surface, the quantity, and the layer curves. The monitor's geometry,
+ * opposite surface, T or R, and the layer curves. The monitor's geometry,
  * the spectral range, the export step and the output format are settings:
  * they are set once per instrument, and on the row they wrapped a docked window
  * twice over and moved every control on each resize.
  */
 
 import {
-    ActionButton, CheckField, ChoiceGroup, NumInput, RangeField,
+    ActionButton, CheckField, ChoiceGroup, NumInput, RangeField, ResponseChoice,
 } from '../../analysis/chrome/controls.js';
 import { ControlRow } from '../../analysis/chrome/layout.js';
 import {
@@ -169,10 +169,8 @@ export function ProcessControls({ c, t, sp, setup, deposition, save, notices, ch
                 { id: 'coated', label: sp.coated },
             ],
         }),
-        h(ChoiceGroup, {
-            label: sp.quantity, activeId: setup.quantity, onSelect: setup.setQuantity, c,
-            items: [{ id: 'T', label: 'T' }, { id: 'R', label: 'R' }, { id: 'A', label: 'A' }],
-        }),
+        // What the monitor reads: a photometer in the chamber measures T or R.
+        h(ResponseChoice, { c, t, activeId: setup.quantity, onSelect: setup.setQuantity }),
         h(CheckField, {
             c, label: sp.showAllLayers, title: sp.showAllHint,
             checked: setup.showAll,

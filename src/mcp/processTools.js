@@ -20,7 +20,7 @@ const CHIPS = {
 const RUN = {
     side: SIDE,
     otherSide: oneOf(['bare', 'coated'], "The other side of the part, without or with its coating, for the whole run. Not used on chips. Default 'bare'"),
-    quantity: oneOf(['T', 'R', 'A'], "Default 'T'"),
+    quantity: oneOf(['T', 'R'], "What the monitor reads. Default 'T'"),
     angle: ANGLE,
     pol: POL,
     from: num('First wavelength in nm. Default 400'), to: num('Last wavelength in nm. Default 1100'),

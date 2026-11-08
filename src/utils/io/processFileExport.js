@@ -106,18 +106,14 @@ function abbrFor(n_at_control) {
 }
 
 // ── Spectrum tag ──────────────────────────────────────────────────────────────
-// Column header in the data section: "Ta", "Ra", "Aa".
+// Column header in the data section: "Ta" or "Ra".
 
 function tagForQuantity(q) {
-    if (q === 'R') return 'Ra';
-    if (q === 'A') return 'Aa';
-    return 'Ta';
+    return q === 'R' ? 'Ra' : 'Ta';
 }
 
 function seriesOf(spec, q) {
-    if (q === 'R') return spec.R;
-    if (q === 'A') return spec.A;
-    return spec.T;
+    return q === 'R' ? spec.R : spec.T;
 }
 
 // ── Build one .res file content for a given partial-deposition state ──────────
@@ -126,7 +122,7 @@ function seriesOf(spec, q) {
 //                          (index 0 = first deposited = substrate-side)
 // stepK                  — how many layers have been deposited (1..N).
 //                          Layers 1..k are at full thickness; k+1..N at 0.
-// quantity               — 'R' | 'T' | 'A' (which column to write)
+// quantity               'R' | 'T', the column written
 // theta_deg, polarization
 // spectralParams         — { lambdaStart, lambdaEnd, lambdaStep }
 // substrate              — { material, thickness }   resolved material objects
@@ -173,7 +169,7 @@ function buildLayerTable(allLayers, stepK, controlLambda) {
  *   cfg.controlLambda  — nm
  *   cfg.aoi            — degrees
  *   cfg.polarization   — 'avg' | 's' | 'p'
- *   cfg.quantity       — 'R' | 'T' | 'A'
+ *   cfg.quantity       'R' | 'T'
  *   cfg.lambdaStart, cfg.lambdaEnd, cfg.lambdaStep — nm
  *   cfg.allLayers      — [{ materialId, thickness, matObj }, ...] in DEPOSITION ORDER
  *                        (index 0 = substrate-side = first deposited)
@@ -274,7 +270,7 @@ function resHeaderLines(cfg, nPoints) {
 // opts:
 //   activeSide    'front' | 'back'
 //   secondSurface 'bare' | 'coated'
-//   quantity      'R' | 'T' | 'A'
+//   quantity      'R' | 'T'
 //   aoi           degrees
 //   polarization  'avg' | 's' | 'p'
 //   lambdaStart, lambdaEnd, lambdaStep    nm

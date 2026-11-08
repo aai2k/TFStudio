@@ -4616,8 +4616,8 @@
     "text": "`'bare'` 或 `'coated'`：工件的另一面无镀膜或带有其镀膜。监控片上不使用。"
   },
   "Design.processSteps.arg.quantity": {
-    "hash": "6d444dd5",
-    "text": "`'T'`、`'R'` 或 `'A'`。"
+    "hash": "f4d7f915",
+    "text": "`'T'` 或 `'R'`，即监控读取的量。"
   },
   "Design.processSteps.arg.angle": {
     "hash": "6b622636",
