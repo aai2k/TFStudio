@@ -5,7 +5,7 @@
  */
 import { parseCellGrid } from '../../../../ui/grid/gridModel.js';
 import { cellEdit, cellInitialText } from './editModel.js';
-import { looksLikeOperandRows, parseOperandsTsv } from './operandClipboard.js';
+import { looksLikeOperandRows, operandsFromClipboard } from './operandClipboard.js';
 import { editableColsForRow } from './operandViewModel.js';
 import { MF_GRID, RANGE_COLUMNS, pasteTargets, selectedCells } from './selectionModel.js';
 
@@ -104,7 +104,7 @@ export function pasteIntoCell(ctx, clipboard = navigator.clipboard) {
             return;
         }
         if (!ctx.range && looksLikeOperandRows(grid)) {
-            const items = parseOperandsTsv(raw);
+            const items = operandsFromClipboard(raw);
             if (items.length) ctx.onAdd(items, ctx.rowIdx + 1);
             return;
         }

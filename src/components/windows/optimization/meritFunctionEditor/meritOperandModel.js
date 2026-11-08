@@ -203,9 +203,11 @@ export function replaceOperandTail(operands, block, startRow) {
     return { operands: [...operands.slice(0, pos), ...block], selectedId: null };
 }
 
+// A row that already carries an id is complete, as a paste of copied rows
+// gives it, and goes in as it is; anything else is built as a new row.
 export function addOperands(operands, data, atIndex, createOperand = makeRowOperand) {
     const list = Array.isArray(data) ? data : [data];
-    const added = list.map(item => createOperand(item ?? { type: 'BLNK', comment: '' }));
+    const added = list.map(item => (item?.id ? item : createOperand(item ?? { type: 'BLNK', comment: '' })));
     if (added.length === 0) return null;
     const pos = atIndex == null ? operands.length : Math.max(0, Math.min(atIndex, operands.length));
     return {

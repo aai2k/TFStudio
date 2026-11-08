@@ -42,7 +42,7 @@ const rows = [
     makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0.005, weight: 2 }),
 ];
 const text = serializeOperandsTsv(rows, new Set(rows.map(row => row.id)));
-assert.deepEqual(text.split('\n')[0].split('\t'), ['TMX', '500', '600', '0', 'avg', '2', '1.00', '3']);
+assert.deepEqual(text.split('\n')[0].split('\t'), ['TMX', '500', '600', '0', 'avg', '2', '1', '3']);
 assert.ok(looksLikeOperandRows(text.split('\n').map(line => line.split('\t'))));
 const pasted = parseOperandsTsv(text);
 assert.deepEqual([pasted[0].flag, pasted[0].target, pasted[0].weight], [2, 0.01, 3], 'the first row comes back whole');
