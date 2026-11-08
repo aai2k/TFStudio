@@ -61,6 +61,8 @@ A material whose n and k do not change over the analysis wavelengths is written 
 
 The file ends with `SAV`, so running it in CODE V writes the `.mul` that `MLT` attaches to a lens surface. Once the coating is on a lens surface, CODE V takes the substrate index from the lens, so `SUB` matters only inside `MUL`.
 
+The export is confirmed to work in CODE V 11.2. It has not been checked in other versions of CODE V and is not guaranteed to work in them.
+
 ## References
 
 - CODE V Multilayer Design Reference Manual, chapter "Multilayer Coating Design and Analysis (MUL)": *MDA Sub-Option* for the commands and their limits, *Technical Notes* for the order of the media on each kind of surface.

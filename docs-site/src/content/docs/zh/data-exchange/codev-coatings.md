@@ -61,6 +61,8 @@ CODE V 接受的范围（摘自其帮助的 MUL 章节），以及导出时对�
 
 文件以 `SAV` 结尾，因此在 CODE V 中运行即写出 `.mul`，由 `MLT` 将其附加到透镜表面。镀膜一旦附加到透镜表面，CODE V 就从透镜取基底折射率，因此 `SUB` 只在 `MUL` 内部起作用。
 
+导出已确认可在 CODE V 11.2 中使用。尚未在其他版本的 CODE V 中检查，不保证可在其中使用。
+
 ## 参考文献
 
 - CODE V Multilayer Design Reference Manual，"Multilayer Coating Design and Analysis (MUL)" 一章：*MDA Sub-Option* 介绍命令及其限制，*Technical Notes* 介绍各类表面上介质的顺序。
