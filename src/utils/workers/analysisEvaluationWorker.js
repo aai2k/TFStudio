@@ -5,7 +5,7 @@
  */
 import { computeOpticalSpectrum } from '../../components/windows/analysis/opticalEvaluation/spectrum.js';
 import { computeSpectrumForMode } from '../../components/windows/analysis/integralValues/spectrum.js';
-import { computeColorReport } from '../../components/windows/analysis/colorEvaluation/colorModel.js';
+import { computeColorReports } from '../../components/windows/analysis/colorEvaluation/colorModel.js';
 import { computePulseAnalysis } from '../../components/windows/analysis/pulseAnalysis/pulseModel.js';
 import { designMaterialLookup, unresolvedMaterials } from '../materials/designMaterials.js';
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
@@ -52,15 +52,15 @@ function timelineMerit(design) {
     }
 }
 
-function colorReport(design, options) {
+function colorReports(design, options) {
     let reportedError = null;
-    const report = computeColorReport({
+    const reports = computeColorReports({
         ...options,
         design,
         setError: value => { reportedError = value; },
     });
     if (reportedError) throw new Error(reportedError);
-    return report;
+    return reports;
 }
 
 const EVALUATIONS = {
@@ -70,7 +70,7 @@ const EVALUATIONS = {
     // grid, the design read in the mode it is evaluated in.
     integralSpectra: ({ designs, grids }) => (designs || []).map(design =>
         grids.map(params => computeSpectrumForMode(design, params, resolveEvalMode(design)))),
-    colorReport: ({ design, options }) => colorReport(design, options),
+    colorReports: ({ design, options }) => colorReports(design, options),
     statusMonitors: ({ design, monitors }) => computeMonitors(monitors || [], design, designMaterialLookup(design)),
     specification: ({ designs, coarse, deviation, interlayers }) => (designs || [])
         .map(d => specificationResults(d, { coarse }, { deviation, interlayers })),

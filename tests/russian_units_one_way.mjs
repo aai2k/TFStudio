@@ -55,6 +55,7 @@ const text = html => html.replace(/<[^>]*>/g, ' ');
     assert.deepEqual(ru.units, {
         nm: 'нм', um: 'мкм', mm: 'мм', m: 'м', fs: 'фс', fs2: 'фс²', fs3: 'фс³', fsPerNm: 'фс/нм', newtonPerM: 'Н/м',
         cm1: 'см⁻¹', THz: 'ТГц', eV: 'эВ', MPa: 'МПа', GPa: 'ГПа', ppmPerK: 'ppm/K', celsius: '°C', jPerM2: 'Дж/м²', gPerCm3: 'г/см³',
+        K: 'K',
     });
 }
 
@@ -160,9 +161,8 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     const A = '../src/components/windows/analysis/';
     const { invalidSummary } = await import(`${A}materialDispersion/MaterialDispersionEvaluation.js`);
     shown.push(invalidSummary({ invalid: [{ reason: 'r', maximumThicknessMm: 0.002 }] }, 'um', ru.gdgdd, ru.units));
-    const { readoutTableRows } = await import(`${A}colorEvaluation/colorModel.js`);
-    const report = new Proxy({ dom: { dom: 575, purity: 0.5 }, cct: {} }, { get: (o, k) => o[k] ?? new Proxy({}, { get: () => 0 }) });
-    shown.push(...readoutTableRows(report, ru.colorEval, ru.units).map(row => row.value));
+    const { tableColumns, TABLE_SPACE_IDS } = await import(`${A}colorEvaluation/resultsModel.js`);
+    for (const space of TABLE_SPACE_IDS) shown.push(...tableColumns(space, ru.colorEval, ru.units).map(column => column.label));
     const { wholeRows } = await import(`${A}stressAnalysis/tableModel.js`);
     shown.push(...wholeRows({}, ru.stressAnalysis, ru.units).map(row => row.unit));
     const { buildStressOption } = await import(`${A}stressAnalysis/StressChart.js`);

@@ -17,7 +17,7 @@ const [
     { buildSpectrum, computeColor, computeIntegrals },
     { computeOpticalSpectrum },
     { computeSpectrumForMode },
-    { computeColorReport },
+    { computeColorReports },
     { computeIntegralValueBatch, DEFAULT_INTEGRALS },
     { resolveEvalMode },
     { evaluateSpectrum },
@@ -79,7 +79,7 @@ const close = (actual, expected, label) => {
 {
     const options = { characteristic: 'R', pol: 'avg', theta: 0, observer: '2', illuminant: 'D65', step: 5 };
     const report = computeColor(coned, options).report;
-    const shown = computeColorReport({ design: coned, evalMode: 'front', setError() {}, ...options });
+    const [{ report: shown }] = computeColorReports({ design: coned, evalMode: 'front', setError() {}, ...options, thetas: [0] });
     assert.ok(Math.abs(report.xy.x - shown.xy.x) < 1e-12 && Math.abs(report.xy.y - shown.xy.y) < 1e-12,
         `report xy (${report.xy.x}, ${report.xy.y}), window xy (${shown.xy.x}, ${shown.xy.y})`);
 }

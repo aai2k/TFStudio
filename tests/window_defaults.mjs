@@ -56,6 +56,8 @@ const NEVER_SETTINGS = [
 const ALLOWED_UNDECLARED = [
     ...NEVER_SETTINGS,
     'showCurves',            // which curves are drawn
+    'diagram',               // which colour diagram is on screen
+    'resultsView', 'tableSpace',  // which colour results view and table columns
     'selKey',                // which integral is highlighted
     'sweep',                 // which parameter is being swept, chosen per design
     'materialId',            // which material is on screen
@@ -101,8 +103,11 @@ for (const windowId of WINDOWS) {
 // ── A store starts from the registry ─────────────────────────────────────────
 {
     const [store] = windowSessionStores('colorEvaluation');
-    assert.deepEqual(store.read(design), sessionDefaults('colorEvaluation'),
+    // What is on screen is not a setting, so the registry has no say in it.
+    const { diagram, resultsView, tableSpace, ...settings } = store.read(design);
+    assert.deepEqual(settings, sessionDefaults('colorEvaluation'),
         'a fresh window is exactly what the registry ships');
+    assert.deepEqual([diagram, resultsView, tableSpace], ['xy', 'table', 'xyY']);
 }
 
 // ── A launch opens every window on what Settings holds ───────────────────────

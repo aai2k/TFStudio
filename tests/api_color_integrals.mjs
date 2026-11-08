@@ -13,7 +13,7 @@
  *      table and a band outside its weighting), is computeSpectrumForMode and
  *      integralTable, the hook's own path; and saveCsv writes the window's
  *      English export.
- *   2. On the cone fixture: color is the analysis worker's colorReport and
+ *   2. On the cone fixture: color is the analysis worker's colorReports and
  *      integrals the worker's integralSpectrum with integralTable, the windows'
  *      paths under a cone.
  *   3. Cross-checks: Tvis is the colour's Y / 100 for T under D65 with the 2
@@ -46,7 +46,9 @@ import { fixtureFile, manifest } from './_apiCorpus.mjs';
 globalThis.React = createRequire(import.meta.url)('react');
 const api = await import('../src/api/index.js');
 const objects = await import('../src/api/objects/index.js');
-const { computeColorReport } = await import('../src/components/windows/analysis/colorEvaluation/colorModel.js');
+const { computeColorReports } = await import('../src/components/windows/analysis/colorEvaluation/colorModel.js');
+// The window's colour at one angle, out of the several it computes.
+const computeColorReport = options => computeColorReports({ ...options, thetas: [options.theta] })?.[0].report ?? null;
 const { computeSpectrumForMode } = await import('../src/components/windows/analysis/integralValues/spectrum.js');
 const { integralTable, makeCustomDefinition, INITIAL_BUILDER } = await import('../src/components/windows/analysis/integralValues/integralModel.js');
 const { exportColumns, exportRows } = await import('../src/components/windows/analysis/integralValues/exportModel.js');
@@ -121,10 +123,10 @@ const SETTINGS = ['R', 'T'].flatMap(quantity => ['avg', 's', 'p'].flatMap(pol =>
     });
     ok(`on ${plain.length} designs, color over R and T, three polarizations, 0 and 45 degrees, both observers and the four illuminants (${SETTINGS.length} settings) is computeColorReport`,
         plain.length >= 12 && SETTINGS.length === 96 && wrong.length === 0, wrong.slice(0, 4).join('\n'));
-    const factory = plain.filter(([, design]) => !same(api.color(design), api.color(design, { quantity: COLOUR.characteristic, angle: COLOUR.theta,
+    const factory = plain.filter(([, design]) => !same(api.color(design), api.color(design, { quantity: COLOUR.characteristic, angle: COLOUR.thetas[0],
         pol: COLOUR.pol, observer: Number(COLOUR.observer), illuminant: COLOUR.illuminant, step: COLOUR.step })));
-    ok('without options color takes the window\'s factory settings: R, 0 degrees, avg, the 2 degree observer, D65, a 0.5 nm step',
-        factory.length === 0 && same([COLOUR.characteristic, COLOUR.theta, COLOUR.pol, COLOUR.observer, COLOUR.illuminant, COLOUR.step], ['R', 0, 'avg', '2', 'D65', 0.5]));
+    ok('without options color takes the window\'s factory settings: R, its first angle 0 degrees, avg, the 2 degree observer, D65, a 0.5 nm step',
+        factory.length === 0 && same([COLOUR.characteristic, COLOUR.thetas, COLOUR.pol, COLOUR.observer, COLOUR.illuminant, COLOUR.step], ['R', [0], 'avg', '2', 'D65', 0.5]));
 }
 
 // ── 1. Integral values: the window's numbers ───────────────────────────────
@@ -194,8 +196,8 @@ const INTEGRAL_SETTINGS = GRIDS.flatMap(grid => [0, 45].flatMap(angle => ['avg',
         const mode = resolveEvalMode(design);
         const portable = embedDesignMaterials(withHerpinRecords(design));
         const colours = SETTINGS.filter((s, i) => i % 7 === 0).filter(s => {
-            const shown = dispatchAnalysisEvaluation('colorReport', { design: portable, options: {
-                evalMode: mode, characteristic: s.quantity, pol: s.pol, theta: s.angle, observer: String(s.observer), illuminant: s.illuminant, step: s.step,
+            const [{ report: shown }] = dispatchAnalysisEvaluation('colorReports', { design: portable, options: {
+                evalMode: mode, characteristic: s.quantity, pol: s.pol, thetas: [s.angle], observer: String(s.observer), illuminant: s.illuminant, step: s.step,
             } });
             const got = api.color(design, s);
             return !same([got.X, got.Y, got.Z, got.x, got.y, got.lab, got.dominant.purity], [shown.XYZ.X, shown.XYZ.Y, shown.XYZ.Z, shown.xy.x, shown.xy.y, shown.Lab, shown.dom.purity]);
@@ -208,7 +210,7 @@ const INTEGRAL_SETTINGS = GRIDS.flatMap(grid => [0, 45].flatMap(angle => ['avg',
         return [...colours, ...tables];
     });
     const flat = coned.map(([, design]) => [api.color(design, { quantity: 'T' }).Y, api.color({ ...design, cone: { enabled: false } }, { quantity: 'T' }).Y]);
-    ok(`on the cone fixture (${coned.map(([n]) => n).join(', ')}), color is the worker's colorReport and integrals its integralSpectrum with integralTable, and the cone changes them`,
+    ok(`on the cone fixture (${coned.map(([n]) => n).join(', ')}), color is the worker's colorReports and integrals its integralSpectrum with integralTable, and the cone changes them`,
         coned.length >= 1 && wrong.length === 0 && flat.every(([cone, axis]) => cone !== axis), wrong.slice(0, 3).join('\n'));
 }
 

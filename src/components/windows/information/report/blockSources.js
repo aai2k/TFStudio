@@ -10,6 +10,7 @@
 import { windowSessionStores } from '../../windowSession.js';
 import { blockSpec } from '../../../../utils/report/blocks.js';
 import { DISPERSION_QUANTITY_KEYS } from '../../../../utils/report/sections/dispersion.js';
+import { windowAngles } from '../../analysis/colorEvaluation/angles.js';
 
 // The block starts with only the quantity the window shows, so every other
 // key the report knows about has to be present and false.
@@ -35,8 +36,9 @@ const FROM_WINDOW = {
         thetas: listCopy(v.thetas), curves: v.showCurves ? { ...v.showCurves } : undefined,
         spectralUnit: v.spectralUnit, yScale: v.yScale, yAuto: v.yAuto, yMin: v.yMin, yMax: v.yMax,
     }),
+    // The block prints one angle, the first of the window's, listed or in a range.
     color: v => ({
-        characteristic: v.characteristic, pol: v.pol, theta: v.theta,
+        characteristic: v.characteristic, pol: v.pol, theta: windowAngles(v).angles[0],
         observer: v.observer, illuminant: v.illuminant, step: v.step,
     }),
     integrals: v => ({ theta: v.theta, polarization: v.polarization }),

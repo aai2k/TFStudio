@@ -8,9 +8,9 @@
 
 const { createElement: h } = React;
 
-export function TabBtn({ active, onClick, c, children }) {
+export function TabBtn({ active, onClick, c, title, children }) {
     return h('button', {
-        type: 'button', onClick, 'aria-pressed': active,
+        type: 'button', onClick, 'aria-pressed': active, title,
         style: {
             height: 28, padding: '0 12px', border: 'none', borderRadius: 5,
             borderBottom: `2px solid ${active ? c.accent : 'transparent'}`,

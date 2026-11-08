@@ -30,7 +30,7 @@ import { buildLambdaGrid } from '../src/utils/physics/thinFilmMath.js';
 import { buildSpectrum, computeColor } from '../src/utils/report/reportData.js';
 import { withDefaults } from '../src/utils/report/blocks.js';
 import { sessionDefaults } from '../src/constants/analysisDefaults.js';
-import { computeColorReport } from '../src/components/windows/analysis/colorEvaluation/colorModel.js';
+import { computeColorReports } from '../src/components/windows/analysis/colorEvaluation/colorModel.js';
 
 let failures = 0;
 function check(name, fn) {
@@ -120,11 +120,11 @@ const onGrid = (step) => {
     const spectrum = buildSpectrum(design, { lambdaStart: 380, lambdaEnd: 780, lambdaStep: step, thetas: [0] });
     return cieSum(spectrum.lambda, spectrum.series[0].T, { endWeight: 0.5 });
 };
-const windowColor = (options) => computeColorReport({
-    design, evalMode: 'front', characteristic: 'T', pol: 'avg', theta: 0,
+const windowColor = (options) => computeColorReports({
+    design, evalMode: 'front', characteristic: 'T', pol: 'avg', thetas: [0],
     observer: '2', illuminant: 'D65', setError: (error) => { if (error) throw new Error(error); },
     ...options,
-});
+})[0].report;
 
 check('the Color window integrates every point of its Δλ grid', () => {
     for (const step of [0.5, 1, 2]) {

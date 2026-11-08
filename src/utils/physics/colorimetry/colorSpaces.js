@@ -85,6 +85,42 @@ export function luv(XYZ, white) {
   return { L, u, v, C, h, s: suv };
 }
 
+// The inverse of f_lab and of the L* formula: f_lab's two branches meet at
+// t = 0.008856451679, where f_lab is 6/29 and L* is 8.
+const f_lab_inv = (f) => f > 6 / 29 ? f * f * f : (f - 16 / 116) / 7.787037037;
+
+/** Y / Yn for a lightness L*, the inverse of L* in `lab` and `luv`. */
+export function lightnessToY(L) {
+  return f_lab_inv((L + 16) / 116);
+}
+
+/**
+ * XYZ of a CIE L*a*b* colour against `white`: `lab` (Macleod, Thin-Film Optical
+ * Filters 5th ed., Eqs. 12.7, 12.10 and 12.11) solved for X, Y and Z.
+ */
+export function labToXyz({ L, a, b }, white) {
+  const fy = (L + 16) / 116;
+  return {
+    X: white.X * f_lab_inv(fy + a / 500),
+    Y: white.Y * f_lab_inv(fy),
+    Z: white.Z * f_lab_inv(fy - b / 200),
+  };
+}
+
+/**
+ * XYZ of a CIE L*u*v* colour against `white`: `luv` (Macleod, Thin-Film Optical
+ * Filters 5th ed., Eqs. 12.7 to 12.9) solved for X, Y and Z through u′ and v′.
+ * L* must be above 0.
+ */
+export function luvToXyz({ L, u, v }, white) {
+  const sw = uvPrime(white);
+  const up = sw.up + u / (13 * L);
+  const vp = sw.vp + v / (13 * L);
+  const Y = white.Y * lightnessToY(L);
+  // u′ = 4X / (X + 15Y + 3Z) and v′ = 9Y / (X + 15Y + 3Z) solved for X and Z.
+  return { X: Y * 9 * up / (4 * vp), Y, Z: Y * (12 - 3 * up - 20 * vp) / (4 * vp) };
+}
+
 /** Hunter Lab (Hunter, *JOSA* 48, 985 (1958); CIE 15 Annex). */
 export function hunterLab(XYZ, white) {
   const Ka = 175 / 198.04 * (white.X + white.Y);

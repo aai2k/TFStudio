@@ -571,20 +571,26 @@ export function chartGrid(margin = {}) {
     };
 }
 
-/** Pixel grid that preserves a true 1:1 data aspect inside a resizable host. */
-export function squareGrid(element, margin = {}) {
+/**
+ * Pixel grid of a fixed shape inside a resizable host, centred, as large as
+ * fits. `aspect` is its width over its height, 1 for a square; a plot whose
+ * axes span different ranges in the same units passes the ratio of the spans,
+ * so a unit is as long on one axis as on the other.
+ */
+export function squareGrid(element, margin = {}, aspect = 1) {
     const base = chartGrid(margin);
     if (!element || !Number.isFinite(element.clientWidth) || !Number.isFinite(element.clientHeight)) return base;
     const availableWidth = Math.max(0, element.clientWidth - base.left - base.right);
     const availableHeight = Math.max(0, element.clientHeight - base.top - base.bottom);
-    const size = Math.min(availableWidth, availableHeight);
+    const height = Math.min(availableHeight, availableWidth / aspect);
+    const width = height * aspect;
     const { right: _right, bottom: _bottom, ...fixed } = base;
     return {
         ...fixed,
-        left: base.left + Math.max(0, (availableWidth - size) / 2),
-        top: base.top + Math.max(0, (availableHeight - size) / 2),
-        width: size,
-        height: size,
+        left: base.left + Math.max(0, (availableWidth - width) / 2),
+        top: base.top + Math.max(0, (availableHeight - height) / 2),
+        width,
+        height,
     };
 }
 

@@ -88,7 +88,7 @@ function channels(rgb) {
  */
 export function color(design, options) {
     const {
-        quantity = DEFAULTS.characteristic, angle = DEFAULTS.theta, pol = DEFAULTS.pol, observer = Number(DEFAULTS.observer),
+        quantity = DEFAULTS.characteristic, angle = DEFAULTS.thetas[0], pol = DEFAULTS.pol, observer = Number(DEFAULTS.observer),
         illuminant = DEFAULTS.illuminant, step = DEFAULTS.step, side,
     } = checkOptions('color', options, ['quantity', 'angle', 'pol', 'observer', 'illuminant', 'step', 'side']);
     requireValue('color', 'quantity', quantity, v => v === 'R' || v === 'T', "'R' or 'T'");

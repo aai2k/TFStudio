@@ -16,10 +16,10 @@ function parsedAoi(raw) {
 // applies on Enter or when the box is left.
 const stepAoi = (event, text, setText) => stepKeys(text, setText, { step: 1, min: 0, max: 89 })(event);
 
-function addDraftAoi({ draft, values, onChange, setDraft }) {
+function addDraftAoi({ draft, values, onChange, setDraft, max }) {
     if (!draft.trim()) return;
     const value = parsedAoi(draft);
-    if (value !== null && !values.includes(value) && values.length < AOI_MAX) onChange([...values, value]);
+    if (value !== null && !values.includes(value) && values.length < max) onChange([...values, value]);
     setDraft('');
 }
 
@@ -85,14 +85,18 @@ function AoiChip({ value, onRemove, onEdit, canRemove, c, oe }) {
     );
 }
 
-export function AoiChips({ values, onChange, c, oe }) {
+/**
+ * The angles as chips, each clicked to edit, with a + to add one. `max` is how
+ * many the window takes; Optical Evaluation's six by default.
+ */
+export function AoiChips({ values, onChange, c, oe, max = AOI_MAX }) {
     const [draft, setDraft] = useState('');
     const [adding, setAdding] = useState(false);
     const addValue = () => {
-        addDraftAoi({ draft, values, onChange, setDraft });
+        addDraftAoi({ draft, values, onChange, setDraft, max });
         setAdding(false);
     };
-    const addTitle = oe.addAoiTooltip(AOI_MAX);
+    const addTitle = oe.addAoiTooltip(max);
     return h('div', {
         style: {
             minHeight: 28, display: 'inline-flex', alignItems: 'center', gap: 2,
@@ -106,7 +110,7 @@ export function AoiChips({ values, onChange, c, oe }) {
             onEdit: raw => editAoi({ index, raw, values, onChange }),
             canRemove: values.length > 1, c, oe
         })),
-        values.length < AOI_MAX && adding && h('input', {
+        values.length < max && adding && h('input', {
             type: 'text', inputMode: 'decimal', value: draft,
             autoFocus: true, title: addTitle, 'aria-label': addTitle,
             onChange: event => setDraft(event.target.value),
@@ -124,7 +128,7 @@ export function AoiChips({ values, onChange, c, oe }) {
                 padding: '0 4px', outline: 'none', textAlign: 'center'
             }
         }),
-        values.length < AOI_MAX && !adding && h('button', {
+        values.length < max && !adding && h('button', {
             onClick: () => setAdding(true), title: addTitle, 'aria-label': addTitle,
             style: {
                 width: 24, height: 22, display: 'flex', alignItems: 'center', justifyContent: 'center',

@@ -52,10 +52,15 @@ const design = makeSampleDesign();
   assert.equal(changed.yScale, 'dB', 'so does the vertical scale');
   assert.equal(changed.yAuto, true);
 
-  colorEvaluationSession.write(design, { illuminant: 'A', observer: '10' });
+  colorEvaluationSession.write(design, { illuminant: 'A', observer: '10', thetas: [30, 0, 60] });
   const color = settingsFromWindow('color', design);
   assert.equal(color.illuminant, 'A');
   assert.equal(color.observer, '10');
+  assert.equal(color.theta, 30, 'the color block prints the first of the window\'s angles');
+  colorEvaluationSession.write(design, { angleMode: 'range', angleStart: 20, angleEnd: 60, angleStep: 10 });
+  assert.equal(settingsFromWindow('color', design).theta, 20,
+      'and the first of its range when the angles are a range');
+  colorEvaluationSession.write(design, { angleMode: 'list' });
 
   assert.deepEqual(settingsFromWindow('qualifiers', design), {}, 'a block without a source window copies nothing');
   assert.deepEqual(settingsFromWindow('layers', design), {});

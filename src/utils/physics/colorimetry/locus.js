@@ -18,7 +18,7 @@ function spectrumLocus(observer) {
 export function spectralLocusXy(observer) { return spectrumLocus(observer); }
 
 /**
- * Dominant/complementary wavelength + excitation purity — Macleod §12.2.
+ * Dominant/complementary wavelength + excitation purity, Macleod §12.2.
  * Ray from white point W through sample S; first intersection with the
  * spectrum-locus polyline gives the dominant λ (purity = |WS|/|W·locus|).
  * If the ray exits through the purple line, report the *complementary*
@@ -89,14 +89,7 @@ export function correlatedColorTemperature(xy, observer) {
     return { cct: NaN, duv: NaN, locusT: NaN };
   }
   // Duv: nearest blackbody on the locus near the McCamy estimate.
-  const uvOf = (T) => {
-    let X = 0, Y = 0, Z = 0;
-    const cmf = cmfTable(observer);
-    for (const [lam, xb, yb, zb] of cmf) {
-      const P = planck(lam, T); X += P * xb; Y += P * yb; Z += P * zb;
-    }
-    return uv1960({ X, Y, Z });
-  };
+  const uvOf = (T) => uv1960(planckianXyz(T, observer));
   const sample = uv1960(xyToXYZ(xy));
   let bestT = cct, bestD = Infinity;
   for (let T = Math.max(1000, cct - 400); T <= cct + 400; T += 5) {
@@ -108,10 +101,23 @@ export function correlatedColorTemperature(xy, observer) {
   const duv = (sample.v > pl.v ? 1 : -1) * bestD;
   // McCamy CCT is only meaningful near the Planckian locus. Beyond |Duv| ~ 0.05
   // (where the ±400 K search also tends to rail at its window edge) the colour
-  // is too far off-locus for a correlated temperature — report N/A for cct but
+  // is too far off-locus for a correlated temperature: report N/A for cct but
   // still return the measured Duv.
   if (Math.abs(duv) > 0.05) return { cct: NaN, duv, locusT: bestT };
   return { cct, duv, locusT: bestT };
+}
+
+/**
+ * Tristimulus values of a Planckian radiator at temperature `T` in K, summed
+ * over the observer's 5 nm table, unnormalised. Their chromaticities, T from
+ * low to high, are the Planckian locus.
+ */
+export function planckianXyz(T, observer) {
+  let X = 0, Y = 0, Z = 0;
+  for (const [lam, xb, yb, zb] of cmfTable(observer)) {
+    const P = planck(lam, T); X += P * xb; Y += P * yb; Z += P * zb;
+  }
+  return { X, Y, Z };
 }
 
 function xyToXYZ(xy, Y = 1) {

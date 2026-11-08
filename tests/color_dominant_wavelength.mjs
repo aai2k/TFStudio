@@ -21,7 +21,7 @@
 import './_kernel.mjs';
 import assert from 'node:assert/strict';
 import { dominantWavelength, spectralLocusXy } from '../src/utils/physics/colorimetry.js';
-import { computeColorReport } from '../src/components/windows/analysis/colorEvaluation/colorModel.js';
+import { computeColorReports } from '../src/components/windows/analysis/colorEvaluation/colorModel.js';
 import { designEvalMode } from '../src/utils/report/reportData/engines.js';
 import { sessionDefaults } from '../src/constants/analysisDefaults.js';
 import { fixtureFile } from './_apiCorpus.mjs';
@@ -90,7 +90,7 @@ check('the Color window matches the hand solve on corpus designs', () => {
     for (const name of ['builtin-bare-ids-qw-mirror', 'measured-curve-ppef']) {
         const design = api.openDesign(fixtureFile(name));
         for (const characteristic of ['R', 'T']) {
-            const report = computeColorReport({
+            const [{ report }] = computeColorReports({
                 ...shipped, design, evalMode: designEvalMode(design), characteristic,
                 setError: (error) => { if (error) throw new Error(error); },
             });

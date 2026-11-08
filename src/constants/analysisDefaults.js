@@ -51,6 +51,9 @@ export function paletteColors(colors, prefix, size = PALETTE_SIZE) {
 // physics limits either, so neither has an upper bound.
 const LAMBDA = { positive: true, step: 10 };
 const AOI = { def: 0, min: 0, max: 89, step: 1 };
+// Several angles at once, entered with Optical Evaluation's angle chips, which
+// hold up to six.
+const AOI_LIST = { def: [0], min: 0, max: 89, maxLength: 6 };
 const POL = { def: 'avg', options: ['avg', 's', 'p'], labelsAt: 'settings.analysis.polarizations' };
 const SIDE = { def: 'front', options: ['front', 'back'], labelsAt: 'settings.analysis.sides' };
 
@@ -157,9 +160,7 @@ export const ANALYSIS_DEFAULTS = {
     },
     // This window draws one set of curves per angle. Entered as a list because
     // it is a list: a single number would lose the comparison it is for.
-    lists: {
-      thetas: { def: [0], min: 0, max: 89, maxLength: 6 },
-    },
+    lists: { thetas: AOI_LIST },
     booleans: { yAuto: false, showTargets: true, showTable: false },
   },
 
@@ -194,23 +195,46 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   colorEvaluation: {
-    // Outlines of the two markers on the chromaticity diagram. The spectral
-    // locus itself is drawn in the theme's text colour and follows the theme.
-    colors: { whitePoint: '#bbbbbb', coating: '#ffffff' },
+    // The white point's cross and the outline of each coating point. Both sit
+    // on the diagram's colour fill, which is the same in every theme, so they
+    // are dark; the spectral locus, drawn against the plot, follows the theme.
+    colors: { whitePoint: '#111111', coating: '#111111' },
     numbers: {
-      theta: AOI,
       // Step of the spectrum the colour is integrated on, nm. A feature
       // narrower than the step is not seen, so it starts fine.
       step: { def: 0.5, positive: true, step: 1 },
+      // A range of angles opens at 0 to 60°, the span most coatings are
+      // specified over, every 10°. The step goes down to the 0.1° the angle
+      // chips hold.
+      angleStart: { def: 0, min: 0, max: 89, step: 5 },
+      angleEnd: { def: 60, min: 0, max: 89, step: 5 },
+      angleStep: { def: 10, min: 0.1, max: 89, step: 1 },
     },
+    // The colour at each angle is one point on the diagram, so a coating's
+    // shift with angle reads as a path. Up to 91 angles, a range or a list: each
+    // is one spectrum at the window's step, computed on the window's thread,
+    // and 91 of them take 0.2 to 0.6 s for stacks of 12 to 48 layers, about
+    // where dragging a layer starts to stall.
+    lists: { thetas: { ...AOI_LIST, maxLength: 91 } },
     enums: {
+      // The angles as typed one by one, or as a range in equal steps.
+      angleMode: { def: 'list', options: ['list', 'range'], labelsAt: 'colorEval.angleModes' },
       characteristic: { def: 'R', options: ['R', 'T'] },
       pol: POL,
       observer: { def: '2', options: ['2', '10'] },
       illuminant: { def: 'D65', options: ['D65', 'D50', 'A', 'E'] },
-      exposure: { def: '1', options: ['1', '10', '50', '200', '1000', 'fit'] },
+      // How the colour patches are shown: the hue at full brightness, or as is,
+      // scaled against a perfect white reflector. Full brightness to start with,
+      // since a dim reflection, an antireflection coating's for one, shows near
+      // black as is.
+      exposure: { def: 'fit', options: ['fit', '1'], labelsAt: 'colorEval.exposures' },
     },
-    booleans: { showTable: false },
+    // What the diagram draws besides the colour: wavelength labels along the
+    // spectral locus, the white point, the Planckian locus and the triangle of
+    // the sRGB primaries.
+    booleans: {
+      showTable: false, showWavelengths: true, showWhite: true, showPlanckian: false, showSrgb: false,
+    },
   },
 
   gdGddEvaluation: {

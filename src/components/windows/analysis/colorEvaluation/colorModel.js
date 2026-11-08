@@ -11,7 +11,7 @@
  */
 
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import { colorReport, COLOR_RANGE_NM } from '../../../../utils/physics/colorimetry.js';
+import { colorReport, COLOR_RANGE_NM, xyzToSRGB } from '../../../../utils/physics/colorimetry.js';
 import { coneAverageResult, makeConeSpec } from '../../../../utils/physics/optimizer.js';
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
@@ -19,6 +19,16 @@ import {
 
 export const formatValue = (value, digits = 4) =>
     (value == null || !isFinite(value) ? '—' : value.toFixed(digits));
+
+/**
+ * The colour shown on screen for `report` at the window's exposure: 'fit' for
+ * the hue at full brightness, '1' for the report's own sRGB, scaled against a
+ * perfect white reflector. Exposure changes what is shown only; the
+ * colorimetric values are unchanged.
+ */
+export function exposedRgb(report, exposure) {
+    return exposure === 'fit' ? xyzToSRGB(report.XYZ, report.white, { fit: true }) : report.rgb;
+}
 
 /**
  * R|T(λ) as a fraction on the colour band, every `step` nm, on the sides
@@ -60,60 +70,26 @@ export function responseSpectrum(design, { evalMode, characteristic, pol, theta,
 }
 
 /**
- * Colorimetric report for the current design, or null when there is nothing to
- * show (no design, empty front stack). Failures are reported via `setError`.
+ * The colour at each angle of `options.thetas`, degrees, as `{ theta, report }`
+ * in the order given, or null when there is nothing to show (no design, empty
+ * front stack). A failure at any angle is reported via `setError` and leaves
+ * no result.
  */
-export function computeColorReport(options) {
-    const { design, evalMode, observer, illuminant, setError } = options;
+export function computeColorReports(options) {
+    const { design, evalMode, thetas, observer, illuminant, setError } = options;
     if (!design) return null;
     const front = (design.frontLayers || []).filter(layer => layer.thickness > 0);
     if (evalMode === 'front' && front.length === 0) return null;
     try {
-        const response = responseSpectrum(design, options);
+        const reports = thetas.map(theta => ({
+            theta,
+            report: colorReport(responseSpectrum(design, { ...options, theta }), { observer, illuminant }),
+        }));
         setError(null);
-        return colorReport(response, { observer, illuminant });
+        return reports;
     } catch (error) {
         setError(error.message || 'Computation error');
         return null;
     }
 }
 
-function dominantWavelength(report, ce, units) {
-    if (report.dom.dom != null) {
-        return `${formatValue(report.dom.dom, 1)} ${units.nm}   ${ce.purity} ${formatValue(report.dom.purity * 100, 2)}%`;
-    }
-    if (report.dom.comp != null) {
-        return `${ce.compl} ${formatValue(report.dom.comp, 1)} ${units.nm}   ${ce.purity} ${formatValue(report.dom.purity * 100, 2)}%`;
-    }
-    return '—';
-}
-
-/** One row per colour space, as the quantity's name and its coordinates. */
-export function colorReadoutRows(report, ce, units) {
-    if (!report) return [];
-    const f = formatValue;
-    return [
-        [ce.xyY, `x ${f(report.xy.x)}   y ${f(report.xy.y)}   Y ${f(report.XYZ.Y, 3)}`],
-        [ce.XYZ, `X ${f(report.XYZ.X, 3)}   Y ${f(report.XYZ.Y, 3)}   Z ${f(report.XYZ.Z, 3)}`],
-        ['CIE L*a*b*', `L* ${f(report.Lab.L, 3)}   a* ${f(report.Lab.a, 3)}   b* ${f(report.Lab.b, 3)}`],
-        ['L* C*ab h°ab', `C* ${f(report.Lab.C, 3)}   h° ${f(report.Lab.h, 2)}`],
-        ['CIE L*u*v*', `L* ${f(report.Luv.L, 3)}   u* ${f(report.Luv.u, 3)}   v* ${f(report.Luv.v, 3)}`],
-        ['C*uv h°uv suv', `C* ${f(report.Luv.C, 3)}   h° ${f(report.Luv.h, 2)}   s ${f(report.Luv.s, 4)}`],
-        ["u' v' (1976)", `u' ${f(report.uvP.up)}   v' ${f(report.uvP.vp)}`],
-        ['u v (1960)', `u ${f(report.uv60.u)}   v ${f(report.uv60.v)}`],
-        ['Hunter Lab', `L ${f(report.Hunter.L, 3)}   a ${f(report.Hunter.a, 3)}   b ${f(report.Hunter.b, 3)}`],
-        [ce.dominant, dominantWavelength(report, ce, units)],
-        ['CCT / Duv', `${f(report.cct.cct, 0)} K   Duv ${f(report.cct.duv, 4)}`],
-    ];
-}
-
-export function readoutColumns(ce) {
-    return [
-        { key: 'quantity', label: ce.colQuantity, align: 'left' },
-        { key: 'value', label: ce.colValue, align: 'left' },
-    ];
-}
-
-export function readoutTableRows(report, ce, units) {
-    return colorReadoutRows(report, ce, units).map(([quantity, value]) => ({ quantity, value }));
-}

@@ -239,7 +239,7 @@ function ok(condition, message) {
     admittanceDiagram:      ['#ffca28', '#66bb6a', '#ef5350'],
     integralValues:         ['#4fc3f7', '#ef5350', '#66bb6a', '#ffd54f'],
     errorAnalysis:          ['#4fc3f7', '#ef5350', '#66bb6a'],
-    colorEvaluation:        ['#bbbbbb', '#ffffff'],
+    colorEvaluation:        ['#111111'],
     layerSensitivity:       ['#4fc3f7'],
     plotEngine:             ['#4fc3f7', '#ef5350', '#66bb6a', '#ffb74d', '#ba68c8'],
   };
@@ -268,7 +268,7 @@ function ok(condition, message) {
     'windows/analysis/integralValues/overlayFigure.js':      ['#4fc3f7', '#ef5350', '#66bb6a', '#ffd54f'],
     'windows/analysis/layerSensitivity/figure.js':           ['#4fc3f7'],
     'windows/analysis/errorAnalysis/ErrorChart.js':          ['#4fc3f7', '#66bb6a'],
-    'windows/analysis/colorEvaluation/chartFigure.js':       ['#bbbbbb', '#ffffff'],
+    'windows/analysis/colorEvaluation/chartFigure.js':       ['#111111'],
     'windows/analysis/admittanceDiagram/chartFigure.js':     ['#ffca28', '#66bb6a', '#ef5350'],
     'windows/analysis/admittanceDiagram/model.js':           ['#4fc3f7', '#ab47bc', '#8d6e63'],
   };

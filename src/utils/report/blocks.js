@@ -65,8 +65,13 @@ const OPTICAL_EVALUATION_KEYS = [
 const ALL_CURVES_OFF = {
   T: false, R: false, A: false, Ts: false, Rs: false, As: false, Tp: false, Rp: false, Ap: false,
 };
-// The color block starts from the Color Evaluation window's shipped settings the same way.
-const COLOR_EVALUATION_KEYS = ['characteristic', 'pol', 'theta', 'observer', 'illuminant', 'step'];
+// The color block starts from the Color Evaluation window's shipped settings the
+// same way. The block prints one angle, the first of the window's.
+const COLOR_EVALUATION_KEYS = ['characteristic', 'pol', 'observer', 'illuminant', 'step'];
+function colorBlockDefaults() {
+  const shipped = sessionDefaults('colorEvaluation');
+  return { ...pick(shipped, COLOR_EVALUATION_KEYS), theta: shipped.thetas[0] };
+}
 
 // The settings a block of each type starts from. Everything a section builder
 // reads appears here, so a block saved by an older release still carries every
@@ -80,7 +85,7 @@ const SETTINGS_DEFAULTS = {
     ...pick(sessionDefaults('opticalEvaluation'), OPTICAL_EVALUATION_KEYS),
     curves: { ...ALL_CURVES_OFF, T: true, R: true }, plot: 'm', tableStep: 10,
   }),
-  color:        () => pick(sessionDefaults('colorEvaluation'), COLOR_EVALUATION_KEYS),
+  color:        colorBlockDefaults,
   integrals:    () => ({ theta: 0, polarization: 'avg' }),
   gdGdd:        () => ({
     lambdaStart: 400, lambdaEnd: 800, lambdaStep: 0.5, theta: 0, target: 'R', pol: 'avg', side: 'front',
