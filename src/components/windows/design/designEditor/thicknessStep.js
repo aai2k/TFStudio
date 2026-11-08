@@ -1,3 +1,4 @@
+import { stepScale } from '../../../ui/wheelStep.js';
 import { MAX_THICKNESS_NM, unitToNm } from './units.js';
 
 // One arrow click or wheel tick, in each thickness column's own unit. A full
@@ -7,9 +8,8 @@ import { MAX_THICKNESS_NM, unitToNm } from './units.js';
 const BASE_STEP = { nm: 1, OT: 1, QWOT: 0.1, FWOT: 0.025 };
 
 /** Step size for `unit`: Shift steps ten times further, Ctrl a tenth as far. */
-export function thicknessStep(unit, { shiftKey = false, ctrlKey = false } = {}) {
-    const base = BASE_STEP[unit] ?? BASE_STEP.nm;
-    return base * (shiftKey ? 10 : 1) / (ctrlKey ? 10 : 1);
+export function thicknessStep(unit, modifiers) {
+    return (BASE_STEP[unit] ?? BASE_STEP.nm) * stepScale(modifiers);
 }
 
 /**

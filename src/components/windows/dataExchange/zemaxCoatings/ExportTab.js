@@ -38,7 +38,7 @@ function ExportOptions(props) {
                 to: { value: gEnd, onChange: setGEnd, positive: true, step: 10 },
             }),
             h(FieldLabel, { c }, z.step),
-            h(NumInput, { value: gStep, onChange: setGStep, positive: true, step: 5, c, width: 56 }),
+            h(NumInput, { value: gStep, onChange: setGStep, positive: true, step: 5, wheel: true, c, width: 56 }),
         ),
         h(InlineRow, { c },
             h(ActionButton, { c, label: z.generate, onClick: onGenerate }),

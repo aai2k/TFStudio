@@ -69,7 +69,7 @@ function RoughnessSetup({ c, t, rs, state }) {
         ),
         h(SettingRow, { c, label: rs.step },
             h(NumInput, {
-                value: state.lambdaStep, positive: true, step: 1, c, width: 60,
+                value: state.lambdaStep, positive: true, step: 1, wheel: true, c, width: 60,
                 onChange: state.setLambdaStep,
             }),
         ),

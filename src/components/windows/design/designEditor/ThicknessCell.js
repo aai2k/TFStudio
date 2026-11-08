@@ -1,6 +1,7 @@
 import { nmToUnit, thicknessEntryToNm } from './units.js';
 import { LAYER_TABLE } from './layerTableLayout.js';
-import { SPIN_WIDTH, SpinArrows, useWheelStep } from './ThicknessSpin.js';
+import { useWheelStep } from '../../../ui/wheelStep.js';
+import { SPIN_WIDTH, SpinArrows, editOpen } from './ThicknessSpin.js';
 
 const { createElement: h, useEffect, useState, useRef } = React;
 
@@ -177,7 +178,7 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
     // Only the active cell, the outlined one in the selected row, takes the
     // wheel. Over any other the wheel scrolls the list, so scrolling past a
     // column of thicknesses changes none of them.
-    useWheelStep(displayRef, steppable && active && !edit.editing, onStep);
+    useWheelStep(displayRef, steppable && active && !edit.editing, onStep, { blocked: editOpen });
 
     if (edit.editing) {
         return thicknessCellInput({ ...edit, onActivate, c });

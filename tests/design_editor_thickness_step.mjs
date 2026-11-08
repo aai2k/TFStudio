@@ -15,8 +15,7 @@ const { nmToUnit, MAX_THICKNESS_NM } = await import(
     '../src/components/windows/design/designEditor/units.js');
 const { thicknessStep, stepLayerThicknesses, createStepBursts } = await import(
     '../src/components/windows/design/designEditor/thicknessStep.js');
-const { wheelTicks, wheelTravel } = await import(
-    '../src/components/windows/design/designEditor/ThicknessSpin.js');
+const { wheelTicks, wheelTravel } = await import('../src/components/ui/wheelStep.js');
 
 const close = (actual, expected, message) =>
     assert.ok(Math.abs(actual - expected) < 1e-9, `${message}: ${actual} vs ${expected}`);

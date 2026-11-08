@@ -92,7 +92,7 @@ function RangeRow({ curve, onUpdate, c, t }) {
         }),
         h(FieldLabel, { c }, pe.step),
         h(NumInput, {
-            c, width: 48, value: curve.rangeStep, step: nudge, positive: true,
+            c, width: 48, value: curve.rangeStep, step: nudge, positive: true, wheel: true,
             onChange: value => onUpdate({ rangeStep: value }),
         }),
     );

@@ -40,7 +40,7 @@ function WavelengthRow({ c, z, gStart, setGStart, gEnd, setGEnd, gStep, setGStep
             to: { value: gEnd, onChange: setGEnd, positive: true, step: 10 },
         }),
         h(FieldLabel, { c }, z.step),
-        h(NumInput, { value: gStep, onChange: setGStep, positive: true, step: 5, c, width: 56 }),
+        h(NumInput, { value: gStep, onChange: setGStep, positive: true, step: 5, wheel: true, c, width: 56 }),
         h('span', { style: { fontSize: 11, color: tooMany ? c.error : c.textDim } },
             tooMany ? z.errTooManyWavelengths(count, CODEV_LIMITS.wavelengths) : z.wavelengthCount(count)),
     );

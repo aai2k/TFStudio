@@ -37,15 +37,16 @@ export function Divider({ c }) {
 
 /**
  * Number field sized for a toolbar row. It takes either decimal separator and
- * applies on blur or Enter; `useNumberField` has the rules and the options.
+ * applies on blur or Enter; `useNumberField` has the rules and the options,
+ * `wheel` among them.
  */
 export function NumInput({
     value, onChange, min, max, step, c, width = 60, title, disabled,
-    nullable, placeholder, emptyStep, positive,
+    nullable, placeholder, emptyStep, positive, wheel,
 }) {
     return h('input', {
         title, disabled, placeholder,
-        ...useNumberField({ value, onChange, min, max, step, nullable, emptyStep, positive }),
+        ...useNumberField({ value, onChange, min, max, step, nullable, emptyStep, positive, wheel }),
         style: {
             width, height: 24, backgroundColor: c.field, color: c.text,
             border: `1px solid ${c.border}`, borderRadius: 3,
@@ -265,7 +266,8 @@ export function CheckField({ label, checked, onChange, c, title, disabled }) {
 }
 
 /**
- * Low/high pair around a dash, the shape every range in the app uses.
+ * Low/high pair around a dash, the shape every range in the app uses. Both ends
+ * step with the mouse wheel while focused (`useNumberField`'s `wheel`).
  *
  *   label  symbol shown ahead of the pair, e.g. 'λ'
  *   unit   optional trailing unit
@@ -273,9 +275,9 @@ export function CheckField({ label, checked, onChange, c, title, disabled }) {
 export function RangeField({ label, unit, c, from, to, width = 62 }) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 7, flexShrink: 0 } },
         label && h(FieldLabel, { c }, label),
-        h(NumInput, { ...from, c, width }),
+        h(NumInput, { wheel: true, ...from, c, width }),
         h('span', { style: { color: c.textDim, fontSize: 11 } }, '–'),
-        h(NumInput, { ...to, c, width }),
+        h(NumInput, { wheel: true, ...to, c, width }),
         unit && h('span', { style: { color: c.textDim, fontSize: 11 } }, unit),
     );
 }

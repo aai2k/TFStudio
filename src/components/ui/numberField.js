@@ -28,6 +28,13 @@
  * emptied field gives null instead of being refused, and stepping from nothing
  * starts at `emptyStep`.
  *
+ * `wheel` steps the value with the mouse wheel while the field has the focus
+ * and holds no half-typed entry, as the Design Editor's thickness cells step:
+ * one notch is one `step`, Shift ten times as far, Ctrl a tenth as far, and a
+ * wheel still scrolling the panel scrolls on (wheelStep.js). A field the
+ * pointer only passes over is left alone, so scrolling a panel of fields
+ * changes none of them.
+ *
  * `useNumberField` returns the input's props for a field with its own look;
  * `NumberField` is the input itself, and passes any other prop, such as
  * `style`, `title`, `disabled` or `autoFocus`, to it as given. A box that keeps
@@ -36,8 +43,9 @@
  */
 
 import { parseNumberStrict } from '../../utils/misc/numberParsing.js';
+import { stepScale, useWheelStep } from './wheelStep.js';
 
-const { createElement: h, useState } = React;
+const { createElement: h, useRef, useState } = React;
 
 const textOf = value => (value == null ? '' : String(value));
 const clampTo = (number, min, max) => Math.min(Math.max(number, min ?? -Infinity), max ?? Infinity);
@@ -67,9 +75,22 @@ export function stepKeys(text, setText, bounds = {}) {
     };
 }
 
+/**
+ * The value `ticks` wheel notches move `from` to, or null when the step is
+ * refused. `modifiers` scale the step as stepScale does; a count never steps
+ * by less than one.
+ */
+export function wheelStepValue(from, ticks, modifiers, { step = 1, min, max, positive = false, integer = false }) {
+    const scaled = step * stepScale(modifiers);
+    const size = (integer ? Math.max(1, Math.round(scaled)) : scaled) * Math.abs(ticks);
+    return stepNumber(from, Math.sign(ticks), { step: size, min, max, positive });
+}
+
+const notFocused = element => element.ownerDocument.activeElement !== element;
+
 export function useNumberField({
     value, onChange, min, max, step = 1, positive = false, integer = false,
-    nullable = false, emptyStep = 0,
+    nullable = false, emptyStep = 0, wheel = false,
 }) {
     // What is being typed, or null while the field shows `value`.
     const [draft, setDraft] = useState(null);
@@ -98,7 +119,13 @@ export function useNumberField({
         setDraft(null);
         onChange(next);
     };
+    const ref = useRef(null);
+    useWheelStep(ref, wheel && draft == null && value != null, (ticks, modifiers) => {
+        const next = wheelStepValue(value, ticks, modifiers, { step, min, max, positive, integer });
+        if (next != null && next !== value) onChange(next);
+    }, { blocked: notFocused });
     return {
+        ...(wheel ? { ref } : {}),
         type: 'text', inputMode: 'decimal', value: draft ?? textOf(value),
         // See `.tfs-number` in styles.css.
         className: 'tfs-number',
@@ -113,10 +140,10 @@ export function useNumberField({
 }
 
 export function NumberField({
-    value, onChange, min, max, step, positive, integer, nullable, emptyStep, ...rest
+    value, onChange, min, max, step, positive, integer, nullable, emptyStep, wheel, ...rest
 }) {
     return h('input', {
         ...rest,
-        ...useNumberField({ value, onChange, min, max, step, positive, integer, nullable, emptyStep }),
+        ...useNumberField({ value, onChange, min, max, step, positive, integer, nullable, emptyStep, wheel }),
     });
 }

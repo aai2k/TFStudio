@@ -69,7 +69,7 @@ function ErrorSetup({ c, t, ea, state }) {
         ),
         h(SettingRow, { c, label: ea.step },
             h(NumInput, {
-                value: params.lambdaStep, positive: true, step: 1, c, width: 60,
+                value: params.lambdaStep, positive: true, step: 1, wheel: true, c, width: 60,
                 onChange: value => patch({ lambdaStep: value > 0 ? value : 5 }),
             }),
         ),
