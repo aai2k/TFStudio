@@ -33,6 +33,7 @@ export function AppModals({
     return h(Fragment, null,
         dialogs.showSettings && h(SettingsModal, {
             c, t,
+            initialCategory: typeof dialogs.showSettings === 'string' ? dialogs.showSettings : undefined,
             theme: settings.theme, setTheme: settings.setTheme,
             locale: settings.locale, setLocale: settings.setLocale,
             updateCheckEnabled: settings.updateCheckEnabled,

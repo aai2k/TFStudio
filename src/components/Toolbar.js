@@ -1,5 +1,6 @@
 import APP_ICON from '../constants/icon.js';
 import { useUpdate } from './ui/UpdateContext.js';
+import { settingsCategoryIds } from './dialogs/settings/categories.js';
 
 const { createElement: h, useState, useRef, useEffect } = React;
 
@@ -523,9 +524,10 @@ export function makeTabs(t) {
 // Reload / DevTools / Optimizer Benchmark entries are offered in every build, so
 // a user who hits a broken window can see what happened and report it. The
 // experimental Deep Synthesis window opens from here until it moves to the
-// ribbon.
+// ribbon. Preferences opens a submenu of its panes; a pane opens the dialog on
+// that pane.
 
-function appMenuItems(t, devAllowed, gamesUnlocked) {
+export function appMenuItems(t, devAllowed, gamesUnlocked) {
     return [
         { label: t.menu.layoutFilterDesign, action: 'layout-filter-design', shortcut: 'Ctrl+1' },
         { label: t.menu.layoutFullAnalysis, action: 'layout-full-analysis' },
@@ -544,6 +546,11 @@ function appMenuItems(t, devAllowed, gamesUnlocked) {
             { label: t.menu.optimizerBenchmark || 'Optimizer Benchmark…', action: 'tool:optimizer-benchmark' },
             { label: t.menu.deepSynthesis, action: 'tool:deep-synthesis' },
         ] : []),
+        { type: 'sep' },
+        {
+            label: t.settings.title,
+            children: settingsCategoryIds().map(id => ({ label: t.settings.categories[id], action: `preferences:${id}` })),
+        },
     ];
 }
 
@@ -604,8 +611,34 @@ function RibbonBtn({ id, label, title, active, disabled, c, onClick, iconColor }
 
 // ── Menu button (logo / help) with its popup ──────────────────────────────────
 
-function MenuButton({ c, items, title, tourId, onAction, align = 'left', width = 230, children }) {
+// The panel a menu or a submenu is drawn on, its top left corner at x, y.
+const menuPanelStyle = (c, x, y, minWidth) => ({
+    position: 'fixed', left: x, top: y, zIndex: 10000,
+    backgroundColor: c.panel, border: `1px solid ${c.border}`,
+    borderRadius: 5, boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
+    minWidth, padding: 4
+});
+
+// `active` keeps a row lit while the submenu it opened is showing.
+function MenuRow({ c, onClick, onEnter, active, children }) {
+    return h('div', {
+        onClick,
+        style: {
+            padding: '6px 12px', fontSize: 13, color: c.text,
+            cursor: 'pointer', borderRadius: 4,
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            backgroundColor: active ? c.hover : 'transparent'
+        },
+        onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = c.hover; onEnter?.(e); },
+        onMouseLeave: (e) => { if (!active) e.currentTarget.style.backgroundColor = 'transparent'; }
+    }, children);
+}
+
+// An item with `children` runs nothing itself: hovering or clicking it opens
+// them in a submenu to its right, and hovering another row closes it.
+export function MenuButton({ c, items, title, tourId, onAction, align = 'left', width = 230, children }) {
     const [open, setOpen] = useState(false);
+    const [sub, setSub] = useState(null);
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const wrapRef = useRef(null);
 
@@ -626,10 +659,27 @@ function MenuButton({ c, items, title, tourId, onAction, align = 'left', width =
             const r = wrapRef.current.getBoundingClientRect();
             setPos({ x: align === 'right' ? r.right - width : r.left, y: r.bottom });
         }
+        setSub(null);
         setOpen(o => !o);
     };
 
     const pick = (action) => { setOpen(false); onAction(action); };
+    // The submenu's panel starts just past the menu's border, with its first
+    // row level with the row that opened it.
+    const openSub = (i) => (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        setSub({ index: i, x: r.right + 5, y: r.top - 5 });
+    };
+    const closeSub = () => setSub(null);
+    const shortcut = (item) => item.shortcut && h('span', { style: { color: c.textDim, fontSize: 11, marginLeft: 24 } }, item.shortcut);
+    const actionRow = (item, key, onEnter) => h(MenuRow, { key, c, onEnter, onClick: () => pick(item.action) },
+        h('span', null, item.label),
+        shortcut(item)
+    );
+    const subRow = (item, i) => h(MenuRow, { key: i, c, active: sub?.index === i, onEnter: openSub(i), onClick: openSub(i) },
+        h('span', null, item.label),
+        h('span', { className: 'tf-caret', style: { transform: 'rotate(-90deg)', marginLeft: 24 } })
+    );
 
     return h('div', {
         ref: wrapRef,
@@ -650,31 +700,14 @@ function MenuButton({ c, items, title, tourId, onAction, align = 'left', width =
             onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = c.hover; },
             onMouseLeave: (e) => { if (!open) e.currentTarget.style.backgroundColor = 'transparent'; }
         }, children),
-        open && h('div', {
-            style: {
-                position: 'fixed', left: pos.x, top: pos.y + 2, zIndex: 10000,
-                backgroundColor: c.panel, border: `1px solid ${c.border}`,
-                borderRadius: 5, boxShadow: '0 6px 18px rgba(0,0,0,0.35)',
-                minWidth: width, padding: 4
-            }
-        }, items.map((item, i) =>
-            item.type === 'sep'
-                ? h('div', { key: i, style: { height: 1, backgroundColor: c.border, margin: '3px 8px' } })
-                : h('div', {
-                    key: i,
-                    onClick: () => pick(item.action),
-                    style: {
-                        padding: '6px 12px', fontSize: 13, color: c.text,
-                        cursor: 'pointer', borderRadius: 4,
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                    },
-                    onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = c.hover; },
-                    onMouseLeave: (e) => { e.currentTarget.style.backgroundColor = 'transparent'; }
-                },
-                    h('span', null, item.label),
-                    item.shortcut && h('span', { style: { color: c.textDim, fontSize: 11, marginLeft: 24 } }, item.shortcut)
-                )
-        ))
+        open && h('div', { style: menuPanelStyle(c, pos.x, pos.y + 2, width) }, items.map((item, i) =>
+            item.type === 'sep' ? h('div', { key: i, style: { height: 1, backgroundColor: c.border, margin: '3px 8px' } })
+            : item.children     ? subRow(item, i)
+            :                     actionRow(item, i, closeSub)
+        )),
+        open && sub && h('div', { style: menuPanelStyle(c, sub.x, sub.y, 160) },
+            items[sub.index].children.map((child, j) => actionRow(child, j))
+        )
     );
 }
 

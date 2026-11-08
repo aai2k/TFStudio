@@ -34,8 +34,9 @@ export function useAppCommands({ store, project, workspace, dialogs, welcome, lo
             'layout-save':          () => workspace.saveLayout(),
             'layout-restore':       () => workspace.restoreLayout(),
         };
-        if (actions[action]) { actions[action](); return; }
-        if (action.startsWith('tool:')) workspace.openTool(action.slice(5));
+        if (actions[action]) actions[action]();
+        else if (action.startsWith('preferences:')) dialogs.setShowSettings(action.slice('preferences:'.length));
+        else if (action.startsWith('tool:')) workspace.openTool(action.slice(5));
     };
 
     const handleToolAction = (toolId) => {

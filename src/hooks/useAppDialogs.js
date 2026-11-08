@@ -6,6 +6,7 @@
 const { useState, useEffect } = React;
 
 export function useAppDialogs() {
+    // true opens Preferences on its first pane; a pane id opens it on that pane.
     const [showSettings,     setShowSettings]     = useState(false);
     const [showAbout,        setShowAbout]        = useState(false);
     const [showFilterDesign, setShowFilterDesign] = useState(false);

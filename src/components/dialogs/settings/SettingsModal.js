@@ -10,20 +10,19 @@ import { QuickAccessPane } from './QuickAccessPane.js';
 import { FoldersPane } from './FoldersPane.js';
 import { AnalysisPane } from './analysis/AnalysisPane.js';
 import { AutomationPane } from './AutomationPane.js';
+import { settingsCategoryIds } from './categories.js';
 
 const { createElement: h, useState } = React;
 
-// Automation holds the live link for AI agents, which only the desktop app
-// has; elsewhere, as in the web demo, the category is left out.
-const CATEGORIES = [
-  { id: 'appearance',  Pane: AppearancePane },
-  { id: 'quickAccess', Pane: QuickAccessPane },
-  { id: 'language',    Pane: LanguagePane },
-  { id: 'performance', Pane: PerformancePane },
-  { id: 'analysis',    Pane: AnalysisPane },
-  { id: 'folders',     Pane: FoldersPane },
-  { id: 'automation',  Pane: AutomationPane, shown: () => !!window.electronAPI?.setLiveBridge },
-];
+const PANES = {
+  appearance:  AppearancePane,
+  quickAccess: QuickAccessPane,
+  language:    LanguagePane,
+  performance: PerformancePane,
+  analysis:    AnalysisPane,
+  folders:     FoldersPane,
+  automation:  AutomationPane,
+};
 
 const railButtonStyle = (c, active) => ({
   display: 'block', width: '100%', textAlign: 'left',
@@ -34,11 +33,13 @@ const railButtonStyle = (c, active) => ({
   fontSize: '12.5px', fontWeight: active ? '600' : '400',
 });
 
+// `initialCategory` is the pane the dialog opens on; without one it opens on
+// the first.
 export const SettingsModal = (props) => {
-  const { onClose, c, t } = props;
-  const [category, setCategory] = useState('appearance');
-  const categories = CATEGORIES.filter(entry => !entry.shown || entry.shown());
-  const active = categories.find(entry => entry.id === category) || categories[0];
+  const { onClose, c, t, initialCategory } = props;
+  const [category, setCategory] = useState(initialCategory);
+  const categories = settingsCategoryIds();
+  const active = categories.includes(category) ? category : categories[0];
 
   // No click-outside-to-close: a stray click on the backdrop while reading a
   // hint should not throw away the dialog.
@@ -93,14 +94,14 @@ export const SettingsModal = (props) => {
             padding: '8px', overflowY: 'auto',
           },
         },
-          categories.map(entry => h('button', {
-            key: entry.id,
-            onClick: () => setCategory(entry.id),
-            style: railButtonStyle(c, entry.id === category),
-          }, t.settings.categories[entry.id]))
+          categories.map(id => h('button', {
+            key: id,
+            onClick: () => setCategory(id),
+            style: railButtonStyle(c, id === active),
+          }, t.settings.categories[id]))
         ),
         h('div', { style: { flex: 1, minWidth: 0, overflow: 'auto', padding: '4px 16px 16px' } },
-          h(active.Pane, props))
+          h(PANES[active], props))
       )
     )
   );
