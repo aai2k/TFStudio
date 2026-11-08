@@ -13,14 +13,14 @@ export function NumField({ label, value, min, max, positive, step, onChange, c, 
     return h('label', { style: fieldLabel(c) },
         h('span', {}, label),
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
-            h(NumberField, { value, min, max, positive, step, onChange, style: inputStyle(c, width) }),
+            h(NumberField, { spin: true, c, value, min, max, positive, step, onChange, style: inputStyle(c, width) }),
             suffix && h('span', { style: { fontSize: 12, color: c.textDim } }, suffix)),
         hint && h('span', { style: { fontSize: 10.5, color: c.textDim, opacity: 0.85 } }, hint));
 }
 export function IntField({ label, value, min, max, onChange, c, hint }) {
     return h('label', { style: fieldLabel(c) },
         h('span', {}, label),
-        h(NumberField, { value, min, max, step: 1, integer: true, onChange, style: inputStyle(c, 90) }),
+        h(NumberField, { spin: true, c, value, min, max, step: 1, integer: true, onChange, style: inputStyle(c, 90) }),
         hint && h('span', { style: { fontSize: 10.5, color: c.textDim, opacity: 0.85 } }, hint));
 }
 export function CheckField({ label, value, onChange, c, hint }) {

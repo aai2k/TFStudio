@@ -53,7 +53,7 @@ function CalculatedPanel({ controller, c, mx, units }) {
                 to: { value: expEnd, onChange: setExpEnd, positive: true, step: 10 },
             }),
             h(FieldLabel, { c }, mx.stepLabel),
-            h(NumInput, { value: expStep, onChange: setExpStep, positive: true, step: 0.5, wheel: true, c, width: 56 }),
+            h(NumInput, { value: expStep, onChange: setExpStep, positive: true, step: 0.5, c, width: 56 }),
         ),
         h(InlineRow, { c, label: mx.aoiLabel },
             h(NumInput, { value: expAoi, onChange: setExpAoi, min: 0, max: 89.9, step: 0.1, c, width: 64 }),

@@ -50,7 +50,7 @@ function DesignExportPanel({ controller, c, sx, units }) {
                 to: { value: dEnd, onChange: setDEnd, positive: true, step: 10 },
             }),
             h(FieldLabel, { c }, sx.stepLabel),
-            h(NumInput, { value: dStep, onChange: setDStep, positive: true, step: 0.5, wheel: true, c, width: 56 }),
+            h(NumInput, { value: dStep, onChange: setDStep, positive: true, step: 0.5, c, width: 56 }),
         ),
         h(InlineRow, { c, label: sx.aoiLabel },
             h('input', { value: dAoi, onChange: event => setDAoi(event.target.value), style: textStyle }),

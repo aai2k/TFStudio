@@ -89,7 +89,7 @@ function MapSetup({ c, t, wam, state }) {
         ),
         h(SettingRow, { c, label: wam.lambdaStep },
             h(NumInput, {
-                value: state.lambdaStep, positive: true, step: 1, wheel: true, c, width: 62,
+                value: state.lambdaStep, positive: true, step: 1, c, width: 62,
                 onChange: value => state.set('lambdaStep', value),
             }),
         ),

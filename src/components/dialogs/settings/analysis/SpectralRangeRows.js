@@ -36,7 +36,8 @@ function ValueRow({ c, label, value, step, onCommit }) {
             value,
             step,
             positive: true,
-            wheel: true,
+            spin: true,
+            c,
             onChange: onCommit,
             style: { ...selectStyle(c), width: '120px', padding: '6px 8px', textAlign: 'right' },
         }));

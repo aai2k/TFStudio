@@ -3831,6 +3831,11 @@ export default {
     resetZoom: 'Reset zoom',
   },
 
+  numberField: {
+    stepUp: 'Increase (Shift ×10, Ctrl ×0.1). The mouse wheel steps the field you clicked into.',
+    stepDown: 'Decrease (Shift ×10, Ctrl ×0.1). The mouse wheel steps the field you clicked into.',
+  },
+
   coatingLibrary: {
     desktopOnly: 'only available in the desktop app',
     sourceBuiltin: 'Built-in',

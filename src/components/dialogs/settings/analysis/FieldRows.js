@@ -43,6 +43,8 @@ export const NumberRow = ({ c, label, value, spec, onChange }) =>
       max: spec.max,
       step: spec.step,
       positive: spec.positive,
+      spin: true,
+      c,
       onChange,
       style: { ...selectStyle(c), width: '120px', padding: '6px 8px', textAlign: 'right' },
     }));

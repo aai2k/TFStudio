@@ -4247,6 +4247,11 @@ export default {
     resetZoom: 'Reimposta lo zoom',
   },
 
+  numberField: {
+    stepUp: 'Aumenta (Shift ×10, Ctrl ×0,1). La rotella del mouse cambia il valore del campo in cui hai cliccato.',
+    stepDown: 'Riduci (Shift ×10, Ctrl ×0,1). La rotella del mouse cambia il valore del campo in cui hai cliccato.',
+  },
+
   coatingLibrary: {
     desktopOnly: 'disponibile solo nell’app desktop',
     sourceBuiltin: 'Predefiniti',

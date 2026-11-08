@@ -4216,6 +4216,11 @@ export default {
     resetZoom: '重置缩放',
   },
 
+  numberField: {
+    stepUp: '增加（Shift ×10，Ctrl ×0.1）。鼠标滚轮调整光标所在输入框的数值。',
+    stepDown: '减小（Shift ×10，Ctrl ×0.1）。鼠标滚轮调整光标所在输入框的数值。',
+  },
+
   coatingLibrary: {
     desktopOnly: '仅在桌面应用中可用',
     sourceBuiltin: '内置',

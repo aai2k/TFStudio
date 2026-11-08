@@ -61,7 +61,7 @@ function InhomogeneitySetup({ c, t, ih, state }) {
         ),
         h(SettingRow, { c, label: ih.step },
             h(NumInput, {
-                value: state.lambdaStep, positive: true, step: 1, wheel: true, c, width: 60,
+                value: state.lambdaStep, positive: true, step: 1, c, width: 60,
                 onChange: value => state.setLambdaStep(value > 0 ? value : 1),
             }),
         ),

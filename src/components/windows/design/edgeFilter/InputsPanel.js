@@ -17,7 +17,7 @@ const fieldStyle = (c, width) => ({
 function numberInput({ state, c, key, label, width = 80, ...bounds }) {
     return h('label', { key, style: labelStyle(c) },
         h('span', {}, label),
-        h(NumberField, { value: state.inputs[key], onChange: v => state.setInput(key, v), style: fieldStyle(c, width), ...bounds }));
+        h(NumberField, { spin: true, c, value: state.inputs[key], onChange: v => state.setInput(key, v), style: fieldStyle(c, width), ...bounds }));
 }
 
 function pickerInput({ state, c, t, key, label }) {

@@ -11,7 +11,7 @@ export function RunBar({
 }) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' } },
         h('label', { style: { fontSize: 12, color: c.text, display: 'inline-flex', alignItems: 'center', gap: 6 } }, 'Synth budget',
-            h(NumberField, {
+            h(NumberField, { spin: true, c,
                 min: 1, max: 60, step: 1, value: budgetSec, disabled: STORE.running,
                 onChange: setBudgetSec,
                 style: { width: 56, background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, padding: '2px 6px' },

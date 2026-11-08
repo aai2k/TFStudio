@@ -56,7 +56,7 @@ function EvaluationSettings({ c, t, model }) {
         ),
         h(SettingRow, { c, label: iv.step },
             h(NumInput, {
-                value: params.lambdaStep, positive: true, step: 0.5, wheel: true, c, width: 60,
+                value: params.lambdaStep, positive: true, step: 0.5, c, width: 60,
                 onChange: value => patch({ lambdaStep: value > 0 ? value : 5 }),
             }),
         ),

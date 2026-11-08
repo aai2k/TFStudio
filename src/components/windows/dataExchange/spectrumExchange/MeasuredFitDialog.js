@@ -129,7 +129,7 @@ export function MeasuredFitDialog({ controller, c, sx, units }) {
         ),
         fitConfig.mode === 'uniform' && h(DialogRow, { c, label: sx.stepLabel },
             h(NumInput, {
-                c, value: fitConfig.stepNm, positive: true, step: 0.1, wheel: true, width: 72,
+                c, value: fitConfig.stepNm, positive: true, step: 0.1, width: 72,
                 onChange: value => setFitOption('stepNm', value),
             }),
             h('span', { style: { color: c.textDim } }, units.nm),

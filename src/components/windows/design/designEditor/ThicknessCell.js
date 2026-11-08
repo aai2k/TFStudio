@@ -1,9 +1,19 @@
 import { nmToUnit, thicknessEntryToNm } from './units.js';
 import { LAYER_TABLE } from './layerTableLayout.js';
 import { useWheelStep } from '../../../ui/wheelStep.js';
-import { SPIN_WIDTH, SpinArrows, editOpen } from './ThicknessSpin.js';
+import { SPIN_WIDTH, SpinArrows } from '../../../ui/SpinArrows.js';
 
 const { createElement: h, useEffect, useState, useRef } = React;
+
+/**
+ * True while a thickness cell in the element's document has its text input
+ * open. A step then would be undone when that input commits the value it
+ * opened with, so the arrows and the wheel leave the table alone until it
+ * closes.
+ */
+function editOpen(element) {
+    return element.ownerDocument.activeElement?.hasAttribute?.('data-thickness-edit') === true;
+}
 
 // ── Thickness cell ────────────────────────────────────────────────────────────
 // Edits one of {nm, OT, QWOT, FWOT}. value_nm is the source of truth; the cell
@@ -19,7 +29,7 @@ const { createElement: h, useEffect, useState, useRef } = React;
 function thicknessCellInput({ inputRef, raw, setRaw, commitAndNavigate, cancel, onActivate, c }) {
     return h('input', {
         ref: inputRef, value: raw,
-        // Marks an open edit for the step arrows and the wheel (ThicknessSpin.js).
+        // Marks an open edit for the step arrows and the wheel (editOpen).
         'data-thickness-edit': '',
         onFocus: onActivate,
         onChange: (e) => setRaw(e.target.value),
@@ -188,7 +198,7 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
         text: hasValue ? displayed.toFixed(decimals) : '–',
         titleText: title,
         locked, primary, active, hover, startEdit: edit.startEdit, setHover, onActivate, displayRef,
-        spin: hover && steppable ? h(SpinArrows, { titles: stepTitles, onStep, c }) : null,
+        spin: hover && steppable ? h(SpinArrows, { titles: stepTitles, onStep, blocked: editOpen, c }) : null,
         c,
     });
 }

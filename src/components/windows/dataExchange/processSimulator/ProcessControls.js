@@ -60,7 +60,7 @@ function ProcessSettings({ c, t, sp, setup }) {
         ),
         h(SettingRow, { c, label: sp.step },
             h(NumInput, {
-                c, width: 68, value: setup.lambdaStep, positive: true, step: 0.5, wheel: true,
+                c, width: 68, value: setup.lambdaStep, positive: true, step: 0.5,
                 onChange: setup.setLambdaStep,
             }),
         ),

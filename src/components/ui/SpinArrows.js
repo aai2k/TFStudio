@@ -1,8 +1,13 @@
-import { stepModifiers } from '../../../ui/wheelStep.js';
+/**
+ * Up and down step arrows at the right edge of a value, shown while the pointer
+ * is over it: the Design Editor's thickness cells and the number fields.
+ */
+
+import { stepModifiers } from './wheelStep.js';
 
 const { createElement: h, useEffect, useRef, useState } = React;
 
-/** Width of the arrow column at the right edge of a hovered thickness cell (px). */
+/** Width of the arrow column at the right edge of the value (px). */
 export const SPIN_WIDTH = 10;
 
 // A held arrow waits long enough that a single click never steps twice, then
@@ -10,22 +15,12 @@ export const SPIN_WIDTH = 10;
 const HOLD_DELAY_MS = 400;
 const HOLD_REPEAT_MS = 50;
 
-/**
- * True while a thickness cell in the element's document has its text input
- * open. A step then would be undone when that input commits the value it
- * opened with, so the arrows and the wheel leave the table alone until it
- * closes.
- */
-export function editOpen(element) {
-    return element.ownerDocument.activeElement?.hasAttribute?.('data-thickness-edit') === true;
-}
-
 // One half of the arrow column. A press steps once, and a held press keeps
 // stepping after a pause until the button is released. Clicks stop here so an
 // arrow never changes the selection it is stepping. The repeat timers come
-// from the window the arrow is drawn in: a Design Editor torn off into its own
+// from the window the arrow is drawn in: a window torn off into its own
 // window would otherwise repeat at the rate of a minimized main window.
-function SpinArrow({ direction, title, onStep, c }) {
+function SpinArrow({ direction, title, onStep, blocked, c }) {
     const [hover, setHover] = useState(false);
     const onStepRef = useRef(onStep);
     onStepRef.current = onStep;
@@ -41,7 +36,7 @@ function SpinArrow({ direction, title, onStep, c }) {
     useEffect(() => stop, []);
 
     const start = event => {
-        if (event.button !== 0 || editOpen(event.currentTarget)) return;
+        if (event.button !== 0 || blocked?.(event.currentTarget)) return;
         event.stopPropagation();
         event.currentTarget.setPointerCapture?.(event.pointerId);
         const modifiers = stepModifiers(event);
@@ -79,8 +74,14 @@ function SpinArrow({ direction, title, onStep, c }) {
         })));
 }
 
-/** Up and down arrows at the right edge of a hovered thickness cell. */
-export function SpinArrows({ titles, onStep, c }) {
+/**
+ * The arrows, laid over the right edge of the positioned element they sit in.
+ * `onStep(direction, modifiers)` steps once per press and repeatedly while one
+ * is held; Shift and Ctrl scale the step as stepScale does. `titles` holds the
+ * `up` and `down` tooltips. `blocked(element)`, when given, ignores a press
+ * whenever it returns true.
+ */
+export function SpinArrows({ titles, onStep, blocked, c }) {
     return h('div', {
         style: {
             position: 'absolute', top: 0, right: 0, bottom: 0, width: SPIN_WIDTH,
@@ -88,6 +89,6 @@ export function SpinArrows({ titles, onStep, c }) {
             borderLeft: `1px solid ${c.border}`,
         },
     },
-        h(SpinArrow, { direction: 1, title: titles.up, onStep, c }),
-        h(SpinArrow, { direction: -1, title: titles.down, onStep, c }));
+        h(SpinArrow, { direction: 1, title: titles.up, onStep, blocked, c }),
+        h(SpinArrow, { direction: -1, title: titles.down, onStep, blocked, c }));
 }

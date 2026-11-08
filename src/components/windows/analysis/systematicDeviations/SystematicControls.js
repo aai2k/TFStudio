@@ -85,7 +85,7 @@ function SystematicSetup({ c, t, sd, state }) {
         ),
         h(SettingRow, { c, label: sd.step },
             h(NumInput, {
-                value: state.lambdaStep, positive: true, step: 1, wheel: true, c, width: 60,
+                value: state.lambdaStep, positive: true, step: 1, c, width: 60,
                 onChange: state.setLambdaStep,
             }),
         ),

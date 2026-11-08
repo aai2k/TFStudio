@@ -25,7 +25,7 @@ function optionsRow(state, c, sf) {
         h('label', { style: { display: 'flex', flexDirection: 'column', gap: 3,
                      fontSize: 11, color: c.textDim } },
             h('span', {}, sf.refLambda),
-            h(NumberField, { step: 1, positive: true, value: state.refLambda,
+            h(NumberField, { spin: true, c, step: 1, positive: true, value: state.refLambda,
                 onChange: state.setRefLambda,
                 style: { width: 90, padding: '5px 7px', fontSize: 13, backgroundColor: c.bg,
                          color: c.text, border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none' } })

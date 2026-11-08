@@ -105,7 +105,7 @@ for (const [name, Component, props] of [
 // The arrow keys stop short of zero rather than stepping onto it.
 {
     const taken = [];
-    const render = mount(NumInput, { value: 5, positive: true, step: 10, c, onChange: value => taken.push(value) });
+    const render = mountField(NumInput, { value: 5, positive: true, step: 10, c, onChange: value => taken.push(value) });
     inputOf(render()).props.onKeyDown({ key: 'ArrowDown', preventDefault() {} });
     assert.deepEqual(taken, [], 'stepping a positive field down to -5 is refused');
     inputOf(render()).props.onKeyDown({ key: 'ArrowUp', preventDefault() {} });

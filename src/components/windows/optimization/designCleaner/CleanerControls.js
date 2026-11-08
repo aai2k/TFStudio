@@ -61,7 +61,7 @@ export function CleanerControls({
         }
     },
         h('label', { style: labelStyle }, dc.minThickness,
-            h(NumberField, {
+            h(NumberField, { spin: true, c,
                 min: 0, max: 200, step: 0.5, value: dMin, disabled: applying,
                 onChange: setDMin,
                 style: { ...inputStyle, marginLeft: 6, width: 60 }
@@ -93,7 +93,7 @@ export function CleanerControls({
             dc.reoptimize
         ),
         reoptimize && design.meritOperands?.length > 0 && h('label', { style: labelStyle }, dc.reoptIters,
-            h(NumberField, {
+            h(NumberField, { spin: true, c,
                 min: 1, max: 500, step: 10, integer: true, value: reoptIters, disabled: applying,
                 onChange: setReoptIters,
                 style: { ...inputStyle, marginLeft: 6, width: 55 }

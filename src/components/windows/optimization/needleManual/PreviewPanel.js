@@ -40,7 +40,7 @@ export function PreviewPanel({
                 onChange: e => onDNew(parseFloat(e.target.value)),
                 style: { flex: 1 }
             }),
-            h(NumberField, {
+            h(NumberField, { spin: true, c,
                 min: dRange[0], max: dRange[1], step: 0.5, value: +dNew.toFixed(2), disabled: busy,
                 onChange: onDNew,
                 style: { width: 64, padding: '1px 4px', fontSize: 11, textAlign: 'right', background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 2 }

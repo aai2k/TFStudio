@@ -48,7 +48,7 @@ function RangeRows({ c, W, s, set }) {
         h(SettingRow, { c, key: 'range', label: W.range },
             h(RangeField, { c, label: '', from: { value: s.lambdaStart, onChange: v => set('lambdaStart', v), ...LAMBDA }, to: { value: s.lambdaEnd, onChange: v => set('lambdaEnd', v), ...LAMBDA } })),
         h(SettingRow, { c, key: 'step', label: W.step },
-            h(NumInput, { c, value: s.lambdaStep, positive: true, step: 0.5, wheel: true, width: 56, onChange: v => set('lambdaStep', v) }),
+            h(NumInput, { c, value: s.lambdaStep, positive: true, step: 0.5, width: 56, onChange: v => set('lambdaStep', v) }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, W.nm)),
         h(SettingRow, { c, key: 'angles', label: W.angles },
             h(AngleListField, { c, value: s.thetas, onChange: v => set('thetas', v) })),

@@ -20,7 +20,7 @@ export function LeftSidebar({
     const numRow = (label, value, onChange, min, step = 1) =>
         h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 } },
             h('span', { style: { fontSize: 11, color: c.textDim } }, label),
-            h(NumberField, {
+            h(NumberField, { spin: true, c,
                 value, onChange, min, step, disabled: busy,
                 style: {
                     width: 58, padding: '1px 4px', fontSize: 11, textAlign: 'right',

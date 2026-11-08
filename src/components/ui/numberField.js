@@ -28,12 +28,15 @@
  * emptied field gives null instead of being refused, and stepping from nothing
  * starts at `emptyStep`.
  *
- * `wheel` steps the value with the mouse wheel while the field has the focus
- * and holds no half-typed entry, as the Design Editor's thickness cells step:
- * one notch is one `step`, Shift ten times as far, Ctrl a tenth as far, and a
- * wheel still scrolling the panel scrolls on (wheelStep.js). A field the
- * pointer only passes over is left alone, so scrolling a panel of fields
- * changes none of them.
+ * `spin` steps the field as the Design Editor's thickness cells step. Up and
+ * down arrows show at its right edge while the pointer is over it, and a held
+ * arrow keeps stepping. The mouse wheel steps it while it has the focus and
+ * holds no half-typed entry, and a wheel still scrolling the panel scrolls on
+ * (wheelStep.js). A field the pointer only passes over is left alone, so
+ * scrolling a panel of fields changes none of them. Arrows, wheel and arrow
+ * keys step by `step`, Shift ten times as far, Ctrl a tenth as far. The arrows
+ * are drawn in the colors `c`; `useNumberField` gives the wheel and the keys
+ * only.
  *
  * `useNumberField` returns the input's props for a field with its own look;
  * `NumberField` is the input itself, and passes any other prop, such as
@@ -43,7 +46,9 @@
  */
 
 import { parseNumberStrict } from '../../utils/misc/numberParsing.js';
-import { stepScale, useWheelStep } from './wheelStep.js';
+import { getCurrentLocale, getLocale } from '../../constants/locales/index.js';
+import { SPIN_WIDTH, SpinArrows } from './SpinArrows.js';
+import { stepModifiers, stepScale, useWheelStep } from './wheelStep.js';
 
 const { createElement: h, useRef, useState } = React;
 
@@ -76,11 +81,11 @@ export function stepKeys(text, setText, bounds = {}) {
 }
 
 /**
- * The value `ticks` wheel notches move `from` to, or null when the step is
- * refused. `modifiers` scale the step as stepScale does; a count never steps
- * by less than one.
+ * The value `ticks` steps move `from` to, up for positive ticks, or null when
+ * the step is refused. `modifiers` scale the step as stepScale does; a count
+ * never steps by less than one.
  */
-export function wheelStepValue(from, ticks, modifiers, { step = 1, min, max, positive = false, integer = false }) {
+export function stepValue(from, ticks, modifiers, { step = 1, min, max, positive = false, integer = false }) {
     const scaled = step * stepScale(modifiers);
     const size = (integer ? Math.max(1, Math.round(scaled)) : scaled) * Math.abs(ticks);
     return stepNumber(from, Math.sign(ticks), { step: size, min, max, positive });
@@ -88,9 +93,11 @@ export function wheelStepValue(from, ticks, modifiers, { step = 1, min, max, pos
 
 const notFocused = element => element.ownerDocument.activeElement !== element;
 
-export function useNumberField({
+// The input's props, and `nudge(direction, modifiers)`, which steps from the
+// half-typed entry when there is one and from the value otherwise.
+function useField({
     value, onChange, min, max, step = 1, positive = false, integer = false,
-    nullable = false, emptyStep = 0, wheel = false,
+    nullable = false, emptyStep = 0, spin = false,
 }) {
     // What is being typed, or null while the field shows `value`.
     const [draft, setDraft] = useState(null);
@@ -107,43 +114,73 @@ export function useNumberField({
             if (next !== value) onChange(next);
         } else if (nullable && draft.trim() === '' && value != null) onChange(null);
     };
-    const nudge = (direction) => {
+    const nudge = (direction, modifiers = {}) => {
         const parsed = draft == null ? NaN : read(draft);
         const from = Number.isFinite(parsed) ? parsed : value;
         // Nothing to step from: the first press lands ON emptyStep, which is
         // where the caller wants an empty field to start, not a step past it.
         const next = from == null
             ? stepNumber(emptyStep, 0, { min, max, positive })
-            : stepNumber(from, direction, { step, min, max, positive });
+            : stepValue(from, direction, modifiers, { step, min, max, positive, integer });
         if (next == null) return;
         setDraft(null);
         onChange(next);
     };
     const ref = useRef(null);
-    useWheelStep(ref, wheel && draft == null && value != null, (ticks, modifiers) => {
-        const next = wheelStepValue(value, ticks, modifiers, { step, min, max, positive, integer });
+    useWheelStep(ref, spin && draft == null && value != null, (ticks, modifiers) => {
+        const next = stepValue(value, ticks, modifiers, { step, min, max, positive, integer });
         if (next != null && next !== value) onChange(next);
     }, { blocked: notFocused });
-    return {
-        ...(wheel ? { ref } : {}),
+    const props = {
+        ...(spin ? { ref } : {}),
         type: 'text', inputMode: 'decimal', value: draft ?? textOf(value),
         // See `.tfs-number` in styles.css.
         className: 'tfs-number',
         onChange: event => setDraft(event.target.value),
         onBlur: commit,
         onKeyDown: (event) => {
+            const direction = { ArrowUp: 1, ArrowDown: -1 }[event.key];
             if (event.key === 'Enter') commit();
-            else if (event.key === 'ArrowUp') { event.preventDefault(); nudge(1); }
-            else if (event.key === 'ArrowDown') { event.preventDefault(); nudge(-1); }
+            else if (direction) {
+                event.preventDefault();
+                nudge(direction, spin ? stepModifiers(event) : {});
+            }
         },
     };
+    return { props, nudge };
+}
+
+export function useNumberField(options) {
+    return useField(options).props;
+}
+
+// A `spin` field: the input, with the arrows over its right edge while the
+// pointer is over it and the text moved clear of them. A press on an arrow
+// keeps the focus in the field, or puts it there, so a half-typed entry steps
+// from what is typed and the wheel steps the field next.
+function SpinInput({ input, onStep, c }) {
+    const [hover, setHover] = useState(false);
+    const shown = hover && !input.disabled;
+    const { stepUp, stepDown } = getLocale(getCurrentLocale()).numberField;
+    return h('span', {
+        style: { position: 'relative', display: 'inline-flex', flexShrink: 0 },
+        onMouseEnter: () => setHover(true),
+        onMouseLeave: () => setHover(false),
+        onMouseDown: (event) => {
+            const field = input.ref.current;
+            if (!field || event.target === field) return;
+            event.preventDefault();
+            field.focus();
+        },
+    },
+        h('input', shown ? { ...input, style: { ...input.style, paddingRight: SPIN_WIDTH + 2 } } : input),
+        shown && h(SpinArrows, { titles: { up: stepUp, down: stepDown }, onStep, c }));
 }
 
 export function NumberField({
-    value, onChange, min, max, step, positive, integer, nullable, emptyStep, wheel, ...rest
+    value, onChange, min, max, step, positive, integer, nullable, emptyStep, spin, c, ...rest
 }) {
-    return h('input', {
-        ...rest,
-        ...useNumberField({ value, onChange, min, max, step, positive, integer, nullable, emptyStep, wheel }),
-    });
+    const field = useField({ value, onChange, min, max, step, positive, integer, nullable, emptyStep, spin });
+    const input = { ...rest, ...field.props };
+    return spin ? h(SpinInput, { input, onStep: field.nudge, c }) : h('input', input);
 }
