@@ -36,4 +36,6 @@ for (const noisePct of [0, 0.5]) {
 }
 
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILURE(S)`);
-process.exit(fail === 0 ? 0 : 1);
+// The process ends on its own rather than through process.exit: on Windows
+// under load, process.exit straight after a kernel computation can crash Node.
+process.exitCode = fail === 0 ? 0 : 1;
