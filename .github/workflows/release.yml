@@ -1,0 +1,141 @@
+name: Release
+
+# Builds every download a release carries and leaves them on a draft release
+# named after the version in package.json:
+#
+#   Windows   TFStudio Setup <ver>.exe, TFStudio-<ver>-Portable.exe,
+#             TFStudio-<ver>-Win7-Setup.exe, TFStudio-<ver>-Win7-Portable.exe
+#   Linux     TFStudio-<ver>-amd64.deb, TFStudio-<ver>-x86_64.AppImage,
+#             TFStudio-<ver>-x86_64.flatpak
+#
+# Started by hand: Actions > Release > Run workflow, or
+# `gh workflow run release.yml`. The draft is built from the commit the run
+# started on; publishing it on GitHub creates the tag there. Running again for
+# the same version replaces the draft's files; a version already published is
+# refused.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The refractiveindex.info database the bundled material seed is made from.
+          submodules: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install docs-site dependencies
+        run: npm --prefix docs-site ci
+
+      - name: Installer and portable, Windows 10 and 11
+        run: npm run build
+
+      - name: Installer and portable, Windows 7 to 8.1 (Electron 22)
+        run: node tools/run-electron-builder.mjs --config build/electron-builder.win7.js
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows
+          path: dist/*.exe
+          if-no-files-found: error
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install flatpak and flatpak-builder
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder
+          # Ubuntu 24.04 stops unprivileged programs from making the user
+          # namespaces bubblewrap needs, and flatpak-builder runs every build
+          # step under bubblewrap. The runner is discarded after the job.
+          if [ -e /proc/sys/kernel/apparmor_restrict_unprivileged_userns ]; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install docs-site dependencies
+        run: npm --prefix docs-site ci
+
+      - name: deb, AppImage and Flatpak
+        run: bash ./build-release-linux.sh --no-verify
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linux
+          path: |
+            dist/*.deb
+            dist/*.AppImage
+          if-no-files-found: error
+
+      # Separate, so a Flatpak the build script skipped fails the run.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: flatpak
+          path: dist/*.flatpak
+          if-no-files-found: error
+
+  release:
+    needs: [windows, linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          files=(release/*)
+          printf 'Files for TFStudio %s:\n' "$version"
+          printf '  %s\n' "${files[@]}"
+          state="$(gh release view "$version" --json isDraft --jq .isDraft 2>/dev/null || echo none)"
+          case "$state" in
+            none)
+              gh release create "$version" --draft --title "TFStudio $version" --notes "" \
+                --target "$GITHUB_SHA" "${files[@]}"
+              ;;
+            true)
+              gh release edit "$version" --target "$GITHUB_SHA"
+              gh release upload "$version" --clobber "${files[@]}"
+              ;;
+            *)
+              echo "::error::TFStudio $version is already published. Bump the version in package.json first."
+              exit 1
+              ;;
+          esac

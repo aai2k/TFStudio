@@ -2,7 +2,7 @@
 import { existsSync as fileExists, readFileSync } from 'node:fs';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import { prepareBuilderEnvironment } from '../tools/run-electron-builder.mjs';
+import { prepareBuilderEnvironment, builderArgs } from '../tools/run-electron-builder.mjs';
 
 let passed = 0;
 function ok(condition, message) {
@@ -48,6 +48,15 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
     threw = error.message.includes('PowerShell was not found');
   }
   ok(threw, 'a genuinely missing Windows PowerShell installation fails early and clearly');
+}
+
+{
+  // On a CI machine electron-builder publishes on its own unless told not to,
+  // and the Release workflow's draft would receive a second upload.
+  ok(JSON.stringify(builderArgs(['--linux'])) === JSON.stringify(['--linux', '--publish', 'never']),
+    'electron-builder publishes nothing unless asked');
+  ok(JSON.stringify(builderArgs(['--publish', 'always'])) === JSON.stringify(['--publish', 'always']),
+    'an explicit publish choice is passed on unchanged');
 }
 
 {

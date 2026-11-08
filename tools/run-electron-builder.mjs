@@ -1,6 +1,6 @@
 /**
  * Launch electron-builder with the small amount of environment repair it
- * needs on Windows.
+ * needs on Windows, and with publishing off unless the arguments ask for it.
  *
  * Activating emsdk can leave a VS Code terminal with Emscripten's bundled Node
  * first on PATH and the Windows PowerShell directory missing. electron-builder
@@ -67,10 +67,21 @@ export function installPortableTemplate(options = {}) {
   return { target, updated: true };
 }
 
+/**
+ * The arguments electron-builder is run with: `args`, plus `--publish never`
+ * when they say nothing about publishing. Releases are uploaded by the Release
+ * workflow, never by electron-builder, which on a CI machine otherwise uploads
+ * to any draft release of the same version on its own.
+ */
+export function builderArgs(args) {
+  const saysPublish = args.some(arg => arg === '--publish' || arg === '-p' || arg.startsWith('--publish='));
+  return saysPublish ? args : [...args, '--publish', 'never'];
+}
+
 export function runElectronBuilder(args = process.argv.slice(2)) {
   installPortableTemplate();
   const cli = require.resolve('electron-builder/cli.js');
-  const result = spawnSync(process.execPath, [cli, ...args], {
+  const result = spawnSync(process.execPath, [cli, ...builderArgs(args)], {
     cwd: process.cwd(),
     env: prepareBuilderEnvironment(),
     stdio: 'inherit',
