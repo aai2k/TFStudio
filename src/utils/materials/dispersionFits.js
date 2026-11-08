@@ -520,15 +520,16 @@ function initialDrudeParameters(rows) {
  * The Drude term alone, then one more Lorentz oscillator at a time up to the
  * ceiling, each model seeded from the one before it.
  *
- * Every count is tried from five resonances spread across the table's energy
- * span and the best of them is kept, both as that count's model and as the
- * start for the next. Nothing here decides how many oscillators the table
- * supports: the caller judges each model on whichever residual it can see, and
- * stops reading when it has what it needs, so a chain cut short costs nothing.
+ * Every count is tried from seven resonances, five spread across the table's
+ * energy span and two above it, and the best of them is kept, both as that
+ * count's model and as the start for the next (keptFit). Nothing here decides
+ * how many oscillators the table supports: the caller judges each model on
+ * whichever residual it can see, and stops reading when it has what it needs,
+ * so a chain cut short costs nothing.
  *
  * A chain already fitted to nearly the same rows can hand its models over as
  * `warmStart`, one per count. Each count then starts from that count's model
- * instead of from five fresh resonances, and reaches its answer in a fraction
+ * instead of from seven fresh resonances, and reaches its answer in a fraction
  * of the work when the rows have barely moved. The floor under every count is
  * still the count below it with a silent oscillator added, so a warm start
  * that lands nowhere useful is dropped rather than carried.
@@ -561,34 +562,81 @@ function* metalLadder(rows, kind, warmStart = []) {
     const highEnergy = Math.max(...energies);
     const energySpan = highEnergy - lowEnergy;
     const peakEpsilonImaginary = Math.max(...rows.map(row => 2 * row[1] * row[2]), 0.1);
+    // Where a new oscillator is tried: five resonances across the band, and
+    // two above it, one and three spans past its high-energy end. A
+    // table can need a resonance above the band it covers, as silver's visible
+    // and near infrared needs its interband absorption in the ultraviolet.
+    // Started only inside the band, such a fit can settle on a resonance at zero
+    // energy with its damping on the cap, a second Drude term, and the count
+    // that would have paid its way is judged on that.
+    const trialResonances = [
+        ...[1, 2, 3, 4, 5].map(index => lowEnergy + (index / 6) * energySpan),
+        ...[1, 3].map(spans => highEnergy + spans * energySpan),
+    ];
 
     for (let count = 1; count <= MAX_OSCILLATORS; count++) {
         const damping = Math.max(minDamping, energySpan / (2 * count + 2));
-        let best = [
+        const silentStart = [
             ...parameters,
             Math.log(1e-8), Math.log((lowEnergy + highEnergy) / 2), Math.log(damping),
         ];
-        let bestCost = costOf(best, count);
         const warm = warmParameters(count);
-        const starts = warm ? [warm] : [1, 2, 3, 4, 5].map((index) => {
-            const resonance = lowEnergy + (index / 6) * energySpan;
-            const strength = Math.max(
-                1e-3,
-                peakEpsilonImaginary * damping * resonance / (4 * count),
-            );
+        // A trial inside the band starts sized to the absorption the table
+        // shows there. One above it starts adding 1 to ε across the band, about
+        // f / resonance² that far below its resonance, the scale of the
+        // background it shares with ε∞.
+        const starts = warm ? [warm] : trialResonances.map((resonance) => {
+            const strength = resonance > highEnergy
+                ? resonance ** 2
+                : Math.max(1e-3, peakEpsilonImaginary * damping * resonance / (4 * count));
             return [...parameters, Math.log(strength), Math.log(resonance), Math.log(damping)];
         });
-        for (const start of starts) {
-            const candidate = fitAt(start, count, 180);
-            const candidateCost = costOf(candidate, count);
-            if (candidateCost < bestCost) {
-                best = candidate;
-                bestCost = candidateCost;
-            }
-        }
-        parameters = best;
-        yield { model: decodeMetalParameters(best, kind, count, minDamping), cost: bestCost };
+        const kept = keptFit(
+            silentStart,
+            starts.map(start => fitAt(start, count, 180)),
+            values => costOf(values, count),
+            values => holdsStandInOscillator(decodeMetalParameters(values, kind, count, minDamping), rows),
+        );
+        parameters = kept.values;
+        yield { model: decodeMetalParameters(kept.values, kind, count, minDamping), cost: kept.cost };
     }
+}
+
+/**
+ * The fit a count keeps, as { values, cost }: the cheapest of `candidates`
+ * without a stand-in oscillator, or `silent`, the count below with a silent
+ * term, when none of them improves on it. A fit holding a stand-in is kept
+ * only when nothing else improves on the silent term: the stand-in does the
+ * background's or a second Drude term's work, and as the seed of the next
+ * count it carries that dead term up the ladder.
+ */
+function keptFit(silent, candidates, costOf, holdsStandIn) {
+    let best = { values: silent, cost: costOf(silent) };
+    let standIn = null;
+    for (const values of candidates) {
+        const cost = costOf(values);
+        if (!holdsStandIn(values)) {
+            if (cost < best.cost) best = { values, cost };
+        } else if (!standIn || cost < standIn.cost) {
+            standIn = { values, cost };
+        }
+    }
+    return best.values === silent && standIn && standIn.cost < best.cost ? standIn : best;
+}
+
+/**
+ * Whether the model keeps an oscillator that is not a resonance of the rows:
+ * one with its strength, resonance or damping on a bound, or one the rows
+ * cannot tell from a constant (flatOscillators).
+ */
+function holdsStandInOscillator(model, rows) {
+    const pinned = model.oscillators.some(oscillator => !atFloor(oscillator.strengthEv2)
+        && (onABound(oscillator.strengthEv2, METAL_BOUNDS.strengthEv2)
+            || onABound(oscillator.resonanceEv, METAL_BOUNDS.resonanceEv)
+            || onABound(oscillator.dampingEv, METAL_BOUNDS.dampingEv)));
+    if (pinned) return true;
+    const wavelengths = rows.map(row => row[0]);
+    return flatOscillators(metalFit(rows, [Math.min(...wavelengths), Math.max(...wavelengths)], model)).length > 0;
 }
 
 /**

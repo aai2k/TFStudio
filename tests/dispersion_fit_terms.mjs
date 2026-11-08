@@ -138,6 +138,36 @@ ladder.forEach((rung, count) => {
         `started from its own answer, count ${count} does not get worse`);
 });
 
+// ── A resonance above the band is found on every band ────────────────────────
+//
+// A silver-like metal, the model silver's own table fits to over 376 to 827 nm,
+// rounded: its strong oscillator sits in the ultraviolet, above every band
+// fitted here, a weak one inside them, and ε∞ at the vacuum value, where
+// silver's fits put it. Started only from resonances inside the band, the
+// ladder settled on some bands for a fit with a resonance at zero and its
+// damping on the cap, a second Drude term, and came back with a residual of up
+// to 1e-2 or with four or five oscillators where the rows hold two, depending
+// on where the band began.
+
+const uvMetal = {
+    kind: 'drude-lorentz', epsilonInfinity: 1, plasmaEnergyEv: 8.73, drudeDampingEv: 0.063,
+    oscillators: [
+        { strengthEv2: 95.3, resonanceEv: 6.24, dampingEv: 1.11 },
+        { strengthEv2: 1.19, resonanceEv: 2.48, dampingEv: 2 },
+    ],
+};
+const uvRows = [];
+for (let nm = 350; nm <= 830; nm += 10) uvRows.push([nm, ...evaluateComplexDispersionModel(uvMetal, nm)]);
+const byBand = [];
+for (let left = 350; left <= 440; left += 10) {
+    const fit = fitTabulatedMaterial(uvRows, { nModel: 'drude-lorentz', rangeNm: [left, 830] });
+    byBand.push([left, fit.complex.oscillators.length, Math.max(fit.residuals.n.rms, fit.residuals.k.rms)]);
+}
+// The fit can reach ε∞ only to within its numerical floor of 1, so the rows
+// come back to well under any table's rounding rather than exactly.
+assert.ok(byBand.every(([, count, rms]) => count === 2 && rms < 1e-6),
+    `each band from 350 to 440 nm gives back the two oscillators the rows were made with: ${JSON.stringify(byBand)}`);
+
 // ── ε∞ is not free to be below the vacuum value ───────────────────────────────
 //
 // ε∞ carries every resonance above the fitted range, so it cannot be below 1. A
