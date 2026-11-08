@@ -1,5 +1,5 @@
 import {
-    CheckField, ChoiceGroup, NumInput, RangeField, ToggleButton,
+    CheckField, ChoiceGroup, NumInput, RangeField, ResponseChoice, ToggleButton,
 } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
@@ -78,14 +78,7 @@ export function GDControls({ c, t, text, state, raw, autoRange, notices, editor 
                 { id: 'tod', label: text.quantityShort.tod, title: text.todTip },
             ],
         }),
-        h(ChoiceGroup, {
-            activeId: state.target, onSelect: state.setTarget, c,
-            ariaLabel: text.response || 'Response',
-            items: [
-                { id: 'R', label: text.reflection, color: '#ef5350' },
-                { id: 'T', label: text.transmission, color: '#03a9f4' },
-            ],
-        }),
+        h(ResponseChoice, { c, t, activeId: state.target, onSelect: state.setTarget }),
         h(ChoiceGroup, {
             label: text.pol, activeId: state.pol, onSelect: state.setPol, c,
             items: [

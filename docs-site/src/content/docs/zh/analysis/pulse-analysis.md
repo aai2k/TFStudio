@@ -10,7 +10,7 @@ ribbonIcon: pulse-analysis
 
 **时间 / 光谱（Time / Spectrum）**：脉冲随时间的形状，或其随波长的光谱。
 
-**反射 / 透射（Reflection / Transmission）**：膜层反射的脉冲，或透过膜层的脉冲。
+**T / R**：透过膜层的脉冲，或膜层反射的脉冲。
 
 **偏振（Polarization）**：s、p 或平均。平均表示非偏振脉冲：其 s 与 p 两半分别经过膜层，强度相加。
 

@@ -1,5 +1,5 @@
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
-import { ActionButton, ChoiceGroup, FieldLabel, NumInput } from '../../analysis/chrome/controls.js';
+import { ActionButton, ChoiceGroup, FieldLabel, NumInput, ResponseChoice } from '../../analysis/chrome/controls.js';
 import { ControlRow } from '../../analysis/chrome/layout.js';
 import { SettingDivider, SettingRow, SettingsMenu } from '../../analysis/chrome/popover.js';
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
@@ -56,11 +56,7 @@ function MonitorSetup({ c, t, state }) {
         c, t, windowId: 'monitorWorksheet', label: t.analysisChrome.settings, width: 300,
     },
         h(SettingRow, { c, label: mw.measured },
-            h(ChoiceGroup, {
-                ariaLabel: mw.measured, activeId: session.char, c,
-                onSelect: value => setField('char', value),
-                items: [{ id: 'T', label: 'T' }, { id: 'R', label: 'R' }],
-            }),
+            h(ResponseChoice, { c, t, activeId: session.char, onSelect: value => setField('char', value) }),
         ),
         h(SettingRow, { c, label: mw.polarization },
             h(ChoiceGroup, {

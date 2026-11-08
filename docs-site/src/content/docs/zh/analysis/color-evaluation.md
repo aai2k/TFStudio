@@ -10,7 +10,7 @@ ribbonIcon: color-eval
 
 ## 设置
 
-**特性（Characteristic）**：计算反射光（R）还是透射光（T）的颜色。
+**T / R**：膜层透射或反射的光的颜色。
 
 **偏振（Polarization）**：平均、s 或 p。平均是非偏振照明的通常选择。
 

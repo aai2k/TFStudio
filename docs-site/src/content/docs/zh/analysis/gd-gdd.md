@@ -22,7 +22,7 @@ CDC 不携带 GDD 之外的任何信息：它就是同一个数值，只是按�
 
 **量（Quantity）**：相位 φ、GD、GDD、CDC 或 TOD。
 
-**反射 / 透射（Reflection / Transmission）**：从反射或透射的复振幅取相位。
+**T / R**：从透射或反射的复振幅取相位。
 
 **偏振（Polarization）**：s 与 p 的平均、s 或 p。该平均使用与评价函数（merit function）中匹配操作数相同的逐偏振算术平均。
 

@@ -5,7 +5,7 @@
  */
 
 import {
-    NumInput, ChoiceGroup, CheckField, SelectField, RangeField, valueOptions,
+    NumInput, ChoiceGroup, CheckField, SelectField, RangeField, ResponseChoice, valueOptions,
 } from '../../analysis/chrome/controls.js';
 import { SettingRow, SettingDivider } from '../../analysis/chrome/popover.js';
 import { AoiChips } from '../../analysis/opticalEvaluation/AoiChips.js';
@@ -131,9 +131,9 @@ const FORMS = {
         h('div', { key: 'hint', style: { fontSize: 10, color: c.textDim, marginTop: 4 } }, W.notesHint),
     ],
     spectrum: spectrumRows,
-    color: ({ c, W, s, set }) => [
+    color: ({ c, W, t, s, set }) => [
         h(SettingRow, { c, key: 'char', label: W.characteristic },
-            h(ChoiceGroup, { c, items: [{ id: 'R', label: 'R' }, { id: 'T', label: 'T' }], activeId: s.characteristic, onSelect: id => set('characteristic', id) })),
+            h(ResponseChoice, { c, t, activeId: s.characteristic, onSelect: id => set('characteristic', id) })),
         h(SettingRow, { c, key: 'pol', label: W.polarization },
             h(ChoiceGroup, { c, items: polItems(W), activeId: s.pol, onSelect: id => set('pol', id) })),
         h(AngleRow, { key: 'angle', c, W, s, set }),
@@ -150,11 +150,11 @@ const FORMS = {
         h(SettingRow, { c, key: 'pol', label: W.polarization },
             h(ChoiceGroup, { c, items: polItems(W), activeId: s.polarization, onSelect: id => set('polarization', id) })),
     ],
-    gdGdd: ({ c, W, s, set }) => [
+    gdGdd: ({ c, W, t, s, set }) => [
         ...RangeRows({ c, W, s, set }).slice(0, 2),
         h(AngleRow, { key: 'angle', c, W, s, set }),
         h(SettingRow, { c, key: 'target', label: W.target },
-            h(ChoiceGroup, { c, items: [{ id: 'R', label: 'R' }, { id: 'T', label: 'T' }], activeId: s.target, onSelect: id => set('target', id) }),
+            h(ResponseChoice, { c, t, activeId: s.target, onSelect: id => set('target', id) }),
             h(ChoiceGroup, { c, items: [{ id: 'front', label: W.sides.front }, { id: 'back', label: W.sides.back }], activeId: s.side, onSelect: id => set('side', id) })),
         h(SettingRow, { c, key: 'pol', label: W.polarization },
             h(ChoiceGroup, { c, items: polItems(W), activeId: s.pol, onSelect: id => set('pol', id) })),

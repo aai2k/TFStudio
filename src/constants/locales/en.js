@@ -1267,6 +1267,9 @@ export default {
     noLayers: 'No layers in design.',
     noFrontLayers: 'This design has no front layers.',
     noBackLayers: 'This design has no back layers.',
+    response: 'Response',
+    reflection: 'Reflection',
+    transmission: 'Transmission',
   },
 
   dataTable: {
@@ -2759,11 +2762,8 @@ export default {
     side:         'Side',
     front:        'Front',
     back:         'Back',
-    response:     'Response',
     quantity:     'Quantity',
     phase:        'Phase φ',
-    reflection:   'Reflection',
-    transmission: 'Transmission',
     pol:          'Pol',
     lamStart:     'λ min (nm)',
     lamEnd:       'λ max (nm)',
@@ -2821,9 +2821,6 @@ export default {
     noLayers: 'No layers on this side. Add layers, or choose Whole part in transmission.',
     domain: 'Time or spectrum',
     domains: { time: 'Time', spectrum: 'Spectrum' },
-    response: 'Response',
-    reflection: 'Reflection',
-    transmission: 'Transmission',
     pol: 'Pol',
     avg: 'avg',
     timeAxis: 'Time axis',
@@ -4103,9 +4100,6 @@ export default {
 
   colorEval: {
     noData:        'No design / front layers. Add layers to evaluate color.',
-    characteristic:'Char',
-    reflectance:   'Reflectance',
-    transmittance: 'Transmittance',
     pol:           'Pol',
     polAvg:        'avg',
     aoi:           'AOI (°)',

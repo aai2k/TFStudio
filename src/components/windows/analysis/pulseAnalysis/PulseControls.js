@@ -1,5 +1,5 @@
 import {
-    ActionButton, ChoiceGroup, NumInput, SelectField,
+    ActionButton, ChoiceGroup, NumInput, ResponseChoice, SelectField,
 } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
@@ -19,12 +19,6 @@ const dimText = c => ({ color: c.textDim, fontSize: 11, whiteSpace: 'nowrap' });
  */
 export function PulseControls({ c, t, text, analysis, notices, busy }) {
     const { session, setField } = analysis;
-    const responses = session.side === 'whole'
-        ? [{ id: 'T', label: text.transmission, color: '#03a9f4' }]
-        : [
-            { id: 'R', label: text.reflection, color: '#ef5350' },
-            { id: 'T', label: text.transmission, color: '#03a9f4' },
-        ];
     return h(ControlRow, {
         c,
         trailing: [
@@ -41,9 +35,10 @@ export function PulseControls({ c, t, text, analysis, notices, busy }) {
                 { id: 'spectrum', label: text.domains.spectrum },
             ],
         }),
-        h(ChoiceGroup, {
-            c, ariaLabel: text.response, activeId: session.target,
-            onSelect: value => setField('target', value), items: responses,
+        // The whole part is computed in transmission alone.
+        h(ResponseChoice, {
+            c, t, activeId: session.target, onSelect: value => setField('target', value),
+            ids: session.side === 'whole' ? ['T'] : ['T', 'R'],
         }),
         h(ChoiceGroup, {
             c, label: text.pol, activeId: session.pol, onSelect: value => setField('pol', value),

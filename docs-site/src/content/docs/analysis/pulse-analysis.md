@@ -10,7 +10,7 @@ Pulse Analysis sends a short laser pulse off or through the coating and draws wh
 
 **Time / Spectrum**: the pulse against time, or its spectrum against wavelength.
 
-**Reflection / Transmission**: the pulse reflected by the coating or transmitted through it.
+**T / R**: the pulse transmitted through the coating or reflected by it.
 
 **Polarization**: s, p, or the average. The average is an unpolarized pulse: its s and p halves go through the coating separately and their intensities add.
 

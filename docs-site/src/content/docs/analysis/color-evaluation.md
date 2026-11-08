@@ -10,7 +10,7 @@ The spectrum is sampled across 380–780 nm and fed through the standard colorim
 
 ## Settings
 
-**Characteristic**: compute the color of reflected (R) or transmitted (T) light.
+**T / R**: the color of the light the coating transmits or reflects.
 
 **Polarization**: average, s, or p. Average is the usual choice for unpolarized illumination.
 

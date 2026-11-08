@@ -30,8 +30,7 @@ is fs/nm.
 
 **Quantity**: phase φ, GD, GDD, CDC, or TOD.
 
-**Reflection / Transmission**: take the phase from the reflected or transmitted
-complex amplitude.
+**T / R**: take the phase from the transmitted or the reflected complex amplitude.
 
 **Polarization**: the average of s and p, s, or p. The average uses the same
 per-polarization arithmetic mean as the matching merit operand.

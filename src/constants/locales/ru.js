@@ -1232,6 +1232,9 @@ export default {
     noLayers: 'Нет слоёв в проекте.',
     noFrontLayers: 'В этом проекте нет передних слоёв.',
     noBackLayers: 'В этом проекте нет задних слоёв.',
+    response: 'Отклик',
+    reflection: 'Отражение',
+    transmission: 'Пропускание',
   },
 
   dataTable: {
@@ -2708,11 +2711,8 @@ export default {
     side:         'Сторона',
     front:        'Передняя',
     back:         'Задняя',
-    response:     'Отклик',
     quantity:     'Величина',
     phase:        'Фаза φ',
-    reflection:   'Отражение',
-    transmission: 'Пропускание',
     pol:          'Поляр.',
     lamStart:     'λ мин (нм)',
     lamEnd:       'λ макс (нм)',
@@ -2770,9 +2770,6 @@ export default {
     noLayers: 'На этой стороне нет слоёв. Добавьте слои или выберите «Деталь целиком» в пропускании.',
     domain: 'Время или спектр',
     domains: { time: 'Время', spectrum: 'Спектр' },
-    response: 'Отклик',
-    reflection: 'Отражение',
-    transmission: 'Пропускание',
     pol: 'Поляр.',
     avg: 'сред.',
     timeAxis: 'Ось времени',
@@ -4033,9 +4030,6 @@ export default {
 
   colorEval: {
     noData:        'Нет проекта / слоёв. Добавьте слои для оценки цвета.',
-    characteristic:'Хар-ка',
-    reflectance:   'Отражение',
-    transmittance: 'Пропускание',
     pol:           'Поляр.',
     polAvg:        'ср.',
     aoi:           'Угол (°)',

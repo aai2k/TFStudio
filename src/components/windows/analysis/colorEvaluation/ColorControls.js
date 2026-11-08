@@ -3,7 +3,7 @@ import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 // The illuminant designations are standard names; only their descriptions are translated.
 import { describedLabel } from '../../../../utils/physics/spectralWeightings.js';
 import { TabBtn } from '../../../ui/tabBtn.js';
-import { CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, SelectField } from '../chrome/controls.js';
+import { CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, ResponseChoice, SelectField } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { AoiChips } from '../opticalEvaluation/AoiChips.js';
@@ -28,14 +28,7 @@ export function ColorControls({ c, t, ce, state, notices }) {
             h(ColorSetup, { key: 'setup', c, t, ce, state }),
         ],
     },
-        h(ChoiceGroup, {
-            label: ce.characteristic, ariaLabel: ce.characteristic,
-            activeId: state.characteristic, onSelect: state.setCharacteristic, c,
-            items: [
-                { id: 'R', label: ce.reflectance },
-                { id: 'T', label: ce.transmittance },
-            ],
-        }),
+        h(ResponseChoice, { c, t, activeId: state.characteristic, onSelect: state.setCharacteristic }),
         h(ChoiceGroup, {
             label: ce.pol, ariaLabel: ce.pol,
             activeId: state.pol, onSelect: state.setPol, c,

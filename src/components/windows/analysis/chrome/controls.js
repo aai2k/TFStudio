@@ -139,6 +139,27 @@ export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) 
     );
 }
 
+const RESPONSE_COLORS = { R: '#ef5350', T: '#03a9f4' };
+
+/**
+ * Transmitted or reflected light, as one switch the windows share: T with a
+ * blue dot and R with a red one, in the order of the T, R and A switches, the
+ * words on hover.
+ *
+ *   ids  the choices offered, both by default; a window leaves one out where
+ *        a setting rules it out, as the whole part rules out reflection
+ */
+export function ResponseChoice({ c, t, activeId, onSelect, ids = ['T', 'R'] }) {
+    const words = t.analysisChrome;
+    return h(ChoiceGroup, {
+        c, ariaLabel: words.response, activeId, onSelect,
+        items: ids.map(id => ({
+            id, label: id, color: RESPONSE_COLORS[id],
+            title: id === 'R' ? words.reflection : words.transmission,
+        })),
+    });
+}
+
 /**
  * One quantity and the polarizations it can be drawn in: a colour dot, the
  * quantity's letter, then a button per polarization. The dot carries the
