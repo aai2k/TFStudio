@@ -13,6 +13,10 @@ name: Release
 # started on; publishing it on GitHub creates the tag there. Running again for
 # the same version replaces the draft's files; a version already published is
 # refused.
+#
+# Every file gets a signed build provenance attestation naming this repository,
+# the workflow, the commit and the run, so a download can be checked with
+# `gh attestation verify <file> --repo aai2k/TFStudio`.
 
 on:
   workflow_dispatch:
@@ -108,6 +112,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Signing and storing the attestations.
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v7
 
@@ -115,6 +122,11 @@ jobs:
         with:
           path: release
           merge-multiple: true
+
+      - name: Attest where each file was built
+        uses: actions/attest@v4
+        with:
+          subject-path: release/*
 
       - name: Draft release
         env:

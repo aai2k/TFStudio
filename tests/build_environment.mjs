@@ -167,4 +167,17 @@ const existsSync = value => value === `${powerShellDir}\\powershell.exe`;
   ok(mimeXml.includes(sed), 'the Flatpak renames the .tfs icon the MIME entry names');
 }
 
+{
+  const workflow = yaml.load(readFileSync(path.join(process.cwd(), '.github', 'workflows', 'release.yml'), 'utf8'));
+  const job = workflow.jobs.release;
+  const attest = job.steps.findIndex(s => /^actions\/attest@/.test(s.uses || ''));
+  const draft = job.steps.findIndex(s => s.name === 'Draft release');
+  // Without these two permissions the attest step cannot sign or store anything.
+  ok(job.permissions['id-token'] === 'write' && job.permissions.attestations === 'write',
+    'the release job may sign and store attestations');
+  ok(attest >= 0 && job.steps[attest].with['subject-path'] === 'release/*',
+    'every file the release carries is attested');
+  ok(attest < draft, 'the files are attested before they reach the draft');
+}
+
 console.log(`build_environment: ${passed} passed`);
