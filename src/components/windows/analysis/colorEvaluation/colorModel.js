@@ -71,15 +71,13 @@ export function responseSpectrum(design, { evalMode, characteristic, pol, theta,
 
 /**
  * The colour at each angle of `options.thetas`, degrees, as `{ theta, report }`
- * in the order given, or null when there is nothing to show (no design, empty
- * front stack). A failure at any angle is reported via `setError` and leaves
- * no result.
+ * in the order given, or null with no design. A side with no layers is its bare
+ * surface, as in Optical Evaluation. A failure at any angle is reported via
+ * `setError` and leaves no result.
  */
 export function computeColorReports(options) {
-    const { design, evalMode, thetas, observer, illuminant, setError } = options;
+    const { design, thetas, observer, illuminant, setError } = options;
     if (!design) return null;
-    const front = (design.frontLayers || []).filter(layer => layer.thickness > 0);
-    if (evalMode === 'front' && front.length === 0) return null;
     try {
         const reports = thetas.map(theta => ({
             theta,

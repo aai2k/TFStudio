@@ -21,8 +21,8 @@
  *      not on others; a band the grid does not span has no value and is not
  *      covered, an empty cell in the CSV as the window shows a dash; a
  *      weighting that is 0 over its whole band gives no value, though covered;
- *      a front with no layers, where computeColorReport shows nothing, gives
- *      the bare surface's colour, which is the colour of spectrum's R there;
+ *      a front with no layers gives the bare surface's colour, in the window
+ *      as in the API, which is the colour of spectrum's R there;
  *      the D65, D50 and A whites are within 5e-5 of CIE 15:2004.
  *   4. The sides: without side both follow the design's evaluation mode, in
  *      every surface mode and scoring, and side gives each side; outOfRange
@@ -248,8 +248,8 @@ const INTEGRAL_SETTINGS = GRIDS.flatMap(grid => [0, 45].flatMap(angle => ['avg',
     ok('a row whose weighting is 0 over the whole band has no value, though covered', zero.every(r => Number.isNaN(r.value) && r.covered), JSON.stringify(zero));
 }
 {
-    // computeColorReport shows nothing for a front with no layers; the API
-    // gives the bare surface, the colour of spectrum's R on the same grid.
+    // A front with no layers is the bare surface, in the window and in the
+    // API alike: the colour of spectrum's R on the same grid.
     const bare = api.newDesign({ name: 'Bare', substrate: 'BK7' });
     const zeroed = { ...api.stackFromFormula(bare, { formula: '(HL)^2' }) };
     zeroed.frontLayers = zeroed.frontLayers.map(layer => ({ ...layer, thickness: 0 }));
@@ -258,8 +258,9 @@ const INTEGRAL_SETTINGS = GRIDS.flatMap(grid => [0, 45].flatMap(angle => ['avg',
     const got = api.color(bare);
     const shown = computeColorReport({ design: bare, evalMode: 'front', setError() {}, characteristic: 'R', pol: 'avg', theta: 0, observer: '2', illuminant: 'D65', step: 0.5 });
     const off = Math.max(Math.abs(got.Y - fromSpectrum.XYZ.Y), Math.abs(got.x - fromSpectrum.xy.x));
-    ok('a front with no layers, where the window shows nothing, gives the bare surface\'s colour: that of spectrum\'s R, about 4 % for BK7, and the same with layers of no thickness',
-        same([shown, got.mode, off < 1e-12, Math.round(got.Y), same(api.color(zeroed), got)], [null, 'front', true, 4, true]), `${got.Y} / ${fromSpectrum.XYZ.Y}`);
+    const windowOff = shown ? Math.max(Math.abs(shown.XYZ.Y - got.Y), Math.abs(shown.xy.x - got.x), Math.abs(shown.xy.y - got.y)) : Infinity;
+    ok('a front with no layers gives the bare surface\'s colour, the window\'s the same as the API\'s: that of spectrum\'s R, about 4 % for BK7, and the same with layers of no thickness',
+        same([windowOff < 1e-12, got.mode, off < 1e-12, Math.round(got.Y), same(api.color(zeroed), got)], [true, 'front', true, 4, true]), `${got.Y} / ${fromSpectrum.XYZ.Y} / ${shown?.XYZ.Y}`);
 }
 {
     // CIE 15:2004, Table T.3: chromaticity of the illuminants for the CIE 1931
