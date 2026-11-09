@@ -9,10 +9,14 @@
  *   • Active means a translucent wash of the accent (or the control's own
  *     colour) behind full-strength text, never a solid fill with reversed
  *     text. Inactive text is dimmed instead of outlined.
+ *
+ * The one solid fill is SolidButton, for the button that starts, stops or
+ * applies a window's work.
  */
 
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumberField } from '../../../ui/numberField.js';
+import { fillForWhiteText } from '../../../../constants/colorPalettes.js';
 
 const { createElement: h } = React;
 
@@ -249,6 +253,47 @@ export function ActionButton({ label, onClick, c, title, disabled, children }) {
         type: 'button', title, disabled,
         onClick: () => { if (!disabled) onClick(); },
         style: rowButtonStyle(c, { active: false, disabled }),
+    }, children, label);
+}
+
+// A row button filled with `color`, solid with white text or a wash behind
+// full-strength text. A solid fill is darkened as far as white needs to read on
+// it. Disabled, it is drawn as any disabled button.
+function colorButtonStyle(c, color, solid, disabled) {
+    const base = rowButtonStyle(c, { active: false, disabled });
+    if (disabled) return base;
+    const fill = solid ? fillForWhiteText(color) : activeFill(c, color);
+    return {
+        ...base,
+        border: `1px solid ${solid ? fill : color + '99'}`,
+        backgroundColor: fill,
+        color: solid ? '#fff' : c.text,
+        fontWeight: solid ? 600 : 500,
+    };
+}
+
+/**
+ * The button that starts, stops or applies a window's work, such as Run,
+ * Stop, Compute or Apply: solid in `color` with white text, so it is the
+ * first thing found on the row.
+ */
+export function SolidButton({ label, onClick, c, color, title, disabled, children }) {
+    return h('button', {
+        type: 'button', title, disabled,
+        onClick: () => { if (!disabled) onClick(); },
+        style: colorButtonStyle(c, color, true, disabled),
+    }, children, label);
+}
+
+/**
+ * A button that takes the design back to a kept state, such as Reset or
+ * Best: a wash of `color`, so the two are told apart by color.
+ */
+export function WashButton({ label, onClick, c, color, title, disabled, children }) {
+    return h('button', {
+        type: 'button', title, disabled,
+        onClick: () => { if (!disabled) onClick(); },
+        style: colorButtonStyle(c, color, false, disabled),
     }, children, label);
 }
 

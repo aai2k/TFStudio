@@ -4,7 +4,8 @@ import { LayerSliderList } from './LayerSliderList.js';
 import { MaterialSliders } from './MaterialSliders.js';
 import { backIsVaried, resolveMat, matLabel } from './model.js';
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
-import { ActionButton } from '../../analysis/chrome/controls.js';
+import { WashButton } from '../../analysis/chrome/controls.js';
+import { RESET_COLOR } from '../resetBestColors.js';
 
 const { createElement: h } = React;
 
@@ -38,8 +39,8 @@ export function Sidebar(props) {
             h('span', { title: anyVaried ? v.modifiedTip : undefined, style: { color: c.textDim, fontSize: 11 } },
                 anyVaried ? (v.varied || 'modified') : (v.atBaseline || 'baseline')),
             h('span', { style: { marginLeft: 'auto' } },
-                h(ActionButton, {
-                    c, label: v.revert || 'Revert', title: v.revertTip || 'Reset all sliders to baseline',
+                h(WashButton, {
+                    c, color: RESET_COLOR, label: v.revert || 'Revert', title: v.revertTip || 'Reset all sliders to baseline',
                     onClick: revert, disabled: !anyVaried,
                 }))
         ),

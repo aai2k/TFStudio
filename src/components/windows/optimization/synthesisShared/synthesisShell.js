@@ -21,7 +21,8 @@ import { Checkbox } from '../../../ui/Checkbox.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { parseNumber } from '../../../../utils/misc/numberParsing.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { ActionButton } from '../../analysis/chrome/controls.js';
+import { ActionButton, SolidButton, WashButton } from '../../analysis/chrome/controls.js';
+import { RESET_COLOR, BEST_COLOR } from '../resetBestColors.js';
 
 const { createElement: h } = React;
 
@@ -59,14 +60,14 @@ export function SynthesisControlBar({
         }
     },
         running
-            ? h(ActionButton, { c, label: labels.stop, onClick: onStop }, tablerIcon('player-stop', 13))
-            : h(ActionButton, { c, label: labels.run, onClick: onRun }, tablerIcon('player-play', 13)),
-        btn(labels.reset, onReset, !canReset),
+            ? h(SolidButton, { c, color: c.error, label: labels.stop, onClick: onStop }, tablerIcon('player-stop', 13))
+            : h(SolidButton, { c, color: c.success, label: labels.run, onClick: onRun }, tablerIcon('player-play', 13)),
+        h(WashButton, { c, color: RESET_COLOR, label: labels.reset, onClick: onReset, disabled: !canReset }),
         // Per-side resets in both_independent (Needle / GE): restore one side
         // from the saved snapshot, keep the other side's timeline untouched.
         onResetSide && isBothInd && btn(t.synthesisShell.resetFront, () => onResetSide('front'), !canReset),
         onResetSide && isBothInd && btn(t.synthesisShell.resetBack,  () => onResetSide('back'),  !canReset),
-        btn(labels.best, onBest, !canReset),
+        h(WashButton, { c, color: BEST_COLOR, label: labels.best, onClick: onBest, disabled: !canReset }),
         // Keep the design the run produced and start a clean history. Reset
         // undoes one run; this forgets all of them and touches nothing.
         onClearHistory && btn(labels.clearHistory, onClearHistory, !hasHistory),

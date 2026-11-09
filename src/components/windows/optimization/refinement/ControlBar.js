@@ -13,7 +13,8 @@ import { REFINE_METHODS, ALL_ORDER, STOCHASTIC_METHODS } from '../../../../utils
 import { normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 import { provisionalMark } from '../provisionalMark.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { ActionButton } from '../../analysis/chrome/controls.js';
+import { SolidButton, WashButton } from '../../analysis/chrome/controls.js';
+import { RESET_COLOR, BEST_COLOR } from '../resetBestColors.js';
 
 const { createElement: h } = React;   // React is a window global
 
@@ -54,10 +55,10 @@ function runButtons({ running, canReset, onRun, onStop, onReset, onBest, surface
     const tr = t.refinement;
     return [
         running
-            ? h(ActionButton, { c, label: tr.stop, onClick: onStop }, tablerIcon('player-stop', 13))
-            : h(ActionButton, { c, label: tr.run, onClick: onRun }, tablerIcon('player-play', 13)),
-        h(ActionButton, { c, label: tr.reset, onClick: onReset, disabled: !canReset }),
-        h(ActionButton, { c, label: tr.best, onClick: onBest, disabled: !canReset }),
+            ? h(SolidButton, { c, color: c.error, label: tr.stop, onClick: onStop }, tablerIcon('player-stop', 13))
+            : h(SolidButton, { c, color: c.success, label: tr.run, onClick: onRun }, tablerIcon('player-play', 13)),
+        h(WashButton, { c, color: RESET_COLOR, label: tr.reset, onClick: onReset, disabled: !canReset }),
+        h(WashButton, { c, color: BEST_COLOR, label: tr.best, onClick: onBest, disabled: !canReset }),
         h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } },
             h(OptimizeBadge, { design: { surfaceMode, mfEvalMode }, c, t }),
             h(EvalModeBadge, { design: { surfaceMode, mfEvalMode }, c, t }),

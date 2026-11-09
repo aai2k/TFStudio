@@ -6,7 +6,7 @@ import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.j
 import { NumberField } from '../../../ui/numberField.js';
 import { provisionalMark } from '../provisionalMark.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { ActionButton } from '../../analysis/chrome/controls.js';
+import { SolidButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -86,7 +86,7 @@ function MeritLine({ predictedOMF, omf0, predictedProvisional, omf0Provisional, 
 
 function ApplyRow({ onApply, onStop, busy, stoppable, c, tn }) {
     return h('div', { style: { display: 'flex', gap: 6 } },
-        h(ActionButton, { c, label: tn.apply, onClick: onApply, disabled: busy }),
+        h(SolidButton, { c, color: c.success, label: tn.apply, onClick: onApply, disabled: busy }),
         stoppable && h(StopButton, { onStop, c, tn })
     );
 }
@@ -94,5 +94,5 @@ function ApplyRow({ onApply, onStop, busy, stoppable, c, tn }) {
 // The window's Stop, beside Apply and, while the profile scan runs, beside
 // Compute P-function.
 export function StopButton({ onStop, c, tn }) {
-    return h(ActionButton, { c, label: tn.stop, onClick: onStop }, tablerIcon('player-stop', 13));
+    return h(SolidButton, { c, color: c.error, label: tn.stop, onClick: onStop }, tablerIcon('player-stop', 13));
 }

@@ -78,6 +78,32 @@ const readableOn = (bg) => (getLuminance(bg) > 150 ? '#15171a' : '#ffffff');
 // tokenColors we don't render), which reads as washed-out UI text here. Lift the
 // colour toward the readable extreme — keeping its hue — until the luminance gap
 // is comfortable. No-op for already-legible palettes (e.g. all built-ins).
+// WCAG 2.1 relative luminance, 0..1, from the sRGB channels linearised with
+// the IEC 61966-2-1 transfer curve.
+const relativeLuminance = (hex) => {
+  const c = parseHex(hex);
+  if (!c) return 0;
+  const lin = (v) => { const s = v / 255; return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+};
+
+/** WCAG 2.1 contrast ratio of two colours, 1 to 21. */
+export const contrastRatio = (a, b) => {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/**
+ * `color` darkened in small steps until white text on it reads at 4.5:1, the
+ * WCAG AA minimum for text of normal size. A colour white already reads on is
+ * returned as it is.
+ */
+export const fillForWhiteText = (color) => {
+  let cur = color;
+  for (let i = 0; i < 40 && contrastRatio(cur, '#ffffff') < 4.5; i++) cur = darken(cur, 0.04);
+  return cur;
+};
+
 const MIN_TEXT_GAP = 135; // on the 0..255 luminance scale
 const ensureTextContrast = (fg, bg) => {
   const target = readableOn(bg);

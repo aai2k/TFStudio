@@ -1,5 +1,5 @@
 import { SplitPane } from '../../../docking/SplitPane.js';
-import { ActionButton, ChoiceGroup } from '../../analysis/chrome/controls.js';
+import { ActionButton, ChoiceGroup, SolidButton } from '../../analysis/chrome/controls.js';
 import { AnalysisWindow, ControlRow, PlotArea } from '../../analysis/chrome/layout.js';
 import { ReportAndNotices } from '../../dataExchange/chrome/actionStatus.js';
 import { appShortcutFor } from '../../../../utils/misc/appShortcuts.js';
@@ -45,8 +45,8 @@ const sideTextStyle = (c) => ({
 
 // Run while no script runs, Stop while one does. An empty editor has nothing to run.
 function RunButton({ c, z, running, empty, onRun, onStop }) {
-    if (running) return h(ActionButton, { c, label: z.stop, onClick: onStop }, tablerIcon('player-stop', 13));
-    return h(ActionButton, { c, label: z.run, title: z.runTip, disabled: empty, onClick: onRun }, tablerIcon('player-play', 13));
+    if (running) return h(SolidButton, { c, color: c.error, label: z.stop, onClick: onStop }, tablerIcon('player-stop', 13));
+    return h(SolidButton, { c, color: c.success, label: z.run, title: z.runTip, disabled: empty, onClick: onRun }, tablerIcon('player-play', 13));
 }
 
 function Controls({ c, t, z, session, running, runStatus, onRun, onStop, onLanguage, onOpen, onSave, status }) {

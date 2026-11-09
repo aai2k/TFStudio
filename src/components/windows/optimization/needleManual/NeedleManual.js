@@ -26,7 +26,7 @@ import { PFunctionPlot } from './PFunctionPlot.js';
 import { LeftSidebar } from './LeftSidebar.js';
 import { PreviewPanel, StopButton } from './PreviewPanel.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { ActionButton } from '../../analysis/chrome/controls.js';
+import { SolidButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -50,8 +50,8 @@ export function NeedleManual({ c, theme, t }) {
                 borderBottom: `1px solid ${c.border}`, background: c.panel, flexShrink: 0,
             }
         },
-            h(ActionButton, {
-                c, label: s.scanning ? tn.scanningBtn : tn.compute, onClick: s.computeProfile, disabled: s.busy,
+            h(SolidButton, {
+                c, color: c.success, label: s.scanning ? tn.scanningBtn : tn.compute, onClick: s.computeProfile, disabled: s.busy,
             }, tablerIcon('player-play', 13)),
             s.scanning && h(StopButton, { onStop: s.stop, c, tn }),
             h(OptimizeBadge, { design: s.design, c, t }),

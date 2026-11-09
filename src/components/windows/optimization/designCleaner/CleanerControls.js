@@ -2,7 +2,7 @@ import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { CLEANER_REFINERS } from './sessionState.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { ActionButton } from '../../analysis/chrome/controls.js';
+import { SolidButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -14,8 +14,8 @@ function ApplyGroup({ c, dc, applying, progress, ops, apply, stop }) {
         progress && h('span', {
             style: { fontSize: 11, color: c.accent || '#ffa726', fontStyle: 'italic' }
         }, dc.refining(progress.step, progress.iters, progress.mf)),
-        progress && h(ActionButton, { c, label: dc.stop, onClick: stop }, tablerIcon('player-stop', 13)),
-        h(ActionButton, { c, label: applying ? dc.applying : `${dc.apply} (${ops.length})`, onClick: apply, disabled: applyOff })
+        progress && h(SolidButton, { c, color: c.error, label: dc.stop, onClick: stop }, tablerIcon('player-stop', 13)),
+        h(SolidButton, { c, color: c.success, label: applying ? dc.applying : `${dc.apply} (${ops.length})`, onClick: apply, disabled: applyOff })
     );
 }
 
