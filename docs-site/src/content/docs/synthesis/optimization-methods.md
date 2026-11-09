@@ -84,7 +84,9 @@ Not sure?                          → Try all, keep best
 
 A reliable full workflow:
 
-> **Synthesize unconstrained → Refine with your min-thickness on → [Design Cleaner](/synthesis/design-cleaner/) → Refine again.**
+> **Synthesize unconstrained → [Design Cleaner](/synthesis/design-cleaner/) at your min-thickness → Refine with your min-thickness on.**
+
+Clean before the floor goes on: SQP lifts every layer thinner than the floor up to it, so a Cleaner pass after it finds nothing to take out.
 
 ---
 
@@ -108,7 +110,7 @@ realistic minimum-thickness limit.
 - **The `dMin` 1 ↔ 40 trade-off is real and visible**: `dMin = 1 nm` lets
   synthesis reach a lower MF (more, thinner layers); a manufacturable floor
   raises MF but yields a buildable stack. Synthesize at `dMin = 1`, then
-  enforce your real floor in a Refinement + Cleaner pass.
+  enforce your real floor with a Cleaner pass and then Refinement.
 - **Constraint behavior is tool-specific and deliberate:** **Needle ignores
   MNT** by design (an MNT penalty would wipe every improving candidate),
   **GE respects MNT**, and Structural / Refinement respect it via the
