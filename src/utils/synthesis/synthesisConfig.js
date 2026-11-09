@@ -26,6 +26,7 @@
  *   smartSeed         → getSynthesisSmartSeed / setSynthesisSmartSeed /
  *                        SMART_SEED_DEFAULTS
  *   intraSamples      → SYNTHESIS_INTRA_SAMPLES (needle positions per layer)
+ *   minGain           → SYNTHESIS_MIN_GAIN (the smallest merit fall counted as progress)
  * This file re-exports their full surface so every existing importer
  * (components, workers, tests) is unchanged.
  *
@@ -44,3 +45,4 @@ export * from './synthesisConfig/seedMode.js';
 export * from './synthesisConfig/consolidate.js';
 export * from './synthesisConfig/smartSeed.js';
 export * from './synthesisConfig/intraSamples.js';
+export * from './synthesisConfig/minGain.js';

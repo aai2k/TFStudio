@@ -5,6 +5,7 @@
 // one-at-a-time run gives.
 
 import { withoutWins } from '../physics/optimizer/parkedLayers.js';
+import { SYNTHESIS_MIN_GAIN } from '../synthesis/synthesisConfig.js';
 import { alive } from './runState.js';
 import { recordGeneration } from './generations.js';
 
@@ -59,11 +60,13 @@ async function withoutParked(run, res, cand) {
 }
 
 // The batch's best candidate, when it beats the best so far: tried without its
-// parked layers, then accepted. Returns refineBatches' signal, or null when
-// the batch has nothing to accept.
+// parked layers, then accepted. It beats the best when it lowers the merit by
+// at least SYNTHESIS_MIN_GAIN of it, the fall a synthesis refinement counts as
+// progress (synthesisConfig/minGain.js). Returns refineBatches' signal, or null
+// when the batch has nothing to accept.
 async function acceptBest(run, batch, results) {
     const pick = bestOfBatch(results);
-    if (pick.idx < 0 || !(pick.mf < run.best.mf - 1e-9)) return null;
+    if (pick.idx < 0 || !(pick.mf < run.best.mf * (1 - SYNTHESIS_MIN_GAIN))) return null;
     const trimmed = await withoutParked(run, results[pick.idx], batch[pick.idx]);
     if (!alive(run)) return { aborted: true };
     if (trimmed) { results[pick.idx] = trimmed; pick.mf = trimmed.mfAfter; }

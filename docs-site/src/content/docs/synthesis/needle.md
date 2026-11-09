@@ -25,6 +25,8 @@ candidate. The wavelength grid the band targets are sampled on is sized from the
 design and grows with it during the run (see
 [Operand Reference](/design/operands/#sampling-a-band)).
 
+A generation counts as an improvement only when it lowers the merit function by at least 0.01 %, the same fall at which each refinement inside the run stops. Smaller gains would fill the layer budget with needles that stay about a nanometre thick. The first time no insertion improves the design, the run refines copies of it two, four, eight and sixteen times thicker and goes on from the best of them; the history shows this as a **Thicker start** row. If the run never beats the design it had before, it ends on that design.
+
 ## Needle Manual
 
 Shows you the same P-function scan as a plot and lets you click the position

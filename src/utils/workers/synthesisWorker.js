@@ -44,6 +44,7 @@ import { noteTmmWasmBytes, awaitTmmWasmReady } from '../../tmmcore.js';
 import { makeResolveMat } from './resolveMat.js';
 import { makeTableHolder } from './jobTables.js';
 import { runDeepSynthesisJob } from '../synthesis/deepSynthesis/jobs.js';
+import { SYNTHESIS_MIN_GAIN } from '../synthesis/synthesisConfig/minGain.js';
 
 const POST_MS = 80;
 const now = (typeof performance !== 'undefined' && performance.now)
@@ -78,7 +79,6 @@ const sideKey = (side) => side === 'back' ? 'backLayers' : 'frontLayers';
 // fully). This is a SELF-convergence test, not a comparative abort-vs-
 // reference variant. Conservative defaults.
 const CONV_PATIENCE = 6;       // window (iterations) over which to measure progress
-const CONV_MIN_GAIN = 1e-4;    // min relative MF drop over the window to keep going
 function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine, post) {
     const dls = makeEngine(engine || 'dls', operands, design, resolveMat, { dMin });
     const key = sideKey(side);
@@ -93,7 +93,7 @@ function runDls(operands, design, resolveMat, dMin, maxIter, jobId, side, engine
         if (h >= CONV_PATIENCE) {
             const past = mfHist[h - CONV_PATIENCE];
             const gain = past > 0 ? (past - dls.mf) / past : 0;
-            if (gain < CONV_MIN_GAIN) break;
+            if (gain < SYNTHESIS_MIN_GAIN) break;
         }
         const t = now();
         if (t - last >= POST_MS) {

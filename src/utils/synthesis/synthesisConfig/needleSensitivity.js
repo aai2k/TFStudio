@@ -16,7 +16,7 @@
  * stack growth (see cullMarginalNeedles for why the more aggressive MF-relative
  * variant was rejected). It therefore only changes 'thorough' (uncapped) runs;
  * with the default batch cap the tail is already ignored, so it is a safe no-op
- * there. Default OFF until the stagnation-based preemptive escape is added.
+ * there. Default OFF.
  *   • 'off'        = keep every improving needle (legacy / bit-identical) — default
  *   • 'light'      = drop needles weaker than 1 % of the best
  *   • 'medium'     = drop weaker than 5 %
@@ -56,9 +56,10 @@ export function needleSensFloorFor(mode) {
 // the queue (predicted |ΔMF| < relFloor·MF) was prototyped to trigger a preemptive
 // forced-TOT step, but it REGRESSED hard cases — on a thick-seed bandpass it culled
 // every (individually weak) early needle and froze the design at 1 layer. The
-// effective-and-safe preemptive escape must be STAGNATION-based (force TOT after N
-// consecutive needles of negligible ACTUAL improvement), not a per-scan predicted-
-// ΔMF cull — deferred to a follow-up. This tail-trim is the safe subset.
+// effective-and-safe preemptive escape is STAGNATION-based (stop on needles of
+// negligible ACTUAL improvement), not a per-scan predicted-ΔMF cull. Needle's
+// accept step does that (needle/refine.js, synthesisConfig/minGain.js). This
+// tail-trim is a separate, safe subset.
 // Pure / node-safe (shared by the headless runSynth driver and the UI windows).
 export function cullMarginalNeedles(queue, relFloor) {
     if (!relFloor || relFloor <= 0 || !queue || queue.length <= 1) return queue;
