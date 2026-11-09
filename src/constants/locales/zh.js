@@ -3084,7 +3084,7 @@ export default {
     noLayers: '设计中无膜层。添加膜层以查看场分布。',
     wavelength: '波长 (nm)',
     aoi: '入射角 (°)',
-    polarization: '偏振',
+    pol: '偏振',
     polS: 's',
     polP: 'p',
     polAvg: '平均',

@@ -25,7 +25,7 @@ export function EFieldControls({ c, t, ef, state, notices }) {
         ],
     },
         h(ChoiceGroup, {
-            label: ef.polarization, activeId: state.pol, onSelect: state.setPol, c,
+            label: ef.pol, activeId: state.pol, onSelect: state.setPol, c,
             items: [
                 { id: 'avg', label: ef.polAvg },
                 { id: 's', label: ef.polS },

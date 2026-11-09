@@ -3107,7 +3107,7 @@ export default {
     noLayers: 'Nessuno strato nel design. Aggiungi strati per vedere il profilo del campo.',
     wavelength: "Lunghezza d'onda (nm)",
     aoi: 'AOI (°)',
-    polarization: 'Polarizzazione',
+    pol: 'Pol.',
     polS: 's',
     polP: 'p',
     polAvg: 'media',

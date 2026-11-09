@@ -2682,7 +2682,7 @@ export default {
     noLayers:      'No layers in design. Add layers to see the field profile.',
     wavelength:    'Wavelength (nm)',
     aoi:           'AOI (°)',
-    polarization:  'Polarization',
+    pol:           'Pol',
     polS:          's',
     polP:          'p',
     polAvg:        'avg',

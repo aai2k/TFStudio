@@ -2636,7 +2636,7 @@ export default {
     noLayers:      'Нет слоёв. Добавьте слои для отображения профиля поля.',
     wavelength:    'Длина волны (нм)',
     aoi:           'Угол падения (°)',
-    polarization:  'Поляризация',
+    pol:           'Поляр.',
     polS:          's',
     polP:          'p',
     polAvg:        'ср',
