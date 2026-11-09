@@ -154,6 +154,19 @@ export function useNumberField(options) {
     return useField(options).props;
 }
 
+// `style` with a `padding` shorthand written as its four sides, the right one
+// `right` when given. The arrows' room is a right padding set and taken away
+// on every hover. Over a shorthand, taking it away leaves no right padding at
+// all: React deletes the paddingRight it set and does not write the unchanged
+// shorthand again. With four sides in every state only their values change.
+export function sidePadding(style, right) {
+    const { padding, ...rest } = style || {};
+    if (padding == null) return right == null ? rest : { ...rest, paddingRight: right };
+    const parts = typeof padding === 'number' ? [padding] : String(padding).trim().split(/\s+/);
+    const [top, side = top, bottom = top, left = side] = parts;
+    return { ...rest, paddingTop: top, paddingRight: right ?? side, paddingBottom: bottom, paddingLeft: left };
+}
+
 // A `spin` field: the input, with the arrows over its right edge while the
 // pointer is over it and the text moved clear of them. A press on an arrow
 // keeps the focus in the field, or puts it there, so a half-typed entry steps
@@ -173,7 +186,7 @@ function SpinInput({ input, onStep, c }) {
             field.focus();
         },
     },
-        h('input', shown ? { ...input, style: { ...input.style, paddingRight: SPIN_WIDTH + 2 } } : input),
+        h('input', { ...input, style: sidePadding(input.style, shown ? SPIN_WIDTH + 2 : undefined) }),
         shown && h(SpinArrows, { titles: { up: stepUp, down: stepDown }, onStep, c }));
 }
 

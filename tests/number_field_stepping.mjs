@@ -7,7 +7,8 @@
  *   2. The arrow keys take Shift and Ctrl; a field without the arrows steps
  *      as it did.
  *   3. Up and down arrows show at the right edge while the pointer is over
- *      the field, the text moved clear of them, none on a disabled field. A
+ *      the field, the text moved clear of them and back after, with the same
+ *      padding properties in every state, none on a disabled field. A
  *      press steps once, Shift and Ctrl as for the keys, a held one repeats,
  *      and a half-typed entry steps from what is typed.
  *   4. Every window settings field has them: the toolbar field every analysis
@@ -99,11 +100,18 @@ function press(arrow, view, modifiers = {}) {
     return () => arrow.props.onPointerUp(event);
 }
 
+// The padding properties a style sets. React applies a style by its keys: a
+// key gone from one draw to the next is deleted from the element, and a
+// shorthand whose value did not change is not written again.
+const paddingKeys = style => Object.keys(style).filter(k => k.startsWith('padding')).sort();
 {
     const { values, field: f } = held({ c }, NumInput);
     assert.equal(arrowsOf(f).length, 0, 'no arrows until the pointer is over the field');
-    const padding = f.input().props.style.padding;
+    const before = f.input().props.style;
+    assert.ok(before.paddingRight != null, 'the field sets its right padding itself');
     frameOf(f).props.onMouseEnter();
+    assert.deepEqual(paddingKeys(f.input().props.style), paddingKeys(before),
+        'hovering sets the same padding properties, so leaving deletes none of them');
     const [up, down] = arrowsOf(f);
     assert.ok(up && down, 'the pointer over the field shows the up and down arrows');
     assert.equal(f.input().props.style.paddingRight, SPIN_WIDTH + 2, 'and moves the text clear of them');
@@ -135,7 +143,8 @@ function press(arrow, view, modifiers = {}) {
 
     frameOf(f).props.onMouseLeave();
     assert.equal(arrowsOf(f).length, 0, 'the arrows go when the pointer leaves');
-    assert.equal(f.input().props.style.padding, padding, 'and the text goes back');
+    assert.deepEqual(paddingKeys(f.input().props.style), paddingKeys(before), 'and the padding properties are the ones it had');
+    assert.equal(f.input().props.style.paddingRight, before.paddingRight, 'and the text goes back');
 }
 {
     const { field: f } = held({ c, disabled: true }, NumInput);
