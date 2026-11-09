@@ -12,14 +12,10 @@ import { NumberField } from '../../../ui/numberField.js';
 import { REFINE_METHODS, ALL_ORDER, STOCHASTIC_METHODS } from '../../../../utils/refinement/methods.js';
 import { normalizeSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
 import { provisionalMark } from '../provisionalMark.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { ActionButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;   // React is a window global
-
-const btnStyle = (color, disabled, c) => ({
-    padding: '3px 14px', fontSize: 12, border: 'none', borderRadius: 3,
-    background: disabled ? c.border : color, color: disabled ? c.textDim : '#fff',
-    cursor: disabled ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit', opacity: disabled ? 0.5 : 1
-});
 
 const numInputStyle = (c, running) => ({
     width: 52, padding: '1px 4px', fontSize: 11, textAlign: 'right',
@@ -57,10 +53,11 @@ function stopReasonView(stopReason, tr) {
 function runButtons({ running, canReset, onRun, onStop, onReset, onBest, surfaceMode, mfEvalMode, t, c }) {
     const tr = t.refinement;
     return [
-        h('button', { onClick: running ? onStop : onRun, style: btnStyle(running ? c.error : c.success, false, c) },
-            running ? `■ ${tr.stop}` : `▶ ${tr.run}`),
-        h('button', { onClick: onReset, disabled: !canReset, style: btnStyle('#5c6bc0', !canReset, c) }, tr.reset),
-        h('button', { onClick: onBest,  disabled: !canReset, style: btnStyle('#0288d1', !canReset, c) }, tr.best),
+        running
+            ? h(ActionButton, { c, label: tr.stop, onClick: onStop }, tablerIcon('player-stop', 13))
+            : h(ActionButton, { c, label: tr.run, onClick: onRun }, tablerIcon('player-play', 13)),
+        h(ActionButton, { c, label: tr.reset, onClick: onReset, disabled: !canReset }),
+        h(ActionButton, { c, label: tr.best, onClick: onBest, disabled: !canReset }),
         h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } },
             h(OptimizeBadge, { design: { surfaceMode, mfEvalMode }, c, t }),
             h(EvalModeBadge, { design: { surfaceMode, mfEvalMode }, c, t }),

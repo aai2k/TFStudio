@@ -5,6 +5,8 @@
 import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { provisionalMark } from '../provisionalMark.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { ActionButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -84,28 +86,13 @@ function MeritLine({ predictedOMF, omf0, predictedProvisional, omf0Provisional, 
 
 function ApplyRow({ onApply, onStop, busy, stoppable, c, tn }) {
     return h('div', { style: { display: 'flex', gap: 6 } },
-        h('button', {
-            onClick: onApply, disabled: busy,
-            style: {
-                padding: '4px 16px', fontSize: 12, border: 'none', borderRadius: 3,
-                background: busy ? c.border : c.success, color: '#fff',
-                cursor: busy ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit', opacity: busy ? 0.6 : 1,
-            }
-        }, tn.apply),
+        h(ActionButton, { c, label: tn.apply, onClick: onApply, disabled: busy }),
         stoppable && h(StopButton, { onStop, c, tn })
     );
 }
 
 // The window's Stop, beside Apply and, while the profile scan runs, beside
 // Compute P-function.
-export function StopButton({ onStop, c, tn, style = null }) {
-    return h('button', {
-        onClick: onStop,
-        style: {
-            padding: '4px 16px', fontSize: 12, cursor: 'pointer',
-            border: `1px solid ${c.error}`, borderRadius: 3,
-            background: c.error + '33', color: c.error,
-            fontWeight: 600, fontFamily: 'inherit', ...style,
-        }
-    }, tn.stop);
+export function StopButton({ onStop, c, tn }) {
+    return h(ActionButton, { c, label: tn.stop, onClick: onStop }, tablerIcon('player-stop', 13));
 }

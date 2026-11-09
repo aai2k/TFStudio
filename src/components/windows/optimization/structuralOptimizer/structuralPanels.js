@@ -98,7 +98,6 @@ export function ControlBar({ running, iter, maxIter, deepMode, reheats, temp, la
         running, canReset, onRun, onStop, onReset, onBest, onClearHistory, hasHistory,
         design, c, t,
         labels: { run: ts.run, stop: ts.stop, reset: ts.reset, best: ts.best, clearHistory: ts.clearHistory },
-        stopColor: c.error,
         metrics: controlBarMetrics({ ts, c, running, deepMode, iter, maxIter, reheats, temp, accRate, layerCount, mf, mfBest }),
         statusMsg, noOperandsLabel: ts.noOperands,
         statusColor: running ? (c.accent || '#ffa726') : c.textDim,

@@ -113,7 +113,7 @@ export function ControlBar({ view, actions, design, t, c }) {
             running: view.running, canReset: view.canReset,
             onRun: actions.run, onStop: actions.stop, onReset: actions.reset, onBest: actions.best,
             onClearHistory: actions.clearHistory, hasHistory: view.rows.length > 0,
-            design, c, t, stopColor: c.error,
+            design, c, t,
             labels: { run: td.run, stop: td.stop, reset: td.reset, best: td.best, clearHistory: td.clearHistory },
             metrics: controlBarMetrics(view, td, c),
             statusMsg: view.statusMsg, noOperandsLabel: td.blocked.noOperands,

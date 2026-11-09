@@ -25,6 +25,8 @@ import { useNeedleManual } from './useNeedleManual.js';
 import { PFunctionPlot } from './PFunctionPlot.js';
 import { LeftSidebar } from './LeftSidebar.js';
 import { PreviewPanel, StopButton } from './PreviewPanel.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { ActionButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -48,15 +50,10 @@ export function NeedleManual({ c, theme, t }) {
                 borderBottom: `1px solid ${c.border}`, background: c.panel, flexShrink: 0,
             }
         },
-            h('button', {
-                onClick: s.computeProfile, disabled: s.busy,
-                style: {
-                    padding: '3px 14px', fontSize: 12, border: 'none', borderRadius: 3,
-                    background: s.busy ? c.border : '#0288d1', color: '#fff',
-                    cursor: s.busy ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit', opacity: s.busy ? 0.6 : 1,
-                }
-            }, s.scanning ? tn.scanningBtn : tn.compute),
-            s.scanning && h(StopButton, { onStop: s.stop, c, tn, style: { padding: '3px 14px' } }),
+            h(ActionButton, {
+                c, label: s.scanning ? tn.scanningBtn : tn.compute, onClick: s.computeProfile, disabled: s.busy,
+            }, tablerIcon('player-play', 13)),
+            s.scanning && h(StopButton, { onStop: s.stop, c, tn }),
             h(OptimizeBadge, { design: s.design, c, t }),
             h(EvalModeBadge, { design: s.design, c, t }),
             h(MeritRangeBadge, { design: s.design, c, t }),

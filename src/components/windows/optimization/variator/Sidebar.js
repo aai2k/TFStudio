@@ -4,6 +4,7 @@ import { LayerSliderList } from './LayerSliderList.js';
 import { MaterialSliders } from './MaterialSliders.js';
 import { backIsVaried, resolveMat, matLabel } from './model.js';
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
+import { ActionButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -36,21 +37,11 @@ export function Sidebar(props) {
             h('span', { style: { fontWeight: 600 } }, v.title || 'Variator'),
             h('span', { title: anyVaried ? v.modifiedTip : undefined, style: { color: c.textDim, fontSize: 11 } },
                 anyVaried ? (v.varied || 'modified') : (v.atBaseline || 'baseline')),
-            h('button', {
-                onClick: revert,
-                disabled: !anyVaried,
-                title: v.revertTip || 'Reset all sliders to baseline',
-                style: {
-                    marginLeft: 'auto',
-                    padding: '3px 10px', fontSize: 11,
-                    cursor: anyVaried ? 'pointer' : 'default',
-                    border: `1px solid ${anyVaried ? c.accent : c.border}`,
-                    borderRadius: 3,
-                    backgroundColor: anyVaried ? c.accent + '22' : 'transparent',
-                    color: anyVaried ? c.accent : c.textDim,
-                    outline: 'none', opacity: anyVaried ? 1 : 0.5,
-                }
-            }, v.revert || 'Revert')
+            h('span', { style: { marginLeft: 'auto' } },
+                h(ActionButton, {
+                    c, label: v.revert || 'Revert', title: v.revertTip || 'Reset all sliders to baseline',
+                    onClick: revert, disabled: !anyVaried,
+                }))
         ),
 
         // Slider scroll area

@@ -94,7 +94,8 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     const tl = makeLocale(code);
     const zl = tl.scriptConsole;
     const html = render(tl);
-    for (const shown of [`▶ ${zl.run}`, zl.openBtn, zl.saveBtn]) assert.ok(html.includes(`>${shown}</button>`), `${code}: ${shown}`);
+    assert.ok(html.includes(`</svg>${zl.run}</button>`), `${code}: ${zl.run}, after its icon`);
+    for (const shown of [zl.openBtn, zl.saveBtn]) assert.ok(html.includes(`>${shown}</button>`), `${code}: ${shown}`);
     for (const label of [zl.runTip, zl.openTip, zl.saveTip]) assert.ok(html.includes(`title="${attr(label)}"`), `${code}: ${label}`);
     assert.match(html, new RegExp(`aria-pressed="true"[^>]*>${zl.languages.javascript}</button>`), `${code}: a script is in JavaScript until told otherwise`);
     assert.match(html, new RegExp(`aria-pressed="false"[^>]*>${zl.languages.python}</button>`), `${code}: and Python is the other choice`);
@@ -118,12 +119,13 @@ assert.equal(outputText(z, [], 0), '', 'an empty output is empty');
 {
     scriptConsoleSession.reset();
     const off = render(t);
-    assert.match(off, new RegExp(`<button[^>]*disabled=""[^>]*>▶ ${z.run}</button>`), 'an empty editor has nothing to run');
+    const disabledRun = new RegExp(`<button[^>]*disabled=""[^>]*><svg(?:(?!</button>)[\\s\\S])*</svg>${z.run}</button>`);
+    assert.match(off, disabledRun, 'an empty editor has nothing to run');
     scriptConsoleSession.write(null, {
         text: 'console.log(1);', fileName: 'ar.js', filePath: 'C:\\scripts\\ar.js', output: ['printed line'],
     });
     const on = render(t);
-    assert.doesNotMatch(on, new RegExp(`<button[^>]*disabled=""[^>]*>▶ ${z.run}</button>`), 'a script can run');
+    assert.doesNotMatch(on, disabledRun, 'a script can run');
     assert.equal(editorProps(t, scriptConsoleSession.read(null)).text, 'console.log(1);', 'the editor is handed the script');
     assert.ok(on.includes('>printed line</textarea>'), 'the output shows what was printed');
     assert.match(on, /<span title="C:\\scripts\\ar\.js"[^>]*>ar\.js<\/span>/, 'the file\'s name, its path on hover');
@@ -133,7 +135,7 @@ assert.equal(outputText(z, [], 0), '', 'an empty output is empty');
         onRun() {}, onStop() {}, onOpen() {}, onSave() {},
     };
     const running = renderToStaticMarkup(React.createElement(ScriptConsoleLayout, props));
-    assert.ok(running.includes(`>■ ${z.stop}</button>`) && !running.includes(`▶ ${z.run}`), 'Stop takes Run\'s place while a script runs');
+    assert.ok(running.includes(`</svg>${z.stop}</button>`) && !running.includes(`</svg>${z.run}</button>`), 'Stop takes Run\'s place while a script runs');
     assert.ok(running.includes(`>${z.running(3)}</span>`), 'and the row shows how long it has run');
     scriptConsoleSession.reset();
 }

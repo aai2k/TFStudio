@@ -1,36 +1,21 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { CLEANER_REFINERS } from './sessionState.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { ActionButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
 // Apply, and while the re-optimize pass runs, its step count and best merit
 // with a Stop button. Stop keeps the cleanup and the best point reached.
 function ApplyGroup({ c, dc, applying, progress, ops, apply, stop }) {
+    const applyOff = applying || ops.length === 0;
     return h('div', { style: { marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' } },
         progress && h('span', {
             style: { fontSize: 11, color: c.accent || '#ffa726', fontStyle: 'italic' }
         }, dc.refining(progress.step, progress.iters, progress.mf)),
-        progress && h('button', {
-            onClick: stop,
-            style: {
-                padding: '3px 14px', fontSize: 12, cursor: 'pointer',
-                border: `1px solid ${c.error}`, borderRadius: 3,
-                background: c.error + '33', color: c.error,
-                outline: 'none', fontWeight: 600,
-            }
-        }, dc.stop),
-        h('button', {
-            onClick: apply, disabled: applying || ops.length === 0,
-            style: {
-                padding: '3px 14px', fontSize: 12, cursor: ops.length ? 'pointer' : 'not-allowed',
-                border: `1px solid ${ops.length ? c.accent : c.border}`, borderRadius: 3,
-                background: ops.length ? c.accent + '33' : 'transparent',
-                color: ops.length ? c.accent : c.textDim,
-                outline: 'none', fontWeight: 600,
-                opacity: applying ? 0.5 : 1,
-            }
-        }, applying ? dc.applying : `${dc.apply} (${ops.length})`)
+        progress && h(ActionButton, { c, label: dc.stop, onClick: stop }, tablerIcon('player-stop', 13)),
+        h(ActionButton, { c, label: applying ? dc.applying : `${dc.apply} (${ops.length})`, onClick: apply, disabled: applyOff })
     );
 }
 

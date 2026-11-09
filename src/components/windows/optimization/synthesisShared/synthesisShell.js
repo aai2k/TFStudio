@@ -20,6 +20,8 @@ import { DebouncedInput } from '../../../ui/DebouncedInput.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { parseNumber } from '../../../../utils/misc/numberParsing.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { ActionButton } from '../../analysis/chrome/controls.js';
 
 const { createElement: h } = React;
 
@@ -43,32 +45,10 @@ const sectionHeaderStyle = (c) => ({
 export function SynthesisControlBar({
     running, canReset, onRun, onStop, onReset, onBest, onResetSide,
     onClearHistory, hasHistory,
-    design, labels, stopColor = '#ef5350', metrics, statusMsg, statusColor,
+    design, labels, metrics, statusMsg, statusColor,
     noOperandsLabel, c, t,
 }) {
-    const btn = (label, color, onClick, disabled = false) =>
-        h('button', {
-            onClick, disabled,
-            style: {
-                padding: '3px 12px', fontSize: 12, border: 'none', borderRadius: 3,
-                background: disabled ? c.border : color,
-                color: disabled ? c.textDim : '#fff',
-                cursor: disabled ? 'default' : 'pointer',
-                fontWeight: 600, fontFamily: 'inherit', opacity: disabled ? 0.5 : 1,
-            }
-        }, label);
-    const smallBtn = (label, onClick, disabled = false) =>
-        h('button', {
-            onClick, disabled,
-            style: {
-                padding: '2px 8px', fontSize: 11, borderRadius: 3,
-                background: 'transparent', color: disabled ? c.textDim : c.text,
-                border: `1px solid ${c.border}`,
-                cursor: disabled ? 'default' : 'pointer',
-                fontFamily: 'inherit', opacity: disabled ? 0.5 : 1,
-            }
-        }, label);
-
+    const btn = (label, onClick, disabled = false) => h(ActionButton, { c, label, onClick, disabled });
     const isBothInd = (design?.surfaceMode || 'front_only') === 'both_independent';
 
     return h('div', {
@@ -79,17 +59,17 @@ export function SynthesisControlBar({
         }
     },
         running
-            ? btn(`■ ${labels.stop}`, stopColor, onStop)
-            : btn(`▶ ${labels.run}`,  c.success, onRun),
-        btn(labels.reset, '#5c6bc0', onReset, !canReset),
+            ? h(ActionButton, { c, label: labels.stop, onClick: onStop }, tablerIcon('player-stop', 13))
+            : h(ActionButton, { c, label: labels.run, onClick: onRun }, tablerIcon('player-play', 13)),
+        btn(labels.reset, onReset, !canReset),
         // Per-side resets in both_independent (Needle / GE): restore one side
         // from the saved snapshot, keep the other side's timeline untouched.
-        onResetSide && isBothInd && smallBtn(t.synthesisShell.resetFront, () => onResetSide('front'), !canReset),
-        onResetSide && isBothInd && smallBtn(t.synthesisShell.resetBack,  () => onResetSide('back'),  !canReset),
-        btn(labels.best, '#0288d1', onBest, !canReset),
+        onResetSide && isBothInd && btn(t.synthesisShell.resetFront, () => onResetSide('front'), !canReset),
+        onResetSide && isBothInd && btn(t.synthesisShell.resetBack,  () => onResetSide('back'),  !canReset),
+        btn(labels.best, onBest, !canReset),
         // Keep the design the run produced and start a clean history. Reset
         // undoes one run; this forgets all of them and touches nothing.
-        onClearHistory && smallBtn(labels.clearHistory, onClearHistory, !hasHistory),
+        onClearHistory && btn(labels.clearHistory, onClearHistory, !hasHistory),
         // What's being optimized + what's evaluated (matches Refinement), and
         // whether the targets reach past a material's data.
         h('span', { style: { marginLeft: 6, display: 'inline-flex', alignItems: 'center', gap: 4 } },

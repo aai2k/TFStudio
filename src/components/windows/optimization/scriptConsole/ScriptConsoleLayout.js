@@ -3,6 +3,7 @@ import { ActionButton, ChoiceGroup } from '../../analysis/chrome/controls.js';
 import { AnalysisWindow, ControlRow, PlotArea } from '../../analysis/chrome/layout.js';
 import { ReportAndNotices } from '../../dataExchange/chrome/actionStatus.js';
 import { appShortcutFor } from '../../../../utils/misc/appShortcuts.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { CodeEditor } from './codeEditor.js';
 import { LANGUAGES } from './scriptLanguage.js';
 
@@ -37,12 +38,6 @@ const textBoxStyle = (c, whiteSpace) => ({
     fontFamily: TEXT_FONT, fontSize: 12, lineHeight: 1.45, whiteSpace, tabSize: 4,
 });
 
-const runButtonStyle = (c, color, disabled) => ({
-    height: 28, padding: '0 14px', fontSize: 12, border: 'none', borderRadius: 6,
-    background: disabled ? c.border : color, color: disabled ? c.textDim : '#fff',
-    cursor: disabled ? 'default' : 'pointer', fontWeight: 600, fontFamily: 'inherit', opacity: disabled ? 0.5 : 1,
-});
-
 const sideTextStyle = (c) => ({
     minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
     color: c.textDim, fontSize: 11, fontVariantNumeric: 'tabular-nums',
@@ -50,12 +45,8 @@ const sideTextStyle = (c) => ({
 
 // Run while no script runs, Stop while one does. An empty editor has nothing to run.
 function RunButton({ c, z, running, empty, onRun, onStop }) {
-    if (running) {
-        return h('button', { type: 'button', onClick: onStop, style: runButtonStyle(c, c.error, false) }, `■ ${z.stop}`);
-    }
-    return h('button', {
-        type: 'button', title: z.runTip, disabled: empty, onClick: onRun, style: runButtonStyle(c, c.success, empty),
-    }, `▶ ${z.run}`);
+    if (running) return h(ActionButton, { c, label: z.stop, onClick: onStop }, tablerIcon('player-stop', 13));
+    return h(ActionButton, { c, label: z.run, title: z.runTip, disabled: empty, onClick: onRun }, tablerIcon('player-play', 13));
 }
 
 function Controls({ c, t, z, session, running, runStatus, onRun, onStop, onLanguage, onOpen, onSave, status }) {
