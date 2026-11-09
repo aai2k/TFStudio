@@ -5,7 +5,7 @@ import { designMaterialLookup } from '../materials/designMaterials.js';
 import {
     evaluateOperands, calcMF, calcOMF, buildEvalContext, operandEvaluationErrors,
     operandBandLevels, withFringeSampleCounts, withDesignSampleCounts, makeConeSpec, coneIsActive,
-    takesStepFlag, isBandGridRow, bandFlagStepNm, extremumFlag, isMath, withRowNotes,
+    takesStepFlag, isBandGridRow, bandFlagStepNm, extremumStepNm, isMath, withRowNotes,
 } from './optimizer.js';
 
 function displayOf(operands, computed) {
@@ -48,12 +48,12 @@ export function evaluateForDisplay(design, operands) {
 /**
  * Whether a row's Step reads its band otherwise than its default step does,
  * by the rule a Specification check follows (qualifiers hasOwnStep): a band
- * row with any Step, its default being the design's fringe grid, or a peak row
- * finer than 1 nm.
+ * row with a step of its own, its default being Step 0, the design's fringe
+ * grid, or a peak row searching at other than 1 nm.
  */
 export function rowHasOwnStep(op) {
     if (!takesStepFlag(op)) return false;
-    return isBandGridRow(op.type) ? bandFlagStepNm(op) != null : extremumFlag(op) > 1;
+    return isBandGridRow(op.type) ? bandFlagStepNm(op) != null : extremumStepNm(op) !== 1;
 }
 
 // An enabled row with a Step of its own. A disabled row has no value at any step.

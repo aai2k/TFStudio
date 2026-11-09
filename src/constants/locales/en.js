@@ -2085,7 +2085,7 @@ export default {
       step:         'Step',
     },
     selectedRows: (n) => `${n} selected`,
-    stepFlagTip: 'Search step of a row that looks for a peak, or the coarsest grid step of a band row: 1 = 1 nm, 2 = 0.1 nm, 3 = 0.01 nm, 4 = 0.001 nm. Peaks closer than about two steps can read as one. A band row left empty takes its grid from the design\'s fringes, which can step over a narrow pass band. Steps 3 and 4 over a wide band slow the table and runs.',
+    stepFlagTip: 'Search step of a row that looks for a peak, or the grid step of a band row: 1 = 1 nm, 2 = 0.1 nm, 3 = 0.01 nm, 4 = 0.001 nm, and a negative number is a step in nm, -0.25 for 0.25 nm. Peaks closer than about two steps can read as one. A band row at 0 takes its grid from the design\'s fringes, no more than 2 nm apart, which can step over a narrow pass band; a step coarser than the fringes is faster, but lets a run move fringes between samples. Steps 3 and 4 over a wide band slow the table and runs.',
     operandGroups: {
       optical:     'Optical, single λ',
       range:       'Band average (single target)',
@@ -4212,7 +4212,7 @@ export default {
     stepTips: {
         peak: 'Step the band is searched for a peak at. Peaks closer than about two steps can read as one. Generate MF writes the same step on the merit row; a fine step over a wide band slows runs and Monte Carlo.',
         scan: 'Step the band is scanned at, with never fewer than 301 samples across the band; on a peak it is also the step the peak is searched at, while a dip is found on the design\'s fringe grid. Each crossing of the level is found exactly between samples; the step decides which peak is found and whether a narrow feature between it and its crossing is seen. A fine step over a wide band slows Monte Carlo.',
-        band: 'Coarsest step of the band\'s grid. Auto takes the grid from the design\'s fringes, at least 101 points, which can step over a narrow pass band. Generate MF writes the same step on the merit row; a fine step over a wide band slows runs and Monte Carlo.',
+        band: 'Step of the band\'s grid. Auto takes the grid from the design\'s fringes, no more than 2 nm apart, which can step over a narrow pass band; a set step is the grid exactly. Generate MF writes the same step on the merit row; a fine step over a wide band slows runs and Monte Carlo.',
     },
     integralPreset: 'preset',
     pickPreset:     'Pick a saved integral preset',

@@ -168,7 +168,7 @@ function generated(design, fields) {
         assert.equal(check(fabryPerot, { ...band, kind, flag: FINE }, coarse).value, auto, `${kind}: a first pass reads the fringe grid`);
         for (const [flag, value] of [[undefined, auto], [FINE, fine]]) {
             const { base, value: written } = generated(fabryPerot, { ...band, kind, flag });
-            assert.equal(base.flag, flag, `${kind}: the row carries the check's Step`);
+            assert.equal(base.flag, flag ?? 0, `${kind}: the row carries the check's Step, 0 for its default`);
             assert.equal(written, value, `${kind} at ${flag ?? 'no'} Step: the row reads the check's value`);
         }
         assert.equal(checkStepKind(makeQualifier({ ...band, kind })), 'band');

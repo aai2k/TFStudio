@@ -289,9 +289,11 @@ The worst-case rows and the `MXW*` / `MNW*` rows report the true highest or lowe
 
 A row that looks for a peak starts from a uniform grid at the step its **Step** flag sets; a row that looks for a dip starts from 13 points. On a thick coating either grid is made finer, to three points per interference fringe, and like the [band grid](#sampling-a-band) it is set from the design when a run starts. Every peak or dip the grid shows is tried, the one that decides the row is then refined, and the band ends are checked, so the value does not depend on where the samples fall.
 
-| Step | 1 or empty | 2 | 3 | 4 |
-| ---- | ---------- | - | - | - |
-| Grid step | 1 nm | 0.1 nm | 0.01 nm | 0.001 nm |
+| Step | 1, the default | 2 | 3 | 4 | below 0 |
+| ---- | -------------- | - | - | - | ------- |
+| Grid step | 1 nm | 0.1 nm | 0.01 nm | 0.001 nm | the number without its sign, in nm |
+
+Any other step is typed as a negative number in nm: -0.25 searches at 0.25 nm, -5 at 5 nm. The finest step is Step 4's 0.001 nm.
 
 The step decides only whether two peaks close together are told apart. Two peaks closer than about two steps, such as the split top of a two-cavity filter, can read as one, and not always the higher. If the band holds such a pair, raise the step. Each level samples the band ten times as densely as the one before, and the row costs that much more time.
 
@@ -299,13 +301,15 @@ A check in the [Specification](/design/specification/) window searches or sample
 
 ## Sampling a band
 
-Band averages, spectral targets, weighted integrals and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. The grid has at least 101 points and no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
+Band averages, spectral targets, weighted integrals and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. At Step 0, the default, its points are also no more than 2 nm apart. The grid has no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
 
-The **Step** flag of a band row sets the coarsest step its grid may take; the row takes whichever of that step and the fringe grid is finer.
+The **Step** flag of a band row sets the step of its grid. At 0, the default, the grid is the fringe grid above; at any other Step it is exactly that step, whether the fringes are finer or not. The cell is never empty: a new band row starts at 0.
 
-| Step | empty | 1 | 2 | 3 | 4 |
-| ---- | ----- | - | - | - | - |
-| Grid step no coarser than | the fringe grid | 1 nm | 0.1 nm | 0.01 nm | 0.001 nm |
+| Step | 0, the default | 1 | 2 | 3 | 4 | below 0 |
+| ---- | -------------- | - | - | - | - | ------- |
+| Grid step | the fringe grid, 2 nm at most | 1 nm | 0.1 nm | 0.01 nm | 0.001 nm | the number without its sign, in nm |
+
+Any other step is typed as a negative number in nm: -2 samples the band every 2 nm, -0.25 every 0.25 nm, down to 0.001 nm. A step coarser than the fringes makes the row faster, and lets a run move fringes into the gaps between samples, so the merit it reports reads better than the design is. Step 0 does not.
 
 The fringe grid follows the coating's fringes, but the pass band of a cavity is about a fringe divided by the cavity's finesse wide, so the grid can step right over it, and a band average or target across it reads far from its value. Over such a band set a step a few times finer than the pass band: a TiO2/SiO2 single-cavity filter of seventeen layers needs step 2, one of thirty-three layers step 3. Each level samples the band ten times as densely as the one before, and the row costs that much more time.
 

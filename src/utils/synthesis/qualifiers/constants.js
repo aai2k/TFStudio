@@ -4,7 +4,7 @@
  * count adds up.
  */
 
-import { EXTREMUM_FLAG_MAX, takesStepFlag } from '../../physics/optimizer.js';
+import { flagStepNm, takesStepFlag } from '../../physics/optimizer.js';
 import { minmaxType, argwaveType } from './channelTypes.js';
 
 export const QUALIFIER_KINDS = [
@@ -51,20 +51,20 @@ export function eqTolerance(qual) {
     return Number.isFinite(qual?.tol) && qual.tol > 0 ? qual.tol : 0;
 }
 
-// A check's Step as operand fields: its `flag`, 1 to EXTREMUM_FLAG_MAX, or
-// none for the default.
+// A check's Step as operand fields: its `flag` when it sets a step
+// (operandModel.js flagStepNm), 1 to 4 or a negative step in nm, or none for
+// the default.
 function ownFlag(qual) {
     const flag = qual?.flag;
-    return Number.isInteger(flag) && flag >= 1 && flag <= EXTREMUM_FLAG_MAX ? { flag } : {};
+    return flagStepNm(flag) != null ? { flag } : {};
 }
 
 // A check's Step as the flag of the merit row of `type` it reads, the row
 // Generate MF writes for it. On a row that looks for a peak it is the search
-// step, 10^(1 − flag) nm, none being 1 nm; on a band row (an average or an
-// integral) the coarsest step of its grid, none being the design's fringe
-// grid. A row that looks for a dip takes none (takesStepFlag). The check
-// (evaluate.js) and the row (mfOperands.js) both read it here, so the two read
-// the same grid.
+// step, none being 1 nm; on a band row (an average or an integral) the step of
+// its grid, none being Step 0, the design's fringe grid. A row that looks for
+// a dip takes none (takesStepFlag). The check (evaluate.js) and the row
+// (mfOperands.js) both read it here, so the two read the same grid.
 export function checkStepFlag(qual, type) {
     return takesStepFlag({ type, pol: qual?.pol }) ? ownFlag(qual) : {};
 }
@@ -129,20 +129,31 @@ export function checkStepKind(qual) {
 }
 
 // The flags a check's Step control offers beside none (checkStepKind): 1 to 4
-// on an average or integral check, whose none is the design's fringe grid; 2
-// to 4 on a peak, centre, FWHM or edge check, whose none is already the 1 nm
-// of flag 1. None on a check that has no Step.
+// on an average or integral check, whose none is Step 0, the design's fringe
+// grid; 2 to 4 on a peak, centre, FWHM or edge check, whose none is already
+// the 1 nm of flag 1. None on a check that has no Step. A check also takes a
+// negative step in nm (takesCheckFlag), which the control shows when the check
+// has one.
 export function stepFlags(qual) {
     const kind = checkStepKind(qual);
     if (!kind) return [];
     return kind === 'band' ? [1, 2, 3, 4] : [2, 3, 4];
 }
 
+// Whether a check takes `flag` as its Step: one its control offers, a
+// negative step in nm, or 0 on an average or integral check, its default.
+export function takesCheckFlag(qual, flag) {
+    if (stepFlags(qual).includes(flag)) return true;
+    if (flag === 0) return checkStepKind(qual) === 'band';
+    return !!checkStepKind(qual) && flag < 0 && flagStepNm(flag) != null;
+}
+
 // Whether a check's own Step reads its band otherwise than its default step
-// does: a peak, centre, FWHM or edge check finer than 1 nm, or an average or
-// integral check with any Step, its default being the design's fringe grid.
+// does: a peak, centre, FWHM or edge check at other than 1 nm, or an average or
+// integral check with a step of its own, its default being Step 0, the
+// design's fringe grid.
 export function hasOwnStep(qual) {
     const kind = checkStepKind(qual);
-    const flag = ownFlag(qual).flag;
-    return !!kind && flag != null && (kind === 'band' || flag > 1);
+    const step = flagStepNm(ownFlag(qual).flag);
+    return !!kind && step != null && (kind === 'band' || step !== 1);
 }

@@ -123,11 +123,12 @@ class MissingRunWorker extends NodeModuleWorker {
 // ── Fixture ───────────────────────────────────────────────────────────────────
 const copy = value => JSON.parse(JSON.stringify(value));
 const OPERANDS = caseById('bbar').ops.map(op => ({ ...op, enabled: true }));
-// The same row over a band wide enough that its grid grows with the coating.
-// From an empty start a band row begins at its 101-point minimum, which the
-// few layers of a bbar run never outgrow; the fringes of a few layers over
-// 400-3000 nm need more points, so a run over it regrids.
+// The same row over a band wide enough that its grid grows with the coating,
+// run from a 3 µm SiO2 slab. Its fringes at 400 nm are a little coarser than
+// the band's 2 nm step, so the run launches on the 2 nm grid; the layers it
+// builds on the slab make them finer, and the run regrids.
 const WIDE_OPERANDS = OPERANDS.map(op => ({ ...op, lambdaStart: 400, lambdaEnd: 3000 }));
+const SLAB = () => [{ id: 'slab', material: 'SiO2', thickness: 3000, locked: false }];
 const builtin = poolCatalogs(null).find(cat => cat.id === 'builtin');
 const EXCLUDED = new Set(poolMatEntries(builtin).map(e => e.fullId).filter(id => id !== 'TiO2' && id !== 'SiO2'));
 const CONFIG = {
@@ -402,8 +403,8 @@ globalThis.Worker = CountingWorker;
 // for the same grid.
 {
     runWorkers.regrids.length = 0;
-    await run([], undefined, WIDE_OPERANDS);
-    const launch = designWith([], WIDE_OPERANDS);
+    await run(SLAB(), undefined, WIDE_OPERANDS);
+    const launch = designWith(SLAB(), WIDE_OPERANDS);
     assertRegridTables(launch, poolOf(new Set(['builtin']), EXCLUDED, launch), 'built-in materials');
 }
 
@@ -428,7 +429,7 @@ globalThis.Worker = CountingWorker;
             stopDeepSynthesis(ctx);
         }
     };
-    const { ctx } = makeCtx([], stopAfterRegrid, WIDE_OPERANDS);
+    const { ctx } = makeCtx(SLAB(), stopAfterRegrid, WIDE_OPERANDS);
     ctx.selectedCatsRef.current = selected;
     ctx.excludedMatsRef.current = excluded;
     ctx.designRef.current = { ...ctx.designRef.current, substrate: { material: 'guard:Glass', thickness: 1 } };

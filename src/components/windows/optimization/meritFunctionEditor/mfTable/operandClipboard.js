@@ -14,8 +14,8 @@
  * paste gives them back whole. Text from anywhere else is read field by field.
  */
 import {
-    EXTREMUM_FLAG_MAX, GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
-    isFractionalUnit, isValidMeritWeight, makeOperand, takesStepFlag,
+    GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
+    flagStepNm, isBandGridRow, isFractionalUnit, isValidMeritWeight, makeOperand, takesStepFlag,
 } from '../../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../../utils/misc/numberParsing.js';
 
@@ -49,7 +49,7 @@ export function serializeOperandsTsv(operands, selectedIds) {
     return operands.filter(op => selectedIds.has(op.id)).map(op => {
         const target = op.target ?? 0;
         const targetText = String(isFractionalUnit(op.type) ? shiftDecimal(target, 2) : target);
-        const flagText = Number.isInteger(op.flag) ? op.flag : '';
+        const flagText = Number.isFinite(op.flag) ? op.flag : '';
         const sign = op.type === 'DEL' && op.deltaConvention ? [op.deltaConvention] : [];
         return [op.type, op.lambdaStart, op.lambdaEnd, op.aoi, op.pol, flagText, targetText, op.weight, ...sign].join('\t');
     }).join('\n');
@@ -57,10 +57,11 @@ export function serializeOperandsTsv(operands, selectedIds) {
 
 const orDefault = (value, fallback) => (isFinite(value) ? value : fallback);
 
-// The flag of a pasted line, for a type that takes one and a value in range.
+// The flag of a pasted line, for a type that takes one and a Step it reads:
+// 1 to 4, a negative step in nm, or 0 on a band row.
 function flagField(type, text) {
     const flag = parseNumberStrict(text ?? '');
-    const valid = Number.isInteger(flag) && flag >= 1 && flag <= EXTREMUM_FLAG_MAX;
+    const valid = flagStepNm(flag) != null || (flag === 0 && isBandGridRow(type));
     return valid && takesStepFlag({ type }) ? { flag } : {};
 }
 

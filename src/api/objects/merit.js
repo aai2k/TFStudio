@@ -194,7 +194,7 @@ export class Merit {
      * @param [options.pol='avg'] `'avg'`, `'s'` or `'p'`.
      * @param [options.targetEnd] The target at `end` of a target that slopes from `target` at `start`; null for a flat one.
      * @param [options.cmp] For TT and STR, the comparison: `'eq'`, `'le'` or `'ge'`.
-     * @param [options.flag] The editor's Flag column, a whole number; the Operand Reference says what it does on each row.
+     * @param [options.flag] The editor's Flag column, the row's Step; the Operand Reference says what it does on each row.
      * @param [options.enabled=true] `false` leaves the row out of the merit.
      * @param [options.comment] The text of a BLNK row.
      * @param [options.id] A name for the row, which a math row names in `refId`, `refId1` or `refId2` to read it. Without it, a fresh id, as a row added in the editor gets.

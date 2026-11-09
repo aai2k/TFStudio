@@ -257,8 +257,11 @@ export function textCell(ctx, colKey, width) {
         if (meta.isCon) display = String(Math.round(op.lambdaEnd));
         else if (!meta.isRange) return dashCell(ctx, colKey, width);
     }
+    // A step typed in nm, such as -0.001, can be wider than the Flag column,
+    // which shows it cut; its full value reads on hover.
     return h('td', {
         key: colKey, ...selectable(ctx, colKey),
+        title: colKey === 'flag' ? display : undefined,
         onDoubleClick: () => startEdit(rowIdx, colKey, null),
         style: {
             ...tdBase(colKey, width), color: c.text, overflow: 'hidden',

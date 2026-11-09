@@ -1,8 +1,9 @@
 /**
  * The merit table's flag column: a row that looks for a peak takes a whole
- * number from 1 to 4 there, its search step; every other row shows a dash. A
- * row without a flag reads 1, rows keep their flag through the row clipboard,
- * and a row retyped to a type that takes no flag loses it.
+ * number from 1 to 4 there, or a negative step in nm, its search step; a row
+ * that takes no flag shows a dash. A row without a flag reads 1, the cell is
+ * never cleared, rows keep their flag through the row clipboard, and a row
+ * retyped to a type that takes no flag loses it.
  *
  * Run: node tests/mf_table_step_flag.mjs
  */
@@ -30,7 +31,8 @@ assert.ok(editableColsForRow(makeOperand({ type: 'TAV' })).includes('flag'), 'a 
 assert.equal(cellInitialText(tmx, 'flag', false), '1', 'a row without a flag reads 1');
 assert.deepEqual(cellEdit(tmx, 'flag', '3'), ['flag', 3]);
 for (const text of ['0', '5', '2.5', 'x']) assert.equal(cellEdit(tmx, 'flag', text), null, `"${text}" is refused`);
-assert.deepEqual(cellEdit(tmx, 'flag', ''), ['flag', undefined], 'an empty cell clears the flag, the 1 nm step on a peak row');
+assert.equal(cellEdit(tmx, 'flag', ''), null, 'an empty cell is refused: the cell is never empty');
+assert.deepEqual(cellEdit(tmx, 'flag', '-0.5'), ['flag', -0.5], 'a negative step in nm is taken');
 
 // The edit takes effect: flag 3 is a 0.01 nm search.
 assert.equal(operandSampleLambdas({ ...tmx, flag: 3 }).length, 10001);
@@ -46,11 +48,11 @@ assert.deepEqual(text.split('\n')[0].split('\t'), ['TMX', '500', '600', '0', 'av
 assert.ok(looksLikeOperandRows(text.split('\n').map(line => line.split('\t'))));
 const pasted = parseOperandsTsv(text);
 assert.deepEqual([pasted[0].flag, pasted[0].target, pasted[0].weight], [2, 0.01, 3], 'the first row comes back whole');
-assert.deepEqual([pasted[1].flag, pasted[1].target, pasted[1].weight], [undefined, 0.005, 2], 'a row without a flag gets none');
+assert.deepEqual([pasted[1].flag, pasted[1].target, pasted[1].weight], [0, 0.005, 2], 'a band row comes back at Step 0');
 const range = cellRange({ rowIdx: 0, colKey: 'type' }, { rowIdx: 1, colKey: 'weight' });
 const cells = parseOperandsTsv(rangeText(rows, range, () => false));
 assert.deepEqual(cells.map(op => [op.type, op.flag, op.target, op.weight]),
-    [['TMX', 2, 0.01, 3], ['RAV', undefined, 0.005, 2]], 'copied cells paste back as the same rows');
+    [['TMX', 2, 0.01, 3], ['RAV', 0, 0.005, 2]], 'copied cells paste back as the same rows');
 // A line from an earlier release has no flag field; a flag on a type that takes
 // none is dropped.
 assert.deepEqual(parseOperandsTsv('TMN\t500\t600\t0\tavg\t95.00\t4').map(op => [op.target, op.weight, op.flag]),

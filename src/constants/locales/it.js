@@ -2440,7 +2440,7 @@ export default {
       step: 'Step',
     },
     selectedRows: (n) => `${n} selezionate`,
-    stepFlagTip: 'Passo di ricerca di una riga che cerca un picco, o passo massimo della griglia di una riga su banda: 1 = 1 nm, 2 = 0,1 nm, 3 = 0,01 nm, 4 = 0,001 nm. Picchi più vicini di circa due passi possono essere letti come uno solo. Una riga su banda lasciata vuota prende la griglia dalle frange del progetto, che può scavalcare una banda passante stretta. I passi 3 e 4 su una banda larga rallentano la tabella e le ottimizzazioni.',
+    stepFlagTip: 'Passo di ricerca di una riga che cerca un picco, o passo della griglia di una riga su banda: 1 = 1 nm, 2 = 0,1 nm, 3 = 0,01 nm, 4 = 0,001 nm, e un numero negativo è un passo in nm, -0,25 per 0,25 nm. Picchi più vicini di circa due passi possono essere letti come uno solo. Una riga su banda a 0 prende la griglia dalle frange del progetto, con punti distanti al massimo 2 nm, che può scavalcare una banda passante stretta; un passo più largo delle frange è più veloce, ma lascia che l\'ottimizzazione sposti le frange tra i campioni. I passi 3 e 4 su una banda larga rallentano la tabella e le ottimizzazioni.',
     operandGroups: {
       optical: 'Ottici, singola λ',
       range: 'Media sulla banda (target unico)',
@@ -4640,7 +4640,7 @@ export default {
     stepTips: {
         peak: 'Passo con cui si cerca il picco nella banda. Picchi più vicini di circa due passi possono essere letti come uno solo. Genera MF scrive lo stesso passo sulla riga di merito; un passo fine su una banda larga rallenta le ottimizzazioni e il Monte Carlo.',
         scan: "Passo con cui la banda viene scandita, mai meno di 301 campioni sulla banda; su un picco è anche il passo con cui si cerca il picco, mentre un avvallamento si trova sulla griglia delle frange del progetto. Ogni attraversamento del livello è trovato esattamente tra i campioni; il passo decide quale picco viene trovato e se si vede un dettaglio stretto tra il picco e l'attraversamento. Un passo fine su una banda larga rallenta il Monte Carlo.",
-        band: "Passo massimo della griglia della banda. Auto prende la griglia dalle frange del progetto, almeno 101 punti, che può scavalcare una banda passante stretta. Genera MF scrive lo stesso passo sulla riga di merito; un passo fine su una banda larga rallenta le ottimizzazioni e il Monte Carlo.",
+        band: 'Passo della griglia della banda. Auto prende la griglia dalle frange del progetto, con punti distanti al massimo 2 nm, che può scavalcare una banda passante stretta; un passo impostato è esattamente la griglia. Genera MF scrive lo stesso passo sulla riga di merito; un passo fine su una banda larga rallenta le ottimizzazioni e il Monte Carlo.',
     },
     integralPreset: 'preimpostazione',
     pickPreset: 'Scegli una preimpostazione di integrale salvata',

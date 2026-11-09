@@ -1,7 +1,7 @@
 import {
     DEFAULT_CONSTRAINT_LAST_LAYER, FILTER_TYPES, customTargetStatement, generateFilterOperands,
     makeOperand, makeConstraintOperand, makeDmfsOperand,
-    isConstraint, isFractionalUnit, isMath, isRangeTarget, mathTargetInPercent,
+    isBandGridRow, isConstraint, isFractionalUnit, isMath, isRangeTarget, mathTargetInPercent,
     removeOperandsAndDependents, rowRangeDomain, takesStepFlag, targetDomain,
 } from '../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
@@ -164,7 +164,8 @@ export function makeRowOperand(spec) {
  * retyped from RAV to MNT would constrain layers 400 to 700 to be at least 0.99
  * nm thick, none of which the user asked for and all of which looks deliberate.
  * The flag goes when the new type takes none, so a row retyped back starts
- * from the default step.
+ * from the default step, and so does a band row's Step 0, its automatic grid,
+ * which a row that looks for a peak does not have.
  */
 export function retypeOperand(op, type) {
     const next = { ...op, id: op.id, type };
@@ -173,7 +174,7 @@ export function retypeOperand(op, type) {
         delete next.lambdaEnd;
     }
     if (targetDomain(type) !== targetDomain(op.type)) delete next.target;
-    if (!takesStepFlag(next)) delete next.flag;
+    if (!takesStepFlag(next) || (next.flag === 0 && !isBandGridRow(type))) delete next.flag;
     // A row that becomes DEL is a new DEL row and reads Δ as a new one does.
     if (type !== op.type) delete next.deltaConvention;
     return makeRowOperand(next);

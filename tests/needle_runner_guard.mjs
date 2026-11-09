@@ -84,7 +84,8 @@ const SCENARIOS = {
     sqpThorough: { maxLayers: 5, storage: { engine: 'sqp', candMode: 'thorough', sensitivity: 'medium' }, presses: [{}] },
     targetStop: { targetMF: 0.02, presses: [{}] },
     mntDropped: { ops: [...BBAR, MNT], presses: [{}] },
-    secondPress: { presses: [{ maxLayers: 3 }, { maxLayers: 5 }] },
+    // Short refines, so the run stalls and takes the thin-start rescue.
+    secondPress: { dlsIter: 8, presses: [{ maxLayers: 3 }, { maxLayers: 5 }] },
     stopThenRun: { presses: [{ stopAtMap: 3 }, {}] },
     errorAfterProgress: { presses: [{ failAtMap: 4 }] },
     noOperands: { ops: BBAR.map(op => ({ ...op, enabled: false })), presses: [{}] },

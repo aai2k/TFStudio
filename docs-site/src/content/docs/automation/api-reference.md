@@ -3162,7 +3162,7 @@ Adds a row at the end of the merit function, made as the Merit Function Editor m
 | `pol` | `pol` | `'avg'` | `'avg'`, `'s'` or `'p'`. |
 | `targetEnd` | `target_end` |  | The target at `end` of a target that slopes from `target` at `start`; `null` / `None` for a flat one. |
 | `cmp` | `cmp` |  | For TT and STR, the comparison: `'eq'`, `'le'` or `'ge'`. |
-| `flag` | `flag` |  | The editor's Flag column, a whole number; the Operand Reference says what it does on each row. |
+| `flag` | `flag` |  | The editor's Flag column, the row's Step; the Operand Reference says what it does on each row. |
 | `enabled` | `enabled` | `true` / `True` | `false` / `False` leaves the row out of the merit. |
 | `comment` | `comment` |  | The text of a BLNK row. |
 | `id` | `id` |  | A name for the row, which a math row names in `refId` / `ref_id`, `refId1` / `ref_id1` or `refId2` / `ref_id2` to read it. Without it, a fresh id, as a row added in the editor gets. |
@@ -3646,7 +3646,7 @@ Adds a check at the end of the specification, made as the Specification window m
 | `direction` | `direction` | `'max'` | For MIN_MAX, CENTRAL_LAMBDA, FWHM and EDGE_LAMBDA: `'max'`, the highest value or a peak, or `'min'`, the lowest value or a dip. |
 | `level` | `level` | `0.5` | For FWHM and EDGE_LAMBDA, the level the curve crosses, 0 to 1: with direction `'max'` that fraction of the band's highest value, with `'min'` that fraction of the way from its lowest value up to 1. A level below 0.001 or above 0.999 is taken as 0.001 or 0.999. |
 | `edgeSide` | `edge_side` |  | For EDGE_LAMBDA, `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below. |
-| `flag` | `flag` |  | The window's Step, `null` / `None` for its default: on T_AVG, R_AVG, A_AVG and INTEGRAL 1 to 4, a grid no coarser than 1, 0.1, 0.01 or 0.001 nm, the default being the design's fringe grid; on FWHM and EDGE_LAMBDA, and on MIN_MAX and CENTRAL_LAMBDA of the highest T or A or the lowest R, 2 to 4, a search at 0.1, 0.01 or 0.001 nm, the default being 1 nm. A check at one wavelength, MIN_MAX and CENTRAL_LAMBDA of the lowest T or A or the highest R, a thickness budget, a layer count and PPEF have no Step, and take `null` / `None`. |
+| `flag` | `flag` |  | The window's Step, `null` / `None` for its default: on T_AVG, R_AVG, A_AVG and INTEGRAL 1 to 4, a grid step of exactly 1, 0.1, 0.01 or 0.001 nm, the default, also given as 0, being the design's fringe grid, no more than 2 nm apart; on FWHM and EDGE_LAMBDA, and on MIN_MAX and CENTRAL_LAMBDA of the highest T or A or the lowest R, 2 to 4, a search at 0.1, 0.01 or 0.001 nm, the default being 1 nm. Every check with a Step also takes a step in nm as a negative number, -2 for 2 nm, -0.001 or below. A check at one wavelength, MIN_MAX and CENTRAL_LAMBDA of the lowest T or A or the highest R, a thickness budget, a layer count and PPEF have no Step, and take `null` / `None`. |
 | `side` | `side` |  | For THICKNESS_BUDGET and LAYER_COUNT, the layers added up: `'front'`, `'back'` or `'both'`. Without it, the side the design coats. |
 | `presetKey` | `preset_key` | `''` | For INTEGRAL, one of the integral presets Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR and RNIR, which sets the channel, band, source, detector and `presetLabel` / `preset_label` as picking it in the window does, or `''` for none. |
 | `presetLabel` | `preset_label` | `''` | For INTEGRAL, the preset's name as the window shows it. |

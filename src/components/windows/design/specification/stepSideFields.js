@@ -1,6 +1,6 @@
 // The Step and side selects of a Specification row (QRow.js).
 
-import { checkStepKind, stepFlags, budgetSide } from '../../../../utils/synthesis/qualifiers.js';
+import { checkStepKind, stepFlags, takesCheckFlag, budgetSide } from '../../../../utils/synthesis/qualifiers.js';
 import { extremumStepNm } from '../../../../utils/physics/optimizer.js';
 import { Field, selStyle } from './fields.js';
 
@@ -9,11 +9,12 @@ const { createElement: h } = React;
 // The Step of a check (checkStepKind), the flags its merit row takes. A peak,
 // centre, FWHM or edge check searches at 1 nm without one; an average or
 // integral check takes its grid from the design's fringes, so 1 nm is one of
-// its choices.
+// its choices. A step in nm the check was given elsewhere, a negative flag, is
+// listed too, so the control shows what the check reads.
 export function renderStep(q, onF, c, ts, units) {
     const kind = checkStepKind(q);
     if (!kind) return null;
-    const flags = stepFlags(q);
+    const flags = [...stepFlags(q), ...(q.flag < 0 && takesCheckFlag(q, q.flag) ? [q.flag] : [])];
     const value = flags.includes(q.flag) ? String(q.flag) : '';
     const nm = flag => `${extremumStepNm({ flag })} ${units.nm}`;
     return h(Field, { label: ts.step, c, tip: ts.stepTips[kind] },

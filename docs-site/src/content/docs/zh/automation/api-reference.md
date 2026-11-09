@@ -3162,7 +3162,7 @@ print(design.merit.value)
 | `pol` | `pol` | `'avg'` | `'avg'`、`'s'` 或 `'p'`。 |
 | `targetEnd` | `target_end` |  | 倾斜目标在 `end` 处的目标值，该目标从 `start` 处的 `target` 开始倾斜；平直目标为 `null` / `None`。 |
 | `cmp` | `cmp` |  | 用于 TT 和 STR 的比较方式：`'eq'`、`'le'` 或 `'ge'`。 |
-| `flag` | `flag` |  | 编辑器中的 Flag 列，一个整数；操作数参考说明它在每种行上的作用。 |
+| `flag` | `flag` |  | 编辑器中的 Flag 列，即该行的步长；操作数参考说明它在每种行上的作用。 |
 | `enabled` | `enabled` | `true` / `True` | 为 `false` / `False` 时，该行不计入评价函数。 |
 | `comment` | `comment` |  | BLNK 行的文本。 |
 | `id` | `id` |  | 该行的名称，数学行在 `refId` / `ref_id`、`refId1` / `ref_id1` 或 `refId2` / `ref_id2` 中写出它来读取该行。不给出时，使用一个新的 id，与在编辑器中添加的行相同。 |
@@ -3646,7 +3646,7 @@ print(report.passed, [row.margin for row in report.rows])
 | `direction` | `direction` | `'max'` | 用于 MIN_MAX、CENTRAL_LAMBDA、FWHM 和 EDGE_LAMBDA：`'max'`，最大值或峰；`'min'`，最小值或谷。 |
 | `level` | `level` | `0.5` | 用于 FWHM 和 EDGE_LAMBDA，曲线穿越的电平，0 到 1：direction 为 `'max'` 时为波段内最大值的该比例，为 `'min'` 时为从波段内最小值到 1 之间该比例处的值。小于 0.001 或大于 0.999 的电平按 0.001 或 0.999 计。 |
 | `edgeSide` | `edge_side` |  | 用于 EDGE_LAMBDA：`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。 |
-| `flag` | `flag` |  | 窗口中的步长，`null` / `None` 表示默认值：对 T_AVG、R_AVG、A_AVG 和 INTEGRAL 为 1 到 4，网格步长不大于 1、0.1、0.01 或 0.001 nm，默认按设计的干涉条纹取网格；对 FWHM 和 EDGE_LAMBDA，以及取 T 或 A 最大值或 R 最小值的 MIN_MAX 和 CENTRAL_LAMBDA 为 2 到 4，以 0.1、0.01 或 0.001 nm 搜索，默认为 1 nm。单波长检查、取 T 或 A 最小值或 R 最大值的 MIN_MAX 和 CENTRAL_LAMBDA、总厚度检查、层数检查和 PPEF 没有步长，只接受 `null` / `None`。 |
+| `flag` | `flag` |  | 窗口中的步长，`null` / `None` 表示默认值：对 T_AVG、R_AVG、A_AVG 和 INTEGRAL 为 1 到 4，网格步长恰为 1、0.1、0.01 或 0.001 nm，默认值也可写作 0，即按设计的干涉条纹取网格，点距不超过 2 nm；对 FWHM 和 EDGE_LAMBDA，以及取 T 或 A 最大值或 R 最小值的 MIN_MAX 和 CENTRAL_LAMBDA 为 2 到 4，以 0.1、0.01 或 0.001 nm 搜索，默认为 1 nm。所有带步长的检查也接受以负数表示的步长，单位 nm，如 -2 表示 2 nm，取 -0.001 或更小的数。单波长检查、取 T 或 A 最小值或 R 最大值的 MIN_MAX 和 CENTRAL_LAMBDA、总厚度检查、层数检查和 PPEF 没有步长，只接受 `null` / `None`。 |
 | `side` | `side` |  | 用于 THICKNESS_BUDGET 和 LAYER_COUNT，累加的膜层：`'front'`、`'back'` 或 `'both'`。不给出时，为设计所镀的面。 |
 | `presetKey` | `preset_key` | `''` | 用于 INTEGRAL，积分预设 Tvis、Rvis、Avis、Tsol、Rsol、Asol、TUV、RUV、TNIR 和 RNIR 之一，它会像在窗口中选择它一样设置通道、波段、光源、探测器和 `presetLabel` / `preset_label`；`''` 表示不用预设。 |
 | `presetLabel` | `preset_label` | `''` | 用于 INTEGRAL，窗口中显示的预设名称。 |

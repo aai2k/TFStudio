@@ -403,14 +403,17 @@ class Specification:
                 peak; otherwise the one below it, or the one above where there
                 is none below.
             flag: The window's Step, None for its default: on T_AVG, R_AVG,
-                A_AVG and INTEGRAL 1 to 4, a grid no coarser than 1, 0.1, 0.01
-                or 0.001 nm, the default being the design's fringe grid; on
-                FWHM and EDGE_LAMBDA, and on MIN_MAX and CENTRAL_LAMBDA of the
-                highest T or A or the lowest R, 2 to 4, a search at 0.1, 0.01
-                or 0.001 nm, the default being 1 nm. A check at one
-                wavelength, MIN_MAX and CENTRAL_LAMBDA of the lowest T or A or
-                the highest R, a thickness budget, a layer count and PPEF have
-                no Step, and take None.
+                A_AVG and INTEGRAL 1 to 4, a grid step of exactly 1, 0.1, 0.01
+                or 0.001 nm, the default, also given as 0, being the design's
+                fringe grid, no more than 2 nm apart; on FWHM and EDGE_LAMBDA,
+                and on MIN_MAX and
+                CENTRAL_LAMBDA of the highest T or A or the lowest R, 2 to 4, a
+                search at 0.1, 0.01 or 0.001 nm, the default being 1 nm. Every
+                check with a Step also takes a step in nm as a negative number,
+                -2 for 2 nm, -0.001 or below. A check at one wavelength,
+                MIN_MAX and CENTRAL_LAMBDA of the lowest T or A or the highest
+                R, a thickness budget, a layer count and PPEF have no Step, and
+                take None.
             side: For THICKNESS_BUDGET and LAYER_COUNT, the layers added up:
                 "front", "back" or "both". Without it, the side the design
                 coats.

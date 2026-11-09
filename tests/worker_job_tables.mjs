@@ -129,7 +129,10 @@ const twoLayers = () => ({
     const here = await structural(inThread);
     assert.equal(threads.result.completed, true, `Structural on worker threads completes (${threads.result.stopReason})`);
     assert.ok(threads.held > 0 && threads.again === 0, `Structural: no worker is sent the same tables twice (${JSON.stringify({ ...threads, result: undefined })})`);
-    assert.deepEqual(threads.result.frontLayers, here.result.frontLayers, 'and the run ends where it ends on the calling thread');
+    // A layer the run inserts takes a random id, so the stacks are compared by
+    // material and thickness.
+    const stack = run => run.result.frontLayers.map(({ material, thickness }) => [material, thickness]);
+    assert.deepEqual(stack(threads), stack(here), 'and the run ends where it ends on the calling thread');
     assert.equal(threads.result.mf, here.result.mf);
 }
 {

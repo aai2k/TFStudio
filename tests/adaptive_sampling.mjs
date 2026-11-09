@@ -111,10 +111,8 @@ let trueFWHM = Infinity, truePeak = 0;
 {
     // Wide band [451,649]: the default ~2 nm grid lands on 451,453,… and never
     // on 550.0, so the merit is blind to the resonance — the user's 411 nm spike
-    // in a 200 nm stopband. (Aliasing is a WIDE-band problem; narrow bands hit
-    // the BAND_MIN_POINTS floor and are already dense.) The row carries that 2 nm
-    // grid as its own count, 100 points, since the 101-point floor would put a
-    // sample at 550.0.
+    // in a 200 nm stopband. The row carries that 2 nm grid as its own count,
+    // 100 points.
     const tgt = makeOperand({ type: 'TGT', lambdaStart: 451, lambdaEnd: 649, pol: 'avg', target: 0, targetEnd: 0, weight: 1, rampPoints: 100 });
     const ctx = buildEvalContext(cavity, resolveMat);
     const coarseLams = operandSampleLambdas(tgt);

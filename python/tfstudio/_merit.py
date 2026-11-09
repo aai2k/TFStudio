@@ -192,7 +192,7 @@ class Merit:
             target_end: The target at `end` of a target that slopes from
                 `target` at `start`; None for a flat one.
             cmp: For TT and STR, the comparison: "eq", "le" or "ge".
-            flag: The editor's Flag column, a whole number; the Operand
+            flag: The editor's Flag column, the row's Step; the Operand
                 Reference says what it does on each row.
             enabled: False leaves the row out of the merit. Default True.
             comment: The text of a BLNK row.

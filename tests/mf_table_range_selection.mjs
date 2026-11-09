@@ -38,8 +38,8 @@ assert.equal(rangeColumnsForRow(null, 0), null);
 
 assert.equal(rangeText(operands, range, noPercent), '1565\t1630\t45\n1565\t1630\t45');
 const acrossDash = cellRange({ rowIdx: 1, colKey: 'aoi' }, { rowIdx: 2, colKey: 'target' });
-assert.equal(rangeText(operands, acrossDash, noPercent), '45\ts\t\t0.0→0.0\n\t\t\t40',
-    'a cell the row does not carry copies as nothing, keeping the columns aligned');
+assert.equal(rangeText(operands, acrossDash, noPercent), '45\ts\t0\t0.0→0.0\n\t\t\t40',
+    'a band row\'s Step copies as 0, its automatic grid, and a cell the row does not carry copies as nothing, keeping the columns aligned');
 
 // ── Paste geometry ───────────────────────────────────────────────────────────
 

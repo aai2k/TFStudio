@@ -1,6 +1,6 @@
 import {
-    EXTREMUM_FLAG_MAX, GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
-    bandFlagStepNm, extremumFlag, isBandGridRow, isFractionalUnit, isMath, isRangeTarget, isValidMeritWeight, polFromType,
+    GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
+    flagStepNm, isBandGridRow, isFractionalUnit, isMath, isRangeTarget, isValidMeritWeight, polFromType,
 } from '../../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../../utils/misc/numberParsing.js';
 import { listKind, listPaste, listText } from './listValues.js';
@@ -37,13 +37,13 @@ export function polFromKey(char) {
 }
 
 /**
- * The Flag cell's text. A band row shows its flag, or nothing when it has none
- * and its grid comes from the design's fringes; a row that looks for a peak
- * shows its search level, 1 when it has no flag.
+ * The Flag cell's text: the row's Step (operandModel.js flagStepNm), or the
+ * Step it reads without one, 0 on a band row, its automatic grid, and 1 on a
+ * row that looks for a peak, its 1 nm search.
  */
 export function flagCellText(op) {
-    if (isBandGridRow(op.type)) return bandFlagStepNm(op) == null ? '' : String(op.flag);
-    return String(extremumFlag(op));
+    if (flagStepNm(op.flag) != null) return String(op.flag);
+    return isBandGridRow(op.type) ? '0' : '1';
 }
 
 /**
@@ -63,13 +63,13 @@ export function cellInitialText(op, colKey, mathPercent, table) {
 // How the text typed into a cell becomes its edit, for the cells that hold
 // something other than a plain number.
 const CELL_PARSERS = {
-    // A flag is a whole number from 1 to EXTREMUM_FLAG_MAX. An empty cell
-    // clears it: a band row goes back to the grid from the design's fringes,
-    // and a row that looks for a peak to the 1 nm step.
+    // A Step the row reads (operandModel.js flagStepNm): 1 to 4, a negative
+    // step in nm, or on a band row 0, its automatic grid. The cell is never
+    // empty, so an empty entry is refused like any other the row cannot take.
     flag(op, raw) {
-        if (raw === '') return ['flag', undefined];
         const level = parseNumberStrict(raw);
-        return Number.isInteger(level) && level >= 1 && level <= EXTREMUM_FLAG_MAX ? ['flag', level] : null;
+        if (level === 0) return isBandGridRow(op.type) ? ['flag', 0] : null;
+        return flagStepNm(level) != null ? ['flag', level] : null;
     },
     type(op, raw) {
         const code = raw.toUpperCase();
@@ -97,9 +97,8 @@ const CELL_PARSERS = {
  * A type code is matched regardless of case; a generated-only type is refused,
  * since its rows carry data no text can supply. A polarization takes the full
  * word or its first letter. A target keeps the ramp syntax of a spectral
- * target; a flag is a whole number from 1 to the finest level, or empty to
- * clear it; everything else is a number, with a comma or a dot as the decimal
- * mark. Text that is not a
+ * target; a flag is a Step the row reads, never empty; everything else is a
+ * number, with a comma or a dot as the decimal mark. Text that is not a
  * number from start to end, such as '94abc', is refused rather than read up to
  * the first letter.
  *

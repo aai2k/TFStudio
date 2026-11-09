@@ -3,7 +3,7 @@
 // (utils/synthesis/qualifiers).
 
 import {
-    QUALIFIER_KINDS, QUALIFIER_CMPS, SIDE_KINDS, makeQualifier, startingSide, checkStepKind, stepFlags,
+    QUALIFIER_KINDS, QUALIFIER_CMPS, SIDE_KINDS, makeQualifier, startingSide, checkStepKind, stepFlags, takesCheckFlag,
     evaluateQualifiers, aggregateVerdict, thresholdMargin,
 } from '../utils/synthesis/qualifiers.js';
 import { channelFromKind } from '../utils/synthesis/qualifiers/channelTypes.js';
@@ -96,7 +96,8 @@ const RULES = [
     ['presetLabel', always, isText, 'text'],
     ['side', kindIn(...SIDE_KINDS), oneOf(['front', 'back', 'both']), "'front', 'back' or 'both'"],
     ['curveId', kindIn('PPEF'), (v, q, design) => curveIds(design).includes(v), (q, design) => curvesTaken(design), orNone(isText), 'text or null'],
-    ['flag', q => !!checkStepKind(q), (v, q) => v == null || stepFlags(q).includes(v), q => `null for the default, or one of ${stepFlags(q).join(', ')}`,
+    ['flag', q => !!checkStepKind(q), (v, q) => v == null || takesCheckFlag(q, v),
+        q => `null for the default${checkStepKind(q) === 'band' ? ' or 0' : ''}, one of ${stepFlags(q).join(', ')}, or a step in nm as a negative number, -0.001 or below`,
         v => v == null, q => `null, as ${stepless(q)} has no Step`],
 ];
 
@@ -203,7 +204,7 @@ function completedCheck(check, i, design) {
  * @param [checks[].direction='max'] For MIN_MAX, CENTRAL_LAMBDA, FWHM and EDGE_LAMBDA: `'max'`, the highest value or a peak, or `'min'`, the lowest value or a dip.
  * @param [checks[].level=0.5] For FWHM and EDGE_LAMBDA, the level the curve crosses, 0 to 1: with direction `'max'` that fraction of the band's highest value, with `'min'` that fraction of the way from its lowest value up to 1. A level below 0.001 or above 0.999 is taken as 0.001 or 0.999.
  * @param [checks[].edgeSide] For EDGE_LAMBDA, `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below.
- * @param [checks[].flag] The window's Step, null for its default: on T_AVG, R_AVG, A_AVG and INTEGRAL 1 to 4, a grid no coarser than 1, 0.1, 0.01 or 0.001 nm, the default being the design's fringe grid; on FWHM and EDGE_LAMBDA, and on MIN_MAX and CENTRAL_LAMBDA of the highest T or A or the lowest R, 2 to 4, a search at 0.1, 0.01 or 0.001 nm, the default being 1 nm. A check at one wavelength, MIN_MAX and CENTRAL_LAMBDA of the lowest T or A or the highest R, a thickness budget, a layer count and PPEF have no Step, and take null.
+ * @param [checks[].flag] The window's Step, null for its default: on T_AVG, R_AVG, A_AVG and INTEGRAL 1 to 4, a grid step of exactly 1, 0.1, 0.01 or 0.001 nm, the default, also given as 0, being the design's fringe grid, no more than 2 nm apart; on FWHM and EDGE_LAMBDA, and on MIN_MAX and CENTRAL_LAMBDA of the highest T or A or the lowest R, 2 to 4, a search at 0.1, 0.01 or 0.001 nm, the default being 1 nm. Every check with a Step also takes a step in nm as a negative number, -2 for 2 nm, -0.001 or below. A check at one wavelength, MIN_MAX and CENTRAL_LAMBDA of the lowest T or A or the highest R, a thickness budget, a layer count and PPEF have no Step, and take null.
  * @param [checks[].side] For THICKNESS_BUDGET and LAYER_COUNT, the layers added up: `'front'`, `'back'` or `'both'`. Default: the side the design coats.
  * @param [checks[].presetKey=''] For INTEGRAL, one of the integral presets Tvis, Rvis, Avis, Tsol, Rsol, Asol, TUV, RUV, TNIR, RNIR, which sets the channel, band, source, detector and `presetLabel` as picking it in the window does, or `''` for none.
  * @param [checks[].presetLabel=''] For INTEGRAL, the preset's name as the window shows it.

@@ -1220,8 +1220,8 @@
     "text": "用于 TT 和 STR 的比较方式：`'eq'`、`'le'` 或 `'ge'`。"
   },
   "Merit.add.arg.flag": {
-    "hash": "596c1601",
-    "text": "编辑器中的 Flag 列，一个整数；操作数参考说明它在每种行上的作用。"
+    "hash": "0f62ada0",
+    "text": "编辑器中的 Flag 列，即该行的步长；操作数参考说明它在每种行上的作用。"
   },
   "Merit.add.arg.enabled": {
     "hash": "812433b3",
@@ -1404,8 +1404,8 @@
     "text": "用于 EDGE_LAMBDA：`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。"
   },
   "Specification.add.arg.flag": {
-    "hash": "101b2133",
-    "text": "窗口中的步长，`null` / `None` 表示默认值：对 T_AVG、R_AVG、A_AVG 和 INTEGRAL 为 1 到 4，网格步长不大于 1、0.1、0.01 或 0.001 nm，默认按设计的干涉条纹取网格；对 FWHM 和 EDGE_LAMBDA，以及取 T 或 A 最大值或 R 最小值的 MIN_MAX 和 CENTRAL_LAMBDA 为 2 到 4，以 0.1、0.01 或 0.001 nm 搜索，默认为 1 nm。单波长检查、取 T 或 A 最小值或 R 最大值的 MIN_MAX 和 CENTRAL_LAMBDA、总厚度检查、层数检查和 PPEF 没有步长，只接受 `null` / `None`。"
+    "hash": "2fb9b4cd",
+    "text": "窗口中的步长，`null` / `None` 表示默认值：对 T_AVG、R_AVG、A_AVG 和 INTEGRAL 为 1 到 4，网格步长恰为 1、0.1、0.01 或 0.001 nm，默认值也可写作 0，即按设计的干涉条纹取网格，点距不超过 2 nm；对 FWHM 和 EDGE_LAMBDA，以及取 T 或 A 最大值或 R 最小值的 MIN_MAX 和 CENTRAL_LAMBDA 为 2 到 4，以 0.1、0.01 或 0.001 nm 搜索，默认为 1 nm。所有带步长的检查也接受以负数表示的步长，单位 nm，如 -2 表示 2 nm，取 -0.001 或更小的数。单波长检查、取 T 或 A 最小值或 R 最大值的 MIN_MAX 和 CENTRAL_LAMBDA、总厚度检查、层数检查和 PPEF 没有步长，只接受 `null` / `None`。"
   },
   "Specification.add.arg.side": {
     "hash": "56a54033",

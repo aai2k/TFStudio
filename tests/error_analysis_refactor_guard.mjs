@@ -173,7 +173,7 @@ const expected = {
     front: 'a4b8f36c9a85ead9e4ed3a6d1baa415462cb7029a47c1e425875d7c126d64bc7',
     back: '13e9f9586a5eea2234f7093b5e9a21623beb077e029f99f91ae5857a0ae7b963',
     total: '18edecd31381d3b7b7512f2d2d8b39573d6c4249ded7c07d1300a109dce63aeb',
-    sensitivity: 'eb5c5f46d33dbd8044f9c18345947515e3ce96b5cb729ecd030e404ce49cf6e7',
+    sensitivity: '0595f33f1bb4270d0ecaa0608f7ccfa8df95fe8c4c1232612c7cb4347f1d08b1',
 };
 
 if (Object.values(expected).some((value) => !value)) {

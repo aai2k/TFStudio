@@ -21,10 +21,11 @@
  *      needs, and when a thinner rung wins, the run goes on with the grid that
  *      rung needs, with the adopted and the stalled design re-scored on it.
  *   5. When the thickest rung wins, the run keeps its grid.
- *   6-7. A Gradual Evolution run and a Structural run from a thin AR start
- *      over 400-3000 nm, whose launch grid is the band's 101-point minimum:
- *      later jobs carry more band samples than the launch grid, and every
- *      job's material tables hold every wavelength its operands sample.
+ *   6-7. A Gradual Evolution run from an AR start on a thick slab over
+ *      400-3000 nm, and a Structural run from a quarter-wave stack towards the
+ *      reflector, each launched on its fringe grid: later jobs carry more band
+ *      samples than the launch grid, and every job's material tables hold every
+ *      wavelength its operands sample.
  *
  * Run: node tests/synthesis_regrid.mjs
  */
@@ -36,7 +37,7 @@ await initWasmForTest();
 
 const { getMaterial } = await import('../src/utils/materials/materialDatabase.js');
 const {
-    makeOperand, operandSampleLambdas, requiredLambdas, withDesignSampleCounts, BAND_MIN_POINTS,
+    makeOperand, operandSampleLambdas, requiredLambdas, withDesignSampleCounts,
 } = await import('../src/utils/physics/optimizer.js');
 const { regridForDesign, meritOf } = await import('../src/components/windows/optimization/synthesisShared/runGrid.js');
 const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
@@ -199,15 +200,18 @@ ok(Math.abs(ended.mf - rescored) <= 1e-9 * Math.max(rescored, 1e-12),
 }
 
 // ── 6-7. Gradual Evolution and Structural runs ──────────────────────────────
-// A thin AR start over a wide band: its launch grid is the 101-point minimum,
-// and both runs grow the design past what that grid resolves.
+// Each starts from a design whose fringes are already finer than the band's
+// 2 nm step at its short end, so the launch grid is the fringe grid, and the
+// run adds optical thickness, which makes it finer still. Gradual Evolution:
+// an AR start on a 3.5 µm SiO2 slab over a wide band. Structural, which thins
+// such a slab away: 24 quarter-wave pairs towards the reflector of section 2.
 const wideOps = [makeOperand({ type: 'RAV', lambdaStart: 400, lambdaEnd: 3000, aoi: 0, pol: 'avg', target: 0, weight: 1 })];
-const thinSeed = () => ({
+const slabSeed = () => ({
     ...seed(),
-    frontLayers: [['TiO2', 30], ['SiO2', 50]].map(([material, thickness], i) => ({ id: 'T' + i, material, thickness, locked: false })),
+    frontLayers: [['SiO2', 3500], ['TiO2', 30], ['SiO2', 50]].map(([material, thickness], i) => ({ id: 'T' + i, material, thickness, locked: false })),
 });
-const wideLaunch = samplesOf(withDesignSampleCounts(wideOps, thinSeed(), resolveMat));
-ok(wideLaunch === BAND_MIN_POINTS, `the thin start's launch grid is the band minimum (${wideLaunch} samples)`);
+const wideLaunch = samplesOf(withDesignSampleCounts(wideOps, slabSeed(), resolveMat));
+ok(wideLaunch > 1301, `the slab's launch grid is its fringe grid, finer than 2 nm (${wideLaunch} samples)`);
 
 const quiet = { log: console.log, warn: console.warn, error: console.error };
 const silence = () => { console.log = noop; console.warn = noop; console.error = noop; };
@@ -219,7 +223,7 @@ const loud = () => Object.assign(console, quiet);
     jobLog.length = 0;
     silence();
     try {
-        await runGradualEvolution(thinSeed(), wideOps,
+        await runGradualEvolution(slabSeed(), wideOps,
             { pool: POOL, maxLayers: 6, maxGeCycles: 3, targetMF: 1e-9, refineIter: 10, dMin: 15, threads: 3 },
             { makeWorkerPool: () => makeFakePool() });
     } finally { loud(); }
@@ -248,15 +252,20 @@ const loud = () => Object.assign(console, quiet);
         };
         return worker;
     };
+    const stackSeed = () => ({
+        ...seed(),
+        frontLayers: Array.from({ length: 48 }, (_, i) => ({ id: 'Q' + i, material: i % 2 ? 'SiO2' : 'TiO2', thickness: i % 2 ? 94 : 57, locked: false })),
+    });
+    const launch = samplesOf(withDesignSampleCounts(ops, stackSeed(), resolveMat));
     silence();
     try {
-        await runStructural(thinSeed(), wideOps,
-            { pool: POOL, maxIter: 8, refineIter: 10, threads: 2, seed: 99, targetMF: 0, T0: 0.3, addMaxNm: 200 },
+        await runStructural(stackSeed(), ops,
+            { pool: POOL, maxIter: 20, refineIter: 10, threads: 2, seed: 99, targetMF: 0, T0: 0.3, addMaxNm: 200 },
             { makeWorker });
     } finally { loud(); }
     const most = Math.max(...refines.map(j => j.samples));
-    ok(refines[0]?.samples === wideLaunch && most > wideLaunch,
-        `Structural: later refines carry more band samples than the launch grid (${refines[0]?.samples} → ${most})`);
+    ok(launch > 101 && refines[0]?.samples === launch && most > launch,
+        `Structural: later refines carry more band samples than the launch grid, the fringe grid (${refines[0]?.samples} → ${most})`);
     ok(refines.every(j => j.covered), 'Structural: every refine\'s material tables hold every wavelength its operands sample');
 }
 

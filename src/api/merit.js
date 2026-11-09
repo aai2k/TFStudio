@@ -3,7 +3,7 @@
 
 import {
     isKnownOperandType, isValidMeritWeight, isConstraint, isLinearThickness, isEllipsometry, readsWavelengthBand, polFromType, OPERAND_TYPES,
-    EXTREMUM_FLAG_MAX, makeOperand,
+    EXTREMUM_FLAG_MAX, flagStepNm, isBandGridRow, makeOperand,
 } from '../utils/physics/optimizer.js';
 import { isMeasuredCurve, isEllipsometricMeasuredCurve } from '../utils/physics/optimizer/measuredCurveType.js';
 import { makeRowOperand } from '../components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
@@ -37,7 +37,8 @@ const CHECKS = [
     ['targetEnd', v => v === null || isNumber(v), 'a number or null'],
     ['weight', isValidMeritWeight, 'a number of 0 or more'],
     ['cmp', v => ['eq', 'le', 'ge'].includes(v), "'eq', 'le' or 'ge'"],
-    ['flag', v => Number.isInteger(v) && v >= 1 && v <= EXTREMUM_FLAG_MAX, `a whole number from 1 to ${EXTREMUM_FLAG_MAX}`],
+    ['flag', (v, row) => flagStepNm(v) != null || (v === 0 && isBandGridRow(row.type)),
+        `a whole number from 1 to ${EXTREMUM_FLAG_MAX}, a step in nm as a negative number, -0.001 or below, or 0 on a band row`],
     ['deltaConvention', v => v === 'azzam' || v === 'reversed', "'azzam' or 'reversed'"],
 ];
 
@@ -54,7 +55,7 @@ function checkRow(row, i) {
         throw refusal('unknownOption', { call: 'setMerit', row: i, option: unknown, options: ROW_FIELDS },
             `${at}'${unknown}' is not a field of a merit row; a row takes ${ROW_FIELDS.join(', ')}`);
     }
-    const [field, , takes] = CHECKS.find(([name, ok]) => name in row && !ok(row[name])) ?? [];
+    const [field, , takes] = CHECKS.find(([name, ok]) => name in row && !ok(row[name], row)) ?? [];
     if (field) throw refusal('badValue', { call: 'setMerit', row: i, option: field, takes, value: row[field] }, `${at}${field} is ${takes}, not ${shown(row[field])}`);
 }
 
@@ -92,7 +93,7 @@ const isReversed = op => (readsWavelengthBand(op.type) || isConstraint(op.type))
  * @param [rows[].targetEnd] The target at `lambdaEnd` of a spectral target that slopes, or null for a flat one.
  * @param [rows[].weight] How much the row counts, 0 or more.
  * @param [rows[].cmp] For TT and STR, the comparison: `'eq'`, `'le'` or `'ge'`.
- * @param [rows[].flag] The editor's Flag column, a whole number; the Operand Reference says what it does on each row.
+ * @param [rows[].flag] The editor's Flag column, the row's Step; the Operand Reference says what it does on each row.
  * @param [rows[].deltaConvention='azzam'] For DEL, the sign of Δ the row reads and its target is in: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes and the Ellipsometry window shows, or `'reversed'`, 360° minus it, which DEL rows in older designs read.
  * @param [rows[].enabled=true] `false` leaves the row out of the merit.
  * @param [rows[].id] A name for the row, which a math row gives in `refId`, `refId1` or `refId2` to read it.
