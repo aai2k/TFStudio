@@ -2,8 +2,9 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 69
- *      tools, none that reaches the open app, without --live), ping,
+ *   1. The session: initialize and version negotiation, the tool list (the 70
+ *      tools, none that reaches the open app, without --live), the design
+ *      method (the skill file's body, naming only tools there are), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
  *      how a client probing for the 2026-07-28 revision learns to fall back),
  *      method names every object has, ids that are not a string or an integer,
@@ -101,13 +102,30 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 69 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 70 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
+{
+    // The skill file names a tool in backticks and nothing else, and a method in
+    // single quotes, so a tool or method renamed or taken out shows here.
+    const skill = fs.readFileSync(path.join(HERE, '..', 'skills', 'coating-design', 'SKILL.md'), 'utf8');
+    const { method } = await server.call('designMethod', {});
+    ok('designMethod gives the skill file\'s body without its frontmatter', typeof method === 'string' && method.startsWith('# ')
+        && skill.trimEnd().endsWith(method), String(method).slice(0, 80));
+    const named = [...String(method).matchAll(/`([^`]+)`/g)].map(match => match[1]);
+    ok('every name in backticks in the method is a tool', named.length >= 15 && named.every(name => names.includes(name)),
+        named.filter(name => !names.includes(name)).join(','));
+    const tool = name => listed.find(t => t.name === name).inputSchema.properties.method;
+    const methods = [...String(method).matchAll(/'([a-z][a-z-]*)'/g)].map(match => match[1]);
+    const known = value => tool('synthesize').enum.includes(value) || new RegExp(`(^|[ ,])${value}(,|$)`).test(tool('refine').description.replace(/^One of ([^.]*?), or 'all'.*$/, '$1'));
+    ok('every method in quotes in the method is one refine or synthesize takes', methods.length >= 7 && methods.every(known),
+        methods.filter(value => !known(value)).join(','));
+    ok('the instructions point an agent to the method', /designMethod/.test(init.result.instructions));
+}
 ok('ping answers', await alive(server));
 ok('a probe for the stateless revision is told the method is not there', (await server.request('server/discover', {})).error?.code === -32601);
 {
     const unknownTool = (await server.request('tools/call', { name: 'evaporate', arguments: {} })).error;
-    ok('an unknown tool is a protocol error that lists the tools', unknownTool?.code === -32602 && /Tools: openDesign/.test(unknownTool.message), unknownTool?.message);
+    ok('an unknown tool is a protocol error that lists the tools', unknownTool?.code === -32602 && /Tools: designMethod, openDesign/.test(unknownTool.message), unknownTool?.message);
     const inherited = [];
     for (const method of ['__proto__', 'hasOwnProperty', 'constructor', 'toString']) inherited.push((await server.request(method, {})).error?.code);
     ok('a method name every object has is not found', inherited.every(code => code === -32601) && await alive(server), inherited.join(','));

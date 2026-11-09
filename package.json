@@ -182,6 +182,10 @@
         "to": "materials-seed"
       },
       {
+        "from": "skills",
+        "to": "skills"
+      },
+      {
         "from": "python",
         "to": "python",
         "filter": [

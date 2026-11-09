@@ -29,6 +29,7 @@ const clientName = info => [info?.title, info?.name].find(name => typeof name ==
 
 const INSTRUCTIONS = [
     'TFStudio designs and analyzes optical thin-film coatings. The tools work on designs held in this session by id ("d1").',
+    'Before a design job, designMethod gives the order to use the tools in, from the requirement to a saved file.',
     'Start from a .tfs file (openDesign) or a new design (newDesign); change its media, substrate and sides (setDesignSetup); build or edit the stack (stackFromFormula, insertLayer, setLayer, deleteLayer, cleanDesign, scaleThicknesses, quantize, perturb, flipLayers, copySide), search and put in a non-polarizing edge filter (edgeFilter, applyEdgeFilter), find where a needle lowers the merit and put one in (needleProfile, insertNeedle) and compare two designs (designDifferences); set the merit function (setMerit) and the specification (setSpecification); compute (spectrum, color, integrals, merit, checkSpecification, layerSensitivity) and find a band\'s peak, edge and width and how an edge moves with angle (bandFeature, edgeShift); read a measured spectrum file and compare a design with a curve in one (readSpectrumFile, measuredDifference), read an ellipsometer file (readEllipsometryFile), add a file\'s measured curves to a design, add the merit rows that fit it to one and write them to a file (addMeasuredCurves, fitMeasured, exportMeasuredCurves); read the stack (indexProfile, layerThicknesses, designFacts) and a side\'s admittance locus, electric field and Psi and Delta (admittance, electricField, ellipsometry, ellipsometryVsAngle), and a side\'s phase, group delay and GDD (groupDelay); compute a pulse\'s passage through a design as the Pulse Analysis window does and set the spectrum it uses (pulseAnalysis, setPulseSpectrum); compute the spectrum with graded interlayers at its interfaces (inhomogeneities); compute the specular R and T with rough interfaces and the light they scatter out of the beams (roughness); compute the stress each film carries and the bow it leaves in the substrate (stress); compute the spectrum a monitor reads after each layer of a deposition run and write the Process Exporter\'s files (processSteps, exportProcess), and work out whether each layer can be stopped on a monitor on witness chips (monitorWorksheet); write a side to a Zemax COATING.DAT or a CODE V .seq, read one of those files and put its layers on a design (saveZemaxCoating, readZemaxCoating, importZemaxCoating, saveCodevCoating, readCodevCoating, importCodevCoating); find materials and read their n, k and dispersion (findMaterials, materialNK, materialDispersion).',
     'refine, synthesize and monteCarlo run as jobs: they answer with the job\'s state, and jobStatus follows a job that is still running. A run that changed the design adds its answer as a new design. saveDesign writes a design to a .tfs file the app opens.',
     'Units: wavelengths and layer thicknesses in nm, angles in degrees in the incident medium, substrate thickness in mm, R, T and A as fractions of 1. A value a tool cannot use is refused with a message that says what it takes.',
@@ -38,10 +39,11 @@ const INSTRUCTIONS = [
  * Serves the tools on this process's stdin and stdout until stdin closes.
  * `dataDir` is the TFStudio data folder or null, `version` the version the
  * server reports, `wasmPath` the WASM kernel's file when it is not the tmmcore
- * package's, `live` { file } the live link file when the server is linked to
- * the open app.
+ * package's, `skillPath` the design method's SKILL.md when it is not the one in
+ * this checkout's skills folder, `live` { file } the live link file when the
+ * server is linked to the open app.
  */
-export async function serve({ dataDir = null, version, wasmPath, live = null } = {}) {
+export async function serve({ dataDir = null, version, wasmPath, skillPath = new URL('../../skills/coating-design/SKILL.md', import.meta.url), live = null } = {}) {
     // stdout carries the protocol alone; whatever the computation prints goes
     // to stderr, which MCP clients keep as the server's log.
     for (const level of ['log', 'info', 'warn', 'debug']) {
@@ -60,6 +62,7 @@ export async function serve({ dataDir = null, version, wasmPath, live = null } =
     const { pulseTools } = await import('./pulseTools.js');
     const { toleranceTools } = await import('./toleranceTools.js');
     const { runTools } = await import('./runTools.js');
+    const { methodTools } = await import('./methodTools.js');
     const { liveTools, LIVE_INSTRUCTIONS } = await import('./liveTools.js');
     const { createLiveLink } = await import('./liveLink.js');
 
@@ -82,6 +85,7 @@ export async function serve({ dataDir = null, version, wasmPath, live = null } =
         finish: app?.finishRun,
     });
     const tools = [
+        ...methodTools({ skillPath }),
         ...designTools({ api, store }), ...analysisTools({ api, store }), ...measuredTools({ api, store }), ...processTools({ api, store }), ...needleTools({ api, store }), ...pulseTools({ api, store }),
         ...coatingTools({ api, store }), ...toleranceTools({ api, store }),
         ...runTools({ store, jobs, live: !!app }),

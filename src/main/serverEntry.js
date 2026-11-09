@@ -52,6 +52,9 @@ function startServer({ kind, app, isPackaged, exeDir, settingsPath, dataDir, liv
     dataDir: dataDir ?? dataFolder({ app, exeDir, settingsPath, log }),
     version: app.getVersion(),
     wasmPath: isPackaged ? path.join(process.resourcesPath, 'tmm_kernel.wasm') : undefined,
+    // The design method the MCP server's designMethod tool reads: the Agent
+    // Skill folder skills/coating-design, which the installer ships as a resource.
+    skillPath: isPackaged && kind === 'mcp' ? path.join(process.resourcesPath, 'skills', 'coating-design', 'SKILL.md') : undefined,
     live: liveFile ? { file: liveFile, program } : undefined,
     server: isPackaged
       ? path.join(process.resourcesPath, 'app.asar.unpacked', 'build', 'app', folder, 'server.js')

@@ -4,15 +4,17 @@
  *   1. The bundle an installed app runs (tools/mcpBundle.mjs, built here to a
  *      folder of its own), loaded by the child entry the app starts
  *      (src/main/serverChild.js) as the installed app starts it: with the WASM
- *      kernel's file and a data folder named, and without the globals Node 16
- *      lacks (the Windows 7 build's Electron 22). It reports the version it is
- *      given, loads the kernel from that file and the folder's catalogs,
+ *      kernel's file, the skill file and a data folder named, and without the
+ *      globals Node 16 lacks (the Windows 7 build's Electron 22). It reports
+ *      the version it is given, loads the kernel from that file and the
+ *      folder's catalogs, gives the design method from the skill file,
  *      computes the spectrum the API computes in this process, copies a
  *      design, and runs a refinement on the bundled job thread. Given a live
  *      link file, as --mcp --live gives it one, it reads a design from the
  *      app's pipe, which this process opens.
  *   2. On Windows, the app itself started with --mcp from this checkout: it
- *      answers over stdin and stdout and ends when stdin closes. Electron's
+ *      answers over stdin and stdout, gives the design method from the
+ *      checkout's skills folder, and ends when stdin closes. Electron's
  *      own main process gets no piped stdin on Windows, which is why the server
  *      runs in a child of it, and it writes one line break to stdout as it
  *      starts, before any of the app's code runs; MCP clients pass over a line
@@ -69,7 +71,11 @@ await buildMcpServer(out);
     const liveFile = path.join(out, 'live-bridge.json');
     const bridge = createLiveBridge({ file: liveFile, log: () => {}, version: '9.9.9-test', forward: openApp.forward });
     await bridge.open();
-    const options = { server: path.join(out, 'server.js'), bundled: true, version: '9.9.9-test', dataDir, wasmPath, live: { file: liveFile } };
+    // The skill file as the installer ships it, in a folder of the resources.
+    const skillPath = path.join(out, 'resources', 'skills', 'coating-design', 'SKILL.md');
+    fs.mkdirSync(path.dirname(skillPath), { recursive: true });
+    fs.copyFileSync(path.join(ROOT, 'skills', 'coating-design', 'SKILL.md'), skillPath);
+    const options = { server: path.join(out, 'server.js'), bundled: true, version: '9.9.9-test', dataDir, wasmPath, skillPath, live: { file: liveFile } };
     const bundle = startClient(process.execPath, ['--require', node16, CHILD, JSON.stringify(options)]);
     const init = await bundle.request('initialize', INIT);
     ok('the bundle reports the version it is given', init.result?.serverInfo?.version === '9.9.9-test', JSON.stringify(init.error || init.result?.serverInfo));
@@ -84,6 +90,8 @@ await buildMcpServer(out);
     ok('the bundle computes the API\'s spectrum', JSON.stringify(there.angles) === JSON.stringify(api.spectrum(local, { from: 450, to: 650, step: 10 }).angles));
     ok('it copies a design', /^d\d+$/.test((await bundle.call('copyDesign', { designId: id })).designId ?? ''));
     ok('it reads the data folder\'s user catalog', (await bundle.call('findMaterials', { query: 'user_lab' })).materials?.some(m => m.id === 'user_lab:Ta2O5'));
+    const method = await bundle.call('designMethod', {});
+    ok('it gives the design method from the skill file it is given', method.method?.startsWith('# Designing a coating'), JSON.stringify(method).slice(0, 200));
     const ar = (await bundle.call('newDesign', {})).designId;
     await bundle.call('insertLayer', { designId: ar, material: 'TiO2', thickness: 30 });
     await bundle.call('insertLayer', { designId: ar, material: 'SiO2', thickness: 50 });
@@ -108,6 +116,8 @@ if (process.platform === 'win32') {
     ok('the app with --mcp answers initialize with its version', init.result?.serverInfo?.version === version, JSON.stringify(init.result?.serverInfo));
     const found = await app.call('findMaterials', { query: 'SiO2' });
     ok('its tools answer', found.materials?.some(m => m.id === 'SiO2'), JSON.stringify(found).slice(0, 200));
+    const method = await app.call('designMethod', {});
+    ok('it gives the design method from the checkout\'s skill file', method.method?.startsWith('# Designing a coating'), JSON.stringify(method).slice(0, 200));
     const [first, ...rest] = app.lines;
     ok('the app writes only messages to stdout after Electron\'s line break', (first.trim() === '' || first.startsWith('{'))
         && onlyMessages({ lines: rest }), JSON.stringify(app.lines.filter(line => !line.startsWith('{'))));
