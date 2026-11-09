@@ -26,6 +26,9 @@ export function wasmKernel() {
  */
 export const sOrP = pol => (pol === 'p' ? 'p' : 's');
 
+/** A layer at one wavelength as tmmcore's calls take it, from its [n, k] pair and d in nm. */
+export const kernelLayer = (nk, d) => ({ n: nk[0], k: nk[1], d });
+
 /** A stack at one wavelength. */
 export function pointStack(n0, ns, layers) {
     return {
@@ -34,6 +37,18 @@ export function pointStack(n0, ns, layers) {
         layers: layers.map(layer => ({ n: layer.n[0], k: layer.n[1], d: layer.d })),
     };
 }
+
+/**
+ * A stack at one wavelength whose layers are already kernelLayer()s, passed to
+ * the call as they are. The optimizer evaluates a stack at thousands of
+ * wavelengths in each step, so it builds its layers in this shape rather than
+ * have every call copy them.
+ */
+export const kernelPointStack = (n0, ns, layers) => ({
+    incident: { n: n0[0], k: n0[1] },
+    substrate: { n: ns[0], k: ns[1] },
+    layers,
+});
 
 /** One index over a grid, { n, k }, from its [n, k] pair at each wavelength. */
 export const gridIndex = pairs => ({ n: pairs.map(pair => pair[0]), k: pairs.map(pair => pair[1]) });

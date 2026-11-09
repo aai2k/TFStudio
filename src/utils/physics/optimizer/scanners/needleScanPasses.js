@@ -11,6 +11,7 @@
 import { tmmNeedleScanEval, tmmNeedleScanRaysEval } from '../evalCore.js';
 import { kernelPol, raysToCompute } from '../evalCore/kernels.js';
 import { substrateAngle } from '../evalCore/surfaceModel.js';
+import { kernelLayer } from '../../kernelStack.js';
 
 // The stack a single-surface (front_only / back_only) scan reads at λ.
 // back_only: light incident from the exit medium. backLayers are stored
@@ -22,10 +23,10 @@ function singleSurfaceStack(cfg, lam) {
     const ns = nsmat.getNK(lam);
     const candNs = candidateMats.map(c => c.mat.getNK(lam));
     if (surfaceMode === 'back_only') {
-        const bLayersND = back.map((l, idx) => ({ n: backMats[idx].getNK(lam), d: l.thickness || 0 }));
+        const bLayersND = back.map((l, idx) => kernelLayer(backMats[idx].getNK(lam), l.thickness || 0));
         return { n0: neMat.getNK(lam), ns, candNs, layers: [...bLayersND].reverse() };
     }
-    const layersND = front.map((l, idx) => ({ n: frontMats[idx].getNK(lam), d: l.thickness || 0 }));
+    const layersND = front.map((l, idx) => kernelLayer(frontMats[idx].getNK(lam), l.thickness || 0));
     return { n0: n0mat.getNK(lam), ns, candNs, layers: layersND };
 }
 
@@ -44,12 +45,12 @@ function _scanSingleSurface(cfg, lam, pol, aoi) {
 // The indices and stacks a full-system scan reads at λ.
 function fullStacks(cfg, lam) {
     const { front, back, frontMats, backMats, n0mat, nsmat, neMat, candidateMats } = cfg;
-    const fLayersND = front.map((l, idx) => ({ n: frontMats[idx].getNK(lam), d: l.thickness || 0 }));
+    const fLayersND = front.map((l, idx) => kernelLayer(frontMats[idx].getNK(lam), l.thickness || 0));
     return {
         n0: n0mat.getNK(lam), ns: nsmat.getNK(lam), ne: neMat.getNK(lam),
         candNs: candidateMats.map(c => c.mat.getNK(lam)),
         fLayersND, fLayersRev: [...fLayersND].reverse(),
-        bLayersND: back.map((l, idx) => ({ n: backMats[idx].getNK(lam), d: l.thickness || 0 })),
+        bLayersND: back.map((l, idx) => kernelLayer(backMats[idx].getNK(lam), l.thickness || 0)),
     };
 }
 

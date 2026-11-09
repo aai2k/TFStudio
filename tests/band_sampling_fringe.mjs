@@ -34,6 +34,7 @@ import {
     evaluateOperands, tmmJacEval, extremumSearchCount,
 } from '../src/utils/physics/optimizer.js';
 import { rtaEval } from '../src/utils/physics/optimizer/evalCore/kernels.js';
+import { kernelLayer } from '../src/utils/physics/kernelStack.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { initWasmForTest } from './_wasmInit.mjs';
 
@@ -166,7 +167,7 @@ console.log('WASM:', await initWasmForTest());
     let identical = true;
     const mats = ['TiO2', 'SiO2', 'Ag', 'Cr'].map(getMaterial);
     for (const lam of [380, 455.5, 632.8, 1064, 1550]) {
-        const layers = mats.map((m, i) => ({ n: m.getNK(lam), d: 20 + 37 * i }));
+        const layers = mats.map((m, i) => kernelLayer(m.getNK(lam), 20 + 37 * i));
         const n0 = [1, 0], ns = getMaterial('BK7').getNK(lam);
         const a = rtaEval(lam, 0, 's', n0, ns, layers), b = rtaEval(lam, 0, 'p', n0, ns, layers);
         const ja = tmmJacEval(lam, 0, 's', n0, ns, layers), jb = tmmJacEval(lam, 0, 'p', n0, ns, layers);

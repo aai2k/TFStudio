@@ -14,13 +14,14 @@
 
 import { tmmJacEval, tmmJacRaysEval } from '../evalCore.js';
 import { distinctMaterials, substrateAngle } from '../evalCore/surfaceModel.js';
+import { kernelLayer } from '../../kernelStack.js';
 
-// Layers {n, d} of a stack at λ, reading each distinct material once. `stack`
-// is distinctMaterials() of the stack's materials array.
+// Layers { n, k, d } of a stack at λ, reading each distinct material once.
+// `stack` is distinctMaterials() of the stack's materials array.
 function stackLayers(stack, thicks, lam) {
     const nks = stack.materials.map(m => m.getNK(lam));
     const layers = new Array(thicks.length);
-    for (let i = 0; i < thicks.length; i++) layers[i] = { n: nks[stack.index[i]], d: thicks[i] };
+    for (let i = 0; i < thicks.length; i++) layers[i] = kernelLayer(nks[stack.index[i]], thicks[i]);
     return layers;
 }
 

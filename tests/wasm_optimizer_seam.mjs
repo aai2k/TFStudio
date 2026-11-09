@@ -16,6 +16,7 @@ import { DLSOptimizer, makeOperand } from '../src/utils/physics/optimizer.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
 import { onJsReference } from './_wasmInit.mjs';
 import { rtaEval, tmmJacEval, tmmHessEval } from '../src/utils/physics/optimizer/evalCore/kernels.js';
+import { kernelLayer } from '../src/utils/physics/kernelStack.js';
 
 let fails = 0;
 const ok = (cond, msg) => { if (!cond) { console.error('FAIL:', msg); fails++; } };
@@ -81,7 +82,7 @@ for (const [sm, me] of cases) {
 // has, and does not become the s/p average tmmcore takes for a missing pol.
 {
     const n0 = [1, 0], ns = [1.52, 0];
-    const layers = [{ n: [2.35, 0], d: 82 }, { n: [1.46, 0], d: 138 }];
+    const layers = [kernelLayer([2.35, 0], 82), kernelLayer([1.46, 0], 138)];
     for (const [name, call] of [['rtaEval', rtaEval], ['tmmJacEval', tmmJacEval], ['tmmHessEval', tmmHessEval]]) {
         const s = JSON.stringify(call(550, 45, 's', n0, ns, layers));
         ok(JSON.stringify(call(550, 45, 'p', n0, ns, layers)) !== s, `${name}: s and p differ at 45°`);

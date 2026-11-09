@@ -6,6 +6,8 @@
  * Reference: Macleod, Thin-Film Optical Filters 5e §2.6.4.
  */
 
+import { kernelLayer } from '../../kernelStack.js';
+
 // ñ of material `mat` at λ, kept on the context for one evaluateOperands call.
 export function nkOf(ctx, mat, lam) {
     const c = ctx && ctx._nkCache;
@@ -32,8 +34,9 @@ export function distinctMaterials(mats) {
     return { materials, index };
 }
 
-// Layers {n, d} of one stack at λ. The stack is fixed for one evaluateOperands
-// call, so its distinct-material index is built once per call.
+// Layers { n, k, d } of one stack at λ, in the shape tmmcore's calls take
+// (kernelStack.js). The stack is fixed for one evaluateOperands call, so its
+// distinct-material index is built once per call.
 export function layersAt(ctx, mats, thicknesses, lam) {
     const c = ctx && ctx._stackIndex;
     let di = c && c.get(mats);
@@ -43,7 +46,7 @@ export function layersAt(ctx, mats, thicknesses, lam) {
     }
     const nks = di.materials.map(m => nkOf(ctx, m, lam));
     const layers = new Array(mats.length);
-    for (let i = 0; i < mats.length; i++) layers[i] = { n: nks[di.index[i]], d: thicknesses[i] };
+    for (let i = 0; i < mats.length; i++) layers[i] = kernelLayer(nks[di.index[i]], thicknesses[i]);
     return layers;
 }
 

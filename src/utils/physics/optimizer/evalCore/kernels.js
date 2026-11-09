@@ -2,13 +2,14 @@
  * TMM kernel entry points of the optimizer, each a call on the WASM kernel
  * loaded in this thread.
  *
- * Arguments are TFStudio's: pol 'p' for p and anything else for s, each ñ as
- * [re, im], layers as [{ n: [re, im], d }] with d in nm, angle of incidence in
- * degrees. The wavelength and angle are read through Number(), so a row with
- * neither set evaluates to NaN rather than throwing.
+ * Arguments are TFStudio's: pol 'p' for p and anything else for s, each medium
+ * ñ as [re, im], layers as kernelLayer()s, { n, k, d } with d in nm, angle of
+ * incidence in degrees. The layers reach the kernel as given, without a copy
+ * (kernelPointStack). The wavelength and angle are read through Number(), so a
+ * row with neither set evaluates to NaN rather than throwing.
  */
 
-import { pointStack, sOrP, wasmKernel } from '../../kernelStack.js';
+import { kernelPointStack, sOrP, wasmKernel } from '../../kernelStack.js';
 
 // The polarization a kernel result is cached and computed under. At normal
 // incidence cos θ = 1 in every medium, so the tilted admittances y·n·cos θ (s)
@@ -39,7 +40,7 @@ export function raysToCompute(rays, pols, isHeld) {
 
 // Single (λ,θ,pol) R/T/A.
 export function rtaEval(lam, aoi, polCode, n0, ns, layers) {
-    return wasmKernel().rta(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
+    return wasmKernel().rta(kernelPointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
 }
 
 // The calls below that end in RaysEval take a whole cone's rays at one λ:
@@ -52,21 +53,21 @@ const sameWavelength = (lam, angles) => new Float64Array(angles.length).fill(Num
 // R, T and A in s and p at every angle in `angles`: { Rs, Ts, As, Rp, Tp, Ap },
 // entry i at angles[i].
 export function rtaRaysEval(lam, angles, { n0, ns, layers }) {
-    return wasmKernel().rtaSpectrum(pointStack(n0, ns, layers), sameWavelength(lam, angles), { angle: angles, pol: 's' });
+    return wasmKernel().rtaSpectrum(kernelPointStack(n0, ns, layers), sameWavelength(lam, angles), { angle: angles, pol: 's' });
 }
 
 // Analytic thickness Jacobian for one (λ,θ,pol): { R, T, A, dRdd, dTdd, dAdd, N },
 // which the DLS chain rule reads. The DLS step is the other optimizer hot path
 // besides mfAt.
 export function tmmJacEval(lam, aoi, polCode, n0, ns, layers) {
-    return wasmKernel().jacobian(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
+    return wasmKernel().jacobian(kernelPointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
 }
 
 // tmmJacEval at every angle in `angles`, one polarization: R, T and A as one
 // entry per angle, dRdd, dTdd and dAdd as N entries per angle, angle by angle,
 // and N.
 export function tmmJacRaysEval(lam, angles, polCode, { n0, ns, layers }) {
-    return wasmKernel().jacobianSpectrum(pointStack(n0, ns, layers), sameWavelength(lam, angles),
+    return wasmKernel().jacobianSpectrum(kernelPointStack(n0, ns, layers), sameWavelength(lam, angles),
         { angle: angles, pol: sOrP(polCode) });
 }
 
@@ -74,14 +75,14 @@ export function tmmJacRaysEval(lam, angles, polCode, { n0, ns, layers }) {
 // d2Rdd, d2Tdd and d2Add, which the SQP/Newton getH() reads. The dense Hessian
 // is ~17× a gradient and the hot spot of SQP in synthesis.
 export function tmmHessEval(lam, aoi, polCode, n0, ns, layers) {
-    return wasmKernel().hessian(pointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
+    return wasmKernel().hessian(kernelPointStack(n0, ns, layers), Number(lam), { angle: Number(aoi), pol: sOrP(polCode) });
 }
 
 // Analytic needle P-function scan, for candidate materials given as [re, im]
 // and split fractions of each layer. Returns the nested {R,T,A,gaps,intra,N}
 // the Needle/GE scanners read.
 export function tmmNeedleScanEval(lam, aoi, polCode, n0, ns, layers, candNs, fracs) {
-    return wasmKernel().needleScan(pointStack(n0, ns, layers), Number(lam), {
+    return wasmKernel().needleScan(kernelPointStack(n0, ns, layers), Number(lam), {
         angle: Number(aoi), pol: sOrP(polCode), candidates: candNs.map(([n, k]) => ({ n, k })), fractions: fracs,
     });
 }
@@ -92,7 +93,7 @@ export function tmmNeedleScanEval(lam, aoi, polCode, n0, ns, layers, candNs, fra
 // angle by angle, [position][candidate] and [layer][fraction][candidate]
 // within an angle.
 export function tmmNeedleScanRaysEval(lam, angles, polCode, { n0, ns, layers }, { candNs, fracs }) {
-    return wasmKernel().needleScanSpectrum(pointStack(n0, ns, layers), sameWavelength(lam, angles), {
+    return wasmKernel().needleScanSpectrum(kernelPointStack(n0, ns, layers), sameWavelength(lam, angles), {
         angle: angles, pol: sOrP(polCode), candidates: candNs.map(([n, k]) => ({ n, k })), fractions: fracs,
     });
 }

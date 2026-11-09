@@ -12,6 +12,7 @@
 
 import { tmmHessEval } from '../evalCore.js';
 import { kernelPol } from '../evalCore/kernels.js';
+import { kernelLayer } from '../../kernelStack.js';
 
 // Merit-Hessian curvature-picker helpers: value / first / second thickness
 // derivative of one characteristic from a tmmHessEval package.
@@ -42,11 +43,11 @@ function _hessianAt(cfg, lam, polCode, aoi) {
     if (isSingleBack) {
         const n0 = neMat.getNK(lam);
         const layersRev = [];
-        for (let i = N - 1; i >= 0; i--) layersRev.push({ n: mats[i].getNK(lam), d: thk[i] });
+        for (let i = N - 1; i >= 0; i--) layersRev.push(kernelLayer(mats[i].getNK(lam), thk[i]));
         return _remapHessianRev(tmmHessEval(lam, aoi, polCode, n0, ns, layersRev), N);
     }
     const n0 = n0mat.getNK(lam);
-    const layers = thk.map((d, i) => ({ n: mats[i].getNK(lam), d }));
+    const layers = thk.map((d, i) => kernelLayer(mats[i].getNK(lam), d));
     return tmmHessEval(lam, aoi, polCode, n0, ns, layers);
 }
 
