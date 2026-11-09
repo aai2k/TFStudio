@@ -664,6 +664,32 @@ function wavelengthInterval(span) {
         : niceTickInterval(span);
 }
 
+// ECharts labels both ends of an axis with fixed bounds, wherever its ticks
+// fall. An end off the step's grid is labelled only when it is half a step or
+// more from the round tick beside it, so 380 is not printed against 400.
+const ON_GRID = 1e-6;
+const endLabelled = gap => gap < ON_GRID || gap >= 0.5;
+
+function endLabels(min, max, step) {
+    if (!(Number.isFinite(min) && Number.isFinite(max) && step > 0)) return {};
+    return {
+        showMinLabel: endLabelled((Math.ceil(min / step - ON_GRID) * step - min) / step),
+        showMaxLabel: endLabelled((max - Math.floor(max / step + ON_GRID) * step) / step),
+    };
+}
+
+/**
+ * The ruling of a wavelength axis drawn over [min, max] nm: a 1, 2, 2.5 or 5
+ * step for about `targetTicks` ticks, given as the least and greatest interval
+ * so the ticks fall on its multiples, and which ends are labelled. Null for a
+ * range with no width.
+ */
+export function wavelengthRuling(min, max, targetTicks = 8) {
+    if (!(Number.isFinite(min) && Number.isFinite(max) && max > min)) return null;
+    const step = niceTickInterval(max - min, { targetTicks });
+    return { minInterval: step, maxInterval: step, axisLabel: endLabels(min, max, step) };
+}
+
 // A wavelength axis spans the range the window computed over. Left to itself
 // ECharts rounds the ends out to its automatic tick step before the fixed 50 nm
 // interval is applied, so a range from 399 nm would draw from 300. An axis that
@@ -672,20 +698,28 @@ function wavelengthInterval(span) {
 // The step goes to ECharts as both minInterval and maxInterval, not as
 // interval. ECharts starts a fixed interval at the axis minimum, so data from
 // 191.6 nm would be ticked 191.6, 241.6, 291.6; a bounded interval is ticked on
-// its multiples inside the range, 200, 250, 300.
+// its multiples inside the range, 200, 250, 300. An axis that brings its own
+// ruling keeps it.
+const bringsOwnRuling = axis => [axis.interval, axis.splitNumber, axis.minInterval].some(value => value != null);
+
 function dataBoundXAxis(axis, extent) {
     if (Array.isArray(axis)) return axis.map(item => dataBoundXAxis(item, extent));
     if (axis?.type !== 'value') return axis;
     const { wavelength, ...plain } = axis;
     const span = extent ? extent[1] - extent[0] : null;
     const unbounded = axis.min == null && axis.max == null;
-    const pinTicks = axis.interval == null && axis.splitNumber == null && wavelength;
+    const pinTicks = wavelength && !bringsOwnRuling(axis);
     const pinRange = wavelength && unbounded && extent;
     const step = pinTicks ? wavelengthInterval(span) : null;
+    const low = Number.isFinite(axis.min) ? axis.min : extent?.[0];
+    const high = Number.isFinite(axis.max) ? axis.max : extent?.[1];
     return {
         ...plain,
         scale: true,
-        ...(pinTicks ? { minInterval: step, maxInterval: step } : {}),
+        ...(pinTicks ? {
+            minInterval: step, maxInterval: step,
+            axisLabel: { ...plain.axisLabel, ...endLabels(low, high, step) },
+        } : {}),
         ...(pinRange ? { min: extent[0], max: extent[1] } : {}),
     };
 }

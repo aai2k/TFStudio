@@ -64,9 +64,10 @@ const option = buildChartOption({ spectralTitles: AX, curveLabels: CL,
 });
 check(option.tooltip.trigger === 'axis' && option.dataZoom[0].type === 'inside', 'read-only chart interaction remains unchanged');
 check(option.yAxis.min === 5 && option.yAxis.max === 95, 'fixed Y range remains unchanged');
-check(option.xAxis.interval === undefined && option.yAxis.interval === undefined
-    && option.xAxis.splitNumber === 8 && option.yAxis.splitNumber === 10,
-    'OE asks for the same full-range density while allowing round zoomed ticks');
+check([option.xAxis.interval, option.xAxis.minInterval, option.xAxis.maxInterval].join() === ',20,20',
+    'OE rules 500-600 nm on a round 20 nm step, pinned so the ticks fall on its multiples');
+check(option.yAxis.interval === undefined && option.yAxis.splitNumber === 10,
+    'the Y axis keeps its full-range density');
 check(option.yAxis.name === '%' && option.tooltip.valueFormatter(98.725) === '98.725%',
     'OE shows the unit once and includes it in hover values');
 check(option.grid.top >= 38 && option.legend.show === false,

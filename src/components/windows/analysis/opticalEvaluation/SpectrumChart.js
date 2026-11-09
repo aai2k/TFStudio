@@ -2,6 +2,7 @@ import { buildEditableTargetGeometry } from '../../../../utils/physics/spectrumT
 import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 import { TargetEditorOverlay } from '../../../ui/TargetEditorOverlay.js';
 import { buildChartOption, curveColorFor, readableTargets } from './model.js';
+import { optionWavelengthRuling, wavelengthViewRuling } from './wavelengthZoom.js';
 import { logAxisZoomTicks } from './yScale.js';
 import { plotMargin } from '../chrome/plot.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
@@ -9,6 +10,25 @@ import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js'
 const { createElement: h, useCallback, useEffect, useMemo, useRef } = React;
 
 const AXES = { xAxisIndex: 0, yAxisIndex: 0 };
+
+// The wavelength axis after a zoom: the visible span, read back through the
+// axes at the plot's left and right edges, ruled as the whole range is; the
+// option's own ruling once the view is the whole range again. `appliedRef`
+// holds what was last applied, null for the option's own.
+function syncWavelengthRuling(chart, base, afterRedraw, appliedRef) {
+    const own = optionWavelengthRuling(base.xAxis);
+    if (!own) return;
+    const margin = plotMargin();
+    const y = margin.top + 1;
+    const left = chart.convertFromPixel(AXES, [margin.left, y])?.[0];
+    const right = chart.convertFromPixel(AXES, [chart.getWidth() - margin.right, y])?.[0];
+    const view = wavelengthViewRuling(base.xAxis, left, right);
+    const key = view ? JSON.stringify(view) : null;
+    const applied = afterRedraw ? null : appliedRef.current;
+    if (key === applied) return;
+    chart.setOption({ xAxis: view || own }, { notMerge: false, lazyUpdate: false });
+    appliedRef.current = key;
+}
 
 export function SpectrumChart(props) {
     const {
@@ -23,6 +43,7 @@ export function SpectrumChart(props) {
     const yScaleRef = useRef(yScale);
     const zoomListenerRef = useRef(null);
     const zoomRulingRef = useRef(null);
+    const xRulingRef = useRef(null);
     yScaleRef.current = yScale;
     const curveColors = useAnalysisColors('opticalEvaluation');
     const colors = {
@@ -45,7 +66,9 @@ export function SpectrumChart(props) {
     const syncZoomRuling = useCallback(afterRedraw => {
         const chart = chartRef.current;
         const base = optionRef.current;
-        if (!chart || chart.isDisposed?.() || base?.yAxis?.type !== 'log') return;
+        if (!chart || chart.isDisposed?.() || !base) return;
+        syncWavelengthRuling(chart, base, afterRedraw, xRulingRef);
+        if (base.yAxis?.type !== 'log') return;
         const margin = plotMargin();
         const x = margin.left + 1;
         const top = chart.convertFromPixel(AXES, [x, margin.top]);

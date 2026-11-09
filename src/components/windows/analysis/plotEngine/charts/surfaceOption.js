@@ -10,7 +10,7 @@
 import { layerNumber, parseAxisVar, surfaceAxisLabel } from '../../../../../utils/physics/plotQuantities.js';
 import {
     cartesianOption, chartToolbox, formatChartNumber, formatChartReadout, itemTooltip,
-    niceAxisBounds,
+    niceAxisBounds, niceTickInterval,
 } from '../../../../ui/chartOptions.js';
 import { plotMargin } from '../../chrome/plot.js';
 import { axisTitle, quantitySymbol, quantityUnit } from '../quantityLabels.js';
@@ -140,9 +140,33 @@ function sweptBounds(values) {
     return max > min ? { min, max } : niceAxisBounds(min, max);
 }
 
+// How close a sample must sit to a multiple of the label step, in steps.
+const ON_STEP = 1e-6;
+
+/**
+ * Which samples of a heatmap axis carry a label. Where the samples land on a
+ * 1, 2, 2.5 or 5 step chosen for about eight labels, those samples are
+ * labelled, 400, 450, 500 nm or 0, 10, 20 degrees, and an end off that step
+ * only when it is half a step or more from the nearest labelled sample. A grid
+ * that lands on no such step is labelled every sixth or so of its samples and
+ * at both ends.
+ */
+export function heatmapLabelled(data) {
+    const values = data.map(Number);
+    const last = values.length - 1;
+    const stride = Math.max(1, Math.ceil(last / 6));
+    const byStride = index => index === 0 || index === last || index % stride === 0;
+    if (last < 1 || !values.every(Number.isFinite)) return byStride;
+    const step = niceTickInterval(Math.abs(values[last] - values[0]), { targetTicks: 8 });
+    const onStep = values.map(value => Math.abs(value / step - Math.round(value / step)) < ON_STEP);
+    const round = values.filter((_, index) => onStep[index]);
+    if (round.length < 2) return byStride;
+    const clear = value => round.every(other => Math.abs(other - value) >= step / 2);
+    return index => onStep[index] || ((index === 0 || index === last) && clear(values[index]));
+}
+
 function heatmapAxis(data, name, c) {
-    const stride = Math.max(1, Math.ceil((data.length - 1) / 6));
-    const showLabel = index => index === 0 || index === data.length - 1 || index % stride === 0;
+    const showLabel = heatmapLabelled(data);
     return {
         type: 'category', data, name, boundaryGap: true,
         nameLocation: 'middle', nameGap: 28,

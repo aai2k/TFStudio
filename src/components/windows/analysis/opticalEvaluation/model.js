@@ -9,7 +9,7 @@ import {
 import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import {
     axisTooltip, cartesianOption, chartToolbox, dimmedBandSeries, formatChartReadout, lineSeries,
-    seriesExtent, valueAxis,
+    seriesExtent, valueAxis, wavelengthRuling,
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
@@ -180,17 +180,17 @@ export function buildChartOption(options) {
     const palette = { background: bgColor, paper: paperColor, grid: gridColor, text: textColor };
     const drawing = editMode && editTool === 'draw';
     const spectral = spectralAxisOption(spectralUnit, lamRange?.min, lamRange?.max, spectralTitles);
+    // About eight ticks on a 1, 2, 2.5 or 5 nm step: 50 nm over 400-700 or
+    // 400-800 nm. After a zoom the chart rules the visible span the same way
+    // (wavelengthZoom.js).
+    const ruling = spectralUnit === 'nm' ? wavelengthRuling(spectral.min, spectral.max) : null;
     const xAxis = valueAxis({
         name: spectral.name, color: textColor, gridColor,
         min: spectral.min, max: spectral.max,
-        // A count lets ECharts choose round ticks from the visible span. At the
-        // default 400-800 nm range this is still 50 nm; after a box zoom it
-        // becomes a suitable 5/10/20 nm interval instead of anchoring labels to
-        // the exact pixel where the drag began.
-        splitNumber: spectralUnit === 'nm' ? 8 : undefined,
         wavelength: spectralUnit === 'nm',
     });
-    xAxis.axisLabel = { ...xAxis.axisLabel, ...spectral.axisLabel };
+    if (ruling) Object.assign(xAxis, { minInterval: ruling.minInterval, maxInterval: ruling.maxInterval });
+    xAxis.axisLabel = { ...xAxis.axisLabel, ...spectral.axisLabel, ...ruling?.axisLabel };
     // A measured overlay is on the instrument's wavelength grid, not the
     // design's, so the tooltip is given the series to read them all itself.
     const series = buildChartSeries({
