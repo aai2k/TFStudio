@@ -23,9 +23,9 @@ export function ProfilerControls({ c, t, rp, state, notices }) {
             label: rp.side, ariaLabel: rp.side,
             activeId: state.side, onSelect: state.setSide, c,
             items: [
-                { id: 'front', label: rp.front, color: SIDE_COLORS.front },
-                { id: 'back', label: rp.back, color: SIDE_COLORS.back },
-                { id: 'total', label: rp.total, color: SIDE_COLORS.total },
+                { id: 'front', label: rp.front, color: SIDE_COLORS.front, disabled: !state.sideOffered.front },
+                { id: 'back', label: rp.back, color: SIDE_COLORS.back, disabled: !state.sideOffered.back },
+                { id: 'total', label: rp.total, color: SIDE_COLORS.total, disabled: !state.sideOffered.total },
             ],
         }),
     );

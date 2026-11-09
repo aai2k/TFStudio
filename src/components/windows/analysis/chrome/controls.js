@@ -97,12 +97,12 @@ export function SelectField({ value, onChange, options, c, width, title, disable
     }, options.map(option => h('option', { key: option.id, value: option.id }, option.label)));
 }
 
-function choiceButtonStyle(c, active, color) {
+function choiceButtonStyle(c, active, color, disabled) {
     return {
         height: 22, padding: '0 8px', display: 'inline-flex', alignItems: 'center', gap: 5,
-        border: 'none', borderRadius: 4, outline: 'none', cursor: 'pointer',
+        border: 'none', borderRadius: 4, outline: 'none', cursor: disabled ? 'default' : 'pointer',
         backgroundColor: active ? activeFill(c, color) : 'transparent',
-        color: active ? c.text : c.textDim,
+        color: active ? c.text : c.textDim, opacity: disabled ? 0.45 : 1,
         fontSize: 11, fontWeight: 500, fontFamily: FONT,
     };
 }
@@ -112,8 +112,9 @@ function choiceButtonStyle(c, active, color) {
  * a radio group. Prefer it to a dropdown up to about four options.
  *
  *   label   optional name carried inside the pill
- *   items   [{ id, label, title?, color? }] - `color` tints the active wash and
- *           adds a dot, for a choice that maps to a curve colour
+ *   items   [{ id, label, title?, color?, disabled? }] - `color` tints the
+ *           active wash and adds a dot, for a choice that maps to a curve
+ *           colour; a `disabled` choice is greyed and cannot be picked
  */
 export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) {
     return h('div', {
@@ -134,9 +135,9 @@ export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) 
         items.map(item => {
             const active = item.id === activeId;
             return h('button', {
-                key: item.id, type: 'button', title: item.title,
+                key: item.id, type: 'button', title: item.title, disabled: item.disabled,
                 onClick: () => onSelect(item.id), 'aria-pressed': active,
-                style: choiceButtonStyle(c, active, item.color),
+                style: choiceButtonStyle(c, active, item.color, item.disabled),
             },
                 item.color && h('span', {
                     style: {

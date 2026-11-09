@@ -39,8 +39,11 @@ export function useProfilerState(design, rp) {
         }
     }, [design, lambda, side, rp]);
 
+    // A side with no layers has no profile to show and is not offered.
+    const sideOffered = { front: hasFront, back: hasBack, total: hasFront || hasBack };
+
     return {
-        lambda, quantity, side, showTable, profile, regions, matColorMap,
+        lambda, quantity, side, showTable, profile, regions, matColorMap, sideOffered,
         setLambda: value => setField('lambda', value),
         setQuantity: value => setField('quantity', value),
         setShowTable: value => setField('showTable', value),
