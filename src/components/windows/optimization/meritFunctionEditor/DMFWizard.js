@@ -2,7 +2,7 @@ import {
     OPERAND_POLS, FILTER_CATEGORIES, FILTER_TYPES,
 } from '../../../../utils/physics/optimizer.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
-import { NumInput, SelectField } from '../../analysis/chrome/controls.js';
+import { NumInput, rowButtonStyle, SelectField, SolidButton } from '../../analysis/chrome/controls.js';
 import { requestTool } from '../../../../utils/misc/toolRequest.js';
 import { useWindowSession } from '../../windowSession.js';
 import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
@@ -106,14 +106,9 @@ function curveControl(ctx, key, view) {
     return select(s, held ? held.id : '', v => updateParam(key, v || null), options, '100%');
 }
 
+// A toolbar button at the height of the wizard's rows.
 function smallButton(c, label, onClick) {
-    return h('button', {
-        onClick,
-        style: {
-            height: 20, padding: '0 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3,
-            background: c.panel, color: c.text, cursor: 'pointer', fontFamily: 'inherit',
-        },
-    }, label);
+    return h('button', { type: 'button', onClick, style: { ...rowButtonStyle(c, {}), height: CONTROL_H } }, label);
 }
 
 // A gain read from a file or typed into the curve editor, which the wizard
@@ -355,14 +350,10 @@ function bottomLine(ctx, startRow, setStartRow, onGenerate) {
         h('div', { style: { ...s.group, gap: 8, marginLeft: 'auto' } },
             h('span', { style: s.label, title: tw.startRowTip }, tw.startRow + ':'),
             numberInput(s, startRow, v => setStartRow(Math.max(1, Math.round(v) || 1)), 52, { min: 1, step: 1 }),
-            h('button', {
-                onClick: () => onGenerate(result.block, result.curves), title: tw.willReplace, disabled: blocked,
-                style: {
-                    height: CONTROL_H, padding: '0 14px', fontSize: 11, border: 'none', borderRadius: 3,
-                    background: c.accent, color: c.accentText, cursor: blocked ? 'default' : 'pointer',
-                    opacity: blocked ? 0.5 : 1, fontWeight: 600, fontFamily: 'inherit',
-                },
-            }, tw.generate)));
+            h(SolidButton, {
+                c, color: c.success, label: tw.generate, title: tw.willReplace, disabled: blocked,
+                onClick: () => onGenerate(result.block, result.curves),
+            })));
 }
 
 // Where the wizard's gain comes from: a file the user picks, read into the

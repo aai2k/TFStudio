@@ -14,8 +14,8 @@ function EditTargetsButton({ c, oe, editMode, setEditMode }) {
             'aria-pressed': editMode,
             style: {
                 display: 'flex', alignItems: 'center', gap: 4,
-                height: 28, padding: '0 9px', cursor: 'pointer', outline: 'none',
-                border: `1px solid ${c.border}`, borderRadius: 6,
+                height: 24, padding: '0 8px', cursor: 'pointer', outline: 'none',
+                border: `1px solid ${c.border}`, borderRadius: 5,
                 backgroundColor: editMode ? activeFill(c) : 'transparent',
                 color: c.text,
                 fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -36,9 +36,9 @@ function ShowTargetsButton({ c, oe, editMode, showTargets, setShowTargets, hasTa
             'aria-pressed': active,
             style: {
                 display: 'flex', alignItems: 'center', gap: 4,
-                height: 28, padding: '0 9px', cursor: (hasTargets && !editMode) ? 'pointer' : 'default',
+                height: 24, padding: '0 8px', cursor: (hasTargets && !editMode) ? 'pointer' : 'default',
                 outline: 'none',
-                border: `1px solid ${c.border}`, borderRadius: 6,
+                border: `1px solid ${c.border}`, borderRadius: 5,
                 backgroundColor: active ? activeFill(c) : 'transparent',
                 color: (active || hasTargets) ? c.text : c.textDim,
                 fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',

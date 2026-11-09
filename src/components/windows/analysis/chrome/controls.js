@@ -4,8 +4,9 @@
  * One definition per control, so a size, a corner radius or an active-state
  * tint cannot drift between windows. Two rules hold across all of them:
  *
- *   • A control that sits in a toolbar row is 28 px tall; a bare input or
- *     select inside one is 24 px, so it clears the row's edges.
+ *   • A button in a toolbar row is 24 px tall, the height of the inputs and
+ *     selects beside it. A group of choices is a 28 px pill holding 22 px
+ *     buttons.
  *   • Active means a translucent wash of the accent (or the control's own
  *     colour) behind full-strength text, never a solid fill with reversed
  *     text. Inactive text is dimmed instead of outlined.
@@ -16,9 +17,11 @@
 
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumberField } from '../../../ui/numberField.js';
+import { dropPositionFrom, useDismiss } from '../../../ui/PickerDropdown.js';
+import { ownerWindow } from '../../../ui/ownerWindow.js';
 import { fillForWhiteText } from '../../../../constants/colorPalettes.js';
 
-const { createElement: h } = React;
+const { createElement: h, useRef, useState } = React;
 
 const FONT = 'system-ui, -apple-system, sans-serif';
 
@@ -225,10 +228,11 @@ export function CurveToggleGroup({
     );
 }
 
-function rowButtonStyle(c, { active, disabled, color }) {
+/** The look of a toolbar button, for a window that draws its own. */
+export function rowButtonStyle(c, { active, disabled, color }) {
     return {
-        height: 28, padding: '0 9px', display: 'inline-flex', alignItems: 'center', gap: 4,
-        border: `1px solid ${c.border}`, borderRadius: 6, outline: 'none',
+        height: 24, padding: '0 8px', display: 'inline-flex', alignItems: 'center', gap: 4,
+        border: `1px solid ${c.border}`, borderRadius: 5, outline: 'none',
         backgroundColor: active ? activeFill(c, color) : 'transparent',
         color: disabled ? c.textDim : c.text,
         opacity: disabled ? 0.45 : 1,
@@ -283,6 +287,50 @@ export function SolidButton({ label, onClick, c, color, title, disabled, childre
         onClick: () => { if (!disabled) onClick(); },
         style: colorButtonStyle(c, color, true, disabled),
     }, children, label);
+}
+
+// A menu's list of commands, placed against the button that opened it.
+function menuList({ label, items, position, dropRef, pick }) {
+    return h('div', {
+        ref: dropRef, role: 'menu', 'aria-label': label, className: 'tf-menu',
+        style: {
+            position: 'fixed', zIndex: 9999,
+            ...(position.top != null ? { top: position.top } : { bottom: position.bottom }),
+            left: position.left, width: position.width, maxHeight: position.maxH, overflowY: 'auto',
+        },
+    }, items.map(item => h('div', {
+        key: item.id, role: 'menuitem', className: 'tf-menu-item', onClick: () => pick(item),
+    }, item.label)));
+}
+
+/**
+ * A row button that opens a list of commands, each run when it is picked.
+ * The list flips above the button at the foot of a window.
+ *
+ *   items  [{ id, label, onSelect }]
+ */
+export function MenuButton({ label, items, c, title, minWidth = 200 }) {
+    const [open, setOpen] = useState(false);
+    const [position, setPosition] = useState(null);
+    const triggerRef = useRef(null);
+    const dropRef = useRef(null);
+    useDismiss(open, setOpen, dropRef, triggerRef);
+    // Outside-click dismissal ignores the button, so it closes the list itself.
+    const toggle = () => {
+        if (open) { setOpen(false); return; }
+        const trigger = triggerRef.current;
+        if (!trigger) return;
+        setPosition(dropPositionFrom(trigger.getBoundingClientRect(), minWidth, ownerWindow(trigger)));
+        setOpen(true);
+    };
+    const pick = (item) => { setOpen(false); item.onSelect(); };
+    return h(React.Fragment, null,
+        h('button', {
+            ref: triggerRef, type: 'button', title, 'aria-haspopup': 'menu', 'aria-expanded': open,
+            onClick: toggle, style: { ...rowButtonStyle(c, {}), flexShrink: 0 },
+        }, label, h('span', { className: open ? 'tf-caret tf-caret-open' : 'tf-caret' })),
+        open && position && menuList({ label, items, position, dropRef, pick }),
+    );
 }
 
 /**

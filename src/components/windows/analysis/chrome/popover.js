@@ -28,7 +28,7 @@ const FONT = 'system-ui, -apple-system, sans-serif';
 /** The look of a panel hung off a control row, anchored under its button's right-hand edge. */
 export function panelStyle(c, width) {
     return {
-        position: 'absolute', right: 0, top: 32, zIndex: 50,
+        position: 'absolute', right: 0, top: 28, zIndex: 50,
         minWidth: width, maxWidth: 420, maxHeight: 420, overflowY: 'auto',
         padding: 10, backgroundColor: c.panel,
         border: `1px solid ${c.border}`, borderRadius: 6,
@@ -41,8 +41,8 @@ export function panelStyle(c, width) {
 export function triggerStyle(c, { open, tone }) {
     const accent = tone || c.accent;
     return {
-        height: 28, padding: '0 9px', display: 'inline-flex', alignItems: 'center', gap: 5,
-        border: `1px solid ${open ? accent : c.border}`, borderRadius: 6, outline: 'none',
+        height: 24, padding: '0 8px', display: 'inline-flex', alignItems: 'center', gap: 5,
+        border: `1px solid ${open ? accent : c.border}`, borderRadius: 5, outline: 'none',
         backgroundColor: open ? accent + (c.light ? '20' : '38') : 'transparent',
         color: tone || c.text, cursor: 'pointer',
         fontSize: 11, fontWeight: 500, fontFamily: FONT, whiteSpace: 'nowrap',

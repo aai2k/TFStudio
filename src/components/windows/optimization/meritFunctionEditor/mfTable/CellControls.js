@@ -1,5 +1,6 @@
 import { dropPositionFrom } from '../../../../ui/PickerDropdown.js';
 import { listenForDismiss, ownerWindow } from '../../../../ui/ownerWindow.js';
+import { rowButtonStyle } from '../../../analysis/chrome/controls.js';
 
 const { createElement: h, useState, useEffect, useLayoutEffect, useRef } = React;
 
@@ -18,13 +19,7 @@ export function selectable(ctx, colKey) {
 export function TblBtn({ label, onClick, disabled, c, accent, title }) {
     return h('button', {
         onClick, disabled: !!disabled, title,
-        style: {
-            padding: '2px 8px', fontSize: 11, border: `1px solid ${c.border}`, borderRadius: 3,
-            whiteSpace: 'nowrap', flexShrink: 0,
-            background: accent ? c.accent + '22' : c.panel,
-            color: disabled ? c.textDim : accent ? c.accent : c.text,
-            cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, fontFamily: 'inherit',
-        },
+        style: { ...rowButtonStyle(c, { active: accent, disabled }), flexShrink: 0 },
     }, label);
 }
 

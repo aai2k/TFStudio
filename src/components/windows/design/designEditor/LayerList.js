@@ -2,6 +2,7 @@ import { LockIcon } from '../../../ui/LockIcon.js';
 import { ContextMenu } from '../../../ui/ContextMenu.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { Btn } from './ui.js';
+import { MenuButton } from '../../analysis/chrome/controls.js';
 import { LayerRow } from './LayerRow.js';
 import { useLayerKeyboard } from './useLayerKeyboard.js';
 import { designEditorSession } from './sessionState.js';
@@ -28,6 +29,14 @@ import { SaveCoatingDialog } from '../coatingLibrary/SaveCoatingDialog.js';
 const { createElement: h, useRef, useCallback, useEffect, useMemo, useState } = React;
 
 // ── Layer list panel (for one side) ──────────────────────────────────────────
+
+// The Tools menu: every command is offered whatever is selected. Expand on a
+// selection that is not a Herpin layer says what to select instead of doing
+// nothing.
+const LAYER_TOOLS = ['replaceMaterial', 'quantize', 'perturb', 'copyTable', 'saveToLibrary', 'herpinCollapse', 'herpinExpand'];
+export function layerToolItems(de, run) {
+    return LAYER_TOOLS.map(id => ({ id, label: de.tools[id], onSelect: () => run(id) }));
+}
 
 function missingReferenceStyle(id, missingMaterialIds, c, t) {
     if (!missingMaterialIds.has(id)) return { title: undefined, color: c.textDim };
@@ -430,13 +439,10 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                 c, style: { marginLeft: 4 }
             }, side === 'front' ? de.copyToBack : de.copyToFront),
             h('div', { style: { width: 1, height: 20, background: c.border, margin: '0 2px' } }),
-            // Editing-tools menu (design-wide operations). Acts as a menu: it
-            // fires the chosen tool and snaps back to its placeholder label.
-            h('select', {
-                value: '',
-                title: de.tools.tip,
-                onChange: (e) => {
-                    const action = e.target.value;
+            // Design-wide operations, each run when picked.
+            h(MenuButton, {
+                c, label: de.tools.label, title: de.tools.tip,
+                items: layerToolItems(de, (action) => {
                     if (action === 'replaceMaterial') onOpenReplaceMaterials && onOpenReplaceMaterials();
                     else if (action === 'quantize') setToolDialog('quantize');
                     else if (action === 'perturb') setToolDialog('perturb');
@@ -450,26 +456,8 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                         }
                     }
                     else if (action === 'herpinExpand') expandSelectedHerpin();
-                    e.target.value = '';
-                },
-                style: {
-                    height: 24, padding: '0 6px', fontSize: 12, cursor: 'pointer',
-                    backgroundColor: c.panel, color: c.text,
-                    border: `1px solid ${c.border}`, borderRadius: 4, outline: 'none',
-                },
-            },
-                // Keep the placeholder selectable so the native menu highlights
-                // "Tools" rather than its first enabled command when opened.
-                h('option', { value: '' }, de.tools.label),
-                h('option', { value: 'replaceMaterial' }, de.tools.replaceMaterial),
-                h('option', { value: 'quantize' }, de.tools.quantize),
-                h('option', { value: 'perturb' }, de.tools.perturb),
-                h('option', { value: 'copyTable' }, de.tools.copyTable),
-                h('option', { value: 'saveToLibrary' }, de.tools.saveToLibrary),
-                h('option', { value: 'herpinCollapse' }, de.tools.herpinCollapse),
-                // Leave Expand enabled: its handler explains what must be
-                // selected instead of making an invalid selection a silent no-op.
-                h('option', { value: 'herpinExpand' }, de.tools.herpinExpand))
+                }),
+            })
         ),
 
         toolNotice && h('div', {

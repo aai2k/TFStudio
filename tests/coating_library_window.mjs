@@ -16,7 +16,7 @@ const { CoatingLibrary } = await import('../src/components/windows/design/coatin
 const { SaveCoatingDialog } = await import('../src/components/windows/design/coatingLibrary/SaveCoatingDialog.js');
 const { ShareDialog } = await import('../src/components/windows/design/coatingLibrary/ShareDialog.js');
 const { coatingLibrarySession } = await import('../src/components/windows/design/coatingLibrary/sessionState.js');
-const { LayerList } = await import('../src/components/windows/design/designEditor/LayerList.js');
+const { LayerList, layerToolItems } = await import('../src/components/windows/design/designEditor/LayerList.js');
 const { WINDOW_REGISTRY } = await import('../src/components/docking/windowRegistry.js');
 const { ICONS, makeTabs } = await import('../src/components/Toolbar.js');
 const { BUILTIN_COATINGS } = await import('../src/utils/coatingLibrary/builtin/index.js');
@@ -148,8 +148,12 @@ html = renderToStaticMarkup(withDesign(React.createElement(LayerList, {
     invertActiveSide: () => {}, setAllLocked: () => {}, copyToOther: () => {},
     onOpenReplaceMaterials: () => {}, refLambda: 550,
 }), design));
-assert.ok(html.includes(`value="saveToLibrary"`) && html.includes(esc(t.designEditor.tools.saveToLibrary)),
-    'the Design Editor tools menu lists "Save coating to library"');
+assert.ok(html.includes(`>${esc(t.designEditor.tools.label)}<span class="tf-caret"`), 'the Design Editor has its Tools menu button');
+const picked = [];
+const saveItem = layerToolItems(t.designEditor, id => picked.push(id)).find(item => item.id === 'saveToLibrary');
+saveItem?.onSelect();
+assert.ok(saveItem?.label === t.designEditor.tools.saveToLibrary && picked[0] === 'saveToLibrary',
+    'the Design Editor tools menu lists "Save coating to library" and runs it');
 
 // Share dialog: without an entry it offers the issue and the email; with one
 // of the user's coatings it shows what will be sent and offers the file.

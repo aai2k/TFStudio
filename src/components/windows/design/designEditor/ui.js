@@ -1,4 +1,5 @@
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
+import { rowButtonStyle } from '../../analysis/chrome/controls.js';
 
 const { createElement: h, useState } = React;
 
@@ -11,13 +12,9 @@ export function Btn({ onClick, title, disabled, children, c, style = {} }) {
         onMouseEnter: () => setHov(true),
         onMouseLeave: () => setHov(false),
         style: {
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            padding: '3px 9px', border: `1px solid ${c.border}`, borderRadius: 3,
-            backgroundColor: disabled ? 'transparent' : hov ? c.hover : c.panel,
-            color: disabled ? c.textDim : c.text, cursor: disabled ? 'default' : 'pointer',
-            fontSize: 12, fontFamily: 'system-ui, -apple-system, sans-serif',
-            outline: 'none', gap: 4, flexShrink: 0,
-            opacity: disabled ? 0.45 : 1,
+            ...rowButtonStyle(c, { disabled }),
+            justifyContent: 'center', flexShrink: 0,
+            backgroundColor: hov && !disabled ? c.hover : 'transparent',
             ...style
         }
     }, children);

@@ -135,8 +135,8 @@ export function tableToolbar(options) {
             label: iconLabel('trash', te.deleteOperand || 'Delete'), onClick: () => deleteSelectedRows(rowTable),
             disabled: deletable.length === 0, c,
         }),
-        h(TblBtn, { label: '↑', onClick: onMoveUp, disabled: !primarySel, c }),
-        h(TblBtn, { label: '↓', onClick: onMoveDown, disabled: !primarySel, c }),
+        h(TblBtn, { label: tablerIcon('arrow-up', 14), onClick: onMoveUp, disabled: !primarySel, c }),
+        h(TblBtn, { label: tablerIcon('arrow-down', 14), onClick: onMoveDown, disabled: !primarySel, c }),
         onClear && h(TblBtn, {
             label: te.clearTable || 'Clear',
             onClick: () => onClear(), disabled: operands.length === 0, c,
