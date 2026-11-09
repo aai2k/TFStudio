@@ -1,5 +1,6 @@
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumberField } from '../../../ui/numberField.js';
+import { CLEANER_REFINERS } from './sessionState.js';
 
 const { createElement: h } = React;
 
@@ -33,10 +34,23 @@ function ApplyGroup({ c, dc, applying, progress, ops, apply, stop }) {
     );
 }
 
+// The refiner the re-optimize pass runs, named as the Refinement window names
+// its methods (`tr` is its strings).
+function RefinerSelect({ c, tr, value, onChange, disabled }) {
+    return h('select', {
+        value, disabled, 'aria-label': tr.method, title: tr.methodNotes[value] || '',
+        onChange: e => onChange(e.target.value),
+        style: {
+            background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 2,
+            fontSize: 11, padding: '2px 4px', cursor: disabled ? 'default' : 'pointer',
+        },
+    }, CLEANER_REFINERS.map(m => h('option', { key: m, value: m, title: tr.methodNotes[m] || '' }, tr.methods[m])));
+}
+
 export function CleanerControls({
-    c, dc, units, design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
+    c, dc, tr, units, design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
     cleanBack, setCleanBack, reoptimize, setReoptimize,
-    reoptIters, setReoptIters, applying, progress, ops, apply, stop,
+    reoptIters, setReoptIters, reoptMethod, setReoptMethod, applying, progress, ops, apply, stop,
 }) {
     const labelStyle = {
         color: c.textDim, fontSize: 11,
@@ -92,6 +106,9 @@ export function CleanerControls({
             }),
             dc.reoptimize
         ),
+        reoptimize && design.meritOperands?.length > 0 && h(RefinerSelect, {
+            c, tr, value: reoptMethod, onChange: setReoptMethod, disabled: applying,
+        }),
         reoptimize && design.meritOperands?.length > 0 && h('label', { style: labelStyle }, dc.reoptIters,
             h(NumberField, { spin: true, c,
                 min: 1, max: 500, step: 10, integer: true, value: reoptIters, disabled: applying,

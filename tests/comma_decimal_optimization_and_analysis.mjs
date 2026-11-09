@@ -152,9 +152,9 @@ function received(Component, props, name, pick, act) {
     // With operands and Re-optimize on, the iteration box is drawn after the
     // minimum thickness.
     const props = {
-        c, dc: t.designCleaner, units: t.units, design: { meritOperands: [{}] },
+        c, dc: t.designCleaner, tr: t.refinement, units: t.units, design: { meritOperands: [{}] },
         dMin: 5, setDMin: noop, mergeAdjacent: true, setMergeAdjacent: noop, cleanBack: false, setCleanBack: noop,
-        reoptimize: true, setReoptimize: noop, reoptIters: 80, setReoptIters: noop,
+        reoptimize: true, setReoptimize: noop, reoptIters: 80, setReoptIters: noop, reoptMethod: 'sqp', setReoptMethod: noop,
         applying: false, progress: null, ops: [], apply: noop, stop: noop,
     };
     const box = at => inputs => inputs.filter(input => input.props.type !== 'checkbox')[at];

@@ -95,12 +95,13 @@ export function useDesignCleaner(dc) {
     const { design, updateDesign, checkpoint, isOptimizing } = useDesign();
 
     const [session, setField] = useWindowSession(designCleanerSession, design);
-    const { dMin, mergeAdjacent, cleanBack, reoptimize, reoptIters } = session;
+    const { dMin, mergeAdjacent, cleanBack, reoptimize, reoptIters, reoptMethod } = session;
     const setDMin          = value => setField('dMin', value);
     const setMergeAdjacent = value => setField('mergeAdjacent', value);
     const setCleanBack     = value => setField('cleanBack', value);
     const setReoptimize    = value => setField('reoptimize', value);
     const setReoptIters    = value => setField('reoptIters', value);
+    const setReoptMethod   = value => setField('reoptMethod', value);
 
     const resolveMaterial = useMemo(() => designMaterialLookup(design), [design]);
 
@@ -111,7 +112,7 @@ export function useDesignCleaner(dc) {
 
     const merit = useCleanerMerit(design, preview?.design ?? null, isOptimizing);
 
-    const settings = useMemo(() => ({ reoptimize, reoptIters, dMin }), [reoptimize, reoptIters, dMin]);
+    const settings = useMemo(() => ({ reoptimize, reoptIters, reoptMethod, dMin }), [reoptimize, reoptIters, reoptMethod, dMin]);
     const run = useCleanupRun({ dc, design, preview, settings, resolveMaterial, updateDesign, checkpoint });
 
     const ops = preview?.ops || [];
@@ -125,7 +126,7 @@ export function useDesignCleaner(dc) {
     return {
         design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
         cleanBack, setCleanBack, reoptimize, setReoptimize,
-        reoptIters, setReoptIters, ...run,
+        reoptIters, setReoptIters, reoptMethod, setReoptMethod, ...run,
         preview, ...merit,
         ops, removedOps, mergedOps, thinList,
     };

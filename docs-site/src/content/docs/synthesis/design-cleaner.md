@@ -25,8 +25,7 @@ single layer.
 **Clean back**: apply the same cleanup to the back-surface stack.
 
 **Re-optimize after**: run a Refinement pass on the cleaned design to recover
-any merit lost to the structural change (on by default). It refines with SQP,
-the Refinement window's default method.
+any merit lost to the structural change (on by default). The list beside it picks the refiner: Sequential QP, the Refinement window's default method, or Damped Least Squares, Conjugate Gradient, Newton or Newton-CG. These are the Refinement window's local methods; its multi-start, global and Try all runs are not offered.
 
 **Refine iterations**: how many refinement steps the post-clean pass runs
 (default 80).

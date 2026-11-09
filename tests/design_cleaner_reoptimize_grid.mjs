@@ -8,9 +8,11 @@
  * transmission over 500-600 nm. Its pass band is narrower than the row's grid,
  * so a run samples the row more densely.
  *   1. The window's pass (model.js applyCleanup) ends on the thicknesses of
- *      the window's refiner on the run's grid with the pass's stopping rule
- *      (converged, or the step budget), on this thread and in the worker.
+ *      its refiner on the run's grid with the pass's stopping rule (converged,
+ *      or the step budget), on this thread and in the worker: the app's
+ *      default refiner when none is chosen, and DLS when it is chosen.
  *   2. It lowers the merit on that grid to under half of where it started.
+ *   3. The two refiners end on different thicknesses, so the choice is used.
  *
  * Run: node tests/design_cleaner_reoptimize_grid.mjs
  */
@@ -55,23 +57,33 @@ const shown = withDesignSampleCounts(design.meritOperands, preview.design, resol
 const run = densifyForRun(design.meritOperands, preview.design);
 ok(run[0].rampPoints > shown[0].rampPoints, `a run samples the row more densely (${run[0].rampPoints} / ${shown[0].rampPoints} points)`);
 
-// The window's refiner on the run's grid, run to the pass's stopping rule.
-const opt = makeEngine(DEFAULT_REFINE_METHOD, run, preview.design, resolveMat, { dMin: settings.dMin });
-for (let steps = 0; steps < settings.reoptIters && !opt.isConverged(); steps++) opt.step();
-opt.restoreBest();
-const direct = opt.applyToDesign(preview.design).frontLayers.map(l => l.thickness);
+// A refiner on the run's grid, run to the pass's stopping rule.
+function directThicknesses(method) {
+    const opt = makeEngine(method, run, preview.design, resolveMat, { dMin: settings.dMin });
+    for (let steps = 0; steps < settings.reoptIters && !opt.isConverged(); steps++) opt.step();
+    opt.restoreBest();
+    return opt.applyToDesign(preview.design).frontLayers.map(l => l.thickness);
+}
 const sameThicknesses = (layers, expected) => layers.length === expected.length && layers.every((l, i) => l.thickness === expected[i]);
 
-// ── 1-2. On this thread, then in the worker ────────────────────────────────
+// ── 1-2. On this thread, then in the worker, for no choice and for DLS ─────
 const mfStart = meritOf(run, preview.design, resolveMat);
-for (const inWorker of [false, true]) {
-    if (inWorker) globalThis.Worker = NodeModuleWorker;
-    const where = inWorker ? 'in the worker' : 'on this thread';
-    const { nextDesign } = await applyCleanup(preview, design, dc, { ...settings, inWorker }, resolveMat);
-    ok(sameThicknesses(nextDesign.frontLayers, direct), `${where} the pass ends on the thicknesses of the refiner on the run's grid`);
-    const mfEnd = meritOf(run, nextDesign, resolveMat);
-    ok(mfEnd < 0.5 * mfStart, `${where} the pass lowers the merit on the run's grid (${mfStart} to ${mfEnd})`);
+const ends = {};
+for (const [label, choice] of [['default', {}], ['dls', { reoptMethod: 'dls' }]]) {
+    const direct = directThicknesses(choice.reoptMethod || DEFAULT_REFINE_METHOD);
+    ends[label] = direct;
+    for (const inWorker of [false, true]) {
+        globalThis.Worker = inWorker ? NodeModuleWorker : undefined;
+        const where = `${label}, ${inWorker ? 'in the worker' : 'on this thread'}:`;
+        const { nextDesign } = await applyCleanup(preview, design, dc, { ...settings, ...choice, inWorker }, resolveMat);
+        ok(sameThicknesses(nextDesign.frontLayers, direct), `${where} the pass ends on the thicknesses of its refiner on the run's grid`);
+        const mfEnd = meritOf(run, nextDesign, resolveMat);
+        ok(mfEnd < 0.5 * mfStart, `${where} the pass lowers the merit on the run's grid (${mfStart} to ${mfEnd})`);
+    }
 }
+
+// ── 3. The choice is used ──────────────────────────────────────────────────
+ok(!ends.default.every((d, i) => d === ends.dls[i]), 'DLS and the default refiner end on the same thicknesses');
 
 if (fails === 0) { console.log('PASS: design cleaner re-optimize samples as a refinement run'); process.exit(0); }
 console.error(`\n${fails} assertion(s) failed`);

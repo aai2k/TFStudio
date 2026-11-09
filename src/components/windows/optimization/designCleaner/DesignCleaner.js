@@ -44,7 +44,7 @@ export function DesignCleaner({ c, theme, t }) {
             fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
         }
     },
-        h(CleanerControls, { ...state, c, dc, units: t.units }),
+        h(CleanerControls, { ...state, c, dc, tr: t.refinement, units: t.units }),
         h(CleanerSummary, {
             ...state, c, dc,
             tip: t.meritFunctionEditor.provisionalTip, computingLabel: t.analysisEvaluation.computing,

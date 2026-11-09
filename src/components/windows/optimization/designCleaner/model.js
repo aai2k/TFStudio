@@ -8,13 +8,13 @@ export function computeCleanupPreview(design, opts) {
     return cleanupDesign(design, opts);
 }
 
-// The post-clean refinement: the app's default refiner on the cleaned stack,
-// its merit rows sampled as a Refinement run samples them at launch, so a
-// feature narrower than a row's grid is seen, the step budget clamped to
-// 1..500 and the thickness floor to at least 1 nm.
-function refineJob(cleaned, design, { reoptIters, dMin }) {
+// The post-clean refinement: the chosen refiner, the app's default unless one
+// is set, on the cleaned stack, its merit rows sampled as a Refinement run
+// samples them at launch, so a feature narrower than a row's grid is seen, the
+// step budget clamped to 1..500 and the thickness floor to at least 1 nm.
+function refineJob(cleaned, design, { reoptIters, dMin, reoptMethod }) {
     return {
-        method: DEFAULT_REFINE_METHOD,
+        method: reoptMethod || DEFAULT_REFINE_METHOD,
         operands: densifyForRun(design.meritOperands, cleaned),
         design: cleaned,
         iters: Math.max(1, Math.min(500, reoptIters)),
@@ -22,8 +22,8 @@ function refineJob(cleaned, design, { reoptIters, dMin }) {
     };
 }
 
-// Runs the optional post-clean refinement pass, with the app's default refiner,
-// and builds the applied result message. Never touches app/undo state directly.
+// Runs the optional post-clean refinement pass, with `reoptMethod` or the app's
+// default refiner, and builds the applied result message. Never touches app/undo state directly.
 // `inWorker` runs the pass in the optimizer worker, falling back to this thread
 // when none starts. Aborting `signal` ends the pass early on the best point so
 // far, or before the worker's first point with the cleaned design unrefined.
