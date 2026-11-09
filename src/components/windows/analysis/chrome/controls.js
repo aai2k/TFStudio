@@ -52,7 +52,9 @@ export function NumInput({
             width, height: 24, backgroundColor: c.field, color: c.text,
             border: `1px solid ${c.border}`, borderRadius: 3,
             fontSize: 12, fontFamily: FONT,
-            padding: '0 4px', outline: 'none', textAlign: 'right',
+            // The value is right-aligned; 7 px keeps it off the border, as the
+            // angle chips pad theirs.
+            padding: '0 7px 0 4px', outline: 'none', textAlign: 'right',
             opacity: disabled ? 0.5 : 1,
         }
     });
