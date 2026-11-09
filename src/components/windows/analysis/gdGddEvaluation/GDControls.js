@@ -87,6 +87,14 @@ export function GDControls({ c, t, text, state, raw, autoRange, notices, editor 
                 { id: 'p', label: 'p' },
             ],
         }),
+        h(ChoiceGroup, {
+            label: text.side, ariaLabel: text.side,
+            activeId: state.side, onSelect: state.setSide, c,
+            items: [
+                { id: 'front', label: text.front, color: '#1e88e5', disabled: !state.sideOffered.front },
+                { id: 'back', label: text.back, color: '#e53935', disabled: !state.sideOffered.back },
+            ],
+        }),
     );
 }
 
@@ -94,16 +102,6 @@ function GDSetup({ c, t, text, state, raw, autoRange }) {
     return h(SettingsMenu, {
         c, t, windowId: 'gdGddEvaluation', label: t.analysisChrome.settings, width: 300,
     },
-        h(SettingRow, { c, label: text.side || 'Side' },
-            h(ChoiceGroup, {
-                ariaLabel: text.side || 'Side',
-                activeId: state.side, onSelect: state.setSide, c,
-                items: [
-                    { id: 'front', label: text.front || 'Front', color: '#1e88e5' },
-                    { id: 'back', label: text.back || 'Back', color: '#e53935' },
-                ],
-            }),
-        ),
         h(SettingRow, { c, label: text.aoi },
             h(NumInput, {
                 value: state.theta, min: 0, max: 89, step: 1, c, width: 60,

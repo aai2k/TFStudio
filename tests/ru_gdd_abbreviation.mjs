@@ -41,7 +41,10 @@ const { GDControls } = await import('../src/components/windows/analysis/gdGddEva
 const noop = () => {};
 const toolbar = renderToStaticMarkup(h(GDControls, {
     c, t: ru, text: ru.gdgdd, raw: null, autoRange: null, notices: [],
-    state: { targets: [], target: 'R', quantity: 'gd', pol: 'avg', setQuantity: noop, setTarget: noop, setPol: noop },
+    state: {
+        targets: [], target: 'R', quantity: 'gd', pol: 'avg', setQuantity: noop, setTarget: noop, setPol: noop,
+        sideOffered: { front: true, back: true, total: true },
+    },
     editor: { editBlocker: null, editMode: false, setEditMode: noop },
 })).replace(/<[^>]*>/g, '\n');
 expect(!latin.test(toolbar), 'the GD/GDD toolbar shows a Latin quantity button');

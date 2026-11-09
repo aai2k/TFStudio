@@ -1,5 +1,5 @@
 import { buildMatColorMap, computeProfileForSide, computeTotalRegions } from './profileModel.js';
-import { resolveAvailableSide } from '../availableSide.js';
+import { offeredSides, resolveAvailableSide } from '../availableSide.js';
 import { profilerSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
@@ -39,8 +39,7 @@ export function useProfilerState(design, rp) {
         }
     }, [design, lambda, side, rp]);
 
-    // A side with no layers has no profile to show and is not offered.
-    const sideOffered = { front: hasFront, back: hasBack, total: hasFront || hasBack };
+    const sideOffered = offeredSides(design);
 
     return {
         lambda, quantity, side, showTable, profile, regions, matColorMap, sideOffered,

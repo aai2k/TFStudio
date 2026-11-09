@@ -2,7 +2,7 @@ import { paletteColors } from '../../../../constants/analysisDefaults.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { buildDiagramData, buildMatColorMap, sideHasLayers, sideStackLayers } from './model.js';
 import { buildAdmittanceTableRows, buildMaterialNames } from './tableModel.js';
-import { resolveAvailableSide } from '../availableSide.js';
+import { offeredSides, resolveAvailableSide } from '../availableSide.js';
 import { admittanceSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
@@ -54,7 +54,7 @@ export function useAdmittanceDiagram(design) {
 
     return {
         lambda, setLambda, theta, setTheta: value => setField('theta', value),
-        pol, setPol: value => setField('pol', value), side, setSide,
+        pol, setPol: value => setField('pol', value), side, setSide, sideOffered: offeredSides(design),
         view, setView: value => setField('view', value),
         showTable: session.showTable, setShowTable: value => setField('showTable', value),
         hasData, series, error, matColorMap, matName, tableRows,

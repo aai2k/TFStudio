@@ -65,8 +65,8 @@ function EllipsometrySetup({ c, t, text, state }) {
             h(ChoiceGroup, {
                 ariaLabel: text.side, activeId: state.side, onSelect: state.setSide, c,
                 items: [
-                    { id: 'front', label: text.modeFront, color: SIDE_COLORS.front },
-                    { id: 'back', label: text.modeBack, color: SIDE_COLORS.back },
+                    { id: 'front', label: text.modeFront, color: SIDE_COLORS.front, disabled: !state.sideOffered.front },
+                    { id: 'back', label: text.modeBack, color: SIDE_COLORS.back, disabled: !state.sideOffered.back },
                 ],
             }),
         ),

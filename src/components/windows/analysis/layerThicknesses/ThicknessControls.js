@@ -28,8 +28,8 @@ export function ThicknessControls({ c, t, lt, state, notices }) {
             label: lt.side, ariaLabel: lt.side,
             activeId: state.side, onSelect: state.setSide, c,
             items: [
-                { id: 'front', label: lt.front, color: SIDE_COLORS.front },
-                { id: 'back', label: lt.back, color: SIDE_COLORS.back },
+                { id: 'front', label: lt.front, color: SIDE_COLORS.front, disabled: !state.sideOffered.front },
+                { id: 'back', label: lt.back, color: SIDE_COLORS.back, disabled: !state.sideOffered.back },
             ],
         }),
     );

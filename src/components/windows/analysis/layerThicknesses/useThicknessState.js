@@ -1,5 +1,5 @@
 import { buildMatColorMap, computeThicknessRows } from './thicknessModel.js';
-import { resolveAvailableSide } from '../availableSide.js';
+import { offeredSides, resolveAvailableSide } from '../availableSide.js';
 import { thicknessSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
@@ -30,7 +30,7 @@ export function useThicknessState(design) {
     );
 
     return {
-        lambda, units, side, showTable, rows, matColorMap,
+        lambda, units, side, showTable, rows, matColorMap, sideOffered: offeredSides(design),
         setLambda: value => setField('lambda', value),
         setUnits: value => setField('units', value),
         setShowTable: value => setField('showTable', value),

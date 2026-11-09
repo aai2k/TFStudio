@@ -64,6 +64,7 @@ function makeState(overrides = {}) {
     return {
         written,
         lambda: 550, theta: 0, pol: 'avg', side: 'front', showTable: false,
+        sideOffered: { front: true, back: true, total: true },
         axisRefFromDesign: true, axisRefLambda: 550,
         display: { quantity: 'amplitude', component: 'total', xUnit: 'nm' },
         setLambda: set('lambda'), setTheta: set('theta'), setPol: set('pol'),

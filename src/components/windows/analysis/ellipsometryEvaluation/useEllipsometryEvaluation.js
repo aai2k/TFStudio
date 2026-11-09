@@ -1,5 +1,6 @@
 import { computeEllipsometrySweep } from './spectrum.js';
 import { ellipsometrySession } from './sessionState.js';
+import { offeredSides } from '../availableSide.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { useEffect, useState } = React;
@@ -26,7 +27,7 @@ export function useEllipsometryEvaluation(design) {
 
     return {
         mode, setMode: value => setField('mode', value),
-        side, setSide: value => setField('side', value),
+        side, setSide: value => setField('side', value), sideOffered: offeredSides(design),
         lambdaStart, setLambdaStart: value => setField('lambdaStart', value),
         lambdaEnd, setLambdaEnd: value => setField('lambdaEnd', value),
         lambdaStep, setLambdaStep: value => setField('lambdaStep', value),

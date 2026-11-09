@@ -1,5 +1,6 @@
 import { buildMatColorMap, computeProfile } from './profileModel.js';
 import { eFieldSession } from './sessionState.js';
+import { offeredSides } from '../availableSide.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { useEffect, useState } = React;
@@ -28,7 +29,7 @@ export function useEFieldState(design) {
     }, [design, lambda, theta, pol, side, refLambda]);
 
     return {
-        lambda, theta, pol, side, showTable, profile, matColorMap,
+        lambda, theta, pol, side, showTable, profile, matColorMap, sideOffered: offeredSides(design),
         // The box shows the λ₀ in force, so it never contradicts the axis title
         // next to it; it falls back to its own stored value only while the
         // design carries no λ₀ to read.

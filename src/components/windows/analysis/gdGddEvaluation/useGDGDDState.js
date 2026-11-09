@@ -3,6 +3,7 @@ import { selectGdGddTargets } from './gdTargets.js';
 import { gdGddSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
+import { offeredSides } from '../availableSide.js';
 
 const { useEffect, useMemo, useState } = React;
 
@@ -47,7 +48,7 @@ export function useGDGDDState(design) {
 
     return {
         liveDesign,
-        side, setSide: value => setField('side', value),
+        side, setSide: value => setField('side', value), sideOffered: offeredSides(liveDesign || design),
         target, setTarget: value => setField('target', value),
         quantity,
         // Changing quantity changes the unit, so any manual bounds are dropped

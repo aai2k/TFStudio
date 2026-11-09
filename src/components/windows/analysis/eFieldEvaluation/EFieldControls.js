@@ -36,8 +36,8 @@ export function EFieldControls({ c, t, ef, state, notices }) {
             label: ef.side, ariaLabel: ef.side,
             activeId: state.side, onSelect: state.setSide, c,
             items: [
-                { id: 'front', label: ef.front, color: SIDE_COLORS.front },
-                { id: 'back', label: ef.back, color: SIDE_COLORS.back },
+                { id: 'front', label: ef.front, color: SIDE_COLORS.front, disabled: !state.sideOffered.front },
+                { id: 'back', label: ef.back, color: SIDE_COLORS.back, disabled: !state.sideOffered.back },
             ],
         }),
     );

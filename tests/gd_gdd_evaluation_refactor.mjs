@@ -365,7 +365,7 @@ assert.doesNotMatch(markup, /data-gd-panel="axis"/, 'the axis panel is gone');
 assert.doesNotMatch(markup, /data-gd-panel="footer"/, 'the status footer is gone');
 assert.match(markup, />Settings</, 'ranges and geometry are behind a Settings panel');
 // Closed until asked for: a setting is not in the markup until the panel opens.
-assert.doesNotMatch(markup, /aria-label="Side"/, 'the side switch sits inside the panel');
+assert.match(markup, /aria-label="Side"/, 'the side switch is on the control row, beside Pol');
 assert.doesNotMatch(markup, />Auto</, 'the vertical range sits inside the panel');
 assert.doesNotMatch(markup, /λ step/, 'the live analysis has no numerical sampling control');
 assert.match(markup, /flex-wrap:wrap/,

@@ -42,8 +42,8 @@ export function AdmittanceControls({ c, t, state, notices }) {
             label: ad.side, ariaLabel: ad.side,
             activeId: state.side, onSelect: state.setSide, c,
             items: [
-                { id: 'front', label: ad.front, color: SIDE_COLORS.front },
-                { id: 'back', label: ad.back, color: SIDE_COLORS.back },
+                { id: 'front', label: ad.front, color: SIDE_COLORS.front, disabled: !state.sideOffered.front },
+                { id: 'back', label: ad.back, color: SIDE_COLORS.back, disabled: !state.sideOffered.back },
             ],
         }),
     );
