@@ -16,7 +16,7 @@ export function CleanerOpRow({ op, i, c, dc, units, dMin, design }) {
         h('td', { style: { padding: '2px 8px', color: c.text, fontSize: 11 } },
             label(op.srcIdx)),
         h('td', { style: { padding: '2px 8px', fontSize: 11,
-            color: op.kind === 'remove' ? '#ef5350' : '#ffd54f', fontWeight: 600 } },
+            color: op.kind === 'remove' ? c.error : c.warning, fontWeight: 600 } },
             op.kind === 'remove' ? dc.opRemove : dc.opMerge),
         h('td', { style: { padding: '2px 8px', color: c.text, fontSize: 11 } }, designMaterialName(design, op.materialId)),
         h('td', {

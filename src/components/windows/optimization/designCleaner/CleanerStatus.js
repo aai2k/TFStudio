@@ -61,11 +61,11 @@ export function CleanerSummary({
         ),
         h('div', null,
             h('span', { style: { color: c.textDim, marginRight: 4 } }, dc.toRemove + ':'),
-            h('span', { style: { color: removedOps.length ? '#ef5350' : c.text } }, removedOps.length)
+            h('span', { style: { color: removedOps.length ? c.error : c.text } }, removedOps.length)
         ),
         h('div', null,
             h('span', { style: { color: c.textDim, marginRight: 4 } }, dc.toMerge + ':'),
-            h('span', { style: { color: mergedOps.length ? '#ffd54f' : c.text } }, mergedOps.length)
+            h('span', { style: { color: mergedOps.length ? c.warning : c.text } }, mergedOps.length)
         ),
         ...meritItems({ c, dc, ...merit }),
         resultMsg && h('div', { style: { color: c.accent, marginLeft: 'auto' } }, resultMsg),
