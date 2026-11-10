@@ -4,7 +4,7 @@
  *
  * All three present the same layout: a control bar, a material-pool + settings
  * sidebar, a merit-trend chart (upper 40 %), a history table (lower 60 %), and a
- * Pareto "top designs" panel at the bottom. Only the metrics readout, the
+ * Pareto "top designs" panel under the table. Only the metrics readout, the
  * settings rows, and the underlying optimization engine differ between them.
  * This module owns the common frame; each window supplies its own slots
  * (metrics, settings rows, trend/table/top-designs elements) and drives its own
@@ -221,8 +221,9 @@ export function makeRowHelpers({ c, running, numWidth = 58 }) {
 }
 
 // ── Window layout ───────────────────────────────────────────────────────────
-// Control bar on top, [sidebar | trend (40 %) + table (60 %)] in the middle,
-// Pareto top-designs panel at the bottom.
+// Control bar on top, then [sidebar | trend (40 %) + table (60 %) + Pareto
+// top-designs panel]. The Pareto panel stays in the right-hand column, so the
+// sidebar keeps the window's full height for the material pool and settings.
 export function SynthesisShell({ c, controlBar, sidebar, trend, table, topDesigns, trendLabel, tableLabel }) {
     return h('div', {
         style: {
@@ -251,9 +252,9 @@ export function SynthesisShell({ c, controlBar, sidebar, trend, table, topDesign
                 },
                     h('div', { style: sectionHeaderStyle(c) }, tableLabel),
                     table
-                )
+                ),
+                topDesigns
             )
-        ),
-        topDesigns
+        )
     );
 }

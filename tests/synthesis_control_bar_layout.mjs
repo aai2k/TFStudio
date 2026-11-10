@@ -108,6 +108,29 @@ assert.equal(longStatus.props.style.visibility, 'visible');
     assert.equal(cells(rows[0]), cells(rows[1]), 'a row with an inserted material has no extra cell');
 }
 
+// The Pareto panel sits under the history table, in the right-hand column, so
+// the material pool and settings sidebar runs the window's full height. It
+// used to span the bottom of the window and take that height from the sidebar.
+{
+    const { SynthesisShell } = await import(
+        '../src/components/windows/optimization/synthesisShared/synthesisShell.js');
+    const mark = name => React.createElement('i', { 'data-slot': name });
+    const shell = SynthesisShell({
+        c, controlBar: mark('bar'), sidebar: mark('sidebar'), trend: mark('trend'),
+        table: mark('table'), topDesigns: mark('top'), trendLabel: 'Trend', tableLabel: 'Table',
+    });
+    const kids = node => [].concat(node.props.children).filter(Boolean);
+    const slot = (node, name) => node?.props?.['data-slot'] === name;
+    const holds = (node, name) => slot(node, name)
+        || (node?.props?.children != null && kids(node).some(child => holds(child, name)));
+    const [, middle] = kids(shell);
+    assert.ok(!kids(shell).some(child => slot(child, 'top')), 'the Pareto panel is not a row of the whole window');
+    const [sidebar, column] = kids(middle);
+    assert.ok(slot(sidebar, 'sidebar'), 'the sidebar fills the middle row on its own');
+    const parts = kids(column);
+    assert.ok(holds(parts.at(-2), 'table') && slot(parts.at(-1), 'top'), 'the Pareto panel comes right under the table');
+}
+
 function bestSlot(element) {
     return element.props.metrics.find(metric => metric?.props?.['data-synthesis-best']);
 }
