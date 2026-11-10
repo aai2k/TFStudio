@@ -18,10 +18,14 @@ function currentWindow(chart) {
  * position is carried across instead, and given up only when the run itself
  * changes length or the window size changes, since it no longer means the same
  * place.
+ *
+ * `chartRef`, when the window passes one, holds the chart so the window's
+ * export can save its picture.
  */
-export function WorksheetChart({ rows, c, t, layersInView }) {
+export function WorksheetChart({ rows, c, t, layersInView, chartRef: sharedRef }) {
     const divRef = useRef(null);
-    const chartRef = useRef(null);
+    const ownRef = useRef(null);
+    const chartRef = sharedRef || ownRef;
     const shapeRef = useRef(null);
     const staleRef = useRef(false);
     const argsRef = useRef(null);

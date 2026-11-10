@@ -10,8 +10,8 @@
  */
 
 import { SplitPane } from '../../../docking/SplitPane.js';
-import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
-import { csvFromRows, ResultsGrid } from '../../../ui/ResultsSection.js';
+import { ExportMenu } from '../../../ui/ExportMenu.js';
+import { ResultsGrid } from '../../../ui/ResultsSection.js';
 import { NoticeBadge } from '../../analysis/chrome/popover.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../../analysis/chrome/layout.js';
 import { matName } from '../wizardShared.js';
@@ -19,8 +19,9 @@ import { WorksheetChart } from './WorksheetChart.js';
 import { WorksheetControls } from './WorksheetControls.js';
 import { worksheetColumns, worksheetRows } from './tableModel.js';
 import { useMonitorWorksheet } from './useMonitorWorksheet.js';
+import { useWorksheetExport } from './useWorksheetExport.js';
 
-const { createElement: h } = React;
+const { createElement: h, useRef } = React;
 
 const SPLIT_CHILDREN = [{ id: 'worksheet-table' }, { id: 'worksheet-chart' }];
 
@@ -40,7 +41,7 @@ function errorLabel(error, t, resolveMat) {
 
 export function MonitorWorksheet({ c, t }) {
     const state = useMonitorWorksheet();
-    const { design, rows, poorCount } = state;
+    const { rows, poorCount } = state;
     const mw = t.monitorWorksheet;
     const error = errorLabel(state.error, t, state.resolveMat);
     const dt = t.dataTable;
@@ -49,16 +50,14 @@ export function MonitorWorksheet({ c, t }) {
         onChip: state.setChipForStep, onLambda: state.setLambdaForStep,
     });
     const tableRows = worksheetRows(rows, state.matNames);
-    const csv = useCsvExport(
-        () => csvFromRows(columns, tableRows),
-        () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_monitor_worksheet.csv`,
-    );
+    const chartRef = useRef(null);
+    const exported = useWorksheetExport({ state, columns, tableRows, chartRef, t });
 
     if (!state.stepCount) return h(CenteredMessage, { c, message: mw.noLayers });
 
     return h(AnalysisWindow, { c },
         h(WorksheetControls, {
-            c, t, state,
+            c, t, state, exportOutput: exported,
             trailing: [
                 state.chipGlassMissing && h(NoticeBadge, {
                     key: 'chip-glass', c, label: t.analysisChrome.notices,
@@ -73,10 +72,10 @@ export function MonitorWorksheet({ c, t }) {
                 }),
                 h(ExportMenu, {
                     key: 'export', drop: 'down',
-                    c, enabled: tableRows.length > 0, ...csv,
+                    c, enabled: tableRows.length > 0,
+                    items: exported.items, copied: exported.copied, saved: exported.saved, failed: exported.failed,
                     labels: {
-                        export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
-                        copied: dt.csvCopied, saved: dt.csvSaved,
+                        export: dt.export, copied: dt.csvCopied, saved: dt.csvSaved, failed: dt.saveFailed,
                     },
                 }),
             ],
@@ -93,7 +92,7 @@ export function MonitorWorksheet({ c, t }) {
                 error
                     ? null
                     : h(WorksheetChart, {
-                        rows, c, t, layersInView: state.session.layersInView,
+                        rows, c, t, layersInView: state.session.layersInView, chartRef,
                     }),
             ),
         ),

@@ -233,6 +233,25 @@ assert.ok(entry.requiresResolvedMaterials,
     assert.equal(down.top, 27, 'dropped down, the list hangs under the button');
     assert.equal(down.bottom, undefined);
     assert.equal(openList().bottom, 27, 'a footer menu still opens above it');
+
+    // The worksheet's own entries in place of Copy CSV and Save CSV, and a
+    // save that did not happen says so on the button, with the reason on hover.
+    runtime.reset();
+    const picked = [];
+    const props = {
+        c, labels: { ...labels, failed: 'Not saved' }, enabled: true, drop: 'down', failed: 'disk full',
+        items: [{ key: 'a', label: 'Save table', onClick: () => picked.push('a') }, { key: 'b', label: 'Save signal curves', onClick: () => picked.push('b') }],
+    };
+    const button = runtime.render(() => ExportMenu(props)).props.children[0];
+    assert.ok(button.props.children.includes('Not saved'), 'the button says the save failed');
+    assert.equal(button.props.title, 'disk full', 'and why, on hover');
+    assert.equal(button.props.style.color, c.error);
+    button.props.onClick();
+    const list = [].concat(runtime.render(() => ExportMenu(props)).props.children).filter(Boolean).at(-1);
+    const entries = [].concat(list.props.children).flat();
+    assert.deepEqual(entries.map(entry => entry.props.children), ['Save table', 'Save signal curves']);
+    entries[1].props.onClick();
+    assert.deepEqual(picked, ['b'], 'an entry runs its own action');
     const source = readFileSync(new URL('../src/components/windows/simulation/monitorWorksheet/MonitorWorksheet.js', import.meta.url), 'utf8');
     assert.match(source, /h\(ExportMenu, \{\s*key: 'export', drop: 'down'/, 'the worksheet drops its menu down');
 }

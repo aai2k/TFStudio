@@ -115,7 +115,9 @@ cut on time have no optical feedback and show none.
 
 **Crystal** is the thickness to run the quartz monitor to, in kilo-angstroms, on every layer. The flagged layers are the ones the crystal has to carry and are drawn in full; the rest are dimmed.
 
-**Export** writes the table to CSV.
+**Export** copies the table, or saves the table, the signal curves or the chart as a picture. The signal curves are the chart's own: for every layer, from its start to its cut, the thickness deposited in the layer, the position on the chart's axis and the signal. The dashed continuation past a cut is left out.
+
+How the table and the curves are written is set at the bottom of the settings panel: one file for the run or one per chip, the header (the conditions on # lines, the column names only, or numbers only), the delimiter, the decimal places and the decimal mark. The same settings apply to every design. One file is saved through a save dialog; one file per chip goes into a folder you pick.
 
 ## The chart
 

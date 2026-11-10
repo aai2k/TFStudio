@@ -16,15 +16,12 @@ import { ControlRow } from '../../analysis/chrome/layout.js';
 import {
     NoticeBadge, SettingDivider, SettingRow, SettingsMenu,
 } from '../../analysis/chrome/popover.js';
+import { decimalMarkRow, decimalsRow, delimiterRow } from '../../analysis/chrome/textTableRows.js';
 
 const { createElement: h, Fragment } = React;
 
 const SIDE_COLORS = { front: '#1e88e5', back: '#e53935' };
 const FORMATS = ['res', 'csv', 'txt'];
-const DELIMITERS = [
-    { id: ',', key: 'delimComma' }, { id: ';', key: 'delimSemicolon' },
-    { id: '\t', key: 'delimTab' }, { id: ' ', key: 'delimSpace' },
-];
 
 function StatusMessage({ c, status }) {
     const error = status.type === 'error';
@@ -78,22 +75,13 @@ function ProcessSettings({ c, t, sp, setup }) {
 
 // What a save writes. A .res file has one layout, so the rows under the format
 // show for CSV and text only.
-//
-// A decimal comma in a comma-delimited row has to be quoted, and most readers,
-// the spectrum importer among them, do not undo the quotes. The comma
-// delimiter is not offered beside a decimal comma, and choosing the comma mark
-// moves a comma delimiter to a semicolon.
 function OutputSettings({ c, t, sp, setup }) {
     const { output, setOutputOption } = setup;
     const sx = t.spectrumExchange;
-    const choice = (key, label, items, onSelect = id => setOutputOption(key, id)) => h(SettingRow, { c, label },
-        h(ChoiceGroup, { ariaLabel: label, activeId: output[key], c, items, onSelect }),
+    const choice = (key, label, items) => h(SettingRow, { c, label },
+        h(ChoiceGroup, { ariaLabel: label, activeId: output[key], c, items, onSelect: id => setOutputOption(key, id) }),
     );
-    const delimiters = output.decimalMark === ',' ? DELIMITERS.filter(({ id }) => id !== ',') : DELIMITERS;
-    const pickDecimalMark = (id) => {
-        setOutputOption('decimalMark', id);
-        if (id === ',' && output.delimiter === ',') setOutputOption('delimiter', ';');
-    };
+    const rowArgs = { c, t, output, setOption: setOutputOption };
     const format = choice('format', sp.fileFormat, FORMATS.map(id => ({ id, label: `.${id}` })));
     if (output.format === 'res') return format;
     return h(Fragment, null,
@@ -107,21 +95,13 @@ function OutputSettings({ c, t, sp, setup }) {
             { id: 'conditions', label: sp.headerConditions, title: sp.headerConditionsHint },
             { id: 'none', label: sp.headerNone, title: sp.headerNoneHint },
         ]),
-        choice('delimiter', sp.delimiterLabel, delimiters.map(({ id, key }) => ({ id, label: sx[key] }))),
+        delimiterRow(rowArgs),
         choice('scale', sx.exportScaleLabel, [
             { id: 'percent', label: sx.percent },
             { id: 'fraction', label: sx.fraction },
         ]),
-        // Twelve, the decimals the shared writer keeps when no count is set:
-        // a percentage held in double precision has no more to give.
-        h(SettingRow, { c, label: sp.decimalsLabel },
-            h(NumInput, {
-                c, width: 68, value: output.decimals, min: 0, max: 12, step: 1,
-                onChange: value => setOutputOption('decimals', Math.round(value)),
-            }),
-        ),
-        // The marks are shown as the numbers they write.
-        choice('decimalMark', sp.decimalMarkLabel, [{ id: '.', label: '0.5' }, { id: ',', label: '0,5' }], pickDecimalMark),
+        decimalsRow(rowArgs),
+        decimalMarkRow(rowArgs),
     );
 }
 

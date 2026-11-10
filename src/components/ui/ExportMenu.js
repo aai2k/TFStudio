@@ -4,18 +4,34 @@ const { createElement: h, useState } = React;
  * Export dropdown for the analysis windows: Copy CSV / Save CSV, with the
  * button label reporting what just happened.
  *
- *   labels  { export, copyCsv, saveCsv, copied, saved }
+ *   labels  { export, copyCsv, saveCsv, copied, saved, failed }
  *   enabled false greys the button out when there is nothing to export
  *   drop    'up' for a menu in a footer, which opens above it; 'down' for one in
  *           a window's top row, where a list opened upward would be off the
  *           window and out of reach
+ *   items   [{ key, label, onClick }] in place of Copy CSV and Save CSV, for a
+ *           window that exports more than one table
+ *   failed  why the last export did not happen; the button says so and its
+ *           tooltip gives the reason
  */
-export function ExportMenu({ c, labels, enabled, copied, copyCSV, saved, saveCSV, drop = 'up' }) {
+export function ExportMenu({
+    c, labels, enabled, copied, copyCSV, saved, saveCSV, drop = 'up', items = null, failed = null,
+}) {
     const [open, setOpen] = useState(false);
     const run = action => { setOpen(false); action(); };
+    const entries = items || [
+        { key: 'copy', label: labels.copyCsv, onClick: copyCSV },
+        { key: 'save', label: labels.saveCsv, onClick: saveCSV },
+    ];
     let status = labels.export;
-    if (copied) status = labels.copied;
-    else if (saved) status = labels.saved;
+    let statusColor = c.text;
+    if (copied || saved) {
+        status = copied ? labels.copied : labels.saved;
+        statusColor = c.accent;
+    } else if (failed) {
+        status = labels.failed;
+        statusColor = c.error;
+    }
     const itemStyle = {
         width: '100%', padding: '6px 10px', border: 'none', background: 'transparent',
         color: c.text, cursor: 'pointer', textAlign: 'left', fontSize: 11,
@@ -24,12 +40,12 @@ export function ExportMenu({ c, labels, enabled, copied, copyCSV, saved, saveCSV
     return h('div', { style: { position: 'relative', flexShrink: 0 } },
         h('button', {
             onClick: () => enabled && setOpen(current => !current), disabled: !enabled,
-            'aria-expanded': open,
+            'aria-expanded': open, title: failed || undefined,
             style: {
                 height: 22, display: 'flex', alignItems: 'center', gap: 5,
                 padding: '0 8px', fontSize: 11, cursor: enabled ? 'pointer' : 'default',
                 border: `1px solid ${c.border}`, borderRadius: 6,
-                backgroundColor: 'transparent', color: (copied || saved) ? c.accent : c.text,
+                backgroundColor: 'transparent', color: statusColor,
                 outline: 'none', fontFamily: 'system-ui', opacity: enabled ? 1 : 0.5,
             },
         },
@@ -56,8 +72,7 @@ export function ExportMenu({ c, labels, enabled, copied, copyCSV, saved, saveCSV
                 borderRadius: 5, boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
             },
         },
-            h('button', { onClick: () => run(copyCSV), style: itemStyle }, labels.copyCsv),
-            h('button', { onClick: () => run(saveCSV), style: itemStyle }, labels.saveCsv),
+            entries.map(item => h('button', { key: item.key, onClick: () => run(item.onClick), style: itemStyle }, item.label)),
         ),
     );
 }

@@ -2,6 +2,7 @@ import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { ActionButton, ChoiceGroup, FieldLabel, NumInput, ResponseChoice } from '../../analysis/chrome/controls.js';
 import { ControlRow } from '../../analysis/chrome/layout.js';
 import { SettingDivider, SettingRow, SettingsMenu } from '../../analysis/chrome/popover.js';
+import { decimalMarkRow, decimalsRow, delimiterRow } from '../../analysis/chrome/textTableRows.js';
 import { MaterialPicker } from '../../../ui/MaterialPicker.js';
 
 const { createElement: h } = React;
@@ -11,12 +12,12 @@ const { createElement: h } = React;
  * sits on the row with the two buttons that re-plan the run. Everything about
  * the monitor itself is a setting.
  */
-export function WorksheetControls({ c, t, state, trailing = [] }) {
+export function WorksheetControls({ c, t, state, exportOutput, trailing = [] }) {
     const mw = t.monitorWorksheet;
     const { session } = state;
     return h(ControlRow, {
         c,
-        trailing: [...trailing, h(MonitorSetup, { key: 'setup', c, t, state })],
+        trailing: [...trailing, h(MonitorSetup, { key: 'setup', c, t, state, exportOutput })],
     },
         h(FieldLabel, { c }, mw.layersPerChip),
         h(NumInput, {
@@ -49,7 +50,35 @@ export function WorksheetControls({ c, t, state, trailing = [] }) {
     );
 }
 
-function MonitorSetup({ c, t, state }) {
+// How the export writes its files: one for the run or one per chip, the
+// header, and the numbers, as in the Process Exporter.
+function exportRows({ c, t, exportOutput }) {
+    if (!exportOutput) return [];
+    const mw = t.monitorWorksheet;
+    const sp = t.processSim;
+    const { output, setOutputOption } = exportOutput;
+    const choice = (key, label, items) => h(SettingRow, { c, label },
+        h(ChoiceGroup, { ariaLabel: label, activeId: output[key], c, items, onSelect: id => setOutputOption(key, id) }),
+    );
+    const rowArgs = { c, t, output, setOption: setOutputOption };
+    return [
+        h(SettingDivider, { c }),
+        choice('files', sp.filesLabel, [
+            { id: 'table', label: sp.filesTable },
+            { id: 'chip', label: mw.filesPerChip },
+        ]),
+        choice('header', sp.headerLabel, [
+            { id: 'conditions', label: sp.headerConditions, title: mw.headerConditionsTip },
+            { id: 'names', label: mw.headerNames },
+            { id: 'none', label: sp.headerNone, title: sp.headerNoneHint },
+        ]),
+        delimiterRow(rowArgs),
+        decimalsRow(rowArgs),
+        decimalMarkRow(rowArgs),
+    ];
+}
+
+function MonitorSetup({ c, t, state, exportOutput }) {
     const mw = t.monitorWorksheet;
     const { session, setField } = state;
     return h(SettingsMenu, {
@@ -126,5 +155,6 @@ function MonitorSetup({ c, t, state }) {
             }),
             h(FieldLabel, { c }, '%'),
         ),
+        ...exportRows({ c, t, exportOutput }),
     );
 }
