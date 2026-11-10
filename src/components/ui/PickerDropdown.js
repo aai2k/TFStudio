@@ -13,6 +13,11 @@
  * take the better part of a second. Only the entries on screen are built, so the
  * cost no longer grows with the size of the installed catalogs.
  *
+ * The list is picked from by keys as well as by mouse. A highlight sits on the
+ * current entry when the list opens and on the first match once something is
+ * typed; Up and Down move it over the rows, Enter picks the row it is on, and
+ * Escape closes the list. The keys are in pickerKeys.js.
+ *
  * @param {string}   value       current selected id
  * @param {function} onChange    called with the picked item id
  * @param {object}   c           color palette
@@ -34,6 +39,7 @@
 const { createElement: h, useState, useEffect, useLayoutEffect, useMemo, useRef } = React;
 
 import { PickerTabs } from './pickerTabs.js';
+import { firstRow, handleListKey } from './pickerKeys.js';
 import { ownerWindow, listenForDismiss } from './ownerWindow.js';
 
 // Heights of a row and of a section header, in px. They are applied to the
@@ -169,8 +175,23 @@ export function scrollTopFor(tops, index, viewportH) {
     return Math.max(0, Math.min(centred, tops[tops.length - 1] - viewportH));
 }
 
-// One selectable row.
-function itemRow(item, key, { c, activeOf, select }) {
+/**
+ * Where the list rests and which row is highlighted, each time the list opens
+ * or its contents change. Opened with nothing typed, it rests on the current
+ * entry, centred and highlighted. Once something is typed, or a tab filters the
+ * list, it goes back to the top with the first match highlighted, so a typed
+ * name and Enter picks it.
+ */
+export function restingPlace(cells, tops, { opening, query, activeOf, viewportH }) {
+    const first = firstRow(cells);
+    if (!opening || query) return { top: 0, highlight: first };
+    const current = cells.findIndex(cell => cell.item && activeOf(cell.item));
+    return { top: scrollTopFor(tops, current, viewportH), highlight: current >= 0 ? current : first };
+}
+
+// One selectable row. The keyboard highlight is an outline, so it shows on the
+// current entry without hiding that entry's own marking.
+function itemRow(item, key, { c, activeOf, select }, highlighted) {
     const active = activeOf(item);
     return h('div', {
         key,
@@ -181,6 +202,7 @@ function itemRow(item, key, { c, activeOf, select }) {
             height: ROW_H, boxSizing: 'border-box',
             padding: '3px 8px', lineHeight: '15px', cursor: 'pointer',
             backgroundColor: active ? c.accent + '33' : 'transparent',
+            boxShadow: highlighted ? `inset 0 0 0 1px ${c.accent}` : 'none',
             color: active ? c.accent : c.text, fontSize: 12,
         },
         onMouseEnter: (e) => { e.currentTarget.style.backgroundColor = c.hover; },
@@ -224,7 +246,7 @@ function listBody(s, win) {
         const cell = cells[i];
         children.push(cell.header
             ? headerRow(cell.header, c)
-            : itemRow(cell.item, `${cell.group ? cell.group.id + '/' : ''}${cell.item.id}`, { c, activeOf, select }));
+            : itemRow(cell.item, `${cell.group ? cell.group.id + '/' : ''}${cell.item.id}`, { c, activeOf, select }, i === s.highlight));
     }
     if (win.padBottom > 0) children.push(h('div', { key: 'pad-bottom', style: { height: win.padBottom } }));
     return children;
@@ -273,6 +295,7 @@ export function overlayEl(s) {
         // search box mid-word. Nothing inside the list is the host's business.
         onClick: stopPropagation,
         onContextMenu: stopPropagation,
+        onKeyDown: s.onKeyDown,
         style: {
             position: 'fixed', zIndex: 9999,
             ...(dropPos.top != null ? { top: dropPos.top } : { bottom: dropPos.bottom }),
@@ -341,6 +364,7 @@ export function PickerDropdown(props) {
     const [query,     setQuery]     = useState(autoOpen ? initialQuery : '');
     const [catFilter, setCatFilter] = useState('all');
     const [scrollTop, setScrollTop] = useState(0);
+    const [highlight, setHighlight] = useState(-1);
     const [dropPos,   setDropPos]   = useState({ top: 0, left: 0, width: 0, maxH: 320 });
 
     const triggerRef = useRef(null);
@@ -387,22 +411,20 @@ export function PickerDropdown(props) {
     // The list opens on the current entry, and goes back to the top whenever a
     // query or a filter changes what is in it: the best matches for what was
     // just typed are at the top, and jumping to the old value would hide them.
+    // Finding the current entry means walking the whole list, which on a machine
+    // carrying the full catalogs is thousands of rows, so only the render that
+    // opens the picker looks for it (restingPlace).
     useLayoutEffect(() => {
         if (!open) { opening.current = false; return; }
         const list = listRef.current;
         if (!list) return;
-        // Finding the current entry means walking the whole list, which on a
-        // machine carrying the full catalogs is thousands of rows. Only the
-        // render that opens the picker needs it; every keystroke after that
-        // goes to the top regardless.
-        let top = 0;
-        if (opening.current) {
-            const current = cells.findIndex(cell => cell.item && activeOf(cell.item));
-            top = scrollTopFor(tops, current, list.clientHeight);
-        }
+        const rest = restingPlace(cells, tops, {
+            opening: opening.current, query, activeOf, viewportH: list.clientHeight,
+        });
         opening.current = false;
-        list.scrollTop = top;
-        setScrollTop(top);
+        list.scrollTop = rest.top;
+        setScrollTop(rest.top);
+        setHighlight(rest.highlight);
     }, [open, query, catFilter]); // eslint-disable-line
 
     useDismiss(open, (_, how) => close(how), dropRef, triggerRef);
@@ -426,11 +448,15 @@ export function PickerDropdown(props) {
     const select = (id) => { onChange(id); close('pick'); };
     const onListScroll = (e) => setScrollTop(e.currentTarget.scrollTop);
 
+    const onKeyDown = (e) => handleListKey(e, {
+        cells, tops, highlight, setHighlight, select, listRef, setScrollTop,
+    });
+
     const shared = {
         triggerRef, dropRef, searchRef, listRef, onTrigger, open, compact, c,
         triggerColor, triggerLabel, groups, catFilter, setCatFilter, currentGroup, allLabel,
         dropPos, query, setQuery, searchPlaceholder, emptyText,
-        cells, tops, scrollTop, onListScroll, activeOf, select,
+        cells, tops, scrollTop, onListScroll, activeOf, select, highlight, onKeyDown,
     };
 
     if (!open) return triggerEl(shared);

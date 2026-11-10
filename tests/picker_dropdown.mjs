@@ -15,15 +15,17 @@ shimBrowserGlobals();
 await loadApp();
 
 const [
-    { listCells, cellTops, visibleWindow, scrollTopFor, overlayEl, dropPositionFrom },
+    { listCells, cellTops, visibleWindow, scrollTopFor, overlayEl, dropPositionFrom, restingPlace },
     { PickerTabs, scrollTabIntoView, stripEdges, pagedOffset, fadeMask, keepSearchFocus },
     { designEntries, rowIsCurrent, currentGroupOf, catalogRows },
     { initCatalogs },
+    { firstRow, nextRow, scrollToShow, listKeyAction, handleListKey },
 ] = await Promise.all([
     import('../src/components/ui/PickerDropdown.js'),
     import('../src/components/ui/pickerTabs.js'),
     import('../src/components/ui/MaterialPicker.js'),
     import('../src/utils/materials/catalogManager.js'),
+    import('../src/components/ui/pickerKeys.js'),
 ]);
 
 initCatalogs({});
@@ -383,6 +385,122 @@ assert.match(pickerSource, /!triggerRef\.current\?\.contains\(e\.target\)\) setO
     'and dismissal still ignores the trigger, so the two do not fight over the same click');
 assert.match(pickerSource, /setCatFilter\('all'\);[\s\S]{0,120}setOpen\(true\);/,
     'opening always shows the full list; the current group is marked, never used as the filter');
+
+// ── The list is picked from by keys ──────────────────────────────────────────
+//
+// The merit table opens the operand picker on Enter or a typed letter, with the
+// focus in its search box, and the Design Editor's material cell is a picker
+// too. Without keys for the list, the only way to choose from it was the mouse.
+{
+    const keyGroups = [{ id: 'g1', label: 'One' }, { id: 'g2', label: 'Two' }];
+    const row = (id, group) => ({ id, label: id.toUpperCase(), group });
+    const cells = listCells([row('a', 'g1'), row('b', 'g1'), row('c', 'g2')], keyGroups, true);
+    const tops = cellTops(cells);
+    const idAt = index => cells[index]?.item?.id ?? null;
+
+    assert.equal(idAt(firstRow(cells)), 'a', 'the first row is the one under the first heading');
+    assert.equal(firstRow([]), -1, 'an empty list has no row to highlight');
+
+    assert.equal(idAt(nextRow(cells, 2, 1)), 'c', 'Down steps over the next group\'s heading');
+    assert.equal(idAt(nextRow(cells, 4, -1)), 'b', 'and Up over it the other way');
+    assert.equal(idAt(nextRow(cells, 4, 1)), 'c', 'at the last row Down stays');
+    assert.equal(idAt(nextRow(cells, 1, -1)), 'a', 'and at the first row Up stays, never on a heading');
+
+    assert.deepEqual(listKeyAction('ArrowDown', cells, 1), { highlight: 2 }, 'an arrow moves the highlight');
+    assert.deepEqual(listKeyAction('Enter', cells, 4), { pick: 'c' }, 'Enter picks the highlighted row');
+    assert.deepEqual(listKeyAction('Enter', [], -1), {}, 'with nothing highlighted Enter picks nothing');
+    assert.equal(listKeyAction('t', cells, 1), null, 'a letter is left to the search box');
+    assert.equal(listKeyAction('Escape', cells, 1), null, 'and Escape to the dismissal that already closes the list');
+
+    // Where the highlight rests: on the current entry when the list opens with
+    // nothing typed, on the first match once something is.
+    const currentIsC = item => item.id === 'c';
+    const opened = restingPlace(cells, tops, { opening: true, query: '', activeOf: currentIsC, viewportH: 300 });
+    assert.equal(idAt(opened.highlight), 'c', 'opened with nothing typed, the current entry is highlighted');
+
+    const matches = listCells([row('b', 'g1'), row('c', 'g2')], keyGroups, true);
+    const typedIn = restingPlace(matches, cellTops(matches), { opening: false, query: 'b', activeOf: currentIsC, viewportH: 300 });
+    assert.deepEqual([matches[typedIn.highlight].item.id, typedIn.top], ['b', 0],
+        'after typing, the first match is highlighted at the top, not the current entry further down');
+    const openedByLetter = restingPlace(matches, cellTops(matches), { opening: true, query: 'b', activeOf: currentIsC, viewportH: 300 });
+    assert.equal(matches[openedByLetter.highlight].item.id, 'b',
+        'a picker opened by a typed letter is typed into, so it starts on the first match too');
+    const notListed = restingPlace(cells, tops, { opening: true, query: '', activeOf: () => false, viewportH: 300 });
+    assert.deepEqual([idAt(notListed.highlight), notListed.top], ['a', 0],
+        'with no current entry in the list, the first row is highlighted');
+
+    const deepCurrent = item => item.id === 'g21500';
+    const deepRest = restingPlace(bigCells, bigTops, { opening: true, query: '', activeOf: deepCurrent, viewportH: 300 });
+    assert.equal(bigCells[deepRest.highlight].item.id, 'g21500', 'far down a long list the current entry is highlighted');
+    assert.equal(deepRest.top, scrollTopFor(bigTops, deepRest.highlight, 300), 'and centred, as the list always opened');
+
+    // The highlighted row is kept in view as the arrows move it.
+    assert.equal(scrollToShow(flatTops, 20, 0, 300), flatTops[21] - 300, 'a row below the view scrolls up to its bottom edge');
+    assert.equal(scrollToShow(flatTops, 5, 0, 300), 0, 'a row in view does not move the list');
+    assert.equal(scrollToShow(flatTops, 5, 200, 300, HEADER_H), flatTops[5] - HEADER_H,
+        'a row above the view comes back clear of the sticky heading');
+    assert.equal(scrollToShow(flatTops, 0, 40, 300, HEADER_H), 0, 'never past the top of the list');
+
+    // The overlay draws the highlight and takes the keys.
+    const onKeyDown = () => {};
+    const keyed = overlayEl({
+        dropRef: { current: null }, listRef: { current: null },
+        searchRef: { current: null }, dropPos: { top: 0, left: 0, width: 300, maxH: 320 },
+        c, query: '', setQuery: () => {}, searchPlaceholder: 'Search', groups: keyGroups,
+        catFilter: 'all', allLabel: 'All', setCatFilter: () => {}, emptyText: 'nothing',
+        activeOf: currentIsC, select: () => {}, onListScroll: () => {},
+        cells, tops, scrollTop: 0, highlight: 2, onKeyDown,
+    });
+    assert.equal(keyed.props.onKeyDown, onKeyDown, 'keys in the search box or the tabs reach the list');
+    const rows = keyed.props.children[2].props.children.filter(el => el.key?.includes('/'));
+    const outlined = rows.filter(el => el.props.style.boxShadow !== 'none').map(el => el.key);
+    assert.deepEqual(outlined, ['g1/b'], 'only the highlighted row is outlined');
+    assert.ok(rows.find(el => el.key === 'g1/b').props.style.boxShadow.includes(c.accent));
+
+    // The handler the overlay is given, driven with a key event.
+    const keyEvent = key => {
+        const event = { key, prevented: false, stopped: false };
+        event.preventDefault = () => { event.prevented = true; };
+        event.stopPropagation = () => { event.stopped = true; };
+        return event;
+    };
+    const listState = (highlight, el) => {
+        const state = { cells, tops, highlight, picked: null, scrolled: null, listRef: { current: el } };
+        state.setHighlight = index => { state.highlight = index; };
+        state.select = id => { state.picked = id; };
+        state.setScrollTop = top => { state.scrolled = top; };
+        return state;
+    };
+
+    const enter = listState(4, null);
+    const enterKey = keyEvent('Enter');
+    handleListKey(enterKey, enter);
+    assert.equal(enter.picked, 'c', 'Enter picks the highlighted row');
+    assert.ok(enterKey.prevented && enterKey.stopped, 'and is kept from the table holding the picker');
+
+    // A list two rows high scrolled to its top: Down from b to c passes a
+    // heading and leaves the view, so the list follows.
+    const pane = { scrollTop: 0, clientHeight: 2 * (tops[2] - tops[1]) };
+    const down = listState(2, pane);
+    const downKey = keyEvent('ArrowDown');
+    handleListKey(downKey, down);
+    assert.equal(idAt(down.highlight), 'c', 'Down moves the highlight to the next row');
+    assert.equal(pane.scrollTop, tops[5] - pane.clientHeight, 'and scrolls the list to show it');
+    assert.equal(down.scrolled, pane.scrollTop, 'telling the windowed list where it now is');
+    assert.ok(downKey.prevented && downKey.stopped, 'the arrow is kept from the table too');
+
+    const letter = listState(1, null);
+    const letterKey = keyEvent('t');
+    handleListKey(letterKey, letter);
+    assert.deepEqual([letter.highlight, letter.picked, letterKey.prevented], [1, null, false],
+        'a letter goes on to the search box untouched');
+
+    const empty = { ...listState(-1, { scrollTop: 0, clientHeight: 100 }), cells: [], tops: [0] };
+    assert.doesNotThrow(() => handleListKey(keyEvent('ArrowUp'), empty), 'an arrow on an empty list does nothing');
+
+    assert.match(pickerSource, /handleListKey\(e, \{/, 'the picker hands its keys to handleListKey');
+    assert.match(pickerSource, /const rest = restingPlace\(/, 'and places the highlight through restingPlace');
+}
 
 // ── The trigger carries the chevron a select has ─────────────────────────────
 {
