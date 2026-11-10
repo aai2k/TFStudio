@@ -59,12 +59,6 @@ export function materialLayerTrack(extra = {}) {
     };
 }
 
-export function shiftedThicknessUnit(unit, delta) {
-    const index = Math.max(0, LAYER_THICKNESS_COLUMNS.findIndex(column => column.unit === unit));
-    const next = Math.max(0, Math.min(LAYER_THICKNESS_COLUMNS.length - 1, index + delta));
-    return LAYER_THICKNESS_COLUMNS[next].unit;
-}
-
 /** Excel-style destination after committing a thickness cell. */
 export function nextThicknessCell(rows, rowId, unit, direction) {
     const rowIndex = rows.findIndex(row => row.id === rowId);

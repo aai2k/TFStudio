@@ -73,10 +73,14 @@ function releaseGhost(visual) {
     document.documentElement.classList.remove('tf-layer-dragging');
 }
 
-/** Pointer-driven sortable rows with a full-row drag ghost and one commit on drop. */
+/**
+ * Pointer-driven sortable rows with a full-row drag ghost and one commit on
+ * drop. The handle sits on the row number, so a drag selects the rows it moves
+ * as rows, with `selectRows(ids, focusId)`.
+ */
 export function useLayerDrag({
-    displayedLayers, selectedIds, selectOnly, scrollRef,
-    reorderLayers, reversed, side, setSelectedIds, setSelectedId, c,
+    displayedLayers, selectedIds, scrollRef,
+    reorderLayers, reversed, side, selectRows, c,
 }) {
     const dragRef = useRef(null);
     const [dropIndicator, setDropIndicator] = useState(null);
@@ -92,7 +96,7 @@ export function useLayerDrag({
         const ids = selectedIds.has(id)
             ? displayedLayers.filter(layer => selectedIds.has(layer.id)).map(layer => layer.id)
             : [id];
-        if (!selectedIds.has(id)) selectOnly(id);
+        selectRows(ids, id);
 
         const sourceRow = event.currentTarget.closest('[data-layer-id]');
         if (!sourceRow) return;
@@ -170,8 +174,7 @@ export function useLayerDrag({
             cleanup();
             if (state.active && target
                 && reorderLayers(side, ids, target.id, target.position, reversed)) {
-                setSelectedIds(new Set(ids));
-                setSelectedId(ids[ids.length - 1]);
+                selectRows(ids, ids[ids.length - 1]);
             }
         };
         const handleCancel = () => cleanup();
@@ -180,8 +183,7 @@ export function useLayerDrag({
         window.addEventListener('pointermove', handleMove, { passive: false });
         window.addEventListener('pointerup', handleUp, { once: true });
         window.addEventListener('pointercancel', handleCancel, { once: true });
-    }, [c, displayedLayers, reorderLayers, reversed, scrollRef, selectOnly, selectedIds,
-        setSelectedId, setSelectedIds, side]);
+    }, [c, displayedLayers, reorderLayers, reversed, scrollRef, selectRows, selectedIds, side]);
 
     return { dropIndicator, onPointerDownDrag };
 }

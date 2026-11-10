@@ -16,7 +16,8 @@
  * The list is picked from by keys as well as by mouse. A highlight sits on the
  * current entry when the list opens and on the first match once something is
  * typed; Up and Down move it over the rows, Enter picks the row it is on, and
- * Escape closes the list. The keys are in pickerKeys.js.
+ * Escape closes the list. The keys are in pickerKeys.js, the tabs in
+ * pickerTabs.js and the closed trigger in pickerTrigger.js.
  *
  * @param {string}   value       current selected id
  * @param {function} onChange    called with the picked item id
@@ -39,6 +40,7 @@
 const { createElement: h, useState, useEffect, useLayoutEffect, useMemo, useRef } = React;
 
 import { PickerTabs } from './pickerTabs.js';
+import { dotStyle, triggerEl } from './pickerTrigger.js';
 import { firstRow, handleListKey } from './pickerKeys.js';
 import { ownerWindow, listenForDismiss } from './ownerWindow.js';
 
@@ -54,14 +56,6 @@ const OVERSCAN = 6;
 
 function stopPropagation(event) {
     event.stopPropagation();
-}
-
-function dotStyle(color) {
-    return {
-        width: 9, height: 9, borderRadius: '50%',
-        backgroundColor: color || '#888', flexShrink: 0,
-        display: 'inline-block', marginRight: 4
-    };
 }
 
 // Overlay position from the trigger rect; flips upward near the viewport bottom.
@@ -252,31 +246,6 @@ function listBody(s, win) {
     return children;
 }
 
-// Closed-state trigger button.
-function triggerEl(s) {
-    const { triggerRef, onTrigger, compact, c, open, triggerColor, triggerLabel } = s;
-    return h('div', {
-        ref: triggerRef,
-        onClick: onTrigger,
-        style: {
-            display: 'flex', alignItems: 'center', boxSizing: 'border-box',
-            flex: compact ? undefined : 1,
-            width: compact ? '100%' : undefined,
-            minWidth: 0,
-            height: 22, padding: '0 4px',
-            backgroundColor: c.panel, color: c.text,
-            border: `1px solid ${open ? c.accent : c.border}`, borderRadius: 3,
-            fontSize: 12, fontFamily: 'system-ui, -apple-system, sans-serif',
-            cursor: 'pointer', userSelect: 'none', gap: 4, overflow: 'hidden'
-        }
-    },
-        triggerColor != null && h('span', { style: dotStyle(triggerColor) }),
-        h('span', { style: { flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } }, triggerLabel),
-        // The chevron every select and menu button carries (styles.css).
-        h('span', { className: open ? 'tf-caret tf-caret-open' : 'tf-caret' })
-    );
-}
-
 // Open-state positioned overlay: search box, filter tabs, result list.
 export function overlayEl(s) {
     const { dropRef, dropPos, c, searchRef, query, setQuery, searchPlaceholder,
@@ -292,9 +261,11 @@ export function overlayEl(s) {
         // The overlay is a descendant of whatever cell holds the trigger, so a
         // click on a tab or an arrow would bubble to that host: a layer row
         // answers a click by focusing its table, which takes focus off the
-        // search box mid-word. Nothing inside the list is the host's business.
+        // search box mid-word, and a press in a layer cell starts a drag over
+        // the table's cells. Nothing inside the list is the host's business.
         onClick: stopPropagation,
         onContextMenu: stopPropagation,
+        onPointerDown: stopPropagation,
         onKeyDown: s.onKeyDown,
         style: {
             position: 'fixed', zIndex: 9999,
@@ -363,7 +334,7 @@ export function PickerDropdown(props) {
         // is told how: 'pick', 'escape', 'trigger' for a press on the trigger,
         // or 'outside' for a click elsewhere, which has put the keyboard focus
         // where it wanted it.
-        autoOpen = false, initialQuery = '', onClose,
+        autoOpen = false, initialQuery = '', onClose, mark = null, openOnDoubleClick = false,
     } = props;
 
     const [open,      setOpen]      = useState(!!autoOpen);
@@ -460,7 +431,7 @@ export function PickerDropdown(props) {
 
     const shared = {
         triggerRef, dropRef, searchRef, listRef, onTrigger, open, compact, c,
-        triggerColor, triggerLabel, groups, catFilter, setCatFilter, currentGroup, allLabel,
+        triggerColor, triggerLabel, mark, openOnDoubleClick, groups, catFilter, setCatFilter, currentGroup, allLabel,
         dropPos, query, setQuery, searchPlaceholder, emptyText,
         cells, tops, scrollTop, onListScroll, activeOf, select, highlight, onKeyDown,
     };

@@ -1,4 +1,4 @@
-import { nmToUnit, thicknessEntryToNm } from './units.js';
+import { nmToUnit, thicknessEntryToNm, thicknessText } from './units.js';
 import { LAYER_TABLE } from './layerTableLayout.js';
 import { useWheelStep } from '../../../ui/wheelStep.js';
 import { SPIN_WIDTH, SpinArrows } from '../../../ui/SpinArrows.js';
@@ -66,8 +66,15 @@ function thicknessCellInput({ inputRef, raw, setRaw, commitAndNavigate, cancel, 
 // hover background signals "you can click here" for all four units, and a
 // hovered cell that can step shows its arrows with the value moved clear of them.
 // The arrows take the room of the text insets rather than the text's own, so a
-// value up to 9999.99 nm stays whole while it is being stepped.
-function thicknessCellDisplay({ text, titleText, locked, primary, active, hover,
+// value up to 9999.99 nm stays whole while it is being stepped. A cell inside a
+// rectangle of selected cells is shaded; the focused one is outlined.
+function cellBackground({ active, inRange, hover, locked, c }) {
+    if (active) return c.accent + '12';
+    if (inRange) return c.accent + '33';
+    return hover && !locked ? (c.hover || c.panel) : 'transparent';
+}
+
+function thicknessCellDisplay({ text, titleText, locked, primary, active, inRange, hover,
     startEdit, setHover, onActivate, displayRef, spin, c }) {
     const inset = LAYER_TABLE.numericTextInset;
     return h('div', {
@@ -87,8 +94,7 @@ function thicknessCellDisplay({ text, titleText, locked, primary, active, hover,
             cursor: locked ? 'default' : 'text',
             borderRadius: 3,
             border: `1px solid ${active ? c.accent : (hover && !locked ? c.border : 'transparent')}`,
-            backgroundColor: active ? c.accent + '12'
-                : (hover && !locked ? (c.hover || c.panel) : 'transparent'),
+            backgroundColor: cellBackground({ active, inRange, hover, locked, c }),
             userSelect: 'none', fontVariantNumeric: 'tabular-nums',
             transition: 'background-color 80ms, border-color 80ms',
             // Never let a long value spill into neighbouring columns — clip to
@@ -170,18 +176,18 @@ function useThicknessEdit({ locked, valueText, toNm, setHover,
 // `onStep(ticks, modifiers)` steps the value from the arrows, and from the wheel
 // while the cell is `active`; `stepTitles` holds the arrows' `up` and `down`
 // tooltips. `title` names the unit, as the column heading's tooltip does.
+// `inRange` marks the cell as inside a rectangle of selected cells.
 export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLambda,
-    unit, title, primary, active = false, editRequest = 0, editSeed = null,
+    unit, title, primary, active = false, inRange = false, editRequest = 0, editSeed = null,
     onActivate, onNavigate, onExit, designMaterials, onStep, stepTitles }) {
     const [hover, setHover] = useState(false);
     const displayRef = useRef(null);
 
-    const displayed = nmToUnit(value_nm, materialId, refLambda, unit, designMaterials);
-    const decimals  = (unit === 'QWOT' || unit === 'FWOT') ? 4 : 2;
-    const hasValue  = Number.isFinite(displayed);
+    const valueText = thicknessText(nmToUnit(value_nm, materialId, refLambda, unit, designMaterials), unit);
+    const hasValue  = valueText !== '';
     const edit = useThicknessEdit({
         locked, setHover, onChange, onActivate, onNavigate, onExit, editRequest, editSeed,
-        valueText: hasValue ? displayed.toFixed(decimals) : '',
+        valueText,
         toNm: raw => thicknessEntryToNm(raw, materialId, refLambda, unit, designMaterials),
     });
     const steppable = hasValue && !locked && !!onStep;
@@ -195,9 +201,9 @@ export function ThicknessCell({ value_nm, onChange, locked, c, materialId, refLa
     }
 
     return thicknessCellDisplay({
-        text: hasValue ? displayed.toFixed(decimals) : '–',
+        text: hasValue ? valueText : '–',
         titleText: title,
-        locked, primary, active, hover, startEdit: edit.startEdit, setHover, onActivate, displayRef,
+        locked, primary, active, inRange, hover, startEdit: edit.startEdit, setHover, onActivate, displayRef,
         spin: hover && steppable ? h(SpinArrows, { titles: stepTitles, onStep, blocked: editOpen, c }) : null,
         c,
     });

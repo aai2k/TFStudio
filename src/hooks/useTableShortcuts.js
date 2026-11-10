@@ -112,7 +112,7 @@ export function useTableShortcuts(opts) {
 
         if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && onMoveColumn) {
             e.preventDefault();
-            return onMoveColumn(e.key === 'ArrowLeft' ? -1 : 1);
+            return onMoveColumn(e.key === 'ArrowLeft' ? -1 : 1, { extend: e.shiftKey });
         }
 
         if ((e.key === 'Enter' || e.key === 'F2') && onActivate) {

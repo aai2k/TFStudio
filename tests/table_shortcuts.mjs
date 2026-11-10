@@ -311,7 +311,7 @@ console.log('— Type-to-edit in the layer table —');
     const { onKeyDown } = useLayerKeyboard({
         layers: displayedLayers, side: 'back', reversed: false, displayedLayers,
         selectedId: 'L2', setSelectedId: () => {}, containerRef: { current: null },
-        activeUnit: 'QWOT', setActiveUnit: () => {},
+        activeColumn: 'QWOT', moveColumn: () => {}, collapseCells: () => false,
         focusDisplayIndex: () => {},
         requestCellEdit: (rowId, unit, seed) => edits.push([rowId, unit, seed ?? null]),
     });

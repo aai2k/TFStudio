@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import {
     fixedLayerTrack, LAYER_TABLE, LAYER_TABLE_MIN_WIDTH, LAYER_THICKNESS_COLUMNS,
-    materialLayerTrack, nextThicknessCell, shiftedThicknessUnit,
+    materialLayerTrack, nextThicknessCell,
 } from '../src/components/windows/design/designEditor/layerTableLayout.js';
+import { sidewaysColumn } from '../src/components/windows/design/designEditor/layerCells.js';
 
 assert.ok(LAYER_TABLE.materialMinWidth >= 80,
     'the responsive table must not collapse the material column');
@@ -30,9 +31,14 @@ assert.ok(LAYER_TABLE_MIN_WIDTH > 0,
 assert.ok(LAYER_TABLE_MIN_WIDTH <= 555,
     'the layer table still fits a half-screen dock at 125% display scaling');
 assert.equal(LAYER_THICKNESS_COLUMNS.length, 4, 'all four editable thickness representations share metadata');
-assert.equal(shiftedThicknessUnit('nm', -1), 'nm', 'left navigation clamps at the first column');
-assert.equal(shiftedThicknessUnit('nm', 1), 'OT', 'right navigation enters optical thickness');
-assert.equal(shiftedThicknessUnit('FWOT', 1), 'FWOT', 'right navigation clamps at the last column');
+assert.equal(sidewaysColumn('nm', -1), 'material', 'left from d reaches the material cell');
+assert.equal(sidewaysColumn('material', -1), 'number', 'left from the material reaches the row number');
+assert.equal(sidewaysColumn('number', -1), 'number', 'left navigation clamps at the row number');
+assert.equal(sidewaysColumn('number', 1), 'material', 'right from the row number enters the material cell');
+assert.equal(sidewaysColumn('nm', 1), 'OT', 'right navigation enters optical thickness');
+assert.equal(sidewaysColumn('FWOT', 1), 'FWOT', 'right navigation clamps at the last column');
+assert.equal(sidewaysColumn('material', -1, true), 'material', 'a rectangle of cells never takes in the row number');
+assert.equal(sidewaysColumn('number', 1, true), 'number', 'Shift on the row number stretches no cells');
 
 const rows = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
 assert.deepEqual(nextThicknessCell(rows, 'a', 'OT', 'down'), { rowId: 'b', unit: 'OT' },

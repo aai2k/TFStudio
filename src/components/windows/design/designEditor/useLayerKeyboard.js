@@ -1,5 +1,7 @@
 import { useTableShortcuts } from '../../../../hooks/useTableShortcuts.js';
-import { shiftedThicknessUnit } from './layerTableLayout.js';
+import { isEditingInside } from '../../../../utils/misc/keyChords.js';
+import { isPrintableEditKey } from '../../../ui/grid/gridKeys.js';
+import { MATERIAL, isCellColumn } from './layerCells.js';
 
 // Display-index insert/delete/duplicate for one side's layer list, wired to
 // Insert / Shift+Insert / Delete / Ctrl+D (see useTableShortcuts). All indices
@@ -42,15 +44,40 @@ function duplicateAtDisplayPos({ di, layers, side, reversed, setSelectedId, cont
 
 const isLayerLocked = (row) => !!(row && row.locked);
 
+// The keys the row shortcuts leave alone. Any key typed on the Material cell
+// opens its picker with the key in the search box, as the merit table's Type
+// cell does; the shortcuts only start an edit on what a number begins with.
+// Escape gives up a rectangle of cells for its focused cell. True when the key
+// was taken here.
+function cellKey(event, { activeColumn, row, requestCellEdit, collapseCells }) {
+    if (event.key === 'Escape') {
+        if (!collapseCells()) return false;
+        event.preventDefault();
+        return true;
+    }
+    if (activeColumn !== MATERIAL || !row || !isPrintableEditKey(event)) return false;
+    event.preventDefault();
+    requestCellEdit(row.id, MATERIAL, event.key);
+    return true;
+}
+
+/**
+ * The layer table's keys. `activeColumn` is the focused column: the row
+ * number, Material or a thickness unit. `moveColumn(delta, { extend })` moves
+ * it sideways, and `focusDisplayIndex(index, { extend })` moves the focused
+ * row; with `extend` both stretch the selection instead. Enter, F2 or a typed
+ * key opens the focused cell: the material picker, or a thickness editor seeded
+ * with what was typed.
+ */
 export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
     selectedId, setSelectedId, containerRef,
     addLayerAt, removeLayerAt, deleteSelection, duplicateLayerAt,
-    activeUnit, setActiveUnit, focusDisplayIndex, requestCellEdit, onCopy, onPaste }) {
+    activeColumn, moveColumn, collapseCells, focusDisplayIndex, requestCellEdit, onCopy, onPaste }) {
 
     const selectedDisplayIdx = selectedId
         ? displayedLayers.findIndex(l => l.id === selectedId) : -1;
 
-    return useTableShortcuts({
+    const { onKeyDown: shortcutKeyDown } = useTableShortcuts({
         focusIdx: selectedDisplayIdx,
         rows: displayedLayers,
         isLocked: isLayerLocked,
@@ -69,12 +96,20 @@ export function useLayerKeyboard({ layers, side, reversed, displayedLayers,
                 options,
             );
         },
-        onMoveColumn: delta => setActiveUnit(shiftedThicknessUnit(activeUnit, delta)),
+        onMoveColumn: moveColumn,
         onActivate: (index, typedChar) => {
             const row = displayedLayers[index >= 0 ? index : 0];
-            if (row) requestCellEdit(row.id, activeUnit, typedChar);
+            if (row && isCellColumn(activeColumn)) requestCellEdit(row.id, activeColumn, typedChar);
         },
         onCopy,
         onPaste,
     });
+
+    const onKeyDown = event => {
+        const row = displayedLayers[selectedDisplayIdx];
+        if (isEditingInside(event) || !cellKey(event, { activeColumn, row, requestCellEdit, collapseCells })) {
+            shortcutKeyDown(event);
+        }
+    };
+    return { onKeyDown };
 }

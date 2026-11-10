@@ -23,20 +23,30 @@ export function parseLayers(text) {
     }).filter(Boolean);
 }
 
-export async function readLayerClipboard(fallback = []) {
+/**
+ * The clipboard's text, '' when it holds none, or null when it cannot be read:
+ * a browser can refuse a page the read, and the in-app copy stands in then.
+ */
+export async function readClipboardText() {
     try {
-        const parsed = parseLayers(await navigator.clipboard?.readText?.());
-        if (parsed.length) return parsed;
+        const text = await navigator.clipboard?.readText?.();
+        return typeof text === 'string' ? text : null;
     } catch (_) {
-        // Desktop/browser permissions can block reads; the in-app copy buffer
-        // remains available for the same editing session.
+        return null;
     }
-    return fallback;
+}
+
+export function writeClipboardText(text) {
+    try { navigator.clipboard?.writeText?.(text)?.catch?.(() => {}); } catch (_) {}
+}
+
+export async function readLayerClipboard(fallback = []) {
+    const parsed = parseLayers(await readClipboardText());
+    return parsed.length ? parsed : fallback;
 }
 
 export function writeLayerClipboard(layers) {
-    const text = serializeLayers(layers);
-    try { navigator.clipboard?.writeText?.(text)?.catch?.(() => {}); } catch (_) {}
+    writeClipboardText(serializeLayers(layers));
     return (layers || []).map(({ material, thickness, locked }) => ({ material, thickness, locked }));
 }
 

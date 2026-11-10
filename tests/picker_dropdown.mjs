@@ -527,6 +527,43 @@ assert.match(pickerSource, /setCatFilter\('all'\);[\s\S]{0,120}setOpen\(true\);/
     }));
     assert.ok(html.includes('class="tf-caret"'), 'the closed picker shows the select chevron');
     assert.ok(!html.includes('▾'), 'not a typed glyph');
+    assert.ok(!html.includes('data-picker-chevron'), 'opened by a click anywhere, it needs no chevron button');
+
+    const inCell = renderToStaticMarkup(React.createElement(PickerDropdown, {
+        value: 'i0', onChange: () => {}, c: makeTheme(), triggerLabel: 'SiO2', groups: [], openOnDoubleClick: true,
+    }));
+    assert.ok(inCell.includes('data-picker-chevron'), 'in a table cell the chevron is a button of its own');
+}
+
+// ── In a table cell a click selects the cell ─────────────────────────────────
+//
+// The Design Editor's Material cell is the picker's trigger. Opened by a click,
+// the cell could not be clicked to select it, as every other cell is.
+{
+    const { triggerOpeners } = await import('../src/components/ui/pickerTrigger.js');
+    const opened = [];
+    const onTrigger = () => opened.push('toggle');
+    const at = chevron => ({ target: { closest: selector => (chevron && selector === '[data-picker-chevron]' ? {} : null) } });
+
+    assert.deepEqual(triggerOpeners({ onTrigger, open: false }), { onClick: onTrigger },
+        'elsewhere a click anywhere on the trigger opens it');
+
+    const cell = triggerOpeners({ onTrigger, open: false, openOnDoubleClick: true });
+    cell.onClick(at(false));
+    assert.deepEqual(opened.splice(0), [], 'in a cell a click on the name opens nothing');
+    cell.onClick(at(true));
+    assert.deepEqual(opened.splice(0), ['toggle'], 'a click on the chevron opens the list');
+    cell.onDoubleClick(at(false));
+    assert.deepEqual(opened.splice(0), ['toggle'], 'and so does a double-click on the name');
+    cell.onDoubleClick(at(true));
+    assert.deepEqual(opened.splice(0), [],
+        'a double-click on the chevron opens nothing: its two clicks have opened the list and closed it');
+
+    const openCell = triggerOpeners({ onTrigger, open: true, openOnDoubleClick: true });
+    openCell.onClick(at(false));
+    assert.deepEqual(opened.splice(0), ['toggle'], 'a click anywhere on an open picker closes it');
+    openCell.onDoubleClick(at(false));
+    assert.deepEqual(opened.splice(0), [], 'a double-click on an open one does not reopen what its clicks closed');
 }
 
 console.log('PASS: picker_dropdown');

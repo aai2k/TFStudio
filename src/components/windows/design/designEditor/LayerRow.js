@@ -7,6 +7,7 @@ import {
     fixedLayerTrack, LAYER_TABLE, LAYER_TABLE_MIN_WIDTH, LAYER_THICKNESS_COLUMNS,
     materialLayerTrack, thicknessColumnText,
 } from './layerTableLayout.js';
+import { MATERIAL } from './layerCells.js';
 
 const { createElement: h, useState } = React;
 
@@ -40,6 +41,48 @@ function StepArrow({ delta, enabled, title, onStep, c }) {
         })));
 }
 
+const spans = (rangeColumns, column) => !!rangeColumns && rangeColumns.includes(column);
+
+// The token that opens a cell's editor from the keyboard, 0 for every cell
+// but the one asked for.
+const requestToken = (unit, token, column) => (unit === column ? token : 0);
+
+// What a cell does with the pointer: a click selects it, and a press starts a
+// drag that selects the cells the pointer crosses.
+function cellPointer(id, column, { onSelect, onPressCell, onDragOver }) {
+    return {
+        onClick: event => { event.stopPropagation(); onSelect(id, event, column); },
+        onPointerDown: event => onPressCell(id, column, event),
+        onPointerEnter: event => onDragOver(id, column, event),
+    };
+}
+
+// The Material cell: the material picker, whose trigger fills the cell and so
+// draws the cell's selection itself, outlined while the cell has the focus and
+// shaded inside a rectangle of selected cells. A click selects the cell, as on
+// any cell; the picker opens on a double-click or on its chevron, and
+// `editToken` opens it from the keyboard with `editSeed`, the key that was
+// typed, in its search box. Closed by a pick or Escape, the picker gives the
+// keys back to the table; closed by a click elsewhere, it leaves the focus
+// where the click put it.
+function materialCell({ layer, focused, inRange, editToken, editSeed, onMaterialChange, pointer, onFinishEditing, c, t }) {
+    return h('div', {
+        ...cellPointer(layer.id, MATERIAL, pointer),
+        style: materialLayerTrack(),
+    }, h(MaterialPicker, {
+        key: editToken || 'idle',
+        value: layer.material, onChange: (mat) => onMaterialChange(layer.id, mat), c, t, compact: true,
+        autoOpen: !!editToken, initialQuery: editSeed || '',
+        onClose: how => { if (how !== 'outside') onFinishEditing(); },
+        mark: cellMark(focused, inRange), openOnDoubleClick: true,
+    }));
+}
+
+function cellMark(focused, inRange) {
+    if (focused) return 'focus';
+    return inRange ? 'selected' : null;
+}
+
 // Memoized so that any parent re-render (e.g. window resize, or editing one row
 // in a 500-layer stack) only re-renders rows whose own props actually
 // changed. Handlers are id-passing and stabilized with useCallback in LayerList,
@@ -49,17 +92,28 @@ function StepArrow({ delta, enabled, title, onStep, c }) {
 // itself for the same reason. A layer's material can also change in its
 // catalog, which touches neither; `catalogRevision` changes then, so the
 // optical-thickness cells are worked out again with the new index.
+//
+// `activeColumn` is the focused cell's column when this row holds the focus,
+// and `rangeColumns` the columns of a rectangle of selected cells that spans
+// it; `rangeColumns` is the rectangle's own array, so the rows outside it, and
+// the rows inside it while it keeps its columns, see no change. A click on the
+// row number or between cells is a click on the row: `onSelect(id, event)`; a
+// click on a cell names its column as well, and a press on a cell starts a drag
+// over the cells (`onPressCell`, `onDragOver`).
 export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected, onSelect, c,
     onMaterialChange, onThicknessChange, onThicknessStep, onLockToggle, onRemove,
     onMoveStep, canMoveUp, canMoveDown,
-    isMaterialMissing, activeUnit, editRequestToken, editRequestUnit, editRequestSeed,
+    isMaterialMissing, activeColumn, rangeColumns, editRequestToken, editRequestUnit, editRequestSeed,
     onActivateCell, onNavigateCell, onFinishEditing, onContextMenu,
-    onPointerDownDrag, dropPosition,
+    onPointerDownDrag, onPressCell, onDragOver, dropPosition,
     refLambda, designMaterials, t }) {
 
     const de = t.designEditor;
     const missingTitle = isMaterialMissing ? t.materialResolution.rowMissing(layer.material) : undefined;
     const stepTitles = { up: de.thicknessStepUp, down: de.thicknessStepDown };
+    const inRange = column => spans(rangeColumns, column);
+    const requestFor = column => requestToken(editRequestUnit, editRequestToken, column);
+    const pointer = { onSelect, onPressCell, onDragOver };
 
     return h('div', {
         onClick: event => onSelect(layer.id, event),
@@ -101,11 +155,14 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
             }, '⠿'),
             h('span', null, isMaterialMissing ? `${index + 1}!` : index + 1),
         ),
-        h('div', { style: materialLayerTrack() },
-            h(MaterialPicker, { value: layer.material, onChange: (mat) => onMaterialChange(layer.id, mat), c, t, compact: true })
-        ),
+        materialCell({
+            layer, focused: activeColumn === MATERIAL, inRange: inRange(MATERIAL),
+            editToken: requestFor(MATERIAL), editSeed: editRequestSeed,
+            onMaterialChange, pointer, onFinishEditing, c, t,
+        }),
         ...LAYER_THICKNESS_COLUMNS.map(column => h('div', {
             key: column.unit,
+            ...cellPointer(layer.id, column.unit, pointer),
             style: fixedLayerTrack(LAYER_TABLE.thicknessWidth),
         },
             h(ThicknessCell, {
@@ -113,8 +170,9 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
                 onChange: thickness => onThicknessChange(layer.id, thickness),
                 locked: layer.locked, c, materialId: layer.material, refLambda, designMaterials,
                 unit: column.unit, title: thicknessColumnText(column, t.layerThicknesses).title, primary: column.primary,
-                active: activeUnit === column.unit,
-                editRequest: editRequestUnit === column.unit ? editRequestToken : 0,
+                active: activeColumn === column.unit,
+                inRange: inRange(column.unit),
+                editRequest: requestFor(column.unit),
                 editSeed: editRequestUnit === column.unit ? editRequestSeed : null,
                 onActivate: event => {
                     if (!event?.ctrlKey && !event?.metaKey && !event?.shiftKey) {

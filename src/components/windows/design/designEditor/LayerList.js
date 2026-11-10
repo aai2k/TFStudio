@@ -5,8 +5,9 @@ import { Btn } from './ui.js';
 import { MenuButton } from '../../analysis/chrome/controls.js';
 import { LayerRow } from './LayerRow.js';
 import { useLayerKeyboard } from './useLayerKeyboard.js';
-import { designEditorSession } from './sessionState.js';
-import { useWindowSession } from '../../windowSession.js';
+import { useLayerSelection } from './useLayerSelection.js';
+import { useCellClipboard } from './useCellClipboard.js';
+import { rangeColumnsForRow } from '../../../ui/grid/gridModel.js';
 import {
     fixedLayerTrack, LAYER_TABLE, LAYER_TABLE_MIN_WIDTH, LAYER_THICKNESS_COLUMNS, thicknessColumnText,
     materialLayerTrack, nextThicknessCell,
@@ -57,17 +58,13 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     invertActiveSide, setAllLocked, copyToOther, onOpenReplaceMaterials,
     refLambda, isOptimizing, t }) {
 
-    const [session, setSessionField] = useWindowSession(designEditorSession, design);
-    const selectedId = session.selectedLayerId;
-    const setSelectedId = value => setSessionField('selectedLayerId', value);
     const de = t.designEditor;
     const layerToolText = de.layerTools;
     const containerRef = useRef(null);
     // The scrolling viewport inside the container, which drag auto-scroll moves.
     const scrollRef = useRef(null);
     const clipboardRef = useRef([]);
-    const [selectedIds, setSelectedIds] = useState(() => new Set(selectedId ? [selectedId] : []));
-    const [activeUnit, setActiveUnit] = useState(LAYER_THICKNESS_COLUMNS[0].unit);
+    const cellTextRef = useRef('');
     const [editRequest, setEditRequest] = useState({ rowId: null, unit: null, seed: null, token: 0 });
     const [contextMenu, setContextMenu] = useState(null);
     const [toolDialog, setToolDialog] = useState(null);
@@ -81,6 +78,13 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     // touching the substrate, matching the back coating convention.
     const reversed = side === 'front';
     const displayedLayers = reversed ? [...layers].reverse() : layers;
+    const selection = useLayerSelection({
+        layers, displayedLayers, reversed, design, containerRef, reveal: scrollLayerIntoView,
+    });
+    const {
+        selectedId, setSelectedId, selectedIds, selectOnly, selectRows,
+        activeColumn, range, actionIds, rowsSelected, focusCell, selectAndFocus,
+    } = selection;
     const selectedIdArray = useMemo(() => [...selectedIds], [selectedIds]);
 
     useEffect(() => {
@@ -89,50 +93,10 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         return () => clearTimeout(timeoutId);
     }, [toolNotice]);
 
-    useEffect(() => {
-        const validIds = new Set(layers.map(layer => layer.id));
-        setSelectedIds(current => {
-            const next = new Set([...current].filter(id => validIds.has(id)));
-            if (selectedId && validIds.has(selectedId) && !next.has(selectedId)) next.add(selectedId);
-            if (next.size === current.size && [...next].every(id => current.has(id))) return current;
-            return next;
-        });
-    }, [layers, selectedId]);
-
-    // The row a range selection grows from. It stays put for a run of
-    // Shift-clicks or Shift+Arrows, so extending twice covers both steps rather
-    // than re-anchoring on the row reached last.
-    const anchorRef = useRef(selectedId || null);
-
-    // Remade per design: the selection is stored per design, and the window
-    // stays mounted when another design is opened.
-    const selectOnly = useCallback(id => {
-        anchorRef.current = id || null;
-        setSelectedIds(new Set(id ? [id] : []));
-        setSelectedId(id || null);
-    }, [design.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
     const { addLayerAt, addBelowSelection, deleteRows, deleteSelection } = useLayerRowEdits({
-        side, reversed, displayedLayers, selectedId, selectedIds, selectOnly,
+        side, reversed, displayedLayers, selectedId, selectedIds: actionIds, selectOnly,
         addLayerAtDisplayIndex, removeLayers, containerRef, reveal: scrollLayerIntoView,
     });
-
-    const extendSelectionTo = useCallback(index => {
-        const row = displayedLayers[index];
-        const anchor = displayedLayers.findIndex(layer => layer.id === anchorRef.current);
-        if (!row || anchor < 0) return false;
-        const [start, end] = anchor < index ? [anchor, index] : [index, anchor];
-        setSelectedIds(new Set(displayedLayers.slice(start, end + 1).map(layer => layer.id)));
-        setSelectedId(row.id);
-        return true;
-    }, [displayedLayers]);
-
-    const focusDisplayIndex = useCallback((index, { extend = false } = {}) => {
-        const row = displayedLayers[index];
-        if (!row) return;
-        if (!extend || !extendSelectionTo(index)) selectOnly(row.id);
-        requestAnimationFrame(() => scrollLayerIntoView(containerRef.current, row.id));
-    }, [displayedLayers, extendSelectionTo, selectOnly]);
 
     // `seed`, when given, is the character that started the edit; the cell opens
     // holding it instead of the current value.
@@ -140,22 +104,16 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         setEditRequest(current => ({ rowId, unit, seed, token: current.token + 1 }));
     }, []);
 
-    const activateCell = useCallback((rowId, unit) => {
-        selectOnly(rowId);
-        setActiveUnit(unit);
-    }, [selectOnly]);
-
     const navigateCell = useCallback((rowId, unit, direction) => {
         const destination = nextThicknessCell(displayedLayers, rowId, unit, direction);
         if (!destination) {
             containerRef.current?.focus();
             return;
         }
-        selectOnly(destination.rowId);
-        setActiveUnit(destination.unit);
+        focusCell(destination.rowId, destination.unit);
         requestCellEdit(destination.rowId, destination.unit);
         requestAnimationFrame(() => scrollLayerIntoView(containerRef.current, destination.rowId));
-    }, [displayedLayers, requestCellEdit, selectOnly]);
+    }, [displayedLayers, focusCell, requestCellEdit]);
     const finishCellEditing = useCallback(() => containerRef.current?.focus(), []);
 
     const selectedLayers = useCallback(() => {
@@ -163,10 +121,13 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         return displayedLayers.filter(layer => ids.has(layer.id));
     }, [displayedLayers, selectedId, selectedIds]);
 
-    const copySelectedLayers = useCallback(() => {
-        const copied = selectedLayers();
-        if (copied.length) clipboardRef.current = writeLayerClipboard(copied);
-    }, [selectedLayers]);
+    const copyLayers = useCallback(copied => {
+        if (!copied.length) return;
+        clipboardRef.current = writeLayerClipboard(copied);
+        cellTextRef.current = '';
+    }, []);
+
+    const copySelectedLayers = useCallback(() => copyLayers(selectedLayers()), [copyLayers, selectedLayers]);
 
     const materialName = useCallback(id => designMaterialName(design, id), [design]);
 
@@ -203,10 +164,9 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         if (!sources?.length) return;
         const ids = pasteLayersAtDisplayIndex(side, displayIndex, sources, reversed);
         if (!ids?.length) return;
-        setSelectedIds(new Set(ids));
-        setSelectedId(ids[ids.length - 1]);
+        selectRows(ids, ids[ids.length - 1]);
         requestAnimationFrame(() => scrollLayerIntoView(containerRef.current, ids[ids.length - 1]));
-    }, [pasteLayersAtDisplayIndex, reversed, side]);
+    }, [pasteLayersAtDisplayIndex, reversed, selectRows, side]);
 
     const pasteAfterSelection = useCallback(async () => {
         const sources = await readLayerClipboard(clipboardRef.current);
@@ -216,36 +176,13 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         pasteAt(Math.max(0, index), sources);
     }, [displayedLayers, pasteAt, selectedId]);
 
-    const selectAndFocus = useCallback((id, event) => {
-        const toggle = !!(event?.ctrlKey || event?.metaKey);
-        const target = displayedLayers.findIndex(layer => layer.id === id);
-        if (event?.shiftKey && extendSelectionTo(target)) {
-            containerRef.current?.focus();
-            return;
-        }
-        if (toggle) {
-            const next = new Set(selectedIds);
-            if (next.has(id) && next.size > 1) {
-                next.delete(id);
-                anchorRef.current = [...next].at(-1) || null;
-                setSelectedIds(next);
-                setSelectedId(anchorRef.current);
-                containerRef.current?.focus();
-                return;
-            }
-            next.add(id);
-            setSelectedIds(next);
-        } else {
-            setSelectedIds(new Set([id]));
-        }
-        anchorRef.current = id;
-        setSelectedId(id);
-        containerRef.current?.focus();
-    }, [displayedLayers, extendSelectionTo, selectedIds]);
+    const cellClipboard = useCellClipboard({
+        layers, displayedLayers, design, updateDesign, side, refLambda, materialName, selection, clipboardRef, cellTextRef,
+        copyLayers: copySelectedLayers, pasteLayers: pasteAfterSelection, pasteAt,
+    });
 
     const { dropIndicator, onPointerDownDrag } = useLayerDrag({
-        displayedLayers, selectedIds, selectOnly, reorderLayers, reversed, side,
-        setSelectedIds, setSelectedId, scrollRef, c,
+        displayedLayers, selectedIds, reorderLayers, reversed, side, selectRows, scrollRef, c,
     });
 
     const onMoveStepRow = useLayerStep({
@@ -254,7 +191,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     });
 
     const onThicknessStepRow = useThicknessStep({
-        layers, side, design, updateDesign, selectedIds, refLambda,
+        layers, side, design, updateDesign, selectedIds: actionIds, refLambda,
     });
 
     const closeContextMenu = useCallback(() => setContextMenu(null), []);
@@ -291,9 +228,8 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
 
     const copyFromContext = useCallback(() => {
         const ids = new Set(contextMenu?.targetIds || []);
-        const copied = displayedLayers.filter(layer => ids.has(layer.id));
-        if (copied.length) clipboardRef.current = writeLayerClipboard(copied);
-    }, [contextMenu, displayedLayers]);
+        copyLayers(displayedLayers.filter(layer => ids.has(layer.id)));
+    }, [contextMenu, copyLayers, displayedLayers]);
 
     const pasteFromContext = useCallback((above = false) => {
         const index = contextMenu?.targetId
@@ -302,12 +238,13 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         pasteAt(Math.max(0, index), contextMenu?.pasteLayers || []);
     }, [contextMenu, displayedLayers, pasteAt]);
 
-    // Keyboard row shortcuts (Ins / Shift+Ins / Del / Ctrl+D).
+    // Keyboard row shortcuts (Ins / Shift+Ins / Del / Ctrl+D), cell moves and clipboard.
     const { onKeyDown: tableKeyDown } = useLayerKeyboard({
         layers, side, reversed, displayedLayers, selectedId, setSelectedId, containerRef,
         addLayerAt, removeLayerAt, deleteSelection, duplicateLayerAt,
-        activeUnit, setActiveUnit, focusDisplayIndex, requestCellEdit,
-        onCopy: copySelectedLayers, onPaste: pasteAfterSelection,
+        activeColumn, moveColumn: selection.moveColumn, collapseCells: selection.collapseCells,
+        focusDisplayIndex: selection.focusDisplayIndex, requestCellEdit,
+        onCopy: cellClipboard.copy, onPaste: cellClipboard.paste,
     });
 
     // Stable, id-passing row callbacks. Keeping these referentially stable (and
@@ -334,7 +271,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
         return dl.map((layer, di) => h(LayerRow, {
             key: layer.id,
             layer, index: di,
-            isSelected: selectedIds.has(layer.id),
+            isSelected: rowsSelected && selectedIds.has(layer.id),
             onSelect: selectAndFocus,
             c,
             onMaterialChange: onMaterialChangeRow,
@@ -346,23 +283,26 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
             canMoveUp: di > 0,
             canMoveDown: di < dl.length - 1,
             isMaterialMissing: missingMaterialIds.has(layer.material),
-            activeUnit: layer.id === selectedId ? activeUnit : null,
+            activeColumn: layer.id === selectedId ? activeColumn : null,
+            rangeColumns: rangeColumnsForRow(range, di),
             editRequestToken: editRequest.rowId === layer.id ? editRequest.token : 0,
             editRequestUnit: editRequest.rowId === layer.id ? editRequest.unit : null,
             editRequestSeed: editRequest.rowId === layer.id ? editRequest.seed : null,
-            onActivateCell: activateCell,
+            onActivateCell: focusCell,
             onNavigateCell: navigateCell,
             onFinishEditing: finishCellEditing,
             onContextMenu: openContextMenu,
             onPointerDownDrag,
+            onPressCell: selection.pressCell,
+            onDragOver: selection.dragOver,
             dropPosition: dropIndicator?.id === layer.id ? dropIndicator.position : null,
             refLambda, designMaterials: design.materials, catalogRevision, t,
         }));
-    }, [layers, reversed, selectedId, selectedIds, activeUnit, editRequest,
+    }, [layers, reversed, selectedId, selectedIds, rowsSelected, activeColumn, range, editRequest,
         dropIndicator, missingMaterialIds, refLambda, design.materials, catalogRevision, c, t,
         selectAndFocus, onMaterialChangeRow, onThicknessChangeRow, onThicknessStepRow,
         onLockToggleRow, onRemoveRow, onMoveStepRow,
-        activateCell, navigateCell, finishCellEditing, openContextMenu, onPointerDownDrag]);
+        focusCell, navigateCell, finishCellEditing, openContextMenu, onPointerDownDrag]);
 
     const menuText = de.layerContextMenu;
     const pasteCount = contextMenu?.pasteLayers?.length || 0;

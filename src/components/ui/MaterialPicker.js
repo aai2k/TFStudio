@@ -123,11 +123,20 @@ export function currentGroupOf(design, resolvedId) {
  * @param {boolean}  [catalogsOnly] hide the open design's own materials, for
  *                   callers that build a stack outside it and resolve ids
  *                   against the catalogs alone
+ * @param {boolean}  [autoOpen]  mount already open, for a table cell opened
+ *                   from the keyboard, with `initialQuery` in the search box
+ * @param {function} [onClose]   called with how the list closed; see PickerDropdown
+ * @param {string}   [mark]      the table cell's selection, drawn on the trigger;
+ *                   see PickerDropdown
+ * @param {boolean}  [openOnDoubleClick]  in a table cell, a click selects the
+ *                   cell and the list opens on a double-click or the chevron
  *
  * With no design open there are no design materials to list either: the
  * placeholder the provider hands out then is nobody's design.
  */
-export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly }) {
+export function MaterialPicker({
+    value, onChange, c, t, compact, catalogsOnly, autoOpen = false, initialQuery = '', onClose, mark, openOnDoubleClick,
+}) {
     const mp = t.materialPicker;
     // Read directly rather than through useDesign(): the picker is also mounted
     // by windows that do not sit under a design provider.
@@ -160,6 +169,7 @@ export function MaterialPicker({ value, onChange, c, t, compact, catalogsOnly })
         groups, search, sections: true,
         currentGroup: currentGroupOf(design, resolvedId),
         isActive: item => rowIsCurrent(item, { value, resolvedId, inCatalog }),
+        autoOpen, initialQuery, onClose, mark, openOnDoubleClick,
         searchPlaceholder: mp.searchPlaceholder,
         allLabel: mp.allCatalogs,
         emptyText: t.materialEditor.noMaterials,

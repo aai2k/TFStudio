@@ -54,6 +54,16 @@ export function nmToUnit(d_nm, materialId, refLambda, unit, designMaterials) {
     return d_nm;
 }
 
+/**
+ * A thickness as its table cell shows it and opens its editor with: hundredths
+ * in nm and OT, ten-thousandths in QW and FW. Empty when there is no value, as
+ * for an optical unit of a material that resolves nowhere.
+ */
+export function thicknessText(value, unit) {
+    if (!Number.isFinite(value)) return '';
+    return value.toFixed(unit === 'QWOT' || unit === 'FWOT' ? 4 : 2);
+}
+
 // Physical thickness (nm) for a value expressed in the given optical-thickness
 // unit at the material's reference wavelength. 'nm' and any unknown unit pass
 // through unchanged, as does a non-physical index (n ≤ 0).
