@@ -16,7 +16,7 @@ export function TabBtn({ active, onClick, c, title, children }) {
             borderBottom: `2px solid ${active ? c.accent : 'transparent'}`,
             outline: 'none', cursor: 'pointer', background: active ? c.accent + '20' : 'transparent',
             color: active ? c.text : c.textDim, fontSize: 11, fontWeight: active ? 600 : 500,
-            fontFamily: 'system-ui, -apple-system, sans-serif',
+            fontFamily: 'system-ui, -apple-system, sans-serif', userSelect: 'none',
         },
     }, children);
 }

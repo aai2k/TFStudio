@@ -50,6 +50,10 @@ export function AnalysisWindow({ c, row = false, children }) {
  *
  * `footer` puts the same row under the plot instead of over it, for a window
  * whose controls drive a position in the plot rather than what it draws.
+ *
+ * Its labels and switches are not selectable text, so quick clicks on a switch
+ * do not highlight the words around it. Number fields in it still select their
+ * own value.
  */
 export function ControlRow({ c, children, trailing, footer = false, ...rest }) {
     return h('div', {
@@ -57,7 +61,7 @@ export function ControlRow({ c, children, trailing, footer = false, ...rest }) {
         style: {
             display: 'flex', flexWrap: 'wrap', alignItems: 'center',
             gap: 8, rowGap: 5, padding: '5px 10px',
-            backgroundColor: c.panel, flexShrink: 0,
+            backgroundColor: c.panel, flexShrink: 0, userSelect: 'none',
             [footer ? 'borderTop' : 'borderBottom']: `1px solid ${c.border}`,
         },
     },
