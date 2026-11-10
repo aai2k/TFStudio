@@ -1,5 +1,6 @@
 import { GENERATED_ONLY_OPERAND_TYPES, OPERAND_TYPES } from '../../../../../utils/physics/optimizer.js';
 import { PickerDropdown } from '../../../../ui/PickerDropdown.js';
+import { triggerEl } from '../../../../ui/pickerTrigger.js';
 
 const { createElement: h } = React;
 
@@ -27,6 +28,9 @@ function operandCategories(t) {
 // Searchable, grouped replacement for the operand type <select>, mirroring the
 // Design Editor's material picker: a search box, category tabs, and category
 // section headers (grouped by operand category instead of material catalog).
+// It is the Type cell while that cell is edited, so its trigger is drawn bare:
+// the cell's own code in the cell's own font, with the chevron beside it,
+// exactly as closedOperandType draws the cell the rest of the time.
 export function OperandTypePicker({ value, onChange, c, t, autoOpen = false, initialQuery = '', onClose }) {
     const operandTypes = t?.meritFunctionEditor?.operandTypes || {};
     const mp = t?.materialPicker || {};
@@ -58,9 +62,21 @@ export function OperandTypePicker({ value, onChange, c, t, autoOpen = false, ini
         triggerLabel: value, triggerColor: null,
         groups, search, sections: true, minDropWidth: 380,
         currentGroup: currentCategory ? currentCategory.group : null,
-        autoOpen, initialQuery, onClose,
+        autoOpen, initialQuery, onClose, bare: true, openOnDoubleClick: true,
         searchPlaceholder: mp.searchPlaceholder || 'Search…',
         allLabel: mp.allCatalogs || 'All',
         emptyText: t.meritFunctionEditor.noOperandsFound,
+    });
+}
+
+/**
+ * A Type cell not being edited, drawn as the closed operand picker, chevron and
+ * all, so it reads as a cell that picks from a list. A table runs to thousands
+ * of rows, so no picker stands behind it: `open` puts one in the cell, on a
+ * click on the chevron or a double-click.
+ */
+export function closedOperandType(type, open) {
+    return triggerEl({
+        compact: true, bare: true, open: false, openOnDoubleClick: true, triggerLabel: type, onTrigger: open,
     });
 }

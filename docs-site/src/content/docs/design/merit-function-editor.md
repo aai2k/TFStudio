@@ -83,8 +83,9 @@ One row per operand. The table works like a spreadsheet:
   double-click to edit it. Backspace opens a number cell with its text
   cleared. Enter commits and moves down, Tab moves right, Escape cancels.
 - The **Type** cell holds the operand code. Typing a letter opens the operand
-  picker searching for it, Backspace opens it with an empty search, and Enter
-  or a double-click opens it on the current type. The **Pol** cell shows a
+  picker searching for it, Backspace opens it with an empty search, and Enter,
+  a double-click or the chevron beside the code opens it on the current type.
+  The **Pol** cell shows a
   chevron while it is focused; the chevron, Enter, Backspace or a double-click
   opens its three values as a list, and `a`, `s` or `p` typed straight in sets
   it without the list. A math row's **Ref Op#** cells name the rows it reads,

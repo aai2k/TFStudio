@@ -1,5 +1,5 @@
 import { isBlank, isDmfs, isMath } from '../../../../../utils/physics/optimizer.js';
-import { OperandTypePicker } from './OperandTypePicker.js';
+import { OperandTypePicker, closedOperandType } from './OperandTypePicker.js';
 import { cellEditorClosed } from './CellControls.js';
 import {
     editingCell, listValueCell, listValuePickerCell, polPickerCell, polarizationCell,
@@ -86,19 +86,19 @@ function commentRowFocus(c) {
     return { outline: `1px solid ${c.accent}`, outlineOffset: -1 };
 }
 
-// The operand code as text, as on a data row: a press focuses it, and Enter, a
-// double-click or a typed letter opens the picker in it with that letter in its
-// search box. While the picker is open the cell takes no press of its own: a
-// click in the picker's list must not move the focus off the search box.
+// The operand code with the picker's chevron, as on a data row: a press focuses
+// it, and a click on the chevron, a double-click, Enter or a typed letter opens
+// the picker in it with that letter in its search box. While the picker is open
+// the cell takes no press of its own: a click in the picker's list must not
+// move the focus off the search box.
 function commentRowTypeCell(props, picking) {
     const { op, rowIdx, focusColKey, rowEdit, c, t, onEdit, pressCell, startEdit } = props;
     const focused = !picking && focusColKey === 'type';
     const closed = cellEditorClosed(props, 'type');
     return h('td', {
         onMouseDown: picking ? undefined : event => { event.stopPropagation(); pressCell(rowIdx, 'type', event); },
-        onDoubleClick: () => startEdit(rowIdx, 'type', null),
         style: {
-            width: COLS[2].w, padding: picking ? '0 2px' : '0 4px', color: c.text, fontWeight: 500, userSelect: 'none',
+            width: COLS[2].w, padding: '0 4px', color: c.text, fontWeight: 500, userSelect: 'none',
             ...(focused ? { ...commentRowFocus(c), backgroundColor: c.accent + 'AA' } : null),
         },
     }, picking
@@ -111,7 +111,7 @@ function commentRowTypeCell(props, picking) {
             autoOpen: true, initialQuery: rowEdit.initValue || '', onClose: closed,
             c, t,
         })
-        : op.type);
+        : closedOperandType(op.type, () => startEdit(rowIdx, 'type', null)));
 }
 
 // The comment, which spans every column right of Type, so the focus on any of

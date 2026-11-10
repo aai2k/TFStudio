@@ -69,12 +69,15 @@ assert.ok(html.includes('opacity:0.45'));
 assert.ok(html.includes('<button'));
 assert.ok(html.includes(`</svg>${t.meritFunctionEditor.addOperand}</span></button>`));
 assert.ok(html.includes(`</svg>${t.meritFunctionEditor.deleteOperand}</span></button>`));
-// Type and Pol are text like every other value cell: no picker trigger or
-// dropdown sits in a row until the cell is being edited.
-assert.ok(!html.includes('▾') && !html.includes('tf-caret'), 'no picker trigger in any row');
-assert.match(html, />R<\/td>/, 'the type code is the cell text');
+// The Type cell is drawn as a closed picker, its code with the chevron beside
+// it, in every row. Pol is text until focused, and no list is open in any row.
+const chevrons = (html.match(/data-picker-chevron/g) || []).length;
+assert.equal(chevrons, operands.length - 1, 'each Type cell carries its chevron; the DMFS header has none');
+assert.equal((html.match(/tf-caret/g) || []).length, chevrons, 'no other cell shows a chevron at rest');
+assert.ok(!html.includes('▾') && !html.includes('tf-caret-open'), 'no list is open');
+assert.match(html, />R<\/span><span data-picker-chevron/, 'the type code is the cell text');
 assert.match(html, />avg<\/span><\/span><\/td>/, 'the polarization is the cell text');
-assert.match(html, />BLNK<\/td>/, 'a comment row shows its type as text too');
+assert.match(html, />BLNK<\/span><span data-picker-chevron/, 'a comment row shows its type the same way');
 assert.ok(html.includes('aria-invalid="true"'));
 assert.ok(html.includes('TiO2: wavelength is outside the material model range'));
 assert.ok(html.includes('>Error</td>'));

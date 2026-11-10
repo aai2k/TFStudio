@@ -4,7 +4,8 @@
  *
  * A picker standing in a table cell covers the cell, so the trigger draws the
  * cell's selection, `mark`, and can leave a click to the cell,
- * `openOnDoubleClick`.
+ * `openOnDoubleClick`. A `bare` trigger has no box of its own and reads as the
+ * cell it stands in.
  */
 
 const { createElement: h } = React;
@@ -21,8 +22,16 @@ export function dotStyle(color) {
 // The trigger's own box: a field with a border on the panel's background. A
 // picker standing in a table cell draws the cell's selection on it, since it
 // covers the cell: `mark` 'focus' outlines it as the focused cell, and
-// 'selected' shades it as a cell inside a selected rectangle.
-function triggerBox({ mark, open, c }) {
+// 'selected' shades it as a cell inside a selected rectangle. A `bare` trigger
+// has no box: the cell it stands in shows through it, background, selection
+// and font, and the chevron is all that says a list opens there.
+function triggerBox({ bare, mark, open, c }) {
+    if (bare) {
+        return {
+            padding: 0, border: '1px solid transparent', backgroundColor: 'transparent',
+            color: 'inherit', fontSize: 'inherit', fontWeight: 'inherit', fontFamily: 'inherit',
+        };
+    }
     const tint = { focus: '12', selected: '33' }[mark];
     return {
         padding: '0 4px', backgroundColor: c.panel, color: c.text,

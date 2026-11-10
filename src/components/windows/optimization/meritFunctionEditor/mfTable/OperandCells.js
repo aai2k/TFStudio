@@ -2,7 +2,7 @@ import { OPERAND_POLS, isIntegral, isMathPairRef, polFromType } from '../../../.
 import { CellInput } from '../../../../ui/grid/CellInput.js';
 import { cellEditorClosed, listCell, listEditorCell, selectable } from './CellControls.js';
 import { listEdit, listKind, listOf } from './listValues.js';
-import { OperandTypePicker } from './OperandTypePicker.js';
+import { OperandTypePicker, closedOperandType } from './OperandTypePicker.js';
 import { measuredSnapshotCell, measuredTypeCell } from './measuredCells.js';
 import { customIntegralName } from '../../../analysis/integralValues/integralModel.js';
 import {
@@ -48,15 +48,15 @@ function enabledCell(ctx, colKey, width) {
     }, op.enabled ? '✓' : '○');
 }
 
-// The operand code as text. Enter, a double-click or a typed letter opens the
-// picker in the cell; see typePickerCell.
+// The operand code with the picker's chevron beside it. A press focuses the
+// cell; a click on the chevron, a double-click, Enter or a typed letter opens
+// the picker in it; see typePickerCell.
 export function typeCell(ctx, colKey, width) {
     const { op, rowIdx, c, tdBase, startEdit } = ctx;
     return h('td', {
         key: colKey, ...selectable(ctx, colKey),
-        onDoubleClick: () => startEdit(rowIdx, colKey, null),
         style: { ...tdBase(colKey, width), color: c.text, fontWeight: 500 },
-    }, op.type);
+    }, closedOperandType(op.type, () => startEdit(rowIdx, colKey, null)));
 }
 
 // The Type cell while it is being edited: the operand picker, open, with what
@@ -66,7 +66,7 @@ export function typePickerCell(ctx, colKey, width) {
     const { op, c, t, tdBase, editCell, onEdit } = ctx;
     return h('td', {
         key: colKey,
-        style: tdBase(colKey, width, { padding: '0 2px' }),
+        style: tdBase(colKey, width, { color: c.text, fontWeight: 500 }),
     }, h(OperandTypePicker, {
         value: op.type,
         onChange: newType => onEdit(op.id, 'type', newType),

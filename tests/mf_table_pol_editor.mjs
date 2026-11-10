@@ -33,18 +33,24 @@ const html = (overrides = {}) => renderToStaticMarkup(React.createElement('table
         navigate: noop, setEditCell: noop, beginDrag: noop, dragOver: noop,
         ...overrides,
     }, op, index)))));
+// Each row's Pol cell. The Type cell carries a chevron of its own at all times.
+const POL = 6;
+const polCells = markup => markup.split('<tr').slice(1).map(row => row.split('<td').slice(1)[POL]);
+const polCaret = overrides => polCells(html(overrides)).some(cell => cell.includes('tf-caret'));
 
 // ── At rest the cell is its value and nothing else ───────────────────────────
 assert.match(html(), />s<\/span><\/span><\/td>/, 'the polarization is the cell text');
-assert.ok(!html().includes('tf-caret'), 'no chevron until the cell is focused');
+assert.ok(!polCaret(), 'no chevron until the cell is focused');
 
 // ── Focused, it shows the chevron that opens the list ────────────────────────
 assert.match(html({ focusCell: { rowIdx: 0, colKey: 'pol' } }),
     />s<\/span><span class="tf-caret"[^>]*><\/span><\/span><\/td>/,
     'the focused Pol cell carries the chevron after its value');
-assert.ok(!html({ focusCell: { rowIdx: 0, colKey: 'aoi' } }).includes('tf-caret'),
+assert.ok(polCells(html({ focusCell: { rowIdx: 0, colKey: 'pol' } }))[0].includes('tf-caret'),
+    'the chevron is in the Pol cell');
+assert.ok(!polCaret({ focusCell: { rowIdx: 0, colKey: 'aoi' } }),
     'a focused cell of another column shows none');
-assert.ok(!html({ focusCell: { rowIdx: 1, colKey: 'pol' } }).includes('tf-caret'),
+assert.ok(!polCaret({ focusCell: { rowIdx: 1, colKey: 'pol' } }),
     'a constraint has no polarization to pick, so its dash shows none');
 
 // ── Editing, the list of the three values hangs under the cell ───────────────

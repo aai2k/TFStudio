@@ -239,7 +239,14 @@ function find(node, test) {
     return test(node) ? node : find(node.props?.children, test);
 }
 const inputIn = tree => find(tree, node => node.type === 'input');
-const typeCellIn = tree => find(tree, node => node.type === 'td' && node.props.onDoubleClick);
+// The row's cells in order; Type is the one before the comment, which spans the rest.
+function cellsIn(node, cells = []) {
+    if (Array.isArray(node)) node.forEach(child => cellsIn(child, cells));
+    else if (node?.type === 'td') cells.push(node);
+    else if (node && typeof node === 'object') cellsIn(node.props?.children, cells);
+    return cells;
+}
+const typeCellIn = tree => { const cells = cellsIn(tree); return cells[cells.findIndex(cell => cell.props.colSpan) - 1]; };
 const commentCellIn = tree => find(tree, node => node.type === 'td' && node.props.colSpan);
 const textIn = node => (node && typeof node === 'object'
     ? [node.props?.children].flat(Infinity).map(textIn).join('') : String(node ?? ''));
@@ -287,8 +294,15 @@ function drawComment(editCell, focusCell = null) {
     typeCell.props.onMouseDown(event);
     assert.deepEqual(calls.splice(0), [['press', 1, 'type']], 'a press on Type focuses that cell');
     assert.equal(event.stopped, true, 'rather than selecting the row alone');
-    typeCell.props.onDoubleClick();
+    const face = find(typeCell, node => node.props?.onDoubleClick);
+    const chevron = find(face, node => node.props?.['data-picker-chevron'] !== undefined);
+    assert.ok(chevron, 'the cell shows the picker\'s chevron while no picker is open in it');
+    face.props.onDoubleClick({ target: { closest: () => null } });
     assert.deepEqual(calls.splice(0), [['startEdit', 1, 'type', null]], 'a double-click opens the picker');
+    face.props.onClick({ target: { closest: selector => (selector === '[data-picker-chevron]' ? chevron : null) } });
+    assert.deepEqual(calls.splice(0), [['startEdit', 1, 'type', null]], 'and so does a click on the chevron');
+    face.props.onClick({ target: { closest: () => null } });
+    assert.deepEqual(calls.splice(0), [], 'a click on the code itself only focuses the cell');
 }
 {
     const focusedOn = colKey => drawComment(null, { rowIdx: 1, colKey }).tree;

@@ -334,7 +334,7 @@ export function PickerDropdown(props) {
         // is told how: 'pick', 'escape', 'trigger' for a press on the trigger,
         // or 'outside' for a click elsewhere, which has put the keyboard focus
         // where it wanted it.
-        autoOpen = false, initialQuery = '', onClose, mark = null, openOnDoubleClick = false,
+        autoOpen = false, initialQuery = '', onClose, mark = null, openOnDoubleClick = false, bare = false,
     } = props;
 
     const [open,      setOpen]      = useState(!!autoOpen);
@@ -431,7 +431,7 @@ export function PickerDropdown(props) {
 
     const shared = {
         triggerRef, dropRef, searchRef, listRef, onTrigger, open, compact, c,
-        triggerColor, triggerLabel, mark, openOnDoubleClick, groups, catFilter, setCatFilter, currentGroup, allLabel,
+        triggerColor, triggerLabel, mark, openOnDoubleClick, bare, groups, catFilter, setCatFilter, currentGroup, allLabel,
         dropPos, query, setQuery, searchPlaceholder, emptyText,
         cells, tops, scrollTop, onListScroll, activeOf, select, highlight, onKeyDown,
     };

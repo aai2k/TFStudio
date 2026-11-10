@@ -65,14 +65,15 @@ const LAMBDA_END = 4;
     assert.ok(stale[LAMBDA_START].includes(`>${mfe.refDeleted}</span>`), 'a row since deleted is marked so');
     assert.ok(stale[LAMBDA_START].includes(`title="${mfe.refDeletedTip}"`));
     assert.ok(unset[LAMBDA_START].includes(`>${mfe.refPick}</span>`), 'an empty reference asks for a row');
-    assert.ok(!rows.some(html => html.includes('tf-caret')), 'no chevron until the cell is focused');
+    assert.ok(![single, pair, stale, unset].some(cells => [LAMBDA_START, LAMBDA_END].some(i => cells[i].includes('tf-caret'))),
+        'no chevron until the cell is focused');
 }
 
 // ── Focused, it shows the chevron that opens the list ────────────────────────
 assert.match(cellsOf(rowHtml(2, { focusCell: { rowIdx: 2, colKey: 'lambdaStart' } }))[LAMBDA_START],
     />#1 R<\/span><span class="tf-caret"[^>]*><\/span><\/span><\/td>/,
     'the focused reference carries the chevron after its text');
-assert.ok(!rowHtml(2, { focusCell: { rowIdx: 2, colKey: 'lambdaEnd' } }).includes('tf-caret'),
+assert.ok(!cellsOf(rowHtml(2, { focusCell: { rowIdx: 2, colKey: 'lambdaEnd' } }))[LAMBDA_END].includes('tf-caret'),
     'a row that reads one row has nothing to pick in λ End');
 
 // ── Open, the table's other rows hang under the cell ─────────────────────────
