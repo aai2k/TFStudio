@@ -434,6 +434,13 @@ assert.ok(!html.includes('position:absolute'), 'nothing is laid over the diagram
   const line = px(/;height:(\d+)px/) + 2 * px(/padding:(\d+)px 0/);
   assert.equal(px(/max-height:(\d+)px/) - edges, 6 * line, 'six whole lines in view');
   assert.equal(px(/min-height:(\d+)px/) - edges, line, 'one whole line at least');
+  // Each line ends at its last value: the gap that follows the other values
+  // would be blank space the strip scrolls sideways to reach.
+  for (const row of strip.split('<tr').slice(1)) {
+    const cells = row.split('<td').slice(1);
+    assert.ok(cells.at(-1).includes('padding-right:0'), 'the last value has no gap after it');
+    assert.ok(cells.at(-3).includes('padding-right:11px'), 'the values before it keep theirs');
+  }
 
   // A patch per angle and the reference white, cells of one grid: they share
   // the row, more angles than fit wrap onto rows the strip scrolls through,

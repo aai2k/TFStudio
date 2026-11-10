@@ -31,6 +31,9 @@ export function AngleLines({ reports, exposure, ce, units, c }) {
     const cell = { padding: `${CELL_PAD}px 0`, whiteSpace: 'nowrap', verticalAlign: 'middle' };
     const name = { ...cell, color: c.textDim, paddingRight: 4 };
     const value = { ...cell, color: c.text, textAlign: 'right', paddingRight: 11 };
+    // The padding is the gap before the next pair. After the last value it
+    // would be blank the strip scrolls sideways to reach.
+    const lastValue = { ...value, paddingRight: 0 };
     // Shrinks before the diagram does, down to one line, and scrolls the rest.
     return h('div', {
         style: {
@@ -50,9 +53,9 @@ export function AngleLines({ reports, exposure, ce, units, c }) {
                             },
                         }),
                         `${formatTheta(theta)}°`)),
-                linePairs(report, ce, units).flatMap(pair => [
+                linePairs(report, ce, units).flatMap((pair, i, pairs) => [
                     h('td', { key: `${pair.key}-name`, style: name, title: pair.title }, pair.label),
-                    h('td', { key: pair.key, style: value }, pair.value),
+                    h('td', { key: pair.key, style: i === pairs.length - 1 ? lastValue : value }, pair.value),
                 ]),
             ))),
         ),
