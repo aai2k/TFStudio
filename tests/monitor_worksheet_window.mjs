@@ -7,6 +7,7 @@
 
 import './_kernel.mjs';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
@@ -212,6 +213,30 @@ assert.ok(entry.requiresResolvedMaterials,
     ));
     assert.ok(bare.includes('No layers in design.'), 'a bare substrate says so');
 }
+// ── The export menu opens into the window ────────────────────────────────────
+// The menu was made for a footer and always opened upward. In the worksheet it
+// sits in the top row, so its list opened above the window's top edge, out of
+// sight and out of reach.
+{
+    const { makeHookRuntime, importWithHookRuntime } = await import('./_hookHarness.mjs');
+    const runtime = makeHookRuntime();
+    runtime.React.createElement = React.createElement;
+    const { ExportMenu } = await importWithHookRuntime('../src/components/ui/ExportMenu.js?drop', runtime);
+    const labels = { export: 'Export', copyCsv: 'Copy CSV', saveCsv: 'Save CSV', copied: 'Copied', saved: 'Saved' };
+    const openList = drop => {
+        runtime.reset();
+        const props = { c, labels, enabled: true, copyCSV() {}, saveCSV() {}, ...(drop ? { drop } : {}) };
+        runtime.render(() => ExportMenu(props)).props.children[0].props.onClick();
+        return [].concat(runtime.render(() => ExportMenu(props)).props.children).filter(Boolean).at(-1).props.style;
+    };
+    const down = openList('down');
+    assert.equal(down.top, 27, 'dropped down, the list hangs under the button');
+    assert.equal(down.bottom, undefined);
+    assert.equal(openList().bottom, 27, 'a footer menu still opens above it');
+    const source = readFileSync(new URL('../src/components/windows/simulation/monitorWorksheet/MonitorWorksheet.js', import.meta.url), 'utf8');
+    assert.match(source, /h\(ExportMenu, \{\s*key: 'export', drop: 'down'/, 'the worksheet drops its menu down');
+}
+
 // ── Chip sizes above the old 50 cap survive the settings load gate ───────────
 // resolveAnalysisSettings discards a stored number outside the registry bounds,
 // so a registry max at the old control cap silently reset a saved whole-run

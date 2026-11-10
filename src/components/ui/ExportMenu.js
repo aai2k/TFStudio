@@ -1,13 +1,16 @@
 const { createElement: h, useState } = React;
 
 /**
- * Footer export dropdown for the analysis windows: Copy CSV / Save CSV, with
- * the button label reporting what just happened.
+ * Export dropdown for the analysis windows: Copy CSV / Save CSV, with the
+ * button label reporting what just happened.
  *
  *   labels  { export, copyCsv, saveCsv, copied, saved }
  *   enabled false greys the button out when there is nothing to export
+ *   drop    'up' for a menu in a footer, which opens above it; 'down' for one in
+ *           a window's top row, where a list opened upward would be off the
+ *           window and out of reach
  */
-export function ExportMenu({ c, labels, enabled, copied, copyCSV, saved, saveCSV }) {
+export function ExportMenu({ c, labels, enabled, copied, copyCSV, saved, saveCSV, drop = 'up' }) {
     const [open, setOpen] = useState(false);
     const run = action => { setOpen(false); action(); };
     let status = labels.export;
@@ -48,7 +51,7 @@ export function ExportMenu({ c, labels, enabled, copied, copyCSV, saved, saveCSV
         }),
         open && h('div', {
             style: {
-                position: 'absolute', right: 0, bottom: 27, zIndex: 50, minWidth: 130,
+                position: 'absolute', right: 0, [drop === 'down' ? 'top' : 'bottom']: 27, zIndex: 50, minWidth: 130,
                 padding: '4px 0', backgroundColor: c.panel, border: `1px solid ${c.border}`,
                 borderRadius: 5, boxShadow: '0 4px 16px rgba(0,0,0,0.35)',
             },

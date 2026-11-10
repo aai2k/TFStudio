@@ -72,7 +72,7 @@ export function MonitorWorksheet({ c, t }) {
                     notices: [{ label: mw.poorCount(poorCount), detail: mw.poorDetail }],
                 }),
                 h(ExportMenu, {
-                    key: 'export',
+                    key: 'export', drop: 'down',
                     c, enabled: tableRows.length > 0, ...csv,
                     labels: {
                         export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
