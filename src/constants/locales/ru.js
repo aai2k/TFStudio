@@ -2274,6 +2274,7 @@ export default {
       restore: 'Восст.',
       initial: 'Исходный',
       run:     n => `Прогон #${n}`,
+      tryAll:  'Все методы',
     },
   },
   globalRefinement: {

@@ -57,7 +57,9 @@ minimum.
 
 **Reset** returns to the thicknesses you had before the run, and a single undo
 covers the whole run. The **History** panel keeps a snapshot of each run so you
-can jump back to any earlier result.
+can jump back to any earlier result. Each Run press gets a heading, newest on
+top, with its methods under it best first; after **Try all, keep best** the
+heading also names the method that did best.
 
 Each design keeps its own last run. Switching designs shows that design's readout and trend, and **Best** applies that design's result; a design not refined yet shows no run.
 

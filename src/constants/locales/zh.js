@@ -2719,6 +2719,7 @@ export default {
       restore: '恢复',
       initial: '初始',
       run: n => `运行 #${n}`,
+      tryAll: '全部尝试',
     },
   },
   globalRefinement: {

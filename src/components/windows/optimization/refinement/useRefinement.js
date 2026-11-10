@@ -56,10 +56,12 @@ function addHistEntryTo(env, entry) {
     });
 }
 
+// Counts Run presses on the design; returns the new run's number.
 function bumpRunCountOf(env) {
     const { histRunCount, designRef } = env.refs;
     histRunCount.current += 1;
     writeRefinement(designRef.current?.id, { histRunCount: histRunCount.current });
+    return histRunCount.current;
 }
 
 function clearRefineCacheOf(env) {

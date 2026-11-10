@@ -166,8 +166,8 @@ function makeCtx(design, ops, { method = 'dls', nRestarts = 1, perturbPct = 30, 
         baselineRef: ref(false), lastBestRef: ref(null),
         abortRef: ref(null), activeRunRef: ref(null), histRunCount: ref(0), seedRef: ref(seed),
         commitBaseline: () => {},
-        bumpRunCount: () => { ctx.histRunCount.current += 1; },
-        addHistEntry: (e) => { snap.history.push({ label: e.label, iter: e.iter, mf: e.mf, layerCount: e.layerCount, layerSide: e.layerSide ?? null, mfHistory: e.mfHistory, seed: e.seed }); },
+        bumpRunCount: () => ++ctx.histRunCount.current,
+        addHistEntry: (e) => { snap.history.push({ label: e.label, iter: e.iter, mf: e.mf, layerCount: e.layerCount, layerSide: e.layerSide ?? null, mfHistory: e.mfHistory, seed: e.seed, method: e.method, runNum: e.runNum, runMethod: e.runMethod }); },
         setSeed: v => { snap.seed = v; ctx.seedRef.current = v; },
         // Mirrors stopRun in useRefinement.js: the run's own abort stops its workers.
         stopOpt: () => { ctx.runningRef.current = false; ctx.abortRef.current?.abort(); ctx.abortRef.current = null; },
@@ -499,6 +499,24 @@ async function verifyPresampleFailure() {
     }
 }
 
+// Every row a Run press records carries that run's number and method setting,
+// one number per press however many methods it runs, so the history panel can
+// group a list's rows under one heading. The run number used to go up once per
+// method, and nothing said which rows came from which press.
+async function verifyRunStamps() {
+    const { ctx, snap } = makeCtx(frontDesign(), OPS(), { method: ['cg', 'sa'], seed: 7 });
+    await runOnce(ctx);
+    const first = snap.history.splice(0);
+    assert.equal(first.length, 2, 'a two-method list records two rows');
+    assert.deepEqual(first.map(row => row.runNum), [1, 1], 'both rows are run 1');
+    assert.deepEqual(first.map(row => row.method), ['cg', 'sa'], 'each row names the method it ran');
+    assert.deepEqual(first[0].runMethod, ['cg', 'sa'], 'and the setting the run ran with');
+    await runOnce(ctx);
+    assert.deepEqual(snap.history.map(row => row.runNum), [2, 2], 'the next Run press is run 2');
+    assert.equal(ctx.histRunCount.current, 2, 'two presses, two run numbers');
+}
+
+await verifyRunStamps();
 await verifyIterationHistories();
 await verifyStopDuringRun();
 await verifyDesignSwitch();

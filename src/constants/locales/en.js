@@ -2319,6 +2319,7 @@ export default {
       restore:   'Restore',
       initial:   'Initial',
       run:       n => `Run #${n}`,
+      tryAll:    'Try all',
     },
   },
   globalRefinement: {

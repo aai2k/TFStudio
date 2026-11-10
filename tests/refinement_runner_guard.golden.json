@@ -39,7 +39,7 @@
     "stopReason": null,
     "history": [
       {
-        "label": "Run 1 (×5)",
+        "label": "DLS multi-start (×5)",
         "iter": 50,
         "mf": 0.01,
         "layerCount": 3,
@@ -62,7 +62,7 @@
     "stopReason": null,
     "history": [
       {
-        "label": "Run 1 (×5)",
+        "label": "DLS multi-start (×5)",
         "iter": 50,
         "mf": 0.01,
         "layerCount": 2,

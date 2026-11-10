@@ -92,12 +92,17 @@ function showProgress(ctx, patch, run) {
     if (patch.best) ctx.lastBestRef.current = bestRecord(patch.best, run.sides);
 }
 
-function recordRow(ctx, row) {
+// A history row for a method the run finished, stamped with the run it belongs
+// to (HistoryPanel.js groups the rows by it): the run's number and the method
+// setting it ran with.
+function recordRow(ctx, row, run) {
     const tr = ctx.t.refinement;
     const layers = row[row.layerSide] || [];
+    const name = tr.methods[row.method] || row.method;
     ctx.addHistEntry({
         id: Math.random().toString(36).slice(2),
-        label: row.restarts ? `${tr.history.run(ctx.histRunCount.current)} (×${row.restarts})` : tr.methods[row.method],
+        label: row.restarts ? `${name} (×${row.restarts})` : name,
+        method: row.method, runNum: run.num, runMethod: run.method,
         iter: row.iter, mf: row.mf, omf: row.omf, layers, layerCount: layers.length,
         layerSide: row.layerSide,
         mfHistory: row.mfHistory,
@@ -145,17 +150,24 @@ export function startWindowRun(ctx) {
     ctx.abortRef.current = controller;
     const run = {
         sides: optimizedSides(design.surfaceMode),
+        method: settings.method,
+        num: null,
         isCurrent: () => ctx.activeRunRef.current === token,
         onDesign: () => run.isCurrent() && ctx.designRef.current?.id === design.id,
+    };
+    // One number per Run press, however many methods it runs.
+    const onStart = ({ seed }) => {
+        if (!run.onDesign()) return;
+        beginRun(ctx, design, seed);
+        run.num = ctx.bumpRunCount();
     };
     const hooks = {
         signal: controller.signal,
         makeWorker,
         makeEvalPool: evalPoolFactory(),
-        onStart: ({ seed }) => { if (run.onDesign()) beginRun(ctx, design, seed); },
-        onMethodStart: () => { if (run.onDesign()) ctx.bumpRunCount(); },
+        onStart,
         onProgress: (patch) => { if (run.onDesign()) showProgress(ctx, patch, run); },
-        onRecord: (row) => { if (run.onDesign()) recordRow(ctx, row); },
+        onRecord: (row) => { if (run.onDesign()) recordRow(ctx, row, run); },
     };
     return runRefinement(design, ctx.operandsRef.current || [], settings, hooks)
         .then(result => { if (run.isCurrent()) endWindowRun(ctx, result, run); })

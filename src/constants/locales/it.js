@@ -2741,6 +2741,7 @@ export default {
       restore: 'Ripristina',
       initial: 'Iniziale',
       run: n => `Esecuzione #${n}`,
+      tryAll: 'Prova tutti',
     },
   },
   globalRefinement: {
