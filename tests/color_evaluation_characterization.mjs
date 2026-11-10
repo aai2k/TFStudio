@@ -86,7 +86,9 @@ const named = series => series.map(item => [item.name || null, item.type]);
       `${mark.wavelength} nm is written on the outer side of the locus`);
   });
   assert.equal(grid.left, 48);
-  assert.equal(grid.top, 64);
+  const { plotMargin } = await import('../src/components/windows/analysis/chrome/plot.js');
+  assert.equal(grid.top, plotMargin().top,
+    'the legend row gets the room it has over every analysis plot, no empty band under it');
   assert.equal(legend.orient, 'horizontal');
   assert.ok(toolbox.feature.saveAsImage, 'native image export stays available');
 }

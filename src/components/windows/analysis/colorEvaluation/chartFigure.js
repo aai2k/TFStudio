@@ -9,13 +9,14 @@ import {
   LIGHTNESS_DIAGRAMS, POLAR_DIAGRAMS, diagramPlane, locusMarks, locusOutline, planckianLocus, srgbTriangle,
 } from '../../../../utils/physics/colorimetry.js';
 import { formatTheta } from '../opticalEvaluation/model.js';
-import { legendAbove } from '../chrome/plot.js';
+import { legendAbove, plotMargin } from '../chrome/plot.js';
 import { exposedRgb } from './colorModel.js';
 import { rasteriseDiagramFill } from './diagramFill.js';
 
 const { createElement: h, useEffect, useRef } = React;
-// Leave just enough room for the legend and toolbox.
-const MARGIN = { left: 48, right: 12, top: 64, bottom: 42 };
+// Above the plot, the room the other analysis plots leave for the one row of
+// legend and toolbox.
+const MARGIN = { left: 48, right: 12, top: plotMargin().top, bottom: 42 };
 /** The least height the diagram is drawn at, px; below it the plot is too small to read. */
 export const CHART_MIN_HEIGHT = 220;
 
