@@ -109,7 +109,7 @@ console.log('— coefficient inside a run —');
         '"HL SiO2": SiO2 is one direct-material layer, not a run');
 
     // A run that does not segment cleanly is reported as a whole.
-    for (const bad of ['HL6X', 'H2O', 'HL6']) {
+    for (const bad of ['HL6X', 'H2Q', 'HL6']) {
         const e = buildStackFromFormula({ text: bad, symbolMap: SM, refLambda: LAM });
         ok(!e.ok && e.unknownSymbols && e.unknownSymbols.join() === bad, `"${bad}" is rejected naming the run (got ${e.unknownSymbols})`);
     }

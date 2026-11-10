@@ -86,7 +86,7 @@ for (const material of MATERIALS) {
 // ── Custom is not a built-in material ────────────────────────────────────────
 
 assert.equal(Object.keys(builtin).length, 5 + Object.keys(BUILTIN_RII_DATA).length,
-    'Air and the four Sellmeier materials, then one material per generated table');
+    'Air and the four Sellmeier materials, then one material per generated page');
 assert.equal(MATERIAL_MAP.Custom, undefined, 'Custom is not in the built-in library');
 for (const [name, list] of Object.entries({ MATERIAL_GROUPS, SUBSTRATE_MATERIALS, LAYER_MATERIALS })) {
     assert.ok(!list.includes('Custom'), `${name} does not name Custom`);

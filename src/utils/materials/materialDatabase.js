@@ -1,9 +1,9 @@
 /**
  * Built-in optical material database.
  *
- * Air and the Sellmeier materials are written out here. The tabulated
- * materials come from the refractiveindex.info database (CC0); their rows and
- * descriptions are generated into builtinRiiData.js by
+ * Air and the Sellmeier materials are written out here. The other materials
+ * come from pages of the refractiveindex.info database (CC0); their rows or
+ * formula and their descriptions are generated into builtinRiiData.js by
  * tools/gen_builtin_materials.mjs.
  *
  * Each material exposes:
@@ -38,6 +38,20 @@ function sellmeier(coeffs, rangeNm) {
 // tabulated extent (getNK clamps to the endpoints outside it).
 function tabulated(data) {
     return createTabulatedNKSampler(data);
+}
+
+// A formula page of the database: n from the catalog's formula `formulaNum`
+// with the page's coefficients, lam in um, and k = 0. rangeNm is the range the
+// page states.
+function pageFormula({ formulaNum, coefficients, rangeNm }) {
+    const fn = (lambda_nm) => [evalN(formulaNum, coefficients, lambda_nm / 1000), 0];
+    fn.dispersionFormula = { formulaNum, coefficients };
+    return tagRange(fn, rangeNm);
+}
+
+// getNK of a material generated into builtinRiiData.js: its table, or its formula.
+function pageData({ rows, formula }) {
+    return rows ? tabulated(rows) : pageFormula(formula);
 }
 
 // ── SCHOTT N-BK7 internal transmittance → extinction coefficient k ────────────
@@ -103,6 +117,20 @@ const RII_MATERIALS = [
     getNK: tabulated(BUILTIN_RII_DATA[material.id].rows),
 }));
 
+// The media a coating faces other than air: water, a cement between two
+// parts, the encapsulant over a solar cell. Each takes its data and
+// description from its refractiveindex.info page, as the materials above do.
+const RII_MEDIA = [
+    { id: 'H2O',   name: 'H2O (Water)',                      color: '#5c6bc0' },
+    { id: 'NOA61', name: 'NOA 61 (optical adhesive, cured)', color: '#8d6e63' },
+    { id: 'EVA',   name: 'EVA (encapsulant)',                color: '#f08a7d' },
+].map(material => ({
+    ...material,
+    group: 'Ambient',
+    description: BUILTIN_RII_DATA[material.id].description,
+    getNK: pageData(BUILTIN_RII_DATA[material.id]),
+}));
+
 const _materials = [
     {
         id: 'Air',
@@ -112,6 +140,7 @@ const _materials = [
         description: 'Air / Vacuum (n=1.0)',
         getNK: Object.assign(() => [1.0, 0], { constantNK: [1, 0] })
     },
+    ...RII_MEDIA,
     {
         id: 'SiO2',
         name: 'SiO2 (Fused Silica)',

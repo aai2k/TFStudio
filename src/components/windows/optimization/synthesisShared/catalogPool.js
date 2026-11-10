@@ -25,6 +25,11 @@ const isAirLike = (matKey) => {
     return tail === 'Air' || tail === 'Vacuum';
 };
 
+// Nor can the other media a coating faces: water, a cement between two parts,
+// an encapsulant. The built-in catalog keeps them with Air in its Ambient
+// group, and a material carries its group wherever it is listed from.
+const isMedium = (matKey, mat) => isAirLike(matKey) || mat?.group === 'Ambient';
+
 // Built-in materials are referenced both bare ('SiO2', from the builtin catalog)
 // and compound ('builtin:SiO2', how a design usually stores them). Both resolve
 // to the same material, so identity for pool purposes is the compound form —
@@ -54,7 +59,7 @@ export function poolCatalogs(design, designName = '') {
  */
 export function poolMatEntries(cat) {
     return Object.entries(cat.materials || {})
-        .filter(([key, mat]) => !isAirLike(key) && !isHerpinMaterial(fullMatId(cat, key), mat))
+        .filter(([key, mat]) => !isMedium(key, mat) && !isHerpinMaterial(fullMatId(cat, key), mat))
         .map(([key, mat]) => ({
             key,
             fullId: fullMatId(cat, key),
@@ -62,7 +67,7 @@ export function poolMatEntries(cat) {
         }));
 }
 
-// Count of eligible candidate materials in the selected catalogs (Air/Vacuum and
+// Count of eligible candidate materials in the selected catalogs (media and
 // user-excluded ids removed). Deliberately skips the getNK(n<1.05) filter that
 // getPoolMaterials applies — an upper-bound estimate is all the size guards need,
 // and it stays cheap enough to run on every selection change.
@@ -106,7 +111,7 @@ function poolMaterialEntry(cat, matKey, fullId, excluded, verbose) {
 }
 
 // ── Candidate material pool from the selected catalogs ───────────────────────────
-// Skips Air/Vacuum and anything with n < 1.05 at 550 nm (can't act as a film).
+// Skips the media and anything with n < 1.05 at 550 nm (can't act as a film).
 // A material reachable through both the design catalog and its own catalog is
 // one candidate, not two, so a scan never evaluates the same film twice. A
 // catalog material under an id the design computes with its own copy from

@@ -1,16 +1,20 @@
 /**
- * gen_builtin_materials.mjs: write the n,k tables of the built-in materials
+ * gen_builtin_materials.mjs: write the n,k data of the built-in materials
  * taken from the refractiveindex.info database (CC0), with each page's comment
  * and reference, to src/utils/materials/builtinRiiData.js.
  *
  * materialDatabase.js holds the rest of every built-in material (name, color,
- * group) and the materials that are not a table from a page.
+ * group) and the materials that do not come from a page.
  *
  * A table keeps the page's own points from lmin to lmax nm, skipping any point
  * closer than `step` nm to the last one kept; the last point in that window is
  * always kept. An entry with no window keeps every point of its page, as the
  * RefractiveIndex.info importer does. Wavelengths are rounded to 0.001 nm and
  * n to six significant figures; k is written as the page gives it.
+ *
+ * A formula page is written as its formula: the catalog's number for it
+ * (database formula N is catalog formula 200 + N), the page's coefficients and
+ * the wavelength range the page states, in nm.
  *
  * A description is the page's comment and reference in full, the same text the
  * RefractiveIndex.info importer stores for that page. The module is read back
@@ -27,6 +31,7 @@ import path from 'node:path';
 import url from 'node:url';
 import yaml from 'js-yaml';
 import { parseMaterialDoc, riiMaterialComment } from '../src/utils/materials/riiDatabase.js';
+import { riiCatalogFormula } from '../src/utils/materials/riiDatabase/formulas.js';
 
 const ROOT = path.resolve(path.dirname(url.fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'src', 'utils', 'materials', 'builtinRiiData.js');
@@ -37,6 +42,11 @@ const OUT = path.join(ROOT, 'src', 'utils', 'materials', 'builtinRiiData.js');
  * it does not keep the whole page.
  */
 const MATERIALS = [
+    // Water's page runs from 10 nm to 10 m; the window is the span the other
+    // built-in tables cover.
+    { id: 'H2O', page: 'main/H2O/nk/Segelstein.yml', lmin: 200, lmax: 2500, step: 5 },
+    { id: 'NOA61', page: 'other/optical adhesives/NOA-61/nk/Norland.yml' },
+    { id: 'EVA', page: 'other/commercial polymers/EVASKY S88/nk/Vogt.yml' },
     { id: 'TiO2', page: 'main/TiO2/nk/Jolivet-anatase.yml', lmin: 370, lmax: 830, step: 5 },
     { id: 'Ta2O5', page: 'main/Ta2O5/nk/Bright-amorphous.yml', lmin: 500, lmax: 2500, step: 10 },
     { id: 'Ta2O5_Gao', page: 'main/Ta2O5/nk/Gao.yml', lmin: 350, lmax: 1800, step: 10 },
@@ -81,18 +91,31 @@ function thinTable(mat, { lmin = 0, lmax = Infinity, step = 0 }) {
     return kept.map(([lambda, n, k]) => [lambda, Number(n.toPrecision(6)), k]);
 }
 
-function renderMaterial({ id, page }, description, rows) {
+// A formula page as the catalog evaluates it: the catalog's number for the
+// page's formula, the page's coefficients and the range it states, in nm.
+function pageFormula(mat) {
+    const formulaNum = riiCatalogFormula(mat.riiFormulaNum);
+    if (!formulaNum || !mat.wavelengthRange) throw new Error(`${mat.dataPath} is not a formula page with a stated range`);
+    return {
+        formulaNum,
+        coefficients: [...mat.formulaCoeffs],
+        rangeNm: mat.wavelengthRange.map(nm => Number(nm.toFixed(3))),
+    };
+}
+
+function renderMaterial({ id, page }, description, { rows, formula }) {
     const lines = [];
-    for (let i = 0; i < rows.length; i += 4) {
+    for (let i = 0; rows && i < rows.length; i += 4) {
         lines.push('            ' + rows.slice(i, i + 4).map(row => `[${row.join(', ')}]`).join(', ') + ',');
     }
+    const data = formula
+        ? [`        formula: { formulaNum: ${formula.formulaNum}, coefficients: [${formula.coefficients.join(', ')}], rangeNm: [${formula.rangeNm.join(', ')}] },`]
+        : ['        rows: [', ...lines, '        ],'];
     return [
         `    ${id}: {`,
         `        page: ${JSON.stringify(page)},`,
         `        description: ${JSON.stringify(description)},`,
-        '        rows: [',
-        ...lines,
-        '        ],',
+        ...data,
         '    },',
     ].join('\n');
 }
@@ -101,15 +124,22 @@ const dataDir = riiDataDir();
 console.log(`refractiveindex.info data: ${dataDir}`);
 const generated = MATERIALS.map(spec => {
     const mat = parseMaterialDoc(yaml.load(fs.readFileSync(path.join(dataDir, spec.page), 'utf8')), spec.page);
+    if (mat.type === 'formula') {
+        const formula = pageFormula(mat);
+        console.log(`  ${spec.id.padEnd(6)} formula ${formula.formulaNum}, ${formula.rangeNm[0]}-${formula.rangeNm[1]} nm`);
+        return { spec, mat, data: { formula } };
+    }
     const rows = thinTable(mat, spec);
     console.log(`  ${spec.id.padEnd(6)} ${rows.length} rows, ${rows[0][0]}-${rows[rows.length - 1][0]} nm`);
-    return { spec, mat, rows };
+    return { spec, mat, data: { rows } };
 });
 
 const header = `/**
- * n,k tables of the built-in materials taken from the refractiveindex.info
+ * n,k data of the built-in materials taken from the refractiveindex.info
  * database (CC0, https://github.com/polyanskiy/refractiveindex.info-database),
- * with each page's comment and reference. Rows are [wavelength nm, n, k].
+ * with each page's comment and reference. A table page gives \`rows\`,
+ * [wavelength nm, n, k]. A formula page gives \`formula\`: the catalog's number
+ * for the page's formula, its coefficients and the range the page states, nm.
  *
  * Generated by tools/gen_builtin_materials.mjs. Do not edit by hand: change
  * the generator's table and rerun it. materialDatabase.js gives each material
@@ -117,18 +147,21 @@ const header = `/**
  */
 export const BUILTIN_RII_DATA = {
 `;
-const blocks = generated.map(({ spec, mat, rows }) => renderMaterial(spec, riiMaterialComment(mat), rows));
+const blocks = generated.map(({ spec, mat, data }) => renderMaterial(spec, riiMaterialComment(mat), data));
 const source = header + blocks.join('\n') + '\n};\n';
 
 const { BUILTIN_RII_DATA: readBack } =
     await import(`data:text/javascript;base64,${Buffer.from(source, 'utf8').toString('base64')}`);
-for (const { spec, mat, rows } of generated) {
+for (const { spec, mat, data } of generated) {
     const entry = readBack[spec.id];
     if (entry?.description !== riiMaterialComment(mat)) {
         throw new Error(`${spec.id}: the description read back is not the page's comment and reference; nothing written`);
     }
-    if (JSON.stringify(entry.rows) !== JSON.stringify(rows)) {
+    if (JSON.stringify(entry.rows) !== JSON.stringify(data.rows)) {
         throw new Error(`${spec.id}: the rows read back differ from the page; nothing written`);
+    }
+    if (JSON.stringify(entry.formula) !== JSON.stringify(data.formula)) {
+        throw new Error(`${spec.id}: the formula read back differs from the page; nothing written`);
     }
 }
 
