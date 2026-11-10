@@ -149,6 +149,22 @@ function applyNewCurve(runtime, Window, rows) {
     assert.equal(liveTimers().length, 0, 'a warning stays until the next report');
 }
 
+// ── The report stays on the tabs' line ───────────────────────────────────────
+// A report too wide for the room beside the controls used to wrap to a line of
+// its own, which made the row taller and left the tabs above its bottom edge.
+// The box starts at no width, so the row never wraps it, and grows into the
+// room left; the report in it is cut short there.
+{
+    const { ReportAndNotices } = await import('../src/components/windows/dataExchange/chrome/actionStatus.js');
+    const box = ReportAndNotices({ c, t, status: { type: 'success', msg: '5 MATE records and 4 layers written.' }, notices: [] });
+    assert.equal(box.props.style.flex, '1 1 0', 'the box takes the room left on the line and asks for none');
+    assert.equal(box.props.style.minWidth, 0);
+    const report = elements(box, ['ActionStatus']).find(node => node.props.role === 'status');
+    assert.equal(report.props.style.minWidth, 0, 'the report shrinks to the room it has');
+    assert.equal(report.props.style.textOverflow, 'ellipsis', 'and is cut short there');
+    assert.equal(report.props.title, '5 MATE records and 4 layers written.', 'its whole text in its tooltip');
+}
+
 globalThis.setTimeout = realSetTimeout;
 globalThis.clearTimeout = realClearTimeout;
 console.log('PASS: measured_window_reports');

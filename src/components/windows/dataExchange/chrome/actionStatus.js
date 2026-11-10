@@ -66,15 +66,20 @@ function ActionStatus({ c, status }) {
 /**
  * The right-hand end of an import window's control row: the last action's
  * report, then the notice badge. The two share one box, passed as the row's
- * last child, which moves to a line of its own when it does not fit beside the
- * tabs; the report is cut short only when it is wider than the whole row.
+ * last child, which takes the room the row has left after the controls. A
+ * report wider than that room is cut short, its full text in its tooltip,
+ * rather than wrapped to a line of its own: that line would make the row
+ * taller and leave the tabs standing above the row's bottom edge.
  *
  *   status   from useActionStatus
  *   notices  the conditions, as NoticeBadge takes them
  */
 export function ReportAndNotices({ c, t, status, notices }) {
     return h('div', {
-        style: { marginLeft: 'auto', minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 },
+        style: {
+            flex: '1 1 0', minWidth: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6,
+        },
     },
         status && h(ActionStatus, { c, status }),
         h(NoticeBadge, { c, notices, label: t.analysisChrome.notices }),
