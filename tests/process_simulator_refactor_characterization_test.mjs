@@ -233,7 +233,7 @@ assert.equal(series[1].lineStyle.color, 'hsla(0, 70%, 55%, 0.95)');
 assert.equal(series[1].lineStyle.width, 2.4);
 const chartOption = figure.buildSpectraOption({ quantity: 'R' }, colors, sp);
 assert.deepEqual([chartOption.yAxis.min, chartOption.yAxis.max], [0, 100]);
-assert.ok(chartOption.toolbox.feature.saveAsImage, 'native chart export remains available');
+assert.ok(chartOption.toolbox.feature.mySaveAsImage, 'chart export remains available');
 
 // The wavelength axis is pinned to the range that was set. Left to ECharts it
 // rounds its start down to a tick, so a range from 399 nm drew from 300.

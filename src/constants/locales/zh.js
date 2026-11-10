@@ -4225,6 +4225,7 @@ export default {
   },
   chart: {
     resetZoom: '重置缩放',
+    saveImage: '保存为图片',
   },
 
   numberField: {

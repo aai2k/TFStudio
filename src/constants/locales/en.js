@@ -3840,6 +3840,7 @@ export default {
 
   chart: {
     resetZoom: 'Reset zoom',
+    saveImage: 'Save picture',
   },
 
   numberField: {

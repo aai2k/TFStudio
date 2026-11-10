@@ -4256,6 +4256,7 @@ export default {
   },
   chart: {
     resetZoom: 'Reimposta lo zoom',
+    saveImage: 'Salva immagine',
   },
 
   numberField: {

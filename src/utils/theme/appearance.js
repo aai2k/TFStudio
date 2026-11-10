@@ -65,6 +65,16 @@ export function uniqueThemeName(name, customThemes) {
     return finalName;
 }
 
+let activePalette = null;
+
+/**
+ * The palette the app is drawn in, for code that has no `c` passed to it; null
+ * until the first one is applied.
+ */
+export function currentPalette() {
+    return activePalette;
+}
+
 /**
  * Mirror the active palette into CSS custom properties on :root so global
  * stylesheet rules (e.g. native <select>/<option> popups, which can't read the
@@ -72,6 +82,7 @@ export function uniqueThemeName(name, customThemes) {
  * list with default colours (white on dark themes, so "looks default").
  */
 export function applyPaletteVariables(c) {
+    activePalette = c;
     const r = document.documentElement.style;
     r.setProperty('--tf-bg',           c.bg);
     r.setProperty('--tf-panel',        c.panel);

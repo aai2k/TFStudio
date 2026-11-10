@@ -90,7 +90,7 @@ const named = series => series.map(item => [item.name || null, item.type]);
   assert.equal(grid.top, plotMargin().top,
     'the legend row gets the room it has over every analysis plot, no empty band under it');
   assert.equal(legend.orient, 'horizontal');
-  assert.ok(toolbox.feature.saveAsImage, 'native image export stays available');
+  assert.ok(toolbox.feature.mySaveAsImage, 'image export stays available');
 }
 
 // ── Several angles: one point each, joined in order and labelled ─────────────

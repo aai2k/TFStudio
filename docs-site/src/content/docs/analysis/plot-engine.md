@@ -119,8 +119,8 @@ tilts; MF over two thicknesses is the landscape the optimizer searches, and
 shows whether a refined design sits in a real basin or has a better one nearby.
 
 The **Results** strip below the plot holds every point as numbers, and
-**Export** writes them to CSV. The chart's own toolbar exports the picture as
-PNG or SVG.
+**Export** writes them to CSV. The chart's own toolbar saves the picture as
+PNG, in light colours whatever the theme.
 
 ## References
 

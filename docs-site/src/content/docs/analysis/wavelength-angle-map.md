@@ -58,7 +58,7 @@ tilt brings it onto wavelength.
 
 The **Results** strip below the plot holds the grid as numbers, one row per
 wavelength and angle pair, and **Export** writes it to CSV. The chart's own
-toolbar exports the picture as PNG or SVG.
+toolbar saves the picture as PNG, in light colours whatever the theme.
 
 For a single angle at full spectral detail, use
 [Optical Evaluation](/analysis/optical-evaluation/); for a map over something

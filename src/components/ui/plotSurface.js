@@ -282,6 +282,21 @@ export function resizeChart(element, chartRef) {
     if (chart && !chart.isDisposed?.()) chart.resize();
 }
 
+/**
+ * Draw `option` once, off screen, on a canvas `width` by `height` px, and give
+ * it as a PNG data URL with the `image` settings of ECharts' getDataURL. The
+ * chart exists only for the call.
+ */
+export function drawPicture(option, { width, height, ...image }) {
+    const chart = runtime().init(document.createElement('div'), null, { renderer: 'canvas', width, height });
+    try {
+        chart.setOption(option);
+        return chart.getDataURL({ type: 'png', ...image });
+    } finally {
+        chart.dispose();
+    }
+}
+
 /** Dispose a chart owned by an imperative (non-React) caller. */
 export function disposeChart(element, chartRef) {
     const chart = chartRef?.current || chartForElement(element);

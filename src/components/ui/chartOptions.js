@@ -6,6 +6,8 @@ import { toCompactExponential, toSignificantFigures } from '../../utils/math/sig
 export const THIN_X_SYMBOL = 'path://M-5,-4L-4,-5L0,-1L4,-5L5,-4L1,0L5,4L4,5L0,1L-4,5L-5,4L-1,0Z';
 export const LINE_LEGEND_ICON = 'path://M0,4L24,4L24,6L0,6Z';
 const RECTANGLE_ZOOM_ICON = 'path://M0,13.5h26.9 M13.5,26.9V0 M32.1,13.5H58V58H13.5 V32.1';
+// ECharts' own Save as Image icon.
+const SAVE_IMAGE_ICON = 'path://M4.7,22.9L29.3,45.5L54.7,23.4M4.6,43.6L4.6,58L53.8,58L53.8,43.6M29.2,45.1L29.2,0';
 
 export function dashType(dash) {
     if (!dash || dash === 'solid') return 'solid';
@@ -173,8 +175,25 @@ export function chartToolbox(fileName, {
     dataZoom = true, restore = true, colors, resetView,
 } = {}) {
     const palette = chartColors(colors);
+    // The toolbox is built from a chart model rather than a component, and
+    // every window that owns a chart would otherwise have to thread the locale
+    // down to it for these tooltips.
+    const locale = getLocale(getCurrentLocale()).chart;
+    // ECharts' own Save as Image saves the chart in the colours on screen; this
+    // one saves it in the Light theme (chartPicture.js).
     const feature = {
-        saveAsImage: { name: `TFStudio_${fileName}`, pixelRatio: 2, backgroundColor: palette.paper },
+        mySaveAsImage: {
+            show: true,
+            title: locale.saveImage,
+            icon: SAVE_IMAGE_ICON,
+            name: `TFStudio_${fileName}`,
+            pixelRatio: 2,
+            // Loaded on the click: these options are plain data and load without
+            // React, and the picture is drawn through plotSurface.js, which needs it.
+            onclick: (_model, api) => import('./chartPicture.js').then(({ saveChartPicture }) => {
+                saveChartPicture(globalThis.echarts?.getInstanceByDom?.(api.getDom?.()));
+            }),
+        },
     };
     // ECharts 6.1's native `restore` action recreates the toolbox model but
     // leaves the previous dataZoom brush controller active. The next rectangle
@@ -190,10 +209,7 @@ export function chartToolbox(fileName, {
     // reset path.
     if (restore) feature.myZoomRestore = {
         show: true,
-        // The toolbox is built from a chart model rather than a component, and
-        // every window that owns a chart would otherwise have to thread the
-        // locale down to it for this one tooltip.
-        title: getLocale(getCurrentLocale()).chart.resetZoom,
+        title: locale.resetZoom,
         icon: 'path://M3.8,33.4 M47,18.9h9.8V8.7 M56.3,20.1 C52.1,9,40.5,0.6,26.8,2.1C12.6,3.7,1.6,16.2,2.1,30.6 M13,41.1H3.1v10.2 M3.7,39.9c4.2,11.1,15.8,19.5,29.5,18 c14.2-1.6,25.2-14.1,24.7-28.5',
         onclick: (_model, api) => {
             api.dispatchAction({
@@ -303,7 +319,6 @@ function themedTooltip(tooltip, colors) {
 function themedToolbox(toolbox, colors) {
     if (!toolbox) return toolbox;
     const palette = chartColors(colors);
-    const saveAsImage = toolbox.feature?.saveAsImage;
     return {
         ...toolbox,
         backgroundColor: palette.paper,
@@ -319,10 +334,6 @@ function themedToolbox(toolbox, colors) {
                 borderWidth: 1.75,
             },
         },
-        feature: saveAsImage ? {
-            ...toolbox.feature,
-            saveAsImage: { ...saveAsImage, backgroundColor: palette.paper },
-        } : toolbox.feature,
     };
 }
 

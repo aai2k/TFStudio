@@ -3771,6 +3771,7 @@ export default {
 
   chart: {
     resetZoom: 'Сбросить масштаб',
+    saveImage: 'Сохранить рисунок',
   },
 
   numberField: {
