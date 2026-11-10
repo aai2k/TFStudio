@@ -320,7 +320,13 @@ export function overlayEl(s) {
                 }
             })
         ),
-        h(PickerTabs, { groups, catFilter, setCatFilter, currentGroup, allLabel, c }),
+        // A picker opened at mount draws once before it is placed, at no width.
+        // The tabs centre the marked tab as they mount, and centred in a row of
+        // no width it ends up off the side of the real one, so they mount again
+        // once the overlay has its width. They are drawn in that first frame
+        // all the same: the list below has its height then, and opens scrolled
+        // to the current entry by it.
+        h(PickerTabs, { key: dropPos.width > 0 ? 'placed' : 'unplaced', groups, catFilter, setCatFilter, currentGroup, allLabel, c }),
         h('div', {
             ref: listRef, onScroll: onListScroll,
             style: { flex: 1, overflowY: 'auto' }

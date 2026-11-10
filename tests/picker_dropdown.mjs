@@ -130,6 +130,22 @@ assert.equal(fits.scrollLeft, 0, 'a row that fits has nowhere to scroll to');
 assert.doesNotThrow(() => scrollTabIntoView(null, tab(10)));
 assert.doesNotThrow(() => scrollTabIntoView(strip(0), null));
 
+// The last tab marked: placed while the row is still as wide as it is before
+// its arrows appear, it ends up cut by the edge once they take their room.
+{
+    const last = tab(840);
+    const row = { scrollWidth: 900, clientWidth: 328, scrollLeft: 0 };
+    scrollTabIntoView(row, last);
+    row.clientWidth = 300;
+    assert.ok(last.offsetLeft + last.offsetWidth > row.scrollLeft + row.clientWidth,
+        'narrowed by the arrows, the row cuts the tab placed before them');
+    scrollTabIntoView(row, last);
+    assert.equal(row.scrollLeft, 600, 'placed again, it is at the end of the row, whole');
+    const tabsCode = await readFile(new URL('../src/components/ui/pickerTabs.js', import.meta.url), 'utf8');
+    assert.match(tabsCode, /scrollTabIntoView\(stripRef\.current, activeTabRef\.current\);[\s\S]{0,40}\}, \[markedGroup, edges\.overflowing, measure\]\)/,
+        'so the tabs place the marked tab again once they know the row overflows');
+}
+
 // ── The row rests only on tab boundaries ──────────────────────────────────────
 
 // Tabs 80 wide, so a 300-wide row shows just under four of them.

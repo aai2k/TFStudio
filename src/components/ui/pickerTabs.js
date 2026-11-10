@@ -149,10 +149,13 @@ export function PickerTabs({ groups, catFilter, setCatFilter, currentGroup = nul
         return () => { if (observer) observer.disconnect(); };
     }, [groups.length, measure]);
 
+    // Again once the row is found to overflow: the arrows that appear then take
+    // their width from it, and a marked tab brought to the end of the row
+    // before they did would sit half under the last one.
     useEffect(() => {
         scrollTabIntoView(stripRef.current, activeTabRef.current);
         measure();
-    }, [markedGroup, measure]);
+    }, [markedGroup, edges.overflowing, measure]);
 
     const page = (direction) => {
         const strip = stripRef.current;
