@@ -11,7 +11,7 @@ import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
 import {
-    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface, PpefNote,
+    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface, PpefNote, settingNoteStyle,
 } from '../synthesisShared/synthesisHelpers.js';
 import { cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
 import { groupRowsByRun, RUN_COLORS } from '../synthesisShared/runBlocks.js';
@@ -114,7 +114,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
         numRow(tn.dMin,      dMin,      v => onDMin(Math.max(0.1, v)),     0.1),
         (maxMNT > 0 && Math.abs(dMin - maxMNT) > 1e-6)
             ? h('div', {
-                style: { fontSize: 10, color: '#ffa726', marginTop: -1, marginBottom: 4, lineHeight: 1.3 }
+                style: settingNoteStyle(c)
               }, tn.mntHint(+maxMNT.toFixed(3)))
             : null,
         numRow(tn.dlsIter,   dlsIter,   v => onDlsIter(Math.max(1, Math.round(v))), 1),

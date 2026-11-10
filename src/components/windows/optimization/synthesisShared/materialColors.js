@@ -1,18 +1,6 @@
 import { resolveColor } from '../../../../utils/materials/catalogManager.js';
 import { displayedMaterial, matDisplayName } from './materialNames.js';
 
-// ── Shared "blocking warning" badge ─────────────────────────────────────────────
-// Used by every optimizer/synthesis window (Refinement, Needle, Gradual
-// Evolution, Structural, Needle Manual) so a blocking message — e.g. an empty
-// merit function — looks IDENTICAL everywhere. Amber text on a faint amber wash
-// reads clearly on all (dark) theme panels, unlike the old brown-on-brown
-// reason pill. Spread it and add positioning (marginLeft) at the call site.
-export const WARN_BADGE_STYLE = {
-    fontSize: 11, padding: '2px 9px', borderRadius: 4,
-    background: '#ffb74d22', color: '#ffb74d', border: '1px solid #ffb74d66',
-    fontWeight: 600, fontStyle: 'normal', whiteSpace: 'nowrap',
-};
-
 export const MAT_COLORS = {
     TiO2: '#e53935', SiO2: '#1e88e5', Ta2O5: '#8e24aa', Nb2O5: '#43a047',
     HfO2: '#fb8c00', Al2O3: '#00acc1', ZnS:   '#fdd835', ZnSe:  '#f06292',

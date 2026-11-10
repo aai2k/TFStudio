@@ -10,7 +10,7 @@
 import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
-import { SynthesisHistoryTable, ChartSurface, PpefNote } from '../synthesisShared/synthesisHelpers.js';
+import { SynthesisHistoryTable, ChartSurface, PpefNote, settingNoteStyle } from '../synthesisShared/synthesisHelpers.js';
 import { groupRowsByRun, RUN_COLORS } from '../synthesisShared/runBlocks.js';
 import { cartesianOption, horizontalLegend, lineSeries, scatterSeries, valueAxis } from '../../../ui/chartOptions.js';
 import {
@@ -72,7 +72,7 @@ export function ControlBar({ running, generation, layerCount, mf, mfBest, geStep
         `  ${tg.layersLabel} `,
         h('b', { style: { color: c.text } }, layerCount),
         `  ${tg.geStepLabel} `,
-        h('b', { style: { color: '#ff7043' } }, geSteps),
+        h('b', { style: { color: c.warning } }, geSteps),
         mf != null && `  ${tg.mfLabel} `,
         mf != null && h('b', { style: { color: c.text } }, mf.toFixed(6)),
         // The separator sits outside the fixed-width Best slot: a space at the
@@ -117,7 +117,7 @@ export function LeftSidebar({ catalogs, selectedCats, onToggleCat, onSelectAllCa
         numRow(tg.dMin,          dMin,          v => onDMin(Math.max(0.1, v)),                   0.1),
         (maxMNT > 0 && Math.abs(dMin - maxMNT) > 1e-6)
             ? h('div', {
-                style: { fontSize: 10, color: '#ffa726', marginTop: -1, marginBottom: 4, lineHeight: 1.3 }
+                style: settingNoteStyle(c)
               }, tg.mntHint(+maxMNT.toFixed(3)))
             : null,
         // Smart starting design: generate + refine canonical AR seeds on the

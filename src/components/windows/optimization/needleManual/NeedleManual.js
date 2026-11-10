@@ -19,7 +19,7 @@
  */
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
-import { MeritRangeBadge, WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
+import { MeritRangeBadge, warnBadgeStyle } from '../synthesisShared/synthesisHelpers.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { useNeedleManual } from './useNeedleManual.js';
 import { PFunctionPlot } from './PFunctionPlot.js';
@@ -60,7 +60,7 @@ export function NeedleManual({ c, theme, t }) {
             h('div', { style: { flex: 1 } }),
             s.statusMsg && h('span', {
                 style: (s.statusMsg === tn.noOperands || s.scanBlocked)
-                    ? { ...WARN_BADGE_STYLE, whiteSpace: 'normal' }
+                    ? { ...warnBadgeStyle(c), whiteSpace: 'normal' }
                     : { fontSize: 11, color: s.busy ? (c.accent || '#ffa726') : c.textDim, fontStyle: 'italic' }
             }, s.statusMsg),
             h('span', { style: { marginLeft: 'auto' } },

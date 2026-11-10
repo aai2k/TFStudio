@@ -12,7 +12,7 @@
  */
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
-import { MaterialPoolPanel, WARN_BADGE_STYLE } from './synthesisHelpers.js';
+import { MaterialPoolPanel, warnBadgeStyle } from './synthesisHelpers.js';
 import { MeritRangeBadge } from './MeritRangeBadge.js';
 import { synthesisSidebarSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -107,7 +107,7 @@ export function SynthesisControlBar({
                 title: statusMsg || undefined,
                 style: statusMsg === noOperandsLabel
                     ? {
-                        ...WARN_BADGE_STYLE, marginLeft: 10, width: 220, flex: STATUS_FLEX, minWidth: 0,
+                        ...warnBadgeStyle(c), marginLeft: 10, width: 220, flex: STATUS_FLEX, minWidth: 0,
                         boxSizing: 'border-box', whiteSpace: 'nowrap', overflow: 'hidden',
                         textOverflow: 'ellipsis', visibility: statusMsg ? 'visible' : 'hidden',
                     }

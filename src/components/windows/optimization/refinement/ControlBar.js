@@ -6,7 +6,7 @@
 // ControlBar component itself stays a flat assembly with no branching logic.
 
 import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
-import { WARN_BADGE_STYLE } from '../synthesisShared/synthesisHelpers.js';
+import { warnBadgeStyle } from '../synthesisShared/synthesisHelpers.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { NumberField } from '../../../ui/numberField.js';
 import { REFINE_METHODS, ALL_ORDER, STOCHASTIC_METHODS } from '../../../../utils/refinement/methods.js';
@@ -132,7 +132,7 @@ function runReadout({ running, iter, mf, mfBest, mfInitial, mfProvisional, evalu
     const mark = provisionalMark(mfProvisional, te.provisionalTip);
     const reason = stopReasonView(stopReason, tr);
     const reasonPillStyle = isWarnReason(stopReason)
-        ? { ...WARN_BADGE_STYLE, marginLeft: 8, cursor: 'help' }
+        ? { ...warnBadgeStyle(c), marginLeft: 8, cursor: 'help' }
         : { fontSize: 10, marginLeft: 8, padding: '1px 7px', borderRadius: 9, cursor: 'help',
             background: reason.good ? (c.success + '33') : (c.textDim + '26'), color: reason.good ? c.success : c.text,
             border: `1px solid ${reason.good ? (c.success + '66') : (c.textDim + '66')}` };

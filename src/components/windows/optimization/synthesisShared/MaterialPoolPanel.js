@@ -1,6 +1,7 @@
 import { DesignContext } from '../../../../state/DesignContext.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
-import { WARN_BADGE_STYLE, matColor } from './materialColors.js';
+import { matColor } from './materialColors.js';
+import { warnBadgeStyle } from './noticeStyles.js';
 import { POOL_WARN_COUNT, poolMatEntries as matEntries } from './catalogPool.js';
 import { synthesisSidebarSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -140,7 +141,7 @@ export function MaterialPoolPanel({ sessionKey, catalogs, selectedCats, onToggle
             )
         ),
         (warnLabel && selectedCount > POOL_WARN_COUNT) && h('div', {
-            style: { ...WARN_BADGE_STYLE, display: 'block', whiteSpace: 'normal', marginBottom: 5, lineHeight: 1.3 },
+            style: { ...warnBadgeStyle(c), display: 'block', whiteSpace: 'normal', marginBottom: 5, lineHeight: 1.3 },
         }, warnLabel(selectedCount)),
         catalogs.map(cat => h(CatalogRow, {
             key: cat.id, cat, selectedCats, excluded, canPickMat, running, design, c,

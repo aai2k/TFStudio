@@ -8,7 +8,7 @@ import {
     SynthesisControlBar, SynthesisSidebarFrame, makeRowHelpers,
 } from '../synthesisShared/synthesisShell.js';
 import {
-    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface, PpefNote,
+    SynthesisHistoryTable, TopDesignsPanel as SharedTopDesignsPanel, ChartSurface, PpefNote, settingNoteStyle,
 } from '../synthesisShared/synthesisHelpers.js';
 import { groupRowsByRun, RUN_COLORS } from '../synthesisShared/runBlocks.js';
 import { cartesianOption, horizontalLegend, lineSeries, valueAxis } from '../../../ui/chartOptions.js';
@@ -126,11 +126,11 @@ export function ControlBar({ view, actions, design, t, c }) {
 // A note under the floor when the merit function's MNT row asks for another:
 // a higher floor holds every layer above what the merit function needs, and a
 // lower one is raised to the MNT value at Run.
-function mntNote({ dMin, maxMNT, td }) {
+function mntNote({ dMin, maxMNT, td, c }) {
     if (!(maxMNT > 0) || Math.abs(dMin - maxMNT) <= 1e-6) return null;
     const mnt = +maxMNT.toFixed(3);
     return h('div', {
-        style: { fontSize: 10, color: '#ffa726', marginTop: -1, marginBottom: 4, lineHeight: 1.3 },
+        style: settingNoteStyle(c),
     }, dMin > maxMNT ? td.mntHintAbove(mnt) : td.mntHintBelow(mnt));
 }
 
@@ -140,7 +140,7 @@ export function LeftSidebar({ s, catalogs, operands, running, c, t }) {
     const everyday = [
         h(PpefNote, { operands, c, t }),
         numRow(td.dMin, s.dMin, v => s.setDMin(Math.max(0, v)), td.dMinHelp),
-        mntNote({ dMin: s.dMin, maxMNT: s.maxMNT, td }),
+        mntNote({ dMin: s.dMin, maxMNT: s.maxMNT, td, c }),
         numRow(td.maxLayers, s.maxLayers, v => s.setMaxLayers(Math.max(1, Math.round(v))), td.maxLayersHelp),
     ];
     return h(SynthesisSidebarFrame, {

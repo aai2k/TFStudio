@@ -14,7 +14,8 @@
  */
 
 export { materialLookup, matDisplayName, matFriendlyName } from './materialNames.js';
-export { WARN_BADGE_STYLE, MAT_COLORS, matColor, matColorAlpha } from './materialColors.js';
+export { MAT_COLORS, matColor, matColorAlpha } from './materialColors.js';
+export { settingNoteStyle, warnBadgeStyle } from './noticeStyles.js';
 export {
     POOL_WARN_COUNT, POOL_MAX_SYNC, countPoolMaterials, getPoolMaterials,
     poolCatalogs, poolMatEntries,

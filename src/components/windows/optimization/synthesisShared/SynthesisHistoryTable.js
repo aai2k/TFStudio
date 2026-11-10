@@ -26,14 +26,16 @@ const th = (label, w, c) => h('th', {
     }
 }, label);
 
-function sideBadge(side, labels) {
+// The side a row was inserted on: the theme's text on a tint of the side's
+// colour, since words in the colour itself are too faint on a light theme.
+function sideBadge(side, labels, c) {
     if (!side) return '—';
     const isBack = side === 'back';
     return h('span', {
         style: {
             padding: '1px 6px', borderRadius: 3, fontSize: 10,
-            background: isBack ? '#42a5f51a' : '#ffa72622',
-            color: isBack ? '#42a5f5' : '#ffa726',
+            background: isBack ? '#42a5f533' : '#ffa72633',
+            color: c.text,
             fontWeight: 600,
         }
     }, isBack ? labels.sideBack : labels.sideFront);
@@ -102,7 +104,7 @@ function historyRow(row, { bestMF, showSide, typeColumn, labels, onRestore, desi
         style: { background: isBest ? `${c.accent || '#ffa726'}1a` : 'transparent' }
     },
         td(row.genNum, { color: c.textDim }),
-        showSide && td(sideBadge(row.side, labels)),
+        showSide && td(sideBadge(row.side, labels, c)),
         typeColumn && td(typeColumn.render(row)),
         td(row.layerCount, { color: c.text }),
         td(row.mf.toFixed(6), {
