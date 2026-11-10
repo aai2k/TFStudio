@@ -877,6 +877,28 @@ const popoutSource = readFileSync(
 assert.match(popoutSource, /mirrorRootStyle\(document, doc\)/, 'a window takes the palette as it opens');
 assert.match(popoutSource, /MutationObserver/, 'and follows a theme change while it is open');
 
+// ── A float renders in standards mode, as the main window does ────────────────
+//
+// window.open('') gives an about:blank page with no doctype, which Chromium
+// renders in quirks mode. There a table takes neither the text colour nor the
+// font size of what it sits in, so the angle column under the Color Evaluation
+// diagram read black on the dark theme in a float.
+
+const { startStandardsDocument } = await import('../src/components/docking/PopoutWindow.js');
+const calls = [];
+startStandardsDocument({
+    open: () => calls.push('open'),
+    write: (markup) => calls.push(markup),
+    close: () => calls.push('close'),
+});
+assert.equal(calls.length, 3, 'the float page is opened, written once and closed');
+assert.deepEqual([calls[0], calls[2]], ['open', 'close']);
+assert.match(calls[1], /^<!DOCTYPE html>/i, 'and what is written starts with the doctype that sets standards mode');
+const openEffect = popoutSource.slice(popoutSource.indexOf('const doc = win.document;'));
+assert.ok(openEffect.indexOf('startStandardsDocument(doc)') >= 0
+    && openEffect.indexOf('startStandardsDocument(doc)') < openEffect.indexOf('copyStyles(document, doc)'),
+'a window is put in standards mode before the stylesheets are copied in, which the rewrite would drop');
+
 // ── A context menu is clamped to the window it is opened in ───────────────────
 
 const { clampToViewport } = await import('../src/components/ui/ContextMenu.js');

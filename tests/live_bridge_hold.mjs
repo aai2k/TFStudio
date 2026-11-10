@@ -274,6 +274,7 @@ function makeWindow() {
     // A torn-off window, as window.open gives one.
     const { win: popup, doc: popupDoc, element } = makeWindow();
     Object.assign(popupDoc, {
+        open() {}, write() {}, close() {},
         title: '', activeElement: null, head: { appendChild() {} }, body: { style: {}, appendChild() {} },
         documentElement: { setAttribute() {}, removeAttribute() {} }, createElement: () => ({ nodeType: 1, style: {} }),
     });

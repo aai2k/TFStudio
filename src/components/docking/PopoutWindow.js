@@ -48,6 +48,18 @@ function copyStyles(from, to) {
     }
 }
 
+// `window.open('')` gives an about:blank page with no doctype, which Chromium
+// renders in quirks mode, while the main window is in standards mode. In quirks
+// mode a table takes neither the text colour nor the font size of what it sits
+// in, so a cell that sets neither reads black at 16 px in a float while it
+// follows the theme docked. Writing a doctype first gives the float the same
+// rendering as the main window.
+export function startStandardsDocument(doc) {
+    doc.open();
+    doc.write('<!DOCTYPE html><html><head></head><body></body></html>');
+    doc.close();
+}
+
 // The active palette reaches the stylesheets as `--tf-*` custom properties set
 // on the main document's root element, not as rules, so cloning the stylesheets
 // brings everything that reads them and none of the values. Copying the root's
@@ -97,6 +109,7 @@ export function PopoutWindow({ id, title, bounds, background, onClose, onWindowR
         winRef.current = win;
 
         const doc = win.document;
+        startStandardsDocument(doc);
         doc.title = title;
         copyStyles(document, doc);
         mirrorRootStyle(document, doc);
