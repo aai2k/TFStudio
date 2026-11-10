@@ -76,7 +76,7 @@ function insertRow(ctx) {
     ctx.event.preventDefault();
     if (ctx.onInsertAt) {
         const index = ctx.event.shiftKey ? ctx.rowIdx + 1 : ctx.rowIdx;
-        ctx.onInsertAt(index, ctx.operands[ctx.rowIdx] || null);
+        ctx.onInsertAt(index);
     }
 }
 

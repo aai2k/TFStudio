@@ -4,9 +4,9 @@
 // handlers stay thin wrappers. The table is the Merit Function Editor's, so a row
 // is edited, added and copied by the editor's own transforms.
 
-import { makeOperand, removeOperandsAndDependents } from '../../../../utils/physics/optimizer.js';
+import { removeOperandsAndDependents } from '../../../../utils/physics/optimizer.js';
 import {
-    addOperands as addRows, duplicateOperands as duplicateRows, makeRowOperand,
+    addOperands as addRows, duplicateOperands as duplicateRows, insertOperand,
 } from '../meritFunctionEditor/meritOperandModel.js';
 
 export { editOperand } from '../meritFunctionEditor/meritOperandModel.js';
@@ -21,13 +21,11 @@ export function addOperands(ops, data, atIndex) {
     return added && { next: added.operands, selectId: added.selectedId };
 }
 
-// A copy of `source`, or a new comment row, at `insertIdx`. Returns { next, selectId }.
-export function insertOperandAt(ops, insertIdx, source) {
-    const op = source
-        ? { ...source, id: makeOperand().id, enabled: source.enabled !== false }
-        : makeRowOperand(NEW_ROW);
-    const pos = Math.max(0, Math.min(insertIdx, ops.length));
-    return { next: [...ops.slice(0, pos), op, ...ops.slice(pos)], selectId: op.id };
+// A new comment row at `insertIdx`, as Insert adds in the Merit Function
+// Editor; Duplicate is what copies a row. Returns { next, selectId }.
+export function insertOperandAt(ops, insertIdx) {
+    const inserted = insertOperand(ops, insertIdx);
+    return { next: inserted.operands, selectId: inserted.selectedId };
 }
 
 // Returns { next, selectId } or null when nothing was selected to duplicate.

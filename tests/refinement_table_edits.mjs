@@ -13,7 +13,10 @@
  *   2. A type change between a wavelength row and MNT reseeds the range and
  *      the target, as in the editor.
  *   3. An added MNT row covers every layer.
- *   4. Duplicate and Insert copy the whole row, references and preset included.
+ *   4. Duplicate copies the whole row, references and preset included.
+ *   5. Insert adds a comment row above or below, as in the editor. It used to
+ *      add a copy of the focused row: the table handed the row along, and
+ *      only the editor ignored it.
  *
  * Run: node tests/refinement_table_edits.mjs
  */
@@ -81,10 +84,22 @@ for (const [op, value] of [[tt, 1000], [tdb, -20], [rav, 1], [tgt, 95], [math, 3
     assert.notEqual(mathCopy.id, math.id, 'a duplicate is a new row');
     assert.equal(mathCopy.refId, rav.id, 'a duplicated math row keeps its reference');
     assert.equal(tiwCopy.presetKey, 'lum', 'a duplicated integral keeps its preset');
+}
 
-    const inserted = refinement.insertOperandAt(rows, 0, math);
-    assert.equal(inserted.next[0].refId, rav.id, 'an inserted copy keeps the reference');
-    assert.notEqual(inserted.selectId, math.id, 'and is a new row');
+// ── 5. Insert ────────────────────────────────────────────────────────────────
+{
+    // Insert on the math row (index 4) puts the new row at 4, Shift+Insert at 5.
+    for (const index of [4, 5]) {
+        const { next, selectId } = refinement.insertOperandAt(rows, index);
+        assert.equal(next.length, rows.length + 1);
+        assert.equal(next[index].type, 'BLNK', `Insert at ${index} adds a comment row`);
+        assert.equal(next[index].comment, '');
+        assert.equal(selectId, next[index].id, 'and selects it');
+        assert.deepEqual(next.filter(op => op.id !== selectId), rows, 'the other rows are left as they were');
+        const { id: _a, ...ours } = next[index];
+        const { id: _b, ...theirs } = editor.insertOperand(rows, index).operands[index];
+        assert.deepEqual(ours, theirs, 'the same row as the editor inserts');
+    }
 }
 
 console.log('Refinement table edit tests passed.');

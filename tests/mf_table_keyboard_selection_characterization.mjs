@@ -120,7 +120,7 @@ runKeyAction('ArrowLeft', { ...actionBase, event: event('ArrowLeft') });
 runKeyAction('Enter', { ...actionBase, event: event('Enter') });
 runKeyAction('Tab', { ...actionBase, event: event('Tab', { shiftKey: true }) });
 assert.deepEqual(actionCalls, [
-    ['insert', 2, rows[1]],
+    ['insert', 2],
     ['duplicate', ['a', 'c']], ['cells-cleared'],
     ['focus', 2, 'target'],
     ['navigate', 1, 'target', 'left'],

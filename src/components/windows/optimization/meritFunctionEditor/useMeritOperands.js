@@ -95,7 +95,7 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
         applyAdd({ operands, setOperands, setSelectedId }, data, atIndex);
     }, [operands, setOperands]);
 
-    const handleInsertAt = useCallback((insertIndex, _source) => {
+    const handleInsertAt = useCallback((insertIndex) => {
         const result = insertOperand(operands, insertIndex);
         setOperands(result.operands);
         setSelectedId(result.selectedId);

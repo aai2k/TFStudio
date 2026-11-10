@@ -258,9 +258,9 @@ function applyAdd(env, updateDesign, data, atIndex) {
     env.setters.setSelectedId(res.selectId);
 }
 
-function applyInsertAt(env, updateDesign, insertIdx, source) {
+function applyInsertAt(env, updateDesign, insertIdx) {
     haltAndInvalidate(env);
-    const res = insertOperandAt(env.refs.operandsRef.current, insertIdx, source);
+    const res = insertOperandAt(env.refs.operandsRef.current, insertIdx);
     updateDesign({ meritOperands: res.next });
     env.setters.setSelectedId(res.selectId);
 }
@@ -393,7 +393,7 @@ function useOperandHandlers({ env, updateDesign, selectedId }) {
     const handleEdit = useCallback((id, key, value) => applyEdit(env, updateDesign, { id, key, value }), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleEditMany = useCallback((edits) => applyEditMany(env, updateDesign, edits), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleAdd = useCallback((data, atIndex) => applyAdd(env, updateDesign, data, atIndex), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
-    const handleInsertAt = useCallback((insertIdx, source) => applyInsertAt(env, updateDesign, insertIdx, source), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
+    const handleInsertAt = useCallback(insertIdx => applyInsertAt(env, updateDesign, insertIdx), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleDuplicate = useCallback((ids) => applyDuplicate(env, updateDesign, ids), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleDelete = useCallback((ids) => applyDelete(env, updateDesign, ids), [updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps
     const handleMoveUp = useCallback(() => applyMove(env, updateDesign, selectedId, -1), [selectedId, updateDesign]); // eslint-disable-line react-hooks/exhaustive-deps

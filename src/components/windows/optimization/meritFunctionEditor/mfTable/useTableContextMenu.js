@@ -83,7 +83,7 @@ export function useTableContextMenu(table) {
         copyRows: () => copySelectedOperands(operands, new Set(ids)),
         cutRows: () => cutSelectedRows(rowTable),
         pasteRows: () => pasteOperands(onAdd, rowIdx + 1),
-        insertAt: index => onInsertAt(index, op),
+        insertAt: index => onInsertAt(index),
         duplicate: () => duplicateSelectedRows(rowTable),
         deleteRows: () => deleteSelectedRows(rowTable),
     };
