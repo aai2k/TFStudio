@@ -7,6 +7,8 @@
  * Undo and redo pressed in a text field are left to the field, so Ctrl+Z
  * takes back the typing rather than the last design edit. Save, open and new
  * still work from a field, as in most applications.
+ *
+ * F3 undoes and Ctrl+F3 redoes as well as Ctrl+Z and Ctrl+Y.
  */
 
 import { ctrlChordChar, isEditingInside } from './keyChords.js';
@@ -22,14 +24,24 @@ const ACTIONS = new Map([
     ['g', 'games'],
 ]);
 
+// Function keys carry no layout-dependent character.
+function functionKeyAction(event) {
+    switch (event.key) {
+        case 'F1':  return 'help';
+        case 'F3':  return event.ctrlKey || event.metaKey ? 'redo' : 'undo';
+        case 'F11': return 'fullscreen';
+        default:    return null;
+    }
+}
+
+function chordAction(event) {
+    const action = ACTIONS.get(ctrlChordChar(event)) ?? null;
+    return action === 'undo' && event.shiftKey ? 'redo' : action;
+}
+
 export function appShortcutFor(event) {
     if (!event) return null;
-    // Function keys carry no layout-dependent character.
-    if (event.key === 'F1')  return 'help';
-    if (event.key === 'F11') return 'fullscreen';
-
-    const action = ACTIONS.get(ctrlChordChar(event));
+    const action = functionKeyAction(event) ?? chordAction(event);
     const fieldOwnsIt = (action === 'undo' || action === 'redo') && isEditingInside(event);
-    if (!action || fieldOwnsIt) return null;
-    return action === 'undo' && event.shiftKey ? 'redo' : action;
+    return fieldOwnsIt ? null : action;
 }

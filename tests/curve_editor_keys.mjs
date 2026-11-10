@@ -86,6 +86,12 @@ const design = makeSampleDesign();
     editor.onKeyDown(key('Z', { ctrlKey: true, shiftKey: true }));
     editor = render();
     assert.equal(editor.table.rows[0][1], 45.5, 'Ctrl+Shift+Z redoes too');
+    editor.onKeyDown(key('F3'));
+    editor = render();
+    assert.ok(Number.isNaN(editor.table.rows[0][1]), 'F3 undoes');
+    editor.onKeyDown(key('F3', { ctrlKey: true }));
+    editor = render();
+    assert.equal(editor.table.rows[0][1], 45.5, 'Ctrl+F3 redoes');
 
     // A pasted block from Excel in a comma-decimal locale lands at the focus
     // and grows the table.

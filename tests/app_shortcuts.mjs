@@ -91,6 +91,9 @@ ok(appShortcutFor(null) === null, 'null event');
 // 8. Function keys carry no layout-dependent character
 is({ key: 'F1', code: 'F1' }, 'help', 'F1');
 is({ key: 'F11', code: 'F11' }, 'fullscreen', 'F11');
+is({ key: 'F3', code: 'F3' }, 'undo', 'F3 undoes');
+is({ ctrl: true, key: 'F3', code: 'F3' }, 'redo', 'Ctrl+F3 redoes');
+is({ meta: true, key: 'F3', code: 'F3' }, 'redo', 'Cmd+F3 redoes');
 
 // 9. Undo and redo in a text field belong to the field; the file chords do not
 const textarea = { tagName: 'TEXTAREA' };
@@ -103,6 +106,18 @@ is({ ctrl: true, shift: true, key: 'Z', code: 'KeyZ', target: numberInput }, nul
 is({ ctrl: true, key: 'y', code: 'KeyY', target: editable }, null, 'Ctrl+Y in an editable element');
 is({ ctrl: true, key: 'z', code: 'KeyZ', target: body }, 'undo', 'Ctrl+Z with nothing focused');
 is({ ctrl: true, key: 's', code: 'KeyS', target: textarea }, 'save', 'Ctrl+S in a textarea');
+is({ key: 'F3', code: 'F3', target: numberInput }, null, 'F3 in a number field');
+is({ ctrl: true, key: 'F3', code: 'F3', target: textarea }, null, 'Ctrl+F3 in a textarea');
+is({ key: 'F3', code: 'F3', target: body }, 'undo', 'F3 with nothing focused');
+is({ key: 'F1', code: 'F1', target: textarea }, 'help', 'F1 in a textarea still opens help');
+
+// 10. The Undo and Redo buttons name both keys, in every language
+const { availableLocales, getLocale } = await import('../src/constants/locales/index.js');
+for (const { code } of availableLocales) {
+    const tips = getLocale(code).toolbar.tooltips;
+    ok(tips.undo.includes('Ctrl+Z') && tips.undo.includes('F3') && !tips.undo.includes('Ctrl+F3'), `${code}: Undo names Ctrl+Z and F3: ${tips.undo}`);
+    ok(tips.redo.includes('Ctrl+Y') && tips.redo.includes('Ctrl+F3'), `${code}: Redo names Ctrl+Y and Ctrl+F3: ${tips.redo}`);
+}
 
 if (fails) { console.error(`\n${fails} failure(s)`); process.exit(1); }
 console.log('app_shortcuts: all checks passed');

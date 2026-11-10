@@ -8,6 +8,7 @@
  *   Insert            insert rows above the selection
  *   Ctrl+C, X, V      copy, cut, paste
  *   Ctrl+Z, Ctrl+Y    undo, redo (Ctrl+Shift+Z redoes too)
+ *   F3, Ctrl+F3       undo, redo, as they do in the rest of the app
  *   Ctrl+A            select every cell
  *
  * Chords are read by the character the layout gives, so they work on a
@@ -22,7 +23,9 @@ import { X_KEY } from './curveTable.js';
 export function editorCombo(event) {
     const chord = ctrlChordChar(event);
     if (chord) return `${event.shiftKey ? 'Ctrl+Shift+' : 'Ctrl+'}${chord}`;
-    return event.key === 'F2' ? 'Enter' : event.key;
+    if (event.key === 'F2') return 'Enter';
+    if (event.key === 'F3' && (event.ctrlKey || event.metaKey)) return 'Ctrl+F3';
+    return event.key;
 }
 
 const run = name => ctx => {
@@ -47,6 +50,8 @@ const EDITOR_KEYS = {
     'Ctrl+z': run('undo'),
     'Ctrl+y': run('redo'),
     'Ctrl+Shift+z': run('redo'),
+    F3: run('undo'),
+    'Ctrl+F3': run('redo'),
     'Ctrl+a': run('selectAll'),
 };
 

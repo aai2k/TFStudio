@@ -6,7 +6,8 @@ ribbonIcon: history
 
 The **History** window lists every recorded state of the active design and lets
 you jump to any of them. It is the same per-design timeline that backs Ctrl+Z
-and Ctrl+Y, shown as a clickable list, a generalized undo/redo. Click any row
+and Ctrl+Y, shown as a clickable list, a generalized undo/redo. F3 and Ctrl+F3
+undo and redo too. Click any row
 and the design returns to that exact state; the past and future are rebuilt
 around your choice so undo and redo keep working from there.
 
