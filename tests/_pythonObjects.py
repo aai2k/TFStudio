@@ -60,6 +60,7 @@ def objects(given):
         yields(tf)
         cleaning(tf)
         design_edits(tf)
+        environments(tf)
         stack_views(tf)
         admittance_and_field(tf)
         colour_and_integrals(tf)
@@ -419,6 +420,59 @@ def design_edits(tf):
                                    [[c.side, c.number, c.before and c.before._asdict(), c.after and c.after._asdict(), c.change]
                                     for c in found.layers], type(found).__name__],
                          "other": other._data, "worded": worded}})
+
+
+def environments(tf):
+    """Environments by number: add(), each attribute set, a map set replacing
+    the whole map, environment 1's name, environments.remove() and remove(),
+    what the attributes, follows and repr give, and their refusals."""
+    design = tf.new_design("Environments")
+    design.stack("(HL)^2")
+    steps = {"before": copy.deepcopy(design._data)}
+    water = design.environments.add(name="Under water", incident_medium="H2O", thickness_factors={"TiO2": 0.95})
+    steps["added"] = copy.deepcopy(design._data)
+    water.name = "Water"
+    water.enabled = False
+    water.exit_medium = "SiO2"
+    water.substrate.material = "Al2O3"
+    water.substrate.thickness = 3
+    water.incident_medium = None
+    steps["set"] = copy.deepcopy(design._data)
+    water.thickness_factors = {"SiO2": 1.1}
+    water.material_swaps = {"TiO2": "Ta2O5"}
+    steps["maps"] = copy.deepcopy(design._data)
+    read = [water.number, water.id, water.name, water.enabled, water.incident_medium, water.exit_medium,
+            water.substrate.material, water.substrate.thickness, water.thickness_factors, water.material_swaps,
+            water.follows]
+    first = design.environments[1]
+    first.name = "In air"
+    sapphire = design.environments.add(name="Sapphire", substrate="Al2O3")
+    steps["three"] = copy.deepcopy(design._data)
+    listed = [[env.number, env.id, env.name] for env in design.environments]
+    count = len(design.environments)
+    design.environments.remove(2)
+    steps["removed"] = copy.deepcopy(design._data)
+    shown = [sapphire.number, repr(sapphire), repr(sapphire.substrate), repr(design.environments)]
+    worded = [refused(make) for make in (
+        lambda: design.environments[3], lambda: design.environments[True], lambda: design.environments.remove(1),
+        lambda: setattr(first, "incident_medium", "H2O"), lambda: setattr(first.substrate, "thickness", 2),
+        lambda: setattr(sapphire.substrate, "thickness", -1), lambda: setattr(sapphire, "name", ""),
+        lambda: setattr(sapphire, "thickness_factors", 0.9), lambda: design.environments.add(colour="red"),
+        lambda: design.environments.add(thickness_factors={"TiO2": -1}), lambda: water.name)]
+    sapphire.remove()
+    steps["alone"] = copy.deepcopy(design._data)
+    lone = tf.new_design("Lone")
+    lone_words = [refused(lambda: setattr(lone.environments[1], "name", "In air")),
+                  refused(lambda: setattr(lone.environments[1], "enabled", False))]
+    reused = tf.new_design("Reused")
+    gone = reused.environments.add(name="Water", incident_medium="H2O")
+    gone.remove()
+    later = reused.environments.add(name="Sapphire", substrate="Al2O3")
+    stale = {"ids": [gone._id, later.id], "name": later.name, "count": len(reused.environments),
+             "words": [refused(lambda: gone.name), refused(lambda: setattr(gone, "name", "Renamed")),
+                       refused(lambda: gone.remove())]}
+    out({"environments": {"steps": steps, "read": read, "listed": listed, "count": count, "shown": shown,
+                          "worded": worded, "lone": lone_words, "stale": stale}})
 
 
 def cleaning(tf):

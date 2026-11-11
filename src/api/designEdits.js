@@ -3,6 +3,8 @@
 // Copy to back and Copy to front buttons (designEditor/layerActions.js); a
 // thickness scale; and what differs between two designs.
 
+import { isDeepStrictEqual } from 'node:util';
+import { environmentsOf } from '../utils/environments/environments.js';
 import {
     MAX_DECIMALS, PERTURB_DEFAULT_PERCENT, QUANTIZE_DEFAULTS,
     makePerturbationMap, perturbDesignSide, quantizeDesignSide, withSideLayers,
@@ -209,13 +211,26 @@ function sideDifferences(side, design, other) {
     return out;
 }
 
+// The numbers of the environments that differ between `design` and `other`,
+// each compared as the design stores it: what it sets itself, its name and its
+// switch. A medium an environment takes from environment 1 is compared once,
+// in the setup.
+function environmentDifferences(design, other) {
+    const before = environmentsOf(design), after = environmentsOf(other);
+    const numbers = [];
+    for (let i = 0; i < Math.max(before.length, after.length); i++) {
+        if (!(before[i] && after[i] && isDeepStrictEqual(before[i], after[i]))) numbers.push(i + 1);
+    }
+    return numbers;
+}
+
 /**
  * What differs between two designs: their setup, as setDesignSetup sets it
- * but for the name, and their layers, compared side by side by number from
- * the substrate, so a layer added near the substrate shows every layer
- * outside it as changed. Values are compared exactly. Merit rows,
- * specification checks, the cone of incidence and the materials a design
- * carries are not compared.
+ * but for the name, their layers, compared side by side by number from the
+ * substrate, so a layer added near the substrate shows every layer outside it
+ * as changed, and their environments, by number. Values are compared exactly.
+ * Merit rows, specification checks, the cone of incidence and the materials a
+ * design carries are not compared.
  *
  * @param design The design compared from.
  * @param other The design compared with it.
@@ -223,6 +238,7 @@ function sideDifferences(side, design, other) {
  * @property same True when nothing compared differs.
  * @property setup Each setting that differs, `{ setting, before, after }`: setting by setDesignSetup's name (`'incidentMedium'`, `'exitMedium'`, `'substrate'`, `'substrateThicknessMm'`, `'referenceWavelength'`, `'surfaceMode'`, `'mfEvalMode'`, `'stressTemperatureC'`, `'depositionTemperatureC'` or `'substrateDiameterMm'`), before its value in `design` and after in `other`.
  * @property layers Each layer that differs, the front's first: `{ side, number, before, after, change }`, number from 1 next to the substrate, before and after the layer in each design as `{ material, thickness, locked }` (thickness in nm), or null where that design has no layer of the number; change is after's thickness less before's, nm, or null when one design has no such layer.
+ * @property environments The numbers of the environments that differ, each compared by what it sets itself, its name and its switch; `environments` gives what each holds.
  * @throws a design or an other that is not a design
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^3 H' });
@@ -241,5 +257,6 @@ export function designDifferences(design, other) {
         .map(([setting, read]) => ({ setting, before: read(design), after: read(other) }))
         .filter(({ before, after }) => before !== after);
     const layers = [...sideDifferences('front', design, other), ...sideDifferences('back', design, other)];
-    return { same: !setup.length && !layers.length, setup, layers };
+    const environments = environmentDifferences(design, other);
+    return { same: !setup.length && !layers.length && !environments.length, setup, layers, environments };
 }

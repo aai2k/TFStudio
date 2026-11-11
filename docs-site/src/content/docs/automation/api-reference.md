@@ -805,6 +805,28 @@ design.back_layers.append("MgF2", 100)
 print(design.back_layers)
 ```
 
+### environments
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments` | `design.environments` |
+
+The design's environments, an Environments numbered from 1: the design itself, then each other condition the same coating is used in, such as another substrate or the coating under water.
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(design.environments);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+print(design.environments)
+```
+
 ### merit
 
 | JavaScript | Python |
@@ -1081,13 +1103,13 @@ print(design.layers)
 | ---------- | ------ |
 | `design.differences(other)` | `design.differences(other)` |
 
-What differs between this design and `other`: their setup and their layers, compared side by side by number from the substrate, so a layer added near the substrate shows every layer outside it as changed. Values are compared exactly. The name, merit rows, specification checks, the cone of incidence and the materials a design carries are not compared.
+What differs between this design and `other`: their setup, their layers, compared side by side by number from the substrate, so a layer added near the substrate shows every layer outside it as changed, and their environments, by number. Values are compared exactly. The name, merit rows, specification checks, the cone of incidence and the materials a design carries are not compared.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
 | `other` | `other` |  | The Design compared with this one. |
 
-**Returns**: **JavaScript**: An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'` or `'substrate.diameter'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null.<br>**Python**: A named tuple Differences: same, True when nothing compared differs; setup, each setting that differs as a SetupChange (setting, before, after), setting by the package's name ("incident_medium", "exit_medium", "substrate.material", "substrate.thickness", "reference", "sides", "score_on", "stress_temperature", "deposition_temperature" or "substrate.diameter"), before its value here and after in other; layers, each layer that differs, the front's first, as a LayerChange (side, number, before, after, change), before and after a LayerState (material, thickness, locked) or None where that design has no layer of the number, change after's thickness less before's in nm, or None.
+**Returns**: **JavaScript**: An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'` or `'substrate.diameter'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null; `environments`, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which `design.environments` shows.<br>**Python**: A named tuple Differences: same, True when nothing compared differs; setup, each setting that differs as a SetupChange (setting, before, after), setting by the package's name ("incident_medium", "exit_medium", "substrate.material", "substrate.thickness", "reference", "sides", "score_on", "stress_temperature", "deposition_temperature" or "substrate.diameter"), before its value here and after in other; layers, each layer that differs, the front's first, as a LayerChange (side, number, before, after, change), before and after a LayerState (material, thickness, locked) or None where that design has no layer of the number, change after's thickness less before's in nm, or None; environments, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which design.environments shows.
 
 **Refuses**:
 
@@ -3121,6 +3143,538 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.layers[1].locked = True
 print(design.layers[1].locked)
+```
+
+## Environments
+
+**JavaScript**: A design's environments, numbered from 1: environment 1 is the design itself, with its own media and substrate, and each later one another condition the same coating is used in, such as another substrate, the coating under water, or a chamber position where the films grow thinner. `environments[n]` is environment n, `environments.length` how many there are, and a for...of loop goes from environment 1. A design without other environments has environment 1 alone. The methods change the design.
+
+**Python**: A design's environments, numbered from 1: environment 1 is the design itself, with its own media and substrate, and each later one another condition the same coating is used in, such as another substrate, the coating under water, or a chamber position where the films grow thinner. `environments[n]` is environment n, `len(environments)` how many there are, and a for loop goes from environment 1. A design without other environments has environment 1 alone. The methods change the design.
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const env of design.environments) console.log(env.number, env.name, env.incidentMedium);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+for env in design.environments:
+    print(env.number, env.name, env.incident_medium)
+```
+
+### length / len()
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments.length` | `len(design.environments)` |
+
+How many environments the design has, environment 1 among them.
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(design.environments.length, 'environments');
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+print(len(design.environments), "environments")
+```
+
+### for...of / for
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `for (const env of design.environments)` | `for env in design.environments:` |
+
+The environments from 1, each an Environment. The environments are the ones the design has when the loop starts.
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.environments.add({ name: 'Sapphire', substrate: 'Al2O3' });
+for (const env of design.environments) console.log(env.number, env.name, env.incidentMedium, env.substrate.material);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.environments.add(name="Sapphire", substrate="Al2O3")
+for env in design.environments:
+    print(env.number, env.name, env.incident_medium, env.substrate.material)
+```
+
+### add
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments.add({ name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps })` | `design.environments.add(name=..., enabled=True, incident_medium=..., exit_medium=..., substrate=..., substrate_thickness_mm=..., thickness_factors=..., material_swaps=...)` |
+
+Adds an environment after the others. A medium, substrate or thickness left out, or given as `null` / `None`, follows environment 1. A factor or a swap is keyed by the material the layers name, under either form of a built-in id (`'TiO2'` or `'builtin:TiO2'`).
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `name` | `name` |  | The environment's name. |
+| `enabled` | `enabled` | `true` / `True` | `false` / `False` switches the environment off. |
+| `incidentMedium` | `incident_medium` |  | The medium the light comes from, by material id. |
+| `exitMedium` | `exit_medium` |  | The medium behind the substrate, by material id. |
+| `substrate` | `substrate` |  | The substrate material, by id. |
+| `substrateThicknessMm` | `substrate_thickness_mm` |  | The substrate thickness, mm, above 0. |
+| `thicknessFactors` | `thickness_factors` |  | A map of material id to factor: each layer of that material is that many times as thick, the factor above 0. |
+| `materialSwaps` | `material_swaps` |  | A map of material id to material id: each layer of the first is made of the second. |
+
+**Returns**: The new Environment.
+
+**Refuses**:
+
+- an option it does not take, a value the option cannot take, or a material id that resolves to nothing
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const edge = design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95 } });
+console.log(edge.number, edge.name, edge.thicknessFactors);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+edge = design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95})
+print(edge.number, edge.name, edge.thickness_factors)
+```
+
+### remove
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments.remove(number)` | `design.environments.remove(number)` |
+
+Takes environment `number` out, with the merit rows scored in it alone and the rows that read them; the environments after it move one number down.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `number` | `number` |  | The environment's number, 2 or more: environment 1 is the design itself. |
+
+**Refuses**:
+
+- a number the design has no environment of, or 1
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.environments.add({ name: 'Sapphire', substrate: 'Al2O3' });
+design.environments.remove(2);
+console.log(design.environments[2].name);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.environments.add(name="Sapphire", substrate="Al2O3")
+design.environments.remove(2)
+print(design.environments[2].name)
+```
+
+### [n]
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments[number]` | `design.environments[number]` |
+
+Environment `number`, an Environment: environment 1 is the design itself.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `number` | `number` |  | The environment's number, from 1 to as many as the design has. |
+
+**Returns**: An Environment.
+
+**Refuses**:
+
+- a number the design has no environment of
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(design.environments[1], design.environments[2]);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+print(design.environments[1], design.environments[2])
+```
+
+## Environment
+
+One environment of a design: environment 1, the design itself, or another condition the same coating is used in. An environment holds what it sets and follows environment 1 for the rest. Reading an attribute reads the design as it is then, and setting one changes the design. It stays the same environment when an earlier one is removed, and takes its new number.
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const water = design.environments.add({ name: 'Under water' });
+water.incidentMedium = 'H2O';
+console.log(water.number, water.name, water.incidentMedium, water.follows);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+water = design.environments.add(name="Under water")
+water.incident_medium = "H2O"
+print(water.number, water.name, water.incident_medium, water.follows)
+```
+
+### number
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.number` | `env.number` |
+
+The environment's number, from 1: environment 1 is the design itself.
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const env of design.environments) console.log(env.number, env.name);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+for env in design.environments:
+    print(env.number, env.name)
+```
+
+### id
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.id` | `env.id` |
+
+The environment's id, which a .tfs file names it by; environment 1's is `'base'`.
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(design.environments[1].id, water.id);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water", incident_medium="H2O")
+print(design.environments[1].id, water.id)
+```
+
+### name
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.name` | `env.name` |
+| `env.name = value` | `env.name = value` |
+
+The environment's name, or `null` / `None`; set it to name the environment, or to `null` / `None` for none.
+
+**Refuses**:
+
+- a name that is not text, or is empty, or environment 1 of a design with one environment, which holds no name until another is added
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add();
+design.environments[1].name = 'In air';
+water.name = 'Under water';
+console.log(design.environments[1].name, water.name);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add()
+design.environments[1].name = "In air"
+water.name = "Under water"
+print(design.environments[1].name, water.name)
+```
+
+### enabled
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.enabled` | `env.enabled` |
+| `env.enabled = value` | `env.enabled = value` |
+
+`false` / `False` for an environment switched off; set it to switch the environment off or on.
+
+**Refuses**:
+
+- a value other than `true` / `True` or `false` / `False`, or environment 1 of a design with one environment, which holds no switch until another is added
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+water.enabled = false;
+console.log(water.name, water.enabled);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water", incident_medium="H2O")
+water.enabled = False
+print(water.name, water.enabled)
+```
+
+### incidentMedium / incident_medium
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.incidentMedium` | `env.incident_medium` |
+| `env.incidentMedium = value` | `env.incident_medium = value` |
+
+The medium the light comes from in this environment, by material id: its own, or environment 1's. Set it to `null` / `None` to follow environment 1's again.
+
+**Refuses**:
+
+- a material id that resolves to nothing, or any value on environment 1, whose media are the design's
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water' });
+water.incidentMedium = 'H2O';
+console.log(water.incidentMedium, 'in place of', design.incidentMedium);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water")
+water.incident_medium = "H2O"
+print(water.incident_medium, "in place of", design.incident_medium)
+```
+
+### exitMedium / exit_medium
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.exitMedium` | `env.exit_medium` |
+| `env.exitMedium = value` | `env.exit_medium = value` |
+
+The medium behind the substrate in this environment, by material id: its own, or environment 1's. Set it to `null` / `None` to follow environment 1's again.
+
+**Refuses**:
+
+- a material id that resolves to nothing, or any value on environment 1, whose media are the design's
+
+```js
+const design = tf.newDesign('Window AR');
+const cemented = design.environments.add({ name: 'Cemented' });
+cemented.exitMedium = 'BK7';
+console.log(cemented.exitMedium, 'in place of', design.exitMedium);
+```
+
+```python
+design = tf.new_design("Window AR")
+cemented = design.environments.add(name="Cemented")
+cemented.exit_medium = "BK7"
+print(cemented.exit_medium, "in place of", design.exit_medium)
+```
+
+### substrate
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.substrate` | `env.substrate` |
+
+The environment's substrate, an EnvironmentSubstrate: its material and thickness, its own or environment 1's.
+
+```js
+const design = tf.newDesign('Window AR');
+const sapphire = design.environments.add({ name: 'Sapphire', substrate: 'Al2O3' });
+console.log(sapphire.substrate);
+```
+
+```python
+design = tf.new_design("Window AR")
+sapphire = design.environments.add(name="Sapphire", substrate="Al2O3")
+print(sapphire.substrate)
+```
+
+### thicknessFactors / thickness_factors
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.thicknessFactors` | `env.thickness_factors` |
+| `env.thicknessFactors = value` | `env.thickness_factors = value` |
+
+The environment's thickness factors, a map of material id to factor: each layer of that material is that many times as thick in this environment, as at a chamber position where the films grow thinner. Reading it gives a copy; setting it replaces every factor with those given, `{}` or `null` / `None` leaving none.
+
+**Refuses**:
+
+- a map whose factor is not a number above 0, a material id that resolves to nothing, or any value on environment 1, whose layers are the design's
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const edge = design.environments.add({ name: 'Dome edge' });
+edge.thicknessFactors = { TiO2: 0.95, SiO2: 0.97 };
+console.log(edge.thicknessFactors);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+edge = design.environments.add(name="Dome edge")
+edge.thickness_factors = {"TiO2": 0.95, "SiO2": 0.97}
+print(edge.thickness_factors)
+```
+
+### materialSwaps / material_swaps
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.materialSwaps` | `env.material_swaps` |
+| `env.materialSwaps = value` | `env.material_swaps = value` |
+
+The environment's material swaps, a map of material id to material id: each layer of the first is made of the second in this environment. Reading it gives a copy; setting it replaces every swap with those given, `{}` or `null` / `None` leaving none.
+
+**Refuses**:
+
+- a map whose value is not a material id, a material id that resolves to nothing, or any value on environment 1, whose layers are the design's
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const tantala = design.environments.add({ name: 'Tantala' });
+tantala.materialSwaps = { TiO2: 'Ta2O5' };
+console.log(tantala.materialSwaps);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+tantala = design.environments.add(name="Tantala")
+tantala.material_swaps = {"TiO2": "Ta2O5"}
+print(tantala.material_swaps)
+```
+
+### follows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.follows` | `env.follows` |
+
+What the environment takes from environment 1, by the names environments.add() takes: any of `'incidentMedium'` / `"incident_medium"`, `'exitMedium'` / `"exit_medium"`, `'substrate'` and `'substrateThicknessMm'` / `"substrate_thickness_mm"`. Environment 1 follows none.
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(water.follows);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water", incident_medium="H2O")
+print(water.follows)
+```
+
+### remove
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.remove()` | `env.remove()` |
+
+Takes the environment out of the design, with the merit rows scored in it alone and the rows that read them. The environments after it move one number down.
+
+**Refuses**:
+
+- environment 1, the design itself
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+water.remove();
+console.log(design.environments.length, 'environment');
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water", incident_medium="H2O")
+water.remove()
+print(len(design.environments), "environment")
+```
+
+## EnvironmentSubstrate
+
+The substrate of one environment: its material and thickness, its own or environment 1's. Setting either gives the environment its own; setting it to `null` / `None` makes the environment follow environment 1's again.
+
+```js
+const design = tf.newDesign('Window AR');
+const thick = design.environments.add({ name: 'Thick plate' });
+thick.substrate.thickness = 6;
+console.log(thick.substrate.material, thick.substrate.thickness, 'mm');
+```
+
+```python
+design = tf.new_design("Window AR")
+thick = design.environments.add(name="Thick plate")
+thick.substrate.thickness = 6
+print(thick.substrate.material, thick.substrate.thickness, "mm")
+```
+
+### material
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.substrate.material` | `env.substrate.material` |
+| `env.substrate.material = value` | `env.substrate.material = value` |
+
+The substrate's material in this environment, by id: its own, or environment 1's. Set it to `null` / `None` to follow environment 1's again.
+
+**Refuses**:
+
+- a material id that resolves to nothing, or any value on environment 1, whose substrate is the design's
+
+```js
+const design = tf.newDesign('Window AR');
+const sapphire = design.environments.add({ name: 'Sapphire' });
+sapphire.substrate.material = 'Al2O3';
+console.log(sapphire.substrate.material, 'in place of', design.substrate.material);
+```
+
+```python
+design = tf.new_design("Window AR")
+sapphire = design.environments.add(name="Sapphire")
+sapphire.substrate.material = "Al2O3"
+print(sapphire.substrate.material, "in place of", design.substrate.material)
+```
+
+### thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.substrate.thickness` | `env.substrate.thickness` |
+| `env.substrate.thickness = value` | `env.substrate.thickness = value` |
+
+The substrate's thickness in this environment, mm: its own, or environment 1's. Set it to `null` / `None` to follow environment 1's again.
+
+**Refuses**:
+
+- a thickness of 0 or less, or any value on environment 1, whose substrate is the design's
+
+```js
+const design = tf.newDesign('Window AR');
+const thick = design.environments.add({ name: 'Thick plate' });
+thick.substrate.thickness = 6;
+console.log(thick.substrate.thickness, 'mm in place of', design.substrate.thickness, 'mm');
+```
+
+```python
+design = tf.new_design("Window AR")
+thick = design.environments.add(name="Thick plate")
+thick.substrate.thickness = 6
+print(thick.substrate.thickness, "mm in place of", design.substrate.thickness, "mm")
 ```
 
 ## Merit

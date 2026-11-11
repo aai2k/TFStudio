@@ -11,6 +11,7 @@ from ._color import Color
 from ._design_edits import differences_of
 from ._electric_field import ElectricField
 from ._ellipsometry import Ellipsometry
+from ._environments import Environments
 from ._errors import TFStudioError
 from ._group_delay import GroupDelay
 from ._inhomogeneities import Inhomogeneities
@@ -758,6 +759,21 @@ class Design:
         return Layers(self, "back")
 
     @property
+    def environments(self):
+        """The design's environments, an Environments numbered from 1: the
+        design itself, then each other condition the same coating is used in,
+        such as another substrate or the coating under water.
+
+        Example::
+
+            design = tf.new_design("Window AR")
+            design.stack("(HL)^2")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            print(design.environments)
+        """
+        return Environments(self)
+
+    @property
     def merit(self):
         """The merit function, a Merit: its rows and the merit they add up to.
 
@@ -1014,12 +1030,12 @@ class Design:
         self._edit("copySide", "copy_back_to_front", **{"from": "back"})
 
     def differences(self, other):
-        """What differs between this design and `other`: their setup and
-        their layers, compared side by side by number from the substrate, so
-        a layer added near the substrate shows every layer outside it as
-        changed. Values are compared exactly. The name, merit rows,
-        specification checks, the cone of incidence and the materials a
-        design carries are not compared.
+        """What differs between this design and `other`: their setup, their
+        layers, compared side by side by number from the substrate, so a
+        layer added near the substrate shows every layer outside it as
+        changed, and their environments, by number. Values are compared
+        exactly. The name, merit rows, specification checks, the cone of
+        incidence and the materials a design carries are not compared.
 
         Args:
             other: The Design compared with this one.
@@ -1036,7 +1052,10 @@ class Design:
             differs, the front's first, as a LayerChange (side, number,
             before, after, change), before and after a LayerState (material,
             thickness, locked) or None where that design has no layer of the
-            number, change after's thickness less before's in nm, or None.
+            number, change after's thickness less before's in nm, or None;
+            environments, the numbers of the environments that differ, each
+            compared by what it sets itself, its name and its switch, which
+            design.environments shows.
 
         Raises:
             TFStudioError: an other that is not a Design.

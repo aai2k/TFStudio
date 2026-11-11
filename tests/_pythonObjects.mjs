@@ -35,7 +35,10 @@
  *   operation's number read back through the layers, and its refusals;
  *   scale_thicknesses(), quantize(), perturb() with a seed and without,
  *   layers.flip(), copy_front_to_back(), copy_back_to_front() and
- *   differences() as named tuples, and their refusals;
+ *   differences() as named tuples, and their refusals; environments by
+ *   number, add(), each attribute set, a map set replacing the whole map,
+ *   remove(), an Environment keeping its environment when an earlier one
+ *   goes, follows in snake_case, repr, and their refusals;
  *   index_profile() and layer_thicknesses() as named tuples, save_csv(), the
  *   facts with and without side, layer.qwot read and set, None for a
  *   material that resolves to nothing, and their refusals; admittance() and
@@ -546,6 +549,57 @@ async function designEdits(t, said) {
         'differences: other is a Design, as tf.new_design() or copy() give one',
         "quantize: side is 'front' or 'back', not 'total'",
     ]), canon(got.worded));
+}
+
+// What _pythonObjects.py environments() did, each step against the plain
+// calls here on the design before it.
+async function environments(t, said) {
+    const { api, ok, canon, attempt } = t;
+    const got = said.environments ?? {};
+    const s = got.steps ?? {};
+    const sameAs = async (after, make) => canon(after) === canon(await attempt(make));
+    const SETS = [
+        { name: 'Water' }, { enabled: false }, { exitMedium: 'SiO2' }, { substrate: 'Al2O3' }, { substrateThicknessMm: 3 }, { incidentMedium: null },
+    ];
+    const steps = [
+        await sameAs(s.added, () => api.addEnvironment(s.before, { name: 'Under water', incidentMedium: 'H2O', thicknessFactors: { TiO2: 0.95 } })),
+        await sameAs(s.set, () => SETS.reduce((design, options) => api.setEnvironment(design, 'env2', options), s.added)),
+        await sameAs(s.maps, () => api.setEnvironment(api.setEnvironment(s.set, 'env2', { thicknessFactors: { TiO2: null, SiO2: 1.1 } }), 'env2', { materialSwaps: { TiO2: 'Ta2O5' } })),
+        await sameAs(s.three, () => api.addEnvironment(api.setEnvironment(s.maps, 1, { name: 'In air' }), { name: 'Sapphire', substrate: 'Al2O3' })),
+        await sameAs(s.removed, () => api.removeEnvironment(s.three, 2)),
+        await sameAs(s.alone, () => api.removeEnvironment(s.removed, 'env3')),
+    ];
+    ok('environments.add(), each attribute set, a map set whole, environments.remove() and remove() change the design as the plain calls do',
+        steps.every(Boolean) && !('environments' in (s.alone ?? { environments: 1 })), steps.join());
+    ok('and the attributes read back as set, a medium given None as environment 1\'s and follows in snake_case', canon(got.read) === canon([
+        2, 'env2', 'Water', false, 'Air', 'SiO2', 'Al2O3', 3, { SiO2: 1.1 }, { TiO2: 'Ta2O5' }, ['incident_medium'],
+    ]), canon(got.read));
+    ok('environments go from 1 in a for loop, and an Environment keeps its environment when an earlier one goes', canon([got.listed, got.count, got.shown?.[0]])
+        === canon([[[1, 'base', 'In air'], [2, 'env2', 'Water'], [3, 'env3', 'Sapphire']], 3, 2]), canon(got.listed));
+    ok('repr gives an environment, its substrate and the list on one line each', canon(got.shown?.slice(1)) === canon([
+        "<Environment 2 'Sapphire': incident Air, substrate Al2O3 1 mm, exit Air>", '<EnvironmentSubstrate of environment 2: Al2O3 1 mm>', "<Environments: 1 'In air', 2 'Sapphire'>",
+    ]), canon(got.shown));
+    const BASE = "set the design's own media and substrate with design.incident_medium, design.exit_medium and design.substrate";
+    ok('and their refusals are in Python\'s words', canon(got.worded) === canon([
+        'environment 3: the design has 2 environments, numbered from 1',
+        'environment True: the design has 2 environments, numbered from 1',
+        'remove: environment 1 is the design itself and cannot be removed',
+        `environment 1 is the design itself and takes name and enabled alone, not incident_medium; ${BASE}`,
+        `environment 1 is the design itself and takes name and enabled alone, not substrate.thickness; ${BASE}`,
+        'substrate.thickness is a thickness in mm above 0, or None to follow environment 1, not -1',
+        "name is a name, or None for none, not ''",
+        'thickness_factors is a map of material id to a factor above 0, or to None to follow environment 1; or None for none, not 0.9',
+        "add: unknown option 'colour'; the options are name, enabled, incident_medium, exit_medium, substrate, substrate_thickness_mm, thickness_factors, material_swaps",
+        "add: thickness_factors is a map of material id to a factor above 0, or to None to follow environment 1; or None for none, not {'TiO2': -1}",
+        "environment 'env2': the design has 2 environments, numbered from 1",
+    ]), canon(got.worded));
+    ok('environment 1 of a design with one environment takes no name or switch, and says so', canon(got.lone) === canon([
+        'the design has one environment, which holds no name until another is added; add one with design.environments.add()',
+        'the design has one environment, which holds no enabled until another is added; add one with design.environments.add()',
+    ]), canon(got.lone));
+    const stale = got.stale ?? {};
+    ok('an Environment whose environment was removed does not reach one added later under the same id', canon([stale.ids?.[0] === stale.ids?.[1], stale.name, stale.count, stale.words])
+        === canon([true, 'Sapphire', 2, Array(3).fill(`environment '${stale.ids?.[1]}': the design has 2 environments, numbered from 1`)]), canon(stale));
 }
 
 // What _pythonObjects.py stack_views() read of a design coated on both
@@ -1355,6 +1409,7 @@ export async function checkObjects(t) {
     await yields(u, ran.said);
     await cleaning(u, ran.said);
     await designEdits(u, ran.said);
+    await environments(u, ran.said);
     await stackViews(u, ran.said);
     await admittanceAndField(u, ran.said);
     await colourAndIntegrals(u, ran.said);

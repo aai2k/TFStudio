@@ -3,7 +3,7 @@ tuples, its settings by the package's names for them."""
 
 import collections
 
-Differences = collections.namedtuple("Differences", "same setup layers")
+Differences = collections.namedtuple("Differences", "same setup layers environments")
 SetupChange = collections.namedtuple("SetupChange", "setting before after")
 LayerChange = collections.namedtuple("LayerChange", "side number before after change")
 LayerState = collections.namedtuple("LayerState", "material thickness locked")
@@ -32,4 +32,4 @@ def differences_of(found, sides, score_on):
                                  named.get(row["after"], row["after"])))
     layers = [LayerChange(row["side"], row["number"], _state(row["before"]), _state(row["after"]), row["change"])
               for row in found["layers"]]
-    return Differences(found["same"], setup, layers)
+    return Differences(found["same"], setup, layers, list(found["environments"]))

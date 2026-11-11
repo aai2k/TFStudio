@@ -13,15 +13,17 @@ const SURFACE_MODES = ['front_only', 'back_only', 'both_independent', 'symmetric
 const QUANTIZE_MODES = Object.keys(QUANTIZE_DEFAULTS.value);
 const EDITED_SIDE = oneOf(['front', 'back'], "The coating changed: 'front' faces the incident medium, 'back' the exit medium. Default: the front, or the back of a back_only design. A side the Design Editor does not let you edit is refused, as in insertLayer");
 
-// designDifferences in short: its verdict and setup, and how many layers
-// differ on each side with the largest thickness change among them.
-function differenceSummary({ same, setup, layers }) {
+// designDifferences in short: its verdict, setup and differing environments,
+// and how many layers differ on each side with the largest thickness change
+// among them.
+function differenceSummary({ same, setup, layers, environments }) {
     const count = side => layers.filter(layer => layer.side === side).length;
     const changed = layers.filter(layer => layer.change !== null);
     const largest = changed.reduce((best, layer) => (best && Math.abs(best.change) >= Math.abs(layer.change) ? best : layer), null);
     return {
         same, setup, layersDiffering: { front: count('front'), back: count('back') },
         largestChange: largest && { side: largest.side, number: largest.number, change: largest.change },
+        environmentsDiffering: environments,
     };
 }
 
@@ -37,6 +39,27 @@ const EDGE_SEARCH = {
     upper: num('The last a searched, quarter waves, above lower and up to 2. Default 1'),
     step: num('The step of a, 0.0001 or more; at an angle above 0 the finest step over the widest range takes minutes. Default 0.05'),
     periods: int('The number of periods the formula repeats. Default 10'),
+};
+
+// An environment as setEnvironment and removeEnvironment take it, and the
+// options addEnvironment and setEnvironment take: a medium, the substrate and
+// its thickness null to follow environment 1, a name null for none.
+const ENVIRONMENT = { type: ['integer', 'string'], description: 'The environment, by its number from 1 or by its id, as the environments tool lists them' };
+const ENVIRONMENT_OPTIONS = {
+    name: { type: ['string', 'null'], description: 'The environment name; null for none' },
+    enabled: bool('false switches the environment off. Default true'),
+    incidentMedium: { type: ['string', 'null'], description: 'Material id of the incident medium; null follows environment 1' },
+    exitMedium: { type: ['string', 'null'], description: 'Material id of the exit medium; null follows environment 1' },
+    substrate: { type: ['string', 'null'], description: 'Material id of the substrate; null follows environment 1' },
+    substrateThicknessMm: { type: ['number', 'null'], description: 'Substrate thickness in mm, above 0; null follows environment 1' },
+    thicknessFactors: {
+        type: ['object', 'null'], additionalProperties: { type: ['number', 'null'] },
+        description: 'Material id to factor, such as {"TiO2": 0.95}: each layer of that material is that many times as thick, the factor above 0, as at a chamber position where the films grow thinner. A built-in material is keyed under either form of its id (TiO2 or builtin:TiO2). A material given null follows environment 1; null drops every factor',
+    },
+    materialSwaps: {
+        type: ['object', 'null'], additionalProperties: { type: ['string', 'null'] },
+        description: 'Material id to material id, such as {"TiO2": "Ta2O5"}: each layer of the first is made of the second. A material given null follows environment 1; null drops every swap',
+    },
 };
 
 // The fields an edit tool passes on to the API: its arguments without designId.
@@ -229,7 +252,7 @@ export function designTools({ api, store }) {
         },
         {
             name: 'designDifferences', title: 'Compare two designs',
-            description: "What differs between two designs of the session: their setup as setDesignSetup sets it, but the name, and their layers, compared side by side by number from 1 next to the substrate, so a layer added near the substrate shows every layer outside it as changed. Values are compared exactly; merit rows, specification checks, the cone and carried materials are not compared. Answers with same, true when nothing compared differs; setup, each setting that differs as { setting, before, after }, before in designId and after in otherId; and the count of layers that differ on each side, with the largest thickness change. With values true, also layers: each layer that differs as { side, number, before, after, change }, before and after { material, thickness, locked } or null where that design has no such layer, change the thickness after less before in nm, or null.",
+            description: "What differs between two designs of the session: their setup as setDesignSetup sets it, but the name, and their layers, compared side by side by number from 1 next to the substrate, so a layer added near the substrate shows every layer outside it as changed. Values are compared exactly; merit rows, specification checks, the cone and carried materials are not compared. Answers with same, true when nothing compared differs; setup, each setting that differs as { setting, before, after }, before in designId and after in otherId; the count of layers that differ on each side, with the largest thickness change; and environmentsDiffering, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which the environments tool shows. With values true, also layers: each layer that differs as { side, number, before, after, change }, before and after { material, thickness, locked } or null where that design has no such layer, change the thickness after less before in nm, or null.",
             inputSchema: object({
                 designId: DESIGN_ID, otherId: str('The id of the design compared with it'),
                 values: bool('Answer with every layer that differs too. Default false'),
@@ -238,6 +261,30 @@ export function designTools({ api, store }) {
                 const found = api.designDifferences(store.get(designId), store.get(otherId));
                 return values ? { designId, otherId, ...found } : { designId, otherId, ...differenceSummary(found) };
             },
+        },
+        {
+            name: 'environments', title: 'List the environments',
+            description: "A design's environments, in order: environment 1, the design's own media and substrate, then each other condition the same coating is used in, such as another substrate, the coating under water, or a chamber position where the films grow thinner. A design without environments has environment 1 alone. Answers with each as { number (from 1), id, name (or null), enabled, incidentMedium, exitMedium, substrate { material, thickness in mm }, thicknessFactors, materialSwaps, follows }: the media and the substrate are the environment's own or environment 1's, the factors and swaps its own ({} for none), and follows names the options it takes from environment 1 ([] for environment 1).",
+            inputSchema: object({ designId: DESIGN_ID }, ['designId']),
+            run: ({ designId }) => ({ designId, environments: api.environments(store.get(designId)) }),
+        },
+        {
+            name: 'addEnvironment', title: 'Add an environment',
+            description: 'Adds an environment after the design\'s others: another condition the same coating is used in. A medium, substrate or thickness left out or null follows environment 1. Answers with the design; the environments tool lists its environments.',
+            inputSchema: object({ designId: DESIGN_ID, ...ENVIRONMENT_OPTIONS }, ['designId']),
+            run: args => edit(args.designId, d => api.addEnvironment(d, editArgs(args))),
+        },
+        {
+            name: 'setEnvironment', title: 'Change an environment',
+            description: 'Sets options on one environment of a design. A medium, substrate or thickness given null follows environment 1 again, and a name given null takes the name away; in thicknessFactors and materialSwaps a material given null does, and a material left out keeps what it had. Environment 1 is the design itself and takes name and enabled alone; setDesignSetup changes its media and substrate. Answers with the design.',
+            inputSchema: object({ designId: DESIGN_ID, environment: ENVIRONMENT, ...ENVIRONMENT_OPTIONS }, ['designId', 'environment']),
+            run: ({ designId, environment, ...options }) => edit(designId, d => api.setEnvironment(d, environment, options)),
+        },
+        {
+            name: 'removeEnvironment', title: 'Remove an environment',
+            description: 'Removes an environment from a design, with the merit rows scored in it alone and the rows that read them; the environments after it move one number down. Environment 1, the design itself, cannot be removed. Answers with the design.',
+            inputSchema: object({ designId: DESIGN_ID, environment: ENVIRONMENT }, ['designId', 'environment']),
+            run: ({ designId, environment }) => edit(designId, d => api.removeEnvironment(d, environment)),
         },
         {
             name: 'edgeFilter', title: 'Search an edge filter',

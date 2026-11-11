@@ -9,6 +9,7 @@
  *   insertLayer, deleteLayer, setLayer, stackFromFormula, cleanDesign(design, options)
  *   scaleThicknesses(design, { factor, side }), quantize(design, { mode, value, side }), perturb(design, { percent, side, seed })
  *   flipLayers(design, { side }), copySide(design, { from }), designDifferences(design, other)
+ *   environments(design), addEnvironment(design, options), setEnvironment(design, environment, options), removeEnvironment(design, environment)
  *   edgeFilter(design, { pass, edge, angle, a, b, incident, periods }), applyEdgeFilter(design, { solution, periods, side, mode })
  *   needleProfile(design, { pool, side, step, intraSamples }), insertNeedle(design, candidate, { thickness, side })
  *   findMaterials(query), materialNK(id, wavelengths, design), materialDispersion(id, { from, to, thickness }, design)
@@ -50,6 +51,7 @@ export { openDesign, saveDesign, newDesign, setDesignSetup } from './designs.js'
 export { insertLayer, deleteLayer, setLayer, stackFromFormula } from './stack.js';
 export { cleanDesign } from './cleaner.js';
 export { scaleThicknesses, quantize, perturb, flipLayers, copySide, designDifferences } from './designEdits.js';
+export { environments, addEnvironment, setEnvironment, removeEnvironment } from './designEnvironments.js';
 export { edgeFilter, applyEdgeFilter } from './edgeFilter.js';
 export { needleProfile, insertNeedle } from './needle.js';
 export { findMaterials, materialNK } from './materials.js';

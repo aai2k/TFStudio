@@ -32,6 +32,11 @@ const WORDS = {
     bandOrder: f => `start ${f.start} is above end ${f.end}`,
     fileExists: f => `${f.path} exists; pass { overwrite: true } to write over it`,
     formulaMedia: () => "the formula names media; write the layers alone, such as '(HL)^5 H', and set the media with incidentMedium, exitMedium and substrate.material",
+    unknownEnvironment: f => `environment ${shown(f.environment)}: the design has ${f.numbers.length} environment${f.numbers.length === 1 ? '' : 's'}, numbered from 1`,
+    baseEnvironment: (f, w) => (f.option
+        ? `environment 1 is the design itself and takes name and enabled alone, not ${w.name(f.option)}; set the design's own media and substrate with design.incidentMedium, design.exitMedium and design.substrate`
+        : 'environment 1 is the design itself and cannot be removed'),
+    oneEnvironment: (f, w) => `the design has one environment, which holds no ${w.name(f.option)} until another is added; add one with design.environments.add()`,
 };
 
 // What the refusal `err` says in the words `w`, or null for an error that is

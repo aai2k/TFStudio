@@ -9,7 +9,7 @@
  * `env` on any row.
  */
 import { removeOperandsAndDependents } from '../physics/optimizer/operandModel.js';
-import { BASE_ENVIRONMENT, environmentById, sameMaterial } from './environments.js';
+import { BASE_ENVIRONMENT, environmentById, hasEnvironments, sameMaterial } from './environments.js';
 
 /** The fields an environment of its own (2 or later) can set. */
 export const ENVIRONMENT_FIELDS = Object.freeze([
@@ -92,13 +92,18 @@ export function addEnvironment(design, fields = {}) {
 /**
  * `design` with `fields` set on environment `id`. A field given as null
  * follows environment 1 again; in `substrate`, `thicknessFactors` and
- * `materialSwaps`, one entry given as null does.
+ * `materialSwaps`, one entry given as null does. A design with one
+ * environment lists none, so its environment 1 has no name or switch to set.
  *
- * @throws an id the design has no environment for, or a field environment `id` cannot set
+ * @throws an id the design has no environment for, a field environment `id` cannot set, or environment 1 of a design with one environment
  */
 export function setEnvironment(design, id, fields) {
     if (!environmentById(design, id)) throw new Error(`This design has no environment ${id}.`);
     checkFields(id, fields);
+    if (Object.keys(fields).length === 0) return design;
+    if (id === BASE_ENVIRONMENT && !hasEnvironments(design)) {
+        throw new Error('A design with one environment holds no name or switch for it; add another environment first.');
+    }
     return { ...design, environments: listOf(design).map(env => (env.id === id ? withFields(env, fields) : env)) };
 }
 

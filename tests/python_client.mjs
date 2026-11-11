@@ -11,7 +11,9 @@
  *      took aside: designs built, edited, cleaned, saved (to the bytes the API
  *      writes) and opened again, a layer set by its QWOT, sides scaled,
  *      rounded, perturbed, flipped and copied, one rounding and one flip
- *      refused, two designs compared, an edge filter searched, one refused
+ *      refused, two designs compared, environments listed, added, set and
+ *      removed, environment 1's media and an environment the design does not
+ *      have refused, an edge filter searched, one refused
  *      and one put in, a needle profile, one refused and a needle put in, a
  *      deposition run on the part, one on chips with a
  *      plan of the wrong length refused, its files written, a monitor
@@ -302,6 +304,7 @@ const STOPPED_WITHIN_S = 5;
     const held = api.addMeasuredCurves(stack, [...api.readSpectrumFile(scan).curves, ...witnessCurves]);
     const coatingDat = path.join(WORK, 'calls COATING.DAT');
     const coatingSeq = path.join(WORK, 'calls stack.seq');
+    const withWater = api.addEnvironment(stack, { name: 'Under water', incidentMedium: 'H2O', thicknessFactors: { TiO2: 0.95 } });
     const CALLS = [
         ['newDesign', [{ name: 'AR', substrate: 'SiO2', referenceWavelength: 600 }]],
         ['setDesignSetup', [stack, { referenceWavelength: 600, surfaceMode: 'symmetric' }]],
@@ -319,6 +322,12 @@ const STOPPED_WITHIN_S = 5;
         ['flipLayers', [stack, { side: 'back' }]],
         ['copySide', [api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { from: 'front' }]],
         ['designDifferences', [stack, api.scaleThicknesses(stack, { factor: 1.1 })]],
+        ['environments', [withWater]],
+        ['addEnvironment', [stack, { name: 'Sapphire', substrate: 'Al2O3', substrateThicknessMm: 3, materialSwaps: { SiO2: 'MgF2' } }]],
+        ['setEnvironment', [withWater, 2, { incidentMedium: null, thicknessFactors: { TiO2: null, SiO2: 1.05 } }]],
+        ['setEnvironment', [withWater, 'base', { exitMedium: 'BK7' }]],
+        ['removeEnvironment', [withWater, 'env2']],
+        ['removeEnvironment', [withWater, 5]],
         ['edgeFilter', [stack, { angle: 45, edge: 650 }]],
         ['edgeFilter', [stack, { pass: 'band' }]],
         ['applyEdgeFilter', [stack, { solution: 1, periods: 4 }]],

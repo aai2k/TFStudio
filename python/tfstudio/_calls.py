@@ -93,6 +93,18 @@ class Calls:
     def designDifferences(self, design, other):
         return self._call("designDifferences", design, other)
 
+    def environments(self, design):
+        return self._call("environments", design)
+
+    def addEnvironment(self, design, options=None):
+        return self._call("addEnvironment", design, options)
+
+    def setEnvironment(self, design, environment, options):
+        return self._call("setEnvironment", design, environment, options)
+
+    def removeEnvironment(self, design, environment):
+        return self._call("removeEnvironment", design, environment)
+
     def edgeFilter(self, design, options=None):
         return self._call("edgeFilter", design, options)
 

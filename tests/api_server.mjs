@@ -13,7 +13,9 @@
  *      again, and cleaning one with no layers refused with its code and
  *      fields; a side scaled, rounded, perturbed with its seed and copied,
  *      a flip of a closed side refused with its code and fields, and two
- *      designs compared; an edge filter searched, with a pass region that
+ *      designs compared; environments listed, added, set and removed, and an
+ *      environment the design does not have refused with its code and
+ *      fields; an edge filter searched, with a pass region that
  *      does not end crossing as Infinity, and put in; a needle profile, and a
  *      candidate of it put in; a deposition run on the
  *      part and on witness chips, and its files written; a monitor worksheet
@@ -191,6 +193,14 @@ const specified = api.setSpecification(start, CHECKS);
         && closed.error?.code === 'closedSide' && canon(closed.error.fields) === canon({ call: 'flipLayers', side: 'back', surfaceMode: 'front_only' }), JSON.stringify(closed.error));
     await same('copySide', [api.setDesignSetup(stack, { surfaceMode: 'both_independent' }), { from: 'front' }]);
     await same('designDifferences', [stack, kicked.result?.design]);
+    const withWater = api.addEnvironment(stack, { name: 'Under water', incidentMedium: 'H2O', thicknessFactors: { TiO2: 0.95 } });
+    await same('environments', [withWater]);
+    await same('addEnvironment', [stack, { name: 'Sapphire', substrate: 'Al2O3', substrateThicknessMm: 3, materialSwaps: { SiO2: 'MgF2' } }]);
+    await same('setEnvironment', [withWater, 2, { incidentMedium: null, thicknessFactors: { TiO2: null, SiO2: 1.05 } }]);
+    await same('removeEnvironment', [withWater, 'env2']);
+    const noEnvironment = await same('removeEnvironment', [withWater, 3]);
+    ok('an environment the design does not have is refused with its code and fields', noEnvironment.error?.code === 'unknownEnvironment'
+        && canon(noEnvironment.error.fields) === canon({ call: 'removeEnvironment', environment: 3, numbers: [1, 2], ids: ['base', 'env2'] }), JSON.stringify(noEnvironment.error));
     await same('edgeFilter', [stack, { angle: 45, edge: 650 }]);
     const edge = await same('edgeFilter', [stack, { pass: 'long', edge: 650 }]);
     await same('applyEdgeFilter', [stack, { angle: 45, edge: 650, solution: 1, mode: 'append', periods: 3 }]);

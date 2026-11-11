@@ -22,6 +22,9 @@
  *   bandOrder        { call, row, start, end }  a merit row or a check whose band starts above its end
  *   fileExists       { call, path }  a file that is there, without overwrite
  *   formulaMedia     { call }  a stack formula that names media
+ *   unknownEnvironment  { call, environment, numbers, ids }  an environment the design does not have, beside the numbers and ids of those it has
+ *   baseEnvironment  { call, option }  environment 1 given an option other than name and enabled, or, without option, removed
+ *   oneEnvironment   { call, option }  environment 1 given a name or a switch while the design has no other environment
  *
  * `row` is there on a refusal of a merit row or a specification check only:
  * its place in the rows or checks.

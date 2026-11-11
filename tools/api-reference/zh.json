@@ -347,6 +347,10 @@
     "hash": "88417ae2",
     "text": "背面的膜层，一个 Layers，从紧邻基底的 1 开始编号。对称设计的背面是正面的镜像，不能在这里修改。"
   },
+  "Design.environments.lead.1": {
+    "hash": "c6d56bdf",
+    "text": "设计的环境，一个 Environments，从 1 开始编号：先是设计本身，然后是同一镀膜使用时的每种其他条件，例如另一种基底或在水下使用。"
+  },
   "Design.merit.lead.1": {
     "hash": "dcb76544",
     "text": "评价函数，一个 Merit：它的各行，以及这些行合计得到的评价函数值。"
@@ -1178,6 +1182,190 @@
   "Layer.locked.refuses.1": {
     "hash": "a42d7f3e",
     "text": "`true` / `True` 和 `false` / `False` 以外的值，或设计不允许编辑的一面"
+  },
+  "Environments.lead.1.js": {
+    "hash": "c630f954",
+    "text": "设计的环境，从 1 开始编号：环境 1 是设计本身，带有它自己的介质和基底；之后的每个环境是同一镀膜使用时的另一种条件，例如另一种基底、在水下使用，或膜层长得较薄的腔体位置。`environments[n]` 是第 n 个环境，`environments.length` 是环境数，for...of 循环从环境 1 开始。没有其他环境的设计只有环境 1。这些方法会改变设计。"
+  },
+  "Environments.lead.1.py": {
+    "hash": "2a71beb6",
+    "text": "设计的环境，从 1 开始编号：环境 1 是设计本身，带有它自己的介质和基底；之后的每个环境是同一镀膜使用时的另一种条件，例如另一种基底、在水下使用，或膜层长得较薄的腔体位置。`environments[n]` 是第 n 个环境，`len(environments)` 是环境数，for 循环从环境 1 开始。没有其他环境的设计只有环境 1。这些方法会改变设计。"
+  },
+  "Environments.length.lead.1": {
+    "hash": "9082bce7",
+    "text": "设计的环境数，包括环境 1。"
+  },
+  "Environments.[Symbol.iterator].lead.1": {
+    "hash": "0d912501",
+    "text": "从 1 开始的各个环境，每个都是一个 Environment。循环开始时设计有哪些环境，就遍历哪些环境。"
+  },
+  "Environments.add.arg.name": {
+    "hash": "81ee45c6",
+    "text": "环境的名称。"
+  },
+  "Environments.add.arg.enabled": {
+    "hash": "36ac523d",
+    "text": "为 `false` / `False` 时关闭该环境。"
+  },
+  "Environments.add.arg.incidentMedium": {
+    "hash": "d91e106e",
+    "text": "光入射一侧的介质，按材料 id 指定。"
+  },
+  "Environments.add.arg.exitMedium": {
+    "hash": "e37c66b1",
+    "text": "基底后面的介质，按材料 id 指定。"
+  },
+  "Environments.add.arg.substrate": {
+    "hash": "6eef1e44",
+    "text": "基底材料，按 id 指定。"
+  },
+  "Environments.add.arg.substrateThicknessMm": {
+    "hash": "25a925ca",
+    "text": "基底厚度，单位 mm，大于 0。"
+  },
+  "Environments.add.arg.thicknessFactors": {
+    "hash": "c3dab740",
+    "text": "从材料 id 到系数的映射：该材料的每一层厚度变为原来的这么多倍，系数大于 0。"
+  },
+  "Environments.add.arg.materialSwaps": {
+    "hash": "6b91e673",
+    "text": "从材料 id 到材料 id 的映射：前一种材料的每一层改由后一种材料制成。"
+  },
+  "Environments.add.returns": {
+    "hash": "c5a5e4dd",
+    "text": "新的 Environment。"
+  },
+  "Environments.add.lead.1": {
+    "hash": "eb6cafb8",
+    "text": "在其他环境之后添加一个环境。未给出或给出 `null` / `None` 的介质、基底或厚度沿用环境 1 的。系数或替换以膜层所写的材料为键，内置材料的 id 两种写法均可（`'TiO2'` 或 `'builtin:TiO2'`）。"
+  },
+  "Environments.add.refuses.1": {
+    "hash": "1f2aa47d",
+    "text": "它不接受的选项、选项无法接受的值，或找不到对应材料的材料 id"
+  },
+  "Environments.remove.arg.number": {
+    "hash": "fb9a913d",
+    "text": "环境的编号，2 或以上：环境 1 是设计本身。"
+  },
+  "Environments.remove.lead.1": {
+    "hash": "fc117794",
+    "text": "删除第 `number` 个环境，连同只在该环境中评分的评价函数行以及读取这些行的行；其后的环境编号依次减一。"
+  },
+  "Environments.remove.refuses.1": {
+    "hash": "e4544bce",
+    "text": "设计中没有对应环境的编号，或 1"
+  },
+  "Environments.[n].arg.number": {
+    "hash": "9ab4808e",
+    "text": "环境的编号，从 1 到设计的环境数。"
+  },
+  "Environments.[n].returns": {
+    "hash": "62d57918",
+    "text": "一个 Environment。"
+  },
+  "Environments.[n].lead.1": {
+    "hash": "4845640c",
+    "text": "第 `number` 个环境，一个 Environment：环境 1 是设计本身。"
+  },
+  "Environments.[n].refuses.1": {
+    "hash": "878c81ef",
+    "text": "设计中没有对应环境的编号"
+  },
+  "Environment.lead.1": {
+    "hash": "1f85d95e",
+    "text": "设计的一个环境：环境 1，即设计本身，或同一镀膜使用时的另一种条件。环境保存它自己设置的内容，其余沿用环境 1 的。读取属性时读取的是设计当时的状态，设置属性会改变设计。删除它之前的环境后，它仍是同一个环境，并取得新的编号。"
+  },
+  "Environment.number.lead.1": {
+    "hash": "4fccfd68",
+    "text": "环境的编号，从 1 开始：环境 1 是设计本身。"
+  },
+  "Environment.id.lead.1": {
+    "hash": "92b6560b",
+    "text": "环境的 id，.tfs 文件用它来指称该环境；环境 1 的 id 为 `'base'`。"
+  },
+  "Environment.name.lead.1": {
+    "hash": "508aa166",
+    "text": "环境的名称，或 `null` / `None`；设置它即可为环境命名，设为 `null` / `None` 则不命名。"
+  },
+  "Environment.name.refuses.1": {
+    "hash": "24daec46",
+    "text": "不是文本或为空的名称；或只有一个环境的设计中的环境 1，在添加另一个环境之前它没有名称"
+  },
+  "Environment.enabled.lead.1": {
+    "hash": "6940df1f",
+    "text": "关闭的环境为 `false` / `False`；设置它即可关闭或打开该环境。"
+  },
+  "Environment.enabled.refuses.1": {
+    "hash": "74bd31ab",
+    "text": "`true` / `True` 和 `false` / `False` 以外的值；或只有一个环境的设计中的环境 1，在添加另一个环境之前它没有开关"
+  },
+  "Environment.incidentMedium.lead.1": {
+    "hash": "beff66cb",
+    "text": "该环境中光入射一侧的介质，按材料 id 指定：它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。"
+  },
+  "Environment.incidentMedium.refuses.1": {
+    "hash": "3d0fe67e",
+    "text": "找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的介质就是设计的介质"
+  },
+  "Environment.exitMedium.lead.1": {
+    "hash": "b703c2fe",
+    "text": "该环境中基底后面的介质，按材料 id 指定：它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。"
+  },
+  "Environment.exitMedium.refuses.1": {
+    "hash": "3d0fe67e",
+    "text": "找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的介质就是设计的介质"
+  },
+  "Environment.substrate.lead.1": {
+    "hash": "ca771728",
+    "text": "环境的基底，一个 EnvironmentSubstrate：其材料和厚度，它自己的或环境 1 的。"
+  },
+  "Environment.thicknessFactors.lead.1": {
+    "hash": "f3098878",
+    "text": "环境的厚度系数，从材料 id 到系数的映射：在该环境中，该材料的每一层厚度变为原来的这么多倍，例如在膜层长得较薄的腔体位置。读取时得到一份副本；设置时用给出的系数取代全部系数，给出 `{}` 或 `null` / `None` 则不留任何系数。"
+  },
+  "Environment.thicknessFactors.refuses.1": {
+    "hash": "62e17d46",
+    "text": "系数不是大于 0 的数的映射、找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的膜层就是设计的膜层"
+  },
+  "Environment.materialSwaps.lead.1": {
+    "hash": "d6b46db6",
+    "text": "环境的材料替换，从材料 id 到材料 id 的映射：在该环境中，前一种材料的每一层改由后一种材料制成。读取时得到一份副本；设置时用给出的替换取代全部替换，给出 `{}` 或 `null` / `None` 则不留任何替换。"
+  },
+  "Environment.materialSwaps.refuses.1": {
+    "hash": "395a3e01",
+    "text": "值不是材料 id 的映射、找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的膜层就是设计的膜层"
+  },
+  "Environment.follows.lead.1": {
+    "hash": "72c9550d",
+    "text": "环境沿用环境 1 的哪些内容，按 environments.add() 接受的名称给出：`'incidentMedium'` / `\"incident_medium\"`、`'exitMedium'` / `\"exit_medium\"`、`'substrate'` 和 `'substrateThicknessMm'` / `\"substrate_thickness_mm\"` 中的任意几个。环境 1 不沿用任何内容。"
+  },
+  "Environment.remove.lead.1": {
+    "hash": "6216da54",
+    "text": "从设计中删除该环境，连同只在该环境中评分的评价函数行以及读取这些行的行。其后的环境编号依次减一。"
+  },
+  "Environment.remove.refuses.1": {
+    "hash": "c17d6f65",
+    "text": "环境 1，即设计本身"
+  },
+  "EnvironmentSubstrate.lead.1": {
+    "hash": "17d656f7",
+    "text": "一个环境的基底：其材料和厚度，它自己的或环境 1 的。设置其中任一项，环境就有了自己的值；设为 `null` / `None` 则该环境重新沿用环境 1 的。"
+  },
+  "EnvironmentSubstrate.material.lead.1": {
+    "hash": "f27472c1",
+    "text": "该环境中基底的材料，按 id 指定：它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。"
+  },
+  "EnvironmentSubstrate.material.refuses.1": {
+    "hash": "c714fdff",
+    "text": "找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的基底就是设计的基底"
+  },
+  "EnvironmentSubstrate.thickness.lead.1": {
+    "hash": "d7f7718b",
+    "text": "该环境中基底的厚度，单位 mm：它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。"
+  },
+  "EnvironmentSubstrate.thickness.refuses.1": {
+    "hash": "c28213d4",
+    "text": "小于等于 0 的厚度，或在环境 1 上设置的任何值，环境 1 的基底就是设计的基底"
   },
   "Merit.lead.1": {
     "hash": "1d8c47f8",
@@ -4248,16 +4436,16 @@
     "text": "与本设计比较的 Design。"
   },
   "Design.differences.returns.js": {
-    "hash": "e4060c94",
-    "text": "一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'` 或 `'substrate.diameter'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null。"
+    "hash": "b8e84170",
+    "text": "一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'` 或 `'substrate.diameter'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null；`environments`，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，`design.environments` 给出这些内容。"
   },
   "Design.differences.returns.py": {
-    "hash": "c1ba4b89",
-    "text": "命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（\"incident_medium\"、\"exit_medium\"、\"substrate.material\"、\"substrate.thickness\"、\"reference\"、\"sides\"、\"score_on\"、\"stress_temperature\"、\"deposition_temperature\" 或 \"substrate.diameter\"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None。"
+    "hash": "0ee18c50",
+    "text": "命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（\"incident_medium\"、\"exit_medium\"、\"substrate.material\"、\"substrate.thickness\"、\"reference\"、\"sides\"、\"score_on\"、\"stress_temperature\"、\"deposition_temperature\" 或 \"substrate.diameter\"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None；environments，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，design.environments 给出这些内容。"
   },
   "Design.differences.lead.1": {
-    "hash": "78dd37cf",
-    "text": "本设计与 `other` 之间的不同之处：它们的设置和膜层，膜层按从基底起的编号逐面比较，因此在靠近基底处加一层，会使其外侧的每一层都显示为改变。数值按精确值比较。名称、评价函数的行、规格检查、入射锥角和设计携带的材料不参与比较。"
+    "hash": "b19113f5",
+    "text": "本设计与 `other` 之间的不同之处：它们的设置、膜层和环境。膜层按从基底起的编号逐面比较，因此在靠近基底处加一层，会使其外侧的每一层都显示为改变；环境按编号比较。数值按精确值比较。名称、评价函数的行、规格检查、入射锥角和设计携带的材料不参与比较。"
   },
   "Design.differences.refuses.1": {
     "hash": "01e96f4f",

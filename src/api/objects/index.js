@@ -9,6 +9,7 @@
  *   tf.newDesign(name, { substrate, reference }), tf.openDesign(path), tf.materials.get(id)
  *   material.nk(wavelengths), material.range, material.dispersion(start, end, { thickness })
  *   design.layers[n], design.merit, design.spectrum(start, end, { step, angles })
+ *   design.environments[n], design.environments.add({ name, incidentMedium, substrate, thicknessFactors, ... }), .remove(n)
  *   design.clean({ minThickness, merge, back }), design.layers[n].qwot
  *   design.indexProfile({ wavelength, side }), design.layerThicknesses({ wavelength, side })
  *   design.totalThickness({ side }), design.opticalThickness({ side }), design.layerCounts({ side })
@@ -37,6 +38,7 @@ import { TFStudio } from './studio.js';
 export { TFStudio, Materials, Material } from './studio.js';
 export { Design, Substrate } from './design.js';
 export { Layers, Layer } from './layers.js';
+export { Environments, Environment, EnvironmentSubstrate } from './environments.js';
 export { Merit, MeritRow } from './merit.js';
 export { Specification, SpecCheck } from './specification.js';
 export { Spectrum, Curve, AngleCurve } from './spectrum.js';

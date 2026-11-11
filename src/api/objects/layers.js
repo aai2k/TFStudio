@@ -122,7 +122,7 @@ export class Layer {
 // A key that reads as a number, as `layers[1]` gives it: the text of that
 // number, NaN and Infinity included, so that layers[0], layers[-1] and
 // layers[1.5] are refused as layer numbers rather than read as properties.
-const isNumberKey = key => typeof key === 'string' && String(Number(key)) === key;
+export const isNumberKey = key => typeof key === 'string' && String(Number(key)) === key;
 
 /**
  * Layer `number`, a Layer: 1 is next to the substrate.

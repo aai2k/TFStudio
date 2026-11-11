@@ -62,6 +62,8 @@ const plain = () => ({
     assert.equal(environmentDesign(design), design, 'environment 1 computes the design object itself');
     assert.equal(environmentDesign(design, BASE_ENVIRONMENT), design);
     assert.throws(() => environmentDesign(design, 'env2'), /no environment env2/);
+    assert.throws(() => setEnvironment(design, BASE_ENVIRONMENT, { name: 'In air' }), /add another environment first/,
+        'a design with one environment lists none, so environment 1 takes no name until another is added');
     assert.deepEqual(rowsInEnvironment(design, BASE_ENVIRONMENT).map(op => op.id), ['r1']);
 }
 

@@ -53,7 +53,7 @@ const layer = (id, material, thickness, locked = false) => ({ id, material, thic
 // ── 2. designDifferences ───────────────────────────────────────────────────
 {
     const a = { ...api.newDesign({ name: 'A', surfaceMode: 'both_independent' }), frontLayers: [layer('o', 'SiO2', 90), layer('i', 'TiO2', 60)], backLayers: [layer('s', 'MgF2', 100)] };
-    ok('a design differs from itself in nothing, and the name is not compared', all([isDeepStrictEqual(api.designDifferences(a, a), { same: true, setup: [], layers: [] }),
+    ok('a design differs from itself in nothing, and the name is not compared', all([isDeepStrictEqual(api.designDifferences(a, a), { same: true, setup: [], layers: [], environments: [] }),
         api.designDifferences(a, { ...a, name: 'Renamed' }).same]));
     const b = {
         ...a, incidentMedium: 'BK7', exitMedium: 'SiO2', substrate: { ...a.substrate, material: 'SiO2', thickness: 3 }, referenceWavelength: 600, mfEvalMode: 'total',

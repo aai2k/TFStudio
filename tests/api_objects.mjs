@@ -9,7 +9,12 @@
  *   substrate, on the front and the back, a copy changing apart, numbers a side
  *   has no layer of refused, and layers[n] not set; the setup attributes
  *   (substrate material and thickness in mm, media, name, and a reference
- *   that rescales the layers); save(), refusing a file that is there without
+ *   that rescales the layers); environments by number, each attribute set
+ *   being setEnvironment, a map set replacing the whole map, add() and
+ *   remove() being the plain calls, an Environment keeping its environment
+ *   when an earlier one goes and refused once its own goes, what
+ *   console.log prints, and their refusals in the objects' words; save(),
+ *   refusing a file that is there without
  *   overwrite, and openDesign(); sides and scoreOn
  *   round-tripping to surfaceMode and mfEvalMode, and the mode of a spectrum, a
  *   Monte Carlo run, a refinement, a layer ranking, an index profile, a
@@ -225,6 +230,128 @@ ok('the back of a symmetric design is refused', symmetricBack === 'layer 1: the 
     ok('the setup attributes are setDesignSetup\'s options, the substrate thickness in mm, and a new reference rescales the layers',
         canon(set._data) === canon(there) && canon(read) === canon(['Al2O3', 3, 'MgF2', 'SiO2', 'Renamed', 700])
         && canon(set._data.frontLayers) !== canon(design._data.frontLayers), JSON.stringify(read));
+}
+
+// ── Environments ────────────────────────────────────────────────────────────
+{
+    const env = tf.newDesign('Window AR', { substrate: 'BK7' });
+    env.stack('(HL)^2');
+    const start = env._data;
+    const first = env.environments[1];
+    ok('a design without environments has environment 1, the design itself', canon([
+        env.environments.length, first instanceof objects.Environment, env.environments instanceof objects.Environments, first.number, first.id, first.name, first.enabled,
+        first.incidentMedium, first.exitMedium, first.substrate.material, first.substrate.thickness, first.follows, first.thicknessFactors,
+    ]) === canon([1, true, true, 1, 'base', null, true, 'Air', 'Air', 'BK7', 1, [], {}]));
+
+    const WATER = { name: 'Under water', incidentMedium: 'H2O', thicknessFactors: { TiO2: 0.95 } };
+    const water = env.environments.add(WATER);
+    ok('add() is addEnvironment and gives the new Environment', canon([env._data, water instanceof objects.Environment, water.number, water.id, water.follows])
+        === canon([api.addEnvironment(start, WATER), true, 2, 'env2', ['exitMedium', 'substrate', 'substrateThicknessMm']]));
+
+    // Each attribute set is setEnvironment of the option it stands for; the
+    // values differ from environment 1's, so an attribute that sets another shows.
+    let expected = env._data;
+    const STEPS = [
+        [() => { water.name = 'Water'; }, { name: 'Water' }],
+        [() => { water.enabled = false; }, { enabled: false }],
+        [() => { water.exitMedium = 'SiO2'; }, { exitMedium: 'SiO2' }],
+        [() => { water.substrate.material = 'Al2O3'; }, { substrate: 'Al2O3' }],
+        [() => { water.substrate.thickness = 3; }, { substrateThicknessMm: 3 }],
+        [() => { water.incidentMedium = null; }, { incidentMedium: null }],
+        [() => { water.thicknessFactors = { SiO2: 1.1 }; }, { thicknessFactors: { TiO2: null, SiO2: 1.1 } }],
+        [() => { water.materialSwaps = { 'builtin:TiO2': 'Ta2O5' }; }, { materialSwaps: { 'builtin:TiO2': 'Ta2O5' } }],
+        [() => { water.materialSwaps = { TiO2: 'Nb2O5', SiO2: 'MgF2' }; }, { materialSwaps: { 'builtin:TiO2': null, TiO2: 'Nb2O5', SiO2: 'MgF2' } }],
+    ];
+    const alike = STEPS.map(([set, options]) => {
+        set();
+        expected = api.setEnvironment(expected, 'env2', options);
+        return canon(env._data) === canon(expected);
+    });
+    ok('each attribute set is setEnvironment, a map set replacing the whole map', alike.every(Boolean), alike.join(','));
+    const read = [water.name, water.enabled, water.incidentMedium, water.exitMedium, water.substrate.material, water.substrate.thickness, water.thicknessFactors, water.materialSwaps];
+    ok('and reads back as set, a medium given null as environment 1\'s', canon(read) === canon(['Water', false, 'Air', 'SiO2', 'Al2O3', 3, { SiO2: 1.1 }, { TiO2: 'Nb2O5', SiO2: 'MgF2' }]), JSON.stringify(read));
+    const copied = water.thicknessFactors;
+    copied.SiO2 = 2;
+    ok('a map read is a copy', water.thicknessFactors.SiO2 === 1.1);
+    water.thicknessFactors = {};
+    water.materialSwaps = null;
+    water.substrate.material = null;
+    ok('{} or null leaves no factors or swaps, and null on the substrate material follows environment 1\'s', canon([env._data.environments[1], water.substrate.material])
+        === canon([{ id: 'env2', name: 'Water', enabled: false, exitMedium: 'SiO2', substrate: { thickness: 3 } }, 'BK7']), JSON.stringify(env._data.environments[1]));
+
+    first.name = 'In air';
+    first.enabled = false;
+    ok('environment 1 takes a name and a switch', canon(env._data.environments[0]) === canon({ id: 'base', name: 'In air', enabled: false }));
+
+    const sapphire = env.environments.add({ name: 'Sapphire', substrate: 'Al2O3' });
+    ok('environments go from 1 in a for...of loop', canon([[...env.environments].map(e => [e.number, e.name]), env.environments.length])
+        === canon([[[1, 'In air'], [2, 'Water'], [3, 'Sapphire']], 3]));
+    const before = env._data;
+    env.environments.remove(2);
+    ok('remove(n) is removeEnvironment, and an Environment keeps its environment when an earlier one goes', canon([env._data, sapphire.number, sapphire.name])
+        === canon([api.removeEnvironment(before, 2), 2, 'Sapphire']));
+    const removedRead = await refused(() => water.name);
+    ok('an Environment whose environment was removed is refused, naming what the design has', removedRead === 'environment "env2": the design has 2 environments, numbered from 1', removedRead);
+    sapphire.remove();
+    ok('remove() takes the environment out, and with environment 1 alone left the design lists none', canon(['environments' in env._data, env.environments.length]) === canon([false, 1]));
+
+    const twice = tf.newDesign('Window AR');
+    const shown = twice.environments.add({ name: 'Edge', thicknessFactors: { TiO2: 0.9 }, materialSwaps: { SiO2: 'MgF2' }, enabled: false });
+    ok('console.log prints an environment, its substrate and the list on one line each', [
+        inspect(shown) === "<Environment 2 'Edge': incident Air, substrate BK7 1 mm, exit Air, factors TiO2 x0.9, swaps SiO2 to MgF2, switched off>",
+        inspect(shown.substrate) === '<EnvironmentSubstrate of environment 2: BK7 1 mm>',
+        inspect(twice.environments) === "<Environments: 1, 2 'Edge'>",
+    ].every(Boolean), `${inspect(shown)} ${inspect(shown.substrate)} ${inspect(twice.environments)}`);
+
+    const words = [
+        await refused(() => twice.environments[3]),
+        await refused(() => twice.environments[0]),
+        await refused(() => twice.environments.remove(1)),
+        await refused(() => twice.environments.remove(5)),
+        await refused(() => { twice.environments[1].incidentMedium = 'H2O'; }),
+        await refused(() => { twice.environments[1].substrate.thickness = 2; }),
+        await refused(() => { shown.substrate.thickness = -1; }),
+        await refused(() => { shown.name = ''; }),
+        await refused(() => { shown.thicknessFactors = 0.9; }),
+        await refused(() => twice.environments.add({ colour: 'red' })),
+        await refused(() => twice.environments.add({ thicknessFactors: { TiO2: -1 } })),
+        await refused(() => twice.environments.add(5)),
+        await refused(() => { twice.environments[2] = shown; }),
+    ];
+    ok('their refusals are in the objects\' words', canon(words) === canon([
+        'environment 3: the design has 2 environments, numbered from 1',
+        'environment 0: the design has 2 environments, numbered from 1',
+        'remove: environment 1 is the design itself and cannot be removed',
+        'environment 5: the design has 2 environments, numbered from 1',
+        "environment 1 is the design itself and takes name and enabled alone, not incidentMedium; set the design's own media and substrate with design.incidentMedium, design.exitMedium and design.substrate",
+        "environment 1 is the design itself and takes name and enabled alone, not substrate.thickness; set the design's own media and substrate with design.incidentMedium, design.exitMedium and design.substrate",
+        'substrate.thickness is a thickness in mm above 0, or null to follow environment 1, not -1',
+        'name is a name, or null for none, not ""',
+        'thicknessFactors is a map of material id to a factor above 0, or to null to follow environment 1; or null for none, not 0.9',
+        "add: unknown option 'colour'; the options are name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps",
+        'add: thicknessFactors is a map of material id to a factor above 0, or to null to follow environment 1; or null for none, not {"TiO2":-1}',
+        'add: the options are an object of name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps',
+        'environments[2] cannot be set: set its attributes, or use add() and remove()',
+    ]), canon(words));
+    ok('and a refused change leaves the design as it was', canon([twice.environments.length, shown.substrate.thickness, shown.name]) === canon([2, 1, 'Edge']));
+
+    const lone = tf.newDesign('Window AR');
+    const loneWords = [
+        await refused(() => { lone.environments[1].name = 'In air'; }),
+        await refused(() => { lone.environments[1].enabled = false; }),
+    ];
+    ok('environment 1 of a design with one environment takes no name or switch, and says so', canon([loneWords, 'environments' in lone._data]) === canon([[
+        'the design has one environment, which holds no name until another is added; add one with design.environments.add()',
+        'the design has one environment, which holds no enabled until another is added; add one with design.environments.add()',
+    ], false]), canon(loneWords));
+
+    const reused = tf.newDesign('Window AR');
+    const gone = reused.environments.add({ name: 'Water', incidentMedium: 'H2O' });
+    gone.remove();
+    const next = reused.environments.add({ name: 'Sapphire', substrate: 'Al2O3' });
+    const staleWords = [await refused(() => gone.name), await refused(() => { gone.name = 'Renamed'; }), await refused(() => gone.remove())];
+    ok('an Environment whose environment was removed does not reach one added later under the same id', canon([next.id, next.name, reused.environments.length, staleWords])
+        === canon([gone._id, 'Sapphire', 2, Array(3).fill(`environment "${next.id}": the design has 2 environments, numbered from 1`)]), canon(staleWords));
 }
 
 // ── save() and openDesign() ─────────────────────────────────────────────────

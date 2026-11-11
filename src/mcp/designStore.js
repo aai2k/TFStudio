@@ -65,6 +65,7 @@ export function designView(id, design, { rows = false } = {}) {
         ...ifSet('depositionTemperatureC', design.stress?.depositionTemperatureC),
         referenceWavelength: design.referenceWavelength ?? null,
         front: layersView(design.frontLayers), back: layersView(design.backLayers),
+        ...(design.environments?.length > 1 ? { environmentCount: design.environments.length } : {}),
         ...(rows ? { meritRows: operands.map(withoutId), specification: design.qualifiers || [] } : { meritRowCount: operands.length }),
     };
 }

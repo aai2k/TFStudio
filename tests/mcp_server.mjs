@@ -2,7 +2,7 @@
  * The MCP server (src/mcp/server.js) driven over stdio as an MCP client drives
  * it, against the 2025-11-25 revision of the protocol.
  *
- *   1. The session: initialize and version negotiation, the tool list (the 70
+ *   1. The session: initialize and version negotiation, the tool list (the 74
  *      tools, none that reaches the open app, without --live), the design
  *      method (the skill file's body, naming only tools there are), ping,
  *      and the errors for a line that is not JSON, an unknown method (which is
@@ -20,7 +20,9 @@
  *      added to a copy, a fit added and the curves written, a file that is
  *      there refused, an edge filter search (in short with the count and the best period, in full with every one), a deposition run on chips (in short with each step's mean, min and max, in full with its values) and its files written, a relative folder refused, a monitor worksheet (in short without its curves, in full with them) and wavelengths it cannot take refused, a copy perturbed with its seed
  *      and the differences from it (in short with counts and the largest
- *      change, in full with every layer), merit and specification verdict the API computes for it in this
+ *      change, in full with every layer), environments added, set, listed as
+ *      the API lists them and removed, and environment 1, an environment the
+ *      design does not have and environment 1's media refused, merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
  *      they are, and an empty one clears it, answered with the mode; a design
@@ -102,7 +104,7 @@ const names = listed.map(t => t.name);
 const wellFormed = t => /^[A-Za-z0-9_.-]{1,128}$/.test(t.name) && t.description && t.title && t.inputSchema?.type === 'object';
 ok('every tool has a usable name, a title, a description and an object schema', listed.length >= 20 && listed.every(wellFormed), names.join(','));
 ok('no two tools share a name', new Set(names).size === names.length);
-ok('without --live no tool reaches the open app', names.length === 70 && !names.some(name => /App/.test(name))
+ok('without --live no tool reaches the open app', names.length === 74 && !names.some(name => /App/.test(name))
     && !listed.some(t => 'applyToApp' in t.inputSchema.properties) && !/applyToApp/.test(init.result.instructions), names.join(','));
 {
     // The skill file names a tool in backticks and nothing else, and a method in
@@ -248,6 +250,24 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('designDifferences answers with counts and the largest change, and every layer for values true',
         JSON.stringify([shortDiff.same, shortDiff.layersDiffering, shortDiff.largestChange, shortDiff.layers, fullDiff.layers])
         === JSON.stringify([false, { front: 7, back: 0 }, { side: largest.side, number: largest.number, change: largest.change }, undefined, differs.layers]), JSON.stringify(shortDiff));
+    const envId = (await server.call('copyDesign', { designId: id })).designId;
+    const water = { name: 'Under water', incidentMedium: 'H2O', thicknessFactors: { TiO2: 0.95 } };
+    const addedEnv = await server.call('addEnvironment', { designId: envId, ...water });
+    const setEnv = await server.call('setEnvironment', { designId: envId, environment: 2, incidentMedium: null, thicknessFactors: { TiO2: null, SiO2: 1.05 }, substrateThicknessMm: 3 });
+    const listedEnv = await server.call('environments', { designId: envId });
+    const envHere = api.setEnvironment(api.addEnvironment(local, water), 2, { incidentMedium: null, thicknessFactors: { TiO2: null, SiO2: 1.05 }, substrateThicknessMm: 3 });
+    ok('addEnvironment and setEnvironment answer with the design, and environments lists what the API lists',
+        addedEnv.designId === envId && setEnv.designId === envId && JSON.stringify(listedEnv) === JSON.stringify({ designId: envId, environments: api.environments(envHere) }),
+        JSON.stringify(listedEnv));
+    const firstGone = await server.call('removeEnvironment', { designId: envId, environment: 1 });
+    const nineGone = await server.call('removeEnvironment', { designId: envId, environment: 'env9' });
+    const baseMedium = await server.call('setEnvironment', { designId: envId, environment: 'base', incidentMedium: 'H2O' });
+    ok('environment 1, an environment the design does not have and environment 1\'s media are refused, saying what they take',
+        /environment 1 is the design itself and cannot be removed/.test(firstGone.error ?? '') && /environment is one of the design's environments by its number, 1 to 2, or its id, base or env2; not "env9"/.test(nineGone.error ?? '')
+        && /setDesignSetup changes the design's own media and substrate/.test(baseMedium.error ?? ''), `${firstGone.error} | ${nineGone.error} | ${baseMedium.error}`);
+    const removedEnv = await server.call('removeEnvironment', { designId: envId, environment: 'env2' });
+    ok('removeEnvironment answers with the design, which then has environment 1 alone', removedEnv.designId === envId
+        && JSON.stringify((await server.call('environments', { designId: envId })).environments.map(env => env.id)) === JSON.stringify(['base']));
     const rows = [{ type: 'RAV', lambdaStart: 580, lambdaEnd: 620, target: 1, weight: 1 }];
     const rated = await server.call('setMerit', { designId: id, rows });
     ok('the merit is the API\'s', rated.total === api.merit(api.setMerit(local, rows)).total && rated.rows.length === 1, JSON.stringify(rated));
@@ -345,7 +365,7 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('a spectrum names the materials whose data stop inside it', Array.isArray(wide.outOfRange), JSON.stringify(wide.outOfRange));
     const copy = await server.call('copyDesign', { designId: id });
     const listedDesigns = (await server.call('listDesigns', {})).designs;
-    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 7);
+    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 8);
 }
 {
     // A stack with a thin layer between two of one material, cleaned through the tools.

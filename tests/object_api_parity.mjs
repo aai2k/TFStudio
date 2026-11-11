@@ -13,7 +13,7 @@
  *      by tests/_pythonNames.py, is in JavaScript under its camelCase name, and
  *      each JavaScript one is in Python, but for the departures below, each
  *      still a departure. Python's len(), for loop and [] are length, for...of,
- *      and [n] on Layers or get() on Materials and Integrals. Without Python this part is
+ *      and [n] on Layers and Environments or get() on Materials and Integrals. Without Python this part is
  *      skipped, and says so.
  *
  * The names are read from the source on both sides, with acorn here and ast
@@ -54,9 +54,11 @@ const JS_ONLY = {};
 
 // Python's operators by what the JavaScript objects have in their place.
 // Materials and Integrals take get(), since an object's [] in JavaScript reads
-// its properties and a material's id or a row's key is any text; a layer's number is a number,
-// which no property is named, so Layers take [n].
-const OPERATORS = { __len__: () => 'length', __iter__: () => '[Symbol.iterator]', __getitem__: cls => (cls === 'Layers' ? '[n]' : 'get') };
+// its properties and a material's id or a row's key is any text; a layer's or
+// an environment's number is a number, which no property is named, so Layers
+// and Environments take [n].
+const NUMBERED = ['Layers', 'Environments'];
+const OPERATORS = { __len__: () => 'length', __iter__: () => '[Symbol.iterator]', __getitem__: cls => (NUMBERED.includes(cls) ? '[n]' : 'get') };
 const camel = name => name.replace(/_([a-z0-9])/g, (_, ch) => ch.toUpperCase());
 const jsName = (cls, name) => (OPERATORS[name] ? OPERATORS[name](cls) : camel(name));
 
@@ -160,12 +162,14 @@ const py = JSON.parse(asked.stdout);
 assert.deepEqual(py.all.filter(name => !py.classes[name]), [], 'everything the package\'s __all__ lists is a class');
 
 // Each class and each of its members, as Class and Class.member in
-// JavaScript's names. Layers takes [n] when a layer's number reads its layer.
+// JavaScript's names. Layers takes [n] when a layer's number reads its layer,
+// and Environments when an environment's number reads its environment.
 const pythonNames = new Set(Object.entries(py.classes).flatMap(([cls, members]) => [cls, ...members.map(m => `${cls}.${jsName(cls, m)}`)]));
 const jsNames = new Set(classes.flatMap(cls => [cls, ...Object.keys(source[cls].members).map(m => `${cls}.${m}`)]));
 {
     const design = new objects.Design(api.insertLayer(api.newDesign(), { material: 'SiO2', thickness: 100 }));
     if (design.layers[1] instanceof objects.Layer) jsNames.add('Layers.[n]');
+    if (design.environments[1] instanceof objects.Environment) jsNames.add('Environments.[n]');
 }
 // The members of a class Python alone has go with it.
 const departed = name => name.includes('.') && !!PYTHON_ONLY[name.split('.')[0]];

@@ -21,6 +21,7 @@ from ._color import Color
 from ._design import Design, Layer, Layers, Substrate
 from ._electric_field import ElectricField
 from ._ellipsometry import Ellipsometry
+from ._environments import Environment, Environments, EnvironmentSubstrate
 from ._errors import AppError, ServerError, TFStudioError
 from ._group_delay import GroupDelay
 from ._inhomogeneities import Inhomogeneities
@@ -39,7 +40,8 @@ from ._studio import App, AppDesign, Material, Materials, TFStudio
 
 __version__ = "0.1.0"
 
-__all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Merit", "MeritRow", "Specification", "SpecCheck",
+__all__ = ["TFStudio", "Design", "Substrate", "Layers", "Layer", "Environments", "Environment", "EnvironmentSubstrate",
+           "Merit", "MeritRow", "Specification", "SpecCheck",
            "SpecReport", "CheckResult", "Yield", "Spectrum", "Curve", "IndexProfile", "LayerThicknesses", "Admittance",
            "ElectricField", "Color", "Integrals", "Ellipsometry", "AngleCurve", "GroupDelay", "Pulse", "Inhomogeneities",
            "Roughness", "Stress", "Progress",

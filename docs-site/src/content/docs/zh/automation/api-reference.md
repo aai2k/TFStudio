@@ -805,6 +805,28 @@ design.back_layers.append("MgF2", 100)
 print(design.back_layers)
 ```
 
+### environments
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments` | `design.environments` |
+
+设计的环境，一个 Environments，从 1 开始编号：先是设计本身，然后是同一镀膜使用时的每种其他条件，例如另一种基底或在水下使用。
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(design.environments);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+print(design.environments)
+```
+
 ### merit
 
 | JavaScript | Python |
@@ -1081,13 +1103,13 @@ print(design.layers)
 | ---------- | ------ |
 | `design.differences(other)` | `design.differences(other)` |
 
-本设计与 `other` 之间的不同之处：它们的设置和膜层，膜层按从基底起的编号逐面比较，因此在靠近基底处加一层，会使其外侧的每一层都显示为改变。数值按精确值比较。名称、评价函数的行、规格检查、入射锥角和设计携带的材料不参与比较。
+本设计与 `other` 之间的不同之处：它们的设置、膜层和环境。膜层按从基底起的编号逐面比较，因此在靠近基底处加一层，会使其外侧的每一层都显示为改变；环境按编号比较。数值按精确值比较。名称、评价函数的行、规格检查、入射锥角和设计携带的材料不参与比较。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
 | `other` | `other` |  | 与本设计比较的 Design。 |
 
-**返回**：**JavaScript**：一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'` 或 `'substrate.diameter'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null。<br>**Python**：命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（"incident_medium"、"exit_medium"、"substrate.material"、"substrate.thickness"、"reference"、"sides"、"score_on"、"stress_temperature"、"deposition_temperature" 或 "substrate.diameter"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None。
+**返回**：**JavaScript**：一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'` 或 `'substrate.diameter'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null；`environments`，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，`design.environments` 给出这些内容。<br>**Python**：命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（"incident_medium"、"exit_medium"、"substrate.material"、"substrate.thickness"、"reference"、"sides"、"score_on"、"stress_temperature"、"deposition_temperature" 或 "substrate.diameter"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None；environments，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，design.environments 给出这些内容。
 
 **拒绝**：
 
@@ -3121,6 +3143,538 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.layers[1].locked = True
 print(design.layers[1].locked)
+```
+
+## Environments
+
+**JavaScript**：设计的环境，从 1 开始编号：环境 1 是设计本身，带有它自己的介质和基底；之后的每个环境是同一镀膜使用时的另一种条件，例如另一种基底、在水下使用，或膜层长得较薄的腔体位置。`environments[n]` 是第 n 个环境，`environments.length` 是环境数，for...of 循环从环境 1 开始。没有其他环境的设计只有环境 1。这些方法会改变设计。
+
+**Python**：设计的环境，从 1 开始编号：环境 1 是设计本身，带有它自己的介质和基底；之后的每个环境是同一镀膜使用时的另一种条件，例如另一种基底、在水下使用，或膜层长得较薄的腔体位置。`environments[n]` 是第 n 个环境，`len(environments)` 是环境数，for 循环从环境 1 开始。没有其他环境的设计只有环境 1。这些方法会改变设计。
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const env of design.environments) console.log(env.number, env.name, env.incidentMedium);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+for env in design.environments:
+    print(env.number, env.name, env.incident_medium)
+```
+
+### length / len()
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments.length` | `len(design.environments)` |
+
+设计的环境数，包括环境 1。
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(design.environments.length, 'environments');
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+print(len(design.environments), "environments")
+```
+
+### for...of / for
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `for (const env of design.environments)` | `for env in design.environments:` |
+
+从 1 开始的各个环境，每个都是一个 Environment。循环开始时设计有哪些环境，就遍历哪些环境。
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.environments.add({ name: 'Sapphire', substrate: 'Al2O3' });
+for (const env of design.environments) console.log(env.number, env.name, env.incidentMedium, env.substrate.material);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.environments.add(name="Sapphire", substrate="Al2O3")
+for env in design.environments:
+    print(env.number, env.name, env.incident_medium, env.substrate.material)
+```
+
+### add
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments.add({ name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps })` | `design.environments.add(name=..., enabled=True, incident_medium=..., exit_medium=..., substrate=..., substrate_thickness_mm=..., thickness_factors=..., material_swaps=...)` |
+
+在其他环境之后添加一个环境。未给出或给出 `null` / `None` 的介质、基底或厚度沿用环境 1 的。系数或替换以膜层所写的材料为键，内置材料的 id 两种写法均可（`'TiO2'` 或 `'builtin:TiO2'`）。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `name` | `name` |  | 环境的名称。 |
+| `enabled` | `enabled` | `true` / `True` | 为 `false` / `False` 时关闭该环境。 |
+| `incidentMedium` | `incident_medium` |  | 光入射一侧的介质，按材料 id 指定。 |
+| `exitMedium` | `exit_medium` |  | 基底后面的介质，按材料 id 指定。 |
+| `substrate` | `substrate` |  | 基底材料，按 id 指定。 |
+| `substrateThicknessMm` | `substrate_thickness_mm` |  | 基底厚度，单位 mm，大于 0。 |
+| `thicknessFactors` | `thickness_factors` |  | 从材料 id 到系数的映射：该材料的每一层厚度变为原来的这么多倍，系数大于 0。 |
+| `materialSwaps` | `material_swaps` |  | 从材料 id 到材料 id 的映射：前一种材料的每一层改由后一种材料制成。 |
+
+**返回**：新的 Environment。
+
+**拒绝**：
+
+- 它不接受的选项、选项无法接受的值，或找不到对应材料的材料 id
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const edge = design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95 } });
+console.log(edge.number, edge.name, edge.thicknessFactors);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+edge = design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95})
+print(edge.number, edge.name, edge.thickness_factors)
+```
+
+### remove
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments.remove(number)` | `design.environments.remove(number)` |
+
+删除第 `number` 个环境，连同只在该环境中评分的评价函数行以及读取这些行的行；其后的环境编号依次减一。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `number` | `number` |  | 环境的编号，2 或以上：环境 1 是设计本身。 |
+
+**拒绝**：
+
+- 设计中没有对应环境的编号，或 1
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.environments.add({ name: 'Sapphire', substrate: 'Al2O3' });
+design.environments.remove(2);
+console.log(design.environments[2].name);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.environments.add(name="Sapphire", substrate="Al2O3")
+design.environments.remove(2)
+print(design.environments[2].name)
+```
+
+### [n]
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.environments[number]` | `design.environments[number]` |
+
+第 `number` 个环境，一个 Environment：环境 1 是设计本身。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `number` | `number` |  | 环境的编号，从 1 到设计的环境数。 |
+
+**返回**：一个 Environment。
+
+**拒绝**：
+
+- 设计中没有对应环境的编号
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(design.environments[1], design.environments[2]);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+print(design.environments[1], design.environments[2])
+```
+
+## Environment
+
+设计的一个环境：环境 1，即设计本身，或同一镀膜使用时的另一种条件。环境保存它自己设置的内容，其余沿用环境 1 的。读取属性时读取的是设计当时的状态，设置属性会改变设计。删除它之前的环境后，它仍是同一个环境，并取得新的编号。
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const water = design.environments.add({ name: 'Under water' });
+water.incidentMedium = 'H2O';
+console.log(water.number, water.name, water.incidentMedium, water.follows);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+water = design.environments.add(name="Under water")
+water.incident_medium = "H2O"
+print(water.number, water.name, water.incident_medium, water.follows)
+```
+
+### number
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.number` | `env.number` |
+
+环境的编号，从 1 开始：环境 1 是设计本身。
+
+```js
+const design = tf.newDesign('Window AR');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const env of design.environments) console.log(env.number, env.name);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.environments.add(name="Under water", incident_medium="H2O")
+for env in design.environments:
+    print(env.number, env.name)
+```
+
+### id
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.id` | `env.id` |
+
+环境的 id，.tfs 文件用它来指称该环境；环境 1 的 id 为 `'base'`。
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(design.environments[1].id, water.id);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water", incident_medium="H2O")
+print(design.environments[1].id, water.id)
+```
+
+### name
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.name` | `env.name` |
+| `env.name = value` | `env.name = value` |
+
+环境的名称，或 `null` / `None`；设置它即可为环境命名，设为 `null` / `None` 则不命名。
+
+**拒绝**：
+
+- 不是文本或为空的名称；或只有一个环境的设计中的环境 1，在添加另一个环境之前它没有名称
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add();
+design.environments[1].name = 'In air';
+water.name = 'Under water';
+console.log(design.environments[1].name, water.name);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add()
+design.environments[1].name = "In air"
+water.name = "Under water"
+print(design.environments[1].name, water.name)
+```
+
+### enabled
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.enabled` | `env.enabled` |
+| `env.enabled = value` | `env.enabled = value` |
+
+关闭的环境为 `false` / `False`；设置它即可关闭或打开该环境。
+
+**拒绝**：
+
+- `true` / `True` 和 `false` / `False` 以外的值；或只有一个环境的设计中的环境 1，在添加另一个环境之前它没有开关
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+water.enabled = false;
+console.log(water.name, water.enabled);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water", incident_medium="H2O")
+water.enabled = False
+print(water.name, water.enabled)
+```
+
+### incidentMedium / incident_medium
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.incidentMedium` | `env.incident_medium` |
+| `env.incidentMedium = value` | `env.incident_medium = value` |
+
+该环境中光入射一侧的介质，按材料 id 指定：它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。
+
+**拒绝**：
+
+- 找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的介质就是设计的介质
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water' });
+water.incidentMedium = 'H2O';
+console.log(water.incidentMedium, 'in place of', design.incidentMedium);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water")
+water.incident_medium = "H2O"
+print(water.incident_medium, "in place of", design.incident_medium)
+```
+
+### exitMedium / exit_medium
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.exitMedium` | `env.exit_medium` |
+| `env.exitMedium = value` | `env.exit_medium = value` |
+
+该环境中基底后面的介质，按材料 id 指定：它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。
+
+**拒绝**：
+
+- 找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的介质就是设计的介质
+
+```js
+const design = tf.newDesign('Window AR');
+const cemented = design.environments.add({ name: 'Cemented' });
+cemented.exitMedium = 'BK7';
+console.log(cemented.exitMedium, 'in place of', design.exitMedium);
+```
+
+```python
+design = tf.new_design("Window AR")
+cemented = design.environments.add(name="Cemented")
+cemented.exit_medium = "BK7"
+print(cemented.exit_medium, "in place of", design.exit_medium)
+```
+
+### substrate
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.substrate` | `env.substrate` |
+
+环境的基底，一个 EnvironmentSubstrate：其材料和厚度，它自己的或环境 1 的。
+
+```js
+const design = tf.newDesign('Window AR');
+const sapphire = design.environments.add({ name: 'Sapphire', substrate: 'Al2O3' });
+console.log(sapphire.substrate);
+```
+
+```python
+design = tf.new_design("Window AR")
+sapphire = design.environments.add(name="Sapphire", substrate="Al2O3")
+print(sapphire.substrate)
+```
+
+### thicknessFactors / thickness_factors
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.thicknessFactors` | `env.thickness_factors` |
+| `env.thicknessFactors = value` | `env.thickness_factors = value` |
+
+环境的厚度系数，从材料 id 到系数的映射：在该环境中，该材料的每一层厚度变为原来的这么多倍，例如在膜层长得较薄的腔体位置。读取时得到一份副本；设置时用给出的系数取代全部系数，给出 `{}` 或 `null` / `None` 则不留任何系数。
+
+**拒绝**：
+
+- 系数不是大于 0 的数的映射、找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的膜层就是设计的膜层
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const edge = design.environments.add({ name: 'Dome edge' });
+edge.thicknessFactors = { TiO2: 0.95, SiO2: 0.97 };
+console.log(edge.thicknessFactors);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+edge = design.environments.add(name="Dome edge")
+edge.thickness_factors = {"TiO2": 0.95, "SiO2": 0.97}
+print(edge.thickness_factors)
+```
+
+### materialSwaps / material_swaps
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.materialSwaps` | `env.material_swaps` |
+| `env.materialSwaps = value` | `env.material_swaps = value` |
+
+环境的材料替换，从材料 id 到材料 id 的映射：在该环境中，前一种材料的每一层改由后一种材料制成。读取时得到一份副本；设置时用给出的替换取代全部替换，给出 `{}` 或 `null` / `None` 则不留任何替换。
+
+**拒绝**：
+
+- 值不是材料 id 的映射、找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的膜层就是设计的膜层
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const tantala = design.environments.add({ name: 'Tantala' });
+tantala.materialSwaps = { TiO2: 'Ta2O5' };
+console.log(tantala.materialSwaps);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+tantala = design.environments.add(name="Tantala")
+tantala.material_swaps = {"TiO2": "Ta2O5"}
+print(tantala.material_swaps)
+```
+
+### follows
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.follows` | `env.follows` |
+
+环境沿用环境 1 的哪些内容，按 environments.add() 接受的名称给出：`'incidentMedium'` / `"incident_medium"`、`'exitMedium'` / `"exit_medium"`、`'substrate'` 和 `'substrateThicknessMm'` / `"substrate_thickness_mm"` 中的任意几个。环境 1 不沿用任何内容。
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+console.log(water.follows);
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water", incident_medium="H2O")
+print(water.follows)
+```
+
+### remove
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.remove()` | `env.remove()` |
+
+从设计中删除该环境，连同只在该环境中评分的评价函数行以及读取这些行的行。其后的环境编号依次减一。
+
+**拒绝**：
+
+- 环境 1，即设计本身
+
+```js
+const design = tf.newDesign('Window AR');
+const water = design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+water.remove();
+console.log(design.environments.length, 'environment');
+```
+
+```python
+design = tf.new_design("Window AR")
+water = design.environments.add(name="Under water", incident_medium="H2O")
+water.remove()
+print(len(design.environments), "environment")
+```
+
+## EnvironmentSubstrate
+
+一个环境的基底：其材料和厚度，它自己的或环境 1 的。设置其中任一项，环境就有了自己的值；设为 `null` / `None` 则该环境重新沿用环境 1 的。
+
+```js
+const design = tf.newDesign('Window AR');
+const thick = design.environments.add({ name: 'Thick plate' });
+thick.substrate.thickness = 6;
+console.log(thick.substrate.material, thick.substrate.thickness, 'mm');
+```
+
+```python
+design = tf.new_design("Window AR")
+thick = design.environments.add(name="Thick plate")
+thick.substrate.thickness = 6
+print(thick.substrate.material, thick.substrate.thickness, "mm")
+```
+
+### material
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.substrate.material` | `env.substrate.material` |
+| `env.substrate.material = value` | `env.substrate.material = value` |
+
+该环境中基底的材料，按 id 指定：它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。
+
+**拒绝**：
+
+- 找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的基底就是设计的基底
+
+```js
+const design = tf.newDesign('Window AR');
+const sapphire = design.environments.add({ name: 'Sapphire' });
+sapphire.substrate.material = 'Al2O3';
+console.log(sapphire.substrate.material, 'in place of', design.substrate.material);
+```
+
+```python
+design = tf.new_design("Window AR")
+sapphire = design.environments.add(name="Sapphire")
+sapphire.substrate.material = "Al2O3"
+print(sapphire.substrate.material, "in place of", design.substrate.material)
+```
+
+### thickness
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.substrate.thickness` | `env.substrate.thickness` |
+| `env.substrate.thickness = value` | `env.substrate.thickness = value` |
+
+该环境中基底的厚度，单位 mm：它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。
+
+**拒绝**：
+
+- 小于等于 0 的厚度，或在环境 1 上设置的任何值，环境 1 的基底就是设计的基底
+
+```js
+const design = tf.newDesign('Window AR');
+const thick = design.environments.add({ name: 'Thick plate' });
+thick.substrate.thickness = 6;
+console.log(thick.substrate.thickness, 'mm in place of', design.substrate.thickness, 'mm');
+```
+
+```python
+design = tf.new_design("Window AR")
+thick = design.environments.add(name="Thick plate")
+thick.substrate.thickness = 6
+print(thick.substrate.thickness, "mm in place of", design.substrate.thickness, "mm")
 ```
 
 ## Merit

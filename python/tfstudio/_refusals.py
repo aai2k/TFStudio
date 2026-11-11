@@ -54,6 +54,20 @@ def _no_qwot(fields):
     return "{} {}, so the layer has no quarter wave; set its thickness in nm".format(fields["material"], why)
 
 
+def _unknown_environment(fields):
+    count = len(fields["numbers"])
+    return "environment {!r}: the design has {} environment{}, numbered from 1".format(
+        fields.get("environment"), count, "" if count == 1 else "s")
+
+
+def _base_environment(fields, words):
+    if not fields.get("option"):
+        return "environment 1 is the design itself and cannot be removed"
+    return ("environment 1 is the design itself and takes name and enabled alone, not {}; set the design's own media "
+            "and substrate with design.incident_medium, design.exit_medium and design.substrate"
+            .format(words.name(fields["option"])))
+
+
 def _unknown_option(fields, words):
     listed = [words.name(option) for option in fields["options"] if option not in words.hidden] + list(words.extra)
     return "unknown option {!r}; the options are {}".format(words.name(fields["option"]), ", ".join(listed))
@@ -107,6 +121,10 @@ _WORDS = {
     "fileExists": lambda fields, words: "{} exists; pass overwrite=True to write over it".format(fields["path"]),
     "formulaMedia": lambda fields, words: "the formula names media; write the layers alone, such as '(HL)^5 H', "
                                           "and set the media with incident_medium, exit_medium and substrate.material",
+    "unknownEnvironment": lambda fields, words: _unknown_environment(fields),
+    "baseEnvironment": _base_environment,
+    "oneEnvironment": lambda fields, words: ("the design has one environment, which holds no {} until another is added; "
+                                             "add one with design.environments.add()".format(words.name(fields["option"]))),
 }
 
 

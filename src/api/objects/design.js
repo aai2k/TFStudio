@@ -6,6 +6,7 @@ import { checkOptions, requireValue } from '../check.js';
 import { resolveEvalMode } from '../../utils/physics/optimizer.js';
 import { ended, hooksFor } from './hooks.js';
 import { Layers } from './layers.js';
+import { Environments } from './environments.js';
 import { Merit } from './merit.js';
 import { defined, optionsOf, trailingOptions } from './options.js';
 import { worded } from './refusals.js';
@@ -299,6 +300,19 @@ export class Design {
     get backLayers() { return new Layers(this, 'back'); }
 
     /**
+     * The design's environments, an Environments numbered from 1: the design
+     * itself, then each other condition the same coating is used in, such as
+     * another substrate or the coating under water.
+     *
+     * @example
+     * const design = tf.newDesign('Window AR');
+     * design.stack('(HL)^2');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * console.log(design.environments);
+     */
+    get environments() { return new Environments(this); }
+
+    /**
      * The merit function, a Merit: its rows and the merit they add up to.
      *
      * @example
@@ -497,15 +511,15 @@ export class Design {
     }
 
     /**
-     * What differs between this design and `other`: their setup and their
+     * What differs between this design and `other`: their setup, their
      * layers, compared side by side by number from the substrate, so a layer
-     * added near the substrate shows every layer outside it as changed.
-     * Values are compared exactly. The name, merit rows, specification
-     * checks, the cone of incidence and the materials a design carries are
-     * not compared.
+     * added near the substrate shows every layer outside it as changed, and
+     * their environments, by number. Values are compared exactly. The name,
+     * merit rows, specification checks, the cone of incidence and the
+     * materials a design carries are not compared.
      *
      * @param other The Design compared with this one.
-     * @returns An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'` or `'substrate.diameter'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null.
+     * @returns An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'` or `'substrate.diameter'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null; `environments`, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which `design.environments` shows.
      * @throws an other that is not a Design
      * @example
      * const design = tf.newDesign('Mirror');
@@ -522,7 +536,7 @@ export class Design {
         const setup = found.setup.map(({ setting, before, after }) => ({
             setting: SETTING_NAMES[setting] ?? setting, before: word(setting, before), after: word(setting, after),
         }));
-        return { same: found.same, setup, layers: found.layers };
+        return { same: found.same, setup, layers: found.layers, environments: found.environments };
     }
 
     /**
