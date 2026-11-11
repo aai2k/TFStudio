@@ -775,7 +775,7 @@ export default {
           },
           {
             title: 'Strato iniziale spesso ad alto indice',
-            body: 'Caricato (Editor del design, a sinistra): un singolo strato di TiO₂ di circa 7000 nm più un target in trasmissione a 4 righe. Il Needle lavora SCOLPENDO strati dentro questo volume: non aggiunge spessore proprio, quindi ha bisogno di uno strato di partenza spesso.',
+            body: 'Caricato (Editor del design, a sinistra): un singolo strato di TiO₂ di 2500 nm più un target in trasmissione a 4 righe. Il Needle lavora SCOLPENDO strati dentro questo volume: non aggiunge spessore proprio, quindi ha bisogno di uno strato di partenza spesso.',
             tip: 'È questa partenza da uno strato spesso che permette al Needle di arrivare a un design multibanda profondo.',
           },
           {

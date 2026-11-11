@@ -115,9 +115,11 @@ const buildMultipassband = () => {
         ...pass.map(([a, b]) => makeOperand({ type: 'TAV', lambdaStart: a, lambdaEnd: b, aoi: 0, pol: 'avg', target: 1, weight: 1 })),
         ...stop.map(([a, b]) => makeOperand({ type: 'TAV', lambdaStart: a, lambdaEnd: b, aoi: 0, pol: 'avg', target: 0, weight: 1 })),
     ];
-    // ~7000 nm TiO2 high-index seed (the bulk the needle carves), drawn from the
+    // 2500 nm TiO2 high-index seed (the bulk the needle carves), drawn from the
     // dedicated Multipassband catalog so the design + pool share one library.
-    return design('Multipassband 4-line (high-index seed)', [L(`${catId}:TiO2`, 7000)], ops);
+    // A thicker seed ends at a lower merit but leaves narrow transmission
+    // spikes in the stopbands, which the band averages barely count.
+    return design('Multipassband 4-line (high-index seed)', [L(`${catId}:TiO2`, 2500)], ops);
 };
 
 // Needle setup for the multipassband exercise — applied (once) when the Needle
