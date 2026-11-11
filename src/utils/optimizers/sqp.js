@@ -67,24 +67,34 @@ export class SQPOptimizer extends LSQEngine {
     // lambdaStart/lambdaEnd and the bound in target, the same convention the
     // analytic-Jacobian constraint subgradient uses (constraintRange.js).
     // Tighten [lo,hi] for one MNT (min-thickness) / MXT (max-thickness) operand
-    // over the layer range it targets.
-    _applyThicknessConstraint(op, freeIdx, lo, hi) {
+    // over the layer range it targets. A row scored in an environment whose
+    // factors (`factors`, one per variable) scale the layers bounds the scaled
+    // thickness f·d, so it bounds the variable d at target / f.
+    _applyThicknessConstraint(op, freeIdx, lo, hi, factors = null) {
         const inRange = new Set(constraintRangeIndices(op, this.surfaceMode, this.nFront, this.thicknesses.length));
         for (let a = 0; a < freeIdx.length; a++) {
             if (!inRange.has(freeIdx[a])) continue;
-            if (op.type === 'MNT') lo[a] = Math.max(lo[a], op.target);
-            else                   hi[a] = Math.min(hi[a], op.target);
+            const bound = factors ? op.target / factors[freeIdx[a]] : op.target;
+            if (op.type === 'MNT') lo[a] = Math.max(lo[a], bound);
+            else                   hi[a] = Math.min(hi[a], bound);
         }
+    }
+
+    // The enabled MNT and MXT rows, each with the factors of the environment
+    // it is scored in: null on a design without environments, and on a design
+    // with them one entry per environment the row is scored in, so the box
+    // takes the tightest bound any environment sets.
+    _boundRows() {
+        const isBound = op => op.enabled && (op.type === 'MNT' || op.type === 'MXT');
+        if (this._groups) return this._groups.rowsWithFactors(isBound);
+        return this.operands.filter(isBound).map(op => ({ op, factors: null }));
     }
 
     _thicknessBounds(freeIdx) {
         const nFree = freeIdx.length;
         const lo = new Array(nFree).fill(this.D_MIN);
         const hi = new Array(nFree).fill(this.D_MAX);
-        for (const op of this.operands) {
-            if (op.enabled && (op.type === 'MNT' || op.type === 'MXT'))
-                this._applyThicknessConstraint(op, freeIdx, lo, hi);
-        }
+        for (const { op, factors } of this._boundRows()) this._applyThicknessConstraint(op, freeIdx, lo, hi, factors);
         for (let a = 0; a < nFree; a++) if (lo[a] > hi[a]) { const m = 0.5 * (lo[a] + hi[a]); lo[a] = hi[a] = m; }
         return { boxLo: lo, boxHi: hi };
     }

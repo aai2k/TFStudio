@@ -43,7 +43,6 @@
  * CPU (giga4.c).
  */
 import { LSQEngine } from '../physics/optimizer.js';
-import { evaluateOperands, calcMF } from '../physics/optimizer/evalCore.js';
 import { _vdot } from '../physics/optimizer/linalg.js';
 import { movablePositions, restrictSystem, projectedTrial } from '../physics/optimizer/boundedStep.js';
 import { boxTrustStep } from './trustRegion/boxStep.js';
@@ -97,8 +96,8 @@ export class TrustRegionNewtonOptimizer extends LSQEngine {
     // point calcMF cannot score (an operand error, a value that is not finite)
     // has F = Infinity, so its trial is rejected as the other engines reject it.
     _meritAt(thk) {
-        const comp = evaluateOperands(this.operands, this._ctxFor(thk));
-        const mf = calcMF(this.operands, comp);
+        const comp = this._evaluate(thk);
+        const mf = this._meritOf(comp);
         if (!Number.isFinite(mf)) return { F: Infinity, mf };
         const r = this._residuals(thk, comp);
         return { F: 0.5 * _vdot(r, r), mf };

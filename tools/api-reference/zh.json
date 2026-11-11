@@ -855,6 +855,10 @@
     "hash": "dc78d569",
     "text": "用一种合成方法按评价函数生长或重组设计，从材料池中插入材料，与该方法的窗口做法相同。之后设计保存运行的结果；运行被停止时，保留原来的膜层。每种方法的设置及其默认值列在 API 参考的 synthesize 下；未给出的设置取默认值。"
   },
+  "Design.synthesize.lead.2": {
+    "hash": "0e26854a",
+    "text": "在有多个环境的设计上，运行只针对环境 1 设计，即设计自身的介质、基底和膜层：它只拟合在环境 1 中计分的行，给出的评价函数值也是这些行的；而 design.merit.value 是所有开启的环境上的评价函数值。"
+  },
   "Design.synthesize.refuses.1": {
     "hash": "f599adf2",
     "text": "没有评价函数的设计、运行不认识的方法或设置、它无法接受的值，或材料池中找不到对应材料的材料 id"
@@ -1435,6 +1439,10 @@
     "hash": "e67f97b0",
     "text": "对读取两行的数学行，为第二行的 id。"
   },
+  "Merit.add.arg.env": {
+    "hash": "dba4a21a",
+    "text": "在有多个环境的设计上，该行只在其中计分的环境，按从 1 开始的编号或其 id 给出。不给出时，该行在每个环境中计分。"
+  },
   "Merit.add.lead.1": {
     "hash": "06623138",
     "text": "在评价函数末尾添加一行，做法与评价函数编辑器相同：未给出的字段取在编辑器中新加一行时的初始值。`start` 和 `end` 可以省略。"
@@ -1450,6 +1458,10 @@
   "Merit.add.refuses.2.py": {
     "hash": "ca22f396",
     "text": "在关键字参数中给出行的 `start` 或 `end`"
+  },
+  "Merit.add.refuses.3": {
+    "hash": "5b25e714",
+    "text": "在只有一个环境的设计上给出 env，或给出设计没有的环境"
   },
   "Merit.clear.lead.1": {
     "hash": "d74c260d",
@@ -1476,6 +1488,18 @@
     "text": "不含制造相关行 MNT、MXT、TT 和 STR 的评价函数值；有行无法计算时为 `null` / `None`。"
   },
   "Merit.opticalValue.refuses.1": {
+    "hash": "cefbf1ab",
+    "text": "用到找不到对应材料的设计"
+  },
+  "Merit.environments.lead.1.js": {
+    "hash": "ca39a0a7",
+    "text": "评价函数计入的环境，按顺序排列，每个为 `{ number, id, name, value, opticalValue }`，带有它自己的评价函数值：在有多个环境的设计上，是开启且有一行分量大于 0 的环境，`value` 是它们评价函数值的均方根；在只有一个环境的设计上，是带有设计评价函数值的环境 1。"
+  },
+  "Merit.environments.lead.1.py": {
+    "hash": "f44d7c79",
+    "text": "评价函数计入的环境，按顺序排列，每个为一个 dict，含 number、id、name、value 和 optical_value，即它自己的评价函数值：在有多个环境的设计上，是开启且有一行分量大于 0 的环境，value 是它们评价函数值的均方根；在只有一个环境的设计上，是带有设计评价函数值的环境 1。"
+  },
+  "Merit.environments.refuses.1": {
     "hash": "cefbf1ab",
     "text": "用到找不到对应材料的设计"
   },
@@ -1530,6 +1554,18 @@
   "MeritRow.error.lead.1": {
     "hash": "77413ddd",
     "text": "该行无法计算的原因，或 `null` / `None`。"
+  },
+  "MeritRow.env.lead.1": {
+    "hash": "e8b3e3b7",
+    "text": "该行只在其中计分的环境的 id；在每个环境中计分的行为 `null` / `None`。"
+  },
+  "MeritRow.values.lead.1.js": {
+    "hash": "8d8b966a",
+    "text": "在有多个环境的设计上，该行在其计分的每个环境中的值，按顺序排列，每个为 `{ number, id, value, error }`；在只有一个环境的设计上为 null。"
+  },
+  "MeritRow.values.lead.1.py": {
+    "hash": "0ecb40da",
+    "text": "在有多个环境的设计上，该行在其计分的每个环境中的值，按顺序排列，每个为一个 dict，含 number、id、value 和 error；在只有一个环境的设计上为 None。"
   },
   "Specification.lead.1": {
     "hash": "8de1d126",

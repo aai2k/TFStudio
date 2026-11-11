@@ -7,6 +7,8 @@ import {
     operandBandLevels, withFringeSampleCounts, withDesignSampleCounts, makeConeSpec, coneIsActive,
     takesStepFlag, isBandGridRow, bandFlagStepNm, extremumStepNm, isMath, withRowNotes,
 } from './optimizer.js';
+import { hasEnvironments } from '../environments/environments.js';
+import { environmentsDisplay } from './environmentDisplay.js';
 
 function displayOf(operands, computed) {
     const errors = operandEvaluationErrors(computed);
@@ -18,8 +20,13 @@ function displayOf(operands, computed) {
     };
 }
 
-/** The rows of `operands` on `design`, as given (the analysis worker's evaluation). */
+/**
+ * The rows of `operands` on `design`, as given (the analysis worker's
+ * evaluation). A design with environments is scored in each of them
+ * (environmentDisplay.js), and the result lists them in `environments`.
+ */
 export function meritDisplay(design, operands) {
+    if (hasEnvironments(design)) return environmentsDisplay(design, operands, displayOf);
     return displayOf(operands, evaluateOperands(operands, buildEvalContext(design, designMaterialLookup(design))));
 }
 
@@ -36,11 +43,14 @@ export function receivedDisplay(display) {
 /**
  * The rows of `operands` on `design` with band operands sampled for the
  * design's fringes, the grid a run launched from that design would use, so
- * the table shows each band's true value.
+ * the table shows each band's true value. With environments the rows are
+ * sampled for environment 1's fringes, as a run samples them, and scored in
+ * each environment.
  */
 export function evaluateForDisplay(design, operands) {
     const ctx = buildEvalContext(design, designMaterialLookup(design));
     const sampled = withFringeSampleCounts(operands, ctx);
+    if (hasEnvironments(design)) return environmentsDisplay(design, sampled, displayOf);
     const computed = evaluateOperands(sampled, ctx);
     return { ...displayOf(sampled, computed), computed };
 }

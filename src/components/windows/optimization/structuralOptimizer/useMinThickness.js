@@ -1,5 +1,5 @@
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
-import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
+import { synthesisMntFloor, deriveDMinDefault } from '../synthesisShared/minThickness.js';
 import { STRUCTURAL_DEFAULTS } from '../../../../utils/structural/settings.js';
 
 const { useCallback, useEffect, useRef } = React;
@@ -10,7 +10,7 @@ const { useCallback, useEffect, useRef } = React;
 // a typed value, and the MNT floor the window shows its note against.
 export function useMinThickness(design, runningRef) {
     const [dMin, setDMin, dMinFromStorage] = usePersistentNumber('tfstudio_struct_dMin', STRUCTURAL_DEFAULTS.dMin);
-    const maxMNT = strictestMnt(design?.meritOperands);
+    const maxMNT = synthesisMntFloor(design);
     const dMinRef = useRef(dMin);
     const dMinTouchedRef = useRef(dMinFromStorage);
     const lastIdForDMin = useRef(null);

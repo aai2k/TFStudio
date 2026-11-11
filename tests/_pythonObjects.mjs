@@ -25,7 +25,9 @@
  *   left out of min and max, inf and -inf over a band of NaN alone, and the
  *   CSV file with its conditions lines; a curve's ripple, its value between
  *   samples and its optical density against JavaScript's, and their
- *   refusals; merit rows, value, rows and clear(); specification checks of
+ *   refusals; merit rows, value, rows and clear(), a row scored in one
+ *   environment, each environment's merit and each row's env and values,
+ *   and env refused on a design with one environment; specification checks of
  *   every kind added with the wavelengths each kind takes and keywords in
  *   snake_case, read back as SpecChecks, removed and cleared, the verdict of
  *   check(), estimate_yield() with a seed and with its documented defaults,
@@ -344,6 +346,20 @@ async function merit(t, said, count) {
     const rows = scored.rows?.map(r => [r.type, r.lambdaStart ?? null, r.lambdaEnd ?? null, r.aoi ?? null, r.pol ?? null, r.target, r.weight, r.enabled, r.value, r.error]);
     ok('value, optical_value and rows are merit\'s', got.value === scored.total && got.optical === scored.optical && canon(got.rows) === canon(rows), JSON.stringify(got.rows));
     ok('clear() leaves no row, in the copy alone', canon(got.cleared) === '[0,3]', canon(got.cleared));
+
+    const env = got.environments ?? {};
+    const wet = await attempt(() => api.merit(env.design));
+    const listedOf = m => m.environments.map(e => ({ number: e.number, id: e.id, name: e.name, value: e.total, optical_value: e.optical }));
+    ok('add(env=2) holds the environment\'s id, and merit.environments lists each environment\'s merit as merit gives it',
+        env.design?.meritOperands?.[1]?.env === 'env2' && canon(env.listed) === canon(listedOf(wet)) && env.value === wet.total && env.listed?.length === 2,
+        canon(env.listed));
+    ok('a row\'s env and values are merit\'s', canon(env.rows) === canon(wet.rows.map(r => [r.env, r.values, r.value])), canon(env.rows)?.slice(0, 300));
+    ok('a design with one environment lists environment 1 with its merit, and its rows no env and no values',
+        canon(env.lone) === canon([listedOf(scored), scored.rows.map(() => [null, null])]), canon(env.lone));
+    ok('env is refused on a design with one environment, and an environment the design does not have, in Python\'s words', canon(env.refused) === canon([
+        'add: the design has one environment, so a row takes no env; add another with design.environments.add()',
+        'add: environment 5: the design has 2 environments, numbered from 1',
+    ]), canon(env.refused));
 }
 
 // A check of each kind as the package adds it to a design with the measured

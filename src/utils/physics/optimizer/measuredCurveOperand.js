@@ -114,6 +114,8 @@ function expandMeasuredCurveOperand(op) {
         measuredCurveId: op.curveId || null,
         ...convention,
         ...pointSide(op),
+        // A block scored in one environment has its points scored there.
+        ...(op.env != null ? { env: op.env } : {}),
     }));
 }
 

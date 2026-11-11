@@ -5,7 +5,7 @@
 import { isConstraint } from '../physics/optimizer.js';
 import { designMaterialLookup } from '../materials/designMaterials.js';
 import {
-    densifyForRun, withoutPPEF, activeSide, serializableMedia,
+    densifyForRun, synthesisRows, activeSide, serializableMedia,
 } from '../../components/windows/optimization/synthesisShared/synthesisMath.js';
 import {
     regridForDesign, meritOf, presampleSynthesisMaterials,
@@ -16,9 +16,9 @@ import {
 // with no forced thickness step to escape a local minimum, so an active MNT or
 // MXT penalty can wipe out every improving candidate and end the run as
 // needle-optimal too early: those rows are left out, for a Refinement run
-// afterwards. So are the PPEF rows (synthesisMath.js withoutPPEF).
+// afterwards. So are the PPEF rows and the rows of other environments (synthesisMath.js synthesisRows).
 export function prepare(design, operands, pool) {
-    const enabled = withoutPPEF(operands.filter(op => op.enabled));
+    const enabled = synthesisRows(design, operands);
     const ops = densifyForRun(enabled.filter(op => !isConstraint(op.type)), design);
     if (ops.length === 0) return { failed: 'noOperands' };
     const dropped = enabled.length - ops.length;

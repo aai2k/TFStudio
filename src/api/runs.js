@@ -12,7 +12,7 @@ import { runDeepSynthesisOnDesign } from '../utils/synthesis/deepSynthesis/runOn
 import { InThreadOptimizerWorker } from '../utils/workers/inThreadOptimizerWorker.js';
 import { InThreadSynthesisPool } from '../utils/workers/inThreadSynthesisPool.js';
 import { activeSide } from '../components/windows/optimization/synthesisShared/synthesisMath.js';
-import { strictestMnt } from '../components/windows/optimization/synthesisShared/minThickness.js';
+import { synthesisMntFloor } from '../components/windows/optimization/synthesisShared/minThickness.js';
 import { mirrorLayers } from '../utils/physics/optimizer.js';
 import { ensureLayerIds } from '../utils/io/newDesign.js';
 import { requireMaterial, requireResolved, materialName } from './materials.js';
@@ -68,8 +68,9 @@ function operandsOf(call, design) {
 /**
  * Refines the layer thicknesses of a design against its merit function, as
  * the [Refinement](/synthesis/refinement/) window does; no layer is added or
- * taken out. The run computes on the script's own thread, so the script waits
- * for it.
+ * taken out. A design with more than one environment is refined against every
+ * environment that is on, with the merit `merit` gives. The run computes on
+ * the script's own thread, so the script waits for it.
  *
  * @param design The design; it needs a merit function.
  * @param settings
@@ -131,14 +132,14 @@ export const SYNTHESIS_METHODS = Object.keys(SYNTHESIS);
 
 /**
  * The methods whose windows start their floor at the strictest MNT row of the
- * merit function when there is one (synthesisShared/minThickness.js). Needle
+ * rows the run fits when there is one (synthesisShared/minThickness.js). Needle
  * keeps its own thin floor for its needles.
  */
 export const FLOOR_FROM_MNT = new Set(['ge', 'structural', 'deep']);
 
-function settingsFor(method, operands, settings) {
+function settingsFor(method, design, operands, settings) {
     const out = given(settings);
-    const mnt = strictestMnt(operands);
+    const mnt = synthesisMntFloor(design, operands);
     if (FLOOR_FROM_MNT.has(method) && out.dMin === undefined && mnt > 0) out.dMin = mnt;
     return out;
 }
@@ -155,6 +156,11 @@ function answerOf(method, design, result) {
  * Grows or restructures a design against its merit function with a synthesis
  * method, inserting materials from a pool, as the method's window does. The
  * run computes on the script's own thread, so the script waits for it.
+ *
+ * On a design with more than one environment the run designs for environment
+ * 1, the design's own media, substrate and layers: it fits the rows scored
+ * there alone and reports their merit, while `merit` gives the merit over
+ * every environment that is on.
  *
  * @param design The design; it needs a merit function.
  * @param request
@@ -194,7 +200,8 @@ function answerOf(method, design, result) {
 export async function synthesize(design, request, hooks) {
     // Each run's settings and their defaults are its settings.js; the pool
     // comes from `pool`. Without a dMin, the methods in FLOOR_FROM_MNT take
-    // the strictest MNT row as their floor, as their windows do.
+    // the strictest MNT row of the rows the run fits as their floor, as their
+    // windows do.
     // 'deep' (Deep Synthesis) is taken too, with the hooks signal, onStart
     // ({ seed, parts }) and onEvent (event, best); stopped, it answers with its
     // best design so far. Its result holds the synthesized side's layers in
@@ -205,7 +212,7 @@ export async function synthesize(design, request, hooks) {
     if (!run) throw new Error(`synthesize: method is one of ${Object.keys(SYNTHESIS).join(', ')}, not '${method}'`);
     if (settings && 'pool' in settings) throw new Error('synthesize: give the pool as `pool`, a list of material ids');
     const operands = operandsOf('synthesize', design);
-    const plan = { ...settingsFor(method, operands, settings), pool: poolOf('synthesize', design, pool) };
+    const plan = { ...settingsFor(method, design, operands, settings), pool: poolOf('synthesize', design, pool) };
     const passed = checkHooks(`synthesize ${method}`, hooks, HOOKS[method]);
     requireKernel();
     const result = await run(design, operands, plan, passed);

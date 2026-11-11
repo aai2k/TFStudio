@@ -267,7 +267,8 @@ def helpers(s):
 
 
 def merit(design):
-    """Rows added, the merit and its rows, and a copy cleared."""
+    """Rows added, the merit and its rows, a copy cleared, and rows on a copy
+    with a second environment, one of them scored there alone."""
     rated = design.copy()
     rated.merit.add("RAV", 450, 650, target=0)
     rated.merit.add("MNT", 1, len(rated.layers), target=10)
@@ -276,8 +277,17 @@ def merit(design):
             for row in rated.merit.rows]
     cleared = rated.copy()
     cleared.merit.clear()
+    wet = design.copy()
+    wet.environments.add(name="Under water", incident_medium="H2O")
+    wet.merit.add("RAV", 450, 650, target=0)
+    wet.merit.add("R", 550, target=0, env=2)
+    environments = {"design": wet._data, "listed": wet.merit.environments, "value": wet.merit.value,
+                    "rows": [[row.env, row.values, row.value] for row in wet.merit.rows],
+                    "lone": [rated.merit.environments, [[row.env, row.values] for row in rated.merit.rows]],
+                    "refused": [refused(lambda: rated.merit.add("R", 550, env=2)), refused(lambda: wet.merit.add("R", 550, env=5))]}
     out({"merit": {"design": rated._data, "count": len(rated.merit), "value": rated.merit.value,
-                   "optical": rated.merit.optical_value, "rows": rows, "cleared": [len(cleared.merit), len(rated.merit)]}})
+                   "optical": rated.merit.optical_value, "rows": rows, "cleared": [len(cleared.merit), len(rated.merit)],
+                   "environments": environments}})
 
 
 # SpecCheck's attributes, in the order the test reads them.

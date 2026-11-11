@@ -3,7 +3,7 @@
 // rows set, the material pool and the worker material tables.
 
 import { isConstraint } from '../physics/optimizer.js';
-import { activeSide, densifyForRun, withoutPPEF } from '../../components/windows/optimization/synthesisShared/synthesisMath.js';
+import { activeSide, densifyForRun, synthesisRows } from '../../components/windows/optimization/synthesisShared/synthesisMath.js';
 import { presampleAll } from './refine.js';
 
 /**
@@ -34,13 +34,14 @@ function poolMissing(kinds, pool) {
 
 /**
  * The run's operands and tables for `design` and `operands` (merit rows;
- * disabled and PPEF rows are left out). Refines use the rows without MNT and
+ * disabled and PPEF rows and the rows of other environments are left out,
+ * synthesisMath.js synthesisRows). Refines use the rows without MNT and
  * MXT, densified for the design's features; results are scored on every row.
  * Returns { failed } with 'noOperands', 'noMaterials' or 'presampleFailed'
  * when the run cannot start.
  */
 export function prepare(design, operands, plan) {
-    const enabled = withoutPPEF(operands.filter(op => op.enabled));
+    const enabled = synthesisRows(design, operands);
     const refined = densifyForRun(enabled.filter(op => !isConstraint(op.type)), design);
     if (!refined.length) return { failed: 'noOperands' };
     const bounds = { dMin: plan.dMin };

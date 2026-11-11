@@ -19,6 +19,14 @@
  *      nothing is refused unless it is given null.
  *   6. A design saved with saveDesign and read with openDesign keeps its
  *      environments.
+ *   7. designDifferences compares the environments.
+ *   8. setMerit takes `env` by number or id and holds the id, and refuses it
+ *      on a design with one environment and for an environment the design
+ *      does not have; merit gives each environment's merit, the total their
+ *      root mean square, and each row's env and values; refine scores every
+ *      environment.
+ *   9. A synthesis run fits environment 1, so an MNT row of environment 2
+ *      sets no thickness floor for it.
  *
  * Run: node tests/api_environments.mjs
  */
@@ -247,6 +255,79 @@ const BASE_ENTRY = {
     ok('a renamed environment differs', found[1].same === false && same(found[1].environments, [2]));
     ok('a substrate environment 2 takes from environment 1 is compared once, in the setup', same(found[2].environments, []) && found[2].setup.length === 1);
     ok('and a design is the same as its copy', found[3].same === true && same(found[3].environments, []));
+}
+
+// ── 8. Merit rows scored in one environment ────────────────────────────────
+{
+    const wet = api.addEnvironment(plain(), { name: 'Under water', incidentMedium: 'H2O', thicknessFactors: { TiO2: 0.95 } });
+    // The band row reads a 1 nm grid, so it samples the same wavelengths on
+    // every design below whatever their fringes.
+    const rows = [
+        { type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, flag: 1 },
+        { type: 'R', lambdaStart: 550, target: 0, env: 2 },
+        { type: 'R', lambdaStart: 600, target: 0, env: 'base' },
+        { type: 'T', lambdaStart: 500, target: 1, env: null },
+    ];
+    const design = api.setMerit(wet, rows);
+    ok('setMerit takes env by number or id and holds the id; null or none is every environment',
+        same(design.meritOperands.map(op => op.env), [undefined, 'env2', 'base', undefined])
+        && !('env' in design.meritOperands[0]) && !('env' in design.meritOperands[3]), JSON.stringify(design.meritOperands.map(op => op.env)));
+
+    // Each environment as a design of its own, with the rows scored there.
+    // eslint-disable-next-line no-unused-vars
+    const rowsIn = env => rows.filter(r => r.env == null || r.env === env).map(({ env: _, ...r }) => r);
+    const thin = plain();
+    const underWater = { ...thin, incidentMedium: 'H2O', frontLayers: thin.frontLayers.map(l => (/TiO2/.test(l.material) ? { ...l, thickness: l.thickness * 0.95 } : l)) };
+    const base = api.merit(api.setMerit(plain(), rowsIn('base')));
+    const water = api.merit(api.setMerit(underWater, rowsIn(2)));
+    const m = api.merit(design);
+    ok('merit lists each environment the total counts with its own merit, and the total is their root mean square',
+        same(m.environments.map(e => [e.number, e.id, e.name]), [[1, 'base', null], [2, 'env2', 'Under water']])
+        && Math.abs(m.environments[0].total - base.total) <= 1e-12 * base.total && Math.abs(m.environments[1].total - water.total) <= 1e-12 * water.total
+        && Math.abs(m.total - Math.sqrt((base.total ** 2 + water.total ** 2) / 2)) <= 1e-12 * m.total, JSON.stringify(m.environments));
+    ok('each row gives its env and its value in each environment it is scored in',
+        same(m.rows.map(r => r.env), [null, 'env2', 'base', null])
+        && same(m.rows.map(r => r.values.map(v => v.number)), [[1, 2], [2], [1], [1, 2]])
+        && m.rows[1].value === m.rows[1].values[0].value && m.rows[0].value === m.rows[0].values[0].value
+        && m.rows[0].values[0].value !== m.rows[0].values[1].value && m.rows.every(r => r.values.every(v => v.error === null)),
+        JSON.stringify(m.rows.map(r => r.values)));
+    const one = api.merit(api.setMerit(plain(), [rows[0]]));
+    ok('a design with one environment lists environment 1 with its merit, and its rows env null and no values',
+        same(one.environments, [{ number: 1, id: 'base', name: null, total: one.total, optical: one.optical }]) && one.rows[0].env === null && !('values' in one.rows[0]));
+    const off = api.merit(api.setEnvironment(design, 2, { enabled: false }));
+    ok('an environment switched off is not in the total, and its own row has no value and no values',
+        same(off.environments.map(e => e.id), ['base']) && Math.abs(off.total - base.total) <= 1e-12 * base.total
+        && off.rows[1].value === null && same(off.rows[1].values, []));
+
+    const cases = [
+        [() => api.setMerit(plain(), [rows[1]]), 'oneEnvironment', { call: 'setMerit', row: 0, option: 'env' }, /^setMerit: row 0: the design has one environment, so a row takes no env; add another environment first$/],
+        [() => api.setMerit(wet, [rows[0], { ...rows[1], env: 3 }]), 'unknownEnvironment', { call: 'setMerit', row: 1, environment: 3, numbers: [1, 2], ids: ['base', 'env2'] },
+            /^setMerit: row 1: env is one of the design's environments by its number, 1 to 2, or its id, base or env2; not 3$/],
+        [() => api.setMerit(wet, [{ ...rows[1], env: 'env9' }]), 'unknownEnvironment', { environment: 'env9' }, /not "env9"$/],
+    ];
+    for (const [make, code, fields, pattern] of cases) {
+        const err = thrown(make) ?? {};
+        const fieldsMatch = Object.entries(fields).every(([key, value]) => isDeepStrictEqual(err.fields?.[key], value));
+        ok(`setMerit refuses ${code} ${JSON.stringify(fields)} with its code and fields`, err.code === code && fieldsMatch && pattern.test(err.message), `${err.code} ${JSON.stringify(err.fields)} ${err.message}`);
+    }
+
+    const { result, design: refined } = await api.refine(design, { method: 'dls', maxIter: 8 });
+    const after = api.merit(refined);
+    ok('refine scores every environment: its start is merit\'s total and the answer lowers it',
+        Math.abs(result.mfInitial - m.total) <= 1e-9 * m.total && after.total < m.total && Math.abs(result.mf - after.total) <= 1e-9 * after.total,
+        `${result.mfInitial} ${m.total} ${result.mf} ${after.total}`);
+}
+
+// ── 9. A synthesis run's thickness floor ───────────────────────────────────
+{
+    let design = api.addEnvironment(plain(), { name: 'Dome edge', thicknessFactors: { TiO2: 0.9 } });
+    design = api.setMerit(design, [
+        { type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, env: 1 },
+        { type: 'MNT', target: 300, env: 2 },
+    ]);
+    const { result, design: grown } = await api.synthesize(design, { method: 'ge', pool: ['TiO2', 'SiO2'], settings: { maxLayers: 6, maxGeCycles: 1 } });
+    const thinnest = Math.min(...grown.frontLayers.map(l => l.thickness));
+    ok('an MNT row of environment 2 sets no floor for a run that fits environment 1', result.completed && thinnest < 300, `${result.stopReason} ${thinnest}`);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

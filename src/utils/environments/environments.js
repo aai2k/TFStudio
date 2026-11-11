@@ -119,6 +119,18 @@ export function environmentDesign(design, id = BASE_ENVIRONMENT) {
     };
 }
 
+/**
+ * `design` as environment `id` computes it (environmentDesign), written as a
+ * design without environments: every calculation then takes it as a design
+ * with one environment. A design without environments is returned as it is.
+ */
+export function oneEnvironmentDesign(design, id = BASE_ENVIRONMENT) {
+    if (id === BASE_ENVIRONMENT && !hasEnvironments(design)) return design;
+    // eslint-disable-next-line no-unused-vars
+    const { environments, ...own } = environmentDesign(design, id);
+    return own;
+}
+
 /** The material ids environments 2 and later name: their media, substrates and swaps. */
 export function environmentMaterialIds(design) {
     return environmentsOf(design).slice(1).flatMap(env => [

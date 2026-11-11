@@ -27,6 +27,8 @@
  *   angles as arrays, their mean, min and max over a band and the whole range,
  *   and the CSV file with its conditions lines; merit rows, with start and end left out before the
  *   options, and options given as undefined or null, value, rows and clear(),
+ *   a row scored in one environment, each environment's merit and each row's
+ *   env and values, and env refused on a design with one environment,
  *   and rows added in separate processes, as separate Script Console runs add
  *   them, each with an id of its own; specification checks of every kind
  *   added with the wavelengths each kind takes and the defaults add()
@@ -504,6 +506,25 @@ const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'f
     given.merit.add('RAV', 450, 650, null);
     const plainRow = { type: 'RAV', lambdaStart: 450, lambdaEnd: 650 };
     ok('and an options object given as undefined or null is no options', canon(given._data) === canon(api.setMerit(design._data, [plainRow, plainRow])));
+
+    const wet = design.copy();
+    wet.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+    wet.merit.add('RAV', 450, 650, { target: 0 });
+    wet.merit.add('R', 550, { target: 0, env: 2 });
+    const plainWet = api.merit(wet._data);
+    const listedOf = m => m.environments.map(({ total, optical, ...env }) => ({ ...env, value: total, opticalValue: optical }));
+    ok('merit.add() takes env by number and the row holds the environment\'s id', wet._data.meritOperands[1].env === 'env2' && wet._data.meritOperands[0].env === undefined);
+    ok('merit.environments lists each environment\'s merit as merit gives it', canon(wet.merit.environments) === canon(listedOf(plainWet))
+        && wet.merit.environments.length === 2 && wet.merit.value === plainWet.total, canon(wet.merit.environments));
+    ok('a row\'s env and values are merit\'s', canon(wet.merit.rows.map(r => [r.env, r.values, r.value])) === canon(plainWet.rows.map(r => [r.env, r.values, r.value])),
+        canon(wet.merit.rows.map(r => [r.env, r.values])));
+    ok('a design with one environment lists environment 1 with its merit, and its rows no env and no values',
+        canon(rated.merit.environments) === canon(listedOf(scored)) && rated.merit.rows.every(r => r.env === null && r.values === null), canon(rated.merit.environments));
+    const envWords = [await refused(() => rated.merit.add('R', 550, { env: 2 })), await refused(() => wet.merit.add('R', 550, { env: 5 }))];
+    ok('env is refused on a design with one environment, and an environment the design does not have, in the objects\' words', canon(envWords) === canon([
+        'add: the design has one environment, so a row takes no env; add another with design.environments.add()',
+        'add: environment 5: the design has 2 environments, numbered from 1',
+    ]), canon(envWords));
 }
 
 // Each Script Console run is a process of its own. A row merit.add() adds in

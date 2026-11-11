@@ -7,7 +7,7 @@
 import {
     scanNeedlesPFunction, insertNeedle, insertNeedleIntra, withDesignSampleCounts, resolveScanSide, isConstraint, findOptimalNeedleThickness,
 } from '../../../../utils/physics/optimizer.js';
-import { withoutPPEF } from '../synthesisShared/synthesisMath.js';
+import { synthesisRows } from '../synthesisShared/synthesisMath.js';
 import { editorLayerNumber } from '../../../../utils/misc/layerNumbers.js';
 
 /** The thickest needle the window inserts at a gap, nm. */
@@ -18,9 +18,9 @@ const START_TOL_NM = 0.5;
 // Which layer array a side maps to.
 export const sideKey = (side) => (side === 'back' ? 'backLayers' : 'frontLayers');
 
-// The design's enabled rows less the PPEF ones, as the design holds them.
+// The rows a synthesis run fits (synthesisMath.js synthesisRows), as the design holds them.
 export function enabledRows(design) {
-    return withoutPPEF((design?.meritOperands || []).filter(op => op.enabled));
+    return synthesisRows(design, design?.meritOperands || []);
 }
 
 // The rows the predicted merit scores on, and the refine after an insertion

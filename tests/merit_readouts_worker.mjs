@@ -226,6 +226,17 @@ const ownMF = d => meritTable(d, d.meritOperands).mf;
     assert.equal(shown.predictedOMF, null, 'with no pick nothing is predicted');
     assert.equal(made.length, 0);
     runtime.unmount();
+
+    // On a design with environments both are environment 1's, as the scan
+    // scores it, and not the merit over every environment.
+    const wet = { ...design, environments: [{ id: 'base' }, { id: 'env2', incidentMedium: 'H2O' }] };
+    const wetArgs = { ...args(20), design: wet, operands: runOperands(wet, designMaterialLookup(wet)) };
+    made.length = 0;
+    shown = runtime.run(() => usePredictedOMF(wetArgs));
+    assert.equal(shown.omfNow, firstOMF(design), 'environment 1\'s OMF now');
+    assert.equal(shown.predictedOMF, firstOMF(inserted(20)), 'and with the needle');
+    assert.notEqual(meritDisplay(wet, coarse).omf, firstOMF(design), 'the merit over every environment is another number');
+    runtime.unmount();
 }
 
 // ── 4. The History window ────────────────────────────────────────────────────

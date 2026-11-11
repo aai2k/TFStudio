@@ -68,6 +68,14 @@ def _base_environment(fields, words):
             .format(words.name(fields["option"])))
 
 
+def _one_environment(fields, words):
+    if fields.get("call") == "setMerit":
+        return "the design has one environment, so a row takes no {}; add another with design.environments.add()".format(
+            words.name(fields["option"]))
+    return ("the design has one environment, which holds no {} until another is added; "
+            "add one with design.environments.add()".format(words.name(fields["option"])))
+
+
 def _unknown_option(fields, words):
     listed = [words.name(option) for option in fields["options"] if option not in words.hidden] + list(words.extra)
     return "unknown option {!r}; the options are {}".format(words.name(fields["option"]), ", ".join(listed))
@@ -123,8 +131,7 @@ _WORDS = {
                                           "and set the media with incident_medium, exit_medium and substrate.material",
     "unknownEnvironment": lambda fields, words: _unknown_environment(fields),
     "baseEnvironment": _base_environment,
-    "oneEnvironment": lambda fields, words: ("the design has one environment, which holds no {} until another is added; "
-                                             "add one with design.environments.add()".format(words.name(fields["option"]))),
+    "oneEnvironment": _one_environment,
 }
 
 

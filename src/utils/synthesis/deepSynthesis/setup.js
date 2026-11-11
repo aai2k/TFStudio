@@ -7,7 +7,7 @@ import { embedDesignMaterials, isBuiltinId } from '../../materials/designMateria
 import { stripGetNK } from '../../materials/catalogManager/persistence.js';
 import { applyConstraintBounds } from '../../structural/setup.js';
 import {
-    activeSide, densifyForRun, serializableMedia, withoutPPEF,
+    activeSide, densifyForRun, serializableMedia, synthesisRows,
 } from '../../../components/windows/optimization/synthesisShared/synthesisMath.js';
 import { presampleSynthesisMaterials } from '../../../components/windows/optimization/synthesisShared/runGrid.js';
 import { makeEvaluator, DEFAULT_ENGINE } from './evaluator.js';
@@ -45,15 +45,16 @@ function materialSource(design, pool) {
 
 /**
  * The run's evaluator and what goes with it, for `design` and `operands`
- * (merit rows; disabled and PPEF rows are left out, MNT and MXT rows become
- * the floor and the upper bound in nm). Returns { failed } with 'locked' (a
+ * (merit rows; disabled and PPEF rows and the rows of other environments are
+ * left out, synthesisMath.js synthesisRows; MNT and MXT rows become the floor
+ * and the upper bound in nm). Returns { failed } with 'locked' (a
  * locked layer on the side the run works on), 'noPool', 'noOperands' (nothing
  * optical to design for) or 'presampleFailed' when the run cannot start;
  * otherwise { ev, materials, start, side, layerKey, surfaceMode, source,
  * parts, dMin, dMax }, `start` being the active side's layers.
  */
 export function prepareRun(design, operands, plan) {
-    const enabled = withoutPPEF(operands.filter(op => op.enabled));
+    const enabled = synthesisRows(design, operands);
     const reason = blockedReason(design, {
         pool: plan.pool.map(material => material.id),
         operands: enabled.filter(op => !isConstraint(op.type)),

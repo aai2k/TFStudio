@@ -6,6 +6,15 @@ import {
     withFringeSampleCounts, buildEvalContext, evaluateOperands, calcMF, calcOMF,
     operandEvaluationErrors,
 } from '../physics/optimizer.js';
+import { evaluateForDisplay } from '../physics/meritDisplay.js';
+import { hasEnvironments } from '../environments/environments.js';
+
+// The display of a design with environments, each row checked in every
+// environment it is scored in (environmentDisplay.js).
+function environmentsCheck(design, operands) {
+    const { computed, errors, mf, omf } = evaluateForDisplay(design, operands);
+    return { computed, errors, mf, omf };
+}
 
 // Returns { computed, errors, mf, omf }, or null if evaluation throws.
 // Empty/absent design → cleared display. Band operands are sampled for this
@@ -13,6 +22,7 @@ import {
 export function computeOperandDisplay(design, operands) {
     if (!design || operands.length === 0) return { computed: [], mf: null, omf: null };
     try {
+        if (hasEnvironments(design)) return environmentsCheck(design, operands);
         const ctx  = buildEvalContext(design, designMaterialLookup(design));
         const sampled = withFringeSampleCounts(operands, ctx);
         const comp = evaluateOperands(sampled, ctx);

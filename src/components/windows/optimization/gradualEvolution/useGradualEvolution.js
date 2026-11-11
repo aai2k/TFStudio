@@ -30,7 +30,7 @@ import {
     restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot,
 } from './geStateHelpers.js';
 import { teardownRun } from '../synthesisShared/teardownRun.js';
-import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
+import { synthesisMntFloor, deriveDMinDefault } from '../synthesisShared/minThickness.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
@@ -88,7 +88,7 @@ function useGeSettings(design) {
     useEffect(() => { dMinRef.current        = dMin;        }, [dMin]);
     useEffect(() => { deepSearchRef.current  = !!deepSearch; }, [deepSearch]);
 
-    const maxMNT = strictestMnt(design?.meritOperands);
+    const maxMNT = synthesisMntFloor(design);
 
     const dMinTouchedRef = useRef(dMinFromStorage);
     const lastIdForDMin  = useRef(null);

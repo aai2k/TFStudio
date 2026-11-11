@@ -391,7 +391,7 @@ export function analysisTools({ api, store }) {
         },
         {
             name: 'merit', title: 'Merit',
-            description: "A design's merit as the Merit Function Editor shows it: the total, the optical merit without the manufacturing rows (MNT, MXT, TT, STR), and each row's value with what it scores: lambdaStart, lambdaEnd for a band, aoi and pol for an optical row (no pol for one scored on both polarizations, such as PSI or DPR), the layer range lambdaStart to lambdaEnd for MNT and MXT, cmp for TT and STR. A row that cannot be evaluated says why, and the totals are then null.",
+            description: "A design's merit as the Merit Function Editor shows it: the total, the optical merit without the manufacturing rows (MNT, MXT, TT, STR), and each row's value with what it scores: lambdaStart, lambdaEnd for a band, aoi and pol for an optical row (no pol for one scored on both polarizations, such as PSI or DPR), the layer range lambdaStart to lambdaEnd for MNT and MXT, cmp for TT and STR. A row that cannot be evaluated says why, and the totals are then null. A design with more than one environment is scored in each environment that is on: environments lists those the total counts, each with its number, id, name, total and optical, and the total is the root mean square of theirs; each row gives env, the id of the environment it is scored in alone or null for every environment, and values, its value and error in each environment it is scored in.",
             inputSchema: object({ designId: DESIGN_ID }, ['designId']),
             run: ({ designId }) => ({ designId, ...plain(api.merit(store.get(designId))) }),
         },

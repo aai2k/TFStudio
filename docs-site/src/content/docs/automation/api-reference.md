@@ -2397,6 +2397,8 @@ Why it ended: `'target'` (the merit fell below 10^-6), `'maxiter'`, `'stalled'` 
 
 Grows or restructures the design against its merit function with a synthesis method, inserting materials from a pool, as the method's window does. The design then holds the run's answer, or, when the run is stopped, the layers it had. Each method's settings, with their defaults, are in the API Reference under synthesize; a setting left out takes its default.
 
+On a design with more than one environment the run designs for environment 1, the design's own media, substrate and layers: it fits the rows scored there alone and reports their merit, while design.merit.value is the merit over every environment that is on.
+
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
 | `method` | `method` |  | `'needle'`, `'ge'` (Gradual Evolution) or `'structural'`. |
@@ -3701,7 +3703,7 @@ print(design.merit.value)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.merit.add(type, start, end, { target, weight, aoi, pol, targetEnd, cmp, flag, enabled, comment, id, refId, refId1, refId2 })` | `design.merit.add(type, start=..., end=..., target=..., weight=1, aoi=0, pol="avg", target_end=..., cmp=..., flag=..., enabled=True, comment=..., id=..., ref_id=..., ref_id1=..., ref_id2=...)` |
+| `design.merit.add(type, start, end, { target, weight, aoi, pol, targetEnd, cmp, flag, enabled, comment, id, refId, refId1, refId2, env })` | `design.merit.add(type, start=..., end=..., target=..., weight=1, aoi=0, pol="avg", target_end=..., cmp=..., flag=..., enabled=True, comment=..., id=..., ref_id=..., ref_id1=..., ref_id2=..., env=...)` |
 
 Adds a row at the end of the merit function, made as the Merit Function Editor makes one: a field left out takes the value a row added there starts with. `start` and `end` may be left out.
 
@@ -3723,11 +3725,13 @@ Adds a row at the end of the merit function, made as the Merit Function Editor m
 | `refId` | `ref_id` |  | For a math row that reads one row, that row's id. |
 | `refId1` | `ref_id1` |  | For a math row that reads two rows, the first one's id. |
 | `refId2` | `ref_id2` |  | For a math row that reads two rows, the second one's id. |
+| `env` | `env` |  | On a design with more than one environment, the environment the row is scored in alone, by its number from 1 or its id. Without it, the row is scored in every environment. |
 
 **Refuses**:
 
 - a type this version does not evaluate, a field no row has, a value a field cannot take, or `start` above `end` on a row that reads a band or a layer range
 - **JavaScript**: more than `start` and `end` before the options, or the row's type, `start` or `end` among the options<br>**Python**: the row's `start` or `end` among the keyword arguments
+- an env on a design with one environment, or one the design does not have
 
 ```js
 const design = tf.newDesign('AR');
@@ -3868,6 +3872,39 @@ design.stack("(HL)^2")
 design.merit.add("RAV", 450, 650, target=0)
 design.merit.add("MNT", target=100)
 print(design.merit.value, design.merit.optical_value)
+```
+
+### environments
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.merit.environments` | `design.merit.environments` |
+
+**JavaScript**: The environments the merit counts, in order, each `{ number, id, name, value, opticalValue }` with its own merit: on a design with more than one environment, those that are on and hold a row of a weight above 0, whose merits `value` is the root mean square of; on a design with one, environment 1 with the design's merit.
+
+**Python**: The environments the merit counts, in order, each a dict with number, id, name, value and optical_value, its own merit: on a design with more than one environment, those that are on and hold a row of a weight above 0, whose merits value is the root mean square of; on a design with one, environment 1 with the design's merit.
+
+**Refuses**:
+
+- a design that names a material that resolves to nothing
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.merit.add('RAV', 450, 650, { target: 0 });
+for (const env of design.merit.environments) console.log(env.number, env.name, env.value);
+console.log('total', design.merit.value);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.merit.add("RAV", 450, 650, target=0)
+for env in design.merit.environments:
+    print(env["number"], env["name"], env["value"])
+print("total", design.merit.value)
 ```
 
 ### length / len()
@@ -4152,6 +4189,57 @@ design.stack("(HL)^2")
 design.merit.add("RAV", 450, 650, target=0)
 for row in design.merit.rows:
     print(row.type, row.error or "evaluated")
+```
+
+### env
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.env` | `row.env` |
+
+The id of the environment the row is scored in alone, or `null` / `None` for a row of every environment.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.merit.add('R', 550, { target: 0, env: 2 });
+console.log(design.merit.rows[0].env);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.merit.add("R", 550, target=0, env=2)
+print(design.merit.rows[0].env)
+```
+
+### values
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.values` | `row.values` |
+
+**JavaScript**: On a design with more than one environment, the row's value in each environment it is scored in, in order, each `{ number, id, value, error }`; null on a design with one environment.
+
+**Python**: On a design with more than one environment, the row's value in each environment it is scored in, in order, each a dict with number, id, value and error; None on a design with one environment.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.merit.add('RAV', 450, 650, { target: 0 });
+for (const v of design.merit.rows[0].values) console.log('environment', v.number, v.value);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.merit.add("RAV", 450, 650, target=0)
+for v in design.merit.rows[0].values:
+    print("environment", v["number"], v["value"])
 ```
 
 ## Specification

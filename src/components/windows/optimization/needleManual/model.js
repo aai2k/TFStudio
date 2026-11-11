@@ -8,6 +8,7 @@
 import { mirrorLayers } from '../../../../utils/physics/optimizer.js';
 import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { densifyForRun } from '../../../../utils/refinement/workerInputs.js';
+import { oneEnvironmentDesign } from '../../../../utils/environments/environments.js';
 import { matFriendlyName, matColor } from '../synthesisShared/synthesisHelpers.js';
 import { refineOffThread, inOptimizerWorker } from '../synthesisShared/workerRefine.js';
 import { presampleSynthesisMaterials } from '../synthesisShared/runGrid.js';
@@ -72,9 +73,11 @@ export function startingThicknessOffThread({ operands, design, candidate, mat, d
 // The optional pass after Apply: the app's default refinement method on the
 // inserted stack, at most `iters` steps, no layer below `dMin` (nm), its rows
 // sampled as a Refinement run samples them at launch, so a feature narrower
-// than a row's grid is seen.
+// than a row's grid is seen. Like the scan, it works on environment 1 alone,
+// the design as a design without environments.
 export function insertionRefineJob(operands, design, dMin, iters) {
-    return { method: DEFAULT_REFINE_METHOD, operands: densifyForRun(operands, design), design, iters, dMin };
+    const own = oneEnvironmentDesign(design);
+    return { method: DEFAULT_REFINE_METHOD, operands: densifyForRun(operands, own), design: own, iters, dMin };
 }
 
 // A symmetric design keeps its back stack the mirror of the front.

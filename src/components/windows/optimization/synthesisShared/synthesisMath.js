@@ -4,6 +4,8 @@ import {
 } from '../../../../utils/physics/optimizer.js';
 import { generateARSeeds } from '../../../../utils/synthesis/seedGenerator.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { BASE_ENVIRONMENT, hasEnvironments } from '../../../../utils/environments/environments.js';
+import { rowsScoredIn } from '../../../../utils/environments/environmentMerit.js';
 
 // ── Surface-mode-aware active synthesis side ────────────────────────────────────
 // For both_independent the UI selector (when added) drives this; default 'front'.
@@ -65,6 +67,18 @@ export function withoutPPEF(operands) {
         const weight = carried.get(op.id);
         return weight > (Number(op.weight) || 0) ? { ...op, weight } : op;
     });
+}
+
+// ── The rows a synthesis run fits ───────────────────────────────────────────────
+// The enabled rows less the PPEF ones. A synthesis run designs for environment
+// 1, the design's own media, substrate and layers, so on a design with
+// environments it fits the rows scored there (environmentMerit.js
+// rowsScoredIn) and never a row of another environment, which environment 1's
+// stack would score against the wrong media. Every synthesis run, its workers
+// and Needle Manual take their rows from here.
+export function synthesisRows(design, operands) {
+    const enabled = operands.filter(op => op.enabled);
+    return withoutPPEF(hasEnvironments(design) ? rowsScoredIn(enabled, BASE_ENVIRONMENT) : enabled);
 }
 
 // ── Run sampling grid ───────────────────────────────────────────────────────────

@@ -1,14 +1,23 @@
 // Min thickness in the synthesis windows. Each window proposes a floor (GE and
-// Structural the strictest enabled MNT row of the merit function, Needle a
+// Structural the strictest enabled MNT row of the rows the run fits, Needle a
 // fixed thin floor for its needles) and `deriveDMinDefault` keeps the field on
 // it: the proposal is taken again when the design changes, and a value the
 // user typed stays until then. A stored value counts as typed, so reopening a
 // window does not overwrite it.
 
+import { synthesisRows } from './synthesisMath.js';
+
 // The strictest enabled MNT target of `operands`, or 0 without one (nm).
 export function strictestMnt(operands) {
     return (operands || []).reduce(
         (m, o) => (o.enabled && o.type === 'MNT' ? Math.max(m, o.target || 0) : m), 0);
+}
+
+// The strictest MNT target of the rows a synthesis run on `design` fits
+// (synthesisMath.js synthesisRows), or 0 without one (nm): on a design with
+// environments, an MNT row of another environment sets no floor.
+export function synthesisMntFloor(design, operands = design?.meritOperands || []) {
+    return strictestMnt(synthesisRows(design, operands));
 }
 
 // Move the field to `def` unless the user typed a value for this design or a

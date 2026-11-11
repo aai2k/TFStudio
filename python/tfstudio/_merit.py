@@ -146,6 +146,30 @@ class MeritRow:
             for row in design.merit.rows:
                 print(row.type, row.error or "evaluated")
         """)
+    env = _reading("env", """The id of the environment the row is scored in alone, or None for a row of
+        every environment.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            design.merit.add("R", 550, target=0, env=2)
+            print(design.merit.rows[0].env)
+        """)
+    values = _reading("values", """On a design with more than one environment, the row's value in each
+        environment it is scored in, in order, each a dict with number, id,
+        value and error; None on a design with one environment.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            design.merit.add("RAV", 450, 650, target=0)
+            for v in design.merit.rows[0].values:
+                print("environment", v["number"], v["value"])
+        """)
 
     def __repr__(self):
         return "<MeritRow {} {}..{}: {} for {}>".format(self.type, self.start, self.end, self.value, self.target)
@@ -202,6 +226,9 @@ class Merit:
             ref_id: For a math row that reads one row, that row's id.
             ref_id1: For a math row that reads two rows, the first one's id.
             ref_id2: For a math row that reads two rows, the second one's id.
+            env: On a design with more than one environment, the environment
+                the row is scored in alone, by its number from 1 or its id.
+                Without it, the row is scored in every environment.
 
         Raises:
             TFStudioError: a type this version does not evaluate, a field no
@@ -209,6 +236,8 @@ class Merit:
                 row that reads a band or a layer range.
             TFStudioError: the row's `start` or `end` among the keyword
                 arguments.
+            TFStudioError: an env on a design with one environment, or one the
+                design does not have.
 
         Example::
 
@@ -295,6 +324,32 @@ class Merit:
             print(design.merit.value, design.merit.optical_value)
         """
         return self._evaluated()["optical"]
+
+    @property
+    def environments(self):
+        """The environments the merit counts, in order, each a dict with
+        number, id, name, value and optical_value, its own merit: on a design
+        with more than one environment, those that are on and hold a row of a
+        weight above 0, whose merits value is the root mean square of; on a
+        design with one, environment 1 with the design's merit.
+
+        Raises:
+            TFStudioError: a design that names a material that resolves to
+                nothing.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            design.merit.add("RAV", 450, 650, target=0)
+            for env in design.merit.environments:
+                print(env["number"], env["name"], env["value"])
+            print("total", design.merit.value)
+        """
+        return [{"number": env["number"], "id": env["id"], "name": env["name"],
+                 "value": env["total"], "optical_value": env["optical"]}
+                for env in self._evaluated()["environments"]]
 
     def __len__(self):
         """How many rows the merit function has.

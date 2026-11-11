@@ -2661,6 +2661,11 @@ class Design:
         defaults, are in the API Reference under synthesize; a setting left
         out takes its default.
 
+        On a design with more than one environment the run designs for
+        environment 1, the design's own media, substrate and layers: it fits
+        the rows scored there alone and reports their merit, while
+        design.merit.value is the merit over every environment that is on.
+
         Args:
             method: "needle", "ge" (Gradual Evolution) or "structural".
             pool: The materials the run may insert, by id, none twice.

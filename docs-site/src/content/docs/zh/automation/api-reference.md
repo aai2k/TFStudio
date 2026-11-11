@@ -2397,6 +2397,8 @@ print(run.merit, run.stop_reason)
 
 用一种合成方法按评价函数生长或重组设计，从材料池中插入材料，与该方法的窗口做法相同。之后设计保存运行的结果；运行被停止时，保留原来的膜层。每种方法的设置及其默认值列在 API 参考的 synthesize 下；未给出的设置取默认值。
 
+在有多个环境的设计上，运行只针对环境 1 设计，即设计自身的介质、基底和膜层：它只拟合在环境 1 中计分的行，给出的评价函数值也是这些行的；而 design.merit.value 是所有开启的环境上的评价函数值。
+
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
 | `method` | `method` |  | `'needle'`、`'ge'`（渐进演化）或 `'structural'`。 |
@@ -3701,7 +3703,7 @@ print(design.merit.value)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.merit.add(type, start, end, { target, weight, aoi, pol, targetEnd, cmp, flag, enabled, comment, id, refId, refId1, refId2 })` | `design.merit.add(type, start=..., end=..., target=..., weight=1, aoi=0, pol="avg", target_end=..., cmp=..., flag=..., enabled=True, comment=..., id=..., ref_id=..., ref_id1=..., ref_id2=...)` |
+| `design.merit.add(type, start, end, { target, weight, aoi, pol, targetEnd, cmp, flag, enabled, comment, id, refId, refId1, refId2, env })` | `design.merit.add(type, start=..., end=..., target=..., weight=1, aoi=0, pol="avg", target_end=..., cmp=..., flag=..., enabled=True, comment=..., id=..., ref_id=..., ref_id1=..., ref_id2=..., env=...)` |
 
 在评价函数末尾添加一行，做法与评价函数编辑器相同：未给出的字段取在编辑器中新加一行时的初始值。`start` 和 `end` 可以省略。
 
@@ -3723,11 +3725,13 @@ print(design.merit.value)
 | `refId` | `ref_id` |  | 对读取一行的数学行，为那一行的 id。 |
 | `refId1` | `ref_id1` |  | 对读取两行的数学行，为第一行的 id。 |
 | `refId2` | `ref_id2` |  | 对读取两行的数学行，为第二行的 id。 |
+| `env` | `env` |  | 在有多个环境的设计上，该行只在其中计分的环境，按从 1 开始的编号或其 id 给出。不给出时，该行在每个环境中计分。 |
 
 **拒绝**：
 
 - 此版本无法计算的类型、任何行都没有的字段、字段无法接受的值，或在读取波段或膜层范围的行上 `start` 大于 `end`
 - **JavaScript**：选项对象之前除 `start` 和 `end` 外还有其他值，或在选项中给出行的类型、`start` 或 `end`<br>**Python**：在关键字参数中给出行的 `start` 或 `end`
+- 在只有一个环境的设计上给出 env，或给出设计没有的环境
 
 ```js
 const design = tf.newDesign('AR');
@@ -3868,6 +3872,39 @@ design.stack("(HL)^2")
 design.merit.add("RAV", 450, 650, target=0)
 design.merit.add("MNT", target=100)
 print(design.merit.value, design.merit.optical_value)
+```
+
+### environments
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.merit.environments` | `design.merit.environments` |
+
+**JavaScript**：评价函数计入的环境，按顺序排列，每个为 `{ number, id, name, value, opticalValue }`，带有它自己的评价函数值：在有多个环境的设计上，是开启且有一行分量大于 0 的环境，`value` 是它们评价函数值的均方根；在只有一个环境的设计上，是带有设计评价函数值的环境 1。
+
+**Python**：评价函数计入的环境，按顺序排列，每个为一个 dict，含 number、id、name、value 和 optical_value，即它自己的评价函数值：在有多个环境的设计上，是开启且有一行分量大于 0 的环境，value 是它们评价函数值的均方根；在只有一个环境的设计上，是带有设计评价函数值的环境 1。
+
+**拒绝**：
+
+- 用到找不到对应材料的设计
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.merit.add('RAV', 450, 650, { target: 0 });
+for (const env of design.merit.environments) console.log(env.number, env.name, env.value);
+console.log('total', design.merit.value);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.merit.add("RAV", 450, 650, target=0)
+for env in design.merit.environments:
+    print(env["number"], env["name"], env["value"])
+print("total", design.merit.value)
 ```
 
 ### length / len()
@@ -4152,6 +4189,57 @@ design.stack("(HL)^2")
 design.merit.add("RAV", 450, 650, target=0)
 for row in design.merit.rows:
     print(row.type, row.error or "evaluated")
+```
+
+### env
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.env` | `row.env` |
+
+该行只在其中计分的环境的 id；在每个环境中计分的行为 `null` / `None`。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.merit.add('R', 550, { target: 0, env: 2 });
+console.log(design.merit.rows[0].env);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.merit.add("R", 550, target=0, env=2)
+print(design.merit.rows[0].env)
+```
+
+### values
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.values` | `row.values` |
+
+**JavaScript**：在有多个环境的设计上，该行在其计分的每个环境中的值，按顺序排列，每个为 `{ number, id, value, error }`；在只有一个环境的设计上为 null。
+
+**Python**：在有多个环境的设计上，该行在其计分的每个环境中的值，按顺序排列，每个为一个 dict，含 number、id、value 和 error；在只有一个环境的设计上为 None。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.merit.add('RAV', 450, 650, { target: 0 });
+for (const v of design.merit.rows[0].values) console.log('environment', v.number, v.value);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.merit.add("RAV", 450, 650, target=0)
+for v in design.merit.rows[0].values:
+    print("environment", v["number"], v["value"])
 ```
 
 ## Specification

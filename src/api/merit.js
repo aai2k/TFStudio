@@ -10,8 +10,10 @@ import { makeRowOperand } from '../components/windows/optimization/meritFunction
 import { editableColsForRow } from '../components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { meritTable } from '../utils/physics/meritDisplay.js';
+import { BASE_ENVIRONMENT, environmentsOf, hasEnvironments } from '../utils/environments/environments.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { environmentId } from './designEnvironments.js';
 import { isAngle, shown, refusal } from './check.js';
 
 // The fields an operand row holds, over every operand type: the editor's
@@ -23,7 +25,7 @@ const ROW_FIELDS = [
     'cmp', 'comment', 'detector', 'quantity', 'source', 'refId', 'refId1', 'refId2', 'baseType',
     'bandPoints', 'rampPoints', 'curveId', 'curveName', 'levelFree', 'measuredCurveBlockId', 'measurementSide',
     'side', 'deltaConvention', 'flag', 'sampleLambdas', 'sampleTargets', 'gridMode', 'sourceSpacingNm',
-    'presetKey', 'presetLabel',
+    'presetKey', 'presetLabel', 'env',
 ];
 
 const isNumber = v => Number.isFinite(v);
@@ -69,6 +71,18 @@ function madeRow(row) {
     return made;
 }
 
+// The id of the environment row `i` is scored in alone, from its `env`, by
+// the environment's id or number; undefined for a row of every environment.
+// A design with one environment takes no `env`.
+function rowEnvironment(design, row, i) {
+    if (row.env == null) return undefined;
+    if (!hasEnvironments(design)) {
+        throw refusal('oneEnvironment', { call: 'setMerit', row: i, option: 'env' },
+            `setMerit: row ${i}: the design has one environment, so a row takes no env; add another environment first`);
+    }
+    return environmentId('setMerit', design, row.env, { fields: { row: i }, named: `setMerit: row ${i}: env` });
+}
+
 // Whether `op` reads a band or a layer range that starts above its end. Only
 // such a row reads lambdaEnd; a single wavelength row keeps it from an earlier
 // type unread, as the editor does.
@@ -99,10 +113,12 @@ const isReversed = op => (readsWavelengthBand(op.type) || isConstraint(op.type))
  * @param [rows[].id] A name for the row, which a math row gives in `refId`, `refId1` or `refId2` to read it.
  * @param [rows[].refId] For a math row that reads one row, that row's `id`; `refId1` and `refId2` for one that reads two.
  * @param [rows[].comment] The text of a BLNK row.
+ * @param [rows[].env] On a design with more than one environment, the environment the row is scored in alone, by its number from 1 or its id; the row holds the id. Without it, or with null, the row is scored in every environment.
  * @returns The design with the merit function, which it holds in `meritOperands`.
  * @throws a type this version does not evaluate
  * @throws a field no row has, such as a misspelling, or a value a field cannot take
  * @throws a `lambdaStart` above `lambdaEnd` on a row that reads a band or a layer range
+ * @throws an `env` on a design with one environment, or one that names no environment of the design
  * @example
  * const ar = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: '(HL)^2' });
  * const design = tf.setMerit(ar, [
@@ -123,10 +139,15 @@ export function setMerit(design, rows) {
             throw refusal('bandOrder', { call: 'setMerit', row: i, start: made.lambdaStart, end: made.lambdaEnd },
                 `setMerit: row ${i}: lambdaStart ${made.lambdaStart} is above lambdaEnd ${made.lambdaEnd}`);
         }
+        // The row holds the id of the environment `env` names, whichever way
+        // it was given.
+        const env = rowEnvironment(design, row, i);
+        // eslint-disable-next-line no-unused-vars
+        const { env: given, ...own } = made;
         // A row given no id takes a fresh one, as the editor gives a new row
         // (operandModel.js makeOperand), so the rows of separate runs, and a
         // row added to a design whose rows an earlier run made, never share one.
-        return { ...made, id: row.id ?? makeOperand().id, enabled: row.enabled ?? true };
+        return { ...own, id: row.id ?? makeOperand().id, enabled: row.enabled ?? true, ...(env !== undefined ? { env } : {}) };
     });
     return { ...design, meritOperands: operands };
 }
@@ -158,14 +179,47 @@ function rowScope(op) {
     return { lambdaStart: op.lambdaStart, ...band, aoi: op.aoi, ...pol };
 }
 
+// Environment `id` of `design` as merit lists it: its number from 1, its id
+// and its name.
+function environmentEntry(design, id) {
+    const list = environmentsOf(design);
+    const index = list.findIndex(env => env.id === id);
+    return { number: index + 1, id, name: list[index].name ?? null };
+}
+
+// Each row's value and error in every environment it is scored in, from the
+// display of a design with environments.
+function rowValues(design, result, count) {
+    const values = Array.from({ length: count }, () => []);
+    for (const env of result.environments) {
+        const { number, id } = environmentEntry(design, env.id);
+        for (const i of env.rows) {
+            values[i].push({ number, id, value: env.computed[i] ?? null, error: env.errors[i] ? String(env.errors[i]) : null });
+        }
+    }
+    return values;
+}
+
+// The environments the merit counts, each with its own merit: the design
+// itself for a design with one environment.
+function environmentMerits(design, result) {
+    if (!result.environments) return [{ ...environmentEntry(design, BASE_ENVIRONMENT), total: result.mf, optical: result.omf }];
+    return result.environments.filter(env => env.scored)
+        .map(env => ({ ...environmentEntry(design, env.id), total: env.mf, optical: env.omf }));
+}
+
 /**
  * The merit of a design against its merit function, the total and each row,
- * as the Merit Function Editor shows them.
+ * as the Merit Function Editor shows them. A design with more than one
+ * environment is scored in each environment that is on: the total is
+ * √((1/N) Σ MF_k²) over the N environments that hold a row of a weight above
+ * 0, and the optical merit the same mean over those that hold an optical row.
  *
  * @param design The design.
  * @returns The merit.
  * @property total The merit function, or null while a row cannot be evaluated.
  * @property optical The merit without the manufacturing rows MNT, MXT, TT and STR, or null as `total`.
+ * @property environments The environments the total counts, in order, each `{ number, id, name, total, optical }`: its number from 1, its id, its name or null, and its own merit and optical merit. A design with one environment lists environment 1, with the design's merit.
  * @property rows One per row of the merit function, in order.
  * @property rows[].type The operand.
  * @property rows[].lambdaStart The row's wavelength, or the first wavelength of its band, nm; the first layer for MNT and MXT. Absent on a row that reads none.
@@ -173,10 +227,12 @@ function rowScope(op) {
  * @property rows[].aoi The angle of incidence, on a row that reads one.
  * @property rows[].pol The polarization the row is scored in; absent on a row scored on both, such as PSI or DPR.
  * @property rows[].cmp For TT and STR, the comparison.
- * @property rows[].value The row's value for the design as it is.
+ * @property rows[].value The row's value for the design as it is: in its own environment, or for a row of every environment in the first one it is scored in.
  * @property rows[].target The row's target.
  * @property rows[].weight The row's weight.
  * @property rows[].enabled `false` for a row left out of the merit.
+ * @property rows[].env The id of the environment the row is scored in alone, or null for a row of every environment.
+ * @property rows[].values On a design with more than one environment, the row's value in each environment it is scored in, in order, each `{ number, id, value, error }`; a row of an environment that is off has none.
  * @property rows[].error Why the row cannot be evaluated, or null.
  * @throws a design that names a material that resolves to nothing
  * @example
@@ -184,17 +240,27 @@ function rowScope(op) {
  * const m = tf.merit(tf.setMerit(ar, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }]));
  * console.log('Merit:', m.total);
  * for (const row of m.rows) console.log(row.type, row.value, row.target);
+ * const wet = tf.setMerit(tf.addEnvironment(ar, { name: 'Under water', incidentMedium: 'H2O' }), [
+ *     { type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 },
+ *     { type: 'R', lambdaStart: 550, target: 0, env: 2 },
+ * ]);
+ * const both = tf.merit(wet);
+ * for (const env of both.environments) console.log(env.number, env.name, env.total);
+ * for (const v of both.rows[0].values) console.log('RAV in environment', v.number, v.value);
  */
 export function merit(design) {
     requireResolved(design);
     const operands = design.meritOperands || [];
     if (operands.length) requireKernel();
     const result = meritTable(withHerpinRecords(design), operands);
+    const values = result.environments ? rowValues(design, result, operands.length) : null;
     return {
         total: result.mf, optical: result.omf,
+        environments: environmentMerits(design, result),
         rows: operands.map((op, i) => ({
             type: op.type, ...rowScope(op), value: result.computed[i], target: op.target, weight: op.weight,
-            enabled: op.enabled !== false, error: result.errors[i] ? String(result.errors[i]) : null,
+            enabled: op.enabled !== false, env: op.env ?? null, ...(values ? { values: values[i] } : {}),
+            error: result.errors[i] ? String(result.errors[i]) : null,
         })),
     };
 }

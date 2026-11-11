@@ -9,6 +9,8 @@ import { computeOperandDisplay, firstOperandErrorMessage } from './operandCheck.
 import { atDefaultSteps } from '../physics/meritDisplay.js';
 import { runDlsPool } from './dlsPool.js';
 import { runMethodsFlow } from './methodsFlow.js';
+import { hasEnvironments } from '../environments/environments.js';
+import { meritGroups } from '../environments/environmentMerit.js';
 
 // The result of a run that ends before it starts.
 const ended = (stopReason, extra = {}) => ({
@@ -18,13 +20,17 @@ const ended = (stopReason, extra = {}) => ({
     ...extra,
 });
 
+// Whether some row is scored in an environment that is on, as every row is on
+// a design without environments.
+const scoredSomewhere = (design, operands) => !hasEnvironments(design) || meritGroups(design, operands).length > 0;
+
 // The operands on the run's grid, the materials sampled on it and the design as
 // plain data, or the reason the run cannot start. The check only asks whether
 // every row evaluates, which its band's ends and materials decide, so it reads
 // the rows at their default steps: at a fine Step one evaluation takes seconds.
 function prepare(design, operands) {
     const enabled = operands.filter(op => op.enabled);
-    if (enabled.length === 0) return { failed: ended('noOperands') };
+    if (enabled.length === 0 || !scoredSomewhere(design, enabled)) return { failed: ended('noOperands') };
     const check = computeOperandDisplay(design, atDefaultSteps(operands));
     const message = firstOperandErrorMessage(operands, check?.errors);
     if (message) return { failed: ended('invalidOperand', { message }) };

@@ -22,7 +22,9 @@
  *      and the differences from it (in short with counts and the largest
  *      change, in full with every layer), environments added, set, listed as
  *      the API lists them and removed, and environment 1, an environment the
- *      design does not have and environment 1's media refused, merit and specification verdict the API computes for it in this
+ *      design does not have and environment 1's media refused, a row scored in
+ *      one environment with each environment's merit and each row's values,
+ *      and env refused on a design with one environment, merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
  *      they are, and an empty one clears it, answered with the mode; a design
@@ -265,6 +267,16 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('environment 1, an environment the design does not have and environment 1\'s media are refused, saying what they take',
         /environment 1 is the design itself and cannot be removed/.test(firstGone.error ?? '') && /environment is one of the design's environments by its number, 1 to 2, or its id, base or env2; not "env9"/.test(nineGone.error ?? '')
         && /setDesignSetup changes the design's own media and substrate/.test(baseMedium.error ?? ''), `${firstGone.error} | ${nineGone.error} | ${baseMedium.error}`);
+    const envRows = [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }, { type: 'R', lambdaStart: 550, target: 0, env: 2 }];
+    const envRated = await server.call('setMerit', { designId: envId, rows: envRows });
+    const envMerit = await server.call('merit', { designId: envId });
+    const envScored = api.merit(api.setMerit(envHere, envRows));
+    const envShown = m => JSON.stringify([m.total, m.optical, m.environments, m.rows]);
+    ok('setMerit takes env on a row, and merit gives each environment\'s merit and each row\'s env and values as the API does',
+        envShown(envRated) === envShown(envScored) && envShown(envMerit) === envShown(envScored) && envMerit.environments.length === 2 && envMerit.rows[1].env === 'env2',
+        JSON.stringify(envMerit).slice(0, 400));
+    const loneEnv = await server.call('setMerit', { designId: id, rows: [{ type: 'R', lambdaStart: 550, env: 2 }] });
+    ok('env on a row of a design with one environment is refused', /setMerit: row 0: the design has one environment, so a row takes no env/.test(loneEnv.error ?? ''), loneEnv.error);
     const removedEnv = await server.call('removeEnvironment', { designId: envId, environment: 'env2' });
     ok('removeEnvironment answers with the design, which then has environment 1 alone', removedEnv.designId === envId
         && JSON.stringify((await server.call('environments', { designId: envId })).environments.map(env => env.id)) === JSON.stringify(['base']));

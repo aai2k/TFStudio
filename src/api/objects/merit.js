@@ -157,6 +157,33 @@ export class MeritRow {
      */
     get error() { return this._row.error ?? null; }
 
+    /**
+     * The id of the environment the row is scored in alone, or null for a row
+     * of every environment.
+     *
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('(HL)^2');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * design.merit.add('R', 550, { target: 0, env: 2 });
+     * console.log(design.merit.rows[0].env);
+     */
+    get env() { return this._row.env ?? null; }
+
+    /**
+     * On a design with more than one environment, the row's value in each
+     * environment it is scored in, in order, each `{ number, id, value, error }`;
+     * null on a design with one environment.
+     *
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('(HL)^2');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * design.merit.add('RAV', 450, 650, { target: 0 });
+     * for (const v of design.merit.rows[0].values) console.log('environment', v.number, v.value);
+     */
+    get values() { return this._row.values ?? null; }
+
     // What console.log prints for a row.
     [inspect.custom]() { return `<MeritRow ${this.type} ${this.start}..${this.end}: ${this.value} for ${this.target}>`; }
 }
@@ -201,8 +228,10 @@ export class Merit {
      * @param [options.refId] For a math row that reads one row, that row's id.
      * @param [options.refId1] For a math row that reads two rows, the first one's id.
      * @param [options.refId2] For a math row that reads two rows, the second one's id.
+     * @param [options.env] On a design with more than one environment, the environment the row is scored in alone, by its number from 1 or its id. Without it, the row is scored in every environment.
      * @throws a type this version does not evaluate, a field no row has, a value a field cannot take, or `start` above `end` on a row that reads a band or a layer range
      * @throws more than `start` and `end` before the options, or the row's type, `start` or `end` among the options
+     * @throws an env on a design with one environment, or one the design does not have
      * @example
      * const design = tf.newDesign('AR');
      * design.stack('(HL)^2');
@@ -273,6 +302,26 @@ export class Merit {
      * console.log(design.merit.value, design.merit.opticalValue);
      */
     get opticalValue() { return this._evaluated().optical; }
+
+    /**
+     * The environments the merit counts, in order, each `{ number, id, name,
+     * value, opticalValue }` with its own merit: on a design with more than
+     * one environment, those that are on and hold a row of a weight above 0,
+     * whose merits `value` is the root mean square of; on a design with one,
+     * environment 1 with the design's merit.
+     *
+     * @throws a design that names a material that resolves to nothing
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('(HL)^2');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * design.merit.add('RAV', 450, 650, { target: 0 });
+     * for (const env of design.merit.environments) console.log(env.number, env.name, env.value);
+     * console.log('total', design.merit.value);
+     */
+    get environments() {
+        return this._evaluated().environments.map(({ total, optical, ...env }) => ({ ...env, value: total, opticalValue: optical }));
+    }
 
     /**
      * How many rows the merit function has.

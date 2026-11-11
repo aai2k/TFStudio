@@ -79,16 +79,19 @@ function storedFields({ substrate, substrateThicknessMm, ...fields }) {
     return Object.keys(held).length ? { ...fields, substrate: held } : fields;
 }
 
-// The id of the environment `environment` names, by its id or its number from
-// 1, or a refusal that lists the numbers and ids the design has.
-function environmentId(call, design, environment) {
+/**
+ * The id of the environment `environment` names, by its id or its number from
+ * 1, or a refusal that lists the numbers and ids the design has. `fields` go
+ * into the refusal's fields, and `named` names what was given in its message.
+ */
+export function environmentId(call, design, environment, { fields = {}, named = `${call}: environment` } = {}) {
     const list = environmentsOf(design);
     const found = Number.isInteger(environment) ? list[environment - 1] : list.find(env => env.id === environment);
     if (found) return found.id;
     const ids = list.map(env => env.id);
     const numbers = ids.map((_, i) => i + 1);
-    throw refusal('unknownEnvironment', { call, environment, numbers, ids },
-        `${call}: environment is one of the design's environments by its number, ${numbers.length === 1 ? '1' : `1 to ${numbers.length}`}, or its id, ${orList(ids)}; not ${shown(environment)}`);
+    throw refusal('unknownEnvironment', { call, ...fields, environment, numbers, ids },
+        `${named} is one of the design's environments by its number, ${numbers.length === 1 ? '1' : `1 to ${numbers.length}`}, or its id, ${orList(ids)}; not ${shown(environment)}`);
 }
 
 /**

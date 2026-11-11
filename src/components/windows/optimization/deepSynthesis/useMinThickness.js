@@ -1,5 +1,5 @@
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
-import { strictestMnt, deriveDMinDefault } from '../synthesisShared/minThickness.js';
+import { synthesisMntFloor, deriveDMinDefault } from '../synthesisShared/minThickness.js';
 import { DEEP_RUN_DEFAULTS } from '../../../../utils/synthesis/deepSynthesis/settings.js';
 import { DEEP_DMIN_KEY } from './deepSynthesisSettings.js';
 
@@ -14,7 +14,7 @@ const { useCallback, useEffect, useRef } = React;
 export function useMinThickness(design, runningRef) {
     const fallback = DEEP_RUN_DEFAULTS.dMin;
     const [dMin, setDMin, typedBefore] = usePersistentNumber(DEEP_DMIN_KEY, fallback);
-    const maxMNT = strictestMnt(design?.meritOperands);
+    const maxMNT = synthesisMntFloor(design);
     const track = useRef(null);
     if (!track.current) {
         track.current = { dMinRef: { current: dMin }, dMinTouchedRef: { current: typedBefore }, lastIdForDMin: { current: null } };

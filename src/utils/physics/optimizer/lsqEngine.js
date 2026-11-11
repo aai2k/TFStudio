@@ -20,13 +20,17 @@
 import {
     isFullSystemEval, effectiveBackLayers,
     evaluateOperands, phaseDispersionThicknessPoint, ellipsometryThicknessPoint,
-    residualScaleIn, calcMF, mfWeightDenominator,
+    residualScaleIn, calcMF,
     operandEvaluationErrors, OperandEvaluationError, operandSampleDeviations,
 } from './evalCore.js';
 import { operandResidualRows } from './residualRows.js';
 import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
 import { makeConeSpec, coneIsActive } from './coneAngle.js';
-import { mirrorLayers } from './layerOps.js';
+import { mediumId, variableOrder, stacksAt, designAt } from './engineLayout.js';
+import { fdJacobian, meritGradient } from './meritGradient.js';
+import { EnvironmentGroups } from './environmentGroups.js';
+import { hasEnvironments } from '../../environments/environments.js';
+import { groupRows, environmentOneAlone } from '../../environments/environmentMerit.js';
 import { solveLeastSquaresQR } from './linalg.js';
 import { halfWaveSpans, limitStepToSpans } from './halfWaveSpan.js';
 import { LM_MAX_DAMPING, scaledStepRatio, predictedReduction, lmStopReason } from './lmStopping.js';
@@ -49,6 +53,10 @@ function cachedAt(entry, thk, freeIdx) {
 
 export class LSQEngine {
     constructor(operands, design, resolveMat, opts = {}) {
+        // A merit that counts environment 1 alone is scored as that design
+        // without environments, on the rows scored there (environmentMerit.js).
+        const alone = hasEnvironments(design) && environmentOneAlone(design, operands);
+        if (alone) ({ design, operands } = alone);
         // Measured spectra persist as one compact, immutable snapshot operand,
         // but least-squares engines need one residual row per measured point.
         // Expanding defensively here covers every optimizer entry point (main
@@ -77,12 +85,9 @@ export class LSQEngine {
         // independent back variables; effectiveBackLayers holds that rule.
         const back  = effectiveBackLayers(design);
 
-        const inc  = typeof design.incidentMedium === 'string' ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
-        const exit = typeof design.exitMedium     === 'string' ? design.exitMedium     : (design.exitMedium?.material     ?? 'Air');
-
-        this.n0mat = resolveMat(inc);
+        this.n0mat = resolveMat(mediumId(design.incidentMedium));
         this.nsmat = resolveMat(design.substrate?.material ?? 'BK7');
-        this.neMat = resolveMat(exit);
+        this.neMat = resolveMat(mediumId(design.exitMedium));
         this.substrateThicknessMm = design.substrate?.thickness ?? 1.0;
 
         this.frontMats        = front.map(l => resolveMat(l.material));
@@ -94,24 +99,10 @@ export class LSQEngine {
         this.nFront           = this.frontThicks.length;
         this.nBack            = this.backThicks.length;
 
-        // Optimization variable vector. Layout depends on surfaceMode:
-        //   front_only      → [front...]                  back is bare substrate (ignored)
-        //   back_only       → [back...]                   front held fixed, optimize back
-        //   symmetric       → [front...]                  back is auto-mirrored every eval
-        //   both_independent→ [front..., back...]         optimize both
-        if (this.surfaceMode === 'both_independent') {
-            this.thicknesses = [...this.frontThicks, ...this.backThicks];
-            this.mats        = [...this.frontMats, ...this.backMats];
-            this.lockedMask  = [...this.frontLockedMask, ...this.backLockedMask];
-        } else if (this.surfaceMode === 'back_only') {
-            this.thicknesses = [...this.backThicks];
-            this.mats        = [...this.backMats];
-            this.lockedMask  = [...this.backLockedMask];
-        } else {
-            this.thicknesses = [...this.frontThicks];
-            this.mats        = [...this.frontMats];
-            this.lockedMask  = [...this.frontLockedMask];
-        }
+        // Optimization variable vector, laid out by surfaceMode (engineLayout.js).
+        this.thicknesses = variableOrder(this.surfaceMode, this.frontThicks, this.backThicks);
+        this.mats        = variableOrder(this.surfaceMode, this.frontMats, this.backMats);
+        this.lockedMask  = variableOrder(this.surfaceMode, this.frontLockedMask, this.backLockedMask);
 
         // Thickness box, nm. No upper bound unless the caller passes one: the
         // user's own upper bound is the MXT operand, and LWIR half-wave layers
@@ -128,15 +119,10 @@ export class LSQEngine {
         this.tol    = opts.tol    ?? 1e-7;
         this.h      = opts.fdStep ?? 1.0;
 
-        const comp0    = evaluateOperands(this.operands, this._ctxFor(this.thicknesses));
-        const errorIndex = operandEvaluationErrors(comp0).findIndex(Boolean);
-        if (errorIndex >= 0) {
-            const op = this.operands[errorIndex];
-            throw new OperandEvaluationError(
-                `Row ${errorIndex + 1} ${op.type}: ${operandEvaluationErrors(comp0)[errorIndex]}`,
-            );
-        }
-        this.mf        = calcMF(this.operands, comp0);
+        // A design with environments is scored over them as groups, each
+        // checking its own rows (environmentGroups.js); without, as one stack.
+        if (hasEnvironments(design)) this._startGroups(design, operands, resolveMat, opts);
+        else this.mf = this._startMerit();
         this.mfBest    = this.mf;
         this.thickBest = [...this.thicknesses];
         this.iter      = 0;
@@ -146,41 +132,48 @@ export class LSQEngine {
         this.convergedBy = null;
     }
 
-    // Build the eval-context for a candidate thickness vector, splitting it
-    // into front/back according to surfaceMode.
-    _ctxFor(thk) {
-        let frontThicks, frontMats, backThicks, backMats;
-        if (this.surfaceMode === 'both_independent') {
-            frontThicks = thk.slice(0, this.nFront);
-            backThicks  = thk.slice(this.nFront);
-            frontMats   = this.frontMats;
-            backMats    = this.backMats;
-        } else if (this.surfaceMode === 'symmetric') {
-            // Mirror symmetry: back is the front stack reversed (front is
-            // stored air→sub, back is stored sub→exit, so an identical
-            // physical coating means back = reverse(front)).
-            frontThicks = thk;
-            backThicks  = [...thk].reverse();
-            frontMats   = this.frontMats;
-            backMats    = [...this.frontMats].reverse();
-        } else if (this.surfaceMode === 'back_only') {
-            // Back is the optimization vector. Front is fixed — kept in ctx so a
-            // 'total' MF evaluates the back coating against the whole filter
-            // (fixed front + substrate). In 'side' mode tmmProp reads only the
-            // back stack, so the fixed front is simply ignored.
-            frontThicks = this.frontThicks;
-            backThicks  = thk;
-            frontMats   = this.frontMats;
-            backMats    = this.backMats;
-        } else {
-            // front_only: front is the optimization vector. The back coating is
-            // fixed; include it only for 'total' MF (otherwise empty → the
-            // legacy single-front-surface model is used by tmmProp).
-            frontThicks = thk;
-            frontMats   = this.frontMats;
-            backThicks  = this.evalFullSystem ? this.backThicks : [];
-            backMats    = this.evalFullSystem ? this.backMats   : [];
+    // The groups of a design with environments, each an engine of its own on
+    // the design one environment sees (environmentGroups.js), and the merit
+    // at the start. The engine's own rows and step spans are then those of the
+    // rows a group scores, so a row of an environment switched off neither
+    // bounds a step nor holds an SQP box.
+    _startGroups(design, operands, resolveMat, opts) {
+        const stackOpts = { dMin: opts.dMin, dMax: opts.dMax };
+        const makeStack = (rows, own) => new LSQEngine(rows, own, resolveMat, stackOpts);
+        this._groups = new EnvironmentGroups(design, operands, this.surfaceMode, makeStack);
+        this.operands = expandMeasuredCurveOperands(groupRows(operands, this._groups.rows));
+        this.stepSpans = this._groups.stepSpans(this.thicknesses.length);
+        this.mf = this._groups.merit(this._groups.evaluate(this.thicknesses));
+    }
+
+    // The merit at the start, after checking that every row evaluates.
+    _startMerit() {
+        const comp0    = evaluateOperands(this.operands, this._ctxFor(this.thicknesses));
+        const errorIndex = operandEvaluationErrors(comp0).findIndex(Boolean);
+        if (errorIndex >= 0) {
+            const op = this.operands[errorIndex];
+            throw new OperandEvaluationError(
+                `Row ${errorIndex + 1} ${op.type}: ${operandEvaluationErrors(comp0)[errorIndex]}`,
+            );
         }
+        return calcMF(this.operands, comp0);
+    }
+
+    // The rows evaluated at the thickness vector thk: one evaluation, or for a
+    // design with environments one per group.
+    _evaluate(thk) {
+        return this._groups ? this._groups.evaluate(thk) : evaluateOperands(this.operands, this._ctxFor(thk));
+    }
+
+    // The merit (calcMF) of an evaluation _evaluate made; `opts` as calcMF's.
+    _meritOf(comp, opts) {
+        return this._groups ? this._groups.merit(comp, opts) : calcMF(this.operands, comp, opts);
+    }
+
+    // Build the eval-context for a candidate thickness vector, splitting it
+    // into front/back according to surfaceMode (engineLayout.js).
+    _ctxFor(thk) {
+        const { frontThicks, frontMats, backThicks, backMats } = stacksAt(this, thk);
         return {
             _isEvalContext:       true,
             surfaceMode:          this.surfaceMode,
@@ -207,6 +200,7 @@ export class LSQEngine {
     // full TMM operand sweep per step (M5). Omitted ⇒ evaluate here as before
     // (perturbed FD points always recompute — they pass no compBase).
     _residuals(thicknesses, compBase) {
+        if (this._groups) return this._groups.residuals(thicknesses, compBase);
         const comp = compBase !== undefined
             ? compBase
             : evaluateOperands(this.operands, this._ctxFor(thicknesses));
@@ -264,6 +258,7 @@ export class LSQEngine {
     // violated tests); the Jacobian's own TMM derivatives are computed separately
     // via tmmJacEval. Omitted ⇒ evaluate here as before. Bit-identical either way.
     _analyticJacobian(thk, freeIdx, compBase) {
+        if (this._groups) return this._groups.jacobian(thk, freeIdx, compBase);
         // Variable layout (which free vars exist) is set by surfaceMode; whether
         // the MF is scored full-system is set by evalFullSystem. front_only/
         // back_only + 'total' reuse the validated full-system chain rule but with
@@ -354,7 +349,7 @@ export class LSQEngine {
     // Newton-CG / SQP run their own algorithm natively in EVERY surface mode
     // instead of silently reverting to the LM step. Returns a full symmetric H.
     _gaussNewtonSystem(thk, freeIdx) {
-        const compBase = evaluateOperands(this.operands, this._ctxFor(thk));   // shared base eval (M5)
+        const compBase = this._evaluate(thk);   // shared base eval (M5)
         const r0 = this._residuals(thk, compBase);
         const m  = r0.length, nFree = freeIdx.length;
         let J = this._analyticJacobian(thk, freeIdx, compBase);
@@ -369,8 +364,10 @@ export class LSQEngine {
     // and every operand supports the analytic curvature. Otherwise _newtonSystem
     // falls back to the Gauss-Newton system. The curvature sampler reads one
     // angle of incidence, so a cone-averaged merit takes the Gauss-Newton system
-    // too, with the cone-averaged Jacobian.
+    // too, with the cone-averaged Jacobian, and so does a merit over several
+    // environments, whose groups each compute a stack of their own.
     _fullNewtonSupported(sm, isSingleBack) {
+        if (this._groups) return false;
         if (sm !== 'front_only' && !isSingleBack) return false;
         if (this.evalFullSystem) return false;
         if (coneIsActive(this.cone)) return false;
@@ -442,28 +439,16 @@ export class LSQEngine {
     // `lmStep` fallback. The LM `step()` below is the engine's default strategy.
 
     // Central-difference Jacobian J[m × nFree] of the residuals, used when the
-    // analytic Jacobian declines a merit term. Costs 2·nFree extra TMM passes.
+    // analytic Jacobian declines a merit term (meritGradient.js).
     _fdJacobian(thk, freeIdx, m) {
-        const nFree = freeIdx.length;
-        const J = Array.from({ length: m }, () => new Array(nFree).fill(0));
-        for (let ci = 0; ci < nFree; ci++) {
-            const k  = freeIdx[ci];
-            const hk = Math.max(this.h, Math.abs(thk[k]) * 1e-4);
-            const thkP = [...thk]; thkP[k] = Math.min(thk[k] + hk, this.D_MAX);
-            const thkM = [...thk]; thkM[k] = Math.max(thk[k] - hk, this.D_MIN);
-            const rP = this._residuals(thkP);
-            const rM = this._residuals(thkM);
-            const dh = thkP[k] - thkM[k];
-            if (dh > 0) for (let ri = 0; ri < m; ri++) J[ri][ci] = (rP[ri] - rM[ri]) / dh;
-        }
-        return J;
+        return fdJacobian(this, thk, freeIdx, m);
     }
 
     _linearizationAt(thk, freeIdx) {
         const cached = this._linearizationCache;
         if (cachedAt(cached, thk, freeIdx)) return cached;
 
-        const compBase = evaluateOperands(this.operands, this._ctxFor(thk));
+        const compBase = this._evaluate(thk);
         const r0 = this._residuals(thk, compBase);
         let J = this._analyticJacobian(thk, freeIdx, compBase);
         if (!J) J = this._fdJacobian(thk, freeIdx, r0.length);
@@ -538,8 +523,7 @@ export class LSQEngine {
         const delta = limitStepToSpans(solveLeastSquaresQR(aug, rhs), moveIdx, this.stepSpans);
         const thkTry = projectedTrial(this, freeIdx, moveIdx, delta);
 
-        const comp   = evaluateOperands(this.operands, this._ctxFor(thkTry));
-        const mfTry  = calcMF(this.operands, comp);
+        const mfTry  = this._meritOf(this._evaluate(thkTry));
 
         let accepted = null;
         if (mfTry < this.mf) {
@@ -574,84 +558,27 @@ export class LSQEngine {
     // Merit function at an arbitrary thickness vector (identical math to the
     // value DLS / DE / SA minimize — straight calcMF on _ctxFor(thk)).
     mfAt(thk) {
-        return calcMF(this.operands, evaluateOperands(this.operands, this._ctxFor(thk)));
+        return this._meritOf(this._evaluate(thk));
     }
 
     // Optical merit (OMF) at an arbitrary thickness vector — same eval as mfAt
     // but excluding MNT/MXT/TT manufacturability penalties (skipConstraints).
     // Surfaced for display ONLY; the optimizer still minimizes the full mfAt.
     mfOpticalAt(thk) {
-        return calcMF(this.operands, evaluateOperands(this.operands, this._ctxFor(thk)), { skipConstraints: true });
+        return this._meritOf(this._evaluate(thk), { skipConstraints: true });
     }
 
     // { mf: mfAt(thk), omf: mfOpticalAt(thk) } from one evaluation, bit for bit.
     meritsAt(thk) {
-        const comp = evaluateOperands(this.operands, this._ctxFor(thk));
-        return { mf: calcMF(this.operands, comp), omf: calcMF(this.operands, comp, { skipConstraints: true }) };
+        const comp = this._evaluate(thk);
+        return { mf: this._meritOf(comp), omf: this._meritOf(comp, { skipConstraints: true }) };
     }
 
-    // Exact analytic gradient ∇MF(thk), length = thk.length, zero at locked
-    // indices. Derivation: MF = √(SSR/ΣW), SSR = Σ rᵢ² = dot(_residuals).
-    // _analyticJacobian is J = ∂(_residuals)/∂d, so ∂SSR/∂dⱼ = 2(Jᵀr)ⱼ and
-    //   ∇MF = ∇SSR / (2·ΣW·MF) = (Jᵀr)·MF / SSR
-    // (ΣW cancels via SSR = ΣW·MF²). Falls back to central differences on mfAt
-    // when the analytic Jacobian declines a merit term (ramp/TT/total
-    // single-side) — same fallback policy as step(). Both branches return the
-    // TRUE ∇MF, so CG sees a consistent gradient regardless of branch.
+    // Exact analytic gradient ∇MF(thk), length thk.length, zero at locked
+    // indices, or central differences where the analytic Jacobian declines a
+    // merit term (meritGradient.js).
     gradMF(thk, freeIdxIn) {
-        const free  = freeIdxIn || thk.map((_, i) => i).filter(i => !this.lockedMask[i]);
-        const nFree = free.length;
-        const g     = new Array(thk.length).fill(0);
-        if (nFree === 0) return g;
-
-        // Shared base-point sweep for residuals + Jacobian (M5). gradMF is the hot
-        // path for CG (default synthesis refiner) and Newton-CG, so this halves
-        // its per-call TMM cost. Pure ⇒ bit-identical.
-        const compBase = evaluateOperands(this.operands, this._ctxFor(thk));
-        const r   = this._residuals(thk, compBase);
-        const m   = r.length;
-        let SSR = 0;
-        for (let i = 0; i < m; i++) SSR += r[i] * r[i];
-        if (SSR === 0 || m === 0) return g;   // already at a target → zero gradient
-
-        const J = this._analyticJacobian(thk, free, compBase);
-        if (J) {
-            // ∇MF = (Jᵀr) / (‖r‖ · √D)  where MF = √(SSR/D) and SSR = Σ(√w·r)².
-            // D is calcMF's normalization denominator over the rows it scored
-            // at this point (optical weight only, never the MNT/MXT/TT
-            // constraint weights, and never a comment row's), so the gradient
-            // is the gradient of the reported MF.
-            let sumW = mfWeightDenominator(this.operands, compBase);
-            if (sumW <= 0) sumW = 1;
-            const normR = Math.sqrt(SSR);           // = ‖r‖ = √D · MF
-            const scale = 1 / (normR * Math.sqrt(sumW));   // = 1/(‖r‖·√ΣW) = ∇MF scale
-            for (let ci = 0; ci < nFree; ci++) {
-                let s = 0;
-                for (let ri = 0; ri < m; ri++) s += J[ri][ci] * r[ri];
-                g[free[ci]] = s * scale;
-            }
-            return g;
-        }
-
-        // FD fallback — central differences on the true MF.
-        return this._gradMFFallbackFD(thk, free, g);
-    }
-
-    // Central-difference ∇MF, used when the analytic Jacobian declines a merit
-    // term (ramp/TT/total single-side). Differentiates the true MF
-    // directly; writes into g and returns it.
-    _gradMFFallbackFD(thk, free, g) {
-        this.mfAt(thk);   // warm the eval cache at the base point
-        for (let ci = 0; ci < free.length; ci++) {
-            const k  = free[ci];
-            const hk = Math.max(this.h, Math.abs(thk[k]) * 1e-4);
-            const thkP = thk.slice(); thkP[k] = Math.min(thk[k] + hk, this.D_MAX);
-            const thkM = thk.slice(); thkM[k] = Math.max(thk[k] - hk, this.D_MIN);
-            const dh = thkP[k] - thkM[k];
-            if (dh <= 0) { g[k] = 0; continue; }
-            g[k] = (this.mfAt(thkP) - this.mfAt(thkM)) / dh;
-        }
-        return g;
+        return meritGradient(this, thk, freeIdxIn);
     }
 
     _hasFreeParameters() {
@@ -668,34 +595,12 @@ export class LSQEngine {
 
     restoreBest() {
         this.thicknesses = [...this.thickBest];
-        const comp = evaluateOperands(this.operands, this._ctxFor(this.thicknesses));
-        this.mf = calcMF(this.operands, comp);
+        this.mf = this._meritOf(this._evaluate(this.thicknesses));
     }
 
+    // `d` with the engine's thicknesses in its variable layers (engineLayout.js).
     applyToDesign(d) {
-        if (this.surfaceMode === 'both_independent') {
-            const frontT = this.thicknesses.slice(0, this.nFront);
-            const backT  = this.thicknesses.slice(this.nFront);
-            const front = (d.frontLayers || []).map((l, i) => ({ ...l, thickness: frontT[i] ?? l.thickness }));
-            const back  = (d.backLayers  || []).map((l, i) => ({ ...l, thickness: backT[i]  ?? l.thickness }));
-            return { ...d, frontLayers: front, backLayers: back };
-        }
-        if (this.surfaceMode === 'symmetric') {
-            // Front + back share the same thicknesses (and the same materials, by definition).
-            const front = (d.frontLayers || []).map((l, i) => ({ ...l, thickness: this.thicknesses[i] ?? l.thickness }));
-            // Build back as the mirror of front: reversed order so the
-            // physical coating is identical outward from the substrate.
-            const back  = mirrorLayers(front);
-            return { ...d, frontLayers: front, backLayers: back };
-        }
-        if (this.surfaceMode === 'back_only') {
-            // Front is untouched; optimization vector → back thicknesses.
-            const back = (d.backLayers || []).map((l, i) => ({ ...l, thickness: this.thicknesses[i] ?? l.thickness }));
-            return { ...d, backLayers: back };
-        }
-        // front_only (legacy)
-        const front = (d.frontLayers || []).map((l, i) => ({ ...l, thickness: this.thicknesses[i] ?? l.thickness }));
-        return { ...d, frontLayers: front };
+        return designAt(this, d);
     }
 }
 
@@ -705,57 +610,5 @@ export class LSQEngine {
 // Newton/Newton-CG/SQP subclasses extend.
 export class DLSOptimizer extends LSQEngine {}
 
-// ── Refinement early-termination ─────────────────────────────────────────────
-// Trubetskov, "Deep search methods for multilayer coating design," Appl. Opt.
-// 59, A75 (2020): the only "machine-learning" feature of deep search is killing
-// doomed refinements early by comparing each refinement's merit-vs-iteration
-// trajectory against the best stored ones, so a wide candidate sweep (refine
-// ALL P-minima, keep best) becomes affordable instead of O(candidates × full
-// refine). This runs an *existing* DLSOptimizer to convergence OR until its MF
-// trajectory shows it cannot beat a reference trajectory.
-//
-// PURE CONTROL LOGIC: it only calls dls.step() (unchanged) and reads dls.mf, so
-// the bit-identical worker-equivalence guarantee (project_optimizer_worker) is
-// untouched. step() accepts only improving moves, so dls.mf is monotone
-// non-increasing and dls.thicknesses always holds the best — no restoreBest()
-// needed after an early stop.
-//
-// Abort policy (conservative — must never kill a refinement that would have
-// won): a refinement is aborted only when it is BOTH (a) plateaued — relative
-// MF gain over the last `patience` steps below `minRelGain` — AND (b) trailing
-// the reference trajectory at the same iteration by more than `margin`. A
-// late-bloomer (still dropping fast) is never killed because (a) fails. With no
-// reference, only the plateau test applies (it is then just an early-convergence
-// exit, not a comparative kill).
-//
-// opts: { maxIter=60, reference=null, warmup=4, patience=5, minRelGain=1e-3,
-//         margin=0.05 }
-// returns { mf, iters, trajectory, aborted }
-export function refineWithEarlyStop(dls, opts = {}) {
-    const maxIter    = opts.maxIter    ?? 60;
-    const reference  = opts.reference  || null;
-    const warmup     = opts.warmup     ?? 4;
-    const patience   = opts.patience   ?? 5;
-    const minRelGain = opts.minRelGain ?? 1e-3;
-    const margin     = opts.margin     ?? 0.05;
-
-    const trajectory = [dls.mf];
-    let aborted = false;
-    while (!(dls.isConverged() || dls.iter >= maxIter)) {
-        dls.step();
-        trajectory.push(dls.mf);
-        const t = trajectory.length - 1;
-        if (t < warmup) continue;
-
-        // (a) plateau: relative MF gain over the patience window
-        const past    = trajectory[Math.max(0, t - patience)];
-        const relGain = past > 0 ? (past - dls.mf) / past : 0;
-        if (relGain >= minRelGain) continue;       // still progressing — keep going
-
-        if (!reference) { aborted = true; break; }  // plateaued, no rival → converged-enough
-        // (b) trailing the reference at this iteration → can't catch up
-        const ref = reference[Math.min(t, reference.length - 1)];
-        if (ref != null && dls.mf > ref * (1 + margin)) { aborted = true; break; }
-    }
-    return { mf: dls.mf, iters: dls.iter, trajectory, aborted };
-}
+// The refinement early termination of deep search, kept with the engine it runs.
+export { refineWithEarlyStop } from './earlyStop.js';

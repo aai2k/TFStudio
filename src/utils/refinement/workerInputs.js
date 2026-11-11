@@ -9,6 +9,7 @@ import {
     densifyOperandsForFeatures, ADAPTIVE_SAMPLING_DEFAULTS, withDesignSampleCounts,
     buildPresampledTable, isPhaseDispersion,
 } from '../physics/optimizer.js';
+import { hasEnvironments, environmentMaterialIds } from '../environments/environments.js';
 
 // Run sampling grid: at launch, band averages, integrals and range targets get
 // the sample count the design's fringe spacing needs, then the band-sampled
@@ -28,10 +29,15 @@ export function densifyForRun(ops, design) {
 // (catalog access is absent in the worker); the worker rebuilds a table-lookup
 // getNK from these arrays and the floats match bit-for-bit because both sides
 // derive λ from the same `operandSampleLambdas` helper.
+// A design with environments has every environment's materials sampled too:
+// a worker reads a material its table lacks as Air, so one left out would
+// compute without a word.
 export function presampleMaterials(design, ops) {
     const resolveMaterial = designMaterialLookup(design);
     const lambdas = requiredLambdas(ops);
-    const ids     = collectDesignMaterialIds(design);
+    const ids     = hasEnvironments(design)
+        ? [...new Set([...collectDesignMaterialIds(design), ...environmentMaterialIds(design)])]
+        : collectDesignMaterialIds(design);
     const pairs = ids.map(id => ({ id, mat: resolveMaterial(id) }));
     return buildPresampledTable(lambdas, pairs, {
         includeOmegaResponses: ops.some(op => op.enabled && isPhaseDispersion(op.type)),
@@ -54,5 +60,7 @@ export function buildPayload(curDes) {
         // Stress run temperatures, so a worker scores an STR row with the same
         // thermal terms the main thread shows.
         ...(curDes.stress ? { stress: curDes.stress } : {}),
+        // The environments, so the engines score every one that is on.
+        ...(hasEnvironments(curDes) ? { environments: curDes.environments } : {}),
     };
 }
