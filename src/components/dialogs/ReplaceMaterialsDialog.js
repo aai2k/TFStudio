@@ -2,11 +2,14 @@
  * ReplaceMaterialsDialog — swap any material used in the design for another.
  *
  * Lists every distinct material referenced by the media, substrate and both
- * layer stacks, with its usage count. Applying a replacement changes every
- * matching reference. Optionally preserves each changed layer's n·d optical
- * thickness at the design reference wavelength.
+ * layer stacks, and by the design's other environments, with its usage count.
+ * Applying a replacement changes every matching reference. Optionally
+ * preserves each changed layer's n·d optical thickness at the design
+ * reference wavelength.
  */
 
+import { environmentMaterialIds } from '../../utils/environments/environments.js';
+import { replaceEnvironmentMaterials } from '../../utils/environments/environmentMaterials.js';
 import { resolveColor } from '../../utils/materials/catalogManager.js';
 import { designMaterialName, resolveDesignMaterial } from '../../utils/materials/designMaterials.js';
 import { MaterialPicker } from '../ui/MaterialPicker.js';
@@ -30,6 +33,7 @@ export function collectMaterials(design) {
     for (const arr of [design.frontLayers || [], design.backLayers || []]) {
         for (const layer of arr) add(layer.material);
     }
+    for (const id of environmentMaterialIds(design)) add(id);
     return order.map(id => ({ id, count: counts.get(id) }));
 }
 
@@ -57,14 +61,14 @@ export function replaceMaterialReferences(design, replacements, options = {}) {
         }
         return { ...layer, material, thickness };
     });
-    return {
+    return replaceEnvironmentMaterials({
         ...design,
         incidentMedium: replace(design.incidentMedium),
         substrate: { ...design.substrate, material: replace(design.substrate?.material) },
         exitMedium: replace(design.exitMedium),
         frontLayers: swapLayers(design.frontLayers),
         backLayers: swapLayers(design.backLayers),
-    };
+    }, replacements);
 }
 
 export function ReplaceMaterialsDialog({ design, updateDesign, c, t, onClose }) {

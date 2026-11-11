@@ -709,9 +709,10 @@ export const BUILDERS = {
         kit.writeRaw('Two-layer V-coat.tfs', Buffer.concat([Buffer.from([0xFF, 0xFE]), Buffer.from(text, 'utf16le')]));
     },
 
-    // A file as a newer release might write it: format 1.3, with fields this
-    // release does not know at the top level, on the substrate, on layers of
-    // both sides and on an operand, and on the embedded copy of a material.
+    // A file as a later release might write it: stamped 1.3, before that
+    // format existed, with fields no release knows at the top level, on the
+    // substrate, on layers of both sides and on an operand, and on the
+    // embedded copy of a material.
     'newer-release-unknown-fields': async (kit) => {
         const { makeOperand } = await kit.mod('utils/physics/optimizer.js');
         const { embedDesignMaterials } = await kit.mod('utils/materials/designMaterials.js');
@@ -740,5 +741,48 @@ export const BUILDERS = {
             futureNull: null,
         };
         kit.writeRaw('Newer release AR.tfs', JSON.stringify(future, null, 2));
+    },
+
+    // A design with environments as format 1.3 writes it: environment 1 in
+    // air on BK7, a second under water, and a third, switched off, on a
+    // substrate from a user catalog that only it names, with its films 5 %
+    // thinner. The file carries that material's copy, as a 1.3 save embeds
+    // the materials every environment names. Both rows are scored in every
+    // environment.
+    'environments-media-substrate': async (kit) => {
+        const { makeOperand } = await kit.mod('utils/physics/optimizer.js');
+        const { embedDesignMaterials, savedMaterialRecord } = await kit.mod('utils/materials/designMaterials.js');
+        const cm = await kit.mod('utils/materials/catalogManager.js');
+        await startCatalogs(kit);
+        const lab = cm.createUserCatalog('Lab');
+        const sapphire = cm.copyMaterialToCatalog(cm.getMaterialById('builtin:Al2O3'), lab.id);
+        await settle();
+        kit.snapshotCatalogs('catalog-present');
+        const sapphireId = `${lab.id}:${sapphire.id}`;
+        const design = await stackFormulaDesign(kit, {
+            name: 'Window AR, three environments', text: 'L H L', symbolMap: { H: 'builtin:Ta2O5', L: 'builtin:MgF2' },
+        });
+        const saved = embedDesignMaterials({
+            ...design,
+            meritOperands: [
+                makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0, weight: 1 }),
+                makeOperand({ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, aoi: 30, target: 0, weight: 1 }),
+            ],
+        });
+        const file = {
+            tfs_version: '1.3',
+            ...saved,
+            materials: { ...(saved.materials || {}), [sapphireId]: savedMaterialRecord({}, sapphireId) },
+            environments: [
+                { id: 'base', name: 'BK7 in air' },
+                { id: 'env2', name: 'Under water', incidentMedium: 'builtin:H2O' },
+                {
+                    id: 'env3', name: 'Sapphire, dome edge', enabled: false,
+                    substrate: { material: sapphireId, thickness: 2 },
+                    thicknessFactors: { 'builtin:Ta2O5': 0.95, 'builtin:MgF2': 0.95 },
+                },
+            ],
+        };
+        kit.writeRaw('Window AR, three environments.tfs', JSON.stringify(file, null, 2));
     },
 };

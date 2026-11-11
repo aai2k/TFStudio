@@ -233,7 +233,7 @@
     "newer-release-unknown-fields": {
       "writer": "script",
       "tag": "1.8.5",
-      "checks": "A file as a newer release might write it, format 1.3. Fields this release does not know, at the top level, on the substrate, on a layer of each side, on an operand and on the embedded material copy, survive a load and a save.",
+      "checks": "A file as a later release might write it, stamped 1.3 before that format existed. Fields no release knows, at the top level, on the substrate, on a layer of each side, on an operand and on the embedded material copy, survive a load and a save.",
       "spectrum": [500, 900, 50],
       "nk": [450, 550.5, 633, 1064],
       "angles": [0, 45],
@@ -244,6 +244,16 @@
         "materials.user_lab_8fb000ce:Ta2O5.futureMaterialField"
       ],
       "variants": { "default": {} }
+    },
+    "environments-media-substrate": {
+      "writer": "script",
+      "tag": "2.0.1",
+      "checks": "A 1.3 file with three environments: environment 1 in air on BK7, one under water, and one switched off on a substrate from a user catalog that only it names, with thinner films. The file opens as environment 1 and a save keeps every environment. The copy of the material only the third names is written again, and with the catalog absent it is what that material resolves to.",
+      "spectrum": [400, 800, 50],
+      "nk": [450, 550.5, 633, 1064],
+      "angles": [0, 30],
+      "keeps": ["environments"],
+      "variants": { "catalog-present": { "catalogs": "catalog-present" }, "catalog-absent": {} }
     }
   }
 }

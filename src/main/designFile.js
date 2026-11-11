@@ -5,6 +5,7 @@
 //
 // CommonJS, Electron-free.
 const { decodeText } = require('./paths');
+const { guardRowSwitches, restoreRowSwitches } = require('./environmentRows');
 
 // Format of the .tfs files this build writes.
 //   1.0: material ids only; a design is readable only where its catalogs exist
@@ -12,13 +13,18 @@ const { decodeText } = require('./paths');
 //   1.2: adds `materials[id].mechanical` (the elastic, thermal and surface
 //        constants the stress analysis reads), `stress` (the evaluation and
 //        deposition temperatures) and `substrate.diameterMm`
+//   1.3: adds `environments` and a merit row's `env` and `envEnabled`
+//        (src/utils/environments/environments.js); a design with one
+//        environment holds none of them
 //
 // Nothing is migrated in either direction. The reader checks the substrate and
 // the layer lists and passes every other key through, so a 1.0 or 1.1 file
-// reads as before and a 1.2 file opens in an older build too. The one loss:
+// reads as before and a newer file opens in an older build too. The losses:
 // an older build re-saving a 1.2 design rebuilds the embedded materials from
-// its own catalogs and drops the mechanical block where its copy lacks it.
-const TFS_VERSION = '1.2';
+// its own catalogs and drops the mechanical block where its copy lacks it, and
+// re-saving a 1.3 design drops the copy of a material only another
+// environment names (the id stays, and reads as missing where no catalog has it).
+const TFS_VERSION = '1.3';
 
 // The design a .tfs holds, whatever encoding wrote it: Notepad's UTF-8 with a
 // byte order mark and the UTF-16 that PowerShell 5.1 writes read as the same
@@ -54,7 +60,19 @@ function validateDesign(design) {
     if (!Array.isArray(design[side])) return `This design's ${side} is not a list of layers.`;
     if (!design[side].every(isRecord)) return `This design has a layer in ${side} that is not a layer.`;
   }
-  return null;
+  return validateEnvironments(design.environments);
+}
+
+// The environments list, when it holds any, is read without guarding: each
+// entry is an object with an id of its own, and the first is environment 1.
+// No list, or an empty one, is a design with one environment.
+const isId = id => typeof id === 'string' && id !== '';
+const isEnvironmentList = ids => ids[0] === 'base' && ids.every(isId) && new Set(ids).size === ids.length;
+
+function validateEnvironments(list) {
+  if (list === undefined || list === null || (Array.isArray(list) && list.length === 0)) return null;
+  const ids = Array.isArray(list) && list.every(isRecord) ? list.map(env => env.id) : [];
+  return isEnvironmentList(ids) ? null : "This design's environments are not a list of environments, environment 1 first.";
 }
 
 // The worst-case TMN and RMX rows the merit function wizard wrote up to 1.8.2
@@ -86,6 +104,7 @@ function stampStoredDelRows(design) {
 function applyLoadFixups(design) {
   dropWizardWorstCaseSampling(design);
   stampStoredDelRows(design);
+  restoreRowSwitches(design);
 }
 
 // The design in the .tfs at `filePath`, checked and with the load's fixups
@@ -105,13 +124,15 @@ function readDesignFile(fs, filePath) {
   return { design };
 }
 
-// Stamp the current format version and serialize. A design loaded from disk
-// carries the version it was read with, so the stamp has to replace it rather
-// than sit behind it in the spread.
+// Stamp the current format version and serialize, with the rows of other
+// environments written as environmentRows.js says. A design loaded
+// from disk carries the version it was read with, so the stamp has to replace
+// it rather than sit behind it in the spread.
 function serializeDesign(design) {
   // eslint-disable-next-line no-unused-vars
   const { tfs_version, ...rest } = design;
-  return JSON.stringify({ tfs_version: TFS_VERSION, ...rest }, null, 2);
+  const written = rest.meritOperands === undefined ? rest : { ...rest, meritOperands: guardRowSwitches(rest.meritOperands) };
+  return JSON.stringify({ tfs_version: TFS_VERSION, ...written }, null, 2);
 }
 
 module.exports = {

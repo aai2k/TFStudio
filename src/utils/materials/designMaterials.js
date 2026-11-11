@@ -32,6 +32,7 @@
  * mean resampling it into a table, an approximation of a material every
  * installation already holds exactly.
  */
+import { environmentMaterialIds } from '../environments/environments.js';
 import { getMaterialById, materialLabel } from './catalogManager.js';
 import { fromAnotherCatalog, localCatalogUid } from './catalogStamps.js';
 import { makeGetNK } from './catalogManager/dispersion.js';
@@ -198,9 +199,18 @@ export function conflictingIds(design) {
     return new Set([...ids].filter(id => resolveDesignMaterial(design, id).conflict));
 }
 
-/** Every distinct material id a design references, media and substrate included. */
+/**
+ * Every distinct material id a design references: media and substrate
+ * included, and those its other environments name (environments.js), so a
+ * save embeds them with the rest.
+ */
 export function designMaterialIds(design) {
     if (!design) return [];
+    return [...new Set([...ownMaterialIds(design), ...environmentMaterialIds(design)])];
+}
+
+// The ids of the design's own fields, those environment 1 computes with.
+function ownMaterialIds(design) {
     const ids = [
         design.incidentMedium,
         design.exitMedium,
@@ -216,12 +226,14 @@ export function designMaterialIds(design) {
  * `'back'`, those of a window that evaluates that side alone: the medium
  * light arrives from (the incident medium for the front, the exit medium for
  * the back), the substrate, and the side's layers. Without it, or with
- * `'total'` (both sides at once), every material of the design
- * (designMaterialIds).
+ * `'total'` (both sides at once), every material of the design's own fields.
+ * A window computing another environment passes the design that environment
+ * computes (environmentDesign).
  */
 export function computedMaterialIds(design, side) {
     const keys = SIDE_KEYS[side];
-    if (!design || !keys) return designMaterialIds(design);
+    if (!design) return [];
+    if (!keys) return ownMaterialIds(design);
     const ids = [
         design[keys.medium],
         design.substrate?.material,
