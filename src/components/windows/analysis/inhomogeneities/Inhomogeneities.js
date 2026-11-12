@@ -70,7 +70,7 @@ export function Inhomogeneities({ c, theme, t }) {
                 showCurves: state.showCurves, c, t,
             }),
         ),
-        h(BadgeRow, { c, t, design }),
+        h(BadgeRow, { c, t, design, cone: true }),
         h(ResultsSection, {
             c, label: ih.editorTitle,
             summary: `${activeInterlayerCount(inh)} ${ih.activeInterlayers} · Σ ${totalInterlayerThickness(inh).toFixed(2)} ${t.units.nm}`,

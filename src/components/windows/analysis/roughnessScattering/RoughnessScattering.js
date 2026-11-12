@@ -67,7 +67,7 @@ export function RoughnessScattering({ c, theme, t }) {
                 ? h(ScatterChart, { calc, showCurves: state.showCurves, units, c, t })
                 : h(CenteredMessage, { c, message: rs.computing }),
         ),
-        h(BadgeRow, { c, t, design }),
+        h(BadgeRow, { c, t, design, cone: true }),
         h(ResultsSection, {
             c, label: rs.editorTitle, summary: `${state.nIfaces} ${rs.interfaces}`,
             open: state.showEditor, setOpen: state.setShowEditor,

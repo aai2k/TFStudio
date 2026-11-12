@@ -62,7 +62,7 @@ export function WavelengthAngleMap({ c, t }) {
                 prompt: wam.computingFirst,
             }),
         ),
-        h(BadgeRow, { c, t, design }),
+        h(BadgeRow, { c, t, design, cone: true }),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: value => state.set('showTable', value),

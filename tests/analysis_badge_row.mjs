@@ -24,11 +24,11 @@ initCatalogs({});
 const DIR = '../src/components/windows/analysis';
 // Each window, and whether it averages over the cone and so shows its badge.
 const WINDOWS = [
-    { name: 'WavelengthAngleMap', path: 'wavelengthAngleMap/WavelengthAngleMap.js', cone: false },
+    { name: 'WavelengthAngleMap', path: 'wavelengthAngleMap/WavelengthAngleMap.js', cone: true },
     { name: 'SystematicDeviations', path: 'systematicDeviations/SystematicDeviations.js', cone: false },
-    { name: 'Inhomogeneities', path: 'inhomogeneities/Inhomogeneities.js', cone: false },
+    { name: 'Inhomogeneities', path: 'inhomogeneities/Inhomogeneities.js', cone: true },
     { name: 'StressAnalysis', path: 'stressAnalysis/StressAnalysis.js', cone: false },
-    { name: 'RoughnessScattering', path: 'roughnessScattering/RoughnessScattering.js', cone: false },
+    { name: 'RoughnessScattering', path: 'roughnessScattering/RoughnessScattering.js', cone: true },
     { name: 'IntegralValues', path: 'integralValues/IntegralValues.js', cone: true },
     { name: 'ColorEvaluation', path: 'colorEvaluation/ColorEvaluation.js', cone: true },
     { name: 'ErrorAnalysis', path: 'errorAnalysis/ErrorAnalysis.js', cone: false },
