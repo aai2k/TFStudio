@@ -1,7 +1,11 @@
 import {
+    customDefinitionFrom,
+    customDraft,
+    draftName,
     highestCustomCounter,
     integralTable,
     makeCustomDefinition,
+    newCustomDraft,
 } from './integralModel.js';
 import { computeSpectrumForMode } from './spectrum.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
@@ -38,14 +42,39 @@ function dropPreset(key) {
     window.electronAPI.deleteIntegralPreset(key).catch(() => {});
 }
 
-// `parts` is t.integralValues.customParts: the new integral is named in the
-// UI language.
+// A new integral is added, selected, and its channel, source, detector and
+// band are what the next new one starts from.
 function addCustomDefinition(context, parts) {
-    const { builder, counterRef, setDefinitions, setSelectedKey } = context;
-    const definition = makeCustomDefinition(builder, ++counterRef.current, parts);
+    const { draft, customDefs, counterRef, setDefinitions, setSelectedKey, setBuilder } = context;
+    const definition = makeCustomDefinition(draft, ++counterRef.current, parts, customDefs);
     setDefinitions(definitions => [...definitions, definition]);
     setSelectedKey(definition.key);
+    const { char, source, detector, bandMin, bandMax } = draft;
+    setBuilder({ char, source, detector, bandMin, bandMax });
     persistPreset(definition);
+}
+
+// A changed integral keeps its key and its place in the table.
+function changeCustomDefinition(context, parts) {
+    const { draft, customDefs, setDefinitions } = context;
+    const current = customDefs.find(definition => definition.key === draft.key);
+    const next = { ...current, ...customDefinitionFrom(draft, draft.key, parts, customDefs) };
+    setDefinitions(definitions => definitions.map(definition => (definition.key === draft.key ? next : definition)));
+    persistPreset(next);
+}
+
+/**
+ * The dialog's OK or Add: the draft becomes a new custom integral, or the one
+ * it was opened on, and the dialog closes. A draft with no name does nothing.
+ * `parts` is t.integralValues.customParts, so a suggested name is in the UI
+ * language.
+ */
+export function commitCustomDraft(context, parts) {
+    const { draft, customDefs, setDraft } = context;
+    if (!draftName(draft, parts, customDefs)) return;
+    if (draft.key == null) addCustomDefinition(context, parts);
+    else changeCustomDefinition(context, parts);
+    setDraft(null);
 }
 
 function removeCustomDefinition(context, key) {
@@ -55,21 +84,13 @@ function removeCustomDefinition(context, key) {
     dropPreset(key);
 }
 
-function patchCustomDefinition(setDefinitions, key, patch) {
-    setDefinitions(definitions => definitions.map(definition => {
-        if (definition.key !== key) return definition;
-        const next = { ...definition, ...patch };
-        persistPreset(next);
-        return next;
-    }));
-}
-
+// A table typed in the curve editor goes to the source or detector of the
+// integral the dialog holds.
 function applyEditorTable(context, table) {
-    const { editor, setBuilder, setEditor } = context;
-    if (editor.target === 'source') {
-        setBuilder(builder => ({ ...builder, source: { ...builder.source, table } }));
-    } else if (editor.target === 'detector') {
-        setBuilder(builder => ({ ...builder, detector: { ...builder.detector, table } }));
+    const { editor, setDraft, setEditor } = context;
+    if (editor.target === 'source' || editor.target === 'detector') {
+        const slot = editor.target;
+        setDraft(draft => ({ ...draft, [slot]: { ...draft[slot], table } }));
     }
     setEditor({ open: false, target: null });
 }
@@ -87,7 +108,7 @@ function computeSpectrum(design, params, evalMode) {
 
 export function useIntegralValues(design, evalMode) {
     const [session, setField, patchSession] = useWindowSession(integralValuesSession, design);
-    const { builder, selKey, showTable } = session;
+    const { builder, draft, selKey, showTable } = session;
     // The evaluation grid is held as flat keys so Settings can edit each of them,
     // and gathered back into the shape the spectrum functions take.
     const { lambdaStart, lambdaEnd, lambdaStep, theta, polarization } = session;
@@ -98,6 +119,7 @@ export function useIntegralValues(design, evalMode) {
     const setParams = value => patchSession(current => (
         typeof value === 'function' ? value(current) : value));
     const setBuilder = value => setField('builder', value);
+    const setDraft = value => setField('draft', value);
     const setSelKey = value => setField('selKey', value);
     const setShowTable = value => setField('showTable', value);
     const [customDefs, setCustomDefs] = useState([]);
@@ -129,20 +151,23 @@ export function useIntegralValues(design, evalMode) {
     const selected = integrals.find(integral => integral.key === selKey) || integrals[0];
     const selectedResult = results && selected ? results[selected.key] : null;
     const actionContext = {
-        builder,
+        draft,
+        customDefs,
         counterRef: customCounterRef,
         setDefinitions: setCustomDefs,
+        setBuilder,
+        setDraft,
         selectedKey: selKey,
         setSelectedKey: setSelKey,
     };
-    const editorContext = { editor, setBuilder, setEditor };
+    const editorContext = { editor, setDraft, setEditor };
 
     return {
         params,
         setParams,
         customDefs,
-        builder,
-        setBuilder,
+        draft,
+        setDraft,
         editor,
         setEditor,
         selKey,
@@ -156,9 +181,12 @@ export function useIntegralValues(design, evalMode) {
         results,
         selected,
         selectedResult,
-        onAddCustom: parts => addCustomDefinition(actionContext, parts),
+        openNewCustom: () => setDraft(newCustomDraft(builder)),
+        openCustom: (key, parts) => setDraft(customDraft(
+            customDefs.find(definition => definition.key === key), parts, customDefs)),
+        closeCustom: () => setDraft(null),
+        commitCustom: parts => commitCustomDraft(actionContext, parts),
         onRemoveCustom: key => removeCustomDefinition(actionContext, key),
-        onPatchCustom: (key, patch) => patchCustomDefinition(setCustomDefs, key, patch),
         openEditor: target => setEditor({ open: true, target }),
         applyTable: table => applyEditorTable(editorContext, table),
     };

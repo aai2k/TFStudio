@@ -1,14 +1,7 @@
-import {
-    BUILTIN_SOURCES,
-    BUILTIN_DETECTORS,
-    describedLabel,
-} from '../../../../utils/physics/spectralWeightings.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { ActionButton, ChoiceGroup, NumInput, RangeField, SelectField } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
-import {
-    NoticeBadge, PopoverButton, SettingDivider, SettingRow, SettingsMenu,
-} from '../chrome/popover.js';
+import { NoticeBadge, SettingRow, SettingsMenu } from '../chrome/popover.js';
 
 const { createElement: h } = React;
 
@@ -21,7 +14,7 @@ export function IntegralControls({ c, t, model, notices }) {
     return h(ControlRow, {
         c,
         trailing: [
-            h(CustomBuilder, { key: 'custom', c, t, model }),
+            h(NewCustomButton, { key: 'custom', c, t, model }),
             h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
             h(EvaluationSettings, { key: 'setup', c, t, model }),
         ],
@@ -80,83 +73,13 @@ function EvaluationSettings({ c, t, model }) {
     );
 }
 
-function editTableLabel(iv, table) {
-    return `${iv.editTable}${table?.length ? ` (${table.length})` : ''}`;
-}
-
 /**
- * Defines a new weighted integral: a channel, a source and detector to weight it
- * by, and the band to integrate over. Adding one puts it in the results table
- * alongside the built-ins and saves it with the presets.
+ * Opens the dialog a new weighted integral is defined in. Adding one puts it in
+ * the results table alongside the built-ins and saves it with the presets.
  */
-function CustomBuilder({ c, t, model }) {
+function NewCustomButton({ c, t, model }) {
     const iv = t.integralValues;
-    const { builder, setBuilder } = model;
-    return h(PopoverButton, { c, label: iv.customBuilderTitle, width: 330 },
-        h(SettingRow, { c, label: iv.channel },
-            h(ChoiceGroup, {
-                ariaLabel: iv.channel, activeId: builder.char, c,
-                onSelect: char => setBuilder({ ...builder, char }),
-                items: [
-                    { id: 'T', label: 'T' },
-                    { id: 'R', label: 'R' },
-                    { id: 'A', label: 'A' },
-                ],
-            }),
-        ),
-        h(SettingRow, { c, label: iv.source },
-            h(SelectField, {
-                value: builder.source.id, c, width: 180,
-                options: BUILTIN_SOURCES.map(source => ({ id: source.id, label: describedLabel(source, t.illuminants) })),
-                onChange: id => setBuilder({ ...builder, source: { ...builder.source, id } }),
-            }),
-        ),
-        builder.source.id === 'blackbody' && h(SettingRow, { c, label: iv.sourceT },
-            h(NumInput, {
-                value: builder.source.T ?? 5778, min: 100, max: 30000, step: 50, c, width: 72,
-                onChange: T => setBuilder({ ...builder, source: { ...builder.source, T } }),
-            }),
-            h('span', { style: { color: c.textDim, fontSize: 11 } }, iv.sourceT_K),
-        ),
-        builder.source.id === 'custom' && h(SettingRow, { c, label: '' },
-            h(ActionButton, {
-                c, label: editTableLabel(iv, builder.source.table),
-                onClick: () => model.openEditor('source'),
-            }),
-        ),
-        h(SettingRow, { c, label: iv.detector },
-            h(SelectField, {
-                value: builder.detector.id, c, width: 180,
-                options: BUILTIN_DETECTORS.map(detector => ({
-                    id: detector.id, label: describedLabel(detector, t.illuminants),
-                })),
-                onChange: id => setBuilder({ ...builder, detector: { ...builder.detector, id } }),
-            }),
-        ),
-        builder.detector.id === 'custom' && h(SettingRow, { c, label: '' },
-            h(ActionButton, {
-                c, label: editTableLabel(iv, builder.detector.table),
-                onClick: () => model.openEditor('detector'),
-            }),
-        ),
-        h(SettingRow, { c, label: iv.band },
-            h(RangeField, {
-                c, unit: iv.bandNm, width: 60,
-                from: {
-                    value: builder.bandMin, positive: true, step: 10,
-                    onChange: bandMin => setBuilder({ ...builder, bandMin }),
-                },
-                to: {
-                    value: builder.bandMax, positive: true, step: 10,
-                    onChange: bandMax => setBuilder({ ...builder, bandMax }),
-                },
-            }),
-        ),
-        h(SettingDivider, { c }),
-        h(SettingRow, { c, label: '' },
-            h(ActionButton, {
-                c, label: iv.addCustom, title: iv.addCustomTitle, onClick: () => model.onAddCustom(iv.customParts),
-            }, tablerIcon('plus', 13)),
-        ),
-    );
+    return h(ActionButton, {
+        c, label: iv.newCustom, title: iv.newCustomTip, onClick: model.openNewCustom,
+    }, tablerIcon('plus', 13));
 }

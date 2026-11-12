@@ -29,7 +29,14 @@ UV 300-380 nm and NIR 780-2500 nm.
 
 **AOI / pol**: angle of incidence and polarization (s, p, or averaged).
 
-The **custom-integral builder** lets you add your own weighted average:
+**+ Custom integral…** opens a dialog in which you define a weighted average of
+your own:
+
+**Name**: what the row is called. It starts as a short name made of the
+channel, source and detector, such as T·D65·V(λ), selected so that typing
+replaces it, and it follows those choices until you type in it. A suggested name
+another custom integral already has gets #2, #3. An integral with no name cannot
+be added.
 
 **Channel**: whether to average T, R or A.
 
@@ -40,9 +47,15 @@ response, or a custom table.
 
 **Band**: the wavelength range (in nm) over which the average is taken.
 
-**Add** registers the integral as a new row. Custom rows are editable in place
-(you can rename them and adjust the channel and band directly in the table) and
-removable. Custom integrals are saved and restored automatically.
+**Add** puts the integral in the table as a new row. A custom row reads like a
+built-in one, with what it integrates dimmed after its name: the channel, then
+source × detector, such as R · Blackbody 3000 K × Flat (unity). The pencil
+beside the row, or a double-click on it, opens the same dialog on it to change
+any of it, its source and detector included; **OK** applies the changes and the
+row keeps its place. The trash removes it. Custom integrals are saved and
+restored automatically. An operand already built from a custom integral in the
+[Merit Function Editor](/design/merit-function-editor/) keeps the values it was
+built with.
 
 A custom table is typed, pasted or read from a file in the curve editor, which reads text the way the spectrum importer does: a decimal comma is kept, and header rows, blank lines and `#` comment lines are ignored. The wavelength column can be in nm, µm, cm⁻¹ or eV. **Apply** needs at least two rows with both a wavelength and a weight, and sorts them by wavelength.
 

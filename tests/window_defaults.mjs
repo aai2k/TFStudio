@@ -47,7 +47,7 @@ const { evalParamsSession } = await import('../src/state/evalParamsSession.js');
 // payload, or a half-filled form.
 const NEVER_SETTINGS = [
     'result', 'sweepResult', 'surfaceResult', 'surfaceSpec', 'curves',
-    'rough', 'inh', 'dev', 'builder',
+    'rough', 'inh', 'dev', 'builder', 'draft',
 ];
 
 // Keys a store may hold without the registry declaring them, each for a stated

@@ -25,9 +25,9 @@
  */
 import { SplitPane } from '../../../docking/SplitPane.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
-import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { useUnresolvedMaterials } from '../../../../utils/materials/useUnresolvedMaterials.js';
 import { ActionButton, CheckField } from '../../analysis/chrome/controls.js';
+import { DialogFrame } from '../../analysis/chrome/dialog.js';
 import { useEvaluationUnderCone } from '../../analysis/useEvaluationUnderCone.js';
 import { CurveChart } from './CurveChart.js';
 import { CurveGrid } from './CurveGrid.js';
@@ -38,7 +38,7 @@ import { editorNotices } from './editorNotices.js';
 import { tableCsv } from './tableText.js';
 import { useCurveEditor } from './useCurveEditor.js';
 
-const { createElement: h, useMemo } = React;
+const { createElement: h, Fragment, useMemo } = React;
 
 const SPLIT_CHILDREN = [{ id: 'curve-table' }, { id: 'curve-plot' }];
 
@@ -54,12 +54,7 @@ function Notices({ notices, c }) {
 
 function Footer({ editor, props, notices, c, ce, dt }) {
     const csv = useCsvExport(() => tableCsv(editor.table), () => 'curve.csv');
-    return h('div', {
-        style: {
-            display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-            borderTop: `1px solid ${c.border}`, flexShrink: 0,
-        },
-    },
+    return h(Fragment, null,
         h(ExportMenu, {
             c, enabled: editor.table.rows.length > 0, ...csv,
             labels: { export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv, copied: dt.csvCopied, saved: dt.csvSaved },
@@ -97,30 +92,11 @@ export function CurveEditor(props) {
         request => designBackdrop(request.design, request.table, request.conditions, request.missing));
     const notices = editorNotices({ editor, conditions, missing, t });
 
-    return h('div', {
-        role: 'dialog', 'aria-modal': true, 'aria-label': title,
-        style: {
-            position: 'fixed', inset: 0, zIndex: 1200, display: 'flex',
-            alignItems: 'center', justifyContent: 'center', padding: 18,
-            background: 'rgba(0,0,0,0.6)',
-        },
-    }, h('div', {
-        style: {
-            width: 'min(1320px, 96vw)', height: 'min(860px, 90vh)', display: 'flex', flexDirection: 'column',
-            borderRadius: 8, border: `1px solid ${c.border}`, background: c.panel, color: c.text,
-            boxShadow: '0 12px 42px rgba(0,0,0,.38)', overflow: 'hidden',
-            fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
-        },
+    return h(DialogFrame, {
+        c, title, onClose: onCancel, closeTitle: ce.cancel,
+        width: 'min(1320px, 96vw)', height: 'min(860px, 90vh)',
+        footer: h(Footer, { editor, props, notices, c, ce, dt: t.dataTable }),
     },
-        h('div', {
-            style: {
-                display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px',
-                borderBottom: `1px solid ${c.border}`, flexShrink: 0,
-            },
-        },
-            h('h2', { style: { margin: 0, fontSize: 15, flex: 1, minWidth: 0 } }, title),
-            h(ActionButton, { c, title: ce.cancel, onClick: onCancel }, tablerIcon('x', 16)),
-        ),
         h(EditorToolbar, { editor, labels, c, ce }),
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex' } },
             h(SplitPane, {
@@ -134,6 +110,5 @@ export function CurveEditor(props) {
                 }),
             ),
         ),
-        h(Footer, { editor, props, notices, c, ce, dt: t.dataTable }),
-    ));
+    );
 }

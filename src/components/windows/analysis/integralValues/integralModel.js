@@ -71,14 +71,11 @@ export function customIntegralName(char, source, detector, parts) {
     return `${char}·${sourceLabel}·${detectorLabel}`;
 }
 
-/**
- * What a custom integral weights by, for its row's tooltip: source × detector
- * on the band. `words` is t.integralValues.customReference; a table loaded
- * with a name of its own keeps it. A custom slot with no table loaded is
- * weighted by equal energy (source) or flat (detector), as composeWeighting
- * does, and is named that way.
- */
-export function customIntegralReference(custom, words) {
+// Source and detector of a custom integral in words. `words` is
+// t.integralValues.customReference; a table loaded with a name of its own keeps
+// it. A custom slot with no table loaded is weighted by equal energy (source) or
+// flat (detector), as composeWeighting does, and is named that way.
+function weightingWords(custom, words) {
     const source = custom.sourceSpec, detector = custom.detectorSpec;
     const loaded = spec => spec.table?.length > 0;
     let sourceText = source.id;
@@ -87,23 +84,88 @@ export function customIntegralReference(custom, words) {
     let detectorText = words.flat;
     if (detector.id === 'photopic') detectorText = words.photopic;
     else if (detector.id === 'custom' && loaded(detector)) detectorText = detector.label || words.detectorTable;
-    return `${sourceText} × ${detectorText}  ${words.band(custom.band[0], custom.band[1])}`;
+    return `${sourceText} × ${detectorText}`;
 }
 
-export function makeCustomDefinition(builder, counter, parts) {
-    const baseLabel = customIntegralName(builder.char, builder.source, builder.detector, parts);
+/** What a custom integral weights by, for its row's tooltip: source × detector on the band. */
+export function customIntegralReference(custom, words) {
+    return `${weightingWords(custom, words)}  ${words.band(custom.band[0], custom.band[1])}`;
+}
+
+/**
+ * What a custom integral integrates, shown after its name in the table: the
+ * channel, then source × detector, such as "T · D65 × Photopic V(λ)". The band
+ * has a column of its own.
+ */
+export function customIntegralWeighting(custom, words) {
+    return `${custom.char} · ${weightingWords(custom, words)}`;
+}
+
+// ── The dialog a custom integral is made and changed in ──────────────────────
+//
+// A draft is what the dialog holds: `key` (null for a new integral), the
+// channel `char`, the `source` and `detector` specs, `bandMin` and `bandMax` in
+// nm, and the name. Until the name is typed in (`named`) it is the suggested
+// one and follows the channel, source and detector.
+
+const copySpec = spec => ({ ...spec, table: spec.table ? [...spec.table] : null });
+
+/** A draft for a new integral, starting from `builder`, the values the last one was added with. */
+export function newCustomDraft(builder) {
     return {
-        key: `custom_${counter}`,
-        label: `${baseLabel} #${counter}`,
-        char: builder.char,
-        sourceSpec: {
-            ...builder.source,
-            table: builder.source.table ? [...builder.source.table] : null,
-        },
-        detectorSpec: {
-            ...builder.detector,
-            table: builder.detector.table ? [...builder.detector.table] : null,
-        },
-        band: [builder.bandMin, builder.bandMax],
+        key: null, char: builder.char,
+        source: copySpec(builder.source), detector: copySpec(builder.detector),
+        bandMin: builder.bandMin, bandMax: builder.bandMax,
+        name: '', named: false,
     };
+}
+
+/**
+ * The name the dialog suggests: the short name, with #2, #3 added when another
+ * custom integral already has it, since the integral selector and the Merit
+ * Function Editor tell integrals apart by name.
+ */
+export function suggestedCustomName(draft, parts, customDefinitions) {
+    const base = customIntegralName(draft.char, draft.source, draft.detector, parts);
+    const taken = new Set(customDefinitions.filter(custom => custom.key !== draft.key).map(custom => custom.label));
+    if (!taken.has(base)) return base;
+    let number = 2;
+    while (taken.has(`${base} #${number}`)) number++;
+    return `${base} #${number}`;
+}
+
+/** The name `draft` is saved under, as typed or as suggested. */
+export function draftName(draft, parts, customDefinitions) {
+    return (draft.named ? draft.name : suggestedCustomName(draft, parts, customDefinitions)).trim();
+}
+
+/**
+ * A draft holding everything `custom` is, for the dialog to change it. A name
+ * that is the one the dialog would suggest goes on following the choices.
+ */
+export function customDraft(custom, parts, customDefinitions) {
+    const draft = {
+        key: custom.key, char: custom.char,
+        source: copySpec(custom.sourceSpec), detector: copySpec(custom.detectorSpec),
+        bandMin: custom.band[0], bandMax: custom.band[1],
+        name: custom.label, named: true,
+    };
+    return { ...draft, named: custom.label !== suggestedCustomName(draft, parts, customDefinitions) };
+}
+
+/** The custom integral `draft` defines, saved under `key`. */
+export function customDefinitionFrom(draft, key, parts, customDefinitions) {
+    return {
+        key,
+        label: draftName(draft, parts, customDefinitions),
+        char: draft.char,
+        sourceSpec: copySpec(draft.source),
+        detectorSpec: copySpec(draft.detector),
+        band: [draft.bandMin, draft.bandMax],
+    };
+}
+
+/** A new custom integral, the `counter`-th made, from a draft or from the builder values. */
+export function makeCustomDefinition(draft, counter, parts, customDefinitions = []) {
+    return customDefinitionFrom(draft, `custom_${counter}`, parts, customDefinitions);
 }

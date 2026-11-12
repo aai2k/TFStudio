@@ -1,7 +1,6 @@
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
-import { customIntegralReference } from './integralModel.js';
+import { customIntegralReference, customIntegralWeighting } from './integralModel.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { useNumberField } from '../../../ui/numberField.js';
 
 const { createElement: h } = React;
 
@@ -17,13 +16,6 @@ function tableStyles(c) {
             padding: '3px 8px', fontSize: 11,
             fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', textAlign: 'right',
         },
-        edit: {
-            background: 'transparent', color: c.text,
-            border: '1px solid transparent', borderRadius: 2,
-            padding: '0 2px', fontSize: 11, width: 60,
-            fontVariantNumeric: 'tabular-nums', textAlign: 'right',
-            outline: 'none',
-        },
     };
 }
 
@@ -38,76 +30,43 @@ function valueText(result, available, iv) {
     return available ? result.value.toFixed(5) : iv.notAvailable;
 }
 
+// A wavelength as written in the table: up to 3 decimals, trailing zeros dropped.
+const nm = value => String(Number(value.toFixed(3)));
+
 // Shown beside a band that has no value so the missing value explains itself:
 // the weighting's range for a custom band outside it, otherwise the wavelengths
-// the spectrum spans. Up to 3 decimals, trailing zeros dropped.
+// the spectrum spans.
 function SpanNote(props) {
     const { result, weighting, c, iv } = props;
     if (result?.covered !== false) return null;
     const outside = !(weighting.lamMin < weighting.lamMax) && weighting.range;
     const [from, to] = outside || result.spectrumSpan || [];
     if (!Number.isFinite(from) || !Number.isFinite(to)) return null;
-    const nm = value => String(Number(value.toFixed(3)));
     const note = outside ? iv.weightingSpan : iv.spectrumSpan;
     return h('span', { style: { color: c.warning, marginLeft: 6 } }, note(nm(from), nm(to)));
 }
 
-function EditableName(props) {
-    const { custom, selected, styles, c, onPatch } = props;
-    return h('input', {
-        type: 'text', value: custom.label,
-        onClick: event => event.stopPropagation(),
-        onChange: event => onPatch(custom.key, { label: event.target.value }),
-        onFocus: event => { event.target.style.border = `1px solid ${c.border}`; },
-        onBlur: event => { event.target.style.border = '1px solid transparent'; },
-        style: {
-            ...styles.edit, width: 'calc(100% - 4px)', textAlign: 'left',
-            color: selected ? c.accent : c.text,
-            fontWeight: selected ? 600 : 400,
-        },
-    });
+// A built-in row's band is its weighting's; a custom row's is the band it was
+// given, also when its weighting does not reach it.
+function bandText(definition, custom, units) {
+    if (custom) return `${nm(custom.band[0])}–${nm(custom.band[1])} ${units.nm}`;
+    const { lamMin, lamMax } = definition.weighting;
+    return lamMin === lamMax ? '—' : `${lamMin.toFixed(0)}–${lamMax.toFixed(0)} ${units.nm}`;
 }
 
-function EditableBand(props) {
-    const { custom, styles, c, onPatch, units } = props;
-    const stopRow = event => event.stopPropagation();
-    const focus = event => { event.target.style.border = `1px solid ${c.border}`; };
-    const blur = event => { event.target.style.border = '1px solid transparent'; };
-    const from = useNumberField({
-        value: custom.band[0], onChange: value => onPatch(custom.key, { band: [value, custom.band[1]] }),
-    });
-    const to = useNumberField({
-        value: custom.band[1], onChange: value => onPatch(custom.key, { band: [custom.band[0], value] }),
-    });
-    // Leaving the box both takes the value and drops the focus border.
-    const bandBox = field => h('input', {
-        ...field, onClick: stopRow, onFocus: focus,
-        onBlur: event => { blur(event); field.onBlur(); },
-        style: { ...styles.edit, width: 56 },
-    });
-    return h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 2 } },
-        h('select', {
-            value: custom.char, onClick: stopRow,
-            onChange: event => onPatch(custom.key, { char: event.target.value }),
-            style: { ...styles.edit, width: 38, textAlign: 'left' },
-            onFocus: focus, onBlur: blur,
-        },
-            h('option', { value: 'T' }, 'T'),
-            h('option', { value: 'R' }, 'R'),
-            h('option', { value: 'A' }, 'A'),
-        ),
-        bandBox(from),
-        h('span', { style: { color: c.textDim } }, '–'),
-        bandBox(to),
-        h('span', { style: { color: c.textDim, fontSize: 10 } }, units.nm),
+// The name of a custom row, then dimmed what it integrates.
+function CustomName({ custom, c, iv }) {
+    return h(React.Fragment, null,
+        custom.label,
+        h('span', { style: { color: c.textDim, fontWeight: 400, marginLeft: 10 } },
+            customIntegralWeighting(custom, iv.customReference)),
     );
 }
 
-function RemoveButton(props) {
-    const { definition, onRemove, c, iv } = props;
+function RowButton({ icon, title, onClick, c }) {
     return h('button', {
-        onClick: event => { event.stopPropagation(); onRemove(definition.key); },
-        title: iv.removeRow,
+        type: 'button', title,
+        onClick: event => { event.stopPropagation(); onClick(); },
         style: {
             padding: '0 6px', cursor: 'pointer',
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center', verticalAlign: 'middle',
@@ -115,18 +74,24 @@ function RemoveButton(props) {
             background: 'transparent', color: c.textDim,
             outline: 'none',
         },
-    }, tablerIcon('trash', 13));
+    }, tablerIcon(icon, 13));
+}
+
+function CustomRowButtons({ definition, onEdit, onRemove, c, iv }) {
+    return h('span', { style: { display: 'inline-flex', gap: 4 } },
+        h(RowButton, { icon: 'pencil', title: iv.editRow, onClick: () => onEdit(definition.key), c }),
+        h(RowButton, { icon: 'trash', title: iv.removeRow, onClick: () => onRemove(definition.key), c }),
+    );
 }
 
 function ResultRow(props) {
-    const { definition, result, index, selected, setSelected, onPatch, onRemove, styles, c, iv, units } = props;
+    const { definition, result, index, selected, setSelected, onEdit, onRemove, styles, c, iv, units } = props;
     const custom = definition.builtin ? null : definition._custom;
     const available = Number.isFinite(result?.value);
-    const band = definition.weighting.lamMin === definition.weighting.lamMax
-        ? '—'
-        : `${definition.weighting.lamMin.toFixed(0)}–${definition.weighting.lamMax.toFixed(0)} ${units.nm}`;
     return h('tr', {
         onClick: () => setSelected(definition.key),
+        // A custom row opens its dialog on a double-click, as its pencil does.
+        onDoubleClick: custom ? () => onEdit(definition.key) : undefined,
         style: {
             cursor: 'pointer',
             background: selected ? c.accent + '22'
@@ -142,9 +107,7 @@ function ResultRow(props) {
                 color: selected ? c.accent : c.text,
                 fontWeight: selected ? 600 : 400,
             },
-        }, custom
-            ? h(EditableName, { custom, selected, styles, c, onPatch })
-            : definition.label),
+        }, custom ? h(CustomName, { custom, c, iv }) : definition.label),
         h('td', { style: { ...styles.td, color: available ? c.text : c.warning } },
             valueText(result, available, iv)),
         h('td', { style: { ...styles.td, color: c.textDim } },
@@ -155,17 +118,20 @@ function ResultRow(props) {
             result ? formatMinMax(result.max, result.lamAtMax) : '—'),
         h('td', {
             style: { ...styles.td, textAlign: 'left', color: c.textDim, padding: '2px 4px' },
-        }, custom
-            ? h(EditableBand, { custom, styles, c, onPatch, units })
-            : band,
+        }, bandText(definition, custom, units),
             h(SpanNote, { result, weighting: definition.weighting, c, iv })),
         h('td', { style: { ...styles.td, textAlign: 'center', padding: '0 4px' } },
-            custom ? h(RemoveButton, { definition, onRemove, c, iv }) : null),
+            custom ? h(CustomRowButtons, { definition, onEdit, onRemove, c, iv }) : null),
     );
 }
 
+/**
+ * The integrals and their values. A click selects a row for the plot; a custom
+ * row's pencil or a double-click on it calls `onEdit(key)`, and its trash
+ * `onRemove(key)`.
+ */
 export function ResultsTable(props) {
-    const { integrals, results, selectedKey, setSelectedKey, onPatch, onRemove, c, t } = props;
+    const { integrals, results, selectedKey, setSelectedKey, onEdit, onRemove, c, t } = props;
     const iv = t.integralValues;
     const styles = tableStyles(c);
     return h('div', {
@@ -192,7 +158,7 @@ export function ResultsTable(props) {
                         index,
                         selected: definition.key === selectedKey,
                         setSelected: setSelectedKey,
-                        onPatch,
+                        onEdit,
                         onRemove,
                         styles,
                         c,

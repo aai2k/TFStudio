@@ -10,10 +10,13 @@ import { INITIAL_BUILDER } from './integralModel.js';
 // same values the window opens with.
 export const integralValuesSession = createWindowSession({
     ...sessionDefaults('integralValues'),
-    // A half-filled custom-integral form is work in progress, so it is kept
-    // rather than cleared by a dock or a tab switch. Neither it nor the
-    // highlighted integral is a setting.
+    // The custom-integral dialog's values while it is open (`draft`, null when
+    // it is closed) are work in progress, so they are kept rather than cleared
+    // by a dock or a tab switch. `builder` is what a new integral starts from:
+    // the channel, source, detector and band the last one was added with.
+    // None of them, nor the highlighted integral, is a setting.
     builder: INITIAL_BUILDER,
+    draft: null,
     selKey: 'Tvis',
 }, {
     id: 'integralValues',

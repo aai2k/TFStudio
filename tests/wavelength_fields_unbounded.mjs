@@ -249,8 +249,8 @@ const WINDOW_FIELDS = {
     'analysis/errorAnalysis/ErrorControls.js': ['params.lambdaStart', 'params.lambdaEnd', 'params.lambdaStep'],
     'analysis/ellipsometryEvaluation/EllipsometryControls.js':
         ['state.lambdaStart', 'state.lambdaEnd', 'state.lambdaStep', 'state.lambdaNm'],
-    'analysis/integralValues/Controls.js':
-        ['params.lambdaStart', 'params.lambdaEnd', 'params.lambdaStep', 'builder.bandMin', 'builder.bandMax'],
+    'analysis/integralValues/Controls.js': ['params.lambdaStart', 'params.lambdaEnd', 'params.lambdaStep'],
+    'analysis/integralValues/CustomIntegralDialog.js': ['draft.bandMin', 'draft.bandMax'],
     'analysis/roughnessScattering/RoughnessControls.js': ['state.lambdaStart', 'state.lambdaEnd', 'state.lambdaStep'],
     'analysis/inhomogeneities/InhomogeneityControls.js': ['state.lambdaStart', 'state.lambdaEnd', 'state.lambdaStep'],
     'analysis/wavelengthAngleMap/MapControls.js': ['state.lambdaStart', 'state.lambdaEnd', 'state.lambdaStep'],

@@ -1,7 +1,7 @@
 /**
  * The results table as plain rows, for the export control. The table on screen
- * stays editable and is rendered by ResultsTable; this is the same data in the
- * shape `csvFromRows` writes.
+ * is rendered by ResultsTable; this is the same data in the shape `csvFromRows`
+ * writes.
  */
 
 function band(weighting, units) {

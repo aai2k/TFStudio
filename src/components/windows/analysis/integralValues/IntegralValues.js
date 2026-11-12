@@ -13,6 +13,7 @@ import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsSection } from '../../../ui/ResultsSection.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { IntegralControls } from './Controls.js';
+import { CustomIntegralDialog } from './CustomIntegralDialog.js';
 import { OverlayChart } from './OverlayChart.js';
 import { ResultsTable } from './ResultsTable.js';
 import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
@@ -25,8 +26,8 @@ import { useIntegralValues } from './useIntegralValues.js';
 const { createElement: h, useMemo } = React;
 
 function editorTable(model) {
-    if (model.editor.target === 'source') return model.builder.source.table;
-    if (model.editor.target === 'detector') return model.builder.detector.table;
+    if (model.editor.target === 'source') return model.draft.source.table;
+    if (model.editor.target === 'detector') return model.draft.detector.table;
     return null;
 }
 
@@ -111,8 +112,10 @@ export function IntegralValues({ c, theme, t }) {
         }, h(ResultsTable, {
             integrals: model.integrals, results: model.results,
             selectedKey: model.selKey, setSelectedKey: model.setSelKey,
-            onPatch: model.onPatchCustom, onRemove: model.onRemoveCustom, c, t,
+            onEdit: key => model.openCustom(key, iv.customParts), onRemove: model.onRemoveCustom, c, t,
         })),
+        // The curve editor a table is typed in opens over the dialog, so it is drawn after it.
+        model.draft && h(CustomIntegralDialog, { c, t, model }),
         model.editor.open && h(WeightingEditor, { model, c, t }),
     );
 }
