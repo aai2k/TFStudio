@@ -166,11 +166,12 @@ check('the engine\'s MF and OMF at the start are the table\'s', () => {
     assert.ok(relative(engine.mf, shown.mf) <= 1e-12, `${engine.mf} vs ${shown.mf}`);
     assert.ok(relative(engine.mfOpticalAt(engine.thicknesses), shown.omf) <= 1e-12);
 });
-// Central differences with a step of 1e-3 nm: the truncation error is of
-// order h²·r''' (a layer's phase moves by a few 1e-5 rad per step) and the
-// rounding error of order ε·|r|/h, about 1e-13; the two agree here to about
-// 1e-9 of the largest entry. A tolerance of 1e-7 of it keeps clear of that
-// and still catches a column without its factor, 5% off.
+// Central differences step each layer by 1e-4 of its thickness, 0.006 to
+// 0.014 nm on these layers: the engine's floor, which the fdStep of 1e-3 nm
+// given here does not go below. The analytic Jacobian is the exact
+// derivative, so what the two differ by is the difference's truncation
+// error. A tolerance of 1e-7 of the largest entry keeps clear of it and still
+// catches a column without its factor, 5% off.
 check('the analytic Jacobian, with a factor and a swap, is the central difference of the residuals', () => {
     const engine = new DLSOptimizer(sampled, DESIGN, lookup, { fdStep: 1e-3 });
     const x = engine.thicknesses;
@@ -283,11 +284,12 @@ check('DLS lowers the MF over every environment, and its MF is the table\'s for 
 // ── 9. The Jacobian and the gradient in every layout ───────────────────────
 // Two environments, the second under water with TiO2 7% thinner and SiO2
 // made of MgF2. In each case the analytic Jacobian is checked against central
-// differences of the residuals, 1e-3 nm apart, and the gradient of the MF
-// against central differences of the MF, each to 1e-6 of its largest entry.
-// On these stacks the two Jacobians of a design without environments already
-// differ by 1e-7 to 4e-7 of the largest entry, the same at steps of 1e-2 to
-// 1e-4 nm, so that much is the kernel's own; a column missing its factor or a
+// differences of the residuals, and the gradient of the MF against central
+// differences of the MF, each to 1e-6 of its largest entry. The differences
+// step a layer by 1e-4 of its thickness, about 0.01 nm here, whatever fdStep
+// asks below that, and at that step their truncation error is 1e-7 to 4e-7
+// of the largest entry on these stacks, with or without environments; the
+// analytic Jacobian is the exact derivative. A column missing its factor or a
 // group missing its scale is off by percent.
 {
     const layer = (material, thickness, locked = false) => ({ id: `${material}${thickness}`, material, thickness, locked });
