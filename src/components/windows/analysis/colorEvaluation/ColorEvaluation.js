@@ -13,9 +13,9 @@ import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
 import { COLOR_RANGE_NM } from '../../../../utils/physics/colorimetry.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
-import { ConeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { AngleLines } from './AngleLines.js';
 import { ANGLE_CAP, windowAngles } from './angles.js';
@@ -132,21 +132,18 @@ export function ColorEvaluation({ c, t }) {
             h(DiagramTabs, { c, ce, state }),
             h(DiagramArea, { c, t, ce, state, reports, busy: coneActive && workerResult.busy }),
         ),
+        h(BadgeRow, { c, t, design, cone: true }),
         h(ResultsSection, {
             c, label: dt.results, count: counted ? table.rows.length : 0, countLabel: counted ? dt.rowCount : null,
             open: state.showTable, setOpen: state.setShowTable,
-            actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h(EvalModeBadge, { design, c, t }),
-                h(ConeBadge, { design, c, t }),
-                h(ExportMenu, {
-                    c, enabled: !!reports?.length, ...csv,
-                    labels: {
-                        export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
-                        copied: dt.csvCopied, saved: dt.csvSaved,
-                    },
-                }),
-            ),
-        }, reports?.length
+            actions: h(ExportMenu, {
+                c, enabled: !!reports?.length, ...csv,
+                labels: {
+                    export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                    copied: dt.csvCopied, saved: dt.csvSaved,
+                },
+            }),
+        },reports?.length
             ? h(ResultsViews, { reports, table, state, ce, c })
             : h(CenteredMessage, { c, message: ce.noData })),
     );

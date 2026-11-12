@@ -13,9 +13,9 @@
  * than which, and roughly by how much.
  */
 
-import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { StressChart } from './StressChart.js';
 import { StressControls, stressNotices } from './StressControls.js';
@@ -49,11 +49,11 @@ export function StressAnalysis({ c, theme, t }) {
                 })
                 : h(CenteredMessage, { c, message: sa.noStress }),
         ),
+        h(BadgeRow, { c, t, design }),
         h(ResultsSection, {
             c, label: sa.wholePart, summary: sa.wholePartSummary,
             open: state.showWhole, setOpen: state.setShowWhole,
-            actions: h(EvalModeBadge, { design, c, t }),
-        }, h(ResultsGrid, { columns: wholeColumns(sa), rows: wholeRows(result.whole, sa, t.units), c, height: 130 })),
+        },h(ResultsGrid, { columns: wholeColumns(sa), rows: wholeRows(result.whole, sa, t.units), c, height: 130 })),
         h(ResultsSection, {
             c, label: sa.perFilm, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

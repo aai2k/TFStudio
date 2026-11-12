@@ -6,10 +6,10 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { ActionButton } from '../chrome/controls.js';
 import { AnalysisWindow, CenteredMessage, PlotArea, ProgressHairline } from '../chrome/layout.js';
 import { ErrorChart } from './ErrorChart.js';
@@ -100,6 +100,7 @@ export function ErrorAnalysis({ c, t }) {
                         : ea.clickRun,
                 }),
         ),
+        h(BadgeRow, { c, t, design }),
         h(ResultsSection, {
             c, label: ea.editorTitle, summary: errorEditorSummary(state, ea, t.units),
             open: state.showEditor, setOpen: state.setShowEditor,
@@ -109,7 +110,6 @@ export function ErrorAnalysis({ c, t }) {
             open: state.showTable, setOpen: state.setShowTable,
             actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
                 result?.spec && !running && h(SpecStatus, { spec: result.spec, c, ea }),
-                h(EvalModeBadge, { design, c, t }),
                 h(ExportMenu, {
                     c, enabled: rows.length > 0, ...csv,
                     labels: {

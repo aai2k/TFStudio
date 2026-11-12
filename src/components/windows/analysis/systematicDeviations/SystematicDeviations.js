@@ -3,11 +3,11 @@
  * perturbed spectrum or as a parameter sweep corridor.
  */
 
-import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { SpecVerdict } from '../../../SpecVerdict.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { SpectrumPlot } from './SpectrumPlot.js';
 import { SweepHeatmap } from './SweepHeatmap.js';
@@ -93,6 +93,7 @@ export function SystematicDeviations({ c, theme, t }) {
             ].filter(Boolean),
         }),
         h(PlotArea, null, plotBody({ state, sd, c, lambdaAxis: t.spectralAxis.lambdaShort, units: t.units })),
+        h(BadgeRow, { c, t, design }),
         h(ResultsSection, {
             c, ...systematicEditorHeader(state, sd),
             open: state.showEditor, setOpen: state.setShowEditor,
@@ -102,7 +103,6 @@ export function SystematicDeviations({ c, theme, t }) {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,
             actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h(EvalModeBadge, { design, c, t }),
                 (state.mode === 'single' && state.specDev && design?.qualifiers?.length > 0) && h(SpecVerdict, {
                     design, deviation: state.dev, c, t,
                     label: t.specification.specLabel,

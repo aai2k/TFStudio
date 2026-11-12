@@ -38,7 +38,7 @@ export function OpticalEvaluation({ c, theme, t }) {
         h(ControlBar, props),
         h(TargetToolbar, props),
         h(ChartPanel, props),
-        h(BadgeRow, props),
+        h(BadgeRow, { ...props, cone: true }),
         h(ResultsPanel, props),
     );
 }

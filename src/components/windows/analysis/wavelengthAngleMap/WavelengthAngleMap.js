@@ -7,10 +7,10 @@
  * as the design changes rather than waiting to be run.
  */
 
-import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { noLayersMessage } from '../layersForMode.js';
 import { SurfaceChart } from '../plotEngine/charts.js';
@@ -62,19 +62,17 @@ export function WavelengthAngleMap({ c, t }) {
                 prompt: wam.computingFirst,
             }),
         ),
+        h(BadgeRow, { c, t, design }),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: value => state.set('showTable', value),
-            actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h(EvalModeBadge, { design, c, t }),
-                h(ExportMenu, {
-                    c, enabled: rows.length > 0, ...csv,
-                    labels: {
-                        export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
-                        copied: dt.csvCopied, saved: dt.csvSaved,
-                    },
-                }),
-            ),
+            actions: h(ExportMenu, {
+                c, enabled: rows.length > 0, ...csv,
+                labels: {
+                    export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                    copied: dt.csvCopied, saved: dt.csvSaved,
+                },
+            }),
         }, h(ResultsGrid, { columns, rows, c })),
     );
 }

@@ -39,7 +39,7 @@ fine grid over a thick stack takes longer, so start coarse and tighten once the
 region of interest is clear.
 
 The map is computed for the surface mode set in the
-[Design Editor](/design/design-editor/), shown as a badge next to the results.
+[Design Editor](/design/design-editor/), shown as a badge under the map.
 
 ## How to read it
 

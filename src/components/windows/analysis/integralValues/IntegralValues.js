@@ -8,9 +8,9 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
 import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
-import { ConeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { IntegralControls } from './Controls.js';
 import { CustomIntegralDialog } from './CustomIntegralDialog.js';
@@ -95,21 +95,18 @@ export function IntegralValues({ c, theme, t }) {
                 })
                 : h(CenteredMessage, { c, message: iv.computing }),
         ),
+        h(BadgeRow, { c, t, design, cone: true }),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: model.showTable, setOpen: model.setShowTable,
-            actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h(EvalModeBadge, { design, c, t }),
-                h(ConeBadge, { design, c, t }),
-                h(ExportMenu, {
-                    c, enabled: rows.length > 0, ...csv,
-                    labels: {
-                        export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
-                        copied: dt.csvCopied, saved: dt.csvSaved,
-                    },
-                }),
-            ),
-        }, h(ResultsTable, {
+            actions: h(ExportMenu, {
+                c, enabled: rows.length > 0, ...csv,
+                labels: {
+                    export: dt.export, copyCsv: dt.copyCsv, saveCsv: dt.saveCsv,
+                    copied: dt.csvCopied, saved: dt.csvSaved,
+                },
+            }),
+        },h(ResultsTable, {
             integrals: model.integrals, results: model.results,
             selectedKey: model.selKey, setSelectedKey: model.setSelKey,
             onEdit: key => model.openCustom(key, iv.customParts), onRemove: model.onRemoveCustom, c, t,

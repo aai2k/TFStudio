@@ -11,8 +11,8 @@ weighting each wavelength by a light source times a detector response. Alongside
 the built-in standards you can build your own integral from any source, detector
 and band. These figures describe the filter as a whole, so they follow the
 design's [evaluation mode](/design/evaluation-modes/), whether that is the front
-surface, the back surface, or the complete front–substrate–back system. The `Eval`
-badge in the window. For the usual whole-part figures such as solar or photopic
+surface, the back surface, or the complete front–substrate–back system, as the `Eval`
+badge under the chart shows. For the usual whole-part figures such as solar or photopic
 transmittance, evaluate the design as the total system.
 
 ## Settings

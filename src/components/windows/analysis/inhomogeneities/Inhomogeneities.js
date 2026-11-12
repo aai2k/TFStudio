@@ -5,11 +5,11 @@
  */
 
 import { totalInterlayerThickness } from '../../../../utils/physics/inhomogeneity.js';
-import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { SpecVerdict } from '../../../SpecVerdict.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import {
     InhomogeneityControls, InhomogeneityEditor, InhomogeneityEditorActions,
@@ -70,6 +70,7 @@ export function Inhomogeneities({ c, theme, t }) {
                 showCurves: state.showCurves, c, t,
             }),
         ),
+        h(BadgeRow, { c, t, design }),
         h(ResultsSection, {
             c, label: ih.editorTitle,
             summary: `${activeInterlayerCount(inh)} ${ih.activeInterlayers} · Σ ${totalInterlayerThickness(inh).toFixed(2)} ${t.units.nm}`,
@@ -80,7 +81,6 @@ export function Inhomogeneities({ c, theme, t }) {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,
             actions: h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
-                h(EvalModeBadge, { design, c, t }),
                 (design?.qualifiers?.length > 0 && state.specInputs) && h(SpecVerdict, {
                     design, interlayers: state.inh, c, t,
                     label: t.specification.specLabel,
