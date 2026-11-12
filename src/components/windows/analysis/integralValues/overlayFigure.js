@@ -3,10 +3,16 @@ import { weightingText } from '../../../../utils/physics/integralValues/builtinW
 import {
     axisTooltip, cartesianOption, lineSeries, scatterSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
-import { legendInsideLeft, plotMargin } from '../chrome/plot.js';
+import { legendAbove, legendUnderTitle, plotMargin } from '../chrome/plot.js';
 
 const FACTORY = ANALYSIS_DEFAULTS.integralValues.colors;
 const overlayCharColor = (char, curve) => curve[char] || curve.A;
+// The Min mark, a triangle point down. A turned 'triangle' would point up in
+// the legend, which ECharts draws without the series' rotation; this shape is
+// drawn the same way in both. It is 24 by 8, the legend icon's box, so its
+// legend entry matches the Max entry's triangle; on the plot it takes the
+// mark's size like any symbol.
+const POINT_DOWN = 'path://M0,0L24,0L12,8Z';
 
 function overlayWeightValues(lambda, weighting) {
     const sampler = weighting && weighting.kind !== 'photopic' ? weighting.sampler : null;
@@ -34,15 +40,11 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
         name: labels.weightingCurve(weightingText(weighting, labels.weightings).label || ''),
         color: curve.limits, width: 1, dash: 'dot',
     }));
-    if (minMaxMarks && Number.isFinite(minMaxMarks.lamAtMin)) {
-        const marker = scatterSeries({
-            data: [[minMaxMarks.lamAtMin, minMaxMarks.min * 100]],
-            name: `${labels.col_min} ${(minMaxMarks.min * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMin.toFixed(0)} ${units.nm}`,
-            color: curve.min, symbol: 'triangle', symbolSize: 10,
-        });
-        marker.symbolRotate = 180;
-        series.push(marker);
-    }
+    if (minMaxMarks && Number.isFinite(minMaxMarks.lamAtMin)) series.push(scatterSeries({
+        data: [[minMaxMarks.lamAtMin, minMaxMarks.min * 100]],
+        name: `${labels.col_min} ${(minMaxMarks.min * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMin.toFixed(0)} ${units.nm}`,
+        color: curve.min, symbol: POINT_DOWN, symbolSize: 10,
+    }));
     if (minMaxMarks && Number.isFinite(minMaxMarks.lamAtMax)) series.push(scatterSeries({
         data: [[minMaxMarks.lamAtMax, minMaxMarks.max * 100]],
         name: `${labels.col_max} ${(minMaxMarks.max * 100).toFixed(2)}% @ ${minMaxMarks.lamAtMax.toFixed(0)} ${units.nm}`,
@@ -50,11 +52,11 @@ export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, col
     }));
     return cartesianOption({
         colors,
-        grid: plotMargin(),
+        grid: plotMargin({ titleRow: Boolean(title) }),
         title: title ? { text: title, left: 0, top: 2, textStyle: { color: colors.text, fontSize: 11, fontWeight: 'normal' } } : undefined,
         fileName: 'integral',
         tooltip: axisTooltip({ colors, valueSuffix: '%' }),
-        legend: legendInsideLeft({ panel: colors.panel, border: colors.grid }, { color: colors.text }),
+        legend: title ? legendUnderTitle({ color: colors.text }) : legendAbove({ color: colors.text }),
         // A wavelength axis with no interval of its own is ticked on round
         // wavelengths by the shared rule, however odd the band's start.
         xAxis: valueAxis({

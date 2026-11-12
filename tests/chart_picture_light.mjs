@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { getPalette } from '../src/constants/colorPalettes.js';
 import { chartToolbox, lineSeries } from '../src/components/ui/chartOptions.js';
-import { legendInsideLeft, percentSpectrumOption } from '../src/components/windows/analysis/chrome/plot.js';
+import { percentSpectrumOption } from '../src/components/windows/analysis/chrome/plot.js';
 
 // chartPicture.js draws through plotSurface.js, which takes its hooks from the
 // renderer's React.
@@ -17,7 +17,8 @@ function spectrum(c) {
         c, fileName: 'spectrum', lambdaAxis: 'Wavelength, nm',
         series: [lineSeries({ x: [400, 500], y: [10, 90], name: 'T', color: CURVE })],
     });
-    return { ...option, legend: legendInsideLeft(c) };
+    // A legend on a see-through panel: a theme colour with an alpha byte.
+    return { ...option, legend: { ...option.legend, backgroundColor: `${c.panel}dd` } };
 }
 
 // A plot drawn in a dark theme is saved in the Light theme's colours, role for

@@ -803,10 +803,3 @@ export function horizontalLegend({ color = '#cccccc', top = 4, right = 104 } = {
         textStyle: { color, fontSize: 10 },
     };
 }
-
-export function verticalLegend({ color = '#cccccc', backgroundColor = 'transparent', borderColor = 'transparent' } = {}) {
-    return {
-        show: true, type: 'scroll', orient: 'vertical', left: 66, top: 42,
-        textStyle: { color, fontSize: 10 }, backgroundColor, borderColor, borderWidth: 1,
-    };
-}

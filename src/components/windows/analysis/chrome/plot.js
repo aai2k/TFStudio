@@ -1,30 +1,44 @@
 /** Shared Apache ECharts furniture for analysis windows. */
 
 import {
-    axisTooltip, cartesianOption, chartToolbox, horizontalLegend, valueAxis, verticalLegend,
+    axisTooltip, cartesianOption, chartToolbox, horizontalLegend, valueAxis,
 } from '../../../ui/chartOptions.js';
 
 const MARGIN = { left: 58, right: 18, top: 38, bottom: 52 };
+const LEGEND_TOP = 4;
+// A chart with a title draws it in the row above the plot where the legend
+// otherwise goes. The legend then gets a row of its own under the title, and
+// the plot moves down by the same amount. The row starts low enough for the
+// legend's entries to clear the toolbox, whose box ends 29 px from the top.
+const TITLE_ROW = 22;
 
 export const TICK_FONT = { fontSize: 10 };
 
-/** Grid insets aligned across all analysis charts. */
-export function plotMargin({ rightAxis = false } = {}) {
-    return { ...MARGIN, right: rightAxis ? 58 : MARGIN.right };
+/**
+ * Grid insets aligned across all analysis charts. `titleRow` leaves room for
+ * a legend under the chart's title (legendUnderTitle).
+ */
+export function plotMargin({ rightAxis = false, titleRow = false } = {}) {
+    return {
+        ...MARGIN,
+        right: rightAxis ? 58 : MARGIN.right,
+        top: titleRow ? MARGIN.top + TITLE_ROW : MARGIN.top,
+    };
 }
 
 /** Legend above the data and left of the toolbox. */
 export function legendAbove(style = {}) {
-    return horizontalLegend({ color: style.color, top: 4 });
+    return horizontalLegend({ color: style.color, top: LEGEND_TOP });
 }
 
-/** Scrollable legend inside the top-left of charts with many series. */
-export function legendInsideLeft(colors, style = {}) {
-    return verticalLegend({
-        color: style.color,
-        backgroundColor: `${colors.panel}dd`,
-        borderColor: colors.border,
-    });
+/**
+ * Legend on a row of its own between the chart's title and the data, for a
+ * chart whose title takes the row legendAbove uses; the plot needs
+ * plotMargin({ titleRow: true }). The row is below the toolbox, so it runs the
+ * plot's full width.
+ */
+export function legendUnderTitle(style = {}) {
+    return horizontalLegend({ color: style.color, top: LEGEND_TOP + TITLE_ROW, right: MARGIN.right });
 }
 
 /** Standard zoom/restore/export controls. */
