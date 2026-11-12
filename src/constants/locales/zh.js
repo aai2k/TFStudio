@@ -29,7 +29,6 @@ export default {
       project: '项目',
       edit: '编辑',
       design: '设计',
-      preferences: '首选项',
       environments: '环境',
       general: '常用',
       phase: '相位',

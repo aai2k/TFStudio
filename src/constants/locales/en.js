@@ -30,7 +30,6 @@ export default {
       project: 'Project',
       edit: 'Edit',
       design: 'Design',
-      preferences: 'Preferences',
       environments: 'Environment',
       general: 'General',
       phase: 'Phase',

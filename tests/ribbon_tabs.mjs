@@ -67,10 +67,10 @@ assert.equal(setupTab.groups[0].key, 'project',
     'the Setup tab opens with the project group');
 assert.deepEqual(setupTab.groups[0].items.map(i => i.id),
     ['new-design', 'open-project', 'import-designs', 'save', 'save-as']);
-assert.equal(setupTab.groups[1].key, 'edit', 'undo/redo/history are their own block');
-assert.deepEqual(setupTab.groups[1].items.map(i => i.id), ['undo', 'redo', 'history']);
-assert.ok(setupTab.groups.some(g => g.items.some(i => i.id === 'preferences')),
-    'Preferences is on the Setup tab');
+assert.equal(setupTab.groups[1].key, 'edit', 'Preferences, undo, redo and history are one block');
+assert.deepEqual(setupTab.groups[1].items.map(i => i.id), ['preferences', 'undo', 'redo', 'history'],
+    'Preferences comes before Undo, in the Edit group rather than a group of its own');
+assert.ok(!setupTab.groups.some(g => g.key === 'preferences'), 'no group holds Preferences alone');
 
 // Everything the help menu used to hold is a tab of its own now.
 const helpTab = tabs.find(x => x.key === 'help');

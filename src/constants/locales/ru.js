@@ -29,7 +29,6 @@ export default {
       project: 'Проект',
       edit: 'Правка',
       design: 'Дизайн',
-      preferences: 'Настройки',
       environments: 'Окружения',
       general: 'Общие',
       phase: 'Фаза',

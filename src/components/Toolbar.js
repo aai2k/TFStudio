@@ -489,9 +489,8 @@ export function makeTabs(t, environment = null) {
         {
             key: 'setup', label: tb.tabs.setup, groups: [
                 grp('project',     ['new-design', 'open-project', 'import-designs', 'save', 'save-as']),
-                grp('edit',        ['undo', 'redo', 'history']),
+                grp('edit',        ['preferences', 'undo', 'redo', 'history']),
                 grp('design',      ['design-editor', 'material-editor', 'coating-library', 'specification', 'stack-formula', 'edge-filter']),
-                grp('preferences', ['preferences']),
                 environmentGroup(tb, btn, environment),
             ]
         },
