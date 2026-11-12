@@ -73,15 +73,15 @@ function defaultExportObject(ast) {
   return null;
 }
 
-// Read `availableLocales = [{ code, name }, ...]` from index.js for the display
-// names and the column order.
-function collectAvailable(ast) {
+// Read a `[{ code, name }, ...]` list from index.js: `availableLocales` for the
+// languages the app ships, `draftLocales` for the ones still being translated.
+function collectLocaleList(ast, listName) {
   const out = [];
   for (const node of ast.body) {
     const decl = node.type === 'ExportNamedDeclaration' ? node.declaration : node;
     if (!decl || decl.type !== 'VariableDeclaration') continue;
     for (const d of decl.declarations) {
-      if (d.id.type === 'Identifier' && d.id.name === 'availableLocales' &&
+      if (d.id.type === 'Identifier' && d.id.name === listName &&
           d.init && d.init.type === 'ArrayExpression') {
         for (const el of d.init.elements) {
           if (el && el.type === 'ObjectExpression') {
@@ -99,18 +99,35 @@ function collectAvailable(ast) {
   return out;
 }
 
+function draftFileSource(code, name) {
+  return `// ${name} (${code}).\n` +
+    `//\n` +
+    `// Draft translation. The app does not offer it until its entry moves from\n` +
+    `// draftLocales to availableLocales in index.js. Keys left out show in English.\n` +
+    `\n` +
+    `export default {};\n`;
+}
+
 export function buildModel(dir) {
   const indexPath = join(dir, 'index.js');
   if (!existsSync(indexPath)) throw new Error(`No index.js in ${dir}`);
-  const available = collectAvailable(acorn.parse(readFileSync(indexPath, 'utf8'), PARSE_OPTS));
-  if (available.length === 0) throw new Error(`No availableLocales in ${indexPath}`);
+  const indexAst = acorn.parse(readFileSync(indexPath, 'utf8'), PARSE_OPTS);
+  const shipped = collectLocaleList(indexAst, 'availableLocales');
+  if (shipped.length === 0) throw new Error(`No availableLocales in ${indexPath}`);
+  const available = [
+    ...shipped.map((l) => ({ ...l, draft: false })),
+    ...collectLocaleList(indexAst, 'draftLocales').map((l) => ({ ...l, draft: true })),
+  ];
 
-  // Per-language source, leaf and object maps, each from its own file.
+  // Per-language source, leaf and object maps, each from its own file. A draft
+  // language with no file yet starts from an empty one, written on first save.
   const langs = {};   // code -> { path, code, leaves:Map, objects:Map }
-  for (const { code: lc } of available) {
+  for (const { code: lc, name, draft } of available) {
     const path = join(dir, `${lc}.js`);
-    if (!existsSync(path)) continue;
-    const source = readFileSync(path, 'utf8');
+    let source;
+    if (existsSync(path)) source = readFileSync(path, 'utf8');
+    else if (draft) source = draftFileSource(lc, name);
+    else continue;
     const objExpr = defaultExportObject(acorn.parse(source, PARSE_OPTS));
     if (!objExpr) throw new Error(`${lc}.js has no "export default { ... }"`);
     const leaves = new Map();
@@ -200,6 +217,35 @@ function emitTree(node, indent) {
 // Existing members of a container node, whichever kind it is.
 const membersOf = (node) => (node.type === 'ArrayExpression' ? node.elements : node.properties).filter(Boolean);
 
+// New array elements are appended, so element N lands at index N only if every
+// earlier element exists. Add the missing earlier ones as empty strings (the
+// editor lists those as empty), so translating step 3 of a list before step 1
+// does not put it at index 0. A function value cannot be empty and is copied
+// from English instead.
+function fillArrayGaps(L, en, inserts) {
+  const pending = new Set(inserts.map((it) => it.path));
+  const exists = (p) => L.leaves.has(p) || L.objects.has(p) ||
+    [...pending].some((q) => q === p || q.startsWith(`${p}.`));
+  const extra = [];
+  for (const it of inserts) {
+    const segs = it.path.split('.');
+    for (let i = 1; i < segs.length; i++) {
+      const arrayPath = segs.slice(0, i).join('.');
+      if (!/^\d+$/.test(segs[i]) || en.objects.get(arrayPath)?.type !== 'ArrayExpression') continue;
+      for (let j = 0; j < Number(segs[i]); j++) {
+        const element = `${arrayPath}.${j}`;
+        if (exists(element)) continue;
+        for (const [p, leaf] of en.leaves) {
+          if (p !== element && !p.startsWith(`${element}.`)) continue;
+          extra.push({ path: p, kind: leaf.kind, value: leaf.kind === 'string' ? '' : leaf.text });
+          pending.add(p);
+        }
+      }
+    }
+  }
+  return inserts.concat(extra);
+}
+
 // Apply edits and return the new source of every language an edit touched:
 //   edits:   [{ path, lang, kind:'string'|'expr', value }]
 //   returns: [{ lang, path, source }]  — languages with no edits are absent.
@@ -225,7 +271,8 @@ export function applyEdits(model, edits) {
   const written = [];
   for (const [lang, work] of Object.entries(byLang)) {
     const L = langs[lang];
-    const { replacements, inserts } = work;
+    const { replacements } = work;
+    const inserts = fillArrayGaps(L, langs.en, work.inserts);
 
     // Insertions: group by the deepest EXISTING ancestor object so multiple new
     // keys sharing a new parent branch are emitted as one nested object.

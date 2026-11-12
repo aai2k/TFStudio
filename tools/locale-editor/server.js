@@ -82,15 +82,18 @@ const server = createServer(async (req, res) => {
         sendJSON(res, 400, { ok: false, error: `Edit produced invalid JS: ${err.message}` });
         return;
       }
-      // Back up each language this save touches, then write it.
+      // Back up each language this save touches, then write it. A draft
+      // language saved for the first time has no file to back up.
       if (!existsSync(BACKUP_DIR)) mkdirSync(BACKUP_DIR, { recursive: true });
       const stamp = timestamp();
       const backups = [];
       for (const w of written) {
-        const bak = join(BACKUP_DIR, `${w.lang}.${stamp}.js`);
-        copyFileSync(w.path, bak);
+        if (existsSync(w.path)) {
+          const bak = join(BACKUP_DIR, `${w.lang}.${stamp}.js`);
+          copyFileSync(w.path, bak);
+          backups.push(bak);
+        }
         writeFileSync(w.path, w.source, 'utf8');
-        backups.push(bak);
       }
       sendJSON(res, 200, { ok: true, written: edits.length, files: written.map((w) => w.lang), backups });
       return;

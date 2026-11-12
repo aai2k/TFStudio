@@ -19,6 +19,10 @@ Stop with Ctrl-C. Use `PORT=5000 npm run locale-editor` to change the port.
 - Reads every `<code>.js` in the folder, listing each key as one row with a
   textbox per language. Columns come from `availableLocales` in `index.js`, so a
   new language appears as soon as its file and its entry exist.
+- Languages in `draftLocales` in `index.js` are not offered in the app. Pick one
+  in the header to add it as a column. Its file need not exist: the first save
+  creates it. Translating element N of a list before the ones above it fills
+  those with empty strings, so the element keeps its index.
 - **Save** writes only the changed values back, using **surgical, offset-based
   AST edits**. Comments, formatting, and all 280+ function-valued entries
   (e.g. ``(n) => `Trial: ${n}` ``) are preserved untouched. A save touches only

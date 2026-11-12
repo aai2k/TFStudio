@@ -10,6 +10,11 @@
  * `availableLocales`. Nothing outside this folder needs to change: the language
  * menu, the report language list and the locale editor all read
  * `availableLocales`.
+ *
+ * `draftLocales` lists languages that can be translated in the locale editor
+ * but are not offered in the app yet. Their files are not imported here, so a
+ * half-done translation never reaches a user. To ship one, move its entry to
+ * `availableLocales` and import its file as above.
  */
 import en from './en.js';
 import ru from './ru.js';
@@ -21,6 +26,15 @@ export const availableLocales = [
   { code: 'ru', name: 'Русский' },
   { code: 'zh', name: '中文' },
   { code: 'it', name: 'Italiano' }
+];
+
+export const draftLocales = [
+  { code: 'de', name: 'Deutsch' },
+  { code: 'fr', name: 'Français' },
+  { code: 'es', name: 'Español' },
+  { code: 'pt', name: 'Português' },
+  { code: 'ja', name: '日本語' },
+  { code: 'ko', name: '한국어' }
 ];
 
 const locales = { en, ru, zh, it };

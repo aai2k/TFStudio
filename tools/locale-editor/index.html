@@ -100,6 +100,9 @@
   <label class="chk"><input type="checkbox" id="grpns" checked /> Group by feature</label>
   <label class="chk"><input type="checkbox" id="dedupe" /> Merge identical EN</label>
   <label class="chk" id="dupOnlyWrap" style="display:none"><input type="checkbox" id="dupOnly" /> only ×2+</label>
+  <select id="draft" title="A language not offered in the app yet, shown as an extra column">
+    <option value="">No draft language</option>
+  </select>
   <span class="spacer"></span>
   <span id="counts" class="pill"></span>
   <span id="dirtyPill" class="pill dirty" style="display:none"></span>
@@ -128,12 +131,29 @@ async function load() {
   const d = await r.json();
   if (!d.ok) { $('status').textContent = 'error: ' + d.error; return; }
   state.rows = d.rows;
-  state.languages = d.languages;
+  state.allLanguages = d.languages;
+  fillDraftPicker();
+  pickLanguages();
   state.rowByPath = new Map(d.rows.map((row) => [row.path, row]));
   state.edits.clear();
   state.srcIndex = new Map(d.rows.map((row, i) => [row.path, i]));
   $('status').textContent = 'loaded ' + d.rows.length + ' keys';
   render();
+}
+
+// The columns: every shipped language, plus the one draft language picked in
+// the header. Drafts are listed in draftLocales in index.js and are not
+// offered in the app.
+function fillDraftPicker() {
+  const sel = $('draft');
+  const keep = sel.value;
+  sel.length = 1;
+  for (const l of state.allLanguages.filter((x) => x.draft)) sel.add(new Option(`${l.name} (${l.code}), draft`, l.code));
+  sel.value = [...sel.options].some((o) => o.value === keep) ? keep : '';
+}
+function pickLanguages() {
+  const draft = $('draft').value;
+  state.languages = state.allLanguages.filter((l) => !l.draft || l.code === draft);
 }
 
 // ---- edit state helpers ----
@@ -509,6 +529,7 @@ $('filter').addEventListener('change', render);
 $('grpns').addEventListener('change', render);
 $('dedupe').addEventListener('change', render);
 $('dupOnly').addEventListener('change', render);
+$('draft').addEventListener('change', () => { pickLanguages(); render(); });
 $('reload').addEventListener('click', () => {
   if (totalDirty() && !confirm('Discard unsaved changes and reload?')) return;
   load();
