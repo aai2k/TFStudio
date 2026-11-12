@@ -78,16 +78,32 @@ export const COLS = [
     { key: 'contribution', w: 46, tr: 'contribution' },
 ];
 
+// On a design with more than one environment the Env column follows Type: the
+// environment a row is scored in, All or one of them, as wide as a number and
+// a short name.
+const ENV_COLS = [...COLS.slice(0, 3), { key: 'env', w: 60, tr: 'env' }, ...COLS.slice(3)];
+
+/** The table's columns: COLS, with the Env column after Type on a design with environments. */
+export function tableColumns(withEnvironments) {
+    return withEnvironments ? ENV_COLS : COLS;
+}
+
 /** Header text for a column. `cols` is t.meritFunctionEditor.cols. */
 export const colLabel = (col, cols) => col.symbol || cols[col.tr];
 
-const COLS_W = COLS.reduce((sum, col) => sum + col.w, 0);
+const widthOf = columns => columns.reduce((sum, col) => sum + col.w, 0);
+const COLS_W = widthOf(COLS);
 
 export const TABLE_W = COLS_W + 4;
 
+/** The width below which a table of `columns` scrolls instead of shrinking, px. */
+export function tableWidth(columns) {
+    return widthOf(columns) + 4;
+}
+
 /** A column's share of the table, so the rows span the window at any width. */
-export function columnPercent(col) {
-    return `${(col.w / COLS_W) * 100}%`;
+export function columnPercent(col, columns = COLS) {
+    return `${(col.w / widthOf(columns)) * 100}%`;
 }
 export const RANGE_AVG_TYPES = new Set(['TAV', 'RAV', 'AAV']);
 export const RANGE_TARGET_TYPES = new Set(['TGT', 'RGT', 'AGT']);
@@ -98,6 +114,9 @@ const EDITABLE_KEYS = ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'po
 // here; DASH is the empty column, not a word.
 const DASH = '—';
 const LAMBDA = 'λ';
+
+/** What a cell with no value shows, in this table and beside it. */
+export { DASH };
 const HEADER_LABELS = [
     [op => isMeasuredCurve(op.type), { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
     [op => isBlank(op.type), { lambdaStart: 'comment', lambdaEnd: DASH }],
@@ -172,6 +191,19 @@ function baseEditableCols(op) {
 export function editableColsForRow(op) {
     const cols = baseEditableCols(op);
     return takesStepFlag(op) ? [...cols, 'flag'] : cols;
+}
+
+/**
+ * Whether a row can be scored in one environment: a row the merit can score.
+ * A header, a comment and a constant are scored nowhere.
+ */
+export function takesEnvironment(op) {
+    return !isDmfs(op.type) && !isBlank(op.type) && !isConstant(op.type);
+}
+
+/** Whether a row holds a value in column `colKey`, the Env column included. */
+export function rowCarries(op, colKey) {
+    return colKey === 'env' ? takesEnvironment(op) : editableColsForRow(op).includes(colKey);
 }
 
 // Operands whose λ End column carries a wavelength, so the cell shows a value

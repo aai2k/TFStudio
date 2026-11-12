@@ -14,6 +14,8 @@ import { LayerList } from './LayerList.js';
 import { StackGeometryPanel } from './StackGeometryPanel.js';
 import { designEditorSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useCurrentEnvironment } from '../environments/currentEnvironment.js';
+import { environmentMedia } from '../../../../utils/environments/environments.js';
 
 const { createElement: h, useState, useEffect, useMemo } = React;
 
@@ -54,6 +56,10 @@ export function DesignEditor({ c, t }) {
     const [session, setSessionField] = useWindowSession(designEditorSession, design);
     const activeSide = session.activeSide;
     const setActiveSide = value => setSessionField('activeSide', value);
+    // The layer list is the recipe in every environment; the media and the
+    // substrate around it are the current environment's.
+    const current = useCurrentEnvironment(design);
+    const media = useMemo(() => environmentMedia(design, current.id), [design, current.id]);
 
     // Which side's tab is disabled for editing, and why:
     //   • symmetric    → back is mirrored from front (edit front)
@@ -144,7 +150,7 @@ export function DesignEditor({ c, t }) {
         // ── Layer list (for active side) ──────────────────────────────────────
         h('div', { style: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' } },
             h(LayerList, {
-                layers, side: activeSide, design, updateDesign, missingMaterialIds: missingMaterialSet, c,
+                layers, side: activeSide, design, media, updateDesign, missingMaterialIds: missingMaterialSet, c,
                 removeLayer, updateLayer,
                 addLayerAtDisplayIndex, removeLayerAt, duplicateLayerAt,
                 pasteLayersAtDisplayIndex, removeLayers, reorderLayers, moveLayersByStep,
@@ -155,7 +161,7 @@ export function DesignEditor({ c, t }) {
         ),
 
         // ── Stack geometry / media ─────────────────────────────────────────────
-        h(StackGeometryPanel, { design, updateDesign, refLambda, c, t }),
+        h(StackGeometryPanel, { design, media, current, updateDesign, refLambda, c, t }),
 
         replaceOpen && h(ReplaceMaterialsDialog, {
             design, updateDesign, c, t, onClose: () => setReplaceOpen(false),

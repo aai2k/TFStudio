@@ -51,7 +51,9 @@ function scrollLayerIntoView(container, id) {
     row?.scrollIntoView({ block: 'nearest' });
 }
 
-export function LayerList({ layers, side, design, updateDesign, missingMaterialIds, c,
+// `media` is the design with the current environment's media and substrate
+// (environmentMedia), which the lines above and below the layers name.
+export function LayerList({ layers, side, design, media = design, updateDesign, missingMaterialIds, c,
     removeLayer, updateLayer,
     addLayerAtDisplayIndex, removeLayerAt, duplicateLayerAt,
     pasteLayersAtDisplayIndex, removeLayers, reorderLayers, moveLayersByStep,
@@ -70,8 +72,8 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
     const [toolDialog, setToolDialog] = useState(null);
     const [toolNotice, setToolNotice] = useState('');
     const substrateWarning = missingReferenceStyle(
-        design.substrate.material, missingMaterialIds, c, t);
-    const boundaryMaterial = side === 'front' ? design.incidentMedium : design.exitMedium;
+        media.substrate.material, missingMaterialIds, c, t);
+    const boundaryMaterial = side === 'front' ? media.incidentMedium : media.exitMedium;
     const boundaryWarning = missingReferenceStyle(boundaryMaterial, missingMaterialIds, c, t);
 
     // Front coating is displayed substrate-first (reversed) so layer 1 is the one
@@ -458,7 +460,7 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                 title: substrateWarning.title,
                 style: { padding: '2px 4px', fontSize: 10,
                     color: substrateWarning.color, fontStyle: 'italic' },
-            }, de.substrateTopLabel(materialName(design.substrate.material))),
+            }, de.substrateTopLabel(materialName(media.substrate.material))),
 
             // Full list mounted once; scrolling is pure native scroll.
             displayedLayers.length === 0
@@ -479,8 +481,8 @@ export function LayerList({ layers, side, design, updateDesign, missingMaterialI
                 fontStyle: 'italic', flexShrink: 0, borderTop: `1px solid ${c.border}` },
         },
             side === 'front'
-                ? de.incidentBottomLabel(materialName(design.incidentMedium))
-                : de.exitLabel(materialName(design.exitMedium))
+                ? de.incidentBottomLabel(materialName(media.incidentMedium))
+                : de.exitLabel(materialName(media.exitMedium))
         ),
 
         contextMenu && h(ContextMenu, {

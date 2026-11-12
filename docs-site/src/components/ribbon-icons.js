@@ -45,6 +45,8 @@ export const ICONS = {
                        L(21.2,8,21.2,3.5,1.6),
                        P('M21.2 4.5 Q22.7 3 24.2 4.5 L24.2 8',1.6),
                      ], 28),
+  // Environments: a grid of columns, one per condition the design is scored in.
+  'environments':    I([ R(2.5,3,15,14,1), L(7.5,3,7.5,17), L(12.5,3,12.5,17) ]),
   // Edge filter: a shortwave-pass edge on axes, the edge wavelength dashed.
   'edge-filter':     I([
                        L(2,17,18,17,1), L(2,2,2,17,1),

@@ -1,4 +1,3 @@
-import { operandContributions } from '../../../../../utils/physics/optimizer.js';
 import { provisionalMerit } from '../../../../../utils/physics/meritDisplay.js';
 import { useIntegralPresets } from '../../../../../utils/physics/integralValues.js';
 import { ContextMenu } from '../../../../ui/ContextMenu.js';
@@ -12,8 +11,9 @@ import { useMFTableSelection } from './useTableSelection.js';
 import { rowsOfSelection } from './selectionModel.js';
 import { deleteSelectedRows } from './tableKeyboard.js';
 import {
-    COLS, TABLE_W, colLabel, columnPercent, dynamicHeaderLabels,
+    colLabel, columnPercent, dynamicHeaderLabels, tableColumns, tableWidth,
 } from './operandViewModel.js';
+import { shownContributions, shownValues } from './tableEnvironments.js';
 
 const { createElement: h, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } = React;
 
@@ -37,9 +37,9 @@ function computeInsertIndex(operands, selectedIds, focusCell) {
 
 // A stretch of table standing in for the rows above or below the window. The
 // height goes on the row: a cell with nothing in it would collapse.
-function spacerRow(key, height) {
+function spacerRow(key, height, span) {
     return h('tr', { key, style: { height } },
-        h('td', { colSpan: COLS.length, style: { padding: 0, border: 'none' } }));
+        h('td', { colSpan: span, style: { padding: 0, border: 'none' } }));
 }
 
 /**
@@ -71,11 +71,19 @@ function useScrollViewport(scrollRef) {
 // The λ Start, λ End and flag headers change with the selected row's operand
 // type, so they carry a title and clip: a label wider than its column would
 // otherwise overflow into the next one. Over a search step the title spells out
-// the levels. Widths come from the colgroup, not from here.
+// the levels. On a design with environments the value column names the
+// environment it reads. Widths come from the colgroup, not from here.
 const DYNAMIC_HEADERS = new Set(['lambdaStart', 'lambdaEnd', 'flag']);
-function headerCell(col, dynamicLabels, style, te) {
+function headerText(col, dynamicLabels, te, environments) {
+    if (col.key === 'current' && environments) {
+        const { number, name } = environments.current;
+        return { label: te.currentIn(number), title: te.currentInTip(number, name) };
+    }
     const label = DYNAMIC_HEADERS.has(col.key) ? dynamicLabels[col.key] : colLabel(col, te.cols);
-    const title = col.key === 'flag' && label === te.cols.step ? te.stepFlagTip : label;
+    return { label, title: col.key === 'flag' && label === te.cols.step ? te.stepFlagTip : label };
+}
+function headerCell(col, dynamicLabels, style, te, environments) {
+    const { label, title } = headerText(col, dynamicLabels, te, environments);
     return h('th', {
         key: col.key, title,
         style: { ...style, overflow: 'hidden', textOverflow: 'ellipsis' },
@@ -86,19 +94,19 @@ function headerCell(col, dynamicLabels, style, te) {
  * The rows to build: the window over the operands, with a run of empty space
  * standing in for what is above and below it.
  */
-function tableBody(rowContext, view, noOperandsMsg) {
+function tableBody(rowContext, view, noOperandsMsg, span) {
     const { operands, c } = rowContext;
     if (operands.length === 0) {
         return h('tr', null, h('td', {
-            colSpan: COLS.length,
+            colSpan: span,
             style: { padding: 16, textAlign: 'center', color: c.textDim, fontSize: 12 },
         }, noOperandsMsg || 'No operands.'));
     }
     return [
-        view.padTop > 0 ? spacerRow('pad-top', view.padTop) : null,
+        view.padTop > 0 ? spacerRow('pad-top', view.padTop, span) : null,
         ...operands.slice(view.from, view.to + 1).map((op, offset) =>
             renderOperandRow(rowContext, op, view.from + offset)),
-        view.padBottom > 0 ? spacerRow('pad-bottom', view.padBottom) : null,
+        view.padBottom > 0 ? spacerRow('pad-bottom', view.padBottom, span) : null,
     ];
 }
 
@@ -171,14 +179,45 @@ function noticeStrip(notice, key, c) {
     );
 }
 
+// The values the rows show and each row's share of MF²; on a design with
+// environments, the current environment's values and the shares over every
+// environment (tableEnvironments.js). Derived here rather than passed in:
+// every caller already hands over the operands and their values, which is all
+// a share of the merit needs, and deriving it keeps the column from
+// disagreeing with the table.
+function useShownValues({ operands, computed, evaluationErrors, bandLevels, environments, environmentValues }) {
+    const shown = useMemo(
+        () => shownValues(environments, environmentValues, { computed, errors: evaluationErrors, bandLevels }),
+        [environments, environmentValues, computed, evaluationErrors, bandLevels],
+    );
+    const contributions = useMemo(
+        () => shownContributions(environments, environmentValues, operands, computed),
+        [environments, environmentValues, operands, computed],
+    );
+    const largestContribution = useMemo(
+        () => contributions.reduce((largest, value) => Math.max(largest, value || 0), 0),
+        [contributions],
+    );
+    return { shown, contributions, largestContribution };
+}
+
+/**
+ * The merit table of the Merit Function Editor and the Refinement window.
+ * `environments` (tableEnvironments.js) is given on a design with more than
+ * one environment, with `environmentValues`, the environments of the merit
+ * values: the table then has an Env column after Type, and its value column
+ * reads the current environment.
+ */
 export function MFTable(props) {
     const {
         operands, computed, evaluationErrors = [], bandLevels = [], provisional = null,
+        environments = null, environmentValues = null,
         selectedId, noOperandsMsg, notices = [],
         onSelect, onEdit, onEditMany, onAdd, onInsertAt,
         onDuplicate, onDelete, onClear, onMoveUp, onMoveDown, showToolbar = true, toolbarStart = null, c, t,
     } = props;
     const integralPresets = useIntegralPresets();
+    const columns = tableColumns(!!environments);
     const {
         selIds, setSelIds, focusCell, setFocusCell, editCell, setEditCell, tableRef,
         range, extraCells, clearCells, focusAfterRemoval,
@@ -187,7 +226,8 @@ export function MFTable(props) {
         startEdit: handleStartEdit, commitEdit: handleCommitEdit,
         navigate: handleNavigate, leaveComment, onEdit: handleEdit, onKeyDown,
     } = useMFTableSelection({
-        operands, integralPresets, selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
+        operands, integralPresets, environments,
+        selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
     });
 
     const thStyle = {
@@ -203,23 +243,16 @@ export function MFTable(props) {
         : null;
     const cols = t.meritFunctionEditor.cols;
     const dynamicLabels = dynamicHeaderLabels(pickHeaderOp(operands, focusCell, primarySel), cols);
-    // Derived here rather than passed in: every caller already hands over the
-    // operands and their computed values, which is all a share of the merit
-    // needs, and deriving it keeps the column from disagreeing with the table.
-    const contributions = useMemo(
-        () => operandContributions(operands, computed),
-        [operands, computed],
-    );
-    const largestContribution = useMemo(
-        () => contributions.reduce((largest, value) => Math.max(largest, value || 0), 0),
-        [contributions],
-    );
+    const { shown, contributions, largestContribution } = useShownValues({
+        operands, computed, evaluationErrors, bandLevels, environments, environmentValues,
+    });
     // Every share moves with the MF, so the shares are marked when it is.
     const shareProvisional = useMemo(() => provisionalMerit(operands, provisional), [operands, provisional]);
     const rowContext = {
-        computed, evaluationErrors, bandLevels, provisional, shareProvisional, contributions, largestContribution,
+        computed: shown.computed, evaluationErrors: shown.errors, bandLevels: shown.bandLevels, scoredHere: shown.scored,
+        provisional, shareProvisional, contributions, largestContribution,
         selIds, focusCell, editCell, range, extraCells,
-        operands, integralPresets, isMathPct, c, t,
+        operands, integralPresets, environments, isMathPct, c, t,
         onEdit: handleEdit, selectRow: handleSelectRow, focusAt: handleFocusAt,
         pressCell, beginDrag, dragOver, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, navigate: handleNavigate, leaveComment, setEditCell, setFocusCell,
@@ -244,7 +277,8 @@ export function MFTable(props) {
     }, [focusRow]);
 
     const contextMenu = useTableContextMenu({
-        operands, integralPresets, selIds, setSelIds, focusCell, range, extraCells, clearCells, focusAfterRemoval,
+        operands, integralPresets, environments,
+        selIds, setSelIds, focusCell, range, extraCells, clearCells, focusAfterRemoval,
         focusAt: handleFocusAt, selectRow: handleSelectRow, setFocusCell,
         onAdd, onInsertAt, onDuplicate, onDelete, onEdit: handleEdit, onEditMany,
         commitEdit: handleCommitEdit, isMathPct,
@@ -277,17 +311,18 @@ export function MFTable(props) {
             h('table', {
                 style: {
                     borderCollapse: 'collapse', tableLayout: 'fixed',
-                    width: '100%', minWidth: TABLE_W,
+                    width: '100%', minWidth: tableWidth(columns),
                     fontSize: 11, fontFamily: 'system-ui, -apple-system, sans-serif',
                 },
             },
-                h('colgroup', null, COLS.map(col => h('col', {
-                    key: col.key, style: { width: columnPercent(col) },
+                h('colgroup', null, columns.map(col => h('col', {
+                    key: col.key, style: { width: columnPercent(col, columns) },
                 }))),
                 h('thead', { ref: headRef },
-                    h('tr', null, COLS.map(col => headerCell(col, dynamicLabels, thStyle, t.meritFunctionEditor))),
+                    h('tr', null, columns.map(col =>
+                        headerCell(col, dynamicLabels, thStyle, t.meritFunctionEditor, environments))),
                 ),
-                h('tbody', null, tableBody(rowContext, view, noOperandsMsg)),
+                h('tbody', null, tableBody(rowContext, view, noOperandsMsg, columns.length)),
             ),
         ),
         showToolbar && tableToolbar({

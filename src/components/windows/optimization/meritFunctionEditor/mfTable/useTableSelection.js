@@ -33,7 +33,7 @@ import { NO_CELLS } from '../../../../ui/grid/gridModel.js';
 import { useGridSelection } from '../../../../ui/grid/useGridSelection.js';
 import { commitEdit, startEdit } from './editModel.js';
 import {
-    MF_GRID, ROW_HEADER, isHeaderOrComment, navigationTarget, selectionAfterRowClick,
+    ROW_HEADER, isHeaderOrComment, navigationTarget, selectionAfterRowClick, tableGrid,
 } from './selectionModel.js';
 import { doKeyDown } from './tableKeyboard.js';
 
@@ -89,7 +89,7 @@ function pickRow(ctx, rowIdx, alone, colKey) {
 // focus back whether the move left the row, stayed in it or met the table's
 // edge.
 function navigate(ctx, fromRowIdx, fromColKey, direction) {
-    const target = navigationTarget(ctx.operands, fromRowIdx, fromColKey, direction);
+    const target = navigationTarget(ctx.operands, fromRowIdx, fromColKey, direction, tableGrid(ctx.environments));
     if (target?.focus) ctx.cells.focusAt(target.rowIdx, target.colKey);
     else if (target) ctx.cells.place(target.rowIdx, target.colKey);
     ctx.cells.tableRef.current?.focus();
@@ -106,9 +106,12 @@ function leaveComment(ctx, rowIdx, step) {
     ctx.cells.focusAt(target, ctx.cells.focusCell?.colKey ?? 'type');
 }
 
+// `environments` is the table's (tableEnvironments.js), null on a design with
+// one environment; it decides whether the table has an Env column.
 export function useMFTableSelection(props) {
     const {
-        operands, integralPresets, selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
+        operands, integralPresets, environments = null,
+        selectedId, onSelect, onEdit, onEditMany, onDelete, onInsertAt, onDuplicate, onAdd,
     } = props;
     const [selIds, setSelIds] = useState(() => selectedId ? new Set([selectedId]) : new Set());
     const [anchor, setAnchor] = useState(selectedId || null);
@@ -131,7 +134,7 @@ export function useMFTableSelection(props) {
     const live = useRef();
     const set = useMemo(() => ({ selIds: setSelIds, anchor: setAnchor, editCell: setEditCell }), []);
     const context = useCallback(() => ({ ...live.current, lastReported, set }), [set]);
-    const cells = useGridSelection(MF_GRID, {
+    const cells = useGridSelection(tableGrid(environments), {
         hasRow: rowIdx => !!live.current.operands[rowIdx],
         onPick: (rowIdx, alone, colKey) => pickRow(context(), rowIdx, alone, colKey),
         onRowDrag: (rowIdx) => {
@@ -139,7 +142,7 @@ export function useMFTableSelection(props) {
             if (op) selectRow(context(), op.id, true, false);
         },
     });
-    live.current = { operands, integralPresets, anchor, onSelect, onEdit, operandsById, cells };
+    live.current = { operands, integralPresets, environments, anchor, onSelect, onEdit, operandsById, cells };
     const { focusCell, setFocusCell, extraCells, range, tableRef } = cells;
 
     // Delete and Cut take the focused cell's row with them. The focus then goes
@@ -174,7 +177,7 @@ export function useMFTableSelection(props) {
 
     const handleCommitEdit = useCallback((rowIdx, colKey, draft) => commitEdit({
         operands: live.current.operands, integralPresets: live.current.integralPresets,
-        onEdit: live.current.onEdit, setEditCell,
+        environments: live.current.environments, onEdit: live.current.onEdit, setEditCell,
     }, rowIdx, colKey, draft), []);
 
     const handleNavigate = useCallback((rowIdx, colKey, direction) =>
@@ -184,15 +187,15 @@ export function useMFTableSelection(props) {
         leaveComment(context(), rowIdx, step), [context]);
 
     const onKeyDown = useCallback(event => doKeyDown({
-        editCell, setEditCell, focusCell, selectedIds: selIds, operands, integralPresets, setSelIds,
+        editCell, setEditCell, focusCell, selectedIds: selIds, operands, integralPresets, environments, setSelIds,
         range, extraCells, extendTo: cells.extendTo, collapseRange: cells.collapseRange,
         clearCells: cells.clearCells, focusAfterRemoval,
         onDelete, onInsertAt, onDuplicate, onAdd, onEdit, onEditMany, focusAt: cells.focusAt,
         navigate: handleNavigate, startEdit: handleStartEdit,
         commitEdit: handleCommitEdit, isMathPct,
     }, event), [
-        editCell, focusCell, selIds, operands, integralPresets, range, extraCells, onDelete, onAdd, onInsertAt,
-        onDuplicate, onEdit, onEditMany, handleStartEdit, handleNavigate,
+        editCell, focusCell, selIds, operands, integralPresets, environments, range, extraCells, onDelete, onAdd,
+        onInsertAt, onDuplicate, onEdit, onEditMany, handleStartEdit, handleNavigate,
         handleCommitEdit, cells.extendTo, cells.collapseRange, cells.clearCells, cells.focusAt, isMathPct,
         focusAfterRemoval,
     ]);

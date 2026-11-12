@@ -5,8 +5,8 @@ import {
     editingCell, listValueCell, listValuePickerCell, polPickerCell, polarizationCell,
     rowRenderers, textCell, typeCell, typePickerCell,
 } from './OperandCells.js';
-import { COLS, rowDisplayMeta, rowTintAlpha, typeRgba } from './operandViewModel.js';
-import { ROW_HEADER, selectedColumnsForRow } from './selectionModel.js';
+import { COLS, rowDisplayMeta, rowTintAlpha, tableColumns, typeRgba } from './operandViewModel.js';
+import { ROW_HEADER, tableGrid } from './selectionModel.js';
 import { ROW_H } from './rowWindow.js';
 import { isTextControl } from '../../../../ui/grid/gridKeys.js';
 
@@ -27,7 +27,7 @@ function rowPress(op, selectRow, beginDrag) {
     };
 }
 
-function DmfsRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver }) {
+function DmfsRowView({ op, rowIdx, rowSel, columns, c, t, onEdit, selectRow, beginDrag, dragOver }) {
     return h('tr', {
         'data-row': rowIdx,
         onMouseDown: rowPress(op, selectRow, beginDrag),
@@ -51,7 +51,7 @@ function DmfsRowView({ op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, d
             onClick: event => { event.stopPropagation(); onEdit(op.id, 'enabled', !op.enabled); },
         }, op.enabled ? '✓' : '○'),
         h('td', {
-            colSpan: COLS.length - 2,
+            colSpan: columns.length - 2,
             // A wizard-generated header names every band, the angle range and
             // the target mode, which is wider than the columns it spans. It is
             // cut short rather than wrapped: the row is placed from its index,
@@ -117,13 +117,13 @@ function commentRowTypeCell(props, picking) {
 // The comment, which spans every column right of Type, so the focus on any of
 // them is on the comment.
 function commentCell(props, editing, inputRef) {
-    const { op, rowIdx, focusColKey, c, t, onEdit, selectRow, setEditCell, leaveComment } = props;
+    const { op, rowIdx, focusColKey, columns, c, t, onEdit, selectRow, setEditCell, leaveComment } = props;
     // A click into the comment selects its row but leaves keyboard focus in the
     // input, so the comment can be typed.
     const selectForTyping = () => selectRow(op.id, false, false, true);
     const focused = !editing && focusColKey != null && focusColKey !== 'type' && focusColKey !== ROW_HEADER;
     return h('td', {
-        colSpan: COLS.length - 3,
+        colSpan: columns.length - 3,
         style: {
             padding: '1px 6px', borderLeft: '2px solid rgba(140,140,140,0.4)',
             ...(focused ? commentRowFocus(c) : null),
@@ -198,7 +198,7 @@ function MFDataRowView(props) {
     const {
         op, rowIdx, rawCur, bandLevel, contribution, largestContribution,
         evaluationError, provisional, shareProvisional, rowSel, focusColKey, selectedCols, rowEdit,
-        operands, integralPresets,
+        operands, integralPresets, environments, columns, notScoredHere,
         isMathPct, c, t, onEdit, selectRow, focusAt, pressCell, beginDrag, dragOver,
         startEdit, commitEdit, navigate, setEditCell,
     } = props;
@@ -232,7 +232,7 @@ function MFDataRowView(props) {
     const cellEnter = colKey => dragOver(rowIdx, colKey);
 
     const ctx = {
-        op, rowIdx, meta, c, t, operands, integralPresets, rowStripe,
+        op, rowIdx, meta, c, t, operands, integralPresets, environments, notScoredHere, rowStripe,
         contribution, largestContribution,
         editCell: rowEdit, evaluationError, provisional, shareProvisional, focusColKey,
         tdBase, rowDown, rowEnter, cellClick, cellDown, cellEnter, onEdit, focusAt, selectRow,
@@ -245,7 +245,7 @@ function MFDataRowView(props) {
         'aria-invalid': evaluationError ? 'true' : undefined,
         style: { height: ROW_H, opacity: op.enabled ? 1 : 0.45 },
     },
-        COLS.map(col => {
+        columns.map(col => {
             const render = renderers[col.key];
             const editor = rowEdit?.colKey === col.key && CELL_EDITORS.get(render);
             return (editor || render)(ctx, col.key, col.w);
@@ -265,19 +265,25 @@ const DmfsRow = memo(DmfsRowView);
 const BlnkRow = memo(BlnkRowView);
 const MFDataRow = memo(MFDataRowView);
 
+/**
+ * One row of the table. `ctx.environments` is the table's
+ * (tableEnvironments.js), which gives it an Env column, or none on a design
+ * with one environment.
+ */
 export function renderOperandRow(ctx, op, rowIdx) {
     const {
         computed, evaluationErrors, bandLevels, provisional, contributions, largestContribution,
-        selIds, c, t, onEdit, selectRow,
+        selIds, c, t, onEdit, selectRow, environments = null,
     } = ctx;
     const rowSel = selIds.has(op.id);
     const { beginDrag, dragOver } = ctx;
+    const columns = tableColumns(!!environments);
     if (isDmfs(op.type)) {
-        return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver });
+        return h(DmfsRow, { key: op.id, op, rowIdx, rowSel, columns, c, t, onEdit, selectRow, beginDrag, dragOver });
     }
     if (isBlank(op.type)) {
         return h(BlnkRow, {
-            key: op.id, op, rowIdx, rowSel, c, t, onEdit, selectRow, beginDrag, dragOver,
+            key: op.id, op, rowIdx, rowSel, columns, c, t, onEdit, selectRow, beginDrag, dragOver,
             // Narrowed to this row, as a data row's are; see below.
             focusColKey: ctx.focusCell?.rowIdx === rowIdx ? ctx.focusCell.colKey : null,
             rowEdit: ctx.editCell?.rowIdx === rowIdx ? ctx.editCell : null,
@@ -303,10 +309,13 @@ export function renderOperandRow(ctx, op, rowIdx) {
         // on each arrow key, and no row but the ones involved has anything new
         // to draw.
         focusColKey: ctx.focusCell?.rowIdx === rowIdx ? ctx.focusCell.colKey : null,
-        selectedCols: selectedColumnsForRow(ctx, rowIdx),
+        selectedCols: tableGrid(environments).selectedColumnsForRow(ctx, rowIdx),
         rowEdit: ctx.editCell?.rowIdx === rowIdx ? ctx.editCell : null,
         operands: ctx.operands,
         integralPresets: ctx.integralPresets,
+        environments,
+        columns,
+        notScoredHere: !!environments && !ctx.scoredHere.has(rowIdx),
         isMathPct: ctx.isMathPct,
         c,
         t,

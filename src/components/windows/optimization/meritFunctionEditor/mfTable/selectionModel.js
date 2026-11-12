@@ -2,7 +2,7 @@ import { isBlank, isDmfs } from '../../../../../utils/physics/optimizer.js';
 import {
     createGridModel, navigationTarget as gridNavigationTarget,
 } from '../../../../ui/grid/gridModel.js';
-import { COLS, editableColsForRow } from './operandViewModel.js';
+import { COLS, editableColsForRow, rowCarries, tableColumns } from './operandViewModel.js';
 
 /**
  * A DMFS header or a comment row: a row with no value cells, selected as a row
@@ -33,9 +33,10 @@ export function selectionAfterRowClick(options) {
 
 // The columns a rectangle of cells can span: the ones that hold a value a cell
 // can carry through the clipboard, in table order.
-export const RANGE_COLUMNS = COLS
-    .map(col => col.key)
-    .filter(key => ['type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'flag', 'target', 'weight'].includes(key));
+const VALUE_COLUMNS = ['type', 'env', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'flag', 'target', 'weight'];
+const valueColumns = columns => columns.map(col => col.key).filter(key => VALUE_COLUMNS.includes(key));
+
+export const RANGE_COLUMNS = valueColumns(COLS);
 
 /**
  * The operand table's grid. A cell the operand type does not carry shows a
@@ -44,6 +45,17 @@ export const RANGE_COLUMNS = COLS
 export const MF_GRID = createGridModel(RANGE_COLUMNS, {
     carries: (op, colKey) => editableColsForRow(op).includes(colKey),
 });
+
+// The same table on a design with environments, with its Env column.
+const MF_ENV_GRID = createGridModel(valueColumns(tableColumns(true)), { carries: rowCarries });
+
+/**
+ * The grid of a table whose `environments` (tableEnvironments.js) are given,
+ * which has an Env column, or of a table on a design with one environment.
+ */
+export function tableGrid(environments) {
+    return environments ? MF_ENV_GRID : MF_GRID;
+}
 
 export const { cellRange, selectedCells, selectedColumnsForRow } = MF_GRID;
 
@@ -70,11 +82,12 @@ const COMMENT_ROW_COLUMNS = ['type', 'lambdaStart'];
  * The cells an arrow key walks through on a row. Every value column counts,
  * a dash included, the way an empty spreadsheet cell can still be reached; a
  * header row has only its enable mark, a comment row its Type and comment.
+ * `grid` is the table's (tableGrid).
  */
-export function navigationColumns(op) {
+export function navigationColumns(op, grid = MF_GRID) {
     if (isBlank(op.type)) return COMMENT_ROW_COLUMNS;
     const editable = editableColsForRow(op);
-    return editable.length === 1 ? editable : ['enabled', ...RANGE_COLUMNS];
+    return editable.length === 1 ? editable : ['enabled', ...grid.columns];
 }
 
 /** The row-number column. The focus there selects its whole row. */
@@ -98,12 +111,12 @@ function fromRowHeader(grid, rowIdx, direction) {
 /**
  * The cell an arrow or Tab moves to; see gridModel.js. Left from a row's first
  * cell goes on to its row number, which selects the whole row, rather than
- * back to the row above.
+ * back to the row above. `table` is the table's grid (tableGrid).
  */
-export function navigationTarget(operands, fromRowIdx, fromColKey, direction) {
+export function navigationTarget(operands, fromRowIdx, fromColKey, direction, table = MF_GRID) {
     const op = operands[fromRowIdx];
     if (!op) return null;
-    const grid = { rowCount: operands.length, columnsOf: rowIdx => navigationColumns(operands[rowIdx]) };
+    const grid = { rowCount: operands.length, columnsOf: rowIdx => navigationColumns(operands[rowIdx], table) };
     if (fromColKey === ROW_HEADER) return fromRowHeader(grid, fromRowIdx, direction);
     const from = sidewaysFrom(op, fromColKey, direction);
     if (direction === 'left' && grid.columnsOf(fromRowIdx)[0] === from) {
@@ -112,7 +125,7 @@ export function navigationTarget(operands, fromRowIdx, fromColKey, direction) {
     return gridNavigationTarget(grid, fromRowIdx, from, direction);
 }
 
-/** The cells a pasted grid of text lands on; see gridModel.js. */
-export function pasteTargets({ grid, range, focus, operands }) {
-    return MF_GRID.pasteTargets({ grid, range, focus, rows: operands });
+/** The cells a pasted grid of text lands on; see gridModel.js. `table` is the table's grid (tableGrid). */
+export function pasteTargets({ grid, range, focus, operands, table = MF_GRID }) {
+    return table.pasteTargets({ grid, range, focus, rows: operands });
 }

@@ -122,11 +122,14 @@ const NO_VALUES = Object.freeze({ computed: [], errors: [], provisional: null, m
  * Otherwise, while the cone evaluation is under way, nothing is shown: the last
  * values were for another design, and the readout would set their MF beside
  * the run's best. `failedText` replaces the errors when that evaluation fails.
+ * On a design with environments each environment's values go with them, for
+ * the table's value and share columns.
  */
 export function showMeritValues(setters, values, { running, following }, failedText) {
     const v = values.busy && !running && !following ? NO_VALUES : values;
     setters.setComputed(v.computed);
     setters.setEvaluationErrors(values.failed ? [failedText] : v.errors);
+    setters.setEnvironmentValues(v.environments ?? null);
     setters.setProvisional(v.provisional);
     if (running) return;
     setters.setMf(v.mf); setters.setOmf(v.omf);
@@ -192,6 +195,7 @@ function performReset(env, savedDesign, updateDesign) {
     setters.setCanReset(false);
     setters.setComputed([]);
     setters.setEvaluationErrors([]);
+    setters.setEnvironmentValues(null);
     setters.setHistEntries([]);
     refs.histRunCount.current = 0;
     clearRefineCacheOf(env);
@@ -411,6 +415,7 @@ export function useRefinement({ t }) {
     const [selectedId,  setSelectedId]  = useState(null);
     const [computed,    setComputed]    = useState([]);
     const [evaluationErrors, setEvaluationErrors] = useState([]);
+    const [environmentValues, setEnvironmentValues] = useState(null);
     // Rows and MF read at a default step where a row has a Step of its own
     // (useMeritValues.js).
     const [provisional, setProvisional] = useState(null);
@@ -491,7 +496,7 @@ export function useRefinement({ t }) {
     const setters = {
         setMf, setMfBest, setMfInitial, setOmf, setOmfBest, setOmfInitial,
         setIter, setMfHistory, setRunning, setCanReset, setRestartIdx, setStopReason,
-        setSelectedId, setSavedDesign, setHistEntries, setComputed, setEvaluationErrors, setSeed,
+        setSelectedId, setSavedDesign, setHistEntries, setComputed, setEvaluationErrors, setEnvironmentValues, setSeed,
         setRunOwner, setProvisional, setMfProvisional,
     };
     const env = { refs, setters, methodRef };
@@ -527,7 +532,7 @@ export function useRefinement({ t }) {
     const plotHistory = selectedHistory?.mfHistory?.length ? selectedHistory.mfHistory : mfHistory;
 
     return {
-        design, operands, selectedId, setSelectedId, computed, evaluationErrors, provisional, mfProvisional,
+        design, operands, selectedId, setSelectedId, computed, evaluationErrors, environmentValues, provisional, mfProvisional,
         evaluating: evaluating && !running,
         running, iter, mf, mfBest, mfInitial, omf, omfBest, canReset,
         method, nRestarts, perturbPct, restartIdx, maxIter, stopReason, seed,

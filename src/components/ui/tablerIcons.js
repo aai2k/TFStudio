@@ -116,6 +116,12 @@ const PATHS = {
     'arrow-down': [
         'M12 5l0 14', 'M18 13l-6 6', 'M6 13l6 6',
     ],
+    'chevron-left': [
+        'M15 6l-6 6l6 6',
+    ],
+    'chevron-right': [
+        'M9 6l6 6l-6 6',
+    ],
     'player-play': [
         'M7 4v16l13 -8l-13 -8',
     ],

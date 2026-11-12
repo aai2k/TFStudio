@@ -58,12 +58,14 @@ export function MediaRow({ label, materialId, onChange, c, t }) {
 // Compact medium picker: small label stacked above a compact MaterialPicker, so
 // the three media (incident / substrate / exit) fit on ONE 3-column row instead
 // of three stacked rows. Used in the (collapsible) Design-Editor settings.
-export function MediaCol({ label, materialId, onChange, c, t }) {
+// `tag`, when given, follows the label: the environment the field belongs to.
+export function MediaCol({ label, tag, materialId, onChange, c, t }) {
+    const name = h('div', {
+        title: label,
+        style: { fontSize: 10, color: c.textDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
+    }, label);
     return h('div', { style: { flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 } },
-        h('div', {
-            title: label,
-            style: { fontSize: 10, color: c.textDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' },
-        }, label),
+        tag ? h('div', { style: { display: 'flex', alignItems: 'center', minWidth: 0 } }, name, tag) : name,
         h('div', { style: { minWidth: 0 } },
             h(MaterialPicker, { value: materialId, onChange, c, t, compact: true })
         )

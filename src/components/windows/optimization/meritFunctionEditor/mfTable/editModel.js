@@ -4,7 +4,7 @@ import {
 } from '../../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../../utils/misc/numberParsing.js';
 import { listKind, listPaste, listText } from './listValues.js';
-import { RANGE_TARGET_TYPES, editableColsForRow } from './operandViewModel.js';
+import { RANGE_TARGET_TYPES, rowCarries } from './operandViewModel.js';
 
 export function targetInitialValue(op, mathPercent) {
     if (isRangeTarget(op.type)) {
@@ -63,6 +63,8 @@ export function cellInitialText(op, colKey, mathPercent, table) {
 // How the text typed into a cell becomes its edit, for the cells that hold
 // something other than a plain number.
 const CELL_PARSERS = {
+    // The Env cell of a row scored nowhere holds nothing, and takes nothing.
+    env: () => null,
     // A Step the row reads (operandModel.js flagStepNm): 1 to 4, a negative
     // step in nm, or on a band row 0, its automatic grid. The cell is never
     // empty, so an empty entry is refused like any other the row cannot take.
@@ -166,13 +168,14 @@ function starterFor(op, colKey) {
  * Type opens the operand picker in the cell, with the typed letter already in
  * its search box. Pol opens its list of three values; a typed a, s or p sets
  * it outright instead, with no list. A math row's references, a thickness or
- * force row's comparison, an integral's preset and a PPEF row's curve block
- * open their lists. Every other editable cell opens the text editor, holding
- * the typed character, nothing after Backspace, or the current value.
+ * force row's comparison, an integral's preset, a PPEF row's curve block and
+ * the Env cell open their lists. Every other editable cell opens the text
+ * editor, holding the typed character, nothing after Backspace, or the
+ * current value.
  */
 export function startEdit(ctx, rowIdx, colKey, initChar) {
     const op = ctx.operands[rowIdx];
-    if (!op || !editableColsForRow(op).includes(colKey)) return;
+    if (!op || !rowCarries(op, colKey)) return;
     const starter = starterFor(op, colKey);
     if (starter) {
         starter(ctx, op, rowIdx, initChar, colKey);
@@ -182,10 +185,10 @@ export function startEdit(ctx, rowIdx, colKey, initChar) {
     ctx.setEditCell({ rowIdx, colKey, initValue: initChar != null ? initChar : value });
 }
 export function commitEdit(ctx, rowIdx, colKey, draft) {
-    const { operands, integralPresets, onEdit, setEditCell } = ctx;
+    const { operands, integralPresets, environments = null, onEdit, setEditCell } = ctx;
     setEditCell(null);
     const op = operands[rowIdx];
     if (!op) return;
-    const edit = cellEdit(op, colKey, draft, { operands, integralPresets });
+    const edit = cellEdit(op, colKey, draft, { operands, integralPresets, environments });
     if (edit) onEdit(op.id, edit[0], edit[1]);
 }

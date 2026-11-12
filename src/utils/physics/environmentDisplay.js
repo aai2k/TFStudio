@@ -6,7 +6,7 @@
  * first environment it is scored in, and MF² = (1/N) Σ MF_k².
  */
 import { designMaterialLookup, UnresolvedDesignMaterialError } from '../materials/designMaterials.js';
-import { buildEvalContext, evaluateOperands, withRowNotes } from './optimizer.js';
+import { buildEvalContext, evaluateOperands, operandContributions, withRowNotes } from './optimizer.js';
 import { environmentDesign } from '../environments/environments.js';
 import { meritGroups, groupRows, meanSquareMerit } from '../environments/environmentMerit.js';
 
@@ -50,8 +50,8 @@ function shownRows(count, groups) {
  * `errors` and `bandLevels` row by row, the MF and OMF over the environments,
  * null when one environment's is, and `environments`, one entry per
  * environment the rows are scored in: `{ id, rows, scored, optical, computed,
- * errors, mf, omf }`, `rows` the positions of its rows, `scored` and
- * `optical` whether it counts in the MF and in the OMF, and its own values
+ * errors, bandLevels, mf, omf }`, `rows` the positions of its rows, `scored`
+ * and `optical` whether it counts in the MF and in the OMF, and its own values
  * and merits. `displayOf(rows, computed)` is the display of one evaluation.
  */
 export function environmentsDisplay(design, operands, displayOf) {
@@ -66,7 +66,50 @@ export function environmentsDisplay(design, operands, displayOf) {
         mf: failed('mf') ? null : meanSquareMerit(groups.filter(group => group.scored).map(group => group.mf)),
         omf: failed('omf') ? null : meanSquareMerit(groups.filter(group => group.optical).map(group => group.omf)),
         environments: groups.map(({ id, rows, scored, optical, computed, mf, omf, ...group }) => ({
-            id, rows, scored, optical, computed: Array.from(computed), errors: group.errors, mf, omf,
+            id, rows, scored, optical, computed: Array.from(computed), errors: group.errors,
+            bandLevels: group.bandLevels, mf, omf,
         })),
     };
+}
+
+/**
+ * The values `count` rows show in environment `id`, out of the `environments`
+ * a display lists: `{ computed, errors, bandLevels }`, a row not scored there
+ * having none. Null when the display has no entry for that environment, one
+ * switched off or with no row to score.
+ */
+export function environmentRows(environments, id) {
+    const entry = (environments || []).find(group => group.id === id);
+    return entry ? { computed: entry.computed, errors: entry.errors, bandLevels: entry.bandLevels } : null;
+}
+
+/**
+ * Each environment's part of MF², MF_k² / Σ MF_j² over the environments that
+ * count in the MF, keyed by id: the environments a display lists that are
+ * scored. Empty when one of their merits is unknown; every part 0 when the
+ * merit is 0.
+ */
+export function environmentParts(environments) {
+    const counted = (environments || []).filter(group => group.scored);
+    if (counted.some(group => group.mf == null)) return new Map();
+    const total = counted.reduce((sum, group) => sum + group.mf * group.mf, 0);
+    return new Map(counted.map(group => [group.id, total > 0 ? (group.mf * group.mf) / total : 0]));
+}
+
+/**
+ * Each row's share of MF², added over the environments it is scored in: in
+ * environment k a row holds the share operandContributions gives it of that
+ * environment's sum, scaled by the environment's part of MF²
+ * (environmentParts). Null for a row that adds to no environment's sum, and
+ * for every row when an environment's merit is unknown.
+ */
+export function environmentContributions(operands, environments) {
+    const shares = new Array(operands.length).fill(null);
+    const parts = environmentParts(environments);
+    if (parts.size === 0) return shares;
+    for (const group of environments.filter(entry => parts.has(entry.id))) {
+        const own = operandContributions(groupRows(operands, group.rows), group.computed);
+        own.forEach((share, i) => { if (share != null) shares[i] = (shares[i] ?? 0) + share * parts.get(group.id); });
+    }
+    return shares;
 }

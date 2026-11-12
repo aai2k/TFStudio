@@ -12,17 +12,25 @@
  * the comparison of a TT or STR row. So the rows themselves are kept beside the
  * text they were copied as, and while the clipboard still holds that text a
  * paste gives them back whole. Text from anywhere else is read field by field.
+ *
+ * `environments` is the table's (tableEnvironments.js), null on a design with
+ * one environment. A row scored in one environment names it by an id only its
+ * own design gives meaning to, so a pasted row keeps its environment only in
+ * the design it was copied from, and only while that design still has it;
+ * anywhere else it is scored in every environment.
  */
 import {
     GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
     flagStepNm, isBandGridRow, isFractionalUnit, isValidMeritWeight, makeOperand, takesStepFlag,
 } from '../../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../../utils/misc/numberParsing.js';
+import { rowInEnvironment } from '../../../../../utils/environments/environments.js';
 
 const DELTA_CONVENTIONS = ['azzam', 'reversed'];
 const REF_KEYS = ['refId', 'refId1', 'refId2'];
 
-// The rows behind the text the last row copy wrote, and that text.
+// The rows behind the text the last row copy wrote, that text, and the design
+// they were copied from when it has environments.
 let lastCopy = null;
 
 // Moves the decimal point by `places` in decimal rather than by a binary
@@ -108,15 +116,24 @@ export function parseOperandsTsv(text) {
         .filter(Boolean);
 }
 
+// A copied row as the design it is pasted into scores it: in its own
+// environment when that design is the one it was copied from (`copiedFrom`)
+// and still has that environment, otherwise in every environment.
+function inPastedDesign(row, copiedFrom, environments) {
+    const sameDesign = !!environments && copiedFrom != null && environments.designId === copiedFrom;
+    const kept = sameDesign && environments.list.some(entry => entry.value === row.env);
+    return kept ? row : rowInEnvironment(row);
+}
+
 // The copied rows as new rows: each with a new id, and a math row that read a
 // row copied with it reads that row's copy. A row it read that was not copied
 // with it is still read where it is. Generated rows are left out, as the text
 // path leaves them out.
-function pastedRows(rows) {
+function pastedRows({ rows, designId }, environments) {
     const kept = rows.filter(op => !GENERATED_ONLY_OPERAND_TYPES.includes(op.type));
     const newIds = new Map(kept.map(op => [op.id, makeOperand().id]));
     return kept.map(op => {
-        const row = { ...structuredClone(op), id: newIds.get(op.id) };
+        const row = inPastedDesign({ ...structuredClone(op), id: newIds.get(op.id) }, designId, environments);
         for (const key of REF_KEYS) if (newIds.has(row[key])) row[key] = newIds.get(row[key]);
         return row;
     });
@@ -125,24 +142,27 @@ function pastedRows(rows) {
 const sameText = (a, b) => a.replace(/\r\n/g, '\n').trimEnd() === b.replace(/\r\n/g, '\n').trimEnd();
 
 /**
- * The rows a paste of `text` adds: the copied rows themselves, whole, while
- * the clipboard holds the text they were copied as; otherwise the rows the
- * text describes, as from a spreadsheet.
+ * The rows a paste of `text` into a table of `environments` adds: the copied
+ * rows themselves, whole, while the clipboard holds the text they were copied
+ * as; otherwise the rows the text describes, as from a spreadsheet.
  */
-export function operandsFromClipboard(text) {
-    if (lastCopy && sameText(text, lastCopy.text)) return pastedRows(lastCopy.rows);
+export function operandsFromClipboard(text, environments = null) {
+    if (lastCopy && sameText(text, lastCopy.text)) return pastedRows(lastCopy, environments);
     return parseOperandsTsv(text);
 }
 
-export function copySelectedOperands(operands, selectedIds, clipboard = navigator.clipboard) {
+export function copySelectedOperands(operands, selectedIds, clipboard = navigator.clipboard, environments = null) {
     const text = serializeOperandsTsv(operands, selectedIds);
-    lastCopy = { text, rows: structuredClone(operands.filter(op => selectedIds.has(op.id))) };
+    lastCopy = {
+        text, rows: structuredClone(operands.filter(op => selectedIds.has(op.id))),
+        designId: environments?.designId ?? null,
+    };
     clipboard?.writeText(text).catch(() => {});
 }
 
-export function pasteOperands(onAdd, atIndex, clipboard = navigator.clipboard) {
+export function pasteOperands(onAdd, atIndex, clipboard = navigator.clipboard, environments = null) {
     clipboard?.readText().then(text => {
-        const items = operandsFromClipboard(text);
+        const items = operandsFromClipboard(text, environments);
         if (items.length) onAdd(items, atIndex);
     }).catch(() => {});
 }

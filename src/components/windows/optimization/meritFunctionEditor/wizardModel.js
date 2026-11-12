@@ -1,7 +1,8 @@
 import {
     FILTER_TYPES, convertCustomTargetValue, customTargetStatement, customTargetWritesPoints,
-    defaultFilterParams, isDmfs,
+    defaultFilterParams, isBlank, isConstant, isDmfs, isManufacturability,
 } from '../../../../utils/physics/optimizer.js';
+import { environmentsOf, hasEnvironments } from '../../../../utils/environments/environments.js';
 
 // Field keys the wizard shows side by side on one row, and the locale key of
 // that row's label.
@@ -144,6 +145,30 @@ export function blockSummary(block) {
     const types = [];
     for (const op of rows) if (!types.includes(op.type)) types.push(op.type);
     return { count: rows.length, types };
+}
+
+// A row the wizard scores in its one environment: one the merit scores, other
+// than a thickness or force limit, which holds the recipe in every
+// environment.
+const scoredInOne = op => !isDmfs(op.type) && !isBlank(op.type) && !isConstant(op.type) && !isManufacturability(op.type);
+
+/**
+ * The generated block with its rows scored in environment `env` alone, or as
+ * it is, every row scored in every environment, for `env` null. The header,
+ * a comment and the thickness limits stay with every environment.
+ */
+export function blockInEnvironment(block, env) {
+    if (env == null) return block;
+    return block.map(op => (scoredInOne(op) ? { ...op, env } : op));
+}
+
+/**
+ * The environment the wizard's Env field holds, out of `design`'s: null for
+ * All, which an id the design no longer has, or a design with one
+ * environment, also reads as.
+ */
+export function wizardEnvironment(design, env) {
+    return hasEnvironments(design) && environmentsOf(design).some(entry => entry.id === env) ? env : null;
 }
 
 /** Short text for the collapsed header: type name, λ range, angle. `units` is t.units. */

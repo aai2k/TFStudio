@@ -71,6 +71,7 @@ import { StressAnalysis } from '../windows/analysis/stressAnalysis/StressAnalysi
 import { PlotEngine } from '../windows/analysis/plotEngine/PlotEngine.js';
 import { WavelengthAngleMap } from '../windows/analysis/wavelengthAngleMap/WavelengthAngleMap.js';
 import { Specification } from '../windows/design/specification/Specification.js';
+import { Environments } from '../windows/design/environments/Environments.js';
 import { CoatingLibrary } from '../windows/design/coatingLibrary/CoatingLibrary.js';
 import { OptimizerBenchmark } from '../windows/optimization/optimizerBenchmark/OptimizerBenchmark.js';
 import { DeepSynthesis } from '../windows/optimization/deepSynthesis/DeepSynthesis.js';
@@ -87,6 +88,9 @@ export const WINDOW_REGISTRY = {
   // Browsing coatings needs no design; Apply and Save current coating are off without one.
   'coating-library': { component: CoatingLibrary,       title: 'Coating Library',       label: 'Coating Library: reusable coating stacks, yours and the built-in starting designs', help: 'design/coating-library' },
   'specification':   { component: Specification,        title: 'Specification',         label: 'Specification: design requirements (PASS/FAIL qualifiers)',             help: 'design/specification', theme: true, dialog: true, requiresDesign: true, requiresResolvedMaterials: true },
+  // An editor like the Design Editor: it stays open over a missing material,
+  // which may be one only another environment names and is fixed here.
+  'environments':    { component: Environments,         title: 'Environments',          label: 'Environments: the other conditions the design is scored in, one column each', help: 'design/environments', requiresDesign: true },
   'merit-function':  { component: MeritFunctionEditor,  title: 'Merit Function Editor', label: 'Merit Function Editor: operand table',                                 help: 'design/merit-function-editor', dialog: true, requiresDesign: true, requiresResolvedMaterials: true },
   'variator':        { component: Variator,             title: 'Variator',              label: 'Variator: live parameter slider',                                      help: 'design/variator', theme: true, requiresDesign: true, requiresResolvedMaterials: true },
   // The undo history of the open design; with none open there is no history.

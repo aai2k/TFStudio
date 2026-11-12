@@ -5,7 +5,9 @@ import {
     removeOperandsAndDependents, rowRangeDomain, takesStepFlag, targetDomain,
 } from '../../../../utils/physics/optimizer.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
+import { rowInEnvironment } from '../../../../utils/environments/environments.js';
 import { limitRows, limitsText } from './wizardLimits.js';
+import { takesEnvironment } from './mfTable/operandViewModel.js';
 
 function hasField(ctx, key) {
     return ctx.fieldKeys.has(key);
@@ -165,7 +167,9 @@ export function makeRowOperand(spec) {
  * nm thick, none of which the user asked for and all of which looks deliberate.
  * The flag goes when the new type takes none, so a row retyped back starts
  * from the default step, and so does a band row's Step 0, its automatic grid,
- * which a row that looks for a peak does not have.
+ * which a row that looks for a peak does not have. The environment a row is
+ * scored in goes when the new type is scored nowhere, a comment or a
+ * constant.
  */
 export function retypeOperand(op, type) {
     const next = { ...op, id: op.id, type };
@@ -175,6 +179,7 @@ export function retypeOperand(op, type) {
     }
     if (targetDomain(type) !== targetDomain(op.type)) delete next.target;
     if (!takesStepFlag(next) || (next.flag === 0 && !isBandGridRow(type))) delete next.flag;
+    if (!takesEnvironment(next)) delete next.env;
     // A row that becomes DEL is a new DEL row and reads Δ as a new one does.
     if (type !== op.type) delete next.deltaConvention;
     return makeRowOperand(next);
@@ -185,6 +190,7 @@ export function editOperand(operands, id, key, value) {
         if (op.id !== id) return op;
         if (key === '_patch') return { ...op, ...value };
         if (key === 'type') return retypeOperand(op, value);
+        if (key === 'env') return rowInEnvironment(op, value);
         if (key !== 'target') return { ...op, [key]: value };
 
         const target = parseNumberStrict(value);

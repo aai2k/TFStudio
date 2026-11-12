@@ -131,6 +131,7 @@ export function useMeritOperands({ design, updateDesign, checkpoint, setInputDia
 
     return {
         operands, selectedId, setSelectedId, computed: values.computed, errors, bandLevels: values.bandLevels,
+        environmentValues: values.environments ?? null,
         mf: values.mf, omf: values.omf, provisional: values.provisional, mfProvisional: values.mfProvisional,
         evaluationBusy: values.busy, setOperands,
         handleEdit, handleEditMany, handleGenerate, handleAdd, handleInsertAt, handleDuplicate,

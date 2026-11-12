@@ -6,7 +6,7 @@ import {
     cellText, clipboardScope, copyCellText, pasteIntoCell, rangeText, selectionText,
 } from './cellClipboard.js';
 import { copySelectedOperands, pasteOperands } from './operandClipboard.js';
-import { RANGE_COLUMNS, navigationTarget, rowsOfSelection } from './selectionModel.js';
+import { navigationTarget, rowsOfSelection, tableGrid } from './selectionModel.js';
 
 export function keyComboOf(event) {
     const key = event.key;
@@ -20,7 +20,7 @@ export function keyComboOf(event) {
  * the rows rowsOfSelection names. The cell selection goes with them, so no
  * cell stays lit on rows that the action moves up or the copies push down.
  *
- *   table  { operands, selectedIds, focusCell, range, extraCells,
+ *   table  { operands, selectedIds, focusCell, range, extraCells, environments,
  *            onDelete, onDuplicate, setSelIds, clearCells, focusAfterRemoval }
  */
 
@@ -45,7 +45,7 @@ export function deleteSelectedRows(table) {
 /** Cut copies the rows Delete would remove as operands, then removes them. */
 export function cutSelectedRows(table) {
     const ids = rowsOfSelection(table.operands, table);
-    if (ids.length > 0) copySelectedOperands(table.operands, new Set(ids));
+    if (ids.length > 0) copySelectedOperands(table.operands, new Set(ids), navigator.clipboard, table.environments);
     deleteSelectedRows(table);
 }
 
@@ -67,7 +67,7 @@ function deleteRows(ctx) {
 // nothing. A row selection has no cell to clear, and the on/off mark is not a
 // value.
 function clearAndEdit(ctx) {
-    if (!ctx.focusCell || !RANGE_COLUMNS.includes(ctx.colKey)) return;
+    if (!ctx.focusCell || !tableGrid(ctx.environments).columns.includes(ctx.colKey)) return;
     ctx.event.preventDefault();
     ctx.startEdit(ctx.rowIdx, ctx.colKey, '');
 }
@@ -90,7 +90,7 @@ function gridMoves(ctx) {
     return {
         ...ctx,
         rowCount: ctx.operands.length,
-        stepTarget: direction => navigationTarget(ctx.operands, ctx.rowIdx, ctx.colKey, direction),
+        stepTarget: direction => navigationTarget(ctx.operands, ctx.rowIdx, ctx.colKey, direction, tableGrid(ctx.environments)),
     };
 }
 
@@ -106,6 +106,7 @@ function rowsToCopy(ctx) {
 function scopeOf(ctx) {
     return clipboardScope({
         op: ctx.operands[ctx.rowIdx], focusCell: ctx.focusCell, selectedIds: ctx.selectedIds,
+        environments: ctx.environments,
     });
 }
 
@@ -117,22 +118,23 @@ function hasCellSelection(ctx) {
 
 function copyRows(ctx) {
     ctx.event.preventDefault();
-    const { operands, integralPresets, isMathPct } = ctx;
+    const { operands, integralPresets, isMathPct, environments = null } = ctx;
     if (ctx.extraCells?.size) {
         const focus = { rowIdx: ctx.rowIdx, colKey: ctx.colKey };
-        copyCellText(selectionText(operands, { range: ctx.range, extraCells: ctx.extraCells, focus }, isMathPct, integralPresets));
+        const selection = { range: ctx.range, extraCells: ctx.extraCells, focus };
+        copyCellText(selectionText(operands, selection, isMathPct, integralPresets, environments));
         return;
     }
     if (ctx.range) {
-        copyCellText(rangeText(operands, ctx.range, isMathPct, integralPresets));
+        copyCellText(rangeText(operands, ctx.range, isMathPct, integralPresets, environments));
         return;
     }
     const scope = scopeOf(ctx);
     if (scope === 'cell') {
         const op = operands[ctx.rowIdx];
-        copyCellText(cellText(op, ctx.colKey, isMathPct(op), { operands, integralPresets }));
+        copyCellText(cellText(op, ctx.colKey, isMathPct(op), { operands, integralPresets, environments }));
     } else if (scope === 'rows') {
-        copySelectedOperands(operands, rowsToCopy(ctx));
+        copySelectedOperands(operands, rowsToCopy(ctx), navigator.clipboard, environments);
     }
 }
 
@@ -143,7 +145,7 @@ function pasteRows(ctx) {
         pasteIntoCell(ctx);
         return;
     }
-    if (scope === 'rows') pasteOperands(ctx.onAdd, ctx.rowIdx + 1);
+    if (scope === 'rows') pasteOperands(ctx.onAdd, ctx.rowIdx + 1, navigator.clipboard, ctx.environments);
 }
 
 function cutRows(ctx) {

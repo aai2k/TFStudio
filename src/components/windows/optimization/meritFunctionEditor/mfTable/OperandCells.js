@@ -109,6 +109,13 @@ const LIST_VIEWS = {
         if (list.gone) return { text: head, title: head, color: c.error, head };
         return { text: entry ? entry.label : head, title: mfe.curveRefTip, color: c.text, head };
     },
+    // All, or the environment the row is scored in. A row naming an
+    // environment the design does not have is scored nowhere, and says so.
+    environment({ c, t }, list, entry) {
+        const mfe = t.meritFunctionEditor;
+        if (list.gone) return { text: mfe.envGone, title: mfe.envGoneTip, color: c.error };
+        return { text: entry.label, title: mfe.envTip, color: c.text };
+    },
 };
 
 // The row context carries the operands and the integral presets the lists
@@ -164,13 +171,15 @@ export function polPickerCell(ctx, colKey, width) {
 
 // A value read at the row's default step where the row has a Step of its own,
 // or read from such a row, is marked until the value at the Step comes
-// (provisionalMark.js).
+// (provisionalMark.js). On a design with environments the value is the one in
+// the current environment, and a row not scored there has none.
 function currentCell(ctx, colKey, width) {
     const { meta, c, tdBase, cellClick, evaluationError, t } = ctx;
     const mark = provisionalMark(ctx.provisional && meta.cur != null, t?.meritFunctionEditor?.provisionalTip);
+    const elsewhere = ctx.notScoredHere && t.meritFunctionEditor.notScoredIn(ctx.environments.current.number);
     return h('td', {
         key: colKey, onClick: event => cellClick(colKey, event),
-        title: evaluationError || mark.title,
+        title: evaluationError || elsewhere || mark.title,
         style: {
             ...tdBase(colKey, width), overflow: 'hidden', textOverflow: 'ellipsis',
             color: evaluationError ? c.error : c.text,
@@ -277,6 +286,7 @@ export function rowRenderers(op, meta) {
         num: numberCell,
         enabled: enabledCell,
         type: typeCell,
+        env: meta.isConst ? dashCell : listValueCell,
         lambdaStart: textCell,
         lambdaEnd: textCell,
         aoi: textCell,

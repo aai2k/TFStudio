@@ -36,3 +36,11 @@ export const meritWizardSession = createWindowSession({
     totalEnabled: false,
     maxTotal: 3000,
 });
+
+// The environment the wizard's rows are scored in, by id, or null for every
+// environment. An environment id names an environment of one design only, so
+// each design keeps its own and a design the field was never set for opens at
+// every environment.
+export const meritWizardEnvironmentSession = createWindowSession({
+    env: null,
+}, { scope: 'design' });

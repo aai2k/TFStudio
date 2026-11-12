@@ -1,7 +1,7 @@
-import { COLS } from './operandViewModel.js';
+import { tableColumns } from './operandViewModel.js';
 import { contextMenuItems, menuScope, menuTargetFromEvent } from './contextMenuModel.js';
 import { copySelectedOperands, pasteOperands } from './operandClipboard.js';
-import { isHeaderOrComment, rowsOfSelection, selectedCells } from './selectionModel.js';
+import { isHeaderOrComment, rowsOfSelection, tableGrid } from './selectionModel.js';
 import { cutSelectedRows, deleteSelectedRows, duplicateSelectedRows } from './tableKeyboard.js';
 import {
     cellText, copyCellText, pasteIntoCell, rangeText, selectionText,
@@ -11,8 +11,8 @@ const { useState, useCallback } = React;
 
 // Whether the clicked cell is part of the cell selection, so a right-click on
 // it keeps the selection instead of moving the focus.
-function inCellSelection({ range, extraCells, focusCell }, rowIdx, colKey) {
-    return selectedCells({ range, extraCells, focus: focusCell })
+function inCellSelection({ range, extraCells, focusCell, grid }, rowIdx, colKey) {
+    return grid.selectedCells({ range, extraCells, focus: focusCell })
         .some(cell => cell.rowIdx === rowIdx && cell.colKey === colKey);
 }
 
@@ -25,14 +25,16 @@ function inCellSelection({ range, extraCells, focusCell }, rowIdx, colKey) {
  */
 export function useTableContextMenu(table) {
     const {
-        operands, integralPresets, selIds, setSelIds, focusCell, range, extraCells, clearCells, focusAfterRemoval,
+        operands, integralPresets, environments = null,
+        selIds, setSelIds, focusCell, range, extraCells, clearCells, focusAfterRemoval,
         focusAt, selectRow, setFocusCell,
         onAdd, onInsertAt, onDuplicate, onDelete, onEdit, onEditMany, commitEdit, isMathPct, te,
     } = table;
     const [menu, setMenu] = useState(null);
+    const grid = tableGrid(environments);
 
     const onContextMenu = useCallback(event => {
-        const target = menuTargetFromEvent(event, COLS);
+        const target = menuTargetFromEvent(event, tableColumns(!!environments));
         if (!target) return;
         event.preventDefault();
         const op = operands[target.rowIdx];
@@ -41,12 +43,12 @@ export function useTableContextMenu(table) {
         // a left click would; a click inside the selection keeps it. A header
         // or comment row is never inside a rectangle of cells, having none.
         const keep = selIds.has(op.id)
-            || (!isHeaderOrComment(op) && inCellSelection({ range, extraCells, focusCell }, target.rowIdx, target.colKey));
+            || (!isHeaderOrComment(op) && inCellSelection({ range, extraCells, focusCell, grid }, target.rowIdx, target.colKey));
         if (!keep) {
             // A comment or header row, or a cell that holds no value, is
             // selected as a row; a value cell takes the focus, the way a left
             // click gives it.
-            if (target.colKey === 'num' || menuScope(op, target.colKey, new Set()) !== 'cell') {
+            if (target.colKey === 'num' || menuScope(op, target.colKey, new Set(), environments) !== 'cell') {
                 selectRow(op.id, false, false, target.rowInput);
                 setFocusCell(null);
             } else {
@@ -54,7 +56,7 @@ export function useTableContextMenu(table) {
             }
         }
         setMenu({ x: event.clientX, y: event.clientY, rowIdx: target.rowIdx, colKey: target.colKey });
-    }, [operands, selIds, range, extraCells, focusCell, focusAt, selectRow, setFocusCell]);
+    }, [operands, environments, grid, selIds, range, extraCells, focusCell, focusAt, selectRow, setFocusCell]);
 
     const closeMenu = useCallback(() => setMenu(null), []);
 
@@ -62,27 +64,29 @@ export function useTableContextMenu(table) {
 
     const { rowIdx, colKey } = menu;
     const op = operands[rowIdx];
-    const scope = menuScope(op, colKey, selIds);
-    const cells = selectedCells({ range, extraCells, focus: { rowIdx, colKey } });
+    const scope = menuScope(op, colKey, selIds, environments);
+    const cells = grid.selectedCells({ range, extraCells, focus: { rowIdx, colKey } });
     const cellCount = scope === 'cell' ? cells.length : 0;
     const rowTable = {
-        operands, selectedIds: selIds, focusCell, range, extraCells,
+        operands, selectedIds: selIds, focusCell, range, extraCells, environments,
         onDelete, onDuplicate, setSelIds, clearCells, focusAfterRemoval,
     };
     const ids = rowsOfSelection(operands, rowTable);
-    const pasteCtx = { rowIdx, colKey, operands, integralPresets, range, extraCells, commitEdit, onAdd, onEdit, onEditMany };
+    const pasteCtx = {
+        rowIdx, colKey, operands, integralPresets, environments, range, extraCells, commitEdit, onAdd, onEdit, onEditMany,
+    };
     const copyCells = () => {
         const focus = { rowIdx, colKey };
-        if (extraCells?.size) copyCellText(selectionText(operands, { range, extraCells, focus }, isMathPct, integralPresets));
-        else if (range) copyCellText(rangeText(operands, range, isMathPct, integralPresets));
-        else copyCellText(cellText(op, colKey, isMathPct(op), { operands, integralPresets }));
+        if (extraCells?.size) copyCellText(selectionText(operands, { range, extraCells, focus }, isMathPct, integralPresets, environments));
+        else if (range) copyCellText(rangeText(operands, range, isMathPct, integralPresets, environments));
+        else copyCellText(cellText(op, colKey, isMathPct(op), { operands, integralPresets, environments }));
     };
     const actions = {
         copyCell: copyCells,
         pasteCell: () => pasteIntoCell(pasteCtx),
-        copyRows: () => copySelectedOperands(operands, new Set(ids)),
+        copyRows: () => copySelectedOperands(operands, new Set(ids), navigator.clipboard, environments),
         cutRows: () => cutSelectedRows(rowTable),
-        pasteRows: () => pasteOperands(onAdd, rowIdx + 1),
+        pasteRows: () => pasteOperands(onAdd, rowIdx + 1, navigator.clipboard, environments),
         insertAt: index => onInsertAt(index),
         duplicate: () => duplicateSelectedRows(rowTable),
         deleteRows: () => deleteSelectedRows(rowTable),

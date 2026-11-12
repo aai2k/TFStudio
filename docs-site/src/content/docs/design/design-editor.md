@@ -31,6 +31,8 @@ rather than amplitudes.
 **Incident / Exit media**: the media on either side of the part, usually air
 on both. Pick any catalog material for immersed or cemented designs.
 
+**Environment**: on a design scored in more than one [environment](/design/environments/), a droplist above the media picks the environment the Settings show, with an arrow on either side to step to the previous or the next one. The media, the substrate and its thickness are then that environment's. In environment 2 or later a change sets the field for that environment alone, and the field's name carries a tag: the environment's number with a cross when the environment sets the field, the cross giving it back to environment 1, or **= env 1** when it follows environment 1. The reference wavelength and the cone are the design's own in every environment. The layer table is the recipe and reads the same in every environment; the substrate and medium lines around it and the stack diagram show the current environment's.
+
 **Surface** and **Ignore other side**: the controls that decide which
 coating the optimizer moves and what every window evaluates. See
 [Surface & Evaluation Modes](/design/evaluation-modes/) for the full behavior.

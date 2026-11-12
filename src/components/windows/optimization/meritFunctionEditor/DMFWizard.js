@@ -10,12 +10,14 @@ import { pointsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
 import { tableFromPoints } from '../../dataExchange/curveEditor/curveTable.js';
 import { curveWizardRows, gainCurveFromText, heldCurve, wizardCurveOptions } from './curveWizardModel.js';
 import { buildWizardResult, wizardAppendRow, wizardGenerationRows } from './meritOperandModel.js';
-import { meritWizardSession } from './sessionState.js';
+import { meritWizardEnvironmentSession, meritWizardSession } from './sessionState.js';
 import { WizardHeader } from './WizardHeader.js';
 import {
-    blockSummary, fieldRows, fieldView, hasTargetMode, paramsWithChange, polIsFixed, takesCurve,
-    typeSwitch, wizardSummary, writesPointsOnly,
+    blockInEnvironment, blockSummary, fieldRows, fieldView, hasTargetMode, paramsWithChange, polIsFixed, takesCurve,
+    typeSwitch, wizardEnvironment, wizardSummary, writesPointsOnly,
 } from './wizardModel.js';
+import { environmentsOf, hasEnvironments } from '../../../../utils/environments/environments.js';
+import { environmentLabel } from '../../design/environments/currentEnvironment.js';
 
 const { createElement: h, useState, useEffect } = React;
 
@@ -240,6 +242,30 @@ function modeCells(ctx) {
     ];
 }
 
+// The environment the generated rows are scored in, on a design with more
+// than one environment: All, or one of them (wizardModel.js). `environment`
+// is the design's own field, `[env, setEnv]`.
+function envCells(ctx) {
+    const { s, te, design, environment: [env, setEnv] } = ctx;
+    if (!hasEnvironments(design)) return [];
+    const options = [
+        { value: '', label: te.envAll },
+        ...environmentsOf(design).map((entry, index) => ({ value: entry.id, label: environmentLabel(entry, index + 1) })),
+    ];
+    return [
+        h('span', { key: 'env-l', style: s.label, title: te.wizard.envTip }, te.wizard.env + ':'),
+        h('span', { key: 'env-c', title: te.wizard.envTip },
+            select(s, env ?? '', v => setEnv(v || null), options, '100%')),
+    ];
+}
+
+// The wizard's Env field for `design`, kept with that design: the environment
+// it holds, null for All, and the setter.
+function useWizardEnvironment(design) {
+    const [session, setField] = useWindowSession(meritWizardEnvironmentSession, design);
+    return [wizardEnvironment(design, session.env), value => setField('env', value)];
+}
+
 // A curve type's Angle and target box: the angle and polarization a target
 // derived from a gain is put at, and the values the filter is specified by. A
 // type that reads a curve already on the design says its rows take that
@@ -249,7 +275,7 @@ function curveAngleBox(ctx) {
     const { s, tw, c, session, typeId } = ctx;
     const rows = fieldRows(typeId, session.params, 'angle');
     const setsConditions = rows.some(row => row.keys.includes('curveAoi'));
-    const cells = rows.flatMap(row => presetRow(ctx, row));
+    const cells = [...rows.flatMap(row => presetRow(ctx, row)), ...envCells(ctx)];
     if (!setsConditions) {
         cells.push(h('span', {
             key: 'curve-note', style: { ...s.label, whiteSpace: 'normal', gridColumn: '1 / -1' },
@@ -277,6 +303,7 @@ function angleBox(ctx) {
             ? select(s, session.pol, v => setField('pol', v), OPERAND_POLS.map(p => ({ value: p, label: polWord(tw, p) ?? p })), 64)
             : null),
         ...modeCells(ctx),
+        ...envCells(ctx),
     ];
     return groupBox({ title: tw.angleBox, columns: '64px minmax(116px, 1fr)', minWidth: 204, c, rows: cells });
 }
@@ -406,11 +433,14 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, mfProvisi
     const typeId = FILTER_TYPES[session.typeId] ? session.typeId : FILTER_CATEGORIES[0].types[0];
     const updateParam = (key, value) => setField('params', prev => paramsWithChange(typeId, prev, key, value));
     const gainSource = useGainSource(updateParam, tw);
-    const ctx = { s: styles(c), tw, units: t.units, c, session, setField, patch, typeId, updateParam, design, gainSource };
+    const environment = useWizardEnvironment(design);
+    const ctx = {
+        s: styles(c), te, tw, units: t.units, c, session, setField, patch, typeId, updateParam, design, gainSource, environment,
+    };
 
     const generate = (block, curves) => {
         const rows = wizardGenerationRows(startRow, block.length);
-        onGenerate(block, rows.startRow, curves);
+        onGenerate(blockInEnvironment(block, environment[0]), rows.startRow, curves);
         setStartRow(rows.nextStartRow);
     };
     const summary = wizardSummary({

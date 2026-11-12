@@ -35,11 +35,11 @@ export function menuTargetFromEvent(event, columns) {
  * cellClipboard.js says. A DMFS header has no cell to copy on its own,
  * whichever column was under the pointer; every other row follows the
  * keyboard's rule, which gives a comment row its Type cell and the row
- * everywhere else.
+ * everywhere else. `environments` is the table's (tableEnvironments.js).
  */
-export function menuScope(op, colKey, selectedIds) {
+export function menuScope(op, colKey, selectedIds, environments = null) {
     if (!op || isDmfs(op.type)) return 'rows';
-    return clipboardScope({ op, focusCell: { rowIdx: 0, colKey }, selectedIds });
+    return clipboardScope({ op, focusCell: { rowIdx: 0, colKey }, selectedIds, environments });
 }
 
 /**

@@ -7,6 +7,7 @@ import { useMeritPresets } from './useMeritPresets.js';
 import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
 import { stressOperandNotices } from '../stressOperandScope.js';
 import { useMeritRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useTableEnvironments } from './mfTable/tableEnvironments.js';
 
 const { createElement: h } = React;
 
@@ -14,6 +15,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
     const { design, updateDesign, checkpoint } = useDesign();
     const te = t.meritFunctionEditor;
     const merit = useMeritOperands({ design, updateDesign, checkpoint, setInputDialog, te });
+    const environments = useTableEnvironments(design, te);
     const presets = useMeritPresets({
         design, operands: merit.operands, setOperands: merit.setOperands,
         setSelectedId: merit.setSelectedId, checkpoint, setInputDialog, te, t,
@@ -37,6 +39,7 @@ export function MeritFunctionEditor({ c, t, setInputDialog }) {
             h(MFTable, {
                 operands: merit.operands, computed: merit.computed,
                 evaluationErrors: merit.errors, bandLevels: merit.bandLevels, provisional: merit.provisional,
+                environments, environmentValues: merit.environmentValues,
                 selectedId: merit.selectedId,
                 notices: [scopeNotice && { label: scopeNotice }, rangeNotice, ...stressNotices].filter(Boolean),
                 noOperandsMsg: te.noOperands,

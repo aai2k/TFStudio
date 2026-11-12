@@ -6,6 +6,7 @@ import { MFTrendPlot } from './MFTrendPlot.js';
 import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
 import { useMeritRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { operandBandLevels } from '../../../../utils/physics/optimizer.js';
+import { useTableEnvironments } from '../meritFunctionEditor/mfTable/tableEnvironments.js';
 
 const { createElement: h } = React;
 
@@ -13,6 +14,7 @@ const { createElement: h } = React;
 
 export function Refinement({ c, theme, t }) {
     const r = useRefinement({ t });
+    const environments = useTableEnvironments(r.design, t.meritFunctionEditor);
     const scopeNotice = phaseOperandScopeNotice(r.design, r.operands, t.meritFunctionEditor);
     const rangeNotice = useMeritRangeNotice(r.design, t);
 
@@ -50,6 +52,7 @@ export function Refinement({ c, theme, t }) {
                 evaluationErrors: r.evaluationErrors,
                 bandLevels: operandBandLevels(r.computed),
                 provisional: r.provisional,
+                environments, environmentValues: r.environmentValues,
                 selectedId: r.selectedId,
                 notices: [scopeNotice && { label: scopeNotice }, rangeNotice].filter(Boolean),
                 noOperandsMsg: t.refinement.noOperands,

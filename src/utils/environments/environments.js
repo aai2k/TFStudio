@@ -56,6 +56,13 @@ export function rowsInEnvironment(design, id) {
     return (design?.meritOperands || []).filter(op => op.env == null || op.env === id);
 }
 
+/** Merit row `op` scored in environment `env` alone, or, with `env` null, in every environment. */
+export function rowInEnvironment(op, env = null) {
+    // eslint-disable-next-line no-unused-vars
+    const { env: _env, ...row } = op;
+    return env == null ? row : { ...row, env };
+}
+
 /**
  * One spelling of a material id. A layer names a built-in material either as
  * `builtin:TiO2` or, in designs saved before compound ids, as `TiO2`; both are
@@ -117,6 +124,19 @@ export function environmentDesign(design, id = BASE_ENVIRONMENT) {
         frontLayers: layersIn(design.frontLayers || [], env),
         backLayers: layersIn(design.backLayers || [], env),
     };
+}
+
+/**
+ * `design` with the media and the substrate environment `id` computes with,
+ * and its own layers: the layer list is the recipe and reads the same in every
+ * environment. For environment 1 the same object it was given.
+ *
+ * @throws an id the design has no environment for
+ */
+export function environmentMedia(design, id = BASE_ENVIRONMENT) {
+    if (id === BASE_ENVIRONMENT) return design;
+    const seen = environmentDesign(design, id);
+    return { ...design, incidentMedium: seen.incidentMedium, exitMedium: seen.exitMedium, substrate: seen.substrate };
 }
 
 /**

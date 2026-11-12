@@ -1,6 +1,7 @@
 import APP_ICON from '../constants/icon.js';
 import { useUpdate } from './ui/UpdateContext.js';
 import { settingsCategoryIds } from './dialogs/settings/categories.js';
+import { environmentGroup, useRibbonEnvironment } from './ribbonEnvironments.js';
 
 const { createElement: h, useState, useRef, useEffect } = React;
 
@@ -92,6 +93,12 @@ export const ICONS = {
                           P('M3 4H8L11 15H17.5',1.8),
                           Pd('M9.5 2.5V16.5'),
                       ]),
+    // Environments: a grid of columns, one per condition the design is scored
+    // in, as the Environments window lays them out.
+    'environments':   I([ R(2.5,3,15,14,1), L(7.5,3,7.5,17), L(12.5,3,12.5,17) ]),
+    // Previous and Next environment: a chevron each way.
+    'environment-previous': I([ P('M12.5 4.5L7 10L12.5 15.5', 1.6) ]),
+    'environment-next':     I([ P('M7.5 4.5L13 10L7.5 15.5', 1.6) ]),
     'help-docs':      I([ C(10,10,8), P('M7.5 7.8q0-2 2.5-2t2.5 2q0 1.5-2.5 2.5v1', 1.5), Cf(10,14.7,0.7) ]),
 
     // Welcome: a flag planted at the start of the route the tour walks.
@@ -430,6 +437,7 @@ const TOOL_GROUP = {
     'undo': 'edit', 'redo': 'edit', 'history': 'edit',
     'design-editor': 'design', 'material-editor': 'design', 'coating-library': 'design',
     'specification': 'design', 'stack-formula': 'design', 'edge-filter': 'design',
+    'environments': 'design', 'environment-previous': 'design', 'environment-next': 'design',
     'preferences': 'information',
     'optical-eval': 'analysis', 'color-eval': 'analysis', 'admittance': 'analysis', 'efield': 'analysis',
     'ellipsometry': 'analysis', 'gd-gdd': 'analysis', 'pulse-analysis': 'analysis', 'material-dispersion': 'analysis', 'ri-profiler': 'analysis', 'layer-thicknesses': 'analysis', 'integral-values': 'analysis',
@@ -464,7 +472,9 @@ export const iconColorForTool = (id) => GROUP_COLORS[TOOL_GROUP[id]] || null;
 
 export const RIBBON_TABS = ['setup', 'analysis', 'optimization', 'production', 'help'];
 
-export function makeTabs(t) {
+// `environment` places the current environment of a design with more than
+// one (ribbonEnvironments.js), for the Environment group.
+export function makeTabs(t, environment = null) {
     const tb = t.toolbar;
     // Most buttons open a tool. A few run an application action instead (the
     // welcome tour, the tutorials, About, an update check); those carry the
@@ -482,6 +492,7 @@ export function makeTabs(t) {
                 grp('edit',        ['undo', 'redo', 'history']),
                 grp('design',      ['design-editor', 'material-editor', 'coating-library', 'specification', 'stack-formula', 'edge-filter']),
                 grp('preferences', ['preferences']),
+                environmentGroup(tb, btn, environment),
             ]
         },
         {
@@ -926,7 +937,8 @@ const readCollapsed = () => {
 };
 
 export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, ribbonStyle = 'colorful', gamesUnlocked = false }) {
-    const tabs = makeTabs(t);
+    const ribbonEnvironment = useRibbonEnvironment();
+    const tabs = makeTabs(t, ribbonEnvironment.environment);
     const colorful = ribbonStyle !== 'minimalist';
 
     const [activeTab, setActiveTab] = useState(readTab);
@@ -957,8 +969,9 @@ export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, r
     // already in context here, so the menu runs it rather than routing an action
     // out to the renderer and back.
     const update = useUpdate();
+    const ribbonActions = { 'check-updates': () => update?.onBadgeClick?.(), ...ribbonEnvironment.actions };
     const runAction = (action) => {
-        if (action === 'check-updates') { update?.onBadgeClick?.(); return; }
+        if (ribbonActions[action]) { ribbonActions[action](); return; }
         runMenuAction(action, onMenuAction);
     };
 
@@ -1061,6 +1074,7 @@ export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, r
                         label: b.label,
                         title: b.title,
                         active: false,
+                        disabled: b.disabled,
                         c,
                         iconColor: colorful ? iconColorForTool(b.id) : null,
                         onClick: () => (b.action ? runAction(b.action) : onToolAction(b.id))

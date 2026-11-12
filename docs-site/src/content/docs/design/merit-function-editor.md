@@ -58,6 +58,8 @@ brings it back. Under the bar are three boxes:
 - **Thickness limits**: minimum and maximum layer thickness (`MNT`/`MXT`) and a
   total thickness cap, each behind a checkbox.
 
+On a design scored in more than one [environment](/design/environments/), the Angle and target box also has **Env**: the environment the generated rows are scored in, **All** by default. The header row and the thickness limits are scored in every environment whatever it says.
+
 A custom target in dB or OD writes one of the [dB and OD rows](/design/operands/#worst-case-over-a-band): T ≥ in dB a `TDBMN` row, T ≤ in dB a `TDBMX` row, R ≤ in dB an `RDBMX` row, T ≥ in OD an `ODMN` row, and T = in dB one `TDB` row per wavelength step, with a step field in place of the line-or-points choice. Combinations with no row behind them are not offered: A has only %, R in dB only ≤, OD only ≥. Switching the unit converts the typed value to the same level, so 80 % becomes −0.97 dB. A value in dB is held at or below 0 dB, a density at or above 0.
 
 ### Curve targets
@@ -96,6 +98,7 @@ One row per operand. The table works like a spreadsheet:
   entry of a Ref Op# or Curve list empties the cell. A weighted integral that
   matches no preset shows its own source, detector and band, and lists them
   first.
+- On a design scored in more than one [environment](/design/environments/), an **Env** column follows **Type**: **All**, or the one environment the row is scored in, by number and name. It opens its list as **Pol** does, and copies and pastes as the name it shows. A constant is scored nowhere and shows a dash.
 - The **Flag** cell is headed **Step** on the rows that take it. On a row that looks for a peak, such as `TMX` or `MXWT`, it sets how finely the band is searched, from 1 for 1 nm to 4 for 0.001 nm ([Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral or `*FLAT` row, the coarsest step of its grid ([Sampling a band](/design/operands/#sampling-a-band)). Other rows show a dash there.
 - Drag across cells, or hold Shift, to select a rectangle; hold Ctrl to add
   single cells. Ctrl+C copies the selection as tab-separated text, Ctrl+V
@@ -153,6 +156,8 @@ Each operand row shows its current value and its residual, so you can see at a
 glance which targets are met and which are dragging the merit up. Bigger
 weights make an operand count for more; bumping the stopband weight on an HR
 design is the most common tweak.
+
+On a design scored in more than one environment, **Current** shows each row's value in the current environment and names it in its header, as **Current (2)**; a row not scored there shows a dash, and every row does while the current environment is off. **% of MF²** adds a row's part over every environment it is scored in, and the MF in the bar is the merit over every environment that is on. The current environment is picked in the Design Editor's Settings, with **Previous** and **Next** on the Setup tab of the ribbon, or in the [Environments](/design/environments/) window.
 
 A fine Step over a wide band takes seconds to evaluate, so a row with a Step of its own is shown at once at its default step, faded with ≈ before it, and its value at its Step replaces that once it has been worked out. The window stays free in the meantime. A math row that reads such a row is marked the same way, and when such a row has a weight, so are the MF, the OMF and every row's **% of MF²**. While the table follows an optimizer run it stays at the default steps until the run stops. Under a cone of incidence every row is worked out off the window's thread, and the table shows its values when they come. The Refinement window's table and its MF between runs work the same way. The MF shown in the Round and Perturb dialogs, the [Design Cleaner](/synthesis/design-cleaner/) and the [History](/design/history/) window, the OMF in [Needle Manual](/synthesis/needle/#needle-manual) and the ranking in [Layer Sensitivity](/analysis/layer-sensitivity/) are read the same way when a row has a Step of its own: at once at the default steps, faded with ≈, then at the rows' Steps.
 

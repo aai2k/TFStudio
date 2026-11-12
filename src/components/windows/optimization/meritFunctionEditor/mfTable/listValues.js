@@ -1,17 +1,21 @@
 /**
- * The cells in the λ columns that hold a value out of a list in place of a
- * wavelength: a math row's references, a thickness or force row's comparison,
- * an integral's preset and a PPEF row's curve block. For each, the entries its
- * list offers, the one the row holds, and the edit a pick makes. The cells
- * draw these (OperandCells.js); the clipboard copies a cell as the name of the
- * entry it holds and takes a pasted name as a pick (cellClipboard.js).
+ * The cells that hold a value out of a list: in the λ columns, in place of a
+ * wavelength, a math row's references, a thickness or force row's comparison,
+ * an integral's preset and a PPEF row's curve block; and on a design with
+ * environments, the Env cell, the environment a row is scored in. For each,
+ * the entries its list offers, the one the row holds, and the edit a pick
+ * makes. The cells draw these (OperandCells.js); the clipboard copies a cell
+ * as the name of the entry it holds and takes a pasted name as a pick
+ * (cellClipboard.js).
  *
- * `table` is { operands, integralPresets }: the rows a reference or a curve
- * block is picked from, and the presets an integral can take.
+ * `table` is { operands, integralPresets, environments }: the rows a
+ * reference or a curve block is picked from, the presets an integral can take,
+ * and the environments a row can be scored in (tableEnvironments.js).
  */
 import {
     isEllipsometricMeasuredCurve, isIntegral, isLinearThickness, isMath, isMathPairRef, isMeasuredCurve, isPPEF,
 } from '../../../../../utils/physics/optimizer.js';
+import { takesEnvironment } from './operandViewModel.js';
 
 // The ≤ / ≥ / = a thickness or force row carries in place of a wavelength: the
 // total thickness in nm (TT) or the film force in N/m (STR) held against the
@@ -75,6 +79,12 @@ const LISTS = {
         held: op => op.refId,
         edit: (op, colKey, refId) => ['_patch', { refId }],
     },
+    // Every environment, the null entry, then each one by number and name.
+    environment: {
+        options: (op, colKey, { environments }) => [{ value: null, label: environments.all }, ...environments.list],
+        held: op => op.env ?? null,
+        edit: (op, colKey, env) => ['env', env],
+    },
 };
 
 // The rows whose λ Start holds a value out of a list, and which list.
@@ -84,6 +94,7 @@ const LIST_IN_LAMBDA_START = [
 
 /** Which list a cell picks from, or null for a cell that takes text. */
 export function listKind(op, colKey) {
+    if (colKey === 'env') return takesEnvironment(op) ? 'environment' : null;
     if (colKey === 'lambdaEnd') return isMathPairRef(op.type) ? 'reference' : null;
     if (colKey !== 'lambdaStart') return null;
     return LIST_IN_LAMBDA_START.find(([test]) => test(op.type))?.[1] ?? null;
