@@ -4238,6 +4238,7 @@ export default {
     views: { table: 'Table', differences: 'Differences', patch: 'Color Patch' },
     tableSpaceTitle: 'Color space the table shows',
     againstFirst:  angle => `Against ${angle}°, the first angle`,
+    againstEnvironment: env => `Against environment ${env} at the same angle`,
     refNote:       'CIE 15:2004 standard data. ' +
                    'Y = luminance factor (%). Swatch is Bradford-adapted to a ' +
                    'D65 display.',

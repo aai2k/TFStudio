@@ -1742,9 +1742,9 @@ print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.color({ quantity, angle, pol, observer, illuminant, step, side })` | `design.color(quantity="R", angle=0, pol="avg", observer=2, illuminant="D65", step=0.5, side=...)` |
+| `design.color({ quantity, angle, pol, observer, illuminant, step, side, env })` | `design.color(quantity="R", angle=0, pol="avg", observer=2, illuminant="D65", step=0.5, side=..., env=...)` |
 
-设计的反射率或透射率的 CIE 颜色，与颜色评估窗口的计算相同：在一种光源下 R 或 T 在 380-780 nm 波段上的三刺激值，以及窗口显示的各颜色空间、主波长、相关色温和 sRGB 色块。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。没有膜层的面给出其裸表面的颜色。
+设计的反射率或透射率的 CIE 颜色，与颜色评估窗口的计算相同：在一种光源下 R 或 T 在 380-780 nm 波段上的三刺激值，以及窗口显示的各颜色空间、主波长、相关色温和 sRGB 色块。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。没有膜层的面给出其裸表面的颜色。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -1755,18 +1755,21 @@ print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1
 | `illuminant` | `illuminant` | `'D65'` | CIE 光源：`'D65'`、`'D50'`、`'A'` 或 `'E'`。 |
 | `step` | `step` | `0.5` | 用于积分颜色的光谱的波长步长，单位 nm。 |
 | `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个颜色，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Color。
+**返回**：**JavaScript**：一个 Color；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Color；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长，或用到找不到对应材料的设计<br>**Python**：它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 const c = design.color({ quantity: 'R', illuminant: 'D65' });
 console.log(c.mode, 'x', c.x.toFixed(4), 'y', c.y.toFixed(4), 'Y', c.Y.toFixed(2), '%, dominant', c.dominant.wavelength?.toFixed(1), 'nm');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.color({ env: 'all' })) console.log(one.environment.number, one.environment.name, 'x', one.x.toFixed(4), 'y', one.y.toFixed(4));
 ```
 
 ```python
@@ -1775,17 +1778,20 @@ design.stack("(HL)^3 H")
 c = design.color(quantity="R", illuminant="D65")
 print(c.mode, "x", round(c.x, 4), "y", round(c.y, 4), "Y", round(c.Y, 2), "%, dominant",
       c.dominant.wavelength, "nm")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.color(env="all"):
+    print(one.environment["number"], one.environment["name"], "x", round(one.x, 4), "y", round(one.y, 4))
 ```
 
 ### integrals
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.integrals({ start, end, step, angle, pol, custom, side })` | `design.integrals(start=300, end=2500, step=0.5, angle=0, pol="avg", custom=..., side=...)` |
+| `design.integrals({ start, end, step, angle, pol, custom, side, env })` | `design.integrals(start=300, end=2500, step=0.5, angle=0, pol="avg", custom=..., side=..., env=...)` |
 
-**JavaScript**：设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 `custom` 给出。计算对象由设计的 `sides` 和 `scoreOn` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 NaN，`covered` 为 false。权重在整个波段上为 0 的行同样没有数值，但 `covered` 为 true。
+**JavaScript**：设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 `custom` 给出。计算对象由设计的 `sides` 和 `scoreOn` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 NaN，`covered` 为 false。权重在整个波段上为 0 的行同样没有数值，但 `covered` 为 true。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。
 
-**Python**：设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 custom 给出。计算对象由设计的 sides 和 score_on 决定，与光谱相同，除非给出 side；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 nan，covered 为 False。权重在整个波段上为 0 的行同样没有数值，但 covered 为 True。
+**Python**：设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 custom 给出。计算对象由设计的 sides 和 score_on 决定，与光谱相同，除非给出 side；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 nan，covered 为 False。权重在整个波段上为 0 的行同样没有数值，但 covered 为 True。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 env 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -1796,18 +1802,21 @@ print(c.mode, "x", round(c.x, 4), "y", round(c.y, 4), "Y", round(c.Y, 2), "%, do
 | `pol` | `pol` | `'avg'` | 偏振：`'avg'`（非偏振）、`'s'` 或 `'p'`。 |
 | `custom` | `custom` | `[]` | **JavaScript**：你自己的行，每行为 `{ key, quantity, source, detector, band }`：`key` 为其名称，不能与其他行相同；`quantity` 为 `'T'`、`'R'` 或 `'A'`；`source` 为 `{ id }`，id 为 `'D65'`、`'D50'`、`'A'`、`'AM1.5G'`、`'E'`、带 `T`（其温度，单位 K）的 `'blackbody'`，或带 `table`（其 `[nm, value]` 行，至少两行且波长不同）的 `'custom'`；`detector` 为 `{ id }`，id 为 `'photopic'`、`'flat'` 或带其 `table` 的 `'custom'`；`band` 为以 nm 计的 `[start, end]`，并受权重自身范围的限制。字段不给出时：`'T'`、D65、明视觉和 380-780 nm；黑体的 T 为 5778 K。<br>**Python**：你自己的行，每行是一个 dict，含 key、quantity、source、detector 和 band：key 为其名称，不能与其他行相同；quantity 为 "T"、"R" 或 "A"；source 为 {"id": ...}，id 为 "D65"、"D50"、"A"、"AM1.5G"、"E"、带 "T"（其温度，单位 K）的 "blackbody"，或带 "table"（其 [nm, value] 行，至少两行且波长不同）的 "custom"；detector 为 {"id": ...}，id 为 "photopic"、"flat" 或带其 "table" 的 "custom"；band 为以 nm 计的 [start, end]，并受权重自身范围的限制。字段不给出时："T"、D65、明视觉和 380-780 nm；黑体的 T 为 5778 K。不给出时，没有你自己的行。 |
 | `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组积分值，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Integrals。
+**返回**：**JavaScript**：一个 Integrals；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Integrals；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key，或用到找不到对应材料的设计<br>**Python**：不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('AR');
 design.stack('HL');
 const iv = design.integrals({ custom: [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }] });
 console.log('Tvis', iv.get('Tvis').value.toFixed(4), 'T3000K', iv.get('T3000K').value.toFixed(4));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.integrals({ env: 'all' })) console.log(one.environment.number, one.environment.name, 'Rvis', one.get('Rvis').value.toFixed(4));
 ```
 
 ```python
@@ -1816,6 +1825,9 @@ design.stack("HL")
 iv = design.integrals(custom=[{"key": "T3000K", "source": {"id": "blackbody", "T": 3000},
                                "band": [400, 700]}])
 print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.integrals(env="all"):
+    print(one.environment["number"], one.environment["name"], "Rvis", round(one["Rvis"].value, 4))
 ```
 
 ### ellipsometry
@@ -7855,6 +7867,31 @@ design.stack("(HL)^3 H")
 print([m["id"] for m in design.color().out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.environment` | `c.environment` |
+
+**JavaScript**：颜色计算所在的环境，design.color() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时颜色在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：颜色计算所在的环境，design.color() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时颜色在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const c of design.color({ env: 'all' })) console.log(c.environment.number, c.environment.name, c.x.toFixed(4), c.y.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for c in design.color(env="all"):
+    print(c.environment["number"], c.environment["name"], round(c.x, 4), round(c.y, 4))
+```
+
 ## Integrals
 
 **JavaScript**：设计的 T、R 和 A 的加权平均，与 design.integrals() 的计算和积分值窗口的列表相同：先是内置的行，从 Tvis 到 RNIR，然后是你自己的行，每行用 get() 按其 key 读取。
@@ -8070,6 +8107,31 @@ console.log(design.integrals().outOfRange.map(m => m.id));
 design = tf.new_design("AR")
 design.stack("HL")
 print([m["id"] for m in design.integrals().out_of_range])
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.environment` | `iv.environment` |
+
+**JavaScript**：积分值计算所在的环境，design.integrals() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时积分值在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：积分值计算所在的环境，design.integrals() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时积分值在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const iv of design.integrals({ env: 'all' })) console.log(iv.environment.number, iv.environment.name, 'Rvis', iv.get('Rvis').value.toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+design.environments.add(name="Under water", incident_medium="H2O")
+for iv in design.integrals(env="all"):
+    print(iv.environment["number"], iv.environment["name"], "Rvis", round(iv["Rvis"].value, 4))
 ```
 
 ### saveCsv / save_csv

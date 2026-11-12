@@ -62,22 +62,31 @@ ok('a design keeps the name it holds', corpus.names.length === 0, corpus.names.j
 ok('saved and opened again it shows the same', corpus.reopened.length === 0, corpus.reopened.join(', '));
 {
     // The fixture with three environments: without env its spectrum is the
-    // golden file's, above; each environment by number or id is its design
-    // computed apart, the third, switched off, included; 'all' covers the two
-    // that are on.
+    // golden file's, above; for its spectrum, its colour and its integral
+    // values, each environment by number or id is its design computed apart,
+    // the third, switched off, included, and without env environment 1; 'all'
+    // covers the two that are on.
+    const { isDeepStrictEqual: same } = await import('node:util');
     const { oneEnvironmentDesign } = await import('../src/utils/environments/environments.js');
     const name = 'environments-media-substrate';
     const fixture = manifest.fixtures[name];
     const design = api.openDesign(fixtureFile(name));
     const [from, to, step] = fixture.spectrum;
-    const asked = env => api.spectrum(design, { from, to, step, angles: fixture.angles, ...env });
-    const apart = id => JSON.stringify(api.spectrum(oneEnvironmentDesign(design, id), { from, to, step, angles: fixture.angles }));
-    ok('the environments fixture without env is environment 1', JSON.stringify(asked({})) === apart('base'));
-    ok('each environment by number and by id is its design computed apart', ['base', 'env2', 'env3'].every((id, i) =>
-        JSON.stringify(asked({ env: i + 1 })) === apart(id) && JSON.stringify(asked({ env: id })) === apart(id)));
-    const all = asked({ env: 'all' }).environments;
-    ok("env 'all' covers the environments that are on", JSON.stringify(all.map(e => [e.number, e.id, e.name])) === JSON.stringify([[1, 'base', 'BK7 in air'], [2, 'env2', 'Under water']])
-        && all.every(({ number: _number, id, name: _name, ...one }) => JSON.stringify(one) === apart(id)));
+    const CALLS = {
+        spectrum: { from, to, step, angles: fixture.angles },
+        color: { quantity: 'T', angle: 30, step: 5 },
+        integrals: { start: 350, end: 1000, step: 5 },
+    };
+    for (const [call, options] of Object.entries(CALLS)) {
+        const asked = env => api[call](design, { ...options, ...env });
+        const apart = id => api[call](oneEnvironmentDesign(design, id), options);
+        ok(`the environments fixture's ${call} without env is environment 1`, same(asked({}), apart('base')));
+        ok(`its ${call} of each environment by number and by id is its design computed apart`, ['base', 'env2', 'env3'].every((id, i) =>
+            same(asked({ env: i + 1 }), apart(id)) && same(asked({ env: id }), apart(id))));
+        const all = asked({ env: 'all' }).environments;
+        ok(`its ${call} with env 'all' covers the environments that are on`, same(all.map(e => [e.number, e.id, e.name]), [[1, 'base', 'BK7 in air'], [2, 'env2', 'Under water']])
+            && all.every(({ number: _number, id, name: _name, ...one }) => same(one, apart(id))));
+    }
 }
 
 {

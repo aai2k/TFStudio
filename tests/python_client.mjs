@@ -29,7 +29,9 @@
  *      profiles, one of a side with no layers refused, layer thicknesses,
  *      the design's facts, admittance loci and electric fields, one of a
  *      side with no layers refused, colours, one with an observer refused,
- *      integral values with rows of no value, Psi and Delta against
+ *      integral values with rows of no value, colours and integral values of
+ *      one environment and of each, and an environment the design does not
+ *      have refused, Psi and Delta against
  *      wavelength and against angle, a sweep of start above end refused,
  *      phase and group delay on a uniform grid and on the window's, the whole
  *      part in reflection refused, materials, a material's dispersion with
@@ -383,6 +385,10 @@ const STOPPED_WITHIN_S = 5;
         ['color', [stack, { quantity: 'T', observer: 10, illuminant: 'D50', step: 2 }]],
         ['color', [stack, { observer: 3 }]],
         ['integrals', [stack, { start: 350, end: 1000, step: 2, custom: [{ key: 'bb', source: { id: 'blackbody', T: 3000 } }] }]],
+        ['color', [withWater, { quantity: 'T', step: 5, env: 'all' }]],
+        ['color', [withWater, { step: 5, env: 'env2' }]],
+        ['integrals', [withWater, { start: 350, end: 1000, step: 5, env: 2 }]],
+        ['integrals', [withWater, { env: 'env9' }]],
         ['ellipsometry', [stack, { step: 5, angles: [55, 70], deltaConvention: 'reversed' }]],
         ['ellipsometryVsAngle', [stack, { wavelength: 633, angleStep: 2.5 }]],
         ['ellipsometryVsAngle', [stack, { angleStart: 80, angleEnd: 45 }]],

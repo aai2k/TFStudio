@@ -4667,6 +4667,7 @@ export default {
     views: { table: 'Tabella', differences: 'Differenze', patch: 'Campioni di colore' },
     tableSpaceTitle: 'Spazio colore mostrato nella tabella',
     againstFirst: angle => `Rispetto a ${angle}°, il primo angolo`,
+    againstEnvironment: env => `Rispetto all'ambiente ${env} allo stesso angolo`,
     refNote: 'Dati standard CIE 15:2004. Y = fattore di luminanza (%). Il campione è adattato con Bradford a un display D65.',
   },
   specification: {

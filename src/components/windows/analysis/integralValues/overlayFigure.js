@@ -1,4 +1,4 @@
-import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { ANALYSIS_DEFAULTS, environmentColor } from '../../../../constants/analysisDefaults.js';
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
 import {
     axisTooltip, cartesianOption, lineSeries, scatterSeries, valueAxis,
@@ -22,18 +22,32 @@ function overlayWeightValues(lambda, weighting) {
     return raw.map(value => 100 * value / maximum);
 }
 
+// The curve of the integral's channel: the one environment's, named after the
+// channel, or under All one per environment, named after it and drawn in its
+// colour.
+function channelSeries(spectrum, sets, char, curve) {
+    if (!sets) {
+        return [lineSeries({
+            x: spectrum.lambda, y: (spectrum[char] || []).map(value => value * 100),
+            name: `${char}(λ)`, color: overlayCharColor(char, curve), width: 2,
+        })];
+    }
+    return sets.map(({ env, spectrum: one }) => lineSeries({
+        x: one.lambda, y: (one[char] || []).map(value => value * 100),
+        name: env.label, color: environmentColor(curve, env.number), width: 2,
+    }));
+}
+
 /**
  * `labels` is t.integralValues, which names the weighting curve and the min and
  * max marks; `units` is t.units, which writes the marks' wavelength unit.
+ * `sets`, under All, holds each environment's spectrum, `{ env, spectrum }`.
  */
-export function buildOverlayOption({ spectrum, char, weighting, minMaxMarks, colors, title, lambdaAxis, labels, units, curve = FACTORY }) {
+export function buildOverlayOption({ spectrum, sets = null, char, weighting, minMaxMarks, colors, title, lambdaAxis, labels, units, curve = FACTORY }) {
     if (!spectrum?.lambda) return { series: [] };
     const lambdaLow = spectrum.lambda[0];
     const lambdaHigh = spectrum.lambda.at(-1);
-    const series = [lineSeries({
-        x: spectrum.lambda, y: (spectrum[char] || []).map(value => value * 100),
-        name: `${char}(λ)`, color: overlayCharColor(char, curve), width: 2,
-    })];
+    const series = channelSeries(spectrum, sets, char, curve);
     const weightValues = overlayWeightValues(spectrum.lambda, weighting);
     if (weightValues) series.push(lineSeries({
         x: spectrum.lambda, y: weightValues,

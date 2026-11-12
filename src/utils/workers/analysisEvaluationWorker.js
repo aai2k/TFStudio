@@ -69,11 +69,15 @@ const EVALUATIONS = {
     // the one that environment computes.
     opticalSpectra: ({ designs, params, evalMode }) => (designs || []).map(design => computeOpticalSpectrum(design, params, evalMode)),
     integralSpectrum: ({ design, params, evalMode }) => computeSpectrumForMode(design, params, evalMode),
-    // The Report's integrals blocks: integralSpectrum of each design on each
-    // grid, the design read in the mode it is evaluated in.
-    integralSpectra: ({ designs, grids }) => (designs || []).map(design =>
-        grids.map(params => computeSpectrumForMode(design, params, resolveEvalMode(design)))),
-    colorReports: ({ design, options }) => colorReports(design, options),
+    // integralSpectrum of each design on each grid, in `evalMode` when given:
+    // Integral Values' spectrum of each environment it shows, on its one grid;
+    // the Report's integrals blocks, each design read in the mode it is
+    // evaluated in.
+    integralSpectra: ({ designs, grids, evalMode }) => (designs || []).map(design =>
+        grids.map(params => computeSpectrumForMode(design, params, evalMode ?? resolveEvalMode(design)))),
+    // Color Evaluation's colour at each angle in each environment it shows,
+    // each design the one that environment computes.
+    colorReports: ({ designs, options }) => (designs || []).map(design => colorReports(design, options)),
     statusMonitors: ({ design, monitors }) => computeMonitors(monitors || [], design, designMaterialLookup(design)),
     specification: ({ designs, coarse, deviation, interlayers }) => (designs || [])
         .map(d => specificationResults(d, { coarse }, { deviation, interlayers })),

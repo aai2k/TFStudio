@@ -6,8 +6,8 @@
  * dialog reads them, on either side; setup changes; layer edits, which leave
  * their argument as it was and keep to the sides the Design Editor lets the
  * user edit; merit rows as the editor makes them; the materials whose data
- * stop inside a range; the environment a spectrum, a band feature and an edge
- * shift are computed in.
+ * stop inside a range; the environment a spectrum, a band feature, an edge
+ * shift, a colour and integral values are computed in.
  *
  * The corpus is in api_corpus.mjs, runs, Stop and tolerancing in api_runs.mjs,
  * refusals in api_refusals.mjs.
@@ -158,13 +158,15 @@ ok('a stack formula builds quarter waves at its reference wavelength', qw.frontL
     // one environment by number or id, off or on, as its design computed
     // apart; 'all' for each environment that is on; and an unknown one refused.
     const { oneEnvironmentDesign } = await import('../src/utils/environments/environments.js');
-    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const { isDeepStrictEqual: same } = await import('node:util');
     let wet = api.addEnvironment(qw, { name: 'Under water', incidentMedium: 'H2O' });
     wet = api.addEnvironment(wet, { name: 'Dome edge', thicknessFactors: { Al2O3: 0.95 }, enabled: false });
     const OPTIONS = {
         spectrum: { from: 450, to: 650, step: 50, angles: [0, 30] },
         bandFeature: { feature: 'fwhm', from: 450, to: 650, quantity: 'R' },
         edgeShift: { from: 400, to: 700, angles: [0, 30], quantity: 'R' },
+        color: { quantity: 'R', angle: 30, step: 5 },
+        integrals: { start: 350, end: 1000, step: 5, custom: [{ key: 'R532', quantity: 'R', detector: { id: 'flat' }, band: [520, 545] }] },
     };
     const apart = (call, id) => api[call](oneEnvironmentDesign(wet, id), OPTIONS[call]);
     for (const call of Object.keys(OPTIONS)) {

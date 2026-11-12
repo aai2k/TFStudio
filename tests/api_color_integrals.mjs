@@ -28,7 +28,11 @@
  *      every surface mode and scoring, and side gives each side; outOfRange
  *      is the windows' range notice, the materials of the sides computed, and
  *      a front's colour and integrals do not name the exit medium.
- *   5. Refusals with their codes and fields: an unknown option, a quantity,
+ *   5. Environments: on a design with three, both without env are the
+ *      windows' numbers on the design itself, and with env, by number or id
+ *      and switched off or on, the windows' numbers on the design that
+ *      environment computes.
+ *   6. Refusals with their codes and fields: an unknown option, a quantity,
  *      polarization, observer, illuminant, angle, step or side neither takes,
  *      a range that is not one, more points than the limit, every kind of
  *      malformed custom row, a custom table without two different
@@ -196,7 +200,7 @@ const INTEGRAL_SETTINGS = GRIDS.flatMap(grid => [0, 45].flatMap(angle => ['avg',
         const mode = resolveEvalMode(design);
         const portable = embedDesignMaterials(withHerpinRecords(design));
         const colours = SETTINGS.filter((s, i) => i % 7 === 0).filter(s => {
-            const [{ report: shown }] = dispatchAnalysisEvaluation('colorReports', { design: portable, options: {
+            const [[{ report: shown }]] = dispatchAnalysisEvaluation('colorReports', { designs: [portable], options: {
                 evalMode: mode, characteristic: s.quantity, pol: s.pol, thetas: [s.angle], observer: String(s.observer), illuminant: s.illuminant, step: s.step,
             } });
             const got = api.color(design, s);
@@ -313,12 +317,33 @@ const INTEGRAL_SETTINGS = GRIDS.flatMap(grid => [0, 45].flatMap(angle => ['avg',
     ok('side computes the front, the back or the whole part, as the window does in each mode', sides.every(Boolean), sides.join());
 }
 
-// ── 5. Refusals ────────────────────────────────────────────────────────────
+// ── 5. Environments ────────────────────────────────────────────────────────
+{
+    // Without env both are the windows' numbers on the design itself, as on a
+    // design without environments; with env, on the design that environment
+    // computes (environmentDesign), as each window computes it for the
+    // environment its Environment list names, one switched off included.
+    const { environmentDesign } = await import('../src/utils/environments/environments.js');
+    const [name, own] = corpus.find(([, design]) => !hasCone(design));
+    const design = api.addEnvironment(api.addEnvironment(own, { name: 'Under water', incidentMedium: 'H2O' }), { substrate: 'SiO2', enabled: false });
+    const mode = resolveEvalMode(design);
+    const s = { quantity: 'T', angle: 30, pol: 's', observer: 10, illuminant: 'A', step: 1 };
+    const grid = { start: 350, end: 1000, step: 1, angle: 30, pol: 's' };
+    const wrong = [[undefined, 'base'], [2, 'env2'], ['env3', 'env3']].filter(([env, id]) => {
+        const shown = environmentDesign(design, id);
+        return !same(computed(api.color(design, { ...s, env })), windowColour(shown, mode, s))
+            || !same(api.integrals(design, { ...grid, custom: API_CUSTOM, env }).rows, windowIntegrals(shown, mode, grid));
+    }).map(([env]) => String(env));
+    ok(`on ${name} with two more environments, both without env are the windows' numbers on the design, and with env on the design the environment computes`,
+        wrong.length === 0, wrong.join(', '));
+}
+
+// ── 6. Refusals ────────────────────────────────────────────────────────────
 {
     const [, design] = corpus[0];
     const row = extra => ({ custom: [{ key: 'mine', ...extra }] });
     const REFUSED = [
-        ['color', 'an option it does not take', () => api.color(design, { characteristic: 'R' }), 'unknownOption', { option: 'characteristic' }, /unknown option 'characteristic'; the options are quantity, angle, pol, observer, illuminant, step, side$/],
+        ['color', 'an option it does not take', () => api.color(design, { characteristic: 'R' }), 'unknownOption', { option: 'characteristic' }, /unknown option 'characteristic'; the options are quantity, angle, pol, observer, illuminant, step, side, env$/],
         ['color', 'a quantity it does not have', () => api.color(design, { quantity: 'A' }), 'badValue', { option: 'quantity', value: 'A' }, /quantity is 'R' or 'T', not "A"/],
         ['color', 'an observer of 3', () => api.color(design, { observer: 3 }), 'badValue', { option: 'observer', value: 3 }, /observer is 2 or 10, not 3$/],
         ['color', 'an observer given as text', () => api.color(design, { observer: '10' }), 'badValue', { option: 'observer', value: '10' }, /observer is 2 or 10, not "10"$/],
@@ -327,7 +352,7 @@ const INTEGRAL_SETTINGS = GRIDS.flatMap(grid => [0, 45].flatMap(angle => ['avg',
         ['color', 'an angle of 90', () => api.color(design, { angle: 90 }), 'badValue', { option: 'angle', value: 90 }, /angle is an angle of incidence in degrees, 0 <= angle < 90, not 90/],
         ['color', 'a step of 0', () => api.color(design, { step: 0 }), 'badValue', { option: 'step', value: 0 }, /step is a wavelength step in nm above 0, not 0/],
         ['color', 'a side it does not have', () => api.color(design, { side: 'both' }), 'badValue', { option: 'side', value: 'both' }, /side is 'front', 'back' or 'total', not "both"/],
-        ['integrals', 'an option it does not take', () => api.integrals(design, { from: 400 }), 'unknownOption', { option: 'from' }, /unknown option 'from'; the options are start, end, step, angle, pol, custom, side$/],
+        ['integrals', 'an option it does not take', () => api.integrals(design, { from: 400 }), 'unknownOption', { option: 'from' }, /unknown option 'from'; the options are start, end, step, angle, pol, custom, side, env$/],
         ['integrals', 'a range that is not one', () => api.integrals(design, { start: 900, end: 400 }), 'wavelengthRange', { from: 900, to: 400 }, /start and end are wavelengths in nm, 0 < start < end$/],
         ['integrals', 'a polarization it does not have', () => api.integrals(design, { pol: 'tm' }), 'badValue', { option: 'pol', value: 'tm' }, /pol is 'avg', 's' or 'p', not "tm"/],
         ['integrals', 'an angle of 95', () => api.integrals(design, { angle: 95 }), 'badValue', { option: 'angle', value: 95 }, /not 95/],

@@ -24,8 +24,9 @@
  *      the API lists them and removed, and environment 1, an environment the
  *      design does not have and environment 1's media refused, a row scored in
  *      one environment with each environment's merit and each row's values,
- *      the spectrum, a band's peak and an edge against angle of one
- *      environment and of each, an environment it does not have refused,
+ *      the spectrum, a band's peak, an edge against angle, the colour and the
+ *      integral values of one environment and of each, an environment it
+ *      does not have refused,
  *      and env refused on a design with one environment, merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
@@ -280,7 +281,7 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         envShown(envRated) === envShown(envScored) && envShown(envMerit) === envShown(envScored) && envMerit.environments.length === 2 && envMerit.rows[1].env === 'env2',
         JSON.stringify(envMerit).slice(0, 400));
     {
-        // spectrum, bandFeature and edgeShift take env: one environment, or
+        // spectrum, bandFeature, edgeShift, color and integrals take env: one environment, or
         // 'all' for the plain answer of each environment beside its number, id
         // and name.
         const envRange = { from: 450, to: 650, step: 50, angles: [0, 30] };
@@ -307,8 +308,29 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
             && edgesAll.environments.every(({ number, id: _id, name: _name, angleCount: _count, notCrossedCount: _missing, ...one }) =>
                 JSON.stringify(one) === JSON.stringify(api.edgeShift(envHere, { from: 450, to: 750, angles: [0, 15, 30], quantity: 'R', env: number }))),
             JSON.stringify(edgesAll).slice(0, 300));
+        // color and integrals: one environment as the API computes it, and
+        // with env all each beside its number, id and name.
+        const shortColour = ({ white: _white, whiteXy: _xy, luv: _luv, uv1976: _uv76, uv1960: _uv60, hunterLab: _hunter, ...colour }) => colour;
+        const shortRows = ({ rows, ...table }) => ({ ...table, rows: rows.map(({ key, quantity, value, covered }) => ({ key, quantity, value, covered })) });
+        const eachOf = (found, answer) => found.environments.map(({ number, id, name, ...one }) => ({ number, id, name, ...answer(one) }));
+        const grid = { start: 400, end: 900, step: 5 };
+        const asked = await Promise.all([
+            server.call('color', { designId: envId, quantity: 'T', env: 'env2' }), server.call('color', { designId: envId, quantity: 'T', env: 'all' }),
+            server.call('integrals', { designId: envId, ...grid, env: 2 }), server.call('integrals', { designId: envId, ...grid, env: 'all' }),
+        ]);
+        const meant = [
+            { designId: envId, ...shortColour(api.color(envHere, { quantity: 'T', env: 'env2' })) },
+            { designId: envId, environments: eachOf(api.color(envHere, { quantity: 'T', env: 'all' }), shortColour) },
+            { designId: envId, ...shortRows(api.integrals(envHere, { ...grid, env: 2 })) },
+            { designId: envId, environments: eachOf(api.integrals(envHere, { ...grid, env: 'all' }), shortRows) },
+        ];
+        ok('color and integrals compute the environment env names, and each with env all, as they answer for one',
+            JSON.stringify(asked) === JSON.stringify(meant) && asked[1].environments?.length === 2 && asked[0].Y !== asked[1].environments[0].Y,
+            JSON.stringify(asked).slice(0, 300));
         const noSuch = await server.call('spectrum', { designId: envId, ...envRange, env: 7 });
-        ok('an environment the design does not have is refused', /spectrum: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noSuch.error ?? ''), noSuch.error);
+        const noColour = await server.call('color', { designId: envId, env: 'env7' });
+        ok('an environment the design does not have is refused', /spectrum: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noSuch.error ?? '')
+            && /color: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noColour.error ?? ''), `${noSuch.error} / ${noColour.error}`);
     }
     const loneEnv = await server.call('setMerit', { designId: id, rows: [{ type: 'R', lambdaStart: 550, env: 2 }] });
     ok('env on a row of a design with one environment is refused', /setMerit: row 0: the design has one environment, so a row takes no env/.test(loneEnv.error ?? ''), loneEnv.error);

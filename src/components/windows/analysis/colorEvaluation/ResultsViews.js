@@ -2,15 +2,17 @@
  * The results strip under the diagram: the colour at each angle as a table in
  * one colour space at a time, or in every space for a single angle, how far
  * each angle's colour is from the first angle's, and a patch of each angle's
- * colour.
+ * colour. Under All the same for each environment and angle, the Differences
+ * measured against the first environment at the same angle.
  */
 
+import { environmentColor } from '../../../../constants/analysisDefaults.js';
 import { RESULT_ROW_HEIGHT, ResultsGrid } from '../../../ui/ResultsSection.js';
 import { TabBtn } from '../../../ui/tabBtn.js';
 import { SelectField } from '../chrome/controls.js';
 import { formatTheta } from '../opticalEvaluation/model.js';
 import { exposedRgb, formatValue } from './colorModel.js';
-import { tableSpaceOptions } from './resultsModel.js';
+import { acrossEnvironments, tableSpaceOptions } from './resultsModel.js';
 
 const { createElement: h } = React;
 
@@ -25,10 +27,20 @@ const PATCH_MIN = 52;
 const PATCH_MAX = 84;
 const PATCH_GAP = 10;
 
-function Patch({ c, color, label, sub }) {
+// Under All (`envRow`) a patch's environment is written over it in its colour,
+// cut short to the patch's width, its full name on hover; the reference
+// white's line is left blank, so every patch of a row starts level.
+function Patch({ c, color, label, sub, env, envRow }) {
     return h('div', {
         style: { minWidth: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 },
     },
+        envRow && h('div', {
+            title: env?.label,
+            style: {
+                fontSize: 10, fontWeight: 600, color: env?.ink, maxWidth: '100%',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            },
+        }, env?.label ?? ' '),
         h('div', {
             style: {
                 width: '100%', aspectRatio: '1 / 1', borderRadius: 6, background: color, boxSizing: 'border-box',
@@ -43,8 +55,9 @@ function Patch({ c, color, label, sub }) {
 // The patches are cells of one grid, so every row holds patches of one size.
 // The grid is no wider than its patches at their widest, which keeps a few
 // patches together at the left rather than spread across the strip.
-function PatchView({ reports, state, ce, c }) {
+function PatchView({ reports, state, ce, c, colors }) {
     const count = reports.length + 1;
+    const envRow = Boolean(reports[0].env);
     return h('div', {
         style: { height: BODY_HEIGHT, overflow: 'auto', backgroundColor: c.bg, boxSizing: 'border-box', padding: '12px 14px' },
     },
@@ -55,11 +68,12 @@ function PatchView({ reports, state, ce, c }) {
                 maxWidth: count * PATCH_MAX + (count - 1) * PATCH_GAP,
             },
         },
-            reports.map(({ theta, report }, index) => h(Patch, {
+            reports.map(({ theta, report, env }, index) => h(Patch, {
                 key: index, c, color: exposedRgb(report, state.exposure),
                 label: `${formatTheta(theta)}°`, sub: `Y = ${formatValue(report.XYZ.Y, 2)}`,
+                env: env && { label: env.label, ink: environmentColor(colors, env.number) }, envRow,
             })),
-            h(Patch, { c, color: 'rgb(255,255,255)', label: ce.refWhite, sub: state.illuminant }),
+            h(Patch, { c, color: 'rgb(255,255,255)', label: ce.refWhite, sub: state.illuminant, envRow }),
         ),
     );
 }
@@ -87,7 +101,7 @@ function SpaceList({ rows, c }) {
     );
 }
 
-function ViewTabs({ state, ce, c, single, first }) {
+function ViewTabs({ state, ce, c, single, first, firstEnv }) {
     return h('div', {
         style: {
             display: 'flex', alignItems: 'center', gap: 2, padding: '0 8px', flexWrap: 'wrap',
@@ -103,10 +117,11 @@ function ViewTabs({ state, ce, c, single, first }) {
                 value: state.tableSpace, onChange: state.setTableSpace, c, width: 190,
                 title: ce.tableSpaceTitle, options: tableSpaceOptions(ce),
             })),
-        // What the Differences view measures against.
+        // What the Differences view measures against: the first angle, or under
+        // All the first environment at the same angle.
         state.resultsView === 'differences' && h('span', {
             style: { marginLeft: 'auto', fontSize: 11, color: c.textDim, padding: '0 4px' },
-        }, ce.againstFirst(formatTheta(first))),
+        }, firstEnv ? ce.againstEnvironment(firstEnv) : ce.againstFirst(formatTheta(first))),
     );
 }
 
@@ -115,11 +130,13 @@ function ViewTabs({ state, ce, c, single, first }) {
  * the Table or Differences view shows (resultsModel.js, viewTable), worked out
  * by the window, whose header counts its rows.
  */
-export function ResultsViews({ reports, table, state, ce, c }) {
+export function ResultsViews({ reports, table, state, ce, c, colors }) {
     const single = reports.length === 1;
     let body;
-    if (state.resultsView === 'patch') body = h(PatchView, { reports, state, ce, c });
+    if (state.resultsView === 'patch') body = h(PatchView, { reports, state, ce, c, colors });
     else if (!table.columns) body = h(SpaceList, { rows: table.rows, c });
     else body = h(ResultsGrid, { ...table, c, height: BODY_HEIGHT });
-    return h(React.Fragment, null, h(ViewTabs, { state, ce, c, single, first: reports[0].theta }), body);
+    const firstEnv = acrossEnvironments(reports) ? reports[0].env.label : null;
+    return h(React.Fragment, null,
+        h(ViewTabs, { state, ce, c, single, first: reports[0].theta, firstEnv }), body);
 }

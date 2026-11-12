@@ -33,8 +33,9 @@ function tableRows(rows) {
  * console.log(iv.mode, 'Tvis', iv.get('Tvis').value.toFixed(4), 'Rsol', iv.get('Rsol').value.toFixed(4));
  */
 export class Integrals {
-    constructor(table) {
+    constructor(table, environment = null) {
         this._table = table;
+        this._environment = environment;
     }
 
     /**
@@ -145,6 +146,19 @@ export class Integrals {
      * console.log(design.integrals().outOfRange.map(m => m.id));
      */
     get outOfRange() { return this._table.outOfRange; }
+
+    /**
+     * The environment the integrals were computed in, `{ number, id, name }`,
+     * when design.integrals() was given `env`; null without one, when they
+     * were computed in environment 1, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('HL');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const iv of design.integrals({ env: 'all' })) console.log(iv.environment.number, iv.environment.name, 'Rvis', iv.get('Rvis').value.toFixed(4));
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the rows to a CSV file as the window's English export writes

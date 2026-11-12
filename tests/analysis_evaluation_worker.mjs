@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { dispatchAnalysisEvaluation } from '../src/utils/workers/analysisEvaluationWorker.js';
 import { makeOperand } from '../src/utils/physics/optimizer.js';
 import { environmentDesign, environmentsInAll, oneEnvironmentDesign } from '../src/utils/environments/environments.js';
+import { computeColorReports } from '../src/components/windows/analysis/colorEvaluation/colorModel.js';
 
 const design = {
     id: 'analysis-worker', name: 'Analysis worker fixture',
@@ -94,10 +95,36 @@ assert.throws(
     /Unknown analysis evaluation/,
 );
 
-// Optical Evaluation under a cone hands the worker the design of each
-// environment it shows, and computes none on its own thread. Its hook runs once
-// under a stand-in for React that runs the effects after the render, as the
-// browser does, with a Worker that records what it is asked.
+// Color Evaluation and Integral Values under a cone, showing every environment
+// of a design: the colour and the spectrum of each, each the one that
+// environment's design gives.
+{
+    const withWater = {
+        ...design,
+        environments: [{ id: 'base' }, { id: 'env2', name: 'Under water', incidentMedium: 'builtin:H2O' }],
+    };
+    const designs = environmentsInAll(withWater).map(({ env }) => environmentDesign(withWater, env.id));
+    const options = { evalMode: 'front', characteristic: 'R', pol: 'avg', thetas: [0, 30], observer: '2', illuminant: 'D65', step: 10 };
+    const sets = dispatchAnalysisEvaluation('colorReports', { designs, options });
+    assert.equal(sets.length, 2, 'Color Evaluation: one set of colours per environment');
+    designs.forEach((one, i) => assert.equal(JSON.stringify(sets[i]), JSON.stringify(computeColorReports({ ...options, design: one, setError() {} })),
+        `Color Evaluation: environment ${i + 1} computes as its design apart`));
+    assert.notEqual(JSON.stringify(sets[0]), JSON.stringify(sets[1]), 'and the two differ');
+    const params = { lambdaStart: 500, lambdaEnd: 520, lambdaStep: 10, theta: 0, polarization: 'avg' };
+    // The whole part, which the design is not scored on, so the spectra are in
+    // the mode given rather than the design's own.
+    const spectra = dispatchAnalysisEvaluation('integralSpectra', { designs, grids: [params], evalMode: 'total' });
+    designs.forEach((one, i) => assert.equal(JSON.stringify(spectra[i][0]), JSON.stringify(dispatchAnalysisEvaluation('integralSpectrum', { design: one, params, evalMode: 'total' })),
+        `Integral Values: environment ${i + 1} computes as its design apart, in the window's evaluation mode`));
+    assert.notEqual(JSON.stringify(spectra[0][0].R), JSON.stringify(dispatchAnalysisEvaluation('integralSpectrum', { design: designs[0], params, evalMode: 'front' }).R),
+        'the whole part, not the front the design is scored on');
+    assert.notEqual(JSON.stringify(spectra[0][0].R), JSON.stringify(spectra[1][0].R), 'the two environments differ');
+}
+
+// The windows under a cone hand the worker the design of each environment they
+// show, and compute none on their own thread. Each hook runs once under a
+// stand-in for React that runs the effects after the render, as the browser
+// does, with a Worker that records what it is asked.
 {
     const { shimBrowserGlobals } = await import('./_uiShim.mjs');
     shimBrowserGlobals();
@@ -119,29 +146,50 @@ assert.throws(
     globalThis.Worker = class { postMessage(message) { posted.push(message); } terminate() {} };
     const { DesignContext } = await import('../src/state/DesignContext.js');
     const { useOpticalEvaluation } = await import('../src/components/windows/analysis/opticalEvaluation/useOpticalEvaluation.js');
+    const { useColorReports } = await import('../src/components/windows/analysis/colorEvaluation/useColorReports.js');
+    const { useIntegralValues } = await import('../src/components/windows/analysis/integralValues/useIntegralValues.js');
     const { environmentChoiceSession } = await import('../src/components/windows/analysis/chrome/environmentChoice.js');
     const { currentEnvironmentSession } = await import('../src/components/windows/design/environments/currentEnvironment.js');
     const { threeEnvironmentDesign } = await import('./_environmentDesign.mjs');
     const coned = { ...threeEnvironmentDesign(), cone: design.cone };
-    const asked = ({ current = 'base', choice = 'current' }) => {
+    // The state `useHook` gives and what it asks the worker for, with the
+    // current environment and the droplist's choice set.
+    const asked = (useHook, { current = 'base', choice = 'current' }) => {
         currentEnvironmentSession.write(coned, { current });
         environmentChoiceSession.write(coned, { choice });
         DesignContext.value = { design: coned, evalMode: 'front', updateDesign() {}, isOptimizing: false, liveUpdate: true };
         slots = []; cursor = 0; effects = []; posted.length = 0;
-        const state = useOpticalEvaluation();
+        const state = useHook();
         effects.forEach(effect => effect());
         return { state, request: posted.find(message => message.type === 'evaluate') };
     };
-    const all = asked({ choice: 'all' });
-    assert.ok(all.state.busy && all.state.data === null, 'the window computes nothing on its own thread under a cone');
-    assert.equal(all.request.operation, 'opticalSpectra');
-    assert.deepEqual(all.request.payload.designs.map(one => one.substrate.material), ['builtin:BK7', 'builtin:Al2O3'],
-        'and under All asks the worker for the design of each environment that is on');
+    const substrates = request => request.payload.designs.map(one => one.substrate.material);
     const third = environmentDesign(coned, 'env3').frontLayers[0].thickness;
-    assert.deepEqual(asked({ current: 'env3' }).request.payload.designs.map(one => one.frontLayers[0].thickness), [third],
-        'or of the current environment alone');
-    assert.deepEqual(asked({ choice: 'env3' }).request.payload.designs.map(one => one.frontLayers[0].thickness), [third],
-        'or of the one environment chosen');
+    const thicknesses = request => request.payload.designs.map(one => one.frontLayers[0].thickness);
+
+    const all = asked(useOpticalEvaluation, { choice: 'all' });
+    assert.ok(all.state.busy && all.state.data === null, 'Optical Evaluation computes nothing on its own thread under a cone');
+    assert.equal(all.request.operation, 'opticalSpectra');
+    assert.deepEqual(substrates(all.request), ['builtin:BK7', 'builtin:Al2O3'],
+        'and under All asks the worker for the design of each environment that is on');
+    assert.deepEqual(thicknesses(asked(useOpticalEvaluation, { current: 'env3' }).request), [third], 'or of the current environment alone');
+    assert.deepEqual(thicknesses(asked(useOpticalEvaluation, { choice: 'env3' }).request), [third], 'or of the one environment chosen');
+
+    const options = { evalMode: 'front', characteristic: 'R', pol: 'avg', thetas: [0], observer: '2', illuminant: 'D65', step: 5 };
+    const colour = state => asked(() => useColorReports(coned, options), state);
+    const allColours = colour({ choice: 'all' });
+    assert.ok(allColours.state.busy && allColours.state.reports === null, 'Color Evaluation computes nothing on its own thread under a cone');
+    assert.deepEqual([allColours.request.operation, substrates(allColours.request), allColours.request.payload.options],
+        ['colorReports', ['builtin:BK7', 'builtin:Al2O3'], options], 'and under All asks the worker for the colour of each environment that is on');
+    assert.deepEqual(thicknesses(colour({ choice: 'env3' }).request), [third], 'or of the one environment chosen');
+
+    const integrals = state => asked(() => useIntegralValues(coned, 'front'), state);
+    const allIntegrals = integrals({ choice: 'all' });
+    assert.ok(allIntegrals.state.spectrum === null && allIntegrals.state.sets === null, 'Integral Values computes nothing on its own thread under a cone');
+    const { payload } = allIntegrals.request;
+    assert.deepEqual([allIntegrals.request.operation, substrates(allIntegrals.request), payload.grids.length, payload.evalMode],
+        ['integralSpectra', ['builtin:BK7', 'builtin:Al2O3'], 1, 'front'], 'and under All asks the worker for the spectrum of each environment that is on');
+    assert.deepEqual(thicknesses(integrals({ current: 'env3' }).request), [third], 'or of the current environment alone');
 }
 
 console.log('PASS: analysis_evaluation_worker');

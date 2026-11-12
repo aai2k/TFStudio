@@ -12,6 +12,7 @@ import { BUILTIN_DETECTORS, BUILTIN_SOURCES } from '../utils/physics/spectralWei
 import { dispatchAnalysisEvaluation } from '../utils/workers/analysisEvaluationWorker.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { inEnvironments } from './designEnvironments.js';
 import { viewSide } from './stackViews.js';
 import { checkRange, checkOptions, requireValue, isAngle, isPositive, refusal } from './check.js';
 
@@ -78,68 +79,12 @@ function customDefinition(row, i, keys) {
     };
 }
 
-/**
- * Weighted averages of a design's T, R and A, as the
- * [Integral Values](/analysis/integral-values/) window computes them: each
- * integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over its weighting's band, by the
- * trapezoidal rule on the spectrum's grid, C being T, R or A and w the
- * weighting. The built-in rows are the window's: Tvis, Rvis and Avis
- * (photopic, D65 times the CIE 1924 V(λ), 380-780 nm), Tsol, Rsol and Asol
- * (ASTM G173-03 AM1.5G, 300-2500 nm), TUV and RUV (flat, 300-380 nm) and TNIR
- * and RNIR (flat, 780-2500 nm). Rows of your own come in `custom`. The sides
- * follow the design's [evaluation mode](/design/evaluation-modes/), as
- * `spectrum` does, unless `side` is given, and a design under a cone of
- * incidence is averaged over its cone, as the window averages it. A side with
- * no layers gives its bare surface.
- *
- * A row whose band the spectrum does not span from end to end has no value:
- * its numbers are NaN and `covered` is false, as the window shows a dash. A
- * row whose weighting is 0 over the whole band has no value either, though
- * `covered` is true. Tvis is the luminous transmittance: the Color Evaluation
- * window's Y / 100 for T under D65 with the 2 degree observer when this grid
- * has the colour's wavelengths on 380-780 nm, as the two default grids do.
- *
- * @param design The design.
- * @param [options]
- * @param [options.start=300] The first wavelength of the spectrum, nm.
- * @param [options.end=2500] The last wavelength, nm, above `start`.
- * @param [options.step=0.5] The wavelength step, nm.
- * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90; the cone's axis on a design under a cone.
- * @param [options.pol='avg'] The polarization: `'avg'`, unpolarized, `'s'` or `'p'`.
- * @param [options.custom=[]] Rows of your own, after the built-in ones, each `{ key, quantity, source, detector, band }`: `key` its name, which no other row has; `quantity` `'T'`, `'R'` or `'A'`; `source` `{ id }` with an id of `'D65'`, `'D50'`, `'A'`, `'AM1.5G'`, `'E'`, `'blackbody'` with `T`, its temperature in K, or `'custom'` with `table`, its `[nm, value]` rows, at least two at different wavelengths; `detector` `{ id }` with an id of `'photopic'`, `'flat'` or `'custom'` with its `table`; `band` `[start, end]` in nm, which the weighting's own range narrows. Left out: `'T'`, D65, photopic and 380-780 nm, the window's form as it opens; a blackbody's T 5778 K.
- * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
- * @returns The integrals.
- * @property mode The sides computed: `'front'`, `'back'` or `'total'`.
- * @property start The first wavelength, nm.
- * @property end The last wavelength, nm.
- * @property step The wavelength step, nm.
- * @property angle The angle of incidence, degrees.
- * @property pol The polarization.
- * @property rows One per integral, the built-in ones first, as the window lists them, each `{ key, quantity, value, min, minAt, max, maxAt, band, covered, spectrumSpan }`: `value` the weighted average and `min` and `max` the lowest and highest C over the band, fractions of 1; `minAt` and `maxAt` their wavelengths, nm; `band` the band integrated, `[start, end]` in nm; `covered` whether the spectrum spans it; `spectrumSpan` the spectrum's first and last wavelength, nm.
- * @property outOfRange The materials of the sides computed whose data stop inside the range, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
- * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, or more than a million wavelengths
- * @throws a custom row with a field it does not have or cannot use, a key another row has, or a source or detector it does not have
- * @throws a design that names a material that resolves to nothing
- * @example
- * const design = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: 'HL' });
- * const iv = tf.integrals(design, { custom: [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }] });
- * for (const row of iv.rows) console.log(row.key, row.covered ? row.value.toFixed(4) : 'no value');
- */
-export function integrals(design, options) {
-    const {
-        start = DEFAULTS.lambdaStart, end = DEFAULTS.lambdaEnd, step = DEFAULTS.lambdaStep, angle = DEFAULTS.theta,
-        pol = DEFAULTS.polarization, custom = [], side,
-    } = checkOptions('integrals', options, ['start', 'end', 'step', 'angle', 'pol', 'custom', 'side']);
-    checkRange('integrals', { from: start, to: end, step }, 1, ['start', 'end']);
-    requireValue('integrals', 'angle', angle, isAngle, 'an angle of incidence in degrees, 0 <= angle < 90');
-    requireValue('integrals', 'pol', pol, v => ['avg', 's', 'p'].includes(v), "'avg', 's' or 'p'");
-    requireValue('integrals', 'custom', custom, Array.isArray, `a list of rows, each { ${ROW_FIELDS.join(', ')} }`);
-    const keys = new Set(BUILTIN_KEYS);
-    const customDefinitions = custom.map((row, i) => customDefinition(row, i, keys));
-    const shown = withHerpinRecords(design);
-    const mode = viewSide('integrals', shown, side);
+// The integrals of one design, as integrals() gives them, on the sides `mode`,
+// with the custom rows `customDefinitions`.
+function integralsOf(design, { start, end, step, angle, pol, mode, customDefinitions }) {
     requireResolved(design);
     requireKernel();
+    const shown = withHerpinRecords(design);
     // The window's 'integralSpectrum', in the analysis worker under a cone on
     // the design with its materials embedded, as the worker receives it.
     const coned = coneIsActive(makeConeSpec(shown.cone || {}));
@@ -157,4 +102,73 @@ export function integrals(design, options) {
         };
     });
     return { mode, start, end, step, angle, pol, rows, outOfRange: designRangeCoverage(shown, [start, end], mode).offenders };
+}
+
+/**
+ * Weighted averages of a design's T, R and A, as the
+ * [Integral Values](/analysis/integral-values/) window computes them: each
+ * integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over its weighting's band, by the
+ * trapezoidal rule on the spectrum's grid, C being T, R or A and w the
+ * weighting. The built-in rows are the window's: Tvis, Rvis and Avis
+ * (photopic, D65 times the CIE 1924 V(λ), 380-780 nm), Tsol, Rsol and Asol
+ * (ASTM G173-03 AM1.5G, 300-2500 nm), TUV and RUV (flat, 300-380 nm) and TNIR
+ * and RNIR (flat, 780-2500 nm). Rows of your own come in `custom`. The sides
+ * follow the design's [evaluation mode](/design/evaluation-modes/), as
+ * `spectrum` does, unless `side` is given, and a design under a cone of
+ * incidence is averaged over its cone, as the window averages it. A side with
+ * no layers gives its bare surface. A design with more than one
+ * [environment](/design/environments/) is computed in environment 1, its own
+ * media and substrate, unless `env` names another.
+ *
+ * A row whose band the spectrum does not span from end to end has no value:
+ * its numbers are NaN and `covered` is false, as the window shows a dash. A
+ * row whose weighting is 0 over the whole band has no value either, though
+ * `covered` is true. Tvis is the luminous transmittance: the Color Evaluation
+ * window's Y / 100 for T under D65 with the 2 degree observer when this grid
+ * has the colour's wavelengths on 380-780 nm, as the two default grids do.
+ *
+ * @param design The design.
+ * @param [options]
+ * @param [options.start=300] The first wavelength of the spectrum, nm.
+ * @param [options.end=2500] The last wavelength, nm, above `start`.
+ * @param [options.step=0.5] The wavelength step, nm.
+ * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90; the cone's axis on a design under a cone.
+ * @param [options.pol='avg'] The polarization: `'avg'`, unpolarized, `'s'` or `'p'`.
+ * @param [options.custom=[]] Rows of your own, after the built-in ones, each `{ key, quantity, source, detector, band }`: `key` its name, which no other row has; `quantity` `'T'`, `'R'` or `'A'`; `source` `{ id }` with an id of `'D65'`, `'D50'`, `'A'`, `'AM1.5G'`, `'E'`, `'blackbody'` with `T`, its temperature in K, or `'custom'` with `table`, its `[nm, value]` rows, at least two at different wavelengths; `detector` `{ id }` with an id of `'photopic'`, `'flat'` or `'custom'` with its `table`; `band` `[start, end]` in nm, which the weighting's own range narrows. Left out: `'T'`, D65, photopic and 380-780 nm, the window's form as it opens; a blackbody's T 5778 K.
+ * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one table per environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The integrals; with `env: 'all'`, `{ environments }`, one entry per environment, each these integrals with the environment's `number`, `id` and `name`.
+ * @property mode The sides computed: `'front'`, `'back'` or `'total'`.
+ * @property start The first wavelength, nm.
+ * @property end The last wavelength, nm.
+ * @property step The wavelength step, nm.
+ * @property angle The angle of incidence, degrees.
+ * @property pol The polarization.
+ * @property rows One per integral, the built-in ones first, as the window lists them, each `{ key, quantity, value, min, minAt, max, maxAt, band, covered, spectrumSpan }`: `value` the weighted average and `min` and `max` the lowest and highest C over the band, fractions of 1; `minAt` and `maxAt` their wavelengths, nm; `band` the band integrated, `[start, end]` in nm; `covered` whether the spectrum spans it; `spectrumSpan` the spectrum's first and last wavelength, nm.
+ * @property outOfRange The materials of the sides computed whose data stop inside the range, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
+ * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, or more than a million wavelengths
+ * @throws a custom row with a field it does not have or cannot use, a key another row has, or a source or detector it does not have
+ * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
+ * @example
+ * const design = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: 'HL' });
+ * const iv = tf.integrals(design, { custom: [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }] });
+ * for (const row of iv.rows) console.log(row.key, row.covered ? row.value.toFixed(4) : 'no value');
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * for (const env of tf.integrals(wet, { env: 'all' }).environments) console.log(env.number, env.name, 'Rvis', env.rows.find(row => row.key === 'Rvis').value.toFixed(4));
+ */
+export function integrals(design, options) {
+    const {
+        start = DEFAULTS.lambdaStart, end = DEFAULTS.lambdaEnd, step = DEFAULTS.lambdaStep, angle = DEFAULTS.theta,
+        pol = DEFAULTS.polarization, custom = [], side, env,
+    } = checkOptions('integrals', options, ['start', 'end', 'step', 'angle', 'pol', 'custom', 'side', 'env']);
+    checkRange('integrals', { from: start, to: end, step }, 1, ['start', 'end']);
+    requireValue('integrals', 'angle', angle, isAngle, 'an angle of incidence in degrees, 0 <= angle < 90');
+    requireValue('integrals', 'pol', pol, v => ['avg', 's', 'p'].includes(v), "'avg', 's' or 'p'");
+    requireValue('integrals', 'custom', custom, Array.isArray, `a list of rows, each { ${ROW_FIELDS.join(', ')} }`);
+    const keys = new Set(BUILTIN_KEYS);
+    const customDefinitions = custom.map((row, i) => customDefinition(row, i, keys));
+    // Every environment has the design's sides, so the mode is the same in each.
+    const mode = viewSide('integrals', design, side);
+    return inEnvironments('integrals', design, env, one => integralsOf(one, { start, end, step, angle, pol, mode, customDefinitions }));
 }

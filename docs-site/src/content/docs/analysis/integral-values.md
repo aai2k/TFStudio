@@ -29,6 +29,8 @@ UV 300-380 nm and NIR 780-2500 nm.
 
 **AOI / pol**: angle of incidence and polarization (s, p, or averaged).
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the chart says which one the integrals are computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** computes every environment that is on: the table lists each integral in every environment, one row each with the environment named after the integral, and the chart draws the selected integral's channel in each environment, in its own color from the window's Palette in Preferences > Analysis, without the minimum and maximum marks, which the table gives for each environment. The CSV has the same rows. The material range notice reads the materials of every environment shown. The choice belongs to this window and is not saved with the design.
+
 **+ Custom integral…** opens a dialog in which you define a weighted average of
 your own:
 

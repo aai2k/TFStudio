@@ -66,10 +66,10 @@
  *   its defaults and each argument, its Curves, range, save_csv() with and
  *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
- *   was when the spectrum was computed, and their refusals; spectrum() and
- *   edge_shift() of one environment and of each, each naming its
- *   environment, a curve's width found in its environment, and an
- *   environment the design does not have refused; edge_filter()
+ *   was when the spectrum was computed, and their refusals; spectrum(),
+ *   edge_shift(), color() and integrals() of one environment and of each,
+ *   each naming its environment, a curve's width found in its environment,
+ *   and an environment the design does not have refused; edge_filter()
  *   with pass_, apply_edge_filter(), process_steps() on chips given in
  *   snake_case, export_process() and monitor_worksheet() on a plan given in
  *   snake_case as named tuples and paths, and their refusals; needle_profile() as named tuples and insert_needle() from a
@@ -1111,6 +1111,22 @@ async function environmentSpectra(t, said) {
         "spectrum: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 5",
         "edge_shift: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 'al'",
     ]), canon(got.refused));
+    // A Color and an Integrals carry their environment as a dict, as a
+    // Spectrum does.
+    const results = said.environmentResults ?? {};
+    const colourIn = c => [c.environment, c.constructor.name, c.mode, c.x, c.y, c.Y, Object.values(c.lab), Object.values(c.srgb), c.outOfRange];
+    const tableIn = i => [i.environment, i.constructor.name, i.mode, i.start, i.end,
+        i.rows.map(r => [r.key, r.quantity, r.value, r.min, r.minAt, r.max, r.maxAt, r.band, r.covered, r.spectrumSpan]), i.outOfRange];
+    const colour = { quantity: 'T', step: 5 };
+    const grid = { start: 400, end: 900, step: 5 };
+    const colours = [design.color(colour), design.color({ ...colour, env: 'env2' }), design.color({ ...colour, env: 3 }), ...design.color({ ...colour, env: 'all' })];
+    const tables = [design.integrals(grid), design.integrals({ ...grid, env: 2 }), design.integrals({ ...grid, env: 'env3' }), ...design.integrals({ ...grid, env: 'all' })];
+    ok('color() and integrals() with env give what the objects here give, a list for "all", each naming its environment',
+        canon([results.colours, results.tables]) === canon([colours.map(colourIn), tables.map(tableIn)]) && colours.length === 5, canon(results.colours)?.slice(0, 300));
+    ok('and an environment the design does not have is refused in Python\'s words', canon(results.refused) === canon([
+        "color: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 0",
+        "integrals: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 'env9'",
+    ]), canon(results.refused));
 }
 
 // What _pythonObjects.py measured_curves() read, against the plain calls.

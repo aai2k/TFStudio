@@ -5,6 +5,7 @@
  * value sits under the same value at the other angles.
  */
 
+import { environmentColor } from '../../../../constants/analysisDefaults.js';
 import { formatTheta } from '../opticalEvaluation/model.js';
 import { exposedRgb } from './colorModel.js';
 import { linePairs } from './resultsModel.js';
@@ -27,7 +28,7 @@ const STRIP_EDGES = 2 * STRIP_PAD + STRIP_BORDER;
 
 // The type size of the results tables, and gaps kept small, so a line of eight
 // values fits a window docked at half the screen.
-export function AngleLines({ reports, exposure, ce, units, c }) {
+export function AngleLines({ reports, exposure, ce, units, c, colors }) {
     const cell = { padding: `${CELL_PAD}px 0`, whiteSpace: 'nowrap', verticalAlign: 'middle' };
     const name = { ...cell, color: c.textDim, paddingRight: 4 };
     const value = { ...cell, color: c.text, textAlign: 'right', paddingRight: 11 };
@@ -43,7 +44,11 @@ export function AngleLines({ reports, exposure, ce, units, c }) {
         },
     },
         h('table', { style: { borderCollapse: 'collapse', fontSize: 11, fontVariantNumeric: 'tabular-nums' } },
-            h('tbody', null, reports.map(({ theta, report }, index) => h('tr', { key: index },
+            h('tbody', null, reports.map(({ theta, report, env }, index) => h('tr', { key: index },
+                // Under All, the environment of the line, in its colour on the diagram.
+                env && h('td', {
+                    style: { ...cell, paddingRight: 12, fontWeight: 600, color: environmentColor(colors, env.number) },
+                }, env.label),
                 h('td', { style: { ...cell, paddingRight: 12 } },
                     h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600 } },
                         h('span', {

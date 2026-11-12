@@ -91,3 +91,29 @@ export function computeColorReports(options) {
     }
 }
 
+/**
+ * computeColorReports on each of `designs`, one per environment the window
+ * shows: a list of report lists, or null when any of them fails.
+ */
+export function computeEnvironmentReports(designs, options) {
+    const sets = [];
+    for (const design of designs) {
+        const reports = computeColorReports({ ...options, design });
+        if (!reports) return null;
+        sets.push(reports);
+    }
+    return sets;
+}
+
+/**
+ * What the window shows of `sets`, the reports of each environment in `views`:
+ * that environment's, or under All (`every`) each environment's in turn, each
+ * report naming its environment, `{ number, label }`, in `env`.
+ */
+export function shownReports(sets, every, views) {
+    if (!sets) return null;
+    if (!every) return sets[0];
+    return sets.flatMap((reports, k) => reports.map(entry => ({
+        ...entry, env: { number: views[k].number, label: views[k].label },
+    })));
+}

@@ -291,10 +291,11 @@ export function analysisTools({ api, store }) {
                 step: num('Wavelength step of the spectrum the colour is integrated on, nm. Default 0.5'),
                 side: VIEW_SIDE,
                 values: bool('Also answer with the white and every other colour space. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const { white, whiteXy, luv, uv1976, uv1960, hunterLab, ...colour } = api.color(store.get(designId), options);
-                return { designId, ...colour, ...(values ? { white, whiteXy, luv, uv1976, uv1960, hunterLab } : {}) };
+                const answer = ({ white, whiteXy, luv, uv1976, uv1960, hunterLab, ...colour }) => ({ ...colour, ...(values ? { white, whiteXy, luv, uv1976, uv1960, hunterLab } : {}) });
+                return { designId, ...perEnvironment(options.env, api.color(store.get(designId), options), answer) };
             },
         },
         {
@@ -315,10 +316,11 @@ export function analysisTools({ api, store }) {
                 }, ['key']), 'Rows of your own, after the built-in ones'),
                 side: VIEW_SIDE,
                 values: bool('Also answer with each row\'s extremes, band and the span of the spectrum. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const { rows, ...table } = api.integrals(store.get(designId), options);
-                return { designId, ...table, rows: values ? rows : rows.map(({ key, quantity, value, covered }) => ({ key, quantity, value, covered })) };
+                const answer = ({ rows, ...table }) => ({ ...table, rows: values ? rows : rows.map(({ key, quantity, value, covered }) => ({ key, quantity, value, covered })) });
+                return { designId, ...perEnvironment(options.env, api.integrals(store.get(designId), options), answer) };
             },
         },
         {

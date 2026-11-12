@@ -10,6 +10,7 @@ import { colorReport, COLOR_RANGE_NM, ILLUMINANTS, OBSERVERS } from '../utils/ph
 import { makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { inEnvironments } from './designEnvironments.js';
 import { viewSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, isAngle } from './check.js';
 
@@ -25,6 +26,30 @@ function channels(rgb) {
     return { r, g, b };
 }
 
+// The colour of one design, as color() gives it, on the sides `mode`.
+function colorOf(design, { quantity, angle, pol, observer, illuminant, step, mode }) {
+    requireResolved(design);
+    requireKernel();
+    const shown = withHerpinRecords(design);
+    // Under a cone the window computes in the analysis worker, on the design
+    // with its materials embedded, as the worker receives it.
+    const computed = coneIsActive(makeConeSpec(shown.cone || {})) ? embedDesignMaterials(shown) : shown;
+    const spectrum = responseSpectrum(computed, { evalMode: mode, characteristic: quantity, pol, theta: angle, step });
+    const report = colorReport(spectrum, { observer: String(observer), illuminant });
+    return {
+        mode, quantity, angle, pol, observer, illuminant, step,
+        ...report.XYZ, ...report.xy,
+        white: report.white, whiteXy: report.whiteXy,
+        lab: report.Lab, luv: report.Luv,
+        uv1976: { u: report.uvP.up, v: report.uvP.vp }, uv1960: report.uv60,
+        hunterLab: report.Hunter,
+        dominant: { wavelength: report.dom.dom, complementary: report.dom.comp, purity: report.dom.purity },
+        cct: report.cct.cct, duv: report.cct.duv,
+        srgb: channels(report.rgb),
+        outOfRange: designRangeCoverage(shown, COLOR_RANGE_NM, mode).offenders,
+    };
+}
+
 /**
  * The CIE colour of a design's reflectance or transmittance, as the
  * [Color Evaluation](/analysis/color-evaluation/) window computes it: the tristimulus
@@ -34,7 +59,9 @@ function channels(rgb) {
  * follow the design's [evaluation mode](/design/evaluation-modes/), as
  * `spectrum` does, unless `side` is given, and a design under a cone of
  * incidence is averaged over its cone, as the window averages it. A side with
- * no layers gives the colour of its bare surface.
+ * no layers gives the colour of its bare surface. A design with more than one
+ * [environment](/design/environments/) is computed in environment 1, its own
+ * media and substrate, unless `env` names another.
  *
  * Y is the luminous reflectance or transmittance in % (Macleod, Thin-Film
  * Optical Filters, 5th ed., Eq. 12.2), so Y / 100 for T under D65 with the
@@ -53,7 +80,8 @@ function channels(rgb) {
  * @param [options.illuminant='D65'] The CIE illuminant: `'D65'`, `'D50'`, `'A'` or `'E'`.
  * @param [options.step=0.5] The wavelength step of the spectrum the colour is integrated on, nm.
  * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
- * @returns The colour.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one colour per environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The colour; with `env: 'all'`, `{ environments }`, one entry per environment, each this colour with the environment's `number`, `id` and `name`.
  * @property mode The sides computed: `'front'`, `'back'` or `'total'`.
  * @property quantity `'R'` or `'T'`.
  * @property angle The angle of incidence, degrees.
@@ -80,17 +108,20 @@ function channels(rgb) {
  * @property outOfRange The materials of the sides computed whose data stop inside 380-780 nm, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take, a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, or more than a million wavelengths
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^3 H' });
  * const c = tf.color(design, { quantity: 'R', illuminant: 'D65' });
  * console.log('x', c.x.toFixed(4), 'y', c.y.toFixed(4), 'Y', c.Y.toFixed(2), '%');
  * console.log('L*a*b*', c.lab.L.toFixed(2), c.lab.a.toFixed(2), c.lab.b.toFixed(2), 'dominant', c.dominant.wavelength?.toFixed(1), 'nm');
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * for (const env of tf.color(wet, { env: 'all' }).environments) console.log(env.number, env.name, 'x', env.x.toFixed(4), 'y', env.y.toFixed(4));
  */
 export function color(design, options) {
     const {
         quantity = DEFAULTS.characteristic, angle = DEFAULTS.thetas[0], pol = DEFAULTS.pol, observer = Number(DEFAULTS.observer),
-        illuminant = DEFAULTS.illuminant, step = DEFAULTS.step, side,
-    } = checkOptions('color', options, ['quantity', 'angle', 'pol', 'observer', 'illuminant', 'step', 'side']);
+        illuminant = DEFAULTS.illuminant, step = DEFAULTS.step, side, env,
+    } = checkOptions('color', options, ['quantity', 'angle', 'pol', 'observer', 'illuminant', 'step', 'side', 'env']);
     requireValue('color', 'quantity', quantity, v => v === 'R' || v === 'T', "'R' or 'T'");
     requireValue('color', 'angle', angle, isAngle, 'an angle of incidence in degrees, 0 <= angle < 90');
     requireValue('color', 'pol', pol, v => ['avg', 's', 'p'].includes(v), "'avg', 's' or 'p'");
@@ -99,25 +130,7 @@ export function color(design, options) {
     requireValue('color', 'observer', observer, v => OBSERVER_DEGREES.includes(v), orList(OBSERVER_DEGREES));
     requireValue('color', 'illuminant', illuminant, v => ILLUMINANT_IDS.includes(v), orList(quoted(ILLUMINANT_IDS)));
     checkRange('color', { from: COLOR_RANGE_NM[0], to: COLOR_RANGE_NM[1], step });
-    const shown = withHerpinRecords(design);
-    const mode = viewSide('color', shown, side);
-    requireResolved(design);
-    requireKernel();
-    // Under a cone the window computes in the analysis worker, on the design
-    // with its materials embedded, as the worker receives it.
-    const computed = coneIsActive(makeConeSpec(shown.cone || {})) ? embedDesignMaterials(shown) : shown;
-    const spectrum = responseSpectrum(computed, { evalMode: mode, characteristic: quantity, pol, theta: angle, step });
-    const report = colorReport(spectrum, { observer: String(observer), illuminant });
-    return {
-        mode, quantity, angle, pol, observer, illuminant, step,
-        ...report.XYZ, ...report.xy,
-        white: report.white, whiteXy: report.whiteXy,
-        lab: report.Lab, luv: report.Luv,
-        uv1976: { u: report.uvP.up, v: report.uvP.vp }, uv1960: report.uv60,
-        hunterLab: report.Hunter,
-        dominant: { wavelength: report.dom.dom, complementary: report.dom.comp, purity: report.dom.purity },
-        cct: report.cct.cct, duv: report.cct.duv,
-        srgb: channels(report.rgb),
-        outOfRange: designRangeCoverage(shown, COLOR_RANGE_NM, mode).offenders,
-    };
+    // Every environment has the design's sides, so the mode is the same in each.
+    const mode = viewSide('color', design, side);
+    return inEnvironments('color', design, env, one => colorOf(one, { quantity, angle, pol, observer, illuminant, step, mode }));
 }

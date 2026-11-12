@@ -679,21 +679,29 @@
     "hash": "3c5b4dfa",
     "text": "`'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。"
   },
-  "Design.color.returns": {
-    "hash": "fca8b3f5",
-    "text": "一个 Color。"
+  "Design.color.arg.env": {
+    "hash": "06227790",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个颜色，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.color.returns.js": {
+    "hash": "84a46ded",
+    "text": "一个 Color；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.color.returns.py": {
+    "hash": "f0c8b1f1",
+    "text": "一个 Color；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.color.lead.1": {
-    "hash": "9ceabf11",
-    "text": "设计的反射率或透射率的 CIE 颜色，与颜色评估窗口的计算相同：在一种光源下 R 或 T 在 380-780 nm 波段上的三刺激值，以及窗口显示的各颜色空间、主波长、相关色温和 sRGB 色块。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。没有膜层的面给出其裸表面的颜色。"
+    "hash": "24a409cf",
+    "text": "设计的反射率或透射率的 CIE 颜色，与颜色评估窗口的计算相同：在一种光源下 R 或 T 在 380-780 nm 波段上的三刺激值，以及窗口显示的各颜色空间、主波长、相关色温和 sRGB 色块。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。没有膜层的面给出其裸表面的颜色。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。"
   },
   "Design.color.refuses.1.js": {
-    "hash": "910bb30a",
-    "text": "它不接受的选项、它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长，或用到找不到对应材料的设计"
+    "hash": "ba4f5e67",
+    "text": "它不接受的选项、它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.color.refuses.1.py": {
-    "hash": "7ad1adec",
-    "text": "它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长，或用到找不到对应材料的设计"
+    "hash": "afcd5bb3",
+    "text": "它没有的量、偏振、观察者、光源或面、0 到 90 以外的角度、小于等于 0 的步长、超过一百万个波长、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.integrals.arg.start": {
     "hash": "b2ebb6ef",
@@ -727,25 +735,33 @@
     "hash": "3c5b4dfa",
     "text": "`'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。"
   },
-  "Design.integrals.returns": {
-    "hash": "9e1276f1",
-    "text": "一个 Integrals。"
+  "Design.integrals.arg.env": {
+    "hash": "35e434be",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组积分值，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.integrals.returns.js": {
+    "hash": "ac8aadbd",
+    "text": "一个 Integrals；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.integrals.returns.py": {
+    "hash": "1726e64b",
+    "text": "一个 Integrals；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.integrals.lead.1.js": {
-    "hash": "e1242d0d",
-    "text": "设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 `custom` 给出。计算对象由设计的 `sides` 和 `scoreOn` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 NaN，`covered` 为 false。权重在整个波段上为 0 的行同样没有数值，但 `covered` 为 true。"
+    "hash": "9d2a1f55",
+    "text": "设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 `custom` 给出。计算对象由设计的 `sides` 和 `scoreOn` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 NaN，`covered` 为 false。权重在整个波段上为 0 的行同样没有数值，但 `covered` 为 true。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。"
   },
   "Design.integrals.lead.1.py": {
-    "hash": "e017efdf",
-    "text": "设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 custom 给出。计算对象由设计的 sides 和 score_on 决定，与光谱相同，除非给出 side；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 nan，covered 为 False。权重在整个波段上为 0 的行同样没有数值，但 covered 为 True。"
+    "hash": "ebf7be7f",
+    "text": "设计的 T、R 和 A 的加权平均，与积分值窗口的计算相同：每个积分为在其权重的波段上的 ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ，在光谱的网格上计算。内置的行即窗口的行，从 Tvis 到 RNIR；你自己的行由 custom 给出。计算对象由设计的 sides 和 score_on 决定，与光谱相同，除非给出 side；设有入射锥角的设计会像窗口一样在其锥角内取平均。光谱未覆盖其波段的行没有数值：它的各个数为 nan，covered 为 False。权重在整个波段上为 0 的行同样没有数值，但 covered 为 True。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 env 指定了其他环境。"
   },
   "Design.integrals.refuses.1.js": {
-    "hash": "976a39b9",
-    "text": "它不接受的选项、不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key，或用到找不到对应材料的设计"
+    "hash": "da90c178",
+    "text": "它不接受的选项、不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.integrals.refuses.1.py": {
-    "hash": "4bf311ab",
-    "text": "不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key，或用到找不到对应材料的设计"
+    "hash": "57cbff6e",
+    "text": "不成范围的波长、0 到 90 以外的角度、它没有的偏振或面、超过一百万个波长、带有它没有或无法使用的字段的自定义行、与其他行相同的 key、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.refine.arg.method": {
     "hash": "a481a40e",
@@ -2615,6 +2631,14 @@
     "hash": "e49776d0",
     "text": "所计算对象上数据在 380-780 nm 内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波段时为空。"
   },
+  "Color.environment.lead.1.js": {
+    "hash": "7af461a7",
+    "text": "颜色计算所在的环境，design.color() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时颜色在环境 1（即设计自身的介质和基底）中计算。"
+  },
+  "Color.environment.lead.1.py": {
+    "hash": "13f0ebc3",
+    "text": "颜色计算所在的环境，design.color() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时颜色在环境 1（即设计自身的介质和基底）中计算。"
+  },
   "Integrals.lead.1.js": {
     "hash": "8fefd89a",
     "text": "设计的 T、R 和 A 的加权平均，与 design.integrals() 的计算和积分值窗口的列表相同：先是内置的行，从 Tvis 到 RNIR，然后是你自己的行，每行用 get() 按其 key 读取。"
@@ -2678,6 +2702,14 @@
   "Integrals.outOfRange.lead.1.py": {
     "hash": "e75a50b7",
     "text": "所计算对象上数据在该范围内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "Integrals.environment.lead.1.js": {
+    "hash": "00340115",
+    "text": "积分值计算所在的环境，design.integrals() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时积分值在环境 1（即设计自身的介质和基底）中计算。"
+  },
+  "Integrals.environment.lead.1.py": {
+    "hash": "a9a0f0e9",
+    "text": "积分值计算所在的环境，design.integrals() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时积分值在环境 1（即设计自身的介质和基底）中计算。"
   },
   "Integrals.saveCsv.arg.path.js": {
     "hash": "b38b7297",

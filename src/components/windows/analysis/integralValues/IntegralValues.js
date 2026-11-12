@@ -2,10 +2,13 @@
  * Integral Values - weighted averages of T(lambda), R(lambda), and A(lambda).
  * Spectrum evaluation follows the active surface mode and cone configuration;
  * weighting and integration are implemented in the physics utility modules.
+ * On a design with environments, the Environment droplist under the plot picks
+ * the environment computed, or All, which lists each integral in every
+ * environment that is on and draws each environment's curve in its colour.
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
 import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
@@ -23,7 +26,7 @@ import { noLayersMessage } from '../layersForMode.js';
 import { exportColumns, exportRows } from './exportModel.js';
 import { useIntegralValues } from './useIntegralValues.js';
 
-const { createElement: h, useMemo } = React;
+const { createElement: h } = React;
 
 function editorTable(model) {
     if (model.editor.target === 'source') return model.draft.source.table;
@@ -63,14 +66,13 @@ export function IntegralValues({ c, theme, t }) {
     const dt = t.dataTable;
     const { design, evalMode } = useDesign();
     const model = useIntegralValues(design, evalMode);
-    const columns = exportColumns(t);
-    const rows = exportRows(model.integrals, model.results, t.units);
+    const colors = useAnalysisColors('integralValues');
+    const columns = exportColumns(t, model.sets);
+    const rows = exportRows(model.integrals, model.sets || model.results, t.units);
     const { setParams } = model;
     const fixRange = ([from, to]) => setParams({ lambdaStart: from, lambdaEnd: to });
-    // Only the materials of the sides the spectrum is computed on.
-    const materials = useMemo(() => rangeMaterials(design, evalMode), [design, evalMode]);
     const rangeNotice = useMaterialsRangeNotice(
-        materials, model.params.lambdaStart, model.params.lambdaEnd, t, fixRange);
+        model.materials, model.params.lambdaStart, model.params.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_integrals.csv`,
@@ -89,13 +91,13 @@ export function IntegralValues({ c, theme, t }) {
         h(PlotArea, null,
             model.spectrum && model.selected
                 ? h(OverlayChart, {
-                    spectrum: model.spectrum, char: model.selected.char,
+                    spectrum: model.spectrum, sets: model.sets, char: model.selected.char,
                     weighting: model.selected.weighting, title: chartTitle(model.selected, iv.weightings),
                     minMaxMarks: model.selectedResult, lambdaAxis: t.spectralAxis.lambdaShort, labels: iv, units: t.units, c, theme,
                 })
                 : h(CenteredMessage, { c, message: iv.computing }),
         ),
-        h(BadgeRow, { c, t, design, cone: true }),
+        h(BadgeRow, { c, t, design, environment: model.environment, cone: true }),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: model.showTable, setOpen: model.setShowTable,
@@ -107,7 +109,7 @@ export function IntegralValues({ c, theme, t }) {
                 },
             }),
         },h(ResultsTable, {
-            integrals: model.integrals, results: model.results,
+            integrals: model.integrals, results: model.results, sets: model.sets, colors,
             selectedKey: model.selKey, setSelectedKey: model.setSelKey,
             onEdit: key => model.openCustom(key, iv.customParts), onRemove: model.onRemoveCustom, c, t,
         })),

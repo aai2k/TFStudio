@@ -17,8 +17,9 @@ import { inspect } from 'node:util';
  * console.log(c.mode, c.x.toFixed(4), c.y.toFixed(4), c.lab);
  */
 export class Color {
-    constructor(colour) {
+    constructor(colour, environment = null) {
         this._colour = colour;
+        this._environment = environment;
     }
 
     /**
@@ -276,6 +277,19 @@ export class Color {
      * console.log(design.color().outOfRange.map(m => m.id));
      */
     get outOfRange() { return this._colour.outOfRange; }
+
+    /**
+     * The environment the colour was computed in, `{ number, id, name }`,
+     * when design.color() was given `env`; null without one, when it was
+     * computed in environment 1, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const c of design.color({ env: 'all' })) console.log(c.environment.number, c.environment.name, c.x.toFixed(4), c.y.toFixed(4));
+     */
+    get environment() { return this._environment; }
 
     // What console.log prints for the colour.
     [inspect.custom]() {

@@ -4608,6 +4608,7 @@ export default {
     views: { table: '表格', differences: '色差', patch: '色样' },
     tableSpaceTitle: '表格显示的色彩空间',
     againstFirst: angle => `相对于第一个角度 ${angle}°`,
+    againstEnvironment: env => `相对于同一角度下的环境 ${env}`,
     refNote: 'CIE 15:2004 标准数据。Y = 亮度因子 (%)。色块经 Bradford 适应转换为 D65 显示器。',
   },
   specification: {

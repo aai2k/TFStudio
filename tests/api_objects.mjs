@@ -25,9 +25,9 @@
  *   included, by name and by the builtin: id a stacked layer holds, and their
  *   n and k, and a name two materials share refused; spectrum curves at two
  *   angles as arrays, their mean, min and max over a band and the whole range,
- *   and the CSV file with its conditions lines; spectra and edge shifts of one
- *   environment and of each one, each naming its environment, and band
- *   features found in it; merit rows, with start and end left out before the
+ *   and the CSV file with its conditions lines; spectra, edge shifts, colours
+ *   and integral values of one environment and of each one, each naming its
+ *   environment, and band features found in it; merit rows, with start and end left out before the
  *   options, and options given as undefined or null, value, rows and clear(),
  *   a row scored in one environment, each environment's merit and each row's
  *   env and values, and env refused on a design with one environment,
@@ -508,10 +508,31 @@ const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'f
         canon([wet.edgeShift(450, 650, [0, 30], { quantity: 'R' }), wet.edgeShift(450, 650, [0, 30], { quantity: 'R', env: 2 }),
             wet.edgeShift(450, 650, [0, 30], { quantity: 'R', env: 'all' })])
         === canon([api.edgeShift(wet._data, edges), { ...api.edgeShift(wet._data, { ...edges, env: 2 }), environment: WATER }, named]));
-    const unknown = [await refused(() => wet.spectrum(400, 700, { env: 5 })), await refused(() => wet.edgeShift(450, 650, [0], { env: 'al' }))];
+    // A Color and an Integrals hold what color and integrals give in their
+    // environment, and name it; their own fields are read through them.
+    const colourOf = c => [c instanceof objects.Color, c.environment, c.mode, c.x, c.y, c.Y, c.lab, c.srgb, c.outOfRange];
+    const plainColour = (c, environment = null) => [true, environment, c.mode, c.x, c.y, c.Y, c.lab, c.srgb, c.outOfRange];
+    const tableOf = t => [t instanceof objects.Integrals, t.environment, t.mode, t.start, t.end, t.rows, t.outOfRange];
+    const plainTable = (t, environment = null) => [true, environment, t.mode, t.start, t.end, t.rows, t.outOfRange];
+    const split = ({ number, id, name, ...one }) => [one, { number, id, name }];
+    const COLOUR = { quantity: 'T', step: 5 };
+    const GRID = { start: 400, end: 900, step: 5 };
+    const EDGE = { number: 3, id: 'env3', name: 'Edge' };
+    const colours = [wet.color(COLOUR), wet.color({ ...COLOUR, env: 'env2' }), wet.color({ ...COLOUR, env: 3 }), ...wet.color({ ...COLOUR, env: 'all' })];
+    const tables = [wet.integrals(GRID), wet.integrals({ ...GRID, env: 2 }), wet.integrals({ ...GRID, env: 'env3' }), ...wet.integrals({ ...GRID, env: 'all' })];
+    const plainColours = [plainColour(api.color(wet._data, COLOUR)), plainColour(api.color(wet._data, { ...COLOUR, env: 2 }), WATER),
+        plainColour(api.color(wet._data, { ...COLOUR, env: 3 }), EDGE), ...api.color(wet._data, { ...COLOUR, env: 'all' }).environments.map(e => plainColour(...split(e)))];
+    const plainTables = [plainTable(api.integrals(wet._data, GRID)), plainTable(api.integrals(wet._data, { ...GRID, env: 2 }), WATER),
+        plainTable(api.integrals(wet._data, { ...GRID, env: 3 }), EDGE), ...api.integrals(wet._data, { ...GRID, env: 'all' }).environments.map(e => plainTable(...split(e)))];
+    ok('color() and integrals() without env are environment 1\'s and name none; with env they name it, and give a list for \'all\'',
+        canon([colours.map(colourOf), tables.map(tableOf)]) === canon([plainColours, plainTables]) && plainColours.length === 5, canon(colours.map(c => c.environment)));
+    const unknown = [await refused(() => wet.spectrum(400, 700, { env: 5 })), await refused(() => wet.edgeShift(450, 650, [0], { env: 'al' })),
+        await refused(() => wet.color({ env: 0 })), await refused(() => wet.integrals({ env: 'env9' }))];
     ok('an environment the design does not have is refused in the objects\' words, saying env takes \'all\'', canon(unknown) === canon([
         "spectrum: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 5",
         'edgeShift: env is \'all\' or one of the design\'s environments by its number, 1 to 3, or its id, base, env2 or env3; not "al"',
+        "color: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 0",
+        'integrals: env is \'all\' or one of the design\'s environments by its number, 1 to 3, or its id, base, env2 or env3; not "env9"',
     ]), canon(unknown));
     const kept = await refused(() => wet.environments.remove(7));
     ok('and an environment named elsewhere keeps its words', kept === 'environment 7: the design has 3 environments, numbered from 1', kept);
@@ -984,7 +1005,7 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     ok('a Color and an Integrals print what they hold', canon(shown) === canon([`<Color R total, D65 2 degrees: x ${colour.x.toFixed(4)}, y ${colour.y.toFixed(4)}, Y ${colour.Y.toFixed(3)}>`,
         '<Integrals total from 300 to 2500 nm: 12 rows>']), shown.join(' / '));
     const WORDED = [
-        [() => read.color({ characteristic: 'T' }), "color: unknown option 'characteristic'; the options are quantity, angle, pol, observer, illuminant, step, side"],
+        [() => read.color({ characteristic: 'T' }), "color: unknown option 'characteristic'; the options are quantity, angle, pol, observer, illuminant, step, side, env"],
         [() => read.color({ observer: 3 }), 'color: observer is 2 or 10, not 3'],
         [() => read.color({ illuminant: 'F2' }), 'color: illuminant is \'D65\', \'D50\', \'A\' or \'E\', not "F2"'],
         [() => read.integrals({ start: 900, end: 400 }), 'integrals: start and end are wavelengths in nm, 0 < start < end'],

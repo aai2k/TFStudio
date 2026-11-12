@@ -41,7 +41,7 @@ class Color:
         print(c.mode, round(c.x, 4), round(c.y, 4), c.lab)
     """
 
-    def __init__(self, colour):
+    def __init__(self, colour, environment=None):
         dominant = colour["dominant"]
         self._values = {
             "mode": colour["mode"], "quantity": colour["quantity"], "angle": colour["angle"], "pol": colour["pol"],
@@ -53,7 +53,7 @@ class Color:
             "hunter_lab": HunterLab(**colour["hunterLab"]),
             "dominant": Dominant(dominant["wavelength"], dominant["complementary"], dominant["purity"]),
             "cct": colour["cct"], "duv": colour["duv"], "srgb": RGB(**colour["srgb"]),
-            "out_of_range": colour["outOfRange"],
+            "out_of_range": colour["outOfRange"], "environment": environment,
         }
 
     mode = _reading("mode", """The sides computed: "front", "back" or "total", the whole part.
@@ -263,6 +263,18 @@ class Color:
             design = tf.new_design("Mirror")
             design.stack("(HL)^3 H")
             print([m["id"] for m in design.color().out_of_range])
+        """)
+    environment = _reading("environment", """The environment the colour was computed in, a dict of number, id
+        and name, when design.color() was given env; None without one, when it was computed in
+        environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for c in design.color(env="all"):
+                print(c.environment["number"], c.environment["name"], round(c.x, 4), round(c.y, 4))
         """)
 
     def __repr__(self):

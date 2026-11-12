@@ -1379,6 +1379,14 @@ class Design:
         listed = self._calls.environments(self._data)
         return next(_environment_of(e) for e in listed if env in (e["number"], e["id"]))
 
+    def _in_environment(self, kind, answer, env):
+        """The answer `answer` of a call given `env` as a `kind` made with the
+        environment it was computed in; with env "all", a list of them, one
+        per environment."""
+        if env == "all":
+            return [kind(found, _environment_of(found)) for found in answer["environments"]]
+        return kind(answer, self._environment_named(env))
+
     def edge_shift(self, start, end, angles, **options):
         """Where the design's spectrum crosses a level beside the peak of a
         band at each of several angles of incidence, and how far that edge
@@ -1847,7 +1855,8 @@ class Design:
         sides and score_on, as a spectrum does, unless side is given, and a
         design under a cone of incidence is averaged over its cone, as the
         window averages it. A side with no layers gives the colour of its
-        bare surface.
+        bare surface. A design with more than one environment is computed in
+        environment 1, its own media and substrate, unless env names another.
 
         Args:
             quantity: What is coloured: "R" or "T". Default "R".
@@ -1863,15 +1872,21 @@ class Design:
                 integrated on, nm. Default 0.5.
             side: "front", "back" or "total", the whole part. Default: what
                 the design is scored on.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one colour per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            A Color.
+            A Color; with env="all", a list of them, one per environment,
+            each with its environment.
 
         Raises:
             TFStudioError: a quantity, polarization, observer, illuminant or
                 side it does not have, an angle outside 0 to 90, a step of 0
-                or less, more than a million wavelengths, or a design that
-                names a material that resolves to nothing.
+                or less, more than a million wavelengths, a design that names
+                a material that resolves to nothing, or an environment the
+                design does not have.
 
         Example::
 
@@ -1880,8 +1895,11 @@ class Design:
             c = design.color(quantity="R", illuminant="D65")
             print(c.mode, "x", round(c.x, 4), "y", round(c.y, 4), "Y", round(c.Y, 2), "%, dominant",
                   c.dominant.wavelength, "nm")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.color(env="all"):
+                print(one.environment["number"], one.environment["name"], "x", round(one.x, 4), "y", round(one.y, 4))
         """
-        return Color(self._read("color", "color", **options))
+        return self._in_environment(Color, self._read("color", "color", **options), options.get("env"))
 
     def integrals(self, **options):
         """Weighted averages of the design's T, R and A, as the Integral
@@ -1893,7 +1911,9 @@ class Design:
         incidence is averaged over its cone, as the window averages it. A row
         whose band the spectrum does not span has no value: its numbers are
         nan and covered is False. A row whose weighting is 0 over the whole
-        band has no value either, though covered is True.
+        band has no value either, though covered is True. A design with more
+        than one environment is computed in environment 1, its own media and
+        substrate, unless env names another.
 
         Args:
             start: The first wavelength of the spectrum, nm. Default 300.
@@ -1915,16 +1935,22 @@ class Design:
                 nm; a blackbody's T 5778 K. Default: no rows of your own.
             side: "front", "back" or "total", the whole part. Default: what
                 the design is scored on.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one table per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            An Integrals.
+            An Integrals; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: a range that is not one, an angle outside 0 to 90,
                 a polarization or side it does not have, more than a million
                 wavelengths, a custom row with a field it does not have or
-                cannot use, a key another row has, or a design that names a
-                material that resolves to nothing.
+                cannot use, a key another row has, a design that names a
+                material that resolves to nothing, or an environment the
+                design does not have.
 
         Example::
 
@@ -1933,8 +1959,11 @@ class Design:
             iv = design.integrals(custom=[{"key": "T3000K", "source": {"id": "blackbody", "T": 3000},
                                            "band": [400, 700]}])
             print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.integrals(env="all"):
+                print(one.environment["number"], one.environment["name"], "Rvis", round(one["Rvis"].value, 4))
         """
-        return Integrals(self._read("integrals", "integrals", **options))
+        return self._in_environment(Integrals, self._read("integrals", "integrals", **options), options.get("env"))
 
     def ellipsometry(self, start=None, end=None, **options):
         """Ψ and Δ of one coated side against wavelength, at one angle of

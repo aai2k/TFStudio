@@ -1,3 +1,4 @@
+import { environmentColor } from '../../../../constants/analysisDefaults.js';
 import { weightingText } from '../../../../utils/physics/integralValues/builtinWeightings.js';
 import { customIntegralReference, customIntegralWeighting } from './integralModel.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
@@ -84,18 +85,53 @@ function CustomRowButtons({ definition, onEdit, onRemove, c, iv }) {
     );
 }
 
-function ResultRow(props) {
-    const { definition, result, index, selected, setSelected, onEdit, onRemove, styles, c, iv, units } = props;
-    const custom = definition.builtin ? null : definition._custom;
+// An environment's name after a square of its colour on the plot.
+function EnvironmentName({ env, colors }) {
+    return h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 6 } },
+        h('span', {
+            style: { width: 8, height: 8, borderRadius: 2, flexShrink: 0, background: environmentColor(colors, env.number) },
+        }),
+        env.label);
+}
+
+// A result's cells: the weighted average, as a fraction and in percent, and
+// the lowest and highest value over the band.
+function valueCells(result, styles, c, iv) {
     const available = Number.isFinite(result?.value);
+    const dim = { ...styles.td, color: c.textDim };
+    return [
+        h('td', { key: 'value', style: { ...styles.td, color: available ? c.text : c.warning } },
+            valueText(result, available, iv)),
+        h('td', { key: 'percent', style: dim }, available ? (result.value * 100).toFixed(3) : '—'),
+        h('td', { key: 'min', style: dim }, result ? formatMinMax(result.min, result.lamAtMin) : '—'),
+        h('td', { key: 'max', style: dim }, result ? formatMinMax(result.max, result.lamAtMax) : '—'),
+    ];
+}
+
+// A row's background: the selection's, or every other integral shaded.
+const rowShade = (selected, index, c) => {
+    if (selected) return c.accent + '22';
+    return index % 2 === 0 ? 'transparent' : c.panel + '55';
+};
+
+// One row of an integral. Under All an integral has a row per environment,
+// `env` naming it: the integral's name, its band with the note on a band the
+// spectrum does not span, which every environment shares on one grid, and its
+// buttons go on its first row (`first`); the first row of each integral after
+// the first is ruled off from the one above, and every row of the integral is
+// selected with it.
+function ResultRow(props) {
+    const { definition, result, env, first = true, index, selected, setSelected, onEdit, onRemove, styles, c, colors, iv, units } = props;
+    const custom = definition.builtin ? null : definition._custom;
+    const name = custom ? h(CustomName, { custom, c, iv }) : definition.label;
     return h('tr', {
         onClick: () => setSelected(definition.key),
         // A custom row opens its dialog on a double-click, as its pencil does.
         onDoubleClick: custom ? () => onEdit(definition.key) : undefined,
         style: {
             cursor: 'pointer',
-            background: selected ? c.accent + '22'
-                : (index % 2 === 0 ? 'transparent' : c.panel + '55'),
+            background: rowShade(selected, index, c),
+            borderTop: env && first && index > 0 ? `1px solid ${c.border}` : undefined,
         },
         title: custom
             ? customIntegralReference(custom, iv.customReference)
@@ -107,64 +143,66 @@ function ResultRow(props) {
                 color: selected ? c.accent : c.text,
                 fontWeight: selected ? 600 : 400,
             },
-        }, custom ? h(CustomName, { custom, c, iv }) : definition.label),
-        h('td', { style: { ...styles.td, color: available ? c.text : c.warning } },
-            valueText(result, available, iv)),
-        h('td', { style: { ...styles.td, color: c.textDim } },
-            available ? (result.value * 100).toFixed(3) : '—'),
-        h('td', { style: { ...styles.td, color: c.textDim } },
-            result ? formatMinMax(result.min, result.lamAtMin) : '—'),
-        h('td', { style: { ...styles.td, color: c.textDim } },
-            result ? formatMinMax(result.max, result.lamAtMax) : '—'),
+        }, first ? name : null),
+        env && h('td', { style: { ...styles.td, textAlign: 'left', color: c.text } }, h(EnvironmentName, { env, colors })),
+        ...valueCells(result, styles, c, iv),
         h('td', {
             style: { ...styles.td, textAlign: 'left', color: c.textDim, padding: '2px 4px' },
-        }, bandText(definition, custom, units),
-            h(SpanNote, { result, weighting: definition.weighting, c, iv })),
+        }, first && bandText(definition, custom, units),
+            first && h(SpanNote, { result, weighting: definition.weighting, c, iv })),
         h('td', { style: { ...styles.td, textAlign: 'center', padding: '0 4px' } },
-            custom ? h(CustomRowButtons, { definition, onEdit, onRemove, c, iv }) : null),
+            first && custom ? h(CustomRowButtons, { definition, onEdit, onRemove, c, iv }) : null),
     );
+}
+
+// The rows of every integral: one each, or under All (`sets`) one per
+// environment, each integral's environments together.
+function tableRows({ integrals, results, sets, selectedKey, ...shared }) {
+    const row = (definition, index, result, env = null, first = true) => h(ResultRow, {
+        ...shared, key: env ? `${definition.key}-${env.number}` : definition.key,
+        definition, result, env, first, index, selected: definition.key === selectedKey,
+    });
+    if (sets) {
+        return integrals.flatMap((definition, index) =>
+            sets.map((set, k) => row(definition, index, set.results[definition.key], set.env, k === 0)));
+    }
+    return integrals.map((definition, index) => row(definition, index, results[definition.key]));
 }
 
 /**
  * The integrals and their values. A click selects a row for the plot; a custom
  * row's pencil or a double-click on it calls `onEdit(key)`, and its trash
- * `onRemove(key)`.
+ * `onRemove(key)`. Under All, `sets` holds each environment's `{ env, results }`
+ * and the table lists every integral in each, the environment in a column of
+ * its own after the integral.
  */
 export function ResultsTable(props) {
-    const { integrals, results, selectedKey, setSelectedKey, onEdit, onRemove, c, t } = props;
+    const { integrals, results, sets, colors, selectedKey, setSelectedKey, onEdit, onRemove, c, t } = props;
     const iv = t.integralValues;
     const styles = tableStyles(c);
+    const header = (label, extra = {}) => h('th', { style: { ...styles.th, ...extra } }, label);
     return h('div', {
         style: { height: 200, overflow: 'auto', background: c.bg, flexShrink: 0 },
     },
         h('table', { style: { width: '100%', borderCollapse: 'collapse' } },
             h('thead', null,
                 h('tr', null,
-                    h('th', { style: { ...styles.th, textAlign: 'left' } }, iv.col_integral),
-                    h('th', { style: styles.th }, iv.col_value),
-                    h('th', { style: styles.th }, '%'),
-                    h('th', { style: styles.th }, iv.col_min),
-                    h('th', { style: styles.th }, iv.col_max),
-                    h('th', { style: { ...styles.th, textAlign: 'left' } }, iv.col_band),
-                    h('th', { style: { ...styles.th, width: 28 } }, iv.col_actions),
+                    header(iv.col_integral, { textAlign: 'left' }),
+                    sets && header(t.environments.environment, { textAlign: 'left' }),
+                    header(iv.col_value),
+                    header('%'),
+                    header(iv.col_min),
+                    header(iv.col_max),
+                    header(iv.col_band, { textAlign: 'left' }),
+                    header(iv.col_actions, { width: 28 }),
                 ),
             ),
             h('tbody', null,
                 results
-                    ? integrals.map((definition, index) => h(ResultRow, {
-                        key: definition.key,
-                        definition,
-                        result: results[definition.key],
-                        index,
-                        selected: definition.key === selectedKey,
-                        setSelected: setSelectedKey,
-                        onEdit,
-                        onRemove,
-                        styles,
-                        c,
-                        iv,
-                        units: t.units,
-                    }))
+                    ? tableRows({
+                        integrals, results, sets, selectedKey,
+                        setSelected: setSelectedKey, onEdit, onRemove, styles, c, colors, iv, units: t.units,
+                    })
                     : h('tr', null,
                         h('td', {
                             colSpan: 7,

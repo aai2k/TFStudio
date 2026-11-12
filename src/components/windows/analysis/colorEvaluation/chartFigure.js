@@ -1,4 +1,4 @@
-import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { ANALYSIS_DEFAULTS, environmentColor } from '../../../../constants/analysisDefaults.js';
 import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 import {
   THIN_X_SYMBOL, cartesianOption, chartColors, formatChartReadout, itemTooltip, lineSeries, scatterSeries,
@@ -257,19 +257,20 @@ function whiteSeries(plane, tr, colors) {
 // are a series ahead of the points between them: their labels are the ones
 // kept, and they are drawn on top, so the path's direction reads even when a
 // range of angles puts the points close together.
-function coatingSeries({ reports, plane, exposure }, tr, colors) {
+function coatingSeries({ path, plane, exposure }) {
+  const { name, ink, reports } = path;
   const data = reports.map(({ theta, report }) => ({
     value: plane.ofReport(report), theta, itemStyle: { color: exposedRgb(report, exposure) },
   }));
   const points = (items, z) => {
     const series = scatterSeries({
-      data: items, name: tr.chartCoating, color: colors.coating, symbol: 'circle', symbolSize: 14,
+      data: items, name, color: ink, symbol: 'circle', symbolSize: 14,
     });
-    Object.assign(series.itemStyle, { borderColor: colors.coating, borderWidth: 2, ...HALO });
+    Object.assign(series.itemStyle, { borderColor: ink, borderWidth: 2, ...HALO });
     series.z = z;
     series.tooltip = {
       formatter: params => [
-        `${tr.chartCoating}, ${formatTheta(params.data.theta)}°`,
+        `${name}, ${formatTheta(params.data.theta)}°`,
         `${plane.axes[0]} ${formatChartReadout(params.value[0])}   ${plane.axes[1]} ${formatChartReadout(params.value[1])}`,
       ].join('<br>'),
     };
@@ -283,14 +284,27 @@ function coatingSeries({ reports, plane, exposure }, tr, colors) {
     },
     labelLayout: { hideOverlap: true },
   });
-  const path = lineSeries({
-    data: data.map(point => point.value), name: tr.chartCoating,
-    color: colors.coating, width: 1.5, silent: true, z: 6,
+  const line = lineSeries({
+    data: data.map(point => point.value), name,
+    color: ink, width: 1.5, silent: true, z: 6,
   });
-  Object.assign(path.lineStyle, HALO);
+  Object.assign(line.lineStyle, HALO);
   const ends = labelled(points([data[0], data.at(-1)], 8));
   const between = data.slice(1, -1);
-  return between.length ? [path, ends, labelled(points(between, 7))] : [path, ends];
+  return between.length ? [line, ends, labelled(points(between, 7))] : [line, ends];
+}
+
+// The paths drawn: the coating's, outlined in the window's dark ink, or under
+// All one per environment, named after it and outlined in its colour.
+function coatingPaths(reports, tr, colors) {
+  if (!reports[0].env) return [{ name: tr.chartCoating, ink: colors.coating, reports }];
+  const paths = new Map();
+  for (const entry of reports) {
+    const { number, label } = entry.env;
+    if (!paths.has(number)) paths.set(number, { name: label, ink: environmentColor(colors, number), reports: [] });
+    paths.get(number).reports.push(entry);
+  }
+  return [...paths.values()];
 }
 
 // The legend sits on the plot's background, not on the fill, so the series drawn
@@ -371,7 +385,7 @@ export function buildChromaticityOption({
     series.push(triangle);
   }
   if (display.showWhite) series.push(whiteSeries(plane, tr, colors));
-  series.push(...coatingSeries({ reports, plane, exposure }, tr, colors));
+  for (const path of coatingPaths(reports, tr, colors)) series.push(...coatingSeries({ path, plane, exposure }));
 
   const aspect = (view.x[1] - view.x[0]) / (view.y[1] - view.y[0]);
   return cartesianOption({

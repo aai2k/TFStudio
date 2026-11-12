@@ -1022,6 +1022,8 @@ export class Design {
      * `scoreOn`, as a spectrum does, unless `side` is given, and a design
      * under a cone of incidence is averaged over its cone, as the window
      * averages it. A side with no layers gives the colour of its bare surface.
+     * A design with more than one environment is computed in environment 1,
+     * its own media and substrate, unless `env` names another.
      *
      * @param [options]
      * @param [options.quantity='R'] What is coloured: `'R'` or `'T'`.
@@ -1031,16 +1033,21 @@ export class Design {
      * @param [options.illuminant='D65'] The CIE illuminant: `'D65'`, `'D50'`, `'A'` or `'E'`.
      * @param [options.step=0.5] The wavelength step of the spectrum the colour is integrated on, nm.
      * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
-     * @returns A Color.
-     * @throws an option it does not take, a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one colour per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns A Color; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^3 H');
      * const c = design.color({ quantity: 'R', illuminant: 'D65' });
      * console.log(c.mode, 'x', c.x.toFixed(4), 'y', c.y.toFixed(4), 'Y', c.Y.toFixed(2), '%, dominant', c.dominant.wavelength?.toFixed(1), 'nm');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.color({ env: 'all' })) console.log(one.environment.number, one.environment.name, 'x', one.x.toFixed(4), 'y', one.y.toFixed(4));
      */
     color(options) {
-        return new Color(worded({ method: 'color', call: 'color' }, () => api.color(this._data, options)));
+        const answer = worded({ method: 'color', call: 'color' }, () => api.color(this._data, options));
+        if (options?.env !== 'all') return new Color(answer, environmentNamed(this._data, options?.env));
+        return answer.environments.map(({ number, id, name, ...found }) => new Color(found, { number, id, name }));
     }
 
     /**
@@ -1053,7 +1060,9 @@ export class Design {
      * averaged over its cone, as the window averages it. A row whose band the
      * spectrum does not span has no value: its numbers are NaN and `covered`
      * is false. A row whose weighting is 0 over the whole band has no value
-     * either, though `covered` is true.
+     * either, though `covered` is true. A design with more than one
+     * environment is computed in environment 1, its own media and substrate,
+     * unless `env` names another.
      *
      * @param [options]
      * @param [options.start=300] The first wavelength of the spectrum, nm.
@@ -1063,16 +1072,21 @@ export class Design {
      * @param [options.pol='avg'] The polarization: `'avg'`, unpolarized, `'s'` or `'p'`.
      * @param [options.custom=[]] Rows of your own, each `{ key, quantity, source, detector, band }`: `key` its name, which no other row has; `quantity` `'T'`, `'R'` or `'A'`; `source` `{ id }` with an id of `'D65'`, `'D50'`, `'A'`, `'AM1.5G'`, `'E'`, `'blackbody'` with `T`, its temperature in K, or `'custom'` with `table`, its `[nm, value]` rows, at least two at different wavelengths; `detector` `{ id }` with an id of `'photopic'`, `'flat'` or `'custom'` with its `table`; `band` `[start, end]` in nm, which the weighting's own range narrows. Left out: `'T'`, D65, photopic and 380-780 nm; a blackbody's T 5778 K.
      * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
-     * @returns An Integrals.
-     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one table per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns An Integrals; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('AR');
      * design.stack('HL');
      * const iv = design.integrals({ custom: [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }] });
      * console.log('Tvis', iv.get('Tvis').value.toFixed(4), 'T3000K', iv.get('T3000K').value.toFixed(4));
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.integrals({ env: 'all' })) console.log(one.environment.number, one.environment.name, 'Rvis', one.get('Rvis').value.toFixed(4));
      */
     integrals(options) {
-        return new Integrals(worded({ method: 'integrals', call: 'integrals' }, () => api.integrals(this._data, options)));
+        const answer = worded({ method: 'integrals', call: 'integrals' }, () => api.integrals(this._data, options));
+        if (options?.env !== 'all') return new Integrals(answer, environmentNamed(this._data, options?.env));
+        return answer.environments.map(({ number, id, name, ...found }) => new Integrals(found, { number, id, name }));
     }
 
     /**

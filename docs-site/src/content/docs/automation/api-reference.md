@@ -1742,9 +1742,9 @@ print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.color({ quantity, angle, pol, observer, illuminant, step, side })` | `design.color(quantity="R", angle=0, pol="avg", observer=2, illuminant="D65", step=0.5, side=...)` |
+| `design.color({ quantity, angle, pol, observer, illuminant, step, side, env })` | `design.color(quantity="R", angle=0, pol="avg", observer=2, illuminant="D65", step=0.5, side=..., env=...)` |
 
-The CIE colour of the design's reflectance or transmittance, as the Color Evaluation window computes it: the tristimulus values of R or T on the 380-780 nm band under one illuminant, and the colour spaces, dominant wavelength, correlated colour temperature and sRGB swatch the window shows. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A side with no layers gives the colour of its bare surface.
+The CIE colour of the design's reflectance or transmittance, as the Color Evaluation window computes it: the tristimulus values of R or T on the 380-780 nm band under one illuminant, and the colour spaces, dominant wavelength, correlated colour temperature and sRGB swatch the window shows. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A side with no layers gives the colour of its bare surface. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -1755,18 +1755,21 @@ The CIE colour of the design's reflectance or transmittance, as the Color Evalua
 | `illuminant` | `illuminant` | `'D65'` | The CIE illuminant: `'D65'`, `'D50'`, `'A'` or `'E'`. |
 | `step` | `step` | `0.5` | The wavelength step of the spectrum the colour is integrated on, nm. |
 | `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one colour per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: A Color.
+**Returns**: **JavaScript**: A Color; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: A Color; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, or a design that names a material that resolves to nothing<br>**Python**: a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a quantity, polarization, observer, illuminant or side it does not have, an angle outside 0 to 90, a step of 0 or less, more than a million wavelengths, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 const c = design.color({ quantity: 'R', illuminant: 'D65' });
 console.log(c.mode, 'x', c.x.toFixed(4), 'y', c.y.toFixed(4), 'Y', c.Y.toFixed(2), '%, dominant', c.dominant.wavelength?.toFixed(1), 'nm');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.color({ env: 'all' })) console.log(one.environment.number, one.environment.name, 'x', one.x.toFixed(4), 'y', one.y.toFixed(4));
 ```
 
 ```python
@@ -1775,17 +1778,20 @@ design.stack("(HL)^3 H")
 c = design.color(quantity="R", illuminant="D65")
 print(c.mode, "x", round(c.x, 4), "y", round(c.y, 4), "Y", round(c.Y, 2), "%, dominant",
       c.dominant.wavelength, "nm")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.color(env="all"):
+    print(one.environment["number"], one.environment["name"], "x", round(one.x, 4), "y", round(one.y, 4))
 ```
 
 ### integrals
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.integrals({ start, end, step, angle, pol, custom, side })` | `design.integrals(start=300, end=2500, step=0.5, angle=0, pol="avg", custom=..., side=...)` |
+| `design.integrals({ start, end, step, angle, pol, custom, side, env })` | `design.integrals(start=300, end=2500, step=0.5, angle=0, pol="avg", custom=..., side=..., env=...)` |
 
-**JavaScript**: Weighted averages of the design's T, R and A, as the Integral Values window computes them: each integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over its weighting's band, on the spectrum's grid. The built-in rows are the window's, Tvis to RNIR; rows of your own come in `custom`. What it is computed on follows the design's `sides` and `scoreOn`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A row whose band the spectrum does not span has no value: its numbers are NaN and `covered` is false. A row whose weighting is 0 over the whole band has no value either, though `covered` is true.
+**JavaScript**: Weighted averages of the design's T, R and A, as the Integral Values window computes them: each integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over its weighting's band, on the spectrum's grid. The built-in rows are the window's, Tvis to RNIR; rows of your own come in `custom`. What it is computed on follows the design's `sides` and `scoreOn`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A row whose band the spectrum does not span has no value: its numbers are NaN and `covered` is false. A row whose weighting is 0 over the whole band has no value either, though `covered` is true. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another.
 
-**Python**: Weighted averages of the design's T, R and A, as the Integral Values window computes them: each integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over its weighting's band, on the spectrum's grid. The built-in rows are the window's, Tvis to RNIR; rows of your own come in custom. What it is computed on follows the design's sides and score_on, as a spectrum does, unless side is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A row whose band the spectrum does not span has no value: its numbers are nan and covered is False. A row whose weighting is 0 over the whole band has no value either, though covered is True.
+**Python**: Weighted averages of the design's T, R and A, as the Integral Values window computes them: each integral is ∫ C(λ) w(λ) dλ / ∫ w(λ) dλ over its weighting's band, on the spectrum's grid. The built-in rows are the window's, Tvis to RNIR; rows of your own come in custom. What it is computed on follows the design's sides and score_on, as a spectrum does, unless side is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A row whose band the spectrum does not span has no value: its numbers are nan and covered is False. A row whose weighting is 0 over the whole band has no value either, though covered is True. A design with more than one environment is computed in environment 1, its own media and substrate, unless env names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -1796,18 +1802,21 @@ print(c.mode, "x", round(c.x, 4), "y", round(c.y, 4), "Y", round(c.Y, 2), "%, do
 | `pol` | `pol` | `'avg'` | The polarization: `'avg'`, unpolarized, `'s'` or `'p'`. |
 | `custom` | `custom` | `[]` | **JavaScript**: Rows of your own, each `{ key, quantity, source, detector, band }`: `key` its name, which no other row has; `quantity` `'T'`, `'R'` or `'A'`; `source` `{ id }` with an id of `'D65'`, `'D50'`, `'A'`, `'AM1.5G'`, `'E'`, `'blackbody'` with `T`, its temperature in K, or `'custom'` with `table`, its `[nm, value]` rows, at least two at different wavelengths; `detector` `{ id }` with an id of `'photopic'`, `'flat'` or `'custom'` with its `table`; `band` `[start, end]` in nm, which the weighting's own range narrows. Left out: `'T'`, D65, photopic and 380-780 nm; a blackbody's T 5778 K.<br>**Python**: Rows of your own, each a dict with key, quantity, source, detector and band: key its name, which no other row has; quantity "T", "R" or "A"; source {"id": ...} with an id of "D65", "D50", "A", "AM1.5G", "E", "blackbody" with "T", its temperature in K, or "custom" with "table", its [nm, value] rows, at least two at different wavelengths; detector {"id": ...} with an id of "photopic", "flat" or "custom" with its "table"; band [start, end] in nm, which the weighting's own range narrows. Left out: "T", D65, photopic and 380-780 nm; a blackbody's T 5778 K. Without it, no rows of your own. |
 | `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one table per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: An Integrals.
+**Returns**: **JavaScript**: An Integrals; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: An Integrals; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, or a design that names a material that resolves to nothing<br>**Python**: a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a range that is not one, an angle outside 0 to 90, a polarization or side it does not have, more than a million wavelengths, a custom row with a field it does not have or cannot use, a key another row has, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('AR');
 design.stack('HL');
 const iv = design.integrals({ custom: [{ key: 'T3000K', source: { id: 'blackbody', T: 3000 }, band: [400, 700] }] });
 console.log('Tvis', iv.get('Tvis').value.toFixed(4), 'T3000K', iv.get('T3000K').value.toFixed(4));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.integrals({ env: 'all' })) console.log(one.environment.number, one.environment.name, 'Rvis', one.get('Rvis').value.toFixed(4));
 ```
 
 ```python
@@ -1816,6 +1825,9 @@ design.stack("HL")
 iv = design.integrals(custom=[{"key": "T3000K", "source": {"id": "blackbody", "T": 3000},
                                "band": [400, 700]}])
 print("Tvis", round(iv["Tvis"].value, 4), "T3000K", round(iv["T3000K"].value, 4))
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.integrals(env="all"):
+    print(one.environment["number"], one.environment["name"], "Rvis", round(one["Rvis"].value, 4))
 ```
 
 ### ellipsometry
@@ -7855,6 +7867,31 @@ design.stack("(HL)^3 H")
 print([m["id"] for m in design.color().out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `c.environment` | `c.environment` |
+
+**JavaScript**: The environment the colour was computed in, `{ number, id, name }`, when design.color() was given `env`; null without one, when it was computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the colour was computed in, a dict of number, id and name, when design.color() was given env; None without one, when it was computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const c of design.color({ env: 'all' })) console.log(c.environment.number, c.environment.name, c.x.toFixed(4), c.y.toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for c in design.color(env="all"):
+    print(c.environment["number"], c.environment["name"], round(c.x, 4), round(c.y, 4))
+```
+
 ## Integrals
 
 **JavaScript**: A design's weighted averages of T, R and A, as design.integrals() computes them and the Integral Values window lists them: the built-in rows, Tvis to RNIR, and then the rows of your own, each read by its key with get().
@@ -8070,6 +8107,31 @@ console.log(design.integrals().outOfRange.map(m => m.id));
 design = tf.new_design("AR")
 design.stack("HL")
 print([m["id"] for m in design.integrals().out_of_range])
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `iv.environment` | `iv.environment` |
+
+**JavaScript**: The environment the integrals were computed in, `{ number, id, name }`, when design.integrals() was given `env`; null without one, when they were computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the integrals were computed in, a dict of number, id and name, when design.integrals() was given env; None without one, when they were computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('HL');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const iv of design.integrals({ env: 'all' })) console.log(iv.environment.number, iv.environment.name, 'Rvis', iv.get('Rvis').value.toFixed(4));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("HL")
+design.environments.add(name="Under water", incident_medium="H2O")
+for iv in design.integrals(env="all"):
+    print(iv.environment["number"], iv.environment["name"], "Rvis", round(iv["Rvis"].value, 4))
 ```
 
 ### saveCsv / save_csv

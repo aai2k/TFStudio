@@ -1,0 +1,46 @@
+/**
+ * The colour Color Evaluation shows, computed in each environment its
+ * Environment droplist names (chrome/environmentChoice.js), each from the
+ * design that environment computes; environment 1's is the design itself.
+ * Under a cone of incidence the colour is computed on the analysis worker,
+ * otherwise on the window's thread.
+ */
+import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
+import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
+import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
+import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
+import { computeEnvironmentReports, shownReports } from './colorModel.js';
+
+const { useState, useEffect, useMemo } = React;
+
+/**
+ * `options` are computeColorReports' own, without the design. Returns
+ * `{ environment, reports, materials, coneActive, busy, error }`: the
+ * droplist's choice (useEnvironmentChoice), the reports the window shows
+ * (shownReports), the materials its range notice reads, those of the sides
+ * computed in every environment shown, whether the cone puts the colour on the
+ * worker and the worker is still at it, and what failed: the worker's error
+ * under a cone, the message of the failure otherwise, or null.
+ */
+export function useColorReports(design, options) {
+    const [error, setError] = useState(null);
+    useEffect(() => { setError(null); }, [options.evalMode]);
+    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const environment = useEnvironmentChoice(design, { overlay: true });
+    const { views, every } = environment;
+    const designs = useMemo(() => views.map(view => view.design), [views]);
+    const materials = useMemo(
+        () => designs.flatMap(one => rangeMaterials(one, options.evalMode)), [designs, options.evalMode]);
+    const payload = useMemo(() => ({ designs, options }), [designs, options]);
+    const worker = useAnalysisEvaluation(coneActive, 'colorReports', payload);
+    const direct = useMemo(
+        () => (coneActive ? null : computeEnvironmentReports(designs, { ...options, setError })),
+        [coneActive, designs, options]);
+    const sets = coneActive ? worker.data : direct;
+    const reports = useMemo(() => shownReports(sets, every, views), [sets, every, views]);
+    return {
+        environment, reports, materials, coneActive,
+        busy: coneActive && worker.busy,
+        error: coneActive ? worker.error : error,
+    };
+}

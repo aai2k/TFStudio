@@ -3,11 +3,11 @@
  * show the Eval badge: the badge sits in that row, directly over the window's
  * first strip, and on no strip; the Cone badge joins it in the windows that
  * average over the cone, and in no other; the Export control stays on the
- * Results strip. A window with no environment choice draws the row without a
- * droplist.
+ * Results strip. On a design without environments the row has no droplist.
  *
- * Optical Evaluation's row, with its droplist, is checked in
- * optical_evaluation_environments.mjs.
+ * The droplist on a design with environments is checked in
+ * optical_evaluation_environments.mjs for Optical Evaluation and in
+ * environments_color_integrals.mjs for Color Evaluation and Integral Values.
  *
  * Run: node tests/analysis_badge_row.mjs
  */

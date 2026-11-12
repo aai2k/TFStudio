@@ -963,11 +963,12 @@ def band_features(tf):
 
 
 def environment_spectra(tf):
-    """design.spectrum() and design.edge_shift() of a design with environments:
-    environment 1, one environment by id and by number, switched off
-    included, and each environment that is on, each naming its environment;
-    a curve's width found in its environment; and an environment the design
-    does not have refused."""
+    """design.spectrum(), design.edge_shift(), design.color() and
+    design.integrals() of a design with environments: environment 1, one
+    environment by id and by number, switched off included, and each
+    environment that is on, each naming its environment; a curve's width
+    found in its environment; and an environment the design does not have
+    refused."""
     design = tf.new_design("Wet AR")
     design.stack("(HL)^2")
     design.environments.add(name="Under water", incident_medium="H2O")
@@ -977,6 +978,20 @@ def environment_spectra(tf):
     def shown(s):
         return [s.environment, s.mode, s.wavelength, s.angles, [list(s.angle(a).R) for a in s.angles]]
 
+    def colour(c):
+        return [c.environment, type(c).__name__, c.mode, c.x, c.y, c.Y, list(c.lab), list(c.srgb), c.out_of_range]
+
+    def table(t):
+        return [t.environment, type(t).__name__, t.mode, t.start, t.end, [list(row) for row in t.rows], t.out_of_range]
+
+    grid = {"start": 400, "end": 900, "step": 5}
+    out({"environmentResults": {
+        "colours": [colour(c) for c in [design.color(quantity="T", step=5), design.color(quantity="T", step=5, env="env2"),
+                                        design.color(quantity="T", step=5, env=3),
+                                        *design.color(quantity="T", step=5, env="all")]],
+        "tables": [table(t) for t in [design.integrals(**grid), design.integrals(**grid, env=2), design.integrals(**grid, env="env3"),
+                                      *design.integrals(**grid, env="all")]],
+        "refused": [refused(lambda: design.color(env=0)), refused(lambda: design.integrals(env="env9"))]}})
     out({"environmentSpectra": {
         "design": design._data,
         "spectra": [shown(design.spectrum(400, 700, step=10, angles=[0, 30])),

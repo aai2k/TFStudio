@@ -59,12 +59,13 @@ class Integrals:
         print(iv.mode, "Tvis", round(iv["Tvis"].value, 4), "Rsol", round(iv["Rsol"].value, 4))
     """
 
-    def __init__(self, table):
+    def __init__(self, table, environment=None):
         rows = [IntegralRow(r["key"], r["quantity"], r["value"], r["min"], r["minAt"], r["max"], r["maxAt"],
                             tuple(r["band"]), r["covered"], tuple(r["spectrumSpan"])) for r in table["rows"]]
         self._values = {
             "mode": table["mode"], "start": table["start"], "end": table["end"], "step": table["step"],
             "angle": table["angle"], "pol": table["pol"], "rows": rows, "out_of_range": table["outOfRange"],
+            "environment": environment,
         }
 
     mode = _reading("mode", """The sides computed: "front", "back" or "total", the whole part.
@@ -140,6 +141,18 @@ class Integrals:
             design = tf.new_design("AR")
             design.stack("HL")
             print([m["id"] for m in design.integrals().out_of_range])
+        """)
+    environment = _reading("environment", """The environment the integrals were computed in, a dict of number,
+        id and name, when design.integrals() was given env; None without one, when they were computed in
+        environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("HL")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for iv in design.integrals(env="all"):
+                print(iv.environment["number"], iv.environment["name"], "Rvis", round(iv["Rvis"].value, 4))
         """)
 
     def __getitem__(self, key):

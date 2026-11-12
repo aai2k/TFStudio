@@ -6,12 +6,16 @@
  * the colour and its main values. The results strip below holds the
  * colorimetric coordinates in every space, the differences between angles and
  * a patch of each colour. The colorimetry itself is in colorModel.js.
+ *
+ * On a design with environments, the Environment droplist under the diagram
+ * picks the environment the colour is computed in, or All, which shows every
+ * environment that is on, each path on the diagram in its own colour
+ * (useColorReports.js).
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
+import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { COLOR_RANGE_NM } from '../../../../utils/physics/colorimetry.js';
-import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsSection } from '../../../ui/ResultsSection.js';
@@ -21,14 +25,13 @@ import { AngleLines } from './AngleLines.js';
 import { ANGLE_CAP, windowAngles } from './angles.js';
 import { CHART_MIN_HEIGHT, ChromaticityChart } from './chartFigure.js';
 import { ColorControls, DiagramTabs } from './ColorControls.js';
-import { computeColorReports } from './colorModel.js';
 import { exportTable, viewTable } from './resultsModel.js';
 import { ResultsViews } from './ResultsViews.js';
 import { colorEvaluationSession } from './sessionState.js';
+import { useColorReports } from './useColorReports.js';
 import { useWindowSession } from '../../windowSession.js';
-import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 
-const { createElement: h, useState, useEffect, useMemo } = React;
+const { createElement: h, useMemo } = React;
 
 function useColorState(design) {
     const [session, setField] = useWindowSession(colorEvaluationSession, design);
@@ -59,7 +62,7 @@ function useColorState(design) {
 // height; in a window too short for it and every line, the lines scroll, down
 // to one line, and in one too short for the diagram and one line, the two
 // scroll together, so no line is cut off out of reach.
-function DiagramArea({ c, t, ce, state, reports, busy }) {
+function DiagramArea({ c, t, ce, state, reports, colors, busy }) {
     if (busy) return h(CenteredMessage, { c, message: t.analysisEvaluation.computing });
     if (!reports) return h(CenteredMessage, { c, message: ce.noData });
     return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' } },
@@ -68,7 +71,7 @@ function DiagramArea({ c, t, ce, state, reports, busy }) {
                 reports, observer: state.observer, diagram: state.diagram,
                 exposure: state.exposure, display: state, c, tr: ce, units: t.units,
             })),
-        !state.showTable && h(AngleLines, { reports, exposure: state.exposure, ce, units: t.units, c }),
+        !state.showTable && h(AngleLines, { reports, exposure: state.exposure, ce, units: t.units, c, colors }),
     );
 }
 
@@ -77,36 +80,24 @@ export function ColorEvaluation({ c, t }) {
     const ce = t.colorEval;
     const dt = t.dataTable;
     const state = useColorState(design);
-    const [error, setError] = useState(null);
 
-    useEffect(() => { setError(null); }, [evalMode]);
-
-    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
     const angles = useMemo(() => windowAngles(state),
         [state.angleMode, state.thetas, state.angleStart, state.angleEnd, state.angleStep]);
-    const workerOptions = useMemo(() => ({
+    const options = useMemo(() => ({
         evalMode,
         characteristic: state.characteristic, pol: state.pol, thetas: angles.angles,
         observer: state.observer, illuminant: state.illuminant, step: state.step,
     }), [evalMode, state.characteristic, state.pol, angles,
         state.observer, state.illuminant, state.step]);
-    const workerPayload = useMemo(
-        () => ({ design, options: workerOptions }),
-        [design, workerOptions],
-    );
-    const workerResult = useAnalysisEvaluation(coneActive, 'colorReports', workerPayload);
-    const directReports = useMemo(
-        () => coneActive ? null : computeColorReports({ ...workerOptions, design, setError }),
-        [coneActive, design, workerOptions]);
-    const reports = coneActive ? workerResult.data : directReports;
-
-    // Only the materials of the sides the colour is computed on.
-    const materials = useMemo(() => rangeMaterials(design, evalMode), [design, evalMode]);
+    const { environment, reports, materials, coneActive, busy, error } = useColorReports(design, options);
+    const colors = useAnalysisColors('colorEvaluation');
     const rangeNotice = useMaterialsRangeNotice(materials, COLOR_RANGE_NM[0], COLOR_RANGE_NM[1], t);
     // The CSV holds everything the window reports, whichever view is open.
+    // Under All its rows and the tables' start with the environment.
+    const words = { ...ce, environmentColumn: t.environments.environment };
     const csv = useCsvExport(
         () => {
-            const { columns, rows } = exportTable(reports, ce, t.units);
+            const { columns, rows } = exportTable(reports, words, t.units);
             return csvFromRows(columns, rows);
         },
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_color.csv`,
@@ -114,11 +105,11 @@ export function ColorEvaluation({ c, t }) {
 
     // What the Table or Differences view shows; the header counts its rows. The
     // patches are no table, so the header gives no count over them.
-    const table = reports?.length ? viewTable(reports, state, ce, t.units) : null;
+    const table = reports?.length ? viewTable(reports, state, words, t.units) : null;
     const counted = table && state.resultsView !== 'patch';
 
     const notices = [
-        (coneActive ? workerResult.error : error) && {
+        error && {
             label: coneActive ? t.analysisEvaluation.failed : error,
             tone: 'error',
         },
@@ -130,9 +121,9 @@ export function ColorEvaluation({ c, t }) {
         h(ColorControls, { c, t, ce, state, notices }),
         h(PlotArea, null,
             h(DiagramTabs, { c, ce, state }),
-            h(DiagramArea, { c, t, ce, state, reports, busy: coneActive && workerResult.busy }),
+            h(DiagramArea, { c, t, ce, state, reports, colors, busy }),
         ),
-        h(BadgeRow, { c, t, design, cone: true }),
+        h(BadgeRow, { c, t, design, environment, cone: true }),
         h(ResultsSection, {
             c, label: dt.results, count: counted ? table.rows.length : 0, countLabel: counted ? dt.rowCount : null,
             open: state.showTable, setOpen: state.setShowTable,
@@ -144,7 +135,7 @@ export function ColorEvaluation({ c, t }) {
                 },
             }),
         },reports?.length
-            ? h(ResultsViews, { reports, table, state, ce, c })
+            ? h(ResultsViews, { reports, table, state, ce, c, colors })
             : h(CenteredMessage, { c, message: ce.noData })),
     );
 }

@@ -28,6 +28,8 @@ The spectrum is sampled across 380–780 nm and fed through the standard colorim
 
 The evaluation surface (front, back, or total) is set in the [Design Editor](/design/design-editor/) and shown as a badge on the window.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the diagram says which one the color is computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** shows every environment that is on: each environment's points are ringed and joined in its own color from the window's Palette in Preferences > Analysis, with a legend above the diagram naming them, and the lines under the diagram, the tables, the patches and the CSV name each row's environment. The material range notice reads the materials of every environment shown. The choice belongs to this window and is not saved with the design.
+
 ## The diagrams
 
 The tabs over the plot pick the diagram:
@@ -56,8 +58,8 @@ With **Fit hue**, the default, that color is shown at full brightness, so the hu
 
 The **Results** strip under the diagram has three views, one row or patch per angle:
 
-- **Table**: the color in one color space at a time, picked from the list at its right: x, y, Y; X, Y, Z; CIE L\*a\*b\*; L\*, C\*ab, hab; CIE L\*u\*v\*; L\*, C\*uv, huv, suv; u′, v′; CIE 1960 u, v; Hunter Lab; the dominant wavelength, or for a purple, which has none, the complementary wavelength, with the purity; and the correlated color temperature (CCT) with its offset from the Planckian locus (Duv). CCT reads as a dash for a color too far from the Planckian locus to have one. With a single angle the Table lists every color space at once instead, one space per row, each quantity's name next to its value.
-- **Differences**: how far each angle's color is from the first angle's: ΔL\*, Δa\*, Δb\*, the CIE 1976 color difference ΔE\*ab and the CIEDE2000 color difference ΔE00.
+- **Table**: the color in one color space at a time, picked from the list at its right: x, y, Y; X, Y, Z; CIE L\*a\*b\*; L\*, C\*ab, hab; CIE L\*u\*v\*; L\*, C\*uv, huv, suv; u′, v′; CIE 1960 u, v; Hunter Lab; the dominant wavelength, or for a purple, which has none, the complementary wavelength, with the purity; and the correlated color temperature (CCT) with its offset from the Planckian locus (Duv). CCT reads as a dash for a color too far from the Planckian locus to have one. With a single angle in a single environment the Table lists every color space at once instead, one space per row, each quantity's name next to its value.
+- **Differences**: how far each angle's color is from the first angle's: ΔL\*, Δa\*, Δb\*, the CIE 1976 color difference ΔE\*ab and the CIEDE2000 color difference ΔE00. Under **All** with more than one environment on, each environment's color is measured against the first environment's at the same angle instead, so each row reads the shift that environment makes, and the first environment's rows read zero.
 - **Color Patch**: a patch of the coating's color at each angle, with its Y, next to the reference white of the illuminant, in a row that wraps when there are more angles than fit.
 
 **Export** writes every color space and the differences to one CSV, whichever view is open.

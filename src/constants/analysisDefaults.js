@@ -228,7 +228,8 @@ export const ANALYSIS_DEFAULTS = {
     // The white point's cross and the outline of each coating point. Both sit
     // on the diagram's colour fill, which is the same in every theme, so they
     // are dark; the spectral locus, drawn against the plot, follows the theme.
-    colors: { whitePoint: '#111111', coating: '#111111' },
+    // Under All each environment's points are outlined in its own colour.
+    colors: { whitePoint: '#111111', coating: '#111111', ...palette('env', ENVIRONMENT_COLORS) },
     numbers: {
       // Step of the spectrum the colour is integrated on, nm. A feature
       // narrower than the step is not seen, so it starts fine.
@@ -429,6 +430,7 @@ export const ANALYSIS_DEFAULTS = {
       T: '#4fc3f7', R: '#ef5350', A: '#66bb6a',
       limits: '#ffd54f',
       min: '#ef5350', max: '#66bb6a',
+      ...palette('env', ENVIRONMENT_COLORS),
     },
     // The band runs from the ultraviolet to the short-wave infrared because the
     // integrals include solar-weighted ones, which need the whole AM1.5 range.
