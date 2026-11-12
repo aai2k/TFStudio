@@ -1003,6 +1003,40 @@ def environment_spectra(tf):
                    *design.edge_shift(450, 650, [0, 30], quantity="R", env="all")]],
         "refused": [refused(lambda: design.spectrum(400, 700, env=5)),
                     refused(lambda: design.edge_shift(450, 650, [0], env="al"))]}})
+    environment_views(design)
+
+
+def environment_views(design):
+    """design.index_profile(), admittance(), electric_field(), ellipsometry(),
+    ellipsometry_vs_angle() and group_delay() of the design with environments
+    environment_spectra() makes: environment 1, environment 2 by id, the
+    third, switched off, by number, and each environment that is on, each
+    naming its environment; and an environment the design does not have
+    refused."""
+    values = {
+        "IndexProfile": lambda v: [v.thickness, v.optical_thickness, [layer.n for layer in v.layers]],
+        "Admittance": lambda v: [v.substrate.name, [[b.Y.real, b.Y.imag] for b in v.s.boundaries + v.p.boundaries]],
+        "ElectricField": lambda v: [v.incident_amplitude, v.s.e2, v.avg.amplitude],
+        "Ellipsometry": lambda v: [v.wavelength, v.angles, list(v.psi), list(v.delta)],
+        "GroupDelay": lambda v: [list(v.gd), list(v.gdd)],
+    }
+
+    def view(v):
+        return [v.environment, type(v).__name__, v.mode, v.out_of_range, values[type(v).__name__](v)]
+
+    asked = [
+        lambda env: design.index_profile(wavelength=600, env=env),
+        lambda env: design.admittance(600, angle=30, env=env),
+        lambda env: design.electric_field(600, points_per_layer=10, env=env),
+        lambda env: design.ellipsometry(450, 650, step=10, env=env),
+        lambda env: design.ellipsometry_vs_angle(633, 45, 80, step=5, env=env),
+        lambda env: design.group_delay(450, 650, step=10, env=env),
+    ]
+    out({"environmentViews": {
+        "views": [view(v) for ask in asked for v in [ask(None), ask("env2"), ask(3), *ask("all")]],
+        "refused": [refused(lambda: design.index_profile(env=4)), refused(lambda: design.admittance(env="x")),
+                    refused(lambda: design.electric_field(env=0)), refused(lambda: design.ellipsometry(env=9)),
+                    refused(lambda: design.ellipsometry_vs_angle(env="env4")), refused(lambda: design.group_delay(env=-1))]}})
 
 
 def measured_curves(tf):

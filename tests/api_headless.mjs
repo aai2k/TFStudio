@@ -7,7 +7,9 @@
  * their argument as it was and keep to the sides the Design Editor lets the
  * user edit; merit rows as the editor makes them; the materials whose data
  * stop inside a range; the environment a spectrum, a band feature, an edge
- * shift, a colour and integral values are computed in.
+ * shift, a colour, integral values, an index profile, an admittance locus, an
+ * electric field, Psi and Delta against wavelength and against angle, and
+ * group delay are computed in.
  *
  * The corpus is in api_corpus.mjs, runs, Stop and tolerancing in api_runs.mjs,
  * refusals in api_refusals.mjs.
@@ -167,6 +169,12 @@ ok('a stack formula builds quarter waves at its reference wavelength', qw.frontL
         edgeShift: { from: 400, to: 700, angles: [0, 30], quantity: 'R' },
         color: { quantity: 'R', angle: 30, step: 5 },
         integrals: { start: 350, end: 1000, step: 5, custom: [{ key: 'R532', quantity: 'R', detector: { id: 'flat' }, band: [520, 545] }] },
+        indexProfile: { wavelength: 550 },
+        admittance: { wavelength: 550, angle: 30 },
+        electricField: { wavelength: 550, pointsPerLayer: 5 },
+        ellipsometry: { from: 450, to: 650, step: 50, angles: [55, 70] },
+        ellipsometryVsAngle: { wavelength: 633, angleStep: 5 },
+        groupDelay: { from: 450, to: 650, step: 50 },
     };
     const apart = (call, id) => api[call](oneEnvironmentDesign(wet, id), OPTIONS[call]);
     for (const call of Object.keys(OPTIONS)) {

@@ -26,15 +26,19 @@
  *      the design does not hold refused, measured curves written, a Zemax
  *      COATING.DAT and a CODE V .seq written, read back and put on a design,
  *      a coating not in the file and a closed side refused, index
- *      profiles, one of a side with no layers refused, layer thicknesses,
+ *      profiles, one of a side with no layers refused, one of each
+ *      environment, layer thicknesses,
  *      the design's facts, admittance loci and electric fields, one of a
- *      side with no layers refused, colours, one with an observer refused,
+ *      side with no layers refused, both of one environment and an
+ *      environment the design does not have refused, colours, one with an observer refused,
  *      integral values with rows of no value, colours and integral values of
  *      one environment and of each, and an environment the design does not
  *      have refused, Psi and Delta against
  *      wavelength and against angle, a sweep of start above end refused,
- *      phase and group delay on a uniform grid and on the window's, the whole
- *      part in reflection refused, materials, a material's dispersion with
+ *      both of one environment or of each, phase and group delay on a uniform
+ *      grid and on the window's, the whole part in reflection refused, of
+ *      each environment, and an environment the design does not have
+ *      refused, materials, a material's dispersion with
  *      masked wavelengths, a slab of 0 mm refused, merit, a specification
  *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
  *      a seeded yield.
@@ -376,12 +380,16 @@ const STOPPED_WITHIN_S = 5;
         ['importCodevCoating', [twoLayers, coatingSeq, { side: 'back' }]],
         ['indexProfile', [stack, { wavelength: 633 }]],
         ['indexProfile', [stack, { side: 'back' }]],
+        ['indexProfile', [withWater, { wavelength: 633, env: 'all' }]],
         ['layerThicknesses', [stack, { side: 'total' }]],
         ['designFacts', [stack]],
         ['setLayer', [stack, { index: 1, qwot: 1.5 }]],
         ['admittance', [stack, { wavelength: 633, angle: 45, plane: 'reflection' }]],
         ['electricField', [stack, { wavelength: 1064, depthUnit: 'FWOT', pointsPerLayer: 12 }]],
         ['electricField', [stack, { side: 'back' }]],
+        ['admittance', [withWater, { wavelength: 633, env: 'env2' }]],
+        ['electricField', [withWater, { wavelength: 1064, pointsPerLayer: 12, env: 2 }]],
+        ['electricField', [withWater, { env: 'env7' }]],
         ['color', [stack, { quantity: 'T', observer: 10, illuminant: 'D50', step: 2 }]],
         ['color', [stack, { observer: 3 }]],
         ['integrals', [stack, { start: 350, end: 1000, step: 2, custom: [{ key: 'bb', source: { id: 'blackbody', T: 3000 } }] }]],
@@ -392,9 +400,13 @@ const STOPPED_WITHIN_S = 5;
         ['ellipsometry', [stack, { step: 5, angles: [55, 70], deltaConvention: 'reversed' }]],
         ['ellipsometryVsAngle', [stack, { wavelength: 633, angleStep: 2.5 }]],
         ['ellipsometryVsAngle', [stack, { angleStart: 80, angleEnd: 45 }]],
+        ['ellipsometry', [withWater, { step: 10, env: 'all' }]],
+        ['ellipsometryVsAngle', [withWater, { wavelength: 633, angleStep: 5, env: 'env2' }]],
         ['groupDelay', [stack, { from: 450, to: 650, step: 2, pol: 's', reference: 550 }]],
         ['groupDelay', [stack, { response: 'T', step: 'auto' }]],
         ['groupDelay', [stack, { side: 'total' }]],
+        ['groupDelay', [withWater, { from: 450, to: 650, step: 10, env: 'all' }]],
+        ['groupDelay', [withWater, { env: 7 }]],
         ['pulseAnalysis', [stack, { centre: 600, duration: 20, pol: 's', passes: 2 }]],
         ['pulseAnalysis', [stack, { side: 'total' }]],
         ['setPulseSpectrum', [stack, [[580, 0.5], [600, 1], [620, 0.5]]]],

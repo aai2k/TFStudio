@@ -67,7 +67,9 @@
  *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
  *   was when the spectrum was computed, and their refusals; spectrum(),
- *   edge_shift(), color() and integrals() of one environment and of each,
+ *   edge_shift(), color(), integrals(), index_profile(), admittance(),
+ *   electric_field(), ellipsometry(), ellipsometry_vs_angle() and
+ *   group_delay() of one environment and of each,
  *   each naming its environment, a curve's width found in its environment,
  *   and an environment the design does not have refused; edge_filter()
  *   with pass_, apply_edge_filter(), process_steps() on chips given in
@@ -731,7 +733,7 @@ async function admittanceAndField(t, said) {
         'electric_field: points_per_layer is a whole number of samples across a layer, 2 or more, not 1',
         "electric_field: depth_unit is 'nm', 'OT', 'QWOT' or 'FWOT', not 'um'",
         'electric_field: 1250006 samples (layers times points per layer) is more than 1000000; take fewer points per layer',
-        "electric_field: unknown option 'depth_units'; the options are angle, side, points_per_layer, depth_unit, reference",
+        "electric_field: unknown option 'depth_units'; the options are angle, side, points_per_layer, depth_unit, reference, env",
         'electric_field: the back has no layer thicker than 0 nm',
         'admittance: the back has no layers',
     ]), canon(got.worded));
@@ -820,12 +822,12 @@ async function ellipsometry(t, said) {
         'ellipsometry: start and end are wavelengths in nm, 0 < start < end',
         "ellipsometry: side is 'front' or 'back', not 'total'",
         "ellipsometry: delta_convention is 'azzam' or 'reversed', not 'tompkins'",
-        "ellipsometry: unknown option 'start_at'; the options are step, angles, side, delta_convention",
+        "ellipsometry: unknown option 'start_at'; the options are step, angles, side, delta_convention, env",
         'ellipsometry_vs_angle: start and end are angles of incidence in degrees, 0 <= start < end <= 89.5',
         'ellipsometry_vs_angle: step is an angle step in degrees from 0.05 up to the span, 35, not 0.01',
-        "ellipsometry_vs_angle: unknown option 'angle_step'; the options are step, side, delta_convention",
-        "ellipsometry_vs_angle: unknown option 'angle_start'; the options are step, side, delta_convention",
-        "ellipsometry: unknown option 'to'; the options are step, angles, side, delta_convention",
+        "ellipsometry_vs_angle: unknown option 'angle_step'; the options are step, side, delta_convention, env",
+        "ellipsometry_vs_angle: unknown option 'angle_start'; the options are step, side, delta_convention, env",
+        "ellipsometry: unknown option 'to'; the options are step, angles, side, delta_convention, env",
         'angle: this sweep runs over angle at 633 nm; psi and delta hold it',
         'max: no angle of this curve is from 5 to 15 degrees',
     ]), canon(got.worded));
@@ -858,8 +860,8 @@ async function groupDelay(t, said) {
         "group_delay: side is 'front' or 'back' with response 'R', not 'total'",
         "group_delay: step is a wavelength step in nm above 0, or 'auto', not 'fine'",
         "group_delay: pol is 'avg', 's' or 'p', not 'x'",
-        "group_delay: unknown option 'start_at'; the options are step, angle, pol, response, side, reference",
-        "group_delay: unknown option 'to'; the options are step, angle, pol, response, side, reference",
+        "group_delay: unknown option 'start_at'; the options are step, angle, pol, response, side, reference, env",
+        "group_delay: unknown option 'to'; the options are step, angle, pol, response, side, reference, env",
     ]), canon(got.worded));
     ok('and repr() shows what it holds', canon(got.shown) === canon(['<GroupDelay front R avg at 0 degrees from 400 to 800 nm, 801 points>',
         '<GroupDelay back T p at 30 degrees from 450 to 900 nm, 226 points>', `<GroupDelay total T avg at 0 degrees from 400 to 800 nm, ${asked[2]?.[6]?.length} points>`]), canon(got.shown));
@@ -1127,6 +1129,36 @@ async function environmentSpectra(t, said) {
         "color: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 0",
         "integrals: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 'env9'",
     ]), canon(results.refused));
+}
+
+// What _pythonObjects.py environment_views() read, against the objects here.
+async function environmentViews(t, said) {
+    const { ok, canon } = t;
+    const got = said.environmentViews ?? {};
+    const objects = await import('../src/api/objects/index.js');
+    const design = new objects.Design(said.environmentSpectra?.design ?? {});
+    const VALUES = {
+        IndexProfile: v => [v.thickness, v.opticalThickness, v.layers.map(layer => layer.n)],
+        Admittance: v => [v.substrate.name, [...v.s.boundaries, ...v.p.boundaries].map(b => [b.Y.re, b.Y.im])],
+        ElectricField: v => [v.incidentAmplitude, v.s.e2, v.avg.amplitude],
+        Ellipsometry: v => [v.wavelength, v.angles, [...v.psi], [...v.delta]],
+        GroupDelay: v => [[...v.gd], [...v.gdd]],
+    };
+    const viewOf = v => [v.environment, v.constructor.name, v.mode, v.outOfRange, VALUES[v.constructor.name](v)];
+    const ASKED = [
+        env => design.indexProfile({ wavelength: 600, env }), env => design.admittance(600, { angle: 30, env }),
+        env => design.electricField(600, { pointsPerLayer: 10, env }), env => design.ellipsometry(450, 650, { step: 10, env }),
+        env => design.ellipsometryVsAngle(633, 45, 80, { step: 5, env }), env => design.groupDelay(450, 650, { step: 10, env }),
+    ];
+    const here = ASKED.flatMap(ask => [ask(), ask('env2'), ask(3), ...ask('all')]);
+    ok('index_profile(), admittance(), electric_field(), ellipsometry(), ellipsometry_vs_angle() and group_delay() with env give what the objects here give, a list for "all", each naming its environment',
+        canon(got.views) === canon(here.map(viewOf)) && here.length === 30, canon(got.views)?.slice(0, 300));
+    const other = "one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3";
+    ok('and an environment the design does not have is refused in Python\'s words', canon(got.refused) === canon([
+        `index_profile: env is 'all' or ${other}; not 4`, `admittance: env is 'all' or ${other}; not 'x'`,
+        `electric_field: env is 'all' or ${other}; not 0`, `ellipsometry: env is 'all' or ${other}; not 9`,
+        `ellipsometry_vs_angle: env is 'all' or ${other}; not 'env4'`, `group_delay: env is 'all' or ${other}; not -1`,
+    ]), canon(got.refused));
 }
 
 // What _pythonObjects.py measured_curves() read, against the plain calls.
@@ -1491,6 +1523,7 @@ export async function checkObjects(t) {
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
     await environmentSpectra(u, ran.said);
+    await environmentViews(u, ran.said);
     measuredCurves(u, ran.said);
     measuredFiles(u, ran.said);
     await coatingFiles(u, ran.said);

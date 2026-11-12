@@ -32,6 +32,8 @@ loci differ; at normal incidence they coincide.
 **back** coating (from the exit medium). Each coating is its own locus on the
 substrate, so the two sides are drawn independently.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the loci are computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** draws every environment that is on: each environment's loci in its own color from the window's Environment palette in Preferences > Analysis, in place of a color per material, its η_s, Y₀ and η₀ marked in the same color, and a legend above the plot naming them. The readout names each locus's environment, and the table and the CSV start each row with its environment and list each environment's rows in turn. The material range notice reads the materials of every environment shown. The choice belongs to this window and is not saved with the design.
+
 ## How to read it
 
 Each arc is one layer, labelled L1, L2, … from the substrate outward, and

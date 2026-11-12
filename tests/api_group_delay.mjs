@@ -30,7 +30,12 @@
  *      PR, GD and GDD rows of the corpus golden file are the API's values at
  *      their wavelength, angle and polarization; in every surface mode the
  *      PR, GD, GDDT and TOD rows score what groupDelay computes without side.
- *   5. Refusals with their codes and fields.
+ *   5. Environments: on a design with three, groupDelay without env is the
+ *      design's own, and with env, by number or id and switched off or on,
+ *      the design that environment computes, on a side and on the whole part;
+ *      'all' gives the two that are on and an environment it does not have is
+ *      refused.
+ *   6. Refusals with their codes and fields.
  *
  * Run: node tests/api_group_delay.mjs
  */
@@ -40,6 +45,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { isDeepStrictEqual } from 'node:util';
 import { fixtureFile, golden, manifest } from './_apiCorpus.mjs';
+import { environmentWrong } from './_environmentCalls.mjs';
 
 // The window's CSV writer sits in a module of React components.
 globalThis.React = createRequire(import.meta.url)('react');
@@ -323,11 +329,18 @@ function made(design, mode) {
         plain.length >= 4 && wrong.length === 0, wrong.slice(0, 4).join('; '));
 }
 
-// ── 5. Refusals ────────────────────────────────────────────────────────────
+// ── 5. Environments ────────────────────────────────────────────────────────
+{
+    const wrong = [...environmentWrong(api, 'groupDelay', { step: 5 }), ...environmentWrong(api, 'groupDelay', { step: 5, response: 'T', side: 'total' })];
+    ok('on a design with three environments, groupDelay without env is the design\'s own; by number or id, off or on, the design that environment computes, on a side and on the whole part; \'all\' the two that are on; an unknown one refused',
+        wrong.length === 0, wrong.join('; '));
+}
+
+// ── 6. Refusals ────────────────────────────────────────────────────────────
 {
     const [, design] = corpus[0];
     const REFUSED = [
-        ['an option it does not take', () => api.groupDelay(design, { start: 400 }), 'unknownOption', { option: 'start' }, /unknown option 'start'; the options are from, to, step, angle, pol, response, side, reference$/],
+        ['an option it does not take', () => api.groupDelay(design, { start: 400 }), 'unknownOption', { option: 'start' }, /unknown option 'start'; the options are from, to, step, angle, pol, response, side, reference, env$/],
         ['a range that is not one', () => api.groupDelay(design, { from: 800, to: 400 }), 'wavelengthRange', { from: 800, to: 400 }, /from and to are wavelengths in nm, 0 < from < to$/],
         ['a range that is not one, on the window\'s grid', () => api.groupDelay(design, { from: 800, to: 400, step: 'auto' }), 'wavelengthRange', { from: 800, to: 400 }, /0 < from < to$/],
         ['a step of 0', () => api.groupDelay(design, { step: 0 }), 'badValue', { option: 'step', value: 0 }, /step is a wavelength step in nm above 0, or 'auto', not 0$/],

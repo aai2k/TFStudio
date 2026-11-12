@@ -13,7 +13,8 @@ import {
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
-import { angleCount, environmentLegend, environmentSuffix, resultColor } from './environmentSeries.js';
+import { angleCount, environmentSuffix, resultColor } from './environmentSeries.js';
+import { environmentLegend } from '../chrome/environmentLegend.js';
 import {
     formatYExport, isLogYScale, plotPercent, yScaleAxisOption, yScaleOf, yScaleReadsQuantity,
     yScaleTooltip,

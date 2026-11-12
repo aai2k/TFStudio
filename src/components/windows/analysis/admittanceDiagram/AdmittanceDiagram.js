@@ -6,9 +6,10 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { useMaterialLambdaNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialsLambdaNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { AdmittanceChart } from './AdmittanceChart.js';
 import { AdmittanceControls } from './AdmittanceControls.js';
@@ -35,8 +36,8 @@ export function AdmittanceDiagram({ c, theme, t }) {
     const dt = t.dataTable;
     const { design } = useDesign();
     const state = useAdmittanceDiagram(design);
-    const columns = tableColumns(t);
-    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda, state.side);
+    const columns = tableColumns(t, state.environment.every);
+    const rangeNotice = useMaterialsLambdaNotice(state.materials, state.lambda, t, state.setLambda);
     const csv = useCsvExport(
         () => csvFromRows(columns, state.tableRows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_admittance.csv`,
@@ -45,6 +46,7 @@ export function AdmittanceDiagram({ c, theme, t }) {
     return h(AnalysisWindow, { c },
         h(AdmittanceControls, { c, t, state, notices: [rangeNotice].filter(Boolean) }),
         h(PlotArea, null, plotBody({ state, ad, c, theme, t })),
+        h(BadgeRow, { c, t, design, environment: state.environment, evalBadge: false }),
         h(ResultsSection, {
             c, label: dt.results, count: state.tableRows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

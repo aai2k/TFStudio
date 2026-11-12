@@ -62,10 +62,12 @@ ok('a design keeps the name it holds', corpus.names.length === 0, corpus.names.j
 ok('saved and opened again it shows the same', corpus.reopened.length === 0, corpus.reopened.join(', '));
 {
     // The fixture with three environments: without env its spectrum is the
-    // golden file's, above; for its spectrum, its colour and its integral
-    // values, each environment by number or id is its design computed apart,
-    // the third, switched off, included, and without env environment 1; 'all'
-    // covers the two that are on.
+    // golden file's, above; for its spectrum, its colour, its integral values,
+    // its index profile, its admittance locus, its electric field, its Psi and
+    // Delta against wavelength and against angle and its group delay, each
+    // environment by number or id is its design computed apart, the third,
+    // switched off, included, and without env environment 1; 'all' covers the
+    // two that are on.
     const { isDeepStrictEqual: same } = await import('node:util');
     const { oneEnvironmentDesign } = await import('../src/utils/environments/environments.js');
     const name = 'environments-media-substrate';
@@ -76,6 +78,12 @@ ok('saved and opened again it shows the same', corpus.reopened.length === 0, cor
         spectrum: { from, to, step, angles: fixture.angles },
         color: { quantity: 'T', angle: 30, step: 5 },
         integrals: { start: 350, end: 1000, step: 5 },
+        indexProfile: { wavelength: 600 },
+        admittance: { wavelength: 600, angle: 30 },
+        electricField: { wavelength: 600, pointsPerLayer: 10 },
+        ellipsometry: { from, to, step, angles: [65] },
+        ellipsometryVsAngle: { wavelength: 633 },
+        groupDelay: { from, to, step },
     };
     for (const [call, options] of Object.entries(CALLS)) {
         const asked = env => api[call](design, { ...options, ...env });

@@ -28,7 +28,12 @@
  *      wavelength gives it too; setLayer with qwot sets unitToNm's thickness,
  *      which reads back as the QWOT set, on the front and the back, with a
  *      new material converted with that material.
- *   5. Each name and value they cannot use is refused with the code and
+ *   5. Environments: on a design with three, indexProfile without env is the
+ *      design's own, and with env, by number or id and switched off or on,
+ *      the design that environment computes, on a side and on the whole part;
+ *      'all' gives the two that are on and an environment it does not have is
+ *      refused.
+ *   6. Each name and value they cannot use is refused with the code and
  *      fields an object layer words it from: an unknown option, a wavelength
  *      that is not one, a side the calls do not have, a side with no layers,
  *      a design with none, qwot with thickness, a qwot of 0 or less, and a
@@ -42,6 +47,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { isDeepStrictEqual } from 'node:util';
 import { fixtureFile, manifest } from './_apiCorpus.mjs';
+import { environmentWrong } from './_environmentCalls.mjs';
 
 globalThis.React = createRequire(import.meta.url)('react');
 const api = await import('../src/api/index.js');
@@ -319,13 +325,22 @@ const NUMBERED = { front: design => [...stored(design, 'front')].reverse(), back
     ok('a QWOT of 1 is the quarter wave the stack formula builds', Math.abs(quarter - twoSided.frontLayers[0].thickness) < 1e-9, `${quarter} / ${twoSided.frontLayers[0].thickness}`);
 }
 
-// ── 5. Refusals ────────────────────────────────────────────────────────────
+// ── 5. Environments ────────────────────────────────────────────────────────
+{
+    const wrong = [...environmentWrong(api, 'indexProfile', { wavelength: 600 }), ...environmentWrong(api, 'indexProfile', { wavelength: 600, side: 'total' })];
+    ok('on a design with three environments, indexProfile without env is the design\'s own; by number or id, off or on, the design that environment computes, on a side and on the whole part; \'all\' the two that are on; an unknown one refused',
+        wrong.length === 0, wrong.join('; '));
+}
+
+// ── 6. Refusals ────────────────────────────────────────────────────────────
 {
     const design = api.stackFromFormula(api.newDesign({ name: 'Stack' }), { formula: '(HL)^2' });
     const NO_LAYER = { indexProfile: /the back has no layer thicker than 0 nm/, layerThicknesses: /the back has no layers/ };
+    const OPTIONS = { indexProfile: ['wavelength', 'side', 'env'], layerThicknesses: ['wavelength', 'side'] };
     const REFUSED = [
         ...['indexProfile', 'layerThicknesses'].flatMap(call => [
-            [call, 'an option it does not take', () => api[call](design, { lambda: 550 }), 'unknownOption', { option: 'lambda', options: ['wavelength', 'side'] }, /unknown option 'lambda'; the options are wavelength, side/],
+            [call, 'an option it does not take', () => api[call](design, { lambda: 550 }), 'unknownOption', { option: 'lambda', options: OPTIONS[call] },
+                new RegExp(`unknown option 'lambda'; the options are ${OPTIONS[call].join(', ')}$`)],
             [call, 'a wavelength of 0', () => api[call](design, { wavelength: 0 }), 'badValue', { option: 'wavelength', value: 0 }, /wavelength is a wavelength in nm above 0, not 0/],
             [call, 'a wavelength as text', () => api[call](design, { wavelength: '550' }), 'badValue', { option: 'wavelength', value: '550' }, /not "550"/],
             [call, 'a side it does not have', () => api[call](design, { side: 'both' }), 'badValue', { option: 'side', takes: "'front', 'back' or 'total'", value: 'both' }, /side is 'front', 'back' or 'total', not "both"/],

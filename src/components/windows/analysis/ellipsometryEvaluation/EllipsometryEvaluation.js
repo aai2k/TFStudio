@@ -1,12 +1,16 @@
 /**
  * Reflection ellipsometry, rho = r_p / r_s = tan(Psi) exp(i Delta).
  * Macleod, Thin-Film Optical Filters, 5th ed., p. 553 and Eq. (16.2).
+ *
+ * On a design with environments, the Environment droplist under the plot picks
+ * the environment computed, or All, which draws Ψ and Δ of each environment
+ * that is on in its own colour and gives each its own columns in the table
+ * (useEllipsometryEvaluation.js).
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
 import {
-    useMaterialLambdaNotice, useMaterialsRangeNotice,
+    useMaterialsLambdaNotice, useMaterialsRangeNotice,
 } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows } from '../../../ui/ResultsSection.js';
@@ -17,7 +21,7 @@ import { measuredEllipsometryOverlays, sideSummary } from './model.js';
 import { useEllipsometryEvaluation } from './useEllipsometryEvaluation.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 
-const { createElement: h, useCallback, useMemo } = React;
+const { createElement: h, useCallback } = React;
 
 export function EllipsometryEvaluation({ c, theme, t }) {
     const text = t.ellipsometry;
@@ -27,7 +31,7 @@ export function EllipsometryEvaluation({ c, theme, t }) {
     const curveColors = useAnalysisColors('ellipsometryEvaluation');
     const table = buildEllipsometryTable(state.mode, state.data, {
         lambda: t.spectralAxis.lambdaShort, aoi: t.spectrumExchange.aoiLabel,
-    });
+    }, state.sets);
     const spectral = state.mode === 'spectral';
     const { setLambdaStart, setLambdaEnd } = state;
     const fixRange = useCallback(([from, to]) => {
@@ -36,12 +40,11 @@ export function EllipsometryEvaluation({ c, theme, t }) {
     }, [setLambdaStart, setLambdaEnd]);
     // The spectral sweep has a range to pull in; the angular one holds a single
     // wavelength, which is moved onto covered data instead. Both name only the
-    // materials of the side computed.
-    const materials = useMemo(() => rangeMaterials(design, state.side), [design, state.side]);
+    // materials of the side computed, in every environment shown.
+    const { materials } = state;
     const spanNotice = useMaterialsRangeNotice(
         materials, state.lambdaStart, state.lambdaEnd, t, fixRange);
-    const lambdaNotice = useMaterialLambdaNotice(
-        design, state.lambdaNm, t, state.setLambdaNm, state.side);
+    const lambdaNotice = useMaterialsLambdaNotice(materials, state.lambdaNm, t, state.setLambdaNm);
     const rangeNotice = spectral ? spanNotice : lambdaNotice;
     const csv = useCsvExport(
         () => csvFromRows(table.columns, table.rows),

@@ -48,7 +48,9 @@ _SETUP_WORDS = Words("setDesignSetup", names={"referenceWavelength": "reference"
 _MONTE_CARLO_WORDS = Words("monteCarlo", "monte_carlo", hidden=("from", "to"), extra=("progress", "stop"))
 # design.clean()'s names for cleanDesign's options, where they are not their snake_case.
 _CLEAN_WORDS = Words("cleanDesign", "clean", {"mergeAdjacent": "merge", "cleanBack": "back"})
-# design.electric_field() takes the wavelength as its argument and the rest as keywords.
+# design.admittance() and design.electric_field() take the wavelength as their
+# argument and the rest as keywords.
+_ADMITTANCE_WORDS = Words("admittance", "admittance", hidden=("wavelength",))
 _FIELD_WORDS = Words("electricField", "electric_field", hidden=("wavelength",))
 # design.ellipsometry() takes the range as its arguments, and
 # design.ellipsometry_vs_angle() the wavelength and the angles, the step by
@@ -57,8 +59,8 @@ _ELLIPSOMETRY_WORDS = Words("ellipsometry", "ellipsometry", hidden=("from", "to"
 _SWEEP_WORDS = Words("ellipsometryVsAngle", "ellipsometry_vs_angle", {"angleStep": "step"},
                      hidden=("wavelength", "angleStart", "angleEnd"))
 # The keywords each takes; the API's names for their arguments are not among them.
-_ELLIPSOMETRY_OPTIONS = ("step", "angles", "side", "delta_convention")
-_SWEEP_OPTIONS = ("step", "side", "delta_convention")
+_ELLIPSOMETRY_OPTIONS = ("step", "angles", "side", "delta_convention", "env")
+_SWEEP_OPTIONS = ("step", "side", "delta_convention", "env")
 _MONTE_CARLO_OPTIONS = ("quantity", "step", "angle", "polarization", "runs", "thickness_rel_pct", "thickness_abs_nm",
                         "index_re", "index_im", "distribution", "seed", "progress", "stop")
 # design.spectrum() takes the range as its arguments.
@@ -76,7 +78,7 @@ _COMPARE_WORDS = Words("measuredDifference", "compare_measured", names={"from": 
 _FIT_OPTIONS = ("grid", "step", "thin_every", "start", "end", "db", "weight", "output", "constraints")
 _FIT_WORDS = Words("fitMeasured", "fit_measured", names={"from": "start", "to": "end"})
 _GROUP_DELAY_WORDS = Words("groupDelay", "group_delay", hidden=("from", "to"))
-_GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference")
+_GROUP_DELAY_OPTIONS = ("step", "angle", "pol", "response", "side", "reference", "env")
 _PULSE_WORDS = Words("pulseAnalysis", "pulse")
 _SET_PULSE_SPECTRUM_WORDS = Words("setPulseSpectrum", "set_pulse_spectrum")
 # design.edge_filter()'s pass_ is the API's pass, a keyword in Python.
@@ -1621,29 +1623,36 @@ class Design:
         with worded(_FIT_WORDS):
             self._data = self._calls.fitMeasured(self._data, curve, given)
 
-    def index_profile(self, wavelength=None, side=None):
+    def index_profile(self, wavelength=None, side=None, env=None):
         """The refractive index of the layers at one wavelength, laid out by
         depth, as the Refractive Index Profile window shows it. The sides
         follow the design's sides and score_on, as a spectrum does, unless
         side is given: on one side, the layers in the order light meets them
         coming from that side's medium; on the whole part, the front, the
         substrate and the back, as the window's Total view lays them. A
-        layer with no thickness is left out, as the window leaves it out.
+        layer with no thickness is left out, as the window leaves it out. A
+        design with more than one environment is computed in environment 1,
+        its own media and substrate, unless env names another.
 
         Args:
             wavelength: The wavelength n and k are read at, nm. Default: the
                 design's reference wavelength.
             side: "front", "back" or "total", the whole part. Default: what
                 the design is scored on.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one profile per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            An IndexProfile.
+            An IndexProfile; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: a wavelength of 0 or less, a side other than
                 "front", "back" or "total", a side with no layer thicker than
-                0 nm, or a design that names a material that resolves to
-                nothing.
+                0 nm, a design that names a material that resolves to
+                nothing, or an environment the design does not have.
 
         Example::
 
@@ -1652,8 +1661,12 @@ class Design:
             profile = design.index_profile(wavelength=633)
             for l in profile.layers:
                 print(l.number, l.material, round(l.n, 4), round(l.start, 1), "to", round(l.end, 1), "nm")
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+            for one in design.index_profile(wavelength=633, env="all"):
+                print(one.environment["number"], one.environment["name"], round(one.thickness, 1), "nm thick")
         """
-        return IndexProfile(self._read("indexProfile", "index_profile", wavelength=wavelength, side=side))
+        answer = self._read("indexProfile", "index_profile", wavelength=wavelength, side=side, env=env)
+        return self._in_environment(IndexProfile, answer, env)
 
     def layer_thicknesses(self, wavelength=None, side=None):
         """Each layer's physical and optical thickness, as the Layer
@@ -1759,7 +1772,7 @@ class Design:
         """
         return self._read("designFacts", "layer_counts", side=side)["layerCounts"]
 
-    def admittance(self, wavelength=None, *, angle=0, side=None, plane="admittance"):
+    def admittance(self, wavelength=None, **options):
         """The admittance locus of one coated side at one wavelength, for s
         and p, as the Admittance Diagram window draws it and lists it in its
         table: from the substrate's admittance through the admittance at the
@@ -1768,7 +1781,8 @@ class Design:
         alone, unless side is given. The design's cone of incidence is not
         used, as the window does not use it. Complex values are Python complex
         numbers in Macleod's sign, the window's: an absorbing material's index
-        is n − ik.
+        is n − ik. A design with more than one environment is computed in
+        environment 1, its own media and substrate, unless env names another.
 
         Args:
             wavelength: The wavelength, nm. Default: the design's reference
@@ -1780,15 +1794,21 @@ class Design:
             plane: What the arcs are drawn in: "admittance", the Y plane, or
                 "reflection", the plane of the reflection coefficient Γ.
                 Default "admittance".
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one set of loci per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            An Admittance.
+            An Admittance; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: a wavelength of 0 or less, an angle outside 0 to
                 90, a side other than "front" or "back", a plane other than
-                "admittance" or "reflection", a side with no layers, or a
-                design that names a material that resolves to nothing.
+                "admittance" or "reflection", a side with no layers, a design
+                that names a material that resolves to nothing, or an
+                environment the design does not have.
 
         Example::
 
@@ -1797,9 +1817,11 @@ class Design:
             locus = design.admittance(550, angle=45)
             front = locus.s.boundaries[-1]
             print(locus.mode, "Y", front.Y, "Rs", abs(front.gamma) ** 2)
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.admittance(550, env="all"):
+                print(one.environment["number"], one.environment["name"], "eta0", one.s.eta0)
         """
-        return Admittance(self._read("admittance", "admittance", wavelength=wavelength, angle=angle, side=side,
-                                     plane=plane))
+        return self._at_wavelength(_ADMITTANCE_WORDS, Admittance, wavelength, options)
 
     def electric_field(self, wavelength=None, **options):
         """The electric field through one coated side at one wavelength, for
@@ -1808,7 +1830,9 @@ class Design:
         the front, or on the back of a design coated on the back alone, unless
         side is given. The design's cone of incidence is not used, as the
         window does not use it. |E|² is a fraction of the incident |E|², and
-        the amplitude is in V/m for 1 W/m² incident.
+        the amplitude is in V/m for 1 W/m² incident. A design with more than
+        one environment is computed in environment 1, its own media and
+        substrate, unless env names another.
 
         Args:
             wavelength: The wavelength, nm. Default: the design's reference
@@ -1823,17 +1847,23 @@ class Design:
                 summed, nm), "QWOT" or "FWOT". Default "nm".
             reference: The wavelength λ0, nm, the optical depth units read n
                 at. Default: the design's reference wavelength.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one field per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            An ElectricField.
+            An ElectricField; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: a wavelength or reference of 0 or less, an angle
                 outside 0 to 90, a side other than "front" or "back", a depth
                 unit it does not have, a points_per_layer that is not a whole
                 number of 2 or more, more than a million samples, a side with
-                no layer thicker than 0 nm, or a design that names a material
-                that resolves to nothing.
+                no layer thicker than 0 nm, a design that names a material
+                that resolves to nothing, or an environment the design does
+                not have.
 
         Example::
 
@@ -1842,9 +1872,11 @@ class Design:
             field = design.electric_field(1064, angle=45)
             peak = field.p.e2.index(max(field.p.e2))
             print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1), "nm")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.electric_field(1064, env="all"):
+                print(one.environment["number"], one.environment["name"], "peak |E|², s:", round(max(one.s.e2), 4))
         """
-        with worded(_FIELD_WORDS):
-            return ElectricField(self._calls.electricField(self._data, api_names({**options, "wavelength": wavelength})))
+        return self._at_wavelength(_FIELD_WORDS, ElectricField, wavelength, options)
 
     def color(self, **options):
         """The CIE colour of the design's reflectance or transmittance, as
@@ -1972,7 +2004,8 @@ class Design:
         on the front, or on the back of a design coated on the back alone,
         unless side is given; a side with no layers gives its bare surface.
         The design's cone of incidence is not used, as the window does not
-        use it.
+        use it. A design with more than one environment is computed in
+        environment 1, its own media and substrate, unless env names another.
 
         Args:
             start: The first wavelength, nm. Default 400.
@@ -1985,16 +2018,21 @@ class Design:
             delta_convention: The sign of Δ: "azzam", the Azzam-Bashara sign
                 an ellipsometer writes, or "reversed", 360 degrees minus that.
                 Ψ is the same in both. Default "azzam".
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one sweep per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            An Ellipsometry.
+            An Ellipsometry; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: a range that is not one, an angle outside 0 to 90,
                 a side other than "front" or "back", a convention other than
                 "azzam" or "reversed", more than a million points (wavelengths
-                times angles), or a design that names a material that
-                resolves to nothing.
+                times angles), a design that names a material that resolves
+                to nothing, or an environment the design does not have.
 
         Example::
 
@@ -2002,8 +2040,13 @@ class Design:
             design.stack("(HL)^3 H")
             e = design.ellipsometry(400, 800, step=1, angles=[55, 70])
             print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.psi), 2))
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.ellipsometry(400, 800, step=1, env="all"):
+                print(one.environment["number"], one.environment["name"], "mean Psi", round(one.psi.mean(), 2))
         """
-        return Ellipsometry(self._over_range(_ELLIPSOMETRY_WORDS, _ELLIPSOMETRY_OPTIONS, start, end, options))._named(self.name)
+        answer = self._over_range(_ELLIPSOMETRY_WORDS, _ELLIPSOMETRY_OPTIONS, start, end, options)
+        return self._in_environment(lambda found, environment: Ellipsometry(found, environment)._named(self.name),
+                                    answer, options.get("env"))
 
     def ellipsometry_vs_angle(self, wavelength=None, start=None, end=None, **options):
         """Ψ and Δ of one coated side against angle of incidence at one
@@ -2012,7 +2055,9 @@ class Design:
         end. It is computed on the front, or on the back of a design coated
         on the back alone, unless side is given; a side with no layers gives
         its bare surface. The design's cone of incidence is not used, as the
-        window does not use it.
+        window does not use it. A design with more than one environment is
+        computed in environment 1, its own media and substrate, unless env
+        names another.
 
         Args:
             wavelength: The wavelength, nm. Default: the design's reference
@@ -2028,16 +2073,22 @@ class Design:
             delta_convention: The sign of Δ: "azzam", the Azzam-Bashara sign
                 an ellipsometer writes, or "reversed", 360 degrees minus that.
                 Ψ is the same in both. Default "azzam".
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one sweep per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            An Ellipsometry.
+            An Ellipsometry; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: a wavelength of 0 or less, angles that are not a
                 range from 0 to 89.5, a step below 0.05 degrees or above the
                 span, a side other than "front" or "back", a convention other
-                than "azzam" or "reversed", or a design that names a material
-                that resolves to nothing.
+                than "azzam" or "reversed", a design that names a material
+                that resolves to nothing, or an environment the design does
+                not have.
 
         Example::
 
@@ -2045,12 +2096,16 @@ class Design:
             design.stack("(HL)^3 H")
             e = design.ellipsometry_vs_angle(633, 45, 80, step=0.5)
             print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.min())], "degrees")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.ellipsometry_vs_angle(633, 45, 80, env="all"):
+                print(one.environment["number"], one.environment["name"], "lowest Psi", round(one.psi.min(), 3))
         """
         refuse_arguments("ellipsometry_vs_angle", options, ("angleStart", "angleEnd", "angleStep"), _SWEEP_OPTIONS)
         sweep = api_names({"wavelength": wavelength, "angle_start": start, "angle_end": end, "angle_step": options.pop("step", None)})
         given = api_names(options)
         with worded(_SWEEP_WORDS):
-            return Ellipsometry(self._calls.ellipsometryVsAngle(self._data, {**given, **sweep}))
+            answer = self._calls.ellipsometryVsAngle(self._data, {**given, **sweep})
+        return self._in_environment(Ellipsometry, answer, options.get("env"))
 
     def group_delay(self, start=None, end=None, **options):
         """Phase, group delay, GDD, TOD and CDC of the design's reflected or
@@ -2060,7 +2115,9 @@ class Design:
         layers gives its bare surface. side="total", with response="T" alone,
         is the whole part as Pulse Analysis computes it: the front coating,
         one pass through the substrate and the back coating. The design's
-        cone of incidence is not used, as the window does not use it.
+        cone of incidence is not used, as the window does not use it. A
+        design with more than one environment is computed in environment 1,
+        its own media and substrate, unless env names another.
 
         GD, GDD and TOD are analytic values at each wavelength, so they do not
         depend on the grid. The phase is unwrapped along the grid, so on a
@@ -2088,17 +2145,23 @@ class Design:
                 nearest it, as the window plots it; when that sample has no
                 value, the phase stays absolute and reference is None.
                 Default: the phase is absolute.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one set of curves per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            A GroupDelay.
+            A GroupDelay; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: a range that is not one, a step that is not a
                 positive number or "auto", an angle outside 0 to 90, a
                 polarization, response or side it does not have, "total" with
                 response="R", a reference that is not a wavelength above 0,
-                more than a million wavelengths, or a design that names a
-                material that resolves to nothing.
+                more than a million wavelengths, a design that names a
+                material that resolves to nothing, or an environment the
+                design does not have.
 
         Example::
 
@@ -2106,8 +2169,13 @@ class Design:
             design.stack("(HL)^8 H")
             g = design.group_delay(500, 600, step=1)
             print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.group_delay(500, 600, step=1, env="all"):
+                print(one.environment["number"], one.environment["name"], "mean GD from 540 to 560 nm",
+                      round(one.gd.mean(540, 560), 3), "fs")
         """
-        return GroupDelay(self._over_range(_GROUP_DELAY_WORDS, _GROUP_DELAY_OPTIONS, start, end, options))
+        answer = self._over_range(_GROUP_DELAY_WORDS, _GROUP_DELAY_OPTIONS, start, end, options)
+        return self._in_environment(GroupDelay, answer, options.get("env"))
 
     def set_pulse_spectrum(self, file_or_rows):
         """Sets the spectrum the design holds for Pulse Analysis, as the
@@ -2708,6 +2776,15 @@ class Design:
         the method `method`, whose name its refusals then begin with."""
         with worded(Words(call, method)):
             return getattr(self._calls, call)(self._data, api_names(options))
+
+    def _at_wavelength(self, words, kind, wavelength, options):
+        """What the API's call `words.call` reads of one coated side at
+        `wavelength` with `options`, the keywords of the method
+        `words.method`, as a `kind` made with the environment it was computed
+        in; with env "all", a list of them, one per environment."""
+        with worded(words):
+            answer = getattr(self._calls, words.call)(self._data, api_names({**options, "wavelength": wavelength}))
+        return self._in_environment(kind, answer, options.get("env"))
 
     def _over_range(self, words, known, start, end, options):
         """What the API's call `words.call` reads of the design over the

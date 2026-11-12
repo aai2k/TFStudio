@@ -45,7 +45,9 @@ export function paletteColors(colors, prefix, size = PALETTE_SIZE) {
 /**
  * The colours of a window that draws several environments of a design at
  * once: environment n in colour n, cycling after the tenth. Each such window
- * holds them as its own `env1`…`env10`, so Settings shows them under Palette.
+ * holds them as its own `env1`…`env10`. Settings shows them under Palette, or
+ * under Environment palette in a window that has a palette of its own besides,
+ * such as the Admittance Diagram's material colours.
  */
 export const ENVIRONMENT_COLORS = [
   '#ef5350', '#ffa726', '#ab47bc', '#26a69a', '#66bb6a',
@@ -269,7 +271,8 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   gdGddEvaluation: {
-    colors: { curve: '#4fc3f7' },
+    // The curve, and under All each environment's curve in its own colour.
+    colors: { curve: '#4fc3f7', ...palette('env', ENVIRONMENT_COLORS) },
     numbers: {
       lamStart: { def: 400, ...LAMBDA },
       lamEnd: { def: 800, ...LAMBDA },
@@ -331,7 +334,8 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   ellipsometryEvaluation: {
-    colors: { psi: '#4fc3f7', delta: '#ef5350' },
+    // Ψ and Δ, and under All each environment's Ψ and Δ in its own colour.
+    colors: { psi: '#4fc3f7', delta: '#ef5350', ...palette('env', ENVIRONMENT_COLORS) },
     numbers: {
       ...lambdaRange(400, 800),
       lambdaStep: { def: 0.5, positive: true, step: 0.5 },
@@ -358,6 +362,8 @@ export const ANALYSIS_DEFAULTS = {
         '#4fc3f7', '#ef5350', '#66bb6a', '#ffca28', '#ab47bc',
         '#26c6da', '#ff7043', '#ec407a', '#78909c', '#8d6e63',
       ]),
+      // Under All each environment's locus in its own colour instead.
+      ...palette('env', ENVIRONMENT_COLORS),
     },
     numbers: { theta: { ...AOI, step: 0.5 } },
     enums: {
@@ -369,7 +375,8 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   eFieldEvaluation: {
-    colors: { avg: '#66bb6a', s: '#4fc3f7', p: '#ef5350' },
+    // Each polarization's curve, and under All each environment's in its own colour.
+    colors: { avg: '#66bb6a', s: '#4fc3f7', p: '#ef5350', ...palette('env', ENVIRONMENT_COLORS) },
     numbers: { theta: AOI },
     enums: {
       pol: POL,
@@ -404,7 +411,8 @@ export const ANALYSIS_DEFAULTS = {
   },
 
   refractiveIndexProfiler: {
-    colors: { n: '#4fc3f7', k: '#ef5350' },
+    // n and k, and under All each environment's profile in its own colour.
+    colors: { n: '#4fc3f7', k: '#ef5350', ...palette('env', ENVIRONMENT_COLORS) },
     // Both n and k on one plot, and the total profile across both sides, are
     // choices of this window alone, so it names its own labels for them.
     enums: {

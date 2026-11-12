@@ -236,14 +236,14 @@ export function AdmittanceChart({ series, matColorMap, matName, c }) {
     const marks = useAnalysisColors('admittanceDiagram');
     useEffect(() => {
         const chart = drawChart(divRef.current, chartRef,
-            buildAdmittanceOption(series, matColorMap, matName, colors, marks,
-                squareGrid(divRef.current, plotMargin())));
+            buildAdmittanceOption(series, matColorMap, matName, colors,
+                { marks, grid: squareGrid(divRef.current, plotMargin()) }));
         bindProgressiveZoom(chart);
     });
     useChartTeardown(divRef, chartRef, () => {
         drawChart(divRef.current, chartRef,
-            buildAdmittanceOption(series, matColorMap, matName, colors, marks,
-                squareGrid(divRef.current, plotMargin())));
+            buildAdmittanceOption(series, matColorMap, matName, colors,
+                { marks, grid: squareGrid(divRef.current, plotMargin()) }));
     });
     return h('div', { ref: divRef, style: { width: '100%', height: '100%', minHeight: 200 } });
 }

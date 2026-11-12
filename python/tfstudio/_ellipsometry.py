@@ -56,14 +56,14 @@ class Ellipsometry:
         print(e.mode, min(e.psi), max(e.angle(70).delta))
     """
 
-    def __init__(self, result):
+    def __init__(self, result, environment=None):
         wavelength = result["wavelength"]
         angular = not isinstance(wavelength, list)
         series = [{"psi": result["psi"], "delta": result["delta"]}] if angular else result["angles"]
         angles = result["angle"] if angular else [one["angle"] for one in series]
         self._values = {"mode": result["mode"], "wavelength": wavelength, "angles": angles,
                         "delta_convention": result["deltaConvention"], "out_of_range": result["outOfRange"],
-                        "angular": angular, "name": None}
+                        "angular": angular, "name": None, "environment": environment}
         self._series = series
         if angular:
             self._curves = [{name: AngleCurve(one[name], angles) for name in ("psi", "delta")} for one in series]
@@ -144,6 +144,18 @@ class Ellipsometry:
             design.stack("(HL)^3 H")
             print([m["id"] for m in design.ellipsometry(200, 2500, step=10).out_of_range])
         """)
+    environment = _reading("environment", """The environment Ψ and Δ were computed in, a dict of number, id
+        and name, when design.ellipsometry() or design.ellipsometry_vs_angle() was given env; None
+        without one, when they were computed in environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for e in design.ellipsometry(400, 800, env="all"):
+                print(e.environment["number"], e.environment["name"], round(e.psi.mean(), 2))
+        """)
 
     def angle(self, angle):
         """The sweep against wavelength at one of the angles it was computed
@@ -174,7 +186,8 @@ class Ellipsometry:
             if computed == angle:
                 return Ellipsometry({"mode": values["mode"], "wavelength": values["wavelength"],
                                      "deltaConvention": values["delta_convention"],
-                                     "outOfRange": values["out_of_range"], "angles": [self._series[i]]})._named(values["name"])
+                                     "outOfRange": values["out_of_range"], "angles": [self._series[i]]},
+                                    values["environment"])._named(values["name"])
         raise TFStudioError("angle: the sweep was computed at {}, not at {}".format(values["angles"], angle))
 
     def save_csv(self, path):

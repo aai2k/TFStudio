@@ -471,21 +471,29 @@
     "hash": "3c5b4dfa",
     "text": "`'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。"
   },
-  "Design.indexProfile.returns": {
-    "hash": "6db76ccf",
-    "text": "一个 IndexProfile。"
+  "Design.indexProfile.arg.env": {
+    "hash": "cdb3238d",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个分布，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.indexProfile.returns.js": {
+    "hash": "09ae21b8",
+    "text": "一个 IndexProfile；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.indexProfile.returns.py": {
+    "hash": "730fadcc",
+    "text": "一个 IndexProfile；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.indexProfile.lead.1": {
-    "hash": "d9840484",
-    "text": "各膜层在某一波长处的折射率，按深度排列，与折射率分布窗口的显示相同。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`：对于一面，膜层按光从该面介质射来时遇到它们的顺序排列；对于整个元件，依次为正面、基底和背面，与窗口的“整体”视图相同。没有厚度的膜层被略去，与窗口的做法相同。"
+    "hash": "fbd2fb6f",
+    "text": "各膜层在某一波长处的折射率，按深度排列，与折射率分布窗口的显示相同。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`：对于一面，膜层按光从该面介质射来时遇到它们的顺序排列；对于整个元件，依次为正面、基底和背面，与窗口的“整体”视图相同。没有厚度的膜层被略去，与窗口的做法相同。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。"
   },
   "Design.indexProfile.refuses.1.js": {
-    "hash": "b36944be",
-    "text": "它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
+    "hash": "774684c9",
+    "text": "它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有厚度大于 0 nm 的膜层的面、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.indexProfile.refuses.1.py": {
-    "hash": "2f2e8d67",
-    "text": "小于等于 0 的波长、不是 \"front\"、\"back\" 或 \"total\" 的面、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
+    "hash": "d02998bb",
+    "text": "小于等于 0 的波长、不是 \"front\"、\"back\" 或 \"total\" 的面、没有厚度大于 0 nm 的膜层的面、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.layerThicknesses.arg.wavelength": {
     "hash": "9a9ba4d5",
@@ -591,25 +599,33 @@
     "hash": "beb15659",
     "text": "圆弧所在的平面：`'admittance'` 为 Y 平面，`'reflection'` 为反射系数 Γ 的平面。"
   },
-  "Design.admittance.returns": {
-    "hash": "d3657b15",
-    "text": "一个 Admittance。"
+  "Design.admittance.arg.env": {
+    "hash": "f9ac67f5",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组导纳轨迹，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.admittance.returns.js": {
+    "hash": "f6a3d6b6",
+    "text": "一个 Admittance；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.admittance.returns.py": {
+    "hash": "d13354f7",
+    "text": "一个 Admittance；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.admittance.lead.1.js": {
-    "hash": "b40e0a42",
-    "text": "一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。"
+    "hash": "20a5b178",
+    "text": "一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。"
   },
   "Design.admittance.lead.1.py": {
-    "hash": "c8a8aa72",
-    "text": "一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 Python 的 complex，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。"
+    "hash": "ea602c80",
+    "text": "一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 Python 的 complex，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 env 指定了其他环境。"
   },
   "Design.admittance.refuses.1.js": {
-    "hash": "7e5e5d37",
-    "text": "它不接受的选项、小于等于 0 的波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'admittance'` 或 `'reflection'` 的平面、没有膜层的面，或用到找不到对应材料的设计"
+    "hash": "9a8bb3fa",
+    "text": "它不接受的选项、小于等于 0 的波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'admittance'` 或 `'reflection'` 的平面、没有膜层的面、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.admittance.refuses.1.py": {
-    "hash": "77633ca3",
-    "text": "小于等于 0 的波长、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、不是 \"admittance\" 或 \"reflection\" 的平面、没有膜层的面，或用到找不到对应材料的设计"
+    "hash": "5205c3ef",
+    "text": "小于等于 0 的波长、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、不是 \"admittance\" 或 \"reflection\" 的平面、没有膜层的面、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.electricField.arg.wavelength": {
     "hash": "f6a4593e",
@@ -635,21 +651,29 @@
     "hash": "c72f24d4",
     "text": "光学深度单位读取 n 所用的波长 λ0，单位 nm。不给出时，使用设计的参考波长。"
   },
-  "Design.electricField.returns": {
-    "hash": "3b299bff",
-    "text": "一个 ElectricField。"
+  "Design.electricField.arg.env": {
+    "hash": "b45475e6",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个电场，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.electricField.returns.js": {
+    "hash": "5afe8437",
+    "text": "一个 ElectricField；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.electricField.returns.py": {
+    "hash": "0e8df124",
+    "text": "一个 ElectricField；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.electricField.lead.1": {
-    "hash": "07419e7f",
-    "text": "一个镀膜面在某一波长处 s、p 和非偏振光的电场，与电场窗口的计算相同，从光射来的介质到基底。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。|E|² 为入射 |E|² 的比例，幅值以 V/m 计，对应 1 W/m² 的入射光。"
+    "hash": "d0b1c22a",
+    "text": "一个镀膜面在某一波长处 s、p 和非偏振光的电场，与电场窗口的计算相同，从光射来的介质到基底。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。|E|² 为入射 |E|² 的比例，幅值以 V/m 计，对应 1 W/m² 的入射光。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。"
   },
   "Design.electricField.refuses.1.js": {
-    "hash": "df14dc07",
-    "text": "它不接受的选项、小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、它没有的深度单位、不是 2 或更大整数的 pointsPerLayer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
+    "hash": "51bd3309",
+    "text": "它不接受的选项、小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、它没有的深度单位、不是 2 或更大整数的 pointsPerLayer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.electricField.refuses.1.py": {
-    "hash": "b2695bd7",
-    "text": "小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、它没有的深度单位、不是 2 或更大整数的 points_per_layer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计"
+    "hash": "a32d3aa6",
+    "text": "小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、它没有的深度单位、不是 2 或更大整数的 points_per_layer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.color.arg.quantity": {
     "hash": "d5abc355",
@@ -2271,6 +2295,14 @@
     "hash": "c51a8c17",
     "text": "数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：它们在该处的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波长时为空。"
   },
+  "IndexProfile.environment.lead.1.js": {
+    "hash": "48163573",
+    "text": "分布计算所在的环境，design.indexProfile() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时分布在环境 1（即设计自身的介质和基底）中计算。"
+  },
+  "IndexProfile.environment.lead.1.py": {
+    "hash": "b3aa7ef2",
+    "text": "分布计算所在的环境，design.index_profile() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时分布在环境 1（即设计自身的介质和基底）中计算。"
+  },
   "IndexProfile.saveCsv.arg.path.js": {
     "hash": "b38b7297",
     "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
@@ -2371,6 +2403,14 @@
     "hash": "37f1749a",
     "text": "所计算的面上数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：它们在该处的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该波长时为空。"
   },
+  "Admittance.environment.lead.1.js": {
+    "hash": "1e789407",
+    "text": "导纳轨迹计算所在的环境，design.admittance() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时导纳轨迹在环境 1（即设计自身的介质和基底）中计算。"
+  },
+  "Admittance.environment.lead.1.py": {
+    "hash": "d8f7c636",
+    "text": "导纳轨迹计算所在的环境，design.admittance() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时导纳轨迹在环境 1（即设计自身的介质和基底）中计算。"
+  },
   "Admittance.saveCsv.arg.path.js": {
     "hash": "b38b7297",
     "text": "要写入的文件，给出完整路径。相对路径以程序启动时所在的文件夹为基准：在脚本控制台中，是启动 TFStudio 时所在的文件夹，通常是其安装文件夹。"
@@ -2466,6 +2506,14 @@
   "ElectricField.outOfRange.lead.1.py": {
     "hash": "6173c102",
     "text": "所计算的面上数据达不到该波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list，与 Admittance 的相同。"
+  },
+  "ElectricField.environment.lead.1.js": {
+    "hash": "0e00269e",
+    "text": "电场计算所在的环境，design.electricField() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时电场在环境 1（即设计自身的介质和基底）中计算。"
+  },
+  "ElectricField.environment.lead.1.py": {
+    "hash": "7bea0aae",
+    "text": "电场计算所在的环境，design.electric_field() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时电场在环境 1（即设计自身的介质和基底）中计算。"
   },
   "ElectricField.saveCsv.arg.path.js": {
     "hash": "b38b7297",
@@ -3223,21 +3271,29 @@
     "hash": "c0e7d281",
     "text": "Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。两者的 Ψ 相同。"
   },
-  "Design.ellipsometry.returns": {
-    "hash": "a446dc34",
-    "text": "一个 Ellipsometry。"
+  "Design.ellipsometry.arg.env": {
+    "hash": "9c5e20f5",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一次扫描，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.ellipsometry.returns.js": {
+    "hash": "78aa8d09",
+    "text": "一个 Ellipsometry；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.ellipsometry.returns.py": {
+    "hash": "668a12a0",
+    "text": "一个 Ellipsometry；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.ellipsometry.lead.1": {
-    "hash": "04658516",
-    "text": "一个镀膜面的 Ψ 和 Δ 随波长的变化，在一个或多个入射角下，与椭偏仪评估窗口的光谱扫描计算的相同，由 ρ = r_p / r_s = tan Ψ · exp(i Δ) 得出。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。"
+    "hash": "867ea1ae",
+    "text": "一个镀膜面的 Ψ 和 Δ 随波长的变化，在一个或多个入射角下，与椭偏仪评估窗口的光谱扫描计算的相同，由 ρ = r_p / r_s = tan Ψ · exp(i Δ) 得出。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。"
   },
   "Design.ellipsometry.refuses.1.js": {
-    "hash": "1a114269",
-    "text": "它不接受的选项、不构成范围的波长范围、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定、超过一百万个点（波长数乘以角度数），或用到找不到对应材料的设计"
+    "hash": "890120df",
+    "text": "它不接受的选项、不构成范围的波长范围、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定、超过一百万个点（波长数乘以角度数）、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.ellipsometry.refuses.1.py": {
-    "hash": "58a453a8",
-    "text": "不构成范围的波长范围、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、不是 \"azzam\" 或 \"reversed\" 的符号约定、超过一百万个点（波长数乘以角度数），或用到找不到对应材料的设计"
+    "hash": "153e3203",
+    "text": "不构成范围的波长范围、0 到 90 以外的角度、不是 \"front\" 或 \"back\" 的面、不是 \"azzam\" 或 \"reversed\" 的符号约定、超过一百万个点（波长数乘以角度数）、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.ellipsometryVsAngle.arg.wavelength": {
     "hash": "f6a4593e",
@@ -3263,21 +3319,29 @@
     "hash": "c0e7d281",
     "text": "Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。两者的 Ψ 相同。"
   },
-  "Design.ellipsometryVsAngle.returns": {
-    "hash": "a446dc34",
-    "text": "一个 Ellipsometry。"
+  "Design.ellipsometryVsAngle.arg.env": {
+    "hash": "9c5e20f5",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一次扫描，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.ellipsometryVsAngle.returns.js": {
+    "hash": "78aa8d09",
+    "text": "一个 Ellipsometry；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.ellipsometryVsAngle.returns.py": {
+    "hash": "668a12a0",
+    "text": "一个 Ellipsometry；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.ellipsometryVsAngle.lead.1": {
-    "hash": "3f75fc3f",
-    "text": "一个镀膜面的 Ψ 和 Δ 在某一波长处随入射角的变化，与椭偏仪评估窗口的角度扫描计算的相同。角度从 `start` 起，按 `step` 递增，每个取整到 0.001 度，直到 `end`。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。"
+    "hash": "2d06042c",
+    "text": "一个镀膜面的 Ψ 和 Δ 在某一波长处随入射角的变化，与椭偏仪评估窗口的角度扫描计算的相同。角度从 `start` 起，按 `step` 递增，每个取整到 0.001 度，直到 `end`。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。"
   },
   "Design.ellipsometryVsAngle.refuses.1.js": {
-    "hash": "a2796a1c",
-    "text": "它不接受的选项、小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定，或用到找不到对应材料的设计"
+    "hash": "f776437a",
+    "text": "它不接受的选项、小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.ellipsometryVsAngle.refuses.1.py": {
-    "hash": "ef1c9a1d",
-    "text": "小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 \"front\" 或 \"back\" 的面、不是 \"azzam\" 或 \"reversed\" 的符号约定，或用到找不到对应材料的设计"
+    "hash": "8c505ba6",
+    "text": "小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 \"front\" 或 \"back\" 的面、不是 \"azzam\" 或 \"reversed\" 的符号约定、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.groupDelay.arg.start": {
     "hash": "115f61f2",
@@ -3315,17 +3379,25 @@
     "hash": "ffb611e9",
     "text": "一个波长，单位 nm：相位随之在离它最近的采样点处为 0，与窗口绘图的方式相同；该采样点没有数值时，相位保持为绝对值，`reference` 为 `null` / `None`。不给出时，相位为绝对值。"
   },
-  "Design.groupDelay.returns": {
-    "hash": "58b10d6a",
-    "text": "一个 GroupDelay。"
+  "Design.groupDelay.arg.env": {
+    "hash": "6b72d31a",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组曲线，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.groupDelay.returns.js": {
+    "hash": "8466d736",
+    "text": "一个 GroupDelay；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.groupDelay.returns.py": {
+    "hash": "cc169cd0",
+    "text": "一个 GroupDelay；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.groupDelay.lead.1.js": {
-    "hash": "53c01460",
-    "text": "设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。`side: 'total'` 只与 `response: 'T'` 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。"
+    "hash": "a1d354b4",
+    "text": "设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。`side: 'total'` 只与 `response: 'T'` 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。"
   },
   "Design.groupDelay.lead.1.py": {
-    "hash": "515b039b",
-    "text": "设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。side=\"total\" 只与 response=\"T\" 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。"
+    "hash": "a7e2d984",
+    "text": "设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。side=\"total\" 只与 response=\"T\" 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 env 指定了其他环境。"
   },
   "Design.groupDelay.lead.2.js": {
     "hash": "cee161bc",
@@ -3336,12 +3408,12 @@
     "text": "GD、GDD 和 TOD 是每个波长处的解析值，因此与网格无关。相位沿网格解缠，因此在均匀网格上，跨过比步长更窄的共振时可能相差 2π。对于整个元件，基底自身的相位 −2π n d cosθ / λ（n、d 和 θ 为其折射率、厚度和光在其中的角度）按原样加入，因此只有膜层的相位被解缠。step=\"auto\" 给出窗口自己的网格，它在反射极小值和表格节点处加点，因此在其上取的平均值会偏向那里的尖峰。"
   },
   "Design.groupDelay.refuses.1.js": {
-    "hash": "755e803d",
-    "text": "它不接受的选项、不构成范围的波长范围、既不是正数也不是 `'auto'` 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、`response: 'R'` 时的 `'total'`、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计"
+    "hash": "f834c8fb",
+    "text": "它不接受的选项、不构成范围的波长范围、既不是正数也不是 `'auto'` 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、`response: 'R'` 时的 `'total'`、不是大于 0 的波长的参考、超过一百万个波长、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.groupDelay.refuses.1.py": {
-    "hash": "15de6106",
-    "text": "不构成范围的波长范围、既不是正数也不是 \"auto\" 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、response=\"R\" 时的 \"total\"、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计"
+    "hash": "f878fd0c",
+    "text": "不构成范围的波长范围、既不是正数也不是 \"auto\" 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、response=\"R\" 时的 \"total\"、不是大于 0 的波长的参考、超过一百万个波长、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.setPulseSpectrum.arg.fileOrRows.js": {
     "hash": "32cc0e3d",
@@ -3595,6 +3667,14 @@
     "hash": "5b25e5a7",
     "text": "所计算的面上数据在范围内中断的材料，对随角度的扫描则是数据达不到那一个波长的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖时为空。"
   },
+  "Ellipsometry.environment.lead.1.js": {
+    "hash": "a5cc71d0",
+    "text": "Ψ 和 Δ 计算所在的环境，design.ellipsometry() 或 design.ellipsometryVsAngle() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时 Ψ 和 Δ 在环境 1（即设计自身的介质和基底）中计算。"
+  },
+  "Ellipsometry.environment.lead.1.py": {
+    "hash": "c2b16bf1",
+    "text": "Ψ 和 Δ 计算所在的环境，design.ellipsometry() 或 design.ellipsometry_vs_angle() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时 Ψ 和 Δ 在环境 1（即设计自身的介质和基底）中计算。"
+  },
   "Ellipsometry.angle.arg.angle": {
     "hash": "b9dde299",
     "text": "入射角，单位为度。"
@@ -3786,6 +3866,14 @@
   "GroupDelay.outOfRange.lead.1.py": {
     "hash": "e75a50b7",
     "text": "所计算对象上数据在该范围内中断的材料，一个由 dict（id、name、rangeNm 和 heldFlat）组成的 list：在 rangeNm 之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "GroupDelay.environment.lead.1.js": {
+    "hash": "2dc433b5",
+    "text": "曲线计算所在的环境，design.groupDelay() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时曲线在环境 1（即设计自身的介质和基底）中计算。"
+  },
+  "GroupDelay.environment.lead.1.py": {
+    "hash": "d2792a3b",
+    "text": "曲线计算所在的环境，design.group_delay() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时曲线在环境 1（即设计自身的介质和基底）中计算。"
   },
   "GroupDelay.saveCsv.arg.path.js": {
     "hash": "b38b7297",

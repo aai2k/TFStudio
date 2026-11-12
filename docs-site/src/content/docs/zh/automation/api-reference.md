@@ -1506,26 +1506,29 @@ print(design.merit.value)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.indexProfile({ wavelength, side })` | `design.index_profile(wavelength=..., side=...)` |
+| `design.indexProfile({ wavelength, side, env })` | `design.index_profile(wavelength=..., side=..., env=...)` |
 
-各膜层在某一波长处的折射率，按深度排列，与折射率分布窗口的显示相同。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`：对于一面，膜层按光从该面介质射来时遇到它们的顺序排列；对于整个元件，依次为正面、基底和背面，与窗口的“整体”视图相同。没有厚度的膜层被略去，与窗口的做法相同。
+各膜层在某一波长处的折射率，按深度排列，与折射率分布窗口的显示相同。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`：对于一面，膜层按光从该面介质射来时遇到它们的顺序排列；对于整个元件，依次为正面、基底和背面，与窗口的“整体”视图相同。没有厚度的膜层被略去，与窗口的做法相同。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
 | `wavelength` | `wavelength` |  | 读取 n 和 k 所用的波长，单位 nm。不给出时，使用设计的参考波长。 |
 | `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个分布，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 IndexProfile。
+**返回**：**JavaScript**：一个 IndexProfile；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 IndexProfile；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长、不是 "front"、"back" 或 "total" 的面、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有厚度大于 0 nm 的膜层的面、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：小于等于 0 的波长、不是 "front"、"back" 或 "total" 的面、没有厚度大于 0 nm 的膜层的面、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 const profile = design.indexProfile({ wavelength: 633 });
 for (const l of profile.layers) console.log(l.number, l.material, l.n.toFixed(4), l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const one of design.indexProfile({ wavelength: 633, env: 'all' })) console.log(one.environment.number, one.environment.name, one.thickness.toFixed(1), 'nm thick');
 ```
 
 ```python
@@ -1534,6 +1537,9 @@ design.stack("(HL)^3 H")
 profile = design.index_profile(wavelength=633)
 for l in profile.layers:
     print(l.number, l.material, round(l.n, 4), round(l.start, 1), "to", round(l.end, 1), "nm")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for one in design.index_profile(wavelength=633, env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.thickness, 1), "nm thick")
 ```
 
 ### layerThicknesses / layer_thicknesses
@@ -1664,11 +1670,11 @@ print(design.layer_counts())
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.admittance(wavelength, { angle, side, plane })` | `design.admittance(wavelength=..., angle=0, side=..., plane="admittance")` |
+| `design.admittance(wavelength, { angle, side, plane, env })` | `design.admittance(wavelength=..., angle=0, side=..., plane="admittance", env=...)` |
 
-**JavaScript**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。
+**JavaScript**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。
 
-**Python**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 Python 的 complex，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。
+**Python**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，与导纳图窗口绘出并在其表格中列出的相同：从基底的导纳出发，经过每层外表面处的导纳，到镀膜的外表面。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。复数值为 Python 的 complex，采用 Macleod 的符号，即窗口所用的符号：吸收材料的折射率为 n − ik。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 env 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -1676,12 +1682,13 @@ print(design.layer_counts())
 | `angle` | `angle` | `0` | 入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。 |
 | `side` | `side` |  | `'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
 | `plane` | `plane` | `'admittance'` | 圆弧所在的平面：`'admittance'` 为 Y 平面，`'reflection'` 为反射系数 Γ 的平面。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组导纳轨迹，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Admittance。
+**返回**：**JavaScript**：一个 Admittance；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Admittance；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、小于等于 0 的波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'admittance'` 或 `'reflection'` 的平面、没有膜层的面，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长、0 到 90 以外的角度、不是 "front" 或 "back" 的面、不是 "admittance" 或 "reflection" 的平面、没有膜层的面，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、小于等于 0 的波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'admittance'` 或 `'reflection'` 的平面、没有膜层的面、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：小于等于 0 的波长、0 到 90 以外的角度、不是 "front" 或 "back" 的面、不是 "admittance" 或 "reflection" 的平面、没有膜层的面、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -1689,6 +1696,8 @@ design.stack('(HL)^3 H');
 const locus = design.admittance(550, { angle: 45 });
 const { Y, gamma } = locus.s.boundaries.at(-1);
 console.log(locus.mode, 'Y', Y.re.toFixed(4), Y.im.toFixed(4), 'Rs', (gamma.re ** 2 + gamma.im ** 2).toFixed(6));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.admittance(550, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'eta0', one.s.eta0.re.toFixed(4));
 ```
 
 ```python
@@ -1697,15 +1706,18 @@ design.stack("(HL)^3 H")
 locus = design.admittance(550, angle=45)
 front = locus.s.boundaries[-1]
 print(locus.mode, "Y", front.Y, "Rs", abs(front.gamma) ** 2)
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.admittance(550, env="all"):
+    print(one.environment["number"], one.environment["name"], "eta0", one.s.eta0)
 ```
 
 ### electricField / electric_field
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.electricField(wavelength, { angle, side, pointsPerLayer, depthUnit, reference })` | `design.electric_field(wavelength=..., angle=0, side=..., points_per_layer=60, depth_unit="nm", reference=...)` |
+| `design.electricField(wavelength, { angle, side, pointsPerLayer, depthUnit, reference, env })` | `design.electric_field(wavelength=..., angle=0, side=..., points_per_layer=60, depth_unit="nm", reference=..., env=...)` |
 
-一个镀膜面在某一波长处 s、p 和非偏振光的电场，与电场窗口的计算相同，从光射来的介质到基底。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。|E|² 为入射 |E|² 的比例，幅值以 V/m 计，对应 1 W/m² 的入射光。
+一个镀膜面在某一波长处 s、p 和非偏振光的电场，与电场窗口的计算相同，从光射来的介质到基底。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行。与窗口一样，不使用设计的入射锥角。|E|² 为入射 |E|² 的比例，幅值以 V/m 计，对应 1 W/m² 的入射光。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -1715,12 +1727,13 @@ print(locus.mode, "Y", front.Y, "Rs", abs(front.gamma) ** 2)
 | `pointsPerLayer` | `points_per_layer` | `60` | 每层取的采样点数，为 2 或更大的整数。 |
 | `depthUnit` | `depth_unit` | `'nm'` | `depth` 的单位：`'nm'`、`'OT'`（n 与厚度之积的累加，nm）、`'QWOT'` 或 `'FWOT'`。 |
 | `reference` | `reference` |  | 光学深度单位读取 n 所用的波长 λ0，单位 nm。不给出时，使用设计的参考波长。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个电场，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 ElectricField。
+**返回**：**JavaScript**：一个 ElectricField；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 ElectricField；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、它没有的深度单位、不是 2 或更大整数的 pointsPerLayer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 "front" 或 "back" 的面、它没有的深度单位、不是 2 或更大整数的 points_per_layer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、它没有的深度单位、不是 2 或更大整数的 pointsPerLayer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：小于等于 0 的波长或参考波长、0 到 90 以外的角度、不是 "front" 或 "back" 的面、它没有的深度单位、不是 2 或更大整数的 points_per_layer、超过一百万个采样点、没有厚度大于 0 nm 的膜层的面、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror', { reference: 1064 });
@@ -1728,6 +1741,8 @@ design.stack('(HL)^4 H');
 const field = design.electricField(1064, { angle: 45 });
 const peak = field.p.e2.indexOf(Math.max(...field.p.e2));
 console.log('peak |E|², p:', field.p.e2[peak].toFixed(4), 'at', field.z[peak].toFixed(1), 'nm');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.electricField(1064, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'peak |E|², s:', Math.max(...one.s.e2).toFixed(4));
 ```
 
 ```python
@@ -1736,6 +1751,9 @@ design.stack("(HL)^4 H")
 field = design.electric_field(1064, angle=45)
 peak = field.p.e2.index(max(field.p.e2))
 print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1), "nm")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.electric_field(1064, env="all"):
+    print(one.environment["number"], one.environment["name"], "peak |E|², s:", round(max(one.s.e2), 4))
 ```
 
 ### color
@@ -1834,9 +1852,9 @@ for one in design.integrals(env="all"):
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.ellipsometry(start, end, { step, angles, side, deltaConvention })` | `design.ellipsometry(start=400, end=800, step=0.5, angles=[65], side=..., delta_convention="azzam")` |
+| `design.ellipsometry(start, end, { step, angles, side, deltaConvention, env })` | `design.ellipsometry(start=400, end=800, step=0.5, angles=[65], side=..., delta_convention="azzam", env=...)` |
 
-一个镀膜面的 Ψ 和 Δ 随波长的变化，在一个或多个入射角下，与椭偏仪评估窗口的光谱扫描计算的相同，由 ρ = r_p / r_s = tan Ψ · exp(i Δ) 得出。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。
+一个镀膜面的 Ψ 和 Δ 随波长的变化，在一个或多个入射角下，与椭偏仪评估窗口的光谱扫描计算的相同，由 ρ = r_p / r_s = tan Ψ · exp(i Δ) 得出。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -1846,18 +1864,21 @@ for one in design.integrals(env="all"):
 | `angles` | `angles` | `[65]` | 入射角，单位为度，在光射来的介质中计，每个从 0 起，小于 90。 |
 | `side` | `side` |  | `'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
 | `deltaConvention` | `delta_convention` | `'azzam'` | Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。两者的 Ψ 相同。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一次扫描，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Ellipsometry。
+**返回**：**JavaScript**：一个 Ellipsometry；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Ellipsometry；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、不构成范围的波长范围、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定、超过一百万个点（波长数乘以角度数），或用到找不到对应材料的设计<br>**Python**：不构成范围的波长范围、0 到 90 以外的角度、不是 "front" 或 "back" 的面、不是 "azzam" 或 "reversed" 的符号约定、超过一百万个点（波长数乘以角度数），或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、不构成范围的波长范围、0 到 90 以外的角度、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定、超过一百万个点（波长数乘以角度数）、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：不构成范围的波长范围、0 到 90 以外的角度、不是 "front" 或 "back" 的面、不是 "azzam" 或 "reversed" 的符号约定、超过一百万个点（波长数乘以角度数）、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 const e = design.ellipsometry(400, 800, { step: 1, angles: [55, 70] });
 console.log(e.mode, 'Psi at 55 degrees from', Math.min(...e.psi).toFixed(2), 'to', Math.max(...e.psi).toFixed(2));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.ellipsometry(400, 800, { step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'mean Psi', one.psi.mean().toFixed(2));
 ```
 
 ```python
@@ -1865,15 +1886,18 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 e = design.ellipsometry(400, 800, step=1, angles=[55, 70])
 print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.psi), 2))
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.ellipsometry(400, 800, step=1, env="all"):
+    print(one.environment["number"], one.environment["name"], "mean Psi", round(one.psi.mean(), 2))
 ```
 
 ### ellipsometryVsAngle / ellipsometry_vs_angle
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.ellipsometryVsAngle(wavelength, start, end, { step, side, deltaConvention })` | `design.ellipsometry_vs_angle(wavelength=..., start=45, end=80, step=0.5, side=..., delta_convention="azzam")` |
+| `design.ellipsometryVsAngle(wavelength, start, end, { step, side, deltaConvention, env })` | `design.ellipsometry_vs_angle(wavelength=..., start=45, end=80, step=0.5, side=..., delta_convention="azzam", env=...)` |
 
-一个镀膜面的 Ψ 和 Δ 在某一波长处随入射角的变化，与椭偏仪评估窗口的角度扫描计算的相同。角度从 `start` 起，按 `step` 递增，每个取整到 0.001 度，直到 `end`。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。
+一个镀膜面的 Ψ 和 Δ 在某一波长处随入射角的变化，与椭偏仪评估窗口的角度扫描计算的相同。角度从 `start` 起，按 `step` 递增，每个取整到 0.001 度，直到 `end`。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。与窗口一样，不使用设计的入射锥角。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -1883,18 +1907,21 @@ print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.
 | `step` | `step` | `0.5` | 角度步长，单位为度，从 0.05 到跨度，即 `end` 减 `start`。 |
 | `side` | `side` |  | `'front'` 或 `'back'`。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
 | `deltaConvention` | `delta_convention` | `'azzam'` | Δ 的符号：`'azzam'` 为椭偏仪记录的 Azzam-Bashara 符号，`'reversed'` 为 360 度减去该值。两者的 Ψ 相同。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一次扫描，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Ellipsometry。
+**返回**：**JavaScript**：一个 Ellipsometry；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Ellipsometry；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 "front" 或 "back" 的面、不是 "azzam" 或 "reversed" 的符号约定，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 `'front'` 或 `'back'` 的面、不是 `'azzam'` 或 `'reversed'` 的符号约定、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：小于等于 0 的波长、不构成 0 到 89.5 之间范围的角度、小于 0.05 度或大于跨度的步长、不是 "front" 或 "back" 的面、不是 "azzam" 或 "reversed" 的符号约定、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 const e = design.ellipsometryVsAngle(633, 45, 80, { step: 0.5 });
 console.log('lowest Psi', e.psi.min().toFixed(3), 'at', e.psi.angle[e.psi.indexOf(e.psi.min())], 'degrees');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.ellipsometryVsAngle(633, 45, 80, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'lowest Psi', one.psi.min().toFixed(3));
 ```
 
 ```python
@@ -1902,17 +1929,20 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 e = design.ellipsometry_vs_angle(633, 45, 80, step=0.5)
 print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.min())], "degrees")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.ellipsometry_vs_angle(633, 45, 80, env="all"):
+    print(one.environment["number"], one.environment["name"], "lowest Psi", round(one.psi.min(), 3))
 ```
 
 ### groupDelay / group_delay
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.groupDelay(start, end, { step, angle, pol, response, side, reference })` | `design.group_delay(start=400, end=800, step=0.5, angle=0, pol="avg", response="R", side=..., reference=...)` |
+| `design.groupDelay(start, end, { step, angle, pol, response, side, reference, env })` | `design.group_delay(start=400, end=800, step=0.5, angle=0, pol="avg", response="R", side=..., reference=..., env=...)` |
 
-**JavaScript**：设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。`side: 'total'` 只与 `response: 'T'` 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。
+**JavaScript**：设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 `side`，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。`side: 'total'` 只与 `response: 'T'` 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境。
 
-**Python**：设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。side="total" 只与 response="T" 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。
+**Python**：设计的反射光或透射光的相位、群延迟、GDD、TOD 和 CDC 随波长的变化，与群延迟 / GDD 窗口的计算相同。除非给出 side，计算在正面进行；仅背面镀膜的设计在背面进行；没有膜层的面给出其裸表面的结果。side="total" 只与 response="T" 一起使用，是脉冲分析计算的整个元件：正面膜层、穿过一次基底以及背面膜层。与窗口一样，不使用设计的入射锥角。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 env 指定了其他环境。
 
 **JavaScript**：GD、GDD 和 TOD 是每个波长处的解析值，因此与网格无关。相位沿网格解缠，因此在均匀网格上，跨过比步长更窄的共振时可能相差 2π。对于整个元件，基底自身的相位 −2π n d cosθ / λ（n、d 和 θ 为其折射率、厚度和光在其中的角度）按原样加入，因此只有膜层的相位被解缠。`step: 'auto'` 给出窗口自己的网格，它在反射极小值和表格节点处加点，因此在其上取的平均值会偏向那里的尖峰。
 
@@ -1928,18 +1958,21 @@ print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.m
 | `response` | `response` | `'R'` | 取其相位的光：`'R'` 为反射光，`'T'` 为透射光。 |
 | `side` | `side` |  | **JavaScript**：`'front'`、`'back'`，或在 `response: 'T'` 时为 `'total'`（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。<br>**Python**："front"、"back"，或在 response="T" 时为 "total"（整个元件）。不给出时，仅背面镀膜的设计用背面，其他设计用正面。 |
 | `reference` | `reference` |  | 一个波长，单位 nm：相位随之在离它最近的采样点处为 0，与窗口绘图的方式相同；该采样点没有数值时，相位保持为绝对值，`reference` 为 `null` / `None`。不给出时，相位为绝对值。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组曲线，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 GroupDelay。
+**返回**：**JavaScript**：一个 GroupDelay；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 GroupDelay；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、不构成范围的波长范围、既不是正数也不是 `'auto'` 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、`response: 'R'` 时的 `'total'`、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计<br>**Python**：不构成范围的波长范围、既不是正数也不是 "auto" 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、response="R" 时的 "total"、不是大于 0 的波长的参考、超过一百万个波长，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、不构成范围的波长范围、既不是正数也不是 `'auto'` 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、`response: 'R'` 时的 `'total'`、不是大于 0 的波长的参考、超过一百万个波长、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：不构成范围的波长范围、既不是正数也不是 "auto" 的步长、0 到 90 以外的角度、它没有的偏振、响应或面、response="R" 时的 "total"、不是大于 0 的波长的参考、超过一百万个波长、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^8 H');
 const g = design.groupDelay(500, 600, { step: 1 });
 console.log(g.mode, 'GDD from 520 to 580 nm:', g.gdd.min(520, 580).toFixed(3), 'to', g.gdd.max(520, 580).toFixed(3), 'fs²');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.groupDelay(500, 600, { step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'mean GD from 540 to 560 nm', one.gd.mean(540, 560).toFixed(3), 'fs');
 ```
 
 ```python
@@ -1947,6 +1980,10 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 g = design.group_delay(500, 600, step=1)
 print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.group_delay(500, 600, step=1, env="all"):
+    print(one.environment["number"], one.environment["name"], "mean GD from 540 to 560 nm",
+          round(one.gd.mean(540, 560), 3), "fs")
 ```
 
 ### setPulseSpectrum / set_pulse_spectrum
@@ -6618,6 +6655,31 @@ design.stack("(HL)^3 H")
 print([m["id"] for m in design.index_profile(wavelength=5000).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.environment` | `profile.environment` |
+
+**JavaScript**：分布计算所在的环境，design.indexProfile() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时分布在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：分布计算所在的环境，design.index_profile() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时分布在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const profile of design.indexProfile({ env: 'all' })) console.log(profile.environment.number, profile.environment.name, profile.thickness.toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for profile in design.index_profile(env="all"):
+    print(profile.environment["number"], profile.environment["name"], round(profile.thickness, 1), "nm")
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -6962,6 +7024,31 @@ design.stack("(HL)^3 H")
 print([m["id"] for m in design.admittance(5000).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.environment` | `locus.environment` |
+
+**JavaScript**：导纳轨迹计算所在的环境，design.admittance() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时导纳轨迹在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：导纳轨迹计算所在的环境，design.admittance() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时导纳轨迹在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const locus of design.admittance(550, { env: 'all' })) console.log(locus.environment.number, locus.environment.name, locus.incident.material);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for locus in design.admittance(550, env="all"):
+    print(locus.environment["number"], locus.environment["name"], locus.incident.material)
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -7304,6 +7391,31 @@ console.log(design.electricField(5000).outOfRange.length, 'materials stop short 
 design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 print(len(design.electric_field(5000).out_of_range), "materials stop short of 5000 nm")
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.environment` | `field.environment` |
+
+**JavaScript**：电场计算所在的环境，design.electricField() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时电场在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：电场计算所在的环境，design.electric_field() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时电场在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const field of design.electricField(550, { env: 'all' })) console.log(field.environment.number, field.environment.name, Math.max(...field.s.e2).toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for field in design.electric_field(550, env="all"):
+    print(field.environment["number"], field.environment["name"], round(max(field.s.e2), 4))
 ```
 
 ### saveCsv / save_csv
@@ -8329,6 +8441,31 @@ design.stack("(HL)^3 H")
 print([m["id"] for m in design.ellipsometry(200, 2500, step=10).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.environment` | `e.environment` |
+
+**JavaScript**：Ψ 和 Δ 计算所在的环境，design.ellipsometry() 或 design.ellipsometryVsAngle() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时 Ψ 和 Δ 在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：Ψ 和 Δ 计算所在的环境，design.ellipsometry() 或 design.ellipsometry_vs_angle() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时 Ψ 和 Δ 在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const e of design.ellipsometry(400, 800, { env: 'all' })) console.log(e.environment.number, e.environment.name, e.psi.mean().toFixed(2));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for e in design.ellipsometry(400, 800, env="all"):
+    print(e.environment["number"], e.environment["name"], round(e.psi.mean(), 2))
+```
+
 ### angle
 
 | JavaScript | Python |
@@ -8905,6 +9042,31 @@ console.log(design.groupDelay(200, 2500, { step: 10 }).outOfRange.map(m => m.id)
 design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 print([m["id"] for m in design.group_delay(200, 2500, step=10).out_of_range])
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.environment` | `g.environment` |
+
+**JavaScript**：曲线计算所在的环境，design.groupDelay() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时曲线在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：曲线计算所在的环境，design.group_delay() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时曲线在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const g of design.groupDelay(500, 600, { step: 1, env: 'all' })) console.log(g.environment.number, g.environment.name, g.gdd.mean(540, 560).toFixed(3), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for g in design.group_delay(500, 600, step=1, env="all"):
+    print(g.environment["number"], g.environment["name"], round(g.gdd.mean(540, 560), 3), "fs²")
 ```
 
 ### saveCsv / save_csv

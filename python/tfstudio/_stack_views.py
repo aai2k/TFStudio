@@ -60,7 +60,7 @@ class IndexProfile:
             print(l.number, l.material, l.n, l.start, l.end)
     """
 
-    def __init__(self, profile):
+    def __init__(self, profile, environment=None):
         mode = profile["mode"]
         incident, substrate = profile["incident"], profile["substrate"]
         layers = [ProfileLayer(layer.get("side", mode), layer["number"], layer["material"], layer["n"], layer["k"],
@@ -71,7 +71,7 @@ class IndexProfile:
             "substrate": None if substrate is None else ProfileSubstrate(substrate["material"], substrate["n"], substrate["k"],
                                                                          substrate.get("thickness")),
             "layers": layers, "thickness": profile["thickness"], "optical_thickness": profile["opticalThickness"],
-            "out_of_range": profile["outOfRange"],
+            "out_of_range": profile["outOfRange"], "environment": environment,
         }
 
     mode = _reading("mode", """What it was laid out on: "front" or "back", that side alone, or "total",
@@ -155,6 +155,18 @@ class IndexProfile:
             design = tf.new_design("Mirror")
             design.stack("(HL)^3 H")
             print([m["id"] for m in design.index_profile(wavelength=5000).out_of_range])
+        """)
+    environment = _reading("environment", """The environment the profile was computed in, a dict of number,
+        id and name, when design.index_profile() was given env; None without one, when it was computed in
+        environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+            for profile in design.index_profile(env="all"):
+                print(profile.environment["number"], profile.environment["name"], round(profile.thickness, 1), "nm")
         """)
 
     def save_csv(self, path):

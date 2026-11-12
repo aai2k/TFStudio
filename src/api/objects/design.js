@@ -56,6 +56,14 @@ function environmentNamed(design, env) {
     return { number, id, name };
 }
 
+// What a call's `answer` with `env` gives as objects: `make(found,
+// environment)` of the answer with the environment it was computed in; with
+// env 'all', an array of them, one per environment.
+function madeIn(design, env, answer, make) {
+    if (env !== 'all') return make(answer, environmentNamed(design, env));
+    return answer.environments.map(({ number, id, name, ...found }) => make(found, { number, id, name }));
+}
+
 // The API's name of `value`, one of the names `mapping` holds for the
 // attribute `what`.
 function named(mapping, what, value) {
@@ -850,21 +858,27 @@ export class Design {
      * `side` is given: on one side, the layers in the order light meets them
      * coming from that side's medium; on the whole part, the front, the
      * substrate and the back, as the window's Total view lays them. A layer
-     * with no thickness is left out, as the window leaves it out.
+     * with no thickness is left out, as the window leaves it out. A design
+     * with more than one environment is computed in environment 1, its own
+     * media and substrate, unless `env` names another.
      *
      * @param [options]
      * @param [options.wavelength] The wavelength n and k are read at, nm. Without it, the design's reference wavelength.
      * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
-     * @returns An IndexProfile.
-     * @throws an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one profile per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns An IndexProfile; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layer thicker than 0 nm, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^3 H');
      * const profile = design.indexProfile({ wavelength: 633 });
      * for (const l of profile.layers) console.log(l.number, l.material, l.n.toFixed(4), l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+     * for (const one of design.indexProfile({ wavelength: 633, env: 'all' })) console.log(one.environment.number, one.environment.name, one.thickness.toFixed(1), 'nm thick');
      */
     indexProfile(options) {
-        return new IndexProfile(worded({ method: 'indexProfile', call: 'indexProfile' }, () => api.indexProfile(this._data, options)));
+        const answer = worded({ method: 'indexProfile', call: 'indexProfile' }, () => api.indexProfile(this._data, options));
+        return madeIn(this._data, options?.env, answer, (found, environment) => new IndexProfile(found, environment));
     }
 
     /**
@@ -958,27 +972,33 @@ export class Design {
      * the front, or on the back of a design coated on the back alone, unless
      * `side` is given. The design's cone of incidence is not used, as the
      * window does not use it. Complex values are `{ re, im }` in Macleod's
-     * sign, the window's: an absorbing material's index is n − ik.
+     * sign, the window's: an absorbing material's index is n − ik. A design
+     * with more than one environment is computed in environment 1, its own
+     * media and substrate, unless `env` names another.
      *
      * @param [wavelength] The wavelength, nm. Without it, the design's reference wavelength.
      * @param [options]
      * @param [options.angle=0] The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90.
      * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
      * @param [options.plane='admittance'] What the arcs are drawn in: `'admittance'`, the Y plane, or `'reflection'`, the plane of the reflection coefficient Γ.
-     * @returns An Admittance.
-     * @throws an option it does not take, a wavelength of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a plane other than `'admittance'` or `'reflection'`, a side with no layers, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one set of loci per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns An Admittance; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a wavelength of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a plane other than `'admittance'` or `'reflection'`, a side with no layers, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^3 H');
      * const locus = design.admittance(550, { angle: 45 });
      * const { Y, gamma } = locus.s.boundaries.at(-1);
      * console.log(locus.mode, 'Y', Y.re.toFixed(4), Y.im.toFixed(4), 'Rs', (gamma.re ** 2 + gamma.im ** 2).toFixed(6));
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.admittance(550, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'eta0', one.s.eta0.re.toFixed(4));
      */
     admittance(...args) {
         const [[wavelength], options] = trailingOptions('admittance', args, ['wavelength']);
         const words = { method: 'admittance', call: 'admittance', hidden: ['wavelength'] };
-        const given = checkOptions('admittance', options, ['angle', 'side', 'plane']);
-        return new Admittance(worded(words, () => api.admittance(this._data, defined({ ...given, wavelength }))));
+        const given = checkOptions('admittance', options, ['angle', 'side', 'plane', 'env']);
+        const answer = worded(words, () => api.admittance(this._data, defined({ ...given, wavelength })));
+        return madeIn(this._data, given.env, answer, (found, environment) => new Admittance(found, environment));
     }
 
     /**
@@ -988,7 +1008,9 @@ export class Design {
      * front, or on the back of a design coated on the back alone, unless
      * `side` is given. The design's cone of incidence is not used, as the
      * window does not use it. |E|² is a fraction of the incident |E|², and
-     * the amplitude is in V/m for 1 W/m² incident.
+     * the amplitude is in V/m for 1 W/m² incident. A design with more than
+     * one environment is computed in environment 1, its own media and
+     * substrate, unless `env` names another.
      *
      * @param [wavelength] The wavelength, nm. Without it, the design's reference wavelength.
      * @param [options]
@@ -997,20 +1019,24 @@ export class Design {
      * @param [options.pointsPerLayer=60] The samples taken across each layer, a whole number of 2 or more.
      * @param [options.depthUnit='nm'] What `depth` is in: `'nm'`, `'OT'` (n times thickness summed, nm), `'QWOT'` or `'FWOT'`.
      * @param [options.reference] The wavelength λ0, nm, the optical depth units read n at. Without it, the design's reference wavelength.
-     * @returns An ElectricField.
-     * @throws an option it does not take, a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a depth unit it does not have, a pointsPerLayer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one field per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns An ElectricField; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a depth unit it does not have, a pointsPerLayer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror', { reference: 1064 });
      * design.stack('(HL)^4 H');
      * const field = design.electricField(1064, { angle: 45 });
      * const peak = field.p.e2.indexOf(Math.max(...field.p.e2));
      * console.log('peak |E|², p:', field.p.e2[peak].toFixed(4), 'at', field.z[peak].toFixed(1), 'nm');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.electricField(1064, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'peak |E|², s:', Math.max(...one.s.e2).toFixed(4));
      */
     electricField(...args) {
         const [[wavelength], options] = trailingOptions('electricField', args, ['wavelength']);
         const words = { method: 'electricField', call: 'electricField', hidden: ['wavelength'] };
-        const given = checkOptions('electricField', options, ['angle', 'side', 'pointsPerLayer', 'depthUnit', 'reference']);
-        return new ElectricField(worded(words, () => api.electricField(this._data, defined({ ...given, wavelength }))));
+        const given = checkOptions('electricField', options, ['angle', 'side', 'pointsPerLayer', 'depthUnit', 'reference', 'env']);
+        const answer = worded(words, () => api.electricField(this._data, defined({ ...given, wavelength })));
+        return madeIn(this._data, given.env, answer, (found, environment) => new ElectricField(found, environment));
     }
 
     /**
@@ -1046,8 +1072,7 @@ export class Design {
      */
     color(options) {
         const answer = worded({ method: 'color', call: 'color' }, () => api.color(this._data, options));
-        if (options?.env !== 'all') return new Color(answer, environmentNamed(this._data, options?.env));
-        return answer.environments.map(({ number, id, name, ...found }) => new Color(found, { number, id, name }));
+        return madeIn(this._data, options?.env, answer, (found, environment) => new Color(found, environment));
     }
 
     /**
@@ -1085,8 +1110,7 @@ export class Design {
      */
     integrals(options) {
         const answer = worded({ method: 'integrals', call: 'integrals' }, () => api.integrals(this._data, options));
-        if (options?.env !== 'all') return new Integrals(answer, environmentNamed(this._data, options?.env));
-        return answer.environments.map(({ number, id, name, ...found }) => new Integrals(found, { number, id, name }));
+        return madeIn(this._data, options?.env, answer, (found, environment) => new Integrals(found, environment));
     }
 
     /**
@@ -1096,6 +1120,8 @@ export class Design {
      * the front, or on the back of a design coated on the back alone, unless
      * `side` is given; a side with no layers gives its bare surface. The
      * design's cone of incidence is not used, as the window does not use it.
+     * A design with more than one environment is computed in environment 1,
+     * its own media and substrate, unless `env` names another.
      *
      * @param [start=400] The first wavelength, nm.
      * @param [end=800] The last wavelength, nm, above `start`.
@@ -1104,19 +1130,23 @@ export class Design {
      * @param [options.angles=[65]] The angles of incidence, degrees in the medium light comes from, each 0 up to but not including 90.
      * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
      * @param [options.deltaConvention='azzam'] The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that. Ψ is the same in both.
-     * @returns An Ellipsometry.
-     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, more than a million points (wavelengths times angles), or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one sweep per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns An Ellipsometry; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, more than a million points (wavelengths times angles), a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^3 H');
      * const e = design.ellipsometry(400, 800, { step: 1, angles: [55, 70] });
      * console.log(e.mode, 'Psi at 55 degrees from', Math.min(...e.psi).toFixed(2), 'to', Math.max(...e.psi).toFixed(2));
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.ellipsometry(400, 800, { step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'mean Psi', one.psi.mean().toFixed(2));
      */
     ellipsometry(...args) {
         const [[start, end], options] = trailingOptions('ellipsometry', args, ['start', 'end']);
         const words = { method: 'ellipsometry', call: 'ellipsometry', hidden: ['from', 'to'] };
-        const given = checkOptions('ellipsometry', options, ['step', 'angles', 'side', 'deltaConvention']);
-        return new Ellipsometry(worded(words, () => api.ellipsometry(this._data, defined({ ...given, from: start, to: end }))))._named(this.name);
+        const given = checkOptions('ellipsometry', options, ['step', 'angles', 'side', 'deltaConvention', 'env']);
+        const answer = worded(words, () => api.ellipsometry(this._data, defined({ ...given, from: start, to: end })));
+        return madeIn(this._data, given.env, answer, (found, environment) => new Ellipsometry(found, environment)._named(this.name));
     }
 
     /**
@@ -1126,7 +1156,8 @@ export class Design {
      * `end`. It is computed on the front, or on the back of a design coated on
      * the back alone, unless `side` is given; a side with no layers gives its
      * bare surface. The design's cone of incidence is not used, as the window
-     * does not use it.
+     * does not use it. A design with more than one environment is computed in
+     * environment 1, its own media and substrate, unless `env` names another.
      *
      * @param [wavelength] The wavelength, nm. Without it, the design's reference wavelength.
      * @param [start=45] The first angle of incidence, degrees in the medium light comes from, 0 or more.
@@ -1135,19 +1166,23 @@ export class Design {
      * @param [options.step=0.5] The angle step, degrees, from 0.05 up to the span, `end` minus `start`.
      * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
      * @param [options.deltaConvention='azzam'] The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that. Ψ is the same in both.
-     * @returns An Ellipsometry.
-     * @throws an option it does not take, a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one sweep per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns An Ellipsometry; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^3 H');
      * const e = design.ellipsometryVsAngle(633, 45, 80, { step: 0.5 });
      * console.log('lowest Psi', e.psi.min().toFixed(3), 'at', e.psi.angle[e.psi.indexOf(e.psi.min())], 'degrees');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.ellipsometryVsAngle(633, 45, 80, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'lowest Psi', one.psi.min().toFixed(3));
      */
     ellipsometryVsAngle(...args) {
         const [[wavelength, start, end], options] = trailingOptions('ellipsometryVsAngle', args, ['wavelength', 'start', 'end']);
         const words = { method: 'ellipsometryVsAngle', call: 'ellipsometryVsAngle', hidden: ['wavelength', 'angleStart', 'angleEnd'], names: { angleStep: 'step' } };
-        const { step, ...given } = checkOptions('ellipsometryVsAngle', options, ['step', 'side', 'deltaConvention']);
-        return new Ellipsometry(worded(words, () => api.ellipsometryVsAngle(this._data, defined({ ...given, wavelength, angleStart: start, angleEnd: end, angleStep: step }))));
+        const { step, ...given } = checkOptions('ellipsometryVsAngle', options, ['step', 'side', 'deltaConvention', 'env']);
+        const answer = worded(words, () => api.ellipsometryVsAngle(this._data, defined({ ...given, wavelength, angleStart: start, angleEnd: end, angleStep: step })));
+        return madeIn(this._data, given.env, answer, (found, environment) => new Ellipsometry(found, environment));
     }
 
     /**
@@ -1159,6 +1194,8 @@ export class Design {
      * alone, is the whole part as Pulse Analysis computes it: the front
      * coating, one pass through the substrate and the back coating. The
      * design's cone of incidence is not used, as the window does not use it.
+     * A design with more than one environment is computed in environment 1,
+     * its own media and substrate, unless `env` names another.
      *
      * GD, GDD and TOD are analytic values at each wavelength, so they do not
      * depend on the grid. The phase is unwrapped along the grid, so on a
@@ -1178,19 +1215,23 @@ export class Design {
      * @param [options.response='R'] The light whose phase is taken: `'R'`, reflected, or `'T'`, transmitted.
      * @param [options.side] `'front'`, `'back'`, or with `response: 'T'` `'total'`, the whole part. Without it, the back of a design coated on the back alone and the front of any other.
      * @param [options.reference] A wavelength, nm: the phase is then 0 at the sample nearest it, as the window plots it; when that sample has no value, the phase stays absolute and `reference` is `null`. Without it, the phase is absolute.
-     * @returns A GroupDelay.
-     * @throws an option it does not take, a range that is not one, a step that is not a positive number or `'auto'`, an angle outside 0 to 90, a polarization, response or side it does not have, `'total'` with `response: 'R'`, a reference that is not a wavelength above 0, more than a million wavelengths, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one set of curves per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns A GroupDelay; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a range that is not one, a step that is not a positive number or `'auto'`, an angle outside 0 to 90, a polarization, response or side it does not have, `'total'` with `response: 'R'`, a reference that is not a wavelength above 0, more than a million wavelengths, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^8 H');
      * const g = design.groupDelay(500, 600, { step: 1 });
      * console.log(g.mode, 'GDD from 520 to 580 nm:', g.gdd.min(520, 580).toFixed(3), 'to', g.gdd.max(520, 580).toFixed(3), 'fs²');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.groupDelay(500, 600, { step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'mean GD from 540 to 560 nm', one.gd.mean(540, 560).toFixed(3), 'fs');
      */
     groupDelay(...args) {
         const [[start, end], options] = trailingOptions('groupDelay', args, ['start', 'end']);
         const words = { method: 'groupDelay', call: 'groupDelay', hidden: ['from', 'to'] };
-        const given = checkOptions('groupDelay', options, ['step', 'angle', 'pol', 'response', 'side', 'reference']);
-        return new GroupDelay(worded(words, () => api.groupDelay(this._data, defined({ ...given, from: start, to: end }))));
+        const given = checkOptions('groupDelay', options, ['step', 'angle', 'pol', 'response', 'side', 'reference', 'env']);
+        const answer = worded(words, () => api.groupDelay(this._data, defined({ ...given, from: start, to: end })));
+        return madeIn(this._data, given.env, answer, (found, environment) => new GroupDelay(found, environment));
     }
 
     /**

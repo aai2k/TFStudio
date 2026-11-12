@@ -63,7 +63,10 @@ for (const [name, Window] of Object.entries(WINDOWS)) {
 // opened, so its choices are read from the panel's elements.
 function ellipsometrySide(design) {
     const text = t.ellipsometry;
-    const state = { mode: 'spectral', side: 'front', showPsi: true, showDelta: true, sideOffered: offeredSides(design) };
+    const state = {
+        mode: 'spectral', side: 'front', showPsi: true, showDelta: true, sideOffered: offeredSides(design),
+        environment: { every: false },
+    };
     const row = EllipsometryControls({ c, t, text, state, curveColors: { psi: '#000', delta: '#000' }, notices: [] });
     const setup = row.props.trailing.find(element => element.key === 'setup');
     const found = [];

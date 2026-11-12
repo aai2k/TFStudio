@@ -12,9 +12,13 @@ const { createElement: h } = React;
  * Editor settings rather than offer them, so they stay out of the control row.
  *
  * `environment` is the window's chrome/environmentChoice.js answer; a window
- * with no environment choice passes none and draws no droplist.
+ * with no environment choice passes none and draws no droplist. A window that
+ * computes one side it chooses itself shows no Eval badge (`evalBadge` false),
+ * so its row holds the droplist alone and is drawn only on a design with
+ * environments.
  */
-export function BadgeRow({ c, t, design, environment, cone = false }) {
+export function BadgeRow({ c, t, design, environment, cone = false, evalBadge = true }) {
+    if (!evalBadge && !environment?.shown) return null;
     // No border above it and the chart's paper colour, so the row reads as the
     // foot of the plot; the badges are a little shorter than elsewhere so the
     // row takes as little of the plot's height as it can.
@@ -29,7 +33,7 @@ export function BadgeRow({ c, t, design, environment, cone = false }) {
     },
         environment && h(EnvironmentSelect, { c, t, environment }),
         h('div', { style: { marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 } },
-            h(EvalModeBadge, { design, c, t, style }),
+            evalBadge && h(EvalModeBadge, { design, c, t, style }),
             cone && h(ConeBadge, { design, c, t, style }),
         ),
     );

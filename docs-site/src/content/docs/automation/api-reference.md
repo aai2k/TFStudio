@@ -1506,26 +1506,29 @@ print(design.merit.value)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.indexProfile({ wavelength, side })` | `design.index_profile(wavelength=..., side=...)` |
+| `design.indexProfile({ wavelength, side, env })` | `design.index_profile(wavelength=..., side=..., env=...)` |
 
-The refractive index of the layers at one wavelength, laid out by depth, as the Refractive Index Profile window shows it. The sides follow the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given: on one side, the layers in the order light meets them coming from that side's medium; on the whole part, the front, the substrate and the back, as the window's Total view lays them. A layer with no thickness is left out, as the window leaves it out.
+The refractive index of the layers at one wavelength, laid out by depth, as the Refractive Index Profile window shows it. The sides follow the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given: on one side, the layers in the order light meets them coming from that side's medium; on the whole part, the front, the substrate and the back, as the window's Total view lays them. A layer with no thickness is left out, as the window leaves it out. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
 | `wavelength` | `wavelength` |  | The wavelength n and k are read at, nm. Without it, the design's reference wavelength. |
 | `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one profile per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: An IndexProfile.
+**Returns**: **JavaScript**: An IndexProfile; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: An IndexProfile; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing<br>**Python**: a wavelength of 0 or less, a side other than "front", "back" or "total", a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layer thicker than 0 nm, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a wavelength of 0 or less, a side other than "front", "back" or "total", a side with no layer thicker than 0 nm, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 const profile = design.indexProfile({ wavelength: 633 });
 for (const l of profile.layers) console.log(l.number, l.material, l.n.toFixed(4), l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const one of design.indexProfile({ wavelength: 633, env: 'all' })) console.log(one.environment.number, one.environment.name, one.thickness.toFixed(1), 'nm thick');
 ```
 
 ```python
@@ -1534,6 +1537,9 @@ design.stack("(HL)^3 H")
 profile = design.index_profile(wavelength=633)
 for l in profile.layers:
     print(l.number, l.material, round(l.n, 4), round(l.start, 1), "to", round(l.end, 1), "nm")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for one in design.index_profile(wavelength=633, env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.thickness, 1), "nm thick")
 ```
 
 ### layerThicknesses / layer_thicknesses
@@ -1664,11 +1670,11 @@ print(design.layer_counts())
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.admittance(wavelength, { angle, side, plane })` | `design.admittance(wavelength=..., angle=0, side=..., plane="admittance")` |
+| `design.admittance(wavelength, { angle, side, plane, env })` | `design.admittance(wavelength=..., angle=0, side=..., plane="admittance", env=...)` |
 
-**JavaScript**: The admittance locus of one coated side at one wavelength, for s and p, as the Admittance Diagram window draws it and lists it in its table: from the substrate's admittance through the admittance at the outer surface of each layer to the coating's outer surface. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given. The design's cone of incidence is not used, as the window does not use it. Complex values are `{ re, im }` in Macleod's sign, the window's: an absorbing material's index is n − ik.
+**JavaScript**: The admittance locus of one coated side at one wavelength, for s and p, as the Admittance Diagram window draws it and lists it in its table: from the substrate's admittance through the admittance at the outer surface of each layer to the coating's outer surface. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given. The design's cone of incidence is not used, as the window does not use it. Complex values are `{ re, im }` in Macleod's sign, the window's: an absorbing material's index is n − ik. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another.
 
-**Python**: The admittance locus of one coated side at one wavelength, for s and p, as the Admittance Diagram window draws it and lists it in its table: from the substrate's admittance through the admittance at the outer surface of each layer to the coating's outer surface. It is computed on the front, or on the back of a design coated on the back alone, unless side is given. The design's cone of incidence is not used, as the window does not use it. Complex values are Python complex numbers in Macleod's sign, the window's: an absorbing material's index is n − ik.
+**Python**: The admittance locus of one coated side at one wavelength, for s and p, as the Admittance Diagram window draws it and lists it in its table: from the substrate's admittance through the admittance at the outer surface of each layer to the coating's outer surface. It is computed on the front, or on the back of a design coated on the back alone, unless side is given. The design's cone of incidence is not used, as the window does not use it. Complex values are Python complex numbers in Macleod's sign, the window's: an absorbing material's index is n − ik. A design with more than one environment is computed in environment 1, its own media and substrate, unless env names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -1676,12 +1682,13 @@ print(design.layer_counts())
 | `angle` | `angle` | `0` | The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90. |
 | `side` | `side` |  | `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other. |
 | `plane` | `plane` | `'admittance'` | What the arcs are drawn in: `'admittance'`, the Y plane, or `'reflection'`, the plane of the reflection coefficient Γ. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one set of loci per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: An Admittance.
+**Returns**: **JavaScript**: An Admittance; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: An Admittance; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a wavelength of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a plane other than `'admittance'` or `'reflection'`, a side with no layers, or a design that names a material that resolves to nothing<br>**Python**: a wavelength of 0 or less, an angle outside 0 to 90, a side other than "front" or "back", a plane other than "admittance" or "reflection", a side with no layers, or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a wavelength of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a plane other than `'admittance'` or `'reflection'`, a side with no layers, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a wavelength of 0 or less, an angle outside 0 to 90, a side other than "front" or "back", a plane other than "admittance" or "reflection", a side with no layers, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -1689,6 +1696,8 @@ design.stack('(HL)^3 H');
 const locus = design.admittance(550, { angle: 45 });
 const { Y, gamma } = locus.s.boundaries.at(-1);
 console.log(locus.mode, 'Y', Y.re.toFixed(4), Y.im.toFixed(4), 'Rs', (gamma.re ** 2 + gamma.im ** 2).toFixed(6));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.admittance(550, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'eta0', one.s.eta0.re.toFixed(4));
 ```
 
 ```python
@@ -1697,15 +1706,18 @@ design.stack("(HL)^3 H")
 locus = design.admittance(550, angle=45)
 front = locus.s.boundaries[-1]
 print(locus.mode, "Y", front.Y, "Rs", abs(front.gamma) ** 2)
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.admittance(550, env="all"):
+    print(one.environment["number"], one.environment["name"], "eta0", one.s.eta0)
 ```
 
 ### electricField / electric_field
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.electricField(wavelength, { angle, side, pointsPerLayer, depthUnit, reference })` | `design.electric_field(wavelength=..., angle=0, side=..., points_per_layer=60, depth_unit="nm", reference=...)` |
+| `design.electricField(wavelength, { angle, side, pointsPerLayer, depthUnit, reference, env })` | `design.electric_field(wavelength=..., angle=0, side=..., points_per_layer=60, depth_unit="nm", reference=..., env=...)` |
 
-The electric field through one coated side at one wavelength, for s, p and unpolarized light, as the Electric Field window computes it, from the medium light comes from to the substrate. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given. The design's cone of incidence is not used, as the window does not use it. |E|² is a fraction of the incident |E|², and the amplitude is in V/m for 1 W/m² incident.
+The electric field through one coated side at one wavelength, for s, p and unpolarized light, as the Electric Field window computes it, from the medium light comes from to the substrate. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given. The design's cone of incidence is not used, as the window does not use it. |E|² is a fraction of the incident |E|², and the amplitude is in V/m for 1 W/m² incident. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -1715,12 +1727,13 @@ The electric field through one coated side at one wavelength, for s, p and unpol
 | `pointsPerLayer` | `points_per_layer` | `60` | The samples taken across each layer, a whole number of 2 or more. |
 | `depthUnit` | `depth_unit` | `'nm'` | What `depth` is in: `'nm'`, `'OT'` (n times thickness summed, nm), `'QWOT'` or `'FWOT'`. |
 | `reference` | `reference` |  | The wavelength λ0, nm, the optical depth units read n at. Without it, the design's reference wavelength. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one field per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: An ElectricField.
+**Returns**: **JavaScript**: An ElectricField; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: An ElectricField; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a depth unit it does not have, a pointsPerLayer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing<br>**Python**: a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than "front" or "back", a depth unit it does not have, a points_per_layer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a depth unit it does not have, a pointsPerLayer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a wavelength or reference of 0 or less, an angle outside 0 to 90, a side other than "front" or "back", a depth unit it does not have, a points_per_layer that is not a whole number of 2 or more, more than a million samples, a side with no layer thicker than 0 nm, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror', { reference: 1064 });
@@ -1728,6 +1741,8 @@ design.stack('(HL)^4 H');
 const field = design.electricField(1064, { angle: 45 });
 const peak = field.p.e2.indexOf(Math.max(...field.p.e2));
 console.log('peak |E|², p:', field.p.e2[peak].toFixed(4), 'at', field.z[peak].toFixed(1), 'nm');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.electricField(1064, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'peak |E|², s:', Math.max(...one.s.e2).toFixed(4));
 ```
 
 ```python
@@ -1736,6 +1751,9 @@ design.stack("(HL)^4 H")
 field = design.electric_field(1064, angle=45)
 peak = field.p.e2.index(max(field.p.e2))
 print("peak |E|², p:", round(field.p.e2[peak], 4), "at", round(field.z[peak], 1), "nm")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.electric_field(1064, env="all"):
+    print(one.environment["number"], one.environment["name"], "peak |E|², s:", round(max(one.s.e2), 4))
 ```
 
 ### color
@@ -1834,9 +1852,9 @@ for one in design.integrals(env="all"):
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.ellipsometry(start, end, { step, angles, side, deltaConvention })` | `design.ellipsometry(start=400, end=800, step=0.5, angles=[65], side=..., delta_convention="azzam")` |
+| `design.ellipsometry(start, end, { step, angles, side, deltaConvention, env })` | `design.ellipsometry(start=400, end=800, step=0.5, angles=[65], side=..., delta_convention="azzam", env=...)` |
 
-Ψ and Δ of one coated side against wavelength, at one angle of incidence or several, as the Ellipsometry window's spectral sweep computes them, from ρ = r_p / r_s = tan Ψ · exp(i Δ). It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. The design's cone of incidence is not used, as the window does not use it.
+Ψ and Δ of one coated side against wavelength, at one angle of incidence or several, as the Ellipsometry window's spectral sweep computes them, from ρ = r_p / r_s = tan Ψ · exp(i Δ). It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. The design's cone of incidence is not used, as the window does not use it. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -1846,18 +1864,21 @@ for one in design.integrals(env="all"):
 | `angles` | `angles` | `[65]` | The angles of incidence, degrees in the medium light comes from, each 0 up to but not including 90. |
 | `side` | `side` |  | `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other. |
 | `deltaConvention` | `delta_convention` | `'azzam'` | The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that. Ψ is the same in both. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one sweep per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: An Ellipsometry.
+**Returns**: **JavaScript**: An Ellipsometry; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: An Ellipsometry; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, more than a million points (wavelengths times angles), or a design that names a material that resolves to nothing<br>**Python**: a range that is not one, an angle outside 0 to 90, a side other than "front" or "back", a convention other than "azzam" or "reversed", more than a million points (wavelengths times angles), or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, more than a million points (wavelengths times angles), a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a range that is not one, an angle outside 0 to 90, a side other than "front" or "back", a convention other than "azzam" or "reversed", more than a million points (wavelengths times angles), a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 const e = design.ellipsometry(400, 800, { step: 1, angles: [55, 70] });
 console.log(e.mode, 'Psi at 55 degrees from', Math.min(...e.psi).toFixed(2), 'to', Math.max(...e.psi).toFixed(2));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.ellipsometry(400, 800, { step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'mean Psi', one.psi.mean().toFixed(2));
 ```
 
 ```python
@@ -1865,15 +1886,18 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 e = design.ellipsometry(400, 800, step=1, angles=[55, 70])
 print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.psi), 2))
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.ellipsometry(400, 800, step=1, env="all"):
+    print(one.environment["number"], one.environment["name"], "mean Psi", round(one.psi.mean(), 2))
 ```
 
 ### ellipsometryVsAngle / ellipsometry_vs_angle
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.ellipsometryVsAngle(wavelength, start, end, { step, side, deltaConvention })` | `design.ellipsometry_vs_angle(wavelength=..., start=45, end=80, step=0.5, side=..., delta_convention="azzam")` |
+| `design.ellipsometryVsAngle(wavelength, start, end, { step, side, deltaConvention, env })` | `design.ellipsometry_vs_angle(wavelength=..., start=45, end=80, step=0.5, side=..., delta_convention="azzam", env=...)` |
 
-Ψ and Δ of one coated side against angle of incidence at one wavelength, as the Ellipsometry window's angular sweep computes them. The angles run from `start` by `step`, each rounded to 0.001 degree, to `end`. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. The design's cone of incidence is not used, as the window does not use it.
+Ψ and Δ of one coated side against angle of incidence at one wavelength, as the Ellipsometry window's angular sweep computes them. The angles run from `start` by `step`, each rounded to 0.001 degree, to `end`. It is computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. The design's cone of incidence is not used, as the window does not use it. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -1883,18 +1907,21 @@ print(e.mode, "Psi at 55 degrees from", round(min(e.psi), 2), "to", round(max(e.
 | `step` | `step` | `0.5` | The angle step, degrees, from 0.05 up to the span, `end` minus `start`. |
 | `side` | `side` |  | `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other. |
 | `deltaConvention` | `delta_convention` | `'azzam'` | The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that. Ψ is the same in both. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one sweep per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: An Ellipsometry.
+**Returns**: **JavaScript**: An Ellipsometry; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: An Ellipsometry; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, or a design that names a material that resolves to nothing<br>**Python**: a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than "front" or "back", a convention other than "azzam" or "reversed", or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than "front" or "back", a convention other than "azzam" or "reversed", a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 const e = design.ellipsometryVsAngle(633, 45, 80, { step: 0.5 });
 console.log('lowest Psi', e.psi.min().toFixed(3), 'at', e.psi.angle[e.psi.indexOf(e.psi.min())], 'degrees');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.ellipsometryVsAngle(633, 45, 80, { env: 'all' })) console.log(one.environment.number, one.environment.name, 'lowest Psi', one.psi.min().toFixed(3));
 ```
 
 ```python
@@ -1902,17 +1929,20 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 e = design.ellipsometry_vs_angle(633, 45, 80, step=0.5)
 print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.min())], "degrees")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.ellipsometry_vs_angle(633, 45, 80, env="all"):
+    print(one.environment["number"], one.environment["name"], "lowest Psi", round(one.psi.min(), 3))
 ```
 
 ### groupDelay / group_delay
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.groupDelay(start, end, { step, angle, pol, response, side, reference })` | `design.group_delay(start=400, end=800, step=0.5, angle=0, pol="avg", response="R", side=..., reference=...)` |
+| `design.groupDelay(start, end, { step, angle, pol, response, side, reference, env })` | `design.group_delay(start=400, end=800, step=0.5, angle=0, pol="avg", response="R", side=..., reference=..., env=...)` |
 
-**JavaScript**: Phase, group delay, GDD, TOD and CDC of the design's reflected or transmitted light against wavelength, as the Group Delay / GDD window computes them. They are computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. `side: 'total'`, with `response: 'T'` alone, is the whole part as Pulse Analysis computes it: the front coating, one pass through the substrate and the back coating. The design's cone of incidence is not used, as the window does not use it.
+**JavaScript**: Phase, group delay, GDD, TOD and CDC of the design's reflected or transmitted light against wavelength, as the Group Delay / GDD window computes them. They are computed on the front, or on the back of a design coated on the back alone, unless `side` is given; a side with no layers gives its bare surface. `side: 'total'`, with `response: 'T'` alone, is the whole part as Pulse Analysis computes it: the front coating, one pass through the substrate and the back coating. The design's cone of incidence is not used, as the window does not use it. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another.
 
-**Python**: Phase, group delay, GDD, TOD and CDC of the design's reflected or transmitted light against wavelength, as the Group Delay / GDD window computes them. They are computed on the front, or on the back of a design coated on the back alone, unless side is given; a side with no layers gives its bare surface. side="total", with response="T" alone, is the whole part as Pulse Analysis computes it: the front coating, one pass through the substrate and the back coating. The design's cone of incidence is not used, as the window does not use it.
+**Python**: Phase, group delay, GDD, TOD and CDC of the design's reflected or transmitted light against wavelength, as the Group Delay / GDD window computes them. They are computed on the front, or on the back of a design coated on the back alone, unless side is given; a side with no layers gives its bare surface. side="total", with response="T" alone, is the whole part as Pulse Analysis computes it: the front coating, one pass through the substrate and the back coating. The design's cone of incidence is not used, as the window does not use it. A design with more than one environment is computed in environment 1, its own media and substrate, unless env names another.
 
 **JavaScript**: GD, GDD and TOD are analytic values at each wavelength, so they do not depend on the grid. The phase is unwrapped along the grid, so on a uniform grid it can land 2π off across a resonance narrower than the step. On the whole part the substrate's own phase, −2π n d cosθ / λ, n, d and θ its index, thickness and the angle in it, is added as it is, so only the coatings' phase is unwrapped. `step: 'auto'` gives the window's own grid, which adds points at reflection minima and table knots, so a mean over it leans toward the spikes there.
 
@@ -1928,18 +1958,21 @@ print("lowest Psi", round(e.psi.min(), 3), "at", e.psi.angle[e.psi.index(e.psi.m
 | `response` | `response` | `'R'` | The light whose phase is taken: `'R'`, reflected, or `'T'`, transmitted. |
 | `side` | `side` |  | **JavaScript**: `'front'`, `'back'`, or with `response: 'T'` `'total'`, the whole part. Without it, the back of a design coated on the back alone and the front of any other.<br>**Python**: "front", "back", or with response="T" "total", the whole part. Without it, the back of a design coated on the back alone and the front of any other. |
 | `reference` | `reference` |  | A wavelength, nm: the phase is then 0 at the sample nearest it, as the window plots it; when that sample has no value, the phase stays absolute and `reference` is `null` / `None`. Without it, the phase is absolute. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one set of curves per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: A GroupDelay.
+**Returns**: **JavaScript**: A GroupDelay; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: A GroupDelay; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a range that is not one, a step that is not a positive number or `'auto'`, an angle outside 0 to 90, a polarization, response or side it does not have, `'total'` with `response: 'R'`, a reference that is not a wavelength above 0, more than a million wavelengths, or a design that names a material that resolves to nothing<br>**Python**: a range that is not one, a step that is not a positive number or "auto", an angle outside 0 to 90, a polarization, response or side it does not have, "total" with response="R", a reference that is not a wavelength above 0, more than a million wavelengths, or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a range that is not one, a step that is not a positive number or `'auto'`, an angle outside 0 to 90, a polarization, response or side it does not have, `'total'` with `response: 'R'`, a reference that is not a wavelength above 0, more than a million wavelengths, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a range that is not one, a step that is not a positive number or "auto", an angle outside 0 to 90, a polarization, response or side it does not have, "total" with response="R", a reference that is not a wavelength above 0, more than a million wavelengths, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^8 H');
 const g = design.groupDelay(500, 600, { step: 1 });
 console.log(g.mode, 'GDD from 520 to 580 nm:', g.gdd.min(520, 580).toFixed(3), 'to', g.gdd.max(520, 580).toFixed(3), 'fs²');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.groupDelay(500, 600, { step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'mean GD from 540 to 560 nm', one.gd.mean(540, 560).toFixed(3), 'fs');
 ```
 
 ```python
@@ -1947,6 +1980,10 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 g = design.group_delay(500, 600, step=1)
 print(g.mode, "GDD from 520 to 580 nm:", round(g.gdd.min(520, 580), 3), "to", round(g.gdd.max(520, 580), 3), "fs²")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.group_delay(500, 600, step=1, env="all"):
+    print(one.environment["number"], one.environment["name"], "mean GD from 540 to 560 nm",
+          round(one.gd.mean(540, 560), 3), "fs")
 ```
 
 ### setPulseSpectrum / set_pulse_spectrum
@@ -6618,6 +6655,31 @@ design.stack("(HL)^3 H")
 print([m["id"] for m in design.index_profile(wavelength=5000).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `profile.environment` | `profile.environment` |
+
+**JavaScript**: The environment the profile was computed in, `{ number, id, name }`, when design.indexProfile() was given `env`; null without one, when it was computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the profile was computed in, a dict of number, id and name, when design.index_profile() was given env; None without one, when it was computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const profile of design.indexProfile({ env: 'all' })) console.log(profile.environment.number, profile.environment.name, profile.thickness.toFixed(1), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for profile in design.index_profile(env="all"):
+    print(profile.environment["number"], profile.environment["name"], round(profile.thickness, 1), "nm")
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -6962,6 +7024,31 @@ design.stack("(HL)^3 H")
 print([m["id"] for m in design.admittance(5000).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `locus.environment` | `locus.environment` |
+
+**JavaScript**: The environment the loci were computed in, `{ number, id, name }`, when design.admittance() was given `env`; null without one, when they were computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the loci were computed in, a dict of number, id and name, when design.admittance() was given env; None without one, when they were computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const locus of design.admittance(550, { env: 'all' })) console.log(locus.environment.number, locus.environment.name, locus.incident.material);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for locus in design.admittance(550, env="all"):
+    print(locus.environment["number"], locus.environment["name"], locus.incident.material)
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -7304,6 +7391,31 @@ console.log(design.electricField(5000).outOfRange.length, 'materials stop short 
 design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 print(len(design.electric_field(5000).out_of_range), "materials stop short of 5000 nm")
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `field.environment` | `field.environment` |
+
+**JavaScript**: The environment the field was computed in, `{ number, id, name }`, when design.electricField() was given `env`; null without one, when it was computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the field was computed in, a dict of number, id and name, when design.electric_field() was given env; None without one, when it was computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const field of design.electricField(550, { env: 'all' })) console.log(field.environment.number, field.environment.name, Math.max(...field.s.e2).toFixed(4));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for field in design.electric_field(550, env="all"):
+    print(field.environment["number"], field.environment["name"], round(max(field.s.e2), 4))
 ```
 
 ### saveCsv / save_csv
@@ -8329,6 +8441,31 @@ design.stack("(HL)^3 H")
 print([m["id"] for m in design.ellipsometry(200, 2500, step=10).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `e.environment` | `e.environment` |
+
+**JavaScript**: The environment Ψ and Δ were computed in, `{ number, id, name }`, when design.ellipsometry() or design.ellipsometryVsAngle() was given `env`; null without one, when they were computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment Ψ and Δ were computed in, a dict of number, id and name, when design.ellipsometry() or design.ellipsometry_vs_angle() was given env; None without one, when they were computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const e of design.ellipsometry(400, 800, { env: 'all' })) console.log(e.environment.number, e.environment.name, e.psi.mean().toFixed(2));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for e in design.ellipsometry(400, 800, env="all"):
+    print(e.environment["number"], e.environment["name"], round(e.psi.mean(), 2))
+```
+
 ### angle
 
 | JavaScript | Python |
@@ -8905,6 +9042,31 @@ console.log(design.groupDelay(200, 2500, { step: 10 }).outOfRange.map(m => m.id)
 design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 print([m["id"] for m in design.group_delay(200, 2500, step=10).out_of_range])
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `g.environment` | `g.environment` |
+
+**JavaScript**: The environment the curves were computed in, `{ number, id, name }`, when design.groupDelay() was given `env`; null without one, when they were computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the curves were computed in, a dict of number, id and name, when design.group_delay() was given env; None without one, when they were computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const g of design.groupDelay(500, 600, { step: 1, env: 'all' })) console.log(g.environment.number, g.environment.name, g.gdd.mean(540, 560).toFixed(3), 'fs²');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for g in design.group_delay(500, 600, step=1, env="all"):
+    print(g.environment["number"], g.environment["name"], round(g.gdd.mean(540, 560), 3), "fs²")
 ```
 
 ### saveCsv / save_csv

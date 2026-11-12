@@ -68,6 +68,11 @@ export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
   const plain = ([key]) => !unitAware || !SPECTRAL.includes(key);
 
   const colorKeys = Object.keys(registry.colors || {});
+  // A window with a palette of its own besides the environment palette, such
+  // as the Admittance Diagram's material palette, shows the two apart.
+  const paletteKeys = colorKeys.filter(key => paletteSlot(key) !== null);
+  const environmentKeys = paletteKeys.filter(key => key.startsWith('env'));
+  const apart = environmentKeys.length > 0 && environmentKeys.length < paletteKeys.length;
   const numbers = Object.entries(registry.numbers || {}).filter(plain);
   const enums = Object.entries(registry.enums || {}).filter(plain);
   const lists = Object.entries(registry.lists || {});
@@ -84,7 +89,12 @@ export const WindowFields = ({ windowId, resolved, onChange, c, t }) => {
     h(ColorGroup, {
       title: t.settings.analysis.palette,
       hint: t.settings.analysis.paletteHint,
-      keys: colorKeys.filter(key => paletteSlot(key) !== null),
+      keys: apart ? paletteKeys.filter(key => !environmentKeys.includes(key)) : paletteKeys,
+      resolved, onChange, c, t,
+    }),
+    apart && h(ColorGroup, {
+      title: t.settings.analysis.environmentPalette,
+      keys: environmentKeys,
       resolved, onChange, c, t,
     }),
     hasControls && h('div', null,

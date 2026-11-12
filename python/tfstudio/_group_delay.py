@@ -78,14 +78,14 @@ class GroupDelay:
         print(g.mode, "mean GD from 540 to 560 nm", round(g.gd.mean(540, 560), 3), "fs")
     """
 
-    def __init__(self, result):
+    def __init__(self, result, environment=None):
         wavelength = result["wavelength"]
         self._values = {
             "mode": result["mode"], "response": result["response"], "angle": result["angle"], "pol": result["pol"],
             "step": result["step"], "reference": result["reference"], "wavelength": wavelength,
             "gd": result["gd"], "gdd": result["gdd"], "tod": result["tod"], "cdc": result["cdc"],
             "outside": result["outside"], "knots": result["knots"], "invalid": result["invalid"],
-            "models": result["models"], "out_of_range": result["outOfRange"],
+            "models": result["models"], "out_of_range": result["outOfRange"], "environment": environment,
         }
         self._curves = {name: Curve(result[name], wavelength) for name in ("phase", "gd", "gdd", "tod", "cdc")}
 
@@ -244,6 +244,18 @@ class GroupDelay:
             design = tf.new_design("Mirror")
             design.stack("(HL)^8 H")
             print([m["id"] for m in design.group_delay(200, 2500, step=10).out_of_range])
+        """)
+    environment = _reading("environment", """The environment the curves were computed in, a dict of number,
+        id and name, when design.group_delay() was given env; None without one, when they were computed
+        in environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^8 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for g in design.group_delay(500, 600, step=1, env="all"):
+                print(g.environment["number"], g.environment["name"], round(g.gdd.mean(540, 560), 3), "fs²")
         """)
 
     def save_csv(self, path):

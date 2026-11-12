@@ -9,8 +9,6 @@
  * angles stay as they are.
  */
 import { environmentColor } from '../../../../constants/analysisDefaults.js';
-import { lineSeries } from '../../../ui/chartOptions.js';
-import { legendAbove } from '../chrome/plot.js';
 
 /**
  * The spectra of the environments shown as one spectrum. `views` are the
@@ -33,19 +31,3 @@ export const environmentSuffix = result => (result.env ? ` (${result.env.label})
 
 /** The colour a curve of `result` is drawn in: the curve's own, or under All its environment's in `colors`. */
 export const resultColor = (curve, result, colors) => (result.env ? environmentColor(colors, result.env.number) : curve.color);
-
-/**
- * The legend above the plot under All, naming each environment in its
- * colour. ECharts ties a legend entry to the series of the same name, and the
- * curves keep names of their own for the readout, so each entry is carried by
- * an empty series in the environment's colour, and the legend names
- * environments without hiding any.
- */
-export function environmentLegend(environments, colors, textColor) {
-    return {
-        legend: { ...legendAbove({ color: textColor }), selectedMode: false, data: environments.map(env => env.label) },
-        series: environments.map(env => lineSeries({
-            data: [], name: env.label, color: environmentColor(colors, env.number), silent: true,
-        })),
-    };
-}

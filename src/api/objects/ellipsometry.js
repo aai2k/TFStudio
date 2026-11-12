@@ -24,8 +24,9 @@ const DELTA = 'Δ (°)';
  * console.log(e.mode, Math.min(...e.psi), Math.max(...e.angle(70).delta));
  */
 export class Ellipsometry {
-    constructor(result) {
+    constructor(result, environment = null) {
         const { mode, wavelength, deltaConvention, outOfRange } = result;
+        this._environment = environment;
         const angular = !Array.isArray(wavelength);
         const series = angular ? [{ psi: result.psi, delta: result.delta }] : result.angles;
         const angles = angular ? result.angle : series.map(one => one.angle);
@@ -126,6 +127,20 @@ export class Ellipsometry {
     get outOfRange() { return this._values.outOfRange; }
 
     /**
+     * The environment Ψ and Δ were computed in, `{ number, id, name }`, when
+     * design.ellipsometry() or design.ellipsometryVsAngle() was given `env`;
+     * null without one, when they were computed in environment 1, the
+     * design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const e of design.ellipsometry(400, 800, { env: 'all' })) console.log(e.environment.number, e.environment.name, e.psi.mean().toFixed(2));
+     */
+    get environment() { return this._environment; }
+
+    /**
      * The sweep against wavelength at one of the angles it was computed at.
      *
      * @param angle The angle of incidence, degrees.
@@ -142,7 +157,7 @@ export class Ellipsometry {
         if (angular) throw new Error(`angle: this sweep runs over angle at ${wavelength} nm; psi and delta hold it`);
         const i = angles.indexOf(angle);
         if (i < 0) throw new Error(`angle: the sweep was computed at [${angles.join(', ')}], not at ${angle}`);
-        return new Ellipsometry({ mode, wavelength, deltaConvention, outOfRange, angles: [this._series[i]] })._named(this._values.name);
+        return new Ellipsometry({ mode, wavelength, deltaConvention, outOfRange, angles: [this._series[i]] }, this._environment)._named(this._values.name);
     }
 
     /**

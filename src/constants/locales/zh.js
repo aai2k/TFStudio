@@ -262,6 +262,7 @@ export default {
       hint: '将在 TFStudio 下次启动时生效。本会话中您已修改过的窗口会保留您在窗口内的设置。',
       curveColors: '曲线颜色',
       palette: '调色板',
+      environmentPalette: '环境调色板',
       paletteHint: '按此顺序分发，每条曲线、每种材料或每个环境一种颜色，列表用尽后循环。',
       paletteSlot: (n) => `颜色 ${n}`,
       ranges: '范围',

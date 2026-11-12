@@ -1,10 +1,14 @@
 /**
  * Group delay and dispersion evaluation. Macleod, Thin-Film Optical Filters,
  * 5th ed., Eq. (11.17): GD = -dφ/dω and GDD = -d²φ/dω².
+ *
+ * On a design with environments, the Environment droplist under the plot picks
+ * the environment computed, or All, which draws each environment that is on in
+ * its own colour and lists each one's rows in the table (useGDGDDState.js).
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
-import { rangeMaterials, uncoveredMaterialRegions } from '../../../../utils/materials/materialRange.js';
+import { uncoveredMaterialRegions } from '../../../../utils/materials/materialRange.js';
 import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { csvFromRows } from '../../../ui/ResultsSection.js';
 import { materialCoverageBands } from '../../../ui/chartOptions.js';
@@ -46,8 +50,8 @@ export function GDGDDEvaluation({ c, theme, t }) {
         setLamEnd(to);
     };
     // The notice and the shading name the materials of the side computed, as
-    // the table's column does.
-    const materials = useMemo(() => rangeMaterials(design, state.side), [design, state.side]);
+    // the table's column does, in every environment shown.
+    const { materials } = state;
     const rangeNotice = useMaterialsRangeNotice(
         materials, state.lamStart, state.lamEnd, t, fixRange);
     // The curve is drawn wherever a value exists, so an out-of-range wavelength
@@ -70,8 +74,10 @@ export function GDGDDEvaluation({ c, theme, t }) {
         showReference: state.showRef,
         outsideLabel: t.materialRange.outsideColumn,
         units: t.units,
+        sets: state.sets,
+        environmentLabel: t.environments.environment,
     }, text, curve, t.spectralAxis.lambdaShort),
-    [state.raw, state.quantity, state.refLam, state.showRef, text, curve, t]);
+    [state.raw, state.sets, state.quantity, state.refLam, state.showRef, text, curve, t]);
     // A fresh bounds array on every render counts as a changed chart input and
     // re-plots the trace, so it is held stable across renders that do not move
     // the axis. The target editor reads its level grid off the same bounds.

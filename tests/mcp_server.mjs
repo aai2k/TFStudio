@@ -24,9 +24,10 @@
  *      the API lists them and removed, and environment 1, an environment the
  *      design does not have and environment 1's media refused, a row scored in
  *      one environment with each environment's merit and each row's values,
- *      the spectrum, a band's peak, an edge against angle, the colour and the
- *      integral values of one environment and of each, an environment it
- *      does not have refused,
+ *      the spectrum, a band's peak, an edge against angle, the colour, the
+ *      integral values, the index profile, the admittance locus, the electric
+ *      field, Psi and Delta and the group delay of one environment and of
+ *      each, an environment it does not have refused,
  *      and env refused on a design with one environment, merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
@@ -281,9 +282,8 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         envShown(envRated) === envShown(envScored) && envShown(envMerit) === envShown(envScored) && envMerit.environments.length === 2 && envMerit.rows[1].env === 'env2',
         JSON.stringify(envMerit).slice(0, 400));
     {
-        // spectrum, bandFeature, edgeShift, color and integrals take env: one environment, or
-        // 'all' for the plain answer of each environment beside its number, id
-        // and name.
+        // The result tools take env: one environment, or 'all' for the plain
+        // answer of each environment beside its number, id and name.
         const envRange = { from: 450, to: 650, step: 50, angles: [0, 30] };
         const bands = [{ from: 500, to: 600 }];
         const summary = env => {
@@ -327,10 +327,36 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         ok('color and integrals compute the environment env names, and each with env all, as they answer for one',
             JSON.stringify(asked) === JSON.stringify(meant) && asked[1].environments?.length === 2 && asked[0].Y !== asked[1].environments[0].Y,
             JSON.stringify(asked).slice(0, 300));
+        // indexProfile, admittance, electricField, ellipsometry,
+        // ellipsometryVsAngle and groupDelay: one environment as the tool
+        // answers without env for the design that environment computes, and
+        // with env all each beside its number, id and name.
+        const { analysisTools } = await import('../src/mcp/analysisTools.js');
+        const { oneEnvironmentDesign } = await import('../src/utils/environments/environments.js');
+        const toolOn = (tool, id, args) => {
+            const store = { get: () => oneEnvironmentDesign(envHere, id) };
+            const { designId: _designId, ...answer } = analysisTools({ api, store }).find(t => t.name === tool).run({ designId: envId, ...args });
+            return answer;
+        };
+        const VIEWS = {
+            indexProfile: { wavelength: 600 }, admittance: { wavelength: 600, angle: 30 }, electricField: { wavelength: 600, pointsPerLayer: 10 },
+            ellipsometry: { from: 450, to: 650, step: 10 }, ellipsometryVsAngle: { wavelength: 633, angleStep: 5 }, groupDelay: { from: 450, to: 650, step: 10 },
+        };
+        const viewsWrong = [];
+        for (const [tool, args] of Object.entries(VIEWS)) {
+            const served = await Promise.all([server.call(tool, { designId: envId, ...args, env: 'env2' }), server.call(tool, { designId: envId, ...args, env: 'all' })]);
+            const meant = [{ designId: envId, ...toolOn(tool, 'env2', args) }, { designId: envId, environments: [
+                { number: 1, id: 'base', name: null, ...toolOn(tool, 'base', args) }, { number: 2, id: 'env2', name: 'Under water', ...toolOn(tool, 'env2', args) }] }];
+            if (JSON.stringify(served) !== JSON.stringify(meant) || JSON.stringify(meant[1].environments[0]) === JSON.stringify(meant[1].environments[1])) viewsWrong.push(tool);
+        }
+        ok('indexProfile, admittance, electricField, ellipsometry, ellipsometryVsAngle and groupDelay answer the environment env names as they answer for its design, and each with env all',
+            viewsWrong.length === 0, viewsWrong.join(', '));
         const noSuch = await server.call('spectrum', { designId: envId, ...envRange, env: 7 });
         const noColour = await server.call('color', { designId: envId, env: 'env7' });
         ok('an environment the design does not have is refused', /spectrum: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noSuch.error ?? '')
             && /color: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noColour.error ?? ''), `${noSuch.error} / ${noColour.error}`);
+        const noField = await server.call('electricField', { designId: envId, env: 'env7' });
+        ok('and so is one asked of the electric field', /electricField: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noField.error ?? ''), noField.error);
     }
     const loneEnv = await server.call('setMerit', { designId: id, rows: [{ type: 'R', lambdaStart: 550, env: 2 }] });
     ok('env on a row of a design with one environment is refused', /setMerit: row 0: the design has one environment, so a row takes no env/.test(loneEnv.error ?? ''), loneEnv.error);

@@ -63,12 +63,13 @@ class Admittance:
             print(b.layer, b.name, b.Y)
     """
 
-    def __init__(self, loci):
+    def __init__(self, loci, environment=None):
         self._values = {
             "mode": loci["mode"], "wavelength": loci["wavelength"], "angle": loci["angle"], "plane": loci["plane"],
             "incident": Medium(loci["incident"]["material"], loci["incident"]["name"]),
             "substrate": Medium(loci["substrate"]["material"], loci["substrate"]["name"]),
             "s": _locus(loci["s"]), "p": _locus(loci["p"]), "out_of_range": loci["outOfRange"],
+            "environment": environment,
         }
 
     mode = _reading("mode", """The side computed: "front" or "back".
@@ -154,6 +155,18 @@ class Admittance:
             design = tf.new_design("Mirror")
             design.stack("(HL)^3 H")
             print([m["id"] for m in design.admittance(5000).out_of_range])
+        """)
+    environment = _reading("environment", """The environment the loci were computed in, a dict of number, id
+        and name, when design.admittance() was given env; None without one, when they were computed in
+        environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for locus in design.admittance(550, env="all"):
+                print(locus.environment["number"], locus.environment["name"], locus.incident.material)
         """)
 
     def save_csv(self, path):

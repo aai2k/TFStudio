@@ -9,6 +9,7 @@ import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { inEnvironments } from './designEnvironments.js';
 import { scoredSide, viewWavelength } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, isAngle, refusal } from './check.js';
 
@@ -30,13 +31,44 @@ function oneSurface(call, design, side) {
     return scoredSide(call, design, side);
 }
 
-// The checks both calls make on the side, the convention and the design.
-function checked(call, design, { side, deltaConvention }) {
+// The side both calls compute on, after the checks they make on it and the
+// convention. Every environment has the design's sides, so the side is the
+// same in each.
+function checkedSide(call, design, { side, deltaConvention }) {
     requireValue(call, 'deltaConvention', deltaConvention, isConvention, "'azzam' or 'reversed'");
-    const mode = oneSurface(call, design, side);
+    return oneSurface(call, design, side);
+}
+
+// One design with its materials checked, as both calls compute on it.
+function computable(design) {
     requireResolved(design);
     requireKernel();
-    return mode;
+    return withHerpinRecords(design);
+}
+
+// The sweep against wavelength of one design, as ellipsometry() gives it.
+function ellipsometryOf(design, { from, to, step, angles, mode, deltaConvention }) {
+    const shown = computable(design);
+    const sweeps = angles.map(angle => computeEllipsometrySweep(shown, {
+        mode: 'spectral', side: mode, lambdaStart: from, lambdaEnd: to, lambdaStep: step, thetaDeg: angle, deltaConvention,
+    }));
+    return {
+        mode, wavelength: Array.from(sweeps[0].x), deltaConvention,
+        angles: sweeps.map(({ psi, delta }, i) => ({ angle: angles[i], psi: Array.from(psi), delta: Array.from(delta) })),
+        outOfRange: designRangeCoverage(shown, [from, to], mode).offenders,
+    };
+}
+
+// The sweep against angle of one design, as ellipsometryVsAngle() gives it.
+function ellipsometryVsAngleOf(design, { lambda, angleStart, angleEnd, angleStep, mode, deltaConvention }) {
+    const shown = computable(design);
+    const sweep = computeEllipsometrySweep(shown, {
+        mode: 'angular', side: mode, lambdaNm: lambda, angleStart, angleEnd, angleStep, deltaConvention,
+    });
+    return {
+        mode, wavelength: lambda, deltaConvention, angle: Array.from(sweep.x), psi: Array.from(sweep.psi), delta: Array.from(sweep.delta),
+        outOfRange: designRangeCoverage(shown, [lambda, lambda], mode).offenders,
+    };
 }
 
 /**
@@ -48,7 +80,9 @@ function checked(call, design, { side, deltaConvention }) {
  * computed on the front, or on the back of a design coated on the back alone,
  * the side the PSI and DEL merit rows score, unless `side` is given; a side
  * with no layers gives its bare surface. The design's cone of incidence is not
- * used, as the window does not use it.
+ * used, as the window does not use it. A design with more than one
+ * [environment](/design/environments/) is computed in environment 1, its own
+ * media and substrate, unless `env` names another.
  *
  * @param design The design.
  * @param [options]
@@ -58,7 +92,8 @@ function checked(call, design, { side, deltaConvention }) {
  * @param [options.angles=[65]] The angles of incidence, degrees in the medium light comes from, each 0 up to but not including 90.
  * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
  * @param [options.deltaConvention='azzam'] The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that, for data written in the other time convention. Ψ is the same in both.
- * @returns The sweep.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one sweep per environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The sweep; with `env: 'all'`, `{ environments }`, one entry per environment, each this sweep with the environment's `number`, `id` and `name`.
  * @property mode The side computed: `'front'` or `'back'`.
  * @property wavelength The wavelengths, nm.
  * @property deltaConvention The sign of Δ: `'azzam'` or `'reversed'`.
@@ -66,29 +101,24 @@ function checked(call, design, { side, deltaConvention }) {
  * @property outOfRange The materials of the side computed whose data stop inside the range, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'` or `'back'`, a convention other than `'azzam'` or `'reversed'`, or more than a million points (wavelengths times angles)
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^3 H' });
  * const e = tf.ellipsometry(design, { from: 400, to: 800, step: 1, angles: [55, 70] });
  * for (const { angle, psi, delta } of e.angles) console.log(angle, 'degrees: at', e.wavelength[100], 'nm Psi', psi[100].toFixed(3), 'Delta', delta[100].toFixed(3));
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * for (const env of tf.ellipsometry(wet, { from: 400, to: 800, step: 1, env: 'all' }).environments) console.log(env.number, env.name, 'Psi at', env.wavelength[100], 'nm', env.angles[0].psi[100].toFixed(3));
  */
 export function ellipsometry(design, options) {
     const {
         from = DEFAULTS.lambdaStart, to = DEFAULTS.lambdaEnd, step = DEFAULTS.lambdaStep, angles = [DEFAULTS.thetaDeg], side,
-        deltaConvention = DEFAULTS.deltaConvention,
-    } = checkOptions('ellipsometry', options, ['from', 'to', 'step', 'angles', 'side', 'deltaConvention']);
+        deltaConvention = DEFAULTS.deltaConvention, env,
+    } = checkOptions('ellipsometry', options, ['from', 'to', 'step', 'angles', 'side', 'deltaConvention', 'env']);
     requireValue('ellipsometry', 'angles', angles, v => Array.isArray(v) && v.length > 0 && v.every(isAngle),
         'a list of angles of incidence in degrees, each 0 <= angle < 90');
     checkRange('ellipsometry', { from, to, step }, angles.length);
-    const mode = checked('ellipsometry', design, { side, deltaConvention });
-    const shown = withHerpinRecords(design);
-    const sweeps = angles.map(angle => computeEllipsometrySweep(shown, {
-        mode: 'spectral', side: mode, lambdaStart: from, lambdaEnd: to, lambdaStep: step, thetaDeg: angle, deltaConvention,
-    }));
-    return {
-        mode, wavelength: Array.from(sweeps[0].x), deltaConvention,
-        angles: sweeps.map(({ psi, delta }, i) => ({ angle: angles[i], psi: Array.from(psi), delta: Array.from(delta) })),
-        outOfRange: designRangeCoverage(shown, [from, to], mode).offenders,
-    };
+    const mode = checkedSide('ellipsometry', design, { side, deltaConvention });
+    return inEnvironments('ellipsometry', design, env, one => ellipsometryOf(one, { from, to, step, angles, mode, deltaConvention }));
 }
 
 /**
@@ -100,7 +130,9 @@ export function ellipsometry(design, options) {
  * computed on the front, or on the back of a design coated on the back alone,
  * the side the PSI and DEL merit rows score, unless `side` is given; a side
  * with no layers gives its bare surface. The design's cone of incidence is not
- * used, as the window does not use it.
+ * used, as the window does not use it. A design with more than one
+ * [environment](/design/environments/) is computed in environment 1, its own
+ * media and substrate, unless `env` names another.
  *
  * Where the window takes a setting it cannot sweep and sweeps another in its
  * place, this call refuses it: an end above 89.5 degrees, a start above the
@@ -114,7 +146,8 @@ export function ellipsometry(design, options) {
  * @param [options.angleStep=0.5] The angle step, degrees, from 0.05 up to the span, `angleEnd` minus `angleStart`.
  * @param [options.side] `'front'` or `'back'`. Without it, the back of a design coated on the back alone and the front of any other.
  * @param [options.deltaConvention='azzam'] The sign of Δ: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes, or `'reversed'`, 360 degrees minus that, for data written in the other time convention. Ψ is the same in both.
- * @returns The sweep.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one sweep per environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The sweep; with `env: 'all'`, `{ environments }`, one entry per environment, each this sweep with the environment's `number`, `id` and `name`.
  * @property mode The side computed: `'front'` or `'back'`.
  * @property wavelength The wavelength, nm.
  * @property deltaConvention The sign of Δ: `'azzam'` or `'reversed'`.
@@ -124,17 +157,20 @@ export function ellipsometry(design, options) {
  * @property outOfRange The materials of the side computed whose data do not reach the wavelength, each `{ id, name, rangeNm, heldFlat }`: their n and k there are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take, a wavelength of 0 or less, angles that are not a range from 0 to 89.5, a step below 0.05 degrees or above the span, a side other than `'front'` or `'back'`, or a convention other than `'azzam'` or `'reversed'`
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^3 H' });
  * const e = tf.ellipsometryVsAngle(design, { wavelength: 633, angleStart: 45, angleEnd: 80, angleStep: 0.5 });
  * const lowest = e.psi.indexOf(Math.min(...e.psi));
  * console.log('lowest Psi', e.psi[lowest].toFixed(3), 'at', e.angle[lowest], 'degrees');
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * for (const env of tf.ellipsometryVsAngle(wet, { wavelength: 633, env: 'all' }).environments) console.log(env.number, env.name, 'lowest Psi', Math.min(...env.psi).toFixed(3));
  */
 export function ellipsometryVsAngle(design, options) {
     const {
         wavelength, angleStart = DEFAULTS.angleStart, angleEnd = DEFAULTS.angleEnd, angleStep = DEFAULTS.angleStep, side,
-        deltaConvention = DEFAULTS.deltaConvention,
-    } = checkOptions('ellipsometryVsAngle', options, ['wavelength', 'angleStart', 'angleEnd', 'angleStep', 'side', 'deltaConvention']);
+        deltaConvention = DEFAULTS.deltaConvention, env,
+    } = checkOptions('ellipsometryVsAngle', options, ['wavelength', 'angleStart', 'angleEnd', 'angleStep', 'side', 'deltaConvention', 'env']);
     const lambda = viewWavelength('ellipsometryVsAngle', design, wavelength, ELLIPSOMETRY_LAMBDA_NM);
     if (!(isSweepAngle(angleStart) && isSweepAngle(angleEnd) && angleStart < angleEnd)) {
         throw refusal('angleRange', { call: 'ellipsometryVsAngle', start: angleStart, end: angleEnd, max: MAX_SWEEP_ANGLE },
@@ -143,13 +179,7 @@ export function ellipsometryVsAngle(design, options) {
     const span = angleEnd - angleStart;
     requireValue('ellipsometryVsAngle', 'angleStep', angleStep, v => Number.isFinite(v) && v >= MIN_ANGLE_STEP && v <= span,
         `an angle step in degrees from ${MIN_ANGLE_STEP} up to the span, ${span}`);
-    const mode = checked('ellipsometryVsAngle', design, { side, deltaConvention });
-    const shown = withHerpinRecords(design);
-    const sweep = computeEllipsometrySweep(shown, {
-        mode: 'angular', side: mode, lambdaNm: lambda, angleStart, angleEnd, angleStep, deltaConvention,
-    });
-    return {
-        mode, wavelength: lambda, deltaConvention, angle: Array.from(sweep.x), psi: Array.from(sweep.psi), delta: Array.from(sweep.delta),
-        outOfRange: designRangeCoverage(shown, [lambda, lambda], mode).offenders,
-    };
+    const mode = checkedSide('ellipsometryVsAngle', design, { side, deltaConvention });
+    return inEnvironments('ellipsometryVsAngle', design, env,
+        one => ellipsometryVsAngleOf(one, { lambda, angleStart, angleEnd, angleStep, mode, deltaConvention }));
 }

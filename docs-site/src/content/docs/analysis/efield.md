@@ -42,6 +42,8 @@ At normal incidence, and for s-polarization at any angle, the field lies entirel
 
 **Side**: profile the **front** coating or the **back** coating. Each side shows that coating's standing wave on the substrate, evaluated from its own incident medium; the substrate is the exit medium.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the field is computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** draws every environment that is on, each in its own color from the window's Palette in Preferences > Analysis, each polarization keeping its line style, with a legend above the plot naming them and each environment's incident level in its color. The layer bands and boundaries are the first environment's, since a thickness factor moves them in the others, and the depth axis runs on to the thickest stack. The readout names each curve's environment, and the table and the CSV start each row with its environment and list each environment's rows in turn. The material range notice reads the materials of every environment shown. The choice belongs to this window and is not saved with the design.
+
 ## How to read it
 
 The horizontal axis runs from the incident medium into the substrate; vertical dotted lines and the coloured bands mark the layer boundaries and materials. A horizontal dotted line marks the incident beam's own level, so a field above it is being concentrated by the coating rather than merely passed through. Peaks are field anti-nodes and troughs are nodes.

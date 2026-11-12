@@ -40,8 +40,9 @@ function tableRows(profile) {
  * for (const l of profile.layers) console.log(l.number, l.material, l.n, l.start, l.end);
  */
 export class IndexProfile {
-    constructor(profile) {
+    constructor(profile, environment = null) {
         this._profile = profile;
+        this._environment = environment;
     }
 
     /**
@@ -142,6 +143,19 @@ export class IndexProfile {
      * console.log(design.indexProfile({ wavelength: 5000 }).outOfRange.map(m => m.id));
      */
     get outOfRange() { return this._profile.outOfRange; }
+
+    /**
+     * The environment the profile was computed in, `{ number, id, name }`,
+     * when design.indexProfile() was given `env`; null without one, when it
+     * was computed in environment 1, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+     * for (const profile of design.indexProfile({ env: 'all' })) console.log(profile.environment.number, profile.environment.name, profile.thickness.toFixed(1), 'nm');
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the profile to a CSV file, the table the window exports less

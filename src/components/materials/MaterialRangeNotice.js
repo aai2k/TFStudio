@@ -177,10 +177,28 @@ export function useMeritRangeNotice(design, t) {
  *             action?: { label: string, onClick: () => void } } | null}
  */
 export function useMaterialLambdaNotice(design, lambdaNm, t, onFix, side) {
-    const { offenders, covered } = useMemo(
+    const coverage = useMemo(
         () => designRangeCoverage(design, [lambdaNm, lambdaNm], side),
         [design, lambdaNm, side],
     );
+    return useLambdaNotice(coverage, lambdaNm, t, onFix);
+}
+
+/**
+ * The same warning for a window that evaluates at a single wavelength with a
+ * stack other than the design's own, such as the design of each environment
+ * it shows. `materials` is `[{ id, material }]`, as useMaterialsRangeNotice
+ * takes it, memoized by the caller.
+ */
+export function useMaterialsLambdaNotice(materials, lambdaNm, t, onFix) {
+    const coverage = useMemo(
+        () => materialsRangeCoverage(materials, [lambdaNm, lambdaNm]),
+        [materials, lambdaNm],
+    );
+    return useLambdaNotice(coverage, lambdaNm, t, onFix);
+}
+
+function useLambdaNotice({ offenders, covered }, lambdaNm, t, onFix) {
     return useMemo(() => {
         if (!offenders.length) return null;
         const fixed = onFix ? clampLambdaToCovered(covered, lambdaNm) : null;

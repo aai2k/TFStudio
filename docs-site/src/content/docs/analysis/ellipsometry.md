@@ -48,6 +48,8 @@ substrates.
 **AOI range and step** (angular mode): the span and sampling interval of the
 angle sweep, in degrees.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one Ψ and Δ are computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** draws every environment that is on: its Ψ solid and its Δ dashed, both in its own color from the window's Palette in Preferences > Analysis, with a legend above the plot naming them, and the axes named Ψ (°) and Δ (°). The readout names each curve's environment, and the table and the CSV give Ψ and Δ of each environment in columns named after it. Measured curves are drawn as with one environment. The material range notice reads the materials of every environment shown. The choice belongs to this window and is not saved with the design.
+
 ## How to read it
 
 Ψ is plotted on the left axis (0–90°) and Δ on the right axis (0–360°). Ψ

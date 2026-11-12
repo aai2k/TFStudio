@@ -25,8 +25,9 @@
  *   included, by name and by the builtin: id a stacked layer holds, and their
  *   n and k, and a name two materials share refused; spectrum curves at two
  *   angles as arrays, their mean, min and max over a band and the whole range,
- *   and the CSV file with its conditions lines; spectra, edge shifts, colours
- *   and integral values of one environment and of each one, each naming its
+ *   and the CSV file with its conditions lines; spectra, edge shifts, colours,
+ *   integral values, index profiles, admittance loci, electric fields, Psi and
+ *   Delta and group delay of one environment and of each one, each naming its
  *   environment, and band features found in it; merit rows, with start and end left out before the
  *   options, and options given as undefined or null, value, rows and clear(),
  *   a row scored in one environment, each environment's merit and each row's
@@ -526,13 +527,41 @@ const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'f
         plainTable(api.integrals(wet._data, { ...GRID, env: 3 }), EDGE), ...api.integrals(wet._data, { ...GRID, env: 'all' }).environments.map(e => plainTable(...split(e)))];
     ok('color() and integrals() without env are environment 1\'s and name none; with env they name it, and give a list for \'all\'',
         canon([colours.map(colourOf), tables.map(tableOf)]) === canon([plainColours, plainTables]) && plainColours.length === 5, canon(colours.map(c => c.environment)));
+    // An IndexProfile, an Admittance, an ElectricField, an Ellipsometry and a
+    // GroupDelay hold what their calls give in their environment, and name it:
+    // each reads as the object made from the plain call's answer with that
+    // environment.
+    const VIEWS = [
+        ['indexProfile', objects.IndexProfile, env => wet.indexProfile({ wavelength: 600, env }), { wavelength: 600 }, ['mode', 'incident', 'substrate', 'layers', 'thickness', 'outOfRange']],
+        ['admittance', objects.Admittance, env => wet.admittance(600, { env }), { wavelength: 600 }, ['mode', 'incident', 'substrate', 's', 'p', 'outOfRange']],
+        ['electricField', objects.ElectricField, env => wet.electricField(600, { pointsPerLayer: 5, env }), { wavelength: 600, pointsPerLayer: 5 }, ['mode', 'z', 's', 'p', 'avg', 'incidentAmplitude', 'outOfRange']],
+        ['ellipsometry', objects.Ellipsometry, env => wet.ellipsometry(450, 650, { step: 10, env }), { from: 450, to: 650, step: 10 }, ['mode', 'wavelength', 'psi', 'outOfRange']],
+        ['ellipsometryVsAngle', objects.Ellipsometry, env => wet.ellipsometryVsAngle(633, 45, 80, { step: 5, env }), { wavelength: 633, angleStart: 45, angleEnd: 80, angleStep: 5 }, ['mode', 'wavelength', 'psi', 'outOfRange']],
+        ['groupDelay', objects.GroupDelay, env => wet.groupDelay(450, 650, { step: 10, env }), { from: 450, to: 650, step: 10 }, ['mode', 'wavelength', 'phase', 'gd', 'gdd', 'outOfRange']],
+    ];
+    const wrongViews = VIEWS.filter(([call, Kind, made, options, fields]) => {
+        const shown = found => [found instanceof Kind, found.environment, ...fields.map(field => found[field])];
+        const plain = env => api[call](wet._data, { ...options, env });
+        const meant = [[plain(), null], [plain(2), WATER], [plain(3), EDGE], ...plain('all').environments.map(split)].map(([found, environment]) => new Kind(found, environment));
+        return canon([made(), made('env2'), made(3), ...made('all')].map(shown)) !== canon(meant.map(shown));
+    }).map(([call]) => call);
+    ok('indexProfile(), admittance(), electricField(), ellipsometry(), ellipsometryVsAngle() and groupDelay() without env are environment 1\'s and name none; with env they name it, and give a list for \'all\'',
+        wrongViews.length === 0, wrongViews.join(', '));
+    ok('a sweep at one of its angles keeps its environment', canon(wet.ellipsometry(450, 650, { step: 10, angles: [55, 70], env: 2 }).angle(70).environment) === canon(WATER));
     const unknown = [await refused(() => wet.spectrum(400, 700, { env: 5 })), await refused(() => wet.edgeShift(450, 650, [0], { env: 'al' })),
-        await refused(() => wet.color({ env: 0 })), await refused(() => wet.integrals({ env: 'env9' }))];
+        await refused(() => wet.color({ env: 0 })), await refused(() => wet.integrals({ env: 'env9' })),
+        await refused(() => wet.indexProfile({ env: 4 })), await refused(() => wet.admittance(600, { env: 'x' })),
+        await refused(() => wet.electricField(600, { env: 0 })), await refused(() => wet.ellipsometry(450, 650, { env: 9 })),
+        await refused(() => wet.ellipsometryVsAngle(633, 45, 80, { env: 'env4' })), await refused(() => wet.groupDelay(450, 650, { env: -1 }))];
+    const other = "one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3";
     ok('an environment the design does not have is refused in the objects\' words, saying env takes \'all\'', canon(unknown) === canon([
         "spectrum: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 5",
         'edgeShift: env is \'all\' or one of the design\'s environments by its number, 1 to 3, or its id, base, env2 or env3; not "al"',
         "color: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 0",
         'integrals: env is \'all\' or one of the design\'s environments by its number, 1 to 3, or its id, base, env2 or env3; not "env9"',
+        `indexProfile: env is 'all' or ${other}; not 4`, `admittance: env is 'all' or ${other}; not "x"`,
+        `electricField: env is 'all' or ${other}; not 0`, `ellipsometry: env is 'all' or ${other}; not 9`,
+        `ellipsometryVsAngle: env is 'all' or ${other}; not "env4"`, `groupDelay: env is 'all' or ${other}; not -1`,
     ]), canon(unknown));
     const kept = await refused(() => wet.environments.remove(7));
     ok('and an environment named elsewhere keeps its words', kept === 'environment 7: the design has 3 environments, numbered from 1', kept);
@@ -966,7 +995,7 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     ok('an Admittance and an ElectricField print what they hold', canon(shown) === canon([`<Admittance front at 550 nm, 45 degrees: ${read.layers.length} layers, admittance plane>`,
         `<ElectricField front at 550 nm, 0 degrees: ${read.layers.length} layers, ${read.layers.length * 60 + 1} samples>`]), shown.join(' / '));
     const FIELD_WORDED = [
-        [() => read.admittance(550, { wavelength: 600 }), "admittance: unknown option 'wavelength'; the options are angle, side, plane"],
+        [() => read.admittance(550, { wavelength: 600 }), "admittance: unknown option 'wavelength'; the options are angle, side, plane, env"],
         [() => read.admittance(550, { angle: 95 }), 'admittance: angle is an angle of incidence in degrees, 0 <= angle < 90, not 95'],
         [() => read.admittance(550, { side: 'total' }), 'admittance: side is \'front\' or \'back\', not "total"'],
         [() => read.admittance(550, 45), 'admittance: takes wavelength before its options object, not 2 values'],
@@ -1042,11 +1071,11 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     ok('an Ellipsometry prints what it holds', canon(shown) === canon(['<Ellipsometry front from 400 to 800 nm, 41 points, angles [55, 70], azzam>',
         '<Ellipsometry front at 633 nm, 45 to 80 degrees, 8 points, azzam>']), shown.join(' / '));
     const WORDED = [
-        [() => read.ellipsometry(400, 800, { from: 400 }), "ellipsometry: unknown option 'from'; the options are step, angles, side, deltaConvention"],
+        [() => read.ellipsometry(400, 800, { from: 400 }), "ellipsometry: unknown option 'from'; the options are step, angles, side, deltaConvention, env"],
         [() => read.ellipsometry(800, 400), 'ellipsometry: start and end are wavelengths in nm, 0 < start < end'],
         [() => read.ellipsometry({ side: 'total' }), 'ellipsometry: side is \'front\' or \'back\', not "total"'],
         [() => read.ellipsometry({ deltaConvention: 'tompkins' }), 'ellipsometry: deltaConvention is \'azzam\' or \'reversed\', not "tompkins"'],
-        [() => read.ellipsometryVsAngle(633, 45, 80, { angleStep: 1 }), "ellipsometryVsAngle: unknown option 'angleStep'; the options are step, side, deltaConvention"],
+        [() => read.ellipsometryVsAngle(633, 45, 80, { angleStep: 1 }), "ellipsometryVsAngle: unknown option 'angleStep'; the options are step, side, deltaConvention, env"],
         [() => read.ellipsometryVsAngle(633, 45, 90), 'ellipsometryVsAngle: start and end are angles of incidence in degrees, 0 <= start < end <= 89.5'],
         [() => read.ellipsometryVsAngle(633, 45, 80, { step: 0.01 }), 'ellipsometryVsAngle: step is an angle step in degrees from 0.05 up to the span, 35, not 0.01'],
         [() => read.ellipsometryVsAngle(633, 45, 80, 5), 'ellipsometryVsAngle: takes wavelength and start and end before its options object, not 4 values'],
@@ -1081,7 +1110,7 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
         === canon(['λ (nm),Outside data,Group Delay (fs),GDD (fs²),CDC (fs/nm),Phase φ (°),TOD (fs³)', 42 + g.knots.length, '400', true]), lines[0]);
     ok('a GroupDelay prints what it holds', inspect(g) === '<GroupDelay front R avg at 0 degrees from 400 to 800 nm, 41 points>', inspect(g));
     const WORDED = [
-        [() => read.groupDelay(400, 800, { from: 400 }), "groupDelay: unknown option 'from'; the options are step, angle, pol, response, side, reference"],
+        [() => read.groupDelay(400, 800, { from: 400 }), "groupDelay: unknown option 'from'; the options are step, angle, pol, response, side, reference, env"],
         [() => read.groupDelay(800, 400), 'groupDelay: start and end are wavelengths in nm, 0 < start < end'],
         [() => read.groupDelay({ side: 'total' }), 'groupDelay: side is \'front\' or \'back\' with response \'R\', not "total"'],
         [() => read.groupDelay({ step: 'fine' }), 'groupDelay: step is a wavelength step in nm above 0, or \'auto\', not "fine"'],

@@ -8,12 +8,39 @@ import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { inEnvironments } from './designEnvironments.js';
 import { phaseSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, isAngle, isPositive } from './check.js';
 
 const DEFAULTS = sessionDefaults('gdGddEvaluation');
 // The uniform step without `step`, nm, the step the other analysis calls take.
 const STEP_NM = 0.5;
+
+// The curves of one design, as groupDelay() gives them, on the sides `mode`.
+function groupDelayOf(design, { from, to, step, angle, pol, response, reference, mode }) {
+    requireResolved(design);
+    requireKernel();
+    const shown = withHerpinRecords(design);
+    // 'total' is the whole part, which the window's model names 'whole'.
+    const raw = computeGdGddSpectrum(shown, {
+        side: mode === 'total' ? 'whole' : mode, target: response, polarization: pol, thetaDeg: angle,
+        lambdaStart: from, lambdaEnd: to, preview: false, ...(step === 'auto' ? {} : { stepNm: step }),
+    });
+    // phaseFromReference gives the phase back as it is when the sample nearest
+    // the reference has no value, so the reference is then not reported.
+    const phase = reference === undefined ? raw.phaseDeg : phaseFromReference(raw.lambda, raw.phaseDeg, reference);
+    return {
+        mode, response, angle, pol, step, reference: phase === raw.phaseDeg ? null : reference,
+        wavelength: raw.lambda,
+        phase,
+        gd: raw.gd, gdd: raw.gdd, tod: raw.tod, cdc: raw.cdc,
+        outside: raw.outsideRange,
+        knots: raw.knotSamples.map(({ wavelengthNm, gd, gdd, tod, cdc }) => ({ wavelength: wavelengthNm, gd, gdd, tod, cdc })),
+        invalid: raw.invalid.map(({ wavelengthNm, reason }) => ({ wavelength: wavelengthNm, reason })),
+        models: raw.models,
+        outOfRange: designRangeCoverage(shown, [from, to], mode).offenders,
+    };
+}
 
 /**
  * Phase, group delay, GDD, TOD and CDC of a design's reflected or transmitted
@@ -30,7 +57,9 @@ const STEP_NM = 0.5;
  * [Pulse Analysis](/analysis/pulse-analysis/) window computes it: the front
  * coating, one pass through the substrate at the design's thickness and the
  * back coating, the first pulse to come out of the part. The design's cone of
- * incidence is not used, as the window does not use it.
+ * incidence is not used, as the window does not use it. A design with more
+ * than one [environment](/design/environments/) is computed in environment 1,
+ * its own media and substrate, unless `env` names another.
  *
  * GD, GDD and TOD are analytic values at each wavelength (Birge and Kärtner,
  * Applied Optics 45, 1478 (2006)), so they do not depend on the grid. The phase
@@ -51,7 +80,8 @@ const STEP_NM = 0.5;
  * @param [options.response='R'] The light whose phase is taken: `'R'`, reflected, or `'T'`, transmitted.
  * @param [options.side] `'front'`, `'back'`, or with `response: 'T'` `'total'`, the whole part. Without it, the back of a design coated on the back alone and the front of any other.
  * @param [options.reference] A wavelength, nm: the phase is then shifted to 0 at the sample nearest it, as the window plots it; when that sample has no value, the phase stays absolute and `reference` is `null`. Without it, the phase is absolute, as the window's table gives it. GD, GDD, TOD and CDC are the same either way.
- * @returns The curves.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one set of curves per environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The curves; with `env: 'all'`, `{ environments }`, one entry per environment, each these curves with the environment's `number`, `id` and `name`.
  * @property mode The sides computed: `'front'`, `'back'` or `'total'`.
  * @property response `'R'` or `'T'`.
  * @property angle The angle of incidence, degrees.
@@ -71,17 +101,20 @@ const STEP_NM = 0.5;
  * @property outOfRange The materials of the sides computed whose data stop inside the range, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take, a range that is not one, a step that is not a positive number or `'auto'`, an angle outside 0 to 90, a polarization, response or side it does not have, `'total'` with `response: 'R'`, a reference that is not a wavelength above 0, or more than a million wavelengths
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^8 H' });
  * const g = tf.groupDelay(design, { from: 500, to: 600, step: 1 });
  * const at = g.wavelength.indexOf(550);
  * console.log(g.mode, 'at 550 nm: GD', g.gd[at].toFixed(3), 'fs, GDD', g.gdd[at].toFixed(3), 'fs²');
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * for (const env of tf.groupDelay(wet, { from: 500, to: 600, step: 1, env: 'all' }).environments) console.log(env.number, env.name, 'GDD at 550 nm', env.gdd[at].toFixed(3), 'fs²');
  */
 export function groupDelay(design, options) {
     const {
         from = DEFAULTS.lamStart, to = DEFAULTS.lamEnd, step = STEP_NM, angle = DEFAULTS.theta, pol = DEFAULTS.pol,
-        response = DEFAULTS.target, side, reference,
-    } = checkOptions('groupDelay', options, ['from', 'to', 'step', 'angle', 'pol', 'response', 'side', 'reference']);
+        response = DEFAULTS.target, side, reference, env,
+    } = checkOptions('groupDelay', options, ['from', 'to', 'step', 'angle', 'pol', 'response', 'side', 'reference', 'env']);
     requireValue('groupDelay', 'step', step, v => v === 'auto' || isPositive(v), "a wavelength step in nm above 0, or 'auto'");
     // The window's own grid holds at most 2001 points before it refines them,
     // so 'auto' is checked for its range alone.
@@ -90,27 +123,7 @@ export function groupDelay(design, options) {
     requireValue('groupDelay', 'pol', pol, v => ['avg', 's', 'p'].includes(v), "'avg', 's' or 'p'");
     requireValue('groupDelay', 'response', response, v => v === 'R' || v === 'T', "'R' or 'T'");
     requireValue('groupDelay', 'reference', reference, v => v === undefined || isPositive(v), 'a wavelength in nm above 0');
-    // 'total' is the whole part, which the window's model names 'whole'.
+    // Every environment has the design's sides, so the mode is the same in each.
     const mode = phaseSide('groupDelay', design, side, response);
-    requireResolved(design);
-    requireKernel();
-    const shown = withHerpinRecords(design);
-    const raw = computeGdGddSpectrum(shown, {
-        side: mode === 'total' ? 'whole' : mode, target: response, polarization: pol, thetaDeg: angle,
-        lambdaStart: from, lambdaEnd: to, preview: false, ...(step === 'auto' ? {} : { stepNm: step }),
-    });
-    // phaseFromReference gives the phase back as it is when the sample nearest
-    // the reference has no value, so the reference is then not reported.
-    const phase = reference === undefined ? raw.phaseDeg : phaseFromReference(raw.lambda, raw.phaseDeg, reference);
-    return {
-        mode, response, angle, pol, step, reference: phase === raw.phaseDeg ? null : reference,
-        wavelength: raw.lambda,
-        phase,
-        gd: raw.gd, gdd: raw.gdd, tod: raw.tod, cdc: raw.cdc,
-        outside: raw.outsideRange,
-        knots: raw.knotSamples.map(({ wavelengthNm, gd, gdd, tod, cdc }) => ({ wavelength: wavelengthNm, gd, gdd, tod, cdc })),
-        invalid: raw.invalid.map(({ wavelengthNm, reason }) => ({ wavelength: wavelengthNm, reason })),
-        models: raw.models,
-        outOfRange: designRangeCoverage(shown, [from, to], mode).offenders,
-    };
+    return inEnvironments('groupDelay', design, env, one => groupDelayOf(one, { from, to, step, angle, pol, response, reference, mode }));
 }

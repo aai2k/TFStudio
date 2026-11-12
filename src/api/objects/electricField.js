@@ -29,8 +29,9 @@ function tableRows(field) {
  * console.log('peak |E|², s:', Math.max(...field.s.e2), 'over', field.z.length, 'samples');
  */
 export class ElectricField {
-    constructor(field) {
+    constructor(field, environment = null) {
         this._field = field;
+        this._environment = environment;
     }
 
     /**
@@ -188,6 +189,19 @@ export class ElectricField {
      * console.log(design.electricField(5000).outOfRange.length, 'materials stop short of 5000 nm');
      */
     get outOfRange() { return this._field.outOfRange; }
+
+    /**
+     * The environment the field was computed in, `{ number, id, name }`,
+     * when design.electricField() was given `env`; null without one, when it
+     * was computed in environment 1, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const field of design.electricField(550, { env: 'all' })) console.log(field.environment.number, field.environment.name, Math.max(...field.s.e2).toFixed(4));
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the field to a CSV file as the window's Copy CSV writes its

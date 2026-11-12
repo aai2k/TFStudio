@@ -1,8 +1,9 @@
-import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
+import { ANALYSIS_DEFAULTS, environmentColor } from '../../../../constants/analysisDefaults.js';
 import {
     cartesianOption, chartToolbox, formatChartNumber, itemTooltip, lineSeries, niceTickInterval,
     scatterSeries, valueAxis,
 } from '../../../ui/chartOptions.js';
+import { environmentLegend } from '../chrome/environmentLegend.js';
 import { plotMargin } from '../chrome/plot.js';
 
 const FACTORY = ANALYSIS_DEFAULTS.admittanceDiagram.colors;
@@ -111,18 +112,34 @@ function labeledMarker(point, { name, color, symbol, label, position, textColor,
     return series;
 }
 
+// The environments a source draws under All, in order, each once.
+function sourceEnvironments(source) {
+    const byNumber = new Map();
+    for (const item of source || []) if (item.env) byNumber.set(item.env.number, item.env);
+    return [...byNumber.values()];
+}
+
+/**
+ * The loci of `source`, one polarization each, and under All one per
+ * environment and polarization, each naming its environment in `env`. A locus
+ * is coloured by each layer's material, or under All in its environment's
+ * colour in `marks`, with η_s, Y₀ and η₀ marked in that colour too; the marks
+ * are named on the first locus alone.
+ */
 function admittanceSeries(source, matColorMap, matName, colors, marks) {
     if (!source?.length) return [];
-    const multiplePolarizations = source.length > 1;
+    const multiplePolarizations = new Set(source.map(item => item.pol)).size > 1;
     const output = [];
-    for (const item of source) {
+    source.forEach((item, index) => {
         const polLabel = multiplePolarizations ? ` (${item.pol})` : '';
+        const envColor = item.env ? environmentColor(marks, item.env.number) : null;
+        const envLabel = item.env ? ` (${item.env.label})` : '';
         const dash = item.pol === 'p' ? 'dash' : 'solid';
         for (const arc of item.arcs) {
-            const color = matColorMap[arc.material] || '#aaaaaa';
+            const color = envColor || matColorMap[arc.material] || '#aaaaaa';
             output.push(lineSeries({
                 x: arc.re, y: arc.im,
-                name: legendName(arc.layerNum, arc.material, matName, polLabel),
+                name: legendName(arc.layerNum, arc.material, matName, polLabel) + envLabel,
                 color, width: 2, dash, lineCap: 'round', lineJoin: 'round',
             }));
             output.push(labeledMarker(
@@ -130,20 +147,20 @@ function admittanceSeries(source, matColorMap, matName, colors, marks) {
                 { name: '', color, symbol: 'circle', textColor: colors.text, size: 6 },
             ));
         }
-        const hideLabel = item.pol === 'p' && multiplePolarizations;
+        const label = text => (index > 0 ? '' : text);
         output.push(labeledMarker(item.marks.etaS, {
-            name: '', color: marks.start, symbol: 'rect', label: hideLabel ? '' : 'η_s',
+            name: '', color: envColor || marks.start, symbol: 'rect', label: label('η_s'),
             position: 'top', textColor: colors.text,
         }));
         output.push(labeledMarker(item.marks.Y0, {
-            name: '', color: marks.end, symbol: 'diamond', label: hideLabel ? '' : 'Y₀',
+            name: '', color: envColor || marks.end, symbol: 'diamond', label: label('Y₀'),
             position: 'right', textColor: colors.text,
         }));
         output.push(labeledMarker(item.marks.eta0, {
-            name: '', color: marks.target, symbol: 'cross', label: hideLabel ? '' : 'η₀',
-            position: 'bottom', textColor: marks.target, size: 12,
+            name: '', color: envColor || marks.target, symbol: 'cross', label: label('η₀'),
+            position: 'bottom', textColor: envColor || marks.target, size: 12,
         }));
-    }
+    });
     if (isReflection(source)) {
         const circle = Array.from({ length: 181 }, (_, index) => {
             const angle = index * Math.PI * 2 / 180;
@@ -154,14 +171,22 @@ function admittanceSeries(source, matColorMap, matName, colors, marks) {
     return output;
 }
 
-export function buildAdmittanceOption(source, matColorMap, matName, colors, marks = FACTORY, grid) {
+/**
+ * The diagram's chart. `marks` holds the window's colours, the factory ones
+ * unless given, and `grid` the plot's box, plotMargin unless given.
+ */
+export function buildAdmittanceOption(source, matColorMap, matName, colors, { marks = FACTORY, grid } = {}) {
     const range = computeAdmittanceRange(source);
     const navigation = navigationDomain(range);
     const symbol = isReflection(source) ? 'Γ' : 'Y';
     const series = admittanceSeries(source, matColorMap, matName, colors, marks);
+    const environments = sourceEnvironments(source);
+    const key = environments.length ? environmentLegend(environments, marks, colors.text) : null;
+    if (key) series.push(...key.series);
     return cartesianOption({
         colors,
         grid: grid || plotMargin(),
+        legend: key?.legend,
         fileName: 'admittance',
         toolbox: chartToolbox('admittance', {
             colors, resetView: resetViewPatch(navigation),

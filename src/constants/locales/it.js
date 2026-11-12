@@ -263,6 +263,7 @@ export default {
       hint: 'Vengono usate al prossimo avvio di TFStudio. Una finestra in cui hai già cambiato qualcosa in questa sessione mantiene quello che vi hai impostato.',
       curveColors: 'Colori delle curve',
       palette: 'Tavolozza',
+      environmentPalette: 'Tavolozza degli ambienti',
       paletteHint: "Assegnati in quest'ordine, un colore per curva, per materiale o per ambiente, riciclando dall'inizio una volta esaurito l'elenco.",
       paletteSlot: (n) => `Colore ${n}`,
       ranges: 'Intervalli',

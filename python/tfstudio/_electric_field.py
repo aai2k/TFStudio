@@ -46,7 +46,7 @@ class ElectricField:
         print("peak |E|², s:", max(field.s.e2), "over", len(field.z), "samples")
     """
 
-    def __init__(self, field):
+    def __init__(self, field, environment=None):
         self._values = {
             "mode": field["mode"], "wavelength": field["wavelength"], "angle": field["angle"],
             "reference": field["reference"], "depth_unit": field["depthUnit"], "points_per_layer": field["pointsPerLayer"],
@@ -55,6 +55,7 @@ class ElectricField:
                                   layer["depthEnd"]) for layer in field["layers"]],
             "s": _field(field["s"]), "p": _field(field["p"]), "avg": _field(field["avg"]),
             "incident_amplitude": field["incidentAmplitude"], "out_of_range": field["outOfRange"],
+            "environment": environment,
         }
 
     mode = _reading("mode", """The side computed: "front" or "back".
@@ -181,6 +182,18 @@ class ElectricField:
             design = tf.new_design("Mirror")
             design.stack("(HL)^3 H")
             print(len(design.electric_field(5000).out_of_range), "materials stop short of 5000 nm")
+        """)
+    environment = _reading("environment", """The environment the field was computed in, a dict of number, id
+        and name, when design.electric_field() was given env; None without one, when it was computed in
+        environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for field in design.electric_field(550, env="all"):
+                print(field.environment["number"], field.environment["name"], round(max(field.s.e2), 4))
         """)
 
     def save_csv(self, path):

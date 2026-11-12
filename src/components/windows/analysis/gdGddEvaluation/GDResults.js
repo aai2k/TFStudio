@@ -1,4 +1,5 @@
 import { ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { GDChart } from './GDChart.js';
 import { gdGddTargetColor } from './gdTargets.js';
@@ -8,6 +9,10 @@ const { createElement: h, useMemo } = React;
 // Stable identity for "no targets", so hiding them does not re-plot every frame.
 const EMPTY_TARGETS = [];
 
+/**
+ * The plot, the row under it with the Environment droplist on a design with
+ * environments, and the Results strip.
+ */
 export function GDResults({ c, t, text, state, view, exportMenu, yRange, editor, materialBands }) {
     const dt = t.dataTable;
     // The editor sizes a point target's handle against the plotted span. A
@@ -22,7 +27,7 @@ export function GDResults({ c, t, text, state, view, exportMenu, yRange, editor,
         h('div', { style: { flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex' } },
             view.plotData && view.plotData.lambda.length
                 ? h(GDChart, {
-                    data: view.plotData, meta: view.meta,
+                    data: view.plotData, sets: view.sets, meta: view.meta,
                     refLambda: state.refLam, showRef: state.showRef, c,
                     targets, yRange,
                     yInterval: state.yAuto ? view.autoRange?.interval : undefined,
@@ -33,6 +38,7 @@ export function GDResults({ c, t, text, state, view, exportMenu, yRange, editor,
                 })
                 : h(CenteredMessage, { c, message: text.noLayers }),
         ),
+        h(BadgeRow, { c, t, environment: state.environment, evalBadge: false }),
         h(ResultsSection, {
             c, label: dt.results, count: view.tableRows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable, actions: exportMenu,

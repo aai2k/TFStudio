@@ -37,8 +37,9 @@ function tableRows(loci) {
  * for (const b of locus.boundaries) console.log(b.layer, b.name, b.Y.re.toFixed(4), b.Y.im.toFixed(4));
  */
 export class Admittance {
-    constructor(loci) {
+    constructor(loci, environment = null) {
         this._loci = loci;
+        this._environment = environment;
     }
 
     /**
@@ -146,6 +147,19 @@ export class Admittance {
      * console.log(design.admittance(5000).outOfRange.map(m => m.id));
      */
     get outOfRange() { return this._loci.outOfRange; }
+
+    /**
+     * The environment the loci were computed in, `{ number, id, name }`,
+     * when design.admittance() was given `env`; null without one, when they
+     * were computed in environment 1, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const locus of design.admittance(550, { env: 'all' })) console.log(locus.environment.number, locus.environment.name, locus.incident.material);
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the loci to a CSV file as the window's Copy CSV writes its table

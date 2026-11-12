@@ -211,10 +211,11 @@ export function analysisTools({ api, store }) {
                 wavelength: num("Wavelength in nm. Default: the design's reference wavelength"),
                 side: VIEW_SIDE,
                 values: bool('Also answer with every layer. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const { layers, ...profile } = api.indexProfile(store.get(designId), options);
-                return { designId, ...profile, layerCount: layers.length, ...(values ? { layers } : {}) };
+                const answer = ({ layers, ...profile }) => ({ ...profile, layerCount: layers.length, ...(values ? { layers } : {}) });
+                return { designId, ...perEnvironment(options.env, api.indexProfile(store.get(designId), options), answer) };
             },
         },
         {
@@ -253,10 +254,11 @@ export function analysisTools({ api, store }) {
                 angle: ANGLE, side: ONE_SIDE,
                 plane: oneOf(['admittance', 'reflection'], "What the arcs are drawn in: 'admittance', the Y plane, or 'reflection', the plane of gamma. Default 'admittance'"),
                 values: bool('Also answer with every boundary and arc. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const { s, p, ...loci } = api.admittance(store.get(designId), options);
-                return { designId, ...loci, layerCount: s.arcs.length, ...(values ? { s, p } : { s: locusEnd(s), p: locusEnd(p) }) };
+                const answer = ({ s, p, ...loci }) => ({ ...loci, layerCount: s.arcs.length, ...(values ? { s, p } : { s: locusEnd(s), p: locusEnd(p) }) });
+                return { designId, ...perEnvironment(options.env, api.admittance(store.get(designId), options), answer) };
             },
         },
         {
@@ -270,12 +272,15 @@ export function analysisTools({ api, store }) {
                 depthUnit: oneOf(['nm', 'OT', 'QWOT', 'FWOT'], "What depth is in: 'nm', physical; 'OT', the running sum of n times thickness in nm; 'QWOT' or 'FWOT', quarter or full waves of reference. Default 'nm'"),
                 reference: num("The λ0 in nm the optical depth units read n at. Default: the design's reference wavelength"),
                 values: bool('Also answer with every sample. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const field = api.electricField(store.get(designId), options);
-                const { z, depth, layers, s, p, avg, ...facts } = field;
-                const peak = { s: fieldPeak(field, 's'), p: fieldPeak(field, 'p'), avg: fieldPeak(field, 'avg') };
-                return { designId, ...facts, layerCount: layers.length, sampleCount: z.length, peak, ...(values ? { z, depth, layers, s, p, avg } : {}) };
+                const answer = field => {
+                    const { z, depth, layers, s, p, avg, ...facts } = field;
+                    const peak = { s: fieldPeak(field, 's'), p: fieldPeak(field, 'p'), avg: fieldPeak(field, 'avg') };
+                    return { ...facts, layerCount: layers.length, sampleCount: z.length, peak, ...(values ? { z, depth, layers, s, p, avg } : {}) };
+                };
+                return { designId, ...perEnvironment(options.env, api.electricField(store.get(designId), options), answer) };
             },
         },
         {
@@ -332,14 +337,17 @@ export function analysisTools({ api, store }) {
                 angles: list({ type: 'number' }, 'Angles of incidence in degrees in the medium light comes from, each 0 <= angle < 90. Default [65]'),
                 side: ONE_SIDE, deltaConvention: DELTA_CONVENTION,
                 values: bool('Also answer with Psi and Delta at every wavelength. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const { wavelength, angles, ...sweep } = api.ellipsometry(store.get(designId), options);
-                const summary = angles.map(({ angle, psi, delta }) => ({ angle, psi: extremes(wavelength, psi), delta: extremes(wavelength, delta) }));
-                return {
-                    designId, ...sweep, from: wavelength[0], to: wavelength[wavelength.length - 1], pointCount: wavelength.length,
-                    ...(values ? { wavelength, angles } : { angles: summary }),
+                const answer = ({ wavelength, angles, ...sweep }) => {
+                    const summary = angles.map(({ angle, psi, delta }) => ({ angle, psi: extremes(wavelength, psi), delta: extremes(wavelength, delta) }));
+                    return {
+                        ...sweep, from: wavelength[0], to: wavelength[wavelength.length - 1], pointCount: wavelength.length,
+                        ...(values ? { wavelength, angles } : { angles: summary }),
+                    };
                 };
+                return { designId, ...perEnvironment(options.env, api.ellipsometry(store.get(designId), options), answer) };
             },
         },
         {
@@ -353,13 +361,14 @@ export function analysisTools({ api, store }) {
                 angleStep: num('Angle step in degrees, from 0.05 up to angleEnd - angleStart. Default 0.5'),
                 side: ONE_SIDE, deltaConvention: DELTA_CONVENTION,
                 values: bool('Also answer with Psi and Delta at every angle. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const { angle, psi, delta, ...sweep } = api.ellipsometryVsAngle(store.get(designId), options);
-                return {
-                    designId, ...sweep, pointCount: angle.length,
+                const answer = ({ angle, psi, delta, ...sweep }) => ({
+                    ...sweep, pointCount: angle.length,
                     ...(values ? { angle, psi, delta } : { psi: extremes(angle, psi), delta: extremes(angle, delta) }),
-                };
+                });
+                return { designId, ...perEnvironment(options.env, api.ellipsometryVsAngle(store.get(designId), options), answer) };
             },
         },
         {
@@ -375,16 +384,19 @@ export function analysisTools({ api, store }) {
                 side: oneOf(['front', 'back', 'total'], "'front' or 'back', one coated side, or with response 'T' 'total', the whole part. Default: the back of a back_only design and the front of any other"),
                 reference: num('Wavelength in nm the phase is shifted to 0 at, at the sample nearest it, as the window plots it; when that sample has no value the phase stays absolute and the reference answered is null. Default: none, the phase is absolute'),
                 values: bool('Also answer with every value. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const { wavelength, phase, gd, gdd, tod, cdc, outside, knots, invalid, ...curves } = api.groupDelay(store.get(designId), options);
-                const all = { phase, gd, gdd, tod, cdc };
-                const summary = Object.fromEntries(Object.entries(all).map(([key, series]) => [key, extremes(wavelength, series)]));
-                return {
-                    designId, ...curves, from: wavelength[0], to: wavelength[wavelength.length - 1], pointCount: wavelength.length, knotCount: knots.length,
-                    invalidCount: invalid.length, invalidReasons: [...new Set(invalid.map(point => point.reason))],
-                    ...(values ? { wavelength, ...all, outside, knots, invalid } : summary),
+                const answer = ({ wavelength, phase, gd, gdd, tod, cdc, outside, knots, invalid, ...curves }) => {
+                    const all = { phase, gd, gdd, tod, cdc };
+                    const summary = Object.fromEntries(Object.entries(all).map(([key, series]) => [key, extremes(wavelength, series)]));
+                    return {
+                        ...curves, from: wavelength[0], to: wavelength[wavelength.length - 1], pointCount: wavelength.length, knotCount: knots.length,
+                        invalidCount: invalid.length, invalidReasons: [...new Set(invalid.map(point => point.reason))],
+                        ...(values ? { wavelength, ...all, outside, knots, invalid } : summary),
+                    };
                 };
+                return { designId, ...perEnvironment(options.env, api.groupDelay(store.get(designId), options), answer) };
             },
         },
         {

@@ -6,8 +6,14 @@ const { createElement: h } = React;
 
 const SIDE_COLORS = { front: '#1e88e5', back: '#e53935' };
 
-/** Which of Ψ and Δ are plotted; the sweep that produces them is a setting. */
+/**
+ * Which of Ψ and Δ are plotted; the sweep that produces them is a setting.
+ * Each switch shows its curve's line. Under All colour names environments, so
+ * the switches show the lines in the text colour, Ψ solid and Δ dashed, as the
+ * curves are drawn.
+ */
 export function EllipsometryControls({ c, t, text, state, curveColors, notices }) {
+    const every = state.environment.every;
     return h(ControlRow, {
         c,
         trailing: [
@@ -16,28 +22,28 @@ export function EllipsometryControls({ c, t, text, state, curveColors, notices }
         ],
     },
         h(CurveSwitch, {
-            c, label: 'Ψ', color: curveColors.psi, on: state.showPsi,
+            c, label: 'Ψ', color: every ? c.text : curveColors.psi, on: state.showPsi,
             // The last curve standing cannot be switched off: an empty plot is
             // never what was meant, and there is no other way back to a curve.
             last: !state.showDelta,
             onToggle: () => state.setShowPsi(current => !current),
         }),
         h(CurveSwitch, {
-            c, label: 'Δ', color: curveColors.delta, on: state.showDelta,
+            c, label: 'Δ', color: every ? c.text : curveColors.delta, dashed: every, on: state.showDelta,
             last: !state.showPsi,
             onToggle: () => state.setShowDelta(current => !current),
         }),
     );
 }
 
-function CurveSwitch({ c, label, color, on, last, onToggle }) {
+function CurveSwitch({ c, label, color, dashed = false, on, last, onToggle }) {
     return h(ToggleButton, {
         c, label, color, active: on, disabled: on && last, onClick: onToggle,
     },
         h('span', {
             style: {
                 width: 14, height: 0, flexShrink: 0,
-                borderTop: `2px solid ${on ? color : c.textDim}`,
+                borderTop: `2px ${dashed ? 'dashed' : 'solid'} ${on ? color : c.textDim}`,
             },
         }),
     );

@@ -10,6 +10,7 @@ import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { editorLayerNumber } from '../utils/misc/layerNumbers.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { requireResolved } from './materials.js';
+import { inEnvironments } from './designEnvironments.js';
 import { checkOptions, requireValue, isPositive, isSide, isViewSide, refusal } from './check.js';
 
 /** The layers of `side` of `design` as it stores them. */
@@ -141,6 +142,14 @@ function wholePartProfile(design, lambda) {
     };
 }
 
+// The profile of one design, as indexProfile() gives it, on the sides `mode`.
+function indexProfileOf(design, { lambda, mode }) {
+    requireLayers('indexProfile', design, mode);
+    requireResolved(design);
+    const laid = mode === 'total' ? wholePartProfile(design, lambda) : oneSideProfile(design, lambda, mode);
+    return { mode, wavelength: lambda, ...laid, outOfRange: designRangeCoverage(design, [lambda, lambda], mode).offenders };
+}
+
 /**
  * The refractive index of a design's layers at one wavelength, laid out by
  * depth, as the [Refractive Index Profile](/analysis/refractive-index-profile/)
@@ -151,13 +160,16 @@ function wholePartProfile(design, lambda) {
  * substrate and the back, as the window's Total view lays them. A layer with
  * no thickness is left out, as the window leaves it out. The short stretch of
  * medium and substrate the window draws at each end of a side is drawing
- * alone, and is not part of the result.
+ * alone, and is not part of the result. A design with more than one
+ * [environment](/design/environments/) is computed in environment 1, its own
+ * media and substrate, unless `env` names another.
  *
  * @param design The design.
  * @param [options]
  * @param [options.wavelength] The wavelength n and k are read at, nm. Without it, the design's reference wavelength, as the window opens at it.
  * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
- * @returns The profile.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one profile per environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The profile; with `env: 'all'`, `{ environments }`, one entry per environment, each this profile with the environment's `number`, `id` and `name`.
  * @property mode What it was laid out on: `'front'`, `'back'` or `'total'`.
  * @property wavelength The wavelength, nm.
  * @property incident The medium light comes from, `{ material, n, k }`: the incident medium on the front, the exit medium on the back; null on the whole part.
@@ -169,20 +181,21 @@ function wholePartProfile(design, lambda) {
  * @throws an option it does not take, a wavelength of 0 or less, or a side other than `'front'`, `'back'` or `'total'`
  * @throws a side with no layer thicker than 0 nm, or on the whole part a design with none
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^3 H' });
  * const profile = tf.indexProfile(design, { wavelength: 633 });
  * for (const l of profile.layers) console.log(l.number, l.material, l.n.toFixed(4), l.start.toFixed(1), 'to', l.end.toFixed(1), 'nm');
  * console.log(profile.mode, 'side,', profile.thickness.toFixed(1), 'nm thick');
+ * const edge = tf.addEnvironment(design, { name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+ * for (const env of tf.indexProfile(edge, { wavelength: 633, env: 'all' }).environments) console.log(env.number, env.name, env.thickness.toFixed(1), 'nm thick');
  */
 export function indexProfile(design, options) {
-    const { wavelength, side } = checkOptions('indexProfile', options, ['wavelength', 'side']);
+    const { wavelength, side, env } = checkOptions('indexProfile', options, ['wavelength', 'side', 'env']);
+    // Every environment has the design's sides, so the mode is the same in each.
     const mode = viewSide('indexProfile', design, side);
     const lambda = viewWavelength('indexProfile', design, wavelength, PROFILER_LAMBDA_NM);
-    requireLayers('indexProfile', design, mode);
-    requireResolved(design);
-    const laid = mode === 'total' ? wholePartProfile(design, lambda) : oneSideProfile(design, lambda, mode);
-    return { mode, wavelength: lambda, ...laid, outOfRange: designRangeCoverage(design, [lambda, lambda], mode).offenders };
+    return inEnvironments('indexProfile', design, env, one => indexProfileOf(one, { lambda, mode }));
 }
 
 /**

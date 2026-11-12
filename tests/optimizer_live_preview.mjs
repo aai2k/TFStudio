@@ -117,9 +117,10 @@ for (const [path, label] of followers) {
 }
 
 // The Group Delay spectrum must be computed from the sampled design, never the
-// live one, and must pass the preview flag through.
+// live one, in each environment the window shows, and must pass the preview
+// flag through.
 const gdState = source('../src/components/windows/analysis/gdGddEvaluation/useGDGDDState.js');
-assert.ok(/computeGdGddSpectrum\(liveDesign/.test(gdState),
+assert.ok(/useEnvironmentChoice\(liveDesign/.test(gdState) && /computeGdGddSpectrum\(view\.design/.test(gdState),
     'Group Delay computes from the sampled design');
 assert.ok(/preview,/.test(gdState), 'Group Delay passes the preview flag through');
 

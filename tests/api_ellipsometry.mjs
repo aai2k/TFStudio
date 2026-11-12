@@ -26,13 +26,17 @@
  *      'reversed' add up to 360 degrees.
  *   3. The sides: without side, the back of a back_only design and the front
  *      of any other, whatever the scoring.
- *   4. Refusals with their codes and fields: an unknown option, angles,
+ *   4. Environments: on a design with three, both without env are the
+ *      design's own, and with env, by number or id and switched off or on,
+ *      the design that environment computes; 'all' gives the two that are on
+ *      and an environment it does not have is refused.
+ *   5. Refusals with their codes and fields: an unknown option, angles,
  *      a range that is not one, a convention, a side, the whole part as the
  *      side, a wavelength, the settings the window's sweep clamps (an end
  *      above 89.5 degrees, a start not below the end, a step below 0.05
  *      degrees or above the span), and a design whose materials resolve to
  *      nothing.
- *   5. The objects: an Ellipsometry's psi and delta are Curves against
+ *   6. The objects: an Ellipsometry's psi and delta are Curves against
  *      wavelength and AngleCurves against angle, angle() picks one angle,
  *      AngleCurve's mean, min and max over a range of angles, and saveCsv
  *      writes the window's table.
@@ -45,6 +49,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { isDeepStrictEqual } from 'node:util';
 import { fixtureFile, golden, manifest } from './_apiCorpus.mjs';
+import { environmentWrong } from './_environmentCalls.mjs';
 
 // The window's CSV writer sits in a module of React components.
 globalThis.React = createRequire(import.meta.url)('react');
@@ -233,11 +238,18 @@ const plain = corpus.filter(([, design]) => design.frontLayers.length || design.
     ok('without side both compute the back of a back_only design and the front of any other, in every surface mode and scoring', wrong.length === 0, wrong.slice(0, 3).join('; '));
 }
 
-// ── 4. Refusals ────────────────────────────────────────────────────────────
+// ── 4. Environments ────────────────────────────────────────────────────────
+{
+    const wrong = [...environmentWrong(api, 'ellipsometry', { step: 10, angles: [55, 70] }), ...environmentWrong(api, 'ellipsometryVsAngle', { angleStep: 5 })];
+    ok('on a design with three environments, both without env are the design\'s own; by number or id, off or on, the design that environment computes; \'all\' the two that are on; an unknown one refused',
+        wrong.length === 0, wrong.join('; '));
+}
+
+// ── 5. Refusals ────────────────────────────────────────────────────────────
 {
     const [, design] = corpus[0];
     const REFUSED = [
-        ['ellipsometry', 'an option it does not take', () => api.ellipsometry(design, { start: 400 }), 'unknownOption', { option: 'start' }, /unknown option 'start'; the options are from, to, step, angles, side, deltaConvention$/],
+        ['ellipsometry', 'an option it does not take', () => api.ellipsometry(design, { start: 400 }), 'unknownOption', { option: 'start' }, /unknown option 'start'; the options are from, to, step, angles, side, deltaConvention, env$/],
         ['ellipsometry', 'angles that are not a list', () => api.ellipsometry(design, { angles: 65 }), 'badValue', { option: 'angles', value: 65 }, /angles is a list of angles of incidence in degrees, each 0 <= angle < 90, not 65$/],
         ['ellipsometry', 'an angle of 90', () => api.ellipsometry(design, { angles: [45, 90] }), 'badValue', { option: 'angles' }, /not \[45,90\]$/],
         ['ellipsometry', 'a range that is not one', () => api.ellipsometry(design, { from: 800, to: 400 }), 'wavelengthRange', { from: 800, to: 400 }, /from and to are wavelengths in nm, 0 < from < to$/],
@@ -246,7 +258,7 @@ const plain = corpus.filter(([, design]) => design.frontLayers.length || design.
         ['ellipsometry', 'a side it does not have', () => api.ellipsometry(design, { side: 'both' }), 'badValue', { option: 'side', value: 'both' }, /side is 'front' or 'back', not "both"$/],
         ['ellipsometry', 'the whole part: Psi and Delta are measured on one surface', () => api.ellipsometry(design, { side: 'total' }), 'badValue', { option: 'side', value: 'total', takes: "'front' or 'back'" }, /^ellipsometry: Psi and Delta are measured on one surface, so side is 'front' or 'back', not 'total'$/],
         ['ellipsometryVsAngle', 'the whole part', () => api.ellipsometryVsAngle(design, { side: 'total' }), 'badValue', { option: 'side', value: 'total', takes: "'front' or 'back'" }, /^ellipsometryVsAngle: Psi and Delta are measured on one surface, so side is 'front' or 'back', not 'total'$/],
-        ['ellipsometryVsAngle', 'an option it does not take', () => api.ellipsometryVsAngle(design, { step: 1 }), 'unknownOption', { option: 'step' }, /the options are wavelength, angleStart, angleEnd, angleStep, side, deltaConvention$/],
+        ['ellipsometryVsAngle', 'an option it does not take', () => api.ellipsometryVsAngle(design, { step: 1 }), 'unknownOption', { option: 'step' }, /the options are wavelength, angleStart, angleEnd, angleStep, side, deltaConvention, env$/],
         ['ellipsometryVsAngle', 'a wavelength of 0', () => api.ellipsometryVsAngle(design, { wavelength: 0 }), 'badValue', { option: 'wavelength', value: 0 }, /wavelength is a wavelength in nm above 0, not 0$/],
         ['ellipsometryVsAngle', 'an end above 89.5 degrees, which the window sweeps to 89.5', () => api.ellipsometryVsAngle(design, { angleEnd: 89.6 }), 'angleRange', { start: 45, end: 89.6, max: 89.5 }, /angleStart and angleEnd are angles of incidence in degrees, 0 <= angleStart < angleEnd <= 89.5$/],
         ['ellipsometryVsAngle', 'a start above the end, which the window swaps', () => api.ellipsometryVsAngle(design, { angleStart: 80, angleEnd: 45 }), 'angleRange', { start: 80, end: 45, max: 89.5 }, /0 <= angleStart < angleEnd <= 89.5$/],
@@ -269,7 +281,7 @@ const plain = corpus.filter(([, design]) => design.frontLayers.length || design.
     ok(`a design whose materials resolve to nothing (${name}) is refused by both, as spectrum refuses it`, !!lost && new Set(messages).size === 1 && /resolve to nothing/.test(messages[0]), messages.join(' / '));
 }
 
-// ── 5. The objects ─────────────────────────────────────────────────────────
+// ── 6. The objects ─────────────────────────────────────────────────────────
 {
     const [, data] = corpus[0];
     const design = new objects.Design(data);

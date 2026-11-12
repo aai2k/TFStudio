@@ -2,6 +2,7 @@ import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { niceAxisBounds } from '../../../ui/chartOptions.js';
 import { toSignificantFigures } from '../../../../utils/math/significantFigures.js';
 import { knotSteps, stepAtKnots } from '../knots.js';
+import { environmentTable } from '../chrome/environmentTable.js';
 
 /**
  * Every quantity the window can show, in the order the selector offers them.
@@ -111,7 +112,19 @@ function tableSeries(raw, text) {
         .filter(series => Array.isArray(raw[series.source || series.key]));
 }
 
-function buildTable(raw, lambdaAxis, text, outsideLabel) {
+// The columns a spectrum's table has besides wavelength and the quantities: the
+// knot side where the stack has table knots inside the plotted range, and the
+// material read outside its data where a sample was.
+function optionalColumns(raw) {
+    return {
+        knots: (raw?.knotSamples || []).length > 0,
+        outside: (raw?.outsideRange || []).some(Boolean),
+    };
+}
+
+// `shown` holds the optional columns the table has, the spectrum's own unless
+// given; under All every environment's table has those any of them needs.
+function buildTable(raw, lambdaAxis, text, outsideLabel, shown = optionalColumns(raw)) {
     if (!raw?.lambda?.length) return { columns: [], rows: [] };
     const series = tableSeries(raw, text);
     const knots = new Map((raw.knotSamples || []).map(sample => [sample.index, sample]));
@@ -119,10 +132,10 @@ function buildTable(raw, lambdaAxis, text, outsideLabel) {
     // the same name the plot's shaded band carries. On the plot the band says
     // which part of the curve is not measurement; a row read from the table, or
     // from the exported file, has only this column to say so.
-    const outside = (raw.outsideRange || []).some(Boolean);
+    const { outside } = shown;
     const columns = [
         { key: 'lambda', label: lambdaAxis, align: 'left', fmt: formatWavelength },
-        ...(knots.size
+        ...(shown.knots
             ? [{ key: 'knot', label: text.knotColumn, align: 'left', fmt: value => value || '' }]
             : []),
         ...(outside
@@ -140,7 +153,7 @@ function buildTable(raw, lambdaAxis, text, outsideLabel) {
     const rowAt = (index, side) => {
         const row = { lambda: raw.lambda[index] };
         if (side !== null) row.knot = KNOT_SIDE_LABELS[side];
-        if (outside) row.outside = raw.outsideRange[index] || '';
+        if (outside) row.outside = raw.outsideRange?.[index] || '';
         for (const item of series) row[item.key] = valueAt(item, index, side);
         return row;
     };
@@ -211,11 +224,41 @@ export function autoYRange(plotData) {
     return { range, interval: bounds.interval, outside };
 }
 
+// The table under All: each environment's rows in turn after an Environment
+// column, since each environment's grid has wavelengths of its own around its
+// minima and table knots. A column any environment needs is there for all.
+function allEnvironmentsTable(sets, tableOf, environmentLabel) {
+    const needs = sets.map(set => optionalColumns(set.raw));
+    const shown = { knots: needs.some(need => need.knots), outside: needs.some(need => need.outside) };
+    return environmentTable(sets.map(set => ({ env: set.env, table: tableOf(set.raw, shown) })), environmentLabel);
+}
+
+/**
+ * The curve, its automatic range and the table of one spectrum, or under All,
+ * when `options.sets` holds each environment's spectrum as `{ env, raw }`, a
+ * curve per environment in `sets`, the range taken over every curve and the
+ * table of every environment, `options.environmentLabel` naming its first
+ * column. `plotData` is then the first environment's curve.
+ */
 export function buildGdGddView(raw, options, text, colors, lambdaAxis) {
     const meta = quantityMeta(options.quantity, text, colors, options.units);
-    const table = buildTable(raw, lambdaAxis, text, options.outsideLabel);
-    const plotData = buildPlotData(
-        raw, meta, options.quantity, options.referenceLambda, options.showReference);
+    const plot = one => buildPlotData(
+        one, meta, options.quantity, options.referenceLambda, options.showReference);
+    const tableOf = (one, shown) => buildTable(one, lambdaAxis, text, options.outsideLabel, shown);
+    if (options.sets) {
+        const sets = options.sets.map(set => ({ env: set.env, data: plot(set.raw) }));
+        const table = allEnvironmentsTable(options.sets, tableOf, options.environmentLabel);
+        return {
+            meta,
+            plotData: sets[0].data,
+            sets,
+            autoRange: autoYRange({ y: sets.flatMap(set => set.data?.y ?? []) }),
+            tableColumns: table.columns,
+            tableRows: table.rows,
+        };
+    }
+    const table = tableOf(raw);
+    const plotData = plot(raw);
     return {
         meta,
         plotData,

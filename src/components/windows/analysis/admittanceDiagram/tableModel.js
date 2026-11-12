@@ -10,8 +10,10 @@ function shortMaterial(name) {
     return text.length > MAX_MATERIAL_CHARS ? `${text.slice(0, MAX_MATERIAL_CHARS - 1)}…` : text;
 }
 
-export function tableColumns(t) {
+/** The table's columns, led under All (`every`) by the environment of each row. */
+export function tableColumns(t, every = false) {
     return [
+        ...(every ? [{ key: 'env', label: t.environments.environment, align: 'left' }] : []),
         { key: 'layer', label: t.admittance.colLayer, align: 'left' },
         { key: 'material', label: t.admittance.colMaterial, align: 'left', fmt: shortMaterial },
         { key: 're', label: 'Re(Y)', fmt: v => v.toFixed(5) },

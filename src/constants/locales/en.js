@@ -264,6 +264,7 @@ export default {
       hint: 'Used the next time TFStudio starts. A window you have already changed something in this session keeps what you set there.',
       curveColors: 'Curve colors',
       palette: 'Palette',
+      environmentPalette: 'Environment palette',
       paletteHint: 'Handed out in this order, one colour per curve, material or environment, cycling once the list runs out.',
       paletteSlot: (n) => `Color ${n}`,
       ranges: 'Ranges',

@@ -39,8 +39,9 @@ function windowSpectrum(result) {
  * console.log(g.mode, 'mean GD from 540 to 560 nm', g.gd.mean(540, 560).toFixed(3), 'fs');
  */
 export class GroupDelay {
-    constructor(result) {
+    constructor(result, environment = null) {
         this._result = result;
+        this._environment = environment;
         this._curves = Object.fromEntries(['phase', 'gd', 'gdd', 'tod', 'cdc'].map(key => [key, curveOf(result[key], result.wavelength)]));
     }
 
@@ -233,6 +234,19 @@ export class GroupDelay {
      * console.log(design.groupDelay(200, 2500, { step: 10 }).outOfRange.map(m => m.id));
      */
     get outOfRange() { return this._result.outOfRange; }
+
+    /**
+     * The environment the curves were computed in, `{ number, id, name }`,
+     * when design.groupDelay() was given `env`; null without one, when they
+     * were computed in environment 1, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^8 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const g of design.groupDelay(500, 600, { step: 1, env: 'all' })) console.log(g.environment.number, g.environment.name, g.gdd.mean(540, 560).toFixed(3), 'fs²');
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the curves to a CSV file as the window's Copy CSV writes its

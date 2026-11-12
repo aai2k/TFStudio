@@ -68,6 +68,8 @@ ends of existing targets. Phase has no editor, for the same reason it has no
 overlay, and the button is disabled on the side the merit function does not
 score.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the phase is computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the window on that one, even while it is switched off. **All** draws every environment that is on, each in its own color from the window's Palette in Preferences > Analysis, with a legend above the plot naming them and the reference wavelength's line on the first curve; the automatic vertical range takes in every curve. The targets on the plot are the merit-function rows scored in the environment shown, and every row under **All**. A target drawn on the plot is scored in every environment, and a target dragged keeps the environment it had. The table and the CSV start each row with its environment and list each environment's rows in turn, since each environment is sampled at wavelengths of its own. The material range notice and the shaded bands read the materials of every environment shown. The choice belongs to this window and is not saved with the design.
+
 ## How the values are calculated
 
 GD, GDD, and TOD are evaluated point by point through third-order Taylor

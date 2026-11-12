@@ -26,7 +26,11 @@
  *   4. pointsPerLayer: without it computeProfile and the API take 60 per
  *      layer, so the window is unchanged; another count gives that many
  *      samples across each layer, and computeProfile takes it.
- *   5. Refusals with their codes and fields: an unknown option, a wavelength,
+ *   5. Environments: on a design with three, both without env are the
+ *      design's own, and with env, by number or id and switched off or on,
+ *      the design that environment computes; 'all' gives the two that are on
+ *      and an environment it does not have is refused.
+ *   6. Refusals with their codes and fields: an unknown option, a wavelength,
  *      angle, side, plane, depth unit, reference or point count it cannot use,
  *      more samples than the limit, a side with no layers or none thicker
  *      than 0 nm, and a design whose materials resolve to nothing.
@@ -39,6 +43,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { isDeepStrictEqual } from 'node:util';
 import { fixtureFile, manifest } from './_apiCorpus.mjs';
+import { environmentWrong } from './_environmentCalls.mjs';
 
 globalThis.React = createRequire(import.meta.url)('react');
 const api = await import('../src/api/index.js');
@@ -251,7 +256,14 @@ function fieldWrong(design, side, angle) {
         && same(fine.s.e2, computeProfile(shown, { ...params, pointsPerLayer: 7 }).s.e2) && fine.pointsPerLayer === 7, bounds.join());
 }
 
-// ── 5. Refusals ────────────────────────────────────────────────────────────
+// ── 5. Environments ────────────────────────────────────────────────────────
+{
+    const wrong = [...environmentWrong(api, 'admittance', { angle: 30 }), ...environmentWrong(api, 'electricField', { angle: 30, pointsPerLayer: 10 })];
+    ok('on a design with three environments, both without env are the design\'s own; by number or id, off or on, the design that environment computes; \'all\' the two that are on; an unknown one refused',
+        wrong.length === 0, wrong.join('; '));
+}
+
+// ── 6. Refusals ────────────────────────────────────────────────────────────
 {
     const design = api.stackFromFormula(api.newDesign({ name: 'Stack' }), { formula: '(HL)^2' });
     const zeroed = { ...design, frontLayers: design.frontLayers.map(l => ({ ...l, thickness: 0 })) };
