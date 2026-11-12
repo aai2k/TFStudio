@@ -29,7 +29,7 @@ const group = (t, environment) => makeTabs(t, environment).find(tab => tab.key =
 const IDS = ['environments', 'environment-previous', 'environment-next'];
 // How the Environments tooltip ends in each locale: one column per environment.
 const COLUMN_EACH = {
-    en: 'one column each', ru: 'по столбцу на каждые условия', zh: '每个环境一列', it: 'una colonna ciascuna',
+    en: 'one column each', ru: 'по столбцу на каждое окружение', zh: '每个环境一列', it: 'una colonna ciascuna',
 };
 
 // ── 1 and 2. What the group holds ────────────────────────────────────────────
