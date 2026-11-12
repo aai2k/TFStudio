@@ -1,161 +1,70 @@
 # Contributing to TFStudio
 
-Thank you for your interest in TFStudio! It is a scientific engineering tool for
-designing optical thin-film coatings, so contributions are welcome. They are
-held to a **physics-correctness bar** as much as a code-quality one. This guide
-explains how to get set up and what a mergeable contribution looks like.
+The most useful things you can send are feedback and bug reports.
 
-By contributing, you agree that your contributions are licensed under the
-project's [MIT license](./LICENSE).
+## Feedback and bug reports
 
----
+Open an [issue](https://github.com/aai2k/TFStudio/issues). For a bug, say what you did, what you expected and what happened. If a number looks wrong, give the number and, if you have it, the value another program gets for the same design.
 
-## Ways to contribute
+Questions, ideas and "is this supposed to work like that?" are welcome as issues too.
 
-- **Report a bug:** Open an issue with steps to reproduce, the design/inputs
-  involved, what you expected, and what happened. For numerical issues, include
-  the exact numbers and, if possible, a reference value (OptiLayer/TFCalc/Macleod).
-- **Suggest a feature:** Open an issue describing the use case first, before
-  writing code. For anything touching the optical engine or optimizer, cite the
-  method you have in mind (paper + equation).
-- **Share a coating:** The built-in Coating Library grows from designs users
-  send in. Post it in the [Coatings](https://github.com/aai2k/TFStudio/discussions/new?category=coatings)
-  discussion category with a layer table, a `.tfs`/`.tfsc` file or a design
-  from another program, or use **Share a coating…** in the Coating Library window, which
-  fills the form from a saved coating. Contributed coatings ship in the next
-  release with a credit in their source line.
-- **Improve documentation:** The user docs live in [`docs-site/`](./docs-site).
-- **Improve a translation:** UI translation fixes and new locales are welcome.
-  For a new locale, open an issue first to coordinate terminology, review, and
-  ongoing maintenance. The Russian locale is maintained by the author; the
-  Chinese locale was contributed by the community.
-- **Fix a bug / implement a feature:** Please claim or reference an issue so work
-  is not duplicated.
+To share a coating for the built-in Coating Library, post it in the [Coatings](https://github.com/aai2k/TFStudio/discussions/new?category=coatings) discussion category or use **Share a coating…** in the Coating Library window.
 
-> **Not currently open for outside contribution:** The bundled material library
-> is maintained by the author. If you spot a material-data problem, file an issue
-> instead of opening a PR.
+## Pull requests
 
-If you plan a large change, please open an issue to discuss it before investing
-significant time.
+Small fixes are welcome without asking first: a bug fix, a typo, a translation, a docs correction.
 
----
+For a large change or a new feature, open an issue first so we agree on it before you spend time on code.
 
-## Development setup
+Before you open a PR:
+
+- `npm test` passes.
+- A bug fix comes with a test that would have caught it.
+- If the change moves a computed result, say what you checked it against (another program, a published result or an analytic case) and cite the source of any formula: book or paper, equation number.
+- One change per PR.
+
+## Setup
 
 Requires [Node.js](https://nodejs.org) 18 or newer.
 
 ```bash
-# Clone WITH submodules; the refractiveindex.info database is a git submodule
 git clone --recursive https://github.com/aai2k/TFStudio.git
 cd TFStudio
-
-# If you already cloned without --recursive:
-git submodule update --init --recursive
-
 npm install
-npm start          # launch the app (Electron)
+npm start
 ```
 
-Useful scripts:
+If you cloned without `--recursive`, run `git submodule update --init --recursive`.
 
-| Command | What it does |
-|---|---|
-| `npm start` | Launch the app |
-| `npm run dev` | Launch with dev flags |
-| `npm test` | Run the fast test suite (`tests/run-all.mjs`) |
-| `npm run test:all` | Full suite including slower benchmarks |
-| `npm run seed` | Regenerate the bundled material catalogs |
-| `npm run docs:dev` | Preview the documentation site |
-| `npm run build` | Package a distributable (electron-builder) |
+The transfer-matrix kernel lives in [tmmcore](https://github.com/aai2k/tmmcore) and arrives prebuilt through `npm install`. Changes to the kernel belong in that repository.
 
-The transfer-matrix kernel lives in a separate package,
-[tmmcore](https://github.com/aai2k/tmmcore), and its WebAssembly build arrives
-prebuilt through `npm install`. No Emscripten toolchain is needed here. Changes
-to the kernel itself belong in that repository.
-
-### Project layout (orientation)
+## Where things are
 
 | Path | Contents |
 |---|---|
-| `src/utils/physics/` | Optical engine: TMM, optimizer, synthesis (the scientific core) |
-| `src/utils/materials/` | Dispersion models, material database, catalog management |
-| `src/utils/workers/` | Web Worker pool for refinement, needle, gradual evolution |
-| `src/components/` | React UI (windows, panels, dialogs) |
-| `src/constants/locales/` | All user-facing strings, one file per language (English, Russian, Chinese, Italian) |
+| `src/utils/physics/` | Spectra and what is computed from them: the stack handed to tmmcore, color, error analysis, stress, scattering, pulses |
+| `src/utils/optimizers/`, `src/utils/refinement/` | Optimization methods and Refinement runs |
+| `src/utils/synthesis/`, `src/utils/needle/`, `src/utils/gradualEvolution/` | Design synthesis: needle, gradual evolution, starting designs, cleanup |
+| `src/utils/materials/` | Dispersion formulas, the built-in material library, catalogs |
+| `src/utils/io/` | Design files, and import and export (Zemax, CODE V, JCAMP-DX, spectrum tables) |
+| `src/utils/workers/` | Web Workers for long runs, so the window stays responsive |
+| `src/components/windows/` | Tool windows, one folder per ribbon tab |
+| `src/components/` | The rest of the UI: dialogs, docking, panels, shared controls |
+| `src/constants/locales/` | All UI text, one file per language |
 | `src/main/` | Electron main process |
-| `tests/` | Node-based test suite and numerical validations |
+| `src/api/` | Headless API: the app's calculations in Node, without the window |
+| `src/apiServer/`, `python/` | The API over stdin and stdout, and the Python package that uses it |
+| `src/mcp/` | MCP server: the API as tools for AI agents |
+| `tests/` | Test suite; `tests/reference/` holds values from other programs to check against |
 | `docs-site/` | User documentation (Astro Starlight) |
+| `web/` | The web demo |
 
-### Tests
+## Translations
 
-TFStudio ships an extensive test suite in [`tests/`](./tests),
-covering the optical engine, optimizer and synthesis, material models, file I/O, and
-UI logic, including numerical validations against reference values. Please lean on it:
+UI text comes from `src/constants/locales/`, one file per language. Add a new string to every file; `npm test` fails on a missing key.
 
-- Run `npm test` (fast suite) before opening a PR. It must be green.
-- `npm run test:all` adds the slower optimizer benchmarks; `npm run test:list` shows
-  every test.
-- When you fix a bug, add a test that would have caught it. When you change anything
-  numerical, add/adjust a test that pins the expected result to a reference value.
-- The existing tests are also the best documentation of how a subsystem is expected
-  to behave. Read the nearest one before changing engine code.
+To edit translations in a table instead of in the files, run `npm run locale-editor` and open the address it prints (http://localhost:4178 by default). Each key is a row with a box per language. Filters show untranslated and missing keys, and typing into a missing one adds it to that language's file. Save writes only the values you changed, so the diff stays small.
 
----
+To start a language the app does not have yet, pick it in the editor's draft language list: German, French, Spanish, Portuguese, Japanese or Korean. Its file is created on the first save, and a key you have not translated shows in English. The app does not offer a draft language until it is ready to ship. For a language not on the list, add it to `draftLocales` in `src/constants/locales/index.js`.
 
-## The scientific-correctness bar
-
-This is what makes TFStudio different from a typical app. Any change to the optical
-engine, optimizer, material models, or analysis must respect these rules:
-
-- **No invented physics.** Every formula must come from the literature. **Cite the
-  source** (author, book/paper, equation number and page) in a code comment and in
-  the PR description. Primary references: Macleod, *Thin-Film Optical Filters* (5th
-  ed.); Sullivan & Dobrowolski, *Appl. Opt.* **35**, 5484 (1996); Tikhonravov et al.,
-  *Appl. Opt.* **35**, 5493 (1996) and (2007).
-- **Double precision everywhere.** No single-precision shortcuts in numerical code.
-- **Explicit conventions.** State units, wavelength convention, angle convention,
-  and the sign of the imaginary part of the complex index (k). Do not change an
-  existing phase/sign convention without updating every dependent path.
-- **Validate against a reference.** New or changed numerical methods must be
-  compared against a trusted source, such as OptiLayer/TFCalc output, a published
-  result, or an independent analytic check. Report the comparison in the PR.
-- **Add a test.** Numerical changes need a test in `tests/` that pins the expected
-  result (ideally to a reference value with a stated tolerance). `npm test` must
-  pass before you open the PR.
-- **Numerical stability matters.** Prefer stable matrix formulations; avoid
-  catastrophic cancellation; guard against degenerate inputs (grazing incidence,
-  zero thickness, absorbing/dispersive edge cases).
-
-A PR that changes a computed result without a reference comparison and a test will
-be asked for one before review can continue.
-
----
-
-## Code style
-
-- Match the style of the surrounding code (naming, structure, comment density).
-- The renderer is ES modules; the Electron main process is CommonJS. Keep to the
-  convention of the file you are editing.
-- **Don't hardcode user-facing text.** UI strings go through the localization
-  system (`t.*`, backed by `src/constants/locales/`); add the English string
-  there and leave the other locales to be filled in separately.
-- Keep changes focused. Unrelated refactors in the same PR make review harder.
-- Do not commit build output, logs, `node_modules`, or personal editor/config files.
-
----
-
-## Submitting a pull request
-
-1. Fork the repo and create a branch from `main`.
-2. Make your change, add/adjust tests, and run `npm test` (all green).
-3. Write a clear PR description: **what** changed, **why**, and, for numerical
-   changes, the **reference validation** (what you compared against and the
-   agreement).
-4. Keep the PR reasonably small and self-contained.
-5. Be responsive to review feedback; correctness questions may take a round or two.
-
----
-
-Thanks again. Careful, well-referenced contributions are what keep TFStudio
-trustworthy for real coating design.
+By contributing, you agree that your work is licensed under the project's [MIT license](./LICENSE).
