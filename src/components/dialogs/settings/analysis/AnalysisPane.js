@@ -35,18 +35,35 @@ export const AnalysisPane = ({ c, t }) => {
   const resetAll = () => settings?.resetAll();
 
   return h('div', { style: { display: 'flex', gap: '16px', height: '100%' } },
-    h('div', { style: { width: '190px', flexShrink: 0, overflow: 'auto' } },
-      ANALYSIS_WINDOW_IDS.map(id => h('button', {
-        key: id,
-        onClick: () => setWindowId(id),
-        style: itemStyle(c, id === windowId),
-      },
-        t.settings.analysis.windows[id],
-        settings?.isOverridden(id) && h('span', {
-          title: t.settings.analysis.modified,
-          style: { color: c.accent, marginLeft: '4px' },
-        }, '•')
-      ))
+    // The window list scrolls on its own; Reset all sits under it, outside the
+    // scrolling box, so it is in view whichever window is selected and however
+    // far its fields run.
+    h('div', { style: { width: '190px', flexShrink: 0, display: 'flex', flexDirection: 'column' } },
+      h('div', { style: { flex: '0 1 auto', minHeight: 0, overflowY: 'auto' } },
+        ANALYSIS_WINDOW_IDS.map(id => h('button', {
+          key: id,
+          onClick: () => setWindowId(id),
+          style: itemStyle(c, id === windowId),
+        },
+          t.settings.analysis.windows[id],
+          settings?.isOverridden(id) && h('span', {
+            title: t.settings.analysis.modified,
+            style: { color: c.accent, marginLeft: '4px' },
+          }, '•')
+        ))
+      ),
+      h('div', { style: { flexShrink: 0, marginTop: '8px', paddingTop: '8px', borderTop: `1px solid ${c.border}` } },
+        h('button', {
+          onClick: resetAll,
+          disabled: !anySaved,
+          style: {
+            ...buttonStyle(c),
+            width: '100%',
+            opacity: anySaved ? 1 : 0.45,
+            cursor: anySaved ? 'pointer' : 'default',
+          },
+        }, t.settings.analysis.resetAll)
+      )
     ),
     h('div', { style: { flex: 1, minWidth: 0, overflow: 'auto', paddingRight: '4px' } },
       h('div', { style: { display: 'flex', alignItems: 'baseline', gap: '10px' } },
@@ -69,18 +86,7 @@ export const AnalysisPane = ({ c, t }) => {
       }, settings.saveError === 'unavailable'
         ? t.settings.analysis.saveUnavailable
         : t.settings.analysis.saveFailed(settings.saveError)),
-      h(WindowFields, { windowId, resolved, onChange, c, t }),
-      h('div', { style: { marginTop: '20px', paddingTop: '12px', borderTop: `1px solid ${c.border}` } },
-        h('button', {
-          onClick: resetAll,
-          disabled: !anySaved,
-          style: {
-            ...buttonStyle(c),
-            opacity: anySaved ? 1 : 0.45,
-            cursor: anySaved ? 'pointer' : 'default',
-          },
-        }, t.settings.analysis.resetAll)
-      )
+      h(WindowFields, { windowId, resolved, onChange, c, t })
     )
   );
 };

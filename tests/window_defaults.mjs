@@ -389,8 +389,23 @@ for (const windowId of WINDOWS) {
         }
     }
 
-    assert.match(renderToStaticMarkup(React.createElement(AnalysisPane, { c, t })),
-        /Optical Evaluation/, 'the pane itself renders outside the provider');
+    const paneHtml = renderToStaticMarkup(React.createElement(AnalysisPane, { c, t }));
+    assert.match(paneHtml, /Optical Evaluation/, 'the pane itself renders outside the provider');
+
+    // Reset all sits under the window list, which scrolls on its own above it,
+    // so the button stays in view however long the selected window's fields
+    // run. After the last field it was out of sight on most windows.
+    const lastWindow = t.settings.analysis.windows[ANALYSIS_WINDOW_IDS.at(-1)];
+    const resetAllAt = paneHtml.indexOf(`>${t.settings.analysis.resetAll}<`);
+    assert.ok(resetAllAt > paneHtml.indexOf(`>${lastWindow}<`)
+        && resetAllAt < paneHtml.indexOf(`>${t.settings.analysis.resetWindow}<`),
+    'Reset all comes after the window list and before the selected window\'s pane');
+    const listStart = paneHtml.indexOf(`>${t.settings.analysis.windows[ANALYSIS_WINDOW_IDS[0]]}<`);
+    const listBox = paneHtml.lastIndexOf('<div', listStart);
+    assert.match(paneHtml.slice(listBox, listStart), /min-height:0;overflow-y:auto/,
+        'the window list scrolls inside its own box');
+    assert.match(paneHtml.slice(paneHtml.lastIndexOf('<div', resetAllAt), resetAllAt), /flex-shrink:0/,
+        'and Reset all is outside it, kept at the foot of the column');
 
     // A controlled field that writes on every keystroke rewrites itself while it
     // is being typed into, so it cannot be cleared and retyped and a value on its
