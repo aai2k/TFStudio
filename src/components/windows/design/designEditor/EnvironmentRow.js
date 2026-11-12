@@ -13,9 +13,16 @@ import { IconBtn } from './ui.js';
 
 const { createElement: h } = React;
 
+// The droplist's width, px: a number and a name of about a dozen characters,
+// such as "3 · Under water", at the select's 11 px type with its padding and
+// arrow, so the previous and next arrows sit right beside it. A longer name is
+// cut off in the box and read whole in the open list and on hover.
+const DROPLIST_WIDTH = 132;
+
 /**
  * Which environment the Settings below show and edit. `current` is
- * useCurrentEnvironment's; the arrows stop at the first and the last.
+ * useCurrentEnvironment's; the arrows stop at the first and the last. The
+ * droplist's hover names the current environment in full above what it does.
  */
 export function EnvironmentRow({ design, current, c, t }) {
     const te = t.environments;
@@ -25,10 +32,10 @@ export function EnvironmentRow({ design, current, c, t }) {
         h(IconBtn, {
             onClick: () => current.step(-1), title: te.previous, disabled: current.index === 0, c,
         }, tablerIcon('chevron-left', 14)),
-        h('div', { style: { flex: '0 1 220px', minWidth: 0 } },
-            h(SelectField, {
-                value: current.id, onChange: current.select, options, c, width: '100%', title: te.currentTip,
-            })),
+        h(SelectField, {
+            value: current.id, onChange: current.select, options, c, width: DROPLIST_WIDTH,
+            title: `${options[current.index].label}\n${te.currentTip}`,
+        }),
         h(IconBtn, {
             onClick: () => current.step(1), title: te.next, disabled: current.index === current.count - 1, c,
         }, tablerIcon('chevron-right', 14)),

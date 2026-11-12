@@ -3,8 +3,9 @@
  *
  *   1. A design with one environment draws no droplist, no arrows and no
  *      field tags.
- *   2. With environments, a droplist of them sits between a previous and a
- *      next arrow, each arrow off at its end of the list.
+ *   2. With environments, a droplist of them, 132 px wide and naming the
+ *      current environment in full on hover above what it does, sits between
+ *      a previous and a next arrow, each arrow off at its end of the list.
  *   3. The pickers, the substrate thickness, the layer list's substrate and
  *      medium lines and the stack diagram show the current environment's
  *      media and substrate, and in environment 2 or later each field carries
@@ -65,18 +66,21 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     const te = t.environments;
     const html = render(oneEnvironmentDesign(), t);
     assert.ok(!html.includes(LEFT) && !html.includes(RIGHT), `${code}: no arrows`);
-    assert.ok(!html.includes(`title="${esc(te.currentTip)}"`), `${code}: no droplist`);
+    assert.ok(!html.includes(esc(te.currentTip)), `${code}: no droplist`);
     assert.ok(!html.includes(esc(te.followsTip)) && !html.includes(esc(te.ownTip(1))), `${code}: no field tags`);
 }
 
 // ── 2. The droplist and its arrows ───────────────────────────────────────────
 const design = threeEnvironmentDesign();
+const droplistOf = (html, te, label) => html.match(
+    new RegExp(`<select[^>]*title="${esc(label)}\n${esc(te.currentTip)}"[^>]*>(.*?)</select>`))?.[0];
 for (const code of ['en', 'ru', 'zh', 'it']) {
     const t = makeLocale(code);
     const te = t.environments;
     const html = render(design, t);
-    const select = html.match(new RegExp(`<select[^>]*title="${esc(te.currentTip)}"[^>]*>(.*?)</select>`))?.[1];
-    assert.ok(select, `${code}: the droplist`);
+    const select = droplistOf(html, te, '1 · BK7');
+    assert.ok(select, `${code}: the droplist, its hover naming environment 1 above what it does`);
+    assert.ok(select.includes('width:132px'), `${code}: narrow, so its arrows sit beside it`);
     assert.deepEqual([...select.matchAll(/<option[^>]*>([^<]*)<\/option>/g)].map(match => match[1]), ['1 · BK7', '2 · Sapphire', '3'],
         `${code}: every environment, by number and name`);
     const arrows = [te.previous, te.next].map(title => tagsWith(html, `title="${esc(title)}"`)[0]);
@@ -86,6 +90,7 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
 {
     const t = makeLocale('en');
     const html = render(design, t, 'env3');
+    assert.ok(droplistOf(html, t.environments, '3'), 'the hover names environment 3, which has no name, by its number');
     const arrows = [t.environments.previous, t.environments.next].map(title => tagsWith(html, `title="${esc(title)}"`)[0]);
     assert.deepEqual(arrows.map(tag => tag.includes('disabled=""')), [false, true], 'environment 3, the last, has no next');
 }
