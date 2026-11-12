@@ -16,19 +16,30 @@ Locked layers are never merged or removed.
 
 ## Settings
 
-**Minimum thickness (nm)**: layers thinner than this are removed (typically
+**Side**: on a design coated on both sides, which side is cleaned. **Front**
+cleans the front and leaves the back exactly as it is, **Back** cleans the
+back and leaves the front, **Both** (the default) cleans both. The two sides
+of a part are often coated in different runs, so one can be cleaned without
+touching the other. A design coated on one side has no Side choice and is
+cleaned on that side; a symmetric design has none either, since its back is
+the mirror of its front.
+
+**Remove below (nm)**: layers thinner than this are removed (typically
 1–5 nm; raise it to your manufacturing minimum for a final pass).
 
-**Merge adjacent**: combine neighbouring layers of the same material into a
-single layer.
+**Merge same material**: combine neighbouring layers of the same material into
+a single layer.
 
-**Clean back**: apply the same cleanup to the back-surface stack.
+**Re-optimize**: run a Refinement pass on the cleaned design to recover any
+merit lost to the structural change (on by default).
 
-**Re-optimize after**: run a Refinement pass on the cleaned design to recover
-any merit lost to the structural change (on by default). The list beside it picks the refiner: Sequential QP, the Refinement window's default method, or Damped Least Squares, Conjugate Gradient, Newton or Newton-CG. These are the Refinement window's local methods; its multi-start, global and Try all runs are not offered.
+The **Settings** menu beside Apply holds the pass's own settings:
 
-**Refine iterations**: how many refinement steps the post-clean pass runs
-(default 80).
+- **Method**: the refiner, Sequential QP, the Refinement window's default
+  method, or Damped Least Squares, Conjugate Gradient, Newton or Newton-CG.
+  These are the Refinement window's local methods; its multi-start, global and
+  Try all runs are not offered.
+- **Max iter**: how many refinement steps the pass runs (default 80).
 
 ## How to read it
 
@@ -38,9 +49,10 @@ along with the merit function before and after. A separate **thin layers**
 panel shows which layers are currently below the threshold, as a diagnostic
 view. **Apply** performs the cleanup (and the optional refine) as a single
 undoable step. The refine runs in the background, so the app keeps responding
-on a large design: the window shows the step and the merit reached, with a **Stop**
-button that applies the cleanup with the best thicknesses found so far. Switch
-to another design while it runs and nothing is applied.
+on a large design: the strip under the controls shows the step and the merit
+reached, and **Stop** takes Apply's place, applying the cleanup with the best
+thicknesses found so far. Switch to another design while it runs and nothing
+is applied.
 
 A good habit is two-stage cleanup: a first pass at the synthesis floor to drop
 noise layers, then a second pass at your real manufacturing floor for the final

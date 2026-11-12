@@ -14,7 +14,7 @@
  *   noMerit          { call }  a design with no merit function
  *   noSpecification  { call }  a design with no specification check, or none enabled where the call needs one
  *   noLayers         { call }  a design with no layers on either side
- *   emptySide        { call, side }  a side with no layers for a call that shows one side's layers
+ *   emptySide        { call, side }  a side with no layers for a call that works on one side's layers
  *   noQwot           { call, material, wavelength, n }  a layer whose material has no quarter wave: it resolves to nothing (n null), or its n is 0 or less
  *   closedSide      { call, side, surfaceMode }  a side the Design Editor does not let you edit
  *   wavelengthRange  { call, from, to }  wavelengths that are not a range

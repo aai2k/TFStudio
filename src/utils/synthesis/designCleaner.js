@@ -109,18 +109,27 @@ function cleanupOneSide(layers, side, opts) {
     return { cleaned, ops };
 }
 
+// The sides `side` ('front', 'back' or 'both', by default 'both') cleans on
+// `design`. A symmetric design's front is cleaned whatever `side` is, its back
+// being the mirror of its front.
+const CLEANED = { front: { front: true, back: false }, back: { front: false, back: true }, both: { front: true, back: true } };
+function cleanedSides(design, side = 'both') {
+    return design?.surfaceMode === 'symmetric' ? CLEANED.front : CLEANED[side];
+}
+
 /**
  * Cleanup a full design.
  *
- * Routes both front and back stacks through the same operation list. In
- * `symmetric` surface-mode the back stack is regenerated from the cleaned
- * front (mirror), since it's not an independent variable.
+ * Routes the sides cleaned through the same operation list; a side not
+ * cleaned is kept layer for layer. In `symmetric` surface-mode the front is
+ * cleaned whatever `side` is, and the back stack is regenerated from the
+ * cleaned front (mirror), since it's not an independent variable.
  *
  * @param {object}  design
  * @param {object}  opts
  *   - dMin:           minimum thickness to keep, nm  (default 5)
  *   - mergeAdjacent:  merge same-material adjacent layers  (default true)
- *   - cleanBack:      also clean back stack  (default true; respects symmetric mode)
+ *   - side:           'front', 'back' or 'both', the sides cleaned  (default 'both')
  *
  * @returns {{
  *   design:         cleaned design
@@ -134,51 +143,32 @@ function cleanupOneSide(layers, side, opts) {
 export function cleanupDesign(design, opts = {}) {
     const dMin           = opts.dMin ?? 5.0;
     const mergeAdjacent  = opts.mergeAdjacent !== false;
-    const cleanBack      = opts.cleanBack !== false;
 
-    const surfaceMode = design?.surfaceMode || 'front_only';
+    const sides = cleanedSides(design, opts.side);
     const front = design.frontLayers || [];
     const back  = design.backLayers || [];
 
     const frontIn = front.length;
     const backIn  = back.length;
 
-    // Clean front
-    const frontRes = cleanupOneSide(front, 'front', { dMin, mergeAdjacent });
+    const clean = (layers, side) => (sides[side]
+        ? cleanupOneSide(layers, side, { dMin, mergeAdjacent })
+        : { cleaned: layers.map(l => ({ ...l })), ops: [] });
+    const frontRes = clean(front, 'front');
+    const backRes = clean(back, 'back');
 
-    // Clean back unless symmetric (back is derived from front)
-    let backRes;
-    if (surfaceMode === 'symmetric') {
-        // Back will be regenerated below from cleaned front
-        backRes = { cleaned: [], ops: [] };
-    } else if (cleanBack) {
-        backRes = cleanupOneSide(back, 'back', { dMin, mergeAdjacent });
-    } else {
-        backRes = { cleaned: back.map(l => ({ ...l })), ops: [] };
-    }
-
-    let newFront = frontRes.cleaned;
-    let newBack  = backRes.cleaned;
-
-    if (surfaceMode === 'symmetric') {
-        // The mirror of the cleaned front, as the design store rebuilds a
-        // symmetric back: the same layers outward from the substrate, locks
-        // included, each under its front twin's id with a b- prefix.
-        newBack = mirrorLayers(newFront);
-    }
-
-    const cleaned = {
-        ...design,
-        frontLayers: newFront,
-        backLayers:  newBack,
-    };
+    const newFront = frontRes.cleaned;
+    // A symmetric back is the mirror of the cleaned front, as the design store
+    // rebuilds it: the same layers outward from the substrate, locks included,
+    // each under its front twin's id with a b- prefix.
+    const newBack = design?.surfaceMode === 'symmetric' ? mirrorLayers(newFront) : backRes.cleaned;
 
     const ops = [...frontRes.ops, ...backRes.ops];
     const removedCount = ops.filter(o => o.kind === 'remove').length;
     const mergedCount  = ops.filter(o => o.kind === 'merge').length;
 
     return {
-        design:        cleaned,
+        design:        { ...design, frontLayers: newFront, backLayers: newBack },
         ops,
         removedCount,
         mergedCount,
@@ -191,25 +181,19 @@ export function cleanupDesign(design, opts = {}) {
  * Convenience: scan a design for layers below a threshold (for the
  * "Thin Layer Removal" list view) without modifying anything.
  *
- * Excludes locked layers.
+ * Excludes locked layers, and the sides `side` does not clean, as
+ * cleanupDesign takes it.
  *
  * @returns {Array<{ side, layerIndex, materialId, thickness }>}
  */
-export function listThinLayers(design, dMin = 5.0) {
+export function listThinLayers(design, dMin = 5.0, side = 'both') {
     const out = [];
-    const surfaceMode = design?.surfaceMode || 'front_only';
-    const front = design.frontLayers || [];
-    const back  = design.backLayers || [];
-
-    front.forEach((l, i) => {
-        if (!l.locked && l.thickness < dMin) {
-            out.push({ side: 'front', layerIndex: i, materialId: l.material, thickness: l.thickness });
-        }
-    });
-    if (surfaceMode !== 'symmetric') {
-        back.forEach((l, i) => {
+    const sides = cleanedSides(design, side);
+    for (const s of ['front', 'back']) {
+        if (!sides[s]) continue;
+        (design[`${s}Layers`] || []).forEach((l, i) => {
             if (!l.locked && l.thickness < dMin) {
-                out.push({ side: 'back', layerIndex: i, materialId: l.material, thickness: l.thickness });
+                out.push({ side: s, layerIndex: i, materialId: l.material, thickness: l.thickness });
             }
         });
     }

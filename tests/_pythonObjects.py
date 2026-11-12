@@ -490,9 +490,9 @@ def cleaning(tf):
     """clean() on a design coated on both sides, each with a same-material
     pair and thin layers, more taken out than merged, no two other layers
     alike, one 4.5 nm and one 5.5 nm thick, either side of the default
-    minimum: with its defaults, with each option, on a symmetric copy, and its
-    refusals; and the layer each operation's number names in the design
-    before, read by that number."""
+    minimum: with its defaults, with each option, with side="back", on a
+    symmetric copy, and its refusals; and the layer each operation's number
+    names in the design before, read by that number."""
     dirty = tf.new_design("Two sides to clean")
     dirty.sides = "both"
     for material, thickness in (("TiO2", 20), ("SiO2", 30), ("SiO2", 50), ("Ta2O5", 4.5), ("MgF2", 100), ("Al2O3", 3)):
@@ -508,17 +508,24 @@ def cleaning(tf):
     back_only = optioned.clean(min_thickness=1.8, merge=False, back=True)
     front_only = before.copy()
     front_only.clean(back=False)
+    back_cleaned = before.copy()
+    back_report = back_cleaned.clean(side="back")
     symmetric = before.copy()
     symmetric.sides = "symmetric"
     symmetric_before = symmetric._data
     symmetric.clean()
     kept = before.copy()
+    one_sided = tf.new_design("Front only")
+    one_sided.stack("(HL)^2")
     worded = [refused(make) for make in (
         lambda: kept.clean(min_thickness=-1), lambda: kept.clean(min_thickness=None), lambda: kept.clean(merge=1),
-        lambda: kept.clean(back="yes"), lambda: tf.new_design("Bare").clean())]
+        lambda: kept.clean(back="yes"), lambda: kept.clean(side="top"), lambda: kept.clean(side="back", back=False),
+        lambda: one_sided.clean(side="back"), lambda: symmetric.copy().clean(side="back"),
+        lambda: tf.new_design("Bare").clean())]
     out({"cleaning": {"before": before._data, "after": dirty._data, "report": report_of(report), "shown": repr(report),
                       "fields": list(type(report.operations[0])._fields), "named": named,
                       "optioned": [optioned._data, report_of(back_only)], "frontOnly": front_only._data,
+                      "backCleaned": [back_cleaned._data, report_of(back_report)],
                       "symmetric": [symmetric_before, symmetric._data], "worded": worded, "kept": kept._data == before._data}})
 
 

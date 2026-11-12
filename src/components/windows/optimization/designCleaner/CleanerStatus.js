@@ -36,11 +36,18 @@ export function CleanerPlaceholder({ message, c }) {
     }, message);
 }
 
+// The re-optimize pass's step and best merit while it runs, else the result
+// of the last Apply.
+function statusMessage(dc, progress, resultMsg) {
+    return progress ? dc.refining(progress.step, progress.iters, progress.mf) : resultMsg;
+}
+
 export function CleanerSummary({
-    c, dc, preview, ops, removedOps, mergedOps, resultMsg,
+    c, dc, preview, ops, removedOps, mergedOps, resultMsg, progress,
     mfBefore, mfAfter, beforeProvisional, afterProvisional, mfBusy, tip, computingLabel,
 }) {
     const merit = { mfBefore, mfAfter, beforeProvisional, afterProvisional, mfBusy, tip, computingLabel };
+    const message = statusMessage(dc, progress, resultMsg);
     return h('div', {
         style: {
             display: 'flex', gap: 18, flexWrap: 'wrap',
@@ -68,6 +75,6 @@ export function CleanerSummary({
             h('span', { style: { color: mergedOps.length ? c.warning : c.text } }, mergedOps.length)
         ),
         ...meritItems({ c, dc, ...merit }),
-        resultMsg && h('div', { style: { color: c.accent, marginLeft: 'auto' } }, resultMsg),
+        message && h('div', { style: { color: c.accent, marginLeft: 'auto' } }, message),
     );
 }

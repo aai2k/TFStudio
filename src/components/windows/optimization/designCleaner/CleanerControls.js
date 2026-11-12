@@ -1,106 +1,99 @@
-import { Checkbox } from '../../../ui/Checkbox.js';
-import { NumberField } from '../../../ui/numberField.js';
-import { CLEANER_REFINERS } from './sessionState.js';
+import { CheckField, ChoiceGroup, FieldLabel, NumInput, SelectField, SolidButton } from '../../analysis/chrome/controls.js';
+import { ControlRow } from '../../analysis/chrome/layout.js';
+import { SettingRow, SettingsMenu } from '../../analysis/chrome/popover.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { SolidButton } from '../../analysis/chrome/controls.js';
+import { CLEANER_REFINERS } from './sessionState.js';
 
 const { createElement: h } = React;
 
-// Apply, and while the re-optimize pass runs, its step count and best merit
-// with a Stop button. Stop keeps the cleanup and the best point reached.
-function ApplyGroup({ c, dc, applying, progress, ops, apply, stop }) {
-    const applyOff = applying || ops.length === 0;
-    return h('div', { style: { marginLeft: 'auto', display: 'flex', gap: 6, alignItems: 'center' } },
-        progress && h('span', {
-            style: { fontSize: 11, color: c.accent || '#ffa726', fontStyle: 'italic' }
-        }, dc.refining(progress.step, progress.iters, progress.mf)),
-        progress && h(SolidButton, { c, color: c.error, label: dc.stop, onClick: stop }, tablerIcon('player-stop', 13)),
-        h(SolidButton, { c, color: c.success, label: applying ? dc.applying : `${dc.apply} (${ops.length})`, onClick: apply, disabled: applyOff })
+// Front and back carry the colours every window that picks a side gives them.
+const SIDE_COLORS = { front: '#1e88e5', back: '#e53935' };
+
+// The side cleaned, offered on a design with layers on both sides that is not
+// symmetric (model.js offersSide).
+function SideChoice({ c, dc, side, setSide, disabled }) {
+    return h(ChoiceGroup, {
+        c, label: dc.side, activeId: side, onSelect: setSide,
+        items: ['front', 'back', 'both'].map(id => ({
+            id, label: dc.sides[id], title: dc.sideTips[id], color: SIDE_COLORS[id], disabled,
+        })),
+    });
+}
+
+// The thinnest layer kept, nm.
+function MinThickness({ c, dc, units, dMin, setDMin, disabled }) {
+    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 } },
+        h(FieldLabel, { c }, dc.minThickness),
+        h(NumInput, { c, value: dMin, min: 0, max: 200, step: 0.5, width: 56, disabled, onChange: setDMin }),
+        h(FieldLabel, { c }, units.nm),
     );
 }
 
-// The refiner the re-optimize pass runs, named as the Refinement window names
-// its methods (`tr` is its strings).
-function RefinerSelect({ c, tr, value, onChange, disabled }) {
-    return h('select', {
-        value, disabled, 'aria-label': tr.method, title: tr.methodNotes[value] || '',
-        onChange: e => onChange(e.target.value),
-        style: {
-            background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 2,
-            fontSize: 11, padding: '2px 4px', cursor: disabled ? 'default' : 'pointer',
-        },
-    }, CLEANER_REFINERS.map(m => h('option', { key: m, value: m, title: tr.methodNotes[m] || '' }, tr.methods[m])));
+/**
+ * The re-optimize pass's refiner and step budget, the window's Settings menu.
+ * The refiners are named as the Refinement window names its methods (`tr` is
+ * its strings).
+ */
+export function ReoptimizeSettings({ c, dc, tr, reoptMethod, setReoptMethod, reoptIters, setReoptIters, disabled }) {
+    return h(React.Fragment, null,
+        h(SettingRow, { c, label: dc.method },
+            h(SelectField, {
+                c, value: reoptMethod, onChange: setReoptMethod, disabled,
+                title: tr.methodNotes[reoptMethod] || tr.methods[reoptMethod],
+                options: CLEANER_REFINERS.map(id => ({ id, label: tr.methods[id] })),
+            }),
+        ),
+        h(SettingRow, { c, label: dc.reoptIters },
+            h(NumInput, {
+                c, value: reoptIters, min: 1, max: 500, step: 10, integer: true, width: 72, disabled,
+                onChange: setReoptIters,
+            }),
+        ),
+    );
 }
 
+// Apply, or Stop in its place while the re-optimize pass runs. Stop keeps the
+// cleanup and the best point reached.
+function ApplyButton({ c, dc, applying, progress, ops, apply, stop }) {
+    if (progress) return h(SolidButton, { c, color: c.error, label: dc.stop, onClick: stop }, tablerIcon('player-stop', 13));
+    return h(SolidButton, {
+        c, color: c.success, label: applying ? dc.applying : `${dc.apply} (${ops.length})`,
+        onClick: apply, disabled: applying || ops.length === 0,
+    });
+}
+
+/**
+ * The window's row: the side, where one is offered, the thinnest layer kept,
+ * the merge and re-optimize switches; then the Settings menu and Apply. Nothing
+ * on it appears or goes when a switch changes, so it keeps its length.
+ */
 export function CleanerControls({
-    c, dc, tr, units, design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
-    cleanBack, setCleanBack, reoptimize, setReoptimize,
+    c, dc, tr, units, settingsLabel, design, sideOffered, side, setSide, dMin, setDMin,
+    mergeAdjacent, setMergeAdjacent, reoptimize, setReoptimize,
     reoptIters, setReoptIters, reoptMethod, setReoptMethod, applying, progress, ops, apply, stop,
 }) {
-    const labelStyle = {
-        color: c.textDim, fontSize: 11,
-        fontFamily: 'system-ui, -apple-system, sans-serif', whiteSpace: 'nowrap',
-    };
-    const inputStyle = {
-        background: c.inputBg || c.hover, color: c.text,
-        border: `1px solid ${c.border}`, borderRadius: 3,
-        padding: '1px 4px', fontSize: 12, width: 64,
-        fontFamily: 'system-ui, -apple-system, sans-serif',
-    };
-    const checkboxLabel = {
-        display: 'flex', alignItems: 'center', gap: 4,
-        cursor: 'pointer', color: c.text, fontSize: 11,
-    };
-
-    return h('div', {
-        style: {
-            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            padding: '6px 10px', borderBottom: `1px solid ${c.border}`,
-            background: c.panel, flexShrink: 0,
-        }
+    const canReoptimize = design.meritOperands?.length > 0;
+    return h(ControlRow, {
+        c,
+        trailing: [
+            h(SettingsMenu, { key: 'settings', c, label: settingsLabel },
+                h(ReoptimizeSettings, {
+                    c, dc, tr, reoptMethod, setReoptMethod, reoptIters, setReoptIters,
+                    disabled: applying || !(reoptimize && canReoptimize),
+                })),
+            h(ApplyButton, { key: 'apply', c, dc, applying, progress, ops, apply, stop }),
+        ],
     },
-        h('label', { style: labelStyle }, dc.minThickness,
-            h(NumberField, { spin: true, c,
-                min: 0, max: 200, step: 0.5, value: dMin, disabled: applying,
-                onChange: setDMin,
-                style: { ...inputStyle, marginLeft: 6, width: 60 }
-            }),
-            h('span', { style: { color: c.textDim, marginLeft: 2 } }, units.nm)
-        ),
-        h('label', { style: checkboxLabel },
-            h(Checkbox, {
-                c, checked: mergeAdjacent, disabled: applying,
-                onChange: e => setMergeAdjacent(e.target.checked),
-            }),
-            dc.mergeAdjacent
-        ),
-        h('label', { style: checkboxLabel },
-            h(Checkbox, {
-                c, checked: cleanBack, disabled: applying,
-                onChange: e => setCleanBack(e.target.checked),
-            }),
-            dc.cleanBack
-        ),
-        h('label', { style: checkboxLabel,
-            title: design.meritOperands?.length ? '' : dc.reoptimizeNoOperands,
-        },
-            h(Checkbox, {
-                c, checked: reoptimize && design.meritOperands?.length > 0,
-                disabled: applying || !design.meritOperands?.length,
-                onChange: e => setReoptimize(e.target.checked),
-            }),
-            dc.reoptimize
-        ),
-        reoptimize && design.meritOperands?.length > 0 && h(RefinerSelect, {
-            c, tr, value: reoptMethod, onChange: setReoptMethod, disabled: applying,
+        sideOffered && h(SideChoice, { c, dc, side, setSide, disabled: applying }),
+        h(MinThickness, { c, dc, units, dMin, setDMin, disabled: applying }),
+        h(CheckField, {
+            c, label: dc.mergeAdjacent, title: dc.mergeAdjacentTip, checked: mergeAdjacent, disabled: applying,
+            onChange: e => setMergeAdjacent(e.target.checked),
         }),
-        reoptimize && design.meritOperands?.length > 0 && h('label', { style: labelStyle }, dc.reoptIters,
-            h(NumberField, { spin: true, c,
-                min: 1, max: 500, step: 10, integer: true, value: reoptIters, disabled: applying,
-                onChange: setReoptIters,
-                style: { ...inputStyle, marginLeft: 6, width: 55 }
-            })
-        ),
-        h(ApplyGroup, { c, dc, applying, progress, ops, apply, stop })
+        h(CheckField, {
+            c, label: dc.reoptimize, title: canReoptimize ? undefined : dc.reoptimizeNoOperands,
+            checked: reoptimize && canReoptimize, disabled: applying || !canReoptimize,
+            onChange: e => setReoptimize(e.target.checked),
+        }),
     );
 }

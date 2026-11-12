@@ -50,10 +50,10 @@ export function Divider({ c }) {
  */
 export function NumInput({
     value, onChange, min, max, step, c, width = 60, title, disabled,
-    nullable, placeholder, emptyStep, positive,
+    nullable, placeholder, emptyStep, positive, integer,
 }) {
     return h(NumberField, {
-        title, disabled, placeholder, value, onChange, min, max, step, nullable, emptyStep, positive,
+        title, disabled, placeholder, value, onChange, min, max, step, nullable, emptyStep, positive, integer,
         spin: true, c,
         style: {
             width, height: 24, backgroundColor: c.field, color: c.text,

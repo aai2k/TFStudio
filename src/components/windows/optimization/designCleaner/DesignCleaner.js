@@ -8,18 +8,20 @@
  * `src/utils/synthesis/designCleaner.js`.
  *
  * Flow:
- *   1. User picks threshold + toggles (merge / re-optimize / clean back)
+ *   1. User picks the side (on a design coated on both sides), the threshold
+ *      and the switches (merge / re-optimize)
  *   2. Window previews the operations (remove/merge) and shows MF before
- *   3. User clicks Apply: if enabled, a short pass of the default refiner
- *      (the Refinement window's default method) polishes the cleaned stack
- *      in the optimizer worker, so the window stays responsive, with a step
- *      count and a Stop button. The cleaned (and refined) design is then
- *      committed behind one undo checkpoint.
+ *   3. User clicks Apply: if enabled, a short pass of the chosen refiner
+ *      (by default the Refinement window's default method) polishes the
+ *      cleaned stack in the optimizer worker, so the window stays responsive,
+ *      with a step count and a Stop button. The cleaned (and refined) design
+ *      is then committed behind one undo checkpoint.
  *
  * The previous design is reachable via Ctrl+Z (single checkpoint covers
  * both the cleanup and the optional refinement).
  */
 
+import { ProgressHairline } from '../../analysis/chrome/layout.js';
 import { CleanerControls } from './CleanerControls.js';
 import { CleanerOpsTable } from './CleanerOpsTable.js';
 import { CleanerPlaceholder, CleanerSummary } from './CleanerStatus.js';
@@ -31,7 +33,7 @@ const { createElement: h } = React;
 export function DesignCleaner({ c, theme, t }) {
     const dc = t.designCleaner;
     const state = useDesignCleaner(dc);
-    const { design, ops, thinList, dMin } = state;
+    const { design, ops, thinList, dMin, progress } = state;
 
     if (!design.frontLayers?.length && !design.backLayers?.length) {
         return h(CleanerPlaceholder, { message: dc.noLayers, c });
@@ -44,7 +46,8 @@ export function DesignCleaner({ c, theme, t }) {
             fontFamily: 'system-ui, -apple-system, sans-serif', fontSize: 12,
         }
     },
-        h(CleanerControls, { ...state, c, dc, tr: t.refinement, units: t.units }),
+        h(CleanerControls, { ...state, c, dc, tr: t.refinement, units: t.units, settingsLabel: t.analysisChrome.settings }),
+        progress && h(ProgressHairline, { c, progress: { i: progress.step, total: progress.iters } }),
         h(CleanerSummary, {
             ...state, c, dc,
             tip: t.meritFunctionEditor.provisionalTip, computingLabel: t.analysisEvaluation.computing,

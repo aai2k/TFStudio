@@ -146,20 +146,21 @@ function received(Component, props, name, pick, act) {
 
 // ── 4. Design Cleaner ────────────────────────────────────────────────────────
 {
-    const { CleanerControls } = await import('../src/components/windows/optimization/designCleaner/CleanerControls.js');
+    const { CleanerControls, ReoptimizeSettings } = await import('../src/components/windows/optimization/designCleaner/CleanerControls.js');
     const noop = () => {};
-    // With operands and Re-optimize on, the iteration box is drawn after the
-    // minimum thickness.
+    // The minimum thickness is on the row; the iteration box is in the
+    // Settings menu with the method, drawn with Re-optimize on.
     const props = {
-        c, dc: t.designCleaner, tr: t.refinement, units: t.units, design: { meritOperands: [{}] },
-        dMin: 5, setDMin: noop, mergeAdjacent: true, setMergeAdjacent: noop, cleanBack: false, setCleanBack: noop,
+        c, dc: t.designCleaner, tr: t.refinement, units: t.units, settingsLabel: t.analysisChrome.settings, design: { meritOperands: [{}] },
+        sideOffered: true, side: 'both', setSide: noop,
+        dMin: 5, setDMin: noop, mergeAdjacent: true, setMergeAdjacent: noop,
         reoptimize: true, setReoptimize: noop, reoptIters: 80, setReoptIters: noop, reoptMethod: 'sqp', setReoptMethod: noop,
-        applying: false, progress: null, ops: [], apply: noop, stop: noop,
+        applying: false, progress: null, ops: [], apply: noop, stop: noop, disabled: false,
     };
     const box = at => inputs => inputs.filter(input => input.props.type !== 'checkbox')[at];
     assert.deepEqual(received(CleanerControls, props, 'setDMin', box(0), f => f.type('2,5').leave()).values, [2.5],
         'Design Cleaner: minimum thickness 2,5 is 2.5');
-    const { values, field } = received(CleanerControls, props, 'setReoptIters', box(1), f => f.type('120').leave());
+    const { values, field } = received(ReoptimizeSettings, props, 'setReoptIters', box(0), f => f.type('120').leave());
     assert.deepEqual(values, [120], 'Design Cleaner: re-optimize iterations take a typed count');
     assert.equal(field.input().props.type, 'text', 'Design Cleaner: the iteration box is a text field');
 }

@@ -7,10 +7,12 @@ import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 export const CLEANER_REFINERS = Object.freeze(['sqp', 'dls', 'cg', 'newton', 'newton-cg']);
 
 // The window's factory settings, which the API's cleanDesign starts from too.
+// `side` is the side cleaned, 'front', 'back' or 'both', where the window
+// offers the choice (model.js offersSide).
 export const DESIGN_CLEANER_DEFAULTS = Object.freeze({
+    side: 'both',
     dMin: 5.0,
     mergeAdjacent: true,
-    cleanBack: true,
     reoptimize: true,
     reoptIters: 80,
     reoptMethod: DEFAULT_REFINE_METHOD,

@@ -66,7 +66,7 @@ async function runTests() {
             meritOperands: [makeOperand({ type: 'RAV', lambdaStart, lambdaEnd, aoi: 0, pol: 'avg', target: 0, weight: 1 })],
         };
         const resolveMat = designMaterialLookup(design);
-        const preview = computeCleanupPreview(design, { dMin: settings.dMin, mergeAdjacent: true, cleanBack: true });
+        const preview = computeCleanupPreview(design, { dMin: settings.dMin, mergeAdjacent: true, side: 'both' });
         const refiner = () => makeEngine(DEFAULT_REFINE_METHOD,
             withDesignSampleCounts(design.meritOperands, preview.design, resolveMat),
             preview.design, resolveMat, { dMin: settings.dMin });

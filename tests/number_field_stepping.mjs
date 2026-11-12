@@ -171,7 +171,6 @@ const OWN_FIELDS = [
     'windows/design/stackFormula/FormulaPanel.js',
     'windows/optimization/optimizerBenchmark/RunBar.js',
     'windows/optimization/filterDesignWizard/ui.js',
-    'windows/optimization/designCleaner/CleanerControls.js',
     'windows/design/edgeFilter/InputsPanel.js',
 ];
 for (const file of OWN_FIELDS) {

@@ -3,6 +3,16 @@ import { DEFAULT_REFINE_METHOD } from '../../../../utils/optimizers/index.js';
 import { densifyForRun } from '../../../../utils/refinement/workerInputs.js';
 import { refineOffThread, refineInTicks } from '../synthesisShared/workerRefine.js';
 
+/**
+ * Whether the window offers a choice of side: on a design with layers on both
+ * sides that is not symmetric, whose back mirrors its front. On any other
+ * design it cleans whichever side has layers.
+ */
+export function offersSide(design) {
+    return design?.surfaceMode !== 'symmetric'
+        && (design?.frontLayers?.length ?? 0) > 0 && (design?.backLayers?.length ?? 0) > 0;
+}
+
 export function computeCleanupPreview(design, opts) {
     if (!design?.frontLayers) return null;
     return cleanupDesign(design, opts);

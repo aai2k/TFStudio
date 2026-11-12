@@ -38,9 +38,10 @@
  *   check(), estimateYield() with a seed, its documented defaults, progress,
  *   stop and a progress that throws, and a Monte Carlo run's spec as a Yield;
  *   clean() changing the design in place to what cleanDesign gives, its
- *   options by the objects' names, its defaults and a symmetric design's
- *   back, its operations naming their layers by number on both sides, and its
- *   refusals in the objects' words; indexProfile() and layerThicknesses()
+ *   options by the objects' names, side 'back' leaving the front exactly as
+ *   it was, its defaults and a symmetric design's back, its operations naming
+ *   their layers by number on both sides, and its refusals in the objects'
+ *   words; indexProfile() and layerThicknesses()
  *   with their defaults and options, totalThickness(), opticalThickness()
  *   and layerCounts() with and without side, layer.qwot read and set on both
  *   sides, and their refusals in the objects' words; admittance() and
@@ -829,6 +830,14 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
             api.cleanDesign(before._data, { minThickness: 1.8, mergeAdjacent: false, cleanBack: true }).design,
             [{ side: 'back', kind: 'remove', number: 4, material: 'MgF2', thickness: 1.5, mergedInto: null }],
             api.cleanDesign(before._data, { cleanBack: false, mergeAdjacent: true }).design, 4, plain.design]), canon(backOnly.operations));
+    // side is cleanDesign's side: the back cleaned, the front exactly as it was.
+    const backCleaned = before.copy();
+    const backReport = backCleaned.clean({ side: 'back' });
+    ok('side is cleanDesign\'s side: \'back\' cleans the back and leaves the front exactly as it was',
+        canon([backCleaned._data, backReport.operations]) === canon([api.cleanDesign(before._data, { side: 'back' }).design,
+            api.cleanDesign(before._data, { side: 'back' }).operations])
+        && canon(backCleaned._data.frontLayers) === canon(before._data.frontLayers) && backReport.operations.every(op => op.side === 'back')
+        && backCleaned.backLayers.length === 2, canon(backReport.operations));
     const symmetric = before.copy();
     symmetric.sides = 'symmetric';
     const symmetricData = symmetric._data;
@@ -836,11 +845,18 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     ok('a symmetric design\'s back follows its cleaned front', canon([symmetric._data, symmetric.backLayers.length])
         === canon([api.cleanDesign(symmetricData).design, 3]));
     const kept = before.copy();
+    const frontOnlyDesign = tf.newDesign('Front only');
+    frontOnlyDesign.stack('(HL)^2');
     const CLEAN_WORDED = [
-        [() => kept.clean({ mergeAdjacent: true }), "clean: unknown option 'mergeAdjacent'; the options are minThickness, merge, back"],
+        [() => kept.clean({ mergeAdjacent: true }), "clean: unknown option 'mergeAdjacent'; the options are minThickness, merge, side, back"],
         [() => kept.clean({ minThickness: -1 }), 'clean: minThickness is a thickness in nm of 0 or more, not -1'],
         [() => kept.clean({ merge: 1 }), 'clean: merge is true or false, not 1'],
         [() => kept.clean({ back: 'yes' }), 'clean: back is true or false, not "yes"'],
+        [() => kept.clean({ side: 'top' }), "clean: side is 'front', 'back' or 'both', not \"top\""],
+        [() => kept.clean({ side: 'back', back: false }), 'clean: back is left out when side is given, not false'],
+        [() => frontOnlyDesign.clean({ side: 'back' }), 'clean: the back has no layers'],
+        [() => { const sym = before.copy(); sym.sides = 'symmetric'; return sym.clean({ side: 'back' }); },
+            "clean: side is 'front' or 'both' on a symmetric design, whose back mirrors its front, not \"back\""],
         [() => tf.newDesign('Bare').clean(), 'clean: the design has no layers; add them with layers.append() or stack()'],
     ];
     const worded = await Promise.all(CLEAN_WORDED.map(([make]) => refused(make)));

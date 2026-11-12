@@ -150,7 +150,7 @@ checkJacobian('front surface', stack(6, [25, 40, 110, 20]), [reflectNothing, ram
     design.frontLayers.splice(3, 0, { id: 'thin', material: 'SiO2', thickness: 2, locked: false });
     design.meritOperands = [bandAverage];
     const settings = { reoptimize: true, reoptIters: 80, dMin: 5 };
-    const preview = computeCleanupPreview(design, { dMin: settings.dMin, mergeAdjacent: true, cleanBack: true });
+    const preview = computeCleanupPreview(design, { dMin: settings.dMin, mergeAdjacent: true, side: 'both' });
     const silent = { appliedMsg: () => '', mfRefineMsg: () => '' };
     const { nextDesign } = await applyCleanup(preview, design, silent, settings, resolveMat);
 

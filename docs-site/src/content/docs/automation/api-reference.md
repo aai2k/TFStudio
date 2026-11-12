@@ -907,9 +907,9 @@ print(len(design.layers), "layers at", design.reference, "nm")
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.clean({ minThickness, merge, back })` | `design.clean(min_thickness=5, merge=True, back=True)` |
+| `design.clean({ minThickness, merge, side, back })` | `design.clean(min_thickness=5, merge=True, side="both", back=...)` |
 
-Cleans the stack as the Design Cleaner window does: adjacent layers of one material merged into one, and layers thinner than `minThickness` / `min_thickness` taken out, in passes, since taking a layer out can leave two layers of one material touching. Locked layers are never merged or taken out, and a symmetric design's back follows its front. The design then holds the cleaned layers.
+Cleans the stack as the Design Cleaner window does: adjacent layers of one material merged into one, and layers thinner than `minThickness` / `min_thickness` taken out, in passes, since taking a layer out can leave two layers of one material touching. Locked layers are never merged or taken out. `side` cleans one side and leaves the other exactly as it was, and a symmetric design's back follows its front. The design then holds the cleaned layers.
 
 **JavaScript**: The merit usually worsens a little, since the stack changed. To do what the window's Re-optimize does, add an MNT row at `minThickness` and refine with sqp: `design.merit.add('MNT', { target: 5 })`, then `await design.refine({ method: 'sqp', maxIter: 80 })`. The layers end on the thicknesses the window's pass gives. The window's pass keeps each layer at `minThickness` or above, and sqp keeps each layer inside the MNT row; without that row refine keeps layers at 1 nm or above.
 
@@ -919,29 +919,34 @@ Cleans the stack as the Design Cleaner window does: adjacent layers of one mater
 | ---------- | ------ | ------- | ------- |
 | `minThickness` | `min_thickness` | `5` | The thinnest layer kept, nm: a layer below it is taken out. 0 takes none out. |
 | `merge` | `merge` | `true` / `True` | `true` / `True` merges adjacent layers of one material. |
-| `back` | `back` | `true` / `True` | `true` / `True` cleans the back too, also on a design scored on its front alone, whose back the layer edits refuse to change; `false` / `False` cleans the front alone, also on a design coated on the back alone. |
+| `side` | `side` | `'both'` | The side cleaned, `'front'`, `'back'` or `'both'`; the other side is left as it was. `'both'` also cleans the back of a design scored on its front alone, whose back the layer edits refuse to change, and cleans whichever side has layers on a design coated on one side. A symmetric design takes `'front'` or `'both'`. |
+| `back` | `back` |  | The older switch for the side, left out when side is given: `true` / `True` cleans both sides; `false` / `False` cleans the front alone, also on a design coated on the back alone, where it does nothing. |
 
 **Returns**: A CleanReport.
 
 **Refuses**:
 
-- **JavaScript**: an option clean does not take, a minThickness that is not a number of 0 or more, a merge or back other than `true` or `false`, or a design with no layers<br>**Python**: a min_thickness that is not a number of 0 or more, a merge or back other than True or False, or a design with no layers
+- **JavaScript**: an option clean does not take, a minThickness that is not a number of 0 or more, a merge or back other than `true` or `false`, a side other than `'front'`, `'back'` or `'both'`, both side and back, a side with no layers, the back of a symmetric design, or a design with no layers<br>**Python**: a min_thickness that is not a number of 0 or more, a merge or back other than True or False, a side other than "front", "back" or "both", both side and back, a side with no layers, the back of a symmetric design, or a design with no layers
 
 ```js
-const design = tf.newDesign('Stack with a thin layer');
+const design = tf.newDesign('Two-sided AR');
 design.stack('(HL)^2 0.03H L');
-const report = design.clean({ minThickness: 5 });
+design.sides = 'both';
+design.stack('L 0.02H 2L', { side: 'back' });
+const report = design.clean({ side: 'back' });
 for (const op of report.operations) console.log(op.kind, op.side, 'layer', op.number, op.material, op.thickness);
-console.log(design.layers.length, 'layers now');
+console.log(design.layers.length, 'front layers,', design.backLayers.length, 'back layers now');
 ```
 
 ```python
-design = tf.new_design("Stack with a thin layer")
+design = tf.new_design("Two-sided AR")
 design.stack("(HL)^2 0.03H L")
-report = design.clean(min_thickness=5)
+design.sides = "both"
+design.stack("L 0.02H 2L", side="back")
+report = design.clean(side="back")
 for op in report.operations:
     print(op.kind, op.side, "layer", op.number, op.material, op.thickness)
-print(len(design.layers), "layers now")
+print(len(design.layers), "front layers,", len(design.back_layers), "back layers now")
 ```
 
 ### scaleThicknesses / scale_thicknesses

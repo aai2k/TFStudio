@@ -76,14 +76,14 @@ await check('Design Cleaner', async () => {
     noIds(thin, 'the thin-layer list');
 
     // The thin Ta2O5 (F3) and Al2O3 (B2) are removed.
-    const { ops } = cleanupDesign(design, { dMin: 5, mergeAdjacent: true, cleanBack: true });
+    const { ops } = cleanupDesign(design, { dMin: 5, mergeAdjacent: true, side: 'both' });
     const table = text(h(CleanerOpsTable, { c, dc, units: t.units, design, ops, dMin: 5 }));
     assert.ok(table.includes('F3') && table.includes('B2') && !table.includes('F1'), `the operations read ${table.join(' | ')}`);
     noIds(table, 'the operations');
     // With two SiO2 layers in a row, the one on the substrate (F1) merges into
     // its neighbour (F2).
     const pair = { ...design, frontLayers: [{ id: 'x', material: 'builtin:SiO2', thickness: 50 }, design.frontLayers[2]], backLayers: [] };
-    const merge = cleanupDesign(pair, { dMin: 5, mergeAdjacent: true, cleanBack: true }).ops;
+    const merge = cleanupDesign(pair, { dMin: 5, mergeAdjacent: true, side: 'both' }).ops;
     const merged = text(h(CleanerOpsTable, { c, dc, units: t.units, design: pair, ops: merge, dMin: 5 }));
     assert.ok(merged.includes('F1') && merged.includes('→ F2'), `the merge reads ${merged.join(' | ')}`);
 });

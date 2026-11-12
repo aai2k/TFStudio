@@ -520,12 +520,20 @@ async function cleaning(t, said) {
         && canon(backOnly) === canon(reportOf(optionedThere)) && optionedThere.operations?.length === 1, canon(backOnly));
     ok('back=False leaves the back as it was', canon(got.frontOnly) === canon((await attempt(() => api.cleanDesign(got.before, { cleanBack: false }))).design)
         && got.frontOnly?.backLayers?.length === 5);
+    const [backCleaned, backReport] = got.backCleaned ?? [];
+    const backThere = await attempt(() => api.cleanDesign(got.before, { side: 'back' }));
+    ok('side="back" is cleanDesign\'s side', !!backThere.design
+        && canon([backCleaned, backReport]) === canon([backThere.design, reportOf(backThere)]), canon(backReport));
+    ok('it cleans the back and leaves the front exactly as it was', canon(backCleaned?.frontLayers) === canon(got.before?.frontLayers)
+        && (backThere.operations ?? []).every(op => op.side === 'back'), canon(backThere.operations));
     const [symmetricBefore, symmetricAfter] = got.symmetric ?? [];
     ok('a symmetric design\'s back follows its cleaned front', canon(symmetricAfter) === canon((await attempt(() => api.cleanDesign(symmetricBefore))).design)
         && symmetricAfter?.backLayers?.length === symmetricAfter?.frontLayers?.length);
     ok('clean()\'s refusals are in Python\'s words, and leave the design as it was', canon(got.worded) === canon([
         'clean: min_thickness is a thickness in nm of 0 or more, not -1', 'clean: min_thickness is a thickness in nm of 0 or more, not None',
         'clean: merge is True or False, not 1', "clean: back is True or False, not 'yes'",
+        "clean: side is 'front', 'back' or 'both', not 'top'", 'clean: back is left out when side is given, not False',
+        'clean: the back has no layers', "clean: side is 'front' or 'both' on a symmetric design, whose back mirrors its front, not 'back'",
         'clean: the design has no layers; add them with layers.append() or stack()']) && got.kept === true, canon(got.worded));
 }
 

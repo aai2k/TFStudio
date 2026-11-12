@@ -52,7 +52,7 @@ const design0 = {
     meritOperands: [rav(0)],
 };
 const resolveMaterial = designMaterialLookup(design0);
-const preview = computeCleanupPreview(design0, { dMin: settings.dMin, mergeAdjacent: true, cleanBack: true });
+const preview = computeCleanupPreview(design0, { dMin: settings.dMin, mergeAdjacent: true, side: 'both' });
 
 // One Apply. `edit`, when given, changes the design right after the click,
 // while the pass is running, and the window renders again with it.

@@ -35,7 +35,9 @@
  *      dispersion gives the API's, in short with the extremes of each curve
  *      and in full with its values, and a slab of 0 mm is refused; a stack cleaned
  *      gives the API's operations and layer counts, keeps the cleaned design
- *      under its id and refuses a value it cannot use, and the tool gives the
+ *      under its id and refuses a value it cannot use, side 'back' cleans the
+ *      back of a two-sided stack and leaves its front exactly as it was, side
+ *      beside cleanBack is refused, and the tool gives the
  *      MNT row and the refine that do the window's Re-optimize; a two-sided
  *      stack's index profile, layer thicknesses and facts give the API's,
  *      in short and with their values, a layer is set by its QWOT, and a side
@@ -429,6 +431,18 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         JSON.stringify(shown));
     ok('a value it cannot use is refused, the design staying as it was', /minThickness is a thickness in nm of 0 or more, not -1/.test(refusedClean.error ?? '') && unchanged,
         refusedClean.error);
+    // Coated on both sides, the back cleaned alone through side.
+    const twoSided = (await server.call('newDesign', { name: 'Two sides', surfaceMode: 'both_independent' })).designId;
+    await server.call('stackFromFormula', { designId: twoSided, formula });
+    await server.call('stackFromFormula', { designId: twoSided, side: 'back', formula: 'L 0.02H 2L' });
+    const frontBefore = (await server.call('showDesign', { designId: twoSided })).front;
+    const backCleaned = await server.call('cleanDesign', { designId: twoSided, side: 'back' });
+    const afterBack = await server.call('showDesign', { designId: twoSided });
+    ok('side \'back\' cleans the back and leaves the front exactly as it was', backCleaned.operations?.length === 2
+        && backCleaned.operations.every(op => op.side === 'back') && JSON.stringify(afterBack.front) === JSON.stringify(frontBefore)
+        && afterBack.back?.length === 1, JSON.stringify(backCleaned));
+    const refusedBoth = await server.call('cleanDesign', { designId: twoSided, side: 'front', cleanBack: true });
+    ok('and side beside cleanBack is refused', /cleanBack is left out when side is given, not true/.test(refusedBoth.error ?? ''), refusedBoth.error);
     const description = listed.find(t => t.name === 'cleanDesign')?.description ?? '';
     ok('its description gives the MNT row and the refine, with the window\'s method and step budget, that do the window\'s Re-optimize, and the floor refine keeps without the row',
         description.includes(`add an MNT row with target minThickness to the design's rows through setMerit and refine with method ${DEFAULT_REFINE_METHOD} and maxIter ${DESIGN_CLEANER_DEFAULTS.reoptIters}`)

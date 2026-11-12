@@ -907,9 +907,9 @@ print(len(design.layers), "layers at", design.reference, "nm")
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.clean({ minThickness, merge, back })` | `design.clean(min_thickness=5, merge=True, back=True)` |
+| `design.clean({ minThickness, merge, side, back })` | `design.clean(min_thickness=5, merge=True, side="both", back=...)` |
 
-按设计清理器窗口的方式清理膜层堆栈：相邻的同材料膜层合并为一层，薄于 `minThickness` / `min_thickness` 的膜层被移除，并分多轮进行，因为移除一层后可能使两个同材料膜层相邻接触。被锁定的膜层永远不会被合并或移除，对称设计的背面跟随其正面。之后设计中保存的是清理后的膜层。
+按设计清理器窗口的方式清理膜层堆栈：相邻的同材料膜层合并为一层，薄于 `minThickness` / `min_thickness` 的膜层被移除，并分多轮进行，因为移除一层后可能使两个同材料膜层相邻接触。被锁定的膜层永远不会被合并或移除。`side` 只清理一面，另一面完全保持原样；对称设计的背面跟随其正面。之后设计中保存的是清理后的膜层。
 
 **JavaScript**：由于堆栈改变，评价函数值通常会略微变差。要做到窗口的“重新优化”所做的，先添加一个目标为 `minThickness` 的 MNT 行，再用 sqp 精炼：`design.merit.add('MNT', { target: 5 })`，然后 `await design.refine({ method: 'sqp', maxIter: 80 })`。各层随后停在窗口的这一轮精炼给出的厚度上。窗口的这一轮精炼让每层不低于 `minThickness`，sqp 让每层保持在 MNT 行的界限之内；没有这一行时，refine 只让各层不低于 1 nm。
 
@@ -919,29 +919,34 @@ print(len(design.layers), "layers at", design.reference, "nm")
 | ---------- | ------ | --- | --- |
 | `minThickness` | `min_thickness` | `5` | 保留的最薄膜层，单位 nm：比它薄的膜层会被移除。为 0 时不移除任何膜层。 |
 | `merge` | `merge` | `true` / `True` | 为 `true` / `True` 时，合并相邻的同材料膜层。 |
-| `back` | `back` | `true` / `True` | 为 `true` / `True` 时同时清理背面，设计只按正面计算、膜层编辑不允许修改其背面时也是如此；为 `false` / `False` 时只清理正面，设计只在背面镀膜时也是如此。 |
+| `side` | `side` | `'both'` | 清理的面：`'front'`、`'back'` 或 `'both'`；另一面保持原样。`'both'` 也会清理只按正面计算、膜层编辑不允许修改其背面的设计的背面，并在只有一面镀膜的设计上清理有膜层的那一面。对称设计接受 `'front'` 或 `'both'`。 |
+| `back` | `back` |  | 选择清理面的旧开关，给出 side 时省略：为 `true` / `True` 时清理两面；为 `false` / `False` 时只清理正面，设计只在背面镀膜时也是如此，此时不做任何改动。 |
 
 **返回**：一个 CleanReport。
 
 **拒绝**：
 
-- **JavaScript**：clean 不接受的选项、不是大于等于 0 的数的 minThickness、不是 `true` 或 `false` 的 merge 或 back，或没有膜层的设计<br>**Python**：不是大于等于 0 的数的 min_thickness、不是 True 或 False 的 merge 或 back，或没有膜层的设计
+- **JavaScript**：clean 不接受的选项、不是大于等于 0 的数的 minThickness、不是 `true` 或 `false` 的 merge 或 back、不是 `'front'`、`'back'` 或 `'both'` 的 side、同时给出 side 和 back、没有膜层的一面、对称设计的背面，或没有膜层的设计<br>**Python**：不是大于等于 0 的数的 min_thickness、不是 True 或 False 的 merge 或 back、不是 "front"、"back" 或 "both" 的 side、同时给出 side 和 back、没有膜层的一面、对称设计的背面，或没有膜层的设计
 
 ```js
-const design = tf.newDesign('Stack with a thin layer');
+const design = tf.newDesign('Two-sided AR');
 design.stack('(HL)^2 0.03H L');
-const report = design.clean({ minThickness: 5 });
+design.sides = 'both';
+design.stack('L 0.02H 2L', { side: 'back' });
+const report = design.clean({ side: 'back' });
 for (const op of report.operations) console.log(op.kind, op.side, 'layer', op.number, op.material, op.thickness);
-console.log(design.layers.length, 'layers now');
+console.log(design.layers.length, 'front layers,', design.backLayers.length, 'back layers now');
 ```
 
 ```python
-design = tf.new_design("Stack with a thin layer")
+design = tf.new_design("Two-sided AR")
 design.stack("(HL)^2 0.03H L")
-report = design.clean(min_thickness=5)
+design.sides = "both"
+design.stack("L 0.02H 2L", side="back")
+report = design.clean(side="back")
 for op in report.operations:
     print(op.kind, op.side, "layer", op.number, op.material, op.thickness)
-print(len(design.layers), "layers now")
+print(len(design.layers), "front layers,", len(design.back_layers), "back layers now")
 ```
 
 ### scaleThicknesses / scale_thicknesses

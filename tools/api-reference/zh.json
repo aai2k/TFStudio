@@ -395,17 +395,21 @@
     "hash": "4a8a64c5",
     "text": "为 `true` / `True` 时，合并相邻的同材料膜层。"
   },
+  "Design.clean.arg.side": {
+    "hash": "d46e7ccd",
+    "text": "清理的面：`'front'`、`'back'` 或 `'both'`；另一面保持原样。`'both'` 也会清理只按正面计算、膜层编辑不允许修改其背面的设计的背面，并在只有一面镀膜的设计上清理有膜层的那一面。对称设计接受 `'front'` 或 `'both'`。"
+  },
   "Design.clean.arg.back": {
-    "hash": "c7d35a19",
-    "text": "为 `true` / `True` 时同时清理背面，设计只按正面计算、膜层编辑不允许修改其背面时也是如此；为 `false` / `False` 时只清理正面，设计只在背面镀膜时也是如此。"
+    "hash": "b16392f6",
+    "text": "选择清理面的旧开关，给出 side 时省略：为 `true` / `True` 时清理两面；为 `false` / `False` 时只清理正面，设计只在背面镀膜时也是如此，此时不做任何改动。"
   },
   "Design.clean.returns": {
     "hash": "2ef59ed9",
     "text": "一个 CleanReport。"
   },
   "Design.clean.lead.1": {
-    "hash": "828de9df",
-    "text": "按设计清理器窗口的方式清理膜层堆栈：相邻的同材料膜层合并为一层，薄于 `minThickness` / `min_thickness` 的膜层被移除，并分多轮进行，因为移除一层后可能使两个同材料膜层相邻接触。被锁定的膜层永远不会被合并或移除，对称设计的背面跟随其正面。之后设计中保存的是清理后的膜层。"
+    "hash": "095e1bf0",
+    "text": "按设计清理器窗口的方式清理膜层堆栈：相邻的同材料膜层合并为一层，薄于 `minThickness` / `min_thickness` 的膜层被移除，并分多轮进行，因为移除一层后可能使两个同材料膜层相邻接触。被锁定的膜层永远不会被合并或移除。`side` 只清理一面，另一面完全保持原样；对称设计的背面跟随其正面。之后设计中保存的是清理后的膜层。"
   },
   "Design.clean.lead.2.js": {
     "hash": "3da8a097",
@@ -416,12 +420,12 @@
     "text": "由于堆栈改变，评价函数值通常会略微变差。要做到窗口的“重新优化”所做的，先添加一个目标为 min_thickness 的 MNT 行，再用 sqp 精炼：design.merit.add(\"MNT\", target=5)，然后 design.refine(method=\"sqp\", max_iter=80)。各层随后停在窗口的这一轮精炼给出的厚度上。窗口的这一轮精炼让每层不低于 min_thickness，sqp 让每层保持在 MNT 行的界限之内；没有这一行时，refine 只让各层不低于 1 nm。"
   },
   "Design.clean.refuses.1.js": {
-    "hash": "deb60481",
-    "text": "clean 不接受的选项、不是大于等于 0 的数的 minThickness、不是 `true` 或 `false` 的 merge 或 back，或没有膜层的设计"
+    "hash": "d1d3cf89",
+    "text": "clean 不接受的选项、不是大于等于 0 的数的 minThickness、不是 `true` 或 `false` 的 merge 或 back、不是 `'front'`、`'back'` 或 `'both'` 的 side、同时给出 side 和 back、没有膜层的一面、对称设计的背面，或没有膜层的设计"
   },
   "Design.clean.refuses.1.py": {
-    "hash": "2300b7fb",
-    "text": "不是大于等于 0 的数的 min_thickness、不是 True 或 False 的 merge 或 back，或没有膜层的设计"
+    "hash": "f2fa0026",
+    "text": "不是大于等于 0 的数的 min_thickness、不是 True 或 False 的 merge 或 back、不是 \"front\"、\"back\" 或 \"both\" 的 side、同时给出 side 和 back、没有膜层的一面、对称设计的背面，或没有膜层的设计"
   },
   "Design.spectrum.arg.start": {
     "hash": "115f61f2",

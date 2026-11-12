@@ -13,7 +13,12 @@
  *   • Idempotency: applying cleanupDesign twice gives the same result as once.
  *   • No-op design (no thin layers, no same-material adjacents) returns
  *     identical layer counts and an empty ops list.
- *   • listThinLayers reports the right rows and excludes locked layers.
+ *   • listThinLayers reports the right rows and excludes locked layers, and
+ *     lists only the side cleaned.
+ *   • Side: on a design coated on both sides, side 'back' cleans the back as
+ *     cleaning both does and leaves the front exactly as it was; side
+ *     'front' the other way round; 'both' is the default; a symmetric design
+ *     is cleaned on its front and mirrored whatever the side.
  */
 
 import { isDeepStrictEqual } from 'node:util';
@@ -192,6 +197,59 @@ console.log('— listThinLayers —');
        'back  B1 reported');
     ok(!list.some(r => r.layerIndex === 2 && r.side === 'front'),
        'locked C not reported');
+
+    // The list follows the side cleaned, as the pending operations do.
+    const sidesListed = side => [...new Set(listThinLayers(design, 5.0, side).map(r => r.side))].join();
+    ok(sidesListed('back') === 'back' && sidesListed('front') === 'front' && sidesListed('both') === 'front,back',
+       `side back lists the back alone, front the front alone (got ${sidesListed('back')} / ${sidesListed('front')})`);
+    ok(sidesListed('back') === 'back' && listThinLayers({ ...design, surfaceMode: 'symmetric' }, 5.0, 'back').every(r => r.side === 'front'),
+       'a symmetric design lists its front whatever the side');
+}
+
+// ── 8. One side cleaned, the other exactly as it was ────────────────────────
+console.log('- side -');
+{
+    // Coated on both sides, each side with a thin layer and a same-material pair.
+    const design = {
+        substrate: { material: 'BK7' }, incidentMedium: 'Air', exitMedium: 'Air',
+        frontLayers: [
+            { id: 'F1', material: 'MgF2', thickness: 96.4, locked: false },
+            { id: 'F2', material: 'TiO2', thickness: 2.1,  locked: false },
+            { id: 'F3', material: 'MgF2', thickness: 31.2, locked: false },
+            { id: 'F4', material: 'TiO2', thickness: 58.7, locked: false },
+            { id: 'F5', material: 'TiO2', thickness: 11.3, locked: false },
+        ],
+        backLayers: [
+            { id: 'B1', material: 'SiO2', thickness: 88.1, locked: false },
+            { id: 'B2', material: 'TiO2', thickness: 3.4,  locked: false },
+            { id: 'B3', material: 'SiO2', thickness: 26.5, locked: false },
+        ],
+        surfaceMode: 'both_independent',
+    };
+    const given = JSON.stringify(design);
+    const both  = cleanupDesign(design, { dMin: 5.0, mergeAdjacent: true });
+    const back  = cleanupDesign(design, { dMin: 5.0, mergeAdjacent: true, side: 'back' });
+    const front = cleanupDesign(design, { dMin: 5.0, mergeAdjacent: true, side: 'front' });
+
+    ok(isDeepStrictEqual(back.design.frontLayers, design.frontLayers),
+       `side back: the front exactly as it was (got ${back.design.frontLayers.map(l => l.thickness)})`);
+    ok(isDeepStrictEqual(back.design.backLayers, both.design.backLayers) && back.ops.every(o => o.side === 'back'),
+       'side back: the back cleaned as cleaning both sides cleans it, and only back operations');
+    ok(back.removedCount === 1 && back.mergedCount === 1 && back.layersAfter.front === 5 && back.layersAfter.back === 1,
+       `side back: 1 removed, 1 merged, 5F + 1B (got ${back.removedCount}/${back.mergedCount}, ${back.layersAfter.front}F + ${back.layersAfter.back}B)`);
+    ok(isDeepStrictEqual(front.design.backLayers, design.backLayers)
+       && isDeepStrictEqual(front.design.frontLayers, both.design.frontLayers) && front.ops.every(o => o.side === 'front'),
+       'side front: the back exactly as it was, the front cleaned as both sides\' cleanup cleans it');
+    ok(back.design.frontLayers !== design.frontLayers && back.design.frontLayers[0] !== design.frontLayers[0],
+       'the side kept is a copy, so the cleaned design shares no layer object with the design given');
+    ok(isDeepStrictEqual(cleanupDesign(design, { dMin: 5.0, side: 'both' }), both), 'side both is the default');
+    ok(JSON.stringify(design) === given, 'the design given is left as it was');
+
+    // A symmetric design: the front is cleaned and mirrored whatever the side.
+    const sym = { ...design, surfaceMode: 'symmetric', backLayers: mirrorLayers(design.frontLayers) };
+    const symBoth = cleanupDesign(sym, { dMin: 5.0 });
+    ok(['front', 'back'].every(side => isDeepStrictEqual(cleanupDesign(sym, { dMin: 5.0, side }), symBoth)),
+       'symmetric: side front and side back clean as both does, the back the mirror of the cleaned front');
 }
 
 console.log(fails === 0 ? 'PASS: design_cleaner' : `${fails} assertion(s) failed`);

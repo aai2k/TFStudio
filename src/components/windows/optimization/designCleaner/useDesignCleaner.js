@@ -1,7 +1,7 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { listThinLayers } from '../../../../utils/synthesis/designCleaner.js';
-import { applyCleanup, computeCleanupPreview } from './model.js';
+import { applyCleanup, computeCleanupPreview, offersSide } from './model.js';
 import { designCleanerSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import { useMeritValues, MERIT_ONLY, meritOrInfinity } from '../useMeritValues.js';
@@ -95,19 +95,24 @@ export function useDesignCleaner(dc) {
     const { design, updateDesign, checkpoint, isOptimizing } = useDesign();
 
     const [session, setField] = useWindowSession(designCleanerSession, design);
-    const { dMin, mergeAdjacent, cleanBack, reoptimize, reoptIters, reoptMethod } = session;
+    const { side, dMin, mergeAdjacent, reoptimize, reoptIters, reoptMethod } = session;
+    const setSide          = value => setField('side', value);
     const setDMin          = value => setField('dMin', value);
     const setMergeAdjacent = value => setField('mergeAdjacent', value);
-    const setCleanBack     = value => setField('cleanBack', value);
     const setReoptimize    = value => setField('reoptimize', value);
     const setReoptIters    = value => setField('reoptIters', value);
     const setReoptMethod   = value => setField('reoptMethod', value);
 
+    // The side picked counts only where the window offers the choice, so a
+    // Back picked on one design never leaves another with nothing to clean.
+    const sideOffered = offersSide(design);
+    const cleaned = sideOffered ? side : 'both';
+
     const resolveMaterial = useMemo(() => designMaterialLookup(design), [design]);
 
     const preview = useMemo(
-        () => computeCleanupPreview(design, { dMin, mergeAdjacent, cleanBack }),
-        [design, dMin, mergeAdjacent, cleanBack]
+        () => computeCleanupPreview(design, { dMin, mergeAdjacent, side: cleaned }),
+        [design, dMin, mergeAdjacent, cleaned]
     );
 
     const merit = useCleanerMerit(design, preview?.design ?? null, isOptimizing);
@@ -121,11 +126,11 @@ export function useDesignCleaner(dc) {
 
     // Thin-layer-only list (for the "what's currently sub-threshold" view —
     // the Thin Layer Removal mode)
-    const thinList = listThinLayers(design, dMin);
+    const thinList = listThinLayers(design, dMin, cleaned);
 
     return {
-        design, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
-        cleanBack, setCleanBack, reoptimize, setReoptimize,
+        design, sideOffered, side, setSide, dMin, setDMin, mergeAdjacent, setMergeAdjacent,
+        reoptimize, setReoptimize,
         reoptIters, setReoptIters, reoptMethod, setReoptMethod, ...run,
         preview, ...merit,
         ops, removedOps, mergedOps, thinList,

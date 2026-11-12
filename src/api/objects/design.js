@@ -378,8 +378,9 @@ export class Design {
      * Cleans the stack as the Design Cleaner window does: adjacent layers of
      * one material merged into one, and layers thinner than `minThickness`
      * taken out, in passes, since taking a layer out can leave two layers of
-     * one material touching. Locked layers are never merged or taken out, and
-     * a symmetric design's back follows its front. The design then holds the
+     * one material touching. Locked layers are never merged or taken out.
+     * `side` cleans one side and leaves the other exactly as it was, and a
+     * symmetric design's back follows its front. The design then holds the
      * cleaned layers.
      *
      * The merit usually worsens a little, since the stack changed. To do what
@@ -393,20 +394,23 @@ export class Design {
      * @param [options]
      * @param [options.minThickness=5] The thinnest layer kept, nm: a layer below it is taken out. 0 takes none out.
      * @param [options.merge=true] `true` merges adjacent layers of one material.
-     * @param [options.back=true] `true` cleans the back too, also on a design scored on its front alone, whose back the layer edits refuse to change; `false` cleans the front alone, also on a design coated on the back alone.
+     * @param [options.side='both'] The side cleaned, `'front'`, `'back'` or `'both'`; the other side is left as it was. `'both'` also cleans the back of a design scored on its front alone, whose back the layer edits refuse to change, and cleans whichever side has layers on a design coated on one side. A symmetric design takes `'front'` or `'both'`.
+     * @param [options.back] The older switch for the side, left out when side is given: `true` cleans both sides; `false` cleans the front alone, also on a design coated on the back alone, where it does nothing.
      * @returns A CleanReport.
-     * @throws an option clean does not take, a minThickness that is not a number of 0 or more, a merge or back other than `true` or `false`, or a design with no layers
+     * @throws an option clean does not take, a minThickness that is not a number of 0 or more, a merge or back other than `true` or `false`, a side other than `'front'`, `'back'` or `'both'`, both side and back, a side with no layers, the back of a symmetric design, or a design with no layers
      * @example
-     * const design = tf.newDesign('Stack with a thin layer');
+     * const design = tf.newDesign('Two-sided AR');
      * design.stack('(HL)^2 0.03H L');
-     * const report = design.clean({ minThickness: 5 });
+     * design.sides = 'both';
+     * design.stack('L 0.02H 2L', { side: 'back' });
+     * const report = design.clean({ side: 'back' });
      * for (const op of report.operations) console.log(op.kind, op.side, 'layer', op.number, op.material, op.thickness);
-     * console.log(design.layers.length, 'layers now');
+     * console.log(design.layers.length, 'front layers,', design.backLayers.length, 'back layers now');
      */
     clean(options) {
-        const { minThickness, merge, back } = checkOptions('clean', options, ['minThickness', 'merge', 'back']);
+        const { minThickness, merge, side, back } = checkOptions('clean', options, ['minThickness', 'merge', 'side', 'back']);
         const cleaned = worded({ method: 'clean', call: 'cleanDesign', names: CLEAN_NAMES },
-            () => api.cleanDesign(this._data, defined({ minThickness, mergeAdjacent: merge, cleanBack: back })));
+            () => api.cleanDesign(this._data, defined({ minThickness, mergeAdjacent: merge, side, cleanBack: back })));
         this._data = cleaned.design;
         return new CleanReport(cleaned);
     }

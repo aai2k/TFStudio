@@ -866,13 +866,14 @@ class Design:
         with worded(_STACK_WORDS):
             self._data = self._calls.stackFromFormula(self._data, dict(given, formula=formula, symbols=symbols))
 
-    def clean(self, *, min_thickness=5, merge=True, back=True):
+    def clean(self, *, min_thickness=5, merge=True, side=None, back=None):
         """Cleans the stack as the Design Cleaner window does: adjacent layers
         of one material merged into one, and layers thinner than
         min_thickness taken out, in passes, since taking a layer out can leave
         two layers of one material touching. Locked layers are never merged or
-        taken out, and a symmetric design's back follows its front. The
-        design then holds the cleaned layers.
+        taken out. side cleans one side and leaves the other exactly as it
+        was, and a symmetric design's back follows its front. The design then
+        holds the cleaned layers.
 
         The merit usually worsens a little, since the stack changed. To do
         what the window's Re-optimize does, add an MNT row at min_thickness
@@ -886,29 +887,42 @@ class Design:
             min_thickness: The thinnest layer kept, nm: a layer below it is
                 taken out. 0 takes none out. Default 5.
             merge: True merges adjacent layers of one material. Default True.
-            back: True cleans the back too, also on a design scored on its
-                front alone, whose back the layer edits refuse to change;
-                False cleans the front alone, also on a design coated on the
-                back alone. Default True.
+            side: The side cleaned, "front", "back" or "both"; the other side
+                is left as it was. "both" also cleans the back of a design
+                scored on its front alone, whose back the layer edits refuse
+                to change, and cleans whichever side has layers on a design
+                coated on one side. A symmetric design takes "front" or
+                "both". Default "both".
+            back: The older switch for the side, left out when side is given:
+                True cleans both sides; False cleans the front alone, also on
+                a design coated on the back alone, where it does nothing.
 
         Returns:
             A CleanReport.
 
         Raises:
             TFStudioError: a min_thickness that is not a number of 0 or more,
-                a merge or back other than True or False, or a design with no
+                a merge or back other than True or False, a side other than
+                "front", "back" or "both", both side and back, a side with no
+                layers, the back of a symmetric design, or a design with no
                 layers.
 
         Example::
 
-            design = tf.new_design("Stack with a thin layer")
+            design = tf.new_design("Two-sided AR")
             design.stack("(HL)^2 0.03H L")
-            report = design.clean(min_thickness=5)
+            design.sides = "both"
+            design.stack("L 0.02H 2L", side="back")
+            report = design.clean(side="back")
             for op in report.operations:
                 print(op.kind, op.side, "layer", op.number, op.material, op.thickness)
-            print(len(design.layers), "layers now")
+            print(len(design.layers), "front layers,", len(design.back_layers), "back layers now")
         """
-        options = {"minThickness": min_thickness, "mergeAdjacent": merge, "cleanBack": back}
+        options = {"minThickness": min_thickness, "mergeAdjacent": merge}
+        if side is not None:
+            options["side"] = side
+        if back is not None:
+            options["cleanBack"] = back
         with worded(_CLEAN_WORDS):
             cleaned = self._calls.cleanDesign(self._data, options)
         self._data = cleaned["design"]

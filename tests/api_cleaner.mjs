@@ -6,23 +6,30 @@
  *      designs coated on the front, on the back, on both and symmetric, each
  *      with thin layers, same-material neighbours and locked layers made in on
  *      each side, over a spread of minimum thicknesses with and without
- *      merging and with and without the back. Each operation's number and
- *      mergedInto name, by its number from the substrate, the layer
- *      cleanupDesign's index names; the counts are cleanupDesign's, a locked
- *      layer is never touched, a symmetric design's back is the mirror of its
- *      cleaned front with no id on both sides, and the design given is left as
- *      it was.
+ *      merging, on each side the design takes and on both, and with cleanBack
+ *      either way. Each operation's number and mergedInto name, by its number
+ *      from the substrate, the layer cleanupDesign's index names; the counts
+ *      are cleanupDesign's, a locked layer is never touched, a side not
+ *      cleaned is left exactly as it was, a symmetric design's back is the
+ *      mirror of its cleaned front with no id on both sides, and the design
+ *      given is left as it was.
  *   2. On a stack coated on both sides, unlike on each, the numbers are the
  *      Design Editor's: on this stack, where no layer taken out had one merged
  *      into it, the layer at each number in the design given has the
  *      operation's material and thickness, on the front, whose layers are
  *      stored from the incident medium in, and on the back, stored from the
  *      substrate out. A layer taken out after a neighbour was merged into it
- *      gives the two layers' thickness.
+ *      gives the two layers' thickness. Side 'back' cleans the back as both
+ *      sides' cleanup does and leaves the front exactly as it was, side
+ *      'front' the other way round; cleanBack false is side 'front' and true
+ *      is 'both'.
  *   3. The defaults are the window's factory settings (sessionState.js), each
  *      of which the test design tells apart from another value.
  *   4. Each name and value it cannot use is refused with the code and fields
- *      an object layer words it from, and so is a design with no layers.
+ *      an object layer words it from: a side it does not know, side beside
+ *      cleanBack, the back of a symmetric design, a side with no layers, and
+ *      a design with no layers. cleanBack false on a design coated on the
+ *      back alone still does nothing.
  *   5. The window's path, against the window's model with Re-optimize on
  *      (model.js applyCleanup, on this thread, no worker). Clean, then an MNT
  *      row at the window's minimum thickness, then refine with the window's
@@ -124,31 +131,44 @@ const lockedOf = d => [d.frontLayers, d.backLayers].map(layers => layers.filter(
 const mirrored = d => d.surfaceMode !== 'symmetric' || isDeepStrictEqual(d.backLayers, mirrorLayers(d.frontLayers));
 const sharedIds = d => d.frontLayers.filter(front => d.backLayers.some(back => back.id === front.id));
 
+// The side cleanDesign is to clean with `options`: side, or as cleanBack says.
+const sideOf = options => options.side ?? (options.cleanBack === false ? 'front' : 'both');
+
 // cleanDesign's operations on `design` with `options`, and what is wrong with
 // its answer against the window's code: cleanupDesign with the same settings.
+// A side not cleaned is left exactly as it was, unless it mirrors the front.
 function checked(design, options) {
     const given = JSON.stringify(design);
     const got = api.cleanDesign(design, options);
-    const raw = cleanupDesign(design, { dMin: options.minThickness, mergeAdjacent: options.mergeAdjacent, cleanBack: options.cleanBack });
+    const side = sideOf(options);
+    const raw = cleanupDesign(design, { dMin: options.minThickness, mergeAdjacent: options.mergeAdjacent, side });
     const expected = {
         design: raw.design, removed: raw.removedCount, merged: raw.mergedCount,
         operations: raw.ops.map(op => expectedOperation(design, op)), layersBefore: raw.layersBefore, layersAfter: raw.layersAfter,
     };
+    const untouched = { front: 'back', back: 'front' }[side];
+    const keptAsItWas = !untouched || design.surfaceMode === 'symmetric'
+        || isDeepStrictEqual(got.design[`${untouched}Layers`], design[`${untouched}Layers`]);
     const checks = [
         [isDeepStrictEqual(got, expected), `${JSON.stringify(got.operations)} / ${JSON.stringify(expected.operations)}`],
         [isDeepStrictEqual(lockedOf(got.design), lockedOf(design)), 'a locked layer changed'],
         [mirrored(got.design), 'the back is not the mirror of the cleaned front'],
         [sharedIds(got.design).length === 0, 'a layer id is on both sides'],
+        [keptAsItWas && got.operations.every(op => op.side !== untouched), `the ${untouched} was not left as it was`],
         [JSON.stringify(design) === given, 'the design given changed'],
     ];
     return { operations: got.operations, wrong: checks.filter(([held]) => !held).map(([, what]) => what) };
 }
 
 const CORPUS = Object.entries(manifest.fixtures).filter(([, fixture]) => Object.keys(fixture.variants).join() === 'default').map(([name]) => name);
-const SPREAD = [0, 2.5, 5, 12].flatMap(minThickness => [true, false].flatMap(mergeAdjacent => [true, false].map(cleanBack => ({ minThickness, mergeAdjacent, cleanBack }))));
+// The sides each mode is cleaned on: cleanBack either way, and each side a
+// design of that mode takes; a symmetric design's back follows its front.
+const sidesTaken = mode => [{ cleanBack: true }, { cleanBack: false },
+    ...(mode === 'symmetric' ? ['front', 'both'] : ['front', 'back', 'both']).map(side => ({ side }))];
+const spread = mode => [0, 2.5, 5, 12].flatMap(minThickness => [true, false].flatMap(mergeAdjacent => sidesTaken(mode).map(side => ({ minThickness, mergeAdjacent, ...side }))));
 const cases = CORPUS.flatMap(name => {
     const opened = api.openDesign(fixtureFile(name));
-    return MODES.flatMap(mode => SPREAD.map(options => ({ name, mode, options, ...checked(made(opened, mode), options) })));
+    return MODES.flatMap(mode => spread(mode).map(options => ({ name, mode, options, ...checked(made(opened, mode), options) })));
 });
 const wrong = cases.flatMap(({ name, mode, options, wrong: what }) => what.map(w => `${name} ${mode} ${JSON.stringify(options)}: ${w}`));
 ok(`on ${CORPUS.length} corpus designs in every surface mode, cleanDesign gives cleanupDesign's design and operations, numbered from the substrate`,
@@ -186,6 +206,21 @@ ok('layers were taken out and merged on each side in every mode, a symmetric des
     const takenOut = api.cleanDesign(chain).operations.find(op => op.kind === 'remove');
     ok('a layer taken out after a neighbour was merged into it gives the two layers\' thickness', takenOut?.material === 'SiO2' && takenOut.thickness === 4,
         JSON.stringify(takenOut));
+
+    // One side cleaned: the other exactly as it was, ids and all, and the
+    // side cleaned as cleaning both sides cleans it.
+    const back = api.cleanDesign(design, { side: 'back' });
+    ok('side \'back\' leaves the front of a design coated on both sides exactly as it was',
+        isDeepStrictEqual(back.design.frontLayers, design.frontLayers), JSON.stringify(back.design.frontLayers.map(l => l.thickness)));
+    ok('and cleans its back as cleaning both sides does, with the back\'s operations alone',
+        isDeepStrictEqual([back.design.backLayers, back.removed, back.merged], [cleaned.backLayers, 1, 1])
+        && back.operations.every(op => op.side === 'back'), JSON.stringify(back.operations));
+    const front = api.cleanDesign(design, { side: 'front' });
+    ok('and side \'front\' cleans its front and leaves its back exactly as it was',
+        isDeepStrictEqual(front.design.backLayers, design.backLayers) && isDeepStrictEqual(front.design.frontLayers, cleaned.frontLayers)
+        && front.operations.every(op => op.side === 'front'), JSON.stringify(front.operations));
+    ok('cleanBack false cleans as side \'front\' does, and true as side \'both\'', isDeepStrictEqual(api.cleanDesign(design, { cleanBack: false }), front)
+        && isDeepStrictEqual(api.cleanDesign(design, { cleanBack: true }), api.cleanDesign(design, { side: 'both' })));
 }
 
 // ── 3. The defaults are the window's ───────────────────────────────────────
@@ -200,36 +235,51 @@ ok('layers were taken out and merged on each side in every mode, a symmetric des
             layer('f5', 'SiO2', 40), layer('f6', 'TiO2', 30)],
         backLayers: [layer('b0', 'MgF2', 90), layer('b1', 'TiO2', 2), layer('b2', 'SiO2', 70)],
     };
-    const windowSettings = { minThickness: FACTORY.dMin, mergeAdjacent: FACTORY.mergeAdjacent, cleanBack: FACTORY.cleanBack };
+    const windowSettings = { minThickness: FACTORY.dMin, mergeAdjacent: FACTORY.mergeAdjacent, side: FACTORY.side };
     const byDefault = api.cleanDesign(design);
     ok('with no options cleanDesign cleans as the window does with its factory settings', isDeepStrictEqual(byDefault, api.cleanDesign(design, windowSettings))
         && isDeepStrictEqual(byDefault, api.cleanDesign(design, {})), JSON.stringify(windowSettings));
-    const others = [{ minThickness: FACTORY.dMin - 2.5 }, { minThickness: FACTORY.dMin + 2.5 }, { mergeAdjacent: !FACTORY.mergeAdjacent }, { cleanBack: !FACTORY.cleanBack }];
+    const otherSides = ['front', 'back', 'both'].filter(side => side !== FACTORY.side).map(side => ({ side }));
+    const others = [{ minThickness: FACTORY.dMin - 2.5 }, { minThickness: FACTORY.dMin + 2.5 }, { mergeAdjacent: !FACTORY.mergeAdjacent }, ...otherSides];
     ok('and each default tells from another value on this design', others.every(changed => !isDeepStrictEqual(api.cleanDesign(design, { ...windowSettings, ...changed }), byDefault)));
 }
 
 // ── 4. Refusals ────────────────────────────────────────────────────────────
 {
     const design = api.stackFromFormula(api.newDesign({ name: 'Stack' }), { formula: '(HL)^2' });
+    const symmetric = api.setDesignSetup(design, { surfaceMode: 'symmetric' });
+    const backOnly = { ...api.newDesign({ name: 'Back' }), surfaceMode: 'back_only', backLayers: [{ id: 'b', material: 'TiO2', thickness: 2, locked: false }] };
     const REFUSED = [
-        ['an option it does not take', { mergeSame: true }, 'unknownOption', { option: 'mergeSame', options: ['minThickness', 'mergeAdjacent', 'cleanBack'] },
-            /cleanDesign: unknown option 'mergeSame'; the options are minThickness, mergeAdjacent, cleanBack/],
+        ['an option it does not take', { mergeSame: true }, 'unknownOption', { option: 'mergeSame', options: ['minThickness', 'mergeAdjacent', 'side', 'cleanBack'] },
+            /cleanDesign: unknown option 'mergeSame'; the options are minThickness, mergeAdjacent, side, cleanBack/],
         ['a minimum thickness below 0', { minThickness: -1 }, 'badValue', { option: 'minThickness', value: -1 }, /cleanDesign: minThickness is a thickness in nm of 0 or more, not -1/],
         ['a minimum thickness of NaN', { minThickness: NaN }, 'badValue', { option: 'minThickness' }, /not NaN/],
         ['a minimum thickness as text', { minThickness: '5' }, 'badValue', { option: 'minThickness', value: '5' }, /not "5"/],
         ['a merge switch that is not true or false', { mergeAdjacent: 1 }, 'badValue', { option: 'mergeAdjacent', takes: 'true or false', value: 1 }, /mergeAdjacent is true or false, not 1/],
         ['a back switch that is not true or false', { cleanBack: 'yes' }, 'badValue', { option: 'cleanBack', takes: 'true or false' }, /cleanBack is true or false, not "yes"/],
+        ['a side it does not know', { side: 'top' }, 'badValue', { option: 'side', takes: "'front', 'back' or 'both'", value: 'top' },
+            /cleanDesign: side is 'front', 'back' or 'both', not "top"/],
+        ['side and cleanBack both', { side: 'back', cleanBack: false }, 'badValue', { option: 'cleanBack', takes: 'left out when side is given', value: false },
+            /cleanDesign: cleanBack is left out when side is given, not false/],
+        ['the back of a symmetric design, whose back mirrors its front', { side: 'back' }, 'badValue', { option: 'side', value: 'back' },
+            /cleanDesign: side is 'front' or 'both' on a symmetric design, whose back mirrors its front, not "back"/, symmetric],
+        ['a back with no layers', { side: 'back' }, 'emptySide', { side: 'back' }, /^cleanDesign: the back has no layers$/],
+        ['a front with no layers', { side: 'front' }, 'emptySide', { side: 'front' }, /^cleanDesign: the front has no layers$/, backOnly],
     ];
-    for (const [what, options, code, fields, pattern] of REFUSED) {
-        const err = thrown(() => api.cleanDesign(design, options));
+    for (const [what, options, code, fields, pattern, on = design] of REFUSED) {
+        const err = thrown(() => api.cleanDesign(on, options));
         const fieldsMatch = !!err?.fields && Object.entries({ call: 'cleanDesign', ...fields }).every(([key, value]) => isDeepStrictEqual(err.fields[key], value));
         ok(`cleanDesign refuses ${what}`, err?.code === code && fieldsMatch && pattern.test(err.message), err ? `${err.code} ${JSON.stringify(err.fields)} ${err.message}` : 'not refused');
     }
     const bare = thrown(() => api.cleanDesign(api.newDesign({ name: 'Bare' })));
     ok('and a design with no layers, as the window shows nothing to clean', bare?.code === 'noLayers' && isDeepStrictEqual(bare.fields, { call: 'cleanDesign' })
         && /cleanDesign: the design has no layers; add them with insertLayer or stackFromFormula/.test(bare.message), bare?.message);
-    const backOnly = { ...api.newDesign({ name: 'Back' }), surfaceMode: 'back_only', backLayers: [{ id: 'b', material: 'TiO2', thickness: 2, locked: false }] };
-    ok('a design with layers on its back alone is cleaned', api.cleanDesign(backOnly).removed === 1);
+    ok('a design with layers on its back alone is cleaned', api.cleanDesign(backOnly).removed === 1 && api.cleanDesign(backOnly, { side: 'back' }).removed === 1);
+    const asBefore = api.cleanDesign(backOnly, { cleanBack: false });
+    ok('and cleanBack false on it still cleans nothing, as it did before side', asBefore.removed === 0 && asBefore.operations.length === 0
+        && isDeepStrictEqual(asBefore.design.backLayers, backOnly.backLayers));
+    const sym = api.cleanDesign(symmetric, { side: 'front' });
+    ok('a symmetric design takes side \'front\', which cleans it as \'both\' does', isDeepStrictEqual(sym, api.cleanDesign(symmetric, { side: 'both' })));
 }
 
 // ── 5. Clean, then refine, is the window's Re-optimize ─────────────────────
@@ -251,7 +301,7 @@ const refineAsWindow = async start => (await quietly(() => api.refine(start, { m
 // window's minimum thickness, and refined as the window refines.
 async function bothWays(design) {
     const resolveMat = designMaterialLookup(design);
-    const preview = computeCleanupPreview(design, { dMin: FACTORY.dMin, mergeAdjacent: FACTORY.mergeAdjacent, cleanBack: FACTORY.cleanBack });
+    const preview = computeCleanupPreview(design, { dMin: FACTORY.dMin, mergeAdjacent: FACTORY.mergeAdjacent, side: FACTORY.side });
     const dc = { appliedMsg: () => '', mfRefineMsg: () => '' };
     const windowRun = await quietly(() => applyCleanup(preview, design, dc, { ...FACTORY, inWorker: false }, resolveMat));
     const cleaned = api.cleanDesign(design);

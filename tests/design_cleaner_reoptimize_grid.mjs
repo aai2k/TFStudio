@@ -51,7 +51,7 @@ design.frontLayers = [
     ...[...mirror].reverse().map((material, i) => layer(`b${i}`, material, 1)),
 ];
 
-const preview = computeCleanupPreview(design, { dMin: settings.dMin, mergeAdjacent: true, cleanBack: true });
+const preview = computeCleanupPreview(design, { dMin: settings.dMin, mergeAdjacent: true, side: 'both' });
 ok(preview.removedCount === 1, `the cleanup takes out the 2 nm layer (${preview.removedCount} taken out)`);
 const shown = withDesignSampleCounts(design.meritOperands, preview.design, resolveMat);
 const run = densifyForRun(design.meritOperands, preview.design);
