@@ -4,6 +4,7 @@ import {
     requiredLambdas, collectDesignMaterialIds, mirrorLayers, buildPresampledTable, isPhaseDispersion,
 } from '../physics/optimizer.js';
 import { materialLookup } from '../../components/windows/optimization/synthesisShared/materialNames.js';
+import { environmentMaterialIds } from '../environments/environments.js';
 import { regridForDesign } from '../../components/windows/optimization/synthesisShared/runGrid.js';
 import { mkLayers } from './core.js';
 import { scoreDesign } from './workerJobs.js';
@@ -11,10 +12,11 @@ import { refineGuarded } from './workers.js';
 
 // Worker material tables for every material the design and the pool use, built
 // as every other run builds them, so a worker refine scores the merit the main
-// thread scores, stress and phase rows included.
+// thread scores, stress and phase rows included; on a design with environments
+// every material they name too, since a worker reads one its table lacks as Air.
 export function presampleAll(design, operands, pool) {
     const resolveMat = materialLookup(design);
-    const ids = new Set(collectDesignMaterialIds(design));
+    const ids = new Set([...collectDesignMaterialIds(design), ...environmentMaterialIds(design)]);
     for (const material of pool) ids.add(material.id);
     ids.add('Air');
     const pairs = [...ids].map(id => ({ id, mat: resolveMat(id) }));

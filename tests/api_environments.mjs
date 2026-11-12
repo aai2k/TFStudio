@@ -285,12 +285,14 @@ const BASE_ENTRY = {
         same(m.environments.map(e => [e.number, e.id, e.name]), [[1, 'base', null], [2, 'env2', 'Under water']])
         && Math.abs(m.environments[0].total - base.total) <= 1e-12 * base.total && Math.abs(m.environments[1].total - water.total) <= 1e-12 * water.total
         && Math.abs(m.total - Math.sqrt((base.total ** 2 + water.total ** 2) / 2)) <= 1e-12 * m.total, JSON.stringify(m.environments));
-    ok('each row gives its env and its value in each environment it is scored in',
+    const valuesOf = JSON.stringify(m.rows.map(r => r.values));
+    ok('each row gives its env and the environments it is scored in',
         same(m.rows.map(r => r.env), [null, 'env2', 'base', null])
-        && same(m.rows.map(r => r.values.map(v => v.number)), [[1, 2], [2], [1], [1, 2]])
-        && m.rows[1].value === m.rows[1].values[0].value && m.rows[0].value === m.rows[0].values[0].value
-        && m.rows[0].values[0].value !== m.rows[0].values[1].value && m.rows.every(r => r.values.every(v => v.error === null)),
-        JSON.stringify(m.rows.map(r => r.values)));
+        && same(m.rows.map(r => r.values.map(v => v.number)), [[1, 2], [2], [1], [1, 2]]), valuesOf);
+    ok('and its value in each of them, the first being the value shown',
+        m.rows[1].value === m.rows[1].values[0].value && m.rows[0].value === m.rows[0].values[0].value, valuesOf);
+    ok('a row of every environment has a value of its own in each, with no error',
+        m.rows[0].values[0].value !== m.rows[0].values[1].value && m.rows.every(r => r.values.every(v => v.error === null)), valuesOf);
     const one = api.merit(api.setMerit(plain(), [rows[0]]));
     ok('a design with one environment lists environment 1 with its merit, and its rows env null and no values',
         same(one.environments, [{ number: 1, id: 'base', name: null, total: one.total, optical: one.optical }]) && one.rows[0].env === null && !('values' in one.rows[0]));
@@ -327,7 +329,8 @@ const BASE_ENTRY = {
     ]);
     const { result, design: grown } = await api.synthesize(design, { method: 'ge', pool: ['TiO2', 'SiO2'], settings: { maxLayers: 6, maxGeCycles: 1 } });
     const thinnest = Math.min(...grown.frontLayers.map(l => l.thickness));
-    ok('an MNT row of environment 2 sets no floor for a run that fits environment 1', result.completed && thinnest < 300, `${result.stopReason} ${thinnest}`);
+    ok('an MNT row of environment 2, where TiO2 grows 0.9 times as thick, sets the floor at its target / 0.9',
+        result.completed && thinnest >= 300 / 0.9 - 1e-6, `${result.stopReason} ${thinnest}`);
 }
 
 console.log(`${pass} passed, ${fail} failed`);

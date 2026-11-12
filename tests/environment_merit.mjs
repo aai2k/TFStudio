@@ -27,9 +27,8 @@
  *   7. A refinement run through runRefinement, its workers given only the
  *      worker payload, scores a substrate only environment 2 names, and its
  *      MF is the table's on the run's grid.
- *   8. Needle, Gradual Evolution, Structural, Deep Synthesis and Needle
- *      Manual fit environment 1's rows alone: their rows, and the merit they
- *      start from, are those of the design without its environment-2 row.
+ *
+ * Synthesis over environments is tests/environment_synthesis.mjs.
  *
  * Run: node tests/environment_merit.mjs
  */
@@ -38,17 +37,12 @@ import { readFileSync } from 'node:fs';
 import { initWasmForTest, TMMCORE_WASM_PATH } from './_wasmInit.mjs';
 import { NodeModuleWorker } from './_moduleWorker.mjs';
 import {
-    DLSOptimizer, makeOperand, makeMeasuredCurveOperand, withDesignSampleCounts, buildEvalContext, evaluateOperands, calcMF,
+    DLSOptimizer, makeOperand, makeMeasuredCurveOperand, withDesignSampleCounts,
 } from '../src/utils/physics/optimizer.js';
 import { makeResolveMat } from '../src/utils/workers/resolveMat.js';
 import { makeEngine } from '../src/utils/optimizers/index.js';
 import { evaluateForDisplay, meritDisplay } from '../src/utils/physics/meritDisplay.js';
 import { oneEnvironmentDesign } from '../src/utils/environments/environments.js';
-import { prepare as prepareNeedle } from '../src/utils/needle/setup.js';
-import { prepare as prepareGE } from '../src/utils/gradualEvolution/setup.js';
-import { prepare as prepareStructural } from '../src/utils/structural/setup.js';
-import { prepareRun as prepareDeep } from '../src/utils/synthesis/deepSynthesis/setup.js';
-import { planRun as planDeep } from '../src/utils/synthesis/deepSynthesis/settings.js';
 import { designMaterialLookup } from '../src/utils/materials/designMaterials.js';
 import { computeOperandDisplay } from '../src/utils/refinement/operandCheck.js';
 import { runRefinement } from '../src/utils/refinement/runRefinement.js';
@@ -415,42 +409,6 @@ check('DLS lowers the MF over every environment, and its MF is the table\'s for 
         assert.deepEqual(answer.mfs, vectors.map(v => engine.meritsAt(v).mf));
         assert.deepEqual(answer.omfs, vectors.map(v => engine.meritsAt(v).omf));
         assert.ok(relative(answer.mfs[0], shown.mf) <= 1e-12, 'the first vector is the design the table shows');
-    });
-}
-
-// ── 8. Synthesis fits environment 1 ────────────────────────────────────────
-{
-    const rows = ROWS.filter(op => op.env !== 'env3');
-    const design = withEnvironments([WATER], rows);
-    const without = { ...design, meritOperands: rows.filter(op => op.env !== 'env2') };
-    const pool = ['TiO2', 'SiO2'].map(id => ({ id, name: id, mat: lookup(id) }));
-    const ids = list => list.map(op => op.id);
-    const meritOn = (operands, d) => calcMF(operands, evaluateOperands(operands, buildEvalContext(d, lookup)));
-    check('Needle and Gradual Evolution fit the rows of environment 1 alone, from the merit of the design without the environment-2 row', () => {
-        for (const prepare of [prepareNeedle, prepareGE]) {
-            const run = prepare(design, rows, pool);
-            const plain = prepare(without, without.meritOperands, pool);
-            assert.deepEqual(ids(run.operands), ids(plain.operands));
-            assert.equal(meritOn(run.operands, design), meritOn(plain.operands, without));
-        }
-    });
-    check('Structural and Deep Synthesis take the same rows', () => {
-        const structural = prepareStructural(design, rows, { dMin: 1, kinds: new Set(['add']), pool });
-        assert.deepEqual(ids(structural.enabled), ids(prepareStructural(without, without.meritOperands, { dMin: 1, kinds: new Set(['add']), pool }).enabled));
-        const plan = planDeep({ pool, dMin: 1 });
-        const deep = prepareDeep(design, rows, plan);
-        assert.ok(deep.ev, deep.failed);
-        assert.deepEqual(ids(deep.ev.operands), ids(prepareDeep(without, without.meritOperands, plan).ev.operands));
-    });
-    const { shimBrowserGlobals } = await import('./_uiShim.mjs');
-    shimBrowserGlobals();
-    const { enabledRows } = await import('../src/components/windows/optimization/needleManual/insertion.js');
-    const { insertionRefineJob } = await import('../src/components/windows/optimization/needleManual/model.js');
-    check('Needle Manual scans the same rows, and its refine after an insertion is built on environment 1 without environments', () => {
-        assert.deepEqual(ids(enabledRows(design)), ids(enabledRows(without)));
-        const job = insertionRefineJob(enabledRows(design), design, 1, 10);
-        assert.equal('environments' in job.design, false);
-        assert.equal(new DLSOptimizer(job.operands, job.design, lookup)._groups, undefined);
     });
 }
 

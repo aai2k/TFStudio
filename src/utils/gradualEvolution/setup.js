@@ -9,7 +9,9 @@ import { presampleSynthesisMaterials } from '../../components/windows/optimizati
 // The operand rows, scan sides and sampled materials of a run, or the reason
 // it cannot start. Unlike Needle, Gradual Evolution keeps the MNT and MXT rows:
 // its forced thickness step escapes the local minimum a floor penalty makes.
-// The PPEF rows and the rows of other environments are left out (synthesisMath.js synthesisRows).
+// The PPEF rows and the rows of environments that are off are left out
+// (synthesisMath.js synthesisRows); a design with environments is scored on
+// every environment that is on.
 export function prepare(design, operands, pool) {
     const ops = densifyForRun(synthesisRows(design, operands), design);
     if (ops.length === 0) return { failed: 'noOperands' };

@@ -3,8 +3,8 @@
 // assumes its own case (one surface, T and R targets, pass points, a floor);
 // on any other merit function the run falls back part by part:
 //   refine    full Newton needs the merit scored on one surface on its own
-//             side, no cone and operands with exact curvature
-//             (LSQEngine._fullNewtonSupported); otherwise Gauss-Newton;
+//             side, in one environment, with no cone and operands with exact
+//             curvature (LSQEngine._fullNewtonSupported); otherwise Gauss-Newton;
 //   halfWave  drop and half need pass points (T = 1 or R = 0);
 //   comb      every optical operand a pass or stop target, at least two pass runs;
 //   pairs     the pair repair and the floor deletion need a floor.
@@ -15,14 +15,18 @@ import { coneIsActive, makeConeSpec } from '../../physics/optimizer/coneAngle.js
 import { expandMeasuredCurveOperands } from '../../physics/optimizer/measuredCurveOperand.js';
 import { _operandSupportsFullNewton } from '../../physics/optimizer/newtonAssembly.js';
 import { resolveScanSide } from '../../physics/optimizer/scanners.js';
+import { hasEnvironments } from '../../environments/environments.js';
+import { environmentOneAlone } from '../../environments/environmentMerit.js';
 import { countsOptically, passIndices } from './points.js';
 import { combApplies } from './comb.js';
 
-// LSQEngine._fullNewtonSupported (lsqEngine.js 370-375) with the reason it
-// fails: 'surface' (two-sided or full-system scoring), 'cone', 'operands'
-// (an operand without exact curvature); null when full Newton applies.
+// LSQEngine._fullNewtonSupported (lsqEngine.js 369-375) with the reason it
+// fails: 'environments' (a merit over several environments, scored in groups),
+// 'surface' (two-sided or full-system scoring), 'cone', 'operands' (an
+// operand without exact curvature); null when full Newton applies.
 function gaussNewtonWhy(ev) {
     const base = ev.spec.base;
+    if (hasEnvironments(base) && !environmentOneAlone(base, ev.operands)) return 'environments';
     const sm = base.surfaceMode || 'front_only';
     const single = sm === 'front_only' || sm === 'back_only';
     if (!single || isFullSystemEval(sm, base.mfEvalMode || 'side')) return 'surface';

@@ -4,8 +4,8 @@ import {
 } from '../../../../utils/physics/optimizer.js';
 import { generateARSeeds } from '../../../../utils/synthesis/seedGenerator.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
-import { BASE_ENVIRONMENT, hasEnvironments } from '../../../../utils/environments/environments.js';
-import { rowsScoredIn } from '../../../../utils/environments/environmentMerit.js';
+import { hasEnvironments } from '../../../../utils/environments/environments.js';
+import { rowsOfEnvironmentsOn } from '../../../../utils/environments/environmentMerit.js';
 
 // ── Surface-mode-aware active synthesis side ────────────────────────────────────
 // For both_independent the UI selector (when added) drives this; default 'front'.
@@ -18,12 +18,12 @@ export const activeSide = (d) => resolveScanSide(d?.surfaceMode || 'front_only',
  * Everything but the layer stacks, as a structured-clonable object a synthesis
  * worker can rebuild an evaluation context from.
  *
- * The cone spec and the stress run temperatures are included only when the
- * design carries them, so a worker that has neither stays on the single-angle,
- * intrinsic-stress-only path the main thread takes for the same design. A key
- * missing here is a merit function the worker scores differently from the
- * window that launched it, which is the one thing this object exists to
- * prevent.
+ * The cone spec, the stress run temperatures and the environments are
+ * included only when the design carries them, so a worker that has none stays
+ * on the single-angle, intrinsic-stress-only, one-environment path the main
+ * thread takes for the same design. A key missing here is a merit function the
+ * worker scores differently from the window that launched it, which is the
+ * one thing this object exists to prevent.
  */
 export function serializableMedia(design) {
     return {
@@ -37,6 +37,7 @@ export function serializableMedia(design) {
         },
         ...(design.cone ? { cone: design.cone } : {}),
         ...(design.stress ? { stress: design.stress } : {}),
+        ...(hasEnvironments(design) ? { environments: design.environments } : {}),
     };
 }
 
@@ -70,15 +71,14 @@ export function withoutPPEF(operands) {
 }
 
 // ── The rows a synthesis run fits ───────────────────────────────────────────────
-// The enabled rows less the PPEF ones. A synthesis run designs for environment
-// 1, the design's own media, substrate and layers, so on a design with
-// environments it fits the rows scored there (environmentMerit.js
-// rowsScoredIn) and never a row of another environment, which environment 1's
-// stack would score against the wrong media. Every synthesis run, its workers
-// and Needle Manual take their rows from here.
+// The enabled rows less the PPEF ones. On a design with environments, the rows
+// an environment that is on scores (environmentMerit.js rowsOfEnvironmentsOn),
+// each scored on that environment's stack, as the engine scores them: a row of
+// an environment that is off is left out. Every synthesis run, its workers and
+// Needle Manual take their rows from here.
 export function synthesisRows(design, operands) {
     const enabled = operands.filter(op => op.enabled);
-    return withoutPPEF(hasEnvironments(design) ? rowsScoredIn(enabled, BASE_ENVIRONMENT) : enabled);
+    return withoutPPEF(hasEnvironments(design) ? rowsOfEnvironmentsOn(design, enabled) : enabled);
 }
 
 // ── Run sampling grid ───────────────────────────────────────────────────────────

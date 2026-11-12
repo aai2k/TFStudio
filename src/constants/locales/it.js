@@ -3048,6 +3048,7 @@ export default {
     partWhy: (part, why) => `${part} (${why})`,
     partOff: (part, why) => (why ? `senza ${part} (${why})` : `senza ${part}`),
     why: {
+      environments: 'più ambienti',
       surface: 'merito non su una sola superficie',
       cone: 'cono',
       operands: 'operando senza curvatura esatta',

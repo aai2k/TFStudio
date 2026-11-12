@@ -18,7 +18,7 @@
  * the engines score it as that design without environments.
  */
 import { isBlank, isConstant, isDmfs, isManufacturability, isMath, isPPEF } from '../physics/optimizer/operandModel.js';
-import { BASE_ENVIRONMENT, environmentsOf, isEnvironmentOn, oneEnvironmentDesign } from './environments.js';
+import { BASE_ENVIRONMENT, environmentById, environmentsOf, isEnvironmentOn, oneEnvironmentDesign, valueFor } from './environments.js';
 
 const readsOf = op => [op.refId, op.refId1, op.refId2].filter(id => id != null);
 
@@ -103,6 +103,46 @@ export function meritGroups(design, operands) {
             optical: counted.some(op => !isManufacturability(op.type)),
         };
     }).filter(group => group.rows.some(i => evaluated(operands[i])));
+}
+
+/**
+ * The rows of `operands` that some environment of `design` switched on scores
+ * (meritGroups), in their order. A row of an environment that is off, or
+ * whose rows are all comments, is scored nowhere.
+ */
+export function rowsOfEnvironmentsOn(design, operands) {
+    const scored = new Set(meritGroups(design, operands).flatMap(group => group.rows));
+    return operands.filter((_, i) => scored.has(i));
+}
+
+/**
+ * The bound the rows of `operands` of type `type` set on every layer of the
+ * recipe of `design` made of one of `materials` (material ids), nm: for 'MNT'
+ * the largest target, for 'MXT' the smallest; null without such a row. A row
+ * is read in each environment that is on and scores it. A layer there is f
+ * times as thick as in the recipe, f the factor of its material, so the row
+ * holds for every layer when the recipe keeps target / f with the factor that
+ * binds among `materials`: the smallest, and 1 for a material the environment
+ * does not scale, under MNT; the largest, and at least 1, under MXT. A factor
+ * of a material outside `materials` scales no layer and binds nothing. SQP's
+ * box reads each row the same way for the material of each layer
+ * (optimizers/sqp.js); a run's floor and ceiling are one thickness for every
+ * layer it holds and every material it inserts.
+ */
+export function thicknessBound(design, operands, type, materials) {
+    const floor = type === 'MNT';
+    const bounds = [];
+    for (const group of meritGroups(design, operands)) {
+        const env = environmentById(design, group.id);
+        const factors = materials.map(id => valueFor(env.thicknessFactors, id) ?? 1);
+        const binding = floor ? Math.min(1, ...factors) : Math.max(1, ...factors);
+        for (const i of group.rows) {
+            const op = operands[i];
+            if (op.enabled && op.type === type && Number.isFinite(op.target)) bounds.push(op.target / binding);
+        }
+    }
+    if (bounds.length === 0) return null;
+    return floor ? Math.max(...bounds) : Math.min(...bounds);
 }
 
 /**

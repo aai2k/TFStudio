@@ -3026,6 +3026,7 @@ export default {
     partWhy: (part, why) => `${part}（${why}）`,
     partOff: (part, why) => (why ? `${part}关闭（${why}）` : `${part}关闭`),
     why: {
+      environments: '多个环境',
       surface: '评价不在单一表面',
       cone: '锥角',
       operands: '操作数没有精确曲率',

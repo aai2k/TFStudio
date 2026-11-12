@@ -16,7 +16,9 @@ import {
 // with no forced thickness step to escape a local minimum, so an active MNT or
 // MXT penalty can wipe out every improving candidate and end the run as
 // needle-optimal too early: those rows are left out, for a Refinement run
-// afterwards. So are the PPEF rows and the rows of other environments (synthesisMath.js synthesisRows).
+// afterwards. So are the PPEF rows and the rows of environments that are off
+// (synthesisMath.js synthesisRows); a design with environments is scored on
+// every environment that is on.
 export function prepare(design, operands, pool) {
     const enabled = synthesisRows(design, operands);
     const ops = densifyForRun(enabled.filter(op => !isConstraint(op.type)), design);

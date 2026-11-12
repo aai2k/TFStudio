@@ -227,15 +227,16 @@ const ownMF = d => meritTable(d, d.meritOperands).mf;
     assert.equal(made.length, 0);
     runtime.unmount();
 
-    // On a design with environments both are environment 1's, as the scan
-    // scores it, and not the merit over every environment.
+    // On a design with environments both are the OMF over every environment,
+    // as the scan scores it, and not environment 1's.
     const wet = { ...design, environments: [{ id: 'base' }, { id: 'env2', incidentMedium: 'H2O' }] };
     const wetArgs = { ...args(20), design: wet, operands: runOperands(wet, designMaterialLookup(wet)) };
+    const wetInserted = insertForSelection(selected, wet, 20, 'front');
     made.length = 0;
     shown = runtime.run(() => usePredictedOMF(wetArgs));
-    assert.equal(shown.omfNow, firstOMF(design), 'environment 1\'s OMF now');
-    assert.equal(shown.predictedOMF, firstOMF(inserted(20)), 'and with the needle');
-    assert.notEqual(meritDisplay(wet, coarse).omf, firstOMF(design), 'the merit over every environment is another number');
+    assert.equal(shown.omfNow, meritDisplay(wet, coarse).omf, 'the OMF now over every environment');
+    assert.equal(shown.predictedOMF, meritDisplay(wetInserted, coarse).omf, 'and with the needle');
+    assert.notEqual(shown.omfNow, firstOMF(design), 'which is not environment 1\'s');
     runtime.unmount();
 }
 

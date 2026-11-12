@@ -1217,7 +1217,7 @@ print(len(design.layers), "layers; reference", design.reference, "nm")
 | ---------- | ------ |
 | `design.needleProfile({ pool, side, step, intraSamples })` | `design.needle_profile(pool, side=..., step=0.5, intra_samples=16)` |
 
-Where a thin layer of each material would lower the merit, as the Needle Manual window's Compute P-function finds it: the slope of the optical merit against the thickness of a needle of each pool material put in at each interface of one side's layers and at points inside each layer. A negative gradient is a place where a needle lowers the merit. The scan scores the enabled merit rows less the MNT, MXT and PPEF rows, as the window does.
+Where a thin layer of each material would lower the merit, as the Needle Manual window's Compute P-function finds it: the slope of the optical merit against the thickness of a needle of each pool material put in at each interface of one side's layers and at points inside each layer. A negative gradient is a place where a needle lowers the merit. The scan scores the enabled merit rows less the MNT, MXT and PPEF rows, as the window does, and on a design with more than one environment every environment that is on: the slope is then that of the optical merit over them all.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -2463,7 +2463,7 @@ Why it ended: `'target'` (the merit fell below 10^-6), `'maxiter'`, `'stalled'` 
 
 Grows or restructures the design against its merit function with a synthesis method, inserting materials from a pool, as the method's window does. The design then holds the run's answer, or, when the run is stopped, the layers it had. Each method's settings, with their defaults, are in the API Reference under synthesize; a setting left out takes its default.
 
-On a design with more than one environment the run designs for environment 1, the design's own media, substrate and layers: it fits the rows scored there alone and reports their merit, while design.merit.value is the merit over every environment that is on.
+On a design with more than one environment the run scores every environment that is on, each with its own media, substrate and layers, as design.merit.value does. A floor taken from an MNT row is the row's target divided by the smallest thickness factor below 1 that an environment it is scored in sets for a material of the layers or the pool, and a ceiling taken from an MXT row the target divided by the largest factor above 1.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |

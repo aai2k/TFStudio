@@ -27,7 +27,6 @@ import {
 } from './model.js';
 import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
 import { useMeritValues, sampledOn, meritOrInfinity } from '../useMeritValues.js';
-import { oneEnvironmentDesign } from '../../../../utils/environments/environments.js';
 
 const { useState, useEffect, useRef, useCallback, useMemo } = React;
 
@@ -243,28 +242,26 @@ const NO_PREDICTION = Object.freeze({
  * enabled rows sampled on the design's grid, read as the merit tables read
  * theirs (useMeritValues): at the default steps first, marked by
  * `omfNowProvisional` and `predictedProvisional`, then on the worker at the
- * rows' own Steps unless `hold` is on.
+ * rows' own Steps unless `hold` is on. On a design with environments both are
+ * the OMF over every environment, as the scan scores it.
  */
 export function usePredictedOMF({ selected, scan, design, operands, dNew, requestedSide, hold }) {
-    // Both are scored as the scan scores: on environment 1, the design as a
-    // design without environments, and its rows (enabledRows).
-    const own = useMemo(() => (design ? oneEnvironmentDesign(design) : design), [design]);
     const inserted = useMemo(
-        () => selected ? insertForSelection(selected, own, dNew, requestedSide) : null,
-        [selected, own, dNew, requestedSide],
+        () => selected ? insertForSelection(selected, design, dNew, requestedSide) : null,
+        [selected, design, dNew, requestedSide],
     );
     const picked = !!(selected && scan && inserted);
     const coneActive = !!inserted && operands.length > 0
-        && coneIsActive(makeConeSpec(own?.cone || {}));
+        && coneIsActive(makeConeSpec(design?.cone || {}));
     const meritPayload = useMemo(
-        () => ({ design: own, candidateDesign: inserted, operands }),
-        [own, inserted, operands],
+        () => ({ design, candidateDesign: inserted, operands }),
+        [design, inserted, operands],
     );
     const workerResult = useAnalysisEvaluation(coneActive, 'meritPair', meritPayload);
     const here = picked && !coneActive;
     const rows = useMemo(() => enabledRows(design), [design]);
-    const onDesignGrid = useMemo(() => sampledOn(own), [own]);
-    const now = useMeritValues(here ? own : null, rows, hold, onDesignGrid);
+    const onDesignGrid = useMemo(() => sampledOn(design), [design]);
+    const now = useMeritValues(here ? design : null, rows, hold, onDesignGrid);
     const after = useMeritValues(here ? inserted : null, rows, hold, onDesignGrid);
 
     if (!picked) return NO_PREDICTION;

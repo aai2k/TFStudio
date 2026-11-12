@@ -2575,6 +2575,7 @@ export default {
     partWhy: (part, why) => `${part} (${why})`,
     partOff: (part, why) => (why ? `${part}: выкл. (${why})` : `${part}: выкл.`),
     why: {
+      environments: 'несколько окружений',
       surface:      'MF не по одной поверхности',
       cone:         'конус',
       operands:     'операнд без точной кривизны',

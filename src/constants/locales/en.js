@@ -2626,6 +2626,7 @@ export default {
     partWhy: (part, why) => `${part} (${why})`,
     partOff: (part, why) => (why ? `${part} off (${why})` : `${part} off`),
     why: {
+      environments: 'several environments',
       surface:      'merit not on one surface',
       cone:         'cone',
       operands:     'operand without exact curvature',

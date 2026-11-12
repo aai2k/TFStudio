@@ -4,19 +4,41 @@
 
 import { isConstraint } from '../physics/optimizer.js';
 import { activeSide, densifyForRun, synthesisRows } from '../../components/windows/optimization/synthesisShared/synthesisMath.js';
+import { runMaterialIds } from '../../components/windows/optimization/synthesisShared/minThickness.js';
+import { hasEnvironments } from '../environments/environments.js';
+import { thicknessBound } from '../environments/environmentMerit.js';
 import { presampleAll } from './refine.js';
+
+// The floor and ceiling (nm) the MNT and MXT rows of `enabled` set on the
+// layers of `design`: 0 and Infinity without such a row. On a design with
+// environments each row is read in every environment it is scored in, with
+// the factors of the materials the layers and `pool` hold
+// (environmentMerit.js thicknessBound).
+function rowBounds(design, enabled, pool) {
+    if (hasEnvironments(design)) {
+        const materials = runMaterialIds(design, pool.map(material => material.id));
+        return {
+            minNm: thicknessBound(design, enabled, 'MNT', materials) ?? 0,
+            maxNm: thicknessBound(design, enabled, 'MXT', materials) ?? Infinity,
+        };
+    }
+    const minimums = enabled.filter(op => op.type === 'MNT' && Number.isFinite(op.target));
+    const maximums = enabled.filter(op => op.type === 'MXT' && Number.isFinite(op.target));
+    return {
+        minNm: minimums.length ? Math.max(...minimums.map(op => op.target)) : 0,
+        maxNm: maximums.length ? Math.min(...maximums.map(op => op.target)) : Infinity,
+    };
+}
 
 /**
  * Raise `cfg.dMin` to the strictest MNT row and set `cfg.dMax` from the
- * strictest MXT row of `enabled` (nm), so the run's layers keep the bounds the
- * merit function penalizes. dMax is at least 1 nm above dMin, and Infinity
+ * strictest MXT row of `enabled` (nm), rows of the merit of `design`, so the
+ * run's layers keep the bounds the merit function penalizes; `pool` is the
+ * run's materials, [{ id }]. dMax is at least 1 nm above dMin, and Infinity
  * without an MXT row.
  */
-export function applyConstraintBounds(cfg, enabled) {
-    const minimums = enabled.filter(op => op.type === 'MNT' && Number.isFinite(op.target));
-    const maximums = enabled.filter(op => op.type === 'MXT' && Number.isFinite(op.target));
-    const minNm = minimums.length ? Math.max(...minimums.map(op => op.target)) : 0;
-    const maxNm = maximums.length ? Math.min(...maximums.map(op => op.target)) : Infinity;
+export function applyConstraintBounds(cfg, enabled, design, pool = []) {
+    const { minNm, maxNm } = rowBounds(design, enabled, pool);
     cfg.dMin = Math.max(cfg.dMin, minNm);
     cfg.dMax = Math.max(cfg.dMin + 1, maxNm);
     if (minNm > 0 || Number.isFinite(maxNm)) {
@@ -34,7 +56,7 @@ function poolMissing(kinds, pool) {
 
 /**
  * The run's operands and tables for `design` and `operands` (merit rows;
- * disabled and PPEF rows and the rows of other environments are left out,
+ * disabled and PPEF rows and the rows of environments that are off are left out,
  * synthesisMath.js synthesisRows). Refines use the rows without MNT and
  * MXT, densified for the design's features; results are scored on every row.
  * Returns { failed } with 'noOperands', 'noMaterials' or 'presampleFailed'
@@ -45,7 +67,7 @@ export function prepare(design, operands, plan) {
     const refined = densifyForRun(enabled.filter(op => !isConstraint(op.type)), design);
     if (!refined.length) return { failed: 'noOperands' };
     const bounds = { dMin: plan.dMin };
-    applyConstraintBounds(bounds, enabled);
+    applyConstraintBounds(bounds, enabled, design, plan.pool);
     if (poolMissing(plan.kinds, plan.pool)) return { failed: 'noMaterials' };
     let materials;
     try {

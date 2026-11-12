@@ -5,6 +5,8 @@
 // user typed stays until then. A stored value counts as typed, so reopening a
 // window does not overwrite it.
 
+import { hasEnvironments } from '../../../../utils/environments/environments.js';
+import { thicknessBound } from '../../../../utils/environments/environmentMerit.js';
 import { synthesisRows } from './synthesisMath.js';
 
 // The strictest enabled MNT target of `operands`, or 0 without one (nm).
@@ -13,11 +15,22 @@ export function strictestMnt(operands) {
         (m, o) => (o.enabled && o.type === 'MNT' ? Math.max(m, o.target || 0) : m), 0);
 }
 
-// The strictest MNT target of the rows a synthesis run on `design` fits
-// (synthesisMath.js synthesisRows), or 0 without one (nm): on a design with
-// environments, an MNT row of another environment sets no floor.
-export function synthesisMntFloor(design, operands = design?.meritOperands || []) {
-    return strictestMnt(synthesisRows(design, operands));
+// The ids of the materials a run on `design` can lay down: those its layers
+// are made of, on both sides, and `pool` (material ids), each once.
+export function runMaterialIds(design, pool = []) {
+    const layers = [...(design?.frontLayers || []), ...(design?.backLayers || [])];
+    return [...new Set([...layers.map(layer => layer.material), ...pool])];
+}
+
+// The floor the MNT rows a synthesis run on `design` fits set (synthesisMath.js
+// synthesisRows), or 0 without one (nm). On a design with environments each
+// row is read in every environment it is scored in, at target / f under a
+// thickness factor f below 1 of a material the layers or `pool` (material
+// ids) hold (environmentMerit.js thicknessBound).
+export function synthesisMntFloor(design, operands = design?.meritOperands || [], pool = []) {
+    const rows = synthesisRows(design, operands);
+    if (!hasEnvironments(design)) return strictestMnt(rows);
+    return Math.max(0, thicknessBound(design, rows, 'MNT', runMaterialIds(design, pool)) ?? 0);
 }
 
 // Move the field to `def` unless the user typed a value for this design or a

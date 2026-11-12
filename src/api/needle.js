@@ -80,7 +80,10 @@ function selectionOf(call, design, layers, side, candidate) {
  * points inside each layer (Tikhonravov et al., Appl. Opt. 35, 5493, 1996).
  * A negative gradient is a place where a needle lowers the merit. The scan
  * scores the design's enabled merit rows less the MNT, MXT and PPEF rows, as
- * the window does.
+ * the window does, and on a design with more than one environment every
+ * environment that is on: a needle of a material is, in each environment, the
+ * material it swaps in, f times as thick, f its thickness factor there, and
+ * the gradient and `mf0` are those of the optical merit over them all.
  *
  * @param design The design; it needs a merit row the scan scores.
  * @param options
@@ -136,7 +139,8 @@ export function needleProfile(design, options) {
  * Without `thickness` the needle starts where the window starts it when the
  * candidate is picked: at the thickness between 1 nm, the window's Min
  * thickness, and 60 nm where golden-section search to 0.5 nm finds the
- * optical merit lowest, or at 1 nm when no thickness there beats it, and no
+ * optical merit lowest, over every environment that is on as needleProfile
+ * scores it, or at 1 nm when no thickness there beats it, and no
  * thicker than the window's slider allows. To do what the window's Apply does with Refine after insert, add an
  * MNT row at 1 nm, the window's minimum thickness, with setMerit and refine
  * with method `'sqp'` and `maxIter: 80`: the layers end on the thicknesses

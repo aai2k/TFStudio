@@ -6,22 +6,22 @@
 // thread would compute.
 
 import {
-    scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra,
-    mirrorLayers, buildEvalContext, evaluateOperands, calcMF, calcOMF,
+    scanNeedlesPFunction, findOptimalNeedleThickness, insertNeedle, insertNeedleIntra, mirrorLayers,
 } from '../physics/optimizer.js';
+import { designMerits } from '../physics/optimizer/environmentStacks.js';
 import { tidyLayers } from '../synthesis/structuralOptimizer.js';
 import { deep } from './core.js';
 
 /**
- * The merit and optical merit of `design` on `operands`. `fallbackMf` stands in
- * when the merit cannot be evaluated or is not finite, and `fallbackOmf` for an
- * optical merit that is not finite.
+ * The merit and optical merit of `design` on `operands`, over every
+ * environment the rows count in on a design with environments
+ * (environmentStacks.js designMerits). `fallbackMf` stands in when the merit
+ * cannot be evaluated or is not finite, and `fallbackOmf` for an optical merit
+ * that is not finite.
  */
 export function scoreDesign(operands, design, resolveMat, fallbackMf, fallbackOmf) {
     try {
-        const computed = evaluateOperands(operands, buildEvalContext(design, resolveMat));
-        const mf = calcMF(operands, computed);
-        const omf = calcOMF(operands, computed);
+        const { mf, omf } = designMerits(operands, design, resolveMat);
         if (Number.isFinite(mf)) {
             return { mf, omf: Number.isFinite(omf) ? omf : (fallbackOmf ?? null) };
         }

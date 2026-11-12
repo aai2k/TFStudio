@@ -45,7 +45,7 @@ function materialSource(design, pool) {
 
 /**
  * The run's evaluator and what goes with it, for `design` and `operands`
- * (merit rows; disabled and PPEF rows and the rows of other environments are
+ * (merit rows; disabled and PPEF rows and the rows of environments that are off are
  * left out, synthesisMath.js synthesisRows; MNT and MXT rows become the floor
  * and the upper bound in nm). Returns { failed } with 'locked' (a
  * locked layer on the side the run works on), 'noPool', 'noOperands' (nothing
@@ -62,7 +62,7 @@ export function prepareRun(design, operands, plan) {
     if (reason) return { failed: reason };
     const refined = densifyForRun(enabled.filter(op => !isConstraint(op.type)), design);
     const bounds = { dMin: plan.dMin };
-    applyConstraintBounds(bounds, enabled);
+    applyConstraintBounds(bounds, enabled, design, plan.pool);
     let materials, ev;
     try {
         materials = presampleSynthesisMaterials(design, refined, plan.pool);

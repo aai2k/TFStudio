@@ -12,10 +12,11 @@
  */
 
 import {
-    withDesignSampleCounts, requiredLambdas, collectDesignMaterialIds, buildPresampledTable,
-    isPhaseDispersion, buildEvalContext, evaluateOperands, calcMF,
+    withDesignSampleCounts, requiredLambdas, collectDesignMaterialIds, buildPresampledTable, isPhaseDispersion,
 } from '../../../../utils/physics/optimizer.js';
+import { designMerits } from '../../../../utils/physics/optimizer/environmentStacks.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { environmentMaterialIds } from '../../../../utils/environments/environments.js';
 
 /**
  * The operands re-sampled for `design` when any band operand needs more
@@ -27,18 +28,25 @@ export function regridForDesign(operands, design, resolveMat) {
     return grown === operands ? null : grown;
 }
 
-/** Merit of `design` on `operands`, the value a synthesis worker reports for it. */
+/**
+ * Merit of `design` on `operands`, the value a synthesis worker reports for
+ * it: on a design with environments, the merit over every environment the
+ * rows count in (environmentStacks.js designMerits).
+ */
 export function meritOf(operands, design, resolveMat) {
-    return calcMF(operands, evaluateOperands(operands, buildEvalContext(design, resolveMat)));
+    return designMerits(operands, design, resolveMat).mf;
 }
 
 /**
  * Material tables for a synthesis worker pool: every material the launch
- * design and the candidate pool use, sampled on the operands' exact λ grid.
+ * design and the candidate pool use, sampled on the operands' exact λ grid,
+ * and on a design with environments every material they name, since a worker
+ * reads a material its table lacks as Air.
  */
 export function presampleSynthesisMaterials(design, operands, pool) {
     const resolveMat = designMaterialLookup(design);
-    const pairs = collectDesignMaterialIds(design).map(id => ({ id, mat: resolveMat(id) }))
+    const ids = [...new Set([...collectDesignMaterialIds(design), ...environmentMaterialIds(design)])];
+    const pairs = ids.map(id => ({ id, mat: resolveMat(id) }))
         .concat(pool.map(p => ({ id: p.id, mat: p.mat })));
     return buildPresampledTable(requiredLambdas(operands), pairs, {
         includeOmegaResponses: operands.some(op => op.enabled && isPhaseDispersion(op.type)),

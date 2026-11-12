@@ -44,6 +44,8 @@ import { _buildDescriptors, _buildCandidates } from './descriptors.js';
 import { _makeScanAt } from './needleScanPasses.js';
 import { needlePointEvaluators, _accumRows } from './gradientAccum.js';
 import { _accumRowDifference } from './rowDifference.js';
+import { meritStacks, needleMaterialIn } from '../environmentStacks.js';
+import { meanSquareMerit } from '../../../environments/environmentMerit.js';
 
 const MF_OPT = { skipConstraints: true };
 
@@ -91,14 +93,17 @@ function _resolveMedia(design, resolveMat) {
     };
 }
 
-// Validate eligibility and assemble everything the gradient loop needs:
-// { ctx0, comp, descs, cfg, mf0, sumW }, or null if the analytic scan can't run.
-function _prepareScan(args, surfaceMode, side) {
-    const { operands, design, resolveMat, candidateMats, nIntra = 4, dMin = 0 } = args;
+// The layers of the side scanned. Symmetric mode auto-derives back =
+// reverse(front); for other modes use the stored back layers. resolveScanSide
+// forces side='front' in front_only and symmetric and side='back' in back_only.
+const scannedLayers = (design, side) => (side === 'back' ? effectiveBackLayers(design) : (design.frontLayers || []));
 
-    // Symmetric mode auto-derives back = reverse(front); for other modes use the
-    // stored back layers. resolveScanSide forces side='front' in front_only and
-    // symmetric and side='back' in back_only.
+// The evaluation of `args.design` the gradient loop needs, all but the
+// descriptors: { ctx0, comp, cfg, mf0, sumW, targetLayers, fracs }, or null
+// when the side has no layer or there is no candidate material.
+function _scanBase(args, surfaceMode, side) {
+    const { operands, design, resolveMat, candidateMats, nIntra = 4 } = args;
+
     const front = design.frontLayers || [];
     const back = effectiveBackLayers(design);
     const Nf = front.length;
@@ -117,13 +122,9 @@ function _prepareScan(args, surfaceMode, side) {
     const ctx0 = buildEvalContext(design, resolveMat);
     const comp = evaluateOperands(operands, ctx0);
     const mf0  = calcMF(operands, comp, MF_OPT);
-    if (!(mf0 > 1e-12)) return null;
     const sumW = mfWeightDenominator(operands, comp, MF_OPT);
-    if (!(sumW > 0)) return null;
 
     const fracs = Array.from({ length: nIntra }, (_, i) => (i + 1) / (nIntra + 1));
-    const descs = _buildDescriptors(N, candidateMats, targetLayers, fracs, dMin);
-
     const isSingleSurface = surfaceMode === 'front_only' || surfaceMode === 'back_only';
     const cfg = {
         surfaceMode, side, isFull: !isSingleSurface,
@@ -132,7 +133,50 @@ function _prepareScan(args, surfaceMode, side) {
         raysAt: (aoi, lam) => coneNodesAt(ctx0, aoi, lam),
         coneActive: coneIsActive(ctx0.cone),
     };
-    return { ctx0, comp, descs, cfg, mf0, sumW };
+    return { ctx0, comp, cfg, mf0, sumW, targetLayers, fracs };
+}
+
+// Validate eligibility and assemble everything the gradient loop needs:
+// { ctx0, comp, descs, cfg, mf0, sumW }, or null if the analytic scan can't run.
+function _prepareScan(args, surfaceMode, side) {
+    const base = _scanBase(args, surfaceMode, side);
+    if (!base || !(base.mf0 > 1e-12) || !(base.sumW > 0)) return null;
+    const descs = _buildDescriptors(base.targetLayers.length, args.candidateMats, base.targetLayers, base.fracs, args.dMin ?? 0);
+    return { ...base, descs };
+}
+
+// Add the needle numerators of one environment's stack (environmentStacks.js)
+// to `descs`, each times f / D: f the factor the environment sets for the
+// needle's material, D the stack's weight sum. The stack scans the needle of
+// each pool material as the material its environment swaps it for, at the
+// places of the recipe's descriptors. Returns the stack's optical merit.
+function _accumStack(args, stack, descs, { surfaceMode, side }) {
+    const { candidateMats, resolveMat, deltaNm = 0.5 } = args;
+    const mats = candidateMats.map(c => ({ ...c, mat: needleMaterialIn(stack, c.id, c.mat, resolveMat) }));
+    const own = { ...args, operands: stack.operands, design: stack.design, candidateMats: mats };
+    const base = _scanBase(own, surfaceMode, side);
+    if (!(base.mf0 > 1e-12) || !(base.sumW > 0)) return base.mf0;
+    const local = descs.map(d => ({ ...d, num: 0 }));
+    _accumMerit(stack.operands, { ...base, descs: local }, deltaNm);
+    local.forEach((d, di) => { descs[di].num += stack.factor(candidateMats[d.ci].id) * d.num / base.sumW; });
+    return base.mf0;
+}
+
+// The analytic scan of a design with environments: with OMF² = (1/N) Σ OMF_k²
+// over its N stacks, dOMF/dd = Σ_k f_k·OMF_k·dOMF_k/dd_k / (N·OMF) and
+// OMF_k·dOMF_k/dd_k = num_k / D_k, so each descriptor's numerator is
+// Σ_k f_k·num_k / D_k and the denominator N·OMF. The descriptors are the
+// recipe's: its places and the pool's materials, the host's own recipe
+// material left out, the split floor on recipe thickness.
+function _scanStacks(args, stacks, surfaceMode, side) {
+    const { design, candidateMats, nIntra = 4, dMin = 0, deltaNm = 0.5 } = args;
+    const targetLayers = scannedLayers(design, side);
+    if (targetLayers.length === 0 || !candidateMats?.length || stacks.length === 0) return null;
+    const fracs = Array.from({ length: nIntra }, (_, i) => (i + 1) / (nIntra + 1));
+    const descs = _buildDescriptors(targetLayers.length, candidateMats, targetLayers, fracs, dMin);
+    const mf0 = meanSquareMerit(stacks.map(stack => _accumStack(args, stack, descs, { surfaceMode, side })));
+    if (!(mf0 > 1e-12)) return null;
+    return { candidates: _buildCandidates(descs, candidateMats, { mf0, sumW: stacks.length, deltaNm, side }), mf0 };
 }
 
 // The Jacobian-row context (jacRows.js) over the needle descriptors.
@@ -178,16 +222,21 @@ function _accumMerit(operands, prep, deltaNm) {
 // Returns the same { candidates, mf0 } contract, or null if not applicable.
 // `args.dMin` (nm) leaves out intra positions whose split would put a half of
 // the host below the floor (descriptors.js, intraSplitFits). `args.deltaNm` is
-// the needle the rows without an exact slope are differenced with.
+// the needle the rows without an exact slope are differenced with. A design
+// with environments is scanned on every environment the optical merit counts
+// (environmentStacks.js, _scanStacks).
 export function scanNeedlesAnalytic(args) {
-    const { operands, design, candidateMats, deltaNm = 0.5 } = args;
-    const surfaceMode = design?.surfaceMode || 'front_only';
+    const { candidateMats, deltaNm = 0.5 } = args;
+    const surfaceMode = args.design?.surfaceMode || 'front_only';
     const side = resolveScanSide(surfaceMode, args.side ?? 'front');
-    if (_analyticDeclines(surfaceMode, design)) return null;
+    if (_analyticDeclines(surfaceMode, args.design)) return null;
 
-    const prep = _prepareScan(args, surfaceMode, side);
+    const scored = meritStacks(args.design, args.operands, { optical: true });
+    if (scored.stacks) return _scanStacks(args, scored.stacks, surfaceMode, side);
+    const own = { ...args, operands: scored.operands, design: scored.design };
+    const prep = _prepareScan(own, surfaceMode, side);
     if (!prep) return null;
-    _accumMerit(operands, prep, deltaNm);
+    _accumMerit(own.operands, prep, deltaNm);
     const { descs, mf0, sumW } = prep;
     return { candidates: _buildCandidates(descs, candidateMats, { mf0, sumW, deltaNm, side }), mf0 };
 }

@@ -1214,7 +1214,9 @@ class Design:
         put in at each interface of one side's layers and at points inside
         each layer. A negative gradient is a place where a needle lowers the
         merit. The scan scores the enabled merit rows less the MNT, MXT and
-        PPEF rows, as the window does.
+        PPEF rows, as the window does, and on a design with more than one
+        environment every environment that is on: the slope is then that of
+        the optical merit over them all.
 
         Args:
             pool: The materials a needle may be, a list of ids: one or more,
@@ -2850,10 +2852,13 @@ class Design:
         defaults, are in the API Reference under synthesize; a setting left
         out takes its default.
 
-        On a design with more than one environment the run designs for
-        environment 1, the design's own media, substrate and layers: it fits
-        the rows scored there alone and reports their merit, while
-        design.merit.value is the merit over every environment that is on.
+        On a design with more than one environment the run scores every
+        environment that is on, each with its own media, substrate and
+        layers, as design.merit.value does. A floor taken from an MNT row is
+        the row's target divided by the smallest thickness factor below 1
+        that an environment it is scored in sets for a material of the layers
+        or the pool, and a ceiling taken from an MXT row the target divided
+        by the largest factor above 1.
 
         Args:
             method: "needle", "ge" (Gradual Evolution) or "structural".

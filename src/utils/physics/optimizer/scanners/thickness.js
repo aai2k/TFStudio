@@ -3,28 +3,24 @@
  *
  * After scanNeedlesPFunction identifies the best position+material, this searches
  * for the thickness that minimises the MF (golden-section search over
- * [deltaNm, maxNm]).
+ * [deltaNm, maxNm]). On a design with environments the needle goes into every
+ * environment's stack and the total optical merit is minimised
+ * (needleScene.js).
  */
 
-import { calcMF, evaluateOperands, buildEvalContext } from '../evalCore.js';
-import { resolveScanSide } from './sides.js';
-import { _perturbCtxGap, _perturbCtxIntra } from './perturbCtx.js';
+import { needleScene } from './needleScene.js';
 
 export function findOptimalNeedleThickness({ operands, design, resolveMat, candidate, deltaNm = 0.5, maxNm = 200, tol = 0.5, side = 'front' }) {
-    const surfaceMode = design?.surfaceMode || 'front_only';
-    side = resolveScanSide(surfaceMode, side);
-    const cfg = { surfaceMode, side };
-
-    const ctx0 = buildEvalContext(design, resolveMat);
+    const scene = needleScene({ operands, design, resolveMat, side });
     const mat  = candidate._mat;
+    const loc = { k: candidate.layerK, frac: candidate.frac };
 
     function mfAt(d) {
-        const ctxNew = candidate.intra
-            ? _perturbCtxIntra(ctx0, cfg, { k: candidate.layerK, frac: candidate.frac }, mat, d)
-            : _perturbCtxGap(ctx0,   cfg, candidate.pos, mat, d);
         // Optical-only, consistent with the scan that selected this candidate;
         // the thickness floor is enforced by the subsequent DLS refine + prune.
-        return calcMF(operands, evaluateOperands(operands, ctxNew), { skipConstraints: true });
+        return candidate.intra
+            ? scene.intra(loc, candidate.materialId, mat, d)
+            : scene.gap(candidate.pos, candidate.materialId, mat, d);
     }
 
     // A needle is a THIN perturbation (Tikhonravov 1996; Sullivan §3): the

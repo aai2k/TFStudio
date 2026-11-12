@@ -131,15 +131,17 @@ const SYNTHESIS = {
 export const SYNTHESIS_METHODS = Object.keys(SYNTHESIS);
 
 /**
- * The methods whose windows start their floor at the strictest MNT row of the
- * rows the run fits when there is one (synthesisShared/minThickness.js). Needle
+ * The methods whose windows start their floor at the floor the MNT rows the
+ * run fits set when there is one (synthesisShared/minThickness.js). Needle
  * keeps its own thin floor for its needles.
  */
 export const FLOOR_FROM_MNT = new Set(['ge', 'structural', 'deep']);
 
-function settingsFor(method, design, operands, settings) {
+// `settings` with the floor the MNT rows set, for the materials of the layers
+// and of `pool` ([{ id }]), when the method takes it and none is given.
+function settingsFor(method, design, operands, settings, pool) {
     const out = given(settings);
-    const mnt = synthesisMntFloor(design, operands);
+    const mnt = synthesisMntFloor(design, operands, pool.map(material => material.id));
     if (FLOOR_FROM_MNT.has(method) && out.dMin === undefined && mnt > 0) out.dMin = mnt;
     return out;
 }
@@ -157,10 +159,13 @@ function answerOf(method, design, result) {
  * method, inserting materials from a pool, as the method's window does. The
  * run computes on the script's own thread, so the script waits for it.
  *
- * On a design with more than one environment the run designs for environment
- * 1, the design's own media, substrate and layers: it fits the rows scored
- * there alone and reports their merit, while `merit` gives the merit over
- * every environment that is on.
+ * A design with more than one environment is synthesized against every
+ * environment that is on, each with its own media, substrate and layers, with
+ * the merit `merit` gives. A floor the run takes from an MNT row is read in
+ * each environment the row is scored in: the row's target divided by the
+ * smallest thickness factor below 1 that environment sets for a material of
+ * the layers or the pool. Structural and Deep Synthesis read an MXT row's
+ * ceiling the same way, with the largest factor above 1.
  *
  * @param design The design; it needs a merit function.
  * @param request
@@ -200,8 +205,8 @@ function answerOf(method, design, result) {
 export async function synthesize(design, request, hooks) {
     // Each run's settings and their defaults are its settings.js; the pool
     // comes from `pool`. Without a dMin, the methods in FLOOR_FROM_MNT take
-    // the strictest MNT row of the rows the run fits as their floor, as their
-    // windows do.
+    // the floor the MNT rows of the rows the run fits set (settingsFor), as
+    // their windows do.
     // 'deep' (Deep Synthesis) is taken too, with the hooks signal, onStart
     // ({ seed, parts }) and onEvent (event, best); stopped, it answers with its
     // best design so far. Its result holds the synthesized side's layers in
@@ -212,7 +217,8 @@ export async function synthesize(design, request, hooks) {
     if (!run) throw new Error(`synthesize: method is one of ${Object.keys(SYNTHESIS).join(', ')}, not '${method}'`);
     if (settings && 'pool' in settings) throw new Error('synthesize: give the pool as `pool`, a list of material ids');
     const operands = operandsOf('synthesize', design);
-    const plan = { ...settingsFor(method, design, operands, settings), pool: poolOf('synthesize', design, pool) };
+    const materials = poolOf('synthesize', design, pool);
+    const plan = { ...settingsFor(method, design, operands, settings, materials), pool: materials };
     const passed = checkHooks(`synthesize ${method}`, hooks, HOOKS[method]);
     requireKernel();
     const result = await run(design, operands, plan, passed);
