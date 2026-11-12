@@ -77,12 +77,14 @@ settings change. Turn it off and use the Calculate button when you want to hold
 a result while editing.
 
 The evaluation surface (front only, back only, or both sides together) is set
-in the [Design Editor](/design/design-editor/) and shown as a badge on the
-window. **Front** evaluates the front coating on the substrate, **Back** the
+in the [Design Editor](/design/design-editor/) and shown as a badge under the
+plot. **Front** evaluates the front coating on the substrate, **Back** the
 back coating, and **Total** combines both sides through the substrate. The
 last is what a spectrophotometer measures for a part coated on both faces. When
 cone-angle averaging is active, a second badge appears and the curves are
 averaged over the cone.
+
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the plot is computed in. **Current** follows the environment the Design Editor and the ribbon show. An environment picked by its number and name holds the plot on that one, even while it is switched off. **All** draws every environment that is on, each in its own colour from the window's Palette in Preferences > Analysis, with a legend above the plot naming them; the readout, the table and the CSV then name each curve's environment. The targets drawn are the merit rows scored in the environment shown, or every row under All, and the material range notice reads the materials of every environment drawn. The choice belongs to this window and is not saved with the design.
 
 ## Targets on the plot
 

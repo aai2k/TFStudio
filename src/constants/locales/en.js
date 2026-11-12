@@ -265,7 +265,7 @@ export default {
       hint: 'Used the next time TFStudio starts. A window you have already changed something in this session keeps what you set there.',
       curveColors: 'Curve colors',
       palette: 'Palette',
-      paletteHint: 'Handed out in this order, one colour per curve or material, cycling once the list runs out.',
+      paletteHint: 'Handed out in this order, one colour per curve, material or environment, cycling once the list runs out.',
       paletteSlot: (n) => `Color ${n}`,
       ranges: 'Ranges',
       resetWindow: 'Reset this window',
@@ -1289,6 +1289,11 @@ export default {
     response: 'Response',
     reflection: 'Reflection',
     transmission: 'Transmission',
+    // The Environment droplist under a window's plot, drawn only on a design
+    // with environments; All only in a window that can draw several at once.
+    environmentCurrent: (n) => `Current (${n})`,
+    environmentAll: 'All',
+    environmentTip: 'The environment this window computes. Current follows the one the Design Editor and the ribbon show.',
   },
 
   dataTable: {

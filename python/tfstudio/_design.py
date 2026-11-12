@@ -61,9 +61,12 @@ _ELLIPSOMETRY_OPTIONS = ("step", "angles", "side", "delta_convention")
 _SWEEP_OPTIONS = ("step", "side", "delta_convention")
 _MONTE_CARLO_OPTIONS = ("quantity", "step", "angle", "polarization", "runs", "thickness_rel_pct", "thickness_abs_nm",
                         "index_re", "index_im", "distribution", "seed", "progress", "stop")
+# design.spectrum() takes the range as its arguments.
+_SPECTRUM_WORDS = Words("spectrum", "spectrum", hidden=("from", "to"))
+_SPECTRUM_OPTIONS = ("step", "angles", "env")
 # design.group_delay() takes the range as its arguments.
 _EDGE_SHIFT_WORDS = Words("edgeShift", "edge_shift", hidden=("from", "to", "angles"))
-_EDGE_SHIFT_OPTIONS = ("quantity", "level", "edge_side", "direction", "step")
+_EDGE_SHIFT_OPTIONS = ("quantity", "level", "edge_side", "direction", "step", "env")
 _COMPARE_OPTIONS = ("curve", "angle", "pol", "quantity", "scale", "x_unit", "grid", "step", "thin_every", "start",
                     "end", "db", "level_free")
 # design.compare_measured()'s names for measuredDifference's from and to,
@@ -98,6 +101,23 @@ def mode_of(data):
     if sides in ("both_independent", "symmetric") or data.get("mfEvalMode") == "total":
         return "total"
     return "back" if sides == "back_only" else "front"
+
+
+def _environment_of(entry):
+    """The environment of `entry`, an entry of the API's environments or of a
+    result for env "all", as a result carries it: a dict of number, id and
+    name."""
+    return {"number": entry["number"], "id": entry["id"], "name": entry["name"]}
+
+
+def _edge_shift_in(answer, environment):
+    """The answer `answer` of the API's edgeShift for one environment as an
+    EdgeShift computed in `environment`, a dict of number, id and name; the
+    environment's own number, id and name in an entry of env "all" are left
+    out of the tuple."""
+    found = answered(EdgeShift, {key: value for key, value in answer.items() if key not in ("number", "id", "name")})
+    found.environment = environment
+    return found
 
 
 def _named(mapping, what, value):
@@ -1275,12 +1295,15 @@ class Design:
         with worded(Words(call, method)):
             self._data = getattr(self._calls, call)(self._data, api_names(options))
 
-    def spectrum(self, start, end, *, step=1, angles=(0,)):
+    def spectrum(self, start, end, **options):
         """R, T and A over a range of wavelengths, for unpolarized light and
         for s and p, as the Optical Evaluation window computes them. What it
         is computed on follows the design's sides and score_on, and the
         spectrum's mode says which it was. A design under a cone of incidence
-        is averaged over its cone.
+        is averaged over its cone. A design with more than one environment is
+        computed in environment 1, its own media and substrate, unless env
+        names another; the spectrum's curves then find their edges, widths
+        and peaks in that environment.
 
         Args:
             start: The first wavelength, nm.
@@ -1288,15 +1311,21 @@ class Design:
             step: The wavelength step, nm. Default 1.
             angles: The angles of incidence, degrees in the incident medium,
                 each from 0 up to but not including 90. Default [0].
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for one spectrum per
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            A Spectrum.
+            A Spectrum; with env="all", a list of them, one per environment,
+            each with its environment.
 
         Raises:
             TFStudioError: a range that is not one, an angle outside 0 to 90,
-                a design that names a material that resolves to nothing, or
-                more than a million points (wavelengths times angles): take a
-                larger step or fewer angles.
+                a design that names a material that resolves to nothing, an
+                environment the design does not have, or more than a million
+                points (wavelengths times angles): take a larger step or
+                fewer angles.
 
         Example::
 
@@ -1304,14 +1333,37 @@ class Design:
             design.stack("(HL)^4 H")
             s = design.spectrum(400, 800, step=1, angles=[0, 45])
             print(s.mode, max(s.R), min(s.angle(45).Tp))
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.spectrum(400, 800, env="all"):
+                print(one.environment["number"], one.environment["name"], max(one.R))
         """
-        angles = list(angles)
-        with worded(Words("spectrum", "spectrum")):
-            answer = self._calls.spectrum(self._data, {"from": start, "to": end, "step": step, "angles": angles})
-        computed = answer["angles"]
-        series = [next(computed[key] for key in computed if float(key) == angle) for angle in angles]
+        refuse_arguments("spectrum", options, ("from", "to"), _SPECTRUM_OPTIONS)
+        angles = [0] if options.get("angles") is None else list(options["angles"])
+        with worded(_SPECTRUM_WORDS):
+            answer = self._calls.spectrum(self._data, api_names({**options, "angles": angles, "from": start, "to": end}))
+        computed = copy.deepcopy(self._data)
+        env = options.get("env")
+        if env == "all":
+            return [self._spectrum_of(found, angles, computed, _environment_of(found))
+                    for found in answer["environments"]]
+        return self._spectrum_of(answer, angles, computed, self._environment_named(env))
+
+    def _spectrum_of(self, answer, angles, computed, environment):
+        """The Spectrum the answer `answer` of the API's spectrum gives at
+        `angles`, computed on the design `computed` in `environment`."""
+        found = answer["angles"]
+        series = [next(found[key] for key in found if float(key) == angle) for angle in angles]
         return (Spectrum(answer["evalMode"], answer["lambda"], angles, series, answer["outOfRange"])
-                ._named(self.name)._computed_on(self._calls, copy.deepcopy(self._data)))
+                ._named(self.name)._in(environment)._computed_on(self._calls, computed))
+
+    def _environment_named(self, env):
+        """The environment `env` names, by its number or its id, a dict of
+        number, id and name, for a result computed with that env; None
+        without one."""
+        if env is None:
+            return None
+        listed = self._calls.environments(self._data)
+        return next(_environment_of(e) for e in listed if env in (e["number"], e["id"]))
 
     def edge_shift(self, start, end, angles, **options):
         """Where the design's spectrum crosses a level beside the peak of a
@@ -1320,7 +1372,8 @@ class Design:
         EDGE_LAMBDA check of the Specification window finds it, as a spectrum
         curve's edge() finds it. What it is computed on follows the design's
         sides and score_on, as a spectrum does, and a design under a cone of
-        incidence is averaged over its cone.
+        incidence is averaged over its cone. A design with more than one
+        environment is computed in environment 1 unless env names another.
 
         Args:
             start: The first wavelength of the band, nm.
@@ -1339,20 +1392,28 @@ class Design:
             step: The step the peak is searched at, nm: 1, 0.1, 0.01 or
                 0.001. The crossing is bracketed on a scan of the band no
                 coarser than it, of 301 samples at the least. Default 1.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for the edges of each
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
             An EdgeShift, a named tuple: angles, and one value per angle in
             each of edge, the crossing, nm, shift, the edge less the edge at
             the first angle, nm, both None where the spectrum does not cross
             the level inside the band, reason, then "edgeNotCrossed" and
-            otherwise None, peak, peak_value and level_value; and level, the
-            level used, mode, quantity, direction and step.
+            otherwise None, peak, peak_value and level_value; level, the
+            level used, mode, quantity, direction and step. With env, its
+            environment is the environment it was computed in, a dict of
+            number, id and name, held beside the tuple's fields; with
+            env="all", a list of these, one per environment.
 
         Raises:
             TFStudioError: a band that is not one, an empty list of angles or
                 an angle outside 0 to 90, an option it does not take or a
-                value an option cannot take, or a design that names a
-                material that resolves to nothing.
+                value an option cannot take, a design that names a material
+                that resolves to nothing, or an environment the design does
+                not have.
 
         Example::
 
@@ -1361,11 +1422,19 @@ class Design:
             moved = design.edge_shift(600, 760, [0, 15, 30, 45], level=0.5)
             for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
                 print(angle, "degrees:", round(edge, 2), "nm, moved", round(shift, 2), "nm")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for each in design.edge_shift(600, 760, [0, 30], env="all"):
+                print(each.environment["number"], each.environment["name"], round(each.shift[1], 2), "nm")
         """
         refuse_arguments("edge_shift", options, ("from", "to", "angles"), _EDGE_SHIFT_OPTIONS)
         with worded(_EDGE_SHIFT_WORDS):
             answer = self._calls.edgeShift(self._data, dict(api_names(options), angles=angles, **{"from": start, "to": end}))
-        return answered(EdgeShift, answer)
+        env = options.get("env")
+        if env is None:
+            return answered(EdgeShift, answer)
+        if env != "all":
+            return _edge_shift_in(answer, self._environment_named(env))
+        return [_edge_shift_in(found, _environment_of(found)) for found in answer["environments"]]
 
     def compare_measured(self, measured, **options):
         """How the design differs from a measured curve, as the MCURVE merit

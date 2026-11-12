@@ -6,7 +6,8 @@
  * dialog reads them, on either side; setup changes; layer edits, which leave
  * their argument as it was and keep to the sides the Design Editor lets the
  * user edit; merit rows as the editor makes them; the materials whose data
- * stop inside a range.
+ * stop inside a range; the environment a spectrum, a band feature and an edge
+ * shift are computed in.
  *
  * The corpus is in api_corpus.mjs, runs, Stop and tolerancing in api_runs.mjs,
  * refusals in api_refusals.mjs.
@@ -151,6 +152,39 @@ ok('a stack formula builds quarter waves at its reference wavelength', qw.frontL
         && api.spectrum(qw, { from: 500, to: 600 }).outOfRange.length === 0, JSON.stringify(wide.outOfRange));
     const nk = api.materialNK('SiO2', [10, 550]);
     ok('n,k says where a material has no data', nk.nk[0].outside === true && !nk.nk[1].outside && nk.rangeNm[0] > 10, JSON.stringify(nk));
+}
+{
+    // A result call's env: environment 1 without it, as before environments;
+    // one environment by number or id, off or on, as its design computed
+    // apart; 'all' for each environment that is on; and an unknown one refused.
+    const { oneEnvironmentDesign } = await import('../src/utils/environments/environments.js');
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    let wet = api.addEnvironment(qw, { name: 'Under water', incidentMedium: 'H2O' });
+    wet = api.addEnvironment(wet, { name: 'Dome edge', thicknessFactors: { Al2O3: 0.95 }, enabled: false });
+    const OPTIONS = {
+        spectrum: { from: 450, to: 650, step: 50, angles: [0, 30] },
+        bandFeature: { feature: 'fwhm', from: 450, to: 650, quantity: 'R' },
+        edgeShift: { from: 400, to: 700, angles: [0, 30], quantity: 'R' },
+    };
+    const apart = (call, id) => api[call](oneEnvironmentDesign(wet, id), OPTIONS[call]);
+    for (const call of Object.keys(OPTIONS)) {
+        const run = env => api[call](wet, { ...OPTIONS[call], ...env });
+        const plain = run({});
+        ok(`${call} without env is the design's own, as with no environments`, same(plain, apart(call, 'base')) && same(plain, run({ env: 1 })) && same(plain, run({ env: 'base' })));
+        ok(`${call} of environment 2 by number and by id is its design computed apart`, same(run({ env: 2 }), apart(call, 'env2')) && same(run({ env: 'env2' }), apart(call, 'env2')) && !same(run({ env: 2 }), plain));
+        ok(`${call} of an environment that is off is computed when named`, same(run({ env: 3 }), apart(call, 'env3')));
+        const all = run({ env: 'all' });
+        ok(`${call} with env 'all' gives each environment that is on, named`, same(all, { environments: [
+            { number: 1, id: 'base', name: null, ...plain }, { number: 2, id: 'env2', name: 'Under water', ...apart(call, 'env2') },
+        ] }), JSON.stringify(all).slice(0, 200));
+        let refused = null;
+        try { run({ env: 4 }); } catch (err) { refused = err; }
+        ok(`${call} refuses an environment the design does not have`, refused?.code === 'unknownEnvironment' && refused.fields.environment === 4
+            && refused.message === `${call}: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 4`, refused?.message);
+    }
+    const dark = api.setEnvironment(api.setEnvironment(wet, 1, { enabled: false }), 2, { enabled: false });
+    ok("with every environment off, env 'all' gives environment 1", same(api.spectrum(dark, { from: 500, to: 600, step: 50, env: 'all' }).environments.map(e => e.id), ['base']));
+    ok('summarize refuses a spectrum of every environment', throws(() => api.summarize(api.spectrum(wet, { ...OPTIONS.spectrum, env: 'all' })), /summarize each entry/));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

@@ -66,7 +66,10 @@
  *   its defaults and each argument, its Curves, range, save_csv() with and
  *   without masked wavelengths, and its refusals; a spectrum curve's peak(),
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
- *   was when the spectrum was computed, and their refusals; edge_filter()
+ *   was when the spectrum was computed, and their refusals; spectrum() and
+ *   edge_shift() of one environment and of each, each naming its
+ *   environment, a curve's width found in its environment, and an
+ *   environment the design does not have refused; edge_filter()
  *   with pass_, apply_edge_filter(), process_steps() on chips given in
  *   snake_case, export_process() and monitor_worksheet() on a plan given in
  *   snake_case as named tuples and paths, and their refusals; needle_profile() as named tuples and insert_needle() from a
@@ -1072,8 +1075,34 @@ async function bandFeatures(t, said) {
         "edge: only a spectrum's curves have edge(), since it is found on the design the spectrum was computed on",
         'edge_shift: angles is a list of angles of incidence in degrees, each 0 <= angle < 90, not []',
         'edge_shift: start and end are wavelengths in nm, 0 < start < end',
-        "edge_shift: unknown option 'to'; the options are quantity, level, edge_side, direction, step",
+        "edge_shift: unknown option 'to'; the options are quantity, level, edge_side, direction, step, env",
     ]), canon(got.worded));
+}
+
+// What _pythonObjects.py environment_spectra() read, against the objects here.
+async function environmentSpectra(t, said) {
+    const { ok, canon } = t;
+    const got = said.environmentSpectra ?? {};
+    const objects = await import('../src/api/objects/index.js');
+    const design = new objects.Design(got.design ?? {});
+    const snakeKeys = found => Object.fromEntries(Object.entries(found).map(([key, value]) => [snake(key), value]));
+    const shown = s => [s.environment, s.mode, s.wavelength, s.angles, s.angles.map(a => [...s.angle(a).R])];
+    const range = { step: 10, angles: [0, 30] };
+    const each = design.spectrum(400, 700, { ...range, env: 'all' });
+    ok('spectrum() with env gives what the objects here give, a list for "all", each spectrum naming its environment', canon(got.spectra) === canon([
+        shown(design.spectrum(400, 700, range)), shown(design.spectrum(400, 700, { ...range, env: 'env2' })),
+        each.map(shown), shown(design.spectrum(400, 700, { step: 10, env: 3 }))]) && each.length === 2, canon(got.spectra)?.slice(0, 300));
+    ok('and its curves find their widths in their own environment', canon(got.widths) === canon(each.map(s => snakeKeys(s.angle(30).R.fwhm(450, 650)))));
+    // An EdgeShift keeps its twelve fields with env too, and holds the
+    // environment beside them.
+    const tupleOf = ({ environment = null, ...found }) => [snakeKeys(found), 12, environment];
+    ok('edge_shift() with env gives EdgeShift tuples of the same fields naming their environment, a list for "all"', canon(got.edges) === canon([
+        design.edgeShift(450, 650, [0, 30], { quantity: 'R' }), design.edgeShift(450, 650, [0, 30], { quantity: 'R', env: 2 }),
+        ...design.edgeShift(450, 650, [0, 30], { quantity: 'R', env: 'all' })].map(tupleOf)), canon(got.edges)?.slice(0, 300));
+    ok('an environment the design does not have is refused in Python\'s words', canon(got.refused) === canon([
+        "spectrum: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 5",
+        "edge_shift: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 'al'",
+    ]), canon(got.refused));
 }
 
 // What _pythonObjects.py measured_curves() read, against the plain calls.
@@ -1437,6 +1466,7 @@ export async function checkObjects(t) {
     await stress(u, ran.said);
     await materialDispersion(u, ran.said);
     await bandFeatures(u, ran.said);
+    await environmentSpectra(u, ran.said);
     measuredCurves(u, ran.said);
     measuredFiles(u, ran.said);
     await coatingFiles(u, ran.said);

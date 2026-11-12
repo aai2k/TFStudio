@@ -1289,9 +1289,9 @@ print(len(design.layers), "layers; optical merit", design.merit.optical_value)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.spectrum(start, end, { step, angles })` | `design.spectrum(start, end, step=1, angles=[0])` |
+| `design.spectrum(start, end, { step, angles, env })` | `design.spectrum(start, end, step=1, angles=[0], env=...)` |
 
-一段波长范围内的 R、T 和 A，包括非偏振光以及 s 和 p 偏振，计算方式与光学评估窗口相同。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，光谱的 `mode` 说明是哪一个。设有入射锥角的设计会在其锥角内取平均。
+一段波长范围内的 R、T 和 A，包括非偏振光以及 s 和 p 偏振，计算方式与光学评估窗口相同。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，光谱的 `mode` 说明是哪一个。设有入射锥角的设计会在其锥角内取平均。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境；此时光谱的曲线也在该环境中求边缘、宽度和峰。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -1299,18 +1299,21 @@ print(len(design.layers), "layers; optical merit", design.merit.optical_value)
 | `end` | `end` |  | 结束波长，单位 nm，大于 `start`。 |
 | `step` | `step` | `1` | 波长步长，单位 nm。 |
 | `angles` | `angles` | `[0]` | 入射角，为入射介质中的度数，每个都在 0 到 90 之间，不含 90。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个光谱，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Spectrum。
+**返回**：**JavaScript**：一个 Spectrum；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Spectrum；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- 不构成范围的范围、0 到 90 以外的角度、用到找不到对应材料的设计，或超过一百万个点（波长数乘以角度数）：请加大波长步长或减少角度
+- 不构成范围的范围、0 到 90 以外的角度、用到找不到对应材料的设计、设计中没有的环境，或超过一百万个点（波长数乘以角度数）：请加大波长步长或减少角度
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^4 H');
 const s = design.spectrum(400, 800, { step: 1, angles: [0, 45] });
 console.log(s.mode, Math.max(...s.R), Math.min(...s.angle(45).Tp));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.spectrum(400, 800, { env: 'all' })) console.log(one.environment.number, one.environment.name, Math.max(...one.R));
 ```
 
 ```python
@@ -1318,15 +1321,18 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 s = design.spectrum(400, 800, step=1, angles=[0, 45])
 print(s.mode, max(s.R), min(s.angle(45).Tp))
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.spectrum(400, 800, env="all"):
+    print(one.environment["number"], one.environment["name"], max(one.R))
 ```
 
 ### edgeShift / edge_shift
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.edgeShift(start, end, angles, { quantity, level, edgeSide, direction, step })` | `design.edge_shift(start, end, angles, quantity="T", level=0.5, edge_side=..., direction="max", step=1)` |
+| `design.edgeShift(start, end, angles, { quantity, level, edgeSide, direction, step, env })` | `design.edge_shift(start, end, angles, quantity="T", level=0.5, edge_side=..., direction="max", step=1, env=...)` |
 
-在多个入射角下，设计的光谱在波段的峰旁穿越某一电平的位置，以及该边缘相对第一个入射角下的位置移动了多少；每个都按规格窗口的 EDGE_LAMBDA 检查的方法求出，与光谱曲线的 edge() 相同。计算对象随设计的 `sides` 和 `scoreOn` / `score_on` 而定，与光谱相同；带有入射锥角的设计会在锥角上取平均。
+在多个入射角下，设计的光谱在波段的峰旁穿越某一电平的位置，以及该边缘相对第一个入射角下的位置移动了多少；每个都按规格窗口的 EDGE_LAMBDA 检查的方法求出，与光谱曲线的 edge() 相同。计算对象随设计的 `sides` 和 `scoreOn` / `score_on` 而定，与光谱相同；带有入射锥角的设计会在锥角上取平均。有多个环境的设计在环境 1 中计算，除非 `env` 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -1338,18 +1344,21 @@ print(s.mode, max(s.R), min(s.angle(45).Tp))
 | `edgeSide` | `edge_side` |  | **JavaScript**：`'right'` 表示峰以上的交点；否则取峰以下的交点，峰以下没有交点时取峰以上的交点。<br>**Python**："right" 表示峰以上的交点。不给出时，取峰以下的交点，峰以下没有交点时取峰以上的交点。 |
 | `direction` | `direction` | `'max'` | `'max'`，电平为波段内最大值的该比例；或 `'min'`，电平为从波段内最小值到 1 之间该比例处的值。 |
 | `step` | `step` | `1` | 搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。交点在不粗于该步长、且至少 301 个采样点的波段扫描上确定。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，给出每个开启的环境的边缘，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：**JavaScript**：一个对象：`angles`，以及每个入射角在下列各项中的一个值：`edge`，交点，单位 nm；`shift`，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 null；`reason`，此时为 `'edgeNotCrossed'`，否则为 null；`peak`、`peakValue` 和 `levelValue`；还有 `level`，所用的电平，以及 `mode`、`quantity`、`direction` 和 `step`。<br>**Python**：一个 EdgeShift，即命名元组：angles，以及每个入射角在下列各项中的一个值：edge，交点，单位 nm；shift，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 None；reason，此时为 "edgeNotCrossed"，否则为 None；peak、peak_value 和 level_value；还有 level，所用的电平，以及 mode、quantity、direction 和 step。
+**返回**：**JavaScript**：一个对象：`angles`，以及每个入射角在下列各项中的一个值：`edge`，交点，单位 nm；`shift`，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 null；`reason`，此时为 `'edgeNotCrossed'`，否则为 null；`peak`、`peakValue` 和 `levelValue`；`level`，所用的电平，以及 `mode`、`quantity`、`direction` 和 `step`；给出 `env` 时还有 `environment`，即计算所在的环境 `{ number, id, name }`。`env: 'all'` 时为由这些对象组成的数组，每个环境一个。<br>**Python**：一个 EdgeShift，即命名元组：angles，以及每个入射角在下列各项中的一个值：edge，交点，单位 nm；shift，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 None；reason，此时为 "edgeNotCrossed"，否则为 None；peak、peak_value 和 level_value；level，所用的电平，以及 mode、quantity、direction 和 step。给出 env 时，它的 environment 是计算所在的环境，即由 number、id 和 name 组成的 dict，位于元组字段之外；env="all" 时为由这些元组组成的 list，每个环境一个。
 
 **拒绝**：
 
-- 不构成范围的波段、空的入射角列表或超出 0 到 90 的入射角、不接受的选项或选项不能取的值，或引用了找不到对应材料的设计
+- 不构成范围的波段、空的入射角列表或超出 0 到 90 的入射角、不接受的选项或选项不能取的值、引用了找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Long-wave pass');
 design.stack('(0.5H L 0.5H)^8');
 const moved = design.edgeShift(600, 760, [0, 15, 30, 45], { level: 0.5 });
 moved.angles.forEach((angle, i) => console.log(angle, 'degrees:', moved.edge[i].toFixed(2), 'nm, moved', moved.shift[i].toFixed(2), 'nm'));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const each of design.edgeShift(600, 760, [0, 30], { env: 'all' })) console.log(each.environment.number, each.environment.name, each.shift[1].toFixed(2), 'nm');
 ```
 
 ```python
@@ -1358,6 +1367,9 @@ design.stack("(0.5H L 0.5H)^8")
 moved = design.edge_shift(600, 760, [0, 15, 30, 45], level=0.5)
 for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
     print(angle, "degrees:", round(edge, 2), "nm, moved", round(shift, 2), "nm")
+design.environments.add(name="Under water", incident_medium="H2O")
+for each in design.edge_shift(600, 760, [0, 30], env="all"):
+    print(each.environment["number"], each.environment["name"], round(each.shift[1], 2), "nm")
 ```
 
 ### compareMeasured / compare_measured
@@ -5739,6 +5751,31 @@ s = design.spectrum(200, 2500, step=10)
 for m in s.out_of_range:
     print(m["id"], "has data from", m["rangeNm"])
 print(len(s.out_of_range), "materials stop inside the range")
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.environment` | `s.environment` |
+
+**JavaScript**：光谱计算所在的环境，design.spectrum() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时光谱在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：光谱计算所在的环境，design.spectrum() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时光谱在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const s of design.spectrum(400, 700, { env: 'all' })) console.log(s.environment.number, s.environment.name, Math.max(...s.R));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for s in design.spectrum(400, 700, env="all"):
+    print(s.environment["number"], s.environment["name"], max(s.R))
 ```
 
 ### R

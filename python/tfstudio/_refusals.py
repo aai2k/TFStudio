@@ -56,8 +56,19 @@ def _no_qwot(fields):
 
 def _unknown_environment(fields):
     count = len(fields["numbers"])
+    if fields.get("option") == "env":
+        return _unknown_env(fields, count)
     return "environment {!r}: the design has {} environment{}, numbered from 1".format(
         fields.get("environment"), count, "" if count == 1 else "s")
+
+
+def _unknown_env(fields, count):
+    """A result call's env that names no environment of the design, in the
+    words the API's call uses: env takes "all" as well as an environment."""
+    ids = fields["ids"]
+    listed = ids[0] if len(ids) == 1 else "{} or {}".format(", ".join(ids[:-1]), ids[-1])
+    return "env is 'all' or one of the design's environments by its number, {}, or its id, {}; not {!r}".format(
+        "1" if count == 1 else "1 to {}".format(count), listed, fields.get("environment"))
 
 
 def _base_environment(fields, words):

@@ -2,9 +2,9 @@
  * The frame an analysis window is assembled in.
  *
  * The plot is what the window is for, so it gets the height. Everything else
- * fits in two thin bands: one control row above the plot, and the collapsed
- * Results strip below it. Two of these windows docked side by side on a laptop
- * screen still show plots worth looking at.
+ * fits in thin bands: one control row above the plot, and the badge row and
+ * the collapsed Results strip below it. Two of these windows docked side by
+ * side on a laptop screen still show plots worth looking at.
  *
  * What goes where:
  *
@@ -17,6 +17,10 @@
  *                windows are built around. A popover cannot hold a hundred
  *                rows, so these get a strip of their own above the results,
  *                the full width of the window. See `EditorBody` below.
+ *   badge row    under the plot, the Environment droplist at its left on a
+ *                design with environments and the read-only badges saying
+ *                what the result is computed for at its right. See
+ *                `chrome/badgeRow.js`.
  *   Results      the numbers behind the plot, collapsed by default, with the
  *                export control on its right.
  *

@@ -22,6 +22,15 @@ function plain(value) {
 
 const BAND = object({ from: num('Start of the band in nm'), to: num('End of the band in nm') }, ['from', 'to']);
 
+// The environment a result tool computes, and what the tool answers for the
+// call's `result` with `env`: `answer(one)` for one environment's result, or
+// with env 'all' that for each environment beside its number, id and name.
+const ENV = { type: ['integer', 'string'], description: "The environment computed, by its number from 1 or its id, as the environments tool lists them, whether it is on or off; or 'all' for each environment that is on (environment 1 when none is), answered as environments, a list of { number, id, name } and the fields of one environment's answer. Default: environment 1" };
+function perEnvironment(env, result, answer) {
+    if (env !== 'all') return answer(result);
+    return { environments: result.environments.map(({ number, id, name, ...one }) => ({ number, id, name, ...answer(one) })) };
+}
+
 // What the bandFeature and edgeShift tools share.
 const FEATURE_SETTINGS = {
     quantity: oneOf(['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'], "The quantity read. Default 'T'"),
@@ -91,6 +100,14 @@ function extremes(xs, values) {
     return { min: values[lo], minAt: xs[lo], max: values[hi], maxAt: xs[hi] };
 }
 
+// What the edgeShift tool answers of one result: its settings, how many
+// angles and at how many the level is not crossed, and the edge and shift at
+// every angle with `values`, else their extremes.
+const edgeShiftAnswer = values => ({ angles, edge, shift, peak, peakValue, levelValue, reason, ...settings }) => ({
+    ...settings, angleCount: angles.length, notCrossedCount: edge.filter(e => e === null).length,
+    ...(values ? { angles, edge, shift, peak, peakValue, levelValue, reason } : { edge: extremes(angles, edge), shift: extremes(angles, shift) }),
+});
+
 export function analysisTools({ api, store }) {
     return [
         {
@@ -102,12 +119,16 @@ export function analysisTools({ api, store }) {
                 angles: list({ type: 'number' }, 'Angles of incidence in degrees in the incident medium. Default [0]'),
                 bands: list(BAND, 'Bands to summarize besides the whole range'),
                 values: bool('Also answer with the value at every wavelength. Default false'),
+                env: ENV,
             }, ['designId', 'from', 'to']),
             run: ({ designId, bands = [], values = false, ...range }) => {
                 const result = api.spectrum(store.get(designId), range);
                 return {
-                    designId, evalMode: result.evalMode, outOfRange: result.outOfRange, summary: api.summarize(result, { bands }),
-                    ...(values ? { lambda: result.lambda, angles: result.angles } : {}),
+                    designId,
+                    ...perEnvironment(range.env, result, one => ({
+                        evalMode: one.evalMode, outOfRange: one.outOfRange, summary: api.summarize(one, { bands }),
+                        ...(values ? { lambda: one.lambda, angles: one.angles } : {}),
+                    })),
                 };
             },
         },
@@ -122,6 +143,7 @@ export function analysisTools({ api, store }) {
                 angle: num('Angle of incidence in degrees in the incident medium, 0 <= angle < 90. Default 0'),
                 level: FEATURE_LEVEL,
                 edgeSide: FEATURE_EDGE_SIDE,
+                env: ENV,
             }, ['designId', 'feature', 'from', 'to']),
             run: ({ designId, ...options }) => ({ designId, ...api.bandFeature(store.get(designId), options) }),
         },
@@ -136,14 +158,11 @@ export function analysisTools({ api, store }) {
                 level: FEATURE_LEVEL,
                 edgeSide: FEATURE_EDGE_SIDE,
                 values: bool('Also answer with the values at every angle. Default false'),
+                env: ENV,
             }, ['designId', 'from', 'to', 'angles']),
-            run: ({ designId, values = false, ...options }) => {
-                const { angles, edge, shift, peak, peakValue, levelValue, reason, ...settings } = api.edgeShift(store.get(designId), options);
-                return {
-                    designId, ...settings, angleCount: angles.length, notCrossedCount: edge.filter(e => e === null).length,
-                    ...(values ? { angles, edge, shift, peak, peakValue, levelValue, reason } : { edge: extremes(angles, edge), shift: extremes(angles, shift) }),
-                };
-            },
+            run: ({ designId, values = false, ...options }) => ({
+                designId, ...perEnvironment(options.env, api.edgeShift(store.get(designId), options), edgeShiftAnswer(values)),
+            }),
         },
         {
             name: 'readSpectrumFile', title: 'Read a spectrum file',

@@ -17,7 +17,7 @@ const { createElement: h } = React;
 // such as "3 · Under water", at the select's 11 px type with its padding and
 // arrow, so the previous and next arrows sit right beside it. A longer name is
 // cut off in the box and read whole in the open list and on hover.
-const DROPLIST_WIDTH = 132;
+export const DROPLIST_WIDTH = 132;
 
 /**
  * Which environment the Settings below show and edit. `current` is

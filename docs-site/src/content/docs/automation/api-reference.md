@@ -1289,9 +1289,9 @@ print(len(design.layers), "layers; optical merit", design.merit.optical_value)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.spectrum(start, end, { step, angles })` | `design.spectrum(start, end, step=1, angles=[0])` |
+| `design.spectrum(start, end, { step, angles, env })` | `design.spectrum(start, end, step=1, angles=[0], env=...)` |
 
-R, T and A over a range of wavelengths, for unpolarized light and for s and p, as the Optical Evaluation window computes them. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, and the spectrum's `mode` says which it was. A design under a cone of incidence is averaged over its cone.
+R, T and A over a range of wavelengths, for unpolarized light and for s and p, as the Optical Evaluation window computes them. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, and the spectrum's `mode` says which it was. A design under a cone of incidence is averaged over its cone. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another; the spectrum's curves then find their edges, widths and peaks in that environment.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -1299,18 +1299,21 @@ R, T and A over a range of wavelengths, for unpolarized light and for s and p, a
 | `end` | `end` |  | The last wavelength, nm, above `start`. |
 | `step` | `step` | `1` | The wavelength step, nm. |
 | `angles` | `angles` | `[0]` | The angles of incidence, degrees in the incident medium, each from 0 up to but not including 90. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one spectrum per environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: A Spectrum.
+**Returns**: **JavaScript**: A Spectrum; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: A Spectrum; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- a range that is not one, an angle outside 0 to 90, a design that names a material that resolves to nothing, or more than a million points (wavelengths times angles): take a larger step or fewer angles
+- a range that is not one, an angle outside 0 to 90, a design that names a material that resolves to nothing, an environment the design does not have, or more than a million points (wavelengths times angles): take a larger step or fewer angles
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^4 H');
 const s = design.spectrum(400, 800, { step: 1, angles: [0, 45] });
 console.log(s.mode, Math.max(...s.R), Math.min(...s.angle(45).Tp));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.spectrum(400, 800, { env: 'all' })) console.log(one.environment.number, one.environment.name, Math.max(...one.R));
 ```
 
 ```python
@@ -1318,15 +1321,18 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 s = design.spectrum(400, 800, step=1, angles=[0, 45])
 print(s.mode, max(s.R), min(s.angle(45).Tp))
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.spectrum(400, 800, env="all"):
+    print(one.environment["number"], one.environment["name"], max(one.R))
 ```
 
 ### edgeShift / edge_shift
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.edgeShift(start, end, angles, { quantity, level, edgeSide, direction, step })` | `design.edge_shift(start, end, angles, quantity="T", level=0.5, edge_side=..., direction="max", step=1)` |
+| `design.edgeShift(start, end, angles, { quantity, level, edgeSide, direction, step, env })` | `design.edge_shift(start, end, angles, quantity="T", level=0.5, edge_side=..., direction="max", step=1, env=...)` |
 
-Where the design's spectrum crosses a level beside the peak of a band at each of several angles of incidence, and how far that edge has moved from where it is at the first angle, each found as an EDGE_LAMBDA check of the Specification window finds it, as a spectrum curve's edge() finds it. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, and a design under a cone of incidence is averaged over its cone.
+Where the design's spectrum crosses a level beside the peak of a band at each of several angles of incidence, and how far that edge has moved from where it is at the first angle, each found as an EDGE_LAMBDA check of the Specification window finds it, as a spectrum curve's edge() finds it. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, and a design under a cone of incidence is averaged over its cone. A design with more than one environment is computed in environment 1 unless `env` names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -1338,18 +1344,21 @@ Where the design's spectrum crosses a level beside the peak of a band at each of
 | `edgeSide` | `edge_side` |  | **JavaScript**: `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below.<br>**Python**: "right" for the crossing above the peak. Without it, the one below it, or the one above where there is none below. |
 | `direction` | `direction` | `'max'` | `'max'`, the level a fraction of the band's highest value, or `'min'`, a fraction of the way from its lowest value up to 1. |
 | `step` | `step` | `1` | The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001. The crossing is bracketed on a scan of the band no coarser than it, of 301 samples at the least. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the edges of each environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: **JavaScript**: An object: `angles`, and one value per angle in each of `edge`, the crossing, nm, `shift`, the edge less the edge at the first angle, nm, both null where the spectrum does not cross the level inside the band, `reason`, then `'edgeNotCrossed'` and otherwise null, `peak`, `peakValue` and `levelValue`; and `level`, the level used, `mode`, `quantity`, `direction` and `step`.<br>**Python**: An EdgeShift, a named tuple: angles, and one value per angle in each of edge, the crossing, nm, shift, the edge less the edge at the first angle, nm, both None where the spectrum does not cross the level inside the band, reason, then "edgeNotCrossed" and otherwise None, peak, peak_value and level_value; and level, the level used, mode, quantity, direction and step.
+**Returns**: **JavaScript**: An object: `angles`, and one value per angle in each of `edge`, the crossing, nm, `shift`, the edge less the edge at the first angle, nm, both null where the spectrum does not cross the level inside the band, `reason`, then `'edgeNotCrossed'` and otherwise null, `peak`, `peakValue` and `levelValue`; `level`, the level used, `mode`, `quantity`, `direction` and `step`; and, when `env` is given, `environment`, the environment it was computed in, `{ number, id, name }`. With `env: 'all'`, an array of these, one per environment.<br>**Python**: An EdgeShift, a named tuple: angles, and one value per angle in each of edge, the crossing, nm, shift, the edge less the edge at the first angle, nm, both None where the spectrum does not cross the level inside the band, reason, then "edgeNotCrossed" and otherwise None, peak, peak_value and level_value; level, the level used, mode, quantity, direction and step. With env, its environment is the environment it was computed in, a dict of number, id and name, held beside the tuple's fields; with env="all", a list of these, one per environment.
 
 **Refuses**:
 
-- a band that is not one, an empty list of angles or an angle outside 0 to 90, an option it does not take or a value an option cannot take, or a design that names a material that resolves to nothing
+- a band that is not one, an empty list of angles or an angle outside 0 to 90, an option it does not take or a value an option cannot take, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Long-wave pass');
 design.stack('(0.5H L 0.5H)^8');
 const moved = design.edgeShift(600, 760, [0, 15, 30, 45], { level: 0.5 });
 moved.angles.forEach((angle, i) => console.log(angle, 'degrees:', moved.edge[i].toFixed(2), 'nm, moved', moved.shift[i].toFixed(2), 'nm'));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const each of design.edgeShift(600, 760, [0, 30], { env: 'all' })) console.log(each.environment.number, each.environment.name, each.shift[1].toFixed(2), 'nm');
 ```
 
 ```python
@@ -1358,6 +1367,9 @@ design.stack("(0.5H L 0.5H)^8")
 moved = design.edge_shift(600, 760, [0, 15, 30, 45], level=0.5)
 for angle, edge, shift in zip(moved.angles, moved.edge, moved.shift):
     print(angle, "degrees:", round(edge, 2), "nm, moved", round(shift, 2), "nm")
+design.environments.add(name="Under water", incident_medium="H2O")
+for each in design.edge_shift(600, 760, [0, 30], env="all"):
+    print(each.environment["number"], each.environment["name"], round(each.shift[1], 2), "nm")
 ```
 
 ### compareMeasured / compare_measured
@@ -5739,6 +5751,31 @@ s = design.spectrum(200, 2500, step=10)
 for m in s.out_of_range:
     print(m["id"], "has data from", m["rangeNm"])
 print(len(s.out_of_range), "materials stop inside the range")
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.environment` | `s.environment` |
+
+**JavaScript**: The environment the spectrum was computed in, `{ number, id, name }`, when design.spectrum() was given `env`; null without one, when it was computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the spectrum was computed in, a dict of number, id and name, when design.spectrum() was given env; None without one, when it was computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const s of design.spectrum(400, 700, { env: 'all' })) console.log(s.environment.number, s.environment.name, Math.max(...s.R));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for s in design.spectrum(400, 700, env="all"):
+    print(s.environment["number"], s.environment["name"], max(s.R))
 ```
 
 ### R

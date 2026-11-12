@@ -5,9 +5,9 @@ import { SpectralRangeRows } from './SpectralRangeRows.js';
 
 const { createElement: h } = React;
 
-// Numbered palette slots (`series3`, `mat7`) are labelled by position; every
-// other colour has a name in the locale table.
-const PALETTE_KEY = /^(?:series|mat)(\d+)$/;
+// Numbered palette slots (`series3`, `mat7`, `env2`) are labelled by position;
+// every other colour has a name in the locale table.
+const PALETTE_KEY = /^(?:series|mat|env)(\d+)$/;
 
 function paletteSlot(key) {
   const match = PALETTE_KEY.exec(key);

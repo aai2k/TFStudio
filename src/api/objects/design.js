@@ -4,6 +4,7 @@ import { inspect } from 'node:util';
 import * as api from '../index.js';
 import { checkOptions, requireValue } from '../check.js';
 import { resolveEvalMode } from '../../utils/physics/optimizer.js';
+import { oneEnvironmentDesign } from '../../utils/environments/environments.js';
 import { ended, hooksFor } from './hooks.js';
 import { Layers } from './layers.js';
 import { Environments } from './environments.js';
@@ -45,6 +46,15 @@ const COMPARE_OPTIONS = ['curve', 'angle', 'pol', 'quantity', 'scale', 'xUnit', 
 const FIT_OPTIONS = ['grid', 'step', 'thinEvery', 'db', 'weight', 'output', 'constraints'];
 // differences()'s names for the settings designDifferences compares, where they differ.
 const SETTING_NAMES = { ...SETUP_NAMES, surfaceMode: 'sides', mfEvalMode: 'scoreOn' };
+
+// The environment `env` names in `design`, `{ number, id, name }`, for a
+// result computed with that `env`, which the call has checked; null without
+// one.
+function environmentNamed(design, env) {
+    if (env === undefined) return null;
+    const { number, id, name } = api.environments(design).find(e => e.number === env || e.id === env);
+    return { number, id, name };
+}
 
 // The API's name of `value`, one of the names `mapping` holds for the
 // attribute `what`.
@@ -662,27 +672,36 @@ export class Design {
      * and p, as the Optical Evaluation window computes them. What it is
      * computed on follows the design's `sides` and `scoreOn`, and the
      * spectrum's `mode` says which it was. A design under a cone of incidence
-     * is averaged over its cone.
+     * is averaged over its cone. A design with more than one environment is
+     * computed in environment 1, its own media and substrate, unless `env`
+     * names another; the spectrum's curves then find their edges, widths and
+     * peaks in that environment.
      *
      * @param start The first wavelength, nm.
      * @param end The last wavelength, nm, above `start`.
      * @param [options]
      * @param [options.step=1] The wavelength step, nm.
      * @param [options.angles=[0]] The angles of incidence, degrees in the incident medium, each from 0 up to but not including 90.
-     * @returns A Spectrum.
-     * @throws a range that is not one, an angle outside 0 to 90, a design that names a material that resolves to nothing, or more than a million points (wavelengths times angles): take a larger step or fewer angles
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one spectrum per environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns A Spectrum; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws a range that is not one, an angle outside 0 to 90, a design that names a material that resolves to nothing, an environment the design does not have, or more than a million points (wavelengths times angles): take a larger step or fewer angles
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^4 H');
      * const s = design.spectrum(400, 800, { step: 1, angles: [0, 45] });
      * console.log(s.mode, Math.max(...s.R), Math.min(...s.angle(45).Tp));
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.spectrum(400, 800, { env: 'all' })) console.log(one.environment.number, one.environment.name, Math.max(...one.R));
      */
     spectrum(start, end, options) {
-        const { step = 1, angles = [0] } = checkOptions('spectrum', options, ['step', 'angles']);
-        const answer = worded({ method: 'spectrum', call: 'spectrum' }, () => api.spectrum(this._data, { from: start, to: end, step, angles }));
+        const { step = 1, angles = [0], env } = checkOptions('spectrum', options, ['step', 'angles', 'env']);
+        const answer = worded({ method: 'spectrum', call: 'spectrum' }, () => api.spectrum(this._data, { from: start, to: end, step, angles, env }));
         const asked = [...angles];
-        return new Spectrum(answer.evalMode, answer.lambda, asked, asked.map(angle => answer.angles[angle]), answer.outOfRange)
-            ._named(this.name)._computedOn(JSON.parse(JSON.stringify(this._data)));
+        const computed = JSON.parse(JSON.stringify(this._data));
+        const spectrumOf = (found, environment) => new Spectrum(found.evalMode, found.lambda, asked, asked.map(angle => found.angles[angle]), found.outOfRange)
+            ._named(this.name)._in(environment)._computedOn(environment ? oneEnvironmentDesign(computed, environment.id) : computed);
+        if (env !== 'all') return spectrumOf(answer, environmentNamed(this._data, env));
+        return answer.environments.map(({ number, id, name, ...found }) => spectrumOf(found, { number, id, name }));
     }
 
     /**
@@ -692,7 +711,8 @@ export class Design {
      * of the Specification window finds it, as a spectrum curve's edge()
      * finds it. What it is computed on follows the design's `sides` and
      * `scoreOn`, as a spectrum does, and a design under a cone of incidence
-     * is averaged over its cone.
+     * is averaged over its cone. A design with more than one environment is
+     * computed in environment 1 unless `env` names another.
      *
      * @param start The first wavelength of the band, nm.
      * @param end The last wavelength of the band, nm, above `start`.
@@ -703,18 +723,24 @@ export class Design {
      * @param [options.edgeSide] `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below.
      * @param [options.direction='max'] `'max'`, the level a fraction of the band's highest value, or `'min'`, a fraction of the way from its lowest value up to 1.
      * @param [options.step=1] The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001. The crossing is bracketed on a scan of the band no coarser than it, of 301 samples at the least.
-     * @returns An object: `angles`, and one value per angle in each of `edge`, the crossing, nm, `shift`, the edge less the edge at the first angle, nm, both null where the spectrum does not cross the level inside the band, `reason`, then `'edgeNotCrossed'` and otherwise null, `peak`, `peakValue` and `levelValue`; and `level`, the level used, `mode`, `quantity`, `direction` and `step`.
-     * @throws a band that is not one, an empty list of angles or an angle outside 0 to 90, an option it does not take or a value an option cannot take, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the edges of each environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns An object: `angles`, and one value per angle in each of `edge`, the crossing, nm, `shift`, the edge less the edge at the first angle, nm, both null where the spectrum does not cross the level inside the band, `reason`, then `'edgeNotCrossed'` and otherwise null, `peak`, `peakValue` and `levelValue`; `level`, the level used, `mode`, `quantity`, `direction` and `step`; and, when `env` is given, `environment`, the environment it was computed in, `{ number, id, name }`. With `env: 'all'`, an array of these, one per environment.
+     * @throws a band that is not one, an empty list of angles or an angle outside 0 to 90, an option it does not take or a value an option cannot take, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Long-wave pass');
      * design.stack('(0.5H L 0.5H)^8');
      * const moved = design.edgeShift(600, 760, [0, 15, 30, 45], { level: 0.5 });
      * moved.angles.forEach((angle, i) => console.log(angle, 'degrees:', moved.edge[i].toFixed(2), 'nm, moved', moved.shift[i].toFixed(2), 'nm'));
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const each of design.edgeShift(600, 760, [0, 30], { env: 'all' })) console.log(each.environment.number, each.environment.name, each.shift[1].toFixed(2), 'nm');
      */
     edgeShift(start, end, angles, options) {
-        const given = checkOptions('edgeShift', options, ['quantity', 'level', 'edgeSide', 'direction', 'step']);
+        const given = checkOptions('edgeShift', options, ['quantity', 'level', 'edgeSide', 'direction', 'step', 'env']);
         const words = { method: 'edgeShift', call: 'edgeShift', hidden: ['from', 'to', 'angles'] };
-        return worded(words, () => api.edgeShift(this._data, { ...given, from: start, to: end, angles }));
+        const answer = worded(words, () => api.edgeShift(this._data, { ...given, from: start, to: end, angles }));
+        if (given.env === undefined) return answer;
+        if (given.env !== 'all') return { ...answer, environment: environmentNamed(this._data, given.env) };
+        return answer.environments.map(({ number, id, name, ...found }) => ({ ...found, environment: { number, id, name } }));
     }
 
     /**

@@ -9,6 +9,15 @@ import { shown } from '../check.js';
 
 const OTHER_SIDE = { front: 'back', back: 'front' };
 
+const orList = items => (items.length === 1 ? items[0] : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`);
+
+// A result call's env that names no environment of the design, in the words
+// the plain call uses: env takes 'all' as well as an environment.
+function unknownEnv(f) {
+    const numbers = f.numbers.length === 1 ? '1' : `1 to ${f.numbers.length}`;
+    return `env is 'all' or one of the design's environments by its number, ${numbers}, or its id, ${orList(f.ids)}; not ${shown(f.environment)}`;
+}
+
 // Each refusal code in the object API's words, from the refusal's fields `f`
 // and the words `w` of the method that made the call (worded() below).
 const WORDS = {
@@ -32,7 +41,8 @@ const WORDS = {
     bandOrder: f => `start ${f.start} is above end ${f.end}`,
     fileExists: f => `${f.path} exists; pass { overwrite: true } to write over it`,
     formulaMedia: () => "the formula names media; write the layers alone, such as '(HL)^5 H', and set the media with incidentMedium, exitMedium and substrate.material",
-    unknownEnvironment: f => `environment ${shown(f.environment)}: the design has ${f.numbers.length} environment${f.numbers.length === 1 ? '' : 's'}, numbered from 1`,
+    unknownEnvironment: f => (f.option === 'env' ? unknownEnv(f)
+        : `environment ${shown(f.environment)}: the design has ${f.numbers.length} environment${f.numbers.length === 1 ? '' : 's'}, numbered from 1`),
     baseEnvironment: (f, w) => (f.option
         ? `environment 1 is the design itself and takes name and enabled alone, not ${w.name(f.option)}; set the design's own media and substrate with design.incidentMedium, design.exitMedium and design.substrate`
         : 'environment 1 is the design itself and cannot be removed'),

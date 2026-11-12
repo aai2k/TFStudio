@@ -61,6 +61,26 @@ ok('a design whose materials resolve to nothing gets no spectrum', corpus.blocke
 ok('a design keeps the name it holds', corpus.names.length === 0, corpus.names.join('; '));
 ok('saved and opened again it shows the same', corpus.reopened.length === 0, corpus.reopened.join(', '));
 {
+    // The fixture with three environments: without env its spectrum is the
+    // golden file's, above; each environment by number or id is its design
+    // computed apart, the third, switched off, included; 'all' covers the two
+    // that are on.
+    const { oneEnvironmentDesign } = await import('../src/utils/environments/environments.js');
+    const name = 'environments-media-substrate';
+    const fixture = manifest.fixtures[name];
+    const design = api.openDesign(fixtureFile(name));
+    const [from, to, step] = fixture.spectrum;
+    const asked = env => api.spectrum(design, { from, to, step, angles: fixture.angles, ...env });
+    const apart = id => JSON.stringify(api.spectrum(oneEnvironmentDesign(design, id), { from, to, step, angles: fixture.angles }));
+    ok('the environments fixture without env is environment 1', JSON.stringify(asked({})) === apart('base'));
+    ok('each environment by number and by id is its design computed apart', ['base', 'env2', 'env3'].every((id, i) =>
+        JSON.stringify(asked({ env: i + 1 })) === apart(id) && JSON.stringify(asked({ env: id })) === apart(id)));
+    const all = asked({ env: 'all' }).environments;
+    ok("env 'all' covers the environments that are on", JSON.stringify(all.map(e => [e.number, e.id, e.name])) === JSON.stringify([[1, 'base', 'BK7 in air'], [2, 'env2', 'Under water']])
+        && all.every(({ number: _number, id, name: _name, ...one }) => JSON.stringify(one) === apart(id)));
+}
+
+{
     const unnamed = path.join(TEMP, 'Unnamed AR.tfs');
     fs.writeFileSync(unnamed, JSON.stringify({ name: '  ', substrate: { material: 'BK7', thickness: 1 }, frontLayers: [] }));
     ok('a design without a name is named after its file', api.openDesign(unnamed).name === 'Unnamed AR');

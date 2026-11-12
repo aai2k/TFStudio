@@ -42,6 +42,21 @@ export function paletteColors(colors, prefix, size = PALETTE_SIZE) {
   return Array.from({ length: size }, (_, i) => colors[`${prefix}${i + 1}`]);
 }
 
+/**
+ * The colours of a window that draws several environments of a design at
+ * once: environment n in colour n, cycling after the tenth. Each such window
+ * holds them as its own `env1`…`env10`, so Settings shows them under Palette.
+ */
+export const ENVIRONMENT_COLORS = [
+  '#ef5350', '#ffa726', '#ab47bc', '#26a69a', '#66bb6a',
+  '#ec407a', '#42a5f5', '#8d6e63', '#5c6bc0', '#78909c',
+];
+
+/** The colour of environment `number` (from 1) in a window's colours `colors`. */
+export function environmentColor(colors, number) {
+  return colors[`env${((number - 1) % ENVIRONMENT_COLORS.length) + 1}`];
+}
+
 // Ranges and geometry a window shares with the others, spelled out here rather
 // than repeated per window so a bound cannot drift between two windows that
 // enter the same quantity.
@@ -148,6 +163,7 @@ export const ANALYSIS_DEFAULTS = {
       T:  '#2196f3', R:  '#ef5350', A:  '#66bb6a',
       Ts: '#64b5f6', Rs: '#ef9a9a', As: '#a5d6a7',
       Tp: '#1565c0', Rp: '#c62828', Ap: '#2e7d32',
+      ...palette('env', ENVIRONMENT_COLORS),
     },
     // The spectral range is stored in nanometres because the physics engine
     // always works in vacuum wavelength, and the Settings fields convert it

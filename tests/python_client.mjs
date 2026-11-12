@@ -18,7 +18,8 @@
  *      deposition run on the part, one on chips with a
  *      plan of the wrong length refused, its files written, a monitor
  *      worksheet, one with a list of wavelengths of the wrong length refused, spectra, a band's
- *      width and an edge against angle, a spectrum file read and a design
+ *      width and an edge against angle, each also of one environment and of
+ *      each, and an environment the design does not have refused, a spectrum file read and a design
  *      compared with a curve of it or one given, and a file of several curves
  *      compared without naming one refused, a Δ curve compared, an
  *      ellipsometer file read, its curves added, fits added and one of a curve
@@ -345,9 +346,13 @@ const STOPPED_WITHIN_S = 5;
         ['materialDispersion', ['Si', { from: 400, to: 1100, thickness: 2 }]],
         ['materialDispersion', ['BK7', { thickness: 0 }]],
         ['spectrum', [stack, { from: 400, to: 700, step: 10, angles: [0, 45] }]],
+        ['spectrum', [withWater, { from: 400, to: 700, step: 50, env: 'all' }]],
+        ['spectrum', [withWater, { from: 400, to: 700, step: 50, env: 9 }]],
         ['summarize', [spectrum, { bands: [{ from: 450, to: 650 }] }]],
         ['bandFeature', [stack, { feature: 'fwhm', from: 400, to: 700, quantity: 'R', angle: 30, level: 0.3 }]],
+        ['bandFeature', [withWater, { feature: 'peak', from: 400, to: 700, quantity: 'R', env: 2 }]],
         ['edgeShift', [stack, { from: 400, to: 700, angles: [0, 30], quantity: 'R' }]],
+        ['edgeShift', [withWater, { from: 400, to: 700, angles: [0, 30], quantity: 'R', env: 'env2' }]],
         ['readSpectrumFile', [scan, { pol: 'p' }]],
         ['measuredDifference', [stack, scan, { curve: 1, grid: 'uniform', step: 5, levelFree: true }]],
         ['measuredDifference', [stack, { quantity: 'R', wavelength: [450, 550, 650], values: [0.1, 0.05, 0.08] }]],

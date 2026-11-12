@@ -188,7 +188,7 @@ const coned = designs.filter(([, design]) => isConed(design)).length;
         [() => s.T.density().edge(), "edge: only a spectrum's curves have edge(), since it is found on the design the spectrum was computed on"],
         [() => lwp.edgeShift(600, 760, []), 'edgeShift: angles is a list of angles of incidence in degrees, each 0 <= angle < 90, not []'],
         [() => lwp.edgeShift(700, 600, [0]), 'edgeShift: start and end are wavelengths in nm, 0 < start < end'],
-        [() => lwp.edgeShift(600, 760, [0], { to: 800 }), "edgeShift: unknown option 'to'; the options are quantity, level, edgeSide, direction, step"],
+        [() => lwp.edgeShift(600, 760, [0], { to: 800 }), "edgeShift: unknown option 'to'; the options are quantity, level, edgeSide, direction, step, env"],
         [() => api.bandFeature(lwp._data, { feature: 'width', from: 600, to: 700 }), "bandFeature: feature is 'peak', 'edge' or 'fwhm', not \"width\""],
     ];
     const said = REFUSED.map(([make]) => thrown(make)?.message);

@@ -11,6 +11,7 @@ import { buildEvalContext, resolveEvalMode } from '../utils/physics/optimizer.js
 import { designMaterialLookup, withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { inEnvironments } from './designEnvironments.js';
 import { checkOptions, requireValue, refusal, isAngle } from './check.js';
 
 // Each quantity of a spectrum as the channel and polarization a check reads.
@@ -89,7 +90,8 @@ function evaluated(design) {
  * that fraction of the way from its lowest value up to 1. What it is computed
  * on follows the design's [evaluation mode](/design/evaluation-modes/), as
  * `spectrum` does, and a design under a cone of incidence is averaged over
- * its cone.
+ * its cone. A design with more than one [environment](/design/environments/)
+ * is computed in environment 1 unless `env` names another.
  *
  * @param design The design.
  * @param options
@@ -102,7 +104,8 @@ function evaluated(design) {
  * @param [options.level=0.5] For `'edge'` and `'fwhm'`, the level crossed, a fraction from 0 to 1; below 0.001 or above 0.999 it is taken as 0.001 or 0.999, as the check takes it.
  * @param [options.edgeSide] For `'edge'`, `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below.
  * @param [options.step=1] The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001, the check's Step; the crossings are bracketed on a scan of the band no coarser than it, of 301 samples at the least. The peak of R, and the dip of T or A, is found without a step, so for `'peak'` it stays 1.
- * @returns The feature.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one feature per environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The feature; with `env: 'all'`, `{ environments }`, one entry per environment, each this feature with the environment's `number`, `id` and `name`.
  * @property feature The feature asked for.
  * @property mode How the design was scored: `'front'`, `'back'` or `'total'`.
  * @property quantity The quantity read.
@@ -121,21 +124,26 @@ function evaluated(design) {
  * @property reason For `'edge'` and `'fwhm'`, why a crossing is missing, as checkSpecification words it, `'edgeNotCrossed'` or `'fwhmNotBracketed'`; null when none is.
  * @throws an option the feature does not take, a feature it does not have, a band that is not one, a quantity, direction, level, edge side or step it does not take, or an angle outside 0 to 90
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Bandpass' }), { formula: '(HL)^4 HH (LH)^4' });
  * const band = tf.bandFeature(design, { feature: 'fwhm', from: 500, to: 600 });
  * console.log(band.mode, 'peak T', band.peakValue.toFixed(4), 'at', band.peak.toFixed(2), 'nm');
  * console.log('FWHM', band.width.toFixed(2), 'nm, from', band.left.toFixed(2), 'to', band.right.toFixed(2), 'nm');
+ * const edge = tf.addEnvironment(design, { name: 'Dome edge', thicknessFactors: { TiO2: 0.98, SiO2: 0.98 } });
+ * console.log('Peak at the dome edge', tf.bandFeature(edge, { feature: 'peak', from: 500, to: 600, env: 2 }).peak.toFixed(2), 'nm');
  */
 export function bandFeature(design, options) {
     const { feature } = options ?? {};
     requireValue('bandFeature', 'feature', feature, v => Object.hasOwn(FEATURE_OPTIONS, v), "'peak', 'edge' or 'fwhm'");
-    const given = checkOptions('bandFeature', options, ['feature', 'from', 'to', 'quantity', 'angle', ...FEATURE_OPTIONS[feature]]);
+    const given = checkOptions('bandFeature', options, ['feature', 'from', 'to', 'quantity', 'angle', ...FEATURE_OPTIONS[feature], 'env']);
     const { quantity = NEW_CHECK.channel, angle = NEW_CHECK.aoi, direction = NEW_CHECK.direction, step = 1 } = given;
     requireValue('bandFeature', 'angle', angle, isAngle, 'an angle of incidence in degrees, 0 <= angle < 90');
     const check = { ...checkOf('bandFeature', feature, given), aoi: angle };
-    const { mode, ctx } = evaluated(design);
-    return { feature, mode, quantity, angle, direction, step, ...featureOf(feature, check, bandCrossings(check, ctx, {})) };
+    return inEnvironments('bandFeature', design, given.env, one => {
+        const { mode, ctx } = evaluated(one);
+        return { feature, mode, quantity, angle, direction, step, ...featureOf(feature, check, bandCrossings(check, ctx, {})) };
+    });
 }
 
 /**
@@ -145,7 +153,9 @@ export function bandFeature(design, options) {
  * [Specification](/design/specification/) window finds it, as `bandFeature`
  * with `feature: 'edge'` gives it. What it is computed on follows the design's
  * [evaluation mode](/design/evaluation-modes/), as `spectrum` does, and a
- * design under a cone of incidence is averaged over its cone.
+ * design under a cone of incidence is averaged over its cone. A design with
+ * more than one [environment](/design/environments/) is computed in
+ * environment 1 unless `env` names another.
  *
  * @param design The design.
  * @param options
@@ -157,7 +167,8 @@ export function bandFeature(design, options) {
  * @param [options.level=0.5] The level crossed, a fraction from 0 to 1; below 0.001 or above 0.999 it is taken as 0.001 or 0.999.
  * @param [options.edgeSide] `'right'` for the crossing above the peak; otherwise the one below it, or the one above where there is none below.
  * @param [options.step=1] The step the peak is searched at, nm: 1, 0.1, 0.01 or 0.001. The crossing is bracketed on a scan of the band no coarser than it, of 301 samples at the least.
- * @returns The edge at each angle, each list in the order of `angles`.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the edges of each environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The edge at each angle, each list in the order of `angles`; with `env: 'all'`, `{ environments }`, one entry per environment, each these fields with the environment's `number`, `id` and `name`.
  * @property mode How the design was scored: `'front'`, `'back'` or `'total'`.
  * @property quantity The quantity read.
  * @property direction `'max'` or `'min'`.
@@ -172,26 +183,31 @@ export function bandFeature(design, options) {
  * @property reason At each angle, `'edgeNotCrossed'` where there is no crossing, otherwise null.
  * @throws an option it does not take, a band that is not one, an empty list of angles or an angle outside 0 to 90, or a quantity, direction, level, edge side or step it does not take
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Edge' }), { formula: '(0.5H L 0.5H)^8' });
  * const moved = tf.edgeShift(design, { from: 600, to: 760, angles: [0, 15, 30, 45] });
  * moved.angles.forEach((angle, i) => console.log(angle, 'degrees:', moved.edge[i].toFixed(2), 'nm, moved', moved.shift[i].toFixed(2), 'nm'));
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * for (const env of tf.edgeShift(wet, { from: 600, to: 760, angles: [0, 30], env: 'all' }).environments) console.log(env.number, env.name, 'moved', env.shift[1].toFixed(2), 'nm at 30 degrees');
  */
 export function edgeShift(design, options) {
-    const given = checkOptions('edgeShift', options, ['from', 'to', 'angles', 'quantity', 'direction', 'level', 'edgeSide', 'step']);
+    const given = checkOptions('edgeShift', options, ['from', 'to', 'angles', 'quantity', 'direction', 'level', 'edgeSide', 'step', 'env']);
     const { angles, quantity = NEW_CHECK.channel, direction = NEW_CHECK.direction, step = 1 } = given;
     const check = checkOf('edgeShift', 'edge', given);
     requireValue('edgeShift', 'angles', angles, v => Array.isArray(v) && v.length > 0 && v.every(isAngle), 'a list of angles of incidence in degrees, each 0 <= angle < 90');
-    const { mode, ctx } = evaluated(design);
-    const edges = angles.map(angle => featureOf('edge', check, bandCrossings({ ...check, aoi: angle }, ctx, {})));
-    const first = edges[0].edge;
-    return {
-        mode, quantity, direction, step, level: edges[0].level, angles: [...angles],
-        edge: edges.map(e => e.edge),
-        shift: edges.map(e => (e.edge === null || first === null ? null : e.edge - first)),
-        peak: edges.map(e => e.peak),
-        peakValue: edges.map(e => e.peakValue),
-        levelValue: edges.map(e => e.levelValue),
-        reason: edges.map(e => e.reason),
-    };
+    return inEnvironments('edgeShift', design, given.env, one => {
+        const { mode, ctx } = evaluated(one);
+        const edges = angles.map(angle => featureOf('edge', check, bandCrossings({ ...check, aoi: angle }, ctx, {})));
+        const first = edges[0].edge;
+        return {
+            mode, quantity, direction, step, level: edges[0].level, angles: [...angles],
+            edge: edges.map(e => e.edge),
+            shift: edges.map(e => (e.edge === null || first === null ? null : e.edge - first)),
+            peak: edges.map(e => e.peak),
+            peakValue: edges.map(e => e.peakValue),
+            levelValue: edges.map(e => e.levelValue),
+            reason: edges.map(e => e.reason),
+        };
+    });
 }

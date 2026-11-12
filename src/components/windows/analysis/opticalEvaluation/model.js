@@ -13,6 +13,7 @@ import {
 } from '../../../ui/chartOptions.js';
 import { targetSeries } from '../../../ui/targetSeries.js';
 import { plotMargin } from '../chrome/plot.js';
+import { angleCount, environmentLegend, environmentSuffix, resultColor } from './environmentSeries.js';
 import {
     formatYExport, isLogYScale, plotPercent, yScaleAxisOption, yScaleOf, yScaleReadsQuantity,
     yScaleTooltip,
@@ -90,6 +91,12 @@ export function visibleOverlays(overlays) {
     return (overlays || []).filter(curve => curve && curve.visible !== false && curve.x?.length);
 }
 
+// What a curve of `result` is called: the curve's label, its angle when the
+// spectrum holds several, and its environment under All.
+function seriesLabel(label, result, angles) {
+    return label + (angles > 1 ? ` @ ${formatTheta(result.theta)}°` : '') + environmentSuffix(result);
+}
+
 // `names` is t.legendNames; without it a curve goes by its own name.
 export function buildMeasuredSeries(overlays, yScale, names) {
     return visibleOverlays(overlays)
@@ -110,16 +117,17 @@ export function buildMeasuredSeries(overlays, yScale, names) {
 
 function computedSeries(data, showCurves, curveColors, yScale, curveLabels) {
     const enabled = readableCurves(showCurves, curveColors, yScale);
+    const colors = curveColors ?? ANALYSIS_DEFAULTS.opticalEvaluation.colors;
+    const angles = angleCount(data);
     const output = [];
     data.series.forEach((result, resultIndex) => {
         for (const curve of enabled) {
             if (!result[curve.key]) continue;
-            const suffix = data.series.length > 1 ? ` @ ${formatTheta(result.theta)}°` : '';
             output.push(lineSeries({
                 x: data.lambda,
                 y: result[curve.key].map(plotPercent(yScale, curve.key)),
-                name: curveLabels[curve.key] + suffix,
-                color: hexToRgba(curve.color, aoiAlpha(resultIndex, data.series.length)),
+                name: seriesLabel(curveLabels[curve.key], result, angles),
+                color: hexToRgba(resultColor(curve, result, colors), aoiAlpha(resultIndex % angles, angles)),
                 width: 1.5,
                 dash: curve.dash,
                 // A fine grid is thinned before drawing. Triangle sampling
@@ -203,11 +211,16 @@ export function buildChartOption(options) {
     // Band x coordinates are nanometres, like every plotted point, whatever
     // unit the axis is labelled in.
     series.push(...dimmedBandSeries(materialBands, palette));
+    const key = data?.environments
+        ? environmentLegend(data.environments, curveColors ?? ANALYSIS_DEFAULTS.opticalEvaluation.colors, textColor)
+        : null;
+    if (key) series.push(...key.series);
     // The pointer is read in the unit the axis is labelled in.
     const formatX = nm => formatChartReadout(fromNm(nm, spectralUnit));
     return cartesianOption({
         colors: palette,
         grid: plotMargin(),
+        legend: key?.legend,
         tooltip: drawing ? { show: false } : axisTooltip({ ...yScaleTooltip(yScale), formatX, series }),
         toolbox: chartToolbox('spectrum', { dataZoom: !drawing, restore: true }),
         xAxis,
@@ -231,23 +244,25 @@ export function buildChartOption(options) {
 }
 
 /**
- * Columns for the results table and for the CSV. `curveLabels` is
- * t.opticalEval.curveLabels; the CSV names its columns from the curve key and
- * passes nothing, so a column then carries no display label rather than an
- * English one.
+ * Columns for the results table and for the CSV, each with the colour its
+ * heading is drawn in and, under All, the environment it was computed in.
+ * `curveLabels` is t.opticalEval.curveLabels; the CSV names its columns from
+ * the curve key and passes nothing, so a column then carries no display label
+ * rather than an English one.
  */
 export function buildTableColumns(data, showCurves, curveColors, yScale, curveLabels = null) {
     const enabled = readableCurves(showCurves, curveColors, yScale);
-    const multiple = data.series.length > 1;
+    const colors = curveColors ?? ANALYSIS_DEFAULTS.opticalEvaluation.colors;
+    const angles = angleCount(data);
     const columns = [];
     data.series.forEach(series => enabled.forEach(curve => {
         if (series[curve.key]) columns.push({
             cv: curve,
             theta: series.theta,
+            env: series.env ?? null,
+            color: resultColor(curve, series, colors),
             ys: series[curve.key],
-            label: curveLabels
-                ? curveLabels[curve.key] + (multiple ? ` @ ${formatTheta(series.theta)}°` : '')
-                : null,
+            label: curveLabels ? seriesLabel(curveLabels[curve.key], series, angles) : null,
         });
     }));
     return columns;
@@ -265,23 +280,28 @@ const CSV_X_COLUMN = {
     eV: 'Photon energy (eV)',
 };
 
+// A heading as CSV writes it: quoted, its quotes doubled, when it holds a
+// comma, a quote or a line break, as an environment's name can.
+const csvCell = text => (/[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text);
+
 /**
  * The curves the table shows, as CSV text, with the first column in
  * `spectralUnit`. That column keeps the two decimals nm has always been written
- * with, or takes the table's when its step needs more.
+ * with, or takes the table's when its step needs more. Under All each column
+ * names its environment after its quantity and angle.
  */
 export function buildCSV(data, showCurves, yScale, spectralUnit = 'nm') {
     if (!data?.lambda || !data?.series?.length) return '';
     const unit = SPECTRAL_UNITS[spectralUnit] ? spectralUnit : 'nm';
-    const multiple = data.series.length > 1;
+    const multiple = angleCount(data) > 1;
     const suffix = yScaleOf(yScale).csvSuffix;
     const columns = buildTableColumns(data, showCurves, undefined, yScale).map(column => ({
-        name: column.cv.key + suffix + (multiple ? `_${formatTheta(column.theta)}deg` : ''),
+        name: column.cv.key + suffix + (multiple ? `_${formatTheta(column.theta)}deg` : '') + environmentSuffix(column),
         values: column.ys,
     }));
     const x = data.lambda.map(nm => fromNm(nm, unit));
     const decimals = Math.max(2, spectralDecimals(x.slice(0, 2)));
-    const header = [CSV_X_COLUMN[unit], ...columns.map(column => column.name)].join(',');
+    const header = [CSV_X_COLUMN[unit], ...columns.map(column => column.name)].map(csvCell).join(',');
     const rows = x.map((value, index) => [
         value.toFixed(decimals),
         ...columns.map(column => formatYExport(yScale, column.values[index])),
@@ -317,24 +337,34 @@ function levelSnap(logScale, snapDecades) {
     };
 }
 
+/**
+ * The merit rows with a target drawn on the plot added at the end. A drawn
+ * line snaps to the ends of `anchors`, the rows the plot draws, which are all
+ * of `operands` unless the plot shows one environment's rows alone.
+ */
 export function createTargetOperands(options) {
     const {
-        operands, line, editCurve, editPol, editKind, editAoi,
+        operands, anchors = operands, line, editCurve, editPol, editKind, editAoi,
         snapOn, snapNm, snapPct, snapDecades, logScale,
     } = options;
     const drawn = snapOn
-        ? snapDrawnLine(line, { operands, snapNm, snapPct, levelScale: levelSnap(logScale, snapDecades) })
+        ? snapDrawnLine(line, { operands: anchors, snapNm, snapPct, levelScale: levelSnap(logScale, snapDecades) })
         : line;
     const levelled = editKind === 'continuous' ? drawn : levelledOnLogAxis(drawn, logScale);
     return [...operands, makeOperand(
         operandOverridesFromDrawnLine(levelled, editCurve, editPol, editKind, editAoi))];
 }
 
+/**
+ * The merit rows with the target `meta.opId` dragged to `coords`, snapped to
+ * the ends of `anchors` as createTargetOperands snaps; every row stays, and
+ * the edited one keeps its other fields, its environment among them.
+ */
 export function editTargetOperands(options) {
-    const { operands, meta, coords, snapOn, snapNm, snapPct, snapDecades, logScale } = options;
+    const { operands, anchors = operands, meta, coords, snapOn, snapNm, snapPct, snapDecades, logScale } = options;
     const edited = snapOn
         ? snapDrawnLine(coords, {
-            operands, snapNm, snapPct, excludeId: meta.opId,
+            operands: anchors, snapNm, snapPct, excludeId: meta.opId,
             levelScale: levelSnap(logScale, snapDecades),
         })
         : coords;

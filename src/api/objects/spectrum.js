@@ -406,7 +406,7 @@ export const angleCurveOf = (values, angle) => curveOver(AngleCurve, values, ang
  */
 export class Spectrum {
     constructor(mode, wavelength, angles, series, outOfRange) {
-        this._values = { mode, wavelength, angles, outOfRange, name: null, design: null };
+        this._values = { mode, wavelength, angles, outOfRange, name: null, design: null, environment: null };
         this._series = series;
         this._curves = series.map(values => Object.fromEntries(QUANTITIES.map(quantity => [quantity, curveOf(values[quantity], wavelength, quantity)])));
     }
@@ -415,6 +415,13 @@ export class Spectrum {
     // CSV file gives.
     _named(name) {
         this._values.name = name;
+        return this;
+    }
+
+    // The spectrum with the environment it was computed in, `{ number, id,
+    // name }`, or null for one computed without `env`.
+    _in(environment) {
+        this._values.environment = environment;
         return this;
     }
 
@@ -479,6 +486,19 @@ export class Spectrum {
      * console.log(s.outOfRange.length, 'materials stop inside the range');
      */
     get outOfRange() { return this._values.outOfRange; }
+
+    /**
+     * The environment the spectrum was computed in, `{ number, id, name }`,
+     * when design.spectrum() was given `env`; null without one, when it was
+     * computed in environment 1, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const s of design.spectrum(400, 700, { env: 'all' })) console.log(s.environment.number, s.environment.name, Math.max(...s.R));
+     */
+    get environment() { return this._values.environment; }
 
     /**
      * Reflectance for unpolarized light at the first angle, a Curve of
@@ -594,7 +614,8 @@ export class Spectrum {
     angle(angle) {
         const i = this.angles.indexOf(angle);
         if (i < 0) throw new Error(`angle: the spectrum was computed at [${this.angles.join(', ')}], not at ${angle}`);
-        return new Spectrum(this.mode, this.wavelength, [angle], [this._series[i]], this.outOfRange)._named(this._values.name)._computedOn(this._values.design);
+        return new Spectrum(this.mode, this.wavelength, [angle], [this._series[i]], this.outOfRange)
+            ._named(this._values.name)._in(this.environment)._computedOn(this._values.design);
     }
 
     /**

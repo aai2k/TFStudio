@@ -58,7 +58,7 @@ export function DataTable({ data, showCurves, yScale, spectralUnit, units, c, oe
                 h('tr', null,
                     h('th', { style: { ...thBase, textAlign: 'left', color: c.textDim } }, heading),
                     ...columns.map((column, index) =>
-                        h('th', { key: index, style: { ...thBase, textAlign: 'right', color: column.cv.color } }, column.label)
+                        h('th', { key: index, style: { ...thBase, textAlign: 'right', color: column.color } }, column.label)
                     )
                 )
             ),

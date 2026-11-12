@@ -547,7 +547,8 @@ class Spectrum:
     """
 
     def __init__(self, mode, wavelength, angles, series, out_of_range):
-        self._values = {"mode": mode, "wavelength": wavelength, "angles": angles, "out_of_range": out_of_range}
+        self._values = {"mode": mode, "wavelength": wavelength, "angles": angles, "out_of_range": out_of_range,
+                        "environment": None}
         self._name = None
         self._design = (None, None)
         self._series = series
@@ -560,13 +561,20 @@ class Spectrum:
         self._name = name
         return self
 
+    def _in(self, environment):
+        """The spectrum with the environment it was computed in, a dict of
+        number, id and name, or None for one computed without env."""
+        self._values["environment"] = environment
+        return self
+
     def _computed_on(self, calls, design):
         """The spectrum with a copy of the design it was computed on and the
         calls that compute on it, on which its curves find their edges,
-        widths and peaks, each at its own angle; with no design, its curves
-        have none."""
+        widths and peaks, each at its own angle and in the spectrum's
+        environment; with no design, its curves have none."""
         self._design = (calls, design)
-        computed_on(self._curves, self.angles, calls, design)
+        environment = self._values["environment"]
+        computed_on(self._curves, self.angles, calls, design, environment and environment["id"])
         return self
 
     mode = _reading("mode", """What the spectrum was computed on, as the design's sides and score_on
@@ -610,6 +618,18 @@ class Spectrum:
             for m in s.out_of_range:
                 print(m["id"], "has data from", m["rangeNm"])
             print(len(s.out_of_range), "materials stop inside the range")
+        """)
+    environment = _reading("environment", """The environment the spectrum was computed in, a dict of number, id
+        and name, when design.spectrum() was given env; None without one, when it was computed in
+        environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for s in design.spectrum(400, 700, env="all"):
+                print(s.environment["number"], s.environment["name"], max(s.R))
         """)
     R = _quantity("R", """Reflectance for unpolarized light at the first angle, a Curve of fractions
         of 1, one per wavelength.
@@ -715,7 +735,7 @@ class Spectrum:
         for i, computed in enumerate(self.angles):
             if computed == angle:
                 return (Spectrum(self.mode, self.wavelength, [computed], [self._series[i]], self.out_of_range)
-                        ._named(self._name)._computed_on(*self._design))
+                        ._named(self._name)._in(self.environment)._computed_on(*self._design))
         raise TFStudioError("angle: the spectrum was computed at {}, not at {}".format(self.angles, angle))
 
     def save_csv(self, path):

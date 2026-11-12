@@ -51,6 +51,17 @@ export function isEnvironmentOn(env) {
     return env.enabled !== false;
 }
 
+/**
+ * The environments a result for every environment covers, each `{ env, number }`
+ * with its number from 1: every environment that is on, in order, or
+ * environment 1 alone when none is.
+ */
+export function environmentsInAll(design) {
+    const numbered = environmentsOf(design).map((env, i) => ({ env, number: i + 1 }));
+    const on = numbered.filter(({ env }) => isEnvironmentOn(env));
+    return on.length ? on : numbered.slice(0, 1);
+}
+
 /** The merit rows of `design` scored in environment `id`: its own rows and the rows of every environment. */
 export function rowsInEnvironment(design, id) {
     return (design?.meritOperands || []).filter(op => op.env == null || op.env === id);

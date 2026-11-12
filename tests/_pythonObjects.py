@@ -72,6 +72,7 @@ def objects(given):
         stress(tf, given)
         material_dispersion(tf)
         band_features(tf)
+        environment_spectra(tf)
         measured_curves(tf)
         measured_files(tf)
         coating_files(tf)
@@ -952,6 +953,34 @@ def band_features(tf):
     out({"bandFeatures": {"design": before, "lwp": lwp._data, "asked": [a._asdict() for a in asked],
                           "again": [a._asdict() for a in again], "moved": moved._asdict(),
                           "types": [type(a).__name__ for a in asked + [moved]], "worded": worded}})
+
+
+def environment_spectra(tf):
+    """design.spectrum() and design.edge_shift() of a design with environments:
+    environment 1, one environment by id and by number, switched off
+    included, and each environment that is on, each naming its environment;
+    a curve's width found in its environment; and an environment the design
+    does not have refused."""
+    design = tf.new_design("Wet AR")
+    design.stack("(HL)^2")
+    design.environments.add(name="Under water", incident_medium="H2O")
+    design.environments.add(name="Edge", thickness_factors={"TiO2": 0.9}, enabled=False)
+    each = design.spectrum(400, 700, step=10, angles=[0, 30], env="all")
+
+    def shown(s):
+        return [s.environment, s.mode, s.wavelength, s.angles, [list(s.angle(a).R) for a in s.angles]]
+
+    out({"environmentSpectra": {
+        "design": design._data,
+        "spectra": [shown(design.spectrum(400, 700, step=10, angles=[0, 30])),
+                    shown(design.spectrum(400, 700, step=10, angles=[0, 30], env="env2")),
+                    [shown(s) for s in each], shown(design.spectrum(400, 700, step=10, env=3))],
+        "widths": [s.angle(30).R.fwhm(450, 650)._asdict() for s in each],
+        "edges": [[e._asdict(), len(e), e.environment] for e in
+                  [design.edge_shift(450, 650, [0, 30], quantity="R"), design.edge_shift(450, 650, [0, 30], quantity="R", env=2),
+                   *design.edge_shift(450, 650, [0, 30], quantity="R", env="all")]],
+        "refused": [refused(lambda: design.spectrum(400, 700, env=5)),
+                    refused(lambda: design.edge_shift(450, 650, [0], env="al"))]}})
 
 
 def measured_curves(tf):

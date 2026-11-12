@@ -1,4 +1,4 @@
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu } from '../../../ui/ExportMenu.js';
 import { useOpticalEvaluation } from './useOpticalEvaluation.js';
 import { ControlBar } from './ControlBar.js';
@@ -6,6 +6,7 @@ import { TargetToolbar } from './TargetToolbar.js';
 import { ChartPanel } from './ChartPanel.js';
 import { ResultsPanel } from './ResultsPanel.js';
 import { AnalysisWindow } from '../chrome/layout.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 
 const { createElement: h, useCallback } = React;
 
@@ -15,8 +16,9 @@ export function OpticalEvaluation({ c, theme, t }) {
     const fixRange = useCallback(
         ([from, to]) => setParams({ lambdaStart: from, lambdaEnd: to }),
         [setParams]);
-    const rangeNotice = useMaterialRangeNotice(
-        state.design, state.params.lambdaStart, state.params.lambdaEnd, t, fixRange);
+    // The materials of every environment the window shows.
+    const rangeNotice = useMaterialsRangeNotice(
+        state.rangeMaterials, state.params.lambdaStart, state.params.lambdaEnd, t, fixRange);
     const oe = t.opticalEval;
     const exportMenu = h(ExportMenu, {
         c, enabled: !!state.data,
@@ -36,6 +38,7 @@ export function OpticalEvaluation({ c, theme, t }) {
         h(ControlBar, props),
         h(TargetToolbar, props),
         h(ChartPanel, props),
+        h(BadgeRow, props),
         h(ResultsPanel, props),
     );
 }

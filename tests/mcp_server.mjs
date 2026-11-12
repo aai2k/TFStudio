@@ -24,6 +24,8 @@
  *      the API lists them and removed, and environment 1, an environment the
  *      design does not have and environment 1's media refused, a row scored in
  *      one environment with each environment's merit and each row's values,
+ *      the spectrum, a band's peak and an edge against angle of one
+ *      environment and of each, an environment it does not have refused,
  *      and env refused on a design with one environment, merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
@@ -275,6 +277,37 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('setMerit takes env on a row, and merit gives each environment\'s merit and each row\'s env and values as the API does',
         envShown(envRated) === envShown(envScored) && envShown(envMerit) === envShown(envScored) && envMerit.environments.length === 2 && envMerit.rows[1].env === 'env2',
         JSON.stringify(envMerit).slice(0, 400));
+    {
+        // spectrum, bandFeature and edgeShift take env: one environment, or
+        // 'all' for the plain answer of each environment beside its number, id
+        // and name.
+        const envRange = { from: 450, to: 650, step: 50, angles: [0, 30] };
+        const bands = [{ from: 500, to: 600 }];
+        const summary = env => {
+            const one = api.spectrum(envHere, { ...envRange, env });
+            return { evalMode: one.evalMode, outOfRange: one.outOfRange, summary: api.summarize(one, { bands }) };
+        };
+        const wetSpectrum = await server.call('spectrum', { designId: envId, ...envRange, bands, env: 2 });
+        const allSpectra = await server.call('spectrum', { designId: envId, ...envRange, bands, env: 'all' });
+        ok('the spectrum tool computes the environment env names, and each with env all',
+            JSON.stringify(wetSpectrum) === JSON.stringify({ designId: envId, ...summary(2) })
+            && JSON.stringify(allSpectra) === JSON.stringify({ designId: envId, environments: [
+                { number: 1, id: 'base', name: null, ...summary(1) }, { number: 2, id: 'env2', name: 'Under water', ...summary(2) }] }),
+            JSON.stringify(allSpectra).slice(0, 300));
+        const peakAsked = { feature: 'peak', from: 450, to: 650, quantity: 'R' };
+        ok('bandFeature takes env', JSON.stringify(await server.call('bandFeature', { designId: envId, ...peakAsked, env: 'env2' }))
+            === JSON.stringify({ designId: envId, ...api.bandFeature(envHere, { ...peakAsked, env: 'env2' }) })
+            && JSON.stringify(await server.call('bandFeature', { designId: envId, ...peakAsked, env: 'all' }))
+            === JSON.stringify({ designId: envId, ...api.bandFeature(envHere, { ...peakAsked, env: 'all' }) }));
+        const edgesAll = await server.call('edgeShift', { designId: envId, from: 450, to: 750, angles: [0, 15, 30], quantity: 'R', values: true, env: 'all' });
+        ok('edgeShift with env all answers each environment as it answers one', JSON.stringify(edgesAll.environments.map(({ number, id, name }) => [number, id, name]))
+            === JSON.stringify([[1, 'base', null], [2, 'env2', 'Under water']])
+            && edgesAll.environments.every(({ number, id: _id, name: _name, angleCount: _count, notCrossedCount: _missing, ...one }) =>
+                JSON.stringify(one) === JSON.stringify(api.edgeShift(envHere, { from: 450, to: 750, angles: [0, 15, 30], quantity: 'R', env: number }))),
+            JSON.stringify(edgesAll).slice(0, 300));
+        const noSuch = await server.call('spectrum', { designId: envId, ...envRange, env: 7 });
+        ok('an environment the design does not have is refused', /spectrum: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noSuch.error ?? ''), noSuch.error);
+    }
     const loneEnv = await server.call('setMerit', { designId: id, rows: [{ type: 'R', lambdaStart: 550, env: 2 }] });
     ok('env on a row of a design with one environment is refused', /setMerit: row 0: the design has one environment, so a row takes no env/.test(loneEnv.error ?? ''), loneEnv.error);
     const removedEnv = await server.call('removeEnvironment', { designId: envId, environment: 'env2' });

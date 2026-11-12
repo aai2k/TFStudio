@@ -439,17 +439,25 @@
     "hash": "37d4294f",
     "text": "入射角，为入射介质中的度数，每个都在 0 到 90 之间，不含 90。"
   },
-  "Design.spectrum.returns": {
-    "hash": "b470e4d0",
-    "text": "一个 Spectrum。"
+  "Design.spectrum.arg.env": {
+    "hash": "4cab5c01",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个光谱，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
+  "Design.spectrum.returns.js": {
+    "hash": "69c05f8b",
+    "text": "一个 Spectrum；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。"
+  },
+  "Design.spectrum.returns.py": {
+    "hash": "3305dd2f",
+    "text": "一个 Spectrum；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.spectrum.lead.1": {
-    "hash": "27276e57",
-    "text": "一段波长范围内的 R、T 和 A，包括非偏振光以及 s 和 p 偏振，计算方式与光学评估窗口相同。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，光谱的 `mode` 说明是哪一个。设有入射锥角的设计会在其锥角内取平均。"
+    "hash": "7d156633",
+    "text": "一段波长范围内的 R、T 和 A，包括非偏振光以及 s 和 p 偏振，计算方式与光学评估窗口相同。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，光谱的 `mode` 说明是哪一个。设有入射锥角的设计会在其锥角内取平均。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境；此时光谱的曲线也在该环境中求边缘、宽度和峰。"
   },
   "Design.spectrum.refuses.1": {
-    "hash": "04aed836",
-    "text": "不构成范围的范围、0 到 90 以外的角度、用到找不到对应材料的设计，或超过一百万个点（波长数乘以角度数）：请加大波长步长或减少角度"
+    "hash": "bc238dda",
+    "text": "不构成范围的范围、0 到 90 以外的角度、用到找不到对应材料的设计、设计中没有的环境，或超过一百万个点（波长数乘以角度数）：请加大波长步长或减少角度"
   },
   "Design.indexProfile.arg.wavelength": {
     "hash": "d1167138",
@@ -2042,6 +2050,14 @@
   "Spectrum.outOfRange.lead.1.py": {
     "hash": "3168f032",
     "text": "数据在该范围内中断的材料，一个由 dict { id, name, rangeNm, heldFlat } 组成的 list：在 rangeNm（以 nm 计的 [first, last]）之外，它们的 n 和 k 保持在最后的值（heldFlat 为 True）或外推得到。每种材料都覆盖该范围时为空。"
+  },
+  "Spectrum.environment.lead.1.js": {
+    "hash": "cc824594",
+    "text": "光谱计算所在的环境，design.spectrum() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时光谱在环境 1（即设计自身的介质和基底）中计算。"
+  },
+  "Spectrum.environment.lead.1.py": {
+    "hash": "9cd2268f",
+    "text": "光谱计算所在的环境，design.spectrum() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时光谱在环境 1（即设计自身的介质和基底）中计算。"
   },
   "Spectrum.R.lead.1": {
     "hash": "bb7fc702",
@@ -4243,21 +4259,25 @@
     "hash": "fb71334c",
     "text": "搜索峰所用的步长，单位 nm：1、0.1、0.01 或 0.001。交点在不粗于该步长、且至少 301 个采样点的波段扫描上确定。"
   },
+  "Design.edgeShift.arg.env": {
+    "hash": "8e2f20d2",
+    "text": "计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，给出每个开启的环境的边缘，没有开启的环境时给环境 1 的。不给出时为环境 1。"
+  },
   "Design.edgeShift.returns.js": {
-    "hash": "654c176d",
-    "text": "一个对象：`angles`，以及每个入射角在下列各项中的一个值：`edge`，交点，单位 nm；`shift`，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 null；`reason`，此时为 `'edgeNotCrossed'`，否则为 null；`peak`、`peakValue` 和 `levelValue`；还有 `level`，所用的电平，以及 `mode`、`quantity`、`direction` 和 `step`。"
+    "hash": "c4cd803e",
+    "text": "一个对象：`angles`，以及每个入射角在下列各项中的一个值：`edge`，交点，单位 nm；`shift`，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 null；`reason`，此时为 `'edgeNotCrossed'`，否则为 null；`peak`、`peakValue` 和 `levelValue`；`level`，所用的电平，以及 `mode`、`quantity`、`direction` 和 `step`；给出 `env` 时还有 `environment`，即计算所在的环境 `{ number, id, name }`。`env: 'all'` 时为由这些对象组成的数组，每个环境一个。"
   },
   "Design.edgeShift.returns.py": {
-    "hash": "c75dce1a",
-    "text": "一个 EdgeShift，即命名元组：angles，以及每个入射角在下列各项中的一个值：edge，交点，单位 nm；shift，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 None；reason，此时为 \"edgeNotCrossed\"，否则为 None；peak、peak_value 和 level_value；还有 level，所用的电平，以及 mode、quantity、direction 和 step。"
+    "hash": "7c523b34",
+    "text": "一个 EdgeShift，即命名元组：angles，以及每个入射角在下列各项中的一个值：edge，交点，单位 nm；shift，该边缘减去第一个入射角下的边缘，单位 nm；光谱在波段内不穿越该电平时两者都为 None；reason，此时为 \"edgeNotCrossed\"，否则为 None；peak、peak_value 和 level_value；level，所用的电平，以及 mode、quantity、direction 和 step。给出 env 时，它的 environment 是计算所在的环境，即由 number、id 和 name 组成的 dict，位于元组字段之外；env=\"all\" 时为由这些元组组成的 list，每个环境一个。"
   },
   "Design.edgeShift.lead.1": {
-    "hash": "6c9792c7",
-    "text": "在多个入射角下，设计的光谱在波段的峰旁穿越某一电平的位置，以及该边缘相对第一个入射角下的位置移动了多少；每个都按规格窗口的 EDGE_LAMBDA 检查的方法求出，与光谱曲线的 edge() 相同。计算对象随设计的 `sides` 和 `scoreOn` / `score_on` 而定，与光谱相同；带有入射锥角的设计会在锥角上取平均。"
+    "hash": "f7635b28",
+    "text": "在多个入射角下，设计的光谱在波段的峰旁穿越某一电平的位置，以及该边缘相对第一个入射角下的位置移动了多少；每个都按规格窗口的 EDGE_LAMBDA 检查的方法求出，与光谱曲线的 edge() 相同。计算对象随设计的 `sides` 和 `scoreOn` / `score_on` 而定，与光谱相同；带有入射锥角的设计会在锥角上取平均。有多个环境的设计在环境 1 中计算，除非 `env` 指定了其他环境。"
   },
   "Design.edgeShift.refuses.1": {
-    "hash": "db8e9965",
-    "text": "不构成范围的波段、空的入射角列表或超出 0 到 90 的入射角、不接受的选项或选项不能取的值，或引用了找不到对应材料的设计"
+    "hash": "bd76745b",
+    "text": "不构成范围的波段、空的入射角列表或超出 0 到 90 的入射角、不接受的选项或选项不能取的值、引用了找不到对应材料的设计，或设计中没有的环境"
   },
   "Curve.edge.arg.start": {
     "hash": "b28781c1",

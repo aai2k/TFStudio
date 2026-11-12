@@ -264,7 +264,7 @@ export default {
       hint: 'Vengono usate al prossimo avvio di TFStudio. Una finestra in cui hai già cambiato qualcosa in questa sessione mantiene quello che vi hai impostato.',
       curveColors: 'Colori delle curve',
       palette: 'Tavolozza',
-      paletteHint: "Assegnati in quest'ordine, un colore per curva o per materiale, riciclando dall'inizio una volta esaurito l'elenco.",
+      paletteHint: "Assegnati in quest'ordine, un colore per curva, per materiale o per ambiente, riciclando dall'inizio una volta esaurito l'elenco.",
       paletteSlot: (n) => `Colore ${n}`,
       ranges: 'Intervalli',
       resetWindow: 'Reimposta questa finestra',
@@ -1368,6 +1368,9 @@ export default {
     response: 'Risposta',
     reflection: 'Riflessione',
     transmission: 'Trasmissione',
+    environmentCurrent: (n) => `Corrente (${n})`,
+    environmentAll: 'Tutti',
+    environmentTip: "L'ambiente in cui calcola questa finestra. Corrente segue quello mostrato nell'Editor del design e nella barra multifunzione.",
   },
   dataTable: {
     data: 'Dati',

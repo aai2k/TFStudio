@@ -3,7 +3,9 @@
 // coating under water, or a chamber position where the films grow thinner.
 // src/utils/environments/environments.js describes what each one holds.
 
-import { environmentDesign, environmentsOf, isEnvironmentOn, BASE_ENVIRONMENT } from '../utils/environments/environments.js';
+import {
+    environmentDesign, environmentsInAll, environmentsOf, isEnvironmentOn, BASE_ENVIRONMENT,
+} from '../utils/environments/environments.js';
 import * as edits from '../utils/environments/environmentEdits.js';
 import { requireMaterial } from './materials.js';
 import { checkOptions, requireValue, isBoolean, isPositive, refusal, shown } from './check.js';
@@ -82,16 +84,39 @@ function storedFields({ substrate, substrateThicknessMm, ...fields }) {
 /**
  * The id of the environment `environment` names, by its id or its number from
  * 1, or a refusal that lists the numbers and ids the design has. `fields` go
- * into the refusal's fields, and `named` names what was given in its message.
+ * into the refusal's fields, `named` names what was given in its message, and
+ * `also` is what else it takes, said before the environments.
  */
-export function environmentId(call, design, environment, { fields = {}, named = `${call}: environment` } = {}) {
+export function environmentId(call, design, environment, { fields = {}, named = `${call}: environment`, also = null } = {}) {
     const list = environmentsOf(design);
     const found = Number.isInteger(environment) ? list[environment - 1] : list.find(env => env.id === environment);
     if (found) return found.id;
     const ids = list.map(env => env.id);
     const numbers = ids.map((_, i) => i + 1);
     throw refusal('unknownEnvironment', { call, ...fields, environment, numbers, ids },
-        `${named} is one of the design's environments by its number, ${numbers.length === 1 ? '1' : `1 to ${numbers.length}`}, or its id, ${orList(ids)}; not ${shown(environment)}`);
+        `${named} is ${also ? `${also} or ` : ''}one of the design's environments by its number, ${numbers.length === 1 ? '1' : `1 to ${numbers.length}`}, or its id, ${orList(ids)}; not ${shown(environment)}`);
+}
+
+/**
+ * What a result call gives for its `env` option, `compute(design)` being the
+ * call's own result on a design: without `env`, its result on the design
+ * itself, which is environment 1; with an environment's number or id, its
+ * result on the design that environment computes, switched on or off; with
+ * `'all'`, `{ environments }`, one entry per environment that is on
+ * (environment 1 when none is), each the call's own result with the
+ * environment's `number`, `id` and `name`. An environment the design does not
+ * have is refused with `unknownEnvironment`.
+ */
+export function inEnvironments(call, design, env, compute) {
+    if (env === undefined) return compute(design);
+    if (env !== 'all') {
+        return compute(environmentDesign(design, environmentId(call, design, env, { fields: { option: 'env' }, named: `${call}: env`, also: "'all'" })));
+    }
+    return {
+        environments: environmentsInAll(design).map(({ env: one, number }) => ({
+            number, id: one.id, name: one.name ?? null, ...compute(environmentDesign(design, one.id)),
+        })),
+    };
 }
 
 /**

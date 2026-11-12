@@ -55,6 +55,9 @@ check(exportIndex > resultsIndex, 'the export control renders in the Results str
 // Which surface the spectrum describes has to stay readable without opening a
 // panel, so the badges ride in the strip that is always on screen.
 check(markup.includes('FRONT'), 'the evaluation-mode badge stays visible');
+// The environment switch belongs to a design with environments
+// (optical_evaluation_environments.mjs); this one has none.
+check(!markup.includes('<select'), 'a design without environments draws no environment switch');
 check(editorMarkup.includes(oe.editToolDraw) && editorMarkup.includes(oe.snap),
     'expanded target editor renders the redesigned grouped controls');
 check(editorMarkup.includes('>0°<') && editorMarkup.includes('>45°<'),

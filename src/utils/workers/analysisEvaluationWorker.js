@@ -65,6 +65,9 @@ function colorReports(design, options) {
 
 const EVALUATIONS = {
     opticalSpectrum: ({ design, params, evalMode }) => computeOpticalSpectrum(design, params, evalMode),
+    // Optical Evaluation's spectrum of each environment it shows, each design
+    // the one that environment computes.
+    opticalSpectra: ({ designs, params, evalMode }) => (designs || []).map(design => computeOpticalSpectrum(design, params, evalMode)),
     integralSpectrum: ({ design, params, evalMode }) => computeSpectrumForMode(design, params, evalMode),
     // The Report's integrals blocks: integralSpectrum of each design on each
     // grid, the design read in the mode it is evaluated in.

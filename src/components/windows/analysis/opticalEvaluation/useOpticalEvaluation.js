@@ -5,18 +5,31 @@ import { computeOpticalSpectrum } from './spectrum.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
+import { overlaidSpectrum } from './environmentSeries.js';
 import { opticalEvaluationSession, opticalTargetSession } from './sessionState.js';
 import { evalParamsSession } from '../../../../state/evalParamsSession.js';
 import { isLogYScale, yScaleReadsQuantity } from './yScale.js';
 import { useWindowSession } from '../../windowSession.js';
 import { gridEvenIn, switchSpectralUnit } from '../../../../utils/physics/spectralAxis.js';
+import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
+import { rowsShown, useEnvironmentChoice } from '../chrome/environmentChoice.js';
 
 const { useState, useEffect, useCallback, useMemo } = React;
 
+// What the window draws of `spectra`, one per environment it computes: that
+// environment's spectrum, or under All one spectrum holding each environment's
+// series.
+function shownSpectrum(spectra, every, views) {
+    if (!spectra) return null;
+    return every ? overlaidSpectrum(views, spectra) : spectra[0];
+}
+
 // The spectrum is computed from the sampled design, so a run redraws this
 // window at the shared preview cadence rather than once per progress message.
-function useSpectrumEvaluation({ params, evalMode }) {
-    const { design } = useLiveDesign();
+// It is computed in each environment the window shows, from the design that
+// environment computes; environment 1's is the design itself.
+function useSpectrumEvaluation({ environment, params, evalMode }) {
+    const { design, views } = environment;
     // Narrowed to what the spectrum is actually computed from. The display unit
     // moves the points only between a wavelength unit and a reciprocal one: nm
     // and µm sample the same wavelengths, as do cm⁻¹, THz and eV, so a switch
@@ -27,26 +40,32 @@ function useSpectrumEvaluation({ params, evalMode }) {
         () => ({ lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, evenIn, thetas }),
         [lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, evenIn, thetas]);
     const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const designs = useMemo(() => views.map(view => view.design), [views]);
     const payload = useMemo(
-        () => ({ design, params: spectrumParams, evalMode }),
-        [design, spectrumParams, evalMode],
+        () => ({ designs, params: spectrumParams, evalMode }),
+        [designs, spectrumParams, evalMode],
     );
-    const workerResult = useAnalysisEvaluation(coneActive, 'opticalSpectrum', payload);
+    const workerResult = useAnalysisEvaluation(coneActive, 'opticalSpectra', payload);
     const directResult = useMemo(() => {
         if (coneActive) return { data: null, error: null };
         try {
-            return { data: computeOpticalSpectrum(design, spectrumParams, evalMode), error: null };
+            return { data: designs.map(one => computeOpticalSpectrum(one, spectrumParams, evalMode)), error: null };
         } catch (error) {
             console.error('TMM error:', error);
             return { data: null, error: 'ANALYSIS_EVALUATION_FAILED' };
         }
-    }, [coneActive, design, spectrumParams, evalMode]);
+    }, [coneActive, designs, spectrumParams, evalMode]);
+    const spectra = coneActive ? workerResult.data : directResult.data;
+    const { every } = environment;
+    const data = useMemo(() => shownSpectrum(spectra, every, views), [spectra, every, views]);
     return coneActive
-        ? { data: workerResult.data, error: workerResult.error, busy: workerResult.busy }
-        : directResult;
+        ? { data, error: workerResult.error, busy: workerResult.busy }
+        : { data, error: directResult.error };
 }
 
-function useTargetEditor({ design, updateDesign, yScale, thetas }) {
+// `shownRows` are the merit rows the plot draws, the ones a drawn or dragged
+// target snaps to; an edit still writes the whole list.
+function useTargetEditor({ design, updateDesign, yScale, thetas, shownRows }) {
     const [session, setField] = useWindowSession(opticalTargetSession, design);
     const { editMode, editTool, editPol, editKind, snapOn, snapNm, snapPct, snapDecades } = session;
     // A target is drawn against a curve, so it is offered the angles the window
@@ -64,21 +83,21 @@ function useTargetEditor({ design, updateDesign, yScale, thetas }) {
     const onCreateTarget = useCallback(line => {
         updateDesign({
             meritOperands: createTargetOperands({
-                operands: design.meritOperands || [], line,
+                operands: design.meritOperands || [], anchors: shownRows || [], line,
                 editCurve, editPol, editKind, editAoi,
                 snapOn, snapNm, snapPct, snapDecades, logScale,
             })
         });
-    }, [design, updateDesign, editCurve, editPol, editKind, editAoi,
+    }, [design, shownRows, updateDesign, editCurve, editPol, editKind, editAoi,
         snapOn, snapNm, snapPct, snapDecades, logScale]);
     const onEditTarget = useCallback((meta, coords) => {
         updateDesign({
             meritOperands: editTargetOperands({
-                operands: design.meritOperands || [], meta, coords,
+                operands: design.meritOperands || [], anchors: shownRows || [], meta, coords,
                 snapOn, snapNm, snapPct, snapDecades, logScale,
             })
         });
-    }, [design, updateDesign, snapOn, snapNm, snapPct, snapDecades, logScale]);
+    }, [design, shownRows, updateDesign, snapOn, snapNm, snapPct, snapDecades, logScale]);
     const onDeleteTarget = useCallback(opId => {
         updateDesign({ meritOperands: deleteTargetOperand(design.meritOperands || [], opId) });
     }, [design, updateDesign]);
@@ -147,7 +166,7 @@ function useCsvActions({ data, showCurves, yScale, spectralUnit, design }) {
     return { copied, saved, copyCSV, saveCSV };
 }
 
-function designSummary(design, evalMode, data) {
+function designSummary(design, evalMode, data, targets) {
     const frontLayers = design.frontLayers || [];
     const backLayers = design.backLayers || [];
     const frontCount = frontLayers.length;
@@ -158,8 +177,18 @@ function designSummary(design, evalMode, data) {
     return {
         frontCount, backCount, frontNm, backNm, subThick,
         showEmpty: evalMode === 'front' && frontCount === 0 && !data,
-        hasTargets: !!design.meritOperands?.length,
+        hasTargets: !!targets?.length,
     };
+}
+
+// What the window draws beside the spectra for the environments it shows: the
+// merit rows on the plot, and the materials the range notice and the range
+// bands read, each material once.
+function useEnvironmentShown(design, environment) {
+    const { every, views } = environment;
+    const targets = useMemo(() => rowsShown(design, every, views), [design, every, views]);
+    const materials = useMemo(() => views.flatMap(view => rangeMaterials(view.design)), [views]);
+    return { targets, rangeMaterials: materials };
 }
 
 export function useOpticalEvaluation() {
@@ -170,17 +199,19 @@ export function useOpticalEvaluation() {
     // read it; they peek at the copy last changed here.
     const [params, , setParams] = useWindowSession(evalParamsSession, null);
     const display = useDisplayOptions(params, setParams, design);
-    const spectrum = useSpectrumEvaluation({ params, evalMode });
+    const environment = useEnvironmentChoice(useLiveDesign().design, { overlay: true });
+    const spectrum = useSpectrumEvaluation({ environment, params, evalMode });
+    const shown = useEnvironmentShown(design, environment);
     const targets = useTargetEditor({
-        design, updateDesign, yScale: display.yScale, thetas: params.thetas,
+        design, updateDesign, yScale: display.yScale, thetas: params.thetas, shownRows: shown.targets,
     });
     const csv = useCsvActions({
         data: spectrum.data, showCurves: display.showCurves, yScale: display.yScale,
         spectralUnit: display.spectralUnit, design,
     });
     return {
-        design, evalMode, params, setParams,
-        ...display, ...spectrum, ...targets, ...csv,
-        ...designSummary(design, evalMode, spectrum.data),
+        design, evalMode, params, setParams, environment,
+        ...display, ...spectrum, ...shown, ...targets, ...csv,
+        ...designSummary(design, evalMode, spectrum.data, shown.targets),
     };
 }

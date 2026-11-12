@@ -25,7 +25,9 @@
  *   included, by name and by the builtin: id a stacked layer holds, and their
  *   n and k, and a name two materials share refused; spectrum curves at two
  *   angles as arrays, their mean, min and max over a band and the whole range,
- *   and the CSV file with its conditions lines; merit rows, with start and end left out before the
+ *   and the CSV file with its conditions lines; spectra and edge shifts of one
+ *   environment and of each one, each naming its environment, and band
+ *   features found in it; merit rows, with start and end left out before the
  *   options, and options given as undefined or null, value, rows and clear(),
  *   a row scored in one environment, each environment's merit and each row's
  *   env and values, and env refused on a design with one environment,
@@ -473,6 +475,45 @@ const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'f
     ok('saveCsv writes the conditions on # lines, then the wavelengths and each quantity at each angle, each headed',
         canon([s.mode, ...lines.slice(0, 3)]) === canon(['front', `# ${design.name}`, '# front side', '# Polarization: per column'])
         && canon(csv[0]) === canon(header) && canon(csv.slice(1).map(row => row.map(Number))) === canon(rows), JSON.stringify(lines.slice(0, 4)));
+}
+{
+    // A spectrum of a design with environments: environment 1 without env,
+    // one environment by number or id, or a list for 'all', each carrying its
+    // environment and finding its peak, edge and width in that environment.
+    const wet = design.copy();
+    wet.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+    wet.environments.add({ name: 'Edge', thicknessFactors: { TiO2: 0.9 }, enabled: false });
+    const range = { from: 400, to: 700, step: 10, angles: [0, 30] };
+    const curvesOf = s => [s.mode, s.wavelength, s.angles, s.outOfRange, s.angles.map(a => QUANTITIES.map(q => [...s.angle(a)[q]]))];
+    const plainOf = found => [found.evalMode, found.lambda, range.angles, found.outOfRange, range.angles.map(a => QUANTITIES.map(q => found.angles[a][q]))];
+    const WATER = { number: 2, id: 'env2', name: 'Under water' };
+    const plain = wet.spectrum(400, 700, { step: 10, angles: [0, 30] });
+    ok('without env a spectrum is environment 1\'s and names none', canon([curvesOf(plain), plain.environment]) === canon([plainOf(api.spectrum(wet._data, range)), null]));
+    const two = wet.spectrum(400, 700, { step: 10, angles: [0, 30], env: 'env2' });
+    const byNumber = wet.spectrum(400, 700, { step: 10, angles: [0, 30], env: 2 });
+    ok('env by id or number gives that environment\'s spectrum and names it', canon([curvesOf(two), two.environment, byNumber.environment])
+        === canon([plainOf(api.spectrum(wet._data, { ...range, env: 'env2' })), WATER, WATER]));
+    const all = wet.spectrum(400, 700, { step: 10, angles: [0, 30], env: 'all' });
+    ok('env \'all\' gives a list of Spectrum objects, one per environment that is on, each naming its environment', all.every(s => s instanceof objects.Spectrum)
+        && canon([all.map(s => s.environment), curvesOf(all[1]), all[1].angle(30).environment]) === canon([[{ number: 1, id: 'base', name: null }, WATER], curvesOf(two), WATER]));
+    const band = { feature: 'fwhm', from: 450, to: 650, quantity: 'R', angle: 30 };
+    const peak = { feature: 'peak', from: 400, to: 700, quantity: 'R' };
+    ok('each finds its peak, edge and width in its own environment',
+        canon([all[1].angle(30).R.fwhm(450, 650), all[0].angle(30).R.fwhm(450, 650), wet.spectrum(400, 700, { env: 3 }).R.peak()])
+        === canon([api.bandFeature(wet._data, { ...band, env: 2 }), api.bandFeature(wet._data, band), api.bandFeature(wet._data, { ...peak, env: 3 })]));
+    const edges = { from: 450, to: 650, angles: [0, 30], quantity: 'R' };
+    const named = api.edgeShift(wet._data, { ...edges, env: 'all' }).environments.map(({ number, id, name, ...one }) => ({ ...one, environment: { number, id, name } }));
+    ok('edgeShift without env is edgeShift as it was; with env it names its environment, and gives a list for \'all\'',
+        canon([wet.edgeShift(450, 650, [0, 30], { quantity: 'R' }), wet.edgeShift(450, 650, [0, 30], { quantity: 'R', env: 2 }),
+            wet.edgeShift(450, 650, [0, 30], { quantity: 'R', env: 'all' })])
+        === canon([api.edgeShift(wet._data, edges), { ...api.edgeShift(wet._data, { ...edges, env: 2 }), environment: WATER }, named]));
+    const unknown = [await refused(() => wet.spectrum(400, 700, { env: 5 })), await refused(() => wet.edgeShift(450, 650, [0], { env: 'al' }))];
+    ok('an environment the design does not have is refused in the objects\' words, saying env takes \'all\'', canon(unknown) === canon([
+        "spectrum: env is 'all' or one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3; not 5",
+        'edgeShift: env is \'all\' or one of the design\'s environments by its number, 1 to 3, or its id, base, env2 or env3; not "al"',
+    ]), canon(unknown));
+    const kept = await refused(() => wet.environments.remove(7));
+    ok('and an environment named elsewhere keeps its words', kept === 'environment 7: the design has 3 environments, numbered from 1', kept);
 }
 
 // ── The merit function ──────────────────────────────────────────────────────
