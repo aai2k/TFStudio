@@ -236,6 +236,13 @@ function trackReleaseInOwnDocument(chart, element) {
 export function drawChart(element, chartRef, option, initOptions) {
     const api = runtime();
     if (!element || !api || !option || !hasRoomToDraw(element, option)) return null;
+    // ECharts sizes its canvas in whole pixels. A host of fractional height,
+    // which a docked window gets at some window sizes, leaves a strip of the
+    // host under the canvas, and through a transparent host the window behind
+    // shows as a hairline under the plot. The host takes the chart's colour.
+    if (typeof option.backgroundColor === 'string' && element.style) {
+        element.style.backgroundColor = option.backgroundColor;
+    }
 
     let chart = chartRef.current;
     if (!chart || chart.isDisposed?.()) {

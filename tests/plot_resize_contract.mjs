@@ -186,6 +186,18 @@ const option = { grid: { left: 48, right: 12, top: 12, bottom: 42 }, series: [] 
     assert.equal(chartRef.current, null);
 }
 
+// The canvas is a whole number of pixels high; in a host of fractional height
+// the strip under it is the host's, so the host takes the chart's background
+// rather than letting the window behind it show as a hairline under the plot.
+{
+    const host = { ...roomy, style: {} };
+    drawChart(host, { current: null }, { ...option, backgroundColor: '#202123' });
+    assert.equal(host.style.backgroundColor, '#202123', 'the chart host is painted in the chart background');
+    const plain = { ...roomy, style: {} };
+    drawChart(plain, { current: null }, option);
+    assert.equal(plain.style.backgroundColor, undefined, 'an option without a background leaves the host as it is');
+}
+
 assert.equal(hasRoomToDraw(roomy, option), true);
 assert.equal(hasRoomToDraw({ clientWidth: 55, clientHeight: 600 }, option), false);
 assert.equal(hasRoomToDraw({ clientWidth: 800, clientHeight: 50 }, option), false);
