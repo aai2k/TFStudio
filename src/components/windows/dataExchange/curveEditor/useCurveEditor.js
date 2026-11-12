@@ -2,8 +2,8 @@
  * The curve editor's state: the table and its undo history, the cell
  * selection (the shared grid's, ui/grid/useGridSelection.js) and the drag of
  * its fill handle (ui/grid/useFillDrag.js), the cell being typed into, the
- * tool panels' numbers and which panel is open, and the line of notices under
- * the table.
+ * tool panels' numbers and which panel is open, the plot's Y range, and the
+ * line of notices under the table.
  *
  * The editor opens as a modal over the window that asked for it, so all of it
  * is component state and goes when the editor closes.
@@ -90,6 +90,19 @@ function withPanelEscape(onKey, close) {
     };
 }
 
+// The plot's Y range, { auto, min, max }, which opens on Auto, and `yEnds`,
+// the ends the left axis was last drawn with. Clearing Auto starts the range
+// from those ends, so the plot does not move when the box is cleared.
+function useYRange() {
+    const [yRange, setYRange] = useState({ auto: true, min: null, max: null });
+    const [yEnds, setYEnds] = useState(null);
+    const setYAuto = auto => setYRange(range => (auto
+        ? { ...range, auto: true }
+        : { auto: false, min: yEnds?.[0] ?? null, max: yEnds?.[1] ?? null }));
+    const setYEnd = (end, value) => setYRange(range => ({ ...range, [end]: value }));
+    return { yRange, yEnds, setYEnds, setYAuto, setYEnd };
+}
+
 // The fill handle: the rectangle it sits on, its drag, and what the label by
 // the pointer shows while it is dragged.
 function useFillHandle(ed) {
@@ -118,6 +131,7 @@ export function useCurveEditor({ initialTable, onApply, ce }) {
     const [dragOn, setDragOn] = useState(true);
     const [sizes, setSizes] = useState([45, 55]);
     const [rebuild, setRebuild] = useState(true);
+    const yAxis = useYRange();
     const table = history.present;
     const live = useRef(null);
     live.current = table;
@@ -138,7 +152,7 @@ export function useCurveEditor({ initialTable, onApply, ce }) {
     const closePanel = panel && !editCell ? () => setPanel(null) : null;
     return {
         table, sel, fill, editCell, status, tools, setTools, panel, setPanel,
-        dragOn, setDragOn, sizes, setSizes, rebuild, setRebuild,
+        dragOn, setDragOn, sizes, setSizes, rebuild, setRebuild, ...yAxis,
         canUndo: history.past.length > 0, canRedo: history.future.length > 0,
         actions, edit, onKeyDown: withPanelEscape(keyHandler(ed, actions, editCell), closePanel),
         apply: () => applyTable(ed, onApply, { rebuild }),

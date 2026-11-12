@@ -5,6 +5,9 @@
  * Columns in one unit share the left axis. A second unit, or Δ beside Ψ, gets
  * the right axis, the way the Ellipsometry plot gives Δ an axis of its own: on
  * one 0-360° axis Ψ would be squeezed into its bottom quarter.
+ *
+ * The axes fit themselves to the values unless a range is typed for the left
+ * one in the editor's Y fields; the right axis always fits itself.
  */
 import {
     axisTooltip, cartesianOption, lineSeries, scatterSeries, valueAxis,
@@ -88,12 +91,21 @@ function columnSeriesList(table, index, view) {
     return series;
 }
 
+// The left axis's range as typed, [min, max], or null while it fits itself:
+// with Auto on, and while the low end typed is not below the high one.
+function typedRange(yRange) {
+    if (!yRange || yRange.auto) return null;
+    const { min, max } = yRange;
+    return Number.isFinite(min) && Number.isFinite(max) && min < max ? [min, max] : null;
+}
+
 /**
  * The plot's ECharts option.
  *   view.colors      chart colours, as cartesianOption takes them
  *   view.backdrops   designBackdrop.js, one per column or null
  *   view.labels      { quantity(column), unit(unit), design, xAxis }
  *   view.dragOn      points are dragged on the overlay, so the line draws none
+ *   view.yRange      { auto, min, max }, the left axis's range from the Y fields
  */
 export function curveChartOption(table, view) {
     const axes = columnAxes(table.columns);
@@ -101,10 +113,12 @@ export function curveChartOption(table, view) {
     const context = { ...view, axes, colors: columnColorsList };
     const series = table.columns.flatMap((_, index) => columnSeriesList(table, index, context));
     const twoAxes = axes.includes(1);
+    const typed = typedRange(view.yRange);
     const yAxis = [0, 1].slice(0, twoAxes ? 2 : 1).map(axis => ({
         ...valueAxis({
             name: axisName(table.columns, axes, axis, view.labels), color: view.colors.text,
-            gridColor: view.colors.grid, position: axis ? 'right' : 'left', scale: true, nameGap: 40,
+            gridColor: view.colors.grid, position: axis ? 'right' : 'left', nameGap: 40,
+            ...(axis === 0 && typed ? { min: typed[0], max: typed[1] } : { scale: true }),
         }),
         splitLine: { show: axis === 0, lineStyle: { color: view.colors.grid, width: 1 } },
     }));
@@ -121,6 +135,19 @@ export function curveChartOption(table, view) {
         yAxis,
         series,
     });
+}
+
+/**
+ * The ends the left axis was drawn with, [bottom, top], read from the chart's
+ * model, for the Y fields to show while Auto is on; null for a chart that gives
+ * none. A zoomed plot gives the ends of what is in view, which can run to many
+ * digits, so they are kept to six figures, what a field shows.
+ */
+export function drawnAxisEnds(chart) {
+    const ends = chart?.getModel?.()?.getComponent?.('yAxis', 0)?.axis?.scale?.getExtent?.();
+    return ends?.length === 2 && ends.every(Number.isFinite)
+        ? ends.map(value => Number(value.toPrecision(6)))
+        : null;
 }
 
 /** The points the overlay offers to drag: every complete row of every column. */

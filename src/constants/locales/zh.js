@@ -1231,6 +1231,8 @@ export default {
     deleteRowsTip: '删除所选单元格所在的行（Delete）。Backspace 只清空单元格。',
     dragPoints: '拖动点',
     dragPointsTip: '在图上上下拖动一个点即可改变其值。其波长保持输入值不变。',
+    yAuto: '自动',
+    yRangeTip: '图的 Y 轴范围。勾选“自动”时按数值自动适配。图上有两条 Y 轴时，设置的是左侧那条。',
     fill: '填充…',
     change: '变换…',
     smooth: '平滑…',

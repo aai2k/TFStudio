@@ -1152,6 +1152,8 @@ export default {
     deleteRowsTip: 'Delete the rows of the selected cells (Delete). Backspace empties the cells instead.',
     dragPoints: 'Drag points',
     dragPointsTip: 'Drag a point on the plot up or down to change its value. Its wavelength stays as typed.',
+    yAuto: 'Auto',
+    yRangeTip: "Range of the plot's Y axis. Auto fits it to the values. On a plot with two Y axes it sets the left one.",
     fill: 'Fill…',
     change: 'Change…',
     smooth: 'Smooth…',

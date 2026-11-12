@@ -105,8 +105,8 @@ export function CurveEditor(props) {
             },
                 h(TablePane, { editor, labels, c, ce }),
                 h(CurveChart, {
-                    table, backdrops, labels, dragOn: editor.dragOn,
-                    onDragPoint: editor.actions.dragPoint, c,
+                    table, backdrops, labels, dragOn: editor.dragOn, onDragPoint: editor.actions.dragPoint,
+                    yRange: editor.yRange, onAxisEnds: editor.setYEnds, c,
                 }),
             ),
         ),

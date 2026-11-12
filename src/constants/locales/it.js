@@ -1234,6 +1234,8 @@ export default {
     deleteRowsTip: 'Elimina le righe delle celle selezionate (Delete). Backspace svuota solo le celle.',
     dragPoints: 'Trascina i punti',
     dragPointsTip: "Trascina un punto del grafico in su o in giù per cambiarne il valore. La sua lunghezza d'onda resta quella digitata.",
+    yAuto: 'Auto',
+    yRangeTip: "Intervallo dell'asse Y del grafico. \"Auto\" lo adatta ai valori. In un grafico con due assi Y imposta quello di sinistra.",
     fill: 'Riempi…',
     change: 'Cambia…',
     smooth: 'Leviga…',

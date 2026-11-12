@@ -75,6 +75,7 @@ removing it.
 - **Smooth…** replaces each selected value by a polynomial of the order you set, fitted to it and the number of points you set on each side (Savitzky-Golay). With one cell selected it smooths that cell's whole column. The wavelength column is never smoothed.
 - **Resample…** puts every column onto a new wavelength grid at the step you set, with the interpolation Fit uses, and says how many rows the grid will have.
 - A value above 100 % or below 0 is marked in red. With **Drag points** on, a point dragged up or down on the plot takes the value it is dropped at.
+- **Y**, at the right end of the toolbar, sets the plot's vertical range. With **Auto** ticked, as it is each time the editor opens, the plot fits itself to the values and the two fields show where its axis ends. Clear **Auto** to type the bottom and the top: they start from the ends on screen, so the plot does not move until you change them. On a plot with two axes, such as Ψ and Δ, it sets the left one, and the right one keeps fitting itself.
 
 **Apply** sorts the rows by wavelength and adds the new curves, or changes the edited one, and from then on they are curves like any imported one. A new curve gets its angle and polarization on its card. If fit targets were made from the edited curve, Apply offers to rebuild them from the new points, keeping their grid, range, weight and scale.
 

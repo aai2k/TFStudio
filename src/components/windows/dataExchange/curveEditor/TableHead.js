@@ -7,6 +7,10 @@
  *
  * A press on a heading outside its controls selects the column, and one on
  * the # heading every cell.
+ *
+ * A heading sits at its column's right edge, where the column's numbers end,
+ * as # does over the row numbers. A value column takes what the pane has left,
+ * and in a wide pane a heading at the left edge ends up far from its numbers.
  */
 import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { ActionButton, SelectField } from '../../analysis/chrome/controls.js';
@@ -106,7 +110,9 @@ function columnCell(view, colKey, style, child) {
     return h('th', { key: colKey, onMouseDown: select, style }, child);
 }
 
-const line = children => h('div', { style: { display: 'flex', alignItems: 'center', gap: GAP } }, ...children);
+const line = children => h('div', {
+    style: { display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: GAP },
+}, ...children);
 const controls = children => h('span', { onMouseDown: keepPress, style: { display: 'inline-flex', gap: GAP } }, ...children);
 
 // The name is committed when the field is left, so each keystroke is not an
@@ -119,7 +125,7 @@ function NameField({ value, placeholder, onCommit, c, title }) {
         onChange: event => setDraft(event.target.value),
         onBlur: () => { if (draft !== value) onCommit(draft); },
         onKeyDown: event => { if (event.key === 'Enter') event.currentTarget.blur(); },
-        style: { ...textInputStyle(c), flex: 'none', width: '100%', height: 22 },
+        style: { ...textInputStyle(c), flex: 'none', width: '100%', height: 22, textAlign: 'right' },
     });
 }
 
@@ -141,7 +147,7 @@ function removeButton(editor, c, ce, index) {
         type: 'button', title: ce.removeColumn, onMouseDown: keepPress,
         onClick: () => editor.edit(current => removeColumn(current, index)),
         style: {
-            width: REMOVE_WIDTH, height: 22, padding: 0, marginLeft: 'auto', flexShrink: 0, cursor: 'pointer',
+            width: REMOVE_WIDTH, height: 22, padding: 0, flexShrink: 0, cursor: 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: 'none', outline: 'none', background: 'transparent', color: c.textDim,
         },
