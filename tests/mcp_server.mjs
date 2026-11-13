@@ -289,7 +289,7 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         const second = listed.environments[1];
         ok('setEnvironment takes another\'s cone, mfEvalMode and temperatureC, and environments lists them as the API does',
             JSON.stringify(listed) === JSON.stringify({ designId: conditionsId, environments: api.environments(here) })
-            && second.temperatureC === 80 && second.mfEvalMode === 'total', JSON.stringify(listed).slice(0, 300));
+            && second.temperatureC === 80 && second.mfEvalMode === 'total' && second.constantsMissing.length > 0, JSON.stringify(listed).slice(0, 300));
         ok('a cone part out of range and environment 1\'s temperature in setEnvironment are refused, saying what they take',
             /cone is an object whose halfAngleDeg is a half-angle/.test(badCone.error ?? '') && /not temperatureC; setDesignSetup/.test(baseCone.error ?? ''),
             `${badCone.error} | ${baseCone.error}`);

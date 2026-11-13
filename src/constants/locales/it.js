@@ -1432,7 +1432,7 @@ export default {
     temperature: 'Temperatura',
     temperatureTip: "La temperatura di questo ambiente. Gli spessori degli strati e n e k dei materiali sono dati alla temperatura dell'ambiente 1; a un'altra temperatura i film e il substrato cambiano rispetto a essi.",
     constantsMissing: 'Costanti mancanti',
-    constantsMissingTip: "Materiali con cui questo ambiente calcola alla sua temperatura e a cui manca una costante del modello di temperatura. Una costante mancante vale 0.",
+    constantsMissingTip: "Materiali con cui questo ambiente calcola alla sua temperatura e a cui manca una costante del modello di temperatura. Un film senza dilatazione lineare o coefficiente di Poisson, o su un substrato senza dilatazione lineare, è considerato senza deformazione; un'altra costante mancante vale 0.",
   },
   designEditor: {
     frontCoating: 'Rivestimento anteriore',

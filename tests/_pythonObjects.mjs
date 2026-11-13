@@ -616,6 +616,9 @@ async function environments(t, said) {
     ok('and they read back as set, environment 1\'s being the design\'s', canon(got.conditions) === canon([
         { enabled: true, halfAngleDeg: 12 }, 'whole part', 80, 25, 'side', 25, null, null, 'side', 20,
     ]), canon(got.conditions));
+    const lacking = s.conditions ? api.environments(s.conditions)[1].constantsMissing.map(m => [m.material, m.name, m.fields]) : null;
+    ok('constants_missing names, at its temperature, each material lacking a constant, as environments() does',
+        lacking?.length > 0 && canon(got.missing) === canon(lacking), canon(got.missing));
     ok('environments go from 1 in a for loop, and an Environment keeps its environment when an earlier one goes', canon([got.listed, got.count, got.shown?.[0]])
         === canon([[[1, 'base', 'In air'], [2, 'env2', 'Water'], [3, 'env3', 'Sapphire']], 3, 2]), canon(got.listed));
     ok('repr gives an environment, its substrate and the list on one line each', canon(got.shown?.slice(1)) === canon([

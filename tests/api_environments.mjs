@@ -50,10 +50,10 @@ const plain = () => api.stackFromFormula(api.newDesign({ name: 'Window AR', subs
 const BASE_ENTRY = {
     number: 1, id: 'base', name: null, enabled: true, incidentMedium: 'Air', exitMedium: 'Air',
     substrate: { material: 'BK7', thickness: 2 }, thicknessFactors: {}, materialSwaps: {},
-    cone: null, mfEvalMode: 'side', temperatureC: 20, follows: [],
+    cone: null, mfEvalMode: 'side', temperatureC: 20, constantsMissing: [], follows: [],
 };
 // What an environment that sets none of the cone, the other side and the temperature lists of them.
-const CONDITIONS = { cone: null, mfEvalMode: 'side', temperatureC: 20 };
+const CONDITIONS = { cone: null, mfEvalMode: 'side', temperatureC: 20, constantsMissing: [] };
 const FOLLOWED_CONDITIONS = ['cone', 'mfEvalMode', 'temperatureC'];
 
 // ── 1. The list ────────────────────────────────────────────────────────────

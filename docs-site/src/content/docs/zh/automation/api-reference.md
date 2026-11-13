@@ -3784,6 +3784,33 @@ hot.temperature = 80
 print(hot.temperature, "°C against", design.temperature, "°C")
 ```
 
+### constantsMissing / constants_missing
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.constantsMissing` | `env.constants_missing` |
+
+**JavaScript**：温度与环境 1 不同时，环境窗口在温度下方列出的材料：该环境所评价的镀膜中的膜层材料及其基底里，每种缺少温度模型某个常数的材料一项，每项为 `{ material, name, fields }`：fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料只列一次，记在膜层最先使用的 id 下。缺少膨胀系数或泊松比的膜，或位于缺少膨胀系数的基底上的膜，按无应变处理；缺少其他常数时按 0 计。对环境 1 以及与环境 1 温度相同时为空。
+
+**Python**：温度与环境 1 不同时，环境窗口在温度下方列出的材料：该环境所评价的镀膜中的膜层材料及其基底里，每种缺少温度模型某个常数的材料一项，每项为命名元组 (material, name, fields)：fields 为它缺少的常数，按材料 mechanical 记录中的名称给出。每种材料只列一次，记在膜层最先使用的 id 下。缺少膨胀系数或泊松比的膜，或位于缺少膨胀系数的基底上的膜，按无应变处理；缺少其他常数时按 0 计。对环境 1 以及与环境 1 温度相同时为空。
+
+```js
+const design = tf.newDesign('Bandpass');
+design.stack('(HL)^3 HH (LH)^3');
+const hot = design.environments.add({ name: 'Hot' });
+hot.temperature = 80;
+for (const m of hot.constantsMissing) console.log(m.material, m.fields.join(', '));
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.stack("(HL)^3 HH (LH)^3")
+hot = design.environments.add(name="Hot")
+hot.temperature = 80
+for m in hot.constants_missing:
+    print(m.material, ", ".join(m.fields))
+```
+
 ### follows
 
 | JavaScript | Python |

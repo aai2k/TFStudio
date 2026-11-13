@@ -285,6 +285,9 @@ ok('the back of a symmetric design is refused', symmetricBack === 'layer 1: the 
         water.cone, water.scoreOn, water.temperature, first.cone, first.scoreOn, first.temperature];
     ok('and reads back as set, a medium given null as environment 1\'s', canon(read) === canon(['Water', false, 'Air', 'SiO2', 'Al2O3', 3, { SiO2: 1.1 }, { TiO2: 'Nb2O5', SiO2: 'MgF2' },
         { enabled: true }, 'whole part', 80, null, 'side', 20]), JSON.stringify(read));
+    ok('constantsMissing names, at its temperature, each material lacking a constant, as environments() does, and none for environment 1',
+        water.constantsMissing.length > 0 && canon(water.constantsMissing) === canon(api.environments(env._data)[1].constantsMissing)
+        && canon(first.constantsMissing) === '[]', JSON.stringify(water.constantsMissing));
     water.cone = null;
     water.scoreOn = null;
     water.temperature = null;

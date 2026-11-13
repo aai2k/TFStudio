@@ -44,18 +44,39 @@ const PREFIX = 'thermal:';
 const THERMAL_ID = /^thermal:([^:]+):([^:]+):(.+)$/s;
 
 /**
+ * True when a constant of the model is given: a finite number. A constant
+ * that is absent, null, NaN, infinite or text is not given.
+ */
+export const constantGiven = value => Number.isFinite(value);
+
+// A constant, or 0 where it is not given.
+const givenOrZero = value => (constantGiven(value) ? value : 0);
+
+// True when the strain a substrate puts on a film is known: the substrate's
+// expansion α and the film's expansion β and Poisson ratio ν are all given.
+const strainKnown = (film, substrateExpansion) =>
+    [substrateExpansion, film.linearExpansionPerK, film.poissonsRatio].every(constantGiven);
+
+/**
  * What a change of temperature ΔT (K) makes of a film, `{ thicknessFactor,
  * nScale, nOffset }`: its thickness is thicknessFactor times as large and its
  * index n₀ becomes nScale·n₀ + nOffset. `film` holds the film material's
  * expansion β (linearExpansionPerK), Poisson ratio ν (poissonsRatio) and dN/dT
- * (dnDtPerK), `substrateExpansion` the substrate's α, each per K; a constant
- * not given counts as 0.
+ * (dnDtPerK), `substrateExpansion` the substrate's α, each per K.
+ *
+ * Where α, β or ν is not given the strain is not known, and the film is taken
+ * as unstrained, A = B = 0 in Eqs. (14) and (15): P = 1, its thickness
+ * d₀(1 + βΔT) and its index n₀ + (dN/dT)·ΔT by Eq. (18). β and dN/dT not
+ * given count as 0.
  */
 export function filmAtTemperature(film, substrateExpansion, deltaT) {
-    const beta = film.linearExpansionPerK ?? 0;
-    const nu = film.poissonsRatio ?? 0;
-    const dnDt = film.dnDtPerK ?? 0;
-    const strain = (substrateExpansion ?? 0) - beta;
+    const beta = givenOrZero(film.linearExpansionPerK);
+    const dnDt = givenOrZero(film.dnDtPerK);
+    if (!strainKnown(film, substrateExpansion)) {
+        return { thicknessFactor: 1 + beta * deltaT, nScale: 1, nOffset: dnDt * deltaT };
+    }
+    const nu = film.poissonsRatio;
+    const strain = substrateExpansion - beta;
     const a = 2 * strain * (1 - 2 * nu) / (1 - nu) * deltaT;
     const b = 2 * nu * strain / (1 - nu) * deltaT;
     const expanded = 1 + 3 * beta * deltaT;
@@ -75,9 +96,9 @@ export function filmAtTemperature(film, substrateExpansion, deltaT) {
  */
 export function substrateAtTemperature(substrate, deltaT) {
     return {
-        thicknessFactor: 1 + (substrate.linearExpansionPerK ?? 0) * deltaT,
+        thicknessFactor: 1 + givenOrZero(substrate.linearExpansionPerK) * deltaT,
         nScale: 1,
-        nOffset: (substrate.dnDtPerK ?? 0) * deltaT,
+        nOffset: givenOrZero(substrate.dnDtPerK) * deltaT,
     };
 }
 

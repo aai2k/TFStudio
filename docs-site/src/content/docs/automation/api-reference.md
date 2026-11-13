@@ -3784,6 +3784,33 @@ hot.temperature = 80
 print(hot.temperature, "°C against", design.temperature, "°C")
 ```
 
+### constantsMissing / constants_missing
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.constantsMissing` | `env.constants_missing` |
+
+**JavaScript**: At a temperature other than environment 1's, the materials the Environments window names under the temperature: each film of the coatings this environment evaluates, or its substrate, that lacks a constant of the temperature model, `{ material, name, fields }`: fields the constants it lacks by their names on the material's mechanical record. Each material is listed once, under the id the films name it by first. A film lacking its expansion or its Poisson's ratio, or on a substrate lacking its expansion, is taken as unstrained; another constant missing counts as 0. Empty for environment 1 and at environment 1's temperature.
+
+**Python**: At a temperature other than environment 1's, the materials the Environments window names under the temperature: each film of the coatings this environment evaluates, or its substrate, that lacks a constant of the temperature model, a named tuple (material, name, fields): fields the constants it lacks by their names on the material's mechanical record. Each material is listed once, under the id the films name it by first. A film lacking its expansion or its Poisson's ratio, or on a substrate lacking its expansion, is taken as unstrained; another constant missing counts as 0. Empty for environment 1 and at environment 1's temperature.
+
+```js
+const design = tf.newDesign('Bandpass');
+design.stack('(HL)^3 HH (LH)^3');
+const hot = design.environments.add({ name: 'Hot' });
+hot.temperature = 80;
+for (const m of hot.constantsMissing) console.log(m.material, m.fields.join(', '));
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.stack("(HL)^3 HH (LH)^3")
+hot = design.environments.add(name="Hot")
+hot.temperature = 80
+for m in hot.constants_missing:
+    print(m.material, ", ".join(m.fields))
+```
+
 ### follows
 
 | JavaScript | Python |

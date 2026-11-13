@@ -14,12 +14,10 @@
  * set.
  */
 import {
-    BASE_ENVIRONMENT, environmentById, environmentsOf, sameMaterial, valueFor,
+    BASE_ENVIRONMENT, constantsMissingIn, environmentById, environmentsOf, sameMaterial, valueFor,
 } from '../../../../utils/environments/environments.js';
 import { setEnvironment } from '../../../../utils/environments/environmentEdits.js';
-import {
-    designTemperature, materialsLackingConstants, temperatureChange,
-} from '../../../../utils/environments/environmentTemperature.js';
+import { designTemperature, temperatureChange } from '../../../../utils/environments/environmentTemperature.js';
 
 // A field the design holds under `key`, and an environment under the same
 // key; `fallback` is what the design's field reads as when it has none.
@@ -143,16 +141,13 @@ export function layerMaterials(design) {
 /**
  * The materials environment `id` computes with at its temperature that lack
  * a constant of the temperature model, `{ id, missing }` each
- * (materialsLackingConstants): the films its layers are made of there and its
- * substrate. Null when its temperature is environment 1's, where the model
- * changes nothing.
+ * (environments.js constantsMissingIn). Null when its temperature is
+ * environment 1's, where the model changes nothing.
  */
 export function missingConstants(design, id) {
     const env = environmentById(design, id);
     if (id === BASE_ENVIRONMENT || temperatureChange(design, env) === 0) return null;
-    const films = [...(design.frontLayers || []), ...(design.backLayers || [])]
-        .map(layer => valueFor(env.materialSwaps, layer.material) ?? layer.material);
-    return materialsLackingConstants(design, films, fieldValue(design, id, { key: 'substrateMaterial' }).value);
+    return constantsMissingIn(design, id);
 }
 
 /**

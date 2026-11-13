@@ -30,7 +30,7 @@ Environment 1 is the design itself: its media, its substrate and its layer list.
 
 **Temperature**: the temperature the environment is at, in °C. Environment 1's is the temperature the layer thicknesses and the materials' n and k are given at, 20 °C until you change it. At another temperature the layers and the substrate change from them as set out under [Temperature](#temperature) below. On a design with environments the Design Editor's Settings show the current environment's.
 
-**Constants missing**: under the temperature, the materials an environment computes with at its temperature that lack a constant the model reads, with the constants each one lacks on hover. The constants are the material's own, entered in the [Material Editor](/design/material-editor/); a missing one counts as 0.
+**Constants missing**: under the temperature, the materials an environment computes with at its temperature that lack a constant the model reads, with the constants each one lacks on hover. The constants are the material's own, entered in the [Material Editor](/design/material-editor/). A film whose material lacks its linear expansion or its Poisson's ratio, or whose substrate lacks its linear expansion, is taken as unstrained, as set out under [Temperature](#temperature); any other missing constant counts as 0.
 
 **Thickness factor**: one row for each material the layers use. In the environment every layer of that material is that many times as thick, as at a chamber position where the films grow thinner. A factor of 1 leaves the layers as they are.
 
@@ -53,6 +53,8 @@ n = (n₁ + (dn/dT) ΔT) P + 1 − P
 ```
 
 α is the linear expansion of the environment's substrate, β, ν and dn/dT the linear expansion, Poisson's ratio and dn/dT of the layer's material, all per kelvin. d₁ and n₁ are the layer's thickness and index at environment 1's temperature, and the film is taken as fully dense there, as the paper takes its ion-assisted films. n is worked out at every wavelength; k stays as it is, since the paper models the real index alone.
+
+The strain needs α, β and ν. A film whose material lacks β or ν, or whose substrate lacks α, is taken as unstrained: A = B = 0, so P = 1, its thickness is d₁ (1 + βΔT) and its index n₁ + (dn/dT) ΔT, β and dn/dT counting as 0 where they are missing too. A substrate lacking α keeps its thickness, and one lacking dn/dT its index. The **Constants missing** row names these materials.
 
 The paper treats a whole filter as one film, with an averaged index, a weighted mean of its materials' dn/dT and one expansion for the filter and its materials. TFStudio applies the equations to each layer with its own material's β, ν and dn/dT, and takes dn/dT as one value at every wavelength; both are TFStudio's, not the paper's.
 

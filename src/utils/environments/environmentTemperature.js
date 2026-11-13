@@ -8,15 +8,18 @@
  * film at the change of temperature from environment 1's, on that
  * environment's substrate, and the substrate at that change; the media stay as
  * they are. The constants come from each material's `mechanical` block
- * (materials/mechanical.js); one a material does not carry counts as 0. Where
- * the design states the temperatures its film stress is evaluated at
+ * (materials/mechanical.js), each given only as a finite number. A film whose
+ * material lacks its expansion or its Poisson ratio, or whose substrate lacks
+ * its expansion, is taken as unstrained (temperatureModel.js
+ * filmAtTemperature); any other constant a material does not carry counts as
+ * 0. Where the design states the temperatures its film stress is evaluated at
  * (`stress`, the Stress window's), the environment's stress is evaluated at
  * that temperature moved by the same change.
  */
 import { resolveDesignMaterial } from '../materials/designMaterials.js';
 import { DEFAULT_STRESS_TEMPERATURE_C } from '../physics/stress/stackForce.js';
 import {
-    filmAtTemperature, keepsIndex, substrateAtTemperature, thermalMaterialId,
+    constantGiven, filmAtTemperature, keepsIndex, substrateAtTemperature, thermalMaterialId,
 } from './temperatureModel.js';
 
 /** The temperature, °C, of a design that states none. */
@@ -93,7 +96,7 @@ export function materialsLackingConstants(design, filmIds, substrateId) {
     for (const [id, names] of wanted) {
         const { material, status } = resolveDesignMaterial(design, id);
         if (status === 'missing' || status === 'unset') continue;
-        const missing = names.filter(name => typeof material.mechanical?.[name] !== 'number');
+        const missing = names.filter(name => !constantGiven(material.mechanical?.[name]));
         if (missing.length > 0) out.push({ id, missing });
     }
     return out;

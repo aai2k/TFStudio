@@ -4,10 +4,11 @@
 // src/utils/environments/environments.js describes what each one holds.
 
 import {
-    environmentCone, environmentDesign, environmentMedia, environmentsInAll, environmentsOf, isEnvironmentOn, BASE_ENVIRONMENT,
+    constantsMissingIn, environmentCone, environmentDesign, environmentMedia, environmentsInAll, environmentsOf, isEnvironmentOn, BASE_ENVIRONMENT,
 } from '../utils/environments/environments.js';
 import * as edits from '../utils/environments/environmentEdits.js';
 import { designTemperature } from '../utils/environments/environmentTemperature.js';
+import { designMaterialName } from '../utils/materials/designMaterials.js';
 import { requireMaterial } from './materials.js';
 import { checkOptions, requireValue, isAngle, isBoolean, isPositive, refusal, shown } from './check.js';
 
@@ -184,6 +185,7 @@ export function inEnvironments(call, design, env, compute) {
  * @property cone The cone of incidence it computes with, `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }` with the parts set, or null when neither it nor environment 1 has one.
  * @property mfEvalMode How it scores a one-sided design: `'side'`, the coated side alone, or `'total'`, the whole part.
  * @property temperatureC The temperature it is at, °C: environment 1's is the design's `temperatureC`, 20 when the design has none.
+ * @property constantsMissing At a temperature other than environment 1's, the materials the Environments window names under the temperature: each film of the coatings it evaluates, or its substrate, that lacks a constant of the temperature model, `{ material, name, fields }`: material by id, and fields the constants it lacks by their names on the material's `mechanical` record (`'linearExpansionPerK'`, `'poissonsRatio'`, `'dnDtPerK'`), a constant being given only as a finite number. Each material is listed once, under the id the films name it by first. A film lacking its expansion or its Poisson's ratio, or on a substrate lacking its expansion, is taken as unstrained; another constant missing counts as 0. `[]` for environment 1 and at environment 1's temperature.
  * @property follows The options it takes from environment 1, by addEnvironment's names: any of `'incidentMedium'`, `'exitMedium'`, `'substrate'`, `'substrateThicknessMm'`, `'cone'`, `'mfEvalMode'` and `'temperatureC'`. `[]` for environment 1.
  * @example
  * const design = tf.addEnvironment(tf.newDesign({ name: 'Window AR' }), { name: 'Under water', incidentMedium: 'H2O' });
@@ -202,6 +204,8 @@ export function environments(design) {
             cone: cone ? { ...cone } : null,
             mfEvalMode: named.mfEvalMode || 'side',
             temperatureC: env.temperatureC ?? designTemperature(design),
+            constantsMissing: constantsMissingIn(design, env.id)
+                .map(({ id, missing }) => ({ material: id, name: designMaterialName(design, id), fields: missing })),
             follows: env.id === BASE_ENVIRONMENT ? [] : Object.keys(FOLLOWED).filter(option => FOLLOWED[option](env) == null),
         };
     });

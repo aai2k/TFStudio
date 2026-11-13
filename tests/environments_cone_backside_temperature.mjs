@@ -30,6 +30,13 @@
  *      analytic scan leaves to the finite-difference scan an environment that
  *      scores a one-sided design as the whole part; a run's floor reads an
  *      MNT row at target / f with the temperature's change in f.
+ *  10. A check, a Monte Carlo trial, a Layer Sensitivity step and a systematic
+ *      deviation in an environment at another temperature, computed on a
+ *      worker's tables, against that environment's design built by hand.
+ *  11. A film whose strain is not known (its material lacks β or ν, or its
+ *      substrate lacks α) is unstrained; a constant counts as given only as a
+ *      finite number; the listing names each material lacking one once, from
+ *      the coatings the environment computes.
  *
  * Run: node tests/environments_cone_backside_temperature.mjs
  */
@@ -49,7 +56,7 @@ const {
 } = await import('../src/utils/environments/environments.js');
 const { rowsScoredIn } = await import('../src/utils/environments/environmentMerit.js');
 const { filmAtTemperature, substrateAtTemperature, materialAtTemperature, thermalMaterialId } = await import('../src/utils/environments/temperatureModel.js');
-const { designMaterialLookup, designMaterialShortName, designMaterialIds, embedDesignMaterials } = await import('../src/utils/materials/designMaterials.js');
+const { designMaterialLookup, designMaterialName, designMaterialShortName, designMaterialIds, embedDesignMaterials } = await import('../src/utils/materials/designMaterials.js');
 const { materialOmegaResponse } = await import('../src/utils/materials/materialDispersion.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
 const { buildPayload, presampleMaterials } = await import('../src/utils/refinement/workerInputs.js');
@@ -73,6 +80,7 @@ const { synthesisMntFloor } = await import('../src/components/windows/optimizati
 const { presampleSynthesisMaterials } = await import('../src/components/windows/optimization/synthesisShared/runGrid.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { designDifferences } = await import('../src/api/designEdits.js');
+const { environments: listEnvironments } = await import('../src/api/designEnvironments.js');
 const { missingConstants } = await import('../src/components/windows/design/environments/environmentFields.js');
 const { IntegralValues } = await import('../src/components/windows/analysis/integralValues/IntegralValues.js');
 const { useOpticalEvaluation } = await import('../src/components/windows/analysis/opticalEvaluation/useOpticalEvaluation.js');
@@ -158,12 +166,46 @@ check('and against the paper\'s measurements: Table 5 within 0.001 nm/°C, no sh
     const zero = 100 + 27 * at1540(100) / (at1540(100) - at1540(127));
     assert.ok(zero > 100 && zero < 120, `no shift at ${zero}e-7 /°C`);
 });
-check('the substrate takes its own dn/dT and expansion, and a constant not given counts as 0', () => {
+check('the substrate takes its own dn/dT and expansion, 0 when not given', () => {
     assert.deepEqual(substrateAtTemperature({ linearExpansionPerK: 7.1e-6, dnDtPerK: 2e-6 }, 40), { thicknessFactor: 1 + 7.1e-6 * 40, nScale: 1, nOffset: 2e-6 * 40 });
-    assert.deepEqual(filmAtTemperature({}, 0, 40), { thicknessFactor: 1, nScale: 1, nOffset: 0 });
-    const bare = filmAtTemperature({}, 7.1e-6, 40);
-    const hand = byHand({ alpha: 7.1e-6, beta: 0, nu: 0, dNdT: 0 }, 2, 40);
-    assert.ok(relative(bare.nScale * 2 + bare.nOffset, hand.n) <= 1e-15 && bare.thicknessFactor === hand.d);
+    assert.deepEqual(substrateAtTemperature({}, 40), { thicknessFactor: 1, nScale: 1, nOffset: 0 });
+});
+
+// Eqs. (14), (15) and (18) at P₀ = 1 with every constant not given read as 0.
+function zeroedFilm(film, substrateExpansion, deltaT) {
+    const beta = film.linearExpansionPerK ?? 0;
+    const nu = film.poissonsRatio ?? 0;
+    const dnDt = film.dnDtPerK ?? 0;
+    const strain = (substrateExpansion ?? 0) - beta;
+    const a = 2 * strain * (1 - 2 * nu) / (1 - nu) * deltaT;
+    const b = 2 * nu * strain / (1 - nu) * deltaT;
+    const expanded = 1 + 3 * beta * deltaT;
+    const packing = expanded / (expanded + a);
+    return { thicknessFactor: 1 - b + beta * deltaT, nScale: packing, nOffset: packing * dnDt * deltaT + 1 - packing };
+}
+check('a film without the constants of its strain is unstrained: n₀ 2.3 on a glass of 9e-6 /K, 100 K warmer, keeps its index and thickness', () => {
+    const at = film => filmAtTemperature(film, 9e-6, 100);
+    const index = change => change.nScale * 2.3 + change.nOffset;
+    assert.deepEqual(at({}), { thicknessFactor: 1, nScale: 1, nOffset: 0 });
+    assert.ok(Math.abs(index(zeroedFilm({}, 9e-6, 100)) - 2.3) > 1e-3, 'where reading the missing constants as 0 moves it by a strain');
+    assert.deepEqual(at({ dnDtPerK: 1e-5 }), { thicknessFactor: 1, nScale: 1, nOffset: 1e-5 * 100 }, 'its own dn/dT still moves it');
+    assert.deepEqual(at({ linearExpansionPerK: 7e-6, dnDtPerK: 1e-5 }), { thicknessFactor: 1 + 7e-6 * 100, nScale: 1, nOffset: 1e-5 * 100 }, 'without ν: unstrained, d(1 + βΔT)');
+    assert.deepEqual(at({ poissonsRatio: 0.27 }), { thicknessFactor: 1, nScale: 1, nOffset: 0 }, 'without β');
+    const full = { linearExpansionPerK: 7e-6, poissonsRatio: 0.27, dnDtPerK: 1e-5 };
+    assert.deepEqual(filmAtTemperature(full, undefined, 100), { thicknessFactor: 1 + 7e-6 * 100, nScale: 1, nOffset: 1e-5 * 100 }, 'on a substrate without α');
+});
+check('and a film with every constant, on a substrate with α, computes as before, bit for bit', () => {
+    const films = [
+        FILM, { linearExpansionPerK: 7e-6, poissonsRatio: 0.27, dnDtPerK: 1e-5 },
+        { linearExpansionPerK: 5e-6, poissonsRatio: 0.25, dnDtPerK: 2e-5 }, { linearExpansionPerK: 0.55e-6, poissonsRatio: 0.17 },
+        // A constant given as 0 is given: β = 0 or ν = 0 leaves the film strained.
+        { linearExpansionPerK: 0, poissonsRatio: 0.25, dnDtPerK: 1e-5 }, { linearExpansionPerK: 7e-6, poissonsRatio: 0, dnDtPerK: 0 },
+    ];
+    for (const film of films) {
+        for (const alpha of [0, 5.5e-7, 7.1e-6, 1.42e-5]) {
+            for (const dT of [-40, 1, 60, 100]) assert.deepStrictEqual(filmAtTemperature(film, alpha, dT), zeroedFilm(film, alpha, dT));
+        }
+    }
 });
 
 // ── The design the temperature checks compute ──────────────────────────────
@@ -294,9 +336,10 @@ check('designDifferences tells two designs apart by environment 1\'s temperature
 check('a Herpin layer saved without its material resolves in an environment at another temperature', () => {
     const herpin = { id: 'hp', material: 'herpin-1', thickness: 80, locked: false, herpin: { version: 1, equivalentIndex: 1.9, referenceWavelength: 550 } };
     const seen = environmentDesign({ ...withEnv2({ temperatureC: 20 + DT }), frontLayers: [herpin, ...PLAIN.frontLayers] }, 'env2');
-    const id = seen.frontLayers[0].material;
-    assert.ok(id.startsWith('thermal:'), id);
-    assert.doesNotThrow(() => designMaterialLookup(seen)(id));
+    assert.equal(seen.frontLayers[0].material, 'herpin-1', 'carrying no constant, it is unstrained and keeps its index');
+    const id = thermalMaterialId('herpin-1', { nScale: 0.999, nOffset: 0.0012 });
+    const warm = { ...seen, frontLayers: [{ ...seen.frontLayers[0], material: id }, ...seen.frontLayers.slice(1)] };
+    assert.doesNotThrow(() => designMaterialLookup(warm)(id), 'and its material at another temperature resolves');
 });
 
 // ── 4. The worker ──────────────────────────────────────────────────────────
@@ -619,6 +662,79 @@ check('a systematic deviation in environment 2, on a worker\'s tables, is the de
     const handDeviation = { ...deviation, perMaterial: { [HAND.substrate.material]: { dn: 0.03, dk: 0 } } };
     const hand = computeDeviatedSpectrum(HAND, TOLERANCE_PARAMS, handDeviation, 'front', handLookup);
     assert.ok(closeAll(Array.from(got.R), Array.from(hand.R)), 'the deviated spectrum');
+});
+
+// ── 11. A film whose strain is not known ───────────────────────────────────
+check('100 K warmer on a glass of 9e-6 /K, a film carrying no constant keeps its index and thickness, and the listing names what each material lacks', () => {
+    const design = {
+        ...withEnv2({ temperatureC: 120 }),
+        substrate: { material: 'user_heat:G', thickness: 2 },
+        materials: { ...MATERIALS, 'user_heat:G': record('user_heat:G', TABLES['user_heat:S'], { linearExpansionPerK: 9e-6 }) },
+        frontLayers: [{ id: 'ti', material: 'builtin:TiO2', thickness: 80, locked: false }, ...PLAIN.frontLayers],
+    };
+    const seen = environmentDesign(design, 'env2');
+    assert.deepEqual([seen.frontLayers[0].material, seen.frontLayers[0].thickness], ['builtin:TiO2', 80], 'TiO2, which carries no constant, is as it was');
+    assert.ok(seen.frontLayers[1].material.startsWith('thermal:'), 'a film with every constant still changes');
+    const [first, second] = listEnvironments(design);
+    assert.deepEqual(first.constantsMissing, [], 'environment 1 lists none');
+    assert.deepEqual(second.constantsMissing.map(m => [m.material, m.fields]),
+        [['builtin:TiO2', ['linearExpansionPerK', 'poissonsRatio', 'dnDtPerK']], ['user_heat:G', ['dnDtPerK']]]);
+    assert.equal(second.constantsMissing[0].name, designMaterialName(design, 'builtin:TiO2'), 'by the name the material is shown by');
+    assert.deepEqual(listEnvironments(withEnv2({ temperatureC: 20 }))[1].constantsMissing, [], 'and none at environment 1\'s temperature');
+});
+check('on a substrate without α, a film with every constant is unstrained: d(1 + βΔT) and n + (dN/dT)ΔT, and the substrate is named', () => {
+    const design = {
+        ...withEnv2({ temperatureC: 20 + DT }),
+        substrate: { material: 'user_heat:N', thickness: 2 },
+        materials: { ...MATERIALS, 'user_heat:N': record('user_heat:N', TABLES['user_heat:S'], { dnDtPerK: 2.5e-6 }) },
+    };
+    const seen = environmentDesign(design, 'env2');
+    PLAIN.frontLayers.forEach((layer, i) => {
+        const own = CONSTANTS[layer.material];
+        assert.ok(relative(seen.frontLayers[i].thickness, layer.thickness * (1 + own.linearExpansionPerK * DT)) <= 1e-15, `layer ${i}: ${seen.frontLayers[i].thickness}`);
+        assert.equal(seen.frontLayers[i].material, thermalMaterialId(layer.material, { nScale: 1, nOffset: own.dnDtPerK * DT }), `layer ${i}`);
+    });
+    assert.deepEqual(listEnvironments(design)[1].constantsMissing.map(m => [m.material, m.fields]), [['user_heat:N', ['linearExpansionPerK']]]);
+});
+check('a constant counts as given only as a finite number: text or NaN is missing to the model and the listing alike', () => {
+    const at = film => filmAtTemperature(film, 9e-6, 100);
+    assert.deepEqual(at({ linearExpansionPerK: '5e-6', poissonsRatio: 0.25, dnDtPerK: '2e-5' }), { thicknessFactor: 1, nScale: 1, nOffset: 0 }, 'text');
+    assert.deepEqual(at({ linearExpansionPerK: NaN, poissonsRatio: 0.25, dnDtPerK: 1e-5 }), { thicknessFactor: 1, nScale: 1, nOffset: 1e-5 * 100 }, 'NaN β');
+    assert.deepEqual(at({ linearExpansionPerK: 7e-6, poissonsRatio: null, dnDtPerK: Infinity }), { thicknessFactor: 1 + 7e-6 * 100, nScale: 1, nOffset: 0 }, 'null ν, infinite dN/dT');
+    assert.deepEqual(substrateAtTemperature({ linearExpansionPerK: '9e-6', dnDtPerK: NaN }, 100), { thicknessFactor: 1, nScale: 1, nOffset: 0 }, 'the substrate');
+    const design = {
+        ...withEnv2({ temperatureC: 120 }),
+        substrate: { material: 'user_heat:G', thickness: 2 },
+        materials: {
+            ...MATERIALS,
+            'user_heat:G': record('user_heat:G', TABLES['user_heat:S'], { linearExpansionPerK: '9e-6', dnDtPerK: 2.5e-6 }),
+            'user_heat:T': record('user_heat:T', TABLES['user_heat:H'], { linearExpansionPerK: 7e-6, poissonsRatio: NaN, dnDtPerK: '1e-5' }),
+        },
+        frontLayers: [{ id: 't', material: 'user_heat:T', thickness: 80, locked: false }],
+    };
+    const seen = environmentDesign(design, 'env2');
+    assert.deepEqual([seen.frontLayers[0].material, seen.frontLayers[0].thickness, seen.substrate.thickness], ['user_heat:T', 80 * (1 + 7e-6 * 100), 2]);
+    assert.deepEqual(listEnvironments(design)[1].constantsMissing.map(m => [m.material, m.fields]),
+        [['user_heat:T', ['poissonsRatio', 'dnDtPerK']], ['user_heat:G', ['linearExpansionPerK']]]);
+});
+check('the listing names a material once whichever way its id is spelled, under the spelling the films use first', () => {
+    const design = {
+        ...withEnv2({ temperatureC: 120 }),
+        substrate: { material: 'SiO2', thickness: 2 },
+        frontLayers: [['TiO2', 50], ['builtin:SiO2', 90], ['builtin:TiO2', 50]].map(([material, thickness], i) => ({ id: `s${i}`, material, thickness, locked: false })),
+    };
+    assert.deepEqual(listEnvironments(design)[1].constantsMissing.map(m => [m.material, m.fields]), [
+        ['TiO2', ['linearExpansionPerK', 'poissonsRatio', 'dnDtPerK']], ['builtin:SiO2', ['linearExpansionPerK', 'poissonsRatio', 'dnDtPerK']],
+    ]);
+});
+check('and names the films of the coatings the environment computes: a fixed back coating only when it scores the whole part', () => {
+    const back = [{ id: 'b0', material: 'builtin:Ta2O5', thickness: 100, locked: false }];
+    const lacking = (fields, design) => listEnvironments({ ...withEnv2({ temperatureC: 120, ...fields }), ...design })[1].constantsMissing.map(m => m.material);
+    assert.deepEqual(lacking({}, { backLayers: back }), [], 'front only, scored on its side');
+    assert.deepEqual(lacking({ mfEvalMode: 'total' }, { backLayers: back }), ['builtin:Ta2O5'], 'front only, scored as the whole part');
+    const frontLacking = [{ id: 'f0', material: 'builtin:Nb2O5', thickness: 100, locked: false }];
+    assert.deepEqual(lacking({}, { surfaceMode: 'back_only', frontLayers: frontLacking, backLayers: back }), ['builtin:Ta2O5'], 'back only, scored on its side');
+    assert.deepEqual(lacking({}, { surfaceMode: 'both_independent', frontLayers: frontLacking, backLayers: back }), ['builtin:Nb2O5', 'builtin:Ta2O5'], 'both sides');
 });
 
 console.log(`PASS environments_cone_backside_temperature (${pass} checks)`);

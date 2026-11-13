@@ -28,7 +28,10 @@
  */
 import { MATERIAL_MAP } from '../materials/materialDatabase.js';
 import { coneIsActive, makeConeSpec } from '../physics/optimizer/coneAngle/spec.js';
-import { designMaterialOf, stressAtTemperature, temperatureChange, temperatureEffects } from './environmentTemperature.js';
+import { resolveEvalMode } from '../physics/optimizer/evalCore/tmmEval.js';
+import {
+    designMaterialOf, materialsLackingConstants, stressAtTemperature, temperatureChange, temperatureEffects,
+} from './environmentTemperature.js';
 
 /** The id of environment 1. */
 export const BASE_ENVIRONMENT = 'base';
@@ -227,6 +230,41 @@ export function environmentLayerFactors(design, id, layers, resolve = null) {
 export function environmentCone(design, id = BASE_ENVIRONMENT) {
     const own = id === BASE_ENVIRONMENT ? null : environmentById(design, id)?.cone;
     return own ? { ...design.cone, ...own } : design.cone;
+}
+
+// The layers of the coatings environment `id` evaluates, by its evaluation
+// mode (tmmEval.js resolveEvalMode): the front, the back, or both.
+function evaluatedLayers(design, id) {
+    const mode = resolveEvalMode(environmentMedia(design, id));
+    return [...(mode === 'back' ? [] : design.frontLayers || []), ...(mode === 'front' ? [] : design.backLayers || [])];
+}
+
+// `(id) => id` that gives every id of one material the first of its spellings
+// it was given (canonicalMaterialId).
+function firstSpelling() {
+    const seen = new Map();
+    return id => {
+        const key = canonicalMaterialId(id);
+        if (!seen.has(key)) seen.set(key, id);
+        return seen.get(key);
+    };
+}
+
+/**
+ * The materials environment `id` computes with at its temperature that lack a
+ * constant of the temperature model, each `{ id, missing }`
+ * (environmentTemperature.js materialsLackingConstants): the films of the
+ * coatings it evaluates, as they are made there, and its substrate. A
+ * material named by two spellings of its id is one entry, under the spelling
+ * the films use first. Empty for environment 1, and for an environment at
+ * environment 1's temperature, where the model changes nothing.
+ */
+export function constantsMissingIn(design, id) {
+    const env = environmentById(design, id);
+    if (id === BASE_ENVIRONMENT || temperatureChange(design, env) === 0) return [];
+    const spelled = firstSpelling();
+    const films = evaluatedLayers(design, id).map(layer => spelled(valueFor(env.materialSwaps, layer.material) ?? layer.material));
+    return materialsLackingConstants(design, films, spelled(setupIn(design, env).substrate.material));
 }
 
 /**

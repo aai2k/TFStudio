@@ -465,6 +465,7 @@ def environments(tf):
     steps["conditions"] = copy.deepcopy(design._data)
     conditions = [water.cone, water.score_on, water.temperature, design.environments[1].temperature,
                   design.environments[1].score_on, design.temperature, design.cone]
+    missing = [[m.material, m.name, list(m.fields)] for m in water.constants_missing]
     water.cone = None
     water.score_on = None
     water.temperature = None
@@ -500,7 +501,7 @@ def environments(tf):
     stale = {"ids": [gone._id, later.id], "name": later.name, "count": len(reused.environments),
              "words": [refused(lambda: gone.name), refused(lambda: setattr(gone, "name", "Renamed")),
                        refused(lambda: gone.remove())]}
-    out({"environments": {"steps": steps, "read": read, "conditions": conditions, "listed": listed, "count": count,
+    out({"environments": {"steps": steps, "read": read, "conditions": conditions, "missing": missing, "listed": listed, "count": count,
                           "shown": shown, "worded": worded, "lone": lone_words, "stale": stale}})
 
 

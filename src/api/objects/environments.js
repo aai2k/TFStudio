@@ -284,6 +284,27 @@ export class Environment {
     set temperature(temperature) { this._set({ temperatureC: temperature }); }
 
     /**
+     * At a temperature other than environment 1's, the materials the
+     * Environments window names under the temperature: each film of the
+     * coatings this environment evaluates, or its substrate, that lacks a
+     * constant of the temperature model, `{ material, name, fields }`: fields
+     * the constants it lacks by their names on the material's mechanical
+     * record. Each material is listed once, under the id the films name it by
+     * first. A film lacking its expansion or its Poisson's ratio, or on a
+     * substrate lacking its expansion, is taken as unstrained; another
+     * constant missing counts as 0. Empty for environment 1 and at
+     * environment 1's temperature.
+     *
+     * @example
+     * const design = tf.newDesign('Bandpass');
+     * design.stack('(HL)^3 HH (LH)^3');
+     * const hot = design.environments.add({ name: 'Hot' });
+     * hot.temperature = 80;
+     * for (const m of hot.constantsMissing) console.log(m.material, m.fields.join(', '));
+     */
+    get constantsMissing() { return this._entry().constantsMissing; }
+
+    /**
      * What the environment takes from environment 1, by the names
      * environments.add() takes: any of `'incidentMedium'`, `'exitMedium'`,
      * `'substrate'`, `'substrateThicknessMm'`, `'cone'`, `'mfEvalMode'` and
