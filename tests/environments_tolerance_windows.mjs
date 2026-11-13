@@ -25,8 +25,11 @@
  *   5. Systematic Deviations: the droplist without All; the deviation made on
  *      the recipe and seen in the environment chosen equals the coating built
  *      by hand there, in every evaluation mode; a sweep the same at each step;
- *      the window computes the environment shown, and draws a sweep only in
- *      the environment it was run in.
+ *      the window computes the environment shown, on what that environment is
+ *      scored on (an environment that counts the other side of a design that
+ *      does not is the whole part, its sweep too, and one that ignores it on
+ *      a design that counts it is the coated side alone), and draws a sweep
+ *      only in the environment it was run in.
  *   6. A check that passes in environment 1 and fails in environment 2: the
  *      tolerance verdict, with a deviation and with Layer Sensitivity's ±Δd
  *      designs, the Report's Detail and a Monte Carlo trial's record and chip
@@ -37,7 +40,7 @@
 import assert from 'node:assert/strict';
 import './_kernel.mjs';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { loadApp, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { loadApp, makeDesignCtx, makeLocale, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
 
 shimBrowserGlobals();
 await loadApp();
@@ -48,6 +51,8 @@ const { environmentChoiceSession } = await import('../src/components/windows/ana
 const { currentEnvironmentSession } = await import('../src/components/windows/design/environments/currentEnvironment.js');
 const { environmentDesign } = await import('../src/utils/environments/environments.js');
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
+const { DesignContext } = await import('../src/state/DesignContext.js');
+const { resolveEvalMode } = await import('../src/utils/physics/optimizer.js');
 const { designRangeCoverage } = await import('../src/utils/materials/materialRange.js');
 const { makeQualifier, evaluateQualifier, qualifierSummary, qualifierValueText } = await import('../src/utils/synthesis/qualifiers.js');
 const { SpecVerdict } = await import('../src/components/SpecVerdict.js');
@@ -125,12 +130,15 @@ function shown(one, { current = 'base', choice = 'current' } = {}) {
     currentEnvironmentSession.write(one, { current });
     environmentChoiceSession.write(one, { choice });
 }
+// `element` under the context the app gives `one`, its evalMode the design's
+// own (DesignContext.js), where the stub's is always 'front'.
+const inAppContext = (element, one) => h(DesignContext.Provider, { value: { ...makeDesignCtx(one), evalMode: resolveEvalMode(one) } }, element);
 // What a window's hook gives for `one` in the state `state`.
-function hooked(useHook, one, state) {
+function hooked(useHook, one, state, wrap = withDesign) {
     shown(one, state);
     let got = null;
     const Probe = () => { got = useHook(); return null; };
-    renderToStaticMarkup(withDesign(h(Probe), one));
+    renderToStaticMarkup(wrap(h(Probe), one));
     return got;
 }
 function render(Window, one, state, t = en) {
@@ -383,6 +391,35 @@ await check('the window computes the environment shown, offers no All, and draws
     assert.equal(hooked(useSystematicDeviations, three, {}).sweepResult, null, 'none in environment 1');
     assert.equal(systematicDeviationsSession.read(three).sweepResult, swept, 'kept for when environment 4 is shown again');
     systematicDeviationsSession.write(three, { mode: 'single', sweepResult: null });
+});
+await check('an environment that counts the other side, on a design that does not, is computed as the whole part: the deviated spectrum, the baseline and the sweep', async () => {
+    const counted = {
+        ...three, id: 'env-tolerance-counted',
+        environments: ENVIRONMENTS.map(env => (env.id === 'env4' ? { ...env, mfEvalMode: 'total' } : env)),
+    };
+    const sweep = { param: 'globalThicknessScale', from: 0.98, to: 1.02, steps: 3, offsetUnit: 'nm' };
+    systematicDeviationsSession.write(counted, { dev: DEV, mode: 'single', lambdaStart: 400, lambdaEnd: 700, lambdaStep: 5, aoi: 20, pol: 'avg', sweep });
+    const own = designMaterialLookup(counted);
+    const got = hooked(useSystematicDeviations, counted, { choice: 'env4' });
+    assert.deepStrictEqual(got.deviated, deviatedByHand('env4').total, 'the deviated coating built by hand, as the whole part');
+    assert.deepStrictEqual(got.baseline, deviatedIn(counted, emptyDeviation(), 'total', own, 'env4'), 'the baseline');
+    got.runSweep();
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const asWhole = runDeviationSweep({ design: counted, params: SD_PARAMS, baseDev: emptyDeviation(), sweep, evalMode: 'total', resolveMat: own, envId: 'env4' });
+    assert.deepStrictEqual(systematicDeviationsSession.read(counted).sweepResult.R2D, asWhole.R2D, 'the sweep');
+    assert.deepStrictEqual(hooked(useSystematicDeviations, counted, {}).deviated, deviatedIn(counted, DEV, 'front', own),
+        'environment 1 stays on its coated side');
+});
+await check('and the reverse, in the context the app gives: an environment scored on its coated side alone, of a design scored as the whole part, is computed on that side', () => {
+    const whole = {
+        ...three, id: 'env-tolerance-whole', mfEvalMode: 'total',
+        environments: ENVIRONMENTS.map(env => (env.id === 'env4' ? { ...env, mfEvalMode: 'side' } : env)),
+    };
+    systematicDeviationsSession.write(whole, { dev: DEV, mode: 'single', lambdaStart: 400, lambdaEnd: 700, lambdaStep: 5, aoi: 20, pol: 'avg' });
+    assert.deepStrictEqual(hooked(useSystematicDeviations, whole, { choice: 'env4' }, inAppContext).deviated, deviatedByHand('env4').front,
+        'the deviated coating built by hand, its coated side alone');
+    assert.deepStrictEqual(hooked(useSystematicDeviations, whole, {}, inAppContext).deviated, deviatedIn(whole, DEV, 'total', designMaterialLookup(whole)),
+        'environment 1 is the whole part');
 });
 
 // ── 6. A check that fails in a later environment alone ──────────────────────

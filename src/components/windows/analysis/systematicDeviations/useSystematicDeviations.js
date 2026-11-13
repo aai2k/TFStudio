@@ -75,7 +75,7 @@ function useDesignSweep(session, uniqueMats, patch) {
 }
 
 export function useSystematicDeviations() {
-    const { design, evalMode } = useDesign();
+    const { design } = useDesign();
     const [session, setField, patch] = useWindowSession(systematicDeviationsSession, design);
     const {
         mode, channel, showBaseline, lambdaStart, lambdaEnd, lambdaStep,
@@ -83,10 +83,11 @@ export function useSystematicDeviations() {
     } = session;
     const uniqueMats = useMemo(() => enumerateUniqueMaterials(design), [design]);
     // The environment the deviation is seen in, Current or one the droplist
-    // names; the deviation itself is made on the recipe.
+    // names, on what that environment is scored on (its own other side); the
+    // deviation itself is made on the recipe.
     const environment = useEnvironmentChoice(design);
     const shownView = environment.views[0];
-    const envId = shownView.id;
+    const { id: envId, mode: evalMode } = shownView;
     const { sweep, sweepResult: sweptIn } = useDesignSweep(session, uniqueMats, patch);
     // A sweep is drawn in the environment it was run in, and kept for when that
     // one is shown again.
