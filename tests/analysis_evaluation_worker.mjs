@@ -187,9 +187,48 @@ assert.throws(
     const allIntegrals = integrals({ choice: 'all' });
     assert.ok(allIntegrals.state.spectrum === null && allIntegrals.state.sets === null, 'Integral Values computes nothing on its own thread under a cone');
     const { payload } = allIntegrals.request;
-    assert.deepEqual([allIntegrals.request.operation, substrates(allIntegrals.request), payload.grids.length, payload.evalMode],
-        ['integralSpectra', ['builtin:BK7', 'builtin:Al2O3'], 1, 'front'], 'and under All asks the worker for the spectrum of each environment that is on');
+    assert.deepEqual([allIntegrals.request.operation, substrates(allIntegrals.request), payload.grids.length, payload.evalModes],
+        ['integralSpectra', ['builtin:BK7', 'builtin:Al2O3'], 1, ['front', 'front']], 'and under All asks the worker for the spectrum of each environment that is on, each in its mode');
     assert.deepEqual(thicknesses(integrals({ current: 'env3' }).request), [third], 'or of the current environment alone');
+
+    // Each environment computes under its own cone and on its own other side.
+    // With environment 2 alone under a cone, the windows go to the worker,
+    // which computes environment 2 as the design given that cone; with
+    // environment 2 scored on the whole part, Optical Evaluation computes it so
+    // on its own thread.
+    const { gridEvenIn } = await import('../src/utils/physics/spectralAxis.js');
+    const askedOf = (shown, useHook, choice) => {
+        currentEnvironmentSession.write(shown, { current: 'base' });
+        environmentChoiceSession.write(shown, { choice });
+        DesignContext.value = { design: shown, evalMode: 'front', updateDesign() {}, isOptimizing: false, liveUpdate: true };
+        slots = []; cursor = 0; effects = []; posted.length = 0;
+        const state = useHook();
+        effects.forEach(effect => effect());
+        return { state, request: posted.find(message => message.type === 'evaluate') };
+    };
+    const three = threeEnvironmentDesign();
+    const inEnv2 = fields => ({ ...three, environments: three.environments.map(env => (env.id === 'env2' ? { ...env, ...fields } : env)) });
+    const lens = { enabled: true, halfAngleDeg: 6, gridPoints: 2 };
+    const lensed = askedOf(inEnv2({ cone: lens }), useOpticalEvaluation, 'all');
+    assert.ok(lensed.state.busy && lensed.request?.operation === 'opticalSpectra', 'a cone of environment 2 alone puts Optical Evaluation on the worker under All');
+    const lensedSpectra = dispatchAnalysisEvaluation('opticalSpectra', lensed.request.payload);
+    const spectrumOf = (one, mode) => JSON.stringify(dispatchAnalysisEvaluation('opticalSpectrum', { design: one, params: lensed.request.payload.params, evalMode: mode }));
+    assert.equal(JSON.stringify(lensedSpectra[1]), spectrumOf({ ...oneEnvironmentDesign(three, 'env2'), cone: lens }, 'front'),
+        'there environment 2 computes as the design given its cone');
+    assert.equal(JSON.stringify(lensedSpectra[0]), spectrumOf(oneEnvironmentDesign(three, 'base'), 'front'), 'and environment 1 in collimated light');
+    const lensedColours = askedOf(inEnv2({ cone: lens }), () => useColorReports(inEnv2({ cone: lens }), options), 'all');
+    assert.ok(lensedColours.state.busy && lensedColours.request?.operation === 'colorReports', 'and puts Color Evaluation on the worker');
+    assert.equal(JSON.stringify(dispatchAnalysisEvaluation('colorReports', lensedColours.request.payload)[1]),
+        JSON.stringify(computeColorReports({ ...options, design: { ...oneEnvironmentDesign(three, 'env2'), cone: lens }, setError() {} })),
+        'which computes environment 2 as the design given its cone');
+
+    const whole = askedOf(inEnv2({ mfEvalMode: 'total' }), useOpticalEvaluation, 'env2');
+    assert.equal(whole.request, undefined, 'environment 2 on the whole part, with no cone, computes on the window\'s thread');
+    const { lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, thetas, spectralUnit } = whole.state.params;
+    const wholeParams = { lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, evenIn: gridEvenIn(spectralUnit), thetas };
+    const wholeApart = dispatchAnalysisEvaluation('opticalSpectrum', { design: { ...oneEnvironmentDesign(three, 'env2'), mfEvalMode: 'total' }, params: wholeParams, evalMode: 'total' });
+    assert.equal(JSON.stringify(whole.state.data), JSON.stringify(wholeApart), 'on the whole part, as the design given that other side');
+    assert.equal(whole.state.environment.views[0].mode, 'total', 'and the badge row reads its mode');
 }
 
 console.log('PASS: analysis_evaluation_worker');

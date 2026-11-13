@@ -4,16 +4,20 @@
 // src/utils/environments/environments.js describes what each one holds.
 
 import {
-    environmentDesign, environmentsInAll, environmentsOf, isEnvironmentOn, BASE_ENVIRONMENT,
+    environmentCone, environmentDesign, environmentMedia, environmentsInAll, environmentsOf, isEnvironmentOn, BASE_ENVIRONMENT,
 } from '../utils/environments/environments.js';
 import * as edits from '../utils/environments/environmentEdits.js';
+import { designTemperature } from '../utils/environments/environmentTemperature.js';
 import { requireMaterial } from './materials.js';
-import { checkOptions, requireValue, isBoolean, isPositive, refusal, shown } from './check.js';
+import { checkOptions, requireValue, isAngle, isBoolean, isPositive, refusal, shown } from './check.js';
 
 // The options an environment takes, by setDesignSetup's names where they
 // overlap. Environment 1 takes the first two; the rest of it is the design's
 // own fields.
-const OPTIONS = ['name', 'enabled', 'incidentMedium', 'exitMedium', 'substrate', 'substrateThicknessMm', 'thicknessFactors', 'materialSwaps'];
+const OPTIONS = [
+    'name', 'enabled', 'incidentMedium', 'exitMedium', 'substrate', 'substrateThicknessMm', 'thicknessFactors', 'materialSwaps',
+    'cone', 'mfEvalMode', 'temperatureC',
+];
 const BASE_OPTIONS = ['name', 'enabled'];
 // The options an environment takes from environment 1 while it sets none of
 // its own, each with where the environment holds its own.
@@ -22,10 +26,46 @@ const FOLLOWED = {
     exitMedium: env => env.exitMedium,
     substrate: env => env.substrate?.material,
     substrateThicknessMm: env => env.substrate?.thickness,
+    cone: env => env.cone,
+    mfEvalMode: env => env.mfEvalMode,
+    temperatureC: env => env.temperatureC,
 };
 const FOLLOW = 'or null to follow environment 1';
 
 const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
+
+/** How a one-sided design is scored: its coated side alone, or as the whole part. */
+export const EVAL_MODES = ['side', 'total'];
+const EVAL_MODES_TAKE = "'side' (a one-sided design scored on its coated side alone) or 'total' (as the whole part)";
+
+/** A temperature the API takes, °C. */
+export const isTemperature = v => Number.isFinite(v) && v > -273.15;
+
+// The parts of a cone of incidence, each with its check and what it takes.
+const CONE_PARTS = {
+    enabled: [isBoolean, 'true or false'],
+    halfAngleDeg: [isAngle, 'a half-angle in degrees from the axis, 0 up to but not including 90'],
+    distribution: [v => ['uniform', 'lambertian', 'user'].includes(v), "'uniform', 'lambertian' or 'user'"],
+    gridPoints: [v => Number.isInteger(v) && v >= 2 && v <= 200, 'a whole number of angles from 2 to 200'],
+    userTable: [v => Array.isArray(v) && v.length > 0 && v.every(p => Number.isFinite(p?.theta) && Number.isFinite(p?.intensity)),
+        'a list of { theta, intensity }, theta in degrees from the axis'],
+};
+
+/**
+ * Refuses a cone of incidence that is not an object of its parts, or a part
+ * that is not what it takes. With `follows`, a part given null is taken: an
+ * environment's part that follows environment 1's again.
+ */
+export function requireCone(call, option, cone, follows = false) {
+    const parts = Object.keys(CONE_PARTS);
+    requireValue(call, option, cone, v => isMap(v) && Object.keys(v).every(part => parts.includes(part)),
+        `an object of any of ${parts.join(', ')}${follows ? `, ${FOLLOW}` : ', or null for none'}`);
+    for (const [part, value] of Object.entries(cone)) {
+        if (value === null && follows) continue;
+        const [ok, takes] = CONE_PARTS[part];
+        requireValue(call, option, cone, () => ok(value), `an object whose ${part} is ${takes}`);
+    }
+}
 const isName = v => v === null || (typeof v === 'string' && v.trim() !== '');
 const isMaterialId = v => typeof v === 'string' && v !== '';
 const orList = items => (items.length === 1 ? items[0] : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`);
@@ -59,6 +99,9 @@ const CHECKS = {
     substrateThicknessMm: (call, design, value) => requireValue(call, 'substrateThicknessMm', value, v => v === null || isPositive(v), `a thickness in mm above 0, ${FOLLOW}`),
     thicknessFactors: mapCheck('thicknessFactors', isPositive, 'a factor above 0'),
     materialSwaps: mapCheck('materialSwaps', isMaterialId, 'the material id that replaces it'),
+    cone: (call, design, value) => { if (value !== null) requireCone(call, 'cone', value, true); },
+    mfEvalMode: (call, design, value) => requireValue(call, 'mfEvalMode', value, v => v === null || EVAL_MODES.includes(v), `${EVAL_MODES_TAKE}, ${FOLLOW}`),
+    temperatureC: (call, design, value) => requireValue(call, 'temperatureC', value, v => v === null || isTemperature(v), `a temperature in °C above -273.15, ${FOLLOW}`),
 };
 
 // `options` after refusing a name no environment takes; an option given as
@@ -121,9 +164,11 @@ export function inEnvironments(call, design, env, compute) {
 
 /**
  * The environments of a design, in order: environment 1, the design's own
- * media and substrate, then each other condition the design is used in. A
- * design without environments has environment 1 alone. An environment that
- * sets no medium or substrate of its own computes with environment 1's.
+ * media, substrate, cone of incidence, other side and temperature, then each
+ * other condition the design is used in. A design without environments has
+ * environment 1 alone. An environment computes with environment 1's value of
+ * whatever it does not set of its own, and with environment 1's cone in each
+ * part of the cone it does not set.
  *
  * @param design The design.
  * @returns One entry per environment, environment 1 first, each with these fields.
@@ -136,30 +181,40 @@ export function inEnvironments(call, design, env, compute) {
  * @property substrate `{ material, thickness }`, the thickness in mm: its own, or environment 1's, each apart.
  * @property thicknessFactors Its own factors, `{ [material id]: factor }`: each layer of that material is that many times as thick here. `{}` when it has none.
  * @property materialSwaps Its own swaps, `{ [material id]: other id }`: each layer of that material is made of the other here. `{}` when it has none.
- * @property follows The options it takes from environment 1, by addEnvironment's names: any of `'incidentMedium'`, `'exitMedium'`, `'substrate'` and `'substrateThicknessMm'`. `[]` for environment 1.
+ * @property cone The cone of incidence it computes with, `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }` with the parts set, or null when neither it nor environment 1 has one.
+ * @property mfEvalMode How it scores a one-sided design: `'side'`, the coated side alone, or `'total'`, the whole part.
+ * @property temperatureC The temperature it is at, °C: environment 1's is the design's `temperatureC`, 20 when the design has none.
+ * @property follows The options it takes from environment 1, by addEnvironment's names: any of `'incidentMedium'`, `'exitMedium'`, `'substrate'`, `'substrateThicknessMm'`, `'cone'`, `'mfEvalMode'` and `'temperatureC'`. `[]` for environment 1.
  * @example
  * const design = tf.addEnvironment(tf.newDesign({ name: 'Window AR' }), { name: 'Under water', incidentMedium: 'H2O' });
  * for (const env of tf.environments(design)) console.log(env.number, env.name, env.incidentMedium, env.substrate.material, env.follows.join(', '));
  */
 export function environments(design) {
     return environmentsOf(design).map((env, i) => {
-        const computed = environmentDesign(design, env.id);
+        const named = environmentMedia(design, env.id);
+        const cone = environmentCone(design, env.id);
         return {
             number: i + 1, id: env.id, name: env.name ?? null, enabled: isEnvironmentOn(env),
-            incidentMedium: computed.incidentMedium, exitMedium: computed.exitMedium,
-            substrate: { material: computed.substrate.material, thickness: computed.substrate.thickness },
+            incidentMedium: named.incidentMedium, exitMedium: named.exitMedium,
+            substrate: { material: named.substrate.material, thickness: named.substrate.thickness },
             thicknessFactors: { ...(env.thicknessFactors || {}) },
             materialSwaps: { ...(env.materialSwaps || {}) },
+            cone: cone ? { ...cone } : null,
+            mfEvalMode: named.mfEvalMode || 'side',
+            temperatureC: env.temperatureC ?? designTemperature(design),
             follows: env.id === BASE_ENVIRONMENT ? [] : Object.keys(FOLLOWED).filter(option => FOLLOWED[option](env) == null),
         };
     });
 }
 
 /**
- * A design with one more environment at the end. A medium, substrate or
- * thickness left out, or given as null, follows environment 1. A factor or a
- * swap is keyed by the material the design's layers name, under either form
- * of a built-in id (`'TiO2'` or `'builtin:TiO2'`).
+ * A design with one more environment at the end. A medium, substrate,
+ * thickness, cone, other side or temperature left out, or given as null,
+ * follows environment 1. A factor or a swap is keyed by the material the
+ * design's layers name, under either form of a built-in id (`'TiO2'` or
+ * `'builtin:TiO2'`). At a temperature other than environment 1's, each layer
+ * and the substrate change as the [Environments](/design/environments/) page
+ * says.
  *
  * @param design The design.
  * @param [options]
@@ -171,6 +226,9 @@ export function environments(design) {
  * @param [options.substrateThicknessMm] The substrate thickness, mm, above 0.
  * @param [options.thicknessFactors] `{ [material id]: factor }`: each layer of that material is that many times as thick, a factor above 0.
  * @param [options.materialSwaps] `{ [material id]: other id }`: each layer of that material is made of the other.
+ * @param [options.cone] The cone of incidence, any of `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }` as setDesignSetup takes it, each part given over environment 1's cone; a part given null follows environment 1's.
+ * @param [options.mfEvalMode] How a one-sided design is scored here: `'side'`, its coated side alone, or `'total'`, the whole part.
+ * @param [options.temperatureC] The temperature, °C, above -273.15.
  * @returns The design with the environment added.
  * @throws an option it does not take, or a value the option cannot take
  * @throws a material id that resolves to nothing, naming the closest ids
@@ -185,14 +243,15 @@ export function addEnvironment(design, options) {
 }
 
 /**
- * A design with options set on one of its environments. A medium, substrate
- * or thickness given as null follows environment 1 again, and a name given as
- * null takes the name away; inside `thicknessFactors` and
- * `materialSwaps`, a material given null does, and the materials left out
- * keep what they had. Environment 1 is the design itself: it takes `name` and
- * `enabled` alone, and setDesignSetup changes its media and substrate. A
- * design with one environment lists none, so its environment 1 takes neither
- * until another is added.
+ * A design with options set on one of its environments. A medium, substrate,
+ * thickness, cone, other side or temperature given as null follows
+ * environment 1 again, and a name given as null takes the name away; inside
+ * `cone`, `thicknessFactors` and `materialSwaps`, a part or a material given
+ * null does, and those left out keep what they had. Environment 1 is the
+ * design itself: it takes `name` and `enabled` alone, and setDesignSetup
+ * changes its media, substrate, cone, other side and temperature. A design
+ * with one environment lists none, so its environment 1 takes neither until
+ * another is added.
  *
  * @param design The design.
  * @param environment The environment, by its number from 1 or by its id.
@@ -214,7 +273,7 @@ export function setEnvironment(design, environment, options) {
     const outside = id === BASE_ENVIRONMENT && Object.keys(given).find(option => !BASE_OPTIONS.includes(option));
     if (outside) {
         throw refusal('baseEnvironment', { call, option: outside },
-            `${call}: environment 1 is the design itself and takes name and enabled alone, not ${outside}; setDesignSetup changes the design's own media and substrate`);
+            `${call}: environment 1 is the design itself and takes name and enabled alone, not ${outside}; setDesignSetup changes the design's own media, substrate, cone, other side and temperature`);
     }
     const first = Object.keys(given)[0];
     if (id === BASE_ENVIRONMENT && first && environmentsOf(design).length === 1) {

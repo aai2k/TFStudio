@@ -456,9 +456,19 @@ console.log('empty state');
     const { DesignContext } = await import('../src/state/DesignContext.js');
     const { IntegralValues } = await import('../src/components/windows/analysis/integralValues/IntegralValues.js');
     const c = makeTheme();
-    const render = (shown, evalMode, t) => renderToStaticMarkup(React.createElement(
-        DesignContext.Provider, { value: { ...makeDesignCtx(shown), evalMode } },
-        React.createElement(IntegralValues, { c, t, theme: c })));
+    // The window reads the mode each environment it shows is scored in, so
+    // the design carries the mode it is drawn in, as the app's context does.
+    const MODE_FIELDS = {
+        front: { surfaceMode: 'front_only', mfEvalMode: 'side' },
+        back: { surfaceMode: 'back_only', mfEvalMode: 'side' },
+        total: { surfaceMode: 'front_only', mfEvalMode: 'total' },
+    };
+    const render = (shown, evalMode, t) => {
+        const design = { ...shown, ...MODE_FIELDS[evalMode] };
+        return renderToStaticMarkup(React.createElement(
+            DesignContext.Provider, { value: { ...makeDesignCtx(design), evalMode } },
+            React.createElement(IntegralValues, { c, t, theme: c })));
+    };
     const frontOnly = makeSampleDesign();
     const backOnly = { ...frontOnly, frontLayers: [], backLayers: frontOnly.frontLayers };
     const bare = { ...frontOnly, frontLayers: [] };

@@ -66,18 +66,22 @@ function colorReports(design, options) {
 const EVALUATIONS = {
     opticalSpectrum: ({ design, params, evalMode }) => computeOpticalSpectrum(design, params, evalMode),
     // Optical Evaluation's spectrum of each environment it shows, each design
-    // the one that environment computes.
-    opticalSpectra: ({ designs, params, evalMode }) => (designs || []).map(design => computeOpticalSpectrum(design, params, evalMode)),
+    // the one that environment computes, design k in `evalModes[k]` when given
+    // (each environment in its own mode), else all in `evalMode`.
+    opticalSpectra: ({ designs, params, evalMode, evalModes }) => (designs || []).map((design, k) =>
+        computeOpticalSpectrum(design, params, evalModes?.[k] ?? evalMode)),
     integralSpectrum: ({ design, params, evalMode }) => computeSpectrumForMode(design, params, evalMode),
-    // integralSpectrum of each design on each grid, in `evalMode` when given:
-    // Integral Values' spectrum of each environment it shows, on its one grid;
-    // the Report's integrals blocks, each design read in the mode it is
-    // evaluated in.
-    integralSpectra: ({ designs, grids, evalMode }) => (designs || []).map(design =>
-        grids.map(params => computeSpectrumForMode(design, params, evalMode ?? resolveEvalMode(design)))),
+    // integralSpectrum of each design on each grid, design k in `evalModes[k]`
+    // or `evalMode` when given, else the mode it is evaluated in: Integral
+    // Values' spectrum of each environment it shows, on its one grid; the
+    // Report's integrals blocks.
+    integralSpectra: ({ designs, grids, evalMode, evalModes }) => (designs || []).map((design, k) =>
+        grids.map(params => computeSpectrumForMode(design, params, evalModes?.[k] ?? evalMode ?? resolveEvalMode(design)))),
     // Color Evaluation's colour at each angle in each environment it shows,
-    // each design the one that environment computes.
-    colorReports: ({ designs, options }) => (designs || []).map(design => colorReports(design, options)),
+    // each design the one that environment computes, design k in
+    // `evalModes[k]` when given, else in the options' mode.
+    colorReports: ({ designs, options, evalModes }) => (designs || []).map((design, k) =>
+        colorReports(design, evalModes ? { ...options, evalMode: evalModes[k] } : options)),
     statusMonitors: ({ design, monitors }) => computeMonitors(monitors || [], design, designMaterialLookup(design)),
     specification: ({ designs, coarse, deviation, interlayers }) => (designs || [])
         .map(d => specificationResults(d, { coarse }, { deviation, interlayers })),

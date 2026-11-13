@@ -230,7 +230,8 @@ export function estimateYield(design, options, hooks) {
  * merit is its score. The merit here leaves out the MNT and MXT rows. On a
  * design with more than one [environment](/design/environments/) the step is
  * made on the recipe thickness and seen in an environment as f·(d ± step), f
- * the thickness factor of the layer's material there.
+ * the thickness factor of the layer's material there times the change the
+ * environment's temperature makes.
  *
  * @param design The design; it needs a merit function.
  * @param [options]

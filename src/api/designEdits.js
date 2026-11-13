@@ -5,6 +5,7 @@
 
 import { isDeepStrictEqual } from 'node:util';
 import { environmentsOf } from '../utils/environments/environments.js';
+import { designTemperature } from '../utils/environments/environmentTemperature.js';
 import {
     MAX_DECIMALS, PERTURB_DEFAULT_PERCENT, QUANTIZE_DEFAULTS,
     makePerturbationMap, perturbDesignSide, quantizeDesignSide, withSideLayers,
@@ -188,6 +189,7 @@ const SETUP = {
     stressTemperatureC: d => d.stress?.temperatureC ?? null,
     depositionTemperatureC: d => d.stress?.depositionTemperatureC ?? null,
     substrateDiameterMm: d => d.substrate?.diameterMm ?? null,
+    temperatureC: designTemperature,
 };
 
 const layerState = layer => ({ material: layer.material, thickness: layer.thickness, locked: !!layer.locked });
@@ -236,7 +238,7 @@ function environmentDifferences(design, other) {
  * @param other The design compared with it.
  * @returns What differs.
  * @property same True when nothing compared differs.
- * @property setup Each setting that differs, `{ setting, before, after }`: setting by setDesignSetup's name (`'incidentMedium'`, `'exitMedium'`, `'substrate'`, `'substrateThicknessMm'`, `'referenceWavelength'`, `'surfaceMode'`, `'mfEvalMode'`, `'stressTemperatureC'`, `'depositionTemperatureC'` or `'substrateDiameterMm'`), before its value in `design` and after in `other`.
+ * @property setup Each setting that differs, `{ setting, before, after }`: setting by setDesignSetup's name (`'incidentMedium'`, `'exitMedium'`, `'substrate'`, `'substrateThicknessMm'`, `'referenceWavelength'`, `'surfaceMode'`, `'mfEvalMode'`, `'stressTemperatureC'`, `'depositionTemperatureC'`, `'substrateDiameterMm'` or `'temperatureC'`), before its value in `design` and after in `other`.
  * @property layers Each layer that differs, the front's first: `{ side, number, before, after, change }`, number from 1 next to the substrate, before and after the layer in each design as `{ material, thickness, locked }` (thickness in nm), or null where that design has no layer of the number; change is after's thickness less before's, nm, or null when one design has no such layer.
  * @property environments The numbers of the environments that differ, each compared by what it sets itself, its name and its switch; `environments` gives what each holds.
  * @throws a design or an other that is not a design

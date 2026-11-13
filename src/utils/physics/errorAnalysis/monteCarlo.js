@@ -79,8 +79,9 @@ import {
  *                     1 alone). Every trial draws one set of errors; in
  *                     environment k it is that environment's coating with the same
  *                     errors, each layer f·(d + Δd) thick, f the factor of its
- *                     material there, made of the environment's material for it
- *                     moved by the same Δn and Δk. The top-level spread is the
+ *                     material there times the change its temperature makes,
+ *                     made of the environment's material for it at its
+ *                     temperature moved by the same Δn and Δk. The top-level spread is the
  *                     first one's.
  *
  * With a specification, a trial passes when every enabled check passes in

@@ -17,7 +17,7 @@ function groupDisplay(design, operands, group, displayOf, resolve) {
     const rows = groupRows(operands, group.rows);
     let computed;
     try {
-        computed = evaluateOperands(rows, buildEvalContext(environmentDesign(design, group.id), resolve));
+        computed = evaluateOperands(rows, buildEvalContext(environmentDesign(design, group.id, resolve), resolve));
     } catch (err) {
         if (!(err instanceof UnresolvedDesignMaterialError)) throw err;
         const none = new Array(operands.length).fill(null);

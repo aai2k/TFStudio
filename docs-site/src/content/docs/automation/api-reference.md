@@ -741,6 +741,60 @@ design.deposition_temperature = 250
 print(design.deposition_temperature, "°C")
 ```
 
+### temperature
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.temperature` | `design.temperature` |
+| `design.temperature = value` | `design.temperature = value` |
+
+The temperature, °C, the design's layer thicknesses and its materials' n and k are given at: environment 1's, which another environment's temperature is a change from. It reads 20 when not set; setting it to `null` / `None` unsets it.
+
+**Refuses**:
+
+- a temperature of -273.15 °C or less
+
+```js
+const design = tf.newDesign('Bandpass');
+design.temperature = 25;
+console.log(design.temperature, '°C');
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.temperature = 25
+print(design.temperature, "°C")
+```
+
+### cone
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.cone` | `design.cone` |
+| `design.cone = value` | `design.cone = value` |
+
+**JavaScript**: The cone of incidence the merit and the spectra average over, as the Design Editor's Cone angle sets it: `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }` with the parts set, or null for none. Reading it gives a copy; setting it sets the parts given, as setDesignSetup's `cone` does, and null removes the cone.
+
+**Python**: The cone of incidence the merit and the spectra average over, as the Design Editor's Cone angle sets it: a dict of enabled, halfAngleDeg, distribution, gridPoints and userTable with the parts set, or None for none. Reading it gives a copy; setting it sets the parts given, as set_design_setup's cone does, and None removes the cone.
+
+**Refuses**:
+
+- a part it does not have, or a value the part cannot take
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.cone = { enabled: true, halfAngleDeg: 10 };
+console.log(design.cone.halfAngleDeg, '° half-angle');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.cone = {"enabled": True, "halfAngleDeg": 10}
+print(design.cone["halfAngleDeg"], "° half-angle")
+```
+
 ### substrate
 
 | JavaScript | Python |
@@ -1114,7 +1168,7 @@ What differs between this design and `other`: their setup, their layers, compare
 | ---------- | ------ | ------- | ------- |
 | `other` | `other` |  | The Design compared with this one. |
 
-**Returns**: **JavaScript**: An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'` or `'substrate.diameter'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null; `environments`, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which `design.environments` shows.<br>**Python**: A named tuple Differences: same, True when nothing compared differs; setup, each setting that differs as a SetupChange (setting, before, after), setting by the package's name ("incident_medium", "exit_medium", "substrate.material", "substrate.thickness", "reference", "sides", "score_on", "stress_temperature", "deposition_temperature" or "substrate.diameter"), before its value here and after in other; layers, each layer that differs, the front's first, as a LayerChange (side, number, before, after, change), before and after a LayerState (material, thickness, locked) or None where that design has no layer of the number, change after's thickness less before's in nm, or None; environments, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which design.environments shows.
+**Returns**: **JavaScript**: An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'`, `'substrate.diameter'` or `'temperature'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null; `environments`, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which `design.environments` shows.<br>**Python**: A named tuple Differences: same, True when nothing compared differs; setup, each setting that differs as a SetupChange (setting, before, after), setting by the package's name ("incident_medium", "exit_medium", "substrate.material", "substrate.thickness", "reference", "sides", "score_on", "stress_temperature", "deposition_temperature", "substrate.diameter" or "temperature"), before its value here and after in other; layers, each layer that differs, the front's first, as a LayerChange (side, number, before, after, change), before and after a LayerState (material, thickness, locked) or None where that design has no layer of the number, change after's thickness less before's in nm, or None; environments, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which design.environments shows.
 
 **Refuses**:
 
@@ -2463,7 +2517,7 @@ Why it ended: `'target'` (the merit fell below 10^-6), `'maxiter'`, `'stalled'` 
 
 Grows or restructures the design against its merit function with a synthesis method, inserting materials from a pool, as the method's window does. The design then holds the run's answer, or, when the run is stopped, the layers it had. Each method's settings, with their defaults, are in the API Reference under synthesize; a setting left out takes its default.
 
-On a design with more than one environment the run scores every environment that is on, each with its own media, substrate and layers, as design.merit.value does. A floor taken from an MNT row is the row's target divided by the smallest thickness factor below 1 that an environment it is scored in sets for a material of the layers or the pool, and a ceiling taken from an MXT row the target divided by the largest factor above 1.
+On a design with more than one environment the run scores every environment that is on, each with its own media, substrate, layers, cone, other side and temperature, as design.merit.value does. A floor taken from an MNT row is the row's target divided by the smallest factor below 1 by which an environment it is scored in scales the layers of a material of the layers or the pool, its thickness factor times the change its temperature makes, and a ceiling taken from an MXT row the target divided by the largest factor above 1.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -2626,7 +2680,7 @@ for one in design.monte_carlo(400, 700, runs=50, step=5, seed=1, env="all"):
 | ---------- | ------ |
 | `design.layerSensitivity({ step, deltaNm, relPct, includeLocked, env })` | `design.layer_sensitivity(step="nm", delta_nm=1, rel_pct=1, include_locked=False, env=...)` |
 
-How much the merit moves when each layer's thickness is off, as the Layer Sensitivity window ranks the layers: each layer is made thicker and thinner by a step, and the mean change of the merit is its score. The merit here leaves out the MNT and MXT rows. On a design with more than one environment the step is made on the recipe thickness and seen in an environment as f·(d ± step), f the thickness factor of the layer's material there.
+How much the merit moves when each layer's thickness is off, as the Layer Sensitivity window ranks the layers: each layer is made thicker and thinner by a step, and the mean change of the merit is its score. The merit here leaves out the MNT and MXT rows. On a design with more than one environment the step is made on the recipe thickness and seen in an environment as f·(d ± step), f the thickness factor of the layer's material there times the change the environment's temperature makes.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -3292,9 +3346,9 @@ for env in design.environments:
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.environments.add({ name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps })` | `design.environments.add(name=..., enabled=True, incident_medium=..., exit_medium=..., substrate=..., substrate_thickness_mm=..., thickness_factors=..., material_swaps=...)` |
+| `design.environments.add({ name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps, cone, mfEvalMode, temperatureC })` | `design.environments.add(name=..., enabled=True, incident_medium=..., exit_medium=..., substrate=..., substrate_thickness_mm=..., thickness_factors=..., material_swaps=..., cone=..., mf_eval_mode=..., temperature_c=...)` |
 
-Adds an environment after the others. A medium, substrate or thickness left out, or given as `null` / `None`, follows environment 1. A factor or a swap is keyed by the material the layers name, under either form of a built-in id (`'TiO2'` or `'builtin:TiO2'`).
+Adds an environment after the others. A medium, substrate, thickness, cone, other side or temperature left out, or given as `null` / `None`, follows environment 1. A factor or a swap is keyed by the material the layers name, under either form of a built-in id (`'TiO2'` or `'builtin:TiO2'`).
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -3306,6 +3360,9 @@ Adds an environment after the others. A medium, substrate or thickness left out,
 | `substrateThicknessMm` | `substrate_thickness_mm` |  | The substrate thickness, mm, above 0. |
 | `thicknessFactors` | `thickness_factors` |  | A map of material id to factor: each layer of that material is that many times as thick, the factor above 0. |
 | `materialSwaps` | `material_swaps` |  | A map of material id to material id: each layer of the first is made of the second. |
+| `cone` | `cone` |  | **JavaScript**: The cone of incidence, any of `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }`, each part given over environment 1's cone.<br>**Python**: The cone of incidence, a dict of any of enabled, halfAngleDeg, distribution, gridPoints and userTable, each part given over environment 1's cone. |
+| `mfEvalMode` | `mf_eval_mode` |  | How a one-sided design is scored here: `'side'` or `'total'`, the whole part. |
+| `temperatureC` | `temperature_c` |  | The temperature, °C, above -273.15. |
 
 **Returns**: The new Environment.
 
@@ -3638,13 +3695,102 @@ tantala.material_swaps = {"TiO2": "Ta2O5"}
 print(tantala.material_swaps)
 ```
 
+### cone
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.cone` | `env.cone` |
+| `env.cone = value` | `env.cone = value` |
+
+**JavaScript**: The cone of incidence this environment computes with, `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }` with the parts set, or null when neither it nor environment 1 has one: each part its own, or environment 1's. Setting it sets the parts given, a part given null following environment 1's again, and null makes the whole cone follow environment 1's.
+
+**Python**: The cone of incidence this environment computes with, a dict of enabled, halfAngleDeg, distribution, gridPoints and userTable with the parts set, or None when neither it nor environment 1 has one: each part its own, or environment 1's. Setting it sets the parts given, a part given None following environment 1's again, and None makes the whole cone follow environment 1's.
+
+**Refuses**:
+
+- a part it does not have, a value the part cannot take, or any value on environment 1, whose cone is the design's
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const lens = design.environments.add({ name: 'Behind a lens' });
+lens.cone = { enabled: true, halfAngleDeg: 12 };
+console.log(lens.cone.halfAngleDeg, 'in place of', design.cone);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+lens = design.environments.add(name="Behind a lens")
+lens.cone = {"enabled": True, "halfAngleDeg": 12}
+print(lens.cone["halfAngleDeg"], "in place of", design.cone)
+```
+
+### scoreOn / score_on
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.scoreOn` | `env.score_on` |
+| `env.scoreOn = value` | `env.score_on = value` |
+
+How this environment scores a design coated on one side: `'side'`, its coated side alone, or `'whole part'`, the substrate's other surface included, as `design.scoreOn` / `design.score_on` names them; its own, or environment 1's. Set it to `null` / `None` to follow environment 1's again.
+
+**Refuses**:
+
+- any other value, or any value on environment 1, whose `scoreOn` / `score_on` is the design's
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const plate = design.environments.add({ name: 'Thin plate' });
+plate.scoreOn = 'whole part';
+console.log(plate.scoreOn, 'in place of', design.scoreOn);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+plate = design.environments.add(name="Thin plate")
+plate.score_on = "whole part"
+print(plate.score_on, "in place of", design.score_on)
+```
+
+### temperature
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.temperature` | `env.temperature` |
+| `env.temperature = value` | `env.temperature = value` |
+
+The temperature this environment is at, °C: its own, or environment 1's, the design's temperature. At a temperature other than environment 1's, its layers and substrate change as the Environments page of the docs says. Set it to `null` / `None` to follow environment 1's again.
+
+**Refuses**:
+
+- a temperature of -273.15 °C or less, or any value on environment 1, whose temperature is the design's
+
+```js
+const design = tf.newDesign('Bandpass');
+design.stack('(HL)^3 HH (LH)^3');
+const hot = design.environments.add({ name: 'Hot' });
+hot.temperature = 80;
+console.log(hot.temperature, '°C against', design.temperature, '°C');
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.stack("(HL)^3 HH (LH)^3")
+hot = design.environments.add(name="Hot")
+hot.temperature = 80
+print(hot.temperature, "°C against", design.temperature, "°C")
+```
+
 ### follows
 
 | JavaScript | Python |
 | ---------- | ------ |
 | `env.follows` | `env.follows` |
 
-What the environment takes from environment 1, by the names environments.add() takes: any of `'incidentMedium'` / `"incident_medium"`, `'exitMedium'` / `"exit_medium"`, `'substrate'` and `'substrateThicknessMm'` / `"substrate_thickness_mm"`. Environment 1 follows none.
+What the environment takes from environment 1, by the names environments.add() takes: any of `'incidentMedium'` / `"incident_medium"`, `'exitMedium'` / `"exit_medium"`, `'substrate'`, `'substrateThicknessMm'` / `"substrate_thickness_mm"`, `'cone'`, `'mfEvalMode'` / `"mf_eval_mode"` and `'temperatureC'` / `"temperature_c"`. Environment 1 follows none.
 
 ```js
 const design = tf.newDesign('Window AR');

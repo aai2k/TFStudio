@@ -60,7 +60,9 @@ export function buildPayload(curDes) {
         // Stress run temperatures, so a worker scores an STR row with the same
         // thermal terms the main thread shows.
         ...(curDes.stress ? { stress: curDes.stress } : {}),
-        // The environments, so the engines score every one that is on.
+        // The environments, so the engines score every one that is on, and
+        // environment 1's temperature, which theirs are changes from.
         ...(hasEnvironments(curDes) ? { environments: curDes.environments } : {}),
+        ...(hasEnvironments(curDes) && curDes.temperatureC != null ? { temperatureC: curDes.temperatureC } : {}),
     };
 }

@@ -168,7 +168,9 @@ export function integrals(design, options) {
     requireValue('integrals', 'custom', custom, Array.isArray, `a list of rows, each { ${ROW_FIELDS.join(', ')} }`);
     const keys = new Set(BUILTIN_KEYS);
     const customDefinitions = custom.map((row, i) => customDefinition(row, i, keys));
-    // Every environment has the design's sides, so the mode is the same in each.
-    const mode = viewSide('integrals', design, side);
-    return inEnvironments('integrals', design, env, one => integralsOf(one, { start, end, step, angle, pol, mode, customDefinitions }));
+    viewSide('integrals', design, side);
+    // Each environment is computed on what it is scored on, its other side its own.
+    return inEnvironments('integrals', design, env, one => integralsOf(one, {
+        start, end, step, angle, pol, mode: viewSide('integrals', one, side), customDefinitions,
+    }));
 }

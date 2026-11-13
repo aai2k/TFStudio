@@ -11,10 +11,12 @@ import { fieldEdit, fieldValue } from '../environments/environmentFields.js';
 
 const { createElement: h } = React;
 
-// A media or substrate field of the current environment: the value it shows,
-// the change an edit makes (environmentFields.js), and in environment 2 or
-// later the tag that says whether the environment sets it.
-function settingsField({ design, current, updateDesign, c, t }, key) {
+/**
+ * A field of the current environment (environmentFields.js): the value it
+ * shows, the change an edit makes, and in environment 2 or later the tag that
+ * says whether the environment sets it. `props` are the Settings' own.
+ */
+export function settingsField({ design, current, updateDesign, c, t }, key) {
     const field = { key };
     const { value, own } = fieldValue(design, current.id, field);
     const set = next => updateDesign(fieldEdit(design, current.id, field, next));
@@ -22,12 +24,30 @@ function settingsField({ design, current, updateDesign, c, t }, key) {
     return { value, set, tag };
 }
 
+// The temperature of the current environment, on a design with environments:
+// environment 1's is the one the design's thicknesses and materials hold at.
+function TemperatureRow({ field, fldLabel, unit, numStyle, t }) {
+    const te = t.environments;
+    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' } },
+        fldLabel(te.temperature, te.temperatureTip),
+        field.tag,
+        h(DebouncedInput, {
+            value: field.value,
+            title: te.temperatureTip,
+            onChange: (s) => { const v = parseNumberStrict(s); if (!isNaN(v) && v > -273.15) field.set(v); },
+            style: numStyle,
+        }),
+        unit(t.units.celsius));
+}
+
 /**
- * Media (incident / substrate / exit), substrate thickness, reference λ₀ and
- * cone-angle averaging: the collapsible content beneath the always-visible
- * stack diagram. The media and the substrate are the current environment's
- * (`current`, useCurrentEnvironment's); λ₀ and the cone are the design's own
- * in every environment.
+ * Media (incident / substrate / exit), substrate thickness, reference λ₀,
+ * the temperature and cone-angle averaging: the collapsible content beneath
+ * the always-visible stack diagram. The media, the substrate, the temperature
+ * and the cone are the current environment's (`current`,
+ * useCurrentEnvironment's); λ₀ is the design's own in every environment. The
+ * temperature is shown on a design with environments, whose other
+ * environments can be at temperatures of their own.
  */
 export function StackSettingsFields(props) {
     const { design, media, current, updateDesign, refLambda, c, t } = props;
@@ -36,6 +56,7 @@ export function StackSettingsFields(props) {
     const substrate = settingsField(props, 'substrateMaterial');
     const thickness = settingsField(props, 'substrateThickness');
     const exit = settingsField(props, 'exitMedium');
+    const many = hasEnvironments(design);
     // Compact numeric input shared by thickness + λ₀.
     const numStyle = {
         width: 58, height: 22, backgroundColor: c.bg, color: c.text,
@@ -48,7 +69,7 @@ export function StackSettingsFields(props) {
         title, style: { fontSize: 11, color: c.textDim, whiteSpace: 'nowrap' },
     }, txt);
     return h('div', { style: { maxHeight: 260, overflowY: 'auto', paddingTop: 6 } },
-        hasEnvironments(design) && h(EnvironmentRow, { design, current, c, t }),
+        many && h(EnvironmentRow, { design, current, c, t }),
         // Three media on one row: Incident · Substrate · Exit.
         h('div', { style: { display: 'flex', gap: 8, alignItems: 'flex-end', padding: '2px 0' } },
             h(MediaCol, { label: de.incidentMedium, tag: incident.tag, materialId: incident.value, onChange: incident.set, c, t }),
@@ -97,9 +118,10 @@ export function StackSettingsFields(props) {
             }),
             unit(de.unitNm || 'nm'),
         ),
+        many && h(TemperatureRow, { field: settingsField(props, 'temperatureC'), fldLabel, unit, numStyle, t }),
         h(Sep, { c }),
         // Cone-angle averaging (convergent/divergent beam)
-        h(ConeAngleControl, { design, updateDesign, c, t })
+        h(ConeAngleControl, { design, updateDesign, c, t, field: current.index > 0 ? settingsField(props, 'cone') : null })
     );
 }
 

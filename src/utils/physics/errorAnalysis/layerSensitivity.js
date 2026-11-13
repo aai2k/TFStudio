@@ -5,7 +5,7 @@
 
 import { buildEvalContext, evaluateOperands, calcMF, withFringeSampleCounts } from '../optimizer.js';
 import {
-    BASE_ENVIRONMENT, environmentById, hasEnvironments, oneEnvironmentDesign, valueFor,
+    BASE_ENVIRONMENT, environmentDeposit, hasEnvironments, oneEnvironmentDesign,
 } from '../../environments/environments.js';
 import { meanSquareMerit, meritGroups, rowsScoredIn } from '../../environments/environmentMerit.js';
 
@@ -100,16 +100,17 @@ function probedEnvironments(design, operands, env) {
 // The merit of a design with environments as a probe of `env` reads it, at the
 // design as it is (`mf0`) and with one layer's recipe thickness changed
 // (`meritAt`): in each environment probed its own rows on the design it sees,
-// the layer f times the recipe thickness, combined as MF² = (1/N) Σ MF_k².
+// the layer f times the recipe thickness, f the factor of its material there
+// times the change its temperature makes (environmentDeposit), combined as
+// MF² = (1/N) Σ MF_k².
 function environmentProbe(design, operands, env, probe) {
     const layersOf = { front: design.frontLayers || [], back: design.backLayers || [] };
     const groups = probedEnvironments(design, operands, env).map(id => {
-        const seen = oneEnvironmentDesign(design, id);
-        const factors = environmentById(design, id).thicknessFactors;
+        const deposit = environmentDeposit(design, id, probe.resolveMat);
         return {
-            design: seen,
+            design: oneEnvironmentDesign(design, id, probe.resolveMat),
             operands: rowsScoredIn(operands, id),
-            factor: (side, layerIndex) => valueFor(factors, layersOf[side][layerIndex].material) ?? 1,
+            factor: (side, layerIndex) => deposit(layersOf[side][layerIndex].material).factor,
         };
     });
     return {
@@ -160,7 +161,8 @@ function scaleSensitivityRows(rows) {
  *                    every environment that is on, MF² = (1/N) Σ MF_k², N
  *                    counting those that hold an optical row. Each step is
  *                    made on the recipe thickness and seen in an environment
- *                    as f·(d ± Δd), f the factor of the layer's material there.
+ *                    as f·(d ± Δd), f the factor of the layer's material there
+ *                    times the change its temperature makes.
  *
  * @returns {{
  *   rows:   Array<{

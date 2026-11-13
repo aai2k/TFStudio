@@ -8,6 +8,7 @@ import { depthScale, X_UNIT_IDS } from '../components/windows/analysis/eFieldEva
 import { incidentAmplitudeVpm, plotValue } from '../components/windows/analysis/eFieldEvaluation/yScale.js';
 import { sessionDefaults } from '../constants/analysisDefaults.js';
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
+import { baseMaterialId } from '../utils/environments/temperatureModel.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { FIELD_SAMPLES_PER_LAYER } from '../utils/physics/unpolarizedField.js';
 import { requireResolved } from './materials.js';
@@ -50,7 +51,7 @@ function electricFieldOf(design, { lambda, angle, pointsPerLayer, depthUnit, ref
         mode, wavelength: lambda, angle, reference: profile.refLambda, depthUnit: depth.id, pointsPerLayer,
         z: profile.s.z, depth: depth.map(profile.s.z),
         layers: profile.validLayers.map((layer, i) => ({
-            number: numbers[i], material: layer.materialId, start: bounds[i], end: bounds[i + 1], depthStart: depth.bounds[i], depthEnd: depth.bounds[i + 1],
+            number: numbers[i], material: baseMaterialId(layer.materialId), start: bounds[i], end: bounds[i + 1], depthStart: depth.bounds[i], depthEnd: depth.bounds[i + 1],
         })),
         s: fieldOf(profile.s, toAmplitude), p: fieldOf(profile.p, toAmplitude), avg: fieldOf(profile.avg, toAmplitude),
         incidentAmplitude,

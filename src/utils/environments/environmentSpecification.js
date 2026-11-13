@@ -21,10 +21,15 @@ const DISABLED = Object.freeze({ value: null, pass: null, deviation: null, unit:
 // it is judged nowhere and counts in no verdict.
 const NOWHERE = Object.freeze({ value: null, pass: null, deviation: null, unit: '', summaryKey: 'environmentOff' });
 
-/** The design environment `id` of `design` sees, and the material lookup it is judged with. */
-export function seenIn(design, id) {
-    const seen = environmentDesign(design, id);
-    return { design: seen, resolve: designMaterialLookup(seen) };
+/**
+ * The design environment `id` of `design` sees, and the material lookup it is
+ * judged with: `resolveMat` where the caller gives one, such as a worker's
+ * tables, which then also gives the constants of the environment's
+ * temperature; otherwise the design's own.
+ */
+export function seenIn(design, id, resolveMat = null) {
+    const seen = environmentDesign(design, id, resolveMat);
+    return { design: seen, resolve: resolveMat ?? designMaterialLookup(seen) };
 }
 
 // The environments check `q` is judged in, of those `judged` lists.

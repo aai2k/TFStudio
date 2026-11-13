@@ -49,8 +49,12 @@ await api.init();
 const plain = () => api.stackFromFormula(api.newDesign({ name: 'Window AR', substrateThicknessMm: 2 }), { formula: '(HL)^2' });
 const BASE_ENTRY = {
     number: 1, id: 'base', name: null, enabled: true, incidentMedium: 'Air', exitMedium: 'Air',
-    substrate: { material: 'BK7', thickness: 2 }, thicknessFactors: {}, materialSwaps: {}, follows: [],
+    substrate: { material: 'BK7', thickness: 2 }, thicknessFactors: {}, materialSwaps: {},
+    cone: null, mfEvalMode: 'side', temperatureC: 20, follows: [],
 };
+// What an environment that sets none of the cone, the other side and the temperature lists of them.
+const CONDITIONS = { cone: null, mfEvalMode: 'side', temperatureC: 20 };
+const FOLLOWED_CONDITIONS = ['cone', 'mfEvalMode', 'temperatureC'];
 
 // ── 1. The list ────────────────────────────────────────────────────────────
 {
@@ -65,11 +69,13 @@ const BASE_ENTRY = {
         BASE_ENTRY,
         {
             number: 2, id: 'env2', name: 'Under water', enabled: true, incidentMedium: 'H2O', exitMedium: 'Air',
-            substrate: { material: 'BK7', thickness: 3 }, thicknessFactors: { TiO2: 0.95 }, materialSwaps: {}, follows: ['exitMedium', 'substrate'],
+            substrate: { material: 'BK7', thickness: 3 }, thicknessFactors: { TiO2: 0.95 }, materialSwaps: {},
+            ...CONDITIONS, follows: ['exitMedium', 'substrate', ...FOLLOWED_CONDITIONS],
         },
         {
             number: 3, id: 'env3', name: 'Sapphire', enabled: false, incidentMedium: 'Air', exitMedium: 'SiO2',
-            substrate: { material: 'Al2O3', thickness: 2 }, thicknessFactors: {}, materialSwaps: { 'builtin:SiO2': 'MgF2' }, follows: ['incidentMedium', 'substrateThicknessMm'],
+            substrate: { material: 'Al2O3', thickness: 2 }, thicknessFactors: {}, materialSwaps: { 'builtin:SiO2': 'MgF2' },
+            ...CONDITIONS, follows: ['incidentMedium', 'substrateThicknessMm', ...FOLLOWED_CONDITIONS],
         },
     ]), JSON.stringify(listed));
     listed[1].thicknessFactors.TiO2 = 2;
@@ -115,7 +121,7 @@ const BASE_ENTRY = {
     design = api.setEnvironment(design, 2, { incidentMedium: null, substrate: null });
     ok('null gives a field back to environment 1, the substrate material apart from its thickness', same(design.environments[1], {
         id: 'env2', name: 'Under water', substrate: { thickness: 3 }, thicknessFactors: { TiO2: 0.9, SiO2: 0.95 }, materialSwaps: { TiO2: 'Ta2O5', SiO2: 'MgF2' },
-    }) && same(api.environments(design)[1].follows, ['incidentMedium', 'exitMedium', 'substrate']), JSON.stringify(design.environments[1]));
+    }) && same(api.environments(design)[1].follows, ['incidentMedium', 'exitMedium', 'substrate', ...FOLLOWED_CONDITIONS]), JSON.stringify(design.environments[1]));
 
     design = api.setEnvironment(design, 'env2', { thicknessFactors: { TiO2: null, MgF2: 1.1 }, materialSwaps: { 'builtin:SiO2': null } });
     ok('a material given null inside a map gives it back, under either form of its id, and the materials left out keep theirs',
@@ -169,7 +175,7 @@ const BASE_ENTRY = {
     const MAP = what => `a map of material id to ${what}, or to null to follow environment 1; or null for none`;
     const ENVIRONMENT = 'environment is one of the design\'s environments by its number, 1 to 2, or its id, base or env2';
     const cases = [
-        [() => api.addEnvironment(design, { colour: 'red' }), 'unknownOption', { call: 'addEnvironment', option: 'colour' }, /^addEnvironment: unknown option 'colour'; the options are name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps$/],
+        [() => api.addEnvironment(design, { colour: 'red' }), 'unknownOption', { call: 'addEnvironment', option: 'colour' }, /^addEnvironment: unknown option 'colour'; the options are name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps, cone, mfEvalMode, temperatureC$/],
         [() => api.setEnvironment(design, 2, { substrateThickness: 3 }), 'unknownOption', { call: 'setEnvironment', option: 'substrateThickness' }, /^setEnvironment: unknown option 'substrateThickness'/],
         [() => api.addEnvironment(design, { name: '' }), 'badValue', { option: 'name', value: '', takes: 'a name, or null for none' }, /^addEnvironment: name is a name, or null for none, not ""$/],
         [() => api.setEnvironment(design, 2, { name: 7 }), 'badValue', { option: 'name', value: 7 }, /^setEnvironment: name is a name, or null for none, not 7$/],
@@ -192,7 +198,7 @@ const BASE_ENTRY = {
         [() => api.removeEnvironment(design, 'env9'), 'unknownEnvironment', { call: 'removeEnvironment', environment: 'env9', numbers: [1, 2], ids: ['base', 'env2'] }, new RegExp(`^removeEnvironment: ${ENVIRONMENT}; not "env9"$`)],
         [() => api.removeEnvironment(design, true), 'unknownEnvironment', { environment: true }, /not true$/],
         [() => api.removeEnvironment(plain(), 2), 'unknownEnvironment', { numbers: [1], ids: ['base'] }, /^removeEnvironment: environment is one of the design's environments by its number, 1, or its id, base; not 2$/],
-        [() => api.setEnvironment(design, 1, { incidentMedium: 'H2O' }), 'baseEnvironment', { call: 'setEnvironment', option: 'incidentMedium' }, /^setEnvironment: environment 1 is the design itself and takes name and enabled alone, not incidentMedium; setDesignSetup changes the design's own media and substrate$/],
+        [() => api.setEnvironment(design, 1, { incidentMedium: 'H2O' }), 'baseEnvironment', { call: 'setEnvironment', option: 'incidentMedium' }, /^setEnvironment: environment 1 is the design itself and takes name and enabled alone, not incidentMedium; setDesignSetup changes the design's own media, substrate, cone, other side and temperature$/],
         [() => api.setEnvironment(design, 'base', { name: 'x', thicknessFactors: {} }), 'baseEnvironment', { option: 'thicknessFactors' }, /not thicknessFactors; setDesignSetup/],
         [() => api.removeEnvironment(design, 1), 'baseEnvironment', { call: 'removeEnvironment' }, /^removeEnvironment: environment 1 is the design itself and cannot be removed$/],
         [() => api.removeEnvironment(design, 'base'), 'baseEnvironment', { call: 'removeEnvironment' }, /cannot be removed$/],

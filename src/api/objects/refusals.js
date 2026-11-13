@@ -47,7 +47,7 @@ const WORDS = {
     unknownEnvironment: f => (f.option === 'env' ? unknownEnv(f)
         : `environment ${shown(f.environment)}: the design has ${f.numbers.length} environment${f.numbers.length === 1 ? '' : 's'}, numbered from 1`),
     baseEnvironment: (f, w) => (f.option
-        ? `environment 1 is the design itself and takes name and enabled alone, not ${w.name(f.option)}; set the design's own media and substrate with design.incidentMedium, design.exitMedium and design.substrate`
+        ? `environment 1 is the design itself and takes name and enabled alone, not ${w.name(f.option)}; set the design's own media, substrate, cone, other side and temperature with design.incidentMedium, design.exitMedium, design.substrate, design.cone, design.scoreOn and design.temperature`
         : 'environment 1 is the design itself and cannot be removed'),
     oneEnvironment: (f, w) => (Object.hasOwn(ENTRY_OF, f.call)
         ? `the design has one environment, so a ${ENTRY_OF[f.call]} takes no ${w.name(f.option)}; add another with design.environments.add()`

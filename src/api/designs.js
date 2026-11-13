@@ -12,6 +12,7 @@ import { stressBlockWith } from '../components/windows/analysis/stressAnalysis/m
 import designFile from '../main/designFile.js';
 import mainPaths from '../main/paths.js';
 import { requireMaterial } from './materials.js';
+import { EVAL_MODES, isTemperature, requireCone } from './designEnvironments.js';
 import { checkOptions, requireValue, isPositive, refusal } from './check.js';
 
 const { readDesignFile, serializeDesign } = designFile;
@@ -71,11 +72,28 @@ export function saveDesign(design, filePath, options) {
 const SIDES = { front: 'frontLayers', back: 'backLayers' };
 const SURFACE_MODES = ['front_only', 'back_only', 'both_independent', 'symmetric'];
 
-const EVAL_MODES = ['side', 'total'];
 const SETUP = [
     'name', 'incidentMedium', 'exitMedium', 'substrate', 'substrateThicknessMm', 'surfaceMode', 'mfEvalMode', 'referenceWavelength',
-    'stressTemperatureC', 'depositionTemperatureC', 'substrateDiameterMm',
+    'stressTemperatureC', 'depositionTemperatureC', 'substrateDiameterMm', 'cone', 'temperatureC',
 ];
+
+// `next` with the cone of incidence and the temperature `setup` gives: the
+// parts of a cone given over the design's cone, null for no cone; a
+// temperature, null to unset it.
+function applyConditions(call, next, setup) {
+    if (setup.cone !== undefined) {
+        if (setup.cone === null) delete next.cone;
+        else {
+            requireCone(call, 'cone', setup.cone);
+            next.cone = { ...next.cone, ...setup.cone };
+        }
+    }
+    if (setup.temperatureC !== undefined) {
+        requireValue(call, 'temperatureC', setup.temperatureC, v => v === null || isTemperature(v), 'a temperature in °C above -273.15, or null to unset it');
+        if (setup.temperatureC === null) delete next.temperatureC;
+        else next.temperatureC = setup.temperatureC;
+    }
+}
 // The Stress window's temperature fields by setDesignSetup's names, each a
 // field of the design's `stress` block.
 const TEMPERATURES = { stressTemperatureC: 'temperatureC', depositionTemperatureC: 'depositionTemperatureC' };
@@ -131,6 +149,7 @@ function withSetup(call, design, setup) {
     };
     checkSetup(call, next);
     applyStressSetup(call, next, setup);
+    applyConditions(call, next, setup);
     for (const id of [next.incidentMedium, next.exitMedium, next.substrate.material]) requireMaterial(next, id);
     const was = design.referenceWavelength;
     if (was > 0 && next.referenceWavelength !== was) {
@@ -156,6 +175,8 @@ function withSetup(call, design, setup) {
  * @param [options.stressTemperatureC=null] The temperature the [Stress](/analysis/stress/) window evaluates the part at, °C, above -273.15, or null to leave it unset. While only the deposition temperature is set, it reads 20 °C.
  * @param [options.depositionTemperatureC=null] The temperature the films were deposited at, °C, above -273.15, or null to leave it unset. While only the other temperature is set, it reads 20 °C. With neither set, each film carries its intrinsic stress alone.
  * @param [options.substrateDiameterMm=null] The substrate's diameter, mm, above 0, which only the Stress window's centre deflection needs, or null to leave it unset.
+ * @param [options.cone=null] The cone of incidence the merit and the spectra average over, as the Design Editor's Cone angle sets it: any of `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }`, given over the design's cone. `enabled` true or false; `halfAngleDeg` from the axis, 0 up to but not including 90; `distribution` `'uniform'`, `'lambertian'` or `'user'`; `gridPoints` 2 to 200; `userTable` a list of `{ theta, intensity }`, theta in degrees from the axis, which the `'user'` distribution reads. Null for no cone.
+ * @param [options.temperatureC=null] The temperature the design's layer thicknesses and its materials' n and k are given at, °C, above -273.15: environment 1's temperature, which another [environment](/design/environments/)'s is a change from. Null unsets it, and it reads 20.
  * @returns The design.
  * @property id The design's own id.
  * @property name Its name.
@@ -165,6 +186,8 @@ function withSetup(call, design, setup) {
  * @property stress `{ temperatureC, depositionTemperatureC }`, each there when set, in °C; a design with neither set has no `stress`.
  * @property surfaceMode Which sides carry layers.
  * @property mfEvalMode How a one-sided design is scored.
+ * @property cone The cone of incidence, once `cone` is given.
+ * @property temperatureC The temperature, °C, once `temperatureC` is given.
  * @property referenceWavelength The reference wavelength, nm.
  * @property frontLayers The front's layers, the outermost first, each `{ id, material, thickness, locked }` with the thickness in nm.
  * @property backLayers The back's layers, the one on the substrate first.
@@ -185,7 +208,11 @@ export function newDesign(options) {
  * waves, as the Design Editor's λ0 field does, and a design made symmetric
  * takes the mirror of its front as its back. A stress temperature or the
  * diameter given as null is unset, as clearing the Stress window's field
- * unsets it, and unsetting the last temperature removes `stress`.
+ * unsets it, and unsetting the last temperature removes `stress`. The parts
+ * of a cone given change those parts alone, and a cone given as null removes
+ * the cone. The media, the substrate, the cone, `mfEvalMode` and
+ * `temperatureC` are environment 1's; another environment sets its own with
+ * setEnvironment.
  *
  * @param design The design.
  * @param options Any of the options of `newDesign`.

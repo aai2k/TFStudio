@@ -22,7 +22,7 @@ import { ResultsTable } from './ResultsTable.js';
 import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
 import { tableFromWeights } from '../../dataExchange/curveEditor/curveTable.js';
 import { pointsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
-import { noLayersMessage } from '../layersForMode.js';
+import { noLayersMessageIn } from '../layersForMode.js';
 import { exportColumns, exportRows } from './exportModel.js';
 import { useIntegralValues } from './useIntegralValues.js';
 
@@ -64,8 +64,8 @@ function chartTitle(selected, tr) {
 export function IntegralValues({ c, theme, t }) {
     const iv = t.integralValues;
     const dt = t.dataTable;
-    const { design, evalMode } = useDesign();
-    const model = useIntegralValues(design, evalMode);
+    const { design } = useDesign();
+    const model = useIntegralValues(design);
     const colors = useAnalysisColors('integralValues');
     const columns = exportColumns(t, model.sets);
     const rows = exportRows(model.integrals, model.sets || model.results, t.units);
@@ -78,7 +78,7 @@ export function IntegralValues({ c, theme, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_integrals.csv`,
     );
 
-    const emptyMessage = noLayersMessage(design, evalMode, t);
+    const emptyMessage = noLayersMessageIn(model.environment.views, t);
     if (emptyMessage) return h(CenteredMessage, { c, message: emptyMessage });
 
     return h(AnalysisWindow, { c },

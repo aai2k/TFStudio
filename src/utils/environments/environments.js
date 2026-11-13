@@ -13,7 +13,10 @@
  *     incidentMedium, exitMedium,             material ids
  *     substrate: { material, thickness },     thickness in mm
  *     thicknessFactors: { [material]: f },    each layer of that material f times as thick
- *     materialSwaps: { [material]: other } }  each layer of that material made of the other
+ *     materialSwaps: { [material]: other },   each layer of that material made of the other
+ *     cone: { enabled, halfAngleDeg, ... },   the cone of incidence, each field over environment 1's
+ *     mfEvalMode,                             'side' or 'total', as the design's own
+ *     temperatureC }                          °C (environmentTemperature.js)
  *
  * `enabled` is written only as false. A design with no `environments` key has
  * one environment, as has every design written before environments existed. A
@@ -24,6 +27,8 @@
  * read environments through them alike.
  */
 import { MATERIAL_MAP } from '../materials/materialDatabase.js';
+import { coneIsActive, makeConeSpec } from '../physics/optimizer/coneAngle/spec.js';
+import { designMaterialOf, stressAtTemperature, temperatureChange, temperatureEffects } from './environmentTemperature.js';
 
 /** The id of environment 1. */
 export const BASE_ENVIRONMENT = 'base';
@@ -98,56 +103,154 @@ export function valueFor(map, id) {
     return key === undefined ? undefined : map[key];
 }
 
-// `layers` as the environment deposits them: a factor scales each layer of its
-// material and a swap replaces that material, both keyed by the material the
-// layer list names.
-function layersIn(layers, env) {
-    const { thicknessFactors: factors, materialSwaps: swaps } = env;
-    if (!factors && !swaps) return layers;
+// The thickness factor of a layer of material `named` in the layer list, in
+// environment entry `env`, and the material it is made of there: the factor
+// and the swap keyed by that material, and at a temperature of its own
+// (`effects`, temperatureEffects) the film's change of thickness and its
+// material at that temperature. The factor is undefined where nothing scales
+// the layer.
+function depositedAs(env, named, effects) {
+    const factor = valueFor(env.thicknessFactors, named);
+    const material = valueFor(env.materialSwaps, named) ?? named;
+    const film = effects?.film(material);
+    if (!film) return { factor, material };
+    return { factor: (factor ?? 1) * film.thicknessFactor, material: film.id };
+}
+
+// `layers` as the environment deposits them (depositedAs).
+function layersIn(layers, env, effects) {
+    if (!env.thicknessFactors && !env.materialSwaps && !effects) return layers;
     return layers.map(layer => {
-        const factor = valueFor(factors, layer.material);
-        const swap = valueFor(swaps, layer.material);
-        if (factor === undefined && swap === undefined) return layer;
+        const { factor, material } = depositedAs(env, layer.material, effects);
+        if (factor === undefined && material === layer.material) return layer;
         return {
             ...layer,
             ...(factor !== undefined ? { thickness: layer.thickness * factor } : {}),
-            ...(swap !== undefined ? { material: swap } : {}),
+            ...(material !== layer.material ? { material } : {}),
         };
     });
 }
 
-/**
- * `design` as environment `id` computes it: its media, its substrate and its
- * layers with the environment's fields applied. For environment 1, and so for
- * every design without environments, the same object it was given.
- *
- * @throws an id the design has no environment for
- */
-export function environmentDesign(design, id = BASE_ENVIRONMENT) {
-    if (id === BASE_ENVIRONMENT) return design;
-    const env = environmentById(design, id);
-    if (!env) throw new Error(`This design has no environment ${id}.`);
+// The media and the substrate environment entry `env` computes with, as named.
+function setupIn(design, env) {
     return {
-        ...design,
         incidentMedium: env.incidentMedium ?? design.incidentMedium,
         exitMedium: env.exitMedium ?? design.exitMedium,
         substrate: env.substrate ? { ...design.substrate, ...env.substrate } : design.substrate,
-        frontLayers: layersIn(design.frontLayers || [], env),
-        backLayers: layersIn(design.backLayers || [], env),
+    };
+}
+
+// What a temperature of environment entry `env` makes of the films and of the
+// substrate `substrate` (temperatureEffects), with the change itself as
+// `deltaT`, K; null when it is environment 1's.
+function effectsIn(design, env, substrate, resolve) {
+    const deltaT = temperatureChange(design, env);
+    if (deltaT === 0) return null;
+    return { deltaT, ...temperatureEffects(deltaT, substrate.material, resolve ?? designMaterialOf(design)) };
+}
+
+// `substrate` at the temperature `effects` describes.
+function substrateIn(substrate, effects) {
+    const { thicknessFactor, id } = effects.substrate;
+    return { ...substrate, material: id, thickness: (substrate.thickness ?? 1.0) * thicknessFactor };
+}
+
+// The fields of `design` environment entry `env` changes at the temperature
+// `effects` describes, besides its layers: its substrate, its temperature and,
+// where the design states them, its stress run temperatures.
+function heatedFields(design, env, substrate, effects) {
+    return {
+        substrate: substrateIn(substrate, effects),
+        temperatureC: env.temperatureC,
+        ...(design.stress ? { stress: stressAtTemperature(design.stress, effects.deltaT) } : {}),
     };
 }
 
 /**
+ * `design` as environment `id` computes it: its media, its substrate, its
+ * layers, its cone of incidence and its back side with the environment's
+ * fields applied, and at the environment's temperature its layers, its
+ * substrate and its stress run temperatures as environmentTemperature.js
+ * makes them. `resolve(materialId)`
+ * gives the material a constant of the temperature model is read from, the
+ * design's own resolution when not given; a calculation passes its own, so a
+ * worker reads the constants from its tables. For environment 1, and so for
+ * every design without environments, the same object it was given.
+ *
+ * @throws an id the design has no environment for
+ */
+export function environmentDesign(design, id = BASE_ENVIRONMENT, resolve = null) {
+    if (id === BASE_ENVIRONMENT) return design;
+    const env = environmentById(design, id);
+    if (!env) throw new Error(`This design has no environment ${id}.`);
+    const setup = setupIn(design, env);
+    const effects = effectsIn(design, env, setup.substrate, resolve);
+    return {
+        ...design,
+        ...setup,
+        frontLayers: layersIn(design.frontLayers || [], env, effects),
+        backLayers: layersIn(design.backLayers || [], env, effects),
+        ...(effects ? heatedFields(design, env, setup.substrate, effects) : {}),
+        ...(env.cone ? { cone: { ...design.cone, ...env.cone } } : {}),
+        ...(env.mfEvalMode ? { mfEvalMode: env.mfEvalMode } : {}),
+    };
+}
+
+/**
+ * How environment `id` deposits a layer the layer list makes of a material, as
+ * environmentDesign applies it: `deposit(named)` gives `{ factor, material }`,
+ * the factor a layer of material `named` is thickened by there (the thickness
+ * factor of its material times the change its temperature makes, 1 where
+ * nothing scales it) and the id of the material it is made of there (its swap,
+ * at the environment's temperature; `named` itself where neither changes it).
+ * `resolve` as environmentDesign's.
+ */
+export function environmentDeposit(design, id, resolve = null) {
+    const env = environmentById(design, id);
+    const effects = id === BASE_ENVIRONMENT ? null : effectsIn(design, env, setupIn(design, env).substrate, resolve);
+    return (named) => {
+        const { factor, material } = depositedAs(env, named, effects);
+        return { factor: factor ?? 1, material };
+    };
+}
+
+/**
+ * The factor each of `layers`, as the layer list holds them, is thickened by
+ * in environment `id` (environmentDeposit).
+ */
+export function environmentLayerFactors(design, id, layers, resolve = null) {
+    const deposit = environmentDeposit(design, id, resolve);
+    return layers.map(layer => deposit(layer.material).factor);
+}
+
+/** The cone of incidence environment `id` computes with, or undefined for none. */
+export function environmentCone(design, id = BASE_ENVIRONMENT) {
+    const own = id === BASE_ENVIRONMENT ? null : environmentById(design, id)?.cone;
+    return own ? { ...design.cone, ...own } : design.cone;
+}
+
+/**
+ * True when the merit of `design` computes under a cone of incidence:
+ * environment 1's cone, or that of another environment that is on.
+ */
+export function meritUnderCone(design) {
+    return environmentsOf(design).some((env, i) => (i === 0 || isEnvironmentOn(env))
+        && coneIsActive(makeConeSpec(environmentCone(design, env.id) || {})));
+}
+
+/**
  * `design` with the media and the substrate environment `id` computes with,
- * and its own layers: the layer list is the recipe and reads the same in every
- * environment. For environment 1 the same object it was given.
+ * as named, and its back side, and its own layers: the layer list is the
+ * recipe and reads the same in every environment. For environment 1 the same
+ * object it was given.
  *
  * @throws an id the design has no environment for
  */
 export function environmentMedia(design, id = BASE_ENVIRONMENT) {
     if (id === BASE_ENVIRONMENT) return design;
-    const seen = environmentDesign(design, id);
-    return { ...design, incidentMedium: seen.incidentMedium, exitMedium: seen.exitMedium, substrate: seen.substrate };
+    const env = environmentById(design, id);
+    if (!env) throw new Error(`This design has no environment ${id}.`);
+    return { ...design, ...setupIn(design, env), ...(env.mfEvalMode ? { mfEvalMode: env.mfEvalMode } : {}) };
 }
 
 /**
@@ -155,10 +258,10 @@ export function environmentMedia(design, id = BASE_ENVIRONMENT) {
  * design without environments: every calculation then takes it as a design
  * with one environment. A design without environments is returned as it is.
  */
-export function oneEnvironmentDesign(design, id = BASE_ENVIRONMENT) {
+export function oneEnvironmentDesign(design, id = BASE_ENVIRONMENT, resolve = null) {
     if (id === BASE_ENVIRONMENT && !hasEnvironments(design)) return design;
     // eslint-disable-next-line no-unused-vars
-    const { environments, ...own } = environmentDesign(design, id);
+    const { environments, ...own } = environmentDesign(design, id, resolve);
     return own;
 }
 

@@ -12,7 +12,7 @@
 
 import { useDesign }            from '../../../state/DesignContext.js';
 import { unresolvedMaterials } from '../../../utils/materials/designMaterials.js';
-import { makeConeSpec, coneIsActive } from '../../../utils/physics/optimizer.js';
+import { meritUnderCone } from '../../../utils/environments/environments.js';
 import {
     meritTable, atDefaultSteps, provisionalRows, provisionalMerit,
 } from '../../../utils/physics/meritDisplay.js';
@@ -28,7 +28,7 @@ const _quickCache = new WeakMap();
 const _finalCache = new WeakMap();
 
 function quickOf(design, ops) {
-    if (coneIsActive(makeConeSpec(design.cone || {}))) return { mf: null, materialMissing: false, pending: true, cone: true };
+    if (meritUnderCone(design)) return { mf: null, materialMissing: false, pending: true, cone: true };
     try {
         return {
             mf: meritTable(design, atDefaultSteps(ops)).mf, materialMissing: false,

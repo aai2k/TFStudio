@@ -93,12 +93,13 @@ export function computeColorReports(options) {
 
 /**
  * computeColorReports on each of `designs`, one per environment the window
- * shows: a list of report lists, or null when any of them fails.
+ * shows, design k in `evalModes[k]` when given, else in the options' mode: a
+ * list of report lists, or null when any of them fails.
  */
-export function computeEnvironmentReports(designs, options) {
+export function computeEnvironmentReports(designs, options, evalModes = null) {
     const sets = [];
-    for (const design of designs) {
-        const reports = computeColorReports({ ...options, design });
+    for (const [k, design] of designs.entries()) {
+        const reports = computeColorReports({ ...options, design, ...(evalModes ? { evalMode: evalModes[k] } : {}) });
         if (!reports) return null;
         sets.push(reports);
     }

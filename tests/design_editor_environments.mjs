@@ -109,8 +109,8 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     assert.ok(html.includes(`>${esc(sapphire)}</span>`), 'the substrate picker shows it');
     assert.equal(tagsWith(html, `title="${esc(te.ownTip(2))}"`).length, 1, 'the substrate, which environment 2 sets, carries its tag');
     assert.ok(html.includes(`>${esc(te.own(2))}<svg`), 'the tag is the environment\'s number with a cross');
-    assert.equal((html.match(new RegExp(`title="${esc(te.followsTip)}"`, 'g')) || []).length, 3,
-        'the incident medium, the exit medium and the substrate thickness follow environment 1');
+    assert.equal((html.match(new RegExp(`title="${esc(te.followsTip)}"`, 'g')) || []).length, 6,
+        'the incident medium, the exit medium, the substrate thickness, the temperature, the cone and Ignore other side follow environment 1');
     // Environment 3 grows its TiO2 0.95 times as thick; the layer list is the
     // recipe and reads the same in every environment.
     const thinner = render(design, t, 'env3');

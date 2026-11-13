@@ -14,6 +14,7 @@ import {
     jetWithImaginaryPart,
     wavelengthOmegaJet,
 } from '../../tmmcore.js';
+import { followingTemperature } from '../environments/temperatureModel.js';
 
 export const C_NM_PER_FS = 299.792458;
 // Matches the characteristic-matrix opacity limit. At this field optical
@@ -223,8 +224,14 @@ function precomputedResponse(material, wavelengthNm, knotSide) {
  * order −1, the fit is read there by default, as getNK reads it, and
  * `knotSide` reads the table instead on the side it lies: 'left' at the lower
  * end, 'right' at the upper.
+ *
+ * A material at another temperature (environments/temperatureModel.js) gives
+ * the response of the material it is made from with its index changed.
  */
-export function materialOmegaResponse(material, wavelengthNm, knotSide) {
+export const materialOmegaResponse = followingTemperature(ownOmegaResponse);
+
+// materialOmegaResponse of a material read from its own fields.
+function ownOmegaResponse(material, wavelengthNm, knotSide) {
     const precomputed = precomputedResponse(material, wavelengthNm, knotSide);
     if (precomputed) return precomputed;
     const omega = 2 * Math.PI * C_NM_PER_FS / wavelengthNm;

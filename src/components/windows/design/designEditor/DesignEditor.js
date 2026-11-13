@@ -11,11 +11,11 @@ import {
     moveLayersByStep as moveLayersByStepAction,
 } from './layerActions.js';
 import { LayerList } from './LayerList.js';
-import { StackGeometryPanel } from './StackGeometryPanel.js';
+import { StackGeometryPanel, settingsField } from './StackGeometryPanel.js';
 import { designEditorSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import { useCurrentEnvironment } from '../environments/currentEnvironment.js';
-import { environmentMedia } from '../../../../utils/environments/environments.js';
+import { environmentMedia, environmentsOf } from '../../../../utils/environments/environments.js';
 
 const { createElement: h, useState, useEffect, useMemo } = React;
 
@@ -48,6 +48,22 @@ function SideTabButton({ side, activeSide, disabledSide, disabledReason, design,
     }, side === 'front' ? de.frontCoating : (de.backCoating + (isSymmetric ? ' (= front)' : '')));
 }
 
+// Which side's tab is disabled for editing, `{ side, reason }`, side null when
+// both are editable:
+//   • symmetric    → back is mirrored from front (edit front)
+//   • ignore other → the non-active surface is excluded from evaluation in
+//                     every environment, so its tab is dormant until
+//                     "Ignore other side" is cleared in one of them: the
+//                     layer list is the recipe every environment reads.
+// both_independent / single-side+total leave both tabs editable.
+function dormantSide(design) {
+    const surfaceMode = design.surfaceMode || 'front_only';
+    if (surfaceMode === 'symmetric') return { side: 'back', reason: 'symmetric' };
+    const whole = environmentsOf(design).some(env => environmentMedia(design, env.id).mfEvalMode === 'total');
+    const ignored = { front_only: 'back', back_only: 'front' }[surfaceMode];
+    return { side: whole ? null : (ignored ?? null), reason: 'ignored' };
+}
+
 // ── Design Editor ─────────────────────────────────────────────────────────────
 
 export function DesignEditor({ c, t }) {
@@ -61,19 +77,7 @@ export function DesignEditor({ c, t }) {
     const current = useCurrentEnvironment(design);
     const media = useMemo(() => environmentMedia(design, current.id), [design, current.id]);
 
-    // Which side's tab is disabled for editing, and why:
-    //   • symmetric    → back is mirrored from front (edit front)
-    //   • ignore other → the non-active surface is excluded from evaluation, so
-    //                     its tab is dormant until "Ignore other side" is cleared.
-    // both_independent / single-side+total leave both tabs editable.
-    const _sm = design.surfaceMode || 'front_only';
-    const _me = design.mfEvalMode  || 'side';
-    const disabledSide =
-        _sm === 'symmetric'                    ? 'back'
-        : (_me === 'side' && _sm === 'front_only') ? 'back'
-        : (_me === 'side' && _sm === 'back_only')  ? 'front'
-        : null;
-    const disabledReason = _sm === 'symmetric' ? 'symmetric' : 'ignored';
+    const { side: disabledSide, reason: disabledReason } = dormantSide(design);
 
     // Never leave the active tab on a disabled side.
     useEffect(() => {
@@ -142,6 +146,8 @@ export function DesignEditor({ c, t }) {
             h(SurfaceModeControl, {
                 design, updateDesign, c, t,
                 style: { flexWrap: 'nowrap' },
+                // In environment 2 or later Ignore other side is that environment's.
+                backSide: current.index > 0 ? settingsField({ design, current, updateDesign, c, t }, 'mfEvalMode') : null,
                 // Follow the chosen primary side with the editing tab.
                 onModeChange: (primarySide) => setActiveSide(primarySide === 'back' ? 'back' : 'front'),
             })

@@ -8,6 +8,7 @@ import { oneEnvironmentDesign } from '../../utils/environments/environments.js';
 import { ended, hooksFor } from './hooks.js';
 import { Layers } from './layers.js';
 import { Environments } from './environments.js';
+import { SIDES, SCORE_ON, nameOf, named } from './settingNames.js';
 import { Merit } from './merit.js';
 import { defined, optionsOf, trailingOptions } from './options.js';
 import { worded } from './refusals.js';
@@ -26,11 +27,7 @@ import { Specification } from './specification.js';
 import { Spectrum } from './spectrum.js';
 import { IndexProfile, LayerThicknesses } from './stackViews.js';
 
-// design.sides by the API's surfaceMode, and design.scoreOn by its mfEvalMode;
-// the API Reference's table of what a design computes on is made from them.
-export const SIDES = { front: 'front_only', back: 'back_only', both: 'both_independent', symmetric: 'symmetric' };
-export const SCORE_ON = { side: 'side', 'whole part': 'total' };
-const nameOf = (mapping, value) => Object.keys(mapping).find(name => mapping[name] === value);
+export { SIDES, SCORE_ON };
 // layerSensitivity()'s kinds of step by the API's modes.
 const STEPS = { nm: 'absolute', percent: 'relative' };
 // The attributes that set what setDesignSetup's options set, where their
@@ -38,6 +35,7 @@ const STEPS = { nm: 'absolute', percent: 'relative' };
 const SETUP_NAMES = {
     referenceWavelength: 'reference', substrate: 'substrate.material', substrateThicknessMm: 'substrate.thickness',
     stressTemperatureC: 'stressTemperature', depositionTemperatureC: 'depositionTemperature', substrateDiameterMm: 'substrate.diameter',
+    temperatureC: 'temperature',
 };
 // The options compareMeasured() passes to measuredDifference as they are; it
 // takes from and to as start and end, as the other methods over a range do.
@@ -62,16 +60,6 @@ function environmentNamed(design, env) {
 function madeIn(design, env, answer, make) {
     if (env !== 'all') return make(answer, environmentNamed(design, env));
     return answer.environments.map(({ number, id, name, ...found }) => make(found, { number, id, name }));
-}
-
-// The API's name of `value`, one of the names `mapping` holds for the
-// attribute `what`.
-function named(mapping, what, value) {
-    if (!Object.hasOwn(mapping, value)) {
-        const names = Object.keys(mapping).map(name => `'${name}'`);
-        throw new Error(`${what} is ${names.slice(0, -1).join(', ')} or ${names[names.length - 1]}, not ${JSON.stringify(value)}`);
-    }
-    return mapping[value];
 }
 
 // design.stack()'s options by the API's names for them.
@@ -283,6 +271,40 @@ export class Design {
     get depositionTemperature() { return this._data.stress?.depositionTemperatureC ?? null; }
 
     set depositionTemperature(temperature) { this._setup({ depositionTemperatureC: temperature }); }
+
+    /**
+     * The temperature, °C, the design's layer thicknesses and its materials'
+     * n and k are given at: environment 1's, which another environment's
+     * temperature is a change from. It reads 20 when not set; setting it to
+     * null unsets it.
+     *
+     * @throws a temperature of -273.15 °C or less
+     * @example
+     * const design = tf.newDesign('Bandpass');
+     * design.temperature = 25;
+     * console.log(design.temperature, '°C');
+     */
+    get temperature() { return this._data.temperatureC ?? 20; }
+
+    set temperature(temperature) { this._setup({ temperatureC: temperature }); }
+
+    /**
+     * The cone of incidence the merit and the spectra average over, as the
+     * Design Editor's Cone angle sets it: `{ enabled, halfAngleDeg,
+     * distribution, gridPoints, userTable }` with the parts set, or null for
+     * none. Reading it gives a copy; setting it sets the parts given, as
+     * setDesignSetup's `cone` does, and null removes the cone.
+     *
+     * @throws a part it does not have, or a value the part cannot take
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('(HL)^2');
+     * design.cone = { enabled: true, halfAngleDeg: 10 };
+     * console.log(design.cone.halfAngleDeg, '° half-angle');
+     */
+    get cone() { return this._data.cone ? { ...this._data.cone } : null; }
+
+    set cone(cone) { this._setup({ cone }); }
 
     /**
      * The substrate: its material, thickness and diameter, a Substrate.
@@ -541,7 +563,7 @@ export class Design {
      * materials a design carries are not compared.
      *
      * @param other The Design compared with this one.
-     * @returns An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'` or `'substrate.diameter'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null; `environments`, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which `design.environments` shows.
+     * @returns An object: `same`, true when nothing compared differs; `setup`, each setting that differs as `{ setting, before, after }`, setting by this object's name (`'incidentMedium'`, `'exitMedium'`, `'substrate.material'`, `'substrate.thickness'`, `'reference'`, `'sides'`, `'scoreOn'`, `'stressTemperature'`, `'depositionTemperature'`, `'substrate.diameter'` or `'temperature'`), before its value here and after in `other`; `layers`, each layer that differs, the front's first, as `{ side, number, before, after, change }`, before and after `{ material, thickness, locked }` or null where that design has no layer of the number, change after's thickness less before's in nm, or null; `environments`, the numbers of the environments that differ, each compared by what it sets itself, its name and its switch, which `design.environments` shows.
      * @throws an other that is not a Design
      * @example
      * const design = tf.newDesign('Mirror');
@@ -1641,12 +1663,13 @@ export class Design {
      * takes its default.
      *
      * On a design with more than one environment the run scores every
-     * environment that is on, each with its own media, substrate and layers,
-     * as design.merit.value does. A floor taken from an MNT row is the row's
-     * target divided by the smallest thickness factor below 1 that an
-     * environment it is scored in sets for a material of the layers or the
-     * pool, and a ceiling taken from an MXT row the target divided by the
-     * largest factor above 1.
+     * environment that is on, each with its own media, substrate, layers,
+     * cone, other side and temperature, as design.merit.value does. A floor
+     * taken from an MNT row is the row's target divided by the smallest
+     * factor below 1 by which an environment it is scored in scales the
+     * layers of a material of the layers or the pool, its thickness factor
+     * times the change its temperature makes, and a ceiling taken from an MXT
+     * row the target divided by the largest factor above 1.
      *
      * @param method `'needle'`, `'ge'` (Gradual Evolution) or `'structural'`.
      * @param pool The materials the run may insert, by id, none twice.
@@ -1729,7 +1752,8 @@ export class Design {
      * The merit here leaves out the MNT and MXT rows. On a design with more
      * than one environment the step is made on the recipe thickness and seen
      * in an environment as f·(d ± step), f the thickness factor of the
-     * layer's material there.
+     * layer's material there times the change the environment's temperature
+     * makes.
      *
      * @param [options]
      * @param [options.step='nm'] How the step is given: `'nm'`, `deltaNm` for every layer, or `'percent'`, `relPct` % of each layer.

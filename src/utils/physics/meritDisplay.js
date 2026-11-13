@@ -4,10 +4,10 @@
 import { designMaterialLookup } from '../materials/designMaterials.js';
 import {
     evaluateOperands, calcMF, calcOMF, buildEvalContext, operandEvaluationErrors,
-    operandBandLevels, withFringeSampleCounts, withDesignSampleCounts, makeConeSpec, coneIsActive,
+    operandBandLevels, withFringeSampleCounts, withDesignSampleCounts,
     takesStepFlag, isBandGridRow, bandFlagStepNm, extremumStepNm, isMath, withRowNotes,
 } from './optimizer.js';
-import { hasEnvironments } from '../environments/environments.js';
+import { hasEnvironments, meritUnderCone } from '../environments/environments.js';
 import { environmentsDisplay } from './environmentDisplay.js';
 
 function displayOf(operands, computed) {
@@ -107,12 +107,12 @@ export function provisionalMerit(operands, marks) {
 
 /**
  * What the Merit Function Editor shows for `design` once every row is read at
- * its own Step: under a cone of incidence the analysis worker's evaluation
- * with the band sample counts the editor sends it (useMeritValues.js),
- * otherwise evaluateForDisplay.
+ * its own Step: under a cone of incidence, in any environment the merit
+ * scores, the analysis worker's evaluation with the band sample counts the
+ * editor sends it (useMeritValues.js), otherwise evaluateForDisplay.
  */
 export function meritTable(design, operands) {
-    if (coneIsActive(makeConeSpec(design.cone || {}))) {
+    if (meritUnderCone(design)) {
         return meritDisplay(design, withDesignSampleCounts(operands, design, designMaterialLookup(design)));
     }
     return evaluateForDisplay(design, operands);

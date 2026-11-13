@@ -196,6 +196,26 @@ ok('a stack formula builds quarter waves at its reference wavelength', qw.frontL
     const dark = api.setEnvironment(api.setEnvironment(wet, 1, { enabled: false }), 2, { enabled: false });
     ok("with every environment off, env 'all' gives environment 1", same(api.spectrum(dark, { from: 500, to: 600, step: 50, env: 'all' }).environments.map(e => e.id), ['base']));
     ok('summarize refuses a spectrum of every environment', throws(() => api.summarize(api.spectrum(wet, { ...OPTIONS.spectrum, env: 'all' })), /summarize each entry/));
+
+    // Environment 2's cone and other side: each result call computes it as the
+    // design given that field by setDesignSetup.
+    for (const [what, fields] of [['cone', { cone: { enabled: true, halfAngleDeg: 10 } }], ['other side', { mfEvalMode: 'total' }]]) {
+        const lit = api.addEnvironment(qw, fields);
+        const given = api.setDesignSetup(qw, fields);
+        const differ = Object.keys(OPTIONS).filter(call => !same(api[call](lit, { ...OPTIONS[call], env: 2 }), api[call](given, OPTIONS[call])));
+        ok(`every result call of environment 2's ${what} is the design given that ${what}`, differ.length === 0, differ.join(', '));
+    }
+    // Environment 2 at another temperature, on a substrate that expands:
+    // each call computes the design environment 2 sees, names its materials
+    // by the ids the design names them by, and differs from environment 1.
+    const glass = { name: 'Expanding glass', formulaNum: -1, tabData: [[300, 1.53, 0], [1500, 1.50, 0]], mechanical: { linearExpansionPerK: 9e-6, dnDtPerK: 3e-6 } };
+    const onGlass = { ...api.setDesignSetup({ ...qw, materials: { 'user_heat:Glass': glass } }, { substrate: 'user_heat:Glass' }), materials: { 'user_heat:Glass': glass } };
+    const hot = api.addEnvironment(onGlass, { temperatureC: 120 });
+    const warm = Object.keys(OPTIONS).filter(call => !same(api[call](hot, { ...OPTIONS[call], env: 2 }), api[call](oneEnvironmentDesign(hot, 'env2'), OPTIONS[call])));
+    ok('every result call of environment 2 at its temperature is the design it sees, computed apart', warm.length === 0, warm.join(', '));
+    const thermalIds = Object.keys(OPTIONS).filter(call => JSON.stringify(api[call](hot, { ...OPTIONS[call], env: 2 })).includes('thermal:'));
+    ok('and names every material by the id the design names it by', thermalIds.length === 0, thermalIds.join(', '));
+    ok('and computes otherwise than environment 1', !same(api.spectrum(hot, { ...OPTIONS.spectrum, env: 2 }), api.spectrum(hot, OPTIONS.spectrum)));
 }
 {
     // The specification and the tolerance calls on a design with

@@ -2,7 +2,6 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useAnalysisDefaults, useAnalysisSettings } from '../../../../state/AnalysisSettingsContext.js';
 import { computeOpticalSpectrum } from './spectrum.js';
-import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { buildCSV, createTargetOperands, editTargetOperands, deleteTargetOperand } from './model.js';
 import { overlaidSpectrum } from './environmentSeries.js';
@@ -27,9 +26,11 @@ function shownSpectrum(spectra, every, views) {
 // The spectrum is computed from the sampled design, so a run redraws this
 // window at the shared preview cadence rather than once per progress message.
 // It is computed in each environment the window shows, from the design that
-// environment computes; environment 1's is the design itself.
-function useSpectrumEvaluation({ environment, params, evalMode }) {
-    const { design, views } = environment;
+// environment computes, in that environment's evaluation mode; environment
+// 1's is the design itself. It goes to the analysis worker when any of them
+// computes under a cone.
+function useSpectrumEvaluation({ environment, params }) {
+    const { views } = environment;
     // Narrowed to what the spectrum is actually computed from. The display unit
     // moves the points only between a wavelength unit and a reciprocal one: nm
     // and µm sample the same wavelengths, as do cm⁻¹, THz and eV, so a switch
@@ -39,22 +40,23 @@ function useSpectrumEvaluation({ environment, params, evalMode }) {
     const spectrumParams = useMemo(
         () => ({ lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, evenIn, thetas }),
         [lambdaStart, lambdaEnd, lambdaStep, wavenumberStep, evenIn, thetas]);
-    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const coneActive = views.some(view => view.coned);
     const designs = useMemo(() => views.map(view => view.design), [views]);
+    const evalModes = useMemo(() => views.map(view => view.mode), [views]);
     const payload = useMemo(
-        () => ({ designs, params: spectrumParams, evalMode }),
-        [designs, spectrumParams, evalMode],
+        () => ({ designs, params: spectrumParams, evalModes }),
+        [designs, spectrumParams, evalModes],
     );
     const workerResult = useAnalysisEvaluation(coneActive, 'opticalSpectra', payload);
     const directResult = useMemo(() => {
         if (coneActive) return { data: null, error: null };
         try {
-            return { data: designs.map(one => computeOpticalSpectrum(one, spectrumParams, evalMode)), error: null };
+            return { data: designs.map((one, k) => computeOpticalSpectrum(one, spectrumParams, evalModes[k])), error: null };
         } catch (error) {
             console.error('TMM error:', error);
             return { data: null, error: 'ANALYSIS_EVALUATION_FAILED' };
         }
-    }, [coneActive, designs, spectrumParams, evalMode]);
+    }, [coneActive, designs, spectrumParams, evalModes]);
     const spectra = coneActive ? workerResult.data : directResult.data;
     const { every } = environment;
     const data = useMemo(() => shownSpectrum(spectra, every, views), [spectra, every, views]);
@@ -166,7 +168,10 @@ function useCsvActions({ data, showCurves, yScale, spectralUnit, design }) {
     return { copied, saved, copyCSV, saveCSV };
 }
 
-function designSummary(design, evalMode, data, targets) {
+// The stack's totals, and whether the window shows its empty state: every
+// environment shown (`views`) computes the front alone, which has no layer,
+// and there is no spectrum.
+function designSummary(design, views, data, targets) {
     const frontLayers = design.frontLayers || [];
     const backLayers = design.backLayers || [];
     const frontCount = frontLayers.length;
@@ -176,7 +181,7 @@ function designSummary(design, evalMode, data, targets) {
     const subThick = design.substrate.thickness ?? 1.0;
     return {
         frontCount, backCount, frontNm, backNm, subThick,
-        showEmpty: evalMode === 'front' && frontCount === 0 && !data,
+        showEmpty: views.every(view => view.mode === 'front') && frontCount === 0 && !data,
         hasTargets: !!targets?.length,
     };
 }
@@ -200,7 +205,7 @@ export function useOpticalEvaluation() {
     const [params, , setParams] = useWindowSession(evalParamsSession, null);
     const display = useDisplayOptions(params, setParams, design);
     const environment = useEnvironmentChoice(useLiveDesign().design, { overlay: true });
-    const spectrum = useSpectrumEvaluation({ environment, params, evalMode });
+    const spectrum = useSpectrumEvaluation({ environment, params });
     const shown = useEnvironmentShown(design, environment);
     const targets = useTargetEditor({
         design, updateDesign, yScale: display.yScale, thetas: params.thetas, shownRows: shown.targets,
@@ -212,6 +217,6 @@ export function useOpticalEvaluation() {
     return {
         design, evalMode, params, setParams, environment,
         ...display, ...spectrum, ...shown, ...targets, ...csv,
-        ...designSummary(design, evalMode, spectrum.data, shown.targets),
+        ...designSummary(design, environment.views, spectrum.data, shown.targets),
     };
 }

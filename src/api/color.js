@@ -130,7 +130,9 @@ export function color(design, options) {
     requireValue('color', 'observer', observer, v => OBSERVER_DEGREES.includes(v), orList(OBSERVER_DEGREES));
     requireValue('color', 'illuminant', illuminant, v => ILLUMINANT_IDS.includes(v), orList(quoted(ILLUMINANT_IDS)));
     checkRange('color', { from: COLOR_RANGE_NM[0], to: COLOR_RANGE_NM[1], step });
-    // Every environment has the design's sides, so the mode is the same in each.
-    const mode = viewSide('color', design, side);
-    return inEnvironments('color', design, env, one => colorOf(one, { quantity, angle, pol, observer, illuminant, step, mode }));
+    viewSide('color', design, side);
+    // Each environment is computed on what it is scored on, its other side its own.
+    return inEnvironments('color', design, env, one => colorOf(one, {
+        quantity, angle, pol, observer, illuminant, step, mode: viewSide('color', one, side),
+    }));
 }

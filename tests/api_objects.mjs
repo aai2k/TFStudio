@@ -255,7 +255,7 @@ ok('the back of a symmetric design is refused', symmetricBack === 'layer 1: the 
     const WATER = { name: 'Under water', incidentMedium: 'H2O', thicknessFactors: { TiO2: 0.95 } };
     const water = env.environments.add(WATER);
     ok('add() is addEnvironment and gives the new Environment', canon([env._data, water instanceof objects.Environment, water.number, water.id, water.follows])
-        === canon([api.addEnvironment(start, WATER), true, 2, 'env2', ['exitMedium', 'substrate', 'substrateThicknessMm']]));
+        === canon([api.addEnvironment(start, WATER), true, 2, 'env2', ['exitMedium', 'substrate', 'substrateThicknessMm', 'cone', 'mfEvalMode', 'temperatureC']]));
 
     // Each attribute set is setEnvironment of the option it stands for; the
     // values differ from environment 1's, so an attribute that sets another shows.
@@ -270,6 +270,10 @@ ok('the back of a symmetric design is refused', symmetricBack === 'layer 1: the 
         [() => { water.thicknessFactors = { SiO2: 1.1 }; }, { thicknessFactors: { TiO2: null, SiO2: 1.1 } }],
         [() => { water.materialSwaps = { 'builtin:TiO2': 'Ta2O5' }; }, { materialSwaps: { 'builtin:TiO2': 'Ta2O5' } }],
         [() => { water.materialSwaps = { TiO2: 'Nb2O5', SiO2: 'MgF2' }; }, { materialSwaps: { 'builtin:TiO2': null, TiO2: 'Nb2O5', SiO2: 'MgF2' } }],
+        [() => { water.cone = { enabled: true, halfAngleDeg: 12 }; }, { cone: { enabled: true, halfAngleDeg: 12 } }],
+        [() => { water.cone = { halfAngleDeg: null }; }, { cone: { halfAngleDeg: null } }],
+        [() => { water.scoreOn = 'whole part'; }, { mfEvalMode: 'total' }],
+        [() => { water.temperature = 80; }, { temperatureC: 80 }],
     ];
     const alike = STEPS.map(([set, options]) => {
         set();
@@ -277,8 +281,21 @@ ok('the back of a symmetric design is refused', symmetricBack === 'layer 1: the 
         return canon(env._data) === canon(expected);
     });
     ok('each attribute set is setEnvironment, a map set replacing the whole map', alike.every(Boolean), alike.join(','));
-    const read = [water.name, water.enabled, water.incidentMedium, water.exitMedium, water.substrate.material, water.substrate.thickness, water.thicknessFactors, water.materialSwaps];
-    ok('and reads back as set, a medium given null as environment 1\'s', canon(read) === canon(['Water', false, 'Air', 'SiO2', 'Al2O3', 3, { SiO2: 1.1 }, { TiO2: 'Nb2O5', SiO2: 'MgF2' }]), JSON.stringify(read));
+    const read = [water.name, water.enabled, water.incidentMedium, water.exitMedium, water.substrate.material, water.substrate.thickness, water.thicknessFactors, water.materialSwaps,
+        water.cone, water.scoreOn, water.temperature, first.cone, first.scoreOn, first.temperature];
+    ok('and reads back as set, a medium given null as environment 1\'s', canon(read) === canon(['Water', false, 'Air', 'SiO2', 'Al2O3', 3, { SiO2: 1.1 }, { TiO2: 'Nb2O5', SiO2: 'MgF2' },
+        { enabled: true }, 'whole part', 80, null, 'side', 20]), JSON.stringify(read));
+    water.cone = null;
+    water.scoreOn = null;
+    water.temperature = null;
+    env.temperature = 25;
+    env.cone = { enabled: true, halfAngleDeg: 5 };
+    ok('null follows environment 1 again, and the design\'s own temperature and cone are environment 1\'s',
+        canon([water.cone, water.scoreOn, water.temperature, first.temperature, first.cone, env._data.temperatureC])
+        === canon([{ enabled: true, halfAngleDeg: 5 }, 'side', 25, 25, { enabled: true, halfAngleDeg: 5 }, 25]));
+    env.temperature = null;
+    env.cone = null;
+    ok('and null unsets them', canon([env.temperature, env.cone, 'temperatureC' in env._data, 'cone' in env._data]) === canon([20, null, false, false]));
     const copied = water.thicknessFactors;
     copied.SiO2 = 2;
     ok('a map read is a copy', water.thicknessFactors.SiO2 === 1.1);
@@ -332,17 +349,31 @@ ok('the back of a symmetric design is refused', symmetricBack === 'layer 1: the 
         'environment 0: the design has 2 environments, numbered from 1',
         'remove: environment 1 is the design itself and cannot be removed',
         'environment 5: the design has 2 environments, numbered from 1',
-        "environment 1 is the design itself and takes name and enabled alone, not incidentMedium; set the design's own media and substrate with design.incidentMedium, design.exitMedium and design.substrate",
-        "environment 1 is the design itself and takes name and enabled alone, not substrate.thickness; set the design's own media and substrate with design.incidentMedium, design.exitMedium and design.substrate",
+        "environment 1 is the design itself and takes name and enabled alone, not incidentMedium; set the design's own media, substrate, cone, other side and temperature with design.incidentMedium, design.exitMedium, design.substrate, design.cone, design.scoreOn and design.temperature",
+        "environment 1 is the design itself and takes name and enabled alone, not substrate.thickness; set the design's own media, substrate, cone, other side and temperature with design.incidentMedium, design.exitMedium, design.substrate, design.cone, design.scoreOn and design.temperature",
         'substrate.thickness is a thickness in mm above 0, or null to follow environment 1, not -1',
         'name is a name, or null for none, not ""',
         'thicknessFactors is a map of material id to a factor above 0, or to null to follow environment 1; or null for none, not 0.9',
-        "add: unknown option 'colour'; the options are name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps",
+        "add: unknown option 'colour'; the options are name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps, cone, mfEvalMode, temperatureC",
         'add: thicknessFactors is a map of material id to a factor above 0, or to null to follow environment 1; or null for none, not {"TiO2":-1}',
-        'add: the options are an object of name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps',
+        'add: the options are an object of name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps, cone, mfEvalMode, temperatureC',
         'environments[2] cannot be set: set its attributes, or use add() and remove()',
     ]), canon(words));
     ok('and a refused change leaves the design as it was', canon([twice.environments.length, shown.substrate.thickness, shown.name]) === canon([2, 1, 'Edge']));
+    const conditionWords = [
+        await refused(() => { twice.environments[1].temperature = 30; }),
+        await refused(() => { shown.scoreOn = 'both'; }),
+        await refused(() => { shown.temperature = -300; }),
+        await refused(() => { shown.cone = { halfAngleDeg: 95 }; }),
+        await refused(() => { twice.cone = { width: 3 }; }),
+    ];
+    ok('the cone, the other side and the temperature are refused in the objects\' words', canon(conditionWords) === canon([
+        "environment 1 is the design itself and takes name and enabled alone, not temperature; set the design's own media, substrate, cone, other side and temperature with design.incidentMedium, design.exitMedium, design.substrate, design.cone, design.scoreOn and design.temperature",
+        'scoreOn is \'side\' or \'whole part\', not "both"',
+        'temperature is a temperature in °C above -273.15, or null to follow environment 1, not -300',
+        'cone is an object whose halfAngleDeg is a half-angle in degrees from the axis, 0 up to but not including 90, not {"halfAngleDeg":95}',
+        'cone is an object of any of enabled, halfAngleDeg, distribution, gridPoints, userTable, or null for none, not {"width":3}',
+    ]), canon(conditionWords));
 
     const lone = tf.newDesign('Window AR');
     const loneWords = [

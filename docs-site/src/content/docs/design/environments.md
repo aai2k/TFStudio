@@ -24,11 +24,43 @@ Environment 1 is the design itself: its media, its substrate and its layer list.
 
 **Incident medium**, **Substrate**, **Substrate thickness**, **Exit medium**: the media and the substrate of each environment. In environment 1's column they are the design's own, the same fields as in the Design Editor. In another column a dimmed value is environment 1's: click it to give the environment a value of its own, then change it. The cross beside a value gives the field back to environment 1.
 
+**Cone of incidence**: the cone of angles the environment is scored in, its switch and its half-angle, or **collimated** when it is off. Environment 1's is the design's **Average over illumination cone** in the [Design Editor](/design/design-editor/). Another environment that sets a cone takes every part it does not set from environment 1's; with the environment current, the Design Editor's Settings set the rest of it, the distribution and the grid points.
+
+**Other side**: how a design coated on one side is scored in the environment: on its coated side alone (**Ignored**) or as the whole part with the substrate's other side (**Counted**). Environment 1's is the design's **Ignore other side**. A design coated on both sides is scored as the whole part in every environment.
+
+**Temperature**: the temperature the environment is at, in °C. Environment 1's is the temperature the layer thicknesses and the materials' n and k are given at, 20 °C until you change it. At another temperature the layers and the substrate change from them as set out under [Temperature](#temperature) below. On a design with environments the Design Editor's Settings show the current environment's.
+
+**Constants missing**: under the temperature, the materials an environment computes with at its temperature that lack a constant the model reads, with the constants each one lacks on hover. The constants are the material's own, entered in the [Material Editor](/design/material-editor/); a missing one counts as 0.
+
 **Thickness factor**: one row for each material the layers use. In the environment every layer of that material is that many times as thick, as at a chamber position where the films grow thinner. A factor of 1 leaves the layers as they are.
 
 **Material in place of**: one row for each material the layers use. In the environment every layer of that material is made of the material you pick, as for a film whose index changes between vacuum and air.
 
 Environment 1 has no factor and no material in place: its layers are the layer list as it stands.
+
+## Temperature
+
+A film held to its substrate cannot expand in its own plane as it would on its own: it follows the substrate, and in following it grows thinner or thicker by its Poisson's ratio. Its material then fills a different share of the film, and the index moves with that share as well as with the material's own dn/dT. TFStudio computes an environment at another temperature by the model of H. Takahashi, *Appl. Opt.* **34**, 667 (1995), Eqs. 14, 15 and 18, taken at a change ΔT in place of the paper's 1 °C.
+
+ΔT is the environment's temperature less environment 1's. Each layer, after the environment's thickness factor and material in place, becomes:
+
+```
+A = 2(α − β)(1 − 2ν)/(1 − ν) · ΔT
+B = 2ν(α − β)/(1 − ν) · ΔT
+P = (1 + 3βΔT) / (1 + 3βΔT + A)
+d = d₁ (1 − B + βΔT)
+n = (n₁ + (dn/dT) ΔT) P + 1 − P
+```
+
+α is the linear expansion of the environment's substrate, β, ν and dn/dT the linear expansion, Poisson's ratio and dn/dT of the layer's material, all per kelvin. d₁ and n₁ are the layer's thickness and index at environment 1's temperature, and the film is taken as fully dense there, as the paper takes its ion-assisted films. n is worked out at every wavelength; k stays as it is, since the paper models the real index alone.
+
+The paper treats a whole filter as one film, with an averaged index, a weighted mean of its materials' dn/dT and one expansion for the filter and its materials. TFStudio applies the equations to each layer with its own material's β, ν and dn/dT, and takes dn/dT as one value at every wavelength; both are TFStudio's, not the paper's.
+
+The paper has no model for the substrate itself. TFStudio moves its index by its own dn/dT, n = n₁ + (dn/dT) ΔT, and its thickness by its own expansion, d = d₁ (1 + αΔT), k again kept. The media stay as they are.
+
+A needle a synthesis run puts in is changed the same way: in each environment it is a layer of its material at that environment's temperature. The Min thickness a synthesis window proposes reads each MNT row with the layers as thick as they are at the temperature of the row's environment.
+
+Where the design states the temperature its film stress is evaluated at, as the [Stress](/analysis/stress/) window sets it, a stress row scored in an environment at another temperature reads the stress at that temperature moved by the same change.
 
 ## How to read it
 

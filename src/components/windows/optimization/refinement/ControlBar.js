@@ -5,7 +5,9 @@
 // The bar is composed from module-scope button/control/readout builders so the
 // ControlBar component itself stays a flat assembly with no branching logic.
 
-import { OptimizeBadge, EvalModeBadge } from '../../../SurfaceModeBar.js';
+import { OptimizeBadge, EvalModeBadge, evalModeWord } from '../../../SurfaceModeBar.js';
+import { environmentMedia, environmentsInAll, hasEnvironments } from '../../../../utils/environments/environments.js';
+import { environmentLabel } from '../../design/environments/currentEnvironment.js';
 import { warnBadgeStyle } from '../synthesisShared/synthesisHelpers.js';
 import { LiveUpdateSwitch } from '../../../ui/LiveUpdateSwitch.js';
 import { NumberField } from '../../../ui/numberField.js';
@@ -50,8 +52,23 @@ function stopReasonView(stopReason, tr) {
     return { label: tr[REASON_KEYS[stopReason] || 'stalled'], good: stopReason === 'target' };
 }
 
+/**
+ * What the Eval badge reads of `design`: `mfEvalMode`, its own, or on a design
+ * with environments that of the first environment a run scores, and
+ * `evalDetail`, then a line per environment a run scores with its own, for the
+ * badge's hover; each environment is scored on its own back side.
+ */
+export function refinementEvalBadge(design, t) {
+    if (!design || !hasEnvironments(design)) return { mfEvalMode: design?.mfEvalMode || 'side', evalDetail: null };
+    const scored = environmentsInAll(design).map(({ env, number }) => ({ label: environmentLabel(env, number), seen: environmentMedia(design, env.id) }));
+    return {
+        mfEvalMode: scored[0].seen.mfEvalMode || 'side',
+        evalDetail: scored.map(({ label, seen }) => `${label}: ${evalModeWord(seen, t)}`),
+    };
+}
+
 // Run / Stop / Reset / Best + the surface-mode badges.
-function runButtons({ running, canReset, onRun, onStop, onReset, onBest, surfaceMode, mfEvalMode, t, c }) {
+function runButtons({ running, canReset, onRun, onStop, onReset, onBest, surfaceMode, mfEvalMode, evalDetail, t, c }) {
     const tr = t.refinement;
     return [
         running
@@ -61,7 +78,7 @@ function runButtons({ running, canReset, onRun, onStop, onReset, onBest, surface
         h(WashButton, { c, color: BEST_COLOR, label: tr.best, onClick: onBest, disabled: !canReset }),
         h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } },
             h(OptimizeBadge, { design: { surfaceMode, mfEvalMode }, c, t }),
-            h(EvalModeBadge, { design: { surfaceMode, mfEvalMode }, c, t }),
+            h(EvalModeBadge, { design: { surfaceMode, mfEvalMode }, detail: evalDetail, c, t }),
         ),
     ];
 }

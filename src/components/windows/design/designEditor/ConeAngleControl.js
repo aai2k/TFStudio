@@ -12,7 +12,7 @@ const { createElement: h } = React;
 // over a cone of incidence angles around each operand's AOI; this panel is just
 // the spec editor. Conversions are inline (NA = sin Θ, f/# = 1/(2·NA)) to avoid
 // pulling the optimizer barrel into the design editor.
-const CONE_DEFAULT = { enabled: false, halfAngleDeg: 7.5, distribution: 'uniform', gridPoints: 15, userTable: null };
+export const CONE_DEFAULT = Object.freeze({ enabled: false, halfAngleDeg: 7.5, distribution: 'uniform', gridPoints: 15, userTable: null });
 
 // Stable per-row id for the user cone-angle table, so the rows can be keyed by
 // identity rather than array index — otherwise deleting a row mid-edit makes a
@@ -134,10 +134,29 @@ function ConeUserTable({ cone, cc, dim, inStyle, patch, Th, c }) {
     );
 }
 
-export function ConeAngleControl({ design, updateDesign, c, t }) {
+/**
+ * The parts an edit `patch` of the cone `shown` sets: the patch, and the
+ * defaults the control shows for the parts `shown` lacks, so the cone then
+ * computes with what the control showed.
+ */
+export const coneEdit = (shown, patch) => ({
+    ...Object.fromEntries(Object.entries(CONE_DEFAULT).filter(([key]) => shown?.[key] === undefined)),
+    ...patch,
+});
+
+/**
+ * The cone of the design, or with `field` (StackGeometryPanel's settingsField
+ * for the cone) the cone of the current environment, 2 or later: `value` the
+ * cone it computes with, `set` the change of the parts it sets, `tag` the tag
+ * after the title.
+ */
+export function ConeAngleControl({ design, updateDesign, c, t, field = null }) {
     const cc = (t.designEditor && t.designEditor.cone) || {};
-    const cone = { ...CONE_DEFAULT, ...(design.cone || {}) };
-    const patch = (p) => updateDesign({ cone: { ...cone, ...p } });
+    const shown = field ? field.value : design.cone;
+    const cone = { ...CONE_DEFAULT, ...(shown || {}) };
+    const patch = field
+        ? (p) => field.set(coneEdit(shown, p))
+        : (p) => updateDesign({ cone: { ...cone, ...p } });
 
     const inStyle = {
         width: 62, height: 22, backgroundColor: c.bg, color: c.text,
@@ -171,9 +190,13 @@ export function ConeAngleControl({ design, updateDesign, c, t }) {
         }
     }
 
+    const titleStyle = { fontSize: 10, fontWeight: 600, color: c.textDim, margin: '2px 0 4px', textTransform: 'uppercase', letterSpacing: 1 };
+    const title = cc.title || 'Cone angle';
     return h('div', null,
-        h('div', { style: { fontSize: 10, fontWeight: 600, color: c.textDim, margin: '2px 0 4px', textTransform: 'uppercase', letterSpacing: 1 } },
-            cc.title || 'Cone angle'),
+        field
+            ? h('div', { style: { display: 'flex', alignItems: 'center', margin: titleStyle.margin } },
+                h('span', { style: { ...titleStyle, margin: 0 } }, title), field.tag)
+            : h('div', { style: titleStyle }, title),
         ...rows,
     );
 }

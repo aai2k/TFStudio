@@ -160,12 +160,14 @@ function answerOf(method, design, result) {
  * run computes on the script's own thread, so the script waits for it.
  *
  * A design with more than one environment is synthesized against every
- * environment that is on, each with its own media, substrate and layers, with
- * the merit `merit` gives. A floor the run takes from an MNT row is read in
- * each environment the row is scored in: the row's target divided by the
- * smallest thickness factor below 1 that environment sets for a material of
- * the layers or the pool. Structural and Deep Synthesis read an MXT row's
- * ceiling the same way, with the largest factor above 1.
+ * environment that is on, each with its own media, substrate, layers, cone,
+ * other side and temperature, with the merit `merit` gives. A floor the run
+ * takes from an MNT row is read in each environment the row is scored in: the
+ * row's target divided by the smallest factor below 1 by which that
+ * environment scales the layers of a material of the layers or the pool, its
+ * thickness factor times the change its temperature makes. Structural and
+ * Deep Synthesis read an MXT row's ceiling the same way, with the largest
+ * factor above 1.
  *
  * @param design The design; it needs a merit function.
  * @param request

@@ -14,8 +14,10 @@ const { guardRowSwitches, guardCheckSwitches, restoreRowSwitches } = require('./
 //        constants the stress analysis reads), `stress` (the evaluation and
 //        deposition temperatures) and `substrate.diameterMm`
 //   1.3: adds `environments` and a merit row's and a specification check's
-//        `env` and `envEnabled` (src/utils/environments/environments.js); a
-//        design with one environment holds none of them
+//        `env` and `envEnabled` (src/utils/environments/environments.js),
+//        with an environment's `cone`, `mfEvalMode` and `temperatureC`; a
+//        design with one environment holds none of them. Also the design's
+//        own `temperatureC`, environment 1's, °C, written only when it is set
 //
 // Nothing is migrated in either direction. The reader checks the substrate and
 // the layer lists and passes every other key through, so a 1.0 or 1.1 file

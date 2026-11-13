@@ -1,12 +1,12 @@
 /**
  * The colour Color Evaluation shows, computed in each environment its
  * Environment droplist names (chrome/environmentChoice.js), each from the
- * design that environment computes; environment 1's is the design itself.
- * Under a cone of incidence the colour is computed on the analysis worker,
- * otherwise on the window's thread.
+ * design that environment computes, in that environment's evaluation mode;
+ * environment 1's is the design itself. When any of them computes under a
+ * cone of incidence the colour is computed on the analysis worker, otherwise
+ * on the window's thread.
  */
 import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
-import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { computeEnvironmentReports, shownReports } from './colorModel.js';
@@ -25,17 +25,18 @@ const { useState, useEffect, useMemo } = React;
 export function useColorReports(design, options) {
     const [error, setError] = useState(null);
     useEffect(() => { setError(null); }, [options.evalMode]);
-    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
     const environment = useEnvironmentChoice(design, { overlay: true });
     const { views, every } = environment;
+    const coneActive = views.some(view => view.coned);
     const designs = useMemo(() => views.map(view => view.design), [views]);
+    const evalModes = useMemo(() => views.map(view => view.mode), [views]);
     const materials = useMemo(
-        () => designs.flatMap(one => rangeMaterials(one, options.evalMode)), [designs, options.evalMode]);
-    const payload = useMemo(() => ({ designs, options }), [designs, options]);
+        () => views.flatMap(view => rangeMaterials(view.design, view.mode)), [views]);
+    const payload = useMemo(() => ({ designs, options, evalModes }), [designs, options, evalModes]);
     const worker = useAnalysisEvaluation(coneActive, 'colorReports', payload);
     const direct = useMemo(
-        () => (coneActive ? null : computeEnvironmentReports(designs, { ...options, setError })),
-        [coneActive, designs, options]);
+        () => (coneActive ? null : computeEnvironmentReports(designs, { ...options, setError }, evalModes)),
+        [coneActive, designs, options, evalModes]);
     const sets = coneActive ? worker.data : direct;
     const reports = useMemo(() => shownReports(sets, every, views), [sets, every, views]);
     return {

@@ -15,7 +15,8 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { poolCatalogs } from '../synthesisShared/synthesisHelpers.js';
 import { needleManualSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
-import { resolveScanSide, makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
+import { resolveScanSide } from '../../../../utils/physics/optimizer.js';
+import { meritUnderCone } from '../../../../utils/environments/environments.js';
 import {
     countPoolMaterials, POOL_MAX_SYNC,
     useCatSelection, materialLookup, matFriendlyName, getPoolMaterials,
@@ -251,8 +252,7 @@ export function usePredictedOMF({ selected, scan, design, operands, dNew, reques
         [selected, design, dNew, requestedSide],
     );
     const picked = !!(selected && scan && inserted);
-    const coneActive = !!inserted && operands.length > 0
-        && coneIsActive(makeConeSpec(design?.cone || {}));
+    const coneActive = !!inserted && operands.length > 0 && meritUnderCone(design);
     const meritPayload = useMemo(
         () => ({ design, candidateDesign: inserted, operands }),
         [design, inserted, operands],

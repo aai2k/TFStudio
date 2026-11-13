@@ -4,12 +4,13 @@
  *
  * The engine keeps one variable vector, the layer thicknesses as the design
  * holds them. Each group, one per environment the merit scores, computes with
- * its own media, substrate and swapped materials in an engine of its own
- * (`stack`), built on the design that environment sees and on every row with
- * the rows of other environments switched off, so its evaluation context, its
- * cone rays and its row numbers are those of a design without environments.
- * Group k sees the thicknesses x scaled by the factor f of each layer's
- * material, xₖ = f ⊙ x.
+ * its own media, substrate, swapped materials, cone of incidence, back side
+ * and temperature in an engine of its own (`stack`), built on the design that
+ * environment sees and on every row with the rows of other environments
+ * switched off, so its evaluation context, its cone rays and its row numbers
+ * are those of a design without environments. Group k sees the thicknesses x
+ * scaled by the factor f of each layer, its material's thickness factor times
+ * the change its temperature makes (environmentLayerFactors), xₖ = f ⊙ x.
  *
  * MF² = (1/N) Σ MF_k², and MF_k² = Σ w·(r/σ)² / D_k, D_k the weight sum of
  * group k's merit. Group k's residuals are its own, √w·r/σ, times
@@ -22,7 +23,7 @@
  * are combined from each group's own merit, never from one sum over the rows,
  * so a group of manufacturing rows alone counts as it does in the merit table.
  */
-import { oneEnvironmentDesign, valueFor } from '../../environments/environments.js';
+import { environmentLayerFactors, oneEnvironmentDesign } from '../../environments/environments.js';
 import { meritGroups, groupRows, meanSquareMerit } from '../../environments/environmentMerit.js';
 import { evaluateOperands, calcMF, mfWeightDenominator } from './evalCore.js';
 import { variableOrder } from './engineLayout.js';
@@ -33,18 +34,18 @@ export class EnvironmentGroups {
      * @param operands    the merit rows as given to the engine
      * @param surfaceMode the design's surface mode, which says what the variables are
      * @param makeStack   (rows, design) => an engine on that design without environments
+     * @param resolveMat  the engine's (id) => material, which the temperature's constants are read from
      */
-    constructor(design, operands, surfaceMode, makeStack) {
+    constructor(design, operands, surfaceMode, makeStack, resolveMat) {
         const layers = variableOrder(surfaceMode, design.frontLayers || [], design.backLayers || []);
         const scored = meritGroups(design, operands).filter(group => group.scored);
         this.groups = scored.map(group => {
-            const env = design.environments.find(entry => entry.id === group.id);
-            const factors = layers.map(layer => valueFor(env.thicknessFactors, layer.material) ?? 1);
+            const factors = environmentLayerFactors(design, group.id, layers, resolveMat);
             return {
                 optical: group.optical,
                 factors,
                 scaled: factors.some(f => f !== 1),
-                stack: makeStack(groupRows(operands, group.rows), oneEnvironmentDesign(design, group.id)),
+                stack: makeStack(groupRows(operands, group.rows), oneEnvironmentDesign(design, group.id, resolveMat)),
             };
         });
         this.count = this.groups.length;

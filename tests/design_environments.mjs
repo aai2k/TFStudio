@@ -105,7 +105,7 @@ const plain = () => ({
 
     assert.throws(() => setEnvironment(design, BASE_ENVIRONMENT, { incidentMedium: 'builtin:H2O' }), /design's own fields/,
         "environment 1's media are the design's own fields");
-    assert.throws(() => addEnvironment(design, { cone: 5 }), /no field cone/);
+    assert.throws(() => addEnvironment(design, { humidity: 5 }), /no field humidity/);
     assert.throws(() => setEnvironment(design, 'env9', { name: 'x' }), /no environment env9/);
 
     design = setEnvironment(design, BASE_ENVIRONMENT, { name: 'BK7', enabled: false });

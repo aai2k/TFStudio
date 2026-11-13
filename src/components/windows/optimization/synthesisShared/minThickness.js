@@ -25,8 +25,9 @@ export function runMaterialIds(design, pool = []) {
 // The floor the MNT rows a synthesis run on `design` fits set (synthesisMath.js
 // synthesisRows), or 0 without one (nm). On a design with environments each
 // row is read in every environment it is scored in, at target / f under a
-// thickness factor f below 1 of a material the layers or `pool` (material
-// ids) hold (environmentMerit.js thicknessBound).
+// factor f below 1 by which the environment scales the layers of a material
+// the layers or `pool` (material ids) hold, its thickness factor times the
+// change its temperature makes (environmentMerit.js thicknessBound).
 export function synthesisMntFloor(design, operands = design?.meritOperands || [], pool = []) {
     const rows = synthesisRows(design, operands);
     if (!hasEnvironments(design)) return strictestMnt(rows);

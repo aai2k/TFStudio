@@ -45,6 +45,7 @@ const ifSet = (name, value) => (typeof value === 'number' && Number.isFinite(val
 /**
  * A design as the tools show it: media, substrate (thickness and, when set,
  * diameter in mm), the temperatures the stress tool reads in °C, each when set,
+ * the design's own temperature in °C and its cone of incidence, each when set,
  * surface mode and how a one-sided design is scored, each side's layers as the design stores them (the front from the
  * incident medium inward, the back from the substrate outward; thickness in
  * nm), and the merit rows, in full with `rows`, as a count otherwise. With
@@ -63,6 +64,8 @@ export function designView(id, design, { rows = false } = {}) {
         },
         ...ifSet('stressTemperatureC', design.stress?.temperatureC),
         ...ifSet('depositionTemperatureC', design.stress?.depositionTemperatureC),
+        ...ifSet('temperatureC', design.temperatureC),
+        ...(design.cone ? { cone: design.cone } : {}),
         referenceWavelength: design.referenceWavelength ?? null,
         front: layersView(design.frontLayers), back: layersView(design.backLayers),
         ...(design.environments?.length > 1 ? { environmentCount: design.environments.length } : {}),

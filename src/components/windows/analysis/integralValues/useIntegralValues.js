@@ -8,7 +8,6 @@ import {
     newCustomDraft,
 } from './integralModel.js';
 import { computeSpectrumForMode } from './spectrum.js';
-import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
 import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
@@ -98,12 +97,13 @@ function applyEditorTable(context, table) {
 }
 
 // The spectrum of each of `designs` in collimated light, one per environment
-// shown, in the { data, error } shape the analysis worker reports, so a design
-// that cannot be evaluated, such as one with a material that resolves nowhere,
-// shows an error instead of computing for ever.
-function computeSpectra(designs, params, evalMode) {
+// shown, design k in `evalModes[k]`, in the { data, error } shape the analysis
+// worker reports, so a design that cannot be evaluated, such as one with a
+// material that resolves nowhere, shows an error instead of computing for
+// ever.
+function computeSpectra(designs, params, evalModes) {
     try {
-        return { data: designs.map(design => computeSpectrumForMode(design, params, evalMode)), error: null };
+        return { data: designs.map((design, k) => computeSpectrumForMode(design, params, evalModes[k])), error: null };
     } catch (error) {
         return { data: null, error };
     }
@@ -111,28 +111,30 @@ function computeSpectra(designs, params, evalMode) {
 
 // The spectrum and the integrals in each environment the Environment droplist
 // names (chrome/environmentChoice.js), each from the design that environment
-// computes, on the analysis worker under a cone: `tables`, one per environment
-// shown, the integral table of its spectrum; `spectrum`, the first one's;
-// under All `sets`, each environment, `{ number, label }`, with its spectrum
-// and results; and `materials`, those the range notice reads, of the sides
+// computes in that environment's evaluation mode, on the analysis worker when
+// any of them computes under a cone: `tables`, one per environment shown, the
+// integral table of its spectrum; `spectrum`, the first one's; under All
+// `sets`, each environment, `{ number, label }`, with its spectrum and
+// results; and `materials`, those the range notice reads, of the sides
 // computed in every environment shown.
-function useEnvironmentIntegrals(design, params, evalMode, customDefs) {
+function useEnvironmentIntegrals(design, params, customDefs) {
     const environment = useEnvironmentChoice(design, { overlay: true });
     const { views, every } = environment;
-    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
+    const coneActive = views.some(view => view.coned);
     const designs = useMemo(() => views.map(view => view.design), [views]);
+    const evalModes = useMemo(() => views.map(view => view.mode), [views]);
     const materials = useMemo(
-        () => designs.flatMap(one => rangeMaterials(one, evalMode)), [designs, evalMode]);
+        () => views.flatMap(view => rangeMaterials(view.design, view.mode)), [views]);
     const workerPayload = useMemo(
-        () => ({ designs, grids: [params], evalMode }),
-        [designs, params, evalMode],
+        () => ({ designs, grids: [params], evalModes }),
+        [designs, params, evalModes],
     );
     const workerResult = useAnalysisEvaluation(coneActive, 'integralSpectra', workerPayload);
     const workerSpectra = useMemo(
         () => workerResult.data?.map(grids => grids[0]) ?? null, [workerResult.data]);
     const directResult = useMemo(
-        () => coneActive ? null : computeSpectra(designs, params, evalMode),
-        [coneActive, designs, params, evalMode],
+        () => coneActive ? null : computeSpectra(designs, params, evalModes),
+        [coneActive, designs, params, evalModes],
     );
     const spectra = coneActive ? workerSpectra : directResult.data;
     const tables = useMemo(
@@ -149,7 +151,7 @@ function useEnvironmentIntegrals(design, params, evalMode, customDefs) {
     };
 }
 
-export function useIntegralValues(design, evalMode) {
+export function useIntegralValues(design) {
     const [session, setField, patchSession] = useWindowSession(integralValuesSession, design);
     const { builder, draft, selKey, showTable } = session;
     // The evaluation grid is held as flat keys so Settings can edit each of them,
@@ -175,7 +177,7 @@ export function useIntegralValues(design, evalMode) {
         [],
     );
 
-    const evaluation = useEnvironmentIntegrals(design, params, evalMode, customDefs);
+    const evaluation = useEnvironmentIntegrals(design, params, customDefs);
     const { environment, coneActive, sets, spectrum, materials } = evaluation;
     const { definitions: integrals, results } = evaluation.tables[0];
     const selected = integrals.find(integral => integral.key === selKey) || integrals[0];

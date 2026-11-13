@@ -6,6 +6,7 @@
 import { MaterialHasNoIndexError } from '../../materials/materialIndexAt.js';
 import { wrapMaterial } from '../../misc/variator.js';
 import { BASE_ENVIRONMENT, environmentDesign } from '../../environments/environments.js';
+import { baseMaterialId } from '../../environments/temperatureModel.js';
 import { emptyDeviation, needsRefIndex } from './deviationSpec.js';
 import { effectiveForMaterial, effectiveForMedium, effectiveOffsetNm } from './materials.js';
 
@@ -55,11 +56,12 @@ export function perturbLayers(layers, dev, resolveMat, lamRef = 550) {
  * Perturb a named medium (incident / substrate / exit). Only a per-material
  * Δn/Δk set on that material applies; the global Δn/Δk are a coating-process
  * offset and leave the media alone. The substrate thickness is not scaled (it
- * is not a coating layer).
+ * is not a coating layer). A substrate at an environment's temperature takes
+ * the shift set on the material it is made from.
  */
 export function perturbMedium(matId, dev, resolveMat) {
     const baseMat = resolveMat(matId);
-    const { dn, dk } = effectiveForMedium(dev, matId);
+    const { dn, dk } = effectiveForMedium(dev, baseMaterialId(matId));
     return wrapMaterial(baseMat, dn, dk);
 }
 
@@ -75,9 +77,10 @@ export function perturbMedium(matId, dev, resolveMat) {
  *
  * In environment `envId` of a design with environments the deviation is made
  * on the recipe and seen in that environment: each layer f·(d·s + o) thick, f
- * the factor of its material there, made of the environment's material for it
- * moved by the Δn and Δk of the recipe's material, between the environment's
- * media.
+ * the factor of its material there times the change its temperature makes,
+ * made of the environment's material for it at its temperature moved by the
+ * Δn and Δk of the recipe's material, between the environment's media.
+ * `resolveMat` also gives the constants of the environment's temperature.
  *
  * @returns {{ design: object, resolve: (id:string)=>object }}
  */
@@ -90,7 +93,7 @@ export function deviatedDesignForSpec(design, dev, resolveMat, envId = BASE_ENVI
         back: perturbLayers(design?.backLayers, d, resolveMat, lamRef),
     };
     const recipe = (layers, side) => (layers || []).map((layer, i) => ({ ...layer, thickness: deviated[side][i].thickness }));
-    const seen = environmentDesign({ ...design, frontLayers: recipe(design?.frontLayers, 'front'), backLayers: recipe(design?.backLayers, 'back') }, envId);
+    const seen = environmentDesign({ ...design, frontLayers: recipe(design?.frontLayers, 'front'), backLayers: recipe(design?.backLayers, 'back') }, envId, resolveMat);
     const relabel = (layers, side) => (layers || []).map((layer, i) => {
         const id = `__sdLayer:${side}:${i}`;
         const shown = seen[`${side}Layers`][i];

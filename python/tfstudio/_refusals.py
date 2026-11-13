@@ -74,8 +74,9 @@ def _unknown_env(fields, count):
 def _base_environment(fields, words):
     if not fields.get("option"):
         return "environment 1 is the design itself and cannot be removed"
-    return ("environment 1 is the design itself and takes name and enabled alone, not {}; set the design's own media "
-            "and substrate with design.incident_medium, design.exit_medium and design.substrate"
+    return ("environment 1 is the design itself and takes name and enabled alone, not {}; set the design's own media, "
+            "substrate, cone, other side and temperature with design.incident_medium, design.exit_medium, "
+            "design.substrate, design.cone, design.score_on and design.temperature"
             .format(words.name(fields["option"])))
 
 

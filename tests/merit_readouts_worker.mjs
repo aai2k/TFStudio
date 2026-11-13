@@ -238,6 +238,15 @@ const ownMF = d => meritTable(d, d.meritOperands).mf;
     assert.equal(shown.predictedOMF, meritDisplay(wetInserted, coarse).omf, 'and with the needle');
     assert.notEqual(shown.omfNow, firstOMF(design), 'which is not environment 1\'s');
     runtime.unmount();
+
+    // Under a cone of incidence in any environment the merit scores, both
+    // designs go to the worker in one job, as under environment 1's cone.
+    const coned = { ...wet, environments: [{ id: 'base' }, { id: 'env2', incidentMedium: 'H2O', cone: { enabled: true, halfAngleDeg: 6, gridPoints: 2 } }] };
+    const conedArgs = { ...wetArgs, design: coned, operands: runOperands(coned, designMaterialLookup(coned)) };
+    made.length = 0;
+    runtime.run(() => usePredictedOMF(conedArgs));
+    assert.deepEqual(jobs().map(w => jobOf(w).operation), ['meritPair'], 'environment 2\'s cone sends the pair to the worker');
+    runtime.unmount();
 }
 
 // ── 4. The History window ────────────────────────────────────────────────────

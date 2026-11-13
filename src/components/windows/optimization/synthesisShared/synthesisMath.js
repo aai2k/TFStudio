@@ -21,11 +21,13 @@ export const activeSide = (d) => resolveScanSide(d?.surfaceMode || 'front_only',
  * The cone spec, the stress run temperatures and the environments are
  * included only when the design carries them, so a worker that has none stays
  * on the single-angle, intrinsic-stress-only, one-environment path the main
- * thread takes for the same design. A key missing here is a merit function the
- * worker scores differently from the window that launched it, which is the
- * one thing this object exists to prevent.
+ * thread takes for the same design; with the environments goes environment
+ * 1's temperature, which theirs are changes from. A key missing here is a
+ * merit function the worker scores differently from the window that launched
+ * it, which is the one thing this object exists to prevent.
  */
 export function serializableMedia(design) {
+    const environments = hasEnvironments(design);
     return {
         surfaceMode:    design.surfaceMode || 'front_only',
         mfEvalMode:     design.mfEvalMode ?? 'side',
@@ -37,7 +39,8 @@ export function serializableMedia(design) {
         },
         ...(design.cone ? { cone: design.cone } : {}),
         ...(design.stress ? { stress: design.stress } : {}),
-        ...(hasEnvironments(design) ? { environments: design.environments } : {}),
+        ...(environments ? { environments: design.environments } : {}),
+        ...(environments && design.temperatureC != null ? { temperatureC: design.temperatureC } : {}),
     };
 }
 

@@ -27,3 +27,14 @@ export function noLayersMessage(design, evalMode, t) {
     if (evalMode === 'front' && design?.backLayers?.length) return empty.noFrontLayers;
     return empty.noLayers;
 }
+
+/**
+ * noLayersMessage for a window drawing the environments `views` (each
+ * `{ design, mode }`, chrome/environmentChoice.js), each on the sides its own
+ * evaluation mode computes: the first one's message when none of them has
+ * layers to draw, or null.
+ */
+export function noLayersMessageIn(views, t) {
+    if (views.some(view => hasLayersForMode(view.design, view.mode))) return null;
+    return noLayersMessage(views[0].design, views[0].mode, t);
+}

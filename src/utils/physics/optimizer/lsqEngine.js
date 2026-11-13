@@ -140,7 +140,7 @@ export class LSQEngine {
     _startGroups(design, operands, resolveMat, opts) {
         const stackOpts = { dMin: opts.dMin, dMax: opts.dMax };
         const makeStack = (rows, own) => new LSQEngine(rows, own, resolveMat, stackOpts);
-        this._groups = new EnvironmentGroups(design, operands, this.surfaceMode, makeStack);
+        this._groups = new EnvironmentGroups(design, operands, this.surfaceMode, makeStack, resolveMat);
         this.operands = expandMeasuredCurveOperands(groupRows(operands, this._groups.rows));
         this.stepSpans = this._groups.stepSpans(this.thicknesses.length);
         this.mf = this._groups.merit(this._groups.evaluate(this.thicknesses));

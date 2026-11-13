@@ -1,5 +1,6 @@
 import { designMaterialLookup } from '../../../utils/materials/designMaterials.js';
-import { withDesignSampleCounts, makeConeSpec, coneIsActive } from '../../../utils/physics/optimizer.js';
+import { withDesignSampleCounts } from '../../../utils/physics/optimizer.js';
+import { meritUnderCone } from '../../../utils/environments/environments.js';
 import {
     evaluateForDisplay, meritDisplay, atDefaultSteps, provisionalRows, provisionalMerit, receivedDisplay,
 } from '../../../utils/physics/meritDisplay.js';
@@ -113,7 +114,7 @@ function underCone(s, last) {
  */
 export function useMeritValues(design, operands, hold, reading = MERIT_TABLE) {
     const empty = !design || operands.length === 0;
-    const cone = !empty && coneIsActive(makeConeSpec(design.cone || {}));
+    const cone = !empty && meritUnderCone(design);
     const marks = useMemo(() => provisionalRows(operands), [operands]);
     const mfMarked = useMemo(() => provisionalMerit(operands, marks), [operands, marks]);
     const designId = design?.id;

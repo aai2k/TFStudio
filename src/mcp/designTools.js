@@ -60,6 +60,12 @@ const ENVIRONMENT_OPTIONS = {
         type: ['object', 'null'], additionalProperties: { type: ['string', 'null'] },
         description: 'Material id to material id, such as {"TiO2": "Ta2O5"}: each layer of the first is made of the second. A material given null follows environment 1; null drops every swap',
     },
+    cone: {
+        type: ['object', 'null'],
+        description: 'The cone of incidence, any of {enabled, halfAngleDeg, distribution, gridPoints, userTable} as setDesignSetup takes it, each part given over environment 1\'s cone. A part given null follows environment 1\'s; null follows environment 1\'s cone in every part',
+    },
+    mfEvalMode: { type: ['string', 'null'], description: "How a one-sided design is scored here: 'side' on its coated side alone, 'total' as the whole part; null follows environment 1" },
+    temperatureC: { type: ['number', 'null'], description: "The temperature in °C, above -273.15; null follows environment 1. At a temperature other than environment 1's each layer and the substrate change by Takahashi's elastic strain model, the Environments page of the manual gives it" },
 };
 
 // The fields an edit tool passes on to the API: its arguments without designId.
@@ -104,7 +110,7 @@ export function designTools({ api, store }) {
         },
         {
             name: 'setDesignSetup', title: 'Change the setup',
-            description: "Changes a design's name, media, substrate and its thickness, which sides it has, how a one-sided design is scored or its reference wavelength, as the Design Editor's fields do, and the two temperatures and the substrate diameter the stress tool reads, as the Stress window's fields do. Making it symmetric gives it the mirror of its front as its back. A new referenceWavelength rescales every layer to keep its quarter-wave count, as the Design Editor's λ0 field does. A temperature or the diameter given as null is unset. Answers with the design.",
+            description: "Changes a design's name, media, substrate and its thickness, which sides it has, how a one-sided design is scored, its reference wavelength, its cone of incidence or its temperature, as the Design Editor's fields do, and the two temperatures and the substrate diameter the stress tool reads, as the Stress window's fields do. Making it symmetric gives it the mirror of its front as its back. A new referenceWavelength rescales every layer to keep its quarter-wave count, as the Design Editor's λ0 field does. A temperature or the diameter given as null is unset, and a cone given as null is removed. These are environment 1's; setEnvironment sets another environment's. Answers with the design.",
             inputSchema: object({
                 designId: DESIGN_ID, name: str('The design name'),
                 incidentMedium: str('Material id of the incident medium'), exitMedium: str('Material id of the exit medium'),
@@ -115,6 +121,11 @@ export function designTools({ api, store }) {
                 stressTemperatureC: { type: ['number', 'null'], description: 'The temperature the stress is read at in °C, above -273.15; null unsets it. While only the deposition temperature is set it reads 20' },
                 depositionTemperatureC: { type: ['number', 'null'], description: 'The substrate temperature while the films grew in °C, above -273.15; null unsets it. While only the other temperature is set it reads 20; with neither set each film carries its intrinsic stress alone' },
                 substrateDiameterMm: { type: ['number', 'null'], description: 'Substrate diameter in mm, above 0, which only the centre deflection needs; null unsets it' },
+                cone: {
+                    type: ['object', 'null'],
+                    description: "The cone of incidence the merit and the spectra average over, any of {enabled, halfAngleDeg, distribution, gridPoints, userTable}, each part given over the design's cone: enabled true or false; halfAngleDeg from the axis, 0 up to but not including 90; distribution 'uniform', 'lambertian' or 'user'; gridPoints 2 to 200; userTable a list of {theta, intensity}, theta in degrees from the axis, which the 'user' distribution reads. null removes the cone",
+                },
+                temperatureC: { type: ['number', 'null'], description: "The temperature in °C the design's layer thicknesses and its materials' n and k are given at, above -273.15, which another environment's temperature is a change from; null unsets it and it reads 20" },
             }, ['designId']),
             run: args => edit(args.designId, d => api.setDesignSetup(d, editArgs(args))),
         },
@@ -265,19 +276,19 @@ export function designTools({ api, store }) {
         },
         {
             name: 'environments', title: 'List the environments',
-            description: "A design's environments, in order: environment 1, the design's own media and substrate, then each other condition the same coating is used in, such as another substrate, the coating under water, or a chamber position where the films grow thinner. A design without environments has environment 1 alone. Answers with each as { number (from 1), id, name (or null), enabled, incidentMedium, exitMedium, substrate { material, thickness in mm }, thicknessFactors, materialSwaps, follows }: the media and the substrate are the environment's own or environment 1's, the factors and swaps its own ({} for none), and follows names the options it takes from environment 1 ([] for environment 1).",
+            description: "A design's environments, in order: environment 1, the design's own media, substrate, cone, other side and temperature, then each other condition the same coating is used in, such as another substrate, the coating under water, a chamber position where the films grow thinner, a cone of incidence or a temperature. A design without environments has environment 1 alone. Answers with each as { number (from 1), id, name (or null), enabled, incidentMedium, exitMedium, substrate { material, thickness in mm }, thicknessFactors, materialSwaps, cone (or null), mfEvalMode, temperatureC, follows }: the media, the substrate, the other side and the temperature are the environment's own or environment 1's, the cone each part its own or environment 1's, the factors and swaps its own ({} for none), and follows names the options it takes from environment 1 ([] for environment 1).",
             inputSchema: object({ designId: DESIGN_ID }, ['designId']),
             run: ({ designId }) => ({ designId, environments: api.environments(store.get(designId)) }),
         },
         {
             name: 'addEnvironment', title: 'Add an environment',
-            description: 'Adds an environment after the design\'s others: another condition the same coating is used in. A medium, substrate or thickness left out or null follows environment 1. Answers with the design; the environments tool lists its environments.',
+            description: 'Adds an environment after the design\'s others: another condition the same coating is used in. A medium, substrate, thickness, cone, other side or temperature left out or null follows environment 1. Answers with the design; the environments tool lists its environments.',
             inputSchema: object({ designId: DESIGN_ID, ...ENVIRONMENT_OPTIONS }, ['designId']),
             run: args => edit(args.designId, d => api.addEnvironment(d, editArgs(args))),
         },
         {
             name: 'setEnvironment', title: 'Change an environment',
-            description: 'Sets options on one environment of a design. A medium, substrate or thickness given null follows environment 1 again, and a name given null takes the name away; in thicknessFactors and materialSwaps a material given null does, and a material left out keeps what it had. Environment 1 is the design itself and takes name and enabled alone; setDesignSetup changes its media and substrate. Answers with the design.',
+            description: 'Sets options on one environment of a design. A medium, substrate, thickness, cone, other side or temperature given null follows environment 1 again, and a name given null takes the name away; in cone, thicknessFactors and materialSwaps a part or a material given null does, and one left out keeps what it had. Environment 1 is the design itself and takes name and enabled alone; setDesignSetup changes its media, substrate, cone, other side and temperature. Answers with the design.',
             inputSchema: object({ designId: DESIGN_ID, environment: ENVIRONMENT, ...ENVIRONMENT_OPTIONS }, ['designId', 'environment']),
             run: ({ designId, environment, ...options }) => edit(designId, d => api.setEnvironment(d, environment, options)),
         },

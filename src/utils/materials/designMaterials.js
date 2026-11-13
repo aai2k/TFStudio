@@ -33,6 +33,7 @@
  * installation already holds exactly.
  */
 import { environmentMaterialIds } from '../environments/environments.js';
+import { baseMaterialId, parseThermalId, resolvedAtTemperature } from '../environments/temperatureModel.js';
 import { getMaterialById, materialLabel } from './catalogManager.js';
 import { fromAnotherCatalog, localCatalogUid } from './catalogStamps.js';
 import { makeGetNK } from './catalogManager/dispersion.js';
@@ -82,7 +83,9 @@ export function isBuiltinId(id) {
 }
 
 // Herpin equivalent layers saved by 1.6.3 to 1.8.4 lost their material, but each
-// layer still holds its equivalent index; the material is rebuilt from that.
+// layer still holds its equivalent index; the material is rebuilt from that. In
+// an environment at another temperature the layer names the material at that
+// temperature, made from this one.
 const herpinCache = new WeakMap();
 function herpinRecordFromLayers(design, id) {
     if (!design || !String(id).startsWith('herpin-')) return null;
@@ -90,7 +93,7 @@ function herpinRecordFromLayers(design, id) {
     if (!byId) herpinCache.set(design, byId = new Map());
     if (!byId.has(id)) {
         const layer = [...(design.frontLayers || []), ...(design.backLayers || [])]
-            .find(candidate => candidate.material === id && candidate.herpin?.version === 1);
+            .find(candidate => baseMaterialId(candidate.material) === id && candidate.herpin?.version === 1);
         const E = layer?.herpin?.equivalentIndex;
         byId.set(id, Number.isFinite(E) && E > 0
             ? herpinMaterialRecord(id, E, layer.herpin.referenceWavelength) : null);
@@ -130,10 +133,14 @@ export function withHerpinRecords(design) {
  * with other n,k: the design computes with its own copy, and a catalog row of
  * the same id is another material.
  *
+ * A material at another temperature (environments/temperatureModel.js)
+ * resolves as the material it is made from does, with its index changed.
+ *
  * @returns {{ material: Object, status: 'embedded'|'catalog'|'missing'|'unset', conflict?: true }}
  */
 export function resolveDesignMaterial(design, id) {
     if (!id) return { material: getMaterial('Air'), status: 'unset' };
+    if (parseThermalId(id)) return resolvedAtTemperature(resolveDesignMaterial(design, baseMaterialId(id)), id);
 
     const record = design?.materials?.[id] ?? herpinRecordFromLayers(design, id);
     const registered = getMaterialById(id);
@@ -209,16 +216,19 @@ export function designMaterialIds(design) {
     return [...new Set([...ownMaterialIds(design), ...environmentMaterialIds(design)])];
 }
 
+// Ids without duplicates or blanks, each material at another temperature by
+// the material it is made from, which is what has to resolve.
+const distinctMaterials = ids => [...new Set(ids.filter(Boolean).map(baseMaterialId))];
+
 // The ids of the design's own fields, those environment 1 computes with.
 function ownMaterialIds(design) {
-    const ids = [
+    return distinctMaterials([
         design.incidentMedium,
         design.exitMedium,
         design.substrate?.material,
         ...(design.frontLayers || []).map(layer => layer.material),
         ...(design.backLayers || []).map(layer => layer.material),
-    ];
-    return [...new Set(ids.filter(Boolean))];
+    ]);
 }
 
 /**
@@ -234,12 +244,11 @@ export function computedMaterialIds(design, side) {
     const keys = SIDE_KEYS[side];
     if (!design) return [];
     if (!keys) return ownMaterialIds(design);
-    const ids = [
+    return distinctMaterials([
         design[keys.medium],
         design.substrate?.material,
         ...(design[keys.layers] || []).map(layer => layer.material),
-    ];
-    return [...new Set(ids.filter(Boolean))];
+    ]);
 }
 
 // The design fields one side is computed with: the medium light arrives from

@@ -908,8 +908,8 @@
     "text": "用一种合成方法按评价函数生长或重组设计，从材料池中插入材料，与该方法的窗口做法相同。之后设计保存运行的结果；运行被停止时，保留原来的膜层。每种方法的设置及其默认值列在 API 参考的 synthesize 下；未给出的设置取默认值。"
   },
   "Design.synthesize.lead.2": {
-    "hash": "079e81e1",
-    "text": "在有多个环境的设计上，运行在每个开启的环境中评分，每个环境用它自己的介质、基底和膜层，与 design.merit.value 相同。由 MNT 行得出的厚度下限，是该行的目标值除以计入该行的环境为膜层或材料池中的材料所设的小于 1 的最小厚度系数；由 MXT 行得出的厚度上限，是目标值除以大于 1 的最大系数。"
+    "hash": "bbcdf243",
+    "text": "在有多个环境的设计上，运行在每个开启的环境中评分，每个环境用它自己的介质、基底、膜层、入射锥角、另一面和温度，与 design.merit.value 相同。由 MNT 行得出的厚度下限，是该行的目标值除以计入该行的环境对膜层或材料池中某种材料的膜层所乘的小于 1 的最小系数，即该材料的厚度系数乘以该环境温度带来的厚度变化；由 MXT 行得出的厚度上限，是目标值除以大于 1 的最大系数。"
   },
   "Design.synthesize.refuses.1": {
     "hash": "f599adf2",
@@ -1036,8 +1036,8 @@
     "text": "一个 LayerSensitivity。"
   },
   "Design.layerSensitivity.lead.1": {
-    "hash": "2ad2409b",
-    "text": "每层厚度偏离时评价函数值的变化量，与层灵敏度窗口对膜层的排序相同：每层分别加厚和减薄一个步长，评价函数值的平均变化就是它的得分。这里的评价函数不含 MNT 和 MXT 行。在有多个环境的设计上，步长加在膜层列表的厚度上，在某个环境中看到的是 f·(d ± 步长)，f 为该层材料在该环境中的厚度系数。"
+    "hash": "ee843d53",
+    "text": "每层厚度偏离时评价函数值的变化量，与层灵敏度窗口对膜层的排序相同：每层分别加厚和减薄一个步长，评价函数值的平均变化就是它的得分。这里的评价函数不含 MNT 和 MXT 行。在有多个环境的设计上，步长加在膜层列表的厚度上，在某个环境中看到的是 f·(d ± 步长)，f 为该层材料在该环境中的厚度系数乘以该环境温度带来的厚度变化。"
   },
   "Design.layerSensitivity.refuses.1": {
     "hash": "f92c5b4d",
@@ -1300,8 +1300,8 @@
     "text": "新的 Environment。"
   },
   "Environments.add.lead.1": {
-    "hash": "eb6cafb8",
-    "text": "在其他环境之后添加一个环境。未给出或给出 `null` / `None` 的介质、基底或厚度沿用环境 1 的。系数或替换以膜层所写的材料为键，内置材料的 id 两种写法均可（`'TiO2'` 或 `'builtin:TiO2'`）。"
+    "hash": "35added8",
+    "text": "在其他环境之后添加一个环境。未给出或给出 `null` / `None` 的介质、基底、厚度、锥角、另一面或温度沿用环境 1 的。系数或替换以膜层所写的材料为键，内置材料的 id 两种写法均可（`'TiO2'` 或 `'builtin:TiO2'`）。"
   },
   "Environments.add.refuses.1": {
     "hash": "1f2aa47d",
@@ -1400,8 +1400,8 @@
     "text": "值不是材料 id 的映射、找不到对应材料的材料 id，或在环境 1 上设置的任何值，环境 1 的膜层就是设计的膜层"
   },
   "Environment.follows.lead.1": {
-    "hash": "72c9550d",
-    "text": "环境沿用环境 1 的哪些内容，按 environments.add() 接受的名称给出：`'incidentMedium'` / `\"incident_medium\"`、`'exitMedium'` / `\"exit_medium\"`、`'substrate'` 和 `'substrateThicknessMm'` / `\"substrate_thickness_mm\"` 中的任意几个。环境 1 不沿用任何内容。"
+    "hash": "19fc6c04",
+    "text": "环境沿用环境 1 的哪些内容，按 environments.add() 接受的名称给出：`'incidentMedium'` / `\"incident_medium\"`、`'exitMedium'` / `\"exit_medium\"`、`'substrate'`、`'substrateThicknessMm'` / `\"substrate_thickness_mm\"`、`'cone'`、`'mfEvalMode'` / `\"mf_eval_mode\"` 和 `'temperatureC'` / `\"temperature_c\"` 中的任意几个。环境 1 不沿用任何内容。"
   },
   "Environment.remove.lead.1": {
     "hash": "3680d6a3",
@@ -4672,12 +4672,12 @@
     "text": "与本设计比较的 Design。"
   },
   "Design.differences.returns.js": {
-    "hash": "b8e84170",
-    "text": "一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'` 或 `'substrate.diameter'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null；`environments`，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，`design.environments` 给出这些内容。"
+    "hash": "f18044df",
+    "text": "一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'`、`'substrate.diameter'` 或 `'temperature'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null；`environments`，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，`design.environments` 给出这些内容。"
   },
   "Design.differences.returns.py": {
-    "hash": "0ee18c50",
-    "text": "命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（\"incident_medium\"、\"exit_medium\"、\"substrate.material\"、\"substrate.thickness\"、\"reference\"、\"sides\"、\"score_on\"、\"stress_temperature\"、\"deposition_temperature\" 或 \"substrate.diameter\"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None；environments，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，design.environments 给出这些内容。"
+    "hash": "7ccc95bf",
+    "text": "命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（\"incident_medium\"、\"exit_medium\"、\"substrate.material\"、\"substrate.thickness\"、\"reference\"、\"sides\"、\"score_on\"、\"stress_temperature\"、\"deposition_temperature\"、\"substrate.diameter\" 或 \"temperature\"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None；environments，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，design.environments 给出这些内容。"
   },
   "Design.differences.lead.1": {
     "hash": "b19113f5",
@@ -5734,5 +5734,69 @@
   "Design.importCodevCoating.refuses.1.py": {
     "hash": "1e330e9c",
     "text": "无法读取的文件，或没有输入读取器能读取的膜层堆栈的文件、设计编辑器不允许编辑的面，或参数不能取的值"
+  },
+  "Design.temperature.lead.1": {
+    "hash": "4cb86ed7",
+    "text": "设计的膜层厚度和材料的 n、k 所对应的温度，单位 °C：环境 1 的温度，其他环境的温度是相对于它的变化。未设置时为 20；设为 `null` / `None` 即取消设置。"
+  },
+  "Design.temperature.refuses.1": {
+    "hash": "6dfcbae0",
+    "text": "小于等于 -273.15 °C 的温度"
+  },
+  "Design.cone.lead.1.js": {
+    "hash": "af05f00b",
+    "text": "评价函数和光谱取平均所用的入射锥角，与设计编辑器的锥角设置相同：由已设置部分组成的 `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }`，没有时为 null。读取得到一份副本；设置时只改给出的部分，与 setDesignSetup 的 `cone` 相同，设为 null 则去掉锥角。"
+  },
+  "Design.cone.lead.1.py": {
+    "hash": "cac2524d",
+    "text": "评价函数和光谱取平均所用的入射锥角，与设计编辑器的锥角设置相同：由已设置的 enabled、halfAngleDeg、distribution、gridPoints 和 userTable 组成的 dict，没有时为 None。读取得到一份副本；设置时只改给出的部分，与 set_design_setup 的 cone 相同，设为 None 则去掉锥角。"
+  },
+  "Design.cone.refuses.1": {
+    "hash": "a18bd040",
+    "text": "它没有的部分，或该部分不接受的值"
+  },
+  "Environments.add.arg.cone.js": {
+    "hash": "f1120e47",
+    "text": "入射锥角，`{ enabled, halfAngleDeg, distribution, gridPoints, userTable }` 中的任意部分，给出的每一部分覆盖环境 1 锥角的对应部分。"
+  },
+  "Environments.add.arg.cone.py": {
+    "hash": "bb102090",
+    "text": "入射锥角，由 enabled、halfAngleDeg、distribution、gridPoints 和 userTable 中任意部分组成的 dict，给出的每一部分覆盖环境 1 锥角的对应部分。"
+  },
+  "Environments.add.arg.mfEvalMode": {
+    "hash": "8e361878",
+    "text": "在此环境中单面设计如何评价：`'side'`，或 `'total'`，整个元件。"
+  },
+  "Environments.add.arg.temperatureC": {
+    "hash": "05adf279",
+    "text": "温度，单位 °C，高于 -273.15。"
+  },
+  "Environment.cone.lead.1.js": {
+    "hash": "b2cde491",
+    "text": "该环境计算所用的入射锥角，由已设置部分组成的 `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }`，它和环境 1 都没有时为 null：每一部分是它自己的，或环境 1 的。设置时只改给出的部分，给出 null 的部分重新沿用环境 1 的，设为 null 则整个锥角沿用环境 1 的。"
+  },
+  "Environment.cone.lead.1.py": {
+    "hash": "71bba0ca",
+    "text": "该环境计算所用的入射锥角，由已设置的 enabled、halfAngleDeg、distribution、gridPoints 和 userTable 组成的 dict，它和环境 1 都没有时为 None：每一部分是它自己的，或环境 1 的。设置时只改给出的部分，给出 None 的部分重新沿用环境 1 的，设为 None 则整个锥角沿用环境 1 的。"
+  },
+  "Environment.cone.refuses.1": {
+    "hash": "46308315",
+    "text": "它没有的部分、该部分不接受的值，或在环境 1 上设置的任何值，环境 1 的锥角就是设计的锥角"
+  },
+  "Environment.scoreOn.lead.1": {
+    "hash": "4cdff8ae",
+    "text": "该环境如何评价单面镀膜的设计：`'side'`，仅评价其镀膜面；`'whole part'`，包括基底的另一面，名称与 `design.scoreOn` / `design.score_on` 相同；它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。"
+  },
+  "Environment.scoreOn.refuses.1": {
+    "hash": "8b8680fc",
+    "text": "其他任何值，或在环境 1 上设置的任何值，环境 1 的 `scoreOn` / `score_on` 就是设计的"
+  },
+  "Environment.temperature.lead.1": {
+    "hash": "5fad50a9",
+    "text": "该环境所处的温度，单位 °C：它自己的，或环境 1 的，即设计的温度。温度与环境 1 不同时，它的膜层和基底按文档中环境页面所述变化。设为 `null` / `None` 即重新沿用环境 1 的。"
+  },
+  "Environment.temperature.refuses.1": {
+    "hash": "c0d27335",
+    "text": "小于等于 -273.15 °C 的温度，或在环境 1 上设置的任何值，环境 1 的温度就是设计的温度"
   }
 }

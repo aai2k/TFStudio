@@ -75,20 +75,38 @@ function pill(color, cursor) {
     };
 }
 
+/** The Eval badge's word for what `design` is evaluated on. */
+export function evalModeWord(design, t) {
+    const mode = resolveEvalMode(design);
+    return t?.modeBar?.evalBadge?.[mode] || (EVAL_INFO[mode] || EVAL_INFO.total).label;
+}
+
+/** The Cone badge's text for the cone `design` computes under, or null when none is active. */
+export function coneText(design, t) {
+    const spec = makeConeSpec(design?.cone || {});
+    if (!coneIsActive(spec)) return null;
+    const cc = (t && t.designEditor && t.designEditor.cone) || {};
+    const half = Math.round(spec.halfAngleDeg * 10) / 10;
+    return `${cc.badge || 'Cone'} ±${half}° · ${cc[spec.distribution] || spec.distribution}`;
+}
+
+// A badge's hover: what it says, and below it `detail`, one line each, when given.
+const withDetail = (tip, detail) => (detail?.length ? `${tip}\n\n${detail.join('\n')}` : tip);
+
 /**
  * Read-only "Eval: FRONT/BACK/TOTAL" badge — shown in every window that
- * evaluates a spectrum, scores a spec, or perturbs a tolerance.
+ * evaluates a spectrum, scores a spec, or perturbs a tolerance. `detail`,
+ * lines added to its hover, names each environment's where a window shows
+ * several.
  */
-export function EvalModeBadge({ design, c, t, style }) {
+export function EvalModeBadge({ design, c, t, style, detail }) {
     const mb = (t && t.modeBar) || {};
-    const mode = resolveEvalMode(design);
-    const info = EVAL_INFO[mode] || EVAL_INFO.total;
-    const label = (mb.evalBadge && mb.evalBadge[mode]) || info.label;
+    const info = EVAL_INFO[resolveEvalMode(design)] || EVAL_INFO.total;
     return h('span', {
-        title: mb.evalBadgeTip
-            || 'What the spectra, Specification and tolerances are scored against (set in the Design Editor: Surface + Ignore other side).',
+        title: withDetail(mb.evalBadgeTip
+            || 'What the spectra, Specification and tolerances are scored against (set in the Design Editor: Surface + Ignore other side).', detail),
         style: { ...pill(info.color, 'help'), ...(style || {}) },
-    }, (mb.evalBadgeLabel || 'Eval') + ': ' + label);
+    }, (mb.evalBadgeLabel || 'Eval') + ': ' + evalModeWord(design, t));
 }
 
 /**
@@ -96,18 +114,17 @@ export function EvalModeBadge({ design, c, t, style }) {
  * averaging is active, so the user always knows the displayed/
  * scored R/T/A is averaged over an illumination cone rather than collimated.
  * Renders nothing when no cone is active. amber = "non-default evaluation".
+ * `detail` as EvalModeBadge's.
  */
-export function ConeBadge({ design, c, t, style }) {
-    const spec = makeConeSpec(design?.cone || {});
-    if (!coneIsActive(spec)) return null;
+export function ConeBadge({ design, c, t, style, detail }) {
+    const text = coneText(design, t);
+    if (!text) return null;
     const cc = (t && t.designEditor && t.designEditor.cone) || {};
-    const distLabel = cc[spec.distribution] || spec.distribution;
-    const half = Math.round(spec.halfAngleDeg * 10) / 10;
     return h('span', {
-        title: cc.enableTip
-            || 'R/T/A is averaged over an illumination cone (convergent/divergent beam) instead of a single collimated ray. Edit in the Design Editor.',
+        title: withDetail(cc.enableTip
+            || 'R/T/A is averaged over an illumination cone (convergent/divergent beam) instead of a single collimated ray. Edit in the Design Editor.', detail),
         style: { ...pill('#ef9800', 'help'), ...(style || {}) },
-    }, `${cc.badge || 'Cone'} ±${half}° · ${distLabel}`);
+    }, text);
 }
 
 /**
@@ -167,10 +184,13 @@ function ModeCheckbox({ c, checked, onChange, disabled, text, tip }) {
     );
 }
 
-export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, style }) {
+export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, style, backSide = null }) {
     const mb = (t && t.modeBar) || {};
     const surfMode   = design?.surfaceMode || 'front_only';
-    const mfEvalMode = design?.mfEvalMode  || 'side';
+    // `backSide`, in environment 2 or later of a design with environments,
+    // is that environment's Ignore other side: `value` its mfEvalMode, `set`
+    // the edit, `tag` the tag after the checkbox.
+    const mfEvalMode = backSide ? backSide.value : (design?.mfEvalMode || 'side');
     const dd         = surfaceToDropdown(surfMode);
     const isBoth     = dd === 'both';
     const isSymmetric = surfMode === 'symmetric';
@@ -195,7 +215,9 @@ export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, s
     const surfOpt = (k) => surfaceOptionLabel(mb, k);
     const onSurface   = (e) => handleSurfaceChange(e.target.value, { design, updateDesign, onModeChange, isSymmetric });
     const onSymmetric = (e) => applySurfaceMode(design, updateDesign, e.target.checked ? 'symmetric' : 'both_independent');
-    const onIgnore    = (e) => updateDesign({ mfEvalMode: e.target.checked ? 'side' : 'total' });
+    const onIgnore    = backSide
+        ? (e) => backSide.set(e.target.checked ? 'side' : 'total')
+        : (e) => updateDesign({ mfEvalMode: e.target.checked ? 'side' : 'total' });
     const checkboxLabel = (checked, onChange, disabled, text, tip) =>
         h(ModeCheckbox, { c, checked, onChange, disabled, text, tip });
 
@@ -226,5 +248,6 @@ export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, s
             mb.ignoreTip
                 || 'Checked: evaluate this surface alone on a semi-infinite substrate (no back-surface reflection) — the merit function, Specification and all analysis windows score this one side.\nUnchecked: evaluate the full system (front + substrate + back).\nDisabled for "Both" (always full system).',
         ),
+        backSide?.tag,
     );
 }

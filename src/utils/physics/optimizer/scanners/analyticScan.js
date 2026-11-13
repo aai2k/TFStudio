@@ -44,7 +44,7 @@ import { _buildDescriptors, _buildCandidates } from './descriptors.js';
 import { _makeScanAt } from './needleScanPasses.js';
 import { needlePointEvaluators, _accumRows } from './gradientAccum.js';
 import { _accumRowDifference } from './rowDifference.js';
-import { meritStacks, needleMaterialIn } from '../environmentStacks.js';
+import { meritStacks, needleIn } from '../environmentStacks.js';
 import { meanSquareMerit } from '../../../environments/environmentMerit.js';
 
 const MF_OPT = { skipConstraints: true };
@@ -146,19 +146,20 @@ function _prepareScan(args, surfaceMode, side) {
 }
 
 // Add the needle numerators of one environment's stack (environmentStacks.js)
-// to `descs`, each times f / D: f the factor the environment sets for the
-// needle's material, D the stack's weight sum. The stack scans the needle of
-// each pool material as the material its environment swaps it for, at the
-// places of the recipe's descriptors. Returns the stack's optical merit.
+// to `descs`, each times f / D: f the factor a needle of its material takes in
+// the environment, D the stack's weight sum. The stack scans the needle of
+// each pool material as its environment deposits it (needleIn), at the places
+// of the recipe's descriptors. Returns the stack's optical merit.
 function _accumStack(args, stack, descs, { surfaceMode, side }) {
     const { candidateMats, resolveMat, deltaNm = 0.5 } = args;
-    const mats = candidateMats.map(c => ({ ...c, mat: needleMaterialIn(stack, c.id, c.mat, resolveMat) }));
+    const needles = candidateMats.map(c => needleIn(stack, c.id, c.mat, resolveMat));
+    const mats = candidateMats.map((c, ci) => ({ ...c, mat: needles[ci].mat }));
     const own = { ...args, operands: stack.operands, design: stack.design, candidateMats: mats };
     const base = _scanBase(own, surfaceMode, side);
     if (!(base.mf0 > 1e-12) || !(base.sumW > 0)) return base.mf0;
     const local = descs.map(d => ({ ...d, num: 0 }));
     _accumMerit(stack.operands, { ...base, descs: local }, deltaNm);
-    local.forEach((d, di) => { descs[di].num += stack.factor(candidateMats[d.ci].id) * d.num / base.sumW; });
+    local.forEach((d, di) => { descs[di].num += needles[d.ci].factor * d.num / base.sumW; });
     return base.mf0;
 }
 
@@ -224,14 +225,15 @@ function _accumMerit(operands, prep, deltaNm) {
 // the host below the floor (descriptors.js, intraSplitFits). `args.deltaNm` is
 // the needle the rows without an exact slope are differenced with. A design
 // with environments is scanned on every environment the optical merit counts
-// (environmentStacks.js, _scanStacks).
+// (environmentStacks.js, _scanStacks), and declined when one of those scores
+// a one-sided design as the whole part, as the design's own setting would.
 export function scanNeedlesAnalytic(args) {
     const { candidateMats, deltaNm = 0.5 } = args;
     const surfaceMode = args.design?.surfaceMode || 'front_only';
     const side = resolveScanSide(surfaceMode, args.side ?? 'front');
-    if (_analyticDeclines(surfaceMode, args.design)) return null;
-
-    const scored = meritStacks(args.design, args.operands, { optical: true });
+    const scored = meritStacks(args.design, args.operands, { optical: true, resolveMat: args.resolveMat });
+    const scanned = scored.stacks ? scored.stacks.map(stack => stack.design) : [args.design];
+    if (scanned.some(design => _analyticDeclines(surfaceMode, design))) return null;
     if (scored.stacks) return _scanStacks(args, scored.stacks, surfaceMode, side);
     const own = { ...args, operands: scored.operands, design: scored.design };
     const prep = _prepareScan(own, surfaceMode, side);

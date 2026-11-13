@@ -7,6 +7,7 @@ import { buildAdmittanceTableRows, buildMaterialNames } from '../components/wind
 import { ADMITTANCE_LAMBDA_NM } from '../components/windows/analysis/admittanceDiagram/sessionState.js';
 import { sessionDefaults } from '../constants/analysisDefaults.js';
 import { withHerpinRecords } from '../utils/materials/designMaterials.js';
+import { baseMaterialId } from '../utils/environments/temperatureModel.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { requireResolved } from './materials.js';
 import { inEnvironments } from './designEnvironments.js';
@@ -17,9 +18,10 @@ const DEFAULTS = sessionDefaults('admittanceDiagram');
 const isPlane = v => v === 'admittance' || v === 'reflection';
 const complex = ([re, im]) => ({ re, im });
 
-// A row of the window's table as a boundary of the locus.
+// A row of the window's table as a boundary of the locus, its material by the
+// id the design names it by, at whatever temperature its environment computes it.
 const boundaryOf = (row, layer, material) => ({
-    layer, material, name: row.material, Y: { re: row.re, im: row.im }, gamma: { re: row.gRe, im: row.gIm },
+    layer, material: baseMaterialId(material), name: row.material, Y: { re: row.re, im: row.im }, gamma: { re: row.gRe, im: row.gIm },
 });
 
 // One polarization's locus from the window's diagram data `series` and the
@@ -30,7 +32,7 @@ function locusOf(series, rows, substrate) {
         eta0: complex(series.eta0),
         etaSubstrate: complex(series.etaS),
         boundaries: [boundaryOf(rows[0], 0, substrate), ...series.arcs.map((arc, i) => boundaryOf(rows[i + 1], arc.layerNum, arc.material))],
-        arcs: series.arcs.map(arc => ({ layer: arc.layerNum, material: arc.material, re: arc.re, im: arc.im })),
+        arcs: series.arcs.map(arc => ({ layer: arc.layerNum, material: baseMaterialId(arc.material), re: arc.re, im: arc.im })),
     };
 }
 
@@ -44,7 +46,7 @@ function admittanceOf(design, { lambda, angle, plane, mode }) {
     const names = buildMaterialNames(shown, sideStackLayers(shown, mode).filter(layer => layer.thickness > 0));
     const rows = buildAdmittanceTableRows(series, names, shown);
     const perPol = rows.length / series.length;
-    const substrate = design.substrate?.material;
+    const substrate = baseMaterialId(design.substrate?.material);
     const [s, p] = series.map((one, i) => locusOf(one, rows.slice(i * perPol, (i + 1) * perPol), substrate));
     return {
         mode, wavelength: lambda, angle, plane,

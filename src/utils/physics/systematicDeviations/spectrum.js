@@ -14,9 +14,9 @@ import { deviatedDesignForSpec, perturbLayers, perturbMedium } from './perturb.j
  * The deviated spectrum (computeDeviatedSpectrum) in environment `envId` of a
  * design with environments: the deviation made on the recipe and seen in that
  * environment, as deviatedDesignForSpec builds it, each layer f·(d·s + o)
- * thick, f the factor of its material there, made of the environment's
- * material for it moved by the Δn and Δk of the recipe's material, between
- * the environment's media. Environment 1, the default, is the design itself.
+ * thick, f the factor of its material there times the change its temperature
+ * makes, made of the environment's material for it at its temperature moved
+ * by the Δn and Δk of the recipe's material, between the environment's media. Environment 1, the default, is the design itself.
  *
  * @param {object} req  { design, params, deviation, evalMode, resolveMat, envId }
  * @returns as computeDeviatedSpectrum

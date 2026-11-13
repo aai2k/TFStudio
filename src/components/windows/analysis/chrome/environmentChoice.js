@@ -20,6 +20,7 @@ import { createWindowSession, useWindowSession } from '../../windowSession.js';
 import {
     environmentDesign, environmentsInAll, environmentsOf, hasEnvironments, rowsInEnvironment,
 } from '../../../../utils/environments/environments.js';
+import { coneIsActive, makeConeSpec, resolveEvalMode } from '../../../../utils/physics/optimizer.js';
 import { environmentLabel, useCurrentEnvironment } from '../../design/environments/currentEnvironment.js';
 import { DROPLIST_WIDTH } from '../../design/designEditor/EnvironmentRow.js';
 import { SelectField } from './controls.js';
@@ -48,15 +49,21 @@ export function environmentChoice(design, stored, overlay) {
 }
 
 function view(design, env, number) {
-    return { id: env.id, number, label: environmentLabel(env, number), design: environmentDesign(design, env.id) };
+    const seen = environmentDesign(design, env.id);
+    return {
+        id: env.id, number, label: environmentLabel(env, number), design: seen,
+        mode: resolveEvalMode(seen), coned: coneIsActive(makeConeSpec(seen.cone || {})),
+    };
 }
 
 /**
  * The designs a window computes for `choice`, each `{ id, number, label,
- * design }`: for `'current'` the environment `currentId`, for an id that
- * environment, either one computed whether it is on or off; for `'all'` one
- * per environment that is on, environment 1 when none is. Environment 1's
- * design is `design` itself.
+ * design, mode, coned }`: for `'current'` the environment `currentId`, for an
+ * id that environment, either one computed whether it is on or off; for
+ * `'all'` one per environment that is on, environment 1 when none is.
+ * Environment 1's design is `design` itself. `mode` is what the environment's
+ * design is evaluated on (resolveEvalMode) and `coned` whether it computes
+ * under a cone of incidence, each environment by its own back side and cone.
  */
 export function environmentViews(design, choice, currentId) {
     if (choice === ALL) return environmentsInAll(design).map(({ env, number }) => view(design, env, number));

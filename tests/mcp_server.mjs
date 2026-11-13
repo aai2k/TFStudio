@@ -274,7 +274,26 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const baseMedium = await server.call('setEnvironment', { designId: envId, environment: 'base', incidentMedium: 'H2O' });
     ok('environment 1, an environment the design does not have and environment 1\'s media are refused, saying what they take',
         /environment 1 is the design itself and cannot be removed/.test(firstGone.error ?? '') && /environment is one of the design's environments by its number, 1 to 2, or its id, base or env2; not "env9"/.test(nineGone.error ?? '')
-        && /setDesignSetup changes the design's own media and substrate/.test(baseMedium.error ?? ''), `${firstGone.error} | ${nineGone.error} | ${baseMedium.error}`);
+        && /setDesignSetup changes the design's own media, substrate, cone, other side and temperature/.test(baseMedium.error ?? ''), `${firstGone.error} | ${nineGone.error} | ${baseMedium.error}`);
+    {
+        const conditionsId = (await server.call('copyDesign', { designId: envId })).designId;
+        const lens = { cone: { enabled: true, halfAngleDeg: 12 }, mfEvalMode: 'total', temperatureC: 80 };
+        const setUp = await server.call('setDesignSetup', { designId: conditionsId, temperatureC: 25, cone: { enabled: true, halfAngleDeg: 5 } });
+        await server.call('setEnvironment', { designId: conditionsId, environment: 2, ...lens });
+        const listed = await server.call('environments', { designId: conditionsId });
+        const here = api.setEnvironment(api.setDesignSetup(envHere, { temperatureC: 25, cone: { enabled: true, halfAngleDeg: 5 } }), 2, lens);
+        const badCone = await server.call('setEnvironment', { designId: conditionsId, environment: 2, cone: { halfAngleDeg: 95 } });
+        const baseCone = await server.call('setEnvironment', { designId: conditionsId, environment: 1, temperatureC: 30 });
+        ok('setDesignSetup takes environment 1\'s cone and temperature and the design shows them',
+            setUp.temperatureC === 25 && setUp.cone?.halfAngleDeg === 5, JSON.stringify(setUp).slice(0, 300));
+        const second = listed.environments[1];
+        ok('setEnvironment takes another\'s cone, mfEvalMode and temperatureC, and environments lists them as the API does',
+            JSON.stringify(listed) === JSON.stringify({ designId: conditionsId, environments: api.environments(here) })
+            && second.temperatureC === 80 && second.mfEvalMode === 'total', JSON.stringify(listed).slice(0, 300));
+        ok('a cone part out of range and environment 1\'s temperature in setEnvironment are refused, saying what they take',
+            /cone is an object whose halfAngleDeg is a half-angle/.test(badCone.error ?? '') && /not temperatureC; setDesignSetup/.test(baseCone.error ?? ''),
+            `${badCone.error} | ${baseCone.error}`);
+    }
     const envRows = [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }, { type: 'R', lambdaStart: 550, target: 0, env: 2 }];
     const envRated = await server.call('setMerit', { designId: envId, rows: envRows });
     const envMerit = await server.call('merit', { designId: envId });
@@ -476,7 +495,7 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('a spectrum names the materials whose data stop inside it', Array.isArray(wide.outOfRange), JSON.stringify(wide.outOfRange));
     const copy = await server.call('copyDesign', { designId: id });
     const listedDesigns = (await server.call('listDesigns', {})).designs;
-    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 8);
+    ok('a copy is a design of its own', copy.designId !== id && listedDesigns.length === 9);
 }
 {
     // A stack with a thin layer between two of one material, cleaned through the tools.

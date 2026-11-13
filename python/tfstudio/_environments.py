@@ -11,7 +11,8 @@ from ._refusals import Words, worded
 # The attributes that set what setEnvironment's options set, where their
 # names are not the options' snake_case.
 _SET_WORDS = Words("setEnvironment", names={"substrate": "substrate.material",
-                                            "substrateThicknessMm": "substrate.thickness"})
+                                            "substrateThicknessMm": "substrate.thickness",
+                                            "mfEvalMode": "score_on", "temperatureC": "temperature"})
 
 
 def _replacing(held, given):
@@ -304,10 +305,92 @@ class Environment:
         self._set(materialSwaps=_replacing(self._entry()["materialSwaps"], swaps))
 
     @property
+    def cone(self):
+        """The cone of incidence this environment computes with, a dict of
+        enabled, halfAngleDeg, distribution, gridPoints and userTable with
+        the parts set, or None when neither it nor environment 1 has one:
+        each part its own, or environment 1's. Setting it sets the parts
+        given, a part given None following environment 1's again, and None
+        makes the whole cone follow environment 1's.
+
+        Raises:
+            TFStudioError: a part it does not have, a value the part cannot
+                take, or any value on environment 1, whose cone is the
+                design's.
+
+        Example::
+
+            design = tf.new_design("Window AR")
+            design.stack("(HL)^2")
+            lens = design.environments.add(name="Behind a lens")
+            lens.cone = {"enabled": True, "halfAngleDeg": 12}
+            print(lens.cone["halfAngleDeg"], "in place of", design.cone)
+        """
+        return self._entry()["cone"]
+
+    @cone.setter
+    def cone(self, cone):
+        self._set(cone=cone)
+
+    @property
+    def score_on(self):
+        """How this environment scores a design coated on one side: "side",
+        its coated side alone, or "whole part", the substrate's other surface
+        included, as design.score_on names them; its own, or environment 1's.
+        Set it to None to follow environment 1's again.
+
+        Raises:
+            TFStudioError: any other value, or any value on environment 1,
+                whose score_on is the design's.
+
+        Example::
+
+            design = tf.new_design("Window AR")
+            design.stack("(HL)^2")
+            plate = design.environments.add(name="Thin plate")
+            plate.score_on = "whole part"
+            print(plate.score_on, "in place of", design.score_on)
+        """
+        from ._design import SCORE_ON
+        return {mode: name for name, mode in SCORE_ON.items()}[self._entry()["mfEvalMode"]]
+
+    @score_on.setter
+    def score_on(self, score_on):
+        from ._design import SCORE_ON, _named
+        self._set(mfEvalMode=None if score_on is None else _named(SCORE_ON, "score_on", score_on))
+
+    @property
+    def temperature(self):
+        """The temperature this environment is at, °C: its own, or
+        environment 1's, the design's temperature. At a temperature other
+        than environment 1's, its layers and substrate change as the
+        Environments page of the docs says. Set it to None to follow
+        environment 1's again.
+
+        Raises:
+            TFStudioError: a temperature of -273.15 °C or less, or any value
+                on environment 1, whose temperature is the design's.
+
+        Example::
+
+            design = tf.new_design("Bandpass")
+            design.stack("(HL)^3 HH (LH)^3")
+            hot = design.environments.add(name="Hot")
+            hot.temperature = 80
+            print(hot.temperature, "°C against", design.temperature, "°C")
+        """
+        return self._entry()["temperatureC"]
+
+    @temperature.setter
+    def temperature(self, temperature):
+        self._set(temperatureC=temperature)
+
+    @property
     def follows(self):
         """What the environment takes from environment 1, by the names
         environments.add() takes: any of "incident_medium", "exit_medium",
-        "substrate" and "substrate_thickness_mm". Environment 1 follows none.
+        "substrate", "substrate_thickness_mm", "cone", "mf_eval_mode" and
+        "temperature_c". Environment 1 follows none.
 
         Example::
 
@@ -430,10 +513,11 @@ class Environments:
         return iter([Environment(self, env["id"]) for env in self._listed()])
 
     def add(self, **options):
-        """Adds an environment after the others. A medium, substrate or
-        thickness left out, or given as None, follows environment 1. A factor
-        or a swap is keyed by the material the layers name, under either form
-        of a built-in id ("TiO2" or "builtin:TiO2").
+        """Adds an environment after the others. A medium, substrate,
+        thickness, cone, other side or temperature left out, or given as
+        None, follows environment 1. A factor or a swap is keyed by the
+        material the layers name, under either form of a built-in id ("TiO2"
+        or "builtin:TiO2").
 
         Args:
             name: The environment's name.
@@ -446,6 +530,12 @@ class Environments:
                 that material is that many times as thick, the factor above 0.
             material_swaps: A map of material id to material id: each layer
                 of the first is made of the second.
+            cone: The cone of incidence, a dict of any of enabled,
+                halfAngleDeg, distribution, gridPoints and userTable, each
+                part given over environment 1's cone.
+            mf_eval_mode: How a one-sided design is scored here: "side" or
+                "total", the whole part.
+            temperature_c: The temperature, °C, above -273.15.
 
         Returns:
             The new Environment.

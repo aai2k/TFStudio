@@ -89,7 +89,7 @@ function formatTrialSpecification(qualifiers, results, verdict) {
  * before the relabelling, so a layer keeps its factor and its swap.
  */
 function trialInputsIn(config, state, data, trial, id) {
-    const design = environmentDesign(trial, id);
+    const design = environmentDesign(trial, id, config.resolveMat);
     const getMatForLayer = trialMaterialsIn(config, state, data, id);
     if (!getMatForLayer) return { design, resolve: config.resolveMat };
 

@@ -9,6 +9,7 @@ import { THICKNESS_LAMBDA_NM } from '../components/windows/analysis/layerThickne
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { editorLayerNumber } from '../utils/misc/layerNumbers.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
+import { baseMaterialId } from '../utils/environments/temperatureModel.js';
 import { requireResolved } from './materials.js';
 import { inEnvironments } from './designEnvironments.js';
 import { checkOptions, requireValue, isPositive, isSide, isViewSide, refusal } from './check.js';
@@ -98,11 +99,13 @@ export function profiledNumbers(layers, side, alone) {
     return (side === 'back' && alone ? numbered.reverse() : numbered).map(({ number }) => number);
 }
 
-// The layers of a profile or region as indexProfile gives them.
+// The layers of a profile or region as indexProfile gives them, each material
+// by the id the design names it by, at whatever temperature its environment
+// computes it.
 function profiledLayers(valid, bounds, numbers, side) {
     return valid.map((layer, i) => ({
         ...(side ? { side } : {}),
-        number: numbers[i], material: layer.materialId, n: layer.n, k: layer.k, thickness: layer.d, start: bounds[i], end: bounds[i + 1],
+        number: numbers[i], material: baseMaterialId(layer.materialId), n: layer.n, k: layer.k, thickness: layer.d, start: bounds[i], end: bounds[i + 1],
     }));
 }
 
@@ -121,7 +124,7 @@ function oneSideProfile(design, lambda, side) {
     if (!profile) throw emptySide('indexProfile', side);
     return {
         incident: { material: side === 'back' ? design.exitMedium : design.incidentMedium, n: profile.n0.n, k: profile.n0.k },
-        substrate: { material: design.substrate?.material, n: profile.ns.n, k: profile.ns.k },
+        substrate: { material: baseMaterialId(design.substrate?.material), n: profile.ns.n, k: profile.ns.k },
         layers: profiledLayers(profile.validLayers, profile.layerBounds, profiledNumbers(storedLayers(design, side), side, true)),
         ...coatingSums(profile.validLayers),
     };
@@ -135,7 +138,7 @@ function wholePartProfile(design, lambda) {
     const substrate = regions.find(region => region.key === 'substrate');
     return {
         incident: null,
-        substrate: substrate ? { material: design.substrate.material, n: substrate.n[0], k: substrate.k[0], thickness: substrate.totalThk } : null,
+        substrate: substrate ? { material: baseMaterialId(design.substrate.material), n: substrate.n[0], k: substrate.k[0], thickness: substrate.totalThk } : null,
         layers: coats.flatMap(region => profiledLayers(region.validLayers, region.layerBounds,
             profiledNumbers(storedLayers(design, region.key), region.key, false), region.key)),
         ...coatingSums(coats.flatMap(region => region.validLayers)),
@@ -192,10 +195,10 @@ function indexProfileOf(design, { lambda, mode }) {
  */
 export function indexProfile(design, options) {
     const { wavelength, side, env } = checkOptions('indexProfile', options, ['wavelength', 'side', 'env']);
-    // Every environment has the design's sides, so the mode is the same in each.
-    const mode = viewSide('indexProfile', design, side);
+    viewSide('indexProfile', design, side);
     const lambda = viewWavelength('indexProfile', design, wavelength, PROFILER_LAMBDA_NM);
-    return inEnvironments('indexProfile', design, env, one => indexProfileOf(one, { lambda, mode }));
+    // Each environment is laid out on what it is scored on, its other side its own.
+    return inEnvironments('indexProfile', design, env, one => indexProfileOf(one, { lambda, mode: viewSide('indexProfile', one, side) }));
 }
 
 /**

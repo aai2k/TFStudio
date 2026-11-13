@@ -26,6 +26,7 @@
 import { getMaterialById } from '../materials/catalogManager.js';
 import { makeGetNK } from '../materials/catalogManager/dispersion.js';
 import { isBuiltinId } from '../materials/designMaterials.js';
+import { baseMaterialId, materialAtTemperature, parseThermalId } from '../environments/temperatureModel.js';
 
 const NO_SAMPLES = new Map();
 
@@ -117,12 +118,17 @@ export function makeResolveMat(materials, label = 'worker', post = workerPost) {
     const cache = new Map();
     const warn = onceWarner(post);
     const indexes = new Map();
-    const build = id => tableStub(id, materials, label, warn, indexes);
+    // A material at another temperature is made from the table entry of the
+    // material it comes from, as the main thread makes it from that material.
+    const build = id => (parseThermalId(id)
+        ? materialAtTemperature(resolveMat(baseMaterialId(id)), id)
+        : tableStub(id, materials, label, warn, indexes));
 
-    return function resolveMat(id) {
+    function resolveMat(id) {
         const key = (id == null || id === '') ? 'Air' : id;
         let stub = cache.get(key);
         if (!stub) { stub = build(key); cache.set(key, stub); }
         return stub;
-    };
+    }
+    return resolveMat;
 }

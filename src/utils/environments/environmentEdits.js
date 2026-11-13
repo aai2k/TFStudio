@@ -14,9 +14,12 @@ import { BASE_ENVIRONMENT, environmentById, hasEnvironments, sameMaterial } from
 /** The fields an environment of its own (2 or later) can set. */
 export const ENVIRONMENT_FIELDS = Object.freeze([
     'name', 'enabled', 'incidentMedium', 'exitMedium', 'substrate', 'thicknessFactors', 'materialSwaps',
+    'cone', 'mfEvalMode', 'temperatureC',
 ]);
 const BASE_FIELDS = new Set(['name', 'enabled']);
 const KEYED_BY_MATERIAL = new Set(['thicknessFactors', 'materialSwaps']);
+// The fields set part by part, each part over environment 1's.
+const BY_PART = new Set(['substrate', 'cone']);
 
 // The design's environments as a list the edits can extend: its own, or
 // environment 1 alone.
@@ -51,14 +54,15 @@ const isDefault = (key, value) => value === null || (key === 'enabled' && value 
 // The value `given` for field `key` leaves on an environment whose field holds `held`.
 function fieldValue(key, given, held) {
     if (given === null) return null;
-    if (key === 'substrate') return mergedMap(held, given, sameKey);
+    if (BY_PART.has(key)) return mergedMap(held, given, sameKey);
     if (KEYED_BY_MATERIAL.has(key)) return mergedMap(held, given, sameMaterial);
     return given;
 }
 
 // `entry` with `fields` applied. Null gives a field back to environment 1
-// (or, for name and enabled, to their default); inside substrate, the factors
-// and the swaps it does so key by key. An empty object left behind goes too.
+// (or, for name and enabled, to their default); inside substrate, the cone,
+// the factors and the swaps it does so key by key. An empty object left
+// behind goes too.
 function withFields(entry, fields) {
     const next = { ...entry };
     for (const [key, given] of Object.entries(fields)) {
@@ -91,7 +95,7 @@ export function addEnvironment(design, fields = {}) {
 
 /**
  * `design` with `fields` set on environment `id`. A field given as null
- * follows environment 1 again; in `substrate`, `thicknessFactors` and
+ * follows environment 1 again; in `substrate`, `cone`, `thicknessFactors` and
  * `materialSwaps`, one entry given as null does. A design with one
  * environment lists none, so its environment 1 has no name or switch to set.
  *

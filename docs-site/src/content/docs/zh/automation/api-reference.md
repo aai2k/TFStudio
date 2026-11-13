@@ -741,6 +741,60 @@ design.deposition_temperature = 250
 print(design.deposition_temperature, "°C")
 ```
 
+### temperature
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.temperature` | `design.temperature` |
+| `design.temperature = value` | `design.temperature = value` |
+
+设计的膜层厚度和材料的 n、k 所对应的温度，单位 °C：环境 1 的温度，其他环境的温度是相对于它的变化。未设置时为 20；设为 `null` / `None` 即取消设置。
+
+**拒绝**：
+
+- 小于等于 -273.15 °C 的温度
+
+```js
+const design = tf.newDesign('Bandpass');
+design.temperature = 25;
+console.log(design.temperature, '°C');
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.temperature = 25
+print(design.temperature, "°C")
+```
+
+### cone
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `design.cone` | `design.cone` |
+| `design.cone = value` | `design.cone = value` |
+
+**JavaScript**：评价函数和光谱取平均所用的入射锥角，与设计编辑器的锥角设置相同：由已设置部分组成的 `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }`，没有时为 null。读取得到一份副本；设置时只改给出的部分，与 setDesignSetup 的 `cone` 相同，设为 null 则去掉锥角。
+
+**Python**：评价函数和光谱取平均所用的入射锥角，与设计编辑器的锥角设置相同：由已设置的 enabled、halfAngleDeg、distribution、gridPoints 和 userTable 组成的 dict，没有时为 None。读取得到一份副本；设置时只改给出的部分，与 set_design_setup 的 cone 相同，设为 None 则去掉锥角。
+
+**拒绝**：
+
+- 它没有的部分，或该部分不接受的值
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.cone = { enabled: true, halfAngleDeg: 10 };
+console.log(design.cone.halfAngleDeg, '° half-angle');
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.cone = {"enabled": True, "halfAngleDeg": 10}
+print(design.cone["halfAngleDeg"], "° half-angle")
+```
+
 ### substrate
 
 | JavaScript | Python |
@@ -1114,7 +1168,7 @@ print(design.layers)
 | ---------- | ------ | --- | --- |
 | `other` | `other` |  | 与本设计比较的 Design。 |
 
-**返回**：**JavaScript**：一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'` 或 `'substrate.diameter'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null；`environments`，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，`design.environments` 给出这些内容。<br>**Python**：命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（"incident_medium"、"exit_medium"、"substrate.material"、"substrate.thickness"、"reference"、"sides"、"score_on"、"stress_temperature"、"deposition_temperature" 或 "substrate.diameter"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None；environments，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，design.environments 给出这些内容。
+**返回**：**JavaScript**：一个对象：`same`，所比较的内容都相同时为 true；`setup`，每项不同的设置，形如 `{ setting, before, after }`，setting 为本对象中的名称（`'incidentMedium'`、`'exitMedium'`、`'substrate.material'`、`'substrate.thickness'`、`'reference'`、`'sides'`、`'scoreOn'`、`'stressTemperature'`、`'depositionTemperature'`、`'substrate.diameter'` 或 `'temperature'`），before 为本设计中的值，after 为 `other` 中的值；`layers`，每个不同的膜层，正面在前，形如 `{ side, number, before, after, change }`，before 和 after 为 `{ material, thickness, locked }`，该设计没有这一编号的膜层时为 null，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 null；`environments`，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，`design.environments` 给出这些内容。<br>**Python**：命名元组 Differences：same，所比较的内容都相同时为 True；setup，每项不同的设置，为 SetupChange（setting、before、after），setting 为本包中的名称（"incident_medium"、"exit_medium"、"substrate.material"、"substrate.thickness"、"reference"、"sides"、"score_on"、"stress_temperature"、"deposition_temperature"、"substrate.diameter" 或 "temperature"），before 为本设计中的值，after 为 other 中的值；layers，每个不同的膜层，正面在前，为 LayerChange（side、number、before、after、change），before 和 after 为 LayerState（material、thickness、locked），该设计没有这一编号的膜层时为 None，change 为 after 的厚度减去 before 的厚度，单位 nm，或为 None；environments，不同的环境的编号，每个环境按其自身设定的内容、名称和开关比较，design.environments 给出这些内容。
 
 **拒绝**：
 
@@ -2463,7 +2517,7 @@ print(run.merit, run.stop_reason)
 
 用一种合成方法按评价函数生长或重组设计，从材料池中插入材料，与该方法的窗口做法相同。之后设计保存运行的结果；运行被停止时，保留原来的膜层。每种方法的设置及其默认值列在 API 参考的 synthesize 下；未给出的设置取默认值。
 
-在有多个环境的设计上，运行在每个开启的环境中评分，每个环境用它自己的介质、基底和膜层，与 design.merit.value 相同。由 MNT 行得出的厚度下限，是该行的目标值除以计入该行的环境为膜层或材料池中的材料所设的小于 1 的最小厚度系数；由 MXT 行得出的厚度上限，是目标值除以大于 1 的最大系数。
+在有多个环境的设计上，运行在每个开启的环境中评分，每个环境用它自己的介质、基底、膜层、入射锥角、另一面和温度，与 design.merit.value 相同。由 MNT 行得出的厚度下限，是该行的目标值除以计入该行的环境对膜层或材料池中某种材料的膜层所乘的小于 1 的最小系数，即该材料的厚度系数乘以该环境温度带来的厚度变化；由 MXT 行得出的厚度上限，是目标值除以大于 1 的最大系数。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -2626,7 +2680,7 @@ for one in design.monte_carlo(400, 700, runs=50, step=5, seed=1, env="all"):
 | ---------- | ------ |
 | `design.layerSensitivity({ step, deltaNm, relPct, includeLocked, env })` | `design.layer_sensitivity(step="nm", delta_nm=1, rel_pct=1, include_locked=False, env=...)` |
 
-每层厚度偏离时评价函数值的变化量，与层灵敏度窗口对膜层的排序相同：每层分别加厚和减薄一个步长，评价函数值的平均变化就是它的得分。这里的评价函数不含 MNT 和 MXT 行。在有多个环境的设计上，步长加在膜层列表的厚度上，在某个环境中看到的是 f·(d ± 步长)，f 为该层材料在该环境中的厚度系数。
+每层厚度偏离时评价函数值的变化量，与层灵敏度窗口对膜层的排序相同：每层分别加厚和减薄一个步长，评价函数值的平均变化就是它的得分。这里的评价函数不含 MNT 和 MXT 行。在有多个环境的设计上，步长加在膜层列表的厚度上，在某个环境中看到的是 f·(d ± 步长)，f 为该层材料在该环境中的厚度系数乘以该环境温度带来的厚度变化。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -3292,9 +3346,9 @@ for env in design.environments:
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.environments.add({ name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps })` | `design.environments.add(name=..., enabled=True, incident_medium=..., exit_medium=..., substrate=..., substrate_thickness_mm=..., thickness_factors=..., material_swaps=...)` |
+| `design.environments.add({ name, enabled, incidentMedium, exitMedium, substrate, substrateThicknessMm, thicknessFactors, materialSwaps, cone, mfEvalMode, temperatureC })` | `design.environments.add(name=..., enabled=True, incident_medium=..., exit_medium=..., substrate=..., substrate_thickness_mm=..., thickness_factors=..., material_swaps=..., cone=..., mf_eval_mode=..., temperature_c=...)` |
 
-在其他环境之后添加一个环境。未给出或给出 `null` / `None` 的介质、基底或厚度沿用环境 1 的。系数或替换以膜层所写的材料为键，内置材料的 id 两种写法均可（`'TiO2'` 或 `'builtin:TiO2'`）。
+在其他环境之后添加一个环境。未给出或给出 `null` / `None` 的介质、基底、厚度、锥角、另一面或温度沿用环境 1 的。系数或替换以膜层所写的材料为键，内置材料的 id 两种写法均可（`'TiO2'` 或 `'builtin:TiO2'`）。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -3306,6 +3360,9 @@ for env in design.environments:
 | `substrateThicknessMm` | `substrate_thickness_mm` |  | 基底厚度，单位 mm，大于 0。 |
 | `thicknessFactors` | `thickness_factors` |  | 从材料 id 到系数的映射：该材料的每一层厚度变为原来的这么多倍，系数大于 0。 |
 | `materialSwaps` | `material_swaps` |  | 从材料 id 到材料 id 的映射：前一种材料的每一层改由后一种材料制成。 |
+| `cone` | `cone` |  | **JavaScript**：入射锥角，`{ enabled, halfAngleDeg, distribution, gridPoints, userTable }` 中的任意部分，给出的每一部分覆盖环境 1 锥角的对应部分。<br>**Python**：入射锥角，由 enabled、halfAngleDeg、distribution、gridPoints 和 userTable 中任意部分组成的 dict，给出的每一部分覆盖环境 1 锥角的对应部分。 |
+| `mfEvalMode` | `mf_eval_mode` |  | 在此环境中单面设计如何评价：`'side'`，或 `'total'`，整个元件。 |
+| `temperatureC` | `temperature_c` |  | 温度，单位 °C，高于 -273.15。 |
 
 **返回**：新的 Environment。
 
@@ -3638,13 +3695,102 @@ tantala.material_swaps = {"TiO2": "Ta2O5"}
 print(tantala.material_swaps)
 ```
 
+### cone
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.cone` | `env.cone` |
+| `env.cone = value` | `env.cone = value` |
+
+**JavaScript**：该环境计算所用的入射锥角，由已设置部分组成的 `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }`，它和环境 1 都没有时为 null：每一部分是它自己的，或环境 1 的。设置时只改给出的部分，给出 null 的部分重新沿用环境 1 的，设为 null 则整个锥角沿用环境 1 的。
+
+**Python**：该环境计算所用的入射锥角，由已设置的 enabled、halfAngleDeg、distribution、gridPoints 和 userTable 组成的 dict，它和环境 1 都没有时为 None：每一部分是它自己的，或环境 1 的。设置时只改给出的部分，给出 None 的部分重新沿用环境 1 的，设为 None 则整个锥角沿用环境 1 的。
+
+**拒绝**：
+
+- 它没有的部分、该部分不接受的值，或在环境 1 上设置的任何值，环境 1 的锥角就是设计的锥角
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const lens = design.environments.add({ name: 'Behind a lens' });
+lens.cone = { enabled: true, halfAngleDeg: 12 };
+console.log(lens.cone.halfAngleDeg, 'in place of', design.cone);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+lens = design.environments.add(name="Behind a lens")
+lens.cone = {"enabled": True, "halfAngleDeg": 12}
+print(lens.cone["halfAngleDeg"], "in place of", design.cone)
+```
+
+### scoreOn / score_on
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.scoreOn` | `env.score_on` |
+| `env.scoreOn = value` | `env.score_on = value` |
+
+该环境如何评价单面镀膜的设计：`'side'`，仅评价其镀膜面；`'whole part'`，包括基底的另一面，名称与 `design.scoreOn` / `design.score_on` 相同；它自己的，或环境 1 的。设为 `null` / `None` 即重新沿用环境 1 的。
+
+**拒绝**：
+
+- 其他任何值，或在环境 1 上设置的任何值，环境 1 的 `scoreOn` / `score_on` 就是设计的
+
+```js
+const design = tf.newDesign('Window AR');
+design.stack('(HL)^2');
+const plate = design.environments.add({ name: 'Thin plate' });
+plate.scoreOn = 'whole part';
+console.log(plate.scoreOn, 'in place of', design.scoreOn);
+```
+
+```python
+design = tf.new_design("Window AR")
+design.stack("(HL)^2")
+plate = design.environments.add(name="Thin plate")
+plate.score_on = "whole part"
+print(plate.score_on, "in place of", design.score_on)
+```
+
+### temperature
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `env.temperature` | `env.temperature` |
+| `env.temperature = value` | `env.temperature = value` |
+
+该环境所处的温度，单位 °C：它自己的，或环境 1 的，即设计的温度。温度与环境 1 不同时，它的膜层和基底按文档中环境页面所述变化。设为 `null` / `None` 即重新沿用环境 1 的。
+
+**拒绝**：
+
+- 小于等于 -273.15 °C 的温度，或在环境 1 上设置的任何值，环境 1 的温度就是设计的温度
+
+```js
+const design = tf.newDesign('Bandpass');
+design.stack('(HL)^3 HH (LH)^3');
+const hot = design.environments.add({ name: 'Hot' });
+hot.temperature = 80;
+console.log(hot.temperature, '°C against', design.temperature, '°C');
+```
+
+```python
+design = tf.new_design("Bandpass")
+design.stack("(HL)^3 HH (LH)^3")
+hot = design.environments.add(name="Hot")
+hot.temperature = 80
+print(hot.temperature, "°C against", design.temperature, "°C")
+```
+
 ### follows
 
 | JavaScript | Python |
 | ---------- | ------ |
 | `env.follows` | `env.follows` |
 
-环境沿用环境 1 的哪些内容，按 environments.add() 接受的名称给出：`'incidentMedium'` / `"incident_medium"`、`'exitMedium'` / `"exit_medium"`、`'substrate'` 和 `'substrateThicknessMm'` / `"substrate_thickness_mm"` 中的任意几个。环境 1 不沿用任何内容。
+环境沿用环境 1 的哪些内容，按 environments.add() 接受的名称给出：`'incidentMedium'` / `"incident_medium"`、`'exitMedium'` / `"exit_medium"`、`'substrate'`、`'substrateThicknessMm'` / `"substrate_thickness_mm"`、`'cone'`、`'mfEvalMode'` / `"mf_eval_mode"` 和 `'temperatureC'` / `"temperature_c"` 中的任意几个。环境 1 不沿用任何内容。
 
 ```js
 const design = tf.newDesign('Window AR');

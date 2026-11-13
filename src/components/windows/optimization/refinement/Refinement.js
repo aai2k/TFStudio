@@ -1,6 +1,6 @@
 import { useRefinement } from './useRefinement.js';
 import { MFTable } from '../meritFunctionEditor/mfTable/MFTable.js';
-import { ControlBar } from './ControlBar.js';
+import { ControlBar, refinementEvalBadge } from './ControlBar.js';
 import { HistoryPanel } from './HistoryPanel.js';
 import { MFTrendPlot } from './MFTrendPlot.js';
 import { phaseOperandScopeNotice } from '../phaseOperandScope.js';
@@ -32,7 +32,7 @@ export function Refinement({ c, theme, t }) {
             method: r.method, nRestarts: r.nRestarts, perturbPct: r.perturbPct, restartIdx: r.restartIdx,
             maxIter: r.maxIter, stopReason: r.stopReason, seed: r.seed,
             surfaceMode: r.design?.surfaceMode || 'front_only',
-            mfEvalMode:  r.design?.mfEvalMode  || 'side',
+            ...refinementEvalBadge(r.design, t),
             onRun: r.onRun, onStop: r.onStop, onReset: r.onReset, onBest: r.onBest,
             onMethod: r.onMethod, onNRestarts: r.onNRestarts, onPerturbPct: r.onPerturbPct, onMaxIter: r.onMaxIter,
             onSeed: r.onSeed,

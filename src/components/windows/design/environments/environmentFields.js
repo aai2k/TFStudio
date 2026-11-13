@@ -2,28 +2,37 @@
  * The fields of an environment that the Design Editor's Settings and the
  * Environments window show and edit, read and written the same way in both.
  *
- * A field is `{ key }` for the media and the substrate, `key` being
- * incidentMedium, substrateMaterial, substrateThickness (mm) or exitMedium, or
- * `{ key, material }` for a layer material's thickness factor (`factor`) or the
- * material put in its place (`swap`). In environment 1 the media and the
- * substrate are the design's own fields, and there is no factor or swap: its
- * layers are the layer list. Another environment holds only the fields it
- * sets; a field it does not set reads as environment 1's.
+ * A field is `{ key }` for the media, the substrate, the cone of incidence,
+ * the back side and the temperature, `key` being incidentMedium,
+ * substrateMaterial, substrateThickness (mm), exitMedium, cone, mfEvalMode or
+ * temperatureC (°C), or `{ key, material }` for a layer material's thickness
+ * factor (`factor`) or the material put in its place (`swap`). In environment
+ * 1 the media, the substrate, the cone, the back side and the temperature are
+ * the design's own fields, and there is no factor or swap: its layers are the
+ * layer list. Another environment holds only the fields it sets; a field it
+ * does not set reads as environment 1's, and its cone each part it does not
+ * set.
  */
 import {
     BASE_ENVIRONMENT, environmentById, environmentsOf, sameMaterial, valueFor,
 } from '../../../../utils/environments/environments.js';
 import { setEnvironment } from '../../../../utils/environments/environmentEdits.js';
+import {
+    designTemperature, materialsLackingConstants, temperatureChange,
+} from '../../../../utils/environments/environmentTemperature.js';
 
-// A medium: the design's own field, and the same field on an environment.
-function medium(key) {
+// A field the design holds under `key`, and an environment under the same
+// key; `fallback` is what the design's field reads as when it has none.
+function plain(key, fallback = design => design[key]) {
     return {
         held: env => env[key],
-        base: design => design[key],
+        base: fallback,
         own: (design, value) => ({ [key]: value }),
         fields: (field, value) => ({ [key]: value }),
     };
 }
+
+const medium = key => plain(key);
 
 // The substrate's material or its thickness, set on an environment one part
 // at a time so the other part keeps following environment 1.
@@ -44,6 +53,17 @@ const FIELDS = {
     exitMedium: medium('exitMedium'),
     substrateMaterial: substrate('material'),
     substrateThickness: substrate('thickness'),
+    // The cone reads as environment 1's with the parts the environment sets
+    // over it; an edit gives the parts it changes.
+    cone: {
+        held: env => env.cone,
+        base: design => design.cone,
+        own: (design, value) => ({ cone: { ...design.cone, ...value } }),
+        fields: (field, value) => ({ cone: value }),
+        over: (design, held) => ({ ...design.cone, ...held }),
+    },
+    mfEvalMode: plain('mfEvalMode', design => design.mfEvalMode || 'side'),
+    temperatureC: plain('temperatureC', designTemperature),
     factor: {
         held: (env, field) => valueFor(env.thicknessFactors, field.material),
         base: () => 1,
@@ -60,6 +80,9 @@ const FIELDS = {
 export const MEDIA_FIELDS = Object.freeze(['incidentMedium', 'substrateMaterial', 'substrateThickness', 'exitMedium']
     .map(key => Object.freeze({ key })));
 
+/** The fields of how the coating is lit and held: the cone, the back side and the temperature. */
+export const CONDITION_FIELDS = Object.freeze(['cone', 'mfEvalMode', 'temperatureC'].map(key => Object.freeze({ key })));
+
 /**
  * Field `field` of environment `id`: `{ value, own, fixed }`, `value` being
  * what the environment computes with, `own` whether the environment sets it
@@ -70,7 +93,8 @@ export function fieldValue(design, id, field) {
     const spec = FIELDS[field.key];
     if (id === BASE_ENVIRONMENT) return { value: spec.base(design, field), own: !!spec.own, fixed: !spec.own };
     const held = spec.held(environmentById(design, id), field);
-    return { value: held ?? spec.base(design, field), own: held != null, fixed: false };
+    if (held == null) return { value: spec.base(design, field), own: false, fixed: false };
+    return { value: spec.over ? spec.over(design, held) : held, own: true, fixed: false };
 }
 
 /**
@@ -114,6 +138,21 @@ export function layerMaterials(design) {
     const out = [];
     for (const id of [...named, ...held]) if (id && !out.some(kept => sameMaterial(kept, id))) out.push(id);
     return out;
+}
+
+/**
+ * The materials environment `id` computes with at its temperature that lack
+ * a constant of the temperature model, `{ id, missing }` each
+ * (materialsLackingConstants): the films its layers are made of there and its
+ * substrate. Null when its temperature is environment 1's, where the model
+ * changes nothing.
+ */
+export function missingConstants(design, id) {
+    const env = environmentById(design, id);
+    if (id === BASE_ENVIRONMENT || temperatureChange(design, env) === 0) return null;
+    const films = [...(design.frontLayers || []), ...(design.backLayers || [])]
+        .map(layer => valueFor(env.materialSwaps, layer.material) ?? layer.material);
+    return materialsLackingConstants(design, films, fieldValue(design, id, { key: 'substrateMaterial' }).value);
 }
 
 /**

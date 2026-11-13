@@ -44,7 +44,8 @@ _SETUP_WORDS = Words("setDesignSetup", names={"referenceWavelength": "reference"
                                               "substrateThicknessMm": "substrate.thickness",
                                               "stressTemperatureC": "stress_temperature",
                                               "depositionTemperatureC": "deposition_temperature",
-                                              "substrateDiameterMm": "substrate.diameter"})
+                                              "substrateDiameterMm": "substrate.diameter",
+                                              "temperatureC": "temperature"})
 _MONTE_CARLO_WORDS = Words("monteCarlo", "monte_carlo", hidden=("from", "to"), extra=("progress", "stop"))
 # design.layer_sensitivity() names layerSensitivity's mode step, and the
 # keywords it takes.
@@ -744,6 +745,56 @@ class Design:
         self._setup(depositionTemperatureC=temperature)
 
     @property
+    def temperature(self):
+        """The temperature, °C, the design's layer thicknesses and its
+        materials' n and k are given at: environment 1's, which another
+        environment's temperature is a change from. It reads 20 when not set;
+        setting it to None unsets it.
+
+        Raises:
+            TFStudioError: a temperature of -273.15 °C or less.
+
+        Example::
+
+            design = tf.new_design("Bandpass")
+            design.temperature = 25
+            print(design.temperature, "°C")
+        """
+        temperature = self._data.get("temperatureC")
+        return 20 if temperature is None else temperature
+
+    @temperature.setter
+    def temperature(self, temperature):
+        self._setup(temperatureC=temperature)
+
+    @property
+    def cone(self):
+        """The cone of incidence the merit and the spectra average over, as
+        the Design Editor's Cone angle sets it: a dict of enabled,
+        halfAngleDeg, distribution, gridPoints and userTable with the parts
+        set, or None for none. Reading it gives a copy; setting it sets the
+        parts given, as set_design_setup's cone does, and None removes the
+        cone.
+
+        Raises:
+            TFStudioError: a part it does not have, or a value the part
+                cannot take.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.cone = {"enabled": True, "halfAngleDeg": 10}
+            print(design.cone["halfAngleDeg"], "° half-angle")
+        """
+        cone = self._data.get("cone")
+        return dict(cone) if cone else None
+
+    @cone.setter
+    def cone(self, cone):
+        self._setup(cone=cone)
+
+    @property
     def substrate(self):
         """The substrate: its material, thickness and diameter, a Substrate.
 
@@ -1086,8 +1137,8 @@ class Design:
             (setting, before, after), setting by the package's name
             ("incident_medium", "exit_medium", "substrate.material",
             "substrate.thickness", "reference", "sides", "score_on",
-            "stress_temperature", "deposition_temperature" or
-            "substrate.diameter"),
+            "stress_temperature", "deposition_temperature",
+            "substrate.diameter" or "temperature"),
             before its value here and after in other; layers, each layer that
             differs, the front's first, as a LayerChange (side, number,
             before, after, change), before and after a LayerState (material,
@@ -2857,12 +2908,13 @@ class Design:
         out takes its default.
 
         On a design with more than one environment the run scores every
-        environment that is on, each with its own media, substrate and
-        layers, as design.merit.value does. A floor taken from an MNT row is
-        the row's target divided by the smallest thickness factor below 1
-        that an environment it is scored in sets for a material of the layers
-        or the pool, and a ceiling taken from an MXT row the target divided
-        by the largest factor above 1.
+        environment that is on, each with its own media, substrate, layers,
+        cone, other side and temperature, as design.merit.value does. A floor
+        taken from an MNT row is the row's target divided by the smallest
+        factor below 1 by which an environment it is scored in scales the
+        layers of a material of the layers or the pool, its thickness factor
+        times the change its temperature makes, and a ceiling taken from an
+        MXT row the target divided by the largest factor above 1.
 
         Args:
             method: "needle", "ge" (Gradual Evolution) or "structural".
@@ -2979,7 +3031,8 @@ class Design:
         its score. The merit here leaves out the MNT and MXT rows. On a
         design with more than one environment the step is made on the recipe
         thickness and seen in an environment as f·(d ± step), f the thickness
-        factor of the layer's material there.
+        factor of the layer's material there times the change the
+        environment's temperature makes.
 
         Args:
             step: How the step is given: "nm", delta_nm for every layer, or

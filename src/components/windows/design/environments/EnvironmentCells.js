@@ -7,7 +7,9 @@ import { MaterialPicker } from '../../../ui/MaterialPicker.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
-import { NumInput } from '../../analysis/chrome/controls.js';
+import { NumInput, SelectField } from '../../analysis/chrome/controls.js';
+import { coneText } from '../../../SurfaceModeBar.js';
+import { CONE_DEFAULT, coneEdit } from '../designEditor/ConeAngleControl.js';
 import { designMaterialName } from '../../../../utils/materials/designMaterials.js';
 import { BASE_ENVIRONMENT, isEnvironmentOn } from '../../../../utils/environments/environments.js';
 import { setEnvironment } from '../../../../utils/environments/environmentEdits.js';
@@ -74,12 +76,35 @@ export function HeadCell({ ctx, env, index }) {
         }));
 }
 
-// How a field's value reads where it is not a control: a material by its
-// name, a thickness in mm, a factor as the number it is.
-function valueText(ctx, row, value) {
-    if (row.kind === 'material') return designMaterialName(ctx.design, value);
-    if (row.kind === 'thickness') return `${value} ${ctx.t.units.mm}`;
-    return String(value);
+// The words of the back side's two values, 'side' and 'total'.
+const backSideWord = (te, value) => (value === 'total' ? te.backSideCounted : te.backSideIgnored);
+
+// How a field's value reads where it is not a control, by the kind of its
+// row: a material by its name, a thickness in mm, a cone as the Cone badge
+// reads it, the back side in words, a temperature in °C, a factor as the
+// number it is.
+const VALUE_TEXT = {
+    material: ({ design }, value) => designMaterialName(design, value),
+    thickness: ({ t }, value) => `${value} ${t.units.mm}`,
+    cone: ({ t }, value) => coneText({ cone: value }, t) ?? t.environments.noCone,
+    backSide: ({ t }, value) => backSideWord(t.environments, value),
+    temperature: ({ t }, value) => `${value} ${t.units.celsius}`,
+};
+const valueText = (ctx, row, value) => VALUE_TEXT[row.kind]?.(ctx, value) ?? String(value);
+
+// The cone a field cell sets: its switch and its half-angle, the rest in the
+// Design Editor's Settings.
+function coneControl(ctx, value, set) {
+    const { c, t } = ctx;
+    const cone = { ...CONE_DEFAULT, ...value };
+    const patch = part => set(coneEdit(value, part));
+    return h(React.Fragment, null,
+        h(Checkbox, { c, checked: !!cone.enabled, onChange: event => patch({ enabled: event.target.checked }) }),
+        h(NumInput, {
+            value: cone.halfAngleDeg, c, width: 52, min: 0, max: 89.9, step: 0.5, title: t.designEditor.cone.halfAngle,
+            onChange: v => patch({ halfAngleDeg: v }),
+        }),
+        h('span', { style: { fontSize: 11, color: c.textDim } }, '°'));
 }
 
 // The control of a field its environment sets.
@@ -87,6 +112,16 @@ function fieldControl(ctx, row, value, set) {
     const { c, t } = ctx;
     if (row.kind === 'material') {
         return h('div', { style: { flex: 1, minWidth: 0 } }, h(MaterialPicker, { value, onChange: set, c, t, compact: true }));
+    }
+    if (row.kind === 'cone') return coneControl(ctx, value, set);
+    if (row.kind === 'backSide') {
+        const options = ['side', 'total'].map(id => ({ id, label: backSideWord(t.environments, id) }));
+        return h(SelectField, { value, onChange: set, options, c, width: 96 });
+    }
+    if (row.kind === 'temperature') {
+        return h(React.Fragment, null,
+            h(NumInput, { value, c, width: 64, step: 5, onChange: v => { if (v > -273.15) set(v); } }),
+            h('span', { style: { fontSize: 11, color: c.textDim } }, t.units.celsius));
     }
     const thickness = row.kind === 'thickness';
     return h(React.Fragment, null,
@@ -116,7 +151,7 @@ export function FieldCell({ ctx, env, row }) {
     if (fixed) return h('span', { title: te.baseHasNoLayerFields, style: { color: c.textDim, fontSize: 12, padding: '0 5px' } }, text);
     if (!own) {
         return h('button', {
-            type: 'button', title: te.followsCellTip, onClick: () => edit(env.id, row.field, value),
+            type: 'button', title: te.followsCellTip, onClick: () => edit(env.id, row.field, row.copy ? row.copy(value) : value),
             style: {
                 ...plainButton, width: '100%', height: 22, textAlign: 'left', padding: '0 5px', fontSize: 12,
                 color: c.textDim, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',

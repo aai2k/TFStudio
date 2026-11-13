@@ -458,6 +458,19 @@ def environments(tf):
     read = [water.number, water.id, water.name, water.enabled, water.incident_medium, water.exit_medium,
             water.substrate.material, water.substrate.thickness, water.thickness_factors, water.material_swaps,
             water.follows]
+    water.cone = {"enabled": True, "halfAngleDeg": 12}
+    water.score_on = "whole part"
+    water.temperature = 80
+    design.temperature = 25
+    steps["conditions"] = copy.deepcopy(design._data)
+    conditions = [water.cone, water.score_on, water.temperature, design.environments[1].temperature,
+                  design.environments[1].score_on, design.temperature, design.cone]
+    water.cone = None
+    water.score_on = None
+    water.temperature = None
+    design.temperature = None
+    conditions += [water.cone, water.score_on, water.temperature]
+    steps["followed"] = copy.deepcopy(design._data)
     first = design.environments[1]
     first.name = "In air"
     sapphire = design.environments.add(name="Sapphire", substrate="Al2O3")
@@ -472,7 +485,9 @@ def environments(tf):
         lambda: setattr(first, "incident_medium", "H2O"), lambda: setattr(first.substrate, "thickness", 2),
         lambda: setattr(sapphire.substrate, "thickness", -1), lambda: setattr(sapphire, "name", ""),
         lambda: setattr(sapphire, "thickness_factors", 0.9), lambda: design.environments.add(colour="red"),
-        lambda: design.environments.add(thickness_factors={"TiO2": -1}), lambda: water.name)]
+        lambda: design.environments.add(thickness_factors={"TiO2": -1}), lambda: water.name,
+        lambda: setattr(first, "temperature", 30), lambda: setattr(sapphire, "score_on", "both"),
+        lambda: setattr(sapphire, "temperature", -300), lambda: setattr(sapphire, "cone", {"halfAngleDeg": 95}))]
     sapphire.remove()
     steps["alone"] = copy.deepcopy(design._data)
     lone = tf.new_design("Lone")
@@ -485,8 +500,8 @@ def environments(tf):
     stale = {"ids": [gone._id, later.id], "name": later.name, "count": len(reused.environments),
              "words": [refused(lambda: gone.name), refused(lambda: setattr(gone, "name", "Renamed")),
                        refused(lambda: gone.remove())]}
-    out({"environments": {"steps": steps, "read": read, "listed": listed, "count": count, "shown": shown,
-                          "worded": worded, "lone": lone_words, "stale": stale}})
+    out({"environments": {"steps": steps, "read": read, "conditions": conditions, "listed": listed, "count": count,
+                          "shown": shown, "worded": worded, "lone": lone_words, "stale": stale}})
 
 
 def cleaning(tf):

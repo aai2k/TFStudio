@@ -608,14 +608,20 @@ async function environments(t, said) {
     ok('environments.add(), each attribute set, a map set whole, environments.remove() and remove() change the design as the plain calls do',
         steps.every(Boolean) && !('environments' in (s.alone ?? { environments: 1 })), steps.join());
     ok('and the attributes read back as set, a medium given None as environment 1\'s and follows in snake_case', canon(got.read) === canon([
-        2, 'env2', 'Water', false, 'Air', 'SiO2', 'Al2O3', 3, { SiO2: 1.1 }, { TiO2: 'Ta2O5' }, ['incident_medium'],
+        2, 'env2', 'Water', false, 'Air', 'SiO2', 'Al2O3', 3, { SiO2: 1.1 }, { TiO2: 'Ta2O5' }, ['incident_medium', 'cone', 'mf_eval_mode', 'temperature_c'],
     ]), canon(got.read));
+    const conditioned = s.maps && api.setDesignSetup(api.setEnvironment(s.maps, 'env2', { cone: { enabled: true, halfAngleDeg: 12 }, mfEvalMode: 'total', temperatureC: 80 }), { temperatureC: 25 });
+    ok('cone, score_on and temperature set setEnvironment\'s cone, mfEvalMode and temperatureC, design.temperature setDesignSetup\'s, and None follows environment 1 again',
+        canon(s.conditions) === canon(conditioned) && canon(s.followed) === canon(s.maps), canon(s.conditions?.environments));
+    ok('and they read back as set, environment 1\'s being the design\'s', canon(got.conditions) === canon([
+        { enabled: true, halfAngleDeg: 12 }, 'whole part', 80, 25, 'side', 25, null, null, 'side', 20,
+    ]), canon(got.conditions));
     ok('environments go from 1 in a for loop, and an Environment keeps its environment when an earlier one goes', canon([got.listed, got.count, got.shown?.[0]])
         === canon([[[1, 'base', 'In air'], [2, 'env2', 'Water'], [3, 'env3', 'Sapphire']], 3, 2]), canon(got.listed));
     ok('repr gives an environment, its substrate and the list on one line each', canon(got.shown?.slice(1)) === canon([
         "<Environment 2 'Sapphire': incident Air, substrate Al2O3 1 mm, exit Air>", '<EnvironmentSubstrate of environment 2: Al2O3 1 mm>', "<Environments: 1 'In air', 2 'Sapphire'>",
     ]), canon(got.shown));
-    const BASE = "set the design's own media and substrate with design.incident_medium, design.exit_medium and design.substrate";
+    const BASE = "set the design's own media, substrate, cone, other side and temperature with design.incident_medium, design.exit_medium, design.substrate, design.cone, design.score_on and design.temperature";
     ok('and their refusals are in Python\'s words', canon(got.worded) === canon([
         'environment 3: the design has 2 environments, numbered from 1',
         'environment True: the design has 2 environments, numbered from 1',
@@ -625,9 +631,13 @@ async function environments(t, said) {
         'substrate.thickness is a thickness in mm above 0, or None to follow environment 1, not -1',
         "name is a name, or None for none, not ''",
         'thickness_factors is a map of material id to a factor above 0, or to None to follow environment 1; or None for none, not 0.9',
-        "add: unknown option 'colour'; the options are name, enabled, incident_medium, exit_medium, substrate, substrate_thickness_mm, thickness_factors, material_swaps",
+        "add: unknown option 'colour'; the options are name, enabled, incident_medium, exit_medium, substrate, substrate_thickness_mm, thickness_factors, material_swaps, cone, mf_eval_mode, temperature_c",
         "add: thickness_factors is a map of material id to a factor above 0, or to None to follow environment 1; or None for none, not {'TiO2': -1}",
         "environment 'env2': the design has 2 environments, numbered from 1",
+        `environment 1 is the design itself and takes name and enabled alone, not temperature; ${BASE}`,
+        "score_on is 'side' or 'whole part', not 'both'",
+        'temperature is a temperature in °C above -273.15, or None to follow environment 1, not -300',
+        "cone is an object whose halfAngleDeg is a half-angle in degrees from the axis, 0 up to but not including 90, not {'halfAngleDeg': 95}",
     ]), canon(got.worded));
     ok('environment 1 of a design with one environment takes no name or switch, and says so', canon(got.lone) === canon([
         'the design has one environment, which holds no name until another is added; add one with design.environments.add()',

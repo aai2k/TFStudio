@@ -133,14 +133,15 @@ export function trialMaterialsIn(config, state, data, id) {
  * `{ design, frontLayers, backLayers, getMatForLayer }`. In environment 1 the
  * trial itself; in another environment that environment's coating with the
  * trial's errors: each layer f·(d + Δd) thick, f the factor of its material
- * there, made of the environment's material for it moved by the same Δn and
- * Δk, between the environment's media.
+ * there times the change its temperature makes, made of the environment's
+ * material for it at its temperature moved by the same Δn and Δk, between the
+ * environment's media.
  */
 export function trialIn(config, state, data, id) {
     if (id === BASE_ENVIRONMENT) {
         return { design: config.design, frontLayers: data.frontLayers, backLayers: data.backLayers, getMatForLayer: data.getMatForLayer };
     }
-    const seen = environmentDesign({ ...config.design, frontLayers: data.frontLayers, backLayers: data.backLayers }, id);
+    const seen = environmentDesign({ ...config.design, frontLayers: data.frontLayers, backLayers: data.backLayers }, id, config.resolveMat);
     return {
         design: seen, frontLayers: seen.frontLayers, backLayers: seen.backLayers,
         getMatForLayer: trialMaterialsIn(config, state, data, id),

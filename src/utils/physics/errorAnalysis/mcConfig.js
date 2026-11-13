@@ -111,11 +111,12 @@ export function makeMCConfig(design, params, resolveMat, opts) {
 /**
  * The material of each layer of the design environment `id` sees, `{ front,
  * back }`, on the layer lists' own indices: the recipe's own for environment
- * 1, and the environment's material where it swaps one.
+ * 1, and the environment's material where it swaps one, at its temperature.
+ * The run's own `resolveMat` gives the constants the temperature reads.
  */
 export function materialsIn(config, state, id) {
     if (!state.materials.has(id)) {
-        const seen = environmentDesign(config.design, id);
+        const seen = environmentDesign(config.design, id, config.resolveMat);
         state.materials.set(id, {
             front: (seen.frontLayers || []).map(layer => config.resolveMat(layer.material)),
             back: (seen.backLayers || []).map(layer => config.resolveMat(layer.material)),
@@ -128,7 +129,7 @@ export function materialsIn(config, state, id) {
 // null), from the curve of the design that environment sees without errors.
 function makeSpread(config, env) {
     const id = env?.id ?? BASE_ENVIRONMENT;
-    const design = environmentDesign(config.design, id);
+    const design = environmentDesign(config.design, id, config.resolveMat);
     const theoryRun = evaluateChar({
         ...config,
         design,

@@ -7,10 +7,13 @@ import * as api from '../index.js';
 import { shown } from '../check.js';
 import { isNumberKey } from './layers.js';
 import { worded } from './refusals.js';
+import { SCORE_ON, nameOf, named } from './settingNames.js';
 
 // The attributes that set what setEnvironment's options set, where their
 // names differ.
-const ATTRIBUTE_NAMES = { substrate: 'substrate.material', substrateThicknessMm: 'substrate.thickness' };
+const ATTRIBUTE_NAMES = {
+    substrate: 'substrate.material', substrateThicknessMm: 'substrate.thickness', mfEvalMode: 'scoreOn', temperatureC: 'temperature',
+};
 
 const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
 
@@ -225,9 +228,66 @@ export class Environment {
     set materialSwaps(swaps) { this._set({ materialSwaps: replacing(this._entry().materialSwaps, swaps) }); }
 
     /**
+     * The cone of incidence this environment computes with, `{ enabled,
+     * halfAngleDeg, distribution, gridPoints, userTable }` with the parts
+     * set, or null when neither it nor environment 1 has one: each part its
+     * own, or environment 1's. Setting it sets the parts given, a part given
+     * null following environment 1's again, and null makes the whole cone
+     * follow environment 1's.
+     *
+     * @throws a part it does not have, a value the part cannot take, or any value on environment 1, whose cone is the design's
+     * @example
+     * const design = tf.newDesign('Window AR');
+     * design.stack('(HL)^2');
+     * const lens = design.environments.add({ name: 'Behind a lens' });
+     * lens.cone = { enabled: true, halfAngleDeg: 12 };
+     * console.log(lens.cone.halfAngleDeg, 'in place of', design.cone);
+     */
+    get cone() { return this._entry().cone; }
+
+    set cone(cone) { this._set({ cone }); }
+
+    /**
+     * How this environment scores a design coated on one side: `'side'`,
+     * its coated side alone, or `'whole part'`, the substrate's other surface
+     * included, as design.scoreOn names them; its own, or environment 1's.
+     * Set it to null to follow environment 1's again.
+     *
+     * @throws any other value, or any value on environment 1, whose scoreOn is the design's
+     * @example
+     * const design = tf.newDesign('Window AR');
+     * design.stack('(HL)^2');
+     * const plate = design.environments.add({ name: 'Thin plate' });
+     * plate.scoreOn = 'whole part';
+     * console.log(plate.scoreOn, 'in place of', design.scoreOn);
+     */
+    get scoreOn() { return nameOf(SCORE_ON, this._entry().mfEvalMode); }
+
+    set scoreOn(scoreOn) { this._set({ mfEvalMode: scoreOn === null ? null : named(SCORE_ON, 'scoreOn', scoreOn) }); }
+
+    /**
+     * The temperature this environment is at, °C: its own, or environment
+     * 1's, the design's temperature. At a temperature other than environment
+     * 1's, its layers and substrate change as the Environments page of the
+     * docs says. Set it to null to follow environment 1's again.
+     *
+     * @throws a temperature of -273.15 °C or less, or any value on environment 1, whose temperature is the design's
+     * @example
+     * const design = tf.newDesign('Bandpass');
+     * design.stack('(HL)^3 HH (LH)^3');
+     * const hot = design.environments.add({ name: 'Hot' });
+     * hot.temperature = 80;
+     * console.log(hot.temperature, '°C against', design.temperature, '°C');
+     */
+    get temperature() { return this._entry().temperatureC; }
+
+    set temperature(temperature) { this._set({ temperatureC: temperature }); }
+
+    /**
      * What the environment takes from environment 1, by the names
      * environments.add() takes: any of `'incidentMedium'`, `'exitMedium'`,
-     * `'substrate'` and `'substrateThicknessMm'`. Environment 1 follows none.
+     * `'substrate'`, `'substrateThicknessMm'`, `'cone'`, `'mfEvalMode'` and
+     * `'temperatureC'`. Environment 1 follows none.
      *
      * @example
      * const design = tf.newDesign('Window AR');
@@ -344,10 +404,10 @@ export class Environments {
     }
 
     /**
-     * Adds an environment after the others. A medium, substrate or
-     * thickness left out, or given as null, follows environment 1. A factor
-     * or a swap is keyed by the material the layers name, under either form
-     * of a built-in id (`'TiO2'` or `'builtin:TiO2'`).
+     * Adds an environment after the others. A medium, substrate, thickness,
+     * cone, other side or temperature left out, or given as null, follows
+     * environment 1. A factor or a swap is keyed by the material the layers
+     * name, under either form of a built-in id (`'TiO2'` or `'builtin:TiO2'`).
      *
      * @param [options]
      * @param [options.name] The environment's name.
@@ -358,6 +418,9 @@ export class Environments {
      * @param [options.substrateThicknessMm] The substrate thickness, mm, above 0.
      * @param [options.thicknessFactors] A map of material id to factor: each layer of that material is that many times as thick, the factor above 0.
      * @param [options.materialSwaps] A map of material id to material id: each layer of the first is made of the second.
+     * @param [options.cone] The cone of incidence, any of `{ enabled, halfAngleDeg, distribution, gridPoints, userTable }`, each part given over environment 1's cone.
+     * @param [options.mfEvalMode] How a one-sided design is scored here: `'side'` or `'total'`, the whole part.
+     * @param [options.temperatureC] The temperature, °C, above -273.15.
      * @returns The new Environment.
      * @throws an option it does not take, a value the option cannot take, or a material id that resolves to nothing
      * @example

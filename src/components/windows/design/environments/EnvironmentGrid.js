@@ -1,12 +1,14 @@
 /**
  * The Environments grid: one column per environment, environment 1 first,
- * and a row per field the environments can set, grouped under Media and
- * Layers, then the merit of each environment under Merit.
+ * and a row per field the environments can set, grouped under Media, Cone,
+ * back side and temperature, and Layers, then the merit of each environment
+ * under Merit.
  */
 import { environmentsOf } from '../../../../utils/environments/environments.js';
 import { designMaterialShortName } from '../../../../utils/materials/designMaterials.js';
 import { DASH, fmtContribution } from '../../optimization/meritFunctionEditor/mfTable/operandViewModel.js';
-import { MEDIA_FIELDS, layerMaterials } from './environmentFields.js';
+import { CONE_DEFAULT } from '../designEditor/ConeAngleControl.js';
+import { CONDITION_FIELDS, MEDIA_FIELDS, layerMaterials, missingConstants } from './environmentFields.js';
 import { FieldCell, HeadCell, currentTint } from './EnvironmentCells.js';
 
 const { createElement: h } = React;
@@ -16,9 +18,39 @@ const LABEL_W = 164;
 const COLUMN_W = 132;
 
 const MEDIA_KINDS = { incidentMedium: 'material', substrateMaterial: 'material', substrateThickness: 'thickness', exitMedium: 'material' };
+const CONDITION_KINDS = { cone: 'cone', mfEvalMode: 'backSide', temperatureC: 'temperature' };
 
-// The field rows, grouped: the media and the substrate, then a thickness
-// factor and a material in place for each layer material.
+// The materials an environment computes with at its temperature that lack a
+// constant of the model, by name, with each one's missing constants on hover.
+function ConstantsCell({ ctx, env }) {
+    const { design, c, t } = ctx;
+    const lacking = missingConstants(design, env.id);
+    if (!lacking?.length) return null;
+    const label = name => t.materialEditor.mechanicalFields[name];
+    const names = lacking.map(({ id }) => designMaterialShortName(design, id));
+    return h('div', {
+        title: `${t.environments.constantsMissingTip}\n\n${lacking.map(({ missing }, k) => `${names[k]}: ${missing.map(label).join(', ')}`).join('\n')}`,
+        style: { fontSize: 11, color: c.warning || '#ef9800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 5px' },
+    }, names.join(', '));
+}
+
+// The rows of the cone, the back side and the temperature, and under the
+// temperature the materials lacking a constant of its model.
+function conditionRows(te) {
+    const labels = { cone: te.cone, mfEvalMode: te.backSide, temperatureC: te.temperature };
+    return [
+        ...CONDITION_FIELDS.map(field => ({
+            key: field.key, field, kind: CONDITION_KINDS[field.key], label: labels[field.key],
+            // A click on environment 1's cone copies it as the control shows it.
+            ...(field.key === 'cone' ? { copy: value => ({ ...CONE_DEFAULT, ...value }) } : {}),
+        })),
+        { key: 'constants', label: te.constantsMissing, cell: ConstantsCell },
+    ];
+}
+
+// The field rows, grouped: the media and the substrate, the cone, the back
+// side and the temperature, then a thickness factor and a material in place
+// for each layer material.
 function fieldGroups(design, t) {
     const de = t.designEditor;
     const te = t.environments;
@@ -37,7 +69,11 @@ function fieldGroups(design, t) {
             key: `swap:${material}`, field: { key: 'swap', material }, kind: 'material', label: te.swapOf(name(material)),
         })),
     ];
-    return [{ key: 'media', title: te.media, rows: media }, { key: 'layers', title: te.layers, rows: layers }];
+    return [
+        { key: 'media', title: te.media, rows: media },
+        { key: 'conditions', title: te.conditions, rows: conditionRows(te) },
+        { key: 'layers', title: te.layers, rows: layers },
+    ];
 }
 
 // What each environment's merit cells read (environmentMerits.js).
@@ -73,7 +109,7 @@ export function EnvironmentGrid({ ctx, merits }) {
         },
     }, title));
     const fieldRow = row => h('tr', { key: row.key }, label(row.label),
-        list.map(env => h('td', { key: env.id, style: cellStyle(env) }, h(FieldCell, { ctx, env, row }))));
+        list.map(env => h('td', { key: env.id, style: cellStyle(env) }, h(row.cell || FieldCell, { ctx, env, row }))));
     const meritRow = row => h('tr', { key: `merit-${row.key}` }, label(row.label),
         list.map((env, index) => h('td', {
             key: env.id, style: { ...cellStyle(env), paddingLeft: 11, fontVariantNumeric: 'tabular-nums', color: merits[index].on ? c.text : c.textDim },

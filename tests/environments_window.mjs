@@ -79,7 +79,7 @@ const apply = (design, patch) => ({ ...design, ...patch });
     assert.ok(isOff(html, `title="${esc(te.deleteTip(1))}"`), 'Delete is off on environment 1');
     assert.ok(!isOff(html, `title="${esc(te.addTip)}"`), 'Add is on');
     assert.ok(isOff(html, `aria-label="${esc(te.nameOf(1))}"`), 'the name is off');
-    assert.ok(isOff(html, 'type="checkbox"'), 'the switch is off');
+    assert.ok(isOff(html.split('</thead>')[0], 'type="checkbox"'), 'the switch is off');
     assert.ok(!html.includes(esc(te.resetTip)), 'environment 1 has no cross: its fields are the design\'s own');
 }
 
@@ -95,7 +95,7 @@ const apply = (design, patch) => ({ ...design, ...patch });
     assert.match(html, /value="Sapphire"/, 'the name of environment 2');
     assert.ok(html.includes(esc(te.hint)), 'the hint on dim values');
     assert.ok(!isOff(html, `title="${esc(te.deleteTip(2))}"`), 'Delete is on in environment 2');
-    const switches = tagsWith(html, 'type="checkbox"');
+    const switches = tagsWith(html.split('</thead>')[0], 'type="checkbox"');
     assert.deepEqual(switches.map(tag => tag.includes('checked=""')), [true, true, false], 'environment 3 is off');
     assert.ok(switches.every(tag => !tag.includes('disabled=""')), 'every switch takes a click');
     assert.ok(html.includes(esc(te.factorOf('TiO2'))) && html.includes(esc(te.swapOf('MgF2'))), 'a factor and a swap row per layer material');
