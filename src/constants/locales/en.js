@@ -3173,9 +3173,14 @@ export default {
     surfacePrompt: 'Configure the axes and quantity, then press Compute.',
     errCannotCompute: 'Cannot compute surface.',
     errNoOperands: 'No enabled merit operands. Set up targets in the Merit Function Editor.',
+    errNoRowsOn:   'No enabled merit row is scored in an environment that is on. Switch one on in the Environments window.',
+    errNoRowsHere: 'No enabled merit row is scored in this environment.',
     errMfAxes:     'MF axes must be layer thicknesses.',
     varWavelength: 'Wavelength (nm)',
     varAOI:        'AOI (°)',
+    // The hover of the Environment field of a curve and of the surface, drawn
+    // only on a design with environments, under the name of the choice.
+    environmentTip: 'The environment this is computed in. Current follows the one the Design Editor and the ribbon show. MF under Current is the merit over every environment that is on, which a run minimizes; under one environment it is that environment\'s own MF.',
   },
 
   stressAnalysis: {

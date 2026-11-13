@@ -3568,9 +3568,12 @@ export default {
     surfacePrompt: '配置轴和物理量，然后点击计算。',
     errCannotCompute: '无法计算曲面。',
     errNoOperands: '没有启用的评价函数操作数。请在评价函数编辑器中设置目标。',
+    errNoRowsOn: '没有启用的评价函数行在开启的环境中评分。请在环境窗口中开启一个环境。',
+    errNoRowsHere: '没有启用的评价函数行在此环境中评分。',
     errMfAxes: '评价函数的轴必须为膜层厚度。',
     varWavelength: '波长 (nm)',
     varAOI: '入射角 (°)',
+    environmentTip: '此项计算所用的环境。“当前”跟随设计编辑器和功能区显示的环境。选“当前”时，评价函数取所有开启的环境上的值，即运行所最小化的值；选某一环境时，取该环境自身的评价函数。',
   },
   stressAnalysis: {
     noLayers: '设计中无膜层。',

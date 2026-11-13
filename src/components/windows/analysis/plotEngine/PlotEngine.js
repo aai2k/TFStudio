@@ -4,8 +4,11 @@
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
+import { BASE_ENVIRONMENT, environmentDesign } from '../../../../utils/environments/environments.js';
+import { rangeMaterials } from '../../../../utils/materials/materialRange.js';
 import { SWEEP, parseAxisVar } from '../../../../utils/physics/plotQuantities.js';
-import { useMaterialRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.js';
+import { currentEnvironmentOf, useCurrentEnvironment } from '../../design/environments/currentEnvironment.js';
 import { CenteredMessage } from '../chrome/layout.js';
 import { useCurvePlot } from './curveState.js';
 import { useSurfacePlot } from './surfaceState.js';
@@ -64,15 +67,38 @@ function evaluatedLambdaSpan(plotMode, curves, spec) {
     return Number.isFinite(low) && Number.isFinite(high) ? [low, high] : null;
 }
 
+/**
+ * The materials the plot as configured evaluates, for the range notice: those
+ * of each environment it computes in. In 2D that is the environment of every
+ * visible curve that evaluates at a wavelength of its own; a surface computes
+ * in its own. A map of the merit function, which takes each operand's own
+ * wavelengths, keeps the design's own materials. An environment the design no
+ * longer has reads as environment 1. `curves` and `spec` are as computed
+ * (environmentField.js).
+ */
+export function evaluatedMaterials(design, plotMode, curves, spec) {
+    let ids;
+    if (plotMode === '2d') {
+        ids = curves.filter(curve => curve.visible && curveLambdaEnds(curve)).map(curve => curve.env ?? BASE_ENVIRONMENT);
+    } else {
+        ids = [spec.z === 'MF' ? BASE_ENVIRONMENT : spec.env ?? BASE_ENVIRONMENT];
+    }
+    return [...new Set(ids)].flatMap(id => rangeMaterials(environmentDesign(design, currentEnvironmentOf(design, id).id)));
+}
+
 export function PlotEngine({ c, theme, t }) {
     const { design, evalMode } = useDesign();
     const pe = t.plotEngine;
-    const curvePlot = useCurvePlot(design, evalMode, t);
-    const surfacePlot = useSurfacePlot(design, evalMode);
+    const current = useCurrentEnvironment(design);
+    const curvePlot = useCurvePlot(design, evalMode, t, current.id);
+    const surfacePlot = useSurfacePlot(design, evalMode, current.id);
 
     const span = useMemo(
         () => evaluatedLambdaSpan(surfacePlot.plotMode, curvePlot.curves, surfacePlot.surfaceSpec),
         [surfacePlot.plotMode, curvePlot.curves, surfacePlot.surfaceSpec]);
+    const materials = useMemo(
+        () => evaluatedMaterials(design, surfacePlot.plotMode, curvePlot.computed, surfacePlot.computedSpec),
+        [design, surfacePlot.plotMode, curvePlot.computed, surfacePlot.computedSpec]);
     // Only the surface offers to widen its own range, and only while wavelength
     // is on an axis: that is the one place the window holds a single range the
     // user owns. A fixed wavelength has no range to set, and the 2D curves each
@@ -84,8 +110,8 @@ export function PlotEngine({ c, theme, t }) {
         if (surfaceLambdaAxis === 'x') updateSurface({ xFrom: from, xTo: to });
         else if (surfaceLambdaAxis === 'y') updateSurface({ yFrom: from, yTo: to });
     }, [surfaceLambdaAxis, updateSurface]);
-    const rangeNotice = useMaterialRangeNotice(
-        design, span?.[0], span?.[1], t, surfaceLambdaAxis ? fixRange : undefined);
+    const rangeNotice = useMaterialsRangeNotice(
+        materials, span?.[0], span?.[1], t, surfaceLambdaAxis ? fixRange : undefined);
 
     const message = unavailableMessage(design, pe);
     return message

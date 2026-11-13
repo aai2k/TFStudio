@@ -36,6 +36,9 @@ import {
 /** The id of environment 1. */
 export const BASE_ENVIRONMENT = 'base';
 
+/** Every environment that is on, as a result call's `env` and a window's All name them. */
+export const ALL_ENVIRONMENTS = 'all';
+
 const ONLY_BASE = Object.freeze([Object.freeze({ id: BASE_ENVIRONMENT })]);
 
 /** Every environment of `design` in order, environment 1 first; one for a design that lists none. */

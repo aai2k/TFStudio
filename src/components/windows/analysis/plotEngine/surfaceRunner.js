@@ -6,16 +6,21 @@ import { WorkerPool } from '../../../../utils/workers/workerPool.js';
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { PLOT_SURFACE_WORKER_URL } from '../../../../workerUrls.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { environmentMaterialIds } from '../../../../utils/environments/environments.js';
 
 function poolSize() {
     const hw = (typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4;
     return Math.max(2, Math.min(8, hw - 1));
 }
 
+// Every material the surface can compute with, those of the design's other
+// environments included (environments.js environmentMaterialIds): a surface in
+// one of them, or the merit function over them, reads them from the table.
 function createPool(surfaceSpec, design) {
     const lambdas = requiredSurfaceLambdas(surfaceSpec, design);
     const resolveMaterial = designMaterialLookup(design);
-    const pairs = collectDesignMaterialIds(design).map(id => ({ id, mat: resolveMaterial(id) }));
+    const ids = [...new Set([...collectDesignMaterialIds(design), ...environmentMaterialIds(design)])];
+    const pairs = ids.map(id => ({ id, mat: resolveMaterial(id) }));
     const meritOperands = surfaceSpec.z === 'MF' ? (design.meritOperands || []) : [];
     // GD, GDD and TOD read each material's dispersion, which a worker takes
     // from the table only.

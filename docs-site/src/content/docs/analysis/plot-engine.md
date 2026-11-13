@@ -22,9 +22,10 @@ point on the plot is the number that window shows for the same settings.
 | Ψ, Δ | [Ellipsometry Evaluation](/analysis/ellipsometry/) | ° |
 | MF | [Merit Function Editor](/design/merit-function-editor/) | none |
 
-T, R and A are averaged over the design's cone of incidence when it has one.
-The phase, the delays, Ψ and Δ are computed at a single angle, as their own
-windows compute them.
+T, R and A are averaged over the design's cone of incidence when it has one,
+and in another environment over that environment's cone. The phase, the
+delays, Ψ and Δ are computed at a single angle, as their own windows compute
+them.
 
 ## The control row
 
@@ -77,7 +78,8 @@ part, the back coating and one pass through the substrate included, as in
 MF is one number for the whole design, so on a curve it only changes along a
 layer's thickness. Picking MF for an axis moves a curve on wavelength or AOI
 onto a layer's thickness. It needs at least one enabled operand in the Merit
-Function Editor.
+Function Editor and, on a design with environments, a row scored in an
+environment that is on, or in the environment the curve names.
 
 ## Heatmap and 3D
 
@@ -100,6 +102,33 @@ axis, and not for the Merit Function, which takes each operand's own.
 
 The number of grid points is shown at the foot of the panel. A fine grid over a
 thick stack takes a while, so start coarse.
+
+## Environments
+
+On a design with [environments](/design/environments/), each curve has an
+**Environment** field under its name, and **Settings** has one for the map.
+**Current** computes in the environment the Design Editor and the ribbon show;
+an environment picked by its number and name computes in that one, whether it
+is on or off. Curves of several environments are drawn together, so T at the
+centre of a dome can sit beside T at its edge. A curve or a map that names an
+environment the design no longer has computes in the current one. A map is
+kept with the environment it was computed in: once its settings compute in
+another, because the current environment moved or the one it named was
+deleted, the plot stays empty until you compute it again, and going back
+shows the map again.
+
+A layer's thickness on an axis is the one the Design Editor shows. Each
+environment deposits that layer f times as thick, f the thickness factor of
+its material there times the change its temperature makes, as a run and the
+other windows read it, so every curve crosses its environment's own value at
+the design's thickness.
+
+MF under **Current** is the merit over every environment that is on,
+MF² = (1/N) Σ MF_k², the number the Merit Function Editor shows and
+[Refinement](/synthesis/refinement/) minimizes. Under one environment it is
+that environment's own MF_k, the merit of the rows scored in it. Band rows are
+sampled on environment 1's grid in every environment, as the merit tables
+sample them.
 
 ## How to read it
 

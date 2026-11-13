@@ -2,6 +2,8 @@ import {
     makeDefaultSurfaceSpec, computeSurface, isLayerVar, defaultAxisRange, quantitySides,
 } from '../../../../utils/physics/plotQuantities.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { BASE_ENVIRONMENT } from '../../../../utils/environments/environments.js';
+import { surfaceEnvironment, withEnvironment } from './environmentField.js';
 import { runSurfaceSweep } from './surfaceRunner.js';
 import { plotEngineSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
@@ -142,12 +144,30 @@ function useSurfaceCompute(state, design) {
     return { computing, progress, computeSurfaceNow, stop };
 }
 
-export function useSurfacePlot(design, evalMode) {
+/**
+ * The heatmap and 3D surface, its specification kept in the window's session.
+ * `currentId` is the design's current environment, which a surface on Current
+ * is computed in; `computedSpec` is the specification as it is computed
+ * (environmentField.js surfaceEnvironment). A surface is kept with the
+ * environment it was computed in, and `surfaceResult` gives it only while the
+ * settings compute in that environment, so moving the current environment or
+ * deleting the one chosen leaves the plot empty until Compute, and going back
+ * shows it again. A surface computed before the design had environments is
+ * environment 1's.
+ */
+export function useSurfacePlot(design, evalMode, currentId = BASE_ENVIRONMENT) {
     const state = useStoredSurfaceState(design, evalMode);
     const updateSurface = useCallback((patch) => {
         state.setSurfaceSpec(previous => patchSurfaceSpec(previous, patch, design));
         state.setSurfaceResult(null);
     }, [design]);
-    const compute = useSurfaceCompute(state, design);
-    return { ...state, ...compute, updateSurface };
+    const env = surfaceEnvironment(state.surfaceSpec, design, currentId);
+    const computedSpec = useMemo(() => withEnvironment(state.surfaceSpec, env), [state.surfaceSpec, env]);
+    const kept = state.surfaceResult;
+    const surfaceResult = kept && (kept.env ?? BASE_ENVIRONMENT) !== (env ?? BASE_ENVIRONMENT) ? null : kept;
+    const compute = useSurfaceCompute({
+        ...state, surfaceSpec: computedSpec, surfaceResult,
+        setSurfaceResult: result => state.setSurfaceResult(result && withEnvironment(result, env)),
+    }, design);
+    return { ...state, surfaceResult, ...compute, updateSurface, computedSpec };
 }

@@ -1,9 +1,11 @@
 import { paletteColors } from '../../../../constants/analysisDefaults.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
+import { BASE_ENVIRONMENT, environmentCone } from '../../../../utils/environments/environments.js';
 import { coneIsActive, makeConeSpec } from '../../../../utils/physics/optimizer.js';
 import { curveNumber, makeDefaultCurve, quantityFamily } from '../../../../utils/physics/plotQuantities.js';
 import { editCurve } from './curveEdits.js';
+import { curveIn } from './environmentField.js';
 import { quantityOptionLabel } from './quantityLabels.js';
 import {
     computeCurveResults, curvesToCompute, mergeCurveResults, shownCurveResults,
@@ -47,13 +49,24 @@ const hasLayers = design => Boolean(design?.frontLayers?.length || design?.backL
 // in collimated light, as Optical Evaluation does. A phase quantity takes
 // derivatives at every sample, the merit function evaluates every operand at
 // every sample, and a cone of incidence traces a spectrum per ray: those are
-// computed in the worker.
+// computed in the worker. Each curve is under the cone of the environment it
+// is computed in.
 const QUICK_FAMILIES = new Set(['sweep', 'optical', 'ellipsometric']);
 
 function computedHere(curves, design) {
-    if (coneIsActive(makeConeSpec(design?.cone || {}))) return false;
+    if (curves.some(curve => coneIsActive(makeConeSpec(environmentCone(design, curve.env) || {})))) return false;
     return curves.every(curve => QUICK_FAMILIES.has(quantityFamily(curve.x.quantity))
         && QUICK_FAMILIES.has(quantityFamily(curve.y.quantity)));
+}
+
+// The curves as they are computed on `design`, the design they are computed
+// for (environmentField.js curveIn), the list kept itself where none changes,
+// as on a design without environments.
+function useComputedCurves(curves, design, currentId) {
+    return useMemo(() => {
+        const computed = curves.map(curve => curveIn(curve, design, currentId));
+        return computed.every((curve, i) => curve === curves[i]) ? curves : computed;
+    }, [curves, design, currentId]);
 }
 
 // The computation for the curves `pending` still needs, unless it was stopped.
@@ -119,8 +132,10 @@ function useCurveCompute(curves, design, session, setField) {
 }
 
 // `t` names a new curve, and renames one still under its default name when an
-// edit changes what it plots.
-export function useCurvePlot(design, evalMode, t) {
+// edit changes what it plots. `currentId` is the design's current environment,
+// which a curve on Current is computed in; `computed` gives each curve as it is
+// computed.
+export function useCurvePlot(design, evalMode, t, currentId = BASE_ENVIRONMENT) {
     const pe = t.plotEngine;
     // Following the sampled design keeps an optimizer run from starting one
     // computation per progress message.
@@ -133,7 +148,8 @@ export function useCurvePlot(design, evalMode, t) {
         [pe, design, t]);
     const [session, setField] = useWindowSession(plotEngineSession, design);
     const [curves, setCurves] = useStoredCurves(session, setField, evalMode, palette, nameCurve);
-    const compute = useCurveCompute(curves, liveDesign, session, setField);
+    const computed = useComputedCurves(curves, liveDesign, currentId);
+    const compute = useCurveCompute(computed, liveDesign, session, setField);
 
     const addCurve = useCallback(() => {
         setCurves(prev => [...prev, newCurve(evalMode, palette, nameCurve)]);
@@ -145,5 +161,5 @@ export function useCurvePlot(design, evalMode, t) {
         setCurves(prev => prev.filter(cv => cv.id !== id));
     }, [setCurves]);
 
-    return { curves, ...compute, addCurve, updateCurve, deleteCurve };
+    return { curves, computed, ...compute, addCurve, updateCurve, deleteCurve };
 }

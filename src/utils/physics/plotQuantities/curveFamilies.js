@@ -14,13 +14,16 @@
  *                         reads (meritSurface.js)
  *
  * The context is curveContext's: the design, its material resolver and the
- * stack resolved for the spectrum. A sweep is { token, kind, values, range },
- * `range` the wavelength range of a wavelength sweep (curves.js).
+ * stack resolved for the spectrum, in the environment the curve is computed in
+ * on a design with environments, with the whole design the merit function
+ * scores. A sweep is { token, kind, values, range }, `range` the wavelength
+ * range of a wavelength sweep (curves.js).
  */
 
 import { computeAngular, computeSpectral } from '../../../components/windows/analysis/ellipsometryEvaluation/spectrum.js';
 import { gdGddPointEvaluator, unwrappedPhaseDeg } from '../../../components/windows/analysis/gdGddEvaluation/spectrum.js';
 import { toDeltaConvention } from '../thinFilmMath.js';
+import { parseAxisVar } from './axisVars.js';
 import { overridesFrom } from './layerOverrides.js';
 import { computeMeritCurve } from './meritSurface.js';
 import { buildOpticalBaseCtx, opticalPointSpectrum } from './opticalSurface.js';
@@ -119,10 +122,12 @@ function ellipsometricCurve(curve, ctx, sweep, { side }) {
 }
 
 // The merit function integrates over wavelength and angle, so it has a value
-// only along a layer parameter.
+// only along a layer parameter. It is scored on the whole design, in the
+// environments `curve.meritEnv` names (meritSurface.js), each deposited as
+// that environment deposits the recipe.
 function meritCurve(curve, ctx, sweep) {
     if (sweep.kind === 'lambda' || sweep.kind === 'aoi') throw new CurveError('errMfSweep');
-    const result = computeMeritCurve(sweep.token, sweep.values, ctx.design, ctx.resolveMat);
+    const result = computeMeritCurve(sweep.token, sweep.values, ctx.whole ?? ctx.design, ctx.resolveMat, curve.meritEnv);
     if (!result.ok) throw new CurveError(result.errorKey);
     return { MF: result.mf };
 }
@@ -139,19 +144,31 @@ const FAMILIES = {
     merit: { compute: meritCurve, key: () => '' },
 };
 
+// `sweep` as the environment of `ctx` deposits it: a layer's recipe thickness
+// times the factor that environment thickens the layer by (`ctx.layerFactors`,
+// absent in environment 1), so a curve's axis keeps the recipe thickness and
+// each environment computes its own layer.
+function depositedSweep(ctx, sweep) {
+    const factor = sweep.kind === 'thk' ? ctx.layerFactors?.[parseAxisVar(sweep.token).layer] : undefined;
+    return factor === undefined || factor === 1 ? sweep : { ...sweep, values: sweep.values.map(value => value * factor) };
+}
+
 /**
  * A reader of a curve's axes: given an axis { quantity, polarization, side },
  * its values along `sweep`. Throws CurveError for a quantity that has no value
- * along this sweep.
+ * along this sweep. The merit function takes the recipe's thicknesses and
+ * deposits them in each environment it scores; every other quantity is read
+ * in the environment of `ctx`.
  */
 export function curveReader(curve, ctx, sweep) {
     const computed = new Map();
+    const deposited = depositedSweep(ctx, sweep);
     return (axis) => {
         const family = quantityFamily(axis.quantity);
         if (family === 'sweep') return sweep.values;
         const { compute, key } = FAMILIES[family];
         const id = `${family}|${key(axis)}`;
-        if (!computed.has(id)) computed.set(id, compute(curve, ctx, sweep, axis));
+        if (!computed.has(id)) computed.set(id, compute(curve, ctx, family === 'merit' ? sweep : deposited, axis));
         return computed.get(id)[axis.quantity];
     };
 }

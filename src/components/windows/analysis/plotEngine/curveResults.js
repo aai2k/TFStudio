@@ -1,19 +1,29 @@
+import { BASE_ENVIRONMENT } from '../../../../utils/environments/environments.js';
 import { SWEEP, computeCurve, normalizeCurve } from '../../../../utils/physics/plotQuantities.js';
 import { buildEvaluationContext } from './materialContext.js';
 
 /**
  * Each visible curve's { x, y } for `design`, by curve id. A curve that cannot
- * be computed is drawn empty. Quick curves are computed where the window runs,
- * the rest in the analysis worker (curveState.js).
+ * be computed, one naming an environment `design` lacks among them, is drawn
+ * empty. Quick curves are computed where the window runs,
+ * the rest in the analysis worker (curveState.js). On a design with
+ * environments a curve is computed in the environment its `env` names,
+ * environment 1 without one, and reads the merit function as its `meritEnv`
+ * says (meritSurface.js).
  */
 export function computeCurveResults(curves, design) {
-    const ctx = buildEvaluationContext(design);
-    if (!ctx) return {};
+    const base = buildEvaluationContext(design);
+    if (!base) return {};
+    const contexts = new Map([[BASE_ENVIRONMENT, base]]);
+    const contextIn = (env = BASE_ENVIRONMENT) => {
+        if (!contexts.has(env)) contexts.set(env, buildEvaluationContext(design, env));
+        return contexts.get(env);
+    };
     const out = {};
     for (const cv of curves) {
         if (!cv.visible) continue;
         try {
-            out[cv.id] = computeCurve(cv, ctx);
+            out[cv.id] = computeCurve(cv, contextIn(cv.env));
         } catch (e) {
             console.error('PlotEngine curve error:', cv.id, e);
             out[cv.id] = { x: [], y: [] };

@@ -3590,9 +3590,12 @@ export default {
     surfacePrompt: 'Configura gli assi e la grandezza, poi premi Calcola.',
     errCannotCompute: 'Impossibile calcolare la superficie.',
     errNoOperands: 'Nessun operando di merito attivo. Imposta gli obiettivi nella Funzione di merito.',
+    errNoRowsOn: 'Nessuna riga attiva della funzione di merito è valutata in un ambiente attivo. Attivane uno nella finestra Ambienti.',
+    errNoRowsHere: 'Nessuna riga attiva della funzione di merito è valutata in questo ambiente.',
     errMfAxes: 'Gli assi della MF devono essere spessori di strato.',
     varWavelength: "Lunghezza d'onda (nm)",
     varAOI: 'AOI (°)',
+    environmentTip: "L'ambiente in cui viene calcolato. Corrente segue quello mostrato nell'Editor del design e nella barra multifunzione. Con Corrente la MF è il merito su tutti gli ambienti attivi, quello che un'ottimizzazione minimizza; scegliendo un ambiente è la MF di quell'ambiente.",
   },
   stressAnalysis: {
     noLayers: 'Nessuno strato nel design.',

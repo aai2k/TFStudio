@@ -4,6 +4,7 @@ import {
 } from '../../../../utils/physics/plotQuantities.js';
 import { NumInput, SelectField, valueOptions } from '../chrome/controls.js';
 import { SettingDivider, SettingRow } from '../chrome/popover.js';
+import { EnvironmentField } from './environmentField.js';
 import { SurfaceAxisGroup } from './SurfaceAxisGroup.js';
 import { surfaceErrorText } from './charts/surfaceOption.js';
 import { quantitySymbol } from './quantityLabels.js';
@@ -120,6 +121,7 @@ export function SurfacePanel({ spec, onUpdate, design, result, c, t }) {
     const axis = { spec, design, onUpdate, targetOptions, selectWidth: SELECT_WIDTH, c, t };
 
     return h('div', null,
+        h(EnvironmentField, { stored: spec.env, design, onChange: env => onUpdate({ env }), c, t }),
         h(QuantitySection, { spec, onUpdate, optical, isMF, c, t }),
         h(SettingDivider, { c }),
         h(SurfaceAxisGroup, { ...axis, which: 'x' }),

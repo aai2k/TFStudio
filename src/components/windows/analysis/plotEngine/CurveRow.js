@@ -7,6 +7,7 @@ import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { FieldLabel, NumInput, RangeField, SelectField, valueOptions } from '../chrome/controls.js';
 import { SettingRow } from '../chrome/popover.js';
 import { readsMerit } from './curveEdits.js';
+import { EnvironmentField } from './environmentField.js';
 import { axisOptionLabel, quantityOptionLabel, sweepUnit } from './quantityLabels.js';
 
 const { createElement: h } = React;
@@ -172,6 +173,7 @@ export function CurveRow({ curve, design, errorKey, onUpdate, onDelete, c, t }) 
         },
     },
         h(CurveHeader, { curve, onUpdate, onDelete, c, pe }),
+        h(EnvironmentField, { stored: curve.env, design, onChange: env => onUpdate({ env }), c, t }),
         h(SweepRow, { curve, design, onUpdate, c, t }),
         h(RangeRow, { curve, onUpdate, c, t }),
         h(FixedRow, { curve, onUpdate, c, t }),

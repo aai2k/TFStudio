@@ -17,6 +17,11 @@
  *     // What each axis reads (quantities.js):
  *     x: { quantity, polarization: 'avg' | 's' | 'p', side: 'front' | 'back' | 'total' },
  *     y: { quantity, polarization, side },
+ *     // On a design with environments, as computed: the environment the
+ *     // curve's quantities are read in (environment 1 when absent), and on a
+ *     // curve that reads MF, the environment whose own merit it reads, or
+ *     // 'all' for the total over the environments that are on:
+ *     env, meritEnv,
  *     // Visual:
  *     color, dash, width, visible
  *   }

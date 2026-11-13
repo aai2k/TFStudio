@@ -18,7 +18,7 @@
  */
 import { createWindowSession, useWindowSession } from '../../windowSession.js';
 import {
-    environmentDesign, environmentsInAll, environmentsOf, hasEnvironments, rowsInEnvironment,
+    ALL_ENVIRONMENTS, environmentDesign, environmentsInAll, environmentsOf, hasEnvironments, rowsInEnvironment,
 } from '../../../../utils/environments/environments.js';
 import { coneIsActive, makeConeSpec, resolveEvalMode } from '../../../../utils/physics/optimizer.js';
 import { environmentLabel, useCurrentEnvironment } from '../../design/environments/currentEnvironment.js';
@@ -27,8 +27,9 @@ import { SelectField } from './controls.js';
 
 const { createElement: h } = React;
 
-const CURRENT = 'current';
-const ALL = 'all';
+/** The choice that follows the current environment. */
+export const CURRENT = 'current';
+const ALL = ALL_ENVIRONMENTS;
 
 /**
  * The choice, one store for every analysis window: each open copy of a window
@@ -117,6 +118,14 @@ export function useEnvironmentChoice(design, { overlay = false } = {}) {
 }
 
 /**
+ * The droplist's hover: the choice `value` names, in full as `options` list it,
+ * above `tip`, what the droplist does.
+ */
+export function environmentTitle(options, value, tip) {
+    return `${options.find(option => option.id === value).label}\n${tip}`;
+}
+
+/**
  * The Environment droplist, labelled as in the Design Editor and as wide as
  * its droplist there; nothing on a design with one environment. Its hover
  * names the choice in full above what the droplist does.
@@ -125,12 +134,11 @@ export function EnvironmentSelect({ c, t, environment }) {
     if (!environment.shown) return null;
     const words = t.analysisChrome;
     const options = environmentOptions(environment.design, environment.currentNumber, environment.overlay, words);
-    const chosen = options.find(option => option.id === environment.choice).label;
     return h('label', { style: { display: 'flex', alignItems: 'center', gap: 6 } },
         h('span', { style: { fontSize: 11, color: c.textDim, whiteSpace: 'nowrap' } }, t.environments.environment),
         h(SelectField, {
             c, value: environment.choice, onChange: environment.setChoice, options, width: DROPLIST_WIDTH,
-            title: `${chosen}\n${words.environmentTip}`,
+            title: environmentTitle(options, environment.choice, words.environmentTip),
         }),
     );
 }
