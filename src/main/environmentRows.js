@@ -1,18 +1,21 @@
-// How a .tfs file holds the merit rows of a design's other environments
-// (src/utils/environments/environments.js describes environments).
+// How a .tfs file holds the merit rows and the specification checks of a
+// design's other environments (src/utils/environments/environments.js
+// describes environments).
 //
 // A merit row scored in environment 2 or later alone is written switched off,
 // with its own switch in `envEnabled`. A build without environments then
 // leaves the row out instead of scoring it against environment 1's media and
 // substrate, and the reader puts the switch back. A row that reads such a row
 // (a math row through refId, refId1 or refId2) is written the same way, since
-// a build that left out the row it reads could not score it.
+// a build that left out the row it reads could not score it. A specification
+// check judged in environment 2 or later alone is written the same way too.
 //
 // CommonJS, Electron-free.
 
 const isRow = op => !!op && typeof op === 'object';
 const scoredElsewhere = op => isRow(op) && op.env != null && op.env !== 'base';
 const readsAny = (op, ids) => [op.refId, op.refId1, op.refId2].some(id => id != null && ids.has(id));
+const switchedOff = op => ({ ...op, enabled: false, envEnabled: Boolean(op.enabled) });
 
 // The rows written switched off: those of other environments, and every row
 // that reads one of them, however many rows lie between.
@@ -35,17 +38,24 @@ function guardedRows(operands) {
 function guardRowSwitches(meritOperands) {
   if (!Array.isArray(meritOperands)) return meritOperands;
   const rows = guardedRows(meritOperands);
-  return meritOperands.map(op => (rows.has(op) ? { ...op, enabled: false, envEnabled: Boolean(op.enabled) } : op));
+  return meritOperands.map(op => (rows.has(op) ? switchedOff(op) : op));
 }
 
-// Each row read with `envEnabled` takes its own switch back, in place.
+// The checks as the file writes them. The checks given are left as they are.
+function guardCheckSwitches(qualifiers) {
+  if (!Array.isArray(qualifiers)) return qualifiers;
+  return qualifiers.map(q => (scoredElsewhere(q) ? switchedOff(q) : q));
+}
+
+// Each row and check read with `envEnabled` takes its own switch back, in place.
 function restoreRowSwitches(design) {
-  const operands = Array.isArray(design.meritOperands) ? design.meritOperands : [];
-  for (const op of operands) {
-    if (!isRow(op) || !('envEnabled' in op)) continue;
-    op.enabled = op.envEnabled;
-    delete op.envEnabled;
+  for (const list of [design.meritOperands, design.qualifiers]) {
+    for (const op of Array.isArray(list) ? list : []) {
+      if (!isRow(op) || !('envEnabled' in op)) continue;
+      op.enabled = op.envEnabled;
+      delete op.envEnabled;
+    }
   }
 }
 
-module.exports = { guardRowSwitches, restoreRowSwitches };
+module.exports = { guardRowSwitches, guardCheckSwitches, restoreRowSwitches };

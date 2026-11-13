@@ -1,11 +1,45 @@
 import { normalizeSeed, randomSeed } from '../../../../utils/physics/errorAnalysis/mcConfig.js';
+import { BASE_ENVIRONMENT, environmentsOf, hasEnvironments, isEnvironmentOn } from '../../../../utils/environments/environments.js';
 import { startMonteCarloRun } from './monteCarloRun.js';
 import { hasPerturbableLayers } from './trialModel.js';
 import { errorAnalysisSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import { useRefreshRevision } from '../../../../state/refreshAll.js';
+import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
 
 const { useCallback, useEffect, useMemo, useRef, useState } = React;
+
+// The curves of one environment's spread, as a run lists each environment's.
+const SPREAD_KEYS = ['lambda', 'theory', 'mean', 'stdev', 'lower', 'upper', 'envLower', 'envUpper'];
+
+/**
+ * The environments a run on `design` computes the spread of, by id: every
+ * environment that is on and `shownId`, the one the window shows, in the
+ * design's order, and environment 1 first in any case, so the run's own
+ * curves, which the Report prints, are always the design's. Undefined on a
+ * design without environments, whose run computes the design alone.
+ */
+export function runEnvironments(design, shownId) {
+    if (!hasEnvironments(design)) return undefined;
+    return environmentsOf(design)
+        .filter(env => env.id === BASE_ENVIRONMENT || isEnvironmentOn(env) || env.id === shownId)
+        .map(env => env.id);
+}
+
+/**
+ * `result` as the window shows it in environment `id`: its spread in that
+ * environment in place of the first one's, its yield and trials as they are.
+ * A result without spreads of its own, a run on a design without
+ * environments, is environment 1's. Null when the run did not compute that
+ * environment, or there is no result.
+ */
+export function shownSpread(result, id) {
+    if (!result) return null;
+    if (!result.environments) return id === BASE_ENVIRONMENT ? result : null;
+    const spread = result.environments.find(entry => entry.id === id);
+    if (!spread) return null;
+    return { ...result, ...Object.fromEntries(SPREAD_KEYS.map(key => [key, spread[key]])) };
+}
 
 /**
  * One Monte-Carlo run with the window's settings, off the window's thread
@@ -18,7 +52,7 @@ export async function executeRun(options) {
     const {
         design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
         rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, runRef,
-        setError, setRunning, setProgress, setResult, setSeed,
+        setError, setRunning, setProgress, setResult, setSeed, environments,
     } = options;
     if (!hasPerturbableLayers(design, evalMode)) {
         setError('No layers to perturb.');
@@ -58,6 +92,7 @@ export async function executeRun(options) {
         evaluateSpec: (design?.qualifiers?.length || 0) > 0,
         qualifiers: design?.qualifiers || [],
         recordTrials: true,
+        ...(environments ? { environments } : {}),
     }, setProgress);
     runRef.current = run;
     try {
@@ -108,12 +143,20 @@ export function useErrorAnalysis({ design, evalMode }) {
     const [showTrials, setShowTrials] = useState(false);
     const runRef = useRef(null);
 
+    // The environment shown, Current or one the droplist names; a run computes
+    // it beside every environment that is on, so the droplist moves between
+    // them on the same trials without a new run.
+    const environment = useEnvironmentChoice(design);
+    const shownView = environment.views[0];
+    const environments = useMemo(() => runEnvironments(design, shownView.id), [design, shownView.id]);
+    const shown = useMemo(() => shownSpread(result, shownView.id), [result, shownView.id]);
+
     const run = useCallback(() => executeRun({
         design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
         rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, runRef,
-        setError, setRunning, setProgress, setResult, setSeed,
+        setError, setRunning, setProgress, setResult, setSeed, environments,
     }), [design, params, evalMode, char, nTrials, corridorSigma,
-        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed]);
+        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, environments]);
 
     // A run goes on when the window is closed, docked elsewhere or its tab
     // switched, and its result lands in the window's session.
@@ -136,6 +179,19 @@ export function useErrorAnalysis({ design, evalMode }) {
         if (hasRunRef.current && !running) run();
     }, [design?.id, char, params.theta, params.polarization, evalMode, refreshRevision]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    // An environment the last run did not compute, one that is off chosen
+    // after it or while it went, is run again with the seed that run was drawn
+    // from: the same trials, seen in that environment as well. Once for each
+    // result and environment, so a run that fails is not started again and again.
+    const missing = !!result && !shown;
+    const ranFor = useRef(null);
+    useEffect(() => {
+        if (!missing || running) return;
+        if (ranFor.current?.result === result && ranFor.current?.id === shownView.id) return;
+        ranFor.current = { result, id: shownView.id };
+        run();
+    }, [missing, running, shownView.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
     const handleRun = useCallback(async () => {
         hasRunRef.current = true;
         await run();
@@ -149,6 +205,7 @@ export function useErrorAnalysis({ design, evalMode }) {
         distribution, setDistribution, perMaterial, setPerMaterial, keepOPT, setKeepOPT,
         seed, setSeed, result, running, progress, error, showTrials, setShowTrials,
         showEnvelope, setShowEnvelope, stop, handleRun,
+        environment, shown, shownDesign: shownView.design,
         showEditor: session.showEditor, setShowEditor: value => setField('showEditor', value),
         showTable: session.showTable, setShowTable: value => setField('showTable', value),
     };

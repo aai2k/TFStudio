@@ -8,6 +8,7 @@ import { EvalModeBadge } from '../../../SurfaceModeBar.js';
 import { SpecVerdict } from '../../../SpecVerdict.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { provisionalMark } from '../../optimization/provisionalMark.js';
 import { SensitivityBars } from './SensitivityBars.js';
@@ -43,6 +44,8 @@ export function LayerSensitivity({ c, theme, t }) {
     // The ranking is what the window is for, so the table gets the height and
     // the badges and export ride on the control row rather than on a strip
     // header. The bar chart shows the shape of the same numbers and opens below.
+    // On a design with environments the row under the table holds the
+    // Environment droplist alone, the Eval badge staying on the control row.
     return h(AnalysisWindow, { c },
         h(SensitivityControls, {
             c, t, state,
@@ -68,6 +71,7 @@ export function LayerSensitivity({ c, theme, t }) {
                 ? h(CenteredMessage, { c, message: note })
                 : h(ResultsGrid, { columns, rows, c, fill: true }),
         ),
+        h(BadgeRow, { c, t, design, environment: state.environment, evalBadge: false }),
         h(ResultsSection, {
             c, label: ls.chartTitle, summary: `${rows.length} ${ls.layers}`,
             open: state.showChart, setOpen: state.setShowChart,

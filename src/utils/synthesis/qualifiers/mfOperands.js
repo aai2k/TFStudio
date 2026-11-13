@@ -184,29 +184,38 @@ export function checksWithoutRow(qualifiers, opts = {}) {
     return (qualifiers || []).filter(q => q.enabled && qualifiersToMFOperands([q], opts).length === 0);
 }
 
+// The rows check `q` gives, onto `out`.
+function emitCheck(q, weight, design, out) {
+    const k = q.kind;
+
+    // No operand counts layers.
+    if (k === 'LAYER_COUNT') return;
+    if (k === 'THICKNESS_BUDGET') { emitThicknessBudget(q, weight, design, out); return; }
+
+    const buildBaseOp = BASE_OP_BUILDERS[k];
+    if (!buildBaseOp) return;   // FWHM/EDGE_LAMBDA or unknown kind
+
+    const ch  = channelFromKind(k) || q.channel || 'T';
+    const pol = q.pol || 'avg';
+    const baseOp = buildBaseOp(q, ch, pol, weight, { design, out });
+    if (!baseOp) return;
+
+    const emit = CMP_EMITTERS[q.cmp] || emitEq;
+    emit(baseOp, q, weight, k, out);
+}
+
 // `opts.design` is the design whose measured curves a PPEF qualifier names,
 // and whose surface mode decides whether a thickness budget gets a TT row.
+// The rows of a check judged in one environment alone (`env`) are scored in
+// that environment alone.
 export function qualifiersToMFOperands(qualifiers, opts = {}) {
     const out = [];
     const weight = opts.weight || 1.0;
     for (const q of (qualifiers || [])) {
         if (!q.enabled) continue;
-        const k = q.kind;
-
-        // No operand counts layers.
-        if (k === 'LAYER_COUNT') continue;
-        if (k === 'THICKNESS_BUDGET') { emitThicknessBudget(q, weight, opts.design, out); continue; }
-
-        const buildBaseOp = BASE_OP_BUILDERS[k];
-        if (!buildBaseOp) continue;   // FWHM/EDGE_LAMBDA or unknown kind
-
-        const ch  = channelFromKind(k) || q.channel || 'T';
-        const pol = q.pol || 'avg';
-        const baseOp = buildBaseOp(q, ch, pol, weight, { design: opts.design, out });
-        if (!baseOp) continue;
-
-        const emit = CMP_EMITTERS[q.cmp] || emitEq;
-        emit(baseOp, q, weight, k, out);
+        const start = out.length;
+        emitCheck(q, weight, opts.design, out);
+        if (q.env != null) for (let i = start; i < out.length; i++) out[i].env = q.env;
     }
     return out;
 }

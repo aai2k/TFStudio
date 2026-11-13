@@ -30,7 +30,9 @@
  * not a single design), so it does not use this component.
  */
 
-import { evaluateQualifiers, aggregateVerdict, qualifierSummary, qualifierValueText, hasOwnStep } from '../utils/synthesis/qualifiers.js';
+import { aggregateVerdict, qualifierSummary, qualifierValueText, hasOwnStep } from '../utils/synthesis/qualifiers.js';
+import { evaluateSpecification, failureOf } from '../utils/environments/environmentSpecification.js';
+import { environmentLabel } from './windows/design/environments/currentEnvironment.js';
 import { useFineSpecification, markProvisional } from './windows/design/specification/useSpecificationResults.js';
 import { toleranceSpecInputs } from './windows/analysis/toleranceSpecInputs.js';
 import { DesignContext } from '../state/DesignContext.js';
@@ -40,12 +42,12 @@ const { createElement: h, useContext, useMemo } = React;
 
 const COARSE = Object.freeze({ coarse: true });
 
-// One design's results at the checks' default steps, marked provisional where
-// a check has a Step of its own.
+// One design's results at the checks' default steps, judged in each of its
+// environments, marked provisional where a check has a Step of its own.
 function firstPass(design, quals, recipe) {
     try {
-        const { design: judged, resolve } = toleranceSpecInputs(design, recipe);
-        return markProvisional(quals, evaluateQualifiers(design.qualifiers || quals, judged, resolve, COARSE));
+        const results = evaluateSpecification(design.qualifiers || quals, design, COARSE, id => toleranceSpecInputs(design, recipe, id));
+        return markProvisional(quals, results);
     } catch {
         return quals.map(() => ({ value: null, pass: null }));
     }
@@ -101,6 +103,26 @@ const qualifierName = (q, i, ts) => q.label || kindName(ts, q.kind) || q.kind ||
 const provisionalMark = r => (r?.provisional ? '≈ ' : '');
 const passMark = r => (r?.pass === true ? '✓' : r?.pass === false ? '✗' : '—');
 
+// On a design with environments, a check that fails speaks for the
+// environment that fails it (failureOf), named, since its own value, the first
+// environment's, can pass. `r` is a merged result, `said` the design's result
+// that failed. Without environments, what the badge always said.
+function failedHere(r) {
+    const { result, environment } = failureOf(r?.said);
+    return environment ? { result, label: environmentLabel(environment, environment.number) } : null;
+}
+function valueText(r, t) {
+    const failed = failedHere(r);
+    if (!failed) return qualifierValueText(r, t.units);
+    return `${qualifierValueText(failed.result, t.units)} (${failed.label})`;
+}
+function failureTip(r, t, ts) {
+    const failed = failedHere(r);
+    if (!failed) return qualifierSummary(r.said, ts.summaries, t.units) || qualifierValueText(r, t.units);
+    const text = qualifierSummary(failed.result, ts.summaries, t.units) || qualifierValueText(failed.result, t.units);
+    return `${ts.failingIn([failed.label])}: ${text}`;
+}
+
 // A chip of the badge, faded while its results are provisional.
 function chip(txt, color, tip, key, provisional) {
     return h('span', {
@@ -125,14 +147,14 @@ function verdictChips({ qualifiers, results, verdict, c, t }) {
     const provisional = results.some(r => r.provisional);
     const fullTip = [
         ...(provisional ? [ts.provisionalTip] : []),
-        ...qualifiers.map((q, i) => `${provisionalMark(results[i])}${passMark(results[i])} ${qualifierName(q, i, ts)}: ${qualifierValueText(results[i], t.units)}`),
+        ...qualifiers.map((q, i) => `${provisionalMark(results[i])}${passMark(results[i])} ${qualifierName(q, i, ts)}: ${valueText(results[i], t)}`),
     ].join('\n');
     const verdictText = allPass ? (ts.specPassBadge || 'Spec PASS') : `${total - passing}/${total} ${ts.failSuffix || 'fail'}`;
     const failChips = qualifiers
         .map((q, i) => ({ q, i, r: results[i] }))
         .filter(x => x.r?.pass === false)
         .map(x => chip(provisionalMark(x.r) + '✗ ' + qualifierName(x.q, x.i, ts), '#ef5350',
-            (qualifierSummary(x.r.said, ts.summaries, t.units) || qualifierValueText(x.r, t.units)), x.q.id || x.i, x.r.provisional));
+            failureTip(x.r, t, ts), x.q.id || x.i, x.r.provisional));
     return [chip((provisional ? '≈ ' : '') + verdictText, col, fullTip, 'verdict', provisional), ...failChips];
 }
 

@@ -35,14 +35,16 @@ function todayISO() {
 }
 
 // The locale block the document is written in, plus the qualifier kind names
-// the specification block labels rows with, the Monitor Worksheet's column
-// names, which the worksheet block shares with the window, and the unit symbols.
+// the specification block labels rows with, its summaries and the words naming
+// the environment a check fails in, the Monitor Worksheet's column names, which
+// the worksheet block shares with the window, and the unit symbols.
 export function reportLocale(code) {
     const loc = getLocale(code) || {};
     return {
         ...(loc.report || {}),
         kinds: (loc.specification && loc.specification.kinds) || {},
         summaries: (loc.specification && loc.specification.summaries) || {},
+        failingIn: loc.specification && loc.specification.failingIn,
         mw: loc.monitorWorksheet || {},
         units: loc.units || {},
     };

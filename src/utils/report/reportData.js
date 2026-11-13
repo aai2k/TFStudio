@@ -6,7 +6,7 @@
  *   - TMM spectrum     → thinFilmMath.evaluateSpectrum / …Back / …Total
  *   - CIE color        → colorimetry.colorReport
  *   - Integral values  → integralValues.computeIntegralValueBatch
- *   - Qualifiers verdict → qualifiers.evaluateQualifiers / aggregateVerdict
+ *   - Qualifiers verdict → environmentSpecification.evaluateSpecification / aggregateVerdict
  *   - n(z) / |E|² profiles → thinFilmMath.computeRIProfile / computeEFieldProfile
  *   - Phase dispersion → phaseDispersion.createDesignPhaseDispersionEvaluator
  *   - Monitoring worksheet → monoSim.buildMonitorWorksheet

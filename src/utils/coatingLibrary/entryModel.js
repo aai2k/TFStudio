@@ -62,7 +62,8 @@ import {
 } from '../materials/designMaterials.js';
 import { designRangeCoverage } from '../materials/materialRange.js';
 import { evaluateSpectrum } from '../physics/thinFilmMath.js';
-import { aggregateVerdict, evaluateQualifiers, makeQualifier } from '../synthesis/qualifiers.js';
+import { aggregateVerdict, makeQualifier } from '../synthesis/qualifiers.js';
+import { evaluateSpecification } from '../environments/environmentSpecification.js';
 
 /** The families. The type filter in the library window is built on this list. */
 export const COATING_TYPES = [
@@ -367,7 +368,7 @@ export function entrySpecResults(entry, options = {}) {
     const design = entryDesign(entry);
     const qualifiers = entryQualifiers(entry);
     try {
-        const results = evaluateQualifiers(qualifiers, design, designMaterialLookup(design), options);
+        const results = evaluateSpecification(qualifiers, design, options);
         return { qualifiers, results, verdict: aggregateVerdict(results) };
     } catch (err) {
         return { qualifiers, results: [], verdict: aggregateVerdict([]), error: err.message };

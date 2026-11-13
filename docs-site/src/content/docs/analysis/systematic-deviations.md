@@ -37,6 +37,8 @@ converted to physical nanometres per layer at the design reference wavelength λ
 
 **baseline**: overlay the unperturbed spectrum behind the deviated one.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the deviation is seen in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. The deviation is made on the layer list and seen in the environment: each layer f·(d · scale + offset) thick, f the thickness factor of its material there, made of the material the environment deposits for it, moved by the Δn and Δk of the layer list's material, between the environment's media. A sweep is drawn in the environment it was run in, and comes back when that one is shown again. The material range notice reads the environment shown, and the specification verdict judges the deviated design in every environment that is on. The choice belongs to this window and is not saved with the design.
+
 ## Deviations
 
 The strip below the plot holds the deviations themselves, and follows the mode.

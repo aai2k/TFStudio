@@ -316,12 +316,13 @@ const MONTE_CARLO_CURVES = [['theory', 'theory'], ['mean', 'mean'], ['stdev', 's
  * console.log(mc.runs, 'trials, largest spread:', Math.max(...mc.stdev));
  */
 export class MonteCarlo {
-    constructor(result, mode) {
+    constructor(result, mode, environment = null) {
         const wavelength = Array.from(result.lambda);
         this._curves = Object.fromEntries(MONTE_CARLO_CURVES.map(([name, key]) => [name, curveOf(result[key], wavelength)]));
         this._result = result;
         this._wavelength = wavelength;
         this._mode = mode;
+        this._environment = environment;
         this._spec = result.spec ? new Yield({ ...result.spec, seed: result.seed, mode }) : null;
     }
 
@@ -470,6 +471,19 @@ export class MonteCarlo {
      */
     get mode() { return this._mode; }
 
+    /**
+     * The environment whose spread this is, `{ number, id, name }`, when
+     * design.monteCarlo() was given `env`; null without one, when it is
+     * environment 1's, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('(HL)^2');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const mc of await design.monteCarlo(400, 700, { step: 10, runs: 5, seed: 1, env: 'all' })) console.log(mc.environment.number, mc.environment.name, Math.max(...mc.stdev));
+     */
+    get environment() { return this._environment; }
+
     // What console.log prints for a Monte Carlo result.
     [inspect.custom]() { return `<MonteCarlo ${this.runs} trials of ${this.quantity}, seed ${this.seed}>`; }
 }
@@ -595,6 +609,24 @@ export class Yield {
      */
     get mode() { return this._result.mode; }
 
+    /**
+     * On a design with more than one environment, each environment that is
+     * on, in order, with its own yield, its checks alone: `{ number, id,
+     * name, value, passCount, evaluated, interval }`, as the yield's own
+     * attributes are named; null on a design with one environment.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const env of (await design.specification.estimateYield(20, { seed: 1 })).environments) console.log(env.number, env.name, env.value);
+     */
+    get environments() {
+        return this._result.environments?.map(({ number, id, name, yield: value, passCount, evaluated, yieldInterval }) =>
+            ({ number, id, name, value, passCount, evaluated, interval: yieldInterval })) ?? null;
+    }
+
     // What console.log prints for a yield.
     [inspect.custom]() { return `<Yield ${this.value} (${this.passCount} of ${this.evaluated} checked), seed ${this.seed}>`; }
 }
@@ -708,7 +740,8 @@ export class CheckResult {
      * verdict; `'notComputable'`, a value that came out as no number;
      * `'noCurve'`, a PPEF check whose curve the design does not hold;
      * `'fwhmNotBracketed'` or `'edgeNotCrossed'`, a width or an edge whose
-     * crossing is not inside the band; `'unknownKind'`.
+     * crossing is not inside the band; `'unknownKind'`; `'environmentOff'`,
+     * a check of an environment that is off.
      *
      * @example
      * const design = tf.newDesign('Mirror');
@@ -717,6 +750,37 @@ export class CheckResult {
      * console.log(design.specification.check().rows[0].reason);
      */
     get reason() { return this._row.reason; }
+
+    /**
+     * On a design with more than one environment, the id of the environment
+     * the check is judged in alone; null for a check of every environment
+     * that is on, and on a design with one environment.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.95, env: 2 });
+     * console.log(design.specification.check().rows[0].env);
+     */
+    get env() { return this._row.env ?? null; }
+
+    /**
+     * On a design with more than one environment, the check in each
+     * environment it is judged in, in order: `{ number, id, value, passed,
+     * margin }`, as `value`, `passed` and `margin` are for the check; null on
+     * a design with one environment. The check's own `value` and `margin`
+     * are the first environment's, and its `passed` whether it passes in
+     * each of them.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const v of design.specification.check().rows[0].values) console.log(v.number, v.value, v.passed);
+     */
+    get values() { return this._row.values ?? null; }
 
     // What console.log prints for a check's result; a disabled check is not judged.
     [inspect.custom]() {
@@ -802,6 +866,21 @@ export class SpecReport {
      * console.log(design.specification.check().mode);
      */
     get mode() { return this._verdict.mode; }
+
+    /**
+     * On a design with more than one environment, each environment judged,
+     * those that are on (environment 1 when none is), in order: `{ number,
+     * id, name, passed, passing, total }`, the verdict of the checks judged
+     * there alone; null on a design with one environment.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const env of design.specification.check().environments) console.log(env.number, env.name, env.passing, 'of', env.total);
+     */
+    get environments() { return this._verdict.environments ?? null; }
 
     // What console.log prints for a verdict.
     [inspect.custom]() { return `<SpecReport ${this.passing} of ${this.total} checks pass>`; }

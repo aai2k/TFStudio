@@ -361,6 +361,19 @@ export class SpecCheck {
      */
     get curveId() { return this._check.curveId ?? null; }
 
+    /**
+     * The id of the environment the check is judged in alone; null for a
+     * check of every environment that is on.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^5 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.95, env: 2 });
+     * console.log(design.specification.rows[0].env);
+     */
+    get env() { return this._check.env ?? null; }
+
     // What console.log prints for a check.
     [inspect.custom]() { return `<SpecCheck ${this.kind} ${this.cmp} ${this.cmp === 'between' ? `${this.lo}..${this.hi}` : this.target}>`; }
 }
@@ -420,9 +433,11 @@ export class Specification {
      * @param [options.curveId] For PPEF, the id of one of the design's measured curves.
      * @param [options.label=''] The check's label.
      * @param [options.enabled=true] `false` leaves the check out of the verdict.
+     * @param [options.env] On a design with more than one environment, the environment the check is judged in alone, by its number from 1 or its id; the check holds the id. Without it, the check is judged in every environment that is on.
      * @throws a kind this version does not evaluate, a field no check has, a value its field cannot take, a band whose end is below its start, or a `hi` below `lo`
      * @throws a wavelength the kind does not read, more than `start` and `end` before the options, or the check's kind, wavelengths or id among the options
      * @throws a preset the window does not offer, a field the check gives otherwise than its preset sets it, a PPEF check whose curve is not one of the design's measured curves, or a flag on a check with no Step
+     * @throws an `env` on a design with one environment, or one that names no environment of the design
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^5 H');
@@ -501,7 +516,10 @@ export class Specification {
     /**
      * The design as it is now judged against its specification, as the
      * Specification window judges it: each check read at its own Step, and
-     * averaged over the design's cone of incidence when it has one.
+     * averaged over the design's cone of incidence when it has one. A design
+     * with more than one environment is judged in each environment that is
+     * on, and a check passes when it passes in each environment it is judged
+     * in.
      *
      * @returns A SpecReport.
      * @throws a design with no check
@@ -525,7 +543,10 @@ export class Specification {
      * is judged by every enabled check, at the check's own Step, on what the
      * design's `sides` and `scoreOn` say. The trials draw the errors
      * design.monteCarlo() draws with the same seed and settings, so the yield
-     * is its `spec`; no spread is computed. The design is not changed.
+     * is its `spec`; no spread is computed. On a design with more than one
+     * environment a trial meets the specification when every enabled check
+     * passes in every environment it is judged in, and `environments` gives
+     * each environment's own yield. The design is not changed.
      *
      * @param runs How many trials, a whole number of 1 or more.
      * @param [options]

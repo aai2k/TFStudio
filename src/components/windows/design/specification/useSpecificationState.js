@@ -2,6 +2,7 @@ import {
     makeQualifier, aggregateVerdict, qualifiersToMFOperands, startingSide,
 } from '../../../../utils/synthesis/qualifiers.js';
 import { applyPreset } from '../../../../utils/synthesis/qualifierPresets.js';
+import { rowInEnvironment } from '../../../../utils/environments/environments.js';
 import { useTableShortcuts } from '../../../../hooks/useTableShortcuts.js';
 import { specificationSession } from './sessionState.js';
 import { useSpecificationResults } from './useSpecificationResults.js';
@@ -18,6 +19,12 @@ export function addQualifierTo(qualifiers, writeQualifiers, setSelectedId, kind,
 
 export function updateQualifierIn(qualifiers, writeQualifiers, id, patch, design) {
     writeQualifiers(qualifiers.map(q => q.id === id ? { ...q, ...startingSide(patch.kind, design, q.side), ...patch } : q));
+}
+
+// The check of id `id` judged in environment `env` alone, or, with `env`
+// null, in every environment.
+export function setQualifierEnvIn(qualifiers, writeQualifiers, id, env) {
+    writeQualifiers(qualifiers.map(q => (q.id === id ? rowInEnvironment(q, env) : q)));
 }
 
 function removeQualifierFrom(qualifiers, writeQualifiers, setSelectedId, id) {
@@ -128,6 +135,10 @@ export function useSpecificationState({ design, updateDesign, checkpoint }) {
         removeQualifierFrom(qualifiers, writeQualifiers, setSelectedId, id),
     [qualifiers, writeQualifiers]);
 
+    const setQualifierEnv = useCallback((id, env) =>
+        setQualifierEnvIn(qualifiers, writeQualifiers, id, env),
+    [qualifiers, writeQualifiers]);
+
     const insertQualifierAt = useCallback((insertIdx, source) =>
         insertQualifierInto({ qualifiers, writeQualifiers, setSelectedId, containerRef }, insertIdx, source),
     [qualifiers, writeQualifiers]);
@@ -157,7 +168,7 @@ export function useSpecificationState({ design, updateDesign, checkpoint }) {
     return {
         qualifiers, results, verdict,
         selectedId, containerRef, selectAndFocus,
-        addQualifier, updateQualifier, removeQualifier, duplicateQualifier,
+        addQualifier, updateQualifier, removeQualifier, duplicateQualifier, setQualifierEnv,
         writeQualifiers, qualifierKeyDown, generateMF, onApplyBuiltinPreset,
     };
 }

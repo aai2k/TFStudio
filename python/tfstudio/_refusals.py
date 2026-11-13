@@ -79,10 +79,16 @@ def _base_environment(fields, words):
             .format(words.name(fields["option"])))
 
 
+# What each call that takes env on an entry calls one: setMerit a row,
+# setSpecification a check.
+_ENTRY_OF = {"setMerit": "row", "setSpecification": "check"}
+
+
 def _one_environment(fields, words):
-    if fields.get("call") == "setMerit":
-        return "the design has one environment, so a row takes no {}; add another with design.environments.add()".format(
-            words.name(fields["option"]))
+    entry = _ENTRY_OF.get(fields.get("call"))
+    if entry:
+        return "the design has one environment, so a {} takes no {}; add another with design.environments.add()".format(
+            entry, words.name(fields["option"]))
     return ("the design has one environment, which holds no {} until another is added; "
             "add one with design.environments.add()".format(words.name(fields["option"])))
 

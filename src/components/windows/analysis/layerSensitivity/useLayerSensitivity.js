@@ -10,10 +10,22 @@ import {
 } from './viewModel.js';
 import { layerSensitivitySession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
 
 const { useMemo } = React;
 const NO_OPERANDS = [];
 const NO_ROWS = Object.freeze({ rows: [], mf0: null });
+
+/**
+ * The merit the ranking probes, as computeLayerSensitivity's `env` takes it:
+ * none on a design without environments, 'all' under All, the merit over every
+ * environment that is on, and otherwise the id of the environment shown, whose
+ * own merit is probed.
+ */
+export function probedEnvironment(environment) {
+    if (!environment.shown) return null;
+    return environment.every ? 'all' : environment.views[0].id;
+}
 
 function buildMaterialColorMap(design) {
     const resolveMaterial = designMaterialLookup(design);
@@ -73,10 +85,12 @@ export function useLayerSensitivity() {
     const setShowChart = value => setField('showChart', value);
     const operands = design?.meritOperands || NO_OPERANDS;
     const sensHasLayers = hasSensitivityLayers(design);
+    const environment = useEnvironmentChoice(design, { overlay: true });
+    const env = probedEnvironment(environment);
 
     const options = useMemo(
-        () => ({ mode, relPct, absDeltaNm, includeLocked }),
-        [mode, relPct, absDeltaNm, includeLocked]);
+        () => ({ mode, relPct, absDeltaNm, includeLocked, ...(env ? { env } : {}) }),
+        [mode, relPct, absDeltaNm, includeLocked, env]);
     const ranking = useSensitivityRanking(sensHasLayers ? design : null, operands, options, isOptimizing);
     let result = null;
     if (sensHasLayers) result = operands.length ? ranking : { rows: [], mf0: 0, noOperands: true };
@@ -91,7 +105,7 @@ export function useLayerSensitivity() {
     return {
         design, operands, sensHasLayers, result, error: result?.error || null,
         provisional: !!result?.mfProvisional, busy: !!result?.busy, failed: !!result?.failed,
-        matColorMap, specDesigns, ...viewModel,
+        matColorMap, specDesigns, ...viewModel, environment,
         mode, setMode, relPct, setRelPct, absDeltaNm, setAbsDeltaNm,
         includeLocked, setIncludeLocked, scale, setScale,
         showChart, setShowChart,

@@ -38,6 +38,8 @@
  *   documents, read back as SpecChecks, removed and cleared, the verdict of
  *   check(), estimateYield() with a seed, its documented defaults, progress,
  *   stop and a progress that throws, and a Monte Carlo run's spec as a Yield;
+ *   on a design with environments a check of one environment, the verdict
+ *   and the yield of each environment, and env refused on a design with one;
  *   clean() changing the design in place to what cleanDesign gives, its
  *   options by the objects' names, side 'back' leaving the front exactly as
  *   it was, its defaults and a symmetric design's back, its operations naming
@@ -56,7 +58,8 @@
  *   defaults and each argument, its Curves, a GroupDelay's CSV, and its
  *   refusals in the objects' words; refine and synthesize with seeds, Monte
  *   Carlo with a seed and layer sensitivity, its step 'nm' or 'percent', with
- *   back rows and locked rows; the Progress objects of a refinement, a Needle
+ *   back rows and locked rows, and both of one environment or of each; the
+ *   Progress objects of a refinement, a Needle
  *   run, a Deep Synthesis run and a Monte Carlo run; a stop aborted in
  *   progress and before the run, a run of each method stopped part way leaving
  *   the design as it was, Deep Synthesis's included, a progress function that
@@ -674,7 +677,7 @@ const SPEC_FIELDS = {
     kind: 'kind', label: 'label', enabled: 'enabled', cmp: 'cmp', target: 'target', tol: 'tol', lo: 'lo', hi: 'hi', wavelength: 'lambda',
     start: 'lambdaStart', end: 'lambdaEnd', aoi: 'aoi', pol: 'pol', channel: 'channel', direction: 'direction', level: 'level',
     edgeSide: 'edgeSide', flag: 'flag', side: 'side', presetKey: 'presetKey', presetLabel: 'presetLabel', source: 'source',
-    detector: 'detector', bandPoints: 'bandPoints', curveId: 'curveId',
+    detector: 'detector', bandPoints: 'bandPoints', curveId: 'curveId', env: 'env',
 };
 // A mirror whose checks a few % of thickness error fails now and then, and a
 // check left out of the verdict.
@@ -803,6 +806,34 @@ const yieldThere = (spec, seed, mode) => [spec.yield, spec.passCount, spec.evalu
     const how = await yielded.specification.estimateYield(20, { seed: 2, progress: () => { if (++calls === 3) throw thrown; } }).then(() => 'resolved', err => err);
     ok('a progress function that throws ends the run, which rejects with it, calling progress no more, the design as it was',
         how === thrown && calls === 3 && canon(yielded._data) === canon(kept), `${how} ${calls}`);
+}
+{
+    // A specification on a design with environments: a check of one
+    // environment, the verdict in each environment, and each environment's
+    // own yield, as the plain calls give them.
+    const wet = yielded.copy();
+    wet.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+    wet.specification.add('R_AT', 550, { cmp: 'ge', target: 0.9, env: 2 });
+    const report = wet.specification.check();
+    const verdict = api.checkSpecification(wet._data);
+    ok('specification.add() takes env by number and the check holds the environment\'s id',
+        wet.specification.rows.map(check => check.env).join() === ',,,,env2' && wet._data.qualifiers[4].env === 'env2', canon(wet.specification.rows.map(check => check.env)));
+    ok('check() gives each environment\'s verdict, and each row its env and values, as checkSpecification does',
+        canon([report.environments, report.rows.map(r => [r.env, r.values, r.passed])]) === canon([verdict.environments, verdict.rows.map(r => [r.env, r.values, r.passed])])
+        && report.environments.length === 2 && report.rows[0].values.length === 2 && report.rows[4].values.length === 1, canon(report.environments));
+    ok('a design with one environment gives none', yielded.specification.check().environments === null
+        && yielded.specification.check().rows.every(r => r.env === null && r.values === null));
+    const y = await wet.specification.estimateYield(20, ERRORS);
+    const there = await api.estimateYield(wet._data, { runs: 20, ...ERRORS });
+    ok('estimateYield() gives each environment\'s own yield, named as the yield\'s attributes are',
+        canon(y.environments) === canon(there.environments.map(({ number, id, name, yield: value, passCount, evaluated, yieldInterval: interval }) =>
+            ({ number, id, name, value, passCount, evaluated, interval })))
+        && y.environments.length === 2, canon(y.environments));
+    const envWords = [await refused(() => yielded.copy().specification.add('R_AT', 550, { env: 2 })), await refused(() => wet.specification.add('R_AT', 550, { env: 5 }))];
+    ok('env is refused on a design with one environment, and an environment the design does not have, in the objects\' words', canon(envWords) === canon([
+        'add: the design has one environment, so a check takes no env; add another with design.environments.add()',
+        'add: environment 5: the design has 2 environments, numbered from 1',
+    ]), canon(envWords));
 }
 {
     // The refusals of the checks and the yield in the objects' words.
@@ -1176,7 +1207,34 @@ const startData = start._data;
     const badStep = await refused(() => start.layerSensitivity({ step: 'relative' }));
     const apiName = await refused(() => start.layerSensitivity({ mode: 'relative' }));
     ok('a step other than \'nm\' and \'percent\' is refused, and so is the API\'s mode', badStep === 'layerSensitivity: step is \'nm\' or \'percent\', not "relative"'
-        && apiName === "layerSensitivity: unknown option 'mode'; the options are step, deltaNm, relPct, includeLocked", `${badStep} / ${apiName}`);
+        && apiName === "layerSensitivity: unknown option 'mode'; the options are step, deltaNm, relPct, includeLocked, env", `${badStep} / ${apiName}`);
+
+    // On a design with environments: monteCarlo() of one environment and of
+    // each, from the same trials, each naming its environment, and
+    // layerSensitivity() of one environment and of all of them, as the plain
+    // calls give them.
+    const wet = start.copy();
+    wet.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+    wet.environments.add({ name: 'Edge', thicknessFactors: { TiO2: 0.9 } });
+    const RUN = { step: 10, runs: 5, seed: 3 };
+    const spreadOf = m => [m.environment, m.wavelength, m.theory, m.mean, m.stdev, m.lower, m.upper, m.lowest, m.highest, m.runs, m.seed];
+    const plainSpread = (r, environment) => [environment, r.lambda, r.theory, r.mean, r.stdev, r.lower, r.upper, r.envLower, r.envUpper, r.nTrials, r.seed];
+    const runs = [await wet.monteCarlo(450, 650, RUN), await wet.monteCarlo(450, 650, { ...RUN, env: 'env2' }), ...await wet.monteCarlo(450, 650, { ...RUN, env: 'all' })];
+    const plainAll = (await api.monteCarlo(wet._data, { from: 450, to: 650, ...RUN, env: 'all' })).environments;
+    const plainRuns = [plainSpread(await api.monteCarlo(wet._data, { from: 450, to: 650, ...RUN }), null),
+        plainSpread(await api.monteCarlo(wet._data, { from: 450, to: 650, ...RUN, env: 2 }), { number: 2, id: 'env2', name: 'Under water' }),
+        ...plainAll.map(({ number, id, name, ...r }) => plainSpread(r, { number, id, name }))];
+    ok('monteCarlo() without env is environment 1\'s and names none; with env it names it, and gives a MonteCarlo per environment for \'all\'',
+        canon(runs.map(spreadOf)) === canon(plainRuns) && runs.length === 5 && runs.every(m => m instanceof objects.MonteCarlo), canon(runs.map(m => m.environment)));
+    const probed = [wet.layerSensitivity({ deltaNm: 2 }), wet.layerSensitivity({ deltaNm: 2, env: 3 }), wet.layerSensitivity({ deltaNm: 2, env: 'all' })];
+    const plainProbed = [undefined, 3, 'all'].map(env => api.layerSensitivity(wet._data, { deltaNm: 2, env }));
+    ok('layerSensitivity() takes env as the plain call does: environment 1 without it, one environment, or the merit over all of them',
+        canon(probed.map(objectRanks)) === canon(plainProbed.map(r => apiRanks(r, wet._data.frontLayers.length)))
+        && canon(probed.map(r => r.merit)) === canon(plainProbed.map(r => r.mf0)) && new Set(probed.map(r => r.merit)).size === 3, canon(probed.map(r => r.merit)));
+    const unknownEnv = [await refused(() => wet.monteCarlo(450, 650, { ...RUN, env: 4 })), await refused(() => wet.layerSensitivity({ env: 'env9' }))];
+    const other = "one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3";
+    ok('an environment the design does not have is refused in the objects\' words', canon(unknownEnv) === canon([
+        `monteCarlo: env is 'all' or ${other}; not 4`, `layerSensitivity: env is 'all' or ${other}; not "env9"`]), canon(unknownEnv));
 }
 
 // ── Progress ────────────────────────────────────────────────────────────────
@@ -1360,7 +1418,7 @@ const THROWN_AS_DOCUMENTED = ['rejected with it', 0, true];
         [() => front.merit.add('RAV', 450, 650, { type: 'TAV' }), "add: unknown option 'type'; a row's type, start and end are add()'s arguments"],
         [() => front.spectrum(700, 400), 'spectrum: start and end are wavelengths in nm, 0 < start < end'],
         [() => front.monteCarlo(400, 700, { rnus: 5 }), "monteCarlo: unknown option 'rnus'; the options are quantity, step, angle, polarization, runs, "
-            + 'thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop'],
+            + 'thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, env, progress, stop'],
         [() => { front.reference = -1; }, 'reference is a wavelength in nm above 0, not -1'],
         [() => { front.substrate.thickness = 0; }, 'substrate.thickness is a thickness in mm above 0, not 0'],
         [() => front.stack('HL', { at: -5 }), 'stack: at is a wavelength in nm above 0, not -5'],

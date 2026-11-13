@@ -5,6 +5,7 @@
 
 import { MaterialHasNoIndexError } from '../../materials/materialIndexAt.js';
 import { wrapMaterial } from '../../misc/variator.js';
+import { BASE_ENVIRONMENT, environmentDesign } from '../../environments/environments.js';
 import { emptyDeviation, needsRefIndex } from './deviationSpec.js';
 import { effectiveForMaterial, effectiveForMedium, effectiveOffsetNm } from './materials.js';
 
@@ -72,22 +73,33 @@ export function perturbMedium(matId, dev, resolveMat) {
  * local id that resolves to its own perturbed material, and every other id
  * resolves as a medium.
  *
+ * In environment `envId` of a design with environments the deviation is made
+ * on the recipe and seen in that environment: each layer f·(d·s + o) thick, f
+ * the factor of its material there, made of the environment's material for it
+ * moved by the Δn and Δk of the recipe's material, between the environment's
+ * media.
+ *
  * @returns {{ design: object, resolve: (id:string)=>object }}
  */
-export function deviatedDesignForSpec(design, dev, resolveMat) {
+export function deviatedDesignForSpec(design, dev, resolveMat, envId = BASE_ENVIRONMENT) {
     const d = dev || emptyDeviation();
     const lamRef = design?.referenceWavelength || 550;
     const layerMats = new Map();
-    const relabel = (layers, side) => {
-        const perturbed = perturbLayers(layers, d, resolveMat, lamRef);
-        return perturbed.map((p, i) => {
-            const id = `__sdLayer:${side}:${i}`;
-            layerMats.set(id, p.material);
-            return { ...layers[i], material: id, thickness: p.thickness };
-        });
+    const deviated = {
+        front: perturbLayers(design?.frontLayers, d, resolveMat, lamRef),
+        back: perturbLayers(design?.backLayers, d, resolveMat, lamRef),
     };
+    const recipe = (layers, side) => (layers || []).map((layer, i) => ({ ...layer, thickness: deviated[side][i].thickness }));
+    const seen = environmentDesign({ ...design, frontLayers: recipe(design?.frontLayers, 'front'), backLayers: recipe(design?.backLayers, 'back') }, envId);
+    const relabel = (layers, side) => (layers || []).map((layer, i) => {
+        const id = `__sdLayer:${side}:${i}`;
+        const shown = seen[`${side}Layers`][i];
+        const { dn, dk } = effectiveForMaterial(d, layer.material);
+        layerMats.set(id, shown.material === layer.material ? deviated[side][i].material : wrapMaterial(resolveMat(shown.material), dn, dk));
+        return { ...layer, material: id, thickness: shown.thickness };
+    });
     const devDesign = {
-        ...design,
+        ...seen,
         frontLayers: relabel(design?.frontLayers, 'front'),
         backLayers:  relabel(design?.backLayers, 'back'),
     };

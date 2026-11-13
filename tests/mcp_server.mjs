@@ -27,7 +27,9 @@
  *      the spectrum, a band's peak, an edge against angle, the colour, the
  *      integral values, the index profile, the admittance locus, the electric
  *      field, Psi and Delta and the group delay of one environment and of
- *      each, an environment it does not have refused,
+ *      each, an environment it does not have refused, a check of one
+ *      environment with the verdict in each, layer sensitivity of one
+ *      environment and of all of them,
  *      and env refused on a design with one environment, merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
@@ -357,6 +359,20 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
             && /color: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noColour.error ?? ''), `${noSuch.error} / ${noColour.error}`);
         const noField = await server.call('electricField', { designId: envId, env: 'env7' });
         ok('and so is one asked of the electric field', /electricField: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noField.error ?? ''), noField.error);
+        // setSpecification takes env on a check, checkSpecification judges
+        // every environment, and layerSensitivity probes the merit env names,
+        // as the API does.
+        const envChecks = [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'le', target: 0.05 }, { kind: 'R_AT', lambda: 550, cmp: 'le', target: 0.02, env: 2 }];
+        const specifiedEnv = await server.call('setSpecification', { designId: envId, checks: envChecks });
+        const judgedEnv = await server.call('checkSpecification', { designId: envId });
+        const verdictHere = api.checkSpecification(api.setSpecification(api.setMerit(envHere, envRows), envChecks));
+        ok('setSpecification takes env on a check, and checkSpecification answers each environment\'s verdict and each row\'s env and values as the API does',
+            JSON.stringify(specifiedEnv) === JSON.stringify({ designId: envId, ...verdictHere }) && JSON.stringify(judgedEnv) === JSON.stringify(specifiedEnv)
+            && judgedEnv.environments.length === 2 && judgedEnv.rows[1].env === 'env2', JSON.stringify(judgedEnv).slice(0, 300));
+        const probedEnv = await Promise.all([2, 'all'].map(env => server.call('layerSensitivity', { designId: envId, deltaNm: 2, env })));
+        ok('layerSensitivity takes env as the API does', JSON.stringify(probedEnv) === JSON.stringify([2, 'all'].map(env => ({ designId: envId,
+            ...JSON.parse(JSON.stringify(api.layerSensitivity(api.setSpecification(api.setMerit(envHere, envRows), envChecks), { deltaNm: 2, env }))) }))),
+            JSON.stringify(probedEnv).slice(0, 300));
     }
     const loneEnv = await server.call('setMerit', { designId: id, rows: [{ type: 'R', lambdaStart: 550, env: 2 }] });
     ok('env on a row of a design with one environment is refused', /setMerit: row 0: the design has one environment, so a row takes no env/.test(loneEnv.error ?? ''), loneEnv.error);

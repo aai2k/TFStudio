@@ -9,7 +9,7 @@ import { computeColorReports } from '../../components/windows/analysis/colorEval
 import { computePulseAnalysis } from '../../components/windows/analysis/pulseAnalysis/pulseModel.js';
 import { designMaterialLookup, unresolvedMaterials } from '../materials/designMaterials.js';
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
-import { evaluateQualifiers } from '../synthesis/qualifiers.js';
+import { evaluateSpecification } from '../environments/environmentSpecification.js';
 import { runErrorAnalysisMC, computeLayerSensitivity } from '../physics/errorAnalysis.js';
 import { toleranceSpecInputs } from '../../components/windows/analysis/toleranceSpecInputs.js';
 import { computeCurveResults } from '../../components/windows/analysis/plotEngine/curveResults.js';
@@ -29,12 +29,12 @@ function meritScore(design, operands) {
 }
 
 // A design's Specification results as `options` asks (qualifiers/evaluate.js),
-// judged on the design `recipe` makes of it (toleranceSpecInputs.js), or null
-// when a material it uses resolves nowhere.
+// judged in each of its environments on the design `recipe` makes of it there
+// (environmentSpecification.js, toleranceSpecInputs.js), or null when a
+// material it uses resolves nowhere.
 function specificationResults(design, options, recipe) {
     try {
-        const { design: judged, resolve } = toleranceSpecInputs(design, recipe);
-        return evaluateQualifiers(design.qualifiers || [], judged, resolve, options);
+        return evaluateSpecification(design.qualifiers || [], design, options, id => toleranceSpecInputs(design, recipe, id));
     } catch {
         return null;
     }

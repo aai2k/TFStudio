@@ -2571,9 +2571,9 @@ Why it ended. On its own: `'target'` (with `stopMF`, the merit that reached it);
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `await design.monteCarlo(start, end, { runs, step, quantity, angle, polarization, thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop })` | `design.monte_carlo(start, end, runs=100, step=1, quantity="R", angle=0, polarization="avg", thickness_rel_pct=1, thickness_abs_nm=0, index_re=0, index_im=0, distribution="gaussian", seed=..., progress=..., stop=...)` |
+| `await design.monteCarlo(start, end, { runs, step, quantity, angle, polarization, thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop, env })` | `design.monte_carlo(start, end, runs=100, step=1, quantity="R", angle=0, polarization="avg", thickness_rel_pct=1, thickness_abs_nm=0, index_re=0, index_im=0, distribution="gaussian", seed=..., progress=..., stop=..., env=...)` |
 
-Monte Carlo trials of the design with random layer errors, as the Monte Carlo window runs them: the spread of one quantity over a range of wavelengths, computed on what the design's `sides` and `scoreOn` / `score_on` say. With the design's specification, the share of trials that meet it is counted too. The design is not changed.
+Monte Carlo trials of the design with random layer errors, as the Monte Carlo window runs them: the spread of one quantity over a range of wavelengths, computed on what the design's `sides` and `scoreOn` / `score_on` say. With the design's specification, the share of trials that meet it is counted too. A design with more than one environment is computed in environment 1, its own media and substrate, unless `env` names another; each environment sees every trial's coating with its own media, substrate, thickness factors and material swaps, and a trial meets the specification when every enabled check passes in every environment it is judged in. The design is not changed.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -2592,12 +2592,13 @@ Monte Carlo trials of the design with random layer errors, as the Monte Carlo wi
 | `seed` | `seed` |  | The number the draws start from, a whole number from 1 to 2^32 - 1; the same seed and settings repeat the run. Without it, a fresh one, which the result reports. |
 | `progress` | `progress` |  | **JavaScript**: A function called with a Progress (`trial` and `total`) as the trials go. An error it throws ends the run, which then rejects with it.<br>**Python**: A function called with a Progress (trial and total) as the trials go. An exception it raises stops the run and goes on. |
 | `stop` | `stop` |  | **JavaScript**: An AbortSignal; aborting its AbortController ends the run, which then answers with the trials it made.<br>**Python**: A tfstudio.Stop whose stop() ends the run, which then answers with the trials it made. |
+| `env` | `env` |  | The environment whose spread is computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one spread per environment that is on, environment 1 when none is, all from the same trials. Without it, environment 1. |
 
-**Returns**: **JavaScript**: A promise of a MonteCarlo.<br>**Python**: A MonteCarlo.
+**Returns**: **JavaScript**: A promise of a MonteCarlo; with `env: 'all'`, of an array of them, one per environment, each with its `environment`.<br>**Python**: A MonteCarlo; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- a design with no layer the trials can change on the side it is scored on, a setting it does not take, a value outside its range, or a design that names a material that resolves to nothing
+- a design with no layer the trials can change on the side it is scored on, a setting it does not take, a value outside its range, a design that names a material that resolves to nothing, or an environment the design does not have
 - Python raises `KeyboardInterrupt`: Ctrl+C during the run, after stopping it
 
 ```js
@@ -2605,6 +2606,8 @@ const design = tf.newDesign('AR');
 design.stack('(HL)^2');
 const mc = await design.monteCarlo(400, 700, { runs: 50, step: 5, thicknessRelPct: 2, seed: 1 });
 console.log('Largest spread of R:', Math.max(...mc.stdev));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of await design.monteCarlo(400, 700, { runs: 50, step: 5, seed: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, Math.max(...one.stdev));
 ```
 
 ```python
@@ -2612,15 +2615,18 @@ design = tf.new_design("AR")
 design.stack("(HL)^2")
 mc = design.monte_carlo(400, 700, runs=50, step=5, thickness_rel_pct=2, seed=1)
 print("Largest spread of R:", max(mc.stdev))
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.monte_carlo(400, 700, runs=50, step=5, seed=1, env="all"):
+    print(one.environment["number"], one.environment["name"], max(one.stdev))
 ```
 
 ### layerSensitivity / layer_sensitivity
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.layerSensitivity({ step, deltaNm, relPct, includeLocked })` | `design.layer_sensitivity(step="nm", delta_nm=1, rel_pct=1, include_locked=False)` |
+| `design.layerSensitivity({ step, deltaNm, relPct, includeLocked, env })` | `design.layer_sensitivity(step="nm", delta_nm=1, rel_pct=1, include_locked=False, env=...)` |
 
-How much the merit moves when each layer's thickness is off, as the Layer Sensitivity window ranks the layers: each layer is made thicker and thinner by a step, and the mean change of the merit is its score. The merit here leaves out the MNT and MXT rows.
+How much the merit moves when each layer's thickness is off, as the Layer Sensitivity window ranks the layers: each layer is made thicker and thinner by a step, and the mean change of the merit is its score. The merit here leaves out the MNT and MXT rows. On a design with more than one environment the step is made on the recipe thickness and seen in an environment as f·(d ± step), f the thickness factor of the layer's material there.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -2628,18 +2634,21 @@ How much the merit moves when each layer's thickness is off, as the Layer Sensit
 | `deltaNm` | `delta_nm` | `1` | The step, nm, with step `'nm'`. |
 | `relPct` | `rel_pct` | `1` | The step, % of each layer, with step `'percent'`. |
 | `includeLocked` | `include_locked` | `false` / `False` | `true` / `True` scores the locked layers too. |
+| `env` | `env` |  | The environment whose merit is probed, by its number from 1 or its id, whether it is on or off: the rows scored there, on the design it computes; or `'all'`, the merit over every environment that is on, √((1/N) Σ MF_k²). Without it, environment 1. |
 
 **Returns**: A LayerSensitivity.
 
 **Refuses**:
 
-- a design with no merit function, a step other than `'nm'` or `'percent'`, or a value a setting cannot take
+- a design with no merit function, a step other than `'nm'` or `'percent'`, a value a setting cannot take, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('AR');
 design.stack('(HL)^2');
 design.merit.add('RAV', 450, 650, { target: 0 });
 for (const row of design.layerSensitivity({ deltaNm: 2 }).rows) console.log(row.side, row.number, row.material, row.sensitivity);
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95 } });
+console.log('merit over both environments:', design.layerSensitivity({ deltaNm: 2, env: 'all' }).merit);
 ```
 
 ```python
@@ -2648,6 +2657,8 @@ design.stack("(HL)^2")
 design.merit.add("RAV", 450, 650, target=0)
 for row in design.layer_sensitivity(delta_nm=2).rows:
     print(row.side, row.number, row.material, row.sensitivity)
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95})
+print("merit over both environments:", design.layer_sensitivity(delta_nm=2, env="all").merit)
 ```
 
 ### copy
@@ -3322,7 +3333,7 @@ print(edge.number, edge.name, edge.thickness_factors)
 | ---------- | ------ |
 | `design.environments.remove(number)` | `design.environments.remove(number)` |
 
-Takes environment `number` out, with the merit rows scored in it alone and the rows that read them; the environments after it move one number down.
+Takes environment `number` out, with the merit rows scored in it alone, the rows that read them and the specification checks judged in it alone; the environments after it move one number down.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -3653,7 +3664,7 @@ print(water.follows)
 | ---------- | ------ |
 | `env.remove()` | `env.remove()` |
 
-Takes the environment out of the design, with the merit rows scored in it alone and the rows that read them. The environments after it move one number down.
+Takes the environment out of the design, with the merit rows scored in it alone, the rows that read them and the specification checks judged in it alone. The environments after it move one number down.
 
 **Refuses**:
 
@@ -4334,7 +4345,7 @@ print(report.passed, [row.margin for row in report.rows])
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.specification.add(kind, start, end, { cmp, target, tol, lo, hi, aoi, pol, channel, direction, level, edgeSide, flag, side, presetKey, presetLabel, source, detector, bandPoints, curveId, label, enabled })` | `design.specification.add(kind, start=..., end=..., cmp="ge", target=0.99, tol=..., lo=0.95, hi=1, aoi=0, pol="avg", channel="T", direction="max", level=0.5, edge_side=..., flag=..., side=..., preset_key="", preset_label="", source=..., detector=..., band_points=..., curve_id=..., label="", enabled=True)` |
+| `design.specification.add(kind, start, end, { cmp, target, tol, lo, hi, aoi, pol, channel, direction, level, edgeSide, flag, side, presetKey, presetLabel, source, detector, bandPoints, curveId, label, enabled, env })` | `design.specification.add(kind, start=..., end=..., cmp="ge", target=0.99, tol=..., lo=0.95, hi=1, aoi=0, pol="avg", channel="T", direction="max", level=0.5, edge_side=..., flag=..., side=..., preset_key="", preset_label="", source=..., detector=..., band_points=..., curve_id=..., label="", enabled=True, env=...)` |
 
 Adds a check at the end of the specification, made as the Specification window makes a row: a field left out takes the value a row added there starts with, and a thickness budget or layer count given no side adds up the side the design coats. The wavelengths follow the kind: one, `start`, for a check at one wavelength, `start` and `end` for a check over a band, and none for THICKNESS_BUDGET, LAYER_COUNT and PPEF. An INTEGRAL check given a preset takes its band from the preset, so its `start` and `end` may be left out.
 
@@ -4364,12 +4375,14 @@ Adds a check at the end of the specification, made as the Specification window m
 | `curveId` | `curve_id` |  | For PPEF, the id of one of the design's measured curves. |
 | `label` | `label` | `''` | The check's label. |
 | `enabled` | `enabled` | `true` / `True` | `false` / `False` leaves the check out of the verdict. |
+| `env` | `env` |  | On a design with more than one environment, the environment the check is judged in alone, by its number from 1 or its id; the check holds the id. Without it, the check is judged in every environment that is on. |
 
 **Refuses**:
 
 - a kind this version does not evaluate, a field no check has, a value its field cannot take, a band whose end is below its start, or a `hi` below `lo`
 - **JavaScript**: a wavelength the kind does not read, more than `start` and `end` before the options, or the check's kind, wavelengths or id among the options<br>**Python**: a wavelength the kind does not read, or the check's wavelengths or id among the keyword arguments
 - a preset the window does not offer, a field the check gives otherwise than its preset sets it, a PPEF check whose curve is not one of the design's measured curves, or a flag on a check with no Step
+- an `env` on a design with one environment, or one that names no environment of the design
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -4498,7 +4511,7 @@ print(len(design.specification), "check")
 | ---------- | ------ |
 | `design.specification.check()` | `design.specification.check()` |
 
-The design as it is now judged against its specification, as the Specification window judges it: each check read at its own Step, and averaged over the design's cone of incidence when it has one.
+The design as it is now judged against its specification, as the Specification window judges it: each check read at its own Step, and averaged over the design's cone of incidence when it has one. A design with more than one environment is judged in each environment that is on, and a check passes when it passes in each environment it is judged in.
 
 **Returns**: A SpecReport.
 
@@ -4534,7 +4547,7 @@ print("Passes:", report.passed)
 | ---------- | ------ |
 | `await design.specification.estimateYield(runs, { thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop })` | `design.specification.estimate_yield(runs, thickness_rel_pct=1, thickness_abs_nm=0, index_re=0, index_im=0, distribution="gaussian", seed=..., progress=..., stop=...)` |
 
-The share of Monte Carlo trials with random layer errors that meet the specification, as the Monte Carlo window counts its yield: each trial is judged by every enabled check, at the check's own Step, on what the design's `sides` and `scoreOn` / `score_on` say. The trials draw the errors `design.monteCarlo()` / `design.monte_carlo()` draws with the same seed and settings, so the yield is its `spec`; no spread is computed. The design is not changed.
+The share of Monte Carlo trials with random layer errors that meet the specification, as the Monte Carlo window counts its yield: each trial is judged by every enabled check, at the check's own Step, on what the design's `sides` and `scoreOn` / `score_on` say. The trials draw the errors `design.monteCarlo()` / `design.monte_carlo()` draws with the same seed and settings, so the yield is its `spec`; no spread is computed. On a design with more than one environment a trial meets the specification when every enabled check passes in every environment it is judged in, and `environments` gives each environment's own yield. The design is not changed.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -5147,6 +5160,30 @@ check = design.specification.rows[0]
 print(check.kind, "is taken against no curve:", check.curve_id)
 ```
 
+### env
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.env` | `check.env` |
+
+The id of the environment the check is judged in alone; `null` / `None` for a check of every environment that is on.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.95, env: 2 });
+console.log(design.specification.rows[0].env);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.specification.add("R_AT", 550, cmp="ge", target=0.95, env=2)
+print(design.specification.rows[0].env)
+```
+
 ## SpecReport
 
 A design judged against its specification, as specification.check() judges it and the Specification window shows it: a CheckResult per check.
@@ -5284,6 +5321,33 @@ design.stack("(HL)^5 H")
 design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
 design.score_on = "whole part"
 print(design.specification.check().mode)
+```
+
+### environments
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.environments` | `report.environments` |
+
+**JavaScript**: On a design with more than one environment, each environment judged, those that are on (environment 1 when none is), in order: `{ number, id, name, passed, passing, total }`, the verdict of the checks judged there alone; null on a design with one environment.
+
+**Python**: On a design with more than one environment, each environment judged, those that are on (environment 1 when none is), in order: a dict of number, id, name, passed, passing and total, the verdict of the checks judged there alone; None on a design with one environment.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const env of design.specification.check().environments) console.log(env.number, env.name, env.passing, 'of', env.total);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.environments.add(name="Under water", incident_medium="H2O")
+for env in design.specification.check().environments:
+    print(env["number"], env["name"], env["passing"], "of", env["total"])
 ```
 
 ## CheckResult
@@ -5471,7 +5535,7 @@ print(held.cmp, held.target, held.tol)
 | ---------- | ------ |
 | `row.reason` | `row.reason` |
 
-Why there is no value, or `null` / `None`: `'disabled'`, a check left out of the verdict; `'notComputable'`, a value that came out as no number; `'noCurve'`, a PPEF check whose curve the design does not hold; `'fwhmNotBracketed'` or `'edgeNotCrossed'`, a width or an edge whose crossing is not inside the band; `'unknownKind'`.
+Why there is no value, or `null` / `None`: `'disabled'`, a check left out of the verdict; `'notComputable'`, a value that came out as no number; `'noCurve'`, a PPEF check whose curve the design does not hold; `'fwhmNotBracketed'` or `'edgeNotCrossed'`, a width or an edge whose crossing is not inside the band; `'unknownKind'`; `'environmentOff'`, a check of an environment that is off.
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -5485,6 +5549,57 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^5 H")
 design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, enabled=False)
 print(design.specification.check().rows[0].reason)
+```
+
+### env
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.env` | `row.env` |
+
+On a design with more than one environment, the id of the environment the check is judged in alone; `null` / `None` for a check of every environment that is on, and on a design with one environment.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.95, env: 2 });
+console.log(design.specification.check().rows[0].env);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.specification.add("R_AT", 550, cmp="ge", target=0.95, env=2)
+print(design.specification.check().rows[0].env)
+```
+
+### values
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.values` | `row.values` |
+
+**JavaScript**: On a design with more than one environment, the check in each environment it is judged in, in order: `{ number, id, value, passed, margin }`, as `value`, `passed` and `margin` are for the check; null on a design with one environment. The check's own `value` and `margin` are the first environment's, and its `passed` whether it passes in each of them.
+
+**Python**: On a design with more than one environment, the check in each environment it is judged in, in order: a dict of number, id, value, passed and margin, as value, passed and margin are for the check; None on a design with one environment. The check's own value and margin are the first environment's, and its passed whether it passes in each of them.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const v of design.specification.check().rows[0].values) console.log(v.number, v.value, v.passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.environments.add(name="Under water", incident_medium="H2O")
+for v in design.specification.check().rows[0].values:
+    print(v["number"], v["value"], v["passed"])
 ```
 
 ## Yield
@@ -5696,6 +5811,33 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^5 H")
 design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
 print(design.specification.estimate_yield(20, seed=1).mode)
+```
+
+### environments
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.environments` | `y.environments` |
+
+**JavaScript**: On a design with more than one environment, each environment that is on, in order, with its own yield, its checks alone: `{ number, id, name, value, passCount, evaluated, interval }`, as the yield's own attributes are named; null on a design with one environment.
+
+**Python**: On a design with more than one environment, each environment that is on, in order, with its own yield, its checks alone: a dict of number, id, name, value, pass_count, evaluated and interval, as the yield's own attributes are named; None on a design with one environment.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const env of (await design.specification.estimateYield(20, { seed: 1 })).environments) console.log(env.number, env.name, env.value);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.environments.add(name="Under water", incident_medium="H2O")
+for env in design.specification.estimate_yield(20, seed=1).environments:
+    print(env["number"], env["name"], env["value"])
 ```
 
 ## Spectrum
@@ -10924,6 +11066,31 @@ console.log((await design.monteCarlo(400, 700, { step: 10, runs: 5 })).mode);
 design = tf.new_design("AR")
 design.stack("(HL)^2")
 print(design.monte_carlo(400, 700, step=10, runs=5).mode)
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `mc.environment` | `mc.environment` |
+
+**JavaScript**: The environment whose spread this is, `{ number, id, name }`, when design.monteCarlo() was given `env`; null without one, when it is environment 1's, the design's own media and substrate.
+
+**Python**: The environment whose spread this is, a dict of number, id and name, when design.monte_carlo() was given env; None without one, when it is environment 1's, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const mc of await design.monteCarlo(400, 700, { step: 10, runs: 5, seed: 1, env: 'all' })) console.log(mc.environment.number, mc.environment.name, Math.max(...mc.stdev));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+for mc in design.monte_carlo(400, 700, step=10, runs=5, seed=1, env="all"):
+    print(mc.environment["number"], mc.environment["name"], max(mc.stdev))
 ```
 
 ## LayerSensitivity

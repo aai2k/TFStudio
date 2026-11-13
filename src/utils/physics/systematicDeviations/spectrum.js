@@ -6,8 +6,28 @@
 import {
     evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal,
 } from '../thinFilmMath.js';
+import { BASE_ENVIRONMENT } from '../../environments/environments.js';
 import { emptyDeviation } from './deviationSpec.js';
-import { perturbLayers, perturbMedium } from './perturb.js';
+import { deviatedDesignForSpec, perturbLayers, perturbMedium } from './perturb.js';
+
+/**
+ * The deviated spectrum (computeDeviatedSpectrum) in environment `envId` of a
+ * design with environments: the deviation made on the recipe and seen in that
+ * environment, as deviatedDesignForSpec builds it, each layer f·(d·s + o)
+ * thick, f the factor of its material there, made of the environment's
+ * material for it moved by the Δn and Δk of the recipe's material, between
+ * the environment's media. Environment 1, the default, is the design itself.
+ *
+ * @param {object} req  { design, params, deviation, evalMode, resolveMat, envId }
+ * @returns as computeDeviatedSpectrum
+ */
+export function deviatedSpectrumIn({ design, params, deviation, evalMode, resolveMat, envId = BASE_ENVIRONMENT }) {
+    if (envId === BASE_ENVIRONMENT) return computeDeviatedSpectrum(design, params, deviation, evalMode, resolveMat);
+    // The deviated design carries the deviation in its layers and media, so it
+    // is computed with none on top.
+    const seen = deviatedDesignForSpec(design, deviation, resolveMat, envId);
+    return computeDeviatedSpectrum(seen.design, params, emptyDeviation(), evalMode, seen.resolve);
+}
 
 /**
  * Compute the (deviated) spectrum for a design.

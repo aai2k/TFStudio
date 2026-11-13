@@ -27,6 +27,8 @@ The ranking is evaluated for the surface mode set in the
 [Design Editor](/design/design-editor/) (front, back, both, or symmetric),
 shown as a badge on the window.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the table says whose merit is probed. **Current** follows the environment the Design Editor and the ribbon show, and an environment picked by its number and name holds the window on that one, even while it is switched off: the merit is that environment's own, over the merit rows scored in it. **All** probes the optical merit over every environment that is on, combined as the merit tables combine the OMF: OMF² = (1/N) Σ OMF_k², N counting the environments that hold an optical row. Each probe is made on the layer list's thickness and seen in an environment as f·(d ± Δd), f the thickness factor of the layer's material there, so the table still lists the layers as the layer list holds them. The choice belongs to this window and is not saved with the design.
+
 ## How to read it
 
 The window is the ranked table: one row per layer, most critical first, with

@@ -4,7 +4,7 @@
  */
 
 import { makeMCConfig, initializeMCState } from './mcConfig.js';
-import { prepareMCTrial } from './mcDraws.js';
+import { prepareMCTrial, trialIn } from './mcDraws.js';
 import { evaluateChar } from './spectrumEval.js';
 import {
     updateMCStatistics,
@@ -74,6 +74,19 @@ import {
  *   - onTrial:        (optional) callback ({i, total, result}) after each completed
  *                     trial; result() is the result of the trials so far, the
  *                     result a run stopped there gives
+ *   - environments:   (optional) on a design with environments, the ids of the
+ *                     environments whose spread is computed (default: environment
+ *                     1 alone). Every trial draws one set of errors; in
+ *                     environment k it is that environment's coating with the same
+ *                     errors, each layer f·(d + Δd) thick, f the factor of its
+ *                     material there, made of the environment's material for it
+ *                     moved by the same Δn and Δk. The top-level spread is the
+ *                     first one's.
+ *
+ * With a specification, a trial passes when every enabled check passes in
+ * every environment it is judged in (environmentSpecification.js); on a design
+ * with environments `spec.environments` gives each environment's own yield, its
+ * checks alone: `{ number, id, name, yield, passCount, evaluated, yieldInterval }`.
  *
  * @returns {{
  *   lambda:    number[],
@@ -87,6 +100,9 @@ import {
  *   seed:      number|null,  // seed the draws came from
  *   settings:  object,       // corridorSigma, rms*, distribution, theta, polarization of this run
  *   spec:      object|null,  // yield, passCount, evaluated, yieldInterval [low, high]
+ *   environments: Array|null, // each spread computed, { number, id, name, lambda, theory,
+ *                             // mean, stdev, lower, upper, envLower, envUpper };
+ *                             // null on a design without environments
  * }}
  */
 export async function runErrorAnalysisMC(design, params, resolveMat, opts = {}) {
@@ -95,16 +111,9 @@ export async function runErrorAnalysisMC(design, params, resolveMat, opts = {}) 
 
     for (let trial = 0; trial < config.nTrials; trial++) {
         const data = prepareMCTrial(config, state);
-        const run = evaluateChar({
-            ...config,
-            frontLayers: data.frontLayers,
-            backLayers: data.backLayers,
-            getMatForLayer: data.getMatForLayer,
-        });
-        updateMCStatistics(state, run[config.char]);
-        const trialSpec = evaluateTrialSpecification(
-            config, state, data.frontLayers, data.backLayers, data.getMatForLayer,
-        );
+        const runs = state.spreads.map(spread => evaluateChar({ ...config, ...trialIn(config, state, data, spread.id) })[config.char]);
+        updateMCStatistics(state, runs);
+        const trialSpec = evaluateTrialSpecification(config, state, data);
         recordMCTrial(config, state, trial, data, trialSpec);
 
         if (config.onTrial) config.onTrial({ i: trial + 1, total: config.nTrials, result: () => finalizeMCResult(config, state) });

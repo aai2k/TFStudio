@@ -87,14 +87,17 @@ export function fieldEdit(design, id, field, value) {
 
 /**
  * The patch that turns `design` into `next`, a design one of the edits in
- * environmentEdits.js returned: its environments, and its merit rows when the
- * edit removed some. A key the edit dropped is given as undefined, which a
- * saved file and the changed-design check leave out.
+ * environmentEdits.js returned: its environments, and its merit rows and its
+ * specification checks when the edit changed them. A key the edit dropped is
+ * given as undefined, which a saved file and the changed-design check leave
+ * out.
  */
 export function environmentPatch(design, next) {
-    return next.meritOperands === design.meritOperands
-        ? { environments: next.environments }
-        : { environments: next.environments, meritOperands: next.meritOperands };
+    return {
+        environments: next.environments,
+        ...(next.meritOperands === design.meritOperands ? {} : { meritOperands: next.meritOperands }),
+        ...(next.qualifiers === design.qualifiers ? {} : { qualifiers: next.qualifiers }),
+    };
 }
 
 /**

@@ -20,6 +20,8 @@ import {
   DASH, pct, num, deg, tt, unitOf, polText, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
 } from './format.js';
 import { qualifierSummary, qualifierValueText } from '../../synthesis/qualifiers.js';
+import { failureOf } from '../../environments/environmentSpecification.js';
+import { environmentLabel } from '../../../components/windows/design/environments/currentEnvironment.js';
 
 /** The block's computed data, or the section to render when there is none. */
 export function blockData(ctx, type, title) {
@@ -96,6 +98,16 @@ export function qualifierLabel(ql, tr) {
   return ql.label || (L.kinds && L.kinds[ql.kind]) || ql.kind;
 }
 
+// A check's Detail cell: its summary, and on a design with environments, for
+// a check that fails, the summary of the environment that fails it, named, as
+// its value, the first environment's, can pass (failureOf).
+function qualifierDetail(r, tr, units) {
+  const { result, environment } = failureOf(r);
+  const text = qualifierSummary(result, tr.summaries, units);
+  if (!environment || typeof tr.failingIn !== 'function') return text;
+  return `${tr.failingIn([environmentLabel(environment, environment.number)])}: ${text}`;
+}
+
 function verdictBanner(v, tr) {
   if (v.total === 0) return '';
   const cls = v.allPass ? 'tf-pass' : 'tf-fail';
@@ -114,7 +126,7 @@ export function buildQualifiers(ctx) {
   const units = qualifierUnits(tr);
   const rows = q.qualifiers.map((ql, i) => {
     const r = q.results[i] || {};
-    return [escapeHtml(qualifierLabel(ql, tr)), escapeHtml(qualifierValueText(r, units)), escapeHtml(qualifierSummary(r, tr.summaries, units)), verdictMark(r.pass)];
+    return [escapeHtml(qualifierLabel(ql, tr)), escapeHtml(qualifierValueText(r, units)), escapeHtml(qualifierDetail(r, tr, units)), verdictMark(r.pass)];
   });
   const headers = [tt(tr, 'requirement', 'Requirement'), tt(tr, 'value', 'Value'), tt(tr, 'detail', 'Detail'), tt(tr, 'verdict', 'Verdict')].map(escapeHtml);
   return wrap('qualifiers', title, verdictBanner(q.verdict, tr) + table(headers, rows, { align: ['l', 'r', 'l', 'l'] }),

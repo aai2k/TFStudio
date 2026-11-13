@@ -27,6 +27,8 @@ badge on the window.
 
 **AOI / pol**: angle of incidence and polarization (s, p, or averaged).
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the spread is drawn in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. A trial draws one set of errors for the coating, and in each environment it is that environment's coating with the same errors: each layer f·(d + Δd) thick, f the thickness factor of its material there, made of the material the environment deposits for it, moved by the same Δn and Δk. A run computes every environment that is on and the one shown, so switching the droplist shows another environment's spread from the same trials at once. Picking one the run left out, one that is off, runs again with the same seed, which draws the same trials. The material range notice reads the environment shown. The choice belongs to this window and is not saved with the design.
+
 ## Errors
 
 What a trial is drawn from lives in the **Errors** strip below the plot, beside
@@ -98,8 +100,13 @@ fraction of trials that pass every requirement) with its **95 % interval** in
 brackets, and a red chip for any requirement that fails, with its fail rate.
 The interval is the range the true yield lies in with 95 % confidence for the
 number of trials run (the Wilson score interval). Two runs whose intervals
-overlap may differ only by chance; more trials narrow it. Open **View trials…**
-for a deeper look: a statistics tab shows the interval and the seed, ranks the
+overlap may differ only by chance; more trials narrow it. On a design with
+environments a trial passes when every requirement passes in every environment it
+is judged in, so the yield counts every environment that is on, whichever one the
+plot shows. Open **View trials…**
+for a deeper look: a statistics tab shows the interval and the seed, on a design
+with environments each environment's own yield (the share of trials whose
+requirements judged there all pass there), ranks the
 worst requirements by fail rate and the worst
 layers (those whose thickness deviates more in failing trials than passing ones,
 or, when nothing fails, those with the largest typical deviation). The trials tab

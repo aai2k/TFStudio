@@ -3,8 +3,8 @@ import { designMaterialLookup } from '../../../../utils/materials/designMaterial
 import { MaterialHasNoIndexError } from '../../../../utils/materials/materialIndexAt.js';
 import {
     cloneDeviation,
-    computeDeviatedSpectrum,
     deviatedDesignForSpec,
+    deviatedSpectrumIn,
     emptyDeviation,
     enumerateUniqueMaterials,
     runDeviationSweep,
@@ -12,15 +12,19 @@ import {
 import { systematicDeviationsSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 import { useAfterRefreshAll } from '../../../../state/refreshAll.js';
+import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
+import { BASE_ENVIRONMENT, hasEnvironments } from '../../../../utils/environments/environments.js';
 import { staleSweepPatch, sweepForDesign, sweepParamKind } from './model.js';
 
 const { useCallback, useEffect, useMemo, useState } = React;
 
-function computeSpectrum(design, params, deviation, evalMode) {
+// The spectrum of `design` with `deviation` made on its recipe and seen in
+// environment `envId` (deviatedSpectrumIn).
+function computeSpectrum(design, params, deviation, evalMode, envId) {
     if (!design?.frontLayers) return { s: null, error: null };
     try {
-        const resolveMaterial = designMaterialLookup(design);
-        return { s: computeDeviatedSpectrum(design, params, deviation, evalMode, resolveMaterial), error: null };
+        const resolveMat = designMaterialLookup(design);
+        return { s: deviatedSpectrumIn({ design, params, deviation, evalMode, resolveMat, envId }), error: null };
     } catch (error) {
         return { s: null, error };
     }
@@ -78,7 +82,15 @@ export function useSystematicDeviations() {
         aoi, pol, sweepChannel, showEditor, showTable,
     } = session;
     const uniqueMats = useMemo(() => enumerateUniqueMaterials(design), [design]);
-    const { sweep, sweepResult } = useDesignSweep(session, uniqueMats, patch);
+    // The environment the deviation is seen in, Current or one the droplist
+    // names; the deviation itself is made on the recipe.
+    const environment = useEnvironmentChoice(design);
+    const shownView = environment.views[0];
+    const envId = shownView.id;
+    const { sweep, sweepResult: sweptIn } = useDesignSweep(session, uniqueMats, patch);
+    // A sweep is drawn in the environment it was run in, and kept for when that
+    // one is shown again.
+    const sweepResult = sweptIn && (sweptIn.envId ?? BASE_ENVIRONMENT) === envId ? sweptIn : null;
     // Memoised so the fallback is one stable object: a fresh one per render would
     // invalidate every memo below it on every render.
     const dev = useMemo(() => session.dev || emptyDeviation(), [session.dev]);
@@ -107,12 +119,12 @@ export function useSystematicDeviations() {
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi, pol]);
     const specDev = useMemo(() => specDesign(design, dev), [design, dev]);
     const baselineM = useMemo(
-        () => computeSpectrum(design, params, emptyDeviation(), evalMode),
-        [design, params, evalMode]
+        () => computeSpectrum(design, params, emptyDeviation(), evalMode, envId),
+        [design, params, evalMode, envId]
     );
     const deviatedM = useMemo(
-        () => computeSpectrum(design, params, dev, evalMode),
-        [design, params, dev, evalMode]
+        () => computeSpectrum(design, params, dev, evalMode, envId),
+        [design, params, dev, evalMode, envId]
     );
 
     const runSweep = useCallback(() => {
@@ -123,19 +135,20 @@ export function useSystematicDeviations() {
             try {
                 const result = runDeviationSweep({
                     design, params, baseDev: sweepBaseDeviation(sweep), sweep, evalMode,
-                    resolveMat: designMaterialLookup(design),
+                    resolveMat: designMaterialLookup(design), envId,
                 });
                 // The window names the parameter when it draws, in the UI
                 // language of that moment.
                 result.param = sweep.param;
                 result.offsetUnit = sweep.offsetUnit || 'nm';
+                if (hasEnvironments(design)) result.envId = envId;
                 setSweepResult(result);
             } catch (caught) {
                 setError(caught);
             }
             setSweepRunning(false);
         }, 0);
-    }, [design, params, sweep, evalMode]);
+    }, [design, params, sweep, evalMode, envId]);
 
     // A sweep that has been run is run again after Refresh all, against the
     // files just read.
@@ -169,7 +182,7 @@ export function useSystematicDeviations() {
         sweep, sweepChannel, sweepResult, sweepRunning,
         error, computeError: deviatedM.error || baselineM.error,
         baseline: baselineM.s, deviated: deviatedM.s,
-        uniqueMats, specDev,
+        uniqueMats, specDev, environment, shownDesign: shownView.design,
         setMode, setChannel, setShowBaseline,
         setLambdaStart, setLambdaEnd, setLambdaStep, setAoi, setPol,
         setSweep, setSweepChannel,

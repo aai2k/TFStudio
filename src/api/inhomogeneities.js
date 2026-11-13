@@ -9,7 +9,7 @@ import { embedDesignMaterials, withHerpinRecords } from '../utils/materials/desi
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { PROFILE_IDS, totalInterlayerThickness } from '../utils/physics/inhomogeneity.js';
 import { makeConeSpec, coneIsActive, resolveEvalMode } from '../utils/physics/optimizer.js';
-import { evaluateQualifiers } from '../utils/synthesis/qualifiers.js';
+import { evaluateSpecification } from '../utils/environments/environmentSpecification.js';
 import { dispatchAnalysisEvaluation } from '../utils/workers/analysisEvaluationWorker.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
@@ -195,8 +195,9 @@ export function inhomogeneities(design, options) {
     const checks = shown.qualifiers || [];
     let specification = null;
     if (checks.length) {
-        const { design: judged, resolve } = toleranceSpecInputs(shown, { interlayers: inh });
-        specification = verdictOf(checks, evaluateQualifiers(checks, judged, resolve, {}), resolveEvalMode(judged));
+        const recipe = { interlayers: inh };
+        const results = evaluateSpecification(checks, shown, {}, id => toleranceSpecInputs(shown, recipe, id));
+        specification = verdictOf(checks, results, resolveEvalMode(toleranceSpecInputs(shown, recipe).design), shown);
     }
     return {
         mode, angle, wavelength: Array.from(spectra.perturbed.lambda),

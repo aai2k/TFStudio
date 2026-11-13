@@ -1,6 +1,12 @@
 import { makeQualifier } from '../../../../utils/synthesis/qualifiers.js';
+import { rowInEnvironment } from '../../../../utils/environments/environments.js';
 
 const { useCallback, useEffect, useState } = React;
+
+// A preset belongs to no design, and an environment id names an environment
+// of one design only, so a preset's checks are written and read without
+// `env`: each is judged in every environment of the design it is loaded into.
+const withoutEnvironment = checks => checks.map(q => rowInEnvironment(q));
 
 async function refreshPresetsList(setDiskPresets) {
     if (!window.electronAPI?.listQualifierPresets) return;
@@ -13,7 +19,7 @@ async function refreshPresetsList(setDiskPresets) {
 // A preset already saved under the file the name leads to is replaced only
 // once the user says so, asked as a delete is.
 async function writePreset(name, qualifiers, ts) {
-    const preset = { name, description: '', qualifiers };
+    const preset = { name, description: '', qualifiers: withoutEnvironment(qualifiers) };
     const res = await window.electronAPI.saveQualifierPreset(preset);
     if (res?.error !== 'exists') return res;
     if (!window.confirm(ts.confirmReplace(res.name || name))) return null;
@@ -62,7 +68,7 @@ async function loadPresetFromDisk(name, mode, { qualifiers, writeQualifiers, che
         const res = await window.electronAPI.loadQualifierPreset(name);
         if (res?.success && Array.isArray(res.preset?.qualifiers)) {
             // Re-stamp ids so the loaded items don't collide with current ones
-            const fresh = res.preset.qualifiers.map(({ id: _omit, ...saved }) => makeQualifier(saved));
+            const fresh = withoutEnvironment(res.preset.qualifiers).map(({ id: _omit, ...saved }) => makeQualifier(saved));
             if (typeof checkpoint === 'function') checkpoint();
             if (mode === 'append') writeQualifiers([...qualifiers, ...fresh]);
             else                   writeQualifiers(fresh);

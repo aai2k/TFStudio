@@ -57,9 +57,11 @@ the peak-to-peak error).
 
 **Curve**: the peak-to-peak error kind takes one of the design's curves from [Measured Spectra](/data-exchange/measured-spectra/) in place of a band, an angle and a polarization; it is read at the curve's own points and conditions. It is the number a gain-flattening filter is specified by, the `PPEF` operand of the [Operand Reference](/design/operands/#curves). **Generate MF** writes the curve into the merit function as a block at weight 0, a `PPEF` row measured against it, and the comparison row.
 
+**Env**: on a design with more than one [environment](/design/environments/), the environment a check is judged in: **All**, every environment that is on, or one environment by its number and name, judged there alone and only while it is on. In each environment the check is judged on the design that environment sees, and it passes when it passes in each of them. **Generate MF** writes a check's environment on every row it gives, and deleting an environment deletes the checks judged in it alone.
+
 **Presets**: drop in a ready-made requirement set for a common coating type,
 either replacing or appending to the current list. You can also save the
-current list as your own reusable preset and load it back later.
+current list as your own reusable preset and load it back later. A preset belongs to no design, so its checks are saved and loaded without an environment.
 
 ## How to read it
 
@@ -68,6 +70,8 @@ and a cross when it fails, with the measured value shown beside the target. The
 banner at the top turns green only when every active row passes, and reports
 how many of the total are passing. A failing row adds a short summary line
 explaining the miss.
+
+On a design with environments each row shows its value and mark in the current environment, the one the Design Editor and the ribbon show, as the merit tables do; a check judged elsewhere, and every check while the current environment is off, shows a dash. The banner counts every environment that is on, names the environments a failing check fails in, and says which environment the values are read in. The report, the Coating Library, the Monte Carlo yield and the specification badge of the tolerance windows judge every environment the same way.
 
 For stopband suppression, prefer the **Min / Max** (worst-case) kinds: a band
 *average* can pass while a narrow resonance spikes through it. Once your

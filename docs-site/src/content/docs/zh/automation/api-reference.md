@@ -2571,9 +2571,9 @@ print(run.stop_reason, len(design.layers), "layers, merit", run.merit)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `await design.monteCarlo(start, end, { runs, step, quantity, angle, polarization, thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop })` | `design.monte_carlo(start, end, runs=100, step=1, quantity="R", angle=0, polarization="avg", thickness_rel_pct=1, thickness_abs_nm=0, index_re=0, index_im=0, distribution="gaussian", seed=..., progress=..., stop=...)` |
+| `await design.monteCarlo(start, end, { runs, step, quantity, angle, polarization, thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop, env })` | `design.monte_carlo(start, end, runs=100, step=1, quantity="R", angle=0, polarization="avg", thickness_rel_pct=1, thickness_abs_nm=0, index_re=0, index_im=0, distribution="gaussian", seed=..., progress=..., stop=..., env=...)` |
 
-对带有随机膜层误差的设计做蒙特卡洛试验，与蒙特卡洛窗口的做法相同：得到一个量在一段波长范围内的分散，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。设计有规格时，还会统计满足规格的试验所占的比例。设计不会改变。
+对带有随机膜层误差的设计做蒙特卡洛试验，与蒙特卡洛窗口的做法相同：得到一个量在一段波长范围内的分散，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。设计有规格时，还会统计满足规格的试验所占的比例。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境；每个环境用其自身的介质、基底、厚度系数和材料替换看待每次试验的膜系，一项启用的检查在其判定的每个环境中都通过，试验才满足规格。设计不会改变。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -2592,12 +2592,13 @@ print(run.stop_reason, len(design.layers), "layers, merit", run.merit)
 | `seed` | `seed` |  | 抽样的起始数，1 到 2^32 - 1 之间的整数；相同的种子和设置会重复同样的运行。不给出时，使用一个新的种子，并在结果中给出。 |
 | `progress` | `progress` |  | **JavaScript**：一个函数，试验进行时以一个 Progress（`trial` 和 `total`）调用它。它抛出的错误会结束运行，运行随即以该错误拒绝。<br>**Python**：一个函数，试验进行时以一个 Progress（trial 和 total）调用它。它引发的异常会停止运行，并继续向外传递。 |
 | `stop` | `stop` |  | **JavaScript**：一个 AbortSignal；中止其 AbortController 会结束运行，运行随即以已完成的试验返回结果。<br>**Python**：一个 tfstudio.Stop，调用其 stop() 会结束运行，运行随即以已完成的试验返回结果。 |
+| `env` | `env` |  | 计算其分散的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个分散，没有开启的环境时给环境 1 的，全部来自同一组试验。不给出时为环境 1。 |
 
-**返回**：**JavaScript**：一个 MonteCarlo 的 promise。<br>**Python**：一个 MonteCarlo。
+**返回**：**JavaScript**：一个 MonteCarlo 的 promise；`env: 'all'` 时为由它们组成的数组的 promise，每个环境一个，各带其 `environment`。<br>**Python**：一个 MonteCarlo；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- 在其评价面上没有可供试验改变的膜层的设计、它不接受的设置、超出范围的值，或用到找不到对应材料的设计
+- 在其评价面上没有可供试验改变的膜层的设计、它不接受的设置、超出范围的值、用到找不到对应材料的设计，或设计中没有的环境
 - Python 引发 `KeyboardInterrupt`：运行期间按下 Ctrl+C，在停止运行之后引发
 
 ```js
@@ -2605,6 +2606,8 @@ const design = tf.newDesign('AR');
 design.stack('(HL)^2');
 const mc = await design.monteCarlo(400, 700, { runs: 50, step: 5, thicknessRelPct: 2, seed: 1 });
 console.log('Largest spread of R:', Math.max(...mc.stdev));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of await design.monteCarlo(400, 700, { runs: 50, step: 5, seed: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, Math.max(...one.stdev));
 ```
 
 ```python
@@ -2612,15 +2615,18 @@ design = tf.new_design("AR")
 design.stack("(HL)^2")
 mc = design.monte_carlo(400, 700, runs=50, step=5, thickness_rel_pct=2, seed=1)
 print("Largest spread of R:", max(mc.stdev))
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.monte_carlo(400, 700, runs=50, step=5, seed=1, env="all"):
+    print(one.environment["number"], one.environment["name"], max(one.stdev))
 ```
 
 ### layerSensitivity / layer_sensitivity
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.layerSensitivity({ step, deltaNm, relPct, includeLocked })` | `design.layer_sensitivity(step="nm", delta_nm=1, rel_pct=1, include_locked=False)` |
+| `design.layerSensitivity({ step, deltaNm, relPct, includeLocked, env })` | `design.layer_sensitivity(step="nm", delta_nm=1, rel_pct=1, include_locked=False, env=...)` |
 
-每层厚度偏离时评价函数值的变化量，与层灵敏度窗口对膜层的排序相同：每层分别加厚和减薄一个步长，评价函数值的平均变化就是它的得分。这里的评价函数不含 MNT 和 MXT 行。
+每层厚度偏离时评价函数值的变化量，与层灵敏度窗口对膜层的排序相同：每层分别加厚和减薄一个步长，评价函数值的平均变化就是它的得分。这里的评价函数不含 MNT 和 MXT 行。在有多个环境的设计上，步长加在膜层列表的厚度上，在某个环境中看到的是 f·(d ± 步长)，f 为该层材料在该环境中的厚度系数。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -2628,18 +2634,21 @@ print("Largest spread of R:", max(mc.stdev))
 | `deltaNm` | `delta_nm` | `1` | 步长，单位 nm，用于 step 为 `'nm'` 时。 |
 | `relPct` | `rel_pct` | `1` | 步长，为每层厚度的百分比，用于 step 为 `'percent'` 时。 |
 | `includeLocked` | `include_locked` | `false` / `False` | 为 `true` / `True` 时，锁定的膜层也参与评分。 |
+| `env` | `env` |  | 探测其评价函数的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭：在该环境计算的设计上，取在其中计分的行；或 `'all'`，每个开启的环境上的评价函数，√((1/N) Σ MF_k²)。不给出时为环境 1。 |
 
 **返回**：一个 LayerSensitivity。
 
 **拒绝**：
 
-- 没有评价函数的设计、`'nm'` 和 `'percent'` 以外的 step，或设置无法接受的值
+- 没有评价函数的设计、`'nm'` 和 `'percent'` 以外的 step、设置无法接受的值，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('AR');
 design.stack('(HL)^2');
 design.merit.add('RAV', 450, 650, { target: 0 });
 for (const row of design.layerSensitivity({ deltaNm: 2 }).rows) console.log(row.side, row.number, row.material, row.sensitivity);
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95 } });
+console.log('merit over both environments:', design.layerSensitivity({ deltaNm: 2, env: 'all' }).merit);
 ```
 
 ```python
@@ -2648,6 +2657,8 @@ design.stack("(HL)^2")
 design.merit.add("RAV", 450, 650, target=0)
 for row in design.layer_sensitivity(delta_nm=2).rows:
     print(row.side, row.number, row.material, row.sensitivity)
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95})
+print("merit over both environments:", design.layer_sensitivity(delta_nm=2, env="all").merit)
 ```
 
 ### copy
@@ -3322,7 +3333,7 @@ print(edge.number, edge.name, edge.thickness_factors)
 | ---------- | ------ |
 | `design.environments.remove(number)` | `design.environments.remove(number)` |
 
-删除第 `number` 个环境，连同只在该环境中评分的评价函数行以及读取这些行的行；其后的环境编号依次减一。
+删除第 `number` 个环境，连同只在该环境中评分的评价函数行、读取这些行的行以及只在该环境中判定的规格检查；其后的环境编号依次减一。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -3653,7 +3664,7 @@ print(water.follows)
 | ---------- | ------ |
 | `env.remove()` | `env.remove()` |
 
-从设计中删除该环境，连同只在该环境中评分的评价函数行以及读取这些行的行。其后的环境编号依次减一。
+从设计中删除该环境，连同只在该环境中评分的评价函数行、读取这些行的行以及只在该环境中判定的规格检查。其后的环境编号依次减一。
 
 **拒绝**：
 
@@ -4334,7 +4345,7 @@ print(report.passed, [row.margin for row in report.rows])
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.specification.add(kind, start, end, { cmp, target, tol, lo, hi, aoi, pol, channel, direction, level, edgeSide, flag, side, presetKey, presetLabel, source, detector, bandPoints, curveId, label, enabled })` | `design.specification.add(kind, start=..., end=..., cmp="ge", target=0.99, tol=..., lo=0.95, hi=1, aoi=0, pol="avg", channel="T", direction="max", level=0.5, edge_side=..., flag=..., side=..., preset_key="", preset_label="", source=..., detector=..., band_points=..., curve_id=..., label="", enabled=True)` |
+| `design.specification.add(kind, start, end, { cmp, target, tol, lo, hi, aoi, pol, channel, direction, level, edgeSide, flag, side, presetKey, presetLabel, source, detector, bandPoints, curveId, label, enabled, env })` | `design.specification.add(kind, start=..., end=..., cmp="ge", target=0.99, tol=..., lo=0.95, hi=1, aoi=0, pol="avg", channel="T", direction="max", level=0.5, edge_side=..., flag=..., side=..., preset_key="", preset_label="", source=..., detector=..., band_points=..., curve_id=..., label="", enabled=True, env=...)` |
 
 在规格末尾添加一项检查，做法与规格说明窗口添加一行相同：未给出的字段取在窗口中新加一行时的初始值，未给出面的厚度预算或层数累加设计所镀的面。波长随种类而定：单波长检查取一个，`start`；波段检查取 `start` 和 `end`；THICKNESS_BUDGET、LAYER_COUNT 和 PPEF 不取波长。给出预设的 INTEGRAL 检查从预设取得波段，因此可以省略其 `start` 和 `end`。
 
@@ -4364,12 +4375,14 @@ print(report.passed, [row.margin for row in report.rows])
 | `curveId` | `curve_id` |  | 用于 PPEF，设计中某条实测曲线的 id。 |
 | `label` | `label` | `''` | 该检查的标签。 |
 | `enabled` | `enabled` | `true` / `True` | 为 `false` / `False` 时，该检查不计入判定。 |
+| `env` | `env` |  | 在有多个环境的设计上，该检查只在其中判定的环境，按从 1 开始的编号或其 id 给出；检查保存其 id。不给出时，该检查在每个开启的环境中判定。 |
 
 **拒绝**：
 
 - 此版本无法计算的种类、任何检查都没有的字段、字段无法接受的值、结束波长小于起始波长的波段，或小于 `lo` 的 `hi`
 - **JavaScript**：该种类不读取的波长、选项对象之前除 `start` 和 `end` 外还有其他值，或在选项中给出检查的种类、波长或 id<br>**Python**：该种类不读取的波长，或在关键字参数中给出检查的波长或 id
 - 窗口不提供的预设、检查给出的值与其预设设置的不同的字段、曲线不是设计中实测曲线之一的 PPEF 检查，或在没有步长的检查上给出的 flag
+- 只有一个环境的设计上给出的 `env`，或不是设计中任何环境的 `env`
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -4498,7 +4511,7 @@ print(len(design.specification), "check")
 | ---------- | ------ |
 | `design.specification.check()` | `design.specification.check()` |
 
-按规格说明窗口的方式，判定设计当前状态是否满足其规格：每项检查按其自身的步长读取；设计有入射锥角时，按锥角取平均。
+按规格说明窗口的方式，判定设计当前状态是否满足其规格：每项检查按其自身的步长读取；设计有入射锥角时，按锥角取平均。有多个环境的设计在每个开启的环境中判定，一项检查在其判定的每个环境中都通过才算通过。
 
 **返回**：一个 SpecReport。
 
@@ -4534,7 +4547,7 @@ print("Passes:", report.passed)
 | ---------- | ------ |
 | `await design.specification.estimateYield(runs, { thicknessRelPct, thicknessAbsNm, indexRe, indexIm, distribution, seed, progress, stop })` | `design.specification.estimate_yield(runs, thickness_rel_pct=1, thickness_abs_nm=0, index_re=0, index_im=0, distribution="gaussian", seed=..., progress=..., stop=...)` |
 
-带有随机膜层误差的蒙特卡洛试验中满足规格的比例，与蒙特卡洛窗口统计良率的方式相同：每次试验由每一项启用的检查按其自身的步长判定，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。在种子和设置相同时，这些试验抽取的误差与 `design.monteCarlo()` / `design.monte_carlo()` 相同，因此良率就是其 `spec`；不计算分散。设计不会改变。
+带有随机膜层误差的蒙特卡洛试验中满足规格的比例，与蒙特卡洛窗口统计良率的方式相同：每次试验由每一项启用的检查按其自身的步长判定，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。在种子和设置相同时，这些试验抽取的误差与 `design.monteCarlo()` / `design.monte_carlo()` 相同，因此良率就是其 `spec`；不计算分散。在有多个环境的设计上，一项启用的检查在其判定的每个环境中都通过，试验才满足规格，`environments` 给出每个环境自己的良率。设计不会改变。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -5147,6 +5160,30 @@ check = design.specification.rows[0]
 print(check.kind, "is taken against no curve:", check.curve_id)
 ```
 
+### env
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `check.env` | `check.env` |
+
+该检查只在其中判定的环境的 id；在每个开启的环境中判定的检查为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.95, env: 2 });
+console.log(design.specification.rows[0].env);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.specification.add("R_AT", 550, cmp="ge", target=0.95, env=2)
+print(design.specification.rows[0].env)
+```
+
 ## SpecReport
 
 设计相对其规格的判定，与 specification.check() 的判定和规格说明窗口的显示相同：每项检查一个 CheckResult。
@@ -5284,6 +5321,33 @@ design.stack("(HL)^5 H")
 design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
 design.score_on = "whole part"
 print(design.specification.check().mode)
+```
+
+### environments
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `report.environments` | `report.environments` |
+
+**JavaScript**：在有多个环境的设计上，所判定的各个环境（开启的环境；没有开启的环境时为环境 1），按顺序排列，每个为 `{ number, id, name, passed, passing, total }`，即只在其中判定的检查的判定结果；在只有一个环境的设计上为 null。
+
+**Python**：在有多个环境的设计上，所判定的各个环境（开启的环境；没有开启的环境时为环境 1），按顺序排列，每个为一个 dict，含 number、id、name、passed、passing 和 total，即只在其中判定的检查的判定结果；在只有一个环境的设计上为 None。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const env of design.specification.check().environments) console.log(env.number, env.name, env.passing, 'of', env.total);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.environments.add(name="Under water", incident_medium="H2O")
+for env in design.specification.check().environments:
+    print(env["number"], env["name"], env["passing"], "of", env["total"])
 ```
 
 ## CheckResult
@@ -5471,7 +5535,7 @@ print(held.cmp, held.target, held.tol)
 | ---------- | ------ |
 | `row.reason` | `row.reason` |
 
-没有数值的原因，或 `null` / `None`：`'disabled'`，不计入判定的检查；`'notComputable'`，算出的值不是数；`'noCurve'`，设计中没有其曲线的 PPEF 检查；`'fwhmNotBracketed'` 或 `'edgeNotCrossed'`，交点不在波段内的宽度或边缘；`'unknownKind'`。
+没有数值的原因，或 `null` / `None`：`'disabled'`，不计入判定的检查；`'notComputable'`，算出的值不是数；`'noCurve'`，设计中没有其曲线的 PPEF 检查；`'fwhmNotBracketed'` 或 `'edgeNotCrossed'`，交点不在波段内的宽度或边缘；`'unknownKind'`；`'environmentOff'`，所属环境已关闭的检查。
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -5485,6 +5549,57 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^5 H")
 design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, enabled=False)
 print(design.specification.check().rows[0].reason)
+```
+
+### env
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.env` | `row.env` |
+
+在有多个环境的设计上，该检查只在其中判定的环境的 id；在每个开启的环境中判定的检查，以及只有一个环境的设计上，为 `null` / `None`。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+design.specification.add('R_AT', 550, { cmp: 'ge', target: 0.95, env: 2 });
+console.log(design.specification.check().rows[0].env);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+design.specification.add("R_AT", 550, cmp="ge", target=0.95, env=2)
+print(design.specification.check().rows[0].env)
+```
+
+### values
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.values` | `row.values` |
+
+**JavaScript**：在有多个环境的设计上，该检查在其判定的每个环境中的结果，按顺序排列，每个为 `{ number, id, value, passed, margin }`，含义与该检查的 `value`、`passed` 和 `margin` 相同；在只有一个环境的设计上为 null。该检查自身的 `value` 和 `margin` 取第一个环境的，`passed` 表示它是否在每个环境中都通过。
+
+**Python**：在有多个环境的设计上，该检查在其判定的每个环境中的结果，按顺序排列，每个为一个 dict，含 number、id、value、passed 和 margin，含义与该检查的 value、passed 和 margin 相同；在只有一个环境的设计上为 None。该检查自身的 value 和 margin 取第一个环境的，passed 表示它是否在每个环境中都通过。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.9 });
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const v of design.specification.check().rows[0].values) console.log(v.number, v.value, v.passed);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+design.environments.add(name="Under water", incident_medium="H2O")
+for v in design.specification.check().rows[0].values:
+    print(v["number"], v["value"], v["passed"])
 ```
 
 ## Yield
@@ -5696,6 +5811,33 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^5 H")
 design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
 print(design.specification.estimate_yield(20, seed=1).mode)
+```
+
+### environments
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `y.environments` | `y.environments` |
+
+**JavaScript**：在有多个环境的设计上，每个开启的环境，按顺序排列，带有它自己的良率，只计在其中判定的检查：`{ number, id, name, value, passCount, evaluated, interval }`，名称与良率自身的属性相同；在只有一个环境的设计上为 null。
+
+**Python**：在有多个环境的设计上，每个开启的环境，按顺序排列，带有它自己的良率，只计在其中判定的检查：一个 dict，含 number、id、name、value、pass_count、evaluated 和 interval，名称与良率自身的属性相同；在只有一个环境的设计上为 None。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^5 H');
+design.specification.add('R_AVG', 520, 580, { cmp: 'ge', target: 0.97 });
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const env of (await design.specification.estimateYield(20, { seed: 1 })).environments) console.log(env.number, env.name, env.value);
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^5 H")
+design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+design.environments.add(name="Under water", incident_medium="H2O")
+for env in design.specification.estimate_yield(20, seed=1).environments:
+    print(env["number"], env["name"], env["value"])
 ```
 
 ## Spectrum
@@ -10924,6 +11066,31 @@ console.log((await design.monteCarlo(400, 700, { step: 10, runs: 5 })).mode);
 design = tf.new_design("AR")
 design.stack("(HL)^2")
 print(design.monte_carlo(400, 700, step=10, runs=5).mode)
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `mc.environment` | `mc.environment` |
+
+**JavaScript**：该分散所在的环境，design.monteCarlo() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时为环境 1（即设计自身的介质和基底）的分散。
+
+**Python**：该分散所在的环境，design.monte_carlo() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时为环境 1（即设计自身的介质和基底）的分散。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const mc of await design.monteCarlo(400, 700, { step: 10, runs: 5, seed: 1, env: 'all' })) console.log(mc.environment.number, mc.environment.name, Math.max(...mc.stdev));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.environments.add(name="Under water", incident_medium="H2O")
+for mc in design.monte_carlo(400, 700, step=10, runs=5, seed=1, env="all"):
+    print(mc.environment["number"], mc.environment["name"], max(mc.stdev))
 ```
 
 ## LayerSensitivity

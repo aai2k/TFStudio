@@ -987,21 +987,25 @@
     "hash": "fc81131f",
     "text": "一个 tfstudio.Stop，调用其 stop() 会结束运行，运行随即以已完成的试验返回结果。"
   },
+  "Design.monteCarlo.arg.env": {
+    "hash": "39095ba4",
+    "text": "计算其分散的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个分散，没有开启的环境时给环境 1 的，全部来自同一组试验。不给出时为环境 1。"
+  },
   "Design.monteCarlo.returns.js": {
-    "hash": "65514eb9",
-    "text": "一个 MonteCarlo 的 promise。"
+    "hash": "1e5d344f",
+    "text": "一个 MonteCarlo 的 promise；`env: 'all'` 时为由它们组成的数组的 promise，每个环境一个，各带其 `environment`。"
   },
   "Design.monteCarlo.returns.py": {
-    "hash": "2ddc46b1",
-    "text": "一个 MonteCarlo。"
+    "hash": "6d3a3f49",
+    "text": "一个 MonteCarlo；env=\"all\" 时为由它们组成的 list，每个环境一个，各带其 environment。"
   },
   "Design.monteCarlo.lead.1": {
-    "hash": "da3441f6",
-    "text": "对带有随机膜层误差的设计做蒙特卡洛试验，与蒙特卡洛窗口的做法相同：得到一个量在一段波长范围内的分散，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。设计有规格时，还会统计满足规格的试验所占的比例。设计不会改变。"
+    "hash": "24746bfa",
+    "text": "对带有随机膜层误差的设计做蒙特卡洛试验，与蒙特卡洛窗口的做法相同：得到一个量在一段波长范围内的分散，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。设计有规格时，还会统计满足规格的试验所占的比例。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境；每个环境用其自身的介质、基底、厚度系数和材料替换看待每次试验的膜系，一项启用的检查在其判定的每个环境中都通过，试验才满足规格。设计不会改变。"
   },
   "Design.monteCarlo.refuses.1": {
-    "hash": "a772ca85",
-    "text": "在其评价面上没有可供试验改变的膜层的设计、它不接受的设置、超出范围的值，或用到找不到对应材料的设计"
+    "hash": "8e30d078",
+    "text": "在其评价面上没有可供试验改变的膜层的设计、它不接受的设置、超出范围的值、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.monteCarlo.raises.1": {
     "hash": "1de6a7f3",
@@ -1023,17 +1027,21 @@
     "hash": "83625144",
     "text": "为 `true` / `True` 时，锁定的膜层也参与评分。"
   },
+  "Design.layerSensitivity.arg.env": {
+    "hash": "d4cc73ee",
+    "text": "探测其评价函数的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭：在该环境计算的设计上，取在其中计分的行；或 `'all'`，每个开启的环境上的评价函数，√((1/N) Σ MF_k²)。不给出时为环境 1。"
+  },
   "Design.layerSensitivity.returns": {
     "hash": "23052ae9",
     "text": "一个 LayerSensitivity。"
   },
   "Design.layerSensitivity.lead.1": {
-    "hash": "b564534a",
-    "text": "每层厚度偏离时评价函数值的变化量，与层灵敏度窗口对膜层的排序相同：每层分别加厚和减薄一个步长，评价函数值的平均变化就是它的得分。这里的评价函数不含 MNT 和 MXT 行。"
+    "hash": "2ad2409b",
+    "text": "每层厚度偏离时评价函数值的变化量，与层灵敏度窗口对膜层的排序相同：每层分别加厚和减薄一个步长，评价函数值的平均变化就是它的得分。这里的评价函数不含 MNT 和 MXT 行。在有多个环境的设计上，步长加在膜层列表的厚度上，在某个环境中看到的是 f·(d ± 步长)，f 为该层材料在该环境中的厚度系数。"
   },
   "Design.layerSensitivity.refuses.1": {
-    "hash": "722cfc45",
-    "text": "没有评价函数的设计、`'nm'` 和 `'percent'` 以外的 step，或设置无法接受的值"
+    "hash": "f92c5b4d",
+    "text": "没有评价函数的设计、`'nm'` 和 `'percent'` 以外的 step、设置无法接受的值，或设计中没有的环境"
   },
   "Design.copy.returns": {
     "hash": "fca18942",
@@ -1304,8 +1312,8 @@
     "text": "环境的编号，2 或以上：环境 1 是设计本身。"
   },
   "Environments.remove.lead.1": {
-    "hash": "fc117794",
-    "text": "删除第 `number` 个环境，连同只在该环境中评分的评价函数行以及读取这些行的行；其后的环境编号依次减一。"
+    "hash": "f8227a78",
+    "text": "删除第 `number` 个环境，连同只在该环境中评分的评价函数行、读取这些行的行以及只在该环境中判定的规格检查；其后的环境编号依次减一。"
   },
   "Environments.remove.refuses.1": {
     "hash": "e4544bce",
@@ -1396,8 +1404,8 @@
     "text": "环境沿用环境 1 的哪些内容，按 environments.add() 接受的名称给出：`'incidentMedium'` / `\"incident_medium\"`、`'exitMedium'` / `\"exit_medium\"`、`'substrate'` 和 `'substrateThicknessMm'` / `\"substrate_thickness_mm\"` 中的任意几个。环境 1 不沿用任何内容。"
   },
   "Environment.remove.lead.1": {
-    "hash": "6216da54",
-    "text": "从设计中删除该环境，连同只在该环境中评分的评价函数行以及读取这些行的行。其后的环境编号依次减一。"
+    "hash": "3680d6a3",
+    "text": "从设计中删除该环境，连同只在该环境中评分的评价函数行、读取这些行的行以及只在该环境中判定的规格检查。其后的环境编号依次减一。"
   },
   "Environment.remove.refuses.1": {
     "hash": "c17d6f65",
@@ -1727,6 +1735,10 @@
     "hash": "08a8d045",
     "text": "为 `false` / `False` 时，该检查不计入判定。"
   },
+  "Specification.add.arg.env": {
+    "hash": "8e1b48c6",
+    "text": "在有多个环境的设计上，该检查只在其中判定的环境，按从 1 开始的编号或其 id 给出；检查保存其 id。不给出时，该检查在每个开启的环境中判定。"
+  },
   "Specification.add.lead.1": {
     "hash": "c0b7313c",
     "text": "在规格末尾添加一项检查，做法与规格说明窗口添加一行相同：未给出的字段取在窗口中新加一行时的初始值，未给出面的厚度预算或层数累加设计所镀的面。波长随种类而定：单波长检查取一个，`start`；波段检查取 `start` 和 `end`；THICKNESS_BUDGET、LAYER_COUNT 和 PPEF 不取波长。给出预设的 INTEGRAL 检查从预设取得波段，因此可以省略其 `start` 和 `end`。"
@@ -1746,6 +1758,10 @@
   "Specification.add.refuses.3": {
     "hash": "df115fa8",
     "text": "窗口不提供的预设、检查给出的值与其预设设置的不同的字段、曲线不是设计中实测曲线之一的 PPEF 检查，或在没有步长的检查上给出的 flag"
+  },
+  "Specification.add.refuses.4": {
+    "hash": "9a0ed075",
+    "text": "只有一个环境的设计上给出的 `env`，或不是设计中任何环境的 `env`"
   },
   "Specification.remove.arg.index": {
     "hash": "1ac1fe22",
@@ -1776,8 +1792,8 @@
     "text": "一个 SpecReport。"
   },
   "Specification.check.lead.1": {
-    "hash": "c6e9f674",
-    "text": "按规格说明窗口的方式，判定设计当前状态是否满足其规格：每项检查按其自身的步长读取；设计有入射锥角时，按锥角取平均。"
+    "hash": "fc1bbc27",
+    "text": "按规格说明窗口的方式，判定设计当前状态是否满足其规格：每项检查按其自身的步长读取；设计有入射锥角时，按锥角取平均。有多个环境的设计在每个开启的环境中判定，一项检查在其判定的每个环境中都通过才算通过。"
   },
   "Specification.check.refuses.1": {
     "hash": "c9c74ffd",
@@ -1840,8 +1856,8 @@
     "text": "一个 Yield。"
   },
   "Specification.estimateYield.lead.1": {
-    "hash": "2d672211",
-    "text": "带有随机膜层误差的蒙特卡洛试验中满足规格的比例，与蒙特卡洛窗口统计良率的方式相同：每次试验由每一项启用的检查按其自身的步长判定，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。在种子和设置相同时，这些试验抽取的误差与 `design.monteCarlo()` / `design.monte_carlo()` 相同，因此良率就是其 `spec`；不计算分散。设计不会改变。"
+    "hash": "db61cf16",
+    "text": "带有随机膜层误差的蒙特卡洛试验中满足规格的比例，与蒙特卡洛窗口统计良率的方式相同：每次试验由每一项启用的检查按其自身的步长判定，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。在种子和设置相同时，这些试验抽取的误差与 `design.monteCarlo()` / `design.monte_carlo()` 相同，因此良率就是其 `spec`；不计算分散。在有多个环境的设计上，一项启用的检查在其判定的每个环境中都通过，试验才满足规格，`environments` 给出每个环境自己的良率。设计不会改变。"
   },
   "Specification.estimateYield.refuses.1": {
     "hash": "597a6db8",
@@ -1967,6 +1983,10 @@
     "hash": "7b00f296",
     "text": "用于 PPEF，计算误差所相对的实测曲线的 id；其他种类的检查为 `null` / `None`，如下例中的层数检查。"
   },
+  "SpecCheck.env.lead.1": {
+    "hash": "87ff8651",
+    "text": "该检查只在其中判定的环境的 id；在每个开启的环境中判定的检查为 `null` / `None`。"
+  },
   "SpecReport.lead.1": {
     "hash": "e8a91439",
     "text": "设计相对其规格的判定，与 specification.check() 的判定和规格说明窗口的显示相同：每项检查一个 CheckResult。"
@@ -1990,6 +2010,14 @@
   "SpecReport.mode.lead.1": {
     "hash": "3667490f",
     "text": "检查的计算对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。"
+  },
+  "SpecReport.environments.lead.1.js": {
+    "hash": "0caa4b7b",
+    "text": "在有多个环境的设计上，所判定的各个环境（开启的环境；没有开启的环境时为环境 1），按顺序排列，每个为 `{ number, id, name, passed, passing, total }`，即只在其中判定的检查的判定结果；在只有一个环境的设计上为 null。"
+  },
+  "SpecReport.environments.lead.1.py": {
+    "hash": "229b7033",
+    "text": "在有多个环境的设计上，所判定的各个环境（开启的环境；没有开启的环境时为环境 1），按顺序排列，每个为一个 dict，含 number、id、name、passed、passing 和 total，即只在其中判定的检查的判定结果；在只有一个环境的设计上为 None。"
   },
   "CheckResult.lead.1": {
     "hash": "aafb7925",
@@ -2028,8 +2056,20 @@
     "text": "数值所依据的比较，与检查中保存的相同：一个具名元组 (cmp, target, tol, lo, hi)。"
   },
   "CheckResult.reason.lead.1": {
-    "hash": "cd03edc4",
-    "text": "没有数值的原因，或 `null` / `None`：`'disabled'`，不计入判定的检查；`'notComputable'`，算出的值不是数；`'noCurve'`，设计中没有其曲线的 PPEF 检查；`'fwhmNotBracketed'` 或 `'edgeNotCrossed'`，交点不在波段内的宽度或边缘；`'unknownKind'`。"
+    "hash": "b5f32a59",
+    "text": "没有数值的原因，或 `null` / `None`：`'disabled'`，不计入判定的检查；`'notComputable'`，算出的值不是数；`'noCurve'`，设计中没有其曲线的 PPEF 检查；`'fwhmNotBracketed'` 或 `'edgeNotCrossed'`，交点不在波段内的宽度或边缘；`'unknownKind'`；`'environmentOff'`，所属环境已关闭的检查。"
+  },
+  "CheckResult.env.lead.1": {
+    "hash": "a34e6e62",
+    "text": "在有多个环境的设计上，该检查只在其中判定的环境的 id；在每个开启的环境中判定的检查，以及只有一个环境的设计上，为 `null` / `None`。"
+  },
+  "CheckResult.values.lead.1.js": {
+    "hash": "c5fc876d",
+    "text": "在有多个环境的设计上，该检查在其判定的每个环境中的结果，按顺序排列，每个为 `{ number, id, value, passed, margin }`，含义与该检查的 `value`、`passed` 和 `margin` 相同；在只有一个环境的设计上为 null。该检查自身的 `value` 和 `margin` 取第一个环境的，`passed` 表示它是否在每个环境中都通过。"
+  },
+  "CheckResult.values.lead.1.py": {
+    "hash": "a5b4c689",
+    "text": "在有多个环境的设计上，该检查在其判定的每个环境中的结果，按顺序排列，每个为一个 dict，含 number、id、value、passed 和 margin，含义与该检查的 value、passed 和 margin 相同；在只有一个环境的设计上为 None。该检查自身的 value 和 margin 取第一个环境的，passed 表示它是否在每个环境中都通过。"
   },
   "Yield.lead.1": {
     "hash": "48d7421d",
@@ -2070,6 +2110,14 @@
   "Yield.mode.lead.1": {
     "hash": "95a2b0aa",
     "text": "试验的评价对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。"
+  },
+  "Yield.environments.lead.1.js": {
+    "hash": "3d5fd41d",
+    "text": "在有多个环境的设计上，每个开启的环境，按顺序排列，带有它自己的良率，只计在其中判定的检查：`{ number, id, name, value, passCount, evaluated, interval }`，名称与良率自身的属性相同；在只有一个环境的设计上为 null。"
+  },
+  "Yield.environments.lead.1.py": {
+    "hash": "33590344",
+    "text": "在有多个环境的设计上，每个开启的环境，按顺序排列，带有它自己的良率，只计在其中判定的检查：一个 dict，含 number、id、name、value、pass_count、evaluated 和 interval，名称与良率自身的属性相同；在只有一个环境的设计上为 None。"
   },
   "Spectrum.lead.1": {
     "hash": "41480900",
@@ -2926,6 +2974,14 @@
   "MonteCarlo.mode.lead.1": {
     "hash": "95a2b0aa",
     "text": "试验的评价对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。"
+  },
+  "MonteCarlo.environment.lead.1.js": {
+    "hash": "f7ae84b1",
+    "text": "该分散所在的环境，design.monteCarlo() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时为环境 1（即设计自身的介质和基底）的分散。"
+  },
+  "MonteCarlo.environment.lead.1.py": {
+    "hash": "c5fbe20c",
+    "text": "该分散所在的环境，design.monte_carlo() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时为环境 1（即设计自身的介质和基底）的分散。"
   },
   "LayerSensitivity.lead.1": {
     "hash": "d4d7a2a3",

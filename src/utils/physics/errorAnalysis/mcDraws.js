@@ -6,6 +6,8 @@
 
 import { sampleDeviation } from './sampling.js';
 import { makeShiftedMaterial } from './spectrumEval.js';
+import { materialsIn } from './mcConfig.js';
+import { BASE_ENVIRONMENT, environmentDesign } from '../../environments/environments.js';
 
 function drawThicknessDeviations(layers, config) {
     const deviations = new Float64Array(layers.length);
@@ -99,15 +101,49 @@ function perturbLayers(layers, thicknessDeviations) {
     }));
 }
 
-function makeTrialMaterialResolver(draws, state, config) {
+/**
+ * The trial's material of each layer, `(side, index) => material`: the
+ * material `materials` gives the layer (`{ front, back }`, on the layer lists'
+ * own indices) moved by the layer's Δn and Δk. Null when the run draws no
+ * index errors.
+ */
+export function makeTrialMaterialResolver(draws, materials, config) {
     if (!config.hasIndexErrors) return null;
     return (side, index) => {
-        const baseMaterials = side === 'front' ? state.frontMaterials : state.backMaterials;
+        const baseMaterials = side === 'front' ? materials.front : materials.back;
         const dn = side === 'front' ? draws.dnF : draws.dnB;
         const dk = side === 'front' ? draws.dkF : draws.dkB;
         const base = baseMaterials[index];
         if (!base) return base;
         return makeShiftedMaterial(base, dn[index], dk[index]);
+    };
+}
+
+/**
+ * The trial's material of each layer in environment `id`, as
+ * makeTrialMaterialResolver gives it: the environment's material for the
+ * layer moved by the trial's Δn and Δk.
+ */
+export function trialMaterialsIn(config, state, data, id) {
+    return id === BASE_ENVIRONMENT ? data.getMatForLayer : makeTrialMaterialResolver(data, materialsIn(config, state, id), config);
+}
+
+/**
+ * The trial coating `data` in environment `id`, as evaluateChar takes it:
+ * `{ design, frontLayers, backLayers, getMatForLayer }`. In environment 1 the
+ * trial itself; in another environment that environment's coating with the
+ * trial's errors: each layer f·(d + Δd) thick, f the factor of its material
+ * there, made of the environment's material for it moved by the same Δn and
+ * Δk, between the environment's media.
+ */
+export function trialIn(config, state, data, id) {
+    if (id === BASE_ENVIRONMENT) {
+        return { design: config.design, frontLayers: data.frontLayers, backLayers: data.backLayers, getMatForLayer: data.getMatForLayer };
+    }
+    const seen = environmentDesign({ ...config.design, frontLayers: data.frontLayers, backLayers: data.backLayers }, id);
+    return {
+        design: seen, frontLayers: seen.frontLayers, backLayers: seen.backLayers,
+        getMatForLayer: trialMaterialsIn(config, state, data, id),
     };
 }
 
@@ -134,6 +170,6 @@ export function prepareMCTrial(config, state) {
         ...draws,
         frontLayers,
         backLayers,
-        getMatForLayer: makeTrialMaterialResolver(draws, state, config),
+        getMatForLayer: makeTrialMaterialResolver(draws, { front: state.frontMaterials, back: state.backMaterials }, config),
     };
 }

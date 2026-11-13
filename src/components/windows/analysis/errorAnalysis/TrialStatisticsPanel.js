@@ -1,6 +1,19 @@
+import { environmentLabel } from '../../design/environments/currentEnvironment.js';
 import { formatYieldInterval, tableStyles, yieldColor } from './ui.js';
 
 const { createElement: h } = React;
+
+const yieldText = share => (share.yield == null ? '—' : `${(share.yield * 100).toFixed(1)}%  (${share.passCount}/${share.evaluated})`);
+
+// On a design with environments, each environment's own yield: the share of
+// trials whose checks judged there all pass there.
+function EnvironmentYields({ environments, c, ea }) {
+    if (!environments?.length) return null;
+    return environments.map(env => h(StatRow, {
+        key: env.id, c, label: ea.environmentYield(environmentLabel(env, env.number)),
+        title: ea.environmentYieldTip, value: yieldText(env), color: yieldColor(c, env.yield),
+    }));
+}
 
 function StatRow({ c, label, value, color, title }) {
     return h('div', {
@@ -72,13 +85,14 @@ function OverviewStatistics({ result, corridorSigma, blockLbl, c, ea }) {
         corridorSigma != null && h(StatRow, { c, label: ea.statCorridor || 'Corridor', value: `±${corridorSigma}σ` }),
         sp && h(StatRow, {
             c, label: ea.specYield || 'Spec yield',
-            value: sp.yield == null ? '—' : `${(sp.yield * 100).toFixed(1)}%  (${sp.passCount}/${sp.evaluated})`,
+            value: yieldText(sp),
             color: yieldCol,
         }),
         sp?.yieldInterval && h(StatRow, {
             c, label: ea.yieldInterval, title: ea.yieldIntervalTip,
             value: formatYieldInterval(sp.yieldInterval, 1),
         }),
+        h(EnvironmentYields, { environments: sp?.environments, c, ea }),
         result.seed != null && h(StatRow, {
             c, label: ea.seed, title: ea.seedTip, value: String(result.seed),
         }),

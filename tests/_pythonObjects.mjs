@@ -71,7 +71,10 @@
  *   electric_field(), ellipsometry(), ellipsometry_vs_angle() and
  *   group_delay() of one environment and of each,
  *   each naming its environment, a curve's width found in its environment,
- *   and an environment the design does not have refused; edge_filter()
+ *   and an environment the design does not have refused; on such a design a
+ *   check of one environment, the verdict and the yield in each,
+ *   monte_carlo() of one environment and of each and layer_sensitivity()
+ *   over all of them, and an environment it does not have refused; edge_filter()
  *   with pass_, apply_edge_filter(), process_steps() on chips given in
  *   snake_case, export_process() and monitor_worksheet() on a plan given in
  *   snake_case as named tuples and paths, and their refusals; needle_profile() as named tuples and insert_needle() from a
@@ -225,7 +228,8 @@ async function modes(t, said) {
 
 // The rankings of a two-sided design with two back layers and front layer 1
 // locked: with the defaults, with step "percent", rel_pct 3 and the locked
-// layers scored, and with step "percent" alone.
+// layers scored, and with step "percent" alone; and the step and keywords it
+// refuses.
 async function rankings(t, ranked) {
     const { api, ok, canon, attempt } = t;
     const design = ranked.design ?? {};
@@ -242,6 +246,9 @@ async function rankings(t, ranked) {
     ok('and each row, the back\'s too, names its layer by its number on its side, a locked one scored only when asked',
         named && percent.some(row => row[0] === 'back') && lockedWhenAsked, JSON.stringify(percent.map(row => row.slice(0, 4))));
     ok('a step that is not nm or percent is refused, naming those it is', ranked.badStep === "step is 'nm' or 'percent', not 'relative'", ranked.badStep);
+    const unknown = name => `layer_sensitivity: unknown option '${name}'; the options are step, delta_nm, rel_pct, include_locked, env`;
+    ok('and a keyword it does not take, the API\'s mode among them, naming those it takes',
+        canon(ranked.unknown ?? null) === canon([unknown('delta'), unknown('mode')]), canon(ranked.unknown ?? null));
 }
 
 async function materials(t, said, named) {
@@ -397,7 +404,7 @@ const specKinds = curveId => [
 const SPEC_FIELDS = [['kind', 'kind'], ['label', 'label'], ['enabled', 'enabled'], ['cmp', 'cmp'], ['target', 'target'], ['tol', 'tol'], ['lo', 'lo'],
     ['hi', 'hi'], ['wavelength', 'lambda'], ['start', 'lambdaStart'], ['end', 'lambdaEnd'], ['aoi', 'aoi'], ['pol', 'pol'], ['channel', 'channel'],
     ['direction', 'direction'], ['level', 'level'], ['edge_side', 'edgeSide'], ['flag', 'flag'], ['side', 'side'], ['preset_key', 'presetKey'],
-    ['preset_label', 'presetLabel'], ['source', 'source'], ['detector', 'detector'], ['band_points', 'bandPoints'], ['curve_id', 'curveId']];
+    ['preset_label', 'presetLabel'], ['source', 'source'], ['detector', 'detector'], ['band_points', 'bandPoints'], ['curve_id', 'curveId'], ['env', 'env']];
 // A design's checks without the id each draws.
 const checksOf = (canon, data) => canon((data?.qualifiers ?? []).map(({ id, ...check }) => check));
 
@@ -423,7 +430,7 @@ const SPEC_WORDED = [
     'add: band_points is a whole number of 2 or more, or None for the default, not 1',
     'check 0: the specification has 0 checks, numbered from 0',
     "add: unknown option 'targt'; the options are enabled, label, cmp, target, tol, lo, hi, aoi, pol, channel, direction, level, edge_side, flag, side, "
-        + 'preset_key, preset_label, source, detector, band_points, curve_id',
+        + 'preset_key, preset_label, source, detector, band_points, curve_id, env',
 ];
 
 // The checks _pythonObjects.py added, read, removed and cleared, and the
@@ -1161,6 +1168,34 @@ async function environmentViews(t, said) {
     ]), canon(got.refused));
 }
 
+// What _pythonObjects.py environment_tolerance() read, against the objects here.
+async function environmentTolerance(t, said) {
+    const { ok, canon } = t;
+    const got = said.environmentTolerance ?? {};
+    const objects = await import('../src/api/objects/index.js');
+    const wet = new objects.Design(got.design ?? {});
+    const report = wet.specification.check();
+    const yielded = await wet.specification.estimateYield(10, { thicknessRelPct: 3, seed: 4 });
+    const spread = m => [m.environment, m.wavelength, [...m.mean], [...m.stdev], m.runs, m.seed];
+    const RUN = { step: 50, runs: 5, seed: 3 };
+    const spreads = [await wet.monteCarlo(450, 650, RUN), await wet.monteCarlo(450, 650, { ...RUN, env: 'env2' }), ...await wet.monteCarlo(450, 650, { ...RUN, env: 'all' })];
+    ok('specification.add() holds env, and check() gives each environment\'s verdict and each row\'s env and values, as the objects here give them',
+        canon([got.checks, got.report]) === canon([wet.specification.rows.map(check => check.env), [report.environments, report.rows.map(r => [r.env, r.values, r.passed])]])
+        && got.checks?.[1] === 'env2' && got.report?.[0]?.length === 2, canon(got.report)?.slice(0, 300));
+    ok('estimate_yield() gives each environment\'s own yield, as estimateYield() does here',
+        canon((got.yield ?? []).map(e => [e.number, e.id, e.name, e.value, e.pass_count, e.evaluated, e.interval]))
+        === canon(yielded.environments.map(e => [e.number, e.id, e.name, e.value, e.passCount, e.evaluated, e.interval])) && got.yield.length === 2, canon(got.yield));
+    ok('monte_carlo() of one environment and of each names its environment, as monteCarlo() does here',
+        canon(got.spreads) === canon(spreads.map(spread)) && got.spreads?.length === 4, canon(got.spreads?.map(s => s[0])));
+    ok('layer_sensitivity() probes environment 1, the environment env names, or every environment that is on, as layerSensitivity() does here',
+        canon(got.merits) === canon([undefined, 2, 'all'].map(env => wet.layerSensitivity({ deltaNm: 2, env }).merit)) && new Set(got.merits).size === 3, canon(got.merits));
+    const other = "one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3";
+    ok('and an environment the design does not have is refused in Python\'s words', canon(got.refused) === canon([
+        `monte_carlo: env is 'all' or ${other}; not 4`, `layer_sensitivity: env is 'all' or ${other}; not 'env9'`,
+        'add: environment 5: the design has 3 environments, numbered from 1',
+    ]), canon(got.refused));
+}
+
 // What _pythonObjects.py measured_curves() read, against the plain calls.
 function measuredCurves(t, said) {
     const { ok, canon, api, WORK } = t;
@@ -1440,9 +1475,9 @@ const WORDED = [
     'add: start 700 is above end 400',
     'spectrum: start and end are wavelengths in nm, 0 < start < end',
     "monte_carlo: unknown option 'thickness_rel'; the options are quantity, step, angle, polarization, runs, thickness_rel_pct, thickness_abs_nm, index_re, index_im, "
-        + 'distribution, seed, progress, stop',
+        + 'distribution, seed, env, progress, stop',
     "monte_carlo: unknown option 'to'; the options are quantity, step, angle, polarization, runs, thickness_rel_pct, thickness_abs_nm, index_re, index_im, "
-        + 'distribution, seed, progress, stop',
+        + 'distribution, seed, env, progress, stop',
     'reference is a wavelength in nm above 0, not -1',
     'substrate.thickness is a thickness in mm above 0, not 0',
     'stack: at is a wavelength in nm above 0, not -5',
@@ -1524,6 +1559,7 @@ export async function checkObjects(t) {
     await bandFeatures(u, ran.said);
     await environmentSpectra(u, ran.said);
     await environmentViews(u, ran.said);
+    await environmentTolerance(u, ran.said);
     measuredCurves(u, ran.said);
     measuredFiles(u, ran.said);
     await coatingFiles(u, ran.said);

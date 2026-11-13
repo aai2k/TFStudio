@@ -3385,6 +3385,9 @@ export default {
     corridorTip:        'Shaded band = mean ± k·σ of the spectrum across trials (k below). Display only: changing k re-draws the band without re-running the Monte Carlo, and does not affect the yield. k≈1 ≈ 68% only for Gaussian.',
     specYield:        'Spec yield',
     yieldInterval:    '95% interval',
+    // On a design with environments, each environment's own yield.
+    environmentYield: (label) => `Yield in environment ${label}`,
+    environmentYieldTip: 'The share of trials in which every requirement judged in this environment passes there',
     yieldIntervalTip: 'Range the true yield lies in with 95% confidence for this number of trials (Wilson score interval). Two runs whose ranges overlap may differ only by chance; more trials narrow the range.',
     specYieldTip:     'Evaluate the design Specification (qualifiers) on every Monte Carlo trial and report process yield, the % of trials where all requirements pass. Scored on the thickness-perturbed design.',
     specYieldNoneTip: 'Add requirements in the Specification window first.',
@@ -4345,6 +4348,16 @@ export default {
     confirmReplace: (name) => `A spec preset named "${name}" already exists. Replace it?`,
     deleteTip:      'Delete the selected saved preset',
     deleted:        'Deleted',
+    // A design with environments: each requirement's Env field, the
+    // environment its value and mark are read in, and where failing ones fail.
+    env:            'Env',
+    envTip:         'The environment this requirement is judged in: All, or one of them',
+    envAll:         'All',
+    envGone:        '(no such environment)',
+    notJudgedIn:    (n) => `This requirement is not judged in environment ${n}`,
+    valuesIn:       (label) => `Values in environment ${label}`,
+    valuesInTip:    'Each requirement shows its value and mark in the current environment, as the merit tables do, and none where it is not judged there. The count covers every environment that is on.',
+    failingIn:      (labels) => (labels.length === 1 ? `Failing in environment ${labels[0]}` : `Failing in environments ${labels.join(', ')}`),
     summaries: {
       notComputable:     'value not computable',
       disabled:          'disabled',
@@ -4352,6 +4365,7 @@ export default {
       fwhmNotBracketed:  (pct, lamStart, lamEnd) => `FWHM @ ${pct}% not bracketed in [${lamStart},${lamEnd}] nm`,
       edgeNotCrossed:    (pct) => `Edge level ${pct}% not crossed in band`,
       noCurve:           'the measured curve is not on this design',
+      environmentOff:    'its environment is off',
     },
     kinds: {
       T_AT:             'T at λ',

@@ -9,7 +9,8 @@
  * stop inside a range; the environment a spectrum, a band feature, an edge
  * shift, a colour, integral values, an index profile, an admittance locus, an
  * electric field, Psi and Delta against wavelength and against angle, and
- * group delay are computed in.
+ * group delay are computed in; a specification judged in each environment,
+ * and Monte Carlo and Layer Sensitivity on a design with environments.
  *
  * The corpus is in api_corpus.mjs, runs, Stop and tolerancing in api_runs.mjs,
  * refusals in api_refusals.mjs.
@@ -195,6 +196,36 @@ ok('a stack formula builds quarter waves at its reference wavelength', qw.frontL
     const dark = api.setEnvironment(api.setEnvironment(wet, 1, { enabled: false }), 2, { enabled: false });
     ok("with every environment off, env 'all' gives environment 1", same(api.spectrum(dark, { from: 500, to: 600, step: 50, env: 'all' }).environments.map(e => e.id), ['base']));
     ok('summarize refuses a spectrum of every environment', throws(() => api.summarize(api.spectrum(wet, { ...OPTIONS.spectrum, env: 'all' })), /summarize each entry/));
+}
+{
+    // The specification and the tolerance calls on a design with
+    // environments: a check of one environment held by its id, the verdict
+    // in each environment that is on, Monte Carlo spreads of one environment
+    // and of each from the same trials, and the merit Layer Sensitivity probes.
+    const { isDeepStrictEqual: same } = await import('node:util');
+    const CHECKS = [
+        { kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'le', target: 0.5 },
+        { kind: 'R_AT', lambda: 550, cmp: 'le', target: 0.5, env: 2 },
+    ];
+    const wet = api.setMerit(api.setSpecification(api.addEnvironment(qw, { name: 'Under water', incidentMedium: 'H2O' }), CHECKS),
+        [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }]);
+    ok('setSpecification takes env by number, and the check holds the id', wet.qualifiers[1].env === 'env2' && !('env' in wet.qualifiers[0]));
+    const verdict = api.checkSpecification(wet);
+    ok('checkSpecification judges every environment that is on, and names the environment each value is from',
+        same(verdict.environments.map(e => [e.number, e.id, e.name, e.total]), [[1, 'base', null, 1], [2, 'env2', 'Under water', 2]])
+        && same(verdict.rows.map(r => [r.env, r.values.map(v => v.id)]), [[null, ['base', 'env2']], ['env2', ['env2']]]), JSON.stringify(verdict.environments));
+    const plain = api.checkSpecification(api.setSpecification(qw, CHECKS.slice(0, 1)));
+    ok('a design without environments gets no environments, env or values', !('environments' in plain) && plain.rows.every(r => !('env' in r) && !('values' in r)));
+    ok('env is refused on a design with one environment, and one the design does not have', throws(() => api.setSpecification(qw, CHECKS), /check 1: the design has one environment/)
+        && throws(() => api.setSpecification(wet, [{ ...CHECKS[1], env: 5 }]), /check 0: env is one of the design's environments/));
+    const RUN = { from: 450, to: 650, step: 50, runs: 5, seed: 1 };
+    const each = await api.monteCarlo(wet, { ...RUN, env: 'all' });
+    const apart = [await api.monteCarlo(wet, RUN), await api.monteCarlo(wet, { ...RUN, env: 'env2' })];
+    ok('monteCarlo with env \'all\' gives each environment\'s spread from the same trials, each its run with that env',
+        same(each, { environments: [{ number: 1, id: 'base', name: null, ...apart[0] }, { number: 2, id: 'env2', name: 'Under water', ...apart[1] }] })
+        && !same(apart[0].mean, apart[1].mean) && same(apart[0].spec, apart[1].spec) && apart[0].spec.environments.length === 2);
+    const probed = ['all', 2, undefined].map(env => api.layerSensitivity(wet, { env }).mf0);
+    ok('layerSensitivity probes environment 1, the environment env names, or every environment that is on', new Set(probed).size === 3, JSON.stringify(probed));
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);

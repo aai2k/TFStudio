@@ -46,6 +46,10 @@ _SETUP_WORDS = Words("setDesignSetup", names={"referenceWavelength": "reference"
                                               "depositionTemperatureC": "deposition_temperature",
                                               "substrateDiameterMm": "substrate.diameter"})
 _MONTE_CARLO_WORDS = Words("monteCarlo", "monte_carlo", hidden=("from", "to"), extra=("progress", "stop"))
+# design.layer_sensitivity() names layerSensitivity's mode step, and the
+# keywords it takes.
+_SENSITIVITY_WORDS = Words("layerSensitivity", "layer_sensitivity", {"mode": "step"})
+_SENSITIVITY_OPTIONS = ("step", "delta_nm", "rel_pct", "include_locked", "env")
 # design.clean()'s names for cleanDesign's options, where they are not their snake_case.
 _CLEAN_WORDS = Words("cleanDesign", "clean", {"mergeAdjacent": "merge", "cleanBack": "back"})
 # design.admittance() and design.electric_field() take the wavelength as their
@@ -62,7 +66,7 @@ _SWEEP_WORDS = Words("ellipsometryVsAngle", "ellipsometry_vs_angle", {"angleStep
 _ELLIPSOMETRY_OPTIONS = ("step", "angles", "side", "delta_convention", "env")
 _SWEEP_OPTIONS = ("step", "side", "delta_convention", "env")
 _MONTE_CARLO_OPTIONS = ("quantity", "step", "angle", "polarization", "runs", "thickness_rel_pct", "thickness_abs_nm",
-                        "index_re", "index_im", "distribution", "seed", "progress", "stop")
+                        "index_re", "index_im", "distribution", "seed", "env", "progress", "stop")
 # design.spectrum() takes the range as its arguments.
 _SPECTRUM_WORDS = Words("spectrum", "spectrum", hidden=("from", "to"))
 _SPECTRUM_OPTIONS = ("step", "angles", "env")
@@ -2900,7 +2904,12 @@ class Design:
         Monte Carlo window runs them: the spread of one quantity over a range
         of wavelengths, computed on what the design's sides and score_on say.
         With the design's specification, the share of trials that meet it is
-        counted too. The design is not changed.
+        counted too. A design with more than one environment is computed in
+        environment 1, its own media and substrate, unless env names another;
+        each environment sees every trial's coating with its own media,
+        substrate, thickness factors and material swaps, and a trial meets the
+        specification when every enabled check passes in every environment it
+        is judged in. The design is not changed.
 
         Args:
             start: The first wavelength, nm.
@@ -2929,15 +2938,21 @@ class Design:
                 on.
             stop: A tfstudio.Stop whose stop() ends the run, which then
                 answers with the trials it made.
+            env: The environment whose spread is computed, by its number from
+                1 or its id, whether it is on or off; or "all" for one spread
+                per environment that is on, environment 1 when none is, all
+                from the same trials. Default: environment 1.
 
         Returns:
-            A MonteCarlo.
+            A MonteCarlo; with env="all", a list of them, one per environment,
+            each with its environment.
 
         Raises:
             TFStudioError: a design with no layer the trials can change on the
                 side it is scored on, a setting it does not take, a value
-                outside its range, or a design that names a material that
-                resolves to nothing.
+                outside its range, a design that names a material that
+                resolves to nothing, or an environment the design does not
+                have.
             KeyboardInterrupt: Ctrl+C during the run, after stopping it.
 
         Example::
@@ -2946,19 +2961,25 @@ class Design:
             design.stack("(HL)^2")
             mc = design.monte_carlo(400, 700, runs=50, step=5, thickness_rel_pct=2, seed=1)
             print("Largest spread of R:", max(mc.stdev))
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.monte_carlo(400, 700, runs=50, step=5, seed=1, env="all"):
+                print(one.environment["number"], one.environment["name"], max(one.stdev))
         """
         refuse_arguments("monte_carlo", settings, ("from", "to"), _MONTE_CARLO_OPTIONS)
         hooks = run_hooks(settings, lambda: ["onProgress"])
         mode = mode_of(self._data)
         with worded(_MONTE_CARLO_WORDS):
             result = self._calls.monteCarlo(self._data, dict(api_names(settings), **{"from": start, "to": end}), hooks)
-        return MonteCarlo(result, mode)
+        return self._in_environment(lambda found, environment: MonteCarlo(found, mode, environment), result, settings.get("env"))
 
-    def layer_sensitivity(self, *, step="nm", delta_nm=1, rel_pct=1, include_locked=False):
+    def layer_sensitivity(self, *, step="nm", **settings):
         """How much the merit moves when each layer's thickness is off, as
         the Layer Sensitivity window ranks the layers: each layer is made
         thicker and thinner by a step, and the mean change of the merit is
-        its score. The merit here leaves out the MNT and MXT rows.
+        its score. The merit here leaves out the MNT and MXT rows. On a
+        design with more than one environment the step is made on the recipe
+        thickness and seen in an environment as f·(d ± step), f the thickness
+        factor of the layer's material there.
 
         Args:
             step: How the step is given: "nm", delta_nm for every layer, or
@@ -2966,13 +2987,19 @@ class Design:
             delta_nm: The step, nm, with step "nm". Default 1.
             rel_pct: The step, % of each layer, with step "percent". Default 1.
             include_locked: True scores the locked layers too. Default False.
+            env: The environment whose merit is probed, by its number from 1
+                or its id, whether it is on or off: the rows scored there, on
+                the design it computes; or "all", the merit over every
+                environment that is on, √((1/N) Σ MF_k²). Default:
+                environment 1.
 
         Returns:
             A LayerSensitivity.
 
         Raises:
             TFStudioError: a design with no merit function, a step other
-                than "nm" or "percent", or a value a setting cannot take.
+                than "nm" or "percent", a value a setting cannot take, or an
+                environment the design does not have.
 
         Example::
 
@@ -2981,11 +3008,13 @@ class Design:
             design.merit.add("RAV", 450, 650, target=0)
             for row in design.layer_sensitivity(delta_nm=2).rows:
                 print(row.side, row.number, row.material, row.sensitivity)
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95})
+            print("merit over both environments:", design.layer_sensitivity(delta_nm=2, env="all").merit)
         """
-        options = {"mode": _named(STEPS, "step", step), "deltaNm": delta_nm, "relPct": rel_pct,
-                   "includeLocked": include_locked}
+        refuse_arguments("layer_sensitivity", settings, ("mode",), _SENSITIVITY_OPTIONS)
+        options = dict(api_names(settings), mode=_named(STEPS, "step", step))
         front_count = len(self._data.get("frontLayers") or [])
-        with worded(Words("layerSensitivity", "layer_sensitivity")):
+        with worded(_SENSITIVITY_WORDS):
             ranked = self._calls.layerSensitivity(self._data, options)
         return LayerSensitivity(ranked, front_count, mode_of(self._data))
 

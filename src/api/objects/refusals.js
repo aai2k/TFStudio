@@ -8,6 +8,9 @@
 import { shown } from '../check.js';
 
 const OTHER_SIDE = { front: 'back', back: 'front' };
+// What each call that takes env on an entry calls one: setMerit a row,
+// setSpecification a check.
+const ENTRY_OF = { setMerit: 'row', setSpecification: 'check' };
 
 const orList = items => (items.length === 1 ? items[0] : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`);
 
@@ -46,8 +49,8 @@ const WORDS = {
     baseEnvironment: (f, w) => (f.option
         ? `environment 1 is the design itself and takes name and enabled alone, not ${w.name(f.option)}; set the design's own media and substrate with design.incidentMedium, design.exitMedium and design.substrate`
         : 'environment 1 is the design itself and cannot be removed'),
-    oneEnvironment: (f, w) => (f.call === 'setMerit'
-        ? `the design has one environment, so a row takes no ${w.name(f.option)}; add another with design.environments.add()`
+    oneEnvironment: (f, w) => (Object.hasOwn(ENTRY_OF, f.call)
+        ? `the design has one environment, so a ${ENTRY_OF[f.call]} takes no ${w.name(f.option)}; add another with design.environments.add()`
         : `the design has one environment, which holds no ${w.name(f.option)} until another is added; add one with design.environments.add()`),
 };
 

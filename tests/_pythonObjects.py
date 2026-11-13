@@ -209,15 +209,18 @@ def ranking(sensitivity):
 def ranked(both):
     """Layer rankings of a two-sided design with two back layers and a
     locked front one: with the defaults, by a step in percent with the
-    locked layers scored, and by the default step in percent; and a step
-    that is not one."""
+    locked layers scored, and by the default step in percent; a step that
+    is not one, and keywords it does not take, the API's name for step
+    among them."""
     design = both.copy()
     design.back_layers.append("TiO2", 30)
     design.layers[1].locked = True
     percent = design.layer_sensitivity(step="percent", rel_pct=3, include_locked=True)
     rows = [ranking(design.layer_sensitivity()), ranking(percent), ranking(design.layer_sensitivity(step="percent"))]
     out({"ranked": {"design": design._data, "rows": rows,
-                    "badStep": refused(lambda: design.layer_sensitivity(step="relative"))}})
+                    "badStep": refused(lambda: design.layer_sensitivity(step="relative")),
+                    "unknown": [refused(lambda: design.layer_sensitivity(delta=2)),
+                                refused(lambda: design.layer_sensitivity(mode="relative"))]}})
 
 
 def materials(tf, given):
@@ -294,7 +297,7 @@ def merit(design):
 # SpecCheck's attributes, in the order the test reads them.
 SPEC_ATTRIBUTES = ("kind", "label", "enabled", "cmp", "target", "tol", "lo", "hi", "wavelength", "start", "end", "aoi", "pol",
                    "channel", "direction", "level", "edge_side", "flag", "side", "preset_key", "preset_label", "source",
-                   "detector", "band_points", "curve_id")
+                   "detector", "band_points", "curve_id", "env")
 
 
 def specification(tf, design, given):
@@ -1037,6 +1040,38 @@ def environment_views(design):
         "refused": [refused(lambda: design.index_profile(env=4)), refused(lambda: design.admittance(env="x")),
                     refused(lambda: design.electric_field(env=0)), refused(lambda: design.ellipsometry(env=9)),
                     refused(lambda: design.ellipsometry_vs_angle(env="env4")), refused(lambda: design.group_delay(env=-1))]}})
+    environment_tolerance(design)
+
+
+def environment_tolerance(design):
+    """The specification, design.monte_carlo() and design.layer_sensitivity()
+    of a copy of the design with environments environment_spectra() makes,
+    with a merit row and a check of environment 2 alone: each check's env,
+    the verdict and the yield in each environment, a Monte Carlo spread of
+    one environment and of each, each naming its environment, the merit
+    layer sensitivity probes in one environment and over all of them, and an
+    environment the design does not have refused."""
+    wet = design.copy()
+    wet.merit.add("RAV", 450, 650, target=0)
+    wet.specification.add("R_AVG", 450, 650, cmp="le", target=0.05)
+    wet.specification.add("R_AT", 550, cmp="le", target=0.05, env=2)
+    report = wet.specification.check()
+
+    def spread(m):
+        return [m.environment, m.wavelength, list(m.mean), list(m.stdev), m.runs, m.seed]
+
+    run = {"step": 50, "runs": 5, "seed": 3}
+    spreads = [wet.monte_carlo(450, 650, **run), wet.monte_carlo(450, 650, **run, env="env2"),
+               *wet.monte_carlo(450, 650, **run, env="all")]
+    out({"environmentTolerance": {
+        "design": wet._data,
+        "checks": [check.env for check in wet.specification.rows],
+        "report": [report.environments, [[r.env, r.values, r.passed] for r in report.rows]],
+        "yield": wet.specification.estimate_yield(10, thickness_rel_pct=3, seed=4).environments,
+        "spreads": [spread(m) for m in spreads],
+        "merits": [wet.layer_sensitivity(delta_nm=2, env=env).merit for env in (None, 2, "all")],
+        "refused": [refused(lambda: wet.monte_carlo(450, 650, env=4)), refused(lambda: wet.layer_sensitivity(env="env9")),
+                    refused(lambda: wet.specification.add("R_AT", 550, env=5))]}})
 
 
 def measured_curves(tf):

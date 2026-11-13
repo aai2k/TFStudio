@@ -46,7 +46,7 @@ function SpecStatus({ spec, c, ea }) {
 
 function runControls({ state, ea, c }) {
     const buttons = [];
-    if (state.result?.trials?.length && !state.running) {
+    if (state.shown?.trials?.length && !state.running) {
         buttons.push(h(ActionButton, {
             key: 'trials', c, label: ea.viewTrials, title: ea.viewTrialsTip,
             onClick: () => state.setShowTrials(true),
@@ -63,14 +63,16 @@ export function ErrorAnalysis({ c, t }) {
     const dt = t.dataTable;
     const { design, evalMode, updateDesign, checkpoint } = useDesign();
     const state = useErrorAnalysis({ design, evalMode });
-    const { result, error, running, corridorSigma, showEnvelope } = state;
+    // The run as the window shows it: the spread in the environment the
+    // droplist names (useErrorAnalysis.js shownSpread).
+    const { shown: result, error, running, corridorSigma, showEnvelope } = state;
     const columns = statisticsColumns(t, state.char, corridorSigma);
     const rows = statisticsRows(result, corridorSigma);
     const { setParams } = state;
     const fixRange = ([from, to]) =>
         setParams(previous => ({ ...previous, lambdaStart: from, lambdaEnd: to }));
     const rangeNotice = useMaterialRangeNotice(
-        design, state.params.lambdaStart, state.params.lambdaEnd, t, fixRange);
+        state.shownDesign, state.params.lambdaStart, state.params.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_montecarlo.csv`,
@@ -100,7 +102,7 @@ export function ErrorAnalysis({ c, t }) {
                         : ea.clickRun,
                 }),
         ),
-        h(BadgeRow, { c, t, design }),
+        h(BadgeRow, { c, t, design, environment: state.environment }),
         h(ResultsSection, {
             c, label: ea.editorTitle, summary: errorEditorSummary(state, ea, t.units),
             open: state.showEditor, setOpen: state.setShowEditor,

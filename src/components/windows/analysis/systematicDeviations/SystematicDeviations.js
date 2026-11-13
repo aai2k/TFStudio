@@ -74,7 +74,7 @@ export function SystematicDeviations({ c, theme, t }) {
         setLambdaEnd(to);
     };
     const rangeNotice = useMaterialRangeNotice(
-        design, state.lambdaStart, state.lambdaEnd, t, fixRange);
+        state.shownDesign, state.lambdaStart, state.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_deviations.csv`,
@@ -93,7 +93,7 @@ export function SystematicDeviations({ c, theme, t }) {
             ].filter(Boolean),
         }),
         h(PlotArea, null, plotBody({ state, sd, c, lambdaAxis: t.spectralAxis.lambdaShort, units: t.units })),
-        h(BadgeRow, { c, t, design }),
+        h(BadgeRow, { c, t, design, environment: state.environment }),
         h(ResultsSection, {
             c, ...systematicEditorHeader(state, sd),
             open: state.showEditor, setOpen: state.setShowEditor,

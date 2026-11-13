@@ -319,8 +319,9 @@ class Environment:
 
     def remove(self):
         """Takes the environment out of the design, with the merit rows
-        scored in it alone and the rows that read them. The environments
-        after it move one number down.
+        scored in it alone, the rows that read them and the specification
+        checks judged in it alone. The environments after it move one number
+        down.
 
         Raises:
             TFStudioError: environment 1, the design itself.
@@ -470,8 +471,8 @@ class Environments:
 
     def remove(self, number):
         """Takes environment `number` out, with the merit rows scored in it
-        alone and the rows that read them; the environments after it move one
-        number down.
+        alone, the rows that read them and the specification checks judged in
+        it alone; the environments after it move one number down.
 
         Args:
             number: The environment's number, 2 or more: environment 1 is the

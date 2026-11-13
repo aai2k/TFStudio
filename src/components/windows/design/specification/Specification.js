@@ -13,6 +13,7 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import { useIntegralPresets } from '../../../../utils/physics/integralValues.js';
 import { useSpecificationState } from './useSpecificationState.js';
 import { useDiskPresets } from './useDiskPresets.js';
+import { failingEnvironments, useSpecEnvironments } from './specEnvironments.js';
 import { VerdictBar } from './VerdictBar.js';
 import { Toolbar } from './Toolbar.js';
 import { QTable } from './QTable.js';
@@ -27,9 +28,10 @@ export function Specification({ c, theme, t, setInputDialog }) {
     const integralPresets = useIntegralPresets();
     const {
         qualifiers, results, verdict, selectedId, containerRef, selectAndFocus,
-        addQualifier, updateQualifier, removeQualifier,
+        addQualifier, updateQualifier, removeQualifier, setQualifierEnv,
         writeQualifiers, qualifierKeyDown, generateMF, onApplyBuiltinPreset,
     } = useSpecificationState({ design, updateDesign, checkpoint });
+    const environments = useSpecEnvironments(design);
 
     const {
         diskPresets, diskBusy, diskMsg,
@@ -47,7 +49,7 @@ export function Specification({ c, theme, t, setInputDialog }) {
             outline: 'none',
         }
     },
-        h(VerdictBar, { verdict, c, ts, qualifiers, generateMF, design, t }),
+        h(VerdictBar, { verdict, c, ts, qualifiers, generateMF, design, t, environments, failing: failingEnvironments(results) }),
         h(Toolbar,    {
             addQualifier, c, ts,
             onApplyBuiltinPreset,
@@ -59,7 +61,7 @@ export function Specification({ c, theme, t, setInputDialog }) {
                 ? h(EmptyState, { c, ts, addQualifier })
                 : h(QTable, { qualifiers, results, c, ts, units: t.units, updateQualifier, removeQualifier,
                               integralPresets, measuredCurves: design.measuredCurves || [],
-                              selectedId, onSelect: selectAndFocus })
+                              selectedId, onSelect: selectAndFocus, environments, setQualifierEnv })
         )
     );
 }

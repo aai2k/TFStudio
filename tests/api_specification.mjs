@@ -34,7 +34,13 @@
  *      and layer count saved without a side, on a symmetric design and on one
  *      scored on the whole part, and checks the window makes that a new check
  *      is refused, read the same before and after.
- *   5. The doc examples of the three calls run, with the plain API as tf.
+ *   5. On a design with environments: setSpecification holds a check's env
+ *      by its id; checkSpecification judges a check of every environment in
+ *      each that is on, as its design is judged apart, one of environment 2
+ *      there alone and one of an environment that is off nowhere, gives each
+ *      environment's verdict and reads what the worker's pass gives; env is
+ *      refused on a design with one environment and when it names none.
+ *   6. The doc examples of the three calls run, with the plain API as tf.
  *
  * Run: node tests/api_specification.mjs
  */
@@ -483,7 +489,46 @@ function windowCheck(design, kind, fields) {
     ok('and a check that is not an object', /check 0: a check is an object of fields/.test(thrown(() => api.setSpecification(ppef, ['T_AT']))?.message ?? ''));
 }
 
-// ── 5. The examples run ────────────────────────────────────────────────────
+// ── 5. Environments ────────────────────────────────────────────────────────
+{
+    const { oneEnvironmentDesign } = await import('../src/utils/environments/environments.js');
+    const { threeEnvironmentDesign } = await import('./_environmentDesign.mjs');
+    const CHECKS = [
+        { kind: 'R_AVG', lambdaStart: 420, lambdaEnd: 680, cmp: 'le', target: 0.02 },
+        { kind: 'R_AT', lambda: 550, aoi: 30, cmp: 'le', target: 0.05, env: 'env2' },
+        { kind: 'THICKNESS_BUDGET', cmp: 'ge', target: 198.5, env: 3 },
+        { kind: 'T_AT', lambda: 600, cmp: 'ge', target: 0.9, enabled: false },
+    ];
+    const design = api.setSpecification(threeEnvironmentDesign(), CHECKS);
+    ok('setSpecification takes env by id or number and holds the id', isDeepStrictEqual(design.qualifiers.map(q => q.env), [undefined, 'env2', 'env3', undefined]));
+    const verdict = api.checkSpecification(design);
+    // Each check judged apart in one environment: the verdict of that
+    // environment's design without environments, its checks without env.
+    const apart = id => api.checkSpecification(api.setSpecification(oneEnvironmentDesign(design, id), CHECKS.map(({ env, ...check }) => check)));
+    const [base, sapphire] = [apart('base'), apart('env2')];
+    ok('a check of every environment is judged in each that is on, its value environment 1\'s, and passes only where it passes in each',
+        isDeepStrictEqual(verdict.rows[0].values, [base.rows[0], sapphire.rows[0]].map((row, i) => ({ number: i + 1, id: ['base', 'env2'][i], value: row.value, passed: row.passed, margin: row.margin })))
+        && verdict.rows[0].value === base.rows[0].value && verdict.rows[0].passed === (base.rows[0].passed && sapphire.rows[0].passed) && verdict.rows[0].env === null,
+        JSON.stringify(verdict.rows[0]));
+    ok('a check of environment 2 is judged on its design alone', isDeepStrictEqual(verdict.rows[1].values.map(v => v.id), ['env2'])
+        && verdict.rows[1].value === sapphire.rows[1].value && verdict.rows[1].value !== base.rows[1].value && verdict.rows[1].env === 'env2');
+    ok('a check of an environment that is off is judged nowhere and counts nowhere', verdict.rows[2].passed === null && verdict.rows[2].reason === 'environmentOff'
+        && verdict.rows[2].values.length === 0 && verdict.total === 2);
+    ok('each environment that is on has its own verdict over the checks judged there', isDeepStrictEqual(verdict.environments, [
+        { number: 1, id: 'base', name: 'BK7', passed: base.rows[0].passed, passing: Number(base.rows[0].passed), total: 1 },
+        { number: 2, id: 'env2', name: 'Sapphire', passed: sapphire.rows[0].passed && sapphire.rows[1].passed,
+            passing: Number(sapphire.rows[0].passed) + Number(sapphire.rows[1].passed), total: 2 },
+    ]), JSON.stringify(verdict.environments));
+    const [worked] = dispatchAnalysisEvaluation('specification', { designs: [embedDesignMaterials(withHerpinRecords(design))] });
+    ok('and checkSpecification reads what the worker\'s pass gives', verdict.rows.every((row, i) => row.value === (Number.isFinite(worked[i].value) ? worked[i].value : null) && row.passed === worked[i].pass));
+    const refused = [thrown(() => api.setSpecification(qwStack, [CHECKS[1]])), thrown(() => api.setSpecification(design, [{ ...CHECKS[1], env: 9 }]))];
+    const seen = [refused[0]?.code, refused[0]?.fields, refused[1]?.code, refused[1]?.fields?.row, refused[1]?.fields?.environment];
+    ok('env is refused on a design with one environment, and one the design does not have, as setMerit refuses them',
+        isDeepStrictEqual(seen, ['oneEnvironment', { call: 'setSpecification', row: 0, option: 'env' }, 'unknownEnvironment', 0, 9]),
+        `${refused[0]?.message} / ${refused[1]?.message}`);
+}
+
+// ── 6. The examples run ────────────────────────────────────────────────────
 {
     const AsyncFunction = (async () => {}).constructor;
     const calls = apiCalls(path.join(ROOT, 'src', 'api')).filter(call => ['setSpecification', 'checkSpecification', 'estimateYield'].includes(call.name));

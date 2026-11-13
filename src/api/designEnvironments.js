@@ -226,7 +226,8 @@ export function setEnvironment(design, environment, options) {
 
 /**
  * A design without one of its environments, and without the merit rows scored
- * in that environment alone and the rows that read them. With environment 1
+ * in that environment alone, the rows that read them and the specification
+ * checks judged in it alone. With environment 1
  * left alone, the design no longer lists environments. Environment 1, the
  * design itself, cannot be removed.
  *

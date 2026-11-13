@@ -13,7 +13,9 @@
  *   3. The in-thread synthesis pool keeps the WorkerPool contract: a job that
  *      fails rejects, terminate() rejects the jobs not answered and any posted
  *      after it.
- *   4. Monte Carlo and layer sensitivity.
+ *   4. Monte Carlo and layer sensitivity, and on a design with environments
+ *      each environment's spread from one run's trials, the yield over every
+ *      environment with each one's own, and the merit each env probes.
  *
  * Run: node tests/api_runs.mjs
  */
@@ -163,6 +165,34 @@ for (const method of ['needle', 'ge']) {
     const sensitivities = ranked.rows.map(r => r.sensitivity);
     ok('layer sensitivity ranks every layer, the most sensitive at 100', sensitivities.length === 2
         && Math.max(...sensitivities) === 100 && Math.min(...sensitivities) >= 0, JSON.stringify(sensitivities));
+
+    // On a design with environments: each environment's spread from the same
+    // trials, the yield over every environment with each one's own, and the
+    // merit Layer Sensitivity probes; an environment the design does not
+    // have refused.
+    const { isDeepStrictEqual: same } = await import('node:util');
+    let wet = api.addEnvironment(start, { name: 'Under water', incidentMedium: 'H2O' });
+    wet = api.addEnvironment(wet, { name: 'Edge', thicknessFactors: { TiO2: 0.95 } });
+    wet = api.setSpecification(wet, [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'le', target: 0.03 },
+        { kind: 'R_AT', lambda: 550, cmp: 'le', target: 0.02, env: 3 }]);
+    const each = await api.monteCarlo(wet, { ...opts, env: 'all' });
+    const apart = [];
+    for (const env of [undefined, 2, 'env3']) apart.push(await api.monteCarlo(wet, { ...opts, env }));
+    ok('Monte Carlo of every environment is one run: each environment\'s answer its run with that env, the trials and the yield shared',
+        same(each.environments.map(({ number, id, name, ...one }) => [number, id, name, one]), apart.map((one, k) => [k + 1, ['base', 'env2', 'env3'][k], [null, 'Under water', 'Edge'][k], one]))
+        && new Set(apart.map(one => JSON.stringify(one.mean))).size === 3 && apart.every(one => same(one.spec, apart[0].spec)));
+    const y = await api.estimateYield(wet, { runs: 5, thicknessRelPct: 2, seed: 3 });
+    ok('estimateYield counts every environment and gives each one\'s own yield, monteCarlo\'s spec', same(y.environments, apart[0].spec.environments)
+        && y.yield === apart[0].spec.yield && same(y.environments.map(e => [e.id, e.evaluated]), [['base', 5], ['env2', 5], ['env3', 5]]), JSON.stringify(y.environments));
+    const wetMerit = api.setMerit(wet, AR_ROWS);
+    const probed = [undefined, 2, 'env3', 'all'].map(env => api.layerSensitivity(wetMerit, { env }).mf0);
+    ok('layer sensitivity probes environment 1 without env, the environment env names, or every environment that is on',
+        new Set(probed).size === 4 && probed[0] === api.layerSensitivity(start).mf0, JSON.stringify(probed));
+    const refused = [];
+    for (const call of [() => api.monteCarlo(wet, { ...opts, env: 4 }), () => api.layerSensitivity(wetMerit, { env: 'env9' })]) {
+        try { await call(); refused.push(null); } catch (err) { refused.push([err.code, err.fields.option, err.fields.environment]); }
+    }
+    ok('an environment the design does not have is refused', same(refused, [['unknownEnvironment', 'env', 4], ['unknownEnvironment', 'env', 'env9']]), JSON.stringify(refused));
 }
 
 console.log(`${pass} passed, ${fail} failed`);

@@ -4,22 +4,30 @@
  * model and references.
  */
 
-import {
-    evaluateQualifiers,
-    aggregateVerdict,
-} from '../../synthesis/qualifiers.js';
+import { aggregateVerdict } from '../../synthesis/qualifiers.js';
+import { evaluateSpecification, failureOf } from '../../environments/environmentSpecification.js';
+import { environmentDesign } from '../../environments/environments.js';
+import { trialMaterialsIn } from './mcDraws.js';
+import { withEnvironments } from './mcConfig.js';
 
-export function updateMCStatistics(state, values) {
-    state.runningN++;
-    for (let i = 0; i < state.nLambda; i++) {
+// One trial's curve `values` added to the running mean, sum of squares and
+// extremes of `spread`, the trial being the n-th.
+function accumulate(spread, values, n) {
+    for (let i = 0; i < spread.nLambda; i++) {
         const x = values[i];
-        const d1 = x - state.mean[i];
-        state.mean[i] += d1 / state.runningN;
-        const d2 = x - state.mean[i];
-        state.m2[i] += d1 * d2;
-        if (x < state.min[i]) state.min[i] = x;
-        if (x > state.max[i]) state.max[i] = x;
+        const d1 = x - spread.mean[i];
+        spread.mean[i] += d1 / n;
+        const d2 = x - spread.mean[i];
+        spread.m2[i] += d1 * d2;
+        if (x < spread.min[i]) spread.min[i] = x;
+        if (x > spread.max[i]) spread.max[i] = x;
     }
+}
+
+/** One trial's curve in each environment whose spread is computed, `runs` in the order of state.spreads. */
+export function updateMCStatistics(state, runs) {
+    state.runningN++;
+    state.spreads.forEach((spread, k) => accumulate(spread, runs[k], state.runningN));
 }
 
 function accumulateSpecificationVerdict(state, results, verdict) {
@@ -32,67 +40,94 @@ function accumulateSpecificationVerdict(state, results, verdict) {
     });
 }
 
+// Each environment's own verdict on the trial, its checks alone: a trial is
+// counted in an environment that judges a check, and passes there when each
+// of them passes there.
+function accumulateEnvironmentVerdicts(config, state, results) {
+    config.judged?.forEach(({ id }, k) => {
+        const here = results.flatMap(result => result.environments.filter(entry => entry.id === id));
+        if (here.length === 0) return;
+        state.environmentSpec[k].evaluated++;
+        if (here.every(entry => entry.result.pass === true)) state.environmentSpec[k].pass++;
+    });
+}
+
+// A trial's verdict on each check. A check that fails records the value of the
+// environment that fails it, with that environment (failureOf), since its own
+// value, the first environment's, can pass.
 function formatTrialSpecification(qualifiers, results, verdict) {
     return {
         allPass: verdict.allPass,
         passing: verdict.passing,
         total: verdict.total,
-        results: results.map((result, index) => ({
-            label: qualifiers[index].label || qualifiers[index].kind || ('#' + (index + 1)),
-            pass: result ? result.pass : null,
-            value: result ? result.value : null,
-            unit: result ? result.unit : null,
-        })),
+        // evaluateSpecification gives one result for every check, so each
+        // index holds one.
+        results: results.map((result, index) => {
+            const { result: said, environment } = failureOf(result);
+            const record = {
+                label: qualifiers[index].label || qualifiers[index].kind || ('#' + (index + 1)),
+                pass: result.pass,
+                value: said.value,
+                unit: said.unit,
+            };
+            if (environment) record.env = environment;
+            return record;
+        }),
     };
 }
 
 /**
- * The trial's design and material resolver, as the qualifier evaluator needs
- * them.
+ * The trial's design in environment `id` and its material resolver, as the
+ * qualifier evaluator needs them: `trial`, the trial coating on the recipe,
+ * as that environment sees it (environment 1: the trial itself).
  *
  * Qualifiers resolve materials by layer id, but a trial perturbs n and k per
- * *layer* — two layers of the same material get different draws. Each perturbed
+ * *layer*: two layers of the same material get different draws. Each perturbed
  * layer is therefore relabelled with a trial-local id that resolves to its own
  * shifted material, so the specification is judged on the same spectrum the
- * trial produced rather than on nominal indices.
+ * trial produced rather than on nominal indices. The environment is applied
+ * before the relabelling, so a layer keeps its factor and its swap.
  */
-function trialDesignForSpec(config, frontLayers, backLayers, getMatForLayer) {
-    // A symmetric design's back is evaluated as the mirror of its front; a
-    // trial draws each face's errors on its own, so its check scores the two
-    // faces it drew, as both sides given.
-    const drawn = config.design.surfaceMode === 'symmetric' ? { surfaceMode: 'both_independent' } : {};
-    const design = { ...config.design, ...drawn, frontLayers, backLayers };
-    if (!getMatForLayer) return { design, resolveMat: config.resolveMat };
+function trialInputsIn(config, state, data, trial, id) {
+    const design = environmentDesign(trial, id);
+    const getMatForLayer = trialMaterialsIn(config, state, data, id);
+    if (!getMatForLayer) return { design, resolve: config.resolveMat };
 
     const shifted = new Map();
     const relabel = (layers, side) => layers.map((layer, index) => {
         const material = getMatForLayer(side, index);
         if (!material) return layer;
-        const id = `__mcTrial:${side}:${index}`;
-        shifted.set(id, material);
-        return { ...layer, material: id };
+        const label = `__mcTrial:${side}:${index}`;
+        shifted.set(label, material);
+        return { ...layer, material: label };
     });
 
-    design.frontLayers = relabel(frontLayers, 'front');
-    design.backLayers = relabel(backLayers, 'back');
     return {
-        design,
-        resolveMat: (id) => shifted.get(id) || config.resolveMat(id),
+        design: { ...design, frontLayers: relabel(design.frontLayers, 'front'), backLayers: relabel(design.backLayers, 'back') },
+        resolve: (material) => shifted.get(material) || config.resolveMat(material),
     };
 }
 
-export function evaluateTrialSpecification(config, state, frontLayers, backLayers, getMatForLayer) {
-    let trialSpec = null;
-    if (config.evaluateSpec && config.qualifiers.length) {
-        const trial = trialDesignForSpec(config, frontLayers, backLayers, getMatForLayer);
-        try {
-            const results = evaluateQualifiers(config.qualifiers, trial.design, trial.resolveMat);
-            const verdict = aggregateVerdict(results);
-            accumulateSpecificationVerdict(state, results, verdict);
-            trialSpec = formatTrialSpecification(config.qualifiers, results, verdict);
-        } catch (_) { /* skip this trial's spec check */ }
+// The trial coating on the design. A symmetric design's back is evaluated as
+// the mirror of its front; a trial draws each face's errors on its own, so its
+// check scores the two faces it drew, as both sides given.
+function trialCoating(config, data) {
+    const drawn = config.design.surfaceMode === 'symmetric' ? { surfaceMode: 'both_independent' } : {};
+    return { ...config.design, ...drawn, frontLayers: data.frontLayers, backLayers: data.backLayers };
+}
+
+export function evaluateTrialSpecification(config, state, data) {
+    if (!(config.evaluateSpec && config.qualifiers.length)) return null;
+    const trial = trialCoating(config, data);
+    try {
+        const results = evaluateSpecification(config.qualifiers, trial, {}, id => trialInputsIn(config, state, data, trial, id));
+        const verdict = aggregateVerdict(results);
+        accumulateSpecificationVerdict(state, results, verdict);
+        accumulateEnvironmentVerdicts(config, state, results);
+        return formatTrialSpecification(config.qualifiers, results, verdict);
+    } catch (_) {
+        return null; // skip this trial's spec check
     }
-    return trialSpec;
 }
 
 export function recordMCTrial(config, state, trial, data, spec) {
@@ -148,49 +183,67 @@ export function wilsonInterval(pass, n) {
     return [Math.max(0, centre - half), Math.min(1, centre + half)];
 }
 
+// A yield of `pass` trials passing of `evaluated` checked.
+const yieldOf = (pass, evaluated) => ({
+    evaluated,
+    passCount: pass,
+    yield: evaluated > 0 ? pass / evaluated : null,
+    yieldInterval: wilsonInterval(pass, evaluated),
+});
+
 function makeMCSpecSummary(config, state) {
     if (!(config.evaluateSpec && config.qualifiers.length)) return null;
     return {
         nTrials: state.runningN,
-        evaluated: state.specEvaluated,
-        passCount: state.specPass,
-        yield: state.specEvaluated > 0 ? state.specPass / state.specEvaluated : null,
-        yieldInterval: wilsonInterval(state.specPass, state.specEvaluated),
+        ...yieldOf(state.specPass, state.specEvaluated),
         perQualifier: config.qualifiers.map((qualifier, index) => ({
             label: qualifier.label || qualifier.kind || ('#' + (index + 1)),
             failRate: state.runningN > 0 ? state.qualifierFailures[index] / state.runningN : 0,
         })),
+        ...(config.judged ? {
+            environments: withEnvironments(config.judged, state.environmentSpec.map(({ pass, evaluated }) => yieldOf(pass, evaluated))),
+        } : {}),
     };
 }
 
-export function finalizeMCResult(config, state) {
+// The spread's curves after `n` trials: the mean, the sample standard
+// deviation, the corridor of `corridorSigma` standard deviations and the
+// extremes.
+function spreadCurves(spread, n, corridorSigma) {
     // Sample standard deviation: the mean is estimated from the same trials, so
     // the sum of squares is divided by N − 1. One trial gives no spread.
-    const stdev = new Float64Array(state.nLambda);
-    for (let i = 0; i < state.nLambda; i++) {
-        stdev[i] = state.runningN > 1 ? Math.sqrt(state.m2[i] / (state.runningN - 1)) : 0;
+    const stdev = new Float64Array(spread.nLambda);
+    for (let i = 0; i < spread.nLambda; i++) {
+        stdev[i] = n > 1 ? Math.sqrt(spread.m2[i] / (n - 1)) : 0;
     }
 
-    const lower = new Array(state.nLambda);
-    const upper = new Array(state.nLambda);
-    const envLower = new Array(state.nLambda);
-    const envUpper = new Array(state.nLambda);
-    for (let i = 0; i < state.nLambda; i++) {
-        lower[i] = Math.max(0, state.mean[i] - config.corridorSigma * stdev[i]);
-        upper[i] = Math.min(1, state.mean[i] + config.corridorSigma * stdev[i]);
-        envLower[i] = state.runningN > 0 ? Math.max(0, state.min[i]) : state.mean[i];
-        envUpper[i] = state.runningN > 0 ? Math.min(1, state.max[i]) : state.mean[i];
+    const lower = new Array(spread.nLambda);
+    const upper = new Array(spread.nLambda);
+    const envLower = new Array(spread.nLambda);
+    const envUpper = new Array(spread.nLambda);
+    for (let i = 0; i < spread.nLambda; i++) {
+        lower[i] = Math.max(0, spread.mean[i] - corridorSigma * stdev[i]);
+        upper[i] = Math.min(1, spread.mean[i] + corridorSigma * stdev[i]);
+        envLower[i] = n > 0 ? Math.max(0, spread.min[i]) : spread.mean[i];
+        envUpper[i] = n > 0 ? Math.min(1, spread.max[i]) : spread.mean[i];
     }
 
     return {
-        lambda: state.lambdas,
-        theory: Array.from(state.theory),
-        mean: Array.from(state.mean),
+        lambda: spread.lambdas,
+        theory: Array.from(spread.theory),
+        mean: Array.from(spread.mean),
         stdev: Array.from(stdev),
         lower,
         upper,
         envLower,
         envUpper,
+    };
+}
+
+export function finalizeMCResult(config, state) {
+    const spreads = state.spreads.map(spread => spreadCurves(spread, state.runningN, config.corridorSigma));
+    return {
+        ...spreads[0],
         nTrials: state.runningN,
         char: config.char,
         seed: config.seed,
@@ -209,5 +262,7 @@ export function finalizeMCResult(config, state) {
         },
         spec: makeMCSpecSummary(config, state),
         trials: config.recordTrials ? state.trials : null,
+        // Each spread computed, in its environment; none on a design without environments.
+        environments: withEnvironments(config.spreads, spreads),
     };
 }

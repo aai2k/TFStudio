@@ -6,10 +6,15 @@ import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { KIND_META, hasOpticalConditions } from './model.js';
 import { Field, numInp, numInpTarget, inpStyle, selStyle, btnStyle } from './fields.js';
 import { renderStep, renderSide } from './stepSideFields.js';
+import { EnvironmentField } from './EnvironmentField.js';
+import { resultTip } from './specEnvironments.js';
 
 const { createElement: h } = React;
 
-export function QRow({ q, r, c, ts, units, updateQualifier, removeQualifier, integralPresets, measuredCurves, isSelected, onSelect }) {
+// `r` is the result the row shows (specEnvironments.js shownResult) and
+// `environments` the design's (specEnvironments), null on a design with one
+// environment, whose rows have no Env field.
+export function QRow({ q, r, c, ts, units, updateQualifier, removeQualifier, integralPresets, measuredCurves, isSelected, onSelect, environments, setQualifierEnv }) {
     const meta = KIND_META[q.kind] || {};
     const onF     = (k, v) => updateQualifier(q.id, { [k]: v });
     const onPatch = (patch) => updateQualifier(q.id, patch);
@@ -37,9 +42,10 @@ export function QRow({ q, r, c, ts, units, updateQualifier, removeQualifier, int
             outline: isSelected ? `1px solid ${c.accent}55` : 'none',
         }
     },
-        renderRowHeader({ q, r, c, ts, units, onF, updateQualifier, removeQualifier, passColor, passBadge }),
+        renderRowHeader({ q, r, c, ts, units, onF, updateQualifier, removeQualifier, passColor, passBadge, environments }),
 
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 11, color: c.textDim } },
+            h(EnvironmentField, { q, environments, setQualifierEnv, c, ts }),
             renderChannelPick(meta, q, onF, c, ts),
             renderChannelFixed(meta, c),
             renderWavelength(meta, q, onF, c, ts),
@@ -65,7 +71,7 @@ export function QRow({ q, r, c, ts, units, updateQualifier, removeQualifier, int
 
 // ── Row header: enabled toggle / kind / label / verdict ──────────────────────
 
-function renderRowHeader({ q, r, c, ts, units, onF, updateQualifier, removeQualifier, passColor, passBadge }) {
+function renderRowHeader({ q, r, c, ts, units, onF, updateQualifier, removeQualifier, passColor, passBadge, environments }) {
     return h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
         h('label', { style: { display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: c.textDim, cursor: 'pointer' } },
             h(Checkbox, {
@@ -95,7 +101,7 @@ function renderRowHeader({ q, r, c, ts, units, onF, updateQualifier, removeQuali
         // at a default step until the check's own Step is worked out, is shown
         // faded with ≈ before its value.
         h('div', {
-            title: r?.provisional ? ts.provisionalTip : undefined,
+            title: resultTip(r, environments, ts),
             style: {
                 fontSize: 11, color: passColor, fontWeight: 700,
                 padding: '3px 8px', borderRadius: 11,

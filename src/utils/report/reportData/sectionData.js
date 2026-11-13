@@ -5,7 +5,8 @@
 
 import { colorReport, COLOR_RANGE_NM } from '../../physics/colorimetry.js';
 import { computeIntegralValueBatch, DEFAULT_INTEGRALS } from '../../physics/integralValues.js';
-import { evaluateQualifiers, aggregateVerdict, evaluatedStacks, coatedThickness } from '../../synthesis/qualifiers.js';
+import { aggregateVerdict, evaluatedStacks, coatedThickness } from '../../synthesis/qualifiers.js';
+import { evaluateSpecification } from '../../environments/environmentSpecification.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
 import { resolveColor } from '../../materials/catalogManager.js';
 import { materialName, buildSpectrum } from './engines.js';
@@ -57,10 +58,11 @@ export function computeIntegrals(design, opts = {}) {
 // ── Qualifiers verdict ──────────────────────────────────────────────────────
 // `given` is the design's results worked out on the analysis worker, each check
 // at its own Step; without them the checks are evaluated here at their default
-// steps, which a fine Step cannot slow down.
+// steps, which a fine Step cannot slow down. Either way each check is judged in
+// every environment it is judged in (environmentSpecification.js).
 export function computeQualifiers(design, given = null) {
   const quals = design.qualifiers || [];
-  const results = given || evaluateQualifiers(quals, design, designMaterialLookup(design), { coarse: true });
+  const results = given || evaluateSpecification(quals, design, { coarse: true });
   const verdict = aggregateVerdict(results);
   return { qualifiers: quals, results, verdict };
 }

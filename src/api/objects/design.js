@@ -1679,7 +1679,12 @@ export class Design {
      * Carlo window runs them: the spread of one quantity over a range of
      * wavelengths, computed on what the design's `sides` and `scoreOn` say.
      * With the design's specification, the share of trials that meet it is
-     * counted too. The design is not changed.
+     * counted too. A design with more than one environment is computed in
+     * environment 1, its own media and substrate, unless `env` names another;
+     * each environment sees every trial's coating with its own media,
+     * substrate, thickness factors and material swaps, and a trial meets the
+     * specification when every enabled check passes in every environment it
+     * is judged in. The design is not changed.
      *
      * @param start The first wavelength, nm.
      * @param end The last wavelength, nm, above `start`.
@@ -1697,13 +1702,16 @@ export class Design {
      * @param [options.seed] The number the draws start from, a whole number from 1 to 2^32 - 1; the same seed and settings repeat the run. Without it, a fresh one, which the result reports.
      * @param [options.progress] A function called with a Progress (`trial` and `total`) as the trials go. An error it throws ends the run, which then rejects with it.
      * @param [options.stop] An AbortSignal; aborting its AbortController ends the run, which then answers with the trials it made.
-     * @returns A promise of a MonteCarlo.
-     * @throws a design with no layer the trials can change on the side it is scored on, a setting it does not take, a value outside its range, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment whose spread is computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one spread per environment that is on, environment 1 when none is, all from the same trials. Without it, environment 1.
+     * @returns A promise of a MonteCarlo; with `env: 'all'`, of an array of them, one per environment, each with its `environment`.
+     * @throws a design with no layer the trials can change on the side it is scored on, a setting it does not take, a value outside its range, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('AR');
      * design.stack('(HL)^2');
      * const mc = await design.monteCarlo(400, 700, { runs: 50, step: 5, thicknessRelPct: 2, seed: 1 });
      * console.log('Largest spread of R:', Math.max(...mc.stdev));
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of await design.monteCarlo(400, 700, { runs: 50, step: 5, seed: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, Math.max(...one.stdev));
      */
     async monteCarlo(start, end, options) {
         const { progress, stop, ...settings } = optionsOf('monteCarlo', options);
@@ -1711,30 +1719,36 @@ export class Design {
         const mode = resolveEvalMode(this._data);
         const words = { method: 'monteCarlo', call: 'monteCarlo', hidden: ['from', 'to'], extra: ['progress', 'stop'] };
         const run = () => worded(words, () => api.monteCarlo(this._data, { ...defined(settings), from: start, to: end }, control.hooks));
-        return new MonteCarlo(await ended(control, run), mode);
+        return madeIn(this._data, settings.env, await ended(control, run), (found, environment) => new MonteCarlo(found, mode, environment));
     }
 
     /**
      * How much the merit moves when each layer's thickness is off, as the
      * Layer Sensitivity window ranks the layers: each layer is made thicker
      * and thinner by a step, and the mean change of the merit is its score.
-     * The merit here leaves out the MNT and MXT rows.
+     * The merit here leaves out the MNT and MXT rows. On a design with more
+     * than one environment the step is made on the recipe thickness and seen
+     * in an environment as f·(d ± step), f the thickness factor of the
+     * layer's material there.
      *
      * @param [options]
      * @param [options.step='nm'] How the step is given: `'nm'`, `deltaNm` for every layer, or `'percent'`, `relPct` % of each layer.
      * @param [options.deltaNm=1] The step, nm, with step `'nm'`.
      * @param [options.relPct=1] The step, % of each layer, with step `'percent'`.
      * @param [options.includeLocked=false] `true` scores the locked layers too.
+     * @param [options.env] The environment whose merit is probed, by its number from 1 or its id, whether it is on or off: the rows scored there, on the design it computes; or `'all'`, the merit over every environment that is on, √((1/N) Σ MF_k²). Without it, environment 1.
      * @returns A LayerSensitivity.
-     * @throws a design with no merit function, a step other than `'nm'` or `'percent'`, or a value a setting cannot take
+     * @throws a design with no merit function, a step other than `'nm'` or `'percent'`, a value a setting cannot take, or an environment the design does not have
      * @example
      * const design = tf.newDesign('AR');
      * design.stack('(HL)^2');
      * design.merit.add('RAV', 450, 650, { target: 0 });
      * for (const row of design.layerSensitivity({ deltaNm: 2 }).rows) console.log(row.side, row.number, row.material, row.sensitivity);
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95 } });
+     * console.log('merit over both environments:', design.layerSensitivity({ deltaNm: 2, env: 'all' }).merit);
      */
     layerSensitivity(options) {
-        const { step = 'nm', ...others } = checkOptions('layerSensitivity', options, ['step', 'deltaNm', 'relPct', 'includeLocked']);
+        const { step = 'nm', ...others } = checkOptions('layerSensitivity', options, ['step', 'deltaNm', 'relPct', 'includeLocked', 'env']);
         requireValue('layerSensitivity', 'step', step, kind => Object.hasOwn(STEPS, kind), "'nm' or 'percent'");
         const ranked = worded({ method: 'layerSensitivity', call: 'layerSensitivity' },
             () => api.layerSensitivity(this._data, { ...others, mode: STEPS[step] }));

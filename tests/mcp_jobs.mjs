@@ -8,7 +8,8 @@
  *      the run does not take fails and says why; what a job prints reaches
  *      stderr; Monte Carlo runs as a job, and on a design with a
  *      specification its spec is the yield estimateYield gives, each check's
- *      fail rate with it.
+ *      fail rate with it; with env all, on a design whose environment 2 has
+ *      its own medium and substrate, each environment's spread.
  *   3. Cancelling: a cancelled jobStatus gets no answer, also after its job
  *      ends; a cancelled call that started a job stops that job.
  *   4. Closing stdin ends the server with a job running.
@@ -97,6 +98,15 @@ const ar = await twoLayerAR();
     const yieldHere = Object.fromEntries(['nTrials', 'evaluated', 'passCount', 'yield', 'yieldInterval', 'perQualifier'].map(key => [key, estimated[key]]));
     ok('on a design with a specification its spec is the yield estimateYield gives, each check\'s fail rate with it', judged.state === 'done'
         && JSON.stringify(judged.result?.spec) === JSON.stringify(yieldHere) && judged.result.spec.perQualifier.length === 2, JSON.stringify([judged.result?.spec, yieldHere]));
+    // On a design with environments the job's thread computes each
+    // environment with every material it names, as monteCarlo does here.
+    const water = { name: 'Under water', incidentMedium: 'H2O', substrate: 'Al2O3' };
+    await server.call('addEnvironment', { designId: specified, ...water });
+    const everyEnv = await server.call('monteCarlo', { designId: specified, from: 450, to: 650, step: 10, runs: 8, thicknessRelPct: 3, seed: 3, env: 'all', waitSeconds: 50 });
+    const envHere = await api.monteCarlo(api.addEnvironment(here, water), { from: 450, to: 650, step: 10, runs: 8, thicknessRelPct: 3, seed: 3, env: 'all' });
+    ok('with env all a Monte Carlo job answers each environment\'s spread and the yield over both, as monteCarlo does',
+        everyEnv.state === 'done' && JSON.stringify(everyEnv.result) === JSON.stringify(JSON.parse(JSON.stringify(envHere)))
+        && everyEnv.result.environments.length === 2 && everyEnv.result.environments[0].spec.environments.length === 2, JSON.stringify(everyEnv).slice(0, 300));
     const many = await server.call('monteCarlo', { designId: ar.id, from: 400, to: 800, step: 1, runs: 200000, waitSeconds: 0 });
     await sleep(1500);
     const midway = await server.call('jobStatus', { jobId: many.jobId });

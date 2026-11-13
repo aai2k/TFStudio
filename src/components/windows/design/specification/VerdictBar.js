@@ -13,7 +13,11 @@ function NoRowNote({ qualifiers, design, c, ts }) {
     return h('div', { style: { fontSize: 11, color: c.warning || c.textDim } }, ts.noMFRow(names));
 }
 
-export function VerdictBar({ verdict, c, ts, qualifiers, generateMF, design, t }) {
+// The count covers every environment that is on (environmentSpecification.js);
+// on a design with environments the bar names the environments the failing
+// checks fail in (`failing`, labels) and the one the rows show their results
+// in (`environments`, specEnvironments.js).
+export function VerdictBar({ verdict, c, ts, qualifiers, generateMF, design, t, environments = null, failing = [] }) {
     const { passing, total, allPass } = verdict;
     const color = total === 0 ? c.textDim
                 : allPass     ? c.success
@@ -38,9 +42,13 @@ export function VerdictBar({ verdict, c, ts, qualifiers, generateMF, design, t }
         }, label),
         total > 0 && h('div', { style: { fontSize: 11, color: c.textDim } },
             `${passing}/${total} ${ts.passingSuffix || 'passing'}`),
+        failing.length > 0 && h('div', { style: { fontSize: 11, color: c.error, whiteSpace: 'nowrap' } },
+            ts.failingIn(failing)),
         // Read-only reminder of what qualifiers are scored against
         // (set in the Design Editor).
         design && h(EvalModeBadge, { design, c, t, style: { marginLeft: 12 } }),
+        environments && h('div', { title: ts.valuesInTip, style: { fontSize: 11, color: c.textDim, whiteSpace: 'nowrap' } },
+            ts.valuesIn(environments.current.label)),
         h('div', { style: { flex: 1 } }),
         h(NoRowNote, { qualifiers, design, c, ts }),
         qualifiers.length > 0 && h('button', {

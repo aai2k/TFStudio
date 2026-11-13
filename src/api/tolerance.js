@@ -6,9 +6,11 @@ import { runErrorAnalysisMC, computeLayerSensitivity } from '../utils/physics/er
 import { MAX_SEED } from '../utils/physics/errorAnalysis/mcConfig.js';
 import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
+import { environmentsInAll } from '../utils/environments/environments.js';
 import { hasPerturbableLayers } from '../components/windows/analysis/errorAnalysis/trialModel.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { environmentId } from './designEnvironments.js';
 import { checkOptions, checkHooks, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean, refusal } from './check.js';
 
 const oneOf = list => v => list.includes(v);
@@ -18,7 +20,11 @@ export const isSeed = v => v == null || (Number.isInteger(v) && v >= 1 && v <= M
 // The options of the layer errors and the trials, and the values they start from.
 const ERROR_OPTIONS = ['runs', 'thicknessRelPct', 'thicknessAbsNm', 'indexRe', 'indexIm', 'distribution', 'seed'];
 const ERROR_DEFAULTS = { runs: 100, thicknessRelPct: 1, thicknessAbsNm: 0, indexRe: 0, indexIm: 0, distribution: 'gaussian' };
-const MC_OPTIONS = ['quantity', 'from', 'to', 'step', 'angle', 'polarization', ...ERROR_OPTIONS];
+const MC_OPTIONS = ['quantity', 'from', 'to', 'step', 'angle', 'polarization', ...ERROR_OPTIONS, 'env'];
+
+// The id of the environment `env` names for `call`, by its id or number, an
+// option that also takes 'all'.
+const environmentOf = (call, design, env) => environmentId(call, design, env, { fields: { option: 'env' }, named: `${call}: env`, also: "'all'" });
 const MC_HOOKS = ['signal', 'onProgress'];
 
 const MC_CHECKS = [
@@ -57,10 +63,11 @@ const MC_CHECKS = [
  * @param [options.indexIm=0] The error on k, an amount as `indexRe` is on n; k does not go below 0, so on a layer with k = 0 the error only adds absorption.
  * @param [options.distribution='gaussian'] How the errors are drawn: `'gaussian'`, each error level one standard deviation; `'uniform'`, a hard bound, every value inside it as likely; `'truncated'`, a hard bound at three standard deviations.
  * @param [options.seed] The number the draws start from, a whole number from 1 to 2^32 - 1; the same seed and options repeat the run. Without it, or with null, a fresh one, which the result reports.
+ * @param [options.env] The environment whose spread is computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one spread per environment that is on, environment 1 when none is, all from the same trials. Without it, environment 1.
  * @param [hooks]
  * @param [hooks.signal] An AbortSignal, looked at between trials; a stopped run returns the trials it ran.
  * @param [hooks.onProgress] Called after each trial with `{ trial, total }`.
- * @returns A promise of the result.
+ * @returns A promise of the result; with `env: 'all'`, of `{ environments }`, one entry per environment, each this result with the environment's `number`, `id` and `name`, its spread its own and the rest shared.
  * @property lambda The wavelengths, nm.
  * @property theory The quantity for the design without errors.
  * @property mean The mean over the trials.
@@ -73,14 +80,18 @@ const MC_CHECKS = [
  * @property char The quantity, `'R'`, `'T'` or `'A'`.
  * @property seed The seed the draws started from.
  * @property settings The error levels, distribution, angle and polarization the run used.
- * @property spec With a specification, `{ yield, passCount, evaluated, yieldInterval, nTrials, perQualifier }`: the share of trials that meet it, how many did, how many were checked, the 95 % interval of the share, the trials run, and for each check, in order, `{ label, failRate }`, the share of all the trials run in which it failed; null without one.
+ * @property spec With a specification, `{ yield, passCount, evaluated, yieldInterval, nTrials, perQualifier }`: the share of trials that meet it, how many did, how many were checked, the 95 % interval of the share, the trials run, and for each check, in order, `{ label, failRate }`, the share of all the trials run in which it failed; null without one. On a design with more than one environment a trial meets it when every enabled check passes in every environment it is judged in, and `spec` adds `environments`, as estimateYield gives them.
  * @property trials `null`: the trials themselves are not kept.
  * @throws a design with no layer the trials can change on the side it is scored on
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^5 H' });
  * const mc = await tf.monteCarlo(design, { from: 400, to: 700, step: 5, runs: 50, seed: 1 });
  * console.log(mc.nTrials, 'trials, largest spread of R:', Math.max(...mc.stdev));
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * const both = await tf.monteCarlo(wet, { from: 400, to: 700, step: 5, runs: 50, seed: 1, env: 'all' });
+ * for (const env of both.environments) console.log(env.number, env.name, 'largest spread of R:', Math.max(...env.stdev));
  */
 export function monteCarlo(design, options, hooks) {
     // The window's computation (errorAnalysis/monteCarlo.js); the yield is
@@ -92,8 +103,27 @@ export function monteCarlo(design, options, hooks) {
     };
     checkValues('monteCarlo', o);
     checkRange('monteCarlo', o);
+    const environments = o.env === undefined ? undefined : spreadEnvironments(design, o.env);
     const params = { lambdaStart: o.from, lambdaEnd: o.to, lambdaStep: o.step, theta: o.angle, polarization: o.polarization };
-    return runTrials('monteCarlo', design, o, { quantity: o.quantity, params }, given);
+    return runTrials('monteCarlo', design, o, { quantity: o.quantity, params, environments }, given)
+        .then(result => answerIn(o.env, result));
+}
+
+// The ids of the environments monteCarlo's `env` computes a spread in.
+function spreadEnvironments(design, env) {
+    if (env === 'all') return environmentsInAll(design).map(({ env: one }) => one.id);
+    return [environmentOf('monteCarlo', design, env)];
+}
+
+// monteCarlo's answer from the run's `result`: with `env` 'all',
+// `{ environments }`, each environment's spread beside the rest of the run,
+// which they share; otherwise the run with the spread of the environment
+// computed.
+function answerIn(env, result) {
+    const { environments, ...shared } = result;
+    if (env !== 'all') return shared;
+    const spreads = environments ?? [{ number: 1, id: 'base', name: null }];
+    return { environments: spreads.map(({ number, id, name, ...spread }) => ({ number, id, name, ...shared, ...spread })) };
 }
 
 // Refuses an option of `o`, the options of `call`, that holds a value it cannot take.
@@ -102,14 +132,16 @@ function checkValues(call, o) {
 }
 
 // The Monte Carlo trials `o` asks for, as the window runs them, with the curve
-// of `quantity` on the wavelength grid `params` and, for a design with a
-// specification, each trial judged against it.
-function runTrials(call, design, o, { quantity, params }, { signal, onProgress }) {
+// of `quantity` on the wavelength grid `params` in `environments` (ids;
+// environment 1 without them) and, for a design with a specification, each
+// trial judged against it in every environment that is on.
+function runTrials(call, design, o, { quantity, params, environments }, { signal, onProgress }) {
     requireResolved(design);
     const evalMode = resolveEvalMode(design);
     if (!hasPerturbableLayers(design, evalMode)) throw new Error(`${call}: the design has no layers to perturb on the side it is scored on`);
     requireKernel();
     return runErrorAnalysisMC(design, params, designMaterialLookup(design), {
+        ...(environments ? { environments } : {}),
         char: quantity, evalMode, nTrials: o.runs,
         rmsRelPct: o.thicknessRelPct, rmsAbsNm: o.thicknessAbsNm, rmsReN: o.indexRe, rmsImN: o.indexIm,
         distribution: o.distribution, seed: o.seed ?? undefined, evaluateSpec: (design.qualifiers || []).length > 0,
@@ -132,7 +164,11 @@ function runTrials(call, design, o, { quantity, params }, { signal, onProgress }
  * [Monte Carlo](/analysis/error-analysis/) window counts its yield: each trial
  * is judged by every enabled check, at the check's own Step. The trials draw
  * the errors monteCarlo draws with the same seed and options, whatever range
- * it is given, so the numbers are its `spec`; no spread is computed.
+ * it is given, so the numbers are its `spec`; no spread is computed. On a
+ * design with more than one [environment](/design/environments/) a trial
+ * meets the specification when every enabled check passes in every
+ * environment it is judged in, each environment seeing the trial's coating
+ * with its own media, substrate, thickness factors and material swaps.
  *
  * @async
  * @param design The design; it needs an enabled specification check.
@@ -157,6 +193,7 @@ function runTrials(call, design, o, { quantity, params }, { signal, onProgress }
  * @property seed The seed the draws started from.
  * @property settings The error levels and distribution the run used: `rmsRelPct`, `rmsAbsNm`, `rmsReN`, `rmsImN` and `distribution`, as monteCarlo's `settings` names them.
  * @property mode How the design was scored: `'front'`, `'back'` or `'total'`.
+ * @property environments On a design with more than one environment, each environment that is on (environment 1 when none is), in order, with its own yield, its checks alone: `{ number, id, name, yield, passCount, evaluated, yieldInterval }`, a trial counted where a check is judged and meeting it there when each of them passes there.
  * @throws a design with no enabled specification check
  * @throws a design with no layer the trials can change on the side it is scored on
  * @throws a design that names a material that resolves to nothing
@@ -165,6 +202,8 @@ function runTrials(call, design, o, { quantity, params }, { signal, onProgress }
  * const specified = tf.setSpecification(mirror, [{ kind: 'R_AVG', lambdaStart: 520, lambdaEnd: 580, cmp: 'ge', target: 0.97 }]);
  * const y = await tf.estimateYield(specified, { runs: 50, thicknessRelPct: 2, seed: 1 });
  * console.log('Yield', y.yield, 'of', y.nTrials, 'trials; fails:', y.perQualifier.map(q => q.failRate));
+ * const wet = await tf.estimateYield(tf.addEnvironment(specified, { name: 'Under water', incidentMedium: 'H2O' }), { runs: 50, thicknessRelPct: 2, seed: 1 });
+ * for (const env of wet.environments) console.log(env.number, env.name, 'yield', env.yield);
  */
 export function estimateYield(design, options, hooks) {
     // The window's computation, as monteCarlo runs it; its curve is computed
@@ -188,7 +227,10 @@ export function estimateYield(design, options, hooks) {
  * How much the merit moves when each layer's thickness is off, as the
  * [Layer Sensitivity](/analysis/layer-sensitivity/) window ranks the layers:
  * each layer is made thicker and thinner by a step, and the mean change of the
- * merit is its score. The merit here leaves out the MNT and MXT rows.
+ * merit is its score. The merit here leaves out the MNT and MXT rows. On a
+ * design with more than one [environment](/design/environments/) the step is
+ * made on the recipe thickness and seen in an environment as f·(d ± step), f
+ * the thickness factor of the layer's material there.
  *
  * @param design The design; it needs a merit function.
  * @param [options]
@@ -196,6 +238,7 @@ export function estimateYield(design, options, hooks) {
  * @param [options.deltaNm=1] The step, nm, in mode `'absolute'`.
  * @param [options.relPct=1] The step, % of each layer, in mode `'relative'`.
  * @param [options.includeLocked=false] Score the locked layers too.
+ * @param [options.env] The environment whose merit is probed, by its number from 1 or its id, whether it is on or off: the rows scored there, on the design it computes; or `'all'`, the merit over every environment that is on, √((1/N) Σ MF_k²), as `merit` combines the optical merits. Without it, environment 1.
  * @returns The ranking.
  * @property rows One per layer scored, the front's first.
  * @property rows[].index The layer's place among those scored, from 0.
@@ -211,24 +254,28 @@ export function estimateYield(design, options, hooks) {
  * @property mf0 The merit of the design as it is.
  * @property surfaceMode The design's surface mode.
  * @throws a design with no merit function, or one that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const ar = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: '(HL)^2' });
  * const design = tf.setMerit(ar, [{ type: 'RAV', lambdaStart: 450, lambdaEnd: 650, target: 0 }]);
  * const { rows } = tf.layerSensitivity(design, { deltaNm: 1 });
  * for (const row of rows) console.log(row.side, row.layerIndex, row.materialId, row.sensitivity.toFixed(1));
+ * const edge = tf.addEnvironment(design, { name: 'Dome edge', thicknessFactors: { TiO2: 0.95 } });
+ * for (const row of tf.layerSensitivity(edge, { env: 'all' }).rows) console.log(row.layerIndex, row.sensitivity.toFixed(1));
  */
 export function layerSensitivity(design, options) {
     // The window's computation (errorAnalysis/layerSensitivity.js).
-    const { mode = 'absolute', deltaNm = 1, relPct = 1, includeLocked = false } =
-        checkOptions('layerSensitivity', options, ['mode', 'deltaNm', 'relPct', 'includeLocked']);
+    const { mode = 'absolute', deltaNm = 1, relPct = 1, includeLocked = false, env } =
+        checkOptions('layerSensitivity', options, ['mode', 'deltaNm', 'relPct', 'includeLocked', 'env']);
     requireValue('layerSensitivity', 'mode', mode, oneOf(['absolute', 'relative']), "'absolute' or 'relative'");
     requireValue('layerSensitivity', 'deltaNm', deltaNm, isPositive, 'a thickness change in nm above 0');
     requireValue('layerSensitivity', 'relPct', relPct, isPositive, 'a change in % above 0');
     requireValue('layerSensitivity', 'includeLocked', includeLocked, isBoolean, 'true or false');
+    const probed = env === undefined || env === 'all' ? env : environmentOf('layerSensitivity', design, env);
     requireResolved(design);
     const operands = design.meritOperands || [];
     if (!operands.length) throw refusal('noMerit', { call: 'layerSensitivity' }, 'layerSensitivity: the design has no merit function; set one with setMerit');
     requireKernel();
     return computeLayerSensitivity(design, operands, designMaterialLookup(design),
-        { mode, absDeltaNm: deltaNm, relPct, includeLocked });
+        { mode, absDeltaNm: deltaNm, relPct, includeLocked, env: probed });
 }

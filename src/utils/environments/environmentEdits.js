@@ -6,7 +6,7 @@
  * which the Design Editor and the API already edit; here environment 1 takes
  * a name and a switch only. A design brought back to one environment is
  * written as a design without environments: no `environments` key and no
- * `env` on any row.
+ * `env` on any merit row or specification check.
  */
 import { removeOperandsAndDependents } from '../physics/optimizer/operandModel.js';
 import { BASE_ENVIRONMENT, environmentById, hasEnvironments, sameMaterial } from './environments.js';
@@ -107,26 +107,29 @@ export function setEnvironment(design, id, fields) {
     return { ...design, environments: listOf(design).map(env => (env.id === id ? withFields(env, fields) : env)) };
 }
 
+// `list` (merit rows or specification checks) without the `env` of each entry.
+const withoutEnv = list => list.map(entry => {
+    if (entry.env === undefined) return entry;
+    // eslint-disable-next-line no-unused-vars
+    const { env, ...rest } = entry;
+    return rest;
+});
+
 // `design` written as a design without environments.
 function withoutEnvironments(design) {
     // eslint-disable-next-line no-unused-vars
     const { environments, ...rest } = design;
-    if (!Array.isArray(rest.meritOperands)) return rest;
     return {
         ...rest,
-        meritOperands: rest.meritOperands.map(op => {
-            if (op.env === undefined) return op;
-            // eslint-disable-next-line no-unused-vars
-            const { env, ...row } = op;
-            return row;
-        }),
+        ...(Array.isArray(rest.meritOperands) ? { meritOperands: withoutEnv(rest.meritOperands) } : {}),
+        ...(Array.isArray(rest.qualifiers) ? { qualifiers: withoutEnv(rest.qualifiers) } : {}),
     };
 }
 
 /**
- * `design` without environment `id`, and without its rows and the rows that
- * read them. Environment 1 cannot be removed. When one environment is left,
- * the design no longer lists environments.
+ * `design` without environment `id`, and without its rows, the rows that
+ * read them and its specification checks. Environment 1 cannot be removed.
+ * When one environment is left, the design no longer lists environments.
  *
  * @throws environment 1, or an id the design has no environment for
  */
@@ -139,6 +142,7 @@ export function removeEnvironment(design, id) {
         ...design,
         environments: listOf(design).filter(env => env.id !== id),
         ...(Array.isArray(design.meritOperands) ? { meritOperands: removeOperandsAndDependents(operands, own) } : {}),
+        ...(Array.isArray(design.qualifiers) ? { qualifiers: design.qualifiers.filter(q => q.env !== id) } : {}),
     };
     return next.environments.length > 1 ? next : withoutEnvironments(next);
 }

@@ -41,7 +41,11 @@
  *      refused, materials, a material's dispersion with
  *      masked wavelengths, a slab of 0 mm refused, merit, a specification
  *      set and checked, layer sensitivity, the runs, a seeded Monte Carlo and
- *      a seeded yield.
+ *      a seeded yield, and on a design with environments a check of one
+ *      environment set, and refused on a design with one, the verdict and the
+ *      yield in each environment, Monte Carlo of each environment and layer
+ *      sensitivity over all of them, an environment the design does not have
+ *      refused.
  *   2. Values: a spectrum's angles are keyed by text, and the spectrum as
  *      Python holds it summarizes as here; NaN, Infinity and -Infinity come
  *      back as floats; a NaN sent in gets the API's refusal; an object with
@@ -286,6 +290,9 @@ const NEEDLE = { method: 'needle', pool: POOL, settings: { maxLayers: 6, refineI
 const STRUCTURAL = { method: 'structural', pool: POOL, settings: { maxIter: 3, refineIter: 5, threads: 1, seed: 7 } };
 const CHECKS = [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'le', target: 0.02 }, { kind: 'LAYER_COUNT', cmp: 'le', target: 2 }];
 const specified = api.setSpecification(start, CHECKS);
+// The same with environment 2 under water, a check of it alone among them.
+const wetSpecified = api.setSpecification(api.addEnvironment(start, { name: 'Under water', incidentMedium: 'H2O' }),
+    [...CHECKS, { kind: 'R_AT', lambda: 550, cmp: 'le', target: 0.05, env: 2 }]);
 // A Needle run that stops on its own at 'maxLayers', and a Monte Carlo run
 // that takes about ten seconds unless it is stopped.
 const LONG_NEEDLE = { method: 'needle', pool: POOL, settings: { maxLayers: 20, refineIter: 10, threads: 1, targetMF: 0 } };
@@ -428,6 +435,14 @@ const STOPPED_WITHIN_S = 5;
         ['synthesize', [start, STRUCTURAL]],
         ['monteCarlo', [start, { from: 450, to: 650, step: 10, runs: 5, seed: 3 }]],
         ['estimateYield', [specified, { runs: 5, thicknessRelPct: 3, seed: 3 }]],
+        ['setSpecification', [wetSpecified, [{ ...CHECKS[0], env: 2 }]]],
+        ['setSpecification', [specified, [{ ...CHECKS[0], env: 2 }]]],
+        ['checkSpecification', [wetSpecified]],
+        ['estimateYield', [wetSpecified, { runs: 5, thicknessRelPct: 3, seed: 3 }]],
+        ['monteCarlo', [wetSpecified, { from: 450, to: 650, step: 50, runs: 5, seed: 3, env: 'all' }]],
+        ['monteCarlo', [wetSpecified, { from: 450, to: 650, step: 50, runs: 5, seed: 3, env: 'env7' }]],
+        ['layerSensitivity', [wetSpecified, { deltaNm: 2, env: 'all' }]],
+        ['layerSensitivity', [wetSpecified, { env: 9 }]],
         ['saveDesign', [start, taken]],
         ['saveDesign', [start, there]],
         ['openDesign', [there]],

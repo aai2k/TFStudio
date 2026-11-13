@@ -1,5 +1,5 @@
-import { evaluateQualifiers, hasOwnStep } from '../../../../utils/synthesis/qualifiers.js';
-import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
+import { hasOwnStep } from '../../../../utils/synthesis/qualifiers.js';
+import { evaluateSpecification } from '../../../../utils/environments/environmentSpecification.js';
 import { coneIsActive, makeConeSpec } from '../../../../utils/physics/optimizer.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useAnalysisEvaluation } from '../../analysis/useAnalysisEvaluation.js';
@@ -15,7 +15,7 @@ const OWN = Object.freeze({});
 const COARSE = Object.freeze({ coarse: true });
 
 function evaluateHere(qualifiers, design) {
-    try { return evaluateQualifiers(qualifiers, design, designMaterialLookup(design), COARSE); }
+    try { return evaluateSpecification(qualifiers, design, COARSE); }
     catch { return pending(qualifiers); }
 }
 

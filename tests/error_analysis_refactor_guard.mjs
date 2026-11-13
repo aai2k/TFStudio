@@ -157,10 +157,18 @@ assert.deepEqual(
     [[0, 'front', 0], [1, 'front', 1], [3, 'back', 0], [4, 'back', 1]],
 );
 
+// A design without environments has no spread of its own environments; the
+// rest of the result is pinned as it was before environments existed.
+const withoutEnvironments = run => {
+    assert.equal(run.result.environments, null);
+    // eslint-disable-next-line no-unused-vars
+    const { environments, ...result } = run.result;
+    return { ...run, result };
+};
 const actual = {
-    front: digest(front),
-    back: digest(back),
-    total: digest({ ...total, events }),
+    front: digest(withoutEnvironments(front)),
+    back: digest(withoutEnvironments(back)),
+    total: digest({ ...withoutEnvironments(total), events }),
     sensitivity: digest(sensitivity),
 };
 // The sensitivity baseline pins the mean ±Δd merit-change metric described in

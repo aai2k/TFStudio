@@ -319,6 +319,17 @@ class SpecCheck:
             check = design.specification.rows[0]
             print(check.kind, "is taken against no curve:", check.curve_id)
         """)
+    env = _reading("env", """The id of the environment the check is judged in alone; None for a check of
+        every environment that is on.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            design.specification.add("R_AT", 550, cmp="ge", target=0.95, env=2)
+            print(design.specification.rows[0].env)
+        """)
 
     def __repr__(self):
         held = "{}..{}".format(self.lo, self.hi) if self.cmp == "between" else self.target
@@ -436,6 +447,10 @@ class Specification:
             curve_id: For PPEF, the id of one of the design's measured curves.
             label: The check's label. Default "".
             enabled: False leaves the check out of the verdict. Default True.
+            env: On a design with more than one environment, the environment
+                the check is judged in alone, by its number from 1 or its id;
+                the check holds the id. Without it, the check is judged in
+                every environment that is on.
 
         Raises:
             TFStudioError: a kind this version does not evaluate, a field no
@@ -447,6 +462,8 @@ class Specification:
                 check gives otherwise than its preset sets it, a PPEF check
                 whose curve is not one of the design's measured curves, or a
                 flag on a check with no Step.
+            TFStudioError: an `env` on a design with one environment, or one
+                that names no environment of the design.
 
         Example::
 
@@ -532,7 +549,10 @@ class Specification:
     def check(self):
         """The design as it is now judged against its specification, as the
         Specification window judges it: each check read at its own Step, and
-        averaged over the design's cone of incidence when it has one.
+        averaged over the design's cone of incidence when it has one. A design
+        with more than one environment is judged in each environment that is
+        on, and a check passes when it passes in each environment it is judged
+        in.
 
         Returns:
             A SpecReport.
@@ -563,7 +583,10 @@ class Specification:
         trial is judged by every enabled check, at the check's own Step, on
         what the design's sides and score_on say. The trials draw the errors
         design.monte_carlo() draws with the same seed and settings, so the
-        yield is its spec; no spread is computed. The design is not changed.
+        yield is its spec; no spread is computed. On a design with more than
+        one environment a trial meets the specification when every enabled
+        check passes in every environment it is judged in, and environments
+        gives each environment's own yield. The design is not changed.
 
         Args:
             runs: How many trials, a whole number of 1 or more.

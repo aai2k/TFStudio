@@ -5,7 +5,7 @@
 //
 // CommonJS, Electron-free.
 const { decodeText } = require('./paths');
-const { guardRowSwitches, restoreRowSwitches } = require('./environmentRows');
+const { guardRowSwitches, guardCheckSwitches, restoreRowSwitches } = require('./environmentRows');
 
 // Format of the .tfs files this build writes.
 //   1.0: material ids only; a design is readable only where its catalogs exist
@@ -13,9 +13,9 @@ const { guardRowSwitches, restoreRowSwitches } = require('./environmentRows');
 //   1.2: adds `materials[id].mechanical` (the elastic, thermal and surface
 //        constants the stress analysis reads), `stress` (the evaluation and
 //        deposition temperatures) and `substrate.diameterMm`
-//   1.3: adds `environments` and a merit row's `env` and `envEnabled`
-//        (src/utils/environments/environments.js); a design with one
-//        environment holds none of them
+//   1.3: adds `environments` and a merit row's and a specification check's
+//        `env` and `envEnabled` (src/utils/environments/environments.js); a
+//        design with one environment holds none of them
 //
 // Nothing is migrated in either direction. The reader checks the substrate and
 // the layer lists and passes every other key through, so a 1.0 or 1.1 file
@@ -124,14 +124,18 @@ function readDesignFile(fs, filePath) {
   return { design };
 }
 
-// Stamp the current format version and serialize, with the rows of other
-// environments written as environmentRows.js says. A design loaded
+// Stamp the current format version and serialize, with the rows and checks of
+// other environments written as environmentRows.js says. A design loaded
 // from disk carries the version it was read with, so the stamp has to replace
 // it rather than sit behind it in the spread.
 function serializeDesign(design) {
   // eslint-disable-next-line no-unused-vars
   const { tfs_version, ...rest } = design;
-  const written = rest.meritOperands === undefined ? rest : { ...rest, meritOperands: guardRowSwitches(rest.meritOperands) };
+  const written = {
+    ...rest,
+    ...(rest.meritOperands === undefined ? {} : { meritOperands: guardRowSwitches(rest.meritOperands) }),
+    ...(rest.qualifiers === undefined ? {} : { qualifiers: guardCheckSwitches(rest.qualifiers) }),
+  };
   return JSON.stringify({ tfs_version: TFS_VERSION, ...written }, null, 2);
 }
 

@@ -1092,7 +1092,7 @@ class MonteCarlo:
         print(mc.runs, "trials, largest spread:", max(mc.stdev))
     """
 
-    def __init__(self, result, mode):
+    def __init__(self, result, mode, environment=None):
         wavelength = list(result["lambda"])
         self._curves = {name: Curve(result[key], wavelength) for name, key in (
             ("theory", "theory"), ("mean", "mean"), ("stdev", "stdev"), ("lower", "lower"), ("upper", "upper"),
@@ -1100,7 +1100,7 @@ class MonteCarlo:
         spec = result.get("spec")
         self._values = {"wavelength": wavelength, "runs": result["nTrials"], "quantity": result["char"],
                         "seed": result["seed"], "spec": Yield(dict(spec, seed=result["seed"], mode=mode)) if spec else None,
-                        "mode": mode}
+                        "mode": mode, "environment": environment}
 
     wavelength = _reading("wavelength", """The wavelengths, nm.
 
@@ -1210,6 +1210,18 @@ class MonteCarlo:
             design.stack("(HL)^2")
             print(design.monte_carlo(400, 700, step=10, runs=5).mode)
         """)
+    environment = _reading("environment", """The environment whose spread this is, a dict of number, id and
+        name, when design.monte_carlo() was given env; None without one, when it is environment 1's,
+        the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for mc in design.monte_carlo(400, 700, step=10, runs=5, seed=1, env="all"):
+                print(mc.environment["number"], mc.environment["name"], max(mc.stdev))
+        """)
 
     def __repr__(self):
         return "<MonteCarlo {} trials of {}, seed {}>".format(self.runs, self.quantity, self.seed)
@@ -1234,10 +1246,15 @@ class Yield:
     """
 
     def __init__(self, result):
+        environments = result.get("environments")
         self._values = {"value": result.get("yield"), "pass_count": result["passCount"], "evaluated": result["evaluated"],
                         "interval": result.get("yieldInterval"),
                         "checks": [YieldCheck(check["label"], check["failRate"]) for check in result["perQualifier"]],
-                        "runs": result["nTrials"], "seed": result["seed"], "mode": result["mode"]}
+                        "runs": result["nTrials"], "seed": result["seed"], "mode": result["mode"],
+                        "environments": None if environments is None else [{
+                            "number": env["number"], "id": env["id"], "name": env["name"], "value": env["yield"],
+                            "pass_count": env["passCount"], "evaluated": env["evaluated"], "interval": env["yieldInterval"],
+                        } for env in environments]}
 
     value = _reading("value", """The yield: the share of the trials checked that met every enabled check,
         0 to 1; None when no trial was checked.
@@ -1325,6 +1342,20 @@ class Yield:
             design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
             print(design.specification.estimate_yield(20, seed=1).mode)
         """)
+    environments = _reading("environments", """On a design with more than one environment, each environment
+        that is on, in order, with its own yield, its checks alone: a dict of number, id, name, value,
+        pass_count, evaluated and interval, as the yield's own attributes are named; None on a design
+        with one environment.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.97)
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for env in design.specification.estimate_yield(20, seed=1).environments:
+                print(env["number"], env["name"], env["value"])
+        """)
 
     def __repr__(self):
         return "<Yield {} ({} of {} checked), seed {}>".format(self.value, self.pass_count, self.evaluated, self.seed)
@@ -1349,7 +1380,8 @@ class CheckResult:
 
     def __init__(self, row):
         held = row["threshold"]
-        self._values = dict(row, threshold=Threshold(*(held.get(field) for field in Threshold._fields)))
+        self._values = dict(row, threshold=Threshold(*(held.get(field) for field in Threshold._fields)),
+                            env=row.get("env"), values=row.get("values"))
 
     kind = _reading("kind", """The check's kind, such as "R_AVG".
 
@@ -1428,7 +1460,8 @@ class CheckResult:
     reason = _reading("reason", """Why there is no value, or None: "disabled", a check left out of the
         verdict; "notComputable", a value that came out as no number; "noCurve", a PPEF check whose
         curve the design does not hold; "fwhmNotBracketed" or "edgeNotCrossed", a width or an edge
-        whose crossing is not inside the band; "unknownKind".
+        whose crossing is not inside the band; "unknownKind"; "environmentOff", a check of an
+        environment that is off.
 
         Example::
 
@@ -1436,6 +1469,33 @@ class CheckResult:
             design.stack("(HL)^5 H")
             design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9, enabled=False)
             print(design.specification.check().rows[0].reason)
+        """)
+    env = _reading("env", """On a design with more than one environment, the id of the environment the
+        check is judged in alone; None for a check of every environment that is on, and on a design
+        with one environment.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            design.specification.add("R_AT", 550, cmp="ge", target=0.95, env=2)
+            print(design.specification.check().rows[0].env)
+        """)
+    values = _reading("values", """On a design with more than one environment, the check in each
+        environment it is judged in, in order: a dict of number, id, value, passed and margin, as
+        value, passed and margin are for the check; None on a design with one environment. The
+        check's own value and margin are the first environment's, and its passed whether it passes
+        in each of them.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for v in design.specification.check().rows[0].values:
+                print(v["number"], v["value"], v["passed"])
         """)
 
     def __repr__(self):
@@ -1462,7 +1522,8 @@ class SpecReport:
 
     def __init__(self, verdict):
         self._values = {"rows": [CheckResult(row) for row in verdict["rows"]], "passed": verdict["passed"],
-                        "passing": verdict["passing"], "total": verdict["total"], "mode": verdict["mode"]}
+                        "passing": verdict["passing"], "total": verdict["total"], "mode": verdict["mode"],
+                        "environments": verdict.get("environments")}
 
     rows = _reading("rows", """One CheckResult per check, in the specification's order.
 
@@ -1513,6 +1574,20 @@ class SpecReport:
             design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
             design.score_on = "whole part"
             print(design.specification.check().mode)
+        """)
+    environments = _reading("environments", """On a design with more than one environment, each environment
+        judged, those that are on (environment 1 when none is), in order: a dict of number, id, name,
+        passed, passing and total, the verdict of the checks judged there alone; None on a design
+        with one environment.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^5 H")
+            design.specification.add("R_AVG", 520, 580, cmp="ge", target=0.9)
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for env in design.specification.check().environments:
+                print(env["number"], env["name"], env["passing"], "of", env["total"])
         """)
 
     def __repr__(self):

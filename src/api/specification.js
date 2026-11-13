@@ -4,23 +4,27 @@
 
 import {
     QUALIFIER_KINDS, QUALIFIER_CMPS, SIDE_KINDS, makeQualifier, startingSide, checkStepKind, stepFlags, takesCheckFlag,
-    evaluateQualifiers, aggregateVerdict, thresholdMargin,
+    aggregateVerdict, thresholdMargin,
 } from '../utils/synthesis/qualifiers.js';
 import { channelFromKind } from '../utils/synthesis/qualifiers/channelTypes.js';
 import { buildMfePresetList } from '../utils/physics/integralValues.js';
 import { BUILTIN_SOURCES, BUILTIN_DETECTORS } from '../utils/physics/spectralWeightings.js';
 import { OPERAND_POLS, resolveEvalMode } from '../utils/physics/optimizer.js';
-import { designMaterialLookup, withHerpinRecords } from '../utils/materials/designMaterials.js';
+import { withHerpinRecords } from '../utils/materials/designMaterials.js';
+import { environmentsInAll, hasEnvironments } from '../utils/environments/environments.js';
+import { evaluateSpecification } from '../utils/environments/environmentSpecification.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { environmentId } from './designEnvironments.js';
 import { isAngle, isBoolean, isPositive, shown, refusal } from './check.js';
 
 // The fields a check holds, over every kind: those makeQualifier gives a new
-// one (qualifiers/construction.js) and those the evaluators read beside them.
+// one (qualifiers/construction.js) and those the evaluators read beside them,
+// and the environment it is judged in alone.
 const CHECK_FIELDS = [
     'id', 'enabled', 'kind', 'label', 'cmp', 'target', 'tol', 'lo', 'hi', 'lambda', 'lambdaStart', 'lambdaEnd',
     'aoi', 'pol', 'channel', 'direction', 'level', 'edgeSide', 'flag', 'side', 'presetKey', 'presetLabel',
-    'source', 'detector', 'bandPoints', 'curveId',
+    'source', 'detector', 'bandPoints', 'curveId', 'env',
 ];
 
 // The integral presets the window offers that a script can name: the built-in
@@ -139,6 +143,20 @@ function presetOf(check, i) {
     return fields;
 }
 
+// Check `q`, number `i`, holding the id of the environment its `env` names,
+// by the environment's id or number, to be judged there alone; or without
+// `env`, to be judged in every environment, when it gives none or null. A
+// design with one environment takes no `env`.
+function judgedIn(q, design, i) {
+    const { env, ...every } = q;
+    if (env == null) return every;
+    if (!hasEnvironments(design)) {
+        throw refusal('oneEnvironment', { call: 'setSpecification', row: i, option: 'env' },
+            `${at(i)}the design has one environment, so a check takes no env; add another environment first`);
+    }
+    return { ...every, env: environmentId('setSpecification', design, env, { fields: { row: i }, named: `setSpecification: check ${i}: env` }) };
+}
+
 // Check `check`, number `i` of those given. One given with an id is one a
 // design holds, and is kept as it is given: the window holds and evaluates
 // values a new check is refused for, such as an integral preset its user
@@ -149,7 +167,8 @@ function presetOf(check, i) {
 // or layer count that names none (startingSide), and an integral preset's
 // fields. Refuses either unless each field it gives is a field of a check and
 // its kind is one this version evaluates, and a new one unless each of its
-// fields holds a value that field can take (RULES).
+// fields holds a value that field can take (RULES). Either holds the id of
+// the environment its `env` names.
 function completedCheck(check, i, design) {
     if (!check || typeof check !== 'object' || Array.isArray(check)) {
         throw new Error(`${at(i)}a check is an object of fields, such as { kind: 'T_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'ge', target: 0.95 }`);
@@ -162,7 +181,7 @@ function completedCheck(check, i, design) {
     if (!QUALIFIER_KINDS.includes(check.kind)) refuseValue(i, 'kind', `one of ${QUALIFIER_KINDS.join(', ')}`, check.kind);
     if (check.id !== undefined) {
         if (!isName(check.id)) refuseValue(i, 'id', NAME, check.id);
-        return check;
+        return judgedIn(check, design, i);
     }
     const q = makeQualifier({ ...startingSide(check.kind, design, check.side), ...check, ...presetOf(check, i) });
     const [field, takes] = brokenRule(q, design);
@@ -171,7 +190,7 @@ function completedCheck(check, i, design) {
         throw refusal('bandOrder', { call: 'setSpecification', row: i, start: q.lambdaStart, end: q.lambdaEnd },
             `${at(i)}lambdaEnd ${q.lambdaEnd} is below lambdaStart ${q.lambdaStart}`);
     }
-    return q;
+    return judgedIn(q, design, i);
 }
 
 /**
@@ -215,12 +234,14 @@ function completedCheck(check, i, design) {
  * @param [checks[].label=''] The check's label.
  * @param [checks[].enabled=true] `false` leaves the check out of the verdict.
  * @param [checks[].id] The check's name in the design: a check given one is one the design holds, kept as it is given; a check given none is a new one, and takes a fresh one.
+ * @param [checks[].env] On a design with more than one environment, the environment the check is judged in alone, by its number from 1 or its id; the check holds the id. Without it, or with null, the check is judged in every environment that is on.
  * @returns The design with the specification, which it holds in `qualifiers`.
  * @throws a kind this version does not evaluate, or a field no check has, such as a misspelling
  * @throws on a new check, a value its field cannot take, a band whose end is below its start, or a `hi` below `lo`
  * @throws on a new check, a preset the window does not offer, or a field the check gives otherwise than its preset sets it
  * @throws on a new check, a PPEF check whose curve is not one of the design's measured curves, or a flag on a check with no Step
  * @throws two checks with one id
+ * @throws an `env` on a design with one environment, or one that names no environment of the design
  * @example
  * const mirror = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^5 H' });
  * const specified = tf.setSpecification(mirror, [
@@ -228,6 +249,11 @@ function completedCheck(check, i, design) {
  *     { kind: 'LAYER_COUNT', cmp: 'le', target: 15 },
  * ]);
  * console.log(specified.qualifiers.length, 'checks, the layer count on the', specified.qualifiers[1].side);
+ * const wet = tf.setSpecification(tf.addEnvironment(mirror, { name: 'Under water', incidentMedium: 'H2O' }), [
+ *     { kind: 'R_AVG', lambdaStart: 520, lambdaEnd: 580, cmp: 'ge', target: 0.9 },
+ *     { kind: 'R_AT', lambda: 550, cmp: 'ge', target: 0.95, env: 2 },
+ * ]);
+ * console.log(wet.qualifiers.map(check => check.env ?? 'every environment'));
  */
 export function setSpecification(design, checks) {
     if (!Array.isArray(checks)) throw new Error('setSpecification: checks is a list of specification checks');
@@ -245,34 +271,69 @@ export function setSpecification(design, checks) {
 // window shows a T, R or A in, and the value itself is a fraction of 1.
 const UNITS = { '%': 'fraction', nm: 'nm', dB: 'dB', '': '' };
 
+// A result's value, null when it is not a number, and its margin.
+function valueAndMargin(check, result) {
+    const value = Number.isFinite(result.value) ? result.value : null;
+    return { value, margin: value === null ? null : thresholdMargin(check, value, result.unit) };
+}
+
 // Check `check`, number `index`, as checkSpecification gives it, from its
 // result as the evaluator gives one (qualifiers/evaluate.js).
 function rowOf(check, result, index) {
-    const value = Number.isFinite(result.value) ? result.value : null;
+    const { value, margin } = valueAndMargin(check, result);
     return {
         index, label: check.label ?? '', kind: check.kind, enabled: !!check.enabled,
         value, unit: UNITS[result.unit], passed: result.pass,
-        margin: value === null ? null : thresholdMargin(check, value, result.unit),
+        margin,
         threshold: { cmp: check.cmp, target: check.target, tol: check.tol, lo: check.lo, hi: check.hi },
         reason: result.summaryKey ?? null,
     };
 }
 
+// Each environment judged, with how many of the checks judged there pass.
+function environmentVerdicts(design, results) {
+    return environmentsInAll(design).map(({ env, number }) => {
+        const here = results.flatMap(result => (result.environments || []).filter(entry => entry.id === env.id));
+        const passing = here.filter(entry => entry.result.pass === true).length;
+        return { number, id: env.id, name: env.name ?? null, passed: here.length > 0 && passing === here.length, passing, total: here.length };
+    });
+}
+
 /**
  * The verdict checkSpecification gives, from the design's `checks`, their
- * `results` as the evaluator gives them, and `mode`, how the design they
- * were judged on is scored.
+ * `results` as evaluateSpecification gives them, `mode`, how the design they
+ * were judged on is scored, and `design`, whose environments they were judged
+ * in.
  */
-export function verdictOf(checks, results, mode) {
+export function verdictOf(checks, results, mode, design) {
     const { passing, total, allPass } = aggregateVerdict(results);
-    return { passed: allPass, passing, total, mode, rows: checks.map((check, i) => rowOf(check, results[i], i)) };
+    const rows = checks.map((check, i) => rowOf(check, results[i], i));
+    if (!hasEnvironments(design)) return { passed: allPass, passing, total, mode, rows };
+    return {
+        passed: allPass, passing, total, mode,
+        environments: environmentVerdicts(design, results),
+        rows: rows.map((row, i) => ({
+            ...row, env: checks[i].env ?? null,
+            values: results[i].environments.map(({ number, id, result }) => valueIn(checks[i], number, id, result)),
+        })),
+    };
+}
+
+// Check `check`'s value, pass and margin in environment `number`, `id`.
+function valueIn(check, number, id, result) {
+    const { value, margin } = valueAndMargin(check, result);
+    return { number, id, value, passed: result.pass, margin };
 }
 
 /**
  * A design judged against its specification as the
  * [Specification](/design/specification/) window judges it: each check read
  * at its own Step, as the window's final value is, and averaged over the
- * design's cone of incidence when it has one.
+ * design's cone of incidence when it has one. A design with more than one
+ * [environment](/design/environments/) is judged in each environment that is
+ * on (environment 1 when none is): a check without `env` in each of them, a
+ * check with `env` in that environment while it is on, and a check passes
+ * when it passes in each environment it is judged in.
  *
  * @param design The design; it needs a specification.
  * @returns The verdict.
@@ -280,17 +341,20 @@ export function verdictOf(checks, results, mode) {
  * @property passing How many enabled checks pass.
  * @property total How many checks are enabled.
  * @property mode How the design was scored: `'front'`, `'back'` or `'total'`.
+ * @property environments On a design with more than one environment, each environment judged, in order, `{ number, id, name, passed, passing, total }`: its number from 1, its id, its name or null, and the verdict of the checks judged there alone.
  * @property rows One per check, in order.
  * @property rows[].index The check's place in the specification, from 0.
  * @property rows[].label The check's label, `''` when it has none.
  * @property rows[].kind The check's kind.
  * @property rows[].enabled `false` for a check left out of the verdict.
- * @property rows[].value The check's value: T, R and A as fractions of 1, wavelengths, widths and thicknesses in nm, PPEF in dB, a layer count as a count; null when there is none.
+ * @property rows[].value The check's value: T, R and A as fractions of 1, wavelengths, widths and thicknesses in nm, PPEF in dB, a layer count as a count; null when there is none. On a design with more than one environment, its value in its own environment, or for a check of every environment in the first environment judged.
  * @property rows[].unit `'fraction'`, `'nm'`, `'dB'`, or `''` for a layer count and for a disabled check, which is not evaluated.
- * @property rows[].passed Whether the value meets the threshold, as the window marks it; `false` when there is no value, null for a disabled check.
+ * @property rows[].passed Whether the value meets the threshold, as the window marks it; `false` when there is no value, null for a disabled check. On a design with more than one environment, whether it meets it in each environment it is judged in; null for a check of an environment that is off.
  * @property rows[].margin How far the value is from the nearest bound, in its unit: positive by the room left, negative by how far it is out, so `passed` is `true` exactly when it is 0 or more. A bound lies half the last digit the window shows past the stated one, so a value the window shows on its bound passes: 0.000005 for a fraction, 0.005 nm, 0.0005 dB, nothing for a layer count. Null when there is no value.
  * @property rows[].threshold The comparison as the check holds it: `{ cmp, target, tol, lo, hi }`.
- * @property rows[].reason Why there is no value, or null: `'disabled'`; `'notComputable'`; `'noCurve'`, a PPEF check whose curve the design does not hold; `'fwhmNotBracketed'` and `'edgeNotCrossed'`, a width or edge whose crossing is not inside the band; `'unknownKind'`.
+ * @property rows[].reason Why there is no value, or null: `'disabled'`; `'notComputable'`; `'noCurve'`, a PPEF check whose curve the design does not hold; `'fwhmNotBracketed'` and `'edgeNotCrossed'`, a width or edge whose crossing is not inside the band; `'unknownKind'`; `'environmentOff'`, a check of an environment that is off.
+ * @property rows[].env On a design with more than one environment, the id of the environment the check is judged in alone, or null for a check of every environment.
+ * @property rows[].values On a design with more than one environment, the check in each environment it is judged in, in order, each `{ number, id, value, passed, margin }`, as `value`, `passed` and `margin` are for the row.
  * @throws a design with no specification
  * @throws a design that names a material that resolves to nothing
  * @example
@@ -299,6 +363,9 @@ export function verdictOf(checks, results, mode) {
  * const verdict = tf.checkSpecification(specified);
  * for (const row of verdict.rows) console.log(row.kind, row.value, row.unit, row.passed, 'margin', row.margin);
  * console.log('Passes:', verdict.passed);
+ * const wet = tf.checkSpecification(tf.addEnvironment(specified, { name: 'Under water', incidentMedium: 'H2O' }));
+ * for (const env of wet.environments) console.log(env.number, env.name, env.passing, 'of', env.total);
+ * for (const v of wet.rows[0].values) console.log('R_AVG in environment', v.number, v.value, v.passed);
  */
 export function checkSpecification(design) {
     // The analysis worker's 'specification' pass (analysisEvaluationWorker.js),
@@ -310,6 +377,6 @@ export function checkSpecification(design) {
     requireResolved(design);
     requireKernel();
     const shownDesign = withHerpinRecords(design);
-    const results = evaluateQualifiers(checks, shownDesign, designMaterialLookup(shownDesign), {});
-    return verdictOf(checks, results, resolveEvalMode(shownDesign));
+    const results = evaluateSpecification(checks, shownDesign, {});
+    return verdictOf(checks, results, resolveEvalMode(shownDesign), shownDesign);
 }

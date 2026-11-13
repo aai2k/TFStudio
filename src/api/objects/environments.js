@@ -238,8 +238,8 @@ export class Environment {
 
     /**
      * Takes the environment out of the design, with the merit rows scored in
-     * it alone and the rows that read them. The environments after it move
-     * one number down.
+     * it alone, the rows that read them and the specification checks judged
+     * in it alone. The environments after it move one number down.
      *
      * @throws environment 1, the design itself
      * @example
@@ -377,9 +377,9 @@ export class Environments {
     }
 
     /**
-     * Takes environment `number` out, with the merit rows scored in it alone
-     * and the rows that read them; the environments after it move one number
-     * down.
+     * Takes environment `number` out, with the merit rows scored in it alone,
+     * the rows that read them and the specification checks judged in it
+     * alone; the environments after it move one number down.
      *
      * @param number The environment's number, 2 or more: environment 1 is the design itself.
      * @throws a number the design has no environment of, or 1
