@@ -910,20 +910,27 @@ export class Design {
      * window lists them, with the optical ones taken at one wavelength. The
      * sides follow the design's `sides` and `scoreOn`, as a spectrum does,
      * unless `side` is given; on the whole part, the front's layers and then
-     * the back's. Every layer has its row, one with no thickness too.
+     * the back's. Every layer has its row, one with no thickness too. A design
+     * with more than one environment is listed in environment 1, its own
+     * layers, unless `env` names another: there each layer is as that
+     * environment deposits it.
      *
      * @param [options]
      * @param [options.wavelength] The wavelength λ0 the optical thicknesses are taken at, nm. Without it, the design's reference wavelength.
      * @param [options.side] `'front'`, `'back'` or `'total'`, both sides. Without it, what the design is scored on.
-     * @returns A LayerThicknesses.
-     * @throws an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layers, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment listed, by its number from 1 or its id, whether it is on or off; or `'all'` for the rows of each environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns A LayerThicknesses; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layers, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^3 H');
      * for (const row of design.layerThicknesses({ wavelength: 600 }).rows) console.log(row.number, row.material, row.thickness.toFixed(2), 'nm, QWOT', row.qwot.toFixed(4));
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+     * for (const one of design.layerThicknesses({ wavelength: 600, env: 'all' })) console.log(one.environment.number, one.environment.name, one.rows[0].thickness.toFixed(2), 'nm');
      */
     layerThicknesses(options) {
-        return new LayerThicknesses(worded({ method: 'layerThicknesses', call: 'layerThicknesses' }, () => api.layerThicknesses(this._data, options)));
+        const answer = worded({ method: 'layerThicknesses', call: 'layerThicknesses' }, () => api.layerThicknesses(this._data, options));
+        return madeIn(this._data, options?.env, answer, (found, environment) => new LayerThicknesses(found, environment));
     }
 
     /**
@@ -1297,7 +1304,9 @@ export class Design {
      * PR, GD, GDD and TOD merit rows score: the back of a design coated on
      * the back alone and the front of any other. The window opens on the
      * front unless only the back holds layers, so with one side empty the two
-     * can differ; a side with no layers gives its bare surface.
+     * can differ; a side with no layers gives its bare surface. A design with
+     * more than one environment is computed in environment 1, its own media,
+     * substrate and layers, unless `env` names another.
      *
      * @param [options]
      * @param [options.source='model'] `'model'`, the spectrum of `shape`, or `'design'`, the spectrum the design holds.
@@ -1313,16 +1322,21 @@ export class Design {
      * @param [options.pol='avg'] The polarization: `'avg'`, `'s'` or `'p'`.
      * @param [options.angle=0] The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90.
      * @param [options.passes=1] The bounces off the coating, or passes through it, a whole number.
-     * @returns A Pulse.
-     * @throws an option it does not take or a value an option cannot take, `'total'` with `response: 'R'`, `source: 'design'` on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, or no light out of the part
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the pulse in each environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns A Pulse; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take or a value an option cannot take, `'total'` with `response: 'R'`, `source: 'design'` on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, no light out of the part, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^8 H');
      * const p = design.pulse({ centre: 550, duration: 20, passes: 2 });
      * console.log('output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, peak', (100 * p.metrics.peakVsFlp).toFixed(1), '% of the Fourier-limited pulse');
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.98, SiO2: 0.98 } });
+     * for (const one of design.pulse({ centre: 550, duration: 20, env: 'all' })) console.log(one.environment.number, one.environment.name, 'output FWHM', one.metrics.outputFwhm.toFixed(2), 'fs');
      */
     pulse(options) {
-        return new Pulse(worded({ method: 'pulse', call: 'pulseAnalysis' }, () => api.pulseAnalysis(this._data, optionsOf('pulse', options))));
+        const given = optionsOf('pulse', options);
+        const answer = worded({ method: 'pulse', call: 'pulseAnalysis' }, () => api.pulseAnalysis(this._data, given));
+        return madeIn(this._data, given.env, answer, (found, environment) => new Pulse(found, environment));
     }
 
     /**
@@ -1517,7 +1531,10 @@ export class Design {
      * the back from the nearer to the farther, as the window grades them; a
      * linear or sigmoid profile reads the same either way. When the design has
      * a specification, `specification` is its verdict with the interlayers
-     * in, as the badge under the window's chart reads it.
+     * in, as the badge under the window's chart reads it. A design with more
+     * than one environment is computed in environment 1, its own media,
+     * substrate and layers, unless `env` names another; the verdict judges
+     * every environment that is on.
      *
      * @param [options]
      * @param [options.interlayers=[]] One row per interlayer, each `{ side, interface, thickness, profile, slices }`: `side` `'front'` or `'back'`, the side computed, or the coated side on a whole part coated on one side, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `thickness` in nm, 0 or more, 5 when left out; `profile` `'linear'`, `'parabolic'`, `'invParabolic'`, `'exponential'` or `'sigmoid'`, `'linear'` when left out; `slices` a whole number, 2 or more, 10 when left out. One row to an interface.
@@ -1526,16 +1543,21 @@ export class Design {
      * @param [options.step=0.5] The wavelength step, nm.
      * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90.
      * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
-     * @returns An Inhomogeneities.
-     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a thickness below 0, a profile it does not have, slices that are not a whole number of 2 or more, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the spectra of each environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns An Inhomogeneities; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a thickness below 0, a profile it does not have, slices that are not a whole number of 2 or more, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^4 H');
      * const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1 });
      * console.log(r.interlayers[0].materials.join(' to '), 'adds', r.addedThickness, 'nm; R at 550 nm', r.homogeneous.R.at(550).toFixed(5), 'becomes', r.graded.R.at(550).toFixed(5));
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * const wet = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1, env: 2 });
+     * console.log(wet.environment.name, 'R at 550 nm', wet.homogeneous.R.at(550).toFixed(5), 'becomes', wet.graded.R.at(550).toFixed(5));
      */
     inhomogeneities(options) {
-        return new Inhomogeneities(worded({ method: 'inhomogeneities', call: 'inhomogeneities' }, () => api.inhomogeneities(this._data, options)));
+        const answer = worded({ method: 'inhomogeneities', call: 'inhomogeneities' }, () => api.inhomogeneities(this._data, options));
+        return madeIn(this._data, options?.env, answer, (found, environment) => new Inhomogeneities(found, environment));
     }
 
     /**
@@ -1561,7 +1583,9 @@ export class Design {
      * substrate is not thinned; a layer thinner than 2σ is set to 0 nm and
      * listed in `thinned`. A layer of 0 nm is not in the coating: the σ set
      * on its top is not used, and the layer beneath it meets the next layer
-     * there is, at the interface on top of the layer beneath.
+     * there is, at the interface on top of the layer beneath. A design with
+     * more than one environment is computed in environment 1, its own media,
+     * substrate and layers, unless `env` names another.
      *
      * @param [options]
      * @param [options.sigma=1] The rms roughness of every interface, nm, 0 or more.
@@ -1572,16 +1596,20 @@ export class Design {
      * @param [options.step=0.5] The wavelength step, nm.
      * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90.
      * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
-     * @returns A Roughness.
-     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a σ below 0 or a kind other than `'short'` or `'long'`, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, or a design that names a material that resolves to nothing
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the spectra of each environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns A Roughness; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a σ below 0 or a kind other than `'short'` or `'long'`, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^4 H');
      * const r = design.roughness({ sigma: 0, interfaces: [{ interface: 9, sigma: 3 }], start: 400, end: 700, step: 1 });
      * console.log('R at 550 nm', r.smooth.R.at(550).toFixed(5), 'becomes', r.rough.R.at(550).toFixed(5), '; loss', (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const one of design.roughness({ sigma: 2, start: 400, end: 700, step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'loss at 550 nm', (one.loss.at(550) * 1e6).toFixed(1), 'ppm');
      */
     roughness(options) {
-        return new Roughness(worded({ method: 'roughness', call: 'roughness' }, () => api.roughness(this._data, options)));
+        const answer = worded({ method: 'roughness', call: 'roughness' }, () => api.roughness(this._data, options));
+        return madeIn(this._data, options?.env, answer, (found, environment) => new Roughness(found, environment));
     }
 
     /**
@@ -1608,10 +1636,16 @@ export class Design {
      * expansion mismatch to any film. Beyond the stress, a constant a
      * material does not state leaves the quantities that need it null, and
      * `missing` names it. The built-in materials state no constants, so a
-     * design of them reads a force of 0.
+     * design of them reads a force of 0. A design with more than one
+     * environment is computed in environment 1, its own substrate and layers,
+     * unless `env` names another: there the films are the layers as that
+     * environment deposits them, on its substrate, and at a temperature of
+     * its own the stress temperature moves by its change from environment 1's.
      *
-     * @returns A Stress.
-     * @throws a design that names a material that resolves to nothing
+     * @param [options]
+     * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the stress of each environment that is on, environment 1 when none is. Without it, environment 1.
+     * @returns A Stress; with `env: 'all'`, an array of them, one per environment, each with its `environment`.
+     * @throws an option it does not take, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('Mirror');
      * design.stack('(HL)^4 H');
@@ -1619,9 +1653,12 @@ export class Design {
      * design.substrate.diameter = 25.4;
      * const s = design.stress();
      * console.log(s.mode, 'force', s.whole.force, 'N/m;', s.films.length, 'films;', s.missing.length, 'materials missing constants');
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+     * for (const one of design.stress({ env: 'all' })) console.log(one.environment.number, one.environment.name, one.films[0].thickness.toFixed(2), 'nm');
      */
-    stress() {
-        return new Stress(worded({ method: 'stress', call: 'stress' }, () => api.stress(this._data)));
+    stress(options) {
+        const answer = worded({ method: 'stress', call: 'stress' }, () => api.stress(this._data, options));
+        return madeIn(this._data, options?.env, answer, (found, environment) => new Stress(found, environment));
     }
 
     /**

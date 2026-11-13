@@ -19,6 +19,10 @@
  *   4. The objects' CSV is the window's table with every curve through its
  *      Copy CSV.
  *   5. Refusals with their codes and fields.
+ *   6. Environments: on a design with three, roughness without env is the
+ *      design's own, and with env, by number or id and switched off or on,
+ *      the design that environment computes; 'all' gives the two that are on
+ *      and an environment it does not have is refused.
  *
  * Run: node tests/api_roughness.mjs
  */
@@ -28,6 +32,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { inspect, isDeepStrictEqual } from 'node:util';
 import { fixtureFile, manifest } from './_apiCorpus.mjs';
+import { environmentWrong } from './_environmentCalls.mjs';
 
 // The window's CSV writer sits in a module of React components.
 globalThis.React = createRequire(import.meta.url)('react');
@@ -336,7 +341,7 @@ function settings(design, mode, variant) {
         same(api.roughness(zeroFront, { side: 'total', sigma: 0, interfaces: [{ interface: 1, sigma: 4 }], ...RANGE }).rough, named.rough));
     const REFUSED = [
         ['an option it does not take', () => api.roughness(mirror, { sigmas: [] }), 'unknownOption', { option: 'sigmas' },
-            /^roughness: unknown option 'sigmas'; the options are sigma, range, interfaces, start, end, step, angle, side$/],
+            /^roughness: unknown option 'sigmas'; the options are sigma, range, interfaces, start, end, step, angle, side, env$/],
         ['a σ below 0', () => api.roughness(mirror, { sigma: -1 }), 'badValue', { option: 'sigma', value: -1 }, /sigma is a roughness in nm, 0 or more, not -1$/],
         ['a σ that is not a number', () => api.roughness(mirror, { sigma: '2' }), 'badValue', { option: 'sigma', value: '2' }, /sigma is a roughness in nm, 0 or more, not "2"$/],
         ['a kind it does not have', () => api.roughness(mirror, { range: 'medium' }), 'badValue', { option: 'range', value: 'medium' }, /range is 'short' or 'long', not "medium"$/],
@@ -387,6 +392,15 @@ function settings(design, mode, variant) {
     const objectError = thrown(() => new objects.Design(mirror).roughness({ interfaces: [{ interface: 12 }] }));
     ok('the object words a refusal as its own method', /^roughness: interfaces\[0\]\.interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 12$/.test(objectError?.message ?? ''),
         objectError?.message);
+}
+
+// ── 6. Environments ──────────────────────────────────────────────────────────
+{
+    const wrong = [
+        ...environmentWrong(api, 'roughness', { sigma: 2, start: 450, end: 650, step: 10 }),
+        ...environmentWrong(api, 'roughness', { sigma: 0, interfaces: [{ interface: 0, sigma: 3, range: 'short' }], start: 450, end: 650, step: 10 }),
+    ];
+    ok("on a design with three environments, roughness without env is the design's own; by number or id, off or on, the design that environment computes; 'all' the two that are on; an unknown one refused", wrong.length === 0, wrong.join('; '));
 }
 
 fs.rmSync(WORK, { recursive: true, force: true });

@@ -26,8 +26,9 @@
  *      one environment with each environment's merit and each row's values,
  *      the spectrum, a band's peak, an edge against angle, the colour, the
  *      integral values, the index profile, the admittance locus, the electric
- *      field, Psi and Delta and the group delay of one environment and of
- *      each, an environment it does not have refused, a check of one
+ *      field, Psi and Delta, the group delay, the pulse, interlayers, rough
+ *      interfaces, the layer thicknesses and the stress of one environment
+ *      and of each, an environment it does not have refused, a check of one
  *      environment with the verdict in each, layer sensitivity of one
  *      environment and of all of them,
  *      and env refused on a design with one environment, merit and specification verdict the API computes for it in this
@@ -372,6 +373,32 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
         }
         ok('indexProfile, admittance, electricField, ellipsometry, ellipsometryVsAngle and groupDelay answer the environment env names as they answer for its design, and each with env all',
             viewsWrong.length === 0, viewsWrong.join(', '));
+        // pulseAnalysis, inhomogeneities, roughness, layerThicknesses and
+        // stress the same, each tool run here on the design the environment
+        // computes.
+        const { toleranceTools } = await import('../src/mcp/toleranceTools.js');
+        const { pulseTools } = await import('../src/mcp/pulseTools.js');
+        const runOn = (tool, id, args) => {
+            const store = { get: () => oneEnvironmentDesign(envHere, id) };
+            const tools = [...analysisTools({ api, store }), ...toleranceTools({ api, store }), ...pulseTools({ api, store })];
+            const { designId: _designId, ...answer } = tools.find(t => t.name === tool).run({ designId: envId, ...args });
+            return answer;
+        };
+        const ONE_AT_A_TIME = {
+            pulseAnalysis: { centre: 550, duration: 20 }, inhomogeneities: { interlayers: [{ interface: 0, thickness: 3 }], start: 450, end: 650, step: 10 },
+            roughness: { sigma: 2, start: 450, end: 650, step: 10 }, layerThicknesses: { wavelength: 600 }, stress: {},
+        };
+        const oneWrong = [];
+        for (const [tool, args] of Object.entries(ONE_AT_A_TIME)) {
+            const served = await Promise.all([server.call(tool, { designId: envId, ...args, env: 'env2' }), server.call(tool, { designId: envId, ...args, env: 'all' })]);
+            const meant = [{ designId: envId, ...runOn(tool, 'env2', args) }, { designId: envId, environments: [
+                { number: 1, id: 'base', name: null, ...runOn(tool, 'base', args) }, { number: 2, id: 'env2', name: 'Under water', ...runOn(tool, 'env2', args) }] }];
+            if (JSON.stringify(served) !== JSON.stringify(meant)) oneWrong.push(tool);
+        }
+        ok('pulseAnalysis, inhomogeneities, roughness, layerThicknesses and stress answer the environment env names as they answer for its design, and each with env all',
+            oneWrong.length === 0, oneWrong.join(', '));
+        const noStress = await server.call('stress', { designId: envId, env: 'env7' });
+        ok('and an environment the design does not have is refused by them too', /stress: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noStress.error ?? ''), noStress.error);
         const noSuch = await server.call('spectrum', { designId: envId, ...envRange, env: 7 });
         const noColour = await server.call('color', { designId: envId, env: 'env7' });
         ok('an environment the design does not have is refused', /spectrum: env is 'all' or one of the design's environments by its number, 1 to 2/.test(noSuch.error ?? '')

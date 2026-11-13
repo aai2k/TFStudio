@@ -1600,25 +1600,28 @@ for one in design.index_profile(wavelength=633, env="all"):
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.layerThicknesses({ wavelength, side })` | `design.layer_thicknesses(wavelength=..., side=...)` |
+| `design.layerThicknesses({ wavelength, side, env })` | `design.layer_thicknesses(wavelength=..., side=..., env=...)` |
 
-每层的物理厚度和光学厚度，与膜层厚度窗口列出的相同，光学厚度取自某一波长。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`；对于整个元件，先列正面的膜层，再列背面的。每层都有一行，没有厚度的膜层也是如此。
+每层的物理厚度和光学厚度，与膜层厚度窗口列出的相同，光学厚度取自某一波长。所用的面与光谱一样由设计的 `sides` 和 `scoreOn` / `score_on` 决定，除非给出 `side`；对于整个元件，先列正面的膜层，再列背面的。每层都有一行，没有厚度的膜层也是如此。有多个环境的设计在环境 1（即设计自身的膜层）中列出，除非 `env` 指定了其他环境：此时每层都按该环境沉积出的样子列出。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
 | `wavelength` | `wavelength` |  | 计算光学厚度所用的波长 λ0，单位 nm。不给出时，使用设计的参考波长。 |
 | `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（两面）。不给出时，使用设计的评价对象。 |
+| `env` | `env` |  | 列出所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组行，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 LayerThicknesses。
+**返回**：**JavaScript**：一个 LayerThicknesses；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 LayerThicknesses；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有膜层的面，或用到找不到对应材料的设计<br>**Python**：小于等于 0 的波长、不是 "front"、"back" 或 "total" 的面、没有膜层的面，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、小于等于 0 的波长、不是 `'front'`、`'back'` 或 `'total'` 的面、没有膜层的面、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：小于等于 0 的波长、不是 "front"、"back" 或 "total" 的面、没有膜层的面、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 for (const row of design.layerThicknesses({ wavelength: 600 }).rows) console.log(row.number, row.material, row.thickness.toFixed(2), 'nm, QWOT', row.qwot.toFixed(4));
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const one of design.layerThicknesses({ wavelength: 600, env: 'all' })) console.log(one.environment.number, one.environment.name, one.rows[0].thickness.toFixed(2), 'nm');
 ```
 
 ```python
@@ -1626,6 +1629,9 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 for row in design.layer_thicknesses(wavelength=600).rows:
     print(row.number, row.material, round(row.thickness, 2), "nm, QWOT", round(row.qwot, 4))
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for one in design.layer_thicknesses(wavelength=600, env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.rows[0].thickness, 2), "nm")
 ```
 
 ### totalThickness / total_thickness
@@ -2081,11 +2087,11 @@ print("centre", design.pulse(source="design").centre, "nm")
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.pulse({ source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes })` | `design.pulse(source="model", shape="gaussian", centre=..., duration=10, bandwidth=100, order=2, gdd=0, tod=0, side=..., response="R", pol="avg", angle=0, passes=1)` |
+| `design.pulse({ source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes, env })` | `design.pulse(source="model", shape="gaussian", centre=..., duration=10, bandwidth=100, order=2, gdd=0, tod=0, side=..., response="R", pol="avg", angle=0, passes=1, env=...)` |
 
-**JavaScript**：脉冲经过设计后在时间和光谱上的变化，与脉冲分析窗口的计算相同：脉冲在一个镀膜面上反射或透射，或穿过整个元件，即正面膜层、穿过一次基底以及背面膜层，取从中射出的第一个脉冲；连续反射或穿过 `passes` 次。其光谱为以中心波长为中心的高斯、sech² 或超高斯光谱，或在 `source: 'design'` 时为设计保存的光谱（setPulseSpectrum()），再叠加 `gdd` 和 `tod` 给出的啁啾。与窗口一样，不使用设计的入射锥角。不给出选项时，使用窗口打开时的设置，面为 PR、GD、GDD 和 TOD 评价函数行所评价的面：仅背面镀膜的设计为背面，其他设计为正面。窗口打开时，除非只有背面有膜层，否则选择正面，因此一面没有膜层时两者可能不同；没有膜层的面给出其裸表面的结果。
+**JavaScript**：脉冲经过设计后在时间和光谱上的变化，与脉冲分析窗口的计算相同：脉冲在一个镀膜面上反射或透射，或穿过整个元件，即正面膜层、穿过一次基底以及背面膜层，取从中射出的第一个脉冲；连续反射或穿过 `passes` 次。其光谱为以中心波长为中心的高斯、sech² 或超高斯光谱，或在 `source: 'design'` 时为设计保存的光谱（setPulseSpectrum()），再叠加 `gdd` 和 `tod` 给出的啁啾。与窗口一样，不使用设计的入射锥角。不给出选项时，使用窗口打开时的设置，面为 PR、GD、GDD 和 TOD 评价函数行所评价的面：仅背面镀膜的设计为背面，其他设计为正面。窗口打开时，除非只有背面有膜层，否则选择正面，因此一面没有膜层时两者可能不同；没有膜层的面给出其裸表面的结果。有多个环境的设计在环境 1（即设计自身的介质、基底和膜层）中计算，除非 `env` 指定了其他环境。
 
-**Python**：脉冲经过设计后在时间和光谱上的变化，与脉冲分析窗口的计算相同：脉冲在一个镀膜面上反射或透射，或穿过整个元件，即正面膜层、穿过一次基底以及背面膜层，取从中射出的第一个脉冲；连续反射或穿过 passes 次。其光谱为以中心波长为中心的高斯、sech² 或超高斯光谱，或在 source="design" 时为设计保存的光谱（set_pulse_spectrum()），再叠加 gdd 和 tod 给出的啁啾。与窗口一样，不使用设计的入射锥角。不给出关键字参数时，使用窗口打开时的设置，面为 PR、GD、GDD 和 TOD 评价函数行所评价的面：仅背面镀膜的设计为背面，其他设计为正面。窗口打开时，除非只有背面有膜层，否则选择正面，因此一面没有膜层时两者可能不同；没有膜层的面给出其裸表面的结果。
+**Python**：脉冲经过设计后在时间和光谱上的变化，与脉冲分析窗口的计算相同：脉冲在一个镀膜面上反射或透射，或穿过整个元件，即正面膜层、穿过一次基底以及背面膜层，取从中射出的第一个脉冲；连续反射或穿过 passes 次。其光谱为以中心波长为中心的高斯、sech² 或超高斯光谱，或在 source="design" 时为设计保存的光谱（set_pulse_spectrum()），再叠加 gdd 和 tod 给出的啁啾。与窗口一样，不使用设计的入射锥角。不给出关键字参数时，使用窗口打开时的设置，面为 PR、GD、GDD 和 TOD 评价函数行所评价的面：仅背面镀膜的设计为背面，其他设计为正面。窗口打开时，除非只有背面有膜层，否则选择正面，因此一面没有膜层时两者可能不同；没有膜层的面给出其裸表面的结果。有多个环境的设计在环境 1（即设计自身的介质、基底和膜层）中计算，除非 env 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -2102,18 +2108,21 @@ print("centre", design.pulse(source="design").centre, "nm")
 | `pol` | `pol` | `'avg'` | 偏振：`'avg'`、`'s'` 或 `'p'`。 |
 | `angle` | `angle` | `0` | 入射角，单位为度，在光射来的介质中计，从 0 起，小于 90。 |
 | `passes` | `passes` | `1` | 在膜层上反射或穿过膜层的次数，为整数。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一个脉冲，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Pulse。
+**返回**：**JavaScript**：一个 Pulse；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Pulse；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项或选项不能取的值、`response: 'R'` 时的 `'total'`、对不含强度大于零的光谱的设计使用 `source: 'design'`、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应，或没有光从元件射出<br>**Python**：它不接受的选项或选项不能取的值、response="R" 时的 "total"、对不含强度大于零的光谱的设计使用 source="design"、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应，或没有光从元件射出
+- **JavaScript**：它不接受的选项或选项不能取的值、`response: 'R'` 时的 `'total'`、对不含强度大于零的光谱的设计使用 `source: 'design'`、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应、没有光从元件射出，或设计中没有的环境<br>**Python**：它不接受的选项或选项不能取的值、response="R" 时的 "total"、对不含强度大于零的光谱的设计使用 source="design"、用到找不到对应材料的设计、对其中心波长而言过短的脉冲、无法在整个光谱上计算的响应、没有光从元件射出，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^8 H');
 const p = design.pulse({ centre: 550, duration: 20, passes: 2 });
 console.log('output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, peak', (100 * p.metrics.peakVsFlp).toFixed(1), '% of the Fourier-limited pulse');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.98, SiO2: 0.98 } });
+for (const one of design.pulse({ centre: 550, duration: 20, env: 'all' })) console.log(one.environment.number, one.environment.name, 'output FWHM', one.metrics.outputFwhm.toFixed(2), 'fs');
 ```
 
 ```python
@@ -2121,6 +2130,9 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 p = design.pulse(centre=550, duration=20, passes=2)
 print("output FWHM", round(p.metrics.output_fwhm, 2), "fs, peak", round(100 * p.metrics.peak_vs_flp, 1), "% of the Fourier-limited pulse")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.98, "SiO2": 0.98})
+for one in design.pulse(centre=550, duration=20, env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.metrics.output_fwhm, 2), "fs")
 ```
 
 ### processSteps / process_steps
@@ -2337,11 +2349,11 @@ for layer in design.layers:
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.inhomogeneities({ interlayers, start, end, step, angle, side })` | `design.inhomogeneities(interlayers=..., start=400, end=800, step=0.5, angle=0, side=...)` |
+| `design.inhomogeneities({ interlayers, start, end, step, angle, side, env })` | `design.inhomogeneities(interlayers=..., start=400, end=800, step=0.5, angle=0, side=..., env=...)` |
 
 设计在其界面处带有渐变界面层时的光谱，与设计原样的光谱对比，计算方式与非均匀性窗口相同：每个界面层放在其界面处相接的两种材料之间，使镀膜增加其厚度，并被切成若干各有一个折射率的切片，第二种材料所占的比例沿其分布增加，n 和 k 按比例混合。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会在其锥角内取平均，与窗口相同。没有膜层的面没有界面，给出其裸表面的结果。
 
-一个面的界面 k 是其第 k 层的顶面，膜层按 `layers` 的方式从基底起编号：0 为基底表面，有 N 层的面上 N 为与介质相接的表面。厚度为 0 nm 的层保留其编号和界面。正面的渐变从离基底较远的材料到较近的材料，背面从较近的到较远的，与窗口的渐变方式相同；线性或 S 形分布两个方向读起来相同。设计有规格时，`specification` 是放入界面层后对它的判定，与窗口图表下方的标记相同。
+一个面的界面 k 是其第 k 层的顶面，膜层按 `layers` 的方式从基底起编号：0 为基底表面，有 N 层的面上 N 为与介质相接的表面。厚度为 0 nm 的层保留其编号和界面。正面的渐变从离基底较远的材料到较近的材料，背面从较近的到较远的，与窗口的渐变方式相同；线性或 S 形分布两个方向读起来相同。设计有规格时，`specification` 是放入界面层后对它的判定，与窗口图表下方的标记相同。有多个环境的设计在环境 1（即设计自身的介质、基底和膜层）中计算，除非 `env` 指定了其他环境；判定针对每个开启的环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -2351,18 +2363,22 @@ for layer in design.layers:
 | `step` | `step` | `0.5` | 波长步长，单位 nm。 |
 | `angle` | `angle` | `0` | 入射角，单位为度，在入射介质中计，从 0 起，小于 90。 |
 | `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组光谱，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Inhomogeneities。
+**返回**：**JavaScript**：一个 Inhomogeneities；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Inhomogeneities；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- 它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面、小于 0 的厚度、它没有的分布、不是不小于 2 的整数的切片数，或用到找不到对应材料的设计
+- 它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面、小于 0 的厚度、它没有的分布、不是不小于 2 的整数的切片数、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^4 H');
 const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1 });
 console.log(r.interlayers[0].materials.join(' to '), 'adds', r.addedThickness, 'nm; R at 550 nm', r.homogeneous.R.at(550).toFixed(5), 'becomes', r.graded.R.at(550).toFixed(5));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+const wet = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1, env: 2 });
+console.log(wet.environment.name, 'R at 550 nm', wet.homogeneous.R.at(550).toFixed(5), 'becomes', wet.graded.R.at(550).toFixed(5));
 ```
 
 ```python
@@ -2372,17 +2388,20 @@ r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3, "profil
                            start=450, end=650, step=1)
 print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R at 550 nm",
       round(r.homogeneous.R.at(550), 5), "becomes", round(r.graded.R.at(550), 5))
+design.environments.add(name="Under water", incident_medium="H2O")
+wet = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3}], start=450, end=650, step=1, env=2)
+print(wet.environment["name"], "R at 550 nm", round(wet.graded.R.at(550), 5))
 ```
 
 ### roughness
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.roughness({ sigma, range, interfaces, start, end, step, angle, side })` | `design.roughness(sigma=1, range="long", interfaces=..., start=400, end=800, step=0.5, angle=0, side=...)` |
+| `design.roughness({ sigma, range, interfaces, start, end, step, angle, side, env })` | `design.roughness(sigma=1, range="long", interfaces=..., start=400, end=800, step=0.5, angle=0, side=..., env=...)` |
 
 设计带有粗糙界面时的镜面 R 与 T，与光滑设计对比，计算方式与粗糙度 / 散射窗口相同：每个粗糙界面变为一个厚 2σ 的过渡层，σ 为 RMS 粗糙度。小尺度是一个渐变层，其 n 和 k 从一种材料线性过渡到另一种材料，没有光损失；大尺度是一个单层，其消光系数代表散射出镜面光束的光，它针对正入射下的单个表面推导，因此在斜入射、入射锥角内或多层膜中只是估算。计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定，与光谱相同，除非给出 `side`；设有入射锥角的设计会在其锥角内取平均，与窗口相同。
 
-一个面的界面 k 是其第 k 层的顶面，膜层按 `layers` 的方式从基底起编号：0 为基底表面，有 N 层的面上 N 为与介质相接的表面。没有膜层、或没有厚于 0 nm 的膜层的面没有界面，单独计算或在整个元件上计算时都给出其裸表面的结果。过渡层的厚度取自其界面下方的那一层，基底不被减薄；比 2σ 还薄的层被设为 0 nm，并列在 `thinned` 中。厚度为 0 nm 的层不在镀膜中：其顶面所设的 σ 不被使用，它下方的层与上方下一个存在的层在下方那一层的顶面界面相接。
+一个面的界面 k 是其第 k 层的顶面，膜层按 `layers` 的方式从基底起编号：0 为基底表面，有 N 层的面上 N 为与介质相接的表面。没有膜层、或没有厚于 0 nm 的膜层的面没有界面，单独计算或在整个元件上计算时都给出其裸表面的结果。过渡层的厚度取自其界面下方的那一层，基底不被减薄；比 2σ 还薄的层被设为 0 nm，并列在 `thinned` 中。厚度为 0 nm 的层不在镀膜中：其顶面所设的 σ 不被使用，它下方的层与上方下一个存在的层在下方那一层的顶面界面相接。有多个环境的设计在环境 1（即设计自身的介质、基底和膜层）中计算，除非 `env` 指定了其他环境。
 
 | JavaScript | Python | 默认值 | 含义 |
 | ---------- | ------ | --- | --- |
@@ -2394,18 +2413,21 @@ print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R
 | `step` | `step` | `0.5` | 波长步长，单位 nm。 |
 | `angle` | `angle` | `0` | 入射角，单位为度，在入射介质中计，从 0 起，小于 90。 |
 | `side` | `side` |  | `'front'`、`'back'` 或 `'total'`（整个元件）。不给出时，使用设计的评价对象。 |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组光谱，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
 
-**返回**：一个 Roughness。
+**返回**：**JavaScript**：一个 Roughness；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Roughness；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- **JavaScript**：它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、小于 0 的 σ 或不是 `'short'` 或 `'long'` 的类型、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面，或用到找不到对应材料的设计<br>**Python**：它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、小于 0 的 sigma 或不是 "short" 或 "long" 的 range、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面，或用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、小于 0 的 σ 或不是 `'short'` 或 `'long'` 的类型、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：它不接受的选项、不构成范围的范围、0 到 90 以外的角度、它没有的面、超过一百万个波长、小于 0 的 sigma 或不是 "short" 或 "long" 的 range、含它没有的字段的行、针对未计算的面的行，或在两面都镀膜的整个元件上未给出面的行、该面没有的界面或另一行已给出的界面、用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^4 H');
 const r = design.roughness({ sigma: 0, interfaces: [{ interface: 9, sigma: 3 }], start: 400, end: 700, step: 1 });
 console.log('R at 550 nm', r.smooth.R.at(550).toFixed(5), 'becomes', r.rough.R.at(550).toFixed(5), '; loss', (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.roughness({ sigma: 2, start: 400, end: 700, step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'loss at 550 nm', (one.loss.at(550) * 1e6).toFixed(1), 'ppm');
 ```
 
 ```python
@@ -2414,21 +2436,28 @@ design.stack("(HL)^4 H")
 r = design.roughness(sigma=0, interfaces=[{"interface": 9, "sigma": 3}], start=400, end=700, step=1)
 print("R at 550 nm", round(r.smooth.R.at(550), 5), "becomes", round(r.rough.R.at(550), 5), "; loss",
       round(r.loss.at(550) * 1e6, 1), "ppm")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.roughness(sigma=2, start=400, end=700, step=1, env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.loss.at(550) * 1e6, 1), "ppm")
 ```
 
 ### stress
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.stress()` | `design.stress()` |
+| `design.stress({ env })` | `design.stress(env=...)` |
 
-每层膜承担的应力，以及镀膜对工件的作用，计算方式与应力窗口相同，依据材料「力学」选项卡上的常数、`stressTemperature` / `stress_temperature`、`depositionTemperature` / `deposition_temperature` 以及基底的厚度和直径。薄膜应力以张应力为正，合力为 Σ σ·d，即 `STR` 评价函数行所读取的量。哪些镀膜参与计算取决于设计的 `sides` 和 `scoreOn` / `score_on`，与窗口和 `STR` 行的计法相同。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。材料没有给出应力的膜在合力和边缘剪切中按不承受应力计，与 `STR` 行相同；它的应变能、它及其下方各膜的脱层因子、总应变能和开裂参数为 `null` / `None`。设置了温度时，缺少热学常数不会让膜的应力为 `null` / `None`：应力略去需要该常数的项，与 `STR` 行相同。材料没有给出参考温度的膜，其本征应力按在沉积温度下沉积的薄膜的应力处理，因此只叠加膨胀失配；没有给出杨氏模量、泊松比或膨胀系数的膜只承担自身的本征应力；基底没有给出膨胀系数时，每层膜都不计膨胀失配。除应力之外，材料没有给出的常数会让需要它的量为 `null` / `None`，并由 `missing` 指出。内置材料没有给出任何常数，因此由它们构成的设计读出的合力为 0。
+每层膜承担的应力，以及镀膜对工件的作用，计算方式与应力窗口相同，依据材料「力学」选项卡上的常数、`stressTemperature` / `stress_temperature`、`depositionTemperature` / `deposition_temperature` 以及基底的厚度和直径。薄膜应力以张应力为正，合力为 Σ σ·d，即 `STR` 评价函数行所读取的量。哪些镀膜参与计算取决于设计的 `sides` 和 `scoreOn` / `score_on`，与窗口和 `STR` 行的计法相同。两面都有镀膜时，合力为 F_front − F_back；只有一面有镀膜时，它在背面的读数与在正面相同。材料没有给出应力的膜在合力和边缘剪切中按不承受应力计，与 `STR` 行相同；它的应变能、它及其下方各膜的脱层因子、总应变能和开裂参数为 `null` / `None`。设置了温度时，缺少热学常数不会让膜的应力为 `null` / `None`：应力略去需要该常数的项，与 `STR` 行相同。材料没有给出参考温度的膜，其本征应力按在沉积温度下沉积的薄膜的应力处理，因此只叠加膨胀失配；没有给出杨氏模量、泊松比或膨胀系数的膜只承担自身的本征应力；基底没有给出膨胀系数时，每层膜都不计膨胀失配。除应力之外，材料没有给出的常数会让需要它的量为 `null` / `None`，并由 `missing` 指出。内置材料没有给出任何常数，因此由它们构成的设计读出的合力为 0。有多个环境的设计在环境 1（即设计自身的基底和膜层）中计算，除非 `env` 指定了其他环境：此时薄膜是该环境沉积出的膜层，位于该环境的基底上；处在自身温度下的环境，其应力温度随它与环境 1 的温差而移动。
 
-**返回**：一个 Stress。
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `env` | `env` |  | 计算所在的环境，按从 1 开始的编号或其 id 指定，无论它开启还是关闭；或 `'all'`，每个开启的环境各给一组应力，没有开启的环境时给环境 1 的。不给出时为环境 1。 |
+
+**返回**：**JavaScript**：一个 Stress；`env: 'all'` 时为由它们组成的数组，每个环境一个，各带其 `environment`。<br>**Python**：一个 Stress；env="all" 时为由它们组成的 list，每个环境一个，各带其 environment。
 
 **拒绝**：
 
-- 用到找不到对应材料的设计
+- **JavaScript**：它不接受的选项、用到找不到对应材料的设计，或设计中没有的环境<br>**Python**：用到找不到对应材料的设计，或设计中没有的环境
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -2437,6 +2466,8 @@ design.depositionTemperature = 250;
 design.substrate.diameter = 25.4;
 const s = design.stress();
 console.log(s.mode, 'force', s.whole.force, 'N/m;', s.films.length, 'films;', s.missing.length, 'materials missing constants');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const one of design.stress({ env: 'all' })) console.log(one.environment.number, one.environment.name, one.films[0].thickness.toFixed(2), 'nm');
 ```
 
 ```python
@@ -2447,6 +2478,9 @@ design.substrate.diameter = 25.4
 s = design.stress()
 print(s.mode, "force", s.whole.force, "N/m;", len(s.films), "films;", len(s.missing),
       "materials missing constants")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for one in design.stress(env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.films[0].thickness, 2), "nm")
 ```
 
 ### refine
@@ -7127,6 +7161,31 @@ design.stack("(HL)^3 H")
 print(len(design.layer_thicknesses(wavelength=5000).out_of_range), "materials stop short of 5000 nm")
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.environment` | `thicknesses.environment` |
+
+**JavaScript**：膜层列出所在的环境，design.layerThicknesses() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时膜层在环境 1（即设计自身的膜层）中列出。
+
+**Python**：膜层列出所在的环境，design.layer_thicknesses() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时膜层在环境 1（即设计自身的膜层）中列出。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const listed of design.layerThicknesses({ env: 'all' })) console.log(listed.environment.number, listed.environment.name, listed.rows[0].thickness.toFixed(2), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for listed in design.layer_thicknesses(env="all"):
+    print(listed.environment["number"], listed.environment["name"], round(listed.rows[0].thickness, 2), "nm")
+```
+
 ## Admittance
 
 **JavaScript**：一个镀膜面在某一波长处的 s 和 p 导纳轨迹，由 design.admittance() 计算，与导纳图窗口绘出的相同。复数值为 `{ re, im }`，采用 Macleod 的符号，即窗口所用的符号：吸收材料的导纳虚部为负。
@@ -9728,6 +9787,31 @@ design.stack("(HL)^8 H")
 print([m["id"] for m in design.pulse(centre=550).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.environment` | `p.environment` |
+
+**JavaScript**：脉冲计算所在的环境，design.pulse() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时脉冲在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：脉冲计算所在的环境，design.pulse() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时脉冲在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.98, SiO2: 0.98 } });
+for (const p of design.pulse({ centre: 550, env: 'all' })) console.log(p.environment.number, p.environment.name, p.metrics.outputFwhm.toFixed(2), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.98, "SiO2": 0.98})
+for p in design.pulse(centre=550, env="all"):
+    print(p.environment["number"], p.environment["name"], round(p.metrics.output_fwhm, 2), "fs")
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -9974,6 +10058,31 @@ design.stack("(HL)^4 H")
 print([m["id"] for m in design.inhomogeneities(start=200, end=2500, step=10).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.environment` | `r.environment` |
+
+**JavaScript**：光谱计算所在的环境，design.inhomogeneities() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时光谱在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：光谱计算所在的环境，design.inhomogeneities() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时光谱在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const r of design.inhomogeneities({ interlayers: [{ interface: 4 }], start: 450, end: 650, step: 1, env: 'all' })) console.log(r.environment.number, r.environment.name, r.graded.R.at(550).toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for r in design.inhomogeneities(interlayers=[{"interface": 4}], start=450, end=650, step=1, env="all"):
+    print(r.environment["number"], r.environment["name"], round(r.graded.R.at(550), 5))
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -10217,6 +10326,31 @@ design.stack("(HL)^4 H")
 print([m["id"] for m in design.roughness(start=200, end=2500, step=10).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.environment` | `r.environment` |
+
+**JavaScript**：光谱计算所在的环境，design.roughness() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时光谱在环境 1（即设计自身的介质和基底）中计算。
+
+**Python**：光谱计算所在的环境，design.roughness() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时光谱在环境 1（即设计自身的介质和基底）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const r of design.roughness({ sigma: 2, start: 400, end: 700, step: 1, env: 'all' })) console.log(r.environment.number, r.environment.name, (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for r in design.roughness(sigma=2, start=400, end=700, step=1, env="all"):
+    print(r.environment["number"], r.environment["name"], round(r.loss.at(550) * 1e6, 1), "ppm")
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -10398,6 +10532,31 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^2 H")
 for m in design.stress().missing:
     print(m.material, ", ".join(m.fields))
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.environment` | `s.environment` |
+
+**JavaScript**：应力计算所在的环境，design.stress() 给出了 `env` 时为 `{ number, id, name }`；未给出时为 null，此时应力在环境 1（即设计自身的基底和膜层）中计算。
+
+**Python**：应力计算所在的环境，design.stress() 给出了 env 时为由 number、id 和 name 组成的 dict；未给出时为 None，此时应力在环境 1（即设计自身的基底和膜层）中计算。
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const s of design.stress({ env: 'all' })) console.log(s.environment.number, s.environment.name, s.films[0].thickness.toFixed(2), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for s in design.stress(env="all"):
+    print(s.environment["number"], s.environment["name"], round(s.films[0].thickness, 2), "nm")
 ```
 
 ### saveCsv / save_csv

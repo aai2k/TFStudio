@@ -1,6 +1,6 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { emptyRoughness, cloneRoughness } from '../../../../utils/physics/scattering.js';
-import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
+import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
 import { designInterfaces } from '../designInterfaces.js';
 import { useEvaluationUnderCone } from '../useEvaluationUnderCone.js';
 import { calculateRoughness, getRoughnessContext } from './model.js';
@@ -11,7 +11,14 @@ const { useMemo, useCallback } = React;
 
 // `rs` is t.roughnessScattering, which names a medium the design leaves unset.
 export function useRoughnessScattering(rs) {
-    const { design, evalMode } = useDesign();
+    const { design } = useDesign();
+    // The environment the spectra are computed in, Current or one the
+    // droplist names, on what it is scored on and under its own cone. The
+    // roughness is one list for every environment, each at an interface of the
+    // layer list, its transition layer taken out of the layer as the
+    // environment shown deposits it.
+    const environment = useEnvironmentChoice(design);
+    const { design: shown, mode: evalMode, coned: coneActive } = environment.views[0];
     const [designSession, setDesignField] = useWindowSession(roughnessDesignSession, design);
     // Memoised so the fallback is one stable object: a fresh one per render would
     // invalidate every memo below it on every render.
@@ -30,13 +37,12 @@ export function useRoughnessScattering(rs) {
     const params = useMemo(() => ({
         lambdaStart, lambdaEnd, lambdaStep, theta: aoi, polarization: 'avg',
     }), [lambdaStart, lambdaEnd, lambdaStep, aoi]);
-    const context = getRoughnessContext(design, evalMode);
-    const labels = useMemo(() => designInterfaces(design, rs), [design, rs]);
+    const context = getRoughnessContext(shown, evalMode);
+    const labels = useMemo(() => designInterfaces(shown, rs), [shown, rs]);
     // Under a cone of incidence the spectra are computed in the analysis worker,
     // as Optical Evaluation computes its own.
-    const coneActive = coneIsActive(makeConeSpec(design?.cone || {}));
-    const request = useMemo(() => ({ design, params, rough, evalMode }), [design, params, rough, evalMode]);
-    const evaluated = useEvaluationUnderCone(design, 'roughnessSpectra', request, calculateRoughness);
+    const request = useMemo(() => ({ design: shown, params, rough, evalMode }), [shown, params, rough, evalMode]);
+    const evaluated = useEvaluationUnderCone(shown, 'roughnessSpectra', request, calculateRoughness);
     const result = { data: evaluated.data?.data ?? null, error: evaluated.data?.error ?? evaluated.error };
 
     const setMode = useCallback(mode => setRough(current => ({ ...current, mode })), []);
@@ -65,7 +71,7 @@ export function useRoughnessScattering(rs) {
     const clearAll = useCallback(() => setRough(emptyRoughness()), []);
 
     return {
-        design, evalMode, rough, labels, ...context, coneActive,
+        design, evalMode, rough, labels, ...context, coneActive, environment, shownDesign: shown,
         calc: result.data, error: result.error,
         lambdaStart, setLambdaStart: value => setViewField('lambdaStart', value),
         lambdaEnd, setLambdaEnd: value => setViewField('lambdaEnd', value),

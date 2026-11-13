@@ -49,13 +49,13 @@ export function RoughnessScattering({ c, theme, t }) {
         setLambdaEnd(to);
     };
     const rangeNotice = useMaterialRangeNotice(
-        design, state.lambdaStart, state.lambdaEnd, t, fixRange);
+        state.shownDesign, state.lambdaStart, state.lambdaEnd, t, fixRange);
     const csv = useCsvExport(
         () => csvFromRows(columns, rows),
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_scattering.csv`,
     );
 
-    const emptyMessage = noLayersMessage(design, state.evalMode, t);
+    const emptyMessage = noLayersMessage(state.shownDesign, state.evalMode, t);
     if (emptyMessage) return h(CenteredMessage, { c, message: emptyMessage });
 
     return h(AnalysisWindow, { c },
@@ -67,7 +67,7 @@ export function RoughnessScattering({ c, theme, t }) {
                 ? h(ScatterChart, { calc, showCurves: state.showCurves, units, c, t })
                 : h(CenteredMessage, { c, message: rs.computing }),
         ),
-        h(BadgeRow, { c, t, design, cone: true }),
+        h(BadgeRow, { c, t, design, environment: state.environment, cone: true }),
         h(ResultsSection, {
             c, label: rs.editorTitle, summary: `${state.nIfaces} ${rs.interfaces}`,
             open: state.showEditor, setOpen: state.setShowEditor,

@@ -30,13 +30,18 @@ export function StressControls({ c, t, sa, state, notices }) {
     // does, a temperature left out of it reads as 20 °C, and the placeholder
     // says which of the two is the case.
     const temperaturePlaceholder = state.hasRun ? String(DEFAULT_STRESS_TEMPERATURE_C) : sa.unset;
+    // A field the environment shown holds a value of its own for shows that
+    // value and is not edited here; its hover says where it comes from.
+    const held = (field, tip) => (state.held[field]
+        ? { disabled: true, title: `${tip}\n${sa.environmentHeld(state.heldBy)}` }
+        : { title: tip });
     return h(ControlRow, {
         c,
         trailing: [h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices })],
     },
         h(Field, {
             c, label: sa.temperature, unit: t.units.celsius, nullable: true,
-            placeholder: temperaturePlaceholder, title: sa.temperatureTip,
+            placeholder: temperaturePlaceholder, ...held('temperatureC', sa.temperatureTip),
             value: state.temperatureC, min: -273, max: 5000, step: 5,
             onChange: state.setTemperatureC,
         }),
@@ -48,7 +53,7 @@ export function StressControls({ c, t, sa, state, notices }) {
         }),
         h(Divider, { c }),
         h(Field, {
-            c, label: sa.substrateThickness, unit: t.units.mm, title: sa.substrateThicknessTip,
+            c, label: sa.substrateThickness, unit: t.units.mm, ...held('thicknessMm', sa.substrateThicknessTip),
             value: state.thicknessMm, min: 0.01, max: 1000, step: 0.5,
             onChange: state.setThicknessMm,
         }),

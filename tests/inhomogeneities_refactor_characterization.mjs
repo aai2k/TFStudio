@@ -9,6 +9,7 @@ import {
     makeTheme,
     shimBrowserGlobals,
 } from './_uiShim.mjs';
+import { designInMode } from './_designInMode.mjs';
 
 shimBrowserGlobals();
 await loadApp();
@@ -142,9 +143,12 @@ for (const mode of ['front', 'back', 'total']) {
 // and a one-sided design read as the whole part is drawn.
 {
     const { DesignContext } = await import('../src/state/DesignContext.js');
-    const render = (shown, evalMode, locale) => renderToStaticMarkup(React.createElement(
-        DesignContext.Provider, { value: { ...makeDesignCtx(shown), evalMode } },
-        React.createElement(Inhomogeneities, { c, t: locale, theme: c })));
+    const render = (shown, evalMode, locale) => {
+        const inMode = designInMode(shown, evalMode);
+        return renderToStaticMarkup(React.createElement(
+            DesignContext.Provider, { value: { ...makeDesignCtx(inMode), evalMode } },
+            React.createElement(Inhomogeneities, { c, t: locale, theme: c })));
+    };
     const frontOnly = makeSampleDesign();
     const backOnly = { ...makeSampleDesign(), frontLayers: [], backLayers: [{ id: 'b1', material: 'builtin:SiO2', thickness: 80 }] };
     const bare = { ...makeSampleDesign(), frontLayers: [], backLayers: [] };

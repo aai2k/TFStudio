@@ -12,9 +12,13 @@ import { isDeepStrictEqual as same } from 'node:util';
 import { environmentDesign, oneEnvironmentDesign } from '../src/utils/environments/environments.js';
 import { threeEnvironmentDesign } from './_environmentDesign.mjs';
 
-/** The checks that fail for `api[call]` with `options`, each named; empty when every one holds. */
-export function environmentWrong(api, call, options = {}) {
-    const design = threeEnvironmentDesign();
+/**
+ * The checks that fail for `api[call]` with `options`, each named; empty when
+ * every one holds. `design` is the design with three environments, or one of
+ * its kind whose environments are named and switched as its own are, for a
+ * call that environment 2's sapphire alone leaves as it is.
+ */
+export function environmentWrong(api, call, options = {}, design = threeEnvironmentDesign()) {
     const asked = env => api[call](design, { ...options, env });
     const apart = id => api[call](environmentDesign(design, id), options);
     let refused = null;

@@ -49,9 +49,9 @@ export function WavelengthAngleMap({ c, t }) {
         ([from, to]) => setRange({ lambdaStart: from, lambdaEnd: to }),
         [setRange]);
     const rangeNotice = useMaterialRangeNotice(
-        design, state.lambdaStart, state.lambdaEnd, t, fixRange);
+        state.shownDesign, state.lambdaStart, state.lambdaEnd, t, fixRange);
 
-    const emptyMessage = noLayersMessage(design, state.evalMode, t);
+    const emptyMessage = noLayersMessage(state.shownDesign, state.evalMode, t);
     if (emptyMessage) return h(CenteredMessage, { c, message: emptyMessage });
 
     return h(AnalysisWindow, { c },
@@ -62,7 +62,7 @@ export function WavelengthAngleMap({ c, t }) {
                 prompt: wam.computingFirst,
             }),
         ),
-        h(BadgeRow, { c, t, design, cone: true }),
+        h(BadgeRow, { c, t, design, environment: state.environment, cone: true }),
         h(ResultsSection, {
             c, label: dt.results, count: rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: value => state.set('showTable', value),

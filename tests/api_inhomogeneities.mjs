@@ -20,6 +20,12 @@
  *   4. The objects' CSV is the window's table with every curve through its
  *      Copy CSV.
  *   5. Refusals with their codes and fields.
+ *   6. Environments: on a design with three, inhomogeneities without env is
+ *      the design's own, and with env, by number or id and switched off or
+ *      on, the design that environment computes, an interlayer on the
+ *      substrate's surface grading into that environment's substrate; 'all'
+ *      gives the two that are on and an environment it does not have is
+ *      refused.
  *
  * Run: node tests/api_inhomogeneities.mjs
  */
@@ -29,6 +35,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { inspect, isDeepStrictEqual } from 'node:util';
 import { fixtureFile, manifest } from './_apiCorpus.mjs';
+import { environmentWrong } from './_environmentCalls.mjs';
 
 // The window's CSV writer sits in a module of React components.
 globalThis.React = createRequire(import.meta.url)('react');
@@ -287,7 +294,7 @@ function everyInterface(design, mode, profile) {
         same(sideless, named) && sideless.interlayers[0].side === 'back' && !same(sideless.graded, sideless.homogeneous));
     const REFUSED = [
         ['an option it does not take', () => api.inhomogeneities(mirror, { interlayer: [] }), 'unknownOption', { option: 'interlayer' },
-            /^inhomogeneities: unknown option 'interlayer'; the options are interlayers, start, end, step, angle, side$/],
+            /^inhomogeneities: unknown option 'interlayer'; the options are interlayers, start, end, step, angle, side, env$/],
         ['interlayers that are not a list', () => api.inhomogeneities(mirror, { interlayers: { interface: 1 } }), 'badValue', { option: 'interlayers' },
             /interlayers is a list of rows, each \{ side, interface, thickness, profile, slices \}, not /],
         ['a row that is not a record', () => api.inhomogeneities(mirror, { interlayers: [5] }), 'badValue', { option: 'interlayers[0]', value: 5 },
@@ -332,6 +339,15 @@ function everyInterface(design, mode, profile) {
     const objectError = thrown(() => new objects.Design(mirror).inhomogeneities({ interlayers: [{ interface: 12 }] }));
     ok('the object words a refusal as its own method', /^inhomogeneities: interlayers\[0\]\.interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 12$/.test(objectError?.message ?? ''),
         objectError?.message);
+}
+
+// ── 6. Environments ──────────────────────────────────────────────────────────
+{
+    const wrong = [
+        ...environmentWrong(api, 'inhomogeneities', { interlayers: [{ interface: 2, thickness: 3 }], start: 450, end: 650, step: 10 }),
+        ...environmentWrong(api, 'inhomogeneities', { interlayers: [{ interface: 0, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 10 }),
+    ];
+    ok("on a design with three environments, inhomogeneities without env is the design's own; by number or id, off or on, the design that environment computes; 'all' the two that are on; an unknown one refused", wrong.length === 0, wrong.join('; '));
 }
 
 fs.rmSync(WORK, { recursive: true, force: true });

@@ -1,12 +1,15 @@
 /**
  * Bar diagram of the layer thicknesses of one coating, a bar per layer in its
- * material's color, readable in nm, OT, QWOT or FWOT.
+ * material's color, readable in nm, OT, QWOT or FWOT. On a design with
+ * environments, the Environment droplist under the bars names the environment
+ * the layers are listed in.
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useMaterialLambdaNotice } from '../../../materials/MaterialRangeNotice.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { ThicknessChart } from './ThicknessChart.js';
 import { ThicknessControls } from './ThicknessControls.js';
@@ -38,7 +41,7 @@ export function LayerThicknesses({ c, theme, t }) {
     const dt = t.dataTable;
     const { design } = useDesign();
     const state = useThicknessState(design);
-    const rangeNotice = useMaterialLambdaNotice(design, state.lambda, t, state.setLambda, state.side);
+    const rangeNotice = useMaterialLambdaNotice(state.shownDesign, state.lambda, t, state.setLambda, state.side);
     const columns = tableColumns(lt);
     const csv = useCsvExport(
         () => csvFromRows(columns, state.rows),
@@ -56,6 +59,7 @@ export function LayerThicknesses({ c, theme, t }) {
                 })
                 : h(CenteredMessage, { c, message: lt.noLayers }),
         ),
+        h(BadgeRow, { c, t, design, environment: state.environment, evalBadge: false }),
         h(ResultsSection, {
             c, label: dt.results, count: state.rows.length, countLabel: dt.rowCount,
             open: state.showTable, setOpen: state.setShowTable,

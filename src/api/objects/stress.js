@@ -29,8 +29,9 @@ const windowRow = film => ({
  * console.log(s.mode, 'force', s.whole.force, 'N/m;', s.missing.map(m => m.material).join(', '), 'state no constants');
  */
 export class Stress {
-    constructor(result) {
+    constructor(result, environment = null) {
         this._result = result;
+        this._environment = environment;
     }
 
     /**
@@ -123,6 +124,19 @@ export class Stress {
      * for (const m of design.stress().missing) console.log(m.material, m.fields.join(', '));
      */
     get missing() { return this._result.missing; }
+
+    /**
+     * The environment the stress was computed in, `{ number, id, name }`,
+     * when design.stress() was given `env`; null without one, when it was
+     * computed in environment 1, the design's own substrate and layers.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+     * for (const s of design.stress({ env: 'all' })) console.log(s.environment.number, s.environment.name, s.films[0].thickness.toFixed(2), 'nm');
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the films to a CSV file as the window's Copy CSV writes its

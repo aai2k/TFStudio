@@ -201,19 +201,38 @@ export function indexProfile(design, options) {
     return inEnvironments('indexProfile', design, env, one => indexProfileOf(one, { lambda, mode: viewSide('indexProfile', one, side) }));
 }
 
+// The rows of one design, as layerThicknesses() gives them, on the sides
+// `mode`, each material by the id the design names it by.
+function layerThicknessesOf(design, { lambda, mode }) {
+    requireLayers('layerThicknesses', design, mode);
+    requireResolved(design);
+    const sides = mode === 'total' ? ['front', 'back'] : [mode];
+    const rows = sides.flatMap(listed => computeThicknessRows(design, listed, lambda).map(row => ({
+        ...(mode === 'total' ? { side: listed } : {}),
+        number: row.layerNumber, material: baseMaterialId(row.materialId), thickness: row.d, opticalThickness: row.ot, qwot: row.qwot, fwot: row.fwot,
+    })));
+    return { mode, wavelength: lambda, rows, outOfRange: designRangeCoverage(design, [lambda, lambda], mode).offenders };
+}
+
 /**
  * Each layer's physical and optical thickness, as the
  * [Layer Thicknesses](/analysis/layer-thicknesses/) window lists them, with
  * the optical ones taken at one wavelength. The sides follow the design's
  * [evaluation mode](/design/evaluation-modes/), as `spectrum` does, unless
  * `side` is given; on the whole part, the front's layers and then the
- * back's. Every layer has its row, one with no thickness too.
+ * back's. Every layer has its row, one with no thickness too. A design with
+ * more than one [environment](/design/environments/) is listed in
+ * environment 1, its own layers, unless `env` names another: there each layer
+ * is as that environment deposits it, its thickness times the factor of its
+ * material and the change its temperature makes, of the material in its
+ * place.
  *
  * @param design The design.
  * @param [options]
  * @param [options.wavelength] The wavelength λ0 the optical thicknesses are taken at, nm. Without it, the design's reference wavelength, as the window opens at it.
  * @param [options.side] `'front'`, `'back'` or `'total'`, both sides. Without it, what the design is scored on.
- * @returns The rows.
+ * @param [options.env] The environment listed, by its number from 1 or its id, whether it is on or off; or `'all'` for the rows of each environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The rows; with `env: 'all'`, `{ environments }`, one entry per environment, each these rows with the environment's `number`, `id` and `name`.
  * @property mode What was listed: `'front'`, `'back'` or `'total'`.
  * @property wavelength The wavelength, nm.
  * @property rows One per layer, from layer 1 next to the substrate outward, `{ number, material, thickness, opticalThickness, qwot, fwot }`: number as the Design Editor numbers it; material by id; thickness, nm; opticalThickness, n times thickness, nm; qwot, 4 n d / λ0, and fwot, n d / λ0, with n the material's index at the wavelength. The three optical values are null for a layer with no material. On the whole part each row also has `side`.
@@ -221,22 +240,19 @@ export function indexProfile(design, options) {
  * @throws an option it does not take, a wavelength of 0 or less, or a side other than `'front'`, `'back'` or `'total'`
  * @throws a side with no layers, or on the whole part a design with none
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^3 H' });
  * for (const row of tf.layerThicknesses(design, { wavelength: 600 }).rows) {
  *     console.log(row.number, row.material, row.thickness.toFixed(2), 'nm, QWOT', row.qwot.toFixed(4));
  * }
+ * const edge = tf.addEnvironment(design, { name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+ * for (const env of tf.layerThicknesses(edge, { wavelength: 600, env: 'all' }).environments) console.log(env.number, env.name, env.rows[0].thickness.toFixed(2), 'nm');
  */
 export function layerThicknesses(design, options) {
-    const { wavelength, side } = checkOptions('layerThicknesses', options, ['wavelength', 'side']);
-    const mode = viewSide('layerThicknesses', design, side);
+    const { wavelength, side, env } = checkOptions('layerThicknesses', options, ['wavelength', 'side', 'env']);
+    viewSide('layerThicknesses', design, side);
     const lambda = viewWavelength('layerThicknesses', design, wavelength, THICKNESS_LAMBDA_NM);
-    requireLayers('layerThicknesses', design, mode);
-    requireResolved(design);
-    const sides = mode === 'total' ? ['front', 'back'] : [mode];
-    const rows = sides.flatMap(listed => computeThicknessRows(design, listed, lambda).map(row => ({
-        ...(mode === 'total' ? { side: listed } : {}),
-        number: row.layerNumber, material: row.materialId, thickness: row.d, opticalThickness: row.ot, qwot: row.qwot, fwot: row.fwot,
-    })));
-    return { mode, wavelength: lambda, rows, outOfRange: designRangeCoverage(design, [lambda, lambda], mode).offenders };
+    // Each environment is listed on what it is scored on, its other side its own.
+    return inEnvironments('layerThicknesses', design, env, one => layerThicknessesOf(one, { lambda, mode: viewSide('layerThicknesses', one, side) }));
 }

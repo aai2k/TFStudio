@@ -33,8 +33,9 @@ const curvesOf = (spectrum, wavelength) => Object.fromEntries(Object.entries(spe
  * console.log(r.mode, 'mean R from 500 to 600 nm', r.homogeneous.R.mean(500, 600).toFixed(5), 'becomes', r.graded.R.mean(500, 600).toFixed(5));
  */
 export class Inhomogeneities {
-    constructor(result) {
+    constructor(result, environment = null) {
         this._result = result;
+        this._environment = environment;
         this._homogeneous = curvesOf(result.homogeneous, result.wavelength);
         this._graded = curvesOf(result.graded, result.wavelength);
         this._specification = result.specification ? new SpecReport(result.specification) : null;
@@ -145,6 +146,20 @@ export class Inhomogeneities {
      * console.log(design.inhomogeneities({ start: 200, end: 2500, step: 10 }).outOfRange.map(m => m.id));
      */
     get outOfRange() { return this._result.outOfRange; }
+
+    /**
+     * The environment the spectra were computed in, `{ number, id, name
+     * }`, when design.inhomogeneities() was given `env`; null without one,
+     * when they were computed in environment 1, the design's own media and
+     * substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const r of design.inhomogeneities({ interlayers: [{ interface: 4 }], start: 450, end: 650, step: 1, env: 'all' })) console.log(r.environment.number, r.environment.name, r.graded.R.at(550).toFixed(5));
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the curves to a CSV file as the window's Copy CSV writes its

@@ -68,8 +68,9 @@
  *   fwhm() and edge() and edge_shift() as named tuples, on the design as it
  *   was when the spectrum was computed, and their refusals; spectrum(),
  *   edge_shift(), color(), integrals(), index_profile(), admittance(),
- *   electric_field(), ellipsometry(), ellipsometry_vs_angle() and
- *   group_delay() of one environment and of each,
+ *   electric_field(), ellipsometry(), ellipsometry_vs_angle(),
+ *   group_delay(), pulse(), inhomogeneities(), roughness(),
+ *   layer_thicknesses() and stress() of one environment and of each,
  *   each naming its environment, a curve's width found in its environment,
  *   and an environment the design does not have refused; on such a design a
  *   check of one environment, the verdict and the yield in each,
@@ -920,7 +921,7 @@ async function pulse(t, said) {
     ok('save_csv writes what saveCsv writes, the input\'s FWHM row only when chirped', canon((got.csv ?? []).map(csvRows)) === canon(written)
         && written[1].length === written[0].length + 1, String(got.csv?.[1]).slice(0, 200));
     ok('their refusals are in Python\'s words', canon(got.worded) === canon([
-        "pulse: unknown option 'center'; the options are source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes",
+        "pulse: unknown option 'center'; the options are source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes, env",
         "pulse: side is 'front' or 'back' with response 'R', not 'total'",
         'pulse: passes is a whole number of bounces, 1 or more, not 1.5',
         "pulse: shape is 'gaussian', 'sech2' or 'superGaussian', not 'lorentzian'",
@@ -961,7 +962,7 @@ async function inhomogeneities(t, said) {
     new objects.Design(mirror).inhomogeneities(ASKED[1][1]).saveCsv(file);
     ok('save_csv writes what saveCsv writes', canon(csvRows(got.csv ?? '')) === canon(csvRows(fs.readFileSync(file, 'utf8'))), String(got.csv).slice(0, 200));
     ok('its refusals are in Python\'s words', canon(got.worded) === canon([
-        "inhomogeneities: unknown option 'interlayer'; the options are interlayers, start, end, step, angle, side",
+        "inhomogeneities: unknown option 'interlayer'; the options are interlayers, start, end, step, angle, side, env",
         "inhomogeneities: interlayers[0].interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10",
         "inhomogeneities: interlayers[0].side is 'front' or 'back', given on each row of a whole part coated on both sides, not None",
         "inhomogeneities: interlayers[0].profile is 'linear', 'parabolic', 'invParabolic', 'exponential' or 'sigmoid', not 'gaussian'",
@@ -999,7 +1000,7 @@ async function roughness(t, said) {
     new objects.Design(mirror).roughness(ASKED[1][1]).saveCsv(file);
     ok('save_csv writes what saveCsv writes', canon(csvRows(got.csv ?? '')) === canon(csvRows(fs.readFileSync(file, 'utf8'))), String(got.csv).slice(0, 200));
     ok('its refusals are in Python\'s words', canon(got.worded) === canon([
-        "roughness: unknown option 'sigmas'; the options are sigma, range, interfaces, start, end, step, angle, side",
+        "roughness: unknown option 'sigmas'; the options are sigma, range, interfaces, start, end, step, angle, side, env",
         'roughness: sigma is a roughness in nm, 0 or more, not -1',
         "roughness: range is 'short' or 'long', not 'medium'",
         "roughness: interfaces[0].interface is a whole number from 0, the substrate's surface, to 9, the front's layer count, not 10",
@@ -1178,6 +1179,38 @@ async function environmentViews(t, said) {
         `index_profile: env is 'all' or ${other}; not 4`, `admittance: env is 'all' or ${other}; not 'x'`,
         `electric_field: env is 'all' or ${other}; not 0`, `ellipsometry: env is 'all' or ${other}; not 9`,
         `ellipsometry_vs_angle: env is 'all' or ${other}; not 'env4'`, `group_delay: env is 'all' or ${other}; not -1`,
+    ]), canon(got.refused));
+}
+
+// What _pythonObjects.py environment_one_at_a_time() read, against the objects here.
+async function environmentOneAtATime(t, said) {
+    const { ok, canon } = t;
+    const got = said.environmentOneAtATime ?? {};
+    const objects = await import('../src/api/objects/index.js');
+    const design = new objects.Design(said.environmentSpectra?.design ?? {});
+    const VALUES = {
+        Pulse: v => [v.centre, v.metrics.outputFwhm, v.metrics.energyRatio, v.spectrum.output.values],
+        Inhomogeneities: v => [[...v.graded.R], v.interlayers.map(row => row.materials)],
+        Roughness: v => [[...v.rough.R], [...v.loss]],
+        LayerThicknesses: v => [v.rows.map(row => row.thickness), v.rows.map(row => row.material)],
+        Stress: v => [v.substrate.material, v.films.map(film => film.thickness)],
+    };
+    const viewOf = v => [v.environment, v.constructor.name, v.mode, VALUES[v.constructor.name](v)];
+    const ASKED = [
+        env => design.pulse({ centre: 550, duration: 20, env }),
+        env => design.inhomogeneities({ interlayers: [{ interface: 0, thickness: 3 }], start: 450, end: 650, step: 10, env }),
+        env => design.roughness({ sigma: 2, start: 450, end: 650, step: 10, env }),
+        env => design.layerThicknesses({ wavelength: 600, env }),
+        env => design.stress({ env }),
+    ];
+    const here = ASKED.flatMap(ask => [ask(), ask('env2'), ask(3), ...ask('all')]);
+    ok('pulse(), inhomogeneities(), roughness(), layer_thicknesses() and stress() with env give what the objects here give, a list for "all", each naming its environment',
+        canon(got.views) === canon(here.map(viewOf)) && here.length === 25, canon(got.views)?.slice(0, 300));
+    const other = "one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3";
+    ok('and an environment the design does not have is refused in Python\'s words', canon(got.refused) === canon([
+        `pulse: env is 'all' or ${other}; not 4`, `inhomogeneities: env is 'all' or ${other}; not 'x'`,
+        `roughness: env is 'all' or ${other}; not 0`, `layer_thicknesses: env is 'all' or ${other}; not 9`,
+        `stress: env is 'all' or ${other}; not 'env4'`,
     ]), canon(got.refused));
 }
 
@@ -1572,6 +1605,7 @@ export async function checkObjects(t) {
     await bandFeatures(u, ran.said);
     await environmentSpectra(u, ran.said);
     await environmentViews(u, ran.said);
+    await environmentOneAtATime(u, ran.said);
     await environmentTolerance(u, ran.said);
     measuredCurves(u, ran.said);
     measuredFiles(u, ran.said);

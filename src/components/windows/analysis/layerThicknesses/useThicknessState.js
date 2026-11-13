@@ -1,5 +1,6 @@
 import { buildMatColorMap, computeThicknessRows } from './thicknessModel.js';
 import { offeredSides, resolveAvailableSide } from '../availableSide.js';
+import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
 import { thicknessSession } from './sessionState.js';
 import { useWindowSession } from '../../windowSession.js';
 
@@ -20,17 +21,23 @@ export function useThicknessState(design) {
         if (availableSide !== side) setSide(availableSide);
     }, [availableSide, side]);
 
+    // The environment the layers are listed in, Current or one the droplist
+    // names: each layer as that environment deposits it. Every environment has
+    // the layer list's layers, so the sides offered are the design's.
+    const environment = useEnvironmentChoice(design);
+    const shown = environment.views[0].design;
     const rows = useMemo(
-        () => computeThicknessRows(design, side, lambda),
-        [design, side, lambda],
+        () => computeThicknessRows(shown, side, lambda),
+        [shown, side, lambda],
     );
     const matColorMap = useMemo(
-        () => (rows.length ? buildMatColorMap(design, rows) : {}),
-        [design, rows],
+        () => (rows.length ? buildMatColorMap(shown, rows) : {}),
+        [shown, rows],
     );
 
     return {
         lambda, units, side, showTable, rows, matColorMap, sideOffered: offeredSides(design),
+        environment, shownDesign: shown,
         setLambda: value => setField('lambda', value),
         setUnits: value => setField('units', value),
         setShowTable: value => setField('showTable', value),

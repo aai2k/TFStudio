@@ -4,9 +4,39 @@
 
 import { computeStress } from '../components/windows/analysis/stressAnalysis/model.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
+import { baseMaterialId } from '../utils/environments/temperatureModel.js';
 import { requireResolved } from './materials.js';
+import { inEnvironments } from './designEnvironments.js';
+import { checkOptions } from './check.js';
 
 const stated = value => typeof value === 'number' && Number.isFinite(value);
+
+// The stress of one design, as stress() gives it, on what it is scored on,
+// each material by the id the design names it by.
+function stressOf(design) {
+    requireResolved(design);
+    const mode = resolveEvalMode(design);
+    const { run, rows, whole, missing } = computeStress(design, mode);
+    return {
+        mode,
+        run: run && { temperature: run.temperatureC, depositionTemperature: run.depositionTemperatureC },
+        substrate: {
+            material: baseMaterialId(design.substrate?.material ?? 'BK7'),
+            thickness: design.substrate?.thickness ?? null,
+            diameter: stated(design.substrate?.diameterMm) ? design.substrate.diameterMm : null,
+        },
+        whole: {
+            force: whole.forceNm, radius: whole.radiusM, deflection: whole.deflectionUm,
+            strainEnergy: whole.strainEnergy, cracking: whole.cracking,
+        },
+        films: rows.map(row => ({
+            side: row.side, number: row.layerNumber, material: baseMaterialId(row.materialId), name: row.materialName,
+            thickness: row.thicknessNm, stress: row.stressMPa, strainEnergy: row.strainEnergy,
+            delamination: row.delamination, shear: row.shearMPa,
+        })),
+        missing: missing.map(({ materialId, name, fields }) => ({ material: baseMaterialId(materialId), name, fields })),
+    };
+}
 
 /**
  * The stress each film carries and what the coating does to the part, as the
@@ -42,41 +72,33 @@ const stated = value => typeof value === 'number' && Number.isFinite(value);
  * design of them reads a force of 0; constants come from the catalogs
  * (`init({ dataDir })`) or the materials a design carries.
  *
+ * A design with more than one [environment](/design/environments/) is
+ * computed in environment 1, its own substrate and layers, unless `env` names
+ * another: there the films are the layers as that environment deposits them,
+ * on its substrate, counted on what it is scored on, and at a temperature of
+ * its own the run's temperature moves by its change from environment 1's.
+ *
  * @param design The design.
- * @returns The films and the whole part.
+ * @param [options]
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the stress of each environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The films and the whole part; with `env: 'all'`, `{ environments }`, one entry per environment, each this stress with the environment's `number`, `id` and `name`.
  * @property mode The coatings counted: `'front'`, `'back'` or `'total'`, both faces.
  * @property run The temperatures, `{ temperature, depositionTemperature }` in °C, the one not set reading 20, or null when the design sets neither and each film carries its intrinsic stress alone.
  * @property substrate `{ material, thickness, diameter }`: the material by id, the thickness and the diameter in mm, the diameter null when it is not set.
  * @property whole The part: `force`, N/m; `radius`, the radius of curvature, m, null at no force, since a flat substrate has none; `deflection`, the centre deflection, µm, null without a diameter; `strainEnergy`, the films' total, J/m²; `cracking`, the sum over the films of U/2γ, at 1 the energy to pay for the two faces of a crack. Each null when a constant it needs is missing; a film that states no stress counts as carrying none in the force, the radius and the deflection, and leaves the strain energy and the cracking parameter null.
  * @property films One per film counted, front first, each `{ side, number, material, name, thickness, stress, strainEnergy, delamination, shear }`: number from 1 at the substrate, as the Design Editor numbers layers; material by id and name as the window shows it; thickness in nm; stress in MPa; strainEnergy in J/m²; delamination, the strain energy of the film and every film outside it against the surface energy of the two materials meeting below it, at 1 the energy to let go there; shear, the peak shear at the coating's edge, MPa. `stress` is null when the material states none; `strainEnergy` is then null too, and so is the `delamination` of that film and of every film below it, while `shear` counts it as carrying none. A missing thermal constant does not null `stress`: with the temperatures set, it leaves out the terms that need that constant. The other three are null when another constant they need is missing.
  * @property missing The materials that leave a constant out, the substrate's included, each `{ material, name, fields }`: material by id, and fields the constants it lacks by their names on the material's `mechanical` record, such as `'youngsModulusGPa'`. Each material is listed once: one that is the substrate and a film, or that two ids name, as `SiO2` and `builtin:SiO2` do, is one entry, under the id the films name it by first.
+ * @throws an option it does not take
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror', depositionTemperatureC: 250, substrateDiameterMm: 25.4 }), { formula: '(HL)^4 H' });
  * const s = tf.stress(design);
  * console.log(s.mode, 'force', s.whole.force, 'N/m;', s.films.length, 'films;', s.missing.map(m => m.material).join(', '), 'state no constants');
+ * const edge = tf.addEnvironment(design, { name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+ * for (const env of tf.stress(edge, { env: 'all' }).environments) console.log(env.number, env.name, env.films[0].thickness.toFixed(2), 'nm');
  */
-export function stress(design) {
-    requireResolved(design);
-    const mode = resolveEvalMode(design);
-    const { run, rows, whole, missing } = computeStress(design, mode);
-    return {
-        mode,
-        run: run && { temperature: run.temperatureC, depositionTemperature: run.depositionTemperatureC },
-        substrate: {
-            material: design.substrate?.material ?? 'BK7',
-            thickness: design.substrate?.thickness ?? null,
-            diameter: stated(design.substrate?.diameterMm) ? design.substrate.diameterMm : null,
-        },
-        whole: {
-            force: whole.forceNm, radius: whole.radiusM, deflection: whole.deflectionUm,
-            strainEnergy: whole.strainEnergy, cracking: whole.cracking,
-        },
-        films: rows.map(row => ({
-            side: row.side, number: row.layerNumber, material: row.materialId, name: row.materialName,
-            thickness: row.thicknessNm, stress: row.stressMPa, strainEnergy: row.strainEnergy,
-            delamination: row.delamination, shear: row.shearMPa,
-        })),
-        missing: missing.map(({ materialId, name, fields }) => ({ material: materialId, name, fields })),
-    };
+export function stress(design, options) {
+    const { env } = checkOptions('stress', options, ['env']);
+    return inEnvironments('stress', design, env, stressOf);
 }

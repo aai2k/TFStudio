@@ -1725,27 +1725,35 @@ class Design:
         answer = self._read("indexProfile", "index_profile", wavelength=wavelength, side=side, env=env)
         return self._in_environment(IndexProfile, answer, env)
 
-    def layer_thicknesses(self, wavelength=None, side=None):
+    def layer_thicknesses(self, wavelength=None, side=None, env=None):
         """Each layer's physical and optical thickness, as the Layer
         Thicknesses window lists them, with the optical ones taken at one
         wavelength. The sides follow the design's sides and score_on, as a
         spectrum does, unless side is given; on the whole part, the front's
         layers and then the back's. Every layer has its row, one with no
-        thickness too.
+        thickness too. A design with more than one environment is listed in
+        environment 1, its own layers, unless env names another: there each
+        layer is as that environment deposits it.
 
         Args:
             wavelength: The wavelength λ0 the optical thicknesses are taken
                 at, nm. Default: the design's reference wavelength.
             side: "front", "back" or "total", both sides. Default: what the
                 design is scored on.
+            env: The environment listed, by its number from 1 or its id,
+                whether it is on or off; or "all" for the rows of each
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            A LayerThicknesses.
+            A LayerThicknesses; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: a wavelength of 0 or less, a side other than
-                "front", "back" or "total", a side with no layers, or a design
-                that names a material that resolves to nothing.
+                "front", "back" or "total", a side with no layers, a design
+                that names a material that resolves to nothing, or an
+                environment the design does not have.
 
         Example::
 
@@ -1753,8 +1761,12 @@ class Design:
             design.stack("(HL)^3 H")
             for row in design.layer_thicknesses(wavelength=600).rows:
                 print(row.number, row.material, round(row.thickness, 2), "nm, QWOT", round(row.qwot, 4))
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+            for one in design.layer_thicknesses(wavelength=600, env="all"):
+                print(one.environment["number"], one.environment["name"], round(one.rows[0].thickness, 2), "nm")
         """
-        return LayerThicknesses(self._read("layerThicknesses", "layer_thicknesses", wavelength=wavelength, side=side))
+        answer = self._read("layerThicknesses", "layer_thicknesses", wavelength=wavelength, side=side, env=env)
+        return self._in_environment(LayerThicknesses, answer, env)
 
     def total_thickness(self, side=None):
         """The physical thickness of the layers, nm. Without side, of the
@@ -2285,7 +2297,9 @@ class Design:
         side the PR, GD, GDD and TOD merit rows score: the back of a design
         coated on the back alone and the front of any other. The window opens
         on the front unless only the back holds layers, so with one side empty
-        the two can differ; a side with no layers gives its bare surface.
+        the two can differ; a side with no layers gives its bare surface. A
+        design with more than one environment is computed in environment 1,
+        its own media, substrate and layers, unless env names another.
 
         Args:
             source: "model", the spectrum of shape, or "design", the spectrum
@@ -2317,9 +2331,14 @@ class Design:
                 from, 0 up to but not including 90. Default 0.
             passes: The bounces off the coating, or passes through it, a whole
                 number. Default 1.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for the pulse in each
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            A Pulse.
+            A Pulse; with env="all", a list of them, one per environment, each
+            with its environment.
 
         Raises:
             TFStudioError: an option it does not take or a value an option
@@ -2327,7 +2346,8 @@ class Design:
                 design that holds no spectrum with light in it, a design that
                 names a material that resolves to nothing, a pulse too short
                 for its centre wavelength, a response that cannot be computed
-                across the spectrum, or no light out of the part.
+                across the spectrum, no light out of the part, or an
+                environment the design does not have.
 
         Example::
 
@@ -2335,9 +2355,13 @@ class Design:
             design.stack("(HL)^8 H")
             p = design.pulse(centre=550, duration=20, passes=2)
             print("output FWHM", round(p.metrics.output_fwhm, 2), "fs, peak", round(100 * p.metrics.peak_vs_flp, 1), "% of the Fourier-limited pulse")
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.98, "SiO2": 0.98})
+            for one in design.pulse(centre=550, duration=20, env="all"):
+                print(one.environment["number"], one.environment["name"], round(one.metrics.output_fwhm, 2), "fs")
         """
         with worded(_PULSE_WORDS):
-            return Pulse(self._calls.pulseAnalysis(self._data, api_names(options)))
+            answer = self._calls.pulseAnalysis(self._data, api_names(options))
+        return self._in_environment(Pulse, answer, options.get("env"))
 
     def process_steps(self, start=None, end=None, **options):
         """The spectrum a monitor in the chamber reads after each layer of
@@ -2664,7 +2688,10 @@ class Design:
         and on the back from the nearer to the farther, as the window grades
         them; a linear or sigmoid profile reads the same either way. When the
         design has a specification, specification is its verdict with the
-        interlayers in, as the badge under the window's chart reads it.
+        interlayers in, as the badge under the window's chart reads it. A
+        design with more than one environment is computed in environment 1,
+        its own media, substrate and layers, unless env names another; the
+        verdict judges every environment that is on.
 
         Args:
             interlayers: One dict per interlayer, with side, interface,
@@ -2684,9 +2711,14 @@ class Design:
                 up to but not including 90. Default 0.
             side: "front", "back" or "total", the whole part. Default: what
                 the design is scored on.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for the spectra of each
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            An Inhomogeneities.
+            An Inhomogeneities; with env="all", a list of them, one per
+            environment, each with its environment.
 
         Raises:
             TFStudioError: an option it does not take, a range that is not
@@ -2696,8 +2728,8 @@ class Design:
                 whole part coated on both sides, an interface the side does
                 not have or one another row names, a thickness below 0, a
                 profile it does not have, slices that are not a whole number
-                of 2 or more, or a design that names a material that resolves
-                to nothing.
+                of 2 or more, a design that names a material that resolves
+                to nothing, or an environment the design does not have.
 
         Example::
 
@@ -2707,8 +2739,12 @@ class Design:
                                        start=450, end=650, step=1)
             print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R at 550 nm",
                   round(r.homogeneous.R.at(550), 5), "becomes", round(r.graded.R.at(550), 5))
+            design.environments.add(name="Under water", incident_medium="H2O")
+            wet = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3}], start=450, end=650, step=1, env=2)
+            print(wet.environment["name"], "R at 550 nm", round(wet.graded.R.at(550), 5))
         """
-        return Inhomogeneities(self._read("inhomogeneities", "inhomogeneities", **options))
+        answer = self._read("inhomogeneities", "inhomogeneities", **options)
+        return self._in_environment(Inhomogeneities, answer, options.get("env"))
 
     def roughness(self, **options):
         """The specular R and T of the design with rough interfaces, against
@@ -2733,7 +2769,9 @@ class Design:
         substrate is not thinned; a layer thinner than 2σ is set to 0 nm and
         listed in thinned. A layer of 0 nm is not in the coating: the σ set
         on its top is not used, and the layer beneath it meets the next layer
-        there is, at the interface on top of the layer beneath.
+        there is, at the interface on top of the layer beneath. A design with
+        more than one environment is computed in environment 1, its own
+        media, substrate and layers, unless env names another.
 
         Args:
             sigma: The rms roughness of every interface, nm, 0 or more.
@@ -2757,9 +2795,14 @@ class Design:
                 up to but not including 90. Default 0.
             side: "front", "back" or "total", the whole part. Default: what
                 the design is scored on.
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for the spectra of each
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            A Roughness.
+            A Roughness; with env="all", a list of them, one per environment,
+            each with its environment.
 
         Raises:
             TFStudioError: an option it does not take, a range that is not
@@ -2768,8 +2811,9 @@ class Design:
                 than "short" or "long", a row with a field it does not have,
                 a row for a side not computed or with no side on a whole part
                 coated on both sides, an interface the side does not have or
-                one another row names, or a design that names a material that
-                resolves to nothing.
+                one another row names, a design that names a material that
+                resolves to nothing, or an environment the design does not
+                have.
 
         Example::
 
@@ -2778,10 +2822,14 @@ class Design:
             r = design.roughness(sigma=0, interfaces=[{"interface": 9, "sigma": 3}], start=400, end=700, step=1)
             print("R at 550 nm", round(r.smooth.R.at(550), 5), "becomes", round(r.rough.R.at(550), 5), "; loss",
                   round(r.loss.at(550) * 1e6, 1), "ppm")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for one in design.roughness(sigma=2, start=400, end=700, step=1, env="all"):
+                print(one.environment["number"], one.environment["name"], round(one.loss.at(550) * 1e6, 1), "ppm")
         """
-        return Roughness(self._read("roughness", "roughness", **options))
+        answer = self._read("roughness", "roughness", **options)
+        return self._in_environment(Roughness, answer, options.get("env"))
 
-    def stress(self):
+    def stress(self, env=None):
         """The stress each film carries and what the coating does to the
         part, as the Stress window computes them from the constants on the
         materials' Mechanical tab, stress_temperature,
@@ -2806,14 +2854,25 @@ class Design:
         film. Beyond the stress, a constant a material does not state leaves
         the quantities that need it None, and missing names it. The built-in
         materials state no constants, so a design of them reads a force of
-        0.
+        0. A design with more than one environment is computed in
+        environment 1, its own substrate and layers, unless env names
+        another: there the films are the layers as that environment deposits
+        them, on its substrate, and at a temperature of its own the stress
+        temperature moves by its change from environment 1's.
+
+        Args:
+            env: The environment computed, by its number from 1 or its id,
+                whether it is on or off; or "all" for the stress of each
+                environment that is on, environment 1 when none is. Default:
+                environment 1.
 
         Returns:
-            A Stress.
+            A Stress; with env="all", a list of them, one per environment,
+            each with its environment.
 
         Raises:
             TFStudioError: a design that names a material that resolves to
-                nothing.
+                nothing, or an environment the design does not have.
 
         Example::
 
@@ -2824,9 +2883,12 @@ class Design:
             s = design.stress()
             print(s.mode, "force", s.whole.force, "N/m;", len(s.films), "films;", len(s.missing),
                   "materials missing constants")
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+            for one in design.stress(env="all"):
+                print(one.environment["number"], one.environment["name"], round(one.films[0].thickness, 2), "nm")
         """
-        with worded(Words("stress", "stress")):
-            return Stress(self._calls.stress(self._data))
+        answer = self._read("stress", "stress", env=env)
+        return self._in_environment(Stress, answer, env)
 
     def _read(self, call, method, **options):
         """What the API's call `call` reads of the design with `options`, for

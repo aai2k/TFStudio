@@ -1,10 +1,10 @@
-import { useDesign } from '../../../../state/DesignContext.js';
 import { OPTIMIZATION_PREVIEW_MS, useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { computeSurface } from '../../../../utils/physics/plotQuantities.js';
 import { makeConeSpec, coneIsActive } from '../../../../utils/physics/optimizer.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { runSurfaceSweep } from '../plotEngine/surfaceRunner.js';
 import { useWindowSession } from '../../windowSession.js';
+import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
 import { wavelengthAngleMapSession } from './sessionState.js';
 import { buildMapSpec } from './mapSpec.js';
 
@@ -114,12 +114,13 @@ function useMapSweep(spec, design) {
 
 export function useWavelengthAngleMap() {
     // The design as the other analysis windows see it: sampled while a run is
-    // driving it, and held where it was if the live-update setting is off. The
-    // evaluation mode is a property of the design being edited, not of the frame
-    // being drawn, so it comes from the context directly.
-    const { evalMode } = useDesign();
+    // driving it, and held where it was if the live-update setting is off.
     const { design } = useLiveDesign();
     const [values, setField, patch] = useWindowSession(wavelengthAngleMapSession, design);
+    // The environment mapped, Current or one the droplist names: the design it
+    // sees, on what it is scored on and under its own cone.
+    const environment = useEnvironmentChoice(design);
+    const { design: shown, mode: evalMode } = environment.views[0];
     const {
         lambdaStart, lambdaEnd, lambdaStep, angleStart, angleEnd, angleStep,
         channel, pol, render, colorscale,
@@ -138,7 +139,7 @@ export function useWavelengthAngleMap() {
         () => ({ ...computeSpec, render, colorscale }),
         [computeSpec, render, colorscale],
     );
-    const sweep = useMapSweep(computeSpec, design);
+    const sweep = useMapSweep(computeSpec, shown);
 
-    return { design, evalMode, spec, ...values, ...sweep, set: setField, patch };
+    return { design, evalMode, environment, shownDesign: shown, spec, ...values, ...sweep, set: setField, patch };
 }

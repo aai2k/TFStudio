@@ -72,6 +72,8 @@ The analysis runs for the surface mode set in the
 interfaces, back the back-coating interfaces, and total both, with the
 substrate between them.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the losses are computed in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. σ and the type are one list for the design, at the interfaces of its layer list, the same in every environment: in the environment shown each transition layer sits between the materials that meet there in that environment's coating and takes its thickness from the layer beneath as that environment deposits it. The analysis runs on what that environment is scored on, its own **Other side**, and under its own cone. The **Roughness** strip names the incident medium, the substrate and the exit medium of the environment shown. The material range notice reads the environment shown. The choice belongs to this window and is not saved with the design.
+
 ## Roughness
 
 The **Roughness** strip below the plot is where σ and the type are set. Choose

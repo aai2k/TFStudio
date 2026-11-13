@@ -27,8 +27,9 @@
  *   angles as arrays, their mean, min and max over a band and the whole range,
  *   and the CSV file with its conditions lines; spectra, edge shifts, colours,
  *   integral values, index profiles, admittance loci, electric fields, Psi and
- *   Delta and group delay of one environment and of each one, each naming its
- *   environment, and band features found in it; merit rows, with start and end left out before the
+ *   Delta, group delay, pulses, interlayers, rough interfaces, layer
+ *   thicknesses and stress of one environment and of each one, each naming
+ *   its environment, and band features found in it; merit rows, with start and end left out before the
  *   options, and options given as undefined or null, value, rows and clear(),
  *   a row scored in one environment, each environment's merit and each row's
  *   env and values, and env refused on a design with one environment,
@@ -602,6 +603,32 @@ const SCORED_SIDE = { front: 'front', back: 'back', both: 'front', symmetric: 'f
     ]), canon(unknown));
     const kept = await refused(() => wet.environments.remove(7));
     ok('and an environment named elsewhere keeps its words', kept === 'environment 7: the design has 3 environments, numbered from 1', kept);
+    // A Pulse, an Inhomogeneities, a Roughness, a LayerThicknesses and a
+    // Stress hold what their calls give in their environment, and name it.
+    const SPECTRAL = { start: 450, end: 650, step: 10 };
+    const ONE_AT_A_TIME = [
+        ['pulseAnalysis', objects.Pulse, env => wet.pulse({ centre: 550, duration: 20, env }), { centre: 550, duration: 20 }, ['mode', 'centre', 'metrics', 'spectrum', 'outOfRange']],
+        ['inhomogeneities', objects.Inhomogeneities, env => wet.inhomogeneities({ interlayers: [{ interface: 0, thickness: 3 }], ...SPECTRAL, env }),
+            { interlayers: [{ interface: 0, thickness: 3 }], ...SPECTRAL }, ['mode', 'wavelength', 'graded', 'interlayers', 'outOfRange']],
+        ['roughness', objects.Roughness, env => wet.roughness({ sigma: 2, ...SPECTRAL, env }), { sigma: 2, ...SPECTRAL }, ['mode', 'wavelength', 'rough', 'loss', 'thinned', 'outOfRange']],
+        ['layerThicknesses', objects.LayerThicknesses, env => wet.layerThicknesses({ wavelength: 600, env }), { wavelength: 600 }, ['mode', 'wavelength', 'rows', 'outOfRange']],
+        ['stress', objects.Stress, env => wet.stress({ env }), {}, ['mode', 'substrate', 'whole', 'films', 'missing']],
+    ];
+    const wrongOnes = ONE_AT_A_TIME.filter(([call, Kind, made, options, fields]) => {
+        const shown = found => [found instanceof Kind, found.environment, ...fields.map(field => found[field])];
+        const plain = env => api[call](wet._data, { ...options, env });
+        const meant = [[plain(), null], [plain(2), WATER], [plain(3), EDGE], ...plain('all').environments.map(split)].map(([found, environment]) => new Kind(found, environment));
+        return canon([made(), made('env2'), made(3), ...made('all')].map(shown)) !== canon(meant.map(shown));
+    }).map(([call]) => call);
+    ok('pulse(), inhomogeneities(), roughness(), layerThicknesses() and stress() without env are environment 1\'s and name none; with env they name it, and give a list for \'all\'',
+        wrongOnes.length === 0, wrongOnes.join(', '));
+    const unknownOnes = [await refused(() => wet.pulse({ env: 4 })), await refused(() => wet.inhomogeneities({ env: 'x' })),
+        await refused(() => wet.roughness({ env: 0 })), await refused(() => wet.layerThicknesses({ env: 9 })), await refused(() => wet.stress({ env: 'env4' }))];
+    ok('and an environment they do not have is refused in the objects\' words', canon(unknownOnes) === canon([
+        `pulse: env is 'all' or ${other}; not 4`, `inhomogeneities: env is 'all' or ${other}; not "x"`,
+        `roughness: env is 'all' or ${other}; not 0`, `layerThicknesses: env is 'all' or ${other}; not 9`,
+        `stress: env is 'all' or ${other}; not "env4"`,
+    ]), canon(unknownOnes));
 }
 
 // ── The merit function ──────────────────────────────────────────────────────

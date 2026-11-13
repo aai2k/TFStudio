@@ -194,8 +194,9 @@ export class IndexProfile {
  * for (const row of design.layerThicknesses().rows) console.log(row.number, row.material, row.thickness, row.qwot);
  */
 export class LayerThicknesses {
-    constructor(listed) {
+    constructor(listed, environment = null) {
         this._listed = listed;
+        this._environment = environment;
     }
 
     /**
@@ -246,6 +247,19 @@ export class LayerThicknesses {
      * console.log(design.layerThicknesses({ wavelength: 5000 }).outOfRange.length, 'materials stop short of 5000 nm');
      */
     get outOfRange() { return this._listed.outOfRange; }
+
+    /**
+     * The environment the layers were listed in, `{ number, id, name }`,
+     * when design.layerThicknesses() was given `env`; null without one,
+     * when they were listed in environment 1, the design's own layers.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^3 H');
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+     * for (const listed of design.layerThicknesses({ env: 'all' })) console.log(listed.environment.number, listed.environment.name, listed.rows[0].thickness.toFixed(2), 'nm');
+     */
+    get environment() { return this._environment; }
 
     // What console.log prints for the rows.
     [inspect.custom]() { return `<LayerThicknesses ${this.mode} at ${this.wavelength} nm: ${this.rows.length} layers>`; }

@@ -15,6 +15,7 @@ import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.
 import { csvFromRows, ResultsGrid, ResultsSection } from '../../../ui/ResultsSection.js';
 import { materialCoverageBands } from '../../../ui/chartOptions.js';
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
+import { BadgeRow } from '../chrome/badgeRow.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
 import { PulseChart } from './PulseChart.js';
@@ -106,8 +107,10 @@ export function PulseAnalysis({ c, t }) {
     const busy = !!analysis.payload && evaluation.busy && !analysis.stopped;
 
     const band = shown?.valid ? shown.spectrum.bandNm : null;
-    // The notice and the shading name the materials of the side computed.
-    const materials = useMemo(() => rangeMaterials(design, session.side), [design, session.side]);
+    // The notice and the shading name the materials of the side computed, in
+    // the environment shown.
+    const shownDesign = analysis.shownDesign;
+    const materials = useMemo(() => rangeMaterials(shownDesign, session.side), [shownDesign, session.side]);
     const rangeNotice = useMaterialsRangeNotice(
         materials, band?.[0] ?? session.centerWavelength, band?.[1] ?? session.centerWavelength, t);
     const materialBands = useMemo(
@@ -146,6 +149,7 @@ export function PulseAnalysis({ c, t }) {
                         labels, c, curveColors, materialBands,
                     }),
             ),
+            h(BadgeRow, { c, t, design, environment: analysis.environment, evalBadge: false }),
             h(Readout, { c, text, shown: blank ? null : shown, busy }),
             h(ResultsSection, {
                 c, label: dt.results, count: table.rows.length, countLabel: dt.rowCount,

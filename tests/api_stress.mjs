@@ -16,6 +16,11 @@
  *      kept through saveDesign and openDesign, compared by designDifferences.
  *   5. The objects, and the CSV through the window's Copy CSV.
  *   6. Refusals with their codes and fields.
+ *   7. Environments: on a design with three, stress without env is the
+ *      design's own, and with env, by number or id and switched off or on,
+ *      the design that environment computes; 'all' gives the two that are on,
+ *      an environment it does not have is refused, and so is an option stress
+ *      does not take.
  *
  * Run: node tests/api_stress.mjs
  */
@@ -25,6 +30,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { inspect, isDeepStrictEqual } from 'node:util';
 import { fixtureFile, manifest } from './_apiCorpus.mjs';
+import { environmentWrong } from './_environmentCalls.mjs';
 import { MATERIALS, OPTICS, validationBack, validationDesign } from './_stressValidation.mjs';
 
 // The window's CSV writer sits in a module of React components.
@@ -295,6 +301,14 @@ const CASES = {
         'stressTemperature is a temperature in °C above -273.15, or null to unset it, not -300',
         'depositionTemperature is a temperature in °C above -273.15, or null to unset it, not -300',
         'substrate.diameter is a diameter in mm above 0, or null to unset it, not -1']), JSON.stringify(worded));
+}
+
+// ── 7. Environments ──────────────────────────────────────────────────────────
+{
+    const wrong = environmentWrong(api, 'stress');
+    ok("on a design with three environments, stress without env is the design's own; by number or id, off or on, the design that environment computes; 'all' the two that are on; an unknown one refused", wrong.length === 0, wrong.join('; '));
+    const err = thrown(() => api.stress(api.newDesign(), { side: 'front' })) ?? {};
+    ok('stress refuses an option it does not take', err.code === 'unknownOption' && err.message === "stress: unknown option 'side'; the options are env", err.message);
 }
 
 fs.rmSync(WORK, { recursive: true, force: true });

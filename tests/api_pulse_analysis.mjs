@@ -33,6 +33,10 @@
  *      it and rows as typed into it, both kept as Apply keeps them, and a
  *      design saved and opened again holds the spectrum.
  *   7. Refusals with their codes and fields.
+ *   8. Environments: on a design with three, pulseAnalysis without env is
+ *      the design's own, and with env, by number or id and switched off or
+ *      on, the design that environment computes; 'all' gives the two that
+ *      are on and an environment it does not have is refused.
  *
  * Run: node tests/api_pulse_analysis.mjs
  */
@@ -42,6 +46,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { inspect, isDeepStrictEqual } from 'node:util';
 import { fixtureFile, manifest } from './_apiCorpus.mjs';
+import { environmentWrong } from './_environmentCalls.mjs';
 
 // The window's CSV writer sits in a module of React components.
 globalThis.React = createRequire(import.meta.url)('react');
@@ -348,7 +353,7 @@ function aboveFloor(raw, intensity) {
 // ── 7. Refusals ────────────────────────────────────────────────────────────
 {
     const REFUSED = [
-        ['an option it does not take', () => api.pulseAnalysis(mirror, { center: 800 }), 'unknownOption', { option: 'center' }, /unknown option 'center'; the options are source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes$/],
+        ['an option it does not take', () => api.pulseAnalysis(mirror, { center: 800 }), 'unknownOption', { option: 'center' }, /unknown option 'center'; the options are source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes, env$/],
         ['a source it does not have', () => api.pulseAnalysis(mirror, { source: 'file' }), 'badValue', { option: 'source', value: 'file' }, /source is 'model' or 'design', not "file"$/],
         ['a shape it does not have', () => api.pulseAnalysis(mirror, { shape: 'lorentzian' }), 'badValue', { option: 'shape', value: 'lorentzian' }, /shape is 'gaussian', 'sech2' or 'superGaussian', not "lorentzian"$/],
         ['a centre of 0', () => api.pulseAnalysis(mirror, { centre: 0 }), 'badValue', { option: 'centre', value: 0 }, /centre is a wavelength in nm above 0, not 0$/],
@@ -409,6 +414,12 @@ function aboveFloor(raw, intensity) {
         const err = thrown(make) ?? {};
         ok(`setPulseSpectrum refuses ${what}, as Apply does`, pattern.test(err.message), err.message);
     }
+}
+
+// ── 8. Environments ──────────────────────────────────────────────────────────
+{
+    const wrong = environmentWrong(api, 'pulseAnalysis', { centre: 550, duration: 20 });
+    ok("on a design with three environments, pulseAnalysis without env is the design's own; by number or id, off or on, the design that environment computes; 'all' the two that are on; an unknown one refused", wrong.length === 0, wrong.join('; '));
 }
 
 fs.rmSync(WORK, { recursive: true, force: true });

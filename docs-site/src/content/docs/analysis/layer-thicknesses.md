@@ -32,6 +32,8 @@ agree with the Design Editor's QW column.
 
 **Side**: the **front** or the **back** coating.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the layers are drawn in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. Each bar is the layer as that environment deposits it: its thickness times the thickness factor of its material there and the change the environment's temperature makes, made of the material the environment deposits for it, the optical units reading that material's index at the environment's temperature. The layers keep the Design Editor's numbers. The material range notice reads the environment shown. The choice belongs to this window and is not saved with the design.
+
 ## How to read it
 
 In QW units a quarter-wave stack is a row of bars at 1, and any departure from

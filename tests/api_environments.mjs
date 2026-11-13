@@ -27,6 +27,8 @@
  *      environment.
  *   9. A synthesis run fits environment 1, so an MNT row of environment 2
  *      sets no thickness floor for it.
+ *  10. The overview at the head of src/api/index.js names env for every
+ *      call whose refusal of an unknown option lists env.
  *
  * Run: node tests/api_environments.mjs
  */
@@ -337,6 +339,21 @@ const FOLLOWED_CONDITIONS = ['cone', 'mfEvalMode', 'temperatureC'];
     const thinnest = Math.min(...grown.frontLayers.map(l => l.thickness));
     ok('an MNT row of environment 2, where TiO2 grows 0.9 times as thick, sets the floor at its target / 0.9',
         result.completed && thinnest >= 300 / 0.9 - 1e-6, `${result.stopReason} ${thinnest}`);
+}
+
+// ── 10. The overview names env ─────────────────────────────────────────────
+// A call's refusal of an option it does not know lists the options it takes;
+// the overview at the head of src/api/index.js lists them by hand.
+{
+    const overview = fs.readFileSync(new URL('../src/api/index.js', import.meta.url), 'utf8').split('*/')[0];
+    const listed = [...overview.matchAll(/\b(\w+)\((design|designOrSystem)(?:, \{([^}]*)\})?\)/g)];
+    const design = plain();
+    for (const [, call, , options = ''] of listed) {
+        const refused = thrown(() => api[call](design, { notAnOption: 1 }));
+        if (refused?.code !== 'unknownOption' || !refused.fields.options.includes('env')) continue;
+        ok(`the overview names env among ${call}'s options`, /\benv\b/.test(options), `${call}(${options})`);
+    }
+    ok('the overview lists the calls that take env', listed.length > 20, String(listed.length));
 }
 
 console.log(`${pass} passed, ${fail} failed`);

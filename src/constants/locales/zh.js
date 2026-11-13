@@ -3584,6 +3584,7 @@ export default {
     substrateDiameter: '基底 Ø',
     substrateDiameterTip: '基底直径，单位 mm。仅中心挠度需要它；留空则该行保持为空。',
     unset: '无',
+    environmentHeld: (environment) => `环境 ${environment} 用此值计算，它来自该环境自己的温度或基底。请在“环境”窗口中设置它们。`,
     front: '正面',
     back: '背面',
     frontTag: '正',

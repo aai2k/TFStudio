@@ -26,8 +26,9 @@ function cell(value) {
  * console.log(p.mode, 'output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, delay', p.metrics.delay.toFixed(2), 'fs');
  */
 export class Pulse {
-    constructor(result) {
+    constructor(result, environment = null) {
         this._result = result;
+        this._environment = environment;
     }
 
     /**
@@ -210,6 +211,19 @@ export class Pulse {
      * console.log(design.pulse({ centre: 550 }).outOfRange.map(m => m.id));
      */
     get outOfRange() { return this._result.outOfRange; }
+
+    /**
+     * The environment the pulse was computed in, `{ number, id, name }`,
+     * when design.pulse() was given `env`; null without one, when it was
+     * computed in environment 1, the design's own media and substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^8 H');
+     * design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.98, SiO2: 0.98 } });
+     * for (const p of design.pulse({ centre: 550, env: 'all' })) console.log(p.environment.number, p.environment.name, p.metrics.outputFwhm.toFixed(2), 'fs');
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the metrics to a CSV file as the window's Copy CSV writes its

@@ -41,6 +41,8 @@ region of interest is clear.
 The map is computed for the surface mode set in the
 [Design Editor](/design/design-editor/), shown as a badge under the map.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the map says which one the map is computed in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. The map is that environment's coating, between its media and on its substrate, on what that environment is scored on, its own **Other side**, and under its own cone, and the badges read that environment. The material range notice reads the environment shown. The choice belongs to this window and is not saved with the design.
+
 ## How to read it
 
 Read across a row for the spectrum at one angle, and down a column for how one

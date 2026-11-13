@@ -1600,25 +1600,28 @@ for one in design.index_profile(wavelength=633, env="all"):
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.layerThicknesses({ wavelength, side })` | `design.layer_thicknesses(wavelength=..., side=...)` |
+| `design.layerThicknesses({ wavelength, side, env })` | `design.layer_thicknesses(wavelength=..., side=..., env=...)` |
 
-Each layer's physical and optical thickness, as the Layer Thicknesses window lists them, with the optical ones taken at one wavelength. The sides follow the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given; on the whole part, the front's layers and then the back's. Every layer has its row, one with no thickness too.
+Each layer's physical and optical thickness, as the Layer Thicknesses window lists them, with the optical ones taken at one wavelength. The sides follow the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given; on the whole part, the front's layers and then the back's. Every layer has its row, one with no thickness too. A design with more than one environment is listed in environment 1, its own layers, unless `env` names another: there each layer is as that environment deposits it.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
 | `wavelength` | `wavelength` |  | The wavelength λ0 the optical thicknesses are taken at, nm. Without it, the design's reference wavelength. |
 | `side` | `side` |  | `'front'`, `'back'` or `'total'`, both sides. Without it, what the design is scored on. |
+| `env` | `env` |  | The environment listed, by its number from 1 or its id, whether it is on or off; or `'all'` for the rows of each environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: A LayerThicknesses.
+**Returns**: **JavaScript**: A LayerThicknesses; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: A LayerThicknesses; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layers, or a design that names a material that resolves to nothing<br>**Python**: a wavelength of 0 or less, a side other than "front", "back" or "total", a side with no layers, or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a wavelength of 0 or less, a side other than `'front'`, `'back'` or `'total'`, a side with no layers, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a wavelength of 0 or less, a side other than "front", "back" or "total", a side with no layers, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^3 H');
 for (const row of design.layerThicknesses({ wavelength: 600 }).rows) console.log(row.number, row.material, row.thickness.toFixed(2), 'nm, QWOT', row.qwot.toFixed(4));
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const one of design.layerThicknesses({ wavelength: 600, env: 'all' })) console.log(one.environment.number, one.environment.name, one.rows[0].thickness.toFixed(2), 'nm');
 ```
 
 ```python
@@ -1626,6 +1629,9 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^3 H")
 for row in design.layer_thicknesses(wavelength=600).rows:
     print(row.number, row.material, round(row.thickness, 2), "nm, QWOT", round(row.qwot, 4))
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for one in design.layer_thicknesses(wavelength=600, env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.rows[0].thickness, 2), "nm")
 ```
 
 ### totalThickness / total_thickness
@@ -2081,11 +2087,11 @@ print("centre", design.pulse(source="design").centre, "nm")
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.pulse({ source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes })` | `design.pulse(source="model", shape="gaussian", centre=..., duration=10, bandwidth=100, order=2, gdd=0, tod=0, side=..., response="R", pol="avg", angle=0, passes=1)` |
+| `design.pulse({ source, shape, centre, duration, bandwidth, order, gdd, tod, side, response, pol, angle, passes, env })` | `design.pulse(source="model", shape="gaussian", centre=..., duration=10, bandwidth=100, order=2, gdd=0, tod=0, side=..., response="R", pol="avg", angle=0, passes=1, env=...)` |
 
-**JavaScript**: A pulse's passage through the design, in time and in its spectrum, as the Pulse Analysis window computes it: the pulse is reflected off or transmitted through one coated side, or through the whole part, the front coating, one pass through the substrate and the back coating, the first pulse to come out of it; `passes` bounces or passes in a row. Its spectrum is a Gaussian, sech² or super-Gaussian about the centre wavelength, or with `source: 'design'` the spectrum the design holds (setPulseSpectrum()), with the chirp of `gdd` and `tod` on top. The design's cone of incidence is not used, as the window does not use it. Without options, the window's opening settings, on the side the PR, GD, GDD and TOD merit rows score: the back of a design coated on the back alone and the front of any other. The window opens on the front unless only the back holds layers, so with one side empty the two can differ; a side with no layers gives its bare surface.
+**JavaScript**: A pulse's passage through the design, in time and in its spectrum, as the Pulse Analysis window computes it: the pulse is reflected off or transmitted through one coated side, or through the whole part, the front coating, one pass through the substrate and the back coating, the first pulse to come out of it; `passes` bounces or passes in a row. Its spectrum is a Gaussian, sech² or super-Gaussian about the centre wavelength, or with `source: 'design'` the spectrum the design holds (setPulseSpectrum()), with the chirp of `gdd` and `tod` on top. The design's cone of incidence is not used, as the window does not use it. Without options, the window's opening settings, on the side the PR, GD, GDD and TOD merit rows score: the back of a design coated on the back alone and the front of any other. The window opens on the front unless only the back holds layers, so with one side empty the two can differ; a side with no layers gives its bare surface. A design with more than one environment is computed in environment 1, its own media, substrate and layers, unless `env` names another.
 
-**Python**: A pulse's passage through the design, in time and in its spectrum, as the Pulse Analysis window computes it: the pulse is reflected off or transmitted through one coated side, or through the whole part, the front coating, one pass through the substrate and the back coating, the first pulse to come out of it; passes bounces or passes in a row. Its spectrum is a Gaussian, sech² or super-Gaussian about the centre wavelength, or with source="design" the spectrum the design holds (set_pulse_spectrum()), with the chirp of gdd and tod on top. The design's cone of incidence is not used, as the window does not use it. Without keywords, the window's opening settings, on the side the PR, GD, GDD and TOD merit rows score: the back of a design coated on the back alone and the front of any other. The window opens on the front unless only the back holds layers, so with one side empty the two can differ; a side with no layers gives its bare surface.
+**Python**: A pulse's passage through the design, in time and in its spectrum, as the Pulse Analysis window computes it: the pulse is reflected off or transmitted through one coated side, or through the whole part, the front coating, one pass through the substrate and the back coating, the first pulse to come out of it; passes bounces or passes in a row. Its spectrum is a Gaussian, sech² or super-Gaussian about the centre wavelength, or with source="design" the spectrum the design holds (set_pulse_spectrum()), with the chirp of gdd and tod on top. The design's cone of incidence is not used, as the window does not use it. Without keywords, the window's opening settings, on the side the PR, GD, GDD and TOD merit rows score: the back of a design coated on the back alone and the front of any other. The window opens on the front unless only the back holds layers, so with one side empty the two can differ; a side with no layers gives its bare surface. A design with more than one environment is computed in environment 1, its own media, substrate and layers, unless env names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -2102,18 +2108,21 @@ print("centre", design.pulse(source="design").centre, "nm")
 | `pol` | `pol` | `'avg'` | The polarization: `'avg'`, `'s'` or `'p'`. |
 | `angle` | `angle` | `0` | The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90. |
 | `passes` | `passes` | `1` | The bounces off the coating, or passes through it, a whole number. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the pulse in each environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: A Pulse.
+**Returns**: **JavaScript**: A Pulse; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: A Pulse; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take or a value an option cannot take, `'total'` with `response: 'R'`, `source: 'design'` on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, or no light out of the part<br>**Python**: an option it does not take or a value an option cannot take, "total" with response="R", source="design" on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, or no light out of the part
+- **JavaScript**: an option it does not take or a value an option cannot take, `'total'` with `response: 'R'`, `source: 'design'` on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, no light out of the part, or an environment the design does not have<br>**Python**: an option it does not take or a value an option cannot take, "total" with response="R", source="design" on a design that holds no spectrum with light in it, a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, no light out of the part, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^8 H');
 const p = design.pulse({ centre: 550, duration: 20, passes: 2 });
 console.log('output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, peak', (100 * p.metrics.peakVsFlp).toFixed(1), '% of the Fourier-limited pulse');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.98, SiO2: 0.98 } });
+for (const one of design.pulse({ centre: 550, duration: 20, env: 'all' })) console.log(one.environment.number, one.environment.name, 'output FWHM', one.metrics.outputFwhm.toFixed(2), 'fs');
 ```
 
 ```python
@@ -2121,6 +2130,9 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^8 H")
 p = design.pulse(centre=550, duration=20, passes=2)
 print("output FWHM", round(p.metrics.output_fwhm, 2), "fs, peak", round(100 * p.metrics.peak_vs_flp, 1), "% of the Fourier-limited pulse")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.98, "SiO2": 0.98})
+for one in design.pulse(centre=550, duration=20, env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.metrics.output_fwhm, 2), "fs")
 ```
 
 ### processSteps / process_steps
@@ -2337,11 +2349,11 @@ for layer in design.layers:
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.inhomogeneities({ interlayers, start, end, step, angle, side })` | `design.inhomogeneities(interlayers=..., start=400, end=800, step=0.5, angle=0, side=...)` |
+| `design.inhomogeneities({ interlayers, start, end, step, angle, side, env })` | `design.inhomogeneities(interlayers=..., start=400, end=800, step=0.5, angle=0, side=..., env=...)` |
 
 The spectrum of the design with graded interlayers at its interfaces, against the design as it stands, as the Inhomogeneities window computes it: each interlayer is put in between the two materials that meet at its interface, adding its thickness to the coating, and is cut into slices of one index each, the share of the second material rising along its profile, n and k mixed in proportion. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it. A side with no layers has no interface, and gives its bare surface.
 
-Interface k of a side is the top of its layer k, numbered from the substrate as `layers` numbers them: 0 is the substrate's surface and N, on a side of N layers, the surface that meets the medium. A layer of 0 nm keeps its number and its interfaces. On the front the grading runs from the material farther from the substrate to the nearer one, and on the back from the nearer to the farther, as the window grades them; a linear or sigmoid profile reads the same either way. When the design has a specification, `specification` is its verdict with the interlayers in, as the badge under the window's chart reads it.
+Interface k of a side is the top of its layer k, numbered from the substrate as `layers` numbers them: 0 is the substrate's surface and N, on a side of N layers, the surface that meets the medium. A layer of 0 nm keeps its number and its interfaces. On the front the grading runs from the material farther from the substrate to the nearer one, and on the back from the nearer to the farther, as the window grades them; a linear or sigmoid profile reads the same either way. When the design has a specification, `specification` is its verdict with the interlayers in, as the badge under the window's chart reads it. A design with more than one environment is computed in environment 1, its own media, substrate and layers, unless `env` names another; the verdict judges every environment that is on.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -2351,18 +2363,22 @@ Interface k of a side is the top of its layer k, numbered from the substrate as 
 | `step` | `step` | `0.5` | The wavelength step, nm. |
 | `angle` | `angle` | `0` | The angle of incidence, degrees in the incident medium, 0 up to but not including 90. |
 | `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the spectra of each environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: An Inhomogeneities.
+**Returns**: **JavaScript**: An Inhomogeneities; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: An Inhomogeneities; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a thickness below 0, a profile it does not have, slices that are not a whole number of 2 or more, or a design that names a material that resolves to nothing
+- an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a thickness below 0, a profile it does not have, slices that are not a whole number of 2 or more, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^4 H');
 const r = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1 });
 console.log(r.interlayers[0].materials.join(' to '), 'adds', r.addedThickness, 'nm; R at 550 nm', r.homogeneous.R.at(550).toFixed(5), 'becomes', r.graded.R.at(550).toFixed(5));
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+const wet = design.inhomogeneities({ interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1, env: 2 });
+console.log(wet.environment.name, 'R at 550 nm', wet.homogeneous.R.at(550).toFixed(5), 'becomes', wet.graded.R.at(550).toFixed(5));
 ```
 
 ```python
@@ -2372,17 +2388,20 @@ r = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3, "profil
                            start=450, end=650, step=1)
 print(" to ".join(r.interlayers[0].materials), "adds", r.added_thickness, "nm; R at 550 nm",
       round(r.homogeneous.R.at(550), 5), "becomes", round(r.graded.R.at(550), 5))
+design.environments.add(name="Under water", incident_medium="H2O")
+wet = design.inhomogeneities(interlayers=[{"interface": 4, "thickness": 3}], start=450, end=650, step=1, env=2)
+print(wet.environment["name"], "R at 550 nm", round(wet.graded.R.at(550), 5))
 ```
 
 ### roughness
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.roughness({ sigma, range, interfaces, start, end, step, angle, side })` | `design.roughness(sigma=1, range="long", interfaces=..., start=400, end=800, step=0.5, angle=0, side=...)` |
+| `design.roughness({ sigma, range, interfaces, start, end, step, angle, side, env })` | `design.roughness(sigma=1, range="long", interfaces=..., start=400, end=800, step=0.5, angle=0, side=..., env=...)` |
 
 The specular R and T of the design with rough interfaces, against the smooth design, as the Roughness / Scattering window computes them: each rough interface becomes a transition layer 2σ thick, σ the rms roughness. Short range is a graded layer whose n and k run in a straight line from one material to the other, and loses no light; long range is one layer whose extinction coefficient stands for the light scattered out of the specular beams, derived for one surface at normal incidence, so at an angle, under a cone or in a multilayer it is an estimate. What it is computed on follows the design's `sides` and `scoreOn` / `score_on`, as a spectrum does, unless `side` is given, and a design under a cone of incidence is averaged over its cone, as the window averages it.
 
-Interface k of a side is the top of its layer k, numbered from the substrate as `layers` numbers them: 0 is the substrate's surface and N, on a side of N layers, the surface that meets the medium. A side with no layers, or none thicker than 0 nm, has no interface, and gives its bare surface, on its own or on the whole part. A transition layer takes its thickness out of the layer beneath its interface, and the substrate is not thinned; a layer thinner than 2σ is set to 0 nm and listed in `thinned`. A layer of 0 nm is not in the coating: the σ set on its top is not used, and the layer beneath it meets the next layer there is, at the interface on top of the layer beneath.
+Interface k of a side is the top of its layer k, numbered from the substrate as `layers` numbers them: 0 is the substrate's surface and N, on a side of N layers, the surface that meets the medium. A side with no layers, or none thicker than 0 nm, has no interface, and gives its bare surface, on its own or on the whole part. A transition layer takes its thickness out of the layer beneath its interface, and the substrate is not thinned; a layer thinner than 2σ is set to 0 nm and listed in `thinned`. A layer of 0 nm is not in the coating: the σ set on its top is not used, and the layer beneath it meets the next layer there is, at the interface on top of the layer beneath. A design with more than one environment is computed in environment 1, its own media, substrate and layers, unless `env` names another.
 
 | JavaScript | Python | Default | Meaning |
 | ---------- | ------ | ------- | ------- |
@@ -2394,18 +2413,21 @@ Interface k of a side is the top of its layer k, numbered from the substrate as 
 | `step` | `step` | `0.5` | The wavelength step, nm. |
 | `angle` | `angle` | `0` | The angle of incidence, degrees in the incident medium, 0 up to but not including 90. |
 | `side` | `side` |  | `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on. |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the spectra of each environment that is on, environment 1 when none is. Without it, environment 1. |
 
-**Returns**: A Roughness.
+**Returns**: **JavaScript**: A Roughness; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: A Roughness; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a σ below 0 or a kind other than `'short'` or `'long'`, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, or a design that names a material that resolves to nothing<br>**Python**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a sigma below 0 or a range other than "short" or "long", a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, or a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a σ below 0 or a kind other than `'short'` or `'long'`, a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: an option it does not take, a range that is not one, an angle outside 0 to 90, a side it does not have, more than a million wavelengths, a sigma below 0 or a range other than "short" or "long", a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
 design.stack('(HL)^4 H');
 const r = design.roughness({ sigma: 0, interfaces: [{ interface: 9, sigma: 3 }], start: 400, end: 700, step: 1 });
 console.log('R at 550 nm', r.smooth.R.at(550).toFixed(5), 'becomes', r.rough.R.at(550).toFixed(5), '; loss', (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const one of design.roughness({ sigma: 2, start: 400, end: 700, step: 1, env: 'all' })) console.log(one.environment.number, one.environment.name, 'loss at 550 nm', (one.loss.at(550) * 1e6).toFixed(1), 'ppm');
 ```
 
 ```python
@@ -2414,21 +2436,28 @@ design.stack("(HL)^4 H")
 r = design.roughness(sigma=0, interfaces=[{"interface": 9, "sigma": 3}], start=400, end=700, step=1)
 print("R at 550 nm", round(r.smooth.R.at(550), 5), "becomes", round(r.rough.R.at(550), 5), "; loss",
       round(r.loss.at(550) * 1e6, 1), "ppm")
+design.environments.add(name="Under water", incident_medium="H2O")
+for one in design.roughness(sigma=2, start=400, end=700, step=1, env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.loss.at(550) * 1e6, 1), "ppm")
 ```
 
 ### stress
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.stress()` | `design.stress()` |
+| `design.stress({ env })` | `design.stress(env=...)` |
 
-The stress each film carries and what the coating does to the part, as the Stress window computes them from the constants on the materials' Mechanical tab, `stressTemperature` / `stress_temperature`, `depositionTemperature` / `deposition_temperature` and the substrate's thickness and diameter. A film's stress is tensile positive, and the force is Σ σ·d, the quantity the `STR` merit row reads. The coatings that count follow the design's `sides` and `scoreOn` / `score_on`, as the window and the `STR` row count them. With coatings on both faces the force is F_front − F_back; a coating on one face alone reads the same on the back as on the front. A film whose material states no stress counts as carrying none in the force and the edge shear, as in the `STR` row; its strain energy, the delamination factor of it and of every film below it, the total strain energy and the cracking parameter are `null` / `None`. With the temperatures set, a missing thermal constant does not leave a film's stress `null` / `None`: the stress leaves out the terms that need it, as the `STR` row does. A film whose material states no reference temperature has its intrinsic stress read as that of a film deposited at the deposition temperature, so only the expansion mismatch is added to it; one that states no Young's modulus, Poisson's ratio or expansion coefficient carries its intrinsic stress alone; and a substrate that states no expansion coefficient adds no expansion mismatch to any film. Beyond the stress, a constant a material does not state leaves the quantities that need it `null` / `None`, and `missing` names it. The built-in materials state no constants, so a design of them reads a force of 0.
+The stress each film carries and what the coating does to the part, as the Stress window computes them from the constants on the materials' Mechanical tab, `stressTemperature` / `stress_temperature`, `depositionTemperature` / `deposition_temperature` and the substrate's thickness and diameter. A film's stress is tensile positive, and the force is Σ σ·d, the quantity the `STR` merit row reads. The coatings that count follow the design's `sides` and `scoreOn` / `score_on`, as the window and the `STR` row count them. With coatings on both faces the force is F_front − F_back; a coating on one face alone reads the same on the back as on the front. A film whose material states no stress counts as carrying none in the force and the edge shear, as in the `STR` row; its strain energy, the delamination factor of it and of every film below it, the total strain energy and the cracking parameter are `null` / `None`. With the temperatures set, a missing thermal constant does not leave a film's stress `null` / `None`: the stress leaves out the terms that need it, as the `STR` row does. A film whose material states no reference temperature has its intrinsic stress read as that of a film deposited at the deposition temperature, so only the expansion mismatch is added to it; one that states no Young's modulus, Poisson's ratio or expansion coefficient carries its intrinsic stress alone; and a substrate that states no expansion coefficient adds no expansion mismatch to any film. Beyond the stress, a constant a material does not state leaves the quantities that need it `null` / `None`, and `missing` names it. The built-in materials state no constants, so a design of them reads a force of 0. A design with more than one environment is computed in environment 1, its own substrate and layers, unless `env` names another: there the films are the layers as that environment deposits them, on its substrate, and at a temperature of its own the stress temperature moves by its change from environment 1's.
 
-**Returns**: A Stress.
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `env` | `env` |  | The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the stress of each environment that is on, environment 1 when none is. Without it, environment 1. |
+
+**Returns**: **JavaScript**: A Stress; with `env: 'all'`, an array of them, one per environment, each with its `environment`.<br>**Python**: A Stress; with env="all", a list of them, one per environment, each with its environment.
 
 **Refuses**:
 
-- a design that names a material that resolves to nothing
+- **JavaScript**: an option it does not take, a design that names a material that resolves to nothing, or an environment the design does not have<br>**Python**: a design that names a material that resolves to nothing, or an environment the design does not have
 
 ```js
 const design = tf.newDesign('Mirror');
@@ -2437,6 +2466,8 @@ design.depositionTemperature = 250;
 design.substrate.diameter = 25.4;
 const s = design.stress();
 console.log(s.mode, 'force', s.whole.force, 'N/m;', s.films.length, 'films;', s.missing.length, 'materials missing constants');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const one of design.stress({ env: 'all' })) console.log(one.environment.number, one.environment.name, one.films[0].thickness.toFixed(2), 'nm');
 ```
 
 ```python
@@ -2447,6 +2478,9 @@ design.substrate.diameter = 25.4
 s = design.stress()
 print(s.mode, "force", s.whole.force, "N/m;", len(s.films), "films;", len(s.missing),
       "materials missing constants")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for one in design.stress(env="all"):
+    print(one.environment["number"], one.environment["name"], round(one.films[0].thickness, 2), "nm")
 ```
 
 ### refine
@@ -7127,6 +7161,31 @@ design.stack("(HL)^3 H")
 print(len(design.layer_thicknesses(wavelength=5000).out_of_range), "materials stop short of 5000 nm")
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `thicknesses.environment` | `thicknesses.environment` |
+
+**JavaScript**: The environment the layers were listed in, `{ number, id, name }`, when design.layerThicknesses() was given `env`; null without one, when they were listed in environment 1, the design's own layers.
+
+**Python**: The environment the layers were listed in, a dict of number, id and name, when design.layer_thicknesses() was given env; None without one, when they were listed in environment 1, the design's own layers.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^3 H');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const listed of design.layerThicknesses({ env: 'all' })) console.log(listed.environment.number, listed.environment.name, listed.rows[0].thickness.toFixed(2), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^3 H")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for listed in design.layer_thicknesses(env="all"):
+    print(listed.environment["number"], listed.environment["name"], round(listed.rows[0].thickness, 2), "nm")
+```
+
 ## Admittance
 
 **JavaScript**: The admittance locus of one coated side at one wavelength, for s and p, as design.admittance() computes it and the Admittance Diagram window draws it. Complex values are `{ re, im }` in Macleod's sign, the window's: an absorbing material's admittance has a negative imaginary part.
@@ -9728,6 +9787,31 @@ design.stack("(HL)^8 H")
 print([m["id"] for m in design.pulse(centre=550).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `p.environment` | `p.environment` |
+
+**JavaScript**: The environment the pulse was computed in, `{ number, id, name }`, when design.pulse() was given `env`; null without one, when it was computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the pulse was computed in, a dict of number, id and name, when design.pulse() was given env; None without one, when it was computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^8 H');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.98, SiO2: 0.98 } });
+for (const p of design.pulse({ centre: 550, env: 'all' })) console.log(p.environment.number, p.environment.name, p.metrics.outputFwhm.toFixed(2), 'fs');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^8 H")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.98, "SiO2": 0.98})
+for p in design.pulse(centre=550, env="all"):
+    print(p.environment["number"], p.environment["name"], round(p.metrics.output_fwhm, 2), "fs")
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -9974,6 +10058,31 @@ design.stack("(HL)^4 H")
 print([m["id"] for m in design.inhomogeneities(start=200, end=2500, step=10).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.environment` | `r.environment` |
+
+**JavaScript**: The environment the spectra were computed in, `{ number, id, name }`, when design.inhomogeneities() was given `env`; null without one, when they were computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the spectra were computed in, a dict of number, id and name, when design.inhomogeneities() was given env; None without one, when they were computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const r of design.inhomogeneities({ interlayers: [{ interface: 4 }], start: 450, end: 650, step: 1, env: 'all' })) console.log(r.environment.number, r.environment.name, r.graded.R.at(550).toFixed(5));
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for r in design.inhomogeneities(interlayers=[{"interface": 4}], start=450, end=650, step=1, env="all"):
+    print(r.environment["number"], r.environment["name"], round(r.graded.R.at(550), 5))
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -10217,6 +10326,31 @@ design.stack("(HL)^4 H")
 print([m["id"] for m in design.roughness(start=200, end=2500, step=10).out_of_range])
 ```
 
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `r.environment` | `r.environment` |
+
+**JavaScript**: The environment the spectra were computed in, `{ number, id, name }`, when design.roughness() was given `env`; null without one, when they were computed in environment 1, the design's own media and substrate.
+
+**Python**: The environment the spectra were computed in, a dict of number, id and name, when design.roughness() was given env; None without one, when they were computed in environment 1, the design's own media and substrate.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+for (const r of design.roughness({ sigma: 2, start: 400, end: 700, step: 1, env: 'all' })) console.log(r.environment.number, r.environment.name, (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.environments.add(name="Under water", incident_medium="H2O")
+for r in design.roughness(sigma=2, start=400, end=700, step=1, env="all"):
+    print(r.environment["number"], r.environment["name"], round(r.loss.at(550) * 1e6, 1), "ppm")
+```
+
 ### saveCsv / save_csv
 
 | JavaScript | Python |
@@ -10398,6 +10532,31 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^2 H")
 for m in design.stress().missing:
     print(m.material, ", ".join(m.fields))
+```
+
+### environment
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `s.environment` | `s.environment` |
+
+**JavaScript**: The environment the stress was computed in, `{ number, id, name }`, when design.stress() was given `env`; null without one, when it was computed in environment 1, the design's own substrate and layers.
+
+**Python**: The environment the stress was computed in, a dict of number, id and name, when design.stress() was given env; None without one, when it was computed in environment 1, the design's own substrate and layers.
+
+```js
+const design = tf.newDesign('Mirror');
+design.stack('(HL)^4 H');
+design.environments.add({ name: 'Dome edge', thicknessFactors: { TiO2: 0.95, SiO2: 0.97 } });
+for (const s of design.stress({ env: 'all' })) console.log(s.environment.number, s.environment.name, s.films[0].thickness.toFixed(2), 'nm');
+```
+
+```python
+design = tf.new_design("Mirror")
+design.stack("(HL)^4 H")
+design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+for s in design.stress(env="all"):
+    print(s.environment["number"], s.environment["name"], round(s.films[0].thickness, 2), "nm")
 ```
 
 ### saveCsv / save_csv

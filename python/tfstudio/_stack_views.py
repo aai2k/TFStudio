@@ -214,11 +214,12 @@ class LayerThicknesses:
             print(row.number, row.material, row.thickness, row.qwot)
     """
 
-    def __init__(self, listed):
+    def __init__(self, listed, environment=None):
         mode = listed["mode"]
         rows = [ThicknessRow(row.get("side", mode), row["number"], row["material"], row["thickness"],
                              row["opticalThickness"], row["qwot"], row["fwot"]) for row in listed["rows"]]
         self._values = {"mode": mode, "wavelength": listed["wavelength"], "rows": rows, "out_of_range": listed["outOfRange"]}
+        self._values["environment"] = environment
 
     mode = _reading("mode", """What was listed: "front" or "back", that side's layers, or "total", both
         sides.
@@ -259,6 +260,19 @@ class LayerThicknesses:
             design = tf.new_design("Mirror")
             design.stack("(HL)^3 H")
             print(len(design.layer_thicknesses(wavelength=5000).out_of_range), "materials stop short of 5000 nm")
+        """)
+
+    environment = _reading("environment", """The environment the layers were listed in, a dict of number, id
+        and name, when design.layer_thicknesses() was given env; None without one, when they were
+        listed in environment 1, the design's own layers.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^3 H")
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+            for listed in design.layer_thicknesses(env="all"):
+                print(listed.environment["number"], listed.environment["name"], round(listed.rows[0].thickness, 2), "nm")
         """)
 
     def __repr__(self):

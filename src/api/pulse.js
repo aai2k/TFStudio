@@ -15,6 +15,7 @@ import { withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { inEnvironments } from './designEnvironments.js';
 import { phaseSide } from './stackViews.js';
 import { checkOptions, requireValue, refusal, isAngle, isPositive } from './check.js';
 
@@ -24,7 +25,7 @@ const DEFAULTS = sessionDefaults('pulseAnalysis');
 // (pulseAnalysis/sessionState.js): a super-Gaussian of order 2, no chirp of
 // its own, one bounce, the spectrum drawn from the shape.
 const OPENING = { order: 2, gdd: 0, tod: 0, passes: 1, source: 'model' };
-const OPTIONS = ['source', 'shape', 'centre', 'duration', 'bandwidth', 'order', 'gdd', 'tod', 'side', 'response', 'pol', 'angle', 'passes'];
+const OPTIONS = ['source', 'shape', 'centre', 'duration', 'bandwidth', 'order', 'gdd', 'tod', 'side', 'response', 'pol', 'angle', 'passes', 'env'];
 
 // The metrics by the API's names and the model's.
 const METRICS = [
@@ -69,6 +70,33 @@ function checkPulseOptions(given) {
 const spectrumCurve = ({ x, y }) => ({ wavelength: [...x].reverse(), values: [...y].reverse() });
 const timeCurve = ({ x, y }) => ({ t: x, intensity: y });
 
+// The pulse `pulse` through one design, as pulseAnalysis() gives it, with the
+// settings it was asked for, `settings`, in the answer's order.
+function pulseOf(design, pulse, settings) {
+    const { mode, response, pol, angle, passes } = settings;
+    requireResolved(design);
+    requireKernel();
+    const shown = withHerpinRecords(design);
+    const result = computePulseAnalysis(shown, {
+        pulse, side: mode === 'total' ? 'whole' : mode, target: response, polarization: pol, thetaDeg: angle, passes,
+    });
+    if (!result.valid) throw new Error(`pulseAnalysis: ${FAILED[result.reason](result.detail)}`);
+    const band = result.spectrum.bandNm;
+    return {
+        ...settings,
+        converged: result.converged, chirped: result.chirped,
+        metrics: Object.fromEntries(METRICS.map(([name, key]) => [name, result.metrics[key]])),
+        time: { flp: timeCurve(result.time.flp), input: timeCurve(result.time.input), output: timeCurve(result.time.output) },
+        spectrum: {
+            input: spectrumCurve(result.spectrum.input), output: spectrumCurve(result.spectrum.output),
+            coatingGdd: spectrumCurve(result.spectrum.coatingGddFs2), compensatingGdd: spectrumCurve(result.spectrum.compensatingGddFs2),
+            band,
+        },
+        echoDelay: result.echoDelayFs,
+        outOfRange: band ? designRangeCoverage(shown, band, mode).offenders : [],
+    };
+}
+
 /**
  * A pulse's passage through a design, in time and in its spectrum, as the
  * [Pulse Analysis](/analysis/pulse-analysis/) window computes it: the pulse is
@@ -84,7 +112,10 @@ const timeCurve = ({ x, y }) => ({ t: x, intensity: y });
  * and TOD merit rows score: the back of a design coated on the back alone and
  * the front of any other. The window opens on the front unless only the back
  * holds layers, so with one side empty the two can differ; a side with no
- * layers gives its bare surface.
+ * layers gives its bare surface. A design with more than one
+ * [environment](/design/environments/) is computed in environment 1, its own
+ * media, substrate and layers, unless `env` names another; the side and the
+ * pulse are the same in every environment.
  *
  * The time curves hold the transform's samples from the first to the last
  * above 1e-4 of the Fourier-limited pulse's peak. The spectrum curves hold the
@@ -110,7 +141,8 @@ const timeCurve = ({ x, y }) => ({ t: x, intensity: y });
  * @param [options.pol='avg'] The polarization: `'avg'`, `'s'` or `'p'`.
  * @param [options.angle=0] The angle of incidence, degrees in the medium light comes from, 0 up to but not including 90.
  * @param [options.passes=1] The bounces off the coating, or passes through it, a whole number.
- * @returns The pulse.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the pulse in each environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The pulse; with `env: 'all'`, `{ environments }`, one entry per environment, each this pulse with the environment's `number`, `id` and `name`.
  * @property mode The sides computed: `'front'`, `'back'` or `'total'`.
  * @property response `'R'` or `'T'`.
  * @property pol The polarization.
@@ -127,10 +159,13 @@ const timeCurve = ({ x, y }) => ({ t: x, intensity: y });
  * @property outOfRange The materials of the sides computed whose data stop inside `spectrum.band`, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take or a value an option cannot take, `'total'` with `response: 'R'`, or `source: 'design'` on a design that holds no spectrum with light in it
  * @throws a design that names a material that resolves to nothing, a pulse too short for its centre wavelength, a response that cannot be computed across the spectrum, or no light out of the part, all of it absorbed or reflected inside
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^8 H' });
  * const p = tf.pulseAnalysis(design, { centre: 550, duration: 20 });
  * console.log('output FWHM', p.metrics.outputFwhm.toFixed(2), 'fs, peak', (100 * p.metrics.peakVsFlp).toFixed(1), '% of the Fourier-limited pulse');
+ * const edge = tf.addEnvironment(design, { name: 'Dome edge', thicknessFactors: { TiO2: 0.98, SiO2: 0.98 } });
+ * for (const env of tf.pulseAnalysis(edge, { centre: 550, duration: 20, env: 'all' }).environments) console.log(env.number, env.name, 'output FWHM', env.metrics.outputFwhm.toFixed(2), 'fs');
  */
 export function pulseAnalysis(design, options) {
     const given = checkOptions('pulseAnalysis', options, OPTIONS);
@@ -151,27 +186,10 @@ export function pulseAnalysis(design, options) {
         throw refusal('noPulseSpectrum', { call: 'pulseAnalysis' },
             "pulseAnalysis: the design holds no pulse spectrum with light in it; set one with setPulseSpectrum, or take source 'model'");
     }
-    requireResolved(design);
-    requireKernel();
-    const shown = withHerpinRecords(design);
-    const result = computePulseAnalysis(shown, {
-        pulse, side: mode === 'total' ? 'whole' : mode, target: response, polarization: pol, thetaDeg: angle, passes,
-    });
-    if (!result.valid) throw new Error(`pulseAnalysis: ${FAILED[result.reason](result.detail)}`);
-    const band = result.spectrum.bandNm;
-    return {
-        mode, response, pol, angle, passes, source, centre,
-        converged: result.converged, chirped: result.chirped,
-        metrics: Object.fromEntries(METRICS.map(([name, key]) => [name, result.metrics[key]])),
-        time: { flp: timeCurve(result.time.flp), input: timeCurve(result.time.input), output: timeCurve(result.time.output) },
-        spectrum: {
-            input: spectrumCurve(result.spectrum.input), output: spectrumCurve(result.spectrum.output),
-            coatingGdd: spectrumCurve(result.spectrum.coatingGddFs2), compensatingGdd: spectrumCurve(result.spectrum.compensatingGddFs2),
-            band,
-        },
-        echoDelay: result.echoDelayFs,
-        outOfRange: band ? designRangeCoverage(shown, band, mode).offenders : [],
-    };
+    // The side and the pulse are the same in every environment: each holds
+    // the design's sides and its pulse spectrum.
+    const settings = { mode, response, pol, angle, passes, source, centre };
+    return inEnvironments('pulseAnalysis', design, given.env, one => pulseOf(one, pulse, settings));
 }
 
 /**

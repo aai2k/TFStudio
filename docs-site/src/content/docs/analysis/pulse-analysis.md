@@ -65,6 +65,8 @@ The phase has the sign of GDD: a phase curving upward against frequency is a pos
 
 **Bounces**: how many times the pulse meets the coating, or with **Whole part** how many times it passes through the part. Dispersive mirrors are specified by their GDD per bounce and the number of bounces; each bounce applies the coating's full response once more.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the pulse meets. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. The pulse goes through or off that environment's coating, between its media and on its substrate, on the side set here. **From target** reads the GDD rows of the merit function scored in the environment shown. The pulse and its spectrum are the design's, the same in every environment. The material range notice reads the environment shown. The choice belongs to this window and is not saved with the design.
+
 ## How the values are calculated
 
 The full complex response is applied at every wavelength. Nothing is reduced to GD and GDD, so the effect of ripple and of higher-order phase is in the result.

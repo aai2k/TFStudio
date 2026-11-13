@@ -68,7 +68,7 @@ class Pulse:
         print(p.mode, "output FWHM", round(p.metrics.output_fwhm, 2), "fs, delay", round(p.metrics.delay, 2), "fs")
     """
 
-    def __init__(self, result):
+    def __init__(self, result, environment=None):
         self._values = {
             "mode": result["mode"], "response": result["response"], "pol": result["pol"], "angle": result["angle"],
             "passes": result["passes"], "source": result["source"], "centre": result["centre"],
@@ -77,6 +77,7 @@ class Pulse:
             "time": _time_of(result["time"]), "spectrum": _spectrum_of(result["spectrum"]),
             "echo_delay": result["echoDelay"], "out_of_range": result["outOfRange"],
         }
+        self._values["environment"] = environment
 
     mode = _reading("mode", """The sides computed: "front" or "back", one coated side, or "total",
         the whole part in transmission.
@@ -225,6 +226,19 @@ class Pulse:
             design = tf.new_design("Mirror")
             design.stack("(HL)^8 H")
             print([m["id"] for m in design.pulse(centre=550).out_of_range])
+        """)
+
+    environment = _reading("environment", """The environment the pulse was computed in, a dict of number, id
+        and name, when design.pulse() was given env; None without one, when it was computed in
+        environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^8 H")
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.98, "SiO2": 0.98})
+            for p in design.pulse(centre=550, env="all"):
+                print(p.environment["number"], p.environment["name"], round(p.metrics.output_fwhm, 2), "fs")
         """)
 
     def save_csv(self, path):

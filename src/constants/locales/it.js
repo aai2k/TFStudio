@@ -3606,6 +3606,7 @@ export default {
     substrateDiameter: 'Ø substrato',
     substrateDiameterTip: 'Diametro del substrato in mm. Serve solo alla freccia al centro; lascialo vuoto e quella riga resta vuota.',
     unset: 'nessuna',
+    environmentHeld: (environment) => `L'ambiente ${environment} calcola con questo valore, dato dalla sua temperatura o dal suo substrato. Si impostano nella finestra Ambienti.`,
     front: 'Fronte',
     back: 'Retro',
     frontTag: 'F',

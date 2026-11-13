@@ -229,8 +229,8 @@ class Calls:
     def roughness(self, design, options=None):
         return self._call("roughness", design, options)
 
-    def stress(self, design):
-        return self._call("stress", design)
+    def stress(self, design, options=None):
+        return self._call("stress", design, options)
 
     def monteCarlo(self, design, options, hooks=None):
         return self._run("monteCarlo", design, options, hooks)

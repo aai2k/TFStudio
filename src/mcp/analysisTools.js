@@ -25,10 +25,20 @@ const BAND = object({ from: num('Start of the band in nm'), to: num('End of the 
 // The environment a result tool computes, and what the tool answers for the
 // call's `result` with `env`: `answer(one)` for one environment's result, or
 // with env 'all' that for each environment beside its number, id and name.
-const ENV = { type: ['integer', 'string'], description: "The environment computed, by its number from 1 or its id, as the environments tool lists them, whether it is on or off; or 'all' for each environment that is on (environment 1 when none is), answered as environments, a list of { number, id, name } and the fields of one environment's answer. Default: environment 1" };
-function perEnvironment(env, result, answer) {
+export const ENV = { type: ['integer', 'string'], description: "The environment computed, by its number from 1 or its id, as the environments tool lists them, whether it is on or off; or 'all' for each environment that is on (environment 1 when none is), answered as environments, a list of { number, id, name } and the fields of one environment's answer. Default: environment 1" };
+export function perEnvironment(env, result, answer) {
     if (env !== 'all') return answer(result);
     return { environments: result.environments.map(({ number, id, name, ...one }) => ({ number, id, name, ...answer(one) })) };
+}
+
+// The run of the indexProfile and layerThicknesses tools: the API call's
+// result with the list in `field` counted in `count`, and the list itself
+// with values true.
+function listedRun({ api, store }, call, field, count) {
+    return ({ designId, values = false, ...options }) => {
+        const answer = ({ [field]: listed, ...rest }) => ({ ...rest, [count]: listed.length, ...(values ? { [field]: listed } : {}) });
+        return { designId, ...perEnvironment(options.env, api[call](store.get(designId), options), answer) };
+    };
 }
 
 // What the bandFeature and edgeShift tools share.
@@ -213,10 +223,7 @@ export function analysisTools({ api, store }) {
                 values: bool('Also answer with every layer. Default false'),
                 env: ENV,
             }, ['designId']),
-            run: ({ designId, values = false, ...options }) => {
-                const answer = ({ layers, ...profile }) => ({ ...profile, layerCount: layers.length, ...(values ? { layers } : {}) });
-                return { designId, ...perEnvironment(options.env, api.indexProfile(store.get(designId), options), answer) };
-            },
+            run: listedRun({ api, store }, 'indexProfile', 'layers', 'layerCount'),
         },
         {
             name: 'layerThicknesses', title: 'Layer thicknesses',
@@ -226,11 +233,9 @@ export function analysisTools({ api, store }) {
                 wavelength: num("Wavelength λ0 in nm. Default: the design's reference wavelength"),
                 side: VIEW_SIDE,
                 values: bool('Also answer with every row. Default false'),
+                env: ENV,
             }, ['designId']),
-            run: ({ designId, values = false, ...options }) => {
-                const { rows, ...listed } = api.layerThicknesses(store.get(designId), options);
-                return { designId, ...listed, rowCount: rows.length, ...(values ? { rows } : {}) };
-            },
+            run: listedRun({ api, store }, 'layerThicknesses', 'rows', 'rowCount'),
         },
         {
             name: 'designFacts', title: 'Design facts',

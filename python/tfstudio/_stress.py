@@ -54,7 +54,7 @@ class Stress:
               "state no constants")
     """
 
-    def __init__(self, result):
+    def __init__(self, result, environment=None):
         run = result["run"]
         substrate = result["substrate"]
         whole = result["whole"]
@@ -69,6 +69,7 @@ class Stress:
                       for film in result["films"]],
             "missing": [MissingConstants(m["material"], m["name"], m["fields"]) for m in result["missing"]],
         }
+        self._values["environment"] = environment
 
     mode = _reading("mode", """The coatings counted: "front", "back" or "total", both faces.
 
@@ -143,6 +144,19 @@ class Stress:
             design.stack("(HL)^2 H")
             for m in design.stress().missing:
                 print(m.material, ", ".join(m.fields))
+        """)
+
+    environment = _reading("environment", """The environment the stress was computed in, a dict of number, id
+        and name, when design.stress() was given env; None without one, when it was computed in
+        environment 1, the design's own substrate and layers.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            design.environments.add(name="Dome edge", thickness_factors={"TiO2": 0.95, "SiO2": 0.97})
+            for s in design.stress(env="all"):
+                print(s.environment["number"], s.environment["name"], round(s.films[0].thickness, 2), "nm")
         """)
 
     def save_csv(self, path):

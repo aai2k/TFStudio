@@ -2,6 +2,7 @@ import { useDesign } from '../../../../state/DesignContext.js';
 import {
     cloneInhomogeneity, emptyInhomogeneity,
 } from '../../../../utils/physics/inhomogeneity.js';
+import { useEnvironmentChoice } from '../chrome/environmentChoice.js';
 import { designInterfaces } from '../designInterfaces.js';
 import { useEvaluationUnderCone } from '../useEvaluationUnderCone.js';
 import {
@@ -44,7 +45,14 @@ function removeInhomogeneity(previous, side, afterIndex) {
 
 // `ih` is t.inhomogeneities, for the names of the interfaces.
 export function useInhomogeneities(ih) {
-    const { design, evalMode } = useDesign();
+    const { design } = useDesign();
+    // The environment the spectra are computed in, Current or one the
+    // droplist names, on what it is scored on and under its own cone. The
+    // interlayers are one list for every environment, each at an interface of
+    // the layer list, grading between the materials that meet there in the
+    // environment shown.
+    const environment = useEnvironmentChoice(design);
+    const { design: shown, mode: evalMode } = environment.views[0];
     const [designSession, setDesignField] = useWindowSession(inhomogeneityDesignSession, design);
     // Memoised so the fallback is one stable object: a fresh one per render
     // would invalidate every memo below it on every render.
@@ -58,9 +66,9 @@ export function useInhomogeneities(ih) {
 
     const [view, setViewField] = useWindowSession(inhomogeneityViewSession, design);
     const { showCurves, lambdaStart, lambdaEnd, lambdaStep, aoi, showEditor, showTable } = view;
-    const activeSides = activeDesignSides(design, evalMode);
+    const activeSides = activeDesignSides(shown, evalMode);
     const hasBack = (design?.backLayers?.length || 0) > 0;
-    const interfaces = useMemo(() => designInterfaces(design, ih), [design, ih]);
+    const interfaces = useMemo(() => designInterfaces(shown, ih), [shown, ih]);
     // Always averaged: the spectrum carries Ts/Tp, Rs/Rp and As/Ap alongside,
     // so the curve switches pick a polarization without recomputing anything.
     const params = useMemo(() => ({
@@ -69,8 +77,8 @@ export function useInhomogeneities(ih) {
 
     // Under a cone of incidence the spectra are computed in the analysis worker,
     // as Optical Evaluation computes its own.
-    const request = useMemo(() => ({ design, params, inh, evalMode }), [design, params, inh, evalMode]);
-    const evaluated = useEvaluationUnderCone(design, 'inhomogeneitySpectra', request, inhomogeneitySpectraState);
+    const request = useMemo(() => ({ design: shown, params, inh, evalMode }), [shown, params, inh, evalMode]);
+    const evaluated = useEvaluationUnderCone(shown, 'inhomogeneitySpectra', request, inhomogeneitySpectraState);
     const baseline = evaluated.data?.baseline ?? null;
     const perturbed = evaluated.data?.perturbed ?? null;
     const error = evaluated.data?.error ?? evaluated.error;
@@ -87,7 +95,7 @@ export function useInhomogeneities(ih) {
     const clearAll = useCallback(() => setInh(emptyInhomogeneity()), []);
 
     return {
-        design, evalMode, inh,
+        design, evalMode, inh, environment, shownDesign: shown,
         showCurves,
         toggleCurve: key => setViewField('showCurves',
             current => ({ ...current, [key]: !current[key] })),

@@ -57,9 +57,9 @@ export function Inhomogeneities({ c, theme, t }) {
         setLambdaEnd(to);
     };
     const rangeNotice = useMaterialRangeNotice(
-        design, state.lambdaStart, state.lambdaEnd, t, fixRange);
+        state.shownDesign, state.lambdaStart, state.lambdaEnd, t, fixRange);
 
-    const emptyMessage = noLayersMessage(design, evalMode, t);
+    const emptyMessage = noLayersMessage(state.shownDesign, evalMode, t);
     if (emptyMessage) return h(CenteredMessage, { c, message: emptyMessage });
 
     return h(AnalysisWindow, { c },
@@ -70,7 +70,7 @@ export function Inhomogeneities({ c, theme, t }) {
                 showCurves: state.showCurves, c, t,
             }),
         ),
-        h(BadgeRow, { c, t, design, cone: true }),
+        h(BadgeRow, { c, t, design, environment: state.environment, cone: true }),
         h(ResultsSection, {
             c, label: ih.editorTitle,
             summary: `${activeInterlayerCount(inh)} ${ih.activeInterlayers} · Σ ${totalInterlayerThickness(inh).toFixed(2)} ${t.units.nm}`,

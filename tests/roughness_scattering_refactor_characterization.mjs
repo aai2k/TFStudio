@@ -9,6 +9,7 @@ import {
     makeTheme,
     shimBrowserGlobals,
 } from './_uiShim.mjs';
+import { designInMode } from './_designInMode.mjs';
 
 shimBrowserGlobals();
 await loadApp();
@@ -103,7 +104,7 @@ const c = makeTheme();
 const renderWith = (design, evalMode, t = makeLocale()) => renderToStaticMarkup(
     React.createElement(
         DesignContext.Provider,
-        { value: { ...makeDesignCtx(design), evalMode } },
+        { value: { ...makeDesignCtx(designInMode(design, evalMode)), evalMode } },
         React.createElement(RoughnessScattering, { c, t, theme: c })
     )
 );

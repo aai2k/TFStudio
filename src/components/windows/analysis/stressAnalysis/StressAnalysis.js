@@ -49,7 +49,7 @@ export function StressAnalysis({ c, theme, t }) {
                 })
                 : h(CenteredMessage, { c, message: sa.noStress }),
         ),
-        h(BadgeRow, { c, t, design }),
+        h(BadgeRow, { c, t, design, environment: state.environment }),
         h(ResultsSection, {
             c, label: sa.wholePart, summary: sa.wholePartSummary,
             open: state.showWhole, setOpen: state.setShowWhole,

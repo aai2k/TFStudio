@@ -56,7 +56,7 @@ class Inhomogeneities:
               round(r.graded.R.mean(500, 600), 5))
     """
 
-    def __init__(self, result):
+    def __init__(self, result, environment=None):
         wavelength = result["wavelength"]
         specification = result["specification"]
         self._values = {
@@ -68,6 +68,7 @@ class Inhomogeneities:
             "specification": SpecReport(specification) if specification else None,
             "out_of_range": result["outOfRange"],
         }
+        self._values["environment"] = environment
 
     mode = _reading("mode", """The sides computed: "front", "back" or "total", the whole part.
 
@@ -153,6 +154,19 @@ class Inhomogeneities:
             design = tf.new_design("Mirror")
             design.stack("(HL)^4 H")
             print([m["id"] for m in design.inhomogeneities(start=200, end=2500, step=10).out_of_range])
+        """)
+
+    environment = _reading("environment", """The environment the spectra were computed in, a dict of number,
+        id and name, when design.inhomogeneities() was given env; None without one, when they were
+        computed in environment 1, the design's own media and substrate.
+
+        Example::
+
+            design = tf.new_design("Mirror")
+            design.stack("(HL)^4 H")
+            design.environments.add(name="Under water", incident_medium="H2O")
+            for r in design.inhomogeneities(interlayers=[{"interface": 4}], start=450, end=650, step=1, env="all"):
+                print(r.environment["number"], r.environment["name"], round(r.graded.R.at(550), 5))
         """)
 
     def save_csv(self, path):

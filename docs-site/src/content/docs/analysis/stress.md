@@ -59,6 +59,8 @@ window. **Substrate ⌀** is the diameter, needed only for the centre deflection
 
 All four are saved with the design. Each film's constants come from its material's catalog on this computer, or from the copy the design carries where no catalog here holds the material, or where that copy came from another computer's catalog of the same ID with other n,k. A copy with the catalog's n,k counts as the catalog's material, and its constants are the catalog's.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the stress is computed in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. The films and the substrate are the ones that environment computes with, each film as it deposits it, and with the temperatures set **T** moves by the environment's temperature less environment 1's. A field the environment changes shows the value it computes with and is not edited here, its hover saying so: **T** with the temperatures set, in an environment at another temperature, and **Substrate d** in one that sets its own substrate thickness or whose temperature changes it. The other fields show and edit the design's own, which every environment takes as it is. The choice belongs to this window and is not saved with the design.
+
 ## How a film's stress is built
 
 The film condenses strain free at its own deposition temperature and then takes

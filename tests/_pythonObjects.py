@@ -1056,7 +1056,39 @@ def environment_views(design):
         "refused": [refused(lambda: design.index_profile(env=4)), refused(lambda: design.admittance(env="x")),
                     refused(lambda: design.electric_field(env=0)), refused(lambda: design.ellipsometry(env=9)),
                     refused(lambda: design.ellipsometry_vs_angle(env="env4")), refused(lambda: design.group_delay(env=-1))]}})
+    environment_one_at_a_time(design)
     environment_tolerance(design)
+
+
+def environment_one_at_a_time(design):
+    """design.pulse(), inhomogeneities(), roughness(), layer_thicknesses()
+    and stress() of the design with environments environment_spectra()
+    makes: environment 1, environment 2 by id, the third, switched off, by
+    number, and each environment that is on, each naming its environment;
+    and an environment the design does not have refused."""
+    values = {
+        "Pulse": lambda v: [v.centre, v.metrics.output_fwhm, v.metrics.energy_ratio, v.spectrum.output.values],
+        "Inhomogeneities": lambda v: [list(v.graded.R), [list(row.materials) for row in v.interlayers]],
+        "Roughness": lambda v: [list(v.rough.R), list(v.loss)],
+        "LayerThicknesses": lambda v: [[row.thickness for row in v.rows], [row.material for row in v.rows]],
+        "Stress": lambda v: [v.substrate.material, [film.thickness for film in v.films]],
+    }
+
+    def view(v):
+        return [v.environment, type(v).__name__, v.mode, values[type(v).__name__](v)]
+
+    asked = [
+        lambda env: design.pulse(centre=550, duration=20, env=env),
+        lambda env: design.inhomogeneities(interlayers=[{"interface": 0, "thickness": 3}], start=450, end=650, step=10, env=env),
+        lambda env: design.roughness(sigma=2, start=450, end=650, step=10, env=env),
+        lambda env: design.layer_thicknesses(wavelength=600, env=env),
+        lambda env: design.stress(env=env),
+    ]
+    out({"environmentOneAtATime": {
+        "views": [view(v) for ask in asked for v in [ask(None), ask("env2"), ask(3), *ask("all")]],
+        "refused": [refused(lambda: design.pulse(env=4)), refused(lambda: design.inhomogeneities(env="x")),
+                    refused(lambda: design.roughness(env=0)), refused(lambda: design.layer_thicknesses(env=9)),
+                    refused(lambda: design.stress(env="env4"))]}})
 
 
 def environment_tolerance(design):

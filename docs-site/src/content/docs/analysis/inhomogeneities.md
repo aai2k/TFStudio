@@ -27,6 +27,8 @@ both for total.
 Every polarization is computed together, so switching one on adds a curve rather
 than replacing the averaged one, and costs nothing.
 
+**Environment**: on a design with more than one [environment](/design/environments/), the **Environment** droplist in the row under the plot says which one the spectra are computed in. **Current** follows the environment the Design Editor and the ribbon show; an environment picked by its number and name holds the window on that one, even while it is switched off. The interlayers are one list for the design, at the interfaces of its layer list, the same in every environment: in the environment shown each one grades between the materials that meet there in that environment's coating, which is computed on its own **Other side** and under its own cone. The **Interfaces** strip names the incident medium, the substrate and the exit medium of the environment shown. The material range notice reads the environment shown, and the specification verdict judges the design with its interlayers in every environment that is on. The choice belongs to this window and is not saved with the design.
+
 ## Interfaces
 
 The **Interfaces** strip below the plot lists every interface in the stack by

@@ -12,13 +12,14 @@ import { makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import { dispatchAnalysisEvaluation } from '../utils/workers/analysisEvaluationWorker.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { inEnvironments } from './designEnvironments.js';
 import { rowReader } from './inhomogeneities.js';
 import { storedLayers, viewSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, isAngle, isNonNegative } from './check.js';
 
 const DEFAULTS = sessionDefaults('roughnessScattering');
 const UNIFORM = emptyRoughness();
-const OPTIONS = ['sigma', 'range', 'interfaces', 'start', 'end', 'step', 'angle', 'side'];
+const OPTIONS = ['sigma', 'range', 'interfaces', 'start', 'end', 'step', 'angle', 'side', 'env'];
 const ROW_FIELDS = ['side', 'interface', 'sigma', 'range'];
 // R and T for unpolarized light, then for s and p: the curves the window draws.
 const QUANTITIES = ['R', 'T', 'Rs', 'Rp', 'Ts', 'Tp'];
@@ -68,6 +69,30 @@ function thinnedLayers(design, thinned) {
         .sort((a, b) => a.number - b.number));
 }
 
+// The two spectra of one design, as roughness() gives them.
+function roughnessOf(design, { sigma, range, interfaces, start, end, step, angle, side }) {
+    const shown = withHerpinRecords(design);
+    const mode = viewSide('roughness', shown, side);
+    const rough = roughSpec(shown, { sigma, range, interfaces }, mode);
+    requireResolved(design);
+    requireKernel();
+    // The window's 'roughnessSpectra', in the analysis worker under a cone on
+    // the design with its materials embedded, as the worker receives it.
+    const coned = coneIsActive(makeConeSpec(shown.cone || {}));
+    const { data, error } = dispatchAnalysisEvaluation('roughnessSpectra', {
+        design: coned ? embedDesignMaterials(shown) : shown,
+        params: { lambdaStart: start, lambdaEnd: end, lambdaStep: step, theta: angle, polarization: 'avg' },
+        rough, evalMode: mode,
+    });
+    if (error) throw new Error(`roughness: ${error}`);
+    return {
+        mode, angle, wavelength: Array.from(data.lambda),
+        smooth: curvesOf(data.ideal), rough: curvesOf(data.specular), loss: Array.from(data.loss),
+        thinned: thinnedLayers(shown, data.thinned), longRange: data.hasLongRange,
+        outOfRange: designRangeCoverage(shown, [start, end], mode).offenders,
+    };
+}
+
 /**
  * The specular R and T of a design with rough interfaces, against the smooth
  * design, as the [Roughness / Scattering](/analysis/roughness-scattering/)
@@ -99,6 +124,14 @@ function thinnedLayers(design, thinned) {
  * beneath it meets the next layer there is, at the interface on top of the
  * layer beneath.
  *
+ * A design with more than one [environment](/design/environments/) is
+ * computed in environment 1, its own media, substrate and layers, unless
+ * `env` names another, on what that environment is scored on. A rough
+ * interface is the same interface of the layer list in every environment; its
+ * transition layer runs between the materials that meet there in the
+ * environment computed and is taken out of the layer beneath as that
+ * environment deposits it.
+ *
  * @param design The design.
  * @param [options]
  * @param [options.sigma=1] The rms roughness of every interface, nm, 0 or more.
@@ -109,7 +142,8 @@ function thinnedLayers(design, thinned) {
  * @param [options.step=0.5] The wavelength step, nm.
  * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90; the cone's axis on a design under a cone.
  * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
- * @returns The two spectra and the loss.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the spectra of each environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The two spectra and the loss; with `env: 'all'`, `{ environments }`, one entry per environment, each these with the environment's `number`, `id` and `name`.
  * @property mode The sides computed: `'front'`, `'back'` or `'total'`.
  * @property angle The angle of incidence, degrees.
  * @property wavelength The wavelengths, nm.
@@ -123,37 +157,23 @@ function thinnedLayers(design, thinned) {
  * @throws a σ below 0 or a kind other than `'short'` or `'long'`, in the options or on a row
  * @throws a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, or an interface the side does not have or one another row names
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^4 H' });
  * const r = tf.roughness(design, { sigma: 2, start: 400, end: 700, step: 1 });
  * const i = r.wavelength.indexOf(550);
  * console.log('R at 550 nm', r.smooth.R[i].toFixed(5), 'becomes', r.rough.R[i].toFixed(5), '; loss', (r.loss[i] * 1e6).toFixed(1), 'ppm');
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * for (const env of tf.roughness(wet, { sigma: 2, start: 400, end: 700, step: 1, env: 'all' }).environments) console.log(env.number, env.name, 'loss at 550 nm', (env.loss[i] * 1e6).toFixed(1), 'ppm');
  */
 export function roughness(design, options) {
     const {
         sigma = UNIFORM.sigma, range = UNIFORM.range, interfaces = [],
-        start = DEFAULTS.lambdaStart, end = DEFAULTS.lambdaEnd, step = DEFAULTS.lambdaStep, angle = DEFAULTS.aoi, side,
+        start = DEFAULTS.lambdaStart, end = DEFAULTS.lambdaEnd, step = DEFAULTS.lambdaStep, angle = DEFAULTS.aoi, side, env,
     } = checkOptions('roughness', options, OPTIONS);
     checkRange('roughness', { from: start, to: end, step }, 1, ['start', 'end']);
     requireValue('roughness', 'angle', angle, isAngle, 'an angle of incidence in degrees, 0 <= angle < 90');
-    const shown = withHerpinRecords(design);
-    const mode = viewSide('roughness', shown, side);
-    const rough = roughSpec(shown, { sigma, range, interfaces }, mode);
-    requireResolved(design);
-    requireKernel();
-    // The window's 'roughnessSpectra', in the analysis worker under a cone on
-    // the design with its materials embedded, as the worker receives it.
-    const coned = coneIsActive(makeConeSpec(shown.cone || {}));
-    const { data, error } = dispatchAnalysisEvaluation('roughnessSpectra', {
-        design: coned ? embedDesignMaterials(shown) : shown,
-        params: { lambdaStart: start, lambdaEnd: end, lambdaStep: step, theta: angle, polarization: 'avg' },
-        rough, evalMode: mode,
-    });
-    if (error) throw new Error(`roughness: ${error}`);
-    return {
-        mode, angle, wavelength: Array.from(data.lambda),
-        smooth: curvesOf(data.ideal), rough: curvesOf(data.specular), loss: Array.from(data.loss),
-        thinned: thinnedLayers(shown, data.thinned), longRange: data.hasLongRange,
-        outOfRange: designRangeCoverage(shown, [start, end], mode).offenders,
-    };
+    // Each environment is computed on what it is scored on, its rows read on its sides.
+    const settings = { sigma, range, interfaces, start, end, step, angle, side };
+    return inEnvironments('roughness', design, env, one => roughnessOf(one, settings));
 }

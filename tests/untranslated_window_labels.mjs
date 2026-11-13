@@ -26,6 +26,7 @@
 import './_kernel.mjs';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { loadApp, makeDesignCtx, makeTheme, shimBrowserGlobals, withDesign } from './_uiShim.mjs';
+import { designInMode } from './_designInMode.mjs';
 
 shimBrowserGlobals();
 const { getLocale } = await loadApp();
@@ -351,7 +352,7 @@ await check('Integral Values weightings', () => {
     // The interface names in the per-interface editor, as the window draws them.
     const interfaceNames = (shown, t, evalMode = 'front') => {
         roughnessDesignSession.write(shown, { rough: { mode: 'perInterface', sigma: 1, range: 'short' } }, null);
-        const out = html(h(DesignContext.Provider, { value: { ...makeDesignCtx(shown), evalMode } },
+        const out = html(h(DesignContext.Provider, { value: { ...makeDesignCtx(designInMode(shown, evalMode)), evalMode } },
             h(RoughnessScattering, { c, t, theme: c })));
         return [...out.matchAll(/<span[^>]*title="([^"]*→[^"]*)"/g)].map(match => match[1]);
     };

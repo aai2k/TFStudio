@@ -235,14 +235,18 @@ const controls = {
 {
     const { renderToStaticMarkup } = await import('react-dom/server');
     const { loadApp, makeDesignCtx, makeLocale, makeTheme, shimBrowserGlobals } = await import('./_uiShim.mjs');
+    const { designInMode } = await import('./_designInMode.mjs');
     shimBrowserGlobals();
     await loadApp();
     const { DesignContext } = await import('../src/state/DesignContext.js');
     const { WavelengthAngleMap } = await import('../src/components/windows/analysis/wavelengthAngleMap/WavelengthAngleMap.js');
     const c = makeTheme();
-    const render = (shown, evalMode, t) => renderToStaticMarkup(React.createElement(
-        DesignContext.Provider, { value: { ...makeDesignCtx(shown), evalMode } },
-        React.createElement(WavelengthAngleMap, { c, t })));
+    const render = (shown, evalMode, t) => {
+        const inMode = designInMode(shown, evalMode);
+        return renderToStaticMarkup(React.createElement(
+            DesignContext.Provider, { value: { ...makeDesignCtx(inMode), evalMode } },
+            React.createElement(WavelengthAngleMap, { c, t })));
+    };
     const backOnly = { ...design, surfaceMode: 'back_only', frontLayers: [], backLayers: design.frontLayers };
     const bare = { ...design, frontLayers: [] };
     const en = makeLocale();

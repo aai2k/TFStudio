@@ -2,6 +2,7 @@ import { pulseProblem } from '../../../../utils/physics/pulsePropagation.js';
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { useWindowSession } from '../../windowSession.js';
+import { rowsShown, useEnvironmentChoice } from '../chrome/environmentChoice.js';
 import { useAnalysisEvaluation } from '../useAnalysisEvaluation.js';
 import { meritTargetSide } from '../gdGddEvaluation/gdTargets.js';
 import { emptyTable, tableFromPulseSpectrum } from '../../dataExchange/curveEditor/curveTable.js';
@@ -88,22 +89,23 @@ function useSpectrumEditor(patch) {
 
 /**
  * The pulse evaluated in the worker, kept in the window's session with the
- * design and the request it answers. A tab switch, a dock or a redock mounts
- * the window afresh; a result kept for the same design and request is shown
- * again rather than computed again, and a run stopped for them stays stopped.
- * A new request runs even after Stop.
+ * design, the environment and the request it answers. A tab switch, a dock or
+ * a redock mounts the window afresh; a result kept for the same design,
+ * environment and request is shown again rather than computed again, and a
+ * run stopped for them stays stopped. A new request runs even after Stop.
+ * `design` is the design the window shows and `env` the id of the
+ * environment computed; the payload holds the design that environment sees.
  */
-function useKeptEvaluation(payload, session, patch) {
+function useKeptEvaluation(payload, session, patch, { design, env }) {
     const requestKey = useMemo(() => (payload ? JSON.stringify(payload.request) : null), [payload]);
-    const design = payload?.design;
-    const answers = entry => Boolean(payload) && entry?.design === design && entry.requestKey === requestKey;
+    const answers = entry => Boolean(payload) && entry?.design === design && entry.env === env && entry.requestKey === requestKey;
     const kept = answers(session.result) ? session.result : null;
     const stopped = answers(session.stoppedFor);
     const evaluation = useAnalysisEvaluation(Boolean(payload) && !stopped && !kept, 'pulseAnalysis', payload);
     const finished = evaluation.payload === payload ? evaluation.data : null;
     useEffect(() => {
-        if (finished) patch({ result: { design, requestKey, data: finished } });
-    }, [finished, design, requestKey, patch]);
+        if (finished) patch({ result: { design, env, requestKey, data: finished } });
+    }, [finished, design, env, requestKey, patch]);
     const stoppedElsewhere = Boolean(session.stoppedFor) && !stopped;
     useEffect(() => {
         if (stoppedElsewhere) patch({ stoppedFor: null });
@@ -111,7 +113,7 @@ function useKeptEvaluation(payload, session, patch) {
     return {
         evaluation: kept ? { data: kept.data, error: null, busy: false } : evaluation,
         stopped,
-        stop: () => patch({ stoppedFor: { design, requestKey } }),
+        stop: () => patch({ stoppedFor: { design, env, requestKey } }),
     };
 }
 
@@ -131,20 +133,26 @@ export function usePulseAnalysis(design) {
     }), [source, shape, centerWavelength, duration, bandwidth, order, gdd, tod, spectrum]);
     const spectrumCentre = useMemo(() => spectrumCentreField(spectrum), [spectrum]);
     const problem = pulseProblem(pulse);
-    const hasStack = hasLayers(liveDesign, side);
+    // The environment the pulse meets, Current or one the droplist names: the
+    // coating as that environment deposits it, between its media, on the side
+    // the window chooses. The worker gets the design that environment sees.
+    const environment = useEnvironmentChoice(liveDesign);
+    const { id: env, design: shown } = environment.views[0];
+    const hasStack = hasLayers(shown, side);
     const payload = useMemo(() => (hasStack && !problem ? {
-        design: liveDesign,
+        design: shown,
         request: { pulse, side, target, polarization: pol, thetaDeg: theta, passes: Math.max(1, Math.round(passes)) },
-    } : null), [hasStack, problem, liveDesign, pulse, side, target, pol, theta, passes]);
+    } : null), [hasStack, problem, shown, pulse, side, target, pol, theta, passes]);
 
-    const run = useKeptEvaluation(payload, session, patch);
-    const gddTarget = designGddTarget(liveDesign?.meritOperands, {
+    const run = useKeptEvaluation(payload, session, patch, { design: liveDesign, env });
+    // From target reads the GDD rows scored in the environment shown.
+    const gddTarget = designGddTarget(rowsShown(liveDesign, false, environment.views), {
         target, side, surfaceMode: liveDesign?.surfaceMode,
     });
     const file = useSpectrumEditor(patch);
 
     return {
-        session, setField, patch, pulse, problem, hasStack, payload,
+        session, setField, patch, pulse, problem, hasStack, payload, environment, shownDesign: shown,
         ...run,
         gddTarget,
         fillGddFromTarget: () => {

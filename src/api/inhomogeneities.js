@@ -10,15 +10,17 @@ import { designRangeCoverage } from '../utils/materials/materialRange.js';
 import { PROFILE_IDS, totalInterlayerThickness } from '../utils/physics/inhomogeneity.js';
 import { makeConeSpec, coneIsActive, resolveEvalMode } from '../utils/physics/optimizer.js';
 import { evaluateSpecification } from '../utils/environments/environmentSpecification.js';
+import { baseMaterialId } from '../utils/environments/temperatureModel.js';
 import { dispatchAnalysisEvaluation } from '../utils/workers/analysisEvaluationWorker.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
+import { inEnvironments } from './designEnvironments.js';
 import { verdictOf } from './specification.js';
 import { emptySide, storedLayers, viewSide } from './stackViews.js';
 import { checkOptions, checkRange, requireValue, refusal, isAngle, isNonNegative } from './check.js';
 
 const DEFAULTS = sessionDefaults('inhomogeneities');
-const OPTIONS = ['interlayers', 'start', 'end', 'step', 'angle', 'side'];
+const OPTIONS = ['interlayers', 'start', 'end', 'step', 'angle', 'side', 'env'];
 const ROW_FIELDS = ['side', 'interface', 'thickness', 'profile', 'slices'];
 // R, T and A for unpolarized light, then for s and p, as spectrum gives them.
 const QUANTITIES = ['R', 'T', 'A', 'Rs', 'Rp', 'Ts', 'Tp', 'As', 'Ap'];
@@ -104,15 +106,53 @@ function interlayersOf(design, given, mode) {
         (back ? inh.backInterlayers : inh.interlayers).push({ ...NEW_INTERLAYER, afterIndex, thickness, profile, slices });
         // The material the grading starts from and the one it ends at, as the
         // window's row label names them: the stored layer before the
-        // interlayer and the one after it, or the medium or substrate there.
+        // interlayer and the one after it, or the medium or substrate there,
+        // each by the id the design names it by.
         const before = afterIndex < 0 ? (back ? design.substrate?.material : design.incidentMedium) : layers[afterIndex].material;
         const after = afterIndex + 1 < n ? layers[afterIndex + 1].material : (back ? design.exitMedium : design.substrate?.material);
-        return { side, interface: k, thickness, profile, slices, materials: [before, after] };
+        return { side, interface: k, thickness, profile, slices, materials: [baseMaterialId(before), baseMaterialId(after)] };
     });
     return { rows, inh };
 }
 
 const curvesOf = spectrum => Object.fromEntries(QUANTITIES.map(q => [q, Array.from(spectrum[q])]));
+
+// The window's specification verdict for `design` with the interlayers `inh`
+// in, judged in each of its environments, as the badge under the chart reads
+// it; null when the design has no specification.
+function verdictWith(design, inh) {
+    const checks = design.qualifiers || [];
+    if (!checks.length) return null;
+    const recipe = { interlayers: inh };
+    const results = evaluateSpecification(checks, design, {}, id => toleranceSpecInputs(design, recipe, id));
+    return verdictOf(checks, results, resolveEvalMode(toleranceSpecInputs(design, recipe).design), design);
+}
+
+// The two spectra of `one`, the design an environment of `judged` sees, as
+// inhomogeneities() gives them, with the verdict of `judged` in every
+// environment with the interlayers in.
+function inhomogeneitiesOf(one, judged, { interlayers, start, end, step, angle, side }) {
+    const shown = withHerpinRecords(one);
+    const mode = viewSide('inhomogeneities', shown, side);
+    const { rows, inh } = interlayersOf(shown, interlayers, mode);
+    requireResolved(one);
+    requireKernel();
+    // The window's 'inhomogeneitySpectra', in the analysis worker under a cone
+    // on the design with its materials embedded, as the worker receives it.
+    const coned = coneIsActive(makeConeSpec(shown.cone || {}));
+    const spectra = dispatchAnalysisEvaluation('inhomogeneitySpectra', {
+        design: coned ? embedDesignMaterials(shown) : shown,
+        params: { lambdaStart: start, lambdaEnd: end, lambdaStep: step, theta: angle, polarization: 'avg' },
+        inh, evalMode: mode,
+    });
+    if (spectra.error) throw new Error(`inhomogeneities: ${spectra.error}`);
+    return {
+        mode, angle, wavelength: Array.from(spectra.perturbed.lambda),
+        homogeneous: curvesOf(spectra.baseline), graded: curvesOf(spectra.perturbed),
+        interlayers: rows, addedThickness: totalInterlayerThickness(inh), specification: verdictWith(judged, inh),
+        outOfRange: designRangeCoverage(shown, [start, end], mode).offenders,
+    };
+}
 
 /**
  * The spectrum of a design with graded interlayers at its interfaces,
@@ -143,6 +183,14 @@ const curvesOf = spectrum => Object.fromEntries(QUANTITIES.map(q => [q, Array.fr
  * the two faces are judged as built: an interlayer on one face is not copied
  * to the other.
  *
+ * A design with more than one [environment](/design/environments/) is
+ * computed in environment 1, its own media, substrate and layers, unless
+ * `env` names another, on what that environment is scored on. An interlayer
+ * sits at the same interface of the layer list in every environment and
+ * grades between the materials that meet there in the environment computed.
+ * The verdict judges the design with its interlayers in every environment
+ * that is on, as the window's badge does, whichever environment is computed.
+ *
  * @param design The design.
  * @param [options]
  * @param [options.interlayers=[]] One row per interlayer, each `{ side, interface, thickness, profile, slices }`: `side` `'front'` or `'back'`, the side computed, or the coated side on a whole part coated on one side, and given on each row of a whole part coated on both sides; `interface` from 0, the substrate's surface, to the side's layer count; `thickness` in nm, 0 or more, 5 when left out; `profile` `'linear'`, `'parabolic'`, `'invParabolic'`, `'exponential'` or `'sigmoid'`, `'linear'` when left out; `slices` a whole number, 2 or more, 10 when left out. One row to an interface.
@@ -151,7 +199,8 @@ const curvesOf = spectrum => Object.fromEntries(QUANTITIES.map(q => [q, Array.fr
  * @param [options.step=0.5] The wavelength step, nm.
  * @param [options.angle=0] The angle of incidence, degrees in the incident medium, 0 up to but not including 90; the cone's axis on a design under a cone.
  * @param [options.side] `'front'`, `'back'` or `'total'`, the whole part. Without it, what the design is scored on.
- * @returns The two spectra.
+ * @param [options.env] The environment computed, by its number from 1 or its id, whether it is on or off; or `'all'` for the spectra of each environment that is on, environment 1 when none is. Without it, environment 1.
+ * @returns The two spectra; with `env: 'all'`, `{ environments }`, one entry per environment, each these spectra with the environment's `number`, `id` and `name`.
  * @property mode The sides computed: `'front'`, `'back'` or `'total'`.
  * @property angle The angle of incidence, degrees.
  * @property wavelength The wavelengths, nm.
@@ -159,50 +208,30 @@ const curvesOf = spectrum => Object.fromEntries(QUANTITIES.map(q => [q, Array.fr
  * @property graded The design with the interlayers in, the same curves.
  * @property interlayers The rows, in the order given, with their defaults filled in, each `{ side, interface, thickness, profile, slices, materials }`: `materials` the two that meet there, by id, in the order the interlayer grades from one to the other.
  * @property addedThickness What the interlayers add to the coating, nm: the window's Σ.
- * @property specification The verdict for the design with its interlayers in, as checkSpecification gives one: `{ passed, passing, total, mode, rows }`; null when the design has no specification.
+ * @property specification The verdict for the design with its interlayers in, as checkSpecification gives one: `{ passed, passing, total, mode, rows }`, over every environment that is on; null when the design has no specification.
  * @property outOfRange The materials of the sides computed whose data stop inside the range, each `{ id, name, rangeNm, heldFlat }`: outside `rangeNm` their n and k are held at the last value (`heldFlat` is `true`) or extrapolated.
  * @throws an option it does not take, a range that is not one, an angle outside 0 to 90, a side other than `'front'`, `'back'` or `'total'`, or more than a million wavelengths
  * @throws a row with a field it does not have, a row for a side not computed or with no side on a whole part coated on both sides, an interface the side does not have or one another row names, a thickness below 0, a profile it does not have, or slices that are not a whole number of 2 or more
  * @throws a design that names a material that resolves to nothing
+ * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
  * const design = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^4 H' });
  * const r = tf.inhomogeneities(design, { interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1 });
  * const i = r.wavelength.indexOf(550);
  * console.log(r.interlayers[0].materials.join(' to '), 'adds', r.addedThickness, 'nm; R at 550 nm', r.homogeneous.R[i].toFixed(5), 'becomes', r.graded.R[i].toFixed(5));
+ * const wet = tf.addEnvironment(design, { name: 'Under water', incidentMedium: 'H2O' });
+ * const two = tf.inhomogeneities(wet, { interlayers: [{ interface: 4, thickness: 3, profile: 'sigmoid' }], start: 450, end: 650, step: 1, env: 2 });
+ * console.log('under water, R at 550 nm', two.homogeneous.R[i].toFixed(5), 'becomes', two.graded.R[i].toFixed(5));
  */
 export function inhomogeneities(design, options) {
     const {
-        interlayers = [], start = DEFAULTS.lambdaStart, end = DEFAULTS.lambdaEnd, step = DEFAULTS.lambdaStep, angle = DEFAULTS.aoi, side,
+        interlayers = [], start = DEFAULTS.lambdaStart, end = DEFAULTS.lambdaEnd, step = DEFAULTS.lambdaStep, angle = DEFAULTS.aoi, side, env,
     } = checkOptions('inhomogeneities', options, OPTIONS);
     checkRange('inhomogeneities', { from: start, to: end, step }, 1, ['start', 'end']);
     requireValue('inhomogeneities', 'angle', angle, isAngle, 'an angle of incidence in degrees, 0 <= angle < 90');
-    const shown = withHerpinRecords(design);
-    const mode = viewSide('inhomogeneities', shown, side);
-    const { rows, inh } = interlayersOf(shown, interlayers, mode);
-    requireResolved(design);
-    requireKernel();
-    // The window's 'inhomogeneitySpectra', in the analysis worker under a cone
-    // on the design with its materials embedded, as the worker receives it.
-    const coned = coneIsActive(makeConeSpec(shown.cone || {}));
-    const spectra = dispatchAnalysisEvaluation('inhomogeneitySpectra', {
-        design: coned ? embedDesignMaterials(shown) : shown,
-        params: { lambdaStart: start, lambdaEnd: end, lambdaStep: step, theta: angle, polarization: 'avg' },
-        inh, evalMode: mode,
-    });
-    if (spectra.error) throw new Error(`inhomogeneities: ${spectra.error}`);
-    // The worker's 'specification' pass with the window's recipe, whose answer
-    // the badge shows.
-    const checks = shown.qualifiers || [];
-    let specification = null;
-    if (checks.length) {
-        const recipe = { interlayers: inh };
-        const results = evaluateSpecification(checks, shown, {}, id => toleranceSpecInputs(shown, recipe, id));
-        specification = verdictOf(checks, results, resolveEvalMode(toleranceSpecInputs(shown, recipe).design), shown);
-    }
-    return {
-        mode, angle, wavelength: Array.from(spectra.perturbed.lambda),
-        homogeneous: curvesOf(spectra.baseline), graded: curvesOf(spectra.perturbed),
-        interlayers: rows, addedThickness: totalInterlayerThickness(inh), specification,
-        outOfRange: designRangeCoverage(shown, [start, end], mode).offenders,
-    };
+    // Each environment is computed on what it is scored on, its rows read on
+    // its sides; the verdict, the window's badge, judges the design itself.
+    const judged = withHerpinRecords(design);
+    const settings = { interlayers, start, end, step, angle, side };
+    return inEnvironments('inhomogeneities', design, env, one => inhomogeneitiesOf(one, judged, settings));
 }

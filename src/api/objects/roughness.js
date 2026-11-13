@@ -32,8 +32,9 @@ const curvesOf = (spectrum, wavelength) => Object.fromEntries(Object.entries(spe
  * console.log(r.mode, 'mean R from 500 to 600 nm', r.smooth.R.mean(500, 600).toFixed(5), 'becomes', r.rough.R.mean(500, 600).toFixed(5));
  */
 export class Roughness {
-    constructor(result) {
+    constructor(result, environment = null) {
         this._result = result;
+        this._environment = environment;
         this._smooth = curvesOf(result.smooth, result.wavelength);
         this._rough = curvesOf(result.rough, result.wavelength);
         this._loss = curveOf(result.loss, result.wavelength, 'loss');
@@ -142,6 +143,20 @@ export class Roughness {
      * console.log(design.roughness({ start: 200, end: 2500, step: 10 }).outOfRange.map(m => m.id));
      */
     get outOfRange() { return this._result.outOfRange; }
+
+    /**
+     * The environment the spectra were computed in, `{ number, id, name
+     * }`, when design.roughness() was given `env`; null without one, when
+     * they were computed in environment 1, the design's own media and
+     * substrate.
+     *
+     * @example
+     * const design = tf.newDesign('Mirror');
+     * design.stack('(HL)^4 H');
+     * design.environments.add({ name: 'Under water', incidentMedium: 'H2O' });
+     * for (const r of design.roughness({ sigma: 2, start: 400, end: 700, step: 1, env: 'all' })) console.log(r.environment.number, r.environment.name, (r.loss.at(550) * 1e6).toFixed(1), 'ppm');
+     */
+    get environment() { return this._environment; }
 
     /**
      * Writes the curves to a CSV file as the window's Copy CSV writes its

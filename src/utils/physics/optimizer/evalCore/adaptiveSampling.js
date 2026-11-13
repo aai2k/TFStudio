@@ -3,6 +3,7 @@ import { expandMeasuredCurveOperands } from '../measuredCurveOperand.js';
 import { charOf, operandSampleLambdas } from '../sampling.js';
 import { tmmProp } from './tmmEval.js';
 import { buildEvalContext } from './evalContext.js';
+import { baseMaterialId } from '../../../environments/temperatureModel.js';
 
 // ── Adaptive merit sampling ───────────────────────────────────────────────────
 //
@@ -186,8 +187,11 @@ export function densifyOperandsForFeatures(operands, design, resolveMat, cfg = A
 }
 
 // Every distinct material identifier a design references (incident / exit /
-// substrate media + all front & back layer materials). The worker pre-samples
-// each of these on requiredLambdas() so its table-lookup getNK is exact.
+// substrate media + all front & back layer materials), a material at another
+// temperature by the id it is made from. The worker pre-samples each of these
+// on requiredLambdas() so its table-lookup getNK is exact, and makes a
+// material at another temperature from the samples of its base
+// (workers/resolveMat.js).
 export function collectDesignMaterialIds(design) {
     const inc  = typeof design.incidentMedium === 'string'
         ? design.incidentMedium : (design.incidentMedium?.material ?? 'Air');
@@ -199,5 +203,5 @@ export function collectDesignMaterialIds(design) {
     ids.add(design.substrate?.material ?? 'BK7');
     for (const l of (design.frontLayers || [])) ids.add(l.material);
     for (const l of (design.backLayers  || [])) ids.add(l.material);
-    return Array.from(ids).filter(x => x != null);
+    return [...new Set(Array.from(ids).filter(x => x != null).map(baseMaterialId))];
 }

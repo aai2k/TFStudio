@@ -1,7 +1,7 @@
 // Tools for a pulse's passage through a design, as the Pulse Analysis window
 // computes it, and the spectrum the window keeps on the design.
 
-import { spectrumPath } from './analysisTools.js';
+import { ENV, perEnvironment, spectrumPath } from './analysisTools.js';
 import { designView } from './designStore.js';
 import { object, num, int, list, oneOf, bool, str, DESIGN_ID } from './schemaParts.js';
 
@@ -30,14 +30,14 @@ export function pulseTools({ api, store }) {
                 angle: num('Angle of incidence in degrees in the medium light comes from, 0 <= angle < 90. Default 0'),
                 passes: int('Bounces off the coating or passes through it, 1 or more. Default 1'),
                 values: bool('Also answer with every curve. Default false'),
+                env: ENV,
             }, ['designId']),
             run: ({ designId, values = false, ...options }) => {
-                const { time, spectrum, ...pulse } = api.pulseAnalysis(store.get(designId), options);
-                const { band, ...curves } = spectrum;
-                return {
-                    designId, ...pulse, band,
-                    ...(values ? { time, spectrum: curves } : { samples: { time: counts(time), spectrum: counts(curves) } }),
+                const answer = ({ time, spectrum, ...pulse }) => {
+                    const { band, ...curves } = spectrum;
+                    return { ...pulse, band, ...(values ? { time, spectrum: curves } : { samples: { time: counts(time), spectrum: counts(curves) } }) };
                 };
+                return { designId, ...perEnvironment(options.env, api.pulseAnalysis(store.get(designId), options), answer) };
             },
         },
         {

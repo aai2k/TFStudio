@@ -3190,6 +3190,7 @@ export default {
     substrateDiameter:      'Substrate Ø',
     substrateDiameterTip:   'Substrate diameter in mm. Only the centre deflection needs it; leave it empty and that row stays blank.',
     unset:          'none',
+    environmentHeld: (environment) => `Environment ${environment} computes with this value, from its own temperature or substrate. Set those in the Environments window.`,
     front:          'Front',
     back:           'Back',
     frontTag:       'F',

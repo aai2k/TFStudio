@@ -29,7 +29,7 @@ const { computeCurveResults } = await import('../src/components/windows/analysis
 const { runSurfaceSweep } = await import('../src/components/windows/analysis/plotEngine/surfaceRunner.js');
 const { meritTable } = await import('../src/utils/physics/meritDisplay.js');
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
-const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
+const { standInSurfaceWorker } = await import('./_surfaceWorker.mjs');
 
 await api.init();
 
@@ -240,23 +240,7 @@ function withThicknesses(design, thicknesses) {
         xVar: 'wavelength', xFrom: 500, xTo: 620, xSteps: 7, yVar: 'thk:0', yFrom: d1 - 10, yTo: d1 + 10, ySteps: 5,
         colorscale: 'Turbo' };
     const warnings = [];
-    globalThis.Worker = class {
-        postMessage(message) {
-            if (message.type === 'init') {
-                const { materials, spec: sent, design: sentDesign } = structuredClone(message);
-                this.job = { spec: sent, design: sentDesign, resolveMat: makeResolveMat(materials, 'test', m => warnings.push(m)) };
-                return;
-            }
-            setImmediate(() => {
-                const { rowFrom, rowTo } = message;
-                const part = computeSurface(this.job.spec, this.job.design, this.job.resolveMat, { rowFrom, rowTo });
-                this.onmessage({ data: { type: 'result', id: message.id, ok: part.ok, rowFrom, rowTo,
-                    rows: part.z.slice(rowFrom, rowTo) } });
-            });
-        }
-
-        terminate() {}
-    };
+    globalThis.Worker = standInSurfaceWorker(warnings);
     let published = null;
     await runSurfaceSweep({
         surfaceSpec: spec, design, poolRef: { current: null },
