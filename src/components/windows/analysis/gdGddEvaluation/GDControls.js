@@ -4,6 +4,8 @@ import {
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { gdGddTargetColor } from './gdTargets.js';
+import { joinModelNotes } from '../../../../utils/physics/phaseDispersion/modelNotes.js';
+import { modelEntryText } from '../../../../utils/materials/materialModelText.js';
 
 const { createElement: h } = React;
 
@@ -134,7 +136,7 @@ function GDSetup({ c, t, text, state, raw, autoRange }) {
             }),
         ),
         h(SettingDivider, { c }),
-        h(SamplingNote, { c, text, raw, sets: state.sets }),
+        h(SamplingNote, { c, t, raw, sets: state.sets }),
     );
 }
 
@@ -175,14 +177,16 @@ function YAxisSetting({ c, text, state, autoRange }) {
 }
 
 /**
- * How the curve was sampled, and which dispersion models produced it. Under
- * All (`sets`) it speaks for every curve drawn: the points added to all of
- * them, and each model once, since another environment can compute with
- * another substrate, medium or layer material.
+ * How the curve was sampled, and which dispersion models produced it, worded in
+ * the language shown (materialModelText.js). Under All (`sets`) it speaks for
+ * every curve drawn: the points added to all of them, and each model once,
+ * since another environment can compute with another substrate, medium or
+ * layer material.
  */
-export function SamplingNote({ c, text, raw, sets }) {
+export function SamplingNote({ c, t, raw, sets }) {
+    const text = t.gdgdd;
     const spectra = sets ? sets.map(set => set.raw).filter(Boolean) : [raw].filter(Boolean);
-    const models = [...new Set(spectra.flatMap(one => one.models || []))];
+    const models = joinModelNotes(...spectra).modelEntries.map(entry => modelEntryText(entry, t));
     const added = spectra.reduce((sum, one) => sum + (one.adaptivePointCount || 0), 0);
     const sampling = spectra.length ? text.samplingNote(added) : null;
     if (!sampling && !models.length) return null;

@@ -13,6 +13,7 @@
 import {
     dispersionFitParameters, evaluateDispersionFit,
 } from '../../../../utils/materials/dispersionFits.js';
+import { dispersionFitModelText, fitParameterLabel } from '../../../../utils/materials/dispersionFitText.js';
 
 function fixed(value, digits) {
     return Number.isFinite(value) ? value.toFixed(digits) : '-';
@@ -49,11 +50,12 @@ export function resultColumns(nk) {
  * measurement actually determined. A thickness and an index enter a spectrum
  * largely as their product, and when a measurement holds too few fringes to
  * separate them the residual stays small while the correlation goes to one.
+ * `fitWords` is t.dispersionFit, which words the model and its parameters.
  */
-export function resultRows(result, nk, units) {
+export function resultRows(result, nk, units, fitWords) {
     const rows = [
         { quantity: nk.rowThickness, value: thicknessText(result, nk, units) },
-        { quantity: nk.rowModel, value: result.modelName.replace(/^Fit: /, '') },
+        { quantity: nk.rowModel, value: dispersionFitModelText(result.fit, fitWords, units) },
     ];
     for (const [quantity, label] of [['T', 'T'], ['R', 'R'], ['PSI', 'Ψ'], ['DEL', 'Δ']]) {
         const residual = result.residuals[quantity];
@@ -103,7 +105,7 @@ export function resultRows(result, nk, units) {
     const { parameters } = dispersionFitParameters(result.fit);
     for (const parameter of parameters) {
         rows.push({
-            quantity: `${nk.modelParameter} ${parameter.label}`,
+            quantity: `${nk.modelParameter} ${fitParameterLabel(parameter, units)}`,
             value: Math.abs(parameter.value) < 1e-3 && parameter.value !== 0
                 ? exponential(parameter.value, 4)
                 : fixed(parameter.value, 6),

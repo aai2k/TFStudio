@@ -203,7 +203,7 @@ const csvOf = view => csvFromRows(view.tableColumns, view.tableRows);
     // The sampling note in Settings speaks for every curve drawn: each
     // environment's dispersion models once, sapphire's beside BK7's, and the
     // points added to all of them.
-    const note = renderToStaticMarkup(h(SamplingNote, { c, text: en.gdgdd, raw: all.raw, sets: all.sets }));
+    const note = renderToStaticMarkup(h(SamplingNote, { c, t: en, raw: all.raw, sets: all.sets }));
     const ownModels = all.sets[0].raw.models;
     const wetOnly = all.sets[1].raw.models.filter(model => !ownModels.includes(model));
     const added = all.sets.reduce((sum, set) => sum + (set.raw.adaptivePointCount || 0), 0);

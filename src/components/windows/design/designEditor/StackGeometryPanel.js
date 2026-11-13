@@ -87,14 +87,14 @@ export function StackSettingsFields(props) {
         // vertical divider + distinct units (mm vs nm) to make clear they
         // are unrelated quantities that merely share the line.
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', flexWrap: 'wrap' } },
-            fldLabel(de.substrateThick, 'Substrate physical thickness'),
+            fldLabel(de.substrateThick, de.substrateThickTip),
             thickness.tag,
             h(DebouncedInput, {
                 value: thickness.value ?? 1.0,
                 onChange: (s) => { const v = parseNumberStrict(s); if (!isNaN(v) && v >= 0) thickness.set(v); },
                 style: numStyle,
             }),
-            unit(de.unitMm || 'mm'),
+            unit(t.units.mm),
             h('div', { style: { width: 1, height: 18, background: c.border, margin: '0 6px' } }),
             fldLabel(de.refLambdaShort || de.refLambda, de.refLambdaTip),
             h(DebouncedInput, {
@@ -116,7 +116,7 @@ export function StackSettingsFields(props) {
                 },
                 style: numStyle,
             }),
-            unit(de.unitNm || 'nm'),
+            unit(t.units.nm),
         ),
         many && h(TemperatureRow, { field: settingsField(props, 'temperatureC'), fldLabel, unit, numStyle, t }),
         h(Sep, { c }),
@@ -157,7 +157,7 @@ export function StackGeometryPanel({ design, media, current, updateDesign, refLa
             },
         },
             h('span', { style: { fontSize: 9 } }, settingsOpen ? '▼' : '▶'),
-            h('span', null, de.settingsSection || 'Settings'),
+            h('span', null, de.settingsSection),
         ),
         settingsOpen && h(StackSettingsFields, { design, media, current, updateDesign, refLambda, c, t })
     );

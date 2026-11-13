@@ -4,6 +4,7 @@ import {
 import {
     createDesignPhaseDispersionEvaluator, createTotalTransmissionDispersionEvaluator,
 } from '../../../../utils/physics/phaseDispersion.js';
+import { joinModelNotes } from '../../../../utils/physics/phaseDispersion/modelNotes.js';
 import { sampleKnots } from '../knots.js';
 import { presentationGrid } from './grid.js';
 
@@ -36,7 +37,7 @@ function averagePolarizations(sValue, pValue) {
         gddFs2: average('gddFs2'),
         todFs3: average('todFs3'),
         magnitudeSquared: average('magnitudeSquared'),
-        models: [...new Set([...(sValue.models || []), ...(pValue.models || [])])],
+        ...joinModelNotes(sValue, pValue),
         phaseContinuousOrder: Math.min(
             sValue.phaseContinuousOrder ?? 3,
             pValue.phaseContinuousOrder ?? 3,
@@ -137,7 +138,7 @@ export function computeGdGddSpectrum(design, options) {
         invalid: values
             .filter(value => !value.valid)
             .map(value => ({ wavelengthNm: value.wavelengthNm, reason: value.reason })),
-        models: values.find(value => value.models)?.models || [],
+        ...joinModelNotes(values.find(value => value.modelEntries)),
         // A reduce, as a spread of a few hundred thousand values exceeds the
         // call stack.
         phaseContinuousOrder: values.reduce((lowest, value) =>

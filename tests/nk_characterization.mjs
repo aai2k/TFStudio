@@ -11,7 +11,7 @@
 import assert from 'node:assert/strict';
 import './_kernel.mjs';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
-import { evaluateDispersionFit } from '../src/utils/materials/dispersionFits.js';
+import { dispersionFitModelName, evaluateDispersionFit } from '../src/utils/materials/dispersionFits.js';
 import {
     filmEllipsometry, filmSpectrum, constantFilm, griddedFilm, makeSampleEvaluator,
 } from '../src/utils/materials/characterization/sampleSpectrum.js';
@@ -426,7 +426,7 @@ function maxExtinctionError(result) {
         'the transparent verdict has to hold on a tabulated material as well');
     console.log(`500 nm TiO2 TOTAL export: d = ${result.thicknessNm.toFixed(2)} nm, `
         + `RMS T ${result.residuals.T.rms.toExponential(2)}, `
-        + `R ${result.residuals.R.rms.toExponential(2)}, ${result.modelName}`);
+        + `R ${result.residuals.R.rms.toExponential(2)}, ${dispersionFitModelName(result.fit)}`);
 }
 
 // ── Reported spread ───────────────────────────────────────────────────────────
@@ -734,7 +734,7 @@ function maxExtinctionError(result) {
     });
     assert.ok(worstResidual < 0.02,
         `a reported point misses the measurement by ${worstResidual.toExponential(2)} degrees`);
-    console.log(`500 nm TiO₂ from Ψ/Δ: d = ${result.thicknessNm.toFixed(2)} nm, ${result.modelName}, `
+    console.log(`500 nm TiO₂ from Ψ/Δ: d = ${result.thicknessNm.toFixed(2)} nm, ${dispersionFitModelName(result.fit)}, `
         + `${resolvedCount}/${result.lambdas.length} points within `
         + `${worstIndex.toExponential(1)} of the film's n`);
 }

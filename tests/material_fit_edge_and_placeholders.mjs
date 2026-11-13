@@ -348,7 +348,7 @@ assert.ok(covariance.every((row, i) => row[i] > 0), 'every coefficient has a pos
 {
     const shown = dispersionFitParameters(sixTerm).parameters;
     shown.slice(0, 6).forEach((parameter, index) => close(parameter.standardError,
-        Math.sqrt(covariance[index][index]), 0, `standard error of ${parameter.label}`));
+        Math.sqrt(covariance[index][index]), 0, `standard error of ${parameter.symbol}`));
     const codec = dispersionFitCodec(sixTerm);
     const moved = codec.decode(codec.encode().map(value => value * 1.01));
     assert.ok(!('covariance' in moved.n), 'moved coefficients are not described by the old covariance');

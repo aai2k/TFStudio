@@ -79,12 +79,21 @@ function plotModel(spectrum, quantity, meta) {
     return stepAtKnots(spectrum.lambda, values, sides);
 }
 
-// The notice text for samples that could not be computed. The reasons come
-// from the dispersion engine as they are; `text` is t.gdgdd and `units` t.units.
+// Why a sample has no value, from the code the dispersion engine gives it
+// (materialPropagationDispersion), in the language shown.
+function maskedReason(value, text) {
+    const material = value.material ?? text.modelRoles.material;
+    return value.reasonCode === 'extinguished'
+        ? text.maskedExtinguished(material)
+        : text.maskedNoDerivatives(material);
+}
+
+// The notice text for samples that could not be computed; `text` is t.gdgdd
+// and `units` t.units.
 export function invalidSummary(spectrum, thicknessUnit, text, units) {
     if (!spectrum?.invalid.length) return null;
     const count = spectrum.invalid.length;
-    const reasons = [...new Set(spectrum.invalid.map(value => value.reason))];
+    const reasons = [...new Set(spectrum.invalid.map(value => maskedReason(value, text)))];
     const limits = spectrum.invalid
         .map(value => value.maximumThicknessMm)
         .filter(Number.isFinite);

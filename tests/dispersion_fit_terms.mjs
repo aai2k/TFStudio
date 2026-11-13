@@ -18,6 +18,11 @@ import {
     dispersionFitParameters,
     metalFitDiagnostics,
 } from '../src/utils/materials/dispersionFits.js';
+import { fitParameterLabel } from '../src/utils/materials/dispersionFitText.js';
+import { getLocale } from '../src/constants/locales/index.js';
+
+// A parameter's label as the panel writes it in English.
+const englishLabel = parameter => fitParameterLabel(parameter, getLocale('en').units);
 
 const oxide = [
     [350, 2.3, 0], [370, 2.2, 0], [400, 2.05, 0], [420, 2.0, 0], [450, 1.98, 0],
@@ -191,7 +196,7 @@ for (let nm = 400; nm <= 900; nm += 10) {
 const floored = fitTabulatedMaterial(belowRows, { nModel: 'drude' });
 assert.ok(floored.complex.epsilonInfinity >= 1 && floored.complex.epsilonInfinity < 1.000001,
     `a fit whose optimum is below the vacuum value stops at it, not ${floored.complex.epsilonInfinity}`);
-assert.deepEqual(metalFitDiagnostics(floored).pinned, ['ε∞'],
+assert.deepEqual(metalFitDiagnostics(floored).pinned.map(englishLabel), ['ε∞'],
     'and says so, since the number reported is then the bound and not the material');
 
 // ── A fit that ran into its own limits says which ones ───────────────────────
@@ -212,7 +217,7 @@ const atTheCap = {
     ...withDeadTerm,
     complex: { ...source, oscillators: [{ strengthEv2: 3000, resonanceEv: 28.7, dampingEv: 50 }] },
 };
-assert.deepEqual(metalFitDiagnostics(atTheCap).pinned, ['f1 (eV²)', 'γ1 (eV)'],
+assert.deepEqual(metalFitDiagnostics(atTheCap).pinned.map(englishLabel), ['f1 (eV²)', 'γ1 (eV)'],
     'a term that ran into its cap is reported by the name the panel shows it under');
 
 // ── The coefficients are readable, since they are what gets computed ──────────
@@ -220,9 +225,10 @@ assert.deepEqual(metalFitDiagnostics(atTheCap).pinned, ['f1 (eV²)', 'γ1 (eV)']
 const shown = dispersionFitParameters(cauchy);
 assert.equal(shown.parameters.length, cauchy.n.coefficients.length,
     'every Cauchy coefficient is listed');
-assert.equal(shown.parameters[0].label, 'A0');
-assert.match(shown.parameters[1].label, /µm/, 'and carries the units it is in');
-assert.match(shown.formula, /λ in µm/, 'with the formula the coefficients sit in');
+assert.equal(englishLabel(shown.parameters[0]), 'A0');
+assert.equal(englishLabel(shown.parameters[1]), 'A1 (µm²)', 'and carries the units it is in');
+assert.match(shown.formula, /^n\(λ\) = A0/, 'with the formula the coefficients sit in');
+assert.equal(shown.micrometres, true, 'with λ in micrometres');
 
 const sellmeierShown = dispersionFitParameters(sellmeier);
 assert.equal(sellmeierShown.parameters.length, 1 + 2 * sellmeier.n.terms,

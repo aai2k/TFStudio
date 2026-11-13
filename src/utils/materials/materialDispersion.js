@@ -32,11 +32,6 @@ function formulaDescriptor(material) {
     return material?.getNK?.dispersionFormula || null;
 }
 
-function modelName(formula) {
-    if (!formula) return null;
-    return FORMULA_NAMES[formula.formulaNum] || `Formula ${formula.formulaNum}`;
-}
-
 // A table is either C1 (PCHIP: value and slope continuous, curvature jumps at
 // a knot) or C0 (linear: the slope itself jumps). The order says which
 // derivative is the first to be discontinuous, so a caller can break a curve
@@ -44,9 +39,21 @@ function modelName(formula) {
 const TABLE_MODEL = { pchip: 'Table (PCHIP)', linear: 'Table (linear)' };
 const CONTINUOUS_ORDER_BY_MODEL = { [TABLE_MODEL.pchip]: 1, [TABLE_MODEL.linear]: 0 };
 
-function tableModelName(interpolator) {
-    return TABLE_MODEL[interpolator?.interp] || TABLE_MODEL.pchip;
+// The model of a table, a PCHIP one unless it is linear.
+function tablePart(interpolator) {
+    return { kind: 'table', interp: interpolator?.interp === 'linear' ? 'linear' : 'pchip' };
 }
+
+// A model's English name, as the API gives it, from the part
+// materialModelText.js words for a window. Undefined for no model.
+const PART_NAMES = {
+    fit: part => dispersionFitModelName(part.fit),
+    formula: part => FORMULA_NAMES[part.formulaNum] || `Formula ${part.formulaNum}`,
+    table: part => TABLE_MODEL[part.interp],
+    constant: () => 'Constant',
+    zero: () => 'Zero',
+};
+const partName = part => PART_NAMES[part?.kind]?.(part);
 
 // Lowest continuity among the named models; 3 when none of them is a table.
 function continuousOrderOf(...models) {
@@ -247,29 +254,30 @@ function ownOmegaResponse(material, wavelengthNm, knotSide) {
     let nJet;
     let kJet;
     let inRange = materialRangeContains(material, wavelengthNm);
-    let nModel;
-    let kModel;
+    // The models of n and k, as parts (partName).
+    let nPart = null;
+    let kPart = null;
     let nKnotSegment = null;
     let kKnotSegment = null;
     const tableSamples = [];
 
     if (useFit) {
         ({ nJet, kJet } = evaluateDispersionFitJets(fit, wavelengthMicrometersJet));
-        nModel = dispersionFitModelName(fit);
-        kModel = nModel;
+        nPart = { kind: 'fit', fit };
+        kPart = nPart;
     } else if (formula) {
         nJet = evalNJet(formula.formulaNum, formula.coefficients, wavelengthMicrometersJet);
-        nModel = modelName(formula);
+        nPart = { kind: 'formula', formulaNum: formula.formulaNum };
     } else if (tables) {
         const evaluated = tableJet(tables.nAt, wavelengthJet, wavelengthNm, knotSide);
         tableSamples.push(evaluated);
         nJet = evaluated.jet;
         inRange = inRange && evaluated.inRange;
         nKnotSegment = evaluated.segment;
-        nModel = tableModelName(tables.nAt);
+        nPart = tablePart(tables.nAt);
     } else if (material?.getNK?.constantNK) {
         nJet = jetConstant(material.getNK.constantNK[0]);
-        nModel = 'Constant';
+        nPart = { kind: 'constant' };
     }
 
     const kInterpolator = material?.getNK?.kInterpolator;
@@ -279,7 +287,7 @@ function ownOmegaResponse(material, wavelengthNm, knotSide) {
         kJet = evaluated.jet;
         inRange = inRange && evaluated.inRange;
         kKnotSegment = evaluated.segment;
-        kModel = tableModelName(tables.kAt);
+        kPart = tablePart(tables.kAt);
     } else if (!useFit && kInterpolator) {
         const useNanometers = material.getNK.kInterpolatorUnit === 'nm';
         const evaluated = tableJet(
@@ -292,18 +300,21 @@ function ownOmegaResponse(material, wavelengthNm, knotSide) {
         kJet = evaluated.jet;
         inRange = inRange && evaluated.inRange;
         kKnotSegment = evaluated.segment;
-        kModel = tableModelName(kInterpolator);
+        kPart = tablePart(kInterpolator);
     } else if (!useFit) {
         kJet = jetConstant(baseNK[1] || 0);
-        kModel = baseNK[1] ? 'Constant' : 'Zero';
+        kPart = { kind: baseNK[1] ? 'constant' : 'zero' };
     }
 
+    const nModel = partName(nPart);
+    const kModel = partName(kPart);
     const onKnot = fitEdge || tableSamples.some(sample => sample.onKnot);
     if (!nJet || !kJet) {
         return {
             nk: [baseNK[0], baseNK[1]],
             derivatives: null,
             model: 'Unavailable',
+            modelParts: null,
             phaseModel: nModel || 'Unavailable',
             // Nothing is known about a model that could not be built, so it
             // counts as C0 here; a table that could still reports its order.
@@ -322,6 +333,7 @@ function ownOmegaResponse(material, wavelengthNm, knotSide) {
         derivatives: derivatives.slice(1),
         jet: nkJet,
         model: nModel === kModel ? nModel : `n: ${nModel}; k: ${kModel}`,
+        modelParts: { n: nPart, k: kPart },
         phaseModel: nModel,
         phaseContinuousOrder: fitEdge ? FIT_EDGE_ORDER : continuousOrderOf(nModel),
         continuousOrder: fitEdge ? FIT_EDGE_ORDER : continuousOrderOf(nModel, kModel),
@@ -343,12 +355,18 @@ export function materialPropagationDispersion(material, wavelengthNm, thicknessM
     // shade the band while the table and its export still say which rows are
     // not measurement. A gap here means no value at all.
     const outsideRange = !response.inRange;
+    // A sample with no value says why twice: `reason` in English, as the API
+    // gives it, and `reasonCode` with `material`, for the window to word.
+    const materialName = material?.name || material?.id || null;
     if (!response.derivatives || response.maxOrder < 3) {
         return {
             wavelengthNm,
             valid: false,
-            reason: `${material?.name || material?.id || 'Material'}: third-order derivatives are unavailable`,
+            reason: `${materialName || 'Material'}: third-order derivatives are unavailable`,
+            reasonCode: 'noDerivatives',
+            material: materialName,
             model: response.model,
+            modelParts: response.modelParts,
             phaseModel: response.phaseModel,
             phaseContinuousOrder: response.phaseContinuousOrder,
         };
@@ -367,8 +385,11 @@ export function materialPropagationDispersion(material, wavelengthNm, thicknessM
         return {
             wavelengthNm,
             valid: false,
-            reason: `${material?.name || material?.id || 'Material'}: direct pulse is extinguished at this thickness`,
+            reason: `${materialName || 'Material'}: direct pulse is extinguished at this thickness`,
+            reasonCode: 'extinguished',
+            material: materialName,
             model: response.model,
+            modelParts: response.modelParts,
             phaseModel: response.phaseModel,
             phaseContinuousOrder: response.phaseContinuousOrder,
             log10InternalTransmission,
@@ -388,6 +409,7 @@ export function materialPropagationDispersion(material, wavelengthNm, thicknessM
         groupIndex: n + omega * first,
         outsideRange,
         model: response.model,
+        modelParts: response.modelParts,
         phaseModel: response.phaseModel,
         phaseContinuousOrder: response.phaseContinuousOrder,
         log10InternalTransmission,

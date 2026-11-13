@@ -160,7 +160,7 @@ const LATIN_UNIT = /(^|[^A-Za-z])(nm|mm|µm|um|fs|cm⁻¹|THz|eV|MPa|GPa|N\/m)(?
     const shown = [];
     const A = '../src/components/windows/analysis/';
     const { invalidSummary } = await import(`${A}materialDispersion/MaterialDispersionEvaluation.js`);
-    shown.push(invalidSummary({ invalid: [{ reason: 'r', maximumThicknessMm: 0.002 }] }, 'um', ru.gdgdd, ru.units));
+    shown.push(invalidSummary({ invalid: [{ reasonCode: 'extinguished', material: 'Ag', maximumThicknessMm: 0.002 }] }, 'um', ru.gdgdd, ru.units));
     const { tableColumns, TABLE_SPACE_IDS } = await import(`${A}colorEvaluation/resultsModel.js`);
     for (const space of TABLE_SPACE_IDS) shown.push(...tableColumns(space, ru.colorEval, ru.units).map(column => column.label));
     const { wholeRows } = await import(`${A}stressAnalysis/tableModel.js`);

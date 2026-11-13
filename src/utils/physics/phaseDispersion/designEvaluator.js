@@ -12,6 +12,7 @@ import {
     evaluateStackPhaseDispersion,
     evaluateSubstratePropagation,
 } from './stackEvaluator.js';
+import { joinModelNotes, modelNotes } from './modelNotes.js';
 
 /**
  * The layers one side presents to light arriving from outside, in the order
@@ -105,11 +106,9 @@ function composeTotalTransmission(wavelengthNm, { front, substrate, back }, subs
         todFs3: add('todFs3'),
         magnitudeSquared: front.magnitudeSquared * back.magnitudeSquared,
         components,
-        models: [...new Set([
-            ...(front.models || []),
-            `${substrateMaterial.name || 'Substrate'}: ${substrate.model}`,
-            ...(back.models || []),
-        ])],
+        ...joinModelNotes(front, modelNotes([
+            { material: substrateMaterial.name || null, role: 'substrate', response: substrate },
+        ]), back),
         phaseContinuousOrder: Math.min(...componentList.map(component =>
             component.phaseContinuousOrder ?? 3)),
         onKnot: componentList.some(component => component.onKnot),

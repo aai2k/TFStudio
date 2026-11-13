@@ -48,17 +48,18 @@ export function shownSpread(result, id) {
  * goes, so Stop can end it; a stopped run's result is the trials reported,
  * and none when it reported none. `shownView`, the environment shown (`{
  * design, mode }`, environment 1 by default), needs a layer to perturb on the
- * side it is scored on.
+ * side it is scored on; without one the run sets `noLayersMessage`, the
+ * window's own words for it.
  */
 export async function executeRun(options) {
     const {
         design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
         rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, runRef,
         setError, setRunning, setProgress, setResult, setSeed, environments,
-        shownView = { design, mode: evalMode },
+        shownView = { design, mode: evalMode }, noLayersMessage,
     } = options;
     if (!hasPerturbableLayers(shownView.design, shownView.mode)) {
-        setError('No layers to perturb.');
+        setError(noLayersMessage);
         return;
     }
     // The seed field keeps the seed this run is drawn from, so running again
@@ -109,7 +110,7 @@ export async function executeRun(options) {
     setRunning(false);
 }
 
-export function useErrorAnalysis({ design, evalMode }) {
+export function useErrorAnalysis({ design, evalMode, noLayersMessage }) {
     const [session, setField, patchSession] = useWindowSession(errorAnalysisSession, design);
     const {
         char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct, rmsReN, rmsImN,
@@ -157,9 +158,10 @@ export function useErrorAnalysis({ design, evalMode }) {
     const run = useCallback(() => executeRun({
         design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
         rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, runRef,
-        setError, setRunning, setProgress, setResult, setSeed, environments, shownView,
+        setError, setRunning, setProgress, setResult, setSeed, environments, shownView, noLayersMessage,
     }), [design, params, evalMode, char, nTrials, corridorSigma,
-        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, environments, shownView]);
+        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, environments, shownView,
+        noLayersMessage]);
 
     // A run goes on when the window is closed, docked elsewhere or its tab
     // switched, and its result lands in the window's session.

@@ -62,7 +62,7 @@ export function ErrorAnalysis({ c, t }) {
     const ea = t.errorAnalysis;
     const dt = t.dataTable;
     const { design, evalMode, updateDesign, checkpoint } = useDesign();
-    const state = useErrorAnalysis({ design, evalMode });
+    const state = useErrorAnalysis({ design, evalMode, noLayersMessage: ea.noLayers });
     // The run as the window shows it: the spread in the environment the
     // droplist names (useErrorAnalysis.js shownSpread).
     const { shown: result, error, running, corridorSigma, showEnvelope } = state;

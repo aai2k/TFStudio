@@ -194,13 +194,19 @@ function validRows(rows, rangeNm) {
         && Number.isFinite(row[0]) && Number.isFinite(row[1]) && Number.isFinite(row[2]));
 }
 
+// An error carrying a code, by which dispersionFitText.js words it in the
+// user's language; the message is its English text.
+function fitError(code, message) {
+    return Object.assign(new Error(message), { code });
+}
+
 function fitCauchy(rows, termCount) {
     const solved = linearLeastSquares(
         rows,
         row => Array.from({ length: termCount }, (_, order) => (row[0] / 1000) ** (-2 * order)),
         row => row[1],
     );
-    if (!solved) throw new Error('Cauchy fit is singular for the selected data range.');
+    if (!solved) throw fitError('cauchySingular', 'Cauchy fit is singular for the selected data range.');
     return withCovariance({ kind: 'cauchy', coefficients: solved.solution }, solved);
 }
 
@@ -334,7 +340,7 @@ function fitUrbach(rows) {
         row => [1, 1 / (row[0] / 1000), row[0] / 1000],
         row => Math.log(Math.max(row[2], 1e-15)),
     );
-    if (!solved) throw new Error('Urbach fit is singular for the selected data range.');
+    if (!solved) throw fitError('urbachSingular', 'Urbach fit is singular for the selected data range.');
     const [logAmplitude, inverseTerm, linearTerm] = solved.solution;
     // The fit is linear in ln k0, kb and kc, so that is what the covariance is of.
     return withCovariance({
@@ -791,10 +797,14 @@ export const MINIMUM_FIT_ROWS = 4;
 /** The rows inside the fitted range, or an error naming why they cannot be fitted. */
 function rowsToFit(rows, options) {
     const wavelengths = rows.map(row => row[0]).filter(Number.isFinite);
-    if (wavelengths.length < MINIMUM_FIT_ROWS) throw new Error('At least four tabulated rows are required for a fit.');
+    if (wavelengths.length < MINIMUM_FIT_ROWS) {
+        throw fitError('tooFewRows', 'At least four tabulated rows are required for a fit.');
+    }
     const rangeNm = options.rangeNm || [Math.min(...wavelengths), Math.max(...wavelengths)];
     const selected = validRows(rows, rangeNm);
-    if (selected.length < MINIMUM_FIT_ROWS) throw new Error('The selected fit range contains fewer than four rows.');
+    if (selected.length < MINIMUM_FIT_ROWS) {
+        throw fitError('tooFewInRange', 'The selected fit range contains fewer than four rows.');
+    }
     return { selected, rangeNm };
 }
 
@@ -866,9 +876,17 @@ export function fitMetalLadder(rows, options = {}) {
 
 const atFloor = value => value <= PARAMETER_FLOOR * (1 + 1e-9);
 
+// The units the fitted parameters are in, as { base, power } over the t.units
+// keys; dispersionFitText.js writes them in the user's language.
+const EV = { base: 'eV' };
+const EV_SQUARED = { base: 'eV', power: 2 };
+const MICROMETRE = { base: 'um' };
+const PER_MICROMETRE = { base: 'um', power: -1 };
+const micrometresTo = power => ({ base: 'um', power });
+
 /**
- * The metal model's fitted values, each with its label and the bounds it was
- * held inside.
+ * The metal model's fitted values, each with its symbol, its unit and the
+ * bounds it was held inside.
  *
  * A term whose amplitude went to zero is a term the fit did without, and the
  * width and position left inside it describe nothing. Those are marked `silent`
@@ -878,16 +896,19 @@ const atFloor = value => value <= PARAMETER_FLOOR * (1 + 1e-9);
 function metalParameterList(model) {
     const drudeSilent = atFloor(model.plasmaEnergyEv);
     const list = [
-        { label: 'ε∞', value: model.epsilonInfinity, bounds: METAL_BOUNDS.epsilonInfinity },
-        { label: 'ωp (eV)', value: model.plasmaEnergyEv, bounds: METAL_BOUNDS.plasmaEnergyEv },
-        { label: 'γD (eV)', value: model.drudeDampingEv, bounds: METAL_BOUNDS.drudeDampingEv, silent: drudeSilent },
+        { symbol: 'ε∞', value: model.epsilonInfinity, bounds: METAL_BOUNDS.epsilonInfinity },
+        { symbol: 'ωp', unit: EV, value: model.plasmaEnergyEv, bounds: METAL_BOUNDS.plasmaEnergyEv },
+        {
+            symbol: 'γD', unit: EV, value: model.drudeDampingEv, bounds: METAL_BOUNDS.drudeDampingEv,
+            silent: drudeSilent,
+        },
     ];
     (model.oscillators || []).forEach((oscillator, index) => {
         const silent = atFloor(oscillator.strengthEv2);
         list.push(
-            { label: `f${index + 1} (eV²)`, value: oscillator.strengthEv2, bounds: METAL_BOUNDS.strengthEv2 },
-            { label: `ω${index + 1} (eV)`, value: oscillator.resonanceEv, bounds: METAL_BOUNDS.resonanceEv, silent },
-            { label: `γ${index + 1} (eV)`, value: oscillator.dampingEv, bounds: METAL_BOUNDS.dampingEv, silent },
+            { symbol: `f${index + 1}`, unit: EV_SQUARED, value: oscillator.strengthEv2, bounds: METAL_BOUNDS.strengthEv2 },
+            { symbol: `ω${index + 1}`, unit: EV, value: oscillator.resonanceEv, bounds: METAL_BOUNDS.resonanceEv, silent },
+            { symbol: `γ${index + 1}`, unit: EV, value: oscillator.dampingEv, bounds: METAL_BOUNDS.dampingEv, silent },
         );
     });
     return list;
@@ -953,56 +974,60 @@ function flatOscillators(fit) {
  * of freedom, and nothing in the data says how the constant divides between
  * them, so the fit can slide from one into the other until it hits a bound.
  *
- * @returns {{ pinned: string[], flat: number[] }} labels, and 1-based oscillators
+ * @returns {{ pinned: Array<{ symbol: string, unit?: object }>, flat: number[] }}
+ *          the parameters, labelled by dispersionFitText.js, and 1-based oscillators
  */
 export function metalFitDiagnostics(fit) {
     if (!fit?.complex) return { pinned: [], flat: [] };
     return {
         pinned: metalParameterList(fit.complex)
             .filter(parameter => !parameter.silent && onABound(parameter.value, parameter.bounds))
-            .map(parameter => parameter.label),
+            .map(({ symbol, unit }) => ({ symbol, unit })),
         flat: flatOscillators(fit),
     };
 }
 
 /**
- * The fitted parameters, labelled, with the formula they belong to.
+ * The fitted parameters, each with its symbol and unit, and the formula they
+ * belong to.
  *
  * A fit is stored as coefficients, so those coefficients are what the material
  * is computed from and what a user has to be able to read. Wavelength is in
- * micrometres throughout; the metal model is written in electronvolts.
+ * micrometres throughout (`micrometres` true, for the panel to say so); the
+ * metal model is written in electronvolts.
  *
  * A coefficient of a fit that is linear in its coefficients, Cauchy n and the
  * Urbach k, also carries `standardError`, the square root of its variance in
  * the fit's covariance. k0 is fitted as ln k0, so its spread is k0·σ(ln k0),
  * the first-order propagation through the exponential.
  *
- * @returns {{ formula: string,
- *             parameters: Array<{ label: string, value: number, standardError?: number }> }}
+ * @returns {{ formula: string, micrometres: boolean,
+ *             parameters: Array<{ symbol: string, unit?: object, value: number, standardError?: number }> }}
  */
 export function dispersionFitParameters(fit) {
-    if (!fit) return { formula: '', parameters: [] };
+    if (!fit) return { formula: '', micrometres: false, parameters: [] };
     if (fit.complex) {
         return {
             formula: 'ε(E) = ε∞ − ωp² / (E² + iγD E) + Σ fj / (ωj² − E² − iγj E),  n + ik = √ε',
+            micrometres: false,
             parameters: metalParameterList(fit.complex)
-                .map(({ label, value }) => ({ label, value })),
+                .map(({ symbol, unit, value }) => ({ symbol, unit, value })),
         };
     }
     const parameters = [];
     if (fit.n.kind === 'cauchy') {
         fit.n.coefficients.forEach((value, order) => {
             parameters.push({
-                label: order === 0 ? 'A0' : `A${order} (µm^${2 * order})`, value,
+                symbol: `A${order}`, ...(order === 0 ? {} : { unit: micrometresTo(2 * order) }), value,
                 ...standardErrorOf(fit.n, order),
             });
         });
     } else if (fit.n.kind === 'sellmeier') {
-        parameters.push({ label: 'A', value: fit.n.coefficients[0] });
+        parameters.push({ symbol: 'A', value: fit.n.coefficients[0] });
         for (let term = 0; term < fit.n.terms; term++) {
             parameters.push(
-                { label: `B${term + 1}`, value: fit.n.coefficients[1 + 2 * term] },
-                { label: `C${term + 1} (µm²)`, value: fit.n.coefficients[2 + 2 * term] },
+                { symbol: `B${term + 1}`, value: fit.n.coefficients[1 + 2 * term] },
+                { symbol: `C${term + 1}`, unit: micrometresTo(2), value: fit.n.coefficients[2 + 2 * term] },
             );
         }
     }
@@ -1011,18 +1036,18 @@ export function dispersionFitParameters(fit) {
         const logSpread = standardErrorOf(fit.k, 0).standardError;
         parameters.push(
             {
-                label: 'k0', value: amplitude,
+                symbol: 'k0', value: amplitude,
                 ...(logSpread === undefined ? {} : { standardError: amplitude * logSpread }),
             },
-            { label: 'kb (µm)', value: inverseTerm, ...standardErrorOf(fit.k, 1) },
-            { label: 'kc (1/µm)', value: linearTerm, ...standardErrorOf(fit.k, 2) },
+            { symbol: 'kb', unit: MICROMETRE, value: inverseTerm, ...standardErrorOf(fit.k, 1) },
+            { symbol: 'kc', unit: PER_MICROMETRE, value: linearTerm, ...standardErrorOf(fit.k, 2) },
         );
     }
     const nFormula = fit.n.kind === 'cauchy'
         ? 'n(λ) = A0 + A1/λ² + A2/λ⁴ + …'
         : 'n²(λ) = A + Σ Bj λ² / (λ² − Cj)';
     const kFormula = fit.k.kind === 'urbach' ? ',  k(λ) = k0 exp(kb/λ + kc λ)' : ',  k = 0';
-    return { formula: `${nFormula}${kFormula},  λ in µm`, parameters };
+    return { formula: `${nFormula}${kFormula}`, micrometres: true, parameters };
 }
 
 /**
@@ -1149,7 +1174,7 @@ export function dispersionFitModelName(fit) {
         const oscillators = fit.complex.oscillators.length;
         const name = fit.complex.kind === 'drude' || oscillators === 0
             ? 'Drude'
-            : `Drude-Lorentz (${oscillators} oscillators)`;
+            : `Drude-Lorentz (${oscillators} ${oscillators === 1 ? 'oscillator' : 'oscillators'})`;
         return `Fit: ${name}, ${fit.rangeNm[0]}-${fit.rangeNm[1]} nm`;
     }
     const nName = fit.n.kind === 'sellmeier'

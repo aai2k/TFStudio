@@ -9,8 +9,11 @@
  */
 
 import {
-    dispersionFitModelName, dispersionFitParameters, fitTabulatedMaterial, metalFitDiagnostics,
+    dispersionFitParameters, fitTabulatedMaterial, metalFitDiagnostics,
 } from '../../../../utils/materials/dispersionFits.js';
+import {
+    dispersionFitErrorText, dispersionFitModelText, fitParameterLabel,
+} from '../../../../utils/materials/dispersionFitText.js';
 import { anchoredFitRange, photonEnergyDecades, WIDE_BAND_DECADES } from '../../../../utils/materials/dispersionFitRange.js';
 import { makeGetNK } from '../../../../utils/materials/catalogManager/dispersion.js';
 import { dispersionFitEdges } from '../../../../utils/materials/materialDispersion.js';
@@ -21,13 +24,6 @@ import { smallBtn } from './materialEditorUI.js';
 import { stepKeys } from '../../../ui/numberField.js';
 
 const { createElement: h } = React;
-
-const FIT_MODEL_LABELS = {
-    cauchy: 'Cauchy',
-    sellmeier: 'Sellmeier',
-    drude: 'Drude',
-    'drude-lorentz': 'Drude-Lorentz',
-};
 
 /**
  * The suggestion if it still belongs to what is on screen.
@@ -66,10 +62,11 @@ export function fitActions({ draft, onChange, workingNm, suggestion, setFitError
             const fit = fitTabulatedMaterial(fitRows(draft), {
                 nModel: effectiveFitModel(draft), rangeNm,
             });
-            setFitError('');
+            setFitError(null);
             install(fit);
         } catch (error) {
-            setFitError(error.message || String(error));
+            // Kept whole, so the panel words it in the language shown.
+            setFitError(error);
         }
     };
     return {
@@ -112,12 +109,13 @@ function coefficientText(parameter) {
 }
 
 // The coefficients the material is computed from, with the formula they sit in.
-function renderFitCoefficients(fit, c) {
-    const { formula, parameters } = dispersionFitParameters(fit);
+function renderFitCoefficients(fit, c, units, words) {
+    const { formula, micrometres, parameters } = dispersionFitParameters(fit);
     if (parameters.length === 0) return null;
     const columnWidth = parameters.some(parameter => parameter.standardError !== undefined) ? 230 : 150;
     return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 4 } },
-        h('div', { style: { color: c.textDim, fontSize: 10 } }, formula),
+        h('div', { style: { color: c.textDim, fontSize: 10 } },
+            micrometres ? `${formula},  ${words.lambdaIn(units.um)}` : formula),
         h('div', {
             style: {
                 display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${columnWidth}px, 1fr))`,
@@ -125,10 +123,10 @@ function renderFitCoefficients(fit, c) {
             },
         },
             parameters.map(parameter => h('div', {
-                key: parameter.label,
+                key: parameter.symbol,
                 style: { display: 'flex', justifyContent: 'space-between', gap: 6 },
             },
-                h('span', { style: { color: c.textDim } }, parameter.label),
+                h('span', { style: { color: c.textDim } }, fitParameterLabel(parameter, units)),
                 h('span', { style: { color: c.text } }, coefficientText(parameter)),
             )),
         ),
@@ -165,13 +163,13 @@ function renderFitEdges(draft, me, c, units) {
  * produced it, against the measurement, which is the only place it means
  * anything.
  */
-function fitResidualText(fit, me) {
+function fitResidualText(fit, me, words) {
     const residuals = fit.residuals || {};
     if (!residuals.n) {
         return [me.fitFromMeasurement(fit.source)];
     }
     const summary = (label, value) =>
-        `${label} residual: RMS ${value.rms.toExponential(3)}, max ${value.max.toExponential(3)}`;
+        words.residual(label, value.rms.toExponential(3), value.max.toExponential(3));
     return [
         summary('n', residuals.n),
         // A table with no absorption in it has no k residual to report.
@@ -195,11 +193,11 @@ function fitDiagnostics(fit) {
  * band cannot tell from a constant. Both are ways for a fit to report numbers
  * that read as a measured material when they are an optimiser that gave up.
  */
-function renderFitDiagnostics(fit, me) {
+function renderFitDiagnostics(fit, me, units) {
     const { pinned, flat } = fitDiagnostics(fit);
     if (pinned.length === 0 && flat.length === 0) return null;
     return h('div', { style: { fontSize: 11, color: '#e6a23c', lineHeight: 1.4 } },
-        pinned.length > 0 && me.fitPinnedParameters(pinned.join(', ')),
+        pinned.length > 0 && me.fitPinnedParameters(pinned.map(parameter => fitParameterLabel(parameter, units)).join(', ')),
         pinned.length > 0 && flat.length > 0 && h('br'),
         flat.length > 0 && me.fitFlatOscillators(flat.join(', ')),
     );
@@ -266,7 +264,7 @@ function renderFitRange({ draft, set, me, inputStyle, labelStyle }, fitBand) {
 }
 
 export function renderFitPanel(ctx) {
-    const { draft, set, runFit, fitError, workingNm, me, units, c, sectionLabel, inputStyle } = ctx;
+    const { draft, set, runFit, fitError, workingNm, me, fitWords, units, c, sectionLabel, inputStyle } = ctx;
     const fit = draft.dispersionFit;
     const models = fitModelsForRows(draft.rows);
     // The band both the boxes and the note are about, read once: it walks the
@@ -287,7 +285,7 @@ export function renderFitPanel(ctx) {
                     onChange: event => set('fitModel', event.target.value),
                     style: { ...inputStyle, padding: '3px 6px' },
                 },
-                    models.map(id => h('option', { key: id, value: id }, FIT_MODEL_LABELS[id])),
+                    models.map(id => h('option', { key: id, value: id }, fitWords.models[id])),
                 ),
                 h('button', { type: 'button', onClick: () => runFit(), style: smallBtn(c) },
                     fit ? me.refit : me.fit),
@@ -300,14 +298,15 @@ export function renderFitPanel(ctx) {
             h('div', { style: { color: c.textDim, fontSize: 10, lineHeight: 1.4 } }, me.fitHint),
             renderBandNote(ctx, band),
             fit && h('div', { style: { fontSize: 11, color: c.text } },
-                dispersionFitModelName(fit).replace(/^Fit: /, ''),
+                dispersionFitModelText(fit, fitWords, units),
                 h('br'),
-                ...fitResidualText(fit, me),
+                ...fitResidualText(fit, me, fitWords),
             ),
-            fit && renderFitDiagnostics(fit, me),
+            fit && renderFitDiagnostics(fit, me, units),
             fit && renderFitEdges(draft, me, c, units),
-            fit && renderFitCoefficients(fit, c),
-            fitError && h('div', { style: { color: '#ef5350', fontSize: 11 } }, fitError),
+            fit && renderFitCoefficients(fit, c, units, fitWords),
+            fitError && h('div', { style: { color: '#ef5350', fontSize: 11 } },
+                dispersionFitErrorText(fitError, fitWords)),
         ),
     );
 }

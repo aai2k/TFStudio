@@ -23,7 +23,6 @@
  * the result the caller sees.
  */
 
-import { dispersionFitModelName } from '../dispersionFits.js';
 import { parameterSpread } from '../../math/leastSquares.js';
 import {
     energyComparable,
@@ -209,7 +208,6 @@ export function characterizeFilm(request, hooks = {}) {
             ? null
             : refined.thicknessNm * spread.standardErrors[0],
         fit,
-        modelName: dispersionFitModelName(fit),
         indexModel,
         lambdas,
         measured,

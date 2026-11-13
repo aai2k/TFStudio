@@ -447,7 +447,7 @@ export function UserMaterialForm({
     const me = t.materialEditor;
     const seqRef = useRef(draft._rowSeq || (draft.rows.length + draft.kRows.length + 100));
     const nextKey = () => ++seqRef.current;
-    const [fitError, setFitError] = useState('');
+    const [fitError, setFitError] = useState(null);
     const [suggestion, setSuggestion] = useState(null);
 
     // Field / draft update helpers
@@ -507,7 +507,7 @@ export function UserMaterialForm({
     }, text);
 
     const ctx = {
-        draft, set, me, units: t.units, c, inputStyle, labelStyle, sectionLabel, preview,
+        draft, set, me, fitWords: t.dispersionFit, units: t.units, c, inputStyle, labelStyle, sectionLabel, preview,
         lambdaAxis: t.spectralAxis.lambdaShort,
         formulaInfo, coeffCount, colorIsAuto, autoColor,
         addRow, delRow, editRow, sortRows, pasteRows,

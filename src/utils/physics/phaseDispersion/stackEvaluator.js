@@ -34,6 +34,7 @@ import {
     wavelengthOmegaJet,
 } from '../../../tmmcore.js';
 import { wasmKernel } from '../kernelStack.js';
+import { modelNotes, ROLE_NAMES } from './modelNotes.js';
 
 // tmmcore reports each order in the reciprocal of whatever angular-frequency
 // unit it was given, and names them accordingly. Every caller here works in
@@ -105,31 +106,34 @@ export function evaluateStackPhaseDispersion(options) {
         knotSide,
     } = options;
     const responseCache = new Map();
-    const responseFor = (material, name) => {
+    const responseFor = (material, role) => {
         if (!responseCache.has(material)) {
+            const own = material?.name || material?.id || null;
             responseCache.set(material, {
-                name: material?.name || material?.id || name,
+                name: own || ROLE_NAMES[role],
+                material: own,
+                role,
                 response: materialOmegaResponse(material, wavelengthNm, knotSide),
             });
         }
         return responseCache.get(material);
     };
-    const incident = responseFor(incidentMaterial, 'Incident medium');
-    const substrate = responseFor(substrateMaterial, 'Substrate');
+    const incident = responseFor(incidentMaterial, 'incident');
+    const substrate = responseFor(substrateMaterial, 'substrate');
     const referenceIncident = referenceIncidentMaterial
-        ? responseFor(referenceIncidentMaterial, 'Reference incident medium')
+        ? responseFor(referenceIncidentMaterial, 'referenceIncident')
         : null;
     const layerResponses = layers
         .filter(layer => layer.material && layer.thicknessNm > 0)
         .map(layer => ({
-            indexJet: responseFor(layer.material, 'Layer').response.jet,
+            indexJet: responseFor(layer.material, 'layer').response.jet,
             thicknessNm: layer.thicknessNm,
-            material: responseFor(layer.material, 'Layer'),
+            material: responseFor(layer.material, 'layer'),
         }));
     const used = [incident, substrate, ...layerResponses.map(layer => layer.material)];
     if (referenceIncident) used.push(referenceIncident);
     const continuity = continuityMetadata(used);
-    const models = [...new Set(used.map(item => `${item.name}: ${item.response.model}`))];
+    const notes = modelNotes(used);
     const outsideRange = used.find(item => !item.response.inRange)?.name ?? null;
     const unavailable = used.find(item => item.response.maxOrder < 3 || !item.response.jet);
     if (unavailable) {
@@ -137,7 +141,7 @@ export function evaluateStackPhaseDispersion(options) {
             wavelengthNm,
             valid: false,
             reason: `${unavailable.name}: third-order material derivatives are unavailable`,
-            models,
+            ...notes,
             outsideRange,
             ...continuity,
         };
@@ -163,7 +167,7 @@ export function evaluateStackPhaseDispersion(options) {
             wavelengthNm,
             valid: false,
             reason: `${target === 'T' ? 'Transmission' : 'Reflection'} amplitude is exactly zero`,
-            models,
+            ...notes,
             outsideRange,
             ...continuity,
         };
@@ -173,7 +177,7 @@ export function evaluateStackPhaseDispersion(options) {
         valid: true,
         ...quantities.dispersion,
         thicknessJacobian: quantities.thicknessJacobian,
-        models,
+        ...notes,
         outsideRange,
         ...continuity,
     };
@@ -226,6 +230,7 @@ export function evaluateSubstratePropagation(options) {
         gddFs2: second[0],
         todFs3: third[0],
         model: substrate.model,
+        modelParts: substrate.modelParts,
         outsideRange,
         ...continuity,
     };

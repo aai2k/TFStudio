@@ -257,7 +257,7 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
 
 // ── The results table ─────────────────────────────────────────────────────────
 {
-    const rows = resultsModel.resultRows(result, nk, t.units);
+    const rows = resultsModel.resultRows(result, nk, t.units, t.dispersionFit);
     const labels = rows.map(row => row.quantity);
     assert.ok(labels.includes(nk.rowThickness));
     assert.ok(labels.includes(nk.rowResidual('T')) && labels.includes(nk.rowResidual('R')));
@@ -283,7 +283,7 @@ assert.ok(Math.abs(result.thicknessNm - 420) < 0.5,
             DEL: { rms: 35.55, max: 179.653, points: 201 },
         },
     };
-    const angularRows = resultsModel.resultRows(angular, nk, t.units);
+    const angularRows = resultsModel.resultRows(angular, nk, t.units, t.dispersionFit);
     const residualRow = label => angularRows.find(row => row.quantity === nk.rowResidual(label));
     assert.ok(residualRow('Ψ') && residualRow('Δ'), 'Ψ and Δ each get a residual row');
     assert.match(residualRow('Δ').value, /35\.550°/,
