@@ -60,12 +60,12 @@ const find = (node, test) => [...walk(node)].find(test);
 // The window's context with recording stand-ins for the design's edits and
 // the current environment.
 function context(design, currentId = 'base') {
-    const calls = { updates: [], selected: [] };
+    const calls = { updates: [], selected: [], steps: [] };
     const current = { ...currentEnvironmentOf(design, currentId), select: id => calls.selected.push(id), step() {} };
     const ctx = {
         design, current, c, t, many: hasEnvironments(design), calls,
         updateDesign: patch => calls.updates.push(patch),
-        edit: (id, field, value) => calls.updates.push(fieldEdit(design, id, field, value)),
+        edit: (id, field, value, step) => { calls.updates.push(fieldEdit(design, id, field, value)); calls.steps.push(step); },
     };
     return ctx;
 }
@@ -152,8 +152,15 @@ const apply = (design, patch) => ({ ...design, ...patch });
     find(own, node => node.props?.title === te.resetTip).props.onClick();
     assert.equal(apply(design, ctx.calls.updates.pop()).environments[1].substrate, undefined, 'the cross gives it back');
     const factor = FieldCell({ ctx, env: env('env3'), row: rows.factor });
-    find(factor, node => node.props?.onChange && node.props.value === 0.95).props.onChange(0.9);
+    const factorField = find(factor, node => node.props?.onChange && node.props.value === 0.95);
+    factorField.props.onChange(0.9);
     assert.deepEqual(apply(design, ctx.calls.updates.pop()).environments[2].thicknessFactors, { 'builtin:TiO2': 0.9 });
+    // A step of the field reaches the edit with its burst, so a held arrow
+    // is one undo step (numberField.js stepWriteOptions), on this design and
+    // environment alone.
+    factorField.props.onChange(0.89, { continues: true });
+    assert.deepEqual(ctx.calls.steps.at(-1), { continues: true }, 'a step continuing a burst says so to the edit');
+    assert.equal(factorField.props.burstKey, `${design.id}|env3`, 'a burst belongs to one design and environment');
     assert.equal(FieldCell({ ctx, env: env('base'), row: rows.swap }).props.title, te.baseHasNoLayerFields);
 
     // The head: current, on and name.

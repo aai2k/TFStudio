@@ -94,40 +94,42 @@ const valueText = (ctx, row, value) => VALUE_TEXT[row.kind]?.(ctx, value) ?? Str
 
 // The cone a field cell sets: its switch and its half-angle, the rest in the
 // Design Editor's Settings.
-function coneControl(ctx, value, set) {
+function coneControl(ctx, value, set, burstKey) {
     const { c, t } = ctx;
     const cone = { ...CONE_DEFAULT, ...value };
-    const patch = part => set(coneEdit(value, part));
+    const patch = (part, step) => set(coneEdit(value, part), step);
     return h(React.Fragment, null,
         h(Checkbox, { c, checked: !!cone.enabled, onChange: event => patch({ enabled: event.target.checked }) }),
         h(NumInput, {
             value: cone.halfAngleDeg, c, width: 52, min: 0, max: 89.9, step: 0.5, title: t.designEditor.cone.halfAngle,
-            onChange: v => patch({ halfAngleDeg: v }),
+            burstKey, onChange: (v, step) => patch({ halfAngleDeg: v }, step),
         }),
         h('span', { style: { fontSize: 11, color: c.textDim } }, '°'));
 }
 
-// The control of a field its environment sets.
-function fieldControl(ctx, row, value, set) {
+// The control of a field its environment sets. `set(value, step)` takes a
+// number field's step, so a burst of steps on one design and environment
+// (`burstKey`) is one undo step.
+function fieldControl(ctx, row, value, set, burstKey) {
     const { c, t } = ctx;
     if (row.kind === 'material') {
         return h('div', { style: { flex: 1, minWidth: 0 } }, h(MaterialPicker, { value, onChange: set, c, t, compact: true }));
     }
-    if (row.kind === 'cone') return coneControl(ctx, value, set);
+    if (row.kind === 'cone') return coneControl(ctx, value, set, burstKey);
     if (row.kind === 'backSide') {
         const options = ['side', 'total'].map(id => ({ id, label: backSideWord(t.environments, id) }));
         return h(SelectField, { value, onChange: set, options, c, width: 96 });
     }
     if (row.kind === 'temperature') {
         return h(React.Fragment, null,
-            h(NumInput, { value, c, width: 64, step: 5, onChange: v => { if (v > -273.15) set(v); } }),
+            h(NumInput, { value, c, width: 64, step: 5, burstKey, onChange: (v, step) => { if (v > -273.15) set(v, step); } }),
             h('span', { style: { fontSize: 11, color: c.textDim } }, t.units.celsius));
     }
     const thickness = row.kind === 'thickness';
     return h(React.Fragment, null,
         h(NumInput, {
             value, onChange: set, c, width: 64, positive: !thickness, min: thickness ? 0 : undefined,
-            step: thickness ? 0.1 : 0.01,
+            step: thickness ? 0.1 : 0.01, burstKey,
         }),
         thickness && h('span', { style: { fontSize: 11, color: c.textDim } }, t.units.mm));
 }
@@ -159,9 +161,9 @@ export function FieldCell({ ctx, env, row }) {
             },
         }, text);
     }
-    const set = next => edit(env.id, row.field, next);
+    const set = (next, step) => edit(env.id, row.field, next, step);
     return h('span', { style: { display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 } },
-        fieldControl(ctx, row, value, set),
+        fieldControl(ctx, row, value, set, `${design.id}|${env.id}`),
         env.id !== BASE_ENVIRONMENT && h('button', {
             type: 'button', title: te.resetTip, 'aria-label': te.resetTip, onClick: () => set(null),
             style: { ...plainButton, display: 'flex', alignItems: 'center', color: c.textDim, padding: '0 2px' },

@@ -13,6 +13,7 @@
 import { useDesign } from '../../../../state/DesignContext.js';
 import { useLiveDesign } from '../../../../state/useLiveDesign.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
+import { stepWriteOptions } from '../../../ui/numberField.js';
 import { ActionButton } from '../../analysis/chrome/controls.js';
 import { useMeritValues } from '../../optimization/useMeritValues.js';
 import { DASH } from '../../optimization/meritFunctionEditor/mfTable/operandViewModel.js';
@@ -96,7 +97,8 @@ export function Environments({ c, t }) {
     const merits = useMemo(() => environmentMerits(design, operands, values), [design, operands, values]);
     const ctx = {
         design, updateDesign, current, c, t, many: hasEnvironments(design),
-        edit: (id, field, value) => updateDesign(fieldEdit(design, id, field, value)),
+        // `step`, a number field's step, makes a burst of steps one undo step.
+        edit: (id, field, value, step) => updateDesign(fieldEdit(design, id, field, value), stepWriteOptions(step)),
     };
     return h('div', {
         style: {
