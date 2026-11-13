@@ -1359,6 +1359,7 @@ export default {
     temperatureTip: 'The temperature this environment is at. Environment 1\'s is the one the layer thicknesses and the materials\' n and k are given at; at another temperature the films and the substrate change from them.',
     constantsMissing: 'Constants missing',
     constantsMissingTip: 'Materials this environment computes with at its temperature that lack a constant of the temperature model. A film lacking its linear expansion or Poisson\'s ratio, or on a substrate lacking its linear expansion, is taken as unstrained; any other missing constant counts as 0.',
+    constantsMissingFor: (names) => `Temperature constants missing: ${names}`,
   },
   designEditor: {
     frontCoating: 'Front coating',

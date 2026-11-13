@@ -8,7 +8,7 @@ import { ConeAngleControl } from './ConeAngleControl.js';
 import { StackDiagram } from './StackDiagram.js';
 import { EnvironmentRow, FieldTag } from './EnvironmentRow.js';
 import { hasEnvironments } from '../../../../utils/environments/environments.js';
-import { fieldEdit, fieldValue } from '../environments/environmentFields.js';
+import { fieldEdit, fieldValue, missingConstantsWords } from '../environments/environmentFields.js';
 
 const { createElement: h } = React;
 
@@ -28,18 +28,26 @@ export function settingsField({ design, current, updateDesign, c, t }, key) {
 
 // The temperature of the current environment, on a design with environments:
 // environment 1's is the one the design's thicknesses and materials hold at.
-function TemperatureRow({ field, fldLabel, unit, numStyle, t }) {
+// Under it, the materials lacking a constant of the temperature model, which
+// the temperature then leaves as they are.
+function TemperatureRow({ field, fldLabel, unit, numStyle, t, design, current, c }) {
     const te = t.environments;
-    return h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' } },
-        fldLabel(te.temperature, te.temperatureTip),
-        field.tag,
-        h(DebouncedInput, {
-            value: field.value,
-            title: te.temperatureTip,
-            onChange: (s) => { const v = parseNumberStrict(s); if (!isNaN(v) && v > -273.15) field.set(v); },
-            style: numStyle,
-        }),
-        unit(t.units.celsius));
+    const lacking = missingConstantsWords(design, current.id, t);
+    return h(React.Fragment, null,
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0' } },
+            fldLabel(te.temperature, te.temperatureTip),
+            field.tag,
+            h(DebouncedInput, {
+                value: field.value,
+                title: te.temperatureTip,
+                onChange: (s) => { const v = parseNumberStrict(s); if (!isNaN(v) && v > -273.15) field.set(v); },
+                style: numStyle,
+            }),
+            unit(t.units.celsius)),
+        lacking && h('div', {
+            title: lacking.hover,
+            style: { fontSize: 10, color: c.warning || '#ef9800', padding: '0 0 4px' },
+        }, te.constantsMissingFor(lacking.names)));
 }
 
 /**
@@ -114,7 +122,7 @@ export function StackSettingsFields(props) {
             }),
             unit(t.units.nm),
         ),
-        many && h(TemperatureRow, { field: settingsField(props, 'temperatureC'), fldLabel, unit, numStyle, t }),
+        many && h(TemperatureRow, { field: settingsField(props, 'temperatureC'), fldLabel, unit, numStyle, t, design, current, c }),
         h(Sep, { c }),
         // Cone-angle averaging (convergent/divergent beam)
         h(ConeAngleControl, { design, updateDesign, c, t, field: current.index > 0 ? settingsField(props, 'cone') : null })

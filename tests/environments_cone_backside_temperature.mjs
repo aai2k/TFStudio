@@ -407,6 +407,22 @@ check('under the temperature it names each material lacking a constant, in the e
 });
 
 // ── 7. The Design Editor's Settings ────────────────────────────────────────
+check('under the temperature it names the materials lacking a constant, so a temperature that changes nothing says why', () => {
+    const three = threeEnvironmentDesign();
+    const hot = { ...three, environments: three.environments.map(env => (env.id === 'env2' ? { ...env, temperatureC: 60 } : env)) };
+    const noteOf = id => {
+        const fields = StackSettingsFields({
+            design: hot, media: environmentMedia(hot, id), current: currentEnvironmentOf(hot, id),
+            updateDesign: () => {}, refLambda: 550, c, t,
+        });
+        const row = [...walk(fields)].find(node => node.type?.name === 'TemperatureRow');
+        return [...walk(row.type(row.props))].find(node => node.props?.title?.startsWith(te.constantsMissingTip));
+    };
+    const note = noteOf('env2');
+    assert.ok(note && String(note.props.children).includes(designMaterialShortName(hot, 'builtin:TiO2')), 'environment 2 at 60 °C names TiO2');
+    assert.ok(note.props.title.includes(t.materialEditor.mechanicalFields.poissonsRatio), 'and its hover the constants it lacks');
+    assert.equal(noteOf('base'), undefined, 'environment 1 has none: its temperature is the one the others change from');
+});
 check('in environment 2 the temperature, the cone and Ignore other side set its own, with the tag and its cross', () => {
     const design = threeEnvironmentDesign();
     const edits = [];

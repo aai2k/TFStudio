@@ -8,7 +8,7 @@ import { environmentsOf } from '../../../../utils/environments/environments.js';
 import { designMaterialShortName } from '../../../../utils/materials/designMaterials.js';
 import { DASH, fmtContribution } from '../../optimization/meritFunctionEditor/mfTable/operandViewModel.js';
 import { CONE_DEFAULT } from '../designEditor/ConeAngleControl.js';
-import { CONDITION_FIELDS, MEDIA_FIELDS, layerMaterials, missingConstants } from './environmentFields.js';
+import { CONDITION_FIELDS, MEDIA_FIELDS, layerMaterials, missingConstantsWords } from './environmentFields.js';
 import { FieldCell, HeadCell, currentTint } from './EnvironmentCells.js';
 
 const { createElement: h } = React;
@@ -24,14 +24,12 @@ const CONDITION_KINDS = { cone: 'cone', mfEvalMode: 'backSide', temperatureC: 't
 // constant of the model, by name, with each one's missing constants on hover.
 function ConstantsCell({ ctx, env }) {
     const { design, c, t } = ctx;
-    const lacking = missingConstants(design, env.id);
-    if (!lacking?.length) return null;
-    const label = name => t.materialEditor.mechanicalFields[name];
-    const names = lacking.map(({ id }) => designMaterialShortName(design, id));
+    const lacking = missingConstantsWords(design, env.id, t);
+    if (!lacking) return null;
     return h('div', {
-        title: `${t.environments.constantsMissingTip}\n\n${lacking.map(({ missing }, k) => `${names[k]}: ${missing.map(label).join(', ')}`).join('\n')}`,
+        title: lacking.hover,
         style: { fontSize: 11, color: c.warning || '#ef9800', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', padding: '0 5px' },
-    }, names.join(', '));
+    }, lacking.names);
 }
 
 // The rows of the cone, the back side and the temperature, and under the

@@ -1418,6 +1418,7 @@ export default {
     temperatureTip: '该环境的温度。膜层厚度和材料的 n、k 是在环境 1 的温度下给出的；在其他温度下，薄膜和基底随之变化。',
     constantsMissing: '缺少常数',
     constantsMissingTip: '该环境在其温度下计算所用、缺少温度模型常数的材料。薄膜缺少线膨胀系数或泊松比，或其基底缺少线膨胀系数时，按无应变处理；缺少其他常数时按 0 计。',
+    constantsMissingFor: (names) => `缺少温度模型常数：${names}`,
   },
   designEditor: {
     frontCoating: '正面镀膜',

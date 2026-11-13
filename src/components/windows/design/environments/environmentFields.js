@@ -18,6 +18,7 @@ import {
 } from '../../../../utils/environments/environments.js';
 import { setEnvironment } from '../../../../utils/environments/environmentEdits.js';
 import { designTemperature, temperatureChange } from '../../../../utils/environments/environmentTemperature.js';
+import { designMaterialShortName } from '../../../../utils/materials/designMaterials.js';
 
 // A field the design holds under `key`, and an environment under the same
 // key; `fallback` is what the design's field reads as when it has none.
@@ -148,6 +149,20 @@ export function missingConstants(design, id) {
     const env = environmentById(design, id);
     if (id === BASE_ENVIRONMENT || temperatureChange(design, env) === 0) return null;
     return constantsMissingIn(design, id);
+}
+
+/**
+ * missingConstants in words: `{ names, hover }`, the materials by short name
+ * and the hover naming each one's missing constants under what the model does
+ * without them; null when none lack one.
+ */
+export function missingConstantsWords(design, id, t) {
+    const lacking = missingConstants(design, id);
+    if (!lacking?.length) return null;
+    const field = name => t.materialEditor.mechanicalFields[name];
+    const names = lacking.map(({ id: material }) => designMaterialShortName(design, material));
+    const lines = lacking.map(({ missing }, k) => `${names[k]}: ${missing.map(field).join(', ')}`);
+    return { names: names.join(', '), hover: `${t.environments.constantsMissingTip}\n\n${lines.join('\n')}` };
 }
 
 /**
