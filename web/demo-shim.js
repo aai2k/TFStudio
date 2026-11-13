@@ -353,12 +353,16 @@
     hasLocal: false, lastUpdated: null, materialCount: 0, source: 'none',
   }));
 
+  // A design file opens as on the desktop: checked, and with the fixups every
+  // load applies (src/main/designLoad.js, built into demo-design-load.js).
   async function importTfs() {
     const picked = await pickText('.tfs,application/json');
     if (!picked.success) return picked;
     try {
       const design = JSON.parse(picked.text);
-      if (!design || typeof design !== 'object') return fail('File is not a valid TFStudio design.');
+      const invalid = window.DemoDesignLoad.validateDesign(design);
+      if (invalid) return fail(invalid);
+      window.DemoDesignLoad.applyLoadFixups(design);
       // Drop the on-disk version wrapper key; the renderer owns id/name.
       delete design.tfs_version;
       return ok({ design, fileName: picked.fileName.replace(/\.[^.]*$/, '') });

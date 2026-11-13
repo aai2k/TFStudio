@@ -5,7 +5,9 @@
 //   2. Copy build/app/ → web/dist/.
 //   3. Copy the WASM TMM kernel next to index.html (the desktop loads it over IPC;
 //      the web shim fetches it as a static file — see web/demo-shim.js).
-//   4. Copy the demo scripts (demo-examples.js, demo-shim.js).
+//   4. Copy the demo scripts (demo-examples.js, demo-shim.js), and write the
+//      checks and fixups a design file's load applies, which the shim's file
+//      import runs (tools/webDesignLoad.mjs).
 //   5. Rewrite web/dist/index.html: inject the two demo scripts BEFORE the renderer
 //      module so window.DEMO_EXAMPLES + window.electronAPI exist at boot.
 //
@@ -14,6 +16,7 @@ import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DESIGN_LOAD_SCRIPT, bundleDesignLoad } from './webDesignLoad.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, '..');
@@ -35,7 +38,7 @@ function copyTree(from, to) {
   }
 }
 
-function main() {
+async function main() {
   if (!fs.existsSync(buildApp)) {
     console.error('[build-web-demo] build/app/ missing — run `node tools/build-renderer.mjs` first.');
     process.exit(1);
@@ -106,6 +109,8 @@ function main() {
     }
   }
   console.log(`[build-web-demo] copied ${demoScripts.join(', ')} (version → ${appVersion}-web-demo)`);
+  fs.writeFileSync(path.join(outDir, DESIGN_LOAD_SCRIPT), await bundleDesignLoad(), 'utf8');
+  console.log(`[build-web-demo] wrote ${DESIGN_LOAD_SCRIPT} from src/main/designLoad.js`);
 
   // ── Rewrite the <script> block into a deterministic, robust load order ────────
   // The DEMO must mount reliably on slow/mobile connections. Strategy:
@@ -151,6 +156,7 @@ function main() {
     + '    <script src="demo-catalogs.js"></script>\n'
     + '    <script src="demo-storage.js"></script>\n'
     + '    <script src="demo-notice.js"></script>\n'
+    + `    <script src="${DESIGN_LOAD_SCRIPT}"></script>\n`
     + '    <script src="demo-shim.js"></script>\n'
     + '    <script src="vendor/echarts.min.js"></script>\n'
     + '    <script src="vendor/echarts-gl.min.js"></script>\n'
@@ -226,4 +232,4 @@ function main() {
   console.log('[build-web-demo] done → web/dist/  (static — deploy as-is)');
 }
 
-main();
+await main();
