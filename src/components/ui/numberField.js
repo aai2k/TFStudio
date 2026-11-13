@@ -38,6 +38,15 @@
  * are drawn in the colors `c`; `useNumberField` gives the wheel and the keys
  * only.
  *
+ * A step calls `onChange(next, { continues })`, `continues` true when it
+ * follows the field's last step within a second, from the value that step
+ * wrote and under the same `burstKey`. A caller writing a design makes such a
+ * step transient, so a wheel spin, a run of clicks or a held arrow is one undo
+ * step, as for the Design Editor's thickness cells. `burstKey` names what the
+ * field edits, such as the design and environment, so a step after switching
+ * starts a new burst. A typed entry is an edit of its own, and a step that
+ * moves nothing, at a bound, writes nothing.
+ *
  * `useNumberField` returns the input's props for a field with its own look;
  * `NumberField` is the input itself, and passes any other prop, such as
  * `style`, `title`, `disabled` or `autoFocus`, to it as given. A box that keeps
@@ -51,6 +60,16 @@ import { SPIN_WIDTH, SpinArrows } from './SpinArrows.js';
 import { stepModifiers, stepScale, useWheelStep } from './wheelStep.js';
 
 const { createElement: h, useRef, useState } = React;
+
+// A pause this long between steps ends a burst, as it does for the thickness
+// cells (useThicknessStep.js).
+const BURST_GAP_MS = 1000;
+
+/**
+ * The options updateDesign takes for a number field's step: a step that
+ * continues a burst is transient, so the burst is one undo step.
+ */
+export const stepWriteOptions = step => (step?.continues ? { transient: true, compareDirty: true } : undefined);
 
 const textOf = value => (value == null ? '' : String(value));
 const clampTo = (number, min, max) => Math.min(Math.max(number, min ?? -Infinity), max ?? Infinity);
@@ -93,14 +112,37 @@ export function stepValue(from, ticks, modifiers, { step = 1, min, max, positive
 
 const notFocused = element => element.ownerDocument.activeElement !== element;
 
+// `stepTo(from, next)`, which hands a step to `onChange` with whether it
+// continues a burst, and returns whether it did. A step that is refused
+// (null) or leaves `value` as it is writes nothing, and keeps a burst held at
+// a bound going. The last step is `{ at, key, next }`; each is drawn before
+// the next tick arrives, so a field showing anything but `next`, after an
+// undo or an edit elsewhere, has left the burst.
+function useStepBursts(onChange, burstKey, value) {
+    const burstRef = useRef(null);
+    return (from, next) => {
+        const now = performance.now();
+        if (next == null || next === value) {
+            if (burstRef.current) burstRef.current.at = now;
+            return false;
+        }
+        const last = burstRef.current;
+        const sameBurst = !!last && last.key === burstKey && now - last.at <= BURST_GAP_MS;
+        burstRef.current = { at: now, key: burstKey, next };
+        ReactDOM.flushSync(() => onChange(next, { continues: sameBurst && from === last.next }));
+        return true;
+    };
+}
+
 // The input's props, and `nudge(direction, modifiers)`, which steps from the
 // half-typed entry when there is one and from the value otherwise.
 function useField({
     value, onChange, min, max, step = 1, positive = false, integer = false,
-    nullable = false, emptyStep = 0, spin = false,
+    nullable = false, emptyStep = 0, spin = false, burstKey,
 }) {
     // What is being typed, or null while the field shows `value`.
     const [draft, setDraft] = useState(null);
+    const stepTo = useStepBursts(onChange, burstKey, value);
     const read = (text) => {
         const parsed = parseNumberStrict(text);
         return integer ? Math.trunc(parsed) : parsed;
@@ -122,14 +164,12 @@ function useField({
         const next = from == null
             ? stepNumber(emptyStep, 0, { min, max, positive })
             : stepValue(from, direction, modifiers, { step, min, max, positive, integer });
-        if (next == null) return;
-        setDraft(null);
-        onChange(next);
+        // A step taken shows the value it wrote in place of what was typed.
+        if (stepTo(from, next)) setDraft(null);
     };
     const ref = useRef(null);
     useWheelStep(ref, spin && draft == null && value != null, (ticks, modifiers) => {
-        const next = stepValue(value, ticks, modifiers, { step, min, max, positive, integer });
-        if (next != null && next !== value) onChange(next);
+        stepTo(value, stepValue(value, ticks, modifiers, { step, min, max, positive, integer }));
     }, { blocked: notFocused });
     const props = {
         ...(spin ? { ref } : {}),
@@ -191,9 +231,9 @@ function SpinInput({ input, onStep, c }) {
 }
 
 export function NumberField({
-    value, onChange, min, max, step, positive, integer, nullable, emptyStep, spin, c, ...rest
+    value, onChange, min, max, step, positive, integer, nullable, emptyStep, spin, burstKey, c, ...rest
 }) {
-    const field = useField({ value, onChange, min, max, step, positive, integer, nullable, emptyStep, spin });
+    const field = useField({ value, onChange, min, max, step, positive, integer, nullable, emptyStep, spin, burstKey });
     const input = { ...rest, ...field.props };
     return spin ? h(SpinInput, { input, onStep: field.nudge, c }) : h('input', input);
 }

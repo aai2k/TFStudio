@@ -34,6 +34,10 @@ function makeStore() {
     };
 }
 
+// A step is drawn before the next one arrives (numberField.js); here every
+// change is in place already, so flushing has nothing to wait for.
+globalThis.ReactDOM ??= { flushSync: fn => fn() };
+
 globalThis.React = {
     createElement: (type, props, ...children) => ({ type, props: { ...(props || {}), children } }),
     Fragment: 'fragment',

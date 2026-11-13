@@ -94,6 +94,10 @@ export function makeHookRuntime() {
     };
 }
 
+// A number field draws each step before the next one (numberField.js); here
+// every change is in place already, so flushing has nothing to wait for.
+globalThis.ReactDOM ??= { flushSync: fn => fn() };
+
 /**
  * Import a module with the harness installed as the global React, so the
  * `const { useState } = React` a window module runs at load time picks it up.

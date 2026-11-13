@@ -13,6 +13,11 @@
  *      and a half-typed entry steps from what is typed.
  *   4. Every window settings field has them: the toolbar field every analysis
  *      window uses, the Preferences rows, and the windows that draw their own.
+ *   5. Steps less than a second apart are one burst: each step after the
+ *      first says it continues, so a caller writing a design makes the burst
+ *      one undo step. A pause, a typed entry, a value the burst did not write
+ *      (an undo) or another `burstKey` starts a new one, and a step that moves
+ *      nothing writes nothing.
  *
  * Run: node tests/number_field_stepping.mjs
  */
@@ -20,7 +25,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { mount } from './_typeIntoField.mjs';
 
-const { NumberField, stepValue } = await import('../src/components/ui/numberField.js');
+const { NumberField, stepValue, stepWriteOptions } = await import('../src/components/ui/numberField.js');
 const { stepScale } = await import('../src/components/ui/wheelStep.js');
 const { SPIN_WIDTH } = await import('../src/components/ui/SpinArrows.js');
 const { NumInput } = await import('../src/components/windows/analysis/chrome/controls.js');
@@ -50,9 +55,10 @@ assert.equal(stepValue(12, 1, shift, { step: 1, integer: true }), 22);
 // The values a field hands on, and the field, which keeps what it is handed.
 function held(props, Component = NumberField) {
     const values = [];
+    const steps = [];
     const kept = { value: 400, step: 10, ...props };
-    kept.onChange = (value) => { values.push(value); kept.value = value; };
-    return { values, field: mount(Component, kept) };
+    kept.onChange = (value, step) => { values.push(value); steps.push(step); kept.value = value; };
+    return { values, steps, kept, field: mount(Component, kept) };
 }
 const key = (f, name, modifiers = {}) => f.input().props.onKeyDown({ key: name, ...modifiers, preventDefault() {} });
 
@@ -178,6 +184,71 @@ for (const file of OWN_FIELDS) {
     const all = (text.match(/h\(NumberField, \{/g) || []).length;
     const spinning = (text.match(/h\(NumberField, \{ spin: true, c,/g) || []).length;
     assert.ok(all > 0 && spinning === all, `${file}: every number field steps (${spinning} of ${all})`);
+}
+
+// ── 5. Bursts ────────────────────────────────────────────────────────────────
+{
+    let clock = 10_000;
+    const realNow = performance.now.bind(performance);
+    performance.now = () => clock;
+    try {
+        const { values, steps, kept, field: f } = held({ burstKey: 'A', max: 500 });
+        const continues = () => steps.map(step => step?.continues);
+        key(f, 'ArrowUp');
+        clock += 300;
+        key(f, 'ArrowUp');
+        clock += 300;
+        key(f, 'ArrowUp');
+        assert.deepEqual(values, [410, 420, 430]);
+        assert.deepEqual(continues(), [false, true, true], 'steps 0.3 s apart are one burst');
+
+        clock += 1500;
+        key(f, 'ArrowUp');
+        assert.equal(continues().at(-1), false, 'a pause of more than a second starts a new burst');
+
+        // An undo puts back the value the burst started from, which it did
+        // not write: the next step is an undo step of its own.
+        clock += 200;
+        kept.value = 430;
+        key(f, 'ArrowUp');
+        assert.deepEqual([values.at(-1), continues().at(-1)], [440, false], 'a step after an undo starts a new burst');
+
+        clock += 200;
+        kept.burstKey = 'B';
+        key(f, 'ArrowUp');
+        assert.deepEqual([values.at(-1), continues().at(-1)], [450, false], 'so does a step on another design');
+
+        clock += 100;
+        f.type('500');
+        f.input().props.onKeyDown({ key: 'Enter', preventDefault() {} });
+        assert.deepEqual([values.at(-1), steps.at(-1)], [500, undefined], 'a typed entry is an edit of its own');
+        const count = values.length;
+        clock += 100;
+        key(f, 'ArrowUp');
+        assert.equal(values.length, count, 'a step that the bound holds still writes nothing');
+        clock += 100;
+        key(f, 'ArrowDown');
+        assert.deepEqual([values.at(-1), continues().at(-1)], [490, false], 'and the step after a typed entry starts a new burst');
+
+        // An arrow held at the bound keeps the burst going, so coming back
+        // down after it is the same undo step.
+        key(f, 'ArrowUp');
+        for (let tick = 0; tick < 30; tick++) { clock += 50; key(f, 'ArrowUp'); }
+        key(f, 'ArrowDown');
+        assert.deepEqual([values.at(-1), continues().at(-1)], [490, true], 'a burst held at the bound for 1.5 s goes on');
+
+        // A typed entry at the bound is taken by the arrow that stops there.
+        clock += 2000;
+        f.type('500');
+        key(f, 'ArrowUp');
+        assert.equal(values.at(-1), 500, 'an arrow on a typed entry at the bound takes the entry');
+    } finally {
+        performance.now = realNow;
+    }
+    assert.deepEqual(stepWriteOptions({ continues: true }), { transient: true, compareDirty: true },
+        'a step that continues a burst is written transient');
+    assert.deepEqual([stepWriteOptions({ continues: false }), stepWriteOptions(undefined)], [undefined, undefined],
+        'the first step and a typed entry are undo steps');
 }
 
 console.log('PASS: number_field_stepping');

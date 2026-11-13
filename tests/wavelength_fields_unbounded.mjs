@@ -25,6 +25,9 @@ import { readFileSync } from 'node:fs';
 // ── A React just large enough to type into a field ──────────────────────────
 
 let hooks = null;
+// A number field draws each step before the next one; here every change is
+// in place already.
+globalThis.ReactDOM ??= { flushSync: fn => fn() };
 globalThis.React = {
     createElement: (type, props, ...children) => ({ type, props: { ...(props || {}), children } }),
     Fragment: 'fragment',

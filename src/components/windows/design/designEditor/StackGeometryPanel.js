@@ -1,4 +1,5 @@
 import { DebouncedInput } from '../../../ui/DebouncedInput.js';
+import { NumberField, stepWriteOptions } from '../../../ui/numberField.js';
 import { parseNumberStrict } from '../../../../utils/misc/numberParsing.js';
 import { usePersistentBool } from '../../../ui/usePersistentState.js';
 import { materialHasNoK, rescaleLayersPreserveQWOT } from './units.js';
@@ -14,12 +15,13 @@ const { createElement: h } = React;
 /**
  * A field of the current environment (environmentFields.js): the value it
  * shows, the change an edit makes, and in environment 2 or later the tag that
- * says whether the environment sets it. `props` are the Settings' own.
+ * says whether the environment sets it. `props` are the Settings' own; `set`
+ * takes a number field's step as its second argument.
  */
 export function settingsField({ design, current, updateDesign, c, t }, key) {
     const field = { key };
     const { value, own } = fieldValue(design, current.id, field);
-    const set = next => updateDesign(fieldEdit(design, current.id, field, next));
+    const set = (next, step) => updateDesign(fieldEdit(design, current.id, field, next), stepWriteOptions(step));
     const tag = current.index > 0 && h(FieldTag, { own, number: current.number, onReset: () => set(null), c, t });
     return { value, set, tag };
 }
@@ -68,6 +70,16 @@ export function StackSettingsFields(props) {
     const fldLabel = (txt, title) => h('span', {
         title, style: { fontSize: 11, color: c.textDim, whiteSpace: 'nowrap' },
     }, txt);
+    // Preserve QWOT: a design specified in quarter-waves keeps its QW counts
+    // when λ₀ moves, so every layer's physical thickness is rescaled (d, OT and
+    // FW change, QW stays) on both sides, a symmetric mirror kept.
+    // A burst of steps belongs to one design in one environment.
+    const burstKey = `${design.id}|${current.id}`;
+    const setRefLambda = (next, step) => updateDesign({
+        referenceWavelength: next,
+        frontLayers: rescaleLayersPreserveQWOT(design.frontLayers || [], refLambda, next, design.materials),
+        backLayers:  rescaleLayersPreserveQWOT(design.backLayers  || [], refLambda, next, design.materials),
+    }, stepWriteOptions(step));
     return h('div', { style: { maxHeight: 260, overflowY: 'auto', paddingTop: 6 } },
         many && h(EnvironmentRow, { design, current, c, t }),
         // Three media on one row: Incident · Substrate · Exit.
@@ -89,32 +101,16 @@ export function StackSettingsFields(props) {
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 6, padding: '4px 0', flexWrap: 'wrap' } },
             fldLabel(de.substrateThick, de.substrateThickTip),
             thickness.tag,
-            h(DebouncedInput, {
-                value: thickness.value ?? 1.0,
-                onChange: (s) => { const v = parseNumberStrict(s); if (!isNaN(v) && v >= 0) thickness.set(v); },
-                style: numStyle,
+            h(NumberField, {
+                value: thickness.value ?? 1.0, onChange: thickness.set, min: 0, step: 0.1,
+                spin: true, burstKey, c, style: numStyle,
             }),
             unit(t.units.mm),
             h('div', { style: { width: 1, height: 18, background: c.border, margin: '0 6px' } }),
             fldLabel(de.refLambdaShort || de.refLambda, de.refLambdaTip),
-            h(DebouncedInput, {
-                value: refLambda,
-                title: de.refLambdaTip,
-                onChange: (s) => {
-                    const v = parseNumberStrict(s);
-                    if (isNaN(v) || v <= 0) return;
-                    // Preserve QWOT: a design specified in quarter-waves must keep
-                    // its QW counts when λ₀ moves — rescale every layer's physical
-                    // thickness (d/OT/FW change, QW stays); both stacks, symmetric
-                    // mirror preserved.
-                    const old = refLambda;
-                    updateDesign({
-                        referenceWavelength: v,
-                        frontLayers: rescaleLayersPreserveQWOT(design.frontLayers || [], old, v, design.materials),
-                        backLayers:  rescaleLayersPreserveQWOT(design.backLayers  || [], old, v, design.materials),
-                    });
-                },
-                style: numStyle,
+            h(NumberField, {
+                value: refLambda, onChange: setRefLambda, positive: true, step: 1,
+                title: de.refLambdaTip, spin: true, burstKey, c, style: numStyle,
             }),
             unit(t.units.nm),
         ),

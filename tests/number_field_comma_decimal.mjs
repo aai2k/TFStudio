@@ -78,8 +78,8 @@ assert.deepEqual(taken({ nullable: true, value: 5 }, f => f.type('').leave()).va
 assert.deepEqual(taken({ value: 0.1, step: 0.2 }, f => f.press('ArrowUp')).values, [0.3], 'up from 0.1 by 0.2 is 0.3');
 assert.deepEqual(taken({ value: 5, step: 10, positive: true }, f => f.press('ArrowDown')).values, [],
     'a positive field does not step below zero');
-assert.deepEqual(taken({ value: 3, step: 1, min: 0, max: 4 }, f => f.press('ArrowUp').press('ArrowUp')).values, [4, 4],
-    'stepping stops at max');
+assert.deepEqual(taken({ value: 3, step: 1, min: 0, max: 4 }, f => f.press('ArrowUp').press('ArrowUp')).values, [4],
+    'stepping stops at max, and a press there changes nothing');
 
 // ── 4b. Arrow keys of a box that keeps its own text ─────────────────────────
 {

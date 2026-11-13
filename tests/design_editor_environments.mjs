@@ -32,7 +32,8 @@ const { DesignEditor } = await import('../src/components/windows/design/designEd
 const { StackSettingsFields } = await import('../src/components/windows/design/designEditor/StackGeometryPanel.js');
 const { FieldTag } = await import('../src/components/windows/design/designEditor/EnvironmentRow.js');
 const { MediaCol } = await import('../src/components/windows/design/designEditor/ui.js');
-const { DebouncedInput } = await import('../src/components/ui/DebouncedInput.js');
+const { NumberField } = await import('../src/components/ui/numberField.js');
+const { nmToUnit } = await import('../src/components/windows/design/designEditor/units.js');
 const {
     currentEnvironmentOf, currentEnvironmentSession, useCurrentEnvironment,
 } = await import('../src/components/windows/design/environments/currentEnvironment.js');
@@ -123,9 +124,10 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     const t = makeLocale('en');
     const de = t.designEditor;
     const edits = [];
+    const writes = [];
     const fields = currentId => StackSettingsFields({
         design, media: environmentMedia(design, currentId), current: currentEnvironmentOf(design, currentId),
-        updateDesign: patch => edits.push(patch), refLambda: 550, c, t,
+        updateDesign: (patch, opts) => { edits.push(patch); writes.push(opts); }, refLambda: 550, c, t,
     });
     const picker = (tree, label) => [...walk(tree)].find(node => node.type === MediaCol && node.props.label === label);
     const apply = patch => ({ ...design, ...patch });
@@ -142,10 +144,32 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     assert.equal(water.incidentMedium, 'builtin:Air', 'the design\'s own medium stays');
     assert.equal(water.environments[1].incidentMedium, 'builtin:H2O', 'environment 2 sets its own');
     assert.equal(water.environments[2].incidentMedium, undefined, 'environment 3 is untouched');
-    [...walk(second)].find(node => node.type === DebouncedInput).props.onChange('2.5');
+    const numbers = tree => [...walk(tree)].filter(node => node.type === NumberField);
+    numbers(second)[0].props.onChange(2.5);
     assert.deepEqual(apply(edits.pop()).environments[1].substrate, { material: 'builtin:Al2O3', thickness: 2.5 },
         'the substrate thickness of environment 2 alone');
     assert.equal(design.substrate.thickness, 1);
+
+    // The substrate thickness and λ₀ step with arrows, the wheel and the arrow
+    // keys, as the analysis windows' settings do.
+    const [thickness, lambda] = numbers(fields('base'));
+    assert.deepEqual([thickness.props.spin, thickness.props.step, thickness.props.min], [true, 0.1, 0],
+        'the substrate thickness spins by 0.1 mm and stops at 0');
+    assert.deepEqual([lambda.props.spin, lambda.props.step, lambda.props.positive, lambda.props.value], [true, 1, true, 550],
+        'λ₀ spins by 1 nm and stays above 0');
+    assert.deepEqual([thickness.props.burstKey, lambda.props.burstKey], [`${design.id}|base`, `${design.id}|base`],
+        'a burst of steps belongs to one design in one environment');
+    lambda.props.onChange(600, { continues: false });
+    const moved = edits.pop();
+    assert.equal(moved.referenceWavelength, 600);
+    const qwot = (layer, lambda0) => nmToUnit(layer.thickness, layer.material, lambda0, 'QWOT', design.materials);
+    assert.ok(Math.abs(qwot(moved.frontLayers[0], 600) - qwot(design.frontLayers[0], 550)) < 1e-9,
+        'a new λ₀ keeps each layer\'s quarter-wave count');
+    assert.equal(writes.at(-1), undefined, 'a typed λ₀, or the first step of a burst, is an undo step');
+    lambda.props.onChange(601, { continues: true });
+    thickness.props.onChange(1.1, { continues: true });
+    assert.deepEqual(writes.slice(-2), [{ transient: true, compareDirty: true }, { transient: true, compareDirty: true }],
+        'a step that continues a burst is transient, so the burst is one undo step, as for the thickness cells');
 
     const tag = picker(second, de.substrate).props.tag;
     assert.equal(tag.type, FieldTag);
