@@ -469,10 +469,24 @@ await check('the range notice reads the environments the plot computes in', () =
     assert.deepEqual(evaluatedMaterials(five, '2d', [mf], null), [], 'MF reads each operand\'s wavelengths, not the plot\'s');
     const map = ids(evaluatedMaterials(five, 'heatmap', [], surfaceIn({ ...LAYER_MAP, env: 'env2' }, five, 'base')));
     assert.ok(map.includes('builtin:H2O'), 'a map in environment 2 reads its water');
-    const mfMap = ids(evaluatedMaterials(five, 'heatmap', [], surfaceIn({ ...LAYER_MAP, z: 'MF' }, five, 'base')));
-    assert.deepEqual(mfMap, ids(rangeMaterials(five)), 'an MF map reads the design\'s own, as before');
+    assert.deepEqual(evaluatedMaterials(five, 'heatmap', [], surfaceIn({ ...LAYER_MAP, z: 'MF' }, five, 'base')), [],
+        'an MF map reads each operand\'s wavelengths, as an MF curve does');
     assert.deepEqual(ids(evaluatedMaterials(lone, '2d', [t], null)), ids(evaluatedMaterials(five, '2d', [curveIn(t, five, 'base')], null)),
         'environment 1 reads the design\'s own');
+});
+await check('an MF map raises no notice from the fixed wavelength it hides', () => {
+    // Two thicknesses on the axes, so a T map sits at the fixed wavelength,
+    // 20 µm, outside the data of the design's materials.
+    const map = { ...makeDefaultSurfaceSpec(lone), xVar: 'thk:0', xFrom: 8, xTo: 16, xSteps: 3, yVar: 'thk:1', yFrom: 40, yTo: 60, ySteps: 3, fixedLambda_nm: 20000 };
+    const markup = spec => {
+        plotState(lone);
+        plotEngineSession.write(lone, { plotMode: 'heatmap', surfaceSpec: spec });
+        return renderToStaticMarkup(withDesign(h(PlotEngine, { c, theme: c, t: en }), lone));
+    };
+    // The range notice is the window's one notice, behind its badge.
+    const badge = `title="${en.analysisChrome.notices}"`;
+    assert.ok(markup({ ...map, z: 'T' }).includes(badge), 'a T map at 20 µm warns');
+    assert.ok(!markup({ ...map, z: 'MF' }).includes(badge), 'an MF map does not');
 });
 
 console.log(`PASS: plot_engine_environments (${pass} checks)`);

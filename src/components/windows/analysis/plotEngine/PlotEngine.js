@@ -42,15 +42,18 @@ function curveLambdaEnds(curve) {
 }
 
 /**
- * The wavelengths the plot as configured will evaluate at.
+ * The wavelengths the plot as configured will evaluate at, or null when it
+ * evaluates at none of its own.
  *
  * A curve run along anything but wavelength still sits at one wavelength, and so
  * does a surface with wavelength on neither axis, so those count as the single
- * wavelength they hold. In 2D the span covers every visible curve at once: they
- * are drawn on one chart and the warning is about the chart.
+ * wavelength they hold. A map of the merit function, like a curve of it, takes
+ * each operand's own wavelengths. In 2D the span covers every visible curve at
+ * once: they are drawn on one chart and the warning is about the chart.
  */
 function evaluatedLambdaSpan(plotMode, curves, spec) {
     if (plotMode !== '2d') {
+        if (spec.z === 'MF') return null;
         const axis = lambdaAxis(spec);
         if (axis === 'x') return [spec.xFrom, spec.xTo];
         if (axis === 'y') return [spec.yFrom, spec.yTo];
@@ -71,17 +74,16 @@ function evaluatedLambdaSpan(plotMode, curves, spec) {
  * The materials the plot as configured evaluates, for the range notice: those
  * of each environment it computes in. In 2D that is the environment of every
  * visible curve that evaluates at a wavelength of its own; a surface computes
- * in its own. A map of the merit function, which takes each operand's own
- * wavelengths, keeps the design's own materials. An environment the design no
- * longer has reads as environment 1. `curves` and `spec` are as computed
- * (environmentField.js).
+ * in its own, and a map of the merit function, which takes each operand's own
+ * wavelengths, in none. An environment the design no longer has reads as
+ * environment 1. `curves` and `spec` are as computed (environmentField.js).
  */
 export function evaluatedMaterials(design, plotMode, curves, spec) {
     let ids;
     if (plotMode === '2d') {
         ids = curves.filter(curve => curve.visible && curveLambdaEnds(curve)).map(curve => curve.env ?? BASE_ENVIRONMENT);
     } else {
-        ids = [spec.z === 'MF' ? BASE_ENVIRONMENT : spec.env ?? BASE_ENVIRONMENT];
+        ids = spec.z === 'MF' ? [] : [spec.env ?? BASE_ENVIRONMENT];
     }
     return [...new Set(ids)].flatMap(id => rangeMaterials(environmentDesign(design, currentEnvironmentOf(design, id).id)));
 }
