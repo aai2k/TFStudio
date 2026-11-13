@@ -2686,7 +2686,7 @@ print(run.stop_reason, len(design.layers), "layers, merit", run.merit)
 
 **拒绝**：
 
-- 在其评价面上没有可供试验改变的膜层的设计、它不接受的设置、超出范围的值、用到找不到对应材料的设计，或设计中没有的环境
+- 在其评价面上没有可供试验改变的膜层的所计算环境、它不接受的设置、超出范围的值、用到找不到对应材料的设计，或设计中没有的环境
 - Python 引发 `KeyboardInterrupt`：运行期间按下 Ctrl+C，在停止运行之后引发
 
 ```js
@@ -11386,7 +11386,7 @@ print("yield", mc.spec.value, "of", mc.spec.runs, "trials")
 | ---------- | ------ |
 | `mc.mode` | `mc.mode` |
 
-试验的评价对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。
+试验的评价对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定，所计算的环境设置了自己的 `scoreOn` / `score_on` 时取该环境的。其 `spec` 给出设计的评价对象，与 `estimateYield()` / `estimate_yield()` 相同。
 
 ```js
 const design = tf.newDesign('AR');

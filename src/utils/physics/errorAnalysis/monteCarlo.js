@@ -50,7 +50,10 @@ import {
  * @param {Function} resolveMat
  * @param {object}   opts
  *   - char:           'T'|'R'|'A'       (default 'R')
- *   - evalMode:       'front'|'back'|'total'  (default 'front')
+ *   - evalMode:       'front'|'back'|'total', environment 1's (default 'front');
+ *                     an environment that sets another other side is
+ *                     evaluated in the mode the design is scored in with it,
+ *                     any other in this one
  *   - nTrials:        number of Monte-Carlo runs (default 20)
  *   - corridorSigma:  k in mean ± k·σ corridor (default 1)
  *   - rmsAbsNm:       per-layer thickness σ — absolute component, in nm (default 0)
@@ -81,8 +84,11 @@ import {
  *                     errors, each layer f·(d + Δd) thick, f the factor of its
  *                     material there times the change its temperature makes,
  *                     made of the environment's material for it at its
- *                     temperature moved by the same Δn and Δk. The top-level spread is the
- *                     first one's.
+ *                     temperature moved by the same Δn and Δk, and evaluated in
+ *                     the mode that environment is scored in, its other side
+ *                     included. A trial's errors go on each side read by an
+ *                     environment the run computes, or judges an enabled check
+ *                     in. The top-level spread is the first one's.
  *
  * With a specification, a trial passes when every enabled check passes in
  * every environment it is judged in (environmentSpecification.js); on a design
@@ -112,7 +118,7 @@ export async function runErrorAnalysisMC(design, params, resolveMat, opts = {}) 
 
     for (let trial = 0; trial < config.nTrials; trial++) {
         const data = prepareMCTrial(config, state);
-        const runs = state.spreads.map(spread => evaluateChar({ ...config, ...trialIn(config, state, data, spread.id) })[config.char]);
+        const runs = state.spreads.map(spread => evaluateChar({ ...config, evalMode: spread.evalMode, ...trialIn(config, state, data, spread.id) })[config.char]);
         updateMCStatistics(state, runs);
         const trialSpec = evaluateTrialSpecification(config, state, data);
         recordMCTrial(config, state, trial, data, trialSpec);

@@ -15,7 +15,9 @@
  *      after it.
  *   4. Monte Carlo and layer sensitivity, and on a design with environments
  *      each environment's spread from one run's trials, the yield over every
- *      environment with each one's own, and the merit each env probes.
+ *      environment with each one's own, and the merit each env probes; an
+ *      environment scored on another side than environment 1 spreads as its
+ *      design computed apart, and is refused or runs as that design is.
  *
  * Run: node tests/api_runs.mjs
  */
@@ -193,6 +195,36 @@ for (const method of ['needle', 'ge']) {
         try { await call(); refused.push(null); } catch (err) { refused.push([err.code, err.fields.option, err.fields.environment]); }
     }
     ok('an environment the design does not have is refused', same(refused, [['unknownEnvironment', 'env', 4], ['unknownEnvironment', 'env', 'env9']]), JSON.stringify(refused));
+
+    // An environment that counts the other side of a design that does not, and
+    // one that ignores it on a design that counts it: each spreads as its own
+    // design computed apart.
+    const { oneEnvironmentDesign: designApart } = await import('../src/utils/environments/environments.js');
+    const counted = api.addEnvironment(start, { name: 'Whole part', mfEvalMode: 'total' });
+    const coated = api.addEnvironment({ ...start, mfEvalMode: 'total' }, { name: 'Coated side', mfEvalMode: 'side' });
+    for (const [one, scored] of [[counted, 'the whole part'], [coated, 'its coated side']]) {
+        const inEnvironment = await api.monteCarlo(one, { ...opts, env: 2 });
+        const apartRun = await api.monteCarlo(designApart(one, 'env2'), opts);
+        ok(`Monte Carlo of an environment scored as ${scored} is that of its design computed apart`, same(inEnvironment, apartRun),
+            `${inEnvironment.theory[5]} vs ${apartRun.theory[5]}`);
+    }
+
+    // A design whose layers are all on its back: environment 1 scores its
+    // bare coated side, environment 2 the whole part; and the reverse. Each
+    // environment is refused, or runs, as its design computed apart.
+    const backed = { ...start, frontLayers: [], backLayers: start.frontLayers };
+    const bareFront = api.addEnvironment(backed, { name: 'Whole part', mfEvalMode: 'total' });
+    const bareCoated = api.addEnvironment({ ...backed, mfEvalMode: 'total' }, { name: 'Coated side', mfEvalMode: 'side' });
+    const answer = async run => { try { return await run(); } catch (err) { return err.message; } };
+    const refusal = 'monteCarlo: the design has no layers to perturb on the side it is scored on';
+    const bare = [await answer(() => api.monteCarlo(bareFront, opts)), await answer(() => api.monteCarlo(bareCoated, { ...opts, env: 2 })),
+        await answer(() => api.monteCarlo(designApart(bareCoated, 'env2'), opts))];
+    ok('Monte Carlo is refused in an environment with no layer on the side it is scored on, as its design computed apart is',
+        same(bare, [refusal, `${refusal} in environment 2`, refusal]), JSON.stringify(bare));
+    const layered = [await answer(() => api.monteCarlo(bareFront, { ...opts, env: 2 })), await answer(() => api.monteCarlo(bareCoated, opts))];
+    ok('and runs in one with layers there, as its design computed apart does',
+        same(layered, [await answer(() => api.monteCarlo(designApart(bareFront, 'env2'), opts)), await answer(() => api.monteCarlo(designApart(bareCoated), opts))])
+        && layered.every(one => typeof one === 'object'), JSON.stringify(layered).slice(0, 200));
 }
 
 console.log(`${pass} passed, ${fail} failed`);

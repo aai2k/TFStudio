@@ -36,6 +36,16 @@ export function seenIn(design, id, resolveMat = null) {
 const judgedFor = (q, judged) => (q.env == null ? judged : judged.filter(({ env }) => env.id === q.env && isEnvironmentOn(env)));
 
 /**
+ * The ids of the environments of `design`, a design with environments, an
+ * enabled check of `qualifiers` is judged in, as evaluateSpecification judges
+ * them.
+ */
+export function environmentsJudged(qualifiers, design) {
+    const judged = environmentsInAll(design);
+    return new Set((qualifiers || []).filter(q => q.enabled).flatMap(q => judgedFor(q, judged).map(({ env }) => env.id)));
+}
+
+/**
  * Each check of `qualifiers` judged on `design`, one result per check in
  * order, as evaluateQualifiers gives them (qualifiers/evaluate.js).
  *

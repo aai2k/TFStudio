@@ -6,9 +6,11 @@
 
 import { evaluateChar } from './spectrumEval.js';
 import { mulberry32 } from '../../monitoring/monitoringSim/rng.js';
+import { resolveEvalMode } from '../optimizer/evalCore/tmmEval.js';
 import {
-    BASE_ENVIRONMENT, environmentDesign, environmentsInAll, environmentsOf, hasEnvironments,
+    BASE_ENVIRONMENT, environmentById, environmentDesign, environmentsInAll, environmentsOf, hasEnvironments,
 } from '../../environments/environments.js';
+import { environmentsJudged } from '../../environments/environmentSpecification.js';
 
 // Seeds are positive 32-bit integers. Mulberry32 maps 0 onto the stream of 1,
 // so 0 is left out and every seed names a stream of its own.
@@ -66,11 +68,39 @@ export function withEnvironments(list, values) {
     return list ? list.map((env, k) => ({ ...env, ...values[k] })) : null;
 }
 
+/**
+ * The mode environment `id` of `design` is evaluated in, `evalMode` being
+ * environment 1's: that mode for environment 1 and for any environment that
+ * keeps environment 1's other side; for one that sets another, the mode the
+ * design is scored in with it (resolveEvalMode).
+ */
+export function environmentMode(design, id, evalMode) {
+    const own = id === BASE_ENVIRONMENT ? null : environmentById(design, id)?.mfEvalMode;
+    if (!own || own === (design.mfEvalMode || 'side')) return evalMode;
+    return resolveEvalMode({ ...design, mfEvalMode: own });
+}
+
+// Whether a trial's errors go on the front and on the back: on each side read
+// by an environment the run computes a spread in, or by one in `judged`, those
+// it judges an enabled check in. Both sides are drawn either way, so the
+// random stream does not depend on it.
+function sidesUsed(design, evalMode, spreads, judged) {
+    const ids = [...(spreads || [{ id: BASE_ENVIRONMENT }]).map(({ id }) => id), ...judged];
+    const modes = ids.map(id => environmentMode(design, id, evalMode));
+    return {
+        usesFront: modes.some(mode => mode === 'front' || mode === 'total'),
+        usesBack: modes.some(mode => mode === 'back' || mode === 'total'),
+    };
+}
+
 export function makeMCConfig(design, params, resolveMat, opts) {
     const evalMode = opts.evalMode ?? 'front';
     const rmsReN = opts.rmsReN ?? 0;
     const rmsImN = opts.rmsImN ?? 0;
     const { rng, seed } = makeRandomStream(opts);
+    const qualifiers = opts.qualifiers || design.qualifiers || [];
+    const evaluateSpec = !!opts.evaluateSpec;
+    const environments = runEnvironments(design, opts.environments);
     return {
         design,
         params,
@@ -89,22 +119,22 @@ export function makeMCConfig(design, params, resolveMat, opts) {
         rng,
         seed,
         onTrial: opts.onTrial || null,
-        evaluateSpec: !!opts.evaluateSpec,
-        qualifiers: opts.qualifiers || design.qualifiers || [],
+        evaluateSpec,
+        qualifiers,
         recordTrials: !!opts.recordTrials,
         shouldCancel: typeof opts.shouldCancel === 'function' ? opts.shouldCancel : null,
         onYield: typeof opts.onYield === 'function' ? opts.onYield : null,
         yieldEvery: Math.max(1, Math.floor(opts.yieldEvery ?? 8)),
         front: design.frontLayers || [],
         back: design.backLayers || [],
-        usesFront: evalMode === 'front' || evalMode === 'total',
-        usesBack: evalMode === 'back' || evalMode === 'total',
+        ...sidesUsed(design, evalMode, environments.spreads,
+            evaluateSpec && environments.judged ? environmentsJudged(qualifiers, design) : []),
         hasIndexErrors: !!(rmsReN || rmsImN),
         // "Keep n·d" holds each layer's optical thickness at the design's
         // reference wavelength (nm), a property of the design rather than of
         // the plotted range, so widening the plot leaves the draws unchanged.
         lambdaReference: design.referenceWavelength || 550,
-        ...runEnvironments(design, opts.environments),
+        ...environments,
     };
 }
 
@@ -126,13 +156,16 @@ export function materialsIn(config, state, id) {
 }
 
 // The running statistics of the spread in environment `env` (environment 1 for
-// null), from the curve of the design that environment sees without errors.
+// null), from the curve of the design that environment sees without errors, in
+// the mode that environment is evaluated in.
 function makeSpread(config, env) {
     const id = env?.id ?? BASE_ENVIRONMENT;
     const design = environmentDesign(config.design, id, config.resolveMat);
+    const evalMode = environmentMode(config.design, id, config.evalMode);
     const theoryRun = evaluateChar({
         ...config,
         design,
+        evalMode,
         frontLayers: id === BASE_ENVIRONMENT ? config.front : design.frontLayers,
         backLayers: id === BASE_ENVIRONMENT ? config.back : design.backLayers,
         getMatForLayer: null,
@@ -142,6 +175,7 @@ function makeSpread(config, env) {
     return {
         env,
         id,
+        evalMode,
         lambdas,
         theory: theoryRun[config.char],
         nLambda,

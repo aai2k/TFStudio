@@ -1233,6 +1233,13 @@ async function environmentTolerance(t, said) {
         === canon(yielded.environments.map(e => [e.number, e.id, e.name, e.value, e.passCount, e.evaluated, e.interval])) && got.yield.length === 2, canon(got.yield));
     ok('monte_carlo() of one environment and of each names its environment, as monteCarlo() does here',
         canon(got.spreads) === canon(spreads.map(spread)) && got.spreads?.length === 4, canon(got.spreads?.map(s => s[0])));
+    const counted = new objects.Design(got.design ?? {});
+    counted.environments.add({ name: 'Whole part', mfEvalMode: 'total' });
+    const scored = [await counted.monteCarlo(450, 650, RUN), await counted.monteCarlo(450, 650, { ...RUN, env: 4 }), ...await counted.monteCarlo(450, 650, { ...RUN, env: 'all' })];
+    const modes = scored.map(m => [m.mode, m.spec.mode]);
+    ok('monte_carlo() is scored as its environment is, and its yield as estimate_yield() gives it, as monteCarlo() does here',
+        canon(got.modes) === canon(modes)
+        && canon(modes) === canon([['front', 'front'], ['total', 'front'], ['front', 'front'], ['front', 'front'], ['total', 'front']]), canon(got.modes));
     ok('layer_sensitivity() probes environment 1, the environment env names, or every environment that is on, as layerSensitivity() does here',
         canon(got.merits) === canon([undefined, 2, 'all'].map(env => wet.layerSensitivity({ deltaNm: 2, env }).merit)) && new Set(got.merits).size === 3, canon(got.merits));
     const other = "one of the design's environments by its number, 1 to 3, or its id, base, env2 or env3";

@@ -110,6 +110,21 @@ def mode_of(data):
     return "back" if sides == "back_only" else "front"
 
 
+def mode_in(data, environment, mode):
+    """What a computation on the design `data` scores in `environment`, a
+    dict of number, id and name as a result carries it, None for environment
+    1, `mode` being environment 1's: that mode for environment 1 and for an
+    environment that keeps environment 1's score_on, else mode_of() with the
+    environment's own."""
+    if environment is None:
+        return mode
+    entry = next((e for e in data.get("environments") or [] if e.get("id") == environment["id"]), {})
+    own = entry.get("mfEvalMode")
+    if not own or own == (data.get("mfEvalMode") or "side"):
+        return mode
+    return mode_of(dict(data, mfEvalMode=own))
+
+
 def _environment_of(entry):
     """The environment of `entry`, an entry of the API's environments or of a
     result for env "all", as a result carries it: a dict of number, id and
@@ -3062,10 +3077,10 @@ class Design:
             each with its environment.
 
         Raises:
-            TFStudioError: a design with no layer the trials can change on the
-                side it is scored on, a setting it does not take, a value
-                outside its range, a design that names a material that
-                resolves to nothing, or an environment the design does not
+            TFStudioError: an environment computed with no layer the trials
+                can change on the side it is scored on, a setting it does not
+                take, a value outside its range, a design that names a material
+                that resolves to nothing, or an environment the design does not
                 have.
             KeyboardInterrupt: Ctrl+C during the run, after stopping it.
 
@@ -3081,10 +3096,14 @@ class Design:
         """
         refuse_arguments("monte_carlo", settings, ("from", "to"), _MONTE_CARLO_OPTIONS)
         hooks = run_hooks(settings, lambda: ["onProgress"])
+        # Each spread is scored as its environment is; the yield, judged in
+        # every environment, names the design's mode, as estimate_yield() does.
         mode = mode_of(self._data)
         with worded(_MONTE_CARLO_WORDS):
             result = self._calls.monteCarlo(self._data, dict(api_names(settings), **{"from": start, "to": end}), hooks)
-        return self._in_environment(lambda found, environment: MonteCarlo(found, mode, environment), result, settings.get("env"))
+        return self._in_environment(
+            lambda found, environment: MonteCarlo(found, mode_in(self._data, environment, mode), mode, environment),
+            result, settings.get("env"))
 
     def layer_sensitivity(self, *, step="nm", **settings):
         """How much the merit moves when each layer's thickness is off, as

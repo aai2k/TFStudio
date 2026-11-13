@@ -1287,6 +1287,15 @@ const startData = start._data;
         ...plainAll.map(({ number, id, name, ...r }) => plainSpread(r, { number, id, name }))];
     ok('monteCarlo() without env is environment 1\'s and names none; with env it names it, and gives a MonteCarlo per environment for \'all\'',
         canon(runs.map(spreadOf)) === canon(plainRuns) && runs.length === 5 && runs.every(m => m instanceof objects.MonteCarlo), canon(runs.map(m => m.environment)));
+    // An environment that counts the other side of a design that does not.
+    const counted = start.copy();
+    counted.environments.add({ name: 'Whole part', mfEvalMode: 'total' });
+    counted.specification.add('R_AVG', 450, 650, { cmp: 'le', target: 0.05 });
+    const scored = [await counted.monteCarlo(450, 650, RUN), await counted.monteCarlo(450, 650, { ...RUN, env: 2 }), ...await counted.monteCarlo(450, 650, { ...RUN, env: 'all' })];
+    const modes = scored.map(m => [m.mode, m.spec.mode]);
+    ok('a MonteCarlo is scored as its environment is, and its yield as estimateYield() gives it',
+        canon(modes) === canon([['front', 'front'], ['total', 'front'], ['front', 'front'], ['total', 'front']])
+        && (await counted.specification.estimateYield(5, { seed: 3 })).mode === 'front', canon(modes));
     const probed = [wet.layerSensitivity({ deltaNm: 2 }), wet.layerSensitivity({ deltaNm: 2, env: 3 }), wet.layerSensitivity({ deltaNm: 2, env: 'all' })];
     const plainProbed = [undefined, 3, 'all'].map(env => api.layerSensitivity(wet._data, { deltaNm: 2, env }));
     ok('layerSensitivity() takes env as the plain call does: environment 1 without it, one environment, or the merit over all of them',

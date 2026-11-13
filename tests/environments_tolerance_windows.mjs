@@ -18,7 +18,10 @@
  *      shown, environment 1's spread being the run's own; the window shows the
  *      spread of the environment chosen from the run it holds, and none where
  *      the run did not compute it; the statistics list each environment's own
- *      yield; the range notice reads the environment shown.
+ *      yield; an environment that counts the other side of a design that does
+ *      not shows the spread of its design computed apart; a run is offered
+ *      wherever the environment shown has layers on the side it is scored on;
+ *      the range notice reads the environment shown.
  *   4. Layer Sensitivity: the droplist with All in a row of its own between
  *      the table and the chart; the ranking probes the environment shown, or
  *      under All the merit over every environment that is on.
@@ -49,7 +52,8 @@ initCatalogs({});
 const { oneEnvironmentDesign } = await import('./_environmentDesign.mjs');
 const { environmentChoiceSession } = await import('../src/components/windows/analysis/chrome/environmentChoice.js');
 const { currentEnvironmentSession } = await import('../src/components/windows/design/environments/currentEnvironment.js');
-const { environmentDesign } = await import('../src/utils/environments/environments.js');
+const { environmentDesign, oneEnvironmentDesign: environmentApart } = await import('../src/utils/environments/environments.js');
+const { NodeModuleWorker } = await import('./_moduleWorker.mjs');
 const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
 const { DesignContext } = await import('../src/state/DesignContext.js');
 const { resolveEvalMode } = await import('../src/utils/physics/optimizer.js');
@@ -298,6 +302,44 @@ await check('a run starts with environment 1, so its own curves, which the Repor
     assert.deepEqual(SPREAD.map(key => off[key]), SPREAD.map(key => off.environments[0][key]));
     assert.deepEqual(off.mean, (await mcOf(firstOff, ['base'])).mean, 'environment 1\'s spread');
     assert.deepEqual(off.spec.environments.map(({ id }) => id), ['env2', 'env4'], 'while the yield judges the environments that are on');
+});
+await check('a run the window makes shows an environment that counts the other side, on a design that does not, as its design computed apart', async () => {
+    const counted = {
+        ...three, id: 'env-tolerance-mc-counted',
+        environments: ENVIRONMENTS.map(env => (env.id === 'env2' ? { ...env, mfEvalMode: 'total' } : env)),
+    };
+    const SETTINGS = { char: 'R', nTrials: 8, corridorSigma: 1, seed: 31, rmsAbsNm: 0, rmsRelPct: 2, rmsReN: 0.003, rmsImN: 0, distribution: 'gaussian' };
+    errorAnalysisSession.write(counted, { ...SETTINGS, ...MC_PARAMS, perMaterial: false, keepOPT: false, result: null });
+    const got = hooked(() => useErrorAnalysis({ design: counted, evalMode: 'front' }), counted, { choice: 'env2' });
+    // The window starts its run on the analysis worker, the real one here.
+    const stub = globalThis.Worker;
+    let started = 0;
+    globalThis.Worker = class extends NodeModuleWorker {
+        constructor(...args) {
+            super(...args);
+            started++;
+        }
+    };
+    try {
+        await got.handleRun();
+    } finally {
+        globalThis.Worker = stub;
+    }
+    assert.equal(started, 1, 'one worker started');
+    const shownRun = shownSpread(errorAnalysisSession.read(counted).result, 'env2');
+    const apart = environmentApart(counted, 'env2');
+    const apartRun = await runErrorAnalysisMC(apart, MC_PARAMS, designMaterialLookup(apart), { ...SETTINGS, evalMode: 'total' });
+    assert.deepStrictEqual(SPREAD.map(key => shownRun?.[key]), SPREAD.map(key => apartRun[key]));
+});
+await check('the window offers a run in the environment shown wherever that environment has layers on the side it is scored on', () => {
+    const backed = {
+        ...three, id: 'env-tolerance-mc-backed', frontLayers: [], backLayers: three.frontLayers,
+        environments: ENVIRONMENTS.map(env => (env.id === 'env2' ? { ...env, mfEvalMode: 'total' } : env)),
+    };
+    errorAnalysisSession.write(backed, { result: null });
+    const bare = `>${en.errorAnalysis.noLayers}<`;
+    assert.ok(render(ErrorAnalysis, backed).includes(bare), 'environment 1 scores its bare coated side');
+    assert.ok(!render(ErrorAnalysis, backed, { choice: 'env2' }).includes(bare), 'environment 2 scores the whole part');
 });
 await check('the range notice reads the environment shown', () => {
     const got = hooked(() => useErrorAnalysis({ design: three, evalMode: 'front' }), three, { choice: 'env2' });

@@ -1092,14 +1092,14 @@ class MonteCarlo:
         print(mc.runs, "trials, largest spread:", max(mc.stdev))
     """
 
-    def __init__(self, result, mode, environment=None):
+    def __init__(self, result, mode, yield_mode, environment=None):
         wavelength = list(result["lambda"])
         self._curves = {name: Curve(result[key], wavelength) for name, key in (
             ("theory", "theory"), ("mean", "mean"), ("stdev", "stdev"), ("lower", "lower"), ("upper", "upper"),
             ("lowest", "envLower"), ("highest", "envUpper"))}
         spec = result.get("spec")
         self._values = {"wavelength": wavelength, "runs": result["nTrials"], "quantity": result["char"],
-                        "seed": result["seed"], "spec": Yield(dict(spec, seed=result["seed"], mode=mode)) if spec else None,
+                        "seed": result["seed"], "spec": Yield(dict(spec, seed=result["seed"], mode=yield_mode)) if spec else None,
                         "mode": mode, "environment": environment}
 
     wavelength = _reading("wavelength", """The wavelengths, nm.
@@ -1202,7 +1202,9 @@ class MonteCarlo:
             print("yield", mc.spec.value, "of", mc.spec.runs, "trials")
         """)
     mode = _reading("mode", """What the trials scored: "front" or "back", the coated side alone, or
-        "total", the whole part, as the design's sides and score_on said.
+        "total", the whole part, as the design's sides and score_on said, with the score_on of
+        the environment computed where it sets one. Its spec names the design's, as
+        estimate_yield() does.
 
         Example::
 

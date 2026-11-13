@@ -46,15 +46,18 @@ export function shownSpread(result, id) {
  * (monteCarloRun.js). The corridor width goes to the run too, so the run
  * records the k its corridor was drawn with. `runRef` holds the run while it
  * goes, so Stop can end it; a stopped run's result is the trials reported,
- * and none when it reported none.
+ * and none when it reported none. `shownView`, the environment shown (`{
+ * design, mode }`, environment 1 by default), needs a layer to perturb on the
+ * side it is scored on.
  */
 export async function executeRun(options) {
     const {
         design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
         rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, runRef,
         setError, setRunning, setProgress, setResult, setSeed, environments,
+        shownView = { design, mode: evalMode },
     } = options;
-    if (!hasPerturbableLayers(design, evalMode)) {
+    if (!hasPerturbableLayers(shownView.design, shownView.mode)) {
         setError('No layers to perturb.');
         return;
     }
@@ -154,9 +157,9 @@ export function useErrorAnalysis({ design, evalMode }) {
     const run = useCallback(() => executeRun({
         design, params, evalMode, char, nTrials, corridorSigma, rmsAbsNm, rmsRelPct,
         rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, runRef,
-        setError, setRunning, setProgress, setResult, setSeed, environments,
+        setError, setRunning, setProgress, setResult, setSeed, environments, shownView,
     }), [design, params, evalMode, char, nTrials, corridorSigma,
-        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, environments]);
+        rmsAbsNm, rmsRelPct, rmsReN, rmsImN, distribution, perMaterial, keepOPT, seed, environments, shownView]);
 
     // A run goes on when the window is closed, docked elsewhere or its tab
     // switched, and its result lands in the window's session.
@@ -205,7 +208,7 @@ export function useErrorAnalysis({ design, evalMode }) {
         distribution, setDistribution, perMaterial, setPerMaterial, keepOPT, setKeepOPT,
         seed, setSeed, result, running, progress, error, showTrials, setShowTrials,
         showEnvelope, setShowEnvelope, stop, handleRun,
-        environment, shown, shownDesign: shownView.design,
+        environment, shown, shownDesign: shownView.design, shownMode: shownView.mode,
         showEditor: session.showEditor, setShowEditor: value => setField('showEditor', value),
         showTable: session.showTable, setShowTable: value => setField('showTable', value),
     };

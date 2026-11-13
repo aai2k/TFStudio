@@ -2686,7 +2686,7 @@ Monte Carlo trials of the design with random layer errors, as the Monte Carlo wi
 
 **Refuses**:
 
-- a design with no layer the trials can change on the side it is scored on, a setting it does not take, a value outside its range, a design that names a material that resolves to nothing, or an environment the design does not have
+- an environment computed with no layer the trials can change on the side it is scored on, a setting it does not take, a value outside its range, a design that names a material that resolves to nothing, or an environment the design does not have
 - Python raises `KeyboardInterrupt`: Ctrl+C during the run, after stopping it
 
 ```js
@@ -11386,7 +11386,7 @@ print("yield", mc.spec.value, "of", mc.spec.runs, "trials")
 | ---------- | ------ |
 | `mc.mode` | `mc.mode` |
 
-What the trials scored: `'front'` or `'back'`, the coated side alone, or `'total'`, the whole part, as the design's `sides` and `scoreOn` / `score_on` said.
+What the trials scored: `'front'` or `'back'`, the coated side alone, or `'total'`, the whole part, as the design's `sides` and `scoreOn` / `score_on` said, with the `scoreOn` / `score_on` of the environment computed where it sets one. Its `spec` names the design's, as `estimateYield()` / `estimate_yield()` does.
 
 ```js
 const design = tf.newDesign('AR');

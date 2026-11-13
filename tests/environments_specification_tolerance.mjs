@@ -22,10 +22,17 @@
  *      that of environment 1 without them; a trial in another environment is
  *      the trial coating built by hand there, f·(d + Δd) thick, of the
  *      environment's material moved by the same Δn and Δk; one run's spreads
- *      are those of separate runs with the same seed; the yield is the share of
- *      trials passing in every environment, and each environment's own yield
- *      counts its checks alone; a run on the analysis worker gives the result
- *      it gives here, a substrate only environment 2 names included.
+ *      are those of separate runs with the same seed; an environment scored on
+ *      another side than environment 1, the whole part or its coated side
+ *      alone, spreads as its design computed apart, the errors of a side only
+ *      it reads included, and its own yield is that design's; the yield does
+ *      not depend on the spreads a run computes; a trial puts errors on the
+ *      sides an environment it computes, or judges a check in, reads, and no
+ *      other; an environment that keeps environment 1's other side follows
+ *      the mode the run gives environment 1; the yield is the share of trials
+ *      passing in every environment, and each environment's own yield counts
+ *      its checks alone; a run on the analysis worker gives the result it
+ *      gives here, a substrate only environment 2 names included.
  *   6. Layer Sensitivity: environment 1 on a design with environments is
  *      environment 1 without them, over its own rows; another environment's
  *      merit changes are those of the recipe step seen there as f·(d ± Δd);
@@ -281,6 +288,68 @@ await check('one run\'s spreads in several environments are those of separate ru
         assert.deepStrictEqual(spread, spreadOf(apartRun), id);
     }
     assert.deepStrictEqual(spreadOf(run), spreadOf(await mc(one)), 'the top-level spread is the first one\'s');
+});
+// The AR scored on its coated side with environment 2 as the whole part, and
+// the reverse; each with and without a back layer, which the whole part reads
+// and the coated side does not.
+const BACK = [{ id: 'b1', material: 'builtin:MgF2', thickness: 100 }];
+const scoredAs = (own, other, backLayers) => ({
+    ...lone, mfEvalMode: own, backLayers,
+    environments: [{ id: 'base', name: 'BK7' }, { id: 'env2', name: 'Other side', mfEvalMode: other }],
+});
+const modeOf = mfEvalMode => (mfEvalMode === 'total' ? 'total' : 'front');
+await check('an environment scored on another side than environment 1 spreads as its design computed apart, with the errors of a side only it reads', async () => {
+    for (const [own, other] of [['side', 'total'], ['total', 'side']]) {
+        for (const backLayers of [[], BACK]) {
+            const one = scoredAs(own, other, backLayers);
+            const label = `environment 1 ${own}, environment 2 ${other}, ${backLayers.length} back layers`;
+            const run = await mc(one, { evalMode: modeOf(own), environments: ['base', 'env2'] });
+            assert.deepStrictEqual(spreadOf(run.environments[1]), spreadOf(await mc(oneEnvironmentDesign(one, 'env2'), { evalMode: modeOf(other) })), label);
+            assert.deepStrictEqual(spreadOf(run), spreadOf(await mc(oneEnvironmentDesign(one), { evalMode: modeOf(own) })), `${label}: environment 1`);
+        }
+    }
+    const counted = await mc(scoredAs('side', 'total', []), { environments: ['env2'] });
+    const at500 = counted.theory[counted.lambda.indexOf(500)];
+    assert.ok(Math.abs(at500 - 0.1028) < 5e-5, `environment 2 as the whole part at 500 nm: ${at500}`);
+});
+await check('each environment\'s own yield is that of its design computed apart, on the same trials', async () => {
+    for (const backLayers of [[], BACK]) {
+        const plain = scoredAs('side', 'total', backLayers);
+        // A target at environment 2's own value, so its trials split.
+        const checks = [{ ...Q.every, target: evaluateQualifier(Q.every, environmentDesign(plain, 'env2'), designMaterialLookup(plain)).value }];
+        const one = { ...plain, qualifiers: checks };
+        const judged = { nTrials: 40, evaluateSpec: true, qualifiers: checks };
+        const run = await mc(one, { ...judged, environments: ['base', 'env2'] });
+        const counts = ({ passCount, evaluated, yield: share }) => [passCount, evaluated, share];
+        for (const [k, id, mode] of [[0, 'base', 'front'], [1, 'env2', 'total']]) {
+            const apartRun = await mc({ ...oneEnvironmentDesign(one, id), qualifiers: checks }, { ...judged, evalMode: mode });
+            assert.deepEqual(counts(run.spec.environments[k]), counts(apartRun.spec), `${id}, ${backLayers.length} back layers`);
+        }
+        const split = run.spec.environments[1].passCount;
+        assert.ok(split > 0 && split < 40, `environment 2's trials split: ${split}`);
+    }
+});
+await check('the yield is the same whichever environment\'s spread a run computes', async () => {
+    const plain = scoredAs('side', 'total', BACK);
+    const checks = [{ ...Q.every, target: evaluateQualifier(Q.every, environmentDesign(plain, 'env2'), designMaterialLookup(plain)).value }];
+    const one = { ...plain, qualifiers: checks };
+    const yieldWith = async environments => (await mc(one, { nTrials: 40, evaluateSpec: true, qualifiers: checks, environments })).spec;
+    const first = await yieldWith(['base']);
+    assert.deepStrictEqual(await yieldWith(['env2']), first, 'environment 2\'s spread or environment 1\'s');
+    assert.deepStrictEqual(await yieldWith(['base', 'env2']), first, 'or both');
+});
+await check('a trial puts errors on the sides read by an environment it computes, or judges an enabled check in, and no other', async () => {
+    const one = scoredAs('side', 'total', BACK);
+    const backErrors = async qualifiers => (await mc(one, { nTrials: 2, recordTrials: true, evaluateSpec: true, qualifiers, environments: ['base'] }))
+        .trials.map(trial => trial.dThkB);
+    assert.deepEqual(await backErrors([{ ...Q.every, env: 'base' }]), [null, null], 'a check of environment 1 alone leaves the back as it is');
+    assert.deepEqual(await backErrors([{ ...Q.every, enabled: false }]), [null, null], 'and so does a check switched off');
+    assert.ok((await backErrors([Q.every])).every(back => back?.length === BACK.length), 'a check environment 2 judges as the whole part puts errors on the back');
+});
+await check('an environment that keeps environment 1\'s other side is evaluated in the mode the run gives environment 1', async () => {
+    const same = { ...lone, mfEvalMode: 'total', environments: [{ id: 'base', name: 'BK7' }, { id: 'env2', name: 'Air', incidentMedium: 'builtin:Air' }] };
+    const run = await mc(same, { evalMode: 'front', environments: ['base', 'env2'] });
+    assert.deepStrictEqual(spreadOf(run.environments[1]), spreadOf(run.environments[0]));
 });
 await check('the yield is the share of trials passing in every environment, and each environment\'s own yield counts its checks alone', async () => {
     const nominal = evaluateSpecification(design.qualifiers, design);

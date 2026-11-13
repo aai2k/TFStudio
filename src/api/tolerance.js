@@ -3,10 +3,10 @@
 // Layer Sensitivity window's ranking of the layers.
 
 import { runErrorAnalysisMC, computeLayerSensitivity } from '../utils/physics/errorAnalysis.js';
-import { MAX_SEED } from '../utils/physics/errorAnalysis/mcConfig.js';
+import { MAX_SEED, environmentMode } from '../utils/physics/errorAnalysis/mcConfig.js';
 import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
-import { environmentsInAll } from '../utils/environments/environments.js';
+import { BASE_ENVIRONMENT, environmentsInAll, environmentsOf } from '../utils/environments/environments.js';
 import { hasPerturbableLayers } from '../components/windows/analysis/errorAnalysis/trialModel.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
@@ -82,7 +82,7 @@ const MC_CHECKS = [
  * @property settings The error levels, distribution, angle and polarization the run used.
  * @property spec With a specification, `{ yield, passCount, evaluated, yieldInterval, nTrials, perQualifier }`: the share of trials that meet it, how many did, how many were checked, the 95 % interval of the share, the trials run, and for each check, in order, `{ label, failRate }`, the share of all the trials run in which it failed; null without one. On a design with more than one environment a trial meets it when every enabled check passes in every environment it is judged in, and `spec` adds `environments`, as estimateYield gives them.
  * @property trials `null`: the trials themselves are not kept.
- * @throws a design with no layer the trials can change on the side it is scored on
+ * @throws an environment computed with no layer the trials can change on the side it is scored on
  * @throws a design that names a material that resolves to nothing
  * @throws an environment the design does not have, naming the numbers and ids it has
  * @example
@@ -131,6 +131,16 @@ function checkValues(call, o) {
     for (const [name, ok, takes] of MC_CHECKS) if (name in o) requireValue(call, name, o[name], ok, takes);
 }
 
+// Refuses a run in which an environment of `ids` has no layer to perturb on
+// the side it is scored on, `evalMode` being environment 1's.
+function requireLayersIn(call, design, ids, evalMode) {
+    for (const id of ids) {
+        if (hasPerturbableLayers(design, environmentMode(design, id, evalMode))) continue;
+        const number = environmentsOf(design).findIndex(env => env.id === id) + 1;
+        throw new Error(`${call}: the design has no layers to perturb on the side it is scored on${number > 1 ? ` in environment ${number}` : ''}`);
+    }
+}
+
 // The Monte Carlo trials `o` asks for, as the window runs them, with the curve
 // of `quantity` on the wavelength grid `params` in `environments` (ids;
 // environment 1 without them) and, for a design with a specification, each
@@ -138,7 +148,7 @@ function checkValues(call, o) {
 function runTrials(call, design, o, { quantity, params, environments }, { signal, onProgress }) {
     requireResolved(design);
     const evalMode = resolveEvalMode(design);
-    if (!hasPerturbableLayers(design, evalMode)) throw new Error(`${call}: the design has no layers to perturb on the side it is scored on`);
+    requireLayersIn(call, design, environments ?? [BASE_ENVIRONMENT], evalMode);
     requireKernel();
     return runErrorAnalysisMC(design, params, designMaterialLookup(design), {
         ...(environments ? { environments } : {}),

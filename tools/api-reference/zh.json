@@ -1012,8 +1012,8 @@
     "text": "对带有随机膜层误差的设计做蒙特卡洛试验，与蒙特卡洛窗口的做法相同：得到一个量在一段波长范围内的分散，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。设计有规格时，还会统计满足规格的试验所占的比例。有多个环境的设计在环境 1（即设计自身的介质和基底）中计算，除非 `env` 指定了其他环境；每个环境用其自身的介质、基底、厚度系数和材料替换看待每次试验的膜系，一项启用的检查在其判定的每个环境中都通过，试验才满足规格。设计不会改变。"
   },
   "Design.monteCarlo.refuses.1": {
-    "hash": "8e30d078",
-    "text": "在其评价面上没有可供试验改变的膜层的设计、它不接受的设置、超出范围的值、用到找不到对应材料的设计，或设计中没有的环境"
+    "hash": "9fd0bfce",
+    "text": "在其评价面上没有可供试验改变的膜层的所计算环境、它不接受的设置、超出范围的值、用到找不到对应材料的设计，或设计中没有的环境"
   },
   "Design.monteCarlo.raises.1": {
     "hash": "1de6a7f3",
@@ -2988,8 +2988,8 @@
     "text": "设计有规格时，满足规格的试验所占的比例，一个 Yield，与 `specification.estimateYield()` / `specification.estimate_yield()` 的统计相同；没有规格的设计为 `null` / `None`。"
   },
   "MonteCarlo.mode.lead.1": {
-    "hash": "95a2b0aa",
-    "text": "试验的评价对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定。"
+    "hash": "67c2f885",
+    "text": "试验的评价对象：`'front'` 或 `'back'`，仅镀膜面；`'total'`，整个元件；由设计的 `sides` 和 `scoreOn` / `score_on` 决定，所计算的环境设置了自己的 `scoreOn` / `score_on` 时取该环境的。其 `spec` 给出设计的评价对象，与 `estimateYield()` / `estimate_yield()` 相同。"
   },
   "MonteCarlo.environment.lead.1.js": {
     "hash": "f7ae84b1",

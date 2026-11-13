@@ -316,14 +316,14 @@ const MONTE_CARLO_CURVES = [['theory', 'theory'], ['mean', 'mean'], ['stdev', 's
  * console.log(mc.runs, 'trials, largest spread:', Math.max(...mc.stdev));
  */
 export class MonteCarlo {
-    constructor(result, mode, environment = null) {
+    constructor(result, mode, yieldMode, environment = null) {
         const wavelength = Array.from(result.lambda);
         this._curves = Object.fromEntries(MONTE_CARLO_CURVES.map(([name, key]) => [name, curveOf(result[key], wavelength)]));
         this._result = result;
         this._wavelength = wavelength;
         this._mode = mode;
         this._environment = environment;
-        this._spec = result.spec ? new Yield({ ...result.spec, seed: result.seed, mode }) : null;
+        this._spec = result.spec ? new Yield({ ...result.spec, seed: result.seed, mode: yieldMode }) : null;
     }
 
     /**
@@ -462,7 +462,8 @@ export class MonteCarlo {
     /**
      * What the trials scored: `'front'` or `'back'`, the coated side alone,
      * or `'total'`, the whole part, as the design's `sides` and `scoreOn`
-     * said.
+     * said, with the `scoreOn` of the environment computed where it sets one.
+     * Its `spec` names the design's, as estimateYield() does.
      *
      * @example
      * const design = tf.newDesign('AR');

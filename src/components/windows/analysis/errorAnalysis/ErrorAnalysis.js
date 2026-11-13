@@ -78,7 +78,8 @@ export function ErrorAnalysis({ c, t }) {
         () => `${(design?.name || 'design').replace(/[^\w.-]+/g, '_')}_montecarlo.csv`,
     );
 
-    if (!hasPerturbableLayers(design, evalMode)) {
+    // The environment shown needs a layer to perturb on the side it is scored on.
+    if (!hasPerturbableLayers(state.shownDesign, state.shownMode)) {
         return h(CenteredMessage, { c, message: ea.noLayers });
     }
 

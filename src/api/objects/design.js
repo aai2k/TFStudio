@@ -4,6 +4,7 @@ import { inspect } from 'node:util';
 import * as api from '../index.js';
 import { checkOptions, requireValue } from '../check.js';
 import { resolveEvalMode } from '../../utils/physics/optimizer.js';
+import { environmentMode } from '../../utils/physics/errorAnalysis/mcConfig.js';
 import { oneEnvironmentDesign } from '../../utils/environments/environments.js';
 import { ended, hooksFor } from './hooks.js';
 import { Layers } from './layers.js';
@@ -1764,7 +1765,7 @@ export class Design {
      * @param [options.stop] An AbortSignal; aborting its AbortController ends the run, which then answers with the trials it made.
      * @param [options.env] The environment whose spread is computed, by its number from 1 or its id, whether it is on or off; or `'all'` for one spread per environment that is on, environment 1 when none is, all from the same trials. Without it, environment 1.
      * @returns A promise of a MonteCarlo; with `env: 'all'`, of an array of them, one per environment, each with its `environment`.
-     * @throws a design with no layer the trials can change on the side it is scored on, a setting it does not take, a value outside its range, a design that names a material that resolves to nothing, or an environment the design does not have
+     * @throws an environment computed with no layer the trials can change on the side it is scored on, a setting it does not take, a value outside its range, a design that names a material that resolves to nothing, or an environment the design does not have
      * @example
      * const design = tf.newDesign('AR');
      * design.stack('(HL)^2');
@@ -1776,10 +1777,13 @@ export class Design {
     async monteCarlo(start, end, options) {
         const { progress, stop, ...settings } = optionsOf('monteCarlo', options);
         const control = hooksFor(progress, stop, () => ['onProgress']);
+        // Each spread is scored as its environment is; the yield, judged in
+        // every environment, names the design's mode, as estimateYield() does.
         const mode = resolveEvalMode(this._data);
+        const scored = environment => (environment ? environmentMode(this._data, environment.id, mode) : mode);
         const words = { method: 'monteCarlo', call: 'monteCarlo', hidden: ['from', 'to'], extra: ['progress', 'stop'] };
         const run = () => worded(words, () => api.monteCarlo(this._data, { ...defined(settings), from: start, to: end }, control.hooks));
-        return madeIn(this._data, settings.env, await ended(control, run), (found, environment) => new MonteCarlo(found, mode, environment));
+        return madeIn(this._data, settings.env, await ended(control, run), (found, environment) => new MonteCarlo(found, scored(environment), mode, environment));
     }
 
     /**

@@ -1096,9 +1096,10 @@ def environment_tolerance(design):
     of a copy of the design with environments environment_spectra() makes,
     with a merit row and a check of environment 2 alone: each check's env,
     the verdict and the yield in each environment, a Monte Carlo spread of
-    one environment and of each, each naming its environment, the merit
-    layer sensitivity probes in one environment and over all of them, and an
-    environment the design does not have refused."""
+    one environment and of each, each naming its environment, the mode a
+    spread and its yield are scored on where a fourth environment counts the
+    other side, the merit layer sensitivity probes in one environment and
+    over all of them, and an environment the design does not have refused."""
     wet = design.copy()
     wet.merit.add("RAV", 450, 650, target=0)
     wet.specification.add("R_AVG", 450, 650, cmp="le", target=0.05)
@@ -1111,12 +1112,17 @@ def environment_tolerance(design):
     run = {"step": 50, "runs": 5, "seed": 3}
     spreads = [wet.monte_carlo(450, 650, **run), wet.monte_carlo(450, 650, **run, env="env2"),
                *wet.monte_carlo(450, 650, **run, env="all")]
+    counted = wet.copy()
+    counted.environments.add(name="Whole part", mf_eval_mode="total")
+    scored = [counted.monte_carlo(450, 650, **run), counted.monte_carlo(450, 650, **run, env=4),
+              *counted.monte_carlo(450, 650, **run, env="all")]
     out({"environmentTolerance": {
         "design": wet._data,
         "checks": [check.env for check in wet.specification.rows],
         "report": [report.environments, [[r.env, r.values, r.passed] for r in report.rows]],
         "yield": wet.specification.estimate_yield(10, thickness_rel_pct=3, seed=4).environments,
         "spreads": [spread(m) for m in spreads],
+        "modes": [[m.mode, m.spec.mode] for m in scored],
         "merits": [wet.layer_sensitivity(delta_nm=2, env=env).merit for env in (None, 2, "all")],
         "refused": [refused(lambda: wet.monte_carlo(450, 650, env=4)), refused(lambda: wet.layer_sensitivity(env="env9")),
                     refused(lambda: wet.specification.add("R_AT", 550, env=5))]}})
