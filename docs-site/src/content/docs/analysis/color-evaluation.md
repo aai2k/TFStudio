@@ -8,6 +8,12 @@ Color Evaluation turns a coating's spectrum into a perceived color. It takes the
 
 The spectrum is sampled across 380–780 nm and fed through the standard colorimetric integral, so the color matches the curves shown in [Optical Evaluation](/analysis/optical-evaluation/).
 
+## How a color is computed
+
+The eye sees color with three kinds of cones. Colorimetry stands in for them with three color-matching functions, x̄, ȳ and z̄, which the CIE measured on observers: the 1931 2° observer for a small patch looked at straight on, the 1964 10° observer for a larger one. The light that reaches the eye is the illuminant's spectrum times the coating's R or T. Weighted by each matching function and summed over 380–780 nm, it gives three numbers, X, Y and Z. ȳ is the eye's sensitivity to brightness, so Y is how bright the color looks.
+
+Two spectra with the same X, Y and Z look the same color under that illuminant, however different their curves. So three numbers say all there is to say about a color, and every value and diagram in this window is worked out from them. Under another illuminant the same coating can look another color, which is why the illuminant is a setting.
+
 ## Settings
 
 **T / R**: the color of the light the coating transmits or reflects.
@@ -34,11 +40,11 @@ The evaluation surface (front, back, or total) is set in the [Design Editor](/de
 
 The tabs over the plot pick the diagram:
 
-- **x, y**: the CIE 1931 chromaticity diagram.
-- **u′, v′**: the CIE 1976 UCS diagram, where equal distances are closer to equal steps of perceived color than on x, y.
-- **a\*, b\***: the CIE L\*a\*b\* plane.
-- **C\*uv, huv**: the CIE L\*u\*v\* plane on a grid of chroma rings and hue spokes.
-- **C\*ab, hab**: the CIE L\*a\*b\* plane on a grid of chroma rings and hue spokes.
+- **x, y**: the CIE 1931 chromaticity diagram. Every color the eye can see falls inside the horseshoe. Its curved edge, the spectral locus, holds the pure colors of single wavelengths; its straight bottom edge, the purple line, holds the mixes of deep blue and deep red that no single wavelength makes. The illuminant's white is the ×. A point near the white is a pale, near-neutral color, a point toward the edge a strong one, and its direction from the white is its hue. Brightness is left out: a dim and a bright reflection of the same tint land on the same point.
+- **u′, v′**: the CIE 1976 UCS diagram, the same horseshoe stretched so that equal distances are closer to equal steps the eye sees. On x, y a step among the greens that the eye hardly notices is as long as a step among the blues that it plainly sees; here the two are nearer the same length.
+- **a\*, b\***: the CIE L\*a\*b\* plane at one lightness, with the white at the center. a\* runs from green on the left to red on the right, b\* from blue at the bottom to yellow at the top. Distance from the center is how strong the tint is and the direction is its hue. Equal distances are about equal steps the eye sees, so the distance between two points is their ΔE\*ab.
+- **C\*uv, huv**: the CIE L\*u\*v\* plane drawn round the white: the rings are chroma C\*uv, how strong the tint is, and the spokes are hue angle huv.
+- **C\*ab, hab**: the a\*, b\* plane drawn round the white the same way: rings of chroma C\*ab and spokes of hue angle hab, 0° red, 90° yellow, 180° green and 270° blue.
 
 On the x, y and u′, v′ diagrams the inside of the spectral locus (the horseshoe of pure colors, closed by the purple line) is filled with the color of each point, and wavelengths are marked along the locus from 420 to 680 nm. Each point is shown as an sRGB screen shows it, at full brightness, whatever the illuminant. A color a screen cannot show is moved straight toward the screen's D65 white until it can, so it keeps its dominant wavelength, measured from that white, and loses only saturation.
 
@@ -51,6 +57,30 @@ The three L\*a\*b\* and L\*u\*v\* tabs draw the spectral locus and its fill at y
 ## Under the diagram
 
 A line per angle under the diagram shows a patch of the coating's color at that angle, at the window's exposure, with its x, y, Y, L\*, a\*, b\*, its dominant wavelength λd, or for a purple its complementary wavelength λc, and its purity. The values line up in columns, so the change with angle reads down each column, and past six angles the lines scroll. Every other color space is in Results; while Results is open the lines step aside, so the diagram keeps its room.
+
+## What the values mean
+
+Every value comes from the same three numbers, X, Y and Z: the coating's spectrum weighted by the illuminant and by the observer's three color-matching functions.
+
+| Value | What it is |
+|---|---|
+| X, Y, Z | The tristimulus values: how strongly the light stirs each of the observer's three color-matching functions. Y follows the eye's sense of brightness alone. |
+| Y (%) | Luminous reflectance or transmittance: the share of the light the eye sees reflected or transmitted, in %. |
+| x, y | Chromaticity: where the color sits on the x, y diagram with its brightness taken out, x = X / (X + Y + Z) and y = Y / (X + Y + Z). |
+| u′, v′ | The same chromaticity on the CIE 1976 UCS diagram, stretched so that equal distances are closer to equal steps the eye sees. |
+| u, v | The older CIE 1960 chromaticity, on which the correlated color temperature is measured. |
+| L\* | Lightness, from 0 for black to 100 for white. |
+| a\*, b\* | Where the color sits around the white: a\* runs from green below 0 to red above, b\* from blue below 0 to yellow above. 0, 0 is neutral. |
+| C\*ab, hab | The same a\*, b\* as a distance and an angle: the chroma C\*ab says how strong the tint is, the hue angle hab which hue it is, 0° red, 90° yellow, 180° green, 270° blue. |
+| L\*, u\*, v\*, C\*uv, huv | The same in CIE L\*u\*v\*, which is built on u′, v′. |
+| suv | Saturation: the chroma C\*uv for each unit of lightness L\*. |
+| Hunter L, a, b | An older scale of lightness and opposed colors, still named in some specifications. |
+| λd | Dominant wavelength: the spectral color that, mixed with the illuminant's white, matches the coating's color. It names the hue. |
+| λc | Complementary wavelength, for a purple, which no single wavelength matches: the spectral color on the far side of the white. |
+| Purity | How far the color sits from the white toward its spectral color, from 0 % at the white to 100 % on the spectral locus. |
+| CCT | Correlated color temperature: the temperature, in K, of the blackbody whose color is nearest. Only colors near the Planckian locus have one. |
+| Duv | How far the color sits from the Planckian locus on the u, v diagram: positive above it, negative below. |
+| ΔE\*ab, ΔE00 | The difference between two colors: ΔE\*ab is the straight distance in L\*a\*b\*, ΔE00 the CIEDE2000 formula, which follows the eye more closely. About 1 is often taken as the smallest difference seen side by side. |
 
 ## How to read it
 
