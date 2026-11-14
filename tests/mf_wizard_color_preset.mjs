@@ -14,12 +14,15 @@
  *   3. The box beside Preset is Target: Illuminant, Observer and Colors with
  *      Pick, and no angle or polarization; the collapsed header names the
  *      illuminant and observer.
- *   4. A target keeps its colour when its space changes; a pick on the diagram
- *      moves its chromaticity at the luminance it had, to three places; its
- *      patch is the colour at Fit.
+ *   4. A target keeps its colour when its space changes; each space is picked
+ *      on its own diagram, and a pick moves the two values on its axes and
+ *      keeps the third; its patch is the colour at Fit.
  *   5. The editor: titled Color targets, a list of patch, Name, AOI and Pol
  *      with Add and Delete, the Space choice and the three values, Cancel and
- *      OK, in every language.
+ *      OK, in every language. With no targets it opens on Target 1, and Delete
+ *      is off while one target is left.
+ *   6. The a*, b* frame holds the points it is given, not the target: a
+ *      target dragged far keeps the frame it was held to.
  *
  * Run: node tests/mf_wizard_color_preset.mjs
  */
@@ -158,12 +161,30 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     const fields = [...html.matchAll(/width:100px[^>]*value="([^"]*)"/g)].map(m => m[1]);
     assert.deepEqual(fields, ['0.23', '0.24', '1'], `${code}: the selected target's x, y and Y`);
     assert.ok(html.includes(te.hint.xyY), `${code}: and what a click sets`);
+    for (const key of ['x', 'y', 'Y']) {
+        assert.ok(html.includes(`title="${te.fieldTips[key].replace(/'/g, '&#x27;')}"`), `${code}: ${key} says what it is`);
+    }
     const fresh = renderToStaticMarkup(React.createElement(ColorTargetEditor, {
         design: null, typeId: 'COLOR_R', targets: [], illuminant: 'D65', observer: 2,
         onApply: () => {}, onCancel: () => {}, c, t: tl,
     }));
     assert.ok(fresh.includes(`value="${te.targetName(1)}"`), `${code}: with no targets it opens on ${te.targetName(1)}`);
     assert.equal([...fresh.matchAll(/width:100px[^>]*value="([^"]*)"/g)].length, 3, `${code}: selected, with its three values`);
+    const deleteButton = html => html.split('<button').find(part => part.includes(`>${te.delete}<`));
+    assert.ok(!deleteButton(html).includes('disabled=""'), `${code}: Delete is on with two targets`);
+    assert.ok(deleteButton(fresh).includes('disabled=""'), `${code}: and off with one left`);
+}
+
+// ── 6. The a*, b* frame ──────────────────────────────────────────────────────
+{
+    const { buildChromaticityOption } = await import('../src/components/windows/analysis/colorEvaluation/chartFigure.js');
+    const white = model.targetWhite('D65', 2);
+    const edge = (at, viewPoints) => buildChromaticityOption({
+        reports: [], white, observer: '2', diagram: 'ab', display: {}, c, tr: t.colorEval, units: t.units,
+        targets: [{ value: at, label: null }], viewPoints, lightness: 50, fill: false,
+    }).xAxis.max;
+    assert.equal(edge([40, -40], [[1, -1]]), edge([1, -1]), 'a target dragged far keeps the frame it was held to');
+    assert.ok(edge([40, -40]) > edge([1, -1]), 'with nothing held the frame holds the target');
 }
 
 console.error = consoleError;

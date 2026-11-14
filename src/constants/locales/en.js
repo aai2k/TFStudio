@@ -2298,6 +2298,17 @@ export default {
           Lab: 'Click the diagram to set a* and b*; type L*.',
           uvY: 'Click the diagram to set u′ and v′; type Y.',
         },
+        // What each of the three values is, shown over its label and box.
+        fieldTips: {
+          x:  'Chromaticity x, CIE 1931: X / (X + Y + Z)',
+          y:  'Chromaticity y, CIE 1931: Y / (X + Y + Z)',
+          Y:  'Luminous reflectance or transmittance, %: R or T weighted by the illuminant and the observer\'s ȳ',
+          L:  'CIELAB lightness L*, from 0 black to 100 white',
+          a:  'CIELAB a*: green below 0, red above',
+          b:  'CIELAB b*: blue below 0, yellow above',
+          up: 'Chromaticity u′, CIE 1976 UCS: 4X / (X + 15Y + 3Z)',
+          vp: 'Chromaticity v′, CIE 1976 UCS: 9Y / (X + 15Y + 3Z)',
+        },
         rings: (angles) => `The rings are the coating at ${angles.length > 1 ? `${angles.slice(0, -1).join(', ')} and ${angles.at(-1)}` : angles.join('')}.`,
       },
       fieldOptions: {

@@ -2624,6 +2624,16 @@ export default {
           Lab: '点击色度图设置 a* 和 b*；输入 L*。',
           uvY: '点击色度图设置 u′ 和 v′；输入 Y。',
         },
+        fieldTips: {
+          x:  'CIE 1931 色度坐标 x：X / (X + Y + Z)',
+          y:  'CIE 1931 色度坐标 y：Y / (X + Y + Z)',
+          Y:  '亮度因数（%）：按照明体与观察者 ȳ 加权的反射率或透射率',
+          L:  'CIELAB 明度 L*，0 为黑，100 为白',
+          a:  'CIELAB a*：小于 0 偏绿，大于 0 偏红',
+          b:  'CIELAB b*：小于 0 偏蓝，大于 0 偏黄',
+          up: 'CIE 1976 均匀色度坐标 u′：4X / (X + 15Y + 3Z)',
+          vp: 'CIE 1976 均匀色度坐标 v′：9Y / (X + 15Y + 3Z)',
+        },
         rings: (angles) => `圆环为镀膜在 ${angles.join('、')} 时的颜色。`,
       },
       fieldOptions: {

@@ -2646,6 +2646,16 @@ export default {
           Lab: 'Fai clic sul diagramma per impostare a* e b*; digita L*.',
           uvY: 'Fai clic sul diagramma per impostare u′ e v′; digita Y.',
         },
+        fieldTips: {
+          x:  'Coordinata di cromaticità x, CIE 1931: X / (X + Y + Z)',
+          y:  'Coordinata di cromaticità y, CIE 1931: Y / (X + Y + Z)',
+          Y:  'Riflettanza o trasmittanza luminosa, %: R o T pesata con l\'illuminante e la ȳ dell\'osservatore',
+          L:  'Chiarezza CIELAB L*, da 0 nero a 100 bianco',
+          a:  'CIELAB a*: verde sotto 0, rosso sopra',
+          b:  'CIELAB b*: blu sotto 0, giallo sopra',
+          up: 'Coordinata di cromaticità u′, CIE 1976 UCS: 4X / (X + 15Y + 3Z)',
+          vp: 'Coordinata di cromaticità v′, CIE 1976 UCS: 9Y / (X + 15Y + 3Z)',
+        },
         rings: (angles) => `Gli anelli sono il rivestimento a ${angles.length > 1 ? `${angles.slice(0, -1).join(', ')} e ${angles.at(-1)}` : angles.join('')}.`,
       },
       fieldOptions: {
