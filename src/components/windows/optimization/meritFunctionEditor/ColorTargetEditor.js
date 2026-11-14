@@ -60,13 +60,14 @@ function startingColor(design, light, white) {
 
 // The diagram. A press inside its plot hands the point under the pointer to
 // `onPick` as plane coordinates, and so does every move until the button is
-// let go, anywhere on the page.
-function TargetDiagram({ option, onPick }) {
+// let go, anywhere on the page; `onDrag(true)` and `onDrag(false)` mark the
+// press and the release.
+function TargetDiagram({ option, onPick, onDrag }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
     const boundRef = useRef(null);
-    const pickRef = useRef(onPick);
-    pickRef.current = onPick;
+    const handlers = useRef({ onPick, onDrag });
+    handlers.current = { onPick, onDrag };
     const redraw = () => {
         drawChart(divRef.current, chartRef, option);
         const chart = chartRef.current;
@@ -75,17 +76,20 @@ function TargetDiagram({ option, onPick }) {
         let dragging = false;
         const pickAt = event => {
             const at = [event.offsetX, event.offsetY];
-            if (chart.containPixel({ gridIndex: 0 }, at)) pickRef.current(chart.convertFromPixel({ gridIndex: 0 }, at));
+            if (chart.containPixel({ gridIndex: 0 }, at)) handlers.current.onPick(chart.convertFromPixel({ gridIndex: 0 }, at));
         };
         const release = () => {
+            if (!dragging) return;
             dragging = false;
             window.removeEventListener('mouseup', release);
+            handlers.current.onDrag(false);
         };
         const zr = chart.getZr();
         zr.on('mousedown', event => {
             if (!chart.containPixel({ gridIndex: 0 }, [event.offsetX, event.offsetY])) return;
             dragging = true;
             window.addEventListener('mouseup', release);
+            handlers.current.onDrag(true);
             pickAt(event);
         });
         zr.on('mousemove', event => { if (dragging) pickAt(event); });
@@ -196,29 +200,21 @@ export function ColorTargetEditor({ design, typeId, targets, illuminant, observe
     const ringKey = draft.map(target => `${target.aoi}|${target.pol}`).join(',');
     const rings = useMemo(() => coatingRings(design, draft, light), [design, light, ringKey]); // eslint-disable-line react-hooks/exhaustive-deps
     const target = draft[selected];
-    const at = targetOnPlane(target);
-    // The points the a*, b* plane's frame holds besides the coating: the target
-    // where it stood when the plane came up for it, and every value typed
-    // since. A click or a drag never moves the frame, so the plane does not
-    // zoom under the pointer; a value typed past its edge widens it.
-    const frameKey = `${selected}|${target.space}|${ringKey}`;
-    const [frame, setFrame] = useState({ key: frameKey, points: [at] });
-    if (frame.key !== frameKey) setFrame({ key: frameKey, points: [at] });
+    // Where the dragged target was grabbed, which holds the frame of the a*, b*
+    // plane still while it moves; null when nothing is dragged.
+    const [grabbedAt, setGrabbedAt] = useState(null);
     const update = (index, patch) => setDraft(list => list.map((item, k) => (k === index ? { ...item, ...patch } : item)));
-    const type = next => {
-        update(selected, next);
-        setFrame(held => ({ ...held, points: [...held.points, targetOnPlane(next)] }));
-    };
     const option = useMemo(() => {
+        const at = targetOnPlane(target);
         const built = buildChromaticityOption({
             reports: rings, white, observer: String(observer), diagram: TARGET_DIAGRAMS[target.space],
             display: NO_DISPLAY, c, tr: t.colorEval, units: t.units,
-            targets: [{ value: at, label: null }], viewPoints: frame.points,
+            targets: [{ value: at, label: null }], viewPoints: [grabbedAt || at],
             ...(target.space === 'Lab' ? { lightness: Math.min(100, Math.max(1, Math.ceil(target.values[0]))) } : {}),
             grid: aspect => squareGrid({ clientWidth: DIAGRAM_PX, clientHeight: DIAGRAM_PX }, DIAGRAM_MARGIN, aspect),
         });
         return { ...built, legend: { show: false }, toolbox: { show: false } };
-    }, [rings, target, frame, white, observer, c, t]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [rings, target, grabbedAt, white, observer, c, t]);
     const add = () => {
         const made = newColorTarget(te.targetName(draft.length + 1), startingColor(design, light, white), white);
         setDraft(list => [...list, made]);
@@ -229,13 +225,14 @@ export function ColorTargetEditor({ design, typeId, targets, illuminant, observe
         setSelected(index => Math.min(index, draft.length - 2));
     };
     const pick = point => update(selected, targetAtPlanePoint(target, point));
+    const drag = pressed => setGrabbedAt(pressed ? targetOnPlane(target) : null);
     return h('div', { style: BACKDROP, onKeyDown: event => event.key === 'Escape' && onCancel() },
         h('div', { style: { ...MODAL_BASE(c), width: 'fit-content', maxWidth: '96vw' } },
             h('h3', { style: TITLE_STYLE(c) }, te.title),
             h('div', { style: { display: 'flex', gap: 18, alignItems: 'flex-start', margin: '4px 0 14px' } },
                 targetList({ draft, selected, white, c, te, polLabel, update, select: setSelected, add, remove }),
-                h(TargetDiagram, { option, onPick: pick }),
-                colorFields({ target, rings, white, c, te, update: type })),
+                h(TargetDiagram, { option, onPick: pick, onDrag: drag }),
+                colorFields({ target, rings, white, c, te, update: next => update(selected, next) })),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' } },
                 h('button', {
                     type: 'button', onClick: onCancel,
