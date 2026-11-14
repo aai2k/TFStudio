@@ -35,6 +35,45 @@ export function tristimulus(spectrum, observer, illuminant) {
   return { X: k * x.num, Y: k * y.num, Z: k * z.num };
 }
 
+/**
+ * The weights `tristimulus` gives each sample of a response on the grid
+ * `lambda`: X = Σ x[i]·R(λᵢ), and Y and Z alike with y and z. The same
+ * trapezoids over 380–780 nm, an interval cut by a band end taking the
+ * response interpolated linearly to that end, so ∂X/∂R(λᵢ) is x[i] exactly.
+ *
+ * @returns {{x: Float64Array, y: Float64Array, z: Float64Array}} all zero when
+ *          the grid has no width inside the band
+ */
+export function tristimulusWeights(lambda, observer, illuminant) {
+  const cmf = cmfTable(observer);
+  const n = lambda.length;
+  const cols = [new Float64Array(n), new Float64Array(n), new Float64Array(n)];
+  const weightAt = (lam, col) => illumValue(illuminant, lam) * interp(cmf, lam, col);
+  let norm = 0;
+  for (let i = 1; i < n; i++) {
+    const cut = bandInterval(lambda[i - 1], lambda[i]);
+    if (!cut) continue;
+    for (let c = 0; c < 3; c++) {
+      const wFrom = weightAt(cut.from, c + 1), wTo = weightAt(cut.to, c + 1);
+      cols[c][i - 1] += cut.half * ((1 - cut.atFrom) * wFrom + (1 - cut.atTo) * wTo);
+      cols[c][i] += cut.half * (cut.atFrom * wFrom + cut.atTo * wTo);
+    }
+    norm += cut.half * (weightAt(cut.from, 2) + weightAt(cut.to, 2));
+  }
+  const scale = norm > 0 ? 100 / norm : 1;
+  return { x: cols[0].map(w => w * scale), y: cols[1].map(w => w * scale), z: cols[2].map(w => w * scale) };
+}
+
+// The part of the grid interval [left, right] inside 380–780 nm, as the
+// trapezoidal rule takes it: its ends `from` and `to`, where they fall in the
+// interval as fractions `atFrom` and `atTo`, and half its width. Null when
+// none of it is inside.
+function bandInterval(left, right) {
+  const from = Math.max(left, RANGE_MIN), to = Math.min(right, RANGE_MAX);
+  if (to <= from || right <= left) return null;
+  return { from, to, half: 0.5 * (to - from), atFrom: (from - left) / (right - left), atTo: (to - left) / (right - left) };
+}
+
 /** Reference-white XYZ (R ≡ 1) on the wavelength grid `lambda` (nm). */
 export function whitePoint(lambda, observer, illuminant) {
   return tristimulus({ lambda, values: Array.from(lambda, () => 1) }, observer, illuminant);

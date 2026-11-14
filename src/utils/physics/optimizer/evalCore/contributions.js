@@ -1,6 +1,6 @@
 import { isValidMeritWeight } from '../operandModel.js';
 import { _meritDiff, residualScaleIn } from './residualScale.js';
-import { operandEvaluationErrors } from './evalContext.js';
+import { operandColorChromas, operandEvaluationErrors } from './evalContext.js';
 
 // Weighted squared residual per row, aligned with `operands`, plus their sum.
 // A row that puts nothing into the sum is left null. Null overall when a row's
@@ -9,11 +9,12 @@ function _contributionTerms(operands, computed, skipConstraints) {
     const terms = new Array(operands.length).fill(null);
     let total = 0;
     const scaleOf = residualScaleIn(operands);
+    const chromas = operandColorChromas(computed);
     for (let i = 0; i < operands.length; i++) {
         const op = operands[i];
         if (!op.enabled || computed[i] == null) continue;
         if (!isValidMeritWeight(op.weight)) continue;
-        const diff = _meritDiff(op, computed[i], skipConstraints, scaleOf(op));
+        const diff = _meritDiff(op, computed[i], skipConstraints, scaleOf(op), chromas[i]);
         if (diff === null) continue;
         if (!Number.isFinite(diff)) return null;
         const term = op.weight * diff * diff;

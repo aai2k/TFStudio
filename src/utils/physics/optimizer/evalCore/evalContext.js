@@ -110,9 +110,10 @@ function _legacyContext(n0mat, nsmat, thicknesses, mats) {
 // Operands are indexed by id so math operands can resolve op.refId / refId1/2
 // in O(1) and so makeRefResolver can do recursive eval with memoization and
 // cycle detection. The range targets and the curve blocks with their level free
-// leave their per-sample deviations in _sampleDeviations and the worst-case
-// min/max rows the wavelength of their
-// extremum in _extremumLambdas, both keyed by operand.
+// leave their per-sample deviations in _sampleDeviations, the worst-case
+// min/max rows the wavelength of their extremum in _extremumLambdas and the hue
+// rows of colour the chroma beside their hue in _colorChromas, all keyed by
+// operand.
 function _resetPerCallCaches(ctx, operands) {
     ctx._tmmCache = new Map();
     ctx._coneRayCache = new Map();
@@ -120,6 +121,7 @@ function _resetPerCallCaches(ctx, operands) {
     ctx._stackIndex = new Map();
     ctx._sampleDeviations = new Map();
     ctx._extremumLambdas = new Map();
+    ctx._colorChromas = new Map();
     resetOperandCaches(ctx);
     ctx._operandsById = new Map();
     for (const op of operands) ctx._operandsById.set(op.id, op);
@@ -203,11 +205,13 @@ export function evaluateOperands(operands, ctxOrN0, nsmatLegacy, thicknessesLega
     const extremumLambdas = ctx._extremumLambdas.size > 0
         ? operands.map(op => ctx._extremumLambdas.get(op) ?? null)
         : [];
+    const chromas = ctx._colorChromas.size > 0 ? operands.map(op => ctx._colorChromas.get(op) ?? null) : [];
 
     Object.defineProperty(values, 'operandErrors', { value: errors });
     Object.defineProperty(values, 'operandBandLevels', { value: levels });
     Object.defineProperty(values, 'operandSampleDeviations', { value: deviations });
     Object.defineProperty(values, 'operandExtremumLambdas', { value: extremumLambdas });
+    Object.defineProperty(values, 'operandColorChromas', { value: chromas });
     return values;
 }
 
@@ -247,6 +251,15 @@ export function operandExtremumLambdas(computed) {
     return computed?.operandExtremumLambdas || [];
 }
 
+/**
+ * The chroma, C*ab or C*uv, beside the hue each hue row of colour (hab, huv)
+ * read, aligned with `computed`; null or absent for every other row. A hue
+ * row's miss is taken at it (residualScale.js).
+ */
+export function operandColorChromas(computed) {
+    return computed?.operandColorChromas || [];
+}
+
 /** Achieved band level per row, aligned with `computed`; null where not applicable. */
 export function operandBandLevels(computed) {
     return computed?.operandBandLevels || [];
@@ -254,11 +267,13 @@ export function operandBandLevels(computed) {
 
 /**
  * `values`, an array of row values such as one copied back from a worker, with
- * the rows' errors and band levels kept on it as an evaluation keeps them, so
- * operandEvaluationErrors and operandBandLevels read them from it.
+ * the rows' errors, band levels and hue rows' chromas kept on it as an
+ * evaluation keeps them, so operandEvaluationErrors, operandBandLevels and
+ * operandColorChromas read them from it.
  */
-export function withRowNotes(values, errors, bandLevels) {
+export function withRowNotes(values, errors, bandLevels, chromas = []) {
     Object.defineProperty(values, 'operandErrors', { value: errors });
     Object.defineProperty(values, 'operandBandLevels', { value: bandLevels });
+    Object.defineProperty(values, 'operandColorChromas', { value: chromas });
     return values;
 }

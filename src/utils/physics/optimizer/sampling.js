@@ -10,7 +10,7 @@
 
 import {
     isDmfs, isBlank, isManufacturability, isMath, isRangeTarget, isConstant,
-    isIntegral, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve, isPPEF,
+    isIntegral, isColor, isArgwave, isMinmax, isGroupDelayFlat, isMeasuredCurve, isPPEF,
     bandSampleCount, bandFlagCount, isBandGridRow, logOperand,
 } from './operandModel.js';
 import { materialOmegaResponse } from '../../materials/materialDispersion.js';
@@ -22,7 +22,7 @@ export function isRangeAvg(type) { return type === 'TAV' || type === 'RAV' || ty
 // Integral, minmax, and argwave operands share the same sampler so the worker
 // pre-sampler (Approach A) can pre-compute materials' n,k on a single union
 // grid. Inequality operands defer to their baseType (see operandSampleLambdas).
-const BAND_SAMPLED = [isRangeAvg, isRangeTarget, isIntegral, isMinmax, isArgwave, isGroupDelayFlat];
+const BAND_SAMPLED = [isRangeAvg, isRangeTarget, isIntegral, isColor, isMinmax, isArgwave, isGroupDelayFlat];
 export function isBandSampled(type) {
     return BAND_SAMPLED.some(test => test(type));
 }

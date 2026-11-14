@@ -51,13 +51,14 @@ export {
   PHOTOPIC_RANGE_NM, D65_RANGE_NM, D50_RANGE_NM, COLOR_RANGE_NM,
 } from './colorimetry/tables.js';
 export {
-  tristimulus, whitePoint, chromaticityXy, uvPrime, uv1960, lab, luv, hunterLab,
+  tristimulus, tristimulusWeights, whitePoint, chromaticityXy, uvPrime, uv1960, lab, luv, hunterLab,
   labToXyz, luvToXyz, lightnessToY,
 } from './colorimetry/colorSpaces.js';
 export {
   spectralLocusXy, dominantWavelength, correlatedColorTemperature, planckianXyz,
 } from './colorimetry/locus.js';
-export { ciede2000 } from './colorimetry/deltaE.js';
+export { COLOR_QUANTITIES, HUE_CHROMA, colorQuantity, quantityObserver } from './colorimetry/quantities.js';
+export { ciede2000, labDifference } from './colorimetry/deltaE.js';
 export { xyzToSRGB, chromaticityDisplayRgb, SRGB_PRIMARIES, srgbPrimariesUnder } from './colorimetry/srgb.js';
 export { colorReport } from './colorimetry/report.js';
 export {

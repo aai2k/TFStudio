@@ -5,7 +5,7 @@ import { triggerEl } from '../../../../ui/pickerTrigger.js';
 const { createElement: h } = React;
 
 // Category order for the operand type picker's tabs and section headers.
-const TYPE_GROUP_ORDER = ['optical', 'range', 'rangetarget', 'integral', 'worst', 'log', 'phase', 'math', 'argwave', 'thick', 'misc'];
+const TYPE_GROUP_ORDER = ['optical', 'range', 'rangetarget', 'integral', 'color', 'worst', 'log', 'phase', 'math', 'argwave', 'thick', 'misc'];
 
 // Ordered [{ group, label, types[] }] built from the live locale so a new
 // operand group appears automatically once its types carry that `group`.

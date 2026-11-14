@@ -1,7 +1,8 @@
 /**
  * The cells that hold a value out of a list: in the λ columns, in place of a
  * wavelength, a math row's references, a thickness or force row's comparison,
- * an integral's preset and a PPEF row's curve block; and on a design with
+ * an integral's preset, a PPEF row's curve block, and a colour row's quantity
+ * and its illuminant and observer; and on a design with
  * environments, the Env cell, the environment a row is scored in. For each,
  * the entries its list offers, the one the row holds, and the edit a pick
  * makes. The cells draw these (OperandCells.js); the clipboard copies a cell
@@ -13,9 +14,11 @@
  * and the environments a row can be scored in (tableEnvironments.js).
  */
 import {
-    isEllipsometricMeasuredCurve, isIntegral, isLinearThickness, isMath, isMathPairRef, isMeasuredCurve, isPPEF,
+    isColor, isEllipsometricMeasuredCurve, isIntegral, isLinearThickness, isMath, isMathPairRef, isMeasuredCurve, isPPEF,
 } from '../../../../../utils/physics/optimizer.js';
+import { COLOR_QUANTITIES } from '../../../../../utils/physics/colorimetry.js';
 import { takesEnvironment } from './operandViewModel.js';
+import { ILLUMINANT_OBSERVER_PAIRS, illuminantObserverLabel } from './colorRows.js';
 
 // The ≤ / ≥ / = a thickness or force row carries in place of a wavelength: the
 // total thickness in nm (TT) or the film force in N/m (STR) held against the
@@ -79,6 +82,23 @@ const LISTS = {
         held: op => op.refId,
         edit: (op, colKey, refId) => ['_patch', { refId }],
     },
+    // A colour row's quantity, by its id: the cell and its list show it in
+    // symbols and the UI language (OperandCells.js), and it copies as the id,
+    // which scripts name it by.
+    color: {
+        options: () => COLOR_QUANTITIES.map(quantity => ({ value: quantity, label: quantity })),
+        held: op => op.color,
+        edit: (op, colKey, color) => ['_patch', { color }],
+    },
+    // A colour row's illuminant and observer, as one pair: D65 · 2°.
+    illuminantObserver: {
+        options: () => ILLUMINANT_OBSERVER_PAIRS.map(pair => ({ value: pair.label, label: pair.label })),
+        held: illuminantObserverLabel,
+        edit(op, colKey, label) {
+            const pair = ILLUMINANT_OBSERVER_PAIRS.find(item => item.label === label);
+            return pair ? ['_patch', { illuminant: pair.illuminant, observer: pair.observer }] : null;
+        },
+    },
     // Every environment, the null entry, then each one by number and name.
     environment: {
         options: (op, colKey, { environments }) => [{ value: null, label: environments.all }, ...environments.list],
@@ -90,14 +110,15 @@ const LISTS = {
 // The rows whose λ Start holds a value out of a list, and which list.
 const LIST_IN_LAMBDA_START = [
     [isMath, 'reference'], [isLinearThickness, 'comparison'], [isIntegral, 'integral'], [isPPEF, 'curve'],
+    [isColor, 'color'],
 ];
+const LIST_IN_LAMBDA_END = [[isMathPairRef, 'reference'], [isColor, 'illuminantObserver']];
+const LISTS_BY_COLUMN = { lambdaStart: LIST_IN_LAMBDA_START, lambdaEnd: LIST_IN_LAMBDA_END };
 
 /** Which list a cell picks from, or null for a cell that takes text. */
 export function listKind(op, colKey) {
     if (colKey === 'env') return takesEnvironment(op) ? 'environment' : null;
-    if (colKey === 'lambdaEnd') return isMathPairRef(op.type) ? 'reference' : null;
-    if (colKey !== 'lambdaStart') return null;
-    return LIST_IN_LAMBDA_START.find(([test]) => test(op.type))?.[1] ?? null;
+    return LISTS_BY_COLUMN[colKey]?.find(([test]) => test(op.type))?.[1] ?? null;
 }
 
 /**
@@ -125,11 +146,14 @@ export function listText(op, colKey, table) {
 }
 
 /**
- * The edit a pasted name makes: a pick of the entry of that name, matched
- * regardless of case, or null for text that names no entry.
+ * The edit a pasted name makes: a pick of the entry of that name, or null for
+ * text that names no entry. A name is matched as written first, then
+ * regardless of case, so x picks x and X picks X in the Color list.
  */
 export function listPaste(op, colKey, text, table) {
-    const name = text.trim().toLowerCase();
-    const entry = listOf(op, colKey, table).options.find(option => option.label.toLowerCase() === name);
+    const name = text.trim();
+    const { options } = listOf(op, colKey, table);
+    const entry = options.find(option => option.label === name)
+        ?? options.find(option => option.label.toLowerCase() === name.toLowerCase());
     return entry ? listEdit(op, colKey, entry.value, table) : null;
 }

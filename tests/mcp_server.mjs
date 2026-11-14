@@ -31,7 +31,7 @@
  *      and of each, an environment it does not have refused, a check of one
  *      environment with the verdict in each, layer sensitivity of one
  *      environment and of all of them,
- *      and env refused on a design with one environment, merit and specification verdict the API computes for it in this
+ *      and env refused on a design with one environment, RCOL and TCOL rows set with the merit the API gives them, merit and specification verdict the API computes for it in this
  *      process, a refused specification leaves the design as it was, showDesign
  *      lists the checks with their ids, which setSpecification takes back as
  *      they are, and an empty one clears it, answered with the mode; a design
@@ -425,6 +425,16 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     const removedEnv = await server.call('removeEnvironment', { designId: envId, environment: 'env2' });
     ok('removeEnvironment answers with the design, which then has environment 1 alone', removedEnv.designId === envId
         && JSON.stringify((await server.call('environments', { designId: envId })).environments.map(env => env.id)) === JSON.stringify(['base']));
+    // RCOL and TCOL rows go through setMerit as the API takes them, and merit
+    // gives each with its colour quantity, illuminant and observer.
+    const colourRows = [{ type: 'RCOL', color: 'x', target: 0.3, aoi: 30, pol: 's' },
+        { type: 'TCOL', color: 'L*', target: 90, illuminant: 'D50', observer: 10 }];
+    await server.call('setMerit', { designId: id, rows: colourRows });
+    const colourMerit = await server.call('merit', { designId: id });
+    const colourHere = api.merit(api.setMerit(local, colourRows));
+    ok('setMerit takes RCOL and TCOL rows, and merit gives their values, quantities, illuminants and observers as the API does',
+        JSON.stringify(colourMerit.rows) === JSON.stringify(colourHere.rows) && colourMerit.rows[1].illuminant === 'D50'
+        && Number.isFinite(colourMerit.rows[0].value), JSON.stringify(colourMerit.rows));
     const rows = [{ type: 'RAV', lambdaStart: 580, lambdaEnd: 620, target: 1, weight: 1 }];
     const rated = await server.call('setMerit', { designId: id, rows });
     ok('the merit is the API\'s', rated.total === api.merit(api.setMerit(local, rows)).total && rated.rows.length === 1, JSON.stringify(rated));

@@ -86,25 +86,28 @@ export function buildDmfsComment(options) {
     return text + limitsText(options);
 }
 
-// The header of a curve type's block names the curve it read; the angle and
-// polarization are the curve's own.
-function curveComment(options, curveName) {
+// The header of a block of a type that builds its own rows: the type, then
+// what the rows read, `heading`, such as the curve a curve type read, whose
+// angle and polarization the rows take.
+function ownRowsComment(options, heading) {
     const typeLabel = options.tw.types[options.typeId]?.label || options.typeId;
-    return `${typeLabel}, ${curveName}${limitsText(options)}`;
+    return `${typeLabel}, ${heading}${limitsText(options)}`;
 }
 
 /**
- * The block the wizard writes, and the curves it adds to the design. A curve
- * type's rows come in `options.curveRows` (curveWizardModel.js), built where
- * the design is at hand; when they name an error the block is empty.
+ * The block the wizard writes, and the curves it adds to the design. The rows
+ * of a type that builds its own come in `options.ownRows`, { rows, curves,
+ * heading } or { error }: a curve type's (curveWizardModel.js), built where
+ * the design is at hand, and the Color preset's (colorTargetModel.js). When
+ * they name an error the block is empty.
  */
 export function buildWizardResult(options) {
-    const { curveRows } = options;
-    if (curveRows?.error) return { block: [], curves: [], error: curveRows.error };
-    const block = curveRows
-        ? [makeDmfsOperand(curveComment(options, curveRows.curveName)), ...curveRows.rows]
+    const { ownRows } = options;
+    if (ownRows?.error) return { block: [], curves: [], error: ownRows.error };
+    const block = ownRows
+        ? [makeDmfsOperand(ownRowsComment(options, ownRows.heading)), ...ownRows.rows]
         : filterTypeBlock(options);
-    return { block: [...block, ...limitRows(options)], curves: curveRows?.curves || [], error: null };
+    return { block: [...block, ...limitRows(options)], curves: ownRows?.curves || [], error: null };
 }
 
 export function buildWizardBlock(options) {
@@ -171,12 +174,13 @@ export function makeRowOperand(spec) {
  * scored in goes when the new type is scored nowhere, a comment or a
  * constant.
  */
+// What a row's λ Start and λ End cells hold: wavelengths, or on a colour row
+// its quantity and its illuminant and observer.
+const RANGE_FIELDS = ['lambdaStart', 'lambdaEnd', 'color', 'illuminant', 'observer'];
+
 export function retypeOperand(op, type) {
     const next = { ...op, id: op.id, type };
-    if (rowRangeDomain(type) !== rowRangeDomain(op.type)) {
-        delete next.lambdaStart;
-        delete next.lambdaEnd;
-    }
+    if (rowRangeDomain(type) !== rowRangeDomain(op.type)) RANGE_FIELDS.forEach(key => delete next[key]);
     if (targetDomain(type) !== targetDomain(op.type)) delete next.target;
     if (!takesStepFlag(next) || (next.flag === 0 && !isBandGridRow(type))) delete next.flag;
     if (!takesEnvironment(next)) delete next.env;

@@ -37,7 +37,9 @@ function todayISO() {
 // The locale block the document is written in, plus the qualifier kind names
 // the specification block labels rows with, its summaries and the words naming
 // the environment a check fails in, the Monitor Worksheet's column names, which
-// the worksheet block shares with the window, and the unit symbols.
+// the worksheet block shares with the window, the Merit Function Editor's words
+// for the colour quantities, which the merit block names colour rows by, and
+// the unit symbols.
 export function reportLocale(code) {
     const loc = getLocale(code) || {};
     return {
@@ -46,6 +48,7 @@ export function reportLocale(code) {
         summaries: (loc.specification && loc.specification.summaries) || {},
         failingIn: loc.specification && loc.specification.failingIn,
         mw: loc.monitorWorksheet || {},
+        meritFunctionEditor: loc.meritFunctionEditor || {},
         units: loc.units || {},
     };
 }

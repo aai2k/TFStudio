@@ -13,9 +13,12 @@ import {
   componentOf, incidentAmplitudeVpm, plotValue, yAxisTitle,
 } from '../../../components/windows/analysis/eFieldEvaluation/yScale.js';
 import {
-  isBlank, isConstant, isConstraint, isDmfs, isLinearThickness, isManufacturability,
+  isBlank, isColor, isConstant, isConstraint, isDmfs, isLinearThickness, isManufacturability,
   isMath, isMathPairRef, isMathSingleRef, readsWavelengthBand,
 } from '../../physics/optimizer/operandModel.js';
+import {
+  colorFormat, colorQuantityLabels, illuminantObserverLabel,
+} from '../../../components/windows/optimization/meritFunctionEditor/mfTable/colorRows.js';
 import {
   DASH, pct, num, deg, tt, unitOf, polText, blockTitle, errNote, wrap, table, note, plotHeight, subtitleOf,
 } from './format.js';
@@ -170,6 +173,17 @@ function operandRange(op, tr) {
   return `${num(op.lambdaStart, 0)}-${num(end, 0)} ${nm}`;
 }
 
+// A colour row's λ / Layer cell: its quantity as the Merit Function Editor's
+// Color list names it, with its unit, and its illuminant and observer, which
+// the row reads in place of a band.
+function colorRange(op, tr) {
+  return escapeHtml(`${colorQuantityLabels(op.color, tr).entry}, ${illuminantObserverLabel(op)}`);
+}
+
+// The places a target prints to: a colour row's, as the merit table prints it,
+// or four.
+const targetPlaces = op => colorFormat(op)?.targetDecimals ?? 4;
+
 const NO_INCIDENCE = [isManufacturability, isMath, isConstant, isBlank, isDmfs];
 
 /** Angle and polarization are properties of a ray, so a row that scores no ray has neither. */
@@ -189,10 +203,10 @@ export function buildMerit(ctx) {
     const incidence = hasIncidence(op.type);
     // A constant is never scored, so it has no weight to report.
     return [
-      `${op.index}`, escapeHtml(op.type), operandRange(op, tr),
+      `${op.index}`, escapeHtml(op.type), isColor(op.type) ? colorRange(op, tr) : operandRange(op, tr),
       incidence ? `${deg(op.aoi)}°` : DASH,
       incidence ? escapeHtml(op.pol) : DASH,
-      op.target != null ? num(op.target, 4) : num(null),
+      op.target != null ? num(op.target, targetPlaces(op)) : num(null),
       isConstant(op.type) ? DASH : num(op.weight, 2),
     ];
   });

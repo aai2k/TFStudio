@@ -13,7 +13,7 @@
  * `ce.environmentColumn`.
  */
 
-import { ciede2000 } from '../../../../utils/physics/colorimetry.js';
+import { labDifference } from '../../../../utils/physics/colorimetry.js';
 import { formatTheta } from '../opticalEvaluation/model.js';
 import { formatValue } from './colorModel.js';
 
@@ -62,25 +62,14 @@ function referenceLab(reports) {
 /**
  * Each angle's colour against the first angle's, or under All each
  * environment's against the first environment's at the same angle: ΔL*, Δa*,
- * Δb*; ΔE*ab, the straight-line distance between the two in CIELAB, which that
- * space is built to make proportional to the difference seen (Macleod,
- * Thin-Film Optical Filters 5th ed., §12.2); and ΔE00, CIEDE2000 (Sharma, Wu
- * and Dalal, Color Res. Appl. 30, 21 (2005)).
+ * Δb*, ΔE*ab and ΔE00 (colorimetry/deltaE.js labDifference).
  */
 export function differenceRows(reports) {
     if (!reports?.length) return [];
     const against = referenceLab(reports);
-    return reports.map(({ theta, report, env }) => {
-        const lab = report.Lab;
-        const reference = against(theta);
-        const dL = lab.L - reference.L;
-        const da = lab.a - reference.a;
-        const db = lab.b - reference.b;
-        return {
-            ...environmentOf(env), aoi: theta,
-            dL, da, db, dEab: Math.hypot(dL, da, db), dE00: ciede2000(reference, lab),
-        };
-    });
+    return reports.map(({ theta, report, env }) => ({
+        ...environmentOf(env), aoi: theta, ...labDifference(against(theta), report.Lab),
+    }));
 }
 
 const column = (key, label, digits, extra = {}) => ({ key, label, fmt: value => formatValue(value, digits), ...extra });

@@ -3,7 +3,7 @@
  * and the resolver that lets a math row reference other rows.
  */
 
-import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isMinmax, isArgwave, isMath, isConstant, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, isLogPoint, isPPEF, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
+import { isConstraint, isDmfs, isBlank, isStress, isTotalThickness, isRangeTarget, isMeasuredCurve, isIntegral, isColor, isMinmax, isArgwave, isMath, isConstant, isEllipsometry, isPhaseShift, isGroupDelay, isGroupDelayFlat, isEField, isEllipsometricMeasuredCurve, isKnownOperandType, isLogPoint, isPPEF, measuredCurveChannel, argwaveOpticalChar, argwavePolCode, polFromType } from '../../operandModel.js';
 import { charOf, operandSampleLambdas } from '../../sampling.js';
 import { computeMathValue } from '../mathOperands.js';
 import { _evalTotalThickness, _evalStressForce, _evalConstraint, _evalArgwave, _evalIntegral, _evalMinmax, _evalLogPoint, _evalRangeTarget, _evalBandAvgOrSingle } from './basic.js';
@@ -12,6 +12,7 @@ import { _evalEllipsometry, resetEllipsometryCaches } from './ellipsometry.js';
 import { _evalPhaseDispersionPoint, _evalGroupDelayFlat, resetPhaseDispersionCache } from './phase.js';
 import { _evalEField } from './efield.js';
 import { _evalPPEF } from './ppef.js';
+import { _evalColor } from './color.js';
 import { OperandEvaluationError } from './errors.js';
 import { inConeRow } from '../tmmEval.js';
 
@@ -82,6 +83,7 @@ const _EVAL_DISPATCH = [
     [isConstant,       _evalConstant],
     [isArgwave,        _evalArgwave],
     [isIntegral,       _evalIntegral],
+    [isColor,          _evalColor],
     [isMinmax,         _evalMinmax],
     [isLogPoint,       _evalLogPoint],
     [isRangeTarget,    _evalRangeTarget],

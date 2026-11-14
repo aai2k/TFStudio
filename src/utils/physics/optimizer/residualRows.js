@@ -30,9 +30,10 @@ const finiteOrZero = value => (Number.isFinite(value) ? value : 0);
  * Residual rows of one enabled, evaluated operand. `value` is its evaluated
  * merit value; `deviations` are its per-sample deviations from the target line
  * (evalCore operandSampleDeviations), read only for a range target; `sigma` is
- * its unit scale (evalCore residualScaleIn).
+ * its unit scale (evalCore residualScaleIn); `chroma` is the chroma a hue row
+ * of colour read beside its hue (evalCore operandColorChromas).
  */
-export function operandResidualRows(op, value, deviations, sigma) {
+export function operandResidualRows(op, value, deviations, sigma, chroma) {
     if (isRangeTarget(op.type)) {
         const q = bandQuadratureWeights(deviations.length);
         return deviations.map((dev, s) => finiteOrZero(Math.sqrt(op.weight * q[s]) * dev));
@@ -43,5 +44,5 @@ export function operandResidualRows(op, value, deviations, sigma) {
         const scale = Math.sqrt(op.weight / deviations.length) / sigma;
         return deviations.map(dev => finiteOrZero(scale * dev));
     }
-    return [finiteOrZero(Math.sqrt(op.weight) * _operandResidual(op, value) / sigma)];
+    return [finiteOrZero(Math.sqrt(op.weight) * _operandResidual(op, value, chroma) / sigma)];
 }

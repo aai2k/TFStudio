@@ -6,7 +6,7 @@ import { responseSpectrum } from '../components/windows/analysis/colorEvaluation
 import { sessionDefaults } from '../constants/analysisDefaults.js';
 import { embedDesignMaterials, withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { designRangeCoverage } from '../utils/materials/materialRange.js';
-import { colorReport, COLOR_RANGE_NM, ILLUMINANTS, OBSERVERS } from '../utils/physics/colorimetry.js';
+import { colorReport, COLOR_RANGE_NM, ILLUMINANTS, OBSERVERS, labDifference } from '../utils/physics/colorimetry.js';
 import { makeConeSpec, coneIsActive } from '../utils/physics/optimizer.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
@@ -135,4 +135,48 @@ export function color(design, options) {
     return inEnvironments('color', design, env, one => colorOf(one, {
         quantity, angle, pol, observer, illuminant, step, mode: viewSide('color', one, side),
     }));
+}
+
+// Whether `c` is one colour as color() answers it: its L*a*b* and the
+// illuminant and observer that L*a*b* is relative to.
+const hasLab = c => ['L', 'a', 'b'].every(key => Number.isFinite(c.lab?.[key]));
+const isOneColour = c => c instanceof Object && hasLab(c) && ['illuminant', 'observer'].every(key => key in c);
+
+/**
+ * How the colour `b` differs from the colour `a`, both as `color` answers
+ * them, as the Differences view of the [Color Evaluation](/analysis/color-evaluation/)
+ * window gives it: ΔL*, Δa* and Δb*, each b less a; ΔE*ab, the distance between
+ * the two in CIE L*a*b*; and ΔE00, CIEDE2000 (Sharma, Wu and Dalal, Color Res.
+ * Appl. 30, 21 (2005)). L*a*b* is relative to the illuminant's white as the
+ * observer sees it, so two colours are compared only under one illuminant and
+ * one observer. The angle, polarization, side and whether each is R or T may
+ * differ: a colour against the same one at another angle is how far it shifts.
+ *
+ * @param a The colour compared against: one colour, as `color` answers it for one environment.
+ * @param b The colour compared, as `a`.
+ * @returns The difference.
+ * @property dL ΔL*, b less a.
+ * @property da Δa*, b less a.
+ * @property db Δb*, b less a.
+ * @property dEab ΔE*ab, √(ΔL*² + Δa*² + Δb*²).
+ * @property dE00 ΔE00, the CIEDE2000 difference with kL, kC and kH of 1.
+ * @throws an a or b that is not one colour as `color` answers it, such as the answer of `env: 'all'`
+ * @throws two colours under different illuminants or observers
+ * @example
+ * const design = tf.stackFromFormula(tf.newDesign({ name: 'AR' }), { formula: '(HL)^2' });
+ * const normal = tf.color(design, { angle: 0 });
+ * const tilted = tf.color(design, { angle: 45 });
+ * const shift = tf.colorDifference(normal, tilted);
+ * console.log('ΔL*', shift.dL.toFixed(2), 'ΔE*ab', shift.dEab.toFixed(2), 'ΔE00', shift.dE00.toFixed(2));
+ */
+export function colorDifference(a, b) {
+    for (const [name, c] of [['a', a], ['b', b]]) {
+        if (!isOneColour(c)) {
+            throw new Error(`colorDifference: ${name} is one colour as color() answers it; with env 'all' it answers one per environment, in environments`);
+        }
+    }
+    if (a.illuminant !== b.illuminant || Number(a.observer) !== Number(b.observer)) {
+        throw new Error(`colorDifference: a is under ${a.illuminant} with the ${a.observer} degree observer and b under ${b.illuminant} with the ${b.observer} degree observer; L*a*b* is relative to the illuminant's white, so compare two colours under one illuminant and observer`);
+    }
+    return labDifference(a.lab, b.lab);
 }

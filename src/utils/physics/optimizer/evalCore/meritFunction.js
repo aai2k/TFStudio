@@ -1,6 +1,6 @@
 import { isManufacturability, isValidMeritWeight } from '../operandModel.js';
 import { _meritDiff, residualScaleIn, skipsMerit } from './residualScale.js';
-import { operandEvaluationErrors } from './evalContext.js';
+import { operandColorChromas, operandEvaluationErrors } from './evalContext.js';
 
 // Accumulate the weighted squared residuals over all contributing operands.
 // Returns { sumWRes2, sumWopt, sumWcon, n, nonFinite }.
@@ -16,10 +16,11 @@ import { operandEvaluationErrors } from './evalContext.js';
 function _accumMerit(operands, computed, skipConstraints) {
     let sumWRes2 = 0, sumWopt = 0, sumWcon = 0, n = 0;
     const scaleOf = residualScaleIn(operands);
+    const chromas = operandColorChromas(computed);
     for (let i = 0; i < operands.length; i++) {
         const op = operands[i];
         if (!op.enabled || computed[i] == null) continue;
-        const diff = _meritDiff(op, computed[i], skipConstraints, scaleOf(op));
+        const diff = _meritDiff(op, computed[i], skipConstraints, scaleOf(op), chromas[i]);
         if (diff === null) continue;   // a constant, or a constraint dropped by skipConstraints
         if (!Number.isFinite(diff)) return { sumWRes2, sumWopt, sumWcon, n, nonFinite: true };
         const w = op.weight;

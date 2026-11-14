@@ -32,10 +32,12 @@ export {
 
 export {
     buildEvalContext, effectiveBackLayers, evaluateOperands, evaluateOperandRows, operandEvaluationErrors,
-    operandBandLevels, operandSampleDeviations, operandExtremumLambdas, withRowNotes,
+    operandBandLevels, operandSampleDeviations, operandExtremumLambdas, operandColorChromas, withRowNotes,
 } from './evalCore/evalContext.js';
 
 export { ARGWAVE_RESIDUAL_SCALE_NM, operandResidualScale, residualScaleIn, _operandResidual } from './evalCore/residualScale.js';
+
+export { _normalizeDegrees } from './evalCore/angles.js';
 
 export { calcMF, calcOMF, mfWeightDenominator } from './evalCore/meritFunction.js';
 

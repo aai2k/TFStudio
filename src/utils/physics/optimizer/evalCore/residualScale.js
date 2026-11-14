@@ -1,4 +1,5 @@
-import { isConstant, isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isMathPairRef, isMathSingleRef, isInequality, isArgwave, isPPEF, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
+import { isColor, isConstant, isConstraint, isLinearThickness, isManufacturability, isMinmax, isMinType, isMeasuredCurve, isMath, isMathPairRef, isMathSingleRef, isInequality, isArgwave, isPPEF, isRamp, isGroupDelayFlat, isWrappedAngle, logSigma, logUnit } from '../operandModel.js';
+import { HUE_CHROMA } from '../../colorimetry/quantities.js';
 import { mathResidual } from './mathOperands.js';
 import { _normalizeDegrees } from './angles.js';
 
@@ -26,6 +27,8 @@ import { _normalizeDegrees } from './angles.js';
 //   • dB and optical-density rows (TDB…ODMN): σ = 10/ln 10 dB and 1/ln 10, so
 //     a miss scores ln of the ratio it stands for in T or R, the same number a
 //     T row gives for a small miss near T = 1 (logReadings.js).
+//   • Colour rows (RCOL/TCOL): σ by quantity (COLOR_RESIDUAL_SCALE), so a
+//     just-noticeable miss in colour weighs like a 1 % miss in R.
 //   • Manufacturability operands (MNT/MXT/TT in nm, STR in N/m) DELIBERATELY
 //     stay σ = 1 ("hard"): a violated manufacturing bound should dominate and
 //     be fixed first, not be softened to optical scale.
@@ -67,6 +70,38 @@ const PHASE_RESIDUAL_SCALE = {
     TOD: 500, TODT: 500, TODFLAT: 500, TODTFLAT: 500,
     EFMX: 1,
 };
+// Colour rows, by the quantity their Color cell picks. Each σ is the miss a
+// viewer just notices, scored 0.01 like a 1 % miss in R at σ = 1:
+//   X, Y, Z → 100: they are in %, Y the luminous R or T, so a 1 % miss weighs
+//     as it does in R.
+//   L*, a*, b*, C*ab, u*, v*, C*uv, Hunter L, a, b → 100: the ΔE formulas take
+//     1.0 as about a just-noticeable step; Mahy, Van Eycken and Oosterlinck,
+//     Color Res. Appl. 19, 105 (1994) measured nearer 2.3 ΔE*ab.
+//   hab, huv → 100 on the hue miss in ΔE units at the coating's chroma,
+//     ΔH* = 2√(C₁C₂)·sin(Δh/2) (CIE 15:2004) with C₁ = C₂ the chroma: a degree
+//     of hue is a small step at low chroma and a big one at high chroma.
+//   x, y, u′, v′, u, v, Duv → 0.4: the usual just-noticeable step of 0.004 in
+//     u′v′, a rule of thumb; CIE TN 001:2014 puts 50 % detection near 0.0013.
+//   suv → 5.2: suv is 13 times the distance from the white in u′v′ (CIE
+//     15:2004), so the 0.004 step is 0.052.
+//   CCT → 500 on the miss in mired, 10⁶/T: the least perceptible difference is
+//     near 5 mired and about constant from 1800 to 11000 K (Crandell, Freund
+//     and Moen, J. SMPE 55, 74 (1950), after Judd), where in kelvin it runs
+//     from under 50 K at 3200 K to over 200 K at 6500 K.
+//   λd, λc → 500 nm, as the wavelength rows (ARGWAVE_RESIDUAL_SCALE_NM).
+//   Purity → 1: a fraction, like R.
+const COLOR_RESIDUAL_SCALE = {
+    X: 100, Y: 100, Z: 100,
+    'L*': 100, 'a*': 100, 'b*': 100, 'C*ab': 100, hab: 100,
+    'u*': 100, 'v*': 100, 'C*uv': 100, huv: 100,
+    'Hunter L': 100, 'Hunter a': 100, 'Hunter b': 100,
+    x: 0.4, y: 0.4, "u'": 0.4, "v'": 0.4, u: 0.4, v: 0.4, Duv: 0.4,
+    suv: 5.2,
+    CCT: 500,
+    dominant: ARGWAVE_RESIDUAL_SCALE_NM, complementary: ARGWAVE_RESIDUAL_SCALE_NM,
+    purity: 1,
+};
+
 // The dB and density rows: σ = 10/ln 10 ≈ 4.343 dB and 1/ln 10 ≈ 0.4343, which
 // scores a miss as ln of the ratio it stands for in T or R (logReadings.js).
 function _channelScale(channel) {
@@ -76,6 +111,7 @@ function _channelScale(channel) {
 
 export function operandResidualScale(op) {
     if (isArgwave(op.type)) return ARGWAVE_RESIDUAL_SCALE_NM;
+    if (isColor(op.type)) return COLOR_RESIDUAL_SCALE[op.color] ?? 1;
     // A peak-to-peak error is in dB and takes the dB rows' scale.
     if (isPPEF(op.type)) return logSigma('dB');
     // A measured block scores in its channel's unit: degrees for a Ψ or Δ
@@ -159,6 +195,20 @@ function _targetResidual(op, val) {
     return val - op.target;
 }
 
+/**
+ * The miss of a colour row at value `val` against its target. A hue row's is
+ * ΔH* = 2C·sin(Δh/2), in ΔE units at the coating's chroma C (`chroma`, which
+ * its evaluation keeps: evalContext.js operandColorChromas), with Δh the hue
+ * difference taken the short way round. A CCT row's is in mired, 10⁶/target −
+ * 10⁶/value, so it has the sign of value − target. Every other quantity's is
+ * value − target.
+ */
+export function colorResidual(op, val, chroma) {
+    if (HUE_CHROMA[op.color]) return 2 * chroma * Math.sin(_normalizeDegrees(val - op.target) * Math.PI / 360);
+    if (op.color === 'CCT') return 1e6 / op.target - 1e6 / val;
+    return val - op.target;
+}
+
 // Constraints and worst-case min/max: satisfied on the ≥ target side for MNT
 // and a min type, on the ≤ target side otherwise.
 function _boundResidual(op, val) {
@@ -173,6 +223,7 @@ const RESIDUAL_KINDS = [
     [op => isPPEF(op.type), (op, val) => Math.max(0, val - op.target)],
     [op => isConstraint(op.type) || isMinmax(op.type), _boundResidual],
     [op => isMath(op.type), mathResidual],
+    [op => isColor(op.type), colorResidual],
     // Ramp (TGT/RGT/AGT), measured blocks and GD/GDD flatness already carry
     // their RMS deviation.
     [op => isRamp(op) || isMeasuredCurve(op.type) || isGroupDelayFlat(op.type), (op, val) => val],
@@ -183,12 +234,13 @@ const RESIDUAL_KINDS = [
 // operands defer to mathResidual (one- or two-sided by kind); ramp AND group-
 // delay-flatness operands already carry their RMS deviation (target baked in);
 // phase shifts and Δ are taken the short way round the circle; everything else
-// is two-sided (value − target). SINGLE SOURCE OF TRUTH for the residual —
-// shared by calcMF (the reported/accepted merit) and the LSQ engine's residual
-// vector (the step direction), so the two can never disagree.
-export function _operandResidual(op, val) {
+// is two-sided (value − target). A colour row's is colorResidual, a hue row's
+// taken at `chroma`, the chroma its evaluation kept. SINGLE SOURCE OF TRUTH for
+// the residual: shared by calcMF (the reported/accepted merit) and the LSQ
+// engine's residual vector (the step direction), so the two can never disagree.
+export function _operandResidual(op, val, chroma) {
     const hit = RESIDUAL_KINDS.find(([test]) => test(op));
-    return hit ? hit[1](op, val) : _targetResidual(op, val);
+    return hit ? hit[1](op, val, chroma) : _targetResidual(op, val);
 }
 
 // Rows the merit leaves out, numerator and weight sum alike: a constant (CONS),
@@ -208,10 +260,11 @@ export function skipsMerit(op, skipConstraints) {
 // placement; active during DLS refinement only. Otherwise the raw residual is
 // divided by the row's unit scale `sc` (residualScaleIn), which makes it
 // dimensionless (σ = 1 for optical → no change; argwave nm residual ÷ σ_λ).
-// It may return a non-finite value, which the caller guards.
-export function _meritDiff(op, computedI, skipConstraints, sc) {
+// `chroma` is a hue row's chroma (operandColorChromas). It may return a
+// non-finite value, which the caller guards.
+export function _meritDiff(op, computedI, skipConstraints, sc, chroma) {
     if (skipsMerit(op, skipConstraints)) return null;
-    let diff = _operandResidual(op, computedI);
+    let diff = _operandResidual(op, computedI, chroma);
     if (sc !== 1) diff /= sc;
     return diff;
 }

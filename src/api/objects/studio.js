@@ -3,6 +3,7 @@
 import { inspect } from 'node:util';
 import * as api from '../index.js';
 import { checkOptions } from '../check.js';
+import { Color } from './color.js';
 import { Design } from './design.js';
 import { MaterialDispersion } from './materialDispersion.js';
 import { defined, trailingOptions } from './options.js';
@@ -264,6 +265,36 @@ export class TFStudio {
      */
     openDesign(path) {
         return new Design(api.openDesign(path));
+    }
+
+    /**
+     * How the colour `b` differs from the colour `a`, both as `design.color()`
+     * gives them, as the Differences view of the Color Evaluation window gives
+     * it: ΔL*, Δa* and Δb*, each b less a; ΔE*ab, the distance between the two
+     * in CIE L*a*b*; and ΔE00, CIEDE2000. L*a*b* is relative to the
+     * illuminant's white as the observer sees it, so two colours are compared
+     * only under one illuminant and one observer. The angle, polarization,
+     * side, design and whether each is R or T may differ: a colour against
+     * the same one at another angle is how far it shifts.
+     *
+     * @param a The colour compared against, a Color.
+     * @param b The colour compared, a Color.
+     * @returns An object: `dL`, `da` and `db`, ΔL*, Δa* and Δb*, each b less a; `dEab`, ΔE*ab, √(ΔL*² + Δa*² + Δb*²); and `dE00`, ΔE00, the CIEDE2000 difference with kL, kC and kH of 1.
+     * @throws an a or b that is not a Color, such as the array `env: 'all'` gives
+     * @throws two colours under different illuminants or observers
+     * @example
+     * const design = tf.newDesign('AR');
+     * design.stack('(HL)^2');
+     * const shift = tf.colorDifference(design.color({ angle: 0 }), design.color({ angle: 45 }));
+     * console.log('ΔL*', shift.dL.toFixed(2), 'ΔE*ab', shift.dEab.toFixed(2), 'ΔE00', shift.dE00.toFixed(2));
+     */
+    colorDifference(a, b) {
+        for (const [name, colour] of [['a', a], ['b', b]]) {
+            if (!(colour instanceof Color)) {
+                throw new Error(`colorDifference: ${name} is a Color, as design.color() gives one; with env 'all' it gives an array of them`);
+            }
+        }
+        return worded({ method: 'colorDifference', call: 'colorDifference' }, () => api.colorDifference(a._colour, b._colour));
     }
 
     /**

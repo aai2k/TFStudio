@@ -19,7 +19,7 @@ await loadApp();
 const [
     { InputDialog }, { AboutDialog }, { WelcomeScreen }, { TutorialsBrowser },
     { ReplaceMaterialsDialog }, { TrialsModal }, { MeasuredFitDialog }, measuredModel,
-    { EdgeFilterDialog }, { LiveHoldDialog, LiveAskDialog },
+    { EdgeFilterDialog }, { LiveHoldDialog, LiveAskDialog }, { ColorTargetEditor },
 ] = await Promise.all([
     import('../src/components/dialogs/InputDialog.js'),
     import('../src/components/dialogs/AboutDialog.js'),
@@ -31,6 +31,7 @@ const [
     import('../src/components/windows/dataExchange/spectrumExchange/model.js'),
     import('../src/components/windows/design/edgeFilter/EdgeFilterDialog.js'),
     import('../src/components/live/LiveDialogs.js'),
+    import('../src/components/windows/optimization/meritFunctionEditor/ColorTargetEditor.js'),
 ]);
 
 const h = React.createElement;
@@ -106,6 +107,9 @@ const DIALOGS = [
     ['Program asking to come in', LiveAskDialog,
         close => ({ c, t, ask: { id: 1, program: 'python.exe' }, onAnswer: (id, allowed) => { if (!allowed) close(); } }),
         t.live.deny],
+    ['Color targets', ColorTargetEditor,
+        close => ({ c, t, design, typeId: 'COLOR_R', targets: [], illuminant: 'D65', observer: 2, onApply: noop, onCancel: close }),
+        t.dialogs.input.cancel],
 ];
 
 for (const [name, Component, propsFor, closeLabel] of DIALOGS) {

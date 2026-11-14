@@ -25,10 +25,13 @@ export function spectralLocusXy(observer) { return spectrumLocus(observer); }
  * wavelength (opposite ray), with the purity |WS| over the distance from W to
  * the point where the ray meets the purple line (Eq. 12.6, p. 462).
  */
-// First crossing of the ray W + s·(vx,vy), s>0, with the spectrum-locus
-// polyline `loc`. Returns the nearest hit { lam, s, dist } (dist = |W→hit|) or
-// null if the ray misses every segment.
-function _locusRayHit(loc, wx, wy, vx, vy) {
+/**
+ * First crossing of the ray W + s·(vx,vy), s>0, with the spectrum-locus
+ * polyline `loc`. Returns the nearest hit { lam, s, dist, i } (dist = |W→hit|,
+ * i the segment from loc[i] to loc[i + 1]) or null if the ray misses every
+ * segment.
+ */
+export function locusRayHit(loc, wx, wy, vx, vy) {
   let best = null;
   for (let i = 0; i < loc.length - 1; i++) {
     const ax = loc[i].x,   ay = loc[i].y;
@@ -41,7 +44,7 @@ function _locusRayHit(loc, wx, wy, vx, vy) {
     if (s > 1e-9 && u >= -1e-6 && u <= 1 + 1e-6) {
       const lam = loc[i].lam + u * (loc[i + 1].lam - loc[i].lam);
       const px = wx + s * vx, py = wy + s * vy;
-      const cand = { lam, s, dist: Math.hypot(px - wx, py - wy) };
+      const cand = { lam, s, dist: Math.hypot(px - wx, py - wy), i };
       if (!best || s < best.s) best = cand;
     }
   }
@@ -55,15 +58,15 @@ export function dominantWavelength(xy, white, observer) {
   const sampleDist = Math.hypot(dx, dy);
   if (sampleDist < 1e-9) return { dom: null, comp: null, purity: 0 };
 
-  const fwd = _locusRayHit(loc, wx, wy, dx, dy);
+  const fwd = locusRayHit(loc, wx, wy, dx, dy);
   if (fwd) {
     return { dom: fwd.lam, comp: null,
              purity: fwd.dist > 0 ? sampleDist / fwd.dist : 0 };
   }
   // Ray hit the purple line, the chord joining the two ends of the locus: the
   // complementary wavelength lies in the opposite direction.
-  const bwd = _locusRayHit(loc, wx, wy, -dx, -dy);
-  const purple = _locusRayHit([loc[0], loc[loc.length - 1]], wx, wy, dx, dy);
+  const bwd = locusRayHit(loc, wx, wy, -dx, -dy);
+  const purple = locusRayHit([loc[0], loc[loc.length - 1]], wx, wy, dx, dy);
   if (bwd) {
     return { dom: null, comp: bwd.lam,
              purity: purple && purple.dist > 0 ? sampleDist / purple.dist : 0 };
@@ -120,7 +123,7 @@ export function planckianXyz(T, observer) {
   return { X, Y, Z };
 }
 
-function xyToXYZ(xy, Y = 1) {
+export function xyToXYZ(xy, Y = 1) {
   if (xy.y <= 0) return { X: 0, Y: 0, Z: 0 };
   return { X: xy.x * Y / xy.y, Y, Z: (1 - xy.x - xy.y) * Y / xy.y };
 }

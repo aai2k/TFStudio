@@ -21,7 +21,7 @@
  *   indexProfile(design, { wavelength, side, env }), layerThicknesses(design, { wavelength, side, env }), designFacts(design, { side })
  *   admittance(design, { wavelength, angle, side, plane, env })
  *   electricField(design, { wavelength, angle, side, pointsPerLayer, depthUnit, reference, env })
- *   color(design, { quantity, angle, pol, observer, illuminant, step, side, env })
+ *   color(design, { quantity, angle, pol, observer, illuminant, step, side, env }), colorDifference(a, b)
  *   integrals(design, { start, end, step, angle, pol, custom, side, env })
  *   ellipsometry(design, { from, to, step, angles, side, deltaConvention, env })
  *   ellipsometryVsAngle(design, { wavelength, angleStart, angleEnd, angleStep, side, deltaConvention, env })
@@ -65,7 +65,7 @@ export { indexProfile, layerThicknesses } from './stackViews.js';
 export { designFacts } from './designFacts.js';
 export { admittance } from './admittance.js';
 export { electricField } from './electricField.js';
-export { color } from './color.js';
+export { color, colorDifference } from './color.js';
 export { integrals } from './integrals.js';
 export { ellipsometry, ellipsometryVsAngle } from './ellipsometry.js';
 export { groupDelay } from './groupDelay.js';

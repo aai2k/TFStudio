@@ -1,6 +1,7 @@
 import {
     OPERAND_POLS, FILTER_CATEGORIES, FILTER_TYPES,
 } from '../../../../utils/physics/optimizer.js';
+import { ILLUMINANTS, OBSERVERS } from '../../../../utils/physics/colorimetry.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { NumInput, rowButtonStyle, SelectField, SolidButton } from '../../analysis/chrome/controls.js';
 import { requestTool } from '../../../../utils/misc/toolRequest.js';
@@ -9,12 +10,15 @@ import { CurveEditor } from '../../dataExchange/curveEditor/CurveEditor.js';
 import { pointsFromTable } from '../../dataExchange/curveEditor/curveApply.js';
 import { tableFromPoints } from '../../dataExchange/curveEditor/curveTable.js';
 import { curveWizardRows, gainCurveFromText, heldCurve, wizardCurveOptions } from './curveWizardModel.js';
+import { blockColorQuantities, colorWizardRows } from './colorTargetModel.js';
+import { ColorTargetEditor } from './ColorTargetEditor.js';
+import { colorQuantityLabels } from './mfTable/colorRows.js';
 import { buildWizardResult, wizardAppendRow, wizardGenerationRows } from './meritOperandModel.js';
 import { meritWizardEnvironmentSession, meritWizardSession } from './sessionState.js';
 import { WizardHeader } from './WizardHeader.js';
 import {
-    blockInEnvironment, blockSummary, fieldRows, fieldView, hasTargetMode, paramsWithChange, polIsFixed, takesCurve,
-    typeSwitch, wizardEnvironment, wizardSummary, writesPointsOnly,
+    blockInEnvironment, blockSummary, fieldRows, fieldView, hasTargetMode, paramsWithChange, polIsFixed, takesColorTargets,
+    takesCurve, typeSwitch, wizardEnvironment, wizardSummary, writesPointsOnly,
 } from './wizardModel.js';
 import { environmentsOf, hasEnvironments } from '../../../../utils/environments/environments.js';
 import { environmentLabel } from '../../design/environments/currentEnvironment.js';
@@ -284,9 +288,29 @@ function curveAngleBox(ctx) {
     return groupBox({ title: tw.angleBox, columns: 'auto minmax(62px, 1fr)', minWidth: 204, c, rows: cells });
 }
 
+// The Color preset's Target box: the illuminant and observer its rows read
+// under, and Pick, which opens the target editor; each target holds its own
+// angle and polarization.
+function colorTargetBox(ctx) {
+    const { s, tw, c, session, setField, colorEditor } = ctx;
+    const cells = [
+        h('span', { key: 'ill-l', style: s.label }, tw.illuminant + ':'),
+        h('span', { key: 'ill-c' }, select(s, session.colorIlluminant, v => setField('colorIlluminant', v),
+            ILLUMINANTS.map(entry => ({ value: entry.id, label: entry.name })), 120)),
+        h('span', { key: 'obs-l', style: s.label }, tw.observer + ':'),
+        h('span', { key: 'obs-c' }, select(s, String(session.colorObserver), v => setField('colorObserver', Number(v)),
+            OBSERVERS.map(entry => ({ value: entry.id, label: `${entry.id}°` })), 120)),
+        h('span', { key: 'pick-l', style: s.label }, tw.colors + ':'),
+        h('span', { key: 'pick-c' }, smallButton(c, tw.pick, () => colorEditor.open())),
+        ...envCells(ctx),
+    ];
+    return groupBox({ title: tw.colorBox, columns: '64px minmax(116px, 1fr)', minWidth: 204, c, rows: cells });
+}
+
 function angleBox(ctx) {
     const { s, tw, c, session, setField, typeId } = ctx;
     if (takesCurve(typeId)) return curveAngleBox(ctx);
+    if (takesColorTargets(typeId)) return colorTargetBox(ctx);
     const showPol = !polIsFixed(typeId);
     const cells = [
         h('span', { key: 'aoi-l', style: s.label }, tw.aoiRange + ':'),
@@ -353,11 +377,25 @@ function useStartRow(design, operandCount) {
 // angle-swept preset in discrete mode runs to thousands of operands, so it is
 // built here, inside the branch that only renders while the form is open.
 function wizardResult(ctx) {
-    const { tw, session, typeId, design } = ctx;
-    const curveRows = takesCurve(typeId)
-        ? curveWizardRows({ typeId, params: session.params, design, flatteningName: tw.flatteningName })
-        : null;
-    return buildWizardResult({ tw, ...session, typeId, curveRows, units: ctx.units });
+    return buildWizardResult({ tw: ctx.tw, ...ctx.session, typeId: ctx.typeId, ownRows: ownRows(ctx), units: ctx.units });
+}
+
+// The rows of a type that builds its own: a curve type's, read off the design,
+// or the Color preset's, from its targets.
+function ownRows({ tw, session, typeId, design }) {
+    if (takesCurve(typeId)) return curveWizardRows({ typeId, params: session.params, design, flatteningName: tw.flatteningName });
+    if (takesColorTargets(typeId)) return colorWizardRows({ typeId, session, tw });
+    return null;
+}
+
+// What the summary line names a block's row types by: their codes, a colour
+// type's with the quantities it writes and for how many targets.
+function previewTypes(ctx, block, types) {
+    const { tw, session, t } = ctx;
+    const quantities = blockColorQuantities(block).map(quantity => colorQuantityLabels(quantity, t).face);
+    return types.map(type => (block.some(op => op.type === type && op.color != null)
+        ? tw.colorRows(type, quantities, session.colorTargets.length)
+        : type));
 }
 
 // The line wraps in a narrow pane: the message breaks over lines and Start at
@@ -371,7 +409,7 @@ function bottomLine(ctx, startRow, setStartRow, onGenerate) {
         style: { display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 8px', minHeight: CONTROL_H },
     },
         h('span', { style: { ...s.label, color: blocked ? c.error : s.label.color, whiteSpace: 'normal', flex: '1 1 160px' } },
-            blocked ? tw.curveErrors[result.error] : tw.preview(summary.count, summary.types.join(', '))),
+            blocked ? tw.curveErrors[result.error] : tw.preview(summary.count, previewTypes(ctx, result.block, summary.types).join(', '))),
         result.error === 'noCurves'
             && smallButton(c, tw.openMeasuredSpectra, () => requestTool('spectrum-exchange')),
         h('div', { style: { ...s.group, gap: 8, marginLeft: 'auto' } },
@@ -425,6 +463,24 @@ function gainEditor(gainSource, tw, c, t) {
     });
 }
 
+// The Color preset's target editor, while it is open, on the wizard's targets.
+function colorTargetEditor(ctx) {
+    const { colorEditor, session, setField, typeId, design, c, t } = ctx;
+    if (!colorEditor.editing) return null;
+    return h(ColorTargetEditor, {
+        design, typeId, targets: session.colorTargets,
+        illuminant: session.colorIlluminant, observer: session.colorObserver,
+        onApply: targets => { setField('colorTargets', targets); colorEditor.close(); },
+        onCancel: colorEditor.close,
+        c, t,
+    });
+}
+
+function useColorEditor() {
+    const [editing, setEditing] = useState(false);
+    return { editing, open: () => setEditing(true), close: () => setEditing(false) };
+}
+
 export function DMFWizard({ design, onGenerate, operandCount, mf, omf, mfProvisional, busy, c, t }) {
     const te = t.meritFunctionEditor;
     const tw = te.wizard;
@@ -434,8 +490,10 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, mfProvisi
     const updateParam = (key, value) => setField('params', prev => paramsWithChange(typeId, prev, key, value));
     const gainSource = useGainSource(updateParam, tw);
     const environment = useWizardEnvironment(design);
+    const colorEditor = useColorEditor();
     const ctx = {
-        s: styles(c), te, tw, units: t.units, c, session, setField, patch, typeId, updateParam, design, gainSource, environment,
+        s: styles(c), te, tw, t, units: t.units, c, session, setField, patch, typeId, updateParam, design, gainSource,
+        environment, colorEditor,
     };
 
     const generate = (block, curves) => {
@@ -445,6 +503,7 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, mfProvisi
     };
     const summary = wizardSummary({
         typeLabel: tw.types[typeId]?.label || typeId, params: session.params, aoi: session.aoi, aoiEnd: session.aoiEnd, units: t.units,
+        light: takesColorTargets(typeId) ? `${session.colorIlluminant} · ${session.colorObserver}°` : null,
     });
 
     return h(React.Fragment, null,
@@ -463,5 +522,6 @@ export function DMFWizard({ design, onGenerate, operandCount, mf, omf, mfProvisi
             bottomLine(ctx, startRow, setStartRow, generate),
         ),
         gainEditor(gainSource, tw, c, t),
+        colorTargetEditor(ctx),
     );
 }

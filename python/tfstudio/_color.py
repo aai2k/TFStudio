@@ -19,6 +19,8 @@ HunterLab = collections.namedtuple("HunterLab", "L a b")
 Dominant = collections.namedtuple("Dominant", "wavelength complementary purity")
 # The sRGB swatch, each channel 0 to 255.
 RGB = collections.namedtuple("RGB", "r g b")
+# How one colour differs from another: ΔL*, Δa*, Δb*, ΔE*ab and ΔE00.
+ColorDifference = collections.namedtuple("ColorDifference", "dL da db dEab dE00")
 
 
 def _reading(name, doc):

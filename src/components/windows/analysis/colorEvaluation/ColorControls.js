@@ -3,7 +3,9 @@ import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 // The illuminant designations are standard names; only their descriptions are translated.
 import { describedLabel } from '../../../../utils/physics/spectralWeightings.js';
 import { TabBtn } from '../../../ui/tabBtn.js';
-import { CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, ResponseChoice, SelectField } from '../chrome/controls.js';
+import {
+    CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, ResponseChoice, SelectField, ToggleButton,
+} from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
 import { AoiChips } from '../opticalEvaluation/AoiChips.js';
@@ -18,12 +20,15 @@ const ANGLE_MODES = ANALYSIS_DEFAULTS.colorEvaluation.enums.angleMode;
  * constantly while judging the colour. Observer, illuminant, sampling, how the
  * colour patches are shown and what the diagram draws besides the colour stay
  * in Settings. The angles are a list, as Optical Evaluation's angle chips, or a
- * range in equal steps.
+ * range in equal steps. Targets draws the merit function's colour rows on the
+ * diagram, as Optical Evaluation's draws its targets on the plot; `hasTargets`
+ * is whether the diagram shown has any.
  */
-export function ColorControls({ c, t, ce, state, notices }) {
+export function ColorControls({ c, t, ce, state, notices, hasTargets }) {
     return h(ControlRow, {
         c,
         trailing: [
+            h(TargetsButton, { key: 'targets', c, ce, state, hasTargets }),
             h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
             h(ColorSetup, { key: 'setup', c, t, ce, state }),
         ],
@@ -48,6 +53,15 @@ export function ColorControls({ c, t, ce, state, notices }) {
                 : h(AoiChips, { values: state.thetas, onChange: state.setThetas, c, oe: t.opticalEval, max: ANGLE_CAP }),
         ),
     );
+}
+
+function TargetsButton({ c, ce, state, hasTargets }) {
+    const active = state.showTargets && hasTargets;
+    return h(ToggleButton, {
+        c, label: ce.targets, active, disabled: !hasTargets,
+        onClick: () => state.setDisplay('showTargets', !state.showTargets),
+        title: hasTargets ? ce.targetsTip : ce.noTargetsTip,
+    }, h('span', { style: { width: 14, height: 0, borderTop: `2px dotted ${active ? c.accent : c.textDim}` } }));
 }
 
 // A range of angles, degrees: the first, the last and the step between them.

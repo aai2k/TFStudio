@@ -21,17 +21,18 @@ function groupDisplay(design, operands, group, displayOf, resolve) {
     } catch (err) {
         if (!(err instanceof UnresolvedDesignMaterialError)) throw err;
         const none = new Array(operands.length).fill(null);
-        return { computed: none, errors: none, bandLevels: none, mf: null, omf: null };
+        return { computed: none, errors: none, bandLevels: none, chromas: none, mf: null, omf: null };
     }
     return displayOf(rows, computed);
 }
 
-// Each row's value and band level in the first group it is scored in, and the
-// first reason any of its groups gives for it having no value.
+// Each row's value, band level and hue chroma in the first group it is scored
+// in, and the first reason any of its groups gives for it having no value.
 function shownRows(count, groups) {
     const values = new Array(count).fill(null);
     const errors = new Array(count).fill(null);
     const bandLevels = new Array(count).fill(null);
+    const chromas = new Array(count).fill(null);
     const seen = new Set();
     for (const group of groups) {
         for (const i of group.rows) {
@@ -40,34 +41,35 @@ function shownRows(count, groups) {
             seen.add(i);
             values[i] = group.computed[i];
             bandLevels[i] = group.bandLevels[i] ?? null;
+            chromas[i] = group.chromas?.[i] ?? null;
         }
     }
-    return { values, errors, bandLevels };
+    return { values, errors, bandLevels, chromas };
 }
 
 /**
  * What meritDisplay gives, for a design with environments: `computed`,
- * `errors` and `bandLevels` row by row, the MF and OMF over the environments,
- * null when one environment's is, and `environments`, one entry per
- * environment the rows are scored in: `{ id, rows, scored, optical, computed,
- * errors, bandLevels, mf, omf }`, `rows` the positions of its rows, `scored`
- * and `optical` whether it counts in the MF and in the OMF, and its own values
- * and merits. `displayOf(rows, computed)` is the display of one evaluation.
+ * `errors`, `bandLevels` and hue `chromas` row by row, the MF and OMF over the
+ * environments, null when one environment's is, and `environments`, one entry
+ * per environment the rows are scored in: `{ id, rows, scored, optical,
+ * computed, errors, bandLevels, chromas, mf, omf }`, `rows` the positions of
+ * its rows, `scored` and `optical` whether it counts in the MF and in the OMF,
+ * and its own values and merits. `displayOf(rows, computed)` is the display of one evaluation.
  */
 export function environmentsDisplay(design, operands, displayOf) {
     const resolve = designMaterialLookup(design);
     const groups = meritGroups(design, operands).map(group => ({
         ...group, ...groupDisplay(design, operands, group, displayOf, resolve),
     }));
-    const { values, errors, bandLevels } = shownRows(operands.length, groups);
+    const { values, errors, bandLevels, chromas } = shownRows(operands.length, groups);
     const failed = key => groups.some(group => group[key] == null);
     return {
-        computed: withRowNotes(values, errors, bandLevels), errors, bandLevels,
+        computed: withRowNotes(values, errors, bandLevels, chromas), errors, bandLevels, chromas,
         mf: failed('mf') ? null : meanSquareMerit(groups.filter(group => group.scored).map(group => group.mf)),
         omf: failed('omf') ? null : meanSquareMerit(groups.filter(group => group.optical).map(group => group.omf)),
         environments: groups.map(({ id, rows, scored, optical, computed, mf, omf, ...group }) => ({
             id, rows, scored, optical, computed: Array.from(computed), errors: group.errors,
-            bandLevels: group.bandLevels, mf, omf,
+            bandLevels: group.bandLevels, chromas: group.chromas, mf, omf,
         })),
     };
 }
@@ -108,7 +110,8 @@ export function environmentContributions(operands, environments) {
     const parts = environmentParts(environments);
     if (parts.size === 0) return shares;
     for (const group of environments.filter(entry => parts.has(entry.id))) {
-        const own = operandContributions(groupRows(operands, group.rows), group.computed);
+        const computed = withRowNotes(Array.from(group.computed), group.errors, group.bandLevels, group.chromas);
+        const own = operandContributions(groupRows(operands, group.rows), computed);
         own.forEach((share, i) => { if (share != null) shares[i] = (shares[i] ?? 0) + share * parts.get(group.id); });
     }
     return shares;

@@ -5890,5 +5890,61 @@
   "Environment.temperature.refuses.1": {
     "hash": "c0d27335",
     "text": "小于等于 -273.15 °C 的温度，或在环境 1 上设置的任何值，环境 1 的温度就是设计的温度"
+  },
+  "TFStudio.colorDifference.arg.a": {
+    "hash": "1dc4d6a0",
+    "text": "作为比较基准的颜色，一个 Color。"
+  },
+  "TFStudio.colorDifference.arg.b": {
+    "hash": "2bba6c81",
+    "text": "被比较的颜色，一个 Color。"
+  },
+  "TFStudio.colorDifference.returns.js": {
+    "hash": "59aa3dbf",
+    "text": "一个对象：`dL`、`da` 和 `db`，即 ΔL*、Δa* 和 Δb*，均为 b 减 a；`dEab`，即 ΔE*ab，√(ΔL*² + Δa*² + Δb*²)；以及 `dE00`，即 ΔE00，kL、kC 和 kH 均为 1 的 CIEDE2000 色差。"
+  },
+  "TFStudio.colorDifference.returns.py": {
+    "hash": "108c0ff0",
+    "text": "一个 ColorDifference 命名元组：dL、da 和 db，即 ΔL*、Δa* 和 Δb*，均为 b 减 a；dEab，即 ΔE*ab，√(ΔL*² + Δa*² + Δb*²)；以及 dE00，即 ΔE00，kL、kC 和 kH 均为 1 的 CIEDE2000 色差。"
+  },
+  "TFStudio.colorDifference.lead.1": {
+    "hash": "f6e5fd83",
+    "text": "颜色 `b` 与颜色 `a` 的差别，两者均为 `design.color()` 给出的颜色，与颜色评估窗口的色差视图给出的相同：ΔL*、Δa* 和 Δb*，均为 b 减 a；ΔE*ab，即两者在 CIE L*a*b* 中的距离；以及 ΔE00，即 CIEDE2000。L*a*b* 是相对于观察者所见的光源白点而言的，因此只比较同一光源和同一观察者下的两个颜色。入射角、偏振、计算的面、设计以及各自是 R 还是 T 可以不同：同一颜色在另一入射角下与自身的差别，就是它的偏移量。"
+  },
+  "TFStudio.colorDifference.refuses.1.js": {
+    "hash": "1f70990d",
+    "text": "不是 Color 的 a 或 b，例如 `env: 'all'` 给出的数组"
+  },
+  "TFStudio.colorDifference.refuses.1.py": {
+    "hash": "6fc4cd33",
+    "text": "不是 Color 的 a 或 b，例如 env=\"all\" 给出的列表"
+  },
+  "TFStudio.colorDifference.refuses.2": {
+    "hash": "43254d28",
+    "text": "不同光源或不同观察者下的两个颜色"
+  },
+  "Merit.add.arg.color": {
+    "hash": "6c9e8259",
+    "text": "用于 RCOL 和 TCOL：该行计分的颜色量，名称与编辑器的颜色列表相同：`'X'`、`'Y'`、`'Z'`、`'x'`、`'y'`、`\"u'\"`、`\"v'\"`、`'u'`、`'v'`、`'L*'`、`'a*'`、`'b*'`、`'C*ab'`、`'hab'`、`'u*'`、`'v*'`、`'C*uv'`、`'huv'`、`'suv'`、`'Hunter L'`、`'Hunter a'`、`'Hunter b'`、`'dominant'`、`'complementary'`、`'purity'`、`'CCT'` 或 `'Duv'`。其目标使用该量自身的单位：Y 为 %，色调角为度，波长为 nm，CCT 为 K，纯度为 0 到 1 之间的小数。该行在 380-780 nm 上积分，不接受 `start` 或 `end`。"
+  },
+  "Merit.add.arg.illuminant": {
+    "hash": "cdcc7ad7",
+    "text": "用于 RCOL 和 TCOL：CIE 光源，`'D65'`、`'D50'`、`'A'` 或 `'E'`。"
+  },
+  "Merit.add.arg.observer": {
+    "hash": "207beef2",
+    "text": "用于 RCOL 和 TCOL：CIE 标准观察者，按其视场的度数：`2` 或 `10`。"
+  },
+  "MeritRow.color.lead.1": {
+    "hash": "0c05e86f",
+    "text": "用于 RCOL 和 TCOL：该行计分的颜色量，名称与编辑器的颜色列表相同，例如 `'x'`、`'L*'` 或 `'dominant'`。"
+  },
+  "MeritRow.illuminant.lead.1": {
+    "hash": "b8ed5e75",
+    "text": "用于 RCOL 和 TCOL：读取颜色所用的 CIE 光源。"
+  },
+  "MeritRow.observer.lead.1": {
+    "hash": "fbd3c5e4",
+    "text": "用于 RCOL 和 TCOL：CIE 标准观察者，按其视场的度数：2 或 10。"
   }
 }

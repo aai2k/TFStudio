@@ -4,7 +4,7 @@
 import { designMaterialLookup } from '../materials/designMaterials.js';
 import {
     evaluateOperands, calcMF, calcOMF, buildEvalContext, operandEvaluationErrors,
-    operandBandLevels, withFringeSampleCounts, withDesignSampleCounts,
+    operandBandLevels, operandColorChromas, withFringeSampleCounts, withDesignSampleCounts,
     takesStepFlag, isBandGridRow, bandFlagStepNm, extremumStepNm, isMath, withRowNotes,
 } from './optimizer.js';
 import { hasEnvironments, meritUnderCone } from '../environments/environments.js';
@@ -15,6 +15,7 @@ function displayOf(operands, computed) {
     const invalid = errors.some(Boolean);
     return {
         computed: Array.from(computed), errors, bandLevels: operandBandLevels(computed),
+        chromas: operandColorChromas(computed),
         mf: invalid ? null : calcMF(operands, computed),
         omf: invalid ? null : calcOMF(operands, computed),
     };
@@ -32,12 +33,13 @@ export function meritDisplay(design, operands) {
 
 /**
  * A meritDisplay result copied back from the analysis worker, its values again
- * carrying the rows' errors and band levels (withRowNotes), which the copy
- * drops, so the share column and the band levels read from them as from an
- * evaluation on the window's thread.
+ * carrying the rows' errors, band levels and hue rows' chromas (withRowNotes),
+ * which the copy drops, so the share column and the band levels read from them
+ * as from an evaluation on the window's thread.
  */
 export function receivedDisplay(display) {
-    return { ...display, computed: withRowNotes(Array.from(display.computed), display.errors, display.bandLevels) };
+    const computed = withRowNotes(Array.from(display.computed), display.errors, display.bandLevels, display.chromas);
+    return { ...display, computed };
 }
 
 /**

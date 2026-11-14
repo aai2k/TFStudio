@@ -109,7 +109,7 @@ function curveTargetRows(design, params) {
     const { curve, error: missing } = pickedCurve(design, 'CURVE_TARGET', params.curveId);
     if (missing) return { error: missing };
     const { block, error } = blockOf(design, curve, params.scale);
-    return error ? { error } : { rows: [block], curves: [], curveName: curve.name };
+    return error ? { error } : { rows: [block], curves: [], heading: curve.name };
 }
 
 function gainFlatteningRows(design, params, flatteningName) {
@@ -124,15 +124,16 @@ function gainFlatteningRows(design, params, flatteningName) {
         type: 'TDBMN', lambdaStart: lambda, lambdaEnd: lambda, aoi: block.aoi, pol: block.pol,
         target: -(Number(params.insertionLossDb) || 0), weight: 1,
     });
-    return { rows: [block, ppef, loss], curves: target.added, curveName: target.curve.name };
+    return { rows: [block, ppef, loss], curves: target.added, heading: target.curve.name };
 }
 
 /**
  * The rows a curve type writes, the curves it adds to the design, and the
- * name of the curve it read; or { error } naming what is missing: 'noCurves'
- * (no curve on the design the type can take), 'noCurve' (none picked),
- * 'noGain', 'range' (no point inside the materials' data) or 'dbEmpty' (no
- * point above 0 %). `flatteningName` names a target derived from a gain.
+ * name of the curve it read as the block's `heading`; or { error } naming
+ * what is missing: 'noCurves' (no curve on the design the type can take),
+ * 'noCurve' (none picked), 'noGain', 'range' (no point inside the materials'
+ * data) or 'dbEmpty' (no point above 0 %). `flatteningName` names a target
+ * derived from a gain.
  */
 export function curveWizardRows({ typeId, params, design, flatteningName = name => name }) {
     if (typeId === 'GAIN_FLATTENING') return gainFlatteningRows(design, params, flatteningName);

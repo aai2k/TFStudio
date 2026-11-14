@@ -26,7 +26,7 @@ A design's `sides` says which sides carry layers, and its `scoreOn` / `score_on`
 | `'both'` | either | Surface: Both | `'total'` (Eval: TOTAL) |
 | `'symmetric'` | either | Surface: Both, Symmetric (back = front) | `'total'` (Eval: TOTAL) |
 
-Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-1), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [Inhomogeneities](#inhomogeneities-1), [Roughness](#roughness-1), [Stress](#stress-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
+Each result says what it was computed on in its `mode`: [SpecReport](#specreport), [Yield](#yield), [Spectrum](#spectrum-1), [IndexProfile](#indexprofile), [LayerThicknesses](#layerthicknesses), [Admittance](#admittance-1), [ElectricField](#electricfield), [Color](#color-2), [Integrals](#integrals-1), [Ellipsometry](#ellipsometry-1), [GroupDelay](#groupdelay), [Pulse](#pulse-1), [Inhomogeneities](#inhomogeneities-1), [Roughness](#roughness-1), [Stress](#stress-1), [RunResult](#runresult), [MonteCarlo](#montecarlo) and [LayerSensitivity](#layersensitivity).
 
 ## TFStudio
 
@@ -186,6 +186,40 @@ mirror.stack("(HL)^4 H")
 mirror.save(name)
 design = tf.open_design(name)
 print(design.name, len(design.layers), "layers, from", name)
+```
+
+### colorDifference / color_difference
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.colorDifference(a, b)` | `tf.color_difference(a, b)` |
+
+How the colour `b` differs from the colour `a`, both as `design.color()` gives them, as the Differences view of the Color Evaluation window gives it: ΔL*, Δa* and Δb*, each b less a; ΔE*ab, the distance between the two in CIE L*a*b*; and ΔE00, CIEDE2000. L*a*b* is relative to the illuminant's white as the observer sees it, so two colours are compared only under one illuminant and one observer. The angle, polarization, side, design and whether each is R or T may differ: a colour against the same one at another angle is how far it shifts.
+
+| JavaScript | Python | Default | Meaning |
+| ---------- | ------ | ------- | ------- |
+| `a` | `a` |  | The colour compared against, a Color. |
+| `b` | `b` |  | The colour compared, a Color. |
+
+**Returns**: **JavaScript**: An object: `dL`, `da` and `db`, ΔL*, Δa* and Δb*, each b less a; `dEab`, ΔE*ab, √(ΔL*² + Δa*² + Δb*²); and `dE00`, ΔE00, the CIEDE2000 difference with kL, kC and kH of 1.<br>**Python**: A ColorDifference, a named tuple: dL, da and db, ΔL*, Δa* and Δb*, each b less a; dEab, ΔE*ab, √(ΔL*² + Δa*² + Δb*²); and dE00, ΔE00, the CIEDE2000 difference with kL, kC and kH of 1.
+
+**Refuses**:
+
+- **JavaScript**: an a or b that is not a Color, such as the array `env: 'all'` gives<br>**Python**: an a or b that is not a Color, such as the list env="all" gives
+- two colours under different illuminants or observers
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+const shift = tf.colorDifference(design.color({ angle: 0 }), design.color({ angle: 45 }));
+console.log('ΔL*', shift.dL.toFixed(2), 'ΔE*ab', shift.dEab.toFixed(2), 'ΔE00', shift.dE00.toFixed(2));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+shift = tf.color_difference(design.color(angle=0), design.color(angle=45))
+print("ΔL*", round(shift.dL, 2), "ΔE*ab", round(shift.dEab, 2), "ΔE00", round(shift.dE00, 2))
 ```
 
 ### readSpectrumFile / read_spectrum_file
@@ -3987,7 +4021,7 @@ print(design.merit.value)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.merit.add(type, start, end, { target, weight, aoi, pol, targetEnd, cmp, flag, enabled, comment, id, refId, refId1, refId2, env })` | `design.merit.add(type, start=..., end=..., target=..., weight=1, aoi=0, pol="avg", target_end=..., cmp=..., flag=..., enabled=True, comment=..., id=..., ref_id=..., ref_id1=..., ref_id2=..., env=...)` |
+| `design.merit.add(type, start, end, { target, weight, aoi, pol, targetEnd, cmp, color, illuminant, observer, flag, enabled, comment, id, refId, refId1, refId2, env })` | `design.merit.add(type, start=..., end=..., target=..., weight=1, aoi=0, pol="avg", target_end=..., cmp=..., color="Y", illuminant="D65", observer=2, flag=..., enabled=True, comment=..., id=..., ref_id=..., ref_id1=..., ref_id2=..., env=...)` |
 
 Adds a row at the end of the merit function, made as the Merit Function Editor makes one: a field left out takes the value a row added there starts with. `start` and `end` may be left out.
 
@@ -4002,6 +4036,9 @@ Adds a row at the end of the merit function, made as the Merit Function Editor m
 | `pol` | `pol` | `'avg'` | `'avg'`, `'s'` or `'p'`. |
 | `targetEnd` | `target_end` |  | The target at `end` of a target that slopes from `target` at `start`; `null` / `None` for a flat one. |
 | `cmp` | `cmp` |  | For TT and STR, the comparison: `'eq'`, `'le'` or `'ge'`. |
+| `color` | `color` | `'Y'` | For RCOL and TCOL, the colour quantity the row scores, as the editor's Color list names it: `'X'`, `'Y'`, `'Z'`, `'x'`, `'y'`, `"u'"`, `"v'"`, `'u'`, `'v'`, `'L*'`, `'a*'`, `'b*'`, `'C*ab'`, `'hab'`, `'u*'`, `'v*'`, `'C*uv'`, `'huv'`, `'suv'`, `'Hunter L'`, `'Hunter a'`, `'Hunter b'`, `'dominant'`, `'complementary'`, `'purity'`, `'CCT'` or `'Duv'`. Its target is in the quantity's own unit: Y in %, a hue in degrees, a wavelength in nm, CCT in K, purity as a fraction of 1. The row is integrated over 380-780 nm and takes no `start` or `end`. |
+| `illuminant` | `illuminant` | `'D65'` | For RCOL and TCOL, the CIE illuminant: `'D65'`, `'D50'`, `'A'` or `'E'`. |
+| `observer` | `observer` | `2` | For RCOL and TCOL, the CIE standard observer, by its field in degrees: `2` or `10`. |
 | `flag` | `flag` |  | The editor's Flag column, the row's Step; the Operand Reference says what it does on each row. |
 | `enabled` | `enabled` | `true` / `True` | `false` / `False` leaves the row out of the merit. |
 | `comment` | `comment` |  | The text of a BLNK row. |
@@ -4023,6 +4060,7 @@ design.stack('(HL)^2');
 design.merit.add('RAV', 450, 650, { target: 0 });
 design.merit.add('TAV', 800, 900, { target: 0.95, weight: 2, aoi: 45, pol: 'p' });
 design.merit.add('MNT', { target: 10 });
+design.merit.add('RCOL', { color: 'a*', target: 0, aoi: 30 });
 console.log(design.merit.length, 'rows, merit', design.merit.value);
 ```
 
@@ -4032,6 +4070,7 @@ design.stack("(HL)^2")
 design.merit.add("RAV", 450, 650, target=0)
 design.merit.add("TAV", 800, 900, target=0.95, weight=2, aoi=45, pol="p")
 design.merit.add("MNT", target=10)
+design.merit.add("RCOL", color="a*", target=0, aoi=30)
 print(len(design.merit), "rows, merit", design.merit.value)
 ```
 
@@ -4044,6 +4083,7 @@ The types this version evaluates, grouped as the [Operand Reference](/design/ope
 | Spectral target | `TGT`, `RGT`, `AGT` |
 | Curves | `MCURVE`, `PPEF` |
 | Weighted integral | `TIW`, `RIW`, `AIW` |
+| Color | `RCOL`, `TCOL` |
 | Worst case over a band | `TMN`, `RMN`, `AMN`, `TMX`, `RMX`, `AMX`, `TDBMN`, `TDBMX`, `RDBMX`, `ODMN` |
 | Ellipsometry | `PSI`, `DEL`, `TANPSI`, `COSDEL` |
 | Phase and dispersion | `PR`, `PT`, `DPR`, `DPT`, `GD`, `GDT`, `GDD`, `GDDT`, `TOD`, `TODT`, `GDFLAT`, `GDTFLAT`, `GDDFLAT`, `GDDTFLAT`, `TODFLAT`, `TODTFLAT` |
@@ -4360,6 +4400,72 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.merit.add("TT", target=2000, cmp="le")
 print(design.merit.rows[0].cmp)
+```
+
+### color
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.color` | `row.color` |
+
+For RCOL and TCOL, the colour quantity the row scores, as the editor's Color list names it, such as `'x'`, `'L*'` or `'dominant'`.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.merit.add('RCOL', { color: 'b*', target: -5 });
+console.log(design.merit.rows[0].color, design.merit.rows[0].value);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.merit.add("RCOL", color="b*", target=-5)
+print(design.merit.rows[0].color, design.merit.rows[0].value)
+```
+
+### illuminant
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.illuminant` | `row.illuminant` |
+
+For RCOL and TCOL, the CIE illuminant the colour is read under.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.merit.add('RCOL', { color: 'x', target: 0.3, illuminant: 'D50' });
+console.log(design.merit.rows[0].illuminant);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.merit.add("RCOL", color="x", target=0.3, illuminant="D50")
+print(design.merit.rows[0].illuminant)
+```
+
+### observer
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.observer` | `row.observer` |
+
+For RCOL and TCOL, the CIE standard observer, by its field in degrees: 2 or 10.
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.merit.add('RCOL', { color: 'x', target: 0.3, observer: 10 });
+console.log(design.merit.rows[0].observer);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.merit.add("RCOL", color="x", target=0.3, observer=10)
+print(design.merit.rows[0].observer)
 ```
 
 ### target

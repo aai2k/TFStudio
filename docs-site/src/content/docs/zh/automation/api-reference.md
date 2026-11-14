@@ -26,7 +26,7 @@ JavaScript 的名称采用 camelCase，可选参数放在末尾的选项对象�
 | `'both'` | 任意 | 表面：两面 | `'total'`（评价：整体） |
 | `'symmetric'` | 任意 | 表面：两面，对称（背面 = 正面） | `'total'`（评价：整体） |
 
-每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-1)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[Inhomogeneities](#inhomogeneities-1)、[Roughness](#roughness-1)、[Stress](#stress-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
+每个结果都在其 `mode` 中说明它的计算对象：[SpecReport](#specreport)、[Yield](#yield)、[Spectrum](#spectrum-1)、[IndexProfile](#indexprofile)、[LayerThicknesses](#layerthicknesses)、[Admittance](#admittance-1)、[ElectricField](#electricfield)、[Color](#color-2)、[Integrals](#integrals-1)、[Ellipsometry](#ellipsometry-1)、[GroupDelay](#groupdelay)、[Pulse](#pulse-1)、[Inhomogeneities](#inhomogeneities-1)、[Roughness](#roughness-1)、[Stress](#stress-1)、[RunResult](#runresult)、[MonteCarlo](#montecarlo)和[LayerSensitivity](#layersensitivity)。
 
 ## TFStudio
 
@@ -186,6 +186,40 @@ mirror.stack("(HL)^4 H")
 mirror.save(name)
 design = tf.open_design(name)
 print(design.name, len(design.layers), "layers, from", name)
+```
+
+### colorDifference / color_difference
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `tf.colorDifference(a, b)` | `tf.color_difference(a, b)` |
+
+颜色 `b` 与颜色 `a` 的差别，两者均为 `design.color()` 给出的颜色，与颜色评估窗口的色差视图给出的相同：ΔL*、Δa* 和 Δb*，均为 b 减 a；ΔE*ab，即两者在 CIE L*a*b* 中的距离；以及 ΔE00，即 CIEDE2000。L*a*b* 是相对于观察者所见的光源白点而言的，因此只比较同一光源和同一观察者下的两个颜色。入射角、偏振、计算的面、设计以及各自是 R 还是 T 可以不同：同一颜色在另一入射角下与自身的差别，就是它的偏移量。
+
+| JavaScript | Python | 默认值 | 含义 |
+| ---------- | ------ | --- | --- |
+| `a` | `a` |  | 作为比较基准的颜色，一个 Color。 |
+| `b` | `b` |  | 被比较的颜色，一个 Color。 |
+
+**返回**：**JavaScript**：一个对象：`dL`、`da` 和 `db`，即 ΔL*、Δa* 和 Δb*，均为 b 减 a；`dEab`，即 ΔE*ab，√(ΔL*² + Δa*² + Δb*²)；以及 `dE00`，即 ΔE00，kL、kC 和 kH 均为 1 的 CIEDE2000 色差。<br>**Python**：一个 ColorDifference 命名元组：dL、da 和 db，即 ΔL*、Δa* 和 Δb*，均为 b 减 a；dEab，即 ΔE*ab，√(ΔL*² + Δa*² + Δb*²)；以及 dE00，即 ΔE00，kL、kC 和 kH 均为 1 的 CIEDE2000 色差。
+
+**拒绝**：
+
+- **JavaScript**：不是 Color 的 a 或 b，例如 `env: 'all'` 给出的数组<br>**Python**：不是 Color 的 a 或 b，例如 env="all" 给出的列表
+- 不同光源或不同观察者下的两个颜色
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+const shift = tf.colorDifference(design.color({ angle: 0 }), design.color({ angle: 45 }));
+console.log('ΔL*', shift.dL.toFixed(2), 'ΔE*ab', shift.dEab.toFixed(2), 'ΔE00', shift.dE00.toFixed(2));
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+shift = tf.color_difference(design.color(angle=0), design.color(angle=45))
+print("ΔL*", round(shift.dL, 2), "ΔE*ab", round(shift.dEab, 2), "ΔE00", round(shift.dE00, 2))
 ```
 
 ### readSpectrumFile / read_spectrum_file
@@ -3987,7 +4021,7 @@ print(design.merit.value)
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `design.merit.add(type, start, end, { target, weight, aoi, pol, targetEnd, cmp, flag, enabled, comment, id, refId, refId1, refId2, env })` | `design.merit.add(type, start=..., end=..., target=..., weight=1, aoi=0, pol="avg", target_end=..., cmp=..., flag=..., enabled=True, comment=..., id=..., ref_id=..., ref_id1=..., ref_id2=..., env=...)` |
+| `design.merit.add(type, start, end, { target, weight, aoi, pol, targetEnd, cmp, color, illuminant, observer, flag, enabled, comment, id, refId, refId1, refId2, env })` | `design.merit.add(type, start=..., end=..., target=..., weight=1, aoi=0, pol="avg", target_end=..., cmp=..., color="Y", illuminant="D65", observer=2, flag=..., enabled=True, comment=..., id=..., ref_id=..., ref_id1=..., ref_id2=..., env=...)` |
 
 在评价函数末尾添加一行，做法与评价函数编辑器相同：未给出的字段取在编辑器中新加一行时的初始值。`start` 和 `end` 可以省略。
 
@@ -4002,6 +4036,9 @@ print(design.merit.value)
 | `pol` | `pol` | `'avg'` | `'avg'`、`'s'` 或 `'p'`。 |
 | `targetEnd` | `target_end` |  | 倾斜目标在 `end` 处的目标值，该目标从 `start` 处的 `target` 开始倾斜；平直目标为 `null` / `None`。 |
 | `cmp` | `cmp` |  | 用于 TT 和 STR 的比较方式：`'eq'`、`'le'` 或 `'ge'`。 |
+| `color` | `color` | `'Y'` | 用于 RCOL 和 TCOL：该行计分的颜色量，名称与编辑器的颜色列表相同：`'X'`、`'Y'`、`'Z'`、`'x'`、`'y'`、`"u'"`、`"v'"`、`'u'`、`'v'`、`'L*'`、`'a*'`、`'b*'`、`'C*ab'`、`'hab'`、`'u*'`、`'v*'`、`'C*uv'`、`'huv'`、`'suv'`、`'Hunter L'`、`'Hunter a'`、`'Hunter b'`、`'dominant'`、`'complementary'`、`'purity'`、`'CCT'` 或 `'Duv'`。其目标使用该量自身的单位：Y 为 %，色调角为度，波长为 nm，CCT 为 K，纯度为 0 到 1 之间的小数。该行在 380-780 nm 上积分，不接受 `start` 或 `end`。 |
+| `illuminant` | `illuminant` | `'D65'` | 用于 RCOL 和 TCOL：CIE 光源，`'D65'`、`'D50'`、`'A'` 或 `'E'`。 |
+| `observer` | `observer` | `2` | 用于 RCOL 和 TCOL：CIE 标准观察者，按其视场的度数：`2` 或 `10`。 |
 | `flag` | `flag` |  | 编辑器中的 Flag 列，即该行的步长；操作数参考说明它在每种行上的作用。 |
 | `enabled` | `enabled` | `true` / `True` | 为 `false` / `False` 时，该行不计入评价函数。 |
 | `comment` | `comment` |  | BLNK 行的文本。 |
@@ -4023,6 +4060,7 @@ design.stack('(HL)^2');
 design.merit.add('RAV', 450, 650, { target: 0 });
 design.merit.add('TAV', 800, 900, { target: 0.95, weight: 2, aoi: 45, pol: 'p' });
 design.merit.add('MNT', { target: 10 });
+design.merit.add('RCOL', { color: 'a*', target: 0, aoi: 30 });
 console.log(design.merit.length, 'rows, merit', design.merit.value);
 ```
 
@@ -4032,6 +4070,7 @@ design.stack("(HL)^2")
 design.merit.add("RAV", 450, 650, target=0)
 design.merit.add("TAV", 800, 900, target=0.95, weight=2, aoi=45, pol="p")
 design.merit.add("MNT", target=10)
+design.merit.add("RCOL", color="a*", target=0, aoi=30)
 print(len(design.merit), "rows, merit", design.merit.value)
 ```
 
@@ -4044,6 +4083,7 @@ print(len(design.merit), "rows, merit", design.merit.value)
 | 光谱目标 | `TGT`、`RGT`、`AGT` |
 | 曲线 | `MCURVE`、`PPEF` |
 | 加权积分 | `TIW`、`RIW`、`AIW` |
+| 颜色 | `RCOL`、`TCOL` |
 | 波段内的最坏情况 | `TMN`、`RMN`、`AMN`、`TMX`、`RMX`、`AMX`、`TDBMN`、`TDBMX`、`RDBMX`、`ODMN` |
 | 椭偏 | `PSI`、`DEL`、`TANPSI`、`COSDEL` |
 | 相位与色散 | `PR`、`PT`、`DPR`、`DPT`、`GD`、`GDT`、`GDD`、`GDDT`、`TOD`、`TODT`、`GDFLAT`、`GDTFLAT`、`GDDFLAT`、`GDDTFLAT`、`TODFLAT`、`TODTFLAT` |
@@ -4360,6 +4400,72 @@ design = tf.new_design("Mirror")
 design.stack("(HL)^4 H")
 design.merit.add("TT", target=2000, cmp="le")
 print(design.merit.rows[0].cmp)
+```
+
+### color
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.color` | `row.color` |
+
+用于 RCOL 和 TCOL：该行计分的颜色量，名称与编辑器的颜色列表相同，例如 `'x'`、`'L*'` 或 `'dominant'`。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.merit.add('RCOL', { color: 'b*', target: -5 });
+console.log(design.merit.rows[0].color, design.merit.rows[0].value);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.merit.add("RCOL", color="b*", target=-5)
+print(design.merit.rows[0].color, design.merit.rows[0].value)
+```
+
+### illuminant
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.illuminant` | `row.illuminant` |
+
+用于 RCOL 和 TCOL：读取颜色所用的 CIE 光源。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.merit.add('RCOL', { color: 'x', target: 0.3, illuminant: 'D50' });
+console.log(design.merit.rows[0].illuminant);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.merit.add("RCOL", color="x", target=0.3, illuminant="D50")
+print(design.merit.rows[0].illuminant)
+```
+
+### observer
+
+| JavaScript | Python |
+| ---------- | ------ |
+| `row.observer` | `row.observer` |
+
+用于 RCOL 和 TCOL：CIE 标准观察者，按其视场的度数：2 或 10。
+
+```js
+const design = tf.newDesign('AR');
+design.stack('(HL)^2');
+design.merit.add('RCOL', { color: 'x', target: 0.3, observer: 10 });
+console.log(design.merit.rows[0].observer);
+```
+
+```python
+design = tf.new_design("AR")
+design.stack("(HL)^2")
+design.merit.add("RCOL", color="x", target=0.3, observer=10)
+print(design.merit.rows[0].observer)
 ```
 
 ### target

@@ -1,7 +1,9 @@
 /**
  * Whole operand rows on the clipboard: one tab-separated line per operand,
  * holding its type, band, angle, polarization, flag, target and weight, in the
- * order the table shows them. A DEL row adds a ninth field, the sign of Δ it
+ * order the table shows them. A colour row holds its quantity and its
+ * illuminant and observer in place of the band, as its Color and ILL-OBS cells
+ * copy them: x, then D65 · 2°. A DEL row adds a ninth field, the sign of Δ it
  * reads, so a pasted copy scores as its source does; a DEL line without it,
  * typed or copied from elsewhere, pastes as a new DEL row. Ctrl+C on selected
  * rows writes them and Ctrl+V reads them back as new operands; a line without
@@ -21,8 +23,10 @@
  */
 import {
     GENERATED_ONLY_OPERAND_TYPES, OPERAND_POLS, OPERAND_TYPES,
-    flagStepNm, isBandGridRow, isFractionalUnit, isValidMeritWeight, makeOperand, takesStepFlag,
+    flagStepNm, isBandGridRow, isColor, isFractionalUnit, isValidMeritWeight, makeOperand, takesStepFlag,
 } from '../../../../../utils/physics/optimizer.js';
+import { COLOR_QUANTITIES } from '../../../../../utils/physics/colorimetry.js';
+import { ILLUMINANT_OBSERVER_PAIRS, illuminantObserverLabel } from './colorRows.js';
 import { parseNumberStrict } from '../../../../../utils/misc/numberParsing.js';
 import { rowInEnvironment } from '../../../../../utils/environments/environments.js';
 
@@ -53,13 +57,17 @@ export function looksLikeOperandRows(grid) {
     return grid.length > 0 && grid.every(line => rowLength(line) && OPERAND_TYPES.includes(line[0]));
 }
 
+// The two fields after a row's type: its band, or a colour row's quantity and
+// its illuminant and observer.
+const bandFields = op => (isColor(op.type) ? [op.color, illuminantObserverLabel(op)] : [op.lambdaStart, op.lambdaEnd]);
+
 export function serializeOperandsTsv(operands, selectedIds) {
     return operands.filter(op => selectedIds.has(op.id)).map(op => {
         const target = op.target ?? 0;
         const targetText = String(isFractionalUnit(op.type) ? shiftDecimal(target, 2) : target);
         const flagText = Number.isFinite(op.flag) ? op.flag : '';
         const sign = op.type === 'DEL' && op.deltaConvention ? [op.deltaConvention] : [];
-        return [op.type, op.lambdaStart, op.lambdaEnd, op.aoi, op.pol, flagText, targetText, op.weight, ...sign].join('\t');
+        return [op.type, ...bandFields(op), op.aoi, op.pol, flagText, targetText, op.weight, ...sign].join('\t');
     }).join('\n');
 }
 
@@ -80,6 +88,19 @@ function lineFields(line) {
     const [type, startText, endText, aoiText, pol] = parts;
     const [flagText, targetText, weightText] = parts.length >= 8 ? parts.slice(5, 8) : ['', parts[5], parts[6]];
     return { type, startText, endText, aoiText, pol, flagText, targetText, weightText, signText: parts[8] };
+}
+
+// The quantity and the illuminant and observer a pasted colour line holds in
+// place of a band, when they name a Color list entry and a pair; a row given
+// neither reads Y under D65 · 2°, as a new colour row does.
+function colorFields(type, startText = '', endText = '') {
+    if (!isColor(type)) return {};
+    const color = startText.trim();
+    const pair = ILLUMINANT_OBSERVER_PAIRS.find(entry => entry.label.toLowerCase() === endText.trim().toLowerCase());
+    return {
+        ...(COLOR_QUANTITIES.includes(color) ? { color } : {}),
+        ...(pair ? { illuminant: pair.illuminant, observer: pair.observer } : {}),
+    };
 }
 
 // The sign of Δ a pasted DEL line was copied with, when it carries one.
@@ -106,6 +127,7 @@ function operandFromLine(line) {
         weight: isValidMeritWeight(weight) ? weight : 1,
         ...flagField(safeType, flagText),
         ...deltaConventionField(safeType, signText),
+        ...colorFields(safeType, startText, endText),
     };
 }
 

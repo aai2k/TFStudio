@@ -21,7 +21,7 @@ import {
     isFullSystemEval, effectiveBackLayers,
     evaluateOperands, phaseDispersionThicknessPoint, ellipsometryThicknessPoint,
     residualScaleIn, calcMF,
-    operandEvaluationErrors, OperandEvaluationError, operandSampleDeviations,
+    operandEvaluationErrors, OperandEvaluationError, operandSampleDeviations, operandColorChromas,
 } from './evalCore.js';
 import { operandResidualRows } from './residualRows.js';
 import { expandMeasuredCurveOperands } from './measuredCurveOperand.js';
@@ -220,12 +220,13 @@ export class LSQEngine {
         // MXW*/MNW*, dB rows and the math rows reading them). A range target
         // gives one row per sample.
         const deviations = operandSampleDeviations(comp);
+        const chromas = operandColorChromas(comp);
         const scaleOf = residualScaleIn(this.operands);
         const out = [];
         for (let i = 0; i < this.operands.length; i++) {
             const op = this.operands[i];
             if (!op.enabled || comp[i] == null) continue;
-            out.push(...operandResidualRows(op, comp[i], deviations[i], scaleOf(op)));
+            out.push(...operandResidualRows(op, comp[i], deviations[i], scaleOf(op), chromas[i]));
         }
         return out;
     }

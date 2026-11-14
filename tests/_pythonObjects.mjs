@@ -373,6 +373,19 @@ async function merit(t, said, count) {
         'add: the design has one environment, so a row takes no env; add another with design.environments.add()',
         'add: environment 5: the design has 2 environments, numbered from 1',
     ]), canon(env.refused));
+
+    const tint = got.colour ?? {};
+    const COLOUR_ROWS = [{ type: 'RCOL', color: 'x', target: 0.3, aoi: 30, pol: 's' },
+        { type: 'TCOL', color: 'hab', target: 250, illuminant: 'A', observer: 10 }];
+    const tinted = await attempt(() => api.setMerit(said.edited, COLOUR_ROWS));
+    const tintedRows = (await attempt(() => api.merit(tinted))).rows ?? [];
+    ok('merit.add() takes RCOL and TCOL rows, whose color, illuminant and observer are merit\'s, with no start',
+        canon(tint.design) === canon(tinted) && canon(tint.rows) === canon(tintedRows.map(r => [r.type, r.color, r.illuminant, r.observer, r.aoi, r.pol, null, r.value,
+            `<MeritRow ${r.type} ${r.color}: ${r.value} for ${r.target}>`])) && tintedRows.length === 2, canon(tint.rows));
+    ok('and refuses a quantity or an observer it does not have, in Python\'s words', canon(tint.refused) === canon([
+        `add: color is one of 'X', 'Y', 'Z', 'x', 'y', "u'", "v'", 'u', 'v', 'L*', 'a*', 'b*', 'C*ab', 'hab', 'u*', 'v*', 'C*uv', 'huv', 'suv', 'Hunter L', 'Hunter a', 'Hunter b', 'dominant', 'complementary', 'purity', 'CCT' or 'Duv', not 'q'`,
+        "add: observer is 2 or 10, not '2'",
+    ]), canon(tint.refused));
 }
 
 // A check of each kind as the package adds it to a design with the measured
@@ -795,7 +808,12 @@ async function colourAndIntegrals(t, said) {
     const written = csvRows(fs.readFileSync(file, 'utf8'));
     ok('save_csv writes what saveCsv writes', canon(csvRows(got.csv)) === canon(written) && written[0].join() === 'Integral,Value,%,Min,Min λ (nm),Max,Max λ (nm),Band'
         && written.length === 13, String(got.csv).slice(0, 200));
+    const shift = await attempt(() => api.colorDifference(api.color(design), api.color(design, { angle: 45, pol: 's' })));
+    ok('color_difference() is colorDifference over the wire, as a named tuple', canon(got.difference) === canon([
+        [shift.dL, shift.da, shift.db, shift.dEab, shift.dE00], ['dL', 'da', 'db', 'dEab', 'dE00']]) && shift.dEab > 0, canon(got.difference));
     ok('their refusals are in Python\'s words', canon(got.worded) === canon([
+        'color_difference: a is under D65 with the 2 degree observer and b under A with the 2 degree observer; L*a*b* is relative to the illuminant\'s white, so compare two colours under one illuminant and observer',
+        'color_difference: b is a Color, as design.color() gives one; with env="all" it gives a list of them',
         'color: observer is 2 or 10, not 3',
         "color: illuminant is 'D65', 'D50', 'A' or 'E', not 'F2'",
         "color: side is 'front', 'back' or 'total', not 'both'",

@@ -20,6 +20,7 @@ import {
 } from './logReadings.js';
 
 import { bandStepFloor } from './stepFlag.js';
+import { COLOR_RANGE_NM } from '../colorimetry/tables.js';
 export {
     EXTREMUM_FLAG_MAX, FINEST_STEP_NM, bandFlagCount, bandFlagStepNm, bandStepFloor, extremumStepNm, flagStepNm,
 } from './stepFlag.js';
@@ -67,6 +68,13 @@ export const BLANK_OPERAND_TYPES = ['BLNK'];
 // w(λ) = Source(λ) · Detector(λ). Operand carries `source` and `detector` specs
 // (see spectralWeightings.js). Target is the spec value the average should hit.
 export const INTEGRAL_OPERAND_TYPES   = ['TIW', 'RIW', 'AIW'];
+// Colour operands: one quantity of the colour of R (RCOL) or T (TCOL), named in
+// `color` from the Color list (colorimetry/quantities.js COLOR_QUANTITIES),
+// under the row's `illuminant` ('D65', 'D50', 'A' or 'E') and `observer` (2
+// or 10, degrees). X, Y and Z are weighted integrals over the band the
+// observer tables cover, 380-780 nm, on the grid the row's Step sets, as a
+// TIW row's are; every other quantity is computed from them.
+export const COLOR_OPERAND_TYPES      = ['RCOL', 'TCOL'];
 // Worst-case (minmax) operands: the true extremum over the band's sample grid,
 // scored one-sided against the target.
 // TMN/RMN/AMN: lowest value over the band, for "T ≥ target" worst-case specs.
@@ -158,6 +166,7 @@ export const OPERAND_TYPES = [
     ...RANGE_TARGET_OPERAND_TYPES,
     ...MEASURED_CURVE_OPERAND_TYPES,
     ...INTEGRAL_OPERAND_TYPES,
+    ...COLOR_OPERAND_TYPES,
     ...MINMAX_OPERAND_TYPES,
     ...LOG_OPERAND_TYPES,
     ...PPEF_OPERAND_TYPES,
@@ -207,6 +216,7 @@ export function isLinearThickness(type) {
 export function isRangeTarget(type) { return RANGE_TARGET_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isBandAverage(type) { return type === 'TAV' || type === 'RAV' || type === 'AAV'; }
 export function isIntegral(type)   { return type === 'TIW' || type === 'RIW' || type === 'AIW'; }
+export function isColor(type)      { return COLOR_OPERAND_TYPES.includes(type); }
 // A worst-case row over a band, read linearly or on a logarithmic scale.
 export function isMinmax(type) {
     return MINMAX_OPERAND_TYPES.includes(type) || LOG_MINMAX_OPERAND_TYPES.includes(type);
@@ -227,11 +237,13 @@ export function isPhaseDispersion(type) { return isPhaseShift(type) || isGroupDe
 // GD/GDD flatness operands whose value is already an RMS deviation from the flat
 // target (residual = value, like a range-target ramp).
 export function isGroupDelayFlat(type) { return type.endsWith('FLAT') && isGroupDelay(type); }
+const BAND_GRID_FAMILIES = [isBandAverage, isIntegral, isColor, isRangeTarget, isGroupDelayFlat];
 // Rows that sum or compare their samples over a band grid of their own:
-// band averages, integrals, range targets and group-delay flatness rows. Their
-// flag sets the coarsest step that grid may take (bandFlagStepNm).
+// band averages, integrals, colour rows, range targets and group-delay
+// flatness rows. Their flag sets the coarsest step that grid may take
+// (bandFlagStepNm).
 export function isBandGridRow(type) {
-    return isBandAverage(type) || isIntegral(type) || isRangeTarget(type) || isGroupDelayFlat(type);
+    return BAND_GRID_FAMILIES.some(inFamily => inFamily(type));
 }
 export function isEField(type)       { return type === 'EFMX'; }
 export function isPhase(type)        { return isEllipsometry(type) || isPhaseShift(type) || isGroupDelay(type) || isEField(type); }
@@ -239,7 +251,7 @@ export function isInequality(type) { return type === 'OPGT' || type === 'OPLT'; 
 export function isArgwave(type)    { return ARGWAVE_OPERAND_TYPES.indexOf(type) >= 0; }
 export function isArgwaveMin(type) { return type.startsWith('MNW'); }
 const BAND_FAMILIES = [
-    isBandAverage, isRangeTarget, isMinmax, isIntegral, isArgwave,
+    isBandAverage, isRangeTarget, isMinmax, isIntegral, isColor, isArgwave,
     isGroupDelayFlat, isMeasuredCurve,
 ];
 // Does the operand read λEnd, i.e. does it span a wavelength band? Every other
@@ -276,6 +288,7 @@ const NON_FRACTIONAL_TYPES = [
     isArgwave, isPhase,    // MXWT/MNWT (nm), Ψ/Δ (deg), GD (fs), |E|²
     isLogOperand, isPPEF,  // dB, optical density
     isMath,                // math = inherit (resolved separately)
+    isColor,               // the unit of the quantity its Color cell picks
     isConstant,            // a plain number
     isDmfs, isBlank,       // placeholders
 ];
@@ -449,6 +462,17 @@ function seedIntegralWeighting(base) {
     if (!base.detector) base.detector = { id: 'photopic' };
 }
 
+// A colour row reads the band the observer tables cover, whatever band the
+// row held before, under D65 with the 2° observer until set otherwise. It
+// starts on luminous R or T, Y, with a target of 0.
+const COLOR_ROW_DEFAULTS = { color: 'Y', illuminant: 'D65', observer: 2 };
+function seedColor(base) {
+    const unset = Object.keys(COLOR_ROW_DEFAULTS).filter(key => base[key] == null);
+    Object.assign(base, Object.fromEntries(unset.map(key => [key, COLOR_ROW_DEFAULTS[key]])));
+    [base.lambdaStart, base.lambdaEnd] = COLOR_RANGE_NM;
+    if (targetUnset(base)) base.target = 0;
+}
+
 // Argwave: the target is the user-facing λ-comparison threshold. Seed at the
 // band midpoint so a brand-new operand isn't immediately reporting a huge
 // residual against a target of 0.
@@ -515,6 +539,7 @@ function seedConstantTarget(base, overrides) {
 // exist, so the UI sets it when the row is created.
 const TYPE_SEEDS = [
     [isIntegral,       seedIntegralWeighting],
+    [isColor,          seedColor],
     [isArgwave,        seedArgwaveTarget],
     [isRangeTarget,    seedRangeTargetEnd],
     [isTotalThickness, seedTotalThicknessTarget],

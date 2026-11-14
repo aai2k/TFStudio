@@ -20,11 +20,13 @@ import { useMaterialsRangeNotice } from '../../../materials/MaterialRangeNotice.
 import { ExportMenu, useCsvExport } from '../../../ui/ExportMenu.js';
 import { csvFromRows, ResultsSection } from '../../../ui/ResultsSection.js';
 import { BadgeRow } from '../chrome/badgeRow.js';
+import { rowsShown } from '../chrome/environmentChoice.js';
 import { AnalysisWindow, CenteredMessage, PlotArea } from '../chrome/layout.js';
 import { AngleLines } from './AngleLines.js';
 import { ANGLE_CAP, windowAngles } from './angles.js';
 import { CHART_MIN_HEIGHT, ChromaticityChart } from './chartFigure.js';
 import { ColorControls, DiagramTabs } from './ColorControls.js';
+import { colorTargetMarks } from './colorTargets.js';
 import { exportTable, viewTable } from './resultsModel.js';
 import { ResultsViews } from './ResultsViews.js';
 import { colorEvaluationSession } from './sessionState.js';
@@ -56,13 +58,22 @@ function useColorState(design) {
     };
 }
 
+// The merit function's colour rows the diagram shown draws, in the
+// environments the window shows (colorTargets.js).
+function useColorTargets(design, { every, views }, state) {
+    const { characteristic, pol, illuminant, observer, diagram } = state;
+    return useMemo(() => (design
+        ? colorTargetMarks(rowsShown(design, every, views), { characteristic, pol, illuminant, observer, diagram })
+        : []), [design, every, views, characteristic, pol, illuminant, observer, diagram]);
+}
+
 // The diagram with a line per angle under it, or a message in their place. The
 // lines step aside while Results is open, whose tables hold the same values,
 // so the diagram keeps its room. The diagram never goes below its least
 // height; in a window too short for it and every line, the lines scroll, down
 // to one line, and in one too short for the diagram and one line, the two
 // scroll together, so no line is cut off out of reach.
-function DiagramArea({ c, t, ce, state, reports, colors, busy }) {
+function DiagramArea({ c, t, ce, state, reports, colors, busy, targets }) {
     if (busy) return h(CenteredMessage, { c, message: t.analysisEvaluation.computing });
     if (!reports) return h(CenteredMessage, { c, message: ce.noData });
     return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' } },
@@ -70,6 +81,7 @@ function DiagramArea({ c, t, ce, state, reports, colors, busy }) {
             h(ChromaticityChart, {
                 reports, observer: state.observer, diagram: state.diagram,
                 exposure: state.exposure, display: state, c, tr: ce, units: t.units,
+                targets: state.showTargets ? targets : [],
             })),
         !state.showTable && h(AngleLines, { reports, exposure: state.exposure, ce, units: t.units, c, colors }),
     );
@@ -90,6 +102,7 @@ export function ColorEvaluation({ c, t }) {
     }), [evalMode, state.characteristic, state.pol, angles,
         state.observer, state.illuminant, state.step]);
     const { environment, reports, materials, coneActive, busy, error } = useColorReports(design, options);
+    const targets = useColorTargets(design, environment, state);
     const colors = useAnalysisColors('colorEvaluation');
     const rangeNotice = useMaterialsRangeNotice(materials, COLOR_RANGE_NM[0], COLOR_RANGE_NM[1], t);
     // The CSV holds everything the window reports, whichever view is open.
@@ -118,10 +131,10 @@ export function ColorEvaluation({ c, t }) {
     ].filter(Boolean);
 
     return h(AnalysisWindow, { c },
-        h(ColorControls, { c, t, ce, state, notices }),
+        h(ColorControls, { c, t, ce, state, notices, hasTargets: targets.length > 0 }),
         h(PlotArea, null,
             h(DiagramTabs, { c, ce, state }),
-            h(DiagramArea, { c, t, ce, state, reports, colors, busy }),
+            h(DiagramArea, { c, t, ce, state, reports, colors, busy, targets }),
         ),
         h(BadgeRow, { c, t, design, environment, cone: true }),
         h(ResultsSection, {

@@ -263,10 +263,11 @@ export const ANALYSIS_DEFAULTS = {
       exposure: { def: 'fit', options: ['fit', '1'], labelsAt: 'colorEval.exposures' },
     },
     // What the diagram draws besides the colour: wavelength labels along the
-    // spectral locus, the white point, the Planckian locus and the triangle of
-    // the sRGB primaries.
+    // spectral locus, the white point, the Planckian locus, the triangle of
+    // the sRGB primaries and the merit function's colour targets.
     booleans: {
       showTable: false, showWavelengths: true, showWhite: true, showPlanckian: false, showSrgb: false,
+      showTargets: true,
     },
   },
 

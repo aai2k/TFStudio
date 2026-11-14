@@ -125,6 +125,11 @@ export function takesCurve(typeId) {
     return !!FILTER_TYPES[typeId]?.curve;
 }
 
+/** Whether the type writes colour rows from the targets its editor holds. */
+export function takesColorTargets(typeId) {
+    return !!FILTER_TYPES[typeId]?.colorTargets;
+}
+
 /** Whether the type sets polarization itself, so the Pol control is not shown. */
 export function polIsFixed(typeId) {
     return !!FILTER_TYPES[typeId]?.fixedPol;
@@ -171,8 +176,13 @@ export function wizardEnvironment(design, env) {
     return hasEnvironments(design) && environmentsOf(design).some(entry => entry.id === env) ? env : null;
 }
 
-/** Short text for the collapsed header: type name, λ range, angle. `units` is t.units. */
-export function wizardSummary({ typeLabel, params, aoi, aoiEnd, units }) {
+/**
+ * Short text for the collapsed header: type name, λ range, angle, or for the
+ * Color preset, whose targets carry their own angles, the illuminant and
+ * observer (`light`). `units` is t.units.
+ */
+export function wizardSummary({ typeLabel, params, aoi, aoiEnd, units, light }) {
+    if (light) return `${typeLabel} · ${light}`;
     const parts = [typeLabel];
     if (params.lamStart != null && params.lamEnd != null) parts.push(`${params.lamStart}–${params.lamEnd} ${units.nm}`);
     parts.push(aoi === aoiEnd ? `${aoi}°` : `${aoi}–${aoiEnd}°`);

@@ -5,7 +5,7 @@ import {
     isRangeType, residualTooltip, rowDisplayMeta, rowTintAlpha, typeRgba,
 } from '../src/components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
 import {
-    OPERAND_TYPES, isBlank, isConstraint, isDmfs, isIntegral, isMath,
+    OPERAND_TYPES, isBlank, isColor, isConstraint, isDmfs, isIntegral, isMath,
     isMeasuredCurve, isTotalThickness,
 } from '../src/utils/physics/optimizer/operandModel.js';
 import { _operandResidual } from '../src/utils/physics/optimizer/evalCore.js';
@@ -172,12 +172,12 @@ assert.equal(rowTintAlpha(false), 0.12);
 // the editable-column list, and isRangeType (which decides value vs dash in
 // textCell). They must agree for every operand, or a row shows a dash on a
 // column the keyboard will still walk into and edit.
+// Generated measured snapshots show their stored range but deliberately
+// protect it from table edits; they are configured through the fit dialog. A
+// colour row's λ End is a list, the illuminant and observer.
+const OWN_LAMBDA_END = [isBlank, isDmfs, isTotalThickness, isIntegral, isMath, isConstraint, isColor, isMeasuredCurve];
 for (const type of OPERAND_TYPES) {
-    if (isBlank(type) || isDmfs(type) || isTotalThickness(type)
-        || isIntegral(type) || isMath(type) || isConstraint(type)
-        // Generated measured snapshots show their stored range but deliberately
-        // protect it from table edits; they are configured through the fit dialog.
-        || isMeasuredCurve(type)) continue;
+    if (OWN_LAMBDA_END.some(test => test(type))) continue;
     const row = op(type, { lambdaStart: 600, lambdaEnd: 900 });
     const labelled = dynamicHeaderLabels(row, COLS_TR).lambdaEnd !== '—';
     assert.equal(editableColsForRow(row).includes('lambdaEnd'), labelled,

@@ -35,6 +35,11 @@ export const meritWizardSession = createWindowSession({
     maxThick: 1000,
     totalEnabled: false,
     maxTotal: 3000,
+    // The Color preset: the illuminant and observer its rows read under, and
+    // the colour targets its editor holds (colorTargetModel.js).
+    colorIlluminant: 'D65',
+    colorObserver: 2,
+    colorTargets: [],
 });
 
 // The environment the wizard's rows are scored in, by id, or null for every

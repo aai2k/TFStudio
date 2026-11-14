@@ -99,4 +99,28 @@ const empty = buildMerit({
 assert.ok(empty.includes(getLocale('en').report.noOperands));
 assert.ok(!empty.includes('<table'));
 
+// ── A colour row: its quantity and its illuminant and observer ───────────────
+{
+  const { reportLocale } = await import('../src/components/windows/information/report/useReportWindow.js');
+  const tinted = {
+    meritOperands: [
+      { id: 'x', type: 'RCOL', color: 'x', illuminant: 'D65', observer: 2, lambdaStart: 380, lambdaEnd: 780, aoi: 30, pol: 's', target: 0.23, weight: 1 },
+      { id: 'c', type: 'TCOL', color: 'CCT', illuminant: 'A', observer: 10, lambdaStart: 380, lambdaEnd: 780, aoi: 0, pol: 'avg', target: 6500, weight: 1 },
+      { id: 'p', type: 'RCOL', color: 'purity', illuminant: 'E', observer: 2, lambdaStart: 380, lambdaEnd: 780, aoi: 0, pol: 'p', target: 0.5, weight: 1 },
+    ],
+  };
+  const TARGET = 5;
+  for (const lang of ['en', 'ru', 'zh', 'it']) {
+    const loc = getLocale(lang);
+    const cells = cellsOf(buildMerit({
+      block: { id: 'blk', type: 'merit' }, tr: reportLocale(lang), data: { blocks: { blk: meritOperandsSummary(tinted) } },
+    }));
+    assert.deepEqual(cells.map(row => row[RANGE]), [
+      'x, D65 · 2°', `CCT (${loc.units.K}), A · 10°`, `${loc.meritFunctionEditor.colorPurity}, E · 2°`,
+    ], `${lang}: the quantity as the Color list names it and the illuminant and observer, not a band`);
+    assert.deepEqual(cells.map(row => [row[AOI], row[POL]]), [['30°', 's'], ['0°', 'avg'], ['0°', 'p']], `${lang}: angle and polarization`);
+    assert.deepEqual(cells.map(row => row[TARGET]), ['0.230', '6500', '0.500'], `${lang}: each target to its quantity's places`);
+  }
+}
+
 console.log('report_merit_operands: ok');

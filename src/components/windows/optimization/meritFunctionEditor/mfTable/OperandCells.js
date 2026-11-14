@@ -1,4 +1,4 @@
-import { OPERAND_POLS, isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
+import { OPERAND_POLS, isColor, isIntegral, isMathPairRef, polFromType } from '../../../../../utils/physics/optimizer.js';
 import { CellInput } from '../../../../ui/grid/CellInput.js';
 import { cellEditorClosed, listCell, listEditorCell, selectable } from './CellControls.js';
 import { listEdit, listKind, listOf } from './listValues.js';
@@ -9,6 +9,7 @@ import {
     contributionBarWidth, fmtContribution, fmtCurrent, fmtTargetDisplay, residualTooltip,
 } from './operandViewModel.js';
 import { flagCellText, polFromKey } from './editModel.js';
+import { colorQuantityLabels } from './colorRows.js';
 import { provisionalMark } from '../../provisionalMark.js';
 
 const { createElement: h } = React;
@@ -83,7 +84,8 @@ export function typePickerCell(ctx, colKey, width) {
 // no longer finds is marked in red, and one not set asks for one; their lists
 // start with an entry that empties them, labelled as the cell then reads. An
 // integral of its own setup shows that setup and lists it first; picking it
-// changes nothing.
+// changes nothing. A colour row's quantity reads as its symbol, and its list
+// names each quantity in full (`label`).
 const LIST_VIEWS = {
     comparison: ({ op, c, t }, list, entry) => ({
         text: entry.label, color: c.text,
@@ -109,6 +111,13 @@ const LIST_VIEWS = {
         if (list.gone) return { text: head, title: head, color: c.error, head };
         return { text: entry ? entry.label : head, title: mfe.curveRefTip, color: c.text, head };
     },
+    color({ op, c, t }) {
+        const { face, entry } = colorQuantityLabels(op.color, t);
+        return { text: face, title: entry, color: c.text, label: quantity => colorQuantityLabels(quantity, t).entry };
+    },
+    illuminantObserver: ({ c, t }, list, entry) => ({
+        text: entry?.label ?? '', title: t.meritFunctionEditor.illObsTip, color: c.text,
+    }),
     // All, or the environment the row is scored in. A row naming an
     // environment the design does not have is scored nowhere, and says so.
     environment({ c, t }, list, entry) {
@@ -124,12 +133,14 @@ function listView(ctx, colKey) {
     const list = listOf(ctx.op, colKey, ctx);
     const entry = list.options.find(option => option.value === list.value);
     const view = LIST_VIEWS[listKind(ctx.op, colKey)](ctx, list, entry);
-    const options = view.head == null ? list.options : [{ value: null, label: view.head }, ...list.options];
+    const named = view.label ? list.options.map(option => ({ ...option, label: view.label(option.value) })) : list.options;
+    const options = view.head == null ? named : [{ value: null, label: view.head }, ...named];
     return { ...view, options, value: list.value };
 }
 
 // A value out of a list in a λ column: a math row's reference, a thickness or
-// force row's comparison, an integral's preset or a PPEF row's curve block.
+// force row's comparison, an integral's preset, a PPEF row's curve block, or a
+// colour row's quantity or illuminant and observer.
 export function listValueCell(ctx, colKey, width) {
     return listCell(ctx, colKey, width, listView(ctx, colKey));
 }
@@ -307,6 +318,10 @@ export function rowRenderers(op, meta) {
     if (isIntegral(op.type)) {
         renderers.lambdaStart = listValueCell;
         renderers.lambdaEnd = dashCell;
+    }
+    if (isColor(op.type)) {
+        renderers.lambdaStart = listValueCell;
+        renderers.lambdaEnd = listValueCell;
     }
     // A pair row reads its first row in λ Start and its second in λ End.
     if (meta.isMth) {

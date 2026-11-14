@@ -28,6 +28,7 @@ arguments, its output value and unit, and how it forms a residual) is on the
 | Band average         | `TAV` `RAV` `AAV`              | mean T/R/A over a band       |
 | Spectral target      | `TGT` `RGT` `AGT`              | deviation from a flat/ramp line |
 | Weighted integral    | `TIW` `RIW` `AIW`              | source × detector weighted mean |
+| Color                | `RCOL` `TCOL`                  | one CIE color quantity of R or T |
 | Worst-case           | `TMN` `RMN` `AMN` `TMX` `RMX` `AMX` | band extremum of T/R/A   |
 | In dB or optical density | `TDB` `TDBMN` `TDBMX` `RDBMX` `ODMN` `PPEF` | T or R in dB, optical density, peak-to-peak error against a curve |
 | Phase / field        | `PSI` `DEL` `TANPSI` `COSDEL` `PR` `PT` `DPR` `DPT` `GD*` `GDD*` `TOD*` `EFMX` | phase, ellipsometry, dispersion, peak \|E\|² |
@@ -48,7 +49,7 @@ brings it back. Under the bar are three boxes:
 
 - **Preset**: the coating category (AR, mirror, beamsplitter, edge filter,
   bandpass or notch, gradient, integral or worst-case, custom target, curve
-  target), the type within it, and the type's own values, the wavelength range first. The
+  target, color), the type within it, and the type's own values, the wavelength range first. The
   **Custom target** type generates a single target of your own: a channel
   (T/R/A), a unit (%, dB or OD), a comparison (`=`, `≤`, `≥`), a value and a range.
 - **Angle and target**: the angle of incidence, or a range of angles with the
@@ -58,7 +59,7 @@ brings it back. Under the bar are three boxes:
 - **Thickness limits**: minimum and maximum layer thickness (`MNT`/`MXT`) and a
   total thickness cap, each behind a checkbox.
 
-On a design scored in more than one [environment](/design/environments/), the Angle and target box also has **Env**: the environment the generated rows are scored in, **All** by default. The header row and the thickness limits are scored in every environment whatever it says.
+On a design scored in more than one [environment](/design/environments/), the Angle and target box, or the Color preset's Target box, also has **Env**: the environment the generated rows are scored in, **All** by default. The header row and the thickness limits are scored in every environment whatever it says.
 
 A custom target in dB or OD writes one of the [dB and OD rows](/design/operands/#worst-case-over-a-band): T ≥ in dB a `TDBMN` row, T ≤ in dB a `TDBMX` row, R ≤ in dB an `RDBMX` row, T ≥ in OD an `ODMN` row, and T = in dB one `TDB` row per wavelength step, with a step field in place of the line-or-points choice. Combinations with no row behind them are not offered: A has only %, R in dB only ≤, OD only ≥. Switching the unit converts the typed value to the same level, so 80 % becomes −0.97 dB. A value in dB is held at or below 0 dB, a density at or above 0.
 
@@ -73,6 +74,14 @@ Gain flattening writes three rows. The target as a curve block in dB with its **
 
 The synthesis tools leave the `PPEF` row out: its gradient comes from only the two worst wavelengths, and the needle search stalls on it. They bring the shape in with the block, and a [Refinement](/synthesis/refinement/) run afterwards works the peak-to-peak error down.
 
+### Color targets
+
+The **Color** preset scores the coating's color at the angles a color specification names. **Type** picks **Reflected color** or **Transmitted color**. The box beside Preset, **Target**, holds the **Illuminant** and **Observer** every row is read under and **Pick…**, which opens the **Color targets** window. Each target carries its own angle and polarization, so this preset has no angle or polarization box.
+
+The window lists the targets on the left: a patch of each target's color as [Color Evaluation](/analysis/color-evaluation/) draws it at Fit hue, then its **Name**, **AOI (°)** and **Pol**, edited in place, with **Add** and **Delete** under the list. A new target starts at the coating's color at 0°, and the window opens with one, **Target 1**, when the preset has none yet. In the middle is the diagram of the space **Space** picks for the selected target: x, y for x, y, Y; a\*, b\* at the target's L\* for L\*, a\*, b\*; u′, v′ for u′, v′, Y. Click it, or drag across it, to move the target's two coordinates there; the third, Y or L\*, keeps its value. On the right the three values can be typed. The rings on the diagram are the coating at the targets' angles, so the selected target, drawn as a diamond, sits beside the color it pulls. **OK** keeps the list and **Cancel** drops the changes.
+
+**Generate** writes, for each target, one `RCOL` or `TCOL` row per coordinate of the space its color was given in, at the target's angle and polarization, with the values as targets: a target given in x, y, Y writes an x, a y and a Y row. The [Operand Reference](/design/operands/#color) says how each row scores. The summary line names them, as **RCOL x, y and Y for 2 targets**.
+
 The line under the boxes says how many rows the wizard will add and of which
 types. **Start at row** is where the block goes; **Generate** adds it. The form
 keeps its values while the window is closed and reopened.
@@ -84,22 +93,10 @@ One row per operand. The table works like a spreadsheet:
 - Click a cell to focus it, type to replace a number, or press Enter or
   double-click to edit it. Backspace opens a number cell with its text
   cleared. Enter commits and moves down, Tab moves right, Escape cancels.
-- The **Type** cell holds the operand code. Typing a letter opens the operand
-  picker searching for it, Backspace opens it with an empty search, and Enter,
-  a double-click or the chevron beside the code opens it on the current type.
-  The **Pol** cell shows a
-  chevron while it is focused; the chevron, Enter, Backspace or a double-click
-  opens its three values as a list, and `a`, `s` or `p` typed straight in sets
-  it without the list. A math row's **Ref Op#** cells name the rows it reads,
-  as `#4 TMN`, and open the table's other rows as a list the same way. So do
-  **Cmp** on a `TT` or `STR` row (`≤`, `≥` or `=`), **Integral** on a
-  weighted integral (the integral presets) and **Curve** on a `PPEF` row (the
-  table's curve blocks). On these four a typed key does nothing. The first
-  entry of a Ref Op# or Curve list empties the cell. A weighted integral that
-  matches no preset shows its own source, detector and band, and lists them
-  first.
+- The **Type** cell holds the operand code. Typing a letter opens the operand picker searching for it, Backspace opens it with an empty search, and Enter, a double-click or the chevron beside the code opens it on the current type. The **Pol** cell shows a chevron while it is focused; the chevron, Enter, Backspace or a double-click opens its three values as a list, and `a`, `s` or `p` typed straight in sets it without the list. A math row's **Ref Op#** cells name the rows it reads, as `#4 TMN`, and open the table's other rows as a list the same way. So do **Cmp** on a `TT` or `STR` row (`≤`, `≥` or `=`), **Integral** on a weighted integral (the integral presets), **Curve** on a `PPEF` row (the table's curve blocks), and **Color** and **ILL-OBS** on a color row (the quantity it scores, and the illuminant with the observer, as D65 · 2°). On these a typed key does nothing. The first entry of a Ref Op# or Curve list empties the cell. A weighted integral that matches no preset shows its own source, detector and band, and lists them first.
 - On a design scored in more than one [environment](/design/environments/), an **Env** column follows **Type**: **All**, or the one environment the row is scored in, by number and name. It opens its list as **Pol** does, and copies and pastes as the name it shows. A constant is scored nowhere and shows a dash.
-- The **Flag** cell is headed **Step** on the rows that take it. On a row that looks for a peak, such as `TMX` or `MXWT`, it sets how finely the band is searched, from 1 for 1 nm to 4 for 0.001 nm ([Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral or `*FLAT` row, the coarsest step of its grid ([Sampling a band](/design/operands/#sampling-a-band)). Other rows show a dash there.
+- The **Flag** cell is headed **Step** on the rows that take it. On a row that looks for a peak, such as `TMX` or `MXWT`, it sets how finely the band is searched, from 1 for 1 nm to 4 for 0.001 nm ([Searching for a peak or dip](/design/operands/#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral, color or `*FLAT` row, the coarsest step of its grid ([Sampling a band](/design/operands/#sampling-a-band)). Other rows show a dash there.
+- The type picker groups the operands in tabs; **Color** holds `RCOL` and `TCOL`. A color row's **Current** and **Target** are in the quantity's own unit: % for X, Y and Z, degrees for a hue, nm for λd and λc, K for CCT.
 - Drag across cells, or hold Shift, to select a rectangle; hold Ctrl to add
   single cells. Ctrl+C copies the selection as tab-separated text, Ctrl+V
   pastes text over it: one value fills every selected cell, a block of values

@@ -59,3 +59,17 @@ export function ciede2000(l1, l2) {
     Math.pow(dLp / Sl, 2) + Math.pow(dCp / Sc, 2) + Math.pow(dHp / Sh, 2)
     + Rt * (dCp / Sc) * (dHp / Sh));
 }
+
+/**
+ * How the colour `lab` differs from `reference`, both CIE L*a*b*: ΔL*, Δa*
+ * and Δb*, each `lab` less `reference`; ΔE*ab, the straight-line distance
+ * between the two in CIELAB, which that space is built to make proportional
+ * to the difference seen (Macleod, Thin-Film Optical Filters 5th ed., §12.2);
+ * and ΔE00, CIEDE2000.
+ */
+export function labDifference(reference, lab) {
+  const dL = lab.L - reference.L;
+  const da = lab.a - reference.a;
+  const db = lab.b - reference.b;
+  return { dL, da, db, dEab: Math.hypot(dL, da, db), dE00: ciede2000(reference, lab) };
+}

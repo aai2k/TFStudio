@@ -14,6 +14,7 @@ Each row of the [Merit Function Editor](/design/merit-function-editor/) table is
 | [Band average](#band-average) | `TAV` `RAV` `AAV` |
 | [Spectral target](#spectral-target) | `TGT` `RGT` `AGT` |
 | [Weighted integral](#weighted-integral) | `TIW` `RIW` `AIW` |
+| [Color](#color) | `RCOL` `TCOL` |
 | [Worst case over a band](#worst-case-over-a-band) | `TMN` `TMX` `RMN` `RMX` `AMN` `AMX` `TDBMN` `TDBMX` `RDBMX` `ODMN` |
 | [Wavelength of a peak or dip](#wavelength-of-a-peak-or-dip) | `MXWT` `MXWR` `MXWA` `MNWT` `MNWR` `MNWA` |
 | [Curves](#curves) | `MCURVE` `PPEF` |
@@ -29,10 +30,10 @@ Each row of the [Merit Function Editor](/design/merit-function-editor/) table is
 | Column | What it holds |
 | ------ | ------------- |
 | **Type** | The operand code. |
-| **λ / Layer**, **End \*** | The two values that define the operand. Their headers change with the row: **λ** for one wavelength, **λ Start** and **λ End** for a band, **Integral** for a weighted integral, **Layer 1** and **Layer 2** for a layer range, **Cmp** for a comparison, **Ref Op#**, **Ref Op#1** and **Ref Op#2** for other rows, **Curve** on a `PPEF` row, **Comment** for a comment. A dash means the row does not use the cell. |
+| **λ / Layer**, **End \*** | The two values that define the operand. Their headers change with the row: **λ** for one wavelength, **λ Start** and **λ End** for a band, **Integral** for a weighted integral, **Color** and **ILL-OBS** for a color row, **Layer 1** and **Layer 2** for a layer range, **Cmp** for a comparison, **Ref Op#**, **Ref Op#1** and **Ref Op#2** for other rows, **Curve** on a `PPEF` row, **Comment** for a comment. A dash means the row does not use the cell. |
 | **AOI (°)** | Angle of incidence in the incident medium. |
 | **Pol** | `s`, `p`, or `avg`, the mean (Cs + Cp)/2. |
-| **Flag** | Headed **Step** on the rows that take it. On a row that looks for a peak it sets how finely the band is searched ([Searching for a peak or dip](#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral or `*FLAT` row, the coarsest step of its grid ([Sampling a band](#sampling-a-band)). Other rows show a dash. |
+| **Flag** | Headed **Step** on the rows that take it. On a row that looks for a peak it sets how finely the band is searched ([Searching for a peak or dip](#searching-for-a-peak-or-dip)); on a band average, spectral target, weighted integral, color or `*FLAT` row, the coarsest step of its grid ([Sampling a band](#sampling-a-band)). Other rows show a dash. |
 | **Target** | The value the row is driven toward, or the bound it must stay inside. T, R and A are entered in percent. |
 | **Weight** | How much the row counts. |
 | **Current** | The row's value for the design as it is. |
@@ -84,6 +85,41 @@ The mean is taken by the trapezoid rule on the [band grid](#sampling-a-band), so
 | `AIW` | The same for A. |
 
 The band belongs to the preset, so **End** shows a dash. A new row starts at 400-700 nm under D65 and the photopic eye with no preset picked, and the cell describes that setup instead of a preset name. The presets come from the [Integral Values](/analysis/integral-values/) tool.
+
+## Color
+
+| Name | Description |
+| ---- | ----------- |
+| `RCOL` | One quantity of the CIE color of R at **AOI (°)** and **Pol**, picked in **Color**, under the illuminant and observer picked in **ILL-OBS**. Uses **Step**. |
+| `TCOL` | The same for T. |
+
+The color is computed as [Color Evaluation](/analysis/color-evaluation/) computes it, and at the same step reads the same: X, Y and Z are integrals of R or T weighted by the illuminant and the observer over 380-780 nm, where the CIE tables are defined, taken on the [band grid](#sampling-a-band); every other quantity follows from them. The band is fixed, so **Color** and **ILL-OBS** take the place of **λ Start** and **λ End**. **ILL-OBS** lists D65, D50, A and E, each with the 2° and the 10° observer. Under a [cone of incidence](/design/design-editor/#settings) the row is averaged over the cone, as the window averages it. A new row starts at Y under D65 · 2° with a target of 0.
+
+| **Color** | Quantity | **Target** in | σ | A miss that scores 0.01 |
+| --------- | -------- | ------------- | - | ----------------------- |
+| X, Y, Z | Tristimulus values, the white's Y being 100, so Y is the luminous R or T | % | 100 | 1 % |
+| x, y | CIE 1931 chromaticity | | 0.4 | 0.004 |
+| u′, v′ (1976), u, v (1960) | UCS chromaticity | | 0.4 | 0.004 |
+| L*, a*, b*, C*ab | CIELAB | | 100 | 1 unit |
+| hab | CIELAB hue | ° | 100, on the hue miss in ΔE units | 1 unit |
+| u*, v*, C*uv | CIELUV | | 100 | 1 unit |
+| huv | CIELUV hue | ° | 100, on the hue miss in ΔE units | 1 unit |
+| suv | CIELUV saturation | | 5.2 | 0.052 |
+| Hunter L, Hunter a, Hunter b | Hunter Lab | | 100 | 1 unit |
+| λd, λc | Dominant and complementary wavelength | nm | 500 | 5 nm |
+| Purity | Excitation purity, a fraction of 1 | | 1 | 0.01 |
+| CCT | Correlated color temperature, by McCamy's formula | K | 500, on the miss in mired | 5 mired |
+| Duv | Distance from the Planckian locus in u, v, positive above it | | 0.4 | 0.004 |
+
+**Why these scales.** A miss scores 0.01 when it is about the smallest color step an eye sees, as a 1 % miss in R does with σ = 1. On the ΔE spaces that step is the unit the ΔE formulas are built on; in chromaticity it is a common rule of thumb in u′, v′. suv is 13 times the distance from the white in u′, v′ (CIE 15:2004), so its scale is 13 times the chromaticity's.
+
+**Hue.** A degree of hue is a small step on a pale color and a large one on a saturated color, so a hue row scores its miss as the ΔE it makes at the coating's chroma C: ΔH = 2C·sin(Δh/2), the short way round the circle (CIE 15:2004).
+
+**CCT.** The least step seen in color temperature is nearly constant in mired, 10⁶/T, from 1800 K to 11000 K, while in kelvin it grows from under 50 K at 3200 K to over 200 K at 6500 K (Crandell, Freund and Moen, 1950). A CCT row therefore scores 10⁶/target − 10⁶/value, and its target must be above 0 K. CCT and Duv are read from the 2° chromaticity whatever the observer, as CIE 15:2004 defines them.
+
+**No value.** λd has no value for a purple, λc has one only for a purple, and neither has one at the white itself. CCT and Duv have none where McCamy's estimate falls outside 1000 K to 10⁶ K, and CCT none further than 0.05 from the Planckian locus. A row with no value shows **Error**, and the merit cannot be computed until it has one, as with any row. A run never steps into such a color: pulled toward one, it stops at the edge, such as the blue end of the locus for λd, and a run that starts on one ends at once, naming the row. Purity always has a value.
+
+The optimizers take a color row's slopes exactly, from those of X, Y and Z through each quantity's formula, so a color row never makes a run take its slopes by finite differences. The [Merit Function Wizard](/design/merit-function-editor/#the-wizard)'s Color preset writes these rows from a list of color targets, and [Color Evaluation](/analysis/color-evaluation/)'s **Targets** button draws them on its diagram.
 
 ## Worst case over a band
 
@@ -251,6 +287,7 @@ with wᵢ the row's weight, rᵢ its residual and σᵢ the [scale of its unit](
 | -------- | ---- | -- |
 | Equality | `T` `R` `A` `TDB`, band averages, integrals, `MXW*` `MNW*`, `PSI` `TANPSI` `COSDEL`, `GD` `GDD` `TOD` and their transmission forms, `EFMX`, `OPVA` `ABSO` `DIFF` `SUMM` `PROD` | value − target |
 | Equality on a circle | `DEL` `PR` `PT` `DPR` `DPT` | value − target, taken the short way round, −180° to 180° |
+| Color | `RCOL` `TCOL` | value − target; on a hue row the hue miss as ΔE at the coating's chroma, and on a CCT row 10⁶/target − 10⁶/value ([Color](#color)) |
 | At least | `TMN` `RMN` `AMN` `TDBMN` `ODMN` `OPGT` `ABGT` `MNT` | target − value when the value is below the target, else 0 |
 | At most | `TMX` `RMX` `AMX` `TDBMX` `RDBMX` `OPLT` `ABLT` `MXT` `PPEF` | value − target when the value is above the target, else 0 |
 | By the **Cmp** cell | `TT` `STR` | ≤ at most, ≥ at least, = equality |
@@ -274,6 +311,7 @@ Dividing each residual by σ puts rows of different units on one footing, so the
 | `GD*` `GDD*` | 50 fs, 50 fs² | 0.5 fs, 0.5 fs² |
 | `TOD*` | 500 fs³ | 5 fs³ |
 | `MCURVE` | the σ of its channel | |
+| `RCOL` `TCOL` | the σ of the quantity, in the [Color](#color) table | |
 | `TT` `STR` `MNT` `MXT` | 1, in nm or N/m | 0.01 nm or 0.01 N/m |
 | Math rows | the σ of the rows they read | |
 
@@ -301,7 +339,7 @@ A check in the [Specification](/design/specification/) window searches or sample
 
 ## Sampling a band
 
-Band averages, spectral targets, weighted integrals and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. At Step 0, the default, its points are also no more than 2 nm apart. The grid has no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
+Band averages, spectral targets, weighted integrals, color rows and the `*FLAT` rows sample a uniform grid across the band. The grid follows the coating: its step is an eighth of the fringe spacing λ²/(2G) at the short end of the band, where G is the coating's optical thickness taken with the group index n − λ·dn/dλ (or with n, where n is larger); with both faces coated the two coatings' thicknesses add. At Step 0, the default, its points are also no more than 2 nm apart. The grid has no upper limit, so the optimizer cannot lower the merit by moving fringes into the gaps between samples.
 
 The **Step** flag of a band row sets the step of its grid. At 0, the default, the grid is the fringe grid above; at any other Step it is exactly that step, whether the fringes are finer or not. The cell is never empty: a new band row starts at 0.
 
@@ -322,3 +360,6 @@ When a run starts, each spectral-target row (`TGT`, `RGT`, `AGT`) is checked for
 - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed.: §2.6.4 for the two-sided system; Ch. 3, automatic design, for the merit function.
 - B. T. Sullivan, J. A. Dobrowolski, "Implementation of a numerical needle method for thin-film design," *Appl. Opt.* **35**, 5484 (1996).
 - C. A. Klein, "Normal and interfacial stresses in thin-film coated optics: the case of diamond-coated zinc sulfide windows," *Opt. Eng.* **40**, 1115 (2001): eq. 14 for the film force, eq. 34 for the zero-deflection condition a `STR` target of 0 asks for.
+- CIE 15:2004, *Colorimetry*, 3rd ed.: the color spaces, the hue difference ΔH and the CIELUV saturation the color rows read.
+- C. S. McCamy, *Color Res. Appl.* **17**, 142 (1992): CCT from x, y.
+- Crandell, Freund and Moen, *J. SMPE* **55**, 74 (1950): the least perceptible step in color temperature, in mired.

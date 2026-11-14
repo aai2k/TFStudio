@@ -4,7 +4,7 @@
  * Routes one operand to the row builder for its type: band / pointwise value
  * rows (bandRows.js), single-extremum rows (extremumRows.js), the rows that
  * read the thickness vector directly (linearRows.js), phase rows
- * (phaseRows.js) and math rows (mathRows.js).
+ * (phaseRows.js), colour rows (colorRows.js) and math rows (mathRows.js).
  *
  * A single-row kind is a slope builder, slope(op, i, jc, scale) =
  * scale·∂value/∂d ÷ σ over the free variables with σ the row's unit scale,
@@ -16,6 +16,7 @@
 import {
     hasFreeLevel,
     isArgwave,
+    isColor,
     isConstant,
     isConstraint,
     isEField,
@@ -38,6 +39,7 @@ import {
 import { linearThicknessFactor, linearThicknessSlope } from './linearRows.js';
 import { ellipsometrySlope, phaseSlope } from './phaseRows.js';
 import { mathReadIndices, mathRow, mathValueSlope } from './mathRows.js';
+import { colorRow, colorValueSlope } from './colorRows.js';
 import { inConeRow } from '../evalCore/tmmEval.js';
 
 const weighted = op => Math.sqrt(op.weight);
@@ -98,6 +100,7 @@ function rowValueSlope(op, i, jc) {
     if (isPerSample(op)) return rmsValueSlope(op, i, jc);
     if (hasNoSlope(op, jc)) return null;
     if (isMath(op.type)) return mathValueSlope(op, i, jc, valueSlope);
+    if (isColor(op.type)) return colorValueSlope(op, jc);
     return rowKind(op.type)[1](op, i, jc, jc.residualScale(op));
 }
 
@@ -136,12 +139,21 @@ export function _jacRows(op, i, jc) {
     return inConeRow(jc.ctx, op, () => {
         if (isRangeTarget(op.type)) return _jacRowsRangeTarget(op, jc);
         if (hasFreeLevel(op)) return _jacRowsLevelFree(op, jc);
-        const row = isMath(op.type) ? mathRow(op, i, jc, valueSlope) : singleRow(op, i, jc);
+        const row = ownRow(op, i, jc);
         return row ? [row] : null;
     });
 }
 
-// The one Jacobian row of a row that is neither a math row nor per sample.
+// The one Jacobian row of a row that is not per sample: a math row's by the
+// chain rule through the rows it reads, a colour row's through X, Y and Z.
+function ownRow(op, i, jc) {
+    if (isMath(op.type)) return mathRow(op, i, jc, valueSlope);
+    if (isColor(op.type)) return colorRow(op, i, jc);
+    return singleRow(op, i, jc);
+}
+
+// The one Jacobian row of a row that is neither a math row, a colour row nor
+// per sample.
 function singleRow(op, i, jc) {
     const [, slope, factor] = rowKind(op.type);
     const scale = factor(op, jc.comp[i]);

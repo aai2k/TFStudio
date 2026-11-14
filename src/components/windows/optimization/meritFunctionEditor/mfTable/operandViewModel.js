@@ -1,10 +1,11 @@
 import {
-    isArgwave, isBlank, isConstant, isConstraint, isDmfs, isInequality, isIntegral,
+    isArgwave, isBlank, isColor, isConstant, isConstraint, isDmfs, isInequality, isIntegral,
     isLinearThickness, isMath, isMathPairRef, isMathSingleRef, isMinmax,
     isRangeTarget, isStress, isTotalThickness, isPhase, isWrappedAngle,
     isGroupDelayFlat, isFractionalUnit, isMeasuredCurve, isPPEF, logUnit,
-    takesStepFlag, _operandResidual,
+    takesStepFlag, _operandResidual, _normalizeDegrees,
 } from '../../../../../utils/physics/optimizer.js';
+import { colorFormat, isHueRow } from './colorRows.js';
 
 // Display unit for a phase/field operand type: a degree sign, a key into
 // t.units for the time units a language writes in its own script, or nothing
@@ -22,10 +23,10 @@ function phaseUnit(type, units) {
 
 const TYPE_COLORS = {
     T: [80, 150, 255], TS: [80, 150, 255], TP: [80, 150, 255], TAV: [80, 150, 255],
-    TIW: [80, 150, 255], TMN: [80, 150, 255], TMX: [80, 150, 255], TGT: [80, 150, 255],
+    TIW: [80, 150, 255], TCOL: [80, 150, 255], TMN: [80, 150, 255], TMX: [80, 150, 255], TGT: [80, 150, 255],
     TDB: [80, 150, 255], TDBMN: [80, 150, 255], TDBMX: [80, 150, 255], ODMN: [80, 150, 255],
     R: [50, 200, 100], RS: [50, 200, 100], RP: [50, 200, 100], RAV: [50, 200, 100],
-    RIW: [50, 200, 100], RMN: [50, 200, 100], RMX: [50, 200, 100], RGT: [50, 200, 100],
+    RIW: [50, 200, 100], RCOL: [50, 200, 100], RMN: [50, 200, 100], RMX: [50, 200, 100], RGT: [50, 200, 100],
     RDBMX: [50, 200, 100], PPEF: [80, 150, 255],
     A: [255, 130, 30], AS: [255, 130, 30], AP: [255, 130, 30], AAV: [255, 130, 30],
     AIW: [255, 130, 30], AMN: [255, 130, 30], AMX: [255, 130, 30], AGT: [255, 130, 30],
@@ -123,6 +124,7 @@ const HEADER_LABELS = [
     [op => isLinearThickness(op.type), { lambdaStart: 'cmp', lambdaEnd: DASH }],
     [op => isConstraint(op.type), { lambdaStart: 'layer1', lambdaEnd: 'layer2' }],
     [op => isIntegral(op.type), { lambdaStart: 'integral', lambdaEnd: DASH }],
+    [op => isColor(op.type), { lambdaStart: 'color', lambdaEnd: 'illObs' }],
     [op => isArgwave(op.type), { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
     [op => isGroupDelayFlat(op.type), { lambdaStart: 'lamStart', lambdaEnd: 'lamEnd' }],
     [op => isPhase(op.type), { lambdaStart: LAMBDA, lambdaEnd: DASH }],
@@ -143,6 +145,7 @@ const EDITABLE_COLS = [
     [op => isLinearThickness(op.type), ['enabled', 'type', 'lambdaStart', 'target', 'weight']],
     [op => isConstraint(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'target', 'weight']],
     [op => isIntegral(op.type), ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
+    [op => isColor(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
     [op => isArgwave(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
     [op => isGroupDelayFlat(op.type), ['enabled', 'type', 'lambdaStart', 'lambdaEnd', 'aoi', 'pol', 'target', 'weight']],
     [op => isPhase(op.type), ['enabled', 'type', 'lambdaStart', 'aoi', 'pol', 'target', 'weight']],
@@ -232,14 +235,21 @@ function rowUnits(op, isMeasured, units) {
 // A wrapped angle's residual is the shortest signed difference in
 // -180°..180°, so it is taken from the merit function's own residual rather
 // than recomputed here: the tooltip and the contribution share sit in the
-// same cell and must not disagree at a wrap boundary. Spectral-target and
+// same cell and must not disagree at a wrap boundary. A colour row's hue
+// misses by a hue difference taken the same short way, shown in degrees
+// though the merit weighs it at the coating's chroma. Spectral-target and
 // phase-flatness rows carry an RMS deviation as their evaluated value, rather
 // than a signed current-minus-target difference. A constant is never scored
 // and has none.
+const RESIDUAL_DISPLAYS = [
+    [(op, isRampRow) => isRampRow, (op, value) => value],
+    [isHueRow, (op, value, rawCur, tgt) => _normalizeDegrees(value - tgt)],
+    [op => isWrappedAngle(op.type), (op, value, rawCur) => _operandResidual(op, rawCur)],
+];
 function displayResidual(op, value, rawCur, tgt, isRampRow) {
     if (value == null || isConstant(op.type)) return null;
-    if (isRampRow) return value;
-    return isWrappedAngle(op.type) ? _operandResidual(op, rawCur) : value - tgt;
+    const hit = RESIDUAL_DISPLAYS.find(([test]) => test(op, isRampRow));
+    return hit ? hit[1](op, value, rawCur, tgt) : value - tgt;
 }
 
 /** `unitNames` is t.units, the unit symbols in the UI language. */
@@ -264,6 +274,7 @@ export function rowDisplayMeta(op, rawCur, mathPercent, bandLevel = null, unitNa
         isArg: isArgwave(op.type), isMth, isConst: isConstant(op.type),
         isPhs: units.isPhs, isMeasured, isPpef: isPPEF(op.type),
         logUnit: units.logUnit, phaseUnit: units.phaseUnit, unitNames,
+        colorFormat: colorFormat(op, unitNames),
         mthPct: mathPercent, useFraction, cur, tgt,
         rawResidual: displayResidual(op, value, rawCur, tgt, isRampRow),
         isRampRow, isRange: isRangeType(op.type), takesFlag: takesStepFlag(op),
@@ -306,6 +317,7 @@ export function residualTooltip(meta, text = {}) {
 // references, so it has no fixed scale of its own, and neither is a constant,
 // a plain number.
 const VALUE_FORMATS = [
+    [meta => meta.colorFormat, meta => meta.colorFormat],
     [meta => meta.logUnit, meta => ({ decimals: 3, unit: meta.logUnit })],
     [meta => meta.isPhs, meta => ({ decimals: 3, unit: meta.phaseUnit })],
     [meta => meta.isStr, meta => ({ decimals: 2, unit: meta.unitNames?.newtonPerM })],
@@ -339,6 +351,7 @@ function rampTargetText(op) {
 // How a row's target prints, first match wins; a fraction prints in percent.
 // A constant prints as a math row reading no unit does, as a plain number.
 const TARGET_FORMATS = [
+    [meta => meta.colorFormat, (op, meta) => op.target.toFixed(meta.colorFormat.targetDecimals)],
     [meta => meta.isMth || meta.isConst, (op, meta) => (meta.mthPct ? (op.target * 100).toFixed(2) : (op.target?.toPrecision?.(4) ?? '0'))],
     [meta => meta.logUnit && !meta.isRampRow, (op, meta) => withUnit(op.target.toFixed(2), meta.logUnit)],
     [meta => meta.isPhs, (op, meta) => withUnit(op.target.toFixed(2), meta.phaseUnit)],

@@ -98,6 +98,35 @@ class MeritRow:
             design.merit.add("TT", target=2000, cmp="le")
             print(design.merit.rows[0].cmp)
         """)
+    color = _reading("color", """For RCOL and TCOL, the colour quantity the row scores, as the editor's
+        Color list names it, such as "x", "L*" or "dominant".
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.merit.add("RCOL", color="b*", target=-5)
+            print(design.merit.rows[0].color, design.merit.rows[0].value)
+        """)
+    illuminant = _reading("illuminant", """For RCOL and TCOL, the CIE illuminant the colour is read under.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.merit.add("RCOL", color="x", target=0.3, illuminant="D50")
+            print(design.merit.rows[0].illuminant)
+        """)
+    observer = _reading("observer", """For RCOL and TCOL, the CIE standard observer, by its field in degrees:
+        2 or 10.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            design.merit.add("RCOL", color="x", target=0.3, observer=10)
+            print(design.merit.rows[0].observer)
+        """)
     target = _reading("target", """The value the row drives toward, or its bound: R, T and A as fractions
         of 1, a thickness in nm for MNT and MXT.
 
@@ -172,7 +201,9 @@ class MeritRow:
         """)
 
     def __repr__(self):
-        return "<MeritRow {} {}..{}: {} for {}>".format(self.type, self.start, self.end, self.value, self.target)
+        # A colour row's quantity in place of the band it does not have.
+        scope = "{}..{}".format(self.start, self.end) if self.color is None else self.color
+        return "<MeritRow {} {}: {} for {}>".format(self.type, scope, self.value, self.target)
 
 
 class Merit:
@@ -216,6 +247,19 @@ class Merit:
             target_end: The target at `end` of a target that slopes from
                 `target` at `start`; None for a flat one.
             cmp: For TT and STR, the comparison: "eq", "le" or "ge".
+            color: For RCOL and TCOL, the colour quantity the row scores, as
+                the editor's Color list names it: "X", "Y", "Z", "x", "y",
+                "u'", "v'", "u", "v", "L*", "a*", "b*", "C*ab", "hab", "u*",
+                "v*", "C*uv", "huv", "suv", "Hunter L", "Hunter a",
+                "Hunter b", "dominant", "complementary", "purity", "CCT" or
+                "Duv". Its target is in the quantity's own unit: Y in %, a
+                hue in degrees, a wavelength in nm, CCT in K, purity as a
+                fraction of 1. The row is integrated over 380-780 nm and takes
+                no start or end. Default "Y".
+            illuminant: For RCOL and TCOL, the CIE illuminant: "D65", "D50",
+                "A" or "E". Default "D65".
+            observer: For RCOL and TCOL, the CIE standard observer, by its
+                field in degrees: 2 or 10. Default 2.
             flag: The editor's Flag column, the row's Step; the Operand
                 Reference says what it does on each row.
             enabled: False leaves the row out of the merit. Default True.
@@ -246,6 +290,7 @@ class Merit:
             design.merit.add("RAV", 450, 650, target=0)
             design.merit.add("TAV", 800, 900, target=0.95, weight=2, aoi=45, pol="p")
             design.merit.add("MNT", target=10)
+            design.merit.add("RCOL", color="a*", target=0, aoi=30)
             print(len(design.merit), "rows, merit", design.merit.value)
         """
         _refuse_argument_fields(fields)

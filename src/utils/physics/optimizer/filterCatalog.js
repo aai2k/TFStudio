@@ -31,7 +31,32 @@ export const FILTER_CATEGORIES = [
     { id: 'INTEGRAL', types: ['VIS_AR', 'SOLAR_BLOCK', 'SOLAR_PASS', 'WORST_T_MIN', 'WORST_R_MAX'] },
     { id: 'CUSTOM',   types: ['CUSTOM_TARGET'] },
     { id: 'CURVE',    types: ['CURVE_TARGET', 'GAIN_FLATTENING'] },
+    { id: 'COLOR',    types: ['COLOR_R', 'COLOR_T'] },
 ];
+
+/**
+ * The colour spaces a wizard colour target is given in, each with the Color
+ * list quantities of its three coordinates, in the order the target holds its
+ * values: x, y, Y; L*, a*, b*; or u′, v′, Y.
+ */
+export const COLOR_TARGET_SPACES = {
+    xyY: ['x', 'y', 'Y'],
+    Lab: ['L*', 'a*', 'b*'],
+    uvY: ["u'", "v'", 'Y'],
+};
+
+// The rows of the Color preset: for each colour target, one colour row of
+// `type` per coordinate of the space it was given in, at the target's angle
+// and polarization, the coordinate's value its target, under the illuminant
+// and observer the wizard sets (`common.illuminant`, `common.observer`).
+// `common.colorTargets` holds the targets: { aoi, pol, space, values }.
+function colorTargetOperands(type) {
+    return (p, common) => (common.colorTargets || []).flatMap(target => COLOR_TARGET_SPACES[target.space]
+        .map((color, k) => makeOperand({
+            type, color, aoi: target.aoi, pol: target.pol, target: target.values[k], weight: 1.0,
+            illuminant: common.illuminant, observer: common.observer,
+        })));
+}
 
 // Operand type codes are polarization-AGNOSTIC now — polarization rides on
 // op.pol (avg/s/p), set by the generators below. So:
@@ -546,6 +571,12 @@ export const FILTER_TYPES = {
         ],
         generate: () => [],
     },
+
+    // A colour of R or T at one or several angles: the targets are picked in
+    // the wizard's target editor, and the box beside the preset holds the
+    // illuminant and observer instead of angles.
+    COLOR_R: { category: 'COLOR', fields: [], colorTargets: true, generate: colorTargetOperands('RCOL') },
+    COLOR_T: { category: 'COLOR', fields: [], colorTargets: true, generate: colorTargetOperands('TCOL') },
 };
 
 // Custom Target statements in dB or optical density, and the row each writes.

@@ -5,6 +5,7 @@ import numbers
 
 from ._calls import Calls
 from ._coatings import codev_coating_file, zemax_coating_file
+from ._color import Color, ColorDifference
 from ._design import Design
 from ._errors import TFStudioError
 from ._material_dispersion import MaterialDispersion
@@ -744,6 +745,47 @@ class TFStudio:
             print(design.name, len(design.layers), "layers, from", name)
         """
         return Design(self._calls, self._calls.openDesign(path))
+
+    def color_difference(self, a, b):
+        """How the colour `b` differs from the colour `a`, both as
+        design.color() gives them, as the Differences view of the Color
+        Evaluation window gives it: ΔL*, Δa* and Δb*, each b less a; ΔE*ab,
+        the distance between the two in CIE L*a*b*; and ΔE00, CIEDE2000.
+        L*a*b* is relative to the illuminant's white as the observer sees it,
+        so two colours are compared only under one illuminant and one
+        observer. The angle, polarization, side, design and whether each is R
+        or T may differ: a colour against the same one at another angle is
+        how far it shifts.
+
+        Args:
+            a: The colour compared against, a Color.
+            b: The colour compared, a Color.
+
+        Returns:
+            A ColorDifference, a named tuple: dL, da and db, ΔL*, Δa* and Δb*,
+            each b less a; dEab, ΔE*ab, √(ΔL*² + Δa*² + Δb*²); and dE00, ΔE00,
+            the CIEDE2000 difference with kL, kC and kH of 1.
+
+        Raises:
+            TFStudioError: an a or b that is not a Color, such as the list
+                env="all" gives.
+            TFStudioError: two colours under different illuminants or
+                observers.
+
+        Example::
+
+            design = tf.new_design("AR")
+            design.stack("(HL)^2")
+            shift = tf.color_difference(design.color(angle=0), design.color(angle=45))
+            print("ΔL*", round(shift.dL, 2), "ΔE*ab", round(shift.dEab, 2), "ΔE00", round(shift.dE00, 2))
+        """
+        for name, colour in (("a", a), ("b", b)):
+            if not isinstance(colour, Color):
+                raise TFStudioError("color_difference: {} is a Color, as design.color() gives one; with env=\"all\" "
+                                    "it gives a list of them".format(name))
+        plain = [{"lab": c.lab._asdict(), "illuminant": c.illuminant, "observer": c.observer} for c in (a, b)]
+        with worded(Words("colorDifference", "color_difference")):
+            return ColorDifference(**self._calls.colorDifference(*plain))
 
     def read_spectrum_file(self, path, **options):
         """Reads a spectrum file as the Measured Spectra window's import

@@ -18,7 +18,7 @@
 import { operandResidualScale } from '../evalCore.js';
 import { resolveSourceSpec, resolveDetectorSpec } from '../../spectralWeightings.js';
 import {
-    isMath, isArgwave, isEField, isEllipsometry, isMeasuredCurve, polFromType,
+    isMath, isArgwave, isColor, isEField, isEllipsometry, isMeasuredCurve, polFromType,
     isManufacturability, isMinmax, isRangeTarget, isIntegral, isConstant,
 } from '../operandModel.js';
 import { charOf, operandSampleLambdas, isRangeAvg, bandQuadratureWeights } from '../sampling.js';
@@ -163,4 +163,4 @@ export function _operandSupportsFullNewton(op) {
 
 // A curve block reaching the engine whole has its level free, and the curvature
 // of its shared level is not worked out.
-const NO_ANALYTIC_CURVATURE = [isMath, isArgwave, isEllipsometry, isEField, isMeasuredCurve];
+const NO_ANALYTIC_CURVATURE = [isMath, isArgwave, isEllipsometry, isEField, isMeasuredCurve, isColor];

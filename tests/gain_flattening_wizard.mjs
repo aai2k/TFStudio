@@ -93,14 +93,14 @@ const flatteningName = name => `${name} flattening target`;
 
     const block2 = buildWizardResult({
         tw: { types: { GAIN_FLATTENING: { label: 'Gain flattening' } } },
-        typeId: 'GAIN_FLATTENING', curveRows: result, units: { nm: 'nm' },
+        typeId: 'GAIN_FLATTENING', ownRows: result, units: { nm: 'nm' },
         minEnabled: true, maxEnabled: true, minThick: 10, maxThick: 500,
     }).block;
     assert.deepEqual(block2.map(op => op.type), ['DMFS', 'MCURVE', 'PPEF', 'TDBMN', 'MNT', 'MXT']);
     assert.match(block2[0].comment, /^Gain flattening, edfa flattening target; ≥10 nm, ≤500 nm$/);
     const noMax = buildWizardResult({
         tw: { types: { GAIN_FLATTENING: { label: 'Gain flattening' } } },
-        typeId: 'GAIN_FLATTENING', curveRows: result, units: { nm: 'nm' },
+        typeId: 'GAIN_FLATTENING', ownRows: result, units: { nm: 'nm' },
         minEnabled: true, maxEnabled: false, minThick: 10, maxThick: 500,
     }).block;
     assert.deepEqual(noMax.map(op => op.type), ['DMFS', 'MCURVE', 'PPEF', 'TDBMN', 'MNT'], 'a minimum with no maximum');
@@ -154,7 +154,7 @@ const flatteningName = name => `${name} flattening target`;
     const reflectanceOnly = { ...design, measuredCurves: [{ ...curve, id: 'r1', quantity: 'R' }] };
     assert.equal(curveWizardRows({ typeId: 'GAIN_FLATTENING', design: reflectanceOnly, params: { input: 'target' } }).error,
         'noCurves', 'a target loss curve is a T curve, so an R curve does not count');
-    const failed = buildWizardResult({ tw: { types: {} }, typeId: 'CURVE_TARGET', curveRows: { error: 'noCurve' } });
+    const failed = buildWizardResult({ tw: { types: {} }, typeId: 'CURVE_TARGET', ownRows: { error: 'noCurve' } });
     assert.deepEqual(failed.block, [], 'nothing is written');
     assert.equal(failed.error, 'noCurve');
 }

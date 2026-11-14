@@ -71,7 +71,8 @@ function useScrollViewport(scrollRef) {
 // The λ Start, λ End and flag headers change with the selected row's operand
 // type, so they carry a title and clip: a label wider than its column would
 // otherwise overflow into the next one. Over a search step the title spells out
-// the levels. On a design with environments the value column names the
+// the levels, and over a colour row's ILL-OBS it names the illuminant and the
+// observer. On a design with environments the value column names the
 // environment it reads. Widths come from the colgroup, not from here.
 const DYNAMIC_HEADERS = new Set(['lambdaStart', 'lambdaEnd', 'flag']);
 function headerText(col, dynamicLabels, te, environments) {
@@ -80,7 +81,8 @@ function headerText(col, dynamicLabels, te, environments) {
         return { label: te.currentIn(number), title: te.currentInTip(number, name) };
     }
     const label = DYNAMIC_HEADERS.has(col.key) ? dynamicLabels[col.key] : colLabel(col, te.cols);
-    return { label, title: col.key === 'flag' && label === te.cols.step ? te.stepFlagTip : label };
+    const spelled = { flag: [te.cols.step, te.stepFlagTip], lambdaEnd: [te.cols.illObs, te.illObsTip] }[col.key];
+    return { label, title: spelled && label === spelled[0] ? spelled[1] : label };
 }
 function headerCell(col, dynamicLabels, style, te, environments) {
     const { label, title } = headerText(col, dynamicLabels, te, environments);

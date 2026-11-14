@@ -31,7 +31,7 @@
 
 import {
     isFullSystemEval, buildEvalContext, effectiveBackLayers, evaluateOperands, calcMF,
-    mfWeightDenominator, operandSampleDeviations, residualScaleIn,
+    mfWeightDenominator, operandSampleDeviations, operandColorChromas, residualScaleIn,
 } from '../evalCore.js';
 import { isEllipsometry, isManufacturability, isPhaseDispersion, isRangeTarget } from '../operandModel.js';
 import { operandResidualRows } from '../residualRows.js';
@@ -203,11 +203,12 @@ function _accumMerit(operands, prep, deltaNm) {
     const { ctx0, comp, descs, cfg } = prep;
     const jc = _needleRowContext(operands, prep);
     const deviations = operandSampleDeviations(comp);
+    const chromas = operandColorChromas(comp);
     for (let i = 0; i < operands.length; i++) {
         const op = operands[i];
         if (!isScored(op) || comp[i] == null) continue;
         const sigma = jc.residualScale(op);
-        const residuals = operandResidualRows(op, comp[i], deviations[i], sigma);
+        const residuals = operandResidualRows(op, comp[i], deviations[i], sigma, chromas[i]);
         if (residuals.every(r => r === 0)) continue;
         if (isRangeTarget(op.type)) {
             inConeRow(ctx0, op, () => rangeTargetRowSum(op, jc, residuals))

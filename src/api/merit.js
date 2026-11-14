@@ -3,8 +3,9 @@
 
 import {
     isKnownOperandType, isValidMeritWeight, isConstraint, isLinearThickness, isEllipsometry, readsWavelengthBand, polFromType, OPERAND_TYPES,
-    EXTREMUM_FLAG_MAX, flagStepNm, isBandGridRow, makeOperand,
+    EXTREMUM_FLAG_MAX, flagStepNm, isBandGridRow, isColor, makeOperand,
 } from '../utils/physics/optimizer.js';
+import { COLOR_QUANTITIES, ILLUMINANTS, OBSERVERS } from '../utils/physics/colorimetry.js';
 import { isMeasuredCurve, isEllipsometricMeasuredCurve } from '../utils/physics/optimizer/measuredCurveType.js';
 import { makeRowOperand } from '../components/windows/optimization/meritFunctionEditor/meritOperandModel.js';
 import { editableColsForRow } from '../components/windows/optimization/meritFunctionEditor/mfTable/operandViewModel.js';
@@ -25,10 +26,13 @@ const ROW_FIELDS = [
     'cmp', 'comment', 'detector', 'quantity', 'source', 'refId', 'refId1', 'refId2', 'baseType',
     'bandPoints', 'rampPoints', 'curveId', 'curveName', 'levelFree', 'measuredCurveBlockId', 'measurementSide',
     'side', 'deltaConvention', 'flag', 'sampleLambdas', 'sampleTargets', 'gridMode', 'sourceSpacingNm',
-    'presetKey', 'presetLabel', 'env',
+    'presetKey', 'presetLabel', 'env', 'color', 'illuminant', 'observer',
 ];
 
 const isNumber = v => Number.isFinite(v);
+const orList = words => `${words.slice(0, -1).join(', ')} or ${words.at(-1)}`;
+const ILLUMINANT_IDS = ILLUMINANTS.map(illuminant => illuminant.id);
+const OBSERVER_DEGREES = OBSERVERS.map(observer => Number(observer.id));
 const CHECKS = [
     ['enabled', v => typeof v === 'boolean', 'true or false'],
     ['lambdaStart', isNumber, 'a number'],
@@ -42,6 +46,9 @@ const CHECKS = [
     ['flag', (v, row) => flagStepNm(v) != null || (v === 0 && isBandGridRow(row.type)),
         `a whole number from 1 to ${EXTREMUM_FLAG_MAX}, a step in nm as a negative number, -0.001 or below, or 0 on a band row`],
     ['deltaConvention', v => v === 'azzam' || v === 'reversed', "'azzam' or 'reversed'"],
+    ['color', v => COLOR_QUANTITIES.includes(v), `one of ${orList(COLOR_QUANTITIES.map(q => JSON.stringify(q).replace(/^"([^']*)"$/, "'$1'")))}`],
+    ['illuminant', v => ILLUMINANT_IDS.includes(v), orList(ILLUMINANT_IDS.map(id => `'${id}'`))],
+    ['observer', v => OBSERVER_DEGREES.includes(v), orList(OBSERVER_DEGREES)],
 ];
 
 // Refuses merit row `row`, row `i` of those given, unless this version
@@ -108,6 +115,9 @@ const isReversed = op => (readsWavelengthBand(op.type) || isConstraint(op.type))
  * @param [rows[].weight] How much the row counts, 0 or more.
  * @param [rows[].cmp] For TT and STR, the comparison: `'eq'`, `'le'` or `'ge'`.
  * @param [rows[].flag] The editor's Flag column, the row's Step; the Operand Reference says what it does on each row.
+ * @param [rows[].color='Y'] For RCOL and TCOL, the colour quantity the row scores, as the editor's Color list names it: `'X'`, `'Y'`, `'Z'`, `'x'`, `'y'`, `"u'"`, `"v'"`, `'u'`, `'v'`, `'L*'`, `'a*'`, `'b*'`, `'C*ab'`, `'hab'`, `'u*'`, `'v*'`, `'C*uv'`, `'huv'`, `'suv'`, `'Hunter L'`, `'Hunter a'`, `'Hunter b'`, `'dominant'`, `'complementary'`, `'purity'`, `'CCT'` or `'Duv'`. Its target is in the quantity's own unit: Y in %, a hue in degrees, a wavelength in nm, CCT in K, purity as a fraction of 1.
+ * @param [rows[].illuminant='D65'] For RCOL and TCOL, the CIE illuminant: `'D65'`, `'D50'`, `'A'` or `'E'`.
+ * @param [rows[].observer=2] For RCOL and TCOL, the CIE standard observer, by its field in degrees: `2` or `10`. CCT and Duv are read from the 2 degree chromaticity whatever it is.
  * @param [rows[].deltaConvention='azzam'] For DEL, the sign of Δ the row reads and its target is in: `'azzam'`, the Azzam-Bashara sign an ellipsometer writes and the Ellipsometry window shows, or `'reversed'`, 360° minus it, which DEL rows in older designs read.
  * @param [rows[].enabled=true] `false` leaves the row out of the merit.
  * @param [rows[].id] A name for the row, which a math row gives in `refId`, `refId1` or `refId2` to read it.
@@ -126,6 +136,12 @@ const isReversed = op => (readsWavelengthBand(op.type) || isConstraint(op.type))
  *     { type: 'MNT', target: 10, weight: 1 },
  * ]);
  * console.log('Merit:', tf.merit(design).total);
+ * const blue = tf.setMerit(ar, [
+ *     { type: 'RCOL', color: 'x', target: 0.23 },
+ *     { type: 'RCOL', color: 'y', target: 0.24 },
+ *     { type: 'RCOL', color: 'Y', target: 1, aoi: 45, illuminant: 'D50' },
+ * ]);
+ * for (const row of tf.merit(blue).rows) console.log(row.color, row.illuminant, row.aoi, row.value);
  */
 export function setMerit(design, rows) {
     // Rows are made as the editor makes them (meritOperandModel.js
@@ -165,14 +181,21 @@ function measuredScope(op) {
 }
 
 // What a row scores, beside its type: TT and STR their comparison, MNT and
-// MXT their layer range, a measured curve its band, angle and polarization,
+// MXT their layer range, a colour row its quantity, illuminant, observer,
+// angle and polarization, a measured curve its band, angle and polarization,
 // and a row the editor gives an angle column (operandViewModel.js
 // editableColsForRow) its wavelength, or its band where it reads one, its
 // angle and the polarization it is scored in.
+const OWN_SCOPES = [
+    [isLinearThickness, op => ({ cmp: op.cmp ?? 'eq' })],
+    [isColor, op => ({ color: op.color, illuminant: op.illuminant, observer: op.observer, aoi: op.aoi, pol: op.pol })],
+    [isConstraint, op => ({ lambdaStart: op.lambdaStart, lambdaEnd: op.lambdaEnd })],
+    [isMeasuredCurve, measuredScope],
+];
+
 function rowScope(op) {
-    if (isLinearThickness(op.type)) return { cmp: op.cmp ?? 'eq' };
-    if (isConstraint(op.type)) return { lambdaStart: op.lambdaStart, lambdaEnd: op.lambdaEnd };
-    if (isMeasuredCurve(op.type)) return measuredScope(op);
+    const own = OWN_SCOPES.find(([family]) => family(op.type));
+    if (own) return own[1](op);
     if (!editableColsForRow(op).includes('aoi')) return {};
     const band = readsWavelengthBand(op.type) ? { lambdaEnd: op.lambdaEnd } : {};
     const pol = takesBothPolarizations(op.type) ? {} : { pol: polFromType(op.type) ?? op.pol };
@@ -227,6 +250,7 @@ function environmentMerits(design, result) {
  * @property rows[].aoi The angle of incidence, on a row that reads one.
  * @property rows[].pol The polarization the row is scored in; absent on a row scored on both, such as PSI or DPR.
  * @property rows[].cmp For TT and STR, the comparison.
+ * @property rows[].color For RCOL and TCOL, the colour quantity, with `illuminant` and `observer` the illuminant and observer it is read under; an RCOL or TCOL row has no `lambdaStart` or `lambdaEnd`, being integrated over 380-780 nm.
  * @property rows[].value The row's value for the design as it is: in its own environment, or for a row of every environment in the first one it is scored in.
  * @property rows[].target The row's target.
  * @property rows[].weight The row's weight.

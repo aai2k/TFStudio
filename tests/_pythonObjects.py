@@ -289,9 +289,16 @@ def merit(design):
                     "rows": [[row.env, row.values, row.value] for row in wet.merit.rows],
                     "lone": [rated.merit.environments, [[row.env, row.values] for row in rated.merit.rows]],
                     "refused": [refused(lambda: rated.merit.add("R", 550, env=2)), refused(lambda: wet.merit.add("R", 550, env=5))]}
+    tinted = design.copy()
+    tinted.merit.add("RCOL", color="x", target=0.3, aoi=30, pol="s")
+    tinted.merit.add("TCOL", color="hab", target=250, illuminant="A", observer=10)
+    colour = {"design": tinted._data,
+              "rows": [[row.type, row.color, row.illuminant, row.observer, row.aoi, row.pol, row.start, row.value, repr(row)]
+                       for row in tinted.merit.rows],
+              "refused": [refused(lambda: tinted.merit.add("RCOL", color="q")), refused(lambda: tinted.merit.add("RCOL", observer="2"))]}
     out({"merit": {"design": rated._data, "count": len(rated.merit), "value": rated.merit.value,
                    "optical": rated.merit.optical_value, "rows": rows, "cleared": [len(cleared.merit), len(rated.merit)],
-                   "environments": environments}})
+                   "environments": environments, "colour": colour}})
 
 
 # SpecCheck's attributes, in the order the test reads them.
@@ -691,12 +698,15 @@ def colour_and_integrals(tf):
     iv = two.integrals(custom=_CUSTOM)
     iv.save_csv("integrals.csv")
     c = two.color()
+    shift = tf.color_difference(c, two.color(angle=45, pol="s"))
+    difference = [list(shift), list(type(shift)._fields)]
     worded = [refused(make) for make in (
+        lambda: tf.color_difference(c, two.color(illuminant="A")), lambda: tf.color_difference(c, 3),
         lambda: two.color(observer=3), lambda: two.color(illuminant="F2"), lambda: two.color(side="both"),
         lambda: two.integrals(start=900, end=400), lambda: two.integrals(custom=[{"key": "x", "char": "T"}]),
         lambda: two.integrals(custom=[{"key": "Tvis"}]), lambda: two.integrals(custom=[{"quantity": "T"}]),
         lambda: iv["Tsun"])]
-    out({"colour": {"design": two._data, "colours": colours, "tables": tables, "rows": [list(iv["Rled"]), iv["Tvis"] == iv.rows[0]],
+    out({"colour": {"design": two._data, "colours": colours, "tables": tables, "difference": difference, "rows": [list(iv["Rled"]), iv["Tvis"] == iv.rows[0]],
                     "csv": text_of("integrals.csv"), "worded": worded, "shown": [repr(c), repr(iv)],
                     "tuples": [list(type(c.lab)._fields), list(type(c.luv)._fields), list(type(c.dominant)._fields),
                                list(type(c.srgb)._fields), list(type(c.white)._fields), list(type(iv.rows[0])._fields)]}})

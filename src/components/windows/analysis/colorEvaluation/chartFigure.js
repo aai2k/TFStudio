@@ -294,6 +294,31 @@ function coatingSeries({ path, plane, exposure }) {
   return between.length ? [line, ends, labelled(points(between, 7))] : [line, ends];
 }
 
+// Merit-function colour targets, each a hollow diamond in the dark ink at its
+// own coordinates on the plane, labelled where it has a label: the angle its
+// rows are scored at. The diamonds are drawn as a target is drawn on Optical
+// Evaluation's plot, beside the coating's own points and never dragged.
+function targetSeries(targets, plane, tr, ink) {
+  const series = scatterSeries({
+    data: targets.map(target => ({ value: target.value, label: target.label })), color: 'transparent',
+    symbol: 'diamond', symbolSize: 15,
+  });
+  Object.assign(series.itemStyle, { borderColor: ink, borderWidth: 2, ...HALO });
+  series.z = 7;
+  series.label = {
+    show: true, position: 'left', distance: 6, fontSize: 10, fontWeight: 600, ...ON_FILL_TEXT,
+    formatter: params => params.data.label ?? '',
+  };
+  series.labelLayout = { hideOverlap: true };
+  series.tooltip = {
+    formatter: params => [
+      [tr.chartTarget, params.data.label].filter(Boolean).join(', '),
+      `${plane.axes[0]} ${formatChartReadout(params.value[0])}   ${plane.axes[1]} ${formatChartReadout(params.value[1])}`,
+    ].join('<br>'),
+  };
+  return series;
+}
+
 // The paths drawn: the coating's, outlined in the window's dark ink, or under
 // All one per environment, named after it and outlined in its colour.
 function coatingPaths(reports, tr, colors) {
@@ -351,18 +376,27 @@ function frameAxis(style, [min, max], interval) {
  * @param {(aspect:number) => object} [args.grid]  the plot rectangle for a
  *        given width over height
  * @param {boolean} [args.fill=true]  whether to rasterise the fill
+ * @param {{value:number[], label:?string}[]} [args.targets]  merit-function
+ *        targets, each at its coordinates on the diagram's plane
+ * @param {{X:number, Y:number, Z:number}} [args.white]  the illuminant's
+ *        white, read from the first report when there is one
+ * @param {number} [args.lightness]  the L* the CIELAB and CIELUV planes are
+ *        drawn at, in place of the one planeLightness takes from the reports
+ * @param {number[][]} [args.viewPoints]  points on the plane the frame is
+ *        sized to hold besides the reports, in place of the targets: a target
+ *        being dragged keeps the frame it was grabbed in
  */
 export function buildChromaticityOption({
   reports, observer, diagram, exposure = '1', display, c, tr, units,
-  colors = ANALYSIS_DEFAULTS.colorEvaluation.colors, grid, fill = true,
+  colors = ANALYSIS_DEFAULTS.colorEvaluation.colors, grid, fill = true, targets = [], white = reports[0].report.white,
+  lightness = planeLightness(reports), viewPoints = targets.map(target => target.value),
 }) {
   const text = c.text || '#cccccc';
   const gridColor = c.border || '#3a3a3a';
-  const white = reports[0].report.white;
-  const lightness = planeLightness(reports);
   const plane = diagramPlane(diagram, { white, lightness });
   const outline = locusOutline(plane, observer);
-  const view = diagramView(diagram, reports.map(({ report }) => plane.ofReport(report)));
+  const shown = [...reports.map(({ report }) => plane.ofReport(report)), ...viewPoints];
+  const view = diagramView(diagram, shown);
   const image = fill && rasteriseDiagramFill(
     fillKey({ diagram, observer, lightness, white, view }),
     { plane, outline, view, discRadius: plane.polar ? view.x[1] : null },
@@ -385,7 +419,10 @@ export function buildChromaticityOption({
     series.push(triangle);
   }
   if (display.showWhite) series.push(whiteSeries(plane, tr, colors));
-  for (const path of coatingPaths(reports, tr, colors)) series.push(...coatingSeries({ path, plane, exposure }));
+  if (targets.length) series.push(targetSeries(targets, plane, tr, colors.coating));
+  if (reports.length) {
+    for (const path of coatingPaths(reports, tr, colors)) series.push(...coatingSeries({ path, plane, exposure }));
+  }
 
   const aspect = (view.x[1] - view.x[0]) / (view.y[1] - view.y[0]);
   return cartesianOption({

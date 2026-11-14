@@ -176,6 +176,9 @@ class Calls:
     def color(self, design, options=None):
         return self._call("color", design, options)
 
+    def colorDifference(self, a, b):
+        return self._call("colorDifference", a, b)
+
     def integrals(self, design, options=None):
         return self._call("integrals", design, options)
 
