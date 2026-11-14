@@ -11,7 +11,7 @@ import { EmptyDropTarget, EmptyWorkspace } from './EmptyStates.js';
 import { FloatWindows } from './FloatWindows.js';
 import { LAYOUT_PRESETS, makePresetTree } from './layoutPresets.js';
 import { saveLayout, loadSavedLayout } from './layoutStorage.js';
-import { useDockTree } from './useDockTree.js';
+import { answerToolRequest, useDockTree } from './useDockTree.js';
 import { useFloatWindows } from './useFloatWindows.js';
 import { useTabDrag } from './useTabDrag.js';
 
@@ -106,9 +106,10 @@ export function DockingLayout({ c, theme, toolRequests, onWindowListChange, layo
 
   useEffect(() => {
     if (!toolRequests?.length) return;
-    const req = toolRequests[toolRequests.length - 1];
-    openTool(req.toolId, { region: req.region, focusExisting: req.focusExisting });
-  }, [toolRequests, openTool]);
+    answerToolRequest(toolRequests[toolRequests.length - 1], {
+      tree: treeRef.current, floats: floatsRef.current, floatWins: floatWinsRef.current, openTool,
+    });
+  }, [toolRequests, openTool, treeRef, floatsRef, floatWinsRef]);
 
   // ── Layout requests (presets / restore) ───────────────────────────────────
   useEffect(() => {

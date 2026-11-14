@@ -56,6 +56,23 @@ function addToolTab(prev, tab, opts, lastGroupRef) {
   return first ? addTab(prev, first.id, tab) : makeGroup([tab]);
 }
 
+/**
+ * Answer a request to open a tool. With focusExisting, a tool open only in a
+ * torn-off window brings that window forward, as a docked one has its tab
+ * activated; otherwise the tool opens in the docked tree. `floatWins` maps a
+ * float's id to its OS window.
+ */
+export function answerToolRequest(req, { tree, floats, floatWins, openTool }) {
+  const float = req.focusExisting && !findTabByToolId(tree, req.toolId)
+    ? floats.find(f => f.toolId === req.toolId)
+    : null;
+  if (float) {
+    floatWins.get(float.id)?.focus();
+    return;
+  }
+  openTool(req.toolId, { region: req.region, focusExisting: req.focusExisting });
+}
+
 function openToolIn(prev, toolId, cfg, opts, lastGroupRef) {
   if (!prev) return makeGroup([{ id: newTabId(), title: cfg.title, toolId }]);
   if (opts.focusExisting) {
