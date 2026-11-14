@@ -72,12 +72,18 @@ function useColorTargets(design, { every, views }, state) {
 // so the diagram keeps its room. The diagram never goes below its least
 // height; in a window too short for it and every line, the lines scroll, down
 // to one line, and in one too short for the diagram and one line, the two
-// scroll together, so no line is cut off out of reach.
+// scroll together, so no line is cut off out of reach. The area never scrolls
+// sideways: the chart takes its width and the lines scroll on their own. A
+// chart canvas standing a fraction of a pixel past a fractional width, or a
+// frame behind a resize, is clipped, where a scrollbar would take its height
+// from the plot and make it jump.
 function DiagramArea({ c, t, ce, state, reports, colors, busy, targets }) {
     if (busy) return h(CenteredMessage, { c, message: t.analysisEvaluation.computing });
     if (!reports) return h(CenteredMessage, { c, message: ce.noData });
-    return h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto' } },
-        h('div', { style: { flex: '1 1 0', minHeight: CHART_MIN_HEIGHT } },
+    return h('div', {
+        style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto', overflowX: 'hidden' },
+    },
+        h('div', { style: { flex: '1 1 0', minHeight: CHART_MIN_HEIGHT, minWidth: 0, overflow: 'hidden' } },
             h(ChromaticityChart, {
                 reports, observer: state.observer, diagram: state.diagram,
                 exposure: state.exposure, display: state, c, tr: ce, units: t.units,

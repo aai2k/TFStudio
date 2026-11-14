@@ -416,8 +416,12 @@ assert.ok(!html.includes('position:absolute'), 'nothing is laid over the diagram
   assert.ok(closed.includes('width:36px;height:22px'), 'Results closed: the lines are back');
   // In a window too short for the diagram and a line under it, the two scroll
   // together rather than the lines being cut off out of reach.
-  assert.ok(closed.includes(`overflow-y:auto"><div style="flex:1 1 0;min-height:${CHART_MIN_HEIGHT}px`),
-    'the diagram and its lines sit in one scrolling column');
+  // The column scrolls up and down only, and the chart box clips: a canvas
+  // standing past a fractional width, or a frame behind a resize, would
+  // otherwise give it a sideways scrollbar, whose height the plot loses and
+  // gets back as the window is resized, so the plot jumps.
+  assert.ok(closed.includes(`overflow-y:auto;overflow-x:hidden"><div style="flex:1 1 0;min-height:${CHART_MIN_HEIGHT}px;min-width:0;overflow:hidden`),
+    'the diagram and its lines sit in one column that scrolls up and down only, the chart clipped to its box');
   // The angle field may shrink to the control row, so its chips wrap onto more
   // lines rather than running past the window's edge with + among them.
   const aoiAt = closed.indexOf(`>${CE.aoi}</span>`);
