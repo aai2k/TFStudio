@@ -242,6 +242,15 @@ export function rowButtonStyle(c, { active, disabled, color }) {
     };
 }
 
+/** The pencil on the Edit button that puts a plot's targets into editing. */
+export function pencilIcon() {
+    return h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none' },
+        h('path', {
+            d: 'M11 2l3 3-8 8H3v-3l8-8z', stroke: 'currentColor',
+            strokeWidth: 1.3, strokeLinejoin: 'round',
+        }));
+}
+
 /** Standalone on/off control, for a layer of the plot rather than a choice. */
 export function ToggleButton({ label, active, onClick, c, title, disabled, color, children }) {
     return h('button', {

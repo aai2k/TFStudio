@@ -23,3 +23,13 @@ export const colorEvaluationSession = createWindowSession({
         angleStart: tenth(state.angleStart), angleEnd: tenth(state.angleEnd), angleStep: tenth(state.angleStep),
     }),
 });
+
+// Target editing: whether it is on, which tool is in hand, and the angle a drawn
+// target is written at, 'nearest' or one of the window's angles in degrees.
+// They describe how the user works rather than the coating, so they carry
+// across a design change.
+export const colorTargetSession = createWindowSession({
+    editMode: false,
+    editTool: 'draw',
+    drawAoi: 'nearest',
+});

@@ -1,9 +1,10 @@
 import { ANALYSIS_DEFAULTS, environmentColor } from '../../../../constants/analysisDefaults.js';
 import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 import {
-  THIN_X_SYMBOL, cartesianOption, chartColors, formatChartReadout, itemTooltip, lineSeries, scatterSeries,
-  squareGrid, valueAxis,
+  THIN_X_SYMBOL, cartesianOption, chartColors, chartToolbox, formatChartReadout, itemTooltip, lineSeries,
+  scatterSeries, squareGrid, valueAxis,
 } from '../../../ui/chartOptions.js';
+import { TargetEditorOverlay } from '../../../ui/TargetEditorOverlay.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import {
   LIGHTNESS_DIAGRAMS, POLAR_DIAGRAMS, diagramPlane, locusMarks, locusOutline, planckianLocus, srgbTriangle,
@@ -80,6 +81,11 @@ const ON_FILL_TEXT = { color: 'rgba(0,0,0,0.85)', textBorderColor: 'rgba(255,255
  */
 export function planeLightness(reports) {
   return Math.max(1, Math.ceil(Math.max(...reports.map(({ report }) => report.Lab.L))));
+}
+
+/** The plane of `diagram` as the window draws it for `reports`: at their white and their lightness. */
+export function reportsPlane(reports, diagram) {
+  return diagramPlane(diagram, { white: reports[0].report.white, lightness: planeLightness(reports) });
 }
 
 // The round step, 1, 2 or 5 times a power of ten, at or above `x`.
@@ -297,7 +303,8 @@ function coatingSeries({ path, plane, exposure }) {
 // Merit-function colour targets, each a hollow diamond in the dark ink at its
 // own coordinates on the plane, labelled where it has a label: the angle its
 // rows are scored at. The diamonds are drawn as a target is drawn on Optical
-// Evaluation's plot, beside the coating's own points and never dragged.
+// Evaluation's plot, beside the coating's own points; while targets are
+// edited, the editor over the chart picks them up.
 function targetSeries(targets, plane, tr, ink) {
   const series = scatterSeries({
     data: targets.map(target => ({ value: target.value, label: target.label })), color: 'transparent',
@@ -385,11 +392,15 @@ function frameAxis(style, [min, max], interval) {
  * @param {number[][]} [args.viewPoints]  points on the plane the frame is
  *        sized to hold besides the reports, in place of the targets: a target
  *        being dragged keeps the frame it was grabbed in
+ * @param {boolean} [args.drawing=false]  whether a target is being drawn: the
+ *        pointer then belongs to the target editor, so the readout, which
+ *        would freeze under it, and the rectangle zoom, which would take the
+ *        press meant for a target, are off
  */
 export function buildChromaticityOption({
   reports, observer, diagram, exposure = '1', display, c, tr, units,
   colors = ANALYSIS_DEFAULTS.colorEvaluation.colors, grid, fill = true, targets = [], white = reports[0].report.white,
-  lightness = planeLightness(reports), viewPoints = targets.map(target => target.value),
+  lightness = planeLightness(reports), viewPoints = targets.map(target => target.value), drawing = false,
 }) {
   const text = c.text || '#cccccc';
   const gridColor = c.border || '#3a3a3a';
@@ -429,7 +440,8 @@ export function buildChromaticityOption({
     colors: c,
     grid: grid ? grid(aspect) : MARGIN,
     fileName: 'chromaticity',
-    tooltip: itemTooltip(),
+    tooltip: drawing ? { show: false } : itemTooltip(),
+    toolbox: drawing ? chartToolbox('chromaticity', { dataZoom: false }) : undefined,
     legend: { ...legendAbove({ color: text }), data: legendEntries(series, tr, text) },
     xAxis: frameAxis({ name: plane.axes[0], color: text, gridColor, nameGap: 24 }, view.x, view.interval),
     yAxis: frameAxis({ name: plane.axes[1], color: text, gridColor, nameGap: 28 }, view.y, view.interval),
@@ -437,14 +449,21 @@ export function buildChromaticityOption({
   });
 }
 
+/**
+ * The diagram, with the target editor over it while targets are edited.
+ * `editor` is useColorTargetEditor's, with `geometry` the diamonds as the
+ * overlay takes them and `viewPoints` the points the frame holds while editing
+ * (heldFrame.js); a drawing on the diagram is a point, made by a click.
+ */
 export function ChromaticityChart(props) {
   const divRef = useRef(null);
   const chartRef = useRef(null);
   const colors = useAnalysisColors('colorEvaluation');
-  const { c } = props;
+  const { c, editor } = props;
   const redraw = () => {
     drawChart(divRef.current, chartRef, buildChromaticityOption({
-      ...props, colors, grid: aspect => squareGrid(divRef.current, MARGIN, aspect),
+      ...props, colors, drawing: editor.editMode && editor.editTool === 'draw', viewPoints: editor.viewPoints,
+      grid: aspect => squareGrid(divRef.current, MARGIN, aspect),
     }));
   };
   useEffect(redraw);
@@ -452,5 +471,13 @@ export function ChromaticityChart(props) {
   if (typeof echarts === 'undefined') return h('div', {
     style: { display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: c.textDim },
   }, 'ECharts not loaded');
-  return h('div', { ref: divRef, style: { width: '100%', height: '100%', minHeight: CHART_MIN_HEIGHT } });
+  const fill = { width: '100%', height: '100%', minHeight: CHART_MIN_HEIGHT };
+  return h('div', { style: { position: 'relative', ...fill } },
+    h('div', { ref: divRef, style: fill }),
+    h(TargetEditorOverlay, {
+      chartRef, geometry: editor.geometry, enabled: editor.editMode, tool: editor.editTool,
+      drawShape: 'point', createOnClick: true, drawColor: colors.coating, handleFill: c.panel,
+      onCreate: editor.onCreate, onEdit: editor.onEdit, onDelete: editor.onDelete,
+    }),
+  );
 }

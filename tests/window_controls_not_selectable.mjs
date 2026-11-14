@@ -29,7 +29,7 @@ const state = {
 
 // ── 1. The control row ───────────────────────────────────────────────────────
 {
-    const row = ColorControls({ c, t, ce, state, notices: [] });
+    const row = ColorControls({ c, t, ce, state, notices: [], editor: { editMode: false, setEditMode() {} } });
     assert.equal(row.type, ControlRow, 'Color Evaluation puts its switches in the shared control row');
     assert.equal(ControlRow(row.props).props.style.userSelect, 'none', 'whose labels and switches are not selectable');
 }

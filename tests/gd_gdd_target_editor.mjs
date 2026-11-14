@@ -3,7 +3,8 @@
  *
  * The window decides the operand type from what it shows; the shared drawing
  * code turns a line into wavelengths and a level in the plot's own unit; the
- * level grid follows the visible range; a click places a pointwise target.
+ * level grid follows the visible range; a click places a pointwise target;
+ * the Delete tool drags a target and removes it on a click.
  *
  * Run: node tests/gd_gdd_target_editor.mjs
  */
@@ -18,8 +19,8 @@ shimBrowserGlobals();
 await loadApp();
 
 const {
-    createGdGddTarget, deleteGdGddTarget, editGdGddTarget, gdGddEditBlocker, gdGddTargetType,
-    levelSnapStep, selectGdGddTargets,
+    buildEditableGdGddTargetGeometry, createGdGddTarget, deleteGdGddTarget, editGdGddTarget, gdGddEditBlocker,
+    gdGddTargetType, levelSnapStep, selectGdGddTargets,
 } = await import('../src/components/windows/analysis/gdGddEvaluation/gdTargets.js');
 const { gdGddSession, gdGddTargetSession } =
     await import('../src/components/windows/analysis/gdGddEvaluation/sessionState.js');
@@ -177,6 +178,21 @@ assert.equal(dropOutcome({ mode: 'edit', source: line }, { ...line }, true, true
     'unchanged geometry is not an edit');
 assert.equal(dropOutcome({ mode: 'edit', source: line }, { ...line, x1: 650 }, false, true), null,
     'a click on a handle is not an edit');
+
+// With the Delete tool a click on a target removes it and a drag moves it, as
+// under Draw.
+{
+    const [item] = buildEditableGdGddTargetGeometry(clicked, { min: 400, max: 800 });
+    const deleting = { mode: 'edit', source: item, removes: true };
+    const click = dropOutcome(deleting, item, false);
+    assert.deepEqual(deleteGdGddTarget(clicked, click.remove), [], 'a click with the Delete tool removes the target');
+    const drag = dropOutcome(deleting, { ...item, y0: -38, y1: -38 }, true);
+    const moved = editGdGddTarget({
+        operands: clicked, targets: clicked, ...grid,
+        meta: { opId: item.opId, kind: item.kind, type: item.type }, coords: drag.edit,
+    });
+    assert.equal(moved[0].target, -40, 'a drag with the Delete tool moves the target');
+}
 
 // ── The chart gives the pointer up while a target is drawn ───────────────────
 const c = makeTheme();

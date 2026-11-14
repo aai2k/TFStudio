@@ -1,5 +1,5 @@
 import {
-    CheckField, ChoiceGroup, NumInput, RangeField, ResponseChoice, ToggleButton,
+    CheckField, ChoiceGroup, NumInput, RangeField, ResponseChoice, ToggleButton, pencilIcon,
 } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
@@ -8,14 +8,6 @@ import { joinModelNotes } from '../../../../utils/physics/phaseDispersion/modelN
 import { modelEntryText } from '../../../../utils/materials/materialModelText.js';
 
 const { createElement: h } = React;
-
-function pencilIcon() {
-    return h('svg', { width: 13, height: 13, viewBox: '0 0 16 16', fill: 'none' },
-        h('path', {
-            d: 'M11 2l3 3-8 8H3v-3l8-8z', stroke: 'currentColor',
-            strokeWidth: 1.3, strokeLinejoin: 'round',
-        }));
-}
 
 // A disabled Edit button says why in its tooltip, so a phase plot, a CDC plot
 // or the unscored side is not read as the feature being missing.

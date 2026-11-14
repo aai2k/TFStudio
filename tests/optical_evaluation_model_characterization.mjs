@@ -4,6 +4,8 @@ import {
     createTargetOperands, editTargetOperands, deleteTargetOperand,
 } from '../src/components/windows/analysis/opticalEvaluation/model.js';
 import { formatYCell } from '../src/components/windows/analysis/opticalEvaluation/yScale.js';
+import { buildEditableTargetGeometry } from '../src/utils/physics/spectrumTargets.js';
+import { dropOutcome } from '../src/components/ui/targetEditorGeometry.js';
 import { computeOpticalSpectrum } from '../src/components/windows/analysis/opticalEvaluation/spectrum.js';
 import { evaluateSpectrum, evaluateSpectrumBack, evaluateSpectrumTotal } from '../src/utils/physics/thinFilmMath.js';
 import { getMaterial } from '../src/utils/materials/materialDatabase.js';
@@ -130,6 +132,19 @@ const editedTargets = editTargetOperands({
 });
 check(editedTargets[0].lambdaStart === 410 && editedTargets[0].target === 0.3, 'target editing patches the matching operand');
 check(deleteTargetOperand(createdTargets, 'existing').length === 1, 'target deletion filters only the requested operand');
+// With the Delete tool a click on a target removes it and a drag moves it, as
+// under Draw.
+{
+    const [item] = buildEditableTargetGeometry([existingTarget], { min: 400, max: 700 });
+    const deleting = { mode: 'edit', source: item, removes: true };
+    const click = dropOutcome(deleting, item, false);
+    check(click?.remove === 'existing' && deleteTargetOperand(createdTargets, click.remove).length === 1,
+        'a click with the Delete tool removes the target');
+    const drag = dropOutcome(deleting, { ...item, y0: 30, y1: 30 }, true);
+    const meta = { opId: item.opId, kind: item.kind, type: item.type };
+    check(editTargetOperands({ operands: [existingTarget], meta, coords: drag?.edit, snapOn: false })[0].target === 0.3,
+        'a drag with the Delete tool moves the target');
+}
 
 const design = {
     incidentMedium: 'Air',

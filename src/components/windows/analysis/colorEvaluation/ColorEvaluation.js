@@ -11,6 +11,10 @@
  * picks the environment the colour is computed in, or All, which shows every
  * environment that is on, each path on the diagram in its own colour
  * (useColorReports.js).
+ *
+ * Targets draws the merit function's colour rows on the diagram as diamonds,
+ * and Edit edits them there: a click adds a target, a diamond drags, and the
+ * Delete tool removes one (useColorTargetEditor.js).
  */
 
 import { useDesign } from '../../../../state/DesignContext.js';
@@ -26,11 +30,15 @@ import { AngleLines } from './AngleLines.js';
 import { ANGLE_CAP, windowAngles } from './angles.js';
 import { CHART_MIN_HEIGHT, ChromaticityChart } from './chartFigure.js';
 import { ColorControls, DiagramTabs } from './ColorControls.js';
+import { ColorTargetToolbar } from './ColorTargetToolbar.js';
+import { editableColorTargets } from './colorTargetEdits.js';
 import { colorTargetMarks } from './colorTargets.js';
+import { useHeldFrame } from './heldFrame.js';
 import { exportTable, viewTable } from './resultsModel.js';
 import { ResultsViews } from './ResultsViews.js';
 import { colorEvaluationSession } from './sessionState.js';
 import { useColorReports } from './useColorReports.js';
+import { useColorTargetEditor } from './useColorTargetEditor.js';
 import { useWindowSession } from '../../windowSession.js';
 
 const { createElement: h, useMemo } = React;
@@ -76,8 +84,9 @@ function useColorTargets(design, { every, views }, state) {
 // sideways: the chart takes its width and the lines scroll on their own. A
 // chart canvas standing a fraction of a pixel past a fractional width, or a
 // frame behind a resize, is clipped, where a scrollbar would take its height
-// from the plot and make it jump.
-function DiagramArea({ c, t, ce, state, reports, colors, busy, targets }) {
+// from the plot and make it jump. Editing shows the targets whatever the
+// Targets switch says: what can be picked up has to be on the diagram.
+function DiagramArea({ c, t, ce, state, reports, colors, busy, targets, editor }) {
     if (busy) return h(CenteredMessage, { c, message: t.analysisEvaluation.computing });
     if (!reports) return h(CenteredMessage, { c, message: ce.noData });
     return h('div', {
@@ -87,14 +96,30 @@ function DiagramArea({ c, t, ce, state, reports, colors, busy, targets }) {
             h(ChromaticityChart, {
                 reports, observer: state.observer, diagram: state.diagram,
                 exposure: state.exposure, display: state, c, tr: ce, units: t.units,
-                targets: state.showTargets ? targets : [],
+                targets: state.showTargets || editor.editMode ? targets : [], editor,
             })),
         !state.showTable && h(AngleLines, { reports, exposure: state.exposure, ce, units: t.units, c, colors }),
     );
 }
 
+// The target editor, with the diamonds as its overlay takes them while it is
+// on, and the points the diagram's frame holds while it is (heldFrame.js). The
+// diamonds are rebuilt only when they change: the overlay re-reads its
+// geometry whenever it is handed a new one.
+function useEditor({ design, updateDesign, state, targets, reports, environment, colors }) {
+    const editor = useColorTargetEditor({ design, updateDesign, state, marks: targets, reports, environment });
+    const geometry = useMemo(() => (editor.editMode ? editableColorTargets(targets, colors.coating) : []),
+        [editor.editMode, targets, colors.coating]);
+    const { diagram, characteristic, pol, illuminant, observer } = state;
+    const viewPoints = useHeldFrame({
+        editMode: editor.editMode, reports, diagram, points: targets.map(target => target.value),
+        key: [design?.id, diagram, characteristic, pol, illuminant, observer, environment.choice].join('|'),
+    });
+    return { ...editor, geometry, viewPoints };
+}
+
 export function ColorEvaluation({ c, t }) {
-    const { design, evalMode } = useDesign();
+    const { design, evalMode, updateDesign } = useDesign();
     const ce = t.colorEval;
     const dt = t.dataTable;
     const state = useColorState(design);
@@ -110,6 +135,7 @@ export function ColorEvaluation({ c, t }) {
     const { environment, reports, materials, coneActive, busy, error } = useColorReports(design, options);
     const targets = useColorTargets(design, environment, state);
     const colors = useAnalysisColors('colorEvaluation');
+    const editor = useEditor({ design, updateDesign, state, targets, reports, environment, colors });
     const rangeNotice = useMaterialsRangeNotice(materials, COLOR_RANGE_NM[0], COLOR_RANGE_NM[1], t);
     // The CSV holds everything the window reports, whichever view is open.
     // Under All its rows and the tables' start with the environment.
@@ -137,10 +163,11 @@ export function ColorEvaluation({ c, t }) {
     ].filter(Boolean);
 
     return h(AnalysisWindow, { c },
-        h(ColorControls, { c, t, ce, state, notices, hasTargets: targets.length > 0 }),
+        h(ColorControls, { c, t, ce, state, notices, hasTargets: targets.length > 0, editor }),
+        h(ColorTargetToolbar, { c, ce, editor }),
         h(PlotArea, null,
             h(DiagramTabs, { c, ce, state }),
-            h(DiagramArea, { c, t, ce, state, reports, colors, busy, targets }),
+            h(DiagramArea, { c, t, ce, state, reports, colors, busy, targets, editor }),
         ),
         h(BadgeRow, { c, t, design, environment, cone: true }),
         h(ResultsSection, {

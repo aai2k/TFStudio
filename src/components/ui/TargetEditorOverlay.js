@@ -4,19 +4,24 @@
  * The editor knows nothing about ECharts options or optical operands. Its only
  * renderer contract is an instance that converts between data and pixel space,
  * so every plot that edits targets on its curve shares it: spectral targets on
- * Optical Evaluation, GD/GDD targets, and the points of a curve in the curve
- * editor. What it draws and what a drag does are in targetEditorGeometry.js.
+ * Optical Evaluation, GD/GDD targets, colour targets on Color Evaluation's
+ * diagram, and the points of a curve in the curve editor. What it draws and
+ * what a drag does are in targetEditorGeometry.js.
  *
  *   tool  'draw'    handles drag, and a drag on empty plot area draws a target
  *         'move'    handles drag and nothing is drawn; the plot under the
  *                   overlay keeps its own pointer, for zoom and readout
- *         'delete'  a click on a target removes it
+ *         'delete'  handles drag, and a click on a target removes it; the
+ *                   plot keeps its pointer, as under 'move'
+ *
+ *   drawShape  'line'   a drawing is a line from the press to the release
+ *              'point'  a drawing is a point where the pointer is released
  */
 
 import { observeResize } from './observeResize.js';
 import {
-    clampToPlot, dataPoint, dropOutcome, finitePoint, hasPointerTravelled, isPointItem, itemAxes, moveGeometry,
-    nearestPoint, projectGeometry, projectItem,
+    clampToPlot, dataPoint, drawnItem, dropOutcome, finitePoint, hasPointerTravelled, isPointItem, itemAxes,
+    moveGeometry, nearestPoint, projectGeometry, projectItem,
 } from './targetEditorGeometry.js';
 
 const { createElement: h, useCallback, useEffect, useRef, useState } = React;
@@ -25,8 +30,6 @@ function eventPixel(event, svg) {
     const rect = svg.getBoundingClientRect();
     return [event.clientX - rect.left, event.clientY - rect.top];
 }
-
-const DRAGGING_TOOLS = new Set(['draw', 'move']);
 
 /**
  * The items in pixels, kept in step with the chart: after every redraw and
@@ -88,9 +91,7 @@ function beginCapture(event, drag, dragRef) {
 function dragPreview(chart, drag, pixel, drawColor) {
     const current = dataPoint(chart, clampToPlot(chart, pixel), drag.axes);
     if (!current) return null;
-    if (drag.mode === 'create') {
-        return { x0: drag.startData[0], y0: drag.startData[1], x1: current[0], y1: current[1], color: drawColor };
-    }
+    if (drag.mode === 'create') return drawnItem(drag.shape, drag.startData, current, drawColor);
     const shift = [pixel[0] - drag.startPixel[0], pixel[1] - drag.startPixel[1]];
     return moveGeometry(chart, drag.source, drag.part, current, shift);
 }
@@ -98,15 +99,17 @@ function dragPreview(chart, drag, pixel, drawColor) {
 // The pointer handlers below take the overlay's drag state as `ctx`: its
 // props, the chart and svg refs, the drag in progress and its preview.
 
+// A press on a target starts a drag in every tool. Under 'delete' a release
+// where it was pressed removes the target instead, so a target can still be
+// moved there; it is removed on release, not on the press.
 function startHandleDrag(ctx, event, item, part) {
     event.preventDefault();
     event.stopPropagation();
-    if (ctx.tool === 'delete') ctx.onDelete?.(item.opId);
-    if (!DRAGGING_TOOLS.has(ctx.tool)) return;
     const pixel = eventPixel(event, ctx.svgRef.current);
     const axes = itemAxes(item);
     if (!dataPoint(ctx.chartRef.current, clampToPlot(ctx.chartRef.current, pixel), axes)) return;
-    beginCapture(event, { mode: 'edit', source: item, part, startPixel: pixel, axes }, ctx.dragRef);
+    const drag = { mode: 'edit', source: item, part, startPixel: pixel, axes, removes: ctx.tool === 'delete' };
+    beginCapture(event, drag, ctx.dragRef);
     ctx.showPreview(item);
 }
 
@@ -116,8 +119,8 @@ function startDrawing(ctx, event) {
     const pixel = eventPixel(event, ctx.svgRef.current);
     const point = dataPoint(ctx.chartRef.current, pixel);
     if (!point) return;
-    beginCapture(event, { mode: 'create', startData: point, startPixel: pixel }, ctx.dragRef);
-    ctx.showPreview({ x0: point[0], y0: point[1], x1: point[0], y1: point[1], color: ctx.drawColor });
+    beginCapture(event, { mode: 'create', shape: ctx.drawShape, startData: point, startPixel: pixel }, ctx.dragRef);
+    ctx.showPreview(drawnItem(ctx.drawShape, point, point, ctx.drawColor));
 }
 
 function updateDrag(ctx, event) {
@@ -144,11 +147,15 @@ function finishDrag(ctx, event) {
     if (outcome?.create) ctx.onCreate?.(outcome.create);
     else if (outcome?.edit) {
         ctx.onEdit?.({ opId: drag.source.opId, kind: drag.source.kind, type: drag.source.type }, outcome.edit);
-    }
+    } else if (outcome?.remove) ctx.onDelete?.(outcome.remove);
 }
 
-/** The pointer handlers of the overlay, and the preview of the drag in progress. */
-function useTargetDrag(props, chartRef, svgRef) {
+/**
+ * The pointer handlers of the overlay, and the preview of the drag in
+ * progress. `props` are the overlay's; `chartRef` holds the chart and `svgRef`
+ * the overlay's svg, which pointer positions are read against.
+ */
+export function useTargetDrag(props, chartRef, svgRef) {
     const dragRef = useRef(null);
     const previewRef = useRef(null);
     const [preview, setPreview] = useState(null);
@@ -203,8 +210,14 @@ function lineElements(item, context) {
 // 4 px, too small to catch reliably by hand.
 const POINT_HIT_RADIUS = 9;
 
+// A point dragged up and down says so; a free point goes anywhere.
+function pointCursor(tool, item) {
+    if (tool === 'delete') return 'pointer';
+    return item.free ? 'move' : 'ns-resize';
+}
+
 function pointElements(item, context) {
-    const { enabled, handleFill, pressPoint } = context;
+    const { enabled, tool, handleFill, pressPoint } = context;
     const center = { cx: item.start[0], cy: item.start[1] };
     return [
         h('circle', {
@@ -214,7 +227,7 @@ function pointElements(item, context) {
         h('circle', {
             key: `${item.opId}-hit`, ...center, r: POINT_HIT_RADIUS, fill: 'transparent',
             pointerEvents: enabled ? 'all' : 'none',
-            style: { cursor: 'ns-resize' },
+            style: { cursor: pointCursor(tool, item) },
             onPointerDown: event => pressPoint(event, item),
         }),
     ];

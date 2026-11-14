@@ -7,7 +7,8 @@
  *   a line   { opId, x0, y0, x1, y1, color, dash }, a target held by its two
  *            ends and dragged by either end or by its body
  *   a point  { opId, shape: 'point', x0, y0, color }, one reading, which keeps
- *            its wavelength and is dragged up and down
+ *            its wavelength and is dragged up and down; with `free: true` a
+ *            target in two coordinates, dragged anywhere on the plot
  * An item may carry `yAxisIndex` when it belongs to a second value axis.
  */
 
@@ -69,9 +70,10 @@ function shiftedPoint(chart, point, shift) {
 // the whole line by the pointer's pixel travel, each end converted through the
 // axes on its own: on a logarithmic axis a constant pixel step is a constant
 // ratio, and adding one data-space difference to both ends would bend the line
-// and push its lower end below zero. A point keeps its wavelength.
+// and push its lower end below zero. A point keeps its wavelength; a free
+// point goes where the pointer is.
 export function moveGeometry(chart, source, part, current, shift) {
-    if (part === 'point') return { ...source, y0: current[1] };
+    if (part === 'point') return { ...source, ...(source.free ? { x0: current[0] } : {}), y0: current[1] };
     if (part === 'start') return { ...source, x0: current[0], y0: current[1] };
     if (part === 'end') return { ...source, x1: current[0], y1: current[1] };
     const start = shiftedPoint(chart, [source.x0, source.y0], shift);
@@ -92,20 +94,40 @@ export function targetGeometryChanged(source, result) {
 }
 
 /**
- * What a released pointer amounts to: `{ create }`, `{ edit }` or null.
+ * What a drawing shows while the pointer is held, in data, from where it was
+ * pressed (`start`) to where it is now (`current`): a line between the two, or
+ * on a plot whose targets are points (`shape` 'point') a point where the
+ * pointer is.
+ */
+export function drawnItem(shape, start, current, color) {
+    return shape === 'point'
+        ? { shape: 'point', x0: current[0], y0: current[1], color }
+        : { x0: start[0], y0: start[1], x1: current[0], y1: current[1], color };
+}
+
+// A line drawn by a click has no length: the preview may have wandered a pixel
+// or two before release, so its far end is folded back onto the start. A point
+// has no far end.
+const clickedItem = item => (isPointItem(item) ? item : { ...item, x1: item.x0, y1: item.y0 });
+
+/**
+ * What a released pointer amounts to: `{ create }`, `{ edit }`, `{ remove }`
+ * (the opId of the target to remove) or null.
  *
  * A pointer that never travelled is a click. A click on empty plot area is
  * ignored unless the host asked for `createOnClick`, in which case it creates
- * a target of zero length at the point pressed: the preview may have wandered
- * a pixel or two before release, so its far end is folded back onto the start.
+ * a target where it was pressed: a line of zero length, or a point. A click on
+ * a target removes it when the drag was started by the delete tool
+ * (`drag.removes`), and is nothing otherwise.
  */
 export function dropOutcome(drag, result, travelled, createOnClick = false) {
     if (!result) return null;
     if (drag.mode === 'create') {
         if (travelled) return { create: result };
-        return createOnClick ? { create: { ...result, x1: result.x0, y1: result.y0 } } : null;
+        return createOnClick ? { create: clickedItem(result) } : null;
     }
-    return travelled && targetGeometryChanged(drag.source, result) ? { edit: result } : null;
+    if (!travelled) return drag.removes ? { remove: drag.source.opId } : null;
+    return targetGeometryChanged(drag.source, result) ? { edit: result } : null;
 }
 
 // The wavelengths the overlay spans, read off the x axis at its two edges, or

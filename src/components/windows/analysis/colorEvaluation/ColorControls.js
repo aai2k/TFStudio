@@ -4,7 +4,7 @@ import { ANALYSIS_DEFAULTS } from '../../../../constants/analysisDefaults.js';
 import { describedLabel } from '../../../../utils/physics/spectralWeightings.js';
 import { TabBtn } from '../../../ui/tabBtn.js';
 import {
-    CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, ResponseChoice, SelectField, ToggleButton,
+    CheckField, ChoiceGroup, FieldLabel, NumInput, RangeField, ResponseChoice, SelectField, ToggleButton, pencilIcon,
 } from '../chrome/controls.js';
 import { ControlRow } from '../chrome/layout.js';
 import { NoticeBadge, SettingDivider, SettingRow, SettingsMenu } from '../chrome/popover.js';
@@ -22,13 +22,19 @@ const ANGLE_MODES = ANALYSIS_DEFAULTS.colorEvaluation.enums.angleMode;
  * in Settings. The angles are a list, as Optical Evaluation's angle chips, or a
  * range in equal steps. Targets draws the merit function's colour rows on the
  * diagram, as Optical Evaluation's draws its targets on the plot; `hasTargets`
- * is whether the diagram shown has any.
+ * is whether the diagram shown has any. Edit puts them into editing on the
+ * diagram (`editor`, useColorTargetEditor.js).
  */
-export function ColorControls({ c, t, ce, state, notices, hasTargets }) {
+export function ColorControls({ c, t, ce, state, notices, hasTargets, editor }) {
     return h(ControlRow, {
         c,
         trailing: [
-            h(TargetsButton, { key: 'targets', c, ce, state, hasTargets }),
+            h(TargetsButton, { key: 'targets', c, ce, state, hasTargets, editMode: editor.editMode }),
+            h(ToggleButton, {
+                key: 'edit', c, label: ce.editTargets, active: editor.editMode,
+                onClick: () => editor.setEditMode(current => !current),
+                title: editor.editMode ? ce.editTargetsTooltipOn : ce.editTargetsTooltipOff,
+            }, pencilIcon()),
             h(NoticeBadge, { key: 'notices', c, notices, label: t.analysisChrome.notices }),
             h(ColorSetup, { key: 'setup', c, t, ce, state }),
         ],
@@ -55,10 +61,12 @@ export function ColorControls({ c, t, ce, state, notices, hasTargets }) {
     );
 }
 
-function TargetsButton({ c, ce, state, hasTargets }) {
-    const active = state.showTargets && hasTargets;
+// Editing shows the targets whatever the switch says, so the switch is parked
+// on while it lasts.
+function TargetsButton({ c, ce, state, hasTargets, editMode }) {
+    const active = (state.showTargets || editMode) && hasTargets;
     return h(ToggleButton, {
-        c, label: ce.targets, active, disabled: !hasTargets,
+        c, label: ce.targets, active, disabled: !hasTargets || editMode,
         onClick: () => state.setDisplay('showTargets', !state.showTargets),
         title: hasTargets ? ce.targetsTip : ce.noTargetsTip,
     }, h('span', { style: { width: 14, height: 0, borderTop: `2px dotted ${active ? c.accent : c.textDim}` } }));

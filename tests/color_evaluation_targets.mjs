@@ -44,7 +44,8 @@ const row = (color, target, extra = {}) => makeOperand({
     type: 'RCOL', color, target, aoi: 0, pol: 'avg', illuminant: 'D65', observer: 2, weight: 1, ...extra,
 });
 const VIEW = { characteristic: 'R', pol: 'avg', illuminant: 'D65', observer: '2', diagram: 'xy' };
-const marks = (rows, view = {}) => colorTargetMarks(rows, { ...VIEW, ...view });
+// What the chart draws of each diamond: its point and its label.
+const marks = (rows, view = {}) => colorTargetMarks(rows, { ...VIEW, ...view }).map(({ value, label }) => ({ value, label }));
 const near = (actual, expected, label) => actual.forEach((value, k) => assert.ok(Math.abs(value - expected[k]) < 1e-12, label));
 
 // ── 1. Which rows ────────────────────────────────────────────────────────────

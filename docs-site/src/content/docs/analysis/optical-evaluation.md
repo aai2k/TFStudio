@@ -103,8 +103,7 @@ instead of typing them into the
   polarization, and whether the line is a band average or a continuous per-
   wavelength ramp. A flat line becomes a band average; a sloped line becomes a
   ramp.
-- **Delete**: switch to the delete tool and click a target's line or marker to
-  remove it.
+- **Delete**: switch to the delete tool and click a target's line or marker to remove it. A target still drags in this tool, as it does under Draw.
 - **Snapping**: endpoints snap to a grid (in nm and in the vertical unit) and to
   existing target ends, so near-flat lines settle onto clean levels such as a
   50 % band. On a dB or density axis the level grid is in that unit, half a
