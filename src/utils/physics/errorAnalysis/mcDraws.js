@@ -148,6 +148,31 @@ export function trialIn(config, state, data, id) {
     };
 }
 
+// `values` on the indices of `layers`, 0 where it has none.
+const onLayers = (values, layers) => Float64Array.from(layers, (_, i) => values?.[i] ?? 0);
+
+/**
+ * The trial a trial record (mcTrial.js) holds, as prepareMCTrial drew it: the
+ * record's Δd, Δn and Δk on the design's layers, none on a side the run put
+ * no errors on.
+ */
+export function trialFromRecord(config, state, record) {
+    const draws = {
+        dThkF: onLayers(record.dThkF, config.front),
+        dThkB: onLayers(record.dThkB, config.back),
+        dnF: onLayers(record.dnF, config.front),
+        dkF: onLayers(record.dkF, config.front),
+        dnB: onLayers(record.dnB, config.back),
+        dkB: onLayers(record.dkB, config.back),
+    };
+    return {
+        ...draws,
+        frontLayers: perturbLayers(config.front, draws.dThkF),
+        backLayers: perturbLayers(config.back, draws.dThkB),
+        getMatForLayer: makeTrialMaterialResolver(draws, { front: state.frontMaterials, back: state.backMaterials }, config),
+    };
+}
+
 export function prepareMCTrial(config, state) {
     // Draw front and back unconditionally; side masking occurs only after all draws.
     const dThkF = drawThicknessDeviations(config.front, config);

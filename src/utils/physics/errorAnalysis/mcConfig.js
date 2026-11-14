@@ -209,15 +209,24 @@ export function openMCStatistics(config, theories) {
     };
 }
 
-/** The running statistics of a run before any trial, with the materials its trials are drawn on. */
-export function initializeMCState(config) {
+/**
+ * The materials a run's trials are drawn on: `{ frontMaterials, backMaterials,
+ * materials }`, each layer's own in environment 1, by side, and those
+ * materialsIn finds for each environment as it is asked for them.
+ */
+export function mcMaterials(config) {
     // Material and deviation arrays share the original, unfiltered layer index.
     const frontMaterials = config.front.map((layer) => config.resolveMat(layer.material));
     const backMaterials = config.back.map((layer) => config.resolveMat(layer.material));
     return {
-        ...openMCStatistics(config, mcTheories(config)),
         frontMaterials,
         backMaterials,
         materials: new Map([[BASE_ENVIRONMENT, { front: frontMaterials, back: backMaterials }]]),
     };
+}
+
+/** The running statistics of a run before any trial, with the materials its trials are drawn on. */
+export function initializeMCState(config) {
+    const materials = mcMaterials(config);
+    return { ...openMCStatistics(config, mcTheories(config)), ...materials };
 }

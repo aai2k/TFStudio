@@ -1,5 +1,9 @@
 import { qualifierValueText } from '../../../../utils/synthesis/qualifiers.js';
+import { SplitPane } from '../../../docking/SplitPane.js';
+import { tablerIcon } from '../../../ui/tablerIcons.js';
 import { environmentLabel } from '../../design/environments/currentEnvironment.js';
+import { ActionButton } from '../chrome/controls.js';
+import { TrialPlot } from './TrialPlot.js';
 import { chip, tableStyles } from './ui.js';
 
 const { createElement: h } = React;
@@ -35,12 +39,11 @@ function TrialToolbar({ trial, loaded, loadThicknesses, c, ea }) {
     return h('div', {
         style: { padding: '6px 12px', borderBottom: `1px solid ${c.border}`, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }
     },
-        h('button', {
+        h(ActionButton, {
+            c, label: ea.loadTrial, title: ea.loadTrialTip,
             onClick: () => loadThicknesses(trial.dThkF, trial.dThkB, trial.i),
-            title: ea.loadTrialTip || 'Replace the active design\'s layer thicknesses with this trial\'s perturbed values (Δn/Δk are not applied — they are not stored on the design). Undoable with Ctrl+Z.',
-            style: { padding: '4px 12px', cursor: 'pointer', border: `1px solid ${c.accent}`, borderRadius: 3, background: c.accent + '22', color: c.accent, fontWeight: 600, fontSize: 12, fontFamily: 'inherit' },
-        }, `↧ ${ea.loadTrial || 'Load thicknesses into design'}`),
-        loaded === trial.i && h('span', { style: { color: c.success, fontSize: 11 } }, ea.loadedOk || 'Loaded — Ctrl+Z to undo'),
+        }, tablerIcon('arrow-bar-to-down', 14)),
+        loaded === trial.i && h('span', { style: { color: c.success, fontSize: 11 } }, ea.loadedOk),
     );
 }
 
@@ -94,15 +97,32 @@ function TrialLayerTable({ rows, hasIndexErrors, c, ea, units }) {
     );
 }
 
+const SPLIT_CHILDREN = [{ id: 'trial-layers' }, { id: 'trial-plot' }];
+
+/**
+ * The trial selected: its layers above its curve, split by a divider whose
+ * position is `split` (percent of the height, [table, plot]). The curve is
+ * computed with `plotInputs` (TrialPlot.js).
+ */
 export function TrialDetailsPanel(props) {
-    const { trials, selected, setSelected, trial, loaded, loadThicknesses, rows, c, t, ea } = props;
+    const { trials, selected, setSelected, trial, loaded, loadThicknesses, rows, c, t, ea, plotInputs, split = [45, 55], setSplit = () => {} } = props;
     const hasIndexErrors = rows.some((row) => row.dn != null || row.dk != null);
     return h('div', { style: { flex: 1, minHeight: 0, display: 'flex' } },
         h(TrialList, { trials, selected, setSelected, c, ea }),
         h('div', { style: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' } },
             h(TrialToolbar, { trial, loaded, loadThicknesses, c, ea }),
             h(TrialSpecBand, { trial, c, t, ea }),
-            h(TrialLayerTable, { rows, hasIndexErrors, c, ea, units: t.units }),
+            h('div', { style: { flex: 1, minHeight: 0, display: 'flex' } },
+                h(SplitPane, { c, onSizesChange: setSplit, node: { direction: 'v', sizes: split, children: SPLIT_CHILDREN } },
+                    h(TrialLayerTable, { rows, hasIndexErrors, c, ea, units: t.units }),
+                    h(TrialPlot, {
+                        trial, inputs: plotInputs, c,
+                        name: trial ? `${ea.trialN} ${trial.i}` : '',
+                        designName: plotInputs ? ea.chartTheoretical(plotInputs.char) : '',
+                        lambdaAxis: t.spectralAxis.lambdaShort,
+                    }),
+                ),
+            ),
         ),
     );
 }

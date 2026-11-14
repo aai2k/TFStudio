@@ -22,12 +22,21 @@ function TabButton({ id, label, tab, setTab, c }) {
     }, label);
 }
 
-export function TrialsModal({ result, design, c, t, corridorSigma, updateDesign, checkpoint, onClose }) {
+/**
+ * The Trial inspector. `curve`, `{ params, char, evalMode, environment }`, is
+ * what the window computes the run's curves with, so a trial's curve is drawn
+ * as the run made it; without it no curve is drawn.
+ */
+export function TrialsModal({ result, design, c, t, corridorSigma, updateDesign, checkpoint, onClose, curve }) {
     const ea = t.errorAnalysis || {};
     const trials = result.trials || [];
     const [selected, setSelected] = useState(0);
     const [tab, setTab] = useState('stats');
     const [loaded, setLoaded] = useState(null);
+    const [split, setSplit] = useState([45, 55]);
+    const { params, char, evalMode, environment } = curve || {};
+    const plotInputs = useMemo(() => (curve ? { design, params, char, evalMode, environment } : null),
+        [design, params, char, evalMode, environment]); // eslint-disable-line react-hooks/exhaustive-deps
     const front = design?.frontLayers || [];
     const back = design?.backLayers || [];
     const hasFront = trials[0]?.dThkF != null;
@@ -47,7 +56,7 @@ export function TrialsModal({ result, design, c, t, corridorSigma, updateDesign,
     const panel = tab === 'stats'
         ? h(TrialStatisticsPanel, { result, stats, spread, corridorSigma, c, ea, units: t.units })
         : h(TrialDetailsPanel, {
-            trials, selected, setSelected, trial, loaded, loadThicknesses, rows, c, t, ea,
+            trials, selected, setSelected, trial, loaded, loadThicknesses, rows, c, t, ea, plotInputs, split, setSplit,
         });
 
     return h('div', {

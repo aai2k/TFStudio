@@ -8,8 +8,9 @@
 
 import { aggregateVerdict } from '../../synthesis/qualifiers.js';
 import { evaluateSpecification, failureOf } from '../../environments/environmentSpecification.js';
-import { environmentDesign } from '../../environments/environments.js';
-import { trialIn, trialMaterialsIn } from './mcDraws.js';
+import { BASE_ENVIRONMENT, environmentDesign } from '../../environments/environments.js';
+import { environmentMode, makeMCConfig, mcMaterials } from './mcConfig.js';
+import { trialFromRecord, trialIn, trialMaterialsIn } from './mcDraws.js';
 import { evaluateChar } from './spectrumEval.js';
 
 // Each environment's own verdict on the trial, its checks alone, in the order
@@ -137,4 +138,24 @@ export function evaluateMCTrial(config, state, data, trial) {
     const runs = state.spreads.map(spread => evaluateChar({ ...config, evalMode: spread.evalMode, ...trialIn(config, state, data, spread.id) })[config.char]);
     const verdict = judgeMCTrial(config, state, data);
     return { runs, verdict, record: trialRecord(config, trial, data, verdict?.spec ?? null) };
+}
+
+/**
+ * The curve of quantity `char` (R, T or A) of the trial `record` holds, a
+ * trial record of a run, on the grid `params`, in environment `environment`
+ * (environment 1 by default), `evalMode` being environment 1's mode:
+ * `{ lambda, values, design }`, the curve the run added for that trial when
+ * it was made on the same design and grid, and the design's own curve there,
+ * without errors, which the run gives as `theory`.
+ */
+export function trialCurve(design, params, resolveMat, { char, evalMode, record, environment: id = BASE_ENVIRONMENT }) {
+    const config = {
+        ...makeMCConfig(design, params, resolveMat, { char, evalMode }),
+        hasIndexErrors: record.dnF != null || record.dnB != null,
+    };
+    const state = mcMaterials(config);
+    const mode = environmentMode(design, id, evalMode);
+    const curveOf = held => evaluateChar({ ...config, evalMode: mode, ...trialIn(config, state, trialFromRecord(config, state, held), id) });
+    const trial = curveOf(record);
+    return { lambda: trial.lambda, values: trial[char], design: curveOf({})[char] };
 }

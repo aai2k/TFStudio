@@ -1,5 +1,5 @@
 import { designMaterialName } from '../../../../utils/materials/designMaterials.js';
-import { displayLayerLabel } from '../layerSensitivity/viewModel.js';
+import { displayLayerLabel, orderSubstrateFirst } from '../layerSensitivity/viewModel.js';
 
 // A layer as the Design Editor shows it: front layers are stored air side
 // first but F1 is the one on the substrate, and the material goes by its name,
@@ -112,17 +112,18 @@ export function buildSpectralSpread(result, corridorSigma) {
     };
 }
 
+/** The trial's layers in the order the Design Editor lists them, from the substrate: F1 up, then B1 up. */
 export function buildTrialDetailRows({ design, front, back, trial, hasFront, hasBack }) {
     const rows = [];
     if (hasFront) front.forEach((layer, i) => rows.push({
-        ...layerIdentity(design, 'F', i, layer, front.length), nominal: layer.thickness || 0,
+        ...layerIdentity(design, 'F', i, layer, front.length), side: 'front', layerIndex: i, nominal: layer.thickness || 0,
         dThk: trial?.dThkF?.[i] ?? 0, dn: trial?.dnF?.[i], dk: trial?.dkF?.[i],
     }));
     if (hasBack) back.forEach((layer, i) => rows.push({
-        ...layerIdentity(design, 'B', i, layer, front.length), nominal: layer.thickness || 0,
+        ...layerIdentity(design, 'B', i, layer, front.length), side: 'back', layerIndex: i, nominal: layer.thickness || 0,
         dThk: trial?.dThkB?.[i] ?? 0, dn: trial?.dnB?.[i], dk: trial?.dkB?.[i],
     }));
-    return rows;
+    return orderSubstrateFirst(rows, front.length);
 }
 
 function applyThicknessDeltas(layers, deltas) {

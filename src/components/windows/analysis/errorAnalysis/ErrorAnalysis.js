@@ -124,6 +124,7 @@ export function ErrorAnalysis({ c, t }) {
         }, h(ResultsGrid, { columns, rows, c })),
         state.showTrials && result?.trials && h(TrialsModal, {
             result, design, c, t, corridorSigma, updateDesign, checkpoint,
+            curve: { params: state.params, char: state.char, evalMode, environment: state.environment.views[0].id },
             onClose: () => state.setShowTrials(false),
         }),
     );

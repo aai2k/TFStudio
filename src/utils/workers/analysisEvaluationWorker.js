@@ -11,6 +11,7 @@ import { designMaterialLookup, unresolvedMaterials } from '../materials/designMa
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
 import { evaluateSpecification } from '../environments/environmentSpecification.js';
 import { computeLayerSensitivity } from '../physics/errorAnalysis.js';
+import { trialCurve } from '../physics/errorAnalysis/mcTrial.js';
 import { monteCarloTrialHandler } from './monteCarloTrials.js';
 import { toleranceSpecInputs } from '../../components/windows/analysis/toleranceSpecInputs.js';
 import { computeCurveResults } from '../../components/windows/analysis/plotEngine/curveResults.js';
@@ -95,6 +96,9 @@ const EVALUATIONS = {
     meritTimeline: ({ designs }) => (designs || []).map(timelineMerit),
     layerSensitivity: ({ design, operands, options }) =>
         computeLayerSensitivity(design, operands || [], designMaterialLookup(design), options),
+    // The curve of one Monte Carlo trial, from its record, as the Trial
+    // inspector plots it (errorAnalysis/mcTrial.js trialCurve).
+    trialCurve: ({ design, params, ...trial }) => trialCurve(design, params, designMaterialLookup(design), trial),
     plotCurves: ({ design, curves }) => computeCurveResults(curves, design),
     variatorSpectrum: request => computeVariatorSpectrum(request),
     inhomogeneitySpectra: request => inhomogeneitySpectraState(request),

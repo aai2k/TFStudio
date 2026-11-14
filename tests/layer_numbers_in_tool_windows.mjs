@@ -54,8 +54,8 @@ await check('Monte-Carlo trial inspector', async () => {
         '../src/components/windows/analysis/errorAnalysis/trialModel.js');
     const input = { design, front: design.frontLayers, back: design.backLayers, hasFront: true, hasBack: true };
     const rows = buildTrialDetailRows({ ...input, trial: null });
-    assert.deepEqual(rows.map(row => row.label), ['F3', 'F2', 'F1', 'B1', 'B2'], 'trial rows');
-    assert.ok(rows[0].material.startsWith('Ta2O5') && rows[3].material.startsWith('MgF2'), 'trial rows name the materials');
+    assert.deepEqual(rows.map(row => row.label), ['F1', 'F2', 'F3', 'B1', 'B2'], 'trial rows, from the substrate as the Design Editor lists them');
+    assert.ok(rows[0].material.startsWith('SiO2') && rows[2].material.startsWith('Ta2O5') && rows[3].material.startsWith('MgF2'), 'trial rows name the materials');
     noIds(rows.map(row => row.material), 'the trial rows');
     const trials = [{ dThkF: [0, 0, 5], dThkB: [0, 0] }];
     const worst = buildLayerStatistics({ ...input, trials }).byRms[0];
