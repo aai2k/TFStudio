@@ -168,6 +168,27 @@ for (const colKey of ['lambdaStart', 'aoi', 'target', 'weight']) {
     ({ editor: list, calls } = drawList());
     list.props.onCancel(false);
     assert.deepEqual(calls, [['editCell', null]], 'the focus leaving it');
+
+    // The open chevron closes the list. Its press used to count as a press
+    // outside the list, which closed it, and the click then landed on the
+    // closed cell's chevron and opened it again.
+    const { calls: chevronCalls } = drawList();
+    const row = renderOperandRow({
+        computed: [], evaluationErrors: [], bandLevels: [], contributions: [], largestContribution: 0,
+        selIds: new Set(), focusCell: { rowIdx: 0, colKey: 'pol' }, editCell: { rowIdx: 0, colKey: 'pol', initValue: 'avg' },
+        operands: [dataRow], integralPresets: [], isMathPct: () => false, c: makeTheme(), t: makeLocale(),
+        onEdit: noop, focusAt: (...args) => chevronCalls.push(['focus', ...args]),
+        setEditCell: value => chevronCalls.push(['editCell', value]),
+        selectRow: noop, pressCell: noop, startEdit: noop, commitEdit: noop, navigate: noop,
+        beginDrag: noop, dragOver: noop, leaveComment: noop,
+    }, dataRow, 0);
+    rowReact.unmount();
+    const chevron = find(rowReact.run(() => row.type(row.props)), node => node.props?.className === 'tf-caret tf-caret-open');
+    const press = { prevented: false, stopped: false };
+    chevron.props.onMouseDown({ preventDefault() { press.prevented = true; }, stopPropagation() { press.stopped = true; } });
+    assert.ok(press.prevented && press.stopped, 'the press on the open chevron keeps the focus and goes no further');
+    chevron.props.onClick();
+    assert.deepEqual(chevronCalls, [['editCell', null], ['focus', 0, 'pol']], 'its click closes the list, the focus on the cell');
 }
 
 // ── A move from a text cell leaves the keys with the table ───────────────────

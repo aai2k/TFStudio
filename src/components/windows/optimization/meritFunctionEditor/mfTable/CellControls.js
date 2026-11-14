@@ -186,13 +186,23 @@ export function cellEditorClosed({ rowIdx, setEditCell, focusAt }, colKey) {
  * list closes as every cell's editor does (cellEditorClosed), the focus leaving
  * it counting as a click elsewhere.
  *
+ * The chevron closes the list, with the focus back on the cell. Its press
+ * neither moves the focus nor reaches the list's listener for presses outside
+ * it: either would close the list first, and the click would then land on the
+ * closed cell's chevron and open it again.
+ *
  *   list  listCell's view, with { options, value, pickByKey, commit }
  */
 export function listEditorCell(ctx, colKey, width, list) {
     const { c, tdBase } = ctx;
     const closed = cellEditorClosed(ctx, colKey);
+    const caret = h('span', {
+        className: 'tf-caret tf-caret-open', style: { cursor: 'pointer' },
+        onMouseDown: event => { event.preventDefault(); event.stopPropagation(); },
+        onClick: () => closed('trigger'),
+    });
     return h('td', { key: colKey, title: list.title, style: tdBase(colKey, width, { color: list.color }) },
-        listFace(list.text, h('span', { className: 'tf-caret tf-caret-open' })),
+        listFace(list.text, caret),
         h(CellList, {
             options: list.options, value: list.value, pickByKey: list.pickByKey, c,
             onCommit: value => { list.commit(value); closed('pick'); },
