@@ -613,8 +613,9 @@ class Specification:
             A Yield.
 
         Raises:
-            TFStudioError: a design with no enabled check, or with no layer
-                the trials can change on the side it is scored on.
+            TFStudioError: a design with no enabled check, or an environment
+                a check is judged in with no layer the trials can change on
+                the side it is scored on.
             TFStudioError: a setting it does not take, a value outside its
                 range, or a design that names a material that resolves to
                 nothing.

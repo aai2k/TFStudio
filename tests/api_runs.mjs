@@ -225,6 +225,18 @@ for (const method of ['needle', 'ge']) {
     ok('and runs in one with layers there, as its design computed apart does',
         same(layered, [await answer(() => api.monteCarlo(designApart(bareFront, 'env2'), opts)), await answer(() => api.monteCarlo(designApart(bareCoated), opts))])
         && layered.every(one => typeof one === 'object'), JSON.stringify(layered).slice(0, 200));
+
+    // estimateYield needs a layer to perturb in each environment a check is
+    // judged in, and in no other.
+    const checks = env => [{ kind: 'R_AVG', lambdaStart: 450, lambdaEnd: 650, cmp: 'le', target: 0.03, ...(env ? { env } : {}) }];
+    const yieldOpts = { runs: 3, thicknessRelPct: 2, seed: 3 };
+    const yieldRefusal = 'estimateYield: the design has no layers to perturb on the side it is scored on';
+    const judged = [await answer(() => api.estimateYield(api.setSpecification(bareCoated, checks()), yieldOpts)),
+        await answer(() => api.estimateYield(api.setSpecification(bareFront, checks()), yieldOpts))];
+    ok('estimateYield is refused in an environment a check is judged in with no layer on the side it is scored on, naming it',
+        same(judged, [`${yieldRefusal} in environment 2`, yieldRefusal]), JSON.stringify(judged));
+    const pinned = await answer(() => api.estimateYield(api.setSpecification(bareFront, checks(2)), yieldOpts));
+    ok('and runs when its checks are judged only in environments with layers there', pinned.evaluated === 3, JSON.stringify(pinned).slice(0, 200));
 }
 
 console.log(`${pass} passed, ${fail} failed`);

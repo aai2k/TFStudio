@@ -559,7 +559,7 @@ export class Specification {
      * @param [options.progress] A function called with a Progress (`trial` and `total`) as the trials go. An error it throws ends the run, which then rejects with it.
      * @param [options.stop] An AbortSignal; aborting its AbortController ends the run, which then answers with the trials it made.
      * @returns A promise of a Yield.
-     * @throws a design with no enabled check, or with no layer the trials can change on the side it is scored on
+     * @throws a design with no enabled check, or an environment a check is judged in with no layer the trials can change on the side it is scored on
      * @throws a setting it does not take, a value outside its range, or a design that names a material that resolves to nothing
      * @example
      * const design = tf.newDesign('Mirror');

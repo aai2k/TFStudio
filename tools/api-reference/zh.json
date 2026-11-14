@@ -1868,8 +1868,8 @@
     "text": "带有随机膜层误差的蒙特卡洛试验中满足规格的比例，与蒙特卡洛窗口统计良率的方式相同：每次试验由每一项启用的检查按其自身的步长判定，计算对象由设计的 `sides` 和 `scoreOn` / `score_on` 决定。在种子和设置相同时，这些试验抽取的误差与 `design.monteCarlo()` / `design.monte_carlo()` 相同，因此良率就是其 `spec`；不计算分散。在有多个环境的设计上，一项启用的检查在其判定的每个环境中都通过，试验才满足规格，`environments` 给出每个环境自己的良率。设计不会改变。"
   },
   "Specification.estimateYield.refuses.1": {
-    "hash": "597a6db8",
-    "text": "没有启用的检查的设计，或在其评价面上没有可供试验改变的膜层的设计"
+    "hash": "a55d5103",
+    "text": "没有启用的检查的设计，或某项检查在其中判定、而在其评价面上没有可供试验改变的膜层的环境"
   },
   "Specification.estimateYield.refuses.2": {
     "hash": "5e05b683",

@@ -4878,7 +4878,7 @@ The share of Monte Carlo trials with random layer errors that meet the specifica
 
 **Refuses**:
 
-- a design with no enabled check, or with no layer the trials can change on the side it is scored on
+- a design with no enabled check, or an environment a check is judged in with no layer the trials can change on the side it is scored on
 - a setting it does not take, a value outside its range, or a design that names a material that resolves to nothing
 - Python raises `KeyboardInterrupt`: Ctrl+C during the run, after stopping it
 

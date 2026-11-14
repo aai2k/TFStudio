@@ -7,6 +7,7 @@ import { MAX_SEED, environmentMode } from '../utils/physics/errorAnalysis/mcConf
 import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
 import { BASE_ENVIRONMENT, environmentsInAll, environmentsOf } from '../utils/environments/environments.js';
+import { environmentsJudged } from '../utils/environments/environmentSpecification.js';
 import { hasPerturbableLayers } from '../components/windows/analysis/errorAnalysis/trialModel.js';
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
@@ -144,11 +145,12 @@ function requireLayersIn(call, design, ids, evalMode) {
 // The Monte Carlo trials `o` asks for, as the window runs them, with the curve
 // of `quantity` on the wavelength grid `params` in `environments` (ids;
 // environment 1 without them) and, for a design with a specification, each
-// trial judged against it in every environment that is on.
-function runTrials(call, design, o, { quantity, params, environments }, { signal, onProgress }) {
+// trial judged against it in every environment that is on. `checked` are the
+// environments that need a layer to perturb, those of the curve by default.
+function runTrials(call, design, o, { quantity, params, environments, checked = environments ?? [BASE_ENVIRONMENT] }, { signal, onProgress }) {
     requireResolved(design);
     const evalMode = resolveEvalMode(design);
-    requireLayersIn(call, design, environments ?? [BASE_ENVIRONMENT], evalMode);
+    requireLayersIn(call, design, checked, evalMode);
     requireKernel();
     return runErrorAnalysisMC(design, params, designMaterialLookup(design), {
         ...(environments ? { environments } : {}),
@@ -205,7 +207,7 @@ function runTrials(call, design, o, { quantity, params, environments }, { signal
  * @property mode How the design was scored: `'front'`, `'back'` or `'total'`.
  * @property environments On a design with more than one environment, each environment that is on (environment 1 when none is), in order, with its own yield, its checks alone: `{ number, id, name, yield, passCount, evaluated, yieldInterval }`, a trial counted where a check is judged and meeting it there when each of them passes there.
  * @throws a design with no enabled specification check
- * @throws a design with no layer the trials can change on the side it is scored on
+ * @throws an environment a check is judged in with no layer the trials can change on the side it is scored on
  * @throws a design that names a material that resolves to nothing
  * @example
  * const mirror = tf.stackFromFormula(tf.newDesign({ name: 'Mirror' }), { formula: '(HL)^5 H' });
@@ -227,7 +229,10 @@ export function estimateYield(design, options, hooks) {
     }
     const at = design.referenceWavelength || 550;
     const params = { lambdaStart: at, lambdaEnd: at, lambdaStep: 1 };
-    return runTrials('estimateYield', design, o, { quantity: 'R', params }, given).then(({ spec, seed, settings }) => {
+    // Only the yield is returned, so the environments its checks are judged
+    // in need a layer to perturb, not environment 1, whose curve is dropped.
+    const checked = [...environmentsJudged(design.qualifiers, design)];
+    return runTrials('estimateYield', design, o, { quantity: 'R', params, checked }, given).then(({ spec, seed, settings }) => {
         const { rmsRelPct, rmsAbsNm, rmsReN, rmsImN, distribution } = settings;
         return { ...spec, seed, settings: { rmsRelPct, rmsAbsNm, rmsReN, rmsImN, distribution }, mode: resolveEvalMode(design) };
     });
