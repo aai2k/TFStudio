@@ -1,7 +1,7 @@
 /**
  * Off-renderer evaluation for cone-aware live display consumers, merit
- * readouts at the rows' own Steps and pulse analysis, and Monte Carlo runs
- * with their progress.
+ * readouts at the rows' own Steps and pulse analysis, and the trials of Monte
+ * Carlo runs.
  */
 import { computeOpticalSpectrum } from '../../components/windows/analysis/opticalEvaluation/spectrum.js';
 import { computeSpectrumForMode } from '../../components/windows/analysis/integralValues/spectrum.js';
@@ -10,7 +10,8 @@ import { computePulseAnalysis } from '../../components/windows/analysis/pulseAna
 import { designMaterialLookup, unresolvedMaterials } from '../materials/designMaterials.js';
 import { computeMonitors } from '../physics/statusMonitorEvaluation.js';
 import { evaluateSpecification } from '../environments/environmentSpecification.js';
-import { runErrorAnalysisMC, computeLayerSensitivity } from '../physics/errorAnalysis.js';
+import { computeLayerSensitivity } from '../physics/errorAnalysis.js';
+import { monteCarloTrialHandler } from './monteCarloTrials.js';
 import { toleranceSpecInputs } from '../../components/windows/analysis/toleranceSpecInputs.js';
 import { computeCurveResults } from '../../components/windows/analysis/plotEngine/curveResults.js';
 import { computeVariatorSpectrum } from '../../components/windows/optimization/variator/model.js';
@@ -102,32 +103,9 @@ const EVALUATIONS = {
     designBackdrop: ({ design, table, conditions, missing }) => designBackdrop(design, table, conditions, missing),
 };
 
-// Progress of a Monte Carlo run is posted at most this often, ms. Each post
-// carries the result so far and the trial records made since the last post,
-// so a window that ends the worker keeps every trial reported.
-const MC_PROGRESS_MS = 100;
-
-// One Monte Carlo run (components/windows/analysis/errorAnalysis/monteCarloRun.js):
-// progress posts as the trials run, then the result. A result is sent without
-// its trial records, which travel in the posts and are handed over rather than
-// kept: result.trials is the run's own list, emptied by each post.
-async function runMonteCarlo({ design, params, options }) {
-    let posted = -Infinity;
-    const split = result => ({
-        result: { ...result, trials: null },
-        trials: result.trials ? result.trials.splice(0) : null,
-    });
-    const result = await runErrorAnalysisMC(design, params, designMaterialLookup(design), {
-        ...options,
-        onTrial: ({ i, total, result: soFar }) => {
-            const now = performance.now();
-            if (i === total || now - posted < MC_PROGRESS_MS) return;
-            posted = now;
-            postMessage({ type: 'progress', i, total, ...split(soFar()) });
-        },
-    });
-    postMessage({ type: 'monteCarloDone', ...split(result) });
-}
+// This worker's part in a Monte Carlo run spread over a pool of them
+// (components/windows/analysis/errorAnalysis/monteCarloRun.js).
+const monteCarloTrials = monteCarloTrialHandler(message => postMessage(message));
 
 export function dispatchAnalysisEvaluation(operation, payload) {
     const evaluate = Object.hasOwn(EVALUATIONS, operation) ? EVALUATIONS[operation] : null;
@@ -142,15 +120,7 @@ globalThis.onmessage = async event => {
         noteTmmWasmBytes(job.wasmBytes);
         return;
     }
-    if (job.type === 'monteCarlo') {
-        try {
-            await awaitTmmWasmReady();
-            await runMonteCarlo(job);
-        } catch (error) {
-            postMessage({ type: 'error', message: error?.message || String(error) });
-        }
-        return;
-    }
+    if (monteCarloTrials(job)) return;
     if (job.type !== 'evaluate') return;
     try {
         await awaitTmmWasmReady();

@@ -6,11 +6,12 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildForNode } from './nodeBundle.mjs';
+import { API_THREADS, buildForNode } from './nodeBundle.mjs';
 
 const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src');
 
-/** Bundles src/mcp/server.js and its job thread into `outDir`; `minify` for a release build. */
+/** Bundles src/mcp/server.js, its job thread and the API's threads into `outDir`; `minify` for a release build. */
 export function buildMcpServer(outDir, options) {
-    return buildForNode('MCP server', [path.join(src, 'mcp', 'server.js'), path.join(src, 'mcp', 'jobWorker.js')], outDir, options);
+    const entries = ['server', 'jobWorker'].map(name => ({ in: path.join(src, 'mcp', `${name}.js`), out: name }));
+    return buildForNode('MCP server', [...entries, ...API_THREADS], outDir, options);
 }

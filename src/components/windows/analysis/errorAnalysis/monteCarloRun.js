@@ -2,9 +2,15 @@ import { ANALYSIS_EVALUATION_WORKER_URL } from '../../../../workerUrls.js';
 import { getTmmWasmBytesForWorker } from '../../../../tmmcore.js';
 import { designMaterialLookup, embedDesignMaterials } from '../../../../utils/materials/designMaterials.js';
 import { runErrorAnalysisMC } from '../../../../utils/physics/errorAnalysis.js';
+import { runMCPool } from '../../../../utils/physics/errorAnalysis/mcPool.js';
+import { getThreadCount } from '../../../../utils/synthesis/synthesisConfig.js';
 
 // Time a run on this thread may hold the interface between yields, ms.
 const FRAME_MS = 16;
+
+// Progress reaches the window at most this often, ms, and at the last trial:
+// a pool adds trials faster than the window redraws.
+const PROGRESS_MS = 100;
 
 // A yield the run awaits after every trial, which hands the interface a turn
 // once FRAME_MS have passed.
@@ -35,81 +41,43 @@ function runHere(design, params, options, onProgress) {
     };
 }
 
+// onProgress({ i, total }) at most every PROGRESS_MS, and at the last trial.
+function throttled(onProgress) {
+    let shown = -Infinity;
+    return (i, total) => {
+        const now = performance.now();
+        if (i < total && now - shown < PROGRESS_MS) return;
+        shown = now;
+        onProgress({ i, total });
+    };
+}
+
 /**
- * One Monte Carlo run (runErrorAnalysisMC) on the analysis worker
- * (utils/workers/analysisEvaluationWorker.js), so trials whose Specification
- * checks read their band at a fine Step never hold the window. `options` are
- * runErrorAnalysisMC's, plain data only.
+ * One Monte Carlo run (runErrorAnalysisMC) with its trials spread over
+ * `threads` analysis workers (utils/workers/analysisEvaluationWorker.js), the
+ * Threads setting by default, so trials whose Specification checks read their
+ * band at a fine Step never hold the window. `options` are
+ * runErrorAnalysisMC's, plain data only. The result is the one the run gives
+ * on this thread with the same seed (physics/errorAnalysis/mcPool.js).
  *
- * The worker reports progress with the result so far, so stop() ends it at
- * once and `done` resolves to that result: the result of a run of that many
- * trials with the same seed. stop({ keep: false }) resolves `done` to null.
- * `done` also resolves to null when stopped before any trial was reported,
- * and rejects with the run's error. Where no worker can be made, or it fails
- * to load, the run stays on this thread; a worker that fails after reporting
- * ends the run as Stop does.
+ * stop() ends the run at once and `done` resolves to the result of the trials
+ * done so far, the first N: the result of a run of N trials with the same
+ * seed; the workers end once they have finished the trial under way.
+ * stop({ keep: false }) resolves `done` to null, and so does a stop before
+ * the first trial is done. `done` rejects with the run's error. Where
+ * no worker can be made, or the workers fail before the first trial is done,
+ * the run stays on this thread; a worker that fails later ends the run as
+ * Stop does.
  *
  * Returns { done, stop }.
  */
-export function startMonteCarloRun(design, params, options, onProgress = () => {}) {
-    let worker;
-    try {
-        worker = new Worker(ANALYSIS_EVALUATION_WORKER_URL, { type: 'module' });
-    } catch {
-        return runHere(design, params, options, onProgress);
-    }
-    let settle, fail;
-    const done = new Promise((resolve, reject) => { settle = resolve; fail = reject; });
-    let finished = false;
-    let heard = false;
-    let here = null;
-    let latest = null;
-    const trials = [];
-    // The result as the worker sent it, with the trial records gathered from
-    // every post.
-    const assemble = result => (result && options.recordTrials ? { ...result, trials: trials.slice() } : result);
-    const finish = (outcome, value) => {
-        if (finished) return;
-        finished = true;
-        worker.terminate();
-        outcome(value);
-    };
-
-    worker.onmessage = ({ data }) => {
-        if (finished || !data) return;
-        heard = true;
-        for (const trial of data.trials || []) trials.push(trial);
-        if (data.type === 'progress') {
-            latest = data.result;
-            onProgress({ i: data.i, total: data.total });
-        } else if (data.type === 'monteCarloDone') {
-            onProgress({ i: data.result.nTrials, total: options.nTrials });
-            finish(settle, assemble(data.result));
-        } else if (data.type === 'error') {
-            finish(fail, new Error(data.message));
-        }
-    };
-    worker.onerror = () => {
-        if (finished) return;
-        if (heard) {
-            finish(settle, assemble(latest));
-            return;
-        }
-        finished = true;
-        worker.terminate();
-        here = runHere(design, params, options, onProgress);
-        here.done.then(settle, fail);
-    };
-
-    try {
-        const wasmBytes = getTmmWasmBytesForWorker();
-        if (wasmBytes) worker.postMessage({ type: 'wasmInit', wasmBytes });
-        worker.postMessage({ type: 'monteCarlo', design: embedDesignMaterials(design), params, options });
-    } catch (error) {
-        finish(fail, error);
-    }
-    return {
-        done,
-        stop: ({ keep = true } = {}) => (here ? here.stop({ keep }) : finish(settle, keep ? assemble(latest) : null)),
-    };
+export function startMonteCarloRun(design, params, options, onProgress = () => {}, threads = getThreadCount()) {
+    const wasmBytes = getTmmWasmBytesForWorker();
+    return runMCPool(embedDesignMaterials(design), params, designMaterialLookup(design), options, {
+        size: threads,
+        makeWorker: () => new Worker(ANALYSIS_EVALUATION_WORKER_URL, { type: 'module' }),
+        initMessage: wasmBytes ? { type: 'wasmInit', wasmBytes } : null,
+        onTrial: throttled(onProgress),
+        runHere: opts => runHere(design, params, opts, onProgress),
+    });
 }

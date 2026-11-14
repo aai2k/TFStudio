@@ -5,11 +5,11 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildForNode } from './nodeBundle.mjs';
+import { API_THREADS, buildForNode } from './nodeBundle.mjs';
 
 const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src');
 
-/** Bundles src/apiServer/server.js into `outDir`; `minify` for a release build. */
+/** Bundles src/apiServer/server.js and the API's threads into `outDir`; `minify` for a release build. */
 export function buildApiServer(outDir, options) {
-    return buildForNode('API server', [path.join(src, 'apiServer', 'server.js')], outDir, options);
+    return buildForNode('API server', [{ in: path.join(src, 'apiServer', 'server.js'), out: 'server' }, ...API_THREADS], outDir, options);
 }

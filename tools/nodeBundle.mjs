@@ -5,7 +5,18 @@
 // beside them, becomes the bundle file's own URL. The bundlers beside this
 // file (mcpBundle.mjs, scriptBundle.mjs and the like) build with it.
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import esbuild from 'esbuild';
+
+const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src');
+
+/**
+ * The threads the API starts (src/api/monteCarloThreads.js), as entry points
+ * that land beside the bundle file holding the API, where it looks for them.
+ * A bundle that holds the API lists them after its own entry points.
+ */
+export const API_THREADS = [{ in: path.join(src, 'api', 'monteCarloThread.js'), out: 'monteCarloThread' }];
 
 /**
  * Bundles `entryPoints` into `outDir`, one file each under its own name;

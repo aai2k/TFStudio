@@ -4,14 +4,9 @@
  */
 
 import { makeMCConfig, initializeMCState } from './mcConfig.js';
-import { prepareMCTrial, trialIn } from './mcDraws.js';
-import { evaluateChar } from './spectrumEval.js';
-import {
-    updateMCStatistics,
-    evaluateTrialSpecification,
-    recordMCTrial,
-    finalizeMCResult,
-} from './mcResult.js';
+import { prepareMCTrial } from './mcDraws.js';
+import { evaluateMCTrial } from './mcTrial.js';
+import { foldMCTrial, finalizeMCResult } from './mcResult.js';
 
 /**
  * Statistical error analysis (Macleod §13.7).
@@ -117,11 +112,7 @@ export async function runErrorAnalysisMC(design, params, resolveMat, opts = {}) 
     const state = initializeMCState(config);
 
     for (let trial = 0; trial < config.nTrials; trial++) {
-        const data = prepareMCTrial(config, state);
-        const runs = state.spreads.map(spread => evaluateChar({ ...config, evalMode: spread.evalMode, ...trialIn(config, state, data, spread.id) })[config.char]);
-        updateMCStatistics(state, runs);
-        const trialSpec = evaluateTrialSpecification(config, state, data);
-        recordMCTrial(config, state, trial, data, trialSpec);
+        foldMCTrial(state, evaluateMCTrial(config, state, prepareMCTrial(config, state), trial));
 
         if (config.onTrial) config.onTrial({ i: trial + 1, total: config.nTrials, result: () => finalizeMCResult(config, state) });
         if (config.onYield && (trial + 1) % config.yieldEvery === 0) {
@@ -131,4 +122,27 @@ export async function runErrorAnalysisMC(design, params, resolveMat, opts = {}) 
     }
 
     return finalizeMCResult(config, state);
+}
+
+/**
+ * One worker's part of a run spread over a pool of workers (mcPool.js), the
+ * run runErrorAnalysisMC makes with the same arguments; `opts` holds plain
+ * data and a seed. Returns `{ spreads, evaluate }`: each spread before any
+ * trial, with its curve without errors, and evaluate(trial), trial `trial`
+ * (from 0) as foldMCTrial takes it. Every trial draws its errors from the one random
+ * stream in turn, so evaluate draws the trials before the one it is asked for
+ * and evaluates none of them; it is asked for trials in increasing order.
+ */
+export function startMCTrials(design, params, resolveMat, opts) {
+    const config = makeMCConfig(design, params, resolveMat, opts);
+    const state = initializeMCState(config);
+    let drawn = 0;
+    return {
+        spreads: state.spreads.map(({ env, id, evalMode, lambdas, theory }) => ({ env, id, evalMode, lambdas, theory })),
+        evaluate(trial) {
+            let data;
+            for (; drawn <= trial; drawn++) data = prepareMCTrial(config, state);
+            return evaluateMCTrial(config, state, data, trial);
+        },
+    };
 }

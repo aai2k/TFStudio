@@ -155,10 +155,10 @@ export function materialsIn(config, state, id) {
     return state.materials.get(id);
 }
 
-// The running statistics of the spread in environment `env` (environment 1 for
-// null), from the curve of the design that environment sees without errors, in
-// the mode that environment is evaluated in.
-function makeSpread(config, env) {
+// The spread in environment `env` (environment 1 for null) before any trial:
+// `{ env, id, evalMode, lambdas, theory }`, the curve of the design that
+// environment sees without errors, in the mode that environment is evaluated in.
+function spreadTheory(config, env) {
     const id = env?.id ?? BASE_ENVIRONMENT;
     const design = environmentDesign(config.design, id, config.resolveMat);
     const evalMode = environmentMode(config.design, id, config.evalMode);
@@ -170,14 +170,19 @@ function makeSpread(config, env) {
         backLayers: id === BASE_ENVIRONMENT ? config.back : design.backLayers,
         getMatForLayer: null,
     });
-    const lambdas = theoryRun.lambda;
-    const nLambda = lambdas.length;
+    return { env, id, evalMode, lambdas: theoryRun.lambda, theory: theoryRun[config.char] };
+}
+
+// Each spread the run computes before any trial, in order (spreadTheory).
+function mcTheories(config) {
+    return (config.spreads || [null]).map(env => spreadTheory(config, env));
+}
+
+// The running statistics of a spread, from the spread before any trial.
+function openSpread(theory) {
+    const nLambda = theory.lambdas.length;
     return {
-        env,
-        id,
-        evalMode,
-        lambdas,
-        theory: theoryRun[config.char],
+        ...theory,
         nLambda,
         mean: new Float64Array(nLambda),
         m2: new Float64Array(nLambda),
@@ -186,18 +191,31 @@ function makeSpread(config, env) {
     };
 }
 
-export function initializeMCState(config) {
-    // Material and deviation arrays share the original, unfiltered layer index.
-    const frontMaterials = config.front.map((layer) => config.resolveMat(layer.material));
-    const backMaterials = config.back.map((layer) => config.resolveMat(layer.material));
+/**
+ * The running statistics of a run before any trial, its spreads opened from
+ * `theories`, each spread before any trial as a worker gives them
+ * (startMCTrials): what foldMCTrial adds each trial to and finalizeMCResult
+ * reads.
+ */
+export function openMCStatistics(config, theories) {
     return {
-        spreads: (config.spreads || [null]).map(env => makeSpread(config, env)),
+        spreads: theories.map(openSpread),
         runningN: 0,
         specPass: 0,
         specEvaluated: 0,
         qualifierFailures: config.qualifiers.map(() => 0),
         environmentSpec: (config.judged || []).map(() => ({ pass: 0, evaluated: 0 })),
         trials: [],
+    };
+}
+
+/** The running statistics of a run before any trial, with the materials its trials are drawn on. */
+export function initializeMCState(config) {
+    // Material and deviation arrays share the original, unfiltered layer index.
+    const frontMaterials = config.front.map((layer) => config.resolveMat(layer.material));
+    const backMaterials = config.back.map((layer) => config.resolveMat(layer.material));
+    return {
+        ...openMCStatistics(config, mcTheories(config)),
         frontMaterials,
         backMaterials,
         materials: new Map([[BASE_ENVIRONMENT, { front: frontMaterials, back: backMaterials }]]),

@@ -1,6 +1,6 @@
 /**
  * The Environment droplist of the Monte Carlo window after a run
- * (errorAnalysis/useErrorAnalysis.js), its run on the analysis worker, and the
+ * (errorAnalysis/useErrorAnalysis.js), its run on the analysis workers, and the
  * Specification window's saved specs on a design with environments.
  *
  *   1. A run computes every environment that is on and the one shown.
@@ -22,6 +22,12 @@ import { makeHookRuntime } from './_hookHarness.mjs';
 import { NodeModuleWorker } from './_moduleWorker.mjs';
 
 shimBrowserGlobals();
+// A run here takes one analysis worker. Its runs are of 6 trials, so a larger
+// pool would hand each worker one trial and end it just after, which on plain
+// Node 24 crashed the process now and then; tests/monte_carlo_pool.mjs tests
+// the pool.
+const { setThreadCount } = await import('../src/utils/synthesis/synthesisConfig.js');
+setThreadCount(1);
 const rt = makeHookRuntime();
 Object.assign(rt.React, {
     createElement: (type, props, ...children) => ({ type, props, children }),
@@ -30,9 +36,14 @@ Object.assign(rt.React, {
 });
 globalThis.React = rt.React;
 
-let made = 0;
+// The runs started on the analysis workers, each counted once: every worker of
+// a run is handed the same options.
+const started = new Set();
 globalThis.Worker = class extends NodeModuleWorker {
-    constructor(...args) { super(...args); made++; }
+    postMessage(message) {
+        if (message?.type === 'mcStart') started.add(message.options);
+        super.postMessage(message);
+    }
 };
 
 const { initCatalogs } = await import('../src/utils/materials/catalogManager.js');
@@ -95,21 +106,21 @@ const design = {
     const first = analysis.render().result;
     assert.deepEqual(ids(first), ['base', 'env2'], 'a run computes every environment that is on');
     assert.equal(first.seed, 77);
-    const runs = made;
+    const runs = started.size;
 
     environmentChoiceSession.write(design, { choice: 'env2' });
     const two = analysis.render();
     assert.equal(two.running, false, 'switching to an environment the run computed starts no run');
     assert.deepEqual(spreadOf(two.shown), spreadOf(first.environments[1]), 'and shows its spread from that run');
     assert.notDeepEqual(spreadOf(two.shown), spreadOf(first.environments[0]), 'not environment 1\'s');
-    assert.equal(made, runs);
+    assert.equal(started.size, runs);
 
     environmentChoiceSession.write(design, { choice: 'env3' });
     assert.equal(analysis.render().shown, null, 'the run did not compute environment 3');
     assert.equal(analysis.render().running, true, 'so choosing it, though it is off, runs again');
     assert.ok(await until(analysis, out => !out.running && out.result !== first), 'and the run ends');
     const again = analysis.render().result;
-    assert.equal(made, runs + 1, 'one run');
+    assert.equal(started.size, runs + 1, 'one run');
     assert.deepEqual(ids(again), ['base', 'env2', 'env3'], 'environment 3 beside every environment that is on');
     assert.equal(again.seed, 77, 'from the seed of the run before');
     assert.deepEqual(again.environments.slice(0, 2).map(spreadOf), first.environments.map(spreadOf), 'the same trials');
@@ -119,7 +130,7 @@ const design = {
     const back = analysis.render();
     assert.equal(back.running, false, 'going back starts no run');
     assert.deepEqual(spreadOf(back.shown), spreadOf(again.environments[0]));
-    assert.equal(made, runs + 1);
+    assert.equal(started.size, runs + 1);
 
     // A run of environment 1 and 2 alone, then another, and environment 3
     // chosen while that one goes: neither run computes it, so once the run
@@ -135,7 +146,7 @@ const design = {
     await going;
     assert.ok(await until(analysis, out => !out.running && ids(out.result).includes('env3')),
         'once it lands, environment 3 is run again');
-    assert.equal(made, runs + 4, 'in one more run');
+    assert.equal(started.size, runs + 4, 'in one more run');
     assert.equal(analysis.render().shown.lambda.length > 0, true, 'and the window shows its spread');
 }
 

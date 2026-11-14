@@ -311,7 +311,7 @@ await check('a run the window makes shows an environment that counts the other s
     const SETTINGS = { char: 'R', nTrials: 8, corridorSigma: 1, seed: 31, rmsAbsNm: 0, rmsRelPct: 2, rmsReN: 0.003, rmsImN: 0, distribution: 'gaussian' };
     errorAnalysisSession.write(counted, { ...SETTINGS, ...MC_PARAMS, perMaterial: false, keepOPT: false, result: null });
     const got = hooked(() => useErrorAnalysis({ design: counted, evalMode: 'front' }), counted, { choice: 'env2' });
-    // The window starts its run on the analysis worker, the real one here.
+    // The window starts its run on analysis workers, the real ones here.
     const stub = globalThis.Worker;
     let started = 0;
     globalThis.Worker = class extends NodeModuleWorker {
@@ -325,7 +325,7 @@ await check('a run the window makes shows an environment that counts the other s
     } finally {
         globalThis.Worker = stub;
     }
-    assert.equal(started, 1, 'one worker started');
+    assert.ok(started > 0, 'the run went to analysis workers');
     const shownRun = shownSpread(errorAnalysisSession.read(counted).result, 'env2');
     const apart = environmentApart(counted, 'env2');
     const apartRun = await runErrorAnalysisMC(apart, MC_PARAMS, designMaterialLookup(apart), { ...SETTINGS, evalMode: 'total' });

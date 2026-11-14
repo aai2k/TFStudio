@@ -2,7 +2,7 @@
 // Monte Carlo runs and the yield they count against the specification, and the
 // Layer Sensitivity window's ranking of the layers.
 
-import { runErrorAnalysisMC, computeLayerSensitivity } from '../utils/physics/errorAnalysis.js';
+import { computeLayerSensitivity } from '../utils/physics/errorAnalysis.js';
 import { MAX_SEED, environmentMode } from '../utils/physics/errorAnalysis/mcConfig.js';
 import { designMaterialLookup } from '../utils/materials/designMaterials.js';
 import { resolveEvalMode } from '../utils/physics/optimizer.js';
@@ -12,6 +12,7 @@ import { hasPerturbableLayers } from '../components/windows/analysis/errorAnalys
 import { requireResolved } from './materials.js';
 import { requireKernel } from './environment.js';
 import { environmentId } from './designEnvironments.js';
+import { runMonteCarlo } from './monteCarloThreads.js';
 import { checkOptions, checkHooks, requireValue, checkRange, isAngle, isNonNegative, isPositive, isBoolean, refusal } from './check.js';
 
 const oneOf = list => v => list.includes(v);
@@ -147,27 +148,19 @@ function requireLayersIn(call, design, ids, evalMode) {
 // environment 1 without them) and, for a design with a specification, each
 // trial judged against it in every environment that is on. `checked` are the
 // environments that need a layer to perturb, those of the curve by default.
+// On the app's own runtime a run long enough to gain from worker threads
+// moves to them (monteCarloThreads.js).
 function runTrials(call, design, o, { quantity, params, environments, checked = environments ?? [BASE_ENVIRONMENT] }, { signal, onProgress }) {
     requireResolved(design);
     const evalMode = resolveEvalMode(design);
     requireLayersIn(call, design, checked, evalMode);
     requireKernel();
-    return runErrorAnalysisMC(design, params, designMaterialLookup(design), {
+    return runMonteCarlo(design, params, {
         ...(environments ? { environments } : {}),
         char: quantity, evalMode, nTrials: o.runs,
         rmsRelPct: o.thicknessRelPct, rmsAbsNm: o.thicknessAbsNm, rmsReN: o.indexRe, rmsImN: o.indexIm,
         distribution: o.distribution, seed: o.seed ?? undefined, evaluateSpec: (design.qualifiers || []).length > 0,
-        ...(onProgress ? { onTrial: ({ i, total }) => onProgress({ trial: i, total }) } : {}),
-        // After each trial the run gives way to the event loop, so a Stop
-        // posted to this thread arrives, and looks for it. setImmediate
-        // rather than a timer: a timer waits for the system clock's tick,
-        // several milliseconds on Windows, longer than a trial on a usual grid.
-        ...(signal ? {
-            yieldEvery: 1,
-            onYield: () => new Promise(resolve => globalThis.setImmediate(resolve)),
-            shouldCancel: () => signal.aborted,
-        } : {}),
-    });
+    }, { signal, onProgress });
 }
 
 /**

@@ -9,12 +9,12 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildForNode } from './nodeBundle.mjs';
+import { API_THREADS, buildForNode } from './nodeBundle.mjs';
 
 const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src');
 
-/** Bundles the two threads into `outDir`; `minify` for a release build. */
+/** Bundles the two threads and the API's threads into `outDir`; `minify` for a release build. */
 export function buildScriptWorker(outDir, options) {
-    const entries = ['scriptWorker.js', 'pythonWorker.js'].map(name => path.join(src, 'scripts', name));
-    return buildForNode('Script threads', entries, outDir, options);
+    const entries = ['scriptWorker', 'pythonWorker'].map(name => ({ in: path.join(src, 'scripts', `${name}.js`), out: name }));
+    return buildForNode('Script threads', [...entries, ...API_THREADS], outDir, options);
 }
