@@ -31,8 +31,9 @@ averages out of the thickness completely.
 **Page 2: Parameters Deviation.** Per material, add a **systematic** and
 **random** shift to the real refractive index, plus a **systematic
 inhomogeneity**. The lower table lets you **exclude** individual layers from
-monitoring (they are then cut purely on time) and give each one an extra
-relative thickness error. **Shutter delay** (mean and RMS, in seconds) models
+monitoring and give each one an extra relative thickness error: an excluded
+layer ends at its target thickness plus that error, whatever the rate did,
+and the shutter delay still adds to it as to any other layer. **Shutter delay** (mean and RMS, in seconds) models
 the lag between the cut decision and the shutter actually closing.
 
 **Page 3: Monitoring System.** Choose the measured **quantity** and
@@ -98,4 +99,4 @@ realization.
 
 - Tikhonravov & Trubetskov, *Appl. Opt.* **44**, 6877 (2005), computational
   manufacturing as a bridge between design and production.
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 12.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13, Optical Monitoring Techniques.

@@ -14,7 +14,7 @@ ribbonIcon: admittance
 
 **AOI**：入射角，单位为度。
 
-**偏振（Polarization）**：s、p 或二者的平均。在斜入射时 s 与 p 的轨迹不同；在正入射时二者重合。
+**偏振（Polarization）**：s、p 或**平均**。导纳轨迹没有 s 与 p 的平均，因此**平均**会把 s 轨迹画为实线、p 轨迹画为虚线，表格分别列出两者。在斜入射时 s 与 p 的轨迹不同；在正入射时二者重合。
 
 **面（Side）**：追踪**前（front）**镀膜（从入射介质出发）还是**后（back）**镀膜（从出射介质出发）。每一面的镀膜在基底上都是各自独立的轨迹，因此两侧是分别绘制的。
 
@@ -32,4 +32,4 @@ ribbonIcon: admittance
 
 ## 参考文献
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §2.4 与 §4.1（导纳轨迹）。
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 3, Admittance Loci（导纳轨迹）。

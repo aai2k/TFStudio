@@ -25,8 +25,10 @@ time. It defaults to the design's reference wavelength.
 
 **AOI**: the angle of incidence in degrees.
 
-**Polarization**: s, p, or their average. At oblique incidence the s and p
-loci differ; at normal incidence they coincide.
+**Polarization**: s, p, or **avg**. An admittance locus has no s and p
+average, so **avg** draws the s locus solid and the p locus dashed, and the
+table lists each. At oblique
+incidence the s and p loci differ; at normal incidence they coincide.
 
 **Side**: trace the **front** coating (from the incident medium) or the
 **back** coating (from the exit medium). Each coating is its own locus on the
@@ -53,4 +55,4 @@ standing-wave peak at the same wavelength.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., §2.4 and §4.1 (admittance locus).
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 3, Admittance Loci.

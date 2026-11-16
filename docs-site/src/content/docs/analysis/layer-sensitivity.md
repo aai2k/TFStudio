@@ -31,10 +31,10 @@ shown as a badge on the window.
 
 ## How to read it
 
-The window is the ranked table: one row per layer, most critical first, with
-its material and the change in merit its perturbation produced. Read from the
-top down, and the layers that need the tightest monitoring are the first few
-rows. **Export** writes the ranking to CSV.
+The window is the table: one row per layer in stack order, front layers first,
+with its material, the change in merit its perturbation produced, and its
+**Rank**, 1 for the most critical layer. The layers that need the tightest
+monitoring are the ones ranked 1, 2, 3. **Export** writes the table to CSV.
 
 Open **Chart** below the table for the same numbers as bars. A tall bar means a
 small thickness error there produces a large change in performance. A short bar
@@ -42,7 +42,7 @@ means the layer is forgiving. A design whose bars are all about the same height
 is robust, with no single layer that can ruin it.
 
 Layers are numbered as in the Design Editor (layer 1 touches the
-substrate), and locked layers are excluded. Sensitivity is measured against
+substrate), and locked layers are left out unless **include locked** is ticked. Sensitivity is measured against
 the optical performance, so the ranking reflects the effect on the
 spectrum.
 

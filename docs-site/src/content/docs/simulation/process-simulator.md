@@ -14,8 +14,7 @@ layer, or the same spectra as CSV or text tables.
 A timeline at the bottom scrubs through the deposition. The chart shows the
 bare-substrate baseline (dotted), the finished spectrum of the layer the
 timeline is on, and the live curve at the current scrub position (bold). Show
-all layers adds a finished curve for every layer, graded from blue for the first
-to red for the last. The spectrum is computed with the full system (front,
+all layers adds a faint grey finished curve for every other layer. The spectrum is computed with the full system (front,
 substrate, and back, with an incoherent substrate), so it matches what the
 spectrometer would really see. The piece sits in the chamber, so it is read with air on both sides of it, whatever media the design is embedded in.
 

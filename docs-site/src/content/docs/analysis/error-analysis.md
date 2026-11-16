@@ -68,9 +68,10 @@ thickness. They add together.
 index (n) and on the extinction (k). k cannot go below zero, so on a layer with
 k = 0 the Im(n) error only ever adds absorption and its mean effect is not zero.
 
-**Per-material errors**: draw one shared error per material instead of an
-independent error for every layer, modelling a material-chemistry drift rather
-than monitoring scatter.
+**Per-material errors**: draw one shared index error (Δn and Δk) per material
+instead of an independent one for every layer, modelling a material-chemistry
+drift rather than monitoring scatter. Thickness errors are still drawn for
+every layer.
 
 **keep n·d**: links the thickness error to the index error so that the optical
 thickness n·d at the design reference wavelength stays constant. The plotted

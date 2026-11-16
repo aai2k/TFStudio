@@ -32,8 +32,7 @@ early when it converges, so this is just a cap. It defaults to a sensible
 budget for the selected method.
 
 **Restarts (N)**: for DLS multi-start only: how many randomly perturbed
-starts to run before keeping the best (typically 4–8, or more for a tough
-surface).
+starts to run before keeping the best (20 by default).
 
 **Perturbation**: for DLS multi-start only: how much to jitter each layer's
 thickness (as a percentage) at the start of every restart.

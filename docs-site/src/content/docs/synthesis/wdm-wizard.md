@@ -59,9 +59,9 @@ Chebyshev-style response, not a fault; Refinement merges them into a flat top.
 
 When you confirm, a new design is committed with the calculated stack and the
 merit operands pre-filled in the
-[Merit Function Editor](/design/merit-function-editor/): an averaged
-transmittance target in the passband and averaged reflectance targets in the
-stopbands. Run [Refinement](/synthesis/refinement/) next to finish the design.
+[Merit Function Editor](/design/merit-function-editor/): a transmittance
+target of 100 % across the passband, a transmittance target of 0 % across each
+stopband, and `MNT` 7 nm and `MXT` 9999 nm rows over every layer. Run [Refinement](/synthesis/refinement/) next to finish the design.
 
 ## References
 

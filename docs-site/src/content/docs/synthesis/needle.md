@@ -47,10 +47,10 @@ to convergence).
 
 The advanced section exposes the synthesis tuning:
 
-**Needle scale (nm)**: the thickness step used when probing candidate
+**Needle δ (nm)** (**Probe δ** in Needle Manual): the thickness step used when probing candidate
 positions.
 
-**dMin (nm)**: the minimum inserted thickness and the floor used during
+**Min thickness (nm)**: the minimum inserted thickness and the floor used during
 refinement (1 nm by default). Keep it at the synthesis default while
 synthesizing; raise it to your manufacturing minimum only in a later
 Refinement and [Design Cleaner](/synthesis/design-cleaner/) pass, so you don't
@@ -58,11 +58,12 @@ hold synthesis back with a manufacturable floor too early. Needle Automatic
 offers a needle inside a layer only where both parts of the split layer stay at
 or above this floor; the Needle Manual profile draws the needle function
 everywhere and leaves the choice to you. A layer that refinement drives down
-onto the floor stays only while it helps: after refining each candidate, Needle
-Automatic also refines the same design without its layers on the floor, with
-half the iterations, and keeps that version when its merit is no higher.
+onto the floor stays only while it helps: when a generation picks its best
+candidate, Needle Automatic also refines that design without its layers on the
+floor, with half the iterations, and keeps that version when its merit is no
+higher.
 
-**Refine iterations**: how many refinement steps run after each insertion.
+**Refine iter / gen**: how many refinement steps run after each insertion.
 
 **Inner refiner**: which method refines the stack after each insert. The
 default is **Trust-region Newton**, which ended lower than Conjugate Gradient
@@ -72,8 +73,10 @@ on most of the benchmark's cases and grows the stack without collapsing it. See
 **Candidate search**: how thoroughly each step explores the improving
 candidates (fast, balanced, or thorough), trading speed against quality.
 
-Minimum and maximum thickness limits are ignored during synthesis; re-enable
-them by running [Refinement](/synthesis/refinement/) afterwards. The surface
+Needle Automatic ignores the minimum and maximum thickness limits (`MNT` and
+`MXT` rows); re-enable them by running [Refinement](/synthesis/refinement/)
+afterwards. Needle Manual leaves them out of its scan and of the thickness a
+needle starts at, and its refine after an insertion holds them. The surface
 mode set in the Design Editor is honoured for every mode, not just the front.
 
 A peak-to-peak (`PPEF`) row is left out of synthesis too, with any math row that refers to it, so the MF shown here does not count it: its gradient comes from only the two wavelengths where the error is highest and lowest, and the needle search stalls on that. Needle fits the curve block instead, a note under **Settings** says so, and a [Refinement](/synthesis/refinement/) run afterwards brings the peak-to-peak error down.

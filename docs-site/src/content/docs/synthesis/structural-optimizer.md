@@ -15,7 +15,7 @@ layers, it reaches designs that fixed-structure
 tools cannot.
 
 Each generation it proposes several changes to the current design and refines
-each one. Up to half of them are the insertions the [Needle](/synthesis/needle/)
+each one, as many as **Threads**. Up to half of them, rounded up, are the insertions the [Needle](/synthesis/needle/)
 scan rates most useful; the rest are random mutations of the enabled kinds. A
 proposal that refines back to the current design is left out, so every
 generation tests a real change. When one of the refined designs is better than
@@ -34,9 +34,9 @@ on is sized from the design and grows with it during the run (see
 | -------- | ------ |
 | **Add**     | Insert a new layer (material from the pool) at a random position. |
 | **Remove**  | Delete a layer. |
-| **Split**   | Cut one layer into two. |
+| **Split**   | Cut one layer into two at 30 to 70 % of its thickness and insert a new layer (material from the pool) between the parts. |
 | **Merge**   | Combine adjacent layers. |
-| **Perturb** | Jitter a layer's thickness. |
+| **Perturb** | Jitter the thickness of every unlocked layer. |
 
 Locked layers are never touched, and thickness bounds are always respected.
 
@@ -84,7 +84,7 @@ control bar counts these restarts under **Reheat**.
 **Time budget (min)**: with Deep search on, end the search after this many
 minutes; 0 runs until **Stop**.
 
-**Parallel K**: how many proposals are refined together each generation.
+**Threads**: how many proposals are refined together each generation, one per thread.
 
 **Inner refiner**: which method refines each proposal. See
 [Optimization Methods](/synthesis/optimization-methods/) for the choices.
@@ -92,7 +92,7 @@ minutes; 0 runs until **Stop**.
 **Random seed**: the number the mutations, the accept rolls and the reheat
 kicks draw from. Leave it empty and **Run** fills it with a new seed and keeps
 it there, so running again with the same seed, design, settings and
-**Parallel K** repeats the run. Clear the field to draw afresh. The history
+**Threads** repeats the run. Clear the field to draw afresh. The history
 marks each run with its seed.
 
 The merit function's `MNT` and `MXT` rows hold during the search: the largest

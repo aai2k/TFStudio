@@ -21,7 +21,7 @@
  *            from the extremum before the turn is seen. Near an extremum
  *            S ~ S_ext + 1/2 S'' (d - d_ext)^2, giving Dd = sqrt(2 dS / |S''|).
  *
- * Reference: H. A. Macleod, Thin-Film Optical Filters, 5th ed., Ch. 12.
+ * Reference: H. A. Macleod, Thin-Film Optical Filters, 5th ed., Ch. 13, Optical Monitoring Techniques.
  */
 
 import { createGrowingLayerEvaluator } from '../../physics/thinFilmMath.js';

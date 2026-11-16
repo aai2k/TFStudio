@@ -32,9 +32,9 @@ from your current design) and **global** (search broadly, gradient-free).
 | Method | What it is | Best for |
 | ------ | ---------- | -------- |
 | **Sequential QP (SQP)** ⭐ default | Bounded Newton step with the thickness limits (see below) as **hard constraints** (box-QP, exact bound satisfaction, no penalty tuning). | **The default.** Holds a min-thickness as a hard limit, and was far ahead of the other local refiners on the hardest constrained case of the benchmark. No local refiner wins every case, so when SQP stalls, try CG or Try all, keep best. |
-| **Damped Least Squares (DLS)** | Levenberg–Marquardt, the classic thin-film least-squares refiner. QR-solved damped step, exact analytic Jacobian. | The robust classic; called after every synthesis step. Close to the best without a min-thickness, well behind with one. |
+| **Damped Least Squares (DLS)** | Levenberg–Marquardt, the classic thin-film least-squares refiner. QR-solved damped step, exact analytic Jacobian. | The robust classic, and one of the inner refiners the synthesis windows offer. Close to the best without a min-thickness, well behind with one. |
 | **Conjugate Gradient (CG)** | Polak–Ribière⁺ gradient-only method (Nocedal & Wright §5.2), exact analytic ∇MF, projected backtracking line search. | Polishing a decent design. The best local refiner on the beam splitter and the three-line bandpass of the benchmark, with and without a min-thickness. |
-| **Newton** | Second-order. Exact analytic Hessian (JᵀJ + curvature) when scoring a single side; Gauss-Newton (JᵀJ) for full-filter (Both / symmetric). | A quadratic endgame in the fewest iterations: small stacks, near the minimum, when you want the last digits. |
+| **Newton** | Second-order. Exact analytic Hessian (JᵀJ + curvature) when scoring a single side with no cone, in one environment, and with no math, color, ellipsometry, field or curve-block row and no row with a σ of its own (dB, phase, group delay); Gauss-Newton (JᵀJ) otherwise, full-filter (Both / symmetric) included. | A quadratic endgame in the fewest iterations: small stacks, near the minimum, when you want the last digits. |
 | **Newton-CG** | Truncated Newton, matrix-free; solves the Newton step with inner CG using Hessian-vector products (no dense Hessian). | **Second-order steps without forming the Hessian.** Best of the local refiners on the unconstrained multi-passband case. |
 
 **Thickness limits.** No method has a built-in maximum layer thickness: a layer can grow as thick as the merit function asks, which is what half-wave layers in the infrared and thick cavity spacers need. For an upper limit, add an `MXT` row in the [Merit Function Editor](/design/merit-function-editor/); for a manufacturing floor, an `MNT` row. SQP holds `MNT` and `MXT` as hard limits, so no step leaves them. The other methods carry them as penalty terms in the merit function, which stay at zero while the limit holds. Every method also keeps each layer at or above a minimum thickness: 1 nm in Refinement, the **Min thickness** setting in the synthesis windows. DLS, Newton and Newton-CG hold a layer on that floor for as long as the merit pushes it thinner and release it as soon as the merit pulls it back, so the step is spent on the layers that can move.
@@ -48,9 +48,11 @@ from your current design) and **global** (search broadly, gradient-free).
 | **Simulated Annealing (SA)** | Kirkpatrick (1983), accepting uphill moves with probability `exp(−ΔMF/T)`, then cooling. | Rugged merit surfaces where you need to climb out of deep wells. |
 | **Try all, keep best** | Runs every method from the same start and keeps the lowest MF (DLS multi-start last, as it's the slowest). | When you don't want to choose and would rather let TFStudio pick the winner. |
 
-> **All methods work in all surface modes.** Newton / Newton-CG / SQP use
-> the full analytic Hessian for a single side and Gauss-Newton for coupled
-> full-filter evaluation, with no silent fallback.
+> **All methods work in all surface modes.** Newton and SQP build the Hessian
+> as the Newton row says. Newton-CG never builds one: it takes Hessian-vector
+> products from differences of the analytic gradient, the same in every mode.
+> When Newton's or SQP's damped step cannot be solved, that step is taken as a
+> DLS step instead.
 
 ---
 
@@ -113,8 +115,9 @@ realistic minimum-thickness limit.
   enforce your real floor with a Cleaner pass and then Refinement.
 - **Constraint behavior is tool-specific and deliberate:** **Needle ignores
   MNT** by design (an MNT penalty would wipe every improving candidate),
-  **GE respects MNT**, and Structural / Refinement respect it via the
-  penalty.
+  **GE respects MNT**, Structural holds it as a hard floor on every layer,
+  and Refinement holds it as a hard limit with SQP, the default, and as a
+  penalty with the other methods.
 
 ## Speed
 
@@ -132,5 +135,5 @@ large designs.
   Ch. 6–7 (Newton / truncated Newton), Ch. 18 (SQP).
 - R. Storn & K. Price, *J. Global Optim.* **11**, 341 (1997), Differential Evolution.
 - S. Kirkpatrick, C. D. Gelatt, M. P. Vecchi, *Science* **220**, 671 (1983), Simulated Annealing.
-- A. V. Tikhonravov et al., *Appl. Opt.* **35**, 5493 (1996) & **46**, 6936 (2007), needle / gradual evolution.
+- A. V. Tikhonravov et al., *Appl. Opt.* **35**, 5493 (1996) & **46**, 704 (2007), needle / gradual evolution.
 - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 9 & §13 (synthesis & refinement overview).

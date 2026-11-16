@@ -26,7 +26,7 @@ a new one.
 **random** index shifts and a **systematic inhomogeneity**. The lower table
 **excludes** chosen layers from monitoring: an excluded layer ends at its target
 thickness plus the optional extra relative thickness error you give it, whatever
-the rate did. **Shutter delay** (mean and RMS) models the cut lag.
+the rate did; the shutter delay still adds to it, as to any other layer. **Shutter delay** (mean and RMS) models the cut lag.
 
 **Page 3: Monitoring System.** Set the measured **quantity** and polarization,
 the **angle of incidence**, the **scan interval**, and the number of
@@ -111,5 +111,5 @@ experiment several times to see the spread rather than a single outcome.
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 12.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13, Optical Monitoring Techniques.
 - Tikhonravov & Trubetskov, *Appl. Opt.* **44**, 6877 (2005).

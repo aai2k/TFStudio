@@ -22,8 +22,9 @@ nanometres. Every row is integrated over its own whole band, so the grid has to
 span the band of each integral you want to read. A row whose band the spectrum
 does not span reads **n/a**, with the span the spectrum does cover shown beside
 its band, and the CSV export leaves its cells empty; it is never averaged over
-the part of the band that happens to be covered. The grid has to reach both ends
-of the band, so pick a step that divides the range evenly. The default grid,
+the part of the band that happens to be covered. The grid always ends on the
+end wavelength: a step that does not divide the range adds one shorter last
+interval. The default grid,
 300-2500 nm, covers every built-in row: photopic 380-780 nm, solar 300-2500 nm,
 UV 300-380 nm and NIR 780-2500 nm.
 

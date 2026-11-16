@@ -4,7 +4,7 @@
  * sets the target extremum/level, the truth curve (perturbed materials) plus
  * noise + drift is what the monitor "sees". Returns the realized cut
  * { cut_d_actual, cut_time } and the advanced wall-clock `t_global`. Mirrors
- * the classical turning/level rules (Macleod §12.2); see simulateRunMono for
+ * the classical turning/level rules (Macleod Ch. 13, Optical Monitoring Techniques); see simulateRunMono for
  * the cfg meaning.
  */
 

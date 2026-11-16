@@ -149,7 +149,7 @@ that is the level the monitor's gain is set against. The chip hangs in the chamb
 
 ## References
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 12.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13, Optical Monitoring Techniques.
 - A. V. Tikhonravov, M. K. Trubetskov and T. V. Amotchkina, "Statistical
   approach to choosing a strategy of monochromatic monitoring of optical coating
   production", *Appl. Opt.* **45**, 7863 (2006).

@@ -13,7 +13,9 @@ function over two layer thicknesses among them. Each design keeps its own plots
 while you move between windows.
 
 Each quantity is computed by the same code as the window it comes from, so a
-point on the plot is the number that window shows for the same settings.
+point on the plot is the number that window shows for the same settings. Δ is
+always in the Azzam–Bashara convention, so it matches the Ellipsometry window
+while that window's **Δ convention** is Azzam–Bashara, its default.
 
 | Quantity | Computed as in | Unit |
 | --- | --- | --- |

@@ -116,7 +116,7 @@ ribbonIcon: monitor-worksheet
 
 ## 参考文献
 
-- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 12.
+- H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13, Optical Monitoring Techniques.
 - A. V. Tikhonravov, M. K. Trubetskov and T. V. Amotchkina, "Statistical
   approach to choosing a strategy of monochromatic monitoring of optical coating
   production", *Appl. Opt.* **45**, 7863 (2006).
