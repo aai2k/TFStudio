@@ -20,8 +20,10 @@ import {
 } from '../../environments/environments.js';
 import { groupRows, meanSquareMerit, meritGroups, rowsScoredIn } from '../../environments/environmentMerit.js';
 import { collectLayerOverrides, overridesFrom } from './layerOverrides.js';
+import { sweptLayers } from './axisVars.js';
 
-// In back_only mode axis tokens (thk:i) address the back stack. The thickness
+// In back_only mode axis tokens (thk:i) address the back stack, as they do for
+// every quantity (axisVars.js sweptSide). The thickness
 // lists are copies, so the design's own stay as they are. `factors`, where
 // given, is how many times as thick the stack's environment deposits each
 // layer the tokens address.
@@ -80,12 +82,12 @@ function ownGroup(sampled, id) {
 function environmentStacks(design, resolveMat, env, sampled) {
     const groups = env === ALL_ENVIRONMENTS ? meritGroups(design, sampled) : ownGroup(sampled, env);
     if (!groups.length) return { errorKey: env === ALL_ENVIRONMENTS ? 'errNoRowsOn' : 'errNoRowsHere' };
-    const swept = (design.surfaceMode || 'front_only') === 'back_only' ? design.backLayers : design.frontLayers;
+    const swept = sweptLayers(design);
     return {
         stacks: groups.filter(group => group.scored).map(group => ({
             evalCtx: buildEvalContext(environmentDesign(design, group.id, resolveMat), resolveMat),
             operands: groupRows(sampled, group.rows),
-            factors: environmentLayerFactors(design, group.id, swept || [], resolveMat),
+            factors: environmentLayerFactors(design, group.id, swept, resolveMat),
         })),
     };
 }

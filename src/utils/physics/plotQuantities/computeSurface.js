@@ -1,7 +1,7 @@
 import {
     ALL_ENVIRONMENTS, BASE_ENVIRONMENT, environmentDesign, environmentLayerFactors, hasEnvironments,
 } from '../../environments/environments.js';
-import { isLayerVar, parseAxisVar } from './axisVars.js';
+import { isLayerVar, parseAxisVar, sweptLayers } from './axisVars.js';
 import { computeMeritSurface } from './meritSurface.js';
 import { computeOpticalSurface } from './opticalSurface.js';
 import { computePointSurface } from './pointSurface.js';
@@ -20,7 +20,7 @@ import { axisValues } from './surfaceSpec.js';
 function environmentGrid(spec, design, resolveMat, grid) {
     const env = spec.env;
     if (!hasEnvironments(design) || env == null || env === BASE_ENVIRONMENT || env === ALL_ENVIRONMENTS) return { design, grid };
-    const factors = environmentLayerFactors(design, env, design.frontLayers || [], resolveMat);
+    const factors = environmentLayerFactors(design, env, sweptLayers(design), resolveMat);
     const deposited = (token, values) => {
         const { kind, layer } = parseAxisVar(token);
         const factor = kind === 'thk' ? factors[layer] : undefined;

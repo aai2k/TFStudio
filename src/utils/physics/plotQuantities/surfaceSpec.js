@@ -6,7 +6,7 @@
 import { requiredLambdas, withDesignSampleCounts } from '../optimizer.js';
 import { buildLambdaGrid } from '../thinFilmMath.js';
 import { designMaterialLookup } from '../../materials/designMaterials.js';
-import { buildAxisVarOptions, parseAxisVar } from './axisVars.js';
+import { buildAxisVarOptions, parseAxisVar, sweptLayers } from './axisVars.js';
 
 // What a surface can show: a curve's quantities but the phase, which has no
 // value of its own at a point, only along a line it is unwrapped on.
@@ -63,15 +63,16 @@ export function lambdaRowStep(lambdas, axisStep) {
 
 /**
  * Build a default 3D surface spec for a design.
- *   X = first front layer thickness, Y = second (or AOI if <2 layers),
- *   Z = T. Sensible ranges around the nominal values.
+ *   X = the thickness of the swept side's first stored layer (axisVars.js
+ *   sweptSide), Y = its second (or AOI if <2 layers), Z = T. Sensible ranges
+ *   around the nominal values.
  */
 export function makeDefaultSurfaceSpec(design, defaults = {}) {
-    const front = design?.frontLayers || [];
-    const d0 = front[0]?.thickness ?? 100;
-    const hasL0 = front.length >= 1;
-    const hasL1 = front.length >= 2;
-    const d1 = front[1]?.thickness ?? 100;
+    const layers = sweptLayers(design);
+    const d0 = layers[0]?.thickness ?? 100;
+    const hasL0 = layers.length >= 1;
+    const hasL1 = layers.length >= 2;
+    const d1 = layers[1]?.thickness ?? 100;
     const compact = value => Math.round(value * 1000) / 1000;
     return {
         z: 'T',

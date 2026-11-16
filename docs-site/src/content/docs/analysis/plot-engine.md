@@ -54,7 +54,9 @@ button that deletes it, followed by these settings:
 
 **Sweep**: what changes along the curve: **Wavelength (nm)**, **AOI (°)**, or
 the thickness of one front layer, listed by its number and material with L1
-on the substrate.
+on the substrate. On a design coated on its back alone the layers listed are
+the back ones, B1 on the substrate, and every quantity reads the back layer
+named.
 
 **Range**: from, to and **Step**. A new **Sweep** starts on a range that suits
 it, such as 0 to 60° for AOI or a band around the layer's own thickness.
@@ -93,7 +95,7 @@ a grid there is no single way to unwrap it. **Polarization** and **Surface**
 follow the quantity as they do on a curve.
 
 **X axis** and **Y axis**: **Wavelength (nm)**, **AOI (°)**, or the thickness
-of one front layer, listed as on a curve, each with a range and a number of
+of one layer, listed as on a curve, each with a range and a number of
 **steps**. The Merit Function needs a layer thickness on both axes, so it maps
 a design of two layers or more.
 

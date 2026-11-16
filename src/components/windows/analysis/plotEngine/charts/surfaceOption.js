@@ -7,7 +7,7 @@
  * fallback where there is no canvas to rasterise onto.
  */
 
-import { layerNumber, parseAxisVar, surfaceAxisLabel } from '../../../../../utils/physics/plotQuantities.js';
+import { layerSymbol, parseAxisVar, surfaceAxisLabel } from '../../../../../utils/physics/plotQuantities.js';
 import {
     cartesianOption, chartToolbox, formatChartNumber, formatChartReadout, itemTooltip,
     niceAxisBounds, niceTickInterval,
@@ -25,7 +25,7 @@ const SURFACE_INTERACTION = Object.freeze({
 /** `labels` is t.plotEngine and `units` t.units, which writes a thickness axis's unit. */
 export function surfacePlotAxisLabel(token, design, labels, units) {
     const parsed = parseAxisVar(token);
-    if (parsed.kind === 'thk') return `L${layerNumber(design, parsed.layer)} d (${units.nm})`;
+    if (parsed.kind === 'thk') return `${layerSymbol(design, parsed.layer)} d (${units.nm})`;
     return surfaceAxisLabel(token, design, labels);
 }
 

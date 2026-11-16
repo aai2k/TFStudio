@@ -1,8 +1,8 @@
 /**
  * 2D curves: two quantities read along one sweep, one on x and one on y.
  *
- * The sweep runs the wavelength, the angle of incidence, or one front layer's
- * thickness (axisVars.js tokens) over a range, the other parameters held at the
+ * The sweep runs the wavelength, the angle of incidence, or the thickness of
+ * one layer of the swept side (axisVars.js tokens, sweptSide) over a range, the other parameters held at the
  * curve's fixed λ and AOI. Each axis is a quantity (quantities.js) with the
  * polarization and side it is read in. The swept value itself on x
  * draws the ordinary curve against λ, AOI or the layer thickness; a quantity on

@@ -1,6 +1,6 @@
 import {
     DASHES, POLARIZATIONS, QUANTITIES, SURFACE_MODES, SWEEP,
-    buildAxisTargetOptions, parseAxisVar, quantitySides, takesPolarization,
+    buildAxisTargetOptions, parseAxisVar, quantitySides, sweptLayers, takesPolarization,
 } from '../../../../utils/physics/plotQuantities.js';
 import { Checkbox } from '../../../ui/Checkbox.js';
 import { tablerIcon } from '../../../ui/tablerIcons.js';
@@ -128,10 +128,10 @@ function FixedRow({ curve, onUpdate, c, t }) {
 }
 
 // The quantities an axis can read. The merit function needs a layer to sweep,
-// so a design with no front layers is not offered it.
+// so a design with no layer on the swept side is not offered it.
 function quantityOptions(curve, design, t) {
-    const hasFront = (design?.frontLayers || []).length > 0;
-    return [SWEEP, ...QUANTITIES.filter(quantity => quantity !== 'MF' || hasFront)]
+    const hasLayers = sweptLayers(design).length > 0;
+    return [SWEEP, ...QUANTITIES.filter(quantity => quantity !== 'MF' || hasLayers)]
         .map(quantity => ({ id: quantity, label: quantityOptionLabel(quantity, curve.sweep, design, t) }));
 }
 

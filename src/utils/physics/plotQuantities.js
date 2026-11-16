@@ -47,8 +47,8 @@ export {
 } from './plotQuantities/quantities.js';
 
 export {
-    parseAxisVar, isLayerVar, axisVarUnit,
-    buildAxisVarOptions, layerNumber, layerTag, buildAxisTargetOptions, defaultAxisRange,
+    parseAxisVar, isLayerVar, axisVarUnit, sweptSide, sweptLayers,
+    buildAxisVarOptions, layerNumber, layerSymbol, layerTag, buildAxisTargetOptions, defaultAxisRange,
 } from './plotQuantities/axisVars.js';
 
 export {

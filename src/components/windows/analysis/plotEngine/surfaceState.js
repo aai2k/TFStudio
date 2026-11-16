@@ -1,5 +1,5 @@
 import {
-    makeDefaultSurfaceSpec, computeSurface, isLayerVar, defaultAxisRange, quantitySides,
+    makeDefaultSurfaceSpec, computeSurface, isLayerVar, defaultAxisRange, quantitySides, sweptLayers,
 } from '../../../../utils/physics/plotQuantities.js';
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import { BASE_ENVIRONMENT } from '../../../../utils/environments/environments.js';
@@ -49,14 +49,14 @@ function onItsSide(spec) {
 export function patchSurfaceSpec(previous, patch, design) {
     const next = onItsSide({ ...previous, ...patch });
     if (patch.z !== 'MF') return next;
-    const nLayers = (design?.frontLayers || []).length;
+    const nLayers = sweptLayers(design).length;
     if (!isLayerVar(next.xVar)) {
         next.xVar = 'thk:0';
         const range = defaultAxisRange(design, next.xVar);
         next.xFrom = range.from;
         next.xTo = range.to;
     }
-    // A design with one front layer has no second thickness for Y; its MF
+    // A design with one layer on the swept side has no second thickness for Y; its MF
     // surface is refused for its axes (computeSurface.js).
     if (!isLayerVar(next.yVar) && nLayers > 1) {
         next.yVar = 'thk:1';

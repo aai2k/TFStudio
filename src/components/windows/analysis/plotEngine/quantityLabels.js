@@ -8,18 +8,18 @@
  */
 
 import {
-    SWEEP, layerNumber, parseAxisVar, phaseMember, quantityFamily,
+    SWEEP, layerSymbol, parseAxisVar, phaseMember, quantityFamily,
 } from '../../../../utils/physics/plotQuantities.js';
 
 // The t.units key of each group delay member's unit.
 const DELAY_UNITS = { gd: 'fs', gdd: 'fs2', tod: 'fs3' };
 
-/** The swept variable as a symbol: λ, AOI, or a layer's thickness, as in "L3 d". */
+/** The swept variable as a symbol: λ, AOI, or a layer's thickness, as in "L3 d" or, on the back, "B1 d". */
 export function sweepSymbol(token, design, t) {
     const { kind, layer } = parseAxisVar(token);
     if (kind === 'lambda') return 'λ';
     if (kind === 'aoi') return t.plotEngine.aoiShort;
-    return `L${layerNumber(design, layer)} d`;
+    return `${layerSymbol(design, layer)} d`;
 }
 
 /** The swept variable's unit: nm for λ and a thickness, ° for AOI. */

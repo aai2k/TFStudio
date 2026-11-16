@@ -3,6 +3,7 @@ import { makeConeSpec } from '../../../../utils/physics/optimizer/coneAngle.js';
 import {
     BASE_ENVIRONMENT, environmentDesign, environmentLayerFactors, hasEnvironments,
 } from '../../../../utils/environments/environments.js';
+import { sweptLayers } from '../../../../utils/physics/plotQuantities.js';
 
 /**
  * The design as environment `env` computes it (environments.js
@@ -11,7 +12,8 @@ import {
  * stack resolved for the spectrum, as computeCurve takes them. `whole` is the
  * design given, which the merit function scores over its environments, and
  * `layerFactors`, outside environment 1, how many times as thick that
- * environment deposits each front layer, which a swept layer is read at.
+ * environment deposits each layer of the swept side (plotQuantities.js
+ * sweptLayers), which a swept layer is read at.
  */
 export function buildEvaluationContext(design, env = BASE_ENVIRONMENT) {
     if (!design) return null;
@@ -31,6 +33,6 @@ export function buildEvaluationContext(design, env = BASE_ENVIRONMENT) {
         incMat, subMat, exitMat, frontLayers, backLayers,
         subThickness_mm: seen.substrate?.thickness ?? 1.0,
         cone: makeConeSpec(seen.cone || {}),
-        ...(seen === design ? {} : { layerFactors: environmentLayerFactors(design, env, design.frontLayers || []) }),
+        ...(seen === design ? {} : { layerFactors: environmentLayerFactors(design, env, sweptLayers(design)) }),
     };
 }

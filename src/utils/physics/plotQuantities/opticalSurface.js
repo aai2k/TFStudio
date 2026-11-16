@@ -1,36 +1,41 @@
 /**
  * Optical Z (T/R/A) surface — samples the validated runSpectrum path at each
- * (x, y) grid point, with thickness overrides cloning the front stack.
+ * (x, y) grid point, with thickness overrides cloning the swept side's stack.
  */
 
-import { parseAxisVar } from './axisVars.js';
+import { parseAxisVar, sweptLayersKey } from './axisVars.js';
 import { collectLayerOverrides } from './layerOverrides.js';
 import { pickChannel, runSpectrum } from './spectrumRunner.js';
 import { makeConeSpec } from '../optimizer/coneAngle.js';
 import { buildLambdaGrid } from '../thinFilmMath.js';
 import { lambdaRowStep } from './surfaceSpec.js';
 
+// `baseCtx` with the thickness overrides `byLayer` applied to the swept side's
+// stack (`baseCtx.sweptKey`, axisVars.js sweptSide).
+function withLayerOverrides(baseCtx, byLayer) {
+    const key = baseCtx.sweptKey;
+    const layers = baseCtx[key].map((l, i) => {
+        const ov = byLayer[i];
+        if (!ov || ov.thk == null) return l;
+        return { material: l.material, thickness: ov.thk };
+    });
+    return { ...baseCtx, [key]: layers };
+}
+
 /**
- * The spectrum at one point, a single wavelength: the front stack of `baseCtx`
- * (buildOpticalBaseCtx) with the layer overrides `byLayer` applied, at `lambda`
- * and `aoi`, for `spec.surfaceMode` in `spec.polarization`. A 2D curve over a
- * layer parameter reads its points here, as a surface does.
+ * The spectrum at one point, a single wavelength: the stack of `baseCtx`
+ * (buildOpticalBaseCtx) with the layer overrides `byLayer` applied to its
+ * swept side, at `lambda` and `aoi`, for `spec.surfaceMode` in
+ * `spec.polarization`. A 2D curve over a layer parameter reads its points
+ * here, as a surface does.
  */
 export function opticalPointSpectrum(baseCtx, spec, { byLayer, lambda, aoi }) {
-    const frontLayers = baseCtx.frontLayers.map((l, i) => {
-        const ov = byLayer[i];
-        if (!ov) return l;
-        return {
-            material: l.material,
-            thickness: ov.thk != null ? ov.thk : l.thickness,
-        };
-    });
-    const ctx = { ...baseCtx, frontLayers };
+    const ctx = withLayerOverrides(baseCtx, byLayer);
     const params = { lambdaStart: lambda, lambdaEnd: lambda, lambdaStep: 1, theta: aoi, polarization: spec.polarization };
     return runSpectrum(spec.surfaceMode, params, ctx);
 }
 
-// ── Optical Z (T/R/A) at one (λ, AOI) with overridden front stack ─────────────
+// ── Optical Z (T/R/A) at one (λ, AOI) with the swept stack overridden ─────────
 function opticalSurfaceZ(spec, baseCtx, xv, yv) {
     const out = opticalPointSpectrum(baseCtx, spec, collectLayerOverrides(spec, xv, yv));
     const ch = pickChannel(out, spec.polarization, spec.z);
@@ -48,12 +53,11 @@ function opticalSurfaceZ(spec, baseCtx, xv, yv) {
 function opticalLambdaRow(spec, baseCtx, { lambdas, axisStep, otherVar, otherVal }) {
     const p = parseAxisVar(otherVar);
     let aoi = spec.fixedAOI_deg;
-    let frontLayers = baseCtx.frontLayers;
+    let ctx = baseCtx;
     if (p.kind === 'aoi') {
         aoi = otherVal;
     } else if (p.kind === 'thk') {
-        frontLayers = baseCtx.frontLayers.map((l, i) =>
-            i === p.layer ? { material: l.material, thickness: otherVal } : l);
+        ctx = withLayerOverrides(baseCtx, { [p.layer]: { thk: otherVal } });
     } else {
         return null;   // wavelength on both axes: per point
     }
@@ -68,24 +72,25 @@ function opticalLambdaRow(spec, baseCtx, { lambdas, axisStep, otherVar, otherVal
     // goes per point instead.
     const grid = buildLambdaGrid(params.lambdaStart, params.lambdaEnd, step);
     if (grid.length !== lambdas.length || grid.some((lam, i) => Math.abs(lam - lambdas[i]) > 1e-9 * Math.max(1, lam))) return null;
-    const res = runSpectrum(spec.surfaceMode, params, { ...baseCtx, frontLayers });
+    const res = runSpectrum(spec.surfaceMode, params, ctx);
     const ch = pickChannel(res, spec.polarization, spec.z);
     if (!ch || ch.length !== lambdas.length) return null;
     return ch.slice();
 }
 
-// Front layers keep their FULL list (incl. zero-thickness) so layer-index
-// overrides stay aligned with buildAxisVarOptions; evaluateSpectrum filters
-// d>0 internally, so a layer swept up from 0 simply becomes active.
+// Both stacks keep their FULL list (incl. zero-thickness) so layer-index
+// overrides stay aligned with buildAxisVarOptions; the spectrum filters d>0
+// internally, so a layer swept up from 0 simply becomes active. `sweptKey`
+// names the stack a layer sweep moves (axisVars.js sweptSide).
 export function buildOpticalBaseCtx(design, resolveMat) {
+    const resolved = layers => (layers || []).map(l => ({ material: resolveMat(l.material), thickness: l.thickness || 0 }));
     return {
         incMat:  resolveMat(design.incidentMedium),
         subMat:  resolveMat(design.substrate?.material),
         exitMat: resolveMat(design.exitMedium),
-        frontLayers: (design.frontLayers || [])
-            .map(l => ({ material: resolveMat(l.material), thickness: l.thickness || 0 })),
-        backLayers: (design.backLayers || []).filter(l => l.thickness > 0)
-            .map(l => ({ material: resolveMat(l.material), thickness: l.thickness })),
+        frontLayers: resolved(design.frontLayers),
+        backLayers: resolved(design.backLayers),
+        sweptKey: sweptLayersKey(design),
         subThickness_mm: design.substrate?.thickness ?? 1.0,
         cone: makeConeSpec(design.cone || {}),
     };
