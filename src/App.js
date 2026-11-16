@@ -182,6 +182,7 @@ export const App = ({ kernelStartup }) => {
                     removeFolder:         project.removeFolder,
                     moveItemsToFolder:    project.moveItemsToFolder,
                     moveFolder:           project.moveFolder,
+                    showInFileManager:    project.showInFileManager,
                     dirtyDesigns:         store.dirtyDesigns,
                     setInputDialog,
                     // Opening a design is a request to look at it, so it focuses

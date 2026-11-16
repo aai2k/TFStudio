@@ -1,6 +1,7 @@
 // IPC: settings + project/design file I/O — load/save settings, load all
 // folders+designs, save/import/delete/rename/move .tfs designs,
-// create/rename/move/delete project folders. All under Documents\TFStudio\Projects
+// create/rename/move/delete project folders, show a design or a folder in the
+// system file manager. All under Documents\TFStudio\Projects
 // (+ machine-local settings.json in AppData).
 //
 // Project folders nest to any depth, so a folder is named by its path under
@@ -39,6 +40,7 @@ function register(ipcMain, ctx) {
   ipcMain.handle('create-folder', async (event, folderId) => handleCreateFolder(ctx, folderId));
   ipcMain.handle('rename-folder', async (event, oldId, newId) => handleRenameFolder(ctx, oldId, newId));
   ipcMain.handle('delete-folder', async (event, folderId, options) => handleDeleteFolder(ctx, folderId, options));
+  ipcMain.handle('show-in-folder', async (event, folderId, itemName) => handleShowInFolder(ctx, folderId, itemName));
 }
 
 function handleLoadSettings(ctx) {
@@ -764,6 +766,36 @@ async function handleDeleteFolder(ctx, folderId, options) {
     if (!goesToBin(ctx, options)) return { success: true, filesLeft: deleteDesignsBelow(ctx, folderPath) };
     const refusal = await moveToTrash(ctx, folderPath, 'delete-folder');
     return refusal ? { success: false, error: refusal } : { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
+
+async function openFolder(ctx, folderPath) {
+  if (!ctx.fs.existsSync(folderPath)) return { success: false, error: 'Folder does not exist' };
+  const error = await ctx.shell.openPath(folderPath);
+  return error ? { success: false, error } : { success: true };
+}
+
+function selectFile(ctx, filePath) {
+  if (!ctx.fs.existsSync(filePath)) return { success: false, error: 'File not found' };
+  ctx.shell.showItemInFolder(filePath);
+  return { success: true };
+}
+
+// ── Show a design or a project folder in the system file manager ───────────
+// File Explorer on Windows, the desktop's own file manager on Linux. A design
+// opens its folder with its file selected; with no design name the project
+// folder itself opens. The path is built from the folder id and design name
+// the way every row call builds it, so nothing outside Projects can be opened
+// this way.
+async function handleShowInFolder(ctx, folderId, itemName) {
+  const { projectsDir, safeName, safeSegments, safeFilePath } = ctx;
+  try {
+    const folderPath = safeFilePath(projectsDir, ...safeSegments(folderId));
+    return itemName == null
+      ? await openFolder(ctx, folderPath)
+      : selectFile(ctx, safeFilePath(folderPath, safeName(itemName) + DESIGN_EXT));
   } catch (error) {
     return { success: false, error: error.message };
   }

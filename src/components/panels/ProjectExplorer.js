@@ -15,6 +15,26 @@ const INDENT_STEP = 12;
 // so the empty string cannot collide with one.
 const ROOT_TARGET = '';
 
+// The "Move to" entry, its submenu listing where the row can go, or null when
+// there is nowhere.
+function moveEntry(label, children) {
+  return children.length > 0 ? { id: 'move', label, icon: 'folder-symlink', children } : null;
+}
+
+// The entry that shows a design's file, selected in its folder, or with no
+// design the folder itself, in the system file manager; null where the app has
+// no files of its own to show, as in the web demo. Windows calls the program
+// File Explorer; a Linux desktop ships one of several.
+function fileManagerEntry(t, showInFileManager, folder, item) {
+  if (!showInFileManager) return null;
+  return {
+    id: 'show-in-file-manager',
+    label: window.electronAPI?.platform === 'win32' ? t.explorer.openInExplorer : t.explorer.openInFileManager,
+    icon: 'external-link',
+    onClick: () => showInFileManager(folder.id, item),
+  };
+}
+
 // ── Icons ─────────────────────────────────────────────────────────────────────
 
 function ChevronRight({ size = 16 }) {
@@ -288,6 +308,7 @@ export function ProjectExplorer({
   handleItemClick, setSelectedFolder, toggleFolderExpanded,
   addItem, duplicateItem, removeSelectedItems, removeItem, setInputDialog, addFolder,
   renameFolder, renameItem, removeFolder, moveItemsToFolder, moveFolder,
+  showInFileManager,
   dirtyDesigns,
   c, t,
   onOpenDesign
@@ -490,75 +511,70 @@ export function ProjectExplorer({
     () => rows.filter((row) => row.type === 'item').map((row) => row.item), [rows]);
 
   // ── Context-menu builders ───────────────────────────────────────────────────
-  // "Move to <folder>" for every folder that would actually receive something.
-  // ContextMenu is a flat list, so the folders sit in the menu itself. The list
-  // is drawn from the folders on screen, so a search that hides a folder hides
-  // it here too and the menu offers exactly what a drag could reach. A folder is
-  // named by its path, since two folders under different parents can share a name.
-  const moveMenuItems = useCallback((targets) => {
+  // "Move to" opens a submenu of every folder that would actually receive
+  // something, or is left out when there is none. The list is drawn from the
+  // folders on screen, so a search that hides a folder hides it here too and the
+  // menu offers exactly what a drag could reach. A folder is named by its path,
+  // since two folders under different parents can share a name.
+  const moveMenuItem = useCallback((targets) => {
     const ids = targets.map(target => target.id);
-    return (moveItemsToFolder ? dropTargetFolders(filteredFolders, ids) : []).map(folder => ({
-      id: `move-${folder.id}`,
-      label: targets.length > 1
-        ? t.explorer.moveSelectedTo(targets.length, folder.id)
-        : t.explorer.moveTo(folder.id),
-      icon: 'folder-symlink',
-      onClick: () => moveItemsToFolder(ids, folder.id),
-    }));
+    const folderTargets = moveItemsToFolder ? dropTargetFolders(filteredFolders, ids) : [];
+    return moveEntry(
+      targets.length > 1 ? t.explorer.moveSelectedTo(targets.length) : t.explorer.moveTo,
+      folderTargets.map(folder => ({
+        id: `move-${folder.id}`,
+        label: folder.id,
+        onClick: () => moveItemsToFolder(ids, folder.id),
+      })));
   }, [filteredFolders, moveItemsToFolder, t]);
 
-  // Where a folder can go: any folder that is not itself, below it, or already
-  // holding it, plus the top level when it is not there already.
-  const folderMoveMenuItems = useCallback((folder) => {
-    if (!moveFolder) return [];
-    const items = folderDropTargets(filteredFolders, folder.id).map(target => ({
+  // Where a folder can go: the top level when it is not there already, then any
+  // folder that is not itself, below it, or already holding it.
+  const folderMoveMenuItem = useCallback((folder) => {
+    if (!moveFolder) return null;
+    const children = folderDropTargets(filteredFolders, folder.id).map(target => ({
       id: `move-${target.id}`,
-      label: t.explorer.moveTo(target.id),
-      icon: 'folder-symlink',
+      label: target.id,
       onClick: () => moveFolder(folder.id, target.id),
     }));
     if (parentFolderId(folder.id) !== null) {
-      items.unshift({
-        id: 'move-root',
-        label: t.explorer.moveToTop,
-        icon: 'folder-symlink',
-        onClick: () => moveFolder(folder.id, null),
-      });
+      children.unshift({ id: 'move-root', label: t.explorer.topLevel, onClick: () => moveFolder(folder.id, null) });
     }
-    return items;
+    return moveEntry(t.explorer.moveTo, children);
   }, [filteredFolders, moveFolder, t]);
 
   const openItemMenu = useCallback((e, item, folder, targets) => {
     const many = targets.length > 1;
     const items = [];
-    const moves = moveMenuItems(targets);
+    const move = moveMenuItem(targets);
     if (!many) {
+      const place = [move, fileManagerEntry(t, showInFileManager, folder, item)].filter(Boolean);
       items.push({ label: t.explorer.open, icon: 'folder-open', onClick: () => onOpenDesign && onOpenDesign(item, folder) });
       items.push({ label: t.explorer.duplicate, icon: 'copy-plus', onClick: () => duplicateItem && duplicateItem(item, folder) });
       items.push({ label: t.explorer.renameF2, icon: 'pencil', onClick: () => startRename(`item-${item.id}`) });
-      if (moves.length > 0) items.push({ separator: true }, ...moves);
+      if (place.length > 0) items.push({ separator: true }, ...place);
       items.push({ separator: true });
       items.push({ label: t.explorer.delete, icon: 'trash', danger: true, onClick: () => deleteItem(item, folder) });
     } else {
-      if (moves.length > 0) items.push(...moves, { separator: true });
+      if (move) items.push(move, { separator: true });
       items.push({ label: t.explorer.deleteSelected(targets.length), icon: 'trash', danger: true, onClick: () => deleteItems(targets) });
     }
     setCtxMenu({ x: e.clientX, y: e.clientY, items });
-  }, [t, onOpenDesign, duplicateItem, startRename, deleteItem, deleteItems, moveMenuItems]);
+  }, [t, onOpenDesign, duplicateItem, startRename, deleteItem, deleteItems, moveMenuItem, showInFileManager]);
 
   const openFolderMenu = useCallback((e, folder) => {
-    const moves = folderMoveMenuItems(folder);
+    const place = [folderMoveMenuItem(folder), fileManagerEntry(t, showInFileManager, folder, null)].filter(Boolean);
     const items = [
       { label: t.explorer.newDesignFile, icon: 'file-plus', onClick: () => addItem(folder) },
       { label: t.explorer.newSubfolder, icon: 'folder-plus', onClick: () => addFolder(folder) },
       { separator: true },
       { label: t.dialogs.contextMenu.renameFolder, icon: 'pencil', onClick: () => startRename(`folder-${folder.id}`) },
     ];
-    if (moves.length > 0) items.push({ separator: true }, ...moves);
+    if (place.length > 0) items.push({ separator: true }, ...place);
     items.push({ separator: true });
     items.push({ label: t.explorer.deleteFolder, icon: 'trash', danger: true, disabled: !folderDeletion(folder).canDelete, onClick: () => deleteFolder(folder) });
     setCtxMenu({ x: e.clientX, y: e.clientY, items });
-  }, [t, addItem, addFolder, startRename, deleteFolder, folderDeletion, folderMoveMenuItems]);
+  }, [t, addItem, addFolder, startRename, deleteFolder, folderDeletion, folderMoveMenuItem, showInFileManager]);
 
   const openEmptyMenu = useCallback((e) => {
     const items = [

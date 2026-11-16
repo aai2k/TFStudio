@@ -1,6 +1,7 @@
 /**
- * Project folders: creating one, renaming it, moving it, and moving designs
- * between them. Deleting one is in the removal hook, with the other deletes.
+ * Project folders: creating one, renaming it, moving it, moving designs
+ * between them, and showing a design or a folder in the system file manager.
+ * Deleting one is in the removal hook, with the other deletes.
  *
  * A folder id is its path under Projects, so renaming or moving a folder is one
  * directory rename on disk and rewrites the ids of every folder below it.
@@ -248,14 +249,33 @@ function moveFolderTo(a, folderId, targetParentId) {
     );
 }
 
+// Show the file of `item`, selected in its folder, or with no item the project
+// folder itself, in the system file manager. A design whose file is gone from
+// disk is told how to write it again, as a move of it is.
+async function showInFileManager(a, folderId, item) {
+    const name = item ? item.name : null;
+    const result = await window.electronAPI.showInFolder(folderId, name);
+    if (!result.success) {
+        const shown = name ?? folderId;
+        a.setMessageNotification({
+            type: 'error',
+            message: rowFileFailure(a.t, result.error, shown) || a.t.explorer.openInFileManagerFailed(shown),
+        });
+    }
+    return result.success;
+}
+
 export function useFolderActions({ tree, persistChange, setInputDialog, setMessageNotification, t }) {
     const a = useRef({});
     a.current = { ...tree, persistChange, setInputDialog, setMessageNotification, t };
+    const show = useCallback((folderId, item) => showInFileManager(a.current, folderId, item), []);
 
     return {
         addFolder:         useCallback((parentFolder) => askNewFolder(a.current, parentFolder), []),
         renameFolder:      useCallback((folderId, newName) => renameFolderTo(a.current, folderId, newName), []),
         moveFolder:        useCallback((folderId, parentId) => moveFolderTo(a.current, folderId, parentId), []),
         moveItemsToFolder: useCallback((itemIds, targetId) => moveDesignsTo(a.current, itemIds, targetId), []),
+        // Null where the app has no files of its own to show, as in the web demo.
+        showInFileManager: window.electronAPI?.showInFolder ? show : null,
     };
 }

@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // different parent.
   renameFolder:     (oldId, newId) => ipcRenderer.invoke('rename-folder', oldId, newId),
   deleteFolder:     (folderId, options) => ipcRenderer.invoke('delete-folder', folderId, options),
+  // Shows a design's file, selected in its folder, in the system file manager;
+  // with no design name, the project folder itself.
+  showInFolder:     (folderId, itemName) => ipcRenderer.invoke('show-in-folder', folderId, itemName),
   loadSettings:     () => ipcRenderer.invoke('load-settings'),
   saveSettings:     (settings) => ipcRenderer.invoke('save-settings', settings),
   importVscodeTheme: () => ipcRenderer.invoke('theme:import-vscode'),
@@ -53,6 +56,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // torn out of the docking layout. Other hosts that stand in for this bridge,
   // such as the browser demo, have only a popup to offer and leave it undefined.
   nativeWindows:    true,
+  // Node's name for the operating system ('win32', 'linux'), so a label can
+  // name the program the desktop uses to show files.
+  platform:         process.platform,
   // Whether the strip a torn-off window draws moves that window itself, or marks
   // itself a native drag region and lets the compositor do it. See FloatFrame.
   nativeWindowDrag,
