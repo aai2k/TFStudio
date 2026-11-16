@@ -3,8 +3,10 @@
  *
  *   1. The strictest enabled MNT row sets the floor GE and Structural propose.
  *   2. The field follows the proposal on the first open and on a design
- *      switch; a typed or stored value stays until the next switch; a run in
- *      progress is never changed.
+ *      switch; a typed value stays until the next switch, and is back when
+ *      the window opens again on its design; a value stored for another
+ *      design, or with no design beside it, gives way when the window opens;
+ *      a run in progress is never changed.
  *   3. Structural shows a note under Min thickness when it differs from the
  *      MNT row, saying which way.
  *   4. Needle Automatic keeps Min thickness and its MNT note in Advanced: its
@@ -20,7 +22,7 @@ import { loadApp, makeLocale, makeTheme, shimBrowserGlobals } from './_uiShim.mj
 shimBrowserGlobals();
 await loadApp();
 
-const { strictestMnt, deriveDMinDefault } = await import(
+const { strictestMnt, deriveDMinDefault, loadDMinTrack, dMinTyped } = await import(
     '../src/components/windows/optimization/synthesisShared/minThickness.js');
 const { LeftSidebar } = await import(
     '../src/components/windows/optimization/structuralOptimizer/structuralPanels.js');
@@ -38,20 +40,23 @@ assert.equal(strictestMnt([{ type: 'RAV', target: 0, enabled: true }]), 0, 'none
 assert.equal(strictestMnt(undefined), 0, 'none without operands');
 
 // ── 2. Following the proposal ────────────────────────────────────────────────
-function field(stored, typed) {
+const KEY = 'test_dMin';
+// A window opening on a field whose stored value is `stored`.
+function field(stored) {
     const calls = [];
     const ctx = {
-        dMinTouchedRef: { current: typed }, lastIdForDMin: { current: null }, runningRef: { current: false },
+        track: loadDMinTrack(KEY), runningRef: { current: false },
         dMinRef: { current: stored }, setDMin: v => calls.push(v),
     };
     return { ctx, calls };
 }
+const type = (ctx, v) => { dMinTyped(ctx.track); ctx.dMinRef.current = v; };
 {
-    const { ctx, calls } = field(40, false);
+    localStorage.clear();
+    const { ctx, calls } = field(40);
     deriveDMinDefault({ id: 'A' }, 15, ctx);
     assert.deepEqual(calls, [15], 'a field never typed in takes the MNT row on first open');
-    ctx.dMinTouchedRef.current = true;
-    ctx.dMinRef.current = 25;
+    type(ctx, 25);
     deriveDMinDefault({ id: 'A' }, 15, ctx);
     assert.deepEqual(calls, [15], 'a typed value stays while the design is the same');
     deriveDMinDefault({ id: 'B' }, 15, ctx);
@@ -61,11 +66,25 @@ function field(stored, typed) {
     assert.deepEqual(calls, [15, 15], 'a running synthesis keeps its floor');
 }
 {
-    const { ctx, calls } = field(40, true);
+    localStorage.clear();
+    const { ctx, calls } = field(2);
     deriveDMinDefault({ id: 'A' }, 15, ctx);
-    assert.deepEqual(calls, [], 'a stored value counts as typed when the window opens');
-    deriveDMinDefault({ id: 'B' }, 15, ctx);
-    assert.deepEqual(calls, [15], 'and gives way on the next design switch');
+    assert.deepEqual(calls, [15], 'a value stored with no design beside it gives way when the window opens');
+}
+{
+    localStorage.clear();
+    const first = field(15);
+    deriveDMinDefault({ id: 'A' }, 15, first.ctx);
+    type(first.ctx, 25);
+    const again = field(25);
+    deriveDMinDefault({ id: 'A' }, 15, again.ctx);
+    assert.deepEqual(again.calls, [], 'a value typed on a design is back when the window opens again on it');
+    const elsewhere = field(25);
+    deriveDMinDefault({ id: 'B' }, 30, elsewhere.ctx);
+    assert.deepEqual(elsewhere.calls, [30], 'a value typed on another design gives way when the window opens');
+    const back = field(30);
+    deriveDMinDefault({ id: 'A' }, 15, back.ctx);
+    assert.deepEqual(back.calls, [15], 'and is gone once it has given way');
 }
 
 // ── 3. Structural's note under Min thickness ─────────────────────────────────

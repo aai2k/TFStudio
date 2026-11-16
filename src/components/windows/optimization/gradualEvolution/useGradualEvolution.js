@@ -30,12 +30,13 @@ import {
     restoreOrClearForDesign, performReset, clearRunHistory, applyCycleSnapshot,
 } from './geStateHelpers.js';
 import { teardownRun } from '../synthesisShared/teardownRun.js';
-import { synthesisMntFloor, deriveDMinDefault } from '../synthesisShared/minThickness.js';
+import { synthesisMntFloor, deriveDMinDefault, loadDMinTrack, dMinTyped } from '../synthesisShared/minThickness.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
 // ── Window-parameterized wrappers around the shared helpers ─────────────────────
 const GE_CATS_KEY = 'tfstudio_ge_selectedCats';
+const GE_DMIN_KEY = 'tfstudio_ge_dMin';
 // GE keeps its original quiet pool (no verbose diagnostics). The pool is bound to
 // the live design so the design's own materials are always on offer, including
 // embedded definitions that no local catalog can serve.
@@ -62,7 +63,7 @@ function useGeSettings(design) {
     const [maxGeCycles,   setMaxGeCycles]   = usePersistentNumber('tfstudio_ge_maxGeCycles', GE_DEFAULTS.maxGeCycles);
     const [targetMF,      setTargetMF]      = usePersistentNumber('tfstudio_ge_targetMF', GE_DEFAULTS.targetMF);
     const [dlsIter,       setDlsIter]       = usePersistentNumber('tfstudio_ge_dlsIter', GE_DEFAULTS.refineIter);
-    const [dMin,          setDMin, dMinFromStorage] = usePersistentNumber('tfstudio_ge_dMin', GE_DEFAULTS.dMin);
+    const [dMin,          setDMin]          = usePersistentNumber(GE_DMIN_KEY, GE_DEFAULTS.dMin);
     // Deep search (utils/gradualEvolution/deepSearch.js): 1 = perturb the best
     // design when nothing is left to try, and run until Stop or the target.
     const [deepSearch,    setDeepSearch]    = usePersistentNumber('tfstudio_ge_deepSearch', GE_DEFAULTS.deepSearch ? 1 : 0);
@@ -90,15 +91,14 @@ function useGeSettings(design) {
 
     const maxMNT = synthesisMntFloor(design);
 
-    const dMinTouchedRef = useRef(dMinFromStorage);
-    const lastIdForDMin  = useRef(null);
-    const handleDMin = useCallback((v) => { dMinTouchedRef.current = true; setDMin(v); }, []);
+    const [dMinTrack] = useState(() => loadDMinTrack(GE_DMIN_KEY));
+    const handleDMin = useCallback((v) => { dMinTyped(dMinTrack); setDMin(v); }, []);
 
     return {
         maxLayers, maxGeCycles, targetMF, dlsIter, dMin, setDMin, maxMNT, deepSearch,
         setMaxLayers, setMaxGeCycles, setTargetMF, setDlsIter, handleDMin, setDeepSearch,
         maxLayersRef, maxGeCyclesRef, targetMFRef, dlsIterRef, dMinRef, deepSearchRef,
-        dMinTouchedRef, lastIdForDMin,
+        dMinTrack,
         selectedCats, selectedCatsRef, handleToggleCat, handleSelectAllCats, handleClearCats,
         excludedMats, excludedMatsRef, handleToggleMat,
     };
@@ -187,8 +187,8 @@ export function useGradualEvolution({ design, updateDesign, checkpoint, beginOpt
     // MNT penalty enforces; 15 nm without one (synthesisShared/minThickness.js).
     useEffect(() => {
         deriveDMinDefault(design, settings.maxMNT > 0 ? settings.maxMNT : GE_DEFAULTS.dMin, {
-            dMinTouchedRef: settings.dMinTouchedRef, lastIdForDMin: settings.lastIdForDMin,
-            runningRef: run.runningRef, dMinRef: settings.dMinRef, setDMin: settings.setDMin,
+            track: settings.dMinTrack, runningRef: run.runningRef,
+            dMinRef: settings.dMinRef, setDMin: settings.setDMin,
         });
     }, [settings.maxMNT, design?.id]);
 

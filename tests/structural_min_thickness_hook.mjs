@@ -71,12 +71,22 @@ function render(d) {
 }
 {
     // Andrey's case: 40 stored from earlier runs, then a design whose MNT row
-    // is 15. The stored value counts as typed until the next design switch.
+    // is 15. The value was not typed for this design, so it gives way.
     store.clear(); store.set('tfstudio_struct_dMin', '40'); react.unmount();
     const opened = render(design('Design 11', 15));
-    assert.equal(opened.dMin, 40, 'a stored value stays when the window opens');
-    assert.equal(opened.maxMNT, 15, 'and the note compares it with the MNT row');
-    assert.equal(render(design('Design 10', 15)).dMin, 15, 'the next design switch takes the MNT row');
+    assert.equal(opened.dMin, 15, 'a value stored from earlier runs gives way when the window opens');
+    assert.equal(opened.maxMNT, 15);
+}
+{
+    // Closing the window, or picking another tab in its group, unmounts it.
+    store.clear(); react.unmount();
+    render(design('A', 15)).setDMin(40);
+    react.unmount();
+    const reopened = render(design('A', 15));
+    assert.equal(reopened.dMin, 40, 'a value typed on a design is back when the window opens again on it');
+    assert.equal(reopened.maxMNT, 15, 'and the note compares it with the MNT row');
+    react.unmount();
+    assert.equal(render(design('B', 15)).dMin, 15, 'on another design the window opens at its MNT row');
 }
 {
     store.clear(); react.unmount();

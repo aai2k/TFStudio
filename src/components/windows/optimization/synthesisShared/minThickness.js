@@ -2,8 +2,10 @@
 // Structural the strictest enabled MNT row of the rows the run fits, Needle a
 // fixed thin floor for its needles) and `deriveDMinDefault` keeps the field on
 // it: the proposal is taken again when the design changes, and a value the
-// user typed stays until then. A stored value counts as typed, so reopening a
-// window does not overwrite it.
+// user typed stays until then. The id of the design a value was typed for is
+// stored beside it, so the value is back when the window opens again on that
+// design and gives way on any other. A window unmounts whenever another tab of
+// its group is picked, so opening is not treated as a design switch.
 
 import { hasEnvironments } from '../../../../utils/environments/environments.js';
 import { thicknessBound } from '../../../../utils/environments/environmentMerit.js';
@@ -34,16 +36,38 @@ export function synthesisMntFloor(design, operands = design?.meritOperands || []
     return Math.max(0, thicknessBound(design, rows, 'MNT', runMaterialIds(design, pool)) ?? 0);
 }
 
-// Move the field to `def` unless the user typed a value for this design or a
-// run is going. ctx: { dMinTouchedRef, lastIdForDMin, runningRef, dMinRef, setDMin }.
+const typedForKey = key => `${key}_design`;
+
+// What a window keeps about its field stored under `key`: the design it shows
+// and the design the stored value was typed for (null for none).
+export function loadDMinTrack(key) {
+    let typedFor = null;
+    try { typedFor = localStorage.getItem(typedForKey(key)); } catch (_) { /* none stored */ }
+    return { key, designId: null, typedFor };
+}
+
+function setTypedFor(track, id) {
+    track.typedFor = id;
+    try {
+        if (id == null) localStorage.removeItem(typedForKey(track.key));
+        else localStorage.setItem(typedForKey(track.key), id);
+    } catch (_) { /* kept while the window stays open */ }
+}
+
+// Mark the field's value as typed for the design the window shows.
+export function dMinTyped(track) {
+    setTypedFor(track, track.designId);
+}
+
+// Move the field to `def` unless the user typed its value for this design or a
+// run is going. ctx: { track, runningRef, dMinRef, setDMin }, `track` from loadDMinTrack.
 export function deriveDMinDefault(design, def, ctx) {
-    const { dMinTouchedRef, lastIdForDMin, runningRef, dMinRef, setDMin } = ctx;
-    const id = design?.id ?? null;
-    if (lastIdForDMin.current !== id) {
-        const firstMount = lastIdForDMin.current === null;
-        lastIdForDMin.current = id;
-        if (!firstMount) dMinTouchedRef.current = false;   // a real design switch re-derives
+    const { track, runningRef, dMinRef, setDMin } = ctx;
+    track.designId = design?.id ?? null;
+    if (runningRef.current) return;
+    if (track.typedFor != null) {
+        if (track.typedFor === track.designId) return;
+        setTypedFor(track, null);
     }
-    if (runningRef.current || dMinTouchedRef.current) return;
     if (Math.abs((dMinRef.current || 0) - def) > 1e-9) { setDMin(def); dMinRef.current = def; }
 }

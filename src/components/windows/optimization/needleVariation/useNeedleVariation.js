@@ -32,11 +32,12 @@ import { setCachedOptState } from './sessionState.js';
 import { syncOnDesignSwitch } from './needleLifecycle.js';
 import { teardownRun } from '../synthesisShared/teardownRun.js';
 import { performReset, clearRunHistory, findBestGeneration, jumpToGeneration } from './needleActions.js';
-import { synthesisMntFloor, deriveDMinDefault } from '../synthesisShared/minThickness.js';
+import { synthesisMntFloor, deriveDMinDefault, loadDMinTrack, dMinTyped } from '../synthesisShared/minThickness.js';
 
 const { useState, useEffect, useRef, useCallback } = React;
 
 const NEEDLE_CATS_KEY = 'tfstudio_needle_selectedCats';
+const NEEDLE_DMIN_KEY = 'tfstudio_needle_dMin';
 
 // Needle keeps its original verbose pool diagnostics. The pool is bound to the
 // live design so the design's own materials are always on offer, including
@@ -65,7 +66,7 @@ export function useNeedleVariation(t) {
     // run's own defaults (utils/needle/settings.js).
     const [maxLayers,    setMaxLayers]    = usePersistentNumber('tfstudio_needle_maxLayers', NEEDLE_DEFAULTS.maxLayers);
     const [deltaNm,      setDeltaNm]      = usePersistentNumber('tfstudio_needle_deltaNm', NEEDLE_DEFAULTS.deltaNm);
-    const [dMin,         setDMin, dMinFromStorage] = usePersistentNumber('tfstudio_needle_dMin', NEEDLE_DEFAULTS.dMin);
+    const [dMin,         setDMin]         = usePersistentNumber(NEEDLE_DMIN_KEY, NEEDLE_DEFAULTS.dMin);
     const [dlsIter,      setDlsIter]      = usePersistentNumber('tfstudio_needle_dlsIter', NEEDLE_DEFAULTS.refineIter);
     const [targetMF,     setTargetMF]     = usePersistentNumber('tfstudio_needle_targetMF', NEEDLE_DEFAULTS.targetMF);
     const {
@@ -135,12 +136,11 @@ export function useNeedleVariation(t) {
     // for standalone Needle, unlike GE's MNT-coupled default. `maxMNT` is still
     // computed here for the UI hint.
     const maxMNT = synthesisMntFloor(design, operands);
-    const dMinTouchedRef = useRef(dMinFromStorage);
-    const lastIdForDMin  = useRef(null);
+    const [dMinTrack] = useState(() => loadDMinTrack(NEEDLE_DMIN_KEY));
     useEffect(() => {
-        deriveDMinDefault(design, NEEDLE_DEFAULTS.dMin, { lastIdForDMin, dMinTouchedRef, runningRef, dMinRef, setDMin });
+        deriveDMinDefault(design, NEEDLE_DEFAULTS.dMin, { track: dMinTrack, runningRef, dMinRef, setDMin });
     }, [design?.id]);
-    const handleDMin = useCallback((v) => { dMinTouchedRef.current = true; setDMin(v); }, []);
+    const handleDMin = useCallback((v) => { dMinTyped(dMinTrack); setDMin(v); }, []);
 
     // Layer count display — read from whichever side is active for the current
     // surface mode (back for back_only, front otherwise).

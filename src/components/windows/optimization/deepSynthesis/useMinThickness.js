@@ -1,9 +1,9 @@
 import { usePersistentNumber } from '../../../ui/usePersistentState.js';
-import { synthesisMntFloor, deriveDMinDefault } from '../synthesisShared/minThickness.js';
+import { synthesisMntFloor, deriveDMinDefault, loadDMinTrack, dMinTyped } from '../synthesisShared/minThickness.js';
 import { DEEP_RUN_DEFAULTS } from '../../../../utils/synthesis/deepSynthesis/settings.js';
 import { DEEP_DMIN_KEY } from './deepSynthesisSettings.js';
 
-const { useCallback, useEffect, useRef } = React;
+const { useCallback, useEffect, useRef, useState } = React;
 
 // The thickness floor follows the strictest MNT row of the merit function and
 // the window default without one (synthesisShared/minThickness.js); a value
@@ -13,16 +13,14 @@ const { useCallback, useEffect, useRef } = React;
 // the field compares against.
 export function useMinThickness(design, runningRef) {
     const fallback = DEEP_RUN_DEFAULTS.dMin;
-    const [dMin, setDMin, typedBefore] = usePersistentNumber(DEEP_DMIN_KEY, fallback);
+    const [dMin, setDMin] = usePersistentNumber(DEEP_DMIN_KEY, fallback);
     const maxMNT = synthesisMntFloor(design);
-    const track = useRef(null);
-    if (!track.current) {
-        track.current = { dMinRef: { current: dMin }, dMinTouchedRef: { current: typedBefore }, lastIdForDMin: { current: null } };
-    }
-    useEffect(() => { track.current.dMinRef.current = dMin; }, [dMin]);
+    const dMinRef = useRef(dMin);
+    const [track] = useState(() => loadDMinTrack(DEEP_DMIN_KEY));
+    useEffect(() => { dMinRef.current = dMin; }, [dMin]);
     useEffect(() => {
-        deriveDMinDefault(design, maxMNT > 0 ? maxMNT : fallback, { ...track.current, runningRef, setDMin });
+        deriveDMinDefault(design, maxMNT > 0 ? maxMNT : fallback, { track, runningRef, dMinRef, setDMin });
     }, [maxMNT, design?.id]);
-    const onTyped = useCallback((value) => { track.current.dMinTouchedRef.current = true; setDMin(value); }, []);
+    const onTyped = useCallback((value) => { dMinTyped(track); setDMin(value); }, []);
     return { dMin, setDMin: onTyped, maxMNT };
 }

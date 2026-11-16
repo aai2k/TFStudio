@@ -6,21 +6,17 @@
  * them with localStorage makes a user's edits survive window switches (and app
  * restarts).
  *
- * Returns [value, setValue, fromStorage]:
- *   • setValue(n) writes through to localStorage.
- *   • fromStorage is true when the initial value came from a stored entry
- *     (lets callers know a user-set value exists, e.g. to skip a smart default).
+ * Returns [value, setValue]; setValue(n) writes through to localStorage.
  */
-const { useState, useCallback, useRef } = React;
+const { useState, useCallback } = React;
 
 export function usePersistentNumber(key, def) {
-    const fromStorageRef = useRef(false);
     const [value, setValue] = useState(() => {
         try {
             const raw = localStorage.getItem(key);
             if (raw != null) {
                 const n = parseFloat(raw);
-                if (!isNaN(n) && isFinite(n)) { fromStorageRef.current = true; return n; }
+                if (!isNaN(n) && isFinite(n)) return n;
             }
         } catch (_) { /* no localStorage → default */ }
         return def;
@@ -29,7 +25,7 @@ export function usePersistentNumber(key, def) {
         setValue(n);
         try { localStorage.setItem(key, String(n)); } catch (_) {}
     }, [key]);
-    return [value, set, fromStorageRef.current];
+    return [value, set];
 }
 
 /**
