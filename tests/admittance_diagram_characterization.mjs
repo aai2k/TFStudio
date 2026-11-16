@@ -178,20 +178,25 @@ assert.deepEqual(matColorMap, {
     'builtin:Au': '#ef5350',
     'builtin:SiO2': '#66bb6a',
 });
-// Arc names stay available to the tooltip, while the plot deliberately omits a
-// layer-by-layer legend that would become unusable for large coatings.
+// The arcs of one material and polarization share a line series; each arc's end
+// is a point of one scatter series named after its layer, which is what the
+// tooltip shows. The plot deliberately omits a layer-by-layer legend that would
+// become unusable for large coatings.
 const option = buildAdmittanceOption(
     front, matColorMap, matNames, { paper: '#222', background: '#111', text: '#eee', border: '#333' });
-assert.equal(option.series.length, 18);
+assert.equal(option.series.length, 13);
 assert.deepEqual(option.series.map(series => series.name || null), [
-    'L1 Silica (s)', null, 'L2 Gold (s)', null, 'L3 Titania (s)', null,
+    'Silica (s)', 'Gold (s)', 'Titania (s)', 'Silica (p)', 'Gold (p)', 'Titania (p)',
+    null,
     null, null, null,
-    'L1 Silica (p)', null, 'L2 Gold (p)', null, 'L3 Titania (p)', null,
     null, null, null,
+]);
+assert.deepEqual(option.series[6].data.map(point => point.name), [
+    'L1 Silica (s)', 'L2 Gold (s)', 'L3 Titania (s)', 'L1 Silica (p)', 'L2 Gold (p)', 'L3 Titania (p)',
 ]);
 assert.deepEqual(buildAdmittanceOption(
     front, matColorMap, {}, { paper: '#222', background: '#111', text: '#eee', border: '#333' },
-).series[0].name, 'L1 (s)',
+).series[6].data[0].name, 'L1 (s)',
     'a material with no resolvable name still labels its layer');
 assert.equal(option.legend.show, false);
 assert.deepEqual([[option.xAxis.min, option.xAxis.max], [option.yAxis.min, option.yAxis.max]], [

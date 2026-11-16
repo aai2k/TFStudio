@@ -2,10 +2,13 @@ import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 import { squareGrid } from '../../../ui/chartOptions.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { plotMargin } from '../chrome/plot.js';
-import { ADMITTANCE_ZOOM_IDS, buildAdmittanceOption } from './chartFigure.js';
+import { ADMITTANCE_ZOOM_IDS, admittanceLociWithin, buildAdmittanceOption } from './chartFigure.js';
 
 const { createElement: h, useEffect, useRef } = React;
 const progressivelyZoomable = new WeakSet();
+// What each chart was last drawn from, so the arcs can be cut anew when zooming
+// out grows its axes past the area they were cut to.
+const drawnFrom = new WeakMap();
 const DOMAIN_GROWTH = 2;
 const AFTER_GROW_START = 22.5;
 const AFTER_GROW_END = 77.5;
@@ -114,9 +117,11 @@ function isOutwardWheel(event) {
     return Number.isFinite(deltaY) && deltaY !== 0 ? deltaY > 0 : event?.wheelDelta < 0;
 }
 
+// Read from the zoom models: getOption() deep-copies every series' data, and
+// this runs on every pan frame.
 function currentZooms(chart) {
-    const option = chart.getOption();
-    return Array.isArray(option?.dataZoom) ? option.dataZoom : option?.dataZoom ? [option.dataZoom] : [];
+    return chart.getModel().findComponents({ mainType: 'dataZoom' })
+        .map(model => ({ id: model.id, start: model.option.start, end: model.option.end }));
 }
 
 function gridRect(chart) {
@@ -137,17 +142,13 @@ function sameZoomSpan(zooms) {
     return !!axes && Math.abs(zoomSpan(axes.x) - zoomSpan(axes.y)) < 1e-7;
 }
 
-function bindProgressiveZoom(chart) {
-    if (!chart || progressivelyZoomable.has(chart)) return;
-    progressivelyZoomable.add(chart);
-    let rectangleActive = false;
-    let correctingAspect = false;
-    let pan = null;
-    let panFrame = 0;
+function insideGrid(chart, event) {
+    return !chart.containPixel || chart.containPixel('grid', [event.offsetX, event.offsetY]);
+}
 
-    chart.on('globalcursortaken', event => {
-        if (event?.key === 'dataZoomSelect') rectangleActive = !!event.dataZoomSelectActive;
-    });
+/** Re(Y) and Im(Y) keep one span: a zoom that leaves them unequal is squared. */
+function bindAspectLock(chart) {
+    let correctingAspect = false;
     chart.on('datazoom', () => {
         if (correctingAspect) { correctingAspect = false; return; }
         const zooms = currentZooms(chart);
@@ -157,36 +158,73 @@ function bindProgressiveZoom(chart) {
         correctingAspect = true;
         dispatchZoom(chart, locked);
     });
+}
 
-    const zr = chart.getZr();
-    chart.getZr().on('mousewheel', event => {
-        if (chart.containPixel && !chart.containPixel('grid', [event.offsetX, event.offsetY])) return;
-        const outward = isOutwardWheel(event);
-        const option = chart.getOption();
-        const zooms = currentZooms(chart);
-        // ECharts dataZoom is bounded to 0–100. Reaching that boundary grows
-        // the underlying domain, then recentres the old domain inside it. The
-        // next outward gesture can therefore continue instead of hitting a
-        // fixed Re(Y)/Im(Y) limit.
-        const atBoundary = zooms.length && zooms.every(zoom => (
-            Number(zoom?.start) <= 1e-7 && Number(zoom?.end) >= 100 - 1e-7
-        ));
-        if (outward && atBoundary) {
-            const expanded = expandAdmittanceNavigation(option);
-            if (expanded) chart.setOption(expanded, { notMerge: false, lazyUpdate: false });
-            return;
-        }
-        const rect = gridRect(chart);
-        if (!rect?.width || !rect?.height) return;
-        const xFraction = Math.min(1, Math.max(0, (event.offsetX - rect.x) / rect.width));
-        const yFraction = Math.min(1, Math.max(0, 1 - (event.offsetY - rect.y) / rect.height));
-        dispatchZoom(chart, zoomAdmittanceAt(
-            zooms, xFraction, yFraction,
-            outward ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR,
-        ));
-        event.event?.preventDefault?.();
+// The grown axes and view, with the arcs cut to the grown area.
+function grownView(chart) {
+    const expanded = expandAdmittanceNavigation(chart.getOption());
+    const drawing = drawnFrom.get(chart);
+    if (!expanded || !drawing) return expanded;
+    const range = {
+        x: [expanded.xAxis[0].min, expanded.xAxis[0].max],
+        y: [expanded.yAxis[0].min, expanded.yAxis[0].max],
+    };
+    const series = admittanceLociWithin(drawing.series, drawing.matColorMap, drawing.matName, range,
+        { marks: drawing.marks });
+    return { ...expanded, series };
+}
+
+function wheelZoom(chart, event) {
+    if (!insideGrid(chart, event)) return;
+    const outward = isOutwardWheel(event);
+    const zooms = currentZooms(chart);
+    // ECharts dataZoom is bounded to 0–100. Reaching that boundary grows
+    // the underlying domain, then recentres the old domain inside it. The
+    // next outward gesture can therefore continue instead of hitting a
+    // fixed Re(Y)/Im(Y) limit.
+    const atBoundary = zooms.length && zooms.every(zoom => (
+        Number(zoom?.start) <= 1e-7 && Number(zoom?.end) >= 100 - 1e-7
+    ));
+    if (outward && atBoundary) {
+        const expanded = grownView(chart);
+        if (expanded) chart.setOption(expanded, { notMerge: false, lazyUpdate: false });
+        return;
+    }
+    const rect = gridRect(chart);
+    if (!rect?.width || !rect?.height) return;
+    const xFraction = Math.min(1, Math.max(0, (event.offsetX - rect.x) / rect.width));
+    const yFraction = Math.min(1, Math.max(0, 1 - (event.offsetY - rect.y) / rect.height));
+    dispatchZoom(chart, zoomAdmittanceAt(
+        zooms, xFraction, yFraction,
+        outward ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR,
+    ));
+    event.event?.preventDefault?.();
+}
+
+// The pan a press starts, or null for another button, an armed rectangle tool
+// or a press outside the plot.
+function panStart(chart, event, rectangleActive) {
+    const button = Number(event?.event?.button);
+    if (rectangleActive || (Number.isFinite(button) && button !== 0)) return null;
+    if (!insideGrid(chart, event)) return null;
+    const rect = gridRect(chart);
+    if (!rect?.width || !rect?.height) return null;
+    return {
+        startX: event.offsetX, startY: event.offsetY,
+        x: event.offsetX, y: event.offsetY,
+        rect, zooms: currentZooms(chart),
+    };
+}
+
+function bindDragPan(chart) {
+    let rectangleActive = false;
+    let pan = null;
+    let panFrame = 0;
+    chart.on('globalcursortaken', event => {
+        if (event?.key === 'dataZoomSelect') rectangleActive = !!event.dataZoomSelectActive;
     });
 
+    const zr = chart.getZr();
     const applyPan = () => {
         panFrame = 0;
         if (!pan) return;
@@ -197,16 +235,9 @@ function bindProgressiveZoom(chart) {
         ));
     };
     zr.on('mousedown', event => {
-        const button = Number(event?.event?.button);
-        if (rectangleActive || (Number.isFinite(button) && button !== 0)) return;
-        if (chart.containPixel && !chart.containPixel('grid', [event.offsetX, event.offsetY])) return;
-        const rect = gridRect(chart);
-        if (!rect?.width || !rect?.height) return;
-        pan = {
-            startX: event.offsetX, startY: event.offsetY,
-            x: event.offsetX, y: event.offsetY,
-            rect, zooms: currentZooms(chart),
-        };
+        const started = panStart(chart, event, rectangleActive);
+        if (!started) return;
+        pan = started;
         zr.setCursorStyle?.('grabbing');
     });
     zr.on('mousemove', event => {
@@ -226,6 +257,14 @@ function bindProgressiveZoom(chart) {
     zr.on('globalout', finishPan);
 }
 
+function bindProgressiveZoom(chart) {
+    if (!chart || progressivelyZoomable.has(chart)) return;
+    progressivelyZoomable.add(chart);
+    bindAspectLock(chart);
+    chart.getZr().on('mousewheel', event => wheelZoom(chart, event));
+    bindDragPan(chart);
+}
+
 export function AdmittanceChart({ series, matColorMap, matName, c }) {
     const divRef = useRef(null);
     const chartRef = useRef(null);
@@ -238,6 +277,7 @@ export function AdmittanceChart({ series, matColorMap, matName, c }) {
         const chart = drawChart(divRef.current, chartRef,
             buildAdmittanceOption(series, matColorMap, matName, colors,
                 { marks, grid: squareGrid(divRef.current, plotMargin()) }));
+        if (chart) drawnFrom.set(chart, { series, matColorMap, matName, marks });
         bindProgressiveZoom(chart);
     });
     useChartTeardown(divRef, chartRef, () => {

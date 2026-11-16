@@ -5,6 +5,7 @@ import {
 } from '../../../ui/chartOptions.js';
 import { environmentLegend } from '../chrome/environmentLegend.js';
 import { plotMargin } from '../chrome/plot.js';
+import { clipPolyline } from './clipPolyline.js';
 
 const FACTORY = ANALYSIS_DEFAULTS.admittanceDiagram.colors;
 const MAX_LEGEND_CHARS = 16;
@@ -61,11 +62,116 @@ function niceSquareRange(x, y) {
     };
 }
 
-function legendName(layerNum, material, matName, polLabel) {
+function shortName(material, matName) {
     const name = matName?.[material];
-    if (!name) return `L${layerNum}${polLabel}`;
-    const short = name.length > MAX_LEGEND_CHARS ? `${name.slice(0, MAX_LEGEND_CHARS - 1)}…` : name;
-    return `L${layerNum} ${short}${polLabel}`;
+    if (!name) return '';
+    return name.length > MAX_LEGEND_CHARS ? `${name.slice(0, MAX_LEGEND_CHARS - 1)}…` : name;
+}
+
+function legendName(layerNum, material, matName, polLabel) {
+    const short = shortName(material, matName);
+    return short ? `L${layerNum} ${short}${polLabel}` : `L${layerNum}${polLabel}`;
+}
+
+// A cut end lies this fraction of the domain's span beyond its edge, so it is
+// never drawn on the plot's edge, where its round cap would show. With the
+// whole domain in view that is several pixels, more than the cap's one.
+const CLIP_MARGIN = 0.01;
+
+/**
+ * The area the view can reach: the axes' range, which dataZoom never leaves,
+ * grown by the margin. A mirror's outer arcs reach admittances of 1e16 and
+ * beyond, and the parts out there are what the chart would otherwise lay out
+ * and paint on every frame without ever showing them.
+ */
+function clipBox(range) {
+    if (!range) return null;
+    const grow = Math.max(range.x[1] - range.x[0], range.y[1] - range.y[0]) * CLIP_MARGIN;
+    return { x: [range.x[0] - grow, range.x[1] + grow], y: [range.y[0] - grow, range.y[1] + grow] };
+}
+
+/**
+ * Arcs drawn in one colour and dash, gathered into one line series with a gap
+ * between consecutive arcs, each cut to `box` when one is given.
+ *
+ * ECharts lays out and paints every series on each pan and zoom frame, at a
+ * cost per series that far outweighs its cost per point, so a stack of a few
+ * hundred layers drawn one series per arc would spend most of each frame there.
+ */
+function addToLocus(loci, arc, { color, dash, materialName, suffix }, box, order) {
+    const id = `locus|${color}|${dash}|${suffix}`;
+    let locus = loci.get(id);
+    if (!locus) {
+        locus = { id, color, dash, suffix, materials: new Set(), data: [] };
+        loci.set(id, locus);
+    }
+    locus.lastArc = order;
+    if (materialName) locus.materials.add(materialName);
+    const runs = box ? clipPolyline(arc.re, arc.im, box) : [arc.re.map((re, index) => [re, arc.im[index]])];
+    for (const run of runs) {
+        if (locus.data.length) locus.data.push(null);
+        for (const point of run) locus.data.push(point);
+    }
+}
+
+function locusSeries({ id, color, dash, suffix, materials, data }) {
+    const name = `${[...materials].join(', ')}${suffix}`.trim();
+    return { ...lineSeries({ data, name, color, width: 2, dash, lineCap: 'round', lineJoin: 'round' }), id };
+}
+
+// How the loci of one item are drawn: in its polarization's dash and, under
+// All, in its environment's colour, each named in the labels.
+function locusLook(item, severalPolarizations, marks) {
+    return {
+        polLabel: severalPolarizations ? ` (${item.pol})` : '',
+        envColor: item.env ? environmentColor(marks, item.env.number) : null,
+        envLabel: item.env ? ` (${item.env.label})` : '',
+        dash: item.pol === 'p' ? 'dash' : 'solid',
+    };
+}
+
+const hasSeveralPolarizations = source => new Set(source.map(item => item.pol)).size > 1;
+
+function arcColor(look, arc, matColorMap) {
+    return look.envColor || matColorMap[arc.material] || '#aaaaaa';
+}
+
+// The loci in drawing order: the one holding the last arc drawn goes on top,
+// so where arcs overlap, the outermost layer shows, as it would arc by arc.
+function collectLoci(source, matColorMap, matName, marks, box) {
+    const several = hasSeveralPolarizations(source);
+    const loci = new Map();
+    let order = 0;
+    for (const item of source) {
+        const look = locusLook(item, several, marks);
+        for (const arc of item.arcs) {
+            addToLocus(loci, arc, {
+                color: arcColor(look, arc, matColorMap), dash: look.dash,
+                materialName: shortName(arc.material, matName), suffix: look.polLabel + look.envLabel,
+            }, box, order++);
+        }
+    }
+    return [...loci.values()].sort((a, b) => a.lastArc - b.lastArc);
+}
+
+function arcEnds(source, matColorMap, matName, marks) {
+    const several = hasSeveralPolarizations(source);
+    return source.flatMap(item => {
+        const look = locusLook(item, several, marks);
+        return item.arcs.map(arc => ({
+            name: legendName(arc.layerNum, arc.material, matName, look.polLabel) + look.envLabel,
+            value: [arc.re.at(-1), arc.im.at(-1)],
+            itemStyle: { color: arcColor(look, arc, matColorMap) },
+        }));
+    });
+}
+
+/** Every arc's end, one point each, carrying its layer's name for the tooltip. */
+function arcEndSeries(ends, textColor) {
+    const series = scatterSeries({ data: ends, name: '', symbol: 'circle', symbolSize: 6 });
+    series.itemStyle.borderColor = textColor;
+    series.itemStyle.borderWidth = 1;
+    return series;
 }
 
 const isReflection = series => series?.[0]?.view === 'reflection';
@@ -119,56 +225,63 @@ function sourceEnvironments(source) {
     return [...byNumber.values()];
 }
 
+// η_s, Y₀ and η₀ of each locus, named on the first alone.
+function boundaryMarks(source, colors, marks) {
+    const several = hasSeveralPolarizations(source);
+    return source.flatMap((item, index) => {
+        const { envColor } = locusLook(item, several, marks);
+        const label = text => (index > 0 ? '' : text);
+        return [
+            labeledMarker(item.marks.etaS, {
+                name: '', color: envColor || marks.start, symbol: 'rect', label: label('η_s'),
+                position: 'top', textColor: colors.text,
+            }),
+            labeledMarker(item.marks.Y0, {
+                name: '', color: envColor || marks.end, symbol: 'diamond', label: label('Y₀'),
+                position: 'right', textColor: colors.text,
+            }),
+            labeledMarker(item.marks.eta0, {
+                name: '', color: envColor || marks.target, symbol: 'cross', label: label('η₀'),
+                position: 'bottom', textColor: envColor || marks.target, size: 12,
+            }),
+        ];
+    });
+}
+
 /**
  * The loci of `source`, one polarization each, and under All one per
  * environment and polarization, each naming its environment in `env`. A locus
  * is coloured by each layer's material, or under All in its environment's
  * colour in `marks`, with η_s, Y₀ and η₀ marked in that colour too; the marks
- * are named on the first locus alone.
+ * are named on the first locus alone. The arcs of one colour and dash share a
+ * series, cut to `box`, and every arc's end is a point of one series, named
+ * after its layer.
  */
-function admittanceSeries(source, matColorMap, matName, colors, marks) {
+function admittanceSeries(source, { matColorMap, matName, colors, marks }, box) {
     if (!source?.length) return [];
-    const multiplePolarizations = new Set(source.map(item => item.pol)).size > 1;
-    const output = [];
-    source.forEach((item, index) => {
-        const polLabel = multiplePolarizations ? ` (${item.pol})` : '';
-        const envColor = item.env ? environmentColor(marks, item.env.number) : null;
-        const envLabel = item.env ? ` (${item.env.label})` : '';
-        const dash = item.pol === 'p' ? 'dash' : 'solid';
-        for (const arc of item.arcs) {
-            const color = envColor || matColorMap[arc.material] || '#aaaaaa';
-            output.push(lineSeries({
-                x: arc.re, y: arc.im,
-                name: legendName(arc.layerNum, arc.material, matName, polLabel) + envLabel,
-                color, width: 2, dash, lineCap: 'round', lineJoin: 'round',
-            }));
-            output.push(labeledMarker(
-                [arc.re.at(-1), arc.im.at(-1)],
-                { name: '', color, symbol: 'circle', textColor: colors.text, size: 6 },
-            ));
-        }
-        const label = text => (index > 0 ? '' : text);
-        output.push(labeledMarker(item.marks.etaS, {
-            name: '', color: envColor || marks.start, symbol: 'rect', label: label('η_s'),
-            position: 'top', textColor: colors.text,
-        }));
-        output.push(labeledMarker(item.marks.Y0, {
-            name: '', color: envColor || marks.end, symbol: 'diamond', label: label('Y₀'),
-            position: 'right', textColor: colors.text,
-        }));
-        output.push(labeledMarker(item.marks.eta0, {
-            name: '', color: envColor || marks.target, symbol: 'cross', label: label('η₀'),
-            position: 'bottom', textColor: envColor || marks.target, size: 12,
-        }));
-    });
+    const drawn = [
+        ...collectLoci(source, matColorMap, matName, marks, box).map(locusSeries),
+        arcEndSeries(arcEnds(source, matColorMap, matName, marks), colors.text),
+        ...boundaryMarks(source, colors, marks),
+    ];
     if (isReflection(source)) {
         const circle = Array.from({ length: 181 }, (_, index) => {
             const angle = index * Math.PI * 2 / 180;
             return [Math.cos(angle), Math.sin(angle)];
         });
-        output.unshift(lineSeries({ data: circle, name: '', color: colors.border, width: 1, dash: 'dot', silent: true, z: 0 }));
+        drawn.unshift(lineSeries({ data: circle, name: '', color: colors.border, width: 1, dash: 'dot', silent: true, z: 0 }));
     }
-    return output;
+    return drawn;
+}
+
+/**
+ * The arcs' line series cut to the axes' `range`, `{ x, y }`, as series to
+ * merge by id: zooming out past the axes grows them, and the arcs are cut to
+ * the grown area to match.
+ */
+export function admittanceLociWithin(source, matColorMap, matName, range, { marks = FACTORY } = {}) {
+    if (!source?.length) return [];
+    return collectLoci(source, matColorMap, matName, marks, clipBox(range)).map(({ id, data }) => ({ id, data }));
 }
 
 /**
@@ -179,7 +292,7 @@ export function buildAdmittanceOption(source, matColorMap, matName, colors, { ma
     const range = computeAdmittanceRange(source);
     const navigation = navigationDomain(range);
     const symbol = isReflection(source) ? 'Γ' : 'Y';
-    const series = admittanceSeries(source, matColorMap, matName, colors, marks);
+    const series = admittanceSeries(source, { matColorMap, matName, colors, marks }, clipBox(navigation.range));
     const environments = sourceEnvironments(source);
     const key = environments.length ? environmentLegend(environments, marks, colors.text) : null;
     if (key) series.push(...key.series);
