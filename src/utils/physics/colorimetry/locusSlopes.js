@@ -5,11 +5,9 @@
  * computes, differentiated, so a merit row reading one has its exact slope.
  */
 
-import { cmfTable, planck, planckSlope } from './tables.js';
 import { uv1960 } from './colorSpaces.js';
-import {
-  correlatedColorTemperature, locusRayHit, planckianXyz, spectralLocusXy, xyToXYZ,
-} from './locus.js';
+import { locusRayHit, spectralLocusXy, xyToXYZ } from './locus.js';
+import { correlatedColorTemperature, planckianUvDerivatives } from './cct.js';
 
 // ∂λ and ∂s, in vx and vy, at the crossing `hit` of the ray W + s·v with
 // segment hit.i of `loc`, v = [vx, vy]. The crossing solves W + s·v = A + u·e
@@ -65,19 +63,6 @@ export function dominantWavelengthSlopes(xy, white, observer) {
   return { ...none, comp: [-dLam[0], -dLam[1]], purity: purpleLinePurity(loc, white, v) };
 }
 
-// ∂u/∂T and ∂v/∂T of the blackbody at T in CIE 1960 u, v: u = 4X/D and
-// v = 6Y/D, D = X + 15Y + 3Z, X, Y and Z summed as planckianXyz sums them.
-function planckianUvSlope(T, observer) {
-  let X = 0, Y = 0, Z = 0, dX = 0, dY = 0, dZ = 0;
-  for (const [lam, xb, yb, zb] of cmfTable(observer)) {
-    const P = planck(lam, T), dP = planckSlope(lam, T);
-    X += P * xb; Y += P * yb; Z += P * zb;
-    dX += dP * xb; dY += dP * yb; dZ += dP * zb;
-  }
-  const D = X + 15 * Y + 3 * Z, dD = dX + 15 * dY + 3 * dZ;
-  return { u: 4 * (dX * D - X * dD) / (D * D), v: 6 * (dY * D - Y * dD) / (D * D) };
-}
-
 // [∂/∂x, ∂/∂y] of CIE 1960 u and v at the chromaticity xy: u = 4x / q and
 // v = 6y / q, q = 12y − 2x + 3.
 function uvSlopes({ x, y }) {
@@ -89,32 +74,28 @@ function uvSlopes({ x, y }) {
 /**
  * What correlatedColorTemperature gives at `xy`, with the derivatives in x and
  * y of its CCT and Duv, each a pair [∂/∂x, ∂/∂y]: `{ cct, duv, dCct, dDuv }`.
- * CCT is McCamy's cubic in n = (x − 0.3320) / (y − 0.1858) (McCamy, Color
- * Res. Appl. 17, 142 (1992)). Duv is the distance in CIE 1960 u, v from the
- * colour to the nearest blackbody of the 5 K search, so it moves along the line
- * from that blackbody to the colour, the normal to the locus where the search
- * finds the foot of it. The search runs from McCamy's estimate less 400 K, or
- * from 1000 K, and where it runs from the estimate its blackbodies move with
- * the colour as the estimate does, which adds their own motion along the
- * locus. A pair is [0, 0] where its value is NaN.
+ * CCT is the T at which the blackbody p(T) is nearest the colour s in CIE 1960
+ * u, v, so F = (p − s)·p′ = 0 there, and implicit differentiation gives
+ * ∂T/∂s = p′ / F_T, F_T = |p′|² + (p − s)·p″. Duv is ±|s − p(T)| at that T,
+ * and s − p(T) lies along the normal to the locus there. As T is where the
+ * distance is least, its own motion adds nothing, so ∂Duv/∂s is that unit
+ * normal, turned towards +v; this holds on the locus too, where s − p(T) has
+ * no direction of its own. A pair is [0, 0] where its value is NaN.
  */
 export function correlatedColorTemperatureSlopes(xy, observer) {
   const { cct, duv, locusT } = correlatedColorTemperature(xy, observer);
-  const denom = xy.y - 0.1858;
-  const n = (xy.x - 0.3320) / denom;
-  const raw = -449 * n * n * n + 3525 * n * n - 6823.3 * n + 5520.33;
-  const dT = -3 * 449 * n * n + 2 * 3525 * n - 6823.3;
-  const dRaw = [dT / denom, -dT * n / denom];
-  const dCct = Number.isFinite(cct) ? dRaw : [0, 0];
-  if (!Number.isFinite(duv)) return { cct, duv, dCct, dDuv: [0, 0] };
+  if (!Number.isFinite(duv)) return { cct, duv, dCct: [0, 0], dDuv: [0, 0] };
   const sample = uv1960(xyToXYZ(xy));
-  const pl = uv1960(planckianXyz(locusT, observer));
-  const du = sample.u - pl.u, dv = sample.v - pl.v;
-  const dist = Math.hypot(du, dv);
+  const { u, v } = planckianUvDerivatives(locusT, observer);
+  const du = sample.u - u.f, dv = sample.v - v.f;
   const dSample = uvSlopes(xy);
-  const moves = raw - 400 > 1000 ? dRaw : [0, 0];
-  const dLocus = planckianUvSlope(locusT, observer);
-  const k = dist > 0 ? (sample.v > pl.v ? 1 : -1) / dist : 0;
-  const dDuv = [0, 1].map(j => k * (du * (dSample.u[j] - dLocus.u * moves[j]) + dv * (dSample.v[j] - dLocus.v * moves[j])));
+  const FT = u.d1 * u.d1 + v.d1 * v.d1 - du * u.d2 - dv * v.d2;
+  const dCct = Number.isFinite(cct) && FT > 0
+    ? [0, 1].map(j => (u.d1 * dSample.u[j] + v.d1 * dSample.v[j]) / FT)
+    : [0, 0];
+  const speed = Math.hypot(u.d1, v.d1);
+  const turn = u.d1 >= 0 ? 1 : -1;
+  const nu = -turn * v.d1 / speed, nv = turn * u.d1 / speed;
+  const dDuv = [0, 1].map(j => nu * dSample.u[j] + nv * dSample.v[j]);
   return { cct, duv, dCct, dDuv };
 }

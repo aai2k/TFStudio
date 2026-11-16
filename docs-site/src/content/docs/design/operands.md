@@ -108,7 +108,7 @@ The color is computed as [Color Evaluation](/analysis/color-evaluation/) compute
 | Hunter L, Hunter a, Hunter b | Hunter Lab | | 100 | 1 unit |
 | λd, λc | Dominant and complementary wavelength | nm | 500 | 5 nm |
 | Purity | Excitation purity, a fraction of 1 | | 1 | 0.01 |
-| CCT | Correlated color temperature, by McCamy's formula | K | 500, on the miss in mired | 5 mired |
+| CCT | Correlated color temperature, the temperature of the nearest blackbody in CIE 1960 u, v | K | 500, on the miss in mired | 5 mired |
 | Duv | Distance from the Planckian locus in u, v, positive above it | | 0.4 | 0.004 |
 
 **Why these scales.** A miss scores 0.01 when it is about the smallest color step an eye sees, as a 1 % miss in R does with σ = 1. On the ΔE spaces that step is the unit the ΔE formulas are built on; in chromaticity it is a common rule of thumb in u′, v′. suv is 13 times the distance from the white in u′, v′ (CIE 15:2004), so its scale is 13 times the chromaticity's.
@@ -117,7 +117,7 @@ The color is computed as [Color Evaluation](/analysis/color-evaluation/) compute
 
 **CCT.** The least step seen in color temperature is nearly constant in mired, 10⁶/T, from 1800 K to 11000 K, while in kelvin it grows from under 50 K at 3200 K to over 200 K at 6500 K (Crandell, Freund and Moen, 1950). A CCT row therefore scores 10⁶/target − 10⁶/value, and its target must be above 0 K. CCT and Duv are read from the 2° chromaticity whatever the observer, as CIE 15:2004 defines them.
 
-**No value.** λd has no value for a purple, λc has one only for a purple, and neither has one at the white itself. CCT and Duv have none where McCamy's estimate falls outside 1000 K to 10⁶ K, and CCT none further than 0.05 from the Planckian locus. A row with no value shows **Error**, and the merit cannot be computed until it has one, as with any row. A run never steps into such a color: pulled toward one, it stops at the edge, such as the blue end of the locus for λd, and a run that starts on one ends at once, naming the row. Purity always has a value.
+**No value.** λd has no value for a purple, λc has one only for a purple, and neither has one at the white itself. CCT and Duv have none where the nearest blackbody is at either end of 1000 K to 10⁶ K, and CCT none further than 0.05 from the Planckian locus. A row with no value shows **Error**, and the merit cannot be computed until it has one, as with any row. A run never steps into such a color: pulled toward one, it stops at the edge, such as the blue end of the locus for λd, and a run that starts on one ends at once, naming the row. Purity always has a value.
 
 The optimizers take a color row's slopes exactly, from those of X, Y and Z through each quantity's formula, so a color row never makes a run take its slopes by finite differences. The [Merit Function Wizard](/design/merit-function-editor/#the-wizard)'s Color preset writes these rows from a list of color targets, and [Color Evaluation](/analysis/color-evaluation/)'s **Targets** button draws them on its diagram.
 
@@ -361,5 +361,5 @@ When a run starts, each spectral-target row (`TGT`, `RGT`, `AGT`) is checked for
 - B. T. Sullivan, J. A. Dobrowolski, "Implementation of a numerical needle method for thin-film design," *Appl. Opt.* **35**, 5484 (1996).
 - C. A. Klein, "Normal and interfacial stresses in thin-film coated optics: the case of diamond-coated zinc sulfide windows," *Opt. Eng.* **40**, 1115 (2001): eq. 14 for the film force, eq. 34 for the zero-deflection condition a `STR` target of 0 asks for.
 - CIE 15:2004, *Colorimetry*, 3rd ed.: the color spaces, the hue difference ΔH and the CIELUV saturation the color rows read.
-- C. S. McCamy, *Color Res. Appl.* **17**, 142 (1992): CCT from x, y.
+- CIE 15:2018, *Colorimetry*, 4th ed., §9.5; Y. Ohno, *LEUKOS* **10**, 47 (2014): CCT and Duv.
 - Crandell, Freund and Moen, *J. SMPE* **55**, 74 (1950): the least perceptible step in color temperature, in mired.

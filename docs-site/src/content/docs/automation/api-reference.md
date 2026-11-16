@@ -8376,9 +8376,9 @@ print(d.wavelength if d.wavelength is not None else "complementary {}".format(d.
 | ---------- | ------ |
 | `c.cct` | `c.cct` |
 
-**JavaScript**: The correlated colour temperature, K, by McCamy's formula on the 2 degree chromaticity whatever the observer; NaN outside the 1000 K to 1e6 K it covers, or more than 0.05 from the Planckian locus.
+**JavaScript**: The correlated colour temperature, K: the temperature of the nearest blackbody in CIE 1960 u, v, from the 2 degree chromaticity whatever the observer; NaN when that blackbody is at either end of 1000 K to 1e6 K, or more than 0.05 from the Planckian locus.
 
-**Python**: The correlated colour temperature, K, by McCamy's formula on the 2 degree chromaticity whatever the observer; nan outside the 1000 K to 1e6 K it covers, or more than 0.05 from the Planckian locus.
+**Python**: The correlated colour temperature, K: the temperature of the nearest blackbody in CIE 1960 u, v, from the 2 degree chromaticity whatever the observer; nan when that blackbody is at either end of 1000 K to 1e6 K, or more than 0.05 from the Planckian locus.
 
 ```js
 const design = tf.newDesign('AR');
@@ -8398,9 +8398,9 @@ print(round(design.color(quantity="T").cct), "K")
 | ---------- | ------ |
 | `c.duv` | `c.duv` |
 
-**JavaScript**: The distance from the Planckian locus in CIE 1960 u, v, positive above it; NaN outside the range McCamy's formula covers.
+**JavaScript**: The distance from the Planckian locus in CIE 1960 u, v, positive above it; NaN when the nearest blackbody is at either end of 1000 K to 1e6 K.
 
-**Python**: The distance from the Planckian locus in CIE 1960 u, v, positive above it; nan outside the range McCamy's formula covers.
+**Python**: The distance from the Planckian locus in CIE 1960 u, v, positive above it; nan when the nearest blackbody is at either end of 1000 K to 1e6 K.
 
 ```js
 const design = tf.newDesign('AR');

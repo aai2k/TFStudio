@@ -21,8 +21,8 @@
  *  - CIELAB / CIELUV / u'v' / 1960 uv / Hunter Lab: CIE 15:2004 §8.
  *  - Dominant/complementary wavelength + excitation purity: Macleod §12.2
  *    (white-point → sample → spectrum-locus construction); CIE 15 §F.
- *  - Correlated colour temperature: McCamy, *Color Res. Appl.* 17, 142 (1992)
- *    cubic approximation; Duv via Planckian locus in CIE 1960 (u,v).
+ *  - Correlated colour temperature and Duv: the nearest point of the Planckian
+ *    locus in CIE 1960 (u,v), CIE 15:2018 §9.5; Y. Ohno, LEUKOS 10, 47 (2014).
  *  - Colour difference ΔE₀₀: CIE 142-2001 / Sharma, Wu & Dalal,
  *    *Color Res. Appl.* 30, 21 (2005).
  *  - XYZ→sRGB swatch: IEC 61966-2-1 (sRGB) primaries + Bradford chromatic
@@ -55,8 +55,9 @@ export {
   labToXyz, luvToXyz, lightnessToY,
 } from './colorimetry/colorSpaces.js';
 export {
-  spectralLocusXy, dominantWavelength, correlatedColorTemperature, planckianXyz,
+  spectralLocusXy, dominantWavelength, planckianXyz,
 } from './colorimetry/locus.js';
+export { correlatedColorTemperature } from './colorimetry/cct.js';
 export { COLOR_QUANTITIES, HUE_CHROMA, colorQuantity, quantityObserver } from './colorimetry/quantities.js';
 export { ciede2000, labDifference } from './colorimetry/deltaE.js';
 export { xyzToSRGB, chromaticityDisplayRgb, SRGB_PRIMARIES, srgbPrimariesUnder } from './colorimetry/srgb.js';

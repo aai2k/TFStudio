@@ -1,11 +1,10 @@
 /**
  * Spectrum-locus construction, dominant/complementary wavelength + excitation
- * purity, and correlated colour temperature. See ../colorimetry.js for the
- * full physics provenance.
+ * purity, and the Planckian locus. See ../colorimetry.js for the full physics
+ * provenance.
  */
 
 import { cmfTable, planck } from './tables.js';
-import { uv1960 } from './colorSpaces.js';
 
 // Spectrum locus (monochromatic-stimulus chromaticities) for the observer.
 function spectrumLocus(observer) {
@@ -72,42 +71,6 @@ export function dominantWavelength(xy, white, observer) {
              purity: purple && purple.dist > 0 ? sampleDist / purple.dist : 0 };
   }
   return { dom: null, comp: null, purity: 0 };
-}
-
-/**
- * Correlated colour temperature (McCamy 1992 cubic) + Duv.
- * Duv = signed distance from the sample to the Planckian locus in CIE 1960
- * (u,v) (positive above the locus).
- */
-export function correlatedColorTemperature(xy, observer) {
-  // McCamy 1992: n = (x − xe)/(y − ye), epicenter (0.3320, 0.1858). The formula
-  // is singular at the epicenter; guard the division so y=0.1858 can't emit
-  // ±Infinity/NaN that would then break the Duv search loop below.
-  const denom = xy.y - 0.1858;
-  if (!(Math.abs(denom) > 1e-6)) return { cct: NaN, duv: NaN, locusT: NaN };
-  const n = (xy.x - 0.3320) / denom;
-  const cct = -449 * n * n * n + 3525 * n * n - 6823.3 * n + 5520.33;
-  // Outside the McCamy-valid range CCT is meaningless; report N/A.
-  if (!Number.isFinite(cct) || cct < 1000 || cct > 1e6) {
-    return { cct: NaN, duv: NaN, locusT: NaN };
-  }
-  // Duv: nearest blackbody on the locus near the McCamy estimate.
-  const uvOf = (T) => uv1960(planckianXyz(T, observer));
-  const sample = uv1960(xyToXYZ(xy));
-  let bestT = cct, bestD = Infinity;
-  for (let T = Math.max(1000, cct - 400); T <= cct + 400; T += 5) {
-    const p = uvOf(T);
-    const d = Math.hypot(p.u - sample.u, p.v - sample.v);
-    if (d < bestD) { bestD = d; bestT = T; }
-  }
-  const pl = uvOf(bestT);
-  const duv = (sample.v > pl.v ? 1 : -1) * bestD;
-  // McCamy CCT is only meaningful near the Planckian locus. Beyond |Duv| ~ 0.05
-  // (where the ±400 K search also tends to rail at its window edge) the colour
-  // is too far off-locus for a correlated temperature: report N/A for cct but
-  // still return the measured Duv.
-  if (Math.abs(duv) > 0.05) return { cct: NaN, duv, locusT: bestT };
-  return { cct, duv, locusT: bestT };
 }
 
 /**

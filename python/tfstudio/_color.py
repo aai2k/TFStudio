@@ -226,9 +226,9 @@ class Color:
             print(d.wavelength if d.wavelength is not None else "complementary {}".format(d.complementary),
                   "nm, purity", round(d.purity, 3))
         """)
-    cct = _reading("cct", """The correlated colour temperature, K, by McCamy's formula on the 2 degree
-        chromaticity whatever the observer; nan outside the 1000 K to 1e6 K it covers, or more than 0.05
-        from the Planckian locus.
+    cct = _reading("cct", """The correlated colour temperature, K: the temperature of the nearest blackbody
+        in CIE 1960 u, v, from the 2 degree chromaticity whatever the observer; nan when that blackbody is
+        at either end of 1000 K to 1e6 K, or more than 0.05 from the Planckian locus.
 
         Example::
 
@@ -237,7 +237,7 @@ class Color:
             print(round(design.color(quantity="T").cct), "K")
         """)
     duv = _reading("duv", """The distance from the Planckian locus in CIE 1960 u, v, positive above it;
-        nan outside the range McCamy's formula covers.
+        nan when the nearest blackbody is at either end of 1000 K to 1e6 K.
 
         Example::
 

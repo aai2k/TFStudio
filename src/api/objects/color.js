@@ -230,9 +230,10 @@ export class Color {
     get dominant() { return this._colour.dominant; }
 
     /**
-     * The correlated colour temperature, K, by McCamy's formula on the 2
-     * degree chromaticity whatever the observer; NaN outside the 1000 K to
-     * 1e6 K it covers, or more than 0.05 from the Planckian locus.
+     * The correlated colour temperature, K: the temperature of the nearest
+     * blackbody in CIE 1960 u, v, from the 2 degree chromaticity whatever the
+     * observer; NaN when that blackbody is at either end of 1000 K to 1e6 K,
+     * or more than 0.05 from the Planckian locus.
      *
      * @example
      * const design = tf.newDesign('AR');
@@ -243,7 +244,7 @@ export class Color {
 
     /**
      * The distance from the Planckian locus in CIE 1960 u, v, positive above
-     * it; NaN outside the range McCamy's formula covers.
+     * it; NaN when the nearest blackbody is at either end of 1000 K to 1e6 K.
      *
      * @example
      * const design = tf.newDesign('AR');

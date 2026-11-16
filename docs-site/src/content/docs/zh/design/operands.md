@@ -108,7 +108,7 @@ ribbonIcon: merit-function
 | Hunter L, Hunter a, Hunter b | Hunter Lab | | 100 | 1 个单位 |
 | λd, λc | 主波长与补色波长 | nm | 500 | 5 nm |
 | 纯度 | 兴奋纯度，0 到 1 之间的小数 | | 1 | 0.01 |
-| CCT | 相关色温，按 McCamy 公式 | K | 500，按迈尔德 (mired) 计的偏差 | 5 mired |
+| CCT | 相关色温，即在 CIE 1960 u, v 中最近的黑体的温度 | K | 500，按迈尔德 (mired) 计的偏差 | 5 mired |
 | Duv | 在 u, v 中到普朗克轨迹的距离，在其上方为正 | | 0.4 | 0.004 |
 
 **为什么取这些尺度。** 偏差约为人眼能看出的最小颜色差时计分为 0.01，正如 σ = 1 时 R 中 1 % 的偏差。在 ΔE 色空间中，这一步就是 ΔE 公式所依据的单位；在色品坐标中，它是 u′, v′ 中一个常用的经验值。suv 是 u′, v′ 中到白点距离的 13 倍（CIE 15:2004），因此它的尺度是色品坐标的 13 倍。
@@ -117,7 +117,7 @@ ribbonIcon: merit-function
 
 **CCT。** 色温中能看出的最小差别在迈尔德（10⁶/T）中从 1800 K 到 11000 K 几乎不变，而以开尔文计则从 3200 K 处的不到 50 K 增大到 6500 K 处的 200 K 以上（Crandell、Freund 与 Moen，1950）。因此 CCT 行计分 10⁶/目标 − 10⁶/值，其目标必须大于 0 K。无论观察者如何，CCT 与 Duv 都按 CIE 15:2004 的定义由 2° 色品坐标读取。
 
-**没有值。** 紫色没有 λd，λc 只有紫色才有，白点本身两者都没有。McCamy 的估计值落在 1000 K 到 10⁶ K 之外时，CCT 与 Duv 都没有值；离普朗克轨迹超过 0.05 时，CCT 没有值。没有值的行显示 **错误**，在它有值之前评价函数无法计算，与其他任何行相同。运行不会迈入这样的颜色：被拉向它时，运行停在边界上，例如 λd 停在光谱轨迹的蓝端；从这样的颜色开始的运行会立即结束，并指出该行。纯度总有值。
+**没有值。** 紫色没有 λd，λc 只有紫色才有，白点本身两者都没有。最近的黑体位于 1000 K 到 10⁶ K 的任一端时，CCT 与 Duv 都没有值；离普朗克轨迹超过 0.05 时，CCT 没有值。没有值的行显示 **错误**，在它有值之前评价函数无法计算，与其他任何行相同。运行不会迈入这样的颜色：被拉向它时，运行停在边界上，例如 λd 停在光谱轨迹的蓝端；从这样的颜色开始的运行会立即结束，并指出该行。纯度总有值。
 
 优化器精确求取颜色行的斜率：由 X、Y、Z 的斜率经各量的公式求得，因此颜色行不会使运行改用有限差分求斜率。[评价函数向导](/zh/design/merit-function-editor/#向导)的颜色预设由一组颜色目标写出这些行，[颜色评估](/zh/analysis/color-evaluation/)的 **目标** 按钮把它们画在色度图上。
 
@@ -361,5 +361,5 @@ MF = √( Σ wᵢ · (rᵢ / σᵢ)²  /  W )
 - B. T. Sullivan, J. A. Dobrowolski, "Implementation of a numerical needle method for thin-film design," *Appl. Opt.* **35**, 5484 (1996)。
 - C. A. Klein, "Normal and interfacial stresses in thin-film coated optics: the case of diamond-coated zinc sulfide windows," *Opt. Eng.* **40**, 1115 (2001)：式 (14) 给出薄膜合力，式 (34) 给出 `STR` 目标为 0 时所要求的零挠度条件。
 - CIE 15:2004, *Colorimetry*, 3rd ed.：颜色行所读取的各色空间、色调差 ΔH 与 CIELUV 饱和度。
-- C. S. McCamy, *Color Res. Appl.* **17**, 142 (1992)：由 x, y 求 CCT。
+- CIE 15:2018, *Colorimetry*, 4th ed., §9.5; Y. Ohno, *LEUKOS* **10**, 47 (2014)：CCT 与 Duv。
 - Crandell, Freund and Moen, *J. SMPE* **55**, 74 (1950)：以迈尔德计的色温最小可察觉差。

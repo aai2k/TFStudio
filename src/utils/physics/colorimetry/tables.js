@@ -120,18 +120,11 @@ function spdA(lambda_nm) {
 }
 
 // Second radiation constant c2, nm·K, the value ITS-90 fixes.
-const PLANCK_C2 = 1.4388e7;
+export const PLANCK_C2 = 1.4388e7;
 
 // Blackbody relative SPD (Planck's law, c2 = 1.4388e7 nm·K) — for CCT/Duv locus.
 export function planck(lambda_nm, T) {
   return Math.pow(lambda_nm, -5) / (Math.exp(PLANCK_C2 / (lambda_nm * T)) - 1);
-}
-
-// ∂planck/∂T: with a = c2/(λT), λ⁻⁵·eᵃ·a / (T·(eᵃ − 1)²).
-export function planckSlope(lambda_nm, T) {
-  const a = PLANCK_C2 / (lambda_nm * T);
-  const e = Math.exp(a);
-  return Math.pow(lambda_nm, -5) * e * a / (T * (e - 1) * (e - 1));
 }
 
 export const OBSERVERS   = [{ id: '2',  label: 'CIE 1931 2°' },

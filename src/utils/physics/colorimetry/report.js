@@ -5,7 +5,8 @@
  */
 
 import { tristimulus, whitePoint, chromaticityXy, uvPrime, uv1960, lab, luv, hunterLab } from './colorSpaces.js';
-import { dominantWavelength, correlatedColorTemperature } from './locus.js';
+import { dominantWavelength } from './locus.js';
+import { correlatedColorTemperature } from './cct.js';
 import { xyzToSRGB } from './srgb.js';
 
 /**

@@ -5,8 +5,8 @@
  * functions colorReport composes, so a row reads what the Color Evaluation
  * window shows; the slopes are those functions differentiated. Formulas: CIE
  * 15:2004 §8 for the colour spaces, Macleod, Thin-Film Optical Filters 5th ed.
- * §12.2 for the dominant wavelength and purity, McCamy, Color Res. Appl. 17, 142
- * (1992) for CCT. See ../colorimetry.js for the provenance of each.
+ * §12.2 for the dominant wavelength and purity, CIE 15:2018 §9.5 for CCT. See
+ * ../colorimetry.js for the provenance of each.
  */
 
 import { chromaticityXy, uvPrime, uv1960, lab, luv, hunterLab } from './colorSpaces.js';
@@ -171,8 +171,9 @@ const QUANTITY = {
  * illuminant's `white` on the same grid, and the `observer` ('2' or '10') both
  * were taken with (quantityObserver). The value is NaN where the colour has
  * none: a dominant wavelength for a purple, a complementary one for any other
- * colour, CCT and Duv off the range McCamy's formula covers and CCT more than
- * 0.05 from the Planckian locus; its slope is then [0, 0, 0].
+ * colour, CCT and Duv where the nearest blackbody is at either end of 1000 K
+ * to 10⁶ K and CCT more than 0.05 from the Planckian locus; its slope is then
+ * [0, 0, 0].
  */
 export function colorQuantity(quantity, { XYZ, white, observer }) {
   const [value, slope] = QUANTITY[quantity]({ XYZ, white, observer });

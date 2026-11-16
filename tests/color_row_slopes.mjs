@@ -8,13 +8,14 @@
  *      and an absorbing one. Each row misses its target, a hue row by 25°, so
  *      the chroma term of its ΔH* miss is checked too. A quantity the colour has
  *      no value for in a case (λd of a purple, λc of any other colour, CCT off
- *      the locus) is left out of that case; every quantity is checked in some.
+ *      the locus, CCT and Duv where the nearest blackbody is outside 1000 K to
+ *      10⁶ K) is left out of that case; every quantity is checked in some.
  *      A column whose differences at 0.01 nm are off is checked again at
  *      0.0001 nm, where they settle: λd, λc and purity are read off the
- *      spectral locus drawn straight between its 5 nm table points, and Duv
- *      off the nearest blackbody of a 5 K search, so each turns a corner where
- *      the colour crosses a table point (λd can move a quarter of a nanometre
- *      for 0.01 nm of layer); and C* and h° bend sharply near the white, so a
+ *      spectral locus drawn straight between its 5 nm table points, so each
+ *      turns a corner where the colour crosses a table point (λd can move a
+ *      quarter of a nanometre for 0.01 nm of layer); and C* and h° bend
+ *      sharply near the white, so a
  *      near-neutral colour bends them within 0.01 nm. The count of such
  *      columns per quantity is printed.
  *   2. Math rows read a colour row's value: OPVA of a hab row and DIFF of the x
@@ -179,11 +180,14 @@ console.log(`    columns checked at ${FINE_STEP_NM} nm: ${[...fineColumns].map((
     const thk = engine.thicknesses.slice();
     assert.ok(engine._analyticJacobian(thk, freeAll(engine)), 'mixed merit: the Jacobian is analytic');
     const g = engine.gradMF(thk);
+    // The merit bends enough that differences at 0.01 nm are off by about 1e-5
+    // of the gradient, falling as the step squared; at 0.001 nm they settle.
+    const step = 1e-3;
     let worst = 0, scale = 0;
     thk.forEach((_, k) => {
-        const plus = thk.slice(); plus[k] += STEP_NM;
-        const minus = thk.slice(); minus[k] -= STEP_NM;
-        const fd = (engine.mfAt(plus) - engine.mfAt(minus)) / (2 * STEP_NM);
+        const plus = thk.slice(); plus[k] += step;
+        const minus = thk.slice(); minus[k] -= step;
+        const fd = (engine.mfAt(plus) - engine.mfAt(minus)) / (2 * step);
         scale = Math.max(scale, Math.abs(fd));
         worst = Math.max(worst, Math.abs(g[k] - fd));
     });

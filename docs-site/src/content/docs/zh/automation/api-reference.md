@@ -8376,9 +8376,9 @@ print(d.wavelength if d.wavelength is not None else "complementary {}".format(d.
 | ---------- | ------ |
 | `c.cct` | `c.cct` |
 
-**JavaScript**：相关色温，单位 K，由 McCamy 公式在 2 度色度坐标上求得，与观察者无关；超出该公式覆盖的 1000 K 到 1e6 K，或离普朗克轨迹超过 0.05 时为 NaN。
+**JavaScript**：相关色温，单位 K：在 CIE 1960 u, v 中最近的黑体的温度，在 2 度色度坐标上求得，与观察者无关；该黑体位于 1000 K 到 1e6 K 的任一端，或离普朗克轨迹超过 0.05 时为 NaN。
 
-**Python**：相关色温，单位 K，由 McCamy 公式在 2 度色度坐标上求得，与观察者无关；超出该公式覆盖的 1000 K 到 1e6 K，或离普朗克轨迹超过 0.05 时为 nan。
+**Python**：相关色温，单位 K：在 CIE 1960 u, v 中最近的黑体的温度，在 2 度色度坐标上求得，与观察者无关；该黑体位于 1000 K 到 1e6 K 的任一端，或离普朗克轨迹超过 0.05 时为 nan。
 
 ```js
 const design = tf.newDesign('AR');
@@ -8398,9 +8398,9 @@ print(round(design.color(quantity="T").cct), "K")
 | ---------- | ------ |
 | `c.duv` | `c.duv` |
 
-**JavaScript**：到普朗克轨迹的距离，在 CIE 1960 u, v 中计，在轨迹上方为正；超出 McCamy 公式覆盖的范围时为 NaN。
+**JavaScript**：到普朗克轨迹的距离，在 CIE 1960 u, v 中计，在轨迹上方为正；最近的黑体位于 1000 K 到 1e6 K 的任一端时为 NaN。
 
-**Python**：到普朗克轨迹的距离，在 CIE 1960 u, v 中计，在轨迹上方为正；超出 McCamy 公式覆盖的范围时为 nan。
+**Python**：到普朗克轨迹的距离，在 CIE 1960 u, v 中计，在轨迹上方为正；最近的黑体位于 1000 K 到 1e6 K 的任一端时为 nan。
 
 ```js
 const design = tf.newDesign('AR');
