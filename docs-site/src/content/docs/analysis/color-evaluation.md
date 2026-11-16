@@ -103,6 +103,8 @@ The **Results** strip under the diagram has three views, one row or patch per an
 - **Differences**: how far each angle's color is from the first angle's: ΔL\*, Δa\*, Δb\*, the CIE 1976 color difference ΔE\*ab and the CIEDE2000 color difference ΔE00. Under **All** with more than one environment on, each environment's color is measured against the first environment's at the same angle instead, so each row reads the shift that environment makes, and the first environment's rows read zero.
 - **Color Patch**: a patch of the coating's color at each angle, with its Y, next to the reference white of the illuminant, in a row that wraps when there are more angles than fit.
 
+Hover a value, its heading, or a value on the lines under the diagram to see what it is, in the words of [What the values mean](#what-the-values-mean).
+
 **Export** writes every color space and the differences to one CSV, whichever view is open.
 
 ## References

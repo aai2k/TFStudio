@@ -162,7 +162,7 @@ for (const code of ['en', 'ru', 'zh', 'it']) {
     assert.deepEqual(fields, ['0.23', '0.24', '1'], `${code}: the selected target's x, y and Y`);
     assert.ok(html.includes(te.hint.xyY), `${code}: and what a click sets`);
     for (const key of ['x', 'y', 'Y']) {
-        assert.ok(html.includes(`title="${te.fieldTips[key].replace(/'/g, '&#x27;')}"`), `${code}: ${key} says what it is`);
+        assert.ok(html.includes(`title="${tl.colorEval.valueTips[key].replace(/'/g, '&#x27;')}"`), `${code}: ${key} says what it is`);
     }
     const fresh = renderToStaticMarkup(React.createElement(ColorTargetEditor, {
         design: null, typeId: 'COLOR_R', targets: [], illuminant: 'D65', observer: 2,

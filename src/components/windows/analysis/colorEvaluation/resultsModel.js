@@ -113,6 +113,10 @@ const SPACES = [
 
 export const TABLE_SPACE_IDS = SPACES.map(space => space.id);
 
+// Each value's column with what the value is as its title (ce.valueTips, by
+// the value's key).
+const withTips = (columns, ce) => columns.map(col => ({ ...col, title: ce.valueTips?.[col.key] }));
+
 /** The spaces as dropdown options. */
 export function tableSpaceOptions(ce) {
     return SPACES.map(space => ({ id: space.id, label: space.name(ce) }));
@@ -121,20 +125,21 @@ export function tableSpaceOptions(ce) {
 /** The Table's columns for one colour space, after the angle and, under All, the environment. */
 export function tableColumns(spaceId, ce, units, reports) {
     const space = SPACES.find(item => item.id === spaceId) || SPACES[0];
-    return [...leadColumns(reports, ce), ...space.columns(ce, units)];
+    return [...leadColumns(reports, ce), ...withTips(space.columns(ce, units), ce)];
 }
 
 /**
  * The Table for one angle, where a row per angle would hold two or three
- * numbers: every colour space at once, one row each, as its quantities' names
- * and values.
+ * numbers: every colour space at once, one row each, as its quantities' names,
+ * values and what each value is.
  */
 export function spaceRows(report, ce, units) {
     const [row] = colorRows([{ theta: 0, report }]);
     return SPACES.map(space => ({
         id: space.id,
         space: space.name(ce),
-        pairs: space.columns(ce, units).map(col => ({ label: col.label, value: col.fmt(row[col.key]) })),
+        pairs: withTips(space.columns(ce, units), ce)
+            .map(col => ({ label: col.label, value: col.fmt(row[col.key]), title: col.title })),
     }));
 }
 
@@ -144,8 +149,8 @@ export function spaceRows(report, ce, units) {
 // other spaces are in the Table.
 const LINE_SPACES = ['xyY', 'lab', 'dominant'];
 // On the line the two wavelengths go by their CIE 15:2004 symbols, which keep
-// a line of eight values inside a window docked at half the screen; the full
-// names are their titles, and the Table and the CSV use them.
+// a line of eight values inside a window docked at half the screen; their
+// titles name them in full, and the Table and the CSV use the full names.
 const LINE_SYMBOLS = {
     dominant: units => `λd (${units.nm})`,
     complementary: units => `λc (${units.nm})`,
@@ -161,12 +166,12 @@ export function linePairs(report, ce, units) {
     const [row] = colorRows([{ theta: 0, report }]);
     const unused = Number.isFinite(row.dominant) ? 'complementary' : 'dominant';
     return LINE_SPACES
-        .flatMap(id => SPACES.find(space => space.id === id).columns(ce, units))
+        .flatMap(id => withTips(SPACES.find(space => space.id === id).columns(ce, units), ce))
         .filter(col => col.key !== unused)
         .map(col => ({
             key: col.key,
             label: LINE_SYMBOLS[col.key] ? LINE_SYMBOLS[col.key](units) : col.label,
-            title: col.label,
+            title: col.title ?? col.label,
             value: col.fmt(row[col.key]),
         }));
 }
@@ -187,8 +192,11 @@ export function viewTable(reports, { resultsView, tableSpace }, ce, units) {
 /** The Differences view's columns. */
 export function differenceColumns(ce, reports) {
     return [
-        ...leadColumns(reports, ce), column('dL', 'ΔL*', 3), column('da', 'Δa*', 3), column('db', 'Δb*', 3),
-        column('dEab', 'ΔE*ab', 3), column('dE00', 'ΔE00', 3),
+        ...leadColumns(reports, ce),
+        ...withTips([
+            column('dL', 'ΔL*', 3), column('da', 'Δa*', 3), column('db', 'Δb*', 3),
+            column('dEab', 'ΔE*ab', 3), column('dE00', 'ΔE00', 3),
+        ], ce),
     ];
 }
 

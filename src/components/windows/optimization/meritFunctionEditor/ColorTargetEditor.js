@@ -27,7 +27,8 @@ import {
 const { createElement: h, useEffect, useMemo, useRef, useState } = React;
 
 // The labels of each space's three fields: symbols, and Y's unit; and the
-// colorEditor.fieldTips key of each, which says what it is.
+// colorEval.valueTips key of each, which says what it is, as Color
+// Evaluation's results do.
 const FIELD_LABELS = { xyY: ['x', 'y', 'Y (%)'], Lab: ['L*', 'a*', 'b*'], uvY: ['u′', 'v′', 'Y (%)'] };
 const FIELD_TIPS = { xyY: ['x', 'y', 'Y'], Lab: ['L', 'a', 'b'], uvY: ['up', 'vp', 'Y'] };
 const DIAGRAM_PX = 280;
@@ -157,7 +158,7 @@ function targetList({ draft, selected, white, c, te, polLabel, update, select, a
 
 // The selected target's colour: its space, its three values and what a click
 // on the diagram sets.
-function colorFields({ target, rings, white, c, te, update }) {
+function colorFields({ target, rings, white, c, te, tips, update }) {
     const label = text => h('span', { style: { fontSize: 11, color: c.textDim, whiteSpace: 'nowrap', width: 50, flex: 'none' } }, text);
     const row = (key, title, ...children) => h('div', { key, title, style: { display: 'flex', alignItems: 'center', gap: 8, minHeight: 38 } }, ...children);
     const input = { width: 100, padding: '8px 12px', boxSizing: 'border-box', background: c.bg, color: c.text,
@@ -169,7 +170,7 @@ function colorFields({ target, rings, white, c, te, update }) {
                 borderRadius: 3, fontSize: 11, padding: '0 5px', outline: 'none', cursor: 'pointer' },
             onChange: event => update(targetInSpace(target, event.target.value, white)),
         }, Object.keys(COLOR_TARGET_SPACES).map(space => h('option', { key: space, value: space }, te.spaces[space])))),
-        ...FIELD_LABELS[target.space].map((name, k) => row(`v${k}`, te.fieldTips[FIELD_TIPS[target.space][k]], label(name), h(NumberField, {
+        ...FIELD_LABELS[target.space].map((name, k) => row(`v${k}`, tips[FIELD_TIPS[target.space][k]], label(name), h(NumberField, {
             value: Number(target.values[k].toFixed(TARGET_PLACES[target.space][k])), c, style: input,
             onChange: value => update({ ...target, values: target.values.map((old, j) => (j === k ? value : old)) }),
         }))),
@@ -232,7 +233,7 @@ export function ColorTargetEditor({ design, typeId, targets, illuminant, observe
             h('div', { style: { display: 'flex', gap: 18, alignItems: 'flex-start', margin: '4px 0 14px' } },
                 targetList({ draft, selected, white, c, te, polLabel, update, select: setSelected, add, remove }),
                 h(TargetDiagram, { option, onPick: pick, onDrag: drag }),
-                colorFields({ target, rings, white, c, te, update: next => update(selected, next) })),
+                colorFields({ target, rings, white, c, te, tips: t.colorEval.valueTips, update: next => update(selected, next) })),
             h('div', { style: { display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' } },
                 h('button', {
                     type: 'button', onClick: onCancel,

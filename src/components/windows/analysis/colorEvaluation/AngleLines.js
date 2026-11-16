@@ -60,7 +60,7 @@ export function AngleLines({ reports, exposure, ce, units, c, colors }) {
                         `${formatTheta(theta)}°`)),
                 linePairs(report, ce, units).flatMap((pair, i, pairs) => [
                     h('td', { key: `${pair.key}-name`, style: name, title: pair.title }, pair.label),
-                    h('td', { key: pair.key, style: i === pairs.length - 1 ? lastValue : value }, pair.value),
+                    h('td', { key: pair.key, style: i === pairs.length - 1 ? lastValue : value, title: pair.title }, pair.value),
                 ]),
             ))),
         ),

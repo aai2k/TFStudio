@@ -64,9 +64,11 @@ export const RESULT_ROW_HEIGHT = 18;
  * Scrolling table for a `ResultsSection` body. Only the rows in view are drawn
  * (virtualRows.js), so a table of a fine sweep opens as quickly as a short one.
  *
- *   columns  [{ key, label, align?, color?, fmt?, scale? }] - `fmt` formats for
- *            display only; `csvFromRows` writes the value, times `scale` when
- *            given, the factor `fmt` shows it at (100 for percent, 10⁶ for ppm)
+ *   columns  [{ key, label, align?, color?, fmt?, scale?, title? }] - `fmt`
+ *            formats for display only; `csvFromRows` writes the value, times
+ *            `scale` when given, the factor `fmt` shows it at (100 for percent,
+ *            10⁶ for ppm); `title`, what the column holds, shows over its
+ *            heading and every value in it
  *   rows     plain objects keyed by column.key
  */
 export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
@@ -99,7 +101,7 @@ export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
             backgroundColor: index % 2 === 0 ? 'transparent' : c.panel + '55',
         },
     }, cols.map((col, columnIndex) => h('td', {
-        key: columnIndex,
+        key: columnIndex, title: col.title,
         style: { ...tdBase, textAlign: col.align, color: c.text },
     }, widths.fit(columnIndex, cell(col, row))))));
     // `fill` is for a window whose table is the point rather than a footnote to
@@ -114,7 +116,7 @@ export function ResultsGrid({ columns, rows, c, height = 185, fill = false }) {
             widths.colgroup(),
             h('thead', null,
                 h('tr', null, cols.map((col, index) => h('th', {
-                    key: index,
+                    key: index, title: col.title,
                     style: { ...thBase, textAlign: col.align, color: col.color || c.textDim },
                 }, col.label))),
             ),

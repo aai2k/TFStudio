@@ -79,8 +79,8 @@ function PatchView({ reports, state, ce, c, colors }) {
 }
 
 // One angle's Table: a row per colour space, each quantity's name just before
-// its value. The pairs keep a common least width, so the short ones line up
-// from row to row.
+// its value, and what the value is over both. The pairs keep a common least
+// width, so the short ones line up from row to row.
 function SpaceList({ rows, c }) {
     return h('div', { style: { height: BODY_HEIGHT, overflowY: 'auto', backgroundColor: c.bg } },
         h('table', { style: { width: '100%', borderCollapse: 'collapse', fontSize: 11 } },
@@ -91,7 +91,8 @@ function SpaceList({ rows, c }) {
                 h('td', { style: { width: '1%', whiteSpace: 'nowrap', padding: '2px 16px 2px 8px', color: c.text } }, row.space),
                 h('td', { style: { whiteSpace: 'nowrap', padding: '2px 8px', fontVariantNumeric: 'tabular-nums' } },
                     row.pairs.map(pair => h('span', {
-                        key: pair.label, style: { display: 'inline-block', minWidth: '13ch', marginRight: 12 },
+                        key: pair.label, title: pair.title,
+                        style: { display: 'inline-block', minWidth: '13ch', marginRight: 12 },
                     },
                         h('span', { style: { color: c.textDim } }, pair.label),
                         h('span', { style: { color: c.text, marginLeft: 6 } }, pair.value),
