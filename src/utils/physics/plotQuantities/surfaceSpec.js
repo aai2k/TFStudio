@@ -34,6 +34,34 @@ export function linspace(from, to, steps) {
 }
 
 /**
+ * The samples of a surface axis. With `step`, the spacing the axis was asked
+ * for, they are from + i × step and then `to` after one shorter interval when
+ * the step does not divide the range, as a spectrum's wavelengths are
+ * (buildLambdaGrid), so the step entered is the spacing sampled; a range with
+ * no span, or a step too fine to count, gives the two ends. Without a step,
+ * `steps` samples spread evenly (linspace).
+ */
+export function axisValues(from, to, steps, step) {
+    if (!(Math.abs(step) > 0)) return linspace(from, to, steps);
+    const size = Math.abs(step);
+    const lo = Math.min(from, to), hi = Math.max(from, to);
+    if (!Number.isFinite((hi - lo) / size)) return [from, to];
+    const values = buildLambdaGrid(lo, hi, size);
+    if (values.length < 2) return [from, to];
+    return from <= to ? values : values.reverse();
+}
+
+/**
+ * The step a wavelength axis is computed at in one spectrum: the axis's own
+ * step when it has one, else the even spacing of its samples. The spectrum
+ * rebuilds its wavelengths from the ends and this step (buildLambdaGrid).
+ */
+export function lambdaRowStep(lambdas, axisStep) {
+    if (Math.abs(axisStep) > 0) return Math.abs(axisStep);
+    return (lambdas[lambdas.length - 1] - lambdas[0]) / (lambdas.length - 1);
+}
+
+/**
  * Build a default 3D surface spec for a design.
  *   X = first front layer thickness, Y = second (or AOI if <2 layers),
  *   Z = T. Sensible ranges around the nominal values.
@@ -92,12 +120,19 @@ export function requiredSurfaceLambdas(spec, design) {
     } else {
         const xk = parseAxisVar(spec.xVar).kind, yk = parseAxisVar(spec.yVar).kind;
         let lams;
-        if (xk === 'lambda')      lams = linspace(spec.xFrom, spec.xTo, spec.xSteps);
-        else if (yk === 'lambda') lams = linspace(spec.yFrom, spec.yTo, spec.ySteps);
-        else                      lams = [spec.fixedLambda_nm];
+        let axisStep;
+        if (xk === 'lambda') {
+            lams = axisValues(spec.xFrom, spec.xTo, spec.xSteps, spec.xStep);
+            axisStep = spec.xStep;
+        } else if (yk === 'lambda') {
+            lams = axisValues(spec.yFrom, spec.yTo, spec.ySteps, spec.yStep);
+            axisStep = spec.yStep;
+        } else {
+            lams = [spec.fixedLambda_nm];
+        }
         for (const l of lams) add(l);
         const last = lams[lams.length - 1];
-        if (lams.length > 1) addGrid(lams[0], last, (last - lams[0]) / (lams.length - 1));
+        if (lams.length > 1) addGrid(lams[0], last, lambdaRowStep(lams, axisStep));
     }
     return Array.from(set).sort((a, b) => a - b);
 }

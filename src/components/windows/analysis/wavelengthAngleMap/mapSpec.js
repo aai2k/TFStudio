@@ -7,19 +7,21 @@
  * so the two windows cannot disagree about what T at 45 degrees is.
  *
  * Ranges are entered as a step size, the way every other spectral window in the
- * app takes them, and converted here to the sample counts a surface spec wants.
+ * app takes them, and the axes are sampled at that step: start + i × step, then
+ * the end after one shorter interval when the step does not divide the range
+ * (surfaceSpec.js axisValues).
  */
 
-/**
- * Samples spanning [from, to] at `step`, inclusive of both ends.
- */
+import { axisValues } from '../../../../utils/physics/plotQuantities/surfaceSpec.js';
+
+// A step of zero divides the range into nothing. It cannot be entered (both
+// the fields and the settings registry bound it away from zero); a stored
+// value that reaches here anyway falls back to one sample per unit.
+const axisStep = step => (Math.abs(step) > 0 ? Math.abs(step) : 1);
+
+/** How many samples an axis from `from` to `to` at `step` gets, both ends included. */
 export function axisSteps(from, to, step) {
-    const span = Math.abs(to - from);
-    // A step of zero divides the range into nothing. It cannot be entered (both
-    // the fields and the settings registry bound it away from zero); a stored
-    // value that reaches here anyway falls back to one sample per unit.
-    const size = Math.abs(step) > 0 ? Math.abs(step) : 1;
-    return Math.max(2, Math.round(span / size) + 1);
+    return axisValues(from, to, 2, axisStep(step)).length;
 }
 
 /**
@@ -41,10 +43,12 @@ export function buildMapSpec(values, evalMode) {
         xVar: 'wavelength',
         xFrom: values.lambdaStart,
         xTo: values.lambdaEnd,
+        xStep: axisStep(values.lambdaStep),
         xSteps: axisSteps(values.lambdaStart, values.lambdaEnd, values.lambdaStep),
         yVar: 'aoi',
         yFrom: values.angleStart,
         yTo: values.angleEnd,
+        yStep: axisStep(values.angleStep),
         ySteps: axisSteps(values.angleStart, values.angleEnd, values.angleStep),
     };
 }

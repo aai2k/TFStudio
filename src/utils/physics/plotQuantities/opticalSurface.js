@@ -7,6 +7,8 @@ import { parseAxisVar } from './axisVars.js';
 import { collectLayerOverrides } from './layerOverrides.js';
 import { pickChannel, runSpectrum } from './spectrumRunner.js';
 import { makeConeSpec } from '../optimizer/coneAngle.js';
+import { buildLambdaGrid } from '../thinFilmMath.js';
+import { lambdaRowStep } from './surfaceSpec.js';
 
 /**
  * The spectrum at one point, a single wavelength: the front stack of `baseCtx`
@@ -39,9 +41,11 @@ function opticalSurfaceZ(spec, baseCtx, xv, yv) {
 // When one axis IS wavelength and the OTHER axis is λ-independent (AOI or layer
 // thickness), the whole λ row is one evaluateSpectrum call — which dispatches to
 // the batched WASM spectrum kernel — instead of N separate 1-λ TMMs. Bit-
-// identical to the per-point path. Returns the Z array over `lambdas`, or null
-// if it can't batch (caller falls back per-point).
-function opticalLambdaRow(spec, baseCtx, lambdas, otherVar, otherVal) {
+// identical to the per-point path. The row is `lambdas`, the wavelength axis,
+// with `axisStep` its own step where it has one (surfaceSpec.js lambdaRowStep),
+// at `otherVal` of the other axis `otherVar`. Returns the Z array over
+// `lambdas`, or null if it can't batch (caller falls back per-point).
+function opticalLambdaRow(spec, baseCtx, { lambdas, axisStep, otherVar, otherVal }) {
     const p = parseAxisVar(otherVar);
     let aoi = spec.fixedAOI_deg;
     let frontLayers = baseCtx.frontLayers;
@@ -53,16 +57,19 @@ function opticalLambdaRow(spec, baseCtx, lambdas, otherVar, otherVal) {
     } else {
         return null;   // wavelength on both axes: per point
     }
-    const step = (lambdas[lambdas.length - 1] - lambdas[0]) / (lambdas.length - 1);
+    const step = lambdaRowStep(lambdas, axisStep);
     if (!(step > 0)) return null;   // degenerate λ range → per-point (avoids a 0-step spectrum loop)
     const params = {
         lambdaStart: lambdas[0], lambdaEnd: lambdas[lambdas.length - 1],
         lambdaStep: step, theta: aoi, polarization: spec.polarization,
     };
+    // The spectrum rebuilds its wavelengths from the ends and the step; where
+    // they are not the axis's own (a descending axis, float edges), the row
+    // goes per point instead.
+    const grid = buildLambdaGrid(params.lambdaStart, params.lambdaEnd, step);
+    if (grid.length !== lambdas.length || grid.some((lam, i) => Math.abs(lam - lambdas[i]) > 1e-9 * Math.max(1, lam))) return null;
     const res = runSpectrum(spec.surfaceMode, params, { ...baseCtx, frontLayers });
     const ch = pickChannel(res, spec.polarization, spec.z);
-    // Guard: the spectrum kernel regenerates its own uniform λ grid; if the
-    // sample count drifts (float edges), bail so the caller stays per-point.
     if (!ch || ch.length !== lambdas.length) return null;
     return ch.slice();
 }
@@ -95,7 +102,8 @@ function perPointRow(spec, baseCtx, x, yVal) {
 function fillLambdaOnXRows(z, spec, baseCtx, grid) {
     const { x, y, rowFrom, rowTo } = grid;
     for (let j = rowFrom; j < rowTo; j++) {
-        z[j] = opticalLambdaRow(spec, baseCtx, x, spec.yVar, y[j]) || perPointRow(spec, baseCtx, x, y[j]);
+        const row = { lambdas: x, axisStep: spec.xStep, otherVar: spec.yVar, otherVal: y[j] };
+        z[j] = opticalLambdaRow(spec, baseCtx, row) || perPointRow(spec, baseCtx, x, y[j]);
     }
 }
 
@@ -103,7 +111,7 @@ function fillLambdaOnXRows(z, spec, baseCtx, grid) {
 // own the whole grid — a row subset can't column-batch, so it goes per-point.
 function fillLambdaOnYRows(z, spec, baseCtx, grid) {
     const { x, y } = grid;
-    const cols = x.map(ov => opticalLambdaRow(spec, baseCtx, y, spec.xVar, ov));
+    const cols = x.map(ov => opticalLambdaRow(spec, baseCtx, { lambdas: y, axisStep: spec.yStep, otherVar: spec.xVar, otherVal: ov }));
     if (cols.every(Boolean)) {
         for (let j = 0; j < y.length; j++) {
             const row = new Array(x.length);

@@ -6,7 +6,7 @@ import { computeMeritSurface } from './meritSurface.js';
 import { computeOpticalSurface } from './opticalSurface.js';
 import { computePointSurface } from './pointSurface.js';
 import { quantityFamily } from './quantities.js';
-import { linspace } from './surfaceSpec.js';
+import { axisValues } from './surfaceSpec.js';
 
 /**
  * The design and the grid a surface of a quantity other than MF computes on,
@@ -35,8 +35,10 @@ function environmentGrid(spec, design, resolveMat, grid) {
 /**
  * Compute a Z(x, y) surface grid.
  *
- * @param {object} spec      a surface spec (see makeDefaultSurfaceSpec); on a
- *          design with environments `spec.env` names the environment it is
+ * @param {object} spec      a surface spec (see makeDefaultSurfaceSpec); an
+ *          axis is sampled at `xStep` or `yStep` where the spec gives one,
+ *          else at `xSteps` or `ySteps` even samples (surfaceSpec.js
+ *          axisValues). On a design with environments `spec.env` names the environment it is
  *          computed in. For MF, 'all' or no env gives the total over the
  *          environments that are on (meritSurface.js); for any other quantity
  *          no env gives environment 1.
@@ -60,8 +62,8 @@ export function computeSurface(spec, design, resolveMat, opts = {}) {
         return { ok: false, errorKey: 'errMfAxes', x: [], y: [], z: [] };
     }
 
-    const x = linspace(spec.xFrom, spec.xTo, spec.xSteps);
-    const y = linspace(spec.yFrom, spec.yTo, spec.ySteps);
+    const x = axisValues(spec.xFrom, spec.xTo, spec.xSteps, spec.xStep);
+    const y = axisValues(spec.yFrom, spec.yTo, spec.ySteps, spec.yStep);
     const nPoints = x.length * y.length;
 
     const rowFrom = Math.max(0, opts.rowFrom ?? 0);

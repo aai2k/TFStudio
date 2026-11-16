@@ -10,7 +10,9 @@
  *      mode carried through, and no drawing fields in it — those must not send
  *      the window back through a sweep.
  *   3. The map is the spectrum. Its normal-incidence row equals evaluateSpectrum
- *      at 0°, and an oblique row equals the same call at that angle.
+ *      at 0°, and an oblique row equals the same call at that angle. A step
+ *      that does not divide its range is still the spacing sampled, with the
+ *      end after one shorter interval, as evaluateSpectrum samples wavelengths.
  *   4. The polarization control reaches the kernel: avg is the mean of s and p.
  *   5. The session store opens on the registry's values and saves them back.
  *   6. A run is followed through useLiveDesign, like the other analysis windows.
@@ -147,6 +149,19 @@ const controls = {
                 `transmittance stays a fraction (got ${value})`);
         }
     }
+
+    // A step that does not divide its range: 7 nm over 400-800 nm and 7° over
+    // 0-60°. Every interval but the last is the step entered.
+    const uneven = computeSurface(buildMapSpec({ ...controls, lambdaStep: 7, angleEnd: 60, angleStep: 7 }, 'front'), design, resolveMat);
+    assert.deepEqual(uneven.y, [0, 7, 14, 21, 28, 35, 42, 49, 56, 60], 'the rows are 7° apart, then 60°');
+    assert.deepEqual([uneven.x[0], uneven.x[1], uneven.x.at(-2), uneven.x.at(-1)], [400, 407, 799, 800],
+        'the columns are 7 nm apart, then 800 nm');
+    assert.equal(axisSteps(0, 60, 7), uneven.y.length, 'the grid size the window shows is the rows computed');
+    const reference = evaluateSpectrum(
+        { lambdaStart: 400, lambdaEnd: 800, lambdaStep: 7, theta: 49, polarization: 'avg' }, ctx.inc, ctx.sub, ctx.layers);
+    assert.deepEqual(reference.lambda, uneven.x, 'the same wavelengths as the spectrum at that step');
+    const worst = Math.max(...uneven.z[7].map((value, i) => Math.abs(value - reference.T[i])));
+    assert.ok(worst < 1e-12, `the 49° row is the 49° spectrum at 7 nm (max |Δ| = ${worst.toExponential(2)})`);
 }
 
 // ── 4. The polarization control reaches the kernel ───────────────────────────
