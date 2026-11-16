@@ -3246,7 +3246,7 @@ export default {
     wavelength: "Lunghezza d'onda (nm)",
     aoi: 'AOI (°)',
     polarization: 'Polarizzazione',
-    polAvg: 'media',
+    polAvg: 's+p',
     polS: 's',
     polP: 'p',
     colLayer: 'Strato',

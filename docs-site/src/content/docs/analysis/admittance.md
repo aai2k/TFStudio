@@ -25,8 +25,8 @@ time. It defaults to the design's reference wavelength.
 
 **AOI**: the angle of incidence in degrees.
 
-**Polarization**: s, p, or **avg**. An admittance locus has no s and p
-average, so **avg** draws the s locus solid and the p locus dashed, and the
+**Polarization**: s, p, or **s+p**. An admittance locus has no s and p
+average, so **s+p** draws the s locus solid and the p locus dashed, and the
 table lists each. At oblique
 incidence the s and p loci differ; at normal incidence they coincide.
 

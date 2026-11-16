@@ -2819,7 +2819,7 @@ export default {
     wavelength:    'Wavelength (nm)',
     aoi:           'AOI (°)',
     polarization:  'Polarization',
-    polAvg:        'avg',
+    polAvg:        's+p',
     polS:          's',
     polP:          'p',
     colLayer:      'Layer',

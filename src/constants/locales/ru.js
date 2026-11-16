@@ -2762,7 +2762,7 @@ export default {
     wavelength:    'Длина волны (нм)',
     aoi:           'Угол падения (°)',
     polarization:  'Поляризация',
-    polAvg:        'ср',
+    polAvg:        's+p',
     polS:          's',
     polP:          'p',
     colLayer:      'Слой',

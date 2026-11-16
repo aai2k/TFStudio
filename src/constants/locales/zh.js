@@ -3223,7 +3223,7 @@ export default {
     wavelength: '波长 (nm)',
     aoi: '入射角 (°)',
     polarization: '偏振',
-    polAvg: '平均',
+    polAvg: 's+p',
     polS: 's',
     polP: 'p',
     colLayer: '膜层',
