@@ -33,7 +33,7 @@ export function panelStyle(c, width) {
         padding: 10, backgroundColor: c.panel,
         border: `1px solid ${c.border}`, borderRadius: 6,
         boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
-        fontFamily: FONT, fontSize: 11, color: c.text,
+        fontFamily: FONT, fontSize: 11, color: c.text, userSelect: 'none',
     };
 }
 

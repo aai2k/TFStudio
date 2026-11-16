@@ -21,6 +21,13 @@ input:focus, button:focus {
     outline: none;
 }
 
+/* A checkbox's words and a button's caption are clicked, not copied: quick
+   clicks would otherwise highlight them. A field inside a label still selects
+   its own value. */
+label, button {
+    user-select: none;
+}
+
 /* ── Modern select control (theme-aware via :root CSS vars) ──────────────── */
 select {
     appearance: none;

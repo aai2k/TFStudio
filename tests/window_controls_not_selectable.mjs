@@ -5,11 +5,16 @@
  *   1. The control row every analysis window opens with, as Color Evaluation
  *      draws it with its T and R switch.
  *   2. The tab buttons, as Color Evaluation's diagram tabs draw them.
+ *   3. The settings panel every window's Settings button opens, which is not
+ *      selectable whatever row it hangs from.
+ *   4. Labels and buttons anywhere in the app, by the stylesheet: a checkbox's
+ *      words, as in Color Evaluation's Settings, and a button's caption.
  *
  * Run: node tests/window_controls_not_selectable.mjs
  */
 import './_kernel.mjs';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { loadApp, makeLocale, makeTheme, shimBrowserGlobals } from './_uiShim.mjs';
 
 shimBrowserGlobals();
@@ -41,6 +46,19 @@ const state = {
     for (const tab of tabs) {
         assert.equal(TabBtn(tab.props).props.style.userSelect, 'none', `the ${tab.props.title} tab is not selectable`);
     }
+}
+
+// ── 3. The settings panel ────────────────────────────────────────────────────
+{
+    const { panelStyle } = await import('../src/components/windows/analysis/chrome/popover.js');
+    assert.equal(panelStyle(c, 320).userSelect, 'none', 'a settings panel is not selectable');
+}
+
+// ── 4. Labels and buttons, by the stylesheet ─────────────────────────────────
+{
+    const css = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8');
+    const rule = css.match(/^label,\s*button\s*\{([^}]*)\}/m);
+    assert.ok(rule && /user-select:\s*none/.test(rule[1]), 'labels and buttons are not selectable');
 }
 
 console.log('window_controls_not_selectable: passed');
