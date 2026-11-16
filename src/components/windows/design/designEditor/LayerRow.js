@@ -162,6 +162,7 @@ export const LayerRow = React.memo(function LayerRow({ layer, index, isSelected,
         }),
         ...LAYER_THICKNESS_COLUMNS.map(column => h('div', {
             key: column.unit,
+            'data-tour': column.tour,
             ...cellPointer(layer.id, column.unit, pointer),
             style: fixedLayerTrack(LAYER_TABLE.thicknessWidth),
         },

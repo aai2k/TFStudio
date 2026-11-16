@@ -11,7 +11,7 @@ function EditTargetsButton({ c, oe, editMode, setEditMode }) {
     return h('button', {
             onClick: () => setEditMode(current => !current),
             title: editMode ? oe.editTargetsTooltipOn : oe.editTargetsTooltipOff,
-            'aria-pressed': editMode,
+            'aria-pressed': editMode, 'data-tour': 'edit-targets',
             style: {
                 display: 'flex', alignItems: 'center', gap: 4,
                 height: 24, padding: '0 8px', cursor: 'pointer', outline: 'none',

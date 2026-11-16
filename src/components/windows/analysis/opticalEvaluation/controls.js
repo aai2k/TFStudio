@@ -22,6 +22,7 @@ export function CurveGroup({ group, showCurves, onToggle, c, polLabels, yScale, 
         labels: polLabels,
         disabled,
         disabledTitle: oe.unitTransmittanceOnly,
+        tour: `curves-${group.q}`,
     });
 }
 

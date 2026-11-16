@@ -626,6 +626,7 @@ export default {
   },
   tutorials: {
     title: 'Tutorial ed esercizi',
+    folderName: 'Tutorial',
     subtitle: "Esempi pratici svolti passo passo. Ognuno usa gli strumenti veri: seguili direttamente nell'app.",
     close: 'Chiudi',
     stepsCount: (n) => `${n} passi`,
@@ -642,6 +643,8 @@ export default {
       back: 'Indietro',
       next: 'Avanti',
       finish: 'Fine',
+      nextLesson: 'Lezione successiva',
+      upNext: (title) => `Prossima: ${title}`,
       gateRun: "Avvia l'ottimizzatore nella finestra evidenziata per continuare.",
       gateLayers: (min, cur) => `Continua a far girare l'ottimizzatore per scolpire altri strati (adesso sono ${cur}).`,
     },
@@ -649,6 +652,7 @@ export default {
       firstDesign: {
         title: 'Il tuo primo design',
         summary: 'Crea un design, aggiungi uno strato e guardane lo spettro.',
+        designName: 'Il mio primo design',
         steps: [
           {
             title: 'Benvenuto',
@@ -665,54 +669,164 @@ export default {
           },
           {
             title: 'Aggiungi uno strato',
-            body: "Nell'Editor del design (a sinistra) clicca “Aggiungi strato”. Imposta il materiale su MgF₂ e lo spessore su circa 99 nm. Lo stack si aggiorna mentre scrivi.",
+            body: "Nell'Editor del design (a sinistra) clicca “+ Strato”. Imposta il materiale su TiO₂ e lo spessore su 55 nm. Lo spettro a destra segue ogni modifica.",
             tip: 'Lo spessore è quello fisico dello strato, in nanometri.',
           },
           {
             title: 'Guarda lo spettro (a destra)',
-            body: 'A DESTRA la Valutazione ottica traccia la riflettanza R(λ). Il tuo singolo strato di MgF₂ abbassa la riflessione attorno a 550 nm rispetto al vetro nudo.',
+            body: 'A DESTRA la Valutazione ottica traccia la trasmittanza T (blu) e la riflettanza R (rosso). Il vetro nudo riflette circa il 4 %. Il tuo strato di TiO₂ porta R a circa il 38 % attorno a 550 nm: il suo indice è molto più alto di quello del vetro, quindi le due riflessioni che produce si sommano.',
+            tip: "Passa il mouse sul grafico per leggere T e R a qualsiasi lunghezza d'onda.",
           },
           {
             title: 'Il ciclo è tutto qui',
-            body: 'Modifica lo stack (a sinistra) → guarda lo spettro (a destra) → ripeti. Ogni strumento di analisi funziona allo stesso modo sul design attivo. Sei pronto per esplorare.',
+            body: 'Modifica lo stack (a sinistra) → guarda lo spettro (a destra) → ripeti. Ogni strumento di analisi funziona allo stesso modo sul design attivo. La prossima lezione usa uno strato con indice più basso del vetro per abbassare la riflessione.',
           },
         ],
       },
       singleAR: {
         title: 'Trattamento antiriflesso a strato singolo',
         summary: "Carica un antiriflesso a quarto d'onda e capisci perché funziona.",
+        designName: 'Antiriflesso a strato singolo (MgF₂)',
         steps: [
           {
             title: "L'antiriflesso in breve",
-            body: "Un solo strato può annullare la riflessione a una lunghezza d'onda. Carichiamo un esempio già pronto e vediamo come.",
+            body: "Un solo strato con indice più basso del vetro abbassa la riflessione attorno a una lunghezza d'onda. Carichiamo un esempio già pronto e vediamo come.",
           },
           {
             title: 'Caricato: MgF₂ su BK7',
-            body: "Un singolo strato di MgF₂ su un substrato BK7, mostrato nell'Editor del design a sinistra. Il suo spessore è uno spessore ottico di un quarto d'onda (QWOT) a 550 nm.",
+            body: "Un singolo strato di MgF₂ su un substrato BK7, mostrato nell'Editor del design a sinistra. Il suo spessore, 99,75 nm, è uno spessore ottico di un quarto d'onda (QWOT) a 550 nm.",
           },
           {
             title: "Perché un quarto d'onda?",
             body: "A QWOT vale d = λ₀ / (4·n). Le riflessioni dalla faccia anteriore e da quella posteriore dello strato sono sfasate di mezza lunghezza d'onda e interferiscono in modo distruttivo, quindi si annullano.",
-            tip: "Indice più basso significa riflettanza residua più bassa. MgF₂ (n≈1,38) è l'antiriflesso a strato singolo più basso tra quelli durevoli.",
+            tip: "Si annullano del tutto solo se n = √(n del vetro) ≈ 1,23. Nessun materiale durevole ha un indice così basso; MgF₂ (n ≈ 1,38) è il più vicino.",
+          },
+          {
+            title: 'Ingrandisci R (a destra)',
+            body: "Qui la riflettanza resta tra l'1 % e il 4 %: una linea sottile in fondo a un grafico da 0 a 100 %. Nella Valutazione ottica (a destra) apri Impostazioni e imposta Y da 0 a 5.",
           },
           {
             title: 'Guarda il minimo (a destra)',
-            body: "A DESTRA la Valutazione ottica mostra l'avvallamento della riflettanza vicino a 550 nm: circa l'1,3 % contro il 4 % circa del vetro non trattato.",
+            body: "Ora R ha un minimo chiaro vicino a 550 nm, circa l'1,25 %, contro il 4,2 % del BK7 nudo. Lontano da 550 nm lo strato non è più un quarto d'onda e R risale verso il valore del vetro nudo.",
           },
           {
             title: 'Prova',
-            body: "Nell'Editor del design (a sinistra) cambia lo spessore dello strato. Guarda il minimo di riflettanza a destra spostarsi a un'altra lunghezza d'onda.",
-            tip: "Imposta la lunghezza d'onda di riferimento e rivaluta per centrare l'avvallamento dove vuoi.",
+            body: "Nell'Editor del design (a sinistra) imposta lo spessore a 120 nm: il minimo si sposta verso 660 nm circa. Poi prova 299 nm, tre quarti d'onda: il minimo torna a 550 nm, ma più stretto.",
+            tip: "Passa il mouse sul grafico per leggere R a qualsiasi lunghezza d'onda.",
           },
           {
             title: 'Fatto',
-            body: 'Hai visto il rivestimento interferenziale più semplice. I veri rivestimenti a banda larga impilano molti strati come questo: sono le prossime lezioni.',
+            body: 'Hai visto il rivestimento interferenziale più semplice. Un solo strato non arriva a zero; le prossime lezioni ne usano diversi. Prima di continuare, riporta Y da 0 a 100 in Impostazioni.',
+          },
+        ],
+      },
+      bothSides: {
+        title: 'Le due facce di un pezzo',
+        summary: 'Guarda cosa fa la faccia posteriore di una finestra trattata, poi tratta entrambe le facce.',
+        designName: 'Finestra antiriflesso (MgF₂ anteriore)',
+        steps: [
+          {
+            title: 'Un design è un pezzo intero',
+            body: 'In TFStudio un design è il pezzo intero: il rivestimento anteriore, il substrato e il rivestimento posteriore. Le lezioni finora hanno guardato solo la faccia anteriore, ma la luce che la attraversa incontra ancora il retro del vetro.',
+          },
+          {
+            title: 'Caricato: antiriflesso davanti',
+            body: "Caricato (Editor del design, a sinistra): lo strato di MgF₂ a quarto d'onda della lezione sull'antiriflesso a strato singolo, sulla faccia anteriore di una finestra in BK7 da 1 mm, con niente sul retro. “Ignora l'altro lato” è spuntato, quindi la Valutazione ottica (a destra) mostra solo la faccia anteriore: R circa 1,25 % a 550 nm.",
+          },
+          {
+            title: 'Includi il retro (a sinistra)',
+            body: "Nell'Editor del design (a sinistra) togli la spunta da “Ignora l'altro lato”. Il badge Valutaz. in fondo alla Valutazione ottica passa da ANTERIORE a TOTALE: ora il grafico mostra tutta la finestra.",
+          },
+          {
+            title: 'Il retro nudo riflette (a destra)',
+            body: "R a 550 nm sale a circa il 5,4 %: l'1,25 % della faccia anteriore trattata più circa il 4 % del retro nudo. T scende a circa il 94,6 %.",
+            tip: 'Imposta Y da 0 a 10 in Impostazioni per vedere bene R.',
+          },
+          {
+            title: 'Tratta anche il retro (a sinistra)',
+            body: "Nell'Editor del design (a sinistra) clicca “Copia sul posteriore”. Il retro riceve lo stesso strato di MgF₂: R scende a circa il 2,5 % e T sale a circa il 97,5 %. La scheda Rivestimento posteriore lo mostra.",
+          },
+          {
+            title: 'Fatto',
+            body: "Tieni spuntato “Ignora l'altro lato” mentre progetti un rivestimento; togli la spunta per vedere cosa fa il pezzo intero. Con Superficie su Entrambi, gli ottimizzatori muovono i due rivestimenti contro il pezzo intero. Se hai cambiato Y, prima di continuare riportala da 0 a 100 in Impostazioni.",
+          },
+        ],
+      },
+      vCoat: {
+        title: 'V-coat a due strati',
+        summary: "Due strati portano la riflettanza a zero a una lunghezza d'onda, dove uno strato solo non ci riesce.",
+        designName: 'V-coat 550 nm (SiO₂ / ZrO₂)',
+        steps: [
+          {
+            title: 'Due spessori',
+            body: "Un solo strato di MgF₂ si ferma a circa l'1,25 %, perché nessun materiale durevole ha l'indice ideale. Due strati danno due spessori da impostare, e bastano per portare R a zero a una lunghezza d'onda.",
+          },
+          {
+            title: "Caricato: due quarti d'onda",
+            body: "Caricato (Editor del design, a sinistra): due strati a quarto d'onda a 550 nm su BK7, SiO₂ verso l'aria e ZrO₂ sul vetro. R a 550 nm è circa il 3,2 %, peggio di un solo strato di MgF₂.",
+          },
+          {
+            title: "Perché i quarti d'onda non bastano",
+            body: "Due quarti d'onda fissano entrambe le fasi e non lasciano nulla di libero. Si annullano solo se n(ZrO₂) / n(SiO₂) = √n(BK7), e qui è 1,48 contro 1,23. Spostando entrambi gli spessori dal quarto d'onda, la parte reale e quella immaginaria dell'ampiezza riflessa si annullano insieme.",
+          },
+          {
+            title: 'Imposta gli spessori (a sinistra)',
+            body: "Nell'Editor del design (a sinistra) imposta lo strato 1 (ZrO₂, sul vetro) a 21,33 nm e lo strato 2 (SiO₂) a 121,97 nm. Con questi due materiali sono gli spessori che danno riflettanza zero a 550 nm.",
+            tip: 'Fai doppio clic su uno spessore per modificarlo.',
+          },
+          {
+            title: 'Guarda la V (a destra)',
+            body: 'Ora R scende a zero a 550 nm e risale ai due lati: è la V che dà il nome al rivestimento. Imposta Y da 0 a 5 in Impostazioni per vederne la forma.',
+          },
+          {
+            title: 'Fatto',
+            body: "Due strati danno zero a una lunghezza d'onda, non su una banda. Per una banda, la lezione sull'affinamento lascia all'ottimizzatore quattro spessori da regolare insieme. Prima di continuare, riporta Y da 0 a 100 in Impostazioni.",
+            tip: '66,40 nm di SiO₂ sopra 106,29 nm di ZrO₂ danno anche loro zero a 550 nm. Provalo e confronta la larghezza della V.',
+          },
+        ],
+      },
+      mirror: {
+        title: "Specchio a quarto d'onda",
+        summary: 'Costruisci uno specchio TiO₂ / SiO₂ con la Formula dello stack e guarda cosa fanno il numero di coppie e λ₀.',
+        designName: "Specchio a quarto d'onda 550 nm",
+        steps: [
+          {
+            title: 'Alto, basso, alto, basso',
+            body: "Uno specchio dielettrico alterna strati ad alto indice (H) e a basso indice (L), ciascuno spesso un quarto d'onda a λ₀. A λ₀ le riflessioni di tutte le interfacce tornano in fase e si sommano.",
+          },
+          {
+            title: 'Caricato: BK7 nudo',
+            body: 'Caricato (Editor del design, a sinistra): un substrato BK7 senza strati, con λ₀ di riferimento 550 nm. Lo riempirà la Formula dello stack.',
+          },
+          {
+            title: 'Costruiscilo con la Formula',
+            body: "Nella scheda Preparazione clicca Formula. Si apre con (H L)^4 H, H = TiO₂ e L = SiO₂, ogni H o L un quarto d'onda. Cambia la formula in (H L)^8 e premi Sostituisci: 16 strati, letti dal substrato verso l'esterno.",
+            wait: 'Premi Sostituisci nella Formula dello stack per continuare.',
+          },
+          {
+            title: 'La banda ad alta riflessione (a destra)',
+            body: 'R arriva al 99,9 % a 550 nm e resta sopra il 99 % da circa 485 a 628 nm. Fuori dalla banda le riflessioni non si sommano più in fase e R scende in frange.',
+          },
+          {
+            title: 'Meno coppie',
+            body: 'Apri di nuovo la Formula, cambiala in (H L)^4 e premi Sostituisci. Con 8 strati il picco scende a circa il 93 % e i bordi della banda diventano inclinati.',
+            tip: 'La larghezza della banda dipende dal contrasto di indice fra H e L, non dal numero di coppie.',
+            wait: 'Premi Sostituisci nella Formula dello stack per continuare.',
+          },
+          {
+            title: 'Sposta la banda (a sinistra)',
+            body: "Nell'Editor del design (a sinistra) imposta la λ₀ di riferimento a 700 nm. Ogni strato resta un quarto d'onda alla nuova λ₀, quindi gli spessori fisici crescono e la banda si sposta a 700 nm.",
+          },
+          {
+            title: 'Fatto',
+            body: 'Più coppie alzano il picco, il contrasto H / L fissa la larghezza e λ₀ fissa dove sta la banda. Questo è lo specchio dielettrico di base.',
           },
         ],
       },
       refine: {
         title: "Affinare un rivestimento con l'ottimizzatore",
         summary: "Imposta un target, poi lascia che l'Affinamento regoli gli spessori degli strati.",
+        designName: 'Antiriflesso a quattro strati (affinamento)',
         steps: [
           {
             title: "Che cosa fa l'affinamento",
@@ -720,31 +834,259 @@ export default {
           },
           {
             title: 'Un punto di partenza grezzo',
-            body: 'Caricato (Editor del design, a sinistra): uno stack TiO₂/SiO₂ a 4 strati su BK7 volutamente non ottimale, con un target antiriflesso a banda larga (R→0, 420–680 nm) già nella sua funzione di merito.',
+            body: "Caricato (Editor del design, a sinistra): quattro strati su BK7, MgF₂ verso l'aria, poi HfO₂, SiO₂ e HfO₂. È un punto di partenza ragionevole, ma riflette ancora troppo all'estremo blu di 450–650 nm.",
           },
           {
             title: 'La funzione di merito',
-            body: "L'Editor della funzione di merito si è appena aperto a sinistra (si trova nella scheda Ottimizzazione della barra multifunzione). La funzione di merito è un unico numero che misura quanto lo spettro è lontano dal tuo target: più basso è, meglio è.",
-            tip: 'Qui il target è riflettanza R = 0 su tutta la banda. Puoi aggiungere altri operandi per altri obiettivi.',
+            body: "L'Editor della funzione di merito si è aperto a sinistra (scheda Ottimizzazione). RGT chiede R = 0 e TGT chiede T = 1 su 450–650 nm. MNT e MXT tengono ogni strato tra 30 e 250 nm, così il risultato si può depositare. La funzione di merito riassume tutto questo in un numero: più basso è, meglio è.",
+            tip: 'Puoi aggiungere altri operandi per altri obiettivi.',
           },
           {
             title: "Avvia l'Affinamento",
-            body: "L'Affinamento ottico si è aperto a sinistra (scheda Ottimizzazione). Scegli un metodo, CG è un buon predefinito, e premi Avvia. Guarda la funzione di merito scendere mentre gli spessori si regolano.",
-            tip: "Un solo Ctrl+Z annulla l'intera esecuzione, se vuoi confrontare prima e dopo.",
+            body: "L'Affinamento si è aperto a sinistra (scheda Ottimizzazione). Lascia il metodo predefinito, QP sequenziale, e premi Avvia. Rispetta esattamente i limiti di 30 e 250 nm e qui finisce in meno di un secondo.",
+            tip: "L'Evoluzione differenziale arriva qui allo stesso design, ma diverse volte più lentamente. Conviene con una partenza scadente, dove i metodi locali si fermano presto. Un solo Ctrl+Z annulla l'intera esecuzione.",
           },
           {
             title: 'Confronta (a destra)',
-            body: 'Guarda la Valutazione ottica a DESTRA: la riflettanza ora è più bassa e più piatta su tutta la banda rispetto al design di partenza.',
+            body: 'Guarda la Valutazione ottica a DESTRA: la riflettanza ora è vicina a zero su tutta la banda evidenziata 450–650 nm.',
+            tip: 'Imposta Y da 0 a 5 in Impostazioni per vedere quanto è piatta.',
           },
           {
             title: 'Fatto',
-            body: "L'affinamento ha trovato un minimo locale migliore vicino al tuo stack di partenza. Per scoprire il numero di strati stesso serve la sintesi: è la prossima.",
+            body: "L'affinamento ha cambiato quattro spessori. Non ha cambiato i materiali, il loro ordine né il numero di strati. Per lasciarli scegliere al programma serve la sintesi: è la prossima. Se hai cambiato Y, prima di continuare riportala da 0 a 100 in Impostazioni.",
+          },
+        ],
+      },
+      drawTarget: {
+        title: 'Disegna un target e affina',
+        summary: 'Disegna un target da divisore di fascio al 50 % direttamente sul grafico, poi affina lo stack su di esso.',
+        designName: 'Divisore 50 % (target disegnato)',
+        steps: [
+          {
+            title: 'Disegna la specifica',
+            body: 'Un target non va per forza digitato in una tabella. Puoi disegnarlo sullo spettro, dove leggi il risultato, e la linea diventa righe della funzione di merito.',
+          },
+          {
+            title: "Caricato: otto quarti d'onda",
+            body: "Caricato (Editor del design, a sinistra): otto strati a quarto d'onda a 450 nm su BK7, SiO₂ verso l'aria alternato a TiO₂. È un punto di partenza, non un divisore: nel visibile T si allontana molto dal 50 %.",
+          },
+          {
+            title: 'Disegna T = 50 % (a destra)',
+            body: 'Nella Valutazione ottica (a destra) clicca Modifica, scegli Cont. e T, poi trascina una linea sul grafico da 450 a 650 nm al 50 %. Clicca di nuovo Modifica per finire. Ora la linea è una riga TGT: T = 50 % a ogni lunghezza d\'onda della banda.',
+            tip: 'Media disegna un target sulla media della banda invece di una linea. Trascina un target disegnato per spostarlo.',
+          },
+          {
+            title: 'Affina sul target',
+            body: "L'Affinamento si è aperto a sinistra (scheda Ottimizzazione). Lascia QP sequenziale e premi Avvia.",
+          },
+          {
+            title: 'Sulla linea (a destra)',
+            body: 'Guarda la Valutazione ottica a DESTRA: T ora sta sulla linea del 50 % su tutta la banda 450–650 nm, e R la rispecchia. Otto spessori sono bastati per questa banda.',
+          },
+          {
+            title: 'Fatto',
+            body: "Disegna un target dove leggi lo spettro, poi affina. Le righe disegnate stanno nell'Editor della funzione di merito come quelle digitate, e lì puoi cambiarne pesi e bande.",
+          },
+        ],
+      },
+      color: {
+        title: 'Il colore del vetro trattato',
+        summary: "Trasforma uno spettro di riflettanza nel colore che vede l'occhio, e scopri perché un buon antiriflesso sembra viola.",
+        designName: 'Colore antiriflesso a quattro strati',
+        steps: [
+          {
+            title: 'Lo spettro è il colore',
+            body: "Una lente trattata tenuta contro una finestra mostra un debole viola, blu o verde. Non è un altro rivestimento: è lo spettro di riflettanza, pesato dall'occhio.",
+          },
+          {
+            title: "Caricato: l'antiriflesso affinato",
+            body: "Caricato (Editor del design, a sinistra): l'antiriflesso a quattro strati affinato. La sua riflettanza resta sotto lo 0,31 % su 450–650 nm ma sale a circa il 6,4 % a 400 nm.",
+          },
+          {
+            title: 'Valutazione del colore (a sinistra)',
+            body: "La Valutazione del colore si è aperta a sinistra (scheda Analisi): luce diurna D65 e osservatore 2°, riflessione dalla faccia anteriore trattata. Y, la luminosità che vede l'occhio, è circa 0,08 %. La lunghezza d'onda dominante è circa 437 nm con purezza circa 74 %: un viola vivo.",
+            tip: "L'occhio vede appena il blu profondo, quindi il 6,4 % a 400 nm non aggiunge quasi nulla a Y ma decide la tinta.",
+          },
+          {
+            title: 'Troppo scuro per vederlo',
+            body: "Il campione mostra il viola perché Esposizione è su Adatta la tinta, che schiarisce il colore finché la tinta si vede. Apri Impostazioni e scegli Non alterata: il campione diventa nero, come appare la riflessione in una stanza buia. Il viola compare quando la lente riflette una finestra o una lampada luminosa.",
+          },
+          {
+            title: 'Fatto',
+            body: "Un antiriflesso forte dà una riflessione debole ma satura. Il vetro nudo è l'opposto: Y circa 4,2 % e purezza quasi nulla, un grigio neutro. Cambia illuminante o osservatore e i numeri cambiano con loro.",
+            tip: 'Rimetti Esposizione su Adatta la tinta per vedere di nuovo le tinte.',
+          },
+        ],
+      },
+      admittance: {
+        title: "Leggere il diagramma dell'ammettenza",
+        summary: "Guarda come uno strato sposta l'ammettenza, e perché il suo punto finale è la riflettanza.",
+        designName: "Ammettenza: MgF₂ a quarto d'onda",
+        steps: [
+          {
+            title: 'Come, non cosa',
+            body: "Una curva di riflettanza dice cosa fa un rivestimento. Il diagramma dell'ammettenza mostra come ci arriva: l'ammettenza dello stack, strato per strato dal substrato verso l'esterno, a una sola lunghezza d'onda.",
+          },
+          {
+            title: 'Caricato: uno strato di MgF₂',
+            body: "Caricato (Editor del design, a sinistra): lo strato di MgF₂ a quarto d'onda a 550 nm su BK7 della lezione sull'antiriflesso a strato singolo.",
+          },
+          {
+            title: 'I tre marcatori',
+            body: "Il Diagramma di ammettenza si è aperto a sinistra (scheda Analisi), a 550 nm. Il giallo η_s è il substrato, 1,519. Il rosso η₀ è l'aria, 1. Il rombo verde Y₀ è dove finisce il rivestimento. Il percorso parte da η_s e ogni strato aggiunge un arco.",
+          },
+          {
+            title: "Un quarto d'onda è mezzo cerchio",
+            body: "Uno strato dielettrico disegna un cerchio, in senso orario. Un quarto d'onda ne è esattamente la metà: l'arco di MgF₂ lascia l'asse reale a 1,519 e ci torna a n² / η_s = 1,251. Quanto Y₀ dista da η₀ è la riflettanza, qui 1,25 %.",
+            tip: "I due punti in cui il cerchio di uno strato taglia l'asse reale, moltiplicati, danno n² di quello strato: 1,519 × 1,251 = 1,900 = 1,3785².",
+          },
+          {
+            title: "Fallo di mezz'onda",
+            body: "Nell'Editor del design (a sinistra) imposta lo spessore di MgF₂ a 199,49 nm, due quarti d'onda. Poi premi Avanti per tornare al diagramma.",
+          },
+          {
+            title: 'Un cerchio intero',
+            body: "Ora l'arco è un cerchio intero che finisce di nuovo su η_s, e R torna al 4,24 %, il valore del vetro nudo. Uno strato a mezz'onda è assente alla sua lunghezza d'onda.",
+          },
+          {
+            title: 'Fatto',
+            body: "Un antiriflesso deve portare Y₀ su η₀. Un solo strato di MgF₂ si ferma a 1,251; nel V-coat il cerchio esterno di SiO₂ passa proprio per η₀. Apri questa finestra sul design della lezione sul V-coat per vederlo.",
+          },
+        ],
+      },
+      anglePolarization: {
+        title: 'Angolo e polarizzazione',
+        summary: 'Inclina un antiriflesso progettato per incidenza normale e guarda la banda spostarsi, salire e dividersi in s e p.',
+        designName: 'Antiriflesso a quattro strati inclinato',
+        steps: [
+          {
+            title: 'I rivestimenti vengono inclinati',
+            body: "Un rivestimento progettato per l'incidenza normale raramente lavora lì. Le lenti lo attraversano con fasci convergenti, i divisori di fascio stanno a 45° e le finestre si inclinano per tenere i riflessi lontano dalla sorgente.",
+          },
+          {
+            title: "Caricato: l'antiriflesso affinato",
+            body: "Caricato (Editor del design, a sinistra): l'antiriflesso a quattro strati della lezione sull'affinamento, già affinato. A 0° la sua R resta sotto lo 0,31 % su 450–650 nm.",
+          },
+          {
+            title: 'Aggiungi angoli (a destra)',
+            body: 'Nella Valutazione ottica (a destra) apri Impostazioni e premi + nella riga AOI per aggiungere 30°, 45° e 60°, uno alla volta. Imposta Y da 0 a 10 per vedere le curve.',
+            tip: 'Clicca un angolo per cambiarlo, o la sua × per toglierlo.',
+          },
+          {
+            title: 'La banda si sposta e sale (a destra)',
+            body: "Al crescere dell'angolo la curva scivola verso lunghezze d'onda più corte e si alza. In uno strato inclinato la luce viaggia di sbieco, lo spessore di fase si riduce di cos θ e lo strato si comporta come più sottile. La R peggiore nella banda è circa 0,8 % a 30°, 2,3 % a 45° e 6,8 % a 60°.",
+          },
+          {
+            title: 's contro p (a destra)',
+            body: "Accanto a R spegni media e accendi s e p. Lontano da 0° le due polarizzazioni vedono ammettenze diverse: s riflette di più e peggiora più in fretta. A 60° s arriva a circa il 10,5 % a 650 nm e p a circa il 3,2 %.",
+          },
+          {
+            title: 'Fatto',
+            body: "Pochi gradi costano poco; 45° e oltre no. Progetta all'angolo a cui il pezzo lavora: metti quell'angolo, e la polarizzazione se la luce è polarizzata, nella funzione di merito. Prima di continuare, togli i tre angoli e riporta Y da 0 a 100 in Impostazioni, e accanto a R riaccendi media e spegni s e p.",
+            tip: "Il BK7 nudo riflette solo circa lo 0,15 % della luce p a 60°, vicino al suo angolo di Brewster; lì questo antiriflesso è peggio di nessun rivestimento.",
+          },
+        ],
+      },
+      thicknessErrors: {
+        title: 'Errori di spessore',
+        summary: 'Ricalcola lo spettro con errori di spessore casuali e guarda quanto un processo reale può allontanarsi dal design.',
+        designName: 'Filtro a banda stretta con errori',
+        steps: [
+          {
+            title: 'Nessun impianto è esatto',
+            body: "Ogni strato esce un po' più spesso o più sottile del previsto. La finestra Monte Carlo ricalcola lo spettro molte volte con errori di spessore casuali, così vedi la dispersione di un processo reale prima di farlo.",
+          },
+          {
+            title: 'Caricato: un filtro a banda stretta',
+            body: "Caricato (Editor del design, a sinistra): nove strati, due specchi a quarto d'onda TiO₂/SiO₂ attorno a uno spaziatore in TiO₂ a mezz'onda. Lo spaziatore fa da cavità: la Valutazione ottica (a destra) mostra un'ampia banda riflessa con un solo picco stretto di T a 550 nm nel mezzo.",
+          },
+          {
+            title: 'Avvialo (a sinistra)',
+            body: 'Monte Carlo si è aperto a sinistra (scheda Analisi). Premi T, poi Avvia. Le impostazioni predefinite danno a ogni strato un errore casuale con σ rel. = 1 % del suo spessore, gaussiano, su 200 prove.',
+          },
+          {
+            title: 'Leggi il corridoio (a sinistra)',
+            body: "Il corridoio ombreggiato è la media ± 1σ di T su tutte le prove. È più largo sui fianchi ripidi del picco: ogni errore sposta il picco di qualche nanometro a sinistra o a destra, e su un fianco ripido questo è una grande variazione di T. La T media a 550 nm scende dal 96 % a circa l'88 %.",
+            tip: 'Attiva min/max per vedere le prove estreme.',
+          },
+          {
+            title: "Il doppio dell'errore",
+            body: 'Imposta σ rel. al 2 % e premi di nuovo Avvia. Il picco si sposta il doppio, e la T media a 550 nm scende a circa il 75 %.',
+          },
+          {
+            title: 'Fatto',
+            body: "Più stretto è il picco, meno errore tollera. Ripeti lo stesso controllo sull'antiriflesso delle lezioni precedenti e il suo corridoio resta una linea sottile. Quando un design non regge gli errori del tuo processo, Sensibilità degli strati (scheda Analisi) mostra quali strati contano di più.",
+          },
+        ],
+      },
+      monitoring: {
+        title: 'Si può monitorare?',
+        summary: "Controlla prima di una deposizione se un monitor ottico può fermare ogni strato, e scegli la lunghezza d'onda e i vetrini che lo permettono.",
+        designName: 'Filtro a banda stretta da monitorare',
+        steps: [
+          {
+            title: 'Prima della deposizione',
+            body: 'Un monitor ottico fa passare la luce attraverso un vetrino testimone nella camera e ferma ogni strato quando il segnale raggiunge un livello fissato. Dove il segnale quasi non si muove, un piccolo errore di lettura diventa un grande errore di spessore. Il Foglio di monitoraggio lo calcola per ogni strato prima di depositare qualunque cosa.',
+          },
+          {
+            title: 'Caricato: un filtro a banda stretta',
+            body: "Caricato (Editor del design, a sinistra): il filtro a banda stretta a nove strati della lezione sugli errori di spessore, quarti d'onda attorno a uno spaziatore a mezz'onda, tutto a 550 nm.",
+          },
+          {
+            title: 'Monitorato a 550 nm (a sinistra)',
+            body: "Il Foglio di monitoraggio si è aperto a sinistra (scheda Produzione): tre strati per vetrino, tutti a 550 nm. Alla propria lunghezza d'onda di quarto d'onda ogni strato finisce esattamente su un punto di inversione, Rapporto di taglio 0, dove il segnale è piatto. Con l'errore di segnale predefinito dello 0,3 % Δd viene da 3 a 6 nm, più dell'1 % dello strato consentito, quindi ogni cella λ è rossa. I due strati di SiO₂ del vetrino 2 arrivano a 32 nm: uno sta sul vetrino nudo, l'altro sullo spaziatore a mezz'onda, che a 550 nm è come assente.",
+            tip: 'Il grafico sotto la tabella segna ogni taglio con il numero dello strato.',
+          },
+          {
+            title: 'Premi λ automatica',
+            body: "λ automatica sceglie per ogni vetrino la lunghezza d'onda a cui il suo strato peggiore si ferma con più precisione: 426 nm sui vetrini 1 e 3, 385 nm sul vetrino 2. Lì gli strati non sono più quarti d'onda, la maggior parte dei tagli cade su un fianco e Δd scende sotto 1 nm. Una cella resta rossa: lo strato 4, SiO₂ direttamente sul vetrino nudo. Su un vetro di indice quasi uguale, SiO₂ muove appena il segnale.",
+          },
+          {
+            title: 'Un vetrino per tutta la deposizione',
+            body: 'Imposta Strati per vetrino a 9 e premi di nuovo λ automatica. Ora ogni strato di SiO₂ cade su TiO₂, tutti e nove si fermano entro 1 nm a 426 nm, e nessuna cella è rossa.',
+          },
+          {
+            title: 'Fatto',
+            body: "Se uno strato si può monitorare dipende da dove il suo taglio cade sul segnale, che la lunghezza d'onda decide, e da cosa c'è sotto, che il piano dei vetrini decide. Per vedere un'intera deposizione con errori, il Simulatore di monitoraggio monocromatico (scheda Produzione) deposita il design strato per strato.",
+          },
+        ],
+      },
+      zemax: {
+        title: 'Il tuo rivestimento in Zemax',
+        summary: 'Scrivi il design come file di rivestimenti Zemax e applicalo a una superficie di lente in OpticStudio.',
+        designName: 'Antiriflesso a quattro strati per Zemax',
+        steps: [
+          {
+            title: 'Rivestimenti per nome',
+            body: 'OpticStudio applica un rivestimento a una superficie di lente per nome. I nomi vengono da un file di rivestimenti: le voci MATE contengono n e k di ogni materiale in funzione della lunghezza d\'onda, le voci COAT contengono gli strati. La finestra Rivestimenti Zemax scrive quel file dal tuo design.',
+          },
+          {
+            title: "Caricato: l'antiriflesso affinato",
+            body: "Caricato (Editor del design, a sinistra): l'antiriflesso a quattro strati della lezione sull'affinamento, già affinato.",
+          },
+          {
+            title: 'Generalo (a sinistra)',
+            body: "Rivestimenti Zemax si è aperto a sinistra (scheda Produzione). Apri la sua scheda Esporta, scrivi AR4 in Nome del rivestimento e premi Genera l'anteprima.",
+          },
+          {
+            title: "Leggi l'anteprima (a sinistra)",
+            body: "Una voce MATE per ogni materiale usato dal design, aria e vetro compresi, con n e k da 400 a 800 nm ogni 25 nm. Poi COAT AR4 elenca i quattro strati in µm, dal lato dell'aria. La voce COAT contiene solo i film: in OpticStudio il substrato è il vetro della lente nella colonna Material.",
+            tip: "Imposta la griglia di campionamento in modo che copra le lunghezze d'onda della lente: fuori dalla tabella OpticStudio tiene n e k ai valori estremi. Accetta al massimo 120 punti per materiale.",
+          },
+          {
+            title: 'Salvalo con un nome nuovo',
+            body: 'Premi Salva COATING.DAT… e salvalo nella cartella Coatings di OpticStudio come AR4.DAT. Lascia com\'è il COATING.DAT fornito con OpticStudio: contiene i rivestimenti delle sue lenti a catalogo.',
+          },
+          {
+            title: 'Fatto: in OpticStudio',
+            body: 'Scegli AR4.DAT in System Explorer ▸ Files ▸ Coating File, poi scrivi AR4 nella colonna Coating a destra del Lens Data Editor. Dopo aver cambiato il design qui, salva di nuovo il file e premi Reload in System Explorer ▸ Files.',
           },
         ],
       },
       synthesize: {
         title: 'Sintetizzare un design da zero',
         summary: "Fai crescere un antiriflesso a banda larga da un substrato nudo con l'Evoluzione graduale.",
+        designName: 'Antiriflesso a banda larga (sintesi)',
         steps: [
           {
             title: 'Dal nulla',
@@ -756,16 +1098,16 @@ export default {
           },
           {
             title: 'Conferma il target',
-            body: "L'Editor della funzione di merito si è aperto a sinistra (scheda Ottimizzazione). Controlla il target: lo stesso obiettivo R→0 a banda larga. È verso questo che la sintesi ottimizzerà.",
+            body: "L'Editor della funzione di merito si è aperto a sinistra (scheda Ottimizzazione). RAV chiede una riflettanza media bassa su 400–700 nm. MNT tiene ogni strato spesso almeno 15 nm, così il risultato si può depositare.",
           },
           {
             title: "Avvia l'Evoluzione graduale",
-            body: "L'Evoluzione graduale si è aperta a sinistra (scheda Ottimizzazione). Premi Avvia. Alterna inserimenti needle e affinamenti, facendo crescere lo stack mentre la funzione di merito scende.",
+            body: "L'Evoluzione graduale si è aperta a sinistra (scheda Ottimizzazione). Abbiamo impostato l'Insieme di materiali su TiO₂ e SiO₂ del catalogo Predefiniti, e lo Spessore minimo segue la riga MNT. Premi Avvia. Alterna inserimenti needle e affinamenti, facendo crescere lo stack mentre la funzione di merito scende.",
             tip: "L'Evoluzione graduale fornisce spessore un poco per volta: ideale quando parti da (quasi) nulla.",
           },
           {
             title: 'Esamina il risultato',
-            body: "L'Editor del design (a sinistra) mostra ora il risultato: è comparso un antiriflesso multistrato. La sintesi ha scelto per te il numero di strati, i materiali e gli spessori.",
+            body: "L'Editor del design (a sinistra) mostra ora il risultato: una decina di strati di TiO₂ e SiO₂, nessuno più sottile di 15 nm. La sintesi ha scelto per te il numero di strati, il loro ordine e gli spessori.",
           },
           {
             title: 'Fatto',
@@ -776,10 +1118,11 @@ export default {
       multipassband: {
         title: 'Filtro multibanda: Needle più Pulizia',
         summary: 'Scolpisci un filtro a 4 righe da uno strato spesso, poi mettilo in ordine.',
+        designName: 'Multibanda a 4 righe (seme ad alto indice)',
         steps: [
           {
             title: 'La dimostrazione',
-            body: 'Questo esercizio avanzato riproduce una classica dimostrazione di OTF Studio: sintetizzare con il metodo Needle un filtro in trasmissione multibanda a 4 righe, poi ripulire il risultato per la produzione.',
+            body: 'Questo esercizio avanzato sintetizza con il metodo Needle un filtro in trasmissione multibanda a 4 righe, poi ripulisce il risultato per la produzione.',
           },
           {
             title: 'Strato iniziale spesso ad alto indice',
@@ -796,7 +1139,7 @@ export default {
           },
           {
             title: 'Avvia il Needle',
-            body: "Il Needle si è aperto a sinistra. Abbiamo già preparato tutto per te: l'insieme di materiali Multibanda (TiO₂/SiO₂), il motore migliore e il numero di iterazioni. Premi solo Avvia e lascialo andare finché non raggiunge circa 60 strati: a quel punto il filtro multibanda è buono.",
+            body: "Il Needle si è aperto a sinistra. Abbiamo già preparato tutto per te: l'insieme di materiali Multibanda (TiO₂/SiO₂), il motore migliore e il numero di iterazioni. Premi Avvia. Si ferma da solo a 60 strati, e a quel punto il filtro multibanda è buono.",
             tip: 'Guarda gli strati comparire mentre la funzione di merito scende: lo strato spesso viene affettato in uno stack multistrato.',
           },
           {
@@ -805,12 +1148,12 @@ export default {
           },
           {
             title: 'Mettilo in ordine',
-            body: 'La Pulizia del design si è aperta a sinistra (scheda Ottimizzazione). Rimuove gli strati ultrasottili trascurabili e unisce gli strati adiacenti dello stesso materiale. Mostra in anteprima la funzione di merito prima e dopo, e può riottimizzare lo stack ripulito in modo da preservare lo spettro. Avviala.',
-            tip: "Controlla la funzione di merito prima e dopo nell'anteprima, e attiva la riottimizzazione per recuperare eventuali piccole variazioni.",
+            body: 'La Pulizia del design si è aperta a sinistra (scheda Ottimizzazione). Rimuove gli strati ultrasottili trascurabili e unisce gli strati adiacenti dello stesso materiale. Riottimizza dopo è attivo, quindi Applica affina anche lo stack ripulito per recuperare lo spettro. Premi Applica.',
+            tip: "MF dopo, nell'anteprima, è il merito prima della riottimizzazione, quindi può sembrare molto peggiore. Leggi il merito che la Pulizia riporta dopo Applica.",
           },
           {
             title: 'Confronta (a destra)',
-            body: 'Guarda la Valutazione ottica a DESTRA: molti meno strati, con una risposta multibanda praticamente identica. Un filtro producibile. È il flusso sintesi → pulizia reso popolare da OTF Studio.',
+            body: 'Guarda la Valutazione ottica a DESTRA: circa un terzo di strati in meno, con la stessa risposta multibanda: un filtro che si può produrre.',
           },
           {
             title: 'Fatto',
@@ -1759,6 +2102,7 @@ export default {
     addAoiPlaceholder: '+',
     addAoiTooltip: (max, top) => `Aggiungi un angolo AOI (0–${String(top).replace('.', ',')}°), fino a ${max} angoli`,
     editAoiTooltip: 'Clicca per modificare questo angolo',
+    removeAoi: (angle) => `Rimuovi ${String(angle).replace('.', ',')}°`,
     aoiAtLeastOne: 'È richiesto almeno un angolo AOI',
     editTargets: 'Modifica',
     editTargetsTooltipOn: 'Esci dalla modifica dei target',

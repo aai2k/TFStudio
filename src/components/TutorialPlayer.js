@@ -4,7 +4,12 @@
 // actually operate the real UI at each step. So this overlay is DELIBERATELY
 // NON-BLOCKING — there is no full-screen dimmer and no click-catcher. It draws:
 //
-//   • a floating coach panel (bottom-right) with the step text + Back/Next/Exit
+//   • a floating coach panel with the step text + Back/Next/Exit, in the bottom
+//     corner away from the window the step highlights, so it never covers the
+//     controls the step asks for. A step that highlights nothing sits left,
+//     clear of Optical Evaluation on the right where lessons show their
+//     results; a step may name its side (`panel: 'left' | 'right'`) when the
+//     user acts on one side and reads the result on the other
 //   • an optional accent highlight RING around the step's target element, with
 //     pointer-events:none so every click passes straight through to the app
 //
@@ -21,25 +26,41 @@ const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 const PAD = 5;
 const PANEL_W = 350;
 
-export function TutorialPlayer({ c, t, lesson, designSig = '', designLayers = 0, onAction, onComplete, onClose }) {
-    const [idx, setIdx] = useState(0);
-    const steps = lesson.steps || [];
-    const step = steps[idx] || {};
-    const last = idx === steps.length - 1;
-    const tt = t.tutorials.player;
+// The side of the screen the coach panel sits on (see the header).
+function panelSideFor(step, rect) {
+    if (step.panel) return step.panel;
+    const targetOnLeft = !!rect && rect.left + rect.width / 2 < window.innerWidth / 2;
+    return targetOnLeft ? 'right' : 'left';
+}
 
-    const rect = useTargetRect(step.selector);
+// Why Next is blocked on this step, or null when it is not. A 'changed' gate
+// holds until the design differs from its signature when the step began
+// (`base`), and says what to do in the step's own `wait` text when it has one;
+// a { minLayers } gate holds until the design holds that many layers.
+function gateHintFor(step, base, designSig, designLayers, tt) {
+    const { gate } = step;
+    if (gate === true || gate === 'changed') {
+        return base === undefined || designSig === base ? (step.wait || tt.gateRun) : null;
+    }
+    if (gate && typeof gate === 'object' && gate.minLayers != null) {
+        const layers = designLayers || 0;
+        return layers < gate.minLayers ? tt.gateLayers(gate.minLayers, layers) : null;
+    }
+    return null;
+}
 
-    // Latest design signature, readable inside the once-per-step effect.
+// Fire each step's action at most once per run (Back/Next won't re-trigger),
+// and snapshot the design signature for 'changed' gates at the same moment.
+// Returns the snapshots, by step index.
+function useStepActions(idx, steps, designSig, onAction) {
+    // Latest design signature and callback, readable inside the once-per-step effect.
     const designSigRef = useRef(designSig);
     useEffect(() => { designSigRef.current = designSig; });
-
-    // Fire each step's action at most once per run (Back/Next won't re-trigger),
-    // and snapshot the design signature for 'changed' gates at the same moment.
-    const firedRef = useRef(new Set());
-    const gateBaseRef = useRef({});
     const onActionRef = useRef(onAction);
     useEffect(() => { onActionRef.current = onAction; });
+
+    const firedRef = useRef(new Set());
+    const gateBaseRef = useRef({});
     useEffect(() => {
         if (firedRef.current.has(idx)) return;
         firedRef.current.add(idx);
@@ -50,26 +71,60 @@ export function TutorialPlayer({ c, t, lesson, designSig = '', designLayers = 0,
             try { onActionRef.current?.({ tool: s.tool, loadDesign: s.loadDesign, layout: s.layout, prep: s.prep }); } catch (_) {}
         }
     }, [idx, steps]);
+    return gateBaseRef;
+}
+
+const secondaryButtonStyle = c => ({
+    padding: '7px 16px', borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+    border: `1px solid ${c.border}`, background: 'transparent', color: c.text,
+});
+
+// The step's forward button, greyed out with the gate's reason while blocked:
+// Next, or on the last step Finish. When the curriculum has a lesson after
+// this one, the last step offers it as the main button and Finish steps back.
+function NextButton({ c, tt, gateHint, last, nextLesson, onNext, onNextLesson }) {
+    const blocked = !!gateHint;
+    const primaryStyle = {
+        padding: '7px 18px', borderRadius: 6, fontSize: 12.5, fontWeight: 600,
+        cursor: blocked ? 'not-allowed' : 'pointer', border: 'none',
+        background: blocked ? c.border : c.accent, color: blocked ? c.textDim : '#fff',
+        opacity: blocked ? 0.7 : 1,
+    };
+    const button = (label, onClick, style) => h('button', {
+        onClick: blocked ? undefined : onClick, disabled: blocked, title: gateHint || undefined, style,
+    }, label);
+    if (!last) return button(tt.next, onNext, primaryStyle);
+    if (!nextLesson) return button(tt.finish, onNext, primaryStyle);
+    return h(React.Fragment, null,
+        button(tt.finish, onNext, secondaryButtonStyle(c)),
+        button(tt.nextLesson, onNextLesson, primaryStyle));
+}
+
+// `nextLesson` ({ key, title }) is the lesson after this one, or null after the
+// last; `onStartLesson(key)` starts it in place of this one.
+export function TutorialPlayer({
+    c, t, lesson, designSig = '', designLayers = 0, nextLesson = null,
+    onAction, onComplete, onClose, onStartLesson,
+}) {
+    const [idx, setIdx] = useState(0);
+    const steps = lesson.steps || [];
+    const step = steps[idx] || {};
+    const last = idx === steps.length - 1;
+    const tt = t.tutorials.player;
+
+    const rect = useTargetRect(step.selector);
+    const panelSide = panelSideFor(step, rect);
+    const gateBaseRef = useStepActions(idx, steps, designSig, onAction);
 
     // ── Gate: block Next until the step's condition is met ─────────────────────
-    let blocked = false;
-    const gate = step.gate;
-    if (gate) {
-        if (gate === true || gate === 'changed') {
-            const base = gateBaseRef.current[idx];
-            blocked = base === undefined || designSig === base;
-        } else if (typeof gate === 'object' && gate.minLayers != null) {
-            blocked = (designLayers || 0) < gate.minLayers;
-        }
-    }
-    const gateHint = blocked
-        ? (gate && typeof gate === 'object' && gate.minLayers != null
-            ? tt.gateLayers(gate.minLayers, designLayers || 0)
-            : tt.gateRun)
-        : null;
+    const gateHint = gateHintFor(step, gateBaseRef.current[idx], designSig, designLayers, tt);
 
     const finish = useCallback(() => { onComplete?.(lesson.key); onClose?.(true); }, [lesson.key, onComplete, onClose]);
     const next = useCallback(() => { if (last) finish(); else setIdx(i => i + 1); }, [last, finish]);
+    const goToNextLesson = useCallback(() => {
+        onComplete?.(lesson.key);
+        onStartLesson?.(nextLesson.key);
+    }, [lesson.key, nextLesson, onComplete, onStartLesson]);
     const back = useCallback(() => setIdx(i => Math.max(0, i - 1)), []);
 
     return h('div', { style: { position: 'fixed', inset: 0, zIndex: 10002, pointerEvents: 'none' } },
@@ -90,7 +145,7 @@ export function TutorialPlayer({ c, t, lesson, designSig = '', designLayers = 0,
         // Coach panel (interactive).
         h('div', {
             style: {
-                position: 'fixed', right: 18, bottom: 18, width: PANEL_W, pointerEvents: 'auto',
+                position: 'fixed', [panelSide]: 18, bottom: 18, width: PANEL_W, pointerEvents: 'auto',
                 background: c.panel, border: `1px solid ${c.border}`, borderRadius: 12,
                 boxShadow: '0 10px 40px rgba(0,0,0,0.55)', padding: 18, zIndex: 10003,
                 fontFamily: 'system-ui, -apple-system, sans-serif',
@@ -134,6 +189,10 @@ export function TutorialPlayer({ c, t, lesson, designSig = '', designLayers = 0,
                 },
             }, h('span', null, '⏳'), gateHint),
 
+            last && nextLesson && h('div', {
+                style: { marginTop: 14, fontSize: 11.5, color: c.textDim },
+            }, tt.upNext(nextLesson.title)),
+
             // Controls
             h('div', { style: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 16 } },
                 h('button', {
@@ -141,21 +200,11 @@ export function TutorialPlayer({ c, t, lesson, designSig = '', designLayers = 0,
                     style: { padding: '7px 10px', border: 'none', background: 'transparent', color: c.textDim, fontSize: 12, cursor: 'pointer' },
                 }, tt.exit),
                 h('div', { style: { display: 'flex', gap: 8 } },
-                    idx > 0 && h('button', {
-                        onClick: back,
-                        style: { padding: '7px 16px', borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', border: `1px solid ${c.border}`, background: 'transparent', color: c.text },
-                    }, tt.back),
-                    h('button', {
-                        onClick: blocked ? undefined : next,
-                        disabled: blocked,
-                        title: blocked ? gateHint : undefined,
-                        style: {
-                            padding: '7px 18px', borderRadius: 6, fontSize: 12.5, fontWeight: 600,
-                            cursor: blocked ? 'not-allowed' : 'pointer', border: 'none',
-                            background: blocked ? c.border : c.accent, color: blocked ? c.textDim : '#fff',
-                            opacity: blocked ? 0.7 : 1,
-                        },
-                    }, last ? tt.finish : tt.next),
+                    idx > 0 && h('button', { onClick: back, style: secondaryButtonStyle(c) }, tt.back),
+                    h(NextButton, {
+                        c, tt, gateHint, last, nextLesson: onStartLesson ? nextLesson : null,
+                        onNext: next, onNextLesson: goToNextLesson,
+                    }),
                 ),
             ),
         ),

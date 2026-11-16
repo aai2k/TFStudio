@@ -63,6 +63,8 @@ export const App = ({ kernelStartup }) => {
     const welcome   = useWelcomeAndTutorials({
         addItem: project.addItem,
         addItemFromDesign: project.addItemFromDesign,
+        folders: project.folders,
+        createTopFolder: project.createTopFolder,
         openTool: workspace.openTool,
         applyPreset: workspace.applyPreset,
         locale, t,

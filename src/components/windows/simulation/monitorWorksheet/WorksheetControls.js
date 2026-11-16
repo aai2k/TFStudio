@@ -27,11 +27,11 @@ export function WorksheetControls({ c, t, state, exportOutput, trailing = [] }) 
             // chip, which the planner handles as direct monitoring.
             value: session.layersPerChip, min: 1,
             max: ANALYSIS_DEFAULTS.monitorWorksheet.numbers.layersPerChip.max,
-            step: 1, c, width: 56,
+            step: 1, c, width: 56, tour: 'layers-per-chip',
             title: mw.layersPerChipTip, onChange: state.setLayersPerChip,
         }),
         h(ActionButton, {
-            label: mw.autoLambda, c, title: mw.autoLambdaTip,
+            label: mw.autoLambda, c, title: mw.autoLambdaTip, tour: 'auto-lambda',
             disabled: !state.stepCount, onClick: state.autoLambda,
         }),
         h(FieldLabel, { c }, mw.bulkLambda),

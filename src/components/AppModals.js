@@ -131,14 +131,18 @@ export function AppModals({
             onStart: welcome.startLesson,
             onClose: () => welcome.setShowTutorials(false),
         }),
+        // Keyed by lesson, so the next lesson starts on its own first step.
         welcome.activeTutorial && h(TutorialPlayer, {
+            key: welcome.activeTutorial.key,
             c, t,
             lesson: welcome.activeTutorial,
+            nextLesson: welcome.nextLesson,
             designSig,
             designLayers,
             onAction: welcome.onTutorialAction,
             onComplete: welcome.markTutorialDone,
             onClose: () => welcome.setActiveTutorial(null),
+            onStartLesson: welcome.startLesson,
         }),
         h(InputDialog, { inputDialog, c, t }),
         // The notices stack upward from the corner in the order they were

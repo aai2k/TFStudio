@@ -119,6 +119,7 @@ export function StackSettingsFields(props) {
             h(NumberField, {
                 value: refLambda, onChange: setRefLambda, positive: true, step: 1,
                 title: de.refLambdaTip, spin: true, burstKey, c, style: numStyle,
+                'data-tour': 'reference-wavelength',
             }),
             unit(t.units.nm),
         ),
@@ -153,6 +154,7 @@ export function StackGeometryPanel({ design, media, current, updateDesign, refLa
         h('div', {
             onClick: () => setSettingsOpen(!settingsOpen),
             title: de.settingsToggleTip,
+            'data-tour': 'stack-settings',
             style: {
                 display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
                 marginTop: 8, paddingTop: 6, borderTop: `1px solid ${c.border}`,

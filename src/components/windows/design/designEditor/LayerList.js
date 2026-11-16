@@ -355,7 +355,7 @@ export function LayerList({ layers, side, design, media = design, updateDesign, 
                 backgroundColor: c.panel, flexShrink: 0, flexWrap: 'wrap'
             }
         },
-            h(Btn, { onClick: addBelowSelection, c }, tablerIcon('plus', 13), de.addLayer),
+            h(Btn, { onClick: addBelowSelection, c, tour: 'add-layer' }, tablerIcon('plus', 13), de.addLayer),
             h('div', { style: { width: 1, height: 20, background: c.border, margin: '0 2px' } }),
             h(Btn, {
                 onClick: () => invertActiveSide && invertActiveSide(),
@@ -378,7 +378,7 @@ export function LayerList({ layers, side, design, media = design, updateDesign, 
             h(Btn, {
                 onClick: () => copyToOther && copyToOther(),
                 title: side === 'front' ? de.copyToBack : de.copyToFront,
-                c, style: { marginLeft: 4 }
+                c, style: { marginLeft: 4 }, tour: 'copy-to-other-side'
             }, side === 'front' ? de.copyToBack : de.copyToFront),
             h('div', { style: { width: 1, height: 20, background: c.border, margin: '0 2px' } }),
             // Design-wide operations, each run when picked.

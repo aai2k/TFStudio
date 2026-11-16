@@ -25,7 +25,7 @@ export function ErrorControls({ c, t, ea, state, notices, trailing }) {
         ],
     },
         h(ChoiceGroup, {
-            ariaLabel: 'T/R/A', activeId: state.char, onSelect: state.setChar, c,
+            ariaLabel: 'T/R/A', activeId: state.char, onSelect: state.setChar, c, tour: 'quantity',
             items: [
                 { id: 'T', label: 'T' },
                 { id: 'R', label: 'R' },
@@ -173,7 +173,7 @@ export function ErrorEditor({ c, ea, state, units }) {
                 }),
                 h(FieldLabel, { c }, units.nm),
             ),
-            h(SettingRow, { c, label: magnitudeLabel(ea.rmsRel) },
+            h(SettingRow, { c, label: magnitudeLabel(ea.rmsRel), tour: 'sigma-rel' },
                 h(NumInput, {
                     value: state.rmsRelPct, min: 0, max: 100, step: 0.1, c, width: 72,
                     title: ea.rmsRelTip, onChange: state.setRmsRelPct,

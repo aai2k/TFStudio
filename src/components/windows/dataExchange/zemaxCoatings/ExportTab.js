@@ -41,8 +41,8 @@ function ExportOptions(props) {
             h(NumInput, { value: gStep, onChange: setGStep, positive: true, step: 5, c, width: 56 }),
         ),
         h(InlineRow, { c },
-            h(ActionButton, { c, label: z.generate, onClick: onGenerate }),
-            h(ActionButton, { c, label: z.saveBtn, onClick: onSave, disabled: !preview }),
+            h(ActionButton, { c, label: z.generate, onClick: onGenerate, tour: 'generate' }),
+            h(ActionButton, { c, label: z.saveBtn, onClick: onSave, disabled: !preview, tour: 'save' }),
         ),
     );
 }

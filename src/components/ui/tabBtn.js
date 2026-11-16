@@ -4,13 +4,15 @@
  *
  * Distinct from the segmented controls elsewhere in the app, which switch a
  * setting rather than a page, and from the docking tabs, which switch windows.
+ *
+ * `tour`, when given, is the button's `data-tour` anchor for tutorial steps.
  */
 
 const { createElement: h } = React;
 
-export function TabBtn({ active, onClick, c, title, children }) {
+export function TabBtn({ active, onClick, c, title, tour, children }) {
     return h('button', {
-        type: 'button', onClick, 'aria-pressed': active, title,
+        type: 'button', onClick, 'aria-pressed': active, title, 'data-tour': tour,
         style: {
             height: 28, padding: '0 12px', border: 'none', borderRadius: 5,
             borderBottom: `2px solid ${active ? c.accent : 'transparent'}`,

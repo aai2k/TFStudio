@@ -588,6 +588,8 @@ function RibbonBtn({ id, label, title, active, disabled, c, onClick, iconColor }
         title: title || label,
         disabled: !!disabled,
         onClick,
+        // Tutorial steps point at a ribbon button by this anchor.
+        'data-tour': `ribbon-button-${id}`,
         onMouseEnter: () => setHov(true),
         onMouseLeave: () => setHov(false),
         style: {
@@ -898,10 +900,12 @@ function RibbonSearch({ c, t, tabs, onPick }) {
 
 // ── Tab button ────────────────────────────────────────────────────────────────
 
-function TabBtn({ label, active, c, onMouseDown, onClick, onDoubleClick }) {
+// `tour` is the tab's `data-tour` anchor, for a tutorial step that sends the
+// user to a button on another tab.
+function TabBtn({ label, active, c, tour, onMouseDown, onClick, onDoubleClick }) {
     const [hov, setHov] = useState(false);
     return h('button', {
-        onMouseDown, onClick, onDoubleClick,
+        onMouseDown, onClick, onDoubleClick, 'data-tour': tour,
         onMouseEnter: () => setHov(true),
         onMouseLeave: () => setHov(false),
         style: {
@@ -1012,7 +1016,7 @@ export function Toolbar({ c, onToolAction, onMenuAction, t, devAllowed = true, r
                 key: x.key,
                 label: x.label,
                 active: x.key === activeTab,
-                c,
+                c, tour: `ribbon-tab-${x.key}`,
                 onMouseDown: (e) => { if (e.detail === 1) wasCollapsed.current = collapsed; },
                 onClick: () => { setActiveTab(x.key); if (collapsed) setCollapsed(false); },
                 onDoubleClick: () => { if (!wasCollapsed.current && x.key === activeTab) setCollapsed(true); },

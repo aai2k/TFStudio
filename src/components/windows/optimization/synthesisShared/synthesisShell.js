@@ -60,8 +60,8 @@ export function SynthesisControlBar({
         }
     },
         running
-            ? h(SolidButton, { c, color: c.error, label: labels.stop, onClick: onStop }, tablerIcon('player-stop', 13))
-            : h(SolidButton, { c, color: c.success, label: labels.run, onClick: onRun }, tablerIcon('player-play', 13)),
+            ? h(SolidButton, { c, color: c.error, label: labels.stop, onClick: onStop, tour: 'run' }, tablerIcon('player-stop', 13))
+            : h(SolidButton, { c, color: c.success, label: labels.run, onClick: onRun, tour: 'run' }, tablerIcon('player-play', 13)),
         h(WashButton, { c, color: RESET_COLOR, label: labels.reset, onClick: onReset, disabled: !canReset }),
         // Per-side resets in both_independent (Needle / GE): restore one side
         // from the saved snapshot, keep the other side's timeline untouched.

@@ -5,10 +5,11 @@ const { createElement: h, useState } = React;
 
 // ── Small UI helpers ──────────────────────────────────────────────────────────
 
-export function Btn({ onClick, title, disabled, children, c, style = {} }) {
+// `tour`, when given, is the button's `data-tour` anchor for tutorial steps.
+export function Btn({ onClick, title, disabled, children, c, style = {}, tour }) {
     const [hov, setHov] = useState(false);
     return h('button', {
-        onClick, title, disabled,
+        onClick, title, disabled, 'data-tour': tour,
         onMouseEnter: () => setHov(true),
         onMouseLeave: () => setHov(false),
         style: {

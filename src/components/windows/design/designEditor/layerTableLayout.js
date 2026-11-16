@@ -2,10 +2,11 @@
  * Shared column geometry for the Design Editor header and layer rows. `tr` and
  * `tipTr` key into t.layerThicknesses, which already names these four columns
  * for the Layer Thicknesses window. OT, QW and FW are the standard thin-film
- * abbreviations and stay as written.
+ * abbreviations and stay as written. `tour` is a cell's `data-tour` anchor, by
+ * which a tutorial step points at a layer's physical thickness.
  */
 export const LAYER_THICKNESS_COLUMNS = Object.freeze([
-    { unit: 'nm', tr: 'colPhysical', tipTr: 'unitNmTip', primary: true },
+    { unit: 'nm', tr: 'colPhysical', tipTr: 'unitNmTip', primary: true, tour: 'thickness' },
     { unit: 'OT', label: 'OT', tipTr: 'unitOtTip' },
     { unit: 'QWOT', label: 'QW', tipTr: 'unitQwotTip' },
     { unit: 'FWOT', label: 'FW', tipTr: 'unitFwotTip' },

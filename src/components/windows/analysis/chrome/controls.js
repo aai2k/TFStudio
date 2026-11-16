@@ -13,6 +13,9 @@
  *
  * The one solid fill is SolidButton, for the button that starts, stops or
  * applies a window's work.
+ *
+ * A control's optional `tour` prop becomes its `data-tour` anchor, the name a
+ * tutorial step points at it by.
  */
 
 import { Checkbox } from '../../../ui/Checkbox.js';
@@ -50,11 +53,11 @@ export function Divider({ c }) {
  */
 export function NumInput({
     value, onChange, min, max, step, c, width = 60, title, disabled,
-    nullable, placeholder, emptyStep, positive, integer, burstKey,
+    nullable, placeholder, emptyStep, positive, integer, burstKey, tour,
 }) {
     return h(NumberField, {
         title, disabled, placeholder, value, onChange, min, max, step, nullable, emptyStep, positive, integer,
-        burstKey, spin: true, c,
+        burstKey, spin: true, c, 'data-tour': tour,
         style: {
             width, height: 24, backgroundColor: c.field, color: c.text,
             border: `1px solid ${c.border}`, borderRadius: 3,
@@ -116,9 +119,9 @@ function choiceButtonStyle(c, active, color, disabled) {
  *           active wash and adds a dot, for a choice that maps to a curve
  *           colour; a `disabled` choice is greyed and cannot be picked
  */
-export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel }) {
+export function ChoiceGroup({ label, items, activeId, onSelect, c, ariaLabel, tour }) {
     return h('div', {
-        role: 'group', 'aria-label': ariaLabel || label,
+        role: 'group', 'aria-label': ariaLabel || label, 'data-tour': tour,
         style: {
             height: 28, display: 'inline-flex', alignItems: 'center', gap: 2,
             padding: label ? '0 3px 0 8px' : '0 3px',
@@ -188,11 +191,12 @@ export function ResponseChoice({ c, t, activeId, onSelect, ids = ['T', 'R'] }) {
  *   labels    polarization names, keyed by `pol`
  */
 export function CurveToggleGroup({
-    c, quantity, color, members, active, onToggle, labels, disabled, disabledTitle,
+    c, quantity, color, members, active, onToggle, labels, disabled, disabledTitle, tour,
 }) {
     const fill = activeFill(c, color);
     return h('div', {
         role: 'group', 'aria-label': quantity, title: disabled ? disabledTitle : undefined,
+        'data-tour': tour,
         style: {
             display: 'inline-flex', alignItems: 'center', gap: 2, flexShrink: 0,
             height: 28, padding: '0 3px 0 8px', border: `1px solid ${c.border}`,
@@ -252,9 +256,9 @@ export function pencilIcon() {
 }
 
 /** Standalone on/off control, for a layer of the plot rather than a choice. */
-export function ToggleButton({ label, active, onClick, c, title, disabled, color, children }) {
+export function ToggleButton({ label, active, onClick, c, title, disabled, color, children, tour }) {
     return h('button', {
-        type: 'button', title, disabled,
+        type: 'button', title, disabled, 'data-tour': tour,
         onClick: () => { if (!disabled) onClick(); },
         'aria-pressed': !!active,
         style: rowButtonStyle(c, { active, disabled, color }),
@@ -262,9 +266,9 @@ export function ToggleButton({ label, active, onClick, c, title, disabled, color
 }
 
 /** Button that performs an action rather than holding a state. */
-export function ActionButton({ label, onClick, c, title, disabled, children }) {
+export function ActionButton({ label, onClick, c, title, disabled, children, tour }) {
     return h('button', {
-        type: 'button', title, disabled,
+        type: 'button', title, disabled, 'data-tour': tour,
         onClick: () => { if (!disabled) onClick(); },
         style: rowButtonStyle(c, { active: false, disabled }),
     }, children, label);
@@ -291,9 +295,9 @@ function colorButtonStyle(c, color, solid, disabled) {
  * Stop, Compute or Apply: solid in `color` with white text, so it is the
  * first thing found on the row.
  */
-export function SolidButton({ label, onClick, c, color, title, disabled, children }) {
+export function SolidButton({ label, onClick, c, color, title, disabled, children, tour }) {
     return h('button', {
-        type: 'button', title, disabled,
+        type: 'button', title, disabled, 'data-tour': tour,
         onClick: () => { if (!disabled) onClick(); },
         style: colorButtonStyle(c, color, true, disabled),
     }, children, label);

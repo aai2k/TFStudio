@@ -77,7 +77,7 @@ function AoiChip({ value, onRemove, onEdit, canRemove, c, oe }) {
         h('span', { onClick: start, title: oe.editAoiTooltip, style: { cursor: 'pointer' } }, `${formatTheta(value)}°`),
         canRemove && h('button', {
             onClick: onRemove,
-            'aria-label': `Remove ${formatTheta(value)}°`,
+            'aria-label': oe.removeAoi(formatTheta(value)), title: oe.removeAoi(formatTheta(value)),
             style: {
                 background: 'transparent', border: 'none', color: c.textDim, cursor: 'pointer',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',

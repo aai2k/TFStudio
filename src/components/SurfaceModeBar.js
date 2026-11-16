@@ -170,9 +170,10 @@ function handleSurfaceChange(v, { design, updateDesign, onModeChange, isSymmetri
     }
 }
 
-function ModeCheckbox({ c, checked, onChange, disabled, text, tip }) {
+// `tour` is the `data-tour` anchor a tutorial step points at the box by.
+function ModeCheckbox({ c, checked, onChange, disabled, text, tip, tour }) {
     return h('label', {
-        title: tip,
+        title: tip, 'data-tour': tour,
         style: {
             display: 'inline-flex', alignItems: 'center', gap: 5,
             cursor: disabled ? 'not-allowed' : 'pointer',
@@ -242,12 +243,13 @@ export function SurfaceModeControl({ design, updateDesign, c, t, onModeChange, s
             mb.symmetricTip || 'Back coating is an exact mirror of the front; both sides optimized together as one identical stack.',
         ),
         // Ignore-other-side checkbox — disabled (forced full-system) under Both
-        checkboxLabel(
-            isBoth ? false : ignoreOther, onIgnore, isBoth,
-            mb.ignoreLabel || 'Ignore other side',
-            mb.ignoreTip
+        h(ModeCheckbox, {
+            c, checked: isBoth ? false : ignoreOther, onChange: onIgnore, disabled: isBoth,
+            text: mb.ignoreLabel || 'Ignore other side',
+            tip: mb.ignoreTip
                 || 'Checked: evaluate this surface alone on a semi-infinite substrate (no back-surface reflection) — the merit function, Specification and all analysis windows score this one side.\nUnchecked: evaluate the full system (front + substrate + back).\nDisabled for "Both" (always full system).',
-        ),
+            tour: 'ignore-other-side',
+        }),
         backSide?.tag,
     );
 }

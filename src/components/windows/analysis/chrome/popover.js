@@ -55,11 +55,11 @@ export function triggerStyle(c, { open, tone }) {
  *   width  minimum panel width; the content may widen it up to 420 px
  *   tone   colour for a button that reports a condition rather than settings
  */
-export function PopoverButton({ c, label, title, tone, width = 250, icon, children }) {
+export function PopoverButton({ c, label, title, tone, width = 250, icon, tour, children }) {
     const [open, setOpen] = useState(false);
     return h('div', { style: { position: 'relative', flexShrink: 0 } },
         h('button', {
-            type: 'button', title, 'aria-expanded': open,
+            type: 'button', title, 'aria-expanded': open, 'data-tour': tour,
             onClick: () => setOpen(current => !current),
             style: triggerStyle(c, { open, tone }),
         },
@@ -141,12 +141,15 @@ function DefaultsFooter({ c, t, windowId }) {
     );
 }
 
-/** The window's settings, everything that is not a curve switch. */
+/**
+ * The window's settings, everything that is not a curve switch. A window has
+ * one, so its button is anchored for tutorials as `settings`.
+ */
 export function SettingsMenu({ c, t, windowId, label, title, width, children }) {
     const defaults = windowId && t && canSaveWindowDefaults(windowId)
         ? h(DefaultsFooter, { c, t, windowId })
         : null;
-    return h(PopoverButton, { c, label, title: title || label, width, icon: GEAR },
+    return h(PopoverButton, { c, label, title: title || label, width, icon: GEAR, tour: 'settings' },
         children, defaults);
 }
 
@@ -158,8 +161,9 @@ export function SettingsMenu({ c, t, windowId, label, title, width, children }) 
  * range broken across two lines is harder to read than a wider panel. Pass
  * `wrap` for a row whose control is a growing list, such as the angle chips.
  */
-export function SettingRow({ c, label, wrap = false, children }) {
+export function SettingRow({ c, label, wrap = false, tour, children }) {
     return h('div', {
+        'data-tour': tour,
         style: {
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '3px 0', minHeight: 28,

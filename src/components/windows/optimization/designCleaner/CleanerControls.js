@@ -55,10 +55,10 @@ export function ReoptimizeSettings({ c, dc, tr, reoptMethod, setReoptMethod, reo
 // Apply, or Stop in its place while the re-optimize pass runs. Stop keeps the
 // cleanup and the best point reached.
 function ApplyButton({ c, dc, applying, progress, ops, apply, stop }) {
-    if (progress) return h(SolidButton, { c, color: c.error, label: dc.stop, onClick: stop }, tablerIcon('player-stop', 13));
+    if (progress) return h(SolidButton, { c, color: c.error, label: dc.stop, onClick: stop, tour: 'run' }, tablerIcon('player-stop', 13));
     return h(SolidButton, {
         c, color: c.success, label: applying ? dc.applying : `${dc.apply} (${ops.length})`,
-        onClick: apply, disabled: applying || ops.length === 0,
+        onClick: apply, disabled: applying || ops.length === 0, tour: 'run',
     });
 }
 

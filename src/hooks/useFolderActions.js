@@ -78,24 +78,31 @@ function askNewFolder(a, parentFolder) {
     });
 }
 
-function createFolder(a, parentId, name) {
+// Resolves to the new folder, or to null when it could not be made.
+async function createFolder(a, parentId, name) {
     const id = joinFolderId(parentId, name);
     const newFolder = { id, name: folderLeafName(id), expanded: true, items: [] };
-    return a.persistChange(
+    // The parent is opened with it, or the new folder is created out of sight.
+    // The ref moves with the list, so a design added to the folder straight
+    // away finds it before the next render.
+    const withFolder = folders => [
+        ...folders.map(f => (f.id === parentId ? { ...f, expanded: true } : f)),
+        newFolder,
+    ];
+    let created = null;
+    await a.persistChange(
         window.electronAPI?.createFolder
             ? () => window.electronAPI.createFolder(id)
             : null,
         () => {
-            // The parent is opened with it, or the new folder is created out of
-            // sight.
-            a.setFolders(prev => [
-                ...prev.map(f => (f.id === parentId ? { ...f, expanded: true } : f)),
-                newFolder,
-            ]);
+            a.foldersRef.current = withFolder(a.foldersRef.current);
+            a.setFolders(withFolder);
             a.setSelectedFolder(newFolder);
+            created = newFolder;
         },
         (error) => folderWriteFailure(a.t, error),
     );
+    return created;
 }
 
 /**
@@ -272,6 +279,9 @@ export function useFolderActions({ tree, persistChange, setInputDialog, setMessa
 
     return {
         addFolder:         useCallback((parentFolder) => askNewFolder(a.current, parentFolder), []),
+        // A top-level folder made without asking for its name; resolves to the
+        // folder, or to null when it could not be made.
+        createTopFolder:   useCallback((name) => createFolder(a.current, null, name), []),
         renameFolder:      useCallback((folderId, newName) => renameFolderTo(a.current, folderId, newName), []),
         moveFolder:        useCallback((folderId, parentId) => moveFolderTo(a.current, folderId, parentId), []),
         moveItemsToFolder: useCallback((itemIds, targetId) => moveDesignsTo(a.current, itemIds, targetId), []),

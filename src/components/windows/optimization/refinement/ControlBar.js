@@ -72,8 +72,8 @@ function runButtons({ running, canReset, onRun, onStop, onReset, onBest, surface
     const tr = t.refinement;
     return [
         running
-            ? h(SolidButton, { c, color: c.error, label: tr.stop, onClick: onStop }, tablerIcon('player-stop', 13))
-            : h(SolidButton, { c, color: c.success, label: tr.run, onClick: onRun }, tablerIcon('player-play', 13)),
+            ? h(SolidButton, { c, color: c.error, label: tr.stop, onClick: onStop, tour: 'run' }, tablerIcon('player-stop', 13))
+            : h(SolidButton, { c, color: c.success, label: tr.run, onClick: onRun, tour: 'run' }, tablerIcon('player-play', 13)),
         h(WashButton, { c, color: RESET_COLOR, label: tr.reset, onClick: onReset, disabled: !canReset }),
         h(WashButton, { c, color: BEST_COLOR, label: tr.best, onClick: onBest, disabled: !canReset }),
         h('span', { style: { display: 'inline-flex', alignItems: 'center', gap: 4 } },
