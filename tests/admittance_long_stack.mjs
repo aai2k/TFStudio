@@ -5,13 +5,14 @@
  * cost per series far above its cost per point, so the chart draws the arcs of
  * one colour and dash as one line series, a gap between arcs, and every arc's
  * end as a point of one scatter series. On a 189-layer stack that is 6 series
- * where one per arc would be 381. The arcs are cut to the area the view can
- * reach, so a mirror's arcs out at admittances of 1e16 are not laid out on
- * every frame for nothing.
+ * where one per arc would be 381. The arcs are cut to a square a few views
+ * wide around the view, so a mirror's arcs out at admittances of 1e16 are not
+ * laid out on every frame for nothing; the chart cuts them anew as the view
+ * moves.
  *
  * Pinned here: the series count does not grow with the layers, the chart draws
- * the sampled arcs exactly wherever the view can go and nothing beyond, zooming
- * out past the axes cuts them to the grown area, the arcs turn smoothly, the
+ * the sampled arcs exactly inside the square it records and nothing beyond, a
+ * cut around another view does the same there, the arcs turn smoothly, the
  * drawn arc ends are the transfer-matrix admittances the table lists, and how
  * many points the chart is handed for this stack. Pan frame time grows with
  * that count, so a change that raises it should be a decision made here.
@@ -29,7 +30,7 @@ initCatalogs({});
 const { buildDiagramData, buildMatColorMap, sideStackLayers } = await import(
     '../src/components/windows/analysis/admittanceDiagram/model.js'
 );
-const { admittanceLociWithin, buildAdmittanceOption } = await import(
+const { admittanceLociAround, buildAdmittanceOption, cutAround } = await import(
     '../src/components/windows/analysis/admittanceDiagram/chartFigure.js'
 );
 const { clipPolyline } = await import('../src/components/windows/analysis/admittanceDiagram/clipPolyline.js');
@@ -64,8 +65,6 @@ function stack(layers) {
 
 const COLORS = { paper: '#222', background: '#111', text: '#eee', border: '#333' };
 const MAX_TURN_DEG = 2.0;
-// The documented margin a cut end lies beyond the axes, as a fraction of their span.
-const CLIP_MARGIN = 0.01;
 
 function draw(design, lambda_nm, pol) {
     const layers = sideStackLayers(design, 'front');
@@ -103,6 +102,11 @@ function grown(box, fraction) {
     const by = Math.max(box.x[1] - box.x[0], box.y[1] - box.y[0]) * fraction;
     return { x: [box.x[0] - by, box.x[1] + by], y: [box.y[0] - by, box.y[1] + by] };
 }
+const opening = option => {
+    const axes = axesOf(option);
+    const quarter = (axes.x[1] - axes.x[0]) * 3 / 8;
+    return { x: [axes.x[0] + quarter, axes.x[1] - quarter], y: [axes.y[0] + quarter, axes.y[1] - quarter] };
+};
 
 // The sampled arcs each line series holds, in stack order.
 function sampledArcs(series, lines, matColorMap) {
@@ -118,18 +122,17 @@ function sampledArcs(series, lines, matColorMap) {
 }
 
 // Every sampled segment with both ends in `box` is drawn as it is, every drawn
-// point lies within `box` grown by the margin, and a run that does not end on
-// a sampled vertex ends exactly on that grown edge, never short of it.
+// point lies within `box`, and a run that does not end on a sampled vertex ends
+// exactly on its edge, never short of it.
 function assertDrawnWithin(data, arcs, box, tag) {
-    const reach = grown(box, CLIP_MARGIN);
     const vertices = new Set(arcs.flatMap(arc => arc.map(String)));
-    const onEdge = ([x, y]) => x === reach.x[0] || x === reach.x[1] || y === reach.y[0] || y === reach.y[1];
+    const onEdge = ([x, y]) => x === box.x[0] || x === box.x[1] || y === box.y[0] || y === box.y[1];
     const drawn = new Set();
     const pieces = runs(data);
     for (const piece of pieces) {
         for (let i = 1; i < piece.length; i++) drawn.add(`${piece[i - 1]}|${piece[i]}`);
         for (const point of piece) {
-            assert.ok(inside(point, grown(box, CLIP_MARGIN + 1e-9)), `${tag}: drew ${point}, outside the reach`);
+            assert.ok(inside(point, grown(box, 1e-9)), `${tag}: drew ${point}, outside the square`);
         }
         for (const end of [piece[0], piece.at(-1)]) {
             assert.ok(vertices.has(String(end)) || onEdge(end), `${tag}: a cut end at ${end} stops short of the edge`);
@@ -150,7 +153,7 @@ const short = stack(2);
 
 // [wavelength nm, polarization, points the sampler gives, points handed to the chart]
 const CASES = [
-    [550, 's', 15165, 1928],
+    [550, 's', 15165, 1926],
     [1471, 's', 12765, 13144],
     [1471, 'avg', 25530, 26288],
 ];
@@ -169,17 +172,25 @@ for (const [lambda, pol, arcPoints, chartPoints] of CASES) {
     assert.equal(option.series.reduce((n, item) => n + item.data.length, 0), chartPoints,
         `${tag}: points handed to the chart`);
 
+    // At opening the arcs are cut to the zoomable area, the axes' range.
     const sampled = sampledArcs(series, lines, matColorMap);
     for (const line of lines) {
-        assertDrawnWithin(line.data, sampled.get(line.id), axesOf(option), `${tag}, ${line.name}`);
+        assert.deepEqual(line.cutTo, cutAround(opening(option)), `${tag}, ${line.name}: cut around the opening view`);
+        assert.deepEqual(line.cutTo, axesOf(option), `${tag}, ${line.name}: which is the zoomable area`);
+        assertDrawnWithin(line.data, sampled.get(line.id), line.cutTo, `${tag}, ${line.name}`);
     }
 
-    // Zooming out past the axes doubles them; the arcs are cut to the grown area.
-    const axes = axesOf(option);
-    const wider = grown(axes, 0.5);
-    const regrown = admittanceLociWithin(series, matColorMap, matName, wider);
-    assert.deepEqual(regrown.map(item => item.id), lines.map(line => line.id), `${tag}: re-cut series merge by id`);
-    for (const item of regrown) assertDrawnWithin(item.data, sampled.get(item.id), wider, `${tag}, grown, ${item.id}`);
+    // A view zoomed in eightfold and moved off centre: the arcs cut around it.
+    const view = opening(option);
+    const eighth = (view.x[1] - view.x[0]) / 8;
+    const moved = { x: [view.x[0] + eighth, view.x[0] + 2 * eighth], y: [view.y[0] + 3 * eighth, view.y[0] + 4 * eighth] };
+    const recut = admittanceLociAround(series, matColorMap, matName, moved);
+    assert.deepEqual(recut.map(item => item.id), lines.map(line => line.id), `${tag}: a new cut merges by series id`);
+    for (const item of recut) {
+        assert.deepEqual(item.cutTo, cutAround(moved), `${tag}, ${item.id}: records its square`);
+        assert.ok(item.cutTo.x[1] - item.cutTo.x[0] === 4 * eighth, `${tag}, ${item.id}: four views wide`);
+        assertDrawnWithin(item.data, sampled.get(item.id), item.cutTo, `${tag}, moved, ${item.id}`);
+    }
 
     // The drawn end of each arc is the admittance the table reports for its layer.
     const drawnEnds = ends.data.map(point => point.value);

@@ -73,21 +73,19 @@ function legendName(layerNum, material, matName, polLabel) {
     return short ? `L${layerNum} ${short}${polLabel}` : `L${layerNum}${polLabel}`;
 }
 
-// A cut end lies this fraction of the domain's span beyond its edge, so it is
-// never drawn on the plot's edge, where its round cap would show. With the
-// whole domain in view that is several pixels, more than the cap's one.
-const CLIP_MARGIN = 0.01;
-
 /**
- * The area the view can reach: the axes' range, which dataZoom never leaves,
- * grown by the margin. A mirror's outer arcs reach admittances of 1e16 and
- * beyond, and the parts out there are what the chart would otherwise lay out
- * and paint on every frame without ever showing them.
+ * The square the arcs are cut to around a view `{ x, y }`: centred on it and
+ * as many views wide as the zoomable area the window opens on, so at opening
+ * it is that area. A mirror's outer arcs reach admittances of 1e16 and beyond,
+ * and the parts far outside the view are what the chart would otherwise lay
+ * out and paint on every frame without showing them. The chart cuts them anew
+ * as the view moves (AdmittanceChart).
  */
-function clipBox(range) {
-    if (!range) return null;
-    const grow = Math.max(range.x[1] - range.x[0], range.y[1] - range.y[0]) * CLIP_MARGIN;
-    return { x: [range.x[0] - grow, range.x[1] + grow], y: [range.y[0] - grow, range.y[1] + grow] };
+export function cutAround(view) {
+    if (!view) return null;
+    const half = Math.max(view.x[1] - view.x[0], view.y[1] - view.y[0]) * ZOOM_OUT_FACTOR / 2;
+    const cx = (view.x[0] + view.x[1]) / 2, cy = (view.y[0] + view.y[1]) / 2;
+    return { x: [cx - half, cx + half], y: [cy - half, cy + half] };
 }
 
 /**
@@ -114,9 +112,14 @@ function addToLocus(loci, arc, { color, dash, materialName, suffix }, box, order
     }
 }
 
-function locusSeries({ id, color, dash, suffix, materials, data }) {
+// `cutTo` is not an ECharts setting: it records on the series the square its
+// data was cut to, so the chart can tell when the view outgrows it.
+function locusSeries({ id, color, dash, suffix, materials, data }, box) {
     const name = `${[...materials].join(', ')}${suffix}`.trim();
-    return { ...lineSeries({ data, name, color, width: 2, dash, lineCap: 'round', lineJoin: 'round' }), id };
+    return {
+        ...lineSeries({ data, name, color, width: 2, dash, lineCap: 'round', lineJoin: 'round' }),
+        id, ...(box ? { cutTo: box } : {}),
+    };
 }
 
 // How the loci of one item are drawn: in its polarization's dash and, under
@@ -260,7 +263,7 @@ function boundaryMarks(source, colors, marks) {
 function admittanceSeries(source, { matColorMap, matName, colors, marks }, box) {
     if (!source?.length) return [];
     const drawn = [
-        ...collectLoci(source, matColorMap, matName, marks, box).map(locusSeries),
+        ...collectLoci(source, matColorMap, matName, marks, box).map(locus => locusSeries(locus, box)),
         arcEndSeries(arcEnds(source, matColorMap, matName, marks), colors.text),
         ...boundaryMarks(source, colors, marks),
     ];
@@ -275,13 +278,13 @@ function admittanceSeries(source, { matColorMap, matName, colors, marks }, box) 
 }
 
 /**
- * The arcs' line series cut to the axes' `range`, `{ x, y }`, as series to
- * merge by id: zooming out past the axes grows them, and the arcs are cut to
- * the grown area to match.
+ * The arcs' line series cut around `view`, `{ x, y }`, as series to merge by
+ * id, each recording the square it was cut to.
  */
-export function admittanceLociWithin(source, matColorMap, matName, range, { marks = FACTORY } = {}) {
+export function admittanceLociAround(source, matColorMap, matName, view, { marks = FACTORY } = {}) {
     if (!source?.length) return [];
-    return collectLoci(source, matColorMap, matName, marks, clipBox(range)).map(({ id, data }) => ({ id, data }));
+    const box = cutAround(view);
+    return collectLoci(source, matColorMap, matName, marks, box).map(({ id, data }) => ({ id, data, cutTo: box }));
 }
 
 /**
@@ -292,7 +295,7 @@ export function buildAdmittanceOption(source, matColorMap, matName, colors, { ma
     const range = computeAdmittanceRange(source);
     const navigation = navigationDomain(range);
     const symbol = isReflection(source) ? 'Γ' : 'Y';
-    const series = admittanceSeries(source, { matColorMap, matName, colors, marks }, clipBox(navigation.range));
+    const series = admittanceSeries(source, { matColorMap, matName, colors, marks }, cutAround(range));
     const environments = sourceEnvironments(source);
     const key = environments.length ? environmentLegend(environments, marks, colors.text) : null;
     if (key) series.push(...key.series);

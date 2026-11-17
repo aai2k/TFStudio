@@ -2,13 +2,11 @@ import { drawChart, useChartTeardown } from '../../../ui/plotSurface.js';
 import { squareGrid } from '../../../ui/chartOptions.js';
 import { useAnalysisColors } from '../../../../state/AnalysisSettingsContext.js';
 import { plotMargin } from '../chrome/plot.js';
-import { ADMITTANCE_ZOOM_IDS, admittanceLociWithin, buildAdmittanceOption } from './chartFigure.js';
+import { ADMITTANCE_ZOOM_IDS, buildAdmittanceOption } from './chartFigure.js';
+import { bindRecut, rememberDrawing } from './recutArcs.js';
 
 const { createElement: h, useEffect, useRef } = React;
 const progressivelyZoomable = new WeakSet();
-// What each chart was last drawn from, so the arcs can be cut anew when zooming
-// out grows its axes past the area they were cut to.
-const drawnFrom = new WeakMap();
 const DOMAIN_GROWTH = 2;
 const AFTER_GROW_START = 22.5;
 const AFTER_GROW_END = 77.5;
@@ -160,20 +158,6 @@ function bindAspectLock(chart) {
     });
 }
 
-// The grown axes and view, with the arcs cut to the grown area.
-function grownView(chart) {
-    const expanded = expandAdmittanceNavigation(chart.getOption());
-    const drawing = drawnFrom.get(chart);
-    if (!expanded || !drawing) return expanded;
-    const range = {
-        x: [expanded.xAxis[0].min, expanded.xAxis[0].max],
-        y: [expanded.yAxis[0].min, expanded.yAxis[0].max],
-    };
-    const series = admittanceLociWithin(drawing.series, drawing.matColorMap, drawing.matName, range,
-        { marks: drawing.marks });
-    return { ...expanded, series };
-}
-
 function wheelZoom(chart, event) {
     if (!insideGrid(chart, event)) return;
     const outward = isOutwardWheel(event);
@@ -186,7 +170,7 @@ function wheelZoom(chart, event) {
         Number(zoom?.start) <= 1e-7 && Number(zoom?.end) >= 100 - 1e-7
     ));
     if (outward && atBoundary) {
-        const expanded = grownView(chart);
+        const expanded = expandAdmittanceNavigation(chart.getOption());
         if (expanded) chart.setOption(expanded, { notMerge: false, lazyUpdate: false });
         return;
     }
@@ -263,6 +247,7 @@ function bindProgressiveZoom(chart) {
     bindAspectLock(chart);
     chart.getZr().on('mousewheel', event => wheelZoom(chart, event));
     bindDragPan(chart);
+    bindRecut(chart);
 }
 
 export function AdmittanceChart({ series, matColorMap, matName, c }) {
@@ -277,7 +262,7 @@ export function AdmittanceChart({ series, matColorMap, matName, c }) {
         const chart = drawChart(divRef.current, chartRef,
             buildAdmittanceOption(series, matColorMap, matName, colors,
                 { marks, grid: squareGrid(divRef.current, plotMargin()) }));
-        if (chart) drawnFrom.set(chart, { series, matColorMap, matName, marks });
+        rememberDrawing(chart, { series, matColorMap, matName, marks });
         bindProgressiveZoom(chart);
     });
     useChartTeardown(divRef, chartRef, () => {
