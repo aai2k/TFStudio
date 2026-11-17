@@ -1019,6 +1019,43 @@ export default {
           },
         ],
       },
+      processExport: {
+        title: 'Guarda crescere il rivestimento',
+        summary: "Riproduci una deposizione strato per strato, guarda cosa vedrà il monitor e scrivi lo spettro obiettivo di ogni strato per l'impianto.",
+        designName: 'Filtro a banda stretta strato per strato',
+        steps: [
+          {
+            title: 'Strato per strato',
+            body: "Nella camera un rivestimento cresce uno strato alla volta, e il monitor ottico vede lo spettro cambiare mentre cresce. Esporta processo lo riproduce e scrive lo spettro alla fine di ogni strato per il software di monitoraggio dell'impianto.",
+          },
+          {
+            title: 'Caricato: un filtro a banda stretta',
+            body: "Caricato (Editor del design, a sinistra): il filtro a banda stretta a nove strati della lezione sugli errori di spessore. Il suo picco di T a 550 nm c'è solo quando l'ultimo strato è depositato.",
+          },
+          {
+            title: 'Riproducilo (a sinistra)',
+            body: 'Esporta processo si è aperto a sinistra (scheda Produzione). Velocità è su 10×, la più alta, quindi i nove strati scorrono in circa 70 s alla velocità predefinita di 1 nm/s; 1× è il tempo reale. Premi Riproduci e segui la curva in grassetto.',
+            tip: "Il simbolo ⚠ dice che l'intervallo va oltre i dati misurati del TiO₂, che finiscono a 827 nm; il suo pulsante Imposta l'intervallo tiene il grafico sui dati. Le velocità di deposizione nella barra laterale fissano quanto dura ogni materiale, come nel tuo impianto.",
+          },
+          {
+            title: 'Cosa fanno le curve',
+            body: "La curva tratteggiata è il vetro nudo, letto attraverso il pezzo intero: 91,8 % a 550 nm. A 550 nm ogni strato a quarto d'onda fa oscillare T: 60,7 % dopo lo strato 1, 86,1 % dopo lo strato 2, 27,3 % dopo lo strato 3. Lo spaziatore a mezz'onda, lo strato 5, la lascia invariata. Poi il secondo specchio ripercorre gli stessi valori in salita, fino al 91,5 % dopo lo strato 9: a 550 nm annulla il primo specchio, quindi lì il rivestimento è come assente, mentre ai lati i due specchi riflettono.",
+            tip: 'Mostra tutti gli strati disegna insieme la curva finale di ogni strato.',
+          },
+          {
+            title: 'Fermati su uno strato',
+            body: 'Clicca uno strato in Sequenza di deposizione: la linea del tempo si ferma alla fine di quello strato e il grafico mostra cosa legge il monitor in quel momento. I tasti freccia su e giù percorrono gli strati; clicca di nuovo lo strato per rilasciarlo.',
+          },
+          {
+            title: "I file per l'impianto",
+            body: 'Salva i file .res… scrive un file per strato nella cartella che scegli, da 01.res a 09.res, ciascuno con lo spettro alla fine del suo strato. Il software di monitoraggio confronta con essi la misura in corso. In Impostazioni il passo di esportazione si adatta alla griglia del tuo spettrofotometro, e si può scegliere CSV o testo.',
+          },
+          {
+            title: 'Fatto',
+            body: 'Esporta processo mostra la deposizione come progettata, senza errori. Per vederne una con errori di spessore e di monitoraggio, il Simulatore di monitoraggio a banda larga e il Simulatore di monitoraggio monocromatico (scheda Produzione) depositano il design con rumore.',
+          },
+        ],
+      },
       monitoring: {
         title: 'Si può monitorare?',
         summary: "Controlla prima di una deposizione se un monitor ottico può fermare ogni strato, e scegli la lunghezza d'onda e i vetrini che lo permettono.",

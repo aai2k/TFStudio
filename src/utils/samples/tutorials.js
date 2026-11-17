@@ -2,11 +2,11 @@
 //
 // Structure-only definitions: each lesson lists its steps with an optional
 // `selector` to highlight (a CSS selector, or a list of them of which the first
-// one on screen is ringed: the control a step names, then its window), an
-// optional `panel` side for the coach panel, and an optional action (`tool` to
-// open, `loadDesign(name)` to drop a starter design into the project under the
-// locale's `designName`,
-// or `layout` to apply a docking preset). All DISPLAY TEXT lives in the locale
+// one on screen is ringed: the control a step names, then its window; see
+// useTargetRect for `{ all }`), an optional `panel` side for the coach panel,
+// and an optional action (`tool` to open, `loadDesign(name)` to drop a starter
+// design into the project under the locale's `designName`, or `layout` to
+// apply a docking preset). All DISPLAY TEXT lives in the locale
 // (`t.tutorials.lessons[key]`) — the player merges text in by step index, so the
 // per-lesson step COUNT here must match the locale's `steps` array length.
 //
@@ -19,6 +19,7 @@ import { makeDefaultDesign } from '../../state/DesignContext.js';
 import { addCatalog, getCatalog, getMaterialById } from '../materials/catalogManager.js';
 import { setSynthesisInnerEngine } from '../synthesis/synthesisConfig.js';
 import { TABULATED_INTERPOLATION } from '../materials/pchip.js';
+import { savePersist as saveProcessExport } from '../../components/windows/dataExchange/processSimulator/persistence.js';
 
 // ── Dedicated "Multipassband (TiO2/SiO2)" material catalog ─────────────────────
 // The multipassband exercise uses its own two-material catalog (matching the
@@ -209,6 +210,14 @@ function prepArSynthesis() {
     } catch (_) {}
 }
 
+// The Process Exporter plays the process lesson's run at 10×, the fastest
+// speed it offers, so the narrowband filter's nine layers (about 720 nm at the
+// default 1 nm/s) play in about 70 s: slow enough to see each layer move the
+// spectrum, short enough to watch to the end.
+function prepProcessExport() {
+    saveProcessExport({ playSpeed: 10 });
+}
+
 // ── Lessons ────────────────────────────────────────────────────────────────────
 // `level` ∈ {beginner, intermediate, advanced}. `estMin` = rough minutes.
 // Lessons are listed by level, in the order the browser shows them, since a
@@ -230,6 +239,9 @@ const AT = (anchor) => `[data-tour="${anchor}"]`;
 // A control a step names, inside an open tool window, then the window itself
 // while the control is not on screen: the player rings the first one it finds.
 const CONTROL = (tool, anchor) => [`${TOOL(tool)} ${AT(anchor)}`, TOOL(tool)];
+// As CONTROL, ringing every control of that anchor together, such as the
+// thickness cells of all the layers when a step sets more than one.
+const CONTROLS = (tool, anchor) => [{ all: `${TOOL(tool)} ${AT(anchor)}` }, TOOL(tool)];
 
 export function buildTutorials() {
     const EXPLORER = AT('explorer');
@@ -262,7 +274,7 @@ export function buildTutorials() {
                 { },                                                                       // QWOT explanation
                 { selector: PLOT_SETTINGS },                                               // zoom the Y axis (OE right)
                 { selector: OE },                                                          // see the minimum (OE right)
-                { tool: 'design-editor', selector: CONTROL('design-editor', 'thickness'), panel: 'left' }, // experiment: edit left, read R right
+                { tool: 'design-editor', selector: CONTROLS('design-editor', 'thickness') }, // experiment: edit left, read R right
                 { selector: PLOT_SETTINGS },                                               // done: Y back to 0-100
             ],
         },
@@ -270,10 +282,10 @@ export function buildTutorials() {
             key: 'bothSides', level: 'beginner', estMin: 4,
             steps: [
                 { },                                                                       // a design is a whole part
-                { loadDesign: buildSingleLayerAR, selector: CONTROL('design-editor', 'ignore-other-side'), panel: 'left' }, // MgF2 AR on the front only; reads R right
-                { tool: 'design-editor', selector: CONTROL('design-editor', 'ignore-other-side'), panel: 'left' }, // untick Ignore other side
+                { loadDesign: buildSingleLayerAR, selector: CONTROL('design-editor', 'ignore-other-side') }, // MgF2 AR on the front only; reads R right
+                { tool: 'design-editor', selector: CONTROL('design-editor', 'ignore-other-side') }, // untick Ignore other side
                 { selector: OE },                                                          // the bare back reflects
-                { tool: 'design-editor', selector: CONTROL('design-editor', 'copy-to-other-side'), panel: 'left' }, // Copy to back
+                { tool: 'design-editor', selector: CONTROL('design-editor', 'copy-to-other-side') }, // Copy to back
                 { selector: PLOT_SETTINGS },                                               // done: Y back to 0-100
             ],
         },
@@ -281,9 +293,9 @@ export function buildTutorials() {
             key: 'vCoat', level: 'beginner', estMin: 4,
             steps: [
                 { },                                                                       // two layers, two thicknesses
-                { loadDesign: buildVCoatStart, selector: EXPLORER, panel: 'left' },        // quarter-wave pair; reads R right
+                { loadDesign: buildVCoatStart, selector: EXPLORER },        // quarter-wave pair; reads R right
                 { },                                                                       // why quarter waves fail
-                { tool: 'design-editor', selector: CONTROL('design-editor', 'thickness'), panel: 'left' }, // type the V-coat thicknesses
+                { tool: 'design-editor', selector: CONTROLS('design-editor', 'thickness') }, // type the V-coat thicknesses
                 { selector: PLOT_SETTINGS },                                               // the V (OE right)
                 { selector: PLOT_SETTINGS },                                               // done: Y back to 0-100
             ],
@@ -298,7 +310,7 @@ export function buildTutorials() {
                 { selector: FORMULA, gate: 'changed' },                                    // (H L)^8 in Stack Formula
                 { selector: OE },                                                          // the high-reflectance band
                 { selector: FORMULA, gate: 'changed' },                                    // (H L)^4: fewer pairs
-                { tool: 'design-editor', selector: [AT('reference-wavelength'), AT('stack-settings'), DE], panel: 'left' }, // λ₀ 700: the band moves
+                { tool: 'design-editor', selector: [AT('reference-wavelength'), AT('stack-settings'), DE] }, // λ₀ 700: the band moves
                 { },                                                                       // done
             ],
         },
@@ -317,7 +329,7 @@ export function buildTutorials() {
             key: 'anglePolarization', level: 'intermediate', estMin: 5,
             steps: [
                 { },                                                                       // coatings are tilted
-                { loadDesign: buildRefinedAR, selector: EXPLORER, panel: 'left' },         // refined 4-layer AR
+                { loadDesign: buildRefinedAR, selector: EXPLORER },         // refined 4-layer AR
                 { selector: PLOT_SETTINGS },                                               // add 30, 45, 60°
                 { selector: OE },                                                          // the curves move and rise
                 { selector: CONTROL('optical-eval', 'curves-R') },                         // s against p
@@ -331,7 +343,7 @@ export function buildTutorials() {
                 { loadDesign: buildSingleLayerAR, selector: EXPLORER },                    // MgF2 quarter wave
                 { tool: 'admittance', selector: TOOL('admittance') },                      // the three markers
                 { tool: 'admittance', selector: TOOL('admittance') },                      // a quarter wave is half a circle
-                { tool: 'design-editor', selector: CONTROL('design-editor', 'thickness') }, // make it a half wave
+                { tool: 'design-editor', selector: CONTROLS('design-editor', 'thickness') }, // make it a half wave
                 { tool: 'admittance', selector: TOOL('admittance') },                      // the full circle
                 { },                                                                       // done
             ],
@@ -340,7 +352,7 @@ export function buildTutorials() {
             key: 'color', level: 'intermediate', estMin: 4,
             steps: [
                 { },                                                                       // the spectrum is the colour
-                { loadDesign: buildRefinedAR, selector: EXPLORER, panel: 'left' },         // refined 4-layer AR
+                { loadDesign: buildRefinedAR, selector: EXPLORER },         // refined 4-layer AR
                 { tool: 'color-eval', selector: TOOL('color-eval') },                      // Y, dominant λ, purity
                 { tool: 'color-eval', selector: CONTROL('color-eval', 'settings') },       // Fit hue
                 { },                                                                       // done
@@ -350,7 +362,7 @@ export function buildTutorials() {
             key: 'drawTarget', level: 'intermediate', estMin: 5,
             steps: [
                 { },                                                                       // draw the spec
-                { loadDesign: buildBeamsplitterStart, selector: EXPLORER, panel: 'left' }, // 8 quarter waves at 450 nm
+                { loadDesign: buildBeamsplitterStart, selector: EXPLORER }, // 8 quarter waves at 450 nm
                 { selector: CONTROL('optical-eval', 'edit-targets') },                     // draw T = 50 %
                 { tool: 'refinement', selector: CONTROL('refinement', 'run'), gate: 'changed' }, // refine onto it
                 { selector: OE },                                                          // on the line
@@ -361,7 +373,7 @@ export function buildTutorials() {
             key: 'thicknessErrors', level: 'intermediate', estMin: 5,
             steps: [
                 { },                                                                       // no coater is exact
-                { loadDesign: buildNarrowbandFilter, selector: EXPLORER, panel: 'left' },  // 9-layer narrowband
+                { loadDesign: buildNarrowbandFilter, selector: EXPLORER },  // 9-layer narrowband
                 { tool: 'error-analysis', selector: CONTROL('error-analysis', 'quantity') }, // T, then Run
                 { tool: 'error-analysis', selector: TOOL('error-analysis') },              // read the corridor
                 { tool: 'error-analysis', selector: CONTROL('error-analysis', 'sigma-rel') }, // 2 %
@@ -372,7 +384,7 @@ export function buildTutorials() {
             key: 'zemax', level: 'intermediate', estMin: 4,
             steps: [
                 { },                                                                       // coatings by name
-                { loadDesign: buildRefinedAR, selector: EXPLORER, panel: 'left' },         // refined 4-layer AR
+                { loadDesign: buildRefinedAR, selector: EXPLORER },         // refined 4-layer AR
                 // The Export tab, then Generate preview once the tab is open.
                 { tool: 'zemax-coatings', selector: [`${TOOL('zemax-coatings')} ${AT('generate')}`, ...CONTROL('zemax-coatings', 'tab-export')] },
                 { tool: 'zemax-coatings', selector: TOOL('zemax-coatings') },              // read the preview
@@ -381,10 +393,22 @@ export function buildTutorials() {
             ],
         },
         {
+            key: 'processExport', level: 'intermediate', estMin: 5,
+            steps: [
+                { },                                                                       // layer by layer
+                { loadDesign: buildNarrowbandFilter, selector: EXPLORER },                 // 9-layer narrowband
+                { tool: 'process-sim', prep: prepProcessExport, selector: CONTROL('process-sim', 'play') }, // Play at 10×
+                { tool: 'process-sim', selector: TOOL('process-sim') },                    // what the curves do
+                { tool: 'process-sim', selector: CONTROL('process-sim', 'sequence') },     // hold a layer
+                { tool: 'process-sim', selector: CONTROL('process-sim', 'save') },         // the .res files
+                { },                                                                       // done
+            ],
+        },
+        {
             key: 'monitoring', level: 'advanced', estMin: 6,
             steps: [
                 { },                                                                       // before the run
-                { loadDesign: buildNarrowbandFilter, selector: EXPLORER, panel: 'left' },  // 9-layer narrowband
+                { loadDesign: buildNarrowbandFilter, selector: EXPLORER },  // 9-layer narrowband
                 { tool: 'monitor-worksheet', selector: TOOL('monitor-worksheet') },        // at 550 nm
                 { tool: 'monitor-worksheet', selector: CONTROL('monitor-worksheet', 'auto-lambda') }, // Auto λ
                 { tool: 'monitor-worksheet', selector: CONTROL('monitor-worksheet', 'layers-per-chip') }, // one chip

@@ -808,6 +808,20 @@ export default {
           { title: 'Done', body: 'The narrower the peak, the less error it tolerates. Run the same check on the AR from the earlier lessons and its corridor stays a hairline. When a design cannot take your process errors, Sensitivity (Analysis tab) shows which layers matter most.' },
         ],
       },
+      processExport: {
+        title: 'Watch the coating grow',
+        summary: 'Play a run back layer by layer, see what the monitor will see, and write the target spectrum of every layer for the coater.',
+        designName: 'Narrowband filter, layer by layer',
+        steps: [
+          { title: 'Layer by layer', body: 'In the chamber a coating grows one layer at a time, and the optical monitor sees the spectrum change as it grows. The Process Exporter plays that back and writes the spectrum at the end of every layer for the coater\'s monitoring software.' },
+          { title: 'Loaded: a narrowband filter', body: 'Loaded (Design Editor, left): the nine-layer narrowband filter from the thickness-errors lesson. Its T peak at 550 nm is there only once the last layer is down.' },
+          { title: 'Play it (left)', body: 'The Process Exporter opened on the left (Production tab). Speed is set to 10×, its fastest, so the nine layers play in about 70 s at the default 1 nm/s; 1× is real time. Press Play and watch the bold curve.', tip: 'The ⚠ badge says the range runs past TiO2\'s measured data, which end at 827 nm; its Set range button keeps the plot on the data. The rates in the sidebar set how long each material takes, to match your coater.' },
+          { title: 'What the curves do', body: 'The dotted curve is the bare glass, read through the whole part: 91.8 % at 550 nm. At 550 nm every quarter-wave layer swings T: 60.7 % after layer 1, 86.1 % after layer 2, 27.3 % after layer 3. The half-wave spacer, layer 5, leaves it unchanged. The second mirror then retraces the same values upward, to 91.5 % after layer 9: at 550 nm it undoes the first mirror, so the stack is as if absent there, while on either side the two mirrors reflect.', tip: 'Show all layers draws the finished curve of every layer at once.' },
+          { title: 'Hold a layer', body: 'Click a layer in Deposition sequence: the timeline holds at the end of that layer, and the chart shows what the monitor reads then. The up and down arrow keys walk the stack; click the layer again to let it go.' },
+          { title: 'The files for the coater', body: 'Save .res Files… writes one file per layer into a folder you pick, 01.res to 09.res, each with the spectrum at the end of that layer. Monitoring software compares the live measurement against them. Settings sets the export step to your spectrophotometer\'s grid and offers CSV or text instead.' },
+          { title: 'Done', body: 'The Process Exporter shows the run as designed, with no errors. To see a run with thickness and monitoring errors, the BBM and Mono simulators (Production tab) deposit it with noise.' },
+        ],
+      },
       monitoring: {
         title: 'Can it be monitored?',
         summary: 'Check before a run whether an optical monitor can stop every layer, and pick the wavelength and witness chips that let it.',

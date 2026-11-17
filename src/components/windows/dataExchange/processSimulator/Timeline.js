@@ -71,7 +71,7 @@ export function Timeline({ c, sp, setup, deposition }) {
     return h(ControlRow, { c, footer: true },
         h(ActionButton, {
             c, label: deposition.playing ? sp.pause : sp.play,
-            disabled: !hasActive, onClick: deposition.handlePlayPause,
+            disabled: !hasActive, onClick: deposition.handlePlayPause, tour: 'play',
         }),
         h(ActionButton, {
             c, label: sp.reset, disabled: !hasActive, onClick: deposition.handleReset,

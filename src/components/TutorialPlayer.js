@@ -5,11 +5,12 @@
 // NON-BLOCKING — there is no full-screen dimmer and no click-catcher. It draws:
 //
 //   • a floating coach panel with the step text + Back/Next/Exit, in the bottom
-//     corner away from the window the step highlights, so it never covers the
-//     controls the step asks for. A step that highlights nothing sits left,
-//     clear of Optical Evaluation on the right where lessons show their
-//     results; a step may name its side (`panel: 'left' | 'right'`) when the
-//     user acts on one side and reads the result on the other
+//     left corner, clear of Optical Evaluation on the right where lessons show
+//     their results. It stays there from step to step, so it does not hop
+//     around the screen, and moves to the bottom right only for a step whose
+//     ringed control it would cover. A ring round a whole window or the
+//     Explorer does not move it: it covers a corner of that. A step may name
+//     its side (`panel: 'left' | 'right'`)
 //   • an optional accent highlight RING around the step's target element, with
 //     pointer-events:none so every click passes straight through to the app
 //
@@ -25,12 +26,19 @@ const { createElement: h, useState, useEffect, useRef, useCallback } = React;
 
 const PAD = 5;
 const PANEL_W = 350;
+// The panel's distance from the window's edges.
+const PANEL_MARGIN = 18;
+// A ring round one of these is a whole window or the Explorer.
+const WHOLE_AREA = '[data-tutorial-tool], [data-tour="explorer"]';
 
-// The side of the screen the coach panel sits on (see the header).
-function panelSideFor(step, rect) {
+// The side of the screen the coach panel sits on (see the header), given the
+// ringed target and the panel's height.
+function panelSideFor(step, target, panelHeight) {
     if (step.panel) return step.panel;
-    const targetOnLeft = !!rect && rect.left + rect.width / 2 < window.innerWidth / 2;
-    return targetOnLeft ? 'right' : 'left';
+    if (!target || target.element?.matches(WHOLE_AREA)) return 'left';
+    const panelTop = window.innerHeight - PANEL_MARGIN - panelHeight;
+    const covered = target.left < PANEL_MARGIN + PANEL_W && target.bottom > panelTop;
+    return covered ? 'right' : 'left';
 }
 
 // Why Next is blocked on this step, or null when it is not. A 'changed' gate
@@ -113,7 +121,9 @@ export function TutorialPlayer({
     const tt = t.tutorials.player;
 
     const rect = useTargetRect(step.selector);
-    const panelSide = panelSideFor(step, rect);
+    // The panel's height as last drawn; before the first draw, a typical one.
+    const panelRef = useRef(null);
+    const panelSide = panelSideFor(step, rect, panelRef.current?.offsetHeight ?? 300);
     const gateBaseRef = useStepActions(idx, steps, designSig, onAction);
 
     // ── Gate: block Next until the step's condition is met ─────────────────────
@@ -144,8 +154,9 @@ export function TutorialPlayer({
 
         // Coach panel (interactive).
         h('div', {
+            ref: panelRef,
             style: {
-                position: 'fixed', [panelSide]: 18, bottom: 18, width: PANEL_W, pointerEvents: 'auto',
+                position: 'fixed', [panelSide]: PANEL_MARGIN, bottom: PANEL_MARGIN, width: PANEL_W, pointerEvents: 'auto',
                 background: c.panel, border: `1px solid ${c.border}`, borderRadius: 12,
                 boxShadow: '0 10px 40px rgba(0,0,0,0.55)', padding: 18, zIndex: 10003,
                 fontFamily: 'system-ui, -apple-system, sans-serif',

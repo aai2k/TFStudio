@@ -121,7 +121,7 @@ export function ProcessControls({ c, t, sp, setup, deposition, save, notices, ch
             h(ActionButton, {
                 key: 'save', c, label: saveLabel(sp, save, ext),
                 title: sp.saveBtn(ext), disabled: !hasActive || save.saving,
-                onClick: save.handleSave,
+                onClick: save.handleSave, tour: 'save',
             }),
             h(ProcessSettings, { key: 'settings', c, t, sp, setup }),
         ],

@@ -19,6 +19,8 @@
  *   6. Every data-tour anchor a step points at is set somewhere in the
  *      components, so renaming a control's anchor cannot leave a step ringing
  *      nothing.
+ *   7. The process lesson's setup plays its starter design in about 70 s at
+ *      the Process Exporter's default rate, the time its text gives.
  *
  * Gradual Evolution's hook runs under the effect-running stand-in for React in
  * _effectRuntime.mjs, installed before any window module is imported.
@@ -153,10 +155,22 @@ for (const { key, steps } of lessons) {
     const built = anchor => prefixes.some(prefix => anchor.startsWith(prefix)
         && text.includes(`'${anchor.slice(prefix.length)}'`));
     const anchors = new Set(lessons.flatMap(l => l.steps.flatMap(s => [s.selector].flat()))
-        .flatMap(selector => [...String(selector ?? '').matchAll(/data-tour="([^"]+)"/g)].map(m => m[1])));
+        .map(entry => (typeof entry === 'string' ? entry : entry?.all ?? ''))
+        .flatMap(selector => [...selector.matchAll(/data-tour="([^"]+)"/g)].map(m => m[1])));
     for (const anchor of anchors) {
         assert.ok(literal.has(anchor) || built(anchor), `a component sets the data-tour anchor ${anchor}`);
     }
+}
+
+// ── 7. The process lesson's run plays in about 70 s, as its text says ───────
+{
+    localStorage.removeItem('tfstudio-process-sim-v1');
+    stepWith('processExport', 'prep').prep();
+    const { playSpeed } = JSON.parse(localStorage.getItem('tfstudio-process-sim-v1'));
+    const design = stepWith('processExport', 'loadDesign').loadDesign('process');
+    const nm = design.frontLayers.reduce((sum, layer) => sum + layer.thickness, 0);
+    const seconds = nm / 1 / playSpeed; // the window's default rate, 1 nm/s
+    assert.ok(Math.abs(seconds - 70) < 5, `the run plays in about 70 s at ${playSpeed}× (${seconds.toFixed(1)} s)`);
 }
 
 console.log(`tutorials: ${lessons.length} lessons, structure, starters, setups and anchors OK`);

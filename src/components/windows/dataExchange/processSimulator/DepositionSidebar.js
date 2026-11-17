@@ -208,6 +208,7 @@ function SequenceTable({ c, sp, deposition, chips }) {
         tabIndex: 0,
         className: 'tfs-keylist',
         'aria-label': sp.sectionSequence,
+        'data-tour': 'sequence',
         onKeyDown: (event) => {
             if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
             event.preventDefault();
