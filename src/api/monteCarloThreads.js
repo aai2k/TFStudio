@@ -6,8 +6,7 @@
 // starts, the run is made on the calling thread.
 
 import os from 'node:os';
-import process from 'node:process';
-import { Worker } from 'node:worker_threads';
+import { ApiThread, onAppRuntime } from './apiThread.js';
 import { runErrorAnalysisMC } from '../utils/physics/errorAnalysis.js';
 import { runMCPool } from '../utils/physics/errorAnalysis/mcPool.js';
 import { normalizeSeed, randomSeed } from '../utils/physics/errorAnalysis/mcConfig.js';
@@ -17,41 +16,9 @@ import { getTmmWasmBytesForWorker } from '../tmmcore.js';
 
 const THREAD_URL = new URL('./monteCarloThread.js', import.meta.url);
 
-// A worker thread as the pool drives a Web Worker: postMessage, terminate, and
-// the onmessage ({ data }) and onerror handlers. A thread that throws or exits
-// on its own reaches onerror once; one ended by terminate() does not. What the
-// thread prints goes to stderr: the API server and the MCP server speak on
-// stdout.
-class TrialThread {
-    constructor() {
-        this.onmessage = null;
-        this.onerror = null;
-        this.ended = false;
-        this.thread = new Worker(THREAD_URL, { stdout: true });
-        this.thread.stdout.on('data', chunk => process.stderr.write(chunk));
-        this.thread.on('message', data => this.onmessage?.({ data }));
-        this.thread.on('error', error => this.fail(error));
-        this.thread.on('exit', code => this.fail(new Error(`a Monte Carlo thread exited with code ${code}`)));
-    }
-    fail(error) {
-        if (this.ended) return;
-        this.ended = true;
-        this.onerror?.(error);
-    }
-    postMessage(message) { this.thread.postMessage(message); }
-    terminate() {
-        this.ended = true;
-        return this.thread.terminate();
-    }
-}
-
 // The threads a run starts: as many as the app's Threads setting starts with
-// on this machine, on the app's own runtime alone. On plain Node 24 (V8 13.6)
-// a process that started and ended them crashed now and then (2026-11-14:
-// 11 of 186 rounds of runs stopped as they reported); on Electron 44 (V8 15.2),
-// which runs TFStudio.exe --api, the MCP server and the Script Console, none
-// of 80 did.
-const threadCount = () => (process.versions.electron ? defaultThreadCount(os.availableParallelism?.() ?? os.cpus().length) : 0);
+// on this machine, on the app's own runtime alone (apiThread.js).
+const threadCount = () => (onAppRuntime() ? defaultThreadCount(os.availableParallelism?.() ?? os.cpus().length) : 0);
 
 // Starting the threads, each loading its modules and compiling the kernel,
 // took about 0.3 s on a 16-thread Windows machine (2026-11-14), however short
@@ -133,7 +100,7 @@ export function runOnThreads(design, params, options, { signal, onProgress, thre
     const wasmBytes = getTmmWasmBytesForWorker();
     const run = runMCPool(embedDesignMaterials(design), params, designMaterialLookup(design), options, {
         size: threads,
-        makeWorker: () => new TrialThread(),
+        makeWorker: () => new ApiThread(THREAD_URL),
         initMessage: wasmBytes ? { type: 'wasmInit', wasmBytes } : null,
         ...(onProgress ? { onTrial: (trial, total) => onProgress({ trial, total }) } : {}),
         ...(signal ? { shouldStop: () => signal.aborted } : {}),

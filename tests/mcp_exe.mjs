@@ -11,7 +11,10 @@
  *      computes the spectrum the API computes in this process, copies a
  *      design, and runs a refinement on the bundled job thread. Given a live
  *      link file, as --mcp --live gives it one, it reads a design from the
- *      app's pipe, which this process opens.
+ *      app's pipe, which this process opens. Where Electron is installed, the
+ *      same bundle on Electron's Node, as the installed app runs it, takes a
+ *      synthesis job to an answer on worker threads started from the job's
+ *      own thread, and a job stopped part-way ends stopped.
  *   2. On Windows, the app itself started with --mcp from this checkout: it
  *      answers over stdin and stdout, gives the design method from the
  *      checkout's skills folder, and ends when stdin closes. Electron's
@@ -32,6 +35,7 @@ import { fileURLToPath } from 'node:url';
 import { buildMcpServer } from '../tools/mcpBundle.mjs';
 import { startClient, onlyMessages, INIT } from './_mcpClient.mjs';
 import { makeFakeApp } from './_fakeLiveApp.mjs';
+import { electronBinary } from './_electron.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(HERE, '..');
@@ -104,6 +108,37 @@ await buildMcpServer(out);
     bundle.child.stdin.end();
     ok('the bundle ends when stdin closes', await ended(bundle) === 0);
     bridge.close();
+}
+if (electronBinary()) {
+    // The bundle on the app's own runtime, Electron's Node, as TFStudio.exe
+    // --mcp starts it: a synthesis job's run spreads over worker threads
+    // started from the job's own thread, which a bundle without them cannot
+    // start, and a job stopped once its run reports ends stopped. That the
+    // answer is the one the calling thread gives, tests/api_run_threads.mjs
+    // checks on that runtime.
+    const require = createRequire(import.meta.url);
+    const options = { server: path.join(out, 'server.js'), bundled: true, version: '9.9.9-test', dataDir: null, wasmPath: require.resolve('tmmcore/tmm_kernel.wasm') };
+    const onElectron = startClient(electronBinary(), [CHILD, JSON.stringify(options)], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
+    await onElectron.request('initialize', INIT);
+    const id = (await onElectron.call('newDesign', {})).designId;
+    await onElectron.call('stackFromFormula', { designId: id, formula: '(HL)^2', symbols: { H: 'TiO2', L: 'SiO2' } });
+    const startMerit = (await onElectron.call('setMerit', { designId: id, rows: AR_ROWS })).total;
+    const job = await onElectron.call('synthesize', { designId: id, method: 'needle', pool: ['TiO2', 'SiO2'], settings: { maxLayers: 8, threads: 3 }, waitSeconds: 50 });
+    ok('on Electron\'s Node a synthesis job runs on its threads to an answer better than its start',
+        job.state === 'done' && job.result?.completed === true && job.result.mf < startMerit, JSON.stringify(job).slice(0, 300));
+    const long = await onElectron.call('synthesize', { designId: id, method: 'needle', pool: ['TiO2', 'SiO2'], settings: { maxLayers: 40, targetMF: 0, threads: 3 }, waitSeconds: 0 });
+    let view = long;
+    for (let i = 0; i < 200 && view.state === 'running' && Object.keys(view.progress ?? {}).length === 0; i++) {
+        await sleep(25);
+        view = await onElectron.call('jobStatus', { jobId: long.jobId, waitSeconds: 0 });
+    }
+    await onElectron.call('stopJob', { jobId: long.jobId });
+    const stopped = await onElectron.call('jobStatus', { jobId: long.jobId, waitSeconds: 20 });
+    ok('and a job stopped once its run reports ends stopped, with its design', view.state === 'running' && stopped.state === 'stopped'
+        && stopped.designId === id && !stopped.error, JSON.stringify([view.state, stopped]).slice(0, 300));
+    ok('it writes only messages to stdout', onlyMessages(onElectron));
+    onElectron.child.stdin.end();
+    ok('and ends when stdin closes', await ended(onElectron) === 0);
 }
 fs.rmSync(out, { recursive: true, force: true });
 

@@ -55,7 +55,8 @@ function prepare(design, operands) {
  *   maxIter     iteration cap of a one-method run; default the method's budget
  *   nRestarts, perturbPct   multi-start restarts and their ± thickness percent
  *   seed        seed of the stochastic methods; empty draws one (result.seed)
- *   threads     workers the multi-start and parallel DE use at once; default 1
+ *   threads     workers the multi-start and parallel DE use at once; default the
+ *               thread count the app recommends for this computer
  * An unknown setting, method or value throws.
  *
  * hooks:

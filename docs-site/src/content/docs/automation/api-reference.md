@@ -2521,7 +2521,7 @@ for one in design.stress(env="all"):
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `await design.refine({ method, maxIter, nRestarts, perturbPct, seed, threads, progress, stop })` | `design.refine(method="dls", max_iter=..., n_restarts=..., perturb_pct=..., seed=..., threads=1, progress=..., stop=...)` |
+| `await design.refine({ method, maxIter, nRestarts, perturbPct, seed, threads, progress, stop })` | `design.refine(method="dls", max_iter=..., n_restarts=..., perturb_pct=..., seed=..., threads=..., progress=..., stop=...)` |
 
 Refines the layer thicknesses against the merit function, as the Refinement window does; no layer is added or taken out. The design then holds the refined layers, or, when the run is stopped, the layers it had. The layers it moves follow the design's `sides`.
 
@@ -2532,7 +2532,7 @@ Refines the layer thicknesses against the merit function, as the Refinement wind
 | `nRestarts` | `n_restarts` | `20` | The restarts of a multi-start method. |
 | `perturbPct` | `perturb_pct` | `30` | How far a multi-start method moves each thickness at a restart, %. |
 | `seed` | `seed` |  | The number the random draws of a method that makes them start from, a whole number from 1 to 2^32 - 1; the same seed, design and settings repeat the run. Without it, a fresh one, which the result reports. |
-| `threads` | `threads` | `1` | The workers multi-start and parallel differential evolution use at once. |
+| `threads` | `threads` |  | The workers multi-start and parallel differential evolution use at once. Without it, the thread count the app recommends for this computer. |
 | `progress` | `progress` |  | **JavaScript**: A function called with a Progress each time the run reports. An error it throws ends the run, which then rejects with it, the design as it was.<br>**Python**: A function called with a Progress each time the run reports. An exception it raises stops the run and goes on. |
 | `stop` | `stop` |  | **JavaScript**: An AbortSignal; aborting its AbortController ends the run, which then leaves the design as it was.<br>**Python**: A tfstudio.Stop whose stop() ends the run. |
 

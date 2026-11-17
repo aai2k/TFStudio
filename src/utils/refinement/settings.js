@@ -4,6 +4,7 @@
 // for, such as nRestarts for a single-start method, is ignored.
 
 import { MAX_SEED } from '../physics/errorAnalysis/mcConfig.js';
+import { defaultThreadCount } from '../synthesis/synthesisConfig/threads.js';
 import { REFINE_METHODS, ALL_ORDER, DEFAULT_SETTINGS, defaultMaxIter } from './methods.js';
 import { unknownSetting, badSetting } from '../misc/settingsRefusals.js';
 
@@ -36,7 +37,8 @@ export const CHECKS = [
     ['nRestarts', isCount, 'a whole number of 1 or more', 'How many perturbed starts DLS multi-start runs.'],
     ['perturbPct', v => Number.isFinite(v) && v >= 0, 'a number of 0 or more',
         'How far each multi-start restart moves each free thickness, in ± %.'],
-    ['threads', isCount, 'a whole number of 1 or more', 'How many workers DLS multi-start and Differential Evolution use at once.'],
+    ['threads', isCount, 'a whole number of 1 or more',
+        'How many workers DLS multi-start and Differential Evolution use at once. Without it, the thread count the app recommends for this computer.'],
 ];
 
 function checkNumbers(settings, single) {
@@ -78,6 +80,6 @@ export function planRun(settings) {
         nRestarts: settings.nRestarts ?? DEFAULT_SETTINGS.nRestarts,
         perturbPct: settings.perturbPct ?? DEFAULT_SETTINGS.perturbPct,
         seed: seedOf(settings.seed),
-        threads: settings.threads ?? DEFAULT_SETTINGS.threads,
+        threads: settings.threads ?? defaultThreadCount(),
     };
 }

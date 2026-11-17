@@ -12,11 +12,15 @@ import esbuild from 'esbuild';
 const src = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src');
 
 /**
- * The threads the API starts (src/api/monteCarloThreads.js), as entry points
- * that land beside the bundle file holding the API, where it looks for them.
- * A bundle that holds the API lists them after its own entry points.
+ * The threads the API starts (src/api/monteCarloThreads.js, runThreads.js), as
+ * entry points that land beside the bundle file holding the API, where it
+ * looks for them. A bundle that holds the API lists them after its own entry
+ * points.
  */
-export const API_THREADS = [{ in: path.join(src, 'api', 'monteCarloThread.js'), out: 'monteCarloThread' }];
+export const API_THREADS = [
+    { in: path.join(src, 'api', 'monteCarloThread.js'), out: 'monteCarloThread' },
+    { in: path.join(src, 'api', 'runThread.js'), out: 'runThread' },
+];
 
 /**
  * Bundles `entryPoints` into `outDir`, one file each under its own name;

@@ -1674,7 +1674,7 @@ export class Design {
      * @param [options.nRestarts] The restarts of a multi-start method.
      * @param [options.perturbPct] How far a multi-start method moves each thickness at a restart, %.
      * @param [options.seed] The number the random draws of a method that makes them start from, a whole number from 1 to 2^32 - 1; the same seed, design and settings repeat the run. Without it, a fresh one, which the result reports.
-     * @param [options.threads=1] The workers multi-start and parallel differential evolution use at once.
+     * @param [options.threads] The workers multi-start and parallel differential evolution use at once. Without it, the thread count the app recommends for this computer.
      * @param [options.progress] A function called with a Progress each time the run reports. An error it throws ends the run, which then rejects with it, the design as it was.
      * @param [options.stop] An AbortSignal; aborting its AbortController ends the run, which then leaves the design as it was.
      * @returns A promise of a RunResult.

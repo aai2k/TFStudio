@@ -15,7 +15,9 @@
  *      this process and streams a refinement's progress. Given a live link
  *      file, as --api --live gives it one, it reads a design from the app's
  *      pipe, which this process opens, naming its program as --program gave
- *      it.
+ *      it. Where Electron is installed, the same bundle on Electron's Node, as
+ *      the installed app runs it, takes a Needle and a Differential Evolution
+ *      refine of three threads each to an answer on its worker threads.
  *   2. On Windows, the app itself started with --api from this checkout: its
  *      hello comes after the line break Electron writes to stdout as it starts,
  *      and nothing else on stdout is not a message; it answers and ends when
@@ -34,6 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { buildApiServer } from '../tools/apiServerBundle.mjs';
 import { startApiClient, onlyMessages } from './_apiClient.mjs';
 import { makeFakeApp } from './_fakeLiveApp.mjs';
+import { electronBinary } from './_electron.mjs';
 import { encode } from '../src/apiServer/wire.js';
 
 const require = createRequire(import.meta.url);
@@ -116,6 +119,31 @@ await buildApiServer(out);
     bundle.child.stdin.end();
     ok('the bundle ends when stdin closes', await ended(bundle) === 0);
     bridge.close();
+}
+if (electronBinary()) {
+    // The bundle on the app's own runtime, Electron's Node, as TFStudio.exe
+    // --api starts it: a run of more than one thread computes on the bundle's
+    // worker threads, which a bundle without them cannot start. That the
+    // answer is the one the calling thread gives, tests/api_run_threads.mjs
+    // checks on that runtime.
+    const options = { server: path.join(out, 'server.js'), bundled: true, version: '9.9.9-test', dataDir: null, wasmPath: require.resolve('tmmcore/tmm_kernel.wasm') };
+    const onElectron = startApiClient(electronBinary(), [CHILD, JSON.stringify(options)], { env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' } });
+    await onElectron.hello;
+    const four = api.setMerit(api.stackFromFormula(api.newDesign(), { formula: '(HL)^2', symbols: { H: 'TiO2', L: 'SiO2' } }), AR_ROWS);
+    const startMerit = api.merit(four).total;
+    const RUNS = [
+        ['synthesize', { method: 'needle', pool: ['TiO2', 'SiO2'], settings: { maxLayers: 8, threads: 3 } }, result => result.mf < startMerit],
+        ['refine', { method: 'de', maxIter: 30, seed: 3, threads: 3 }, result => result.mf <= result.mfInitial],
+    ];
+    for (const [call, request, better] of RUNS) {
+        const there = await onElectron.call(call, [four, request]);
+        const result = there.result?.result;
+        ok(`on Electron's Node the bundle's ${call} ${request.method} runs on its threads to an answer no worse than its start`,
+            result?.completed === true && better(result), JSON.stringify(there.error ?? result?.stopReason) + onElectron.stderr.slice(-300));
+    }
+    ok('and writes only messages to stdout', onlyMessages(onElectron.lines));
+    onElectron.child.stdin.end();
+    ok('and ends when stdin closes', await ended(onElectron) === 0);
 }
 
 // ── 2. The app started with --api ──────────────────────────────────────────

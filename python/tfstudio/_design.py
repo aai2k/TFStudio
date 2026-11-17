@@ -2951,7 +2951,8 @@ class Design:
                 design and settings repeat the run. Default: a fresh one,
                 which the result reports.
             threads: The workers multi-start and parallel differential
-                evolution use at once. Default 1.
+                evolution use at once. Default: the thread count the app
+                recommends for this computer.
             progress: A function called with a Progress each time the run
                 reports. An exception it raises stops the run and goes on.
             stop: A tfstudio.Stop whose stop() ends the run.

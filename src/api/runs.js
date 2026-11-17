@@ -1,16 +1,19 @@
 // Refinement and synthesis on a design, by the runs the windows run
 // (runRefinement, runNeedle, runGradualEvolution, runStructural and Deep
 // Synthesis's runDeepSynthesisOnDesign), against the design's merit function.
-// Their workers run on the calling thread, so a call computes where it is
-// made; a caller that must stay responsive makes it on a thread of its own.
+// A call waits for its run. A run of more than one thread computes on worker
+// threads on the app's own runtime, and on the calling thread otherwise
+// (runThreads.js); a caller that must stay responsive makes the call on a
+// thread of its own.
 
 import { runRefinement } from '../utils/refinement/runRefinement.js';
 import { runNeedle } from '../utils/needle/runNeedle.js';
 import { runGradualEvolution } from '../utils/gradualEvolution/runGradualEvolution.js';
 import { runStructural } from '../utils/structural/runStructural.js';
 import { runDeepSynthesisOnDesign } from '../utils/synthesis/deepSynthesis/runOnDesign.js';
-import { InThreadOptimizerWorker } from '../utils/workers/inThreadOptimizerWorker.js';
-import { InThreadSynthesisPool } from '../utils/workers/inThreadSynthesisPool.js';
+import { planRun as planRefinement } from '../utils/refinement/settings.js';
+import { defaultThreadCount } from '../utils/synthesis/synthesisConfig/threads.js';
+import { runWorkers } from './runThreads.js';
 import { activeSide } from '../components/windows/optimization/synthesisShared/synthesisMath.js';
 import { synthesisMntFloor } from '../components/windows/optimization/synthesisShared/minThickness.js';
 import { mirrorLayers } from '../utils/physics/optimizer.js';
@@ -19,8 +22,6 @@ import { requireMaterial, requireResolved, materialName } from './materials.js';
 import { requireKernel } from './environment.js';
 import { checkOptions, checkHooks, refusal } from './check.js';
 
-const makeWorker = () => new InThreadOptimizerWorker();
-const makeWorkerPool = size => new InThreadSynthesisPool(size);
 // The hooks each run calls (each run's own doc), so a hook a run never calls
 // is refused rather than taken and left silent.
 const HOOKS = {
@@ -47,6 +48,24 @@ export const runHooks = method => HOOKS[method] || [];
 // own defaults.
 const given = settings => Object.fromEntries(Object.entries(settings || {}).filter(([, v]) => v !== undefined));
 
+// The refine methods the Refinement window spreads over its workers. Every
+// other method computes on one worker, which a thread only makes slower to
+// start: Sequential QP on the gain flattening lesson took 0.2 s on the calling
+// thread and 0.5 s on a thread (2026-11-16).
+const SPREAD = new Set(['dls-multi', 'de']);
+
+// What `run(workers)` resolves to, given the workers of a run of `threads`
+// threads, once every thread it started has ended: an MCP job or a Script
+// Console run can then be ended as soon as the call answers.
+async function withWorkers(threads, run) {
+    const workers = runWorkers(threads);
+    try {
+        return await run(workers);
+    } finally {
+        await workers.close();
+    }
+}
+
 // `design` with the layers a run answered with; a symmetric design's back is
 // the mirror of its front, as the app keeps it.
 function withAnswer(design, { frontLayers, backLayers }) {
@@ -69,15 +88,22 @@ function operandsOf(call, design) {
  * Refines the layer thicknesses of a design against its merit function, as
  * the [Refinement](/synthesis/refinement/) window does; no layer is added or
  * taken out. A design with more than one environment is refined against every
- * environment that is on, with the merit `merit` gives. The run computes on
- * the script's own thread, so the script waits for it.
+ * environment that is on, with the merit `merit` gives. The script waits for
+ * the run. Inside TFStudio (the Script Console, the MCP server and
+ * TFStudio.exe --api) a run that holds DLS multi-start or Differential
+ * Evolution computes on worker threads, and those two spread their work over
+ * `threads` of them, as the window does; `threads` is the thread count the app
+ * recommends for this computer unless given. A run of one thread, any other
+ * run, and every run elsewhere computes on the script's own thread, where a
+ * method that uses one worker starts sooner. The answer is the same either
+ * way.
  *
  * @param design The design; it needs a merit function.
  * @param settings
  * @param settings.method The method: an id from the methods below, `'all'` for each of them in turn, or a list of ids tried one by one from the same start, keeping the best.
  * @param [settings.seed] The number the random draws of a method that makes them start from, a whole number from 1 to 2^32 - 1; the same seed, design and settings repeat the run. Without it, a fresh one, which the result reports.
  * @param [hooks]
- * @param [hooks.signal] An AbortSignal; aborting it stops the run, which then ends `'stopped'` with the design as it was. The run looks at it between its jobs.
+ * @param [hooks.signal] An AbortSignal; aborting it stops the run, which then ends `'stopped'` with the design as it was, once the jobs under way are done.
  * @param [hooks.onStart] Called once the run has started, with `{ seed }`, null for a run that draws no random numbers.
  * @param [hooks.onMethodStart] Called with `(method, index)` as each method of the run starts.
  * @param [hooks.onProgress] Called as the run goes with the readout values that changed: `iter`, `mf`, `mfBest`, `omf`, `omfBest`, `mfInitial`, `omfInitial`, `mfHistory` and `restartIdx`, with `design`, the layers now, and `best`, the best design so far.
@@ -108,8 +134,10 @@ export async function refine(design, settings = {}, hooks) {
     const passed = checkHooks('refine', hooks, HOOKS.refine);
     const operands = operandsOf('refine', design);
     const runSettings = given(settings);
+    const { methods, threads } = planRefinement(runSettings);
     requireKernel();
-    const result = await runRefinement(design, operands, runSettings, { ...passed, makeWorker });
+    const result = await withWorkers(methods.some(id => SPREAD.has(id)) ? threads : 1,
+        ({ makeWorker, makeEvalPool }) => runRefinement(design, operands, runSettings, { ...passed, makeWorker, makeEvalPool }));
     return { result, design: result.completed ? withAnswer(design, result) : design };
 }
 
@@ -120,11 +148,14 @@ export function poolOf(call, design, ids) {
     return ids.map(id => ({ id, name: materialName(design, id), mat: requireMaterial(design, id) }));
 }
 
+// Each method's run, with the workers of runThreads.js. Deep Synthesis given
+// no pool computes its jobs on the calling thread.
 const SYNTHESIS = {
-    needle: (design, operands, settings, hooks) => runNeedle(design, operands, settings, { ...hooks, makeWorkerPool }),
-    ge: (design, operands, settings, hooks) => runGradualEvolution(design, operands, settings, { ...hooks, makeWorkerPool }),
-    structural: (design, operands, settings, hooks) => runStructural(design, operands, settings, { ...hooks, makeWorker }),
-    deep: (design, operands, settings, hooks) => runDeepSynthesisOnDesign(design, operands, settings, hooks),
+    needle: (design, operands, settings, hooks, { makeWorkerPool }) => runNeedle(design, operands, settings, { ...hooks, makeWorkerPool }),
+    ge: (design, operands, settings, hooks, { makeWorkerPool }) => runGradualEvolution(design, operands, settings, { ...hooks, makeWorkerPool }),
+    structural: (design, operands, settings, hooks, { makeWorker }) => runStructural(design, operands, settings, { ...hooks, makeWorker }),
+    deep: (design, operands, settings, hooks, workers) => runDeepSynthesisOnDesign(design, operands, settings,
+        workers.onThreads ? { ...hooks, makeWorkerPool: workers.makeWorkerPool } : hooks),
 };
 
 /** The synthesis methods `synthesize` takes. */
@@ -157,7 +188,12 @@ function answerOf(method, design, result) {
 /**
  * Grows or restructures a design against its merit function with a synthesis
  * method, inserting materials from a pool, as the method's window does. The
- * run computes on the script's own thread, so the script waits for it.
+ * script waits for the run. Inside TFStudio (the Script Console, the MCP
+ * server and TFStudio.exe --api) the run spreads its work over as many worker
+ * threads as its `threads` setting, as the window does; elsewhere, or with one
+ * thread, it computes on the script's own thread. The answer is the same
+ * either way, but for a Structural run that `deepMaxMin` ends: the faster run
+ * gets further in that time.
  *
  * A design with more than one environment is synthesized against every
  * environment that is on, each with its own media, substrate, layers, cone,
@@ -175,7 +211,7 @@ function answerOf(method, design, result) {
  * @param request.pool The materials the run may insert, by id: one or more, none twice.
  * @param [request.settings={}] The method's settings, below; a setting left out takes its default.
  * @param [hooks]
- * @param [hooks.signal] An AbortSignal; aborting it stops the run, which then answers with the design as it was.
+ * @param [hooks.signal] An AbortSignal; aborting it stops the run, which then answers with the design as it was, once the jobs under way are done.
  * @param [hooks.onStart] Called once the run has started.
  * @param [hooks.onProgress] Called as the run goes with what changed, such as `mf`, `layerCount`, `design` (the layers the run goes on from) and `activity`, what it is doing.
  * @param [hooks.onGeneration] Needle: called with each accepted generation: its number `genNum`, `mf`, `omf`, the change `dMF`, `layerCount`, the material inserted `insertMat` and the `layers`.
@@ -223,7 +259,7 @@ export async function synthesize(design, request, hooks) {
     const plan = { ...settingsFor(method, design, operands, settings, materials), pool: materials };
     const passed = checkHooks(`synthesize ${method}`, hooks, HOOKS[method]);
     requireKernel();
-    const result = await run(design, operands, plan, passed);
+    const result = await withWorkers(plan.threads ?? defaultThreadCount(), workers => run(design, operands, plan, passed, workers));
     const answer = answerOf(method, design, result);
     return { result, design: answer.frontLayers || answer.backLayers ? withAnswer(design, answer) : design };
 }

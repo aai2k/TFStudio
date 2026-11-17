@@ -17,7 +17,9 @@ export class WorkerPool {
     // before any job — used to broadcast one-time setup such as the WASM kernel
     // bytes ({type:'wasmInit', wasmBytes}). Workers must handle it without
     // replying; postMessage ordering guarantees it lands before the first job.
-    constructor(url, size, initMessage = null) {
+    // `makeWorker` (optional) builds each worker, an object with the Web Worker
+    // interface; without it each is a module Web Worker of `url`.
+    constructor(url, size, initMessage = null, makeWorker = () => new Worker(url, { type: 'module' })) {
         this.url   = url;
         this.size  = Math.max(1, size | 0);
         this.idle  = [];
@@ -25,7 +27,7 @@ export class WorkerPool {
         this.all   = [];
         this.dead  = false;
         for (let i = 0; i < this.size; i++) {
-            const w = new Worker(url, { type: 'module' });
+            const w = makeWorker();
             if (initMessage) { try { w.postMessage(initMessage); } catch (_) {} }
             this.all.push(w);
             this.idle.push(w);

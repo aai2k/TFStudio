@@ -2521,7 +2521,7 @@ for one in design.stress(env="all"):
 
 | JavaScript | Python |
 | ---------- | ------ |
-| `await design.refine({ method, maxIter, nRestarts, perturbPct, seed, threads, progress, stop })` | `design.refine(method="dls", max_iter=..., n_restarts=..., perturb_pct=..., seed=..., threads=1, progress=..., stop=...)` |
+| `await design.refine({ method, maxIter, nRestarts, perturbPct, seed, threads, progress, stop })` | `design.refine(method="dls", max_iter=..., n_restarts=..., perturb_pct=..., seed=..., threads=..., progress=..., stop=...)` |
 
 按评价函数精炼膜层厚度，与精炼窗口的做法相同；不增加也不删除膜层。之后设计保存精炼后的膜层；运行被停止时，保留原来的膜层。被调整的膜层由设计的 `sides` 决定。
 
@@ -2532,7 +2532,7 @@ for one in design.stress(env="all"):
 | `nRestarts` | `n_restarts` | `20` | 多次启动方法的重启次数。 |
 | `perturbPct` | `perturb_pct` | `30` | 多次启动方法在每次重启时对每个厚度的扰动幅度，单位 %。 |
 | `seed` | `seed` |  | 使用随机抽样的方法所用的起始数，1 到 2^32 - 1 之间的整数；相同的种子、设计和设置会重复同样的运行。不给出时，使用一个新的种子，并在结果中给出。 |
-| `threads` | `threads` | `1` | 多次启动和并行差分进化同时使用的工作线程数。 |
+| `threads` | `threads` |  | 多次启动和并行差分进化同时使用的工作线程数。不给出时用应用为这台计算机推荐的线程数。 |
 | `progress` | `progress` |  | **JavaScript**：一个函数，运行每次报告时以一个 Progress 调用它。它抛出的错误会结束运行，运行随即以该错误拒绝，设计保持原样。<br>**Python**：一个函数，运行每次报告时以一个 Progress 调用它。它引发的异常会停止运行，并继续向外传递。 |
 | `stop` | `stop` |  | **JavaScript**：一个 AbortSignal；中止其 AbortController 会结束运行，设计保持原样。<br>**Python**：一个 tfstudio.Stop，调用其 stop() 会结束运行。 |
 
