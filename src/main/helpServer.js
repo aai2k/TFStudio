@@ -10,7 +10,6 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
-const urlMod = require('url');
 const { log } = require('./logger');
 
 let helpServer = null;
@@ -62,9 +61,8 @@ function startHelpServer({ isPackaged, srcDir }) {
 
   const server = http.createServer((req, res) => {
     try {
-      const parsed = urlMod.parse(req.url || '/');
       let urlPath;
-      try { urlPath = decodeURIComponent(parsed.pathname || '/'); }
+      try { urlPath = decodeURIComponent(new URL(req.url || '/', 'http://127.0.0.1').pathname); }
       catch (_) { res.writeHead(400); res.end('Bad request'); return; }
 
       // Normalize and prevent directory traversal: resolved path must stay
