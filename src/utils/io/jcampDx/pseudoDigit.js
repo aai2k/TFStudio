@@ -33,15 +33,17 @@ export function readTrailingDigits(s, start) {
     return { str, end: j };
 }
 
-// Read a PAC / AFFN number (optional sign, digits, optional E-exponent).
+// Read a PAC / AFFN number (optional sign, digits, optional exponent). An
+// exponent is E or e followed by a sign, as every writer prints one ("1.5E+03").
+// A bare E or e after the digits is the SQZ pseudo-digit +5 or -5 of the next
+// ordinate in a compressed line, so the number ends before it.
 export function readAffnNumber(s, start) {
     const n = s.length;
     let j = start, str = '';
     if (s[j] === '+' || s[j] === '-') { str += s[j]; j++; }
     const t = readTrailingDigits(s, j); str += t.str; j = t.end;
-    if (j < n && (s[j] === 'E' || s[j] === 'e')) {
-        str += 'E'; j++;
-        if (j < n && (s[j] === '+' || s[j] === '-')) { str += s[j]; j++; }
+    if (j + 1 < n && (s[j] === 'E' || s[j] === 'e') && (s[j + 1] === '+' || s[j + 1] === '-')) {
+        str += 'E' + s[j + 1]; j += 2;
         const e = readTrailingDigits(s, j); str += e.str; j = e.end;
     }
     return { str, end: j };

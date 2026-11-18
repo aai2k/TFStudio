@@ -73,6 +73,25 @@ const EXPECT = [10, 12, 14, 16, 16, 16, 13];
     ok('dif multiline x', approx(r.spectra[0].x[4], 104));
 }
 
+// ── SQZ E and e straight after the abscissa ─────────────────────────────────────
+// E is +5 and e is -5: '100E0KK' is X = 100, then 50, 52, 54. Read as an exponent
+// of the abscissa, the first ordinate is lost and the DIF chain starts wrong.
+{
+    const head = (n, last, body) =>
+`##TITLE=t\n##JCAMP-DX=4.24\n##XUNITS=NANOMETERS\n##YUNITS=TRANSMITTANCE\n##XFACTOR=1.0\n##YFACTOR=1.0\n##FIRSTX=100\n##LASTX=${last}\n##NPOINTS=${n}\n##DELTAX=1\n##XYDATA=(X++(Y..Y))\n${body}\n##END=`;
+    ok('sqz E lead y', arrApprox(parseJcampDx(head(3, 102, '100E0KK')).spectra[0].y, [50, 52, 54]));
+    ok('sqz e lead y', arrApprox(parseJcampDx(head(3, 102, '100e0KK')).spectra[0].y, [-50, -48, -46]));
+    const two = parseJcampDx(head(5, 104, '100E0KK\n102E4KK')).spectra[0];
+    ok('sqz E lead multiline y', arrApprox(two.y, [50, 52, 54, 56, 58]));
+    ok('sqz E lead multiline x', approx(two.x[4], 104));
+}
+
+// ── AFFN with exponents ─────────────────────────────────────────────────────────
+{
+    const r = parseJcampDx(HEAD('100 1.0E+01 1.2E+01 1.4e+01 1.6E+01 1.6E+01 160E-01 1.3E+01'));
+    ok('affn exponent y', arrApprox(r.spectra[0].y, EXPECT));
+}
+
 // ── YFACTOR scaling ─────────────────────────────────────────────────────────────
 {
     const txt = HEAD('100 100 120 140 160 160 160 130').replace('##YFACTOR=1.0', '##YFACTOR=0.1');
