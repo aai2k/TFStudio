@@ -202,7 +202,7 @@ for (const method of ALL_ORDER) {
     const run = await stubRun({ method: [method, method === 'cg' ? 'dls' : 'cg'], seed: 4, nRestarts: 2 });
     if (!run.jobs.some(job => job.type === 'score')) fromInit.push(method);
 }
-assert.deepEqual(fromInit, ['cg', 'dls', 'newton', 'newton-cg', 'sa'], 'the methods a flow takes its start from');
+assert.deepEqual(fromInit, ['cg', 'dls', 'newton', 'newton-cg', 'trust-region', 'sa'], 'the methods a flow takes its start from');
 for (const method of fromInit) {
     const init = await initOf(method);
     assert.deepEqual([init.mfInitial, init.omfInitial], [calling.mf, calling.omf], `${method}: 'init' reports the design as posted`);

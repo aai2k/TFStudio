@@ -5,21 +5,22 @@
 //   cg         Conjugate Gradient (local, gradient-only; large designs)
 //   newton     Modified Newton (dense analytic Hessian; quadratic endgame)
 //   newton-cg  Truncated Newton (matrix-free; scales to large stacks)
+//   trust-region  Trust-region Newton with a projected search (box step; Needle's refiner)
 //   dls-multi  DLS from N perturbed starts, keep best (local, escapes shallow mins)
 //   de         Differential Evolution (global, gradient-free, worker-pool parallel)
 //   sa         Simulated Annealing (global, gradient-free)
 //   all        try every method, keep the best result (dls-multi last; slowest)
 // CG is the most robust large-design local polisher; DE/SA are global explorers
 // for poor/multimodal starts.
-export const REFINE_METHODS = ['sqp', 'dls', 'cg', 'newton', 'newton-cg', 'dls-multi', 'de', 'sa', 'all'];
+export const REFINE_METHODS = ['sqp', 'dls', 'cg', 'newton', 'newton-cg', 'trust-region', 'dls-multi', 'de', 'sa', 'all'];
 
 // Order used by 'all'. dls-multi last (slowest).
-export const ALL_ORDER = ['cg', 'dls', 'newton', 'newton-cg', 'sqp', 'de', 'sa', 'dls-multi'];
+export const ALL_ORDER = ['cg', 'dls', 'newton', 'newton-cg', 'sqp', 'trust-region', 'de', 'sa', 'dls-multi'];
 
 // Per-method iteration budget for the single-worker engines. The second-order
-// methods (newton / newton-cg / sqp) converge quadratically near the minimum, so
-// they need far fewer steps than LM.
-export const MAXITER_FOR = { cg: 600, dls: 500, newton: 200, 'newton-cg': 200, sqp: 200, sa: 400, de: 250 };
+// methods (newton / newton-cg / sqp / trust-region) converge quadratically near
+// the minimum, so they need far fewer steps than LM.
+export const MAXITER_FOR = { cg: 600, dls: 500, newton: 200, 'newton-cg': 200, sqp: 200, 'trust-region': 200, sa: 400, de: 250 };
 
 // Methods whose runs draw random numbers. Their runs take a seed, which the
 // Design History row keeps.

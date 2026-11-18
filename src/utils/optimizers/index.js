@@ -61,9 +61,9 @@ const ENGINES = {
     sa:          SAOptimizer,
     cg:          CGOptimizer,
     sqp:         SQPOptimizer,
-    // The synthesis lab's refinement (trustRegionNewton.js). Offered as a
-    // synthesis inner engine only; the Refinement window and the benchmark
-    // lists do not include it.
+    // The synthesis lab's refinement (trustRegionNewton.js). A synthesis inner
+    // engine and a Refinement window method; the benchmark lists do not
+    // include it.
     'trust-region': TrustRegionNewtonOptimizer,
 };
 

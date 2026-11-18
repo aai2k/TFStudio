@@ -2568,10 +2568,11 @@ print(run.merit, run.stop_reason)
 | `cg` | 共轭梯度法 | 600 |  |
 | `newton` | 牛顿法 | 200 |  |
 | `newton-cg` | 牛顿-CG 法 | 200 |  |
+| `trust-region` | 信赖域牛顿法 | 200 |  |
 | `dls-multi` | DLS 多起点 | 500 | 是 |
 | `de` | 差分进化 | 250 | 是 |
 | `sa` | 模拟退火 | 400 | 是 |
-| `all` | 依次运行 `cg`、`dls`、`newton`、`newton-cg`、`sqp`、`de`、`sa`、`dls-multi`，从同一起点开始，保留最好的结果 |  | 是 |
+| `all` | 依次运行 `cg`、`dls`、`newton`、`newton-cg`、`sqp`、`trust-region`、`de`、`sa`、`dls-multi`，从同一起点开始，保留最好的结果 |  | 是 |
 
 #### `run.stopReason` / `run.stop_reason`
 

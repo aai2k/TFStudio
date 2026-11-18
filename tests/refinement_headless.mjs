@@ -59,6 +59,7 @@ const RUNS = [
     ['cg', { method: 'cg', maxIter: 60 }],
     ['newton', { method: 'newton', maxIter: 40 }],
     ['newton-cg', { method: 'newton-cg', maxIter: 40 }],
+    ['trust-region', { method: 'trust-region', maxIter: 40 }],
     ['sa', { method: 'sa', maxIter: 60, seed: 3 }],
     ['de, serial without an MF-evaluation pool', { method: 'de', maxIter: 15, seed: 3 }],
     ['dls-multi', { method: 'dls-multi', maxIter: 40, nRestarts: 3, seed: 5, threads: 2 }],
@@ -87,7 +88,7 @@ for (const [name, settings] of RUNS) {
     assert.equal(result.stopReason, 'stalled', `DLS runs until it stalls (${result.stopReason} at iteration ${result.iter})`);
     assert.ok(result.mf < 0.5 * result.mfInitial, `DLS refines the start well below its merit (${result.mfInitial} → ${result.mf})`);
 }
-for (const method of ['dls', 'cg', 'sqp', 'newton']) {
+for (const method of ['dls', 'cg', 'sqp', 'newton', 'trust-region']) {
     const result = await runRefinement(DESIGN, OPS(), { method, maxIter: 7 }, { makeWorker });
     assert.equal(result.iter, 7, `${method}: maxIter 7 stops the run at iteration 7`);
     assert.equal(result.stopReason, 'maxiter', `${method}: and says the cap stopped it`);

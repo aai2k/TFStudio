@@ -16,7 +16,7 @@ import { runMultiP } from './listMultiStart.js';
 // the MNT/MXT box, DE to the best member of its first population, and a
 // multi-start step runs from perturbed designs, so before one of those a run
 // with no start values yet scores them with a scoring job (scoreStartP).
-const INIT_IS_START = new Set(['dls', 'cg', 'sa', 'newton', 'newton-cg']);
+const INIT_IS_START = new Set(['dls', 'cg', 'sa', 'newton', 'newton-cg', 'trust-region']);
 
 // Pick + run the engine for method m (F bundles the shared run config).
 function runMethodOnce(R, m, F) {

@@ -53,13 +53,15 @@ function appliedAt(opt, thicks, design) {
     return { frontLayers: d.frontLayers, backLayers: d.backLayers };
 }
 
-// Why a finished run stopped: 'maxiter' when the iteration cap cut it off,
-// otherwise the stopping test the DLS engine names ('target', 'damping',
-// 'reduction' or 'step', physics/optimizer/lmStopping.js), or 'converged' for
-// an engine that names none. The Newton and SQP engines carry the field too,
-// from their Levenberg-Marquardt fallback steps, but stop on tests of their own.
+// Why a finished run stopped: 'maxiter' when the iteration cap cut it off
+// (the trust-region engine counts reaching its cap as converged, and names it
+// 'iterations'), otherwise the stopping test the DLS engine names ('target',
+// 'damping', 'reduction' or 'step', physics/optimizer/lmStopping.js), or
+// 'converged' for an engine that names none. The Newton and SQP engines carry
+// the field too, from their Levenberg-Marquardt fallback steps, but stop on
+// tests of their own.
 function stopReasonOf(opt) {
-    if (!opt.isConverged()) return 'maxiter';
+    if (!opt.isConverged() || opt.convergedBy === 'iterations') return 'maxiter';
     return (opt instanceof DLSOptimizer && opt.convergedBy) || 'converged';
 }
 

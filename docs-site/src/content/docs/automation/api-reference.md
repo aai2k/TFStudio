@@ -2568,10 +2568,11 @@ print(run.merit, run.stop_reason)
 | `cg` | Conjugate Gradient | 600 |  |
 | `newton` | Newton | 200 |  |
 | `newton-cg` | Newton-CG | 200 |  |
+| `trust-region` | Trust-region Newton | 200 |  |
 | `dls-multi` | DLS multi-start | 500 | yes |
 | `de` | Differential Evolution | 250 | yes |
 | `sa` | Simulated Annealing | 400 | yes |
-| `all` | Each of `cg`, `dls`, `newton`, `newton-cg`, `sqp`, `de`, `sa`, `dls-multi` in turn, from the same start, keeping the best |  | yes |
+| `all` | Each of `cg`, `dls`, `newton`, `newton-cg`, `sqp`, `trust-region`, `de`, `sa`, `dls-multi` in turn, from the same start, keeping the best |  | yes |
 
 #### `run.stopReason` / `run.stop_reason`
 

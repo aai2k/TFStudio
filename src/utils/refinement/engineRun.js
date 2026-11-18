@@ -1,4 +1,4 @@
-// One single-engine worker run (methods dls/cg/sa/de-serial/newton/newton-cg/sqp),
+// One single-engine worker run (methods dls/cg/sa/de-serial/newton/newton-cg/sqp/trust-region),
 // used by the method flow (methodsFlow.js), the serial DE fallback (deEngine.js)
 // and the multi-start step of a method list (listMultiStart.js), and the
 // scoring job that gives a run its start values when no method job reports them.
