@@ -30,6 +30,8 @@ const { planRun } = await import('../src/utils/needle/settings.js');
 const { defaultThreadCount } = await import('../src/utils/synthesis/synthesisConfig.js');
 const { dispatchSynthesisJob } = await import('../src/utils/workers/synthesisWorker.js');
 const { makeResolveMat } = await import('../src/utils/workers/resolveMat.js');
+const { meritOf } = await import('../src/components/windows/optimization/synthesisShared/runGrid.js');
+const { designMaterialLookup } = await import('../src/utils/materials/designMaterials.js');
 
 let pass = 0, fail = 0;
 const ok = (name, cond) => { if (cond) pass++; else { fail++; console.error('FAIL:', name); } };
@@ -190,24 +192,28 @@ for (const hook of ['onStart', 'onProgress']) {
 // ── 5. A rescue that ends on the design it stalled on ───────────────────────
 {
     // Scans find no needle, and the thicker starts all score worse (0.5) than
-    // the start (0.3). The run takes the best of them, finds no needle again,
-    // and ends on the start design, which no accepted row shows. One wavelength
-    // keeps the run on its launch grid, so nothing re-scores these merits.
+    // the start. The run takes the best of them, finds no needle again, and
+    // ends on the start design, which no accepted row shows. The start's merit
+    // is the design's own full merit, scored here the way the run scores it.
+    // One wavelength keeps the run on its launch grid, so nothing re-scores
+    // these merits.
     const oneLine = [makeOperand({ type: 'T', lambdaStart: 550, lambdaEnd: 550, pol: 'avg', target: 1, weight: 1 })];
+    const startMF = meritOf(oneLine, seedDesign(), designMaterialLookup(seedDesign()));
     const counter = { terminated: 0 };
     const pool = {
         map: async (jobs) => jobs.map(job => (job.type === 'scan'
-            ? { type: 'result', mf0: 0.3, candidates: [] }
+            ? { type: 'result', mf0: startMF, candidates: [] }
             : { type: 'result', mf: 0.5, omf: 0.5, frontLayers: job.design.frontLayers, backLayers: [] })),
         terminate() { counter.terminated++; },
     };
     const rows = [];
     const ended = await runNeedle(seedDesign(), oneLine, SETTINGS, { makeWorkerPool: () => pool, onGeneration: r => rows.push(r) });
-    ok('the run ends on the design it stalled on', ended.completed && ended.mf === 0.3
+    ok('the start scores better than the thicker starts', startMF < 0.5);
+    ok('the run ends on the design it stalled on', ended.completed && Math.abs(ended.mf - startMF) < 1e-12
         && ended.frontLayers?.[0]?.thickness === 100);
     const closing = rows.length === 1 ? rows[0] : {};
     ok('that design is the closing row', [closing.final === true, closing.rescued === true,
-        closing.mf === 0.3, closing.frontSnap?.[0]?.thickness === 100].every(Boolean));
+        Math.abs(closing.mf - startMF) < 1e-12, closing.frontSnap?.[0]?.thickness === 100].every(Boolean));
 }
 
 console.log = _log;

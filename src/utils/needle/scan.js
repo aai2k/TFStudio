@@ -5,6 +5,8 @@
 import { buildARSeedCandidates } from '../../components/windows/optimization/synthesisShared/synthesisMath.js';
 import { cullMarginalNeedles, SYNTHESIS_INTRA_SAMPLES } from '../synthesis/synthesisConfig.js';
 import { alive } from './runState.js';
+import { meritOf } from '../../components/windows/optimization/synthesisShared/runGrid.js';
+import { designMaterialLookup } from '../materials/designMaterials.js';
 
 // Smart seed: refine the canonical QW/HW AR starting designs (plus the current
 // design) in parallel on the pool and begin from whichever scores best. Seeds
@@ -73,9 +75,11 @@ export async function scanCycle(run) {
     run.gotProgress = true;
     let candidates = [];
     for (const r of scanRes) candidates = candidates.concat(r.candidates || []);
-    const mf0 = scanRes.length ? scanRes[0].mf0 : Infinity;
     if (best.frontLayers === null && best.backLayers === null) {
-        best.mf = mf0;
+        // The start's full merit, TT and STR rows included: candidates are
+        // accepted on full merits (refine.js), while the scan's own mf0 leaves
+        // those rows out.
+        best.mf = meritOf(run.operands, snap, designMaterialLookup(run.curDes));
         best.frontLayers = run.deep(baseFront);
         best.backLayers  = run.deep(baseBack);
     }

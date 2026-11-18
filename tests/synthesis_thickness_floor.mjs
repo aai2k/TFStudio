@@ -310,7 +310,7 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
     const rav = [O.makeOperand({ type: 'RAV', lambdaStart: 500, lambdaEnd: 600, aoi: 0, pol: 'avg', target: 0, weight: 1 })];
     const seed = media([['TiO2', 60], ['SiO2', 90]]);
     const { runNeedle } = await import('../src/utils/needle/runNeedle.js');
-    async function runNeedleMock(answer) {
+    async function runNeedleMock(answer, operands = rav) {
         const jobs = [];
         let scans = 0;
         const pool = {
@@ -330,7 +330,7 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
         };
         const rows = [];
         quiet();
-        await runNeedle({ ...seed, id: 'needle-parked' }, rav,
+        await runNeedle({ ...seed, id: 'needle-parked' }, operands,
             { pool: POOL, maxLayers: 10, deltaNm: 0.5, dMin: 15, refineIter: 10, targetMF: 1e-9 },
             { makeWorkerPool: () => pool, onGeneration: row => rows.push(row) });
         loud();
@@ -352,9 +352,20 @@ ok('automatic synthesis samples as many positions per layer as the Needle window
         : accepted(0.2)(job, front, grow)));
     ok('Needle runner: a worse one is left and the candidate is recorded',
         worse.first?.mf === 0.2 && worse.first?.layerCount === seed.frontLayers.length + 1, JSON.stringify(worse.first?.mf));
-    const rejected = await runNeedleMock(accepted(0.35));
-    ok('Needle runner: no dropParked job when no candidate beats the best', rejected.parkedJobs.length === 0 && rejected.first?.mf !== 0.35,
+    // The best a candidate has to beat is the start's own merit.
+    const ravStart = O.calcMF(rav, O.evaluateOperands(rav, O.buildEvalContext(seed, id => getMaterial(id))));
+    const rejected = await runNeedleMock(accepted(2 * ravStart));
+    ok('Needle runner: no dropParked job when no candidate beats the best', rejected.parkedJobs.length === 0 && rejected.first?.mf !== 2 * ravStart,
         `${rejected.parkedJobs.length} jobs`);
+    // A TT row far off target: the scan's mf0 (0.3 here) leaves it out, the
+    // start's full merit carries it. A candidate whose full merit is well
+    // below the start's is a step forward, though it is above the scan's mf0.
+    const tt = [...rav, O.makeOperand({ type: 'TT', target: 1000, weight: 1 })];
+    const startFull = O.calcMF(tt, O.evaluateOperands(tt, O.buildEvalContext(seed, id => getMaterial(id))));
+    const offTarget = await runNeedleMock((job, front, grow) => (job.type === 'dropParked' ? { removed: 0 } : accepted(1.0)(job, front, grow)), tt);
+    ok('setup: the start\'s full merit with the TT row is far above the candidate\'s', startFull > 2, `${startFull}`);
+    ok('Needle runner: the first generation is judged against the start\'s full merit, TT included, not the scan\'s optical mf0',
+        offTarget.first?.mf === 1.0 && offTarget.first?.layerCount === seed.frontLayers.length + 1, JSON.stringify(offTarget.first?.mf));
 }
 
 console.log(`=== Synthesis at the thickness floor · WASM ${tmmWasmActive() ? 'ON' : 'off'} ===`);
