@@ -12,15 +12,40 @@ function announce() {
     try { window.dispatchEvent(new CustomEvent(USER_COATINGS_CHANGED)); } catch (_) { /* no window */ }
 }
 
+// A short tag of a file name, the same for that file in every listing.
+function fileTag(file) {
+    let h = 2166136261;
+    for (let i = 0; i < file.length; i++) h = Math.imul(h ^ file.charCodeAt(i), 16777619);
+    return (h >>> 0).toString(36);
+}
+
+// The id of each saved coating: the slug of its name when no other coating's
+// name gives the same slug. Each coating is a file named after its whole name,
+// so names that slugify alike ('AR 1' and 'AR-1', or names in Cyrillic or
+// Chinese, which leave no slug at all) are separate coatings; each of them
+// takes a tag of its own file name after the slug. An id belongs to one file,
+// so a save or a delete never hands it to another coating.
+function withUniqueIds(items) {
+    const slugOf = item => slugify(item.record.name || item.name);
+    const count = new Map();
+    for (const item of items) count.set(slugOf(item), (count.get(slugOf(item)) || 0) + 1);
+    return items.map(item => {
+        const slug = slugOf(item);
+        const id = slug && count.get(slug) === 1
+            ? `user-${slug}`
+            : `user-${slug || 'coating'}-${fileTag(String(item.file || item.name))}`;
+        return { ...item.record, id };
+    });
+}
+
 /** Every saved coating, newest first. Empty outside the desktop app. */
 export async function listUserCoatings() {
     const api = window.electronAPI;
     if (!api?.listCoatings) return [];
     const result = await api.listCoatings();
     if (!result?.success) return [];
-    return (result.presets || [])
-        .filter(item => item.record)
-        .map(item => makeCoatingEntry({ ...item.record, id: `user-${slugify(item.record.name || item.name)}` }))
+    return withUniqueIds((result.presets || []).filter(item => item.record))
+        .map(record => makeCoatingEntry(record))
         .sort((a, b) => String(b.created || '').localeCompare(String(a.created || '')));
 }
 

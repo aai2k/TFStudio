@@ -19,6 +19,7 @@ import {
 import { entryMetrics } from '../src/utils/coatingLibrary/entryProperties.js';
 import { qualifierSummary } from '../src/utils/synthesis/qualifiers.js';
 import { validateEntry } from '../src/utils/coatingLibrary/validateEntry.js';
+import { listUserCoatings } from '../src/utils/coatingLibrary/userCoatings.js';
 import { applyCoatingPatch, mergeEntryMaterials } from '../src/utils/coatingLibrary/applyCoating.js';
 import { filterEntries, substratesOf, tagCounts } from '../src/utils/coatingLibrary/filter.js';
 import { evaluateSpectrum } from '../src/utils/physics/thinFilmMath.js';
@@ -69,6 +70,39 @@ assert.deepEqual(previewRange(makeCoatingEntry({ ...bbar, id: 'mgf2', bands: [[4
     layers: [{ material: 'builtin:MgF2', thickness: 100 }] })), [390, 710], 'a material with wider data leaves the margin alone');
 assert.deepEqual(makeCoatingEntry({ tags: ['laser', 'laser', 'nir'] }).tags, ['laser', 'nir'], 'tags are a set');
 assert.deepEqual(makeCoatingEntry({}).tags, []);
+
+// Saved coatings whose names slugify alike are separate files, and each keeps
+// an id of its own, so the window can select, apply and delete each one. The
+// default name of a save is "<design name> front", so every Russian-named
+// design gave 'user-front'. An id belongs to its own file, so saving or
+// deleting another coating leaves it alone while its slug stays shared. A name
+// that slugifies on its own keeps its plain id.
+{
+    globalThis.window ??= {};
+    const saved = window.electronAPI;
+    const preset = (name, file) => ({ name, file, record: { name, layers: [{ material: 'builtin:SiO2', thickness: 100 }] } });
+    const list = async presets => {
+        window.electronAPI = { listCoatings: async () => ({ success: true, presets }) };
+        const entries = await listUserCoatings();
+        window.electronAPI = saved;
+        return entries;
+    };
+    const presets = [
+        preset('Абсорбер front', 'Абсорбер front.tfsc'),
+        preset('Зеркало front', 'Зеркало front.tfsc'), preset('Фильтр front', 'Фильтр front.tfsc'),
+        preset('AR 1', 'AR 1.tfsc'), preset('AR-1', 'AR-1.tfsc'), preset('Зеркало', 'Зеркало.tfsc'), preset('My AR', 'My AR.tfsc'),
+    ];
+    const entries = await list(presets);
+    const ids = entries.map(entry => entry.id);
+    assert.equal(new Set(ids).size, ids.length, `every saved coating has its own id: ${ids.join(', ')}`);
+    assert.equal(entries.find(entry => entry.name === 'My AR').id, 'user-my-ar', 'a name with its own slug keeps the plain id');
+    for (const entry of entries) assert.deepEqual(validateEntry(entry), [], `${entry.name}: the id passes the entry checks`);
+    const withoutFirst = await list(presets.filter(p => p.name !== 'Абсорбер front'));
+    for (const entry of withoutFirst) {
+        assert.equal(entry.id, entries.find(e => e.name === entry.name).id,
+            `${entry.name}: a save or delete of another coating leaves its id alone`);
+    }
+}
 
 // The flat vocabulary is the groups laid end to end, and every tag knows its group.
 const grouped = Object.values(COATING_TAG_GROUPS).reduce((n, group) => n + Object.keys(group).length, 0);
