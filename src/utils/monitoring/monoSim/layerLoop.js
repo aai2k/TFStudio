@@ -24,9 +24,9 @@ function resolveMonoLayerPlan(i, ctx) {
 // A cut on the monitor signal needs a signal: every material it passes through
 // (the growing layer, the layers beneath it, the chip glass) has an index at
 // the monitoring wavelength. Where one has none the signal has no value, the
-// scan never confirms a cut, and the layer would come out at exactly its
-// target as if dead-reckoned without error. The run stops instead, naming the
-// material, the wavelength and the layer (`layerIndex`, storage order).
+// scan never confirms a cut, and the layer would quietly be timed. The run
+// stops instead, naming the material, the wavelength and the layer
+// (`layerIndex`, storage order).
 function assertSignalAt(i, monLam, ctx) {
     const through = [];
     for (let k = i; k < ctx.N; k++) through.push([ctx.modelMats[k], ctx.materialIds[k]]);
@@ -65,9 +65,7 @@ export function processMonoLayer(i, layer, ctx, mut) {
     mut.ouRate.set(matId, r);
     mut.acc.realizedRates[i] = r;
 
-    const t_target = d_target / r;
-    let cut_time = t_target;
-    let cut_d_actual = r * t_target;   // fallback: dead-reckon to target
+    let cut_time, cut_d_actual;
     const cut_d_hat = d_target;
 
     if (plan.strat === 'time') {
@@ -86,11 +84,11 @@ export function processMonoLayer(i, layer, ctx, mut) {
             modelMats: ctx.modelMats,
             modelThicksBelow: mut.modelThicks.slice(i + 1),
             i, d_target, truthMats: ctx.truthMats, truthThicksBelow: mut.truthThicks.slice(i + 1),
-            r, dt: ctx.dt, t_target, confirmScans: ctx.confirmScans,
+            r, rPlan: rateSpec.mean, dt: ctx.dt, confirmScans: ctx.confirmScans,
             noiseFrac: ctx.randomPct / 100, absNoiseFrac: (ctx.absNoisePct || 0) / 100,
             driftSlope: ctx.driftSlope,
             strat: plan.strat, order: plan.order, rng: ctx.rng,
-            t_global: mut.t_global, cut_d_actual, cut_time,
+            t_global: mut.t_global,
         });
         cut_d_actual = scan.cut_d_actual;
         cut_time     = scan.cut_time;

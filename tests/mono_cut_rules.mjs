@@ -11,7 +11,9 @@
  *   4. a timed cut runs the clock at the planned rate, so it carries the
  *      realized rate error; an excluded layer keeps its own error model;
  *   5. a layer that leaves no trace on the signal is not cut on arithmetic
- *      ripple.
+ *      ripple;
+ *   6. a level the signal never reaches runs to the scan budget, as on the
+ *      broadband monitor.
  *
  * Run: node tests/mono_cut_rules.mjs
  */
@@ -143,6 +145,24 @@ for (const dt of [1, 3]) {
         { ...noiseless(1), monTable: [{ lambda: REF, strategy: 'turning', order: 1, sigmaRelPct: 0 }] });
     ok(Math.abs(run.asBuiltFront[0] - 150) < 1e-9,
        `a turning row on a flat signal falls back to the planned thickness (${run.asBuiltFront[0].toFixed(3)} nm)`);
+}
+
+// ── 6. A level the signal never reaches ───────────────────────────────────────
+// A 0.9 QW H layer under the default level cut, its true index 0.05 below the
+// model's: the true signal turns before it reaches the model's level, so no
+// scan confirms a cut. The shutter closes when the scan budget, twice the
+// planned time, runs out, as on the broadband monitor, and the layer comes out
+// about twice its target instead of exactly on it.
+{
+    const target = 0.9 * qw('H');
+    const design = makeDesign([{ material: 'H', thickness: target }]);
+    const table = defaultMonoTable(design, resolveMat, { autoPickLambda: false });
+    ok(table[0].strategy === 'level', `the default table cuts a 0.9 QW layer on a level (${table[0].strategy})`);
+    const run = simulateRunMono(design, resolveMat,
+        { ...noiseless(1), monTable: table, matDev: new Map([['H', { reNSyst: -0.05 }]]) });
+    const built = run.asBuiltFront[0];
+    ok(built > 1.9 * target && built < 2.1 * target,
+       `a missed level cut runs to the scan budget (${built.toFixed(2)} nm against a ${target.toFixed(2)} nm target)`);
 }
 
 console.log(fail === 0 ? '\nALL PASS' : `\n${fail} FAILURE(S)`);

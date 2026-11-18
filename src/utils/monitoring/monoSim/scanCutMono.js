@@ -133,9 +133,8 @@ function runMonoScanLoop(ctx) {
 
 export function _scanCutMono(p) {
     const { monLam, theta, pol, char, incMat, subMat, subThickMM, modelMats, modelThicksBelow,
-            i, d_target, truthMats, truthThicksBelow, r, dt, t_target, confirmScans,
+            i, d_target, truthMats, truthThicksBelow, r, rPlan, dt, confirmScans,
             noiseFrac, absNoiseFrac = 0, driftSlope, strat, order, rng } = p;
-    let { t_global, cut_d_actual, cut_time } = p;
 
     const sys = { theta, pol, char, incMat, subMat, subThickMM };
     // Storage is air→substrate, so the layers already deposited beneath the
@@ -143,7 +142,12 @@ export function _scanCutMono(p) {
     // stack because it faces the incident medium.
     const model = { matsBelow: modelMats.slice(i + 1), thicksBelow: modelThicksBelow, curMat: modelMats[i] };
     const an = analyzeModelCurve(monLam, model, d_target, sys);
-    const maxScans = Math.max(2, Math.ceil((Math.max(t_target * 2, t_target + 10 / r)) / dt));
+    // Scan budget from the monitor's planned clock, as the broadband monitor
+    // sets it: twice the planned time, or 10 nm past the target at the planned
+    // rate for a short layer.
+    const rNom = Math.max(1e-6, rPlan);
+    const tNom = d_target / rNom;
+    const maxScans = Math.max(2, Math.ceil(Math.max(2 * tNom, tNom + 10 / rNom) / dt));
 
     // The scan grid is fixed before the loop starts (thickness is rate times
     // scan time), so the noiseless truth curve is sampled in one batch and the
@@ -179,9 +183,16 @@ export function _scanCutMono(p) {
         : null;
     const measureCtx = { noiseFrac, absNoiseFrac, driftSlope, rng, smooth };
 
-    const scan = runMonoScanLoop({ maxScans, dt, r, sTrue, measureCtx, strat, tState, tCfg, lState, lCfg, t_global });
-    t_global = scan.t_global;
-    if (scan.hit) { cut_d_actual = scan.hit.d; cut_time = scan.hit.t; }
+    const scan = runMonoScanLoop({ maxScans, dt, r, sTrue, measureCtx, strat, tState, tCfg, lState, lCfg, t_global: p.t_global });
+    if (scan.hit) return { cut_d_actual: scan.hit.d, cut_time: scan.hit.t, t_global: scan.t_global };
 
-    return { cut_d_actual, cut_time, t_global };
+    // No scan confirmed a cut. A layer the model shows leaving no trace on the
+    // signal, or a turning row whose model curve has no turning point, was a
+    // timed layer from the start: the shutter closes at the planned time. Any
+    // other row missed its cut, and the shutter closes when the scan budget
+    // runs out, as on the broadband monitor. Either way the layer grows at the
+    // realized rate until then.
+    const timed = an.flat || (!an.extrema.length && strat === 'turning');
+    const cut_time = timed ? tNom : maxScans * dt;
+    return { cut_d_actual: r * cut_time, cut_time, t_global: p.t_global + cut_time };
 }

@@ -5,6 +5,7 @@
  */
 
 import { createGrowingLayerEvaluator, tmmTotalAvg } from '../../physics/thinFilmMath.js';
+import { isFlatCurve } from './worksheetSignal.js';
 
 function pickChar(res, char, pol) {
     if (char === 'R') return pol === 's' ? res.Rs : pol === 'p' ? res.Rp : res.R;
@@ -57,7 +58,8 @@ export function growingSignalSampler(lam, matsBelow, thicksBelow, sys) {
  * model-side stack: { matsBelow, thicksBelow, curMat }, where `matsBelow` are
  * the already-deposited layers beneath the growing one (storage order). The
  * growing layer leads the stack: it faces the incident medium. `sample(ds)`
- * returns the model signal at any thicknesses `ds` (nm).
+ * returns the model signal at any thicknesses `ds` (nm); `flat` is true when
+ * the layer leaves no trace on the signal (isFlatCurve).
  */
 export function analyzeModelCurve(monLam, model, dTarget, sys) {
     const { matsBelow, thicksBelow, curMat } = model;
@@ -86,5 +88,5 @@ export function analyzeModelCurve(monLam, model, dTarget, sys) {
     // than the grid can center, the sample sits up to a percent of the layer
     // away, and the cut would converge to that wrong level exactly.
     const sAtTarget = sample([dTarget])[0];
-    return { sAtTarget, sStart: ys[0], extrema, dHi, sample };
+    return { sAtTarget, sStart: ys[0], extrema, dHi, sample, flat: isFlatCurve({ s: ys }) };
 }
