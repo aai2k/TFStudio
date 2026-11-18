@@ -33,8 +33,6 @@ export function createDesignStore() {
     };
 }
 
-const withoutId = row => Object.fromEntries(Object.entries(row).filter(([key]) => key !== 'id'));
-
 const layersView = layers => (layers || []).map((layer, index) => ({
     index, material: layer.material, thickness: layer.thickness, ...(layer.locked ? { locked: true } : {}),
 }));
@@ -48,10 +46,11 @@ const ifSet = (name, value) => (typeof value === 'number' && Number.isFinite(val
  * the design's own temperature in °C and its cone of incidence, each when set,
  * surface mode and how a one-sided design is scored, each side's layers as the design stores them (the front from the
  * incident medium inward, the back from the substrate outward; thickness in
- * nm), and the merit rows, in full with `rows`, as a count otherwise. With
- * `rows` it also gives the specification's checks as the design holds them,
- * each with its id, which marks it to setSpecification as a check the design
- * holds.
+ * nm), and the merit rows, in full with `rows`, as a count otherwise. Each
+ * row keeps its id, which math and PPEF rows name in refId, so the rows can
+ * be edited and sent back to setMerit. With `rows` it also gives the
+ * specification's checks as the design holds them, each with its id, which
+ * marks it to setSpecification as a check the design holds.
  */
 export function designView(id, design, { rows = false } = {}) {
     const operands = design.meritOperands || [];
@@ -69,7 +68,7 @@ export function designView(id, design, { rows = false } = {}) {
         referenceWavelength: design.referenceWavelength ?? null,
         front: layersView(design.frontLayers), back: layersView(design.backLayers),
         ...(design.environments?.length > 1 ? { environmentCount: design.environments.length } : {}),
-        ...(rows ? { meritRows: operands.map(withoutId), specification: design.qualifiers || [] } : { meritRowCount: operands.length }),
+        ...(rows ? { meritRows: operands.map(row => ({ ...row })), specification: design.qualifiers || [] } : { meritRowCount: operands.length }),
     };
 }
 

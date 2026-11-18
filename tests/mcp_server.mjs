@@ -435,6 +435,14 @@ ok('a stack formula builds the stack', built.front?.length === 7 && built.front[
     ok('setMerit takes RCOL and TCOL rows, and merit gives their values, quantities, illuminants and observers as the API does',
         JSON.stringify(colourMerit.rows) === JSON.stringify(colourHere.rows) && colourMerit.rows[1].illuminant === 'D50'
         && Number.isFinite(colourMerit.rows[0].value), JSON.stringify(colourMerit.rows));
+    // Rows read from showDesign and sent back keep their ids, so a math row
+    // still finds the row it references by refId.
+    const mathRows = [{ id: 'r550', type: 'R', lambdaStart: 550, weight: 0 }, { type: 'OPLT', refId: 'r550', target: 0.01 }];
+    const mathRated = await server.call('setMerit', { designId: id, rows: mathRows });
+    const shownRows = (await server.call('showDesign', { designId: id })).meritRows;
+    const resent = await server.call('setMerit', { designId: id, rows: shownRows });
+    ok('merit rows read from showDesign and sent back to setMerit keep their references',
+        Number.isFinite(mathRated.total) && resent.total === mathRated.total && shownRows[0].id === 'r550', JSON.stringify(resent));
     const rows = [{ type: 'RAV', lambdaStart: 580, lambdaEnd: 620, target: 1, weight: 1 }];
     const rated = await server.call('setMerit', { designId: id, rows });
     ok('the merit is the API\'s', rated.total === api.merit(api.setMerit(local, rows)).total && rated.rows.length === 1, JSON.stringify(rated));
