@@ -6,6 +6,7 @@ import { useCatalogRevision } from '../../../../utils/materials/useCatalogRevisi
 import {
     assignChips, autoChipLambdas, buildMonitorWorksheet,
 } from '../../../../utils/monitoring/monoSim.js';
+import { depositedAsFront } from '../../../../utils/monitoring/depositedSide.js';
 import { matName } from '../wizardShared.js';
 import { usableChipGlass } from './chipGlass.js';
 import { monitorWorksheetSession } from './sessionState.js';
@@ -47,7 +48,9 @@ function computeWorksheet(design, resolveMat, options) {
 export function useMonitorWorksheet() {
     const { design } = useDesign();
     const [session, setField, patch] = useWindowSession(monitorWorksheetSession, design);
-    const stepCount = design?.frontLayers?.length || 0;
+    // The run deposits the back of a design coated on the back alone.
+    const deposited = useMemo(() => depositedAsFront(design), [design]);
+    const stepCount = deposited?.frontLayers?.length || 0;
     // The chip glass is not a design material, so an edit to its catalog
     // reaches this window only through the catalog revision.
     const catalogRevision = useCatalogRevision();
@@ -79,9 +82,9 @@ export function useMonitorWorksheet() {
          session.maxTerminationErrPct, chipByStep, lambdaByStep]);
 
     const result = useMemo(
-        () => computeWorksheet(design, resolveMat, options),
-        [design, resolveMat, options]);
-    const materials = useMemo(() => materialMaps(design, resolveMat), [design, resolveMat]);
+        () => computeWorksheet(deposited, resolveMat, options),
+        [deposited, resolveMat, options]);
+    const materials = useMemo(() => materialMaps(deposited, resolveMat), [deposited, resolveMat]);
 
     // Changing the chip size re-plans the whole run, which is the point of the
     // control; a wavelength entered by hand is kept.
@@ -108,11 +111,11 @@ export function useMonitorWorksheet() {
     // out, so there is nothing to pick from; the worksheet already says why.
     const autoLambda = useCallback(() => {
         try {
-            setField('lambdaByStep', autoChipLambdas(design, resolveMat, options));
+            setField('lambdaByStep', autoChipLambdas(deposited, resolveMat, options));
         } catch (error) {
             if (!(error instanceof MaterialHasNoIndexError)) throw error;
         }
-    }, [design, resolveMat, options, setField]);
+    }, [deposited, resolveMat, options, setField]);
 
     const bulkLambda = session.bulkLambda ?? (design?.referenceWavelength || 550);
     const setBulkLambda = useCallback(value => setField('bulkLambda', value), [setField]);

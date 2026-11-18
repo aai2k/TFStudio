@@ -135,7 +135,14 @@ for (const { name, design } of [{ name: 'Back face AR', design: backAr }, ...DES
     ok(`${name}, ${settings[0]}: the back is deposited substrate side first, the window's worksheet of its layers on a front`,
         isDeepStrictEqual(api.monitorWorksheet(design, { ...options, side: 'back' }), inApiShape('back', windowSheet(backAsFront(design), session))));
 }
-ok('the front of a design coated on the back alone has no rows, as the window shows', isDeepStrictEqual(api.monitorWorksheet(backAr, { side: 'front' }), { mode: 'front', rows: [], chips: [], runLength: 0 }));
+ok('the front of a design coated on the back alone has no rows', isDeepStrictEqual(api.monitorWorksheet(backAr, { side: 'front' }), { mode: 'front', rows: [], chips: [], runLength: 0 }));
+// The window and the Report deposit the back of a design coated on the back
+// alone, as the API does and the Process Exporter deposits it.
+const { depositedAsFront } = await import('../src/utils/monitoring/depositedSide.js');
+ok('the window\'s worksheet of a design coated on the back alone is its back',
+    isDeepStrictEqual(sample, inApiShape('back', windowSheet(depositedAsFront(backAr)))) && sample.rows.length === backAr.backLayers.length);
+ok('the Report prints the back of a design coated on the back alone',
+    isDeepStrictEqual(sample.rows.map(withoutCurve), computeWorksheet(withHerpinRecords(backAr)).rows.map(r => rowFields(r, backAr.backLayers.length))));
 
 const ar = api.stackFromFormula(api.newDesign({ name: 'AR' }), { formula: '(HL)^2 H L' });
 const withEmpty = { ...ar, frontLayers: ar.frontLayers.map((l, i) => (i === 2 ? { ...l, thickness: 0 } : l)) };

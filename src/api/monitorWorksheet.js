@@ -4,6 +4,7 @@
 // worksheet.js), on the chip plan processSteps reads.
 
 import { autoChipLambdas, buildMonitorWorksheet } from '../utils/monitoring/monoSim.js';
+import { depositedAsFront } from '../utils/monitoring/depositedSide.js';
 import { MaterialHasNoIndexError } from '../utils/materials/materialIndexAt.js';
 import { designMaterialLookup, withHerpinRecords } from '../utils/materials/designMaterials.js';
 import { ANALYSIS_DEFAULTS, numberAllowed, sessionDefaults } from '../constants/analysisDefaults.js';
@@ -25,13 +26,6 @@ const PERCENT = [
     ['maxTerminationErrPct', 'maxTerminationErrPct'],
 ];
 const isRecord = v => !!v && typeof v === 'object' && !Array.isArray(v);
-
-// The side's layers as the worksheet deposits them, as the front of a design:
-// the back's layers, which it stores from the substrate out, are turned round
-// so the worksheet deposits them substrate side first too.
-function depositedAsFront(design, side) {
-    return side === 'front' ? design : { ...design, frontLayers: [...(design.backLayers || [])].reverse() };
-}
 
 // The monitor wavelength of each step the window would compute with: none (each
 // chip at the design's reference wavelength), the Auto button's pick, Set all's

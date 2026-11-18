@@ -212,6 +212,15 @@ assert.ok(entry.requiresResolvedMaterials,
         { ...makeSampleDesign(), frontLayers: [] },
     ));
     assert.ok(bare.includes('No layers in design.'), 'a bare substrate says so');
+
+    const sample = makeSampleDesign();
+    const backOnly = renderToStaticMarkup(withDesign(
+        React.createElement(MonitorWorksheet, { c, theme: c, t }),
+        { ...sample, surfaceMode: 'back_only', frontLayers: [], backLayers: sample.frontLayers },
+    ));
+    assert.ok(!backOnly.includes('No layers in design.'), 'a design coated on the back alone is not empty');
+    assert.equal((backOnly.match(/<input/g) || []).length, 2 * sample.frontLayers.length + 2,
+        'and its back layers are the rows');
 }
 // ── The export menu opens into the window ────────────────────────────────────
 // The menu was made for a footer and always opened upward. In the worksheet it
