@@ -1,5 +1,5 @@
 /**
- * Shared Page-5 layout for the BBM / Mono wizards: a left control column
+ * Shared Deposition Simulation layout for the BBM / Mono wizards: a left control column
  * (run control + E/A/T bar chart + y-axis scale) and a right pane with the
  * live theory/actual spectrum, per-layer tab strip and deposition timeline.
  *

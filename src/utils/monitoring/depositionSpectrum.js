@@ -28,14 +28,15 @@ import { editorLayerNumber } from '../misc/layerNumbers.js';
  * SurfaceModeBar). `evalMode` is `resolveEvalMode(design)`:
  *
  *   'front'  → front coating on a SEMI-INFINITE substrate (no back surface):
- *              evaluateSpectrum(incidentMat, substrateMat, frontStored). This is
- *              also the in-chamber MONITOR signal (pass the active coating as
- *              `frontStored` and the active-side incident medium as incidentMat).
+ *              evaluateSpectrum(incidentMat, substrateMat, frontStored).
  *   'back'   → back coating from the exit side, semi-infinite:
  *              evaluateSpectrumBack(exitMat, substrateMat, backStored).
  *   'total'  → full system, BOTH coatings present + incoherent substrate:
  *              evaluateSpectrumTotal(incidentMat, substrateMat, exitMat,
  *                                    frontStored, backStored, substrateThk).
+ *              The in-chamber MONITOR signal is this mode with no back coating
+ *              and chamber air on both faces: the chip is a slab with a bare
+ *              back face, not a single surface.
  *
  * `frontStored`/`backStored` are each `[{ material:<resolved>, thickness }]` in
  * their own STORAGE order (front: top→substrate; back: substrate→exit) — exactly

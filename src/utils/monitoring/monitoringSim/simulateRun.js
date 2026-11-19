@@ -48,7 +48,7 @@ import { CHAMBER_MEDIUM_ID } from '../chamberMedium.js';
  *   - sig: signal-error config
  *       - randomPct:   per-point Gaussian random noise (% of signal). Default 1.
  *       - driftPctPer1000s: linear drift (additive percentage points per 1000 s)
- *                          drawn once per run as N(0, driftPctPer1000s/√3) and
+ *                          drawn once per run as N(0, driftPctPer1000s) and
  *                          accumulated linearly. Default 0.
  *   - rng:             Math.random()-style function (default Math.random)
  *

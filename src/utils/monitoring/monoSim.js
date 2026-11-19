@@ -27,7 +27,7 @@
  *   - worksheet.js             the witness-chip worksheet for a whole run
  *
  * References:
- *   - H. A. Macleod, Thin-Film Optical Filters, 5th ed., Ch. 12.
+ *   - H. A. Macleod, Thin-Film Optical Filters, 5th ed., Ch. 13.
  *   - A. V. Tikhonravov & M. K. Trubetskov, Appl. Opt. 44, 6877 (2005).
  *   - A. V. Tikhonravov, M. K. Trubetskov, T. V. Amotchkina, Appl. Opt. 45,
  *     7863 (2006) — choosing a monochromatic-monitoring strategy.

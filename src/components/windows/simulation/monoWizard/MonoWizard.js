@@ -21,12 +21,15 @@
  *                                     back layer-by-layer with E/A/T bars + spectrum
  *   Page 7  Resulting Performance  — manufactured vs theory + error / thk / RI tables
  *
- * Engine: utils/monoSim.js `simulateRunMono` (single-wavelength turning/level/
- * time cut), which mirrors monitoringSim.simulateRun's cfg + return shape, so
- * pages 1/2/5/6/7 are shared with BBM. Spectra go through
+ * Engine: utils/monitoring/monoSim.js `simulateRunMono` (single-wavelength
+ * turning/level/time cut), which mirrors monitoringSim.simulateRun's cfg +
+ * return shape. Parameters Deviation and Resulting Performance come straight
+ * from the pages shared with BBM (wizardKit), Deposition Rates and Deposition
+ * Simulation wrap the shared RatesPage and SimulationView, and the other pages
+ * are the Mono wizard's own. Spectra go through
  * depositionSpectrum.systemSpectrum → thinFilmMath, the validated path.
  *
- * Reference: Macleod, Thin-Film Optical Filters 5th ed., Ch. 12;
+ * Reference: Macleod, Thin-Film Optical Filters 5th ed., Ch. 13;
  *            Tikhonravov & Trubetskov, Appl. Opt. 44, 6877 (2005).
  */
 

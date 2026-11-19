@@ -1,5 +1,5 @@
 /**
- * Shared Page-5 (Deposition Simulation) model for the BBM / Mono wizards.
+ * Shared Deposition Simulation model for the BBM / Mono wizards.
  *
  * `useDepositionPlayback` owns the interactive timeline: a wall-clock-locked
  * playback cursor over a completed run's per-layer cut times, plus play/pause,

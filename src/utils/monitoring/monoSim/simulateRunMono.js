@@ -14,7 +14,7 @@
  *               single-wavelength signal passes its order-th extremum. Classical
  *               method for quarter-wave stacks, where the design cut coincides
  *               with a max/min of the monitor signal (the cut is first-order
- *               insensitive to small thickness errors). Macleod §12.2.
+ *               insensitive to small thickness errors). Macleod Ch. 13.
  *   'level'   — Level monitoring. The layer is cut when the signal crosses the
  *               theoretical level S(d_target) (nominal materials) in the
  *               expected direction. For non-QW (mid-slope) cuts.
@@ -22,14 +22,15 @@
  *               d_target on the realized rate plus a relative-thickness error.
  *               Also used for layers excluded from optical monitoring (quartz).
  *
- * The monitor uses NOMINAL materials and its accumulated as-built history of the
+ * The monitor uses NOMINAL materials and the true as-built thicknesses of the
  * previous layers to predict the target level / extremum, while the "true"
- * chamber signal is generated from the per-run perturbed (truth) materials —
- * exactly the BBM convention, so monitoring imprecision propagates to the final
- * spectral performance.
+ * chamber signal is generated from the per-run perturbed (truth) materials, so
+ * monitoring imprecision propagates to the final spectral performance. The
+ * broadband monitor differs: its model of the layers below holds its own
+ * estimates of them.
  *
  * References:
- *   - H. A. Macleod, Thin-Film Optical Filters, 5th ed., Ch. 12.
+ *   - H. A. Macleod, Thin-Film Optical Filters, 5th ed., Ch. 13.
  *   - A. V. Tikhonravov & M. K. Trubetskov, Appl. Opt. 44, 6877 (2005).
  *   - A. V. Tikhonravov, M. K. Trubetskov, T. V. Amotchkina, Appl. Opt. 45,
  *     7863 (2006) — choosing a monochromatic-monitoring strategy.

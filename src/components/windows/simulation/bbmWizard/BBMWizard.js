@@ -1,9 +1,8 @@
 /**
  * Broadband Monitoring Wizard — 6-page modal wizard.
  *
- * Replaces the old docked BBMSimulator window. A "Broadband Monitoring
- * Simulation" 6-step dialog presented as a modal in the same visual style as
- * the Filter Design Wizard:
+ * A "Broadband Monitoring Simulation" 6-step dialog presented as a modal in
+ * the same visual style as the Filter Design Wizard:
  *
  *   Page 1  Deposition Rates       — per-material mean / RMS / correlation time
  *                                     (OU process), live rate-vs-time preview
@@ -22,9 +21,9 @@
  *                                     / absolute error bars + thickness & RI tables
  *
  * The single-run experiment, OU correlated rates, shutter delay, per-material
- * deviations and exclude-layers all live in utils/monitoringSim.js
+ * deviations and exclude-layers all live in utils/monitoring/monitoringSim.js
  * (`simulateRun`, `sampleOURatePath`, `makeShiftedMaterial`). Spectra go through
- * utils/depositionSpectrum.js (`systemSpectrum`) → thinFilmMath
+ * utils/monitoring/depositionSpectrum.js (`systemSpectrum`) → thinFilmMath
  * `evaluateSpectrum*`, the same validated path the Process Simulator uses.
  *
  * Reference: Tikhonravov & Trubetskov, Appl. Opt. 44, 6877 (2005);
@@ -95,7 +94,7 @@ function buildRunCfg({ p, materialIds, recordTrajectory }) {
 }
 
 // Pre-samples every referenced material's [n,k] on the monitor scan λ grid so
-// the run can execute in a Web Worker (Approach A). simulateRun only samples
+// the run can execute in a Web Worker. simulateRun only samples
 // on this grid, so the worker result matches the main-thread path.
 function presampleMaterialsFor({ design, materialIds, resolveMat, p }) {
     const nP = Math.max(3, p.points | 0);

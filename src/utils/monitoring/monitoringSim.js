@@ -23,8 +23,8 @@
  * References:
  *   - A. V. Tikhonravov & M. K. Trubetskov, "Computational manufacturing as a
  *     bridge between design and production," Appl. Opt. 44, 6877 (2005).
- *   - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 12 (Production
- *     monitoring).
+ *   - H. A. Macleod, *Thin-Film Optical Filters*, 5th ed., Ch. 13 (Production
+ *     Methods, optical monitoring).
  */
 
 export { mulberry32, deriveSeed, ouStep, sampleOURatePath } from './monitoringSim/rng.js';

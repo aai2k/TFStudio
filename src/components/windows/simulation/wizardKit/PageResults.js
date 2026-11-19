@@ -1,5 +1,5 @@
 /**
- * Page 6 — Resulting Performance (shared by BBM / Mono).
+ * Resulting Performance page (shared by BBM / Mono).
  *
  * Manufactured vs theory spectrum + per-layer relative / absolute thickness
  * error bars + thickness & refractive-index tables. `showDeferredActions` adds

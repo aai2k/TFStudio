@@ -1,7 +1,7 @@
 /**
  * Single-λ monitor signal vs deposited thickness (one layer).
  *
- * Varies layer `k`'s (1-based, storage order) thickness 0→dHi at λ = monRow.lambda
+ * Varies layer `k`'s (1-based, deposition order: 1 = substrate-adjacent) thickness 0→dHi at λ = monRow.lambda
  * with previous layers fully grown; returns signal (%) vs thickness, plus the
  * target thickness. Optional Gaussian random noise (% of signal) for the
  * Signal Errors page.
