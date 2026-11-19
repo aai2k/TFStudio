@@ -116,8 +116,8 @@ export const App = ({ kernelStartup }) => {
         }
     };
 
-    // Empty-workspace "Create project" — create + open a design and arrange the
-    // default Filter-Design layout.
+    // The empty workspace's New design button: creates and opens a design and
+    // arranges the default Filter-Design layout.
     const createProjectFromEmpty = () => {
         project.addItem();
         workspace.applyPreset('filter-design');
