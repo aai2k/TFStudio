@@ -4281,7 +4281,8 @@ export default {
     // quoted characters are formula syntax and are the same in every language.
     errors: {
       empty:                  'Empty formula',
-      twoPipes:               'Use exactly two "|" separators (incident | layers | substrate) or none',
+      twoPipes:               'Set the media in the media fields; write the layers without "|"',
+      formulaMedia:           'Set the media in the media fields; write the layers without "|"',
       noLayers:               'No layers in formula',
       sideSymbol:             'Side must be a material symbol',
       tokenAfterSide:         'Unexpected token after side material',

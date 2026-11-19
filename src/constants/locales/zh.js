@@ -4887,7 +4887,8 @@ export default {
   stackFormula: {
     errors: {
       empty: '公式为空',
-      twoPipes: '请使用恰好两个 "|" 分隔符（入射介质 | 膜层 | 基底），或一个也不用',
+      twoPipes: '介质请在介质栏中设置；公式中只写膜层，不要使用 "|"',
+      formulaMedia: '介质请在介质栏中设置；公式中只写膜层，不要使用 "|"',
       noLayers: '公式中没有膜层',
       sideSymbol: '两侧必须是材料符号',
       tokenAfterSide: '侧材料后有多余的符号',

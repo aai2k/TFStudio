@@ -43,7 +43,7 @@ TFStudio is a desktop application for designing and analyzing **optical thin-fil
 - Averaging over a convergent or divergent illumination cone, with a uniform, Lambertian or tabulated intensity
 - Reflectance / transmittance / absorptance spectra in percent, decibels or optical density, color, integral figures of merit
 - Layer editor with simultaneous physical / optical / quarter-wave / full-wave thickness representations
-- **Stack formula:** build a whole stack from a formula such as `Air | (HL)^4 H | Glass`
+- **Stack formula:** build a whole stack from a formula such as `(HL)^4 H`
 - **Specification:** design requirements as live pass/fail checks, turned into merit-function rows with one button and used as the pass criterion of a Monte Carlo yield run
 - **Coating library:** coatings kept as reusable stacks with their substrate, medium, band and angle, a built-in shelf of starting designs beside your own, placed on either side of a design
 

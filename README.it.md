@@ -39,7 +39,7 @@ TFStudio è un'applicazione desktop per progettare e analizzare **rivestimenti o
 - Media su un cono di illuminazione convergente o divergente, con intensità uniforme, lambertiana o tabulata
 - Spettri di riflettanza / trasmittanza / assorbimento in percentuale, decibel o densità ottica, colore, valori integrali
 - Editor del design con rappresentazioni simultanee dello spessore: fisico, ottico, in quarti d'onda e in onde intere
-- **Formula dello stack:** costruisce un intero stack da una formula come `Air | (HL)^4 H | Glass`
+- **Formula dello stack:** costruisce un intero stack da una formula come `(HL)^4 H`
 - **Specifica:** i requisiti del design come verifiche conforme / non conforme in tempo reale, trasformati in righe della funzione di merito con un solo pulsante e usati come criterio di conformità nell'analisi Monte Carlo della resa
 - **Libreria dei rivestimenti:** rivestimenti conservati come stack riutilizzabili con il loro substrato, mezzo incidente, banda e angolo, con i design di partenza predefiniti accanto ai tuoi, da applicare a uno dei due lati di un design
 

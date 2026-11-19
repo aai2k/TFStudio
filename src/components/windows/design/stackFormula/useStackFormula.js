@@ -4,7 +4,7 @@ import {
 import { designMaterialLookup } from '../../../../utils/materials/designMaterials.js';
 import {
     computeSeed, buildSymbolMap, withRowMat, withRowSym, usedSymbolSet, missingSymbolRows,
-    stackTotalThickness, DEFAULT_START_FROM_SUBSTRATE,
+    stackTotalThickness, withoutFormulaMedia, DEFAULT_START_FROM_SUBSTRATE,
 } from './model.js';
 import { buildNewDesignFromFormula, buildReplaceAppendPatch } from './designBuild.js';
 
@@ -83,8 +83,8 @@ export function useStackFormula({ design, updateDesign, checkpoint, onClose, onC
 
     const parsed = useMemo(() => parseStackFormula(text), [text]);
     const compiled = useMemo(
-        () => buildStackFromFormula({ text, symbolMap, refLambda, startFromSubstrate, resolvers }),
-        [text, symbolMap, refLambda, startFromSubstrate, resolvers]);
+        () => withoutFormulaMedia(parsed, buildStackFromFormula({ text, symbolMap, refLambda, startFromSubstrate, resolvers })),
+        [parsed, text, symbolMap, refLambda, startFromSubstrate, resolvers]);
 
     // Symbols actually referenced in the formula (for "used but unassigned"
     // highlighting in the assignment list).

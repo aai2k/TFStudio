@@ -116,6 +116,13 @@ export function computeSeed(design, resolvers = stackFormulaResolvers(design)) {
     return { text, rows };
 }
 
+// The window sets the media in its own fields, so a formula that names media
+// (`incident | layers | substrate`) is refused rather than compiled with the
+// media left out.
+export function withoutFormulaMedia(parsed, compiled) {
+    return parsed.ok && parsed.hasSides ? { ok: false, errorKey: 'formulaMedia', errorPos: 0 } : compiled;
+}
+
 // T/R spectrum for the preview plot. A formula that did not compile comes back
 // as { errorKey }, a stack or medium that would not resolve as { error } holding
 // the thrown message; the plot draws neither and says so in the reader's

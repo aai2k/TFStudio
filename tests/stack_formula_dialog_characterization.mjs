@@ -13,7 +13,7 @@
 import './_uiShim.mjs';
 import {
     computeSeed, buildSymbolMap, previewWavelengthRange, withRowMat, withRowSym,
-    neededSymbols, DEFAULT_START_FROM_SUBSTRATE,
+    neededSymbols, withoutFormulaMedia, DEFAULT_START_FROM_SUBSTRATE,
 } from '../src/components/windows/design/stackFormula/model.js';
 import {
     buildNewDesignFromFormula, buildReplaceAppendPatch,
@@ -35,6 +35,18 @@ ok(JSON.stringify(previewWavelengthRange(550)) === JSON.stringify({
 ok(JSON.stringify(previewWavelengthRange(2000)) === JSON.stringify({
     lambdaStart: 1000, lambdaEnd: 3500, interval: 250,
 }), 'IR preview expands around a 2000 nm reference instead of stopping at 1000 nm');
+
+// The window sets the media in its own fields, so a formula that names media
+// does not compile there, and a formula of layers alone does.
+{
+    const SM = DEFAULT_SYMBOL_MAP;
+    const compile = text => withoutFormulaMedia(parseStackFormula(text),
+        buildStackFromFormula({ text, symbolMap: SM, refLambda: LAM }));
+    const named = compile('Air | H L | Ge');
+    ok(!named.ok && named.errorKey === 'formulaMedia', 'a formula that names its media is refused');
+    ok(!compile('Air | H L | Sub').ok, 'also when the substrate is kept');
+    ok(compile('(H L)^2 H').ok, 'a formula of layers alone compiles');
+}
 
 // ── computeSeed ──────────────────────────────────────────────────────────────
 console.log('— computeSeed —');

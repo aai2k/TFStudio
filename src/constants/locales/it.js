@@ -4946,7 +4946,8 @@ export default {
   stackFormula: {
     errors: {
       empty: 'Formula vuota',
-      twoPipes: 'Usa esattamente due separatori "|" (mezzo incidente | strati | substrato) oppure nessuno',
+      twoPipes: 'Imposta i mezzi nei campi dei mezzi; scrivi solo gli strati, senza "|"',
+      formulaMedia: 'Imposta i mezzi nei campi dei mezzi; scrivi solo gli strati, senza "|"',
       noLayers: 'Nessuno strato nella formula',
       sideSymbol: 'Il lato deve essere un simbolo di materiale',
       tokenAfterSide: 'Token inatteso dopo il materiale del lato',
