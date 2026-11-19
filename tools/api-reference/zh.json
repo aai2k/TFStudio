@@ -21,7 +21,7 @@
   },
   "needle.setting.dMin": {
     "hash": "eb44456c",
-    "text": "针式层插入时的最小厚度，也是精炼器允许任何层达到的最小厚度。大于 0 的厚度，单位 nm。"
+    "text": "针层插入时的最小厚度，也是精炼器允许任何层达到的最小厚度。大于 0 的厚度，单位 nm。"
   },
   "needle.setting.refineIter": {
     "hash": "b691f002",

@@ -143,7 +143,7 @@ export default defineConfig({
             { label: 'Refinement',            translations: { 'zh-CN': '精炼' },           slug: 'synthesis/refinement' },
             {
               label: 'Needle',
-              translations: { 'zh-CN': '针式优化' },
+              translations: { 'zh-CN': '针法' },
               collapsed: true,
               items: [
                 { label: 'Automatic', translations: { 'zh-CN': '自动' }, link: '/synthesis/needle/#needle-automatic' },

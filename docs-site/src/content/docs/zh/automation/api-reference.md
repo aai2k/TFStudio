@@ -2643,7 +2643,7 @@ print(run.stop_reason, len(design.layers), "layers, merit", run.merit)
 | `maxLayers` | `max_layers` | `60` | 设计可增长到的最大层数。不小于 1 的整数。 |
 | `targetMF` | `target_mf` | `0.0005` | 运行停止时的评价函数；Infinity 使运行在第一个被接受的代后停止。0 或更大的评价函数值，或 Infinity。 |
 | `deltaNm` | `delta_nm` | `0.5` | 探测每个候选位置所用的厚度步长。大于 0 的厚度，单位 nm。 |
-| `dMin` | `d_min` | `1` | 针式层插入时的最小厚度，也是精炼器允许任何层达到的最小厚度。大于 0 的厚度，单位 nm。 |
+| `dMin` | `d_min` | `1` | 针层插入时的最小厚度，也是精炼器允许任何层达到的最小厚度。大于 0 的厚度，单位 nm。 |
 | `refineIter` | `refine_iter` | `60` | 每次插入后的精炼步数。不小于 1 的整数。 |
 | `innerEngine` | `inner_engine` | `'trust-region'` | 每次插入后精炼堆栈所用的方法。cg、dls、newton、newton-cg、sqp、trust-region 之一。 |
 | `candidateSearch` | `candidate_search` | `'balanced'` | 每一步在继续之前尝试多少个改进候选，在速度与质量之间权衡。fast、balanced、thorough 之一。 |

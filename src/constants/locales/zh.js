@@ -19,7 +19,7 @@ export default {
   },
   toolbar: {
     tabs: {
-      setup: '设置',
+      setup: '设计',
       analysis: '分析',
       optimization: '优化',
       production: '生产',
@@ -794,7 +794,7 @@ export default {
           },
           {
             title: '用膜系公式构建',
-            body: '在“设置”选项卡中点击“公式”。它打开时是 (H L)^4 H，H = TiO₂，L = SiO₂，每个 H 或 L 代表一个四分之一波长。把公式改为 (H L)^8 并点击“替换”：得到 16 层，从基底一侧往外排列。',
+            body: '在“设计”选项卡中点击“公式”。它打开时是 (H L)^4 H，H = TiO₂，L = SiO₂，每个 H 或 L 代表一个四分之一波长。把公式改为 (H L)^8 并点击“替换”：得到 16 层，从基底一侧往外排列。',
             wait: '在膜系公式中点击“替换”即可继续。',
           },
           {
