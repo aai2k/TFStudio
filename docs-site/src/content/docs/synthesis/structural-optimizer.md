@@ -50,7 +50,7 @@ A needle insertion comes from the [needle](/synthesis/needle/#needle-function) s
 
 **Max layers**: the most unlocked layers the design may grow to. 80 by default.
 
-**Threads**: how many proposals are refined together each iteration; the result depends on it.
+**Threads**: how many proposals are refined together each iteration; the result depends on it. The default comes from the computer's cores, so a run repeats on another computer only at the same Threads.
 
 **Time budget (min)**: with Deep search on, end after this many minutes; 0 runs until **Stop**.
 

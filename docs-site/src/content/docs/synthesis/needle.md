@@ -53,7 +53,7 @@ Click a point below zero to pick its position and material. **Apply insertion** 
 
 **Needle sensitivity**: drop candidates whose predicted fall is under 1 %, 5 % or 15 % of the strongest in the scan; **Off** by default. It trims the list before the batches are taken.
 
-**Threads**: how many candidates a batch holds and refines at once; the result depends on it.
+**Threads**: how many candidates a batch holds and refines at once; the result depends on it. The default comes from the computer's cores, so a run repeats on another computer only at the same Threads.
 
 **Profile pts / layer**, **Side**, **Refine after insert**, **Refine iterations**: Needle Manual's points inside each layer (16), the face it scans when **Surface** is **Both**, and the refinement after an insertion (on, 80 steps).
 
