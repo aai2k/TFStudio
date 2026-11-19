@@ -27,6 +27,12 @@
   --sl-color-gray-6: #1e1f21;
   --sl-color-gray-7: #17181a;
   --sl-color-black: #131415;
+
+  /* Text column. Starlight's 45rem leaves the longer formulas wider than the
+     text; 55rem holds every display formula on the site except the algorithm
+     summaries on the Optimization Methods page. On a narrower window the
+     column takes the room left beside the two sidebars. */
+  --sl-content-width: 55rem;
 }
 
 :root[data-theme='light'] {
@@ -67,6 +73,15 @@
 
 .sl-markdown-content a:not(:where(.not-content *)):hover {
   text-decoration-color: currentColor;
+}
+
+/* A formula wider than the text column scrolls sideways inside its own box
+   instead of running under the "On this page" column. The vertical padding
+   keeps tall delimiters and limits from being clipped by the scroll box. */
+.sl-markdown-content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.25em;
 }
 
 /* Buttons: white fill for the primary action, outline for the secondary. */
