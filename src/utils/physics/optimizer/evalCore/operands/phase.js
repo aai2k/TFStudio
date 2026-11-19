@@ -12,9 +12,10 @@ import { OperandEvaluationError } from './errors.js';
 
 // ── Phase / field operand evaluators ──────────────────────────────────────────
 // These bypass tmmProp and call the validated thinFilmMath phase/field routines
-// directly on the FRONT stack (single-surface reflection / internal-field
-// quantities). Per-λ complex indices come from nkOf so dispersion is honoured;
-// results match the Ellipsometry / GD-GDD / E-field analysis windows (front side).
+// directly on the scored stack: the front, or the back, read from the exit side,
+// on a back-only design (single-surface reflection / internal-field quantities).
+// Per-λ complex indices come from nkOf so dispersion is honoured; results match
+// the Ellipsometry / GD-GDD / E-field analysis windows.
 
 // Clear the per-context phase-dispersion memo. Called at the start of an
 // evaluation pass so a reused context cannot serve a result from the previous

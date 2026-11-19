@@ -81,8 +81,8 @@ function fringeNeed(op, g) {
  * Operands with the sample count of every band average, integral, range target,
  * flatness row and band-extremum search set from the fringe spacing of the
  * design in `ctx` (an evaluation context from buildEvalContext). An operand
- * without its own count gets the fringe count, which for a band row is below
- * the design-free default on a thin coating. One that carries a count keeps it
+ * without its own count gets the fringe count, never coarser than the
+ * design-free default and finer than it on a thick coating. One that carries a count keeps it
  * unless the fringes need more, so the count only grows when this is applied
  * again to a design that has grown. Returns the input array itself when nothing
  * changes.

@@ -5,8 +5,8 @@
  * definite (a pivot ≤ 0) — the modified-Newton driver uses that signal to
  * raise damping until the damped Hessian is PD (this is the trust-region
  * safeguard that makes "Hyper Newton" robust on indefinite Hessians far from
- * the minimum). A is the upper-triangle-filled n×n matrix; only A[i][j], j≤i
- * is read.
+ * the minimum). A is a symmetric n×n matrix with its lower triangle
+ * filled; only A[i][j], j≤i is read.
  */
 
 // Cholesky factor A = L Lᵀ (lower L). Reads only A[i][j], j≤i. Returns L, or

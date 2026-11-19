@@ -53,20 +53,6 @@ export function seedFromEnvelope(lambdas, envelope) {
     };
 }
 
-/**
- * The constant index and extinction that best reproduce the measurement at a
- * trial thickness.
- *
- * Needed whenever the envelope method cannot run, which is any measurement
- * without transmittance fringes. Without it the extraction starts from an index
- * nobody chose, and a film's reflectance repeats itself from one interference
- * order to the next, so the wrong starting index lands on the wrong order and
- * every step afterwards refines a wrong answer.
- *
- * Extinction is searched only when both channels were measured. With one, it
- * stays at zero, because one measurement at one wavelength cannot separate an
- * index from an absorption.
- */
 /** Squared error of one trial film, in total and at each wavelength. */
 function flatSeedCost(channels, calculated) {
     const perPoint = channels[0].values.map(() => 0);
@@ -105,6 +91,20 @@ function scanExtinctionLadder(scan, index, best) {
     return winner;
 }
 
+/**
+ * The constant index and extinction that best reproduce the measurement at a
+ * trial thickness.
+ *
+ * Needed whenever the envelope method cannot run, which is any measurement
+ * without transmittance fringes. Without it the extraction starts from an index
+ * nobody chose, and a film's reflectance repeats itself from one interference
+ * order to the next, so the wrong starting index lands on the wrong order and
+ * every step afterwards refines a wrong answer.
+ *
+ * Extinction is searched only when both channels were measured. With one, it
+ * stays at zero, because one measurement at one wavelength cannot separate an
+ * index from an absorption.
+ */
 export function flatSeedScan(channels, thicknessNm, metallic) {
     const lowest = metallic ? METAL_SEED_INDEX_MIN : SEED_INDEX_MIN;
     const scan = {

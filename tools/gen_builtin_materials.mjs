@@ -18,8 +18,9 @@
  *
  * A description is the page's comment and reference in full, the same text the
  * RefractiveIndex.info importer stores for that page. The module is read back
- * before it is written, and nothing is written if a description or a row read
- * back differs from its page.
+ * before it is written, and nothing is written if a description read back is
+ * not its page's comment and reference, or if the rows or the formula read back
+ * differ from those the generator computed.
  *
  * The database is looked up in this order: TFS_RII_SOURCE, the
  * refractiveindex-db submodule, ../../reference/refractiveindex-db.
@@ -158,10 +159,10 @@ for (const { spec, mat, data } of generated) {
         throw new Error(`${spec.id}: the description read back is not the page's comment and reference; nothing written`);
     }
     if (JSON.stringify(entry.rows) !== JSON.stringify(data.rows)) {
-        throw new Error(`${spec.id}: the rows read back differ from the page; nothing written`);
+        throw new Error(`${spec.id}: the rows read back differ from the rows generated; nothing written`);
     }
     if (JSON.stringify(entry.formula) !== JSON.stringify(data.formula)) {
-        throw new Error(`${spec.id}: the formula read back differs from the page; nothing written`);
+        throw new Error(`${spec.id}: the formula read back differs from the formula generated; nothing written`);
     }
 }
 

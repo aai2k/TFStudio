@@ -18,10 +18,12 @@ import { workerMaterialFields } from '../../materials/designMaterials.js';
 import { extremumBaseLambdas } from './extremumGrid.js';
 
 export function isRangeAvg(type) { return type === 'TAV' || type === 'RAV' || type === 'AAV'; }
-// All range-sampled operands — uniform N-point grid over [λStart, λEnd].
-// Integral, minmax, and argwave operands share the same sampler so the worker
-// pre-sampler (Approach A) can pre-compute materials' n,k on a single union
-// grid. Inequality operands defer to their baseType (see operandSampleLambdas).
+// All range-sampled operands. Band averages, integrals, range targets and
+// flatness rows sample a uniform N-point grid over [λStart, λEnd]; minmax and
+// argwave rows start from a grid of their own (extremumBaseLambdas) and refine
+// between its samples. The worker pre-sampler computes materials' n,k on the
+// union of these grids. Inequality operands defer to their baseType (see
+// operandSampleLambdas).
 const BAND_SAMPLED = [isRangeAvg, isRangeTarget, isIntegral, isColor, isMinmax, isArgwave, isGroupDelayFlat];
 export function isBandSampled(type) {
     return BAND_SAMPLED.some(test => test(type));
